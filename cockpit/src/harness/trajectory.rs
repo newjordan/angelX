@@ -88,7 +88,7 @@ pub fn default_max_hops() -> usize {
 // ---------------------------------------------------------------------------
 
 fn trajectory_messages(history: &[ChatMsg]) -> Vec<Value> {
-    crate::club::messages_to_json(history)
+    crate::club::messages_to_json(history, true)
         .into_iter()
         .zip(history)
         .map(|(mut wire, message)| {
