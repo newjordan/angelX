@@ -178,19 +178,19 @@ fn exit_reuse_rejects_changed_history_and_same_text_in_another_project() {
 #[test]
 fn exit_comparison_covers_every_persisted_message_field() {
     let mut original = ChatMsg::user("operator");
-    original.tool_calls = Arc::from([crate::club::ToolCall {
+    original.tool_calls = Arc::from([crate::agent::club::ToolCall {
         id: "call".into(),
         name: "check".into(),
         args: serde_json::json!({"scope":"owned"}),
     }]);
-    original.attachments = Arc::from([crate::club::Media::Image {
+    original.attachments = Arc::from([crate::agent::club::Media::Image {
         mime: "image/png".into(),
         b64: "AA==".into(),
     }]);
     original.tool_call_id = Some("result".into());
     original
         .recovery_context
-        .push(crate::club::owned_recovery_context_ref());
+        .push(crate::agent::club::owned_recovery_context_ref());
     let encoded = serde_json::to_value(&original).unwrap();
     let fields: std::collections::BTreeSet<_> = encoded
         .as_object()
@@ -256,7 +256,7 @@ fn exit_equal_json_numbers_with_different_bytes_require_a_new_writer_request() {
     let session = fixture.session();
     let (sender, receiver) = mpsc::sync_channel(2);
     let mut original = ChatMsg::user("preserve exact persisted tool arguments");
-    original.tool_calls = Arc::from([crate::club::ToolCall {
+    original.tool_calls = Arc::from([crate::agent::club::ToolCall {
         id: "owned-call".into(),
         name: "owned-tool".into(),
         args: serde_json::from_str(r#"{"nested":[{"zero":-0.0}]}"#).unwrap(),
@@ -269,7 +269,7 @@ fn exit_equal_json_numbers_with_different_bytes_require_a_new_writer_request() {
     assert_eq!(first.status(), SessionSaveStatus::Healthy);
     let old_bytes = std::fs::read(session.path()).unwrap();
     let mut changed = original.clone();
-    changed.tool_calls = Arc::from([crate::club::ToolCall {
+    changed.tool_calls = Arc::from([crate::agent::club::ToolCall {
         id: "owned-call".into(),
         name: "owned-tool".into(),
         args: serde_json::from_str(r#"{"nested":[{"zero":0.0}]}"#).unwrap(),
@@ -335,9 +335,9 @@ fn exit_recovery_context_change_requires_new_durable_checkpoint() {
         .unwrap();
     perform(receiver.try_recv().unwrap());
     assert_eq!(first.status(), SessionSaveStatus::Healthy);
-    let reference = crate::club::owned_recovery_context_ref();
+    let reference = crate::agent::club::owned_recovery_context_ref();
     let mut changed_reference = reference.clone();
-    changed_reference.summary_sha256 = crate::cut::sha256_hex(b"new origin binding");
+    changed_reference.summary_sha256 = crate::knowledge::cut::sha256_hex(b"new origin binding");
     let mut previous = first;
     for references in [vec![reference], vec![changed_reference], vec![]] {
         let mut changed = original.clone();

@@ -3,14 +3,14 @@
 //! contracts, roster lifecycle, and the compatibility-state protections.
 
 use super::{mouse_ev, render_app_text, seed_preview_app};
+use crate::agent::club::Bag;
+use crate::agent::club::ChatRole;
+use crate::agent::formations::{self};
+use crate::agent::turn::Thinking;
 use crate::app::{AgentButton, WorldButton};
-use crate::club::Bag;
-use crate::club::ChatRole;
-use crate::formations::{self};
 use crate::tests::env_lock;
-use crate::transcript::Role;
-use crate::turn::Thinking;
-use crate::{scryglass, views::status_view};
+use crate::ui::scryglass;
+use crate::ui::transcript::Role;
 use std::sync::Arc;
 
 #[test]
@@ -55,7 +55,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
     assert!(
         app.world_buttons.iter().any(|(_, button)| matches!(
             button,
-            WorldButton::SelectFormation(crate::formations::FormationId::GrokWar)
+            WorldButton::SelectFormation(crate::agent::formations::FormationId::GrokWar)
         )),
         "Grok War row must be mouse-selectable"
     );
@@ -70,7 +70,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
     assert!(
         app.world_buttons.iter().any(|(_, button)| matches!(
             button,
-            WorldButton::SelectFormation(crate::formations::FormationId::Recon)
+            WorldButton::SelectFormation(crate::agent::formations::FormationId::Recon)
         )),
         "formation rows must be mouse-selectable"
     );
@@ -94,7 +94,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
         .find(|(_, button)| {
             matches!(
                 button,
-                WorldButton::SelectFormation(crate::formations::FormationId::Recon)
+                WorldButton::SelectFormation(crate::agent::formations::FormationId::Recon)
             )
         })
         .map(|(rect, _)| *rect)
@@ -106,7 +106,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
     ));
     assert_eq!(
         app.moa_deck.as_ref().map(|deck| deck.selected().id),
-        Some(crate::formations::FormationId::Recon),
+        Some(crate::agent::formations::FormationId::Recon),
         "first click previews the formation without arming it"
     );
     assert!(
@@ -122,7 +122,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
         .find(|(_, button)| {
             matches!(
                 button,
-                WorldButton::SelectFormation(crate::formations::FormationId::Recon)
+                WorldButton::SelectFormation(crate::agent::formations::FormationId::Recon)
             )
         })
         .map(|(rect, _)| *rect)
@@ -138,7 +138,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
     );
     assert_eq!(
         app.moa_one_shot.as_ref().map(|armed| armed.formation),
-        Some(crate::formations::FormationId::Recon)
+        Some(crate::agent::formations::FormationId::Recon)
     );
     assert!(
         app.moa_arm_status().contains("Outriders") && app.moa_arm_status().contains("next"),
@@ -148,7 +148,7 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
 
     // Re-open to inspect the roster graph for the remaining assertions.
     app.open_moa_deck(None);
-    app.select_moa_card(crate::formations::FormationId::Recon);
+    app.select_moa_card(crate::agent::formations::FormationId::Recon);
     let graph = render_app_text(&mut app, 144, 48);
     assert!(graph.contains("PROPOSE"), "proposal nodes missing\n{graph}");
     assert!(graph.contains("SCOUT"), "scout node missing\n{graph}");
@@ -178,7 +178,7 @@ fn moa_graph_slot_opens_model_picker_and_assigns_only_that_seat() {
         ("beta", &[("model-b", true)]),
     ]);
     app.open_moa_deck(None);
-    app.select_moa_card(crate::formations::FormationId::Duel);
+    app.select_moa_card(crate::agent::formations::FormationId::Duel);
     let _ = render_app_text(&mut app, 144, 48);
     let seat = app
         .world_buttons
@@ -253,8 +253,8 @@ fn mathgod_bag_club_cannot_be_a_seat_inside_another_formation() {
         agent: "mathgod".into(),
         driver: "practice".into(),
         model: "mathgod".into(),
-        route_id: crate::backplane::RouteId::chat("mathgod", "practice", None),
-        expected_revision: crate::backplane::ModelRevision::chat("mathgod"),
+        route_id: crate::agent::backplane::RouteId::chat("mathgod", "practice", None),
+        expected_revision: crate::agent::backplane::ModelRevision::chat("mathgod"),
         metered: false,
     };
     let mut roster = formations::FormationRoster::new(formations::FormationId::Duel, &models);
@@ -605,7 +605,10 @@ fn moa_selection_motion_never_arms_or_changes_formation_execution() {
     let before_history = app.history.len();
     assert!(app.moa_deck_key(KeyCode::Down, KeyModifiers::NONE));
     let deck = app.moa_deck.as_ref().unwrap();
-    assert_eq!(deck.selected().id, crate::formations::FormationId::Recon);
+    assert_eq!(
+        deck.selected().id,
+        crate::agent::formations::FormationId::Recon
+    );
     assert!(deck.transition().is_some());
     assert!(app.moa_one_shot.is_none());
     assert!(app.moa_session.is_none());
@@ -626,7 +629,7 @@ fn formation_board_owns_printable_input_but_not_global_focus_or_interrupts() {
         app.on_key(KeyEvent::new(KeyCode::Char(shortcut), KeyModifiers::NONE));
         assert_eq!(
             app.scryglass.controller.route(),
-            crate::scryglass::StageRoute::Formation,
+            crate::ui::scryglass::StageRoute::Formation,
             "Formation leaked {shortcut:?} into Stage navigation"
         );
         assert_eq!(
@@ -640,7 +643,7 @@ fn formation_board_owns_printable_input_but_not_global_focus_or_interrupts() {
         empty.on_key(KeyEvent::new(KeyCode::Char(shortcut), KeyModifiers::NONE));
         assert_eq!(
             empty.scryglass.controller.route(),
-            crate::scryglass::StageRoute::Formation,
+            crate::ui::scryglass::StageRoute::Formation,
             "empty Formation leaked {shortcut:?} into Stage navigation"
         );
         assert!(empty.input.is_empty());
@@ -656,7 +659,7 @@ fn formation_board_owns_printable_input_but_not_global_focus_or_interrupts() {
     assert_eq!(app.input, "preserved draft");
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::scryglass::StageRoute::Formation
+        crate::ui::scryglass::StageRoute::Formation
     );
 
     app.on_key(KeyEvent::new(KeyCode::F(3), KeyModifiers::NONE));
@@ -670,9 +673,10 @@ fn formation_board_owns_printable_input_but_not_global_focus_or_interrupts() {
         app.input, "preserved draftx",
         "an explicit focus change returns input to the composer"
     );
-    let composer = crate::views::status_view::composer_view(&app.input, 38, 2, app.cursor);
+    let composer = crate::ui::views::status_view::composer_view(&app.input, 38, 2, app.cursor);
     assert!(
-        crate::draw::composer_cursor_position(&app, Rect::new(1, 1, 40, 4), &composer).is_some()
+        crate::ui::draw::composer_cursor_position(&app, Rect::new(1, 1, 40, 4), &composer)
+            .is_some()
     );
 
     app.focus_module("artifacts");
@@ -722,7 +726,8 @@ fn gpu_comp_formation_sets_sleep_loop_env_contract() {
     unsafe { std::env::remove_var("ANGEL_TRAJECTORY_LOG") };
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_ROOT_TRAJECTORY") };
-    crate::formations::formation(crate::formations::FormationId::GpuComp).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp)
+        .apply_sota_env();
     assert_eq!(
         std::env::var("ANGEL_GPU_COMP_LOCAL_MOA").as_deref(),
         Ok("1")
@@ -750,7 +755,7 @@ fn gpu_comp_formation_sets_sleep_loop_env_contract() {
     );
     assert_eq!(std::env::var("ANGEL_GROK_TOOL").as_deref(), Ok("1"));
     assert!(
-        crate::formations::formation(crate::formations::FormationId::GpuComp).scout,
+        crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp).scout,
         "GpuComp formation must include the Grok scout seat"
     );
     assert_eq!(std::env::var("ANGEL_LANE").as_deref(), Ok("treebeard"));
@@ -759,18 +764,19 @@ fn gpu_comp_formation_sets_sleep_loop_env_contract() {
     // Phase-4: default popcorn peer scorer for coding seats (explicit wins).
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
-    crate::formations::formation(crate::formations::FormationId::GpuComp).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp)
+        .apply_sota_env();
     assert_eq!(
         std::env::var("ANGEL_RL_REWARD").as_deref(),
         Ok("popcorn_peer")
     );
     assert_eq!(
-        crate::reinforce::reward_from_env().label(),
+        crate::drive::reinforce::reward_from_env().label(),
         "popcorn_peer",
         "ANGEL_RL_REWARD must resolve to PopcornPeerReward"
     );
     // When living peer state exists, POPCORN_PEER_LOG is pinned for submit-hiq.
-    if crate::harness::load_living_peer_snapshot().is_some() {
+    if crate::agent::harness::load_living_peer_snapshot().is_some() {
         // Only assert when peer file is present and path is a real file.
         if let Ok(peer_log) = std::env::var("POPCORN_PEER_LOG") {
             assert!(
@@ -782,9 +788,11 @@ fn gpu_comp_formation_sets_sleep_loop_env_contract() {
     // Explicit ReAct control pin must not be overwritten on re-apply.
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LANE", "default") };
-    crate::formations::formation(crate::formations::FormationId::GpuComp).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp)
+        .apply_sota_env();
     assert_eq!(std::env::var("ANGEL_LANE").as_deref(), Ok("default"));
-    crate::formations::formation(crate::formations::FormationId::SoloStrike).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
+        .apply_sota_env();
     assert!(std::env::var("ANGEL_GPU_COMP_LOCAL_MOA").is_err());
     // Formation-default popcorn scorer clears when leaving gpu-comp.
     assert!(
@@ -853,7 +861,8 @@ fn grok_war_formation_sets_frontier_trio_env_contract() {
     unsafe { std::env::remove_var("ANGEL_GROK_REASONING_EFFORT") };
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
-    crate::formations::formation(crate::formations::FormationId::GrokWar).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::GrokWar)
+        .apply_sota_env();
     assert_eq!(
         std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").as_deref(),
         Ok("glm")
@@ -888,7 +897,8 @@ fn grok_war_formation_sets_frontier_trio_env_contract() {
         Ok("max")
     );
     // Leaving war must drop the role pins so another formation owns routing.
-    crate::formations::formation(crate::formations::FormationId::SoloStrike).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
+        .apply_sota_env();
     assert!(std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").is_err());
     assert!(std::env::var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS").is_err());
     assert!(std::env::var("ANGEL_SOTA_MOA_JUDGE_CLUB").is_err());
@@ -924,12 +934,12 @@ fn math_god_command_selects_and_enter_engages_formation() {
     );
     assert_eq!(
         deck.selected_roster()
-            .role_effort(crate::formations::FormationRole::Propose),
+            .role_effort(crate::agent::formations::FormationRole::Propose),
         Some("ultra")
     );
     assert_eq!(
         deck.selected_roster()
-            .role_effort(crate::formations::FormationRole::Judge),
+            .role_effort(crate::agent::formations::FormationRole::Judge),
         Some("xhigh")
     );
 
@@ -967,7 +977,8 @@ fn math_god_formation_sets_lean_solver_env_contract() {
     unsafe { std::env::remove_var("ANGEL_DEEPSEEK_REASONING_EFFORT") };
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OPENAI_REASONING_EFFORT") };
-    crate::formations::formation(crate::formations::FormationId::MathGod).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::MathGod)
+        .apply_sota_env();
     assert_eq!(
         std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").as_deref(),
         Ok("openai")
@@ -1009,7 +1020,8 @@ fn math_god_formation_sets_lean_solver_env_contract() {
         std::env::var("ANGEL_DEEPSEEK_REASONING_EFFORT").as_deref(),
         Ok("high")
     );
-    crate::formations::formation(crate::formations::FormationId::SoloStrike).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
+        .apply_sota_env();
     assert!(std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").is_err());
     assert!(std::env::var("ANGEL_SOTA_MOA_VERIFY_CLUB").is_err());
     assert!(std::env::var("ANGEL_SOTA_MOA_AGG_CLUB").is_err());
@@ -1032,7 +1044,8 @@ fn math_god_pins_do_not_arm_when_another_formation_is_engaged_first() {
     unsafe { std::env::remove_var("ANGEL_GROK_REASONING_EFFORT") };
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_MOA_PROPOSE_CLUB") };
-    crate::formations::formation(crate::formations::FormationId::GrokWar).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::GrokWar)
+        .apply_sota_env();
     assert_eq!(
         std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").as_deref(),
         Ok("glm")
@@ -1045,7 +1058,8 @@ fn math_god_pins_do_not_arm_when_another_formation_is_engaged_first() {
         std::env::var("ANGEL_GROK_REASONING_EFFORT").as_deref(),
         Ok("xhigh")
     );
-    crate::formations::formation(crate::formations::FormationId::SoloStrike).apply_sota_env();
+    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
+        .apply_sota_env();
 }
 
 #[test]

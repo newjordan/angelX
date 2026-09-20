@@ -30,7 +30,8 @@ fn dossier_compiler_output_reaches_the_native_context_reader() {
         .join("\n");
     let ledger = temp.path().join("ledger.jsonl");
     std::fs::write(&ledger, rows).unwrap();
-    let compiler = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/repo-dossier.mjs");
+    let compiler =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/repo-dossier.mjs");
     let result = std::process::Command::new("node")
         .arg(compiler)
         .arg("--refresh")
@@ -138,7 +139,7 @@ fn context_block_in_reads_by_workspace_key_and_survives_garbage() {
     let _ = std::fs::remove_dir_all(&base);
     std::fs::create_dir_all(&base).unwrap();
     let ws = Path::new("/home/u/proj");
-    let key = crate::tools::work_landing::workspace_key(ws);
+    let key = crate::agent::tools::work_landing::workspace_key(ws);
 
     // No artifact → empty.
     assert_eq!(context_block_in(&base, ws, 0), "");

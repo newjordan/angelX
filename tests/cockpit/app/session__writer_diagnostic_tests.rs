@@ -185,8 +185,8 @@ fn frozen_timeout_survives_newer_save_and_late_original_failure() {
 #[test]
 fn actual_queued_timeout_reaches_harness_notice_without_starting_provider() {
     let _env_lock = crate::tests::env_lock();
-    use crate::club::{Club, ClubReply, ToolDef};
-    use crate::harness::{ToolRegistry, TurnEvent, run_turn_steered_checkpointed};
+    use crate::agent::club::{Club, ClubReply, ToolDef};
+    use crate::agent::harness::{ToolRegistry, TurnEvent, run_turn_steered_checkpointed};
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     struct CountingClub(AtomicUsize);
     impl Club for CountingClub {

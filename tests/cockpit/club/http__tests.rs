@@ -36,7 +36,7 @@ fn stream_reminder_never_places_system_after_conversation_history() {
 
 #[test]
 fn live_meters_read_usage_without_taking_the_hop_mutex() {
-    let src = include_str!("../../../cockpit/src/club/http.rs");
+    let src = include_str!("../../../cockpit/src/agent/club/http.rs");
     let token = src
         .find("fn token_usage(&self) -> Option<TokenUsage>")
         .expect("HttpClub token_usage");
@@ -260,7 +260,7 @@ fn env_knob_names_are_precomputed_from_the_club_namespace() {
 /// invisible until resync, then restore after the guard drops.
 #[test]
 fn reasoning_effort_env_seeds_once_and_resyncs_under_env_lock() {
-    use crate::club::Club;
+    use crate::agent::club::Club;
     let _guard = crate::tests::env_lock();
     let per_club = "ANGEL_T_EFFORT_CACHE_REASONING_EFFORT";
     let dialect = "ANGEL_T_EFFORT_CACHE_REASONING_DIALECT";
@@ -321,7 +321,7 @@ fn reasoning_effort_env_seeds_once_and_resyncs_under_env_lock() {
 
 #[test]
 fn effort_snapshot_invalidates_on_revision_and_ttl() {
-    use crate::club::Club;
+    use crate::agent::club::Club;
     let _guard = crate::tests::env_lock();
     let _snap = EnvGuard::set("ANGEL_EFFORT_SNAPSHOT", "1");
     let _global = EnvGuard::unset("ANGEL_REASONING_EFFORT");
@@ -451,7 +451,7 @@ fn assert_provider_cancel_disconnects(partial: &'static str, chunked: bool, head
             &[],
             &cancel,
             &mut |_| {},
-            &crate::stream_rules::StreamRules::from_json_for_test("[]"),
+            &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
         );
         let signal = canceller.join().unwrap();
         if headers {
@@ -667,7 +667,7 @@ fn local_tool_stream_survives_parser_silence_past_socket_timeout() {
             description: "write a file".to_string(),
             params: serde_json::json!({"type": "object"}),
         }];
-        let rules = crate::stream_rules::StreamRules::from_json_for_test("[]");
+        let rules = crate::agent::stream_rules::StreamRules::from_json_for_test("[]");
         let cancel = AtomicBool::new(false);
         let mut heartbeats = 0usize;
         let reply = club
@@ -735,7 +735,7 @@ fn local_tool_stream_keepalives_refresh_the_foreground_watchdog() {
             description: "write a file".to_string(),
             params: serde_json::json!({"type": "object"}),
         }];
-        let rules = crate::stream_rules::StreamRules::from_json_for_test("[]");
+        let rules = crate::agent::stream_rules::StreamRules::from_json_for_test("[]");
         let cancel = AtomicBool::new(false);
         let mut heartbeats = 0usize;
         let reply = club
@@ -794,7 +794,7 @@ fn non_qwen_local_tool_stream_keeps_the_fail_fast_timeout() {
             description: "write a file".to_string(),
             params: serde_json::json!({"type": "object"}),
         }];
-        let rules = crate::stream_rules::StreamRules::from_json_for_test("[]");
+        let rules = crate::agent::stream_rules::StreamRules::from_json_for_test("[]");
         let cancel = AtomicBool::new(false);
         let mut heartbeats = 0usize;
         let error = club
@@ -966,7 +966,7 @@ fn p05b_glm_reasoning_is_delivered_before_answer_and_answer_bytes_are_preserved(
                 StreamDelta::Content(text) => answer.push_str(text),
                 StreamDelta::Heartbeat => panic!("unexpected heartbeat"),
             },
-            &crate::stream_rules::StreamRules::from_json_for_test("[]"),
+            &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
         )
         .unwrap();
     let request = server.join().unwrap();
@@ -1010,7 +1010,7 @@ fn p05b_plain_answer_and_reasoning_tool_calls_keep_their_payloads() {
                     StreamDelta::Reasoning(text) => reasoning.push_str(text),
                     StreamDelta::Heartbeat => panic!("unexpected heartbeat"),
                 },
-                &crate::stream_rules::StreamRules::from_json_for_test("[]"),
+                &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
             )
             .unwrap();
         if is_tool {
@@ -1074,7 +1074,7 @@ fn p05c_cancel_during_zai_reasoning_tears_the_stream_down() {
             StreamDelta::Content(text) => answer.push_str(text),
             StreamDelta::Heartbeat => {}
         },
-        &crate::stream_rules::StreamRules::from_json_for_test("[]"),
+        &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
     );
     let _ = server.join();
     assert_eq!(reasoning, "think first");
@@ -1098,8 +1098,8 @@ fn p05c_cancel_during_zai_reasoning_tears_the_stream_down() {
 /// A temporary `ANGEL_STREAM_RULES` override can race any streaming test
 /// that initializes the global `OnceLock`, permanently contaminating that
 /// test process even when the mutating test itself holds `env_lock`.
-fn probe_stream_rules() -> crate::stream_rules::StreamRules {
-    let rules = crate::stream_rules::StreamRules::from_json_for_test(
+fn probe_stream_rules() -> crate::agent::stream_rules::StreamRules {
+    let rules = crate::agent::stream_rules::StreamRules::from_json_for_test(
         r#"[{"pattern":"TTSR-DRIFT-PROBE","reminder":"stay on script"}]"#,
     );
     assert!(!rules.is_empty(), "probe rule must parse");
@@ -1389,7 +1389,7 @@ fn ratelimit_knobs_seed_once_and_resync_under_env_lock() {
 /// unchanged.
 #[test]
 fn club_max_tokens_env_seeds_once_and_resyncs_under_env_lock() {
-    use crate::club::Club;
+    use crate::agent::club::Club;
     let _guard = crate::tests::env_lock();
     let per_club = "ANGEL_MAX_TOKENS_CACHE_PROBE_MAX_TOKENS";
     {
@@ -1528,8 +1528,8 @@ fn openrouter_anthropic_cache_cfg_seeds_once_and_resyncs_under_env_lock() {
 #[test]
 fn formation_graph_wire_cap_fits_shared_remaining_allocation() {
     let _lock = crate::tests::env_lock();
-    let budget = crate::harness::formation_budget::Budget::new(Some(1000), None);
-    let _scope = crate::harness::formation_budget::enter(Some(budget.clone()));
+    let budget = crate::agent::harness::formation_budget::Budget::new(Some(1000), None);
+    let _scope = crate::agent::harness::formation_budget::enter(Some(budget.clone()));
     let payload = serde_json::json!({"choices":[{"message":{"role":"assistant","content":"done"}}],
             "usage":{"prompt_tokens":100,"completion_tokens":10,
                 "prompt_tokens_details":{"cached_tokens":20,"cache_write_tokens":0},
@@ -1565,8 +1565,8 @@ fn formation_budget_turn_abort_preserves_stream_observation_before_attempt_drop(
     let _lock = crate::tests::env_lock();
     let _tokens = EnvGuard::set("ANGEL_FORMATION_TOKEN_BUDGET", "5000");
     let _wall = EnvGuard::unset("ANGEL_FORMATION_WALL_SECS");
-    let scope = crate::harness::formation_budget::start_turn().unwrap();
-    let budget = crate::harness::formation_budget::current().unwrap();
+    let scope = crate::agent::harness::formation_budget::start_turn().unwrap();
+    let budget = crate::agent::harness::formation_budget::current().unwrap();
     let club = HttpClub::new("glm-5.3", "http://127.0.0.1:9/v1", "glm-5.3", None);
     let mut accounting = club.accounting.attempt();
     accounting.reserve_formation(budget.reserve("glm-5.3", 1000, 100).unwrap());
@@ -1577,7 +1577,7 @@ fn formation_budget_turn_abort_preserves_stream_observation_before_attempt_drop(
             "completion_tokens_details":{"reasoning_tokens":5}}}),
     );
     drop(scope); // The worker still owns its attempt when the turn exits.
-    let receipt = crate::harness::formation_budget::snapshot().unwrap();
+    let receipt = crate::agent::harness::formation_budget::snapshot().unwrap();
     assert_eq!(receipt["reserved"], 0);
     assert_eq!(receipt["spent"], 520);
     assert_eq!(receipt["calls"][0]["settled_reason"], "aborted");
@@ -1594,11 +1594,11 @@ fn formation_graph_live_shaped_terminal_usage_releases_workers_before_fanin() {
     // that the hosted route reported these same token counts.
     for model in ["glm-5.3-flash", "deepseek-v4-flash"] {
         for total in [48_000, 288_000] {
-            let budget = crate::harness::formation_budget::Budget::new(Some(total), None);
+            let budget = crate::agent::harness::formation_budget::Budget::new(Some(total), None);
             budget.set_unstarted(6);
             let club = HttpClub::new(model, "http://127.0.0.1:9/v1", model, None);
             let finish = |role: &str, prompt, input, output, cached, reasoning| {
-                let _role = crate::harness::formation_budget::enter_role(role);
+                let _role = crate::agent::harness::formation_budget::enter_role(role);
                 let mut accounting = club.accounting.attempt();
                 accounting.reserve_formation(budget.reserve(model, prompt, 1024).unwrap());
                 let mut stream = StreamUsageCommit::from_attempt(&club, accounting);
@@ -1638,8 +1638,8 @@ fn usage_contract_scripted_frames_settle_one_shared_formation_budget() {
     let _lock = crate::tests::env_lock();
     let _tokens = EnvGuard::set("ANGEL_FORMATION_TOKEN_BUDGET", "5000");
     let _wall = EnvGuard::unset("ANGEL_FORMATION_WALL_SECS");
-    let _scope = crate::harness::formation_budget::start_turn().unwrap();
-    let budget = crate::harness::formation_budget::current().unwrap();
+    let _scope = crate::agent::harness::formation_budget::start_turn().unwrap();
+    let budget = crate::agent::harness::formation_budget::current().unwrap();
     for model in ["glm-5.3-flash", "glm-5.3"] {
         let club = HttpClub::new(model, "http://127.0.0.1:9/v1", model, None);
         let before = club.usage_accounting();
@@ -1653,7 +1653,8 @@ fn usage_contract_scripted_frames_settle_one_shared_formation_budget() {
             attempt.observe(&frame);
             attempt.observe(&frame); // Repeated cumulative SSE frames charge once.
         }
-        let usage = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+        let usage =
+            crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
         assert_eq!(usage.total_prompt, Some(500));
         assert_eq!(usage.generation_output, Some(20));
         assert_eq!(usage.uncached_input, Some(400));

@@ -90,7 +90,7 @@ fn history_is_bounded_and_session_changes_drop_previous_records() {
 #[test]
 fn restored_tool_text_never_supplies_a_structured_verdict() {
     let history = vec![
-        ChatMsg::assistant_calls(vec![crate::club::ToolCall {
+        ChatMsg::assistant_calls(vec![crate::agent::club::ToolCall {
             id: "restore".into(),
             name: "cargo".into(),
             args: serde_json::json!({"cmd":"test"}),
@@ -107,7 +107,7 @@ fn restored_tool_text_never_supplies_a_structured_verdict() {
 #[test]
 fn large_restored_batches_keep_the_latest_bounded_window() {
     let calls = (0..RECORD_CAP + 20)
-        .map(|index| crate::club::ToolCall {
+        .map(|index| crate::agent::club::ToolCall {
             id: format!("restored-{index}"),
             name: "shell".into(),
             args: serde_json::Value::Null,
@@ -325,17 +325,17 @@ fn ordinary_cockpit_dispatch_preserves_composer_and_expands_the_workspace() {
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = crate::App::preview(crate::Viewer::static_preview());
     app.open_research(None);
     let mut terminal = Terminal::new(TestBackend::new(144, 48)).unwrap();
     terminal
-        .draw(|frame| crate::draw::ui(frame, &mut app))
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();
     assert_eq!(
         app.scryglass.surface,
-        crate::scryglass::StageSurface::Research
+        crate::ui::scryglass::StageSurface::Research
     );
     app.on_key(KeyEvent::new(KeyCode::Char('2'), KeyModifiers::NONE));
     assert_eq!(app.research.lens, Lens::Ledger);
@@ -356,11 +356,11 @@ fn ordinary_cockpit_dispatch_preserves_composer_and_expands_the_workspace() {
     assert!(app.research.experiment_filter.is_none());
     app.on_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::NONE));
     terminal
-        .draw(|frame| crate::draw::ui(frame, &mut app))
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();
     assert!(
         app.panes
-            .rect_of(crate::mouse::PaneId::Artifacts)
+            .rect_of(crate::ui::mouse::PaneId::Artifacts)
             .unwrap()
             .width
             > 100
@@ -378,24 +378,27 @@ fn ordinary_cockpit_dispatch_preserves_composer_and_expands_the_workspace() {
 
 #[test]
 fn research_route_keeps_automatic_journeys_behind_the_working_surface() {
-    let mut controller = crate::scryglass::StageController::default();
-    controller.navigate(crate::scryglass::StageRoute::Research);
-    controller.show_overlay(crate::scryglass::StageOverlay::Journey {
+    let mut controller = crate::ui::scryglass::StageController::default();
+    controller.navigate(crate::ui::scryglass::StageRoute::Research);
+    controller.show_overlay(crate::ui::scryglass::StageOverlay::Journey {
         call_id: ToolEventId("working".into()),
         destination: Building::Smithy,
     });
     assert_eq!(
         controller.resolved_scene(false, false, false),
-        crate::scryglass::StageSurface::Research
+        crate::ui::scryglass::StageSurface::Research
     );
     assert!(controller.back());
-    assert_eq!(controller.route(), crate::scryglass::StageRoute::Realm);
-    controller.reset(crate::scryglass::StageRoute::Research);
+    assert_eq!(controller.route(), crate::ui::scryglass::StageRoute::Realm);
+    controller.reset(crate::ui::scryglass::StageRoute::Research);
     assert!(
         !controller.back(),
         "the research home returns focus to the composer without an extra Realm detour"
     );
-    assert_eq!(controller.route(), crate::scryglass::StageRoute::Research);
+    assert_eq!(
+        controller.route(),
+        crate::ui::scryglass::StageRoute::Research
+    );
 }
 
 #[test]
@@ -487,14 +490,14 @@ fn hidden_pane_collects_real_events_and_escape_still_interrupts_work() {
     let (_result_tx, rx) = mpsc::channel();
     let (event_tx, event_rx) = mpsc::channel();
     event_tx
-        .send(crate::harness::TurnEvent::ToolCall {
+        .send(crate::agent::harness::TurnEvent::ToolCall {
             id: ToolEventId("hidden".into()),
             name: "cargo".into(),
             args_summary: "test".into(),
         })
         .unwrap();
     event_tx
-        .send(crate::harness::TurnEvent::ToolResult {
+        .send(crate::agent::harness::TurnEvent::ToolResult {
             id: ToolEventId("hidden".into()),
             name: "cargo".into(),
             summary: "passed".into(),
@@ -505,8 +508,11 @@ fn hidden_pane_collects_real_events_and_escape_still_interrupts_work() {
         started: Instant::now(),
         club_label: "practice".into(),
         club: None,
-        spawn_usage: crate::turn::published_spawn_usage(None, crate::club::CacheUsage::default()),
-        requested_route: crate::club::RouteIdentity {
+        spawn_usage: crate::agent::turn::published_spawn_usage(
+            None,
+            crate::agent::club::CacheUsage::default(),
+        ),
+        requested_route: crate::agent::club::RouteIdentity {
             driver: "practice".into(),
             model: None,
             reasoning_effort: None,
@@ -527,7 +533,7 @@ fn hidden_pane_collects_real_events_and_escape_still_interrupts_work() {
     assert_eq!(app.research.records.len(), 1);
     assert_eq!(app.research.records[0].state, State::Verified);
     app.open_research(None);
-    app.scryglass.surface = crate::scryglass::StageSurface::Research;
+    app.scryglass.surface = crate::ui::scryglass::StageSurface::Research;
     app.research.project(Vec::new());
     app.research.action(Action::Inspect);
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));

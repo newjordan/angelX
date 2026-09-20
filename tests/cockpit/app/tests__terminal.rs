@@ -6,7 +6,7 @@ use super::{
     seed_advancing_app, seed_preview_app, write_attention_signal, write_enter_sequences,
     write_restore_sequences,
 };
-use crate::club::ChatMsg;
+use crate::agent::club::ChatMsg;
 use crate::tests::{TestEnvGuard, env_lock};
 
 #[test]

@@ -4,9 +4,9 @@
 //! cargo_tool inventory stays focused on argv/version behavior.
 
 use super::*;
-use crate::tools::build::CheckTool;
-use crate::tools::build::PinnedCargo;
-use crate::tools::build::RunTestsTool;
+use crate::agent::tools::build::CheckTool;
+use crate::agent::tools::build::PinnedCargo;
+use crate::agent::tools::build::RunTestsTool;
 
 #[cfg(unix)]
 fn write_executable(path: &std::path::Path, body: &str) {

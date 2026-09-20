@@ -58,9 +58,9 @@ fn exhausted_transient_errors_are_paced_across_profiles_and_stall_thresholds() {
             .iter()
             .enumerate()
             {
-                assert!(!crate::club::error_requires_provider_action(error));
+                assert!(!crate::agent::club::error_requires_provider_action(error));
                 let mut app = crate::seed_preview_app();
-                app.bag = crate::club::Bag::practice_for_test();
+                app.bag = crate::agent::club::Bag::practice_for_test();
                 let selected = app.bag.in_hand_with_fallback().route_identity();
                 app.loop_ctl = running(root, podrace);
                 let tier = [
@@ -89,7 +89,7 @@ fn exhausted_transient_errors_are_paced_across_profiles_and_stall_thresholds() {
 fn completed_worker_error_reaches_pacing_through_actual_advance() {
     fixture("worker", |root| {
         let mut app = crate::seed_preview_app();
-        app.bag = crate::club::Bag::practice_for_test();
+        app.bag = crate::agent::club::Bag::practice_for_test();
         app.loop_ctl = running(root, false);
         let (tx, rx) = std::sync::mpsc::channel();
         tx.send(Err("HTTP 503: temporarily unavailable".to_string()))
@@ -101,9 +101,9 @@ fn completed_worker_error_reaches_pacing_through_actual_advance() {
             started: Instant::now(),
             club_label: "practice".into(),
             club: None,
-            spawn_usage: crate::turn::published_spawn_usage(
+            spawn_usage: crate::agent::turn::published_spawn_usage(
                 None,
-                crate::club::CacheUsage::default(),
+                crate::agent::club::CacheUsage::default(),
             ),
             requested_route: app.bag.in_hand_with_fallback().route_identity(),
             cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -142,7 +142,7 @@ fn expired_retry_arms_one_offline_turn_and_success_restores_zero_interval() {
         let workspace = crate::tests::TestGitWorkspace::new("retry-expiry");
         let mut app = crate::seed_preview_app();
         app.tools = Arc::new(workspace.registry());
-        app.bag = crate::club::Bag::practice_for_test();
+        app.bag = crate::agent::club::Bag::practice_for_test();
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         app.bag
             .replace_in_hand_club_for_test(Arc::new(OfflineCounter(calls.clone())));

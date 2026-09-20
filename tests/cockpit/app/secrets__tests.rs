@@ -195,7 +195,7 @@ fn writer_workspace_store_redacts_at_write() {
     let (_g, secret, control) = plant_secret();
     let path = std::env::temp_dir().join(format!("angel-j-writer-ws-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);
-    crate::workspace_store::write_private_atomic(
+    crate::platform::workspace_store::write_private_atomic(
         &path,
         format!(r#"{{"secret":"{secret}","ok":"{control}"}}"#).as_bytes(),
     )
@@ -212,11 +212,11 @@ fn writer_village_save_state_redacts() {
         std::process::id()
     ));
     let _ = std::fs::remove_file(&path);
-    let state = crate::village::VillageState {
+    let state = crate::stage::village::VillageState {
         apprentice_name: format!("{secret} {control}"),
         ..Default::default()
     };
-    crate::village::save_state(&path, &state);
+    crate::stage::village::save_state(&path, &state);
     assert_sink_redacted(&path, secret, control);
 }
 

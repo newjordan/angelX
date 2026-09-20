@@ -1,6 +1,6 @@
 use super::*;
-use crate::competition::board::SourceAccessClaimV1;
-use crate::competition::schema::ComparatorKindV1;
+use crate::drive::competition::board::SourceAccessClaimV1;
+use crate::drive::competition::schema::ComparatorKindV1;
 
 fn comparator() -> ObjectiveComparatorV1 {
     ObjectiveComparatorV1 {
@@ -22,8 +22,12 @@ fn entry(id: &str, score: &str, personal: bool, source: bool) -> BoardEntryV1 {
             source_id: format!("source-{id}"),
             commit_oid: format!("commit-{id}"),
             tree_oid: format!("tree-{id}"),
-            workspace_sha256: crate::cut::sha256_hex(format!("workspace-{id}").as_bytes()),
-            access_proof_sha256: crate::cut::sha256_hex(format!("proof-{id}").as_bytes()),
+            workspace_sha256: crate::knowledge::cut::sha256_hex(
+                format!("workspace-{id}").as_bytes(),
+            ),
+            access_proof_sha256: crate::knowledge::cut::sha256_hex(
+                format!("proof-{id}").as_bytes(),
+            ),
         }),
     }
 }

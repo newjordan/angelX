@@ -1,5 +1,5 @@
+use super::super as sandbox;
 use super::*;
-use crate::sandbox;
 use std::path::PathBuf;
 
 fn policy(root: PathBuf, network: bool) -> SandboxPolicy {
@@ -353,7 +353,7 @@ fn sealed_mount_plan_has_no_host_root_and_forces_private_namespaces() {
 #[test]
 fn hardlink_overlays_follow_writable_mounts() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = super::super::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     let outside = fixture.path().join("outside");
@@ -391,7 +391,7 @@ fn large_hardlinked_build_tree_still_executes_with_confinement() {
         eprintln!("large-workspace check requires host Bubblewrap namespaces");
         return;
     }
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = super::super::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     let target = root.join("target");
     std::fs::create_dir_all(&target).unwrap();
@@ -552,7 +552,7 @@ print('large-workspace-write-and-confinement-ok')
 #[ignore = "needs-host-feature: bwrap"]
 fn bwrap_hardlink_write_is_erofs_and_new_local_links_work() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = super::super::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     let outside = fixture.path().join("outside");
@@ -594,7 +594,7 @@ assert (root/'local').read_text() == 'new local'
 #[test]
 fn sealed_posture_mounts_a_private_writable_tmp() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = super::super::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     let plan = |policy: &SandboxPolicy| -> Vec<String> {
@@ -640,7 +640,7 @@ fn sealed_posture_mounts_a_private_writable_tmp() {
 #[ignore = "needs-host-feature: bwrap"]
 fn sealed_tmp_is_writable_from_a_read_only_cwd_and_is_not_host_tmp() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = super::super::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     let marker = std::env::temp_dir().join(format!("angel-host-tmp-{}", std::process::id()));

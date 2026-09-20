@@ -1,0 +1,30 @@
+//! Terminal rendering and input: layout, widgets, panes, and live visualizations.
+
+pub(crate) mod agent_panel;
+pub(crate) mod chart;
+pub(crate) mod clipboard;
+pub(crate) mod dots;
+pub(crate) mod draw;
+pub(crate) mod frame_timing;
+pub(crate) mod glyphs;
+pub(crate) mod helm;
+pub(crate) mod hud;
+pub(crate) mod input;
+pub(crate) mod markdown;
+pub(crate) mod math;
+pub(crate) mod media;
+pub(crate) mod mouse;
+pub(crate) mod pane_motion;
+pub(crate) mod panels;
+pub(crate) mod retro_kit;
+pub(crate) mod scryglass;
+pub(crate) mod still_inspector;
+pub(crate) mod surfaces;
+pub(crate) mod term;
+pub(crate) mod toolstrip;
+pub(crate) mod transcript;
+pub(crate) mod ui_inspect;
+pub(crate) mod viewer;
+pub(crate) mod views;
+pub(crate) mod visual_export;
+pub(crate) mod viz;

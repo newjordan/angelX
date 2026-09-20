@@ -113,6 +113,6 @@ Compatibility names with limited behavior: `/setup-default-sandbox` and
 `/feedback` have no corresponding cockpit subsystem. The legacy `/plain`
 command toggles plain-language guidance; `/selftest` aliases `/solo`.
 
-Sources: [parser and completion](../cockpit/src/input.rs),
-[command dispatch](../cockpit/src/app_control/commands.rs),
-[built-in help](../cockpit/src/local_command.rs).
+Sources: [parser and completion](../cockpit/src/ui/input.rs),
+[command dispatch](../cockpit/src/app/control/commands.rs),
+[built-in help](../cockpit/src/app/local_command.rs).

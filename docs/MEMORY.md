@@ -25,6 +25,6 @@ Caddy separately captures verified command recipes and failure hazards during
 tool execution, then selects relevant entries for later turns.
 
 Implementation: [Dossier compiler](../scripts/runtime/repo-dossier.mjs),
-[native reader](../cockpit/src/dossier.rs), [Caddy](../cockpit/src/caddy.rs).
+[native reader](../cockpit/src/knowledge/dossier.rs), [Caddy](../cockpit/src/knowledge/caddy.rs).
 
 [Local workers](WORKERS.md) documents probing, skill proposals, scheduling and feedback.

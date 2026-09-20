@@ -68,7 +68,9 @@ fn finite_metadata_case(label: &str, baseline: f64, score_text: &str, expected_g
     let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
     let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
     assert_eq!(
-        crate::harness::load_living_peer_snapshot().unwrap().0,
+        crate::agent::harness::load_living_peer_snapshot()
+            .unwrap()
+            .0,
         baseline
     );
     let output =

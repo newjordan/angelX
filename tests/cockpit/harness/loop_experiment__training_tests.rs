@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{ClubReply, StreamDelta};
+use crate::agent::club::{ClubReply, StreamDelta};
 use serde_json::{Value, json};
 use std::sync::atomic::AtomicUsize;
 
@@ -56,7 +56,7 @@ impl Club for NativeFixtureClub {
         } else {
             return Ok(ClubReply::Text(ANSWER.into()));
         };
-        Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+        Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
             id: format!("native-{step}"),
             name: name.into(),
             args,
@@ -255,7 +255,7 @@ fn relative_native_artifacts_keep_absolute_sandbox_roots_and_capture() {
             let cancel = AtomicBool::new(false);
             snapshot_live(source, None, &cancel).unwrap();
             git_output(source, &["diff", "--binary", "HEAD"], &cancel).unwrap();
-            let out = crate::tools::shell::ShellTool::in_dir(source.into())
+            let out = crate::agent::tools::shell::ShellTool::in_dir(source.into())
                 .call(&json!({"command":"printf calibration-complete", "read_only":true}))
                 .unwrap();
             assert!(out.contains("calibration-complete"), "{out}");
@@ -548,7 +548,7 @@ fn export_owned_native_training_rows_for_consumer() {
             if name == "popcorn" {
                 std::fs::write(&peer, r#"{"name":"changed-after-decision","geomean_us":40.0,"shapes":{"32768x1":40.0}}"#).unwrap();
             }
-            let receipt = crate::reinforce::training::audit(&store, &bytes).unwrap();
+            let receipt = crate::drive::reinforce::training::audit(&store, &bytes).unwrap();
             if name == "popcorn" {
                 assert_eq!(receipt["baseline"]["baseline_us"], 100.0);
             }

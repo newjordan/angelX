@@ -148,7 +148,7 @@ fn prune_history_preserves_one_exact_harness_turn_context_within_the_cap() {
     assert_eq!(history[0].role, ChatRole::System);
     let contexts = history
         .iter()
-        .filter(|message| crate::app_control::is_turn_context_message(message))
+        .filter(|message| crate::app::control::is_turn_context_message(message))
         .collect::<Vec<_>>();
     assert_eq!(contexts.len(), 1);
     assert_eq!(contexts[0].role, ChatRole::Harness);
@@ -442,7 +442,7 @@ fn use_essential_schemas_is_additional_to_default_interactive() {
     let _guard = crate::tests::env_lock();
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo_off = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let _bounded = EnvGuard::set("ANGEL_BOUNDED_TASK_SCHEMAS", "1");
     assert!(
         !use_essential_schemas(false, false),
@@ -467,7 +467,7 @@ fn use_essential_schemas_is_additional_to_default_interactive() {
         "competition still leans when the bounded policy is off"
     );
     let _comp = crate::tests::TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         use_essential_schemas(false, false),
         "comp/lean mode is an additional lean path"
@@ -535,7 +535,7 @@ fn coding_hot_path_drops_swarm_compile_from_bounded_set() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -614,7 +614,7 @@ fn coding_hot_path_drops_swarm_compile_from_bounded_set() {
 /// interactive keeps the full isolate/API essay.
 #[test]
 fn coding_hot_path_leans_code_mode_description() {
-    let full_def = crate::harness::CodeModeTool::new(&["read_file".into()]).def();
+    let full_def = crate::agent::harness::CodeModeTool::new(&["read_file".into()]).def();
     assert!(
         full_def
             .description
@@ -647,7 +647,7 @@ fn coding_hot_path_leans_code_mode_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -687,7 +687,7 @@ fn coding_hot_path_leans_code_mode_description() {
 /// interactive keeps the hashline/envelope essay.
 #[test]
 fn coding_hot_path_leans_apply_patch_description() {
-    let full_def = crate::harness::ApplyPatchTool {
+    let full_def = crate::agent::harness::ApplyPatchTool {
         root: std::path::PathBuf::from("."),
     }
     .def();
@@ -718,7 +718,7 @@ fn coding_hot_path_leans_apply_patch_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -758,7 +758,7 @@ fn coding_hot_path_leans_apply_patch_description() {
 fn coding_hot_path_leans_read_file_description() {
     let _guard = crate::tests::env_lock();
     let _anchors = EnvGuard::unset("ANGEL_HASHLINE_ANCHORS");
-    let full_def = crate::harness::ReadFileTool {
+    let full_def = crate::agent::harness::ReadFileTool {
         root: std::path::PathBuf::from("."),
     }
     .def();
@@ -792,7 +792,7 @@ fn coding_hot_path_leans_read_file_description() {
 
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -830,7 +830,7 @@ fn coding_hot_path_leans_read_file_description() {
 /// interactive keeps the conflict-resolve essay.
 #[test]
 fn coding_hot_path_leans_write_file_description() {
-    let full_def = crate::harness::WriteFileTool {
+    let full_def = crate::agent::harness::WriteFileTool {
         root: std::path::PathBuf::from("."),
     }
     .def();
@@ -861,7 +861,7 @@ fn coding_hot_path_leans_write_file_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -903,7 +903,7 @@ fn coding_hot_path_leans_shell_description() {
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
     let _smart = crate::tests::TestEnvGuard::unset("ANGEL_YOLO_SMART");
     let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
-    let full_def = crate::harness::ShellTool::in_dir(std::path::PathBuf::from(".")).def();
+    let full_def = crate::agent::harness::ShellTool::in_dir(std::path::PathBuf::from(".")).def();
     assert!(
         full_def.description.contains("privilege escalation"),
         "full def keeps the sandbox/sudo essay"
@@ -923,7 +923,7 @@ fn coding_hot_path_leans_shell_description() {
 
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -958,7 +958,7 @@ fn coding_hot_path_leans_tool_search_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -1008,7 +1008,7 @@ fn coding_hot_path_leans_tool_search_description() {
 /// interactive keeps the default-root / suffix essay.
 #[test]
 fn coding_hot_path_leans_list_dir_description() {
-    let full_def = crate::harness::ListDirTool {
+    let full_def = crate::agent::harness::ListDirTool {
         root: std::path::PathBuf::from("."),
     }
     .def();
@@ -1041,7 +1041,7 @@ fn coding_hot_path_leans_list_dir_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -1075,7 +1075,7 @@ fn coding_hot_path_leans_list_dir_description() {
 /// interactive keeps the whitespace / CRLF / smart-quote essay.
 #[test]
 fn coding_hot_path_leans_str_replace_description() {
-    let full_def = crate::harness::StrReplaceTool {
+    let full_def = crate::agent::harness::StrReplaceTool {
         root: std::path::PathBuf::from("."),
     }
     .def();
@@ -1106,7 +1106,7 @@ fn coding_hot_path_leans_str_replace_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -1144,7 +1144,7 @@ fn coding_hot_path_leans_str_replace_description() {
 /// interactive keeps the diversity / ignore-rule essay.
 #[test]
 fn coding_hot_path_leans_grep_description() {
-    let full_def = crate::harness::GrepTool {
+    let full_def = crate::agent::harness::GrepTool {
         root: std::path::PathBuf::from("."),
     }
     .def();
@@ -1179,7 +1179,7 @@ fn coding_hot_path_leans_grep_description() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -1218,7 +1218,7 @@ fn defs_for_turn_leans_on_competition_without_shrinking_default() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let full = reg.defs_for_turn(Some(1_000_000), false, false);
@@ -1246,7 +1246,7 @@ fn metered_driver_auto_profile_uses_lean_stable_payload_on_roomy_windows() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
     let _comp_off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut reg = ToolRegistry::with_defaults();
     reg.enable_tool_search();
     let local = reg.defs_for_driver_turn(Some(1_000_000), false, false, false);
@@ -1315,8 +1315,8 @@ fn heuristic_tool_bubble_is_bounded_and_sticky_for_the_turn() {
             .any(|definition| definition.name == "run_tests")
     );
     assert_eq!(
-        crate::turn::defs_fingerprint(&first),
-        crate::turn::defs_fingerprint(&second)
+        crate::agent::turn::defs_fingerprint(&first),
+        crate::agent::turn::defs_fingerprint(&second)
     );
     assert_eq!(generation, reg.tool_activation_generation());
 }
@@ -1838,7 +1838,9 @@ fn maybe_compact_disabled_and_under_budget_are_noops() {
     let mut h = vec![ChatMsg::system("s"), ChatMsg::user("hello there friend")];
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("X");
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     assert!(
         !maybe_compact(&club, &mut h, 0, 5, 0, &[], &reg, &tx),
         "disabled"
@@ -1856,7 +1858,9 @@ fn maybe_compact_summarizes_and_preserves_structure() {
     let n0 = h.len();
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("CONDENSED NOTES");
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     assert!(
         maybe_compact(&club, &mut h, 30, 5, 0, &[], &reg, &tx),
         "should compact over budget"
@@ -1876,7 +1880,7 @@ fn maybe_compact_summarizes_and_preserves_structure() {
         ChatRole::Harness,
         "compaction summary must use the internal background carrier"
     );
-    assert!(crate::compaction::is_compaction_note(note));
+    assert!(crate::agent::compaction::is_compaction_note(note));
     assert_eq!(
         &*h.last().unwrap().content,
         "assistant answer number 7 text here",
@@ -1905,7 +1909,9 @@ fn turn_boundary_compaction_default_never_calls_the_model() {
     let mut history = long_history();
     let original_len = history.len();
     let (tx, rx) = mpsc::channel();
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
 
     assert!(maybe_compact_for_turn(
         &PanickingSummarizerClub,
@@ -1922,7 +1928,7 @@ fn turn_boundary_compaction_default_never_calls_the_model() {
     assert!(history.iter().any(|message| {
         message
             .content
-            .starts_with(crate::compaction::COMPACTION_NOTE_HEADER)
+            .starts_with(crate::agent::compaction::COMPACTION_NOTE_HEADER)
     }));
     let notices: Vec<String> = rx
         .try_iter()
@@ -2016,7 +2022,7 @@ fn test_turn_context(label: &str) -> String {
     format!(
         "{}\n[operator-selected cockpit controls]\n- {label}\n\
          [/operator-selected cockpit controls]\n\n[/harness turn context]",
-        crate::app_control::TURN_CONTEXT_HEADER
+        crate::app::control::TURN_CONTEXT_HEADER
     )
 }
 
@@ -2066,13 +2072,13 @@ fn sync_compaction_preserves_one_exact_harness_turn_context_across_rounds() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- lossy summary");
-    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
 
     for round in 0..2 {
         assert!(maybe_compact(&club, &mut history, 60, 3, 0, &[], &reg, &tx));
         let contexts = history
             .iter()
-            .filter(|message| crate::app_control::is_turn_context_message(message))
+            .filter(|message| crate::app::control::is_turn_context_message(message))
             .collect::<Vec<_>>();
         assert_eq!(
             contexts.len(),
@@ -2114,7 +2120,7 @@ fn model_free_turn_boundary_compaction_preserves_harness_turn_context() {
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
 
     assert!(maybe_compact_for_turn(
         &PanickingSummarizerClub,
@@ -2128,7 +2134,7 @@ fn model_free_turn_boundary_compaction_preserves_harness_turn_context() {
     ));
     let contexts = history
         .iter()
-        .filter(|message| crate::app_control::is_turn_context_message(message))
+        .filter(|message| crate::app::control::is_turn_context_message(message))
         .collect::<Vec<_>>();
     assert_eq!(contexts.len(), 1);
     assert_eq!(contexts[0].role, ChatRole::Harness);
@@ -2139,7 +2145,7 @@ fn model_free_turn_boundary_compaction_preserves_harness_turn_context() {
 fn harness_direction_retains_origin_but_serializes_as_provider_user() {
     let message = ChatMsg::harness(FINAL_MILE_NUDGE);
     assert_eq!(message.role, ChatRole::Harness);
-    let serialized = crate::club::messages_to_json(&[message], true);
+    let serialized = crate::agent::club::messages_to_json(&[message], true);
     assert_eq!(serialized[0]["role"], "user");
     assert_eq!(serialized[0]["content"], FINAL_MILE_NUDGE);
 }
@@ -2158,7 +2164,7 @@ fn sync_compaction_preserves_one_active_user_task_across_repeated_rounds() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- vague summary that does not contain the original");
-    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     assert!(maybe_compact(&club, &mut history, 60, 3, 0, &[], &reg, &tx));
     assert_eq!(
         history
@@ -2172,7 +2178,9 @@ fn sync_compaction_preserves_one_active_user_task_across_repeated_rounds() {
         .position(|message| message.content.contains("vague summary"))
         .unwrap();
     assert_eq!(history[note_index].role, ChatRole::Harness);
-    assert!(crate::compaction::is_compaction_note(&history[note_index]));
+    assert!(crate::agent::compaction::is_compaction_note(
+        &history[note_index]
+    ));
     assert_eq!(history[note_index + 1].role, ChatRole::User);
 
     for i in 40..80 {
@@ -2211,7 +2219,7 @@ fn rolling_compaction_preserves_prior_operator_prohibition() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- continue\n## OpenThreads\n- tune parameters");
-    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     assert!(maybe_compact(
         &club,
         &mut history,
@@ -2281,7 +2289,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
             "todo-plan",
             format!(
                 "current plan\n{}{}",
-                crate::tools::plan::TODO_STATE_PREFIX,
+                crate::agent::tools::plan::TODO_STATE_PREFIX,
                 plan_state
             ),
         ),
@@ -2291,7 +2299,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- vague summary\n## Facts\n- retained");
-    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     assert!(maybe_compact(
         &club,
         &mut history,
@@ -2311,7 +2319,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
     assert!(plan_messages[0].content.contains(plan_text));
     assert!(history.iter().any(|message| {
         message.role == ChatRole::Harness
-            && crate::compaction::is_compaction_note(message)
+            && crate::agent::compaction::is_compaction_note(message)
             && message.content.contains("[current-plan-proof/v1]")
             && !message.content.contains(plan_text)
     }));
@@ -2382,9 +2390,11 @@ fn recovery_context_compaction_and_pruning_preserve_consumption_without_global_h
     let mut history = long_history();
     history[1]
         .recovery_context
-        .push(crate::club::owned_recovery_context_ref());
-    let expected = crate::club::recovery_context_refs(&history);
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+        .push(crate::agent::club::owned_recovery_context_ref());
+    let expected = crate::agent::club::recovery_context_refs(&history);
+    let reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     let scope = reg.auxiliary.enter();
     let mut seen = std::collections::HashSet::new();
     scope.observe_recovery_context(&history, &mut seen);
@@ -2399,19 +2409,25 @@ fn recovery_context_compaction_and_pruning_preserve_consumption_without_global_h
         &reg,
         &tx
     ));
-    assert_eq!(crate::club::recovery_context_refs(&history), expected);
+    assert_eq!(
+        crate::agent::club::recovery_context_refs(&history),
+        expected
+    );
     scope.observe_recovery_context(&history, &mut seen);
     assert_eq!(scope.snapshot().sources["loop_recovery_context"], 1);
     let restored: Vec<ChatMsg> =
         serde_json::from_slice(&serde_json::to_vec(&history).unwrap()).unwrap();
-    assert_eq!(crate::club::recovery_context_refs(&restored), expected);
+    assert_eq!(
+        crate::agent::club::recovery_context_refs(&restored),
+        expected
+    );
     // A source removed before first dispatch contributes no input to that turn.
     let mut pruned = long_history();
     pruned[1]
         .recovery_context
-        .push(crate::club::owned_recovery_context_ref());
+        .push(crate::agent::club::owned_recovery_context_ref());
     prune_history(&mut pruned, 3);
-    assert!(crate::club::recovery_context_refs(&pruned).is_empty());
+    assert!(crate::agent::club::recovery_context_refs(&pruned).is_empty());
     scope.observe_recovery_context(&pruned, &mut seen);
     assert_eq!(scope.snapshot().sources["loop_recovery_context"], 1);
     drop(scope);
@@ -2454,7 +2470,7 @@ fn context_compact_explicit_contract_survives_24_boundaries_verbatim() {
         "tail ".repeat(400)
     );
     let mut history = vec![ChatMsg::system("system"), ChatMsg::user(task.as_str())];
-    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     let (tx, _rx) = mpsc::channel();
     for boundary in 0..24 {
         for hop in 0..8 {
@@ -2483,7 +2499,7 @@ fn context_compact_explicit_contract_survives_24_boundaries_verbatim() {
         );
         let note = history
             .iter()
-            .find(|m| crate::compaction::is_compaction_note(m))
+            .find(|m| crate::agent::compaction::is_compaction_note(m))
             .unwrap();
         assert!(
             note.content
@@ -2526,7 +2542,7 @@ fn context_compact_summary_input_excludes_operator_contract() {
     assert!(
         summary[0]
             .content
-            .contains(&crate::cut::sha256_hex(contract.as_bytes()))
+            .contains(&crate::knowledge::cut::sha256_hex(contract.as_bytes()))
     );
     assert_eq!(summary[1].content, source[1].content);
 }
@@ -2572,7 +2588,7 @@ fn context_compact_constraint_ledger_reports_excerpt_and_drop() {
     assert_eq!(ledger["dropped"], 1);
     assert_eq!(ledger["constraints_retained"], "dropped");
     assert_eq!(ledger["boundary"], 1);
-    assert!(note.contains(&crate::cut::sha256_hex(task.as_bytes())));
+    assert!(note.contains(&crate::knowledge::cut::sha256_hex(task.as_bytes())));
     let next = constraint_retention_note(
         "[Earlier conversation compacted]".to_string(),
         &[ChatMsg::harness(note), ChatMsg::user(anchors[0].as_str())],

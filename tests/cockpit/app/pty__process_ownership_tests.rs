@@ -1,5 +1,5 @@
 use super::*;
-use crate::sandbox::process_owner::OwnedCommandExt;
+use crate::agent::sandbox::process_owner::OwnedCommandExt;
 use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -11,7 +11,7 @@ fn idle_completion_fixture() {
         return;
     };
     let root = std::path::PathBuf::from(root);
-    crate::sandbox::process_owner::initialize().unwrap();
+    crate::agent::sandbox::process_owner::initialize().unwrap();
     let marker = root.join("descendant.pid");
     let script = root.join("fixture-shell");
     std::fs::write(

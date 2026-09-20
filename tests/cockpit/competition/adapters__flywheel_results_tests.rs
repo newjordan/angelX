@@ -1,9 +1,9 @@
 use super::{FlywheelSettleFailureV1, settle_fires};
-use crate::competition::adapters::CompetitionAdapterV1;
-use crate::competition::adapters::fixture::MemoryRawBoardJournalV1;
-use crate::competition::adapters::flywheel::FlywheelAdapterV1;
-use crate::competition::board_reducer::BoardReducerV1;
-use crate::competition::rewards::{RewardLedgerV1, RewardSelectionV1};
+use crate::drive::competition::adapters::CompetitionAdapterV1;
+use crate::drive::competition::adapters::fixture::MemoryRawBoardJournalV1;
+use crate::drive::competition::adapters::flywheel::FlywheelAdapterV1;
+use crate::drive::competition::board_reducer::BoardReducerV1;
+use crate::drive::competition::rewards::{RewardLedgerV1, RewardSelectionV1};
 use std::path::{Path, PathBuf};
 
 fn fixture(track: &str) -> PathBuf {

@@ -27,7 +27,7 @@ fn patch_exit_drain_sigint_between_real_patch_writes() {
     let _env = crate::tests::env_lock();
     const CHILD: &str = "ANGEL_T_PATCH_SIGNAL_CHILD";
     if let Some(root) = std::env::var_os(CHILD) {
-        crate::sandbox::process_owner::initialize().unwrap();
+        crate::agent::sandbox::process_owner::initialize().unwrap();
         apply_freeform_patch(
             &PathBuf::from(root),
             "*** Begin Patch\n*** Update File: first.txt\n@@\n-before\n+after\n\

@@ -35,7 +35,9 @@ fn observation(root: &Path, id: &str, links: &[&str], status: &str) -> serde_jso
 
 fn envelope(sequence: u64, previous: &str, payload: serde_json::Value) -> String {
     let payload_json = payload.to_string();
-    let hash = crate::cut::sha256_hex(format!("{sequence}\n{previous}\n{payload_json}").as_bytes());
+    let hash = crate::knowledge::cut::sha256_hex(
+        format!("{sequence}\n{previous}\n{payload_json}").as_bytes(),
+    );
     format!(
         "{}\n",
         json!({"schema": "angel.research-event/v1", "sequence": sequence,
@@ -202,7 +204,7 @@ fn stale_running_observations_become_inconclusive_without_changing_receipts() {
 #[test]
 #[ignore = "explicit local capture of real experiment observations, not a synthetic benchmark"]
 fn capture_real_experiment_journal() {
-    use crate::research_workspace::{Action, Lens, Workspace, view};
+    use crate::drive::research_workspace::{Action, Lens, Workspace, view};
     use ratatui::{Terminal, backend::TestBackend};
     let path = std::env::var("RESEARCH_FIXTURE_WORKSPACE").expect("workspace required");
     let output = std::env::var("RESEARCH_PREVIEW_OUTPUT").expect("output prefix required");

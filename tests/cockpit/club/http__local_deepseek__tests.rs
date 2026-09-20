@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{ChatMsg, Club, HttpClub, Metadata, ToolCall};
+use crate::agent::club::{ChatMsg, Club, HttpClub, Metadata, ToolCall};
 
 const ALIAS: &str = "deepseek-v4-flash-dspark";
 const LOCAL: &str = "http://127.0.0.1:18888/v1";

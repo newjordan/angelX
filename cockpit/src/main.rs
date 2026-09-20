@@ -7,133 +7,36 @@
 //!
 //! Later increments: dotmax braille charts, ratatui-image photos, PTY shell.
 
-mod advisor;
 mod agent;
-mod git;
-mod views;
-mod viz;
-mod helm;
-// Bounded process bridge to the isolated surface-free WebGPU renderer. Visible
-// output is admitted only through the calibrated Kitty image adapter.
-mod app_control;
-mod approval;
-mod atlas;
-mod atlas_clerk;
-mod authority_profile;
-mod backplane;
-mod barrel;
-mod bootstrap;
-mod campaign;
-mod chart;
-mod clipboard;
-mod club;
-mod code_mode;
-mod codex_import;
-mod compaction;
-#[allow(dead_code)]
-// Contract-first scaffold; consumers land in Wave 1 (board-sync is the first live path).
-mod competition;
-mod conductor;
-mod continual_harness;
-// The Cut: the authored-diff manifest + the machine verdict on every write
-// (docs/plans/the-cut.md). Rust only appends JSONL; the Node tick folds it.
-mod cut;
-// Deli (deep-over-time research loop) folds into the swarm rather than being its
-// own selectable agent — kept pending that symbiotic integration.
-mod caddy;
-#[allow(dead_code)]
-mod deli;
-mod dossier;
-mod evidence;
-mod experience;
-mod formations;
-mod frame_timing;
-mod glyphs;
-mod goal;
-mod habits;
-mod handoff_rl;
-mod harness;
-mod hashline;
-mod hearth;
-mod hud;
-mod identity;
-mod input;
-mod iterate;
-mod runtime_paths;
-// Curation gate between swarm reports and the memory palace; swarm wiring is
-// deferred until its dedup/importance policy is real (see librarian.rs).
 mod app;
-mod comp_mode;
-mod conflict;
-mod dots;
-mod draw;
-mod graph_ctl;
-mod knight_cast;
-mod knight_journey;
-#[allow(dead_code)]
-mod librarian;
-mod library;
-mod local_command;
-mod loop_ctl;
-mod loop_dialog;
-mod lsp;
-mod magic_keywords;
-mod markdown;
-mod math;
-mod mcp;
-mod media;
-mod memory;
-mod mission;
-mod model_setup;
-mod mouse;
-mod observatory;
-mod openai_codex;
-mod overwatch;
-mod pane_motion;
-mod panels;
-mod pty;
-mod questmap;
-mod raytrace;
-#[allow(dead_code)] // reinforce-loop core; wired to DICE/GEPA in a follow-up
-mod reinforce;
-mod repos;
-mod research_workspace;
-mod retro_kit;
-mod rl_ctl;
-mod route_intelligence;
-mod route_preferences;
-mod runtime;
-mod sandbox;
-mod science;
-mod scryglass;
-mod secrets;
-mod self_loop;
-mod session;
-mod skills;
-mod staged_edit;
-mod startup_intro;
-mod steer;
-mod still_inspector;
-mod store_caps;
-mod stream_rules;
-mod surfaces;
-mod swarm;
-mod swarm_delegate;
-mod term;
-mod tools;
-mod toolstrip;
-mod transcript;
-mod turn;
-mod ui_inspect;
-mod viewer;
-mod village;
-mod visual_export;
-mod workspace_lang;
-mod workspace_store;
-mod world_viz;
-mod yolo;
+mod drive;
+mod knowledge;
+mod platform;
+mod stage;
+mod ui;
 
-use agent::profile::{
+// Short names for the buckets this shell reaches into directly. These also keep
+// the bare paths working for the `use crate::*` consumers and the cfg(test) tree,
+// so the non-test build sees a few of them as unused.
+#[allow(unused_imports)]
+use agent::{approval, club, compaction, formations, harness, lsp, sandbox, steer, tools, turn};
+#[allow(unused_imports)]
+use app::{bootstrap, control};
+#[allow(unused_imports)]
+use drive::{comp_mode, competition, conductor, goal, habits, loop_ctl, loop_dialog, reinforce};
+#[allow(unused_imports)]
+use knowledge::{atlas, caddy, cut, memory, session};
+#[allow(unused_imports)]
+use platform::{overwatch, pty, runtime, runtime_paths, workspace_store, yolo};
+#[allow(unused_imports)]
+use stage::{raytrace, village, world_viz};
+#[allow(unused_imports)]
+use ui::{
+    agent_panel, draw, frame_timing, glyphs, hud, input, media, mouse, panels, scryglass, surfaces,
+    term, toolstrip, transcript, viewer, visual_export, viz,
+};
+
+use agent_panel::profile::{
     AgentKey, AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route,
     specialist_text,
 };
@@ -143,7 +46,6 @@ use hud::{
     HUD_BLUE, HUD_DIM, HUD_PHOSPHOR, chrome_style, dim_panel_style, hud_block, panel_style,
     transparent_hud_block,
 };
-use viz::lifecycle_viz::MotionMode;
 use media::Media;
 use overwatch::Overwatch;
 use pty::ShellPane;
@@ -165,6 +67,7 @@ use ratatui::{
         Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
     },
 };
+use viz::lifecycle_viz::MotionMode;
 
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -425,7 +328,7 @@ fn run(
             let advance_us = advance_started.map_or(0, |start| start.elapsed().as_micros());
             let settle_started = frame_timing.as_ref().map(|_| Instant::now());
             if app.take_attention_request() {
-                let _ = crate::term::write_attention_signal(&mut std::io::stdout());
+                let _ = crate::ui::term::write_attention_signal(&mut std::io::stdout());
             }
             app.bag.drain_discovered();
             if backplane_refreshed_at.elapsed() >= BACKPLANE_REFRESH {
@@ -443,10 +346,10 @@ fn run(
             terminal.draw(|frame| {
                 let ui_broker = std::sync::Arc::clone(&app.ui_broker);
                 let prepared =
-                    crate::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
+                    crate::ui::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
                 ui(frame, &mut app);
                 if let Some(prepared) = prepared {
-                    crate::ui_inspect::capture_after_draw(
+                    crate::ui::ui_inspect::capture_after_draw(
                         &app,
                         frame,
                         ui_broker.as_ref(),
@@ -612,8 +515,8 @@ fn activate_sealed_sandbox_profile(task_args: &harness::TaskCliArgs, workspace: 
         std::process::exit(2);
     }
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
-    let profile = crate::sandbox::sealed::build(workspace, home.as_deref());
-    if let Err(reason) = crate::sandbox::sealed::activate(profile) {
+    let profile = crate::agent::sandbox::sealed::build(workspace, home.as_deref());
+    if let Err(reason) = crate::agent::sandbox::sealed::activate(profile) {
         eprintln!("angel: sealed sandbox profile unavailable: {reason}");
         std::process::exit(2);
     }
@@ -943,7 +846,8 @@ fn main() -> std::io::Result<()> {
                     "--yukon-status requires exactly two UUIDs",
                 ));
             }
-            return crate::harness::comp_packages::yukon::run_cli(&benchmark, &submission).map_err(std::io::Error::other);
+            return crate::agent::harness::comp_packages::yukon::run_cli(&benchmark, &submission)
+                .map_err(std::io::Error::other);
         }
         if arg == "--watch-fixture" {
             let path = args.next();
@@ -1042,9 +946,9 @@ fn main() -> std::io::Result<()> {
         }
         if arg == "--dump-research-preview" {
             let lens = match args.next().unwrap_or_default().as_str() {
-                "story" => crate::research_workspace::Lens::Story,
-                "ledger" => crate::research_workspace::Lens::Ledger,
-                "flow" => crate::research_workspace::Lens::Flow,
+                "story" => crate::drive::research_workspace::Lens::Story,
+                "ledger" => crate::drive::research_workspace::Lens::Ledger,
+                "flow" => crate::drive::research_workspace::Lens::Flow,
                 _ => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
@@ -1070,7 +974,7 @@ fn main() -> std::io::Result<()> {
         }
         if arg == "--dump-rl-preview" {
             let view_name = args.next().unwrap_or_default();
-            let view = crate::viz::rl_viz::RlView::parse(&view_name).ok_or_else(|| {
+            let view = crate::ui::viz::rl_viz::RlView::parse(&view_name).ok_or_else(|| {
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "--dump-rl-preview requires branch, research, or sankey",
@@ -1298,7 +1202,7 @@ fn main() -> std::io::Result<()> {
                 )
                 .map_err(std::io::Error::other)?,
             );
-            let operator_prompt_sha256 = crate::cut::sha256_hex(prompt.as_bytes());
+            let operator_prompt_sha256 = crate::knowledge::cut::sha256_hex(prompt.as_bytes());
             // Same precedence as the TUI (--workspace > $ANGEL_WORKSPACE > fallback),
             // but `--task` keeps the isolated `~/.angel0/workspace` fallback that
             // benchmark harnesses rely on rather than defaulting to the cwd.
@@ -1425,7 +1329,8 @@ fn main() -> std::io::Result<()> {
             );
             let project_doc_started = std::time::Instant::now();
             let skills = harness::load_skills_for(&workspace);
-            let vision_hint = crate::tools::vision::vision_sidecar_prompt_hint(club.as_ref());
+            let vision_hint =
+                crate::agent::tools::vision::vision_sidecar_prompt_hint(club.as_ref());
             let mut history = bootstrap::build_task_history(
                 &specialists,
                 &skills,
@@ -1479,7 +1384,7 @@ fn main() -> std::io::Result<()> {
                 .map(|value| value.trim() != "0")
                 .unwrap_or(true);
             if handoff_warm
-                && let Some(note) = crate::tools::plan::load_workspace_handoff(&workspace)
+                && let Some(note) = crate::agent::tools::plan::load_workspace_handoff(&workspace)
             {
                 eprintln!(
                     "[angel --task] warm start: prior-session handoff loaded ({} chars)",
@@ -1487,7 +1392,7 @@ fn main() -> std::io::Result<()> {
                 );
                 history.push(ChatMsg::assistant(format!(
                     "{}{note}",
-                    crate::compaction::HANDOFF_SNAPSHOT_PREFIX
+                    crate::agent::compaction::HANDOFF_SNAPSHOT_PREFIX
                 )));
             }
             history.push(ChatMsg::user(prompt));
@@ -1507,7 +1412,7 @@ fn main() -> std::io::Result<()> {
             if atlas.enabled() {
                 let lens =
                     atlas.build_lens(&atlas_query, std::iter::once(history[0].content.as_ref()));
-                crate::atlas::replace_lens_message(&mut history, lens);
+                crate::knowledge::atlas::replace_lens_message(&mut history, lens);
             }
             if let Some(recon) = task_recon {
                 history.push(recon);
@@ -1639,7 +1544,7 @@ fn main() -> std::io::Result<()> {
                 runtime: Some(runtime.clone()),
                 session_id: None,
                 artifacts: Vec::new(),
-                memory_health: crate::caddy::StoreHealthSummary::default(),
+                memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
             };
             match result {
                 Ok(outcome) => {

@@ -76,7 +76,7 @@ fn owned_evidence_case(
     let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
     let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
     assert_eq!(
-        crate::harness::load_living_peer_shape_baseline("32768x1"),
+        crate::agent::harness::load_living_peer_shape_baseline("32768x1"),
         Some(100.0)
     );
 

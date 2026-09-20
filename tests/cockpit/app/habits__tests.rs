@@ -6,7 +6,7 @@ fn worker_proposal_approval_skill_loading_and_feedback_form_one_loop() {
     let _lock = crate::tests::env_lock();
     let fixture = crate::tests::TestGitWorkspace::new("habit-worker-roundtrip");
     let workspace = fixture.path();
-    let identity = crate::workspace_store::repo_identity(workspace);
+    let identity = crate::platform::workspace_store::repo_identity(workspace);
     let proposed = workspace.join("proposed");
     let live = workspace.join("live");
     let state = workspace.join("habit-state");
@@ -26,7 +26,10 @@ fn worker_proposal_approval_skill_loading_and_feedback_form_one_loop() {
     std::fs::write(&ledger, rows.join("\n") + "\n").unwrap();
     let tick = || {
         let result = std::process::Command::new("node")
-            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/habitsmith-tick.mjs"))
+            .arg(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../scripts/runtime/habitsmith-tick.mjs"),
+            )
             .arg("--force")
             .env("ANGEL_CAUSAL_GRAPH", &graph)
             .env("ANGEL_EXPERIENCE_LOG", &ledger)
@@ -57,7 +60,7 @@ fn worker_proposal_approval_skill_loading_and_feedback_form_one_loop() {
     assert!(status_text_in(&proposed, &state.join("status.json"), workspace).contains(&name));
     let approved = approve_in(&proposed, &live, &state, &name, workspace);
     assert!(approved.contains("approved"), "{approved}");
-    let skills = crate::harness::load_skills_from(&live);
+    let skills = crate::agent::harness::load_skills_from(&live);
     assert!(skills.iter().any(|skill| skill.name == name));
     let mut events = std::fs::OpenOptions::new()
         .append(true)
@@ -106,7 +109,7 @@ fn worker_proposal_approval_skill_loading_and_feedback_form_one_loop() {
 }
 
 fn draft(workspace: &Path) -> String {
-    let identity = crate::workspace_store::repo_identity(workspace);
+    let identity = crate::platform::workspace_store::repo_identity(workspace);
     format!(
         "---\nname: proj-build-test\ndescription: Run the observed build → test workflow.\nfact: hyp_habit_k_build-test\nrisky: true\nscope: project\nrepo_key: \"{}\"\nrepo_root: \"{}\"\n---\n\n# proj-build-test\n\nSteps:\n1. `cargo build` (build, passes 100%)\n\n---\nEvidence: 6 run(s) across 6 session(s), 6 clean end-to-end · belief 0.78\n",
         identity.key,
@@ -157,7 +160,7 @@ fn empty_dir_says_how_drafts_appear() {
 #[test]
 fn installed_section_renders_usage_and_drift_from_the_tick_artifact() {
     let base = scratch("drift");
-    let identity = crate::workspace_store::repo_identity(&base);
+    let identity = crate::platform::workspace_store::repo_identity(&base);
     let status = serde_json::json!({
         "v": 1,
         "facts": [

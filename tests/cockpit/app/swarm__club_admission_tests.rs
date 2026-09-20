@@ -312,14 +312,14 @@ impl Club for OverallocatedClub {
         true
     }
     fn respond(&self, _: &str) -> Result<String, String> {
-        crate::harness::formation_budget::current()
+        crate::agent::harness::formation_budget::current()
             .unwrap()
             .reserve(self.label(), 20, 20)?
-            .settle(Some(crate::club::UsageObservation {
+            .settle(Some(crate::agent::club::UsageObservation {
                 raw: [Some(20), Some(20), Some(0), Some(0), Some(0)],
-                contract: crate::club::UsageContract {
-                    cache: crate::club::CacheConvention::Included,
-                    reasoning: crate::club::ReasoningConvention::Included,
+                contract: crate::agent::club::UsageContract {
+                    cache: crate::agent::club::CacheConvention::Included,
+                    reasoning: crate::agent::club::ReasoningConvention::Included,
                 },
                 ..Default::default()
             }));
@@ -332,8 +332,8 @@ impl Club for OverallocatedClub {
 fn formation_budget_swarm_queued_seats_report_overrun_and_all_complete() {
     let _guard = crate::tests::env_lock();
     let _parallel = crate::tests::TestEnvGuard::set("ANGEL_SOTA_MOA_MAX_PARALLEL", "1");
-    let budget = crate::harness::formation_budget::Budget::new(Some(1), None);
-    let _scope = crate::harness::formation_budget::enter(Some(budget.clone()));
+    let budget = crate::agent::harness::formation_budget::Budget::new(Some(1), None);
+    let _scope = crate::agent::harness::formation_budget::enter(Some(budget.clone()));
     let club: Arc<dyn Club> = Arc::new(OverallocatedClub);
     let mut swarm = test_swarm(club.clone());
     swarm.name = "sota-moa".into();

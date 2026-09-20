@@ -366,7 +366,7 @@ fn sota_label_covers_metered_provider_names() {
 
 #[test]
 fn sota_label_match_does_not_allocate_a_lowercase_copy() {
-    let src = include_str!("../../../cockpit/src/club/mod.rs");
+    let src = include_str!("../../../cockpit/src/agent/club/mod.rs");
     let start = src
         .find("pub(crate) fn is_sota_label")
         .expect("is_sota_label present");
@@ -390,7 +390,7 @@ fn mathgod_and_wrapper_labels_match_without_a_lowercase_copy() {
     assert!(is_logical_wrapper_label("SOTA-MOA"));
     assert!(is_logical_wrapper_label("gpu-comp-local"));
     assert!(!is_logical_wrapper_label("spark"));
-    let src = include_str!("../../../cockpit/src/club/mod.rs");
+    let src = include_str!("../../../cockpit/src/agent/club/mod.rs");
     for name in [
         "pub(crate) fn is_mathgod_label",
         "pub(crate) fn is_logical_wrapper_label",
@@ -1183,7 +1183,7 @@ fn http_club_records_deepseek_native_prompt_cache_usage() {
         }
     );
     assert_eq!(
-        crate::turn::cache_hit_pct(club.cache_usage().read_input_tokens, 100),
+        crate::agent::turn::cache_hit_pct(club.cache_usage().read_input_tokens, 100),
         Some(75),
         "hits are counted inside prompt_tokens, so the reported input is the denominator"
     );
@@ -1530,7 +1530,7 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
         }
     }
     struct Probe(Arc<Mutex<Vec<String>>>);
-    impl crate::harness::Tool for Probe {
+    impl crate::agent::harness::Tool for Probe {
         fn name(&self) -> &str {
             "attribution_probe"
         }
@@ -1543,11 +1543,12 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
         }
         fn call(&self, _: &serde_json::Value) -> Result<String, String> {
             assert_eq!(
-                crate::harness::run_identity::live_turn().as_deref(),
+                crate::agent::harness::run_identity::live_turn().as_deref(),
                 Some("fixture-loop-owner")
             );
             let stamped =
-                crate::tools::submit_identity::stamp("yukon submit --model copied", None)?.unwrap();
+                crate::agent::tools::submit_identity::stamp("yukon submit --model copied", None)?
+                    .unwrap();
             self.0.lock().unwrap().push(stamped.command);
             Ok("offline attribution observed; no process or network launched".into())
         }
@@ -1555,9 +1556,12 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
     let driver: Arc<dyn Club> = Arc::new(Driver);
     let wrappers: Vec<Box<dyn Club>> = vec![
         Box::new(GpuCompLocalMoaClub::new(driver.clone())),
-        Box::new(crate::swarm::SwarmClub::from_env("swarm", driver.clone())),
+        Box::new(crate::agent::swarm::SwarmClub::from_env(
+            "swarm",
+            driver.clone(),
+        )),
         Box::new(
-            crate::swarm::SwarmClub::from_env("swarm", Arc::new(Exhausted))
+            crate::agent::swarm::SwarmClub::from_env("swarm", Arc::new(Exhausted))
                 .with_quota_fallbacks(vec![driver.clone()]),
         ),
         Box::new(GpuCompLocalMoaClub::new(Arc::new(FallbackClub::new(vec![
@@ -1567,12 +1571,13 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
     ];
     for wrapper in wrappers {
         let observed = Arc::new(Mutex::new(Vec::new()));
-        let mut registry = crate::harness::ToolRegistry::with_defaults();
+        let mut registry = crate::agent::harness::ToolRegistry::with_defaults();
         registry.register(Box::new(Probe(observed.clone())));
-        let _owner =
-            crate::harness::run_identity::LiveTurnScope::enter(Some("fixture-loop-owner".into()));
+        let _owner = crate::agent::harness::run_identity::LiveTurnScope::enter(Some(
+            "fixture-loop-owner".into(),
+        ));
         let mut history = vec![ChatMsg::user("Use attribution_probe once, then finish.")];
-        let result = crate::harness::run_turn(
+        let result = crate::agent::harness::run_turn(
             &*wrapper,
             &registry,
             &mut history,
@@ -1623,11 +1628,11 @@ fn attribution_shared_fallback_keeps_concurrent_callers_separate() {
                 club.chat(&[ChatMsg::user(prompt)], &[]).unwrap();
                 barrier.wait();
                 assert_eq!(club.resolved_route_identity().model.as_deref(), Some(model));
-                let _live = crate::harness::run_identity::LiveModelScope::enter(
+                let _live = crate::agent::harness::run_identity::LiveModelScope::enter(
                     club.resolved_route_identity().model,
                 );
                 assert!(
-                    crate::tools::submit_identity::stamp("yukon submit", None)
+                    crate::agent::tools::submit_identity::stamp("yukon submit", None)
                         .unwrap()
                         .unwrap()
                         .command
@@ -1779,7 +1784,7 @@ fn in_hand_mode_is_cached_until_the_active_route_changes() {
 
 #[test]
 fn banned_boxes_release_path_is_seed_once() {
-    let src = include_str!("../../../cockpit/src/club/bag.rs");
+    let src = include_str!("../../../cockpit/src/agent/club/bag.rs");
     let start = src
         .find("pub(crate) fn banned_boxes()")
         .expect("banned_boxes present");
@@ -1871,7 +1876,11 @@ fn resolve_driver_accepts_mathgod_aliases() {
         name: "mathgod".to_string(),
         slots: vec![Slot {
             label: "mathgod".to_string(),
-            club: Arc::new(crate::swarm::SwarmClub::mathgod(sol, grok, Vec::new())),
+            club: Arc::new(crate::agent::swarm::SwarmClub::mathgod(
+                sol,
+                grok,
+                Vec::new(),
+            )),
             available,
         }],
         active: 0,
@@ -7692,8 +7701,9 @@ fn glm_provider_namespace_survives_model_labels_and_custom_endpoints() {
             assert_eq!(club.model_identity().as_deref(), Some(model));
             for (_, club, _) in &links {
                 assert_eq!(club.env_namespace(), Some("GLM"));
-                let budget =
-                    crate::harness::TaskOutputBudget::from_route_metadata(&club.route_metadata());
+                let budget = crate::agent::harness::TaskOutputBudget::from_route_metadata(
+                    &club.route_metadata(),
+                );
                 let encoded = serde_json::to_value(budget).unwrap();
                 assert_eq!(encoded["policy"], "explicit");
                 assert_eq!(encoded["tokens"], 1024);
@@ -7836,9 +7846,9 @@ fn output_budget_configured_openrouter_namespace_reaches_wire_and_task_receipt()
         requests[0].contains("\"max_tokens\":8192"),
         "selected seat cap must reach wire"
     );
-    let encoded = serde_json::to_value(crate::harness::TaskOutputBudget::from_route_metadata(
-        &club.route_metadata(),
-    ))
+    let encoded = serde_json::to_value(
+        crate::agent::harness::TaskOutputBudget::from_route_metadata(&club.route_metadata()),
+    )
     .unwrap();
     assert_eq!(encoded["tokens"], 8192);
     assert_eq!(encoded["provenance"], "ANGEL_OPENROUTER_MAX_TOKENS");
@@ -8081,7 +8091,7 @@ fn provider_recovery_glm_keepalive_partial_prose_is_marked_interrupted() {
         visible.contains("provider stream ended before completion"),
         "live partial looked complete: {visible}"
     );
-    let usage = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let usage = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (usage.attempts, usage.input, usage.output, usage.cache_read),
         (1, Some(7), Some(2), Some(4))
@@ -8141,7 +8151,7 @@ fn provider_recovery_glm_cut_tool_is_not_replayed_and_next_call_is_clean() {
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].id, "fresh");
     assert_eq!(calls[0].args, serde_json::json!({"path":"owned.txt"}));
-    let usage = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let usage = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (usage.attempts, usage.input, usage.output),
         (2, Some(18), Some(5))
@@ -8179,7 +8189,7 @@ fn provider_recovery_exhausted_status(status: &str, count: usize, usage_expected
     assert!(reply.unwrap_err().contains(&status[..3]));
     assert!(began.elapsed() < Duration::from_secs(4));
     assert_eq!(hits.load(Ordering::SeqCst), count);
-    let usage = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let usage = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(usage.attempts, count as u64);
     if usage_expected {
         assert_eq!(
@@ -8292,7 +8302,7 @@ fn auth_matrix_http_bearer_and_redacted_errors() {
             !err.contains(secret),
             "{label}: secret leaked in error: {err}"
         );
-        let identity = crate::harness::run_identity::endpoint_identity(&base);
+        let identity = crate::agent::harness::run_identity::endpoint_identity(&base);
         assert!(identity.contains("insecure-local"), "{label}: {identity}");
         rows.push(format!("http|{label}|pass|{identity}"));
     }
@@ -8305,7 +8315,7 @@ fn auth_matrix_http_bearer_and_redacted_errors() {
     assert!(!err.contains(secret), "tls reject leaked secret: {err}");
     rows.push(format!(
         "https|plain-http-reject|pass|{}",
-        crate::harness::run_identity::endpoint_identity(&https)
+        crate::agent::harness::run_identity::endpoint_identity(&https)
     ));
     if std::env::var_os("ANGEL_J_WRITE_AUTH_MATRIX").is_some() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

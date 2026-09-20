@@ -336,7 +336,9 @@ fn a_completed_lesson_can_be_replaced_and_world_reset_clears_it() {
         "A program used in computer graphics rendering."
     ));
     assert_eq!(
-        stage.lesson().map(crate::term::lookup::QuickLookup::term),
+        stage
+            .lesson()
+            .map(crate::ui::term::lookup::QuickLookup::term),
         Some("shader")
     );
     assert_eq!(stage.lesson_scroll(), 0);
@@ -352,7 +354,7 @@ fn a_completed_lesson_can_be_replaced_and_world_reset_clears_it() {
 #[test]
 fn a_new_local_lesson_replaces_loading_enrichment_without_waiting() {
     let mut stage = Scryglass::default();
-    stage.queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+    stage.queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
         title: "Poisson distribution",
         summary: "A discrete probability distribution.",
         source_url: "https://en.wikipedia.org/?curid=24268",
@@ -360,14 +362,16 @@ fn a_new_local_lesson_replaces_loading_enrichment_without_waiting() {
     assert!(stage.begin_lesson("Poisson".to_string()));
     assert!(stage.lesson_loading());
 
-    stage.queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+    stage.queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
         title: "Matrix",
         summary: "A rectangular array in linear algebra.",
         source_url: "https://en.wikipedia.org/?curid=189106",
     });
     assert!(stage.begin_lesson("matrix".to_string()));
     assert_eq!(
-        stage.lesson().map(crate::term::lookup::QuickLookup::term),
+        stage
+            .lesson()
+            .map(crate::ui::term::lookup::QuickLookup::term),
         Some("matrix")
     );
     assert_eq!(stage.lesson_scroll(), 0);
@@ -392,7 +396,7 @@ fn catalog_selection_wraps_and_study_back_returns_to_the_same_shelf() {
     stage.move_catalog_selection(-1);
     assert_eq!(
         stage.catalog_selection(),
-        crate::library::CURRICULUM.len() - 1
+        crate::knowledge::library::CURRICULUM.len() - 1
     );
 }
 
@@ -411,7 +415,7 @@ fn camera_readout_is_truthful_about_follow_and_free_look() {
 #[test]
 fn loading_lesson_can_be_cancelled_without_reappearing() {
     let mut stage = Scryglass::default();
-    stage.queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+    stage.queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
         title: "Poisson distribution",
         summary: "A discrete probability distribution.",
         source_url: "https://en.wikipedia.org/?curid=24268",
@@ -1070,8 +1074,8 @@ fn native_video_old_generation_cannot_publish_state_or_fault_after_seek() {
 }
 
 /// A mid-journey world whose ride frames feed the stage paint during turns.
-fn riding_world() -> crate::world_viz::World {
-    let mut world = crate::world_viz::World::new(2024);
+fn riding_world() -> crate::stage::world_viz::World {
+    let mut world = crate::stage::world_viz::World::new(2024);
     world.note_tool_call("write_file", "forging a plate");
     for _ in 0..8 {
         world.tick();
@@ -1179,7 +1183,7 @@ fn world_ink_quantizer_is_gentle_and_idempotent() {
 fn ride_frame_ink_runs_bound_the_sgr_flood() {
     let _guard = crate::tests::env_lock();
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
-    let _pin = crate::world_viz::world3d::pin_world3d();
+    let _pin = crate::stage::world_viz::world3d::pin_world3d();
     let mut world = riding_world();
     let first = world
         .scryglass_frame_paced(100, 38, false, 0.0, 0.0, 1.05)
@@ -1276,7 +1280,8 @@ fn ride_frame_ink_runs_bound_the_sgr_flood() {
 fn dotmax_frame_ink_runs_are_measured_beside_the_ride() {
     let _guard = crate::tests::env_lock();
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
-    let _pin = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _pin =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = riding_world();
     let first = world
         .scryglass_frame_paced(100, 38, false, 0.0, 0.0, 1.05)

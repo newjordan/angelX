@@ -4,11 +4,14 @@
 //! roomy header's identity/telemetry, and route locking under a live job.
 
 use super::{render_app_text, seed_preview_app};
+use crate::Viewer;
+use crate::agent::club::Bag;
 use crate::app::AgentButton;
-use crate::club::Bag;
-use crate::draw::ui;
+use crate::app::control;
 use crate::tests::env_lock;
-use crate::{Viewer, app_control, mouse, panels};
+use crate::ui::draw::ui;
+use crate::ui::mouse;
+use crate::ui::panels;
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 
 #[test]
@@ -239,9 +242,9 @@ fn route_controls_are_locked_while_a_job_owns_the_turn() {
         ("alpha", &[("model-a", true), ("model-b", true)]),
         ("beta", &[("model-c", true)]),
     ]);
-    app.open_agent_menu(crate::agent::controls::AgentMenuKind::Model);
+    app.open_agent_menu(crate::ui::agent_panel::controls::AgentMenuKind::Model);
     assert!(app.agent_menu.is_some());
-    let (_tx, job) = app_control::BackgroundJob::channel("test background job", "Retry the test");
+    let (_tx, job) = control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(job);
     let text = render_app_text(&mut app, 144, 48);
     assert!(
@@ -257,8 +260,8 @@ fn route_controls_are_locked_while_a_job_owns_the_turn() {
     );
     app.on_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
     app.on_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
-    app.do_action(crate::app_control::Action::NextBox);
-    app.do_action(crate::app_control::Action::NextMode);
+    app.do_action(crate::app::control::Action::NextBox);
+    app.do_action(crate::app::control::Action::NextMode);
     assert_eq!(app.bag.in_hand_label(), "alpha");
     assert_eq!(app.bag.in_hand_mode().as_deref(), Some("model-a"));
 }

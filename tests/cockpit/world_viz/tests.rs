@@ -375,7 +375,7 @@ fn world_status_line_stays_within_one_terminal_cell_budget() {
     w.gain_note = "+3 renown · verified discovery".to_string();
     w.gain_until = w.tick + 20;
 
-    let mut village = crate::village::VillageState::default();
+    let mut village = crate::stage::village::VillageState::default();
     village.chatter.push("雪の便りを待っています".repeat(8));
     w.enable_village(village, None, &[]);
 
@@ -431,7 +431,7 @@ fn world_status_line_drops_chatter_before_gain_without_fragments() {
     w.gain_note = "+3 renown · discovery".to_string();
     w.gain_until = w.tick + 20;
     let chatter_note = "雪の便り".repeat(16);
-    let mut village = crate::village::VillageState::default();
+    let mut village = crate::stage::village::VillageState::default();
     village.chatter.push(chatter_note.clone());
     w.enable_village(village, None, &[]);
 
@@ -470,7 +470,7 @@ fn world_status_line_drops_chatter_before_gain_without_fragments() {
             .iter()
             .find(|span| span.content.contains(&w.gain_note))
             .and_then(|span| span.style.fg),
-        Some(crate::hud::HUD_GOLD)
+        Some(crate::ui::hud::HUD_GOLD)
     );
     assert_eq!(
         roomy
@@ -478,7 +478,7 @@ fn world_status_line_drops_chatter_before_gain_without_fragments() {
             .iter()
             .find(|span| span.content.contains('\u{201C}'))
             .and_then(|span| span.style.fg),
-        Some(crate::hud::HUD_BLUE)
+        Some(crate::ui::hud::HUD_BLUE)
     );
 }
 
@@ -560,19 +560,19 @@ fn flat_render(w: &World, width: u16, height: u16) -> String {
 fn chapel_status_surfaces_typed_memory_health_semantically() {
     for (health, label, color) in [
         (
-            crate::memory::store::MemoryHealth::Disabled,
+            crate::knowledge::memory::store::MemoryHealth::Disabled,
             "memory disabled",
-            crate::hud::HUD_DIM,
+            crate::ui::hud::HUD_DIM,
         ),
         (
-            crate::memory::store::MemoryHealth::Healthy,
+            crate::knowledge::memory::store::MemoryHealth::Healthy,
             "memory healthy",
-            crate::hud::HUD_VERIFIED,
+            crate::ui::hud::HUD_VERIFIED,
         ),
         (
-            crate::memory::store::MemoryHealth::Degraded,
+            crate::knowledge::memory::store::MemoryHealth::Degraded,
             "memory degraded",
-            crate::hud::HUD_DANGER,
+            crate::ui::hud::HUD_DANGER,
         ),
     ] {
         let mut world = World::new(7);
@@ -1081,7 +1081,7 @@ fn turn_ended_hidden_stage_clears_work_without_renown() {
     let mut w = World::new(7);
     w.turn_started();
     w.note_tool_call_event(
-        crate::harness::ToolEventId("t1".into()),
+        crate::agent::harness::ToolEventId("t1".into()),
         "read_file",
         "path=src/lib.rs",
     );
@@ -1337,7 +1337,7 @@ fn streak_flame_rides_the_wide_view() {
 
 // ─── the village: the fleet mirrored into the town ──────────────────────
 
-use crate::village::{ForgeSnapshot, VillagePulse, VillageState};
+use crate::stage::village::{ForgeSnapshot, VillagePulse, VillageState};
 
 const HEAD_IDS: &[&str] = &["dice", "math", "ocr"];
 
@@ -1390,7 +1390,7 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     assert!(w.tick < w.firework_until, "promotion fires the celebration");
     assert_eq!(w.renown, renown_before + 10, "promotion credits renown");
     assert!(w.activity.contains("promoted"), "{}", w.activity);
-    let saved = crate::village::load_state(Some(&path));
+    let saved = crate::stage::village::load_state(Some(&path));
     assert_eq!(saved.last_adapter.as_deref(), Some("v1"));
     assert_eq!(saved.smithy_level, 1, "the upgrade is permanent");
     assert_eq!(saved.dataset_total, 12, "granary level persists");
@@ -1410,7 +1410,7 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     w.note_village(VillagePulse::default());
     assert!(w.village_report().contains("DARK"));
     assert_eq!(
-        crate::village::load_state(Some(&path)).smithy_level,
+        crate::stage::village::load_state(Some(&path)).smithy_level,
         1,
         "an outage never erases the village"
     );
@@ -1469,7 +1469,7 @@ fn a_world_without_a_village_reports_and_renders_as_before() {
 
 #[test]
 fn muster_seat_states_recolor_the_ranks() {
-    use crate::viz::agentviz::SeatState;
+    use crate::ui::viz::agentviz::SeatState;
     let mut w = World::new(7);
     w.form_muster("proposer wave 2", 4);
     assert_eq!(w.muster.len(), 4);
@@ -1538,7 +1538,8 @@ fn note_loop_adapter_emits_iteration_and_stall_into_the_quest() {
 
 #[test]
 fn cinematic_key_tracks_the_quest_state() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let start = |kind: LoopKind| AdventureEvent::LoopStarted {
         kind,
         task: String::new(),

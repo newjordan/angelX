@@ -5,9 +5,9 @@ use std::io::Read;
 fn trajectory_c03c_attempt_counts_utf8_partial_stream_and_unknown() {
     let _lock = crate::tests::env_lock();
     let club = HttpClub::new("fixture", "http://127.0.0.1:9/v1", "fixture", None);
-    crate::harness::reset_turn_ledger(&club);
-    crate::harness::note_timing_origin(Instant::now());
-    crate::harness::begin_model_request();
+    crate::agent::harness::reset_turn_ledger(&club);
+    crate::agent::harness::note_timing_origin(Instant::now());
+    crate::agent::harness::begin_model_request();
     let wire = "data: π\n\ndata: [DONE]\n\n".as_bytes();
     {
         let mut attempt = club.accounting.attempt();
@@ -19,12 +19,12 @@ fn trajectory_c03c_attempt_counts_utf8_partial_stream_and_unknown() {
     {
         let _unobserved = club.accounting.attempt();
     }
-    let samples = crate::harness::provider_call_samples();
+    let samples = crate::agent::harness::provider_call_samples();
     assert_eq!(samples[0]["request_bytes"], "{\"prompt\":\"π\"}".len());
     assert_eq!(samples[0]["response_bytes"], 7);
     assert!(samples[1]["request_bytes"].is_null());
     assert!(samples[1]["response_bytes"].is_null());
-    crate::harness::end_model_request();
+    crate::agent::harness::end_model_request();
 }
 
 #[test]
@@ -36,9 +36,9 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
         "fixture",
         None,
     );
-    crate::harness::reset_turn_ledger(&club);
-    crate::harness::note_timing_origin(Instant::now());
-    crate::harness::begin_model_request();
+    crate::agent::harness::reset_turn_ledger(&club);
+    crate::agent::harness::note_timing_origin(Instant::now());
+    crate::agent::harness::begin_model_request();
     let before = club.usage_accounting();
     {
         let mut missing = club.accounting.attempt();
@@ -58,7 +58,7 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
         commit.observe(&serde_json::json!({"usage":{"completion_tokens":6}}));
         commit.observe(&serde_json::json!({"usage":null}));
     }
-    let samples = crate::harness::provider_call_samples();
+    let samples = crate::agent::harness::provider_call_samples();
     assert_eq!(samples[0]["accounting_status"], "unreported");
     for key in [
         "raw_input",
@@ -77,12 +77,12 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
         serde_json::json!({"raw_input":100,"paid_input":60,
             "cached_input":40,"output":6,"generation_output":6,"total_tokens":106,"response_bytes":7})
     );
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert!(!report.core_complete);
     // The shared UI report intentionally retains observed subtotals;
     // only the durable ledger requires complete measurement coverage.
     assert_eq!(report.total_prompt, Some(100));
-    let ledger_usage = crate::harness::complete_ledger_usage(&report);
+    let ledger_usage = crate::agent::harness::complete_ledger_usage(&report);
     for field in [
         "input",
         "output",
@@ -97,7 +97,7 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
     }
     assert_eq!(ledger_usage["accounting_status"], "partial");
     assert_eq!(ledger_usage["reported_attempts"]["input"], 1);
-    crate::harness::end_model_request();
+    crate::agent::harness::end_model_request();
 }
 
 #[test]

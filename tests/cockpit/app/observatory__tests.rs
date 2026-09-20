@@ -176,7 +176,7 @@ fn renderer_keeps_campaign_rail_and_evidence_ledger_in_one_native_frame() {
     terminal
         .draw(|frame| {
             let area = frame.area();
-            let outer = crate::hud::hud_block(state.title());
+            let outer = crate::ui::hud::hud_block(state.title());
             let inner = outer.inner(area);
             frame.render_widget(outer, area);
             render(frame, &mut state, inner, 1.7);
@@ -253,7 +253,7 @@ fn empty_composer_navigates_gallery_but_typed_commands_keep_route_and_cursor() {
     let mut app = crate::App::preview(crate::Viewer::new());
     app.observatory = ObservatoryState::with_catalog(catalog);
     app.focus_module("artifacts");
-    app.scryglass.surface = crate::scryglass::StageSurface::Observatory;
+    app.scryglass.surface = crate::ui::scryglass::StageSurface::Observatory;
     let route = (app.bag.in_hand_label().to_string(), app.bag.in_hand_mode());
 
     app.on_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
@@ -326,8 +326,8 @@ fn focused_observatory_keeps_printable_keys_in_the_composer_and_escape_closes() 
     app.observatory = ObservatoryState::with_catalog(catalog);
     app.focus_module("artifacts");
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Observatory);
-    app.scryglass.surface = crate::scryglass::StageSurface::Observatory;
+        .navigate(crate::ui::scryglass::StageRoute::Observatory);
+    app.scryglass.surface = crate::ui::scryglass::StageSurface::Observatory;
 
     for character in "mpvrhjkw".chars() {
         app.on_key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE));
@@ -337,7 +337,7 @@ fn focused_observatory_keeps_printable_keys_in_the_composer_and_escape_closes() 
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::scryglass::StageRoute::Realm
+        crate::ui::scryglass::StageRoute::Realm
     );
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert!(

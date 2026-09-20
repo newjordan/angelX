@@ -1,10 +1,10 @@
 use super::*;
-use crate::club::{ClubReply, RouteIdentity};
-use crate::harness::swarm_compile::schema::{
+use crate::agent::club::{ClubReply, RouteIdentity};
+use crate::agent::harness::swarm_compile::schema::{
     CampaignOwnership, Contribution, ReviewVerdict as SwarmVerdict, SwarmRun,
 };
-use crate::harness::swarm_compile::{policy::PolicyStore, store::RunStore};
-use crate::harness::{AlignmentCriterion, AlignmentProof, ChatMsg, Club, ToolCall, ToolDef};
+use crate::agent::harness::swarm_compile::{policy::PolicyStore, store::RunStore};
+use crate::agent::harness::{AlignmentCriterion, AlignmentProof, ChatMsg, Club, ToolCall, ToolDef};
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;

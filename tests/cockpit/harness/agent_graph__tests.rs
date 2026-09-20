@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{ClubReply, StreamDelta};
+use crate::agent::club::{ClubReply, StreamDelta};
 use std::collections::VecDeque;
 
 struct StubClub {
@@ -410,7 +410,7 @@ fn agent_graph_live_shaped_final_usage_without_limits() {
     let _deadline = crate::tests::TestEnvGuard::unset("ANGEL_GRAPH_DEADLINE_SECS");
     let _tokens = crate::tests::TestEnvGuard::unset("ANGEL_FORMATION_TOKEN_BUDGET");
     let _wall = crate::tests::TestEnvGuard::unset("ANGEL_FORMATION_WALL_SECS");
-    crate::club::resync_stream_knobs_from_env();
+    crate::agent::club::resync_stream_knobs_from_env();
     let _allocation = super::super::formation_budget::enter(None);
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
@@ -442,7 +442,7 @@ fn agent_graph_live_shaped_final_usage_without_limits() {
         std::thread::sleep(Duration::from_millis(30));
         socket.write_all(b"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":120,\"completion_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":30},\"completion_tokens_details\":{\"reasoning_tokens\":5}}}\n\ndata: [DONE]\n\n").unwrap();
     });
-    let club = Arc::new(crate::club::HttpClub::new(
+    let club = Arc::new(crate::agent::club::HttpClub::new(
         "g01g-fixture",
         &url,
         "g01g-fixture",
@@ -522,7 +522,7 @@ fn agent_graph_stalled_stream_retries_and_sums_usage() {
             let _ = socket.write_all(b"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":50,\"completion_tokens\":10,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\ndata: [DONE]\n\n");
         }
     });
-    let club = Arc::new(crate::club::HttpClub::new(
+    let club = Arc::new(crate::agent::club::HttpClub::new(
         "g01i-stall",
         &url,
         "g01i-stall",
@@ -696,7 +696,7 @@ fn agent_graph_tool_bearing_node_spends_the_explicit_retry_budget_once() {
     let _wall = crate::tests::TestEnvGuard::unset("ANGEL_FORMATION_WALL_SECS");
     let _allocation = super::super::formation_budget::enter(None);
     let (url, hits, stop) = graph_fault_server("cut", 1_200);
-    let club = Arc::new(crate::club::HttpClub::new(
+    let club = Arc::new(crate::agent::club::HttpClub::new(
         "g01j-budget",
         &url,
         "g01j-budget",
@@ -749,7 +749,7 @@ fn agent_graph_toolless_node_does_not_retry_a_permanent_failure() {
     let _wall = crate::tests::TestEnvGuard::unset("ANGEL_FORMATION_WALL_SECS");
     let _allocation = super::super::formation_budget::enter(None);
     let (url, hits, stop) = graph_fault_server("permanent", 0);
-    let club = Arc::new(crate::club::HttpClub::new(
+    let club = Arc::new(crate::agent::club::HttpClub::new(
         "g01k-permanent",
         &url,
         "g01k-permanent",
@@ -805,11 +805,11 @@ impl Club for AllocatedGraphClub {
         let budget = super::super::formation_budget::current().unwrap();
         let reservation = budget.reserve(self.label(), 10, 10)?;
         self.calls.fetch_add(1, Ordering::SeqCst);
-        reservation.settle(Some(crate::club::UsageObservation {
+        reservation.settle(Some(crate::agent::club::UsageObservation {
             raw: [Some(10), Some(10), Some(2), Some(0), Some(0)],
-            contract: crate::club::UsageContract {
-                cache: crate::club::CacheConvention::Included,
-                reasoning: crate::club::ReasoningConvention::Included,
+            contract: crate::agent::club::UsageContract {
+                cache: crate::agent::club::CacheConvention::Included,
+                reasoning: crate::agent::club::ReasoningConvention::Included,
             },
             ..Default::default()
         }));
@@ -1339,7 +1339,7 @@ fn completed_run_persists_auditable_episode_sidecar() {
             .any(|event| event.contains("receipt persisted"))
     );
     let path = root
-        .join(crate::workspace_store::workspace_key(&workspace))
+        .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
         .join(format!("{}.json", outcome.episode.episode_id));
     let workspace_record_dir = path
@@ -1962,7 +1962,7 @@ gate = { verdict = true, retry = "write", max_retries = 1 }
     assert!(error.chars().count() < 2_000, "failure payload unbounded");
 
     let path = receipts
-        .join(crate::workspace_store::workspace_key(&workspace))
+        .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
         .join(format!("{episode_id}.json"));
     let persisted: GraphEpisodeV1 =
@@ -2023,7 +2023,7 @@ fn operator_cancel_is_attributed_in_the_sealed_node_receipt() {
     );
     assert_eq!(trace.stopped_at, trace.finished_at);
 
-    let cancel_digest = crate::cut::sha256_hex(b"cancelled by operator");
+    let cancel_digest = crate::knowledge::cut::sha256_hex(b"cancelled by operator");
     assert_eq!(
         trace.termination.detail_sha256.as_deref(),
         Some(cancel_digest.as_str())
@@ -2091,7 +2091,7 @@ fn failed_graph_receipt_bounds_raw_provider_errors_but_keeps_their_digest() {
     .unwrap_err();
     let failure = error.run_failure().expect("sealed provider failure");
     let trace = &failure.episode.traces[0];
-    let expected_digest = crate::cut::sha256_hex(raw.as_bytes());
+    let expected_digest = crate::knowledge::cut::sha256_hex(raw.as_bytes());
 
     assert_eq!(
         trace.termination.detail_sha256.as_deref(),
@@ -2474,7 +2474,7 @@ fn reward_binding_cli_round_trips_a_real_episode_end_to_end() {
     assert_eq!(receipt["reward"]["score"], 1.0);
     // And the receipt the CLI printed is byte-identical to the store's.
     let binding_path = root
-        .join(crate::workspace_store::workspace_key(&workspace))
+        .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
         .join(format!("{episode_id}.{trace_id}.reward.json"));
     let on_disk: serde_json::Value =
@@ -2535,7 +2535,7 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
 
     // The binding receipt is owner-only on disk.
     let binding_path = root
-        .join(crate::workspace_store::workspace_key(&workspace))
+        .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
         .join(format!("{episode_id}.{trace_id}.reward.json"));
     assert!(binding_path.is_file(), "{}", binding_path.display());
@@ -2614,7 +2614,7 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
 
     // A tampered episode receipt fails its digest audit before any bind.
     let episode_path = root
-        .join(crate::workspace_store::workspace_key(&workspace))
+        .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
         .join(format!("{episode_id}.json"));
     std::fs::write(&episode_path, "tampered").expect("tamper fixture");

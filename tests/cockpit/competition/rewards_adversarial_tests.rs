@@ -22,7 +22,9 @@ fn corrections_preserve_original_reward_identity() {
             4 => switched.competition.profile_id = "other-profile".into(),
             5 => switched.competition.hardware_id = "other-hardware".into(),
             6 => switched.objective.version = "objective-v2".into(),
-            _ => switched.profile.policy_sha256 = crate::cut::sha256_hex(b"other-policy"),
+            _ => {
+                switched.profile.policy_sha256 = crate::knowledge::cut::sha256_hex(b"other-policy")
+            }
         }
         let correction = official(
             &switched,

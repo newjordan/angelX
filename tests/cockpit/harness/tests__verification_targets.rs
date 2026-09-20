@@ -99,7 +99,7 @@ fn target_check(registry: &ToolRegistry, args: &str) -> (String, Option<Verifica
 fn verification_target_default_check_cannot_certify_changed_nondefault_worker() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _target = EnvGuard::set("CARGO_TARGET_DIR", fixture.target.to_str().unwrap());
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
@@ -125,7 +125,7 @@ fn verification_target_default_check_cannot_certify_changed_nondefault_worker() 
 fn verification_target_explicit_worker_checks_only_required_changed_target() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _target = EnvGuard::set("CARGO_TARGET_DIR", fixture.target.to_str().unwrap());
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
@@ -160,7 +160,7 @@ fn verification_target_explicit_worker_checks_only_required_changed_target() {
 fn verification_target_explicit_parent_success_is_not_changed_worker_completion() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     let _jobs = EnvGuard::set("CARGO_BUILD_JOBS", "1");
@@ -199,7 +199,7 @@ fn verification_target_explicit_parent_success_is_not_changed_worker_completion(
 fn verification_target_shell_edit_path_included_from_root_belongs_to_worker() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     let _jobs = EnvGuard::set("CARGO_BUILD_JOBS", "1");
@@ -296,7 +296,7 @@ fn verification_target_scoped_green_is_not_reused_or_completion_guarded() {
     let _first = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     let _last = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "0");
     let _post = EnvGuard::set("ANGEL_POST_GREEN_TOOL_BATCHES", "0");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     let _jobs = EnvGuard::set("CARGO_BUILD_JOBS", "1");
@@ -374,7 +374,7 @@ fn verification_target_scoped_green_is_not_reused_or_completion_guarded() {
 fn verification_target_ignored_shell_worker_cannot_hide_behind_changed_parent() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     let _jobs = EnvGuard::set("CARGO_BUILD_JOBS", "1");
@@ -474,7 +474,7 @@ fn target_ignore_worker(fixture: &TargetFixture) {
 fn verification_target_finite_shell_grant_covers_ignored_worker_and_denies_other_files() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     target_ignore_worker(&fixture);
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
@@ -511,7 +511,7 @@ fn verification_target_finite_shell_grant_covers_ignored_worker_and_denies_other
 fn verification_target_read_only_preserves_scope_and_partial_failure_never_resets() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let registry = ToolRegistry::with_team(fixture.root.clone(), Vec::new());
     let original = std::fs::read(fixture.root.join("parent.rs")).unwrap();
@@ -568,7 +568,7 @@ fn verification_target_read_only_preserves_scope_and_partial_failure_never_reset
 fn verification_target_scope_rejects_redirects_controls_and_read_only_escalation() {
     let _lock = crate::tests::env_lock();
     let fixture = TargetFixture::new();
-    let tool = crate::tools::shell::ShellTool::in_dir(fixture.root.clone());
+    let tool = crate::agent::tools::shell::ShellTool::in_dir(fixture.root.clone());
     #[cfg(unix)]
     std::os::unix::fs::symlink("worker", fixture.root.join("redirected")).unwrap();
     for paths in [
@@ -591,7 +591,7 @@ fn verification_target_scope_rejects_redirects_controls_and_read_only_escalation
         tool.call(&serde_json::json!({"command":"true", "read_only":"true"}))
             .is_err()
     );
-    let reviewer = crate::tools::shell::ShellTool::read_only_in_dir(fixture.root.clone());
+    let reviewer = crate::agent::tools::shell::ShellTool::read_only_in_dir(fixture.root.clone());
     assert!(reviewer.call(&serde_json::json!({"command":"printf 'bad' > parent.rs", "read_only":false, "write_paths":["parent.rs"]})).is_err());
 }
 
@@ -599,7 +599,7 @@ fn verification_target_scope_rejects_redirects_controls_and_read_only_escalation
 fn verification_target_spawn_scope_hook_uses_resolved_grants_without_model_calls() {
     let _lock = crate::tests::env_lock();
     let fixture = TargetFixture::new();
-    let tool = crate::harness::spawn::SpawnTool::new(fixture.root.clone(), None, Vec::new());
+    let tool = crate::agent::harness::spawn::SpawnTool::new(fixture.root.clone(), None, Vec::new());
     for args in [
         serde_json::json!({}),
         serde_json::json!({"tools":"none"}),
@@ -612,12 +612,12 @@ fn verification_target_spawn_scope_hook_uses_resolved_grants_without_model_calls
         );
     }
     assert!(tool.workspace_write_scope_is_opaque(&serde_json::json!({"tools":"code"})));
-    let reviewer = tool.nested_for_test(crate::harness::spawn::Grant::ReadOnly);
+    let reviewer = tool.nested_for_test(crate::agent::harness::spawn::Grant::ReadOnly);
     assert!(
         !reviewer.workspace_write_scope_is_opaque(&serde_json::json!({"tools":"code"})),
         "a rejected grant cannot escalate the reviewer"
     );
-    struct FailedWriter(crate::harness::spawn::SpawnTool);
+    struct FailedWriter(crate::agent::harness::spawn::SpawnTool);
     impl Tool for FailedWriter {
         fn name(&self) -> &str {
             "owned_failed_spawn"
@@ -660,7 +660,7 @@ fn verification_target_spawn_scope_hook_uses_resolved_grants_without_model_calls
 
 #[test]
 fn verification_target_graph_scope_uses_loaded_node_grants_without_model_calls() {
-    use crate::harness::agent_graph::{GraphSpec, graph_has_workspace_writes};
+    use crate::agent::harness::agent_graph::{GraphSpec, graph_has_workspace_writes};
     for (grant, expected) in [
         (None, false),
         (Some("read_only"), false),
@@ -680,7 +680,7 @@ fn verification_target_turn_scoped_success_and_opaque_failure_remain_finite() {
     let _first = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     let _last = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "0");
     let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     let _jobs = EnvGuard::set("CARGO_BUILD_JOBS", "1");
     struct Sequence {

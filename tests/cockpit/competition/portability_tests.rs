@@ -51,7 +51,9 @@ fn intent(subject: &str) -> ActionIntentV1 {
         },
         kind: ActionKindV1::DispatchWorker,
         subject_id: subject.into(),
-        payload_sha256: crate::cut::sha256_hex(format!("portable-payload:{subject}").as_bytes()),
+        payload_sha256: crate::knowledge::cut::sha256_hex(
+            format!("portable-payload:{subject}").as_bytes(),
+        ),
         intent_version: "v1".into(),
     };
     intent.action_key = canonical_action_key(&intent).unwrap();
@@ -230,7 +232,7 @@ fn portable_component_schemas_are_validated() {
         if had_newline {
             body.push(b'\n');
         }
-        entry["content_sha256"] = crate::cut::sha256_hex(&body).into();
+        entry["content_sha256"] = crate::knowledge::cut::sha256_hex(&body).into();
         entry["body"] = serde_json::to_value(body).unwrap();
         reseal(&mut value);
         let target = TestRoot::new("component-schema-target");
@@ -263,5 +265,5 @@ pub(super) fn reseal(value: &mut serde_json::Value) {
         entries,
     ))
     .unwrap();
-    value["bundle_sha256"] = crate::cut::sha256_hex(&body).into();
+    value["bundle_sha256"] = crate::knowledge::cut::sha256_hex(&body).into();
 }

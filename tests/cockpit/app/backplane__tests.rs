@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::ChatRole;
+use crate::agent::club::ChatRole;
 
 fn candidate(
     id: &str,
@@ -373,7 +373,10 @@ fn broker_ownership_preserves_role_lookalikes_and_trusted_persisted_blocks() {
     assert_eq!(serde_json::to_value(&history).unwrap(), expected);
     KnowledgeBroker::replace(&mut history, &selection);
     assert_eq!(history.len(), 10);
-    assert_eq!(history.last().unwrap().role, crate::club::ChatRole::Harness);
+    assert_eq!(
+        history.last().unwrap().role,
+        crate::agent::club::ChatRole::Harness
+    );
     assert_eq!(KnowledgeBroker::existing_candidates(&history, "p").len(), 1);
     let once = serde_json::to_value(&history).unwrap();
     KnowledgeBroker::replace(&mut history, &selection);
@@ -510,13 +513,13 @@ fn broker_provenance_unowned_marker_cannot_mask_legacy_attribution() {
     let mut history = vec![
         ChatMsg::system(format!(
             "{}\nreviewed repo fact\n{}",
-            crate::dossier::DOSSIER_BLOCK_HEADER,
-            crate::dossier::DOSSIER_BLOCK_SENTINEL
+            crate::knowledge::dossier::DOSSIER_BLOCK_HEADER,
+            crate::knowledge::dossier::DOSSIER_BLOCK_SENTINEL
         )),
         ChatMsg::user(format!(
             "{}\n- operator fact\n{}\n\nactual task",
-            crate::memory::MEMORY_BLOCK_HEADER,
-            crate::memory::MEMORY_BLOCK_SENTINEL
+            crate::knowledge::memory::MEMORY_BLOCK_HEADER,
+            crate::knowledge::memory::MEMORY_BLOCK_SENTINEL
         )),
     ];
     let expected = broker_provenance_outcome(&history);
@@ -574,13 +577,13 @@ fn shadow_prompt_layout_still_emits_source_attribution() {
     let history = vec![
         ChatMsg::system(format!(
             "{}\nreviewed repo fact\n{}",
-            crate::dossier::DOSSIER_BLOCK_HEADER,
-            crate::dossier::DOSSIER_BLOCK_SENTINEL
+            crate::knowledge::dossier::DOSSIER_BLOCK_HEADER,
+            crate::knowledge::dossier::DOSSIER_BLOCK_SENTINEL
         )),
         ChatMsg::user(format!(
             "{}\n- operator fact\n{}\n\nactual task",
-            crate::memory::MEMORY_BLOCK_HEADER,
-            crate::memory::MEMORY_BLOCK_SENTINEL
+            crate::knowledge::memory::MEMORY_BLOCK_HEADER,
+            crate::knowledge::memory::MEMORY_BLOCK_SENTINEL
         )),
     ];
     let (ids, digests) = selected_context(&history);

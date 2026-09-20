@@ -27,7 +27,7 @@ fn result_tag_wire_names_remain_v1_compatible() {
 }
 
 pub(super) fn digest(label: &str) -> String {
-    crate::cut::sha256_hex(label.as_bytes())
+    crate::knowledge::cut::sha256_hex(label.as_bytes())
 }
 
 fn competition() -> CompetitionKeyV1 {

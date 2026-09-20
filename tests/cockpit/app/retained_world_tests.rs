@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod retained_world {
-    use crate::world_viz::{Building, World, world3d};
+    use crate::stage::world_viz::{Building, World, world3d};
 
     #[test]
     fn dotmax_outdoors_and_all_eight_room_plates_round_trip() {
@@ -24,10 +24,10 @@ mod retained_world {
             let mut world = World::new(71);
             world.settle_at_for_test(building);
             assert!(!world.ambient_interior_visible());
-            let stage = crate::scryglass::Scryglass::for_world(building);
+            let stage = crate::ui::scryglass::Scryglass::for_world(building);
             assert_eq!(
                 stage.controller.route(),
-                crate::scryglass::StageRoute::Explore(building)
+                crate::ui::scryglass::StageRoute::Explore(building)
             );
             let before = world
                 .scryglass_frame_paced(48, 18, false, 0.0, 0.0, 1.05)
@@ -43,7 +43,7 @@ mod retained_world {
                 world.ambient_interior_visible(),
                 "{building:?}: room plate visible"
             );
-            let frame = world.ambient_frame(crate::viz::lifecycle_viz::MotionMode::Off);
+            let frame = world.ambient_frame(crate::ui::viz::lifecycle_viz::MotionMode::Off);
             assert_eq!(frame.pixels.as_ref().len(), 256 * 224 * 4);
             assert!(
                 frame

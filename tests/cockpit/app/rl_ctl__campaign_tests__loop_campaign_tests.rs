@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::ToolRegistry;
+use crate::agent::harness::ToolRegistry;
 use serde_json::Value;
 
 fn context(club: Arc<dyn Club>) -> LoopCampaignContext {
@@ -37,7 +37,7 @@ impl Club for LoopFixtureClub {
         }
         let hop = self.root_calls.fetch_add(1, Ordering::AcqRel);
         if hop == 0 {
-            return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+            return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                 id: "launch-rl".into(),
                 name: "rl_campaign".into(),
                 args: json!({"action":"run", "rounds":1, "group":2, "samples":2, "verifier_scope":[SCOPE]}),
@@ -114,7 +114,7 @@ fn loop_native_campaign_is_always_advertised_and_runs_through_the_real_tool_turn
     let mut history = vec![ChatMsg::user(
         "Explore improvements for the current loop objective",
     )];
-    let reply = crate::harness::run_turn(
+    let reply = crate::agent::harness::run_turn(
         club.as_ref(),
         &registry,
         &mut history,
@@ -178,7 +178,7 @@ fn loop_native_campaign_is_always_advertised_and_runs_through_the_real_tool_turn
     ));
     app.loop_ctl.id = "loop-fixture".into();
     app.loop_ctl.task = context(club.clone()).task;
-    app.loop_ctl.status = crate::loop_ctl::LoopStatus::Running;
+    app.loop_ctl.status = crate::drive::loop_ctl::LoopStatus::Running;
     app.tools.rl().bind_loop(context(club.clone()));
     let convo = app.loop_iteration_convo();
     assert!(convo.iter().any(|m| m.role == ChatRole::Harness
@@ -229,7 +229,7 @@ fn loop_pause_cancels_a_live_campaign_and_resume_restores_availability() {
         Some(club.clone()),
     ));
     app.loop_ctl.id = "loop-fixture".into();
-    app.loop_ctl.status = crate::loop_ctl::LoopStatus::Running;
+    app.loop_ctl.status = crate::drive::loop_ctl::LoopStatus::Running;
     app.loop_ctl.task = "write the artifact".into();
     app.loop_ctl.workspace = Some(workspace.path().into());
     app.tools.rl().bind_loop(context(club));

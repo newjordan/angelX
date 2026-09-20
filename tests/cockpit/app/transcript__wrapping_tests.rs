@@ -118,12 +118,12 @@ fn chat_roles_align_and_color_wrapped_rows_without_restyling_structured_output()
         assert_eq!(buf[(area.right() - 1, user_end)].symbol(), "d");
         assert_eq!(
             buf[(area.right() - 1, user_end)].fg,
-            crate::hud::HUD_PHOSPHOR
+            crate::ui::hud::HUD_PHOSPHOR
         );
         let agent_y = area.y + message_height(&messages[0], width);
         assert_eq!(buf[(area.x, agent_y)].symbol(), "a");
-        assert_eq!(buf[(area.x, agent_y)].fg, crate::hud::HUD_GOLD);
-        assert_ne!(buf[(area.x + 6, agent_y)].fg, crate::hud::HUD_PHOSPHOR);
+        assert_eq!(buf[(area.x, agent_y)].fg, crate::ui::hud::HUD_GOLD);
+        assert_ne!(buf[(area.x + 6, agent_y)].fg, crate::ui::hud::HUD_PHOSPHOR);
     }
 
     // Do not tint syntax spans, indent/align tables, or recolor tool/status rows.
@@ -162,7 +162,7 @@ fn chat_roles_align_and_color_wrapped_rows_without_restyling_structured_output()
 
 #[test]
 fn multiline_unicode_copy_uses_unpadded_cells_after_wrap_and_scroll() {
-    use crate::mouse::{self, PaneId, PaneRegistry, Selection};
+    use crate::ui::mouse::{self, PaneId, PaneRegistry, Selection};
     use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget};
     let message = Message::new(Role::User, "prefix words wrap here\n界e\u{301}👩‍💻");
     for width in [12, 30, 179] {
@@ -197,7 +197,7 @@ fn multiline_unicode_copy_uses_unpadded_cells_after_wrap_and_scroll() {
 
 #[test]
 fn corrective_user_paste_keeps_code_columns_and_multiline_mouse_copy_unpadded() {
-    use crate::mouse::{self, PaneId, Selection};
+    use crate::ui::mouse::{self, PaneId, Selection};
     use ratatui::{
         buffer::Buffer,
         layout::{Alignment, Rect},
@@ -214,7 +214,10 @@ fn corrective_user_paste_keeps_code_columns_and_multiline_mouse_copy_unpadded() 
             let mut renders = Vec::new();
             let rendered = lines(&messages, "", false, width, &mut renders);
             assert_eq!(rendered[0].alignment, Some(Alignment::Right));
-            assert_eq!(rendered[0].spans[0].style.fg, Some(crate::hud::HUD_PURPLE));
+            assert_eq!(
+                rendered[0].spans[0].style.fg,
+                Some(crate::ui::hud::HUD_PURPLE)
+            );
             assert!(
                 rendered[1..]
                     .iter()

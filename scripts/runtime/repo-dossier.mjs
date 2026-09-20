@@ -208,7 +208,7 @@ export function classifyCommand(text) {
 //
 // The native Cut verifier does not have that problem. It runs its
 // verify DIRECTLY — no shell, no pipe — and stamps the true exit code onto the
-// authored-write manifest (`~/.angel0/cut/authored-*.jsonl`, `cockpit/src/cut.rs`).
+// authored-write manifest (`~/.angel0/cut/authored-*.jsonl`, `cockpit/src/knowledge/cut.rs`).
 // Every one of those rows is an attributable verdict. So the manifest is mined
 // here as a first-class verdict source alongside the ledger.
 //

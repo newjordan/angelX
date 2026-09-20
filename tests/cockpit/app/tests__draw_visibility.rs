@@ -68,8 +68,8 @@ fn reasoning_checkpoint_compact_and_large_bays_keep_full_width_text_above_portra
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     for (width, height) in [(24, 10), (42, 16), (90, 36)] {
         for header_card in [false, true] {
             for live in [false, true] {
@@ -133,8 +133,8 @@ fn reasoning_checkpoint_scrolled_hit_geometry_matches_paint_across_resize() {
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
     let _scryglass = TestEnvGuard::set("ANGEL_SCRYGLASS", "1");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let reasoning = (0..100)
         .map(|i| format!("ROW_{i:03}"))
         .collect::<Vec<_>>()
@@ -172,7 +172,7 @@ fn reasoning_checkpoint_scrolled_hit_geometry_matches_paint_across_resize() {
         let mut selection = mouse::Selection::new(mouse::PaneId::AgentBay, flow, flow.x, flow.y);
         selection.cursor = (flow.right() - 1, flow.y);
         assert_eq!(mouse::extract_text(buffer, &selection), "ROW_020");
-        assert!(crate::surfaces::pane_accepts_clipboard(
+        assert!(crate::ui::surfaces::pane_accepts_clipboard(
             mouse::PaneId::AgentBay
         ));
         app.reasoning.push_str("\nAPPENDED");

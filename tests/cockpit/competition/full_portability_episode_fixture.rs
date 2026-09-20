@@ -40,7 +40,7 @@ impl Drop for Temp {
 }
 
 pub(super) fn digest(value: &str) -> String {
-    crate::cut::sha256_hex(value.as_bytes())
+    crate::knowledge::cut::sha256_hex(value.as_bytes())
 }
 
 pub(super) fn episode_bundle(root: &Temp) -> Vec<u8> {

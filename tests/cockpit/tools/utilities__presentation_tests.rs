@@ -10,7 +10,7 @@ fn show_work_present_preserves_identity_and_only_acknowledges_queueing() {
             "kind": "report", "label": "Measured result", "url": "reports/result.md"
         }))
         .unwrap();
-    let (kind, label, url) = crate::media::presentation_from_result(&result).unwrap();
+    let (kind, label, url) = crate::ui::media::presentation_from_result(&result).unwrap();
     assert_eq!(kind, "resource");
     assert_eq!(label, "Measured result");
     assert_eq!(url, workspace.join("reports/result.md").to_string_lossy());
@@ -23,9 +23,9 @@ fn show_work_present_preserves_identity_and_only_acknowledges_queueing() {
         tool.call(&serde_json::json!({ "kind": "resource", "label": "x", "url": "" }))
             .is_err()
     );
-    assert!(crate::media::presentation_from_result("error: missing target").is_none());
+    assert!(crate::ui::media::presentation_from_result("error: missing target").is_none());
     assert!(
-        crate::media::presentation_from_result(
+        crate::ui::media::presentation_from_result(
             r#"{"status":"queued","kind":"invalid","label":"x","url":"x"}"#
         )
         .is_none()

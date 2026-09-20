@@ -9,9 +9,9 @@ fn native_video_iterm_payload_retains_details_above_halfblock_resolution() {
         viewer.video_decode_viewport(Rect::new(0, 0, 72, 24)),
         (192, 64)
     );
-    let pixels = Arc::new(crate::scryglass::VideoPixels {
-        identity: crate::scryglass::VideoIdentity {
-            source: crate::media::MediaSource::operator(PathBuf::from("controlled-detail.mp4")),
+    let pixels = Arc::new(crate::ui::scryglass::VideoPixels {
+        identity: crate::ui::scryglass::VideoIdentity {
+            source: crate::ui::media::MediaSource::operator(PathBuf::from("controlled-detail.mp4")),
             request_id: 1,
             generation: 1,
         },
@@ -83,9 +83,9 @@ fn native_video_iterm_payload_retains_details_above_halfblock_resolution() {
 fn native_video_pixels_are_bounded_exact_and_coalesce_without_stale_generations() {
     use ratatui::{Terminal, backend::TestBackend};
     let pixels = |generation, sequence, color| {
-        Arc::new(crate::scryglass::VideoPixels {
-            identity: crate::scryglass::VideoIdentity {
-                source: crate::media::MediaSource::operator(PathBuf::from("controlled.mp4")),
+        Arc::new(crate::ui::scryglass::VideoPixels {
+            identity: crate::ui::scryglass::VideoIdentity {
+                source: crate::ui::media::MediaSource::operator(PathBuf::from("controlled.mp4")),
                 request_id: 7,
                 generation,
             },
@@ -290,7 +290,7 @@ fn artifact_still_pixels_preserve_portrait_rgb_flat_opacity_and_fail_closed() {
     .into_iter()
     .enumerate()
     {
-        let source = crate::media::MediaSource::operator(path);
+        let source = crate::ui::media::MediaSource::operator(path);
         let mut viewer = Viewer::with_picker(halfblock_picker());
         let (width, height) = if index == 0 { (52, 20) } else { (8, 4) };
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -337,7 +337,7 @@ fn artifact_still_pixels_preserve_portrait_rgb_flat_opacity_and_fail_closed() {
                     cells.iter().filter(|cell| cell.symbol() != " ").count() > cells.len() / 4,
                     "portrait must remain dense and legible"
                 );
-                assert!(cells.iter().any(|cell| [cell.fg, cell.bg].iter().any(|color| matches!(color, Color::Rgb(r, g, b) if !crate::term::art::DMD_PALETTE.contains(&[*r, *g, *b])))), "artifact RGB must not collapse to the DMD palette");
+                assert!(cells.iter().any(|cell| [cell.fg, cell.bg].iter().any(|color| matches!(color, Color::Rgb(r, g, b) if !crate::ui::term::art::DMD_PALETTE.contains(&[*r, *g, *b])))), "artifact RGB must not collapse to the DMD palette");
             }
             1 => assert!(
                 // Uniform halfblocks use a colored space: its background
@@ -364,7 +364,7 @@ fn artifact_still_pixels_preserve_portrait_rgb_flat_opacity_and_fail_closed() {
         }
     }
     use base64::Engine as _;
-    let source = crate::media::MediaSource::operator(root.join("partial.png"));
+    let source = crate::ui::media::MediaSource::operator(root.join("partial.png"));
     let mut viewer = Viewer::with_picker(Viewer::picker_for_protocol(ProtocolType::Iterm2));
     let mut terminal = Terminal::new(TestBackend::new(8, 4)).unwrap();
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
@@ -417,9 +417,10 @@ fn artifact_still_pixels_preserve_portrait_rgb_flat_opacity_and_fail_closed() {
 
 #[test]
 fn still_inspector_native_geometry_pending_continuity_and_failure() {
-    use crate::still_inspector::Action;
+    use crate::ui::still_inspector::Action;
     use ratatui::{Terminal, backend::TestBackend};
-    let source = crate::media::MediaSource::operator(PathBuf::from("not-opened-geometry-test.png"));
+    let source =
+        crate::ui::media::MediaSource::operator(PathBuf::from("not-opened-geometry-test.png"));
     let decoded = Arc::new(image::DynamicImage::ImageRgba8(
         image::RgbaImage::from_pixel(112, 112, image::Rgba([240, 60, 30, 255])),
     ));
@@ -536,7 +537,7 @@ fn still_inspector_native_geometry_pending_continuity_and_failure() {
 
 #[test]
 fn still_inspector_source_decode_once_coalesces_and_cleans_error_identity_resize() {
-    use crate::still_inspector::Action;
+    use crate::ui::still_inspector::Action;
     use ratatui::{Terminal, backend::TestBackend};
     let root = std::env::temp_dir().join(format!(
         "angel-still-detail-{}-{}",
@@ -552,7 +553,7 @@ fn still_inspector_source_decode_once_coalesces_and_cleans_error_identity_resize
     raster.put_pixel(0, 0, image::Rgba([255, 0, 0, 255]));
     raster.put_pixel(2047, 2047, image::Rgba([0, 255, 0, 255]));
     raster.save(&path).unwrap();
-    let source = crate::media::MediaSource {
+    let source = crate::ui::media::MediaSource {
         path,
         root: Some(root.clone()),
     };
@@ -570,7 +571,7 @@ fn still_inspector_source_decode_once_coalesces_and_cleans_error_identity_resize
         viewer: &mut Viewer,
         terminal: &mut Terminal<TestBackend>,
         area: Rect,
-        source: &crate::media::MediaSource,
+        source: &crate::ui::media::MediaSource,
         request: u64,
     ) {
         let deadline = std::time::Instant::now() + Duration::from_secs(10);
@@ -672,7 +673,7 @@ fn native_artifact_pixels_preserve_source_resize_and_failure_identity() {
     image::RgbaImage::from_pixel(24, 16, image::Rgba([230, 40, 20, 255]))
         .save(&path)
         .unwrap();
-    let source = crate::media::MediaSource {
+    let source = crate::ui::media::MediaSource {
         path,
         root: Some(root.clone()),
     };
@@ -786,7 +787,7 @@ fn native_artifact_pixels_preserve_source_resize_and_failure_identity() {
         cell.fg == ratatui::style::Color::Rgb(20, 210, 50)
             || cell.bg == ratatui::style::Color::Rgb(20, 210, 50)
     }));
-    let missing = crate::media::MediaSource {
+    let missing = crate::ui::media::MediaSource {
         path: root.join("missing.png"),
         root: Some(root.clone()),
     };
@@ -826,7 +827,7 @@ fn native_artifact_pixels_preserve_source_resize_and_failure_identity() {
         let link = root.join("escape.png");
         std::os::unix::fs::symlink(&source.path, &link).unwrap();
         assert!(
-            artifact_preview(&crate::media::MediaSource {
+            artifact_preview(&crate::ui::media::MediaSource {
                 path: link,
                 root: Some(root.clone())
             })
@@ -840,7 +841,7 @@ fn native_artifact_pixels_preserve_source_resize_and_failure_identity() {
         .set_len(64 * 1024 * 1024 + 1)
         .unwrap();
     assert!(
-        artifact_preview(&crate::media::MediaSource {
+        artifact_preview(&crate::ui::media::MediaSource {
             path: oversized,
             root: Some(root.clone())
         })

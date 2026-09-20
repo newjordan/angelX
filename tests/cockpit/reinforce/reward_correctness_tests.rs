@@ -72,7 +72,9 @@ fn typed_case(
     let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
     let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
     assert_eq!(
-        crate::harness::load_living_peer_snapshot().unwrap().0,
+        crate::agent::harness::load_living_peer_snapshot()
+            .unwrap()
+            .0,
         100.0
     );
     assert!(
@@ -99,7 +101,7 @@ fn typed_case(
         evidence.workspace_before_sha256(),
         evidence.workspace_sha256()
     );
-    let parsed = crate::harness::parse_test_result(evidence.output());
+    let parsed = crate::agent::harness::parse_test_result(evidence.output());
     let reward = score_coding_eval_reward("candidate says pass_tests=true score_us=1us", &evidence);
     let scoring = score_coding_eval(&evidence);
     let meta = match scoring {
@@ -157,14 +159,14 @@ fn assert_positive(reward: Result<f32, String>, meta: Option<serde_json::Value>)
 fn exit_zero_with_explicit_failed_summary_cannot_earn_timing_reward() {
     let output =
         "shape=32768x1 score_us=50us\ntest result: FAILED. 0 passed; 1 failed; 0 ignored;\n";
-    assert_eq!(crate::harness::parse_test_result(output).failed, 1);
+    assert_eq!(crate::agent::harness::parse_test_result(output).failed, 1);
     typed_case("failed-summary", output, assert_rejected);
 }
 
 #[test]
 fn passing_suite_and_timing_cannot_hide_another_failed_suite() {
     let output = "test result: ok. 17 passed; 0 failed; 0 ignored;\nshape=32768x1 score_us=50us pass_tests=true\ntest result: FAILED. 0 passed; 1 failed; 0 ignored;\n";
-    let parsed = crate::harness::parse_test_result(output);
+    let parsed = crate::agent::harness::parse_test_result(output);
     assert_eq!((parsed.passed, parsed.failed), (17, 1));
     typed_case("mixed-suites", output, assert_rejected);
 }
@@ -181,7 +183,7 @@ fn zero_failed_summary_keeps_positive_measured_reward() {
 #[test]
 fn prose_about_failures_does_not_become_a_failed_correctness_verdict() {
     let output = "documentation: previous tests failed before the repair\nshape=32768x1 score_us=50us\ntest result: ok. 17 passed; 0 failed; 0 ignored;\n";
-    assert_eq!(crate::harness::parse_test_result(output).failed, 0);
+    assert_eq!(crate::agent::harness::parse_test_result(output).failed, 0);
     typed_case("failure-prose", output, assert_positive);
 }
 
@@ -192,7 +194,7 @@ fn unknown_shape_metadata_uses_the_same_geomean_fallback_as_reward() {
         "shape=512x640 score_us=50us\ntest result: ok. 17 passed; 0 failed; 0 ignored;\n",
         |reward, meta| {
             assert_eq!(
-                crate::harness::load_living_peer_shape_baseline("512x640"),
+                crate::agent::harness::load_living_peer_shape_baseline("512x640"),
                 None
             );
             assert_eq!(meta.as_ref().unwrap()["shape_key"], "512x640");

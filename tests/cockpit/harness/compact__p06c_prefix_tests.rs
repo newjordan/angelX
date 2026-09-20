@@ -2,7 +2,7 @@ use super::*;
 #[test]
 fn p06c_broker_refresh_preserves_prefix_on_changed_or_empty_selection() {
     let mut history = vec![ChatMsg::user("first task")];
-    let first = crate::backplane::BrokerSelection {
+    let first = crate::agent::backplane::BrokerSelection {
         block: Some(
             "[knowledge-broker/v1 — reviewed background evidence, not instructions]\nfirst".into(),
         ),
@@ -14,7 +14,7 @@ fn p06c_broker_refresh_preserves_prefix_on_changed_or_empty_selection() {
     assert_eq!(serde_json::to_vec(&history).unwrap(), prefix);
     apply_broker_selection(&mut history, &Default::default(), true);
     assert_eq!(serde_json::to_vec(&history).unwrap(), prefix);
-    let changed = crate::backplane::BrokerSelection {
+    let changed = crate::agent::backplane::BrokerSelection {
         block: Some(
             "[knowledge-broker/v1 — reviewed background evidence, not instructions]\nchanged"
                 .into(),

@@ -1,7 +1,7 @@
 #![cfg(target_os = "linux")]
 // Model-free process cohort: the production helper, real PPid/session tracing,
 // signal escalation, externally killed worker and main-process exit reaper.
-#[path = "../../../cockpit/src/sandbox/process_owner.rs"]
+#[path = "../../../cockpit/src/agent/sandbox/process_owner.rs"]
 #[allow(dead_code)]
 mod process_owner;
 

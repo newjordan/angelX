@@ -1,5 +1,5 @@
 use super::queue_proc_completion_for_loop;
-use crate::loop_ctl::{LoopState, LoopStatus};
+use crate::drive::loop_ctl::{LoopState, LoopStatus};
 use std::path::Path;
 
 #[test]

@@ -102,7 +102,7 @@ fn render_preserves_requested_dimensions() {
 #[test]
 #[ignore = "manual gallery dump for art review"]
 fn loop_gallery() {
-    use crate::retro_kit::gallery::{out_dir, rasterize};
+    use crate::ui::retro_kit::gallery::{out_dir, rasterize};
     let out = out_dir();
     let st = LoopState {
         status: LoopStatus::Running,
@@ -128,33 +128,35 @@ fn loop_gallery() {
         },
     ];
     let mut fleet = YukonFleetState::default();
-    fleet.apply(crate::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
-        entries: vec![
-            crate::harness::comp_packages::yukon::fleet::YukonSubmission {
-                benchmark: "bench/flock".into(),
-                id: "3347e70".into(),
-                status: "validating".into(),
-                score: None,
-                phase: YukonSubmissionPhase::Running,
-            },
-            crate::harness::comp_packages::yukon::fleet::YukonSubmission {
-                benchmark: "bench/qwen".into(),
-                id: "7871bd4".into(),
-                status: "promoted".into(),
-                score: Some("519469.35".into()),
-                phase: YukonSubmissionPhase::Accepted,
-            },
-            crate::harness::comp_packages::yukon::fleet::YukonSubmission {
-                benchmark: "bench/ssi".into(),
-                id: "ddddddd".into(),
-                status: "rejected".into(),
-                score: None,
-                phase: YukonSubmissionPhase::Rejected,
-            },
-        ],
-        benchmark_count: 3,
-        failed_benchmarks: 0,
-    });
+    fleet.apply(
+        crate::agent::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
+            entries: vec![
+                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                    benchmark: "bench/flock".into(),
+                    id: "3347e70".into(),
+                    status: "validating".into(),
+                    score: None,
+                    phase: YukonSubmissionPhase::Running,
+                },
+                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                    benchmark: "bench/qwen".into(),
+                    id: "7871bd4".into(),
+                    status: "promoted".into(),
+                    score: Some("519469.35".into()),
+                    phase: YukonSubmissionPhase::Accepted,
+                },
+                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                    benchmark: "bench/ssi".into(),
+                    id: "ddddddd".into(),
+                    status: "rejected".into(),
+                    score: None,
+                    phase: YukonSubmissionPhase::Rejected,
+                },
+            ],
+            benchmark_count: 3,
+            failed_benchmarks: 0,
+        },
+    );
     for ((label, time), slot) in [("a", 2.3f32), ("b", 9.8), ("c", 17.4)]
         .into_iter()
         .zip(slots.iter())
@@ -426,26 +428,30 @@ fn target_brightens_only_after_an_accepted_receipt() {
 #[test]
 fn yukon_fleet_line_pulses_live_rows_and_counts_every_status() {
     let mut fleet = YukonFleetState::default();
-    fleet.apply(crate::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
-        entries: [
-            YukonSubmissionPhase::Queued,
-            YukonSubmissionPhase::Running,
-            YukonSubmissionPhase::Accepted,
-            YukonSubmissionPhase::Rejected,
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|(index, phase)| crate::harness::comp_packages::yukon::fleet::YukonSubmission {
-            benchmark: format!("bench/{index}"),
-            id: format!("aaaaaa{index}"),
-            status: format!("{phase:?}"),
-            score: None,
-            phase,
-        })
-        .collect(),
-        benchmark_count: 4,
-        failed_benchmarks: 0,
-    });
+    fleet.apply(
+        crate::agent::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
+            entries: [
+                YukonSubmissionPhase::Queued,
+                YukonSubmissionPhase::Running,
+                YukonSubmissionPhase::Accepted,
+                YukonSubmissionPhase::Rejected,
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, phase)| {
+                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                    benchmark: format!("bench/{index}"),
+                    id: format!("aaaaaa{index}"),
+                    status: format!("{phase:?}"),
+                    score: None,
+                    phase,
+                }
+            })
+            .collect(),
+            benchmark_count: 4,
+            failed_benchmarks: 0,
+        },
+    );
     let lit = yukon_fleet_line(&fleet, 0.0, 48);
     let dim = yukon_fleet_line(&fleet, 0.6, 48);
     assert_eq!(line_width(&lit), 48);

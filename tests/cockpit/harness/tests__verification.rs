@@ -403,7 +403,8 @@ fn structured_kill_execution_events_distinguish_cancellation_from_failure() {
         args: serde_json::json!({"command": "sleep 8"}),
     };
     for reason in ["cancelled", "tool_idle", "deadline", "signal_death"] {
-        let kill = crate::sandbox::process_owner::KillReceipt::new(Some(15), reason, "harness");
+        let kill =
+            crate::agent::sandbox::process_owner::KillReceipt::new(Some(15), reason, "harness");
         let error = format!("tool error: {}", kill.error("shell stopped"));
         let outcome = turn_event_outcome(&call, &error, false);
         let expected = if reason == "cancelled" {
@@ -628,8 +629,10 @@ fn verification_gate_prompts_only_the_guarded_posture() {
 /// Answers exactly `script.len()` broker requests, then drops the receiver so
 /// the global broker falls back to headless-deny for every later test in this
 /// binary. Returns the prompts it saw.
-fn fake_approval_ui(script: Vec<crate::approval::Decision>) -> Arc<std::sync::Mutex<Vec<String>>> {
-    let rx = crate::approval::install_ui();
+fn fake_approval_ui(
+    script: Vec<crate::agent::approval::Decision>,
+) -> Arc<std::sync::Mutex<Vec<String>>> {
+    let rx = crate::agent::approval::install_ui();
     let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
     let sink = Arc::clone(&seen);
     std::thread::spawn(move || {
@@ -707,7 +710,7 @@ fn operator_can_release_the_unverified_completion_gate() {
     let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
     let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
 
-    let prompts = fake_approval_ui(vec![crate::approval::Decision::Approve]);
+    let prompts = fake_approval_ui(vec![crate::agent::approval::Decision::Approve]);
     let (club, registry) = edited_then_claims_done();
     let mut history = vec![ChatMsg::user("change it")];
     let (events, notices) = mpsc::channel::<TurnEvent>();
@@ -773,7 +776,7 @@ fn unanswered_verification_modal_still_holds_the_completion() {
     let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
     let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
 
-    let _prompts = fake_approval_ui(vec![crate::approval::Decision::Deny]);
+    let _prompts = fake_approval_ui(vec![crate::agent::approval::Decision::Deny]);
     let (club, registry) = edited_then_claims_done();
     let mut history = vec![ChatMsg::user("change it")];
     let answer = run_turn(
@@ -1194,7 +1197,7 @@ fn path_shim_shell_green_cannot_release_edit_scoped_verification() {
     std::fs::create_dir_all(root.join("src")).unwrap();
     std::fs::create_dir_all(root.join("shim")).unwrap();
     std::fs::write(root.join("src/lib.py"), "def value():\n    return 1\n").unwrap();
-    let runtimes = crate::tools::build::PinnedNativeRuntimes::capture(&root);
+    let runtimes = crate::agent::tools::build::PinnedNativeRuntimes::capture(&root);
     if !runtimes.python_available_for_test() {
         eprintln!(
             "UNSUPPORTED: PATH-shim typed-verification fixture requires a trusted Python runtime"
@@ -1400,11 +1403,12 @@ fn live_prompts_carry_no_self_repair_priming() {
     // with skills/project/work blocks (which never carried the nouns), and it
     // needs a Bag + filesystem I/O, so pinning the two sources is the live cover.
     let orch = orchestrator_system_prompt(&["turbo".to_string()]);
-    let selfmodel = crate::tools::self_model::self_context(Path::new(env!("CARGO_MANIFEST_DIR")));
-    let conductor_notice = crate::conductor::startup_notice_text(2);
-    let conductor_root = crate::tools::self_model::source_root().unwrap();
-    let conductor_usage = crate::conductor::run(Some("bogus"), &conductor_root);
-    let still_usage = crate::barrel::run(Some("bogus"));
+    let selfmodel =
+        crate::agent::tools::self_model::self_context(Path::new(env!("CARGO_MANIFEST_DIR")));
+    let conductor_notice = crate::drive::conductor::startup_notice_text(2);
+    let conductor_root = crate::agent::tools::self_model::source_root().unwrap();
+    let conductor_usage = crate::drive::conductor::run(Some("bogus"), &conductor_root);
+    let still_usage = crate::knowledge::barrel::run(Some("bogus"));
     let banned = ["gauntlet", "health checkup", "repair mode", "fix yourself"];
     for (name, text) in [
         ("orchestrator", orch.as_str()),
@@ -1572,7 +1576,7 @@ fn native_verifier_dispatch_scenario_with_budget(
     let output = scratch("native_verifier_output");
     // Resolve the shared test helper before isolating the fixture Cargo target.
     // Otherwise helper bootstrap would rebuild the cockpit inside this target.
-    crate::sandbox::prime_helper();
+    crate::agent::sandbox::prime_helper();
     let _target = EnvGuard::set("CARGO_TARGET_DIR", output.to_str().unwrap());
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     // `extra.rs` is a real bin target so a test that rewrites it exercises a

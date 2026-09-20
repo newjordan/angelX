@@ -31,7 +31,8 @@ fn cap_eviction_and_append_stay_in_the_same_pinned_directory() {
     let store = fixture.0.join("store");
     let held = fixture.0.join("held");
     let outside = fixture.0.join("outside");
-    let directory = crate::workspace_store::private_io::PrivateDirectory::open(&store).unwrap();
+    let directory =
+        crate::platform::workspace_store::private_io::PrivateDirectory::open(&store).unwrap();
     std::fs::write(store.join("barrel-20000101.jsonl"), b"old\n").unwrap();
     std::fs::create_dir(&outside).unwrap();
     std::fs::write(outside.join("barrel-20000101.jsonl"), b"untouched\n").unwrap();

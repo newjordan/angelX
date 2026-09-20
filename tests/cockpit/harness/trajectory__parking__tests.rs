@@ -2,14 +2,15 @@ use super::*;
 #[test]
 fn trajectory_c03c_parking_survives_trim_compaction_and_turn_reset() {
     let _lock = crate::tests::env_lock();
-    use crate::harness::tests::EnvGuard;
+    use crate::agent::harness::tests::EnvGuard;
     let root = std::env::temp_dir().join(format!("c03c-parking-{}", now_ms()));
     let _dir = EnvGuard::set("ANGEL_TRAJECTORY_DIR", root.to_str().unwrap());
     let _enabled = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
-    let club = crate::club::HttpClub::new("fixture", "http://127.0.0.1:9/v1", "fixture", None);
+    let club =
+        crate::agent::club::HttpClub::new("fixture", "http://127.0.0.1:9/v1", "fixture", None);
     reset_turn_ledger(&club);
     let original = "original π\n".repeat(200);
-    let digest = crate::cut::sha256_hex(original.as_bytes());
+    let digest = crate::knowledge::cut::sha256_hex(original.as_bytes());
     let mut message = ChatMsg::tool("call-a", original.as_str());
     message.content = park_tool_result(&message, "[tool output elided: excerpt]", "aging")
         .unwrap()
@@ -47,7 +48,7 @@ fn trajectory_c03c_parking_survives_trim_compaction_and_turn_reset() {
 #[test]
 fn trajectory_c03c_tool_aging_hook_keeps_originals() {
     let _lock = crate::tests::env_lock();
-    use crate::harness::tests::EnvGuard;
+    use crate::agent::harness::tests::EnvGuard;
     let root = std::env::temp_dir().join(format!("c03c-aging-{}", now_ms()));
     let _dir = EnvGuard::set("ANGEL_TRAJECTORY_DIR", root.to_str().unwrap());
     let _enabled = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
@@ -74,7 +75,7 @@ fn trajectory_c03c_tool_aging_hook_keeps_originals() {
 #[test]
 fn tool_aging_retains_without_trajectory_logging() {
     let _lock = crate::tests::env_lock();
-    use crate::harness::tests::EnvGuard;
+    use crate::agent::harness::tests::EnvGuard;
     let root = std::env::temp_dir().join(format!("c03f-retention-{}", now_ms()));
     let _dir = EnvGuard::set("ANGEL_TRAJECTORY_DIR", root.to_str().unwrap());
     let _logging = EnvGuard::unset("ANGEL_TRAJECTORY_LOG");
@@ -97,7 +98,7 @@ fn tool_aging_retains_without_trajectory_logging() {
 #[test]
 fn trajectory_c03c_parking_refuses_unwritable_store() {
     let _lock = crate::tests::env_lock();
-    use crate::harness::tests::EnvGuard;
+    use crate::agent::harness::tests::EnvGuard;
     let root = std::env::temp_dir().join(format!("c03c-blocked-{}", now_ms()));
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(root.join("evidence"), "block").unwrap();
@@ -109,7 +110,7 @@ fn trajectory_c03c_parking_refuses_unwritable_store() {
 #[test]
 fn parked_originals_are_redacted_like_trajectory_writes() {
     let _lock = crate::tests::env_lock();
-    use crate::harness::tests::EnvGuard;
+    use crate::agent::harness::tests::EnvGuard;
     let root = std::env::temp_dir().join(format!("c03g-redact-{}", now_ms()));
     let _dir = EnvGuard::set("ANGEL_TRAJECTORY_DIR", root.to_str().unwrap());
     let _enabled = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
@@ -130,9 +131,9 @@ fn parked_originals_are_redacted_like_trajectory_writes() {
         text.contains("«redacted:ANGEL_OWNED_TEST_KEY»"),
         "expected named redaction marker, got {text}"
     );
-    let redacted = crate::secrets::redact_bytes(original.as_bytes());
+    let redacted = crate::platform::secrets::redact_bytes(original.as_bytes());
     assert_eq!(stored, redacted);
-    assert_eq!(crate::cut::sha256_hex(&stored), digest);
+    assert_eq!(crate::knowledge::cut::sha256_hex(&stored), digest);
     let journal = std::fs::read_to_string(root.join("evidence/parking-events.jsonl")).unwrap();
     let event: Value = serde_json::from_str(journal.lines().next().unwrap()).unwrap();
     assert_eq!(event["digest_sha256"], digest);

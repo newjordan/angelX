@@ -54,12 +54,12 @@ fn r04c_cont2_original_detector_reproduction() {
         )
         .unwrap();
     }
-    let mut timing = crate::frame_timing::FrameTiming::from_env();
+    let mut timing = crate::ui::frame_timing::FrameTiming::from_env();
     let mut max = std::time::Duration::ZERO;
     for _ in 0..8 {
         let start = std::time::Instant::now();
         let mut bytes = 0;
-        while bytes < crate::app_control::STREAM_BYTES_PER_FRAME {
+        while bytes < crate::app::control::STREAM_BYTES_PER_FRAME {
             text.push_str(&chunk);
             assert!(large_code_document(&text).is_none());
             assert!(!probable_streaming_artifact(&text));
@@ -72,7 +72,7 @@ fn r04c_cont2_original_detector_reproduction() {
             timing.completed(
                 draw,
                 draw,
-                crate::frame_timing::Phases {
+                crate::ui::frame_timing::Phases {
                     advance_us: elapsed.as_micros(),
                     ..Default::default()
                 },

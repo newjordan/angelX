@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{CacheUsage, EffortGateUsage, ToolCall};
+use crate::agent::club::{CacheUsage, EffortGateUsage, ToolCall};
 use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::sync::Mutex;
@@ -524,11 +524,11 @@ fn swarm_token_usage_does_not_multiply_shared_fallback_chains() {
         },
         ..Default::default()
     });
-    let longcat_role: Arc<dyn Club> = Arc::new(crate::club::FallbackClub::new(vec![
+    let longcat_role: Arc<dyn Club> = Arc::new(crate::agent::club::FallbackClub::new(vec![
         Arc::clone(&longcat),
         Arc::clone(&gemma),
     ]));
-    let gemma_role: Arc<dyn Club> = Arc::new(crate::club::FallbackClub::new(vec![
+    let gemma_role: Arc<dyn Club> = Arc::new(crate::agent::club::FallbackClub::new(vec![
         Arc::clone(&gemma),
         Arc::clone(&longcat),
     ]));
@@ -735,7 +735,7 @@ fn swarm_text_only_calls_strip_tool_protocol_history() {
     let swarm = SwarmClub::with_config("sota-moa", inner, 2, 1, true);
     let history = vec![
         ChatMsg::user("fix the failing SOTA-MOA turn"),
-        ChatMsg::assistant_calls(vec![crate::club::ToolCall {
+        ChatMsg::assistant_calls(vec![crate::agent::club::ToolCall {
             id: "call_dup".to_string(),
             name: "shell".to_string(),
             args: serde_json::json!({ "cmd": "date" }),
@@ -966,7 +966,10 @@ fn quota_failover_stops_after_each_link_tried_once() {
     let err = swarm
         .chat_with_failover(&*primary_club, &[ChatMsg::user("q")])
         .expect_err("an all-exhausted bench surfaces the last quota error");
-    assert!(crate::club::error_indicates_quota_exhausted(&err), "{err}");
+    assert!(
+        crate::agent::club::error_indicates_quota_exhausted(&err),
+        "{err}"
+    );
     assert_eq!(primary.count(), 1, "the failed primary is never re-tried");
     assert_eq!(second.count(), 1, "each bench link gets exactly one shot");
 }
@@ -1016,7 +1019,10 @@ fn streaming_failover_never_duplicates_already_streamed_text() {
             false,
         )
         .expect_err("mid-stream quota death must surface, not retry");
-    assert!(crate::club::error_indicates_quota_exhausted(&err), "{err}");
+    assert!(
+        crate::agent::club::error_indicates_quota_exhausted(&err),
+        "{err}"
+    );
     assert_eq!(content, "partial ", "streamed text arrives exactly once");
     assert_eq!(backup.count(), 0, "no failover after content has flowed");
 }
@@ -1773,7 +1779,7 @@ fn tool_stage_bench_exhausted_on_raw_markup_surfaces_markup_not_moa_answer() {
     match reply {
         ClubReply::Text(t) => {
             assert!(
-                crate::club::contains_raw_tool_markup(&t),
+                crate::agent::club::contains_raw_tool_markup(&t),
                 "the raw markup must survive to the harness guard, got: {t}"
             );
             assert!(t.contains("cargo test"), "{t}");
@@ -3507,7 +3513,7 @@ fn cite_check_keeps_answer_on_empty_rewrite() {
 #[test]
 #[ignore = "hits the live gemma4 endpoint on the DGX Spark"]
 fn swarm_live_gemma() {
-    use crate::club::HttpClub;
+    use crate::agent::club::HttpClub;
     let url = std::env::var("ANGEL_GEMMA_URL")
         .expect("set ANGEL_GEMMA_URL to an explicitly trusted live endpoint");
     let model = std::env::var("ANGEL_GEMMA_MODEL").unwrap_or_else(|_| "gemma4".to_string());
@@ -3539,7 +3545,7 @@ fn swarm_live_gemma() {
 #[ignore = "hits the live gemma4 endpoint + runs a sandboxed test"]
 fn swarm_live_delegate() {
     let _guard = crate::tests::env_lock();
-    use crate::club::HttpClub;
+    use crate::agent::club::HttpClub;
     let url = std::env::var("ANGEL_GEMMA_URL")
         .expect("set ANGEL_GEMMA_URL to an explicitly trusted live endpoint");
     let model = std::env::var("ANGEL_GEMMA_MODEL").unwrap_or_else(|_| "gemma4".to_string());

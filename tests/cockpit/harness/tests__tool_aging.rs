@@ -1026,8 +1026,9 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
     let _guard = crate::tests::env_lock();
     let _global = EnvGuard::unset("ANGEL_CACHE_STABLE");
     let _pin = EnvGuard::unset("ANGEL_CACHE_STABLE_PROBE_CACHE_STABLE");
-    let club = crate::club::HttpClub::new("cache-stable-probe", "http://127.0.0.1:9/v1", "m", None);
-    let logical = crate::club::PracticeClub::new();
+    let club =
+        crate::agent::club::HttpClub::new("cache-stable-probe", "http://127.0.0.1:9/v1", "m", None);
+    let logical = crate::agent::club::PracticeClub::new();
     assert!(
         cache_stable_mode(&club),
         "unknown providers also retain prefixes by default"
@@ -1035,7 +1036,7 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
 
     // A backend with a documented byte-exact prefix cache runs cache-first by
     // default; the explicit global still overrides detection either way.
-    let capable = crate::club::HttpClub::new(
+    let capable = crate::agent::club::HttpClub::new(
         "cache-stable-probe",
         "http://127.0.0.1:9/v1",
         "deepseek-v4-flash",
@@ -1045,9 +1046,9 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
         cache_stable_mode(&capable),
         "a detected prefix-cache backend is cache-first by default"
     );
-    let wrapped = crate::swarm::SwarmClub::from_env(
+    let wrapped = crate::agent::swarm::SwarmClub::from_env(
         "cache-stable-swarm-probe",
-        std::sync::Arc::new(crate::club::HttpClub::new(
+        std::sync::Arc::new(crate::agent::club::HttpClub::new(
             "cache-stable-wrapped-probe",
             "http://127.0.0.1:9/v1",
             "glm-5.3-flash",
@@ -1181,19 +1182,19 @@ fn aging_probe_turn_with_cadence(
     // whether the developer's local memory stores happen to contain anything.
     let atlas = reg.atlas();
     let project = atlas.project_key();
-    let selection = crate::backplane::KnowledgeBroker::select(
+    let selection = crate::agent::backplane::KnowledgeBroker::select(
         project,
         "aging boundary",
-        vec![crate::backplane::KnowledgeCandidate::new(
+        vec![crate::agent::backplane::KnowledgeCandidate::new(
             "memory:aging-fixture",
             project,
             "operator-memory",
-            crate::backplane::KnowledgeAuthority::OperatorApproved,
+            crate::agent::backplane::KnowledgeAuthority::OperatorApproved,
             "An aging boundary fixture fact.",
         )],
         10_000,
     );
-    crate::backplane::KnowledgeBroker::replace(&mut history, &selection);
+    crate::agent::backplane::KnowledgeBroker::replace(&mut history, &selection);
     let (events, rx) = mpsc::channel::<TurnEvent>();
     let answer = run_turn(
         &club,
@@ -1789,7 +1790,10 @@ fn tool_aging_c03d_long_workload_scripted_smoke() {
         );
         for event in &parked {
             let original = std::fs::read(artifacts.join(event["path"].as_str().unwrap())).unwrap();
-            assert_eq!(crate::cut::sha256_hex(&original), event["digest_sha256"]);
+            assert_eq!(
+                crate::knowledge::cut::sha256_hex(&original),
+                event["digest_sha256"]
+            );
             assert_eq!(original.len(), event["original_bytes"]);
             assert_eq!(
                 original,

@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{CacheConvention, ReasoningConvention, UsageContract};
+use crate::agent::club::{CacheConvention, ReasoningConvention, UsageContract};
 fn usage(input: u64, output: u64) -> UsageObservation {
     UsageObservation {
         raw: [Some(input), Some(output), Some(2), Some(4), Some(0)],
@@ -278,7 +278,7 @@ fn formation_budget_unset_identity_is_byte_identical() {
     assert_eq!(before, serde_json::to_vec(&budgets).unwrap());
 }
 struct ScriptedSeat(std::sync::atomic::AtomicUsize);
-impl crate::club::Club for ScriptedSeat {
+impl crate::agent::club::Club for ScriptedSeat {
     fn label(&self) -> &str {
         "scripted-budget-seat"
     }
@@ -298,21 +298,21 @@ impl crate::club::Club for ScriptedSeat {
 /// Operator-ordered F01 contract: refinement and synthesis continue past the allocation.
 #[test]
 fn formation_budget_width_two_completes_refinement_and_synthesis_after_overrun() {
-    use crate::club::Club;
+    use crate::agent::club::Club;
     let _lock = crate::tests::env_lock();
     let budget = Budget::new(Some(160), None);
     let _scope = enter(Some(budget.clone()));
     let seat = Arc::new(ScriptedSeat(std::sync::atomic::AtomicUsize::new(0)));
-    let swarm = crate::swarm::SwarmClub::with_knobs(
+    let swarm = crate::agent::swarm::SwarmClub::with_knobs(
         "budget-test",
         seat.clone(),
-        crate::swarm::Knobs {
+        crate::agent::swarm::Knobs {
             width: 2,
             max_width: 2,
             refine_width: 2,
             layers: 3,
             always: true,
-            ..crate::swarm::Knobs::default()
+            ..crate::agent::swarm::Knobs::default()
         },
     );
     let answer = swarm
@@ -329,7 +329,7 @@ fn formation_budget_width_two_completes_refinement_and_synthesis_after_overrun()
 /// Operator-ordered F01 contract: the next seat is admitted after spend exceeds allocation.
 #[test]
 fn formation_budget_single_seat_uses_same_allowance() {
-    use crate::club::Club;
+    use crate::agent::club::Club;
     let _lock = crate::tests::env_lock();
     let budget = Budget::new(Some(160), None);
     let _scope = enter(Some(budget.clone()));
@@ -343,7 +343,7 @@ fn formation_budget_single_seat_uses_same_allowance() {
     assert!(budget.exhausted());
 }
 struct StalledSeat;
-impl crate::club::Club for StalledSeat {
+impl crate::agent::club::Club for StalledSeat {
     fn label(&self) -> &str {
         "stalled-budget-seat"
     }
@@ -363,19 +363,19 @@ impl crate::club::Club for StalledSeat {
 /// Operator-ordered F01 contract: a wall overrun does not abort the stalled seat or formation.
 #[test]
 fn formation_budget_wall_fires_during_stalled_seat() {
-    use crate::club::Club;
+    use crate::agent::club::Club;
     let _lock = crate::tests::env_lock();
     let budget = Budget::new(None, Some(Duration::from_millis(30)));
     let _scope = enter(Some(budget.clone()));
-    let swarm = crate::swarm::SwarmClub::with_knobs(
+    let swarm = crate::agent::swarm::SwarmClub::with_knobs(
         "budget-test",
         Arc::new(StalledSeat),
-        crate::swarm::Knobs {
+        crate::agent::swarm::Knobs {
             width: 2,
             max_width: 2,
             layers: 2,
             always: true,
-            ..crate::swarm::Knobs::default()
+            ..crate::agent::swarm::Knobs::default()
         },
     );
     let start = Instant::now();

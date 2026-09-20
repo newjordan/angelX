@@ -4,9 +4,9 @@ use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 fn t_key_opens_the_think_picker_and_enter_stages_the_level() {
     let _lock = crate::tests::env_lock();
     let mut app = crate::seed_preview_app();
-    app.bag = crate::club::Bag::for_reasoning_render_test();
+    app.bag = crate::agent::club::Bag::for_reasoning_render_test();
     app.open_moa_deck(None);
-    app.select_moa_card(crate::formations::FormationId::Duel);
+    app.select_moa_card(crate::agent::formations::FormationId::Duel);
     {
         let deck = app.moa_deck.as_mut().unwrap();
         assert!(deck.select_slot(2)); // J1
@@ -19,16 +19,19 @@ fn t_key_opens_the_think_picker_and_enter_stages_the_level() {
     }
     assert!(app.moa_deck_key(KeyCode::Char('t'), KeyModifiers::NONE));
     let deck = app.moa_deck.as_ref().unwrap();
-    assert_eq!(deck.focus(), crate::formations::MoaDeckFocus::Efforts);
+    assert_eq!(
+        deck.focus(),
+        crate::agent::formations::MoaDeckFocus::Efforts
+    );
     assert_eq!(deck.effort_options(), ["low", "medium", "high"]);
     // Nothing staged: cursor on env default; Up wraps onto "high".
     assert!(app.moa_deck_key(KeyCode::Up, KeyModifiers::NONE));
     assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));
     let deck = app.moa_deck.as_ref().unwrap();
-    assert_eq!(deck.focus(), crate::formations::MoaDeckFocus::Slots);
+    assert_eq!(deck.focus(), crate::agent::formations::MoaDeckFocus::Slots);
     assert_eq!(
         deck.selected_roster()
-            .role_effort(crate::formations::FormationRole::Judge),
+            .role_effort(crate::agent::formations::FormationRole::Judge),
         Some("high")
     );
     assert!(
@@ -44,7 +47,7 @@ fn t_key_opens_the_think_picker_and_enter_stages_the_level() {
 fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     let _lock = crate::tests::env_lock();
     let mut app = crate::seed_preview_app();
-    app.bag = crate::club::Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
+    app.bag = crate::agent::club::Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
     app.open_moa_deck(None);
 
     // Solo Strike has no seats at all.
@@ -56,7 +59,7 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     );
 
     // Recon's scout seat: the swarm carries no scout effort policy.
-    app.select_moa_card(crate::formations::FormationId::Recon);
+    app.select_moa_card(crate::agent::formations::FormationId::Recon);
     assert!(app.moa_deck.as_mut().unwrap().select_slot(0));
     assert!(app.moa_deck_key(KeyCode::Char('t'), KeyModifiers::NONE));
     assert!(
@@ -66,11 +69,11 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     );
     assert_ne!(
         app.moa_deck.as_ref().unwrap().focus(),
-        crate::formations::MoaDeckFocus::Efforts
+        crate::agent::formations::MoaDeckFocus::Efforts
     );
 
     // Tag Team P1 finds no fleet box here: effort staging needs a route.
-    app.select_moa_card(crate::formations::FormationId::TagTeam);
+    app.select_moa_card(crate::agent::formations::FormationId::TagTeam);
     assert!(app.moa_deck.as_mut().unwrap().select_slot(0));
     assert!(app.moa_deck_key(KeyCode::Char('t'), KeyModifiers::NONE));
     assert!(
@@ -80,7 +83,7 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     );
     assert_ne!(
         app.moa_deck.as_ref().unwrap().focus(),
-        crate::formations::MoaDeckFocus::Efforts
+        crate::agent::formations::MoaDeckFocus::Efforts
     );
 }
 
@@ -89,9 +92,9 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
 fn arm_receipt_names_the_staged_think_column() {
     let _lock = crate::tests::env_lock();
     let mut app = crate::seed_preview_app();
-    app.bag = crate::club::Bag::for_reasoning_render_test();
+    app.bag = crate::agent::club::Bag::for_reasoning_render_test();
     app.open_moa_deck(None);
-    app.select_moa_card(crate::formations::FormationId::Duel);
+    app.select_moa_card(crate::agent::formations::FormationId::Duel);
     {
         let deck = app.moa_deck.as_mut().unwrap();
         assert!(deck.select_slot(2)); // J1

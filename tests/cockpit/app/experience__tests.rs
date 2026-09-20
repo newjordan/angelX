@@ -121,7 +121,7 @@ fn hiq_outcome_prefers_treebeard_and_eager_offload() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LANE", "treebeard") };
     // Seed strip snapshot so outcome carries true root LID mass.
-    crate::harness::note_last_root_hiq(crate::harness::LastRootHiq {
+    crate::agent::harness::note_last_root_hiq(crate::agent::harness::LastRootHiq {
         offload_ratio: 1.0,
         hiq_priority: 2.1875,
         handle_receipts: 3,
@@ -522,7 +522,7 @@ fn schema_class_tool_errors_increment_the_schema_bucket() {
 
 #[test]
 fn explicit_route_verdict_contains_metadata_but_no_conversation_text() {
-    let route = crate::club::RouteIdentity {
+    let route = crate::agent::club::RouteIdentity {
         driver: "openai".to_string(),
         model: Some("gpt-5.6-sol".to_string()),
         reasoning_effort: Some("ultra".to_string()),
@@ -652,8 +652,11 @@ fn persisted_records_scrub_all_text_fields_and_preserve_measurements() {
     let appended = std::fs::read_to_string(&path).unwrap();
     let clean: serde_json::Value = serde_json::from_str(appended.trim()).unwrap();
     assert_eq!(clean["diagnostic"], "«redacted:ANGEL_T_LEDGER_SECRET»");
-    assert_eq!(clean["results"][0], crate::secrets::REDACTED);
-    assert_eq!(clean["results"][1]["token"], crate::secrets::REDACTED);
+    assert_eq!(clean["results"][0], crate::platform::secrets::REDACTED);
+    assert_eq!(
+        clean["results"][1]["token"],
+        crate::platform::secrets::REDACTED
+    );
     assert_eq!(clean["count"], 7);
     assert_eq!(clean["ok"], true);
     replace_jsonl(&path, &[rec]).unwrap();

@@ -13,5 +13,5 @@ The `/self` workflow uses an isolated worktree. Its integration gate requires
 both the build and tests to pass. Inspect the resulting diff and evidence before
 integrating a change.
 
-Implementation: [self_map](../cockpit/src/tools/self_model.rs),
-[self-work controller](../cockpit/src/self_loop.rs).
+Implementation: [self_map](../cockpit/src/agent/tools/self_model.rs),
+[self-work controller](../cockpit/src/drive/self_loop.rs).

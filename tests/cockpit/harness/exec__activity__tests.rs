@@ -6,7 +6,7 @@ fn owned_cpu_crosses_sessions_without_crediting_siblings() {
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     let _guard = crate::tests::env_lock();
     struct Probe {
-        parent: crate::sandbox::process_owner::Child,
+        parent: crate::agent::sandbox::process_owner::Child,
         payload: Option<u32>,
         payload_fd: Option<OwnedFd>,
     }

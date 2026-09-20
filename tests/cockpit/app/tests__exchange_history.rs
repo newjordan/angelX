@@ -4,12 +4,12 @@
 //! beside nothing but the club types; the command-level tests stay in the
 //! parent with the other `seed_preview_app` suites.
 
-use crate::app_control;
-use crate::club::{ChatMsg, ChatRole};
+use crate::agent::club::{ChatMsg, ChatRole};
+use crate::app::control;
 
 #[test]
 fn retry_last_request_replaces_exchange_and_preserves_exact_request_prefix() {
-    let attachment = crate::club::Media::Image {
+    let attachment = crate::agent::club::Media::Image {
         mime: "image/png".to_string(),
         b64: "cGl4ZWw=".to_string(),
     };
@@ -25,7 +25,7 @@ fn retry_last_request_replaces_exchange_and_preserves_exact_request_prefix() {
         ChatMsg::assistant("stale final"),
     ];
 
-    let replayed = app_control::retry_last_request(&mut history);
+    let replayed = control::retry_last_request(&mut history);
 
     assert_eq!(replayed.as_deref(), Some("last task"));
     assert_eq!(history.len(), 6);
@@ -59,7 +59,7 @@ fn retry_without_a_surviving_operator_turn_fails_closed() {
         .map(|message| (message.role.clone(), message.content.clone()))
         .collect::<Vec<_>>();
 
-    assert!(app_control::retry_last_request(&mut history).is_none());
+    assert!(control::retry_last_request(&mut history).is_none());
     assert_eq!(
         history
             .iter()
@@ -82,7 +82,7 @@ fn undo_last_exchange_removes_user_harness_and_model_suffix_only() {
         ChatMsg::tool("call-1", "mistaken tool output"),
     ];
 
-    let removed = app_control::undo_last_exchange(&mut history).unwrap();
+    let removed = control::undo_last_exchange(&mut history).unwrap();
 
     assert_eq!(removed.len(), 4);
     assert_eq!(&*removed[0].content, "mistaken task");
@@ -101,6 +101,6 @@ fn undo_without_a_surviving_operator_turn_fails_closed() {
     ];
     let before = history.len();
 
-    assert!(app_control::undo_last_exchange(&mut history).is_none());
+    assert!(control::undo_last_exchange(&mut history).is_none());
     assert_eq!(history.len(), before);
 }

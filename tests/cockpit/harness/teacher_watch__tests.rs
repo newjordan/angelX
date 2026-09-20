@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{ChatMsg, ClubReply};
+use crate::agent::club::{ChatMsg, ClubReply};
 
 struct MockClub {
     label: String,
@@ -61,7 +61,7 @@ impl Club for MockClub {
         _messages: &[ChatMsg],
         _tools: &[ToolDef],
         _cancel: &AtomicBool,
-        _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+        _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
     ) -> Result<ClubReply, String> {
         self.respond("").map(ClubReply::Text)
     }

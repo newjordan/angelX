@@ -102,7 +102,7 @@ fn rows() -> Vec<Value> {
                 "fake-2"
             );
         }
-        let report = crate::harness::task_usage_delta(before, club.usage_accounting());
+        let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting());
         let dispatches = std::fs::read_to_string(&spawns)
             .unwrap()
             .lines()

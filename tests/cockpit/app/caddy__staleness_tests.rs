@@ -24,7 +24,7 @@ impl Fixture {
     fn store(&self, workspace: &Path, rows: &[Recipe]) -> PathBuf {
         let repo = self
             .0
-            .join(crate::workspace_store::repo_identity(workspace).key);
+            .join(crate::platform::workspace_store::repo_identity(workspace).key);
         std::fs::create_dir_all(&repo).unwrap();
         let path = repo.join("recipes.jsonl");
         let bytes = rows

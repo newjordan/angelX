@@ -50,7 +50,7 @@ fn apply_patch_hashline_edits_by_line_and_guards_stale_tag() {
 
     let content = "alpha\nbeta\ngamma\n";
     std::fs::write(root.join("h.rs"), content).unwrap();
-    let tag = crate::hashline::content_tag(content);
+    let tag = crate::agent::hashline::content_tag(content);
 
     // SWAP line 2 + INS.POST line 3: the model emits only the NEW rows, no
     // retyping of the old text.
@@ -75,7 +75,7 @@ fn apply_patch_hashline_edits_by_line_and_guards_stale_tag() {
         .expect("new tag in receipt");
     assert_eq!(
         new_tag,
-        crate::hashline::content_tag("alpha\nBETA\ngamma\ndelta\n")
+        crate::agent::hashline::content_tag("alpha\nBETA\ngamma\ndelta\n")
     );
 
     // A patch carrying the OLD tag no longer matches the changed file and is
@@ -111,7 +111,7 @@ fn apply_patch_hashline_rem_and_mv() {
 
     let content = "fn a() {\n    1\n}\nfn b() {\n    2\n}\n";
     std::fs::write(root.join("m.rs"), content).unwrap();
-    let tag = crate::hashline::content_tag(content);
+    let tag = crate::agent::hashline::content_tag(content);
 
     // DEL.BLK the first function, then MV to a new path.
     let patch = format!("*** Begin Patch\n[m.rs#{tag}]\nDEL.BLK 1\nMV nest/m2.rs\n*** End Patch\n");
@@ -126,7 +126,7 @@ fn apply_patch_hashline_rem_and_mv() {
     );
 
     // REM the moved file.
-    let tag2 = crate::hashline::content_tag("fn b() {\n    2\n}\n");
+    let tag2 = crate::agent::hashline::content_tag("fn b() {\n    2\n}\n");
     let rem = format!("*** Begin Patch\n[nest/m2.rs#{tag2}]\nREM\n*** End Patch\n");
     let msg2 = reg
         .dispatch("apply_patch", &serde_json::json!({ "diff": rem }))
@@ -149,7 +149,7 @@ fn read_file_hashline_anchors_on_by_default() {
 
     let content = "alpha\nbeta\n";
     std::fs::write(root.join("a.rs"), content).unwrap();
-    let tag = crate::hashline::content_tag(content);
+    let tag = crate::agent::hashline::content_tag(content);
     let page = reg
         .dispatch("read_file", &serde_json::json!({"path": "a.rs"}))
         .unwrap();
@@ -173,7 +173,7 @@ fn read_file_hashline_anchors_on_by_default() {
 fn conflict_uri_registers_on_read_and_resolves_via_write() {
     let _env = crate::tests::env_lock();
     let _anchors = crate::tests::TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
-    crate::conflict::clear_conflicts_for_test();
+    crate::agent::conflict::clear_conflicts_for_test();
     let root = std::env::temp_dir().join(format!("angel_cflt_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
@@ -235,7 +235,7 @@ fn conflict_uri_registers_on_read_and_resolves_via_write() {
         "head\ntheirs\ntail\n"
     );
 
-    crate::conflict::clear_conflicts_for_test();
+    crate::agent::conflict::clear_conflicts_for_test();
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -307,7 +307,7 @@ fn github_uri_parse_is_wired_through_read_file_errors() {
 
 #[test]
 fn agent_uri_lists_and_discloses_handles() {
-    use crate::harness::{HandleKind, PutMeta, session_clear, session_put};
+    use crate::agent::harness::{HandleKind, PutMeta, session_clear, session_put};
 
     let _env = crate::tests::env_lock();
     let _store = crate::tests::TestEnvGuard::set("ANGEL_HANDLE_STORE", "1");
@@ -383,7 +383,7 @@ fn apply_patch_hashline_recovers_stale_tag_via_session_snapshot() {
     let page = reg
         .dispatch("read_file", &serde_json::json!({"path": "r.rs"}))
         .unwrap();
-    let tag = crate::hashline::content_tag(original);
+    let tag = crate::agent::hashline::content_tag(original);
     assert!(page.contains(&format!("[r.rs#{tag}]")), "got: {page}");
 
     // External drift: insert a line above the anchored region.
@@ -415,7 +415,7 @@ fn str_replace_expect_tag_guards_stale_edit() {
     let mut reg = ToolRegistry::new();
     register_file_tools(&mut reg, root.clone());
     std::fs::write(root.join("g.rs"), "let a = 1;\n").unwrap();
-    let tag = crate::hashline::content_tag("let a = 1;\n");
+    let tag = crate::agent::hashline::content_tag("let a = 1;\n");
 
     // Matching tag → edit applies.
     reg.dispatch(
@@ -472,7 +472,10 @@ fn mutation_receipts_chain_guarded_edits_without_reread() {
         )
         .unwrap();
     let write_tag = receipt_tag(&write_receipt).to_string();
-    assert_eq!(write_tag, crate::hashline::content_tag("alpha beta\n"));
+    assert_eq!(
+        write_tag,
+        crate::agent::hashline::content_tag("alpha beta\n")
+    );
 
     // The returned tag is sufficient authority for the next guarded mutation;
     // no read_file call is needed between these tool calls.
@@ -488,7 +491,10 @@ fn mutation_receipts_chain_guarded_edits_without_reread() {
         )
         .unwrap();
     let replace_tag = receipt_tag(&replace_receipt).to_string();
-    assert_eq!(replace_tag, crate::hashline::content_tag("gamma beta\n"));
+    assert_eq!(
+        replace_tag,
+        crate::agent::hashline::content_tag("gamma beta\n")
+    );
 
     let multi_receipt = reg
         .dispatch(
@@ -504,7 +510,10 @@ fn mutation_receipts_chain_guarded_edits_without_reread() {
         )
         .unwrap();
     let multi_tag = receipt_tag(&multi_receipt);
-    assert_eq!(multi_tag, crate::hashline::content_tag("omega delta\n"));
+    assert_eq!(
+        multi_tag,
+        crate::agent::hashline::content_tag("omega delta\n")
+    );
     assert_eq!(
         std::fs::read_to_string(root.join("chain.txt")).unwrap(),
         "omega delta\n"
@@ -1020,18 +1029,18 @@ fn apply_patch_unified_preflight_prevents_partial_multi_file_change() {
 #[test]
 fn expect_tag_accepts_every_header_form() {
     let content = "fn main() {}\n";
-    let tag = crate::hashline::content_tag(content);
+    let tag = crate::agent::hashline::content_tag(content);
     for form in [
         tag.clone(),
         format!("#{tag}"),
         format!("src/main.rs#{tag}"),
         format!("[src/main.rs#{tag}]"),
     ] {
-        crate::tools::file::guard_expected_tag("src/main.rs", content, Some(&form))
+        crate::agent::tools::file::guard_expected_tag("src/main.rs", content, Some(&form))
             .unwrap_or_else(|e| panic!("{form}: {e}"));
     }
     assert!(
-        crate::tools::file::guard_expected_tag(
+        crate::agent::tools::file::guard_expected_tag(
             "src/main.rs",
             content,
             Some("src/main.rs#deadbeef")
@@ -1039,7 +1048,7 @@ fn expect_tag_accepts_every_header_form() {
         .is_err()
     );
     assert!(
-        crate::tools::file::guard_expected_tag("src/main.rs", content, Some("")).is_ok(),
+        crate::agent::tools::file::guard_expected_tag("src/main.rs", content, Some("")).is_ok(),
         "empty tag = no guard"
     );
 }

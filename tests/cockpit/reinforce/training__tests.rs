@@ -83,7 +83,7 @@ fn real_producer(root: &Path, workspace: &Path) -> (CodingEvalReport, Value) {
         "ANGEL_CODING_TRAINING_AUTHORITY_DIR",
         store.to_str().unwrap(),
     );
-    let mut registry = crate::harness::ToolRegistry::new();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
     registry.set_workspace(workspace.to_path_buf());
     let report = run_coding_eval(&LocalClub, &registry, TASK, GREEN).unwrap();
     assert_eq!(report.answer, ANSWER);
@@ -122,10 +122,13 @@ fn real_coding_eval_publishes_and_audits_exact_pair() {
         let before = std::fs::read_dir(&store).unwrap().count();
         let receipt = audit(&store, &bytes).unwrap();
         assert_eq!(receipt["data_class"], "verified_coding_eval");
-        assert_eq!(receipt["request_sha256"], crate::cut::sha256_hex(&bytes));
+        assert_eq!(
+            receipt["request_sha256"],
+            crate::knowledge::cut::sha256_hex(&bytes)
+        );
         assert_eq!(
             receipt["answer_sha256"],
-            crate::cut::sha256_hex(ANSWER.as_bytes())
+            crate::knowledge::cut::sha256_hex(ANSWER.as_bytes())
         );
         assert_eq!(receipt["baseline"], Value::Null);
         assert_eq!(receipt["reward_contract"], "tests");
@@ -212,7 +215,7 @@ fn failed_verifier_and_missing_authority_never_mint_training_decision() {
         let scoring = CodingEvalScore::without_competition(1.0);
         assert!(publish(&root.join("authority"), TASK, ANSWER, &evidence, &scoring).is_err());
         assert!(!root.join("authority").exists());
-        let mut registry = crate::harness::ToolRegistry::new();
+        let mut registry = crate::agent::harness::ToolRegistry::new();
         registry.set_workspace(workspace.into());
         let report = run_coding_eval(&LocalClub, &registry, TASK, GREEN).unwrap();
         assert_eq!(report.reward, 1.0);
