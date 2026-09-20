@@ -22,7 +22,7 @@ import { workerPaths } from './worker-paths.mjs'
 // thing ever read is telemetry; .angel.env is never touched, and secret-named
 // knobs are refused at the reflex adapter (belt-and-suspenders).
 
-import { NODE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE } from '../../lib/research/CausalGraph.js'
 import { scoreHypotheses } from './causal-loop.mjs'
 import { factBelief } from './repo-dossier.mjs'
 
@@ -515,7 +515,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (name) => {
     const i = argv.indexOf(name)
     return i >= 0 ? argv[i + 1] : undefined
@@ -526,7 +526,7 @@ async function cli(argv) {
   const habitsStatusPath = flag('--habits-status') || join(workerPaths().habits, 'status.json')
   const proposalsPath = flag('--proposals') || join(workerPaths().reflex, 'proposals.md')
 
-  const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+  const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const loadGraph = () =>
     existsSync(graphPath)
       ? CausalGraph.deserialize(JSON.parse(readFileSync(graphPath, 'utf8')))
@@ -615,7 +615,7 @@ async function cli(argv) {
   }
 
   console.log(
-    'usage: node scripts/conductor.mjs --mine|--rank [--graph PATH] [--ledger PATH]' +
+    'usage: node scripts/runtime/conductor.mjs --mine|--rank [--graph PATH] [--ledger PATH]' +
       ' [--reports-dir PATH] [--habits-status PATH] [--proposals PATH]',
   )
   return 2

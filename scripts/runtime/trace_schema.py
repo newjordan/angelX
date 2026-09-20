@@ -32,7 +32,7 @@ DISPLAYED_SCORE_INPUT_FAMILIES = ('rows.jsonl', 'timeline.json', '*-records-*',
 
 WORKSPACE_START_FIELDS = ("head_tree", "start_tree_sha256", "start_dirty_paths_sha256")
 
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / 'docs/telemetry/trace-schema-v1.json'
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / 'docs/telemetry/trace-schema-v1.json'
 
 
 @lru_cache(maxsize=1)
@@ -243,7 +243,7 @@ def receipt_file_identity(path, root=None):
     """Hash a local evidence file, refusing traversal and symlink components."""
     import hashlib
 
-    root = Path(root or Path(__file__).absolute().parents[1]).absolute()
+    root = Path(root or Path(__file__).absolute().parents[2]).absolute()
     path = Path(path)
     if not path.is_absolute():
         path = root / path

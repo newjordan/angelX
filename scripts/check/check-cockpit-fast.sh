@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Edit/test feedback without release LTO. Opt into final qualification explicitly.
 set -euo pipefail
-check_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+check_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 qualify_release=0
 if [[ "${1:-}" == --release ]]; then
   qualify_release=1
@@ -10,7 +10,7 @@ fi
 # Fix source/toolchain identity before compiling anything in a final gate.
 # Discovering an unbound image afterward otherwise forces another release build.
 if (( qualify_release )); then
-  gate_source=$(bash "$check_root/scripts/cockpit-source-digest.sh")
+  gate_source=$(bash "$check_root/scripts/check/cockpit-source-digest.sh")
   if [[ -n "${ANGEL_BUILD_SOURCE_SHA256:-}" && "$ANGEL_BUILD_SOURCE_SHA256" != "$gate_source" ]]; then
     printf 'Build identity differs from the current committed source.\n' >&2
     exit 3
@@ -20,14 +20,14 @@ if (( qualify_release )); then
   export ANGEL_BUILD_PROFILE=debug
 fi
 check_source() {
-  [[ "$(bash "$check_root/scripts/cockpit-source-digest.sh")" == "$gate_source" ]] || {
+  [[ "$(bash "$check_root/scripts/check/cockpit-source-digest.sh")" == "$gate_source" ]] || {
     printf 'Source changed during qualification; candidate is not qualified.\n' >&2
     return 3
   }
 }
 printf 'Checking ordinary cockpit boundary...\n'
-bash "$check_root/scripts/check-legacy-terminal-boundary.sh"
-python3 "$check_root/scripts/check-active-connections.py"
+bash "$check_root/scripts/check/check-legacy-terminal-boundary.sh"
+python3 "$check_root/scripts/check/check-active-connections.py"
 prepare_helper=0
 if [[ -z "${ANGEL_T_SANDBOX_HELPER:-}" ]]; then
   # Prepare the tiny helper before timed tests. Lazy helper compilation inside

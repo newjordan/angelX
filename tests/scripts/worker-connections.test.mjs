@@ -6,14 +6,14 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { workerPaths } from '../../scripts/worker-paths.mjs'
-import { boundedSpawnSync } from '../../scripts/bounded-child.mjs'
-import { runBenchmark } from '../../scripts/benchmark-runner.mjs'
-import { isMachineLabeled } from '../../scripts/cut-evidence.mjs'
+import { workerPaths } from '../../scripts/runtime/worker-paths.mjs'
+import { boundedSpawnSync } from '../../scripts/runtime/bounded-child.mjs'
+import { runBenchmark } from '../../scripts/runtime/benchmark-runner.mjs'
+import { isMachineLabeled } from '../../scripts/runtime/cut-evidence.mjs'
 import CausalGraph from '../../lib/research/CausalGraph.js'
-import { ingestAgenda } from '../../scripts/conductor.mjs'
+import { ingestAgenda } from '../../scripts/runtime/conductor.mjs'
 
-const scripts = fileURLToPath(new URL('../../scripts/', import.meta.url))
+const scripts = fileURLToPath(new URL('../../scripts/runtime/', import.meta.url))
 const json = (path) => JSON.parse(fs.readFileSync(path, 'utf8'))
 function fixture(t) {
   const dir = fs.mkdtempSync(join(os.tmpdir(), 'angel-worker-wiring-'))

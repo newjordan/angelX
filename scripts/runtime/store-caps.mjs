@@ -2,7 +2,7 @@
 // the cockpit. This deliberately supports only the manifest's simple integer
 // assignments, not arbitrary TOML values or configuration overrides.
 import { readFileSync } from 'node:fs'
-const manifest = readFileSync(new URL('../docs/telemetry/store-caps.toml', import.meta.url), 'utf8')
+const manifest = readFileSync(new URL('../../docs/telemetry/store-caps.toml', import.meta.url), 'utf8')
 export function storeCap(store, key) {
   let section
   for (const line of manifest.split('\n')) {

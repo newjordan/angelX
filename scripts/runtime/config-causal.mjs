@@ -29,7 +29,7 @@ import { workerPaths } from './worker-paths.mjs'
 //   • Zero engine changes. scoreHypotheses / nextExperiment are reused verbatim;
 //     the per-experiment `cost` hook (dormant until now) is finally driven.
 
-import { NODE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE } from '../../lib/research/CausalGraph.js'
 import { scoreHypotheses } from './causal-loop.mjs'
 
 export const CONFIG_PROJECT = Object.freeze({ id: 'reflex', label: 'Reflex config' })
@@ -493,7 +493,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (name) => {
     const i = argv.indexOf(name)
     return i >= 0 ? argv[i + 1] : undefined
@@ -501,7 +501,7 @@ async function cli(argv) {
   const graphPath = flag('--graph') || workerPaths().graph
   const ledgerPath = flag('--ledger') || process.env.ANGEL_EXPERIENCE_LOG || workerPaths().ledger
 
-  const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+  const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const loadGraph = () =>
     existsSync(graphPath)
       ? CausalGraph.deserialize(JSON.parse(readFileSync(graphPath, 'utf8')))
@@ -558,7 +558,7 @@ async function cli(argv) {
   }
 
   console.log(
-    'usage: node scripts/config-causal.mjs <--seed|--rank> [--graph FILE] [--ledger FILE]\n' +
+    'usage: node scripts/runtime/config-causal.mjs <--seed|--rank> [--graph FILE] [--ledger FILE]\n' +
       '  --seed  mint the knob-catalog hypotheses + fold in ledger observations, write the graph\n' +
       '  --rank  print the EIG-ranked config-experiment queue',
   )

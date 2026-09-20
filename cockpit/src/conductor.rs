@@ -124,7 +124,7 @@ fn heartbeat_line(v: Option<&serde_json::Value>) -> String {
     }
 }
 
-/// Tri-state, mirroring `conductorMode` in `scripts/conductor-tick.mjs`: a typo
+/// Tri-state, mirroring `conductorMode` in `scripts/runtime/conductor-tick.mjs`: a typo
 /// falls through to the state that cannot act. Measure runs the whole night path
 /// (lock, gates, folds, briefing) and withholds only the act — see
 /// `docs/WORKERS.md`.

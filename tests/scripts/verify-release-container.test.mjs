@@ -11,7 +11,7 @@ import {
   publishInstallableBinary,
   validateDockerImageInspection,
   validateNativePackages,
-} from '../../scripts/verify-release-container.mjs'
+} from '../../scripts/release/verify-release-container.mjs'
 
 const DIGEST = `sha256:${'6'.repeat(64)}`
 const IMAGE = {

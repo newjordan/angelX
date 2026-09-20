@@ -26,7 +26,7 @@ import { workerPaths } from './worker-paths.mjs'
 // hand-built graph — no disk, no clock.
 
 import { beliefProbability } from './causal-loop.mjs'
-import { NODE_TYPE, EDGE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE, EDGE_TYPE } from '../../lib/research/CausalGraph.js'
 import { KNOB_CATALOG, CONFIG_PROJECT } from './config-causal.mjs'
 
 // Conclusion threshold: reflex only writes a knob once its belief clears this.
@@ -188,7 +188,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (n, d) => {
     const i = argv.indexOf(n)
     return i >= 0 ? argv[i + 1] : d
@@ -199,7 +199,7 @@ async function cli(argv) {
   const threshold = Number(flag('--threshold', String(CONCLUDE_THRESHOLD)))
   const reflexDir = workerPaths().reflex
 
-  const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+  const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const graph = existsSync(graphPath)
     ? CausalGraph.deserialize(JSON.parse(readFileSync(graphPath, 'utf8')))
     : new CausalGraph()

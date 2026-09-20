@@ -1,6 +1,6 @@
 //! Repo Dossier warm-start injection from compiled experience-ledger facts.
 //!
-//! The dossier compiler (`scripts/repo-dossier.mjs`) mines the experience
+//! The dossier compiler (`scripts/runtime/repo-dossier.mjs`) mines the experience
 //! ledger's per-command events into per-repo facts with beliefs and writes one
 //! artifact per workspace to `~/.angel0/dossier/<workspace_key>.json`. This
 //! module renders that artifact into a small context block so a session opens
@@ -382,7 +382,7 @@ pub(crate) fn status_text(workspace: &Path) -> String {
         .ok()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
     let Some(artifact) = artifact else {
-        let compiler = crate::runtime_paths::script("repo-dossier.mjs");
+        let compiler = crate::runtime_paths::script("runtime/repo-dossier.mjs");
         let quoted_compiler = compiler.to_string_lossy().replace('\'', "'\"'\"'");
         return format!(
             "no dossier for this workspace yet ({}).\n\

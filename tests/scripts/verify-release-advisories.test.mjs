@@ -10,7 +10,7 @@ import {
   evaluateScan,
   validateScannerInspection,
   validateScannerVersion,
-} from '../../scripts/verify-release-advisories.mjs'
+} from '../../scripts/release/verify-release-advisories.mjs'
 
 const SCANNER = {
   name: 'osv-scanner',

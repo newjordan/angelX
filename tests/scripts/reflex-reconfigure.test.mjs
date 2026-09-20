@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import CausalGraph, { EDGE_TYPE } from '../../lib/research/CausalGraph.js'
-import { seedConfigHypotheses, configHypothesisId } from '../../scripts/config-causal.mjs'
+import { seedConfigHypotheses, configHypothesisId } from '../../scripts/runtime/config-causal.mjs'
 import {
   selectWinners,
   renderOverlay,
@@ -13,7 +13,7 @@ import {
   isSecretName,
   TIER_A_KNOBS,
   CONCLUDE_THRESHOLD,
-} from '../../scripts/reflex-reconfigure.mjs'
+} from '../../scripts/runtime/reflex-reconfigure.mjs'
 
 const NOW = '2026-07-04T00:00:00.000Z'
 const AGG_ACC = configHypothesisId('agg', 'codex-run', 'accuracy_pct')
