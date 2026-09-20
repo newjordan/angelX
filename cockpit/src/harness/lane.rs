@@ -728,9 +728,7 @@ pub(crate) fn free_train_system_suffix() -> String {
         }
     }
     s.push_str(
-        ". Morning: `python3 scripts/forge-adapter-ready.py`; \
-         free_train Hi/Q goldens land in angel-forge/inbox/hiq-free-train.jsonl. \
-         Prefer attack `next_PRIMARY` (highest board µs / equal geomean weight) over reopening P1 closed avenues.\n",
+        ". Prefer attack `next_PRIMARY` (highest board µs / equal geomean weight) over reopening P1 closed avenues.\n",
     );
     s
 }
