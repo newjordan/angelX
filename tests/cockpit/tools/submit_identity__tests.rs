@@ -303,9 +303,9 @@ fn output_prose_and_enqueue_are_not_terminal_acceptance() {
     let table = "7871bd4 newjordan accepted 519469.35 {} +1% 380b04d yesterday";
     assert_eq!(classify_outcome(0, table), "unknown");
     // The established Yukon status contract retains the terminal distinction.
-    let rows = crate::yukon_fleet::parse_submission_table("test/board", table);
+    let rows = crate::harness::comp_packages::yukon::fleet::parse_submission_table("test/board", table);
     assert_eq!(
         rows[0].phase,
-        crate::yukon_fleet::YukonSubmissionPhase::Accepted
+        crate::harness::comp_packages::yukon::fleet::YukonSubmissionPhase::Accepted
     );
 }
