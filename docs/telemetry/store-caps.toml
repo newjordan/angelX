@@ -1,0 +1,49 @@
+# Published-store byte ceilings apply after redaction. Per workspace unless stated.
+# max_record_bytes is the pre-redaction admission limit; the final store cap still applies.
+# Cockpit embeds and reads this manifest; limits apply to stores, never runs.
+[caddy_recipes]
+max_bytes = 262144
+max_entries = 2048
+max_record_bytes = 16384
+max_new_entries = 1024
+stale_workspace_changes = 5
+policy = "newest workspace-bound recipe per command; legacy day buckets; expired recipes omitted from cards"
+
+[caddy_hazards]
+max_bytes = 262144
+max_entries = 2048
+max_record_bytes = 16384
+max_new_entries = 1024
+policy = "atomic newest-per-command-and-diagnostic snapshot"
+
+[experience]
+max_bytes = 52428800
+retained_archives = 0
+scope = "per ledger"
+policy = "compact complete newest rows to half capacity before append exceeds cap"
+
+[atlas_snapshot]
+max_bytes = 2097152
+scope = "per project or global snapshot"
+policy = "reject oversized publication; preserve previous snapshot"
+
+[atlas_lessons]
+max_bytes = 52428800
+retained_archives = 0
+policy = "shared experience bounded JSONL writer"
+
+[dossier_artifact]
+max_bytes = 2097152
+max_entries = 2048
+policy = "newest verified facts; reject oversized metadata"
+
+[cut]
+max_bytes = 268435456
+scope = "total shard bytes; ANGEL_CUT_MAX_MB remains an explicit override"
+policy = "oldest closed shard evicted first"
+
+[trajectories]
+max_bytes = 268435456
+max_age_days = 30
+scope = "total JSONL bytes in trajectory directory; companion lock excluded"
+policy = "under directory writer lock, evict oldest complete files by age then size; preserve incoming complete record; rotation event attached to incoming ledger"

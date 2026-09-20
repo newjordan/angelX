@@ -1,0 +1,41 @@
+# The canonical starter graph: researcher → writer → read-only reviewer, with
+# the reviewer gate looping back to the writer on rejection. Shared state flows
+# along the edges; the reviewer's feedback rides the retry.
+name = "research-write-review"
+description = "Researcher gathers evidence, writer drafts, adversarial reviewer gates with a loop-back retry."
+
+[[node]]
+id = "research"
+persona = "librarian"
+tools = "research"
+prompt = """Research this task. Gather concrete facts, constraints, and sources as compact,
+citation-bearing notes a writer can build from — notes only, no draft.
+
+Task:
+{task}"""
+
+[[node]]
+id = "write"
+depends_on = ["research"]
+prompt = """Produce the deliverable for this task from the research notes. Complete, concrete,
+no filler.
+
+Task:
+{task}
+
+Research notes:
+{output:research}"""
+
+[[node]]
+id = "review"
+persona = "reviewer"
+depends_on = ["write"]
+gate = { verdict = true, retry = "write", max_retries = 2 }
+prompt = """Review the draft against the task: correctness, completeness, clarity. Be adversarial —
+name every concrete defect. If it ships, say why in one line.
+
+Task:
+{task}
+
+Draft:
+{output:write}"""

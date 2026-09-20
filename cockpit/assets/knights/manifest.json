@@ -1,0 +1,23 @@
+{
+  "schema": "angel-knight-cast/v1",
+  "author": "Astra",
+  "source_sha256": "5513803b7d8e2a18a8a02f7d0f373ab03d34fa2e76407eb83cc9aac335ebefd4",
+  "source_path": "cast-v1.png",
+  "original_path": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-45cc4cab-07b7-46b4-bd38-726ed967f4ee.png",
+  "source_size": [
+    1278,
+    1230
+  ],
+  "layout": "Four columns, hand-reviewed row bounds; runtime frame metadata is in knight_cast.rs",
+  "excluded_cells": [
+    [
+      0,
+      3
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "reason": "Raised lance extends outside intended cell margin"
+}

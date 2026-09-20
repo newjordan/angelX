@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "sequence": 43,
+  "published_at_monotonic_ms": 12100,
+  "stage": null,
+  "seats": [],
+  "status": {
+    "active_seats": 0,
+    "omitted_seats": 0,
+    "health": "unknown"
+  },
+  "palette": "noir"
+}

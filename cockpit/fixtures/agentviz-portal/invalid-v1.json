@@ -1,0 +1,13 @@
+{
+  "schema_version": 99,
+  "sequence": 45,
+  "published_at_monotonic_ms": 12300,
+  "stage": "judge",
+  "seats": [],
+  "status": {
+    "active_seats": 0,
+    "omitted_seats": 0,
+    "health": "unknown"
+  },
+  "palette": "noir"
+}

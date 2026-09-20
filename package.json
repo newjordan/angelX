@@ -1,0 +1,46 @@
+{
+  "name": "angel0",
+  "version": "0.1.2",
+  "description": "Terminal-first research and coding cockpit with verifiable agent workflows.",
+  "private": true,
+  "type": "module",
+  "author": "frosty",
+  "license": "MIT",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "keywords": [
+    "research",
+    "control-plane",
+    "terminal",
+    "agents",
+    "rlvr",
+    "mlops"
+  ],
+  "scripts": {
+    "release:evidence": "node scripts/release-evidence.mjs",
+    "release:verify": "node scripts/verify-release-evidence.mjs",
+    "release:verify:container": "node scripts/verify-release-container.mjs",
+    "release:verify:advisories": "node scripts/verify-release-advisories.mjs",
+    "release:verify:install": "node scripts/verify-release-install.mjs",
+    "test:release": "node --test --test-concurrency=1 scripts/release-evidence.test.mjs scripts/verify-release-evidence.test.mjs scripts/verify-release-container.test.mjs scripts/verify-release-advisories.test.mjs scripts/verify-release-install.test.mjs scripts/verify-runner-smoke.test.mjs",
+    "test": "node --test --test-concurrency=1 scripts/release-evidence.test.mjs scripts/verify-release-evidence.test.mjs scripts/verify-release-container.test.mjs scripts/verify-release-advisories.test.mjs scripts/verify-release-install.test.mjs scripts/verify-runner-smoke.test.mjs",
+    "check:cockpit-quality": "bash scripts/check-cockpit-quality.sh",
+    "check:connections": "python3 scripts/check-active-connections.py",
+    "test:connections": "python3 -m unittest discover -s scripts -p test_active_connections.py",
+    "test:cockpit-pty": "ANGEL_PTY_SMOKE_STRICT=1 cargo test --manifest-path cockpit/Cargo.toml --test interactive_terminal_smoke",
+    "format": "prettier --write scripts/*.mjs",
+    "format:check": "prettier --check scripts/*.mjs",
+    "test:cockpit": "bash scripts/check-cockpit-fast.sh --test-threads=1"
+  },
+  "dependencies": {
+    "pxpipe-proxy": "^0.8.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-prettier": "^5.5.6",
+    "globals": "^17.7.0",
+    "prettier": "^3.0.0"
+  }
+}

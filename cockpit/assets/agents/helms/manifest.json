@@ -1,0 +1,70 @@
+{
+  "schema": "angel-helm-sheets/v1",
+  "poses": [
+    "idle",
+    "glance-left",
+    "glance-right",
+    "thinking",
+    "acting",
+    "long-context",
+    "approval",
+    "settled"
+  ],
+  "sheets": [
+    {
+      "agent": "turbo",
+      "file": "turbo.png",
+      "width": 1774,
+      "height": 887,
+      "columns": 4,
+      "rows": 2,
+      "sha256": "0751d39c668418d44f09e33fc3adc66edba8b3b46fd8ace44e651f644ccd21d4",
+      "generation": "Astra via built-in imagegen",
+      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-59897c58-5fb0-43e0-9e39-a4ae8f325c1a.png"
+    },
+    {
+      "agent": "atlas",
+      "file": "atlas.png",
+      "width": 1774,
+      "height": 887,
+      "columns": 4,
+      "rows": 2,
+      "sha256": "bfcf787c65feb3bf92cf9d38697c7053a937e742ff6abdafaded06b491016c45",
+      "generation": "Astra via built-in imagegen",
+      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-cfe8282d-516b-4c02-8dcb-4456efb3ee26.png"
+    },
+    {
+      "agent": "sparky",
+      "file": "sparky.png",
+      "width": 1774,
+      "height": 887,
+      "columns": 4,
+      "rows": 2,
+      "sha256": "64950edd6d39e71588a01f5b70f42cb808bb9a1e10c95bfc6e26b71f8d3d6598",
+      "generation": "Astra via built-in imagegen",
+      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-76ac706f-38f5-4824-a336-4a4946634993.png"
+    },
+    {
+      "agent": "apollo",
+      "file": "apollo.png",
+      "width": 1774,
+      "height": 887,
+      "columns": 4,
+      "rows": 2,
+      "sha256": "0381699aeba26b0233b995b37ea829e0acd2b03e3b0d5729bcae2c4c11dbb67e",
+      "generation": "Astra via built-in imagegen",
+      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-be1c28a8-9049-4941-8046-245b7fb3b2e6.png"
+    },
+    {
+      "agent": "codex",
+      "file": "codex.png",
+      "width": 1774,
+      "height": 887,
+      "columns": 4,
+      "rows": 2,
+      "sha256": "6520b7904353c2b241cc3ae37925cd76819943a673cdf492023efc6a55f26eec",
+      "generation": "Astra via built-in imagegen",
+      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-036b6e2d-6350-4e51-8cc5-3ea8950c1cdd.png"
+    }
+  ]
+}

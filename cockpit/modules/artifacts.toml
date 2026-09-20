@@ -1,0 +1,12 @@
+id = "artifacts"
+title = "Scryglass Realm Stage"
+kind = "media"
+activation = "startup"
+capabilities = ["media", "widget"]
+data_sources = ["turn-events", "world", "formation", "present-tool", "viewer"]
+
+[default_rect]
+x = 96
+y = 23
+width = 44
+height = 12

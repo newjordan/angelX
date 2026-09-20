@@ -1,0 +1,96 @@
+{
+  "schema": "angel.supplemental-chat-usage-wire/v1",
+  "origin": "synthetic original wire objects using primary documented fields; no live provider receipts",
+  "cases": [
+    {
+      "name": "openai-chat-included",
+      "logical_endpoint": "https://api.openai.com/v1",
+      "contract": "OpenAI Chat Completions public schema; cache and reasoning included",
+      "primary_source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create",
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 20,
+        "completion_tokens_details": {
+          "reasoning_tokens": 5
+        },
+        "prompt_tokens_details": {
+          "cached_tokens": 40,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_raw": [
+        100,
+        20,
+        5
+      ],
+      "expected_normalized": [
+        100,
+        20,
+        5
+      ],
+      "expected_uncached": 60
+    },
+    {
+      "name": "deepseek-chat-included",
+      "logical_endpoint": "https://api.deepseek.com/v1",
+      "contract": "DeepSeek Chat Completions public schema; cache and reasoning included; cache-write absent",
+      "primary_source": "https://api-docs.deepseek.com/api/create-chat-completion/",
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 20,
+        "completion_tokens_details": {
+          "reasoning_tokens": 5
+        },
+        "prompt_cache_hit_tokens": 40,
+        "prompt_cache_miss_tokens": 60
+      },
+      "expected_raw": [
+        100,
+        20,
+        5
+      ],
+      "expected_normalized": [
+        100,
+        20,
+        5
+      ],
+      "expected_uncached": null
+    }
+  ],
+  "controls": [
+    {
+      "name": "shared-explicit-zero",
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "expected_raw": [
+        0,
+        0,
+        0
+      ],
+      "expected_normalized": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "shared-missing-usage",
+      "usage": null,
+      "expected_raw": [
+        null,
+        null,
+        null
+      ],
+      "expected_normalized": [
+        null,
+        null,
+        null
+      ]
+    }
+  ]
+}

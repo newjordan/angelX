@@ -1,0 +1,31 @@
+{
+  "name": "maiden_wave",
+  "start_index": 31,
+  "period_frames": 16,
+  "fps": 12.0,
+  "wrap_mse": 695.3604730902778,
+  "mid_adj_mse": 598.2662042824074,
+  "wrap_to_adj_ratio": 1.1622927502014553,
+  "blend_t": 0.28,
+  "stabilized": true,
+  "key_color": "none",
+  "source_count": 73,
+  "frame_files": [
+    "maiden_wave_00.png",
+    "maiden_wave_01.png",
+    "maiden_wave_02.png",
+    "maiden_wave_03.png",
+    "maiden_wave_04.png",
+    "maiden_wave_05.png",
+    "maiden_wave_06.png",
+    "maiden_wave_07.png",
+    "maiden_wave_08.png",
+    "maiden_wave_09.png",
+    "maiden_wave_10.png",
+    "maiden_wave_11.png",
+    "maiden_wave_12.png",
+    "maiden_wave_13.png",
+    "maiden_wave_14.png",
+    "maiden_wave_15.png"
+  ]
+}

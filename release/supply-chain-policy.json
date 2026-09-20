@@ -1,0 +1,117 @@
+{
+  "schema": "angel0-release-supply-chain-policy/v1",
+  "prebuilt_artifacts": [
+    {
+      "name": "rusty_v8",
+      "crate": "v8",
+      "crate_version": "150.0.0",
+      "target": "x86_64-unknown-linux-gnu",
+      "profile": "release",
+      "format": "decompressed-static-library",
+      "bytes": 186584462,
+      "sha256": "d2d37defd68d7c3cd542ce69131f1732f59d5d06978fd8a694ad9fa52836d850",
+      "upstream_url": "https://github.com/denoland/rusty_v8/releases/download/v150.0.0/librusty_v8_release_x86_64-unknown-linux-gnu.a.gz",
+      "trust": "pinned from the locked crate's declared release URL and re-verified on 2026-09-17 by downloading that archive and matching its decompressed bytes; no upstream signature or external attestation verified"
+    }
+  ],
+  "container_images": [
+    {
+      "name": "clean_release_builder",
+      "reference": "sha256:521b1efb8209990e28d17794b05a338df5c02962328c1ec63b7924c195f7dc52",
+      "digest": "sha256:521b1efb8209990e28d17794b05a338df5c02962328c1ec63b7924c195f7dc52",
+      "local_tag": "angel0-clean-builder:rust-1.95.0-bookworm-v1",
+      "base_reference": "docker.io/library/rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1",
+      "base_digest": "sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1",
+      "dockerfile_sha256": "84adc88972f5e4a2512cfec127a8eb79d3396ef5fc4fc08491cb9c72592bef9b",
+      "operating_system": "linux",
+      "architecture": "amd64",
+      "distribution": "Debian GNU/Linux 12 (bookworm)",
+      "rust_version": "1.95.0",
+      "native_packages": [
+        "libavcodec-dev:amd64=7:5.1.9-0+deb12u1",
+        "libavdevice-dev:amd64=7:5.1.9-0+deb12u1",
+        "libavfilter-dev:amd64=7:5.1.9-0+deb12u1",
+        "libavformat-dev:amd64=7:5.1.9-0+deb12u1",
+        "libavutil-dev:amd64=7:5.1.9-0+deb12u1",
+        "libclang-dev=1:14.0-55.7~deb12u1",
+        "libswresample-dev:amd64=7:5.1.9-0+deb12u1",
+        "libswscale-dev:amd64=7:5.1.9-0+deb12u1",
+        "pkg-config:amd64=1.8.1-1"
+      ],
+      "trust": "locally built from a registry-digest-pinned official Rust base (digest re-checked against Docker Hub on 2026-09-17) with recorded native package versions; the image ID was recorded by the previous build of this byte-identical Dockerfile on the prior evidence host and has not yet been rebuilt or inspected on an angel0 Docker host; no signature, registry publication, or external attestation verified"
+    }
+  ],
+  "advisory_scanners": [
+    {
+      "name": "osv-scanner",
+      "version": "2.3.8",
+      "commit": "408fcd6f8707999a29e7ba45e15809764cf24f67",
+      "reference": "ghcr.io/google/osv-scanner@sha256:64e86bec6df2466feea5137fc7c78fb3b7c21ec077f014d7130f64810e50676b",
+      "digest": "sha256:64e86bec6df2466feea5137fc7c78fb3b7c21ec077f014d7130f64810e50676b",
+      "operating_system": "linux",
+      "architecture": "amd64",
+      "trust": "official OSV-Scanner release image pinned by registry digest (re-checked against ghcr.io on 2026-09-17); local signature or SLSA provenance verification not yet performed"
+    }
+  ],
+  "advisory_policy": {
+    "lockfiles": [
+      {
+        "path": "cockpit/Cargo.lock",
+        "ecosystem": "crates.io",
+        "sha256": "0e394ee37d749e64aa569cc529184a46d0f8096466613e56ab7841eb19fe2eed",
+        "package_count": 370
+      },
+      {
+        "path": "cockpit/portal-renderer/Cargo.lock",
+        "ecosystem": "crates.io",
+        "sha256": "1c9ca5c6a29d832ef6612d30b0f1609c92592320f96a8e5922f2a72c50a62b20",
+        "package_count": 121
+      },
+      {
+        "path": "package-lock.json",
+        "ecosystem": "npm",
+        "sha256": "2229e8df37c48750df12db1d13c6ab265e8a1c0b86b44d6f33879e1fe1444465",
+        "package_count": 79
+      }
+    ],
+    "python": {
+      "status": "not-applicable",
+      "reason": "the ordinary terminal cockpit release contains no Python dependency manifest or lockfile"
+    },
+    "exceptions": [
+      {
+        "lockfile": "cockpit/Cargo.lock",
+        "package": "bincode",
+        "version": "1.3.3",
+        "ids": [
+          "RUSTSEC-2025-0141"
+        ],
+        "kind": "unmaintained",
+        "expires": "2026-10-18",
+        "reason": "Syntect's compiled default syntax and theme dumps still require bincode 1; replace when Syntect removes that format dependency"
+      },
+      {
+        "lockfile": "cockpit/Cargo.lock",
+        "package": "paste",
+        "version": "1.0.15",
+        "ids": [
+          "RUSTSEC-2024-0436"
+        ],
+        "kind": "unmaintained",
+        "expires": "2026-10-18",
+        "reason": "the AVIF encoder and V8 still depend on paste; remove through their upstream-compatible upgrades"
+      },
+      {
+        "lockfile": "cockpit/Cargo.lock",
+        "package": "rustls-pemfile",
+        "version": "2.2.0",
+        "ids": [
+          "RUSTSEC-2025-0134"
+        ],
+        "kind": "unmaintained",
+        "expires": "2026-10-18",
+        "reason": "ureq 2 native-certificate support uses rustls-native-certs 0.7 and its PEM wrapper; remove through a compatible native-certificate upgrade"
+      }
+    ]
+  }
+}
