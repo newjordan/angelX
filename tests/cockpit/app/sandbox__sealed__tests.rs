@@ -1,3 +1,18 @@
+/// This module compiles into both the cockpit and the `angel-sandbox` helper,
+/// where it sits at a different path, so the libtest `--exact` filter for a
+/// sibling test is derived from `module_path!()` rather than hard-coded.
+macro_rules! self_test_filter {
+    ($name:literal) => {
+        format!(
+            "{}::{}",
+            module_path!()
+                .split_once("::")
+                .map_or(module_path!(), |(_crate, rest)| rest),
+            $name
+        )
+    };
+}
+
 use super::*;
 
 /// Test-only activation. `ACTIVE` is a `OnceLock` (activation is
@@ -152,7 +167,10 @@ fn sealed_override_merges_only_workspace_scoped_writable_roots() {
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.args([
             "--exact",
-            "sandbox::sealed::tests::sealed_override_merges_only_workspace_scoped_writable_roots",
+            self_test_filter!(
+                "sealed_override_merges_only_workspace_scoped_writable_roots"
+            )
+            .as_str(),
             "--nocapture",
         ])
         .env("ANGEL_T_SEALED_MERGE_CHILD", "1");

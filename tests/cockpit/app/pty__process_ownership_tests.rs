@@ -99,7 +99,7 @@ fn idle_pty_exit_is_reaped_even_while_a_descendant_keeps_output_open() {
     let mut child = Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "pty::process_ownership_tests::idle_completion_fixture",
+            "platform::pty::process_ownership_tests::idle_completion_fixture",
             "--nocapture",
             "--test-threads=1",
         ])

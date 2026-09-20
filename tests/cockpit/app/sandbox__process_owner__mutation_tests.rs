@@ -1,3 +1,18 @@
+/// This module compiles into both the cockpit and the `angel-sandbox` helper,
+/// where it sits at a different path, so the libtest `--exact` filter for a
+/// sibling test is derived from `module_path!()` rather than hard-coded.
+macro_rules! self_test_filter {
+    ($name:literal) => {
+        format!(
+            "{}::{}",
+            module_path!()
+                .split_once("::")
+                .map_or(module_path!(), |(_crate, rest)| rest),
+            $name
+        )
+    };
+}
+
 use super::*;
 
 #[test]
@@ -50,7 +65,7 @@ fn cleanup_reaps_adopted_children() {
         ].iter().enumerate() {
             let marker = root.join(format!("child-{index}"));
             let mut child = std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "sandbox::process_owner::mutation_tests::cleanup_child_fixture", "--ignored", "--test-threads=1"])
+                .args(["--exact", self_test_filter!("cleanup_child_fixture").as_str(), "--ignored", "--test-threads=1"])
                 .env("ANGEL_T_OWNER_MARKER", &marker)
                 .env("ANGEL_T_OWNER_PAYLOAD", payload)
                 .stdout(std::process::Stdio::null())

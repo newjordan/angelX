@@ -238,7 +238,7 @@ fn actual_store_writers_are_private_under_zero_umask() {
         }
     }
     let mut child = Reap(std::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "workspace_store::private_io::tests::actual_store_writers_are_private_under_zero_umask", "--test-threads=1", "--nocapture"])
+        .args(["--exact", "platform::workspace_store::private_io::tests::actual_store_writers_are_private_under_zero_umask", "--test-threads=1", "--nocapture"])
         .env(CHILD, "1").stdin(std::process::Stdio::null()).spawn().unwrap());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     loop {

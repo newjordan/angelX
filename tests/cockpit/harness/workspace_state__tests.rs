@@ -543,7 +543,7 @@ fn evaluator_execution_pinned_git_ignores_hostile_path() {
     let output = Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "harness::workspace_state::tests::evaluator_execution_pinned_git_child",
+            "agent::harness::workspace_state::tests::evaluator_execution_pinned_git_child",
             "--nocapture",
         ])
         .env("PATH", &hostile_path)
