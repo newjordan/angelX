@@ -15,7 +15,7 @@ Source-backed implementation shortlist. Comparative performance remains unmeasur
 | 9 | Structured, attributable headless runs | Task JSON records runtime settings, source identity, tool activity and optional rollout/acceptance bindings. | [Runner contract](../cockpit/docs/COMPETITION_RUNNER.md), [runner smoke](../scripts/verify-runner-smoke.mjs) |
 | 10 | Measured reinforcement campaigns | Isolated attempts produce verifier results; policy installation requires the campaign's independent audit path. | [Campaign tool](../cockpit/src/tools/rl_campaign.rs), [campaign tests](../tests/cockpit/app/rl_ctl__campaign_tests.rs) |
 | 11 | Optional research within a loop | Sloptomizer supplies Pareto, bandit and memory suggestions plus paired experiments; Deli supplies bounded fresh-context deliberation. | [Research options](../cockpit/research/sloptomizer/README.md), [Deli](../cockpit/src/deli.rs) |
-| 12 | Typed advice alongside measured arithmetic | Jev returns advisory probabilities, choices and rubric scores. `benchmark_compare` separately calculates changes from supplied paired samples. | [Jev](../cockpit/src/tools/jev.rs), [comparison](../cockpit/src/tools/benchmark.rs) |
+| 12 | Measured paired-sample arithmetic | `benchmark_compare` calculates changes from supplied paired samples. | [comparison](../cockpit/src/tools/benchmark.rs) |
 
 Research execution and feedback are implemented; general task-quality gains and
 provider-weight training are not established. Upstream work is credited in
