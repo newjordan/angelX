@@ -20,6 +20,21 @@ pub(crate) struct CompetitionPackage {
     pub(crate) label: &'static str,
 }
 
+/// What a competition loop worker is allowed to see and do.
+///
+/// Competition loops run with a *fresh, minimal* context (the cockpit system
+/// prompt and skills catalog are deliberately not inherited) and an allowlist
+/// of dispatchable tools. This is the loop-side mirror of the package seam:
+/// each family states its own worker surface instead of the harness
+/// hard-wiring one.
+pub(crate) struct WorkerProfile {
+    /// Replaces the inherited cockpit system prompt for loop workers.
+    pub(crate) system_prompt: &'static str,
+    /// The only tools a loop worker may dispatch. Everything else is denied
+    /// at invocation with a receipt naming this package.
+    pub(crate) allowed_tools: &'static [&'static str],
+}
+
 impl CompetitionPackage {
     pub(crate) const fn new(id: &'static str, label: &'static str) -> Self {
         Self { id, label }
@@ -28,6 +43,16 @@ impl CompetitionPackage {
 
 /// Packages compiled into this build, in preference order.
 pub(crate) const PACKAGES: &[CompetitionPackage] = &[yukon::PACKAGE];
+
+impl CompetitionPackage {
+    /// This family's loop-worker surface.
+    pub(crate) fn worker_profile(&self) -> &'static WorkerProfile {
+        match self.id {
+            "yukon" => &yukon::WORKER_PROFILE,
+            _ => &yukon::WORKER_PROFILE,
+        }
+    }
+}
 
 /// The default package used when none is selected.
 pub(crate) fn default_package() -> &'static CompetitionPackage {
