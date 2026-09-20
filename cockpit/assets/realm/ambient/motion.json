@@ -1,0 +1,405 @@
+{
+  "note": "Authored localized material animation. Rectangles are source pixels [x,y,width,height]. Architecture outside effect masks stays fixed. Motion follows the existing TUI setting.",
+  "locations": [
+    {
+      "id": "keep",
+      "effects": [
+        {
+          "kind": "water",
+          "rect": [
+            66,
+            58,
+            29,
+            72
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            237,
+            139,
+            19,
+            39
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            192,
+            39,
+            9,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            128,
+            125,
+            10,
+            11
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gatehouse",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            65,
+            121,
+            11,
+            12
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            142,
+            122,
+            11,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            47,
+            155,
+            9,
+            9
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            11,
+            76,
+            8,
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rookery",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            160,
+            152,
+            10,
+            12
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            72,
+            132,
+            6,
+            10
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            164,
+            75,
+            7,
+            9
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            192,
+            97,
+            5,
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scriptorium",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            227,
+            144,
+            14,
+            18
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            199,
+            172,
+            9,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            79,
+            158,
+            6,
+            12
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            70,
+            113,
+            7,
+            9
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            4,
+            139,
+            5,
+            10
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smithy",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            90,
+            131,
+            27,
+            21
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            44,
+            134,
+            7,
+            10
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            10,
+            157,
+            9,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            77,
+            100,
+            7,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            215,
+            179,
+            9,
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chapel",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            77,
+            129,
+            6,
+            14
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            83,
+            124,
+            5,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            125,
+            124,
+            6,
+            10
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            131,
+            129,
+            6,
+            14
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            176,
+            128,
+            5,
+            10
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            37,
+            148,
+            6,
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "id": "round-table",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            111,
+            10,
+            10,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            97,
+            78,
+            5,
+            10
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            130,
+            78,
+            6,
+            10
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            76,
+            92,
+            7,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            150,
+            92,
+            6,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            201,
+            35,
+            7,
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "id": "observatory",
+      "effects": [
+        {
+          "kind": "flame",
+          "rect": [
+            21,
+            52,
+            6,
+            11
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            113,
+            129,
+            6,
+            9
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            135,
+            145,
+            8,
+            8
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            40,
+            123,
+            5,
+            9
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            130,
+            102,
+            5,
+            9
+          ]
+        },
+        {
+          "kind": "flame",
+          "rect": [
+            200,
+            76,
+            4,
+            10
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "scenes": [
+    {"id":"road","path":[[126,206],[136,161]],"effects":[{"kind":"water","rect":[8,38,49,141]},{"kind":"flame","rect":[58,114,15,26]},{"kind":"flame","rect":[196,118,17,24]}]},
+    {"id":"mines","path":[[130,204],[132,153]],"effects":[{"kind":"water","rect":[216,84,22,80]},{"kind":"flame","rect":[25,123,10,17]},{"kind":"flame","rect":[110,78,9,15]},{"kind":"flame","rect":[29,166,11,17]}]},
+    {"id":"forest","path":[[146,205],[112,160]],"effects":[{"kind":"water","rect":[218,98,28,49]},{"kind":"flame","rect":[29,138,15,20]},{"kind":"flame","rect":[81,58,9,12]},{"kind":"flame","rect":[204,49,9,12]}]},
+    {"id":"swamp","path":[[124,192],[124,192]],"effects":[{"kind":"flame","rect":[78,148,18,22]},{"kind":"flame","rect":[149,60,31,12]}]},
+    {"id":"citadel","path":[[175,188],[175,188]],"effects":[{"kind":"water","rect":[46,59,42,119]},{"kind":"flame","rect":[91,147,18,15]},{"kind":"flame","rect":[229,146,18,16]},{"kind":"flame","rect":[132,114,10,11]}]}
+  ]
+}

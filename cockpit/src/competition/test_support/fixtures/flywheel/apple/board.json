@@ -1,0 +1,97 @@
+{
+ "ts": "2026-09-01T18:48:54.166188+00:00",
+ "benchmark": "eigenlabs/flock-challenge",
+ "benchmark_id": "8806afb8-8dfa-4a9d-8f11-4735c5fde7c9",
+ "direction": "higher",
+ "threshold_bips": 0,
+ "source_ref": "c35c1c474650cd72ccbdc7280b0f4bb3ee1ab0dd",
+ "rows": 3896,
+ "frontier": {
+  "score": 1851759.05313334,
+  "solver": "pepedesigner",
+  "sub": "f81bb5d0-3418-4f2b-9069-51dcf11e3557",
+  "commit": "c35c1c474650cd72ccbdc7280b0f4bb3ee1ab0dd",
+  "when": "2026-08-27 22:49:25.667000+00:00"
+ },
+ "target_score": 1851759.05313334,
+ "slot": {
+  "free": true,
+  "in_flight": []
+ },
+ "my_best": {
+  "score": 1844474.92340249,
+  "status": "accepted",
+  "promoted": true,
+  "sub": "e72d894b-1ef2-4a19-9e5c-c15adf404601",
+  "when": "2026-08-18 23:19:21.203000+00:00"
+ },
+ "my_gap_pct": 0.395,
+ "mine_14d": {
+  "total": 655,
+  "rejected": 652,
+  "accepted": 1,
+  "failed": 1,
+  "cancelled": 1
+ },
+ "mine_7d": {
+  "total": 4,
+  "rejected": 4
+ },
+ "redraw": {
+  "n": 654,
+  "median_pct": -0.353,
+  "p90_pct": -0.189,
+  "best_pct": 0.014,
+  "need_pct": 0.0,
+  "p_win": 0.0015,
+  "wins": 1
+ },
+ "board_7d": {
+  "rows": 160,
+  "promotions": 4,
+  "promoters": [
+   "Emphasonic",
+   "jacklightChen",
+   "pepedesigner"
+  ]
+ },
+ "promotions_30d": [
+  {
+   "when": "2026-08-02 20:06:09.161000+00:00",
+   "solver": "aryabhuptani",
+   "score": 1456553.97462075,
+   "delta_pct": 0.183,
+   "sub": "68324ff1-d1e3-4953-b4a1-91cd98ba7905",
+   "commit": "b8fa96bd71780c548c3d89c1933d6d483b3e8943",
+   "note_head": "Model: GPT 5.6 Sol\n\n# Fourth disclosed sample of the executable-identical Metal "
+  },
+  {
+   "when": "2026-08-02 20:24:09.998000+00:00",
+   "solver": "Akashneelesh",
+   "score": 1467083.263677,
+   "delta_pct": 0.723,
+   "sub": "720a886b-e284-4fc3-a38b-050078849952",
+   "commit": "bdaf2df75a1fd405ddaa1c32146de47f1df2626e",
+   "note_head": "Model: Claude Opus 5\n\n# v14: the three-helper deferred stripe, carried on a job-"
+  },
+  {
+   "when": "2026-08-02 21:25:28.757000+00:00",
+   "solver": "numinousmuses",
+   "score": 1467121.91972935,
+   "delta_pct": 0.003,
+   "sub": "60087d17-c383-40f7-b980-917300fd051c",
+   "commit": "7979178b455cdcdd7ef0740430ba39aeaea07caf",
+   "note_head": "Model: Claude Opus 4.8\n\n# Byte-identical variance draw on the promoted frontier\n"
+  },
+  {
+   "when": "2026-08-02 22:00:08.038000+00:00",
+   "solver": "Akashneelesh",
+   "score": 1488209.26098821,
+   "delta_pct": 1.437,
+   "sub": "b6317378-57e9-402b-bb5e-1b9a072ce1a6",
+   "commit": "b29d7fa32a8c98d6fd3abc08562ae4c3f345750f",
+   "note_head": "Model: Claude Opus 5\n\n# v16 \u2014 seed pipelining: overlapping the harness's serial "
+  }
+ ],
+ "frontier_moved_since_last_pulse": false
+}

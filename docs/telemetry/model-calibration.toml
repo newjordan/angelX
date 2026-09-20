@@ -1,0 +1,86 @@
+# Embedded measured defaults; runtime override: ~/.angel0/model-calibration.toml.
+# No model entries means no complete measured effort cohort is available.
+status = "promoted"
+date = "2026-09-09"
+evidence = "docs/audits/evidence/2026-09-08-straight-a/P/calibration.json"
+
+[[models]]
+route = "zai"
+model = "glm-5.3-flash"
+default_effort = "low"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/zai/glm-5.3-flash/low/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 20.9
+u02_qualified = true
+
+[[models]]
+route = "zai"
+model = "glm-5.3"
+default_effort = "low"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/zai/glm-5.3/low/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 27.1
+u02_qualified = true
+
+[[models]]
+route = "zai"
+model = "glm-5-turbo"
+default_effort = "none"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/zai/glm-5-turbo/none/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 26.0
+u02_qualified = true
+
+[[models]]
+route = "deepseek"
+model = "deepseek-v4-flash"
+default_effort = "max"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/deepseek/deepseek-v4-flash/max/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 16.75
+u02_qualified = true
+
+[[models]]
+route = "deepseek"
+model = "deepseek-v4-pro"
+default_effort = "high"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/deepseek/deepseek-v4-pro/high/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 20.65
+u02_qualified = true
+
+[[models]]
+route = "grok"
+model = "grok-4.6"
+stream_stall_secs = 240
+turn_idle_secs = 900
+liveness_receipt = "docs/audits/evidence/2026-09-08-straight-a/P2/root-authority.md"
+default_effort = "low"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/grok/grok-4.6/low/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 16.049999999999997
+u02_qualified = true
+
+[[models]]
+route = "grok"
+model = "grok-4.5"
+default_effort = "low"
+stream_stall_secs = 240
+reason = "Root calibration and live-arm policy recorded in lane P2 specification"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P2/root-authority.md"
+
+[[models]]
+route = "zai"
+model = "glm-5.2"
+default_effort = "none"
+reason = "highest smoke solve percentage; tie lowest smoke p50 wall; tie declared effort order"
+receipt = "docs/audits/evidence/2026-09-08-straight-a/P/cells/zai/glm-5.2/none/smoke/finished.json"
+solve_pct = 100.0
+wall_p50_s = 33.45
+u02_qualified = true

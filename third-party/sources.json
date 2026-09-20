@@ -1,0 +1,30 @@
+{
+  "note": "License/notice retrieval revisions, not claims of original port revisions.",
+  "files": [
+    {
+      "file": "openai-codex-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/openai/codex/5c5308fc9a9ee789049d646ef11e5400384b9c6f/LICENSE",
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    {
+      "file": "openai-codex-NOTICE.txt",
+      "source": "https://raw.githubusercontent.com/openai/codex/5c5308fc9a9ee789049d646ef11e5400384b9c6f/NOTICE",
+      "sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+    },
+    {
+      "file": "oh-my-pi-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/can1357/oh-my-pi/10b867cb2eeb7809b883a88dfebe1919ff0c2764/LICENSE",
+      "sha256": "16c45f9d667442781f03fa198914cc39abcaa48ec5ed8f644643e554ca2fbf63"
+    },
+    {
+      "file": "reasonix-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/esengine/DeepSeek-Reasonix/50b1bf4a5061ad22abb97774a424b5962abab79f/LICENSE",
+      "sha256": "dc024237821ac82056c37f8d82e3be919bd51e39a4529ec12a8ab3e2a346dc4c"
+    },
+    {
+      "file": "hermes-agent-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/NousResearch/hermes-agent/f9524d3f119c672e4a4444f56d582e7475716ba3/LICENSE",
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    }
+  ]
+}

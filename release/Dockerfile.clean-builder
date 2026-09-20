@@ -1,0 +1,19 @@
+FROM docker.io/library/rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libavcodec-dev \
+        libavdevice-dev \
+        libavfilter-dev \
+        libavformat-dev \
+        libavutil-dev \
+        libclang-dev \
+        libswresample-dev \
+        libswscale-dev \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+LABEL org.opencontainers.image.title="AngelX clean release builder" \
+      org.opencontainers.image.base.name="docker.io/library/rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1"

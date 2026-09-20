@@ -1,0 +1,12 @@
+id = "core"
+title = "Core Agent Chat"
+kind = "chat"
+activation = "startup"
+capabilities = ["chat", "widget"]
+data_sources = ["harness", "session", "transcript"]
+
+[default_rect]
+x = 1
+y = 5
+width = 92
+height = 30

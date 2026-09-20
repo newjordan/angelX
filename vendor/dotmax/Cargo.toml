@@ -1,0 +1,298 @@
+[package]
+name = "dotmax"
+version = "0.1.8"
+authors = ["Frosty"]
+edition = "2021"
+rust-version = "1.70"
+description = "High-performance terminal braille rendering for images, animations, and graphics"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/newjordan/dotmax"
+homepage = "https://github.com/newjordan/dotmax"
+documentation = "https://docs.rs/dotmax"
+readme = "README.md"
+keywords = ["terminal", "braille", "graphics", "cli", "visualization"]
+categories = ["command-line-interface", "graphics", "rendering"]
+exclude = [
+    # Hidden directories (dev tools and CI)
+    ".github/",
+    ".bmad/",
+    ".claude/",
+    ".augment/",
+    ".gemini/",
+    # Development documentation
+    "docs/sprint-artifacts/",
+    "docs/profiling/",
+    "docs/adr/",
+    "docs/*.yaml",
+    "docs/bmm-*",
+    "docs/*-2025-*.md",
+    "docs/PRD.md",
+    "docs/epics.md",
+    "docs/research-*.md",
+    "docs/implementation-*.md",
+    "docs/sprint-*.md",
+    # Test assets and fixtures (large images/files)
+    "tests/visual/",
+    "tests/assets/",
+    "tests/fixtures/",
+    "tests/test_assets/",
+    # Community website assets and generated frontend files
+    "site/",
+    # Generated files
+    "*.context.xml",
+    # Planning docs
+    "BRAILLE_GRAPHICS_MASTER_PLAN.md",
+]
+
+[dependencies]
+# Core dependencies (always included)
+# AngelX compatibility delta: upstream dotmax 0.1.9 still declares Ratatui 0.29,
+# but this vendored 0.1.8 source compiles unchanged against 0.30.2. Keep the
+# constraint aligned with the cockpit and recheck it during vendor refreshes.
+ratatui = { version = "0.30.2", default-features = false }
+crossterm = "0.29"       # Cross-platform terminal I/O
+thiserror = "2.0"        # Error handling derive macros
+tracing = "0.1"          # Structured logging
+serde = { version = "1.0", features = ["derive"] }  # Frame-pack export format
+serde_json = "1.0"       # Static web demo frame-pack writer
+
+# Optional dependencies (feature-gated)
+# AngelX compatibility delta: upstream declares imageproc, but this vendored
+# source never calls it; direct image APIs implement every enabled image/video
+# path. Keep the unused edge out so its maintenance-only graph cannot return.
+image = { version = "0.25", optional = true }
+gif = { version = "0.13", optional = true }
+png = { version = "0.18", optional = true }  # For APNG animation support
+resvg = { version = "0.38", optional = true }
+usvg = { version = "0.38", optional = true }
+ffmpeg-next = { version = "9.0", optional = true }  # For video playback (FFmpeg 9 / libavcodec 63)
+anyhow = { version = "1.0", optional = true }       # Error handling for raytracer loaders
+gltf = { version = "1.4", optional = true }         # glTF/GLB loading for raytracer
+shakmaty = { version = "0.28", optional = true }    # Chess game logic for chess module
+pgn-reader = { version = "0.27", optional = true }  # PGN parsing for chess module
+
+[features]
+default = []
+image = ["dep:image", "dep:gif", "dep:png"]
+svg = ["dep:resvg", "dep:usvg"]
+video = ["dep:ffmpeg-next", "image"]  # Video requires image for frame rendering
+raytracer = ["dep:anyhow", "dep:gltf"]  # CPU raytracer with braille output
+chess = ["dep:shakmaty", "dep:pgn-reader"]  # Chess board rendering
+
+[dev-dependencies]
+criterion = { version = "0.7", features = ["html_reports"] }
+tracing-subscriber = "0.3"
+tempfile = "3.10"
+proptest = "1.4"
+static_assertions = "1.1"
+
+[[bin]]
+name = "dotmax-braille"
+path = "src/bin/dotmax_braille.rs"
+required-features = ["image"]
+
+[[bench]]
+name = "rendering"
+harness = false
+
+[[bench]]
+name = "extreme_image_pipeline"
+harness = false
+
+[[bench]]
+name = "color_conversion"
+harness = false
+
+[[bench]]
+name = "color_schemes"
+harness = false
+
+[[bench]]
+name = "color_apply"
+harness = false
+
+[[bench]]
+name = "animation"
+harness = false
+
+[[bench]]
+name = "core_rendering"
+harness = false
+
+[[bench]]
+name = "image_processing"
+harness = false
+required-features = ["image"]
+
+[[bench]]
+name = "quick"
+harness = false
+
+[[bench]]
+name = "media_detection"
+harness = false
+required-features = ["image"]
+
+[[bench]]
+name = "media_playback"
+harness = false
+required-features = ["image"]
+
+# Examples requiring the 'image' feature
+[[example]]
+name = "compare_resize_filters"
+required-features = ["image"]
+
+[[example]]
+name = "resize_image"
+required-features = ["image"]
+
+[[example]]
+name = "measure_extreme_baseline"
+required-features = ["image"]
+
+[[example]]
+name = "dither_comparison"
+required-features = ["image"]
+
+[[example]]
+name = "compare_all_sizes"
+required-features = ["image"]
+
+[[example]]
+name = "svg_demo"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "threshold_demo"
+required-features = ["image"]
+
+[[example]]
+name = "image_browser"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "test_svg_background_fix"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "color_image"
+required-features = ["image"]
+
+[[example]]
+name = "view_image"
+required-features = ["image"]
+
+[[example]]
+name = "custom_image"
+required-features = ["image"]
+
+[[example]]
+name = "svg_font_visual_demo"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "svg_font_quality"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "test_svg_manual"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "simple_image"
+required-features = ["image"]
+
+[[example]]
+name = "test_svg_loading"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "load_image"
+required-features = ["image"]
+
+[[example]]
+name = "braille_mapping_demo"
+required-features = ["image"]
+
+[[example]]
+name = "save_svg_raster"
+required-features = ["image", "svg"]
+
+[[example]]
+name = "test_adaptive_resize_performance"
+required-features = ["image"]
+
+[[example]]
+name = "generate_extreme_test_images"
+required-features = ["image"]
+
+[[example]]
+name = "universal_media"
+required-features = ["image"]
+
+[[example]]
+name = "animated_gif"
+required-features = ["image"]
+
+[[example]]
+name = "generate_apng_fixtures"
+required-features = ["image"]
+
+[[example]]
+name = "animated_apng"
+required-features = ["image"]
+
+[[example]]
+name = "video_player"
+required-features = ["video"]
+
+[[example]]
+name = "test_video_decode"
+required-features = ["video"]
+
+[[example]]
+name = "render_tuner"
+required-features = ["image"]
+
+# Raytracer examples
+[[example]]
+name = "raytrace_sphere"
+required-features = ["raytracer"]
+
+[[example]]
+name = "zone_stream"
+required-features = ["raytracer", "image", "chess"]
+
+[[example]]
+name = "zone_stream_canvas_1"
+required-features = ["raytracer", "image", "chess"]
+
+[[example]]
+name = "zone_stream_canvas_2"
+required-features = ["raytracer", "image", "chess"]
+
+[[example]]
+name = "zone_stream_canvas_3"
+required-features = ["raytracer", "image", "chess"]
+
+[[example]]
+name = "purple_rain"
+required-features = ["raytracer", "image"]
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Allow these pedantic lints that are common in examples (tutorial-style code)
+uninlined_format_args = "allow"    # println!("{}", x) is clearer for beginners
+doc_markdown = "allow"             # Type names don't need backticks in examples
+cast_precision_loss = "allow"      # f32/f64 casts are intentional
+cast_possible_truncation = "allow" # Numeric casts are intentional
+cast_possible_wrap = "allow"       # Signed/unsigned casts are intentional
+cast_sign_loss = "allow"           # Sign casts are intentional
+too_many_lines = "allow"           # Examples are often tutorial-style
+cast_lossless = "allow"            # Explicit casts are clearer
+unnecessary_cast = "allow"         # Explicit casts aid readability
+needless_pass_by_value = "allow"   # Clearer in examples
+imprecise_flops = "allow"          # Performance not critical in examples

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "sequence": 42,
+  "published_at_monotonic_ms": 12000,
+  "stage": "proposer wave 1",
+  "seats": [
+    {
+      "slot": 0,
+      "label": "solver-a"
+    },
+    {
+      "slot": 1,
+      "label": "solver-b"
+    }
+  ],
+  "status": {
+    "active_seats": 2,
+    "omitted_seats": 0,
+    "health": "nominal"
+  },
+  "palette": "noir"
+}

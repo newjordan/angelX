@@ -1,0 +1,25 @@
+{
+  "name": "knight_charge",
+  "start_index": 34,
+  "period_frames": 10,
+  "fps": 12.0,
+  "wrap_mse": 1278.7014205504095,
+  "mid_adj_mse": 2958.8810380717437,
+  "wrap_to_adj_ratio": 0.43215709035452204,
+  "blend_t": 0.28,
+  "stabilized": true,
+  "key_color": "#F22AA5",
+  "source_count": 73,
+  "frame_files": [
+    "knight_charge_00.png",
+    "knight_charge_01.png",
+    "knight_charge_02.png",
+    "knight_charge_03.png",
+    "knight_charge_04.png",
+    "knight_charge_05.png",
+    "knight_charge_06.png",
+    "knight_charge_07.png",
+    "knight_charge_08.png",
+    "knight_charge_09.png"
+  ]
+}

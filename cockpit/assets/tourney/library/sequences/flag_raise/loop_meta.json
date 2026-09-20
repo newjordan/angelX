@@ -1,0 +1,29 @@
+{
+  "name": "flag_raise",
+  "start_index": 57,
+  "period_frames": 14,
+  "fps": 12.0,
+  "wrap_mse": 1164.185579710145,
+  "mid_adj_mse": 1101.2177116429766,
+  "wrap_to_adj_ratio": 1.0571802163588908,
+  "blend_t": 0.28,
+  "stabilized": true,
+  "key_color": "none",
+  "source_count": 73,
+  "frame_files": [
+    "flag_raise_00.png",
+    "flag_raise_01.png",
+    "flag_raise_02.png",
+    "flag_raise_03.png",
+    "flag_raise_04.png",
+    "flag_raise_05.png",
+    "flag_raise_06.png",
+    "flag_raise_07.png",
+    "flag_raise_08.png",
+    "flag_raise_09.png",
+    "flag_raise_10.png",
+    "flag_raise_11.png",
+    "flag_raise_12.png",
+    "flag_raise_13.png"
+  ]
+}

@@ -1,0 +1,500 @@
+#!/usr/bin/env bash
+# angel0 — boot the Angel cockpit: the terminal-first TUI shell.
+#
+# Type `angel0` inside a project, or `angel0 /path/to/project`, to load the cockpit —
+# a Rust/ratatui agent harness: chat with model agents (Tab to switch), ^G for a
+# full PTY shell pane, ^T for a braille chart, `/show` images, `/sessions` +
+# `/resume` for crash-safe session history.
+#
+# `angel0 update` refreshes the local CLI alias that points at this launcher;
+# full checkouts also refresh their optional desktop entry.
+#
+# This IS the customized TUI shell. It lives in cockpit/ — edit the Rust there and
+# the next launch rebuilds automatically (cargo is ~instant when nothing changed).
+#
+# Knobs (all optional):
+#   ANGEL_BRAIN_KEY   turbo/fleet key for live agents. Without it the cockpit falls
+#                     back to the offline practice agent. Put it in $ANGEL_DIR/.angel.env
+#                     (gitignored) so it's sourced automatically. Host-level keys
+#                     in ~/.config/host_env/api_keys.sh are sourced automatically.
+#   ANGEL_WORKSPACE   workspace directory to open. Defaults to the launch cwd.
+#   ANGEL_NO_BUILD=1  skip the rebuild and run the last-built binary as-is
+#   ANGEL_BIND_SOURCE=0
+#                     do not bake the source digest (sha256 of `git archive HEAD`)
+#                     into the binary; `angel --build-info --json` then says
+#                     "unbound". Default: bind when cockpit/ is clean.
+#   ANGEL_API_CLUBS   explicit API-key provider allowlist (comma-separated).
+#                     Empty/unset: OAuth and local models only. Saved keys do
+#                     not enable clubs; Muse and the OpenAI API seat are removed.
+#   ANGEL_DEV=1       run an unoptimized debug build instead of release (faster
+#                     compile, slower runtime — handy mid-edit)
+#   ANGEL_WEBGPU_PORTAL=0
+#                     disable the Kitty-only live WebGPU activity portal
+#   ANGEL_YOLO=1      unrestricted operator profile: no approvals, sandbox,
+#                     subprocess/HTTP/formation deadlines, descendant cleanup,
+#                     credential scrubbing, or automatic agent-loop stops
+#   ANGEL_COMP_MODE=1 (or --comp)
+#                     ultra-lean high-speed harness: tables miniworld / 3D /
+#                     Kitty graphics simulation for sub-millisecond frames while
+#                     keeping all tools available on demand
+set -euo pipefail
+
+# Resolve a path to its canonical location. GNU `readlink -f` is not on stock
+# macOS; prefer realpath, then readlink -f, then Python.
+_angel_realpath() {
+  local p="$1"
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "$p" 2>/dev/null && return 0
+  fi
+  if readlink -f "$p" >/dev/null 2>&1; then
+    readlink -f "$p"
+    return 0
+  fi
+  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$p"
+}
+
+# Derive the repo root from this script's own location (bin/ is directly under
+# the root). Resolves symlinks so a linked launcher still works on Linux and macOS.
+ANGEL_DIR="$(cd "$(dirname "$(_angel_realpath "${BASH_SOURCE[0]}")")/.." && pwd)"
+COCKPIT_DIR="$ANGEL_DIR/cockpit"
+LAUNCH_CWD="$(pwd -P)"
+# Only the invoking environment may intentionally override a bare launch.
+LAUNCH_WORKSPACE="${ANGEL_WORKSPACE:-}"
+
+# rustc/cargo live next to the toolchain, not behind ~/.cargo/bin/cargo.
+# That file is a rustup symlink whose fake proxy execs `$1` as a toolchain
+# binary (`cargo build` → .../bin/build → "No such file"). That failed every
+# rebuild and the launcher used to boot yesterday's image anyway.
+export PATH="$HOME/.local/bin:$PATH"
+# Resolve installed tools before the cockpit seals child processes. Omarchy's
+# convenience wrappers run mise use -g, which must not run inside confinement.
+if command -v mise >/dev/null 2>&1; then
+  if resolved_path=$(mise env --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["PATH"])'); then
+    export PATH="$resolved_path"
+  else
+    echo "angel0: could not resolve mise tools; keeping the existing PATH" >&2
+  fi
+fi
+
+# --- launch diagnostics (temporary) — trace how far the icon launch gets ------
+mkdir -p "$HOME/.angel0"
+exec 9>>"$HOME/.angel0/launch.log"
+# Never persist task prompts or evaluator flags. Headless callers may place
+# secrets, held-out task text, or grader commands in argv; the launch log needs
+# only enough metadata to diagnose lifecycle failures.
+echo "=== $(date '+%F %T') launch  tty=$(tty 2>/dev/null)  term=${TERM:-?}  argc=$# ===" >&9
+
+# A killed cockpit can strand the host terminal in application mouse mode. In
+# that state ordinary drag selection appears completely dead even though no
+# angel process remains. Keep a launcher-side recovery path independent of the
+# Rust teardown/panic hook: disable the exact crossterm mouse modes (in reverse
+# enable order), bracketed paste, and the alternate screen, then show the cursor.
+_restore_terminal() {
+  [ -t 1 ] || return 0
+  printf '\033[?2004l\033[?1006l\033[?1015l\033[?1003l\033[?1002l\033[?1000l\033[?25h\033[?1049l'
+}
+
+ANGEL_TERMINAL_ARMED=0
+_on_exit() {
+  local rc=$?
+  if [ "$ANGEL_TERMINAL_ARMED" = "1" ]; then
+    _restore_terminal
+  fi
+  [ -n "${RUN_BIN:-}" ] && rm -f -- "$RUN_BIN" 2>/dev/null
+  echo "$(date +%T)   EXITED rc=$rc" >&9
+}
+trap _on_exit EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# When launched from a desktop icon the window would vanish on a fatal error
+# before you could read it. Pause on the fatal paths if we're on a real TTY.
+_die() {
+  echo "angel0: $*" >&2
+  [ -t 0 ] && read -rsn1 -p "press any key to close…" _ && echo
+  exit 1
+}
+
+[ -d "$COCKPIT_DIR" ] || _die "cannot find cockpit at $COCKPIT_DIR"
+
+_update() {
+  local installer
+
+  [ "$#" -eq 0 ] || _die "usage: angel0 update"
+
+  mkdir -p "$HOME/.local/bin"
+  ln -sfn "$ANGEL_DIR/bin/angel0" "$HOME/.local/bin/angel0"
+  ln -sfn "$ANGEL_DIR/bin/angel0" "$HOME/.local/bin/angel"
+
+  if [ "$(uname -s)" = "Darwin" ]; then
+    echo "angel0: Darwin — CLI aliases only (no Linux desktop entry)" >&2
+    echo "angel0: local launchers now point at $ANGEL_DIR" >&2
+    return 0
+  fi
+
+  installer="$ANGEL_DIR/scripts/install-desktop-icons.sh"
+  if [ -f "$installer" ]; then
+    echo "angel0: refreshing local launchers for $ANGEL_DIR…" >&2
+    if ! bash "$installer"; then
+      _die "launcher refresh failed; run bash $installer to retry"
+    fi
+  else
+    echo "angel0: release archive has no desktop helper; refreshed CLI alias only" >&2
+  fi
+
+  echo "angel0: local launchers now point at $ANGEL_DIR" >&2
+}
+
+if [ "${1:-}" = "update" ]; then
+  shift
+  _update "$@"
+  exit 0
+fi
+
+# Keyboard-accessible repair for a terminal left in mouse-capture mode by an
+# earlier hard kill. This intentionally does no build and launches no cockpit.
+if [ "${1:-}" = "reset-terminal" ]; then
+  [ "$#" -eq 1 ] || _die "usage: angel0 reset-terminal"
+  _restore_terminal
+  echo "angel0: terminal mouse capture and paste modes reset" >&2
+  exit 0
+fi
+
+# Determine whether this is a machine-facing command before loading any env
+# files. Runner processes inherit the caller's explicit environment, but must
+# not silently import unrelated secrets from broad home-directory shell files.
+HEADLESS_MODE=0
+for probe_arg in "$@"; do
+  case "$probe_arg" in
+    --ask | --task | --task-json | --atlas | --build-info | --look-image | --jev-json | --yukon-status | --export-harness-rollout | \
+      --audit-harness-rollout | \
+      --dump-preview | --dump-preview-portrait | --dump-scryglass | --dump-visual | \
+      --help | -h | --version | -V)
+      HEADLESS_MODE=1
+      break
+      ;;
+  esac
+done
+
+if [ "$HEADLESS_MODE" = "1" ]; then
+  # Explicit opt-in only. This file is trusted shell configuration, so naming it
+  # is an operator action; unset means inherit the launcher's existing env only.
+  if [ -n "${ANGEL_RUNNER_ENV_FILE:-}" ]; then
+    [ -f "$ANGEL_RUNNER_ENV_FILE" ] || _die "cannot find ANGEL_RUNNER_ENV_FILE at $ANGEL_RUNNER_ENV_FILE"
+    # shellcheck disable=SC1090
+    set -a; . "$ANGEL_RUNNER_ENV_FILE"; set +a
+  fi
+else
+  # Interactive convenience: broad host defaults first, then repo/user overrides.
+  for envf in "$HOME/.config/host_env/api_keys.sh" "$HOME/.env" "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env" "$HOME/.openrouter.env"; do
+    # shellcheck disable=SC1090
+    [ -f "$envf" ] && { set -a; . "$envf"; set +a; }
+  done
+  # Shared credential/default files must not switch the user's working project.
+  # An explicit caller export and --workspace remain supported; machine runner
+  # env files above keep their deliberate invocation-local selection.
+  if [ -n "$LAUNCH_WORKSPACE" ]; then
+    export ANGEL_WORKSPACE="$LAUNCH_WORKSPACE"
+  else
+    unset ANGEL_WORKSPACE
+  fi
+fi
+
+# Apply the same provider opt-in policy before any binary is launched, even
+# when ANGEL_NO_BUILD selects an older image without the Rust registration gate.
+# shellcheck source=../scripts/angel-club-policy.sh
+. "$ANGEL_DIR/scripts/angel-club-policy.sh"
+
+# Grok is OAuth-CLI only. Never let a paid xAI/Grok API key into the cockpit
+# process — a spent or live key used to hijack the SOTA seat onto api.x.ai.
+unset XAI_API_KEY GROK_API_KEY ANGEL_GROK_KEY ANGEL_XAI_KEY GPU_COMP_GROK_KEY \
+  XAI_BASE_URL ANGEL_GROK_URL GROK_API_URL XAI_API_URL ANGEL_GROK_BASE_URL \
+  GPU_COMP_GROK_BASE_URL ANGEL_GROK_USE_API 2>/dev/null || true
+
+# Convenience global flags. Keep these before workspace parsing so
+# `angel0 --yolo /path/to/project` and `angel0 --comp ...` work.
+while [ $# -gt 0 ]; do
+  case "${1:-}" in
+    --yolo)
+      export ANGEL_YOLO=1
+      shift
+      ;;
+    --comp | --lean | --turbo | --angelturbo)
+      export ANGEL_COMP_MODE=1
+      export ANGEL_TURBO=1
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# Workspace selection: explicit launcher args win, then ANGEL_WORKSPACE from the
+# invoking environment (or explicit machine runner env), then the launch directory.
+WORKSPACE_ARG=""
+if [ "${1:-}" = "--workspace" ]; then
+  [ -n "${2:-}" ] || _die "--workspace requires a directory"
+  WORKSPACE_ARG="$2"
+  shift 2
+elif [[ "${1:-}" == --workspace=* ]]; then
+  _die "use --workspace DIR before cockpit arguments"
+elif [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+  WORKSPACE_ARG="$1"
+  shift
+fi
+if [ -n "$WORKSPACE_ARG" ] && [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+  _die "workspace selected more than once; pass one directory before cockpit arguments"
+fi
+# Reject misplaced TUI selectors instead of allowing the cockpit to ignore
+# them. Native machine commands own all following options and prompt tokens;
+# in particular, --task --workspace DIR and a literal "--workspace" prompt must
+# pass through unchanged. This guard never rearranges their arguments.
+for workspace_probe in "$@"; do
+  case "$workspace_probe" in
+    --task | --task-json | --ask | --atlas | --export-harness-rollout | --audit-harness-rollout | \
+      --bind-graph-reward | --look-image | --dump-*) break ;;
+    --workspace | --workspace=*) _die "pass one workspace directory before cockpit arguments" ;;
+  esac
+done
+WORKSPACE_DIR="${WORKSPACE_ARG:-${ANGEL_WORKSPACE:-$LAUNCH_CWD}}"
+# Env files may run shell statements; relative selection always belongs to the
+# directory from which the operator launched, regardless of later shell cwd.
+[[ "$WORKSPACE_DIR" = /* ]] || WORKSPACE_DIR="$LAUNCH_CWD/$WORKSPACE_DIR"
+[ -d "$WORKSPACE_DIR" ] || _die "cannot find workspace at $WORKSPACE_DIR"
+WORKSPACE_DIR="$(cd "$WORKSPACE_DIR" && pwd -P)"
+export ANGEL_WORKSPACE="$WORKSPACE_DIR"
+
+# Machine-facing commands preserve stdout/stderr as public API streams and do
+# not pull the TUI's FFmpeg/WebGPU build graph into a runner-only host.
+
+# Non-secret provider/model defaults for the SOTA base team. Provider keys still
+# come only from the sourced env files above; these just make the intended roster
+# explicit when a key is present.
+export ANGEL_DEEPSEEK_MODEL="${ANGEL_DEEPSEEK_MODEL:-deepseek-v4-pro}"
+export ANGEL_GROK_MODEL="${ANGEL_GROK_MODEL:-${GROK_MODEL:-grok-4.6}}"
+export ANGEL_OPENROUTER_MODEL="${ANGEL_OPENROUTER_MODEL:-tencent/hy3:free}"
+export ANGEL_CEREBRAS_MODEL="${ANGEL_CEREBRAS_MODEL:-${CEREBRAS_MODEL:-cerebras}}"
+export ANGEL_GLM_MODEL="${ANGEL_GLM_MODEL:-glm-5.3}"
+export ANGEL_LONGCAT_MODEL="${ANGEL_LONGCAT_MODEL:-LongCat-2.0}"
+
+PROFILE="release"
+CARGO_BUILD_ARGS=(--locked --release)
+if [ "${ANGEL_DEV:-}" = "1" ]; then
+  PROFILE="debug"
+  CARGO_BUILD_ARGS=(--locked)
+fi
+SKIP_DEFAULT_FEATURES=0
+[ "${ANGEL_VIDEO:-1}" != "0" ] || SKIP_DEFAULT_FEATURES=1
+if [ "$HEADLESS_MODE" = "1" ] && [ "${ANGEL_HEADLESS_DEFAULT_FEATURES:-0}" != "1" ]; then
+  SKIP_DEFAULT_FEATURES=1
+fi
+# Stock macOS has no FFmpeg; the default scryglass-video feature would fail the
+# rebuild. Skip it unless ffmpeg is on PATH or the operator forces defaults.
+if [ "$(uname -s)" = "Darwin" ] && ! command -v ffmpeg >/dev/null 2>&1; then
+  SKIP_DEFAULT_FEATURES=1
+fi
+if [ "$SKIP_DEFAULT_FEATURES" = "1" ]; then
+  CARGO_BUILD_ARGS+=(--no-default-features)
+fi
+BIN="$COCKPIT_DIR/target/$PROFILE/angel"
+if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
+  [ "${ANGEL_NO_BUILD:-}" = "1" ] || _die "ANGEL_LAUNCH_BINARY requires ANGEL_NO_BUILD=1"
+  [ -n "${ANGEL_LAUNCH_BINARY_SHA256:-}" ] || _die "ANGEL_LAUNCH_BINARY requires its expected SHA-256"
+  BIN="$(_angel_realpath "$ANGEL_LAUNCH_BINARY")" || _die "cannot resolve ANGEL_LAUNCH_BINARY"
+  [ -x "$BIN" ] || _die "selected launch binary is not executable"
+  selected_sha=$(python3 - "$BIN" <<'PY'
+import hashlib, sys
+digest = hashlib.sha256()
+with open(sys.argv[1], 'rb') as source:
+    for block in iter(lambda: source.read(1024 * 1024), b''):
+        digest.update(block)
+print(digest.hexdigest())
+PY
+  ) || _die "cannot verify selected launch binary"
+  [ "$selected_sha" = "$ANGEL_LAUNCH_BINARY_SHA256" ] || _die "selected launch binary SHA-256 differs"
+fi
+PORTAL_MANIFEST="$COCKPIT_DIR/portal-renderer/Cargo.toml"
+PORTAL_BIN="$COCKPIT_DIR/target/$PROFILE/angel-portal-renderer"
+# The portal crate's wgpu features are vulkan/gles. On Darwin that compile is
+# a long no-op that also trips rustup component downloads and can fail the
+# launch. Keep the terminal-native viz unless the operator opts in.
+PORTAL_BUILD=1
+if [ "$(uname -s)" = "Darwin" ]; then
+  PORTAL_BUILD=0
+fi
+case "${ANGEL_WEBGPU_PORTAL:-}" in
+  0 | off | OFF | false | FALSE | no | NO) PORTAL_BUILD=0 ;;
+  1 | on | ON | true | TRUE | yes | YES) PORTAL_BUILD=1 ;;
+esac
+[ "$HEADLESS_MODE" = "1" ] && PORTAL_BUILD=0
+
+# Rebuild so cockpit/ edits are live. Skippable with ANGEL_NO_BUILD=1.
+# A failed rebuild must not boot a stale binary — that is how Math God-on
+# images kept running after git moved. Explicit ANGEL_NO_BUILD=1 is the
+# only allowed skip.
+_angel_rust_host_triple() {
+  local host arch
+  if command -v rustc >/dev/null 2>&1; then
+    host=$(rustc -vV 2>/dev/null | awk '/^host:/{print $2; exit}')
+    [ -n "$host" ] && {
+      echo "$host"
+      return 0
+    }
+  fi
+  arch=$(uname -m)
+  case "$arch" in
+    arm64) arch=aarch64 ;;
+    amd64) arch=x86_64 ;;
+  esac
+  case "$(uname -s)" in
+    Darwin) echo "${arch}-apple-darwin" ;;
+    *) echo "${arch}-unknown-linux-gnu" ;;
+  esac
+}
+
+_angel_cargo() {
+  local channel="" tc dest triple
+  if [ -f "$ANGEL_DIR/rust-toolchain.toml" ]; then
+    channel=$(awk -F'"' '/^channel[[:space:]]*=/{print $2; exit}' "$ANGEL_DIR/rust-toolchain.toml")
+  fi
+  triple=$(_angel_rust_host_triple)
+  for tc in \
+    ${channel:+$HOME/.rustup/toolchains/${channel}-${triple}/bin/cargo} \
+    ${channel:+$HOME/.rustup/toolchains/${channel}-x86_64-unknown-linux-gnu/bin/cargo} \
+    "$HOME/.rustup/toolchains/1.95.0-${triple}/bin/cargo" \
+    "$HOME/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/cargo" \
+    "$HOME/.local/bin/cargo"
+  do
+    [ -n "$tc" ] && [ -x "$tc" ] || continue
+    # Reject the broken rustup proxy (symlink named cargo → rustup script).
+    if [ -L "$tc" ]; then
+      dest=$(readlink "$tc" 2>/dev/null || true)
+      case "$dest" in
+        *rustup) continue ;;
+      esac
+    fi
+    echo "$tc"
+    return 0
+  done
+  _die "no working cargo. ~/.cargo/bin/cargo is a broken rustup shim (cargo build → toolchain/bin/build). Install rustc or put a real cargo at ~/.local/bin/cargo"
+}
+
+if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
+  CARGO=$(_angel_cargo)
+  cargo_dir="$(dirname "$CARGO")"
+  # Pin the toolchain rustc next to cargo so a rustup proxy cannot start a
+  # rust-src download mid-compile (that race failed the Mac mini rebuild).
+  if [ -x "$cargo_dir/rustc" ]; then
+    export RUSTC="$cargo_dir/rustc"
+  fi
+  export RUSTUP_AUTO_INSTALL=0
+  export ANGEL_BUILD_RUSTC="$("${RUSTC:-rustc}" -vV)"
+  export ANGEL_BUILD_PROFILE="$PROFILE"
+  # --- source identity -------------------------------------------------------
+  # Bind the binary to the committed source so `angel --build-info --json`
+  # reports a real cockpit_source_sha256 (sha256 of `git archive HEAD`, see
+  # scripts/cockpit-source-digest.sh) instead of "unbound". Only a clean
+  # build-input tree (cockpit/, vendor/dotmax/, rust-toolchain.toml) is bound;
+  # a dirty one prints one line and builds unbound. An operator-provided
+  # ANGEL_BUILD_SOURCE_SHA256 is kept as-is; ANGEL_BIND_SOURCE=0 skips binding.
+  # Cargo fingerprints option_env!, so the first launch after a commit on a
+  # clean tree recompiles the cockpit crate even when cockpit/ did not change.
+  SOURCE_BIND="unbound"
+  if [ -n "${ANGEL_BUILD_SOURCE_SHA256:-}" ]; then
+    SOURCE_BIND="bound (digest from environment)"
+  elif [ "${ANGEL_BIND_SOURCE:-1}" = "0" ]; then
+    SOURCE_BIND="unbound (ANGEL_BIND_SOURCE=0)"
+  elif [ -f "$ANGEL_DIR/scripts/cockpit-source-digest.sh" ]; then
+    if digest_out=$(bash "$ANGEL_DIR/scripts/cockpit-source-digest.sh" 2>&1); then
+      export ANGEL_BUILD_SOURCE_SHA256="$digest_out"
+      SOURCE_BIND="bound ${digest_out:0:12}…"
+    else
+      unset ANGEL_BUILD_SOURCE_SHA256
+      SOURCE_BIND="unbound"
+      echo "angel0: $digest_out" >&2
+    fi
+  fi
+  echo "angel0: building cockpit ($PROFILE) with $CARGO … source $SOURCE_BIND" >&2
+  echo "$(date +%T)   cargo $CARGO  git=$(git -C "$ANGEL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')  source=$SOURCE_BIND" >&9
+  mkdir -p "$HOME/.angel0"
+  cargo_log="$HOME/.angel0/cargo.log"
+  echo "=== $(date '+%F %T') $CARGO ${CARGO_BUILD_ARGS[*]} ===" >>"$cargo_log"
+  if ! (cd "$COCKPIT_DIR" && "$CARGO" build "${CARGO_BUILD_ARGS[@]}" 2>&1 | tee -a "$cargo_log" >&2); then
+    _die "cockpit build failed; refusing to run a stale binary (cargo=$CARGO). See $cargo_log"
+  fi
+  if [ "$PORTAL_BUILD" = "1" ] && [ -f "$PORTAL_MANIFEST" ]; then
+    echo "angel0: building WebGPU portal renderer ($PROFILE)…" >&2
+    echo "=== $(date '+%F %T') portal $CARGO ${CARGO_BUILD_ARGS[*]} ===" >>"$cargo_log"
+    if ! (cd "$COCKPIT_DIR" && CARGO_TARGET_DIR="$COCKPIT_DIR/target" "$CARGO" build --manifest-path "$PORTAL_MANIFEST" "${CARGO_BUILD_ARGS[@]}" 2>&1 | tee -a "$cargo_log" >&2); then
+      echo "angel0: WebGPU portal build failed — terminal-native visualization remains active" >&2
+    fi
+  fi
+fi
+
+[ -x "$BIN" ] || _die "no binary at $BIN — run without ANGEL_NO_BUILD to build it"
+
+# --- multi-instance isolation ------------------------------------------------
+# Concurrent cockpits share this checkout. Each launch runs a private hardlink
+# of the freshly built binary, so a later launch's rebuild renames a new file
+# over target/<profile>/angel without ever yanking the image (or
+# /proc/self/exe) out from under a live instance. Each owner removes only its
+# own link on exit. PID visibility can be restricted by a namespace or sandbox,
+# so failure of kill -0 must never authorize deleting another owner's link.
+RUN_DIR="$COCKPIT_DIR/target/$PROFILE/run"
+mkdir -p "$RUN_DIR"
+# Random suffixes also avoid collisions between equal PIDs in namespaces.
+RUN_BIN=$(mktemp "$RUN_DIR/angel-$$-XXXXXXXX")
+ln -f "$BIN" "$RUN_BIN" 2>/dev/null || cp -p "$BIN" "$RUN_BIN"
+
+# Another instance may be live. Retained crash links conservatively select a
+# separate log; also match older cockpits running target/<profile>/angel
+# directly. Interleaved stderr from two cockpits is unreadable, so secondary
+# instances get their own file and never rotate the primary one.
+OTHER_LIVE=0
+for other in "$COCKPIT_DIR"/target/*/run/angel-*; do
+  [ -e "$other" ] && [ "$other" != "$RUN_BIN" ] && OTHER_LIVE=1
+done
+pgrep -f "$COCKPIT_DIR/target/(release|debug)/angel( |\$)" >/dev/null 2>&1 && OTHER_LIVE=1
+ERR_FILE="$HOME/.angel0/cockpit.err"
+[ "$OTHER_LIVE" = "1" ] && ERR_FILE="$HOME/.angel0/cockpit-$$.err"
+
+if [ -z "${ANGEL_PORTAL_RENDERER:-}" ] && [ -x "$PORTAL_BIN" ]; then
+  export ANGEL_PORTAL_RENDERER="$PORTAL_BIN"
+fi
+cd "$WORKSPACE_DIR" || _die "cannot cd to workspace directory $WORKSPACE_DIR"
+echo "$(date +%T)   run $RUN_BIN  workspace=$WORKSPACE_DIR  err=$ERR_FILE" >&9
+# --- temporary: capture stderr + exit code (rc>128 => killed by signal rc-128) ---
+export RUST_BACKTRACE=1
+# Rotate the accumulated stderr log once it passes 1 MiB so a debugging session
+# reads THIS run's noise, not months of history. One .old generation is kept.
+# Only the primary instance rotates: a mv while another cockpit holds the file
+# open would silently split its stream into the .old generation.
+if [ "$HEADLESS_MODE" != "1" ]; then
+  if [ "$OTHER_LIVE" != "1" ] && [ -f "$ERR_FILE" ] \
+    && [ "$(stat -f%z "$ERR_FILE" 2>/dev/null || stat -c%s "$ERR_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+    mv -f "$ERR_FILE" "$ERR_FILE.old"
+  fi
+  echo "=== $(date '+%F %T') cockpit stderr ===" >>"$ERR_FILE"
+fi
+if [ "$HEADLESS_MODE" = "1" ]; then
+  # stdout and stderr are runner protocol surfaces. Do not hide diagnostics in a
+  # private log and do not append terminal-reset escape bytes to JSON stdout.
+  if "$RUN_BIN" "$@"; then
+    cockpit_rc=0
+  else
+    cockpit_rc=$?
+  fi
+else
+  ANGEL_TERMINAL_ARMED=1
+  if "$RUN_BIN" "$@" 2>>"$ERR_FILE"; then
+    cockpit_rc=0
+  else
+    cockpit_rc=$?
+  fi
+  _restore_terminal
+  ANGEL_TERMINAL_ARMED=0
+fi
+echo "$(date +%T)   cockpit rc=$cockpit_rc  (>128 = signal; 129=SIGHUP 130=SIGINT 137=SIGKILL 143=SIGTERM)" >&9
+exit "$cockpit_rc"

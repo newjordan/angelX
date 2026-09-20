@@ -1,0 +1,56 @@
+[
+  {
+    "scene": "service",
+    "tool_call_id": "call-8fb71cce-ebcc-4f55-8944-7b40644363d8-2",
+    "prompt": {
+      "prompt": "Crisp chunky 16-bit pixel-art sprite sheet on a landscape canvas of pure black. Four isolated wide rectangular miniature scenes in a regular 2-by-2 layout: top-left, top-right, bottom-left, bottom-right. No grid lines. Each miniature is a complete tiny scene floating in the exact center of its own quadrant, occupying only about the middle 65 percent of that cell, with a thick empty black safety margin on every side so the four scenes never touch.\n\nSame two tiny complete figures appear fully in ALL FOUR miniatures at identical scale and baseline: LEFT a kneeling modest steel knight (closed visor, short pale-cyan plume, navy tabard, tiny gold sun emblem) AND RIGHT a seated hooded traveler in a dark-blue cloak. Two small complete people per cell, both fully inside the vignette.\n\nLimited palette only: muted dark navy, steel blue, pale cyan, and a little gold. Flat pixels, no glow, no gradient, no text. Designed as very small terminal-game sprites.\n\nTop-left: knight holds a small gold loaf at his chest; traveler sits with hands down in his lap.\nTop-right: knight's arms stretched straight out offering the loaf; traveler reaching toward it.\nBottom-left: loaf now in the traveler's hands; knight's arms lowering to his sides.\nBottom-right: traveler holds the loaf at chest; knight's hands rest on his thighs and his head is bowed.",
+      "aspect_ratio": "16:9"
+    },
+    "source_sha256": "eac46647b01c08e859b249f60d88913ee9a27fde6b04a9d08db4d6b6ccb9f9b5"
+  },
+  {
+    "scene": "study",
+    "tool_call_id": "call-8fb71cce-ebcc-4f55-8944-7b40644363d8-3",
+    "prompt": {
+      "prompt": "Crisp chunky 16-bit pixel-art sprite sheet on a landscape canvas of pure black. Four isolated wide rectangular miniature scenes in a regular 2-by-2 layout: top-left, top-right, bottom-left, bottom-right. No grid lines. Each miniature is a complete tiny scene floating in the exact center of its own quadrant, occupying only about the middle 65 percent of that cell, with a thick empty black safety margin on every side so the four scenes never touch.\n\nSame tiny complete steel knight at a small steel-blue writing desk with an open book in ALL FOUR miniatures, identical scale and baseline. Desk and knight entirely inside each vignette. Knight: closed visor, short pale-cyan plume, navy tabard, tiny gold sun emblem, seated or standing at the desk.\n\nLimited palette only: muted dark navy, steel blue, pale cyan, and a little gold. Flat pixels, no glow, no gradient, no text. Designed as very small terminal-game sprites.\n\nTop-left: knight reading, both hands flat on the open book.\nTop-right: knight's right hand raised, holding one page vertical.\nBottom-left: that page now lowered onto the other side of the book, arm extended across.\nBottom-right: one hand to chin, head bent thoughtfully over the book.",
+      "aspect_ratio": "16:9"
+    },
+    "source_sha256": "98e7c4798909803195bfcf95d41e4ef86281789b87a891f3ce4358b3c1ff9b05"
+  },
+  {
+    "scene": "craft",
+    "tool_call_id": "call-8fb71cce-ebcc-4f55-8944-7b40644363d8-4",
+    "prompt": {
+      "prompt": "Crisp chunky 16-bit pixel-art sprite sheet on a landscape canvas of pure black. Four isolated wide rectangular miniature scenes in a regular 2-by-2 layout: top-left, top-right, bottom-left, bottom-right. No grid lines. Each miniature is a complete tiny scene floating in the exact center of its own quadrant, occupying only about the middle 65 percent of that cell, with a thick empty black safety margin on every side so the four scenes never touch.\n\nSame tiny complete steel knight standing LEFT of a small anvil in ALL FOUR miniatures, identical scale and baseline. Complete knight, hammer, and anvil fully inside each vignette. Knight: closed visor, short pale-cyan plume, navy tabard, tiny gold sun emblem.\n\nThe hammer occupies four clearly different heights. Limited palette only: muted dark navy, steel blue, pale cyan, and a little gold. Flat pixels, no glow, no gradient, no text. Designed as very small terminal-game sprites.\n\nTop-left: both arms fully raised, hammer HIGH OVERHEAD above the helmet.\nTop-right: arms visibly low and forward, hammer DOWN touching the anvil at knee height, two tiny gold spark pixels at the strike.\nBottom-left: arms bent, hammer halfway up at CHEST height.\nBottom-right: hammer at SHOULDER height, returning overhead.",
+      "aspect_ratio": "16:9"
+    },
+    "source_sha256": "4829b4c6cdda476d82a117fc8c1818bb9bec55714be5437d7130cba95d2a48d1"
+  },
+  {
+    "scene": "perseverance",
+    "tool_call_id": "call-8fb71cce-ebcc-4f55-8944-7b40644363d8-5",
+    "prompt": {
+      "prompt": "Crisp chunky 16-bit pixel-art sprite sheet on a landscape canvas of pure black. Four isolated wide rectangular miniature scenes in a regular 2-by-2 layout: top-left, top-right, bottom-left, bottom-right. No grid lines. Each miniature is a complete tiny scene floating in the exact center of its own quadrant, occupying only about the middle 65 percent of that cell, with a thick empty black safety margin on every side so the four scenes never touch.\n\nSame tiny complete steel knight walking uphill to the RIGHT in ALL FOUR miniatures, identical scale and baseline, wearing a small backpack and a sheathed sword. A minimal short diagonal ground mark wholly inside each vignette. Knight: closed visor, short pale-cyan plume, navy tabard, tiny gold sun emblem.\n\nFour strongly distinct walk silhouettes, not the same pose. Limited palette only: muted dark navy, steel blue, pale cyan, and a little gold. Flat pixels, no glow, no gradient, no text. Designed as very small terminal-game sprites.\n\nTop-left: wide stride, RIGHT leg stretched FORWARD, LEFT leg BACK (legs form a wide inverted V).\nTop-right: legs together under the body, rear LEFT knee LIFTED high (passing pose).\nBottom-left: opposite wide stride, LEFT leg stretched FORWARD, RIGHT leg BACK (mirrored inverted V).\nBottom-right: legs together, opposite RIGHT knee LIFTED high (other passing pose).",
+      "aspect_ratio": "16:9"
+    },
+    "source_sha256": "7cf8adb62dbf97b75a1baabfdc8b04a58cd0e88edcf6af201bf3163fc5f40594"
+  },
+  {
+    "scene": "dragon",
+    "tool_call_id": "call-8fb71cce-ebcc-4f55-8944-7b40644363d8-6",
+    "prompt": {
+      "prompt": "Crisp chunky 16-bit pixel-art sprite sheet on a landscape canvas of pure black. Four isolated wide rectangular miniature scenes in a regular 2-by-2 layout: top-left, top-right, bottom-left, bottom-right. No grid lines. Each miniature is a complete tiny scene floating in the exact center of its own quadrant, occupying only about the middle 65 percent of that cell, with a thick empty black safety margin on every side so the four scenes never touch.\n\nBOTH actors fully visible in ALL FOUR miniatures at identical scale: a small steel knight on the LEFT and a larger winged dragon on the RIGHT. The pair together is small and sits only in the middle of each cell. Knight: closed visor, short pale-cyan plume, navy tabard, tiny gold sun emblem. Dragon: steel-blue body, wings folded enough to fit, modest size still larger than the knight.\n\nLimited palette only: muted dark navy, steel blue, pale cyan, and a little gold. Flat pixels, no glow, no gradient, no text. No victory pose, no blood, no giant flame. Designed as very small terminal-game sprites.\n\nTop-left: knight holds shield LOW; dragon head LOW, mouth closed.\nTop-right: knight holds shield HIGH; dragon head forward with a SHORT small pale-cyan breath puff.\nBottom-left: knight crouched behind the shield; dragon neck recoiled backward.\nBottom-right: knight steps forward; dragon raises ONE wing, the other still folded.",
+      "aspect_ratio": "16:9"
+    },
+    "source_sha256": "c02c143a5007a81f6822b8458553c9674f190552fb4affafb7ff9071699e47a6"
+  },
+  {
+    "scene": "guardian",
+    "tool_call_id": "call-8fb71cce-ebcc-4f55-8944-7b40644363d8-7",
+    "prompt": {
+      "prompt": "Crisp chunky 16-bit pixel-art sprite sheet on a landscape canvas of pure black. Four isolated wide rectangular miniature scenes in a regular 2-by-2 layout: top-left, top-right, bottom-left, bottom-right. No grid lines. Each miniature is a complete tiny scene floating in the exact center of its own quadrant, occupying only about the middle 65 percent of that cell, with a thick empty black safety margin on every side so the four scenes never touch.\n\nBOTH actors fully visible in ALL FOUR miniatures at identical scale: a small steel knight on the LEFT and a blocky stone giant on the RIGHT. The pair together is small and sits only in the middle of each cell. Knight: closed visor, short pale-cyan plume, navy tabard, tiny gold sun emblem. Giant: tall blocky steel-blue stone golem, larger than the knight, both still fully inside the vignette.\n\nLimited palette only: muted dark navy, steel blue, pale cyan, and a little gold. Flat pixels, no glow, no gradient, no text. Designed as very small terminal-game sprites.\n\nTop-left: both in ready stance; giant's arms hanging DOWN.\nTop-right: giant's RIGHT ARM RAISED high; knight braces his shield.\nBottom-left: giant's arm DOWN again; knight crouches LEFT to dodge.\nBottom-right: knight risen back to stance; giant draws the arm BACK in a wind-up, not raised high.",
+      "aspect_ratio": "16:9"
+    },
+    "source_sha256": "08aa5ea1583e6baa14a4238744f01d4bc31fe6605353622e554189fb2d6f038a"
+  }
+]

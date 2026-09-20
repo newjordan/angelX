@@ -1,0 +1,27 @@
+{
+  "name": "lance_impact",
+  "start_index": 18,
+  "period_frames": 12,
+  "fps": 12.0,
+  "wrap_mse": 1532.5182167766004,
+  "mid_adj_mse": 1112.587946021908,
+  "wrap_to_adj_ratio": 1.3774355734112795,
+  "blend_t": 0.28,
+  "stabilized": true,
+  "key_color": "none",
+  "source_count": 73,
+  "frame_files": [
+    "lance_impact_00.png",
+    "lance_impact_01.png",
+    "lance_impact_02.png",
+    "lance_impact_03.png",
+    "lance_impact_04.png",
+    "lance_impact_05.png",
+    "lance_impact_06.png",
+    "lance_impact_07.png",
+    "lance_impact_08.png",
+    "lance_impact_09.png",
+    "lance_impact_10.png",
+    "lance_impact_11.png"
+  ]
+}

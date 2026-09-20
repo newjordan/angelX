@@ -1,0 +1,12 @@
+id = "agent"
+title = "Agent Identity"
+kind = "agent-identity"
+activation = "startup"
+capabilities = ["agent-identity", "passive-monitor", "widget"]
+data_sources = ["bag", "overwatch", "agent-profile"]
+
+[default_rect]
+x = 96
+y = 5
+width = 44
+height = 16

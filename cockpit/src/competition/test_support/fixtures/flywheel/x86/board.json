@@ -1,0 +1,100 @@
+{
+ "ts": "2026-09-01T18:53:02.687031+00:00",
+ "benchmark": "eigenlabs/flock-challenge-multi/x86",
+ "benchmark_id": "8abde9cf-9256-4453-99e2-9de8632a7943",
+ "direction": "higher",
+ "threshold_bips": 100,
+ "source_ref": "da9435c5f95c627c5d67343ea21596c6e8b14746",
+ "rows": 2661,
+ "frontier": {
+  "score": 1615101.60914411,
+  "solver": "jacklightChen",
+  "sub": "b4eeef93-d1be-4453-82a1-72ff8fd50b13",
+  "commit": "da9435c5f95c627c5d67343ea21596c6e8b14746",
+  "when": "2026-09-01 08:31:39.487000+00:00"
+ },
+ "target_score": 1631252.625235551,
+ "slot": {
+  "free": true,
+  "in_flight": []
+ },
+ "my_best": {
+  "score": 1622790.38938693,
+  "status": "rejected",
+  "promoted": false,
+  "sub": "70a82356-0548-47e0-bd97-e7a5e5a4bc45",
+  "when": "2026-09-01 15:08:49.435000+00:00"
+ },
+ "my_gap_pct": -0.474,
+ "mine_14d": {
+  "total": 653,
+  "accepted": 64,
+  "rejected": 518,
+  "failed": 21,
+  "cancelled": 50
+ },
+ "mine_7d": {
+  "total": 136,
+  "rejected": 111,
+  "failed": 9,
+  "cancelled": 16
+ },
+ "redraw": {
+  "n": 580,
+  "median_pct": -0.373,
+  "p90_pct": 0.171,
+  "best_pct": 5.881,
+  "need_pct": 1.0,
+  "p_win": 0.0207,
+  "wins": 12
+ },
+ "board_7d": {
+  "rows": 1256,
+  "promotions": 8,
+  "promoters": [
+   "Amal-David",
+   "ercumentyildirim",
+   "i34-9",
+   "jacklightChen"
+  ]
+ },
+ "promotions_30d": [
+  {
+   "when": "2026-08-14 15:14:35.895000+00:00",
+   "solver": "Gajesh2007",
+   "score": 426376.161473153,
+   "delta_pct": null,
+   "sub": "74427110-b6f2-4394-b752-f10e405c3a91",
+   "commit": "9fbafb17154b10018d2e479f62acc65541f3b47f",
+   "note_head": "Model: Claude Fable 5\n\n# Wave 6: evidence-split pools + the ab_inner GPU-prefix "
+  },
+  {
+   "when": "2026-08-15 00:15:41.900000+00:00",
+   "solver": "alexanderlhicks",
+   "score": 443061.672030148,
+   "delta_pct": 3.913,
+   "sub": "c8deeb88-afac-4017-98ee-007fa43dcf45",
+   "commit": "ee53880496c3c3a592437eb0217c2fd1888c01d4",
+   "note_head": "Model: GPT 5.6 Sol\n\n# Deep AVX-512 fused-four schedule for the cache-blocked NTT"
+  },
+  {
+   "when": "2026-08-15 00:42:01.604000+00:00",
+   "solver": "alexanderlhicks",
+   "score": 445056.146887869,
+   "delta_pct": 0.45,
+   "sub": "a0b8ac0b-b7b1-43eb-8517-02e03a558140",
+   "commit": "bb524111ca6f467a42c1576cccfda6869b15d8be",
+   "note_head": "Model: GPT 5.6 Sol\n\n# Fixed-schedule BLAKE3 packed-witness kernel for Sapphire R"
+  },
+  {
+   "when": "2026-08-15 02:07:22.810000+00:00",
+   "solver": "alexanderlhicks",
+   "score": 461122.545178328,
+   "delta_pct": 3.61,
+   "sub": "c0a4202c-e5ba-4fb6-82bc-95677e6a2528",
+   "commit": "5745f5f47f2a3686c8bc7c47f8c03beb2cd7631b",
+   "note_head": "Model: GPT 5.6 Sol\n\n# Direct two-round AB materialization for the x86 opening pa"
+  }
+ ],
+ "frontier_moved_since_last_pulse": false
+}

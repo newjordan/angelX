@@ -1,0 +1,10 @@
+{
+  "frames": 61,
+  "fps": 8,
+  "source": "hammertime2.mp4",
+  "source_path": "source-media/hammertime2.mp4",
+  "side": 160,
+  "mean_subject_frac": 0.22236103995901638,
+  "mean_opaque_rgb": 0.222008153063352,
+  "note": "corner-chroma-keyed; ping-pong in loop_viz::mascot_frame"
+}

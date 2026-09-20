@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "generatedAt": "2026-07-13T07:05:00Z",
+  "reports": [
+    {
+      "slug": "visual-verifier-acceptance",
+      "title": "Production Cockpit Visual Verifier Acceptance",
+      "date": "2026-07-13",
+      "category": "verification",
+      "file": "reports/visual-verifier-acceptance.html",
+      "summary": "Typed operation, exact terminal cells, and semantic state captured from one production cockpit frame.",
+      "campaignId": "visual-verifier",
+      "campaignTitle": "Production Visual Verifier",
+      "status": "active",
+      "reportKind": "acceptance",
+      "evidencePath": "evidence/visual-verifier-frame.json",
+      "linkedRunIds": ["cockpit-ui-verify-observatory-same-frame"]
+    },
+    {
+      "slug": "visual-verifier-cell-diff",
+      "title": "Terminal Cell and Semantic-State Diff",
+      "date": "2026-07-12",
+      "category": "verification",
+      "file": "reports/visual-verifier-cell-diff.html",
+      "summary": "Cell-level drift report linked to the verifier capture run.",
+      "campaignId": "visual-verifier",
+      "campaignTitle": "Production Visual Verifier",
+      "status": "active",
+      "reportKind": "evidence",
+      "evidencePath": "evidence/visual-verifier-frame.json",
+      "linkedRunIds": ["cockpit-ui-verify-observatory-same-frame"]
+    },
+    {
+      "slug": "legacy-routing-notes",
+      "title": "Legacy Routing Notes",
+      "date": "2026-07-01",
+      "category": "agents",
+      "file": "reports/legacy-routing-notes.html",
+      "summary": "A version-1-compatible entry with no campaign metadata."
+    }
+  ]
+}

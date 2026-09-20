@@ -1,0 +1,1457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:angel:trace:v2",
+  "title": "angel-trace/v2 (accepts historical v1)",
+  "type": "object",
+  "properties": {
+    "trace_schema": {
+      "enum": [
+        "angel-trace/v1",
+        "angel-trace/v2"
+      ]
+    },
+    "schema": {
+      "const": "angel-trajectory/v2"
+    },
+    "identity": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "executable_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executable_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cockpit_source_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "toolchain": {
+          "type": "object",
+          "properties": {
+            "rustc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "host": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "profile": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "rustc",
+            "host",
+            "profile"
+          ],
+          "additionalProperties": true
+        },
+        "model": {
+          "type": "object",
+          "properties": {
+            "club": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "base_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "driver": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "club",
+            "id",
+            "base_url",
+            "driver"
+          ],
+          "additionalProperties": true
+        },
+        "effort": {
+          "type": [
+            "object",
+            "string",
+            "null"
+          ]
+        },
+        "dataset": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sha256": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "path",
+            "sha256"
+          ],
+          "additionalProperties": true
+        },
+        "budgets": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "verifier": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "bound_at_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "executable_sha256",
+        "executable_path",
+        "cockpit_source_sha256",
+        "toolchain",
+        "model",
+        "effort",
+        "dataset",
+        "budgets",
+        "verifier",
+        "bound_at_ms"
+      ],
+      "additionalProperties": true
+    },
+    "turn": {
+      "type": "object",
+      "properties": {
+        "operator_turn_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ts": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hop_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "stop_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "operator_turn_id",
+        "session",
+        "ts",
+        "hop_count",
+        "stop_reason"
+      ],
+      "additionalProperties": true
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tool": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "args_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exec": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "err": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "error_class": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "verify": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hop": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "class": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "avoidable": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "duplicate_of": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "execution_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "attempt_id",
+          "tool",
+          "args_digest",
+          "exec",
+          "err",
+          "error_class",
+          "ms",
+          "bytes",
+          "verify",
+          "hop",
+          "class",
+          "avoidable",
+          "duplicate_of"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "usage": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "input": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "output": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "reasoning": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cache_read": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cache_write": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "uncached_input": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_prompt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "generation_output": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "schema": {
+          "const": "angel.usage.v2"
+        },
+        "attribution": {
+          "const": "shared-cumulative-window"
+        },
+        "reported_attempts": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "output": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "reasoning": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cache_read": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cache_write": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "uncached_input": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "total_prompt": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "generation_output": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "input",
+            "output",
+            "reasoning",
+            "cache_read",
+            "cache_write",
+            "uncached_input",
+            "total_prompt",
+            "generation_output"
+          ]
+        },
+        "cache_convention_attempts": {
+          "type": "object"
+        },
+        "reasoning_convention_attempts": {
+          "type": "object"
+        },
+        "attempts": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "inconsistent_attempts": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "unknown_path_fields": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cache_hit_pct": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "core_complete": {
+          "type": "boolean"
+        },
+        "untracked_sources": {
+          "type": "boolean"
+        },
+        "overflowed": {
+          "type": "boolean"
+        },
+        "raw_field_reports": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "input",
+        "output",
+        "reasoning",
+        "cache_read",
+        "cache_write",
+        "uncached_input",
+        "total_prompt",
+        "generation_output",
+        "schema",
+        "attribution",
+        "reported_attempts",
+        "cache_convention_attempts",
+        "reasoning_convention_attempts",
+        "attempts",
+        "inconsistent_attempts",
+        "unknown_path_fields",
+        "cache_hit_pct",
+        "core_complete",
+        "untracked_sources",
+        "overflowed",
+        "raw_field_reports"
+      ],
+      "additionalProperties": true
+    },
+    "verifier": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plan": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exit": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "coverage_gap": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "attempt_id",
+          "plan",
+          "command",
+          "exit",
+          "ms",
+          "coverage_gap"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shown": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "attempt_id",
+          "kind",
+          "path_digest",
+          "shown"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "lease": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "host": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seat": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lease_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "host",
+        "seat",
+        "lease_id"
+      ],
+      "additionalProperties": true
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "plan_fee_usd_month": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "confirmed": {
+          "type": ["boolean", "null"]
+        },
+        "paid": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cached": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "price_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "basis": {
+          "type": [
+            "string"
+          ],
+          "enum": [
+            "list-price",
+            "subscription-marginal",
+            "unreported-usage",
+            "no-price-row"
+          ]
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "paid",
+        "cached",
+        "currency",
+        "price_date",
+        "basis",
+        "source",
+        "model"
+      ],
+      "additionalProperties": true
+    },
+    "timing": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "schema": {
+          "enum": [
+            "angel-task-timing/v1",
+            "angel-task-timing/v2"
+          ]
+        },
+        "model_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "other_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "wall_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "serial_overhead_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "residual_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "overlap_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "spans": {
+          "type": "object",
+          "properties": {
+            "turn_start": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "first_model_request": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "first_visible_output": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "first_action": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "last_tool_end": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "turn_end": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "turn_start",
+            "first_model_request",
+            "first_visible_output",
+            "first_action",
+            "last_tool_end",
+            "turn_end"
+          ],
+          "additionalProperties": true
+        },
+        "calls": {
+          "type": "object",
+          "properties": {
+            "model_calls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "start": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "retry_of": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "first_delta_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "stream_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "idle_max_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "id",
+                  "start",
+                  "end",
+                  "retry_of"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "provider_calls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "start": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "retry_of": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "model_call": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "source_id": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "usage": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 0
+                    },
+                    "minItems": 5,
+                    "maxItems": 5
+                  },
+                  "request_bytes": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "response_bytes": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "id",
+                  "start",
+                  "end",
+                  "retry_of",
+                  "model_call",
+                  "source_id",
+                  "usage"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "retry_backoff_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "model_calls",
+            "provider_calls"
+          ],
+          "additionalProperties": true
+        },
+        "envelope_wall_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "startup_shutdown_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "model_calls": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "model_retry_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "model_retries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_calls": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_errors": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_max_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_max_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "startup_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "shutdown_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_overhead_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "startup": {
+          "type": "object",
+          "properties": {
+            "identity_prewarm_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "registry_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "workspace_recon_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "project_doc_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "pre_request_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "compaction_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "aging_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reflex_tick_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "idle_probe_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "other_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "compaction_ms",
+            "aging_ms",
+            "reflex_tick_ms",
+            "idle_probe_ms",
+            "other_ms"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema",
+        "model_ms",
+        "tool_ms",
+        "other_ms",
+        "wall_ms",
+        "serial_overhead_ms",
+        "residual_ms",
+        "overlap_ms",
+        "spans",
+        "calls",
+        "envelope_wall_ms",
+        "startup_shutdown_ms",
+        "model_calls",
+        "model_retry_ms",
+        "model_retries",
+        "tool_calls",
+        "tool_errors",
+        "tool_max_ms",
+        "tool_max_name"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema": {
+                "const": "angel-task-timing/v2"
+              }
+            },
+            "required": [
+              "schema"
+            ]
+          },
+          "then": {
+            "required": [
+              "background"
+            ]
+          }
+        }
+      ]
+    },
+    "workspace_state": {
+      "type": "object",
+      "properties": {
+        "head": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tree_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dirty_paths_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_tree": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start_tree_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start_dirty_paths_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "head",
+        "tree_sha256",
+        "dirty_paths_sha256"
+      ],
+      "additionalProperties": true
+    },
+    "tools_output": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "produced_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retained_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aged_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dropped_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "produced_bytes",
+        "retained_bytes",
+        "aged_bytes",
+        "dropped_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "store_rotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "store",
+          "reason",
+          "ts_ms",
+          "removed_files",
+          "removed_bytes",
+          "max_bytes"
+        ],
+        "properties": {
+          "store": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "ts_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removed_files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removed_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "aged_files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "before_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_age_secs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "parking_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "hop": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "tool_call_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "digest_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "retained_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "enum": [
+              "aging",
+              "excerpt_trim",
+              "compaction"
+            ]
+          },
+          "turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ts_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "hop",
+          "tool_call_id",
+          "digest_sha256",
+          "original_bytes",
+          "retained_bytes",
+          "reason"
+        ],
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "trace_schema",
+    "schema",
+    "identity",
+    "turn",
+    "tools",
+    "usage",
+    "verifier",
+    "artifacts",
+    "lease",
+    "cost",
+    "timing",
+    "workspace_state"
+  ],
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "trace_schema": {
+            "const": "angel-trace/v2"
+          }
+        },
+        "required": [
+          "trace_schema"
+        ]
+      },
+      "then": {
+        "required": [
+          "tools_output",
+          "store_rotations"
+        ]
+      }
+    }
+  ]
+}

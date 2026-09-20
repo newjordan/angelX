@@ -1,0 +1,44 @@
+# Fan-out/fan-in council: three specialist seats read the same question in
+# parallel, a chancellor folds their verdicts into one decision memo.
+name = "council"
+description = "Parallel skeptic/architect/security council on one question, folded into a decision memo."
+
+[[node]]
+id = "skeptic"
+persona = "skeptic"
+tools = "read_only"
+prompt = """Take the skeptic's seat on this question: what is wrong, overstated, or missing?
+Strongest objections first, each anchored to something concrete.
+
+Question:
+{task}"""
+
+[[node]]
+id = "architect"
+persona = "architect"
+tools = "read_only"
+prompt = """Take the architect's seat on this question: structure, trade-offs, and the shape of a
+sound approach. Recommend one path and say what it costs.
+
+Question:
+{task}"""
+
+[[node]]
+id = "security"
+persona = "security"
+tools = "read_only"
+prompt = """Take the security seat on this question: attack surface, failure modes, blast radius,
+and the guardrails that must exist. Rank the risks.
+
+Question:
+{task}"""
+
+[[node]]
+id = "chancellor"
+depends_on = ["skeptic", "architect", "security"]
+prompt = """Fold the three council seats into one decision memo: the recommendation, the
+strongest objection and how it is answered, the risks accepted, and the next
+concrete step. Resolve disagreements explicitly — do not average them.
+
+Question:
+{task}"""
