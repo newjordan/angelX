@@ -4,6 +4,8 @@ angelX is a Rust terminal workspace for coding and research agents. It brings
 model teams, code tools, persistent project memory, and measured experiments
 together in one cockpit.
 
+![Excalibur raised, with the wizard beside it](docs/images/intro.png)
+
 ```sh
 # Requires Linux x86_64, Rust/Cargo, C/C++ tools, Bash and Python 3.
 # The first launch builds from source.

@@ -14,19 +14,6 @@ displayed**: playback converts it into Dotmax Braille dots, using the same
 physical dot pitch as the world, or ordinary Braille cells on terminals without
 fine-dot transport. No runtime video decoder is needed.
 
-Reproduce from the supplied video:
-
-```sh
-ffmpeg -i 'excalibur-tui-long-blade-5s (1).mp4' \
-  -vf 'fps=12,scale=680:384:flags=lanczos,format=gray,tile=10x6' \
-  -frames:v 1 /tmp/rise-gray.png
-make-alpha-mask.sh /tmp/rise-gray.png
-```
-
-The ffmpeg step tiles the clip into the luminance atlas; `make-alpha-mask.sh`
-rewrites it as the shipped mask and fails unless the alpha plane is byte-identical
-to that luminance and the ink plane is uniformly white.
-
 The sword rises once, then holds. While it holds, the water becomes ambient:
 the lower third crossfades from the settled frame's water into a loop of the
 late-clip shimmer — frames 50-59 at 12 fps, then four ticks dissolving the last

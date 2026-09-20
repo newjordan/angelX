@@ -6,7 +6,7 @@ ambient reference is an illuminated restaurant waterfall mural: fixed scenery,
 localized endlessly flowing water, no camera or foreground parallax.
 
 Source: `keep-waterfall-source.png`. Runtime: `keep-waterfall.png`.
-Admission: existing `scripts/realm-assets.py cutout`, 256×224, key ff00ff,
+Processed plate: 256×224, key ff00ff,
 tolerance 0, material palette only (`--no-signal`). Source preserved unchanged.
 Motion masks and effect kinds are authored separately in `motion.json`.
 

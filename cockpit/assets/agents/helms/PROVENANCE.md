@@ -14,5 +14,4 @@ idle pose. A settled portrait marks a finished turn, not benchmark acceptance.
 
 These portraits belong to the agent pane, outside the Dotmax world. World views
 never display these source sheets or any other source PNG as a native plate.
-Generation alone is not acceptance: runtime frames and ordinary-terminal
-integration require review recorded with the next-visuals evidence.
+The source manifest records the original dimensions and hashes.
