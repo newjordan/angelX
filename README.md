@@ -14,7 +14,7 @@ cd angelX
 ANGEL_VIDEO=0 ./bin/angel0
 ```
 
-- **Models and teams** — Choose models and thinking levels, configure teams, and run agent graphs.
+- **Models and formations** — Choose models and thinking levels, configure teams, and run agent graphs.
 - **Repository tools** — Search files, inspect symbols, follow definitions, and review diffs.
 - **Content-checked edits** — Hashline editing checks file content before applying anchored changes.
 - **Programmable tools** — Run tool calls, loops, and filters locally in JavaScript with `code_mode`.
