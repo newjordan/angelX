@@ -110,6 +110,20 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/fixtures/usage/supplemental-chat-usage-wire-v1.json',
 ])
 
+export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
+  'scripts/repo-dossier.mjs',
+  'scripts/repo-dossier.test.mjs',
+  'scripts/store-caps.mjs',
+  'scripts/causal-loop.mjs',
+  'scripts/cut-evidence.mjs',
+  'lib/research/CausalGraph.js',
+  'scripts/private-store-fs.mjs',
+  'scripts/private-store-bridge.py',
+  'scripts/angel-machine-queue.py',
+  'scripts/angel-machine-queue.test.py',
+  'scripts/pxpipe-transform.mjs',
+])
+
 const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/FEATURES.md',
   'docs/COMMANDS.md',
@@ -139,6 +153,7 @@ export const RELEASE_PATHS = Object.freeze([
   'SECURITY.md',
   ...PUBLIC_RELEASE_DOCS,
   ...PUBLIC_RELEASE_NOTICES,
+  ...REQUIRED_RUNTIME_HELPERS,
   'package.json',
   'package-lock.json',
   'rust-toolchain.toml',
@@ -214,6 +229,7 @@ export const RELEASE_PATHS = Object.freeze([
 export const REQUIRED_RELEASE_FILES = Object.freeze([
   ...PUBLIC_RELEASE_DOCS,
   ...PUBLIC_RELEASE_NOTICES,
+  ...REQUIRED_RUNTIME_HELPERS,
   'cockpit/README.md',
   'cockpit/graphs/council.toml',
   'cockpit/graphs/research-pool.toml',
@@ -524,9 +540,11 @@ export function assertPublicReleaseEntries(repoRoot, entries) {
         !PUBLIC_RELEASE_DOCS.includes(path) &&
         !embedded.has(path)) ||
       (path.startsWith('cockpit/docs/') &&
-        !['cockpit/docs/COMPETITION_RUNNER.md', 'cockpit/docs/ENV.md', 'cockpit/docs/JEV.md'].includes(
-          path,
-        )) ||
+        ![
+          'cockpit/docs/COMPETITION_RUNNER.md',
+          'cockpit/docs/ENV.md',
+          'cockpit/docs/JEV.md',
+        ].includes(path)) ||
       (path.startsWith('cockpit/portal-renderer/') &&
         !['cockpit/portal-renderer/Cargo.toml', 'cockpit/portal-renderer/Cargo.lock'].includes(
           path,
