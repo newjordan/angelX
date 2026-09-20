@@ -20,7 +20,7 @@ npm test
 
 - [Model setup](../docs/MODELS.md), [commands](../docs/COMMANDS.md) and [environment settings](docs/ENV.md).
 - [Headless task contract](docs/COMPETITION_RUNNER.md).
-- [Jev tool](docs/JEV.md) and [Sloptomizer loop options](research/sloptomizer/README.md).
+- [Sloptomizer loop options](research/sloptomizer/README.md).
 - [Repository memory](../docs/MEMORY.md) and [self-source navigation](../docs/SELF_MODEL.md).
 - `src/harness/` runs tool turns; `src/tools/` defines the tool surface.
 - `src/club/` implements provider routes; `src/swarm/` coordinates model teams.

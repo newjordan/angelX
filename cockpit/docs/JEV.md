@@ -1,5 +1,9 @@
 # Jev decisions and benchmark arithmetic
 
+Optional model tool. Not a public product feature. `jev_decide` registers only
+when the operator sets `TYPESAFE_API_KEY`; `ANGEL_JEV=0` disables it. There is
+no bundled credential and no extra runtime.
+
 The ordinary cockpit exposes two deferred tools through `tool_search`:
 
 - `jev_decide` asks TypeSafe's Jev narrow technical questions about supplied

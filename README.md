@@ -24,7 +24,7 @@ ANGEL_VIDEO=0 ./bin/angel0
 - **Headless runs** — Record task settings, source identity, tool activity, and acceptance evidence.
 - **Measured campaigns** — Evaluate isolated attempts with verifiers and independent review.
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
-- **Jev and benchmarks** — Request advisory probabilities and scores; calculate measured changes from paired benchmark samples.
+- **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
 - **World TUI** — Introducing world tui foundations for reviewing work, building internal world models, presenting data graphs and agent behavior.
 
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
