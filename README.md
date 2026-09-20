@@ -14,7 +14,6 @@ cd angelX
 ANGEL_VIDEO=0 ./bin/angel0
 ```
 
-- **Visual workspace** — Code, inspect images, and explore Dotmax worlds in the terminal.
 - **Models and teams** — Choose models and thinking levels, configure teams, and run agent graphs.
 - **Repository tools** — Search files, inspect symbols, follow definitions, and review diffs.
 - **Content-checked edits** — Hashline editing checks file content before applying anchored changes.
@@ -26,6 +25,7 @@ ANGEL_VIDEO=0 ./bin/angel0
 - **Measured campaigns** — Evaluate isolated attempts with verifiers and independent review.
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
 - **Jev and benchmarks** — Request advisory probabilities and scores; calculate measured changes from paired benchmark samples.
+- **World TUI** — Introducing world tui foundations for reviewing work, building internal world models, presenting data graphs and agent behavior.
 
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
