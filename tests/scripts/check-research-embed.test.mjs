@@ -39,7 +39,7 @@ function embedFixture({
   if (bridge) {
     write(
       root,
-      'cockpit/src/rl_ctl/research_bridge.rs',
+      'cockpit/src/drive/rl_ctl/research_bridge.rs',
       [
         'const FILES: &[(&str, &[u8])] = &[',
         '    ("runner.py", include_bytes!("../../research/sloptomizer/runner.py")),',
@@ -112,7 +112,7 @@ test('a bridge that stops embedding a receipted file fails', () => {
   const root = embedFixture()
   write(
     root,
-    'cockpit/src/rl_ctl/research_bridge.rs',
+    'cockpit/src/drive/rl_ctl/research_bridge.rs',
     [
       'const FILES: &[(&str, &[u8])] = &[',
       '    ("runner.py", include_bytes!("../../research/sloptomizer/runner.py")),',
@@ -133,7 +133,7 @@ test('a tree without the bridge skips the embed-table comparison', () => {
 })
 
 test('the checked-in bridge embeds the whole receipted set', () => {
-  const bridge = fs.readFileSync(join(repoRoot, 'cockpit/src/rl_ctl/research_bridge.rs'), 'utf8')
+  const bridge = fs.readFileSync(join(repoRoot, 'cockpit/src/drive/rl_ctl/research_bridge.rs'), 'utf8')
   const paths = embeddedPaths(bridge)
   assert.equal(paths.length, new Set(paths).size, 'no duplicate include_bytes! entries')
   const receipt = JSON.parse(

@@ -45,7 +45,9 @@ const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest(
 /** Relative paths embedded by `include_bytes!` in research_bridge.rs, in order. */
 export function embeddedPaths(bridgeSource) {
   const found = []
-  const pattern = /include_bytes!\(\s*"\.\.\/\.\.\/research\/sloptomizer\/([^"]+)"\s*\)/gu
+  // Depth-agnostic: the bridge's `../` prefix tracks how deep in `src/` it sits,
+  // and a hard-coded depth silently matched nothing when the layers were added.
+  const pattern = /include_bytes!\(\s*"(?:\.\.\/)+research\/sloptomizer\/([^"]+)"\s*\)/gu
   for (const match of bridgeSource.matchAll(pattern)) found.push(match[1])
   return found
 }
