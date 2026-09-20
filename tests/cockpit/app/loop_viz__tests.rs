@@ -128,23 +128,23 @@ fn loop_gallery() {
         },
     ];
     let mut fleet = YukonFleetState::default();
-    fleet.apply(crate::yukon_fleet::YukonFleetSnapshot {
+    fleet.apply(crate::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
         entries: vec![
-            crate::yukon_fleet::YukonSubmission {
+            crate::harness::comp_packages::yukon::fleet::YukonSubmission {
                 benchmark: "bench/flock".into(),
                 id: "3347e70".into(),
                 status: "validating".into(),
                 score: None,
                 phase: YukonSubmissionPhase::Running,
             },
-            crate::yukon_fleet::YukonSubmission {
+            crate::harness::comp_packages::yukon::fleet::YukonSubmission {
                 benchmark: "bench/qwen".into(),
                 id: "7871bd4".into(),
                 status: "promoted".into(),
                 score: Some("519469.35".into()),
                 phase: YukonSubmissionPhase::Accepted,
             },
-            crate::yukon_fleet::YukonSubmission {
+            crate::harness::comp_packages::yukon::fleet::YukonSubmission {
                 benchmark: "bench/ssi".into(),
                 id: "ddddddd".into(),
                 status: "rejected".into(),
@@ -426,7 +426,7 @@ fn target_brightens_only_after_an_accepted_receipt() {
 #[test]
 fn yukon_fleet_line_pulses_live_rows_and_counts_every_status() {
     let mut fleet = YukonFleetState::default();
-    fleet.apply(crate::yukon_fleet::YukonFleetSnapshot {
+    fleet.apply(crate::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
         entries: [
             YukonSubmissionPhase::Queued,
             YukonSubmissionPhase::Running,
@@ -435,7 +435,7 @@ fn yukon_fleet_line_pulses_live_rows_and_counts_every_status() {
         ]
         .into_iter()
         .enumerate()
-        .map(|(index, phase)| crate::yukon_fleet::YukonSubmission {
+        .map(|(index, phase)| crate::harness::comp_packages::yukon::fleet::YukonSubmission {
             benchmark: format!("bench/{index}"),
             id: format!("aaaaaa{index}"),
             status: format!("{phase:?}"),

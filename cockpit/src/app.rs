@@ -597,9 +597,9 @@ pub(crate) struct App {
     pub(crate) submission_slot: crate::harness::SubmissionSlotTelemetry,
     /// Personal submission telemetry across Yukon's currently open
     /// competitions. Polling is one-shot, off-thread, and competition-only.
-    pub(crate) yukon_fleet: crate::yukon_fleet::YukonFleetState,
+    pub(crate) yukon_fleet: crate::harness::comp_packages::yukon::fleet::YukonFleetState,
     pub(crate) yukon_fleet_rx:
-        Option<mpsc::Receiver<Result<crate::yukon_fleet::YukonFleetSnapshot, String>>>,
+        Option<mpsc::Receiver<Result<crate::harness::comp_packages::yukon::fleet::YukonFleetSnapshot, String>>>,
     pub(crate) yukon_fleet_polled_at: Instant,
     /// Off-thread work the loop is awaiting (acceptance command / SOTA approval).
     pub(crate) loop_pending: Option<crate::loop_ctl::LoopPending>,
@@ -1172,10 +1172,10 @@ impl App {
             campaign_pending: None,
             loop_ctl: crate::loop_ctl::LoopState::default(),
             submission_slot: crate::harness::SubmissionSlotTelemetry::default(),
-            yukon_fleet: crate::yukon_fleet::YukonFleetState::default(),
+            yukon_fleet: crate::harness::comp_packages::yukon::fleet::YukonFleetState::default(),
             yukon_fleet_rx: None,
             yukon_fleet_polled_at: Instant::now()
-                .checked_sub(crate::yukon_fleet::POLL_INTERVAL)
+                .checked_sub(crate::harness::comp_packages::yukon::fleet::POLL_INTERVAL)
                 .unwrap_or_else(Instant::now),
             loop_pending: None,
             loop_experiment: None,
