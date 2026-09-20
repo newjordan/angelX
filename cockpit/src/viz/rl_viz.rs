@@ -1017,5 +1017,5 @@ fn dim_line(text: &str, width: usize) -> Line<'static> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/rl_viz__tests.rs"]
+#[path = "../../../tests/cockpit/app/rl_viz__tests.rs"]
 mod tests;

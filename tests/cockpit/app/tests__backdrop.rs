@@ -76,7 +76,7 @@ fn backdrop_off_skips_agent_info_header_side_plate() {
 /// tick (or run Stage presentation work) when the Stage was not painted.
 #[test]
 fn hidden_advance_clears_expired_lifecycle_ceremony() {
-    use crate::lifecycle_viz::CeremonyKind;
+    use crate::viz::lifecycle_viz::CeremonyKind;
     let _lock = env_lock();
     let mut app = seed_preview_app();
     let standard = render_app_text(&mut app, 120, 40);

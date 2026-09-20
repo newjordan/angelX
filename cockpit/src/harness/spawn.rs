@@ -785,7 +785,7 @@ impl SpawnTool {
             }
         }
         drop(tx);
-        crate::agentviz::stage(format!("spawn {}", formation.label()), seat_labels);
+        crate::viz::agentviz::stage(format!("spawn {}", formation.label()), seat_labels);
 
         // Collect until: all seats, a successful quorum, a quorum that can no
         // longer be reached, or the deadline. Failed seats still land, but do

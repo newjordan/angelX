@@ -12,7 +12,7 @@
 
 use super::*;
 use crate::hud::{HUD_DIM, HUD_GOLD, HUD_TEXT};
-use crate::terminal_art::{ColoredBrailleCell, ColoredBrailleImage, braille_char, braille_dot_bit};
+use crate::term::art::{ColoredBrailleCell, ColoredBrailleImage, braille_char, braille_dot_bit};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
@@ -124,7 +124,7 @@ impl World {
             yaw_offset,
             pitch,
             fov,
-            crate::lifecycle_viz::MotionMode::Off,
+            crate::viz::lifecycle_viz::MotionMode::Off,
         )
     }
 
@@ -132,7 +132,7 @@ impl World {
         &self,
         cells_w: usize,
         cells_h: usize,
-        motion: crate::lifecycle_viz::MotionMode,
+        motion: crate::viz::lifecycle_viz::MotionMode,
     ) -> Option<std::sync::Arc<ColoredBrailleImage>> {
         self.scryglass_frame_with_motion(cells_w, cells_h, false, 0.0, 0.0, 1.05, motion)
     }
@@ -146,7 +146,7 @@ impl World {
         yaw_offset: f32,
         pitch: f32,
         fov: f32,
-        motion: crate::lifecycle_viz::MotionMode,
+        motion: crate::viz::lifecycle_viz::MotionMode,
     ) -> Option<std::sync::Arc<ColoredBrailleImage>> {
         /// Minimum world ticks between outdoor recompositions during a turn.
         /// (Idle keystrokes are already protected upstream: `advance` paces

@@ -8,7 +8,7 @@ use crate::app::WorldButton;
 use crate::draw::ui;
 use crate::tests::env_lock;
 use crate::{App, ChatMsg, Viewer, harness, panels, scryglass, session, surfaces};
-use crate::{draw, hud, memory_store, mouse, rl_ctl, rl_viz, world_viz};
+use crate::{draw, hud, memory::store, mouse, rl_ctl, viz::rl_viz, world_viz};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend, style::Modifier};
 use std::time::{Duration, Instant};
@@ -467,11 +467,11 @@ fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
         "project conventions",
     );
     app.world
-        .note_memory_health(memory_store::MemoryHealth::Degraded);
+        .note_memory_health(crate::memory::store::MemoryHealth::Degraded);
 
     let screen = render_app_text(&mut app, 120, 40);
     assert!(
-        app.world.memory_health() == memory_store::MemoryHealth::Degraded,
+        app.world.memory_health() == crate::memory::store::MemoryHealth::Degraded,
         "memory health remains explicit\n{screen}"
     );
     assert!(
@@ -595,12 +595,12 @@ fn reinforce_stage_switches_between_branch_research_and_sankey_lenses() {
     );
 
     app.on_key(KeyEvent::new(KeyCode::Char('2'), KeyModifiers::NONE));
-    assert_eq!(app.rl_view, rl_viz::RlView::Research);
+    assert_eq!(app.rl_view, crate::viz::rl_viz::RlView::Research);
     let research = render_app_text(&mut app, 120, 40);
     assert!(research.contains("OPTIMIZATION LEDGER"), "{research}");
 
     app.on_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
-    assert_eq!(app.rl_view, rl_viz::RlView::Sankey);
+    assert_eq!(app.rl_view, crate::viz::rl_viz::RlView::Sankey);
     let sankey = render_app_text(&mut app, 120, 40);
     assert!(sankey.contains("SANKEY · PROMOTION FLOW"), "{sankey}");
 }
@@ -735,7 +735,7 @@ fn compact_core_draw_resets_prior_stage_visibility_and_fast_tick() {
     // This fixture isolates Stage cadence after the startup sword is gone.
     app.startup_intro.dismiss(
         std::time::Instant::now(),
-        crate::lifecycle_viz::MotionMode::Off,
+        crate::viz::lifecycle_viz::MotionMode::Off,
     );
     app.scryglass.sync_arrival(Some(world_viz::Building::Keep));
     app.scryglass
@@ -877,7 +877,7 @@ fn miniviz_comp_mode_skips_compose_without_dropping_assets() {
     );
     assert_eq!(composed, 0);
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    assert!(root.join(crate::loop_viz::hammertime_asset(0.0)).is_file());
+    assert!(root.join(crate::viz::loop_viz::hammertime_asset(0.0)).is_file());
     assert!(!crate::comp_mode::ambient_stage_sim_allowed());
 }
 
@@ -922,7 +922,7 @@ fn comp_mode_skips_lifecycle_rl_graph_scene_without_slowing_default() {
         "visible world must paint dots"
     );
     assert!(app.start_lifecycle_ceremony(
-        crate::lifecycle_viz::CeremonyKind::LoopDone,
+        crate::viz::lifecycle_viz::CeremonyKind::LoopDone,
         "visible ceremony"
     ));
     let ceremony = render_app_text(&mut app, 120, 40);
@@ -1230,7 +1230,7 @@ fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
     );
     assert!(
         !lean.contains("iter 3"),
-        "comp-mode must not build loop_viz::title live suffix\n{lean}"
+        "comp-mode must not build crate::viz::loop_viz::title live suffix\n{lean}"
     );
 
     drop(_on);
@@ -1532,7 +1532,7 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     let mut app = seed_preview_app();
     let artifacts = crate::runtime::ModuleId::new("artifacts");
     assert!(
-        app.start_lifecycle_ceremony(crate::lifecycle_viz::CeremonyKind::LoopDone, "column steal")
+        app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "column steal")
     );
     app.module_host
         .suspend(&artifacts)
@@ -1567,7 +1567,7 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     let mut armed = seed_preview_app();
     assert!(
         armed
-            .start_lifecycle_ceremony(crate::lifecycle_viz::CeremonyKind::LoopDone, "column steal")
+            .start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "column steal")
     );
     armed
         .module_host
@@ -1689,7 +1689,7 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
 #[test]
 fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
     use crate::loop_ctl::{LoopState, LoopStatus};
-    use crate::loop_viz;
+    use crate::viz::loop_viz;
     let _lock = env_lock();
     let _off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     crate::comp_mode::invalidate_cache();
@@ -1700,30 +1700,30 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
     };
     assert!(draw::miniviz_dancer_paint_allowed(
         true,
-        loop_viz::hammertime_active(&running)
+        crate::viz::loop_viz::hammertime_active(&running)
     ));
     assert!(!draw::miniviz_dancer_paint_allowed(
         false,
-        loop_viz::hammertime_active(&running)
+        crate::viz::loop_viz::hammertime_active(&running)
     ));
     // Paused iterations keep the hammerdancers on stage (425e67d8): the loop
     // is still alive, only the cadence is held.
     assert!(draw::miniviz_dancer_paint_allowed(
         true,
-        loop_viz::hammertime_active(&LoopState {
+        crate::viz::loop_viz::hammertime_active(&LoopState {
             status: LoopStatus::Paused,
             ..LoopState::default()
         })
     ));
     assert!(!draw::miniviz_dancer_paint_allowed(
         true,
-        loop_viz::hammertime_active(&LoopState::default())
+        crate::viz::loop_viz::hammertime_active(&LoopState::default())
     ));
 
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for t in [0.0_f32, 0.3, 0.6] {
-        let asset = loop_viz::hammertime_asset(t);
-        let twin = loop_viz::hammertime_twin_asset(t);
+        let asset = crate::viz::loop_viz::hammertime_asset(t);
+        let twin = crate::viz::loop_viz::hammertime_twin_asset(t);
         assert!(root.join(asset).is_file(), "dancer asset missing: {asset}");
         assert!(
             root.join(twin).is_file(),
@@ -1731,7 +1731,7 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
         );
     }
     let area = ratatui::layout::Rect::new(0, 0, 40, 20);
-    let [left, right] = loop_viz::hammertime_duo_boxes(area, 0.4);
+    let [left, right] = crate::viz::loop_viz::hammertime_duo_boxes(area, 0.4);
     assert!(left.width > 0 && right.width > 0);
 }
 

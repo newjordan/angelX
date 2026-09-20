@@ -723,15 +723,15 @@ const BACKGROUND_NOTICE_WORKSPACE_CHARS: usize = 64;
 /// never keeps the flight slot busy or creates one worker per `/compact`.
 /// Results return through [`BackgroundNotice`] instead of disappearing.
 pub(crate) struct MemoryDepositBatch {
-    store: Arc<dyn crate::memory_store::MemoryStore>,
-    drawers: Vec<crate::memory_store::Drawer>,
+    store: Arc<dyn crate::memory::store::MemoryStore>,
+    drawers: Vec<crate::memory::store::Drawer>,
     workspace: PathBuf,
 }
 
 impl MemoryDepositBatch {
     pub(crate) fn new(
-        store: Arc<dyn crate::memory_store::MemoryStore>,
-        drawers: Vec<crate::memory_store::Drawer>,
+        store: Arc<dyn crate::memory::store::MemoryStore>,
+        drawers: Vec<crate::memory::store::Drawer>,
         workspace: PathBuf,
     ) -> Self {
         Self {

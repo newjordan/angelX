@@ -15,7 +15,7 @@ fn artifact_lines_render_empty_state() {
     assert!(text.contains("no delivered artifacts"));
     assert_eq!(
         lines[0].spans[0].content.as_ptr(),
-        crate::status_view::empty_artifacts_line().spans[0]
+        crate::views::status_view::empty_artifacts_line().spans[0]
             .content
             .as_ptr()
     );
@@ -27,7 +27,7 @@ fn artifact_lines_render_empty_state() {
     let over_scrolled = artifact_lines(&media, 5, 4);
     assert_eq!(
         over_scrolled[0].spans[0].content.as_ptr(),
-        crate::status_view::empty_artifacts_line().spans[0]
+        crate::views::status_view::empty_artifacts_line().spans[0]
             .content
             .as_ptr()
     );

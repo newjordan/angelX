@@ -164,7 +164,7 @@ struct PendingPortrait {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DotFrameKey {
     scene: u64,
-    geometry: crate::dot_canvas::DotGeometry,
+    geometry: crate::dots::canvas::DotGeometry,
     columns: u16,
     rows: u16,
     generation: u64,
@@ -181,12 +181,12 @@ impl DotFrameKey {
 
 struct DotFrame {
     key: DotFrameKey,
-    protocol: crate::dot_protocol::DotProtocol,
+    protocol: crate::dots::protocol::DotProtocol,
 }
 
 struct PendingDots {
     key: DotFrameKey,
-    rx: mpsc::Receiver<Result<crate::dot_protocol::DotProtocol, String>>,
+    rx: mpsc::Receiver<Result<crate::dots::protocol::DotProtocol, String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -979,7 +979,7 @@ impl Viewer {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        portal_frame: &crate::agentviz_portal::PortalFrame,
+        portal_frame: &crate::viz::agentviz_portal::PortalFrame,
     ) -> bool {
         if !self.portal_enabled || area.width == 0 || area.height == 0 {
             return false;
@@ -1019,8 +1019,8 @@ impl Viewer {
             .name("angel-webgpu-portal-kitty".to_string())
             .spawn(move || {
                 let result = image::RgbaImage::from_raw(
-                    crate::agentviz_portal::FRAME_WIDTH,
-                    crate::agentviz_portal::FRAME_HEIGHT,
+                    crate::viz::agentviz_portal::FRAME_WIDTH,
+                    crate::viz::agentviz_portal::FRAME_HEIGHT,
                     pixels.as_ref().to_vec(),
                 )
                 .ok_or_else(|| "portal frame length did not match RGBA dimensions".to_string())
@@ -1089,7 +1089,7 @@ impl Viewer {
     /// Live pixel art uses the same bounded resident worker on ordinary terminals.
     /// Fine world dots require real pixel placement. Other protocols keep
     /// ordinary Braille; half blocks cannot represent independent dot spacing.
-    pub(crate) fn dot_geometry(&self, area: Rect) -> Option<crate::dot_canvas::DotGeometry> {
+    pub(crate) fn dot_geometry(&self, area: Rect) -> Option<crate::dots::canvas::DotGeometry> {
         if self.portal_picker.protocol_type() != ProtocolType::Kitty
             || area.width > 256
             || area.height > 256
@@ -1100,7 +1100,7 @@ impl Viewer {
         let pitch = dot_pitch(std::env::var("ANGEL_DOTMAX_PITCH").ok().as_deref())?;
         let picker = self.world_pixel_picker();
         let font = picker.font_size();
-        crate::dot_canvas::DotGeometry::new(
+        crate::dots::canvas::DotGeometry::new(
             area.width,
             area.height,
             (font.width, font.height),
@@ -1116,8 +1116,8 @@ impl Viewer {
         frame: &mut Frame,
         area: Rect,
         scene: u64,
-        geometry: crate::dot_canvas::DotGeometry,
-        image: Arc<crate::terminal_art::ColoredBrailleImage>,
+        geometry: crate::dots::canvas::DotGeometry,
+        image: Arc<crate::term::art::ColoredBrailleImage>,
     ) -> bool {
         use std::hash::{Hash, Hasher};
         if self.portal_picker.protocol_type() != ProtocolType::Kitty {
@@ -1187,7 +1187,7 @@ impl Viewer {
         let (tx, rx) = mpsc::channel();
         let job: MapEncodeJob = Box::new(move || {
             let result =
-                crate::dot_protocol::DotProtocol::encode(geometry, &image, size.into(), id);
+                crate::dots::protocol::DotProtocol::encode(geometry, &image, size.into(), id);
             let _ = tx.send(result);
         });
         if self.send_map_job(job).is_ok() {

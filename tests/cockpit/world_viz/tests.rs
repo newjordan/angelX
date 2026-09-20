@@ -560,17 +560,17 @@ fn flat_render(w: &World, width: u16, height: u16) -> String {
 fn chapel_status_surfaces_typed_memory_health_semantically() {
     for (health, label, color) in [
         (
-            crate::memory_store::MemoryHealth::Disabled,
+            crate::memory::store::MemoryHealth::Disabled,
             "memory disabled",
             crate::hud::HUD_DIM,
         ),
         (
-            crate::memory_store::MemoryHealth::Healthy,
+            crate::memory::store::MemoryHealth::Healthy,
             "memory healthy",
             crate::hud::HUD_VERIFIED,
         ),
         (
-            crate::memory_store::MemoryHealth::Degraded,
+            crate::memory::store::MemoryHealth::Degraded,
             "memory degraded",
             crate::hud::HUD_DANGER,
         ),
@@ -1469,7 +1469,7 @@ fn a_world_without_a_village_reports_and_renders_as_before() {
 
 #[test]
 fn muster_seat_states_recolor_the_ranks() {
-    use crate::agentviz::SeatState;
+    use crate::viz::agentviz::SeatState;
     let mut w = World::new(7);
     w.form_muster("proposer wave 2", 4);
     assert_eq!(w.muster.len(), 4);

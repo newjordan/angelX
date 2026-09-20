@@ -10,7 +10,7 @@ use crate::formations::{self};
 use crate::tests::env_lock;
 use crate::transcript::Role;
 use crate::turn::Thinking;
-use crate::{scryglass, status_view};
+use crate::{scryglass, views::status_view};
 use std::sync::Arc;
 
 #[test]
@@ -670,7 +670,7 @@ fn formation_board_owns_printable_input_but_not_global_focus_or_interrupts() {
         app.input, "preserved draftx",
         "an explicit focus change returns input to the composer"
     );
-    let composer = status_view::composer_view(&app.input, 38, 2, app.cursor);
+    let composer = crate::views::status_view::composer_view(&app.input, 38, 2, app.cursor);
     assert!(
         crate::draw::composer_cursor_position(&app, Rect::new(1, 1, 40, 4), &composer).is_some()
     );

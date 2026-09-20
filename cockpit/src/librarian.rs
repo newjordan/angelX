@@ -1,5 +1,5 @@
 //! The Librarian — curation layer between agent/moa *reports* and the long-form
-//! memory palace ([`crate::memory_store`]).
+//! memory palace ([`crate::memory::store`]).
 //!
 //! Compaction files its own structured drawers directly (it already produces
 //! clean, sectioned notes). The moa is different: a fan-out produces free-form
@@ -14,7 +14,7 @@
 //! real, so the moa can't pollute the store in the meantime. The cockpit's
 //! compaction path deposits to the store directly today, bypassing the Librarian.
 
-use crate::memory_store::{Drawer, MemoryStore};
+use crate::memory::store::{Drawer, MemoryStore};
 use std::sync::Arc;
 
 /// A free-form contribution from an agent or a moa synthesis, before curation.

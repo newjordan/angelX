@@ -515,5 +515,5 @@ pub(crate) fn format_plan(plan: &CommitPlan) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/git_commit_split__tests.rs"]
+#[path = "../../../tests/cockpit/app/git_commit_split__tests.rs"]
 mod tests;

@@ -11,7 +11,7 @@ use crate::app::WorldButton;
 use crate::club::ChatRole;
 use crate::draw::{composer_cursor_position, ui};
 use crate::tests::env_lock;
-use crate::{hud, lifecycle_viz, panels, status_view};
+use crate::{hud, viz::lifecycle_viz, panels, views::status_view};
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 use std::sync::Arc;
 
@@ -39,7 +39,7 @@ fn composer_publishes_the_caret_only_while_it_owns_text_input() {
         .panel_frames
         .get(panels::PanelKind::Input)
         .expect("composer frame");
-    let composer = status_view::composer_view(
+    let composer = crate::views::status_view::composer_view(
         &app.input,
         area.width.saturating_sub(2) as usize,
         area.height.saturating_sub(2),
@@ -57,7 +57,7 @@ fn composer_publishes_the_caret_only_while_it_owns_text_input() {
         .panel_frames
         .get(panels::PanelKind::Input)
         .expect("composer frame");
-    let wide = status_view::composer_view(
+    let wide = crate::views::status_view::composer_view(
         &app.input,
         area.width.saturating_sub(2) as usize,
         area.height.saturating_sub(2),
@@ -71,7 +71,7 @@ fn composer_publishes_the_caret_only_while_it_owns_text_input() {
     app.focus_module("artifacts");
     app.input.clear();
     app.cursor = 0;
-    let empty = status_view::composer_view(
+    let empty = crate::views::status_view::composer_view(
         &app.input,
         area.width.saturating_sub(2) as usize,
         area.height.saturating_sub(2),
@@ -84,7 +84,7 @@ fn composer_publishes_the_caret_only_while_it_owns_text_input() {
 
     app.input = "draft".to_string();
     app.cursor = app.input.chars().count();
-    let draft = status_view::composer_view(
+    let draft = crate::views::status_view::composer_view(
         &app.input,
         area.width.saturating_sub(2) as usize,
         area.height.saturating_sub(2),
@@ -99,7 +99,7 @@ fn exact_width_composer_caret_moves_to_the_next_row() {
     app.input = "abcd".to_string();
     app.cursor = app.input.chars().count();
     let area = Rect::new(0, 0, 6, 4); // 4x2 inner composer
-    let view = status_view::composer_view(&app.input, 4, 2, app.cursor);
+    let view = crate::views::status_view::composer_view(&app.input, 4, 2, app.cursor);
 
     assert_eq!(view.cursor_col, 4, "precondition: insertion is after row");
     assert_eq!(view.cursor_row, 0);
@@ -190,7 +190,7 @@ fn composer_gives_high_impact_commands_a_danger_signal_rail() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
-    app.visual_motion = lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.input = "/clear".to_string();
     app.cursor = app.input.chars().count();
     let backend = TestBackend::new(120, 40);
@@ -262,7 +262,7 @@ fn composer_hides_native_caret_while_terminal_is_unfocused() {
     app.input = "focus regression".to_string();
     app.cursor = app.input.len();
     let area = Rect::new(1, 1, 40, 4);
-    let view = status_view::composer_view(&app.input, 38, 2, app.cursor);
+    let view = crate::views::status_view::composer_view(&app.input, 38, 2, app.cursor);
     assert!(composer_cursor_position(&app, area, &view).is_some());
     app.set_terminal_focused(false);
     assert!(composer_cursor_position(&app, area, &view).is_none());
@@ -283,7 +283,7 @@ fn corrective_composer_grapheme_keys_copy_delete_and_insert_agree_with_paint() {
         app.on_key(KeyEvent::new(K::Left, M::SHIFT));
         assert_eq!(app.cursor, 0, "{cluster}");
         assert_eq!(app.composer_selection_range(), Some((0, end)));
-        let view = status_view::composer_view_with_selection(
+        let view = crate::views::status_view::composer_view_with_selection(
             &app.input,
             20,
             3,
@@ -318,7 +318,7 @@ fn corrective_composer_grapheme_keys_copy_delete_and_insert_agree_with_paint() {
     // boundary the renderer paints, not after the base but before its accent.
     app.input = "e\u{301}".into();
     app.cursor = 1;
-    let view = status_view::composer_view(&app.input, 8, 2, app.cursor);
+    let view = crate::views::status_view::composer_view(&app.input, 8, 2, app.cursor);
     assert_eq!(view.cursor_col, 0);
     app.on_key(KeyEvent::new(K::Char('X'), M::NONE));
     assert_eq!(app.input, "Xe\u{301}");
@@ -447,7 +447,7 @@ fn corrective_composer_exact_width_hard_break_has_a_real_insertion_cell() {
             .position(|c| ['\n', '\u{2028}', '\u{2029}'].contains(&c))
             .unwrap();
         let cursor = app.cursor;
-        let view = status_view::composer_view(&app.input, 4, 3, cursor);
+        let view = crate::views::status_view::composer_view(&app.input, 4, 3, cursor);
         let pos = composer_cursor_position(&app, area, &view).unwrap();
         assert_eq!((pos.x, pos.y), (area.x + 1, area.y + 2));
         assert!(view.lines[1].spans.iter().all(|s| s.content.is_empty()));
@@ -477,8 +477,8 @@ fn corrective_composer_changing_megabyte_draft_keeps_edit_and_render_cost_small(
         for i in 0..100 {
             app.on_key(KeyEvent::new(K::Char('Z'), M::NONE));
             let width = [40, 80, 160][i % 3];
-            assert_eq!(status_view::composer_height(&app.input, width + 2, 30), 7);
-            let view = status_view::composer_view_with_selection(
+            assert_eq!(crate::views::status_view::composer_height(&app.input, width + 2, 30), 7);
+            let view = crate::views::status_view::composer_view_with_selection(
                 &app.input,
                 width as usize,
                 5,
@@ -497,7 +497,7 @@ fn corrective_composer_changing_megabyte_draft_keeps_edit_and_render_cost_small(
                 "Z"
             );
             app.on_key(KeyEvent::new(K::Backspace, M::NONE));
-            let _ = status_view::composer_view(&app.input, width as usize, 5, app.cursor);
+            let _ = crate::views::status_view::composer_view(&app.input, width as usize, 5, app.cursor);
         }
         let elapsed = started.elapsed();
         eprintln!(
@@ -507,7 +507,7 @@ fn corrective_composer_changing_megabyte_draft_keeps_edit_and_render_cost_small(
         // Changed middle text and navigation must also retain global offsets.
         app.cursor = app.input.len() / 2;
         app.on_key(KeyEvent::new(K::Char('Z'), M::NONE));
-        let view = status_view::composer_view_with_selection(
+        let view = crate::views::status_view::composer_view_with_selection(
             &app.input,
             80,
             5,
@@ -570,7 +570,7 @@ fn final_composer_yank_joined_grapheme_agrees_with_caret_and_backspace() {
     app.on_key(KeyEvent::new(K::Char('y'), M::CONTROL));
     assert_eq!(app.input, "e\u{301}!");
     assert_eq!(app.cursor, 2, "yank must finish past the joined grapheme");
-    let view = status_view::composer_view(&app.input, 20, 3, app.cursor);
+    let view = crate::views::status_view::composer_view(&app.input, 20, 3, app.cursor);
     assert_eq!(view.cursor_col, 1);
     app.on_key(KeyEvent::new(K::Backspace, M::NONE));
     assert_eq!(app.input, "!");

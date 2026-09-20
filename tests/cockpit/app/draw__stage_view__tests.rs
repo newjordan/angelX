@@ -64,7 +64,7 @@ fn world_overlay_assets_use_dots_even_when_native_images_are_available() {
     for path in [
         root.join("assets/loop/hammertime-a.png"),
         root.join("assets/loop/hammertime-b.png"),
-        crate::spend_viz::asset_path().to_path_buf(),
+        crate::viz::spend_viz::asset_path().to_path_buf(),
     ] {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(16, 8)).unwrap();
@@ -157,7 +157,7 @@ fn dump_living_painting_stage_cells_for_review() {
                 app.world = crate::world_viz::World::new(71);
                 app.world.settle_at_for_test(building);
                 assert!(app.world.enter_interior());
-                app.visual_motion = crate::lifecycle_viz::MotionMode::Full;
+                app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Full;
                 for _ in 0..phase * 10 {
                     app.world.tick();
                 }

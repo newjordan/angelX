@@ -169,7 +169,7 @@ impl ToolStrip {
             self.started = Some(Instant::now());
         }
         let sanitized = sanitize(note);
-        let prefix = crate::turn_event_view::notice_strip_prefix(&sanitized);
+        let prefix = crate::views::turn_event_view::notice_strip_prefix(&sanitized);
         if !prefix.is_empty() && !self.note_prefixes.iter().any(|seen| seen == prefix) {
             self.note_prefixes.push(prefix.to_string());
         }
@@ -201,7 +201,7 @@ impl ToolStrip {
         &self,
         width: usize,
         now: Instant,
-        motion: crate::lifecycle_viz::MotionMode,
+        motion: crate::viz::lifecycle_viz::MotionMode,
         paused: bool,
     ) -> std::sync::Arc<str> {
         self.ambience.borrow_mut().row(width, now, motion, paused)
@@ -622,7 +622,7 @@ pub(crate) fn note_row_text(note: &str, count: usize, prefixes: &[String]) -> St
     if count <= 1 {
         return format!("\u{00b7} {note}");
     }
-    let current = crate::turn_event_view::notice_strip_prefix(note);
+    let current = crate::views::turn_event_view::notice_strip_prefix(note);
     let prior = prefixes
         .iter()
         .map(String::as_str)
@@ -1566,7 +1566,7 @@ pub(crate) fn status_row_parts_with_silence(
     };
     // Live fan-out pips: while a multi-seat stage has published seat states,
     // the right rail leads with "proposer wave 2 · 3/6 back".
-    let seat_pips = crate::agentviz::current_seat_pips().unwrap_or_default();
+    let seat_pips = crate::viz::agentviz::current_seat_pips().unwrap_or_default();
     // Per-call age on the gating wait: unfinished entries use wall clock since
     // start; a lingering finished entry keeps its stamped duration (≥1s).
     let call_frag = if !cur.done {

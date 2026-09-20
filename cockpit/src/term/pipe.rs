@@ -133,5 +133,5 @@ fn drain_and_discard(rx: Receiver<Vec<u8>>) {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/term_pipe__tests.rs"]
+#[path = "../../../tests/cockpit/app/term_pipe__tests.rs"]
 mod tests;

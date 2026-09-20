@@ -1,8 +1,8 @@
 //! Reviewed helm poses driven by live cockpit state, with restrained idle glances.
 
-use crate::agent_profile::AgentKey;
-use crate::agent_view::PortraitState;
-use crate::lifecycle_viz::MotionMode;
+use crate::agent::profile::AgentKey;
+use crate::views::agent_view::PortraitState;
+use crate::viz::lifecycle_viz::MotionMode;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};

@@ -8,18 +8,15 @@
 //! Later increments: dotmax braille charts, ratatui-image photos, PTY shell.
 
 mod advisor;
-mod agent_controls;
-mod agent_profile;
-mod agent_view;
-mod agentviz;
+mod agent;
+mod git;
+mod views;
+mod viz;
 mod helm;
 // Bounded process bridge to the isolated surface-free WebGPU renderer. Visible
 // output is admitted only through the calibrated Kitty image adapter.
-mod agentviz_portal;
 mod app_control;
 mod approval;
-mod approval_view;
-mod artifacts_view;
 mod atlas;
 mod atlas_clerk;
 mod authority_profile;
@@ -68,23 +65,17 @@ mod runtime_paths;
 mod app;
 mod comp_mode;
 mod conflict;
-mod dot_canvas;
-mod dot_protocol;
+mod dots;
 mod draw;
-mod git_commit_split;
-mod github_url;
 mod graph_ctl;
-mod graph_viz;
 mod knight_cast;
 mod knight_journey;
 #[allow(dead_code)]
 mod librarian;
 mod library;
-mod lifecycle_viz;
 mod local_command;
 mod loop_ctl;
 mod loop_dialog;
-mod loop_viz;
 mod lsp;
 mod magic_keywords;
 mod markdown;
@@ -92,9 +83,7 @@ mod math;
 mod mcp;
 mod media;
 mod memory;
-mod memory_store;
 mod mission;
-mod moa_viz;
 mod model_setup;
 mod mouse;
 mod observatory;
@@ -111,7 +100,6 @@ mod repos;
 mod research_workspace;
 mod retro_kit;
 mod rl_ctl;
-mod rl_viz;
 mod route_intelligence;
 mod route_preferences;
 mod runtime;
@@ -122,10 +110,8 @@ mod secrets;
 mod self_loop;
 mod session;
 mod skills;
-mod spend_viz;
 mod staged_edit;
 mod startup_intro;
-mod status_view;
 mod steer;
 mod still_inspector;
 mod store_caps;
@@ -134,15 +120,10 @@ mod surfaces;
 mod swarm;
 mod swarm_delegate;
 mod term;
-mod term_lookup;
-mod term_pipe;
-mod terminal_art;
 mod tools;
 mod toolstrip;
 mod transcript;
 mod turn;
-mod turn_event_view;
-mod turn_phase;
 mod ui_inspect;
 mod viewer;
 mod village;
@@ -152,7 +133,7 @@ mod workspace_store;
 mod world_viz;
 mod yolo;
 
-use agent_profile::{
+use agent::profile::{
     AgentKey, AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route,
     specialist_text,
 };
@@ -162,7 +143,7 @@ use hud::{
     HUD_BLUE, HUD_DIM, HUD_PHOSPHOR, chrome_style, dim_panel_style, hud_block, panel_style,
     transparent_hud_block,
 };
-use lifecycle_viz::MotionMode;
+use viz::lifecycle_viz::MotionMode;
 use media::Media;
 use overwatch::Overwatch;
 use pty::ShellPane;
@@ -1089,7 +1070,7 @@ fn main() -> std::io::Result<()> {
         }
         if arg == "--dump-rl-preview" {
             let view_name = args.next().unwrap_or_default();
-            let view = crate::rl_viz::RlView::parse(&view_name).ok_or_else(|| {
+            let view = crate::viz::rl_viz::RlView::parse(&view_name).ok_or_else(|| {
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "--dump-rl-preview requires branch, research, or sankey",

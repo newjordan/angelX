@@ -537,7 +537,7 @@ impl crate::App {
                 }
                 self.goal = None;
                 self.start_lifecycle_ceremony(
-                    crate::lifecycle_viz::CeremonyKind::GoalCleared,
+                    crate::viz::lifecycle_viz::CeremonyKind::GoalCleared,
                     "goal cleared",
                 );
                 return "goal cleared".to_string();
@@ -555,7 +555,7 @@ impl crate::App {
                             return goal_persist_error("done", error);
                         }
                         self.start_lifecycle_ceremony(
-                            crate::lifecycle_viz::CeremonyKind::GoalDone,
+                            crate::viz::lifecycle_viz::CeremonyKind::GoalDone,
                             label,
                         );
                         "goal marked done".to_string()
@@ -575,7 +575,7 @@ impl crate::App {
                             return goal_persist_error("pause", error);
                         }
                         self.start_lifecycle_ceremony(
-                            crate::lifecycle_viz::CeremonyKind::GoalCleared,
+                            crate::viz::lifecycle_viz::CeremonyKind::GoalCleared,
                             "goal paused",
                         );
                         "goal paused — /goal resume re-arms it".to_string()
@@ -861,7 +861,7 @@ impl crate::App {
                 self.goal = Some(g);
             }
         }
-        self.start_lifecycle_ceremony(crate::lifecycle_viz::CeremonyKind::GoalSet, raw);
+        self.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::GoalSet, raw);
         msg
     }
 

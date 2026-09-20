@@ -58,7 +58,7 @@ fn explicit_last_answer_rating_is_single_shot_and_text_free() {
 
 #[test]
 fn brain_route_plus_minus_rates_last_answer_without_selecting_a_model() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();

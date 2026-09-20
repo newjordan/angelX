@@ -21,7 +21,7 @@
 //! `ANGEL_SELF_WORKTREE_DIR`, used by tests).
 
 use crate::harness::run_git;
-use crate::lifecycle_viz::CeremonyKind;
+use crate::viz::lifecycle_viz::CeremonyKind;
 use crate::loop_ctl::{self, LoopPending, LoopState, LoopStatus, count_passed_in};
 use crate::tools::self_model;
 use std::path::{Path, PathBuf};

@@ -13,7 +13,7 @@ fn fixture(pane: mouse::PaneId) -> App {
             .join("\n"),
     );
     app.reasoning_shown = app.reasoning.len();
-    app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.messages = (0..80)
         .map(|i| Message {
             role: Role::Angel,
@@ -538,7 +538,7 @@ fn trace_divider_tweens_without_moving_transcript_or_losing_copy_ownership() {
     let _backdrop = TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
     let _world = TestEnvGuard::set("ANGEL_SCRYGLASS", "1");
     let mut app = seed_preview_app();
-    app.visual_motion = lifecycle_viz::MotionMode::Full;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Full;
     app.terminal_focused = true;
     paint(&mut app, 160, 48);
     app.last_resize_at = Instant::now() - Duration::from_secs(1);

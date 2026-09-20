@@ -78,13 +78,13 @@ fn render_spend_coin_overlay(frame: &mut Frame, app: &mut App, stage: Rect) {
     };
     let elapsed_secs = coin.started.elapsed().as_secs_f32();
     let motion = app.spend_coin_motion();
-    let Some(pose) = crate::spend_viz::pose(stage, elapsed_secs, motion) else {
+    let Some(pose) = crate::viz::spend_viz::pose(stage, elapsed_secs, motion) else {
         app.spend_coin = None;
         return;
     };
 
     if pose.face_visible
-        && paint_world_overlay_dots(frame, pose.area, crate::spend_viz::asset_path())
+        && paint_world_overlay_dots(frame, pose.area, crate::viz::spend_viz::asset_path())
     {
         return;
     }
@@ -378,11 +378,11 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_hammertime_mascot(frame: &mut Frame, app: &mut App, area: Rect) {
-    if !miniviz_dancer_paint_allowed(true, loop_viz::hammertime_active(&app.loop_ctl)) {
+    if !miniviz_dancer_paint_allowed(true, crate::viz::loop_viz::hammertime_active(&app.loop_ctl)) {
         return;
     }
-    let side = loop_viz::hammertime_plate_side(area.width, area.height);
-    let single_fits = side >= loop_viz::HAMMERTIME_MIN_SIDE
+    let side = crate::viz::loop_viz::hammertime_plate_side(area.width, area.height);
+    let single_fits = side >= crate::viz::loop_viz::HAMMERTIME_MIN_SIDE
         && area.width >= side.saturating_add(1)
         && area.height >= side.saturating_add(1);
     if !single_fits {
@@ -395,7 +395,7 @@ fn render_hammertime_mascot(frame: &mut Frame, app: &mut App, area: Rect) {
         return;
     }
     let t = app.started.elapsed().as_secs_f32();
-    let [left, right] = loop_viz::hammertime_duo_boxes(area, t);
+    let [left, right] = crate::viz::loop_viz::hammertime_duo_boxes(area, t);
     // Twin cartoon always on the left so you get two bodies even while the
     // video plate is still warming its protocol cache.
     paint_static_hammer(frame, app, left, t, /*twin=*/ true);
@@ -405,7 +405,7 @@ fn render_hammertime_mascot(frame: &mut Frame, app: &mut App, area: Rect) {
 /// Single-plate fallback for narrow Stages (still shows *someone* dancing).
 fn render_hammertime_one(frame: &mut Frame, app: &mut App, area: Rect, right_lead: bool) {
     let t = app.started.elapsed().as_secs_f32();
-    let side = loop_viz::hammertime_plate_side(area.width, area.height);
+    let side = crate::viz::loop_viz::hammertime_plate_side(area.width, area.height);
     let x = if right_lead {
         area.x + area.width.saturating_sub(side.saturating_add(1))
     } else {
@@ -418,7 +418,7 @@ fn render_hammertime_one(frame: &mut Frame, app: &mut App, area: Rect, right_lea
 
 /// Right-side / lead dancer: prefer the installed video strip, else cartoon A/B.
 fn paint_lead_hammer(frame: &mut Frame, app: &mut App, box_area: Rect, t: f32) {
-    if let Some(frame_path) = loop_viz::mascot_frame(t)
+    if let Some(frame_path) = crate::viz::loop_viz::mascot_frame(t)
         && paint_world_overlay_dots(frame, box_area, frame_path)
     {
         return;
@@ -428,9 +428,9 @@ fn paint_lead_hammer(frame: &mut Frame, app: &mut App, box_area: Rect, t: f32) {
 
 fn paint_static_hammer(frame: &mut Frame, _app: &mut App, box_area: Rect, t: f32, twin: bool) {
     let asset = if twin {
-        loop_viz::hammertime_twin_asset(t)
+        crate::viz::loop_viz::hammertime_twin_asset(t)
     } else {
-        loop_viz::hammertime_asset(t)
+        crate::viz::loop_viz::hammertime_asset(t)
     };
     let path = crate::runtime_paths::cockpit_dir().join(asset);
     let _ = paint_world_overlay_dots(frame, box_area, &path);
@@ -444,7 +444,7 @@ fn paint_world_overlay_dots(frame: &mut Frame, area: Rect, path: &std::path::Pat
         return false;
     }
     let Some(image) =
-        crate::terminal_art::colored_image_braille(path, area.width as usize, area.height as usize)
+        crate::term::art::colored_image_braille(path, area.width as usize, area.height as usize)
     else {
         return false;
     };
@@ -483,7 +483,7 @@ fn paint_world_frame(
     frame: &mut Frame,
     app: &mut App,
     area: Rect,
-    image: &std::sync::Arc<crate::terminal_art::ColoredBrailleImage>,
+    image: &std::sync::Arc<crate::term::art::ColoredBrailleImage>,
 ) {
     paint_dot_frame(frame, app, area, image, 0);
 }
@@ -492,7 +492,7 @@ fn paint_dot_frame(
     frame: &mut Frame,
     app: &mut App,
     area: Rect,
-    image: &std::sync::Arc<crate::terminal_art::ColoredBrailleImage>,
+    image: &std::sync::Arc<crate::term::art::ColoredBrailleImage>,
     scene_tag: u64,
 ) {
     if let Some(geometry) = app.viewer.dot_geometry(area) {
@@ -538,7 +538,7 @@ fn paint_dot_frame(
                 })
             })
             .collect();
-        let coarse = crate::terminal_art::ColoredBrailleImage {
+        let coarse = crate::term::art::ColoredBrailleImage {
             width,
             height,
             cells,
@@ -571,7 +571,7 @@ fn render_lifecycle_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             ..scene_area
         };
         if let Some(geometry) = app.viewer.dot_geometry(art_area)
-            && let Some(status) = lifecycle_viz::journey_status_rows(kind, &label, scene_area.width)
+            && let Some(status) = crate::viz::lifecycle_viz::journey_status_rows(kind, &label, scene_area.width)
             && let Some(image) = crate::knight_journey::try_image(
                 kind,
                 &label,
@@ -590,7 +590,7 @@ fn render_lifecycle_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             fine = true;
         }
         if !fine {
-            let scene = lifecycle_viz::render(
+            let scene = crate::viz::lifecycle_viz::render(
                 kind,
                 &label,
                 started.elapsed().as_secs_f32(),
@@ -634,7 +634,7 @@ fn render_raytrace_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 
 fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     app.world_pane_visible = true;
-    let live = stage_live_route_title_allowed().then(|| loop_viz::title(&app.loop_ctl));
+    let live = stage_live_route_title_allowed().then(|| crate::viz::loop_viz::title(&app.loop_ctl));
     let title = stage_route_title(
         crate::identity::STAGE_TITLE_QUINTAIN_PREFIX,
         live.as_deref().map(str::trim),
@@ -650,11 +650,11 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     {
         let elapsed = app.started.elapsed().as_secs_f32();
         let trench_time = match app.visual_motion {
-            crate::lifecycle_viz::MotionMode::Full => elapsed,
-            crate::lifecycle_viz::MotionMode::Reduced => elapsed * 0.28,
-            crate::lifecycle_viz::MotionMode::Off => 0.0,
+            crate::viz::lifecycle_viz::MotionMode::Full => elapsed,
+            crate::viz::lifecycle_viz::MotionMode::Reduced => elapsed * 0.28,
+            crate::viz::lifecycle_viz::MotionMode::Off => 0.0,
         };
-        let scene = loop_viz::render(
+        let scene = crate::viz::loop_viz::render(
             &app.loop_ctl,
             &app.submission_slot,
             &app.yukon_fleet,
@@ -671,7 +671,7 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_rl_stage(frame: &mut Frame, app: &mut App, area: Rect) {
-    let live = stage_live_route_title_allowed().then(|| crate::rl_viz::title(&app.tools.rl()));
+    let live = stage_live_route_title_allowed().then(|| crate::viz::rl_viz::title(&app.tools.rl()));
     let title = stage_route_title(
         crate::identity::STAGE_TITLE_REINFORCE_PREFIX,
         live.as_deref().map(str::trim),
@@ -694,7 +694,7 @@ fn render_rl_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         && evidence_area.height > 0
         && crate::comp_mode::ambient_stage_sim_allowed()
     {
-        let scene = crate::rl_viz::render_view(
+        let scene = crate::viz::rl_viz::render_view(
             &app.tools.rl(),
             app.rl_view,
             app.started.elapsed().as_secs_f32(),
@@ -720,7 +720,7 @@ fn render_rl_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 fn render_rl_view_tabs(frame: &mut Frame, app: &mut App, area: Rect) {
     let mut spans = Vec::new();
     let mut x = area.x;
-    for (index, view) in crate::rl_viz::RlView::ALL.iter().copied().enumerate() {
+    for (index, view) in crate::viz::rl_viz::RlView::ALL.iter().copied().enumerate() {
         let label = format!("{} {}", index + 1, view.label());
         let width = label.chars().count().saturating_add(2) as u16;
         let gap = u16::from(index > 0);
@@ -762,7 +762,7 @@ fn render_rl_view_tabs(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_agent_graph_stage(frame: &mut Frame, app: &mut App, area: Rect) {
-    let live = stage_live_route_title_allowed().then(crate::graph_viz::title);
+    let live = stage_live_route_title_allowed().then(crate::viz::graph_viz::title);
     let title = stage_route_title(
         crate::identity::STAGE_TITLE_ROUNDTABLE_PREFIX,
         live.as_deref().map(str::trim),
@@ -776,7 +776,7 @@ fn render_agent_graph_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         && scene_area.height > 0
         && crate::comp_mode::ambient_stage_sim_allowed()
     {
-        let scene = crate::graph_viz::render(
+        let scene = crate::viz::graph_viz::render(
             app.started.elapsed().as_secs_f32(),
             scene_area.width,
             scene_area.height,
@@ -928,11 +928,11 @@ fn render_vault_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         }
         if app.media.is_empty() {
             frame.render_widget(
-                Paragraph::new(status_view::empty_artifacts_text()).style(dim_panel_style()),
+                Paragraph::new(crate::views::status_view::empty_artifacts_text()).style(dim_panel_style()),
                 body,
             );
         } else {
-            let lines = artifacts_view::artifact_lines(&app.media, app.media_scroll, body.height);
+            let lines = crate::views::artifacts_view::artifact_lines(&app.media, app.media_scroll, body.height);
             frame.render_widget(Paragraph::new(lines).style(panel_style()), body);
         }
         if let Some(footer) = footer {
@@ -996,11 +996,11 @@ fn render_atlas_content(frame: &mut Frame, app: &mut App, area: Rect) {
     if app.atlas_view.lane == crate::atlas::AtlasLane::Artifacts {
         if app.media.is_empty() {
             frame.render_widget(
-                Paragraph::new(status_view::empty_artifacts_text()).style(dim_panel_style()),
+                Paragraph::new(crate::views::status_view::empty_artifacts_text()).style(dim_panel_style()),
                 area,
             );
         } else {
-            let lines = artifacts_view::artifact_lines(&app.media, app.media_scroll, area.height);
+            let lines = crate::views::artifacts_view::artifact_lines(&app.media, app.media_scroll, area.height);
             frame.render_widget(Paragraph::new(lines).style(panel_style()), area);
         }
         return;
@@ -1230,14 +1230,14 @@ fn render_scryglass(
         resolved,
         crate::scryglass::StageSurface::WorldMap | crate::scryglass::StageSurface::WorldFirstPerson
     ) && app.world.memory_health()
-        == crate::memory_store::MemoryHealth::Degraded;
+        == crate::memory::store::MemoryHealth::Degraded;
     let title = if memory_warning {
         " Memory degraded ".to_string()
     } else if let crate::scryglass::StageSurface::Lesson = resolved {
         let term = app
             .scryglass
             .lesson()
-            .map(crate::term_lookup::QuickLookup::term)
+            .map(crate::term::lookup::QuickLookup::term)
             .unwrap_or("concept");
         format!(" {term} ")
     } else if matches!(resolved, crate::scryglass::StageSurface::Catalog) {
@@ -1398,7 +1398,7 @@ fn render_scryglass(
                     let lesson_text = app
                         .scryglass
                         .lesson()
-                        .map(crate::term_lookup::QuickLookup::visible_text)
+                        .map(crate::term::lookup::QuickLookup::visible_text)
                         .unwrap_or("");
                     app.lesson_wrap
                         .wrapped_lines(wrap_width, WRAP_TRIM, lesson_text, || {
@@ -1413,7 +1413,7 @@ fn render_scryglass(
                 if let Some(lesson_text) = app
                     .scryglass
                     .lesson()
-                    .map(crate::term_lookup::QuickLookup::visible_text)
+                    .map(crate::term::lookup::QuickLookup::visible_text)
                 {
                     frame.render_widget(
                         Paragraph::new(lesson_text)
@@ -1625,11 +1625,11 @@ fn render_scryglass(
                     decode_width,
                     decode_height,
                     match app.visual_motion {
-                        crate::lifecycle_viz::MotionMode::Full => 12,
-                        crate::lifecycle_viz::MotionMode::Reduced => 6,
-                        crate::lifecycle_viz::MotionMode::Off => 1,
+                        crate::viz::lifecycle_viz::MotionMode::Full => 12,
+                        crate::viz::lifecycle_viz::MotionMode::Reduced => 6,
+                        crate::viz::lifecycle_viz::MotionMode::Off => 1,
                     },
-                    app.visual_motion != crate::lifecycle_viz::MotionMode::Off,
+                    app.visual_motion != crate::viz::lifecycle_viz::MotionMode::Off,
                 )
             };
             match result {

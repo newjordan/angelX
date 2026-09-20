@@ -7,7 +7,7 @@
 //! dot mask preserve the same event meaning.
 
 use crate::retro_kit;
-use crate::terminal_art::{self, ColoredBrailleImage, DMD_PALETTE};
+use crate::term::art::{ColoredBrailleImage, DMD_PALETTE};
 use ratatui::{
     style::{Color as TuiColor, Modifier, Style},
     text::{Line, Span, Text},
@@ -329,7 +329,7 @@ fn draw_herald_fanfare(
     let cell_h = cell_h.min((cell_w / 2).max(1));
     let y = art_h.saturating_sub(cell_h) as i32;
     let path = asset_root.join("library/poses/herald.png");
-    if let Some(image) = terminal_art::colored_image_braille(&path, cell_w, cell_h) {
+    if let Some(image) = crate::term::art::colored_image_braille(&path, cell_w, cell_h) {
         canvas.paste_image(&image, 1, y, cell_w, cell_h, false, None);
     }
 }
@@ -344,7 +344,7 @@ fn draw_sequence_cue(canvas: &mut DotCanvas, asset_root: &Path, cue: SequenceCue
         (cell_h * cue.sequence.aspect_x100() * 2 / 100).clamp(2, art_w.saturating_sub(2).max(2));
     let cell_h = cell_h.min((cell_w * 100 / (cue.sequence.aspect_x100() * 2)).max(1));
     let path = cue.sequence.frame_path(asset_root, cue.frame);
-    let Some(image) = terminal_art::colored_image_braille(&path, cell_w, cell_h) else {
+    let Some(image) = crate::term::art::colored_image_braille(&path, cell_w, cell_h) else {
         return false;
     };
     canvas.paste_image(
@@ -418,7 +418,7 @@ pub(crate) fn warm_assets() {
     // mounted packs, then evict useful frames before the first ceremony.
     for sequence in [Sequence::FlagRaise, Sequence::MaidenWave] {
         for frame in 0..sequence.frame_count() {
-            let _ = terminal_art::preload_colored_image(&sequence.frame_path(&root, frame));
+            let _ = crate::term::art::preload_colored_image(&sequence.frame_path(&root, frame));
         }
     }
     for plate in [
@@ -427,13 +427,13 @@ pub(crate) fn warm_assets() {
         "victory_lap.png",
         "lists_dusk.png",
     ] {
-        let _ = terminal_art::preload_colored_image(&root.join("library/plates").join(plate));
+        let _ = crate::term::art::preload_colored_image(&root.join("library/plates").join(plate));
     }
-    let _ = terminal_art::preload_colored_image(&root.join("library/poses/herald.png"));
+    let _ = crate::term::art::preload_colored_image(&root.join("library/poses/herald.png"));
     for fx in ["pennants.png", "shield_crack.png"] {
-        let _ = terminal_art::preload_colored_image(&root.join("library/fx").join(fx));
+        let _ = crate::term::art::preload_colored_image(&root.join("library/fx").join(fx));
     }
-    let _ = terminal_art::preload_colored_image(&root.join("arena-plate.png"));
+    let _ = crate::term::art::preload_colored_image(&root.join("arena-plate.png"));
     for pose in [
         Pose::Idle,
         Pose::Approach,
@@ -442,7 +442,7 @@ pub(crate) fn warm_assets() {
         Pose::Victory,
         Pose::Retreat,
     ] {
-        let _ = terminal_art::preload_colored_image(&root.join("poses").join(pose.filename()));
+        let _ = crate::term::art::preload_colored_image(&root.join("poses").join(pose.filename()));
     }
 }
 
@@ -574,7 +574,7 @@ fn draw_arena_layer(canvas: &mut DotCanvas, asset_root: &Path, kind: CeremonyKin
         asset_root.join("arena-plate.png"),
     ] {
         if let Some(arena) =
-            terminal_art::colored_image_braille(&path, canvas.cell_width, canvas.cell_height)
+            crate::term::art::colored_image_braille(&path, canvas.cell_width, canvas.cell_height)
         {
             canvas.paste_image(
                 &arena,
@@ -821,7 +821,7 @@ fn draw_rider(
         _ => CastPose::Mounted,
     };
     if let Some(sprite) = crate::knight_cast::sprite(side, cast_pose) {
-        let region = terminal_art::ImageRegion {
+        let region = crate::term::art::ImageRegion {
             x: 0,
             y: 0,
             width: sprite.width(),
@@ -835,7 +835,7 @@ fn draw_rider(
         let w = ((sprite.width() as f32 * fit / 2.0).floor() as usize).max(1);
         let h = ((sprite.height() as f32 * fit / 4.0).floor() as usize).max(1);
         if let Some(image) =
-            terminal_art::colored_rgba_region_braille(sprite, stem, region, w, h, false)
+            crate::term::art::colored_rgba_region_braille(sprite, stem, region, w, h, false)
         {
             let cell_x = x + (width.saturating_sub(w) / 2) as i32;
             let cell_y = y + height.saturating_sub(h) as i32;
@@ -846,7 +846,7 @@ fn draw_rider(
         }
     }
     let path = asset_root.join("poses").join(pose.filename());
-    if let Some(image) = terminal_art::colored_image_braille(&path, width, height) {
+    if let Some(image) = crate::term::art::colored_image_braille(&path, width, height) {
         canvas.paste_image(&image, x, y, width, height, mirror, Some((base, accent)));
     } else {
         canvas.draw_mask(
@@ -1031,7 +1031,7 @@ fn draw_fx_stills(
         _ => art_w.saturating_sub(cell_w + 1) as i32,
     };
     let y = 1i32;
-    if let Some(image) = terminal_art::colored_image_braille(&path, cell_w, cell_h) {
+    if let Some(image) = crate::term::art::colored_image_braille(&path, cell_w, cell_h) {
         canvas.paste_image(&image, x, y, cell_w, cell_h, false, None);
     }
 }
@@ -1258,8 +1258,8 @@ impl DotCanvas {
                 let Some(cell) = image.cell(sx / 2, sy / 4) else {
                     continue;
                 };
-                let bit = terminal_art::braille_dot_bit(sx % 2, sy % 4);
-                if terminal_art::braille_bits(cell.glyph) & bit == 0 {
+                let bit = crate::term::art::braille_dot_bit(sx % 2, sy % 4);
+                if crate::term::art::braille_bits(cell.glyph) & bit == 0 {
                     continue;
                 }
                 let color =
@@ -1329,7 +1329,7 @@ impl DotCanvas {
                         let x = cell_x * 2 + local_x;
                         let y = cell_y * 4 + local_y;
                         if let Some(color) = self.dots[y * self.dot_width + x] {
-                            bits |= terminal_art::braille_dot_bit(local_x, local_y);
+                            bits |= crate::term::art::braille_dot_bit(local_x, local_y);
                             let index = votes[..used]
                                 .iter()
                                 .position(|(c, _)| *c == color)
@@ -1354,7 +1354,7 @@ impl DotCanvas {
                     })
                     .map_or(BLACK, |(color, _)| *color);
                 spans.push(Span::styled(
-                    terminal_art::braille_char(bits).to_string(),
+                    crate::term::art::braille_char(bits).to_string(),
                     Style::new().fg(rgb(color)).bg(rgb(BLACK)),
                 ));
             }
@@ -1402,5 +1402,5 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/lifecycle_viz__tests.rs"]
+#[path = "../../../tests/cockpit/app/lifecycle_viz__tests.rs"]
 mod tests;

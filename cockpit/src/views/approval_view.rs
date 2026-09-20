@@ -141,5 +141,5 @@ pub fn decision_text(decision: Decision) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/approval_view__tests.rs"]
+#[path = "../../../tests/cockpit/app/approval_view__tests.rs"]
 mod tests;

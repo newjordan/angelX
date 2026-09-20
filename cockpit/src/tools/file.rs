@@ -119,8 +119,8 @@ fn try_read_virtual(root: &Path, path: &str) -> Result<Option<String>, String> {
     if let Some(rest) = path.strip_prefix("agent://") {
         return Ok(Some(read_agent_uri(rest)?));
     }
-    if crate::github_url::is_github_uri(path) {
-        return Ok(Some(crate::github_url::resolve_github_uri(root, path)?));
+    if crate::git::hub_url::is_github_uri(path) {
+        return Ok(Some(crate::git::hub_url::resolve_github_uri(root, path)?));
     }
     if let Some(rest) = path.strip_prefix("outline://") {
         return Ok(Some(read_outline_uri(root, rest)?));
@@ -142,7 +142,7 @@ fn try_write_virtual(root: &Path, path: &str, content: &str) -> Result<Option<St
             "agent:// is read-only; handles are deposited by the harness, not written".into(),
         );
     }
-    if crate::github_url::is_github_uri(path) {
+    if crate::git::hub_url::is_github_uri(path) {
         return Err("pr:// and issue:// are read-only; use gh CLI or the browser to mutate".into());
     }
     if path.starts_with("outline://") {

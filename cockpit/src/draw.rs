@@ -327,7 +327,7 @@ pub(crate) fn render_cockpit_with_agent_panels(
         app.module_host.is_running("artifacts"),
         raytrace_active,
         app.lifecycle_ceremony_active(),
-        loop_viz::visible(&app.loop_ctl),
+        crate::viz::loop_viz::visible(&app.loop_ctl),
         reinforce_active,
     );
 
@@ -471,12 +471,12 @@ pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mu
     }
 
     if let Some(pa) = &app.pending_approval {
-        let area = approval_view::modal_area(frame.area(), &pa.prompt, pa.scope_label.as_deref());
+        let area = crate::views::approval_view::modal_area(frame.area(), &pa.prompt, pa.scope_label.as_deref());
         frame.render_widget(Clear, area);
         frame.render_widget(
-            Paragraph::new(approval_view::body(&pa.prompt, pa.scope_label.as_deref()))
+            Paragraph::new(crate::views::approval_view::body(&pa.prompt, pa.scope_label.as_deref()))
                 .wrap(Wrap { trim: false })
-                .block(approval_view::block()),
+                .block(crate::views::approval_view::block()),
             area,
         );
     }
@@ -614,7 +614,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     let sections = Layout::vertical([
         Constraint::Length(header_h),
         Constraint::Min(1),
-        Constraint::Length(status_view::composer_height(
+        Constraint::Length(crate::views::status_view::composer_height(
             &app.input,
             framed.width,
             framed.height.saturating_sub(header_h),
@@ -680,7 +680,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             .borders(Borders::ALL)
             .style(panel_style())
             .border_style(HUD_BLUE_BORDER_STYLE)
-            .title(status_view::shell_focus_title());
+            .title(crate::views::status_view::shell_focus_title());
         let inner = block.inner(cockpit_area);
         frame.render_widget(block, cockpit_area);
         app.resize_shell_to_area(inner);
@@ -771,7 +771,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         .push(mouse::PaneId::Input, mouse::inner_border(message_area));
 
     if app.shell_focused {
-        let hint = Paragraph::new(status_view::shell_hint())
+        let hint = Paragraph::new(crate::views::status_view::shell_hint())
             .style(dim_panel_style())
             .block(hud_block(" shell "));
         frame.render_widget(hint, message_area);
@@ -851,11 +851,11 @@ fn merge_frame_borders(frame: &mut Frame, app: &App, header_boxed: bool) {
 }
 
 pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Rect) {
-    let intent = status_view::composer_intent(&app.input);
+    let intent = crate::views::status_view::composer_intent(&app.input);
     let busy = app.thinking.is_some() || app.bg_job.is_some();
     let steerable = matches!(
         intent,
-        status_view::ComposerIntent::Empty | status_view::ComposerIntent::Message
+        crate::views::status_view::ComposerIntent::Empty | crate::views::status_view::ComposerIntent::Message
     );
     let composer_selection = app.composer_selection_range();
     // Staged Ctrl-V screenshots ride the composer title. The removal hint holds
@@ -863,10 +863,10 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
     // removes them).
     let attachment_chip = app.clipboard_paste.chip(!busy);
     // Steer hint rides the title while a turn/bg job holds the slot (steer.rs).
-    let mut title = status_view::composer_frame_title(
+    let mut title = crate::views::status_view::composer_frame_title(
         intent,
         area.width.saturating_sub(2) as usize,
-        status_view::ComposerTitleState {
+        crate::views::status_view::ComposerTitleState {
             busy,
             steerable,
             vim_normal: app.vim_mode.then_some(app.vim_normal),
@@ -901,7 +901,7 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
     let inner_h = area.height.saturating_sub(2);
     let cursor = app.cursor;
     let input = app.input.as_str();
-    let mut composer: status_view::ComposerView<'_> = status_view::composer_view_with_selection(
+    let mut composer: crate::views::status_view::ComposerView<'_> = crate::views::status_view::composer_view_with_selection(
         input,
         inner_w,
         inner_h,
@@ -919,18 +919,18 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
         if let Some(first) = composer.lines.get_mut(0) {
             *first = input_line_with_slash_ghost(input, input, cursor);
         }
-    } else if intent == status_view::ComposerIntent::Empty {
+    } else if intent == crate::views::status_view::ComposerIntent::Empty {
         if composer.lines.is_empty() {
             composer.lines.push(if app.tutor_draft.is_some() {
                 Line::from(Span::styled("Ask a question…", Style::new().fg(HUD_DIM)))
             } else {
-                status_view::composer_placeholder(busy, inner_w)
+                crate::views::status_view::composer_placeholder(busy, inner_w)
             });
         } else if let Some(first) = composer.lines.get_mut(0) {
             *first = if app.tutor_draft.is_some() {
                 Line::from(Span::styled("Ask a question…", Style::new().fg(HUD_DIM)))
             } else {
-                status_view::composer_placeholder(busy, inner_w)
+                crate::views::status_view::composer_placeholder(busy, inner_w)
             };
         }
         // Empty drafts only need the placeholder row; drop any residual rows so
@@ -940,12 +940,12 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
     // Full-width pad: short lines must rewrite every cell. Without this, a
     // cleared draft leaves the right half of a prior long message glowing in
     // the composer (bright teal residue under the dim "Add guidance…" hint).
-    status_view::pad_composer_lines(&mut composer.lines, inner_w);
+    crate::views::status_view::pad_composer_lines(&mut composer.lines, inner_w);
     // Fill unused rows of the composer pane with blank padded lines so a
     // multi-line draft that shrinks cannot leave lower-row ghosts either.
     while composer.lines.len() < inner_h as usize {
         composer.lines.push(Line::from(Span::styled(
-            status_view::pad_composer_row("", inner_w),
+            crate::views::status_view::pad_composer_row("", inner_w),
             Style::new().fg(crate::hud::HUD_TEXT),
         )));
     }
@@ -955,31 +955,31 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
     // phosphor means Enter will steer the running agent. Critical emphasis uses
     // opacity only and settles completely when motion is reduced or disabled.
     let (mut border_style, mut title_style) = match intent {
-        status_view::ComposerIntent::Empty => (
+        crate::views::status_view::ComposerIntent::Empty => (
             Style::new().fg(HUD_DIM),
             Style::new().fg(HUD_BLUE).add_modifier(Modifier::BOLD),
         ),
-        status_view::ComposerIntent::Message => (
+        crate::views::status_view::ComposerIntent::Message => (
             HUD_BLUE_BORDER_STYLE,
             Style::new().fg(HUD_BLUE).add_modifier(Modifier::BOLD),
         ),
-        status_view::ComposerIntent::Command => (
+        crate::views::status_view::ComposerIntent::Command => (
             Style::new().fg(hud::HUD_GOLD),
             Style::new().fg(hud::HUD_GOLD).add_modifier(Modifier::BOLD),
         ),
-        status_view::ComposerIntent::CriticalCommand => (
+        crate::views::status_view::ComposerIntent::CriticalCommand => (
             Style::new().fg(hud::HUD_DANGER),
             Style::new()
                 .fg(hud::HUD_DANGER)
                 .add_modifier(Modifier::BOLD),
         ),
     };
-    if busy && intent != status_view::ComposerIntent::CriticalCommand {
+    if busy && intent != crate::views::status_view::ComposerIntent::CriticalCommand {
         border_style = Style::new().fg(HUD_PHOSPHOR);
         title_style = PHOSPHOR_BOLD_STYLE;
     }
-    if intent == status_view::ComposerIntent::CriticalCommand
-        && app.visual_motion == lifecycle_viz::MotionMode::Full
+    if intent == crate::views::status_view::ComposerIntent::CriticalCommand
+        && app.visual_motion == crate::viz::lifecycle_viz::MotionMode::Full
         && (app
             .visual_motion
             .chrome_elapsed(app.started, app.started)
@@ -1013,7 +1013,7 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
 pub(crate) fn composer_cursor_position(
     app: &App,
     area: Rect,
-    composer: &status_view::ComposerView<'_>,
+    composer: &crate::views::status_view::ComposerView<'_>,
 ) -> Option<ratatui::layout::Position> {
     let inner_width = area.width.saturating_sub(2);
     let inner_height = area.height.saturating_sub(2);
@@ -1130,7 +1130,7 @@ pub(crate) fn render_portrait_preview_text(width: u16, height: u16) -> std::io::
 /// deterministic record is visibly marked illustrative in every non-branch
 /// view and must never be presented as benchmark evidence.
 pub(crate) fn render_rl_preview_text(
-    view: crate::rl_viz::RlView,
+    view: crate::viz::rl_viz::RlView,
     width: u16,
     height: u16,
 ) -> std::io::Result<String> {

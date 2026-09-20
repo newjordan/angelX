@@ -655,5 +655,5 @@ fn truncate_chars(text: &str, max_chars: usize) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/term_lookup__tests.rs"]
+#[path = "../../../tests/cockpit/app/term_lookup__tests.rs"]
 mod tests;

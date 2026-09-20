@@ -10,13 +10,13 @@ use std::collections::{HashMap, HashSet};
 /// the model asks for what it needs, when it needs it — the same pull pattern as
 /// `tool_search`. Scoped to the current project's wing by default.
 pub struct RecallTool {
-    store: Arc<dyn crate::memory_store::MemoryStore>,
+    store: Arc<dyn crate::memory::store::MemoryStore>,
     wing: String,
 }
 
 impl RecallTool {
     pub fn new(
-        store: Arc<dyn crate::memory_store::MemoryStore>,
+        store: Arc<dyn crate::memory::store::MemoryStore>,
         workspace: &std::path::Path,
     ) -> Self {
         Self {

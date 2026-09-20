@@ -361,7 +361,7 @@ fn notice_gauge_row_index(messages: &[Message], note: &str) -> Option<usize> {
     if note.starts_with("action receipt · ") {
         return None;
     }
-    let key = turn_event_view::notice_coalesce_key(note);
+    let key = crate::views::turn_event_view::notice_coalesce_key(note);
     messages
         .iter()
         .enumerate()
@@ -369,9 +369,9 @@ fn notice_gauge_row_index(messages: &[Message], note: &str) -> Option<usize> {
         .take_while(|(_, message)| !matches!(message.role, Role::User))
         .filter(|(_, message)| matches!(message.role, Role::Activity))
         .find_map(|(index, message)| {
-            let body = turn_event_view::activity_notice_body(&message.text)?;
+            let body = crate::views::turn_event_view::activity_notice_body(&message.text)?;
             let same_slot = match key {
-                Some(key) => turn_event_view::notice_coalesce_key(body) == Some(key),
+                Some(key) => crate::views::turn_event_view::notice_coalesce_key(body) == Some(key),
                 None => body == note,
             };
             same_slot.then_some(index)
@@ -471,7 +471,7 @@ impl App {
             .canonicalize()
             .unwrap_or_else(|_| self.tools.current_workspace().to_path_buf());
         let card = Media::Confined {
-            card: Box::new(turn_event_view::media_card(kind, label, url)),
+            card: Box::new(crate::views::turn_event_view::media_card(kind, label, url)),
             root,
         };
         self.media.push(card);
@@ -483,7 +483,7 @@ impl App {
             role: Role::Activity,
             text: format!(
                 "{}\nSource: {}",
-                turn_event_view::media_delivery_text(
+                crate::views::turn_event_view::media_delivery_text(
                     label,
                     Ok("requested in Stage · stays open until dismissed".into())
                 ),
@@ -575,7 +575,7 @@ impl App {
         // A7: no portal renderer → skip the process-global activity mutex and
         // packet projection every UI tick (common for ordinary terminal runs).
         if Self::side_column_visuals_allowed() && self.agentviz_portal.has_renderer() {
-            self.agentviz_portal.advance(&crate::agentviz::activity());
+            self.agentviz_portal.advance(&crate::viz::agentviz::activity());
         }
         // Detached work has already released the flight slot. Drain a bounded
         // number of completion notices per frame so success and failure remain
@@ -972,7 +972,7 @@ impl App {
                     "⏱ {} idle {steer_idle_secs}s with {queued} steer(s) queued — \
                      interrupting the stalled request to deliver them \
                      (ANGEL_STEER_IDLE_INTERRUPT_SECS)",
-                    crate::turn_event_view::route_label(&thinking.requested_route),
+                    crate::views::turn_event_view::route_label(&thinking.requested_route),
                 )
                 .into(),
             });
@@ -1025,7 +1025,7 @@ impl App {
                     role: Role::System,
                     text: format!(
                         "⏱ turn abandoned — no stream progress for {idle_secs}s (operator cap ANGEL_TURN_IDLE_TIMEOUT_SECS={idle_timeout}) on {}. The provider may be hung; try a different route{}",
-                        crate::turn_event_view::route_label(&thinking.requested_route),
+                        crate::views::turn_event_view::route_label(&thinking.requested_route),
                         if retained_partial {
                             RETAINED_PARTIAL_NOTE
                         } else {
@@ -1047,7 +1047,7 @@ impl App {
                     role: Role::Activity,
                     text: format!(
                         "⏱ {} idle {}s — no stream progress; abandoning at {}s ({}% of idle budget; ANGEL_TURN_IDLE_TIMEOUT_SECS)",
-                        crate::turn_event_view::route_label(&thinking.requested_route),
+                        crate::views::turn_event_view::route_label(&thinking.requested_route),
                         warning.idle_secs,
                         warning.idle_timeout_secs,
                         warning.stage_pct
@@ -1118,13 +1118,13 @@ impl App {
                         self.scryglass.begin_journey(
                             id.clone(),
                             destination,
-                            self.visual_motion != crate::lifecycle_viz::MotionMode::Full,
+                            self.visual_motion != crate::viz::lifecycle_viz::MotionMode::Full,
                         );
                     }
                     if self.transcript_mode == crate::app::TranscriptMode::Trace {
                         self.messages.push(Message {
                             role: Role::Activity,
-                            text: turn_event_view::tool_call_text(&name, &args_summary).into(),
+                            text: crate::views::turn_event_view::tool_call_text(&name, &args_summary).into(),
                         });
                     }
                     self.tool_strip.call_event(id, &name, &args_summary);
@@ -1144,9 +1144,9 @@ impl App {
                     if self.transcript_mode == crate::app::TranscriptMode::Trace {
                         self.messages.push(Message {
                             role: Role::Activity,
-                            text: turn_event_view::tool_result_text(&name, &summary).into(),
+                            text: crate::views::turn_event_view::tool_result_text(&name, &summary).into(),
                         });
-                    } else if turn_event_view::is_council_tool(&name) {
+                    } else if crate::views::turn_event_view::is_council_tool(&name) {
                         // Sub-agent replies are the conversation the operator
                         // actually wants to see — never bury them in the strip.
                         self.flush_partial();
@@ -1172,7 +1172,7 @@ impl App {
                     let conversation =
                         self.transcript_mode == crate::app::TranscriptMode::Conversation;
                     let receipt = note.starts_with("action receipt · ");
-                    if !receipt && !turn_event_view::notice_rides_strip(&note) {
+                    if !receipt && !crate::views::turn_event_view::notice_rides_strip(&note) {
                         self.receipt_run_open = false;
                     }
                     if receipt {
@@ -1183,19 +1183,19 @@ impl App {
                         {
                             self.messages.push(Message::new(
                                 Role::Activity,
-                                turn_event_view::notice_text(&note),
+                                crate::views::turn_event_view::notice_text(&note),
                             ));
                         }
                         self.receipt_run_open = conversation;
                     } else if conversation && self.bump_notice_gauge(&note) {
                         // The gauge row advanced in place.
-                    } else if conversation && turn_event_view::notice_rides_strip(&note) {
+                    } else if conversation && crate::views::turn_event_view::notice_rides_strip(&note) {
                         self.tool_strip.note_event(&note);
                     } else {
                         self.flush_partial();
                         self.messages.push(Message {
                             role: Role::Activity,
-                            text: turn_event_view::notice_text(&note).into(),
+                            text: crate::views::turn_event_view::notice_text(&note).into(),
                         });
                     }
                 }
@@ -1203,7 +1203,7 @@ impl App {
                     self.show_spend_coin();
                     self.tool_strip.note_event(&format!(
                         "gold coin · you just spent {} input tokens — continuing",
-                        crate::spend_viz::format_input_tokens(input_tokens)
+                        crate::viz::spend_viz::format_input_tokens(input_tokens)
                     ));
                 }
                 TurnEvent::SubmissionSlot(slot) => {
@@ -1241,7 +1241,7 @@ impl App {
                 // ends a failure run of >= 2 is a Recovery. Decided from the
                 // App's own turn facts, never read back from world state.
                 if let Some(marker) =
-                    crate::agent_view::turn_end_marker(completed, self.portrait_fail_run)
+                    crate::views::agent_view::turn_end_marker(completed, self.portrait_fail_run)
                 {
                     self.portrait_turn_marker = Some((marker, std::time::Instant::now()));
                 }
@@ -1266,7 +1266,7 @@ impl App {
                     .unwrap_or(elapsed_ms)
                     .min(elapsed_ms);
                 self.turn_route_receipt = (!self.loop_ctl.awaiting_turn).then(|| {
-                    turn_event_view::answer_receipt_text(
+                    crate::views::turn_event_view::answer_receipt_text(
                         &thinking.requested_route,
                         &resolved_route,
                         first_output_ms,
@@ -1632,7 +1632,7 @@ impl App {
             }
         }
 
-        let competition_loop = crate::loop_viz::visible(&self.loop_ctl)
+        let competition_loop = crate::viz::loop_viz::visible(&self.loop_ctl)
             && self.submission_slot.phase != crate::harness::SubmissionSlotPhase::Dormant;
         if !cfg!(test)
             && competition_loop
@@ -1728,15 +1728,15 @@ impl App {
     /// and row-height invalidation while matching the exact diagnostic.
     pub(crate) fn loop_verifier_notice(&mut self, note: &str, count: usize) {
         let row = if count > 1 {
-            crate::turn_event_view::notice_gauge_text(note, count)
+            crate::views::turn_event_view::notice_gauge_text(note, count)
         } else {
-            crate::turn_event_view::notice_text(note)
+            crate::views::turn_event_view::notice_text(note)
         };
         let index = (count > 1)
             .then(|| {
                 self.messages.iter().rposition(|m| {
                     matches!(m.role, Role::Activity)
-                        && crate::turn_event_view::activity_notice_body(&m.text) == Some(note)
+                        && crate::views::turn_event_view::activity_notice_body(&m.text) == Some(note)
                 })
             })
             .flatten();
@@ -1755,7 +1755,7 @@ impl App {
         if !matches!(self.messages[index].role, Role::Activity) {
             return false;
         }
-        let Some(text) = turn_event_view::receipt_gauge_text(&self.messages[index].text, note)
+        let Some(text) = crate::views::turn_event_view::receipt_gauge_text(&self.messages[index].text, note)
         else {
             return false;
         };
@@ -1772,12 +1772,12 @@ impl App {
         let Some(index) = notice_gauge_row_index(&self.messages, note) else {
             return false;
         };
-        let count = turn_event_view::activity_gauge_count(&self.messages[index].text)
+        let count = crate::views::turn_event_view::activity_gauge_count(&self.messages[index].text)
             .unwrap_or(1)
             .saturating_add(1);
         self.messages[index] = Message::new(
             Role::Activity,
-            turn_event_view::notice_gauge_text(note, count),
+            crate::views::turn_event_view::notice_gauge_text(note, count),
         );
         self.refresh_transcript_row_height(index);
         true
@@ -2327,9 +2327,9 @@ impl App {
                 self.rl_view = match code {
                     KeyCode::Left | KeyCode::Char('h') => self.rl_view.step(-1),
                     KeyCode::Right | KeyCode::Char('l') => self.rl_view.step(1),
-                    KeyCode::Char('1') | KeyCode::Char('b') => crate::rl_viz::RlView::Branch,
-                    KeyCode::Char('2') | KeyCode::Char('r') => crate::rl_viz::RlView::Research,
-                    KeyCode::Char('3') | KeyCode::Char('s') => crate::rl_viz::RlView::Sankey,
+                    KeyCode::Char('1') | KeyCode::Char('b') => crate::viz::rl_viz::RlView::Branch,
+                    KeyCode::Char('2') | KeyCode::Char('r') => crate::viz::rl_viz::RlView::Research,
+                    KeyCode::Char('3') | KeyCode::Char('s') => crate::viz::rl_viz::RlView::Sankey,
                     _ => return false,
                 };
                 return true;
@@ -2605,7 +2605,7 @@ impl App {
         // An approval modal captures keys until answered: y/Enter approve,
         // a approve-all (this kind, rest of turn), n/Esc deny. Other keys ignored.
         if let Some(pa) = self.pending_approval.take() {
-            match approval_view::decision_for_key(key.code) {
+            match crate::views::approval_view::decision_for_key(key.code) {
                 Some(d) => {
                     let _ = pa.reply.send(d);
                     self.messages.push(Message {
@@ -2613,7 +2613,7 @@ impl App {
                         text: format!(
                             "{} approval: {}",
                             Glyph::Approval.token(),
-                            approval_view::decision_text(d)
+                            crate::views::approval_view::decision_text(d)
                         )
                         .into(),
                     });
@@ -2788,8 +2788,8 @@ impl App {
             KeyCode::F(3) => self.focus_module("agent"),
             KeyCode::F(4) => self.focus_module("artifacts"),
             KeyCode::F(5) => self.toggle_module("graph"),
-            KeyCode::F(9) => self.open_agent_menu(crate::agent_controls::AgentMenuKind::Model),
-            KeyCode::F(10) => self.open_agent_menu(crate::agent_controls::AgentMenuKind::Thinking),
+            KeyCode::F(9) => self.open_agent_menu(crate::agent::controls::AgentMenuKind::Model),
+            KeyCode::F(10) => self.open_agent_menu(crate::agent::controls::AgentMenuKind::Thinking),
             // Scrollback (clamped to the top in ui).
             KeyCode::PageUp => self.scroll_focused_view_up(10),
             KeyCode::PageDown => self.scroll_focused_view_down(10),
@@ -3314,12 +3314,12 @@ impl App {
                 {
                     match btn {
                         AgentButton::Model if self.thinking.is_none() && self.bg_job.is_none() => {
-                            self.open_agent_menu(crate::agent_controls::AgentMenuKind::Model)
+                            self.open_agent_menu(crate::agent::controls::AgentMenuKind::Model)
                         }
                         AgentButton::ReasoningEffort
                             if self.thinking.is_none() && self.bg_job.is_none() =>
                         {
-                            self.open_agent_menu(crate::agent_controls::AgentMenuKind::Thinking);
+                            self.open_agent_menu(crate::agent::controls::AgentMenuKind::Thinking);
                         }
                         AgentButton::MoaDeck => self.open_moa_deck(None),
                         AgentButton::RateUseful => {
@@ -3548,7 +3548,7 @@ impl App {
         let Some(source) = self
             .scryglass
             .lesson()
-            .map(crate::term_lookup::QuickLookup::source_url)
+            .map(crate::term::lookup::QuickLookup::source_url)
             .map(str::to_string)
         else {
             self.system_msg("Open a lesson before copying its source.".to_string());
@@ -3717,7 +3717,7 @@ impl App {
             .get(crate::panels::PanelKind::Input)
             .map(|area| area.width.saturating_sub(2) as usize)
             .unwrap_or(80);
-        crate::status_view::composer_vertical_cursor(&self.input, width, self.cursor, delta)
+        crate::views::status_view::composer_vertical_cursor(&self.input, width, self.cursor, delta)
     }
 
     fn normalize_composer_cursor(&mut self) {

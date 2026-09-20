@@ -168,7 +168,7 @@ impl World {
         // Room entry is a semantic change even when the outdoor pacing lane
         // is relaxed; room and outdoor keys occupy distinct domains.
         if self.ambient_interior_visible() {
-            return self.ambient_scene_sequence(crate::lifecycle_viz::MotionMode::Off);
+            return self.ambient_scene_sequence(crate::viz::lifecycle_viz::MotionMode::Off);
         }
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         building_index(self.target).hash(&mut hash);

@@ -6,7 +6,7 @@
 //!   1. a short **inline note** spliced back into live history, so the current
 //!      turn keeps its thread without carrying the bulk; and
 //!   2. a set of **drawers** — one per section — deposited into the long-form
-//!      memory palace ([`crate::memory_store`]), so nothing is lost across
+//!      memory palace ([`crate::memory::store`]), so nothing is lost across
 //!      sessions and recall can bring detail back on demand.
 //!
 //! Summarization is **adaptive**: a single model pass for a small window; a
@@ -20,7 +20,7 @@ use crate::club::{ChatMsg, ChatRole, Club};
 use crate::harness::{
     estimate_tokens, is_error_result, is_mutation_call, render_transcript, verification_outcome,
 };
-use crate::memory_store::Drawer;
+use crate::memory::store::Drawer;
 use std::collections::HashMap;
 
 const WORKSPACE_LEDGER_PREFIX: &str = "[workspace-ledger/v1] ";

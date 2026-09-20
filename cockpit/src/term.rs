@@ -12,10 +12,10 @@ thread_local! {
 }
 
 /// The live TUI terminal type. Like ratatui's `DefaultTerminal`
-/// (`Terminal<CrosstermBackend<Stdout>>`) but renders through [`term_pipe::TeeOut`]
+/// (`Terminal<CrosstermBackend<Stdout>>`) but renders through [`crate::term::pipe::TeeOut`]
 /// so the whole session can be mirrored to a backend sink (default: a transparent
 /// stdout passthrough — see `term_pipe`).
-pub(crate) type AngelTerminal = Terminal<CrosstermBackend<term_pipe::TeeOut>>;
+pub(crate) type AngelTerminal = Terminal<CrosstermBackend<crate::term::pipe::TeeOut>>;
 
 /// Enter the TUI: raw mode + alternate screen + bracketed paste + focus-change
 /// reporting, with app-owned mouse capture enabled by default.
@@ -36,7 +36,7 @@ pub(crate) fn init_terminal() -> std::io::Result<AngelTerminal> {
         )?;
         // Render through the tee so the whole session can be mirrored to a sink
         // when ANGEL_TERM_PIPE is set (a transparent stdout passthrough otherwise).
-        let backend = CrosstermBackend::new(term_pipe::tee_stdout());
+        let backend = CrosstermBackend::new(crate::term::pipe::tee_stdout());
         let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
         Ok(terminal)
@@ -153,3 +153,7 @@ fn contained_background_panic() -> bool {
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/term__tests.rs"]
 mod tests;
+
+pub(crate) mod art;
+pub(crate) mod lookup;
+pub(crate) mod pipe;

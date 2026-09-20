@@ -840,12 +840,12 @@ impl SwarmClub {
                         // Seat telemetry for the miniworld muster/portal pips:
                         // one lock-and-set on the barrier thread per landing,
                         // nothing on the workers' streaming path.
-                        crate::agentviz::stage_seat_update(
+                        crate::viz::agentviz::stage_seat_update(
                             i,
                             if r.is_ok() {
-                                crate::agentviz::SeatState::Returned
+                                crate::viz::agentviz::SeatState::Returned
                             } else {
-                                crate::agentviz::SeatState::Failed
+                                crate::viz::agentviz::SeatState::Failed
                             },
                         );
                     }
@@ -884,7 +884,7 @@ impl SwarmClub {
         // barrier — say so on the seat telemetry too, not just in the Err.
         for (i, slot) in slots.iter().enumerate() {
             if slot.is_none() {
-                crate::agentviz::stage_seat_update(i, crate::agentviz::SeatState::Cut);
+                crate::viz::agentviz::stage_seat_update(i, crate::viz::agentviz::SeatState::Cut);
             }
         }
         slots

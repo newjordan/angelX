@@ -374,5 +374,5 @@ fn shell_split(s: &str) -> Vec<String> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/memory_store__tests.rs"]
+#[path = "../../../tests/cockpit/app/memory_store__tests.rs"]
 mod tests;

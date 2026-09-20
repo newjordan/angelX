@@ -1838,7 +1838,7 @@ fn maybe_compact_disabled_and_under_budget_are_noops() {
     let mut h = vec![ChatMsg::system("s"), ChatMsg::user("hello there friend")];
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("X");
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
     assert!(
         !maybe_compact(&club, &mut h, 0, 5, 0, &[], &reg, &tx),
         "disabled"
@@ -1856,7 +1856,7 @@ fn maybe_compact_summarizes_and_preserves_structure() {
     let n0 = h.len();
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("CONDENSED NOTES");
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
     assert!(
         maybe_compact(&club, &mut h, 30, 5, 0, &[], &reg, &tx),
         "should compact over budget"
@@ -1905,7 +1905,7 @@ fn turn_boundary_compaction_default_never_calls_the_model() {
     let mut history = long_history();
     let original_len = history.len();
     let (tx, rx) = mpsc::channel();
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
 
     assert!(maybe_compact_for_turn(
         &PanickingSummarizerClub,
@@ -2066,7 +2066,7 @@ fn sync_compaction_preserves_one_exact_harness_turn_context_across_rounds() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- lossy summary");
-    let reg = registry_with_store(Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
 
     for round in 0..2 {
         assert!(maybe_compact(&club, &mut history, 60, 3, 0, &[], &reg, &tx));
@@ -2114,7 +2114,7 @@ fn model_free_turn_boundary_compaction_preserves_harness_turn_context() {
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let reg = registry_with_store(Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
 
     assert!(maybe_compact_for_turn(
         &PanickingSummarizerClub,
@@ -2158,7 +2158,7 @@ fn sync_compaction_preserves_one_active_user_task_across_repeated_rounds() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- vague summary that does not contain the original");
-    let reg = registry_with_store(Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
     assert!(maybe_compact(&club, &mut history, 60, 3, 0, &[], &reg, &tx));
     assert_eq!(
         history
@@ -2211,7 +2211,7 @@ fn rolling_compaction_preserves_prior_operator_prohibition() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- continue\n## OpenThreads\n- tune parameters");
-    let reg = registry_with_store(Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
     assert!(maybe_compact(
         &club,
         &mut history,
@@ -2291,7 +2291,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
     }
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub("## Task\n- vague summary\n## Facts\n- retained");
-    let reg = registry_with_store(Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
     assert!(maybe_compact(
         &club,
         &mut history,
@@ -2384,7 +2384,7 @@ fn recovery_context_compaction_and_pruning_preserve_consumption_without_global_h
         .recovery_context
         .push(crate::club::owned_recovery_context_ref());
     let expected = crate::club::recovery_context_refs(&history);
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
     let scope = reg.auxiliary.enter();
     let mut seen = std::collections::HashSet::new();
     scope.observe_recovery_context(&history, &mut seen);
@@ -2454,7 +2454,7 @@ fn context_compact_explicit_contract_survives_24_boundaries_verbatim() {
         "tail ".repeat(400)
     );
     let mut history = vec![ChatMsg::system("system"), ChatMsg::user(task.as_str())];
-    let reg = registry_with_store(Arc::new(crate::memory_store::NullStore));
+    let reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
     let (tx, _rx) = mpsc::channel();
     for boundary in 0..24 {
         for hop in 0..8 {

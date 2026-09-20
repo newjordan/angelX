@@ -43,7 +43,7 @@ mod retained_world {
                 world.ambient_interior_visible(),
                 "{building:?}: room plate visible"
             );
-            let frame = world.ambient_frame(crate::lifecycle_viz::MotionMode::Off);
+            let frame = world.ambient_frame(crate::viz::lifecycle_viz::MotionMode::Off);
             assert_eq!(frame.pixels.as_ref().len(), 256 * 224 * 4);
             assert!(
                 frame

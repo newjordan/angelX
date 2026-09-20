@@ -149,7 +149,7 @@ fn long_history() -> Vec<ChatMsg> {
 /// A bare registry carrying `store` — what `maybe_compact` reads its store,
 /// session id, and (empty) aux-club list from in these tests.
 fn registry_with_store(
-    store: std::sync::Arc<dyn crate::memory_store::MemoryStore>,
+    store: std::sync::Arc<dyn crate::memory::store::MemoryStore>,
 ) -> ToolRegistry {
     let mut reg = ToolRegistry::new();
     reg.set_memory_store(store);

@@ -1,4 +1,4 @@
-use crate::agent_profile::AgentProfile;
+use crate::agent::profile::AgentProfile;
 use crate::hud::{HUD_BLUE, HUD_DIM, HUD_GOLD, HUD_PHOSPHOR, HUD_TEXT, HUD_VERIFIED};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -207,5 +207,5 @@ pub(crate) fn compact_profile_lines_stateful<'a>(
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/agent_view__tests.rs"]
+#[path = "../../../tests/cockpit/app/agent_view__tests.rs"]
 mod tests;

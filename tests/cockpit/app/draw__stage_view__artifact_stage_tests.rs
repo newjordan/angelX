@@ -43,7 +43,7 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
         }
     }
     let mut app = App::preview(crate::viewer::Viewer::new());
-    app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.input = "preserve the operator draft λ".into();
     app.media.push(Media::Video {
         label: "Real pixel reel".into(),
@@ -422,7 +422,7 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
 fn native_artifact_stage_keeps_identity_draft_and_motion_off_ownership() {
     let _guard = crate::tests::env_lock();
     let mut app = App::preview(crate::viewer::Viewer::new());
-    app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.input = "keep this exact draft λ".into();
     app.media.push(Media::Image {
         label: "Requested evidence".into(),

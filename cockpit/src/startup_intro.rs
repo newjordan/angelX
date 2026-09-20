@@ -5,10 +5,10 @@
 //! carries a transparent background and the Braille fallback skips empty cells,
 //! so the shell and the mini-viz keep the pane behind the animation.
 
-use crate::dot_canvas::{DotGeometry, TRANSPARENT};
-use crate::dot_protocol::DotProtocol;
-use crate::lifecycle_viz::MotionMode;
-use crate::terminal_art::{ColoredBrailleCell, ColoredBrailleImage, braille_dot_bit};
+use crate::dots::canvas::{DotGeometry, TRANSPARENT};
+use crate::dots::protocol::DotProtocol;
+use crate::viz::lifecycle_viz::MotionMode;
+use crate::term::art::{ColoredBrailleCell, ColoredBrailleImage, braille_dot_bit};
 use image::{GrayImage, imageops};
 use ratatui::{
     Frame,

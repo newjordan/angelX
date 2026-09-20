@@ -1,8 +1,8 @@
 //! Pure, display-only motion for the selected MoA formation card.
 
 use crate::formations::{self, Formation, FormationId};
-use crate::lifecycle_viz::MotionMode;
-use crate::terminal_art::{self, ColoredBrailleCell, ColoredBrailleImage, DMD_PALETTE};
+use crate::viz::lifecycle_viz::MotionMode;
+use crate::term::art::{self, ColoredBrailleCell, ColoredBrailleImage, DMD_PALETTE};
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span, Text},
@@ -105,7 +105,7 @@ fn load_card(
     width: usize,
     height: usize,
 ) -> Option<std::sync::Arc<ColoredBrailleImage>> {
-    terminal_art::colored_image_braille(&formation.asset_path(), width, height)
+    crate::term::art::colored_image_braille(&formation.asset_path(), width, height)
 }
 
 fn exact_cells(image: &ColoredBrailleImage, width: usize, height: usize) -> Vec<Cell> {
@@ -127,7 +127,7 @@ fn solo_pulse(base: &[Cell], frame: usize) -> Vec<Cell> {
     base.iter()
         .map(|cell| Cell {
             glyph: cell.glyph,
-            fg: if terminal_art::braille_bits(cell.glyph) != 0
+            fg: if crate::term::art::braille_bits(cell.glyph) != 0
                 && matches!(cell.fg, CYAN | HUD_BLUE | STEEL | PALE)
             {
                 if lit { HUD_BLUE } else { STEEL }
@@ -152,7 +152,7 @@ fn recon_sweep(base: &[Cell], width: usize, height: usize, frame: usize) -> Vec<
             };
             let dest_x = x.saturating_add(shift).min(width - 1);
             let mut cell = source;
-            if distance <= 1 && terminal_art::braille_bits(cell.glyph) != 0 {
+            if distance <= 1 && crate::term::art::braille_bits(cell.glyph) != 0 {
                 cell.fg = if y.is_multiple_of(3) { GOLD } else { PALE };
             }
             merge_cell(&mut out[y * width + dest_x], cell);
@@ -178,7 +178,7 @@ fn duel_convergence(base: &[Cell], width: usize, height: usize, frame: usize) ->
                 x.saturating_sub(shift)
             };
             let mut cell = base[y * width + x];
-            if x.abs_diff(middle) <= 1 && terminal_art::braille_bits(cell.glyph) != 0 {
+            if x.abs_diff(middle) <= 1 && crate::term::art::braille_bits(cell.glyph) != 0 {
                 cell.fg = GOLD;
             }
             merge_cell(&mut out[y * width + dest_x], cell);
@@ -247,7 +247,7 @@ fn layered_convergence(
         for y in 0..height {
             for x in 0..width {
                 let source = base[y * width + x];
-                if terminal_art::braille_bits(source.glyph) == 0 {
+                if crate::term::art::braille_bits(source.glyph) == 0 {
                     continue;
                 }
                 let dx = x as isize + ox;
@@ -269,9 +269,9 @@ fn layered_convergence(
 }
 
 fn merge_cell(dest: &mut Cell, source: Cell) {
-    let bits = terminal_art::braille_bits(dest.glyph) | terminal_art::braille_bits(source.glyph);
+    let bits = crate::term::art::braille_bits(dest.glyph) | crate::term::art::braille_bits(source.glyph);
     if bits != 0 {
-        dest.glyph = terminal_art::braille_char(bits);
+        dest.glyph = crate::term::art::braille_char(bits);
         dest.fg = source.fg;
     }
 }
@@ -290,14 +290,14 @@ fn dissolve(
         for x in 0..width {
             let old = previous[y * width + x];
             let new = current[y * width + x];
-            let old_bits = terminal_art::braille_bits(old.glyph);
-            let new_bits = terminal_art::braille_bits(new.glyph);
+            let old_bits = crate::term::art::braille_bits(old.glyph);
+            let new_bits = crate::term::art::braille_bits(new.glyph);
             let mut bits = 0u8;
             let mut new_votes = 0u8;
             let mut old_votes = 0u8;
             for local_y in 0..4 {
                 for local_x in 0..2 {
-                    let bit = terminal_art::braille_dot_bit(local_x, local_y);
+                    let bit = crate::term::art::braille_dot_bit(local_x, local_y);
                     let threshold = BAYER4[(y * 4 + local_y) % 4][(x * 2 + local_x) % 4];
                     if threshold < cutoff {
                         if new_bits & bit != 0 {
@@ -311,7 +311,7 @@ fn dissolve(
                 }
             }
             out[y * width + x] = Cell {
-                glyph: terminal_art::braille_char(bits),
+                glyph: crate::term::art::braille_char(bits),
                 fg: if new_votes >= old_votes {
                     new.fg
                 } else {
@@ -333,7 +333,7 @@ fn fallback_card(id: FormationId, width: usize, height: usize) -> Vec<Cell> {
         for x in 0..width {
             if (x * 3 + y * 5 + seed).is_multiple_of(11) {
                 cells[y * width + x] = Cell {
-                    glyph: terminal_art::braille_char(0x42 | ((seed as u8) & 0x18)),
+                    glyph: crate::term::art::braille_char(0x42 | ((seed as u8) & 0x18)),
                     fg: [CYAN, GOLD, HUD_BLUE, SUCCESS][seed % 4],
                 };
             }
@@ -362,5 +362,5 @@ fn cells_to_text(cells: &[Cell], width: usize, height: usize) -> Text<'static> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/moa_viz__tests.rs"]
+#[path = "../../../tests/cockpit/app/moa_viz__tests.rs"]
 mod tests;

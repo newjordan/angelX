@@ -325,7 +325,7 @@ impl Tool for GitCommitTool {
         }
     }
     fn call(&self, args: &Value) -> Result<String, String> {
-        use crate::git_commit_split::{
+        use crate::git::commit_split::{
             format_plan, parse_porcelain_files, plan_atomic_commits, validate_commit_message,
         };
         use crate::harness::run_git;

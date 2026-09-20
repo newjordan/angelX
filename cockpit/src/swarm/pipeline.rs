@@ -131,7 +131,7 @@ impl SwarmClub {
         on_delta: &mut dyn FnMut(StreamDelta),
         stream: bool,
     ) -> Result<String, String> {
-        crate::agentviz::stage("direct", vec!["solo".to_string()]);
+        crate::viz::agentviz::stage("direct", vec!["solo".to_string()]);
         if stream {
             self.checked_stream_text_reply(&*self.clubs.aggregate, history, cancel, on_delta)
         } else {
@@ -320,7 +320,7 @@ impl SwarmClub {
             }
             let n = wave_size.min(remaining);
             let labels = (0..n).map(|i| angle(launched + i).key).collect::<Vec<_>>();
-            crate::agentviz::stage(format!("proposer wave {}", wave_index + 1), labels);
+            crate::viz::agentviz::stage(format!("proposer wave {}", wave_index + 1), labels);
             self.emit_progress(
                 stream,
                 on_delta,
@@ -601,7 +601,7 @@ impl SwarmClub {
         if drafts.len() <= 1 {
             return (drafts, 0);
         }
-        crate::agentviz::stage(
+        crate::viz::agentviz::stage(
             "judge panel",
             (0..self.k.judge_panel.max(1))
                 .map(|i| format!("judge-{}", i + 1))
@@ -933,7 +933,7 @@ impl SwarmClub {
         cancel: &AtomicBool,
     ) -> String {
         let _seat_role = crate::harness::formation_budget::enter_role("verify");
-        crate::agentviz::stage(
+        crate::viz::agentviz::stage(
             "verify",
             (0..self.k.verify.max(1))
                 .map(|i| format!("verifier-{}", i + 1))
@@ -1462,7 +1462,7 @@ impl SwarmClub {
             }
             let refine_width = k.refine_width.clamp(1, roster_len());
             let agent_labels = (0..refine_width).map(|i| angle(i).key).collect::<Vec<_>>();
-            crate::agentviz::stage(
+            crate::viz::agentviz::stage(
                 format!("layer {}/{}", layer, k.layers.saturating_sub(1)),
                 agent_labels.clone(),
             );
@@ -1518,7 +1518,7 @@ impl SwarmClub {
         // JUDGE: prune to the strongest drafts before the expensive synthesis.
         if k.judge {
             let n = k.judge_panel.max(1);
-            crate::agentviz::stage("judge", (1..=n).map(|i| format!("reviewer {i}")).collect());
+            crate::viz::agentviz::stage("judge", (1..=n).map(|i| format!("reviewer {i}")).collect());
             self.emit_progress(
                 stream,
                 on_delta,
@@ -1563,7 +1563,7 @@ impl SwarmClub {
         let stream_final =
             stream && k.samples <= 1 && k.verify == 0 && !(k.cite && sources.is_some());
 
-        crate::agentviz::stage("synthesis", vec!["aggregator".to_string()]);
+        crate::viz::agentviz::stage("synthesis", vec!["aggregator".to_string()]);
         self.emit_progress(
             stream,
             on_delta,
@@ -1616,7 +1616,7 @@ impl SwarmClub {
 
         // VERIFY: adversarial check → revise.
         let answer = if k.verify > 0 {
-            crate::agentviz::stage(
+            crate::viz::agentviz::stage(
                 "verify",
                 (1..=k.verify).map(|i| format!("checker {i}")).collect(),
             );

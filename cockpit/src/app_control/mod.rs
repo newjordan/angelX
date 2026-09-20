@@ -9,8 +9,8 @@ pub(crate) use crate::pty::{self, ShellPane};
 pub(crate) use crate::transcript::{Message, Role};
 pub(crate) use crate::turn::Thinking;
 pub(crate) use crate::{
-    AgentButton, App, PendingApproval, approval_view, input, local_command, session,
-    turn_event_view,
+    AgentButton, App, PendingApproval, views::approval_view, input, local_command, session,
+    views::turn_event_view,
 };
 pub(crate) use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 pub(crate) use std::path::{Path, PathBuf};

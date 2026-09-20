@@ -100,7 +100,7 @@ fn tutor_sending_a_question_restores_work_and_keeps_loading_context_honest() {
     let mut app = seed_preview_app();
     app.submit_deferral = true;
     app.scryglass
-        .queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
             title: "Vector space",
             summary: "reference text",
             source_url: "https://example.org/v",

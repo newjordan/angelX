@@ -28,9 +28,9 @@ pub(crate) const UNASSIGNED_CAMPAIGN_ID: &str = "unassigned";
 pub(crate) const UNASSIGNED_CAMPAIGN_TITLE: &str = "Unassigned";
 
 const SUCCESS: Color = Color::Rgb(
-    crate::terminal_art::DMD_PALETTE[7][0],
-    crate::terminal_art::DMD_PALETTE[7][1],
-    crate::terminal_art::DMD_PALETTE[7][2],
+    crate::term::art::DMD_PALETTE[7][0],
+    crate::term::art::DMD_PALETTE[7][1],
+    crate::term::art::DMD_PALETTE[7][2],
 );
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -9027,7 +9027,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         assert!(
             notices
                 .iter()
-                .all(|n| crate::turn_event_view::notice_coalesce_key(n)
+                .all(|n| crate::views::turn_event_view::notice_coalesce_key(n)
                     == Some("unproductive-streak"))
         );
         if stopped {

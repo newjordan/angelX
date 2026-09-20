@@ -759,7 +759,7 @@ pub(crate) fn file_report(
     workspace: &std::path::Path,
     history: &[ChatMsg],
     answer: &str,
-    store: &Arc<dyn crate::memory_store::MemoryStore>,
+    store: &Arc<dyn crate::memory::store::MemoryStore>,
     session_id: &str,
 ) {
     if !club.reports_to_palace() || !store.is_live() || !env_flag("ANGEL_SWARM_PALACE", true) {
@@ -784,12 +784,12 @@ const MEMORY_WRITE_QUEUE_CAPACITY: usize = 8;
 
 enum MemoryWriteJob {
     Report {
-        store: Arc<dyn crate::memory_store::MemoryStore>,
+        store: Arc<dyn crate::memory::store::MemoryStore>,
         report: crate::librarian::Report,
     },
     Drawers {
-        store: Arc<dyn crate::memory_store::MemoryStore>,
-        drawers: Vec<crate::memory_store::Drawer>,
+        store: Arc<dyn crate::memory::store::MemoryStore>,
+        drawers: Vec<crate::memory::store::Drawer>,
         completion: Option<Box<dyn FnOnce(MemoryWriteSummary) + Send + 'static>>,
     },
 }
@@ -901,8 +901,8 @@ fn enqueue_memory_write(job: MemoryWriteJob) {
 /// by automatic compaction and swarm reports, then return one completion
 /// summary without keeping the caller's foreground flight slot occupied.
 pub(crate) fn enqueue_memory_drawers_with_feedback<F>(
-    store: Arc<dyn crate::memory_store::MemoryStore>,
-    drawers: Vec<crate::memory_store::Drawer>,
+    store: Arc<dyn crate::memory::store::MemoryStore>,
+    drawers: Vec<crate::memory::store::Drawer>,
     completion: F,
 ) where
     F: FnOnce(MemoryWriteSummary) + Send + 'static,
@@ -1409,7 +1409,7 @@ pub(crate) fn maybe_auto_recall(
 /// accumulating one detached thread per submit. The lane reopens when the real
 /// search exits or unwinds.
 pub(crate) fn auto_recall_search_with_timeout(
-    store: Arc<dyn crate::memory_store::MemoryStore>,
+    store: Arc<dyn crate::memory::store::MemoryStore>,
     query: Arc<str>,
     limit: usize,
     wing: String,

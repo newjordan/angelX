@@ -1,7 +1,7 @@
 //! Deterministic terminal-cell export for visual calibration and contact sheets.
 
 use crate::formations::{self, FormationId};
-use crate::lifecycle_viz::{self, CeremonyKind, MotionMode};
+use crate::viz::lifecycle_viz::{self, CeremonyKind, MotionMode};
 use ratatui::{style::Color, text::Text};
 use serde_json::{Value, json};
 
@@ -17,11 +17,11 @@ pub(crate) fn export(
     let elapsed = elapsed_ms as f32 / 1000.0;
     let (text, fps) = match visual {
         VisualScene::Tourney(kind) => (
-            lifecycle_viz::render(kind, scene, elapsed, width, height, MotionMode::Full),
-            lifecycle_viz::FPS,
+            crate::viz::lifecycle_viz::render(kind, scene, elapsed, width, height, MotionMode::Full),
+            crate::viz::lifecycle_viz::FPS,
         ),
         VisualScene::Moa(id) => (
-            crate::moa_viz::render(
+            crate::viz::moa_viz::render(
                 *formations::formation(id),
                 None,
                 elapsed,
@@ -29,7 +29,7 @@ pub(crate) fn export(
                 height,
                 MotionMode::Full,
             ),
-            crate::moa_viz::FPS,
+            crate::viz::moa_viz::FPS,
         ),
     };
     Ok(text_json(scene, elapsed_ms, width, height, fps, &text))
@@ -42,7 +42,7 @@ enum VisualScene {
 
 fn parse_scene(raw: &str) -> Option<VisualScene> {
     let lower = raw.trim().to_ascii_lowercase();
-    if let Some(kind) = lifecycle_viz::calibration_kind(&lower).or(match lower.as_str() {
+    if let Some(kind) = crate::viz::lifecycle_viz::calibration_kind(&lower).or(match lower.as_str() {
         "goal-set" => Some(CeremonyKind::GoalSet),
         "goal-done" => Some(CeremonyKind::GoalDone),
         "goal-cleared" => Some(CeremonyKind::GoalCleared),
@@ -116,7 +116,7 @@ fn text_json(
         "motion": "full",
         "fps": fps,
         "size": { "width": width, "height": height },
-        "palette": crate::terminal_art::DMD_PALETTE,
+        "palette": crate::term::art::DMD_PALETTE,
         "cells": rows,
     })
 }

@@ -293,5 +293,5 @@ fn run_gh(workspace: &Path, repo: Option<&str>, args: &[&str]) -> Result<String,
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/github_url__tests.rs"]
+#[path = "../../../tests/cockpit/app/github_url__tests.rs"]
 mod tests;

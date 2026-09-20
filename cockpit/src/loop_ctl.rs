@@ -828,7 +828,7 @@ impl crate::App {
                 self.loop_ctl.cycle_started_ms = None;
                 save(&self.loop_ctl);
                 self.start_lifecycle_ceremony(
-                    crate::lifecycle_viz::CeremonyKind::LoopPaused,
+                    crate::viz::lifecycle_viz::CeremonyKind::LoopPaused,
                     self.loop_task_text(),
                 );
                 "loop paused — /loop resume to continue".to_string()
@@ -1089,7 +1089,7 @@ impl crate::App {
         self.loop_bind_rl();
         save(&self.loop_ctl);
         self.start_lifecycle_ceremony(
-            crate::lifecycle_viz::CeremonyKind::LoopStart,
+            crate::viz::lifecycle_viz::CeremonyKind::LoopStart,
             self.loop_task_text(),
         );
         if legacy_terminal_stall {
@@ -1319,7 +1319,7 @@ impl crate::App {
         } else {
             ""
         };
-        self.start_lifecycle_ceremony(crate::lifecycle_viz::CeremonyKind::LoopStart, what.clone());
+        self.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopStart, what.clone());
         format!(
             "loop started → {what}{method}\n  {} · stall pivot {} · pivot {} · interval {}s",
             self.loop_ctl.cap_summary(),
@@ -2374,7 +2374,7 @@ impl crate::App {
         self.loop_ctl.wake_at = None;
         save(&self.loop_ctl);
         self.start_lifecycle_ceremony(
-            crate::lifecycle_viz::CeremonyKind::LoopPaused,
+            crate::viz::lifecycle_viz::CeremonyKind::LoopPaused,
             self.loop_task_text(),
         );
         self.note(
@@ -2440,11 +2440,11 @@ impl crate::App {
             self.loop_ctl.findings.len()
         ));
         let kind = match status {
-            LoopStatus::Done => crate::lifecycle_viz::CeremonyKind::LoopDone,
-            LoopStatus::Paused => crate::lifecycle_viz::CeremonyKind::LoopPaused,
-            LoopStatus::Stopped => crate::lifecycle_viz::CeremonyKind::LoopStopped,
-            LoopStatus::Failed => crate::lifecycle_viz::CeremonyKind::LoopFailed,
-            _ => crate::lifecycle_viz::CeremonyKind::LoopStopped,
+            LoopStatus::Done => crate::viz::lifecycle_viz::CeremonyKind::LoopDone,
+            LoopStatus::Paused => crate::viz::lifecycle_viz::CeremonyKind::LoopPaused,
+            LoopStatus::Stopped => crate::viz::lifecycle_viz::CeremonyKind::LoopStopped,
+            LoopStatus::Failed => crate::viz::lifecycle_viz::CeremonyKind::LoopFailed,
+            _ => crate::viz::lifecycle_viz::CeremonyKind::LoopStopped,
         };
         self.start_lifecycle_ceremony(kind, self.loop_task_text());
     }
@@ -2719,7 +2719,7 @@ impl crate::App {
         self.loop_ctl.cycle_started_ms = None;
         save(&self.loop_ctl);
         self.start_lifecycle_ceremony(
-            crate::lifecycle_viz::CeremonyKind::LoopEscalate,
+            crate::viz::lifecycle_viz::CeremonyKind::LoopEscalate,
             self.loop_task_text(),
         );
     }

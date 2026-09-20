@@ -24,7 +24,7 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
         app.world = crate::world_viz::World::new(71);
         app.world.settle_at_for_test(building);
         app.scryglass = crate::scryglass::Scryglass::for_world(building);
-        app.visual_motion = crate::lifecycle_viz::MotionMode::Full;
+        app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Full;
         assert!(app.world.enter_interior());
         for (width, height) in [(48, 18), (96, 40), (48, 18)] {
             let mut terminal =

@@ -749,7 +749,7 @@ fn composer_intent_distinguishes_drafts_commands_and_high_impact_commands() {
     assert_eq!(ComposerIntent::Empty.title(70), "");
     assert!(!ComposerIntent::Empty.title(70).contains("Enter sends"));
     assert!(!ComposerIntent::Empty.title(70).contains("Shift+Enter"));
-    let src = include_str!("../../../cockpit/src/status_view.rs");
+    let src = include_str!("../../../cockpit/src/views/status_view.rs");
     let start = src
         .find("pub fn composer_intent(")
         .expect("composer_intent");
