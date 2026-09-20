@@ -281,5 +281,5 @@ impl CompetitionAdapterV1 for FlywheelAdapterV1 {
 }
 
 #[cfg(test)]
-#[path = "flywheel_tests.rs"]
+#[path = "../../../../tests/cockpit/competition/adapters__flywheel_tests.rs"]
 mod tests;

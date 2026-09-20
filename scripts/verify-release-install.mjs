@@ -157,11 +157,52 @@ export function recoverInterruptedInstall(sandboxRoot, prefix = join(sandboxRoot
   return { recovered: true, restored_binary_sha256: sha256File(layout.binary) }
 }
 
-export function installCandidate({ sandboxRoot, prefix, candidate, metadata }) {
+export function installResourceBundle(layout, resources) {
+  const identity = resources.manifest.entries_manifest_sha256
+  if (!/^[0-9a-f]{64}$/u.test(identity)) fail('invalid resource bundle identity')
+  const destination = join(layout.shareDirectory, 'bundles', identity)
+  const check = (root) => {
+    for (const row of resources.rows) {
+      const path = join(root, row.path)
+      regularFile(path, 'installed resource')
+      if (sha256File(path) !== sha256Bytes(row.content))
+        fail(`installed resource differs: ${row.path}`)
+    }
+  }
+  if (existsSync(destination)) {
+    check(destination)
+    return destination
+  }
+  const temporary = `${destination}.incoming-${process.pid}`
+  mkdirSync(temporary, { recursive: true, mode: 0o755 })
+  try {
+    for (const row of resources.rows) {
+      const path = resolve(temporary, row.path)
+      if (!path.startsWith(`${temporary}${sep}`)) fail('resource path escapes its bundle')
+      mkdirSync(dirname(path), { recursive: true, mode: 0o755 })
+      writeFileSync(path, row.content, { flag: 'wx', mode: row.mode })
+      chmodSync(path, row.mode)
+    }
+    check(temporary)
+    renameSync(temporary, destination)
+  } finally {
+    if (existsSync(temporary)) rmSync(temporary, { recursive: true })
+  }
+  return destination
+}
+
+export function installCandidate({ sandboxRoot, prefix, candidate, metadata, resources }) {
   const layout = prefixLayout(sandboxRoot, prefix)
   validateInstallCandidate(candidate, metadata)
   mkdirSync(layout.binDirectory, { recursive: true, mode: 0o755 })
   mkdirSync(layout.shareDirectory, { recursive: true, mode: 0o755 })
+  if (resources) {
+    if (metadata.release?.resources_sha256 !== resources.manifest.entries_manifest_sha256)
+      fail('install metadata differs from resource bundle identity')
+    installResourceBundle(layout, resources)
+  } else if (metadata.release?.resources_sha256) {
+    fail('this release requires its source-bound resource bundle')
+  }
   recoverInterruptedInstall(sandboxRoot, layout.prefix)
   const previous = currentInstallIdentity(layout)
   if (previous) {
@@ -340,6 +381,7 @@ export function runInstallVerification(
         artifact_sha256: verified.manifest.artifact.sha256,
         commit: verified.manifest.source.commit,
         cockpit_source_sha256: verified.manifest.source.cockpit_source_sha256,
+        resources_sha256: verified.manifest.entries_manifest_sha256,
       },
       binary: inputs.artifact,
     }
@@ -348,6 +390,7 @@ export function runInstallVerification(
       prefix: join(scratch, 'prefix'),
       candidate: inputs.binaryPath,
       metadata,
+      resources: verified,
     })
     if (initial.replaced) fail('empty-prefix install unexpectedly replaced an existing binary')
     const firstProbe = runProbe(inputs.image, scratch)
@@ -355,6 +398,8 @@ export function runInstallVerification(
       firstProbe.build_info?.schema !== 'angel-build-info/v1' ||
       firstProbe.build_info?.cockpit_source_sha256 !==
         verified.manifest.source.cockpit_source_sha256 ||
+      firstProbe.build_info?.resources?.sha256 !== verified.manifest.entries_manifest_sha256 ||
+      firstProbe.build_info?.resources?.available !== true ||
       !Array.isArray(firstProbe.build_info?.capabilities) ||
       !REQUIRED_RUNNER_CAPABILITIES.every((capability) =>
         firstProbe.build_info.capabilities.includes(capability),
@@ -378,6 +423,7 @@ export function runInstallVerification(
       prefix: join(scratch, 'prefix'),
       candidate: inputs.binaryPath,
       metadata,
+      resources: verified,
     })
     if (!replacement.replaced) fail('package replacement did not exercise the transaction path')
     const replacementProbe = runProbe(inputs.image, scratch)

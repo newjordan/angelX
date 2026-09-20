@@ -381,4 +381,5 @@ pub(crate) fn replace(path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/app/workspace_store__private_io__tests.rs"]
 mod tests;

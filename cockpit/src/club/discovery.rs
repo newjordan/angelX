@@ -303,21 +303,35 @@ pub(crate) fn resolve_openrouter_model_alias(raw: &str) -> String {
     }
 }
 
-/// Saved credentials are not permission to add a provider to the working bag.
-/// OAuth clubs and local fleet endpoints are registered separately. API-key
-/// providers require an exact, explicit comma-separated ANGEL_API_CLUBS entry;
-/// no wildcard, inferred opt-in from a key, or automatic free catalog.
+/// API-key providers are available when credentials are present unless the
+/// operator explicitly disables or scopes them with `ANGEL_API_CLUBS`. OAuth
+/// clubs and local fleet endpoints are registered separately. `*`/`all` admits
+/// every family, while a comma list admits only the named families.
 pub(crate) fn api_club_enabled(alias: &str) -> bool {
     let family = if alias.starts_with("glm-") {
         "glm"
     } else if alias == "deepseek-flash" {
         "deepseek"
+    } else if alias == "grok-api" {
+        "grok"
+    } else if alias == "openai-api" {
+        "openai"
     } else {
         alias
     };
-    std::env::var("ANGEL_API_CLUBS").is_ok_and(|list| {
-        list.split(',')
-            .any(|entry| entry.trim().eq_ignore_ascii_case(family))
+    let Ok(list) = std::env::var("ANGEL_API_CLUBS") else {
+        return true;
+    };
+    let list = list.trim();
+    if list.is_empty() || list.eq_ignore_ascii_case("none") {
+        return false;
+    }
+    if list == "*" || list.eq_ignore_ascii_case("all") {
+        return true;
+    }
+    list.split(',').any(|entry| {
+        let entry = entry.trim();
+        entry == "*" || entry.eq_ignore_ascii_case("all") || entry.eq_ignore_ascii_case(family)
     })
 }
 
@@ -494,6 +508,20 @@ pub(crate) fn optional_openrouter_http_clubs() -> Vec<(String, Arc<dyn Club>, Ar
     configured.into_iter().collect()
 }
 
+/// Build the explicit OpenAI API-key route. This remains a separate `openai-api`
+/// alias so it never silently replaces the ChatGPT OAuth `openai` club.
+pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    optional_sota_http_club(
+        "openai-api",
+        "openai-api",
+        &["ANGEL_OPENAI_API_URL", "OPENAI_BASE_URL"],
+        "https://api.openai.com/v1",
+        &["ANGEL_OPENAI_API_MODEL", "OPENAI_MODEL"],
+        None,
+        &["ANGEL_OPENAI_KEY", "OPENAI_API_KEY"],
+    )
+}
+
 pub(crate) fn openrouter_configured() -> bool {
     api_club_enabled("openrouter")
         && env_first(&["ANGEL_OPENROUTER_MODEL", "OPENROUTER_MODEL"]).is_some()
@@ -592,10 +620,22 @@ pub(crate) fn atlas_model_serving_enabled() -> bool {
     env_flag("ANGEL_ATLAS_MODEL_SERVING", false)
 }
 
-pub(crate) fn model_serving_target_allowed(host: &str, _ip: &str) -> bool {
-    let h = host.trim().to_ascii_lowercase();
-    let atlas = h == "atlas" || h == "atlas-1" || h.starts_with("atlas-");
-    !atlas || atlas_model_serving_enabled()
+fn model_serving_host_excluded(host: &str, ip: &str) -> bool {
+    let host = host.trim().to_ascii_lowercase();
+    let ip = ip.trim().to_ascii_lowercase();
+    let Ok(excluded) = std::env::var("ANGEL_MODEL_SERVING_EXCLUDE_HOSTS") else {
+        return false;
+    };
+    excluded.split(',').any(|value| {
+        let value = value.trim();
+        !value.is_empty() && (value.eq_ignore_ascii_case(&host) || value.eq_ignore_ascii_case(&ip))
+    })
+}
+
+pub(crate) fn model_serving_target_allowed(host: &str, ip: &str) -> bool {
+    // Generic exclusions are authoritative exact host/IP matches. The
+    // legacy Atlas flag is handled when constructing the explicit Atlas slot.
+    !model_serving_host_excluded(host, ip)
 }
 
 /// The local Hydra head's base URL (`ANGEL_HYDRA_URL` overrides).

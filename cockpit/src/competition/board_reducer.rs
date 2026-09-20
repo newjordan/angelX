@@ -290,9 +290,9 @@ impl BoardReducerV1 {
 }
 
 #[cfg(test)]
-#[path = "board_reducer_tests.rs"]
+#[path = "../../../tests/cockpit/competition/board_reducer_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "board_reducer_adversarial_tests.rs"]
+#[path = "../../../tests/cockpit/competition/board_reducer_adversarial_tests.rs"]
 mod adversarial_tests;

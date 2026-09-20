@@ -18,7 +18,7 @@ bash scripts/check-legacy-terminal-boundary.sh
 npm test
 ```
 
-- [Commands](../docs/COMMANDS.md) and [environment settings](docs/ENV.md).
+- [Model setup](../docs/MODELS.md), [commands](../docs/COMMANDS.md) and [environment settings](docs/ENV.md).
 - [Headless task contract](docs/COMPETITION_RUNNER.md).
 - [Jev tool](docs/JEV.md) and [Sloptomizer loop options](research/sloptomizer/README.md).
 - [Repository memory](../docs/MEMORY.md) and [self-source navigation](../docs/SELF_MODEL.md).

@@ -1062,18 +1062,8 @@ fn seat_system(
 }
 
 #[cfg(test)]
-mod prompt_tests {
-    use super::*;
-
-    #[test]
-    fn spawn_prompt_batches_only_tool_bearing_seats() {
-        for grant in [Grant::None, Grant::ReadOnly, Grant::Code, Grant::Research] {
-            let prompt = seat_system("reviewer", "", Formation::Panel, 2, grant);
-            assert_eq!(prompt.contains(TOOL_BATCHING_HINT), grant != Grant::None);
-            assert!(!prompt.contains("code_mode"));
-        }
-    }
-}
+#[path = "../../../tests/cockpit/harness/spawn__prompt_tests.rs"]
+mod prompt_tests;
 
 fn cap_chars(s: &str, cap: usize) -> String {
     if s.chars().count() <= cap {
@@ -1275,23 +1265,5 @@ fn configured_formation_timeout(args: &Value) -> Duration {
 }
 
 #[cfg(test)]
-mod l01_tests {
-    use super::*;
-    #[test]
-    fn spawn_default_has_no_120_second_cut_and_explicit_seconds_are_exact() {
-        let _guard = crate::tests::env_lock();
-        let _unset = crate::tests::TestEnvGuard::unset("ANGEL_SPAWN_TIMEOUT");
-        let default = configured_formation_timeout(&serde_json::json!({}));
-        assert!(default.is_zero());
-        let _cap = crate::tests::TestEnvGuard::set("ANGEL_SPAWN_TIMEOUT", "7200");
-        assert_eq!(
-            configured_formation_timeout(&serde_json::json!({})).as_secs(),
-            7200
-        );
-        assert_eq!(
-            configured_formation_timeout(&serde_json::json!({"timeout_secs": 1})).as_secs(),
-            1
-        );
-        assert!(configured_formation_timeout(&serde_json::json!({"timeout_secs": 0})).is_zero());
-    }
-}
+#[path = "../../../tests/cockpit/harness/spawn__l01_tests.rs"]
+mod l01_tests;

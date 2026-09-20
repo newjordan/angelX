@@ -68,4 +68,5 @@ impl ReasoningProfile {
 }
 
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/club/http__local_deepseek__tests.rs"]
 mod tests;

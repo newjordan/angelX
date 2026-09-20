@@ -868,4 +868,5 @@ impl LoopMirror {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/world_viz/adventure__tests.rs"]
 mod tests;

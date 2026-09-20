@@ -778,4 +778,5 @@ impl Tool for ContextTool {
 }
 
 #[cfg(all(test, unix))]
+#[path = "../../../tests/cockpit/harness/context__alias_tests.rs"]
 mod alias_tests;

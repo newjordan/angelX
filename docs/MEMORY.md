@@ -26,3 +26,5 @@ tool execution, then selects relevant entries for later turns.
 
 Implementation: [Dossier compiler](../scripts/repo-dossier.mjs),
 [native reader](../cockpit/src/dossier.rs), [Caddy](../cockpit/src/caddy.rs).
+
+[Local workers](WORKERS.md) documents probing, skill proposals, scheduling and feedback.

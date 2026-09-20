@@ -152,9 +152,7 @@ impl Slot {
 /// panels, failover) must never route to. Interactive Tab selection is
 /// untouched — an operator can still point at any box deliberately.
 /// `ANGEL_BANNED_BOXES` (comma-separated box names) sets the list; empty
-/// clears. No compiled default: a 2026-08-02 "never route to spark" default
-/// was attributed to an operator order the operator never gave (disputed
-/// 2026-08-04), so a ban now exists only when the operator pins one.
+/// clears. There is no compiled exclusion list.
 fn banned_boxes_from_env() -> std::sync::Arc<[String]> {
     match std::env::var("ANGEL_BANNED_BOXES") {
         Ok(list) => list
@@ -178,8 +176,8 @@ pub(crate) fn banned_boxes() -> std::sync::Arc<[String]> {
 }
 
 /// An **agent** = a box/PC. `Tab` cycles agents; within one, the subcontrol
-/// (`←/→`) cycles `slots` (the box's models/modes). `swarm` and `gemma` are modes
-/// of the Spark box, not separate agents — that's the de-clutter.
+/// (`←/→`) cycles `slots` (the box's models/modes). Related routes share one
+/// agent entry.
 pub(crate) struct Agent {
     pub(crate) name: String,
     pub(crate) slots: Vec<Slot>,
@@ -299,38 +297,7 @@ pub(crate) fn resolve_driver(agents: &mut [Agent], pref: &str) -> Option<usize> 
 }
 
 #[cfg(test)]
-#[test]
-fn openai_codex_driver_preserves_resolved_slot_for_explicit_and_default_route() {
-    struct OAuthSlot;
-    impl Club for OAuthSlot {
-        fn label(&self) -> &str {
-            "openai"
-        }
-        fn respond(&self, _: &str) -> Result<String, String> {
-            Err("fixture only".into())
-        }
-    }
-    let mut agents = vec![Agent {
-        name: "openai".into(),
-        slots: ["gpt-6-astra", "gpt-5.6-luna"]
-            .into_iter()
-            .map(|model| Slot {
-                label: model.into(),
-                club: Arc::new(OAuthSlot),
-                available: Arc::new(AtomicBool::new(true)),
-            })
-            .collect(),
-        active: 1,
-    }];
-    // Bag::standard supplies this same preference for an unset ANGEL_DRIVER.
-    for _ in 0..2 {
-        assert_eq!(resolve_driver(&mut agents, "openai"), Some(0));
-        assert_eq!(agents[0].active, 1);
-    }
-    // An explicit model-name route remains selectable.
-    assert_eq!(resolve_driver(&mut agents, "gpt-6-astra"), Some(0));
-    assert_eq!(agents[0].active, 0);
-}
+include!("../../../tests/cockpit/club/bag__standalone_tests.rs");
 
 pub(crate) fn direct_sota_agent(
     agent_index: usize,
@@ -415,63 +382,116 @@ pub struct Bag {
     pub(crate) cached_in_hand_mode: std::sync::Mutex<Option<InHandChromeCacheEntry>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct BootstrapSlotSpec {
+    label: &'static str,
+    env_key: &'static str,
+    port: u16,
+    is_swarm: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct BootstrapBoxSpec {
+    name: String,
+    host: String,
+    fallback_ip: String,
+    slots: Vec<BootstrapSlotSpec>,
+}
+
 impl Bag {
+    /// Build the portable local bootstrap and explicitly configured legacy
+    /// slots without consulting the live network. Legacy machine names and
+    /// port maps are intentionally absent unless their URL is pinned.
+    fn bootstrap_specs(getenv: impl Fn(&str) -> Option<String>) -> Vec<BootstrapBoxSpec> {
+        let gemma_configured = getenv("ANGEL_GEMMA_URL").is_some_and(|url| !url.trim().is_empty());
+        let local_slots = vec![
+            BootstrapSlotSpec {
+                label: "local",
+                env_key: "LOCAL",
+                port: 8080,
+                is_swarm: false,
+            },
+            BootstrapSlotSpec {
+                label: if gemma_configured {
+                    "local-swarm"
+                } else {
+                    "swarm"
+                },
+                env_key: "LOCAL",
+                port: 8080,
+                is_swarm: true,
+            },
+        ];
+        let mut boxes = vec![BootstrapBoxSpec {
+            name: "local".to_string(),
+            host: String::new(),
+            fallback_ip: "127.0.0.1".to_string(),
+            slots: local_slots,
+        }];
+
+        // Preserve the old selectable agent groups only when an operator pins
+        // their endpoint. Explicit URLs own routing, so these groups have no
+        // machine host or guessed port and cannot probe a private default.
+        let mut add_group = |name: &str, entries: &[(&'static str, &'static str, bool)]| {
+            let slots = entries
+                .iter()
+                .filter(|(_, env_key, _)| {
+                    let key = format!("ANGEL_{env_key}_URL");
+                    getenv(&key).is_some_and(|url| !url.trim().is_empty())
+                })
+                .map(|&(label, env_key, is_swarm)| BootstrapSlotSpec {
+                    label,
+                    env_key,
+                    port: 0,
+                    is_swarm,
+                })
+                .collect::<Vec<_>>();
+            if !slots.is_empty() {
+                boxes.push(BootstrapBoxSpec {
+                    name: name.to_string(),
+                    host: String::new(),
+                    fallback_ip: String::new(),
+                    slots,
+                });
+            }
+        };
+        add_group(
+            "spark",
+            &[
+                ("spark", "SPARK", false),
+                ("swarm", "GEMMA", true),
+                ("gemma", "GEMMA", false),
+                ("dsflash", "DSFLASH", false),
+                ("qwen38", "QWEN38", false),
+                ("coder", "SPARK", false),
+                ("r1", "SPARK_R1", false),
+                ("leanstral", "LEANSTRAL", false),
+            ],
+        );
+        add_group("turbo", &[("turbo", "TURBO", false)]);
+        add_group("toymaker", &[("ornith", "ORNITH", false)]);
+        boxes
+    }
+
     /// Build the standard bag from env and live `/models` discovery: one **agent
     /// per box/PC**, each owning the model endpoints that box serves. `Tab` cycles
     /// boxes; `←/→` cycles a box's modes.
     pub fn standard() -> Self {
-        // One mode within a box: (display label, ANGEL_<KEY>_URL/_MODEL env key,
-        // port, is-swarm). The env key is kept stable for back-compat; model ids
-        // come from ANGEL_<KEY>_MODEL or the endpoint's live /models response.
-        type SlotSpec = (&'static str, &'static str, u16, bool);
-        // One bootstrap box: (box name, tailnet host, fallback IP, its modes). The
-        // box is named by the **machine**; models churn on a box but the host is
-        // stable identity. Public defaults stay on loopback; operators may opt into
-        // tailnet resolution or pin a URL explicitly. Live chat surfaces come from
-        // opt-in Hydra/fleet discovery and `/models`.
-        type BoxSpec = (
-            &'static str,
-            &'static str,
-            &'static str,
-            &'static [SlotSpec],
-        );
-
-        // These are endpoint/mode hints, not model ids. The checkpoint actually
-        // loaded on each port is resolved dynamically from /models.
-        const SPARK: &[SlotSpec] = &[
-            ("swarm", "GEMMA", 8000, true),
-            ("gemma", "GEMMA", 8000, false),
-            // Local DeepSeek-V4-Flash. Historical default is Spark loopback
-            // `:8000` (ds4-server / gemma-era port). The two-Spark vLLM serve
-            // listens on the master (`toymaker`) at `:18888` — pin
-            // ANGEL_DSFLASH_URL / ANGEL_DSFLASH_MODEL when that is the live path.
-            ("dsflash", "DSFLASH", 8000, false),
-            // Spark :8001 is the live Qwen 3.8 27B chat surface (also used as
-            // the dedicated compact summarizer). Without this slot the bag
-            // only sees it after an opt-in fleet scan.
-            ("qwen38", "QWEN38", 8001, false),
-            ("coder", "SPARK", 8080, false),
-            ("r1", "SPARK_R1", 8081, false),
-            // Leanstral's llama-server chat surface. It is deliberately a plain
-            // chat slot and not the math head (`:8011`, /solve): only chat slots
-            // enter the bag, so this is what a formation seat — Tag Team's
-            // partner corner — can actually be assigned to.
-            ("leanstral", "LEANSTRAL", 18099, false),
-        ];
-        const TURBO: &[SlotSpec] = &[("turbo", "TURBO", 8093, false)];
-        // Optional second local server; its address comes from operator configuration.
-        const TOYMAKER: &[SlotSpec] = &[("ornith", "ORNITH", 8002, false)];
-        const ATLAS: &[SlotSpec] = &[("atlas", "ATLAS", 8080, false)];
-        const BOXES: &[BoxSpec] = &[
-            ("spark", "spark", "127.0.0.1", SPARK),
-            ("toymaker", "toymaker", "127.0.0.1", TOYMAKER),
-            ("turbo", "turbo", "127.0.0.1", TURBO),
-        ];
-        let mut boxes: Vec<BoxSpec> = BOXES.to_vec();
-        if atlas_model_serving_enabled() {
-            // Atlas serving is opt-in; its fallback is local-only. A remote route
-            // must be supplied explicitly or resolved through the opted-in tailnet.
-            boxes.push(("atlas", "atlas", "127.0.0.1", ATLAS));
+        let mut boxes = Self::bootstrap_specs(|key| std::env::var(key).ok());
+        if atlas_model_serving_enabled() && env_first(&["ANGEL_ATLAS_URL"]).is_some() {
+            // Retain the legacy route when explicitly configured. Atlas project
+            // memory is independent of this optional model endpoint.
+            boxes.push(BootstrapBoxSpec {
+                name: "atlas".to_string(),
+                host: String::new(),
+                fallback_ip: String::new(),
+                slots: vec![BootstrapSlotSpec {
+                    label: "atlas",
+                    env_key: "ATLAS",
+                    port: 0,
+                    is_swarm: false,
+                }],
+            });
         }
 
         // Optional bearer key from the env ONLY — never bake secrets into source.
@@ -523,7 +543,11 @@ impl Bag {
         let mut probed_endpoints: std::collections::HashMap<String, Arc<AtomicBool>> =
             std::collections::HashMap::new();
 
-        for &(box_name, host, fallback_ip, slots) in &boxes {
+        for spec in &boxes {
+            let box_name = &spec.name;
+            let host = &spec.host;
+            let fallback_ip = &spec.fallback_ip;
+            let slots = &spec.slots;
             // Cheap, no-network online check seeds the first frame; the prober
             // refines it. A box offline per Tailscale is hidden immediately.
             let online = host_online(host, &tailnet);
@@ -535,7 +559,11 @@ impl Bag {
                 .map(|h| h.ip.clone())
                 .unwrap_or_else(|| fallback_ip.to_string());
             let mut built: Vec<Slot> = Vec::new();
-            for &(label, env_key, port, is_swarm) in slots {
+            for slot_spec in slots {
+                let label = slot_spec.label;
+                let env_key = slot_spec.env_key;
+                let port = slot_spec.port;
+                let is_swarm = slot_spec.is_swarm;
                 let url = resolve_club_url(env_key, host, port, fallback_ip, &tailnet);
                 let model = std::env::var(format!("ANGEL_{env_key}_MODEL"))
                     .ok()
@@ -585,8 +613,16 @@ impl Bag {
                     available,
                 });
             }
-            box_ports.insert(ai, slots.iter().map(|s| s.2).collect());
-            ip_to_box.insert(box_ip, ai);
+            let ports = slots
+                .iter()
+                .filter_map(|slot| (slot.port != 0).then_some(slot.port))
+                .collect::<Vec<_>>();
+            if !ports.is_empty() {
+                box_ports.insert(ai, ports);
+            }
+            if !box_ip.is_empty() {
+                ip_to_box.insert(box_ip, ai);
+            }
             agents.push(Agent {
                 name: box_name.to_string(),
                 slots: built,
@@ -710,6 +746,7 @@ impl Bag {
         // capped frontier link degrades to the *next smartest* model — never
         // straight to a free breadth-tier one.
         for link in [
+            optional_openai_api_http_club(),
             optional_sota_http_club(
                 "kimi",
                 "kimi-k3",
@@ -771,14 +808,13 @@ impl Bag {
             sota_links.push(link);
         }
 
-        // Grok SOTA seat: first-class OAuth → api.x.ai (same pattern as ChatGPT
-        // Codex OAuth). Never XAI_API_KEY / paid API keys. Silent refresh from
-        // ~/.grok/auth.json. CLI research club remains available separately for
-        // nested web tools; it is not required for judge/aggregate hops.
+        // Grok account OAuth and optional CLI research are separate from the
+        // API-key route. Each uses its configured authentication method.
         let mut grok_probe_registered = false;
-        for (alias, club, available) in crate::club::grok::grok_oauth_http_clubs() {
+        for (alias, club, available) in crate::club::grok::grok_http_clubs() {
+            let uses_oauth = alias != "grok-api";
             sota_links.push((alias, Arc::clone(&club), Arc::clone(&available)));
-            if !grok_probe_registered {
+            if uses_oauth && !grok_probe_registered {
                 // Every concrete Grok model shares one endpoint, OAuth authority,
                 // and availability bit. Probe it once per interval, not once per
                 // catalog row.
@@ -812,8 +848,8 @@ impl Bag {
         {
             sota_links.push(link);
         }
-        // No automatic free catalog. OpenRouter requires both an explicit
-        // provider opt-in and an explicit model pin.
+        // OpenRouter requires credentials and a model pin and follows the
+        // operator's optional provider allowlist.
         if openrouter_configured() {
             sota_links.extend(optional_openrouter_http_clubs());
         }
@@ -883,8 +919,8 @@ impl Bag {
 
         // Permanent logical configuration for the overnight GPU competition loop.
         // This is intentionally not auto-elected as the brain: it is a visible
-        // control surface that can be selected explicitly, while the actual loop
-        // still runs through scripts/gpu-comp-local-moa.mjs.
+        // control surface selected explicitly. Native formations and declared
+        // agent graphs own multi-agent dispatch.
         let (gpu_comp_driver, gpu_comp_avail) = agents
             .iter()
             .find(|a| a.name == "turbo")
@@ -2313,30 +2349,9 @@ impl Bag {
 }
 
 #[cfg(test)]
-mod task_driver_selection_tests {
-    use super::*;
-    #[test]
-    fn explicit_task_driver_does_not_fall_back_to_practice() {
-        let mut bag = Bag::practice_for_test();
-        assert!(matches!(
-            bag.require_task_driver("missing-glm-fixture"),
-            Err(TaskDriverSelectionError::Unconfigured)
-        ));
-        assert!(bag.require_task_driver("practice").is_ok());
-    }
-    #[test]
-    fn explicit_task_driver_does_not_fall_back_to_another_slot() {
-        let mut bag = Bag::for_render_test(&[("box", &[("preferred", false), ("other", true)])]);
-        assert!(matches!(
-            bag.require_task_driver("preferred"),
-            Err(TaskDriverSelectionError::Unavailable)
-        ));
-        assert!(bag.require_task_driver("other").is_ok());
-    }
-    #[test]
-    fn explicit_task_driver_uses_existing_alias_rules() {
-        let mut bag = Bag::for_render_test(&[("box", &[("openrouter", true)])]);
-        assert!(bag.require_task_driver("or").is_ok());
-        assert_eq!(bag.selected_route_indices(), (0, 0));
-    }
-}
+#[path = "../../../tests/cockpit/club/bag__task_driver_selection_tests.rs"]
+mod task_driver_selection_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/club/bag__bootstrap_spec_tests.rs"]
+mod bootstrap_spec_tests;

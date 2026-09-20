@@ -238,5 +238,5 @@ fn bind_fire(
 }
 
 #[cfg(test)]
-#[path = "flywheel_results_tests.rs"]
+#[path = "../../../../tests/cockpit/competition/adapters__flywheel_results_tests.rs"]
 mod tests;

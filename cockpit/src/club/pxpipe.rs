@@ -354,9 +354,7 @@ fn pxpipe_helper_path() -> PathBuf {
     if let Some(path) = env_first(&["ANGEL_PXPIPE_HELPER"]) {
         return PathBuf::from(path);
     }
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root = manifest.parent().unwrap_or(&manifest);
-    root.join("scripts").join("pxpipe-transform.mjs")
+    crate::runtime_paths::script("pxpipe-transform.mjs")
 }
 
 fn pxpipe_enabled() -> bool {
@@ -461,23 +459,8 @@ fn truncate_for_log(s: &str, max: usize) -> String {
 }
 
 #[cfg(test)]
-mod truncate_stress {
-    use super::truncate_for_log;
-
-    #[test]
-    fn never_splits_a_multibyte_char() {
-        // Subprocess stderr is arbitrary UTF-8; a byte budget landing inside a
-        // multi-byte char used to panic. Try every budget across a run of 2- and
-        // 3-byte chars — none may panic.
-        let s: String = "é字".repeat(300); // é = 2 bytes, 字 = 3 bytes
-        for max in 1..s.len() {
-            let out = truncate_for_log(&s, max);
-            assert!(out.is_empty() || out.ends_with("...") || out == s);
-        }
-        // Short input is returned verbatim.
-        assert_eq!(truncate_for_log("hi", 100), "hi");
-    }
-}
+#[path = "../../../tests/cockpit/club/pxpipe__truncate_stress.rs"]
+mod truncate_stress;
 
 fn log_pxpipe_once(key: String, msg: String) {
     static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
@@ -491,65 +474,5 @@ fn log_pxpipe_once(key: String, msg: String) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pxpipe_is_disabled_by_default() {
-        let _guard = crate::tests::env_lock();
-        let saved = std::env::var_os("ANGEL_PXPIPE");
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("ANGEL_PXPIPE") };
-
-        assert!(!pxpipe_enabled());
-
-        match saved {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            Some(value) => unsafe { std::env::set_var("ANGEL_PXPIPE", value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            None => unsafe { std::env::remove_var("ANGEL_PXPIPE") },
-        }
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn persistent_roundtrip_hang_is_killed_at_the_request_deadline() {
-        use std::os::unix::process::CommandExt as _;
-
-        let _guard = crate::tests::env_lock();
-        let _timeout = crate::tests::TestEnvGuard::set("ANGEL_PXPIPE_TIMEOUT_MS", "50");
-        let mut command = Command::new("/bin/sh");
-        command
-            .args(["-c", "sleep 30 & wait"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .process_group(0);
-        let mut child = command.spawn_owned().unwrap();
-        let stdin = child.stdin.take().unwrap();
-        let stdout = child.stdout.take().unwrap();
-        let mut daemon = PxpipeDaemon {
-            child,
-            stdin,
-            stdout: BufReader::new(stdout),
-        };
-        let started = std::time::Instant::now();
-
-        let error = pxpipe_daemon_roundtrip(
-            &mut daemon,
-            PxpipeApi::Responses,
-            "openai",
-            "gpt-5.5",
-            br#"{"model":"gpt-5.5"}"#,
-        )
-        .unwrap_err();
-
-        assert!(error.contains("timed out after 50ms"), "{error}");
-        assert!(
-            started.elapsed() < Duration::from_secs(2),
-            "persistent pxpipe daemon outlived its request deadline: {:?}",
-            started.elapsed()
-        );
-        let _ = daemon.child.wait();
-    }
-}
+#[path = "../../../tests/cockpit/club/pxpipe__tests.rs"]
+mod tests;

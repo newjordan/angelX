@@ -46,21 +46,8 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
 #[cfg(test)]
-mod world_scene_tax {
-    use std::cell::Cell;
-
-    thread_local! {
-        static RIDE_COMPOSES: Cell<u64> = const { Cell::new(0) };
-    }
-
-    pub(super) fn note_ride_compose() {
-        RIDE_COMPOSES.with(|count| count.set(count.get().saturating_add(1)));
-    }
-
-    pub(crate) fn take_ride_compose_count() -> u64 {
-        RIDE_COMPOSES.with(|count| count.replace(0))
-    }
-}
+#[path = "../../tests/cockpit/world_viz/world_viz__world_scene_tax.rs"]
+mod world_scene_tax;
 
 #[cfg(test)]
 pub(crate) use world_scene_tax::take_ride_compose_count;
@@ -2434,6 +2421,7 @@ impl World {
     }
 }
 #[cfg(test)]
+#[path = "../../tests/cockpit/world_viz/tests.rs"]
 mod tests;
 
 #[cfg(test)]

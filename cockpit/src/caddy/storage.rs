@@ -597,4 +597,5 @@ fn prepare_directory(repo_dir: &Path) -> io::Result<()> {
 }
 
 #[cfg(all(test, unix))]
+#[path = "../../../tests/cockpit/app/caddy__storage__directory_tests.rs"]
 mod directory_tests;

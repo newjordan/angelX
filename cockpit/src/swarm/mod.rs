@@ -90,4 +90,5 @@ pub(crate) use waves::*;
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/app/swarm__tests.rs"]
 mod tests;

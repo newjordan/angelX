@@ -61,72 +61,107 @@ mod submission_store;
 pub(crate) mod worker_policy;
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/candidate_store_tests.rs"]
 mod candidate_store_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/candidate_tests.rs"]
 mod candidate_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/candidate_validation_tests.rs"]
 mod candidate_validation_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/cutpoint_tests.rs"]
 mod cutpoint_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/deep_cut_policy_tests.rs"]
 mod deep_cut_policy_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/director_refresh_tests.rs"]
 mod director_refresh_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/director_restore_tests.rs"]
 mod director_restore_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/director_results_tests.rs"]
 mod director_results_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/director_store_tests.rs"]
 mod director_store_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/director_tests.rs"]
 mod director_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/dossier_store_tests.rs"]
 mod dossier_store_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/dossier_tests.rs"]
 mod dossier_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/episode_reducer_tests.rs"]
 mod episode_reducer_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/full_portability_episode_fixture.rs"]
 mod full_portability_episode_fixture;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/full_portability_episode_tests.rs"]
 mod full_portability_episode_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/full_portability_tests.rs"]
 mod full_portability_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/migration_tests.rs"]
 mod migration_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/patterns_adversarial_tests.rs"]
 mod patterns_adversarial_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/patterns_tests.rs"]
 mod patterns_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/portability_review_tests.rs"]
 mod portability_review_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/portability_tests.rs"]
 mod portability_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/rewards_adversarial_tests.rs"]
 mod rewards_adversarial_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/rewards_tests.rs"]
 mod rewards_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/runtime_authorization_tests.rs"]
 mod runtime_authorization_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/runtime_schema_tests.rs"]
 mod runtime_schema_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/scheduler_soak_tests.rs"]
 mod scheduler_soak_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/scheduler_tests.rs"]
 mod scheduler_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/schema_tests.rs"]
 mod schema_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/schema_validation_tests.rs"]
 mod schema_validation_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/submission_cutpoint_tests.rs"]
 mod submission_cutpoint_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/submission_origin_tests.rs"]
 mod submission_origin_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/submission_store_tests.rs"]
 mod submission_store_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/submission_tests.rs"]
 mod submission_tests;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/test_support__mod.rs"]
 mod test_support;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/competition/worker_policy_tests.rs"]
 mod worker_policy_tests;

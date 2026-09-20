@@ -6,6 +6,7 @@
 
 mod cargo_controls;
 #[cfg(test)]
+#[path = "../../../tests/cockpit/tools/build__fallback_tests.rs"]
 mod fallback_tests;
 mod targets;
 mod verifier;

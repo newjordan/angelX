@@ -8,6 +8,7 @@ description = "angel0 terminal cockpit and competition/RL task runner"
 license = "MIT"
 readme = "../README.md"
 publish = false
+autotests = false
 
 [features]
 default = ["scryglass-video"]
@@ -96,3 +97,27 @@ libc = "0.2"
 # landlock (no seccompiler/libc).
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.4"
+
+[[test]]
+name = "harness_rollout_persistence"
+path = "../tests/cockpit/integration/harness_rollout_persistence.rs"
+
+[[test]]
+name = "http_transport_deadline"
+path = "../tests/cockpit/integration/http_transport_deadline.rs"
+
+[[test]]
+name = "interactive_terminal_smoke"
+path = "../tests/cockpit/integration/interactive_terminal_smoke.rs"
+
+[[test]]
+name = "m05_memory_health"
+path = "../tests/cockpit/integration/m05_memory_health.rs"
+
+[[test]]
+name = "process_ownership"
+path = "../tests/cockpit/integration/process_ownership.rs"
+
+[[test]]
+name = "research_compose"
+path = "../tests/cockpit/integration/research_compose.rs"

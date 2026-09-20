@@ -724,8 +724,8 @@ pub(crate) struct SmartSeat {
 }
 
 /// Resolve the smart seat. Defaults: gpt-5.6 **Sol at max** effort, with
-/// **Kimi-K3 at high** as the graceful alternative (operator order
-/// 2026-08-02). When a TUI approval surface is attached, the operator gets a
+/// **Kimi-K3 at high** as the alternative. These defaults can be changed with
+/// `ANGEL_SOTA_SMART_*`. When a TUI approval surface is attached, the operator gets a
 /// popup: approve/approve-all = the primary, deny = the alternative — a choice
 /// between two sanctioned seats, never a veto that silently downgrades to a
 /// cheap model. Headless runs take the primary silently: escalation must never
@@ -849,19 +849,16 @@ impl GpuCompLocalMoaClub {
     }
 
     fn coordinator_prompt() -> &'static str {
-        "You are GPU Comp Local MoA, the angel0 overnight GPU competition coordinator. \
-Your primary objective is to drive the local angel0 GPU-comp fleet toward stronger kernel candidates by coordinating the local models and keeping the pipeline efficient. \
-Your role is architecture, model coordination, debugging, validation discipline, and operational routing. \
-You are not the active competition driver unless explicitly asked; Turbo x12 is the driver/self-agent pool, Leanstral handles formula and numerical math, DICE is an advisory checker, and OpenAI audits submission.py algorithm/math at most every 45 minutes. \
-This cockpit club is one Turbo coordinator conversation, not proof that twelve lanes, Leanstral, DICE, or OpenAI actually ran. Claim a lane or verifier participated only when its runner artifact exists. Use the explicit GPU-comp runner for fan-out; never describe a single coordinator turn as an MoA dispatch. \
-Answer the user's actual prompt directly. Do not repeat setup instructions unless the user asks how to start, activate, bootstrap, or diagnose the configuration. \
-When asked your objective, state the coordination objective plainly. \
-When discussing kernel improvements, require evidence-first validation: correctness before timing, proxy GPU results only as rejection/calibration evidence, and authoritative target benchmarks before submission claims. \
-Work Treebeard-style when the lane is active: park large kernels and popcorn logs under handles, batch candidate edits via code_mode, keep the root trajectory strategy-only (handle receipts + plan), and feed measured B200 outcomes back as Hi/Q goldens rather than bulk CUDA dumps."
+        "You are the GPU competition coordinator. Your primary objective is to improve kernel candidates through measured experiments. \
+This chat uses one configured Turbo coordinator. Use the native `/moa gpu` formation when the user engages a model team; inspect its configured seats before assigning work. \
+Do not claim that another model, tool, or verifier participated without its execution receipt. \
+Answer the user's actual prompt directly. Do not repeat setup instructions unless the user asks how to start or diagnose the configuration. \
+Check correctness before timing, use proxy hardware results only with their calibration limits, and distinguish local measurements from official submissions. \
+Use code_mode to batch independent inspection and retain large kernels and logs under handles. Jev supplies advisory analysis; benchmark_compare calculates measured changes from paired samples."
     }
 
     fn status_card() -> &'static str {
-        "GPU Comp Local MoA coordinator: this chat is one Turbo coordinator lane. The separate runner can dispatch Turbo lanes and record Leanstral/DICE/OpenAI participation; only its artifacts prove those lanes ran. Activate the cockpit formation with `/moa gpu`; run the explicit runner with `node scripts/gpu-comp-local-moa.mjs watch --submission <submission.py>`."
+        "GPU competition coordinator: one configured Turbo conversation. Use `/moa gpu` to engage the native GPU formation, `/moa` to inspect its seats, and `/graph` for declared agent workflows."
     }
 
     fn with_coordinator_prompt(messages: &[ChatMsg]) -> Vec<ChatMsg> {
@@ -978,6 +975,7 @@ impl Club for GpuCompLocalMoaClub {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/club/tests.rs"]
 mod tests;
 
 pub(crate) const FINAL_MILE_ANSWER_NUDGE: &str = "[harness-telemetry] FINAL RESPONSE WINDOW. Tool calls are now disabled for the \

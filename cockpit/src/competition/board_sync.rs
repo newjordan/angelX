@@ -125,5 +125,5 @@ pub(crate) fn run(state_dir: &Path) -> Result<String, AdapterFailureV1> {
 }
 
 #[cfg(test)]
-#[path = "board_sync_tests.rs"]
+#[path = "../../../tests/cockpit/competition/board_sync_tests.rs"]
 mod tests;

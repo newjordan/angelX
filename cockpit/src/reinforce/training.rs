@@ -373,4 +373,5 @@ pub(crate) fn audit_cli(root: &Path) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/reinforce/training__tests.rs"]
 mod tests;

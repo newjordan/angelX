@@ -216,7 +216,7 @@ impl Drop for ShellPane {
 }
 
 #[cfg(all(test, target_os = "linux"))]
-#[path = "pty/process_ownership_tests.rs"]
+#[path = "../../tests/cockpit/app/pty__process_ownership_tests.rs"]
 mod process_ownership_tests;
 
 /// Translate a crossterm key event into the bytes a terminal expects on stdin.
