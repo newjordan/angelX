@@ -63,6 +63,7 @@ mod auxiliary;
 mod code_mode;
 pub(crate) mod coeffect;
 mod comp_watch;
+pub(crate) mod comp_packages;
 mod compact;
 mod confined_fs;
 mod context;

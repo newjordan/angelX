@@ -151,8 +151,6 @@ mod workspace_lang;
 mod workspace_store;
 mod world_viz;
 mod yolo;
-mod yukon_fleet;
-mod yukon_status;
 
 use agent_profile::{
     AgentKey, AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route,
@@ -964,7 +962,7 @@ fn main() -> std::io::Result<()> {
                     "--yukon-status requires exactly two UUIDs",
                 ));
             }
-            return yukon_status::run_cli(&benchmark, &submission).map_err(std::io::Error::other);
+            return crate::harness::comp_packages::yukon::run_cli(&benchmark, &submission).map_err(std::io::Error::other);
         }
         if arg == "--watch-fixture" {
             let path = args.next();

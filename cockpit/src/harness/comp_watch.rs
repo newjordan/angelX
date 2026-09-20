@@ -10,8 +10,6 @@ use crate::club::ToolCall;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-mod yukon_source;
-pub(crate) use yukon_source::configured_yukon_watch;
 
 /// Shipped built-in fixture: in-flight → still-running → terminal with score.
 /// Redacted gold id; not a live competition identifier.
@@ -491,7 +489,7 @@ pub(crate) fn run_watch_fixture_cli(path: Option<&Path>) -> io::Result<WatchNoti
 pub(crate) enum ConfiguredWatchSource {
     Fixture(FixtureStatusSource),
     File(FileStatusSource),
-    Yukon(Box<yukon_source::YukonStatusSource>),
+    Yukon(Box<crate::harness::comp_packages::yukon::watch::YukonStatusSource>),
 }
 
 impl StatusSource for ConfiguredWatchSource {
