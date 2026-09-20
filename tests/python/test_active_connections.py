@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('active_connections', (Path(__file__).resolve().parents[2] / "scripts" / 'check-active-connections.py'))
+spec = importlib.util.spec_from_file_location('active_connections', (Path(__file__).resolve().parents[2] / "scripts" / "check" / 'check-active-connections.py'))
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
