@@ -72,7 +72,7 @@ fn adversarial_provenance_hostile_stores_both_bootstrap_modes() {
                     registry.set_workspace(workspace.clone());
                     harness::refresh_knowledge_broker(&registry, &mut history, 100_000, &[], false);
                 }
-                let wire = messages_to_json(&history);
+                let wire = messages_to_json(&history, true);
                 for marker in ["DOSSIER_HOSTILE", "HAZARD_HOSTILE", "RECIPE_HOSTILE"] {
                     let retained = history.iter().any(|message| {
                         message.role == ChatRole::Harness && message.content.contains(marker)
@@ -589,7 +589,7 @@ fn provenance_interactive_and_headless_wire_keep_repository_data_out_of_system()
         build_task_history(&[], &[], &workspace, None),
     ] {
         history.push(ChatMsg::user("OPERATOR: inspect only; do not publish"));
-        let wire = messages_to_json(&history);
+        let wire = messages_to_json(&history, true);
         for marker in ["GUIDANCE_WIRE", "DOSSIER_WIRE", "CADDY_WIRE"] {
             assert!(
                 wire.iter().any(|m| m["role"] == "user"

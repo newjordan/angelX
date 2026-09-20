@@ -764,7 +764,7 @@ pub(crate) fn push_prose_value(v: &serde_json::Value, calls: &mut Vec<ToolCall>)
     });
 }
 
-pub(crate) fn messages_to_json(messages: &[ChatMsg]) -> Vec<serde_json::Value> {
+pub(crate) fn messages_to_json(messages: &[ChatMsg], images_ok: bool) -> Vec<serde_json::Value> {
     use serde_json::json;
     let mut out = Vec::with_capacity(messages.len());
     for m in messages {
@@ -777,7 +777,14 @@ pub(crate) fn messages_to_json(messages: &[ChatMsg]) -> Vec<serde_json::Value> {
                     // OpenAI multimodal: content becomes [text, …media parts].
                     let mut parts = Vec::with_capacity(1 + m.attachments.len());
                     parts.push(json!({ "type": "text", "text": m.content }));
-                    parts.extend(m.attachments.iter().map(Media::to_part));
+                    // A route that already rejected image parts replays the
+                    // same history without them; audio is unaffected.
+                    parts.extend(
+                        m.attachments
+                            .iter()
+                            .filter(|a| images_ok || !matches!(a, Media::Image { .. }))
+                            .map(Media::to_part),
+                    );
                     json!({ "role": "user", "content": parts })
                 }
             }

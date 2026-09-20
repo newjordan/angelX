@@ -850,7 +850,7 @@ fn read_utf8_blob(store: &RolloutStore, reference: &BlobRef) -> Result<String, S
 }
 
 fn trajectory_messages(history: &[ChatMsg]) -> Vec<Value> {
-    crate::club::messages_to_json(history)
+    crate::club::messages_to_json(history, true)
         .into_iter()
         .zip(history)
         .map(|(mut wire, message)| {

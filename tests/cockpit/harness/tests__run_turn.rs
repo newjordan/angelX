@@ -1913,7 +1913,7 @@ fn run_turn_stream_cut_replay_preserves_completed_tool_work() {
             self.requests
                 .lock()
                 .unwrap()
-                .push(json!(crate::club::messages_to_json(messages)));
+                .push(json!(crate::club::messages_to_json(messages, true)));
             match self.calls.fetch_add(1, Ordering::SeqCst) {
                 0 => Ok(ClubReply::Calls(vec![tc(
                     "reverse",
@@ -9843,7 +9843,7 @@ fn run_turn_r06_stream_cut_budget_renews_on_each_hop() {
             delta: &mut dyn FnMut(crate::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             let mut requests = self.requests.lock().unwrap();
-            requests.push(json!(crate::club::messages_to_json(history)));
+            requests.push(json!(crate::club::messages_to_json(history, true)));
             match requests.len() {
                 1 | 3 => {
                     delta(crate::club::StreamDelta::Content("discard-partial"));
