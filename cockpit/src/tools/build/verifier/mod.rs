@@ -3,6 +3,7 @@
 mod execute;
 mod plan;
 #[cfg(test)]
+#[path = "../../../../../tests/cockpit/tools/build__verifier__tests.rs"]
 mod tests;
 
 use super::{

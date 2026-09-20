@@ -21,4 +21,5 @@ pub(crate) use tool::{
 };
 
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/harness/swarm_compile__tests.rs"]
 mod tests;

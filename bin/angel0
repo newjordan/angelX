@@ -23,9 +23,9 @@
 #                     do not bake the source digest (sha256 of `git archive HEAD`)
 #                     into the binary; `angel --build-info --json` then says
 #                     "unbound". Default: bind when cockpit/ is clean.
-#   ANGEL_API_CLUBS   explicit API-key provider allowlist (comma-separated).
-#                     Empty/unset: OAuth and local models only. Saved keys do
-#                     not enable clubs; Muse and the OpenAI API seat are removed.
+#   ANGEL_API_CLUBS   optional API-provider allowlist (comma-separated).
+#                     Unset, * or all: configured providers are available.
+#                     Empty or none: OAuth and local models only.
 #   ANGEL_DEV=1       run an unoptimized debug build instead of release (faster
 #                     compile, slower runtime — handy mid-edit)
 #   ANGEL_WEBGPU_PORTAL=0
@@ -57,6 +57,7 @@ _angel_realpath() {
 # the root). Resolves symlinks so a linked launcher still works on Linux and macOS.
 ANGEL_DIR="$(cd "$(dirname "$(_angel_realpath "${BASH_SOURCE[0]}")")/.." && pwd)"
 COCKPIT_DIR="$ANGEL_DIR/cockpit"
+export ANGEL_RESOURCE_DIR="${ANGEL_RESOURCE_DIR:-$ANGEL_DIR}"
 LAUNCH_CWD="$(pwd -P)"
 # Only the invoking environment may intentionally override a bare launch.
 LAUNCH_WORKSPACE="${ANGEL_WORKSPACE:-}"
@@ -187,7 +188,7 @@ if [ "$HEADLESS_MODE" = "1" ]; then
   fi
 else
   # Interactive convenience: broad host defaults first, then repo/user overrides.
-  for envf in "$HOME/.config/host_env/api_keys.sh" "$HOME/.env" "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env" "$HOME/.openrouter.env"; do
+  for envf in "$HOME/.config/host_env/system.env" "$HOME/.config/host_env/api_keys.sh" "$HOME/.env" "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env" "$HOME/.openrouter.env"; do
     # shellcheck disable=SC1090
     [ -f "$envf" ] && { set -a; . "$envf"; set +a; }
   done
@@ -201,16 +202,10 @@ else
   fi
 fi
 
-# Apply the same provider opt-in policy before any binary is launched, even
+# Apply the user's optional provider allowlist before any binary is launched, even
 # when ANGEL_NO_BUILD selects an older image without the Rust registration gate.
 # shellcheck source=../scripts/angel-club-policy.sh
 . "$ANGEL_DIR/scripts/angel-club-policy.sh"
-
-# Grok is OAuth-CLI only. Never let a paid xAI/Grok API key into the cockpit
-# process — a spent or live key used to hijack the SOTA seat onto api.x.ai.
-unset XAI_API_KEY GROK_API_KEY ANGEL_GROK_KEY ANGEL_XAI_KEY GPU_COMP_GROK_KEY \
-  XAI_BASE_URL ANGEL_GROK_URL GROK_API_URL XAI_API_URL ANGEL_GROK_BASE_URL \
-  GPU_COMP_GROK_BASE_URL ANGEL_GROK_USE_API 2>/dev/null || true
 
 # Convenience global flags. Keep these before workspace parsing so
 # `angel0 --yolo /path/to/project` and `angel0 --comp ...` work.

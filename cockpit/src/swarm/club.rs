@@ -1237,7 +1237,7 @@ impl SwarmClub {
 }
 
 #[cfg(test)]
-#[path = "club_admission_tests.rs"]
+#[path = "../../../tests/cockpit/app/swarm__club_admission_tests.rs"]
 mod worker_admission_tests;
 
 impl SwarmClub {

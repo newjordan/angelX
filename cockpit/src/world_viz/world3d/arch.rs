@@ -80,6 +80,7 @@ pub(crate) mod village;
 pub(crate) mod works;
 
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/world3d__arch__tests.rs"]
 mod tests;
 
 // Flat re-export surface: the renderer side calls `arch::keep(seed)`, not

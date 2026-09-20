@@ -63,27 +63,8 @@ pub(crate) fn read_frame<R: BufRead>(r: &mut R) -> std::io::Result<Option<Value>
 }
 
 #[cfg(test)]
-mod frame_stress {
-    use super::read_frame;
-
-    #[test]
-    fn oversized_content_length_is_rejected_not_allocated() {
-        // A buggy/hostile server declaring a gigantic Content-Length must be
-        // rejected before `vec![0u8; len]` aborts the whole process.
-        let framed = format!("Content-Length: {}\r\n\r\n", 9_000_000_000u64);
-        let mut cursor = std::io::Cursor::new(framed.into_bytes());
-        assert!(read_frame(&mut cursor).is_err());
-    }
-
-    #[test]
-    fn well_formed_small_frame_still_reads() {
-        let body = "{\"jsonrpc\":\"2.0\"}";
-        let framed = format!("Content-Length: {}\r\n\r\n{body}", body.len());
-        let mut cursor = std::io::Cursor::new(framed.into_bytes());
-        let v = read_frame(&mut cursor).unwrap().unwrap();
-        assert_eq!(v["jsonrpc"], "2.0");
-    }
-}
+#[path = "../../../tests/cockpit/app/lsp__protocol__frame_stress.rs"]
+mod frame_stress;
 
 /// `Some(Ok(result))` / `Some(Err(msg))` if `v` is the response to `id`; `None`
 /// for notifications, other ids, or server→client requests.
@@ -141,18 +122,5 @@ pub(crate) fn pull_report_to_params(uri: &str, report: &Value) -> Value {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn pull_report_normalizes_full_and_unchanged() {
-        let full = json!({ "kind": "full", "items": [ { "severity": 1, "message": "x" } ] });
-        let p = pull_report_to_params("file:///a.rs", &full);
-        assert_eq!(p["uri"], "file:///a.rs");
-        assert_eq!(p["diagnostics"].as_array().unwrap().len(), 1);
-        let unchanged = json!({ "kind": "unchanged", "resultId": "1" });
-        let p2 = pull_report_to_params("file:///a.rs", &unchanged);
-        assert_eq!(p2["diagnostics"].as_array().unwrap().len(), 0); // no items -> clean
-    }
-}
+#[path = "../../../tests/cockpit/app/lsp__protocol__tests.rs"]
+mod tests;

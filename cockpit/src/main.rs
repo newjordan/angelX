@@ -62,6 +62,7 @@ mod hud;
 mod identity;
 mod input;
 mod iterate;
+mod runtime_paths;
 // Curation gate between swarm reports and the memory palace; swarm wiring is
 // deferred until its dedup/importance policy is real (see librarian.rs).
 mod app;
@@ -94,6 +95,7 @@ mod memory;
 mod memory_store;
 mod mission;
 mod moa_viz;
+mod model_setup;
 mod mouse;
 mod observatory;
 mod openai_codex;
@@ -273,7 +275,7 @@ fn flush_session_for_exit(session: &session::Session) -> std::io::Result<()> {
 
 const PRACTICE_NOTICE: &str =
     "No live model route; interactive practice driver is active (offline echo).";
-const NO_ROUTE: &str = "no model route: practice fallback is disabled in headless mode; set ANGEL_DRIVER and, for API providers, ANGEL_API_CLUBS plus ANGEL_<DRIVER>_KEY, ANGEL_<DRIVER>_URL and ANGEL_<DRIVER>_MODEL (for example ANGEL_OPENROUTER_KEY, ANGEL_OPENROUTER_URL, ANGEL_OPENROUTER_MODEL), or explicitly opt in with ANGEL_PRACTICE=1";
+const NO_ROUTE: &str = "no model route: configure the selected provider's credentials, endpoint and model, then set ANGEL_DRIVER; check ANGEL_API_CLUBS if you set an allowlist. See docs/MODELS.md or /connect in the cockpit. For an explicit offline practice run, set ANGEL_PRACTICE=1";
 
 fn interactive_practice_notice(label: &str) -> Option<&'static str> {
     (label == "practice").then_some(PRACTICE_NOTICE)
@@ -554,38 +556,8 @@ fn write_private_export(path: &str, value: &serde_json::Value) -> std::io::Resul
 }
 
 #[cfg(test)]
-mod rollout_export_output_tests {
-    use super::write_private_export;
-
-    #[test]
-    fn explicit_export_path_is_private_and_never_overwritten() {
-        let path = std::env::temp_dir().join(format!(
-            "angel-rollout-export-{}-{}.json",
-            std::process::id(),
-            crate::cut::sha256_hex(b"private-export-fixture")
-        ));
-        let _ = std::fs::remove_file(&path);
-        write_private_export(
-            path.to_str().unwrap(),
-            &serde_json::json!({"schema": "fixture/v1"}),
-        )
-        .unwrap();
-        assert!(write_private_export(path.to_str().unwrap(), &serde_json::json!({})).is_err());
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&std::fs::read(&path).unwrap()).unwrap()["schema"],
-            "fixture/v1"
-        );
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            assert_eq!(
-                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
-                0o600
-            );
-        }
-        let _ = std::fs::remove_file(path);
-    }
-}
+#[path = "../../tests/cockpit/app/main__rollout_export_output_tests.rs"]
+mod rollout_export_output_tests;
 
 const CLI_HELP: &str = r#"angel0 — terminal cockpit and competition/RL task runner
 
@@ -966,6 +938,7 @@ fn main() -> std::io::Result<()> {
                     "toolchain": build.toolchain,
                     "package_version": env!("CARGO_PKG_VERSION"),
                     "cockpit_source_sha256": build.cockpit_source_sha256,
+                    "resources": runtime_paths::status(),
                     "capabilities": BUILD_CAPABILITIES,
                     "video_decode": cfg!(feature = "scryglass-video"),
                 })
@@ -1778,53 +1751,13 @@ fn main() -> std::io::Result<()> {
     }
 }
 #[cfg(test)]
+#[path = "../../tests/cockpit/app/tests.rs"]
 mod tests;
 
 #[cfg(test)]
-mod d06b_tests {
-    use super::*;
-
-    #[test]
-    fn d06b_practice_requires_exact_opt_in() {
-        for value in [None, Some("0"), Some("true"), Some(" 1")] {
-            assert!(!practice_route_allowed("practice", value));
-        }
-        assert!(practice_route_allowed("practice", Some("1")));
-        assert!(practice_route_allowed("openrouter", None));
-        assert_eq!(
-            interactive_practice_notice("practice"),
-            Some(PRACTICE_NOTICE)
-        );
-        assert_eq!(interactive_practice_notice("openrouter"), None);
-        assert!(PRACTICE_NOTICE.contains("interactive practice"));
-        assert!(PRACTICE_NOTICE.contains("offline echo"));
-    }
-
-    #[test]
-    fn d06b_no_route_envelope() {
-        let value = serde_json::to_value(harness::TaskJsonEnvelope::from_startup_failure(
-            &harness::TaskCliArgs::default(),
-            std::path::PathBuf::from("."),
-            0,
-            harness::TaskStartupStopReason::NoRoute,
-            NO_ROUTE.into(),
-        ))
-        .unwrap();
-        assert_eq!(value["status"], "error");
-        assert_eq!(value["error"]["kind"], "no_route");
-        assert_eq!(value["hops"], 0);
-        for knob in [
-            "ANGEL_DRIVER",
-            "ANGEL_API_CLUBS",
-            "ANGEL_<DRIVER>_KEY",
-            "ANGEL_<DRIVER>_URL",
-            "ANGEL_<DRIVER>_MODEL",
-            "ANGEL_PRACTICE=1",
-        ] {
-            assert!(value["error"]["message"].as_str().unwrap().contains(knob));
-        }
-    }
-}
+#[path = "../../tests/cockpit/app/main__d06b_tests.rs"]
+mod d06b_tests;
 
 #[cfg(test)]
+#[path = "../../tests/cockpit/app/retained_world_tests.rs"]
 mod retained_world_tests;

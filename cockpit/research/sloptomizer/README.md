@@ -25,4 +25,4 @@ apply, and verify. Learning errors are reported alongside the experiment result.
 Python 3 is required; the runtime and its standard-library-only modules are
 embedded in the cockpit binary. `ANGEL_RESEARCH_PYTHON` selects the interpreter.
 [Source provenance](UPSTREAM.json) ·
-[Integration tests](../../src/rl_ctl/campaign_tests/research_tests.rs)
+[Integration tests](../../../tests/cockpit/app/rl_ctl__campaign_tests__research_tests.rs)

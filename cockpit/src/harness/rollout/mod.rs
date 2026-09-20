@@ -24,4 +24,5 @@ pub(crate) use schema::{RewardOwner, RewardReceipt, TaskRolloutBindingV1};
 pub(crate) use store::RolloutStore;
 
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/harness/rollout__tests.rs"]
 mod tests;

@@ -763,4 +763,5 @@ fn reject_sensitive_bytes(bytes: &[u8]) -> Result<(), String> {
 }
 
 #[cfg(all(test, unix))]
+#[path = "../../../../tests/cockpit/harness/rollout__store__directory_tests.rs"]
 mod directory_tests;

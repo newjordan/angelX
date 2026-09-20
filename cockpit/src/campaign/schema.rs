@@ -845,13 +845,5 @@ fn validate_oid(label: &str, value: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod l01_tests {
-    use super::*;
-    #[test]
-    fn campaign_defaults_do_not_supply_run_caps() {
-        let policy = CampaignPolicy::default();
-        assert_eq!(policy.max_rounds, 0);
-        assert_eq!(policy.token_budget, 0);
-        assert_eq!(policy.deadline_secs, 0);
-    }
-}
+#[path = "../../../tests/cockpit/app/campaign__schema__l01_tests.rs"]
+mod l01_tests;
