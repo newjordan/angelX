@@ -1,0 +1,12 @@
+id = "image"
+title = "Image Viewer"
+kind = "image"
+activation = "on-demand"
+capabilities = ["media", "widget"]
+data_sources = ["ratatui-image", "viewer"]
+
+[default_rect]
+x = 1
+y = 5
+width = 138
+height = 30

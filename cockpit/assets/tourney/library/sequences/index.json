@@ -1,0 +1,15 @@
+{
+  "source": "operator-provided sprite export pack",
+  "staged": "operator sprite staging directory",
+  "sequences": [
+    "flag_raise",
+    "lance_impact",
+    "maiden_wave",
+    "knight_charge",
+    "joust_gallop"
+  ],
+  "frame_box": [
+    480,
+    240
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "date": "2026-09-12",
+  "style_reference": "keep-waterfall-source.png",
+  "locations": [
+    {
+      "id": "gatehouse",
+      "role": "External connections & dispatch",
+      "stations": [
+        "Portcullis",
+        "Paired braziers",
+        "Dispatch threshold"
+      ],
+      "approved_template": "building-gatehouse-mountain.png",
+      "template_sha256": "8d31ca56f341ee486512b86f8ab7573b5e4d1fb01ac84982aa081260b76a83f2",
+      "template_brief": "a grand neoclassical mountain pass entrance: monumental paired columns and a pediment over a recessed passage, bridge over a ravine, stacked internal galleries and several gates receding into rock; warm dispatch alcoves beside the clear central passage. Existing room purpose is External connections & dispatch; preserve recognizable main furniture: Portcullis, Paired braziers, Dispatch threshold. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "gatehouse-mountain-v2-source.png",
+      "plate": "gatehouse-mountain-v2.png",
+      "prompt": "gatehouse-mountain-v2-prompt.md",
+      "source_sha256": "2b82c8a64d781dea7f1ffe419d131d8a75c5f38b1bfdfa7ad30fa6198e761fbe",
+      "plate_sha256": "a1c236e950b247d638b0e419c6150ee697a127a7e12857a73bd57e84dda29498",
+      "quality_reference": "smithy-mountain-source.png"
+    },
+    {
+      "id": "rookery",
+      "role": "Commit & seal work",
+      "stations": [
+        "Perches",
+        "Ravens",
+        "Scroll desk"
+      ],
+      "approved_template": "building-rookery-mountain.png",
+      "template_sha256": "ea512a86812a70d60082d6466f0ec941090960f4e4fd4d8c3f37cbe6c12b6b32",
+      "template_brief": "a mountainside correspondence complex with classical loggias, open colonnaded bird terraces and stacked high cliff galleries; warm interior scroll-sealing rooms and raven perches connect to many distant archways and chambers within the mountain. Existing room purpose is Commit & seal work; preserve recognizable main furniture: Perches, Ravens, Scroll desk. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "rookery-mountain-v2-source.png",
+      "plate": "rookery-mountain-v2.png",
+      "prompt": "rookery-mountain-v2-prompt.md",
+      "source_sha256": "cc17ffd99bbdcc94367e59365db27eaaa470875ad5dc0849becc8a6616b4d7f8",
+      "plate_sha256": "a9dac63aa884d2ecb4a64971284f1aa6a5e511961e3eac036e3bf9c95b01f69b",
+      "quality_reference": "smithy-mountain-source.png"
+    },
+    {
+      "id": "scriptorium",
+      "role": "Read, search & learn",
+      "stations": [
+        "Shelves & tutor bench",
+        "Lectern & gear bench",
+        "Star globe & memory loom",
+        "Botanical table & dialogue hearth"
+      ],
+      "approved_template": "building-scriptorium-mountain.png",
+      "template_sha256": "f5b7fabe0f9112cbca2e796c49e74f7f8028bc05b3e73cdafac599c90364c6ab",
+      "template_brief": "a vast neoclassical library carved deep into a mountain, pediment and Corinthian-style columns around a glowing entrance; interior warm timber bookcases and amber reading desks beneath stone coffered halls, botanical tables and hanging plants, successive library galleries and balconies receding far into the rock; an inviting first reading room is the threshold to seemingly endless knowledge halls. Existing room purpose is Read, search & learn; preserve recognizable main furniture: Shelves & tutor bench, Lectern & gear bench, Star globe & memory loom, Botanical table & dialogue hearth. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "scriptorium-mountain-v2-source.png",
+      "plate": "scriptorium-mountain-v2.png",
+      "prompt": "scriptorium-mountain-v2-prompt.md",
+      "source_sha256": "752152b45c8ec45d010d49204be9ec0f26658675963c6db5827966bc542f1f55",
+      "plate_sha256": "9d1663e1b77219ce7ac7cb646a2c35ec34e7eb5fe69ae824dc403bae6fd14c94",
+      "quality_reference": "smithy-mountain-source.png"
+    },
+    {
+      "id": "smithy",
+      "role": "Write, edit, build & test",
+      "stations": [
+        "Forge fires",
+        "Anvil",
+        "Tool rack"
+      ],
+      "approved_template": "building-smithy-mountain.png",
+      "template_sha256": "ab35ef615b7c15a064d208605181880613a1d28b2392c6f54060fe799eb3f38d",
+      "template_brief": "a monumental neoclassical mountain workshop, broad Tuscan-columned portico and terraced stone apron embedded in dark rock; warm forge and anvil chamber connected to successive cavernous maker halls, machinery bays and downward-lit stairs within the mountain; no smokestack cottage. Existing room purpose is Write, edit, build & test; preserve recognizable main furniture: Forge fires, Anvil, Tool rack. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "smithy-mountain-source.png",
+      "plate": "smithy-mountain.png",
+      "prompt": "smithy-mountain-prompt.md",
+      "source_sha256": "bc5397c0c49c199c23765134cfb45849dc6f1433638591162eb20588e841cda0",
+      "plate_sha256": "7f671b44c4ba87cffcbb88b6b4af9f400ba0d04a877a63bfc87bb27d5b2a717a"
+    },
+    {
+      "id": "chapel",
+      "role": "Memory, recall & compaction",
+      "stations": [
+        "Rose window",
+        "Archive altar",
+        "Paired tapers"
+      ],
+      "approved_template": "building-chapel-mountain.png",
+      "template_sha256": "45ce954df2f368ae6dbcfe9f10f85a8fe08d4e21b6772421ef3f27860fbf713a",
+      "template_brief": "a tranquil neoclassical archive sanctuary carved into the mountainside, symmetrical columned entrance and triangular pediment, terraced planted gardens; amber-lit memory alcoves and candles around a simple archive altar, barrel-vaulted corridors receding deep into stone, open-book objects and no religious figures. Existing room purpose is Memory, recall & compaction; preserve recognizable main furniture: Rose window, Archive altar, Paired tapers. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "chapel-mountain-v2-source.png",
+      "plate": "chapel-mountain-v2.png",
+      "prompt": "chapel-mountain-v2-prompt.md",
+      "source_sha256": "b4f5662b9648fef603fd3376b2f480c486f4bac414b7e489f0fb163b663048c6",
+      "plate_sha256": "8134c207b2fb8572a87f6e8e92c61ac0671fe782dc97005a9b7ddcea2d62b3b9",
+      "quality_reference": "smithy-mountain-source.png"
+    },
+    {
+      "id": "round-table",
+      "role": "Council & agent delegation",
+      "stations": [
+        "Council table",
+        "Five seats",
+        "Shared planning surface"
+      ],
+      "approved_template": "building-round-table-mountain.png",
+      "template_sha256": "4454b59f3c111b17669471259fb17e3910d39f83f90cf7d929dacf6bbeafaa8f",
+      "template_brief": "a mountain council complex with a circular neoclassical rotunda half-embedded in rock and a columned entrance; a warm round-table council chamber opens into curved arcades and multiple deeper meeting rooms, descending stairs suggest many connected deliberation spaces. Existing room purpose is Council & agent delegation; preserve recognizable main furniture: Council table, Five seats, Shared planning surface. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "round-table-mountain-source.png",
+      "plate": "round-table-mountain.png",
+      "prompt": "round-table-mountain-prompt.md",
+      "source_sha256": "cb5c581b62ce5f9d74b1430ef414d79986a875133d771ebc3d35cd8ec4484663",
+      "plate_sha256": "71092b8753f4d7e825babbcadacdd9c5591e1e4be73d8ed9256a42254a24486c"
+    },
+    {
+      "id": "observatory",
+      "role": "Research & synthesis",
+      "stations": [
+        "Telescope",
+        "Chart stand",
+        "Research desk"
+      ],
+      "approved_template": "building-observatory-mountain.png",
+      "template_sha256": "ee0857d3b9953921816efd9c9438888e08f772483c701a1c4088260c3a3d63a4",
+      "template_brief": "a neoclassical research complex carved into a high mountain ridge, columned terraces and a restrained stone dome nestled into rock, a brass telescope emerging through an opening; an amber-lit first instrument room connects to stacked research galleries and deep mountain laboratories. Existing room purpose is Research & synthesis; preserve recognizable main furniture: Telescope, Chart stand, Research desk. Keep the foreground room warm, legible, navigable and inviting rather than cluttered; distant spaces may be shadowed. The building's entrance and corridors should feel like the visible edge of a vast customizable location.",
+      "source": "observatory-mountain-source.png",
+      "plate": "observatory-mountain.png",
+      "prompt": "observatory-mountain-prompt.md",
+      "source_sha256": "10d83d6a191c0c7fe214feb1dadb7be4a9b167822c99cfedb4e4462e2e72cf5c",
+      "plate_sha256": "77f969a2392c0bec335331eb701354ad29514d89696faa60a996203b70ab188b"
+    }
+  ]
+}

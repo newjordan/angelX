@@ -1,0 +1,47 @@
+{
+  "repository": "newjordan/sloptomizer",
+  "source_head": "0e3c17b539bf14ffa6c546f25b648bb58b4514ac",
+  "files": [
+    {
+      "path": "autoresearch/gepa/population.py",
+      "sha256": "e662b4e67925b2ff6b312ccb6ef273893665adf25457c8d7f6fad663bbd9152f"
+    },
+    {
+      "path": "autoresearch/gepa/select.py",
+      "sha256": "77989c48df1e2ed37d6e3e2393d5fdd9468d8ebe1a069d85f56e70fd170a62db"
+    },
+    {
+      "path": "orchestrator/self_improvement/bandits.py",
+      "sha256": "b447c2399eae8afcc8d346433b81a348135291b146a3dedf2e7bc317f216ffe3"
+    },
+    {
+      "path": "orchestrator/self_improvement/stats.py",
+      "sha256": "0f15c683503d0a5b556c5f6628f1e82b0caf6cf857b099a551864e5a6e2290a4"
+    },
+    {
+      "path": "orchestrator/micro_llm/core.py",
+      "sha256": "f3888d9a456eacb4d32a706bebbe86c8c12c28f78feddb15815e16ec7d8e1925"
+    },
+    {
+      "path": "orchestrator/caseops_codec.py",
+      "sha256": "7f936b8b06f2928fd37f9afd1dc4ef57f976a68243fddaa81192f770ea27942a"
+    },
+    {
+      "path": "orchestrator/caseops_crystal_codec.py",
+      "sha256": "79214606fb4ff577b08865260937024d7d686777d2ea2d1c52d6050c845562e2"
+    },
+    {
+      "path": "orchestrator/caseops_taxonomy_codec.py",
+      "sha256": "b4193dede6524cb260ab56e6c9736800bc73d6aeb8c8512157dea6aa019a71ea"
+    },
+    {
+      "path": "orchestrator/caseops_vocab_analogy_codec.py",
+      "sha256": "3b72f7ffecb7c93f83b7178cbc9b5b5430ecd34b11d58a0da3f610c38fecf11e"
+    },
+    {
+      "path": "orchestrator/caseops_vocab_tensor_codec.py",
+      "sha256": "e59b9fec4cd20ce53cf8f25c15d41c4a1e1f746e9d538f99542742b0061b1c24"
+    }
+  ],
+  "adaptation": "Package initializers restrict imports to the selected stdlib algorithms. Original modules are byte-for-byte; the complete imported experiment is retained separately."
+}

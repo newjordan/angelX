@@ -1,0 +1,232 @@
+{
+  "schema": "angel.knight-journey/v1",
+  "generator": "Grok native image_gen (Imagine), directed by Grok 4.6; selected by Astra",
+  "display": "Source sheets only; final world/journey presentation must be subdued Dotmax. Never display a source sheet as a world plate.",
+  "rectangle_format": "x,y,width,height in source pixels; rectangles are intentional and need not be equal grid quadrants",
+  "background": "Dark neutral panel backgrounds are not scenery; suppress them in dot conversion. Preserve cyan/steel/gold subjects.",
+  "scenes": [
+    {
+      "name": "service",
+      "file": "service.jpg",
+      "width": 1280,
+      "height": 720,
+      "frames": [
+        [
+          160,
+          120,
+          420,
+          200
+        ],
+        [
+          700,
+          120,
+          420,
+          200
+        ],
+        [
+          700,
+          400,
+          420,
+          200
+        ]
+      ],
+      "sequence": [
+        0,
+        1,
+        2,
+        2,
+        1
+      ],
+      "frame_ms": 450,
+      "sha256": "eac46647b01c08e859b249f60d88913ee9a27fde6b04a9d08db4d6b6ccb9f9b5",
+      "review": "Offer help, share bread, bow. Omit the duplicate-loaf bottom-left cell."
+    },
+    {
+      "name": "study",
+      "file": "study.jpg",
+      "width": 1280,
+      "height": 720,
+      "frames": [
+        [
+          200,
+          50,
+          320,
+          285
+        ],
+        [
+          760,
+          50,
+          320,
+          285
+        ],
+        [
+          200,
+          386,
+          320,
+          285
+        ],
+        [
+          760,
+          386,
+          320,
+          285
+        ]
+      ],
+      "sequence": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "frame_ms": 420,
+      "sha256": "98e7c4798909803195bfcf95d41e4ef86281789b87a891f3ce4358b3c1ff9b05",
+      "review": "Read, lift page, turn page, reflect."
+    },
+    {
+      "name": "craft",
+      "file": "craft.jpg",
+      "width": 1280,
+      "height": 720,
+      "frames": [
+        [
+          130,
+          94,
+          466,
+          230
+        ],
+        [
+          684,
+          94,
+          466,
+          230
+        ]
+      ],
+      "sequence": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "frame_ms": 220,
+      "sha256": "4829b4c6cdda476d82a117fc8c1818bb9bec55714be5437d7130cba95d2a48d1",
+      "review": "Raise hammer and strike. Omit ambiguous lower-row hand/hammer poses."
+    },
+    {
+      "name": "perseverance",
+      "file": "perseverance.jpg",
+      "width": 1280,
+      "height": 720,
+      "frames": [
+        [
+          168,
+          48,
+          443,
+          288
+        ],
+        [
+          669,
+          48,
+          443,
+          288
+        ],
+        [
+          168,
+          384,
+          443,
+          288
+        ],
+        [
+          669,
+          384,
+          443,
+          288
+        ]
+      ],
+      "sequence": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "frame_ms": 230,
+      "sha256": "7cf8adb62dbf97b75a1baabfdc8b04a58cd0e88edcf6af201bf3163fc5f40594",
+      "review": "Keep walking. Four poses; source leg alternation is imperfect."
+    },
+    {
+      "name": "dragon",
+      "file": "dragon.jpg",
+      "width": 1280,
+      "height": 720,
+      "frames": [
+        [
+          160,
+          110,
+          395,
+          196
+        ],
+        [
+          725,
+          110,
+          395,
+          196
+        ],
+        [
+          160,
+          415,
+          395,
+          196
+        ],
+        [
+          725,
+          415,
+          395,
+          196
+        ]
+      ],
+      "sequence": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "frame_ms": 400,
+      "sha256": "c02c143a5007a81f6822b8458553c9674f190552fb4affafb7ff9071699e47a6",
+      "review": "Face challenge, shield, brace, advance. This is not a victory report."
+    },
+    {
+      "name": "guardian",
+      "file": "guardian.jpg",
+      "width": 1280,
+      "height": 720,
+      "frames": [
+        [
+          50,
+          50,
+          580,
+          300
+        ],
+        [
+          50,
+          370,
+          580,
+          300
+        ],
+        [
+          650,
+          370,
+          580,
+          300
+        ]
+      ],
+      "sequence": [
+        0,
+        1,
+        2,
+        1
+      ],
+      "frame_ms": 450,
+      "sha256": "08aa5ea1583e6baa14a4238744f01d4bc31fe6605353622e554189fb2d6f038a",
+      "review": "Face a larger challenge and brace. Omit the upper-right extra-shield pose."
+    }
+  ]
+}

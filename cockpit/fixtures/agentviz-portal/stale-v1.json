@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "sequence": 41,
+  "published_at_monotonic_ms": 11900,
+  "stage": "proposer setup",
+  "seats": [
+    {
+      "slot": 0,
+      "label": "solver-a"
+    }
+  ],
+  "status": {
+    "active_seats": 1,
+    "omitted_seats": 0,
+    "health": "nominal"
+  },
+  "palette": "noir"
+}

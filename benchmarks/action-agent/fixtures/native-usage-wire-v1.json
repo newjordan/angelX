@@ -1,0 +1,431 @@
+{
+  "schema": "angel.native-usage-wire-fixtures/v1",
+  "documentation_review_date": "2026-09-07",
+  "cases": [
+    {
+      "name": "zai-documented-cache-shape",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://api.z.ai/api/coding/paas/v4",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://docs.z.ai/guides/capabilities/cache"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 1200,
+              "completion_tokens": 300,
+              "total_tokens": 1500,
+              "prompt_tokens_details": {
+                "cached_tokens": 800
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 1200,
+        "output": 300,
+        "reasoning": null,
+        "cache_read": 800,
+        "cache_write": null,
+        "total_prompt": 1200,
+        "generation_output": 300,
+        "uncached_input": null,
+        "core_complete": true,
+        "cache_hit_pct": 67,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        1200,
+        300,
+        null
+      ]
+    },
+    {
+      "name": "zai-observed-reasoning-field-shape",
+      "origin": "synthetic-counts-with-recorded-field-shape",
+      "logical_endpoint": "https://api.z.ai/api/coding/paas/v4",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://docs.z.ai/guides/capabilities/cache",
+        "https://docs.z.ai/api-reference/llm/chat-completion"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 100,
+              "completion_tokens": 10,
+              "completion_tokens_details": {
+                "reasoning_tokens": 3
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 40
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 100,
+        "output": 10,
+        "reasoning": 3,
+        "total_prompt": 100,
+        "generation_output": 10,
+        "cache_write": null,
+        "core_complete": true,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        100,
+        10,
+        3
+      ]
+    },
+    {
+      "name": "zai-explicit-zero-with-unknown-inclusion",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://api.z.ai/api/coding/paas/v4",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://docs.z.ai/guides/capabilities/cache"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 0,
+              "completion_tokens": 0,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "total_prompt": 0,
+        "generation_output": 0,
+        "cache_write": null,
+        "core_complete": true,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "zai-cumulative-final-zero",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://api.z.ai/api/coding/paas/v4",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://docs.z.ai/guides/capabilities/cache",
+        "https://docs.z.ai/guides/capabilities/streaming"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 100,
+              "completion_tokens": 10,
+              "completion_tokens_details": {
+                "reasoning_tokens": 3
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 40
+              }
+            }
+          },
+          {
+            "usage": {
+              "completion_tokens": 0,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            }
+          },
+          {
+            "usage": null
+          }
+        ]
+      ],
+      "expected": {
+        "input": 100,
+        "output": 0,
+        "reasoning": 0,
+        "cache_read": 40,
+        "total_prompt": 100,
+        "generation_output": 0,
+        "attempts": 1,
+        "core_complete": true,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        100,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "openrouter-documented-write-shape",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://openrouter.ai/api/v1",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://openrouter.ai/docs/cookbook/administration/usage-accounting",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 194,
+              "completion_tokens": 2,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 100
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 194,
+        "output": 2,
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 100,
+        "total_prompt": 194,
+        "generation_output": 2,
+        "uncached_input": 94,
+        "core_complete": true,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        194,
+        2,
+        0
+      ]
+    },
+    {
+      "name": "openrouter-explicit-zero",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://openrouter.ai/api/v1",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://openrouter.ai/docs/cookbook/administration/usage-accounting"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 0,
+              "completion_tokens": 0,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "total_prompt": 0,
+        "generation_output": 0,
+        "uncached_input": 0,
+        "core_complete": true,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "openrouter-receiptless-then-success",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://openrouter.ai/api/v1",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://openrouter.ai/docs/cookbook/administration/usage-accounting"
+      ],
+      "attempt_frames": [
+        [],
+        [
+          {
+            "usage": {
+              "prompt_tokens": 194,
+              "completion_tokens": 2,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 100
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 194,
+        "output": 2,
+        "reasoning": 0,
+        "total_prompt": 194,
+        "generation_output": 2,
+        "attempts": 2,
+        "core_complete": false,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "custom-endpoint-same-glm-fields",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "http://127.0.0.1:9/v1",
+      "protocol": "chat-completions",
+      "sources": [],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 100,
+              "completion_tokens": 10,
+              "completion_tokens_details": {
+                "reasoning_tokens": 3
+              },
+              "prompt_tokens_details": {
+                "cached_tokens": 40
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 100,
+        "output": 10,
+        "reasoning": 3,
+        "total_prompt": 100,
+        "generation_output": 10,
+        "uncached_input": null,
+        "core_complete": true,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        100,
+        10,
+        3
+      ]
+    },
+    {
+      "name": "openrouter-inconsistent-cache",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://openrouter.ai/api/v1",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://openrouter.ai/docs/cookbook/administration/usage-accounting"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": {
+              "prompt_tokens": 10,
+              "completion_tokens": 2,
+              "prompt_tokens_details": {
+                "cached_tokens": 20
+              }
+            }
+          }
+        ]
+      ],
+      "expected": {
+        "input": 10,
+        "output": 2,
+        "total_prompt": null,
+        "generation_output": null,
+        "inconsistent_attempts": 1,
+        "core_complete": false,
+        "reasoning_convention_attempts": {
+          "included": 1
+        }
+      },
+      "expected_normalized": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "zai-missing-receipt",
+      "origin": "synthetic-wire",
+      "logical_endpoint": "https://api.z.ai/api/coding/paas/v4",
+      "protocol": "chat-completions",
+      "sources": [
+        "https://docs.z.ai/guides/capabilities/cache"
+      ],
+      "attempt_frames": [
+        [
+          {
+            "usage": null
+          }
+        ]
+      ],
+      "expected": {
+        "input": null,
+        "output": null,
+        "reasoning": null,
+        "total_prompt": null,
+        "generation_output": null,
+        "attempts": 1,
+        "core_complete": false,
+        "reasoning_convention_attempts": {}
+      },
+      "expected_normalized": [
+        null,
+        null,
+        null
+      ]
+    }
+  ]
+}

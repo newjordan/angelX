@@ -1,0 +1,29 @@
+# Native build outputs, credentials and private operator state
+**/target*/
+# This Rust module directory is source, not a Cargo build output.
+!cockpit/src/tools/build/targets/
+!cockpit/src/tools/build/targets/**
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/.angel*/
+**/.local/
+**/.rustup/
+**/.dream-loop/
+**/.cache/
+**/.pytest_cache/
+**/.env
+**/.env.*
+# Repo-local operator env (live API keys, host aliases); sourced by bin/angel0.
+.angel.env
+.angel.*.env
+**/*.log
+**/*.err
+**/*.swp
+**/*.pem
+**/*.key
+notes/first-run-playground/
+off-limits/
+.github/workflows/
+angel_test_output/
+.astra-tmp/

@@ -1,0 +1,110 @@
+{
+  "note": "Master palette for the Adventure Realm. Every module plate must quantize to this palette. Bank 4 (signal) is reserved for game state and never decoration.",
+  "banks": {
+    "structure": {
+      "index": 0,
+      "role": "Outlines, shadow, and neutral falloff. Always loaded.",
+      "colors": [
+        "#000000",
+        "#080505",
+        "#0b0a08",
+        "#0b0b0f",
+        "#151614",
+        "#1a100c",
+        "#25140b",
+        "#322b2b",
+        "#3d3a36",
+        "#515349",
+        "#63655c",
+        "#7a7c72",
+        "#94968c",
+        "#b0b2a8",
+        "#cdcfc6"
+      ]
+    },
+    "foliage": {
+      "index": 1,
+      "role": "Overworld canopy, undergrowth, and meadow terrain.",
+      "colors": [
+        "#0d1a0c",
+        "#182414",
+        "#263b1c",
+        "#335022",
+        "#35543f",
+        "#3f6428",
+        "#4b591f",
+        "#5a7330",
+        "#69793e",
+        "#6a7b24",
+        "#6f8738",
+        "#768e39",
+        "#8aa34a",
+        "#6fa46d",
+        "#a8c05f"
+      ]
+    },
+    "timber": {
+      "index": 2,
+      "role": "Wood, thatch, earth, and the overworld trail bed.",
+      "colors": [
+        "#1a0e07",
+        "#331a0c",
+        "#362715",
+        "#452712",
+        "#45291c",
+        "#512d18",
+        "#582b13",
+        "#652c10",
+        "#684629",
+        "#784620",
+        "#924f1d",
+        "#a97639",
+        "#be914b",
+        "#d8a95e",
+        "#e2cb8b"
+      ]
+    },
+    "stone": {
+      "index": 3,
+      "role": "Masonry, slate, water, and cool interior shadow.",
+      "colors": [
+        "#0a0c12",
+        "#132724",
+        "#192934",
+        "#22303a",
+        "#263b40",
+        "#2f4a52",
+        "#12516a",
+        "#3a6d5d",
+        "#456070",
+        "#527597",
+        "#639dc2",
+        "#6e8a8e",
+        "#8fa3a8",
+        "#b3c2c4",
+        "#d5dee0"
+      ]
+    },
+    "signal": {
+      "index": 4,
+      "role": "Reserved for meaning: active beacons, interaction cues, lamplight, readable surfaces, and alerts. Never decoration.",
+      "colors": [
+        "#12414f",
+        "#2079a6",
+        "#50c6b3",
+        "#8fe8dc",
+        "#e4fff8",
+        "#7a4a12",
+        "#ecb64a",
+        "#f6b450",
+        "#f7ca58",
+        "#fbd070",
+        "#c7b48f",
+        "#e3d2c3",
+        "#f4e1cb",
+        "#431e0f",
+        "#a8341f"
+      ]
+    }
+  }
+}

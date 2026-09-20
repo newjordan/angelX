@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "sequence": 44,
+  "published_at_monotonic_ms": 12200,
+  "stage": "this stage label is deliberately longer than the sixty-four-byte portal boundary",
+  "seats": [],
+  "status": {
+    "active_seats": 0,
+    "omitted_seats": 0,
+    "health": "unknown"
+  },
+  "palette": "noir"
+}

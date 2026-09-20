@@ -1,0 +1,88 @@
+# Entry kinds and trajectory cost fields:
+# Metered: numeric input/cached_input/output/reasoning rates per million tokens,
+# currency and price_date. Produces paid (sum of priced reported usage), cached
+# (priced cache share or null), currency, price_date, basis = "list-price",
+# source (selected table), model. Existing partial-field arithmetic is retained.
+# Subscription: monthly_fee_usd and no numeric per-token rates (kind = "flat_rate").
+# Produces paid = 0.0, cached = null, currency = "USD", price_date from this row,
+# basis = "subscription-marginal", plan_fee_usd_month = monthly_fee_usd,
+# confirmed copied from this row (null if absent), source (selected table), model.
+# Zero is marginal cost, not a free plan or an amortised monthly charge.
+# Coverage reports nominal fees separately in cost.plan_fee; amortisation stays
+# unknown without complete billing-month account usage and shared-plan identity.
+# Unknowns are deliberate; no network lookup or operator confirmation occurred.
+# 2026-09-09 operator decision (chat): all routes are subscription plans, no real metered rates yet;
+# nominal amortised figures below are marked confirmed = false and source = "operator: nominal subscription".
+[[prices]]
+provider = "z.ai"
+model = "glm-5.3-flash"
+price_date = "2026-09-09"
+source = "operator: nominal subscription"
+confirmed = false
+kind = "flat_rate"
+monthly_fee_usd = 20.0
+input = "unknown"
+cached_input = "unknown"
+output = "unknown"
+reasoning = "unknown"
+accounting_rule = "amortised per token over the billing month's observed tokens"
+marginal_usd = 0
+# Billing-month observations must include the complete account, across boards.
+billing_month = "2026-09"
+observed_month_tokens = "unknown"
+month_complete = false
+
+# Observed balance deltas are joined separately via --balance-log; never a list price.
+[[prices]]
+provider = "deepseek"
+model = "deepseek-v4-flash"
+price_date = "2026-09-08"
+source = "unknown"
+confirmed = false
+kind = "metered"
+input = "unknown"
+cached_input = "unknown"
+output = "unknown"
+reasoning = "unknown"
+
+[[prices]]
+provider = "z.ai"
+model = "glm-5.3"
+price_date = "2026-09-09"
+source = "operator: nominal subscription"
+confirmed = false
+kind = "flat_rate"
+monthly_fee_usd = 20.0
+accounting_rule = "amortised per token over the billing month's observed tokens (shared with glm-5.3-flash: one plan)"
+marginal_usd = 0
+billing_month = "2026-09"
+observed_month_tokens = "unknown"
+month_complete = false
+
+[[prices]]
+provider = "xai"
+model = "grok-4.6"
+price_date = "2026-09-09"
+source = "operator: nominal subscription"
+confirmed = false
+kind = "flat_rate"
+monthly_fee_usd = 30.0
+accounting_rule = "amortised per token over the billing month's observed tokens (Grok OAuth plan)"
+marginal_usd = 0
+billing_month = "2026-09"
+observed_month_tokens = "unknown"
+month_complete = false
+
+[[prices]]
+provider = "openai-codex"
+model = "gpt-6-astra"
+price_date = "2026-09-09"
+source = "operator: nominal subscription"
+confirmed = false
+kind = "flat_rate"
+monthly_fee_usd = 200.0
+accounting_rule = "amortised per token over the billing month's observed tokens (ChatGPT plan used by the codex lanes)"
+marginal_usd = 0
+billing_month = "2026-09"
+observed_month_tokens = "unknown"
+month_complete = false

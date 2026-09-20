@@ -1,0 +1,47 @@
+{
+  "schema": "angel.usage-images/v1",
+  "captured_date_utc": "2026-09-20",
+  "method": "Unedited window-region screenshots from the running ordinary cockpit, captured with grim.",
+  "terminal": "Kitty",
+  "model_route": "practice",
+  "provider_calls": 0,
+  "fixture": "Local arithmetic example; the patch was prepared outside the model. These images demonstrate UI behavior, not model task performance.",
+  "binary": {
+    "package_version": "0.1.2",
+    "sha256": "b1fad2cc514e864f23b19fd592cb3ac2571e71f362c9d11ffd0084629d6a989d",
+    "reported_source_binding": "unbound"
+  },
+  "images": [
+    {
+      "file": "cockpit.png",
+      "sha256": "71a69f2056a7e0390358fec199f62797c3c6f9e4ce9491602b109e303598821e",
+      "width": 1600,
+      "height": 960,
+      "actions": [
+        "/new",
+        "/diff"
+      ]
+    },
+    {
+      "file": "command-picker.png",
+      "sha256": "5ec047df7e530e20c0a12a2cd0b039e5214b79b27dd800f978d460fe3a031491",
+      "width": 1600,
+      "height": 960,
+      "actions": [
+        "/help",
+        "type /",
+        "Tab"
+      ]
+    },
+    {
+      "file": "world.png",
+      "sha256": "9f3f4734932ff7b2729773a5979bd34ef234eb14fa095d03ae8129ab85b4bafc",
+      "width": 1600,
+      "height": 960,
+      "actions": [
+        "/diff",
+        "/world enter"
+      ]
+    }
+  ]
+}

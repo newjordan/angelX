@@ -1,0 +1,65 @@
+# Reusable specialist pool: three bounded research tasks borrow at most two
+# concurrent leases from one role identity, then compact receipts fan in to a
+# synthesizer and an adversarial evidence gate.
+name = "research-pool"
+description = "Bounded librarian role pool for evidence, counterevidence, and constraints, folded through a reviewer gate."
+
+[[node]]
+id = "evidence"
+persona = "librarian"
+tools = "research"
+pool = "research"
+pool_max_inflight = 2
+prompt = """Find the strongest primary evidence for this task. Return compact, source-bearing
+notes and distinguish observation from inference.
+
+Task:
+{task}"""
+
+[[node]]
+id = "counterevidence"
+persona = "librarian"
+tools = "research"
+pool = "research"
+pool_max_inflight = 2
+prompt = """Look specifically for counterevidence, failed precedents, and reasons the obvious
+answer may be wrong. Return compact, source-bearing notes.
+
+Task:
+{task}"""
+
+[[node]]
+id = "constraints"
+persona = "librarian"
+tools = "research"
+pool = "research"
+pool_max_inflight = 2
+prompt = """Map the concrete constraints, unknowns, and verification criteria for this task.
+Return compact, source-bearing notes rather than a final answer.
+
+Task:
+{task}"""
+
+[[node]]
+id = "synthesize"
+depends_on = ["evidence", "counterevidence", "constraints"]
+prompt = """Produce one decision-ready answer from the three typed upstream result receipts.
+Resolve contradictions explicitly, preserve source attribution, label remaining unknowns,
+and recommend the next concrete action.
+
+Task:
+{task}"""
+
+[[node]]
+id = "verify"
+persona = "reviewer"
+depends_on = ["synthesize"]
+gate = { verdict = true, retry = "synthesize", credit_to = "synthesize", max_retries = 2 }
+prompt = """Audit the proposed answer against the task. Reject unsupported factual claims,
+missing counterevidence, hidden assumptions, or advice without a verification path.
+
+Task:
+{task}
+
+Candidate:
+{output:synthesize}"""
