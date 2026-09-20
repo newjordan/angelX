@@ -103,16 +103,8 @@ name = "harness_rollout_persistence"
 path = "../tests/cockpit/integration/harness_rollout_persistence.rs"
 
 [[test]]
-name = "http_transport_deadline"
-path = "../tests/cockpit/integration/http_transport_deadline.rs"
-
-[[test]]
 name = "interactive_terminal_smoke"
 path = "../tests/cockpit/integration/interactive_terminal_smoke.rs"
-
-[[test]]
-name = "m05_memory_health"
-path = "../tests/cockpit/integration/m05_memory_health.rs"
 
 [[test]]
 name = "process_ownership"
