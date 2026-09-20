@@ -52,7 +52,7 @@
 //! iteration/token cap, outcome-action progress, and unattended stall recovery.
 
 use crate::approval::Decision;
-use crate::club::{ChatMsg, ChatRole, Club, is_sota_label, model_smartness};
+use crate::club::{ChatMsg, Club, is_sota_label, model_smartness};
 use crate::deli::DeliClub;
 use crate::iterate::{EvidenceRegime, WORKER_SYS, curated_prompt, finding_claim, normalize};
 use crate::loop_dialog::{LoopDialogAction, LoopLaunchDialog, LoopLaunchSettings};
@@ -1603,13 +1603,17 @@ impl crate::App {
     /// user prompt. Deliberately NOT `self.history` — fresh context per iteration
     /// is deli's anti-poisoning guard, and keeps loop turns out of the user thread.
     pub(crate) fn loop_iteration_convo(&self) -> Vec<ChatMsg> {
-        let mut system = self
-            .history
-            .first()
-            .filter(|m| m.role == ChatRole::System)
-            .map(|m| m.content.to_string())
-            .unwrap_or_default();
-        if !system.is_empty() {
+        // Loop workers do NOT inherit the cockpit system prompt (skills catalog,
+        // magic keywords, harness capabilities). Their authority is the active
+        // competition package's worker profile + WORKER_SYS + the goal: no
+        // skill/secret surface hands off into an autonomous loop.
+        let mut system = String::new();
+        if self.loop_active() {
+            system.push_str(
+                crate::harness::comp_packages::active_package()
+                    .worker_profile()
+                    .system_prompt,
+            );
             system.push_str("\n\n");
         }
         system.push_str(WORKER_SYS);

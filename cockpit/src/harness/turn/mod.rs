@@ -1444,7 +1444,7 @@ fn run_turn_tiered(
     }
     let mut slot_watcher = SubmissionWatcher::new();
     let mut watch_source: Option<ConfiguredWatchSource> = None;
-    match configured_yukon_watch() {
+    match crate::harness::comp_packages::active_package().configured_watch() {
         Ok(Some((id, source))) => {
             slot_watcher.adopt(&id);
             watch_source = Some(source);

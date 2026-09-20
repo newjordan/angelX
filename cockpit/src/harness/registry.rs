@@ -294,6 +294,8 @@ pub struct ToolRegistry {
     /// grant(seat)` under the narrowing-only monoid, so a descendant can never widen
     /// an ancestor's denials. The root context is the reserved seat `ROOT_SEAT`.
     seat_grants: std::sync::Mutex<std::collections::BTreeMap<String, Interception>>,
+    /// Non-zero while a competition loop worker's tool allowlist is in force.
+    loop_worker_allowlist: std::sync::Mutex<Option<(&'static str, &'static [&'static str])>>,
     /// Denial receipts, bounded, newest last: what was refused, under which policy,
     /// for which seat (Def 27's consulted-at-use metadata, made observable).
     policy_denials: std::sync::Mutex<Vec<PolicyDenial>>,
@@ -459,6 +461,7 @@ impl ToolRegistry {
         Self {
             routed_verifications: Default::default(),
             seat_grants: Default::default(),
+            loop_worker_allowlist: Default::default(),
             policy_denials: Default::default(),
             tools: Vec::new(),
             deferred: Vec::new(),
@@ -1442,6 +1445,21 @@ impl ToolRegistry {
         if let Some(error) = crate::club::invalid_tool_args_error(args) {
             return Err(format!("{error}; reissue `{name}` with valid JSON"));
         }
+        // Loop-worker scoping: while a competition loop worker holds the
+        // LOOP_WORKER_SEAT grant, only that package's allowlist dispatches.
+        // The denial is a receipt naming the seat and package — the worker
+        // sees exactly what was refused and why, then continues on a
+        // permitted action. It never blocks, interrupts, or asks permission.
+        if self.loop_worker_scoped()
+            && !self.loop_worker_allows(name)
+        {
+            let package = crate::harness::comp_packages::active_package();
+            return Err(format!(
+                "policy denied tool {name}: deny:tool:{name} (seat loop_worker, package {}); \
+choose a permitted action and continue",
+                package.id
+            ));
+        }
         // §3.2.3: policy is consulted *here*, at invocation, so a grant tightened
         // mid-session binds the very next call with no reload. Checked before the
         // shell re-route below, so a denied command cannot be rewritten into a
@@ -1629,6 +1647,50 @@ impl Drop for SeatGrant<'_> {
 }
 
 impl ToolRegistry {
+    /// Bind the loop-worker allowlist for the duration of one worker's run.
+    /// `package` names the owning competition family for denial receipts.
+    pub(crate) fn bind_loop_worker_scope_static(
+        &self,
+        package: &'static crate::harness::comp_packages::CompetitionPackage,
+        profile: &'static crate::harness::comp_packages::WorkerProfile,
+    ) {
+        self.bind_loop_worker_scope(package.id, profile.allowed_tools);
+    }
+
+    pub(crate) fn bind_loop_worker_scope(
+        &self,
+        package: &'static str,
+        allowed: &'static [&'static str],
+    ) {
+        *self
+            .loop_worker_allowlist
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some((package, allowed));
+    }
+
+    /// Release the loop-worker allowlist (worker finished or unwound).
+    pub(crate) fn release_loop_worker_scope(&self) {
+        *self
+            .loop_worker_allowlist
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    fn loop_worker_scoped(&self) -> bool {
+        self.loop_worker_allowlist
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+    }
+
+    fn loop_worker_allows(&self, name: &str) -> bool {
+        self.loop_worker_allowlist
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .map(|(_, allowed)| allowed.contains(&name))
+            .unwrap_or(true)
+    }
+
     /// Grant (or retune) a seat's narrowing table.
     pub(crate) fn grant_seat(&self, seat: &str, grant: Interception) {
         self.seat_grants

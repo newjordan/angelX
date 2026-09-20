@@ -5,7 +5,7 @@
 
 use crate::harness::{SubmissionSlotPhase, SubmissionSlotTelemetry};
 use crate::loop_ctl::{EscalationTier, LoopState, LoopStatus, cycle_elapsed_secs};
-use crate::yukon_fleet::{YukonFleetState, YukonSubmissionPhase};
+use crate::harness::comp_packages::yukon::fleet::{YukonFleetState, YukonSubmissionPhase};
 use dotmax::{
     BrailleGrid, Color as DotColor,
     primitives::{draw_circle_colored, draw_line_colored},

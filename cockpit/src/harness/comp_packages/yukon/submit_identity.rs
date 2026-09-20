@@ -710,5 +710,5 @@ fn correct_note_file(path: &Path, model: &str) -> std::io::Result<usize> {
 }
 
 #[cfg(test)]
-#[path = "../../../tests/cockpit/tools/submit_identity__tests.rs"]
+#[path = "../../../../../tests/cockpit/tools/submit_identity__tests.rs"]
 mod tests;

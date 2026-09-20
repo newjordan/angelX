@@ -6107,8 +6107,17 @@ fn loop_iteration_uses_fresh_context_not_history() {
             .all(|message| !message.content.contains("OLD UNRELATED CONTEXT")),
         "prior user turns must NOT leak into a loop iteration"
     );
-    // The orchestrator system prompt is preserved so tools/skills still work.
-    assert!(convo[0].content.contains("ORCHESTRATOR PROMPT"));
+    // The cockpit orchestrator prompt is NO LONGER inherited by loop workers:
+    // the active competition package's worker profile replaces it (skill and
+    // secret surfaces do not hand off into an autonomous loop).
+    assert!(
+        !convo[0].content.contains("ORCHESTRATOR PROMPT"),
+        "cockpit system prompt must not leak into a loop iteration"
+    );
+    assert!(
+        convo[0].content.contains("single iteration"),
+        "worker contract still present"
+    );
 
     app.input = "/loop clear".to_string();
     app.submit();
