@@ -26,62 +26,18 @@ and `.angel.env` are never included.
 
 ## What the archive contains
 
-The inventory is an explicit allowlist (`RELEASE_PATHS` in
-`scripts/release-evidence.mjs`), not a recursive copy of the repository:
+The inventory is an explicit allowlist in [release-evidence.mjs](../scripts/release-evidence.mjs):
 
-- `.gitignore`, `README.md`, `LICENSE`, `SECURITY.md`, `package.json`, `package-lock.json`,
-  `rust-toolchain.toml`, and the optional `CHANGELOG.md`/`CONTRIBUTING.md`
-  when they exist;
-- `release/supply-chain-policy.json` and `release/Dockerfile.clean-builder`;
-- `bin/angel0` and the club policy script with its test;
-- `cockpit/Cargo.toml`, `cockpit/Cargo.lock`, all of `cockpit/src`,
-  `cockpit/tests/`, `cockpit/docs/ENV.md`,
-  `cockpit/docs/COMPETITION_RUNNER.md`, and the files the cockpit's
-  compile-time include macros require (`REQUIRED_COCKPIT_EMBEDDED_FILES`): the
-  six module definitions, the 16 bundled skills, all 8 bundled personas, the
-  portal/observatory fixtures, the ambient realm artwork with its motion and
-  palette tables, the Excalibur intro frame, and the three
-  `docs/telemetry/*.toml` cost/calibration/store-cap tables;
-- the three frozen fixtures the cockpit's unit tests embed at compile time
-  (`benchmarks/action-agent/fixtures/*.json` and
-  `benchmarks/realwork/world-retirement/TASK.md`), which are the only
-  `benchmarks/` inputs in the archive;
-- all bundled `cockpit/assets/` artwork, including runtime portraits, helm
-  sheets, animations and library textures; the project owns this ImageGen art;
-- the optional `cockpit/portal-renderer/` manifests and source;
-- the source-identity and cockpit validation scripts and Python trace validator;
-- the vendored `vendor/dotmax` and `vendor/ureq` manifests, licenses, READMEs,
-  and `src` trees (ureq also carries its `ANGEL_PATCH.md` change record);
-- the release evidence and verification scripts with their tests, plus this
-  document.
+- the terminal and headless runtime, launcher and vendored Rust dependencies;
+- embedded skills, personas, fixtures, telemetry tables and Sloptomizer modules;
+- runtime artwork, graph presets and the optional portal renderer;
+- repository-memory, machine-queue and prompt-compression helpers;
+- current usage and developer guides, licenses, notices and verification tools.
 
-Everything else in the checkout is outside the allowlist: non-embedded skills,
-personas and graph presets, the live heads registry,
-`cockpit/docs/` other than the runner and environment guides,
-the rest of `benchmarks/` and `docs/`, and both quarantined
-`off-limits/` products. The gate rejects those namespaces even if a future edit
-widens `RELEASE_PATHS`. Tests check both compile-time includes and runtime art
-packaging so the distribution stays complete.
-
-### The public action-agent producer is not a release input
-
-Earlier revisions of this gate required a seventeen-file "public action
-runner" under `benchmarks/action-agent/` (`PUBLIC_RUNNER.md`, `bench-lib.mjs`,
-`run-action-bench.mjs`, `compare-native-parity.mjs`, graders, task catalogs, a
-setup patch, and their tests). Those files were never committed on any branch
-of this repository; only two wire-format fixtures under
-`benchmarks/action-agent/fixtures/` are tracked. A search of the machine found
-only a pre-angel0 snapshot of that producer that is missing one of the required
-modules, targets the retired `angelx-source-release-evidence/v1` manifest
-schema, and carries about 47,000 fixture, gold, result, and evaluator files.
-Restoring it would have published a stale, differently-scoped tree rather than
-this product. The gate therefore ships the archive this repository actually
-builds: the cockpit, its embedded assets, the launcher, the vendored
-dependency, and the release policy and verifiers. `benchmarks/` is now an
-excluded namespace, `scripts/release-evidence.test.mjs` no longer imports the
-producer, and `package.json` no longer carries the `bench:*` / `test:bench`
-scripts or the benchmark formatting globs; `cockpit/docs/COMPETITION_RUNNER.md`
-points here instead of at the producer's guide.
+Provider parser fixtures live under `cockpit/fixtures/usage/`.
+Benchmark task bundles, private experiments, credentials, session histories and
+operator records are excluded. Tests check the compile-time include inventory
+and runtime asset packaging.
 
 ## What the gate proves
 

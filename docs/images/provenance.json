@@ -3,8 +3,7 @@
   "captured_date_utc": "2026-09-20",
   "method": "Unedited window-region screenshots from the running ordinary cockpit, captured with grim.",
   "terminal": "Kitty",
-  "model_route": "practice",
-  "provider_calls": 0,
+  "model_route": "per image",
   "fixture": "Local arithmetic example; the patch was prepared outside the model. These images demonstrate UI behavior, not model task performance.",
   "binary": {
     "package_version": "0.1.2",
@@ -13,6 +12,19 @@
   },
   "images": [
     {
+      "file": "intro.png",
+      "sha256": "7f831d260686a998689917abc35c94f73b8e15d02f47b09a099086ada6d1459c",
+      "width": 1600,
+      "height": 960,
+      "model_route": "grok",
+      "actions": [
+        "Launch a fresh workspace without submitting a prompt",
+        "Wait for the raised sword and settled wizard"
+      ],
+      "model_completions": 0,
+      "fixture": "Empty local workspace; existing Grok route selected; no conversation submitted."
+    },
+    {
       "file": "cockpit.png",
       "sha256": "71a69f2056a7e0390358fec199f62797c3c6f9e4ce9491602b109e303598821e",
       "width": 1600,
@@ -20,7 +32,8 @@
       "actions": [
         "/new",
         "/diff"
-      ]
+      ],
+      "model_route": "practice"
     },
     {
       "file": "command-picker.png",
@@ -31,7 +44,8 @@
         "/help",
         "type /",
         "Tab"
-      ]
+      ],
+      "model_route": "practice"
     },
     {
       "file": "world.png",
@@ -41,7 +55,9 @@
       "actions": [
         "/diff",
         "/world enter"
-      ]
+      ],
+      "model_route": "practice"
     }
-  ]
+  ],
+  "model_completions": 0
 }
