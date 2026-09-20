@@ -111,8 +111,44 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
 ])
 
 export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
+  'scripts/worker-paths.mjs',
+  'scripts/worker-lock.mjs',
+  'scripts/bounded-child.mjs',
+  'scripts/bounded-child.py',
+  'scripts/benchmark-runner.mjs',
+  'scripts/cut-corpus.mjs',
+  'scripts/habitsmith.mjs',
+  'scripts/habitsmith-tick.mjs',
+  'tests/scripts/habitsmith.test.mjs',
+  'scripts/dossier-tick.mjs',
+  'tests/scripts/dossier-tick.test.mjs',
+  'scripts/conductor.mjs',
+  'scripts/conductor-tick.mjs',
+  'scripts/conductor-code-run.mjs',
+  'tests/scripts/conductor.test.mjs',
+  'tests/scripts/conductor-tick.test.mjs',
+  'tests/scripts/conductor-recovery.test.mjs',
+  'tests/scripts/conductor-code-run.test.mjs',
+  'scripts/still-tick.mjs',
+  'tests/scripts/still-tick.test.mjs',
+  'scripts/reflex-tick.mjs',
+  'tests/scripts/reflex-tick.test.mjs',
+  'scripts/reflex-run-experiment.mjs',
+  'tests/scripts/reflex-run-experiment.test.mjs',
+  'scripts/reflex-reconfigure.mjs',
+  'tests/scripts/reflex-reconfigure.test.mjs',
+  'scripts/config-causal.mjs',
+  'tests/scripts/config-causal.test.mjs',
+  'scripts/experiment-contracts.mjs',
+  'scripts/mission.mjs',
+  'tests/scripts/mission.test.mjs',
+  'scripts/cut-tick.mjs',
+  'tests/scripts/cut-tick.test.mjs',
+  'tests/scripts/worker-connections.test.mjs',
+  'tests/scripts/process-lease.test.mjs',
+  'lib/control/process-lease.mjs',
   'scripts/repo-dossier.mjs',
-  'scripts/repo-dossier.test.mjs',
+  'tests/scripts/repo-dossier.test.mjs',
   'scripts/store-caps.mjs',
   'scripts/causal-loop.mjs',
   'scripts/cut-evidence.mjs',
@@ -120,7 +156,7 @@ export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
   'scripts/private-store-fs.mjs',
   'scripts/private-store-bridge.py',
   'scripts/angel-machine-queue.py',
-  'scripts/angel-machine-queue.test.py',
+  'tests/python/angel-machine-queue.test.py',
   'scripts/pxpipe-transform.mjs',
 ])
 
@@ -128,6 +164,8 @@ const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/FEATURES.md',
   'docs/SELF_MODEL.md',
   'docs/MEMORY.md',
+  'docs/MODELS.md',
+  'docs/WORKERS.md',
   'docs/COMMANDS.md',
   'docs/images/README.md',
   'docs/images/provenance.json',
@@ -144,6 +182,9 @@ const PUBLIC_RELEASE_NOTICES = Object.freeze([
   'third-party/oh-my-pi-LICENSE.txt',
   'third-party/reasonix-LICENSE.txt',
   'third-party/hermes-agent-LICENSE.txt',
+  'third-party/prime-agent-LICENSE.txt',
+  'third-party/openscience-LICENSE.txt',
+  'third-party/openscience-NOTICE.txt',
   'third-party/sources.json',
 ])
 
@@ -163,12 +204,13 @@ export const RELEASE_PATHS = Object.freeze([
   'release/Dockerfile.clean-builder',
   'bin/angel0',
   'scripts/angel-club-policy.sh',
-  'scripts/angel-club-policy.test.mjs',
+  'tests/scripts/angel-club-policy.test.mjs',
   'cockpit/Cargo.toml',
   'cockpit/README.md',
   'cockpit/Cargo.lock',
   'cockpit/src',
-  'cockpit/tests',
+  'tests/cockpit',
+  'tests/README.md',
   'cockpit/assets',
   'cockpit/graphs/council.toml',
   'cockpit/graphs/research-pool.toml',
@@ -185,7 +227,7 @@ export const RELEASE_PATHS = Object.freeze([
   'scripts/check-cockpit-fast.sh',
   'scripts/check-cockpit-quality.sh',
   'scripts/check-active-connections.py',
-  'scripts/test_active_connections.py',
+  'tests/python/test_active_connections.py',
   'scripts/trace_schema.py',
   'scripts/receipt_provenance.py',
   'scripts/aging-parity-cohort.py',
@@ -211,19 +253,19 @@ export const RELEASE_PATHS = Object.freeze([
   'vendor/ureq/README.md',
   'vendor/ureq/src',
   'scripts/release-evidence.mjs',
-  'scripts/release-evidence.test.mjs',
+  'tests/scripts/release-evidence.test.mjs',
   'scripts/check-legacy-terminal-boundary.sh',
   'scripts/verify-release-evidence.mjs',
-  'scripts/verify-release-evidence.test.mjs',
+  'tests/scripts/verify-release-evidence.test.mjs',
   'scripts/verify-release-container.mjs',
-  'scripts/verify-release-container.test.mjs',
+  'tests/scripts/verify-release-container.test.mjs',
   'scripts/verify-release-advisories.mjs',
-  'scripts/verify-release-advisories.test.mjs',
+  'tests/scripts/verify-release-advisories.test.mjs',
   'scripts/verify-release-install.mjs',
-  'scripts/verify-release-install.test.mjs',
+  'tests/scripts/verify-release-install.test.mjs',
   'scripts/verify-release-rollback.mjs',
   'scripts/verify-runner-smoke.mjs',
-  'scripts/verify-runner-smoke.test.mjs',
+  'tests/scripts/verify-runner-smoke.test.mjs',
   'docs/release-evidence.md',
   'docs/telemetry/trace-schema-v1.json',
 ])
@@ -247,11 +289,11 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'release/Dockerfile.clean-builder',
   'bin/angel0',
   'scripts/angel-club-policy.sh',
-  'scripts/angel-club-policy.test.mjs',
+  'tests/scripts/angel-club-policy.test.mjs',
   'cockpit/Cargo.toml',
   'cockpit/Cargo.lock',
   'cockpit/src/main.rs',
-  'cockpit/tests/interactive_terminal_smoke.rs',
+  'tests/cockpit/integration/interactive_terminal_smoke.rs',
   ...REQUIRED_COCKPIT_EMBEDDED_FILES,
   'cockpit/research/sloptomizer/README.md',
   'cockpit/docs/COMPETITION_RUNNER.md',
@@ -264,7 +306,7 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'scripts/check-cockpit-fast.sh',
   'scripts/check-cockpit-quality.sh',
   'scripts/check-active-connections.py',
-  'scripts/test_active_connections.py',
+  'tests/python/test_active_connections.py',
   'scripts/trace_schema.py',
   'scripts/receipt_provenance.py',
   'scripts/aging-parity-cohort.py',
@@ -288,19 +330,19 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'vendor/ureq/README.md',
   'vendor/ureq/src/lib.rs',
   'scripts/release-evidence.mjs',
-  'scripts/release-evidence.test.mjs',
+  'tests/scripts/release-evidence.test.mjs',
   'scripts/check-legacy-terminal-boundary.sh',
   'scripts/verify-release-evidence.mjs',
-  'scripts/verify-release-evidence.test.mjs',
+  'tests/scripts/verify-release-evidence.test.mjs',
   'scripts/verify-release-container.mjs',
-  'scripts/verify-release-container.test.mjs',
+  'tests/scripts/verify-release-container.test.mjs',
   'scripts/verify-release-advisories.mjs',
-  'scripts/verify-release-advisories.test.mjs',
+  'tests/scripts/verify-release-advisories.test.mjs',
   'scripts/verify-release-install.mjs',
-  'scripts/verify-release-install.test.mjs',
+  'tests/scripts/verify-release-install.test.mjs',
   'scripts/verify-release-rollback.mjs',
   'scripts/verify-runner-smoke.mjs',
-  'scripts/verify-runner-smoke.test.mjs',
+  'tests/scripts/verify-runner-smoke.test.mjs',
   'docs/release-evidence.md',
   'docs/telemetry/trace-schema-v1.json',
 ])
@@ -352,6 +394,7 @@ export function isCockpitSourceIdentityInput(path) {
     path === 'cockpit/Cargo.toml' ||
     path === 'cockpit/Cargo.lock' ||
     path.startsWith('cockpit/src/') ||
+    path.startsWith('tests/cockpit/') ||
     path === 'vendor/dotmax/Cargo.toml' ||
     path.startsWith('vendor/dotmax/src/') ||
     REQUIRED_COCKPIT_EMBEDDED_FILES.includes(path)
@@ -623,6 +666,34 @@ export function assertDocumentedSourcePaths(repoRoot, entries) {
           fail(`documented source absent from release: ${path} -> ${target}`)
         }
       }
+    }
+  }
+}
+
+// Resolve runtime imports against the distributed inventory. A dependency in
+// the private checkout cannot make an incomplete public bundle pass.
+export function assertRuntimeHelperClosure(repoRoot, entries) {
+  const paths = new Set(entries.map((entry) => entry.path))
+  for (const path of paths) {
+    if (!/^(scripts|lib)\/.+\.(mjs|js)$/u.test(path) || path.includes('.test.')) continue
+    const source = readFileSync(join(repoRoot, path), 'utf8')
+    const dependencies = []
+    for (const match of source.matchAll(
+      /(?:from\s*|import\s*(?:\(\s*)?|new URL\s*\()\s*['"](\.\.?\/[^'"\n]+)['"]/gu,
+    )) {
+      dependencies.push(
+        relative(repoRoot, resolve(repoRoot, dirname(path), match[1]))
+          .split(sep)
+          .join('/'),
+      )
+    }
+    for (const match of source.matchAll(
+      /['"`]((?:\$\{(?:root|ROOT)\}\/)?scripts\/[A-Za-z0-9_.-]+\.(?:mjs|py|sh))['"`]/gu,
+    ))
+      dependencies.push(match[1].replace(/^\$\{(?:root|ROOT)\}\//u, ''))
+    for (const dependency of dependencies) {
+      if (!paths.has(dependency))
+        fail(`runtime helper absent from release: ${path} -> ${dependency}`)
     }
   }
 }
@@ -1209,6 +1280,7 @@ export function runReleaseGate({ cwd = process.cwd(), outputDirectory } = {}) {
   assertRequiredReleaseFiles(entries)
   assertPublicReleaseEntries(repoRoot, entries)
   assertDocumentedSourcePaths(repoRoot, entries)
+  assertRuntimeHelperClosure(repoRoot, entries)
   const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
   const commit = String(run('git', ['rev-parse', 'HEAD'], { cwd: repoRoot })).trim()
   const tree = String(run('git', ['rev-parse', 'HEAD^{tree}'], { cwd: repoRoot })).trim()
@@ -1228,6 +1300,7 @@ export function runReleaseGate({ cwd = process.cwd(), outputDirectory } = {}) {
   const finalEntries = inventoryReleaseFiles(repoRoot)
   assertPublicReleaseEntries(repoRoot, finalEntries)
   assertDocumentedSourcePaths(repoRoot, finalEntries)
+  assertRuntimeHelperClosure(repoRoot, finalEntries)
   if (!sameEntries(entries, finalEntries))
     fail('release inputs changed while the archive was built')
 

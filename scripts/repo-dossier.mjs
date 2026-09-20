@@ -1,3 +1,4 @@
+import { runGraphCli } from './worker-lock.mjs'
 // repo-dossier — per-repo, evidence-attached memory mined from the experience
 // ledger and native authored-write verdicts.
 //
@@ -35,7 +36,7 @@ export function dossierPaths(argv = [], env = process.env, userHomeDir = homedir
   const stateDir = join(userHomeDir, '.angel0')
   const outDir = flag('--out') || configured(env.ANGEL_DOSSIER_DIR) || join(stateDir, 'dossier')
   return {
-    graphPath: flag('--graph') || join(outDir, 'graph.json'),
+    graphPath: flag('--graph') || configured(env.ANGEL_CAUSAL_GRAPH) || join(outDir, 'graph.json'),
     ledgerPath:
       flag('--ledger') ||
       configured(env.ANGEL_EXPERIENCE_LOG) ||
@@ -46,7 +47,7 @@ export function dossierPaths(argv = [], env = process.env, userHomeDir = homedir
   }
 }
 
-function assertRepoKey(key) {
+export function assertRepoKey(key) {
   if (typeof key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,191}$/u.test(key)) {
     throw new Error('Invalid dossier repository key')
   }
@@ -864,5 +865,5 @@ async function cli(argv) {
 const isCli =
   process.argv[1] && (await import('node:url')).fileURLToPath(import.meta.url) === process.argv[1]
 if (isCli) {
-  cli(process.argv.slice(2)).then((code) => process.exit(code ?? 0))
+  runGraphCli(cli, process.argv.slice(2)).then((code) => process.exit(code ?? 0))
 }

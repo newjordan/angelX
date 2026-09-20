@@ -481,6 +481,7 @@ export function buildExtractedRelease(sourceRoot, manifest, { v8Archive }) {
       env: {
         ...isolated.env,
         ANGEL_BUILD_SOURCE_SHA256: manifest.source.cockpit_source_sha256,
+        ANGEL_BUILD_RESOURCE_SHA256: manifest.entries_manifest_sha256,
         RUSTY_V8_ARCHIVE: '/opt/release-inputs/librusty_v8.a',
       },
     },
@@ -507,6 +508,7 @@ export function buildExtractedRelease(sourceRoot, manifest, { v8Archive }) {
   if (
     buildInfo.schema !== 'angel-build-info/v1' ||
     buildInfo.cockpit_source_sha256 !== manifest.source.cockpit_source_sha256 ||
+    buildInfo.resources?.sha256 !== manifest.entries_manifest_sha256 ||
     !Array.isArray(buildInfo.capabilities) ||
     !REQUIRED_RUNNER_CAPABILITIES.every((capability) => buildInfo.capabilities.includes(capability))
   ) {

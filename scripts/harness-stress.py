@@ -757,8 +757,8 @@ def run_scenario(name: str, spec: dict, hops: int, angel_bin: str, out_dir: Path
 
 
 # Regression floors for --gate (ms, p50 harness gap unless noted). Set from the
-# 2026-09-05 baseline on Apollo with headroom; a breach is a harness performance
-# signal. Compare matched binaries and host load before
+# reference baseline with headroom; a breach is a harness performance signal.
+# Compare matched binaries and host load before
 # attributing a breach to a code change rather than the environment.
 GATE_FLOORS = {
     "hops": ("harness_gap_p50_ms", 5.0),

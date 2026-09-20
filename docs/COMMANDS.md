@@ -9,6 +9,7 @@ model work use the configured routes and can incur provider charges.
 | Command | Behavior |
 |---|---|
 | `/help [topic\|all]`, `/?` | Show command help. |
+| `/connect [grok\|openai\|glm\|deepseek\|openrouter\|local]` | Show model setup instructions and current provider policy. |
 | `/model [filter\|exact@effort\|auto]` | Open model selection or choose a route. |
 | `/think [filter]` | Choose a supported thinking level; aliases `/thinking`, `/effort`. |
 | `/status`, `/usage`, `/context [all]` | Inspect session state, reported usage and retained context. |

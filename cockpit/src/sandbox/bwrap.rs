@@ -311,5 +311,5 @@ pub(crate) fn diagnostic_plan(policy: &SandboxPolicy) -> String {
 }
 
 #[cfg(test)]
-#[path = "bwrap/tests.rs"]
+#[path = "../../../tests/cockpit/app/sandbox__bwrap__tests.rs"]
 mod tests;

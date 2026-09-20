@@ -332,6 +332,7 @@ pub(crate) fn snapshot(buffer: &Buffer, area: Rect) -> Buffer {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/app/transcript__oversized__tests.rs"]
 mod tests;
 
 mod partial;

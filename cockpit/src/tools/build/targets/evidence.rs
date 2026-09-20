@@ -225,65 +225,9 @@ pub(crate) fn cargo_evidence(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn verification_target_dep_rules_reject_ambiguous_make_syntax() {
-        assert_eq!(
-            dependencies(b"out: src/lib.rs src/with\\ space.rs\nphony.rs:\n"),
-            Some(vec![
-                PathBuf::from("src/lib.rs"),
-                PathBuf::from("src/with space.rs")
-            ])
-        );
-        for bytes in [
-            b"out: src/$(INPUT).rs\n".as_slice(),
-            b"out: src/foo\\q.rs\n",
-            b"out: src/a.rs \\\n src/b.rs\n",
-            b"out: src/a.rs # extra\n",
-        ] {
-            assert!(
-                dependencies(bytes).is_none(),
-                "ambiguous depfile must not certify coverage: {bytes:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn verification_target_incomplete_machine_output_cannot_certify_sources() {
-        let root = Path::new("/nonexistent-owned-target");
-        for output in [
-            "",
-            "{\"reason\":\"build-finished\",\"success\":true}\n",
-            "[output truncated]\n{\"reason\":\"build-finished\",\"success\":true}\n",
-        ] {
-            assert!(cargo_evidence(output, root, root).0.is_none());
-        }
-    }
-}
+#[path = "../../../../../tests/cockpit/tools/build__targets__evidence__tests.rs"]
+mod tests;
 
 #[cfg(test)]
-mod budget_tests {
-    use super::*;
-
-    #[test]
-    fn verification_target_dep_budget_exhaustion_stops_further_reads() {
-        let root = std::env::temp_dir().join(format!(
-            "angel-owned-dep-budget-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir(&root).unwrap();
-        let dep = root.join("owned.d");
-        std::fs::write(&dep, b"out: subject.rs\n").unwrap();
-        let mut remaining = 3;
-        assert!(bounded_dep(&dep, &root, &mut remaining).is_none());
-        assert_eq!(remaining, 0);
-        assert!(bounded_dep(&dep, &root, &mut remaining).is_none());
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}
+#[path = "../../../../../tests/cockpit/tools/build__targets__evidence__budget_tests.rs"]
+mod budget_tests;

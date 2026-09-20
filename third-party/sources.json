@@ -25,6 +25,21 @@
       "file": "hermes-agent-LICENSE.txt",
       "source": "https://raw.githubusercontent.com/NousResearch/hermes-agent/f9524d3f119c672e4a4444f56d582e7475716ba3/LICENSE",
       "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "file": "prime-agent-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/e311d6495124cf0bdc629c813fc97a39a9a3054d/LICENSE",
+      "sha256": "b288615fb31dc504623582fb790a28e6d86bc2f5c1396845af555e43386da5a0"
+    },
+    {
+      "file": "openscience-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/synthetic-sciences/openscience/28e42b3a770590271647ec5dbcd07a7fe473d411/LICENSE",
+      "sha256": "d8ac5e917b2099e5cbe2999f297b56e2cc946e545f39aebc1e1aa91dd5cb0e9f"
+    },
+    {
+      "file": "openscience-NOTICE.txt",
+      "source": "https://raw.githubusercontent.com/synthetic-sciences/openscience/28e42b3a770590271647ec5dbcd07a7fe473d411/NOTICE",
+      "sha256": "4a9ba27b3074ef8fa58025a068f94b4b9e7d96c8ea4e0409e300a13582ae7058"
     }
   ]
 }

@@ -191,7 +191,7 @@ function bindMount(source, target, readonly = false) {
   }`
 }
 
-function containerEnvironmentArgs({ rustVersion, offline, sourceIdentity, v8 }) {
+function containerEnvironmentArgs({ rustVersion, offline, sourceIdentity, resourceIdentity, v8 }) {
   const rows = [
     'HOME=/work/home',
     'CARGO_HOME=/work/cargo',
@@ -207,6 +207,7 @@ function containerEnvironmentArgs({ rustVersion, offline, sourceIdentity, v8 }) 
   ]
   if (offline) rows.push('CARGO_NET_OFFLINE=true')
   if (sourceIdentity) rows.push(`ANGEL_BUILD_SOURCE_SHA256=${sourceIdentity}`)
+  if (resourceIdentity) rows.push(`ANGEL_BUILD_RESOURCE_SHA256=${resourceIdentity}`)
   if (v8) rows.push('RUSTY_V8_ARCHIVE=/work/inputs/librusty_v8.a')
   return rows.flatMap((row) => ['--env', row])
 }
@@ -218,6 +219,7 @@ export function dockerPhaseArgs({
   v8Archive,
   rustVersion,
   sourceIdentity,
+  resourceIdentity,
   uid = process.getuid(),
   gid = process.getgid(),
 }) {
@@ -250,6 +252,7 @@ export function dockerPhaseArgs({
       rustVersion,
       offline: phase !== 'fetch',
       sourceIdentity: phase === 'build' ? sourceIdentity : undefined,
+      resourceIdentity: phase === 'build' ? resourceIdentity : undefined,
       v8: phase === 'build',
     }),
   ]
@@ -353,6 +356,7 @@ export function runContainerVerification(manifestPath, { v8Archive, receiptPath 
       v8Archive: pinnedV8.path,
       rustVersion: image.rust_version,
       sourceIdentity: verified.manifest.source.cockpit_source_sha256,
+      resourceIdentity: verified.manifest.entries_manifest_sha256,
     }
     const fetch = run(docker, dockerPhaseArgs({ ...common, phase: 'fetch' }), {
       env: hostEnv,
@@ -380,6 +384,7 @@ export function runContainerVerification(manifestPath, { v8Archive, receiptPath 
     if (
       buildInfo.schema !== 'angel-build-info/v1' ||
       buildInfo.cockpit_source_sha256 !== verified.manifest.source.cockpit_source_sha256 ||
+      buildInfo.resources?.sha256 !== verified.manifest.entries_manifest_sha256 ||
       !Array.isArray(buildInfo.capabilities) ||
       !REQUIRED_RUNNER_CAPABILITIES.every((capability) =>
         buildInfo.capabilities.includes(capability),

@@ -450,4 +450,5 @@ impl AccountingView {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/club/accounting__tests.rs"]
 mod tests;

@@ -131,6 +131,7 @@ pub(crate) use turn::*;
 pub(crate) use workspace_state::*;
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/harness/tests.rs"]
 mod tests;
 
 pub(crate) mod shell_verifier;

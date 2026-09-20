@@ -310,4 +310,5 @@ impl Journal {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/app/research_workspace__journal__tests.rs"]
 mod tests;

@@ -19,4 +19,5 @@ pub(crate) use schema::{
 };
 
 #[cfg(test)]
+#[path = "../../../tests/cockpit/app/campaign__tests.rs"]
 mod tests;

@@ -31,13 +31,14 @@ The inventory is an explicit allowlist in [release-evidence.mjs](../scripts/rele
 - the terminal and headless runtime, launcher and vendored Rust dependencies;
 - embedded skills, personas, fixtures, telemetry tables and Sloptomizer modules;
 - runtime artwork, graph presets and the optional portal renderer;
-- repository-memory, machine-queue and prompt-compression helpers;
+- repository-memory, Habitsmith, Conductor, Still, machine-queue and prompt-compression helpers;
 - current usage and developer guides, licenses, notices and verification tools.
 
 Provider parser fixtures live under `cockpit/fixtures/usage/`.
 Benchmark task bundles, private experiments, credentials, session histories and
-operator records are excluded. Tests check the compile-time include inventory
-and runtime asset packaging.
+operator records are excluded. Tests check the compile-time include inventory, JavaScript helper import/dispatch
+closure, and runtime asset packaging. [Worker contracts](WORKERS.md) document
+one-tick execution, state paths, limits and evaluator configuration.
 
 ## What the gate proves
 
@@ -124,7 +125,8 @@ credentials), the read-only Rust toolchain, and the checksum-pinned `rusty_v8`
 static library at `--v8-archive`; its network namespace is unshared and
 ambient host environment variables are absent. The resulting binary must emit
 `angel-build-info/v1` with the packaged cockpit source identity and the
-required runner capabilities, then pass the networkless runner-contract smoke.
+required runner capabilities and the manifest-bound resource identity, then pass
+the networkless runner-contract smoke.
 The checksummed `*.verification.json` receipt records the build log digest,
 binary identity, isolation, reused host inputs, and the negative clean-host
 claim.
@@ -177,7 +179,9 @@ npm run release:verify:install -- \
 Requires the clean-container receipt and published executable from the
 previous step and the same Docker daemon. It installs into a fresh temporary
 prefix, launches the binary in a networkless read-only container that mounts
-only that prefix and home, replaces the package through a rollback-journaled
+only that prefix and home. The prefix includes the manifest-verified source and
+artwork in a versioned resource bundle; the installed binary must resolve its
+helpers there without the build checkout. The verifier replaces the package through a rollback-journaled
 transaction, injects one interrupted replacement, and proves the checksummed
 prior binary and operator-state sentinel are restored. It is a same-artifact
 replacement and isolated recovery proof, not cross-version migration,

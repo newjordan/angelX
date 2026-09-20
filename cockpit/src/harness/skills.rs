@@ -689,7 +689,7 @@ fn skill_source_dirs(workspace: &Path) -> Vec<PathBuf> {
     // library. `ANGEL_BUNDLED_SKILLS_DIR` overrides the crate-local default.
     let bundled = std::env::var_os("ANGEL_BUNDLED_SKILLS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skills"));
+        .unwrap_or_else(|| crate::runtime_paths::cockpit_dir().join("skills"));
     let mut dirs = vec![bundled];
     dirs.extend(repo_skill_dirs(workspace));
     dirs.extend(plugin_skill_dirs(workspace));

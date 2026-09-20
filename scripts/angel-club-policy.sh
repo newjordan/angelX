@@ -1,29 +1,30 @@
 #!/usr/bin/env bash
-# Sourced after launcher configuration. Credentials remain untouched on disk;
-# disabled provider credentials do not enter this cockpit (including an older
-# binary launched with ANGEL_NO_BUILD=1). OAuth tokens live in their own stores.
+# Sourced after launcher configuration. By default, configured API providers
+# remain available. An operator can restrict them with ANGEL_API_CLUBS.
+# Credential files and OAuth stores are never modified here.
 
 _angel_api_clubs_normalized="$(printf '%s' "${ANGEL_API_CLUBS:-}" | tr '[:upper:]' '[:lower:]')"
 
 _angel_api_club_enabled() {
   local wanted="$1" entry
   local -a entries
+  [[ "${ANGEL_API_CLUBS+x}" != x ]] && return 0
   IFS=, read -r -a entries <<< "$_angel_api_clubs_normalized"
   for entry in "${entries[@]+"${entries[@]}"}"; do
     entry="${entry//[[:space:]]/}"
-    if [[ "$entry" == "$wanted" ]]; then
+    if [[ "$entry" == "$wanted" || "$entry" == "*" || "$entry" == "all" ]]; then
       return 0
     fi
   done
   return 1
 }
 
-# Removed routes, never alternatives to the operator's OAuth selection.
-unset ANGEL_META_KEY META_API_KEY ANGEL_META_URL META_API_URL \
-  ANGEL_META_MODEL META_MODEL ANGEL_LUNA_KEY LUNA_API_KEY CHATGPT_LUNA_KEY \
-  OPENAI_API_KEY ANGEL_LUNA_URL LUNA_API_URL CHATGPT_LUNA_URL \
-  ANGEL_LUNA_MODEL LUNA_MODEL CHATGPT_LUNA_MODEL
-
+if ! _angel_api_club_enabled openai; then
+  unset ANGEL_OPENAI_KEY OPENAI_API_KEY
+fi
+if ! _angel_api_club_enabled grok; then
+  unset ANGEL_GROK_KEY ANGEL_XAI_KEY GROK_API_KEY XAI_API_KEY GPU_COMP_GROK_KEY
+fi
 if ! _angel_api_club_enabled kimi; then
   unset ANGEL_KIMI_KEY KIMI_API_KEY MOONSHOT_API_KEY
 fi

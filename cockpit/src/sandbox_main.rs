@@ -31,15 +31,8 @@ mod harness {
 /// access through the crate-level lock; the helper's test target needs the
 /// same single lock (same contract: poison-tolerant, no protected invariant).
 #[cfg(test)]
-mod tests {
-    use std::sync::{Mutex, MutexGuard, OnceLock};
-    pub(crate) fn env_lock() -> MutexGuard<'static, ()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-    }
-}
+#[path = "../../tests/cockpit/app/sandbox_main__tests.rs"]
+mod tests;
 
 /// Shim for `crate::yolo::enabled` — env-reading logic copied from
 /// `src/yolo.rs` (`parse(ANGEL_YOLO)` ⇒ Full ⇒ enabled). The helper inherits
