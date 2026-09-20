@@ -1954,7 +1954,7 @@ fn practice_chat_falls_back_to_respond() {
 
 #[test]
 fn user_message_without_media_serializes_as_string() {
-    let msgs = messages_to_json(&[ChatMsg::user("hi")]);
+    let msgs = messages_to_json(&[ChatMsg::user("hi")], true);
     assert_eq!(msgs[0]["content"], serde_json::json!("hi"));
 }
 
@@ -1964,7 +1964,7 @@ fn user_message_with_image_serializes_as_parts() {
         mime: "image/png".into(),
         b64: "AAAA".into(),
     };
-    let msgs = messages_to_json(&[ChatMsg::user_with_media("what is this", vec![media])]);
+    let msgs = messages_to_json(&[ChatMsg::user_with_media("what is this", vec![media])], true);
     let content = &msgs[0]["content"];
     assert!(content.is_array(), "content should be a parts array");
     assert_eq!(content[0]["type"], "text");

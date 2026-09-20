@@ -361,6 +361,12 @@ pub struct HttpClub {
     /// lesson away. Process-lifetime — a backend upgraded mid-session re-earns
     /// the field on the next cockpit start.
     reasoning_rejected: Mutex<Option<String>>,
+    /// The backend's own words after it rejected an image part we sent.
+    /// Once set, this club serializes no image parts for the rest of the
+    /// process (audio is unaffected) — the same sticky lesson shape as
+    /// [`Self::reasoning_rejected`], so a metadata TTL re-probe can't
+    /// launder it away either.
+    images_rejected: Mutex<Option<String>>,
     /// Highest output budget a truncation recovery actually succeeded at, in
     /// tokens (0 = nothing learned). Long tool-calling turns on GLM-5.x seats
     /// blew through a fixed 8k cap on every turn — each one paying a full
@@ -832,6 +838,24 @@ pub(crate) fn catalog_capabilities(
 /// only client-rejection classes (HTTP 400/422 or a 200 `{"error":…}`
 /// envelope), and only when the message names the field this dialect puts on
 /// the wire.
+/// Does this error read as the backend rejecting the *image parts* of the
+/// request, rather than a transport, auth, or model failure? Conservative on
+/// purpose: client-rejection classes only, and the message must name the
+/// multimodal part — a bare 400 about something else must not poison images.
+pub(crate) fn is_image_part_rejection(error: &str) -> bool {
+    let rejection_class = error.starts_with("HTTP 400")
+        || error.starts_with("HTTP 422")
+        || error.starts_with("api error:");
+    if !rejection_class {
+        return false;
+    }
+    let e = error.to_ascii_lowercase();
+    e.contains("image_url")
+        || e.contains("image url")
+        || e.contains("multimodal")
+        || (e.contains("image") && (e.contains("part") || e.contains("not support") || e.contains("unsupported")))
+}
+
 pub(crate) fn is_reasoning_field_rejection(error: &str, dialect: ReasoningDialect) -> bool {
     let rejection_class = error.starts_with("HTTP 400")
         || error.starts_with("HTTP 422")
@@ -1586,6 +1610,7 @@ impl HttpClub {
             cache_usage: CacheUsageCell::default(),
             truncation: Mutex::new(TruncationUsage::default()),
             reasoning_rejected: Mutex::new(None),
+            images_rejected: Mutex::new(None),
             learned_output_budget: AtomicU64::new(0),
             route_state_revision: AtomicU64::new(0),
             effort_gate: Mutex::new(EffortGateUsage::default()),
@@ -2129,7 +2154,7 @@ impl HttpClub {
         {
             return Err(error.to_string());
         }
-        let mut outbound = messages_to_json(messages);
+        let mut outbound = messages_to_json(messages, self.images_ok());
         // Combined 1:1 amendment of the outbound copy before the caveman
         // splice, while live messages still zip onto wire objects. Private
         // reasoning stays on the exact in-memory assistant tool-call
@@ -2622,11 +2647,71 @@ impl HttpClub {
                 .is_some()
     }
 
+    /// Whether this request body carries any `image_url` part.
+    fn body_carries_images(body: &serde_json::Value) -> bool {
+        body.get("messages")
+            .and_then(|m| m.as_array())
+            .is_some_and(|messages| {
+                messages.iter().any(|message| {
+                    message
+                        .get("content")
+                        .and_then(|content| content.as_array())
+                        .is_some_and(|parts| {
+                            parts
+                                .iter()
+                                .any(|part| part.get("type").and_then(|t| t.as_str()) == Some("image_url"))
+                        })
+                })
+            })
+    }
+
     /// Learn from a backend that rejected the reasoning control we sent: keep
     /// the server's own words, stop sending the field (sticky for this process
     /// — a metadata TTL re-probe can't launder the lesson away), and count it
     /// so the turn can voice what happened. Returns true when this call taught
     /// something new and the request deserves one immediate field-free retry.
+    /// May this club still serialize image parts? Sticky-false once a backend
+    /// rejected one; a poisoned lock falls back to sending (the pre-fix behavior).
+    fn images_ok(&self) -> bool {
+        self.images_rejected
+            .lock()
+            .map(|g| g.is_none())
+            .unwrap_or(true)
+    }
+
+    /// Learn from a backend that rejected the image parts we sent — a
+    /// text-only endpoint answering HTTP 400 to an `image_url` data part
+    /// (clipboard image on a GLM seat). Sticky for this process; audio is
+    /// untouched. Returns true when this call taught something new and the
+    /// request deserves one immediate text-only retry.
+    fn learn_image_rejection(&self, error: &str, body_carried: bool) -> bool {
+        if !body_carried || !is_image_part_rejection(error) {
+            return false;
+        }
+        {
+            let Ok(mut g) = self.images_rejected.lock() else {
+                return false;
+            };
+            if g.is_some() {
+                return false;
+            }
+            *g = Some(format!("the backend rejected it: {}", error.trim()));
+        }
+        eprintln!(
+            "[club:{}] backend rejected image parts — learned, retrying text-only: {}",
+            self.name,
+            error.trim()
+        );
+        if let Ok(mut g) = self.effort_gate.lock() {
+            g.last = Some(format!(
+                "{}: image attachments rejected — retried text-only and stopped                  sending image parts ({})",
+                self.name,
+                error.trim()
+            ));
+        }
+        true
+    }
+
     fn learn_reasoning_rejection(&self, error: &str, body_carried: bool) -> bool {
         if !body_carried || !is_reasoning_field_rejection(error, self.reasoning_dialect()) {
             return false;
@@ -3313,6 +3398,7 @@ impl Club for HttpClub {
         let (body, budget) = self.build_body_and_budget(messages, tools, false, effort)?;
         let sent = body.get("max_tokens").and_then(|v| v.as_u64());
         let carried_reasoning = Self::body_carries_reasoning(&body);
+        let carried_images = Self::body_carries_images(&body);
         let first = self.chat_body(body, tools);
         match &first {
             Err(e) if e.as_str() == TRUNCATED_OUTPUT_ERR => {}
@@ -3351,6 +3437,13 @@ impl Club for HttpClub {
             // full ladder intact — the learned gate guarantees the rebuilt body
             // can't re-offend, so this recursion is depth-one.
             Err(e) if self.learn_reasoning_rejection(e, carried_reasoning) => {
+                return self.chat_with_effort(messages, tools, effort);
+            }
+            // Same shape for image parts: a text-only endpoint rejecting the
+            // multimodal part is capability truth, not a model failure. Learn
+            // once, then re-enter — the rebuilt body drops every image part,
+            // so this recursion is depth-one.
+            Err(e) if self.learn_image_rejection(e, carried_images) => {
                 return self.chat_with_effort(messages, tools, effort);
             }
             _ => return first,
@@ -3421,6 +3514,7 @@ impl Club for HttpClub {
         let (body, budget) = self.build_body_and_budget(messages, tools, true, effort)?;
         let sent = body.get("max_tokens").and_then(|v| v.as_u64());
         let carried_reasoning = Self::body_carries_reasoning(&body);
+        let carried_images = Self::body_carries_images(&body);
         // Track whether any visible content reached the caller: an already-emitted
         // stream can't be replayed without duplicating output, so the retry below
         // only fires on a stream that produced nothing — the same rule
@@ -3473,6 +3567,9 @@ impl Club for HttpClub {
             // a re-entry duplicates nothing. Learn once; the rebuilt body drops
             // the field, so the recursion is depth-one.
             Err(e) if !emitted && self.learn_reasoning_rejection(e, carried_reasoning) => {
+                return self.chat_streaming_with_effort(messages, tools, effort, cancel, on_delta);
+            }
+            Err(e) if !emitted && self.learn_image_rejection(e, carried_images) => {
                 return self.chat_streaming_with_effort(messages, tools, effort, cancel, on_delta);
             }
             _ => return first,
@@ -4208,3 +4305,7 @@ mod supplemental_chat_usage_fixture_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/club/http__trajectory_byte_tests.rs"]
 mod trajectory_byte_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/club/http__glm_image_recovery_tests.rs"]
+mod glm_image_recovery_tests;

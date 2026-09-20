@@ -2139,7 +2139,7 @@ fn model_free_turn_boundary_compaction_preserves_harness_turn_context() {
 fn harness_direction_retains_origin_but_serializes_as_provider_user() {
     let message = ChatMsg::harness(FINAL_MILE_NUDGE);
     assert_eq!(message.role, ChatRole::Harness);
-    let serialized = crate::club::messages_to_json(&[message]);
+    let serialized = crate::club::messages_to_json(&[message], true);
     assert_eq!(serialized[0]["role"], "user");
     assert_eq!(serialized[0]["content"], FINAL_MILE_NUDGE);
 }
