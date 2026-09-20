@@ -32,9 +32,8 @@ fn d06b_no_route_envelope() {
     for knob in [
         "ANGEL_DRIVER",
         "ANGEL_API_CLUBS",
-        "ANGEL_<DRIVER>_KEY",
-        "ANGEL_<DRIVER>_URL",
-        "ANGEL_<DRIVER>_MODEL",
+        "docs/MODELS.md",
+        "/connect",
         "ANGEL_PRACTICE=1",
     ] {
         assert!(value["error"]["message"].as_str().unwrap().contains(knob));

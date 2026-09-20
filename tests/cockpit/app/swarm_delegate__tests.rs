@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn parses_a_local_block() {
     let draft = "Some analysis.\n\n```swarm-test\nwhere: local\ncmd: cargo test --quiet foo\n\
-                 claim: the parser handles empty input\nwhy: cheap to check\n```\nMore prose.";
+                     claim: the parser handles empty input\nwhy: cheap to check\n```\nMore prose.";
     let reqs = parse_requests(draft);
     assert_eq!(reqs.len(), 1);
     assert_eq!(reqs[0].placement, Placement::Local);

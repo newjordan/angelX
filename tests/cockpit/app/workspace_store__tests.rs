@@ -161,7 +161,7 @@ fn main_worktree_is_the_first_porcelain_entry() {
     // `git worktree list --porcelain` from ANY worktree prints the main one
     // first — that is what makes it the canonical identity.
     let out = "worktree /home/u/repo\nHEAD abc123\nbranch refs/heads/main\n\n\
-               worktree /tmp/cut-forge/item-3\nHEAD abc123\nbranch refs/heads/item-3\n";
+                   worktree /tmp/cut-forge/item-3\nHEAD abc123\nbranch refs/heads/item-3\n";
     assert_eq!(
         main_worktree_from_porcelain(out),
         Some(PathBuf::from("/home/u/repo"))

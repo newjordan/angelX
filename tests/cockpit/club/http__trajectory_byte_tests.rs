@@ -53,7 +53,7 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
         let mut commit = StreamUsageCommit::from_attempt(&club, accounting);
         commit.observe(
             &serde_json::json!({"usage":{"prompt_tokens":100,"completion_tokens":5,
-            "prompt_tokens_details":{"cached_tokens":40}}}),
+                "prompt_tokens_details":{"cached_tokens":40}}}),
         );
         commit.observe(&serde_json::json!({"usage":{"completion_tokens":6}}));
         commit.observe(&serde_json::json!({"usage":null}));
@@ -75,7 +75,7 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
     assert_eq!(
         samples[1]["counters"],
         serde_json::json!({"raw_input":100,"paid_input":60,
-        "cached_input":40,"output":6,"generation_output":6,"total_tokens":106,"response_bytes":7})
+            "cached_input":40,"output":6,"generation_output":6,"total_tokens":106,"response_bytes":7})
     );
     let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert!(!report.core_complete);

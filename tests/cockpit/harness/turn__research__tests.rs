@@ -151,8 +151,8 @@ fn research_task_mode_uses_skill_selection_and_acceptance_contract() {
     )]));
     assert!(!selected(&[ChatMsg::user(
         "Remove an unused renderer and preserve shared navigation. \
-         Add regression tests and run local checks. \
-         Use the existing source; do not perform network research."
+             Add regression tests and run local checks. \
+             Use the existing source; do not perform network research."
     )]));
     assert!(!selected(&[ChatMsg::user(
         "Fix the research answer API and add regression tests."

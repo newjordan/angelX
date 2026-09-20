@@ -355,7 +355,7 @@ fn escaping_symlink_cannot_be_read_or_used_as_search_scope() {
             assert!(confined_read(&workspace.0, Path::new("escape.txt")).is_err());
             assert!(walk(&workspace.0, Path::new("escape-dir"), 100, options).is_err());
             assert!(ListDirTool { root: workspace.0.clone() }
-                .call(&serde_json::json!({"path": "escape-dir", "no_ignore": no_ignore, "hidden": hidden})).is_err());
+                    .call(&serde_json::json!({"path": "escape-dir", "no_ignore": no_ignore, "hidden": hidden})).is_err());
             let grep = GrepTool {
                 root: workspace.0.clone(),
             };

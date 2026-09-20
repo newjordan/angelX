@@ -42,7 +42,7 @@
 //! gate `submit` uses — so it can never double-spawn.
 //!
 //! Tunables (env, read at `start`): `ANGEL_LOOP_MAX_ITERS` (0 = no iteration cap),
-//! `ANGEL_LOOP_DEADLINE_SECS` (3600), `ANGEL_LOOP_TOKEN_BUDGET` (2_000_000),
+//! `ANGEL_LOOP_DEADLINE_SECS` (0 = no time cap), `ANGEL_LOOP_TOKEN_BUDGET` (0 = no token cap),
 //! `ANGEL_LOOP_STALL_STOP` (4), `ANGEL_LOOP_PIVOT` (2),
 //! `ANGEL_LOOP_FIRST_CANDIDATE_ITERS` (3, podrace: steer measurement after this
 //! many iterations without a verified measured candidate; 0 = off). Persisted to

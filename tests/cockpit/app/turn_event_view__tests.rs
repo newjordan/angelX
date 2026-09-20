@@ -102,8 +102,8 @@ fn gate_denials_keep_their_transcript_line() {
 fn cache_stable_boundary_receipt_rides_the_strip() {
     assert!(notice_rides_strip(
         "cache-stable: history rewrites held across 1 hop(s) to keep the request prefix \
-         byte-stable; at the turn boundary aged 0 result(s) (−0 bytes), shrank 0 tool-call \
-         argument(s) (−0 bytes), and deduped 0 duplicate result(s) (−0 bytes)"
+             byte-stable; at the turn boundary aged 0 result(s) (−0 bytes), shrank 0 tool-call \
+             argument(s) (−0 bytes), and deduped 0 duplicate result(s) (−0 bytes)"
     ));
 }
 
@@ -182,7 +182,7 @@ fn only_known_repeatable_cadence_failures_have_coalesce_keys() {
     assert_eq!(
         notice_coalesce_key(
             "passive wait blocked: status/sleep calls were not started; \
-             advance the candidate before checking again"
+                 advance the candidate before checking again"
         ),
         Some("passive-wait")
     );

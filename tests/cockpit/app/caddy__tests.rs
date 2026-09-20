@@ -516,12 +516,12 @@ fn m06b_receipt_file_can_retire_the_card() {
     let (caddy_dir, _dossier_dir, workspace, _env) = fixture("receipt");
     let base = caddy_dir.parent().unwrap();
     std::fs::write(
-        base.join("defaults.toml"),
-        "[[features]]\nname = \"unrelated-before\"\ndefault = \"on\"\n\
-         [[features]]\ndefault = \"off\" # key order and comments are valid TOML\nname = \"caddy\"\n\
-         [[features]]\nname = \"unrelated-after\"\ndefault = \"full\"\n",
-    )
-    .unwrap();
+            base.join("defaults.toml"),
+            "[[features]]\nname = \"unrelated-before\"\ndefault = \"on\"\n\
+             [[features]]\ndefault = \"off\" # key order and comments are valid TOML\nname = \"caddy\"\n\
+             [[features]]\nname = \"unrelated-after\"\ndefault = \"full\"\n",
+        )
+        .unwrap();
     let _defaults = crate::tests::TestEnvGuard::set(
         "ANGEL_FEATURE_DEFAULTS",
         base.join("defaults.toml").to_str().unwrap(),
@@ -570,63 +570,63 @@ fn m06b_card_bytes_table() {
         ("rust-capped-backoff", "cargo-test", "cargo"),
     ];
     let recipes: Vec<Recipe> = [
-        // A mixed store: the fixture's own family recipe plus four
-        // entries from other families — what an always-on full card
-        // charged for in cohort #6.
-        ("run_tests {\"args\":\"\",\"runtime\":\"node\"}", "run_tests"),
-        ("run_tests {\"args\":\"\",\"runtime\":\"python\"}", "run_tests"),
-        ("run_tests {\"args\":\"\",\"runtime\":\"rust\"}", "run_tests"),
-        ("cargo {\"args\":\"test --quiet\"}", "cargo"),
-        // Long irrelevant entries (a real store carries full command
-        // lines); these are what the always-on full card paid for.
-        (
-            concat!(
-                "run_tests {\"args\":\"",
-                "integration/e2e-suite --reporter verbose --timeout 600 --retry 2 --shuffle --seed 99",
-                "\",\"runtime\":\"go\"}"
+            // A mixed store: the fixture's own family recipe plus four
+            // entries from other families — what an always-on full card
+            // charged for in cohort #6.
+            ("run_tests {\"args\":\"\",\"runtime\":\"node\"}", "run_tests"),
+            ("run_tests {\"args\":\"\",\"runtime\":\"python\"}", "run_tests"),
+            ("run_tests {\"args\":\"\",\"runtime\":\"rust\"}", "run_tests"),
+            ("cargo {\"args\":\"test --quiet\"}", "cargo"),
+            // Long irrelevant entries (a real store carries full command
+            // lines); these are what the always-on full card paid for.
+            (
+                concat!(
+                    "run_tests {\"args\":\"",
+                    "integration/e2e-suite --reporter verbose --timeout 600 --retry 2 --shuffle --seed 99",
+                    "\",\"runtime\":\"go\"}"
+                ),
+                "run_tests",
             ),
-            "run_tests",
-        ),
-        (
-            concat!(
-                "cargo {\"args\":\"build --release --features long-feature-list,",
-                "with-many-flags --target x86_64-unknown-linux-gnu\"}"
+            (
+                concat!(
+                    "cargo {\"args\":\"build --release --features long-feature-list,",
+                    "with-many-flags --target x86_64-unknown-linux-gnu\"}"
+                ),
+                "cargo",
             ),
-            "cargo",
-        ),
-        (
-            concat!(
-                "run_tests {\"args\":\"",
-                "acceptance/full-stack.mjs --browser headless --screenshots --profile ci",
-                "\",\"runtime\":\"swift\"}"
+            (
+                concat!(
+                    "run_tests {\"args\":\"",
+                    "acceptance/full-stack.mjs --browser headless --screenshots --profile ci",
+                    "\",\"runtime\":\"swift\"}"
+                ),
+                "run_tests",
             ),
-            "run_tests",
-        ),
-        (
-            concat!(
-                "run_tests {\"args\":\"",
-                "regression/tier3 --fail-fast --glob '*.spec.ts' --workers 8 --update-snapshots",
-                "\",\"runtime\":\"node\"}"
+            (
+                concat!(
+                    "run_tests {\"args\":\"",
+                    "regression/tier3 --fail-fast --glob '*.spec.ts' --workers 8 --update-snapshots",
+                    "\",\"runtime\":\"node\"}"
+                ),
+                "run_tests",
             ),
-            "run_tests",
-        ),
-    ]
-    .into_iter()
-    .enumerate()
-    .map(|(i, (command, tool))| Recipe {
-        ts_ms: 1_700_000_000_000 + i as u64 * 86_400_000,
-        command: command.to_string(),
-        env: Vec::new(),
-        duration_ms: Some(41_000),
-        tool: tool.to_string(),
-        note: "verified: ok".to_string(),
-        verification: Some(RecipeVerification::ExecutedVerifierV1),
-            verified_head: None,
-            stale_since_changes: 0,
-    workspace_state: None,
-    observed_workspace_state: None,
-    })
-    .collect();
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (command, tool))| Recipe {
+            ts_ms: 1_700_000_000_000 + i as u64 * 86_400_000,
+            command: command.to_string(),
+            env: Vec::new(),
+            duration_ms: Some(41_000),
+            tool: tool.to_string(),
+            note: "verified: ok".to_string(),
+            verification: Some(RecipeVerification::ExecutedVerifierV1),
+                verified_head: None,
+                stale_since_changes: 0,
+        workspace_state: None,
+        observed_workspace_state: None,
+        })
+        .collect();
     let hazards: Vec<Hazard> = [
         ("node --test test.mjs", "exit 1: failing assertion"),
         ("python3 -m unittest -v", "exit 1: ImportError"),

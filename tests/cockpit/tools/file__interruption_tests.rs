@@ -31,7 +31,7 @@ fn patch_exit_drain_sigint_between_real_patch_writes() {
         apply_freeform_patch(
             &PathBuf::from(root),
             "*** Begin Patch\n*** Update File: first.txt\n@@\n-before\n+after\n\
-             *** Update File: second.txt\n@@\n-before\n+after\n*** End Patch\n",
+                 *** Update File: second.txt\n@@\n-before\n+after\n*** End Patch\n",
         )
         .unwrap();
         // Keep the fixture alive if the patch wins the scheduling race.

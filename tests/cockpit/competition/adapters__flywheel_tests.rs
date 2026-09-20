@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 fn fixture(track: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("src/competition/test_support/fixtures/flywheel")
+        .join("../tests/cockpit/competition/fixtures/flywheel")
         .join(track)
 }
 

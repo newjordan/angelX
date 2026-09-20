@@ -49,11 +49,11 @@ fn read_request(stream: &mut std::net::TcpStream) -> (String, Value) {
 fn write_json(stream: &mut std::net::TcpStream, value: Value) {
     let body = serde_json::to_vec(&value).unwrap();
     write!(
-        stream,
-        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
-        body.len()
-    )
-    .unwrap();
+            stream,
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+            body.len()
+        )
+        .unwrap();
     stream.write_all(&body).unwrap();
 }
 

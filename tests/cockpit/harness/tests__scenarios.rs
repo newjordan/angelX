@@ -460,9 +460,12 @@ fn scenario_list_dir_and_grep_real_tree() {
         "list_dir src:\n{ld}"
     );
     let g = GrepTool { root }
-        .call(&serde_json::json!({"pattern":"fn run_turn","path":"src"}))
+        .call(&serde_json::json!({"pattern":"pub fn run_turn\\(","path":"src"}))
         .expect("grep");
-    assert!(g.contains("turn.rs"), "grep should find run_turn:\n{g}");
+    assert!(
+        g.contains("harness/turn/mod.rs:"),
+        "grep should find the production run_turn:\n{g}"
+    );
 }
 
 #[test]

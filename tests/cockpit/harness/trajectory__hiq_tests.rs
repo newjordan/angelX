@@ -106,10 +106,10 @@ fn harness_treatment_stamps_living_peer_and_gpu_comp() {
     ));
     // Shapes required so open-lever rank stamps living_peer_primary_key (forge join).
     std::fs::write(
-        &peer,
-        r#"{"geomean_us":867.91,"name":"c3_peer.txt","path":"/tmp/c3.txt","shapes":{"32768x1":38800.0,"512x640":1685.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
-    )
-    .unwrap();
+            &peer,
+            r#"{"geomean_us":867.91,"name":"c3_peer.txt","path":"/tmp/c3.txt","shapes":{"32768x1":38800.0,"512x640":1685.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
+        )
+        .unwrap();
     let _state = crate::harness::tests::EnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
     let _lane = crate::harness::tests::EnvGuard::set("ANGEL_LANE", "treebeard");
     let _gpu = crate::harness::tests::EnvGuard::set("ANGEL_GPU_COMP_LOCAL_MOA", "1");

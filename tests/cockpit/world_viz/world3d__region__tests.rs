@@ -271,9 +271,9 @@ fn every_staged_region_frame_honours_the_vista_floors() {
             );
             if clear < 4.0 {
                 broken.push(format!(
-                    "{} [{waypoint}]: a facade at {clear:.1} tiles ({near_x:.1},{near_y:.1}) — a doorway, not a vista",
-                    stage.label()
-                ));
+                        "{} [{waypoint}]: a facade at {clear:.1} tiles ({near_x:.1},{near_y:.1}) — a doorway, not a vista",
+                        stage.label()
+                    ));
             }
         }
     }

@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::club::{ClubReply, StreamDelta};
 use std::collections::VecDeque;

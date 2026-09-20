@@ -128,10 +128,10 @@ fn living_competition_suffix_reads_peer_state() {
             .unwrap_or(0)
     ));
     std::fs::write(
-        &peer,
-        r#"{"geomean_us":867.912,"name":"b200_c3_peer.txt","path":"/tmp/c3.txt","p1_us":1684.5,"shapes":{"32768x1":38800.0,"512x640":1684.5,"128x256":61.2,"256x64":144.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"b200_r7"},"128x256":{"us":60.9,"name":"multi128"},"256x64":{"us":130.0,"name":"r7v2"}}}"#,
-    )
-    .unwrap();
+            &peer,
+            r#"{"geomean_us":867.912,"name":"b200_c3_peer.txt","path":"/tmp/c3.txt","p1_us":1684.5,"shapes":{"32768x1":38800.0,"512x640":1684.5,"128x256":61.2,"256x64":144.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"b200_r7"},"128x256":{"us":60.9,"name":"multi128"},"256x64":{"us":130.0,"name":"r7v2"}}}"#,
+        )
+        .unwrap();
     let _peer = EnvGuard::set(
         "POPCORN_PEER_STATE",
         Some(peer.to_str().expect("utf8 path")),
@@ -199,10 +199,10 @@ fn living_peer_json_caches_by_mtime_len() {
             .unwrap_or(0)
     ));
     std::fs::write(
-        &peer,
-        r#"{"geomean_us":867.912,"name":"b200_c3_peer.txt","path":"/tmp/c3.txt","p1_us":1684.5,"shapes":{"32768x1":38800.0,"512x640":1684.5}}"#,
-    )
-    .unwrap();
+            &peer,
+            r#"{"geomean_us":867.912,"name":"b200_c3_peer.txt","path":"/tmp/c3.txt","p1_us":1684.5,"shapes":{"32768x1":38800.0,"512x640":1684.5}}"#,
+        )
+        .unwrap();
     let _peer = EnvGuard::set(
         "POPCORN_PEER_STATE",
         Some(peer.to_str().expect("utf8 path")),
@@ -227,10 +227,10 @@ fn living_peer_json_caches_by_mtime_len() {
     assert_eq!(load_living_peer_open_levers(1), first_open);
 
     std::fs::write(
-        &peer,
-        r#"{"geomean_us":900.25,"name":"updated_peer.txt","path":"/tmp/c4.txt","p1_us":1700.0,"shapes":{"32768x1":40000.0,"512x640":1700.0}}"#,
-    )
-    .unwrap();
+            &peer,
+            r#"{"geomean_us":900.25,"name":"updated_peer.txt","path":"/tmp/c4.txt","p1_us":1700.0,"shapes":{"32768x1":40000.0,"512x640":1700.0}}"#,
+        )
+        .unwrap();
     bump_mtime(&peer);
     let busted = load_living_peer_snapshot().expect("mtime/len change");
     assert_eq!(busted.1, "updated_peer.txt");
@@ -278,10 +278,10 @@ fn forge_train_snap_reads_status_and_formats_fragment() {
     assert_eq!(frag, "forge 40/200 ~38m");
     // Mid-train PRIMARY attack surface from pulse stamp.
     std::fs::write(
-        &status,
-        r#"{"state":"training","train_step":40,"train_total":200,"train_eta_sec":2280,"open_lever_top":"32768x1","train_loss_live":0.2,"measured_hold_us":38300.0,"preference_n":96,"coding_eval_n":24,"coding_eval_primary_n":4,"version":"v3","next_adapter_version":"v3","gpu_free_mib":15000.0,"free_mib_min":14900.0}"#,
-    )
-    .unwrap();
+            &status,
+            r#"{"state":"training","train_step":40,"train_total":200,"train_eta_sec":2280,"open_lever_top":"32768x1","train_loss_live":0.2,"measured_hold_us":38300.0,"preference_n":96,"coding_eval_n":24,"coding_eval_primary_n":4,"version":"v3","next_adapter_version":"v3","gpu_free_mib":15000.0,"free_mib_min":14900.0}"#,
+        )
+        .unwrap();
     let snap_p = load_forge_train_snap().expect("primary mid-train");
     assert_eq!(snap_p.open_lever_top.as_deref(), Some("32768x1"));
     assert_eq!(snap_p.measured_hold_us, Some(38300.0));
@@ -312,10 +312,10 @@ fn forge_train_snap_reads_status_and_formats_fragment() {
     assert_eq!(forge_train_strip_fragment(&snap_post), "forge 200/200 eval");
     // last cycle when not training
     std::fs::write(
-        &cycle,
-        r#"{"version":"v1","gate_pass":true,"promoted":false,"adapter_local":"/home/u/angel-forge/adapters/v1","open_lever_top":"32768x1","free_train_primary_n":4,"measured_hold_us":38300.0,"train_loss":0.4,"train_loss_min":0.25,"train_loss_max":0.53,"preference_n":96,"coding_eval_n":24,"coding_eval_primary_n":4}"#,
-    )
-    .unwrap();
+            &cycle,
+            r#"{"version":"v1","gate_pass":true,"promoted":false,"adapter_local":"/home/u/angel-forge/adapters/v1","open_lever_top":"32768x1","free_train_primary_n":4,"measured_hold_us":38300.0,"train_loss":0.4,"train_loss_min":0.25,"train_loss_max":0.53,"preference_n":96,"coding_eval_n":24,"coding_eval_primary_n":4}"#,
+        )
+        .unwrap();
     std::fs::write(&idle, r#"{"state":"polling","note":"waiting"}"#).unwrap();
     let _s2 = EnvGuard::set("FORGE_WHEN_FREE_STATUS", Some(idle.to_str().expect("utf8")));
     let _c = EnvGuard::set("FORGE_LAST_CYCLE", Some(cycle.to_str().expect("utf8")));
@@ -341,10 +341,10 @@ fn forge_train_snap_reads_status_and_formats_fragment() {
     );
     // Done status breadcrumb (finalize) preferred over last-cycle when present.
     std::fs::write(
-        &status,
-        r#"{"state":"done","version":"v2","gate_pass":true,"promoted":false,"adapter_local":"/home/u/angel-forge/adapters/v2","open_lever_top":"32768x1","free_train_primary_n":4,"measured_hold_us":38300.0,"train_loss":0.4,"ok":true}"#,
-    )
-    .unwrap();
+            &status,
+            r#"{"state":"done","version":"v2","gate_pass":true,"promoted":false,"adapter_local":"/home/u/angel-forge/adapters/v2","open_lever_top":"32768x1","free_train_primary_n":4,"measured_hold_us":38300.0,"train_loss":0.4,"ok":true}"#,
+        )
+        .unwrap();
     let _s_done = EnvGuard::set(
         "FORGE_WHEN_FREE_STATUS",
         Some(status.to_str().expect("utf8")),
@@ -400,10 +400,10 @@ fn forge_train_snap_reads_status_and_formats_fragment() {
     assert!(flying.contains("40/200"), "got: {flying}");
     // Mid-train status with PRIMARY stamp names attack surface in root LID.
     std::fs::write(
-        &status,
-        r#"{"state":"training","train_step":90,"train_total":200,"train_eta_sec":1200,"open_lever_top":"32768x1","free_train_primary_n":4,"train_loss_live":0.2,"train_loss_min":0.15,"train_loss_max":0.45}"#,
-    )
-    .unwrap();
+            &status,
+            r#"{"state":"training","train_step":90,"train_total":200,"train_eta_sec":1200,"open_lever_top":"32768x1","free_train_primary_n":4,"train_loss_live":0.2,"train_loss_min":0.15,"train_loss_max":0.45}"#,
+        )
+        .unwrap();
     let _s4 = EnvGuard::set(
         "FORGE_WHEN_FREE_STATUS",
         Some(status.to_str().expect("utf8")),

@@ -188,7 +188,7 @@ fn usage_row_covers_blind_and_metered_routes() {
     assert_eq!(
         row,
         "glm · 3 hop(s) (3 reported) · hit n/a · in 30k · read 12k · 2 drop(s) \
-         → compaction splice ×1, untagged ×1"
+             → compaction splice ×1, untagged ×1"
     );
 }
 
