@@ -26,7 +26,7 @@ fn worker_proposal_approval_skill_loading_and_feedback_form_one_loop() {
     std::fs::write(&ledger, rows.join("\n") + "\n").unwrap();
     let tick = || {
         let result = std::process::Command::new("node")
-            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/habitsmith-tick.mjs"))
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/habitsmith-tick.mjs"))
             .arg("--force")
             .env("ANGEL_CAUSAL_GRAPH", &graph)
             .env("ANGEL_EXPERIENCE_LOG", &ledger)

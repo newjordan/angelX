@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { RELEASE_PATHS, REQUIRED_RELEASE_FILES } from '../../scripts/release-evidence.mjs'
+import { RELEASE_PATHS, REQUIRED_RELEASE_FILES } from '../../scripts/release/release-evidence.mjs'
 
-const policy = fileURLToPath(new URL('../../scripts/angel-club-policy.sh', import.meta.url))
+const policy = fileURLToPath(new URL('../../scripts/check/angel-club-policy.sh', import.meta.url))
 
 test('the launch-time provider policy is shipped in release archives', () => {
-  for (const path of ['scripts/angel-club-policy.sh', 'tests/scripts/angel-club-policy.test.mjs']) {
+  for (const path of ['scripts/check/angel-club-policy.sh', 'tests/scripts/angel-club-policy.test.mjs']) {
     assert.ok(RELEASE_PATHS.includes(path))
     assert.ok(REQUIRED_RELEASE_FILES.includes(path))
   }
@@ -122,10 +122,10 @@ test('real launcher loads system.env, preserves API choices, and isolates headle
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const home = join(root, 'home')
   const source = join(root, 'source')
-  for (const dir of ['bin', 'scripts', 'cockpit/target/release']) mkdirSync(join(source, dir), { recursive: true })
+  for (const dir of ['bin', 'scripts/check', 'cockpit/target/release']) mkdirSync(join(source, dir), { recursive: true })
   mkdirSync(join(home, '.config/host_env'), { recursive: true })
   copyFileSync(fileURLToPath(new URL('../../bin/angel0', import.meta.url)), join(source, 'bin/angel0'))
-  copyFileSync(policy, join(source, 'scripts/angel-club-policy.sh'))
+  copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
   const probe = join(source, 'cockpit/target/release/angel')
   writeFileSync(probe, `#!/usr/bin/env python3
 import json, os

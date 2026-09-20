@@ -354,7 +354,7 @@ fn pxpipe_helper_path() -> PathBuf {
     if let Some(path) = env_first(&["ANGEL_PXPIPE_HELPER"]) {
         return PathBuf::from(path);
     }
-    crate::runtime_paths::script("pxpipe-transform.mjs")
+    crate::runtime_paths::script("runtime/pxpipe-transform.mjs")
 }
 
 fn pxpipe_enabled() -> bool {

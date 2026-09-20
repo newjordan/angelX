@@ -21,7 +21,7 @@ fn still_worker_export_reaches_the_native_status_reader() {
     )
     .unwrap();
     let result = std::process::Command::new("node")
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/still-tick.mjs"))
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/still-tick.mjs"))
         .args(["--force", "--distill"])
         .env("ANGEL_STILL", "1")
         .env("ANGEL_STILL_DIR", &state)

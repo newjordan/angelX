@@ -25,11 +25,11 @@
 # verify those with `git archive --format=tar <commit> -- <inputs> | sha256sum`.
 #
 # Usage:
-#   scripts/cockpit-source-digest.sh              digest of HEAD, only if the build
+#   scripts/check/cockpit-source-digest.sh              digest of HEAD, only if the build
 #                                                 inputs are clean (exit 3 otherwise)
-#   scripts/cockpit-source-digest.sh --commit X   v2 digest of any commit, no clean test
-#   scripts/cockpit-source-digest.sh --legacy-commit X  historical v1 digest only
-#   scripts/cockpit-source-digest.sh --dirty      list the dirty build-input paths
+#   scripts/check/cockpit-source-digest.sh --commit X   v2 digest of any commit, no clean test
+#   scripts/check/cockpit-source-digest.sh --legacy-commit X  historical v1 digest only
+#   scripts/check/cockpit-source-digest.sh --dirty      list the dirty build-input paths
 #
 # Current build inputs are the explicit BUILD_INPUTS inventory below, including
 # cockpit/Cargo.lock, both vendored path dependencies and embedded telemetry. A
@@ -38,7 +38,7 @@
 # checkout; 3 dirty build inputs (one explanatory line on stderr).
 set -euo pipefail
 
-root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LEGACY_BUILD_INPUTS=(cockpit vendor/dotmax rust-toolchain.toml)
 BUILD_INPUTS=(cockpit vendor/dotmax vendor/ureq rust-toolchain.toml
   docs/telemetry/model-calibration.toml docs/telemetry/store-caps.toml
