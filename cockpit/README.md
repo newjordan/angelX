@@ -35,6 +35,25 @@ policy. With no applicable limit or inferred default, the provider chooses
 its output budget. A per-request limit is separate from the task's hop and
 deadline bounds; it is not a total token or spending limit.
 
+## Layout
+
+`src/` is seven directories, ordered so dependencies point downward. `app`
+reaches into everything; `platform` reaches into almost nothing.
+
+| | |
+|---|---|
+| `app/` | the shell: central `App` state, command dispatch, startup wiring |
+| `ui/` | rendering and input — layout, widgets, panes, live visualizations |
+| `stage/` | the miniworld and its ceremonies |
+| `drive/` | unattended controllers that run the engine over many turns |
+| `agent/` | the model runtime: harness, tools, providers, sandbox, edits |
+| `knowledge/` | what the cockpit records and recalls |
+| `platform/` | process, paths, workspace identity, operator-owned policy |
+
+A new module belongs in the lowest layer that can hold it: if it draws, `ui/`;
+if it only computes or persists, `knowledge/` or `platform/`; if it runs the
+model, `agent/`; if it runs unattended across turns, `drive/`.
+
 ## What's here
 
 - `src/main.rs` — the ratatui TUI: chat with the in-hand agent, `Tab` to switch
@@ -44,32 +63,32 @@ deadline bounds; it is not a total token or spending limit.
   64-tool-hop runaway guard by default; `ANGEL_MAX_HOPS=0` explicitly makes an
   individual turn unbounded, while later settled turns and campaigns remain
   separate.
-- `src/session.rs` — **session log + resume.** Published snapshots atomically
+- `src/knowledge/session.rs` — **session log + resume.** Published snapshots atomically
   replace `~/.angel0/sessions/<id>.json`; writes are queued off the UI thread, so
   abrupt process death can still lose the newest enqueue-to-write window and a
   surfaced write failure leaves only the prior good snapshot. `/sessions` lists
   saved sessions (newest first); `/resume [id]` reloads one (no id = latest) and
   continues writing to it.
-- `src/club/` — the internal `Club` trait, OpenAI-compatible HTTP/model
+- `src/agent/club/` — the internal `Club` trait, OpenAI-compatible HTTP/model
   implementations, the always-available `PracticeClub`, and the `Bag` route
   selector. `ANGEL_DRIVER` is an explicit preference; when it is unset, configured
   cloud routes and then reachable fleet models are preferred before the practice
   floor.
-- `src/swarm/` and `src/formations.rs` — explicit local/SOTA
+- `src/agent/swarm/` and `src/agent/formations.rs` — explicit local/SOTA
   Mixture-of-Agents and roster machinery: parallel personas with optional
   research / reflect / judge / samples / verify / cite / hedge stages
   (`ANGEL_MOA_*`). MoA is an engaged formation or selected swarm route, not the
   default meaning of an unset `ANGEL_DRIVER`.
-- `src/deli.rs` — the `deli` driver (`ANGEL_DRIVER=deli`): a single-session run of
+- `src/drive/deli.rs` — the `deli` driver (`ANGEL_DRIVER=deli`): a single-session run of
   the Deli_AutoResearch loop, thinking **deep over time** — bounded fresh-context
   iterations that accumulate findings, with stall detection, forced structural
   pivots, and direction diversity (`ANGEL_DELI_ROUNDS/_PIVOT/_STALL_STOP/`
   `_MIN_FINDINGS/_STATE_DIR`).
-- `src/harness/` — the tool-loop (`run_turn`) + `ToolRegistry` + the tools.
+- `src/agent/harness/` — the tool-loop (`run_turn`) + `ToolRegistry` + the tools.
   On startup it auto-injects the workspace's **AGENTS.md** (git-root→workspace,
   the Codex convention) into the system preamble so repo conventions ride along
   (`ANGEL_PROJECT_DOC=0` disables).
-- `src/code_mode.rs` — the `code_mode` tool's engine (**on by default**;
+- `src/agent/code_mode.rs` — the `code_mode` tool's engine (**on by default**;
   `ANGEL_CODE_MODE=0` disables): a **synchronous** V8 runtime (the cockpit is
   tokio-free) that runs a model-authored JS program with every cockpit tool bound
   as a host function, so one call can loop/branch/filter over tools in a single
@@ -81,11 +100,11 @@ deadline bounds; it is not a total token or spending limit.
   sandboxing; a watchdog terminates runaway JS (`ANGEL_CODE_MODE_TIMEOUT_MS`
   default 300s/`0`=unbounded, `ANGEL_CODE_MODE_HEAP_MB`). Strip-mined from Codex's
   `code-mode`, rebuilt blocking.
-- `src/reinforce.rs` — the self-reinforce loop + reward types.
-- `src/{sandbox,pty,viewer,chart}.rs` — landlock sandbox, full-access PTY pane,
+- `src/drive/reinforce.rs` — the self-reinforce loop + reward types.
+- `src/agent/sandbox.rs`, `src/platform/pty.rs`, `src/ui/{viewer,chart}.rs` — landlock sandbox, full-access PTY pane,
   portrait image protocol support (`ANGEL_IMAGE_PROTOCOL=kitty|sixel|iterm2`
   when explicitly selected), and bounded/off-thread terminal-native caches.
-- `src/scryglass.rs` — the persistent Braille stage for the agent-driven
+- `src/ui/scryglass.rs` — the persistent Braille stage for the agent-driven
   live first-person world, brief Arrival establishing plates, eight-second still
   reveals, and silent local MP4 playback. F4 focuses it; drag or arrows look,
   the wheel or `+`/`-` changes the lens, right-click or `0` returns to
@@ -94,20 +113,20 @@ deadline bounds; it is not a total token or spending limit.
   blocks its objective, exercise, checkpoint, or editable Ask Tutor draft.
   Delivered visuals queue behind the active reveal; manual `/show` and `/open N`
   reveals pin until dismissed.
-- `src/world_viz/life.rs` — the living realm: a slow weather drift, golden-hour
+- `src/stage/world_viz/life.rs` — the living realm: a slow weather drift, golden-hour
   and moon-blue grading, drifting cloud shadows, shoreline foam, starlight on
   the night sea, meadow wind gusts, and a prosperity ladder that physically
   grows the town (dock → windmill → market → tall keep, with construction
   sites previewing the next build). Arrival plates can be **forged-3D**
   (Hunyuan3D meshes baked to noir plates by `scripts/world-forge/` — see
   `assets/world-forge/README.md`), falling back to the woodcut set.
-- `src/observatory.rs` — the native read-only campaign/report gallery inside
+- `src/app/observatory.rs` — the native read-only campaign/report gallery inside
   the ordinary Artifacts pane. `/observatory` loads the report house;
   `/observatory campaign <id>` and `/observatory open <report-id>` retain exact
   command access. With an empty composer, arrows traverse the windowed campaign
   rail and report ledger and Enter opens the selected report through the normal
   media path.
-- `src/ui_inspect.rs` — the ordinary cockpit's visual acceptance broker.
+- `src/ui/ui_inspect.rs` — the ordinary cockpit's visual acceptance broker.
   `ui_verify` applies one typed, display-only control or Observatory campaign
   operation through the production input path before draw; `ui_inspect`
   performs a read-only draw or pages a cached snapshot. Both return normalized
