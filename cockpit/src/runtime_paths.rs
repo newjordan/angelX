@@ -47,9 +47,6 @@ pub(crate) fn status() -> serde_json::Value {
     let required = [
         "scripts/runtime/repo-dossier.mjs",
         "scripts/runtime/habitsmith-tick.mjs",
-        "scripts/runtime/conductor-tick.mjs",
-        "scripts/runtime/still-tick.mjs",
-        "scripts/runtime/angel-machine-queue.py",
         "scripts/runtime/pxpipe-transform.mjs",
         "cockpit/assets/excalibur/rise.png",
     ];

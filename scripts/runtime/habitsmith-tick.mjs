@@ -30,7 +30,7 @@ import {
   compileHabitsStatus,
   proposeToDisk,
 } from './habitsmith.mjs'
-import { isIdle, makeHeartbeat, angelTtyRunning } from './reflex-tick.mjs'
+import { isIdle, makeHeartbeat, angelTtyRunning } from './idle.mjs'
 
 /** Kill switch: ANGEL_HABITS=0 disables the whole loop. */
 export function killed(env = {}) {

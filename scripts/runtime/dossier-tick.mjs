@@ -46,7 +46,7 @@ import {
   recordRun,
   makeHeartbeat,
   angelTtyRunning,
-} from './reflex-tick.mjs'
+} from './idle.mjs'
 
 // ─── pure probe logic ────────────────────────────────────────────────────────
 
