@@ -290,20 +290,60 @@ struct SelfContextCache {
 
 static SELF_CONTEXT_CACHE: OnceLock<Mutex<Option<SelfContextCache>>> = OnceLock::new();
 
+/// The seven dependency layers `src/` is grouped into. They are directories,
+/// not modules in their own right, so every scan reaches *through* them: the
+/// stems one level down are the modules this map has always described, which
+/// is what keeps [`group_of`] keyed on bare stems.
+const LAYERS: &[&str] = &[
+    "agent",
+    "app",
+    "drive",
+    "knowledge",
+    "platform",
+    "stage",
+    "ui",
+];
+
+/// The concrete `Tool` impls, relative to the crate root. They render as their
+/// own section, so every other scan skips them.
+const TOOLS_REL: &str = "src/agent/tools";
+
+/// Every directory the module map reads, as `(dir, rel_prefix, skip)`. One list
+/// so [`scan_modules`] and [`module_source_stamp`] cannot drift apart — they
+/// held separate copies of this before, and the layering silently broke both.
+fn scan_roots(root: &Path) -> Vec<(PathBuf, String, Vec<&'static str>)> {
+    let src = root.join("src");
+    // Top level keeps only the true root modules; the layer dirs are reached below.
+    let mut roots = vec![(src.clone(), "src".to_string(), LAYERS.to_vec())];
+    for layer in LAYERS {
+        let mut skip = vec!["mod.rs"];
+        if *layer == "agent" {
+            skip.push("tools");
+        }
+        roots.push((src.join(layer), format!("src/{layer}"), skip));
+    }
+    roots.push((root.join(TOOLS_REL), TOOLS_REL.to_string(), vec!["mod.rs"]));
+    roots
+}
+
 /// Cheap invalidation key for the files [`scan_modules`] reads. Resuming a
 /// session should not reread the entire cockpit source tree when none of those
 /// files changed, but the injected map must still refresh after a live edit.
 fn module_source_stamp(root: &Path) -> u64 {
     let mut paths = Vec::new();
-    for dir in [root.join("src"), root.join("src/tools")] {
+    for (dir, _rel_prefix, skip) in scan_roots(root) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             continue;
         };
         for entry in entries.flatten() {
-            let path = if entry.path().is_dir()
-                && entry.file_name() != "tools"
-                && entry.path().join("mod.rs").is_file()
+            if entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| skip.contains(&name))
             {
+                continue;
+            }
+            let path = if entry.path().is_dir() && entry.path().join("mod.rs").is_file() {
                 entry.path().join("mod.rs")
             } else {
                 entry.path()
@@ -333,29 +373,43 @@ fn module_source_stamp(root: &Path) -> u64 {
     hasher.finish()
 }
 
-/// Read every `src/*.rs` and `src/tools/*.rs`, extracting purpose + symbols.
-/// `top_level` is the `src/*.rs` set; `tools` is the `src/tools/*.rs` set.
+/// Read every module under `src/`, reaching through the layer directories, plus
+/// `src/agent/tools/*.rs`, extracting purpose + symbols. `top_level` is the
+/// module set; `tools` is the tool-impl set.
 fn scan_modules(root: &Path) -> (Vec<ModuleInfo>, Vec<ModuleInfo>) {
-    (
-        scan_dir(&root.join("src"), root, "src"),
-        scan_dir(&root.join("src/tools"), root, "src/tools"),
-    )
+    let (mut top_level, mut tools) = (Vec::new(), Vec::new());
+    for (dir, rel_prefix, skip) in scan_roots(root) {
+        let scanned = scan_dir(&dir, root, &rel_prefix, &skip);
+        if rel_prefix == TOOLS_REL {
+            tools = scanned;
+        } else {
+            top_level.extend(scanned);
+        }
+    }
+    top_level.sort_by(|a, b| a.stem.cmp(&b.stem));
+    (top_level, tools)
 }
 
-fn scan_dir(dir: &Path, root: &Path, rel_prefix: &str) -> Vec<ModuleInfo> {
+fn scan_dir(dir: &Path, root: &Path, rel_prefix: &str, skip: &[&str]) -> Vec<ModuleInfo> {
     let mut out = Vec::new();
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return out,
     };
     for entry in entries.flatten() {
-        // Directory modules (e.g. `src/swarm/`) are read through their `mod.rs`
-        // facade so the map keeps listing them after a file→dir split. `tools/`
-        // keeps its own dedicated section below, so it's skipped here.
-        let path = if entry.path().is_dir()
-            && entry.file_name() != "tools"
-            && entry.path().join("mod.rs").is_file()
+        // `skip` holds the names this pass must not fold in: the layer dirs when
+        // scanning `src/`, each layer's own `mod.rs` facade, and `tools/`, which
+        // keeps its own dedicated section below.
+        if entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| skip.contains(&name))
         {
+            continue;
+        }
+        // Directory modules (e.g. `src/agent/swarm/`) are read through their
+        // `mod.rs` facade so the map keeps listing them after a file→dir split.
+        let path = if entry.path().is_dir() && entry.path().join("mod.rs").is_file() {
             entry.path().join("mod.rs")
         } else {
             entry.path()
@@ -473,9 +527,9 @@ fn generate_self_model_at(root: &Path) -> String {
 
     if !tools.is_empty() {
         s.push_str(
-            "\n### Tool implementations (src/tools/)\n\
+            "\n### Tool implementations (src/agent/tools/)\n\
              Concrete `Tool` impls grouped by capability; the `Tool` trait, `ToolRegistry`, \
-             and `run_turn` loop live in `harness.rs`.\n",
+             and `run_turn` loop live in `src/agent/harness/`.\n",
         );
         for m in &tools {
             s.push_str(&module_line(m));
@@ -605,7 +659,7 @@ pub fn self_context(workspace: &Path) -> String {
     if !tools.is_empty() {
         let names: Vec<&str> = tools.iter().map(|m| m.stem.as_str()).collect();
         s.push_str(&format!(
-            "- **Tool impls (src/tools/)**: {}\n",
+            "- **Tool impls (src/agent/tools/)**: {}\n",
             names.join(", ")
         ));
     }
@@ -702,7 +756,7 @@ impl Tool for SelfMapTool {
                 params: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "module": { "type": "string", "description": "source module stem, e.g. harness/registry" }
+                        "module": { "type": "string", "description": "source module stem, e.g. agent/harness/registry (the layer prefix is optional)" }
                     },
                     "additionalProperties": false
                 }),
@@ -786,10 +840,17 @@ fn module_outline(root: &Path, module: &str) -> Result<String, String> {
         .join("src")
         .canonicalize()
         .map_err(|e| format!("locate source root: {e}"))?;
-    let candidates = [
+    // `src/` is grouped into layer directories, so accept both the qualified
+    // path (`agent/harness/registry`) and the bare one (`harness/registry`) the
+    // map has always used.
+    let mut candidates = vec![
         source_root.join(format!("{relative}.rs")),
         source_root.join(relative).join("mod.rs"),
     ];
+    for layer in LAYERS {
+        candidates.push(source_root.join(layer).join(format!("{relative}.rs")));
+        candidates.push(source_root.join(layer).join(relative).join("mod.rs"));
+    }
     let candidate = candidates
         .iter()
         .find(|p| p.is_file())

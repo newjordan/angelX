@@ -262,12 +262,20 @@ impl Body {
         #[cfg(not(test))]
         cmd.arg("--tool-http-helper");
         #[cfg(test)]
-        cmd.args([
-            "--exact",
-            "tools::http_transport::tests::http_child_entry",
-            "--nocapture",
-        ])
-        .env("ANGEL_T_HTTP_CHILD", "1");
+        {
+            // Derived from `module_path!()`, not spelled out: a stale literal
+            // matches zero tests, so the child serves nothing, every fixture
+            // request fails as a transport error, and `deadline_interrupts_headers`
+            // hangs on `server.join()` while holding the process-wide env lock.
+            let filter = format!(
+                "{}::tests::http_child_entry",
+                module_path!()
+                    .split_once("::")
+                    .map_or(module_path!(), |(_crate, rest)| rest)
+            );
+            cmd.args(["--exact", filter.as_str(), "--nocapture"])
+                .env("ANGEL_T_HTTP_CHILD", "1");
+        }
         let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

@@ -100,9 +100,12 @@ fn generate_self_model_describes_real_modules() {
     let map = generate_self_model();
     assert!(map.contains("angel0-cockpit"), "names the crate");
     assert!(map.contains("cargo test"), "has the build/test contract");
-    assert!(map.contains("harness.rs"), "lists the harness module");
+    assert!(map.contains("harness/mod.rs"), "lists the harness module");
     assert!(map.contains("swarm/mod.rs"), "lists the swarm driver");
-    assert!(map.contains("src/tools/"), "covers the tools submodule");
+    assert!(
+        map.contains("src/agent/tools/"),
+        "covers the tools submodule"
+    );
     assert!(
         map.contains("ToolRegistry") || map.contains("Tool"),
         "surfaces a key public type from harness"
