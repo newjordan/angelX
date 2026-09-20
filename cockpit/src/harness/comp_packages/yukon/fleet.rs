@@ -441,5 +441,5 @@ fn strip_ansi(text: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/yukon_fleet__tests.rs"]
+#[path = "../../../../../tests/cockpit/app/yukon_fleet__tests.rs"]
 mod tests;

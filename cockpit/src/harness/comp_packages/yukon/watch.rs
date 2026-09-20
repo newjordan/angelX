@@ -1,12 +1,14 @@
-use super::*;
+use crate::harness::comp_watch::{
+    ConfiguredWatchSource, SlotSnapshot, StatusSource,
+};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 pub(crate) struct YukonStatusSource {
     benchmark: String,
     id: String,
-    pending: Option<Receiver<Result<crate::yukon_status::SubmissionStatus, String>>>,
-    last: Option<crate::yukon_status::SubmissionStatus>,
+    pending: Option<Receiver<Result<super::status::SubmissionStatus, String>>>,
+    last: Option<super::status::SubmissionStatus>,
     next_poll: Instant,
     error_notice: Option<String>,
 }
@@ -57,7 +59,7 @@ impl StatusSource for YukonStatusSource {
             match std::thread::Builder::new()
                 .name("angel-yukon-status".into())
                 .spawn(move || {
-                    let _ = sender.send(crate::yukon_status::fetch(&benchmark, &submission));
+                    let _ = sender.send(super::status::fetch(&benchmark, &submission));
                 }) {
                 Ok(_) => self.pending = Some(receiver),
                 Err(_) => {
@@ -95,7 +97,7 @@ pub(crate) fn configured_yukon_watch() -> Result<Option<(String, ConfiguredWatch
     match (benchmark, id) {
         (None, None) => Ok(None),
         (Some(benchmark), Some(id))
-            if crate::yukon_status::valid_uuid(&benchmark) && crate::yukon_status::valid_uuid(&id) => {
+            if super::status::valid_uuid(&benchmark) && super::status::valid_uuid(&id) => {
                 Ok(Some((id.clone(), ConfiguredWatchSource::Yukon(Box::new(YukonStatusSource::new(benchmark, id))))))
             }
         _ => Err("Yukon watcher requires both ANGEL_WATCH_YUKON_BENCHMARK and ANGEL_WATCH_YUKON_SUBMISSION as full lowercase UUIDs".into()),
