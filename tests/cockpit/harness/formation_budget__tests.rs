@@ -290,9 +290,9 @@ impl crate::club::Club for ScriptedSeat {
         let n = self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         reservation.settle(Some(usage(10, 30)));
         Ok(["Use dynamic programming over prefixes to compute the exact minimum edit distance.",
-            "Build a graph of states then use breadth first search to discover the shortest route.",
-            "The complete refined answer is to memoize all subproblems and return the optimal cost.",
-            "The complete alternative answer enumerates feasible candidates and selects the minimum."][n % 4].into())
+                "Build a graph of states then use breadth first search to discover the shortest route.",
+                "The complete refined answer is to memoize all subproblems and return the optimal cost.",
+                "The complete alternative answer enumerates feasible candidates and selects the minimum."][n % 4].into())
     }
 }
 /// Operator-ordered F01 contract: refinement and synthesis continue past the allocation.

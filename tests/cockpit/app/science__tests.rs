@@ -71,13 +71,13 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
 fn openalex_parses_and_normalizes() {
     let v: serde_json::Value = serde_json::from_str(
         r#"{"results":[
-            {"display_name":"Attention Is All You Need","publication_year":2017,
-             "doi":"https://doi.org/10.5555/ABC","cited_by_count":90000,
-             "id":"https://openalex.org/W1","authorships":[
-                {"author":{"display_name":"A Vaswani"}},
-                {"author":{"display_name":"N Shazeer"}}]},
-            {"display_name":"","publication_year":2000}
-        ]}"#,
+                {"display_name":"Attention Is All You Need","publication_year":2017,
+                 "doi":"https://doi.org/10.5555/ABC","cited_by_count":90000,
+                 "id":"https://openalex.org/W1","authorships":[
+                    {"author":{"display_name":"A Vaswani"}},
+                    {"author":{"display_name":"N Shazeer"}}]},
+                {"display_name":"","publication_year":2000}
+            ]}"#,
     )
     .unwrap();
     let ps = parse_openalex(&v);
@@ -93,11 +93,11 @@ fn openalex_parses_and_normalizes() {
 fn crossref_parses_authors_and_year() {
     let v: serde_json::Value = serde_json::from_str(
         r#"{"message":{"items":[
-            {"title":["Deep Residual Learning"],"DOI":"10.1109/CVPR.2016.90",
-             "URL":"https://doi.org/10.1109/CVPR.2016.90","is-referenced-by-count":180000,
-             "issued":{"date-parts":[[2016,6]]},
-             "author":[{"given":"Kaiming","family":"He"},{"family":"Zhang"}]}
-        ]}}"#,
+                {"title":["Deep Residual Learning"],"DOI":"10.1109/CVPR.2016.90",
+                 "URL":"https://doi.org/10.1109/CVPR.2016.90","is-referenced-by-count":180000,
+                 "issued":{"date-parts":[[2016,6]]},
+                 "author":[{"given":"Kaiming","family":"He"},{"family":"Zhang"}]}
+            ]}}"#,
     )
     .unwrap();
     let ps = parse_crossref(&v);
@@ -112,11 +112,11 @@ fn crossref_parses_authors_and_year() {
 fn semantic_scholar_pulls_doi_from_external_ids() {
     let v: serde_json::Value = serde_json::from_str(
         r#"{"data":[
-            {"title":"BERT","year":2019,"citationCount":70000,
-             "url":"https://www.semanticscholar.org/paper/x",
-             "externalIds":{"DOI":"10.18653/v1/N19-1423","ArXiv":"1810.04805"},
-             "authors":[{"name":"Jacob Devlin"},{"name":"Ming-Wei Chang"}]}
-        ]}"#,
+                {"title":"BERT","year":2019,"citationCount":70000,
+                 "url":"https://www.semanticscholar.org/paper/x",
+                 "externalIds":{"DOI":"10.18653/v1/N19-1423","ArXiv":"1810.04805"},
+                 "authors":[{"name":"Jacob Devlin"},{"name":"Ming-Wei Chang"}]}
+            ]}"#,
     )
     .unwrap();
     let ps = parse_semantic_scholar(&v);
@@ -130,10 +130,10 @@ fn semantic_scholar_pulls_doi_from_external_ids() {
 fn europepmc_splits_authorstring_and_parses_year() {
     let v: serde_json::Value = serde_json::from_str(
         r#"{"resultList":{"result":[
-            {"title":"CRISPR-Cas9 genome editing.","pubYear":"2014",
-             "authorString":"Doudna JA, Charpentier E.","doi":"10.1126/science.1258096",
-             "citedByCount":9000,"id":"25430774","source":"MED"}
-        ]}}"#,
+                {"title":"CRISPR-Cas9 genome editing.","pubYear":"2014",
+                 "authorString":"Doudna JA, Charpentier E.","doi":"10.1126/science.1258096",
+                 "citedByCount":9000,"id":"25430774","source":"MED"}
+            ]}}"#,
     )
     .unwrap();
     let ps = parse_europepmc(&v);

@@ -740,10 +740,10 @@ fn blocked_verifier_rides_first_in_the_iteration_prompt() {
         "{prompt}"
     );
     assert!(
-        prompt
-            .contains("Notes in the repository are not a blocker; missing inputs that a script in the repository can fetch are not a blocker"),
-        "{prompt}"
-    );
+            prompt
+                .contains("Notes in the repository are not a blocker; missing inputs that a script in the repository can fetch are not a blocker"),
+            "{prompt}"
+        );
     let steer_at = prompt
         .find("[operator steering")
         .expect("steer block present for ordering");

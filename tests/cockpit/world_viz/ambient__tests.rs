@@ -273,8 +273,8 @@ fn all_locations_have_distinct_bounded_opaque_art_without_state_colors() {
         assert_eq!(image.dimensions(), (256, 224));
         assert_eq!(image.as_raw().len(), 229_376);
         assert!(image.pixels().all(
-            |pixel| pixel[3] == 255 && materials.contains(&[pixel[0], pixel[1], pixel[2]])
-        ));
+                |pixel| pixel[3] == 255 && materials.contains(&[pixel[0], pixel[1], pixel[2]])
+            ));
         assert!(std::ptr::eq(image, plate(building)), "decode is retained");
         for prior in &BUILDINGS[..index] {
             assert_ne!(

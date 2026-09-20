@@ -14,10 +14,10 @@ fn input() -> Value {
 }
 fn response() -> Value {
     json!({"model":"jev-fixture", "answers":{
-        "risk":{"type":"noul","noul":0.25},
-        "next":{"type":"choice","choice":"repeat benchmark","confidence":0.8,"probabilities":{"repeat benchmark":0.9,"abandon candidate":0.1}},
-        "evidence":{"type":"score","score":0.6,"confidence":0.4,"probabilities":{"0":0.5,"1":0.4,"2":0.1}}
-    },"usage":{"input_tokens":123,"output_tokens":20}})
+            "risk":{"type":"noul","noul":0.25},
+            "next":{"type":"choice","choice":"repeat benchmark","confidence":0.8,"probabilities":{"repeat benchmark":0.9,"abandon candidate":0.1}},
+            "evidence":{"type":"score","score":0.6,"confidence":0.4,"probabilities":{"0":0.5,"1":0.4,"2":0.1}}
+        },"usage":{"input_tokens":123,"output_tokens":20}})
 }
 fn tool(endpoint: String) -> JevTool {
     JevTool {

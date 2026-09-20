@@ -920,10 +920,10 @@ fn native_video_pixels_seek_resize_hide_reopen_and_release_the_decoder() {
     std::fs::create_dir(&root).unwrap();
     let path = root.join("red-to-green.mp4");
     let generated = std::process::Command::new("ffmpeg").args([
-        "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
-        "color=c=red:s=32x24:r=8:d=1[r];color=c=lime:s=32x24:r=8:d=2[g];[r][g]concat=n=2:v=1:a=0",
-        "-r", "8", "-pix_fmt", "yuv420p", "-y",
-    ]).arg(&path).status();
+            "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+            "color=c=red:s=32x24:r=8:d=1[r];color=c=lime:s=32x24:r=8:d=2[g];[r][g]concat=n=2:v=1:a=0",
+            "-r", "8", "-pix_fmt", "yuv420p", "-y",
+        ]).arg(&path).status();
     if !generated.is_ok_and(|status| status.success()) {
         eprintln!("SKIP native video fixture: ffmpeg CLI unavailable");
         return;
@@ -1240,7 +1240,7 @@ fn ride_frame_ink_runs_bound_the_sgr_flood() {
     ] {
         println!(
             "  {label}: distinct={distinct} sgr-runs={runs} mean-run={:.2} \
-             full-repaint≈{bytes}B | next-frame changed={changed} headers={headers} ≈{diff_bytes}B",
+                 full-repaint≈{bytes}B | next-frame changed={changed} headers={headers} ≈{diff_bytes}B",
             first.cells.len() as f32 / runs.max(1) as f32,
         );
     }
@@ -1308,7 +1308,7 @@ fn dotmax_frame_ink_runs_are_measured_beside_the_ride() {
     let q4_diff = diff_stats(&first, &second, quant4);
     println!(
         "Dotmax ink: {}x{} cells={} raw-runs={} rgb555-runs={} rgb444-runs={} \
-         mean-run={:.2}",
+             mean-run={:.2}",
         first.width,
         first.height,
         first.cells.len(),

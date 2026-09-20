@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn nvidia_csv_formats_per_gpu_lines() {
     let csv = "0, NVIDIA RTX PRO 6000, 590.12, 87, 44231, 49140, 61, 310.5, 450.0\n\
-               1, NVIDIA RTX PRO 6000, 590.12, 12, 1024, 49140, 41, 90.0, 450.0";
+                   1, NVIDIA RTX PRO 6000, 590.12, 12, 1024, 49140, 41, 90.0, 450.0";
     let out = format_nvidia_csv(csv);
     assert!(out.contains("GPU0 NVIDIA RTX PRO 6000 | util 87% | mem 44231/49140 MiB"));
     assert!(out.contains("GPU1"));
@@ -106,8 +106,8 @@ fn machine_test_clipping_preserves_streaming_and_exit_status() {
     use std::path::PathBuf;
     use std::sync::Mutex;
 
-    let path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/machine_queue_output.py");
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/integration/fixtures/machine_queue_output.py");
     assert!(path.is_file(), "missing fake client: {}", path.display());
     let config = MachineQueueConfig {
         client_script: path,

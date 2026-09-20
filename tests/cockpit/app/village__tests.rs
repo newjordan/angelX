@@ -42,14 +42,14 @@ fn state_round_trips_atomically_and_survives_corruption() {
 fn forge_health_parses_the_real_shape_and_degrades() {
     let v: serde_json::Value = serde_json::from_str(
         r#"{
-            "training": true,
-            "dataset": {"total": 1234, "new_since_last_train": 56},
-            "current_adapter": "v2",
-            "last_cycle": {"gate_pass": false, "promoted": false,
-                           "eval_loss_adapter": 0.91, "eval_loss_base": 0.87},
-            "gpu_free_mib": 9000,
-            "ollama_models": ["qwen3.5:4b", "angel-head2:v2", "angel-head2:latest"]
-        }"#,
+                "training": true,
+                "dataset": {"total": 1234, "new_since_last_train": 56},
+                "current_adapter": "v2",
+                "last_cycle": {"gate_pass": false, "promoted": false,
+                               "eval_loss_adapter": 0.91, "eval_loss_base": 0.87},
+                "gpu_free_mib": 9000,
+                "ollama_models": ["qwen3.5:4b", "angel-head2:v2", "angel-head2:latest"]
+            }"#,
     )
     .unwrap();
     let f = parse_forge_health(&v);
@@ -78,10 +78,10 @@ fn merge_local_last_cycle_fills_autopropagate_zero_handoff() {
     let id = std::process::id();
     let cycle = std::env::temp_dir().join(format!("village-last-cycle-{id}.json"));
     std::fs::write(
-        &cycle,
-        r#"{"version":"v7","gate_pass":true,"promoted":false,"eval_loss_adapter":1.1,"eval_loss_base":1.3,"adapter_local":"/tmp/a/v7"}"#,
-    )
-    .unwrap();
+            &cycle,
+            r#"{"version":"v7","gate_pass":true,"promoted":false,"eval_loss_adapter":1.1,"eval_loss_base":1.3,"adapter_local":"/tmp/a/v7"}"#,
+        )
+        .unwrap();
     // SAFETY: single-threaded test; path is process-unique.
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("FORGE_LAST_CYCLE", &cycle) };
@@ -113,10 +113,10 @@ fn merge_local_free_train_status_lights_forge_while_lora_runs() {
     let id = std::process::id();
     let status = std::env::temp_dir().join(format!("village-when-free-{id}.json"));
     std::fs::write(
-        &status,
-        r#"{"state":"training","job_state":"running","train_step":144,"train_total":200,"gpu_free_mib":13168}"#,
-    )
-    .unwrap();
+            &status,
+            r#"{"state":"training","job_state":"running","train_step":144,"train_total":200,"gpu_free_mib":13168}"#,
+        )
+        .unwrap();
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("FORGE_WHEN_FREE_STATUS", &status) };
     let idle = parse_forge_health(&serde_json::json!({"training": false}));

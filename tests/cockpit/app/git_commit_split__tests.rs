@@ -1,4 +1,3 @@
-
 use super::*;
 
 #[test]
@@ -49,10 +48,10 @@ fn parse_porcelain_and_renames() {
 fn plan_splits_in_dependency_order() {
     let files = parse_porcelain_files(
         "\
-M src/lib.rs\n\
-M tests/lib_test.rs\n\
-M README.md\n\
-M Cargo.lock\n",
+ M src/lib.rs\n\
+ M tests/lib_test.rs\n\
+ M README.md\n\
+ M Cargo.lock\n",
     );
     let plan = plan_atomic_commits(&files, true, None).unwrap();
     assert_eq!(plan.units.len(), 4);

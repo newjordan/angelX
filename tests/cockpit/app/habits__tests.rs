@@ -16,11 +16,11 @@ fn worker_proposal_approval_skill_loading_and_feedback_form_one_loop() {
     for session in 1..=12 {
         for (seq, command) in ["cargo build", "cargo test"].iter().enumerate() {
             rows.push(serde_json::json!({
-                "kind":"event", "event":"cmd", "v":3, "ts":now_secs(), "session":session, "seq":seq,
-                "repo":{"key":identity.key,"root":identity.root,"slug":"worker-fixture"},
-                "cmd":{"text":command,"exit":0,"timed_out":false,"verdict":"pass",
-                    "pipefail":true,"independent":true,"source":"agent"}
-            }).to_string());
+                    "kind":"event", "event":"cmd", "v":3, "ts":now_secs(), "session":session, "seq":seq,
+                    "repo":{"key":identity.key,"root":identity.root,"slug":"worker-fixture"},
+                    "cmd":{"text":command,"exit":0,"timed_out":false,"verdict":"pass",
+                        "pipefail":true,"independent":true,"source":"agent"}
+                }).to_string());
         }
     }
     std::fs::write(&ledger, rows.join("\n") + "\n").unwrap();

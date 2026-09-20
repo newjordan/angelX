@@ -44,7 +44,7 @@ fn authored_units_read_each_mutation_tool() {
 #[test]
 fn patch_units_keep_only_the_added_text_per_file() {
     let unified = "--- a/src/one.rs\n+++ b/src/one.rs\n@@ -1,2 +1,3 @@\n ctx\n-gone\n+kept\n+also\n\
-                   --- a/src/two.rs\n+++ b/src/two.rs\n@@ -1 +1 @@\n+second\n";
+                       --- a/src/two.rs\n+++ b/src/two.rs\n@@ -1 +1 @@\n+second\n";
     let units = authored_units("apply_patch", &serde_json::json!({ "diff": unified }));
     assert_eq!(
         units,
@@ -95,7 +95,7 @@ fn mutation_targets_skip_authored_bodies() {
     assert_eq!(visited, vec!["src/kernel.cu".to_string()]);
 
     let repeated = "*** Update File: src/a.rs\n+one\n*** Update File: src/b.rs\n+two\n\
-                    *** Update File: src/a.rs\n+three\n";
+                        *** Update File: src/a.rs\n+three\n";
     assert_eq!(
         mutation_targets("apply_patch", &serde_json::json!({ "diff": repeated })),
         vec!["src/a.rs".to_string(), "src/b.rs".to_string()]
@@ -793,19 +793,19 @@ fn seeded_shard_excludes_skipped_and_timeout_from_labeled_denominator() {
     let _on = crate::tests::TestEnvGuard::unset("ANGEL_CUT");
     let shard = dir.join("authored-20260711.jsonl");
     std::fs::write(
-        &shard,
-        concat!(
-            r#"{"v":1,"ts":1783820764,"session":1,"seq":1,"path":"src/a.rs","authored":"SECRET_BODY_MUST_NOT_LEAK","driver":"sota-moa","repo":{"key":"k"},"machine":{"cmd":"cargo check","exit":0,"timed_out":false}}"#,
-            "\n",
-            r#"{"v":1,"ts":1783820765,"session":1,"seq":2,"path":"docs/x.md","authored":"docs","driver":"sota-moa","repo":{"key":"k"},"machine":{"skipped":"not-source"}}"#,
-            "\n",
-            r#"{"v":1,"ts":1783820766,"session":1,"seq":3,"path":"src/b.rs","authored":"slow","driver":"single","repo":{"key":"k"},"machine":{"cmd":"cargo check","exit":null,"timed_out":true}}"#,
-            "\n",
-            r#"{"v":1,"ts":1783820767,"session":1,"seq":4,"path":"src/c.rs","authored":"broken","driver":"single","repo":{"key":"k"},"machine":{"cmd":"cargo check","exit":101,"timed_out":false}}"#,
-            "\n",
-        ),
-    )
-    .unwrap();
+            &shard,
+            concat!(
+                r#"{"v":1,"ts":1783820764,"session":1,"seq":1,"path":"src/a.rs","authored":"SECRET_BODY_MUST_NOT_LEAK","driver":"sota-moa","repo":{"key":"k"},"machine":{"cmd":"cargo check","exit":0,"timed_out":false}}"#,
+                "\n",
+                r#"{"v":1,"ts":1783820765,"session":1,"seq":2,"path":"docs/x.md","authored":"docs","driver":"sota-moa","repo":{"key":"k"},"machine":{"skipped":"not-source"}}"#,
+                "\n",
+                r#"{"v":1,"ts":1783820766,"session":1,"seq":3,"path":"src/b.rs","authored":"slow","driver":"single","repo":{"key":"k"},"machine":{"cmd":"cargo check","exit":null,"timed_out":true}}"#,
+                "\n",
+                r#"{"v":1,"ts":1783820767,"session":1,"seq":4,"path":"src/c.rs","authored":"broken","driver":"single","repo":{"key":"k"},"machine":{"cmd":"cargo check","exit":101,"timed_out":false}}"#,
+                "\n",
+            ),
+        )
+        .unwrap();
     let text = status_text(Some("ignored-arg"), Path::new("/tmp/ws"));
     assert!(text.contains("authored: 4"), "{text}");
     assert!(text.contains("labeled 2"), "{text}");
@@ -876,19 +876,19 @@ fn human_verdicts_count_when_stamped() {
     let (dir, _cut_dir) = isolated_cut_dir("human");
     let _on = crate::tests::TestEnvGuard::unset("ANGEL_CUT");
     std::fs::write(
-        dir.join("authored-20260711.jsonl"),
-        concat!(
-            r#"{"v":1,"path":"src/a.rs","cut":{"verdict":"KEPT"},"machine":{"cmd":"cargo check","exit":0,"timed_out":false,"session":1}}"#,
-            "\n",
-            r#"{"v":1,"path":"src/b.rs","cut":{"verdict":"EDITED"}}"#,
-            "\n",
-            r#"{"v":1,"path":"src/c.rs","cut":{"verdict":"DISCARDED"}}"#,
-            "\n",
-            r#"{"v":1,"path":"src/d.rs","cut":{"verdict":"SELF-SUPERSEDED"}}"#,
-            "\n",
-        ),
-    )
-    .unwrap();
+            dir.join("authored-20260711.jsonl"),
+            concat!(
+                r#"{"v":1,"path":"src/a.rs","cut":{"verdict":"KEPT"},"machine":{"cmd":"cargo check","exit":0,"timed_out":false,"session":1}}"#,
+                "\n",
+                r#"{"v":1,"path":"src/b.rs","cut":{"verdict":"EDITED"}}"#,
+                "\n",
+                r#"{"v":1,"path":"src/c.rs","cut":{"verdict":"DISCARDED"}}"#,
+                "\n",
+                r#"{"v":1,"path":"src/d.rs","cut":{"verdict":"SELF-SUPERSEDED"}}"#,
+                "\n",
+            ),
+        )
+        .unwrap();
     let text = status_text(None, Path::new("/tmp/ws"));
     assert!(text.contains("KEPT 1"), "{text}");
     assert!(text.contains("EDITED 1"), "{text}");
@@ -904,15 +904,15 @@ fn adjacent_fail_then_pass_counts_as_a_repair_trajectory() {
     let (dir, _cut_dir) = isolated_cut_dir("repair");
     let _on = crate::tests::TestEnvGuard::unset("ANGEL_CUT");
     std::fs::write(
-        dir.join("authored-20260711.jsonl"),
-        concat!(
-            r#"{"v":1,"ts":1,"session":9,"seq":1,"path":"src/a.rs","machine":{"cmd":"cargo check","exit":101,"timed_out":false}}"#,
-            "\n",
-            r#"{"v":1,"ts":2,"session":9,"seq":2,"path":"src/a.rs","machine":{"cmd":"cargo check","exit":0,"timed_out":false}}"#,
-            "\n",
-        ),
-    )
-    .unwrap();
+            dir.join("authored-20260711.jsonl"),
+            concat!(
+                r#"{"v":1,"ts":1,"session":9,"seq":1,"path":"src/a.rs","machine":{"cmd":"cargo check","exit":101,"timed_out":false}}"#,
+                "\n",
+                r#"{"v":1,"ts":2,"session":9,"seq":2,"path":"src/a.rs","machine":{"cmd":"cargo check","exit":0,"timed_out":false}}"#,
+                "\n",
+            ),
+        )
+        .unwrap();
     let text = status_text(None, Path::new("/tmp/ws"));
     assert!(text.contains("repair trajectories: 1"), "{text}");
     assert!(text.contains("pass rate: 1/2"), "{text}");

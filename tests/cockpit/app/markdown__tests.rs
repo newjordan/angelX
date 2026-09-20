@@ -427,8 +427,8 @@ fn cache_evicts_lru_entries_beyond_capacity_and_stays_correct() {
 #[test]
 fn scenario_realistic_document_renders_across_widths() {
     let doc = "# Title\n\nIntro with **bold**, *italic*, ~~struck~~ and a [link](http://x).\n\n\
-        - first\n- second\n  - nested\n\n```rust\nfn main() { println!(\"hi\"); }\n```\n\n\
-        | Col A | Col B |\n|------|------|\n| 1 | two |\n\n> a blockquote\n";
+            - first\n- second\n  - nested\n\n```rust\nfn main() { println!(\"hi\"); }\n```\n\n\
+            | Col A | Col B |\n|------|------|\n| 1 | two |\n\n> a blockquote\n";
     for width in [1usize, 4, 8, 20, 40, 80, 200] {
         let lines = render(doc, width);
         // width 1 may legitimately produce few lines, but never a panic.

@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn module_purpose_extracts_first_sentence_of_doc_block() {
     let src = "//! The agent harness: per-agent tool-loop + the orchestrator.\n\
-               //! More detail on the second line.\n\nuse std::fs;\n";
+                   //! More detail on the second line.\n\nuse std::fs;\n";
     assert_eq!(
         module_purpose(src),
         "The agent harness: per-agent tool-loop + the orchestrator."
@@ -19,7 +19,7 @@ fn module_purpose_empty_when_no_doc_comment() {
 #[test]
 fn module_purpose_joins_wrapped_lines_into_one_sentence() {
     let src = "//! A tiny CPU raytracer rendered into a ratatui buffer — a rotating\n\
-               //! cube. Second sentence here.\n";
+                   //! cube. Second sentence here.\n";
     assert_eq!(
         module_purpose(src),
         "A tiny CPU raytracer rendered into a ratatui buffer — a rotating cube."
@@ -49,7 +49,7 @@ fn module_symbols_counts_and_collects_types() {
 #[test]
 fn parse_crate_meta_reads_package_and_bin() {
     let toml = "[package]\nname = \"angel0-cockpit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n\
-                [[bin]]\nname = \"angel\"\npath = \"src/main.rs\"\n";
+                    [[bin]]\nname = \"angel\"\npath = \"src/main.rs\"\n";
     let m = parse_crate_meta(toml);
     assert_eq!(m.name, "angel0-cockpit");
     assert_eq!(m.version, "0.1.0");
@@ -435,11 +435,11 @@ fn self_gate_drains_noisy_build_before_running_tests() {
     let (root, path) = fake_cargo_workspace(
         "noisy",
         "#!/bin/sh\n\
-         if [ \"$1\" = build ]; then\n\
-           head -c 2097152 /dev/zero | tr '\\000' e >&2\n\
-           exit 0\n\
-         fi\n\
-         printf 'test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\\n'\n",
+             if [ \"$1\" = build ]; then\n\
+               head -c 2097152 /dev/zero | tr '\\000' e >&2\n\
+               exit 0\n\
+             fi\n\
+             printf 'test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\\n'\n",
     );
     let _path = crate::tests::TestEnvGuard::set("PATH", &path);
 
@@ -459,10 +459,10 @@ fn self_gate_reaps_a_hung_build_tree_and_returns_red() {
     let (root, path) = fake_cargo_workspace(
         "hung",
         "#!/bin/sh\n\
-         if [ \"$1\" = build ]; then\n\
-           sleep 30 &\n\
-           wait\n\
-         fi\n",
+             if [ \"$1\" = build ]; then\n\
+               sleep 30 &\n\
+               wait\n\
+             fi\n",
     );
     let _path = crate::tests::TestEnvGuard::set("PATH", &path);
     let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");

@@ -75,7 +75,7 @@ fn planted_cohort_tokens_are_found_in_an_ignored_nested_workspace() {
                 for no_ignore in [false, true] {
                     assert!(
                         grep.call(&serde_json::json!({"pattern": pattern, "path": path,
-                        "no_ignore": no_ignore, "hidden": true}))
+                            "no_ignore": no_ignore, "hidden": true}))
                             .is_err()
                     );
                 }

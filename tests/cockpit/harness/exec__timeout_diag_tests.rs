@@ -360,9 +360,9 @@ fn detached_pipe_holder_cannot_strand_output_reader_threads() {
     let _ = std::fs::remove_file(&pid_path);
     let mut cmd = Command::new("sh");
     cmd.arg("-c").arg(format!(
-        "setsid sh -c 'echo $$ > {0}; sleep 30' & while [ ! -s {0} ]; do sleep 0.01; done; echo shell-done",
-        pid_path.display()
-    ));
+            "setsid sh -c 'echo $$ > {0}; sleep 30' & while [ ! -s {0} ]; do sleep 0.01; done; echo shell-done",
+            pid_path.display()
+        ));
     let started = Instant::now();
     let capture = output_timed_captured(cmd, Some(Duration::from_secs(5))).unwrap();
     assert!(

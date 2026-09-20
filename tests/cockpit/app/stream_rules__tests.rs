@@ -3,12 +3,12 @@ use super::*;
 #[test]
 fn parses_valid_rules_and_skips_bad_ones() {
     let json = r#"[
-        {"pattern": "(?i)as an ai", "reminder": "answer directly"},
-        {"pattern": "TODO", "reminder": ""},
-        {"pattern": "(unclosed", "reminder": "bad regex is skipped"},
-        {"reminder": "no pattern"},
-        {"pattern": "stub", "reminder": "no stubs"}
-    ]"#;
+            {"pattern": "(?i)as an ai", "reminder": "answer directly"},
+            {"pattern": "TODO", "reminder": ""},
+            {"pattern": "(unclosed", "reminder": "bad regex is skipped"},
+            {"reminder": "no pattern"},
+            {"pattern": "stub", "reminder": "no stubs"}
+        ]"#;
     let rules = parse_rules(json);
     // Only the two well-formed rules survive; empty-reminder and bad-regex
     // and missing-pattern entries are dropped.

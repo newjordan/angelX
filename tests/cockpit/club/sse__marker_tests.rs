@@ -167,11 +167,11 @@ fn zai_openrouter_reasoning_details_and_object_never_enter_answer_or_tools() {
     }));
     assert_eq!(d2.reasoning.as_deref(), Some(" more"));
     let d3 = acc.apply_chunk(&serde_json::json!({
-        "choices": [{ "delta": {
-            "content": "answer",
-            "tool_calls": [{ "index": 0, "id": "c1", "function": { "name": "read_file", "arguments": "{\"path\":\"x\"}" } }]
-        } }]
-    }));
+            "choices": [{ "delta": {
+                "content": "answer",
+                "tool_calls": [{ "index": 0, "id": "c1", "function": { "name": "read_file", "arguments": "{\"path\":\"x\"}" } }]
+            } }]
+        }));
     assert_eq!(d3.content.as_deref(), Some("answer"));
     assert_eq!(d3.reasoning, None);
     assert_eq!(acc.take_reasoning(), "think first more");

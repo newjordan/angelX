@@ -340,7 +340,7 @@ fn batch_from_js_returns_structured_results() {
     // per-item ok/error, all in one run.
     let out = run_ok(
         "const r = batch([{tool:'double',args:{n:5}},{tool:'boom'},{tool:'double',args:{n:6}}]); \
-         return r.map(x => x.ok ? x.output : 'ERR').join(',');",
+             return r.map(x => x.ok ? x.output : 'ERR').join(',');",
     );
     assert_eq!(out.result, "10,ERR,12");
 }
@@ -350,7 +350,7 @@ fn batch_scheduler_can_force_effects_serial_in_declaration_order() {
     let started = std::time::Instant::now();
     let out = run(
         "const r=batch([1,2,3,4].map(()=>({tool:'sleep',args:{ms:40}}))); \
-         return r.length;",
+             return r.length;",
         &["sleep".into()],
         &slow_mock,
         &parallel_none,
@@ -400,12 +400,12 @@ fn is_js_ident_filters() {
 fn mass_test_aggregation_program() {
     let out = run_ok(
         "const inputs = [1,2,3,4,5];\n\
-         const specs = inputs.map(n => ({tool:'double', args:{n}}));\n\
-         specs.push({tool:'boom'});\n\
-         const results = batch(specs);\n\
-         let sum = 0, fails = 0;\n\
-         for (const r of results) { if (r.ok) sum += parseInt(r.output,10); else fails++; }\n\
-         return JSON.stringify({sum, fails, count: results.length});",
+             const specs = inputs.map(n => ({tool:'double', args:{n}}));\n\
+             specs.push({tool:'boom'});\n\
+             const results = batch(specs);\n\
+             let sum = 0, fails = 0;\n\
+             for (const r of results) { if (r.ok) sum += parseInt(r.output,10); else fails++; }\n\
+             return JSON.stringify({sum, fails, count: results.length});",
     );
     assert_eq!(
         out.result, r#"{"sum":30,"fails":1,"count":6}"#,

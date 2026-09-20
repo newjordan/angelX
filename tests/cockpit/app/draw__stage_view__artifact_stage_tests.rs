@@ -131,12 +131,12 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
         None
     };
     let pixel_cells = buffer.content.iter().filter(|cell| {
-        if supplied.is_some() {
-            return matches!(cell.symbol(), "▀" | "▄" | "█");
-        }
-        let video_color = |color| matches!(color, Color::Rgb(r, g, b) if r < 60 && g > 170 && b > 90 && b < 170);
-        video_color(cell.fg) || video_color(cell.bg)
-    }).count();
+            if supplied.is_some() {
+                return matches!(cell.symbol(), "▀" | "▄" | "█");
+            }
+            let video_color = |color| matches!(color, Color::Rgb(r, g, b) if r < 60 && g > 170 && b > 90 && b < 170);
+            video_color(cell.fg) || video_color(cell.bg)
+        }).count();
     assert!(
         native_png.is_some() || pixel_cells > 100,
         "real MP4 pixels must fill a meaningful surface, got {pixel_cells}"

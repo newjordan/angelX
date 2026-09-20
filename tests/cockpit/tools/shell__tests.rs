@@ -626,7 +626,7 @@ fn the_resolved_shell_reports_whether_it_can_be_trusted() {
     assert!(
         shell.pipefail,
         "no shell on this box propagates pipeline failure (resolved `{}`); piped commands \
-         will correctly record `no_verdict`, but the execution fix is inert",
+             will correctly record `no_verdict`, but the execution fix is inert",
         shell.program
     );
     // The claim on the tin is the claim in the record.
@@ -717,8 +717,8 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     assert!(authorized.contains("authorized"), "{authorized}");
 
     let ffmpeg = tool.call(&serde_json::json!({
-        "command": "ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=2x2:d=0.04 -f null -"
-    }));
+            "command": "ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=2x2:d=0.04 -f null -"
+        }));
     match ffmpeg {
         Ok(out) => {
             assert!(!out.contains("empty URL"), "{out}");

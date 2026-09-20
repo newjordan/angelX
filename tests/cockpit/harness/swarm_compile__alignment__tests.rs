@@ -32,10 +32,10 @@ fn request() -> CampaignAlignmentRequest {
 fn valid_output(request: &CampaignAlignmentRequest) -> String {
     format!(
         "{{\"schema\":\"campaign-review/v1\",\"contract_digest\":\"{}\",\
-         \"candidate_oid\":\"{}\",\"criteria\":[{{\"criterion_id\":\"AC-1\",\
-         \"verdict\":\"pass\",\"citations\":[\"src/lib.rs:10\"]}}],\
-         \"cited_proof_sha256\":[\"{}\"],\"summary\":\"criterion is implemented\"}}\n\
-         CAMPAIGN_REVIEW: PASS",
+             \"candidate_oid\":\"{}\",\"criteria\":[{{\"criterion_id\":\"AC-1\",\
+             \"verdict\":\"pass\",\"citations\":[\"src/lib.rs:10\"]}}],\
+             \"cited_proof_sha256\":[\"{}\"],\"summary\":\"criterion is implemented\"}}\n\
+             CAMPAIGN_REVIEW: PASS",
         request.contract_digest, request.candidate_oid, request.proofs[0].sha256
     )
 }

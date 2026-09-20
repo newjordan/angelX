@@ -147,14 +147,14 @@ fn evaluator_mutation_reason_names_changed_paths() {
     std::fs::write(root.join("deleted.txt"), "delete me").unwrap();
     let cancel = std::sync::atomic::AtomicBool::new(false);
     let execution = recovery_eval::run(recovery_eval::RecoveryEvalRequest {
-        command: "printf after > candidate.txt; rm deleted.txt; printf new > added.txt; printf 'test result: ok. 1 passed; 0 failed;'",
-        workspace: &root,
-        scratch: &root.join(".angel-experiment-tmp"),
-        task: "path diagnostic control",
-        answer: "fixture answer",
-        timeout: Some(EVALUATOR_TIMEOUT),
-        cancel: &cancel,
-    }).unwrap();
+            command: "printf after > candidate.txt; rm deleted.txt; printf new > added.txt; printf 'test result: ok. 1 passed; 0 failed;'",
+            workspace: &root,
+            scratch: &root.join(".angel-experiment-tmp"),
+            task: "path diagnostic control",
+            answer: "fixture answer",
+            timeout: Some(EVALUATOR_TIMEOUT),
+            cancel: &cancel,
+        }).unwrap();
     let evidence = execution.evidence;
     assert!(evidence.succeeded());
     evidence.validate_integrity().unwrap();
@@ -444,13 +444,13 @@ fn evaluator_execution_rejects_timeout_truncation_and_source_mutation() {
     );
 
     let local_ipc = EvaluatorEvidence::run_shell(
-        "unix-socket-control",
-        "/usr/bin/python3 -c 'import socket; a,b=socket.socketpair(); a.close(); b.close()'; printf '%s' 'test result: ok. 1 passed; 0 failed;'",
-        &root,
-        TEST_VERIFIER_CONTRACT,
-        "unix-socket-subject",
-    )
-    .unwrap();
+            "unix-socket-control",
+            "/usr/bin/python3 -c 'import socket; a,b=socket.socketpair(); a.close(); b.close()'; printf '%s' 'test result: ok. 1 passed; 0 failed;'",
+            &root,
+            TEST_VERIFIER_CONTRACT,
+            "unix-socket-subject",
+        )
+        .unwrap();
     assert_eq!(
         TestReward
             .score(RewardInput::EvaluatorEvidence(&local_ipc))
@@ -516,13 +516,13 @@ fn evaluator_execution_rejects_timeout_truncation_and_source_mutation() {
     );
 
     let truncated = EvaluatorEvidence::run_shell(
-        "truncation-control",
-        "/usr/bin/head -c 1048577 /dev/zero | /usr/bin/tr '\\000' x; printf '%s' 'test result: ok. 1 passed; 0 failed;'",
-        &root,
-        TEST_VERIFIER_CONTRACT,
-        "truncation-subject",
-    )
-    .unwrap();
+            "truncation-control",
+            "/usr/bin/head -c 1048577 /dev/zero | /usr/bin/tr '\\000' x; printf '%s' 'test result: ok. 1 passed; 0 failed;'",
+            &root,
+            TEST_VERIFIER_CONTRACT,
+            "truncation-subject",
+        )
+        .unwrap();
     assert!(truncated.output_truncated());
     assert!(
         TestReward
@@ -641,10 +641,10 @@ fn score_coding_eval_reward_popcorn_vs_hold_floor() {
             .as_nanos()
     ));
     std::fs::write(
-        &peer,
-        r#"{"geomean_us":867.91,"name":"c3","shapes":{"32768x1":38800.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
-    )
-    .unwrap();
+            &peer,
+            r#"{"geomean_us":867.91,"name":"c3","shapes":{"32768x1":38800.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
+        )
+        .unwrap();
     let prev_state = std::env::var_os("POPCORN_PEER_STATE");
     let prev_rl = std::env::var_os("ANGEL_RL_REWARD");
     // TODO: Audit that the environment access only happens in single-threaded code.
@@ -1420,10 +1420,10 @@ fn popcorn_peer_shape_baseline_uses_hold_floor() {
             .as_nanos()
     ));
     std::fs::write(
-        &peer,
-        r#"{"geomean_us":867.91,"name":"c3","shapes":{"32768x1":38800.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
-    )
-    .unwrap();
+            &peer,
+            r#"{"geomean_us":867.91,"name":"c3","shapes":{"32768x1":38800.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
+        )
+        .unwrap();
     let prev = std::env::var_os("POPCORN_PEER_STATE");
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("POPCORN_PEER_STATE", &peer) };

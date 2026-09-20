@@ -660,9 +660,9 @@ fn fabricated_filesystem_citations_are_rejected_in_the_reasoning_regime() {
         "pretend to have profiled",
         &[
             "the handler opens a fresh connection per request \
-             [evidence: file:src/handlers.rs:27]",
+                 [evidence: file:src/handlers.rs:27]",
             "pooling cuts p99 from 180ms to 34ms \
-             [evidence: benchmark:target/criterion/http_p99/report.json]",
+                 [evidence: benchmark:target/criterion/http_p99/report.json]",
         ],
     )]);
     let k = Knobs {
@@ -853,9 +853,9 @@ fn live_deli_evidence_calibration() {
     // alone — exactly the pressure that used to produce invented citations.
     let problems = [
         "Reduce p99 latency of a Rust HTTP service from 180ms to under 50ms. \
-         The service does one Postgres query per request and serializes to JSON.",
+             The service does one Postgres query per request and serializes to JSON.",
         "A CI suite of 2000 tests fails intermittently about once every 20 runs, \
-         always in a different test. Find the cause.",
+             always in a different test. Find the cause.",
     ];
     let knobs = Knobs {
         rounds: 2,
@@ -927,7 +927,7 @@ fn live_deli_evidence_calibration() {
     assert_eq!(
         fabricated, 0,
         "a reasoning-regime worker emitted {fabricated} citation(s) naming a source kind it \
-         cannot obtain; the evidence gate is no longer rejecting fabrication"
+             cannot obtain; the evidence gate is no longer rejecting fabrication"
     );
     // A run that admits nothing at all across every worker and problem would
     // mean the contract is unusable in practice, not merely strict.

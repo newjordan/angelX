@@ -3,17 +3,17 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
 
 const LEGACY: &str = r#"{
-  "version": 1,
-  "reports": [{
-    "slug": "fleet-latency",
-    "title": "Fleet Latency Survey",
-    "date": "2026-07-01",
-    "category": "benchmarks",
-    "tags": ["fleet"],
-    "file": "fleet-latency.html",
-    "summary": "Legacy report"
-  }]
-}"#;
+      "version": 1,
+      "reports": [{
+        "slug": "fleet-latency",
+        "title": "Fleet Latency Survey",
+        "date": "2026-07-01",
+        "category": "benchmarks",
+        "tags": ["fleet"],
+        "file": "fleet-latency.html",
+        "summary": "Legacy report"
+      }]
+    }"#;
 
 const VERSION_TWO: &str = include_str!("../../../cockpit/fixtures/observatory/manifest-v2.json");
 
@@ -115,27 +115,27 @@ fn snake_case_aliases_load_and_partial_campaigns_stay_unassigned() {
     let catalog = Catalog::from_str(
         Path::new("/tmp/reports/manifest.json"),
         r#"{
-          "version": 2,
-          "reports": [
-            {
-              "slug": "snake",
-              "title": "Snake Case",
-              "file": "snake.html",
-              "campaign_id": "campaign-a",
-              "campaign_title": "Campaign A",
-              "status": "verified",
-              "report_kind": "evidence",
-              "evidence_path": "evidence/snake.json",
-              "linked_run_ids": ["run-snake-001"]
-            },
-            {
-              "slug": "partial",
-              "title": "Partial Campaign",
-              "file": "partial.html",
-              "campaignId": "missing-title"
-            }
-          ]
-        }"#,
+              "version": 2,
+              "reports": [
+                {
+                  "slug": "snake",
+                  "title": "Snake Case",
+                  "file": "snake.html",
+                  "campaign_id": "campaign-a",
+                  "campaign_title": "Campaign A",
+                  "status": "verified",
+                  "report_kind": "evidence",
+                  "evidence_path": "evidence/snake.json",
+                  "linked_run_ids": ["run-snake-001"]
+                },
+                {
+                  "slug": "partial",
+                  "title": "Partial Campaign",
+                  "file": "partial.html",
+                  "campaignId": "missing-title"
+                }
+              ]
+            }"#,
     )
     .unwrap();
     let snake = catalog.report("snake").unwrap();

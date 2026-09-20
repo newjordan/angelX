@@ -1,4 +1,3 @@
-
 use super::*;
 
 const TABLE: &str = r#"
