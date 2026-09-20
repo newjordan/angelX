@@ -167,10 +167,8 @@ fn sealed_override_merges_only_workspace_scoped_writable_roots() {
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.args([
             "--exact",
-            self_test_filter!(
-                "sealed_override_merges_only_workspace_scoped_writable_roots"
-            )
-            .as_str(),
+            self_test_filter!("sealed_override_merges_only_workspace_scoped_writable_roots")
+                .as_str(),
             "--nocapture",
         ])
         .env("ANGEL_T_SEALED_MERGE_CHILD", "1");
