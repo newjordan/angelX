@@ -1637,10 +1637,10 @@ impl App {
         if !cfg!(test)
             && competition_loop
             && self.yukon_fleet_rx.is_none()
-            && self.yukon_fleet_polled_at.elapsed() >= crate::yukon_fleet::POLL_INTERVAL
+            && self.yukon_fleet_polled_at.elapsed() >= crate::harness::comp_packages::yukon::fleet::POLL_INTERVAL
         {
             self.yukon_fleet.begin_scan();
-            self.yukon_fleet_rx = Some(crate::yukon_fleet::spawn_poll());
+            self.yukon_fleet_rx = Some(crate::harness::comp_packages::yukon::fleet::spawn_poll());
         }
     }
 
