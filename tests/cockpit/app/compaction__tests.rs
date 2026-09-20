@@ -862,8 +862,8 @@ fn parse_sections_tolerates_loose_headers() {
     // `###` depth, trailing words, and trailing punctuation must still match —
     // small models emit all three, and the old exact-match dropped them.
     let raw = "### Decisions\n- went with map-reduce\n\
-               ## Files changed\n- compaction.rs\n\
-               ## Task:\n- audit fixes";
+                   ## Files changed\n- compaction.rs\n\
+                   ## Task:\n- audit fixes";
     let parsed = parse_sections(raw);
     let names: Vec<&str> = parsed.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(names, vec!["Task", "Decisions", "Files"]); // SECTIONS order

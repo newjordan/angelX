@@ -168,10 +168,10 @@ fn saved_history_redacts_secrets_and_resumes_with_typed_tool_arguments() {
     let session = Session::at_for(dir.clone(), "redacted".to_string(), &workspace);
     let mut message = ChatMsg::assistant("hf_abcdefghijklmnopqrstuvwxyz01234567");
     message.tool_calls = vec![crate::club::ToolCall {
-        id: "call-1".to_string(),
-        name: "fixture".to_string(),
-        args: serde_json::json!({"access_token": "opaque-value", "count": 17, "ok": true, "nested": [secret, null]}),
-    }].into();
+            id: "call-1".to_string(),
+            name: "fixture".to_string(),
+            args: serde_json::json!({"access_token": "opaque-value", "count": 17, "ok": true, "nested": [secret, null]}),
+        }].into();
     let history = vec![ChatMsg::user(secret), message];
     session.save(&history).unwrap();
     let loaded = load_for_path_for_test(session.path(), &workspace).unwrap();

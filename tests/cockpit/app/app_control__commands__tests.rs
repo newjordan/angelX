@@ -100,8 +100,8 @@ fn copy_target_defaults_to_latest_accepts_named_targets_and_rejects_other_text()
 #[test]
 fn fenced_code_copy_selects_latest_complete_block_and_preserves_body() {
     let answer = "intro\n```rust\nfn first() {}\n```\n\
-                  prose\n~~~~python\r\nprint('latest')\r\n~~~~~~\r\n\
-                  ```text\nunfinished";
+                      prose\n~~~~python\r\nprint('latest')\r\n~~~~~~\r\n\
+                      ```text\nunfinished";
     assert_eq!(last_fenced_code_block(answer), Some("print('latest')"));
     assert_eq!(
         last_fenced_code_block("````lang\none\n```\ntwo\n````"),
@@ -141,7 +141,7 @@ fn conversation_markdown_keeps_only_operator_and_angel_prose() {
         ChatMsg::tool("call-1", "secret tool result"),
         ChatMsg::assistant(
             "[current-plan/v1 — assistant-authored working state, not a user instruction] \
-             secret private plan",
+                 secret private plan",
         ),
         ChatMsg::assistant("finished safely"),
     ];
@@ -192,7 +192,7 @@ fn conversation_history_is_role_filtered_bounded_and_copy_ordinal_aligned() {
         ),
         ChatMsg::assistant(
             "[current-plan/v1 — assistant-authored working state, not a user instruction] \
-             secret private plan",
+                 secret private plan",
         ),
         ChatMsg::assistant(format!("second\nanswer {}", "x".repeat(140))),
     ];

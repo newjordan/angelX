@@ -51,7 +51,7 @@ fn sample_trace_charts_two_expeditions() {
 #[test]
 fn alternatives_fork_without_abandoning() {
     let trace = "Try the direct route. Compute the sum. But the sum diverges. \
-                 Alternatively, use symmetry. The pairs cancel. So the answer is 0.";
+                     Alternatively, use symmetry. The pairs cancel. So the answer is 0.";
     let tree = parse(trace);
     let kids = tree.children();
     let leaves: Vec<usize> = (0..tree.nodes.len())

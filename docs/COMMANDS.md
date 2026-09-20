@@ -64,9 +64,9 @@ the refusal is not a successful check.
 | `/goal go`, `/goal tick`, `/goal rounds <N\|unset>` | Advance work or set its round bound. |
 | `/goal criteria <text>`, `/goal cmd <check>`, `/goal note <text>` | Set acceptance criteria, verifier or a note. |
 | `/goal pause`, `/goal resume`, `/goal blocked <reason>`, `/goal done`, `/goal clear` | Control objective state. |
-| `/loop [iterations=N] <task>` | Start a bounded autonomous loop; `/loop` alone opens its workshop. |
+| `/loop [iterations=N] <task>` | Start an autonomous loop; `iterations=N` sets an optional bound. `/loop` alone opens its workshop. |
 | `/loop status`, `/loop pause`, `/loop resume`, `/loop stop` | Inspect or control the loop. |
-| `/loop deli`, `/loop podrace <task>`, `/loop endless [task]` | Select optional loop modes; `endless` removes the iteration bound. |
+| `/loop deli`, `/loop podrace <task>`, `/loop endless [task]` | Select optional loop modes; `endless` removes operator caps. |
 | `/handoff-rl [iterations=N] <task>` | Start a competition loop with context clearing and evidence reinjection. |
 | `/moa`, `/moa ledger`, `/moa <message>` | Configure a formation, inspect its ledger or use an armed roster. |
 | `/graph [list\|run <name> <task>\|status\|stop]` | Inspect or run declared agent graphs. |

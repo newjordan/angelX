@@ -420,7 +420,7 @@ fn adjacent_breaths_differ_and_stay_subtle() {
             assert!(
                 delta <= SUBTLE,
                 "{}: step {step} moved {delta:.3} code values — that is a strobe, \
-                 not firelight",
+                     not firelight",
                 hero(index)
             );
             // Nothing may be *driven* to a new value wholesale either: a

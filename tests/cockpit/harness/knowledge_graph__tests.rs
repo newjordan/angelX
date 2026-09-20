@@ -50,16 +50,16 @@ fn scratch_store(name: &str) -> PathBuf {
 }
 
 const APOLLO_EXTRACTION: &str = r#"{
-    "entities": [
-        {"name": "Neil Armstrong", "type": "PERSON", "description": "Commander of Apollo 11, first person to walk on the Moon"},
-        {"name": "Apollo 11", "type": "EVENT", "description": "1969 mission that landed the first humans on the Moon"},
-        {"name": "Kennedy Space Center", "type": "LOCATION", "description": "Florida launch site of Apollo 11"}
-    ],
-    "relations": [
-        {"source": "Neil Armstrong", "predicate": "commanded", "target": "Apollo 11"},
-        {"source": "Apollo 11", "predicate": "launched from", "target": "Kennedy Space Center"}
-    ]
-}"#;
+        "entities": [
+            {"name": "Neil Armstrong", "type": "PERSON", "description": "Commander of Apollo 11, first person to walk on the Moon"},
+            {"name": "Apollo 11", "type": "EVENT", "description": "1969 mission that landed the first humans on the Moon"},
+            {"name": "Kennedy Space Center", "type": "LOCATION", "description": "Florida launch site of Apollo 11"}
+        ],
+        "relations": [
+            {"source": "Neil Armstrong", "predicate": "commanded", "target": "Apollo 11"},
+            {"source": "Apollo 11", "predicate": "launched from", "target": "Kennedy Space Center"}
+        ]
+    }"#;
 
 #[test]
 fn extraction_folds_typed_entities_edges_and_provenance() {
@@ -115,9 +115,9 @@ fn unknown_entity_type_fails_loudly_naming_the_vocabulary() {
 fn dangling_relations_are_skipped_and_counted() {
     let store = scratch_store("dangling");
     let club = StubClub::shared(&[r#"{
-        "entities": [{"name": "Buzz Aldrin", "type": "PERSON", "description": "Apollo 11 lunar module pilot"}],
-        "relations": [{"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}]
-    }"#]);
+            "entities": [{"name": "Buzz Aldrin", "type": "PERSON", "description": "Apollo 11 lunar module pilot"}],
+            "relations": [{"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}]
+        }"#]);
     let engine = engine_with(club, store.clone());
     let never = AtomicBool::new(false);
     let report = engine.ingest(None, "doc", "aldrin.md", &never).unwrap();
@@ -136,12 +136,12 @@ fn multidigraph_keeps_parallel_predicates_and_folds_exact_duplicates() {
     // Same pair, different predicate: a second edge. Same triple, same
     // doc: folds. Same triple, new doc: kept (fresh provenance).
     let second: ExtractedGraph = serde_json::from_str(r#"{
-        "entities": [{"name": "Neil Armstrong", "type": "PERSON", "description": ""}],
-        "relations": [
-            {"source": "Neil Armstrong", "predicate": "walked on the moon during", "target": "Apollo 11"},
-            {"source": "Neil Armstrong", "predicate": "commanded", "target": "Apollo 11"}
-        ]
-    }"#).unwrap();
+            "entities": [{"name": "Neil Armstrong", "type": "PERSON", "description": ""}],
+            "relations": [
+                {"source": "Neil Armstrong", "predicate": "walked on the moon during", "target": "Apollo 11"},
+                {"source": "Neil Armstrong", "predicate": "commanded", "target": "Apollo 11"}
+            ]
+        }"#).unwrap();
     let report = graph.fold(&second, "apollo.md");
     assert_eq!(report.relations_added, 1);
     assert_eq!(report.relations_duplicate, 1);
@@ -152,9 +152,9 @@ fn multidigraph_keeps_parallel_predicates_and_folds_exact_duplicates() {
 
     let third: ExtractedGraph = serde_json::from_str(
         r#"{
-        "entities": [{"name": "neil armstrong", "type": "PERSON", "description": ""}],
-        "relations": []
-    }"#,
+            "entities": [{"name": "neil armstrong", "type": "PERSON", "description": ""}],
+            "relations": []
+        }"#,
     )
     .unwrap();
     let report = graph.fold(&third, "bio.md");
@@ -175,16 +175,16 @@ fn resolution_merges_aliases_rewrites_edges_and_reports() {
     let engine = engine_with(club, store.clone());
     let mut graph = KnowledgeGraph::default();
     let extracted: ExtractedGraph = serde_json::from_str(r#"{
-        "entities": [
-            {"name": "Edwin Aldrin", "type": "PERSON", "description": "Lunar module pilot of Apollo 11"},
-            {"name": "Buzz Aldrin", "type": "PERSON", "description": "Second person to walk on the Moon"},
-            {"name": "Apollo 11", "type": "EVENT", "description": "First crewed Moon landing"}
-        ],
-        "relations": [
-            {"source": "Edwin Aldrin", "predicate": "flew on", "target": "Apollo 11"},
-            {"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}
-        ]
-    }"#).unwrap();
+            "entities": [
+                {"name": "Edwin Aldrin", "type": "PERSON", "description": "Lunar module pilot of Apollo 11"},
+                {"name": "Buzz Aldrin", "type": "PERSON", "description": "Second person to walk on the Moon"},
+                {"name": "Apollo 11", "type": "EVENT", "description": "First crewed Moon landing"}
+            ],
+            "relations": [
+                {"source": "Edwin Aldrin", "predicate": "flew on", "target": "Apollo 11"},
+                {"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}
+            ]
+        }"#).unwrap();
     graph.fold(&extracted, "aldrin.md");
     graph.save_to(&store).unwrap();
 
@@ -217,12 +217,12 @@ fn resolution_rejects_unknown_members_and_says_why() {
     let mut graph = KnowledgeGraph::default();
     let extracted: ExtractedGraph = serde_json::from_str(
         r#"{
-        "entities": [
-            {"name": "Buzz Aldrin", "type": "PERSON", "description": "astronaut"},
-            {"name": "Neil Armstrong", "type": "PERSON", "description": "astronaut"}
-        ],
-        "relations": []
-    }"#,
+            "entities": [
+                {"name": "Buzz Aldrin", "type": "PERSON", "description": "astronaut"},
+                {"name": "Neil Armstrong", "type": "PERSON", "description": "astronaut"}
+            ],
+            "relations": []
+        }"#,
     )
     .unwrap();
     graph.fold(&extracted, "crew.md");
@@ -317,8 +317,8 @@ fn summarize_profiles_hubs_and_feeds_them_back_into_query() {
     let store = scratch_store("summarize");
     let club = StubClub::shared(&[
         r#"{"summary":"The 1969 mission that first landed humans on the Moon.",
-            "key_facts":["Commanded by Neil Armstrong","Launched from Kennedy Space Center"],
-            "time_range":{"start":"1969-07","end":"1969-07"}}"#,
+                "key_facts":["Commanded by Neil Armstrong","Launched from Kennedy Space Center"],
+                "time_range":{"start":"1969-07","end":"1969-07"}}"#,
         "Apollo 11 was the first crewed lunar landing (Neil Armstrong —commanded→ Apollo 11 [apollo.md]).",
     ]);
     let engine = engine_with(Arc::clone(&club), store.clone());
@@ -327,10 +327,10 @@ fn summarize_profiles_hubs_and_feeds_them_back_into_query() {
     graph.fold(&extracted, "apollo.md");
     // A third edge lifts Apollo 11 to degree 3 — the hub threshold.
     let more: ExtractedGraph = serde_json::from_str(r#"{
-        "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
-                     {"name": "Buzz Aldrin", "type": "PERSON", "description": "Lunar module pilot"}],
-        "relations": [{"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}]
-    }"#).unwrap();
+            "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
+                         {"name": "Buzz Aldrin", "type": "PERSON", "description": "Lunar module pilot"}],
+            "relations": [{"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}]
+        }"#).unwrap();
     graph.fold(&more, "aldrin.md");
     graph.save_to(&store).unwrap();
 
@@ -393,10 +393,10 @@ fn profiles_refresh_only_when_stale_and_the_cap_speaks() {
     graph.fold(&extracted, "apollo.md");
     let more: ExtractedGraph = serde_json::from_str(
         r#"{
-        "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
-                     {"name": "Buzz Aldrin", "type": "PERSON", "description": "pilot"}],
-        "relations": [{"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}]
-    }"#,
+            "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
+                         {"name": "Buzz Aldrin", "type": "PERSON", "description": "pilot"}],
+            "relations": [{"source": "Buzz Aldrin", "predicate": "flew on", "target": "Apollo 11"}]
+        }"#,
     )
     .unwrap();
     graph.fold(&more, "aldrin.md");
@@ -415,16 +415,13 @@ fn profiles_refresh_only_when_stale_and_the_cap_speaks() {
 
     // Two more edges push degree 3 -> 5, past the refresh delta.
     let mut graph = KnowledgeGraph::load_from(&store).unwrap();
-    let grown: ExtractedGraph = serde_json::from_str(
-        r#"{
-        "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
-                     {"name": "Michael Collins", "type": "PERSON", "description": "pilot"},
-                     {"name": "Saturn V", "type": "ARTIFACT", "description": "launch vehicle"}],
-        "relations": [{"source": "Michael Collins", "predicate": "flew on", "target": "Apollo 11"},
-                      {"source": "Saturn V", "predicate": "carried", "target": "Apollo 11"}]
-    }"#,
-    )
-    .unwrap();
+    let grown: ExtractedGraph = serde_json::from_str(r#"{
+            "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
+                         {"name": "Michael Collins", "type": "PERSON", "description": "pilot"},
+                         {"name": "Saturn V", "type": "ARTIFACT", "description": "launch vehicle"}],
+            "relations": [{"source": "Michael Collins", "predicate": "flew on", "target": "Apollo 11"},
+                          {"source": "Saturn V", "predicate": "carried", "target": "Apollo 11"}]
+        }"#).unwrap();
     graph.fold(&grown, "crew.md");
     graph.save_to(&store).unwrap();
 

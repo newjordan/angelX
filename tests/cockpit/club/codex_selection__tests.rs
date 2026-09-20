@@ -1,9 +1,9 @@
 use super::*;
 fn catalog() -> Vec<CodexModelInfo> {
     serde_json::from_value(serde_json::json!([
-        {"slug":"gpt-5.6-luna","display_name":"Luna","supported_reasoning_levels":[{"effort":"max"}]},
-        {"slug":"gpt-6-astra","display_name":"Astra","supported_reasoning_levels":[{"effort":"medium"}]}
-    ])).unwrap()
+            {"slug":"gpt-5.6-luna","display_name":"Luna","supported_reasoning_levels":[{"effort":"max"}]},
+            {"slug":"gpt-6-astra","display_name":"Astra","supported_reasoning_levels":[{"effort":"medium"}]}
+        ])).unwrap()
 }
 #[test]
 fn openai_codex_resolution_order_and_sources() {

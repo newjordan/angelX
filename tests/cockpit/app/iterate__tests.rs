@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn parse_iteration_extracts_direction_and_findings() {
     let out = "DIRECTION: attack the cache layer\nFINDINGS:\n- the TTL is unbounded\n\
-               * a second key collides\n2) eviction never fires";
+                   * a second key collides\n2) eviction never fires";
     let (dir, found, _) = parse_iteration_sections(out);
     assert_eq!(dir, "attack the cache layer");
     assert_eq!(
@@ -19,7 +19,7 @@ fn parse_iteration_extracts_direction_and_findings() {
 #[test]
 fn parse_iteration_sections_keeps_hypotheses_out_of_findings() {
     let out = "DIRECTION: measure it\nFINDINGS:\n- measured 3 ms [evidence: benchmark:/tmp/a.txt]\n\
-               HYPOTHESES:\n- fusion may help";
+                   HYPOTHESES:\n- fusion may help";
     let (dir, findings, hypotheses) = parse_iteration_sections(out);
     assert_eq!(dir, "measure it");
     assert_eq!(
@@ -73,7 +73,7 @@ fn parse_iteration_is_case_insensitive_on_direction_and_lenient_on_findings() {
 #[test]
 fn parse_iteration_does_not_panic_on_non_ascii_leading_text() {
     let out = "ធ្វើការ inspect workspace quickly for HTML5 game assets/code.DIRECTION: Existing project surface scan\n\
-               FINDINGS:\n- still parses bullets after unicode prose";
+                   FINDINGS:\n- still parses bullets after unicode prose";
     let (dir, found, _) = parse_iteration_sections(out);
     assert_eq!(dir, "");
     assert_eq!(

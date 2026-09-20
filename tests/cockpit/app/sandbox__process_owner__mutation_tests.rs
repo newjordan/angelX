@@ -43,39 +43,39 @@ fn cleanup_reaps_adopted_children() {
             .unwrap(),
     );
     for (index, payload) in [
-        "true",
-        "sleep 30 & echo $! > \"$1\"",
-        "setsid sh -c 'echo $$ > \"$1\"; sleep 30' child \"$1\" & while [ ! -s \"$1\" ]; do :; done",
-        "setsid sh -c 'trap \"\" TERM; echo $$ > \"$1\"; sleep 30' child \"$1\" & while [ ! -s \"$1\" ]; do :; done",
-    ].iter().enumerate() {
-        let marker = root.join(format!("child-{index}"));
-        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "sandbox::process_owner::mutation_tests::cleanup_child_fixture", "--ignored", "--test-threads=1"])
-            .env("ANGEL_T_OWNER_MARKER", &marker)
-            .env("ANGEL_T_OWNER_PAYLOAD", payload)
-            .stdout(std::process::Stdio::null())
-            .process_group(0)
-            .spawn().unwrap();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let status = loop {
-            if let Some(status) = child.try_wait().unwrap() {
-                break status;
+            "true",
+            "sleep 30 & echo $! > \"$1\"",
+            "setsid sh -c 'echo $$ > \"$1\"; sleep 30' child \"$1\" & while [ ! -s \"$1\" ]; do :; done",
+            "setsid sh -c 'trap \"\" TERM; echo $$ > \"$1\"; sleep 30' child \"$1\" & while [ ! -s \"$1\" ]; do :; done",
+        ].iter().enumerate() {
+            let marker = root.join(format!("child-{index}"));
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "sandbox::process_owner::mutation_tests::cleanup_child_fixture", "--ignored", "--test-threads=1"])
+                .env("ANGEL_T_OWNER_MARKER", &marker)
+                .env("ANGEL_T_OWNER_PAYLOAD", payload)
+                .stdout(std::process::Stdio::null())
+                .process_group(0)
+                .spawn().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let status = loop {
+                if let Some(status) = child.try_wait().unwrap() {
+                    break status;
+                }
+                if Instant::now() >= deadline {
+                    unsafe { libc::killpg(child.id() as i32, libc::SIGKILL) };
+                    let _ = child.wait();
+                    panic!("owned-child cleanup exceeded deadline: {index}");
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            };
+            assert!(status.success(), "ownership fixture failed: {index}");
+            assert!(sentinel.0.try_wait().unwrap().is_none(), "unrelated sentinel killed");
+            if let Ok(pid) = std::fs::read_to_string(&marker) {
+                let pid: i32 = pid.trim().parse().unwrap();
+                assert_eq!(unsafe { libc::kill(pid, 0) }, -1, "owned PID survived: {pid}");
+                assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(libc::ESRCH));
             }
-            if Instant::now() >= deadline {
-                unsafe { libc::killpg(child.id() as i32, libc::SIGKILL) };
-                let _ = child.wait();
-                panic!("owned-child cleanup exceeded deadline: {index}");
-            }
-            std::thread::sleep(Duration::from_millis(5));
-        };
-        assert!(status.success(), "ownership fixture failed: {index}");
-        assert!(sentinel.0.try_wait().unwrap().is_none(), "unrelated sentinel killed");
-        if let Ok(pid) = std::fs::read_to_string(&marker) {
-            let pid: i32 = pid.trim().parse().unwrap();
-            assert_eq!(unsafe { libc::kill(pid, 0) }, -1, "owned PID survived: {pid}");
-            assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(libc::ESRCH));
         }
-    }
     std::fs::remove_dir_all(root).unwrap();
 }
 

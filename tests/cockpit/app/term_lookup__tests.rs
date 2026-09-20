@@ -51,13 +51,13 @@ fn selection_candidate_accepts_bounded_multiword_topics_and_rejects_garbage() {
 #[test]
 fn parser_prefers_the_scientific_concept_over_the_eponym() {
     let body = r#"{
-      "query": {"pages": [
-        {"pageid": 111, "index": 1, "title": "Siméon Denis Poisson",
-         "extract": "Siméon Denis Poisson was a French mathematician and physicist."},
-        {"pageid": 222, "index": 2, "title": "Poisson distribution",
-         "extract": "In probability theory and statistics, the Poisson distribution is a discrete probability distribution. It gives the probability of a number of events in a fixed interval."}
-      ]}
-    }"#;
+          "query": {"pages": [
+            {"pageid": 111, "index": 1, "title": "Siméon Denis Poisson",
+             "extract": "Siméon Denis Poisson was a French mathematician and physicist."},
+            {"pageid": 222, "index": 2, "title": "Poisson distribution",
+             "extract": "In probability theory and statistics, the Poisson distribution is a discrete probability distribution. It gives the probability of a number of events in a fixed interval."}
+          ]}
+        }"#;
     let definition = parse_definition("poisson", body.as_bytes())
         .expect("valid response")
         .expect("STEM result");
@@ -70,35 +70,35 @@ fn parser_prefers_the_scientific_concept_over_the_eponym() {
 #[test]
 fn parser_rejects_unrelated_results_and_disambiguation() {
     let body = r#"{
-      "query": {"pages": [
-        {"index": 1, "title": "Mercury", "extract": "Mercury may refer to:"},
-        {"index": 2, "title": "Mercury Records", "extract": "Mercury Records is a record label."}
-      ]}
-    }"#;
+          "query": {"pages": [
+            {"index": 1, "title": "Mercury", "extract": "Mercury may refer to:"},
+            {"index": 2, "title": "Mercury Records", "extract": "Mercury Records is a record label."}
+          ]}
+        }"#;
     assert_eq!(parse_definition("mercury", body.as_bytes()).unwrap(), None);
 }
 
 #[test]
 fn parser_rejects_a_fuzzy_stem_bystander_unrelated_to_the_selected_word() {
     let body = r#"{
-      "query": {"pages": [
-        {"pageid": 333, "index": 1, "title": "Isabel Bevier",
-         "extract": "Isabel Bevier pioneered the scientific study of home economics."}
-      ]}
-    }"#;
+          "query": {"pages": [
+            {"pageid": 333, "index": 1, "title": "Isabel Bevier",
+             "extract": "Isabel Bevier pioneered the scientific study of home economics."}
+          ]}
+        }"#;
     assert_eq!(parse_definition("bevy", body.as_bytes()).unwrap(), None);
 }
 
 #[test]
 fn parser_prefers_the_foundational_vector_space_over_a_trendy_database_match() {
     let body = r#"{
-      "query": {"pages": [
-        {"pageid": 444, "index": 1, "title": "Vector database",
-         "extract": "A vector database is a machine learning data structure using an approximate nearest-neighbor algorithm."},
-        {"pageid": 555, "index": 2, "title": "Vector space",
-         "extract": "In mathematics and linear algebra, a vector space is a set of vectors that may be added and scaled."}
-      ]}
-    }"#;
+          "query": {"pages": [
+            {"pageid": 444, "index": 1, "title": "Vector database",
+             "extract": "A vector database is a machine learning data structure using an approximate nearest-neighbor algorithm."},
+            {"pageid": 555, "index": 2, "title": "Vector space",
+             "extract": "In mathematics and linear algebra, a vector space is a set of vectors that may be added and scaled."}
+          ]}
+        }"#;
     let definition = parse_definition("vector", body.as_bytes())
         .expect("valid response")
         .expect("STEM result");

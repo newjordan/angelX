@@ -924,9 +924,9 @@ fn p05b_glm_reasoning_is_delivered_before_answer_and_answer_bytes_are_preserved(
         let (mut socket, _) = listener.accept().unwrap();
         let request = read_http_request(&mut socket);
         socket.write_all(concat!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"fixture progress\"}}]}\n\n",
-        ).as_bytes()).unwrap();
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+                "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"fixture progress\"}}]}\n\n",
+            ).as_bytes()).unwrap();
         socket.flush().unwrap();
         // A test-only handshake proves delivery while the answer is still
         // withheld. This is not a product deadline or a latency benchmark.
@@ -989,12 +989,12 @@ fn p05b_plain_answer_and_reasoning_tool_calls_keep_their_payloads() {
     )
     .to_string();
     let tool = concat!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-        "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"fixture progress\"}}]}\n\n",
-        "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_fixture\",\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"arguments\":\"{\\\"path\\\":\"}}]}}]}\n\n",
-        "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"fixture.txt\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n",
-        "data: [DONE]\n\n",
-    ).to_string();
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"fixture progress\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_fixture\",\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"arguments\":\"{\\\"path\\\":\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"fixture.txt\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n",
+            "data: [DONE]\n\n",
+        ).to_string();
     let (base, _, server) = serve_seq(vec![plain, tool]);
     let club = HttpClub::new("fixture", base, "fixture", None);
     for is_tool in [false, true] {
@@ -1044,9 +1044,9 @@ fn p05c_cancel_during_zai_reasoning_tears_the_stream_down() {
         let (mut socket, _) = listener.accept().unwrap();
         let _request = read_http_request(&mut socket);
         socket.write_all(concat!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"think first\"}}]}\n\n",
-        ).as_bytes()).unwrap();
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+                "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"think first\"}}]}\n\n",
+            ).as_bytes()).unwrap();
         socket.flush().unwrap();
         let _ = visible_rx.recv_timeout(Duration::from_secs(5));
         let _ = socket.write_all(
@@ -1116,12 +1116,12 @@ fn stream_rule_retry_discards_speculative_deltas_and_resends_original_body() {
     let _guard = crate::tests::env_lock();
     let rules = probe_stream_rules();
     let drifted = concat!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-        "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"discarded thought\"}}]}\n\n",
-        "data: {\"choices\":[{\"delta\":{\"content\":\"heading TTSR-DRIFT-PROBE off script\"}}]}\n\n",
-        "data: [DONE]\n\n",
-    )
-    .to_string();
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"discarded thought\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"heading TTSR-DRIFT-PROBE off script\"}}]}\n\n",
+            "data: [DONE]\n\n",
+        )
+        .to_string();
     let clean = concat!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
         "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"clean thought\"}}]}\n\n",
@@ -1200,12 +1200,12 @@ fn stream_rule_gate_exhausted_encodes_by_move_single_attempt() {
         let _retries = EnvGuard::set("ANGEL_STREAM_RULE_RETRIES", "0");
         resync_stream_knobs_from_env();
         let drifted = concat!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            "data: {\"choices\":[{\"delta\":{\"content\":\"heading TTSR-DRIFT-PROBE off script\"}}]}\n\n",
-            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
-            "data: [DONE]\n\n",
-        )
-        .to_string();
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"heading TTSR-DRIFT-PROBE off script\"}}]}\n\n",
+                "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                "data: [DONE]\n\n",
+            )
+            .to_string();
         let (base, requests, handle) = serve_seq(vec![drifted]);
         let club = HttpClub::new("ttsr-move-probe", base, "m", None);
         let body = serde_json::json!({
@@ -1531,9 +1531,9 @@ fn formation_graph_wire_cap_fits_shared_remaining_allocation() {
     let budget = crate::harness::formation_budget::Budget::new(Some(1000), None);
     let _scope = crate::harness::formation_budget::enter(Some(budget.clone()));
     let payload = serde_json::json!({"choices":[{"message":{"role":"assistant","content":"done"}}],
-        "usage":{"prompt_tokens":100,"completion_tokens":10,
-            "prompt_tokens_details":{"cached_tokens":20,"cache_write_tokens":0},
-            "completion_tokens_details":{"reasoning_tokens":2}}})
+            "usage":{"prompt_tokens":100,"completion_tokens":10,
+                "prompt_tokens_details":{"cached_tokens":20,"cache_write_tokens":0},
+                "completion_tokens_details":{"reasoning_tokens":2}}})
     .to_string();
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -1573,8 +1573,8 @@ fn formation_budget_turn_abort_preserves_stream_observation_before_attempt_drop(
     let mut attempt = StreamUsageCommit::from_attempt(&club, accounting);
     attempt.observe(
         &serde_json::json!({"usage":{"prompt_tokens":500,"completion_tokens":20,
-        "total_tokens":520,"prompt_tokens_details":{"cached_tokens":100,"cache_write_tokens":0},
-        "completion_tokens_details":{"reasoning_tokens":5}}}),
+            "total_tokens":520,"prompt_tokens_details":{"cached_tokens":100,"cache_write_tokens":0},
+            "completion_tokens_details":{"reasoning_tokens":5}}}),
     );
     drop(scope); // The worker still owns its attempt when the turn exits.
     let receipt = crate::harness::formation_budget::snapshot().unwrap();
@@ -1605,9 +1605,9 @@ fn formation_graph_live_shaped_terminal_usage_releases_workers_before_fanin() {
                 stream.observe(&serde_json::json!({"choices":[{"delta":{"content":"fixture"}}]}));
                 assert!(budget.snapshot()["reserved"].as_u64().unwrap() > 0);
                 stream.observe(&serde_json::json!({"choices":[], "usage":{
-                    "prompt_tokens":input,"completion_tokens":output,
-                    "prompt_tokens_details":{"cached_tokens":cached},
-                    "completion_tokens_details":{"reasoning_tokens":reasoning}}}));
+                        "prompt_tokens":input,"completion_tokens":output,
+                        "prompt_tokens_details":{"cached_tokens":cached},
+                        "completion_tokens_details":{"reasoning_tokens":reasoning}}}));
                 // Observing the last chunk must not release a running stream.
                 assert!(budget.snapshot()["reserved"].as_u64().unwrap() > 0);
                 stream
@@ -1648,8 +1648,8 @@ fn usage_contract_scripted_frames_settle_one_shared_formation_budget() {
         {
             let mut attempt = StreamUsageCommit::from_attempt(&club, accounting);
             let frame = serde_json::json!({"usage":{"prompt_tokens":500,"completion_tokens":20,
-                "total_tokens":520,"prompt_tokens_details":{"cached_tokens":100,"cache_write_tokens":0},
-                "completion_tokens_details":{"reasoning_tokens":5}}});
+                    "total_tokens":520,"prompt_tokens_details":{"cached_tokens":100,"cache_write_tokens":0},
+                    "completion_tokens_details":{"reasoning_tokens":5}}});
             attempt.observe(&frame);
             attempt.observe(&frame); // Repeated cumulative SSE frames charge once.
         }
