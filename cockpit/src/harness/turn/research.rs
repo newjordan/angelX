@@ -374,10 +374,11 @@ mod tests {
         assert!(!selected(&[ChatMsg::user(
             "Fix the research dashboard and run the tests."
         )]));
-        assert!(!selected(&[ChatMsg::user(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../benchmarks/realwork/world-retirement/TASK.md"
-        )))]));
+        assert!(!selected(&[ChatMsg::user(
+            "Remove an unused renderer and preserve shared navigation. \
+             Add regression tests and run local checks. \
+             Use the existing source; do not perform network research."
+        )]));
         assert!(!selected(&[ChatMsg::user(
             "Fix the research answer API and add regression tests."
         )]));
