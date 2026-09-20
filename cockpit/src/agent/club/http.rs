@@ -853,7 +853,8 @@ pub(crate) fn is_image_part_rejection(error: &str) -> bool {
     e.contains("image_url")
         || e.contains("image url")
         || e.contains("multimodal")
-        || (e.contains("image") && (e.contains("part") || e.contains("not support") || e.contains("unsupported")))
+        || (e.contains("image")
+            && (e.contains("part") || e.contains("not support") || e.contains("unsupported")))
 }
 
 pub(crate) fn is_reasoning_field_rejection(error: &str, dialect: ReasoningDialect) -> bool {
@@ -2657,9 +2658,9 @@ impl HttpClub {
                         .get("content")
                         .and_then(|content| content.as_array())
                         .is_some_and(|parts| {
-                            parts
-                                .iter()
-                                .any(|part| part.get("type").and_then(|t| t.as_str()) == Some("image_url"))
+                            parts.iter().any(|part| {
+                                part.get("type").and_then(|t| t.as_str()) == Some("image_url")
+                            })
                         })
                 })
             })
