@@ -15,6 +15,8 @@ bash scripts/check-cockpit-fast.sh --test-threads=1
 npm run test:release
 cargo fmt --manifest-path cockpit/Cargo.toml --check
 bash scripts/check-legacy-terminal-boundary.sh
+npm run check:duplicates
+npm run check:research-embed
 ```
 
 - The fast runner starts test processes with both YOLO authority flags off;
