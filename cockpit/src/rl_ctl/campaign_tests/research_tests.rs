@@ -357,6 +357,80 @@ struct LearningFailureClub {
     state: PathBuf,
     inner: ResearchClub,
 }
+
+struct FailedBaselineClub {
+    candidate_calls: AtomicUsize,
+}
+
+impl Club for FailedBaselineClub {
+    fn label(&self) -> &str {
+        "sloptomizer-failed-baseline"
+    }
+
+    fn respond(&self, _: &str) -> Result<String, String> {
+        Err("unused fixture entry".into())
+    }
+
+    fn chat_streaming(
+        &self,
+        messages: &[ChatMsg],
+        _: &[ToolDef],
+        _: &AtomicBool,
+        _: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if messages
+            .iter()
+            .any(|message| message.content.contains(NOTE))
+        {
+            self.candidate_calls.fetch_add(1, Ordering::AcqRel);
+        }
+        Err("authentication failed: synthetic baseline fixture".into())
+    }
+}
+
+#[test]
+fn sloptomizer_failed_baseline_stops_before_candidate_spending_or_learning() {
+    // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
+    let env = FixtureEnv::new("slop-failed-baseline");
+    let workspace = env.workspace();
+    let club = Arc::new(FailedBaselineClub {
+        candidate_calls: AtomicUsize::new(0),
+    });
+    let registry =
+        ToolRegistry::with_team_self(workspace.path().into(), vec![], Some(club.clone()));
+    registry.rl().bind_loop(context(club.clone()));
+    call(
+        &registry,
+        json!({"action":"run","idea":NOTE,"compare":true}),
+    );
+    let result = settled(&registry);
+    assert_eq!(result["status"], "failed", "{result}");
+    assert!(
+        result["error"]
+            .as_str()
+            .unwrap()
+            .contains("candidate was not started")
+    );
+    assert!(
+        result["baseline"]["error"]
+            .as_str()
+            .unwrap()
+            .contains("authentication failed")
+    );
+    assert!(result["candidate"].is_null());
+    assert!(result["learning"].is_null());
+    assert_eq!(club.candidate_calls.load(Ordering::Acquire), 0);
+    assert_eq!(
+        call(&registry, json!({"action":"suggest"}))["advice"]["observations"],
+        0
+    );
+    let retained = call(
+        &registry,
+        json!({"action":"results","run_id":result["run_id"]}),
+    );
+    assert_eq!(retained["runs"][0]["status"], "failed");
+    assert!(!workspace.path().join("result.txt").exists());
+}
 impl Club for LearningFailureClub {
     fn label(&self) -> &str {
         "sloptomizer-fixture"
