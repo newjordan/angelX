@@ -19,9 +19,6 @@ import { pathToFileURL } from 'node:url'
 
 export const RELEASE_SCHEMA = 'angel0-source-release-evidence/v1'
 // The archive is the ordinary terminal cockpit and its headless task runtime.
-// The former public action-agent producer (benchmarks/action-agent/) is not
-// part of this repository and is deliberately outside the release scope; see
-// docs/release-evidence.md.
 export const RELEASE_SCOPE = 'ordinary-terminal-cockpit-source'
 export const SUPPORTED_CARGO_TARGET = 'x86_64-unknown-linux-gnu'
 
@@ -108,11 +105,9 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'docs/telemetry/model-calibration.toml',
   'docs/telemetry/prices.toml',
   'docs/telemetry/store-caps.toml',
-  // Frozen wire fixtures the cockpit's unit tests embed at compile time; they
-  // are the only benchmarks/ inputs the source archive carries.
-  'benchmarks/action-agent/fixtures/native-usage-wire-v1.json',
-  'benchmarks/action-agent/fixtures/supplemental-chat-usage-wire-v1.json',
-  'benchmarks/realwork/world-retirement/TASK.md',
+  // Synthetic wire fixtures consumed by the provider parser tests.
+  'cockpit/fixtures/usage/native-usage-wire-v1.json',
+  'cockpit/fixtures/usage/supplemental-chat-usage-wire-v1.json',
 ])
 
 const PUBLIC_RELEASE_DOCS = Object.freeze([
@@ -523,7 +518,7 @@ export function assertPublicReleaseEntries(repoRoot, entries) {
           'cockpit/graphs/research-pool.toml',
           'cockpit/graphs/research-write-review.toml',
         ].includes(path)) ||
-      (path.startsWith('benchmarks/') && !embedded.has(path)) ||
+      path.startsWith('benchmarks/') ||
       (path.startsWith('docs/') &&
         !['docs/release-evidence.md', 'docs/telemetry/trace-schema-v1.json'].includes(path) &&
         !PUBLIC_RELEASE_DOCS.includes(path) &&

@@ -540,13 +540,11 @@ test('release index inventory excludes ignored fixture build debris without dele
 })
 
 test('source release excludes the retired benchmark producer and rejects benchmark paths', (t) => {
-  const embedded = new Set(REQUIRED_COCKPIT_EMBEDDED_FILES)
-  for (const list of [RELEASE_PATHS, REQUIRED_RELEASE_FILES]) {
-    const benchmarks = list.filter((path) => path.startsWith('benchmarks/'))
+  for (const list of [RELEASE_PATHS, REQUIRED_RELEASE_FILES, REQUIRED_COCKPIT_EMBEDDED_FILES]) {
     assert.deepEqual(
-      benchmarks,
-      benchmarks.filter((path) => embedded.has(path)),
-      'only compile-time embedded fixtures may enter from benchmarks/',
+      list.filter((path) => path.startsWith('benchmarks/')),
+      [],
+      'benchmark tasks and operator instructions must stay outside the source release',
     )
   }
   const root = mkdtempSync(join(tmpdir(), 'angel0-benchmark-exclusion-test-'))
