@@ -83,9 +83,8 @@ the refusal is not a successful check.
 | `/quest [theme\|sample\|lex]`, `/quest gauntlet <question>` | Inspect reasoning maps or explicitly query multiple models. |
 | `/cut`, `/habits`, `/conductor`, `/still`, `/village` | Inspect authored changes, improvement state or configured fleet state. |
 
-`jev_decide`, `benchmark_compare`, `loop_research` and `rl_campaign` are model
-tools, not slash commands. Jev requires `TYPESAFE_API_KEY`; its percentages are
-advisory. See [environment settings](../cockpit/docs/ENV.md).
+`benchmark_compare`, `loop_research` and `rl_campaign` are model tools, not
+slash commands. See [environment settings](../cockpit/docs/ENV.md).
 
 ## Display and execution controls
 
