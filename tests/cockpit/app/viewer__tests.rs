@@ -243,9 +243,9 @@ fn kitty_portal_frame_is_encoded_off_thread_and_cached() {
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
     assert!(viewer.supports_agentviz_portal());
-    let portal_frame = crate::agentviz_portal::PortalFrame {
+    let portal_frame = crate::viz::agentviz_portal::PortalFrame {
         sequence: 77,
-        pixels: Arc::from(vec![32; crate::agentviz_portal::FRAME_BYTES]),
+        pixels: Arc::from(vec![32; crate::viz::agentviz_portal::FRAME_BYTES]),
     };
     let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("test terminal");
     let deadline = Instant::now() + ASYNC_IMAGE_TEST_TIMEOUT;
@@ -285,9 +285,9 @@ fn changing_portal_and_map_sequences_coalesce_behind_one_pending_encode() {
         key: old_key.clone(),
         rx: portal_rx,
     });
-    let portal_frame = crate::agentviz_portal::PortalFrame {
+    let portal_frame = crate::viz::agentviz_portal::PortalFrame {
         sequence: 2,
-        pixels: Arc::from(vec![32; crate::agentviz_portal::FRAME_BYTES]),
+        pixels: Arc::from(vec![32; crate::viz::agentviz_portal::FRAME_BYTES]),
     };
     let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("test terminal");
     terminal
@@ -484,7 +484,7 @@ fn portrait_canvas_moves_alpha_edges_without_rescaling() {
 #[test]
 fn atlas_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(crate::helm::sheet(crate::agent_profile::AgentKey::Atlas));
+        .join(crate::helm::sheet(crate::agent::profile::AgentKey::Atlas));
     let original = crate::helm::frame_image(&path, 0).unwrap();
     #[allow(deprecated)]
     let picker = Picker::from_fontsize((10, 21).into());
@@ -691,8 +691,8 @@ fn visible_portrait_request_supersedes_a_different_prefetch() {
 fn helm_pending_pose_retains_its_agent_and_never_borrows_another_identity() {
     use ratatui::{Terminal, backend::TestBackend};
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let path = root.join(crate::helm::sheet(crate::agent_profile::AgentKey::Turbo));
-    let other = root.join(crate::helm::sheet(crate::agent_profile::AgentKey::Atlas));
+    let path = root.join(crate::helm::sheet(crate::agent::profile::AgentKey::Turbo));
+    let other = root.join(crate::helm::sheet(crate::agent::profile::AgentKey::Atlas));
     let mut viewer = Viewer::portrait_preview();
     let mut terminal = Terminal::new(TestBackend::new(20, 10)).unwrap();
     terminal
@@ -737,7 +737,7 @@ fn helm_pending_pose_retains_its_agent_and_never_borrows_another_identity() {
 
 #[test]
 fn generated_world_dots_hold_frames_and_reject_old_room_or_geometry_completions() {
-    use crate::terminal_art::{ColoredBrailleCell, ColoredBrailleImage};
+    use crate::term::art::{ColoredBrailleCell, ColoredBrailleImage};
     use ratatui::{Terminal, backend::TestBackend};
     let _guard = crate::tests::env_lock();
     #[allow(deprecated)]
@@ -745,7 +745,7 @@ fn generated_world_dots_hold_frames_and_reject_old_room_or_geometry_completions(
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
     let area = Rect::new(2, 2, 12, 6);
-    let geometry = crate::dot_canvas::DotGeometry::new(12, 6, (8, 16), 2).unwrap();
+    let geometry = crate::dots::canvas::DotGeometry::new(12, 6, (8, 16), 2).unwrap();
     let image = Arc::new(ColoredBrailleImage {
         width: geometry.grid_width,
         height: geometry.grid_height,
@@ -827,7 +827,7 @@ fn generated_world_dots_hold_frames_and_reject_old_room_or_geometry_completions(
     }
     assert_eq!(viewer.dot_current.as_ref().unwrap().key.scene, 2);
     let smaller = Rect::new(2, 2, 10, 5);
-    let resized = crate::dot_canvas::DotGeometry::new(10, 5, (8, 16), 2).unwrap();
+    let resized = crate::dots::canvas::DotGeometry::new(10, 5, (8, 16), 2).unwrap();
     terminal
         .draw(|frame| {
             assert!(!viewer.render_world_dots(frame, smaller, 2, resized, Arc::clone(&image)))

@@ -813,8 +813,8 @@ fn run_turn_steered_observed(
     task_capture: Option<TaskCaptureContext<'_>>,
     history_checkpoint: Option<HistoryCheckpoint<'_>>,
 ) -> Result<TurnOutcome, TurnFailure> {
-    let _phase = crate::turn_phase::Scope::enter();
-    crate::turn_phase::mark("harness_start");
+    let _phase = crate::turn::phase::Scope::enter();
+    crate::turn::phase::mark("harness_start");
     let effective_cancel = AtomicBool::new(cancel.load(Ordering::Acquire));
     // Keep nested turn/process observations attached to the operator's turn.
     let _owner_link = super::exec::link_child_owner(&effective_cancel, cancel);
@@ -985,7 +985,7 @@ fn run_turn_steered_observed_inner(
     // needs-pro rerun. Seat threads install this same handle before recursively
     // entering `run_turn`, so nested fan-out cannot mint a fresh budget.
     let _descendant_budget = DescendantBudgetScope::enter_root();
-    crate::turn_phase::mark("seat_resolution");
+    crate::turn::phase::mark("seat_resolution");
     let Some(pro) = resolve_seat(club, registry, history, events) else {
         return run_turn_tiered(
             club,
@@ -1080,7 +1080,7 @@ fn run_turn_tiered(
                 std::time::SystemTime::now()
             ))
         }));
-    crate::turn_phase::mark("workspace_identity");
+    crate::turn::phase::mark("workspace_identity");
     let workspace_state_started = Instant::now();
     let _workspace_start =
         crate::harness::trajectory::WorkspaceStartScope::enter(registry.current_workspace());
@@ -1091,7 +1091,7 @@ fn run_turn_tiered(
         "workspace_state_ms",
         workspace_state_started.elapsed().as_millis(),
     );
-    crate::turn_phase::mark("formation_budget");
+    crate::turn::phase::mark("formation_budget");
     let _formation_budget_scope =
         super::formation_budget::start_turn().map_err(|message| TurnFailure {
             message,
@@ -1116,7 +1116,7 @@ fn run_turn_tiered(
     if matches!(tier, NeedsProTier::Pro) {
         registry.auxiliary.utility_entered("prior_policy_turn");
     }
-    crate::turn_phase::mark("rollout_start");
+    crate::turn::phase::mark("rollout_start");
     let mut rollout_recorder = match RolloutRecorder::from_env(
         registry.current_workspace(),
         || {
@@ -1179,12 +1179,12 @@ fn run_turn_tiered(
     // conversation, and compaction can't help (it only trims history). On a tight
     // window we advertise just the essential read/edit/shell/search/memory loop;
     // the rest stay dispatchable by name. Probes the window once (cached).
-    crate::turn_phase::mark("model_metadata");
+    crate::turn::phase::mark("model_metadata");
     let ctx_window = club.metadata().map(|m| m.context_window).filter(|&c| c > 0);
     // Schema lean is additional: local unbounded interactive keeps the full
     // advertised set. Metered roots and bounded / competition / comp-mode use
     // the compact core, with a sticky hidden-tool bubble chosen once here.
-    crate::turn_phase::mark("context_assembly");
+    crate::turn::phase::mark("context_assembly");
     let competition_trigger = competition_mode_trigger(history);
     let competition = competition_trigger.is_some();
     let metered_sota = crate::club::is_sota_label(club.label());
@@ -1362,13 +1362,13 @@ fn run_turn_tiered(
     // session starts already aware of past decisions instead of waiting for the
     // model to think to call `recall`. Once per run (`ANGEL_AUTO_RECALL=0` off).
     let cache_stable = cache_stable_mode(club);
-    crate::turn_phase::mark("knowledge_broker");
+    crate::turn::phase::mark("knowledge_broker");
     refresh_knowledge_broker_with_prefix(registry, history, effective_budget, &defs, cache_stable);
-    crate::turn_phase::mark("auto_recall");
+    crate::turn::phase::mark("auto_recall");
     maybe_auto_recall(registry, history, effective_budget, &defs, events);
     // Lifecycle hooks (PreToolUse/PostToolUse), loaded once from config. Empty
     // unless ~/.angel0/hooks.json exists, so default dispatch is unchanged.
-    crate::turn_phase::mark("hooks_load");
+    crate::turn::phase::mark("hooks_load");
     let hooks = Hooks::load();
     // This reads a small local mode once, never calls a model, and only becomes
     // active for the interactive root registry.
@@ -1398,7 +1398,7 @@ fn run_turn_tiered(
         .then(|| turn_start.checked_add(Duration::from_secs(turn_budget as u64)))
         .flatten();
     crate::harness::trajectory::reset_first_action();
-    crate::turn_phase::mark("trajectory_reset");
+    crate::turn::phase::mark("trajectory_reset");
     crate::harness::trajectory::reset_turn_ledger(club);
     crate::harness::trajectory::set_research_turn(research_turn);
     crate::harness::trajectory::note_timing_origin(turn_start);
@@ -1627,7 +1627,7 @@ fn run_turn_tiered(
     // write is best-effort and test-silent (`crate::experience`), so it can
     // never fail a turn. `write_exp` is called at every exit below with the stop
     // reason and the anti-spin counters as they stand.
-    crate::turn_phase::mark("experience_path");
+    crate::turn::phase::mark("experience_path");
     let exp_path = crate::experience::driver_path();
     let tok_before = club
         .token_usage()
@@ -1751,7 +1751,7 @@ fn run_turn_tiered(
             counters.post_edit_diagnostic_output_bytes = post_edit_diagnostics.output_bytes.get();
             counters.post_edit_diagnostic_elapsed_ms = post_edit_diagnostics.elapsed_ms.get();
             counters.tool_errors_by_class = tool_errors_by_class.get();
-            crate::turn_phase::mark("experience_record");
+            crate::turn::phase::mark("experience_record");
             crate::experience::record_turn(
                 &crate::experience::TurnExperience {
                     path: &exp_path,
@@ -2236,8 +2236,8 @@ fn run_turn_tiered(
             final_mile_active,
         );
         hop += 1;
-        crate::turn_phase::mark("hop_start");
-        let _phase_hop = crate::turn_phase::Hop;
+        crate::turn::phase::mark("hop_start");
+        let _phase_hop = crate::turn::phase::Hop;
         let _progress_hop = crate::harness::trajectory::begin_progress_hop();
         if hop == 1 {
             // The turn boundary itself rewrites the request tail: new user
@@ -2250,7 +2250,7 @@ fn run_turn_tiered(
         // interrupted. Always positioned after the previous hop's tool
         // results (never between a tool-call batch and its results, which
         // would break pairing).
-        crate::turn_phase::mark("steer_drain");
+        crate::turn::phase::mark("steer_drain");
         if let Some(q) = steers {
             let queued = q.drain();
             if !queued.is_empty() {
@@ -2270,7 +2270,7 @@ fn run_turn_tiered(
         // structured provider definitions on the next hop; stable hops reuse
         // the prior set (byte-identical wire JSON + zero rebuild/hash/token
         // estimate cost).
-        crate::turn_phase::mark("hop_context");
+        crate::turn::phase::mark("hop_context");
         let activation_gen = registry.tool_activation_generation();
         if activation_gen != prev_activation_gen {
             defs = registry.defs_for_driver_turn(
@@ -2599,7 +2599,7 @@ fn run_turn_tiered(
                 )));
             }
         };
-        crate::turn_phase::mark("context_assembled");
+        crate::turn::phase::mark("context_assembled");
         let reply = loop {
             // A retry backoff can cross the existing turn deadline. Settle at
             // the owned boundary before opening another provider request.
@@ -2616,7 +2616,7 @@ fn run_turn_tiered(
             // retries. Provider counters are preferred after a call (and can
             // expose internal fan-out); the local request estimate is the
             // conservative fallback when a backend reports no usage.
-            crate::turn_phase::mark("history_checkpoint");
+            crate::turn::phase::mark("history_checkpoint");
             if let Some(checkpoint) = history_checkpoint
                 && let Err(error) = checkpoint(history)
             {
@@ -2679,7 +2679,7 @@ fn run_turn_tiered(
             // This is the harness-owned policy-call boundary. Capture after all
             // history/schema transforms and immediately before the provider call.
             // The recorder has no API for private reasoning or provider headers.
-            crate::turn_phase::mark("policy_identity");
+            crate::turn::phase::mark("policy_identity");
             let rollout_attempt =
                 match rollout_recorder.begin_policy_attempt(history, &defs, || {
                     let mut ident = club.route_identity();
@@ -2711,7 +2711,7 @@ fn run_turn_tiered(
                     .unwrap_or(0)
             });
             auxiliary_scope.observe_recovery_context(history, &mut consumed_recovery_context);
-            crate::turn_phase::mark("verifier_preflight");
+            crate::turn::phase::mark("verifier_preflight");
             super::run_identity::prepare_verifier(
                 registry.current_workspace(),
                 registry.external_evaluator_only,
@@ -2732,7 +2732,7 @@ fn run_turn_tiered(
             timing.call_max_idle_ms = 0;
             let mut provider_not_started = false;
             let result = with_turn_deadline_cancel(cancel, turn_deadline, |effective_cancel| {
-                crate::turn_phase::mark("bind_run_identity");
+                crate::turn::phase::mark("bind_run_identity");
                 club.bind_run_identity(effective_effort.as_deref())?;
                 // Check after checkpointing/preflight and identity binding too:
                 // those can consume the remaining wall before transport starts.
@@ -2745,7 +2745,7 @@ fn run_turn_tiered(
                     provider_not_started = true;
                     return Err("provider request not started: turn deadline reached".into());
                 }
-                crate::turn_phase::mark("request_sent");
+                crate::turn::phase::mark("request_sent");
                 match effective_effort.as_deref() {
                     Some(effort) => club.chat_streaming_with_effort(
                         history,
@@ -2798,7 +2798,7 @@ fn run_turn_tiered(
             // Every provider attempt (first try and in-hop retries alike) is
             // real time spent waiting on the model.
             crate::harness::trajectory::end_model_request();
-            crate::turn_phase::mark("stream_done");
+            crate::turn::phase::mark("stream_done");
             let model_end_ms = turn_start.elapsed().as_millis();
             timing.note_model_wait(Duration::from_millis(
                 (model_end_ms - model_start_ms) as u64,
@@ -4133,7 +4133,7 @@ fn run_turn_tiered(
                 // approvals, external counters) that the filesystem footprint
                 // planner cannot see. A configured hook therefore makes the
                 // whole emitted batch a serial barrier.
-                crate::turn_phase::mark("tool_checkpoint");
+                crate::turn::phase::mark("tool_checkpoint");
                 if let Some(checkpoint) = history_checkpoint {
                     let mut durable_prefix = history.clone();
                     durable_prefix.push(ChatMsg::assistant_calls_with_reasoning(
@@ -4405,7 +4405,7 @@ fn run_turn_tiered(
                     batch_segments_in(registry.workspace_boundary(), &calls)
                 };
                 let segmented = segments.iter().any(|segment| segment.len() > 1);
-                crate::turn_phase::mark("tool_dispatch");
+                crate::turn::phase::mark("tool_dispatch");
                 let tool_wait_started = Instant::now();
                 let results: Vec<(String, Option<Duration>, ToolOutcome)> =
                     with_turn_deadline_cancel(cancel, turn_deadline, |dispatch_cancel| {

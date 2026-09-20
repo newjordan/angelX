@@ -975,7 +975,7 @@ impl App {
                 return;
             }
             ParsedInput::TourneyCalibration(scene) => {
-                if let Some(kind) = crate::lifecycle_viz::calibration_kind(&scene) {
+                if let Some(kind) = crate::viz::lifecycle_viz::calibration_kind(&scene) {
                     let journey = crate::knight_journey::is_journey_calibration_name(&scene);
                     let label = if journey {
                         format!("calibration · {scene} · not an achieved outcome")
@@ -1231,11 +1231,11 @@ impl App {
             ParsedInput::ModelInfo(None) => {
                 let text = self.model_info_text();
                 self.system_msg(text);
-                self.open_agent_menu(crate::agent_controls::AgentMenuKind::Model);
+                self.open_agent_menu(crate::agent::controls::AgentMenuKind::Model);
                 return;
             }
             ParsedInput::Thinking(query) => {
-                let kind = crate::agent_controls::AgentMenuKind::Thinking;
+                let kind = crate::agent::controls::AgentMenuKind::Thinking;
                 let opened = match query.as_deref() {
                     None => {
                         self.open_agent_menu(kind);

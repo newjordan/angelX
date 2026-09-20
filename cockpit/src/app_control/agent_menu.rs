@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent_controls::{AgentControlMenu, AgentMenuAction, AgentMenuKind};
+use crate::agent::controls::{AgentControlMenu, AgentMenuAction, AgentMenuKind};
 
 const MAX_AGENT_MENU_QUERY_CHARS: usize = 64;
 
@@ -136,13 +136,13 @@ impl App {
                             || choice.selected
                             || self.agent_menu_show_unavailable
                             || !query.is_empty())
-                        && crate::agent_controls::query_matches(
+                        && crate::agent::controls::query_matches(
                             query,
                             &[
                                 &choice.agent,
                                 &choice.driver,
                                 &choice.model,
-                                &crate::agent_controls::connection_label(choice),
+                                &crate::agent::controls::connection_label(choice),
                             ],
                         )
                 })
@@ -155,7 +155,7 @@ impl App {
                     .enumerate()
                     .filter(|(_, effort)| {
                         (!enabled_only || route_available)
-                            && crate::agent_controls::query_matches(query, &[effort.as_str()])
+                            && crate::agent::controls::query_matches(query, &[effort.as_str()])
                     })
                     .map(|(index, _)| index)
                     .collect()

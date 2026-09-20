@@ -236,8 +236,8 @@ impl Thinking {
                 });
                 // One Vec clone of message headers; content bytes stay shared.
                 // Taken here so Enter-after-echo does not pay a second snapshot.
-                let _phase = crate::turn_phase::Scope::enter();
-                crate::turn_phase::mark("worker_snapshot");
+                let _phase = crate::turn::phase::Scope::enter();
+                crate::turn::phase::mark("worker_snapshot");
                 let mut convo = convo.to_vec();
                 // Hop cap is launch config. Read it here, not on the UI spawn
                 // path, so a getenv cannot hitch Enter-after-echo.
@@ -257,7 +257,7 @@ impl Thinking {
                 // the user can redirect long work without killing it.
                 // Foreground lease wait stays off the UI thread so a contended
                 // registry cannot hitch Enter-after-echo.
-                crate::turn_phase::mark("foreground_lease");
+                crate::turn::phase::mark("foreground_lease");
                 let foreground_lease =
                     if crate::backplane::mode() == crate::backplane::BackplaneMode::Legacy {
                         Ok(None)
@@ -283,7 +283,7 @@ impl Thinking {
                         // on agent-turn before hop 1 so Enter-after-echo never
                         // waits on the VLM, and the text-only driver never sees
                         // bare image_url parts.
-                        crate::turn_phase::mark("vision_preflight");
+                        crate::turn::phase::mark("vision_preflight");
                         for notice in
                             crate::tools::vision::fold_vision_sidecar_into_convo(&*club, &mut convo)
                         {
@@ -316,7 +316,7 @@ impl Thinking {
                         })
                     }),
                 };
-                crate::turn_phase::mark("worker_result");
+                crate::turn::phase::mark("worker_result");
                 let _ = worker_tx.send(result);
             });
         if let Err(error) = spawn_result {
@@ -756,3 +756,5 @@ mod cache_ledger_tests;
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/turn__tests.rs"]
 mod tests;
+
+pub(crate) mod phase;

@@ -12,7 +12,7 @@ use ratatui::{Terminal, backend::TestBackend};
 
 #[test]
 fn thinking_brackets_preview_the_highlighted_model_without_changing_the_active_route() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let _guard = env_lock();
@@ -38,7 +38,7 @@ fn thinking_brackets_preview_the_highlighted_model_without_changing_the_active_r
 
 #[test]
 fn model_details_toggle_is_clickable_and_does_not_select_a_route() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
     use ratatui::crossterm::event::{MouseButton, MouseEventKind};
 
     let _guard = env_lock();
@@ -68,7 +68,7 @@ fn model_details_toggle_is_clickable_and_does_not_select_a_route() {
 
 #[test]
 fn brain_route_deck_explains_model_capabilities_and_effort() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -108,7 +108,7 @@ fn brain_route_deck_explains_model_capabilities_and_effort() {
 
 #[test]
 fn brain_route_transactionally_applies_highlighted_model_and_effort() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -194,7 +194,7 @@ fn brain_route_transactionally_applies_highlighted_model_and_effort() {
 #[test]
 fn critically_full_route_requires_second_keyboard_or_mouse_commit() {
     use crate::App;
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
     use ratatui::layout::Rect;
 
@@ -300,7 +300,7 @@ fn critically_full_route_requires_second_keyboard_or_mouse_commit() {
 
 #[test]
 fn brain_route_effort_mouse_action_carries_its_highlighted_route() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
 
     use ratatui::crossterm::event::{MouseButton, MouseEventKind};
 
@@ -383,7 +383,7 @@ fn brain_route_effort_mouse_action_carries_its_highlighted_route() {
 
 #[test]
 fn brain_route_effort_affordance_is_responsive_and_never_overlaps_route_hitbox() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -446,7 +446,7 @@ fn brain_route_effort_affordance_is_responsive_and_never_overlaps_route_hitbox()
 
 #[test]
 fn brain_route_slash_filter_selects_exact_model_without_mutating_early() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -489,7 +489,7 @@ fn brain_route_slash_filter_selects_exact_model_without_mutating_early() {
 
 #[test]
 fn model_command_hands_its_argument_to_the_safe_deck_filter() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -520,7 +520,7 @@ fn model_command_hands_its_argument_to_the_safe_deck_filter() {
 
 #[test]
 fn model_at_effort_command_prepares_atomic_think_confirmation() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -564,7 +564,7 @@ fn model_at_effort_invalid_effort_is_recoverable_and_non_mutating() {
 
 #[test]
 fn model_at_effort_ambiguous_model_stays_in_filtered_model_deck() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
 
     let _guard = env_lock();
     let mut app = seed_preview_app();
@@ -605,7 +605,7 @@ fn filtered_model_command_reports_when_route_controls_are_locked() {
 
 #[test]
 fn brain_route_filter_keeps_no_match_open_and_escape_clears_before_close() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -622,8 +622,8 @@ fn brain_route_filter_keeps_no_match_open_and_escape_clears_before_close() {
     assert!(deck.contains("no routes match /zzzq"), "{deck}");
     assert!(app.agent_menu_hits.iter().all(|(_, action)| matches!(
         action,
-        crate::agent_controls::AgentMenuAction::ToggleDetails
-            | crate::agent_controls::AgentMenuAction::ToggleUnavailable
+        crate::agent::controls::AgentMenuAction::ToggleDetails
+            | crate::agent::controls::AgentMenuAction::ToggleUnavailable
     )));
 
     app.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
@@ -638,7 +638,7 @@ fn brain_route_filter_keeps_no_match_open_and_escape_clears_before_close() {
 
 #[test]
 fn brain_route_effort_filter_preserves_original_level_index() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -678,7 +678,7 @@ fn combined_route_effort_rejects_stale_level_without_partial_route_change() {
 
 #[test]
 fn brain_route_deck_is_opaque_over_terminal_imagery() {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
     use ratatui::style::Color;
 
     let _guard = env_lock();
@@ -713,7 +713,7 @@ fn brain_route_deck_is_opaque_over_terminal_imagery() {
 
 #[test]
 fn brain_route_deck_surfaces_operational_evidence_without_quality_claims() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     let _guard = env_lock();
     let mut app = seed_preview_app();
@@ -741,7 +741,7 @@ fn brain_route_deck_surfaces_operational_evidence_without_quality_claims() {
     .collect::<Vec<_>>()
     .join("\n");
     app.route_evidence = crate::route_intelligence::parse_recent_jsonl(&records, false);
-    app.apply_agent_menu_action(crate::agent_controls::AgentMenuAction::ToggleDetails);
+    app.apply_agent_menu_action(crate::agent::controls::AgentMenuAction::ToggleDetails);
     let deck = render_app_text(&mut app, 144, 48);
     assert!(deck.contains("ops: n3"), "{deck}");
     assert!(deck.contains("clean 67%"), "{deck}");
@@ -756,7 +756,7 @@ fn brain_route_deck_surfaces_operational_evidence_without_quality_claims() {
 
 #[test]
 fn brain_route_star_is_a_non_mutating_minimum_evidence_ops_pick() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -785,7 +785,7 @@ fn brain_route_star_is_a_non_mutating_minimum_evidence_ops_pick() {
     }
     app.route_evidence = crate::route_intelligence::parse_recent_jsonl(&records.join("\n"), false);
     let before = (app.bag.in_hand_label().to_string(), app.bag.in_hand_mode());
-    app.apply_agent_menu_action(crate::agent_controls::AgentMenuAction::ToggleDetails);
+    app.apply_agent_menu_action(crate::agent::controls::AgentMenuAction::ToggleDetails);
     let deck = render_app_text(&mut app, 144, 48);
     let picked = deck
         .lines()
@@ -813,7 +813,7 @@ fn brain_route_star_is_a_non_mutating_minimum_evidence_ops_pick() {
 
 #[test]
 fn brain_route_diamond_is_a_gated_explicit_user_pick() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -842,7 +842,7 @@ fn brain_route_diamond_is_a_gated_explicit_user_pick() {
     }
     app.route_evidence = crate::route_intelligence::parse_recent_jsonl(&records.join("\n"), false);
     let before = (app.bag.in_hand_label().to_string(), app.bag.in_hand_mode());
-    app.apply_agent_menu_action(crate::agent_controls::AgentMenuAction::ToggleDetails);
+    app.apply_agent_menu_action(crate::agent::controls::AgentMenuAction::ToggleDetails);
     let deck = render_app_text(&mut app, 144, 48);
     let picked = deck
         .lines()
@@ -871,7 +871,7 @@ fn brain_route_diamond_is_a_gated_explicit_user_pick() {
 
 #[test]
 fn thinking_deck_recommends_effort_without_applying_until_enter() {
-    use crate::agent_controls::AgentMenuKind;
+    use crate::agent::controls::AgentMenuKind;
 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -915,7 +915,7 @@ fn thinking_deck_recommends_effort_without_applying_until_enter() {
     }
     app.open_agent_menu(AgentMenuKind::Thinking);
     app.route_evidence = crate::route_intelligence::parse_recent_jsonl(&records.join("\n"), false);
-    app.apply_agent_menu_action(crate::agent_controls::AgentMenuAction::ToggleDetails);
+    app.apply_agent_menu_action(crate::agent::controls::AgentMenuAction::ToggleDetails);
     let deck = render_app_text(&mut app, 144, 48);
     let low = deck
         .lines()

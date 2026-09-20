@@ -239,7 +239,7 @@ fn route_controls_are_locked_while_a_job_owns_the_turn() {
         ("alpha", &[("model-a", true), ("model-b", true)]),
         ("beta", &[("model-c", true)]),
     ]);
-    app.open_agent_menu(crate::agent_controls::AgentMenuKind::Model);
+    app.open_agent_menu(crate::agent::controls::AgentMenuKind::Model);
     assert!(app.agent_menu.is_some());
     let (_tx, job) = app_control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(job);

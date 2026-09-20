@@ -363,13 +363,13 @@ impl World {
             status_style,
         );
         let memory_status = (self.target == Building::Chapel).then_some(match self.memory_health {
-            crate::memory_store::MemoryHealth::Disabled => {
+            crate::memory::store::MemoryHealth::Disabled => {
                 (" · memory disabled", crate::hud::HUD_DIM)
             }
-            crate::memory_store::MemoryHealth::Healthy => {
+            crate::memory::store::MemoryHealth::Healthy => {
                 (" · memory healthy", crate::hud::HUD_VERIFIED)
             }
-            crate::memory_store::MemoryHealth::Degraded => {
+            crate::memory::store::MemoryHealth::Degraded => {
                 (" · memory degraded", crate::hud::HUD_DANGER)
             }
         });

@@ -413,7 +413,7 @@ fn startup_intro_fine_transport_owns_separate_ids_and_transparent_dots() {
                 .symbol()
                 .strip_suffix(' ')
                 .expect("upload keeps the cell's own blank");
-            let transported = crate::dot_protocol::decode_upload(upload);
+            let transported = crate::dots::protocol::decode_upload(upload);
             assert_eq!(
                 transported,
                 geometry.rasterize_on(&ready.dots, TRANSPARENT).unwrap()

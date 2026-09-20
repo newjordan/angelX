@@ -1032,7 +1032,7 @@ fn drag_select_is_confined_to_the_pane_and_arms_a_copy() {
     use ratatui::crossterm::event::{MouseButton, MouseEventKind};
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.messages.push(Message {
         role: Role::Angel,
         text: "Select this transcript text.".into(),
@@ -1247,14 +1247,14 @@ fn real_transcript_drag_only_teaches_after_an_explicit_request() {
     let _motion = TestEnvGuard::set("ANGEL_TUI_MOTION", "off");
     let mut app = seed_preview_app();
     app.scryglass.return_to_world();
-    app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.messages = vec![Message {
         role: Role::Angel,
         text: "Study Poisson next.".into(),
     }];
     app.invalidate_transcript_layout();
     app.scryglass
-        .queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
             title: "Poisson distribution",
             summary: "A discrete probability distribution for event counts.",
             source_url: "https://en.wikipedia.org/?curid=24268",
@@ -1451,7 +1451,7 @@ fn selected_term_runs_a_deterministic_world_lesson_without_history_leakage() {
         .collect::<Vec<_>>();
 
     app.scryglass
-        .queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
             title: "Poisson distribution",
             summary: "A discrete probability distribution for event counts.",
             source_url: "https://en.wikipedia.org/?curid=24268",
@@ -1588,9 +1588,9 @@ fn motion_off_reveals_a_completed_world_lesson_without_roll_animation() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.scryglass.return_to_world();
-    app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
     app.scryglass
-        .queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
             title: "Eigenvalue",
             summary: "A scalar associated with a linear transformation.",
             source_url: "https://en.wikipedia.org/?curid=9391",
@@ -1651,12 +1651,12 @@ fn empty_and_failed_lookups_remain_dismissible_world_feedback() {
     let _guard = env_lock();
     let cases = [
         (
-            crate::term_lookup::TestLookupOutcome::Empty,
+            crate::term::lookup::TestLookupOutcome::Empty,
             "No concise STEM",
             "computing entry",
         ),
         (
-            crate::term_lookup::TestLookupOutcome::Error("reference service unavailable"),
+            crate::term::lookup::TestLookupOutcome::Error("reference service unavailable"),
             "Quick lookup unavailable",
             "service unavailable",
         ),
@@ -1664,7 +1664,7 @@ fn empty_and_failed_lookups_remain_dismissible_world_feedback() {
     for (outcome, opening, detail) in cases {
         let mut app = seed_preview_app();
         app.scryglass.return_to_world();
-        app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+        app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
         app.scryglass.queue_lesson_outcome(outcome);
         app.pending_quick_lookup = Some("unknown".to_string());
         app.flush_clipboard();
@@ -3824,7 +3824,7 @@ fn goal_status_and_new_chat_commands() {
     );
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(lifecycle_viz::CeremonyKind::GoalSet),
+        Some(crate::viz::lifecycle_viz::CeremonyKind::GoalSet),
         "/goal arms an objective ceremony without starting the harness"
     );
     assert!(app.lifecycle_ceremony_active());
@@ -3972,7 +3972,7 @@ fn goal_status_and_new_chat_commands() {
     assert!(app.goal.is_none(), "/goal clear removes the goal");
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(lifecycle_viz::CeremonyKind::GoalCleared)
+        Some(crate::viz::lifecycle_viz::CeremonyKind::GoalCleared)
     );
     assert!(
         goal::load_for(app.tools.current_workspace()).is_none(),
@@ -4573,7 +4573,7 @@ fn tourney_calibration_is_display_only_and_repeatable() {
         app.lifecycle_ceremony
             .as_ref()
             .map(|ceremony| ceremony.kind),
-        Some(lifecycle_viz::CeremonyKind::LoopDone)
+        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopDone)
     );
     app.input = "/tourney calibrate win".to_string();
     app.submit();
@@ -4581,7 +4581,7 @@ fn tourney_calibration_is_display_only_and_repeatable() {
         app.lifecycle_ceremony
             .as_ref()
             .map(|ceremony| ceremony.kind),
-        Some(lifecycle_viz::CeremonyKind::LoopDone)
+        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopDone)
     );
     assert_eq!(
         app.history.len(),
@@ -4614,7 +4614,7 @@ fn knight_journey_calibration_is_display_only_and_not_a_verified_win() {
     app.input = "/tourney calibrate service".to_string();
     app.submit();
     let service = app.lifecycle_ceremony.as_ref().expect("service preview");
-    assert_eq!(service.kind, lifecycle_viz::CeremonyKind::GoalDone);
+    assert_eq!(service.kind, crate::viz::lifecycle_viz::CeremonyKind::GoalDone);
     assert!(
         service.label.contains("not an achieved outcome"),
         "preview label must stay explicit: {}",
@@ -4645,7 +4645,7 @@ fn knight_journey_calibration_is_display_only_and_not_a_verified_win() {
     app.input = "/tourney calibrate guardian".to_string();
     app.submit();
     let guardian = app.lifecycle_ceremony.as_ref().expect("guardian preview");
-    assert_eq!(guardian.kind, lifecycle_viz::CeremonyKind::LoopDone);
+    assert_eq!(guardian.kind, crate::viz::lifecycle_viz::CeremonyKind::LoopDone);
     assert!(guardian.label.contains("not an achieved outcome"));
     assert_eq!(app.loop_ctl.status, loop_status);
     assert_eq!(app.loop_ctl.task, loop_task);
@@ -4660,8 +4660,8 @@ fn knight_journey_calibration_is_display_only_and_not_a_verified_win() {
 #[test]
 fn motion_off_keeps_ceremony_visible_without_fast_tick() {
     let mut app = seed_preview_app();
-    app.visual_motion = lifecycle_viz::MotionMode::Off;
-    app.start_lifecycle_ceremony(lifecycle_viz::CeremonyKind::LoopFailed, "static");
+    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopFailed, "static");
     assert!(app.lifecycle_ceremony_active());
     assert!(!app.lifecycle_ceremony_animating());
 }
@@ -4747,14 +4747,14 @@ fn hiding_active_lifecycle_ceremony_stops_fast_tick() {
     // Exercise post-startup Stage cadence; the visible Excalibur intro has
     // its own independent claim on animation ticks in the empty shell.
     app.startup_intro
-        .dismiss(Instant::now(), lifecycle_viz::MotionMode::Off);
+        .dismiss(Instant::now(), crate::viz::lifecycle_viz::MotionMode::Off);
     let standard = render_app_text(&mut app, 120, 40);
     assert!(
         crate::tests::contains_dotmax(&standard),
         "visible world must paint dots"
     );
     assert!(
-        app.start_lifecycle_ceremony(lifecycle_viz::CeremonyKind::LoopDone, "visible ceremony")
+        app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "visible ceremony")
     );
     let ceremony = render_app_text(&mut app, 120, 40);
     assert!(ceremony.contains("tourney · victory pass"), "{ceremony}");
@@ -4772,7 +4772,7 @@ fn hiding_active_lifecycle_ceremony_stops_fast_tick() {
 fn expired_tourney_cut_in_returns_to_miniworld() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.start_lifecycle_ceremony(lifecycle_viz::CeremonyKind::LoopDone, "world return");
+    app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "world return");
     let cut_in = render_app_text(&mut app, 144, 48);
     assert!(cut_in.contains("tourney · victory pass"), "{cut_in}");
     app.lifecycle_ceremony.as_mut().unwrap().started =
@@ -5873,7 +5873,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert!(app.loop_active());
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(lifecycle_viz::CeremonyKind::LoopStart),
+        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopStart),
         "/loop start gets the full engine ceremony"
     );
     // advance() with nothing in flight arms the next iteration through the
@@ -5892,7 +5892,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert!(!app.loop_ctl.awaiting_turn);
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(lifecycle_viz::CeremonyKind::LoopPaused)
+        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopPaused)
     );
 
     // /loop resume re-runs; /loop stop ends it.
@@ -5901,7 +5901,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert_eq!(app.loop_ctl.status, loop_ctl::LoopStatus::Running);
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(lifecycle_viz::CeremonyKind::LoopStart)
+        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopStart)
     );
     app.input = "/loop stop".to_string();
     app.submit();
@@ -5909,7 +5909,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert!(!app.loop_active());
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(lifecycle_viz::CeremonyKind::LoopStopped)
+        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopStopped)
     );
 
     // TODO: Audit that the environment access only happens in single-threaded code.
@@ -9840,7 +9840,7 @@ fn composer_view_visibly_marks_the_keyboard_selection() {
     use ratatui::style::Color;
 
     let _guard = env_lock();
-    let view = status_view::composer_view_with_selection("alpha beta", 20, 2, 10, Some((6, 10)));
+    let view = crate::views::status_view::composer_view_with_selection("alpha beta", 20, 2, 10, Some((6, 10)));
     let selected = view.lines[0]
         .spans
         .iter()
@@ -9850,7 +9850,7 @@ fn composer_view_visibly_marks_the_keyboard_selection() {
     assert_eq!(selected.style.bg, Some(hud::HUD_BLUE));
 
     let long = "x".repeat(100);
-    let compact = status_view::composer_view_with_selection(&long, 12, 1, 50, Some((48, 52)));
+    let compact = crate::views::status_view::composer_view_with_selection(&long, 12, 1, 50, Some((48, 52)));
     assert!(compact.compacted);
     assert!(
         compact.lines[0]
@@ -10873,10 +10873,10 @@ fn compact_loop_transition_keeps_miniviz_inside_its_existing_panel_matrix() {
     for width in [24u16, 32, 40, 48, 60, 72, 96] {
         for height in [8u16, 10, 12, 16, 24] {
             let mut app = seed_preview_app();
-            app.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+            app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
             app.terminal_focused = false;
             app.startup_intro
-                .dismiss(Instant::now(), crate::lifecycle_viz::MotionMode::Off);
+                .dismiss(Instant::now(), crate::viz::lifecycle_viz::MotionMode::Off);
             let _idle = render_app_text(&mut app, width, height);
             let idle_transcript = app.panel_frames.get(panels::PanelKind::Transcript);
             let idle_artifacts = app.panel_frames.get(panels::PanelKind::Artifacts);
@@ -11085,7 +11085,7 @@ fn render_profile_for(label: &str, apollo_specialist: bool) -> String {
     terminal
         .draw(|frame| {
             frame.render_widget(
-                Paragraph::new(agent_view::profile_lines(profile, label, apollo_specialist))
+                Paragraph::new(crate::views::agent_view::profile_lines(profile, label, apollo_specialist))
                     .style(panel_style()),
                 frame.area(),
             );
@@ -11663,7 +11663,7 @@ fn repeated_cadence_failure_variants_hold_one_gauge_row() {
         "{cadence_lines:?}"
     );
     assert_eq!(
-        crate::turn_event_view::activity_gauge_count(cadence_lines[0]),
+        crate::views::turn_event_view::activity_gauge_count(cadence_lines[0]),
         Some(4)
     );
     // Repeats bump the gauge in place — nothing rides the strip's note line.
@@ -12369,8 +12369,8 @@ fn interrupt_cancels_background_job_and_suppresses_its_late_result() {
 fn stale_compaction_outcome_is_rejected_without_memory_side_effects() {
     struct CountingStore(Arc<std::sync::atomic::AtomicUsize>);
 
-    impl crate::memory_store::MemoryStore for CountingStore {
-        fn deposit(&self, _drawer: &crate::memory_store::Drawer) -> Result<String, String> {
+    impl crate::memory::store::MemoryStore for CountingStore {
+        fn deposit(&self, _drawer: &crate::memory::store::Drawer) -> Result<String, String> {
             self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             Ok("filed".to_string())
         }
@@ -12396,9 +12396,9 @@ fn stale_compaction_outcome_is_rejected_without_memory_side_effects() {
         .map(|message| message.content.clone())
         .collect::<Vec<_>>();
     let deposits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let store: Arc<dyn crate::memory_store::MemoryStore> =
+    let store: Arc<dyn crate::memory::store::MemoryStore> =
         Arc::new(CountingStore(Arc::clone(&deposits)));
-    let drawer = crate::memory_store::Drawer {
+    let drawer = crate::memory::store::Drawer {
         wing: "test".to_string(),
         room: "Facts".to_string(),
         content: "must not be filed".to_string(),
@@ -12445,8 +12445,8 @@ fn stale_compaction_outcome_is_rejected_without_memory_side_effects() {
 fn compact_memory_filing_reports_partial_failure_bounded_and_workspace_aware() {
     struct SelectiveStore;
 
-    impl crate::memory_store::MemoryStore for SelectiveStore {
-        fn deposit(&self, drawer: &crate::memory_store::Drawer) -> Result<String, String> {
+    impl crate::memory::store::MemoryStore for SelectiveStore {
+        fn deposit(&self, drawer: &crate::memory::store::Drawer) -> Result<String, String> {
             if drawer.content == "file me" {
                 Ok("filed".to_string())
             } else {
@@ -12480,7 +12480,7 @@ fn compact_memory_filing_reports_partial_failure_bounded_and_workspace_aware() {
     ];
     let drawers = ["file me", "reject me"]
         .into_iter()
-        .map(|content| crate::memory_store::Drawer {
+        .map(|content| crate::memory::store::Drawer {
             wing: "test".to_string(),
             room: "Facts".to_string(),
             content: content.to_string(),
@@ -12926,7 +12926,7 @@ fn render_transcript_full_reference(frame: &mut Frame, app: &mut App, area: Rect
     if area.width == 0 || area.height == 0 {
         return;
     }
-    let block = hud_block(status_view::agent_shell_title());
+    let block = hud_block(crate::views::status_view::agent_shell_title());
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let strip_h = tool_strip_height(app, inner.height);
@@ -12936,7 +12936,7 @@ fn render_transcript_full_reference(frame: &mut Frame, app: &mut App, area: Rect
         let row = app.tool_strip.ambient_row(
             inner.width as usize,
             Instant::now(),
-            crate::lifecycle_viz::MotionMode::Off,
+            crate::viz::lifecycle_viz::MotionMode::Off,
             false,
         );
         frame.render_widget(
@@ -12997,7 +12997,7 @@ fn windowed_transcript_matches_full_render() {
                 of rows when rendered, enough to exercise wrapping + windowing.";
     let mk = |n: usize, partial: &str| -> App {
         let mut a = seed_preview_app();
-        a.visual_motion = crate::lifecycle_viz::MotionMode::Off;
+        a.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
         a.messages.clear();
         for i in 0..n {
             a.messages.push(Message {
@@ -14088,9 +14088,9 @@ fn receipt_consecutive_rows_and_trace() {
         rows[0].text
     );
     assert_eq!(
-        crate::turn_event_view::activity_gauge_count(&rows[0].text)
+        crate::views::turn_event_view::activity_gauge_count(&rows[0].text)
             .unwrap()
-            .min(crate::turn_event_view::NOTICE_GAUGE_FULL),
+            .min(crate::views::turn_event_view::NOTICE_GAUGE_FULL),
         10
     );
     println!("receipt rows: before=30 after=1 count=30 range=1–30 ms gauge_fill=10");

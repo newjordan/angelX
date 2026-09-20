@@ -46,7 +46,7 @@ pub(crate) fn tool_strip_height(app: &App, inner_height: u16) -> u16 {
 }
 
 fn transcript_block(app: &App) -> Block<'static> {
-    let block = hud_block(status_view::agent_shell_title());
+    let block = hud_block(crate::views::status_view::agent_shell_title());
     if app
         .module_host
         .focused()

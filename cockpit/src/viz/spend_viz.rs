@@ -4,7 +4,7 @@
 //! while the terminal position moves. Operational turn state is never read or
 //! changed here.
 
-use crate::lifecycle_viz::MotionMode;
+use crate::viz::lifecycle_viz::MotionMode;
 use ratatui::layout::Rect;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -84,5 +84,5 @@ pub(crate) fn format_input_tokens(input_tokens: u64) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/spend_viz__tests.rs"]
+#[path = "../../../tests/cockpit/app/spend_viz__tests.rs"]
 mod tests;

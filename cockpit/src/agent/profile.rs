@@ -266,5 +266,5 @@ const APOLLO_PROFILE: AgentProfile = AgentProfile {
 };
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/agent_profile__tests.rs"]
+#[path = "../../../tests/cockpit/app/agent_profile__tests.rs"]
 mod tests;

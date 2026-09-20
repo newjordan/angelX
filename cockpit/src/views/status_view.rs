@@ -1648,5 +1648,5 @@ fn styled_composer_line(text: &str, intent: ComposerIntent) -> Line<'static> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/status_view__tests.rs"]
+#[path = "../../../tests/cockpit/app/status_view__tests.rs"]
 mod tests;

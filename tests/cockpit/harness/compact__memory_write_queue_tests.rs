@@ -1,5 +1,5 @@
 use super::*;
-use crate::memory_store::{Drawer, MemoryStore};
+use crate::memory::store::{Drawer, MemoryStore};
 
 struct BlockingStore {
     calls: Arc<AtomicUsize>,

@@ -255,8 +255,8 @@ pub(crate) fn portrait_states_enabled() -> bool {
 /// Fold live App signals into the six-state portrait. Sampling only — the
 /// precedence ladder and marker expiry are the pure `agent_view` fns, so the
 /// whole state machine tests without a terminal.
-pub(crate) fn portrait_state(app: &App) -> agent_view::PortraitState {
-    agent_view::portrait_state_from(
+pub(crate) fn portrait_state(app: &App) -> crate::views::agent_view::PortraitState {
+    crate::views::agent_view::portrait_state_from(
         app.pending_approval.is_some(),
         app.tool_strip.current().is_some_and(|entry| !entry.done),
         app.thinking.is_some(),
@@ -274,9 +274,9 @@ fn bay_profile_lines<'a>(
     active: bool,
 ) -> Vec<Line<'a>> {
     if portrait_states_enabled() {
-        agent_view::compact_profile_lines_stateful(profile, label, portrait_state(app))
+        crate::views::agent_view::compact_profile_lines_stateful(profile, label, portrait_state(app))
     } else {
-        agent_view::compact_profile_lines(profile, label, active)
+        crate::views::agent_view::compact_profile_lines(profile, label, active)
     }
 }
 
@@ -337,7 +337,7 @@ pub(crate) fn agent_host_metrics_line(
     if !agent_host_metrics_allowed() {
         return None;
     }
-    Some(status_view::agent_metrics_line(
+    Some(crate::views::status_view::agent_metrics_line(
         app.overwatch.snapshot.cpu_pct,
         app.overwatch.snapshot.mem_pct,
         app.overwatch.snapshot.gpu_pct,
@@ -385,7 +385,7 @@ pub(crate) fn agent_token_lines(app: &App, width: u16, max_lines: usize) -> Vec<
     if active_agent_is_moa(app, idle_mode)
         && let Some(report) = crate::swarm::ledger::token_report(app.tools.current_workspace())
     {
-        let lines = status_view::moa_token_report_lines(&report, width, max_lines);
+        let lines = crate::views::status_view::moa_token_report_lines(&report, width, max_lines);
         if !lines.is_empty() {
             return lines;
         }
@@ -410,7 +410,7 @@ pub(crate) fn agent_token_lines(app: &App, width: u16, max_lines: usize) -> Vec<
         (usage, is_sota)
     };
     if usage_and_sota.1 {
-        vec![Line::from(status_view::token_usage_meter(usage_and_sota.0))]
+        vec![Line::from(crate::views::status_view::token_usage_meter(usage_and_sota.0))]
     } else {
         Vec::new()
     }
@@ -457,8 +457,8 @@ fn render_terminal_agent_portrait(
             let path = crate::runtime_paths::cockpit_dir().join(crate::helm::sheet(profile.key));
             let rendered = app.viewer.render_helm(frame, area, &path, pose as u8);
             // Warm the next real idle pose without changing the visible state.
-            let next = if state == agent_view::PortraitState::Idle
-                && app.visual_motion == lifecycle_viz::MotionMode::Full
+            let next = if state == crate::views::agent_view::PortraitState::Idle
+                && app.visual_motion == crate::viz::lifecycle_viz::MotionMode::Full
             {
                 crate::helm::pose(
                     state,
@@ -1161,7 +1161,7 @@ pub(crate) fn render_agent_bay_in(
     if portrait_states_enabled() {
         let state = portrait_state(app);
         if let Some(tint) = state.border_tint()
-            && (state == agent_view::PortraitState::Blocked || !focused)
+            && (state == crate::views::agent_view::PortraitState::Blocked || !focused)
         {
             block = block.border_style(Style::new().fg(tint));
         }
@@ -1340,13 +1340,13 @@ pub(crate) fn agent_route_title(
     }
     let (clock, load_pct) = match app.think_state() {
         Some((_progress, secs, _club)) => (
-            Some(status_view::fmt_clock(secs)),
+            Some(crate::views::status_view::fmt_clock(secs)),
             Some(app.overwatch.snapshot.load_pct()),
         ),
         None => (None, None),
     };
     let mut title =
-        status_view::agent_route_title(tabs.as_slice(), clock.as_deref(), load_pct, max_chars)?;
+        crate::views::status_view::agent_route_title(tabs.as_slice(), clock.as_deref(), load_pct, max_chars)?;
     // Phase 3 Treebeard strip: surface the active RLM lane on the agent bay
     // so operators see strategy-only mode without opening ENV docs.
     if treebeard {
@@ -1583,7 +1583,7 @@ pub(crate) fn render_reasoning_canvas(frame: &mut Frame, app: &mut App, area: Re
     if area.height == 0 || area.width == 0 {
         return;
     }
-    let title = status_view::reasoning_title(app.active_profile().name);
+    let title = crate::views::status_view::reasoning_title(app.active_profile().name);
     let title = Span::styled(title.as_ref(), PHOSPHOR_BOLD_STYLE);
     let block = Block::default()
         .borders(Borders::ALL)

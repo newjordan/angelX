@@ -344,9 +344,9 @@ pub fn media_delivery_text(label: &str, preview_result: Result<String, String>) 
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/turn_event_view__tests.rs"]
+#[path = "../../../tests/cockpit/app/turn_event_view__tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/turn_event_view__receipt_tests.rs"]
+#[path = "../../../tests/cockpit/app/turn_event_view__receipt_tests.rs"]
 mod receipt_tests;

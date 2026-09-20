@@ -4,8 +4,8 @@
 //! https://sw.kovidgoyal.net/kitty/graphics-protocol/
 //! The only encoder input is a composed Braille grid, never a source image.
 
-use crate::dot_canvas::DotGeometry;
-use crate::terminal_art::ColoredBrailleImage;
+use crate::dots::canvas::DotGeometry;
+use crate::term::art::ColoredBrailleImage;
 use base64::Engine;
 use image::ImageEncoder;
 use ratatui::{
@@ -16,7 +16,7 @@ use ratatui::{
 use std::fmt::Write;
 use std::num::NonZeroU16;
 
-include!("dot_diacritics.rs");
+include!("diacritics.rs");
 
 pub(crate) struct DotProtocol {
     size: Size,
@@ -150,5 +150,5 @@ pub(crate) fn decode_upload(upload: &str) -> image::RgbaImage {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/dot_protocol__tests.rs"]
+#[path = "../../../tests/cockpit/app/dot_protocol__tests.rs"]
 mod tests;

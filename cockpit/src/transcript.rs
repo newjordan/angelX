@@ -419,7 +419,7 @@ fn append_message_lines<'a>(
 /// quiet dim style. Same text, same spans-per-line wrap → identical height, so
 /// in-place gauge bumps only re-measure their own row.
 fn activity_line<'a>(line: &'a str) -> Line<'a> {
-    let Some(count) = crate::turn_event_view::activity_gauge_count(line) else {
+    let Some(count) = crate::views::turn_event_view::activity_gauge_count(line) else {
         return Line::from(vec![
             Span::styled("  ", EMPTY_STYLE),
             Span::styled(line, ACTIVITY_STYLE),
@@ -438,7 +438,7 @@ fn activity_line<'a>(line: &'a str) -> Line<'a> {
         .map_or((chip, ""), |index| chip.split_at(index));
     // One left-to-right fill across both body segments; the chip itself has
     // no background. Guard notices have an empty tail and paint as before.
-    let full = crate::turn_event_view::NOTICE_GAUGE_FULL;
+    let full = crate::views::turn_event_view::NOTICE_GAUGE_FULL;
     let chars = body.chars().count() + tail.chars().count();
     let mut remaining = (chars * count.min(full)).div_ceil(full);
     let mut paint = |text: &'a str| {

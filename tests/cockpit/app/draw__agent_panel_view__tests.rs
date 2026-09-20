@@ -326,7 +326,7 @@ fn treebeard_strip_includes_peer_and_offload() {
 /// paints the blocked word where the operator actually looks.
 #[test]
 fn blocked_approval_owns_the_bay_caption_and_sampler_precedence() {
-    use crate::agent_view::{PortraitMarker, PortraitState};
+    use crate::views::agent_view::{PortraitMarker, PortraitState};
     use crate::app::{App, PendingApproval};
     use crate::harness::ToolEventId;
     use crate::viewer::Viewer;
@@ -386,7 +386,7 @@ fn active_webgpu_stage_has_a_visible_agent_pane_card() {
     crate::comp_mode::invalidate_cache();
     crate::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
-    app.agentviz_portal = crate::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    app.agentviz_portal = crate::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
     let mut terminal = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     terminal
         .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
@@ -640,7 +640,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     assert_eq!(composed, 1);
 
     let mut app = App::preview(Viewer::static_preview());
-    app.agentviz_portal = crate::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    app.agentviz_portal = crate::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
     let mut terminal = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     terminal
         .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
@@ -672,7 +672,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
 
     let mut armed = App::preview(Viewer::static_preview());
     armed.agentviz_portal =
-        crate::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+        crate::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
     let mut lean = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     lean.draw(|frame| render_agent_bay(frame, &mut armed, frame.area()))
         .expect("render lean agent bay");

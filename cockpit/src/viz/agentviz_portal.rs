@@ -1,13 +1,13 @@
 //! Bounded Cockpit-owned contract and process lifecycle for the Kitty WebGPU portal.
 //!
 //! The Cockpit never acquires a GPU device itself. This module projects the
-//! read-only [`crate::agentviz`] activity signal into a versioned packet,
+//! read-only [`crate::viz::agentviz`] activity signal into a versioned packet,
 //! coalesces updates behind a one-flight boundary, and invokes the isolated
 //! surface-free renderer with bounded input, output, and wall time. The existing
 //! text Miniviz remains authoritative whenever the renderer or Kitty adapter is
 //! unavailable.
 
-use crate::agentviz::ActivitySnapshot;
+use crate::viz::agentviz::ActivitySnapshot;
 use crate::sandbox::process_owner::OwnedCommandExt;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -749,5 +749,5 @@ fn truncate_utf8(value: &str, max_bytes: usize) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/agentviz_portal__tests.rs"]
+#[path = "../../../tests/cockpit/app/agentviz_portal__tests.rs"]
 mod tests;

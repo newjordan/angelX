@@ -889,8 +889,8 @@ fn apply_operation(app: &mut App, operation: &UiOperation) -> Result<String, Str
     match operation {
         UiOperation::OpenControl { control } => {
             let expected = match control {
-                ControlKind::Model => crate::agent_controls::AgentMenuKind::Model,
-                ControlKind::Thinking => crate::agent_controls::AgentMenuKind::Thinking,
+                ControlKind::Model => crate::agent::controls::AgentMenuKind::Model,
+                ControlKind::Thinking => crate::agent::controls::AgentMenuKind::Thinking,
             };
             if app.agent_menu.is_some_and(|menu| menu.kind == expected) {
                 Ok(format!(

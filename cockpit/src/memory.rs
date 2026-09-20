@@ -242,3 +242,5 @@ mod save_error_tests;
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/memory__tests.rs"]
 mod tests;
+
+pub(crate) mod store;
