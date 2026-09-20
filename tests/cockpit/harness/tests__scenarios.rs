@@ -456,14 +456,14 @@ fn scenario_list_dir_and_grep_real_tree() {
         .call(&serde_json::json!({"path":"src"}))
         .expect("list_dir");
     assert!(
-        ld.contains("main.rs") && ld.contains("harness/"),
+        ld.contains("main.rs") && ld.contains("agent/"),
         "list_dir src:\n{ld}"
     );
     let g = GrepTool { root }
         .call(&serde_json::json!({"pattern":"pub fn run_turn\\(","path":"src"}))
         .expect("grep");
     assert!(
-        g.contains("harness/turn/mod.rs:"),
+        g.contains("agent/harness/turn/mod.rs:"),
         "grep should find the production run_turn:\n{g}"
     );
 }
@@ -813,7 +813,7 @@ fn scenario_outline_miss_suggests_paths() {
         .call(&serde_json::json!({ "path": "wrongdir/lsp.rs" }))
         .expect_err("missing path must error");
     assert!(
-        err.contains("src/lsp.rs"),
+        err.contains("src/agent/lsp.rs"),
         "outline miss should suggest the real path:\n{err}"
     );
 }
@@ -823,7 +823,7 @@ fn scenario_outline_miss_suggests_paths() {
 fn scenario_outline_real_source() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let out = OutlineTool { root }
-        .call(&serde_json::json!({ "path": "src/lsp.rs" }))
+        .call(&serde_json::json!({ "path": "src/agent/lsp.rs" }))
         .expect("outline");
     assert!(
         out.contains("fn discover_lsp_tools") || out.contains("discover_lsp_tools"),

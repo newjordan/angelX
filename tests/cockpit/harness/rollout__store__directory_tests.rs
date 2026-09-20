@@ -125,7 +125,7 @@ fn actual_rollout_base_and_descendants_are_private_under_zero_umask_and_migratio
         }
     }
     let mut child = Reap(std::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "harness::rollout::store::directory_tests::actual_rollout_base_and_descendants_are_private_under_zero_umask_and_migration", "--test-threads=1", "--nocapture"])
+        .args(["--exact", "agent::harness::rollout::store::directory_tests::actual_rollout_base_and_descendants_are_private_under_zero_umask_and_migration", "--test-threads=1", "--nocapture"])
         .env(CHILD, "1").stdin(std::process::Stdio::null()).spawn().unwrap());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
     loop {

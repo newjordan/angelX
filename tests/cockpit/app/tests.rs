@@ -6244,7 +6244,8 @@ fn loop_done_ladder_routes_claimed_verify_and_min() {
     app.loop_ctl.workspace = Some(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")));
     app.loop_ctl.min_findings = 1;
     app.loop_harvest(
-        "DIRECTION: x\nFINDINGS:\n- a real finding [evidence: file:src/loop_ctl.rs:1]".to_string(),
+        "DIRECTION: x\nFINDINGS:\n- a real finding [evidence: file:src/drive/loop_ctl.rs:1]"
+            .to_string(),
     );
     assert_eq!(app.loop_ctl.status, loop_ctl::LoopStatus::Done);
 

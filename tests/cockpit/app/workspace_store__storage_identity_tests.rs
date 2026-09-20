@@ -145,7 +145,7 @@ fn explicit_git_directory_overrides_bypass_the_local_fast_path() {
     child
         .args([
             "--exact",
-            "workspace_store::storage_identity_tests::explicit_git_directory_overrides_bypass_the_local_fast_path",
+            "platform::workspace_store::storage_identity_tests::explicit_git_directory_overrides_bypass_the_local_fast_path",
             "--nocapture",
         ])
         .env(CHILD, &fixture.0)
@@ -207,7 +207,7 @@ fn timed_out_identity_probe_is_not_memoized_as_workspace_only() {
     child
         .args([
             "--exact",
-            "workspace_store::storage_identity_tests::timed_out_identity_probe_is_not_memoized_as_workspace_only",
+            "platform::workspace_store::storage_identity_tests::timed_out_identity_probe_is_not_memoized_as_workspace_only",
             "--nocapture",
         ])
         .env(CHILD, &fixture.0)
