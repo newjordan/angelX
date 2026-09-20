@@ -105,7 +105,7 @@ fn caddy_lifecycle_process_lock_contention_is_reported_without_waiting() {
     // has the same effect; this makes the release requirement deterministic.
     let _forked_lock = lock.try_clone().unwrap();
     let output = lifecycle_child(
-        "caddy::storage_regression_tests::caddy_lifecycle_process_lock_contention_is_reported_without_waiting",
+        "knowledge::caddy::storage_regression_tests::caddy_lifecycle_process_lock_contention_is_reported_without_waiting",
         KEY,
         &fixture.0,
     );
@@ -334,7 +334,7 @@ fn caddy_lifecycle_real_efbig_preserves_old_file_and_cleans_owned_stage() {
     let fixture = Fixture::new();
     lifecycle_seed(&fixture);
     let output = lifecycle_child(
-        "caddy::storage_regression_tests::caddy_lifecycle_real_efbig_preserves_old_file_and_cleans_owned_stage",
+        "knowledge::caddy::storage_regression_tests::caddy_lifecycle_real_efbig_preserves_old_file_and_cleans_owned_stage",
         KEY,
         &fixture.0,
     );

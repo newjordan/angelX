@@ -411,7 +411,7 @@ fn file_size_failure_reports_failed_retains_snapshot_and_cleans_temp() {
         std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "session::tests::file_size_failure_reports_failed_retains_snapshot_and_cleans_temp",
+                "knowledge::session::tests::file_size_failure_reports_failed_retains_snapshot_and_cleans_temp",
                 "--test-threads=1",
                 "--nocapture",
             ])

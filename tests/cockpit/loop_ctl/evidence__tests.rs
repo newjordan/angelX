@@ -4,7 +4,7 @@ use super::*;
 fn block(dir: &str, findings: &[&str]) -> String {
     let mut s = format!("DIRECTION: {dir}\nFINDINGS:\n");
     for f in findings {
-        s.push_str(&format!("- {f} [evidence: file:src/loop_ctl.rs:1]\n"));
+        s.push_str(&format!("- {f} [evidence: file:src/drive/loop_ctl.rs:1]\n"));
     }
     s
 }
@@ -116,7 +116,7 @@ fn file_evidence_must_exist_and_prefix_matching_is_case_insensitive() {
     assert_eq!(
         apply_reply(
             &mut st,
-            "DIRECTION: real source\nFINDINGS:\n- claim [evidence: File:src/loop_ctl.rs:1]",
+            "DIRECTION: real source\nFINDINGS:\n- claim [evidence: File:src/drive/loop_ctl.rs:1]",
         ),
         1
     );

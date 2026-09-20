@@ -107,7 +107,7 @@ fn run_identity_carries_sealed_sandbox_when_active() {
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.args([
             "--exact",
-            "harness::run_identity::tests::run_identity_carries_sealed_sandbox_when_active",
+            "agent::harness::run_identity::tests::run_identity_carries_sealed_sandbox_when_active",
             "--nocapture",
         ])
         .env("ANGEL_T_SEALED_CHILD", "1");
@@ -201,7 +201,7 @@ fn run_identity_scripted_task_json() {
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.args([
             "--exact",
-            "harness::run_identity::tests::run_identity_scripted_task_json",
+            "agent::harness::run_identity::tests::run_identity_scripted_task_json",
             "--nocapture",
         ])
         .current_dir(&root)

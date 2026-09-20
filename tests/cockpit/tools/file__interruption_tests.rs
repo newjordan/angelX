@@ -47,7 +47,7 @@ fn patch_exit_drain_sigint_between_real_patch_writes() {
     let mut child = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "tools::file::interruption_tests::patch_exit_drain_sigint_between_real_patch_writes",
+            "agent::tools::file::interruption_tests::patch_exit_drain_sigint_between_real_patch_writes",
             "--nocapture",
         ])
         .env(CHILD, root.path())
@@ -110,7 +110,7 @@ fn patch_exit_drain_completes_active_transaction() {
     let status = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "tools::file::interruption_tests::patch_exit_drain_completes_active_transaction",
+            "agent::tools::file::interruption_tests::patch_exit_drain_completes_active_transaction",
             "--nocapture",
         ])
         .env(CHILD, root.path())

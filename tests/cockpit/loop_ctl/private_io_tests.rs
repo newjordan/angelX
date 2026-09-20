@@ -83,7 +83,7 @@ fn watchdog_actual_writes_are_private_under_zero_umask() {
         std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "loop_ctl::private_io_tests::watchdog_actual_writes_are_private_under_zero_umask",
+                "drive::loop_ctl::private_io_tests::watchdog_actual_writes_are_private_under_zero_umask",
                 "--test-threads=1",
                 "--nocapture",
             ])

@@ -162,7 +162,7 @@ fn private_atomic_write_error_cleans_only_owned_temp() {
     write_private_atomic(&path, b"last good checkpoint").unwrap();
     let log = std::fs::File::create(fixture.0.join("child.log")).unwrap();
     let mut child = Reap(Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "workspace_store::storage_atomic_tests::private_atomic_write_error_cleans_only_owned_temp", "--test-threads=1", "--nocapture"])
+        .args(["--exact", "platform::workspace_store::storage_atomic_tests::private_atomic_write_error_cleans_only_owned_temp", "--test-threads=1", "--nocapture"])
         .env(CHILD_ROOT, &fixture.0).stdin(Stdio::null()).stdout(log.try_clone().unwrap()).stderr(log).spawn().unwrap());
     let deadline = Instant::now() + Duration::from_secs(10);
     let status = loop {

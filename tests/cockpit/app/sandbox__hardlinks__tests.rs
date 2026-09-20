@@ -1,3 +1,18 @@
+/// This module compiles into both the cockpit and the `angel-sandbox` helper,
+/// where it sits at a different path, so the libtest `--exact` filter for a
+/// sibling test is derived from `module_path!()` rather than hard-coded.
+macro_rules! self_test_filter {
+    ($name:literal) => {
+        format!(
+            "{}::{}",
+            module_path!()
+                .split_once("::")
+                .map_or(module_path!(), |(_crate, rest)| rest),
+            $name
+        )
+    };
+}
+
 use super::*;
 
 #[test]
@@ -48,7 +63,10 @@ fn landlock_only_hardlink_write_keeps_outside_unchanged_and_local_links_work() {
     std::fs::write(&outside, "original").unwrap();
     std::fs::hard_link(&outside, root.join("alias")).unwrap();
     let mut child = std::process::Command::new(std::env::current_exe().unwrap());
-    child.args(["--exact", "sandbox::hardlinks::tests::landlock_only_hardlink_write_keeps_outside_unchanged_and_local_links_work", "--nocapture"]);
+    let filter = self_test_filter!(
+        "landlock_only_hardlink_write_keeps_outside_unchanged_and_local_links_work"
+    );
+    child.args(["--exact", filter.as_str(), "--nocapture"]);
     child.env("ANGEL_T_ALIAS_CHILD", &root);
     let channel = super::super::status::attach(&mut child).unwrap();
     let output = child.output().unwrap();

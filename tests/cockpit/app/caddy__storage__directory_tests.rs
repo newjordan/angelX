@@ -113,7 +113,7 @@ fn actual_caddy_root_and_project_are_private_under_zero_umask_and_migration() {
         }
     }
     let mut child = Reap(std::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "caddy::storage::directory_tests::actual_caddy_root_and_project_are_private_under_zero_umask_and_migration", "--test-threads=1", "--nocapture"])
+        .args(["--exact", "knowledge::caddy::storage::directory_tests::actual_caddy_root_and_project_are_private_under_zero_umask_and_migration", "--test-threads=1", "--nocapture"])
         .env(CHILD, "1").stdin(std::process::Stdio::null()).spawn().unwrap());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     loop {
