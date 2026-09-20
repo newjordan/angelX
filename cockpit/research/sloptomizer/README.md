@@ -24,5 +24,27 @@ apply, and verify. Learning errors are reported alongside the experiment result.
 
 Python 3 is required; the runtime and its standard-library-only modules are
 embedded in the cockpit binary. `ANGEL_RESEARCH_PYTHON` selects the interpreter.
+
+## Provenance and the duplicated copy
+
+Ten of these modules are copied byte-for-byte from the original Sloptomizer
+source; [UPSTREAM.json](UPSTREAM.json) records the sha256 of each one and the
+commit they came from. Where a development checkout also carries the full import
+archive, those same ten files exist there under
+`experimental/sloptomizer/upstream/`, so the same bytes appear twice. That is
+deliberate: this directory is compiled into the binary by `include_bytes!`
+(`src/rl_ctl/research_bridge.rs`) and must build without the archive, while the
+archive stays the untouched import. The pair is guarded, not free:
+
+```sh
+npm run check:research-embed   # embed matches the receipt; archive copy has not forked
+npm run check:duplicates       # every other duplicate group in the tree is named
+```
+
+`check:research-embed` fails when an embedded module stops matching its recorded
+hash, when the archive copy diverges from the embedded one, or when
+`source-receipt.json` no longer describes the archived bytes. Edit an embedded
+module only together with the receipt and the archive copy.
+
 [Source provenance](UPSTREAM.json) ·
 [Integration tests](../../../tests/cockpit/app/rl_ctl__campaign_tests__research_tests.rs)
