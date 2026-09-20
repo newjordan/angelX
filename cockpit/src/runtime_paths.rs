@@ -45,12 +45,9 @@ pub(crate) fn bundle_identity() -> &'static str {
 pub(crate) fn status() -> serde_json::Value {
     let root = root();
     let required = [
-        "scripts/repo-dossier.mjs",
-        "scripts/habitsmith-tick.mjs",
-        "scripts/conductor-tick.mjs",
-        "scripts/still-tick.mjs",
-        "scripts/angel-machine-queue.py",
-        "scripts/pxpipe-transform.mjs",
+        "scripts/runtime/repo-dossier.mjs",
+        "scripts/runtime/habitsmith-tick.mjs",
+        "scripts/runtime/pxpipe-transform.mjs",
         "cockpit/assets/excalibur/rise.png",
     ];
     serde_json::json!({"sha256": bundle_identity(), "available": required.iter().all(|path| root.join(path).is_file())})

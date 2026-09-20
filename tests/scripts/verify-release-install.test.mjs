@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { join } from 'node:path'
 import test from 'node:test'
 
-import { sha256File } from '../../scripts/release-evidence.mjs'
+import { sha256File } from '../../scripts/release/release-evidence.mjs'
 import {
   PREFIX_INSTALL_SCHEMA,
   assertManagedPrefix,
@@ -12,7 +12,7 @@ import {
   installCandidate,
   prefixLayout,
   recoverInterruptedInstall,
-} from '../../scripts/verify-release-install.mjs'
+} from '../../scripts/release/verify-release-install.mjs'
 
 function fixture(t) {
   const root = mkdtempSync(join(process.cwd(), '.angel0-install-test-'))
@@ -126,7 +126,7 @@ test('installed probe is networkless, checkout-free, and limited to lifecycle st
 })
 
 
-import { runRollbackVerification } from '../../scripts/verify-release-rollback.mjs'
+import { runRollbackVerification } from '../../scripts/release/verify-release-rollback.mjs'
 
 function rollbackFixture(t) {
   const { root } = fixture(t)

@@ -8,7 +8,7 @@ threshold for model context.
 From the source checkout, with Node.js and Python 3 installed:
 
 ```sh
-node scripts/repo-dossier.mjs --refresh
+node scripts/runtime/repo-dossier.mjs --refresh
 ```
 
 The default stores are `~/.angel0/experience/ledger.jsonl`, `~/.angel0/cut/` and
@@ -24,7 +24,7 @@ records and publishes artifacts; it does not execute recorded commands.
 Caddy separately captures verified command recipes and failure hazards during
 tool execution, then selects relevant entries for later turns.
 
-Implementation: [Dossier compiler](../scripts/repo-dossier.mjs),
+Implementation: [Dossier compiler](../scripts/runtime/repo-dossier.mjs),
 [native reader](../cockpit/src/dossier.rs), [Caddy](../cockpit/src/caddy.rs).
 
 [Local workers](WORKERS.md) documents probing, skill proposals, scheduling and feedback.

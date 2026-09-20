@@ -21,7 +21,7 @@ import { runGraphCli } from './worker-lock.mjs'
 // minted Rust-side (work_landing::workspace_key) and never re-derived here.
 
 import { storeCap } from './store-caps.mjs'
-import { NODE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE } from '../../lib/research/CausalGraph.js'
 import { beliefProbability, scoreHypotheses } from './causal-loop.mjs'
 import { isMachineLabeled } from './cut-evidence.mjs'
 import { join } from 'node:path'
@@ -778,7 +778,7 @@ async function cli(argv) {
   const refresh = argv.includes('--refresh')
 
   const { collectManifest } = await import('./cut-evidence.mjs')
-  const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+  const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const loadGraph = () =>
     existsSync(graphPath)
       ? CausalGraph.deserialize(JSON.parse(readFileSync(graphPath, 'utf8')))
@@ -857,7 +857,7 @@ async function cli(argv) {
   }
 
   console.log(
-    'usage: node scripts/repo-dossier.mjs --refresh|--mine|--compile|--rank [--repo <key>] [--graph <path>] [--ledger <path>] [--cut <dir>] [--out <dir>]',
+    'usage: node scripts/runtime/repo-dossier.mjs --refresh|--mine|--compile|--rank [--repo <key>] [--graph <path>] [--ledger <path>] [--cut <dir>] [--out <dir>]',
   )
   return 2
 }

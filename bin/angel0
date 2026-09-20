@@ -204,8 +204,8 @@ fi
 
 # Apply the user's optional provider allowlist before any binary is launched, even
 # when ANGEL_NO_BUILD selects an older image without the Rust registration gate.
-# shellcheck source=../scripts/angel-club-policy.sh
-. "$ANGEL_DIR/scripts/angel-club-policy.sh"
+# shellcheck source=../scripts/check/angel-club-policy.sh
+. "$ANGEL_DIR/scripts/check/angel-club-policy.sh"
 
 # Convenience global flags. Keep these before workspace parsing so
 # `angel0 --yolo /path/to/project` and `angel0 --comp ...` work.
@@ -390,7 +390,7 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
   # --- source identity -------------------------------------------------------
   # Bind the binary to the committed source so `angel --build-info --json`
   # reports a real cockpit_source_sha256 (sha256 of `git archive HEAD`, see
-  # scripts/cockpit-source-digest.sh) instead of "unbound". Only a clean
+  # scripts/check/cockpit-source-digest.sh) instead of "unbound". Only a clean
   # build-input tree (cockpit/, vendor/dotmax/, rust-toolchain.toml) is bound;
   # a dirty one prints one line and builds unbound. An operator-provided
   # ANGEL_BUILD_SOURCE_SHA256 is kept as-is; ANGEL_BIND_SOURCE=0 skips binding.
@@ -401,8 +401,8 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
     SOURCE_BIND="bound (digest from environment)"
   elif [ "${ANGEL_BIND_SOURCE:-1}" = "0" ]; then
     SOURCE_BIND="unbound (ANGEL_BIND_SOURCE=0)"
-  elif [ -f "$ANGEL_DIR/scripts/cockpit-source-digest.sh" ]; then
-    if digest_out=$(bash "$ANGEL_DIR/scripts/cockpit-source-digest.sh" 2>&1); then
+  elif [ -f "$ANGEL_DIR/scripts/check/cockpit-source-digest.sh" ]; then
+    if digest_out=$(bash "$ANGEL_DIR/scripts/check/cockpit-source-digest.sh" 2>&1); then
       export ANGEL_BUILD_SOURCE_SHA256="$digest_out"
       SOURCE_BIND="bound ${digest_out:0:12}…"
     else

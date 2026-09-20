@@ -1,7 +1,7 @@
 //! `/habits` — Habitsmith proposal surfacing + the approval gate (H4 of
 //! `docs/plans/habitsmith.md`).
 //!
-//! The Habitsmith compiler (`scripts/habitsmith.mjs --propose`) renders
+//! The Habitsmith compiler (`scripts/runtime/habitsmith.mjs --propose`) renders
 //! confident observed workflows into draft skill folders under
 //! `~/.angel0/skills-proposed/<name>/SKILL.md`. This module is the human side
 //! of that Tier B loop: list the drafts with their evidence, and turn one
@@ -150,7 +150,7 @@ pub(crate) fn status_text(workspace: &Path) -> String {
 
 pub(crate) fn status_text_in(dir: &Path, status_path: &Path, workspace: &Path) -> String {
     let proposals = list_proposals_for_in(dir, workspace);
-    let worker = crate::runtime_paths::script("habitsmith-tick.mjs");
+    let worker = crate::runtime_paths::script("runtime/habitsmith-tick.mjs");
     let quoted_worker = worker.to_string_lossy().replace('\'', "'\"'\"'");
     let mut out = if proposals.is_empty() {
         format!(

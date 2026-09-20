@@ -86,7 +86,7 @@ def audit(root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
     args = parser.parse_args()
     report = audit(args.root)
     print(json.dumps(report, indent=2))

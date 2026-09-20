@@ -1,6 +1,6 @@
 import { readFileSync, mkdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
-import { holdProcessLease, classifyProcessLeaseOwner } from '../lib/control/process-lease.mjs'
+import { holdProcessLease, classifyProcessLeaseOwner } from '../../lib/control/process-lease.mjs'
 import { workerPaths } from './worker-paths.mjs'
 
 // All CLI graph writers share one lease, including manual compiler refreshes.

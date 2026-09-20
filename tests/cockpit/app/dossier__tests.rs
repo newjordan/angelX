@@ -30,7 +30,7 @@ fn dossier_compiler_output_reaches_the_native_context_reader() {
         .join("\n");
     let ledger = temp.path().join("ledger.jsonl");
     std::fs::write(&ledger, rows).unwrap();
-    let compiler = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/repo-dossier.mjs");
+    let compiler = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/repo-dossier.mjs");
     let result = std::process::Command::new("node")
         .arg(compiler)
         .arg("--refresh")

@@ -13,8 +13,8 @@ ANGEL_VIDEO=0 ./bin/angel0
 Development checks:
 
 ```sh
-bash scripts/check-cockpit-fast.sh --test-threads=1
-bash scripts/check-legacy-terminal-boundary.sh
+bash scripts/check/check-cockpit-fast.sh --test-threads=1
+bash scripts/check/check-legacy-terminal-boundary.sh
 npm test
 ```
 
