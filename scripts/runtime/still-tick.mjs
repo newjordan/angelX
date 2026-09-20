@@ -390,7 +390,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (n, d) => {
     const i = argv.indexOf(n)
     return i >= 0 ? argv[i + 1] : d

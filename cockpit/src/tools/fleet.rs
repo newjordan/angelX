@@ -310,7 +310,7 @@ fn machine_queue_client_path() -> PathBuf {
     if let Some(path) = env_nonempty("ANGEL_MACHINE_QUEUE_CLIENT") {
         return PathBuf::from(path);
     }
-    crate::runtime_paths::script("angel-machine-queue.py")
+    crate::runtime_paths::script("runtime/angel-machine-queue.py")
 }
 
 impl MachineQueueConfig {

@@ -15,7 +15,7 @@ import {
   decideTick,
   makeHeartbeat,
   benchRecord,
-} from '../../scripts/reflex-tick.mjs'
+} from '../../scripts/runtime/reflex-tick.mjs'
 
 const MIN = 60_000
 

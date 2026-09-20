@@ -22,7 +22,7 @@ import {
   selectGolden,
   gapSummary,
   annotateLines,
-} from '../../scripts/still-tick.mjs'
+} from '../../scripts/runtime/still-tick.mjs'
 
 // 2026-01-01T00:00:00Z and 2026-07-10T00:00:00Z
 const JAN1_2026 = Date.UTC(2026, 0, 1) / 1000

@@ -36,7 +36,7 @@ import {
   inventoryReleaseIndex,
   inventoryReleaseFiles,
   sha256Bytes,
-} from '../../scripts/release-evidence.mjs'
+} from '../../scripts/release/release-evidence.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const REQUIRED_BUNDLED_PERSONAS = Object.freeze([
@@ -629,7 +629,7 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
   assert.ok(RELEASE_PATHS.includes('cockpit/docs/COMPETITION_RUNNER.md'))
   assert.ok(RELEASE_PATHS.includes('SECURITY.md'))
   assert.ok(RELEASE_PATHS.includes('LICENSE'))
-  assert.ok(RELEASE_PATHS.includes('scripts/check-legacy-terminal-boundary.sh'))
+  assert.ok(RELEASE_PATHS.includes('scripts/check/check-legacy-terminal-boundary.sh'))
   assert.ok(RELEASE_PATHS.includes('release/supply-chain-policy.json'))
   assert.ok(RELEASE_PATHS.includes('release/Dockerfile.clean-builder'))
   assert.ok(RELEASE_PATHS.includes('docs/release-evidence.md'))
@@ -639,7 +639,7 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
   assert.ok(REQUIRED_RELEASE_FILES.includes('release/supply-chain-policy.json'))
   assert.ok(REQUIRED_RELEASE_FILES.includes('release/Dockerfile.clean-builder'))
   assert.ok(REQUIRED_RELEASE_FILES.includes('docs/release-evidence.md'))
-  assert.ok(REQUIRED_RELEASE_FILES.includes('scripts/check-legacy-terminal-boundary.sh'))
+  assert.ok(REQUIRED_RELEASE_FILES.includes('scripts/check/check-legacy-terminal-boundary.sh'))
   assert.equal(
     new Set(REQUIRED_COCKPIT_EMBEDDED_FILES).size,
     REQUIRED_COCKPIT_EMBEDDED_FILES.length,

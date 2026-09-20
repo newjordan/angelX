@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
 import CausalGraph, { EDGE_TYPE, NODE_TYPE } from '../../lib/research/CausalGraph.js'
-import { beliefProbability, scoreHypotheses } from '../../scripts/causal-loop.mjs'
+import { beliefProbability, scoreHypotheses } from '../../scripts/runtime/causal-loop.mjs'
 import {
   KEPT,
   EDITED,
@@ -40,7 +40,7 @@ import {
   conductorHoldsLock,
   graphWriteAllowed,
   statusExport,
-} from '../../scripts/cut-tick.mjs'
+} from '../../scripts/runtime/cut-tick.mjs'
 
 const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts')
 const HOME = '/home/user'

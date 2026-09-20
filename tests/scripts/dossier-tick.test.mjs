@@ -10,8 +10,8 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 import CausalGraph, { NODE_TYPE, EDGE_TYPE } from '../../lib/research/CausalGraph.js'
-import { mineRepoFacts, ingestRepoFacts, dossierFacts, factBelief } from '../../scripts/repo-dossier.mjs'
-import { killed, commandToken, p0Verdict, p1Verdict, applyProbe } from '../../scripts/dossier-tick.mjs'
+import { mineRepoFacts, ingestRepoFacts, dossierFacts, factBelief } from '../../scripts/runtime/repo-dossier.mjs'
+import { killed, commandToken, p0Verdict, p1Verdict, applyProbe } from '../../scripts/runtime/dossier-tick.mjs'
 
 const NOW = '2026-07-06T00:00:00.000Z'
 const KEY = 'home-u-proj-0011223344556677'
@@ -166,7 +166,7 @@ test('forced tick turns fresh v3 ledger passes into a compiled dossier fact', ()
     const run = spawnSync(
       process.execPath,
       [
-        'scripts/dossier-tick.mjs',
+        'scripts/runtime/dossier-tick.mjs',
         '--force',
         '--max',
         '1',

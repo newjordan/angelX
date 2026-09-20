@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import CausalGraph from '../../lib/research/CausalGraph.js'
-import { agendaNodeId, ingestAgenda } from '../../scripts/conductor.mjs'
+import { agendaNodeId, ingestAgenda } from '../../scripts/runtime/conductor.mjs'
 
 const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts')
 const ROOT = join(SCRIPTS, '..')

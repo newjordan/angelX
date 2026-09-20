@@ -34,7 +34,7 @@ import {
   validateBlockedReason,
   validateMissionId,
   validateObjective,
-} from '../../scripts/mission.mjs'
+} from '../../scripts/runtime/mission.mjs'
 
 const NOW = '2026-07-07T12:00:00.000Z'
 
@@ -306,7 +306,7 @@ const cliEnv = () => ({
 })
 
 const run = (env, args) =>
-  execFileSync(process.execPath, ['scripts/mission.mjs', ...args], { env, encoding: 'utf8' })
+  execFileSync(process.execPath, ['scripts/runtime/mission.mjs', ...args], { env, encoding: 'utf8' })
 
 test('cli create → tick → blocked after three rounds persists across invocations', () => {
   const env = cliEnv()

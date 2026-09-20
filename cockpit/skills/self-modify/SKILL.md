@@ -37,7 +37,7 @@ This is non-negotiable. A change is acceptable only if **both** hold:
 Run them via the `cargo` / `run_tests` tools. Do not ignore a failure without
 current, reproducible evidence that it predates the change.
 Use development builds during edits. For final native qualification, use
-`scripts/check-cockpit-fast.sh --release <relevant existing filters>` from a
+`scripts/check/check-cockpit-fast.sh --release <relevant existing filters>` from a
 committed candidate; it binds identity before compilation and verifies the
 resulting executable. A known failed verifier requires a diagnosis, not repeated
 whole-cohort rebuilds of unchanged source. Return a coherent tested candidate

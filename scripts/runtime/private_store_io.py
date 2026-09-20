@@ -15,7 +15,7 @@ def redact_text(text):
     global _REDACTOR
     if _REDACTOR is None:
         _REDACTOR = runpy.run_path(str(Path(__file__).with_name("trajectory-redact.py")))
-    values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent / ".angel.env"])
+    values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent.parent / ".angel.env"])
     # JSONL needs per-record inspection so integrity bindings cannot be lost.
     import json
     try:
@@ -182,7 +182,7 @@ def replace_bytes(path, body):
     """Preserve binary assets exactly; refuse any detected credential payload."""
     # Initialize the canonical scanner without serializing or altering bytes.
     redact_text("")
-    values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent / ".angel.env"])
+    values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent.parent / ".angel.env"])
     if any(_REDACTOR["scan_text"](body.decode("utf-8", errors="surrogateescape"), values)):
         raise ValueError("binary private write contains credentials")
     _replace(path, body)
@@ -270,7 +270,7 @@ def redact_records(records):
     global _REDACTOR
     if _REDACTOR is None:
         _REDACTOR = runpy.run_path(str(Path(__file__).with_name("trajectory-redact.py")))
-    values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent / ".angel.env"])
+    values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent.parent / ".angel.env"])
     clean, dropped = [], 0
     for record in records:
         item, count = _REDACTOR["redact_record"](record, values)

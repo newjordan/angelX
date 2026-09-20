@@ -7,10 +7,10 @@ import { workerPaths } from './worker-paths.mjs'
 // CLI writers share worker-lock.mjs; graph writes also require the Conductor's
 // lease. See docs/WORKERS.md for the worker and measurement contracts.
 //
-// node scripts/cut-tick.mjs --dry-run
-// node scripts/cut-tick.mjs             # invoked by Conductor
+// node scripts/runtime/cut-tick.mjs --dry-run
+// node scripts/runtime/cut-tick.mjs             # invoked by Conductor
 
-import { NODE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE } from '../../lib/research/CausalGraph.js'
 import { updateBeliefs } from './causal-loop.mjs'
 import { classify } from './cut-evidence.mjs'
 import {
@@ -416,7 +416,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (n, d) => {
     const i = argv.indexOf(n)
     return i >= 0 ? argv[i + 1] : d
@@ -606,7 +606,7 @@ async function cli(argv) {
       return 0
     }
 
-    const graphMod = await import('../lib/research/CausalGraph.js')
+    const graphMod = await import('../../lib/research/CausalGraph.js')
     const CausalGraph = graphMod.default
     const graph = fs.existsSync(graphPath)
       ? CausalGraph.deserialize(JSON.parse(fs.readFileSync(graphPath, 'utf8')))

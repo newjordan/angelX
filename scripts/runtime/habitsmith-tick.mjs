@@ -66,7 +66,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (n, d) => {
     const i = argv.indexOf(n)
     return i >= 0 ? argv[i + 1] : d
@@ -134,7 +134,7 @@ async function cli(argv) {
   if (!dryRun) fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, ts: now }))
 
   try {
-    const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+    const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
     const graph = fs.existsSync(graphPath)
       ? CausalGraph.deserialize(JSON.parse(fs.readFileSync(graphPath, 'utf8')))
       : new CausalGraph()

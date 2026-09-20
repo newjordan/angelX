@@ -16,7 +16,7 @@ import {
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const STORE_DIR = process.env.ANGEL_EXPERIMENT_DIR || join(ROOT, '.angel-experiments')
 const CONTRACT_DIR = join(STORE_DIR, 'contracts')
 

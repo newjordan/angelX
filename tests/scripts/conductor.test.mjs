@@ -6,7 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import CausalGraph, { NODE_TYPE } from '../../lib/research/CausalGraph.js'
-import { scoreHypotheses } from '../../scripts/causal-loop.mjs'
+import { scoreHypotheses } from '../../scripts/runtime/causal-loop.mjs'
 import {
   CONDUCTOR_PROJECT,
   TRAP_BELIEF_MIN,
@@ -21,7 +21,7 @@ import {
   proposeAgenda,
   reflexPendingSignals,
   turnFailureSignals,
-} from '../../scripts/conductor.mjs'
+} from '../../scripts/runtime/conductor.mjs'
 
 const NOW = '2026-07-07T12:00:00.000Z'
 const NOW_TS = Math.floor(Date.parse(NOW) / 1000)

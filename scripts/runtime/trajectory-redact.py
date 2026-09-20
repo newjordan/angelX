@@ -508,7 +508,7 @@ def main():
     a = ap.parse_args()
     env_files = list(a.env_file)
     if not a.no_default_env:
-        env_files.append(str(Path(__file__).resolve().parent.parent / ".angel.env"))
+        env_files.append(str(Path(__file__).resolve().parent.parent.parent / ".angel.env"))
     values = known_values(env_files)
     if a.scan:
         return do_scan(a.paths, values, a.json)

@@ -360,7 +360,7 @@ fn run_identity_scripted_task_json() {
     ));
     std::fs::write(&trace_fixture, serde_json::to_vec(&schema_rows).unwrap()).unwrap();
     let validator =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/trace_schema.py");
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/trace_schema.py");
     let checked = std::process::Command::new("python3")
         .arg(validator)
         .arg(&trace_fixture)
