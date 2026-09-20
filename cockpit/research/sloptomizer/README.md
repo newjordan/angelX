@@ -8,6 +8,8 @@ selector, UCB bandit, and MicroLearner retrieval, token model, and small MLP.
   `memory`, or a combination. It makes no model requests.
 - `run` tries an `idea` on the loop's current model and effort in an isolated
   source copy. `compare: true` runs a baseline and candidate from the same snapshot.
+- A paired run stops before starting the candidate if the baseline has no
+  completed verifier evidence. The failed baseline receipt remains available.
 - `status` and `results` return progress, patches, verifier receipts, measurements,
   and timings. The main loop can continue working while an experiment runs.
 - Completed verifier results update selection statistics and MicroLearner state.
