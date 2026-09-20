@@ -320,6 +320,12 @@ fn run(
         row["timings_ms"]["baseline"] = json!(started.elapsed().as_millis());
         row["baseline"] = serde_json::to_value(&result).map_err(|e| e.to_string())?;
         persist(dir, &row)?;
+        if measured(&result).is_none() {
+            return Err(format!(
+                "paired research baseline has no completed verifier evidence ({}); candidate was not started",
+                result.error.as_deref().unwrap_or(&result.stop_reason)
+            ));
+        }
         Some(result)
     } else {
         None
