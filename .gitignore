@@ -1,8 +1,8 @@
 # Native build outputs, credentials and private operator state
 **/target*/
 # This Rust module directory is source, not a Cargo build output.
-!cockpit/src/tools/build/targets/
-!cockpit/src/tools/build/targets/**
+!cockpit/src/agent/tools/build/targets/
+!cockpit/src/agent/tools/build/targets/**
 **/node_modules/
 **/.venv/
 **/__pycache__/

@@ -231,7 +231,7 @@ impl VideoBeatsTool {
     /// instead of an escaping-prone embedded string. Resolved relative to the
     /// crate manifest at build time.
     fn worker_path() -> PathBuf {
-        crate::platform::runtime_paths::cockpit_dir().join("src/tools/video_beats_worker.py")
+        crate::platform::runtime_paths::cockpit_dir().join("src/agent/tools/video_beats_worker.py")
     }
 }
 
