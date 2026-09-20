@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 fn rows() -> Vec<Value> {
     let manifest: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../benchmarks/action-agent/fixtures/supplemental-chat-usage-wire-v1.json"
+        "/fixtures/usage/supplemental-chat-usage-wire-v1.json"
     )))
     .unwrap();
     assert_eq!(manifest["schema"], "angel.supplemental-chat-usage-wire/v1");
