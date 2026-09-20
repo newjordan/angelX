@@ -198,7 +198,7 @@ pub(crate) enum WorldButton {
     ArmFormationSession,
     ClearFormation,
     /// Change only the evidence lens on the Realm/Reinforce miniviz.
-    RlView(crate::rl_viz::RlView),
+    RlView(crate::viz::rl_viz::RlView),
     Research(crate::research_workspace::Action),
     /// Scryglass stage navigation and camera controls.
     ScryglassWorld,
@@ -445,7 +445,7 @@ pub(crate) struct App {
     pub(crate) viewer: Viewer,
     /// One-flight surface-free WebGPU producer. It is active only when the
     /// calibrated Viewer selected Kitty and a renderer binary is available.
-    pub(crate) agentviz_portal: crate::agentviz_portal::PortalRuntime,
+    pub(crate) agentviz_portal: crate::viz::agentviz_portal::PortalRuntime,
     /// Embedded full-access shell (lazily spawned on first ^G).
     pub(crate) shell: Option<ShellPane>,
     pub(crate) shell_focused: bool,
@@ -572,8 +572,8 @@ pub(crate) struct App {
     pub(crate) turn_first_output_ms: Option<u64>,
     /// Six-state portrait: the short-lived Victory/Recovery marker set where a
     /// turn settles, with its set time. The bay expires it by age at render
-    /// (see `agent_view::PORTRAIT_MARKER_LIFETIME`); nothing has to clear it.
-    pub(crate) portrait_turn_marker: Option<(crate::agent_view::PortraitMarker, Instant)>,
+    /// (see `crate::views::agent_view::PORTRAIT_MARKER_LIFETIME`); nothing has to clear it.
+    pub(crate) portrait_turn_marker: Option<(crate::views::agent_view::PortraitMarker, Instant)>,
     /// Consecutive failed turn settlements, tracked from turn facts at the two
     /// `turn_ended` sites — never read back from world state. A success after
     /// a run of >= 2 marks the portrait Recovery instead of Victory.
@@ -696,7 +696,7 @@ pub(crate) struct App {
     /// telemetry spine.
     /// Selected evidence lens inside the Reinforce miniviz. This is display
     /// state only; switching lenses never changes or launches an RL run.
-    pub(crate) rl_view: crate::rl_viz::RlView,
+    pub(crate) rl_view: crate::viz::rl_viz::RlView,
     pub(crate) research: crate::research_workspace::Workspace,
     pub(crate) agent_graph: crate::graph_ctl::GraphState,
     /// `/handoff-rl`: fresh-context handoff RL competition loop controller.
@@ -724,13 +724,13 @@ pub(crate) struct App {
     /// Agent-panel button hitboxes recorded by the last draw.
     pub(crate) agent_buttons: Vec<(Rect, AgentButton)>,
     /// Floating selector opened by MODEL or THINK, plus its last-drawn geometry.
-    pub(crate) agent_menu: Option<crate::agent_controls::AgentControlMenu>,
+    pub(crate) agent_menu: Option<crate::agent::controls::AgentControlMenu>,
     /// `Some` while `/` filter mode owns printable keys; empty means the filter
     /// prompt is active but still matches every row.
     pub(crate) agent_menu_search: Option<String>,
     pub(crate) agent_menu_details: bool,
     pub(crate) agent_menu_show_unavailable: bool,
-    pub(crate) agent_menu_hits: crate::agent_controls::AgentMenuHits,
+    pub(crate) agent_menu_hits: crate::agent::controls::AgentMenuHits,
     pub(crate) agent_menu_area: Option<Rect>,
     pub(crate) agent_control_area: Option<Rect>,
     /// Centered portrait plate on the roomy header bar, when that layout owns it.
@@ -762,7 +762,7 @@ pub(crate) struct App {
     pub(crate) world_yaw_offset: f32,
     /// Explicitly sampled visual motion policy. Renderers receive this as an
     /// input; they never read environment or mutate operational state.
-    pub(crate) visual_motion: lifecycle_viz::MotionMode,
+    pub(crate) visual_motion: crate::viz::lifecycle_viz::MotionMode,
     pub(crate) image_title_label: Option<String>,
     pub(crate) image_title_cache: String,
     /// Last drawable PTY cell area. The shell is resized from the same rect it
@@ -842,7 +842,7 @@ pub(crate) struct PendingApproval {
 }
 
 pub(crate) struct LifecycleCeremony {
-    pub(crate) kind: lifecycle_viz::CeremonyKind,
+    pub(crate) kind: crate::viz::lifecycle_viz::CeremonyKind,
     pub(crate) label: String,
     pub(crate) started: Instant,
 }
@@ -958,13 +958,13 @@ impl App {
         // replace a requested world/room with an asynchronous launch ceremony.
         // Live launches use from_parts directly and retain the intro.
         app.startup_intro
-            .dismiss(Instant::now(), lifecycle_viz::MotionMode::Off);
+            .dismiss(Instant::now(), crate::viz::lifecycle_viz::MotionMode::Off);
         app
     }
 
     pub(crate) fn start_lifecycle_ceremony(
         &mut self,
-        kind: lifecycle_viz::CeremonyKind,
+        kind: crate::viz::lifecycle_viz::CeremonyKind,
         label: impl Into<String>,
     ) -> bool {
         // A ceremony is presentation, never control state. If the last
@@ -985,7 +985,7 @@ impl App {
         {
             return false;
         }
-        lifecycle_viz::warm_assets();
+        crate::viz::lifecycle_viz::warm_assets();
         self.lifecycle_ceremony = Some(LifecycleCeremony {
             kind,
             label: label.into(),
@@ -993,7 +993,7 @@ impl App {
         });
         self.world.set_completion_ceremony_active(matches!(
             kind,
-            lifecycle_viz::CeremonyKind::GoalDone | lifecycle_viz::CeremonyKind::GoalCleared
+            crate::viz::lifecycle_viz::CeremonyKind::GoalDone | crate::viz::lifecycle_viz::CeremonyKind::GoalCleared
         ));
         let _ = self
             .module_host
@@ -1028,11 +1028,11 @@ impl App {
 
     pub(crate) fn moa_deck_animating(&self) -> bool {
         match self.visual_motion {
-            lifecycle_viz::MotionMode::Full | lifecycle_viz::MotionMode::Reduced => self
+            crate::viz::lifecycle_viz::MotionMode::Full | crate::viz::lifecycle_viz::MotionMode::Reduced => self
                 .moa_deck
                 .as_ref()
                 .is_some_and(|deck| deck.transition().is_some()),
-            lifecycle_viz::MotionMode::Off => false,
+            crate::viz::lifecycle_viz::MotionMode::Off => false,
         }
     }
 
@@ -1094,7 +1094,7 @@ impl App {
         };
         world.enable_districts(scan_workspace_districts(tools.current_workspace()));
         let agentviz_portal =
-            crate::agentviz_portal::PortalRuntime::discover(viewer.supports_agentviz_portal());
+            crate::viz::agentviz_portal::PortalRuntime::discover(viewer.supports_agentviz_portal());
         let (background_notice_tx, background_notice_rx) = mpsc::channel();
         let campaign = if session.is_disabled() {
             crate::campaign::CampaignController::disabled(tools.current_workspace())
@@ -1223,14 +1223,14 @@ impl App {
                 })
                 .unwrap_or(true),
             scryglass: crate::scryglass::Scryglass::default(),
-            rl_view: crate::rl_viz::RlView::default(),
+            rl_view: crate::viz::rl_viz::RlView::default(),
             research: crate::research_workspace::Workspace::default(),
             agent_graph: crate::graph_ctl::GraphState::default(),
             handoff_rl: crate::handoff_rl::HandoffRlState::default(),
             lifecycle_ceremony: None,
             spend_coin: None,
             world_yaw_offset: 0.0,
-            visual_motion: lifecycle_viz::MotionMode::from_env(),
+            visual_motion: crate::viz::lifecycle_viz::MotionMode::from_env(),
             image_title_label: None,
             image_title_cache: String::new(),
             shell_area: None,
@@ -1416,9 +1416,9 @@ impl App {
         });
     }
 
-    pub(crate) fn spend_coin_motion(&self) -> lifecycle_viz::MotionMode {
+    pub(crate) fn spend_coin_motion(&self) -> crate::viz::lifecycle_viz::MotionMode {
         if crate::comp_mode::enabled() {
-            lifecycle_viz::MotionMode::Off
+            crate::viz::lifecycle_viz::MotionMode::Off
         } else {
             self.visual_motion
         }
@@ -1426,7 +1426,7 @@ impl App {
 
     pub(crate) fn spend_coin_active(&self) -> bool {
         self.spend_coin.as_ref().is_some_and(|coin| {
-            crate::spend_viz::is_active(
+            crate::viz::spend_viz::is_active(
                 coin.started.elapsed().as_secs_f32(),
                 self.spend_coin_motion(),
             )
@@ -1461,7 +1461,7 @@ impl App {
             || self.moa_deck_animating()
             || self.loop_ctl.cycle_started_ms.is_some()
             || self.spend_coin_animating()
-            || crate::loop_viz::hammertime_active(&self.loop_ctl)
+            || crate::viz::loop_viz::hammertime_active(&self.loop_ctl)
     }
 
     /// Pure frame-wait decision for the event loop and deterministic tests.
@@ -1540,8 +1540,8 @@ impl App {
         let menu = self.agent_menu?;
         let choices = self.bag.route_choices();
         match menu.kind {
-            crate::agent_controls::AgentMenuKind::Model => choices.get(menu.selected).cloned(),
-            crate::agent_controls::AgentMenuKind::Thinking => {
+            crate::agent::controls::AgentMenuKind::Model => choices.get(menu.selected).cloned(),
+            crate::agent::controls::AgentMenuKind::Thinking => {
                 menu.route_target.and_then(|target| {
                     choices
                         .iter()
@@ -1570,11 +1570,11 @@ impl App {
         let menu = self.agent_menu?;
         let choices = self.bag.route_choices();
         match menu.kind {
-            crate::agent_controls::AgentMenuKind::Model => choices
+            crate::agent::controls::AgentMenuKind::Model => choices
                 .get(menu.selected)
                 .filter(|choice| choice.available)
                 .and_then(|choice| choice.reasoning_effort.clone()),
-            crate::agent_controls::AgentMenuKind::Thinking => {
+            crate::agent::controls::AgentMenuKind::Thinking => {
                 let choice = menu.route_target.and_then(|target| {
                     choices.iter().find(|choice| {
                         choice.agent_index == target.0 && choice.slot_index == target.1
@@ -1626,8 +1626,8 @@ impl App {
         {
             let choices = self.bag.route_choices();
             let choice = match menu.kind {
-                crate::agent_controls::AgentMenuKind::Model => choices.get(menu.selected),
-                crate::agent_controls::AgentMenuKind::Thinking => {
+                crate::agent::controls::AgentMenuKind::Model => choices.get(menu.selected),
+                crate::agent::controls::AgentMenuKind::Thinking => {
                     menu.route_target.and_then(|target| {
                         choices.iter().find(|choice| {
                             choice.agent_index == target.0 && choice.slot_index == target.1
@@ -1761,7 +1761,7 @@ impl App {
             if !self.image_title_cache.is_empty() {
                 self.image_title_cache.clear();
             }
-            return Cow::Borrowed(status_view::image_viewer_title());
+            return Cow::Borrowed(crate::views::status_view::image_viewer_title());
         };
         if self.image_title_label.as_deref() != Some(label) {
             let label = label.to_owned();

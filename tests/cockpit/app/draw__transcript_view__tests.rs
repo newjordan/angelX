@@ -690,7 +690,7 @@ fn chat_role_edges_and_unicode_copy_match_the_live_transcript_rectangle() {
         app.settle_transcript_spawns();
         let area = Rect::new(0, 0, width, 10);
         let (body, rail) =
-            transcript_text_and_rail(hud_block(status_view::agent_shell_title()).inner(area));
+            transcript_text_and_rail(hud_block(crate::views::status_view::agent_shell_title()).inner(area));
         let mut terminal = Terminal::new(TestBackend::new(width, 10)).unwrap();
         terminal
             .draw(|frame| render_transcript(frame, &mut app, area))
@@ -725,7 +725,7 @@ fn transcript_scrollbar_is_inside_the_border_and_reaches_both_ends() {
         .collect();
     app.settle_transcript_spawns();
     let area = Rect::new(0, 0, 32, 10);
-    let mut inner = hud_block(status_view::agent_shell_title()).inner(area);
+    let mut inner = hud_block(crate::views::status_view::agent_shell_title()).inner(area);
     inner.height -= tool_strip_height(&app, inner.height);
     let (body, rail) = transcript_text_and_rail(inner);
     let rail = rail.expect("normal transcript has a scroll rail");

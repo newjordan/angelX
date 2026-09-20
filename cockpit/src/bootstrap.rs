@@ -283,7 +283,7 @@ fn build_registry_with_skills(
     // Long-form memory ("palace"): auto-compaction deposits distilled notes here
     // and recall reads them back. No-op unless `ANGEL_MEMPALACE_CMD` is set; only
     // then is the `recall` tool offered (no point advertising it with no backend).
-    let store = crate::memory_store::connect_from_env();
+    let store = crate::memory::store::connect_from_env();
     if store.is_live() {
         registry.register(Box::new(harness::RecallTool::new(
             Arc::clone(&store),

@@ -6,7 +6,7 @@
 use super::*;
 
 pub(super) fn render_agent_control_menu(frame: &mut Frame, app: &mut App) {
-    use crate::agent_controls::{AgentMenuAction, AgentMenuKind};
+    use crate::agent::controls::{AgentMenuAction, AgentMenuKind};
     use ratatui::style::Color;
 
     app.agent_menu_hits.clear();
@@ -211,7 +211,7 @@ pub(super) fn render_agent_control_menu(frame: &mut Frame, app: &mut App) {
                     )
                 });
                 let context_badge = route_context_badge(&choice.metadata, context_used);
-                let connection = crate::agent_controls::connection_label(choice);
+                let connection = crate::agent::controls::connection_label(choice);
                 let status = if !choice.available { " · offline" } else { "" };
                 (
                     format!(
@@ -529,7 +529,7 @@ pub(super) fn render_agent_control_menu(frame: &mut Frame, app: &mut App) {
                         };
                         format!(
                             "Connection: {} · thinking: {thinking}",
-                            crate::agent_controls::connection_label(choice)
+                            crate::agent::controls::connection_label(choice)
                         )
                     },
                 ),

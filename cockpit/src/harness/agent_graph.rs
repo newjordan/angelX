@@ -2453,7 +2453,7 @@ impl AgentGraphEngine {
                                 .filter(|(i, _)| phase[*i] == GraphNodePhase::Running)
                                 .map(|(_, node)| node.id.clone())
                                 .collect();
-                            crate::agentviz::stage(format!("graph {}", spec.name), live);
+                            crate::viz::agentviz::stage(format!("graph {}", spec.name), live);
                         }
                         Err(e) => {
                             if running == 0 {
@@ -2832,7 +2832,7 @@ impl AgentGraphEngine {
                 winding = Some(reason.to_string());
             }
         }
-        crate::agentviz::clear();
+        crate::viz::agentviz::clear();
 
         if winding.is_none() {
             let fanin = graph_fanin_truth(spec, &phase, &outputs);

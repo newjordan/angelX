@@ -1,5 +1,5 @@
 use super::*;
-use crate::terminal_art::ColoredBrailleCell;
+use crate::term::art::ColoredBrailleCell;
 
 const INK: [u8; 3] = [200, 40, 255];
 const CLAMPED: [u8; 4] = [190, 40, 190, 255];

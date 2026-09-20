@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 use image::RgbaImage;
 
 use super::{Building, World};
-use crate::lifecycle_viz::MotionMode;
+use crate::viz::lifecycle_viz::MotionMode;
 
 const WIDTH: u32 = 256;
 const HEIGHT: u32 = 224;

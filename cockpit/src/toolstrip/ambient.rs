@@ -1,7 +1,7 @@
 //! Display-only ambience from the bundled Dotmax catalog. No work progress
 //! or result is inferred from this clock; status receipts own those facts.
 
-use crate::lifecycle_viz::MotionMode;
+use crate::viz::lifecycle_viz::MotionMode;
 use dotmax::progress::{BarContext, ProgressStyle};
 use std::sync::Arc;
 use std::time::{Duration, Instant};

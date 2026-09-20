@@ -1137,9 +1137,9 @@ fn lerp_i(a: i32, b: i32, t: f32) -> i32 {
 }
 
 fn grid_to_text(grid: &BrailleGrid) -> Text<'static> {
-    Text::from(crate::terminal_art::grid_lines(grid))
+    Text::from(crate::term::art::grid_lines(grid))
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/loop_viz__tests.rs"]
+#[path = "../../../tests/cockpit/app/loop_viz__tests.rs"]
 mod tests;

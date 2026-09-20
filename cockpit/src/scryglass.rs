@@ -8,9 +8,9 @@
 use crate::media::Media;
 #[cfg(feature = "scryglass-video")]
 use crate::media::MediaSource;
-use crate::terminal_art::ColoredBrailleImage;
+use crate::term::art::ColoredBrailleImage;
 use crate::world_viz::Building;
-use crate::{harness::ToolEventId, lifecycle_viz::CeremonyKind};
+use crate::{harness::ToolEventId, viz::lifecycle_viz::CeremonyKind};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier};
@@ -1210,13 +1210,13 @@ pub(crate) struct Scryglass {
     last_arrived: Option<Building>,
     document: document::DocumentSurface,
     video: VideoSurface,
-    lesson: Option<crate::term_lookup::QuickLookup>,
+    lesson: Option<crate::term::lookup::QuickLookup>,
     lesson_scroll: u16,
     catalog_scroll: u16,
     catalog_selection: usize,
     lesson_returns_to_catalog: bool,
     #[cfg(test)]
-    queued_lesson_outcome: Option<crate::term_lookup::TestLookupOutcome>,
+    queued_lesson_outcome: Option<crate::term::lookup::TestLookupOutcome>,
     pub(crate) surface: StageSurface,
     pub(crate) visible: bool,
     pub(crate) renderable: bool,
@@ -1478,10 +1478,10 @@ impl Scryglass {
         self.lesson_returns_to_catalog = return_to_catalog;
         #[cfg(test)]
         if let Some(outcome) = self.queued_lesson_outcome.take() {
-            self.lesson = Some(crate::term_lookup::QuickLookup::queued(&term, outcome));
+            self.lesson = Some(crate::term::lookup::QuickLookup::queued(&term, outcome));
             return true;
         }
-        self.lesson = Some(crate::term_lookup::QuickLookup::spawn(term));
+        self.lesson = Some(crate::term::lookup::QuickLookup::spawn(term));
         true
     }
 
@@ -1528,7 +1528,7 @@ impl Scryglass {
 
     pub(crate) fn begin_selected_lesson(&mut self) -> bool {
         let shelf = self.selected_shelf();
-        let Some(lesson) = crate::term_lookup::QuickLookup::for_shelf(shelf.id) else {
+        let Some(lesson) = crate::term::lookup::QuickLookup::for_shelf(shelf.id) else {
             return false;
         };
         if !self.controller.show_overlay(StageOverlay::Lesson) {
@@ -1548,20 +1548,20 @@ impl Scryglass {
         self.lesson.is_some() || self.catalog_open()
     }
 
-    pub(crate) fn lesson(&self) -> Option<&crate::term_lookup::QuickLookup> {
+    pub(crate) fn lesson(&self) -> Option<&crate::term::lookup::QuickLookup> {
         self.lesson.as_ref()
     }
 
     pub(crate) fn lesson_loading(&self) -> bool {
         self.lesson
             .as_ref()
-            .is_some_and(crate::term_lookup::QuickLookup::is_loading)
+            .is_some_and(crate::term::lookup::QuickLookup::is_loading)
     }
 
     pub(crate) fn lesson_roll_pending(&self) -> bool {
         self.lesson
             .as_ref()
-            .is_some_and(crate::term_lookup::QuickLookup::roll_pending)
+            .is_some_and(crate::term::lookup::QuickLookup::roll_pending)
     }
 
     pub(crate) fn poll_lesson(&mut self, animate: bool) {
@@ -1590,7 +1590,7 @@ impl Scryglass {
         }
         self.lesson_scroll = 0;
         self.lesson_returns_to_catalog = false;
-        self.lesson = Some(crate::term_lookup::QuickLookup::ready(term, title, summary));
+        self.lesson = Some(crate::term::lookup::QuickLookup::ready(term, title, summary));
         true
     }
 
@@ -1601,7 +1601,7 @@ impl Scryglass {
             return false;
         }
         self.lesson_scroll = 0;
-        self.lesson = Some(crate::term_lookup::QuickLookup::ready_unrolled(
+        self.lesson = Some(crate::term::lookup::QuickLookup::ready_unrolled(
             term, title, summary,
         ));
         true
@@ -1671,7 +1671,7 @@ impl Scryglass {
     }
 
     #[cfg(test)]
-    pub(crate) fn queue_lesson_outcome(&mut self, outcome: crate::term_lookup::TestLookupOutcome) {
+    pub(crate) fn queue_lesson_outcome(&mut self, outcome: crate::term::lookup::TestLookupOutcome) {
         self.queued_lesson_outcome = Some(outcome);
     }
 

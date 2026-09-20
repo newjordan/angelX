@@ -63,7 +63,7 @@ pub fn artifact_lines(media: &[Media], scroll: usize, height: u16) -> Vec<Line<'
     let visible = (height as usize).min(MAX_ARTIFACT_ROWS_PER_FRAME);
     let visible_media = media.get(scroll..).unwrap_or(&[]);
     if visible == 0 || visible_media.is_empty() {
-        return vec![crate::status_view::empty_artifacts_line()];
+        return vec![crate::views::status_view::empty_artifacts_line()];
     }
     let row_count = visible.min(visible_media.len());
     let visible_media = &visible_media[..row_count];
@@ -215,5 +215,5 @@ fn padding(width: usize) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/artifacts_view__tests.rs"]
+#[path = "../../../tests/cockpit/app/artifacts_view__tests.rs"]
 mod tests;

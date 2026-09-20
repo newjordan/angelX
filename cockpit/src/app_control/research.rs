@@ -128,14 +128,14 @@ impl App {
         );
         let mut omitted_snapshot_nodes = 0;
         if let Some(thinking) = self.thinking.as_ref()
-            && let Some(stage) = crate::agentviz::current()
+            && let Some(stage) = crate::viz::agentviz::current()
         {
             for (index, agent) in stage.agents.iter().take(64).enumerate() {
                 let state = match stage.seat_states.get(index).copied().unwrap_or_default() {
-                    crate::agentviz::SeatState::Running => State::Running,
-                    crate::agentviz::SeatState::Returned => State::Succeeded,
-                    crate::agentviz::SeatState::Failed => State::Failed,
-                    crate::agentviz::SeatState::Cut => State::Cancelled,
+                    crate::viz::agentviz::SeatState::Running => State::Running,
+                    crate::viz::agentviz::SeatState::Returned => State::Succeeded,
+                    crate::viz::agentviz::SeatState::Failed => State::Failed,
+                    crate::viz::agentviz::SeatState::Cut => State::Cancelled,
                 };
                 extra.push(Entry::new(format!("formation:{:?}:{}:{index}", thinking.started, stage.stage_id), Place::Council,
                         agent, state, &stage.name, &format!("Latest published formation stage: {}\nSeat {} / {}\nAgent: {}\nState: {}\n\nProcess-local stage telemetry reports whether a seat returned. It is not a complete parallel-agent trace and does not assign a task reward.", stage.name, index + 1, stage.agents.len(), agent, state.label()), "live formation stage"));

@@ -5,8 +5,8 @@
 //! colored Braille cells. Original jousting remains the preview/fallback when
 //! this path declines (jousting `/tourney calibrate` names, missing assets).
 
-use crate::lifecycle_viz::{CeremonyKind, FPS, FRAME_COUNT, MotionMode};
-use crate::terminal_art::{self, ColoredBrailleCell, DMD_PALETTE, ImageRegion};
+use crate::viz::lifecycle_viz::{CeremonyKind, FPS, FRAME_COUNT, MotionMode};
+use crate::term::art::{self, ColoredBrailleCell, DMD_PALETTE, ImageRegion};
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
@@ -151,7 +151,7 @@ pub(crate) fn try_image(
     width: usize,
     height: usize,
     motion: MotionMode,
-) -> Option<Arc<terminal_art::ColoredBrailleImage>> {
+) -> Option<Arc<crate::term::art::ColoredBrailleImage>> {
     let len = width.checked_mul(height).filter(|len| *len <= 64_000)?;
     let (art, origin_x, origin_y) = art_frame(kind, label, elapsed_secs, width, height, motion)?;
     let mut cells = vec![ColoredBrailleCell::default(); len];
@@ -160,7 +160,7 @@ pub(crate) fn try_image(
             cells[(origin_y + y) * width + origin_x + x] = art.cell(x, y).unwrap_or_default();
         }
     }
-    Some(Arc::new(terminal_art::ColoredBrailleImage {
+    Some(Arc::new(crate::term::art::ColoredBrailleImage {
         width,
         height,
         cells,
@@ -174,7 +174,7 @@ fn art_frame(
     width: usize,
     art_height: usize,
     motion: MotionMode,
-) -> Option<(Arc<terminal_art::ColoredBrailleImage>, usize, usize)> {
+) -> Option<(Arc<crate::term::art::ColoredBrailleImage>, usize, usize)> {
     if width == 0 || art_height == 0 {
         return None;
     }
@@ -186,9 +186,9 @@ fn art_frame(
     let rect = spec.frames.get(rect_index).copied()?;
     let (cell_w, cell_h, mut origin_x, mut origin_y) =
         fit_cell_box(rect.width, rect.height, width, art_height);
-    let cache_stem = terminal_art::image_path_key(&spec.path);
+    let cache_stem = crate::term::art::image_path_key(&spec.path);
     let image =
-        terminal_art::colored_rgba_region_braille(&sheet, cache_stem, rect, cell_w, cell_h, true)?;
+        crate::term::art::colored_rgba_region_braille(&sheet, cache_stem, rect, cell_w, cell_h, true)?;
     origin_x += cell_w.saturating_sub(image.width) / 2;
     origin_y += cell_h.saturating_sub(image.height) / 2;
     Some((image, origin_x, origin_y))
@@ -289,7 +289,7 @@ fn fit_cell_box(
 }
 
 fn pane_from_image(
-    image: &terminal_art::ColoredBrailleImage,
+    image: &crate::term::art::ColoredBrailleImage,
     pane_w: usize,
     pane_h: usize,
     origin_x: usize,

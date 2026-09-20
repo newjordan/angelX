@@ -3,7 +3,7 @@
 //! Converts an already-composed [`ColoredBrailleImage`] into a physical raster.
 //! Kitty transport, world sampling, filesystem, and terminal I/O live elsewhere.
 
-use crate::terminal_art::{ColoredBrailleImage, braille_bits, braille_dot_bit};
+use crate::term::art::{ColoredBrailleImage, braille_bits, braille_dot_bit};
 
 const BG: [u8; 4] = [5, 8, 12, 255];
 /// No background at all: the frame carries only ink, so the terminal composites
@@ -159,5 +159,5 @@ fn clamp_ink([r, g, b]: [u8; 3]) -> [u8; 4] {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/dot_canvas__tests.rs"]
+#[path = "../../../tests/cockpit/app/dot_canvas__tests.rs"]
 mod tests;

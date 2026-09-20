@@ -337,7 +337,7 @@ fn artifact_still_pixels_preserve_portrait_rgb_flat_opacity_and_fail_closed() {
                     cells.iter().filter(|cell| cell.symbol() != " ").count() > cells.len() / 4,
                     "portrait must remain dense and legible"
                 );
-                assert!(cells.iter().any(|cell| [cell.fg, cell.bg].iter().any(|color| matches!(color, Color::Rgb(r, g, b) if !crate::terminal_art::DMD_PALETTE.contains(&[*r, *g, *b])))), "artifact RGB must not collapse to the DMD palette");
+                assert!(cells.iter().any(|cell| [cell.fg, cell.bg].iter().any(|color| matches!(color, Color::Rgb(r, g, b) if !crate::term::art::DMD_PALETTE.contains(&[*r, *g, *b])))), "artifact RGB must not collapse to the DMD palette");
             }
             1 => assert!(
                 // Uniform halfblocks use a colored space: its background

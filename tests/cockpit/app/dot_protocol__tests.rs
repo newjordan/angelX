@@ -1,5 +1,5 @@
 use super::*;
-use crate::terminal_art::ColoredBrailleCell;
+use crate::term::art::ColoredBrailleCell;
 
 #[test]
 fn compressed_payload_decodes_to_exact_generated_dots_and_uploads_once() {

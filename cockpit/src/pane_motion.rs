@@ -1,7 +1,7 @@
 //! Bounded, interruptible motion for the trace/miniviz divider.
 //! Content is available immediately; only the panel geometry eases.
 
-use crate::lifecycle_viz::MotionMode;
+use crate::viz::lifecycle_viz::MotionMode;
 use std::time::{Duration, Instant};
 
 #[derive(Default)]

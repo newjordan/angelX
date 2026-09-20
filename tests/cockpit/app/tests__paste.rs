@@ -691,7 +691,7 @@ fn an_open_modal_or_focused_shell_keeps_ctrl_v_for_itself() {
 
     app.shell_focused = false;
     app.bag = crate::club::Bag::for_reasoning_render_test();
-    app.open_agent_menu(crate::agent_controls::AgentMenuKind::Model);
+    app.open_agent_menu(crate::agent::controls::AgentMenuKind::Model);
     assert!(
         app.agent_menu.is_some(),
         "the route menu opened for this bag"

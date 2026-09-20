@@ -186,5 +186,5 @@ pub fn clear() {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/agentviz__tests.rs"]
+#[path = "../../../tests/cockpit/app/agentviz__tests.rs"]
 mod tests;

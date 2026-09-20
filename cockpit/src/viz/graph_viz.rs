@@ -7,7 +7,7 @@
 
 use crate::harness::{GraphNodePhase, GraphRunPhase, GraphSnapshot, current_graph_snapshot};
 use crate::hud;
-use crate::rl_viz::{NodeState, node_row};
+use crate::viz::rl_viz::{NodeState, node_row};
 use ratatui::{
     style::{Modifier, Style},
     text::{Line, Span, Text},
@@ -248,5 +248,5 @@ fn dim_line(text: &str, width: usize) -> Line<'static> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/graph_viz__tests.rs"]
+#[path = "../../../tests/cockpit/app/graph_viz__tests.rs"]
 mod tests;

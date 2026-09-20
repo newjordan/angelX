@@ -961,9 +961,9 @@ impl App {
             Action::ScrollDown => self.scroll_focused_view_down(1),
             Action::ScrollTop => self.scroll_focused_view_top(),
             Action::ScrollBottom => self.scroll_focused_view_bottom(),
-            Action::OpenModel => self.open_agent_menu(crate::agent_controls::AgentMenuKind::Model),
+            Action::OpenModel => self.open_agent_menu(crate::agent::controls::AgentMenuKind::Model),
             Action::OpenThinking => {
-                self.open_agent_menu(crate::agent_controls::AgentMenuKind::Thinking)
+                self.open_agent_menu(crate::agent::controls::AgentMenuKind::Thinking)
             }
         }
     }

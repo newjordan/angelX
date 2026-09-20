@@ -336,7 +336,7 @@ fn a_completed_lesson_can_be_replaced_and_world_reset_clears_it() {
         "A program used in computer graphics rendering."
     ));
     assert_eq!(
-        stage.lesson().map(crate::term_lookup::QuickLookup::term),
+        stage.lesson().map(crate::term::lookup::QuickLookup::term),
         Some("shader")
     );
     assert_eq!(stage.lesson_scroll(), 0);
@@ -352,7 +352,7 @@ fn a_completed_lesson_can_be_replaced_and_world_reset_clears_it() {
 #[test]
 fn a_new_local_lesson_replaces_loading_enrichment_without_waiting() {
     let mut stage = Scryglass::default();
-    stage.queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+    stage.queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
         title: "Poisson distribution",
         summary: "A discrete probability distribution.",
         source_url: "https://en.wikipedia.org/?curid=24268",
@@ -360,14 +360,14 @@ fn a_new_local_lesson_replaces_loading_enrichment_without_waiting() {
     assert!(stage.begin_lesson("Poisson".to_string()));
     assert!(stage.lesson_loading());
 
-    stage.queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+    stage.queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
         title: "Matrix",
         summary: "A rectangular array in linear algebra.",
         source_url: "https://en.wikipedia.org/?curid=189106",
     });
     assert!(stage.begin_lesson("matrix".to_string()));
     assert_eq!(
-        stage.lesson().map(crate::term_lookup::QuickLookup::term),
+        stage.lesson().map(crate::term::lookup::QuickLookup::term),
         Some("matrix")
     );
     assert_eq!(stage.lesson_scroll(), 0);
@@ -411,7 +411,7 @@ fn camera_readout_is_truthful_about_follow_and_free_look() {
 #[test]
 fn loading_lesson_can_be_cancelled_without_reappearing() {
     let mut stage = Scryglass::default();
-    stage.queue_lesson_outcome(crate::term_lookup::TestLookupOutcome::Success {
+    stage.queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
         title: "Poisson distribution",
         summary: "A discrete probability distribution.",
         source_url: "https://en.wikipedia.org/?curid=24268",

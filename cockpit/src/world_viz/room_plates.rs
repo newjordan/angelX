@@ -43,7 +43,7 @@ impl AsRef<[u8]> for Pixels {
 
 #[cfg(test)]
 impl World {
-    pub(crate) fn ambient_frame(&self, motion: crate::lifecycle_viz::MotionMode) -> Frame {
+    pub(crate) fn ambient_frame(&self, motion: crate::viz::lifecycle_viz::MotionMode) -> Frame {
         Frame {
             pixels: Pixels {
                 snapshot: Snapshot {
@@ -60,7 +60,7 @@ impl World {
 
     /// The same entered painting and pose, sampled from its approved source
     /// for native image protocols. Ordinary terminal fallback keeps its plate.
-    pub(crate) fn ambient_detail_frame(&self, motion: crate::lifecycle_viz::MotionMode) -> Frame {
+    pub(crate) fn ambient_detail_frame(&self, motion: crate::viz::lifecycle_viz::MotionMode) -> Frame {
         Frame {
             pixels: Pixels {
                 snapshot: Snapshot {

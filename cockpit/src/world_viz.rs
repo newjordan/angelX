@@ -216,7 +216,7 @@ pub(crate) struct World {
     completed_event_order: VecDeque<ToolEventId>,
     event_seq: u64,
     event_diagnostics: u64,
-    memory_health: crate::memory_store::MemoryHealth,
+    memory_health: crate::memory::store::MemoryHealth,
     atlas_health: crate::atlas::AtlasHealth,
     atlas_review_count: usize,
     clerk_health: crate::atlas_clerk::ClerkHealth,
@@ -381,7 +381,7 @@ struct RideCacheEntry {
     world_key: u64,
     view_key: RideViewKey,
     rendered_at: u64,
-    image: std::sync::Arc<crate::terminal_art::ColoredBrailleImage>,
+    image: std::sync::Arc<crate::term::art::ColoredBrailleImage>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -445,7 +445,7 @@ impl World {
             completed_event_order: VecDeque::new(),
             event_seq: 0,
             event_diagnostics: 0,
-            memory_health: crate::memory_store::MemoryHealth::Disabled,
+            memory_health: crate::memory::store::MemoryHealth::Disabled,
             atlas_health: crate::atlas::AtlasHealth::Disabled,
             atlas_review_count: 0,
             clerk_health: crate::atlas_clerk::ClerkHealth::Idle,
@@ -1167,7 +1167,7 @@ impl World {
         self.event_diagnostics
     }
 
-    pub(crate) fn note_memory_health(&mut self, health: crate::memory_store::MemoryHealth) {
+    pub(crate) fn note_memory_health(&mut self, health: crate::memory::store::MemoryHealth) {
         self.memory_health = health;
     }
 
@@ -1191,7 +1191,7 @@ impl World {
         self.resource_conflicts = resource_conflicts;
     }
 
-    pub(crate) fn memory_health(&self) -> crate::memory_store::MemoryHealth {
+    pub(crate) fn memory_health(&self) -> crate::memory::store::MemoryHealth {
         self.memory_health
     }
 
@@ -1966,7 +1966,7 @@ impl World {
             self.streak = 0;
         }
         // The campaign is over — disband whatever army was on the field.
-        crate::agentviz::clear();
+        crate::viz::agentviz::clear();
         self.muster.clear();
         self.muster_seq = 0;
         // Any tool call still in flight at turn end never got its ToolResult;
@@ -2076,7 +2076,7 @@ impl World {
         if cfg!(test) {
             return;
         }
-        match crate::agentviz::current() {
+        match crate::viz::agentviz::current() {
             None => {
                 self.muster.clear();
                 self.muster_seq = 0;
@@ -2158,8 +2158,8 @@ impl World {
     /// the same seq bump the update published, so this is a pure recolor over
     /// already-placed units — no pathing, no allocation, and a stage with no
     /// updates yet (empty states) is untouched.
-    fn apply_muster_states(&mut self, states: &[crate::agentviz::SeatState]) {
-        use crate::agentviz::SeatState;
+    fn apply_muster_states(&mut self, states: &[crate::viz::agentviz::SeatState]) {
+        use crate::viz::agentviz::SeatState;
         for (u, st) in self.muster.iter_mut().zip(states) {
             match st {
                 SeatState::Running => {}
@@ -2379,9 +2379,9 @@ impl World {
         // rail widths as well as full-body Realm focus.
         let memory = if self.target == Building::Chapel {
             match self.memory_health {
-                crate::memory_store::MemoryHealth::Disabled => " · memory disabled",
-                crate::memory_store::MemoryHealth::Healthy => " · memory healthy",
-                crate::memory_store::MemoryHealth::Degraded => " · memory degraded",
+                crate::memory::store::MemoryHealth::Disabled => " · memory disabled",
+                crate::memory::store::MemoryHealth::Healthy => " · memory healthy",
+                crate::memory::store::MemoryHealth::Degraded => " · memory degraded",
             }
         } else {
             ""

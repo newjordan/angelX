@@ -304,7 +304,7 @@ pub struct ToolRegistry {
     /// drawers here, and recall reads them back. Defaults to a no-op store, so a
     /// registry built without one behaves exactly as before; `bootstrap` installs
     /// the real (MemPalace-backed) store when `ANGEL_MEMPALACE_CMD` is set.
-    pub(crate) store: Arc<dyn crate::memory_store::MemoryStore>,
+    pub(crate) store: Arc<dyn crate::memory::store::MemoryStore>,
     /// This run's session id, stamped onto every drawer's provenance so a deposit
     /// is attributable to the session that produced it. Empty until `bootstrap`
     /// sets it (a bare registry — e.g. in tests — deposits with no session tag).
@@ -467,7 +467,7 @@ impl ToolRegistry {
             deferred: Vec::new(),
             inverses: Vec::new(),
             gauge: Arc::new(ContextGauge::default()),
-            store: Arc::new(crate::memory_store::NullStore),
+            store: Arc::new(crate::memory::store::NullStore),
             session_id: String::new(),
             boundary: WorkspaceBoundary::cached(&workspace),
             atlas,
@@ -793,12 +793,12 @@ impl ToolRegistry {
     }
 
     /// Install the long-form memory store (called once at startup by `bootstrap`).
-    pub fn set_memory_store(&mut self, store: Arc<dyn crate::memory_store::MemoryStore>) {
+    pub fn set_memory_store(&mut self, store: Arc<dyn crate::memory::store::MemoryStore>) {
         self.store = store;
     }
 
     /// A handle to the long-form memory store (for recall outside the loop).
-    pub fn memory_store(&self) -> Arc<dyn crate::memory_store::MemoryStore> {
+    pub fn memory_store(&self) -> Arc<dyn crate::memory::store::MemoryStore> {
         Arc::clone(&self.store)
     }
 

@@ -655,5 +655,5 @@ pub(crate) fn grid_lines(grid: &dotmax::BrailleGrid) -> Vec<ratatui::text::Line<
 }
 
 #[cfg(test)]
-#[path = "../../tests/cockpit/app/terminal_art__tests.rs"]
+#[path = "../../../tests/cockpit/app/terminal_art__tests.rs"]
 mod tests;
