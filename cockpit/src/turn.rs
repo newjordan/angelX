@@ -78,8 +78,6 @@ pub(crate) fn published_spawn_usage(
     slot
 }
 
-/// An in-flight agent turn running off the UI thread.
-
 /// Releases the loop-worker allowlist on drop (worker exit or unwind).
 struct LoopWorkerScopeGuard<'a>(&'a crate::harness::ToolRegistry);
 
@@ -88,6 +86,8 @@ impl Drop for LoopWorkerScopeGuard<'_> {
         self.0.release_loop_worker_scope();
     }
 }
+
+/// An in-flight agent turn running off the UI thread.
 pub(crate) struct Thinking {
     pub(crate) started: Instant,
     pub(crate) club_label: String,
