@@ -126,9 +126,12 @@ export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
 
 const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/FEATURES.md',
+  'docs/SELF_MODEL.md',
+  'docs/MEMORY.md',
   'docs/COMMANDS.md',
   'docs/images/README.md',
   'docs/images/provenance.json',
+  'docs/images/intro.png',
   'docs/images/cockpit.png',
   'docs/images/command-picker.png',
   'docs/images/world.png',
@@ -148,7 +151,6 @@ export const RELEASE_PATHS = Object.freeze([
   '.gitignore',
   'README.md',
   'LICENSE',
-  'CHANGELOG.md',
   'CONTRIBUTING.md',
   'SECURITY.md',
   ...PUBLIC_RELEASE_DOCS,
@@ -586,6 +588,41 @@ export function assertPublicReleaseEntries(repoRoot, entries) {
     }
     if (HOST_MOUNT_COORDINATE.test(source)) {
       fail(`machine-specific mount coordinate in public release entry: ${path}`)
+    }
+  }
+}
+
+// Check against the archive inventory, not the development checkout: a private
+// helper present locally cannot satisfy an instruction in the distributed docs.
+export function assertDocumentedSourcePaths(repoRoot, entries) {
+  const paths = new Set(entries.map((entry) => entry.path))
+  const present = (path) =>
+    paths.has(path) || [...paths].some((entry) => entry.startsWith(`${path.replace(/\/$/u, '')}/`))
+  const local = (document, target) =>
+    relative(repoRoot, resolve(repoRoot, dirname(document), target))
+      .split(sep)
+      .join('/')
+  for (const path of paths) {
+    if (!path.endsWith('.md') || /^(vendor|third-party)\//u.test(path)) continue
+    const source = readFileSync(join(repoRoot, path), 'utf8')
+    for (const match of source.matchAll(/\]\(([^\s)]+)(?:\s+"[^"]*")?\)/gu)) {
+      const target = match[1].replace(/^<|>$/gu, '')
+      if (/^[A-Za-z][A-Za-z0-9+.-]*:|^#/u.test(target)) continue
+      const referenced = local(path, decodeURIComponent(target.split('#')[0]))
+      if (!present(referenced))
+        fail(`documentation target absent from release: ${path} -> ${target}`)
+    }
+    for (const code of source.matchAll(/`([^`\n]+)`/gu)) {
+      for (const match of code[1].matchAll(
+        /(?<![\w/])((?:scripts|docs|cockpit|lib|bin|assets)\/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+)/gu,
+      )) {
+        const target = match[1]
+        // These are documented generated build outputs, never source inputs.
+        if (target.startsWith('cockpit/target/')) continue
+        if (!present(target) && !present(local(path, target))) {
+          fail(`documented source absent from release: ${path} -> ${target}`)
+        }
+      }
     }
   }
 }
@@ -1171,6 +1208,7 @@ export function runReleaseGate({ cwd = process.cwd(), outputDirectory } = {}) {
   const entries = inventoryReleaseFiles(repoRoot)
   assertRequiredReleaseFiles(entries)
   assertPublicReleaseEntries(repoRoot, entries)
+  assertDocumentedSourcePaths(repoRoot, entries)
   const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
   const commit = String(run('git', ['rev-parse', 'HEAD'], { cwd: repoRoot })).trim()
   const tree = String(run('git', ['rev-parse', 'HEAD^{tree}'], { cwd: repoRoot })).trim()
@@ -1189,6 +1227,7 @@ export function runReleaseGate({ cwd = process.cwd(), outputDirectory } = {}) {
   assertReleaseInputsClean(repoRoot)
   const finalEntries = inventoryReleaseFiles(repoRoot)
   assertPublicReleaseEntries(repoRoot, finalEntries)
+  assertDocumentedSourcePaths(repoRoot, finalEntries)
   if (!sameEntries(entries, finalEntries))
     fail('release inputs changed while the archive was built')
 

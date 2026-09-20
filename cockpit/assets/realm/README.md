@@ -13,4 +13,4 @@ Keep these graphics:
 
 Explicit room entry shows the approved location plate; leaving returns to
 Dotmax. Generic images, reports, and portraits use the ordinary image viewer.
-The retained plate pixels are protected by the real-work acceptance contract.
+Source images and processed plates are retained together for review.

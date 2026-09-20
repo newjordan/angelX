@@ -21,6 +21,7 @@ import {
   REQUIRED_COCKPIT_EMBEDDED_FILES,
   ReleaseGateError,
   assertPublicReleaseEntries,
+  assertDocumentedSourcePaths,
   assertReleaseInputsClean,
   assertSafeOutputDirectory,
   assertSafeReleasePath,
@@ -322,6 +323,20 @@ test('source archive includes runtime artwork alongside embedded assets', (t) =>
   assertPublicReleaseEntries(root, entries)
   createSourceArchive(root, join(root, 'out/source.tar'), entries)
   assert.ok(command(root, 'tar', ['-tf', 'out/source.tar']).split('\n').includes(portrait))
+})
+
+test('release documentation cannot depend on private helpers present only in the checkout', (t) => {
+  const root = fixture(t)
+  write(join(root, 'scripts/operator-only.mjs'), '// private helper\n')
+  write(join(root, 'README.md'), 'Run `node scripts/operator-only.mjs --refresh`.\n')
+  const entries = [{ path: 'README.md' }]
+  assert.throws(() => assertDocumentedSourcePaths(root, entries), /documented source absent/u)
+  write(join(root, 'README.md'), '[Guide](docs/missing.md)\n')
+  assert.throws(() => assertDocumentedSourcePaths(root, entries), /documentation target absent/u)
+  write(join(root, 'README.md'), '[Compiler](scripts/operator-only.mjs)\n')
+  assert.doesNotThrow(() =>
+    assertDocumentedSourcePaths(root, [...entries, { path: 'scripts/operator-only.mjs' }]),
+  )
 })
 
 test('source release admits exactly the embedded bundled persona assets', () => {

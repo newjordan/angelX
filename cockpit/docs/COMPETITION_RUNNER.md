@@ -175,11 +175,7 @@ A competition wrapper should additionally bind and retain:
 - finite hop, wall, provider-output, artifact, and external cost limits;
 - the task result, audited rollout, diff, verifier proof, and terminal ledger row.
 
-The public action-agent producer (`benchmarks/action-agent/`: attempt
-workspaces, policy launches, graders, and ledgers) is not a release input. As
-recorded in [docs/release-evidence.md](../../docs/release-evidence.md), it was
-never committed to this repository, so the release archive ships the cockpit,
-its launcher, the vendored dependency, and the release policy and verifiers
-instead. Real competitions must provide separately controlled tasks and
-graders; internal campaign/ablation lifecycle and Prime tooling are likewise
-outside the release.
+Competition wrappers supply their own tasks, protected verifiers and score
+submission process. The runner returns execution and audit receipts under the
+contract above. [Source release checks](../../docs/release-evidence.md) describe
+the packaged runtime and its validation.
