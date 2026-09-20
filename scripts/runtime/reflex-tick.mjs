@@ -58,7 +58,7 @@ export function recordRun(budget) {
 /**
  * Environment for a cockpit rebuild that bakes the source digest in, so the
  * rebuilt binary's `--build-info --json` reports a real cockpit_source_sha256
- * (sha256 of `git archive HEAD`, see scripts/cockpit-source-digest.sh) rather
+ * (sha256 of `git archive HEAD`, see scripts/check/cockpit-source-digest.sh) rather
  * than "unbound". A dirty cockpit tree (or a missing helper) builds unbound and
  * says so in one line — the same rule bin/angel0 applies.
  */
@@ -67,7 +67,7 @@ export function sourceBoundEnv(root, spawnSync, tag) {
   if (env.ANGEL_BUILD_SOURCE_SHA256) return env
   delete env.ANGEL_BUILD_SOURCE_SHA256
   if (env.ANGEL_BIND_SOURCE === '0') return env
-  const helper = `${root}/scripts/cockpit-source-digest.sh`
+  const helper = `${root}/scripts/check/cockpit-source-digest.sh`
   const r = spawnSync('bash', [helper], { encoding: 'utf8' })
   if (r.status === 0 && /^[0-9a-f]{64}\s*$/.test(r.stdout || '')) {
     env.ANGEL_BUILD_SOURCE_SHA256 = r.stdout.trim()
@@ -135,7 +135,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (n, d) => {
     const i = argv.indexOf(n)
     return i >= 0 ? argv[i + 1] : d
@@ -273,7 +273,7 @@ async function cli(argv) {
     console.log(`reflex-tick: running ${target.knob}=${target.value} on ${suite}…`)
     const concludedBefore = await concludedCount(graphPath)
     const runArgs = [
-      join(ROOT, 'scripts/reflex-run-experiment.mjs'),
+      join(ROOT, 'scripts/runtime/reflex-run-experiment.mjs'),
       '--knob',
       target.knob,
       '--value',
@@ -302,7 +302,7 @@ async function cli(argv) {
     if (ranOk && (await concludedCount(graphPath)) > concludedBefore) {
       const applied = boundedSpawnSync(
         process.execPath,
-        [join(ROOT, 'scripts/reflex-reconfigure.mjs'), '--apply', '--graph', graphPath],
+        [join(ROOT, 'scripts/runtime/reflex-reconfigure.mjs'), '--apply', '--graph', graphPath],
         {
           cwd: ROOT,
           stdio: 'inherit',
@@ -377,7 +377,7 @@ export function angelTtyRunning(execFileSync) {
 /** Refresh config hypotheses from the live ledger and return the top EIG target. */
 async function topExperiment(ROOT, graphPath, ledgerPath) {
   const fs = await import('./private-store-fs.mjs')
-  const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+  const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const {
     seedConfigHypotheses,
     ingestLedgerObservations,

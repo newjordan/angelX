@@ -8,15 +8,15 @@
 
 ```sh
 # Replace the filter with the affected module or test.
-bash scripts/check-cockpit-fast.sh <test-filter> --test-threads=1
+bash scripts/check/check-cockpit-fast.sh <test-filter> --test-threads=1
 
 # Broader no-video coverage and public release-tool contracts.
-bash scripts/check-cockpit-fast.sh --test-threads=1
+bash scripts/check/check-cockpit-fast.sh --test-threads=1
 npm run test:release
 cargo fmt --manifest-path cockpit/Cargo.toml --check
-bash scripts/check-legacy-terminal-boundary.sh
-npm run check:duplicates
-npm run check:research-embed
+  bash scripts/check/check-legacy-terminal-boundary.sh
+  npm run check:duplicates
+  npm run check:research-embed
 ```
 
 - The fast runner starts test processes with both YOLO authority flags off;

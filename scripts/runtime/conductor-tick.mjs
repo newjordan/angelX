@@ -21,7 +21,7 @@ import {
 } from './reflex-tick.mjs'
 import { mineAgenda, ingestAgenda, proposeAgenda, agendaNodes } from './conductor.mjs'
 import { updateBeliefs } from './causal-loop.mjs'
-import { acquireProcessLease, holdProcessLease } from '../lib/control/process-lease.mjs'
+import { acquireProcessLease, holdProcessLease } from '../../lib/control/process-lease.mjs'
 import {
   missionAllowsDispatch,
   missionGateReason,
@@ -150,7 +150,7 @@ function tier({ kind, noun, knob, count, floor }) {
       count: null,
       reason:
         `cannot read the ${noun} - refusing to dispatch onto an unknown substrate ` +
-        `(run \`node scripts/cut-corpus.mjs\` to see it)`,
+        `(run \`node scripts/runtime/cut-corpus.mjs\` to see it)`,
     }
   }
   if (n < f) {
@@ -251,13 +251,13 @@ export function dispatchPlan(proposal, { root, env = process.env } = {}) {
   if (!proposal) return { kind: 'skip', reason: 'no open agenda item' }
   const rung = proposal.rung
   if (rung === 'config') {
-    return { kind: 'spawn', cmd: 'node', args: [`${root}/scripts/reflex-tick.mjs`, '--force'] }
+    return { kind: 'spawn', cmd: 'node', args: [`${root}/scripts/runtime/reflex-tick.mjs`, '--force'] }
   }
   if (rung === 'skills') {
-    return { kind: 'spawn', cmd: 'node', args: [`${root}/scripts/habitsmith-tick.mjs`] }
+    return { kind: 'spawn', cmd: 'node', args: [`${root}/scripts/runtime/habitsmith-tick.mjs`] }
   }
   if (rung === 'knowledge') {
-    return { kind: 'spawn', cmd: 'node', args: [`${root}/scripts/dossier-tick.mjs`] }
+    return { kind: 'spawn', cmd: 'node', args: [`${root}/scripts/runtime/dossier-tick.mjs`] }
   }
   if (rung === 'code') {
     const driver = String(env.ANGEL_CONDUCTOR_DRIVER ?? '').trim()
@@ -267,7 +267,7 @@ export function dispatchPlan(proposal, { root, env = process.env } = {}) {
     return {
       kind: 'spawn',
       cmd: 'node',
-      args: [`${root}/scripts/conductor-code-run.mjs`, '--agenda', proposal.hypothesisId],
+      args: [`${root}/scripts/runtime/conductor-code-run.mjs`, '--agenda', proposal.hypothesisId],
     }
   }
   if (rung === 'weights') {
@@ -381,7 +381,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (n, d) => {
     const i = argv.indexOf(n)
     return i >= 0 ? argv[i + 1] : d
@@ -574,7 +574,7 @@ async function cli(argv) {
       const auditCorpus = () => {
         const audit = spawnSync(
           process.execPath,
-          [join(ROOT, 'scripts/cut-corpus.mjs'), '--json', '--cut', workerPaths().cut],
+          [join(ROOT, 'scripts/runtime/cut-corpus.mjs'), '--json', '--cut', workerPaths().cut],
           {
             cwd: ROOT,
             encoding: 'utf8',
@@ -607,7 +607,7 @@ async function cli(argv) {
         console.log(`  density (correctness): ${gate.machine.reason}`)
       }
 
-      const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+      const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
       const loadGraph = () =>
         fs.existsSync(graphPath)
           ? CausalGraph.deserialize(JSON.parse(fs.readFileSync(graphPath, 'utf8')))
@@ -645,7 +645,7 @@ async function cli(argv) {
           // happens. Spawn the interpreter that is already running us.
           process.execPath,
           [
-            join(ROOT, 'scripts/cut-tick.mjs'),
+            join(ROOT, 'scripts/runtime/cut-tick.mjs'),
             '--force', // we already cleared the idle gate
             '--graph',
             graphPath,
@@ -822,7 +822,7 @@ async function cli(argv) {
         appendBrief(
           `- ${nowIso} DENSITY GATE: armed (ANGEL_CONDUCTOR=1) but refusing to dispatch ` +
             `${proposal ? `[${proposal.rung}] ` : ''}- ${gateWhy}. Demoted to measure-only for this ` +
-            `tick; run \`node scripts/cut-corpus.mjs\` to see the substrate, or set ` +
+            `tick; run \`node scripts/runtime/cut-corpus.mjs\` to see the substrate, or set ` +
             `${gateTier?.knob ?? 'ANGEL_CUT_MIN_CORPUS'} to move the floor.`,
         )
       }
@@ -835,7 +835,7 @@ async function cli(argv) {
         }
       }
 
-      // ── the mission gate (scripts/mission.mjs) ──
+      // ── the mission gate (scripts/runtime/mission.mjs) ──
       // An armed Conductor that drives a persisted mission consumes the mission's
       // round budget: only an ACTIVE mission inside its budget may dispatch, and
       // each real dispatch credits one round. Blocked/paused/complete missions

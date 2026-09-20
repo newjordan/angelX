@@ -6,7 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import CausalGraph, { NODE_TYPE } from '../../lib/research/CausalGraph.js'
-import { scoreHypotheses } from '../../scripts/causal-loop.mjs'
+import { scoreHypotheses } from '../../scripts/runtime/causal-loop.mjs'
 import {
   seedConfigHypotheses,
   ledgerMetrics,
@@ -16,7 +16,7 @@ import {
   configHypothesisId,
   KNOB_CATALOG,
   CONFIG_PROJECT,
-} from '../../scripts/config-causal.mjs'
+} from '../../scripts/runtime/config-causal.mjs'
 
 const NOW = '2026-07-04T00:00:00.000Z'
 

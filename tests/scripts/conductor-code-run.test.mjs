@@ -9,7 +9,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 
-import { evaluateGate, parseTestResult, runGate, saysDone } from '../../scripts/conductor-code-run.mjs'
+import { evaluateGate, parseTestResult, runGate, saysDone } from '../../scripts/runtime/conductor-code-run.mjs'
 
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 
@@ -77,7 +77,7 @@ function runCodeRun({ repo, state, angel, extra = [] }) {
   return spawnSync(
     'node',
     [
-      path.join(ROOT, 'scripts/conductor-code-run.mjs'),
+      path.join(ROOT, 'scripts/runtime/conductor-code-run.mjs'),
       '--src',
       repo,
       '--state-dir',

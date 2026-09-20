@@ -2,7 +2,7 @@
 # Prove that quarantined products cannot leak back into active product code.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 legacy_archive='off-limits/legacy-terminal-harness'
@@ -90,8 +90,8 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 if (( git_checkout )); then
-  legacy_name_scan=(git grep -I -n -i -w "$legacy_word" -- "${active_present[@]}" ":!scripts/check-legacy-terminal-boundary.sh")
-  legacy_prefix_scan=(git grep -I -n "$legacy_prefix" -- "${active_present[@]}" ":!scripts/check-legacy-terminal-boundary.sh")
+  legacy_name_scan=(git grep -I -n -i -w "$legacy_word" -- "${active_present[@]}" ":!scripts/check/check-legacy-terminal-boundary.sh")
+  legacy_prefix_scan=(git grep -I -n "$legacy_prefix" -- "${active_present[@]}" ":!scripts/check/check-legacy-terminal-boundary.sh")
 else
   legacy_name_scan=(grep -rI -n -i -w --exclude=check-legacy-terminal-boundary.sh -- "$legacy_word" "${active_present[@]}")
   legacy_prefix_scan=(grep -rI -n --exclude=check-legacy-terminal-boundary.sh -- "$legacy_prefix" "${active_present[@]}")
@@ -109,7 +109,7 @@ fi
 
 for archive in "$legacy_archive" "$browser_archive"; do
   if (( git_checkout )); then
-    archive_scan=(git grep -I -n -F "$archive" -- "${runtime_present[@]}" ":!scripts/check-legacy-terminal-boundary.sh")
+    archive_scan=(git grep -I -n -F "$archive" -- "${runtime_present[@]}" ":!scripts/check/check-legacy-terminal-boundary.sh")
   else
     archive_scan=(grep -rI -n -F --exclude=check-legacy-terminal-boundary.sh -- "$archive" "${runtime_present[@]}")
   fi

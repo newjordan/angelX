@@ -10,7 +10,7 @@
 // graph as signed evidence, conclude the hypothesis, and bud a follow-up. Over
 // many turns this turns the static seed graph into a self-updating belief net.
 
-import { NODE_TYPE, EDGE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE, EDGE_TYPE } from '../../lib/research/CausalGraph.js'
 
 // ─── math helpers ──────────────────────────────────────────────────────────
 

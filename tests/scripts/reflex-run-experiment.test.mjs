@@ -8,15 +8,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import CausalGraph from '../../lib/research/CausalGraph.js'
-import { beliefProbability } from '../../scripts/causal-loop.mjs'
-import { seedConfigHypotheses, configHypothesisId } from '../../scripts/config-causal.mjs'
-import { contractFromControlExperiment } from '../../scripts/experiment-contracts.mjs'
+import { beliefProbability } from '../../scripts/runtime/causal-loop.mjs'
+import { seedConfigHypotheses, configHypothesisId } from '../../scripts/runtime/config-causal.mjs'
+import { contractFromControlExperiment } from '../../scripts/runtime/experiment-contracts.mjs'
 import {
   buildSubjectSpec,
   extractAB,
   varianceGuard,
   concludeFromReport,
-} from '../../scripts/reflex-run-experiment.mjs'
+} from '../../scripts/runtime/reflex-run-experiment.mjs'
 
 const NOW = '2026-07-04T00:00:00.000Z'
 const AGG_ACC = configHypothesisId('agg', 'codex-run', 'accuracy_pct')

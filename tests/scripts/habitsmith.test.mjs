@@ -26,21 +26,21 @@ import {
   MAX_GAP,
   RISKY_RE,
   DEFAULT_MIN_BELIEF,
-} from '../../scripts/habitsmith.mjs'
+} from '../../scripts/runtime/habitsmith.mjs'
 import {
   mineSkillUsage,
   attachSkillUsage,
   foldVerdicts,
   compileHabitsStatus,
   DRIFT_BELIEF,
-} from '../../scripts/habitsmith.mjs'
-import { killed, factMapFrom } from '../../scripts/habitsmith-tick.mjs'
+} from '../../scripts/runtime/habitsmith.mjs'
+import { killed, factMapFrom } from '../../scripts/runtime/habitsmith-tick.mjs'
 import {
   dossierFacts,
   ingestRepoFacts,
   mineRepoFacts,
   proposeDossierProbe,
-} from '../../scripts/repo-dossier.mjs'
+} from '../../scripts/runtime/repo-dossier.mjs'
 
 const NOW = '2026-07-06T00:00:00.000Z'
 const NOW_TS = Math.floor(Date.parse(NOW) / 1000)

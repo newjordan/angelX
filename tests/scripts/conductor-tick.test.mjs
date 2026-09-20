@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import CausalGraph, { NODE_TYPE } from '../../lib/research/CausalGraph.js'
-import { agendaNodeId, ingestAgenda } from '../../scripts/conductor.mjs'
+import { agendaNodeId, ingestAgenda } from '../../scripts/runtime/conductor.mjs'
 import {
   DEFAULT_MIN_CORPUS,
   DEFAULT_MIN_MACHINE,
@@ -29,9 +29,9 @@ import {
   reportAccuracy,
   rungEvidence,
   statusExport,
-} from '../../scripts/conductor-tick.mjs'
-import { beliefProbability } from '../../scripts/causal-loop.mjs'
-import { createMission, parseMission, tickMission, serializeMission } from '../../scripts/mission.mjs'
+} from '../../scripts/runtime/conductor-tick.mjs'
+import { beliefProbability } from '../../scripts/runtime/causal-loop.mjs'
+import { createMission, parseMission, tickMission, serializeMission } from '../../scripts/runtime/mission.mjs'
 
 const NOW = '2026-07-07T03:30:00.000Z'
 
@@ -223,17 +223,17 @@ test('dispatchPlan routes each rung without invoking children', () => {
   assert.deepEqual(dispatchPlan({ ...base, rung: 'config' }, { root }), {
     kind: 'spawn',
     cmd: 'node',
-    args: ['/repo/scripts/reflex-tick.mjs', '--force'],
+    args: ['/repo/scripts/runtime/reflex-tick.mjs', '--force'],
   })
   assert.deepEqual(dispatchPlan({ ...base, rung: 'skills' }, { root }), {
     kind: 'spawn',
     cmd: 'node',
-    args: ['/repo/scripts/habitsmith-tick.mjs'],
+    args: ['/repo/scripts/runtime/habitsmith-tick.mjs'],
   })
   assert.deepEqual(dispatchPlan({ ...base, rung: 'knowledge' }, { root }), {
     kind: 'spawn',
     cmd: 'node',
-    args: ['/repo/scripts/dossier-tick.mjs'],
+    args: ['/repo/scripts/runtime/dossier-tick.mjs'],
   })
   assert.deepEqual(
     dispatchPlan({ ...base, rung: 'code' }, { root, env: { ANGEL_CONDUCTOR_DRIVER: '' } }),
@@ -244,7 +244,7 @@ test('dispatchPlan routes each rung without invoking children', () => {
     {
       kind: 'spawn',
       cmd: 'node',
-      args: ['/repo/scripts/conductor-code-run.mjs', '--agenda', 'conductor_x'],
+      args: ['/repo/scripts/runtime/conductor-code-run.mjs', '--agenda', 'conductor_x'],
     },
   )
   const weights = dispatchPlan({ ...base, rung: 'weights' }, { root })
@@ -379,7 +379,7 @@ test('metricDeltaVerdict compares pre/post bench accuracy with decisive and inco
 const SCRIPTS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts')
 const REPO_ROOT = join(SCRIPTS_DIR, '..')
 // Which conductor-tick to exercise. Overridable so this guard can be pointed at
-// a pre-fix build (`git show <rev>:scripts/conductor-tick.mjs > /tmp/x.mjs`) to
+// a pre-fix build (`git show <rev>:scripts/runtime/conductor-tick.mjs > /tmp/x.mjs`) to
 // prove it still catches the regression it was written for.
 const TICK_SRC = process.env.ANGEL_CONDUCTOR_TICK_SRC || join(SCRIPTS_DIR, 'conductor-tick.mjs')
 
@@ -778,7 +778,7 @@ test('dispatch hands its pending mutations to the child before spawning', () => 
   )
 })
 
-// ─── the mission gate (scripts/mission.mjs) ───────────────────────────────────
+// ─── the mission gate (scripts/runtime/mission.mjs) ───────────────────────────────────
 // An armed Conductor that drives a persisted mission consumes the mission's
 // round budget: a spent/blocked/paused/complete mission demotes the tick to
 // measure-only (no rung spawned), and each real dispatch credits one round on

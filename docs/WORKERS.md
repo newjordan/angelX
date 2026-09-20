@@ -6,11 +6,11 @@ and `/still` read their workers' artifacts.
 
 | Worker | Command from the source checkout | Output |
 |---|---|---|
-| Dossier | `node scripts/repo-dossier.mjs --refresh` | Repository facts for task context |
-| Dossier probes | `node scripts/dossier-tick.mjs --force` | Refreshed facts and probe evidence |
-| Habitsmith | `node scripts/habitsmith-tick.mjs --force` | Draft skills, approval feedback and usage status |
-| Conductor | `ANGEL_CONDUCTOR=measure node scripts/conductor-tick.mjs --force` | Ranked agenda and briefing |
-| Still | `node scripts/still-tick.mjs --force` | Student scores, weekly datasets and gap history |
+| Dossier | `node scripts/runtime/repo-dossier.mjs --refresh` | Repository facts for task context |
+| Dossier probes | `node scripts/runtime/dossier-tick.mjs --force` | Refreshed facts and probe evidence |
+| Habitsmith | `node scripts/runtime/habitsmith-tick.mjs --force` | Draft skills, approval feedback and usage status |
+| Conductor | `ANGEL_CONDUCTOR=measure node scripts/runtime/conductor-tick.mjs --force` | Ranked agenda and briefing |
+| Still | `node scripts/runtime/still-tick.mjs --force` | Student scores, weekly datasets and gap history |
 
 `--force` bypasses the idle/window check. Kill switches, leases and budgets still
 apply. Graph writers share one process lease. Conductor hands its graph and
