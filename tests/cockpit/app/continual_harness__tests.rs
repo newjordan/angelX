@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::Tool;
+use crate::agent::harness::Tool;
 
 fn tmp_ws(tag: &str) -> (PathBuf, PathBuf) {
     let root = std::env::temp_dir().join(format!(

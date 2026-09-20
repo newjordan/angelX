@@ -1,8 +1,10 @@
 use super::scratch;
-use crate::harness::swarm_compile::policy::PolicyStore;
-use crate::harness::swarm_compile::schema::{Contribution, CreditRow, ReviewVerdict, SwarmRun};
-use crate::harness::swarm_compile::store::RunStore;
-use crate::harness::swarm_compile::tool::SwarmCompilerTool;
+use crate::agent::harness::swarm_compile::policy::PolicyStore;
+use crate::agent::harness::swarm_compile::schema::{
+    Contribution, CreditRow, ReviewVerdict, SwarmRun,
+};
+use crate::agent::harness::swarm_compile::store::RunStore;
+use crate::agent::harness::swarm_compile::tool::SwarmCompilerTool;
 
 #[test]
 fn store_round_trips_versioned_run_and_append_only_event() {

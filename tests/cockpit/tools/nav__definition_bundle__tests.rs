@@ -1,6 +1,6 @@
 use super::*;
-use crate::harness::Tool;
-use crate::tools::nav::DefsTool;
+use crate::agent::harness::Tool;
+use crate::agent::tools::nav::DefsTool;
 
 fn invoke(args: Value, source: &str) -> Value {
     serde_json::from_str(

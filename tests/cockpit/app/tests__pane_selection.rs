@@ -13,7 +13,7 @@ fn fixture(pane: mouse::PaneId) -> App {
             .join("\n"),
     );
     app.reasoning_shown = app.reasoning.len();
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     app.messages = (0..80)
         .map(|i| Message {
             role: Role::Angel,
@@ -412,12 +412,13 @@ fn miniviz_world_owns_chrome_zoom_drag_and_never_scrolls_transcript() {
     let _world = TestEnvGuard::set("ANGEL_SCRYGLASS", "1");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    crate::drive::comp_mode::invalidate_cache();
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut app = fixture(mouse::PaneId::Transcript);
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Explore(
-            crate::world_viz::Building::Keep,
+        .navigate(crate::ui::scryglass::StageRoute::Explore(
+            crate::stage::world_viz::Building::Keep,
         ));
     paint(&mut app, 160, 52);
     let frame = app.panel_frames.get(panels::PanelKind::Artifacts).unwrap();
@@ -494,13 +495,14 @@ fn miniviz_follow_survives_shared_composer_border_and_resets_at_its_visible_cell
     let _world = TestEnvGuard::set("ANGEL_SCRYGLASS", "1");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    crate::drive::comp_mode::invalidate_cache();
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     for (width, height) in [(114, 44), (120, 46), (160, 52)] {
         let mut app = fixture(mouse::PaneId::Transcript);
         app.scryglass
-            .navigate(crate::scryglass::StageRoute::Explore(
-                crate::world_viz::Building::Keep,
+            .navigate(crate::ui::scryglass::StageRoute::Explore(
+                crate::stage::world_viz::Building::Keep,
             ));
         paint(&mut app, width, height);
         app.scryglass.adjust_look(0.5, 0.2);
@@ -538,7 +540,7 @@ fn trace_divider_tweens_without_moving_transcript_or_losing_copy_ownership() {
     let _backdrop = TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
     let _world = TestEnvGuard::set("ANGEL_SCRYGLASS", "1");
     let mut app = seed_preview_app();
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Full;
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
     app.terminal_focused = true;
     paint(&mut app, 160, 48);
     app.last_resize_at = Instant::now() - Duration::from_secs(1);

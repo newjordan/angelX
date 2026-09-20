@@ -4,8 +4,8 @@
 
 use super::seed_preview_app;
 use crate::App;
-use crate::app_control;
-use crate::club::{ChatMsg, ChatRole};
+use crate::agent::club::{ChatMsg, ChatRole};
+use crate::app::control;
 
 #[test]
 fn retry_command_rebuilds_transcript_and_starts_a_replacement_turn() {
@@ -56,7 +56,7 @@ fn retry_waits_for_the_flight_slot_and_keeps_the_command_draft() {
     app.history.push(ChatMsg::user("repair the parser"));
     app.history.push(ChatMsg::assistant("prior answer"));
     let before = app.history.len();
-    let (_tx, job) = app_control::BackgroundJob::channel("test background job", "Retry the test");
+    let (_tx, job) = control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(job);
     app.input = "/retry".to_string();
 
@@ -122,7 +122,7 @@ fn undo_waits_for_the_flight_slot_and_keeps_the_command_draft() {
     app.history.push(ChatMsg::user("mistaken task"));
     app.history.push(ChatMsg::assistant("mistaken answer"));
     let before = app.history.len();
-    let (_tx, job) = app_control::BackgroundJob::channel("test background job", "Retry the test");
+    let (_tx, job) = control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(job);
     app.input = "/undo".to_string();
 
@@ -223,7 +223,7 @@ fn redo_waits_for_the_flight_slot_and_keeps_the_command_draft() {
     app.history.push(ChatMsg::assistant("mistaken answer"));
     app.input = "/undo".to_string();
     app.submit();
-    let (_tx, job) = app_control::BackgroundJob::channel("test background job", "Retry the test");
+    let (_tx, job) = control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(job);
     app.input = "/redo".to_string();
 

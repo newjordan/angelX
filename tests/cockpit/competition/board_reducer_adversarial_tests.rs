@@ -1,18 +1,18 @@
 use super::tests::{adapter, comparator, delta, entry, full, identity, key, reduce, reduce_error};
 use super::*;
-use crate::competition::adapters::fixture::{MemoryRawBoardJournalV1, ScriptedAdapterV1};
-use crate::competition::adapters::{
+use crate::drive::competition::adapters::fixture::{MemoryRawBoardJournalV1, ScriptedAdapterV1};
+use crate::drive::competition::adapters::{
     AdapterFailureClassV1, AdapterFailureV1, CompetitionIdentityV1,
 };
-use crate::competition::schema::{DirectorHealthStateV1, RetryPolicyV1};
+use crate::drive::competition::schema::{DirectorHealthStateV1, RetryPolicyV1};
 
 #[test]
 fn retry_delay_and_never_retry_have_distinct_durable_dispositions() {
     let timeout = AdapterFailureV1 {
         class: AdapterFailureClassV1::Transport,
         retry: RetryPolicyV1::AfterMs(50),
-        detail_sha256: crate::cut::sha256_hex(b"timeout"),
-        provenance_sha256: crate::cut::sha256_hex(b"fixture"),
+        detail_sha256: crate::knowledge::cut::sha256_hex(b"timeout"),
+        provenance_sha256: crate::knowledge::cut::sha256_hex(b"fixture"),
     };
     let mut adapter = adapter(vec![
         Ok(full("initial", 1, vec![entry("leader", "10")])),
@@ -91,9 +91,9 @@ fn malformed_source_claim_and_capability_conflict_remain_raw_evidence() {
     bad.source = Some(SourceAccessClaimV1 {
         source_id: "source".into(),
         commit_oid: "not-a-digest".into(),
-        tree_oid: crate::cut::sha256_hex(b"tree"),
-        workspace_sha256: crate::cut::sha256_hex(b"workspace"),
-        access_proof_sha256: crate::cut::sha256_hex(b"proof"),
+        tree_oid: crate::knowledge::cut::sha256_hex(b"tree"),
+        workspace_sha256: crate::knowledge::cut::sha256_hex(b"workspace"),
+        access_proof_sha256: crate::knowledge::cut::sha256_hex(b"proof"),
     });
     let mut journal = MemoryRawBoardJournalV1::default();
     let mut reducer = BoardReducerV1::default();

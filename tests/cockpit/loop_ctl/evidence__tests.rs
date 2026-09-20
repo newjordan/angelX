@@ -14,17 +14,19 @@ fn submission_journal_preserves_attempts_without_counting_receipts_twice() {
     let _env = crate::tests::env_lock();
     let workspace = std::env::temp_dir().join(format!("angel-journal-{}", std::process::id()));
     std::fs::create_dir_all(&workspace).unwrap();
-    let _owner = crate::harness::run_identity::LiveTurnScope::enter(Some("journal-fixture".into()));
-    let _model =
-        crate::harness::run_identity::LiveModelScope::enter(Some("deepseek-v4-flash".into()));
-    let _ = crate::tools::submit_identity::drain_journal();
+    let _owner =
+        crate::agent::harness::run_identity::LiveTurnScope::enter(Some("journal-fixture".into()));
+    let _model = crate::agent::harness::run_identity::LiveModelScope::enter(Some(
+        "deepseek-v4-flash".into(),
+    ));
+    let _ = crate::agent::tools::submit_identity::drain_journal();
     for (exit, output) in [
         (2, "refused"),
         (0, "rejected"),
         (0, "not accepted"),
         (0, "Submission queued\n11111111-2222-3333-4444-555555555555"),
     ] {
-        crate::tools::submit_identity::journal_execution(
+        crate::agent::tools::submit_identity::journal_execution(
             "shell",
             "yukon submit",
             Some(&workspace),

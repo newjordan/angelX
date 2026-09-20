@@ -192,7 +192,7 @@ fn sealed_override_merges_only_workspace_scoped_writable_roots() {
     assert!(override_for(&readonly).unwrap().writable_roots.is_empty());
     let mut cmd = std::process::Command::new("true");
     cmd.env_clear();
-    crate::sandbox::set_helper_policy(&mut cmd, &readonly).unwrap();
+    super::super::set_helper_policy(&mut cmd, &readonly).unwrap();
     let vars: std::collections::HashMap<_, _> = cmd
         .get_envs()
         .filter_map(|(key, value)| {
@@ -204,9 +204,9 @@ fn sealed_override_merges_only_workspace_scoped_writable_roots() {
             })
         })
         .collect();
-    assert_eq!(vars[crate::sandbox::HELPER_BACKEND_ENV], "bwrap");
+    assert_eq!(vars[super::super::HELPER_BACKEND_ENV], "bwrap");
     let encoded: SandboxPolicy =
-        serde_json::from_str(&vars[crate::sandbox::HELPER_POLICY_ENV]).unwrap();
+        serde_json::from_str(&vars[super::super::HELPER_POLICY_ENV]).unwrap();
     assert!(encoded.writable_roots.is_empty());
     assert!(!encoded.sealed_reads.is_empty());
     assert!(!encoded.allow_network);

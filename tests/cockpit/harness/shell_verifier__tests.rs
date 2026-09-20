@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::{Tool, VerificationOutcome};
+use crate::agent::harness::{Tool, VerificationOutcome};
 
 #[test]
 fn t04b_routing_table_and_safe_presentation() {
@@ -75,8 +75,8 @@ impl Tool for Fake {
     fn name(&self) -> &str {
         self.name
     }
-    fn def(&self) -> crate::club::ToolDef {
-        crate::club::ToolDef {
+    fn def(&self) -> crate::agent::club::ToolDef {
+        crate::agent::club::ToolDef {
             name: self.name.into(),
             description: String::new(),
             params: json!({}),

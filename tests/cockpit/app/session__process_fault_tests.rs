@@ -14,7 +14,7 @@ fn history(count: usize) -> Vec<ChatMsg> {
     (0..count)
         .map(|index| {
             let mut msg = ChatMsg::user(format!("accepted message {index} 界"));
-            let mut origin = crate::club::owned_recovery_context_ref();
+            let mut origin = crate::agent::club::owned_recovery_context_ref();
             origin.import_id = format!("owned-import-{index}");
             msg.recovery_context.push(origin);
             msg

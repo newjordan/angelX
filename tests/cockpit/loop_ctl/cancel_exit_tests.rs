@@ -9,8 +9,11 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
             crate::tests::TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),
         ];
         let (mut app, held, calls) = held_app(root);
-        app.session =
-            crate::session::Session::at_for(root.join("sessions"), "owned-loop-exit".into(), root);
+        app.session = crate::knowledge::session::Session::at_for(
+            root.join("sessions"),
+            "owned-loop-exit".into(),
+            root,
+        );
         app.history = vec![
             ChatMsg::system("static policy"),
             ChatMsg::user("old durable operator"),
@@ -34,7 +37,7 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
         assert!(held.old_steers.drain().is_empty());
 
         // Exercise actual deferred baseline admission as well as queued model work.
-        let mut goal = crate::goal::Goal::new("owned deferred baseline");
+        let mut goal = crate::drive::goal::Goal::new("owned deferred baseline");
         goal.accept_cmd = Some("printf 'capture\\n' >> baseline-runs; printf 'test result: ok. 7 passed; 0 failed; 0 ignored;\\n'".into());
         app.goal = Some(goal);
         let started = app.loop_start_immediate("owned deferred loop".into(), 0, false, false);
@@ -51,7 +54,7 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
             Some(crate::app::ExitRequest::WaitingForIdle)
         );
         held.events
-            .send(crate::harness::TurnEvent::Token(
+            .send(crate::agent::harness::TurnEvent::Token(
                 "late retired token".into(),
             ))
             .unwrap();
@@ -74,7 +77,7 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
                 vec![ChatMsg::assistant("late retired answer")],
                 "late retired answer".into(),
                 app.bag.in_hand_with_fallback().route_identity(),
-                crate::harness::TurnStopReason::Answer,
+                crate::agent::harness::TurnStopReason::Answer,
             )))
             .unwrap();
         app.advance();
@@ -118,7 +121,7 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
         );
         assert_eq!(
             app.session.save_status(),
-            crate::session::SessionSaveStatus::Healthy
+            crate::knowledge::session::SessionSaveStatus::Healthy
         );
         assert!(
             app.messages

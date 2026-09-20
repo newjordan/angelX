@@ -326,7 +326,7 @@ fn scenario_missing_read_suggests_confined_suffix_match_without_auto_open() {
         .call(&serde_json::json!({"path":"scripts/codex-companion.mjs"}))
         .unwrap_err();
     assert!(error.contains("No such file or directory"), "{error}");
-    assert!(error.contains(crate::tools::file::MISSING_PATH_HINT_MARKER));
+    assert!(error.contains(crate::agent::tools::file::MISSING_PATH_HINT_MARKER));
     assert!(
         error.contains("- plugins/codex/scripts/codex-companion.mjs"),
         "{error}"
@@ -364,7 +364,7 @@ fn scenario_missing_read_hints_are_ranked_bounded_and_policy_filtered() {
         .call(&serde_json::json!({"path":"scripts/tool.mjs"}))
         .unwrap_err();
     let hints = error
-        .split(crate::tools::file::MISSING_PATH_HINT_MARKER)
+        .split(crate::agent::tools::file::MISSING_PATH_HINT_MARKER)
         .nth(1)
         .unwrap()
         .lines()
@@ -377,11 +377,11 @@ fn scenario_missing_read_hints_are_ranked_bounded_and_policy_filtered() {
     let credential = reader
         .call(&serde_json::json!({"path":"credentials.json"}))
         .unwrap_err();
-    assert!(!credential.contains(crate::tools::file::MISSING_PATH_HINT_MARKER));
+    assert!(!credential.contains(crate::agent::tools::file::MISSING_PATH_HINT_MARKER));
     let escape = reader
         .call(&serde_json::json!({"path":"../../outside/tool.mjs"}))
         .unwrap_err();
-    assert!(!escape.contains(crate::tools::file::MISSING_PATH_HINT_MARKER));
+    assert!(!escape.contains(crate::agent::tools::file::MISSING_PATH_HINT_MARKER));
 
     let _ = std::fs::remove_dir_all(root);
 }
@@ -398,7 +398,7 @@ fn scenario_missing_read_hint_has_an_executable_off_control() {
         .call(&serde_json::json!({"path":"file.rs"}))
         .unwrap_err();
     assert!(error.contains("No such file or directory"), "{error}");
-    assert!(!error.contains(crate::tools::file::MISSING_PATH_HINT_MARKER));
+    assert!(!error.contains(crate::agent::tools::file::MISSING_PATH_HINT_MARKER));
 
     let _ = std::fs::remove_dir_all(root);
 }
@@ -527,7 +527,7 @@ fn scenario_grep_file_scope_preserves_search_policy_and_size_bound() {
     std::fs::write(root.join("binary.dat"), b"needle\0payload").unwrap();
     std::fs::write(
         root.join("large.txt"),
-        vec![b'x'; crate::tools::nav::SEARCH_FILE_MAX_BYTES + 1],
+        vec![b'x'; crate::agent::tools::nav::SEARCH_FILE_MAX_BYTES + 1],
     )
     .unwrap();
     let grep = GrepTool { root: root.clone() };
@@ -683,7 +683,7 @@ fn scenario_grep_context_env_default_is_overridable_and_bounded() {
             "context":10
         }))
         .unwrap();
-    assert!(capped.lines().count() <= crate::tools::nav::GREP_MAX_LINES);
+    assert!(capped.lines().count() <= crate::agent::tools::nav::GREP_MAX_LINES);
     assert_ne!(capped.lines().last(), Some("--"));
 
     for invalid in [
@@ -804,7 +804,7 @@ fn scenario_run_turn_read_then_answer() {
 }
 
 /// Scenario: a path-guess miss on `outline` carries did-you-mean hints, the
-/// same as `read_file` — a wrong-root guess (src/lsp.rs vs cockpit/src/lsp.rs
+/// same as `read_file` — a wrong-root guess (src/lsp.rs vs cockpit/src/agent/lsp.rs
 /// class) must cost one corrected call, not a listing round trip.
 #[test]
 fn scenario_outline_miss_suggests_paths() {

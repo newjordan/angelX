@@ -8,7 +8,7 @@ fn list_lean_schema_preserves_ranking_and_paging_controls() {
     }
     .def()
     .params;
-    let lean = crate::harness::lean_list_dir_params();
+    let lean = crate::agent::harness::lean_list_dir_params();
     for key in [
         "path",
         "hint",

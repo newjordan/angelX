@@ -30,7 +30,7 @@ fn commit(root: &Path, message: &str) {
 #[test]
 fn evidence_ignores_scratch_and_sandbox_diagnostics_but_binds_candidate_bytes() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = crate::agent::sandbox::HardlinkTestRoot::new();
     let root = fixture.path();
     git(root, &["init", "-q"]);
     std::fs::write(root.join("candidate.txt"), "before").unwrap();
@@ -117,7 +117,11 @@ fn sha256_padding_boundaries_preserve_exact_digests() {
         ),
     ] {
         let bytes = vec![0; len];
-        assert_eq!(crate::cut::sha256_hex(&bytes), expected, "len={len}");
+        assert_eq!(
+            crate::knowledge::cut::sha256_hex(&bytes),
+            expected,
+            "len={len}"
+        );
         assert_eq!(sha256_reader_hex(&mut bytes.as_slice()).unwrap(), expected);
         for split in 0..=len {
             let mut streaming = StreamingSha256::new();
@@ -141,7 +145,7 @@ fn streaming_sha256_matches_one_shot_across_large_chunk_boundaries() {
     let bytes = (0..(MAX_EXACT_FINGERPRINT_BYTES as usize + HASH_BUFFER_BYTES + 17))
         .map(|index| (index % 251) as u8)
         .collect::<Vec<_>>();
-    let expected = crate::cut::sha256_hex(&bytes);
+    let expected = crate::knowledge::cut::sha256_hex(&bytes);
     for chunk_size in [1, 7, 63, 64, 65, HASH_BUFFER_BYTES, HASH_BUFFER_BYTES + 13] {
         let mut streaming = StreamingSha256::new();
         for chunk in bytes.chunks(chunk_size) {

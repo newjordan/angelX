@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::GraphNodeSnap;
+use crate::agent::harness::GraphNodeSnap;
 
 fn flatten(text: &Text<'static>) -> String {
     text.lines

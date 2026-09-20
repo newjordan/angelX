@@ -41,7 +41,7 @@ fn dump_tourney_cast_for_review() {
                     MotionMode::Full,
                     &default_asset_root(),
                 );
-                crate::retro_kit::gallery::rasterize(
+                crate::ui::retro_kit::gallery::rasterize(
                     &text,
                     &std::path::PathBuf::from(format!(
                         "{out}/{kind:?}-{index}-{width}x{height}.png"

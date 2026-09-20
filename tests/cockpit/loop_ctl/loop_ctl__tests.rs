@@ -272,7 +272,7 @@ fn provider_account_error_delays_retry_without_stall_or_swarm_escalation() {
         "HTTP 503: temporarily unavailable",
         "transport timeout",
     ] {
-        assert!(!crate::club::error_requires_provider_action(error));
+        assert!(!crate::agent::club::error_requires_provider_action(error));
     }
     std::fs::remove_file(root.join("loop.json")).unwrap();
     std::fs::remove_dir(root).unwrap();
@@ -302,10 +302,10 @@ fn execution_blocker_pauses_once_without_retry_and_preserves_progress() {
         podrace: true,
         ..Default::default()
     };
-    crate::harness::exec::set_sandbox_receipt(Some(
+    crate::agent::harness::exec::set_sandbox_receipt(Some(
         serde_json::json!({"helper_error": "Landlock unavailable; run angel --doctor", "helper_phase": "landlock", "helper_exit": 1}),
     ));
-    let error = crate::harness::execution_blocker(
+    let error = crate::agent::harness::execution_blocker(
         "shell",
         "tool error: shell command failed (exit 1)\nbwrap: setting up uid map: Permission denied",
     )
@@ -464,17 +464,17 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
 }
 
 fn scripted_verifier_failure(command: &str, output: &str) -> ToolStripSnapshot {
-    let mut strip = crate::toolstrip::ToolStrip::default();
-    let id = crate::harness::ToolEventId("blocked-fixture".into());
-    let args = crate::harness::summarize_args(&serde_json::json!({"command": command}));
+    let mut strip = crate::ui::toolstrip::ToolStrip::default();
+    let id = crate::agent::harness::ToolEventId("blocked-fixture".into());
+    let args = crate::agent::harness::summarize_args(&serde_json::json!({"command": command}));
     strip.call_event(id.clone(), "shell", &args);
     strip.result_event(
         &id,
         "shell",
         output,
-        crate::harness::ToolOutcome {
-            execution: crate::harness::ExecutionOutcome::Failed,
-            verification: crate::harness::VerificationOutcome::NotApplicable,
+        crate::agent::harness::ToolOutcome {
+            execution: crate::agent::harness::ExecutionOutcome::Failed,
+            verification: crate::agent::harness::VerificationOutcome::NotApplicable,
         },
     );
     strip.snapshot()
@@ -498,7 +498,7 @@ fn loop_ctl_blocked_tail_redaction_and_stable_digest() {
     assert!(failure.diagnostic().contains("redacted"));
     assert!(failure.command.ends_with("--golden fixture.json"));
     assert!(failure.diagnostic().contains("failure_digest:"));
-    let lines = crate::toolstrip::VerifierFailure::new(
+    let lines = crate::ui::toolstrip::VerifierFailure::new(
         "./benchmark.sh",
         "shell command failed (exit 1)\n0\n1\n2\n3\n4\n5\n6\n7",
     );
@@ -511,7 +511,7 @@ fn loop_ctl_blocked_tail_redaction_and_stable_digest() {
         failure.failure_digest,
         same.verifier_failure_details[0].failure_digest
     );
-    let long = crate::toolstrip::VerifierFailure::new(
+    let long = crate::ui::toolstrip::VerifierFailure::new(
         &"é".repeat(250),
         &format!("shell command failed (exit 2)\n{}\nend", "é".repeat(500)),
     );
@@ -519,8 +519,10 @@ fn loop_ctl_blocked_tail_redaction_and_stable_digest() {
     assert!(long.tail.len() <= 600);
     assert!(long.tail.ends_with("end"));
     assert!(long.tail.lines().count() <= 6);
-    let empty =
-        crate::toolstrip::VerifierFailure::new("./benchmark.sh", "shell command failed (exit 1)");
+    let empty = crate::ui::toolstrip::VerifierFailure::new(
+        "./benchmark.sh",
+        "shell command failed (exit 1)",
+    );
     assert!(empty.tail.contains("no output captured"));
 }
 
@@ -655,7 +657,7 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
         serde_json::from_slice(&std::fs::read(root.join("loop.json")).unwrap()).unwrap();
     assert_eq!(saved["escalations"][0], *entry);
     assert!(
-        crate::harness::progress_ledger_snapshot()["escalations"]
+        crate::agent::harness::progress_ledger_snapshot()["escalations"]
             .as_array()
             .unwrap()
             .iter()
@@ -1525,7 +1527,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     let mut app = crate::seed_preview_app();
     assert_eq!(
         app.world.quest().region(),
-        crate::world_viz::Region::CastleTown
+        crate::stage::world_viz::Region::CastleTown
     );
 
     // A podrace competition loop starts.
@@ -1539,7 +1541,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.world.quest().region(),
-        crate::world_viz::Region::TheMines
+        crate::stage::world_viz::Region::TheMines
     );
 
     // Stalled iterations sink the quest into the swamp (pivot 1 → the
@@ -1548,7 +1550,10 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         app.loop_harvest(format!("DIRECTION: drift {n}"));
     }
     app.adventure_mirror_drain();
-    assert_eq!(app.world.quest().region(), crate::world_viz::Region::Swamp);
+    assert_eq!(
+        app.world.quest().region(),
+        crate::stage::world_viz::Region::Swamp
+    );
 
     // A measurement receipt shows activity but does not establish
     // an objective improvement from the coordinator's prose.
@@ -1563,7 +1568,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.world.quest().region(),
-        crate::world_viz::Region::TheMines
+        crate::stage::world_viz::Region::TheMines
     );
     assert_eq!(app.world.quest().treasures(), 0);
 
@@ -1579,7 +1584,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.world.quest().region(),
-        crate::world_viz::Region::DragonKeep
+        crate::stage::world_viz::Region::DragonKeep
     );
 
     // The run finishes ok — loot walks home, then idles back in town.
@@ -1587,13 +1592,13 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.world.quest().region(),
-        crate::world_viz::Region::Homecoming
+        crate::stage::world_viz::Region::Homecoming
     );
     for _ in 0..120 {
         app.world.tick();
     }
     assert_eq!(
         app.world.quest().region(),
-        crate::world_viz::Region::CastleTown
+        crate::stage::world_viz::Region::CastleTown
     );
 }

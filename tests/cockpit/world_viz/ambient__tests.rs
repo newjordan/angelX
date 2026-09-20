@@ -323,7 +323,7 @@ fn real_tool_event_leaves_the_entered_plate_before_rendering_new_outdoors() {
         .unwrap();
     assert_eq!(world.ambient_building(), Building::Chapel);
     world.note_tool_call_event(
-        crate::harness::ToolEventId("ambient-read-event".to_string()),
+        crate::agent::harness::ToolEventId("ambient-read-event".to_string()),
         "read_file",
         "path=research.md",
     );

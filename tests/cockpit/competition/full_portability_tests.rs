@@ -40,7 +40,7 @@ impl Drop for TestRoot {
 }
 
 fn digest(value: &str) -> String {
-    crate::cut::sha256_hex(value.as_bytes())
+    crate::knowledge::cut::sha256_hex(value.as_bytes())
 }
 
 fn populate(root: &TestRoot, subject: &str) -> (Vec<u8>, WorkLeaseKeyV1, u64) {
@@ -277,5 +277,5 @@ pub(super) fn reseal(value: &mut serde_json::Value) {
         entries,
     ))
     .unwrap();
-    value["bundle_sha256"] = crate::cut::sha256_hex(&material).into();
+    value["bundle_sha256"] = crate::knowledge::cut::sha256_hex(&material).into();
 }

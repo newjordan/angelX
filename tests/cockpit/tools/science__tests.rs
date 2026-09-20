@@ -10,7 +10,7 @@ fn empty_query_is_rejected_not_fanned() {
 #[test]
 fn oversized_query_is_rejected_before_network_dispatch() {
     let t = ScienceTool;
-    let query = "x".repeat(crate::science::MAX_QUERY_CHARS + 1);
+    let query = "x".repeat(crate::drive::science::MAX_QUERY_CHARS + 1);
     let err = t.call(&serde_json::json!({ "query": query })).unwrap_err();
     assert!(err.contains("at most 500 characters"), "{err}");
 }

@@ -161,7 +161,7 @@ fn git_status_summary_reports_clean_tree() {
 
 #[test]
 fn git_commit_plans_and_executes_atomic_splits() {
-    use crate::tools::git::GitCommitTool;
+    use crate::agent::tools::git::GitCommitTool;
     use std::process::Command;
 
     let root = std::env::temp_dir().join(format!(

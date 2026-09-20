@@ -10,19 +10,23 @@
 #![allow(dead_code)] // the helper compiles the whole sandbox module but only
 // `exec_helper` is reachable from `main`.
 
-#[path = "sandbox.rs"]
+#[path = "agent/sandbox.rs"]
 mod sandbox;
 
-/// Shim for `crate::harness::env_flag` — copied byte-for-byte from
-/// `src/harness/context.rs`; the helper must not pull the harness in.
-mod harness {
-    pub(crate) fn env_flag(key: &str, default: bool) -> bool {
-        match std::env::var(key) {
-            Ok(v) => {
-                let v = v.trim().to_ascii_lowercase();
-                !(v.is_empty() || v == "0" || v == "false" || v == "no" || v == "off")
+/// Shim for `crate::agent::harness::env_flag` — copied byte-for-byte from
+/// `src/agent/harness/context.rs`; the helper must not pull the harness in.
+/// Nested under `agent` so the shared `sandbox.rs` resolves the same path in
+/// both binaries.
+mod agent {
+    pub(crate) mod harness {
+        pub(crate) fn env_flag(key: &str, default: bool) -> bool {
+            match std::env::var(key) {
+                Ok(v) => {
+                    let v = v.trim().to_ascii_lowercase();
+                    !(v.is_empty() || v == "0" || v == "false" || v == "no" || v == "off")
+                }
+                Err(_) => default,
             }
-            Err(_) => default,
         }
     }
 }
@@ -34,20 +38,22 @@ mod harness {
 #[path = "../../tests/cockpit/app/sandbox_main__tests.rs"]
 mod tests;
 
-/// Shim for `crate::yolo::enabled` — env-reading logic copied from
+/// Shim for `crate::platform::yolo::enabled` — env-reading logic copied from
 /// `src/yolo.rs` (`parse(ANGEL_YOLO)` ⇒ Full ⇒ enabled). The helper inherits
 /// `ANGEL_YOLO` from its parent, so behaviour must match byte-for-byte.
-mod yolo {
-    pub(crate) fn enabled() -> bool {
-        match std::env::var("ANGEL_YOLO") {
-            Ok(value) => {
-                let value = value.trim().to_ascii_lowercase();
-                !matches!(
-                    value.as_str(),
-                    "" | "0" | "false" | "no" | "off" | "disable" | "disabled"
-                )
+mod platform {
+    pub(crate) mod yolo {
+        pub(crate) fn enabled() -> bool {
+            match std::env::var("ANGEL_YOLO") {
+                Ok(value) => {
+                    let value = value.trim().to_ascii_lowercase();
+                    !matches!(
+                        value.as_str(),
+                        "" | "0" | "false" | "no" | "off" | "disable" | "disabled"
+                    )
+                }
+                Err(_) => false,
             }
-            Err(_) => false,
         }
     }
 }

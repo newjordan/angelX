@@ -4,8 +4,8 @@ use super::*;
 fn styled_caption_clips_to_terminal_cells_for_wide_unicode() {
     let clipped = clip_caption(
         Line::from(vec![
-            Span::styled("資料/設計🧪", Style::new().fg(crate::hud::HUD_TEXT)),
-            Span::styled(" → Scriptorium", Style::new().fg(crate::hud::HUD_BLUE)),
+            Span::styled("資料/設計🧪", Style::new().fg(crate::ui::hud::HUD_TEXT)),
+            Span::styled(" → Scriptorium", Style::new().fg(crate::ui::hud::HUD_BLUE)),
         ]),
         12,
     );

@@ -42,7 +42,7 @@ impl Club for MockClub {
         _messages: &[ChatMsg],
         _tools: &[ToolDef],
         _cancel: &std::sync::atomic::AtomicBool,
-        _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+        _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
     ) -> Result<ClubReply, String> {
         if !self.available {
             return Err(format!("{} model not available", self.label));
@@ -85,7 +85,7 @@ fn consult_unknown_club_fails_closed() {
 #[test]
 fn consult_openai_blocked_by_explicit_user_setting() {
     let _g = crate::tests::env_lock();
-    crate::tools::solo::set_solo_mode(false);
+    crate::agent::tools::solo::set_solo_mode(false);
     let _policy = crate::tests::TestEnvGuard::set("ANGEL_ALLOW_SOTA_CONSULT", "0");
     let openai: Arc<dyn Club> = Arc::new(MockClub::new("openai", "codex"));
     let self_c: Arc<dyn Club> = Arc::new(MockClub::new("deepseek", "self"));
@@ -105,7 +105,7 @@ fn consult_openai_blocked_by_explicit_user_setting() {
 #[test]
 fn consult_configured_remote_model_works_without_extra_permission_flag() {
     let _g = crate::tests::env_lock();
-    crate::tools::solo::set_solo_mode(false);
+    crate::agent::tools::solo::set_solo_mode(false);
     let _policy = crate::tests::TestEnvGuard::unset("ANGEL_ALLOW_SOTA_CONSULT");
     let remote: Arc<dyn Club> = Arc::new(MockClub::new("openai-api", "fixture review"));
     let tool = ConsultModelTool::new(vec![remote], None);

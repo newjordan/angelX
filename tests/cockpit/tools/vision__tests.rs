@@ -252,7 +252,7 @@ fn cloud_flash_keeps_image_bytes_native_and_never_dispatches_the_sidecar() {
     let _key = crate::tests::TestEnvGuard::set("ANGEL_DEEPSEEK_KEY", "test-key");
     let _fwd = crate::tests::TestEnvGuard::set("ANGEL_DEEPSEEK_URL", "http://127.0.0.1:8799/v4");
     let _pin = crate::tests::TestEnvGuard::unset("ANGEL_DEEPSEEK_FLASH_MODEL");
-    let (_, seat, _) = crate::club::optional_sota_http_club(
+    let (_, seat, _) = crate::agent::club::optional_sota_http_club(
         "deepseek-flash",
         "deepseek-flash",
         &["ANGEL_DEEPSEEK_URL"],
@@ -480,8 +480,8 @@ impl Club for DsflashDriver {
     fn label(&self) -> &str {
         "dsflash"
     }
-    fn route_metadata(&self) -> crate::club::RouteMetadata {
-        crate::club::RouteMetadata {
+    fn route_metadata(&self) -> crate::agent::club::RouteMetadata {
+        crate::agent::club::RouteMetadata {
             input_modalities: vec!["text".into()],
             ..Default::default()
         }
@@ -622,7 +622,7 @@ fn launch_pending_turn_rewrites_images_on_agent_turn_before_hop_1() {
     app.launch_pending_turn();
     assert!(
         app.messages.iter().any(|message| {
-            matches!(message.role, crate::transcript::Role::System)
+            matches!(message.role, crate::ui::transcript::Role::System)
                 && message.text.contains("describing")
         }),
         "UI may emit a describing line without waiting on the VLM"
@@ -702,7 +702,7 @@ fn sidecar_failure_drops_images_for_text_only_clubs() {
     );
     let mut failed = false;
     while let Ok(event) = thinking.event_rx.try_recv() {
-        if let crate::harness::TurnEvent::Notice(note) = event
+        if let crate::agent::harness::TurnEvent::Notice(note) = event
             && note.contains("vision sidecar failed")
         {
             failed = true;

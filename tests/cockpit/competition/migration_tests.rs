@@ -27,7 +27,7 @@ use super::submission::SubmissionSpoolV1;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 fn digest(value: &str) -> String {
-    crate::cut::sha256_hex(value.as_bytes())
+    crate::knowledge::cut::sha256_hex(value.as_bytes())
 }
 pub(super) fn board() -> CanonicalBoardV1 {
     let source = SourceAccessClaimV1 {

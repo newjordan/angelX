@@ -2,7 +2,7 @@
 
 #[test]
 fn caddy_unicode_boundary_preserves_headless_terminal_receipt() {
-    use crate::harness::{TaskJsonContext, TaskJsonEnvelope, TurnOutcome, TurnStopReason};
+    use crate::agent::harness::{TaskJsonContext, TaskJsonEnvelope, TurnOutcome, TurnStopReason};
     let _guard = crate::tests::env_lock();
     let (dir, _, workspace, _env) = fixture("headless-unicode");
     let history = [
@@ -29,7 +29,7 @@ fn caddy_unicode_boundary_preserves_headless_terminal_receipt() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         TurnOutcome {
             stop_notice: None,
@@ -83,7 +83,7 @@ fn caddy_truncation_handles_ascii_unicode_and_zero_limits() {
 
 #[test]
 fn caddy_rejects_untyped_success_failed_receipts_and_reused_call_ids() {
-    use crate::harness::{ExecutionOutcome as E, ToolOutcome, VerificationOutcome as V};
+    use crate::agent::harness::{ExecutionOutcome as E, ToolOutcome, VerificationOutcome as V};
     let _guard = crate::tests::env_lock();
     let (dir, _, workspace, _env) = fixture("truth");
     for (name, command, output) in [
@@ -194,7 +194,7 @@ fn caddy_rejects_untyped_success_failed_receipts_and_reused_call_ids() {
 
 #[test]
 fn caddy_legacy_recipes_need_reverification_and_unicode_writeback_stays_bounded() {
-    use crate::harness::{ExecutionOutcome, ToolOutcome, VerificationOutcome};
+    use crate::agent::harness::{ExecutionOutcome, ToolOutcome, VerificationOutcome};
     let _guard = crate::tests::env_lock();
     let (dir, _, workspace, _env) = fixture("migration");
     let call = ToolCall {

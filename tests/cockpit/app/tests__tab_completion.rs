@@ -4,11 +4,11 @@
 //! prefixes, and the agent-only cycle outside slash input.
 
 use super::seed_preview_app;
-use crate::app_control;
-use crate::club::Bag;
-use crate::harness;
+use crate::agent::club::Bag;
+use crate::agent::harness;
+use crate::agent::turn::Thinking;
+use crate::app::control;
 use crate::tests::{TestEnvGuard, env_lock};
-use crate::turn::Thinking;
 use std::sync::Arc;
 
 #[test]
@@ -169,37 +169,35 @@ fn mention_tab_completion_is_confined_bounded_and_quarantine_blind() {
     #[cfg(unix)]
     std::os::unix::fs::symlink(&outside, root.join("escape")).unwrap();
 
-    let root_matches = app_control::mention_path_matches(&root, "").unwrap();
+    let root_matches = control::mention_path_matches(&root, "").unwrap();
     assert!(root_matches.len() <= 64);
     assert_eq!(
-        app_control::mention_path_matches(&root, "do").unwrap(),
+        control::mention_path_matches(&root, "do").unwrap(),
         vec!["docs/".to_string()]
     );
     assert!(
-        app_control::mention_path_matches(&root, "off")
+        control::mention_path_matches(&root, "off")
             .unwrap()
             .is_empty(),
         "quarantined root must not be suggested"
     );
     assert!(
-        app_control::mention_path_matches(&root, "bad")
+        control::mention_path_matches(&root, "bad")
             .unwrap()
             .is_empty(),
         "control-bearing names must not be suggested"
     );
     assert_eq!(
-        app_control::mention_path_matches(&root, "cap-")
-            .unwrap()
-            .len(),
+        control::mention_path_matches(&root, "cap-").unwrap().len(),
         64,
         "completion result set must stay bounded"
     );
-    assert!(app_control::mention_path_matches(&root, "../").is_err());
-    assert!(app_control::mention_path_matches(&root, "off-limits/").is_err());
-    assert!(app_control::mention_path_matches(&root, "/tmp").is_err());
+    assert!(control::mention_path_matches(&root, "../").is_err());
+    assert!(control::mention_path_matches(&root, "off-limits/").is_err());
+    assert!(control::mention_path_matches(&root, "/tmp").is_err());
     #[cfg(unix)]
     assert!(
-        app_control::mention_path_matches(&root, "escape/").is_err(),
+        control::mention_path_matches(&root, "escape/").is_err(),
         "outbound symlink directories must stay unavailable"
     );
 
@@ -317,7 +315,7 @@ fn mention_tab_completion_is_confined_bounded_and_quarantine_blind() {
 #[test]
 fn mention_path_common_prefix_is_utf8_safe() {
     assert_eq!(
-        app_control::path_longest_common_prefix(&[
+        control::path_longest_common_prefix(&[
             "src/界面.rs".to_string(),
             "src/界限.rs".to_string(),
         ]),

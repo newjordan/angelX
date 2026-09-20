@@ -3,9 +3,11 @@
 //! miniworld sim taxes — plus the visible-stage positive control.
 
 use super::{render_app_text, seed_live_streaming_app, seed_preview_app};
-use crate::scryglass;
+use crate::agent::harness;
+use crate::drive::loop_ctl;
 use crate::tests::{TestEnvGuard, env_lock};
-use crate::{harness, loop_ctl, surfaces};
+use crate::ui::scryglass;
+use crate::ui::surfaces;
 use std::time::{Duration, Instant};
 
 /// A2: text-only mode must not paint Stage/agent bay and must not advance the
@@ -76,7 +78,7 @@ fn backdrop_off_skips_agent_info_header_side_plate() {
 /// tick (or run Stage presentation work) when the Stage was not painted.
 #[test]
 fn hidden_advance_clears_expired_lifecycle_ceremony() {
-    use crate::viz::lifecycle_viz::CeremonyKind;
+    use crate::ui::viz::lifecycle_viz::CeremonyKind;
     let _lock = env_lock();
     let mut app = seed_preview_app();
     let standard = render_app_text(&mut app, 120, 40);
@@ -96,7 +98,7 @@ fn hidden_advance_clears_expired_lifecycle_ceremony() {
     assert!(!app.lifecycle_ceremony_active());
 
     let _backdrop = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let hidden = render_app_text(&mut app, 120, 40);
     assert!(!app.world_pane_visible);
     assert!(
@@ -283,7 +285,7 @@ fn backdrop_off_skips_live_loop_fast_tick() {
     let _lock = env_lock();
     let _backdrop = TestEnvGuard::set("ANGEL_BACKDROP", "off");
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut app = seed_preview_app();
     let _ = render_app_text(&mut app, 144, 48);
     assert!(!app.world_pane_visible);
@@ -311,7 +313,7 @@ fn backdrop_off_skips_live_loop_fast_tick() {
 fn backdrop_off_skips_agentviz_fast_tick() {
     let _lock = env_lock();
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let _on = TestEnvGuard::unset("ANGEL_BACKDROP");
     assert!(
         crate::App::side_column_visuals_allowed(),

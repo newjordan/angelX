@@ -1,6 +1,6 @@
 use super::*;
-use crate::club::Club;
-use crate::openai_codex::{parse_responses_event, tests::club};
+use crate::agent::club::Club;
+use crate::agent::openai_codex::{parse_responses_event, tests::club};
 
 #[test]
 fn all_terminal_paths_keep_cache_and_do_not_double_count_snapshots() {

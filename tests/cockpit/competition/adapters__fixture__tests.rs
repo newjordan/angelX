@@ -1,9 +1,9 @@
 use super::*;
-use crate::competition::board::{
+use crate::drive::competition::board::{
     BOARD_OBSERVATION_SCHEMA_V1, BoardObservationKindV1, ObservationProvenanceV1,
     ObservationSourceV1,
 };
-use crate::competition::schema::{AdapterCapabilityV1, ComparatorKindV1};
+use crate::drive::competition::schema::{AdapterCapabilityV1, ComparatorKindV1};
 
 fn key() -> CompetitionKeyV1 {
     CompetitionKeyV1 {
@@ -20,7 +20,7 @@ fn identity() -> AdapterIdentityV1 {
     AdapterIdentityV1 {
         adapter_id: "scripted".into(),
         adapter_version: "1".into(),
-        runtime_sha256: crate::cut::sha256_hex(b"fixture-runtime"),
+        runtime_sha256: crate::knowledge::cut::sha256_hex(b"fixture-runtime"),
         capabilities: [
             AdapterCapabilityV1::Board,
             AdapterCapabilityV1::PersonalSubmissions,
@@ -52,7 +52,7 @@ fn board(id: &str) -> BoardObservationV1 {
             source: ObservationSourceV1::Fixture,
             observed_at_ms: 1,
             platform_event_at_ms: None,
-            raw_sha256: crate::cut::sha256_hex(id.as_bytes()),
+            raw_sha256: crate::knowledge::cut::sha256_hex(id.as_bytes()),
         },
     }
 }
@@ -75,14 +75,14 @@ fn shared_fixture_contract_matrix() {
         cursor: ObservationCursorV1::default(),
         entries: Vec::new(),
         observed_at_ms: 1,
-        raw_sha256: crate::cut::sha256_hex(b"personal"),
+        raw_sha256: crate::knowledge::cut::sha256_hex(b"personal"),
     };
     let source = SourceAccessObservationV1 {
         competition: key(),
         cursor: ObservationCursorV1::default(),
         claims: Vec::new(),
         observed_at_ms: 1,
-        raw_sha256: crate::cut::sha256_hex(b"source"),
+        raw_sha256: crate::knowledge::cut::sha256_hex(b"source"),
     };
     let mut adapter = scripted(board("board"))
         .with_personal(vec![Ok(personal)])

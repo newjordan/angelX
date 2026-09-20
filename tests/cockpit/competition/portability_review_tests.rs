@@ -15,7 +15,7 @@ fn portable_import_rejects_valid_prefix_with_torn_journal_tail() {
         .unwrap();
     let mut body: Vec<u8> = serde_json::from_value(entry["body"].clone()).unwrap();
     body.extend_from_slice(br#"{"schema":"torn""#);
-    entry["content_sha256"] = crate::cut::sha256_hex(&body).into();
+    entry["content_sha256"] = crate::knowledge::cut::sha256_hex(&body).into();
     entry["body"] = serde_json::to_value(body).unwrap();
     reseal(&mut value);
     assert!(import_portable_state(&serde_json::to_vec(&value).unwrap(), &target.0).is_err());

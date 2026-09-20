@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::Club;
+use crate::agent::club::Club;
 use serde_json::{Value, json};
 
 fn rows() -> Vec<Value> {
@@ -78,7 +78,7 @@ fn rows() -> Vec<Value> {
         // Avoid the catalog-loading convenience constructor and all operator files.
         let club = CodexClub::new_with_reasoning(
             "owned-responses-fixture", "owned-responses-model",
-            crate::openai_codex::ChatGptAuth {
+            crate::agent::openai_codex::ChatGptAuth {
                 access_token: "owned-unused-token".into(), refresh_token: "".into(),
                 account_id: "owned-unused-account".into(),
                 path: std::path::PathBuf::new(), disk_snapshot: None,
@@ -91,7 +91,7 @@ fn rows() -> Vec<Value> {
                 attempt.receive(&format!("data: {}", serde_json::to_string(frame).unwrap()), false);
             }
         }
-        let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+        let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
         assert_eq!(report.attempts, attempts, "{name}");
         let usage = serde_json::to_value(report).unwrap();
         assert_eq!(usage["reasoning_convention_attempts"], conventions, "{name}");

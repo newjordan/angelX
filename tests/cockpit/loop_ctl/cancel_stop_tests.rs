@@ -49,14 +49,19 @@ fn retired_worker_approval_is_denied_even_with_blanket_approval_enabled() {
             app.approval_rx = inbox_rx;
             let (reply, answer) = std::sync::mpsc::channel();
             inbox_tx
-                .send(crate::approval::Request {
+                .send(crate::agent::approval::Request {
                     prompt: "retired worker requests a new action".into(),
-                    scope: crate::approval::ApprovalScope::RemoteHost("owned.invalid".into()),
+                    scope: crate::agent::approval::ApprovalScope::RemoteHost(
+                        "owned.invalid".into(),
+                    ),
                     reply,
                 })
                 .unwrap();
             app.advance();
-            assert_eq!(answer.try_recv().unwrap(), crate::approval::Decision::Deny);
+            assert_eq!(
+                answer.try_recv().unwrap(),
+                crate::agent::approval::Decision::Deny
+            );
             assert!(app.pending_approval.is_none());
             assert!(
                 app.thinking.as_ref().is_some_and(
@@ -77,7 +82,7 @@ fn approval_for_live_foreground_or_background_owner_still_surfaces() {
         for background in [false, true] {
             let (mut app, held, _) = held_app(root);
             let (bg_reply, bg_job) =
-                crate::app_control::BackgroundJob::channel("owned approval", "retry");
+                crate::app::control::BackgroundJob::channel("owned approval", "retry");
             if background {
                 app.thinking = None; // held test channels have no actual worker
                 app.loop_ctl.status = LoopStatus::Stopped;
@@ -87,9 +92,9 @@ fn approval_for_live_foreground_or_background_owner_still_surfaces() {
             app.approval_rx = inbox_rx;
             let (reply, answer) = std::sync::mpsc::channel();
             inbox_tx
-                .send(crate::approval::Request {
+                .send(crate::agent::approval::Request {
                     prompt: "owned live action".into(),
-                    scope: crate::approval::ApprovalScope::SelfTest,
+                    scope: crate::agent::approval::ApprovalScope::SelfTest,
                     reply,
                 })
                 .unwrap();
@@ -103,9 +108,12 @@ fn approval_for_live_foreground_or_background_owner_still_surfaces() {
                 .take()
                 .unwrap()
                 .reply
-                .send(crate::approval::Decision::Deny)
+                .send(crate::agent::approval::Decision::Deny)
                 .unwrap();
-            assert_eq!(answer.recv().unwrap(), crate::approval::Decision::Deny);
+            assert_eq!(
+                answer.recv().unwrap(),
+                crate::agent::approval::Decision::Deny
+            );
             drop((held, bg_reply));
         }
     });

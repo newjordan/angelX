@@ -1,4 +1,4 @@
-use crate::harness::RenderedOutputAcceptance;
+use crate::agent::harness::RenderedOutputAcceptance;
 #[test]
 fn task_mode_parses_sealed_profile_and_rejects_unknown_or_duplicate() {
     let args = parse_task_args(
@@ -25,7 +25,7 @@ fn task_mode_parses_sealed_profile_and_rejects_unknown_or_duplicate() {
 }
 
 use super::*;
-use crate::tools::work_landing::{Visibility, WorkContext};
+use crate::agent::tools::work_landing::{Visibility, WorkContext};
 
 #[test]
 fn authority_profile_task_envelope_reports_full_and_guarded_startup() {
@@ -44,16 +44,16 @@ fn authority_profile_task_envelope_reports_full_and_guarded_startup() {
         assert_eq!(value["authority_profile"]["profile"], expected);
         assert_eq!(
             value["authority_profile"]["text"],
-            crate::authority_profile::active(true).text
+            crate::platform::authority_profile::active(true).text
         );
     }
 }
 
 #[test]
 fn task_usage_serializes_partial_zero_and_cache_only_without_fabrication() {
-    let cell = crate::club::AccountingCell::default();
+    let cell = crate::agent::club::AccountingCell::default();
     let before = cell.view();
-    cell.record(Some(crate::club::UsageObservation {
+    cell.record(Some(crate::agent::club::UsageObservation {
         raw: [Some(0), None, None, Some(0), None],
         ..Default::default()
     }));
@@ -68,7 +68,7 @@ fn task_usage_serializes_partial_zero_and_cache_only_without_fabrication() {
     );
     assert_eq!(value["core_complete"], false);
     let before = cell.view();
-    cell.record(Some(crate::club::UsageObservation {
+    cell.record(Some(crate::agent::club::UsageObservation {
         raw: [None, None, None, Some(80), None],
         ..Default::default()
     }));
@@ -175,7 +175,7 @@ fn warm_start_fixture(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
 fn seed_dossier(dir: &Path, workspace: &Path) {
     // Dossiers are repository-scoped, including when a fixture directory
     // lives beneath a checkout rather than in a Git-free system temp dir.
-    let key = crate::workspace_store::repo_identity(workspace).key;
+    let key = crate::platform::workspace_store::repo_identity(workspace).key;
     std::fs::write(
         dir.join(format!("{key}.json")),
         serde_json::to_string(&dossier_artifact()).unwrap(),
@@ -192,7 +192,7 @@ fn seed_work_context(dir: &Path, workspace: &Path, confirmed: bool) {
         confirmed,
         updated_at: 1_783_300_000,
     };
-    crate::tools::work_landing::save_context_in(dir, workspace, &ctx).unwrap();
+    crate::agent::tools::work_landing::save_context_in(dir, workspace, &ctx).unwrap();
 }
 
 /// The headless seat gets the dossier the TUI gets — confident facts asserted,
@@ -206,7 +206,7 @@ fn task_warm_start_injects_the_confidence_gated_dossier() {
 
     let block = task_warm_start(&workspace);
     assert!(
-        block.contains(crate::dossier::DOSSIER_BLOCK_HEADER),
+        block.contains(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER),
         "warm start must carry the dossier block: {block}"
     );
     // S05: memory recall now crosses the evidence fence; the dossier's own
@@ -214,7 +214,7 @@ fn task_warm_start_injects_the_confidence_gated_dossier() {
     assert!(
         block
             .trim_end()
-            .ends_with(crate::evidence::EVIDENCE_FENCE_SENTINEL)
+            .ends_with(crate::knowledge::evidence::EVIDENCE_FENCE_SENTINEL)
     );
     // The confident ritual and trap are asserted...
     assert!(block.contains("test: `cargo test --quiet`"), "{block}");
@@ -665,7 +665,7 @@ fn task_treebeard_auto_enables_for_long_headless_when_lane_unset() {
     unsafe { std::env::set_var("ANGEL_TASK_TREEBEARD", "auto") };
     maybe_apply_task_treebeard_lane();
     assert!(std::env::var_os("ANGEL_LANE").is_none());
-    assert!(crate::harness::is_treebeard());
+    assert!(crate::agent::harness::is_treebeard());
 
     // always forces regardless of hops.
     // TODO: Audit that the environment access only happens in single-threaded code.
@@ -845,17 +845,16 @@ fn formation_budget_envelope_reports_over_allocation_without_stopping_answer() {
     let _lock = crate::tests::env_lock();
     let budget = super::super::formation_budget::Budget::new(Some(10), None);
     let _scope = super::super::formation_budget::enter(Some(budget.clone()));
-    budget
-        .reserve("coordinator", 20, 20)
-        .unwrap()
-        .settle(Some(crate::club::UsageObservation {
+    budget.reserve("coordinator", 20, 20).unwrap().settle(Some(
+        crate::agent::club::UsageObservation {
             raw: [Some(20), Some(20), Some(0), Some(0), Some(0)],
-            contract: crate::club::UsageContract {
-                cache: crate::club::CacheConvention::Included,
-                reasoning: crate::club::ReasoningConvention::Included,
+            contract: crate::agent::club::UsageContract {
+                cache: crate::agent::club::CacheConvention::Included,
+                reasoning: crate::agent::club::ReasoningConvention::Included,
             },
             ..Default::default()
-        }));
+        },
+    ));
     let envelope = TaskJsonEnvelope::new(
         TaskJsonContext {
             task_id: None,
@@ -872,7 +871,7 @@ fn formation_budget_envelope_reports_over_allocation_without_stopping_answer() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         "completed",
         "answer",
@@ -1002,7 +1001,7 @@ fn task_json_serializes_truthful_stop_metadata_and_omits_unknowns() {
             )),
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         TurnOutcome {
             stop_notice: None,
@@ -1103,7 +1102,7 @@ fn task_json_serializes_truthful_stop_metadata_and_omits_unknowns() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         TurnFailure {
             message: "guard reached".to_string(),
@@ -1158,7 +1157,7 @@ fn serialize_acceptance(acceptance: TaskAcceptanceTelemetry) -> serde_json::Valu
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         TurnOutcome {
             stop_notice: None,
@@ -1201,8 +1200,8 @@ fn task_json_keeps_unit_build_distinct_from_rendered_output_acceptance() {
 
 #[test]
 fn public_task_json_preserves_unverified_rendered_without_accept_cmd() {
-    use crate::club::Club;
-    use crate::harness::{
+    use crate::agent::club::Club;
+    use crate::agent::harness::{
         ChatMsg, TaskRolloutBindingV1, ToolRegistry, TurnStopReason, run_task_turn_observed,
     };
     use std::sync::atomic::AtomicBool;
@@ -1236,10 +1235,10 @@ fn public_task_json_preserves_unverified_rendered_without_accept_cmd() {
     let binding = TaskRolloutBindingV1::new(
         Some("public-rendered".into()),
         Some("run-1".into()),
-        crate::cut::sha256_hex(b"Say done when finished."),
-        crate::cut::sha256_hex(b"runtime"),
+        crate::knowledge::cut::sha256_hex(b"Say done when finished."),
+        crate::knowledge::cut::sha256_hex(b"runtime"),
         "fixture".into(),
-        crate::cut::sha256_hex(b"source"),
+        crate::knowledge::cut::sha256_hex(b"source"),
     );
     let (tx, _rx) = mpsc::channel();
     let outcome = run_task_turn_observed(
@@ -1271,7 +1270,7 @@ fn public_task_json_preserves_unverified_rendered_without_accept_cmd() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         outcome,
         &history,
@@ -1327,7 +1326,7 @@ fn public_task_json_preserves_unverified_rendered_without_accept_cmd() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         outcome,
         &history,
@@ -1349,7 +1348,7 @@ fn lifecycle_task_envelope_kill_reasons_preserve_recorded_answer() {
         ("answer", "answer"),
     ] {
         let mut tool = serde_json::json!({"tool":"proc_run", "proc_id":17});
-        crate::sandbox::process_owner::KillReceipt::new(Some(15), expected, "turn_owner")
+        crate::agent::sandbox::process_owner::KillReceipt::new(Some(15), expected, "turn_owner")
             .apply(&mut tool);
         let ctx = TaskJsonContext {
             task_id: None,
@@ -1366,7 +1365,7 @@ fn lifecycle_task_envelope_kill_reasons_preserve_recorded_answer() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         };
         let envelope = TaskJsonEnvelope::new(
             ctx,
@@ -1397,7 +1396,7 @@ fn lifecycle_task_envelope_kill_reasons_preserve_recorded_answer() {
 fn task_json_carries_the_tool_ledger_only_when_calls_ran() {
     let mut value = serde_json::to_value(TaskJsonEnvelope {
         stop_notice: None,
-        authority_profile: crate::authority_profile::active(true),
+        authority_profile: crate::platform::authority_profile::active(true),
         sandbox_profile: "ordinary",
         formation_budget: None,
         budget_exhausted: false,
@@ -1439,7 +1438,7 @@ fn task_json_carries_the_tool_ledger_only_when_calls_ran() {
         usage: None,
         session_id: None,
         artifacts: Vec::new(),
-        memory_health: crate::caddy::StoreHealthSummary::default(),
+        memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         graph_episode_id: None,
         graph_episodes: None,
         graph_episode_list: Vec::new(),
@@ -1496,7 +1495,7 @@ fn task_json_serializes_timing_block_keys() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         TurnOutcome {
             stop_notice: None,
@@ -1558,7 +1557,7 @@ fn task_json_serializes_timing_block_keys() {
 #[test]
 fn runtime_missing_task_envelope_is_structured_and_recovery_clears_it() {
     let _env = crate::tests::env_lock();
-    let error = crate::tools::runtime_missing::RuntimeMissing::new("cargo", "PATH").encode();
+    let error = crate::agent::tools::runtime_missing::RuntimeMissing::new("cargo", "PATH").encode();
     let mut tools = vec![serde_json::json!({
         "tool": "run_tests", "error": format!("tool error: {error}"),
     })];
@@ -1582,7 +1581,7 @@ fn runtime_missing_task_envelope_is_structured_and_recovery_clears_it() {
                 runtime: None,
                 session_id: None,
                 artifacts: Vec::new(),
-                memory_health: crate::caddy::StoreHealthSummary::default(),
+                memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
             },
             "completed",
             "answer",

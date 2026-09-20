@@ -20,7 +20,7 @@ fn native_usage_contract_fixture_rows() -> Vec<Value> {
             let mut attempt = StreamUsageCommit::new(&club);
             for frame in frames.as_array().unwrap() { attempt.observe(frame); }
         }
-        let usage = serde_json::to_value(crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap()).unwrap();
+        let usage = serde_json::to_value(crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap()).unwrap();
         for (key, expected) in case["expected"].as_object().unwrap() {
             assert_eq!(&usage[key], expected, "{}: {key}", case["name"]);
         }
@@ -85,7 +85,7 @@ fn native_usage_contract_fixture_export() {
         assert_eq!(usage["reasoning"], 1733);
         assert_eq!(usage["generation_output"], Value::Null);
         let row = json!({"name":"recorded-glm-paid-aggregate", "origin":"recorded-native-task-aggregate",
-            "source_path":path, "source_sha256":crate::cut::sha256_hex(&bytes),
+            "source_path":path, "source_sha256":crate::knowledge::cut::sha256_hex(&bytes),
             "producer_path":"original native task envelope; copied usage unchanged; not reparsed as one wire attempt",
             "expected_normalized":[264209, null, 1733], "usage":usage});
         println!(

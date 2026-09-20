@@ -30,7 +30,7 @@ fn git_fixture(name: &str, contents: &[u8]) -> PathBuf {
 #[test]
 fn evaluator_execution_spec_is_structured_and_drift_sensitive() {
     let fixture_root = git_fixture("drift", b"fixture-v1");
-    let inventory = crate::cut::sha256_hex(b"two-tests");
+    let inventory = crate::knowledge::cut::sha256_hex(b"two-tests");
     let true_tool = std::fs::canonicalize("/usr/bin/true").unwrap();
     let command = format!("{} outcome", true_tool.display());
     let inventory_command = format!("{} inventory", true_tool.display());
@@ -79,7 +79,7 @@ fn evaluator_execution_spec_is_structured_and_drift_sensitive() {
     );
     assert_eq!(
         first.fixture_sha256,
-        crate::harness::workspace_evidence_sha256(&fixture_root).unwrap()
+        crate::agent::harness::workspace_evidence_sha256(&fixture_root).unwrap()
     );
     assert_eq!(first.expected_inventory_sha256, inventory);
     assert_eq!(first.parser_contract, "technical-pass/v1");
@@ -190,7 +190,7 @@ fn evaluator_inventory_requires_exact_sorted_test_ids() {
     let canonical = b"case-a::test_one\ncase-b::test_two\n";
     assert_eq!(
         canonical_inventory(canonical).unwrap().sha256,
-        crate::cut::sha256_hex(canonical)
+        crate::knowledge::cut::sha256_hex(canonical)
     );
     for changed in [
         b"case-a::test_one\n".as_slice(),
@@ -224,7 +224,7 @@ fn evaluator_outcome_requires_exact_executed_test_ids() {
     assert_eq!(outcome.failed, 1);
     assert_eq!(
         outcome.inventory_sha256,
-        crate::cut::sha256_hex(b"case-a::one\ncase-b::two\n")
+        crate::knowledge::cut::sha256_hex(b"case-a::one\ncase-b::two\n")
     );
 
     for invalid in [

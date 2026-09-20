@@ -122,9 +122,9 @@ fn failed_native_sandbox_stops_before_next_request_despite_successful_batch_peer
         fn call(&self, _: &Value) -> Result<String, String> {
             let mut command = std::process::Command::new("python3");
             command.args(["-c", "import os; fd=int(os.environ['ANGEL_INTERNAL_SANDBOX_STATUS_FD']); os.write(fd, b'{\"helper_error\":\"Landlock unavailable; run angel --doctor\",\"helper_phase\":\"landlock\",\"helper_exit\":1}'); os.close(fd); raise SystemExit(1)"]);
-            let channel = crate::sandbox::status::attach(&mut command).unwrap();
+            let channel = crate::agent::sandbox::status::attach(&mut command).unwrap();
             assert!(!command.status().unwrap().success());
-            crate::harness::exec::set_sandbox_receipt(channel.receive());
+            crate::agent::harness::exec::set_sandbox_receipt(channel.receive());
             Err("outer sandbox helper failed (exit 1)".into())
         }
     }
@@ -242,7 +242,7 @@ fn sandbox_fallback_notice_and_envelope_are_bound_to_the_call() {
             }
         }
         fn call(&self, _: &Value) -> Result<String, String> {
-            let cause = crate::sandbox::compatibility::classify(
+            let cause = crate::agent::sandbox::compatibility::classify(
                 true,
                 true,
                 true,
@@ -250,7 +250,7 @@ fn sandbox_fallback_notice_and_envelope_are_bound_to_the_call() {
                 "bwrap: setting up uid map: Permission denied",
             )
             .unwrap();
-            crate::harness::exec::set_sandbox_receipt(Some(json!({
+            crate::agent::harness::exec::set_sandbox_receipt(Some(json!({
                 "sandbox_profile":"landlock-only", "cause":cause.class(), "notice":cause.notice(), "aliases_copied":[], "aliases_unprotected":[]
             })));
             Ok("diagnostic command completed".into())
@@ -277,7 +277,7 @@ fn sandbox_fallback_notice_and_envelope_are_bound_to_the_call() {
     )
     .unwrap();
     assert_eq!(club.hops.load(Ordering::SeqCst), 2);
-    let ledger = crate::harness::trajectory::tool_ledger_snapshot();
+    let ledger = crate::agent::harness::trajectory::tool_ledger_snapshot();
     let shell = ledger.iter().find(|row| row["tool"] == "shell").unwrap();
     assert_eq!(shell["sandbox_profile"], "landlock-only");
     assert_eq!(shell["sandbox"]["cause"], "userns denied by AppArmor");
@@ -467,10 +467,10 @@ impl Club for MeteredMilestoneClub {
         }
     }
 
-    fn token_usage(&self) -> Option<crate::club::TokenUsage> {
+    fn token_usage(&self) -> Option<crate::agent::club::TokenUsage> {
         let turns = self.hops.load(Ordering::SeqCst) as u64;
         let total_input = self.total_input.load(Ordering::SeqCst);
-        Some(crate::club::TokenUsage {
+        Some(crate::agent::club::TokenUsage {
             turns,
             last_input: u64::from(turns > 0) * 600_000,
             total_input,
@@ -763,7 +763,7 @@ fn run_turn_records_each_real_policy_call_in_order_when_local_capture_is_enabled
     .unwrap();
     assert_eq!(answer, "done: olleh");
 
-    let repo_key = crate::workspace_store::repo_identity(reg.current_workspace()).key;
+    let repo_key = crate::platform::workspace_store::repo_identity(reg.current_workspace()).key;
     let runs = output.join(repo_key).join("runs");
     let run_dir = std::fs::read_dir(&runs)
         .unwrap()
@@ -830,7 +830,7 @@ fn required_rollout_returns_the_exact_sealed_rollout_id() {
     let rollout_id = outcome.rollout_id.expect("required capture returns an id");
     assert!(rollout_id.starts_with("rol-"), "{rollout_id}");
 
-    let repo_key = crate::workspace_store::repo_identity(reg.current_workspace()).key;
+    let repo_key = crate::platform::workspace_store::repo_identity(reg.current_workspace()).key;
     assert!(
         output
             .join(repo_key)
@@ -1204,7 +1204,7 @@ fn post_edit_diagnostics_cover_patch_targets_filter_noise_and_hard_cap_output() 
     let args = serde_json::json!({
         "diff": "*** Begin Patch\n*** Update File: src/c.rs\n@@\n-old\n+new-c\n*** Update File: src/a.rs\n@@\n-old\n+new-a\n*** Update File: src/b.rs\n@@\n-old\n+new-b\n*** End Patch"
     });
-    let targets = crate::cut::mutation_targets("apply_patch", &args);
+    let targets = crate::knowledge::cut::mutation_targets("apply_patch", &args);
     assert_eq!(
         targets.len(),
         3,
@@ -1400,12 +1400,12 @@ fn run_turn_default_provider_budget_recovers_a_transient_failure_in_hop() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
                 return Err("provider returned empty stdout".to_string());
             }
-            on_delta(crate::club::StreamDelta::Content("recovered"));
+            on_delta(crate::agent::club::StreamDelta::Content("recovered"));
             Ok(ClubReply::Text("recovered".to_string()))
         }
     }
@@ -1498,13 +1498,13 @@ fn run_turn_default_retries_ride_out_more_cuts_than_the_old_implicit_one() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             if self.calls.fetch_add(1, Ordering::SeqCst) < 4 {
-                on_delta(crate::club::StreamDelta::Content("discard-partial"));
-                return Err(crate::club::INCOMPLETE_STREAM_ERR.to_string());
+                on_delta(crate::agent::club::StreamDelta::Content("discard-partial"));
+                return Err(crate::agent::club::INCOMPLETE_STREAM_ERR.to_string());
             }
-            on_delta(crate::club::StreamDelta::Content("recovered"));
+            on_delta(crate::agent::club::StreamDelta::Content("recovered"));
             Ok(ClubReply::Text("recovered after four cuts".to_string()))
         }
     }
@@ -1581,17 +1581,19 @@ fn run_turn_retries_a_bare_transport_stall_after_partial_prose() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
-                on_delta(crate::club::StreamDelta::Content("stalled partial prose"));
+                on_delta(crate::agent::club::StreamDelta::Content(
+                    "stalled partial prose",
+                ));
                 return Err(
                     "stream stalled: server kept the connection alive but sent no data \
                      for 60s (bound: ANGEL_STREAM_STALL_SECS)"
                         .to_string(),
                 );
             }
-            on_delta(crate::club::StreamDelta::Content("recovered"));
+            on_delta(crate::agent::club::StreamDelta::Content("recovered"));
             Ok(ClubReply::Text("recovered".to_string()))
         }
     }
@@ -1665,7 +1667,7 @@ fn run_turn_explicit_zero_provider_retries_fails_with_the_real_reason() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Err("transient transport failure".to_string())
@@ -1729,16 +1731,16 @@ fn run_turn_partial_tool_call_is_never_dispatched_twice() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             match self.calls.fetch_add(1, Ordering::SeqCst) {
                 // The transport's discard error: prose plus a half-assembled
                 // call that must never reach the registry.
                 0 => {
-                    on_delta(crate::club::StreamDelta::Content("discard-partial"));
+                    on_delta(crate::agent::club::StreamDelta::Content("discard-partial"));
                     Err(format!(
                         "{}; incomplete tool call discarded",
-                        crate::club::INCOMPLETE_STREAM_ERR
+                        crate::agent::club::INCOMPLETE_STREAM_ERR
                     ))
                 }
                 1 => Ok(ClubReply::Calls(vec![tc(
@@ -1842,7 +1844,7 @@ fn run_turn_permanent_error_with_stall_context_is_not_retried() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Err(MIXED.to_string())
@@ -1908,26 +1910,26 @@ fn run_turn_stream_cut_replay_preserves_completed_tool_work() {
             messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.requests
                 .lock()
                 .unwrap()
-                .push(json!(crate::club::messages_to_json(messages, true)));
+                .push(json!(crate::agent::club::messages_to_json(messages, true)));
             match self.calls.fetch_add(1, Ordering::SeqCst) {
                 0 => Ok(ClubReply::Calls(vec![tc(
                     "reverse",
                     json!({"text":"kept"}),
                 )])),
                 1 => {
-                    on_delta(crate::club::StreamDelta::Content("cut mid-answer"));
+                    on_delta(crate::agent::club::StreamDelta::Content("cut mid-answer"));
                     Err(format!(
                         "{}: stream read error",
-                        crate::club::INCOMPLETE_STREAM_ERR
+                        crate::agent::club::INCOMPLETE_STREAM_ERR
                     ))
                 }
                 _ => {
-                    on_delta(crate::club::StreamDelta::Content("final"));
+                    on_delta(crate::agent::club::StreamDelta::Content("final"));
                     Ok(ClubReply::Text("final".into()))
                 }
             }
@@ -2010,7 +2012,7 @@ fn run_turn_cancel_during_provider_backoff_does_not_open_another_request() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Err("transient transport failure".to_string())
@@ -2078,7 +2080,7 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             Err(self.error.to_string())
@@ -2179,7 +2181,7 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
             messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             match self.calls.fetch_add(1, Ordering::SeqCst) {
                 0 => Err("club returned an empty reply (no text and no tool calls)".to_string()),
@@ -2191,7 +2193,7 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
                         }),
                         Ordering::SeqCst,
                     );
-                    on_delta(crate::club::StreamDelta::Content("recovered"));
+                    on_delta(crate::agent::club::StreamDelta::Content("recovered"));
                     Ok(ClubReply::Text("recovered".to_string()))
                 }
             }
@@ -2265,7 +2267,7 @@ fn run_turn_compacts_and_rebuilds_once_after_provider_context_overflow() {
             messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
                 return Err(
@@ -2277,7 +2279,7 @@ fn run_turn_compacts_and_rebuilds_once_after_provider_context_overflow() {
             assert!(
                 messages.iter().any(|message| message
                     .content
-                    .starts_with(crate::compaction::COMPACTION_NOTE_HEADER)),
+                    .starts_with(crate::agent::compaction::COMPACTION_NOTE_HEADER)),
                 "retry must use rebuilt compacted history"
             );
             assert_eq!(
@@ -2302,7 +2304,7 @@ fn run_turn_compacts_and_rebuilds_once_after_provider_context_overflow() {
                 1,
                 "forced recovery must retain current plan state once, in Assistant role"
             );
-            on_delta(crate::club::StreamDelta::Content("recovered"));
+            on_delta(crate::agent::club::StreamDelta::Content("recovered"));
             Ok(ClubReply::Text("recovered".into()))
         }
     }
@@ -2322,7 +2324,7 @@ fn run_turn_compacts_and_rebuilds_once_after_provider_context_overflow() {
             "overflow-plan",
             format!(
                 "{}{}",
-                crate::tools::plan::TODO_STATE_PREFIX,
+                crate::agent::tools::plan::TODO_STATE_PREFIX,
                 serde_json::json!({
                     "next_id":1,
                     "items":[{"id":1,"text":ACTIVE_PLAN,"done":false}],
@@ -2400,13 +2402,15 @@ fn run_turn_retries_after_reasoning_only_then_provider_failure() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
-                on_delta(crate::club::StreamDelta::Reasoning("partial reasoning"));
+                on_delta(crate::agent::club::StreamDelta::Reasoning(
+                    "partial reasoning",
+                ));
                 return Err("stream reset after reasoning".to_string());
             }
-            on_delta(crate::club::StreamDelta::Content("recovered"));
+            on_delta(crate::agent::club::StreamDelta::Content("recovered"));
             Ok(ClubReply::Text("recovered".to_string()))
         }
     }
@@ -2457,7 +2461,7 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
     // the turn being interrupted.
     struct MidRunSteerClub {
         hops: AtomicUsize,
-        steers: Arc<crate::steer::SteerQueue>,
+        steers: Arc<crate::agent::steer::SteerQueue>,
     }
     impl Club for MidRunSteerClub {
         fn respond(&self, _p: &str) -> Result<String, String> {
@@ -2477,7 +2481,8 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
                 }]))
             } else {
                 let steered = messages.iter().any(|m| {
-                    m.role == ChatRole::Harness && m.content.as_ref() == crate::steer::STEER_CONTEXT
+                    m.role == ChatRole::Harness
+                        && m.content.as_ref() == crate::agent::steer::STEER_CONTEXT
                 }) && messages.iter().any(|m| {
                     m.role == ChatRole::User && m.content.as_ref() == "also check the tests"
                 });
@@ -2486,7 +2491,7 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
         }
     }
 
-    let steers = Arc::new(crate::steer::SteerQueue::default());
+    let steers = Arc::new(crate::agent::steer::SteerQueue::default());
     let club = MidRunSteerClub {
         hops: AtomicUsize::new(0),
         steers: Arc::clone(&steers),
@@ -2512,7 +2517,7 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
     let context_at = history
         .iter()
         .position(|m| {
-            m.role == ChatRole::Harness && m.content.as_ref() == crate::steer::STEER_CONTEXT
+            m.role == ChatRole::Harness && m.content.as_ref() == crate::agent::steer::STEER_CONTEXT
         })
         .expect("Harness steer context lands in history");
     let steer_at = history
@@ -3896,7 +3901,7 @@ fn competition_tool_prose_does_not_claim_watcher_ownership_or_suppress_status() 
         fn call(&self, args: &Value) -> Result<String, String> {
             self.calls.fetch_add(1, Ordering::Relaxed);
             if self.name == "shell"
-                && crate::tools::shell::shell_command_arg(args)
+                && crate::agent::tools::shell::shell_command_arg(args)
                     .is_some_and(|command| command.contains("submit"))
             {
                 Ok("Submission queued 11111111-2222-4333-8444-555555555555".into())
@@ -4045,7 +4050,7 @@ fn run_turn_suppresses_exact_repeated_inspection_before_next_request() {
     std::fs::write(root.join("Cargo.toml"), manifest).unwrap();
     let mut registry = ToolRegistry::new();
     registry.set_workspace(root.clone());
-    registry.register(Box::new(crate::tools::file::ReadFileTool {
+    registry.register(Box::new(crate::agent::tools::file::ReadFileTool {
         root: root.clone(),
     }));
 
@@ -5003,7 +5008,7 @@ fn apply_patch_classify_skips_hunk_bodies() {
         }),
     };
     assert_eq!(
-        crate::cut::mutation_targets("apply_patch", &call.args),
+        crate::knowledge::cut::mutation_targets("apply_patch", &call.args),
         vec!["src/kernel.cu".to_string()]
     );
     assert!(mutation_call_has_product_path(&call));
@@ -6014,7 +6019,7 @@ fn final_mile_answer_window_retains_tools_before_max_hops() {
                     name: "str_replace".into(),
                     args: serde_json::json!({"path":"src/lib.rs","old":"a","new":"b"}),
                 }])),
-                _ if crate::club::final_response_requested(messages) => Ok(ClubReply::Text(
+                _ if crate::agent::club::final_response_requested(messages) => Ok(ClubReply::Text(
                     "final answer from the bounded response window".into(),
                 )),
                 call => Ok(ClubReply::Calls(vec![ToolCall {
@@ -6108,7 +6113,7 @@ fn final_mile_headless_answer_reports_unfinished_background_work() {
                     },
                 ]));
             }
-            assert!(crate::club::final_response_requested(messages));
+            assert!(crate::agent::club::final_response_requested(messages));
             assert!(
                 messages
                     .iter()
@@ -6119,7 +6124,7 @@ fn final_mile_headless_answer_reports_unfinished_background_work() {
                 std::fs::write(self.workspace.join("release"), "go").unwrap();
                 let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
                 loop {
-                    if crate::tools::proc::take_completions(self.workspace, 8)
+                    if crate::agent::tools::proc::take_completions(self.workspace, 8)
                         .iter()
                         .any(|notice| notice.exit_code == Some(0))
                     {
@@ -6140,7 +6145,7 @@ fn final_mile_headless_answer_reports_unfinished_background_work() {
             name: "str_replace",
             calls: Arc::new(AtomicUsize::new(0)),
         }));
-        registry.register(Box::new(crate::tools::proc::ProcRunTool::in_dir(
+        registry.register(Box::new(crate::agent::tools::proc::ProcRunTool::in_dir(
             root.clone(),
         )));
         let binding = TaskRolloutBindingV1::new(
@@ -6359,17 +6364,17 @@ fn turn_deadline_cancels_an_in_flight_provider_without_retrying_it() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.partial {
-                on_delta(crate::club::StreamDelta::Content("unfinished"));
+                on_delta(crate::agent::club::StreamDelta::Content("unfinished"));
             }
             for _ in 0..1_000 {
                 if cancel.load(Ordering::Acquire) {
                     self.observed_cancel.store(true, Ordering::Release);
                     return Err(if self.partial {
-                        format!("{} cancelled", crate::club::INCOMPLETE_STREAM_ERR)
+                        format!("{} cancelled", crate::agent::club::INCOMPLETE_STREAM_ERR)
                     } else {
                         "provider request cancelled".into()
                     });
@@ -6477,14 +6482,17 @@ fn run_turn_cancelled_partial_stream_is_an_interrupt_without_retry() {
             _: &[ChatMsg],
             _: &[ToolDef],
             cancel: &AtomicBool,
-            on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.calls.fetch_add(1, Ordering::SeqCst);
-            on_delta(crate::club::StreamDelta::Content("unfinished"));
+            on_delta(crate::agent::club::StreamDelta::Content("unfinished"));
             self.operator_cancel.store(true, Ordering::Release);
             for _ in 0..1_000 {
                 if cancel.load(Ordering::Acquire) {
-                    return Err(format!("{} cancelled", crate::club::INCOMPLETE_STREAM_ERR));
+                    return Err(format!(
+                        "{} cancelled",
+                        crate::agent::club::INCOMPLETE_STREAM_ERR
+                    ));
                 }
                 std::thread::sleep(Duration::from_millis(5));
             }
@@ -7981,9 +7989,9 @@ fn sustained_reasoning_preserves_selected_effort_unless_operator_sets_a_budget()
                 Ok(ClubReply::Text("done".into()))
             }
         }
-        fn token_usage(&self) -> Option<crate::club::TokenUsage> {
+        fn token_usage(&self) -> Option<crate::agent::club::TokenUsage> {
             let turns = self.hops.load(Ordering::SeqCst) as u64;
-            Some(crate::club::TokenUsage {
+            Some(crate::agent::club::TokenUsage {
                 turns,
                 last_reasoning: if turns > 0 { 40_000 } else { 0 },
                 total_reasoning: turns * 40_000,
@@ -8020,8 +8028,8 @@ fn sustained_reasoning_preserves_selected_effort_unless_operator_sets_a_budget()
 
 #[test]
 fn adaptive_reasoning_effort_downgrades_on_clean_execution_and_escalates_on_friction() {
-    use crate::club::Club;
-    use crate::harness::turn::resolve_adaptive_reasoning_effort;
+    use crate::agent::club::Club;
+    use crate::agent::harness::turn::resolve_adaptive_reasoning_effort;
 
     struct MockReasoningClub {
         levels: Vec<String>,
@@ -8248,7 +8256,7 @@ fn provider_recovery_configured_failover_is_named_in_envelope() {
     registry.set_workspace(root.clone());
     let primary: Arc<dyn Club> = Arc::new(Primary(AtomicUsize::new(0)));
     primary.bind_run_identity(None).unwrap();
-    let club = crate::club::FallbackClub::new(vec![primary, Arc::new(Secondary)]);
+    let club = crate::agent::club::FallbackClub::new(vec![primary, Arc::new(Secondary)]);
     let mut history = vec![ChatMsg::user("Read the fixture, then answer")];
     let outcome = run_turn_observed(
         &club,
@@ -8277,7 +8285,7 @@ fn provider_recovery_configured_failover_is_named_in_envelope() {
             runtime: None,
             session_id: None,
             artifacts: Vec::new(),
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         outcome,
         &history,
@@ -8461,7 +8469,7 @@ fn provider_death_fixture_with_transport(
             write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}").unwrap();
         }
     });
-    let club = crate::club::HttpClub::new(
+    let club = crate::agent::club::HttpClub::new(
         if local { "r01-scripted" } else { "glm" },
         format!("http://{address}"),
         "glm-5.3-flash",
@@ -8562,7 +8570,7 @@ fn provider_death_fixture_with_transport(
                 runtime: None,
                 session_id: None,
                 artifacts: Vec::new(),
-                memory_health: crate::caddy::StoreHealthSummary::default(),
+                memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
             },
             failure,
         );
@@ -8606,7 +8614,7 @@ fn provider_death_fixture_with_transport(
         usize::from(death.is_some()),
         "only the completed first hop may execute a tool"
     );
-    let repo = crate::workspace_store::repo_identity(registry.current_workspace()).key;
+    let repo = crate::platform::workspace_store::repo_identity(registry.current_workspace()).key;
     let manifest_path = store
         .join(repo)
         .join("runs")
@@ -9024,12 +9032,10 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             })
             .collect();
         assert_eq!(notices.len(), escalations.len());
-        assert!(
-            notices
-                .iter()
-                .all(|n| crate::views::turn_event_view::notice_coalesce_key(n)
-                    == Some("unproductive-streak"))
-        );
+        assert!(notices.iter().all(
+            |n| crate::ui::views::turn_event_view::notice_coalesce_key(n)
+                == Some("unproductive-streak")
+        ));
         if stopped {
             assert!(outcome.answer.contains("16 consecutive unproductive hops"));
             let tools = trajectory::tool_ledger_snapshot();
@@ -9057,7 +9063,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
                 runtime: None,
                 session_id: None,
                 artifacts: Vec::new(),
-                memory_health: crate::caddy::StoreHealthSummary::default(),
+                memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
             },
             outcome,
             &history,
@@ -9315,7 +9321,10 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
                 || answer.starts_with("**No evidence exists")
                 || answer.starts_with("The corpus contains no evidence")
             {
-                assert_eq!(outcome.answer, crate::harness::turn::research::DISCLOSURE);
+                assert_eq!(
+                    outcome.answer,
+                    crate::agent::harness::turn::research::DISCLOSURE
+                );
                 assert!(!outcome.answer.contains("https://"));
                 assert_eq!(history.last().unwrap().content.as_ref(), outcome.answer);
             } else {
@@ -9396,7 +9405,7 @@ fn run_turn_research_task_mode_boundary_envelopes_keep_drafts() {
                 runtime: None,
                 session_id: None,
                 artifacts: Vec::new(),
-                memory_health: crate::caddy::StoreHealthSummary::default(),
+                memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
             },
             outcome,
             &history,
@@ -9468,12 +9477,15 @@ fn run_turn_research_compose_search_loops_decline_early_and_wall() {
         }
         fn chat(&self, history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.hop.fetch_add(1, Ordering::SeqCst);
-            let compose = history
-                .last()
-                .is_some_and(|m| m.content.as_ref() == crate::harness::turn::research::COMPOSE);
+            let compose = history.last().is_some_and(|m| {
+                m.content.as_ref() == crate::agent::harness::turn::research::COMPOSE
+            });
             if compose || (self.mode == "early" && hop == 2) {
                 self.composed.store(compose, Ordering::SeqCst);
-                assert_eq!(crate::club::final_response_requested(history), compose);
+                assert_eq!(
+                    crate::agent::club::final_response_requested(history),
+                    compose
+                );
                 let answer = if self.mode == "decline" || (self.mode == "repeat" && hop < 2) {
                     "Evidence is missing; I cite nothing."
                 } else {
@@ -9539,10 +9551,13 @@ fn run_turn_research_compose_search_loops_decline_early_and_wall() {
             assert!(
                 !history
                     .iter()
-                    .any(|m| m.content.as_ref() == crate::harness::turn::research::COMPOSE)
+                    .any(|m| m.content.as_ref() == crate::agent::harness::turn::research::COMPOSE)
             );
         } else if mode == "decline" {
-            assert_eq!(outcome.answer, crate::harness::turn::research::DISCLOSURE);
+            assert_eq!(
+                outcome.answer,
+                crate::agent::harness::turn::research::DISCLOSURE
+            );
         } else {
             assert_eq!(
                 outcome.answer, "42 [source](https://example.test/doc/1)",
@@ -9840,14 +9855,14 @@ fn run_turn_r06_stream_cut_budget_renews_on_each_hop() {
             history: &[ChatMsg],
             _: &[ToolDef],
             _: &AtomicBool,
-            delta: &mut dyn FnMut(crate::club::StreamDelta),
+            delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             let mut requests = self.requests.lock().unwrap();
-            requests.push(json!(crate::club::messages_to_json(history, true)));
+            requests.push(json!(crate::agent::club::messages_to_json(history, true)));
             match requests.len() {
                 1 | 3 => {
-                    delta(crate::club::StreamDelta::Content("discard-partial"));
-                    Err(crate::club::INCOMPLETE_STREAM_ERR.into())
+                    delta(crate::agent::club::StreamDelta::Content("discard-partial"));
+                    Err(crate::agent::club::INCOMPLETE_STREAM_ERR.into())
                 }
                 2 => Ok(ClubReply::Calls(vec![tc(
                     "reverse",
@@ -9929,7 +9944,7 @@ fn run_turn_research_at_wall_without_draft_does_not_compose() {
                 0,
                 "no request after the wall"
             );
-            assert!(!crate::club::final_response_requested(history));
+            assert!(!crate::agent::club::final_response_requested(history));
             std::thread::sleep(Duration::from_millis(1100));
             Ok(ClubReply::Calls(vec![ToolCall {
                 id: "late-search".into(),
@@ -9960,7 +9975,7 @@ fn run_turn_research_at_wall_without_draft_does_not_compose() {
     assert!(
         !history
             .iter()
-            .any(|m| m.content.as_ref() == crate::harness::turn::research::COMPOSE)
+            .any(|m| m.content.as_ref() == crate::agent::harness::turn::research::COMPOSE)
     );
     assert!(
         !history
@@ -10000,7 +10015,7 @@ fn run_turn_research_compose_rechecks_reservation_after_identity_binding() {
         }
         fn chat(&self, history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             self.requests.fetch_add(1, Ordering::SeqCst);
-            assert!(crate::club::final_response_requested(history));
+            assert!(crate::agent::club::final_response_requested(history));
             Ok(ClubReply::Text(
                 "Evidence is missing; I cite nothing.".into(),
             ))

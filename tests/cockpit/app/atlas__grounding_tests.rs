@@ -1,6 +1,6 @@
 use super::*;
-use crate::club::{ChatMsg, ChatRole};
-use crate::harness::ToolRegistry;
+use crate::agent::club::{ChatMsg, ChatRole};
+use crate::agent::harness::ToolRegistry;
 
 struct Fixture {
     root: PathBuf,
@@ -70,7 +70,7 @@ fn native_observation_review_restart_linked_retrieval_and_actual_read() {
     let source = observed.sources[0].clone();
     assert_eq!(
         source.digest,
-        crate::cut::sha256_hex(&std::fs::read(f.workspace.join(&source.id)).unwrap())
+        crate::knowledge::cut::sha256_hex(&std::fs::read(f.workspace.join(&source.id)).unwrap())
     );
     let atlas = registry.atlas();
     registry.dispatch("atlas", &json!({"action":"propose", "kind":"entity",
@@ -94,7 +94,7 @@ fn native_observation_review_restart_linked_retrieval_and_actual_read() {
     );
     assert!(lens.contains("src/quartz.rs:1"));
     assert!(lens.len() <= MAX_LENS_BYTES);
-    let candidates = crate::backplane::atlas_lens_candidates(&lens, atlas.project_key());
+    let candidates = crate::agent::backplane::atlas_lens_candidates(&lens, atlas.project_key());
     let code = candidates
         .iter()
         .find(|c| c.source_id == format!("atlas:{}", observed.id))
@@ -102,7 +102,7 @@ fn native_observation_review_restart_linked_retrieval_and_actual_read() {
     assert_eq!(code.epistemic_state, "observed");
     assert_eq!(
         code.authority,
-        crate::backplane::KnowledgeAuthority::Episodic
+        crate::agent::backplane::KnowledgeAuthority::Episodic
     );
     assert!(code.content.contains(&source.digest));
     // A real next action, chosen using the returned graph, crosses the native
@@ -229,7 +229,7 @@ fn broker_revalidation_removes_revoked_evidence_even_with_prefix_caching() {
         ChatMsg::system("stable system"),
         ChatMsg::user("crystalline"),
     ];
-    crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
     assert!(
         history
             .iter()
@@ -237,7 +237,7 @@ fn broker_revalidation_removes_revoked_evidence_even_with_prefix_caching() {
     );
     assert_eq!(history.last().unwrap().role, ChatRole::Harness);
     let previous = history.clone();
-    crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
     assert_eq!(
         serde_json::to_string(&history).unwrap(),
         serde_json::to_string(&previous).unwrap()
@@ -247,7 +247,7 @@ fn broker_revalidation_removes_revoked_evidence_even_with_prefix_caching() {
         "pub fn replacement() {}\n",
     )
     .unwrap();
-    crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
     assert!(
         !history
             .iter()
@@ -260,12 +260,12 @@ fn broker_revalidation_removes_revoked_evidence_even_with_prefix_caching() {
     let item = atlas
         .add_operator(AtlasKind::Fact, "crystalline revocable assertion")
         .unwrap();
-    crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
     assert!(history.iter().any(|m| m.content.contains(&item.content)));
     f.atlas()
         .reject(&item.id, "independent contradiction")
         .unwrap();
-    crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
     assert!(!history.iter().any(|m| m.content.contains(&item.content)));
 }
 
@@ -364,7 +364,13 @@ fn legacy_and_shadow_lenses_recheck_sources_between_tool_hops() {
             .observe_code("src/quartz.rs", None)
             .unwrap();
         let mut history = vec![ChatMsg::user("quartz")];
-        crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], false);
+        crate::agent::harness::refresh_knowledge_broker(
+            &registry,
+            &mut history,
+            120_000,
+            &[],
+            false,
+        );
         assert!(
             history
                 .iter()
@@ -372,7 +378,13 @@ fn legacy_and_shadow_lenses_recheck_sources_between_tool_hops() {
             "{mode}"
         );
         std::fs::remove_file(f.workspace.join("src/quartz.rs")).unwrap();
-        crate::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], false);
+        crate::agent::harness::refresh_knowledge_broker(
+            &registry,
+            &mut history,
+            120_000,
+            &[],
+            false,
+        );
         assert!(
             !history
                 .iter()

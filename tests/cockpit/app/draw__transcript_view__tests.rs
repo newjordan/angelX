@@ -5,26 +5,26 @@ fn delegate_status_renders_before_delegate_completion_without_child_process() {
     use std::sync::{Arc, atomic::AtomicBool};
     let _guard = crate::tests::env_lock();
     let mut app = App::preview(Viewer::static_preview());
-    app.thinking = Some(crate::turn::Thinking::pending_for_test("test"));
+    app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("test"));
     app.tool_strip.call_event(
-        crate::harness::ToolEventId("delegate".into()),
+        crate::agent::harness::ToolEventId("delegate".into()),
         "delegate",
         "test",
     );
     let cancel = Arc::clone(&app.thinking.as_ref().unwrap().cancel);
     let nested = AtomicBool::new(false);
-    let _link = crate::harness::link_child_owner(&nested, &cancel);
-    crate::harness::observe_delegate_turn(&nested, "test", |events| {
+    let _link = crate::agent::harness::link_child_owner(&nested, &cancel);
+    crate::agent::harness::observe_delegate_turn(&nested, "test", |events| {
         events
-            .send(crate::harness::TurnEvent::ToolCall {
-                id: crate::harness::ToolEventId("read".into()),
+            .send(crate::agent::harness::TurnEvent::ToolCall {
+                id: crate::agent::harness::ToolEventId("read".into()),
                 name: "shell".into(),
                 args_summary: "private arguments".into(),
             })
             .unwrap();
         let deadline = Instant::now() + Duration::from_secs(2);
         loop {
-            if crate::harness::owned_delegate_snapshot(Arc::as_ptr(&cancel) as usize)
+            if crate::agent::harness::owned_delegate_snapshot(Arc::as_ptr(&cancel) as usize)
                 .is_some_and(|state| state.calls == 1)
             {
                 break;
@@ -47,7 +47,9 @@ fn delegate_status_renders_before_delegate_completion_without_child_process() {
             "{text}"
         );
     });
-    assert!(crate::harness::owned_delegate_snapshot(Arc::as_ptr(&cancel) as usize).is_none());
+    assert!(
+        crate::agent::harness::owned_delegate_snapshot(Arc::as_ptr(&cancel) as usize).is_none()
+    );
 }
 
 #[test]
@@ -55,9 +57,9 @@ fn worker_status_renders_live_delegated_process_and_releases_after_cancel() {
     use std::sync::{Arc, atomic::Ordering};
     let _guard = crate::tests::env_lock();
     let mut app = App::preview(Viewer::static_preview());
-    app.thinking = Some(crate::turn::Thinking::pending_for_test("test"));
+    app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("test"));
     app.tool_strip.call_event(
-        crate::harness::ToolEventId("live-worker".into()),
+        crate::agent::harness::ToolEventId("live-worker".into()),
         "delegate",
         "local test",
     );
@@ -71,7 +73,7 @@ fn worker_status_renders_live_delegated_process_and_releases_after_cancel() {
     let stop = StopOnDrop(Arc::clone(&cancel));
     let worker_cancel = Arc::clone(&cancel);
     let worker = std::thread::spawn(move || {
-        crate::harness::run_sandboxed_observed_cancellable(
+        crate::agent::harness::run_sandboxed_observed_cancellable(
             "bash",
             &[
                 "--noprofile",
@@ -80,14 +82,14 @@ fn worker_status_renders_live_delegated_process_and_releases_after_cancel() {
                 "printf 'worker ready\\n'; while :; do :; done",
             ],
             None,
-            &crate::sandbox::SandboxPolicy::permissive(),
+            &crate::agent::sandbox::SandboxPolicy::permissive(),
             Some(&worker_cancel),
         )
     });
     let owner = Arc::as_ptr(&cancel) as usize;
     let deadline = Instant::now() + Duration::from_secs(10);
     let observed = loop {
-        if let Some(child) = crate::harness::owned_child_snapshot(owner)
+        if let Some(child) = crate::agent::harness::owned_child_snapshot(owner)
             && child.cpu_age_secs.is_some()
             && child.output_age_secs.is_some()
         {
@@ -115,7 +117,7 @@ fn worker_status_renders_live_delegated_process_and_releases_after_cancel() {
     );
     assert!(text.contains("CPU active"), "{text}");
     assert!(!text.contains("awaiting agents"), "{text}");
-    assert!(crate::harness::owned_child_snapshot(owner).is_none());
+    assert!(crate::agent::harness::owned_child_snapshot(owner).is_none());
 }
 use ratatui::{Terminal, backend::TestBackend};
 
@@ -256,12 +258,12 @@ fn default_core_composer_animates_and_explicit_reading_focus_pauses() {
     for ms in (1_600..=3_200).step_by(160) {
         assert_eq!(held, draw(&app, ms));
     }
-    app.focus_pane_module(crate::mouse::PaneId::Input);
+    app.focus_pane_module(crate::ui::mouse::PaneId::Input);
     for ms in (3_360..=3_840).step_by(160) {
         moving = draw(&app, ms);
     }
     assert_ne!(held, moving, "returning to the composer resumes the note");
-    app.focus_pane_module(crate::mouse::PaneId::Transcript);
+    app.focus_pane_module(crate::ui::mouse::PaneId::Transcript);
     let held = draw(&app, 4_000);
     assert_eq!(held, draw(&app, 4_160));
 }
@@ -304,7 +306,7 @@ fn composer_selection_pauses_strip_motion_but_keeps_activity_visible() {
     let mut app = App::preview(Viewer::static_preview());
     app.visual_motion = MotionMode::Full;
     app.module_host
-        .focus(&crate::runtime::ModuleId::new("artifacts"))
+        .focus(&crate::platform::runtime::ModuleId::new("artifacts"))
         .unwrap();
     app.input = "draft text".to_string();
     app.cursor = 5;
@@ -624,9 +626,9 @@ fn ambient_bar_survives_empty_idle_and_completed_turns() {
         })
         .unwrap();
     assert_eq!(off, row_text(&terminal, 1));
-    crate::comp_mode::set(true);
+    crate::drive::comp_mode::set(true);
     assert_eq!(tool_strip_height(&app, 10), 0);
-    crate::comp_mode::set(false);
+    crate::drive::comp_mode::set(false);
     app.transcript_mode = crate::app::TranscriptMode::Trace;
     assert_eq!(tool_strip_height(&app, 10), 0);
 }
@@ -689,8 +691,9 @@ fn chat_role_edges_and_unicode_copy_match_the_live_transcript_rectangle() {
         ];
         app.settle_transcript_spawns();
         let area = Rect::new(0, 0, width, 10);
-        let (body, rail) =
-            transcript_text_and_rail(hud_block(crate::views::status_view::agent_shell_title()).inner(area));
+        let (body, rail) = transcript_text_and_rail(
+            hud_block(crate::ui::views::status_view::agent_shell_title()).inner(area),
+        );
         let mut terminal = Terminal::new(TestBackend::new(width, 10)).unwrap();
         terminal
             .draw(|frame| render_transcript(frame, &mut app, area))
@@ -725,7 +728,7 @@ fn transcript_scrollbar_is_inside_the_border_and_reaches_both_ends() {
         .collect();
     app.settle_transcript_spawns();
     let area = Rect::new(0, 0, 32, 10);
-    let mut inner = hud_block(crate::views::status_view::agent_shell_title()).inner(area);
+    let mut inner = hud_block(crate::ui::views::status_view::agent_shell_title()).inner(area);
     inner.height -= tool_strip_height(&app, inner.height);
     let (body, rail) = transcript_text_and_rail(inner);
     let rail = rail.expect("normal transcript has a scroll rail");

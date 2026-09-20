@@ -21,7 +21,7 @@ fn unavailable_teacher_leaves_persisted_work_queued() {
     ));
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
-    let atlas = crate::atlas::AtlasService::open_in(&workspace, root.clone());
+    let atlas = crate::knowledge::atlas::AtlasService::open_in(&workspace, root.clone());
     atlas.enqueue_harvest("task", "answer", &[], &[]).unwrap();
     let worker = AtlasClerkWorker::shared(Arc::clone(&atlas));
     worker.tick(true, || None, Arc::new(BackplaneRegistry::default()));
@@ -41,7 +41,7 @@ fn panicking_teacher_releases_lease_and_recovers_scheduler_state() {
     ));
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
-    let atlas = crate::atlas::AtlasService::open_in(&workspace, root.clone());
+    let atlas = crate::knowledge::atlas::AtlasService::open_in(&workspace, root.clone());
     atlas.enqueue_harvest("task", "answer", &[], &[]).unwrap();
     let worker = AtlasClerkWorker::shared(Arc::clone(&atlas));
     let registry = Arc::new(BackplaneRegistry::default());

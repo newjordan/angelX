@@ -11,8 +11,8 @@
 //! *bit-identical* — same HEAD, same refs, empty status, no worktree residue.
 
 use super::*;
-use crate::harness::independence::{self, ChildFootprint};
-use crate::harness::spawn::SpawnTool;
+use crate::agent::harness::independence::{self, ChildFootprint};
+use crate::agent::harness::spawn::SpawnTool;
 use std::path::Path;
 
 fn git(root: &Path, args: &[&str]) -> String {
@@ -61,7 +61,7 @@ fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
     // commit of its own — the delegate's `prepare_delegate_worktree` path.
     for index in 0..children.len() {
         let worktree = worktrees.join(format!("c{index}"));
-        crate::harness::orchestrator::prepare_delegate_worktree(
+        crate::agent::harness::orchestrator::prepare_delegate_worktree(
             &repo,
             &worktree,
             &format!("angel/c{index}"),

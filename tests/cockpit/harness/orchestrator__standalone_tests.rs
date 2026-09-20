@@ -1,12 +1,12 @@
 #[test]
 fn delegate_token_accounting_does_not_charge_reasoning_twice() {
-    let before = crate::club::TokenUsage {
+    let before = crate::agent::club::TokenUsage {
         total_input: 100,
         total_output: 20,
         total_reasoning: 12,
         ..Default::default()
     };
-    let after = crate::club::TokenUsage {
+    let after = crate::agent::club::TokenUsage {
         total_input: 400,
         total_output: 80,
         total_reasoning: 50,

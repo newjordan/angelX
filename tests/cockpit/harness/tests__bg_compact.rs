@@ -14,7 +14,7 @@ fn bg_test_turn_context(label: &str) -> String {
     format!(
         "{}\n[operator-selected cockpit controls]\n- {label}\n\
          [/operator-selected cockpit controls]\n\n[/harness turn context]",
-        crate::app_control::TURN_CONTEXT_HEADER
+        crate::app::control::TURN_CONTEXT_HEADER
     )
 }
 
@@ -24,7 +24,9 @@ fn bg_compact_arms_and_splices_at_a_later_boundary() {
     let mut h = long_history();
     let n0 = h.len();
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("BG NOTES"))]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(
@@ -49,7 +51,7 @@ fn bg_compact_arms_and_splices_at_a_later_boundary() {
         ChatRole::Harness,
         "bg summary must use the internal background carrier"
     );
-    assert!(crate::compaction::is_compaction_note(note));
+    assert!(crate::agent::compaction::is_compaction_note(note));
     assert_eq!(
         &*h.last().unwrap().content,
         "assistant answer number 7 text here",
@@ -80,7 +82,7 @@ fn background_compaction_preserves_user_role_task_anchor() {
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(SummarizerClub(
         "## Task\n- lossy background summary",
     ))]);
@@ -116,7 +118,7 @@ fn background_compaction_preserves_exact_harness_turn_context() {
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(SummarizerClub(
         "## Task\n- lossy background summary",
     ))]);
@@ -130,7 +132,7 @@ fn background_compaction_preserves_exact_harness_turn_context() {
     }
     let contexts = history
         .iter()
-        .filter(|message| crate::app_control::is_turn_context_message(message))
+        .filter(|message| crate::app::control::is_turn_context_message(message))
         .collect::<Vec<_>>();
     assert_eq!(contexts.len(), 1);
     assert_eq!(contexts[0].role, ChatRole::Harness);
@@ -153,7 +155,7 @@ fn background_compaction_prefers_newer_surviving_turn_context() {
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(SummarizerClub(
         "## Task\n- stale background summary",
     ))]);
@@ -202,14 +204,18 @@ fn background_compaction_preserves_assistant_role_plan_snapshot() {
         }]),
         ChatMsg::tool(
             "todo-bg",
-            format!("{}{}", crate::tools::plan::TODO_STATE_PREFIX, plan_state),
+            format!(
+                "{}{}",
+                crate::agent::tools::plan::TODO_STATE_PREFIX,
+                plan_state
+            ),
         ),
     ];
     for i in 0..80 {
         history.push(ChatMsg::assistant(format!("work {i} {}", "x".repeat(200))));
     }
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(SummarizerClub(
         "## Task\n- vague summary\n## Facts\n- retained",
     ))]);
@@ -242,7 +248,7 @@ fn background_compaction_drops_stale_anchor_when_newer_user_direction_arrives() 
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(SummarizerClub("STALE TASK NOTES"))]);
     maybe_start_bg_compact(&mut history, 60, 3, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
@@ -285,7 +291,7 @@ fn background_compaction_keeps_task_anchor_when_only_harness_direction_arrives()
         )));
     }
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(SummarizerClub("TASK ORIGIN NOTES"))]);
     maybe_start_bg_compact(&mut history, 60, 3, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
@@ -315,7 +321,9 @@ fn bg_compact_discards_when_history_moved_on() {
     let _guard = crate::tests::env_lock();
     let mut h = long_history();
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("STALE NOTES"))]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
@@ -343,14 +351,18 @@ fn bg_compact_needs_a_summarizer_and_a_real_overage() {
     let (tx, _rx) = mpsc::channel();
     // No aux club and no ANGEL_COMPACT_URL → the in-hand club is the only
     // candidate, and it's borrowed/busy: stay on the sync path.
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(
         !bg_compact_inflight(&reg),
         "no owned summarizer → no bg pass"
     );
     // Under the threshold → no pass either, even with a summarizer at hand.
-    let mut reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("EARLY"))]);
     maybe_start_bg_compact(&mut h, 1_000_000, 5, 0, &[], &reg, &tx);
     assert!(!bg_compact_inflight(&reg), "under threshold → no bg pass");
@@ -361,7 +373,9 @@ fn bg_compact_worker_panic_releases_inflight_slot() {
     let _guard = crate::tests::env_lock();
     let mut h = long_history();
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(PanickingSummarizerClub)]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
@@ -384,7 +398,9 @@ fn bg_compact_honors_compact_local_opt_out() {
     unsafe { std::env::set_var("ANGEL_COMPACT_LOCAL", "0") };
     let mut h = long_history();
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("FLEET"))]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     // TODO: Audit that the environment access only happens in single-threaded code.
@@ -400,7 +416,9 @@ fn bg_compact_failed_pass_backs_off_before_respawning() {
     let _guard = crate::tests::env_lock();
     let mut h = long_history();
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(PanickingSummarizerClub)]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
@@ -421,7 +439,7 @@ fn bg_compact_failed_pass_backs_off_before_respawning() {
         "a failed pass must not respawn inside the retry cooldown"
     );
     // Once the cooldown expires the route gets another chance.
-    crate::harness::compact::expire_bg_cooldown_for_test(&reg);
+    crate::agent::harness::compact::expire_bg_cooldown_for_test(&reg);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(
         bg_compact_inflight(&reg),
@@ -459,7 +477,7 @@ fn stale_bg_compact_keeps_slot_until_worker_really_exits() {
     let release = Arc::new(AtomicBool::new(false));
     let mut history = long_history();
     let (tx, _rx) = mpsc::channel();
-    let mut reg = registry_with_store(Arc::new(crate::memory::store::NullStore));
+    let mut reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
     reg.set_aux_clubs(vec![Arc::new(BlockingSummarizer {
         calls: Arc::clone(&calls),
         release: Arc::clone(&release),

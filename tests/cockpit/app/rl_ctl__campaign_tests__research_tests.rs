@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::ToolRegistry;
+use crate::agent::harness::ToolRegistry;
 use serde_json::Value;
 
 fn context(club: Arc<dyn Club>) -> LoopCampaignContext {
@@ -45,7 +45,7 @@ impl Club for ResearchClub {
     ) -> Result<ClubReply, String> {
         if tools.iter().any(|t| t.name == "loop_research") {
             if self.root_calls.fetch_add(1, Ordering::AcqRel) == 0 {
-                return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+                return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                     id: "research-launch".into(),
                     name: "loop_research".into(),
                     args: json!({"action":"run","idea":NOTE,"approach":"write-first","compare":true}),
@@ -70,7 +70,7 @@ impl Club for ResearchClub {
                         .any(|m| m.role == ChatRole::System && m.content.contains(NOTE)),
                     "research idea is task data, not system authority"
                 );
-                return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+                return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                     id: "write-candidate".into(),
                     name: "write_file".into(),
                     args: json!({"path":"result.txt","content":"done"}),
@@ -101,7 +101,7 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
     assert_eq!(cold["advice"]["observations"], 0);
     assert_eq!(club.attempts.load(Ordering::Acquire), 0);
     let (events, _rx) = mpsc::channel();
-    let answer = crate::harness::run_turn(
+    let answer = crate::agent::harness::run_turn(
         club.as_ref(),
         &registry,
         &mut vec![ChatMsg::user("Try a research approach")],

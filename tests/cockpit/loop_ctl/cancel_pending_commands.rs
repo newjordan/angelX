@@ -125,7 +125,8 @@ fn real_baseline_repin_waits_for_old_command_then_captures_new_predicate_once() 
 fn real_baseline_stop_resume_and_exit_waits_for_actual_terminal_settlement() {
     fixture("pending-command-exit", |root| {
         let (mut app, calls) = idle_loop_app(root);
-        app.session = crate::session::Session::at_for(root.join("sessions"), "owned".into(), root);
+        app.session =
+            crate::knowledge::session::Session::at_for(root.join("sessions"), "owned".into(), root);
         app.history = vec![ChatMsg::user("owned baseline exit receipt")];
         app.session.checkpoint(&app.history).unwrap();
         let guard = held_baseline_command(&mut app, root);

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scan or redact secrets in cockpit trajectory stores before they ship.
 
-The cockpit redacts at write time (cockpit/src/secrets.rs); this script is the
+The cockpit redacts at write time (cockpit/src/platform/secrets.rs); this script is the
 same rule applied to what is already on disk and to the feed staging copy, so
 nothing recorded before the write-time redaction landed can leave the box.
 

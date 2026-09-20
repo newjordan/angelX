@@ -8,10 +8,10 @@
 //! writes the desktop clipboard.
 
 use super::{render_app_text, seed_preview_app};
-use crate::app_control;
-use crate::clipboard::ClipboardPaste;
-use crate::club::{ChatMsg, ChatRole, Media};
+use crate::agent::club::{ChatMsg, ChatRole, Media};
+use crate::app::control;
 use crate::tests::{TestEnvGuard, env_lock};
+use crate::ui::clipboard::ClipboardPaste;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -42,18 +42,18 @@ fn paste_is_bulk_inserted_at_the_caret_and_normalizes_line_endings() {
 #[test]
 fn oversized_paste_is_clipped_once_with_truthful_recovery_guidance() {
     let mut app = seed_preview_app();
-    let payload = "x".repeat(app_control::MAX_COMPOSER_PASTE_BYTES + 73);
+    let payload = "x".repeat(control::MAX_COMPOSER_PASTE_BYTES + 73);
 
     app.on_paste(&payload);
 
-    assert_eq!(app.input.len(), app_control::MAX_COMPOSER_PASTE_BYTES);
-    assert_eq!(app.cursor, app_control::MAX_COMPOSER_PASTE_BYTES);
+    assert_eq!(app.input.len(), control::MAX_COMPOSER_PASTE_BYTES);
+    assert_eq!(app.cursor, control::MAX_COMPOSER_PASTE_BYTES);
     let receipt = &app.messages.last().unwrap().text;
     assert!(receipt.contains("paste clipped"), "{receipt}");
     assert!(
         receipt.contains(&format!(
             "{}/{} normalized bytes",
-            app_control::MAX_COMPOSER_PASTE_BYTES,
+            control::MAX_COMPOSER_PASTE_BYTES,
             payload.len()
         )),
         "{receipt}"
@@ -68,11 +68,11 @@ fn paste_cap_preserves_utf8_and_middle_caret_suffix() {
     let mut app = seed_preview_app();
     app.input = "αZ".to_string();
     app.cursor = 1;
-    let payload = "🦀".repeat(app_control::MAX_COMPOSER_PASTE_BYTES / 4);
+    let payload = "🦀".repeat(control::MAX_COMPOSER_PASTE_BYTES / 4);
 
     app.on_paste(&payload);
 
-    assert!(app.input.len() <= app_control::MAX_COMPOSER_PASTE_BYTES);
+    assert!(app.input.len() <= control::MAX_COMPOSER_PASTE_BYTES);
     assert!(app.input.starts_with('α'));
     assert!(app.input.ends_with('Z'));
     assert_eq!(
@@ -86,13 +86,13 @@ fn paste_cap_preserves_utf8_and_middle_caret_suffix() {
 #[test]
 fn paste_is_refused_once_the_draft_already_reaches_the_cap() {
     let mut app = seed_preview_app();
-    app.input = "x".repeat(app_control::MAX_COMPOSER_PASTE_BYTES);
+    app.input = "x".repeat(control::MAX_COMPOSER_PASTE_BYTES);
     app.cursor = app.input.chars().count();
 
     app.on_paste("🦀");
 
-    assert_eq!(app.input.len(), app_control::MAX_COMPOSER_PASTE_BYTES);
-    assert_eq!(app.cursor, app_control::MAX_COMPOSER_PASTE_BYTES);
+    assert_eq!(app.input.len(), control::MAX_COMPOSER_PASTE_BYTES);
+    assert_eq!(app.cursor, control::MAX_COMPOSER_PASTE_BYTES);
     assert!(
         app.messages
             .last()
@@ -279,7 +279,7 @@ fn accepted_images(app: &crate::App, baseline: usize) -> usize {
 }
 
 fn accepted_image_bytes(app: &crate::App, baseline: usize) -> u64 {
-    crate::clipboard::decoded_bytes(&sent_turns(app, baseline)[0].attachments[0])
+    crate::ui::clipboard::decoded_bytes(&sent_turns(app, baseline)[0].attachments[0])
 }
 
 /// The transcript receipt for the newest clipboard failure.
@@ -297,7 +297,7 @@ fn failure_receipt(app: &crate::App) -> String {
 /// glyph: a terminal may spend two cells on it, and the count/bytes are the
 /// contract.
 fn expected_chip(app: &crate::App) -> String {
-    let bytes = crate::media::format_bytes(app.clipboard_paste.staged_bytes());
+    let bytes = crate::ui::media::format_bytes(app.clipboard_paste.staged_bytes());
     match app.clipboard_paste.staged_len() {
         1 => format!("image {bytes}"),
         count => format!("{count} images {bytes}"),
@@ -360,7 +360,7 @@ fn screenshot_with_an_empty_draft_sends_the_default_question() {
 
     let turns = sent_turns(&app, baseline);
     assert_eq!(turns.len(), 1);
-    assert_eq!(&*turns[0].content, crate::clipboard::IMAGE_QUESTION);
+    assert_eq!(&*turns[0].content, crate::ui::clipboard::IMAGE_QUESTION);
     assert_eq!(turns[0].attachments.len(), 1);
     assert!(app.thinking.is_some(), "the image-only turn launched");
 }
@@ -519,7 +519,7 @@ fn an_oversized_clipboard_image_is_reported_without_a_text_fallback() {
     let mut app = seed_preview_app();
     let oversized = format!(
         "head -c {} /dev/zero",
-        crate::club::MAX_IMAGE_ATTACHMENT_BYTES + 1
+        crate::agent::club::MAX_IMAGE_ATTACHMENT_BYTES + 1
     );
     let text = "printf 'text must not be pasted'";
     app.clipboard_paste = ClipboardPaste::with_local(
@@ -661,7 +661,7 @@ fn esc_keeps_interrupting_a_running_turn_instead_of_removing_images() {
     app.clipboard_paste = screenshot_clipboard(&png);
     stage_one(&mut app, "stage the screenshot");
 
-    app.thinking = Some(crate::turn::Thinking::pending_for_test("practice"));
+    app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("practice"));
     press(&mut app, KeyCode::Esc);
 
     assert!(
@@ -690,8 +690,8 @@ fn an_open_modal_or_focused_shell_keeps_ctrl_v_for_itself() {
     assert!(!app.clipboard_paste.loading(), "the shell pane owns Ctrl-V");
 
     app.shell_focused = false;
-    app.bag = crate::club::Bag::for_reasoning_render_test();
-    app.open_agent_menu(crate::agent::controls::AgentMenuKind::Model);
+    app.bag = crate::agent::club::Bag::for_reasoning_render_test();
+    app.open_agent_menu(crate::ui::agent_panel::controls::AgentMenuKind::Model);
     assert!(
         app.agent_menu.is_some(),
         "the route menu opened for this bag"
@@ -720,7 +720,7 @@ fn an_image_paste_steers_while_a_turn_is_running() {
     app.clipboard_paste = screenshot_clipboard(&png);
     stage_one(&mut app, "stage the screenshot");
 
-    app.thinking = Some(crate::turn::Thinking::pending_for_test("practice"));
+    app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("practice"));
     type_text(&mut app, "look at this while you work");
     press(&mut app, KeyCode::Enter);
 
@@ -743,12 +743,12 @@ fn an_image_only_message_steers_with_the_default_question() {
     app.clipboard_paste = screenshot_clipboard(&png);
     stage_one(&mut app, "stage the screenshot");
 
-    app.thinking = Some(crate::turn::Thinking::pending_for_test("practice"));
+    app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("practice"));
     press(&mut app, KeyCode::Enter);
 
     let steers = app.steer_queue.drain();
     assert_eq!(steers.len(), 1);
-    assert_eq!(&*steers[0].content, crate::clipboard::IMAGE_QUESTION);
+    assert_eq!(&*steers[0].content, crate::ui::clipboard::IMAGE_QUESTION);
     assert_eq!(steers[0].attachments.len(), 1);
 }
 
@@ -788,7 +788,7 @@ fn a_later_paste_never_retrofits_an_accepted_turn() {
     assert_eq!(steers.len(), 1, "the new image steered as its own message");
     assert_eq!(steers[0].attachments.len(), 1);
     assert_eq!(
-        crate::clipboard::decoded_bytes(&steers[0].attachments[0]),
+        crate::ui::clipboard::decoded_bytes(&steers[0].attachments[0]),
         second_bytes,
         "the steer carries the new screenshot"
     );
@@ -894,7 +894,7 @@ fn a_project_boundary_drops_staged_screenshots() {
 /// Wait for a canceled read's tool to be reaped.
 fn assert_reaped(pid: u32, what: &str) {
     for _ in 0..600 {
-        if !crate::clipboard::process_is_running(pid) {
+        if !crate::ui::clipboard::process_is_running(pid) {
             return;
         }
         std::thread::sleep(std::time::Duration::from_millis(5));

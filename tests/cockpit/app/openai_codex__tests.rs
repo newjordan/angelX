@@ -107,9 +107,9 @@ pub(super) fn club() -> CodexClub {
 
 #[test]
 fn responses_request_preserves_optional_shell_scope() {
-    use crate::harness::Tool;
+    use crate::agent::harness::Tool;
 
-    let shell = crate::tools::shell::ShellTool::in_dir(PathBuf::from("/workspace"));
+    let shell = crate::agent::tools::shell::ShellTool::in_dir(PathBuf::from("/workspace"));
     let definition = shell.def();
     let original = definition.params.clone();
     let body = club().build_request(&[ChatMsg::user("inspect")], &[definition]);
@@ -645,7 +645,7 @@ fn build_request_never_sends_max_output_tokens() {
         );
         assert_eq!(
             club.route_metadata().output_budget,
-            crate::club::OutputBudgetPolicy::EndpointManaged
+            crate::agent::club::OutputBudgetPolicy::EndpointManaged
         );
     }
 }
@@ -915,7 +915,9 @@ fn final_mile_codex_retains_schemas_and_disables_calls() {
     }];
     let mut messages = vec![ChatMsg::system("stable"), ChatMsg::user("work")];
     let before = club().build_request(&messages, &tools);
-    messages.push(ChatMsg::harness(crate::club::FINAL_MILE_ANSWER_NUDGE));
+    messages.push(ChatMsg::harness(
+        crate::agent::club::FINAL_MILE_ANSWER_NUDGE,
+    ));
     let after = club().build_request(&messages, &tools);
     assert_eq!(before["tools"], after["tools"]);
     assert_eq!(before["instructions"], after["instructions"]);

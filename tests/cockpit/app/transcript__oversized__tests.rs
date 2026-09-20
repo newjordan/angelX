@@ -25,7 +25,7 @@ fn worker_height_and_viewport_match_the_production_unicode_renderer() {
         for width in [1, 24, 80] {
             assert!(layouts.height(&messages[0], width).is_none());
             wait(&mut layouts, &messages);
-            let expected_height = crate::transcript::message_height(&messages[0], width);
+            let expected_height = crate::ui::transcript::message_height(&messages[0], width);
             assert_eq!(layouts.height(&messages[0], width), Some(expected_height));
             for top in [0, expected_height.saturating_sub(9)] {
                 let style = Style::default();
@@ -41,7 +41,7 @@ fn worker_height_and_viewport_match_the_production_unicode_renderer() {
                 let area = Rect::new(0, 0, width as u16, 9);
                 let mut expected = Buffer::empty(area);
                 let mut renders = Vec::new();
-                let lines = crate::transcript::lines(&messages, "", false, width, &mut renders);
+                let lines = crate::ui::transcript::lines(&messages, "", false, width, &mut renders);
                 Paragraph::new(lines)
                     .wrap(Wrap { trim: false })
                     .style(style)
@@ -113,14 +113,14 @@ fn streaming_snapshot_height_and_reader_view_are_exact_and_replacements_reject_o
         "unchanged text copied again"
     );
     wait(&mut layouts, &[]);
-    let expected_height = crate::transcript::plain_partial_height(&text, 24);
+    let expected_height = crate::ui::transcript::plain_partial_height(&text, 24);
     assert_eq!(layouts.partial_height(&text, 24, true), expected_height);
     assert!(layouts.partial_view(24, 17, 9, Style::default()).is_none());
     wait(&mut layouts, &[]);
     let actual = layouts.partial_view(24, 17, 9, Style::default()).unwrap();
     let area = Rect::new(0, 0, 24, 9);
     let mut expected = Buffer::empty(area);
-    Paragraph::new(crate::transcript::plain_partial_lines(&text))
+    Paragraph::new(crate::ui::transcript::plain_partial_lines(&text))
         .wrap(Wrap { trim: false })
         .scroll((17, 0))
         .render(area, &mut expected);
@@ -138,7 +138,7 @@ fn streaming_snapshot_height_and_reader_view_are_exact_and_replacements_reject_o
     wait(&mut layouts, &[]);
     assert_eq!(
         layouts.partial_height(&replacement, 24, true),
-        crate::transcript::plain_partial_height(&replacement, 24)
+        crate::ui::transcript::plain_partial_height(&replacement, 24)
     );
     assert_eq!(
         layouts.entries.iter().filter(|entry| entry.partial).count(),

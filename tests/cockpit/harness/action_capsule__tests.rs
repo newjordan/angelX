@@ -1,5 +1,5 @@
-fn scope_for(call: ToolCall, workspace: &Path) -> crate::approval::ApprovalScope {
-    crate::approval::ApprovalScope::ActionBatch(
+fn scope_for(call: ToolCall, workspace: &Path) -> crate::agent::approval::ApprovalScope {
+    crate::agent::approval::ApprovalScope::ActionBatch(
         ActionBatch::from_calls(&[call], ActionCapsuleMode::Approve, workspace)
             .unwrap()
             .approval_key()
@@ -16,8 +16,8 @@ fn adversarial_approval_cargo_suffix_and_manifest_reuse_denied() {
         workspace,
     );
     assert_eq!(
-        crate::approval::test_reuse(baseline.clone(), baseline.clone()),
-        crate::approval::Decision::Approve
+        crate::agent::approval::test_reuse(baseline.clone(), baseline.clone()),
+        crate::agent::approval::Decision::Approve
     );
     for command in [
         "cargo test; rm -rf ../victim",
@@ -28,8 +28,8 @@ fn adversarial_approval_cargo_suffix_and_manifest_reuse_denied() {
             workspace,
         );
         assert_eq!(
-            crate::approval::test_reuse(baseline.clone(), next),
-            crate::approval::Decision::Deny
+            crate::agent::approval::test_reuse(baseline.clone(), next),
+            crate::agent::approval::Decision::Deny
         );
     }
 }
@@ -60,23 +60,23 @@ fn adversarial_approval_tool_name_and_payload_are_not_transferable() {
         workspace,
     );
     assert_eq!(
-        crate::approval::test_reuse(shell.clone(), patch),
-        crate::approval::Decision::Deny
+        crate::agent::approval::test_reuse(shell.clone(), patch),
+        crate::agent::approval::Decision::Deny
     );
     let renamed = scope_for(
         call("cargo", serde_json::json!({"command":"cargo test"})),
         workspace,
     );
     assert_eq!(
-        crate::approval::test_reuse(shell, renamed),
-        crate::approval::Decision::Deny
+        crate::agent::approval::test_reuse(shell, renamed),
+        crate::agent::approval::Decision::Deny
     );
 }
 
 #[cfg(unix)]
 #[test]
 fn adversarial_approval_write_reuse_cannot_escape_via_parent_or_symlink() {
-    use crate::harness::Tool;
+    use crate::agent::harness::Tool;
     let _lock = crate::tests::env_lock();
     let _full = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "0");
     let fixture = std::env::temp_dir().join(format!(
@@ -91,17 +91,17 @@ fn adversarial_approval_write_reuse_cannot_escape_via_parent_or_symlink() {
     let outside = fixture.join("outside");
     std::fs::create_dir_all(root.join("src")).unwrap();
     std::fs::create_dir(&outside).unwrap();
-    let tool = crate::tools::file::WriteFileTool { root: root.clone() };
+    let tool = crate::agent::tools::file::WriteFileTool { root: root.clone() };
     let args = serde_json::json!({"path":"src/a", "content":"allowed"});
     let baseline = scope_for(call("write_file", args.clone()), &root);
     assert!(tool.call(&args).is_ok());
     let escape = serde_json::json!({"path":"../outside/a", "content":"allowed"});
     assert_eq!(
-        crate::approval::test_reuse(
+        crate::agent::approval::test_reuse(
             baseline.clone(),
             scope_for(call("write_file", escape.clone()), &root)
         ),
-        crate::approval::Decision::Deny
+        crate::agent::approval::Decision::Deny
     );
     assert!(tool.call(&escape).is_err());
     // Same lexical arguments and cached approval after an ancestor changes:
@@ -109,11 +109,11 @@ fn adversarial_approval_write_reuse_cannot_escape_via_parent_or_symlink() {
     std::fs::rename(root.join("src"), root.join("original-src")).unwrap();
     std::os::unix::fs::symlink(&outside, root.join("src")).unwrap();
     assert_eq!(
-        crate::approval::test_reuse(
+        crate::agent::approval::test_reuse(
             baseline.clone(),
             scope_for(call("write_file", args.clone()), &root)
         ),
-        crate::approval::Decision::Approve
+        crate::agent::approval::Decision::Approve
     );
     assert!(tool.call(&args).is_err());
     assert!(!outside.join("a").exists());
@@ -242,8 +242,8 @@ fn smart_yolo_also_disables_interactive_action_capsules() {
     let mut registry = ToolRegistry::new();
     registry.enable_action_capsules();
     assert_eq!(mode_for(&registry), ActionCapsuleMode::Off);
-    assert!(!crate::yolo::enabled());
-    assert!(crate::yolo::smart_enabled());
+    assert!(!crate::platform::yolo::enabled());
+    assert!(crate::platform::yolo::smart_enabled());
 }
 
 #[test]

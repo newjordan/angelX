@@ -1,6 +1,6 @@
 use super::{ProofClub, git, init_repo, scratch};
-use crate::club::ClubReply;
-use crate::harness::{ChatMsg, Club, Tool, ToolDef};
+use crate::agent::club::ClubReply;
+use crate::agent::harness::{ChatMsg, Club, Tool, ToolDef};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -31,7 +31,7 @@ fn paused_run_resumes_from_durable_graph_without_restarting() {
     // This case exercises an operator-selected pause and later resume, not
     // automatic outage recovery (whose default now waits for recovery/cancel).
     let _retries = crate::tests::TestEnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         eprintln!("skip: host-capability landlock unavailable");
         return;
     }

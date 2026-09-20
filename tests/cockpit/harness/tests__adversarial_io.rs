@@ -41,9 +41,9 @@ fn adversarial_io_profiles_match_mandatory_shell_scope_and_direct_paths() {
             if profile == "smart" { "1" } else { "0" },
         );
         let _sandbox = EnvGuard::set("ANGEL_SANDBOX", "1");
-        assert_eq!(crate::yolo::profile().label(), profile);
-        assert_eq!(crate::sandbox::enabled(), profile != "full");
-        let status = crate::yolo::status_text();
+        assert_eq!(crate::platform::yolo::profile().label(), profile);
+        assert_eq!(crate::agent::sandbox::enabled(), profile != "full");
+        let status = crate::platform::yolo::status_text();
         if profile == "full" {
             assert!(status.contains("sandboxing") && status.contains("bypassed"));
         }

@@ -1,9 +1,9 @@
 //! Actual-App desired-contract controls. No provider or submission is invoked;
 //! real correlated tool events simulate successful execution receipts.
 use super::*;
-use crate::harness::{ExecutionOutcome, ToolEventId, ToolOutcome, VerificationOutcome};
-use crate::loop_ctl::{LoopState, LoopStatus};
-use crate::toolstrip::{ToolStrip, ToolStripSnapshot};
+use crate::agent::harness::{ExecutionOutcome, ToolEventId, ToolOutcome, VerificationOutcome};
+use crate::drive::loop_ctl::{LoopState, LoopStatus};
+use crate::ui::toolstrip::{ToolStrip, ToolStripSnapshot};
 
 fn receipt(command: &str, result: &str) -> ToolStripSnapshot {
     let mut strip = ToolStrip::default();

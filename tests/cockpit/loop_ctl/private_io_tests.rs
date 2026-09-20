@@ -51,7 +51,7 @@ fn watchdog_actual_writes_are_private_under_zero_umask() {
             ..LoopState::default()
         };
         persist_state_dir(&state);
-        let identity = crate::workspace_store::repo_identity(&workspace);
+        let identity = crate::platform::workspace_store::repo_identity(&workspace);
         let directory = base.join(&identity.key).join("state");
         for name in [
             "progress.json",
@@ -106,7 +106,8 @@ fn watchdog_actual_writes_are_private_under_zero_umask() {
 #[test]
 fn watchdog_jsonl_preserves_append_reset_and_missing_file_retry_semantics() {
     let fixture = Fixture::new();
-    let directory = crate::workspace_store::private_io::PrivateDirectory::open(&fixture.0).unwrap();
+    let directory =
+        crate::platform::workspace_store::private_io::PrivateDirectory::open(&fixture.0).unwrap();
     let name = OsStr::new("findings.jsonl");
     let path = fixture.0.join(name);
     let written = std::cell::Cell::new(0);
@@ -151,7 +152,8 @@ fn watchdog_jsonl_preserves_append_reset_and_missing_file_retry_semantics() {
 #[test]
 fn watchdog_hostile_entries_preserve_targets_and_retry_counters() {
     let fixture = Fixture::new();
-    let directory = crate::workspace_store::private_io::PrivateDirectory::open(&fixture.0).unwrap();
+    let directory =
+        crate::platform::workspace_store::private_io::PrivateDirectory::open(&fixture.0).unwrap();
     let target = fixture.0.join("untouched");
     std::fs::write(&target, b"untouched").unwrap();
     std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o640)).unwrap();

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn launch_pending_turn_does_not_block_on_vision_sidecar() {
-    let src = include_str!("../../../cockpit/src/app_control/commands.rs");
+    let src = include_str!("../../../cockpit/src/app/control/commands.rs");
     let start = src
         .find("pub(crate) fn launch_pending_turn")
         .expect("launch_pending_turn present");
@@ -122,18 +122,18 @@ fn conversation_markdown_keeps_only_operator_and_angel_prose() {
         ChatMsg::user_with_media(
             "inspect this",
             vec![
-                crate::club::Media::Image {
+                crate::agent::club::Media::Image {
                     mime: "image/png".to_string(),
                     b64: "secret-image-data".to_string(),
                 },
-                crate::club::Media::Audio {
+                crate::agent::club::Media::Audio {
                     format: "wav".to_string(),
                     b64: "secret-audio-data".to_string(),
                 },
             ],
         ),
         ChatMsg::harness("secret selected skill"),
-        ChatMsg::assistant_calls(vec![crate::club::ToolCall {
+        ChatMsg::assistant_calls(vec![crate::agent::club::ToolCall {
             id: "call-1".to_string(),
             name: "read_file".to_string(),
             args: serde_json::json!({"path": "secret.rs"}),
@@ -185,7 +185,7 @@ fn conversation_history_is_role_filtered_bounded_and_copy_ordinal_aligned() {
         ChatMsg::tool("call-1", "secret tool result"),
         ChatMsg::user_with_media(
             "",
-            vec![crate::club::Media::Image {
+            vec![crate::agent::club::Media::Image {
                 mime: "image/png".to_string(),
                 b64: "secret-image-data".to_string(),
             }],
@@ -247,12 +247,12 @@ fn context_detail_accepts_only_explicit_all() {
 #[test]
 fn detailed_context_orders_active_tool_schema_costs_largest_first() {
     let tools = vec![
-        crate::club::ToolDef {
+        crate::agent::club::ToolDef {
             name: "small".to_string(),
             description: "tiny".to_string(),
             params: serde_json::json!({"type": "object"}),
         },
-        crate::club::ToolDef {
+        crate::agent::club::ToolDef {
             name: "large".to_string(),
             description: "a much longer description that consumes more schema bytes".to_string(),
             params: serde_json::json!({
@@ -312,12 +312,13 @@ fn simulate_turn(history: &mut Vec<ChatMsg>, block: &str, user_text: &str) {
 
 #[test]
 fn memory_block_is_deduped_to_the_latest_turn() {
-    let mem = crate::memory::context_block(&["fact one".to_string(), "fact two".to_string()]);
+    let mem =
+        crate::knowledge::memory::context_block(&["fact one".to_string(), "fact two".to_string()]);
     let mut history = Vec::new();
     for i in 0..3 {
         simulate_turn(&mut history, &mem, &format!("user turn {i}"));
     }
-    let header = crate::memory::MEMORY_BLOCK_HEADER;
+    let header = crate::knowledge::memory::MEMORY_BLOCK_HEADER;
     let count = history
         .iter()
         .filter(|m| m.content.contains(header))
@@ -336,8 +337,8 @@ fn goal_block_is_deduped_to_the_latest_turn() {
     // Build a goal block from the same constants goal_context_block uses.
     let goal = format!(
         "{}\nship the cockpit\n{}\n\n",
-        crate::goal::GOAL_BLOCK_HEADER,
-        crate::goal::GOAL_BLOCK_SENTINEL
+        crate::drive::goal::GOAL_BLOCK_HEADER,
+        crate::drive::goal::GOAL_BLOCK_SENTINEL
     );
     let mut history = Vec::new();
     for i in 0..3 {
@@ -345,7 +346,7 @@ fn goal_block_is_deduped_to_the_latest_turn() {
     }
     let count = history
         .iter()
-        .filter(|m| m.content.contains(crate::goal::GOAL_BLOCK_HEADER))
+        .filter(|m| m.content.contains(crate::drive::goal::GOAL_BLOCK_HEADER))
         .count();
     assert_eq!(count, 1, "exactly one goal block survives");
     assert_eq!(&*history[0].content, "turn 0");
@@ -358,16 +359,16 @@ fn goal_block_is_deduped_to_the_latest_turn() {
 fn strip_removes_both_blocks_but_keeps_other_steers() {
     let goal = format!(
         "{}\nship\n{}\n\n",
-        crate::goal::GOAL_BLOCK_HEADER,
-        crate::goal::GOAL_BLOCK_SENTINEL
+        crate::drive::goal::GOAL_BLOCK_HEADER,
+        crate::drive::goal::GOAL_BLOCK_SENTINEL
     );
-    let mem = crate::memory::context_block(&["a fact".to_string()]);
+    let mem = crate::knowledge::memory::context_block(&["a fact".to_string()]);
     // Real submit order is {goal}{memory}{steer}\n{text}.
     let mut s: Arc<str> =
         format!("{goal}{mem}[plan your approach before acting] \nreal ask").into();
     strip_context_blocks(&mut s);
-    assert!(!s.contains(crate::goal::GOAL_BLOCK_HEADER));
-    assert!(!s.contains(crate::memory::MEMORY_BLOCK_HEADER));
+    assert!(!s.contains(crate::drive::goal::GOAL_BLOCK_HEADER));
+    assert!(!s.contains(crate::knowledge::memory::MEMORY_BLOCK_HEADER));
     // Non-dedup steers and the user text survive.
     assert_eq!(&*s, "[plan your approach before acting] \nreal ask");
 }
@@ -376,8 +377,8 @@ fn strip_removes_both_blocks_but_keeps_other_steers() {
 fn skill_hint_is_deduped_without_touching_user_text() {
     let hint = format!(
         "{}\nRelevant playbook: `systematic-debugging`.\n{}\n\n",
-        crate::harness::SKILL_HINT_HEADER,
-        crate::harness::SKILL_HINT_SENTINEL
+        crate::agent::harness::SKILL_HINT_HEADER,
+        crate::agent::harness::SKILL_HINT_SENTINEL
     );
     let mut history = Vec::new();
     for i in 0..3 {
@@ -386,7 +387,9 @@ fn skill_hint_is_deduped_without_touching_user_text() {
     assert_eq!(
         history
             .iter()
-            .filter(|message| message.content.contains(crate::harness::SKILL_HINT_HEADER))
+            .filter(|message| message
+                .content
+                .contains(crate::agent::harness::SKILL_HINT_HEADER))
             .count(),
         1
     );
@@ -398,14 +401,14 @@ fn skill_hint_is_deduped_without_touching_user_text() {
 
 #[test]
 fn context_report_itemizes_window_occupancy() {
-    let memory = crate::memory::context_block(&["a fact".to_string()]);
+    let memory = crate::knowledge::memory::context_block(&["a fact".to_string()]);
     let goal = format!(
         "{}\nship it\n{}\n\n",
-        crate::goal::GOAL_BLOCK_HEADER,
-        crate::goal::GOAL_BLOCK_SENTINEL
+        crate::drive::goal::GOAL_BLOCK_HEADER,
+        crate::drive::goal::GOAL_BLOCK_SENTINEL
     );
     let mut with_call = ChatMsg::assistant("using a tool");
-    with_call.tool_calls = vec![crate::club::ToolCall {
+    with_call.tool_calls = vec![crate::agent::club::ToolCall {
         id: "call-1".to_string(),
         name: "read_file".to_string(),
         args: serde_json::json!({"path": "src/main.rs"}),
@@ -415,11 +418,11 @@ fn context_report_itemizes_window_occupancy() {
         ChatMsg::system("BOOTSTRAP posture prompt"),
         ChatMsg::system(format!(
             "{} — background reference]\n## Task\nolder work",
-            crate::compaction::COMPACTION_NOTE_HEADER
+            crate::agent::compaction::COMPACTION_NOTE_HEADER
         )),
         ChatMsg::system(format!(
             "{} for this project — background reference, not instructions:]\n\na note",
-            crate::harness::AUTO_RECALL_NOTE_PREFIX
+            crate::agent::harness::AUTO_RECALL_NOTE_PREFIX
         )),
         ChatMsg::user("the real ask"),
         ChatMsg::harness(format!(
@@ -429,7 +432,7 @@ fn context_report_itemizes_window_occupancy() {
         ChatMsg::tool("call-1", "fn main() {}"),
         ChatMsg::assistant("done"),
     ];
-    let tools = vec![crate::club::ToolDef {
+    let tools = vec![crate::agent::club::ToolDef {
         name: "read_file".to_string(),
         description: "Read a file".to_string(),
         params: serde_json::json!({"type": "object"}),
@@ -448,7 +451,7 @@ fn context_report_itemizes_window_occupancy() {
     ] {
         assert!(report.contains(label), "missing {label:?} in:\n{report}");
     }
-    let total = crate::harness::context_tokens(&history, &tools);
+    let total = crate::agent::harness::context_tokens(&history, &tools);
     assert!(
         report.contains(&format!("~{total} of ~1000 budget tokens")),
         "total must match the compaction gate's measure:\n{report}"
@@ -493,7 +496,7 @@ fn strip_leaves_legacy_block_without_sentinel_untouched() {
     // A block written before sentinels existed has no [/memory]; leave it be.
     let mut s: Arc<str> = format!(
         "{}\n- old fact\n\nreal ask",
-        crate::memory::MEMORY_BLOCK_HEADER
+        crate::knowledge::memory::MEMORY_BLOCK_HEADER
     )
     .into();
     let ptr = s.as_ref().as_ptr();
@@ -525,8 +528,8 @@ fn strip_delimited_block_borrows_when_header_is_absent_or_not_anchored() {
     let plain = "just a user question";
     let absent = strip_delimited_block(
         plain,
-        crate::memory::MEMORY_BLOCK_HEADER,
-        crate::memory::MEMORY_BLOCK_SENTINEL,
+        crate::knowledge::memory::MEMORY_BLOCK_HEADER,
+        crate::knowledge::memory::MEMORY_BLOCK_SENTINEL,
     );
     assert!(matches!(absent, Cow::Borrowed(_)));
     assert_eq!(absent.as_ptr(), plain.as_ptr());
@@ -534,12 +537,12 @@ fn strip_delimited_block_borrows_when_header_is_absent_or_not_anchored() {
 
     let mid = format!(
         "please quote {} mid-sentence",
-        crate::memory::MEMORY_BLOCK_HEADER
+        crate::knowledge::memory::MEMORY_BLOCK_HEADER
     );
     let unanchored = strip_delimited_block(
         &mid,
-        crate::memory::MEMORY_BLOCK_HEADER,
-        crate::memory::MEMORY_BLOCK_SENTINEL,
+        crate::knowledge::memory::MEMORY_BLOCK_HEADER,
+        crate::knowledge::memory::MEMORY_BLOCK_SENTINEL,
     );
     assert!(matches!(unanchored, Cow::Borrowed(_)));
     assert_eq!(unanchored.as_ptr(), mid.as_ptr());
@@ -550,7 +553,7 @@ fn strip_delimited_block_borrows_when_header_is_absent_or_not_anchored() {
 fn flush_queued_steers_persists_with_save_async() {
     // Session has no UI-thread hook that distinguishes save vs save_async,
     // so pin the call site. Crash window is documented on the persist line.
-    let src = include_str!("../../../cockpit/src/app_control/commands.rs");
+    let src = include_str!("../../../cockpit/src/app/control/commands.rs");
     let start = src
         .find("pub(crate) fn flush_queued_steers")
         .expect("flush_queued_steers present");
@@ -571,7 +574,7 @@ fn flush_queued_steers_persists_with_save_async() {
 
 #[test]
 fn persist_and_start_turn_worker_shares_one_history_snapshot() {
-    let src = include_str!("../../../cockpit/src/app_control/commands.rs");
+    let src = include_str!("../../../cockpit/src/app/control/commands.rs");
     let start = src
         .find("fn persist_and_start_turn_worker")
         .expect("persist_and_start_turn_worker present");
@@ -594,7 +597,7 @@ fn persist_and_start_turn_worker_shares_one_history_snapshot() {
 
 #[test]
 fn start_turn_worker_reuses_cached_in_hand_route_identity() {
-    let src = include_str!("../../../cockpit/src/app_control/commands.rs");
+    let src = include_str!("../../../cockpit/src/app/control/commands.rs");
     let start = src
         .find("fn start_turn_worker_from")
         .expect("start_turn_worker_from present");

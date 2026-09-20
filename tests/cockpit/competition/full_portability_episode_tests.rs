@@ -139,7 +139,7 @@ fn mutate_episode(value: &mut serde_json::Value, mutation: Mutation) {
         entry.body.extend(serde_json::to_vec(&event).unwrap());
         entry.body.push(b'\n');
     }
-    entry.content_sha256 = crate::cut::sha256_hex(&entry.body);
+    entry.content_sha256 = crate::knowledge::cut::sha256_hex(&entry.body);
     *entry_value = serde_json::to_value(entry).unwrap();
     super::full_portability_tests::reseal(value);
 }

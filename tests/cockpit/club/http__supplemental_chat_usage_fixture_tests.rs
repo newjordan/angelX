@@ -15,7 +15,7 @@ fn rows() -> Vec<Value> {
             let mut attempt = StreamUsageCommit::new(&club);
             attempt.observe(&json!({"usage":case["usage"]}));
         }
-        let usage = serde_json::to_value(crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap()).unwrap();
+        let usage = serde_json::to_value(crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap()).unwrap();
         assert_eq!(json!([usage["input"],usage["output"],usage["reasoning"]]), case["expected_raw"]);
         assert_eq!(json!([usage["total_prompt"],usage["generation_output"],usage["reasoning"]]), case["expected_normalized"]);
         assert_eq!(usage["uncached_input"], case["expected_uncached"]);

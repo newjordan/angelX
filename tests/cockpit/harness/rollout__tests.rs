@@ -5,7 +5,7 @@ use super::audit_export::{
 use super::recorder::{RolloutRecorder, recover_rollout, request_for_test};
 use super::schema::*;
 use super::store::{RolloutStore, validate_rollout_id};
-use crate::club::{ChatMsg, ClubReply, RouteIdentity, ToolCall, ToolDef};
+use crate::agent::club::{ChatMsg, ClubReply, RouteIdentity, ToolCall, ToolDef};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -20,7 +20,7 @@ fn project() -> ProjectIdentity {
     ProjectIdentity {
         workspace_key: "fixture-workspace".to_string(),
         repo_key: "fixture-project".to_string(),
-        canonical_root_sha256: crate::cut::sha256_hex(b"/fixture/project"),
+        canonical_root_sha256: crate::knowledge::cut::sha256_hex(b"/fixture/project"),
     }
 }
 
@@ -78,8 +78,8 @@ fn body_free_audit_receipt_covers_sealed_but_training_ineligible_rollout() {
     let binding = TaskRolloutBindingV1::new(
         Some("task-fixture".to_string()),
         Some("run-fixture".to_string()),
-        crate::cut::sha256_hex(b"operator prompt"),
-        crate::cut::sha256_hex(b"runtime config"),
+        crate::knowledge::cut::sha256_hex(b"operator prompt"),
+        crate::knowledge::cut::sha256_hex(b"runtime config"),
         env!("CARGO_PKG_VERSION").to_string(),
         "unbound".to_string(),
     );
@@ -124,7 +124,7 @@ fn body_free_audit_receipt_covers_sealed_but_training_ineligible_rollout() {
     unsigned.as_object_mut().unwrap().remove("receipt_sha256");
     assert_eq!(
         receipt_sha256,
-        crate::cut::sha256_hex(&serde_json::to_vec(&unsigned).unwrap())
+        crate::knowledge::cut::sha256_hex(&serde_json::to_vec(&unsigned).unwrap())
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -214,12 +214,12 @@ fn task_rollout_binding_rejects_tampering() {
     let mut binding = TaskRolloutBindingV1::new(
         Some("task-fixture".to_string()),
         Some("run-fixture".to_string()),
-        crate::cut::sha256_hex(b"operator prompt"),
-        crate::cut::sha256_hex(b"runtime config"),
+        crate::knowledge::cut::sha256_hex(b"operator prompt"),
+        crate::knowledge::cut::sha256_hex(b"runtime config"),
         env!("CARGO_PKG_VERSION").to_string(),
         "unbound".to_string(),
     );
-    binding.prompt_sha256 = crate::cut::sha256_hex(b"different prompt");
+    binding.prompt_sha256 = crate::knowledge::cut::sha256_hex(b"different prompt");
     assert!(binding.validate().is_err());
 }
 
@@ -554,7 +554,7 @@ fn local_capture_rejects_known_escaped_and_provider_secrets_before_blob_write() 
         assert_eq!(content.sensitivity, Sensitivity::SecretRejected);
         assert_eq!(
             content.sha256,
-            crate::cut::sha256_hex(sample.as_bytes()),
+            crate::knowledge::cut::sha256_hex(sample.as_bytes()),
             "rejected content keeps its exact original identity"
         );
         assert!(!store.root().join("blobs").join(&content.sha256).exists());
@@ -741,7 +741,7 @@ fn eligibility_requires_clean_structure_and_independent_reward_evidence() {
     let receipt = RewardReceipt::new(
         RewardOwner::CodingEval,
         1.0,
-        crate::cut::sha256_hex(b"independent evidence"),
+        crate::knowledge::cut::sha256_hex(b"independent evidence"),
     )
     .unwrap();
     assert_eq!(
@@ -927,14 +927,14 @@ fn a_second_reward_owner_fails_closed_without_replacing_the_first() {
     let coding = RewardReceipt::new(
         RewardOwner::CodingEval,
         1.0,
-        crate::cut::sha256_hex(b"coding evidence"),
+        crate::knowledge::cut::sha256_hex(b"coding evidence"),
     )
     .unwrap();
     recorder.attach_reward(coding.clone()).unwrap();
     let verifier = RewardReceipt::new(
         RewardOwner::SwarmVerifier,
         1.0,
-        crate::cut::sha256_hex(b"swarm evidence"),
+        crate::knowledge::cut::sha256_hex(b"swarm evidence"),
     )
     .unwrap();
     assert!(recorder.attach_reward(verifier).is_err());
@@ -1016,7 +1016,7 @@ fn audited_v1_export_is_deterministic_and_retains_structured_pairing_and_mask() 
             RewardReceipt::new(
                 RewardOwner::CodingEval,
                 1.0,
-                crate::cut::sha256_hex(b"independent coding-eval manifest"),
+                crate::knowledge::cut::sha256_hex(b"independent coding-eval manifest"),
             )
             .unwrap(),
         )
@@ -1060,8 +1060,8 @@ fn audited_v1_export_is_deterministic_and_retains_structured_pairing_and_mask() 
     assert_eq!(first["root_trajectory"]["fingerprint"], "root-fingerprint");
     assert_eq!(first["harness_treatment"]["lane"], "treebeard");
     assert_eq!(
-        crate::cut::sha256_hex(&serde_json::to_vec(&first).unwrap()),
-        crate::cut::sha256_hex(&serde_json::to_vec(&second).unwrap())
+        crate::knowledge::cut::sha256_hex(&serde_json::to_vec(&first).unwrap()),
+        crate::knowledge::cut::sha256_hex(&serde_json::to_vec(&second).unwrap())
     );
     let corpus_first = export_store_rollout_corpus_v2(&store, &project()).unwrap();
     let corpus_second = export_store_rollout_corpus_v2(&store, &project()).unwrap();
@@ -1113,7 +1113,7 @@ fn corpus_discovery_rejects_unsealed_and_foreign_records_without_hiding_valid_ro
             RewardReceipt::new(
                 RewardOwner::CodingEval,
                 1.0,
-                crate::cut::sha256_hex(b"valid corpus evidence"),
+                crate::knowledge::cut::sha256_hex(b"valid corpus evidence"),
             )
             .unwrap(),
         )
@@ -1179,7 +1179,7 @@ fn local_blob_store_rejects_symlinked_digest_targets() {
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
     std::fs::set_permissions(&blobs, std::fs::Permissions::from_mode(0o700)).unwrap();
     let body = b"project body";
-    let digest = crate::cut::sha256_hex(body);
+    let digest = crate::knowledge::cut::sha256_hex(body);
     let target = root.join("attacker-target");
     std::fs::write(&target, body).unwrap();
     symlink(&target, blobs.join(digest)).unwrap();
@@ -1188,7 +1188,7 @@ fn local_blob_store_rejects_symlinked_digest_targets() {
 }
 
 fn task_reward_ownership_probe(task: bool, provider_error: bool) {
-    use crate::harness::{eval_owns_label, run_task_turn_observed, run_turn_observed};
+    use crate::agent::harness::{eval_owns_label, run_task_turn_observed, run_turn_observed};
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex, mpsc};
     let _guard = crate::tests::env_lock();
@@ -1214,7 +1214,7 @@ fn task_reward_ownership_probe(task: bool, provider_error: bool) {
         seen: Arc<Mutex<Vec<RewardObservation>>>,
         provider_error: bool,
     }
-    impl crate::club::Club for Probe {
+    impl crate::agent::club::Club for Probe {
         fn label(&self) -> &str {
             "task-external-reward-probe"
         }
@@ -1222,7 +1222,7 @@ fn task_reward_ownership_probe(task: bool, provider_error: bool) {
             Ok(String::new())
         }
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
-            let external = crate::harness::eval_owns_label();
+            let external = crate::agent::harness::eval_owns_label();
             // cfg(test) disables post-write auto-verification. Exercise its exact
             // recorder attachment seam in the real task thread's ownership scope.
             let store = RolloutStore::new(self.root.clone());
@@ -1269,19 +1269,19 @@ fn task_reward_ownership_probe(task: bool, provider_error: bool) {
         seen: Arc::clone(&seen),
         provider_error,
     };
-    let registry = crate::harness::ToolRegistry::with_team(root.clone(), Vec::new());
+    let registry = crate::agent::harness::ToolRegistry::with_team(root.clone(), Vec::new());
     let mut history = vec![ChatMsg::user(
         "Complete this bounded external evaluator task.",
     )];
     let binding = TaskRolloutBindingV1::new(
         Some("owned-task".into()),
         Some("owned-run".into()),
-        crate::cut::sha256_hex(b"prompt"),
-        crate::cut::sha256_hex(b"runtime"),
+        crate::knowledge::cut::sha256_hex(b"prompt"),
+        crate::knowledge::cut::sha256_hex(b"runtime"),
         "fixture".into(),
-        crate::cut::sha256_hex(b"source"),
+        crate::knowledge::cut::sha256_hex(b"source"),
     );
-    let (tx, _rx) = mpsc::channel::<crate::harness::TurnEvent>();
+    let (tx, _rx) = mpsc::channel::<crate::agent::harness::TurnEvent>();
     let result = if task {
         run_task_turn_observed(
             &club,
@@ -1334,7 +1334,8 @@ fn task_reward_ownership_probe(task: bool, provider_error: bool) {
     }
     if task && !provider_error {
         let id = result.unwrap().rollout_id.unwrap();
-        let outer_audit = crate::harness::rollout::audit_workspace_rollout(&root, &id).unwrap();
+        let outer_audit =
+            crate::agent::harness::rollout::audit_workspace_rollout(&root, &id).unwrap();
         assert_eq!(
             outer_audit.manifest.requested_route.driver, "owned-task-driver",
             "task capture must retain the caller's selector, not the club display label"
@@ -1366,7 +1367,7 @@ fn headless_task_external_reward_scope_restores_after_provider_error() {
 }
 #[test]
 fn nested_eval_label_scope_restores_the_callers_ownership() {
-    use crate::harness::{EvalLabelScope, eval_owns_label};
+    use crate::agent::harness::{EvalLabelScope, eval_owns_label};
     assert!(!eval_owns_label());
     let outer = EvalLabelScope::new();
     {
@@ -1383,7 +1384,7 @@ fn nested_eval_label_scope_restores_the_callers_ownership() {
 
 #[test]
 fn auxiliary_body_free_receipt_preserves_sealed_coverage_and_rejects_manifest_rewrite() {
-    use crate::harness::auxiliary::AuxiliaryCoverage;
+    use crate::agent::harness::auxiliary::AuxiliaryCoverage;
     for covered in [false, true] {
         let root = scratch("auxiliary-audit");
         let store = RolloutStore::new(root.clone());
@@ -1433,7 +1434,7 @@ fn auxiliary_body_free_receipt_preserves_sealed_coverage_and_rejects_manifest_re
             // Owned tamper fixture: bypass the immutable writer and recompute
             // the manifest's own digest. Journal binding must still reject it.
             manifest.manifest_sha256 = None;
-            manifest.manifest_sha256 = Some(crate::cut::sha256_hex(
+            manifest.manifest_sha256 = Some(crate::knowledge::cut::sha256_hex(
                 &serde_json::to_vec(&manifest).unwrap(),
             ));
             std::fs::write(
@@ -1468,7 +1469,7 @@ fn auxiliary_body_free_receipt_preserves_sealed_coverage_and_rejects_manifest_re
 
 #[test]
 fn auxiliary_failed_capability_receipt_stays_unlinked_and_duplicate_seal_rejects() {
-    use crate::harness::auxiliary::AuxiliaryTracker;
+    use crate::agent::harness::auxiliary::AuxiliaryTracker;
     let tracker = AuxiliaryTracker::default();
     let scope = tracker.enter();
     tracker.tool_entered("spawn", &serde_json::json!({"task":"owned partial child"}));
@@ -1506,7 +1507,7 @@ fn auxiliary_failed_capability_receipt_stays_unlinked_and_duplicate_seal_rejects
 
 #[test]
 fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
-    use crate::harness::{ExecutionOutcome, ToolOutcome, VerificationOutcome};
+    use crate::agent::harness::{ExecutionOutcome, ToolOutcome, VerificationOutcome};
     for (name, verification, mutation, bound) in [
         ("passed", VerificationOutcome::Passed, false, true),
         ("failed", VerificationOutcome::Failed, false, true),
@@ -1524,10 +1525,10 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
         let binding = TaskRolloutBindingV1::new(
             Some("task".into()),
             Some("run".into()),
-            crate::cut::sha256_hex(b"prompt"),
-            crate::cut::sha256_hex(b"runtime"),
+            crate::knowledge::cut::sha256_hex(b"prompt"),
+            crate::knowledge::cut::sha256_hex(b"runtime"),
             "fixture".into(),
-            crate::cut::sha256_hex(b"source"),
+            crate::knowledge::cut::sha256_hex(b"source"),
         );
         let mut recorder = RolloutRecorder::start_for_test_with_binding(
             store.clone(),
@@ -1604,13 +1605,13 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
                 .read_blob_by_digest(&reward.evaluator_evidence_sha256)
                 .unwrap();
             assert_eq!(
-                crate::cut::sha256_hex(&bytes),
+                crate::knowledge::cut::sha256_hex(&bytes),
                 reward.evaluator_evidence_sha256
             );
             let evidence: CodingEvalEvidence = serde_json::from_slice(&bytes).unwrap();
             assert_eq!(
                 evidence.receipt_sha256,
-                crate::cut::sha256_hex(b"harness receipt bytes")
+                crate::knowledge::cut::sha256_hex(b"harness receipt bytes")
             );
             assert_eq!(evidence.task_binding_sha256, binding.binding_sha256);
             assert_eq!(audit.manifest.eligibility, TrainingEligibility::Eligible);
@@ -1618,8 +1619,8 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
             let other = TaskRolloutBindingV1::new(
                 Some("other".into()),
                 None,
-                crate::cut::sha256_hex(b"prompt"),
-                crate::cut::sha256_hex(b"runtime"),
+                crate::knowledge::cut::sha256_hex(b"prompt"),
+                crate::knowledge::cut::sha256_hex(b"runtime"),
                 "fixture".into(),
                 "unbound".into(),
             );

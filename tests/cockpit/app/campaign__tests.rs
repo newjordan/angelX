@@ -2,8 +2,8 @@ use super::controller::{CampaignCommand, CampaignController};
 use super::lens;
 use super::schema::*;
 use super::store::{CampaignStore, LoadedCampaign};
-use crate::club::{ChatMsg, ChatRole};
-use crate::harness::{
+use crate::agent::club::{ChatMsg, ChatRole};
+use crate::agent::harness::{
     AlignmentIndependence, AlignmentVerdict, CampaignAlignmentReceipt, CampaignBase,
     PreparedSwarmRun, SwarmRunOutcome, SwarmRunReceipt,
 };
@@ -85,7 +85,7 @@ fn reviewing_controller(
             base_oid,
             parked_branch: Some("angel/swarm/review-candidate".to_string()),
             candidate_oid: Some("caad1da7e012345".to_string()),
-            changed_paths: vec!["cockpit/src/campaign/mod.rs".to_string()],
+            changed_paths: vec!["cockpit/src/drive/campaign/mod.rs".to_string()],
             technical_pass: true,
             code_review_pass: true,
             proof_path: PathBuf::from("/external/swarm/run.json"),
@@ -96,7 +96,7 @@ fn reviewing_controller(
 }
 
 fn alignment_receipt(
-    request: &crate::harness::CampaignAlignmentRequest,
+    request: &crate::agent::harness::CampaignAlignmentRequest,
     verdict: AlignmentVerdict,
     independence: AlignmentIndependence,
 ) -> CampaignAlignmentReceipt {
@@ -422,7 +422,7 @@ fn one_round_freezes_base_attaches_proof_and_stops_before_alignment() {
             base_oid: frozen_oid.clone(),
             parked_branch: Some("angel/swarm/candidate".to_string()),
             candidate_oid: Some("caad1da7e012345".to_string()),
-            changed_paths: vec!["cockpit/src/campaign/mod.rs".to_string()],
+            changed_paths: vec!["cockpit/src/drive/campaign/mod.rs".to_string()],
             technical_pass: true,
             code_review_pass: true,
             proof_path: PathBuf::from("/external/swarm/run.json"),
@@ -541,7 +541,7 @@ fn authoring_persists_atomically_and_reopens_ready() {
     assert!(
         controller
             .command(
-                Some("criterion scope AC-1 cockpit/src/campaign"),
+                Some("criterion scope AC-1 cockpit/src/drive/campaign"),
                 &workspace,
                 None
             )
@@ -590,10 +590,10 @@ fn authoring_persists_atomically_and_reopens_ready() {
 #[test]
 fn imported_goal_is_copied_without_mutating_goal() {
     let (base, workspace, root) = scratch("goal");
-    let mut goal = crate::goal::Goal::new("Ship the goal");
+    let mut goal = crate::drive::goal::Goal::new("Ship the goal");
     goal.acceptance.push("The check is green".to_string());
     goal.accept_cmd = Some("cargo test".to_string());
-    let identity = crate::workspace_store::repo_identity(&workspace);
+    let identity = crate::platform::workspace_store::repo_identity(&workspace);
     goal.workspace = Some(identity.root);
     goal.project_key = Some(identity.key);
     let original = goal.clone();
@@ -765,7 +765,7 @@ fn round_and_proof_receipts_round_trip_without_losing_identity() {
         targeted_test_cmd: "cargo test".to_string(),
         accept_cmd: "cargo test".to_string(),
         quality_cmds: vec![],
-        test_scope: vec![PathBuf::from("cockpit/src/campaign")],
+        test_scope: vec![PathBuf::from("cockpit/src/drive/campaign")],
         network_policy: NetworkPolicy::Offline,
         digest: String::new(),
     };
@@ -776,7 +776,7 @@ fn round_and_proof_receipts_round_trip_without_losing_identity() {
         swarm_run_id: Some("swr-test".to_string()),
         candidate_branch: Some("angel/candidate".to_string()),
         candidate_oid: Some("caad1da7e012345".to_string()),
-        changed_paths: vec![PathBuf::from("cockpit/src/campaign/mod.rs")],
+        changed_paths: vec![PathBuf::from("cockpit/src/drive/campaign/mod.rs")],
         proofs: vec![ProofRef {
             kind: ProofKind::TargetedTest,
             run_id: "swr-test".to_string(),
@@ -812,7 +812,7 @@ fn round_contract_digest_is_sha256_and_covers_every_field() {
         targeted_test_cmd: "cargo test".to_string(),
         accept_cmd: "cargo test".to_string(),
         quality_cmds: vec!["cargo fmt --check".to_string()],
-        test_scope: vec![PathBuf::from("cockpit/src/campaign")],
+        test_scope: vec![PathBuf::from("cockpit/src/drive/campaign")],
         network_policy: NetworkPolicy::Offline,
         digest: String::new(),
     };
@@ -839,7 +839,7 @@ fn accepted_round_requires_matching_independent_reviews() {
         targeted_test_cmd: "cargo test".to_string(),
         accept_cmd: "cargo test".to_string(),
         quality_cmds: vec![],
-        test_scope: vec![PathBuf::from("cockpit/src/campaign")],
+        test_scope: vec![PathBuf::from("cockpit/src/drive/campaign")],
         network_policy: NetworkPolicy::Offline,
         digest: String::new(),
     };
@@ -859,7 +859,7 @@ fn accepted_round_requires_matching_independent_reviews() {
         swarm_run_id: Some("swr-test".to_string()),
         candidate_branch: Some("angel/candidate".to_string()),
         candidate_oid: Some(candidate_oid),
-        changed_paths: vec![PathBuf::from("cockpit/src/campaign/mod.rs")],
+        changed_paths: vec![PathBuf::from("cockpit/src/drive/campaign/mod.rs")],
         proofs: vec![ProofRef {
             kind: ProofKind::TargetedTest,
             run_id: "swr-test".to_string(),

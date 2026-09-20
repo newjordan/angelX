@@ -249,12 +249,15 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     let mut mix = ToolMix::default();
     // 7 of the last 12 calls forge work → Competition by strict majority.
     for _ in 0..7 {
-        mix.push(Building::Smithy, crate::world_viz::RealmActivity::Forge);
+        mix.push(
+            Building::Smithy,
+            crate::stage::world_viz::RealmActivity::Forge,
+        );
     }
     for _ in 0..5 {
         mix.push(
             Building::Scriptorium,
-            crate::world_viz::RealmActivity::Study,
+            crate::stage::world_viz::RealmActivity::Study,
         );
     }
     assert_eq!(
@@ -267,11 +270,14 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     for _ in 0..7 {
         mix.push(
             Building::Scriptorium,
-            crate::world_viz::RealmActivity::Study,
+            crate::stage::world_viz::RealmActivity::Study,
         );
     }
     for _ in 0..5 {
-        mix.push(Building::Chapel, crate::world_viz::RealmActivity::Memory);
+        mix.push(
+            Building::Chapel,
+            crate::stage::world_viz::RealmActivity::Memory,
+        );
     }
     assert_eq!(
         loop_kind_for("something vague", false, &mix),
@@ -281,12 +287,15 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     // A balanced window stays Unknown.
     let mut mix = ToolMix::default();
     for _ in 0..6 {
-        mix.push(Building::Smithy, crate::world_viz::RealmActivity::Forge);
+        mix.push(
+            Building::Smithy,
+            crate::stage::world_viz::RealmActivity::Forge,
+        );
     }
     for _ in 0..6 {
         mix.push(
             Building::Scriptorium,
-            crate::world_viz::RealmActivity::Study,
+            crate::stage::world_viz::RealmActivity::Study,
         );
     }
     assert_eq!(
@@ -299,7 +308,7 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     for _ in 0..12 {
         mix.push(
             Building::Scriptorium,
-            crate::world_viz::RealmActivity::Study,
+            crate::stage::world_viz::RealmActivity::Study,
         );
     }
     assert_eq!(loop_kind_for("fix the bug", false, &mix), LoopKind::Coding);
@@ -310,11 +319,14 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     for _ in 0..12 {
         mix.push(
             Building::Scriptorium,
-            crate::world_viz::RealmActivity::Study,
+            crate::stage::world_viz::RealmActivity::Study,
         );
     }
     for _ in 0..12 {
-        mix.push(Building::Smithy, crate::world_viz::RealmActivity::Forge);
+        mix.push(
+            Building::Smithy,
+            crate::stage::world_viz::RealmActivity::Forge,
+        );
     }
     assert_eq!(loop_kind_for("vague", false, &mix), LoopKind::Competition);
 }
@@ -534,7 +546,7 @@ fn loop_mirror_drains_the_event_ladder() {
     st.stale_count = 0;
     st.iteration = 2;
     st.measured_candidates = 1;
-    st.log.push(crate::loop_ctl::LoopIterLog {
+    st.log.push(crate::drive::loop_ctl::LoopIterLog {
         iteration: 2,
         direction: "tuned the tile loop — improved throughput".to_string(),
         new_findings: 0,

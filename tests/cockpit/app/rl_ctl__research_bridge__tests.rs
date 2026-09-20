@@ -17,7 +17,7 @@ fn sloptomizer_bundled_originals_match_source_receipt() {
             .find(|(p, _)| Some(*p) == row["path"].as_str())
             .unwrap();
         assert_eq!(
-            crate::cut::sha256_hex(bytes),
+            crate::knowledge::cut::sha256_hex(bytes),
             row["sha256"].as_str().unwrap()
         );
     }

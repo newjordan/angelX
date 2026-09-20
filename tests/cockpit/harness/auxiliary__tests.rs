@@ -1,6 +1,6 @@
 use super::*;
-use crate::club::ToolDef;
-use crate::harness::{Hooks, Tool, ToolRegistry, run_code_mode_tool};
+use crate::agent::club::ToolDef;
+use crate::agent::harness::{Hooks, Tool, ToolRegistry, run_code_mode_tool};
 use serde_json::{Value, json};
 
 struct OwnedTool(&'static str);

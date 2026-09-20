@@ -65,7 +65,7 @@ fn intent(subject: &str) -> ActionIntentV1 {
         },
         kind: ActionKindV1::SubmitCandidate,
         subject_id: subject.into(),
-        payload_sha256: crate::cut::sha256_hex(format!("payload:{subject}").as_bytes()),
+        payload_sha256: crate::knowledge::cut::sha256_hex(format!("payload:{subject}").as_bytes()),
         intent_version: "v1".into(),
     };
     intent.action_key = canonical_action_key(&intent).unwrap();
@@ -82,7 +82,7 @@ fn update(intent: &ActionIntentV1, phase: ActionPhaseV1, at_ms: u64) -> ActionUp
         at_ms,
         reconcile_key: (phase == ActionPhaseV1::Ambiguous).then(|| "reconcile-1".into()),
         receipt_sha256: (phase == ActionPhaseV1::Completed)
-            .then(|| crate::cut::sha256_hex(b"official-ack")),
+            .then(|| crate::knowledge::cut::sha256_hex(b"official-ack")),
         next: (phase == ActionPhaseV1::Ambiguous).then(|| ScheduledActionV1 {
             action: "reconcile_submission".into(),
             next_attempt_at_ms: at_ms + 1_000,
@@ -227,7 +227,7 @@ fn action_key_payload_conflict_and_exact_replay() {
         Ok(super::journal::PrepareActionV1::Replay { .. })
     ));
     let mut conflict = action.clone();
-    conflict.payload_sha256 = crate::cut::sha256_hex(b"different");
+    conflict.payload_sha256 = crate::knowledge::cut::sha256_hex(b"different");
     assert!(matches!(
         state.prepare(update(&conflict, ActionPhaseV1::Planned, 3)),
         Err(JournalError::Conflict(_))

@@ -43,8 +43,9 @@ fn with_table(_guard: &std::sync::MutexGuard<'_, ()>, f: impl FnOnce()) {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("prices.toml");
     std::fs::write(&path, TABLE).unwrap();
-    let _env = crate::harness::tests::EnvGuard::set("ANGEL_PRICES_FILE", path.to_str().unwrap());
-    let _no_home = crate::harness::tests::EnvGuard::unset("HOME");
+    let _env =
+        crate::agent::harness::tests::EnvGuard::set("ANGEL_PRICES_FILE", path.to_str().unwrap());
+    let _no_home = crate::agent::harness::tests::EnvGuard::unset("HOME");
     f();
     std::fs::remove_file(&path).ok();
 }
@@ -162,8 +163,9 @@ fn cost_partial_prices_price_only_reported_fields() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("prices.toml");
     std::fs::write(&path, &table).unwrap();
-    let _env = crate::harness::tests::EnvGuard::set("ANGEL_PRICES_FILE", path.to_str().unwrap());
-    let _home = crate::harness::tests::EnvGuard::unset("HOME");
+    let _env =
+        crate::agent::harness::tests::EnvGuard::set("ANGEL_PRICES_FILE", path.to_str().unwrap());
+    let _home = crate::agent::harness::tests::EnvGuard::unset("HOME");
     let cost = cost_for(
         Some("deepseek-v4-flash"),
         usage(json!({"input":1_000_000,"cache_read":400_000,
@@ -179,8 +181,8 @@ fn cost_partial_prices_price_only_reported_fields() {
 #[test]
 fn cost_embedded_table_resolves_and_is_reported() {
     let _guard = crate::tests::env_lock();
-    let _env = crate::harness::tests::EnvGuard::unset("ANGEL_PRICES_FILE");
-    let _home = crate::harness::tests::EnvGuard::set(
+    let _env = crate::agent::harness::tests::EnvGuard::unset("ANGEL_PRICES_FILE");
+    let _home = crate::agent::harness::tests::EnvGuard::set(
         "HOME",
         std::env::temp_dir()
             .join(format!("angel-cost-nohome-{}", std::process::id()))
@@ -220,7 +222,8 @@ output = "1.0"
 "#,
     )
     .unwrap();
-    let _env = crate::harness::tests::EnvGuard::set("ANGEL_PRICES_FILE", path.to_str().unwrap());
+    let _env =
+        crate::agent::harness::tests::EnvGuard::set("ANGEL_PRICES_FILE", path.to_str().unwrap());
     let cost = cost_for(
         Some("override-model"),
         Some(&json!({"input":2_000_000,"output":1_000_000})),

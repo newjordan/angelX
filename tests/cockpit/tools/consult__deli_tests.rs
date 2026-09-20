@@ -1,6 +1,6 @@
 //! Protocol/effect fixtures, not live-model quality measurements.
 use super::*;
-use crate::club::{ChatRole, StreamDelta, ToolCall};
+use crate::agent::club::{ChatRole, StreamDelta, ToolCall};
 use crate::tests::{TestEnvGuard, TestGitWorkspace, env_lock};
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -107,7 +107,7 @@ fn model_enters_deli_returns_to_normal_tools_and_applies_its_result() {
     let _findings = TestEnvGuard::set("ANGEL_DELI_MIN_FINDINGS", "0");
     let _stop = TestEnvGuard::set("ANGEL_DELI_STALL_STOP", "0");
     let club = ExcursionClub::new(false);
-    let registry = crate::harness::ToolRegistry::with_team_self(
+    let registry = crate::agent::harness::ToolRegistry::with_team_self(
         workspace.path().into(),
         vec![],
         Some(club.clone()),
@@ -116,7 +116,7 @@ fn model_enters_deli_returns_to_normal_tools_and_applies_its_result() {
         "Use a Deli excursion to decide the next artifact, then apply it here.",
     )];
     let (events, _received) = std::sync::mpsc::channel();
-    crate::harness::run_turn(
+    crate::agent::harness::run_turn(
         club.as_ref(),
         &registry,
         &mut history,
@@ -190,7 +190,8 @@ fn deli_consult_keeps_pinned_effort_through_all_rounds_and_synthesis() {
     let _findings = TestEnvGuard::set("ANGEL_DELI_MIN_FINDINGS", "0");
     let _stop = TestEnvGuard::set("ANGEL_DELI_STALL_STOP", "0");
     let club = Arc::new(EffortProbe(AtomicUsize::new(0)));
-    let deli = crate::deli::DeliClub::for_consult(club.clone(), Some(2), Some("high".into()));
+    let deli =
+        crate::drive::deli::DeliClub::for_consult(club.clone(), Some(2), Some("high".into()));
     deli.chat_streaming(
         &[ChatMsg::user("Inspect this premise")],
         &[],

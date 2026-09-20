@@ -1,5 +1,5 @@
 use super::*;
-use crate::reinforce::{TEST_VERIFIER_CONTRACT, TestReward};
+use crate::drive::reinforce::{TEST_VERIFIER_CONTRACT, TestReward};
 
 #[test]
 fn evaluator_artifact_roundtrip_replays_reward_and_rejects_tamper() {

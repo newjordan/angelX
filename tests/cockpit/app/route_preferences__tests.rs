@@ -119,7 +119,7 @@ fn snapshot_contains_only_selected_route_metadata() {
     assert!(bag.select_route(0, 0));
     assert!(bag.set_reasoning_effort("high").is_some());
     let mut expected = preference("openai", "gpt-5.6-sol", "gpt-5.6-sol", Some("high"));
-    expected.route_id = Some(crate::backplane::RouteId::chat(
+    expected.route_id = Some(crate::agent::backplane::RouteId::chat(
         "openai",
         "gpt-5.6-sol",
         Some("high"),

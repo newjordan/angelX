@@ -10,7 +10,7 @@ use super::schema::{
 };
 
 pub(super) fn digest(value: &str) -> String {
-    crate::cut::sha256_hex(value.as_bytes())
+    crate::knowledge::cut::sha256_hex(value.as_bytes())
 }
 
 fn key() -> CompetitionKeyV1 {

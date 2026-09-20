@@ -5,7 +5,7 @@ fn explicit_export_path_is_private_and_never_overwritten() {
     let path = std::env::temp_dir().join(format!(
         "angel-rollout-export-{}-{}.json",
         std::process::id(),
-        crate::cut::sha256_hex(b"private-export-fixture")
+        crate::knowledge::cut::sha256_hex(b"private-export-fixture")
     ));
     let _ = std::fs::remove_file(&path);
     write_private_export(

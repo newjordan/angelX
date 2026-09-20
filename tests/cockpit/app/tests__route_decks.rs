@@ -4,17 +4,17 @@
 //! collisions.
 
 use super::{mouse_ev, render_app_text, seed_preview_app};
-use crate::agent::profile::AgentKey;
+use crate::agent::club::Bag;
+use crate::agent::turn::Thinking;
 use crate::app::AgentButton;
-use crate::club::Bag;
-use crate::draw;
 use crate::tests::env_lock;
-use crate::turn::Thinking;
+use crate::ui::agent_panel::profile::AgentKey;
+use crate::ui::draw;
 use ratatui::{Terminal, backend::TestBackend};
 
 #[test]
 fn agent_panel_model_button_opens_exact_route_deck_and_selects() {
-    use crate::agent::controls::AgentMenuAction;
+    use crate::ui::agent_panel::controls::AgentMenuAction;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 
     let _guard = env_lock();
@@ -156,7 +156,7 @@ fn wide_unicode_model_control_hitbox_reaches_its_visible_closing_cell() {
 
 #[test]
 fn model_route_deck_leads_with_model_and_keeps_connections_explicit() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
 
     let _guard = env_lock();
     let mut app = seed_preview_app();
@@ -177,7 +177,7 @@ fn model_route_deck_leads_with_model_and_keeps_connections_explicit() {
         (1, 0, "model-c", "turbo"),
     ] {
         let rect = app.agent_menu_hits.iter().find_map(|(rect, action)| {
-            matches!(action, crate::agent::controls::AgentMenuAction::SelectRoute { agent_index, slot_index }
+            matches!(action, crate::ui::agent_panel::controls::AgentMenuAction::SelectRoute { agent_index, slot_index }
                 if *agent_index == agent && *slot_index == slot).then_some(*rect)
         }).expect("model selection row");
         let buffer = terminal.backend().buffer();
@@ -233,7 +233,7 @@ fn model_button_remains_an_inspector_with_only_one_concrete_route() {
 
 #[test]
 fn brain_route_cursor_previews_agent_portrait_without_committing() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
@@ -282,7 +282,7 @@ fn portrait_tracks_the_selected_provider_model_inside_one_sota_agent() {
 
 #[test]
 fn brain_route_cursor_previews_provider_portrait_without_committing() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
@@ -308,7 +308,7 @@ fn live_portrait_uses_the_spawned_requested_route_not_a_shared_box_label() {
     assert_eq!(app.active_profile().key, AgentKey::Sparky);
 
     let mut thinking = Thinking::pending_for_test("sota");
-    thinking.requested_route = crate::club::RouteIdentity {
+    thinking.requested_route = crate::agent::club::RouteIdentity {
         driver: "xai".to_string(),
         model: Some("grok-4.6".to_string()),
         reasoning_effort: Some("high".to_string()),
@@ -322,7 +322,7 @@ fn live_portrait_uses_the_spawned_requested_route_not_a_shared_box_label() {
 
 #[test]
 fn active_profile_draw_path_does_not_allocate_a_fresh_route_identity() {
-    let src = include_str!("../../../cockpit/src/app.rs");
+    let src = include_str!("../../../cockpit/src/app/mod.rs");
     let start = src
         .find("pub(crate) fn active_profile(")
         .expect("active_profile present");
@@ -346,7 +346,7 @@ fn header_tracks_the_tool_workspace_without_caching_an_old_project() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     for name in ["orchard-project", "weather-project"] {
-        app.tools = std::sync::Arc::new(crate::harness::ToolRegistry::with_team(
+        app.tools = std::sync::Arc::new(crate::agent::harness::ToolRegistry::with_team(
             std::path::PathBuf::from(format!("/tmp/{name}")),
             Vec::new(),
         ));
@@ -363,7 +363,7 @@ fn header_tracks_the_tool_workspace_without_caching_an_old_project() {
 
 #[test]
 fn thinking_cursor_previews_effort_without_committing() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
@@ -387,7 +387,7 @@ fn thinking_cursor_previews_effort_without_committing() {
 
 #[test]
 fn thinking_button_and_model_command_are_keyboard_accessible() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 
     let _guard = env_lock();
@@ -447,7 +447,7 @@ fn thinking_button_and_model_command_are_keyboard_accessible() {
 
 #[test]
 fn thinking_command_prefilters_without_mutating_until_enter() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let _guard = env_lock();
@@ -483,7 +483,7 @@ fn thinking_command_prefilters_without_mutating_until_enter() {
 
 #[test]
 fn thinking_deck_disables_rows_if_its_route_goes_offline() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let _guard = env_lock();
@@ -500,8 +500,8 @@ fn thinking_deck_disables_rows_if_its_route_goes_offline() {
     assert!(
         app.agent_menu_hits.iter().all(|(_, action)| matches!(
             action,
-            crate::agent::controls::AgentMenuAction::ToggleDetails
-                | crate::agent::controls::AgentMenuAction::ToggleUnavailable
+            crate::ui::agent_panel::controls::AgentMenuAction::ToggleDetails
+                | crate::ui::agent_panel::controls::AgentMenuAction::ToggleUnavailable
         )),
         "offline effort rows must not retain mouse actions"
     );
@@ -512,7 +512,7 @@ fn thinking_deck_disables_rows_if_its_route_goes_offline() {
 
 #[test]
 fn undersized_terminal_closes_invisible_brain_route_modal() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let _guard = env_lock();
@@ -528,7 +528,7 @@ fn undersized_terminal_closes_invisible_brain_route_modal() {
 
 #[test]
 fn header_dropdowns_and_f9_f10_open_route_decks_without_keymap_collisions() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 
     let _guard = env_lock();

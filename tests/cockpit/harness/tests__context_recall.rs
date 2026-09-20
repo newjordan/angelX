@@ -294,7 +294,7 @@ fn compaction_budget_sota_links_default_to_cost_sized_target() {
 
 #[test]
 fn auto_recall_runs_once_per_distinct_project_query() {
-    use crate::memory::store::{Drawer, MemoryStore};
+    use crate::knowledge::memory::store::{Drawer, MemoryStore};
     struct RecallStore {
         seen: Mutex<Vec<(String, usize, Option<String>)>>,
     }
@@ -386,11 +386,11 @@ fn auto_recall_runs_once_per_distinct_project_query() {
     );
     assert_eq!(
         seen[0].2.as_deref(),
-        Some(crate::compaction::project_wing_for(&alpha_workspace).as_str())
+        Some(crate::agent::compaction::project_wing_for(&alpha_workspace).as_str())
     );
     assert_eq!(
         seen[2].2.as_deref(),
-        Some(crate::compaction::project_wing_for(&beta_workspace).as_str())
+        Some(crate::agent::compaction::project_wing_for(&beta_workspace).as_str())
     );
     assert!(
         history
@@ -421,7 +421,7 @@ fn auto_recall_runs_once_per_distinct_project_query() {
 
 #[test]
 fn timed_out_uninterruptible_auto_recall_stays_single_flight_until_return() {
-    use crate::memory::store::{Drawer, MemoryStore};
+    use crate::knowledge::memory::store::{Drawer, MemoryStore};
 
     struct BlockingRecallStore {
         calls: Arc<AtomicUsize>,
@@ -519,14 +519,16 @@ fn maybe_compact_noop_when_summarizer_fails() {
     let n0 = h.len();
     let (tx, _rx) = mpsc::channel();
     let club = SummarizerClub(""); // respond -> Err
-    let reg = registry_with_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    let reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     assert!(!maybe_compact(&club, &mut h, 30, 5, 0, &[], &reg, &tx));
     assert_eq!(h.len(), n0, "history untouched when the summary call fails");
 }
 
 #[test]
 fn auto_recall_bounds_pinned_memory_before_the_first_model_hop() {
-    use crate::memory::store::{Drawer, MemoryStore};
+    use crate::knowledge::memory::store::{Drawer, MemoryStore};
     struct GiantRecallStore;
     impl MemoryStore for GiantRecallStore {
         fn deposit(&self, _drawer: &Drawer) -> Result<String, String> {
@@ -584,7 +586,7 @@ fn auto_recall_bounds_pinned_memory_before_the_first_model_hop() {
 
 #[test]
 fn maybe_compact_with_live_store_compacts_and_splices() {
-    use crate::memory::store::{Drawer, MemoryStore};
+    use crate::knowledge::memory::store::{Drawer, MemoryStore};
     use std::sync::Mutex;
     struct LiveRec(Mutex<usize>);
     impl MemoryStore for LiveRec {
@@ -620,7 +622,7 @@ fn maybe_compact_with_live_store_compacts_and_splices() {
         ChatRole::Harness,
         "live-store compaction summary must use the internal background carrier"
     );
-    assert!(crate::compaction::is_compaction_note(note));
+    assert!(crate::agent::compaction::is_compaction_note(note));
     // Deposits are fire-and-forget (off-thread); we don't assert the count here
     // to avoid a race — the deterministic outcome is the compaction + splice.
 }
@@ -650,7 +652,7 @@ fn report_topic_uses_latest_user_ask() {
 
 #[test]
 fn recall_tool_validates_args_and_formats_hits() {
-    use crate::memory::store::{Drawer, MemoryStore};
+    use crate::knowledge::memory::store::{Drawer, MemoryStore};
     struct StubStore;
     impl MemoryStore for StubStore {
         fn deposit(&self, _d: &Drawer) -> Result<String, String> {

@@ -68,12 +68,12 @@ fn stalled(error: &str, bound: &str, bytes: usize) {
         if bytes == 0 { "" } else { "seed" }
     );
     assert_eq!(
-        crate::harness::tool_errors::classify_tool_error(
+        crate::agent::harness::tool_errors::classify_tool_error(
             "web_fetch",
             &serde_json::json!({}),
             Some(error)
         ),
-        crate::harness::tool_errors::ToolErrorClass::Transient
+        crate::agent::harness::tool_errors::ToolErrorClass::Transient
     );
     println!("HTTP partial receipt: {receipt}");
 }
@@ -130,7 +130,7 @@ fn turn_deadline_interrupts_body_even_in_yolo() {
 }
 #[test]
 fn default_tool_cancel_interrupts_read_and_retains_partial() {
-    use crate::harness::Tool;
+    use crate::agent::harness::Tool;
     let _lock = crate::tests::env_lock();
     let (url, server) = fixture(false, true);
     let cancel = AtomicBool::new(false);

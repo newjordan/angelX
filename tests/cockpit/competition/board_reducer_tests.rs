@@ -1,9 +1,9 @@
 use super::*;
-use crate::competition::adapters::fixture::{
+use crate::drive::competition::adapters::fixture::{
     FixtureCallV1, MemoryRawBoardJournalV1, ScriptedAdapterV1,
 };
-use crate::competition::adapters::{AdapterFailureV1, CompetitionIdentityV1};
-use crate::competition::schema::{
+use crate::drive::competition::adapters::{AdapterFailureV1, CompetitionIdentityV1};
+use crate::drive::competition::schema::{
     AdapterCapabilityV1, AdapterIdentityV1, ComparatorKindV1, CompetitionKeyV1, ScoreV1,
 };
 
@@ -30,7 +30,7 @@ pub(super) fn identity() -> AdapterIdentityV1 {
     AdapterIdentityV1 {
         adapter_id: "scripted".into(),
         adapter_version: "1".into(),
-        runtime_sha256: crate::cut::sha256_hex(b"fixture-runtime"),
+        runtime_sha256: crate::knowledge::cut::sha256_hex(b"fixture-runtime"),
         capabilities: [AdapterCapabilityV1::Board].into_iter().collect(),
     }
 }
@@ -68,7 +68,7 @@ pub(super) fn observation(
             source: ObservationSourceV1::Fixture,
             observed_at_ms: sequence * 10,
             platform_event_at_ms: Some(sequence * 10 - 1),
-            raw_sha256: crate::cut::sha256_hex(id.as_bytes()),
+            raw_sha256: crate::knowledge::cut::sha256_hex(id.as_bytes()),
         },
     }
 }
@@ -211,7 +211,7 @@ fn raw_observation_is_persisted_before_comparator_failure() {
         version: "1".into(),
         kind: ComparatorKindV1::AdapterDefined {
             contract_id: "missing".into(),
-            version_sha256: crate::cut::sha256_hex(b"missing"),
+            version_sha256: crate::knowledge::cut::sha256_hex(b"missing"),
         },
     };
     let error = BoardReducerV1::default()

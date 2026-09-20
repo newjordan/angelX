@@ -1,6 +1,6 @@
 use super::*;
-use crate::club::Bag;
-use crate::viewer::Viewer;
+use crate::agent::club::Bag;
+use crate::ui::viewer::Viewer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 fn seed_app() -> App {

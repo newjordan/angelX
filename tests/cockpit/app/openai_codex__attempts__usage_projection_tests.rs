@@ -1,8 +1,8 @@
 use super::*;
 #[test]
 fn usage_projection_codex_attempts_preserve_cache_only_zero_and_unknown() {
-    use crate::club::Club;
-    let club = crate::openai_codex::tests::club();
+    use crate::agent::club::Club;
+    let club = crate::agent::openai_codex::tests::club();
     let before = club.usage_accounting();
     {
         let mut attempt = Attempt::new(&club, br#"{"model":"fixture"}"#);
@@ -15,7 +15,7 @@ fn usage_projection_codex_attempts_preserve_cache_only_zero_and_unknown() {
         let mut attempt = Attempt::new(&club, br#"{"model":"fixture"}"#);
         attempt.receive(r#"data: {"type":"response.completed","response":{"usage":{"input_tokens":0,"output_tokens":0}}}"#, false);
     }
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (
             report.attempts,

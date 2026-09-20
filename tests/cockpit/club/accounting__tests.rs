@@ -404,7 +404,7 @@ fn usage_accounting_poisoned_or_disappearing_sources_are_untracked() {
 #[test]
 fn formation_budget_accounting_attempts_keep_overrun_and_unknown_usage() {
     let _lock = crate::tests::env_lock();
-    let budget = crate::harness::formation_budget::Budget::new(Some(10), None);
+    let budget = crate::agent::harness::formation_budget::Budget::new(Some(10), None);
     let cell = AccountingCell::default();
     for known in [true, false, true] {
         let mut attempt = cell.attempt();

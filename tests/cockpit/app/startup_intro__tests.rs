@@ -413,7 +413,7 @@ fn startup_intro_fine_transport_owns_separate_ids_and_transparent_dots() {
                 .symbol()
                 .strip_suffix(' ')
                 .expect("upload keeps the cell's own blank");
-            let transported = crate::dots::protocol::decode_upload(upload);
+            let transported = crate::ui::dots::protocol::decode_upload(upload);
             assert_eq!(
                 transported,
                 geometry.rasterize_on(&ready.dots, TRANSPARENT).unwrap()
@@ -585,7 +585,7 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
     let _guard = crate::tests::env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    let mut app = crate::app::App::preview(crate::viewer::Viewer::static_preview());
+    let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
     app.startup_intro = StartupIntro::default();
     app.visual_motion = MotionMode::Reduced;
     let mut terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
@@ -597,7 +597,7 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
         .any(|surface| surface.current.is_none())
     {
         terminal
-            .draw(|frame| crate::draw::ui(frame, &mut app))
+            .draw(|frame| crate::ui::draw::ui(frame, &mut app))
             .unwrap();
         assert!(
             Instant::now() < deadline,
@@ -609,10 +609,10 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
     // Entering an actual room must retain the world even before typing;
     // only the still-empty agent shell keeps the launch ceremony.
     app.world
-        .settle_at_for_test(crate::world_viz::Building::Keep);
+        .settle_at_for_test(crate::stage::world_viz::Building::Keep);
     assert!(app.world.enter_interior());
     terminal
-        .draw(|frame| crate::draw::ui(frame, &mut app))
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();
     assert!(app.world_pane_visible);
     assert!(app.startup_intro.visible);
@@ -620,12 +620,12 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
     assert_eq!(app.input, "a");
     app.startup_intro.fading = Some(Instant::now() - FADE);
     terminal
-        .draw(|frame| crate::draw::ui(frame, &mut app))
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();
     assert!(app.startup_intro.finished);
     app.on_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
     terminal
-        .draw(|frame| crate::draw::ui(frame, &mut app))
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
         .unwrap();
     assert!(app.input.is_empty());
     assert!(app.startup_intro.worker.is_none());

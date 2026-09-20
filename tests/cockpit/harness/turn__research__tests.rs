@@ -34,8 +34,8 @@ fn research_origin_envelope_schema_and_preamble() {
     let configured = origin(&history);
     assert_eq!(configured.as_deref(), Some("http://127.0.0.1:34251/search"));
     let mut defs = vec![
-        crate::tools::web::WebSearchTool.def(),
-        crate::tools::web::WebFetchTool.def(),
+        crate::agent::tools::web::WebSearchTool.def(),
+        crate::agent::tools::web::WebFetchTool.def(),
     ];
     describe_surface(&mut defs, configured.as_deref());
     let envelope = serde_json::json!({"preamble":preamble(configured.as_deref()), "tools":defs.iter().map(|d| serde_json::json!({"name":d.name,"description":d.description,"parameters":d.params})).collect::<Vec<_>>()});
@@ -59,7 +59,7 @@ fn research_origin_envelope_schema_and_preamble() {
     assert_eq!(origin(&history), None);
     assert!(!preamble(None).contains("http"));
     assert!(
-        !crate::tools::web::WebSearchTool
+        !crate::agent::tools::web::WebSearchTool
             .def()
             .description
             .contains("127.0.0.1")
@@ -68,13 +68,15 @@ fn research_origin_envelope_schema_and_preamble() {
         "Research question: use sources.\nCorpus origin: http://127.0.0.1:12345",
     )];
     assert_eq!(origin(&declared).as_deref(), Some("http://127.0.0.1:12345"));
-    assert!(crate::tools::web::research_origin("https://user:secret@example.test").is_none());
+    assert!(
+        crate::agent::tools::web::research_origin("https://user:secret@example.test").is_none()
+    );
     assert_eq!(
-        crate::tools::web::research_search_endpoint("http://127.0.0.1:12345"),
+        crate::agent::tools::web::research_search_endpoint("http://127.0.0.1:12345"),
         "http://127.0.0.1:12345/search"
     );
     assert_eq!(
-        crate::tools::web::research_search_endpoint("https://example.test/custom/search"),
+        crate::agent::tools::web::research_search_endpoint("https://example.test/custom/search"),
         "https://example.test/custom/search"
     );
 }
@@ -124,12 +126,12 @@ fn research_off_surface_discovery_is_not_document_work() {
         "web_fetch",
         &serde_json::json!({"url":"http://127.0.0.1:12345/doc/1"})
     ));
-    assert!(!crate::club::final_response_requested(&[ChatMsg::user(
-        COMPOSE
-    )]));
-    assert!(crate::club::final_response_requested(&[ChatMsg::harness(
-        COMPOSE
-    )]));
+    assert!(!crate::agent::club::final_response_requested(&[
+        ChatMsg::user(COMPOSE)
+    ]));
+    assert!(crate::agent::club::final_response_requested(&[
+        ChatMsg::harness(COMPOSE)
+    ]));
 }
 
 #[test]

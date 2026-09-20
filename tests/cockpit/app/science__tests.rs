@@ -43,11 +43,11 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
         });
     });
     let start = std::time::Instant::now();
-    let synthesis = crate::tools::http_transport::with_deadline(
+    let synthesis = crate::agent::tools::http_transport::with_deadline(
         Some(start + Duration::from_millis(500)),
         || {
             synthesize_with("fixture", 1, &|_, _, _| {
-                crate::tools::http_transport::request("GET", &url, false, 0)
+                crate::agent::tools::http_transport::request("GET", &url, false, 0)
                     .call()
                     .map_err(|e| e.to_string())?
                     .into_string()

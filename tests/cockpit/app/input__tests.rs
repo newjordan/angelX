@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::ChatRole;
+use crate::agent::club::ChatRole;
 
 #[test]
 fn parses_local_commands() {
@@ -106,7 +106,7 @@ fn slash_catalog_is_unique_and_help_documented() {
     }
     let dupes: Vec<_> = seen.iter().filter(|(_, n)| **n > 1).collect();
     assert!(dupes.is_empty(), "duplicate slash commands: {dupes:?}");
-    let help = crate::local_command::help_text(Some("all"));
+    let help = crate::app::local_command::help_text(Some("all"));
     // Names documented under a different spelling (aliases, module toggles
     // opened via /open <module>, or the help wildcard itself).
     const SPELLINGS: &[(&str, &str)] = &[

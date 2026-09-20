@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::VerificationOutcome;
+use crate::agent::harness::VerificationOutcome;
 
 #[test]
 fn shell_verifier_cd_and_env_prefixes_execute_and_reach_ledger() {
@@ -11,7 +11,7 @@ fn shell_verifier_cd_and_env_prefixes_execute_and_reach_ledger() {
     let parent_env = std::env::var_os("TEST_MODE");
     let mut registry = ToolRegistry::new();
     registry.set_workspace(root.clone());
-    registry.register(Box::new(crate::tools::build::RunTestsTool::in_dir(
+    registry.register(Box::new(crate::agent::tools::build::RunTestsTool::in_dir(
         root.clone(),
     )));
     for command in [
@@ -37,7 +37,7 @@ fn shell_verifier_cd_and_env_prefixes_execute_and_reach_ledger() {
             routed.receipt.routed_cwd,
             Some(suite.canonicalize().unwrap())
         );
-        crate::harness::trajectory::note_tool_outcome(
+        crate::agent::harness::trajectory::note_tool_outcome(
             0,
             "shell",
             &call.args,
@@ -49,8 +49,8 @@ fn shell_verifier_cd_and_env_prefixes_execute_and_reach_ledger() {
             None,
             text.len(),
         );
-        crate::harness::trajectory::note_tool_routing(&routed.receipt);
-        let ledger = crate::harness::trajectory::tool_ledger_snapshot();
+        crate::agent::harness::trajectory::note_tool_routing(&routed.receipt);
+        let ledger = crate::agent::harness::trajectory::tool_ledger_snapshot();
         assert_eq!(
             ledger.last().unwrap()["routed_cwd"],
             json!(suite.canonicalize().unwrap())

@@ -1,6 +1,6 @@
 //! Owned native delegate → exact integration → sealed audit controls.
 use super::*;
-use crate::club::{RouteIdentity, StreamDelta};
+use crate::agent::club::{RouteIdentity, StreamDelta};
 
 struct Child {
     calls: AtomicUsize,
@@ -158,7 +158,7 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
         workspace: workspace.clone(),
     };
     let mut history = vec![ChatMsg::user("owned parent task")];
-    let outcome = crate::harness::turn::run_turn_observed(
+    let outcome = crate::agent::harness::turn::run_turn_observed(
         &parent,
         &registry,
         &mut history,
@@ -174,7 +174,7 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
     );
     let id = outcome.rollout_id.unwrap();
     let receipt =
-        crate::harness::rollout::audit_workspace_rollout_receipt(&workspace, &id).unwrap();
+        crate::agent::harness::rollout::audit_workspace_rollout_receipt(&workspace, &id).unwrap();
     let coverage = &receipt["auxiliary_coverage"];
     assert_eq!(coverage["schema"], "angel-native-auxiliary-coverage/v2");
     assert_eq!(coverage["complete"], true);
@@ -197,7 +197,7 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
     );
     assert_eq!(
         links[0]["artifact"]["task_sha256"],
-        crate::cut::sha256_hex(b"owned child task")
+        crate::knowledge::cut::sha256_hex(b"owned child task")
     );
     assert_eq!(
         links[1]["application"]["after_commit"],
@@ -228,14 +228,14 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
                 "schema":"angel-owned-delegated-lineage-fixture/v1",
                 "workspace": workspace, "rollout_id": id, "root": root,
                 "simulated_provider": true,
-                "source_sha256": crate::harness::run_identity::source_sha256(),
+                "source_sha256": crate::agent::harness::run_identity::source_sha256(),
             }))
             .unwrap(),
         )
         .unwrap();
     }
     // Even a newly self-hashed child manifest cannot replace its sealed journal.
-    let repo_key = crate::workspace_store::repo_identity(&workspace).key;
+    let repo_key = crate::platform::workspace_store::repo_identity(&workspace).key;
     let child = links[0]["artifact"]["child_rollout_id"].as_str().unwrap();
     let path = root
         .join("rollouts")
@@ -244,8 +244,8 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
         .join(child)
         .join("manifest.json");
     let original = std::fs::read(&path).unwrap();
-    let store = crate::harness::rollout::RolloutStore::for_workspace(&workspace);
-    let repo_key = crate::workspace_store::repo_identity(&workspace).key;
+    let store = crate::agent::harness::rollout::RolloutStore::for_workspace(&workspace);
+    let repo_key = crate::platform::workspace_store::repo_identity(&workspace).key;
     let mut forged = store.load_manifest(child, &repo_key).unwrap();
     forged
         .auxiliary_coverage
@@ -253,7 +253,7 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
         .unwrap()
         .observed_tool_calls = 9;
     forged.manifest_sha256 = None;
-    forged.manifest_sha256 = Some(crate::cut::sha256_hex(
+    forged.manifest_sha256 = Some(crate::knowledge::cut::sha256_hex(
         &serde_json::to_vec(&forged).unwrap(),
     ));
     std::fs::write(&path, serde_json::to_vec(&forged).unwrap()).unwrap();
@@ -267,8 +267,8 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
         9,
         "forged typed manifest must pass its own digest before journal audit"
     );
-    let error =
-        crate::harness::rollout::audit_workspace_rollout_receipt(&workspace, &id).unwrap_err();
+    let error = crate::agent::harness::rollout::audit_workspace_rollout_receipt(&workspace, &id)
+        .unwrap_err();
     assert!(
         error.contains("manifest does not match its journal"),
         "{error}"
@@ -373,7 +373,7 @@ fn delegated_lineage_worktree_excludes_synthetic_tree_before_population() {
     run_git(&repo, &["commit", "-qm", "owned sparse fixture"]).unwrap();
     std::fs::write(repo.join("live.txt"), "parent dirty bytes remain\n").unwrap();
     let worktree = root.join("child");
-    crate::harness::orchestrator::prepare_delegate_worktree(
+    crate::agent::harness::orchestrator::prepare_delegate_worktree(
         &repo,
         &worktree,
         "owned-sparse-child",

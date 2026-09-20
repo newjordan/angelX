@@ -36,7 +36,7 @@ fn searxng_handles_empty_and_missing() {
 
 #[test]
 fn grok_tool_prompt_frames_a_scout_brief() {
-    let p = crate::tools::web::grok_tool_prompt("who won the match last night");
+    let p = crate::agent::tools::web::grok_tool_prompt("who won the match last night");
     // Carries the query and steers Grok toward live, cited, recency-first search.
     assert!(p.contains("who won the match last night"));
     assert!(p.contains("web and X"));
@@ -59,7 +59,7 @@ fn html_to_text_strips_markup_and_scripts() {
             <script>var x = "<b>ignored</b>";</script>
             <STYLE>body { color: red }</STYLE></head>
             <body><h1>Hello</h1><p>a &amp; b &lt;ok&gt;</p></body></html>"#;
-    let text = crate::tools::web::html_to_text(html);
+    let text = crate::agent::tools::web::html_to_text(html);
     assert!(text.contains("Doc") && text.contains("Hello"), "{text}");
     assert!(text.contains("a & b <ok>"), "{text}");
     assert!(
@@ -79,17 +79,17 @@ fn html_to_text_strips_markup_and_scripts() {
 #[test]
 fn html_to_text_collapses_whitespace_and_survives_unterminated_blocks() {
     assert_eq!(
-        crate::tools::web::html_to_text("a\n\n\n\n\nb   c"),
+        crate::agent::tools::web::html_to_text("a\n\n\n\n\nb   c"),
         "a\n\nb c"
     );
     // An unterminated <script> drops the rest instead of panicking.
-    let cut = crate::tools::web::html_to_text("keep <script> everything after is gone");
+    let cut = crate::agent::tools::web::html_to_text("keep <script> everything after is gone");
     assert_eq!(cut, "keep");
 }
 
 #[test]
 fn web_fetch_rejects_non_http_urls() {
-    let t = crate::tools::web::WebFetchTool;
+    let t = crate::agent::tools::web::WebFetchTool;
     assert!(t.call(&serde_json::json!({})).is_err(), "missing url");
     assert!(
         t.call(&serde_json::json!({ "url": "file:///etc/passwd" }))
@@ -109,21 +109,30 @@ fn web_http_policy_blocks_ssrf_ranges_and_allows_explicit_loopback() {
     let metadata = IpAddr::V4(Ipv4Addr::new(169, 254, 169, 254));
     let mapped_metadata: IpAddr = "::ffff:169.254.169.254".parse().unwrap();
 
-    assert!(crate::tools::web::http_ip_allowed(allowed_public, false));
-    assert!(crate::tools::web::http_ip_allowed(allowed_loopback, false));
-    assert!(!crate::tools::web::http_ip_allowed(private, false));
-    assert!(crate::tools::web::http_ip_allowed(private, true));
-    assert!(!crate::tools::web::http_ip_allowed(tailscale, false));
-    assert!(crate::tools::web::http_ip_allowed(tailscale, true));
-    assert!(!crate::tools::web::http_ip_allowed(metadata, true));
-    assert!(!crate::tools::web::http_ip_allowed(mapped_metadata, true));
+    assert!(crate::agent::tools::web::http_ip_allowed(
+        allowed_public,
+        false
+    ));
+    assert!(crate::agent::tools::web::http_ip_allowed(
+        allowed_loopback,
+        false
+    ));
+    assert!(!crate::agent::tools::web::http_ip_allowed(private, false));
+    assert!(crate::agent::tools::web::http_ip_allowed(private, true));
+    assert!(!crate::agent::tools::web::http_ip_allowed(tailscale, false));
+    assert!(crate::agent::tools::web::http_ip_allowed(tailscale, true));
+    assert!(!crate::agent::tools::web::http_ip_allowed(metadata, true));
+    assert!(!crate::agent::tools::web::http_ip_allowed(
+        mapped_metadata,
+        true
+    ));
 }
 
 #[test]
 fn http_request_mutations_are_disabled_by_default() {
     let _lock = crate::tests::env_lock();
     let _disabled = EnvGuard::set("ANGEL_HTTP_ALLOW_MUTATIONS", "0");
-    let err = crate::tools::web::HttpRequestTool
+    let err = crate::agent::tools::web::HttpRequestTool
         .call(&serde_json::json!({
             "method": "POST",
             "url": "http://127.0.0.1:9/should-not-connect",
@@ -177,7 +186,7 @@ fn yolo_http_request_can_mutate_a_local_network_service_without_opt_ins() {
         String::from_utf8_lossy(&request).into_owned()
     });
 
-    let out = crate::tools::web::HttpRequestTool
+    let out = crate::agent::tools::web::HttpRequestTool
         .call(&serde_json::json!({
             "method": "POST",
             "url": format!("http://{address}/deploy"),
@@ -195,7 +204,7 @@ fn yolo_http_request_can_mutate_a_local_network_service_without_opt_ins() {
 #[test]
 #[ignore = "fetches a live URL over the network; run with --ignored"]
 fn web_fetch_live() {
-    let out = crate::tools::web::WebFetchTool
+    let out = crate::agent::tools::web::WebFetchTool
         .call(&serde_json::json!({ "url": "https://example.com", "max_bytes": 5000 }))
         .expect("live fetch");
     assert!(out.contains("Example Domain"), "got: {out}");

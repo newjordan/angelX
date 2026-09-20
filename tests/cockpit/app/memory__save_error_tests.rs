@@ -113,7 +113,7 @@ fn non_utf8_destination_preserves_raw_override_and_valid_json_schema() {
     assert_eq!(json["workspace"], workspace.to_str().unwrap());
     assert_eq!(
         json["project_key"],
-        crate::workspace_store::workspace_key(&workspace)
+        crate::platform::workspace_store::workspace_key(&workspace)
     );
     assert_eq!(
         std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,

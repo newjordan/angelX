@@ -23,7 +23,7 @@ fn test_scope_and_immutability_gates_fail_closed() {
 
 #[test]
 fn successful_but_mutating_proof_command_is_not_accepted() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         eprintln!("landlock unavailable; skipping mutating proof integration test");
         return;
     }
@@ -52,7 +52,7 @@ fn successful_but_mutating_proof_command_is_not_accepted() {
 
 #[test]
 fn proof_predicates_do_not_share_ignored_side_effects() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         eprintln!("landlock unavailable; skipping fresh-proof-worktree test");
         return;
     }
@@ -89,7 +89,7 @@ fn proof_predicates_do_not_share_ignored_side_effects() {
 #[test]
 fn verifier_runs_a_real_cargo_gate_inside_the_mandatory_sandbox() {
     let _lock = crate::tests::env_lock();
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         eprintln!("landlock unavailable; skipping cargo verifier integration test");
         return;
     }

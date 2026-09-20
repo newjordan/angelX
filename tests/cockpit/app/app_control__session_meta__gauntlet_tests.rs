@@ -6,7 +6,7 @@ struct FakeClub {
     label: &'static str,
     synth: bool,
 }
-impl crate::club::Club for FakeClub {
+impl crate::agent::club::Club for FakeClub {
     fn respond(&self, _: &str) -> Result<String, String> {
         Ok(String::new())
     }
@@ -17,13 +17,13 @@ impl crate::club::Club for FakeClub {
         self.synth
     }
 }
-fn club(label: &'static str) -> Arc<dyn crate::club::Club> {
+fn club(label: &'static str) -> Arc<dyn crate::agent::club::Club> {
     Arc::new(FakeClub {
         label,
         synth: false,
     })
 }
-fn synth_club(label: &'static str) -> Arc<dyn crate::club::Club> {
+fn synth_club(label: &'static str) -> Arc<dyn crate::agent::club::Club> {
     Arc::new(FakeClub { label, synth: true })
 }
 
@@ -57,11 +57,11 @@ fn note_charts_the_party_and_footnotes_the_absent() {
     let charted = vec![
         (
             "gemma4".to_string(),
-            crate::questmap::SAMPLE_TRACE.to_string(),
+            crate::stage::questmap::SAMPLE_TRACE.to_string(),
         ),
         (
             "qwen3".to_string(),
-            crate::questmap::SAMPLE_TRACE.to_string(),
+            crate::stage::questmap::SAMPLE_TRACE.to_string(),
         ),
     ];
     let skipped = vec!["atlas (unreachable)".to_string()];

@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::profile::profile_for;
+use crate::ui::agent_panel::profile::profile_for;
 
 fn flatten(lines: &[Line<'_>]) -> String {
     lines
@@ -96,7 +96,7 @@ fn stateful_caption_carries_dot_and_word() {
 
 #[test]
 fn compact_profile_lines_borrow_the_route_label() {
-    let src = include_str!("../../../cockpit/src/views/agent_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/views/agent_view.rs");
     let start = src
         .find("pub(crate) fn compact_profile_lines_stateful")
         .expect("stateful caption");

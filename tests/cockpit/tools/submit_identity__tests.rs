@@ -18,7 +18,8 @@ fn non_submissions_pass_untouched() {
 #[test]
 fn quoted_nested_heredocs_are_literal_data_with_stable_attribution_offsets() {
     let _env = crate::tests::env_lock();
-    let _model = crate::harness::run_identity::LiveModelScope::enter(Some("fixture-model".into()));
+    let _model =
+        crate::agent::harness::run_identity::LiveModelScope::enter(Some("fixture-model".into()));
     for (header, body, delimiter) in [
         (
             "cat <<'MSG'",
@@ -47,7 +48,7 @@ fn quoted_nested_heredocs_are_literal_data_with_stable_attribution_offsets() {
 #[test]
 fn nested_executable_submissions_and_unsupported_heredocs_fail_closed() {
     let _env = crate::tests::env_lock();
-    let _model = crate::harness::run_identity::LiveModelScope::enter(None);
+    let _model = crate::agent::harness::run_identity::LiveModelScope::enter(None);
     for command in [
         "echo \"$(yukon submit --model copied)\"",
         "echo \"`hilbert submit`\"",
@@ -81,7 +82,7 @@ fn nested_executable_submissions_and_unsupported_heredocs_fail_closed() {
 #[test]
 fn local_git_commit_accepts_a_quoted_heredoc_message_without_execution() {
     let _env = crate::tests::env_lock();
-    let _model = crate::harness::run_identity::LiveModelScope::enter(None);
+    let _model = crate::agent::harness::run_identity::LiveModelScope::enter(None);
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let dir = std::env::temp_dir().join(format!(
         "angel-heredoc-commit-{}-{}",
@@ -132,8 +133,9 @@ fn local_git_commit_accepts_a_quoted_heredoc_message_without_execution() {
 #[test]
 fn copied_attribution_flags_are_replaced_with_the_live_identity() {
     let _env = crate::tests::env_lock();
-    let _model =
-        crate::harness::run_identity::LiveModelScope::enter(Some("deepseek-v4-flash".into()));
+    let _model = crate::agent::harness::run_identity::LiveModelScope::enter(Some(
+        "deepseek-v4-flash".into(),
+    ));
     let cmd = r#"cd /w && hilbert submit --note-file prof/out/note.md --model "GPT 5.6 Sol" --harness "Codex" && echo done"#;
     let stamped = stamp(cmd, None).unwrap().expect("submission");
     assert!(
@@ -195,8 +197,9 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
 #[test]
 fn note_file_model_and_harness_lines_are_corrected() {
     let _env = crate::tests::env_lock();
-    let _model =
-        crate::harness::run_identity::LiveModelScope::enter(Some("deepseek-v4-flash".into()));
+    let _model = crate::agent::harness::run_identity::LiveModelScope::enter(Some(
+        "deepseek-v4-flash".into(),
+    ));
     let dir = std::env::temp_dir().join(format!("angel_submit_identity_{}", std::process::id()));
     std::fs::create_dir_all(dir.join("prof")).unwrap();
     let note = dir.join("prof").join("note.md");
@@ -229,8 +232,9 @@ fn note_file_model_and_harness_lines_are_corrected() {
 #[test]
 fn journal_execution_records_refused_submit_without_network() {
     let _env = crate::tests::env_lock();
-    let _model =
-        crate::harness::run_identity::LiveModelScope::enter(Some("deepseek-v4-flash".into()));
+    let _model = crate::agent::harness::run_identity::LiveModelScope::enter(Some(
+        "deepseek-v4-flash".into(),
+    ));
     let _ = drain_journal();
     journal_execution(
         "shell",
@@ -252,7 +256,7 @@ fn journal_execution_records_refused_submit_without_network() {
 #[test]
 fn model_switches_and_concurrent_seats_restore_identity() {
     let _env = crate::tests::env_lock();
-    use crate::harness::run_identity::LiveModelScope;
+    use crate::agent::harness::run_identity::LiveModelScope;
     let _empty = LiveModelScope::enter(None);
     assert!(model_label().is_err());
     for model in ["gpt-6-astra", "deepseek-v4-flash"] {
@@ -303,9 +307,12 @@ fn output_prose_and_enqueue_are_not_terminal_acceptance() {
     let table = "7871bd4 newjordan accepted 519469.35 {} +1% 380b04d yesterday";
     assert_eq!(classify_outcome(0, table), "unknown");
     // The established Yukon status contract retains the terminal distinction.
-    let rows = crate::harness::comp_packages::yukon::fleet::parse_submission_table("test/board", table);
+    let rows = crate::agent::harness::comp_packages::yukon::fleet::parse_submission_table(
+        "test/board",
+        table,
+    );
     assert_eq!(
         rows[0].phase,
-        crate::harness::comp_packages::yukon::fleet::YukonSubmissionPhase::Accepted
+        crate::agent::harness::comp_packages::yukon::fleet::YukonSubmissionPhase::Accepted
     );
 }

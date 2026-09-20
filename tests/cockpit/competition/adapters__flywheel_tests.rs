@@ -1,8 +1,8 @@
 use super::FlywheelAdapterV1;
-use crate::competition::adapters::fixture::MemoryRawBoardJournalV1;
-use crate::competition::adapters::{AdapterFailureClassV1, CompetitionAdapterV1};
-use crate::competition::board_reducer::BoardReducerV1;
-use crate::competition::schema::{ComparatorKindV1, ScoreV1};
+use crate::drive::competition::adapters::fixture::MemoryRawBoardJournalV1;
+use crate::drive::competition::adapters::{AdapterFailureClassV1, CompetitionAdapterV1};
+use crate::drive::competition::board_reducer::BoardReducerV1;
+use crate::drive::competition::schema::{ComparatorKindV1, ScoreV1};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -86,7 +86,7 @@ fn opens_x86_fixture_with_expected_identity() {
     );
     assert_eq!(
         adapter.identity().adapter_id,
-        crate::competition::adapters::flywheel::FLYWHEEL_ADAPTER_ID
+        crate::drive::competition::adapters::flywheel::FLYWHEEL_ADAPTER_ID
     );
 }
 

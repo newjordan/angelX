@@ -57,10 +57,10 @@ pub(super) fn official(
             adapter: AdapterIdentityV1 {
                 adapter_id: "fixture-adapter".into(),
                 adapter_version: "v1".into(),
-                runtime_sha256: crate::cut::sha256_hex(b"fixture-adapter"),
+                runtime_sha256: crate::knowledge::cut::sha256_hex(b"fixture-adapter"),
                 capabilities: BTreeSet::from([AdapterCapabilityV1::Results]),
             },
-            receipt_sha256: crate::cut::sha256_hex(format!("receipt:{id}").as_bytes()),
+            receipt_sha256: crate::knowledge::cut::sha256_hex(format!("receipt:{id}").as_bytes()),
         },
         corrects_binding_id,
     }
@@ -139,7 +139,7 @@ fn dc_rwd_002_delayed_official_result_overrides_only_shaping() {
             shaping_id: "local-measurement".into(),
             episode_id: context.episode_id.clone(),
             value_millis: 900,
-            provenance_sha256: crate::cut::sha256_hex(b"local"),
+            provenance_sha256: crate::knowledge::cut::sha256_hex(b"local"),
         })
         .unwrap();
     assert!(matches!(

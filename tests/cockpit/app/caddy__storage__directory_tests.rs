@@ -1,5 +1,5 @@
 use super::*;
-use crate::caddy::Hazard;
+use crate::knowledge::caddy::Hazard;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt, symlink};
 
 struct Fixture(PathBuf);
@@ -9,7 +9,7 @@ impl Fixture {
         let path = std::env::temp_dir().join(format!(
             "angel-caddy-dirs-{}-{}-{}",
             std::process::id(),
-            crate::caddy::now_ms(),
+            crate::knowledge::caddy::now_ms(),
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::DirBuilder::new()
@@ -29,7 +29,7 @@ fn mode(path: &Path) -> u32 {
 }
 fn hazard(command: &str) -> Hazard {
     Hazard {
-        ts_ms: crate::caddy::now_ms(),
+        ts_ms: crate::knowledge::caddy::now_ms(),
         command: command.into(),
         diagnostic: "owned fixture".into(),
         tool: "shell".into(),

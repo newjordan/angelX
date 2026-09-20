@@ -10,10 +10,10 @@ fn settle_baseline(app: &mut crate::App) {
 }
 
 fn pin_owned_goal(app: &mut crate::App, root: &Path) {
-    let mut registry = crate::harness::ToolRegistry::new();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
     registry.set_workspace(root.to_path_buf());
     app.tools = Arc::new(registry);
-    let mut goal = crate::goal::Goal::new("owned pinned follow-up");
+    let mut goal = crate::drive::goal::Goal::new("owned pinned follow-up");
     goal.accept_cmd = Some("printf 'capture\n' >> baseline-runs; printf 'test result: ok. 7 passed; 0 failed; 0 ignored;\n'".into());
     app.goal = Some(goal);
 }
@@ -22,11 +22,11 @@ fn pin_owned_goal(app: &mut crate::App, root: &Path) {
 fn new_pinned_loop_defers_actual_baseline_until_cancelled_worker_drains() {
     fixture("baseline", |root| {
         let (mut app, held, calls) = held_app(root);
-        let mut registry = crate::harness::ToolRegistry::new();
+        let mut registry = crate::agent::harness::ToolRegistry::new();
         registry.set_workspace(root.to_path_buf());
         app.tools = Arc::new(registry);
         app.loop_command(Some("stop".into()));
-        let mut goal = crate::goal::Goal::new("owned pinned follow-up");
+        let mut goal = crate::drive::goal::Goal::new("owned pinned follow-up");
         goal.accept_cmd = Some("printf 'capture\n' >> baseline-runs; printf 'test result: ok. 7 passed; 0 failed; 0 ignored;\n'".into());
         app.goal = Some(goal);
         let started = app.loop_start_immediate("owned new loop".into(), 0, false, false);
@@ -118,7 +118,7 @@ fn pinned_start_waits_for_an_existing_background_owner() {
         drop(held);
         app.loop_ctl.status = LoopStatus::Stopped;
         pin_owned_goal(&mut app, root);
-        let (reply, job) = crate::app_control::BackgroundJob::channel("owned held job", "retry");
+        let (reply, job) = crate::app::control::BackgroundJob::channel("owned held job", "retry");
         app.bg_job = Some(job);
         app.loop_start_immediate("owned new loop".into(), 0, false, false);
         assert!(app.loop_pending.is_none());

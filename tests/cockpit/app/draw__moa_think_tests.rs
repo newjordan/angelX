@@ -12,7 +12,7 @@ fn comp_mode_skips_moa_deck_body_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     let _lock = crate::tests::env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(moa_deck_body_allowed());
 
     let mut app = crate::seed_preview_app();
@@ -31,7 +31,7 @@ fn comp_mode_skips_moa_deck_body_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!moa_deck_body_allowed());
 
     let mut armed = crate::seed_preview_app();
@@ -72,9 +72,9 @@ fn think_picker_on_a_ladder_less_route_shows_the_na_line() {
 fn formation_board_renders_na_picker_and_staged_seat_effort() {
     let _lock = crate::tests::env_lock();
     let mut app = crate::seed_preview_app();
-    app.bag = crate::club::Bag::for_reasoning_render_test();
+    app.bag = crate::agent::club::Bag::for_reasoning_render_test();
     app.open_moa_deck(None);
-    app.select_moa_card(crate::formations::FormationId::Duel);
+    app.select_moa_card(crate::agent::formations::FormationId::Duel);
     // Ladder-less seat: the practice route declares no reasoning levels.
     {
         let deck = app.moa_deck.as_mut().unwrap();

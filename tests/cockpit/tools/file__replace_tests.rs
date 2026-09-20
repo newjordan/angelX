@@ -105,7 +105,7 @@ fn indentation_recovery_supplies_exact_bytes_for_one_guarded_retry() {
         assert_eq!(fields["old"], exact, "{path}: {error}");
         assert_eq!(
             fields["expect_tag"],
-            crate::hashline::content_tag(&original)
+            crate::agent::hashline::content_tag(&original)
         );
         let new = exact.replace("before", "after");
         tool.call(&serde_json::json!({
@@ -172,7 +172,10 @@ fn atomic_recovery_retries_the_list_against_the_original_live_tag() {
     );
     let fields = recovery_fields(&error);
     assert_eq!(fields["edit_index"], 2);
-    assert_eq!(fields["expect_tag"], crate::hashline::content_tag(original));
+    assert_eq!(
+        fields["expect_tag"],
+        crate::agent::hashline::content_tag(original)
+    );
     assert!(error.contains("ENTIRE multi_edit list"), "{error}");
     args["expect_tag"] = fields["expect_tag"].clone();
     args["edits"][1]["old"] = fields["old"].clone();

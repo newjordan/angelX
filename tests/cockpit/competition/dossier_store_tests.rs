@@ -26,7 +26,7 @@ fn existing_generation_collision_is_validated_before_publish() {
     requested
         .admit_relevant(relevant("requested", "revision-one", "requested"))
         .unwrap();
-    let state_sha = crate::cut::sha256_hex(&serde_json::to_vec(&requested).unwrap());
+    let state_sha = crate::knowledge::cut::sha256_hex(&serde_json::to_vec(&requested).unwrap());
     let target = dir
         .path()
         .join("generations")

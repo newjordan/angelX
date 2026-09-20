@@ -380,12 +380,12 @@ fn graceful_exit_saves_the_completed_history_before_any_followup_or_loop_launch(
         .send(Ok((
             completed.clone(),
             "owned completed answer".into(),
-            crate::club::RouteIdentity {
+            crate::agent::club::RouteIdentity {
                 driver: "practice".into(),
                 model: None,
                 reasoning_effort: None,
             },
-            crate::harness::TurnStopReason::Answer,
+            crate::agent::harness::TurnStopReason::Answer,
         )))
         .unwrap();
     app.advance();

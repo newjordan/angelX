@@ -136,12 +136,12 @@ fn successful_model_reply_does_not_resolve_an_execution_prerequisite() {
     fixture("execution", |root| {
         let mut app = crate::seed_preview_app();
         app.loop_ctl = running(root);
-        crate::harness::exec::set_sandbox_receipt(Some(serde_json::json!({
+        crate::agent::harness::exec::set_sandbox_receipt(Some(serde_json::json!({
             "helper_error": "Landlock unavailable; run angel --doctor",
             "helper_phase": "landlock",
             "helper_exit": 1,
         })));
-        let error = crate::harness::execution_blocker(
+        let error = crate::agent::harness::execution_blocker(
             "shell", "tool error: shell command failed (exit 1)\nbwrap: setting up uid map: Permission denied"
         ).unwrap();
         app.loop_harvest_error_with_tools(error.clone(), ToolStripSnapshot::default());

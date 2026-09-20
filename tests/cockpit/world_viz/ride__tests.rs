@@ -181,9 +181,9 @@ fn outdoor_rider_overlay_advances_at_clamped_cadence() {
         }
         let rider_key = cinematics::rider_frame_key(&world);
         assert!(
-            crate::knight_cast::sprite(
-                crate::knight_cast::Side::BlueRight,
-                rider_key.pose(crate::knight_cast::Side::BlueRight)
+            crate::stage::knight_cast::sprite(
+                crate::stage::knight_cast::Side::BlueRight,
+                rider_key.pose(crate::stage::knight_cast::Side::BlueRight)
             )
             .is_some(),
             "the selected mounted animation must ship with the crate"
@@ -256,10 +256,11 @@ fn interior_frames_skip_the_saddle_overlay_key_on(renderer: &str) {
 
 #[test]
 fn village_head_light_rekeys_the_cached_cinematic() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = ride_world();
     let heads = vec!["head-one".to_string(), "head-three".to_string()];
-    world.enable_village(crate::village::VillageState::default(), None, &heads);
+    world.enable_village(crate::stage::village::VillageState::default(), None, &heads);
     let dark_key = world.cinematic_key();
     let village = world.village.as_mut().expect("village enabled");
     village.heads_up[0].1 = true;
@@ -872,7 +873,7 @@ fn dump_world_districts_for_review() {
 #[test]
 #[ignore = "manual art review: cast on the actual Dotmax world compositing path"]
 fn dump_world_cast_for_review() {
-    use crate::knight_cast::{Activity, FrameKey};
+    use crate::stage::knight_cast::{Activity, FrameKey};
     let out = std::env::var("CAST_DUMP_DIR").expect("CAST_DUMP_DIR");
     std::fs::create_dir_all(&out).unwrap();
     let mut world = World::new(42);
@@ -888,7 +889,7 @@ fn dump_world_cast_for_review() {
         ] {
             for tick in [0, 9, 18] {
                 let mut plate = world3d_plate(&world, (w, h));
-                crate::knight_cast::composite(&mut plate, FrameKey::at(activity, tick));
+                crate::stage::knight_cast::composite(&mut plate, FrameKey::at(activity, tick));
                 let dots = frame_to_braille_graded(&plate, w, h, true);
                 simulate_terminal(&dots)
                     .save(format!("{out}/{activity:?}-{w}x{h}-{tick}.png"))
@@ -1355,7 +1356,8 @@ fn bench_world3d_frame_cost() {
 
 #[test]
 fn live_turn_camera_changes_bypass_the_relaxed_cache() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = ride_world();
     world.travel_ticks = cinematics::DEPART_FADE_TICKS + 1;
     for _ in 0..4 {

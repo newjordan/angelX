@@ -30,7 +30,7 @@ fn goal_tool_set_show_clear_roundtrip() {
     assert!(set.contains("harden the harness"), "set: {set}");
 
     // It lands in the canonical store.
-    let stored = crate::goal::load_for(&workspace).expect("goal persisted");
+    let stored = crate::drive::goal::load_for(&workspace).expect("goal persisted");
     assert_eq!(stored.text, "harden the harness");
     assert_eq!(stored.accept_cmd.as_deref(), Some("cargo test"));
     assert_eq!(stored.acceptance, vec!["tests green".to_string()]);
@@ -43,7 +43,7 @@ fn goal_tool_set_show_clear_roundtrip() {
     // clear removes it from the store.
     let cleared = tool.call(&serde_json::json!({"action": "clear"})).unwrap();
     assert!(cleared.contains("cleared"), "clear: {cleared}");
-    assert!(crate::goal::load_for(&workspace).is_none());
+    assert!(crate::drive::goal::load_for(&workspace).is_none());
 
     std::fs::remove_dir_all(&workspace).ok();
 }

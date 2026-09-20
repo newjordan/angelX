@@ -15,7 +15,7 @@ fn sustained_motion_render_measurement() {
     let _dossier = TestEnvGuard::set("ANGEL_DOSSIER", "0");
     for scenario in ["idle", "history", "stream", "scrollback", "resize", "image"] {
         let mut app = seed_preview_app();
-        app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Full;
+        app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
         app.messages.clear();
         let count = if scenario == "idle" { 1 } else { 2_000 };
         for i in 0..count {

@@ -493,7 +493,7 @@ fn eval_rows_carry_the_turn_ledger() {
         hops: AtomicUsize::new(0),
     };
     let workspace = dir.join("workspace");
-    crate::experience::note_turn_workspace(&workspace);
+    crate::knowledge::experience::note_turn_workspace(&workspace);
     reset_turn_ledger(&club);
     note_tool_outcome(
         1,
@@ -562,7 +562,7 @@ fn the_eval_path_owns_its_rollouts_label() {
         hops: AtomicUsize::new(0),
     };
     let workspace = dir.join("workspace");
-    crate::experience::note_turn_workspace(&workspace);
+    crate::knowledge::experience::note_turn_workspace(&workspace);
     let history = vec![ChatMsg::user("write code")];
     // Trajectory logging is process-global. A detached turn from an unrelated
     // parallel test can finish while this test's destination is active, so the
@@ -597,7 +597,7 @@ fn the_eval_path_owns_its_rollouts_label() {
         rows[1]
     );
     assert_eq!(rows[2]["reward"], 1.0);
-    let identity = crate::workspace_store::repo_identity(&workspace);
+    let identity = crate::platform::workspace_store::repo_identity(&workspace);
     assert!(rows.iter().all(|row| row["repo"]["key"] == identity.key));
 
     drop(trajectory_dir);
@@ -658,7 +658,7 @@ fn trajectory_append_redacts_escaped_nested_credentials_without_changing_types()
     assert_eq!(saved["answer"], "«redacted:ANGEL_T_TRAJECTORY_SECRET»");
     assert_eq!(
         saved["messages"][0]["args"]["access_token"],
-        crate::secrets::REDACTED
+        crate::platform::secrets::REDACTED
     );
     assert_eq!(saved["messages"][0]["args"]["n"], 5);
     assert_eq!(saved["messages"][0]["args"]["ok"], true);
@@ -740,7 +740,7 @@ fn spawn_panels_share_one_cumulative_budget_and_reject_atomically() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.0.fetch_add(1, Ordering::AcqRel);
             Ok(ClubReply::Text("landed".to_string()))
@@ -801,7 +801,7 @@ fn moa_admission_charges_the_synthesizer_with_the_draft_wave() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             let call = self.0.fetch_add(1, Ordering::AcqRel);
             Ok(ClubReply::Text(if call == 0 {
@@ -846,7 +846,7 @@ fn quorum_waits_for_k_successes_after_a_fast_failure() {
             messages: &[ChatMsg],
             _tools: &[ToolDef],
             cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             let task = messages
                 .iter()
@@ -922,7 +922,7 @@ fn impossible_quorum_fails_and_cancels_the_remaining_seat() {
             messages: &[ChatMsg],
             _tools: &[ToolDef],
             cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             let task = messages
                 .iter()
@@ -1002,7 +1002,7 @@ fn moa_synthesis_respects_deadline_and_retains_admission_until_exit() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.started.store(true, Ordering::Release);
             // Deliberately ignore cooperative cancellation to model a provider
@@ -1110,7 +1110,7 @@ fn moa_formation_uses_only_its_remaining_deadline_for_synthesis() {
             messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             let folding = messages.iter().any(|message| {
                 message.role == ChatRole::System
@@ -1174,7 +1174,7 @@ fn yolo_never_removes_the_spawn_formation_deadline() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _guard = crate::tests::env_lock();
     let workspace = crate::tests::TestGitWorkspace::new("yolo-formation-deadline");
-    crate::harness::run_identity::static_identity()
+    crate::agent::harness::run_identity::static_identity()
         .expect("warm executable identity before timing the blocked provider");
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _retries_off = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
@@ -1195,7 +1195,7 @@ fn yolo_never_removes_the_spawn_formation_deadline() {
             _messages: &[ChatMsg],
             _tools: &[ToolDef],
             _cancel: &AtomicBool,
-            _on_delta: &mut dyn FnMut(crate::club::StreamDelta),
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.entered.store(true, Ordering::Release);
             while !self.release.load(Ordering::Acquire) {

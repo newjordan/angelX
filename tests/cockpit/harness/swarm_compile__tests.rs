@@ -1,8 +1,8 @@
 use super::credit::review_verdict;
 use super::schema::ReviewVerdict;
 use super::tool::SwarmCompilerTool;
-use crate::club::ClubReply;
-use crate::harness::{
+use crate::agent::club::ClubReply;
+use crate::agent::harness::{
     AuthorizedCampaignBase, CampaignCompileRequest, ChatMsg, ChatRole, Club, Tool, ToolCall,
     ToolDef, ToolRegistry,
 };
@@ -191,7 +191,10 @@ fn campaign_execution_honors_operator_cancellation_before_spending_a_stage() {
         .engine
         .campaign_execute(prepared.run_id, authorization, &cancelled)
         .unwrap();
-    assert_eq!(receipt.outcome, crate::harness::SwarmRunOutcome::Paused);
+    assert_eq!(
+        receipt.outcome,
+        crate::agent::harness::SwarmRunOutcome::Paused
+    );
     assert!(
         receipt
             .error
@@ -316,7 +319,7 @@ fn delegate_turn_ignores_root_task_acceptance_hook() {
 }
 
 fn full_compiler_with_root_acceptance_hook() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         eprintln!("landlock unavailable; skipping swarm compiler integration test");
         return;
     }

@@ -1,7 +1,8 @@
 use super::*;
 
 fn owned_exit_session(app: &mut crate::App, root: &Path) {
-    app.session = crate::session::Session::at_for(root.join("sessions"), "owned".into(), root);
+    app.session =
+        crate::knowledge::session::Session::at_for(root.join("sessions"), "owned".into(), root);
     app.history = vec![ChatMsg::user("owned self gate exit")];
     app.session.checkpoint(&app.history).unwrap();
     app.loop_ctl.self_edit = true;

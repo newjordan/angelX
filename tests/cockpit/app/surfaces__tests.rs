@@ -221,7 +221,7 @@ fn gap_join_does_not_overlap_agent_and_artifacts_rows() {
 /// A1: after a full-width → split rebind, selection spans stay inside copy_rect.
 #[test]
 fn layout_rebind_keeps_selection_inside_copy_rect() {
-    use crate::mouse::{PaneId, Selection, selection_spans};
+    use crate::ui::mouse::{PaneId, Selection, selection_spans};
     let full = Rect::new(0, 0, 160, 40);
     let mut full_in = base_input(full);
     full_in.backdrop = BackdropMode::Off;
@@ -556,7 +556,7 @@ fn transcript_copy_agrees_with_draw_measure() {
                     height: inner.height.saturating_sub(strip_h),
                     ..inner
                 };
-                let (text, rail) = crate::draw::transcript_text_and_rail(body);
+                let (text, rail) = crate::ui::draw::transcript_text_and_rail(body);
                 let expected = (text.width > 0 && text.height > 0).then_some(text);
                 assert_eq!(
                     transcript_live_copy_rect(frame, strip_h),

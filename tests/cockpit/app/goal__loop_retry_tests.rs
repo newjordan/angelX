@@ -1,5 +1,5 @@
 use super::*;
-use crate::loop_ctl::{LoopState, LoopStatus};
+use crate::drive::loop_ctl::{LoopState, LoopStatus};
 use std::time::{Duration, Instant};
 
 fn fixture(tag: &str, test: impl FnOnce(&Path)) {
@@ -76,7 +76,7 @@ fn failed_goal_checkpoint_retries_without_consuming_rounds_or_mutating_live_goal
                     .unwrap()
                     .contains("goal durability checkpoint failed")
             );
-            app.loop_ctl = crate::loop_ctl::load_for(app.tools.current_workspace()).unwrap();
+            app.loop_ctl = crate::drive::loop_ctl::load_for(app.tools.current_workspace()).unwrap();
             assert_eq!(app.loop_ctl.status, LoopStatus::Running);
             assert!(
                 app.loop_ctl.wake_at.unwrap() > Instant::now() + Duration::from_secs(59),

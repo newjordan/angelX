@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::LoopExperimentResult;
+use crate::agent::harness::LoopExperimentResult;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Sender, channel};
 
@@ -29,12 +29,15 @@ fn fixture(tag: &str, test: impl FnOnce(&Path)) {
 
 fn held(root: &Path) -> (crate::App, Reply, Arc<AtomicBool>) {
     let mut app = crate::seed_preview_app();
-    let mut registry = crate::harness::ToolRegistry::new();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
     registry.set_workspace(root.to_path_buf());
     app.tools = Arc::new(registry);
-    app.bag = crate::club::Bag::practice_for_test();
-    app.session =
-        crate::session::Session::at_for(root.join("sessions"), "owned-recovery".into(), root);
+    app.bag = crate::agent::club::Bag::practice_for_test();
+    app.session = crate::knowledge::session::Session::at_for(
+        root.join("sessions"),
+        "owned-recovery".into(),
+        root,
+    );
     app.loop_ctl = LoopState {
         id: "owned-parent".into(),
         status: LoopStatus::Running,
@@ -74,7 +77,7 @@ fn reply(app: &crate::App, answer: &str) -> LoopExperimentResult {
     let route = app.bag.in_hand().route_identity();
     LoopExperimentResult {
         answer: answer.into(),
-        task_sha256: crate::cut::sha256_hex(b"owned recovery task"),
+        task_sha256: crate::knowledge::cut::sha256_hex(b"owned recovery task"),
         model_phase_entered: true,
         rollout_id: None,
         patch_sha256: None,
@@ -131,7 +134,7 @@ fn stale_run_or_workspace_reply_is_not_imported() {
             if changed == "run" {
                 app.loop_ctl.id = "replacement-parent".into();
             } else {
-                let mut registry = crate::harness::ToolRegistry::new();
+                let mut registry = crate::agent::harness::ToolRegistry::new();
                 registry.set_workspace(root.join("replacement"));
                 app.tools = Arc::new(registry);
             }
@@ -265,7 +268,7 @@ fn exhausted_budget_cancels_but_retains_pending_child() {
 }
 
 struct RecoveryAnswerClub;
-impl crate::club::Club for RecoveryAnswerClub {
+impl crate::agent::club::Club for RecoveryAnswerClub {
     fn label(&self) -> &str {
         "owned-parent-context"
     }
@@ -287,9 +290,9 @@ fn audit_context_parent(
     let _accept = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACCEPT_CMD");
     let _pro = crate::tests::TestEnvGuard::set("ANGEL_NEEDS_PRO", "0");
     let _advisor = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0");
-    let expected_refs = crate::club::recovery_context_refs(&history);
+    let expected_refs = crate::agent::club::recovery_context_refs(&history);
     let (events, _receiver) = channel();
-    let result = crate::harness::run_turn_steered_checkpointed_observed(
+    let result = crate::agent::harness::run_turn_steered_checkpointed_observed(
         &RecoveryAnswerClub,
         &app.tools,
         &mut history,
@@ -301,7 +304,7 @@ fn audit_context_parent(
     )
     .expect("owned parent answer");
     let audited =
-        crate::harness::audit_workspace_rollout(root, result.rollout_id.as_deref().unwrap())
+        crate::agent::harness::audit_workspace_rollout(root, result.rollout_id.as_deref().unwrap())
             .unwrap();
     let recorded_refs: Vec<_> = audited.manifest.attempts[0]
         .request
@@ -313,8 +316,11 @@ fn audit_context_parent(
         recorded_refs, expected_refs,
         "native journal preserves exact typed input origin"
     );
-    crate::harness::audit_workspace_rollout_receipt(root, result.rollout_id.as_deref().unwrap())
-        .unwrap()
+    crate::agent::harness::audit_workspace_rollout_receipt(
+        root,
+        result.rollout_id.as_deref().unwrap(),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -333,15 +339,15 @@ fn recovery_context_actual_parent_capture_survives_session_restore_and_deduplica
                 .sum::<usize>(),
             2
         );
-        let refs = crate::club::recovery_context_refs(&history);
+        let refs = crate::agent::club::recovery_context_refs(&history);
         assert_eq!(refs.len(), 1);
         let _sessions = crate::tests::TestEnvGuard::set(
             "ANGEL_SESSION_DIR",
             root.join("sessions").to_str().unwrap(),
         );
         app.session.checkpoint(&history).unwrap();
-        let restored = crate::session::load_for("owned-recovery", root).unwrap();
-        assert_eq!(crate::club::recovery_context_refs(&restored), refs);
+        let restored = crate::knowledge::session::load_for("owned-recovery", root).unwrap();
+        assert_eq!(crate::agent::club::recovery_context_refs(&restored), refs);
         let audit = audit_context_parent(root, &app, restored);
         assert_eq!(
             audit["auxiliary_coverage"]["sources"]["loop_recovery_context"],
@@ -378,35 +384,35 @@ fn recovery_context_queued_prior_result_and_latest_running_owner_are_independent
         latest.context_ref = None;
         app.loop_ctl.experiments.push(latest);
         assert_eq!(
-            crate::club::recovery_context_refs(&app.loop_iteration_convo()),
+            crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()),
             [previous]
         );
         app.loop_ctl.pending_recovery_contexts.clear();
         app.loop_ctl.experiments[0].context_ref = None;
-        let legacy_queued = crate::club::recovery_context_refs(&app.loop_iteration_convo());
+        let legacy_queued = crate::agent::club::recovery_context_refs(&app.loop_iteration_convo());
         assert_eq!(legacy_queued.len(), 1);
         assert!(legacy_queued[0].producer.is_none());
         app.loop_ctl.pending_proc_completions.clear();
         app.loop_ctl.pending_recovery_contexts.clear();
-        assert!(crate::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
+        assert!(crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
         // A legacy/mutated returned summary remains useful unknown context.
         let last = app.loop_ctl.experiments.last_mut().unwrap();
         last.status = "returned".into();
         last.summary = Some("LEGACY_DIAGNOSTIC".into());
-        let refs = crate::club::recovery_context_refs(&app.loop_iteration_convo());
+        let refs = crate::agent::club::recovery_context_refs(&app.loop_iteration_convo());
         assert_eq!(refs.len(), 1);
         assert!(refs[0].producer.is_none());
         let mut mismatched = refs[0].clone();
         mismatched.summary_sha256 = "0".repeat(64);
         app.loop_ctl.experiments.last_mut().unwrap().context_ref = Some(mismatched);
         assert_eq!(
-            crate::club::recovery_context_refs(&app.loop_iteration_convo()),
+            crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()),
             refs
         );
         let saved = serde_json::to_vec(&app.loop_ctl).unwrap();
         app.loop_ctl = serde_json::from_slice(&saved).unwrap();
         assert_eq!(
-            crate::club::recovery_context_refs(&app.loop_iteration_convo()),
+            crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()),
             refs
         );
     });
@@ -434,7 +440,7 @@ fn recovery_context_partial_setup_cancel_and_stale_dispositions_remain_distinct(
             }
             drop(tx);
             app.loop_drain_experiment();
-            let refs = crate::club::recovery_context_refs(&app.loop_iteration_convo());
+            let refs = crate::agent::club::recovery_context_refs(&app.loop_iteration_convo());
             assert_eq!(
                 !refs.is_empty(),
                 matches!(kind, "partial" | "disconnected"),
@@ -455,7 +461,7 @@ fn recovery_context_orphaned_owner_guidance_is_not_a_child_import() {
         app.loop_drain_experiment();
         assert_eq!(app.loop_ctl.experiments[0].status, "interrupted");
         assert!(app.loop_ctl.experiments[0].context_is_supervisor_only);
-        assert!(crate::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
+        assert!(crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
     });
 }
 
@@ -476,7 +482,7 @@ fn recovery_context_manual_compaction_preserves_origins_through_checkpoint() {
             app.history
                 .push(ChatMsg::assistant("Useful later diagnostic."));
         }
-        let expected = crate::club::recovery_context_refs(&app.history);
+        let expected = crate::agent::club::recovery_context_refs(&app.history);
         assert_eq!(expected.len(), 1);
         app.loop_ctl.status = LoopStatus::Idle;
         app.spawn_compact();
@@ -489,15 +495,21 @@ fn recovery_context_manual_compaction_preserves_origins_through_checkpoint() {
         assert!(
             app.history
                 .iter()
-                .any(crate::compaction::is_compaction_note)
+                .any(crate::agent::compaction::is_compaction_note)
         );
-        assert_eq!(crate::club::recovery_context_refs(&app.history), expected);
+        assert_eq!(
+            crate::agent::club::recovery_context_refs(&app.history),
+            expected
+        );
         app.session.checkpoint(&app.history).unwrap();
         let _sessions = crate::tests::TestEnvGuard::set(
             "ANGEL_SESSION_DIR",
             root.join("sessions").to_str().unwrap(),
         );
-        let restored = crate::session::load_for("owned-recovery", root).unwrap();
-        assert_eq!(crate::club::recovery_context_refs(&restored), expected);
+        let restored = crate::knowledge::session::load_for("owned-recovery", root).unwrap();
+        assert_eq!(
+            crate::agent::club::recovery_context_refs(&restored),
+            expected
+        );
     });
 }

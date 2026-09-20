@@ -9,7 +9,7 @@ fn usage_projection_http_commits_partial_stream_paths_and_cache_writes() {
         commit.observe(&serde_json::json!({"usage":{"completion_tokens":5}}));
         commit.observe(&serde_json::json!({"usage":null}));
     }
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (report.input, report.output, report.reasoning),
         (Some(100), Some(5), None)
@@ -40,7 +40,7 @@ fn usage_projection_http_zero_retry_unknown_and_cache_only_survive() {
         let mut commit = StreamUsageCommit::new(&club);
         commit.observe(&serde_json::json!({"usage":{"prompt_tokens":0,"completion_tokens":0}}));
     }
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (
             report.attempts,
@@ -58,7 +58,7 @@ fn usage_projection_http_zero_retry_unknown_and_cache_only_survive() {
         commit
             .observe(&serde_json::json!({"usage":{"prompt_tokens_details":{"cached_tokens":80}}}));
     }
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (report.input, report.output, report.cache_read),
         (None, None, Some(80))
@@ -79,7 +79,7 @@ fn usage_projection_http_custom_endpoint_never_guesses_contract() {
         let mut commit = StreamUsageCommit::new(&club);
         commit.observe(&serde_json::json!({"usage":{"input_tokens":100,"output_tokens":5,"cache_read_input_tokens":20,"cache_creation_input_tokens":4}}));
     }
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(
         (report.input, report.cache_read, report.cache_write),
         (Some(100), Some(20), Some(4))
@@ -103,7 +103,7 @@ fn usage_projection_http_fallback_alias_keeps_exact_numeric_provenance() {
         let mut commit = StreamUsageCommit::new(&club);
         commit.observe(&serde_json::json!({"usage":{"prompt_tokens":null,"input_tokens":100,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":null},"prompt_cache_hit_tokens":75}}));
     }
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(report.raw_field_reports.get("input_tokens"), Some(&1));
     assert_eq!(
         report.raw_field_reports.get("prompt_cache_hit_tokens"),
@@ -200,7 +200,7 @@ fn usage_projection_http_actual_retry_and_decode_failure_close_attempts() {
             .contains("decode response")
     );
     server.join().unwrap();
-    let report = crate::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
+    let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert_eq!(report.attempts, 3);
     assert_eq!((report.input, report.output), (Some(7), Some(3)));
     assert_eq!(

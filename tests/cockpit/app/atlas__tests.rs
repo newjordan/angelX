@@ -36,7 +36,7 @@ fn no_exclusion() -> std::iter::Empty<&'static str> {
     std::iter::empty()
 }
 
-fn history_contents(history: &[crate::club::ChatMsg]) -> impl Iterator<Item = &str> {
+fn history_contents(history: &[crate::agent::club::ChatMsg]) -> impl Iterator<Item = &str> {
     history.iter().map(|message| message.content.as_ref())
 }
 
@@ -337,7 +337,7 @@ fn lens_exclusion_drops_items_already_present_in_a_history_message() {
         .expect("relevant item is selected");
     assert!(selected.contains(content));
 
-    let matching = [crate::club::ChatMsg::assistant(content)];
+    let matching = [crate::agent::club::ChatMsg::assistant(content)];
     assert!(
         service
             .build_lens(query, history_contents(&matching))
@@ -365,8 +365,8 @@ fn lens_exclusion_does_not_false_match_a_needle_split_across_messages() {
     assert!(unexcluded.contains(content));
 
     let split = [
-        crate::club::ChatMsg::user("please run cargo test in the cockpit"),
-        crate::club::ChatMsg::assistant("atlas retrieval is ready"),
+        crate::agent::club::ChatMsg::user("please run cargo test in the cockpit"),
+        crate::agent::club::ChatMsg::assistant("atlas retrieval is ready"),
     ];
     let joined = split
         .iter()
@@ -651,11 +651,11 @@ fn rollout_gate_and_dynamic_roles_fail_closed() {
 #[test]
 fn lens_replacement_is_one_post_task_harness_block() {
     let mut history = vec![
-        crate::club::ChatMsg::system("system"),
-        crate::club::ChatMsg::user("first task"),
-        crate::club::ChatMsg::harness(format!("{LENS_HEADER}\nold\n{LENS_SENTINEL}")),
-        crate::club::ChatMsg::assistant("answer"),
-        crate::club::ChatMsg::user("current task"),
+        crate::agent::club::ChatMsg::system("system"),
+        crate::agent::club::ChatMsg::user("first task"),
+        crate::agent::club::ChatMsg::harness(format!("{LENS_HEADER}\nold\n{LENS_SENTINEL}")),
+        crate::agent::club::ChatMsg::assistant("answer"),
+        crate::agent::club::ChatMsg::user("current task"),
     ];
     replace_lens_message(
         &mut history,
@@ -666,9 +666,15 @@ fn lens_replacement_is_one_post_task_harness_block() {
         .filter(|message| is_lens_message(&message.content))
         .collect::<Vec<_>>();
     assert_eq!(lenses.len(), 1);
-    assert_eq!(lenses[0].role, crate::club::ChatRole::Harness);
-    assert_eq!(history.last().unwrap().role, crate::club::ChatRole::Harness);
-    assert_eq!(history[history.len() - 2].role, crate::club::ChatRole::User);
+    assert_eq!(lenses[0].role, crate::agent::club::ChatRole::Harness);
+    assert_eq!(
+        history.last().unwrap().role,
+        crate::agent::club::ChatRole::Harness
+    );
+    assert_eq!(
+        history[history.len() - 2].role,
+        crate::agent::club::ChatRole::User
+    );
 }
 
 #[test]
@@ -679,7 +685,8 @@ fn model_tool_is_deferred_and_cannot_review_or_share() {
     unsafe { std::env::remove_var("ANGEL_ATLAS") };
     let workspace = std::env::temp_dir().join(format!("atlas-tool-{}", now_ms()));
     std::fs::create_dir_all(&workspace).unwrap();
-    let mut registry = crate::harness::ToolRegistry::with_team(workspace.clone(), Vec::new());
+    let mut registry =
+        crate::agent::harness::ToolRegistry::with_team(workspace.clone(), Vec::new());
     assert!(registry.has_tool("atlas"));
     assert!(
         registry

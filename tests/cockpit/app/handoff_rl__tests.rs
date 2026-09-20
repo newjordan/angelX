@@ -47,7 +47,7 @@ fn default_injection_has_no_budget_language() {
 fn l01_handoff_defaults_pass_old_limits_and_explicit_cap_names_value() {
     let mut state = HandoffRlState::default();
     state.apply_launch_settings(
-        &crate::loop_dialog::LoopLaunchDialog::handoff_rl("fixture", 0).settings(),
+        &crate::drive::loop_dialog::LoopLaunchDialog::handoff_rl("fixture", 0).settings(),
     );
     state.handoff_count = 151;
     state.tokens_spent = 2_000_001;

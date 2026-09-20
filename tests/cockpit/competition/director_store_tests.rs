@@ -36,7 +36,7 @@ fn snapshot() -> DirectorSnapshotV1 {
     DirectorSnapshotV1::new(
         CompetitionDirectorStateV1::engage("campaign-i3", 10).unwrap(),
         SchedulerStateV1::new(2, 8).unwrap(),
-        crate::cut::sha256_hex(b"empty-action-head"),
+        crate::knowledge::cut::sha256_hex(b"empty-action-head"),
         0,
     )
     .unwrap()
@@ -189,7 +189,7 @@ fn migration_marker_survives_health_commit_and_blocks_unqualified_snapshot_ac15(
         DirectorSnapshotV1::new_migrated(
             &migration,
             scheduler,
-            crate::cut::sha256_hex(b"invented-legacy-head"),
+            crate::knowledge::cut::sha256_hex(b"invented-legacy-head"),
             0,
         )
         .is_err()

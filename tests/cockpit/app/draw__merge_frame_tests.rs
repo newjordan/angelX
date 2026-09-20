@@ -1,6 +1,6 @@
 #[test]
 fn merge_frame_borders_reuses_scratch_rects() {
-    let src = include_str!("../../../cockpit/src/draw.rs");
+    let src = include_str!("../../../cockpit/src/ui/draw.rs");
     let start = src
         .find("fn merge_frame_borders(")
         .expect("merge_frame_borders");

@@ -65,7 +65,7 @@ fn session_boundaries_preserve_unsaved_history_and_retry_after_failure() {
         let original = std::fs::read(&old_path).unwrap();
         app.history.extend([
             ChatMsg::user(format!("unsaved operator {case}")),
-            ChatMsg::assistant_calls(vec![crate::club::ToolCall {
+            ChatMsg::assistant_calls(vec![crate::agent::club::ToolCall {
                 id: "kept-tool-pair".into(),
                 name: "read_file".into(),
                 args: serde_json::json!({"path": "owned-example.rs"}),

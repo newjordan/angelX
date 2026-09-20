@@ -52,7 +52,7 @@ fn tutor_empty_question_and_busy_agent_preserve_both_drafts() {
 #[test]
 fn tutor_direct_question_routes_to_an_answer_without_fabricated_source_access() {
     struct TeachingClub(Arc<Mutex<Vec<String>>>);
-    impl crate::club::Club for TeachingClub {
+    impl crate::agent::club::Club for TeachingClub {
         fn label(&self) -> &str {
             "teaching-fixture"
         }
@@ -100,7 +100,7 @@ fn tutor_sending_a_question_restores_work_and_keeps_loading_context_honest() {
     let mut app = seed_preview_app();
     app.submit_deferral = true;
     app.scryglass
-        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
             title: "Vector space",
             summary: "reference text",
             source_url: "https://example.org/v",

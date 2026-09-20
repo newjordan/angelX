@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{ClubReply, StreamDelta};
+use crate::agent::club::{ClubReply, StreamDelta};
 
 pub(super) fn fixture(test: impl FnOnce(&Path, &Path)) {
     let _lock = crate::tests::env_lock();
@@ -355,16 +355,19 @@ fn native_worker_uses_selected_leaf_and_returns_reconstructible_evaluated_patch(
         assert!(root.join("artifacts/working").is_dir());
         assert!(root.join("artifacts/result.json").is_file());
         let bytes = std::fs::read(root.join("artifacts/result.json")).unwrap();
-        assert_eq!(result.result_sha256, Some(crate::cut::sha256_hex(&bytes)));
+        assert_eq!(
+            result.result_sha256,
+            Some(crate::knowledge::cut::sha256_hex(&bytes))
+        );
         assert_eq!(
             result.patch_sha256,
-            Some(crate::cut::sha256_hex(
+            Some(crate::knowledge::cut::sha256_hex(
                 &std::fs::read(result.patch_path.as_ref().unwrap()).unwrap()
             ))
         );
         assert_eq!(
             result.task_sha256,
-            crate::cut::sha256_hex(request(root, source).task.as_bytes())
+            crate::knowledge::cut::sha256_hex(request(root, source).task.as_bytes())
         );
         let persisted: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(persisted["snapshot_sha256"], result.snapshot_sha256);

@@ -1,5 +1,5 @@
 use super::*;
-use crate::reinforce::{Candidate, EvaluatorEvidence, TestReward};
+use crate::drive::reinforce::{Candidate, EvaluatorEvidence, TestReward};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
@@ -54,7 +54,7 @@ impl Reward for MustNotScore {
 }
 
 struct MustNotReflect;
-impl crate::reinforce::Reflector for MustNotReflect {
+impl crate::drive::reinforce::Reflector for MustNotReflect {
     fn improve(
         &self,
         _current_prompt: &str,
@@ -156,7 +156,7 @@ impl Generator for ResumeAfterSelectionGenerator {
 
 struct CandidateReflector;
 
-impl crate::reinforce::Reflector for CandidateReflector {
+impl crate::drive::reinforce::Reflector for CandidateReflector {
     fn improve(
         &self,
         _current_prompt: &str,
@@ -219,7 +219,8 @@ impl FixtureEvaluator {
             .map(|id| format!("{id}\tfail"))
             .collect::<Vec<_>>()
             .join("\n");
-        let expected_inventory_sha256 = crate::cut::sha256_hex(expected_inventory.as_bytes());
+        let expected_inventory_sha256 =
+            crate::knowledge::cut::sha256_hex(expected_inventory.as_bytes());
         let serial = FIXTURE_EVALUATION_COUNTER.fetch_add(1, Ordering::Relaxed);
         let root = std::env::temp_dir().join(format!(
             "angel-promotion-fixture-{}-{serial}",
@@ -832,9 +833,11 @@ fn technical_campaign_resumes_frozen_training_and_phase_after_evaluator_failure(
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&root);
-    let authority =
-        crate::reinforce::TechnicalCampaignAuthority::new_in("resume-stages-run", root.clone())
-            .unwrap();
+    let authority = crate::drive::reinforce::TechnicalCampaignAuthority::new_in(
+        "resume-stages-run",
+        root.clone(),
+    )
+    .unwrap();
     let selection_evaluator = ToggleEvaluator {
         inner: FixtureEvaluator::new(false),
         fail: AtomicBool::new(true),
@@ -885,7 +888,7 @@ fn technical_campaign_resumes_frozen_training_and_phase_after_evaluator_failure(
         &audit_evaluators,
     )
     .unwrap();
-    let training_config = crate::reinforce::ReinforceConfig {
+    let training_config = crate::drive::reinforce::ReinforceConfig {
         group_size: 4,
         oversample: 0.0,
         staleness_budget: 8,
@@ -894,26 +897,26 @@ fn technical_campaign_resumes_frozen_training_and_phase_after_evaluator_failure(
     };
     let run = |generator: &dyn Generator,
                reward: &dyn Reward,
-               reflector: &dyn crate::reinforce::Reflector| {
-        crate::reinforce::run_reinforce(
+               reflector: &dyn crate::drive::reinforce::Reflector| {
+        crate::drive::reinforce::run_reinforce(
             generator,
             reward,
             reflector,
-            crate::reinforce::ReinforceRequest {
+            crate::drive::reinforce::ReinforceRequest {
                 task: "training",
                 initial_prompt: "incumbent",
                 rounds: 1,
                 config: &training_config,
             },
-            crate::reinforce::TechnicalReinforceCampaign {
+            crate::drive::reinforce::TechnicalReinforceCampaign {
                 authority: &authority,
-                promotion: crate::reinforce::TechnicalPromotionCohort {
+                promotion: crate::drive::reinforce::TechnicalPromotionCohort {
                     cases: &selection_cases,
                     config: &selection_config,
                     manifest: &selection_manifest,
                     evaluators: &selection_evaluators,
                 },
-                final_audit: crate::reinforce::TechnicalFinalAuditCohort {
+                final_audit: crate::drive::reinforce::TechnicalFinalAuditCohort {
                     cases: &audit_cases,
                     config: &audit_config,
                     manifest: &audit_manifest,
@@ -1005,7 +1008,7 @@ fn production_technical_reinforce_requires_receipts_and_veto_only_final_audit() 
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&root);
-    let authority = crate::reinforce::TechnicalCampaignAuthority::new_in(
+    let authority = crate::drive::reinforce::TechnicalCampaignAuthority::new_in(
         "production-run",
         root.join("authority"),
     )
@@ -1087,7 +1090,7 @@ fn production_technical_reinforce_requires_receipts_and_veto_only_final_audit() 
         .unwrap_err()
         .contains("technical release absolute_floor")
     );
-    let training_config = crate::reinforce::ReinforceConfig {
+    let training_config = crate::drive::reinforce::ReinforceConfig {
         group_size: 4,
         oversample: 0.0,
         staleness_budget: 8,
@@ -1095,25 +1098,25 @@ fn production_technical_reinforce_requires_receipts_and_veto_only_final_audit() 
         success_threshold: 0.5,
     };
     let run_campaign = |task| {
-        crate::reinforce::run_reinforce(
+        crate::drive::reinforce::run_reinforce(
             &TechnicalCampaignGenerator,
             &NumericReward,
             &CandidateReflector,
-            crate::reinforce::ReinforceRequest {
+            crate::drive::reinforce::ReinforceRequest {
                 task,
                 initial_prompt: "incumbent",
                 rounds: 1,
                 config: &training_config,
             },
-            crate::reinforce::TechnicalReinforceCampaign {
+            crate::drive::reinforce::TechnicalReinforceCampaign {
                 authority: &authority,
-                promotion: crate::reinforce::TechnicalPromotionCohort {
+                promotion: crate::drive::reinforce::TechnicalPromotionCohort {
                     cases: &promotion_cases,
                     config: &promotion_config,
                     manifest: &promotion_manifest,
                     evaluators: &evaluators,
                 },
-                final_audit: crate::reinforce::TechnicalFinalAuditCohort {
+                final_audit: crate::drive::reinforce::TechnicalFinalAuditCohort {
                     cases: &audit_cases,
                     config: &audit_config,
                     manifest: &audit_manifest,
@@ -1178,25 +1181,25 @@ fn production_technical_reinforce_requires_receipts_and_veto_only_final_audit() 
         [&must_not_evaluate, &must_not_evaluate];
     let panic_audit_evaluators: [&dyn PolicyEvaluator; 2] =
         [&must_not_evaluate, &must_not_evaluate];
-    let sealed = crate::reinforce::run_reinforce(
+    let sealed = crate::drive::reinforce::run_reinforce(
         &MustNotGenerate,
         &MustNotScore,
         &MustNotReflect,
-        crate::reinforce::ReinforceRequest {
+        crate::drive::reinforce::ReinforceRequest {
             task: "training",
             initial_prompt: "incumbent",
             rounds: 1,
             config: &training_config,
         },
-        crate::reinforce::TechnicalReinforceCampaign {
+        crate::drive::reinforce::TechnicalReinforceCampaign {
             authority: &authority,
-            promotion: crate::reinforce::TechnicalPromotionCohort {
+            promotion: crate::drive::reinforce::TechnicalPromotionCohort {
                 cases: &promotion_cases,
                 config: &promotion_config,
                 manifest: &promotion_manifest,
                 evaluators: &panic_selection_evaluators,
             },
-            final_audit: crate::reinforce::TechnicalFinalAuditCohort {
+            final_audit: crate::drive::reinforce::TechnicalFinalAuditCohort {
                 cases: &audit_cases,
                 config: &audit_config,
                 manifest: &audit_manifest,
@@ -1278,7 +1281,7 @@ fn production_technical_reinforce_requires_receipts_and_veto_only_final_audit() 
 
     let veto_root = root.join("veto");
     let veto_authority =
-        crate::reinforce::TechnicalCampaignAuthority::new_in("veto-run", veto_root).unwrap();
+        crate::drive::reinforce::TechnicalCampaignAuthority::new_in("veto-run", veto_root).unwrap();
     let veto_selection_evaluator = FixtureEvaluator::new(false);
     let veto_selection_evaluators: [&dyn PolicyEvaluator; 2] =
         [&veto_selection_evaluator, &veto_selection_evaluator];
@@ -1300,25 +1303,25 @@ fn production_technical_reinforce_requires_receipts_and_veto_only_final_audit() 
         &veto_evaluators,
     )
     .unwrap();
-    let veto_report = crate::reinforce::run_reinforce(
+    let veto_report = crate::drive::reinforce::run_reinforce(
         &TechnicalCampaignGenerator,
         &NumericReward,
         &CandidateReflector,
-        crate::reinforce::ReinforceRequest {
+        crate::drive::reinforce::ReinforceRequest {
             task: "training",
             initial_prompt: "incumbent",
             rounds: 1,
             config: &training_config,
         },
-        crate::reinforce::TechnicalReinforceCampaign {
+        crate::drive::reinforce::TechnicalReinforceCampaign {
             authority: &veto_authority,
-            promotion: crate::reinforce::TechnicalPromotionCohort {
+            promotion: crate::drive::reinforce::TechnicalPromotionCohort {
                 cases: &promotion_cases,
                 config: &promotion_config,
                 manifest: &veto_promotion_manifest,
                 evaluators: &veto_selection_evaluators,
             },
-            final_audit: crate::reinforce::TechnicalFinalAuditCohort {
+            final_audit: crate::drive::reinforce::TechnicalFinalAuditCohort {
                 cases: &audit_cases,
                 config: &audit_config,
                 manifest: &veto_audit_manifest,
@@ -1716,7 +1719,7 @@ fn cohort_manifest_rejects_drift_relabeling_and_final_audit_overlap() {
     assert_eq!(report.cohort_manifest_sha256, audit.manifest_sha256());
     assert_eq!(
         report.candidate_prompt_sha256,
-        crate::cut::sha256_hex(b"candidate")
+        crate::knowledge::cut::sha256_hex(b"candidate")
     );
     assert_eq!(report.incumbent_version, 0);
     assert_eq!(report.candidate_version, 1);

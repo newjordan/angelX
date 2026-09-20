@@ -57,7 +57,7 @@ fn trace_schema_emitters_join_attempts_and_preserve_unknowns() {
         assert!(ledger.verifier[0]["exit"].is_null());
         assert_eq!(
             ledger.artifacts[0]["path_digest"],
-            crate::cut::sha256_hex(b"report.md")
+            crate::knowledge::cut::sha256_hex(b"report.md")
         );
         assert!(ledger.artifacts[0]["shown"].is_null());
         assert_eq!(ledger.lease.as_ref().unwrap()["kind"], "fleet");
@@ -72,12 +72,12 @@ fn trace_schema_provider_attempts_are_nested_and_retained() {
     assert_eq!(begin_provider_attempt(1), None);
     note_timing_origin(std::time::Instant::now());
     begin_model_request();
-    let accounting = crate::club::AccountingCell::default();
+    let accounting = crate::agent::club::AccountingCell::default();
     drop(accounting.attempt());
     let mut retry = accounting.attempt();
-    retry.observe(Some(crate::club::UsageObservation {
+    retry.observe(Some(crate::agent::club::UsageObservation {
         raw: [Some(10), Some(3), None, None, None],
-        ..crate::club::UsageObservation::default()
+        ..crate::agent::club::UsageObservation::default()
     }));
     drop(retry);
     end_model_request();

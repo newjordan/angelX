@@ -29,18 +29,21 @@ fn absent_aliased_goal_store_does_not_poison_future_fallback_reads() {
         let file = store.join("goal.json");
         let _goal = crate::tests::TestEnvGuard::set("ANGEL_GOAL_FILE", file.to_str().unwrap());
         assert!(!store.exists());
-        assert!(crate::goal::load_for(&workspace).is_none());
+        assert!(crate::drive::goal::load_for(&workspace).is_none());
         // Exercise the same canonical fallback used by non-Linux confined reads.
         // Linux's descriptor implementation alone would hide this cache defect.
         let _ = safe_path(&store, "goal.json");
-        let mut goal = crate::goal::Goal::new("restore only this project's goal");
-        crate::goal::save_for(&mut goal, &workspace).unwrap();
+        let mut goal = crate::drive::goal::Goal::new("restore only this project's goal");
+        crate::drive::goal::save_for(&mut goal, &workspace).unwrap();
         let resolved =
             safe_path(&store, "goal.json").expect("created aliased store remains readable");
-        let decoded: crate::goal::Goal =
+        let decoded: crate::drive::goal::Goal =
             serde_json::from_slice(&std::fs::read(resolved).unwrap()).unwrap();
         assert_eq!(decoded.text, goal.text);
-        assert_eq!(crate::goal::load_for(&workspace).unwrap().text, goal.text);
+        assert_eq!(
+            crate::drive::goal::load_for(&workspace).unwrap().text,
+            goal.text
+        );
 
         let outside = physical.join("outside.json");
         std::fs::write(&outside, "outside sentinel").unwrap();

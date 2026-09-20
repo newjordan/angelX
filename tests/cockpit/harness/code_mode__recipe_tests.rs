@@ -13,11 +13,11 @@ fn code_mode_repo_recon_query_is_encoded_as_data() {
 
 #[test]
 fn code_mode_repo_recon_terms_are_bounded_and_deterministic() {
-    let query = "repair cockpit/src/harness/turn.rs repeated read search telemetry telemetry";
+    let query = "repair cockpit/src/agent/harness/turn.rs repeated read search telemetry telemetry";
     let first = repo_recon_terms(query);
     assert_eq!(first, repo_recon_terms(query));
     assert!(first.len() <= REPO_RECON_MAX_TERMS);
-    assert!(first.contains(&"cockpit/src/harness/turn.rs".to_string()));
+    assert!(first.contains(&"cockpit/src/agent/harness/turn.rs".to_string()));
 }
 
 #[test]

@@ -129,7 +129,7 @@ fn sealed_task_edit_scope_rejects_out_of_scope_file_tools_before_mutation() {
     let _scope = crate::tests::TestEnvGuard::set(TASK_EDITABLE_PATHS_ENV, r#"["submission"]"#);
     let _cut = crate::tests::TestEnvGuard::set("ANGEL_CUT", "0");
     let tool = capture_writes(
-        Box::new(crate::harness::WriteFileTool { root: root.clone() }),
+        Box::new(crate::agent::harness::WriteFileTool { root: root.clone() }),
         root.clone(),
     );
 
@@ -233,7 +233,7 @@ fn oversized_authored_text_is_capped_and_flagged() {
 
 #[test]
 fn source_kind_admits_code_and_refuses_prose() {
-    assert_eq!(source_kind("cockpit/src/cut.rs"), Some("rust"));
+    assert_eq!(source_kind("cockpit/src/knowledge/cut.rs"), Some("rust"));
     assert_eq!(source_kind("cockpit/Cargo.toml"), Some("rust"));
     assert_eq!(source_kind("scripts/tick.mjs"), Some("js"));
     assert_eq!(source_kind("web/app.tsx"), Some("ts"));
@@ -648,7 +648,7 @@ fn verify_resolution_follows_the_plans_precedence() {
     // Default: the nearest enclosing crate, NOT the workspace root (this
     // repo's Cargo.toml lives one level down — a root-only probe verifies
     // nothing).
-    let targets = vec!["cockpit/src/cut.rs".to_string()];
+    let targets = vec!["cockpit/src/knowledge/cut.rs".to_string()];
     match resolve_verify(&root, &targets) {
         Verify::Run(plan) => {
             assert_eq!(plan.cmd, "cargo check");
@@ -697,11 +697,14 @@ fn cargo_rituals_anchor_at_the_edited_files_crate() {
     // The first dogfood run: a "cargo check" ritual fired at the workspace
     // root of a repo whose crate lives in cockpit/ — five phantom reds.
     assert_eq!(
-        ritual_dir("cargo check", &root, "cockpit/src/cut.rs"),
+        ritual_dir("cargo check", &root, "cockpit/src/knowledge/cut.rs"),
         "cockpit"
     );
     // Non-cargo rituals keep the root, where repo-level tools live.
-    assert_eq!(ritual_dir("make check", &root, "cockpit/src/cut.rs"), ".");
+    assert_eq!(
+        ritual_dir("make check", &root, "cockpit/src/knowledge/cut.rs"),
+        "."
+    );
     // No manifest anywhere: fall back to the root rather than skipping.
     assert_eq!(ritual_dir("cargo check", &root, "scripts/x.rs"), ".");
 

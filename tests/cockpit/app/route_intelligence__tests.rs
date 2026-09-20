@@ -181,7 +181,7 @@ fn quality_pick_requires_labels_and_rewards_deeper_equal_evidence() {
             selected: false,
             reasoning_effort: Some("high".to_string()),
             reasoning_levels: std::sync::Arc::from(vec!["high".to_string()]),
-            metadata: crate::club::RouteMetadata::default(),
+            metadata: crate::agent::club::RouteMetadata::default(),
         })
         .collect::<Vec<_>>();
     assert_eq!(snapshot.routes[2].explicit_quality_score(), None);
@@ -232,9 +232,9 @@ fn context_aware_picks_preserve_reserve_over_stronger_history() {
             selected: false,
             reasoning_effort: Some("high".to_string()),
             reasoning_levels: std::sync::Arc::from(vec!["high".to_string()]),
-            metadata: crate::club::RouteMetadata {
+            metadata: crate::agent::club::RouteMetadata {
                 context_window: Some(window),
-                ..crate::club::RouteMetadata::default()
+                ..crate::agent::club::RouteMetadata::default()
             },
         })
         .collect::<Vec<_>>();
@@ -298,7 +298,7 @@ fn effort_picks_keep_operational_and_user_quality_channels_separate() {
             "medium".to_string(),
             "high".to_string(),
         ]),
-        metadata: crate::club::RouteMetadata::default(),
+        metadata: crate::agent::club::RouteMetadata::default(),
     };
 
     assert_eq!(
@@ -314,12 +314,16 @@ fn effort_picks_keep_operational_and_user_quality_channels_separate() {
 #[test]
 fn in_memory_verdict_is_visible_without_disk_reload() {
     let mut snapshot = RouteEvidenceSnapshot::default();
-    let route = crate::club::RouteIdentity {
+    let route = crate::agent::club::RouteIdentity {
         driver: "openai".to_string(),
         model: Some("gpt-5.6-sol".to_string()),
         reasoning_effort: Some("ultra".to_string()),
     };
-    snapshot.apply_user_verdict(&route, crate::experience::RouteVerdict::Useful, 12_000);
+    snapshot.apply_user_verdict(
+        &route,
+        crate::knowledge::experience::RouteVerdict::Useful,
+        12_000,
+    );
     let evidence = snapshot
         .find("openai", "gpt-5.6-sol", Some("ultra"))
         .unwrap();

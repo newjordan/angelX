@@ -1,13 +1,14 @@
 use super::*;
+use crate::Viewer;
 use crate::app::PendingApproval;
-use crate::{Viewer, ui};
+use crate::ui;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
 #[test]
 fn still_inspector_verify_is_typed_display_only_and_retains_draft() {
     let _guard = crate::tests::env_lock();
-    let mut app = App::preview(crate::viewer::Viewer::new());
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
     app.input = "/model unfinished".into();
     let action: UiOperation =
         serde_json::from_value(json!({"op":"inspect_image", "action":"zoom_in"})).unwrap();
@@ -28,7 +29,7 @@ fn still_inspector_verify_is_typed_display_only_and_retains_draft() {
         semantic_state(&app)["scryglass"]["image_inspector"]["viewport"],
         Value::Null
     );
-    app.media.push(crate::media::Media::Image {
+    app.media.push(crate::ui::media::Media::Image {
         label: "typed inspection fixture".into(),
         path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("assets/agents/apollo-neutral.png")
@@ -40,7 +41,7 @@ fn still_inspector_verify_is_typed_display_only_and_retains_draft() {
     let mut terminal = Terminal::new(TestBackend::new(144, 48)).unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
     while app.viewer.inspector.viewport.is_none() && Instant::now() < deadline {
-        terminal.draw(|f| crate::draw::ui(f, &mut app)).unwrap();
+        terminal.draw(|f| crate::ui::draw::ui(f, &mut app)).unwrap();
         std::thread::sleep(Duration::from_millis(2));
     }
     assert!(app.viewer.inspector.viewport.is_some());
@@ -77,15 +78,15 @@ fn semantic_state_exposes_atlas_lane_trust_and_review_health() {
     let workspace = root.join("workspace");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&workspace).unwrap();
-    let mut app = App::preview(crate::viewer::Viewer::static_preview());
-    app.atlas = crate::atlas::AtlasService::open_in(&workspace, root.join("store"));
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.atlas = crate::knowledge::atlas::AtlasService::open_in(&workspace, root.join("store"));
     let item = app
         .atlas
         .propose(
-            crate::atlas::AtlasKind::Fact,
+            crate::knowledge::atlas::AtlasKind::Fact,
             "inspection proposal",
             Some(0.7),
-            vec![crate::atlas::AtlasSource {
+            vec![crate::knowledge::atlas::AtlasSource {
                 id: "inspect:source".to_string(),
                 kind: "test".to_string(),
                 digest: "digest".to_string(),
@@ -95,8 +96,10 @@ fn semantic_state_exposes_atlas_lane_trust_and_review_health() {
             }],
         )
         .unwrap();
-    app.atlas_view.set_lane(crate::atlas::AtlasLane::Review);
-    app.scryglass.navigate(crate::scryglass::StageRoute::Vault);
+    app.atlas_view
+        .set_lane(crate::knowledge::atlas::AtlasLane::Review);
+    app.scryglass
+        .navigate(crate::ui::scryglass::StageRoute::Vault);
     let state = semantic_state(&app);
     assert_eq!(state["atlas"]["open"], true);
     assert_eq!(state["atlas"]["lane"], "review");
@@ -111,20 +114,20 @@ fn semantic_state_exposes_atlas_lane_trust_and_review_health() {
 fn observatory_open_semantics_follow_stage_route_after_raytrace_returns() {
     let mut app = App::preview(Viewer::static_preview());
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Observatory);
+        .navigate(crate::ui::scryglass::StageRoute::Observatory);
     app.observatory.clear_viewport();
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Raytrace);
+        .navigate(crate::ui::scryglass::StageRoute::Raytrace);
 
     assert_eq!(semantic_state(&app)["observatory"]["open"], false);
     assert!(
         app.scryglass
             .controller
-            .leave_route(crate::scryglass::StageRoute::Raytrace)
+            .leave_route(crate::ui::scryglass::StageRoute::Raytrace)
     );
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::scryglass::StageRoute::Observatory
+        crate::ui::scryglass::StageRoute::Observatory
     );
     assert_eq!(semantic_state(&app)["observatory"]["open"], true);
 }
@@ -133,12 +136,13 @@ fn observatory_open_semantics_follow_stage_route_after_raytrace_returns() {
 fn world_mode_semantics_follow_unwound_explore_route() {
     let mut app = App::preview(Viewer::static_preview());
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Explore(
-            crate::world_viz::Building::Smithy,
+        .navigate(crate::ui::scryglass::StageRoute::Explore(
+            crate::stage::world_viz::Building::Smithy,
         ));
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Observatory);
-    app.scryglass.navigate(crate::scryglass::StageRoute::Realm);
+        .navigate(crate::ui::scryglass::StageRoute::Observatory);
+    app.scryglass
+        .navigate(crate::ui::scryglass::StageRoute::Realm);
     assert_eq!(semantic_state(&app)["scryglass"]["world_mode"], "Map");
 
     assert!(app.scryglass.controller.back());
@@ -177,7 +181,7 @@ fn teaching_and_interior_semantics_name_the_exact_local_state() {
     );
 
     app.world
-        .settle_at_for_test(crate::world_viz::Building::Scriptorium);
+        .settle_at_for_test(crate::stage::world_viz::Building::Scriptorium);
     assert!(app.world.enter_interior());
     let interior = semantic_state(&app);
     assert_eq!(interior["world"]["inside_interior"], true);
@@ -207,7 +211,7 @@ fn requested_frame_contains_exact_cells_and_matching_stage_state() {
     let mut app = App::preview(Viewer::static_preview());
     let _ = app
         .module_host
-        .focus(&crate::runtime::ModuleId::new("artifacts"));
+        .focus(&crate::platform::runtime::ModuleId::new("artifacts"));
     let mut terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
     terminal
         .draw(|frame| {
@@ -277,10 +281,12 @@ fn typed_control_operation_cells_and_semantics_share_one_cached_frame() {
     }
 
     let mut app = App::preview(Viewer::static_preview());
-    app.bag =
-        crate::club::Bag::for_render_test(&[("alpha", &[("model-a", true), ("model-b", true)])]);
+    app.bag = crate::agent::club::Bag::for_render_test(&[(
+        "alpha",
+        &[("model-a", true), ("model-b", true)],
+    )]);
     app.module_host
-        .focus(&crate::runtime::ModuleId::new("core"))
+        .focus(&crate::platform::runtime::ModuleId::new("core"))
         .unwrap();
     let mut terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
     terminal
@@ -395,7 +401,7 @@ fn typed_observatory_operation_cells_and_campaign_semantics_share_one_frame() {
         .join("fixtures/observatory/manifest-v2.json");
     let mut app = App::preview(Viewer::static_preview());
     app.observatory =
-        crate::observatory::ObservatoryState::from_manifest_for_test(&path, manifest).unwrap();
+        crate::app::observatory::ObservatoryState::from_manifest_for_test(&path, manifest).unwrap();
     app.observatory.clear_viewport();
 
     let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
@@ -511,7 +517,7 @@ fn typed_late_campaign_is_windowed_into_the_same_exact_frame() {
     let path = std::path::Path::new("/tmp/observatory-long/manifest.json");
     let mut app = App::preview(Viewer::static_preview());
     app.observatory =
-        crate::observatory::ObservatoryState::from_manifest_for_test(path, &manifest).unwrap();
+        crate::app::observatory::ObservatoryState::from_manifest_for_test(path, &manifest).unwrap();
     app.observatory.clear_viewport();
 
     let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();

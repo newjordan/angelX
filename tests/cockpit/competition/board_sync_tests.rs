@@ -1,5 +1,5 @@
 use super::run;
-use crate::competition::adapters::AdapterFailureClassV1;
+use crate::drive::competition::adapters::AdapterFailureClassV1;
 use std::path::{Path, PathBuf};
 
 fn fixture(track: &str) -> PathBuf {

@@ -2,7 +2,7 @@
 
 Use `/connect` for provider setup, `/model` to choose a route, and `/think` to
 choose a supported reasoning level. `/status` shows the current session.
-Provider adapters live in `cockpit/src/club`; your credentials and preferences
+Provider adapters live in `cockpit/src/agent/club`; your credentials and preferences
 belong in your environment or account login files.
 
 For interactive launches, put settings in the checkout's ignored `.angel.env`

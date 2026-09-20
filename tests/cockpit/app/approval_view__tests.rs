@@ -174,7 +174,7 @@ fn compact_modal_reserves_wrapped_rows_for_every_control() {
 
     let inner = block().inner(area);
     assert!(approval_body_rows(prompt, scope, inner.width) <= inner.height);
-    let screen = crate::draw::test_backend_text(terminal.backend());
+    let screen = crate::ui::draw::test_backend_text(terminal.backend());
     assert!(screen.contains("[y] approve"), "{screen}");
     assert!(
         screen.contains("[a]") && screen.contains("approve all"),

@@ -1,5 +1,5 @@
 use super::*;
-use crate::harness::rollout::recorder::RolloutRecorder;
+use crate::agent::harness::rollout::recorder::RolloutRecorder;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt, symlink};
 
 struct Fixture(PathBuf);
@@ -78,7 +78,7 @@ fn actual_rollout_base_and_descendants_are_private_under_zero_umask_and_migratio
             .unwrap();
             let id = recorder.rollout_id().unwrap().to_string();
             let blob = store.put_blob(b"fixture body").unwrap();
-            assert_eq!(blob, crate::cut::sha256_hex(b"fixture body"));
+            assert_eq!(blob, crate::knowledge::cut::sha256_hex(b"fixture body"));
             recorder
                 .finish_turn("fixture answer", false, false, false, Some("done"))
                 .unwrap();

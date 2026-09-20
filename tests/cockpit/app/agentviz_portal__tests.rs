@@ -1,5 +1,5 @@
 use super::*;
-use crate::viz::agentviz::StageSnapshot;
+use crate::ui::viz::agentviz::StageSnapshot;
 
 fn fixture(name: &str) -> AngelVizStateV1 {
     let raw = match name {
@@ -85,7 +85,7 @@ fn latest_slot_coalesces_and_rejects_stale_sequences() {
 
 #[test]
 fn seat_updates_refresh_returned_count_and_carry_the_frame() {
-    use crate::viz::agentviz::SeatState;
+    use crate::ui::viz::agentviz::SeatState;
     let wave = |sequence: u64, seat_states: Vec<SeatState>| ActivitySnapshot {
         sequence,
         stage: Some(StageSnapshot {

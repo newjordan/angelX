@@ -152,7 +152,7 @@ fn agent_metrics_line_borrows_default_idle_metrics() {
 
 #[test]
 fn agent_route_title_uses_active_box_mode_and_busy_metrics() {
-    use crate::club::ClubTab;
+    use crate::agent::club::ClubTab;
     let tabs = [
         ClubTab {
             label: "openai".into(),
@@ -200,20 +200,20 @@ fn token_usage_meter_formats_last_and_session_counts() {
 
 #[test]
 fn moa_token_report_lines_show_per_model_counts_and_bars() {
-    let report = crate::swarm::ledger::MoaTokenReport {
+    let report = crate::agent::swarm::ledger::MoaTokenReport {
         turns: 3,
         latest_route: "deliberate".into(),
         latest_ok: true,
         latest_ms: 1200,
         rows: vec![
-            crate::swarm::ledger::MoaModelTokenRow {
+            crate::agent::swarm::ledger::MoaModelTokenRow {
                 label: "openai".into(),
                 last_input: 1200,
                 last_output: 300,
                 total_input: 2400,
                 total_output: 600,
             },
-            crate::swarm::ledger::MoaModelTokenRow {
+            crate::agent::swarm::ledger::MoaModelTokenRow {
                 label: "deepseek".into(),
                 last_input: 600,
                 last_output: 100,
@@ -259,7 +259,7 @@ fn practice_message_title_uses_static_fast_path() {
 
 #[test]
 fn message_title_tabs_lists_boxes_with_active_mode() {
-    use crate::club::ClubTab;
+    use crate::agent::club::ClubTab;
     let tab = |label: &str, mode: Option<&str>, in_hand: bool, available: bool| ClubTab {
         label: label.to_string(),
         mode: mode.map(str::to_string),
@@ -385,7 +385,7 @@ fn composer_placeholder_pads_full_width_to_kill_ghosts() {
         assert!(
             line.spans
                 .iter()
-                .all(|s| s.style.fg == Some(crate::hud::HUD_DIM)),
+                .all(|s| s.style.fg == Some(crate::ui::hud::HUD_DIM)),
             "busy={busy}: placeholder stays dim"
         );
     }
@@ -749,7 +749,7 @@ fn composer_intent_distinguishes_drafts_commands_and_high_impact_commands() {
     assert_eq!(ComposerIntent::Empty.title(70), "");
     assert!(!ComposerIntent::Empty.title(70).contains("Enter sends"));
     assert!(!ComposerIntent::Empty.title(70).contains("Shift+Enter"));
-    let src = include_str!("../../../cockpit/src/views/status_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/views/status_view.rs");
     let start = src
         .find("pub fn composer_intent(")
         .expect("composer_intent");

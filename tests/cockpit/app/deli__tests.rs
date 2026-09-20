@@ -225,7 +225,7 @@ fn persist_writes_protocol_state_files() {
     let dir = std::env::temp_dir().join(format!("deli_persist_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let workspace = dir.join("workspace");
-    crate::experience::note_turn_workspace(&workspace);
+    crate::knowledge::experience::note_turn_workspace(&workspace);
     let inner = ScriptClub::new(&[&block_ev("a", &["f1"]), &block_ev("b", &["f2"])]);
     let k = Knobs {
         rounds: 2,
@@ -237,7 +237,7 @@ fn persist_writes_protocol_state_files() {
     assert_eq!(st.findings.len(), 2);
 
     let state = dir
-        .join(crate::workspace_store::repo_identity(&workspace).key)
+        .join(crate::platform::workspace_store::repo_identity(&workspace).key)
         .join("state");
     let progress: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(state.join("progress.json")).unwrap())
@@ -272,7 +272,7 @@ fn persist_marks_status_stuck_once_stalled_out() {
     let dir = std::env::temp_dir().join(format!("deli_stuck_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let workspace = dir.join("workspace");
-    crate::experience::note_turn_workspace(&workspace);
+    crate::knowledge::experience::note_turn_workspace(&workspace);
     let inner = ScriptClub::new(&[&block_ev("a", &["same"])]); // then repeats → stalls
     let k = Knobs {
         rounds: 10,
@@ -285,7 +285,7 @@ fn persist_marks_status_stuck_once_stalled_out() {
     deli.iterate("solve it", "", &AtomicBool::new(false));
     let progress: serde_json::Value = serde_json::from_str(
         &std::fs::read_to_string(
-            dir.join(crate::workspace_store::repo_identity(&workspace).key)
+            dir.join(crate::platform::workspace_store::repo_identity(&workspace).key)
                 .join("state")
                 .join("progress.json"),
         )
@@ -403,7 +403,7 @@ fn streaming_run_emits_the_final_answer_as_one_delta() {
 
 #[test]
 fn deli_keeps_rl_tools_available_without_restarting_deliberation_after_a_tool_result() {
-    use crate::club::ToolCall;
+    use crate::agent::club::ToolCall;
     use std::sync::atomic::AtomicUsize;
     struct Actions {
         rounds: AtomicUsize,
@@ -788,7 +788,9 @@ fn calibration_workers() -> Vec<(String, Arc<dyn Club>)> {
             std::env::var("ANGEL_LONGCAT_MODEL").unwrap_or_else(|_| "LongCat-2.0".to_string());
         out.push((
             format!("longcat/{model}"),
-            Arc::new(crate::club::HttpClub::new("longcat", url, model, Some(key)).sota_tuned()),
+            Arc::new(
+                crate::agent::club::HttpClub::new("longcat", url, model, Some(key)).sota_tuned(),
+            ),
         ));
     }
     let glm_key = [
@@ -801,7 +803,7 @@ fn calibration_workers() -> Vec<(String, Arc<dyn Club>)> {
     .find_map(|k| std::env::var(k).ok());
     if let Some(key) = glm_key {
         let url = std::env::var("ANGEL_GLM_URL")
-            .unwrap_or_else(|_| crate::club::default_glm_url().to_string());
+            .unwrap_or_else(|_| crate::agent::club::default_glm_url().to_string());
         // A couple of tiers, so the calibration is not one model's quirk.
         let models = std::env::var("ANGEL_CALIBRATE_GLM_MODELS")
             .unwrap_or_else(|_| "glm-5.3,glm-5.3-flash,glm-5.2".to_string());
@@ -809,7 +811,7 @@ fn calibration_workers() -> Vec<(String, Arc<dyn Club>)> {
             out.push((
                 format!("glm/{model}"),
                 Arc::new(
-                    crate::club::HttpClub::new(
+                    crate::agent::club::HttpClub::new(
                         "glm",
                         url.clone(),
                         model.to_string(),

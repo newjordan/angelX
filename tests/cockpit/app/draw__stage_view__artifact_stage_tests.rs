@@ -42,8 +42,8 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
             return;
         }
     }
-    let mut app = App::preview(crate::viewer::Viewer::new());
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     app.input = "preserve the operator draft λ".into();
     app.media.push(Media::Video {
         label: "Real pixel reel".into(),
@@ -197,10 +197,10 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
         KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
     };
     let _guard = crate::tests::env_lock();
-    let mut app = App::preview(crate::viewer::Viewer::new());
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Explore(
-            crate::world_viz::Building::Smithy,
+        .navigate(crate::ui::scryglass::StageRoute::Explore(
+            crate::stage::world_viz::Building::Smithy,
         ));
     let route = app.scryglass.controller.route();
     app.media.push(Media::Image {
@@ -283,7 +283,7 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
     assert_ne!(app.viewer.inspector.painted, Some(expected));
     assert_eq!(app.viewer.inspector.semantic()["status"], "updating");
     // Six '+' presses are six steps, not eight (595% is eight steps).
-    app.inspect_still(crate::still_inspector::Action::Fit);
+    app.inspect_still(crate::ui::still_inspector::Action::Fit);
     for _ in 0..6 {
         app.on_key(key(KeyCode::Char('+')));
     }
@@ -328,7 +328,7 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
     let fit = app
         .world_buttons
         .iter()
-        .find(|(_, b)| *b == WorldButton::Still(crate::still_inspector::Action::Fit))
+        .find(|(_, b)| *b == WorldButton::Still(crate::ui::still_inspector::Action::Fit))
         .unwrap()
         .0;
     app.on_mouse(mouse(MouseEventKind::Down(MouseButton::Left), fit.x, fit.y));
@@ -385,9 +385,9 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
     // Video/document/world controls retain their own routes; inspector keys
     // cannot change the still display state once the overlay is dismissed.
     for surface in [
-        crate::scryglass::StageSurface::Video(0),
-        crate::scryglass::StageSurface::Document(0),
-        crate::scryglass::StageSurface::WorldMap,
+        crate::ui::scryglass::StageSurface::Video(0),
+        crate::ui::scryglass::StageSurface::Document(0),
+        crate::ui::scryglass::StageSurface::WorldMap,
     ] {
         app.scryglass.surface = surface;
         let view = app.viewer.inspector.view;
@@ -413,7 +413,7 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
     ready(&mut app, &mut terminal);
     app.viewer.inspector.drag = Some(center);
     let mut empty = ratatui::Terminal::new(ratatui::backend::TestBackend::new(0, 0)).unwrap();
-    empty.draw(|f| crate::draw::ui(f, &mut app)).unwrap();
+    empty.draw(|f| crate::ui::draw::ui(f, &mut app)).unwrap();
     assert!(app.viewer.inspector.source.is_none());
     assert!(app.viewer.inspector.drag.is_none());
 }
@@ -421,8 +421,8 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
 #[test]
 fn native_artifact_stage_keeps_identity_draft_and_motion_off_ownership() {
     let _guard = crate::tests::env_lock();
-    let mut app = App::preview(crate::viewer::Viewer::new());
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     app.input = "keep this exact draft λ".into();
     app.media.push(Media::Image {
         label: "Requested evidence".into(),

@@ -16,7 +16,7 @@ fn spawn_acquires_foreground_lease_inside_the_worker() {
     // A contended leases mutex would otherwise hitch Enter-after-echo.
     // include_str is the non-flaky substitute for "spawn does not block on a
     // held lease" (acquire is fail-fast, so a held lease cannot stall spawn).
-    let src = include_str!("../../../cockpit/src/turn.rs");
+    let src = include_str!("../../../cockpit/src/agent/turn.rs");
     let start = src
         .find("pub(crate) fn spawn(")
         .expect("Thinking::spawn present");
@@ -86,9 +86,9 @@ fn spawn_acquires_foreground_lease_inside_the_worker() {
 fn spawn_reports_a_held_foreground_lease_as_the_turn_result() {
     let _env = crate::tests::env_lock();
     let _backplane = crate::tests::TestEnvGuard::unset("ANGEL_BACKPLANE");
-    let bag = crate::club::Bag::for_render_test(&[("spark", &[("swarm", true)])]);
-    let mut registry = crate::harness::ToolRegistry::new();
-    registry.set_backplane(crate::backplane::BackplaneRegistry::from_bag(&bag));
+    let bag = crate::agent::club::Bag::for_render_test(&[("spark", &[("swarm", true)])]);
+    let mut registry = crate::agent::harness::ToolRegistry::new();
+    registry.set_backplane(crate::agent::backplane::BackplaneRegistry::from_bag(&bag));
     let tools = Arc::new(registry);
     let club = bag.in_hand();
     let identity = club.route_identity();
@@ -99,8 +99,8 @@ fn spawn_reports_a_held_foreground_lease_as_the_turn_result() {
     let _held = backplane
         .acquire_scoped(
             &group,
-            crate::backplane::LeaseMode::Serve,
-            crate::backplane::WorkloadRole::Foreground,
+            crate::agent::backplane::LeaseMode::Serve,
+            crate::agent::backplane::WorkloadRole::Foreground,
             Some(route_id),
             false,
         )
@@ -111,8 +111,8 @@ fn spawn_reports_a_held_foreground_lease_as_the_turn_result() {
         club.clone(),
         tools,
         Arc::from([ChatMsg::user("hello")]),
-        Arc::new(crate::steer::SteerQueue::default()),
-        crate::session::Session::disabled(),
+        Arc::new(crate::agent::steer::SteerQueue::default()),
+        crate::knowledge::session::Session::disabled(),
         club.route_identity(),
         None,
     );
@@ -185,8 +185,8 @@ fn spawn_snapshots_club_usage_inside_the_worker() {
         club.clone(),
         Arc::new(workspace.registry()),
         Arc::from([ChatMsg::user("hello")]),
-        Arc::new(crate::steer::SteerQueue::default()),
-        crate::session::Session::disabled(),
+        Arc::new(crate::agent::steer::SteerQueue::default()),
+        crate::knowledge::session::Session::disabled(),
         club.route_identity(),
         None,
     );
@@ -226,7 +226,7 @@ fn spawn_materializes_the_shared_history_snapshot() {
     let _traj = crate::tests::TestEnvGuard::unset("ANGEL_TRAJECTORY_LOG");
 
     struct ProbeClub {
-        seen: Mutex<Vec<Vec<(crate::club::ChatRole, String)>>>,
+        seen: Mutex<Vec<Vec<(crate::agent::club::ChatRole, String)>>>,
     }
     impl Club for ProbeClub {
         fn respond(&self, prompt: &str) -> Result<String, String> {
@@ -239,7 +239,7 @@ fn spawn_materializes_the_shared_history_snapshot() {
             &self,
             messages: &[ChatMsg],
             _tools: &[ToolDef],
-        ) -> Result<crate::club::ClubReply, String> {
+        ) -> Result<crate::agent::club::ClubReply, String> {
             self.seen.lock().expect("seen hop log").push(
                 messages
                     .iter()
@@ -247,10 +247,10 @@ fn spawn_materializes_the_shared_history_snapshot() {
                     .collect(),
             );
             assert_eq!(
-                crate::harness::run_identity::live_turn().as_deref(),
+                crate::agent::harness::run_identity::live_turn().as_deref(),
                 Some("snapshot-loop-owner")
             );
-            Ok(crate::club::ClubReply::Text("probe:ok".to_string()))
+            Ok(crate::agent::club::ClubReply::Text("probe:ok".to_string()))
         }
     }
 
@@ -266,8 +266,8 @@ fn spawn_materializes_the_shared_history_snapshot() {
         club.clone(),
         Arc::new(workspace.registry()),
         Arc::clone(&history),
-        Arc::new(crate::steer::SteerQueue::default()),
-        crate::session::Session::disabled(),
+        Arc::new(crate::agent::steer::SteerQueue::default()),
+        crate::knowledge::session::Session::disabled(),
         club.route_identity(),
         Some("snapshot-loop-owner".into()),
     );
@@ -288,11 +288,11 @@ fn spawn_materializes_the_shared_history_snapshot() {
         seen[0],
         vec![
             (
-                crate::club::ChatRole::System,
+                crate::agent::club::ChatRole::System,
                 "orchestrator prompt".to_string()
             ),
             (
-                crate::club::ChatRole::User,
+                crate::agent::club::ChatRole::User,
                 "same snapshot as persist".to_string()
             ),
         ]

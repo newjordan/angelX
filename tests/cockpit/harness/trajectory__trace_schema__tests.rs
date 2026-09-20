@@ -16,13 +16,16 @@ fn startup_walk_deadline_is_partial_and_preserves_full_digest() {
     std::fs::write(root.join("large"), &bytes).unwrap();
     assert_eq!(
         file_digest(&root.join("large"), None).unwrap().unwrap(),
-        crate::cut::sha256_hex(&bytes)
+        crate::knowledge::cut::sha256_hex(&bytes)
     );
     assert_eq!(
         file_digest(&root.join("large"), Some(Instant::now())).unwrap(),
         None
     );
-    assert_eq!(fast_sha256(b"abc"), crate::cut::sha256_hex(b"abc"));
+    assert_eq!(
+        fast_sha256(b"abc"),
+        crate::knowledge::cut::sha256_hex(b"abc")
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 

@@ -74,7 +74,7 @@ fn reduced_motion_is_monotone_without_rebound() {
 
 #[test]
 fn every_tween_height_keeps_copy_rectangles_inside_their_own_panels() {
-    use crate::surfaces::{self, BackdropMode, CockpitLayoutInput, SurfaceJoin};
+    use crate::ui::surfaces::{self, BackdropMode, CockpitLayoutInput, SurfaceJoin};
     use ratatui::layout::Rect;
     for column in [5, 7, 12, 24, 48, 80] {
         for join in [SurfaceJoin::SharedBorder, SurfaceJoin::Gap] {
