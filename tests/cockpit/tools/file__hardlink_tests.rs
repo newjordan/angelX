@@ -4,7 +4,7 @@ use std::os::unix::fs::MetadataExt;
 #[test]
 fn external_patch_keeps_scratch_inside_writable_workspace() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = crate::agent::sandbox::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     std::fs::write(root.join("target.txt"), "before\n").unwrap();
@@ -31,7 +31,7 @@ fn external_patch_keeps_scratch_inside_writable_workspace() {
 #[test]
 fn file_tools_break_hardlinks_without_changing_outside_inode() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = crate::agent::sandbox::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     let outside = fixture.path().join("outside");
@@ -77,7 +77,7 @@ fn file_tools_break_hardlinks_without_changing_outside_inode() {
 #[test]
 fn rejected_edit_does_not_claim_link_breaking() {
     let _lock = crate::tests::env_lock();
-    let fixture = crate::sandbox::HardlinkTestRoot::new();
+    let fixture = crate::agent::sandbox::HardlinkTestRoot::new();
     let root = fixture.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
     let outside = fixture.path().join("outside");

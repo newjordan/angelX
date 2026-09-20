@@ -173,24 +173,24 @@ fn actual_store_writers_are_private_under_zero_umask() {
         let fixture = Fixture::new();
         let ledger = fixture.0.join("experience").join("ledger.jsonl");
         let row = serde_json::json!({"kind":"fixture", "count":7, "ok":true});
-        crate::experience::append_jsonl(&ledger, &row);
+        crate::knowledge::experience::append_jsonl(&ledger, &row);
         assert_eq!(mode(&ledger), 0o600);
         assert_eq!(mode(&ledger.with_file_name("ledger.jsonl.lock")), 0o600);
-        crate::experience::replace_jsonl(&ledger, std::slice::from_ref(&row)).unwrap();
+        crate::knowledge::experience::replace_jsonl(&ledger, std::slice::from_ref(&row)).unwrap();
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&std::fs::read(&ledger).unwrap()).unwrap(),
             row
         );
         assert_eq!(mode(&ledger), 0o600);
         let trajectory = fixture.0.join("trajectories").join("session.jsonl");
-        crate::harness::append_trajectory(&trajectory, &row).unwrap();
+        crate::agent::harness::append_trajectory(&trajectory, &row).unwrap();
         assert_eq!(mode(&trajectory), 0o600);
         for prefix in ["answer-", "authored-"] {
             let store = fixture.0.join(prefix);
             let shard = store.join(format!("{prefix}20000101.jsonl"));
             let mut evicted = 0;
             assert!(matches!(
-                crate::barrel::append_capped_shard(
+                crate::knowledge::barrel::append_capped_shard(
                     &store,
                     prefix,
                     &shard,
@@ -198,7 +198,7 @@ fn actual_store_writers_are_private_under_zero_umask() {
                     1024,
                     &mut evicted
                 ),
-                crate::barrel::Append::Ok
+                crate::knowledge::barrel::Append::Ok
             ));
             assert_eq!(mode(&shard), 0o600);
         }
@@ -207,19 +207,20 @@ fn actual_store_writers_are_private_under_zero_umask() {
             .mode(0o700)
             .create(&workspace)
             .unwrap();
-        let session = crate::session::Session::at_for(
+        let session = crate::knowledge::session::Session::at_for(
             fixture.0.join("sessions"),
             "private-session".into(),
             &workspace,
         );
         session
-            .save(&[crate::club::ChatMsg::user("owner-only session")])
+            .save(&[crate::agent::club::ChatMsg::user("owner-only session")])
             .unwrap();
         assert_eq!(mode(session.path()), 0o600);
         let _atlas = crate::tests::TestEnvGuard::set("ANGEL_ATLAS", "1");
-        let atlas = crate::atlas::AtlasService::open_in(&workspace, fixture.0.join("atlas"));
+        let atlas =
+            crate::knowledge::atlas::AtlasService::open_in(&workspace, fixture.0.join("atlas"));
         atlas
-            .add_operator(crate::atlas::AtlasKind::Note, "fixture note")
+            .add_operator(crate::knowledge::atlas::AtlasKind::Note, "fixture note")
             .unwrap();
         let project = fixture
             .0
@@ -262,7 +263,7 @@ fn trajectory_directory_permissions_use_checked_existing_targets_only() {
     for path in [&angel, &store] {
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o775)).unwrap();
     }
-    crate::harness::ensure_private_store(&store);
+    crate::agent::harness::ensure_private_store(&store);
     assert_eq!(mode(&angel), 0o700);
     assert_eq!(mode(&store), 0o700);
     let custom_parent = fixture.0.join("custom-parent");
@@ -270,7 +271,7 @@ fn trajectory_directory_permissions_use_checked_existing_targets_only() {
     std::fs::create_dir_all(&custom).unwrap();
     std::fs::set_permissions(&custom_parent, std::fs::Permissions::from_mode(0o750)).unwrap();
     std::fs::set_permissions(&custom, std::fs::Permissions::from_mode(0o775)).unwrap();
-    crate::harness::ensure_private_store(&custom);
+    crate::agent::harness::ensure_private_store(&custom);
     assert_eq!(mode(&custom), 0o700);
     assert_eq!(mode(&custom_parent), 0o750);
     let outside = fixture.0.join("outside");
@@ -278,8 +279,8 @@ fn trajectory_directory_permissions_use_checked_existing_targets_only() {
     std::fs::set_permissions(&outside, std::fs::Permissions::from_mode(0o755)).unwrap();
     let alias = fixture.0.join("alias");
     symlink(&outside, &alias).unwrap();
-    crate::harness::ensure_private_store(&alias);
-    crate::harness::ensure_private_store(&alias.join("missing"));
+    crate::agent::harness::ensure_private_store(&alias);
+    crate::agent::harness::ensure_private_store(&alias.join("missing"));
     assert_eq!(mode(&outside), 0o755);
     assert!(!outside.join("missing").exists());
 }

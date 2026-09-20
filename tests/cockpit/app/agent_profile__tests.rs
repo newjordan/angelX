@@ -43,7 +43,7 @@ fn route_profiles_distinguish_provider_models_on_one_logical_agent() {
     );
     assert_ne!(openai.asset(false), deepseek.asset(false));
     assert_ne!(deepseek.asset(false), grok.asset(false));
-    let src = include_str!("../../../cockpit/src/agent/profile.rs");
+    let src = include_str!("../../../cockpit/src/ui/agent_panel/profile.rs");
     let start = src
         .find("fn route_profile_for(")
         .expect("route_profile_for");
@@ -137,7 +137,7 @@ fn provider_effort_ladders_map_to_two_portrait_tiers() {
         assert!(portrait_uses_high_effort(Some(effort)), "{effort}");
     }
     assert!(!portrait_uses_high_effort(Some("invented")));
-    let src = include_str!("../../../cockpit/src/agent/profile.rs");
+    let src = include_str!("../../../cockpit/src/ui/agent_panel/profile.rs");
     let start = src
         .find("pub fn portrait_uses_high_effort")
         .expect("portrait_uses_high_effort");

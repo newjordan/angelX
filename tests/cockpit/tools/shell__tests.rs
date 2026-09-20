@@ -1,5 +1,7 @@
 use super::*;
-use crate::experience::{CmdExperience, VERDICT_FAIL, VERDICT_NONE, VERDICT_PASS, cmd_verdict};
+use crate::knowledge::experience::{
+    CmdExperience, VERDICT_FAIL, VERDICT_NONE, VERDICT_PASS, cmd_verdict,
+};
 use std::path::Path;
 
 #[test]
@@ -249,7 +251,7 @@ fn scratch(name: &str) -> PathBuf {
 #[test]
 fn shell_tool_honors_registry_cancel_authority() {
     let dir = scratch("cancel");
-    let mut registry = crate::harness::ToolRegistry::new();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
     registry.register(Box::new(ShellTool::in_dir(dir.clone())));
     registry
         .dispatch(
@@ -454,7 +456,7 @@ fn runtime_missing_shell_error_has_the_shared_onboarding_hint() {
             "command": "PATH=/nonexistent-runtime-path python3 -m unittest",
         }))
         .expect_err("missing interpreter must be a tool error");
-    let parsed = crate::tools::runtime_missing::RuntimeMissing::decode(&error).unwrap();
+    let parsed = crate::agent::tools::runtime_missing::RuntimeMissing::decode(&error).unwrap();
     assert_eq!(parsed.runtime, "python3");
     assert!(parsed.hint.contains("ANGEL_PYTHON_BIN"));
     let _ = std::fs::remove_dir_all(dir);
@@ -479,10 +481,10 @@ fn a_command_not_found_names_the_missing_program_and_its_sibling() {
     // child PATH carries the runtime shim, so the command that used to exit
     // 127 now runs python3 — and the hint text for the bare name still
     // names the sibling when asked directly.
-    if crate::workspace_lang::resolve_on_path("python").is_none()
-        && crate::workspace_lang::resolve_on_path("python3").is_some()
+    if crate::platform::workspace_lang::resolve_on_path("python").is_none()
+        && crate::platform::workspace_lang::resolve_on_path("python3").is_some()
     {
-        if crate::workspace_lang::runtime_shims_dir().is_some() {
+        if crate::platform::workspace_lang::runtime_shims_dir().is_some() {
             match tool.call(&serde_json::json!({
                 "command": "python -c 'import sys; print(sys.version_info[0])'"
             })) {
@@ -492,7 +494,7 @@ fn a_command_not_found_names_the_missing_program_and_its_sibling() {
                 ),
             }
         }
-        let hint = crate::workspace_lang::missing_program_hint("python -m unittest -v")
+        let hint = crate::platform::workspace_lang::missing_program_hint("python -m unittest -v")
             .expect("bare python is absent from this process's PATH");
         assert!(hint.contains("use `python3` instead"), "{hint}");
     }
@@ -509,22 +511,26 @@ fn lifecycle_signal_killed_shell_returns_failed_inconclusive_receipt() {
         .call(&serde_json::json!({"command":"kill -KILL $$"}))
         .unwrap_err();
     assert!(error.contains("signal 9"), "{error}");
-    let call = crate::club::ToolCall {
+    let call = crate::agent::club::ToolCall {
         id: "killed".into(),
         name: "shell".into(),
         args: serde_json::json!({"command":"kill -KILL $$"}),
     };
-    let outcome = crate::harness::turn_event_outcome(&call, &format!("tool error: {error}"), false);
-    assert_eq!(outcome.execution, crate::harness::ExecutionOutcome::Failed);
+    let outcome =
+        crate::agent::harness::turn_event_outcome(&call, &format!("tool error: {error}"), false);
+    assert_eq!(
+        outcome.execution,
+        crate::agent::harness::ExecutionOutcome::Failed
+    );
     assert_eq!(
         outcome.verification,
-        crate::harness::VerificationOutcome::Inconclusive
+        crate::agent::harness::VerificationOutcome::Inconclusive
     );
-    let kill = crate::sandbox::process_owner::KillReceipt::from_error(&error).unwrap();
+    let kill = crate::agent::sandbox::process_owner::KillReceipt::from_error(&error).unwrap();
     assert_eq!(kill.signal, Some(9));
     assert_eq!(kill.reason, "signal_death");
     assert_eq!(kill.owner, "unknown_external");
-    crate::harness::note_tool_outcome(
+    crate::agent::harness::note_tool_outcome(
         1,
         "shell",
         &call.args,
@@ -536,7 +542,7 @@ fn lifecycle_signal_killed_shell_returns_failed_inconclusive_receipt() {
         None,
         error.len(),
     );
-    let ledger = crate::harness::tool_ledger_snapshot();
+    let ledger = crate::agent::harness::tool_ledger_snapshot();
     assert_eq!(ledger.last().unwrap()["status"], "killed");
     eprintln!("LIFECYCLE_KILL_RECEIPT signal=9 execution=Failed verification=Inconclusive");
     let _ = std::fs::remove_dir_all(dir);
@@ -570,14 +576,20 @@ fn t06c_stdin_eof_and_signal_names() {
             error.contains(&format!("reason=signal:SIG{signal}")),
             "{error}"
         );
-        let call = crate::club::ToolCall {
+        let call = crate::agent::club::ToolCall {
             id: signal.into(),
             name: "shell".into(),
             args,
         };
-        let outcome =
-            crate::harness::turn_event_outcome(&call, &format!("tool error: {error}"), false);
-        assert_eq!(outcome.execution, crate::harness::ExecutionOutcome::Failed);
+        let outcome = crate::agent::harness::turn_event_outcome(
+            &call,
+            &format!("tool error: {error}"),
+            false,
+        );
+        assert_eq!(
+            outcome.execution,
+            crate::agent::harness::ExecutionOutcome::Failed
+        );
         eprintln!("T06C_SIGNAL_RECEIPT reason=signal:SIG{signal} execution=Failed");
     }
     std::fs::remove_dir_all(dir).unwrap();
@@ -637,7 +649,7 @@ fn the_resolved_shell_reports_whether_it_can_be_trusted() {
 
 #[test]
 fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
-    use crate::harness::Tool;
+    use crate::agent::harness::Tool;
     let _env = crate::tests::env_lock();
     let dir = scratch("flow01-guidance");
     let tool = ShellTool::in_dir(dir.clone());

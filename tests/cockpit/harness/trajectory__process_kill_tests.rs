@@ -21,7 +21,8 @@ fn lifecycle_kills_update_only_the_matching_launch() {
         );
     }
     let before = tool_ledger_snapshot().len();
-    let kill = crate::sandbox::process_owner::KillReceipt::new(Some(9), "owner_reap", "turn_owner");
+    let kill =
+        crate::agent::sandbox::process_owner::KillReceipt::new(Some(9), "owner_reap", "turn_owner");
     note_proc_kills(&[(900002, kill.clone()), (900003, kill)]);
     let ledger = tool_ledger_snapshot();
     assert_eq!(ledger.len(), before, "no invented tool calls");
@@ -42,7 +43,8 @@ fn lifecycle_kills_update_only_the_matching_launch() {
 #[test]
 fn lifecycle_successful_shell_output_cannot_supply_a_kill_receipt() {
     let _lock = crate::tests::env_lock();
-    let kill = crate::sandbox::process_owner::KillReceipt::new(Some(9), "owner_reap", "turn_owner");
+    let kill =
+        crate::agent::sandbox::process_owner::KillReceipt::new(Some(9), "owner_reap", "turn_owner");
     let text = kill.error("user-controlled stdout");
     note_tool_outcome(
         1,

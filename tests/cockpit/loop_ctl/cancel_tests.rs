@@ -6,8 +6,8 @@ type TerminalSender = std::sync::mpsc::Sender<
         (
             Vec<ChatMsg>,
             String,
-            crate::club::RouteIdentity,
-            crate::harness::TurnStopReason,
+            crate::agent::club::RouteIdentity,
+            crate::agent::harness::TurnStopReason,
         ),
         String,
     >,
@@ -15,9 +15,9 @@ type TerminalSender = std::sync::mpsc::Sender<
 
 struct Held {
     terminal: TerminalSender,
-    events: std::sync::mpsc::Sender<crate::harness::TurnEvent>,
+    events: std::sync::mpsc::Sender<crate::agent::harness::TurnEvent>,
     cancel: Arc<std::sync::atomic::AtomicBool>,
-    old_steers: Arc<crate::steer::SteerQueue>,
+    old_steers: Arc<crate::agent::steer::SteerQueue>,
 }
 
 struct OfflineCounter(Arc<std::sync::atomic::AtomicUsize>);
@@ -51,10 +51,10 @@ fn fixture(tag: &str, test: impl FnOnce(&Path)) {
 
 fn held_app(root: &Path) -> (crate::App, Held, Arc<std::sync::atomic::AtomicUsize>) {
     let mut app = crate::seed_preview_app();
-    let mut registry = crate::harness::ToolRegistry::new();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
     registry.set_workspace(root.to_path_buf());
     app.tools = Arc::new(registry);
-    app.bag = crate::club::Bag::practice_for_test();
+    app.bag = crate::agent::club::Bag::practice_for_test();
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     app.bag
         .replace_in_hand_club_for_test(Arc::new(OfflineCounter(calls.clone())));
@@ -73,7 +73,10 @@ fn held_app(root: &Path) -> (crate::App, Held, Arc<std::sync::atomic::AtomicUsiz
         started: Instant::now(),
         club_label: "practice".into(),
         club: None,
-        spawn_usage: crate::turn::published_spawn_usage(None, crate::club::CacheUsage::default()),
+        spawn_usage: crate::agent::turn::published_spawn_usage(
+            None,
+            crate::agent::club::CacheUsage::default(),
+        ),
         requested_route: app.bag.in_hand_with_fallback().route_identity(),
         cancel: cancel.clone(),
         rx,
@@ -127,7 +130,7 @@ fn stop_then_resume_cannot_rearm_until_the_held_worker_settles() {
         assert_eq!(app.loop_ctl.tokens_spent, 77);
         assert_eq!(calls.load(Ordering::SeqCst), 0);
         held.events
-            .send(crate::harness::TurnEvent::Token(
+            .send(crate::agent::harness::TurnEvent::Token(
                 "late retired token".into(),
             ))
             .unwrap();
@@ -138,7 +141,7 @@ fn stop_then_resume_cannot_rearm_until_the_held_worker_settles() {
                 vec![ChatMsg::assistant("late retired answer")],
                 "late retired answer".into(),
                 route.clone(),
-                crate::harness::TurnStopReason::Answer,
+                crate::agent::harness::TurnStopReason::Answer,
             )))
             .unwrap();
         app.advance();

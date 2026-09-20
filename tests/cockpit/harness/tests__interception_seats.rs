@@ -7,14 +7,14 @@
 //! assertion about a counter.
 
 use super::*;
-use crate::harness::interception::Interception;
-use crate::harness::registry::{ROOT_SEAT, SeatGrant};
+use crate::agent::harness::interception::Interception;
+use crate::agent::harness::registry::{ROOT_SEAT, SeatGrant};
 
 /// A registry carrying the real file tools, rooted in a scratch directory.
 fn registry_with_files(tag: &str) -> (ToolRegistry, PathBuf) {
     let root = scratch(tag);
     let mut registry = ToolRegistry::new();
-    crate::harness::register_file_tools(&mut registry, root.clone());
+    crate::agent::harness::register_file_tools(&mut registry, root.clone());
     (registry, root)
 }
 

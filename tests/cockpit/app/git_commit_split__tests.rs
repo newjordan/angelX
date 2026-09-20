@@ -87,15 +87,15 @@ fn empty_tree_errors() {
 
 #[test]
 fn suggest_subject_adds_conventional_scope() {
-    let s = suggest_subject(FileClass::Source, &["cockpit/src/hashline.rs".into()]);
+    let s = suggest_subject(FileClass::Source, &["cockpit/src/agent/hashline.rs".into()]);
     assert!(s.starts_with("feat(cockpit):"), "{s}");
     assert!(s.contains("hashline"), "{s}");
 
     let s = suggest_subject(
         FileClass::Test,
         &[
-            "cockpit/src/harness/tests/a.rs".into(),
-            "cockpit/src/harness/tests/b.rs".into(),
+            "cockpit/src/agent/harness/tests/a.rs".into(),
+            "cockpit/src/agent/harness/tests/b.rs".into(),
         ],
     );
     assert!(s.starts_with("test(cockpit):"), "{s}");

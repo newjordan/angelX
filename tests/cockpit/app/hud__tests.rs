@@ -11,7 +11,7 @@ fn hud_styles_are_foreground_only() {
     assert_eq!(dim_panel_style().fg, Some(HUD_DIM));
     assert_eq!(chrome_style().fg, Some(HUD_TEXT));
     assert_eq!(HUD_VERIFIED, Color::Rgb(99, 241, 169));
-    assert_eq!(crate::term::art::DMD_PALETTE[7], [99, 241, 169]);
+    assert_eq!(crate::ui::term::art::DMD_PALETTE[7], [99, 241, 169]);
 }
 
 #[test]

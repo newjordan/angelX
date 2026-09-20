@@ -32,7 +32,7 @@ fn measured_progress(rewards: &[f32]) -> RlState {
         progress.points = rewards
             .iter()
             .enumerate()
-            .map(|(index, reward)| crate::rl_ctl::RunPoint {
+            .map(|(index, reward)| crate::drive::rl_ctl::RunPoint {
                 step: index + 1,
                 reward: *reward,
                 latency_ms: 1_200 + index as u64 * 10,
@@ -89,7 +89,7 @@ fn released_campaign_banner_says_audited_and_installed() {
             accepted_entry: Some("rl-policy".into()),
             accepted_event: Some("r1".into()),
             report_path: "/tmp/rl/run-1".into(),
-            route: crate::club::RouteIdentity {
+            route: crate::agent::club::RouteIdentity {
                 driver: "fixture".into(),
                 model: None,
                 reasoning_effort: None,
@@ -125,7 +125,7 @@ fn measured_but_uninstalled_campaign_is_not_called_released() {
             accepted_entry: None,
             accepted_event: None,
             report_path: "/tmp/rl/run-2".into(),
-            route: crate::club::RouteIdentity {
+            route: crate::agent::club::RouteIdentity {
                 driver: "fixture".into(),
                 model: None,
                 reasoning_effort: None,

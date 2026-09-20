@@ -294,7 +294,7 @@ fn user_project_skills_are_inert_outside_the_bound_repository() {
     std::fs::create_dir_all(user.join("alpha-build")).unwrap();
     std::fs::create_dir_all(user.join("legacy-habit")).unwrap();
     std::fs::create_dir_all(user.join("global-review")).unwrap();
-    let identity = crate::workspace_store::repo_identity(&alpha);
+    let identity = crate::platform::workspace_store::repo_identity(&alpha);
     std::fs::write(
         user.join("alpha-build/SKILL.md"),
         format!(
@@ -862,7 +862,7 @@ fn skill_catalog_audit_shares_admission_and_reports_bounded_rejection_classes() 
     unsafe { std::env::set_var("ANGEL_BUNDLED_SKILLS_DIR", &bundled) };
 
     let audit = audit_skills_for(&workspace);
-    let report = crate::skills::check_for(&workspace);
+    let report = crate::knowledge::skills::check_for(&workspace);
 
     for (key, value) in [
         ("HOME", old_home),

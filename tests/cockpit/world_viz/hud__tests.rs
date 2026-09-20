@@ -3,7 +3,7 @@
 
 use super::super::adventure::{AdventureEvent, LoopKind};
 use super::super::{LoopBudgetSnapshot, World, cell_width};
-use crate::hud::{HUD_AMBER, HUD_DIM, HUD_GOLD};
+use crate::ui::hud::{HUD_AMBER, HUD_DIM, HUD_GOLD};
 
 /// Flatten a composed line back to the text a terminal would show.
 fn flat(line: &ratatui::text::Line<'static>) -> String {
@@ -23,7 +23,7 @@ fn unlean() -> (
     let lock = crate::tests::env_lock();
     let comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     (lock, comp, turbo)
 }
 
@@ -112,7 +112,7 @@ fn the_quest_line_drops_parts_right_to_left_and_never_overflows() {
 fn comp_mode_shows_none_of_the_quest_chrome() {
     let _lock = crate::tests::env_lock();
     let _comp = crate::tests::TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut world = spec_example_world();
     assert_eq!(
         world.quest_hud(120),
@@ -121,7 +121,7 @@ fn comp_mode_shows_none_of_the_quest_chrome() {
     );
     world.note_adventure(AdventureEvent::Stall { level: 3 });
     assert_eq!(world.quest_border_style(), None);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
 }
 
 #[test]

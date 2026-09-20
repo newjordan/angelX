@@ -1079,7 +1079,7 @@ fn live_grok_oauth_http_calls_an_offered_host_tool() {
 
 #[test]
 fn grok_research_tool_advertises_and_guards_query() {
-    use crate::harness::Tool;
+    use crate::agent::harness::Tool;
     let _lock = env_lock();
     let dir = std::env::temp_dir().join(format!("angel0-grok-tool-auth-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -1089,7 +1089,8 @@ fn grok_research_tool_advertises_and_guards_query() {
     let _cmd = EnvGuard::set("ANGEL_GROK_CMD", "/bin/true");
     let _enabled = EnvGuard::set("ANGEL_GROK_RESEARCH", "1");
 
-    let tool = crate::tools::web::GrokResearchTool::from_env().expect("grok tool builds from env");
+    let tool =
+        crate::agent::tools::web::GrokResearchTool::from_env().expect("grok tool builds from env");
     assert_eq!(tool.name(), "grok_research");
     assert_eq!(tool.def().name, "grok_research");
     let err = tool

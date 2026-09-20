@@ -80,8 +80,8 @@ fn stale_handoff_wears_age_banner_on_cold_show_and_warm_start() {
     let tool = HandoffTool::new(&workspace);
     let old = HandoffRecord {
         schema: HANDOFF_SCHEMA.to_string(),
-        workspace: crate::workspace_store::repo_identity(&workspace).root,
-        project_key: crate::workspace_store::repo_identity(&workspace).key,
+        workspace: crate::platform::workspace_store::repo_identity(&workspace).root,
+        project_key: crate::platform::workspace_store::repo_identity(&workspace).key,
         written_unix: now - 12 * 86_400,
         note: "LOWER frontier: 53.13 bits — gin promoted; beat strictly >53.13".into(),
     };

@@ -4,7 +4,7 @@
 //! shrink while preserving the full harness test inventory.
 
 use super::*;
-use crate::tools::build::{PinnedCargo, bounded_rustup_cargo_path, parse_direct_argv};
+use crate::agent::tools::build::{PinnedCargo, bounded_rustup_cargo_path, parse_direct_argv};
 
 #[cfg(unix)]
 fn write_executable(path: &std::path::Path, body: &str) {
@@ -292,7 +292,7 @@ fn typed_cargo_and_check_ignore_hostile_path_and_replaced_rustup_proxy() {
     // registry construction cannot resolve (and execute) it — that would be a
     // foreign capture, not this registry reusing its pin, and the marker
     // assert must only ever trip on a real dispatch-time reuse.
-    let _capture = crate::tools::build::capture_lock();
+    let _capture = crate::agent::tools::build::capture_lock();
 
     let cargo_output = CargoTool::in_dir_with_cargo(workspace.clone(), pinned.clone())
         .call(&serde_json::json!({"args":"--version"}))
@@ -617,7 +617,7 @@ fn run_tests_dispatches_node_test_on_a_js_workspace() {
         eprintln!("landlock unavailable; skipping node run_tests integration test");
         return;
     }
-    if crate::tools::build::resolve_on_path_for_test("node").is_none() {
+    if crate::agent::tools::build::resolve_on_path_for_test("node").is_none() {
         eprintln!("node unavailable; skipping node run_tests integration test");
         return;
     }
@@ -657,7 +657,7 @@ fn run_tests_dispatches_unittest_on_a_python_workspace() {
         eprintln!("landlock unavailable; skipping python run_tests integration test");
         return;
     }
-    if crate::tools::build::resolve_on_path_for_test("python3").is_none() {
+    if crate::agent::tools::build::resolve_on_path_for_test("python3").is_none() {
         eprintln!("python3 unavailable; skipping python run_tests integration test");
         return;
     }
@@ -715,7 +715,7 @@ fn run_tests_finds_the_one_nested_crate_like_angel0_cockpit() {
     )
     .unwrap();
     assert_eq!(
-        crate::tools::build::cargo_workspace_root(&root),
+        crate::agent::tools::build::cargo_workspace_root(&root),
         Some(root.join("cockpit"))
     );
     let receipt = RunTestsTool::in_dir(root.clone())
@@ -764,7 +764,7 @@ fn run_tests_picks_the_largest_of_several_nested_crates_and_honours_a_crate_pin(
         assert_k5c_no_local_controls(dir);
     }
     assert_eq!(
-        crate::tools::build::cargo_workspace_root(&root),
+        crate::agent::tools::build::cargo_workspace_root(&root),
         Some(root.join("cockpit")),
         "the largest crate wins when several sit one level down"
     );
@@ -798,7 +798,7 @@ fn run_tests_dir_runs_a_python_suite_under_a_js_and_rust_mono_repo() {
         eprintln!("landlock unavailable; skipping run_tests dir test");
         return;
     }
-    if crate::tools::build::resolve_on_path_for_test("python3").is_none() {
+    if crate::agent::tools::build::resolve_on_path_for_test("python3").is_none() {
         eprintln!("python3 unavailable; skipping run_tests dir test");
         return;
     }
@@ -851,8 +851,8 @@ fn run_tests_forwards_args_through_npm_with_a_separator() {
         eprintln!("landlock unavailable; skipping npm args test");
         return;
     }
-    if crate::tools::build::resolve_on_path_for_test("npm").is_none()
-        || crate::tools::build::resolve_on_path_for_test("node").is_none()
+    if crate::agent::tools::build::resolve_on_path_for_test("npm").is_none()
+        || crate::agent::tools::build::resolve_on_path_for_test("node").is_none()
     {
         eprintln!("npm/node unavailable; skipping npm args test");
         return;
@@ -902,7 +902,7 @@ fn run_tests_forwards_args_through_npm_with_a_separator() {
 
 #[test]
 fn reward_text_never_rounds_a_red_suite_to_one() {
-    use crate::tools::build::reward_text;
+    use crate::agent::tools::build::reward_text;
     assert_eq!(reward_text(764, 1), "reward 0.999");
     assert_eq!(reward_text(1, 1), "reward 0.500");
     assert_eq!(reward_text(3, 0), "reward 1.00");

@@ -102,7 +102,7 @@ fn run_recon_truncates_with_marker() {
 #[test]
 fn machine_test_clipping_preserves_streaming_and_exit_status() {
     let _guard = crate::tests::env_lock();
-    use crate::harness::ProcessStream;
+    use crate::agent::harness::ProcessStream;
     use std::path::PathBuf;
     use std::sync::Mutex;
 

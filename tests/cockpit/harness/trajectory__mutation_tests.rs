@@ -19,7 +19,7 @@ fn d02_trace_summary_has_only_between_field_separators() {
 
 #[test]
 fn d02_ledger_distinguishes_unreported_and_partial_accounting() {
-    let mut report = crate::club::AccountingReport::from_snapshot(Default::default(), false);
+    let mut report = crate::agent::club::AccountingReport::from_snapshot(Default::default(), false);
     let absent = complete_ledger_usage(&report);
     assert_eq!(absent["accounting_status"], "unreported");
     assert!(absent["input"].is_null());

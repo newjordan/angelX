@@ -3,16 +3,16 @@
 //! and the responsive/reclaimed feedback buttons.
 
 use super::{mouse_ev, render_app_text, seed_preview_app};
+use crate::agent::club::Bag;
+use crate::agent::turn::Thinking;
 use crate::app::{AgentButton, LastCompletedRoute};
-use crate::club::Bag;
 use crate::tests::env_lock;
-use crate::turn::Thinking;
 
 #[test]
 fn explicit_last_answer_rating_is_single_shot_and_text_free() {
     let mut app = seed_preview_app();
     app.last_completed_route = Some(LastCompletedRoute {
-        route: crate::club::RouteIdentity {
+        route: crate::agent::club::RouteIdentity {
             driver: "openai".to_string(),
             model: Some("gpt-5.6-sol".to_string()),
             reasoning_effort: Some("ultra".to_string()),
@@ -27,7 +27,7 @@ fn explicit_last_answer_rating_is_single_shot_and_text_free() {
         app.last_completed_route
             .as_ref()
             .and_then(|last| last.verdict),
-        Some(crate::experience::RouteVerdict::Useful)
+        Some(crate::knowledge::experience::RouteVerdict::Useful)
     );
     let evidence = app
         .route_evidence
@@ -52,19 +52,19 @@ fn explicit_last_answer_rating_is_single_shot_and_text_free() {
         app.last_completed_route
             .as_ref()
             .and_then(|last| last.verdict),
-        Some(crate::experience::RouteVerdict::Useful)
+        Some(crate::knowledge::experience::RouteVerdict::Useful)
     );
 }
 
 #[test]
 fn brain_route_plus_minus_rates_last_answer_without_selecting_a_model() {
-    use crate::agent::controls::AgentMenuKind;
+    use crate::ui::agent_panel::controls::AgentMenuKind;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
     app.bag = Bag::for_reasoning_render_test();
     app.last_completed_route = Some(LastCompletedRoute {
-        route: crate::club::RouteIdentity {
+        route: crate::agent::club::RouteIdentity {
             driver: "openai".to_string(),
             model: Some("gpt-5.6-sol".to_string()),
             reasoning_effort: Some("medium".to_string()),
@@ -80,7 +80,7 @@ fn brain_route_plus_minus_rates_last_answer_without_selecting_a_model() {
         app.last_completed_route
             .as_ref()
             .and_then(|last| last.verdict),
-        Some(crate::experience::RouteVerdict::Miss)
+        Some(crate::knowledge::experience::RouteVerdict::Miss)
     );
     assert!(app.agent_menu.is_some());
 }
@@ -94,7 +94,7 @@ fn pending_feedback_buttons_are_responsive_mouseable_and_reclaimed() {
         let mut app = seed_preview_app();
         app.bag = Bag::for_reasoning_render_test();
         app.last_completed_route = Some(LastCompletedRoute {
-            route: crate::club::RouteIdentity {
+            route: crate::agent::club::RouteIdentity {
                 driver: "openai".to_string(),
                 model: Some("gpt-5.6-sol".to_string()),
                 reasoning_effort: Some("medium".to_string()),
@@ -142,7 +142,7 @@ fn pending_feedback_buttons_are_responsive_mouseable_and_reclaimed() {
                 app.last_completed_route
                     .as_ref()
                     .and_then(|last| last.verdict),
-                Some(crate::experience::RouteVerdict::Useful)
+                Some(crate::knowledge::experience::RouteVerdict::Useful)
             );
             assert!(app.thinking.is_some());
             let rerendered = render_app_text(&mut app, width, height);

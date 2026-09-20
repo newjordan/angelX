@@ -9,7 +9,7 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _backed = crate::tests::TestEnvGuard::set("ANGEL_BACKED_MAP", "1");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    use crate::world_viz::Building;
+    use crate::stage::world_viz::Building;
     for building in [
         Building::Keep,
         Building::Gatehouse,
@@ -20,11 +20,11 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
         Building::RoundTable,
         Building::Observatory,
     ] {
-        let mut app = App::preview(crate::viewer::Viewer::new());
-        app.world = crate::world_viz::World::new(71);
+        let mut app = App::preview(crate::ui::viewer::Viewer::new());
+        app.world = crate::stage::world_viz::World::new(71);
         app.world.settle_at_for_test(building);
-        app.scryglass = crate::scryglass::Scryglass::for_world(building);
-        app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Full;
+        app.scryglass = crate::ui::scryglass::Scryglass::for_world(building);
+        app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
         assert!(app.world.enter_interior());
         for (width, height) in [(48, 18), (96, 40), (48, 18)] {
             let mut terminal =

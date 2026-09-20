@@ -460,7 +460,7 @@ fn assert_owned_kill_receipt(reason: &str) {
         .call_with_cancel(&args, Some(&cancel))
         .unwrap();
     let (id, pid) = parse_handle(&result);
-    crate::harness::note_tool_outcome(
+    crate::agent::harness::note_tool_outcome(
         1,
         "proc_run",
         &args,
@@ -484,8 +484,8 @@ fn assert_owned_kill_receipt(reason: &str) {
         take_owned_kills(owner).is_empty(),
         "owner identity released"
     );
-    crate::harness::note_proc_kills(&kills);
-    let ledger = crate::harness::tool_ledger_snapshot();
+    crate::agent::harness::note_proc_kills(&kills);
+    let ledger = crate::agent::harness::tool_ledger_snapshot();
     let entry = ledger.iter().find(|entry| entry["proc_id"] == id).unwrap();
     assert_eq!(entry["status"], "killed");
     assert_eq!(entry["kill"]["reason"], reason);
@@ -512,11 +512,11 @@ fn lifecycle_deadline_owner_transfer_survives_nested_unwind_and_terminal_kill() 
     for terminal in [false, true] {
         let mut handle = None;
         let unwind = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            crate::harness::with_turn_deadline_cancel(
+            crate::agent::harness::with_turn_deadline_cancel(
                 &cancel,
                 Some(Instant::now() + Duration::from_secs(60)),
                 |outer| {
-                    crate::harness::with_turn_deadline_cancel(
+                    crate::agent::harness::with_turn_deadline_cancel(
                         outer,
                         Some(Instant::now() + Duration::from_secs(60)),
                         |inner| {
@@ -555,7 +555,7 @@ fn lifecycle_deadline_owner_transfer_survives_nested_unwind_and_terminal_kill() 
 #[test]
 fn successful_turn_keeps_background_job_until_explicit_stop() {
     // env-lock-exempt: TestProcStore owns env_lock through all restoration guards.
-    use crate::club::{ChatMsg, Club, ClubReply, ToolCall};
+    use crate::agent::club::{ChatMsg, Club, ClubReply, ToolCall};
     use std::sync::atomic::AtomicBool;
     let fixture = TestProcStore::new();
     let _advisor = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0");
@@ -585,7 +585,7 @@ fn successful_turn_keeps_background_job_until_explicit_stop() {
     registry.set_workspace(fixture.root.0.clone());
     registry.register(Box::new(fixture.runner()));
     let (events, _received) = std::sync::mpsc::channel();
-    let answer = crate::harness::run_turn(
+    let answer = crate::agent::harness::run_turn(
         &ServiceClub(AtomicBool::new(false)),
         &registry,
         &mut vec![ChatMsg::user("Start a background service in this cockpit.")],

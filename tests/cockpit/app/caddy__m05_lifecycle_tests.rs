@@ -23,7 +23,7 @@ impl Fixture {
     fn repo_dir(&self, workspace: &Path) -> PathBuf {
         let dir = self
             .0
-            .join(crate::workspace_store::repo_identity(workspace).key);
+            .join(crate::platform::workspace_store::repo_identity(workspace).key);
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -347,9 +347,9 @@ fn m05_real_tree_change_revalidation_and_both_card_expiries() {
         ChatMsg::tool("verify", "1 passed; 0 failed")
             .with_tool_receipt(
                 &call,
-                crate::harness::ToolOutcome {
-                    execution: crate::harness::ExecutionOutcome::Succeeded,
-                    verification: crate::harness::VerificationOutcome::Passed,
+                crate::agent::harness::ToolOutcome {
+                    execution: crate::agent::harness::ExecutionOutcome::Succeeded,
+                    verification: crate::agent::harness::VerificationOutcome::Passed,
                 },
             )
             .with_verified_workspace(&workspace, true)

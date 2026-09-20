@@ -54,7 +54,7 @@ fn unrecoverable_tool_arguments_fail_closed_without_dispatch() {
     let mut reg = ToolRegistry::new();
     reg.register(Box::new(ReverseTool));
     let raw = "{ this is not json at all !!!";
-    let args = crate::club::parsed_tool_args("bad-call", raw);
+    let args = crate::agent::club::parsed_tool_args("bad-call", raw);
     let error = reg
         .dispatch("reverse", &args)
         .expect_err("an unrecoverable blob must never become an empty object");
@@ -63,7 +63,7 @@ fn unrecoverable_tool_arguments_fail_closed_without_dispatch() {
         error.contains("reissue `reverse` with valid JSON"),
         "{error}"
     );
-    let record = crate::club::tool_arg_repair_records()
+    let record = crate::agent::club::tool_arg_repair_records()
         .into_iter()
         .find(|record| record.call_id == "bad-call")
         .expect("repair diagnostic");
@@ -407,7 +407,7 @@ fn todo_tool_add_complete_set_persist() {
             result
                 .lines()
                 .last()
-                .and_then(|line| line.strip_prefix(crate::tools::plan::TODO_STATE_PREFIX))
+                .and_then(|line| line.strip_prefix(crate::agent::tools::plan::TODO_STATE_PREFIX))
                 .expect("canonical todo state"),
         )
         .expect("valid todo JSON")

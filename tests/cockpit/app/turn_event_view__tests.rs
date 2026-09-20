@@ -112,7 +112,7 @@ fn notice_rides_strip_keeps_timeout_notices() {
     // "timed out" (space) was already a failure mark. Hyphenated
     // "timed-out", "timeout"/"timeouts", and present-tense "failing"
     // still matched a routine prefix and vanished into the strip.
-    let timeout_note = crate::harness::timeout_note(120, None);
+    let timeout_note = crate::agent::harness::timeout_note(120, None);
     assert_eq!(
         timeout_note,
         "\n[timed out after 120s — process killed; raise/disable via ANGEL_TOOL_TIMEOUT]"
@@ -217,7 +217,7 @@ fn formats_tool_activity_lines() {
 
 #[test]
 fn answer_receipt_is_exact_and_marks_resolved_failover() {
-    let requested = crate::club::RouteIdentity {
+    let requested = crate::agent::club::RouteIdentity {
         driver: "openai".to_string(),
         model: Some("gpt-5.6-sol".to_string()),
         reasoning_effort: Some("ultra".to_string()),
@@ -226,7 +226,7 @@ fn answer_receipt_is_exact_and_marks_resolved_failover() {
         answer_receipt_text(&requested, &requested, 240, 1_250),
         "openai/gpt-5.6-sol@ultra · first 240ms · total 1.2s"
     );
-    let resolved = crate::club::RouteIdentity {
+    let resolved = crate::agent::club::RouteIdentity {
         driver: "practice".to_string(),
         model: None,
         reasoning_effort: None,

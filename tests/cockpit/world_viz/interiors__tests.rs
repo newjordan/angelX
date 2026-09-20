@@ -1,5 +1,5 @@
 use super::*;
-use crate::world_viz::World;
+use crate::stage::world_viz::World;
 
 const ROOMS: [(Building, u8); 8] = [
     (Building::Keep, KEEP_HEARTH_ID),
@@ -215,7 +215,8 @@ fn settle_at(world: &mut World, building: Building) {
 
 #[test]
 fn room_plate_ignores_first_person_flicker_and_leaving_restores_outdoor_key() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = World::new(17);
     settle_at(&mut world, Building::Smithy);
     let outdoor = world.cinematic_key();

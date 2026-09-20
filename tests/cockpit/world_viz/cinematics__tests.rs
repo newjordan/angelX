@@ -11,8 +11,8 @@ fn idle_world_keeps_the_same_cast_without_implying_work() {
 
 #[test]
 fn cast_work_poses_follow_correlated_active_work_and_return_to_rest() {
-    use crate::harness::ToolEventId;
-    use crate::knight_cast::{Pose, Side};
+    use crate::agent::harness::ToolEventId;
+    use crate::stage::knight_cast::{Pose, Side};
     let mut world = super::World::new(42);
     let id = ToolEventId("cast-read".into());
     world.note_tool_call_event(id.clone(), "read_file", "src/main.rs");
@@ -224,7 +224,7 @@ fn village_sprites_use_window_offsets_and_live_state() {
     let mut world = super::World::new(7);
     world.avatar_vis = (30.0, 13.0);
     let heads = vec!["apollo".to_string(), "atlas".to_string()];
-    world.enable_village(crate::village::VillageState::default(), None, &heads);
+    world.enable_village(crate::stage::village::VillageState::default(), None, &heads);
     let village = world.village.as_mut().expect("village enabled");
     village.forge_pos = (33, 13);
     village.granary_pos = (29, 15);
@@ -505,7 +505,8 @@ fn settled_destinations_emit_their_deterministic_props_only() {
 
 #[test]
 fn settled_key_is_stable_for_unchanged_inputs_and_tracks_door_pulse_bucket() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = World::new(42);
     world.target = Building::Smithy;
     world.avatar = world.building_pos(Building::Smithy);
@@ -519,7 +520,8 @@ fn settled_key_is_stable_for_unchanged_inputs_and_tracks_door_pulse_bucket() {
 
 #[test]
 fn first_person_key_tracks_heading_and_departure_fade() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = World::new(42);
     world.target = Building::Observatory;
     world.avatar = world.building_pos(Building::Keep);
@@ -668,7 +670,8 @@ fn quarter_view_geometry_retains_front_and_return_walls() {
 
 #[test]
 fn arrival_camera_hold_steps_the_key() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = World::new(43);
     world.target = Building::Smithy;
     world.avatar = world.building_pos(Building::Smithy);
@@ -801,8 +804,8 @@ fn healthy_villager_walk_is_deterministic_and_down_head_stays_home() {
     let ids = vec!["dice".to_string()];
     let mut first = super::super::World::new(73);
     let mut second = super::super::World::new(73);
-    first.enable_village(crate::village::VillageState::default(), None, &ids);
-    second.enable_village(crate::village::VillageState::default(), None, &ids);
+    first.enable_village(crate::stage::village::VillageState::default(), None, &ids);
+    second.enable_village(crate::stage::village::VillageState::default(), None, &ids);
     for world in [&mut first, &mut second] {
         let village = world.village.as_mut().unwrap();
         village.heads_up[0].1 = true;
@@ -829,7 +832,7 @@ fn healthy_villager_walk_is_deterministic_and_down_head_stays_home() {
 fn first_person_scene_never_contains_knight_self_sprite_and_ambient_is_capped() {
     let ids: Vec<String> = (0..32).map(|index| format!("head-{index}")).collect();
     let mut world = super::super::World::new(74);
-    world.enable_village(crate::village::VillageState::default(), None, &ids);
+    world.enable_village(crate::stage::village::VillageState::default(), None, &ids);
     for (_, up) in &mut world.village.as_mut().unwrap().heads_up {
         *up = true;
     }
@@ -851,7 +854,8 @@ fn first_person_scene_never_contains_knight_self_sprite_and_ambient_is_capped() 
 
 #[test]
 fn cinematic_key_tracks_ambient_bits_and_only_slow_bucket_crossings() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = super::super::World::new(75);
     world.note_tool_call("science_search", "web sources");
     let landmark = world.active_research_landmark().unwrap();
@@ -868,7 +872,8 @@ fn cinematic_key_tracks_ambient_bits_and_only_slow_bucket_crossings() {
 
 #[test]
 fn completion_ceremony_keys_and_emits_only_its_capped_keep_pennants() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = World::new(42);
     world.avatar = world.building_pos(Building::Keep);
     world.avatar_vis = (world.avatar.0 as f32, world.avatar.1 as f32);
@@ -900,7 +905,8 @@ fn completion_ceremony_keys_and_emits_only_its_capped_keep_pennants() {
 
 #[test]
 fn cinematic_key_tracks_only_hearth_render_bucket_crossings() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut world = World::new(42);
     world.target = Building::Smithy;
     world.avatar = world.building_pos(Building::Smithy);

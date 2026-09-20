@@ -108,12 +108,12 @@ fn all_real_budgets_take_precedence_over_watchdog_and_blocker_continuation() {
                         ToolStripSnapshot::default(),
                     ),
                     _ => {
-                        crate::harness::exec::set_sandbox_receipt(Some(serde_json::json!({
+                        crate::agent::harness::exec::set_sandbox_receipt(Some(serde_json::json!({
                             "helper_error": "Landlock unavailable; run angel --doctor",
                             "helper_phase": "landlock",
                             "helper_exit": 1,
                         })));
-                        let error = crate::harness::execution_blocker(
+                        let error = crate::agent::harness::execution_blocker(
                             "shell",
                             "tool error: shell command failed (exit 1)\nbwrap: setting up uid map: Permission denied",
                         )

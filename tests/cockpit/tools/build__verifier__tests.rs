@@ -1,6 +1,6 @@
 use super::*;
-use crate::club::ToolCall;
-use crate::harness::{VerificationOutcome, verification_outcome};
+use crate::agent::club::ToolCall;
+use crate::agent::harness::{VerificationOutcome, verification_outcome};
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -251,7 +251,7 @@ fn native_verifier_inconclusive_and_empty_headers_cannot_be_overridden_by_attrib
 
 #[test]
 fn native_python_runs_project_imports_without_startup_or_module_shadowing() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         return;
     }
     let _lock = crate::tests::env_lock();
@@ -320,7 +320,7 @@ fn native_python_runs_project_imports_without_startup_or_module_shadowing() {
 
 #[test]
 fn native_python_timeout_and_cancellation_keep_typed_outcomes() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         return;
     }
     let _lock = crate::tests::env_lock();
@@ -361,7 +361,7 @@ fn native_python_timeout_and_cancellation_keep_typed_outcomes() {
         .unwrap()
         .expect_err("cancelled native invocation")
     });
-    let event = crate::harness::turn_event_outcome(
+    let event = crate::agent::harness::turn_event_outcome(
         &ToolCall {
             id: "cancel-native".into(),
             name: "run_tests".into(),
@@ -372,14 +372,14 @@ fn native_python_timeout_and_cancellation_keep_typed_outcomes() {
     );
     assert_eq!(
         event.execution,
-        crate::harness::ExecutionOutcome::Cancelled,
+        crate::agent::harness::ExecutionOutcome::Cancelled,
         "{cancelled}"
     );
 }
 
 #[test]
 fn native_node_tests_ignore_startup_overrides_and_nonzero_beats_fake_green() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         return;
     }
     let _lock = crate::tests::env_lock();
@@ -419,7 +419,7 @@ fn native_node_tests_ignore_startup_overrides_and_nonzero_beats_fake_green() {
 
 #[test]
 fn native_syntax_checks_do_not_execute_source_and_detect_parse_errors() {
-    if !crate::sandbox::available() {
+    if !crate::agent::sandbox::available() {
         return;
     }
     let _lock = crate::tests::env_lock();
@@ -512,7 +512,7 @@ fn native_runtime_shims_and_replaced_pins_are_not_trusted() {
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(f.0.join("node"), std::fs::Permissions::from_mode(0o755)).unwrap();
     let pinned =
-        crate::tools::build::capture_executable(f.0.join("node"), "test-only pin").unwrap();
+        crate::agent::tools::build::capture_executable(f.0.join("node"), "test-only pin").unwrap();
     f.write("node", "#!/bin/sh\nexit 0\n");
     assert!(revalidate_executable(&pinned, "test-only pin").is_err());
 }
@@ -743,7 +743,7 @@ fn runtime_missing_fallback_checks_node_before_npm_and_python_before_spawn() {
         )
         .err()
         .expect("runtime must be absent");
-        let parsed = crate::tools::runtime_missing::RuntimeMissing::decode(&error).unwrap();
+        let parsed = crate::agent::tools::runtime_missing::RuntimeMissing::decode(&error).unwrap();
         assert_eq!(parsed.runtime, runtime);
         assert!(parsed.looked_for.contains("PATH"));
         assert!(parsed.hint.contains("install"));
@@ -763,7 +763,7 @@ fn runtime_missing_cargo_pin_is_actionable_even_with_inherited_toolchain() {
     let error = super::super::capture_pinned_cargo(&f.0)
         .err()
         .expect("explicit missing pin must not discover a fallback");
-    let parsed = crate::tools::runtime_missing::RuntimeMissing::decode(&error).unwrap();
+    let parsed = crate::agent::tools::runtime_missing::RuntimeMissing::decode(&error).unwrap();
     assert_eq!(parsed.runtime, "cargo");
     assert!(parsed.looked_for.contains("ANGEL_CARGO_BIN="));
 }
@@ -811,15 +811,21 @@ fn c05e_unittest_selectors_report_selected_counts_and_empty_selection() {
             name: "run_tests".into(),
             args: json!({"runtime":"python","args":args}),
         };
-        let receipt = crate::club::ChatMsg::tool(&call.id, text.as_str()).with_tool_receipt(
+        let receipt = crate::agent::club::ChatMsg::tool(&call.id, text.as_str()).with_tool_receipt(
             &call,
-            crate::harness::turn_event_outcome(&call, &text, false),
+            crate::agent::harness::turn_event_outcome(&call, &text, false),
         );
-        let history = vec![crate::club::ChatMsg::assistant_calls(vec![call]), receipt];
-        assert_eq!(crate::caddy::write_back_from_history(&f.0, &history).0, 1);
+        let history = vec![
+            crate::agent::club::ChatMsg::assistant_calls(vec![call]),
+            receipt,
+        ];
+        assert_eq!(
+            crate::knowledge::caddy::write_back_from_history(&f.0, &history).0,
+            1
+        );
     }
-    let tool = crate::tools::build::RunTestsTool::in_dir(f.0.clone());
-    let text = crate::harness::Tool::call(
+    let tool = crate::agent::tools::build::RunTestsTool::in_dir(f.0.clone());
+    let text = crate::agent::harness::Tool::call(
         &tool,
         &json!({"runtime":"python","args":"discover -k missing_policy"}),
     )

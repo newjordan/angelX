@@ -167,7 +167,7 @@ fn saved_history_redacts_secrets_and_resumes_with_typed_tool_arguments() {
     std::fs::create_dir_all(&workspace).unwrap();
     let session = Session::at_for(dir.clone(), "redacted".to_string(), &workspace);
     let mut message = ChatMsg::assistant("hf_abcdefghijklmnopqrstuvwxyz01234567");
-    message.tool_calls = vec![crate::club::ToolCall {
+    message.tool_calls = vec![crate::agent::club::ToolCall {
             id: "call-1".to_string(),
             name: "fixture".to_string(),
             args: serde_json::json!({"access_token": "opaque-value", "count": 17, "ok": true, "nested": [secret, null]}),
@@ -176,9 +176,9 @@ fn saved_history_redacts_secrets_and_resumes_with_typed_tool_arguments() {
     session.save(&history).unwrap();
     let loaded = load_for_path_for_test(session.path(), &workspace).unwrap();
     assert_eq!(&*loaded[0].content, "«redacted:ANGEL_T_SESSION_SECRET»");
-    assert_eq!(&*loaded[1].content, crate::secrets::REDACTED);
+    assert_eq!(&*loaded[1].content, crate::platform::secrets::REDACTED);
     let args = &loaded[1].tool_calls[0].args;
-    assert_eq!(args["access_token"], crate::secrets::REDACTED);
+    assert_eq!(args["access_token"], crate::platform::secrets::REDACTED);
     assert_eq!(args["count"], 17);
     assert_eq!(args["ok"], true);
     assert_eq!(args["nested"][1], serde_json::Value::Null);
@@ -607,7 +607,7 @@ fn blocking_save_lands_after_an_older_queued_snapshot() {
 
 #[test]
 fn resume_repairs_a_trailing_tool_intent_as_outcome_unknown() {
-    let calls = vec![crate::club::ToolCall {
+    let calls = vec![crate::agent::club::ToolCall {
         id: "effect-1".to_string(),
         name: "shell".to_string(),
         args: serde_json::json!({"cmd": "external-side-effect"}),

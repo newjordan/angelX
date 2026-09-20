@@ -40,8 +40,8 @@ fn grok_war_rosters_trio_under_grok_command() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered: true,
         },
         available: true,
@@ -83,8 +83,8 @@ fn math_god_rosters_sol_glm_deepseek_with_grok_weigh_in() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered,
         },
         available: true,
@@ -136,8 +136,8 @@ fn math_god_is_ready_without_leanstral_on_the_roster() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered,
         },
         available: true,
@@ -177,8 +177,8 @@ fn math_god_does_not_fill_deepseek_seat_from_intelligence_order() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered,
         },
         available: true,
@@ -219,8 +219,8 @@ fn tag_team_rosters_two_fleet_boxes_with_sol_as_the_advice_seat() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered,
         },
         available: true,
@@ -375,7 +375,7 @@ fn tag_team_pins_the_dissent_gate_and_leaving_clears_it() {
 /// leaving must drop the unconditional OpenAI pin.
 #[test]
 fn apply_sota_env_math_god_pins_live_after_effort_env_seed() {
-    use crate::club::{Club, HttpClub};
+    use crate::agent::club::{Club, HttpClub};
     let _lock = crate::tests::env_lock();
     const TOUCHED: &[&str] = &[
         "ANGEL_SOTA_MOA_MODE",
@@ -425,7 +425,7 @@ fn apply_sota_env_math_god_pins_live_after_effort_env_seed() {
         .iter()
         .map(|key| crate::tests::TestEnvGuard::unset(key))
         .collect();
-    crate::club::resync_reasoning_effort_env_from_env();
+    crate::agent::club::resync_reasoning_effort_env_from_env();
 
     let glm = HttpClub::new(
         "glm",
@@ -438,21 +438,21 @@ fn apply_sota_env_math_god_pins_live_after_effort_env_seed() {
     assert!(openai.reasoning_effort().is_none());
     assert_eq!(glm.reasoning_effort().as_deref(), Some("low"));
     assert_eq!(
-        crate::club::reasoning_env_var("ANGEL_OPENAI_REASONING_EFFORT"),
+        crate::agent::club::reasoning_env_var("ANGEL_OPENAI_REASONING_EFFORT"),
         None
     );
     assert_eq!(
-        crate::club::reasoning_env_var("ANGEL_GROK_REASONING_EFFORT"),
+        crate::agent::club::reasoning_env_var("ANGEL_GROK_REASONING_EFFORT"),
         None
     );
 
     formation(FormationId::MathGod).apply_sota_env();
     assert_eq!(
-        crate::club::reasoning_env_var("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
+        crate::agent::club::reasoning_env_var("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
         Some("ultra")
     );
     assert_eq!(
-        crate::club::reasoning_env_var("ANGEL_GROK_REASONING_EFFORT").as_deref(),
+        crate::agent::club::reasoning_env_var("ANGEL_GROK_REASONING_EFFORT").as_deref(),
         Some("xhigh")
     );
     assert_eq!(
@@ -468,15 +468,15 @@ fn apply_sota_env_math_god_pins_live_after_effort_env_seed() {
 
     formation(FormationId::SoloStrike).apply_sota_env();
     assert_eq!(
-        crate::club::reasoning_env_var("ANGEL_OPENAI_REASONING_EFFORT"),
+        crate::agent::club::reasoning_env_var("ANGEL_OPENAI_REASONING_EFFORT"),
         None
     );
     assert_eq!(
-        crate::club::reasoning_env_var("ANGEL_GROK_REASONING_EFFORT"),
+        crate::agent::club::reasoning_env_var("ANGEL_GROK_REASONING_EFFORT"),
         None
     );
     assert!(openai.reasoning_effort().is_none());
-    crate::club::resync_reasoning_effort_env_from_env();
+    crate::agent::club::resync_reasoning_effort_env_from_env();
 }
 
 /// A tag team needs two corners. With only one fleet box online the partner
@@ -492,8 +492,8 @@ fn tag_team_partner_seat_never_doubles_up_on_the_lead_box() {
             agent: "turbo".into(),
             driver: "turbo".into(),
             model: "qwen3-30b-a3b".into(),
-            route_id: crate::backplane::RouteId::chat("turbo", "turbo", None),
-            expected_revision: crate::backplane::ModelRevision::chat("qwen3-30b-a3b"),
+            route_id: crate::agent::backplane::RouteId::chat("turbo", "turbo", None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat("qwen3-30b-a3b"),
             metered: false,
         },
         available: true,
@@ -530,8 +530,8 @@ fn tag_team_leaves_local_seats_empty_rather_than_billing_a_frontier_model() {
             agent: "openai".into(),
             driver: "gpt-5.6-sol".into(),
             model: "gpt-5.6-sol".into(),
-            route_id: crate::backplane::RouteId::chat("openai", "gpt-5.6-sol", None),
-            expected_revision: crate::backplane::ModelRevision::chat("gpt-5.6-sol"),
+            route_id: crate::agent::backplane::RouteId::chat("openai", "gpt-5.6-sol", None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat("gpt-5.6-sol"),
             metered: true,
         },
         available: true,
@@ -581,8 +581,8 @@ fn roster_requires_every_slot_and_assigns_per_slot() {
             agent: "spark".into(),
             driver: "qwen".into(),
             model: "qwen-32b".into(),
-            route_id: crate::backplane::RouteId::chat("spark", "qwen", None),
-            expected_revision: crate::backplane::ModelRevision::chat("qwen-32b"),
+            route_id: crate::agent::backplane::RouteId::chat("spark", "qwen", None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat("qwen-32b"),
             metered: false,
         },
         available: true,
@@ -605,8 +605,8 @@ fn think_picker_stages_and_clears_the_focused_seats_role_effort() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered: false,
         },
         available: true,
@@ -662,7 +662,7 @@ fn think_picker_stages_and_clears_the_focused_seats_role_effort() {
 #[test]
 fn staged_think_effort_rides_activation_into_seat_efforts() {
     let _lock = crate::tests::env_lock();
-    let mut bag = crate::club::Bag::for_reasoning_render_test();
+    let mut bag = crate::agent::club::Bag::for_reasoning_render_test();
     let mut deck = MoaDeckState::new(bag.moa_model_choices());
     deck.select(FormationId::Duel);
     assert!(deck.select_slot(2)); // J1
@@ -715,8 +715,8 @@ fn think_picker_without_a_ladder_offers_only_the_env_default_row() {
             agent: "alpha".into(),
             driver: "model-a".into(),
             model: "model-a".into(),
-            route_id: crate::backplane::RouteId::chat("alpha", "model-a", None),
-            expected_revision: crate::backplane::ModelRevision::chat("model-a"),
+            route_id: crate::agent::backplane::RouteId::chat("alpha", "model-a", None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat("model-a"),
             metered: false,
         },
         available: true,
@@ -754,8 +754,8 @@ fn deck_assignment_changes_only_the_focused_slot() {
             agent: agent.into(),
             driver: model.into(),
             model: model.into(),
-            route_id: crate::backplane::RouteId::chat(agent, model, None),
-            expected_revision: crate::backplane::ModelRevision::chat(model),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
             metered: false,
         },
         available: true,

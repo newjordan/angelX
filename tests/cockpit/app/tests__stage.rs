@@ -4,11 +4,22 @@
 //! fast-tick/settle contracts.
 
 use super::{render_app_text, seed_preview_app, test_backend_text};
+use crate::App;
+use crate::ChatMsg;
+use crate::Viewer;
+use crate::agent::harness;
 use crate::app::WorldButton;
-use crate::draw::ui;
+use crate::drive::rl_ctl;
+use crate::knowledge::session;
+use crate::stage::world_viz;
 use crate::tests::env_lock;
-use crate::{App, ChatMsg, Viewer, harness, panels, scryglass, session, surfaces};
-use crate::{draw, hud, memory::store, mouse, rl_ctl, viz::rl_viz, world_viz};
+use crate::ui::draw;
+use crate::ui::draw::ui;
+use crate::ui::hud;
+use crate::ui::mouse;
+use crate::ui::panels;
+use crate::ui::scryglass;
+use crate::ui::surfaces;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend, style::Modifier};
 use std::time::{Duration, Instant};
@@ -32,11 +43,11 @@ fn show_work_wait(app: &mut App, width: u16, height: u16) -> String {
 
 #[test]
 fn show_work_report_tool_to_stage_scroll_resize_switch_and_dismiss() {
-    use crate::harness::Tool;
+    use crate::agent::harness::Tool;
     let _lock = env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let root = std::env::temp_dir().join(format!("angel-show-work-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
     let text = format!(
@@ -49,12 +60,12 @@ fn show_work_report_tool_to_stage_scroll_resize_switch_and_dismiss() {
     std::fs::write(root.join("other.json"), "{\"actual_result\":42}\n").unwrap();
     let mut app = seed_preview_app();
     app.tools = std::sync::Arc::new(harness::ToolRegistry::with_team(root.clone(), Vec::new()));
-    let result = crate::tools::utilities::PresentTool::new(&root)
+    let result = crate::agent::tools::utilities::PresentTool::new(&root)
         .call(&serde_json::json!({
             "kind": "report", "label": "Actual validation run", "url": "report.md"
         }))
         .unwrap();
-    let (kind, label, target) = crate::media::presentation_from_result(&result).unwrap();
+    let (kind, label, target) = crate::ui::media::presentation_from_result(&result).unwrap();
     app.present_media(&kind, &label, &target);
     app.focus_module("artifacts");
     let screen = show_work_wait(&mut app, 120, 40);
@@ -100,7 +111,7 @@ fn show_work_report_tool_to_stage_scroll_resize_switch_and_dismiss() {
 fn show_work_missing_and_unsupported_artifacts_keep_the_requested_identity() {
     let _lock = env_lock();
     let _comp = crate::tests::TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let root = std::env::temp_dir().join(format!("angel-show-work-errors-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
     std::fs::write(root.join("unsupported.pdf"), b"%PDF-1.7\n").unwrap();
@@ -139,7 +150,7 @@ fn show_work_missing_and_unsupported_artifacts_keep_the_requested_identity() {
     );
     std::fs::remove_dir_all(root).unwrap();
     drop(_comp);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
 }
 
 #[test]
@@ -147,7 +158,7 @@ fn show_work_image_delivery_keeps_label_and_decodes_without_graphics_protocol() 
     let _lock = env_lock();
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let path =
         std::env::temp_dir().join(format!("angel-show-work-image-{}.png", std::process::id()));
     image::RgbImage::from_fn(64, 32, |x, y| {
@@ -208,7 +219,7 @@ fn show_work_captured_reply_rejects_replaced_output_directory() {
     assert!(first.contains("artifact captured"), "{first}");
     assert!(matches!(
         &app.media[0],
-        crate::media::Media::Confined { .. }
+        crate::ui::media::Media::Confined { .. }
     ));
     std::fs::rename(
         workspace.join("angel_test_output"),
@@ -251,7 +262,7 @@ fn show_work_captured_reply_rejects_replaced_output_directory() {
 fn show_work_video_without_decoder_reports_unavailable() {
     let _lock = env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut app = seed_preview_app();
     app.present_media("video", "Requested work recording", "/tmp/actual-work.mp4");
     app.focus_module("artifacts");
@@ -270,8 +281,8 @@ fn compact_session_warning_preempts_clip_prone_header_chrome() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.session = session::Session::at(std::env::temp_dir(), "compact-session-warning".to_string());
     assert!(
@@ -321,8 +332,8 @@ fn compact_header_keeps_project_controls_when_operator_status_is_long() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.statusline = Some("operator-status-".repeat(16));
     app.world.note_tool_call_event(
@@ -358,8 +369,8 @@ fn comp_mode_skips_realm_pulse_paint_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
-    assert!(crate::comp_mode::realm_pulse_paint_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(crate::drive::comp_mode::realm_pulse_paint_allowed());
 
     let mut app = seed_preview_app();
     app.world.note_tool_call_event(
@@ -374,8 +385,8 @@ fn comp_mode_skips_realm_pulse_paint_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
-    assert!(!crate::comp_mode::realm_pulse_paint_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(!crate::drive::comp_mode::realm_pulse_paint_allowed());
     let mut armed = seed_preview_app();
     armed.world.note_tool_call_event(
         harness::ToolEventId("comp-pulse-lean".to_string()),
@@ -395,8 +406,8 @@ fn agent_summary_uses_structured_cell_bounded_realm_pulse() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.world.note_tool_call_event(
         harness::ToolEventId("agent-summary-pulse".to_string()),
@@ -458,8 +469,8 @@ fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.world.note_tool_call_event(
         harness::ToolEventId("memory-health-stage".to_string()),
@@ -467,11 +478,11 @@ fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
         "project conventions",
     );
     app.world
-        .note_memory_health(crate::memory::store::MemoryHealth::Degraded);
+        .note_memory_health(crate::knowledge::memory::store::MemoryHealth::Degraded);
 
     let screen = render_app_text(&mut app, 120, 40);
     assert!(
-        app.world.memory_health() == crate::memory::store::MemoryHealth::Degraded,
+        app.world.memory_health() == crate::knowledge::memory::store::MemoryHealth::Degraded,
         "memory health remains explicit\n{screen}"
     );
     assert!(
@@ -488,11 +499,11 @@ fn live_reinforce_stage_surfaces_measured_campaign_state_graph() {
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Reinforce);
+        .navigate(crate::ui::scryglass::StageRoute::Reinforce);
     app.tools.rl().mode = rl_ctl::RlMode::Campaign;
     {
         let rl = app.tools.rl();
@@ -525,7 +536,7 @@ fn live_reinforce_stage_surfaces_measured_campaign_state_graph() {
             accepted_entry: Some("rl-policy".to_string()),
             accepted_event: Some("r1".to_string()),
             report_path: "runs/run_test".to_string(),
-            route: crate::club::RouteIdentity {
+            route: crate::agent::club::RouteIdentity {
                 driver: "fixture".to_string(),
                 model: None,
                 reasoning_effort: None,
@@ -557,12 +568,12 @@ fn reinforce_stage_switches_between_branch_research_and_sankey_lenses() {
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.focus_module("artifacts");
     app.scryglass
-        .navigate(crate::scryglass::StageRoute::Reinforce);
+        .navigate(crate::ui::scryglass::StageRoute::Reinforce);
     app.tools.rl().mode = rl_ctl::RlMode::Campaign;
     {
         let rl = app.tools.rl();
@@ -595,12 +606,12 @@ fn reinforce_stage_switches_between_branch_research_and_sankey_lenses() {
     );
 
     app.on_key(KeyEvent::new(KeyCode::Char('2'), KeyModifiers::NONE));
-    assert_eq!(app.rl_view, crate::viz::rl_viz::RlView::Research);
+    assert_eq!(app.rl_view, crate::ui::viz::rl_viz::RlView::Research);
     let research = render_app_text(&mut app, 120, 40);
     assert!(research.contains("OPTIMIZATION LEDGER"), "{research}");
 
     app.on_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
-    assert_eq!(app.rl_view, crate::viz::rl_viz::RlView::Sankey);
+    assert_eq!(app.rl_view, crate::ui::viz::rl_viz::RlView::Sankey);
     let sankey = render_app_text(&mut app, 120, 40);
     assert!(sankey.contains("SANKEY · PROMOTION FLOW"), "{sankey}");
 }
@@ -615,8 +626,8 @@ fn cockpit_scenario_baselines_cover_representative_sizes() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     for (width, height) in [(80, 24), (120, 40), (180, 50)] {
         let mut scenario = CockpitScenario::at(width, height);
         let mut text = scenario.render();
@@ -647,17 +658,17 @@ fn hidden_comp_skips_arrival_overlay_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
-    assert!(crate::scryglass::Scryglass::arrival_overlay_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(crate::ui::scryglass::Scryglass::arrival_overlay_allowed());
 
-    let mut visible = crate::scryglass::Scryglass::default();
+    let mut visible = crate::ui::scryglass::Scryglass::default();
     visible.sync_arrival(Some(world_viz::Building::Keep));
     visible.sync_arrival(Some(world_viz::Building::Smithy));
     assert_eq!(visible.arrival(), Some(world_viz::Building::Smithy));
     assert!(
         matches!(
             visible.controller.overlay(),
-            Some(crate::scryglass::StageOverlay::Arrival {
+            Some(crate::ui::scryglass::StageOverlay::Arrival {
                 destination: world_viz::Building::Smithy
             })
         ),
@@ -665,10 +676,10 @@ fn hidden_comp_skips_arrival_overlay_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
-    assert!(!crate::scryglass::Scryglass::arrival_overlay_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(!crate::ui::scryglass::Scryglass::arrival_overlay_allowed());
 
-    let mut armed = crate::scryglass::Scryglass::default();
+    let mut armed = crate::ui::scryglass::Scryglass::default();
     armed.sync_arrival(Some(world_viz::Building::Keep));
     armed.sync_arrival(Some(world_viz::Building::Chapel));
     assert!(
@@ -681,8 +692,8 @@ fn hidden_comp_skips_arrival_overlay_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
-    assert!(crate::scryglass::Scryglass::arrival_overlay_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(crate::ui::scryglass::Scryglass::arrival_overlay_allowed());
     armed.sync_arrival(Some(world_viz::Building::Chapel));
     assert!(
         armed.arrival().is_none(),
@@ -697,7 +708,7 @@ fn settled_or_hidden_realm_does_not_request_fast_tick() {
     let _lock = env_lock();
     let _off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut scenario = CockpitScenario::at(120, 40);
     scenario.app.world_pane_visible = false;
     scenario.app.scryglass.set_stage_visibility(false, false);
@@ -729,13 +740,13 @@ fn compact_core_draw_resets_prior_stage_visibility_and_fast_tick() {
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = seed_preview_app();
     // This fixture isolates Stage cadence after the startup sword is gone.
     app.startup_intro.dismiss(
         std::time::Instant::now(),
-        crate::viz::lifecycle_viz::MotionMode::Off,
+        crate::ui::viz::lifecycle_viz::MotionMode::Off,
     );
     app.scryglass.sync_arrival(Some(world_viz::Building::Keep));
     app.scryglass
@@ -769,8 +780,8 @@ fn compact_core_registers_prose_only_transcript_copy_rect() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = seed_preview_app();
     assert!(app.thinking.is_none(), "preview is idle");
     // Compact terminal → full-body Core transcript path in `ui`.
@@ -825,10 +836,10 @@ fn compact_core_registers_prose_only_transcript_copy_rect() {
 
 #[test]
 fn miniviz_hidden_skip_does_not_run_expensive_compose() {
-    use crate::scryglass::StageSurface;
+    use crate::ui::scryglass::StageSurface;
     let _lock = env_lock();
     let _off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::miniviz_expensive_compose_allowed(
         StageSurface::Hidden
     ));
@@ -862,9 +873,9 @@ fn miniviz_hidden_skip_does_not_run_expensive_compose() {
 fn miniviz_comp_mode_skips_compose_without_dropping_assets() {
     let _lock = env_lock();
     let _g = crate::tests::TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::miniviz_expensive_compose_allowed(
-        crate::scryglass::StageSurface::Workshop
+        crate::ui::scryglass::StageSurface::Workshop
     ));
     assert!(!draw::miniviz_dancer_paint_allowed(true, true));
     let mut composed = 0usize;
@@ -877,26 +888,29 @@ fn miniviz_comp_mode_skips_compose_without_dropping_assets() {
     );
     assert_eq!(composed, 0);
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    assert!(root.join(crate::viz::loop_viz::hammertime_asset(0.0)).is_file());
-    assert!(!crate::comp_mode::ambient_stage_sim_allowed());
+    assert!(
+        root.join(crate::ui::viz::loop_viz::hammertime_asset(0.0))
+            .is_file()
+    );
+    assert!(!crate::drive::comp_mode::ambient_stage_sim_allowed());
 }
 
 #[test]
 fn comp_mode_skips_ambient_stage_fast_tick_without_slowing_default() {
-    use crate::loop_ctl::LoopStatus;
+    use crate::drive::loop_ctl::LoopStatus;
     let _lock = env_lock();
     let _off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut app = seed_preview_app();
     app.world_pane_visible = true;
     app.loop_ctl.status = LoopStatus::Running;
     app.loop_ctl.cycle_started_ms = Some(1);
-    assert!(crate::comp_mode::ambient_stage_sim_allowed());
+    assert!(crate::drive::comp_mode::ambient_stage_sim_allowed());
     assert!(app.stage_display_wants_fast_tick());
 
     let _on = crate::tests::TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
-    assert!(!crate::comp_mode::ambient_stage_sim_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(!crate::drive::comp_mode::ambient_stage_sim_allowed());
     assert!(
         !app.stage_display_wants_fast_tick(),
         "comp/lean must not 33ms-tick ambient loop/raytrace/moa"
@@ -912,7 +926,7 @@ fn comp_mode_skips_lifecycle_rl_graph_scene_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut app = seed_preview_app();
     let standard = render_app_text(&mut app, 120, 40);
     assert!(
@@ -922,7 +936,7 @@ fn comp_mode_skips_lifecycle_rl_graph_scene_without_slowing_default() {
         "visible world must paint dots"
     );
     assert!(app.start_lifecycle_ceremony(
-        crate::viz::lifecycle_viz::CeremonyKind::LoopDone,
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone,
         "visible ceremony"
     ));
     let ceremony = render_app_text(&mut app, 120, 40);
@@ -937,8 +951,8 @@ fn comp_mode_skips_lifecycle_rl_graph_scene_without_slowing_default() {
     assert!(app.needs_fast_tick());
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
-    assert!(!crate::comp_mode::ambient_stage_sim_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(!crate::drive::comp_mode::ambient_stage_sim_allowed());
     assert!(
         app.lifecycle_ceremony_active(),
         "comp-mode must not drop the armed ceremony"
@@ -955,12 +969,12 @@ fn comp_mode_skips_lifecycle_rl_graph_scene_without_slowing_default() {
 
 #[test]
 fn comp_mode_skips_observatory_quest_vault_scene_without_slowing_default() {
-    use crate::scryglass::StageRoute;
     use crate::tests::TestEnvGuard;
+    use crate::ui::scryglass::StageRoute;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
-    assert!(crate::comp_mode::ambient_stage_sim_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(crate::drive::comp_mode::ambient_stage_sim_allowed());
 
     let mut app = seed_preview_app();
     app.scryglass.navigate(StageRoute::Observatory);
@@ -989,8 +1003,8 @@ fn comp_mode_skips_observatory_quest_vault_scene_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
-    assert!(!crate::comp_mode::ambient_stage_sim_allowed());
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(!crate::drive::comp_mode::ambient_stage_sim_allowed());
 
     let mut armed = seed_preview_app();
     armed.scryglass.navigate(StageRoute::Observatory);
@@ -1032,9 +1046,9 @@ fn comp_mode_skips_scryglass_catalog_and_lesson_body_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(draw::scryglass_scene_body_allowed());
-    assert!(crate::comp_mode::ambient_stage_sim_allowed());
+    assert!(crate::drive::comp_mode::ambient_stage_sim_allowed());
 
     let mut app = seed_preview_app();
     assert!(app.scryglass.open_catalog());
@@ -1061,7 +1075,7 @@ fn comp_mode_skips_scryglass_catalog_and_lesson_body_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::scryglass_scene_body_allowed());
 
     let mut armed = seed_preview_app();
@@ -1100,8 +1114,8 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(draw::scryglass_live_world_title_allowed());
     assert_eq!(
         draw::scryglass_route_title("REALM", Some("Corelot · Keep · resting in the keep"), ""),
@@ -1140,7 +1154,7 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::scryglass_live_world_title_allowed());
     let mut armed = seed_preview_app();
     let lean_town = armed.world.town_name().to_string();
@@ -1155,7 +1169,7 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         draw::scryglass_live_world_title_allowed(),
         "default cockpit must not stay gated after /comp off"
@@ -1167,36 +1181,36 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
 /// (status / iter / step / report counts) every frame.
 #[test]
 fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
-    use crate::loop_ctl::LoopStatus;
-    use crate::scryglass::StageRoute;
+    use crate::drive::loop_ctl::LoopStatus;
     use crate::tests::TestEnvGuard;
+    use crate::ui::scryglass::StageRoute;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(draw::stage_live_route_title_allowed());
     assert_eq!(
         draw::stage_route_title(
-            crate::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+            crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
             Some("loop · running · iter 3/inf · local"),
-            crate::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+            crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
         ),
         " Realm / Quintain · loop · running · iter 3/inf · local "
     );
     assert_eq!(
         draw::stage_route_title(
-            crate::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+            crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
             None,
-            crate::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+            crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
         ),
         " Realm / Quintain ·  "
     );
     assert!(
         !draw::stage_route_title(
-            crate::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+            crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
             None,
-            crate::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+            crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
         )
         .contains("iter"),
         "lean title must not carry the live loop suffix"
@@ -1217,7 +1231,7 @@ fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::stage_live_route_title_allowed());
     let mut armed = seed_preview_app();
     armed.loop_ctl.status = LoopStatus::Running;
@@ -1230,11 +1244,11 @@ fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
     );
     assert!(
         !lean.contains("iter 3"),
-        "comp-mode must not build crate::viz::loop_viz::title live suffix\n{lean}"
+        "comp-mode must not build crate::ui::viz::loop_viz::title live suffix\n{lean}"
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         draw::stage_live_route_title_allowed(),
         "default cockpit must not stay gated after /comp off"
@@ -1249,8 +1263,8 @@ fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(draw::scryglass_scene_accessories_allowed());
     assert!(draw::scryglass_scene_body_allowed());
 
@@ -1268,7 +1282,7 @@ fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::scryglass_scene_accessories_allowed());
     let mut armed = seed_preview_app();
     let lean = render_app_text(&mut armed, 144, 48);
@@ -1282,7 +1296,7 @@ fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         draw::scryglass_scene_accessories_allowed(),
         "default cockpit must not stay gated after /comp off"
@@ -1291,18 +1305,19 @@ fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
 
 #[test]
 fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
-    use crate::scryglass::{StageRoute, StageSurface};
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+    use crate::stage::world_viz::{Building, take_ride_compose_count};
     use crate::tests::TestEnvGuard;
-    use crate::world_viz::{Building, take_ride_compose_count};
+    use crate::ui::scryglass::{StageRoute, StageSurface};
     let _lock = env_lock();
     // This contract inspects text cells; native generated-dot transport has
     // its own pixel, continuity, geometry and ordinary-terminal checks.
     let _text_dots = TestEnvGuard::set("ANGEL_DOTMAX_PITCH", "text");
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
 
     assert!(draw::maybe_paint_world_scene(StageSurface::WorldMap, || 1).is_some());
     assert!(draw::maybe_paint_world_scene(StageSurface::WorldFirstPerson, || 1).is_some());
@@ -1337,7 +1352,7 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::miniviz_expensive_compose_allowed(
         StageSurface::WorldMap
     ));
@@ -1372,9 +1387,9 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let _ = take_ride_compose_count();
     let mut hidden = seed_preview_app();
     hidden
@@ -1387,16 +1402,16 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
 
 #[test]
 fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
-    use crate::loop_ctl::LoopStatus;
+    use crate::drive::loop_ctl::LoopStatus;
     use crate::tests::TestEnvGuard;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
 
-    assert!(crate::comp_mode::stage_world_mirrors_allowed(true));
-    assert!(!crate::comp_mode::stage_world_mirrors_allowed(false));
+    assert!(crate::drive::comp_mode::stage_world_mirrors_allowed(true));
+    assert!(!crate::drive::comp_mode::stage_world_mirrors_allowed(false));
 
     let mut app = seed_preview_app();
     let standard = render_app_text(&mut app, 144, 48);
@@ -1407,7 +1422,7 @@ fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
         "visible world must paint dots"
     );
     assert!(app.world_pane_visible);
-    assert!(crate::comp_mode::stage_world_mirrors_allowed(
+    assert!(crate::drive::comp_mode::stage_world_mirrors_allowed(
         app.world_pane_visible
     ));
 
@@ -1442,8 +1457,8 @@ fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
-    assert!(!crate::comp_mode::stage_world_mirrors_allowed(true));
+    crate::drive::comp_mode::invalidate_cache();
+    assert!(!crate::drive::comp_mode::stage_world_mirrors_allowed(true));
 
     let mut armed = seed_preview_app();
     let lean = render_app_text(&mut armed, 144, 48);
@@ -1453,7 +1468,7 @@ fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
     );
     armed.world_pane_visible = true;
     assert!(
-        !crate::comp_mode::stage_world_mirrors_allowed(armed.world_pane_visible),
+        !crate::drive::comp_mode::stage_world_mirrors_allowed(armed.world_pane_visible),
         "comp/lean must not pay mirrors while chrome is on screen"
     );
 
@@ -1510,7 +1525,7 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     use crate::tests::TestEnvGuard;
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(draw::ambient_stage_column_steal_allowed());
     assert!(
         draw::artifacts_pane_active(false, false, true, false, false),
@@ -1530,10 +1545,11 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     );
 
     let mut app = seed_preview_app();
-    let artifacts = crate::runtime::ModuleId::new("artifacts");
-    assert!(
-        app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "column steal")
-    );
+    let artifacts = crate::platform::runtime::ModuleId::new("artifacts");
+    assert!(app.start_lifecycle_ceremony(
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone,
+        "column steal"
+    ));
     app.module_host
         .suspend(&artifacts)
         .expect("artifacts can be hidden after ceremony arms");
@@ -1544,12 +1560,14 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
         "default still pops the Stage for a live ceremony\n{standard}"
     );
     assert!(
-        app.panes.rect_of(crate::mouse::PaneId::Artifacts).is_some(),
+        app.panes
+            .rect_of(crate::ui::mouse::PaneId::Artifacts)
+            .is_some(),
         "default leftover ceremony still lays an artifacts column"
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::ambient_stage_column_steal_allowed());
     assert!(
         !draw::artifacts_pane_active(false, false, true, false, false),
@@ -1565,10 +1583,10 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     );
 
     let mut armed = seed_preview_app();
-    assert!(
-        armed
-            .start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "column steal")
-    );
+    assert!(armed.start_lifecycle_ceremony(
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone,
+        "column steal"
+    ));
     armed
         .module_host
         .suspend(&artifacts)
@@ -1581,7 +1599,7 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     assert!(
         armed
             .panes
-            .rect_of(crate::mouse::PaneId::Artifacts)
+            .rect_of(crate::ui::mouse::PaneId::Artifacts)
             .is_none(),
         "Hidden/comp leftover ceremony must not steal an artifacts column"
     );
@@ -1597,8 +1615,8 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
 
     let mut app = seed_preview_app();
     app.world_pane_visible = true;
@@ -1646,7 +1664,7 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
     assert!(!app.needs_responsive_tick());
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut armed = seed_preview_app();
     armed
         .world
@@ -1674,7 +1692,7 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut restored = seed_preview_app();
     restored
         .world
@@ -1688,11 +1706,10 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
 
 #[test]
 fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
-    use crate::loop_ctl::{LoopState, LoopStatus};
-    use crate::viz::loop_viz;
+    use crate::drive::loop_ctl::{LoopState, LoopStatus};
     let _lock = env_lock();
     let _off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
 
     let running = LoopState {
         status: LoopStatus::Running,
@@ -1700,30 +1717,30 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
     };
     assert!(draw::miniviz_dancer_paint_allowed(
         true,
-        crate::viz::loop_viz::hammertime_active(&running)
+        crate::ui::viz::loop_viz::hammertime_active(&running)
     ));
     assert!(!draw::miniviz_dancer_paint_allowed(
         false,
-        crate::viz::loop_viz::hammertime_active(&running)
+        crate::ui::viz::loop_viz::hammertime_active(&running)
     ));
     // Paused iterations keep the hammerdancers on stage (425e67d8): the loop
     // is still alive, only the cadence is held.
     assert!(draw::miniviz_dancer_paint_allowed(
         true,
-        crate::viz::loop_viz::hammertime_active(&LoopState {
+        crate::ui::viz::loop_viz::hammertime_active(&LoopState {
             status: LoopStatus::Paused,
             ..LoopState::default()
         })
     ));
     assert!(!draw::miniviz_dancer_paint_allowed(
         true,
-        crate::viz::loop_viz::hammertime_active(&LoopState::default())
+        crate::ui::viz::loop_viz::hammertime_active(&LoopState::default())
     ));
 
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for t in [0.0_f32, 0.3, 0.6] {
-        let asset = crate::viz::loop_viz::hammertime_asset(t);
-        let twin = crate::viz::loop_viz::hammertime_twin_asset(t);
+        let asset = crate::ui::viz::loop_viz::hammertime_asset(t);
+        let twin = crate::ui::viz::loop_viz::hammertime_twin_asset(t);
         assert!(root.join(asset).is_file(), "dancer asset missing: {asset}");
         assert!(
             root.join(twin).is_file(),
@@ -1731,7 +1748,7 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
         );
     }
     let area = ratatui::layout::Rect::new(0, 0, 40, 20);
-    let [left, right] = crate::viz::loop_viz::hammertime_duo_boxes(area, 0.4);
+    let [left, right] = crate::ui::viz::loop_viz::hammertime_duo_boxes(area, 0.4);
     assert!(left.width > 0 && right.width > 0);
 }
 
@@ -1743,8 +1760,8 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
 
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
@@ -1800,13 +1817,13 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
 /// arrival has to come back the moment the quest is home again.
 #[test]
 fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
-    use crate::loop_ctl::LoopStatus;
+    use crate::drive::loop_ctl::LoopStatus;
     let _lock = env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
 
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
@@ -1829,7 +1846,7 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
 
     // The live tool path: classify → journey → the knight settles at the
     // landmark, which is what arms the ARRIVAL overlay.
-    let call_id = crate::harness::ToolEventId("z5-quest-arrival".into());
+    let call_id = crate::agent::harness::ToolEventId("z5-quest-arrival".into());
     app.world
         .note_tool_call_event(call_id.clone(), "write_file", "cockpit/src/lib.rs");
     app.scryglass
@@ -1850,7 +1867,7 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     assert!(
         matches!(
             app.scryglass.controller.overlay(),
-            Some(crate::scryglass::StageOverlay::Arrival { .. })
+            Some(crate::ui::scryglass::StageOverlay::Arrival { .. })
         ),
         "the arrival cue is still recorded — it is only the surface that changes"
     );
@@ -1858,7 +1875,7 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
         app.scryglass
             .controller
             .resolved_scene(false, false, app.world.quest_owns_pane()),
-        crate::scryglass::StageSurface::WorldFirstPerson,
+        crate::ui::scryglass::StageSurface::WorldFirstPerson,
         "the ride surface stays while the quest is away from town"
     );
     assert!(
@@ -1905,7 +1922,7 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
         app.scryglass
             .controller
             .resolved_scene(false, false, app.world.quest_owns_pane()),
-        crate::scryglass::StageSurface::Arrival(world_viz::Building::Scriptorium),
+        crate::ui::scryglass::StageSurface::Arrival(world_viz::Building::Scriptorium),
         "back in town, arrivals are exactly what they were"
     );
 }

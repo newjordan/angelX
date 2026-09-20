@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::Metadata;
+use crate::agent::club::Metadata;
 
 /// Minimal club with a controllable label / window / prefix-cache capability
 /// (mirrors the MetaClub fixture in harness/tests, plus the cache flag).
@@ -245,7 +245,9 @@ fn bg_compact_arming_point_moves_with_the_lifted_budget() {
 
     let (tx, rx) = mpsc::channel();
     let mut reg = ToolRegistry::new();
-    reg.set_memory_store(std::sync::Arc::new(crate::memory::store::NullStore));
+    reg.set_memory_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(LiftSummarizer)]);
 
     // Under the lifted budget the 80% arming point has moved: no bg pass.

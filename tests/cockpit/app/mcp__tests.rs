@@ -299,7 +299,7 @@ fn strip_inherited_secrets_defaults_on_and_is_not_bypassed_by_yolo() {
     let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
     let _unset = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_STRIP_SECRETS");
     assert!(
-        crate::yolo::enabled(),
+        crate::platform::yolo::enabled(),
         "fixture: the YOLO profile is active"
     );
     assert!(strip_inherited_secrets());
@@ -527,7 +527,7 @@ done
     let foreign_workspace = std::env::temp_dir().join(format!(
         "angel-mcp-foreign-workspace-{}-{}",
         std::process::id(),
-        crate::workspace_store::workspace_key(&workspace)
+        crate::platform::workspace_store::workspace_key(&workspace)
     ));
     std::fs::create_dir_all(&foreign_workspace).expect("foreign workspace");
     let (_, notes) = discover_from_specs(&specs, Duration::from_secs(5), &foreign_workspace);

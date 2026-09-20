@@ -195,7 +195,7 @@ fn evaluator_consumption_ledger_separates_replay_resume_retry_and_reproduction()
     let store = root.join("artifacts");
     let ledger = root.join("ledger");
     std::fs::create_dir_all(&workspace).unwrap();
-    let git = super::super::harness::pinned_git_path().unwrap();
+    let git = crate::agent::harness::pinned_git_path().unwrap();
     assert!(
         std::process::Command::new(git)
             .args(["init", "-q"])
@@ -363,7 +363,7 @@ fn evaluator_consumption_ledger_serializes_concurrent_resume() {
     let store = root.join("artifacts");
     let ledger = root.join("ledger");
     std::fs::create_dir_all(&workspace).unwrap();
-    let git = super::super::harness::pinned_git_path().unwrap();
+    let git = crate::agent::harness::pinned_git_path().unwrap();
     assert!(
         std::process::Command::new(git)
             .args(["init", "-q"])
@@ -444,7 +444,7 @@ fn evaluator_pair_ledger_is_atomic_resumable_and_recovers_a_torn_tail() {
     let store = root.join("artifacts");
     let ledger = root.join("ledger");
     std::fs::create_dir_all(&workspace).unwrap();
-    let git = super::super::harness::pinned_git_path().unwrap();
+    let git = crate::agent::harness::pinned_git_path().unwrap();
     assert!(
         std::process::Command::new(git)
             .args(["init", "-q"])
@@ -640,7 +640,7 @@ fn evaluator_pair_ledger_serializes_competing_outputs_for_one_slot() {
     let store = root.join("artifacts");
     let ledger = root.join("ledger");
     std::fs::create_dir_all(&workspace).unwrap();
-    let git = super::super::harness::pinned_git_path().unwrap();
+    let git = crate::agent::harness::pinned_git_path().unwrap();
     assert!(
         std::process::Command::new(git)
             .args(["init", "-q"])

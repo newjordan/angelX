@@ -1,7 +1,7 @@
 use super::super::Candidate;
 use super::super::evaluator::PolicyEvaluationRequest;
 use super::*;
-use crate::club::{ChatMsg, Club, ClubReply, StreamDelta, ToolDef};
+use crate::agent::club::{ChatMsg, Club, ClubReply, StreamDelta, ToolDef};
 use serde_json::json;
 use std::sync::Mutex;
 
@@ -39,13 +39,13 @@ impl Club for WorkerClub {
     ) -> Result<ClubReply, String> {
         if messages.len() == 2 {
             if self.tamper_verifier {
-                return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+                return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                     id: "tamper".into(),
                     name: "write_file".into(),
                     args: json!({"path":"tests/check.sh","content":"#!/bin/sh\nexit 0\n"}),
                 }]));
             }
-            return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+            return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                 id: "work".into(),
                 name: "write_file".into(),
                 args: json!({"path":"result.txt","content":"done"}),
@@ -57,7 +57,7 @@ impl Club for WorkerClub {
 
 fn git(root: &Path, args: &[&str]) {
     assert!(
-        crate::harness::pinned_git_command(root, args)
+        crate::agent::harness::pinned_git_command(root, args)
             .status()
             .unwrap()
             .success(),
@@ -127,12 +127,12 @@ fn fixture_with_club(tag: &str, marker: &str, club: Arc<dyn Club>) -> Fixture {
     );
     let cancel = AtomicBool::new(false);
     let fixture = root.join("fixture");
-    crate::harness::freeze_active_source(&source, &fixture, &cancel).unwrap();
+    crate::agent::harness::freeze_active_source(&source, &fixture, &cancel).unwrap();
     let attempts = root.join("attempts");
     std::fs::create_dir_all(&attempts).unwrap();
     let attempt = attempts.join("attempt-0001-v0");
-    crate::harness::run_loop_experiment(
-        crate::harness::LoopExperimentRequest {
+    crate::agent::harness::run_loop_experiment(
+        crate::agent::harness::LoopExperimentRequest {
             workspace: fixture.clone(),
             artifact_dir: attempt.clone(),
             task: TASK.to_string(),
@@ -214,11 +214,11 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
     assert_eq!(evidence.outcome.execution_policy_sha256(), policy_sha256);
     assert_eq!(
         evidence.outcome.verifier_contract_sha256(),
-        crate::cut::sha256_hex(spec.outcome_contract().as_bytes())
+        crate::knowledge::cut::sha256_hex(spec.outcome_contract().as_bytes())
     );
     assert_eq!(
         evidence.outcome.subject_sha256(),
-        crate::cut::sha256_hex(
+        crate::knowledge::cut::sha256_hex(
             request(&candidate, &manifest, &prompt)
                 .canonical_subject()
                 .as_bytes()

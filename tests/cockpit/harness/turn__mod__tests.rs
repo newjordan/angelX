@@ -96,8 +96,8 @@ fn rendered_output_stays_unverified_under_external_only_and_stale_on_revision_mi
     );
     assert!(!without_cmd.task_accepted());
 
-    let checked = crate::cut::sha256_hex(b"checked-workspace");
-    let current = crate::cut::sha256_hex(b"current-workspace");
+    let checked = crate::knowledge::cut::sha256_hex(b"checked-workspace");
+    let current = crate::knowledge::cut::sha256_hex(b"current-workspace");
     let stale = task_acceptance_snapshot(
         None,
         false,
@@ -322,7 +322,7 @@ fn p05b_reasoning_and_answer_timestamps_are_separate() {
 #[test]
 fn p05b_scripted_sse_separates_progress_from_answer_in_timing_ledger() {
     let _guard = crate::tests::env_lock();
-    let mut acc = crate::club::StreamAccumulator::default();
+    let mut acc = crate::agent::club::StreamAccumulator::default();
     let mut timing = TaskTimingAccumulator::default();
     let mut events = Vec::new();
     for (elapsed, line) in [
@@ -332,7 +332,8 @@ fn p05b_scripted_sse_separates_progress_from_answer_in_timing_ledger() {
         ),
         (400, r#"data: {"choices":[{"delta":{"content":"answer"}}]}"#),
     ] {
-        let crate::club::SseEvent::Chunk(chunk) = crate::club::parse_sse_line(line) else {
+        let crate::agent::club::SseEvent::Chunk(chunk) = crate::agent::club::parse_sse_line(line)
+        else {
             panic!("expected scripted SSE chunk")
         };
         let delta = acc.apply_chunk(&chunk);
@@ -348,7 +349,7 @@ fn p05b_scripted_sse_separates_progress_from_answer_in_timing_ledger() {
     assert!(matches!(&events[0], TurnEvent::Reasoning(text) if text == "fixture progress"));
     assert!(matches!(&events[1], TurnEvent::Token(text) if text == "answer"));
     assert!(
-        matches!(acc.into_reply(false), crate::club::ClubReply::Text(text) if text == "answer")
+        matches!(acc.into_reply(false), crate::agent::club::ClubReply::Text(text) if text == "answer")
     );
     timing.note_model_span(0, 500);
     let ledger = timing.finish(500);

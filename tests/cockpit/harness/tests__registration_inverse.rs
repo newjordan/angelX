@@ -9,7 +9,7 @@
 //! instead of a passing assertion about a counter.
 
 use super::*;
-use crate::harness::registration::{Disposable, RegistrationScope};
+use crate::agent::harness::registration::{Disposable, RegistrationScope};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;

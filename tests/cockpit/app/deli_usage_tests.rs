@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::{AccountingCell, AccountingView, UsageObservation};
+use crate::agent::club::{AccountingCell, AccountingView, UsageObservation};
 
 #[derive(Default)]
 struct MeteredClub {

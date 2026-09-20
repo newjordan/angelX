@@ -1,5 +1,5 @@
 use super::*;
-use crate::club::ChatRole;
+use crate::agent::club::ChatRole;
 
 #[test]
 fn queue_is_fifo_and_drains_empty() {

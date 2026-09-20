@@ -86,11 +86,13 @@ fn coherence_case(label: &str, before: f64, after: f64, named_shape: bool) {
         artifact_dir.to_str().unwrap(),
     );
     assert_eq!(
-        crate::harness::load_living_peer_snapshot().unwrap().0,
+        crate::agent::harness::load_living_peer_snapshot()
+            .unwrap()
+            .0,
         before
     );
     assert_eq!(
-        crate::harness::load_living_peer_shape_baseline("32768x1"),
+        crate::agent::harness::load_living_peer_shape_baseline("32768x1"),
         named_shape.then_some(before)
     );
     let output = "shape=32768x1 score_us=50us\ntest result: ok. 17 passed; 0 failed; 0 ignored;\n";
@@ -110,7 +112,7 @@ fn coherence_case(label: &str, before: f64, after: f64, named_shape: bool) {
     assert!(evidence.succeeded());
     assert_eq!(evidence.exit_code(), Some(0));
     assert!(!evidence.timed_out() && !evidence.output_truncated());
-    let parsed = crate::harness::parse_test_result(evidence.output());
+    let parsed = crate::agent::harness::parse_test_result(evidence.output());
     assert_eq!((parsed.passed, parsed.failed), (17, 0));
     assert_eq!(
         evidence.workspace_before_sha256(),
@@ -130,11 +132,13 @@ fn coherence_case(label: &str, before: f64, after: f64, named_shape: bool) {
     std::fs::write(&peer, &peer_after).unwrap();
     assert_eq!(std::fs::read(&peer).unwrap(), peer_after);
     assert_eq!(
-        crate::harness::load_living_peer_snapshot().unwrap().0,
+        crate::agent::harness::load_living_peer_snapshot()
+            .unwrap()
+            .0,
         after
     );
     assert_eq!(
-        crate::harness::load_living_peer_shape_baseline("32768x1"),
+        crate::agent::harness::load_living_peer_shape_baseline("32768x1"),
         named_shape.then_some(after)
     );
     let metadata = coding_eval_competition_meta(&evidence, &scoring).expect("competition signal");
@@ -155,9 +159,9 @@ fn coherence_case(label: &str, before: f64, after: f64, named_shape: bool) {
             "command_sha256": evidence.command_sha256(), "timed_out": evidence.timed_out(),
             "truncated": evidence.output_truncated(), "passed": parsed.passed, "failed": parsed.failed,
             "artifact_persisted_and_reloaded": true, "named_shape_baseline": named_shape,
-        "peer_before_sha256": crate::cut::sha256_hex(&peer_before),
-        "peer_after_sha256": crate::cut::sha256_hex(&peer_after),
-        "artifact_bytes_sha256": crate::cut::sha256_hex(&std::fs::read(&artifact_path).unwrap())
+        "peer_before_sha256": crate::knowledge::cut::sha256_hex(&peer_before),
+        "peer_after_sha256": crate::knowledge::cut::sha256_hex(&peer_after),
+        "artifact_bytes_sha256": crate::knowledge::cut::sha256_hex(&std::fs::read(&artifact_path).unwrap())
         })
     );
     // Fixed numeric controls are independent of the reward implementation formula.

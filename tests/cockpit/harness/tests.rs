@@ -1,11 +1,13 @@
 use super::*;
-use crate::club::{ChatRole, ClubReply, Metadata, ToolCall};
-use crate::tools::file::{FileOp, locate_replacement, parse_freeform_patch};
-use crate::tools::git::{git_diff_argv, git_log_argv, summarize_git_status, validate_git_revision};
-use crate::tools::nav::{
+use crate::agent::club::{ChatRole, ClubReply, Metadata, ToolCall};
+use crate::agent::tools::file::{FileOp, locate_replacement, parse_freeform_patch};
+use crate::agent::tools::git::{
+    git_diff_argv, git_log_argv, summarize_git_status, validate_git_revision,
+};
+use crate::agent::tools::nav::{
     fuzzy_score, glob_match, grep_fallback, line_defines, rank_paths, word_present,
 };
-use crate::tools::web::{WebSearchTool, format_searxng};
+use crate::agent::tools::web::{WebSearchTool, format_searxng};
 use std::ffi::OsString;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -149,7 +151,7 @@ fn long_history() -> Vec<ChatMsg> {
 /// A bare registry carrying `store` — what `maybe_compact` reads its store,
 /// session id, and (empty) aux-club list from in these tests.
 fn registry_with_store(
-    store: std::sync::Arc<dyn crate::memory::store::MemoryStore>,
+    store: std::sync::Arc<dyn crate::knowledge::memory::store::MemoryStore>,
 ) -> ToolRegistry {
     let mut reg = ToolRegistry::new();
     reg.set_memory_store(store);
@@ -489,7 +491,7 @@ fn assert_lifecycle_proc_envelope(cancel_after_launch: bool, provider_failure: b
     };
     let mut registry = ToolRegistry::new();
     registry.set_workspace(dir.clone());
-    registry.register(Box::new(crate::tools::proc::ProcRunTool::in_dir(
+    registry.register(Box::new(crate::agent::tools::proc::ProcRunTool::in_dir(
         dir.clone(),
     )));
     let mut history = vec![ChatMsg::user(
@@ -512,7 +514,7 @@ fn assert_lifecycle_proc_envelope(cancel_after_launch: bool, provider_failure: b
         runtime: None,
         session_id: None,
         artifacts: Vec::new(),
-        memory_health: crate::caddy::StoreHealthSummary::default(),
+        memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
     };
     let envelope = match result {
         Ok(outcome) => TaskJsonEnvelope::from_outcome(ctx, outcome, &history),
@@ -531,7 +533,7 @@ fn assert_lifecycle_proc_envelope(cancel_after_launch: bool, provider_failure: b
     } else {
         assert_eq!(rows[0]["status"], "ok");
         assert!(rows[0]["kill"].is_null());
-        crate::tools::proc::ProcStopTool::new(dir.clone())
+        crate::agent::tools::proc::ProcStopTool::new(dir.clone())
             .call(&serde_json::json!({"id": rows[0]["proc_id"]}))
             .unwrap();
     }

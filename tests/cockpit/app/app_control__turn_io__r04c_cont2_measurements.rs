@@ -15,7 +15,7 @@ fn r04c_cont2_original_final_sanitizer_cost() {
         )
         .unwrap();
     }
-    let mut timing = crate::frame_timing::FrameTiming::from_env();
+    let mut timing = crate::ui::frame_timing::FrameTiming::from_env();
     let start = std::time::Instant::now();
     let sanitized = super::sanitize_complete_terminal_text(&text);
     let elapsed = start.elapsed();
@@ -25,7 +25,7 @@ fn r04c_cont2_original_final_sanitizer_cost() {
         timing.completed(
             draw,
             draw,
-            crate::frame_timing::Phases {
+            crate::ui::frame_timing::Phases {
                 advance_us: elapsed.as_micros(),
                 ..Default::default()
             },

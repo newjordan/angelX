@@ -78,7 +78,8 @@ fn baseline_stop_resume_preserves_owner_until_terminal_settlement() {
 fn stopped_verifier_keeps_exit_open_until_its_terminal_channel_disconnects() {
     fixture("pending-exit", |root| {
         let (mut app, calls) = idle_loop_app(root);
-        app.session = crate::session::Session::at_for(root.join("sessions"), "owned".into(), root);
+        app.session =
+            crate::knowledge::session::Session::at_for(root.join("sessions"), "owned".into(), root);
         app.history = vec![ChatMsg::user("owned durable stop and exit")];
         app.session.checkpoint(&app.history).unwrap();
         app.loop_ctl.status = LoopStatus::Verifying;

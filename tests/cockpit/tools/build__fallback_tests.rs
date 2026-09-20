@@ -1,6 +1,6 @@
 use super::*;
-use crate::club::{ChatMsg, ToolCall};
-use crate::harness::{ExecutionOutcome, VerificationOutcome, turn_event_outcome};
+use crate::agent::club::{ChatMsg, ToolCall};
+use crate::agent::harness::{ExecutionOutcome, VerificationOutcome, turn_event_outcome};
 use crate::tests::TestEnvGuard;
 use serde_json::json;
 
@@ -42,7 +42,7 @@ fn run_call() -> ToolCall {
 #[test]
 fn custom_script_forged_counts_preserve_exit_and_never_write_verified_caddy_recipe() {
     let _lock = crate::tests::env_lock();
-    if !crate::sandbox::available() || resolve_on_path("npm").is_none() {
+    if !crate::agent::sandbox::available() || resolve_on_path("npm").is_none() {
         eprintln!("custom-script execution control unavailable: sandbox and npm required");
         return;
     }
@@ -105,7 +105,8 @@ fn custom_script_forged_counts_preserve_exit_and_never_write_verified_caddy_reci
         }
         let receipt = ChatMsg::tool(&call.id, text.as_str()).with_tool_receipt(&call, outcome);
         let history = vec![ChatMsg::assistant_calls(vec![call]), receipt];
-        let (recipes, hazards) = crate::caddy::write_back_from_history(&workspace.0, &history);
+        let (recipes, hazards) =
+            crate::knowledge::caddy::write_back_from_history(&workspace.0, &history);
         assert_eq!(
             recipes, 0,
             "an executed custom script is not a verified recipe"
@@ -114,7 +115,7 @@ fn custom_script_forged_counts_preserve_exit_and_never_write_verified_caddy_reci
         let recipe_path = control
             .0
             .join("caddy")
-            .join(crate::workspace_store::repo_identity(&workspace.0).key)
+            .join(crate::platform::workspace_store::repo_identity(&workspace.0).key)
             .join("recipes.jsonl");
         assert!(
             !recipe_path.exists(),

@@ -12,10 +12,10 @@
 //! ignored test, against a real MCP server process whose pid must stop existing.
 
 use super::*;
-use crate::harness::coeffect::{Classification, Key, Requirement};
-use crate::harness::registration::ProviderScope;
-use crate::harness::registry::ProviderLease;
-use crate::mcp::{McpComposition, ServerSpec};
+use crate::agent::harness::coeffect::{Classification, Key, Requirement};
+use crate::agent::harness::registration::ProviderScope;
+use crate::agent::harness::registry::ProviderLease;
+use crate::agent::mcp::{McpComposition, ServerSpec};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -386,7 +386,7 @@ fn a_live_provider_withdrawal_retracts_schemas_without_a_restart() {
     let _lock = crate::tests::env_lock();
     let root = scratch_root("reactive-activation-live");
     let pid_file = root.join("pid");
-    let (compositions, notes) = crate::mcp::discover_compositions(
+    let (compositions, notes) = crate::agent::mcp::discover_compositions(
         &[mock_spec("mockmcp", &pid_file)],
         Duration::from_secs(10),
         &root,
@@ -449,7 +449,7 @@ fn a_live_provider_withdrawal_retracts_schemas_without_a_restart() {
 
     // Re-add: a fresh process, a searchable tool, no cockpit restart.
     let readd_started = Instant::now();
-    let (compositions, notes) = crate::mcp::discover_compositions(
+    let (compositions, notes) = crate::agent::mcp::discover_compositions(
         &[mock_spec("mockmcp", &pid_file)],
         Duration::from_secs(10),
         &root,

@@ -342,14 +342,14 @@ fn profile_verifier_registry_capture() {
     let workspace = std::env::current_dir().unwrap();
     for sample in 0..5 {
         let start = Instant::now();
-        let cargo = crate::tools::build::PinnedCargo::capture(&workspace);
+        let cargo = crate::agent::tools::build::PinnedCargo::capture(&workspace);
         let cargo_us = start.elapsed().as_micros();
         let start = Instant::now();
-        let native = crate::tools::build::PinnedNativeRuntimes::capture(&workspace);
+        let native = crate::agent::tools::build::PinnedNativeRuntimes::capture(&workspace);
         let native_us = start.elapsed().as_micros();
         drop((cargo, native));
         let start = Instant::now();
-        let pins = crate::tools::build::capture_verifier_runtimes(&workspace);
+        let pins = crate::agent::tools::build::capture_verifier_runtimes(&workspace);
         let parallel_us = start.elapsed().as_micros();
         drop(pins);
         eprintln!(

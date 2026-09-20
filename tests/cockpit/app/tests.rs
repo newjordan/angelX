@@ -196,8 +196,8 @@ impl TestGitWorkspace {
         &self.0
     }
 
-    pub(crate) fn registry(&self) -> crate::harness::ToolRegistry {
-        let mut registry = crate::harness::ToolRegistry::new();
+    pub(crate) fn registry(&self) -> crate::agent::harness::ToolRegistry {
+        let mut registry = crate::agent::harness::ToolRegistry::new();
         registry.set_workspace(self.0.clone());
         registry
     }
@@ -346,8 +346,8 @@ fn armed_formation_names_itself_on_the_route_chip() {
     let before = render_app_text(&mut app, 96, 36);
     assert!(!before.contains("Tag Team"), "not armed yet\n{before}");
 
-    app.moa_one_shot = Some(crate::formations::MoaEngagement::unassigned(
-        crate::formations::FormationId::TagTeam,
+    app.moa_one_shot = Some(crate::agent::formations::MoaEngagement::unassigned(
+        crate::agent::formations::FormationId::TagTeam,
     ));
     let armed = render_app_text(&mut app, 96, 36);
     assert!(
@@ -485,12 +485,12 @@ fn world_quest_and_help_answer_in_one_system_message() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.world
-        .note_adventure(crate::world_viz::AdventureEvent::LoopStarted {
-            kind: crate::world_viz::LoopKind::Research,
+        .note_adventure(crate::stage::world_viz::AdventureEvent::LoopStarted {
+            kind: crate::stage::world_viz::LoopKind::Research,
             task: "survey the fleet".to_string(),
         });
     app.world
-        .note_adventure(crate::world_viz::AdventureEvent::Iteration { n: 3 });
+        .note_adventure(crate::stage::world_viz::AdventureEvent::Iteration { n: 3 });
 
     let route_before = app.scryglass.controller.route();
     app.input = "/world quest".to_string();
@@ -628,7 +628,7 @@ fn shell_focused_paste_never_mutates_or_clips_the_hidden_composer() {
     app.shell_focused = true;
     let before_messages = app.messages.len();
 
-    app.on_paste(&"x".repeat(app_control::MAX_COMPOSER_PASTE_BYTES + 1));
+    app.on_paste(&"x".repeat(control::MAX_COMPOSER_PASTE_BYTES + 1));
 
     assert_eq!(app.input, "draft");
     assert_eq!(app.messages.len(), before_messages);
@@ -649,7 +649,7 @@ fn mouse_ev(
 
 #[test]
 fn clipboard_receipts_distinguish_request_skip_and_recoverable_fallback() {
-    use app_control::{ClipboardTransport, clipboard_receipt};
+    use control::{ClipboardTransport, clipboard_receipt};
     use std::path::Path;
 
     let sent = clipboard_receipt(
@@ -777,7 +777,7 @@ fn copy_live_exports_the_sanitized_background_tail_without_a_model_turn() {
     std::fs::create_dir_all(&home).unwrap();
     let _home = TestEnvGuard::set("HOME", home.to_str().unwrap());
     let mut app = seed_preview_app();
-    let (reply, job) = app_control::BackgroundJob::channel("cargo doc", "Retry /doc");
+    let (reply, job) = control::BackgroundJob::channel("cargo doc", "Retry /doc");
     let progress = reply.output_progress();
     progress(
         harness::ProcessStream::Stdout,
@@ -801,7 +801,7 @@ fn copy_live_exports_the_sanitized_background_tail_without_a_model_turn() {
     );
 
     reply
-        .send(app_control::BgOutcome::Note("doc finished".to_string()))
+        .send(control::BgOutcome::Note("doc finished".to_string()))
         .unwrap();
     app.advance();
     assert!(
@@ -829,7 +829,7 @@ fn copy_live_distinguishes_no_job_from_a_job_waiting_for_first_output() {
         "no current or completed background output to copy"
     );
 
-    let (_reply, job) = app_control::BackgroundJob::channel("cargo test", "Retry /test");
+    let (_reply, job) = control::BackgroundJob::channel("cargo test", "Retry /test");
     app.bg_job = Some(job);
     app.input = "/copy live".to_string();
     app.submit();
@@ -844,14 +844,14 @@ fn copy_live_distinguishes_no_job_from_a_job_waiting_for_first_output() {
 fn background_terminal_transitions_replace_or_clear_the_retained_output() {
     let mut app = seed_preview_app();
 
-    let (reply, job) = app_control::BackgroundJob::channel("cancel fixture", "Retry fixture");
+    let (reply, job) = control::BackgroundJob::channel("cancel fixture", "Retry fixture");
     reply.output_progress()(harness::ProcessStream::Stdout, b"cancel tail\n");
     app.bg_job = Some(job);
     assert!(app.interrupt());
     assert_eq!(app.last_background_output.as_deref(), Some("cancel tail\n"));
     assert_eq!(app.last_background_operation, Some("cancel fixture"));
 
-    let (reply, job) = app_control::BackgroundJob::channel("disconnect fixture", "Retry fixture");
+    let (reply, job) = control::BackgroundJob::channel("disconnect fixture", "Retry fixture");
     reply.output_progress()(harness::ProcessStream::Stderr, b"disconnect tail\n");
     app.bg_job = Some(job);
     drop(reply);
@@ -862,10 +862,10 @@ fn background_terminal_transitions_replace_or_clear_the_retained_output() {
     );
     assert_eq!(app.last_background_operation, Some("disconnect fixture"));
 
-    let (reply, job) = app_control::BackgroundJob::channel("quiet fixture", "Retry fixture");
+    let (reply, job) = control::BackgroundJob::channel("quiet fixture", "Retry fixture");
     app.bg_job = Some(job);
     reply
-        .send(app_control::BgOutcome::Note("quiet complete".to_string()))
+        .send(control::BgOutcome::Note("quiet complete".to_string()))
         .unwrap();
     app.advance();
     assert!(
@@ -913,7 +913,7 @@ fn raw_export_uses_persisted_visible_roles_and_atomically_replaces_the_file() {
         ChatMsg::system("secret bootstrap"),
         ChatMsg::user_with_media(
             "visible prompt",
-            vec![crate::club::Media::Image {
+            vec![crate::agent::club::Media::Image {
                 mime: "image/png".to_string(),
                 b64: "secret-image-data".to_string(),
             }],
@@ -1032,7 +1032,7 @@ fn drag_select_is_confined_to_the_pane_and_arms_a_copy() {
     use ratatui::crossterm::event::{MouseButton, MouseEventKind};
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     app.messages.push(Message {
         role: Role::Angel,
         text: "Select this transcript text.".into(),
@@ -1247,14 +1247,14 @@ fn real_transcript_drag_only_teaches_after_an_explicit_request() {
     let _motion = TestEnvGuard::set("ANGEL_TUI_MOTION", "off");
     let mut app = seed_preview_app();
     app.scryglass.return_to_world();
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     app.messages = vec![Message {
         role: Role::Angel,
         text: "Study Poisson next.".into(),
     }];
     app.invalidate_transcript_layout();
     app.scryglass
-        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
             title: "Poisson distribution",
             summary: "A discrete probability distribution for event counts.",
             source_url: "https://en.wikipedia.org/?curid=24268",
@@ -1451,7 +1451,7 @@ fn selected_term_runs_a_deterministic_world_lesson_without_history_leakage() {
         .collect::<Vec<_>>();
 
     app.scryglass
-        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
             title: "Poisson distribution",
             summary: "A discrete probability distribution for event counts.",
             source_url: "https://en.wikipedia.org/?curid=24268",
@@ -1461,7 +1461,7 @@ fn selected_term_runs_a_deterministic_world_lesson_without_history_leakage() {
 
     assert_eq!(
         app.world.destination(),
-        crate::world_viz::Building::Scriptorium
+        crate::stage::world_viz::Building::Scriptorium
     );
     let pending = app.scryglass.lesson().expect("world owns loading lesson");
     assert!(pending.is_loading());
@@ -1533,7 +1533,7 @@ fn learn_multiword_is_offline_first_and_tutor_actions_remain_operator_owned() {
     assert!(!lesson.is_loading());
     assert_eq!(
         app.world.destination(),
-        crate::world_viz::Building::Scriptorium
+        crate::stage::world_viz::Building::Scriptorium
     );
     let rendered = render_app_text(&mut app, 144, 48);
     assert!(rendered.contains("Objective"), "{rendered}");
@@ -1588,9 +1588,9 @@ fn motion_off_reveals_a_completed_world_lesson_without_roll_animation() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.scryglass.return_to_world();
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     app.scryglass
-        .queue_lesson_outcome(crate::term::lookup::TestLookupOutcome::Success {
+        .queue_lesson_outcome(crate::ui::term::lookup::TestLookupOutcome::Success {
             title: "Eigenvalue",
             summary: "A scalar associated with a linear transformation.",
             source_url: "https://en.wikipedia.org/?curid=9391",
@@ -1651,12 +1651,12 @@ fn empty_and_failed_lookups_remain_dismissible_world_feedback() {
     let _guard = env_lock();
     let cases = [
         (
-            crate::term::lookup::TestLookupOutcome::Empty,
+            crate::ui::term::lookup::TestLookupOutcome::Empty,
             "No concise STEM",
             "computing entry",
         ),
         (
-            crate::term::lookup::TestLookupOutcome::Error("reference service unavailable"),
+            crate::ui::term::lookup::TestLookupOutcome::Error("reference service unavailable"),
             "Quick lookup unavailable",
             "service unavailable",
         ),
@@ -1664,7 +1664,7 @@ fn empty_and_failed_lookups_remain_dismissible_world_feedback() {
     for (outcome, opening, detail) in cases {
         let mut app = seed_preview_app();
         app.scryglass.return_to_world();
-        app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+        app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
         app.scryglass.queue_lesson_outcome(outcome);
         app.pending_quick_lookup = Some("unknown".to_string());
         app.flush_clipboard();
@@ -1816,7 +1816,7 @@ fn live_stream_events_preserve_manual_scrollback() {
 
 #[test]
 fn stream_backlog_is_bounded_per_frame_without_losing_order() {
-    let budget = crate::app_control::STREAM_EVENTS_PER_FRAME;
+    let budget = crate::app::control::STREAM_EVENTS_PER_FRAME;
     let events = (0..=budget)
         .map(|index| harness::TurnEvent::Token(char::from(b'a' + (index % 26) as u8).to_string()))
         .collect();
@@ -1842,7 +1842,7 @@ fn stream_backlog_is_bounded_per_frame_without_losing_order() {
 
 #[test]
 fn stream_payload_budget_defers_the_next_large_event() {
-    let budget = crate::app_control::STREAM_BYTES_PER_FRAME;
+    let budget = crate::app::control::STREAM_BYTES_PER_FRAME;
     let (mut app, _tx) = seed_live_streaming_app(vec![
         harness::TurnEvent::Reasoning("r".repeat(budget)),
         harness::TurnEvent::Reasoning("next".to_string()),
@@ -1857,10 +1857,11 @@ fn stream_payload_budget_defers_the_next_large_event() {
 
 #[test]
 fn village_pulse_burst_is_bounded_per_frame_and_drains_fifo_later() {
-    let budget = crate::app_control::VILLAGE_PULSES_PER_FRAME;
+    let budget = crate::app::control::VILLAGE_PULSES_PER_FRAME;
     let (tx, rx) = std::sync::mpsc::channel();
     for _ in 0..budget + 7 {
-        tx.send(crate::village::VillagePulse::default()).unwrap();
+        tx.send(crate::stage::village::VillagePulse::default())
+            .unwrap();
     }
     drop(tx);
     let mut app = seed_preview_app();
@@ -1900,7 +1901,7 @@ fn bench_stream_backlog_advance() {
         assert_eq!(app.partial.len(), events);
         assert_eq!(
             frames,
-            events.div_ceil(crate::app_control::STREAM_EVENTS_PER_FRAME)
+            events.div_ceil(crate::app::control::STREAM_EVENTS_PER_FRAME)
         );
         eprintln!(
             "stream backlog events={events} frames={frames} max_frame_us={} total_us={}",
@@ -1918,12 +1919,12 @@ fn fast_completed_stream_gets_a_visible_partial_frame() {
     tx.send(Ok((
         vec![ChatMsg::assistant("fast answer")],
         "fast answer".to_string(),
-        crate::club::RouteIdentity {
+        crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
         },
-        crate::harness::TurnStopReason::Answer,
+        crate::agent::harness::TurnStopReason::Answer,
     )))
     .unwrap();
 
@@ -1958,7 +1959,7 @@ fn inner_spin_stop_pauses_outer_runner_instead_of_restarting() {
     tx.send(Ok((
         vec![ChatMsg::assistant("stopped repeated passive polling")],
         "stopped repeated passive polling".into(),
-        crate::club::RouteIdentity {
+        crate::agent::club::RouteIdentity {
             driver: "practice".into(),
             model: None,
             reasoning_effort: None,
@@ -1997,12 +1998,12 @@ fn completed_stream_preserves_manual_scrollback_and_stays_settled() {
     tx.send(Ok((
         vec![ChatMsg::assistant("answer already visible")],
         "answer already visible".to_string(),
-        crate::club::RouteIdentity {
+        crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
         },
-        crate::harness::TurnStopReason::Answer,
+        crate::agent::harness::TurnStopReason::Answer,
     )))
     .unwrap();
 
@@ -2123,15 +2124,15 @@ fn vanished_worker_retains_visible_partial_and_labels_the_recovery() {
 #[test]
 fn hard_stop_retains_the_already_visible_partial() {
     struct RetiredMeteredClub;
-    impl crate::club::Club for RetiredMeteredClub {
+    impl crate::agent::club::Club for RetiredMeteredClub {
         fn respond(&self, _prompt: &str) -> Result<String, String> {
             Ok("unused".to_string())
         }
         fn label(&self) -> &str {
             "retired-metered"
         }
-        fn token_usage(&self) -> Option<crate::club::TokenUsage> {
-            Some(crate::club::TokenUsage {
+        fn token_usage(&self) -> Option<crate::agent::club::TokenUsage> {
+            Some(crate::agent::club::TokenUsage {
                 turns: 1,
                 last_input: 40,
                 last_output: 5,
@@ -2141,11 +2142,11 @@ fn hard_stop_retains_the_already_visible_partial() {
                 total_reasoning: 0,
             })
         }
-        fn cache_usage(&self) -> crate::club::CacheUsage {
-            crate::club::CacheUsage {
+        fn cache_usage(&self) -> crate::agent::club::CacheUsage {
+            crate::agent::club::CacheUsage {
                 read_input_tokens: 10,
                 read_accounting_responses: 1,
-                ..crate::club::CacheUsage::default()
+                ..crate::agent::club::CacheUsage::default()
             }
         }
     }
@@ -2183,12 +2184,12 @@ fn hard_stop_retains_the_already_visible_partial() {
         .send(Ok((
             vec![ChatMsg::assistant("late abandoned reply")],
             "late abandoned reply".to_string(),
-            crate::club::RouteIdentity {
+            crate::agent::club::RouteIdentity {
                 driver: "practice".to_string(),
                 model: None,
                 reasoning_effort: None,
             },
-            crate::harness::TurnStopReason::Answer,
+            crate::agent::harness::TurnStopReason::Answer,
         )))
         .unwrap();
     app.advance();
@@ -2352,7 +2353,7 @@ fn agent_reasoning_wide_scroll_reaches_tail_and_preserves_reader_anchor() {
     let _guard = env_lock();
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     for streaming in [false, true] {
         let reasoning = format!(
             "TOP_MARKER\n{}MID_MARKER\n{}TAIL_MARKER",
@@ -2425,7 +2426,7 @@ fn agent_reasoning_narrow_fresh_tail_preserves_unicode_and_last_cell() {
     let _guard = env_lock();
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     for tail in [
         format!("{}e\u{301}Z", "界".repeat(10)),
         "abcdefghijklmnopqrstuvwQ".to_string(),
@@ -2683,7 +2684,7 @@ fn empty_live_thinking_and_bg_wait_keep_idle_bay_height() {
 
     // Empty bg wait is also not thinking height.
     let mut waiting = seed_preview_app();
-    let (_reply, job) = app_control::BackgroundJob::channel("cargo test", "Retry /test");
+    let (_reply, job) = control::BackgroundJob::channel("cargo test", "Retry /test");
     waiting.bg_job = Some(job);
     let wait_text = render_app_text(&mut waiting, 144, 48);
     let wait_bay = waiting
@@ -2866,7 +2867,7 @@ fn agent_thinking_pane_persists_after_turn_ends() {
 fn comp_mode_skips_reasoning_roll_in_without_slowing_default() {
     let _guard = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(App::reasoning_roll_in_allowed());
 
     let reasoning = (0..8)
@@ -2885,7 +2886,7 @@ fn comp_mode_skips_reasoning_roll_in_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!App::reasoning_roll_in_allowed());
 
     let mut armed = seed_thinking_app(&reasoning);
@@ -3316,7 +3317,8 @@ fn requested_subjects_render_their_tutor_method_and_curriculum_in_world() {
 
 #[test]
 fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 
     let _guard = env_lock();
@@ -3343,11 +3345,11 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     ));
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::scryglass::StageRoute::Explore(crate::world_viz::Building::Scriptorium)
+        crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Scriptorium)
     );
     assert_eq!(
         app.world.destination(),
-        crate::world_viz::Building::Scriptorium
+        crate::stage::world_viz::Building::Scriptorium
     );
     assert_eq!(app.world.renown(), starting_renown);
     assert!(
@@ -3377,19 +3379,19 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     assert!(app.scryglass.controller.overlay().is_none());
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::scryglass::StageRoute::Explore(crate::world_viz::Building::Scriptorium),
+        crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Scriptorium),
         "closing the lesson reveals the physical library route beneath it"
     );
 
     for _ in 0..400 {
         app.world.tick();
-        if app.world.arrived_building() == Some(crate::world_viz::Building::Scriptorium) {
+        if app.world.arrived_building() == Some(crate::stage::world_viz::Building::Scriptorium) {
             break;
         }
     }
     assert_eq!(
         app.world.arrived_building(),
-        Some(crate::world_viz::Building::Scriptorium),
+        Some(crate::stage::world_viz::Building::Scriptorium),
         "Library must complete a real world journey"
     );
     let arrival = render_app_text(&mut app, 144, 48);
@@ -3470,7 +3472,7 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     app.on_key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
     assert_eq!(
         app.scryglass.catalog_scroll(),
-        crate::library::CURRICULUM.len() as u16 - 1
+        crate::knowledge::library::CURRICULUM.len() as u16 - 1
     );
     let catalog_bottom = render_app_text(&mut app, 144, 48);
     let catalog_bottom = normalize_rendered_text(&catalog_bottom);
@@ -3496,7 +3498,7 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     assert!(app.scryglass.catalog_open());
     assert_eq!(
         app.scryglass.catalog_selection(),
-        crate::library::CURRICULUM.len() - 1,
+        crate::knowledge::library::CURRICULUM.len() - 1,
         "Lesson Back returns to the selected shelf"
     );
     let _ = render_app_text(&mut app, 144, 48);
@@ -3515,7 +3517,7 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     assert!(!app.scryglass.catalog_open());
     assert_eq!(
         app.scryglass.catalog_scroll(),
-        crate::library::CURRICULUM.len() as u16 - 1
+        crate::knowledge::library::CURRICULUM.len() as u16 - 1
     );
     let interior = render_app_text(&mut app, 144, 48);
     assert!(interior.contains("[Catalog]"), "{interior}");
@@ -3734,7 +3736,7 @@ fn cd_rebuilds_non_system_context_with_the_target_repo_dossier() {
     // way the cockpit will look it up.
     let dossier_dir = dir.join("dossier");
     std::fs::create_dir_all(&dossier_dir).unwrap();
-    let key = crate::tools::work_landing::workspace_key(&canon);
+    let key = crate::agent::tools::work_landing::workspace_key(&canon);
     let artifact = serde_json::json!({
         "v": 1,
         "repo": { "key": key, "root": canon.display().to_string(), "slug": null },
@@ -3763,20 +3765,20 @@ fn cd_rebuilds_non_system_context_with_the_target_repo_dossier() {
     assert!(
         !app.history[0]
             .content
-            .contains(crate::dossier::DOSSIER_BLOCK_HEADER)
+            .contains(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER)
     );
     let pending = &app
         .history
         .iter()
-        .find(|message| crate::bootstrap::is_workspace_context(message))
+        .find(|message| crate::app::bootstrap::is_workspace_context(message))
         .unwrap()
         .content;
     assert!(
-        pending.contains(crate::dossier::DOSSIER_BLOCK_HEADER),
+        pending.contains(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER),
         "dossier block missing from post-/cd context: {pending}"
     );
     assert!(pending.contains("cargo test -p cockpit"));
-    assert!(pending.contains(crate::dossier::DOSSIER_BLOCK_SENTINEL));
+    assert!(pending.contains(crate::knowledge::dossier::DOSSIER_BLOCK_SENTINEL));
 
     // /dossier renders the full fact list for the current workspace —
     // including gate labels the injected block doesn't carry.
@@ -3797,7 +3799,7 @@ fn cd_rebuilds_non_system_context_with_the_target_repo_dossier() {
     assert!(!app.history.iter().any(|message| {
         message
             .content
-            .contains(crate::dossier::DOSSIER_BLOCK_HEADER)
+            .contains(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER)
     }));
 
     // TODO: Audit that the environment access only happens in single-threaded code.
@@ -3824,7 +3826,7 @@ fn goal_status_and_new_chat_commands() {
     );
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::GoalSet),
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::GoalSet),
         "/goal arms an objective ceremony without starting the harness"
     );
     assert!(app.lifecycle_ceremony_active());
@@ -3875,9 +3877,7 @@ fn goal_status_and_new_chat_commands() {
         .enumerate()
         .find(|(_, message)| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .starts_with(app_control::TURN_CONTEXT_HEADER)
+                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
         })
         .expect("Harness-role standing goal context");
     assert!(
@@ -3894,7 +3894,7 @@ fn goal_status_and_new_chat_commands() {
         ChatMsg::system("OLD_CHAT_FOREIGN_POLICY_SENTINEL"),
         ChatMsg::user("OLD_CHAT_USER_SENTINEL"),
         ChatMsg::assistant("OLD_CHAT_ASSISTANT_SENTINEL"),
-        ChatMsg::assistant_calls(vec![crate::club::ToolCall {
+        ChatMsg::assistant_calls(vec![crate::agent::club::ToolCall {
             id: "old-chat-tool".into(),
             name: "read_file".into(),
             args: serde_json::json!({"path": "old-chat-file.rs"}),
@@ -3945,7 +3945,7 @@ fn goal_status_and_new_chat_commands() {
         "/new must clear old user, assistant, tool and summary content"
     );
     assert!(
-        !app.history.iter().any(app_control::is_turn_context_message),
+        !app.history.iter().any(control::is_turn_context_message),
         "prior standing-goal turn context must not become a new conversation turn"
     );
     assert!(
@@ -3972,7 +3972,7 @@ fn goal_status_and_new_chat_commands() {
     assert!(app.goal.is_none(), "/goal clear removes the goal");
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::GoalCleared)
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::GoalCleared)
     );
     assert!(
         goal::load_for(app.tools.current_workspace()).is_none(),
@@ -4573,7 +4573,7 @@ fn tourney_calibration_is_display_only_and_repeatable() {
         app.lifecycle_ceremony
             .as_ref()
             .map(|ceremony| ceremony.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopDone)
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone)
     );
     app.input = "/tourney calibrate win".to_string();
     app.submit();
@@ -4581,7 +4581,7 @@ fn tourney_calibration_is_display_only_and_repeatable() {
         app.lifecycle_ceremony
             .as_ref()
             .map(|ceremony| ceremony.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopDone)
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone)
     );
     assert_eq!(
         app.history.len(),
@@ -4614,7 +4614,10 @@ fn knight_journey_calibration_is_display_only_and_not_a_verified_win() {
     app.input = "/tourney calibrate service".to_string();
     app.submit();
     let service = app.lifecycle_ceremony.as_ref().expect("service preview");
-    assert_eq!(service.kind, crate::viz::lifecycle_viz::CeremonyKind::GoalDone);
+    assert_eq!(
+        service.kind,
+        crate::ui::viz::lifecycle_viz::CeremonyKind::GoalDone
+    );
     assert!(
         service.label.contains("not an achieved outcome"),
         "preview label must stay explicit: {}",
@@ -4645,7 +4648,10 @@ fn knight_journey_calibration_is_display_only_and_not_a_verified_win() {
     app.input = "/tourney calibrate guardian".to_string();
     app.submit();
     let guardian = app.lifecycle_ceremony.as_ref().expect("guardian preview");
-    assert_eq!(guardian.kind, crate::viz::lifecycle_viz::CeremonyKind::LoopDone);
+    assert_eq!(
+        guardian.kind,
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone
+    );
     assert!(guardian.label.contains("not an achieved outcome"));
     assert_eq!(app.loop_ctl.status, loop_status);
     assert_eq!(app.loop_ctl.task, loop_task);
@@ -4660,8 +4666,11 @@ fn knight_journey_calibration_is_display_only_and_not_a_verified_win() {
 #[test]
 fn motion_off_keeps_ceremony_visible_without_fast_tick() {
     let mut app = seed_preview_app();
-    app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
-    app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopFailed, "static");
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
+    app.start_lifecycle_ceremony(
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopFailed,
+        "static",
+    );
     assert!(app.lifecycle_ceremony_active());
     assert!(!app.lifecycle_ceremony_animating());
 }
@@ -4746,16 +4755,19 @@ fn hiding_active_lifecycle_ceremony_stops_fast_tick() {
     let mut app = seed_preview_app();
     // Exercise post-startup Stage cadence; the visible Excalibur intro has
     // its own independent claim on animation ticks in the empty shell.
-    app.startup_intro
-        .dismiss(Instant::now(), crate::viz::lifecycle_viz::MotionMode::Off);
+    app.startup_intro.dismiss(
+        Instant::now(),
+        crate::ui::viz::lifecycle_viz::MotionMode::Off,
+    );
     let standard = render_app_text(&mut app, 120, 40);
     assert!(
         crate::tests::contains_dotmax(&standard),
         "visible world must paint dots"
     );
-    assert!(
-        app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "visible ceremony")
-    );
+    assert!(app.start_lifecycle_ceremony(
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone,
+        "visible ceremony"
+    ));
     let ceremony = render_app_text(&mut app, 120, 40);
     assert!(ceremony.contains("tourney · victory pass"), "{ceremony}");
     assert!(app.needs_fast_tick());
@@ -4772,7 +4784,10 @@ fn hiding_active_lifecycle_ceremony_stops_fast_tick() {
 fn expired_tourney_cut_in_returns_to_miniworld() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.start_lifecycle_ceremony(crate::viz::lifecycle_viz::CeremonyKind::LoopDone, "world return");
+    app.start_lifecycle_ceremony(
+        crate::ui::viz::lifecycle_viz::CeremonyKind::LoopDone,
+        "world return",
+    );
     let cut_in = render_app_text(&mut app, 144, 48);
     assert!(cut_in.contains("tourney · victory pass"), "{cut_in}");
     app.lifecycle_ceremony.as_mut().unwrap().started =
@@ -4799,7 +4814,7 @@ fn local_commands_run_while_a_turn_is_in_flight() {
     unsafe { std::env::set_var("ANGEL_LOOP_FILE", &tmp_loop) };
     let mut app = seed_preview_app();
     // Occupy the single flight slot with a live background job.
-    let (_tx, job) = app_control::BackgroundJob::channel("test background job", "Retry the test");
+    let (_tx, job) = control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(job);
 
     // A local command still executes: /goal must register mid-flight — it's
@@ -4894,9 +4909,7 @@ fn local_commands_run_while_a_turn_is_in_flight() {
     assert!(
         app.history.iter().any(|message| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .starts_with(app_control::TURN_CONTEXT_HEADER)
+                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
                 && message.content.contains("ship the cockpit")
         }),
         "a steer flushed as a follow-up keeps standing context in Harness role"
@@ -5013,7 +5026,7 @@ fn input_steer_does_not_cancel_live_background_work() {
         TestEnvGuard::set("ANGEL_PROC_RECEIPTS", "0"),
     ];
     let launch = harness::Tool::call(
-        &crate::tools::proc::ProcRunTool::in_dir(root.clone()),
+        &crate::agent::tools::proc::ProcRunTool::in_dir(root.clone()),
         &serde_json::json!({"command":"sleep 30", "name":"steer-survival"}),
     )
     .unwrap();
@@ -5030,14 +5043,14 @@ fn input_steer_does_not_cancel_live_background_work() {
     impl Drop for Cleanup {
         fn drop(&mut self) {
             let _ = harness::Tool::call(
-                &crate::tools::proc::ProcStopTool::new(self.1.clone()),
+                &crate::agent::tools::proc::ProcStopTool::new(self.1.clone()),
                 &serde_json::json!({"id":self.0}),
             );
             let _ = std::fs::remove_dir_all(&self.1);
         }
     }
     let _cleanup = Cleanup(id, root);
-    assert!(crate::tools::proc::background_work_pending());
+    assert!(crate::agent::tools::proc::background_work_pending());
     let (mut app, _worker) = seed_live_streaming_app(Vec::new());
     let cancel = Arc::clone(&app.thinking.as_ref().unwrap().cancel);
     app.input = "preserve the scorer build; use this corrected requirement".into();
@@ -5097,7 +5110,7 @@ fn interrupt_denies_a_pending_approval_so_the_worker_can_converge() {
     assert!(app.pending_approval.is_none());
     assert!(matches!(
         decision.recv_timeout(Duration::from_millis(100)),
-        Ok(crate::approval::Decision::Deny)
+        Ok(crate::agent::approval::Decision::Deny)
     ));
     app.thinking = None;
 }
@@ -5873,7 +5886,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert!(app.loop_active());
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopStart),
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::LoopStart),
         "/loop start gets the full engine ceremony"
     );
     // advance() with nothing in flight arms the next iteration through the
@@ -5892,7 +5905,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert!(!app.loop_ctl.awaiting_turn);
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopPaused)
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::LoopPaused)
     );
 
     // /loop resume re-runs; /loop stop ends it.
@@ -5901,7 +5914,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert_eq!(app.loop_ctl.status, loop_ctl::LoopStatus::Running);
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopStart)
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::LoopStart)
     );
     app.input = "/loop stop".to_string();
     app.submit();
@@ -5909,7 +5922,7 @@ fn loop_start_arms_then_stop_and_esc_park() {
     assert!(!app.loop_active());
     assert_eq!(
         app.lifecycle_ceremony.as_ref().map(|c| c.kind),
-        Some(crate::viz::lifecycle_viz::CeremonyKind::LoopStopped)
+        Some(crate::ui::viz::lifecycle_viz::CeremonyKind::LoopStopped)
     );
 
     // TODO: Audit that the environment access only happens in single-threaded code.
@@ -6821,8 +6834,7 @@ fn ps_names_background_flight_slot_ownership() {
         "{idle}"
     );
 
-    let (reply, job) =
-        app_control::BackgroundJob::channel("source diagnostics", "Retry diagnostics");
+    let (reply, job) = control::BackgroundJob::channel("source diagnostics", "Retry diagnostics");
     let progress = reply.output_progress();
     progress(harness::ProcessStream::Stdout, b"working\n");
     progress(harness::ProcessStream::Stderr, b"warning\n");
@@ -6862,8 +6874,7 @@ fn reasoning_pane_names_the_active_background_job() {
         app.reasoning.is_empty(),
         "fixture must cover a fresh session"
     );
-    let (_reply, job) =
-        app_control::BackgroundJob::channel("source diagnostics", "Retry diagnostics");
+    let (_reply, job) = control::BackgroundJob::channel("source diagnostics", "Retry diagnostics");
     app.bg_job = Some(job);
 
     let rendered = render_app_text(&mut app, 180, 60);
@@ -6879,11 +6890,8 @@ fn reasoning_pane_names_the_active_background_job() {
 fn background_job_phase_labels_update_without_changing_cancellation_identity() {
     let _guard = env_lock();
     const PHASES: &[&str] = &["verification ladder · check", "verification ladder · tests"];
-    let (reply, job) = app_control::BackgroundJob::channel_with_phases(
-        "verification ladder",
-        "Retry verify",
-        PHASES,
-    );
+    let (reply, job) =
+        control::BackgroundJob::channel_with_phases("verification ladder", "Retry verify", PHASES);
 
     assert_eq!(job.operation(), PHASES[0]);
     reply.set_phase(1);
@@ -7297,7 +7305,7 @@ fn local_run_surfaces_bounded_live_stdout_and_stderr_before_completion() {
     let live = app
         .bg_job
         .as_ref()
-        .and_then(app_control::BackgroundJob::live_output)
+        .and_then(control::BackgroundJob::live_output)
         .expect("live output should be available before process completion");
     assert!(live.contains("server listening on :3030"));
     assert!(live.contains("[stderr]\nwarming cache"));
@@ -7320,7 +7328,7 @@ fn local_run_surfaces_bounded_live_stdout_and_stderr_before_completion() {
 
 #[test]
 fn background_live_output_keeps_a_bounded_utf8_safe_tail_per_stream() {
-    let (tx, job) = app_control::BackgroundJob::channel("fixture", "Retry fixture");
+    let (tx, job) = control::BackgroundJob::channel("fixture", "Retry fixture");
     let progress = tx.output_progress();
     progress(harness::ProcessStream::Stdout, &vec![b'x'; 8 * 1024]);
     progress(harness::ProcessStream::Stdout, "final ✓\n".as_bytes());
@@ -7395,7 +7403,7 @@ fn background_live_output_keeps_a_bounded_utf8_safe_tail_per_stream() {
 
 #[test]
 fn background_live_output_preserves_cross_stream_arrival_order() {
-    let (tx, job) = app_control::BackgroundJob::channel("fixture", "Retry fixture");
+    let (tx, job) = control::BackgroundJob::channel("fixture", "Retry fixture");
     let progress = tx.output_progress();
     progress(harness::ProcessStream::Stderr, b"warning first\n");
     progress(harness::ProcessStream::Stdout, b"recovery second\n");
@@ -7409,7 +7417,7 @@ fn background_live_output_preserves_cross_stream_arrival_order() {
     assert!(live.contains("[stderr]\nwarning first"), "{live}");
     assert!(live.contains("[stdout]\nrecovery second"), "{live}");
 
-    let (tx, job) = app_control::BackgroundJob::channel("fixture", "Retry fixture");
+    let (tx, job) = control::BackgroundJob::channel("fixture", "Retry fixture");
     let progress = tx.output_progress();
     progress(
         harness::ProcessStream::Stderr,
@@ -7426,7 +7434,7 @@ fn background_live_output_preserves_cross_stream_arrival_order() {
 
 #[test]
 fn background_live_output_bounds_pathological_cross_stream_churn() {
-    let (tx, job) = app_control::BackgroundJob::channel("fixture", "Retry fixture");
+    let (tx, job) = control::BackgroundJob::channel("fixture", "Retry fixture");
     let progress = tx.output_progress();
     for index in 0..20_000 {
         let stream = if index % 2 == 0 {
@@ -7460,7 +7468,7 @@ fn background_live_output_copies_only_registered_process_text() {
     let mut app = seed_preview_app();
     app.reasoning = "stale previous-turn reasoning must not be copied".to_string();
     app.reasoning_shown = app.reasoning.len();
-    let (tx, job) = app_control::BackgroundJob::channel("cargo run", "Retry /run");
+    let (tx, job) = control::BackgroundJob::channel("cargo run", "Retry /run");
     let progress = tx.output_progress();
     for line in 0..40 {
         progress(
@@ -8571,9 +8579,7 @@ fn automatic_skill_hint_is_harness_context_not_operator_text() {
         .enumerate()
         .find(|(_, message)| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .starts_with(app_control::TURN_CONTEXT_HEADER)
+                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
         })
         .expect("Harness-role turn context");
     assert!(context_index > task_index);
@@ -8676,9 +8682,7 @@ fn relentless_latch_injects_and_clears_after_delivered_output() {
         .enumerate()
         .find(|(_, message)| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .starts_with(app_control::TURN_CONTEXT_HEADER)
+                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
         })
         .expect("Harness-role cockpit controls");
     assert!(
@@ -8839,9 +8843,7 @@ fn memories_persist_and_inject_into_turns() {
         .enumerate()
         .find(|(_, message)| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .starts_with(app_control::TURN_CONTEXT_HEADER)
+                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
         })
         .expect("Harness-role memory context");
     assert!(
@@ -9102,31 +9104,31 @@ fn approvals_and_experimental_are_real_toggles() {
     // approval knobs above.
     app.input = "/yolo on".to_string();
     app.submit();
-    assert!(crate::yolo::enabled());
+    assert!(crate::platform::yolo::enabled());
     app.input = "/yolo off".to_string();
     app.submit();
-    assert!(!crate::yolo::enabled());
+    assert!(!crate::platform::yolo::enabled());
     // Smart YOLO: powerful coding without full-machine authority.
     app.input = "/yolos on".to_string();
     app.submit();
-    assert!(crate::yolo::smart_enabled());
-    assert!(!crate::yolo::enabled());
-    assert!(crate::yolo::workspace_power());
+    assert!(crate::platform::yolo::smart_enabled());
+    assert!(!crate::platform::yolo::enabled());
+    assert!(crate::platform::yolo::workspace_power());
     app.input = "/yolo smart".to_string();
     app.submit();
-    assert!(crate::yolo::smart_enabled());
+    assert!(crate::platform::yolo::smart_enabled());
     app.input = "/yolo on".to_string();
     app.submit();
-    assert!(crate::yolo::enabled());
-    assert!(!crate::yolo::smart_enabled());
+    assert!(crate::platform::yolo::enabled());
+    assert!(!crate::platform::yolo::smart_enabled());
     app.input = "/yolos on".to_string();
     app.submit();
-    assert!(crate::yolo::smart_enabled());
-    assert!(!crate::yolo::enabled());
+    assert!(crate::platform::yolo::smart_enabled());
+    assert!(!crate::platform::yolo::enabled());
     app.input = "/yolos off".to_string();
     app.submit();
-    assert!(!crate::yolo::smart_enabled());
-    assert!(!crate::yolo::enabled());
+    assert!(!crate::platform::yolo::smart_enabled());
+    assert!(!crate::platform::yolo::enabled());
     // /experimental toggles a feature-flag env var.
     app.input = "/experimental fallback".to_string();
     app.submit();
@@ -9278,7 +9280,7 @@ fn approval_selftest_roundtrips_through_the_real_broker_without_an_action() {
     assert!(app.thinking.is_none());
     assert!(std::env::var_os("ANGEL_SWARM_APPROVE").is_none());
 
-    crate::yolo::set(true);
+    crate::platform::yolo::set(true);
     app.input = "/approvals selftest".to_string();
     app.submit();
     assert!(app.bg_job.is_none());
@@ -9288,10 +9290,10 @@ fn approval_selftest_roundtrips_through_the_real_broker_without_an_action() {
             .text
             .contains("unavailable while YOLO bypass is enabled")
     }));
-    crate::yolo::set(false);
+    crate::platform::yolo::set(false);
 
     let (busy_tx, busy_job) =
-        app_control::BackgroundJob::channel("test background job", "Retry the test");
+        control::BackgroundJob::channel("test background job", "Retry the test");
     app.bg_job = Some(busy_job);
     app.input = "/approvals selftest".to_string();
     app.submit();
@@ -9534,7 +9536,7 @@ fn oversized_composer_kill_is_refused_without_losing_draft_or_previous_buffer() 
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
-    app.input = "x".repeat(app_control::MAX_COMPOSER_KILL_BYTES + 1);
+    app.input = "x".repeat(control::MAX_COMPOSER_KILL_BYTES + 1);
     app.cursor = 0;
     app.composer_kill_buffer = Some("recover me".to_string());
     let original = app.input.clone();
@@ -9562,7 +9564,7 @@ fn composer_history_recall_filters_media_and_restores_the_exact_scratch_draft() 
         ChatMsg::assistant("first answer"),
         ChatMsg::user_with_media(
             "do not detach this image prompt",
-            vec![crate::club::Media::Image {
+            vec![crate::agent::club::Media::Image {
                 mime: "image/png".to_string(),
                 b64: "c2VjcmV0".to_string(),
             }],
@@ -9606,7 +9608,7 @@ fn composer_history_recall_is_bounded_and_editing_exits_navigation() {
         app.history.push(ChatMsg::user(format!("prompt {index}")));
     }
     app.history.push(ChatMsg::user(
-        "x".repeat(app_control::MAX_COMPOSER_HISTORY_BYTES + 1),
+        "x".repeat(control::MAX_COMPOSER_HISTORY_BYTES + 1),
     ));
     app.history.push(ChatMsg::user("   "));
     app.input = "scratch".to_string();
@@ -9643,7 +9645,7 @@ fn composer_reverse_search_cycles_matches_and_restores_exact_query() {
         ChatMsg::user("fix cache miss"),
         ChatMsg::user_with_media(
             "cargo media prompt must stay attached",
-            vec![crate::club::Media::Image {
+            vec![crate::agent::club::Media::Image {
                 mime: "image/png".to_string(),
                 b64: "c2VjcmV0".to_string(),
             }],
@@ -9693,7 +9695,7 @@ fn composer_reverse_search_honors_byte_budget_and_editing_exits() {
     for index in 0..9 {
         app.history.push(ChatMsg::user(format!(
             "{index}{}",
-            "x".repeat(app_control::MAX_COMPOSER_HISTORY_BYTES - 1)
+            "x".repeat(control::MAX_COMPOSER_HISTORY_BYTES - 1)
         )));
     }
     app.input = "needle".to_string();
@@ -9840,7 +9842,13 @@ fn composer_view_visibly_marks_the_keyboard_selection() {
     use ratatui::style::Color;
 
     let _guard = env_lock();
-    let view = crate::views::status_view::composer_view_with_selection("alpha beta", 20, 2, 10, Some((6, 10)));
+    let view = crate::ui::views::status_view::composer_view_with_selection(
+        "alpha beta",
+        20,
+        2,
+        10,
+        Some((6, 10)),
+    );
     let selected = view.lines[0]
         .spans
         .iter()
@@ -9850,7 +9858,13 @@ fn composer_view_visibly_marks_the_keyboard_selection() {
     assert_eq!(selected.style.bg, Some(hud::HUD_BLUE));
 
     let long = "x".repeat(100);
-    let compact = crate::views::status_view::composer_view_with_selection(&long, 12, 1, 50, Some((48, 52)));
+    let compact = crate::ui::views::status_view::composer_view_with_selection(
+        &long,
+        12,
+        1,
+        50,
+        Some((48, 52)),
+    );
     assert!(compact.compacted);
     assert!(
         compact.lines[0]
@@ -10064,12 +10078,12 @@ fn startup_world_renderer_opens_the_matching_visible_pane() {
     for alias in ["3d", "dotmax", "raycast", "ambient", "top", "typo"] {
         let _view = crate::tests::TestEnvGuard::set("ANGEL_WORLD_VIEW", alias);
         let mut app = seed_preview_app();
-        app.scryglass = crate::scryglass::Scryglass::for_world(app.world.destination());
+        app.scryglass = crate::ui::scryglass::Scryglass::for_world(app.world.destination());
         app.input = "preserve the operator draft".into();
         let text = render_app_text(&mut app, 144, 48);
         assert_eq!(
             app.scryglass.surface,
-            crate::scryglass::StageSurface::WorldFirstPerson
+            crate::ui::scryglass::StageSurface::WorldFirstPerson
         );
         assert!(crate::tests::contains_dotmax(&text), "{alias}: {text}");
         assert_eq!(app.input, "preserve the operator draft");
@@ -10108,8 +10122,10 @@ fn miniworld_is_the_artifacts_panes_default_resident() {
 
     // The Living Atlas retains delivered media in its Artifacts lane;
     // `/world` returns home.
-    app.atlas_view.set_lane(crate::atlas::AtlasLane::Artifacts);
-    app.scryglass.navigate(crate::scryglass::StageRoute::Vault);
+    app.atlas_view
+        .set_lane(crate::knowledge::atlas::AtlasLane::Artifacts);
+    app.scryglass
+        .navigate(crate::ui::scryglass::StageRoute::Vault);
     let vault = render_app_text(&mut app, 144, 48);
     assert!(vault.contains("Living Atlas"), "{vault}");
     assert!(vault.contains("Artifacts"), "{vault}");
@@ -10131,8 +10147,10 @@ fn vault_back_button_restores_the_living_world() {
         label: "operator notes".to_string(),
         url: "https://example.com/notes".to_string(),
     });
-    app.atlas_view.set_lane(crate::atlas::AtlasLane::Artifacts);
-    app.scryglass.navigate(crate::scryglass::StageRoute::Vault);
+    app.atlas_view
+        .set_lane(crate::knowledge::atlas::AtlasLane::Artifacts);
+    app.scryglass
+        .navigate(crate::ui::scryglass::StageRoute::Vault);
 
     let vault = render_app_text(&mut app, 144, 48);
     assert!(
@@ -10200,14 +10218,15 @@ fn living_atlas_renders_wide_narrow_and_short_terminal_layouts() {
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let mut app = seed_preview_app();
-    app.atlas = crate::atlas::AtlasService::open_in(&workspace, root.join("store"));
+    app.atlas = crate::knowledge::atlas::AtlasService::open_in(&workspace, root.join("store"));
     app.atlas
         .add_operator(
-            crate::atlas::AtlasKind::Decision,
+            crate::knowledge::atlas::AtlasKind::Decision,
             "Run the narrow Rust test before the full cockpit suite.",
         )
         .unwrap();
-    app.atlas_view.set_lane(crate::atlas::AtlasLane::Project);
+    app.atlas_view
+        .set_lane(crate::knowledge::atlas::AtlasLane::Project);
 
     let render = |app: &mut App, width: u16, height: u16| {
         let backend = TestBackend::new(width, height);
@@ -10215,7 +10234,7 @@ fn living_atlas_renders_wide_narrow_and_short_terminal_layouts() {
         terminal
             .draw(|frame| {
                 let area = frame.area();
-                crate::draw::render_vault_for_test(frame, app, area);
+                crate::ui::draw::render_vault_for_test(frame, app, area);
             })
             .unwrap();
         test_backend_text(terminal.backend())
@@ -10249,14 +10268,14 @@ fn atlas_review_keys_yield_to_a_nonempty_composer() {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&workspace).unwrap();
     let mut app = seed_preview_app();
-    app.atlas = crate::atlas::AtlasService::open_in(&workspace, root.join("store"));
+    app.atlas = crate::knowledge::atlas::AtlasService::open_in(&workspace, root.join("store"));
     let item = app
         .atlas
         .propose(
-            crate::atlas::AtlasKind::Fact,
+            crate::knowledge::atlas::AtlasKind::Fact,
             "proposal stays inert",
             Some(0.8),
-            vec![crate::atlas::AtlasSource {
+            vec![crate::knowledge::atlas::AtlasSource {
                 id: "test:proposal".to_string(),
                 kind: "test".to_string(),
                 digest: "source-digest".to_string(),
@@ -10266,17 +10285,19 @@ fn atlas_review_keys_yield_to_a_nonempty_composer() {
             }],
         )
         .unwrap();
-    app.atlas_view.set_lane(crate::atlas::AtlasLane::Review);
+    app.atlas_view
+        .set_lane(crate::knowledge::atlas::AtlasLane::Review);
     app.focus_module("artifacts");
-    app.scryglass.navigate(crate::scryglass::StageRoute::Vault);
-    app.scryglass.surface = crate::scryglass::StageSurface::Vault;
+    app.scryglass
+        .navigate(crate::ui::scryglass::StageRoute::Vault);
+    app.scryglass.surface = crate::ui::scryglass::StageSurface::Vault;
     app.input = "draft".to_string();
     app.cursor = app.input.chars().count();
     app.on_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
     assert_eq!(app.input, "drafta");
     assert_eq!(
         app.atlas.item(&item.id).unwrap().lifecycle,
-        crate::atlas::AtlasLifecycle::Proposed
+        crate::knowledge::atlas::AtlasLifecycle::Proposed
     );
 
     app.input.clear();
@@ -10284,7 +10305,7 @@ fn atlas_review_keys_yield_to_a_nonempty_composer() {
     app.on_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
     assert_eq!(
         app.atlas.item(&item.id).unwrap().lifecycle,
-        crate::atlas::AtlasLifecycle::Active
+        crate::knowledge::atlas::AtlasLifecycle::Active
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -10293,7 +10314,8 @@ fn atlas_review_keys_yield_to_a_nonempty_composer() {
 fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_controls() {
     let _guard = env_lock();
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut app = seed_preview_app();
     app.input = "keep this operator draft λ".into();
     app.focus_module("artifacts");
@@ -10332,7 +10354,8 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
 fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     let _guard = env_lock();
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
 
@@ -10341,14 +10364,14 @@ fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     assert!(!startup.contains("Scryglass · ARRIVAL"), "{startup}");
 
     // ARRIVAL exists only after a correlated call really reaches its landmark.
-    let call_id = crate::harness::ToolEventId("arrival-test".into());
+    let call_id = crate::agent::harness::ToolEventId("arrival-test".into());
     app.world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(call_id, crate::world_viz::Building::Smithy, false);
+        .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
     for _ in 0..200 {
         app.world.tick();
-        if app.world.arrived_building() == Some(crate::world_viz::Building::Smithy) {
+        if app.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
             break;
         }
     }
@@ -10531,11 +10554,11 @@ fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
             "Scryglass did not remain braille-native\n{arrived}"
         );
 
-        let id = crate::harness::ToolEventId("obsolete-cinematic".into());
+        let id = crate::agent::harness::ToolEventId("obsolete-cinematic".into());
         app.world
             .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
         app.scryglass
-            .begin_journey(id, crate::world_viz::Building::Smithy, false);
+            .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
         app.world.tick();
         let travelling = render_app_text(&mut app, 144, 48);
         assert!(crate::tests::contains_dotmax(&travelling), "{travelling}");
@@ -10548,7 +10571,8 @@ fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
 
 #[test]
 fn travelling_miniviz_saddles_up_the_braille_ride() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_WORLD_FP") };
@@ -10556,11 +10580,11 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
     app.focus_module("artifacts");
 
     // Send the knight riding and capture the short journey cue before arrival.
-    let id = crate::harness::ToolEventId("travel-test".into());
+    let id = crate::agent::harness::ToolEventId("travel-test".into());
     app.world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(id, crate::world_viz::Building::Smithy, false);
+        .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
     let riding = render_app_text(&mut app, 96, 36);
     assert!(
         crate::tests::contains_dotmax(&riding),
@@ -10582,7 +10606,7 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
 
     // ⟦Map⟧ returns to the Realm route without mutating agent navigation.
     app.scryglass
-        .toggle_world_route(crate::world_viz::Building::Smithy);
+        .toggle_world_route(crate::stage::world_viz::Building::Smithy);
     let town = render_app_text(&mut app, 96, 36);
     assert!(
         crate::tests::contains_dotmax(&town),
@@ -10598,11 +10622,11 @@ fn obsolete_world_fp_env_does_not_override_scryglass_view_mode() {
     unsafe { std::env::set_var("ANGEL_WORLD_FP", "0") };
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
-    let id = crate::harness::ToolEventId("obsolete-world-fp".into());
+    let id = crate::agent::harness::ToolEventId("obsolete-world-fp".into());
     app.world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(id, crate::world_viz::Building::Smithy, false);
+        .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let travelling = render_app_text(&mut app, 96, 36);
         assert!(crate::tests::contains_dotmax(&travelling), "{travelling}");
@@ -10662,7 +10686,7 @@ fn comp_mode_skips_arrival_emphasis_and_both_modes_show_text_immediately() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TUI_MOTION") };
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(draw::transcript_roll_in_allowed());
 
     let mut app = seed_preview_app();
@@ -10685,7 +10709,7 @@ fn comp_mode_skips_arrival_emphasis_and_both_modes_show_text_immediately() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!draw::transcript_roll_in_allowed());
 
     let mut armed = seed_preview_app();
@@ -10868,22 +10892,24 @@ fn compact_loop_transition_keeps_miniviz_inside_its_existing_panel_matrix() {
     let _guard = env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "kitty");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
 
     for width in [24u16, 32, 40, 48, 60, 72, 96] {
         for height in [8u16, 10, 12, 16, 24] {
             let mut app = seed_preview_app();
-            app.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+            app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
             app.terminal_focused = false;
-            app.startup_intro
-                .dismiss(Instant::now(), crate::viz::lifecycle_viz::MotionMode::Off);
+            app.startup_intro.dismiss(
+                Instant::now(),
+                crate::ui::viz::lifecycle_viz::MotionMode::Off,
+            );
             let _idle = render_app_text(&mut app, width, height);
             let idle_transcript = app.panel_frames.get(panels::PanelKind::Transcript);
             let idle_artifacts = app.panel_frames.get(panels::PanelKind::Artifacts);
 
             // This is the exact transition that makes hammertime visible; it
             // must change only Stage contents, never its panel allocation.
-            app.loop_ctl.status = crate::loop_ctl::LoopStatus::Running;
+            app.loop_ctl.status = crate::drive::loop_ctl::LoopStatus::Running;
             app.loop_ctl.task = "compact containment fixture".into();
             let running = render_app_text(&mut app, width, height);
             assert_eq!(
@@ -11085,8 +11111,12 @@ fn render_profile_for(label: &str, apollo_specialist: bool) -> String {
     terminal
         .draw(|frame| {
             frame.render_widget(
-                Paragraph::new(crate::views::agent_view::profile_lines(profile, label, apollo_specialist))
-                    .style(panel_style()),
+                Paragraph::new(crate::ui::views::agent_view::profile_lines(
+                    profile,
+                    label,
+                    apollo_specialist,
+                ))
+                .style(panel_style()),
                 frame.area(),
             );
         })
@@ -11276,9 +11306,9 @@ fn active_profile_reuses_cached_label_resolution() {
 #[test]
 fn portrait_stays_active_until_reasoning_roll_in_catches_up() {
     let mut app = seed_preview_app();
-    assert!(!crate::draw::portrait_active(&app));
+    assert!(!crate::ui::draw::portrait_active(&app));
     app.last_completed_route = Some(LastCompletedRoute {
-        route: crate::club::RouteIdentity {
+        route: crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
@@ -11288,17 +11318,17 @@ fn portrait_stays_active_until_reasoning_roll_in_catches_up() {
     });
     app.reasoning = "private reasoning still rolling".to_string();
     app.reasoning_shown = 8;
-    assert!(crate::draw::portrait_active(&app));
+    assert!(crate::ui::draw::portrait_active(&app));
     app.bag = Bag::for_reasoning_render_test();
     assert!(
-        !crate::draw::portrait_active(&app),
+        !crate::ui::draw::portrait_active(&app),
         "old reasoning must not energize a newly selected portrait"
     );
     app.bag = Bag::practice_for_test();
     app.reasoning_shown = app.reasoning.len();
-    assert!(!crate::draw::portrait_active(&app));
+    assert!(!crate::ui::draw::portrait_active(&app));
     app.thinking = Some(Thinking::pending_for_test("openai"));
-    assert!(crate::draw::portrait_active(&app));
+    assert!(crate::ui::draw::portrait_active(&app));
 }
 
 #[test]
@@ -11464,15 +11494,15 @@ fn advance_folds_provider_cache_deltas_into_the_session_meter() {
     // A club whose cumulative counters say: 400 prompt tokens this session,
     // 300 of them served from the provider's prompt cache.
     struct CachedClub;
-    impl crate::club::Club for CachedClub {
+    impl crate::agent::club::Club for CachedClub {
         fn respond(&self, _prompt: &str) -> Result<String, String> {
             Ok("ok".to_string())
         }
         fn label(&self) -> &str {
             "cached"
         }
-        fn token_usage(&self) -> Option<crate::club::TokenUsage> {
-            Some(crate::club::TokenUsage {
+        fn token_usage(&self) -> Option<crate::agent::club::TokenUsage> {
+            Some(crate::agent::club::TokenUsage {
                 turns: 1,
                 last_input: 400,
                 last_output: 10,
@@ -11482,8 +11512,8 @@ fn advance_folds_provider_cache_deltas_into_the_session_meter() {
                 total_reasoning: 0,
             })
         }
-        fn cache_usage(&self) -> crate::club::CacheUsage {
-            crate::club::CacheUsage {
+        fn cache_usage(&self) -> crate::agent::club::CacheUsage {
+            crate::agent::club::CacheUsage {
                 control_requests: 0,
                 read_input_tokens: 300,
                 write_input_tokens: 0,
@@ -11524,15 +11554,15 @@ fn advance_folds_provider_cache_deltas_into_the_session_meter() {
 #[test]
 fn fold_turn_cache_subtracts_the_worker_spawn_snapshot() {
     struct CachedClub;
-    impl crate::club::Club for CachedClub {
+    impl crate::agent::club::Club for CachedClub {
         fn respond(&self, _prompt: &str) -> Result<String, String> {
             Ok("ok".to_string())
         }
         fn label(&self) -> &str {
             "cached"
         }
-        fn token_usage(&self) -> Option<crate::club::TokenUsage> {
-            Some(crate::club::TokenUsage {
+        fn token_usage(&self) -> Option<crate::agent::club::TokenUsage> {
+            Some(crate::agent::club::TokenUsage {
                 turns: 2,
                 last_input: 300,
                 last_output: 10,
@@ -11542,8 +11572,8 @@ fn fold_turn_cache_subtracts_the_worker_spawn_snapshot() {
                 total_reasoning: 0,
             })
         }
-        fn cache_usage(&self) -> crate::club::CacheUsage {
-            crate::club::CacheUsage {
+        fn cache_usage(&self) -> crate::agent::club::CacheUsage {
+            crate::agent::club::CacheUsage {
                 control_requests: 0,
                 read_input_tokens: 300,
                 write_input_tokens: 0,
@@ -11561,8 +11591,8 @@ fn fold_turn_cache_subtracts_the_worker_spawn_snapshot() {
         ))),
     );
     app.thinking.as_mut().unwrap().club = Some(Arc::new(CachedClub));
-    app.thinking.as_mut().unwrap().spawn_usage = crate::turn::published_spawn_usage(
-        Some(crate::club::TokenUsage {
+    app.thinking.as_mut().unwrap().spawn_usage = crate::agent::turn::published_spawn_usage(
+        Some(crate::agent::club::TokenUsage {
             turns: 1,
             last_input: 100,
             last_output: 10,
@@ -11571,10 +11601,10 @@ fn fold_turn_cache_subtracts_the_worker_spawn_snapshot() {
             total_output: 10,
             total_reasoning: 0,
         }),
-        crate::club::CacheUsage {
+        crate::agent::club::CacheUsage {
             read_input_tokens: 50,
             read_accounting_responses: 1,
-            ..crate::club::CacheUsage::default()
+            ..crate::agent::club::CacheUsage::default()
         },
     );
     app.advance();
@@ -11663,7 +11693,7 @@ fn repeated_cadence_failure_variants_hold_one_gauge_row() {
         "{cadence_lines:?}"
     );
     assert_eq!(
-        crate::views::turn_event_view::activity_gauge_count(cadence_lines[0]),
+        crate::ui::views::turn_event_view::activity_gauge_count(cadence_lines[0]),
         Some(4)
     );
     // Repeats bump the gauge in place — nothing rides the strip's note line.
@@ -11953,12 +11983,12 @@ fn first_visible_stream_event_is_preserved_until_the_answer_receipt() {
     tx.send(Ok((
         vec![ChatMsg::assistant("answer")],
         "answer".to_string(),
-        crate::club::RouteIdentity {
+        crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
         },
-        crate::harness::TurnStopReason::Answer,
+        crate::agent::harness::TurnStopReason::Answer,
     )))
     .unwrap();
     app.advance();
@@ -11980,7 +12010,7 @@ fn first_visible_stream_event_is_preserved_until_the_answer_receipt() {
 #[test]
 fn route_receipt_exposes_requested_to_resolved_failover() {
     let (mut app, tx) = seed_live_streaming_app(Vec::new());
-    app.thinking.as_mut().unwrap().requested_route = crate::club::RouteIdentity {
+    app.thinking.as_mut().unwrap().requested_route = crate::agent::club::RouteIdentity {
         driver: "openai".to_string(),
         model: Some("gpt-5.6-sol".to_string()),
         reasoning_effort: Some("ultra".to_string()),
@@ -11988,12 +12018,12 @@ fn route_receipt_exposes_requested_to_resolved_failover() {
     tx.send(Ok((
         vec![ChatMsg::assistant("fallback answer")],
         "fallback answer".to_string(),
-        crate::club::RouteIdentity {
+        crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
         },
-        crate::harness::TurnStopReason::Answer,
+        crate::agent::harness::TurnStopReason::Answer,
     )))
     .unwrap();
     app.advance();
@@ -12022,7 +12052,7 @@ fn autonomous_loop_iteration_does_not_spam_rating_receipts() {
         ))),
     );
     app.loop_ctl.awaiting_turn = true;
-    app.loop_ctl.status = crate::loop_ctl::LoopStatus::Running;
+    app.loop_ctl.status = crate::drive::loop_ctl::LoopStatus::Running;
     app.advance();
 
     assert!(
@@ -12095,7 +12125,7 @@ function updatePlayer(){ctx.fillRect(20,40,16,16);ctx.fillRect(48,40,16,16);}
 loop();
 </script></body></html>"#;
     assert!(
-        early.chars().count() < crate::app_control::STREAM_ARTIFACT_THRESHOLD_CHARS,
+        early.chars().count() < crate::app::control::STREAM_ARTIFACT_THRESHOLD_CHARS,
         "precondition: early detector should fire before large-document threshold"
     );
     let (mut app, _tx) = seed_live_streaming_app(vec![harness::TurnEvent::Token(early.into())]);
@@ -12261,12 +12291,12 @@ fn tool_strip_renders_under_transcript_and_collapses_to_tally() {
     tx.send(Ok((
         Vec::new(),
         "done".to_string(),
-        crate::club::RouteIdentity {
+        crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
         },
-        crate::harness::TurnStopReason::Answer,
+        crate::agent::harness::TurnStopReason::Answer,
     )))
     .unwrap();
     app.advance();
@@ -12309,8 +12339,7 @@ fn rebuild_display_keeps_saved_html_document_as_artifact() {
 #[test]
 fn vanished_background_worker_reports_failure_and_releases_the_slot() {
     let mut app = seed_preview_app();
-    let (reply, job) =
-        app_control::BackgroundJob::channel("science search", "Retry /science <query>");
+    let (reply, job) = control::BackgroundJob::channel("science search", "Retry /science <query>");
     drop(reply);
     app.bg_job = Some(job);
 
@@ -12335,7 +12364,7 @@ fn vanished_background_worker_reports_failure_and_releases_the_slot() {
 #[test]
 fn interrupt_cancels_background_job_and_suppresses_its_late_result() {
     let mut app = seed_preview_app();
-    let (reply, job) = app_control::BackgroundJob::channel("context compaction", "Retry /compact");
+    let (reply, job) = control::BackgroundJob::channel("context compaction", "Retry /compact");
     app.bg_job = Some(job);
 
     app.on_key(ratatui::crossterm::event::KeyEvent::new(
@@ -12346,7 +12375,7 @@ fn interrupt_cancels_background_job_and_suppresses_its_late_result() {
     assert!(reply.is_cancelled(), "worker receives cancellation state");
     assert!(
         reply
-            .send(app_control::BgOutcome::Note(
+            .send(control::BgOutcome::Note(
                 "late result must stay invisible".to_string()
             ))
             .is_err(),
@@ -12369,8 +12398,11 @@ fn interrupt_cancels_background_job_and_suppresses_its_late_result() {
 fn stale_compaction_outcome_is_rejected_without_memory_side_effects() {
     struct CountingStore(Arc<std::sync::atomic::AtomicUsize>);
 
-    impl crate::memory::store::MemoryStore for CountingStore {
-        fn deposit(&self, _drawer: &crate::memory::store::Drawer) -> Result<String, String> {
+    impl crate::knowledge::memory::store::MemoryStore for CountingStore {
+        fn deposit(
+            &self,
+            _drawer: &crate::knowledge::memory::store::Drawer,
+        ) -> Result<String, String> {
             self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             Ok("filed".to_string())
         }
@@ -12396,21 +12428,21 @@ fn stale_compaction_outcome_is_rejected_without_memory_side_effects() {
         .map(|message| message.content.clone())
         .collect::<Vec<_>>();
     let deposits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let store: Arc<dyn crate::memory::store::MemoryStore> =
+    let store: Arc<dyn crate::knowledge::memory::store::MemoryStore> =
         Arc::new(CountingStore(Arc::clone(&deposits)));
-    let drawer = crate::memory::store::Drawer {
+    let drawer = crate::knowledge::memory::store::Drawer {
         wing: "test".to_string(),
         room: "Facts".to_string(),
         content: "must not be filed".to_string(),
         source: "stale-result-test".to_string(),
     };
-    let (reply, job) = app_control::BackgroundJob::channel("context compaction", "Retry /compact");
+    let (reply, job) = control::BackgroundJob::channel("context compaction", "Retry /compact");
     reply
-        .send(app_control::BgOutcome::Compact {
+        .send(control::BgOutcome::Compact {
             range: 1..usize::MAX,
             note: Box::new(ChatMsg::system("stale compact note")),
             plan: None,
-            deposits: Some(app_control::MemoryDepositBatch::new(
+            deposits: Some(control::MemoryDepositBatch::new(
                 store,
                 vec![drawer],
                 app.tools.current_workspace().to_path_buf(),
@@ -12445,8 +12477,11 @@ fn stale_compaction_outcome_is_rejected_without_memory_side_effects() {
 fn compact_memory_filing_reports_partial_failure_bounded_and_workspace_aware() {
     struct SelectiveStore;
 
-    impl crate::memory::store::MemoryStore for SelectiveStore {
-        fn deposit(&self, drawer: &crate::memory::store::Drawer) -> Result<String, String> {
+    impl crate::knowledge::memory::store::MemoryStore for SelectiveStore {
+        fn deposit(
+            &self,
+            drawer: &crate::knowledge::memory::store::Drawer,
+        ) -> Result<String, String> {
             if drawer.content == "file me" {
                 Ok("filed".to_string())
             } else {
@@ -12480,7 +12515,7 @@ fn compact_memory_filing_reports_partial_failure_bounded_and_workspace_aware() {
     ];
     let drawers = ["file me", "reject me"]
         .into_iter()
-        .map(|content| crate::memory::store::Drawer {
+        .map(|content| crate::knowledge::memory::store::Drawer {
             wing: "test".to_string(),
             room: "Facts".to_string(),
             content: content.to_string(),
@@ -12488,13 +12523,13 @@ fn compact_memory_filing_reports_partial_failure_bounded_and_workspace_aware() {
         })
         .collect();
     let previous_workspace = PathBuf::from("/tmp/previous\nworkspace");
-    let (reply, job) = app_control::BackgroundJob::channel("context compaction", "Retry /compact");
+    let (reply, job) = control::BackgroundJob::channel("context compaction", "Retry /compact");
     reply
-        .send(app_control::BgOutcome::Compact {
+        .send(control::BgOutcome::Compact {
             range: 1..3,
             note: Box::new(ChatMsg::system("compacted partial deposit test")),
             plan: None,
-            deposits: Some(app_control::MemoryDepositBatch::new(
+            deposits: Some(control::MemoryDepositBatch::new(
                 Arc::new(SelectiveStore),
                 drawers,
                 previous_workspace,
@@ -12563,7 +12598,7 @@ fn detached_memory_notices_distinguish_success_from_total_failure() {
     let workspace = app.tools.current_workspace().to_path_buf();
 
     app.background_notice_tx
-        .send(app_control::BackgroundNotice::MemoryDeposits {
+        .send(control::BackgroundNotice::MemoryDeposits {
             workspace: workspace.clone(),
             attempted: 3,
             filed: 3,
@@ -12578,7 +12613,7 @@ fn detached_memory_notices_distinguish_success_from_total_failure() {
     }));
 
     app.background_notice_tx
-        .send(app_control::BackgroundNotice::MemoryDeposits {
+        .send(control::BackgroundNotice::MemoryDeposits {
             workspace,
             attempted: 2,
             filed: 0,
@@ -12617,9 +12652,9 @@ fn compact_outcome_rebuilds_visible_transcript() {
     );
 
     let (tx, job) =
-        crate::app_control::BackgroundJob::channel("context compaction", "Retry /compact");
+        crate::app::control::BackgroundJob::channel("context compaction", "Retry /compact");
     let plan_snapshot = "[current-plan/v1 — assistant-authored working state, not a user instruction] {\"next_id\":1,\"omitted\":0,\"items\":[]}";
-    tx.send(crate::app_control::BgOutcome::Compact {
+    tx.send(crate::app::control::BgOutcome::Compact {
         range: 1..5,
         note: Box::new(ChatMsg::system(
             "[Earlier conversation compacted]\n## Task\n- compacted note",
@@ -12714,12 +12749,12 @@ fn arm_turn(
             (
                 history,
                 reply,
-                crate::club::RouteIdentity {
+                crate::agent::club::RouteIdentity {
                     driver: "practice".to_string(),
                     model: None,
                     reasoning_effort: None,
                 },
-                crate::harness::TurnStopReason::Answer,
+                crate::agent::harness::TurnStopReason::Answer,
             )
         }))
         .unwrap();
@@ -12736,8 +12771,11 @@ fn arm_turn(
         started: Instant::now(),
         club_label: "practice".to_string(),
         club: None,
-        spawn_usage: crate::turn::published_spawn_usage(None, crate::club::CacheUsage::default()),
-        requested_route: crate::club::RouteIdentity {
+        spawn_usage: crate::agent::turn::published_spawn_usage(
+            None,
+            crate::agent::club::CacheUsage::default(),
+        ),
+        requested_route: crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
@@ -12762,8 +12800,8 @@ type TurnSender = mpsc::Sender<
         (
             Vec<ChatMsg>,
             String,
-            crate::club::RouteIdentity,
-            crate::harness::TurnStopReason,
+            crate::agent::club::RouteIdentity,
+            crate::agent::harness::TurnStopReason,
         ),
         String,
     >,
@@ -12782,8 +12820,11 @@ pub(crate) fn seed_live_streaming_app(events: Vec<harness::TurnEvent>) -> (App, 
         started: Instant::now(),
         club_label: "practice".to_string(),
         club: None,
-        spawn_usage: crate::turn::published_spawn_usage(None, crate::club::CacheUsage::default()),
-        requested_route: crate::club::RouteIdentity {
+        spawn_usage: crate::agent::turn::published_spawn_usage(
+            None,
+            crate::agent::club::CacheUsage::default(),
+        ),
+        requested_route: crate::agent::club::RouteIdentity {
             driver: "practice".to_string(),
             model: None,
             reasoning_effort: None,
@@ -12926,7 +12967,7 @@ fn render_transcript_full_reference(frame: &mut Frame, app: &mut App, area: Rect
     if area.width == 0 || area.height == 0 {
         return;
     }
-    let block = hud_block(crate::views::status_view::agent_shell_title());
+    let block = hud_block(crate::ui::views::status_view::agent_shell_title());
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let strip_h = tool_strip_height(app, inner.height);
@@ -12936,7 +12977,7 @@ fn render_transcript_full_reference(frame: &mut Frame, app: &mut App, area: Rect
         let row = app.tool_strip.ambient_row(
             inner.width as usize,
             Instant::now(),
-            crate::viz::lifecycle_viz::MotionMode::Off,
+            crate::ui::viz::lifecycle_viz::MotionMode::Off,
             false,
         );
         frame.render_widget(
@@ -12997,7 +13038,7 @@ fn windowed_transcript_matches_full_render() {
                 of rows when rendered, enough to exercise wrapping + windowing.";
     let mk = |n: usize, partial: &str| -> App {
         let mut a = seed_preview_app();
-        a.visual_motion = crate::viz::lifecycle_viz::MotionMode::Off;
+        a.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
         a.messages.clear();
         for i in 0..n {
             a.messages.push(Message {
@@ -13248,11 +13289,11 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
 
-    let call_id = crate::harness::ToolEventId("arrival-orbit-test".into());
+    let call_id = crate::agent::harness::ToolEventId("arrival-orbit-test".into());
     app.world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(call_id, crate::world_viz::Building::Smithy, false);
+        .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
     app.world.tick();
     assert_eq!(
         app.world.arrived_building(),
@@ -13266,13 +13307,13 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
 
     for _ in 0..200 {
         app.world.tick();
-        if app.world.arrived_building() == Some(crate::world_viz::Building::Smithy) {
+        if app.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
             break;
         }
     }
     assert_eq!(
         app.world.arrived_building(),
-        Some(crate::world_viz::Building::Smithy)
+        Some(crate::stage::world_viz::Building::Smithy)
     );
     let _arrival = render_app_text(&mut app, 144, 48);
     let expiry = std::time::Instant::now();
@@ -13285,11 +13326,11 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
 
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::scryglass::StageRoute::Explore(crate::world_viz::Building::Smithy)
+        crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Smithy)
     );
     assert_eq!(
         app.scryglass.controller.resolved_scene(false, false, false),
-        crate::scryglass::StageSurface::WorldFirstPerson
+        crate::ui::scryglass::StageSurface::WorldFirstPerson
     );
     let settled = app
         .world
@@ -13303,7 +13344,8 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
 
 #[test]
 fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
-    let _view = crate::world_viz::world3d::pin(crate::world_viz::world3d::WorldView::Mesh3d);
+    let _view =
+        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.world.settle_at_for_test(world_viz::Building::Smithy);
@@ -13378,7 +13420,7 @@ fn first_person_camera_keys_change_free_look_but_map_keys_do_not() {
     {
         // Pin Dotmax for the rendered yaw claim. The key handling below is
         // view-independent and stays on the default.
-        let _pin = crate::world_viz::world3d::pin_world3d();
+        let _pin = crate::stage::world_viz::world3d::pin_world3d();
         let straight = app
             .world
             .scryglass_frame_paced(80, 20, false, 0.0, 0.0, 1.05)
@@ -13428,7 +13470,7 @@ fn dotmax_mouse_gestures_control_realm_and_explore_but_not_hidden_camera() {
     let _world = TestEnvGuard::set("ANGEL_SCRYGLASS", "1");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     let camera = |app: &App| {
@@ -13733,9 +13775,7 @@ fn retard_mode_arms_and_injects_directive() {
         .iter()
         .find(|message| {
             message.role == ChatRole::Harness
-                && message
-                    .content
-                    .starts_with(app_control::TURN_CONTEXT_HEADER)
+                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
         })
         .expect("Harness-role cockpit controls");
     assert!(
@@ -14039,7 +14079,7 @@ fn ledger_command_renders_the_recent_turn_table() {
     std::fs::create_dir_all(&dir).unwrap();
     let _log = TestEnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
     let _dir = TestEnvGuard::set("ANGEL_TRAJECTORY_DIR", dir.to_string_lossy().as_ref());
-    crate::harness::write_trajectory(&serde_json::json!({
+    crate::agent::harness::write_trajectory(&serde_json::json!({
         "schema": "angel-trajectory/v2", "ts_ms": 1_700_000_000_000u64, "club": "glm-5.3-flash",
         "hops": 4, "reward": 1.0, "answer": "done",
         "usage": {"input": 1000, "output": 321, "reasoning": 7},
@@ -14088,9 +14128,9 @@ fn receipt_consecutive_rows_and_trace() {
         rows[0].text
     );
     assert_eq!(
-        crate::views::turn_event_view::activity_gauge_count(&rows[0].text)
+        crate::ui::views::turn_event_view::activity_gauge_count(&rows[0].text)
             .unwrap()
-            .min(crate::views::turn_event_view::NOTICE_GAUGE_FULL),
+            .min(crate::ui::views::turn_event_view::NOTICE_GAUGE_FULL),
         10
     );
     println!("receipt rows: before=30 after=1 count=30 range=1–30 ms gauge_fill=10");
@@ -14206,7 +14246,7 @@ fn authority_profile_sandbox_surface_uses_shared_renderer() {
     app.input = "/sandbox".into();
     app.submit();
     let text = &app.messages.last().unwrap().text;
-    assert!(text.contains(&crate::authority_profile::active(false).text));
+    assert!(text.contains(&crate::platform::authority_profile::active(false).text));
     for forbidden in ["confined", "sandboxed", "isolated"] {
         assert!(!text.to_lowercase().contains(forbidden));
     }

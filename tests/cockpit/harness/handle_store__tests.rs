@@ -354,7 +354,7 @@ fn eager_offload_keeps_body_when_disclosure_tool_is_disabled() {
 
 #[test]
 fn inspection_identity_for_offload_skips_when_cannot_park() {
-    use crate::club::ToolCall;
+    use crate::agent::club::ToolCall;
     let _lock = crate::tests::env_lock();
     let _store = EnvGuard::set("ANGEL_HANDLE_STORE", "1");
     let _read = EnvGuard::set("ANGEL_HANDLE_READ_TOOL", "1");
@@ -402,7 +402,7 @@ fn inspection_identity_for_offload_skips_when_cannot_park() {
     assert_eq!(parked, "read_file|src/lib.rs");
     assert_eq!(
         inspection_identity_for_offload(&read, &("READ_BODY_".to_string() + &"x".repeat(200))),
-        crate::harness::inspection_identity(&read)
+        crate::agent::harness::inspection_identity(&read)
     );
 }
 

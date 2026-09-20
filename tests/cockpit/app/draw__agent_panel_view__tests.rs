@@ -2,7 +2,7 @@ use super::{
     render_agent_bay, speech_flow_split, treebeard_strip_label, treebeard_strip_label_with_forge,
     treebeard_strip_label_with_open, treebeard_strip_label_with_p1, truncate_control_value,
 };
-use crate::harness::{ForgeTrainSnap, HandleStoreStats, LastRootHiq};
+use crate::agent::harness::{ForgeTrainSnap, HandleStoreStats, LastRootHiq};
 
 /// The speech flow keeps whole trailing words in flight, settles the rest,
 /// treats a brand-new stream as entirely fresh, and never panics on
@@ -48,7 +48,7 @@ fn speech_flow_split_keeps_whole_words_in_flight() {
 
 #[test]
 fn header_capability_paint_skips_full_route_metadata() {
-    let src = include_str!("../../../cockpit/src/draw/agent_panel_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
     let start = src
         .find("pub(crate) fn agent_route_capability_paint")
         .expect("agent_route_capability_paint present");
@@ -70,7 +70,7 @@ fn comp_mode_skips_speech_flow_without_slowing_default() {
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(super::speech_flow_allowed());
     let text = "the fleet topology needs a single tenant on the b70";
     let (settled, fresh) = super::maybe_speech_flow_split(text, 24);
@@ -81,7 +81,7 @@ fn comp_mode_skips_speech_flow_without_slowing_default() {
     assert_eq!(format!("{settled}{fresh}"), text);
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!super::speech_flow_allowed());
     let (lean_settled, lean_fresh) = super::maybe_speech_flow_split(text, 24);
     assert_eq!(lean_settled, text);
@@ -111,7 +111,7 @@ fn control_truncation_preserves_route_ends_within_terminal_cells() {
 
 #[test]
 fn treebeard_header_strip_cache_compares_open_key_without_cloning() {
-    let src = include_str!("../../../cockpit/src/draw/agent_panel_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
     let start = src
         .find("fn treebeard_header_strip_label")
         .expect("header strip");
@@ -306,7 +306,7 @@ fn treebeard_strip_includes_peer_and_offload() {
     );
     assert!(dotted_p1.contains("P1 1685µs"), "got: {dotted_p1}");
     assert!(!dotted_p1.contains("open "), "got: {dotted_p1}");
-    let src = include_str!("../../../cockpit/src/draw/agent_panel_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
     let start = src
         .find("fn treebeard_open_key_is_p1")
         .expect("open-key matcher");
@@ -326,10 +326,10 @@ fn treebeard_strip_includes_peer_and_offload() {
 /// paints the blocked word where the operator actually looks.
 #[test]
 fn blocked_approval_owns_the_bay_caption_and_sampler_precedence() {
-    use crate::views::agent_view::{PortraitMarker, PortraitState};
+    use crate::agent::harness::ToolEventId;
     use crate::app::{App, PendingApproval};
-    use crate::harness::ToolEventId;
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
+    use crate::ui::views::agent_view::{PortraitMarker, PortraitState};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::time::{Duration, Instant};
@@ -375,7 +375,7 @@ fn blocked_approval_owns_the_bay_caption_and_sampler_precedence() {
 fn active_webgpu_stage_has_a_visible_agent_pane_card() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
@@ -383,10 +383,11 @@ fn active_webgpu_stage_has_a_visible_agent_pane_card() {
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
-    app.agentviz_portal = crate::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    app.agentviz_portal =
+        crate::ui::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
     let mut terminal = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     terminal
         .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
@@ -416,21 +417,21 @@ fn active_webgpu_stage_has_a_visible_agent_pane_card() {
 fn hidden_comp_skips_agent_token_meter_without_slowing_default() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
 
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         super::agent_token_meter_allowed(),
         "default bay still builds token meters"
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         !super::agent_token_meter_allowed(),
         "comp/lean must not read the MoA token ledger or build tok meters"
@@ -442,14 +443,14 @@ fn hidden_comp_skips_agent_token_meter_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         super::agent_token_meter_allowed(),
         "default cockpit must not stay gated after /comp off"
     );
 
     let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         !super::agent_token_meter_allowed(),
         "backdrop-off must not build invisible token meters"
@@ -460,14 +461,14 @@ fn hidden_comp_skips_agent_token_meter_without_slowing_default() {
 fn hidden_comp_skips_agent_host_metrics_without_slowing_default() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
 
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         super::agent_host_metrics_allowed(),
         "default bay still paints CPU/mem/gpu"
@@ -479,7 +480,7 @@ fn hidden_comp_skips_agent_host_metrics_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         !super::agent_host_metrics_allowed(),
         "comp/lean must not format the bay host-metrics strip"
@@ -490,14 +491,14 @@ fn hidden_comp_skips_agent_host_metrics_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         super::agent_host_metrics_allowed(),
         "default cockpit must not stay gated after /comp off"
     );
 
     let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         !super::agent_host_metrics_allowed(),
         "backdrop-off must not build invisible host metrics"
@@ -507,17 +508,17 @@ fn hidden_comp_skips_agent_host_metrics_without_slowing_default() {
 
 #[test]
 fn hidden_comp_skips_agent_route_capability_without_slowing_default() {
+    use crate::agent::club::RouteMetadata;
     use crate::app::App;
-    use crate::club::RouteMetadata;
     use crate::tests::{TestEnvGuard, env_lock};
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
 
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         super::agent_route_capability_allowed(),
         "default bay still paints ctx/speed capability"
@@ -536,7 +537,7 @@ fn hidden_comp_skips_agent_route_capability_without_slowing_default() {
     let _ = default_line;
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         !super::agent_route_capability_allowed(),
         "comp/lean must not walk route metadata for the capability essay"
@@ -549,14 +550,14 @@ fn hidden_comp_skips_agent_route_capability_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         super::agent_route_capability_allowed(),
         "default cockpit must not stay gated after /comp off"
     );
 
     let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         !super::agent_route_capability_allowed(),
         "backdrop-off must not build an invisible capability essay"
@@ -568,14 +569,14 @@ fn hidden_comp_skips_agent_route_capability_without_slowing_default() {
 fn hidden_comp_skips_agent_route_title_without_slowing_default() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
 
     let _lock = env_lock();
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         super::agent_route_title_allowed(),
         "default bay still paints the tab/clock route title"
@@ -584,7 +585,7 @@ fn hidden_comp_skips_agent_route_title_without_slowing_default() {
     let _default = super::agent_route_title(&mut app, 48, 8);
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         !super::agent_route_title_allowed(),
         "comp/lean must not walk bag.tabs() for the bay title"
@@ -595,14 +596,14 @@ fn hidden_comp_skips_agent_route_title_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(
         super::agent_route_title_allowed(),
         "default cockpit must not stay gated after /comp off"
     );
 
     let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         !super::agent_route_title_allowed(),
         "backdrop-off must not build an invisible bay route title"
@@ -614,7 +615,7 @@ fn hidden_comp_skips_agent_route_title_without_slowing_default() {
 fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
@@ -622,8 +623,8 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::comp_mode::invalidate_cache();
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
 
     assert!(
         super::side_column_kitty_compose_allowed(),
@@ -640,7 +641,8 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     assert_eq!(composed, 1);
 
     let mut app = App::preview(Viewer::static_preview());
-    app.agentviz_portal = crate::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+    app.agentviz_portal =
+        crate::ui::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
     let mut terminal = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     terminal
         .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
@@ -658,7 +660,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     );
 
     let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     assert!(!super::side_column_kitty_compose_allowed());
     let mut skipped = 0usize;
     assert!(
@@ -672,7 +674,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
 
     let mut armed = App::preview(Viewer::static_preview());
     armed.agentviz_portal =
-        crate::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
+        crate::ui::viz::agentviz_portal::PortalRuntime::presentation_for_test("judge", 3);
     let mut lean = Terminal::new(TestBackend::new(48, 16)).expect("test terminal");
     lean.draw(|frame| render_agent_bay(frame, &mut armed, frame.area()))
         .expect("render lean agent bay");
@@ -693,9 +695,9 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     );
 
     drop(_on);
-    crate::comp_mode::invalidate_cache();
+    crate::drive::comp_mode::invalidate_cache();
     let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::surfaces::invalidate_backdrop_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
     assert!(
         !super::side_column_kitty_compose_allowed(),
         "backdrop-off must not encode an invisible side column"
@@ -705,7 +707,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
 
 #[test]
 fn host_metrics_spans_keep_borrowed_idle_cow() {
-    let src = include_str!("../../../cockpit/src/draw/agent_panel_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
     let prod = src
         .split("fn host_metrics_spans_keep_borrowed_idle_cow")
         .next()
@@ -730,9 +732,9 @@ fn host_metrics_spans_keep_borrowed_idle_cow() {
 #[test]
 fn frame_chrome_snapshot_matches_live_bag_and_paints_identically() {
     use super::{FrameChrome, render_agent_controls, render_agent_controls_in};
+    use crate::agent::club::Bag;
     use crate::app::App;
-    use crate::club::Bag;
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
@@ -766,13 +768,13 @@ fn frame_chrome_snapshot_matches_live_bag_and_paints_identically() {
 #[test]
 fn agent_control_rail_reuses_chip_strings_across_unchanged_frames() {
     use super::{FrameChrome, render_agent_controls};
+    use crate::agent::club::Bag;
     use crate::app::App;
-    use crate::club::Bag;
-    use crate::viewer::Viewer;
+    use crate::ui::viewer::Viewer;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
-    let src = include_str!("../../../cockpit/src/draw/agent_panel_view.rs");
+    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
     let start = src
         .find("pub(crate) fn render_agent_controls_in")
         .expect("render_agent_controls_in present");

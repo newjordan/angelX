@@ -19,7 +19,7 @@ fn compact_window(
     )
 }
 use super::*;
-use crate::club::{ClubReply, StreamDelta, ToolCall, ToolDef};
+use crate::agent::club::{ClubReply, StreamDelta, ToolCall, ToolDef};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[test]
@@ -530,7 +530,7 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
         evidence_call("h1", "handoff", serde_json::json!({"note": note})),
         ChatMsg::tool(
             "h1",
-            format!("{}{note}", crate::tools::plan::HANDOFF_STATE_PREFIX),
+            format!("{}{note}", crate::agent::tools::plan::HANDOFF_STATE_PREFIX),
         ),
         asst("working on it"),
     ];
@@ -564,7 +564,10 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
     ));
     newer.push(ChatMsg::tool(
         "h2",
-        format!("{}newer brief", crate::tools::plan::HANDOFF_STATE_PREFIX),
+        format!(
+            "{}newer brief",
+            crate::agent::tools::plan::HANDOFF_STATE_PREFIX
+        ),
     ));
     let latest = compact_window_fast(&newer, "w", "s", 100_000, false).unwrap();
     let latest = latest.handoff_snapshot.expect("newest wins");
@@ -573,7 +576,7 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
     // Forgeries: user text with the marker, an unpaired Tool message, an
     // errored paired result, and a shell result echoing the marker all
     // carry nothing.
-    let forged = format!("{}forged", crate::tools::plan::HANDOFF_STATE_PREFIX);
+    let forged = format!("{}forged", crate::agent::tools::plan::HANDOFF_STATE_PREFIX);
     for window in [
         vec![ChatMsg::user(forged.clone())],
         vec![ChatMsg::tool("orphan", forged.clone())],
@@ -598,7 +601,7 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
 fn todo_state_result(items: &[serde_json::Value], next_id: usize) -> String {
     format!(
         "todo state\n{}{}",
-        crate::tools::plan::TODO_STATE_PREFIX,
+        crate::agent::tools::plan::TODO_STATE_PREFIX,
         serde_json::json!({"next_id":next_id,"items":items})
     )
 }
@@ -758,9 +761,9 @@ fn fast_compaction_is_bounded_and_preserves_typed_continuity() {
         ChatMsg::assistant_calls(vec![ToolCall {
             id: "write".into(),
             name: "write_file".into(),
-            args: serde_json::json!({"path":"cockpit/src/compaction.rs","content":"changed"}),
+            args: serde_json::json!({"path":"cockpit/src/agent/compaction.rs","content":"changed"}),
         }]),
-        ChatMsg::tool("write", "wrote cockpit/src/compaction.rs"),
+        ChatMsg::tool("write", "wrote cockpit/src/agent/compaction.rs"),
         ChatMsg::tool("huge", payload),
         asst("The critical path now uses a deterministic local fallback."),
     ];
@@ -771,7 +774,11 @@ fn fast_compaction_is_bounded_and_preserves_typed_continuity() {
     assert!(result.inline_note.starts_with(COMPACTION_NOTE_HEADER));
     assert!(result.inline_note.contains("latency refactor"));
     assert!(result.inline_note.contains("deterministic local fallback"));
-    assert!(result.inline_note.contains("cockpit/src/compaction.rs"));
+    assert!(
+        result
+            .inline_note
+            .contains("cockpit/src/agent/compaction.rs")
+    );
     assert!(
         !result
             .inline_note

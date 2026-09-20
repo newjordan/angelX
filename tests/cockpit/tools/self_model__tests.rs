@@ -177,7 +177,7 @@ fn headless_self_map_requires_explicit_pin_and_is_read_only() {
                 None => std::env::remove_var("ANGEL_SELF_SRC"),
             }
         }
-        let mut registry = crate::harness::ToolRegistry::new();
+        let mut registry = crate::agent::harness::ToolRegistry::new();
         SelfMapTool::register_headless(&mut registry);
         assert!(!registry.defs().iter().any(|def| def.name == "self_map"));
     }
@@ -210,7 +210,7 @@ fn headless_self_map_requires_explicit_pin_and_is_read_only() {
             .is_absolute()
     );
     unsafe { std::env::set_var("ANGEL_SELF_SRC", &root) };
-    let mut registry = crate::harness::ToolRegistry::new();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
     SelfMapTool::register_headless(&mut registry);
     let def = registry
         .defs()
@@ -249,7 +249,7 @@ fn headless_self_map_requires_explicit_pin_and_is_read_only() {
     assert!(!root.join("SELF.md").exists());
 
     unsafe { std::env::set_var("ANGEL_SELF_SRC", root.join("missing")) };
-    let mut invalid = crate::harness::ToolRegistry::new();
+    let mut invalid = crate::agent::harness::ToolRegistry::new();
     SelfMapTool::register_headless(&mut invalid);
     let error = invalid
         .dispatch("self_map", &serde_json::json!({}))

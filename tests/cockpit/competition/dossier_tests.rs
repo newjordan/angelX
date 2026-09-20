@@ -46,7 +46,7 @@ pub(super) fn dossier() -> DossierV1 {
         "angel-x".into(),
         "revision-one".into(),
         7,
-        crate::cut::sha256_hex(b"journal-head-one"),
+        crate::knowledge::cut::sha256_hex(b"journal-head-one"),
     )
     .unwrap()
 }
@@ -58,12 +58,12 @@ pub(super) fn relevant(source: &str, revision: &str, content: &str) -> RelevantR
             canonical_path: format!("src/{source}.rs"),
             symbol_or_range: format!("{source}:1-20"),
             source_revision: revision.into(),
-            content_sha256: crate::cut::sha256_hex(content.as_bytes()),
+            content_sha256: crate::knowledge::cut::sha256_hex(content.as_bytes()),
         },
         provenance: AnchorProvenanceV1 {
             kind: "repository_read".into(),
             reference: format!("tool://read/{source}/{revision}"),
-            receipt_sha256: crate::cut::sha256_hex(
+            receipt_sha256: crate::knowledge::cut::sha256_hex(
                 format!("receipt:{source}:{revision}").as_bytes(),
             ),
         },
@@ -179,7 +179,7 @@ fn dossier_compact_restart_preserves_revision_and_provenance_ac09() {
     dossier
         .rollover_fresh_turn(
             "fresh-turn-2".into(),
-            crate::cut::sha256_hex(b"journal-head-two"),
+            crate::knowledge::cut::sha256_hex(b"journal-head-two"),
             "storage pressure and context turn exhausted".into(),
         )
         .unwrap();
@@ -211,7 +211,7 @@ fn checkpoint_and_revision_failures_preserve_current() {
     current
         .rollover_fresh_turn(
             "turn-2".into(),
-            crate::cut::sha256_hex(b"head-2"),
+            crate::knowledge::cut::sha256_hex(b"head-2"),
             "continue".into(),
         )
         .unwrap();
@@ -227,7 +227,7 @@ fn checkpoint_and_revision_failures_preserve_current() {
     bad.checkpoint.as_mut().unwrap().stale_anchor_ids.clear();
     rejected(&bad);
     let mut bad = current.clone();
-    bad.checkpoint.as_mut().unwrap().checkpoint_id = crate::cut::sha256_hex(b"wrong");
+    bad.checkpoint.as_mut().unwrap().checkpoint_id = crate::knowledge::cut::sha256_hex(b"wrong");
     rejected(&bad);
     let mut bad = current.clone();
     bad.checkpoint.as_mut().unwrap().reason.push_str(" changed");

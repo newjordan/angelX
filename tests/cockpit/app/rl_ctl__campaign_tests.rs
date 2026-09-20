@@ -8,7 +8,7 @@
 //! learned note only when an independently authored audit case approves it.
 
 use super::*;
-use crate::club::{ChatMsg, ChatRole, ClubReply, StreamDelta, ToolDef};
+use crate::agent::club::{ChatMsg, ChatRole, ClubReply, StreamDelta, ToolDef};
 use crate::tests::{TestEnvGuard, TestGitWorkspace, env_lock};
 use serde_json::json;
 use std::sync::mpsc;
@@ -31,7 +31,7 @@ const VERIFY: &str = "sh tests/check.sh";
 const SCOPE: &str = "tests";
 
 /// Scripted club used both as the campaign's selected route and as the
-/// reflector's backend (the reflector is [`crate::reinforce::ClubReflector`],
+/// reflector's backend (the reflector is [`crate::drive::reinforce::ClubReflector`],
 /// which calls `respond`).
 ///
 /// Attempt behavior:
@@ -171,14 +171,14 @@ impl Club for ObjectiveFixtureClub {
             notes.push(note);
         }
         if self.tamper_verifier {
-            return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+            return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                 id: format!("tamper-{index}"),
                 name: "write_file".into(),
                 args: json!({"path":"tests/check.sh","content":"#!/bin/sh\nexit 0\n"}),
             }]));
         }
         if self.should_work(&system, index) {
-            return Ok(ClubReply::Calls(vec![crate::club::ToolCall {
+            return Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
                 id: format!("objective-{index}"),
                 name: "write_file".into(),
                 args: json!({"path":"result.txt","content":"done"}),
@@ -432,7 +432,7 @@ fn audited_campaign_releases_a_measured_note_that_later_work_consumes() {
 
     // Durable, workspace-scoped consumption: the same block ordinary
     // interactive and headless turns inject now carries the learned note.
-    let block = crate::continual_harness::context_block(workspace.path());
+    let block = crate::drive::continual_harness::context_block(workspace.path());
     assert!(
         block.contains(NOTE),
         "later work consumes the note: {block}"
@@ -450,10 +450,10 @@ fn audited_campaign_releases_a_measured_note_that_later_work_consumes() {
     assert!(attempts >= 4, "each attempt left real work: {attempts}");
 
     // Rollback through the established continual-harness API.
-    crate::continual_harness::rollback(workspace.path(), Scope::Project, &event)
+    crate::drive::continual_harness::rollback(workspace.path(), Scope::Project, &event)
         .expect("the release event rolls back");
     assert!(current_policy_note(workspace.path()).is_none());
-    assert!(!crate::continual_harness::context_block(workspace.path()).contains(NOTE));
+    assert!(!crate::drive::continual_harness::context_block(workspace.path()).contains(NOTE));
     let _ = std::fs::remove_dir_all(&env.root);
 }
 
@@ -481,7 +481,7 @@ fn campaign_rejects_a_proposal_that_measures_worse_than_the_incumbent() {
         current_policy_note(workspace.path()).is_none(),
         "a rejected proposal never reaches later work"
     );
-    assert!(crate::continual_harness::context_block(workspace.path()).is_empty());
+    assert!(crate::drive::continual_harness::context_block(workspace.path()).is_empty());
     let record = std::fs::read_to_string(state.run_dir().expect("run dir").join("report.json"))
         .expect("run record written");
     assert!(record.contains("\"validated\": false"), "{record}");
@@ -739,11 +739,12 @@ fn app_entry_launches_the_advertised_quoted_command_intact() {
 
     let club = ObjectiveFixtureClub::new(NOTE);
     let mut app = crate::seed_preview_app();
-    app.tools = Arc::new(crate::harness::ToolRegistry::with_team(
+    app.tools = Arc::new(crate::agent::harness::ToolRegistry::with_team(
         workspace.path().to_path_buf(),
         Vec::new(),
     ));
-    app.bag = crate::club::Bag::for_render_test(&[("fixture", &[("objective-fixture", true)])]);
+    app.bag =
+        crate::agent::club::Bag::for_render_test(&[("fixture", &[("objective-fixture", true)])]);
     app.bag.replace_in_hand_club_for_test(club.clone());
 
     // The task carries nested quotes and shell metacharacters; the verifier and

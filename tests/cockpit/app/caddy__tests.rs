@@ -90,7 +90,7 @@ fn seed_store(
     recipes: &[Recipe],
     hazards: &[Hazard],
 ) -> PathBuf {
-    let repo_dir = caddy_dir.join(crate::workspace_store::repo_identity(workspace).key);
+    let repo_dir = caddy_dir.join(crate::platform::workspace_store::repo_identity(workspace).key);
     std::fs::create_dir_all(&repo_dir).unwrap();
     let mut body = String::new();
     for recipe in recipes {
@@ -108,7 +108,7 @@ fn seed_store(
 }
 
 fn seed_dossier(dossier_dir: &Path, workspace: &Path) {
-    let key = crate::workspace_store::repo_identity(workspace).key;
+    let key = crate::platform::workspace_store::repo_identity(workspace).key;
     std::fs::write(
         dossier_dir.join(format!("{key}.json")),
         serde_json::json!({
@@ -187,9 +187,9 @@ fn caddy_write_back_classifies_and_is_idempotent() {
     };
     let receipt = ChatMsg::tool("c1", "1 passed; 0 failed").with_tool_receipt(
         &call,
-        crate::harness::ToolOutcome {
-            execution: crate::harness::ExecutionOutcome::Succeeded,
-            verification: crate::harness::VerificationOutcome::Passed,
+        crate::agent::harness::ToolOutcome {
+            execution: crate::agent::harness::ExecutionOutcome::Succeeded,
+            verification: crate::agent::harness::VerificationOutcome::Passed,
         },
     );
     let history = vec![
@@ -212,7 +212,7 @@ fn caddy_write_back_classifies_and_is_idempotent() {
 
     let (recipes, hazards) = write_back_from_history(&workspace, &history);
     assert_eq!((recipes, hazards), (1, 1));
-    let repo_dir = caddy_dir.join(crate::workspace_store::repo_identity(&workspace).key);
+    let repo_dir = caddy_dir.join(crate::platform::workspace_store::repo_identity(&workspace).key);
     let stored: Vec<Recipe> = load_jsonl(&repo_dir.join("recipes.jsonl"));
     assert_eq!(stored.len(), 1);
     assert!(stored[0].command.starts_with("run_tests "));
@@ -250,9 +250,9 @@ fn cargo_run_tests_seed_stores_verified_recipe_command() {
     let receipt = ChatMsg::tool("c1", "tests: 1 passed, 0 failed, 0 ignored — reward 1.00")
         .with_tool_receipt(
             &call,
-            crate::harness::ToolOutcome {
-                execution: crate::harness::ExecutionOutcome::Succeeded,
-                verification: crate::harness::VerificationOutcome::Passed,
+            crate::agent::harness::ToolOutcome {
+                execution: crate::agent::harness::ExecutionOutcome::Succeeded,
+                verification: crate::agent::harness::VerificationOutcome::Passed,
             },
         );
     let history = vec![
@@ -262,7 +262,7 @@ fn cargo_run_tests_seed_stores_verified_recipe_command() {
     ];
     let (recipes, hazards) = write_back_from_history(&workspace, &history);
     assert_eq!((recipes, hazards), (1, 0));
-    let repo_dir = caddy_dir.join(crate::workspace_store::repo_identity(&workspace).key);
+    let repo_dir = caddy_dir.join(crate::platform::workspace_store::repo_identity(&workspace).key);
     let stored: Vec<Recipe> = load_jsonl(&repo_dir.join("recipes.jsonl"));
     assert_eq!(stored.len(), 1);
     assert!(
@@ -289,25 +289,28 @@ fn t04b_caddy_routed_shell_recipe() {
         name: "shell".into(),
         args: serde_json::json!({"command":"cd . && env TEST_MODE=fixture npm test"}),
     };
-    let route = crate::harness::shell_verifier::plan("shell", &call.args, &workspace).unwrap();
+    let route =
+        crate::agent::harness::shell_verifier::plan("shell", &call.args, &workspace).unwrap();
     let receipt = ChatMsg::tool("route", "tests: 1 passed, 0 failed")
         .with_tool_receipt(
             &call,
-            crate::harness::ToolOutcome {
-                execution: crate::harness::ExecutionOutcome::Succeeded,
-                verification: crate::harness::VerificationOutcome::Passed,
+            crate::agent::harness::ToolOutcome {
+                execution: crate::agent::harness::ExecutionOutcome::Succeeded,
+                verification: crate::agent::harness::VerificationOutcome::Passed,
             },
         )
-        .with_routing_receipt(Some(crate::harness::shell_verifier::RoutingReceipt {
-            routed_call: Some(route.call),
-            routed_cwd: Some(workspace.clone()),
-            reason: "argv routed".into(),
-        }));
+        .with_routing_receipt(Some(
+            crate::agent::harness::shell_verifier::RoutingReceipt {
+                routed_call: Some(route.call),
+                routed_cwd: Some(workspace.clone()),
+                reason: "argv routed".into(),
+            },
+        ));
     let history = vec![ChatMsg::assistant_calls(vec![call]), receipt];
     assert_eq!(write_back_from_history(&workspace, &history), (1, 0));
     let recipes: Vec<Recipe> = load_jsonl(
         &caddy_dir
-            .join(crate::workspace_store::repo_identity(&workspace).key)
+            .join(crate::platform::workspace_store::repo_identity(&workspace).key)
             .join("recipes.jsonl"),
     );
     assert!(recipes[0].command.starts_with("run_tests "));
@@ -769,11 +772,11 @@ fn caddy_card_follows_the_dossier_block_in_task_warm_start() {
         }],
     );
 
-    let block = crate::harness::task_warm_start(&workspace);
+    let block = crate::agent::harness::task_warm_start(&workspace);
     let _defaults = crate::tests::TestEnvGuard::set("ANGEL_CADDY_CARD", "full");
-    let block_full = crate::harness::task_warm_start(&workspace);
+    let block_full = crate::agent::harness::task_warm_start(&workspace);
     let dossier_at = block
-        .find(crate::dossier::DOSSIER_BLOCK_HEADER)
+        .find(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER)
         .expect("dossier block present");
     let caddy_at = block_full
         .find("[caddy ·")

@@ -1,7 +1,7 @@
 #[cfg(test)]
 #[test]
 fn delegate_status_reports_real_activity_and_heartbeat_only_silence() {
-    let mut delegate = crate::harness::DelegateSnapshot {
+    let mut delegate = crate::agent::harness::DelegateSnapshot {
         label: "test".into(),
         phase: "thinking".into(),
         elapsed_secs: 900,
@@ -32,7 +32,7 @@ fn delegate_status_reports_real_activity_and_heartbeat_only_silence() {
 #[cfg(test)]
 #[test]
 fn worker_status_distinguishes_cpu_silence_and_small_panes() {
-    let mut child = crate::harness::ChildSnapshot {
+    let mut child = crate::agent::harness::ChildSnapshot {
         program: "rustc".into(),
         elapsed_secs: 540,
         output_age_secs: None,

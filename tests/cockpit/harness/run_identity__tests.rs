@@ -135,13 +135,13 @@ fn run_identity_carries_sealed_sandbox_when_active() {
         .sandbox
         .is_none()
     );
-    let profile = crate::sandbox::sealed::build(
+    let profile = crate::agent::sandbox::sealed::build(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap(),
         None,
     );
-    crate::sandbox::sealed::tests::test_activate(profile);
+    crate::agent::sandbox::sealed::tests::test_activate(profile);
     let id = capture(
         Model {
             club: "scripted".into(),
@@ -162,10 +162,11 @@ fn run_identity_carries_sealed_sandbox_when_active() {
 #[test]
 fn run_identity_http_resolves_requested_none_to_wire_low() {
     let _env = crate::tests::env_lock();
-    let club = crate::club::HttpClub::new("glm", "https://identity.invalid/v1", "glm-5.3", None);
+    let club =
+        crate::agent::club::HttpClub::new("glm", "https://identity.invalid/v1", "glm-5.3", None);
     let body = club
         .build_body_with_effort(
-            &[crate::club::ChatMsg::user("fixture")],
+            &[crate::agent::club::ChatMsg::user("fixture")],
             &[],
             false,
             Some("none"),
@@ -190,8 +191,8 @@ fn run_identity_http_resolves_requested_none_to_wire_low() {
 
 #[test]
 fn run_identity_scripted_task_json() {
-    use crate::club::{ChatMsg, Club};
-    use crate::harness::{TaskJsonContext, TaskJsonEnvelope, ToolRegistry, TurnEvent};
+    use crate::agent::club::{ChatMsg, Club};
+    use crate::agent::harness::{TaskJsonContext, TaskJsonEnvelope, ToolRegistry, TurnEvent};
     let _env = crate::tests::env_lock();
     if std::env::var("ANGEL_T_IDENTITY_CHILD").as_deref() != Ok("1") {
         let root =
@@ -239,7 +240,7 @@ fn run_identity_scripted_task_json() {
     }
     let sealed = std::env::var("ANGEL_T_IDENTITY_PROFILE").as_deref() == Ok("sealed");
     if sealed {
-        crate::sandbox::sealed::tests::test_activate(crate::sandbox::sealed::build(
+        crate::agent::sandbox::sealed::tests::test_activate(crate::agent::sandbox::sealed::build(
             &std::env::current_dir().unwrap(),
             None,
         ));
@@ -264,7 +265,7 @@ fn run_identity_scripted_task_json() {
     let mut registry = ToolRegistry::new();
     registry.external_evaluator_only = true;
     let mut history = vec![ChatMsg::user("Say scripted answer.")];
-    let outcome = crate::harness::run_turn_observed(
+    let outcome = crate::agent::harness::run_turn_observed(
         &Scripted,
         &registry,
         &mut history,
@@ -289,7 +290,7 @@ fn run_identity_scripted_task_json() {
             runtime: None,
             session_id: None,
             artifacts: vec![],
-            memory_health: crate::caddy::StoreHealthSummary::default(),
+            memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
         },
         outcome,
         &history,
@@ -298,10 +299,13 @@ fn run_identity_scripted_task_json() {
     let id = &value["identity"];
     assert_eq!(
         value["authority_profile"],
-        serde_json::to_value(crate::authority_profile::active(true)).unwrap()
+        serde_json::to_value(crate::platform::authority_profile::active(true)).unwrap()
     );
     if sealed {
-        assert_eq!(id["sandbox"], crate::sandbox::sealed::identity().unwrap());
+        assert_eq!(
+            id["sandbox"],
+            crate::agent::sandbox::sealed::identity().unwrap()
+        );
     } else {
         assert!(id.get("sandbox").is_none());
     }
@@ -325,7 +329,7 @@ fn run_identity_scripted_task_json() {
     assert_eq!(id["budgets"]["compaction_budget_tokens"], 4096);
     assert_eq!(id["verifier"]["plan_kind"], "external-only");
     assert_eq!(
-        crate::harness::eval_trajectory_record(
+        crate::agent::harness::eval_trajectory_record(
             "identity-scripted",
             &history,
             "scripted answer",
@@ -335,7 +339,7 @@ fn run_identity_scripted_task_json() {
         )["identity"],
         *id
     );
-    assert!(crate::harness::ledger_status_text("").contains("model=identity-fixture-v1"));
+    assert!(crate::agent::harness::ledger_status_text("").contains("model=identity-fixture-v1"));
     let log_dir = std::path::PathBuf::from(std::env::var_os("ANGEL_TRAJECTORY_DIR").unwrap());
     let mut rows = Vec::new();
     for entry in std::fs::read_dir(&log_dir).unwrap().flatten() {
@@ -350,7 +354,7 @@ fn run_identity_scripted_task_json() {
     assert!(!rows.is_empty());
     let trace_fixture = std::env::current_dir().unwrap().join("schema-records.json");
     let mut schema_rows = rows.clone();
-    schema_rows.push(crate::harness::eval_trajectory_record(
+    schema_rows.push(crate::agent::harness::eval_trajectory_record(
         "identity-scripted",
         &history,
         "scripted answer",
@@ -400,7 +404,7 @@ fn run_identity_dataset_file_digest_and_read_failure() {
     let dataset = Dataset::new("arena", Some(&path)).unwrap();
     assert_eq!(
         dataset.sha256.as_deref(),
-        Some(crate::cut::sha256_hex(b"sealed fixture\n").as_str())
+        Some(crate::knowledge::cut::sha256_hex(b"sealed fixture\n").as_str())
     );
     assert_eq!(dataset.path.as_deref(), path.to_str());
     std::fs::remove_file(&path).unwrap();

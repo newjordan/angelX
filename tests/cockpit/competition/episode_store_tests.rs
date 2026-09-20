@@ -1,8 +1,8 @@
 use super::*;
-use crate::competition::episode_store::EpisodeStoreV1;
-use crate::competition::leases::WorkLeaseKeyV1;
-use crate::competition::schema::LaneIdV1;
-use crate::competition::store::CompetitionStore;
+use crate::drive::competition::episode_store::EpisodeStoreV1;
+use crate::drive::competition::leases::WorkLeaseKeyV1;
+use crate::drive::competition::schema::LaneIdV1;
+use crate::drive::competition::store::CompetitionStore;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};

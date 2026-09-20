@@ -14,8 +14,8 @@
 //! not. So the witness here is a pid that stops existing.
 
 use super::*;
-use crate::harness::registration::ProviderScope;
-use crate::mcp::{McpComposition, ServerSpec};
+use crate::agent::harness::registration::ProviderScope;
+use crate::agent::mcp::{McpComposition, ServerSpec};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
@@ -234,7 +234,7 @@ fn dropping_a_live_mcp_server_retracts_its_schemas_and_reaps_its_child() {
     let spec = mock_spec("mockmcp", &pid_file);
 
     let connect_at = Instant::now();
-    let (mut compositions, notes) = crate::mcp::discover_compositions(
+    let (mut compositions, notes) = crate::agent::mcp::discover_compositions(
         std::slice::from_ref(&spec),
         Duration::from_secs(10),
         &root,
@@ -294,7 +294,7 @@ fn dropping_a_live_mcp_server_retracts_its_schemas_and_reaps_its_child() {
     // Adding it back is a fresh process, not the warm one we dropped.
     let readd_at = Instant::now();
     let (mut again, notes) =
-        crate::mcp::discover_compositions(&[spec], Duration::from_secs(10), &root);
+        crate::agent::mcp::discover_compositions(&[spec], Duration::from_secs(10), &root);
     let readd_ms = readd_at.elapsed().as_millis();
     assert!(notes[0].contains("2 tool(s)"), "{notes:?}");
     let composition = again.pop().expect("reconnected server");

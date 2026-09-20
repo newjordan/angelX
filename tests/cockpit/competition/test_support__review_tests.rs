@@ -1,7 +1,7 @@
 use super::*;
-use crate::competition::journal::{ActionJournalStateV1, ActionRecordV1, PrepareActionV1};
-use crate::competition::lease_store::canonical_lease_id;
-use crate::competition::recovery::directive;
+use crate::drive::competition::journal::{ActionJournalStateV1, ActionRecordV1, PrepareActionV1};
+use crate::drive::competition::lease_store::canonical_lease_id;
+use crate::drive::competition::recovery::directive;
 
 #[test]
 fn stale_generation_landing_is_fenced_ac07() {
@@ -159,7 +159,7 @@ fn counter_boundaries_fail_closed_ac07_ac13() {
     let mut journal = ActionJournalStateV1 {
         campaign_id: None,
         next_seq: u64::MAX,
-        head_sha256: crate::cut::sha256_hex(b"head"),
+        head_sha256: crate::knowledge::cut::sha256_hex(b"head"),
         actions: Default::default(),
     };
     let event = match journal
@@ -182,7 +182,7 @@ fn counter_boundaries_fail_closed_ac07_ac13() {
     let record = ActionRecordV1 {
         update: retry,
         last_seq: 1,
-        last_event_sha256: crate::cut::sha256_hex(b"event"),
+        last_event_sha256: crate::knowledge::cut::sha256_hex(b"event"),
     };
     assert!(directive(&record).is_err());
 

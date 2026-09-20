@@ -139,7 +139,7 @@ fn evaluator_mutation_reason_names_changed_paths() {
     let _lock = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!("angel-evidence-paths-{}", std::process::id()));
     std::fs::create_dir(&root).unwrap();
-    let git = crate::harness::pinned_git_command(&root, &["init", "-q"])
+    let git = crate::agent::harness::pinned_git_command(&root, &["init", "-q"])
         .status()
         .unwrap();
     assert!(git.success());
@@ -278,7 +278,7 @@ fn evaluator_evidence_manifest_rejects_tamper_and_workspace_drift() {
     );
 
     let mut manifest_tamper = first.clone();
-    manifest_tamper.command_sha256 = crate::cut::sha256_hex(b"cargo test --forged");
+    manifest_tamper.command_sha256 = crate::knowledge::cut::sha256_hex(b"cargo test --forged");
     assert!(
         TestReward
             .score(RewardInput::EvaluatorEvidence(&manifest_tamper))
@@ -576,7 +576,7 @@ fn coding_eval_drives_and_scores() {
     // parallel run each would observe the other's value between its own
     // set and restore.
     let _guard = crate::tests::env_lock();
-    let reg = crate::harness::ToolRegistry::new();
+    let reg = crate::agent::harness::ToolRegistry::new();
     let club = DoneClub;
     // Ensure default RLVR path (not leftover GpuComp popcorn pin).
     let prev_rl = std::env::var_os("ANGEL_RL_REWARD");
@@ -949,7 +949,7 @@ fn reinforce_promotes_a_real_change_once_not_repeated_noops() {
 /// reflector. Opt-in (ANGEL_LIVE_REINFORCE=1); skips if the fleet is down.
 #[test]
 fn live_reinforce_one_round() {
-    use crate::club::HttpClub;
+    use crate::agent::club::HttpClub;
     if std::env::var("ANGEL_LIVE_REINFORCE").is_err() {
         eprintln!("set ANGEL_LIVE_REINFORCE=1 to run the live reinforce test; skipping");
         return;

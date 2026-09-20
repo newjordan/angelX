@@ -2,7 +2,7 @@
 // Sloptomizer research-embed guard.
 //
 // The cockpit compiles a curated subset of the original Sloptomizer source into
-// the binary with `include_bytes!` (see cockpit/src/rl_ctl/research_bridge.rs),
+// the binary with `include_bytes!` (see cockpit/src/drive/rl_ctl/research_bridge.rs),
 // and the same bytes are retained in full under experimental/sloptomizer/upstream
 // as the provenance archive. That arrangement is deliberate but fragile in one
 // specific way: nothing stops the embedded copy and the archived copy from
@@ -29,7 +29,7 @@ import { pathToFileURL } from 'node:url'
 const SCRIPT = 'check-research-embed'
 const EMBED_DIR = 'cockpit/research/sloptomizer'
 const RECEIPT_PATH = `${EMBED_DIR}/UPSTREAM.json`
-const BRIDGE_PATH = 'cockpit/src/rl_ctl/research_bridge.rs'
+const BRIDGE_PATH = 'cockpit/src/drive/rl_ctl/research_bridge.rs'
 const ARCHIVE_DIR = 'experimental/sloptomizer/upstream'
 const ARCHIVE_RECEIPT_PATH = `${ARCHIVE_DIR}/source-receipt.json`
 // Non-receipted files the runtime still needs. `files[]` in UPSTREAM.json covers

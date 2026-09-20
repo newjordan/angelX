@@ -11,7 +11,8 @@ fn goal_command_reports_queued_recapture_without_telling_user_to_reissue() {
         let (mut app, _) = idle_loop_app(root);
         app.input = "/goal owned goal".into();
         app.submit();
-        let persisted = crate::goal::load_for(root).expect("real goal command persisted fixture");
+        let persisted =
+            crate::drive::goal::load_for(root).expect("real goal command persisted fixture");
         assert_eq!(persisted.text, "owned goal");
         app.loop_ctl.status = LoopStatus::Verifying;
         let (terminal, rx) = std::sync::mpsc::channel();

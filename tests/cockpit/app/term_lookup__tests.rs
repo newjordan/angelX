@@ -43,7 +43,7 @@ fn selection_candidate_accepts_bounded_multiword_topics_and_rejects_garbage() {
     assert_eq!(selected_term("ray\ntracing"), None);
     assert_eq!(selected_term("ray\ttracing"), None);
     assert_eq!(
-        selected_term(&"x".repeat(crate::library::LOCAL_TOPIC_MAX_CHARS + 1)),
+        selected_term(&"x".repeat(crate::knowledge::library::LOCAL_TOPIC_MAX_CHARS + 1)),
         None
     );
 }
@@ -104,11 +104,11 @@ fn parser_prefers_the_foundational_vector_space_over_a_trendy_database_match() {
         .expect("STEM result");
     assert_eq!(definition.title, "Vector space");
     assert_eq!(
-        crate::library::classify(&format!(
+        crate::knowledge::library::classify(&format!(
             "vector {} {}",
             definition.title, definition.summary
         )),
-        crate::library::Discipline::LinearAlgebra
+        crate::knowledge::library::Discipline::LinearAlgebra
     );
 }
 
@@ -321,15 +321,36 @@ fn source_urls_are_canonical_and_never_accept_foreign_hosts() {
 #[ignore = "live MediaWiki curriculum-family contract check"]
 fn live_lookup_routes_each_teaching_family_to_its_curriculum() {
     let cases = [
-        ("poisson", crate::library::Discipline::ProbabilityStatistics),
-        ("vector", crate::library::Discipline::LinearAlgebra),
-        ("eigenvalue", crate::library::Discipline::LinearAlgebra),
-        ("cuda", crate::library::Discipline::GpuKernels),
-        ("shader", crate::library::Discipline::Graphics3d),
-        ("gameplay", crate::library::Discipline::GameDevelopment),
-        ("tokenization", crate::library::Discipline::LlmSystems),
-        ("protein", crate::library::Discipline::NaturalSciences),
-        ("recursion", crate::library::Discipline::Foundations),
+        (
+            "poisson",
+            crate::knowledge::library::Discipline::ProbabilityStatistics,
+        ),
+        (
+            "vector",
+            crate::knowledge::library::Discipline::LinearAlgebra,
+        ),
+        (
+            "eigenvalue",
+            crate::knowledge::library::Discipline::LinearAlgebra,
+        ),
+        ("cuda", crate::knowledge::library::Discipline::GpuKernels),
+        ("shader", crate::knowledge::library::Discipline::Graphics3d),
+        (
+            "gameplay",
+            crate::knowledge::library::Discipline::GameDevelopment,
+        ),
+        (
+            "tokenization",
+            crate::knowledge::library::Discipline::LlmSystems,
+        ),
+        (
+            "protein",
+            crate::knowledge::library::Discipline::NaturalSciences,
+        ),
+        (
+            "recursion",
+            crate::knowledge::library::Discipline::Foundations,
+        ),
     ];
     for (term, expected) in cases {
         let definition = lookup_definition(term)
@@ -342,7 +363,7 @@ fn live_lookup_routes_each_teaching_family_to_its_curriculum() {
             definition.summary
         );
         assert_eq!(
-            crate::library::classify(&format!(
+            crate::knowledge::library::classify(&format!(
                 "{term} {} {}",
                 definition.title, definition.summary
             )),

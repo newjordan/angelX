@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn hiq_priority_prefers_offload_and_treebeard() {
     let _guard = crate::tests::env_lock();
-    let _default_cap = crate::harness::tests::EnvGuard::unset("FORGE_HIQ_WEIGHT_MAX");
+    let _default_cap = crate::agent::harness::tests::EnvGuard::unset("FORGE_HIQ_WEIGHT_MAX");
     let bulk = hiq_priority(0.0, Lane::Default);
     let offloaded = hiq_priority(1.0, Lane::Default);
     let treebeard = hiq_priority(1.0, Lane::Treebeard);
@@ -23,12 +23,12 @@ fn hiq_priority_weight_max_env_raises_cap() {
     // tests also read or write. Without the lock they interleave and each
     // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
-    let _default_cap = crate::harness::tests::EnvGuard::unset("FORGE_HIQ_WEIGHT_MAX");
+    let _default_cap = crate::agent::harness::tests::EnvGuard::unset("FORGE_HIQ_WEIGHT_MAX");
     // Without env: default max 3.0 still leaves headroom after treebeard.
     let t = hiq_priority(1.0, Lane::Treebeard);
     assert!((t - 2.1875).abs() < 1e-9);
     // Explicit low cap still clamps (legacy-compatible).
-    let _cap = crate::harness::tests::EnvGuard::set("FORGE_HIQ_WEIGHT_MAX", "2.0");
+    let _cap = crate::agent::harness::tests::EnvGuard::set("FORGE_HIQ_WEIGHT_MAX", "2.0");
     let capped = hiq_priority(1.0, Lane::Treebeard);
     assert!((capped - 2.0).abs() < 1e-9);
 }
@@ -110,9 +110,10 @@ fn harness_treatment_stamps_living_peer_and_gpu_comp() {
             r#"{"geomean_us":867.91,"name":"c3_peer.txt","path":"/tmp/c3.txt","shapes":{"32768x1":38800.0,"512x640":1685.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
         )
         .unwrap();
-    let _state = crate::harness::tests::EnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
-    let _lane = crate::harness::tests::EnvGuard::set("ANGEL_LANE", "treebeard");
-    let _gpu = crate::harness::tests::EnvGuard::set("ANGEL_GPU_COMP_LOCAL_MOA", "1");
+    let _state =
+        crate::agent::harness::tests::EnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
+    let _lane = crate::agent::harness::tests::EnvGuard::set("ANGEL_LANE", "treebeard");
+    let _gpu = crate::agent::harness::tests::EnvGuard::set("ANGEL_GPU_COMP_LOCAL_MOA", "1");
     let t = harness_treatment_json();
     let _ = std::fs::remove_file(&peer);
     assert_eq!(t["lane"], "treebeard");

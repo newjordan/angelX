@@ -1,11 +1,11 @@
 use super::*;
 use ratatui::crossterm::event;
 
-fn fifo(events: Vec<Event>) -> crate::input::TerminalInput {
+fn fifo(events: Vec<Event>) -> crate::ui::input::TerminalInput {
     let mut events = events.into_iter();
     let (done, ready) = mpsc::channel();
     let mut done = Some(done);
-    let input = crate::input::TerminalInput::spawn(move |wait| {
+    let input = crate::ui::input::TerminalInput::spawn(move |wait| {
         if let Some(event) = events.next() {
             Ok(Some(event))
         } else {
@@ -51,7 +51,8 @@ fn large_stream_phase_costs(successful: bool) {
     let workspace = atlas_dir.join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     if successful {
-        app.atlas = crate::atlas::AtlasService::open_in(&workspace, atlas_dir.join("atlas"));
+        app.atlas =
+            crate::knowledge::atlas::AtlasService::open_in(&workspace, atlas_dir.join("atlas"));
     }
     if let Some(path) = std::env::var_os("ANGEL_FRAME_TIMING_LOG") {
         use std::io::Write;
@@ -62,16 +63,17 @@ fn large_stream_phase_costs(successful: bool) {
             .unwrap();
         writeln!(file, "# fixture=incremental_app successful={successful} (synthetic input/advance; no terminal draw/settle)").unwrap();
     }
-    let mut timing = crate::frame_timing::FrameTiming::from_env();
+    let mut timing = crate::ui::frame_timing::FrameTiming::from_env();
     let mut worst = Duration::ZERO;
     let mut frames = 0;
     let (keys, receiver) = mpsc::channel();
-    let input = crate::input::TerminalInput::spawn(move |wait| match receiver.recv_timeout(wait) {
-        Ok(event) => Ok(Some(event)),
-        Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
-        Err(mpsc::RecvTimeoutError::Disconnected) => Ok(None),
-    })
-    .unwrap();
+    let input =
+        crate::ui::input::TerminalInput::spawn(move |wait| match receiver.recv_timeout(wait) {
+            Ok(event) => Ok(Some(event)),
+            Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Ok(None),
+        })
+        .unwrap();
     while app.partial.len() < target {
         keys.send(Event::Key(event::KeyEvent::new(
             KeyCode::Char('x'),
@@ -96,7 +98,7 @@ fn large_stream_phase_costs(successful: bool) {
             timing.completed(
                 draw_started,
                 Instant::now(),
-                crate::frame_timing::Phases {
+                crate::ui::frame_timing::Phases {
                     input_us,
                     advance_us: advance.as_micros(),
                     ..Default::default()
@@ -114,12 +116,12 @@ fn large_stream_phase_costs(successful: bool) {
         tx.send(Ok((
             vec![ChatMsg::assistant(reply.clone())],
             reply,
-            crate::club::RouteIdentity {
+            crate::agent::club::RouteIdentity {
                 driver: "practice".into(),
                 model: None,
                 reasoning_effort: None,
             },
-            crate::harness::TurnStopReason::Interrupt,
+            crate::agent::harness::TurnStopReason::Interrupt,
         )))
         .unwrap();
     } else {
@@ -133,7 +135,7 @@ fn large_stream_phase_costs(successful: bool) {
         timing.completed(
             draw_started,
             Instant::now(),
-            crate::frame_timing::Phases {
+            crate::ui::frame_timing::Phases {
                 input_us: cancel.as_micros(),
                 advance_us: end.as_micros(),
                 ..Default::default()

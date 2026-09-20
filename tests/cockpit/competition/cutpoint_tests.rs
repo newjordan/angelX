@@ -43,7 +43,7 @@ fn intent() -> ActionIntentV1 {
         },
         kind: ActionKindV1::SubmitCandidate,
         subject_id: "candidate-cutpoint".into(),
-        payload_sha256: crate::cut::sha256_hex(b"cutpoint-payload"),
+        payload_sha256: crate::knowledge::cut::sha256_hex(b"cutpoint-payload"),
         intent_version: "v1".into(),
     };
     intent.action_key = canonical_action_key(&intent).unwrap();
@@ -59,7 +59,7 @@ fn update(intent: &ActionIntentV1, phase: ActionPhaseV1, at_ms: u64) -> ActionUp
         at_ms,
         reconcile_key: None,
         receipt_sha256: (phase == ActionPhaseV1::Completed)
-            .then(|| crate::cut::sha256_hex(b"cutpoint-receipt")),
+            .then(|| crate::knowledge::cut::sha256_hex(b"cutpoint-receipt")),
         next: None,
     }
 }
@@ -127,7 +127,7 @@ fn dossier(head: &[u8]) -> DossierV1 {
         "repository".into(),
         "revision-one".into(),
         1,
-        crate::cut::sha256_hex(head),
+        crate::knowledge::cut::sha256_hex(head),
     )
     .unwrap()
 }
@@ -140,7 +140,7 @@ fn dossier_current_post_rename_ambiguity_recovers_visible_state_ac13() {
     old_state
         .rollover_fresh_turn(
             "turn-old".into(),
-            crate::cut::sha256_hex(b"old-head-2"),
+            crate::knowledge::cut::sha256_hex(b"old-head-2"),
             "old checkpoint".into(),
         )
         .unwrap();
@@ -152,7 +152,7 @@ fn dossier_current_post_rename_ambiguity_recovers_visible_state_ac13() {
     new_state
         .rollover_fresh_turn(
             "turn-new".into(),
-            crate::cut::sha256_hex(b"new-head"),
+            crate::knowledge::cut::sha256_hex(b"new-head"),
             "new checkpoint".into(),
         )
         .unwrap();

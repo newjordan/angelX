@@ -9,7 +9,7 @@ use super::*;
 
 #[test]
 fn worktree_git_metadata_becomes_writable_for_confined_shells() {
-    use crate::sandbox::SandboxPolicy;
+    use crate::agent::sandbox::SandboxPolicy;
 
     let root = scratch("wt_git_roots");
     // A linked-worktree layout: main repo .git with worktrees/<name>/commondir
@@ -289,7 +289,7 @@ fn delegate_skips_a_down_local_instead_of_failing() {
 #[test]
 fn live_spark_drives_the_tool_loop() {
     let _guard = crate::tests::env_lock();
-    use crate::club::HttpClub;
+    use crate::agent::club::HttpClub;
     let Ok(url) = std::env::var("ANGEL_SPARK_URL") else {
         eprintln!("set ANGEL_SPARK_URL to run the live tool-loop test; skipping");
         return;
@@ -336,7 +336,7 @@ fn live_spark_drives_the_tool_loop() {
 #[test]
 fn live_spark_orchestrates_turbo() {
     let _guard = crate::tests::env_lock();
-    use crate::club::HttpClub;
+    use crate::agent::club::HttpClub;
     if std::env::var("ANGEL_LIVE_ORCH").is_err() {
         eprintln!("set ANGEL_LIVE_ORCH=1 (+ ANGEL_BRAIN_KEY) to run; skipping");
         return;

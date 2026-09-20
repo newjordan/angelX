@@ -5,7 +5,7 @@ fn calls(calls: &[(&str, serde_json::Value)]) -> ChatMsg {
         calls
             .iter()
             .enumerate()
-            .map(|(index, (name, args))| crate::club::ToolCall {
+            .map(|(index, (name, args))| crate::agent::club::ToolCall {
                 id: format!("call-{index}"),
                 name: (*name).to_string(),
                 args: args.clone(),

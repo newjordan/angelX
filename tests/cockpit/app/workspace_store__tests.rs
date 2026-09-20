@@ -271,8 +271,8 @@ fn a_linked_worktree_inherits_the_main_repos_identity() {
         git_capture(&["rev-parse", "--abbrev-ref", "HEAD"], &linked, 5).as_deref(),
         Some("angel-linked-test")
     );
-    let main_boundary = crate::harness::WorkspaceBoundary::cached(&repo);
-    let linked_boundary = crate::harness::WorkspaceBoundary::cached(&linked);
+    let main_boundary = crate::agent::harness::WorkspaceBoundary::cached(&repo);
+    let linked_boundary = crate::agent::harness::WorkspaceBoundary::cached(&linked);
     assert_eq!(main_boundary.repository.key, linked_boundary.repository.key);
     assert_ne!(
         main_boundary.canonical_root, linked_boundary.canonical_root,
@@ -281,8 +281,8 @@ fn a_linked_worktree_inherits_the_main_repos_identity() {
     std::fs::write(repo.join("f.txt"), "main dirty").unwrap();
     std::fs::write(linked.join("f.txt"), "linked dirty").unwrap();
     assert_ne!(
-        crate::harness::workspace_fingerprint(&repo),
-        crate::harness::workspace_fingerprint(&linked),
+        crate::agent::harness::workspace_fingerprint(&repo),
+        crate::agent::harness::workspace_fingerprint(&linked),
         "branch-local dirty state must never share a cached fingerprint"
     );
     assert_eq!(

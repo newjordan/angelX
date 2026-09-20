@@ -45,7 +45,7 @@ fn dossier() -> DossierV1 {
         "repository".into(),
         "revision-one".into(),
         1,
-        crate::cut::sha256_hex(b"journal-one"),
+        crate::knowledge::cut::sha256_hex(b"journal-one"),
     )
     .unwrap()
 }
@@ -57,10 +57,10 @@ fn observation(evidence: &[&str]) -> SemanticObservationV1 {
         read_targets: BTreeSet::from(["src/kernel.rs:symbol".into()]),
         patch_mechanisms: BTreeSet::from(["tiling".into()]),
         benchmark_setups: BTreeSet::from(["fixture-b200".into()]),
-        payload_sha256: BTreeSet::from([crate::cut::sha256_hex(b"payload")]),
+        payload_sha256: BTreeSet::from([crate::knowledge::cut::sha256_hex(b"payload")]),
         novel_evidence_sha256: evidence
             .iter()
-            .map(|value| crate::cut::sha256_hex(value.as_bytes()))
+            .map(|value| crate::knowledge::cut::sha256_hex(value.as_bytes()))
             .collect(),
     }
 }
@@ -148,7 +148,7 @@ fn semantic_loop_pivots_twice_then_fresh_rollover_ac07() {
     let mut state = SemanticLoopStateV1::new("direction-one".into()).unwrap();
     let mut dossier = dossier();
     let observation = observation(&["evidence-one"]);
-    let head = crate::cut::sha256_hex(b"journal-two");
+    let head = crate::knowledge::cut::sha256_hex(b"journal-two");
     assert!(matches!(
         record_semantic_iteration(
             &mut state,
@@ -197,7 +197,7 @@ fn semantic_loop_pivots_twice_then_fresh_rollover_ac07() {
 fn novel_evidence_resets_semantic_staleness() {
     let mut state = SemanticLoopStateV1::new("direction-one".into()).unwrap();
     let mut dossier = dossier();
-    let head = crate::cut::sha256_hex(b"journal-two");
+    let head = crate::knowledge::cut::sha256_hex(b"journal-two");
     let first = observation(&["evidence-one"]);
     for now in 1..=2 {
         record_semantic_iteration(
@@ -235,7 +235,7 @@ fn semantic_archive_rejects_same_direction_then_accepts_fallback() {
     let mut state = SemanticLoopStateV1::new("direction-one".into()).unwrap();
     let mut dossier = dossier();
     let observation = observation(&["evidence-one"]);
-    let head = crate::cut::sha256_hex(b"journal-two");
+    let head = crate::knowledge::cut::sha256_hex(b"journal-two");
     for now in 1..=4 {
         record_semantic_iteration(
             &mut state,

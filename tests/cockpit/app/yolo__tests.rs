@@ -56,20 +56,20 @@ fn smart_auto_approves_only_workspace_scopes() {
     let _full = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
     let _smart = crate::tests::TestEnvGuard::set("ANGEL_YOLO_SMART", "1");
     assert!(smart_auto_approves(
-        &crate::approval::ApprovalScope::ActionBatch("action-capsule:deadbeef".into())
+        &crate::agent::approval::ApprovalScope::ActionBatch("action-capsule:deadbeef".into())
     ));
     assert!(smart_auto_approves(
-        &crate::approval::ApprovalScope::SelfTest
+        &crate::agent::approval::ApprovalScope::SelfTest
     ));
     assert!(!smart_auto_approves(
-        &crate::approval::ApprovalScope::PhoneModel("sota".into())
+        &crate::agent::approval::ApprovalScope::PhoneModel("sota".into())
     ));
     assert!(!smart_auto_approves(
-        &crate::approval::ApprovalScope::RemoteHost("spark".into())
+        &crate::agent::approval::ApprovalScope::RemoteHost("spark".into())
     ));
-    assert!(!smart_auto_approves(&crate::approval::ApprovalScope::Peer(
-        "reviewer".into()
-    )));
+    assert!(!smart_auto_approves(
+        &crate::agent::approval::ApprovalScope::Peer("reviewer".into())
+    ));
 }
 
 #[test]
