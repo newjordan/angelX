@@ -1,4 +1,4 @@
-//! Repo Dossier warm-start injection (D3 of `docs/plans/repo-dossier.md`).
+//! Repo Dossier warm-start injection from compiled experience-ledger facts.
 //!
 //! The dossier compiler (`scripts/repo-dossier.mjs`) mines the experience
 //! ledger's per-command events into per-repo facts with beliefs and writes one
@@ -382,12 +382,15 @@ pub(crate) fn status_text(workspace: &Path) -> String {
         .ok()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
     let Some(artifact) = artifact else {
+        let compiler = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/repo-dossier.mjs");
+        let quoted_compiler = compiler.to_string_lossy().replace('\'', "'\"'\"'");
         return format!(
             "no dossier for this workspace yet ({}).\n\
              It compiles from the experience ledger once commands recur across sessions:\n\
-             node scripts/repo-dossier.mjs --mine && node scripts/repo-dossier.mjs --compile\n\
-             (or wait for the idle tick: scripts/install-dossier-cron.sh)",
-            path.display()
+             node '{}' --refresh\n\
+             Requires Node.js and Python 3. /dossier reads the resulting workspace facts.",
+            path.display(),
+            quoted_compiler
         );
     };
     let min_belief = env_f64("ANGEL_DOSSIER_MIN_BELIEF", DEFAULT_MIN_BELIEF);
@@ -454,6 +457,61 @@ fn now_secs() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dossier_compiler_output_reaches_the_native_context_reader() {
+        let _lock = crate::tests::env_lock();
+        let _enabled = crate::tests::TestEnvGuard::set("ANGEL_DOSSIER", "1");
+        let _belief = crate::tests::TestEnvGuard::set("ANGEL_DOSSIER_MIN_BELIEF", "0.5");
+        let _age = crate::tests::TestEnvGuard::unset("ANGEL_DOSSIER_MAX_AGE_DAYS");
+        let _bytes = crate::tests::TestEnvGuard::unset("ANGEL_DOSSIER_MAX_BYTES");
+        let temp = crate::tests::TestGitWorkspace::new("dossier-compiler");
+        let workspace = temp.path().join("project");
+        let cut = temp.path().join("cut");
+        let out = temp.path().join("dossier");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::create_dir_all(&cut).unwrap();
+        let key = artifact_key(&workspace);
+        let now = now_secs();
+        let rows = (1..=3)
+            .map(|session| {
+                serde_json::json!({
+                    "kind":"event", "v":3, "ts":now, "session":session, "seq":0,
+                    "event":"cmd", "repo":{"key":key,"root":workspace,"slug":"project"},
+                    "cmd":{"text":"cargo check","exit":0,"verdict":"pass",
+                        "shell":"bash","pipefail":true,"source":"agent","independent":true,
+                        "timed_out":false,"dur_ms":12,"tool":"shell","bytes_out":0}
+                })
+                .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let ledger = temp.path().join("ledger.jsonl");
+        std::fs::write(&ledger, rows).unwrap();
+        let compiler = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/repo-dossier.mjs");
+        let result = std::process::Command::new("node")
+            .arg(compiler)
+            .arg("--refresh")
+            .arg("--ledger")
+            .arg(&ledger)
+            .arg("--cut")
+            .arg(&cut)
+            .arg("--out")
+            .arg(&out)
+            .current_dir(temp.path())
+            .output()
+            .expect("Node.js runs the dossier compiler");
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert!(out.join(format!("{key}.json")).is_file());
+        assert!(out.join("graph.json").is_file());
+        let context = broker_context_block_in(&out, &workspace, now);
+        assert!(context.contains("cargo check"), "{context}");
+        assert!(!temp.path().join("public").exists());
+    }
 
     fn artifact() -> serde_json::Value {
         serde_json::json!({
