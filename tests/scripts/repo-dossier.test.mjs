@@ -30,7 +30,7 @@ import {
   RITUAL_MIN_RUNS,
   TRAP_MIN_FAILS,
   dossierPaths,
-} from '../../scripts/repo-dossier.mjs'
+} from '../../scripts/runtime/repo-dossier.mjs'
 
 test('dossier paths use the native cockpit stores and respect explicit overrides', () => {
   assert.deepEqual(dossierPaths([], {}, '/tmp/dossier-user'), {
@@ -72,7 +72,7 @@ test('refresh publishes ledger facts in one invocation without a browser data tr
   const result = spawnSync(
     process.execPath,
     [
-      fileURLToPath(new URL('../../scripts/repo-dossier.mjs', import.meta.url)),
+      fileURLToPath(new URL('../../scripts/runtime/repo-dossier.mjs', import.meta.url)),
       '--refresh',
       '--ledger',
       ledger,
@@ -96,7 +96,7 @@ test('dossier compiler rejects repository keys that escape its output directory'
   const result = spawnSync(
     process.execPath,
     [
-      fileURLToPath(new URL('../../scripts/repo-dossier.mjs', import.meta.url)),
+      fileURLToPath(new URL('../../scripts/runtime/repo-dossier.mjs', import.meta.url)),
       '--compile',
       '--repo',
       '../escape',

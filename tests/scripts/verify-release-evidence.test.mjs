@@ -13,13 +13,13 @@ import {
   inventoryReleaseFiles,
   sha256Bytes,
   sha256File,
-} from '../../scripts/release-evidence.mjs'
+} from '../../scripts/release/release-evidence.mjs'
 import {
   extractVerifiedRows,
   parseUstarArchive,
   verifyPinnedV8Archive,
   verifyReleaseSet,
-} from '../../scripts/verify-release-evidence.mjs'
+} from '../../scripts/release/verify-release-evidence.mjs'
 
 function command(cwd, executable, args) {
   const result = spawnSync(executable, args, { cwd, encoding: 'utf8' })

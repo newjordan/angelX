@@ -18,7 +18,7 @@ import { workerPaths } from './worker-paths.mjs'
 // Pure core (no file I/O, no network) + a CLI shell at the bottom. Node ids
 // embed the repo key VERBATIM (minted Rust-side, never re-derived here).
 
-import { NODE_TYPE } from '../lib/research/CausalGraph.js'
+import { NODE_TYPE } from '../../lib/research/CausalGraph.js'
 import { classifyCommand, factBelief } from './repo-dossier.mjs'
 import { applyProbe } from './dossier-tick.mjs'
 
@@ -648,7 +648,7 @@ export async function proposeToDisk(graph, opts = {}) {
   const { fileURLToPath } = await import('node:url')
   const os = await import('node:os')
   const home = os.homedir()
-  const ROOT = opts.root ?? join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = opts.root ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const proposedDir =
     opts.proposedDir || process.env.ANGEL_HABIT_PROPOSED_DIR || workerPaths().proposed
   const userSkillsDir = opts.skillsDir || process.env.ANGEL_SKILLS_DIR || workerPaths().skills
@@ -745,7 +745,7 @@ async function cli(argv) {
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
 
-  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const flag = (name) => {
     const i = argv.indexOf(name)
     return i >= 0 ? argv[i + 1] : undefined
@@ -754,7 +754,7 @@ async function cli(argv) {
   const ledgerPath = flag('--ledger') || process.env.ANGEL_EXPERIENCE_LOG || workerPaths().ledger
   const onlyRepo = flag('--repo')
 
-  const CausalGraph = (await import('../lib/research/CausalGraph.js')).default
+  const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const loadGraph = () =>
     existsSync(graphPath)
       ? CausalGraph.deserialize(JSON.parse(readFileSync(graphPath, 'utf8')))
@@ -824,7 +824,7 @@ async function cli(argv) {
   }
 
   console.log(
-    'usage: node scripts/habitsmith.mjs --refresh|--mine|--list|--propose [--dry-run] [--repo <key>] [--graph <path>] [--ledger <path>] [--proposed-dir <dir>]',
+    'usage: node scripts/runtime/habitsmith.mjs --refresh|--mine|--list|--propose [--dry-run] [--repo <key>] [--graph <path>] [--ledger <path>] [--proposed-dir <dir>]',
   )
   return 2
 }

@@ -26,7 +26,7 @@ and `.angel.env` are never included.
 
 ## What the archive contains
 
-The inventory is an explicit allowlist in [release-evidence.mjs](../scripts/release-evidence.mjs):
+The inventory is an explicit allowlist in [release-evidence.mjs](../scripts/release/release-evidence.mjs):
 
 - the terminal and headless runtime, launcher and vendored Rust dependencies;
 - embedded skills, personas, fixtures, telemetry tables and Sloptomizer modules;
