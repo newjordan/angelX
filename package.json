@@ -23,15 +23,16 @@
     "release:verify:container": "node scripts/verify-release-container.mjs",
     "release:verify:advisories": "node scripts/verify-release-advisories.mjs",
     "release:verify:install": "node scripts/verify-release-install.mjs",
-    "test:release": "node --test --test-concurrency=1 scripts/release-evidence.test.mjs scripts/verify-release-evidence.test.mjs scripts/verify-release-container.test.mjs scripts/verify-release-advisories.test.mjs scripts/verify-release-install.test.mjs scripts/verify-runner-smoke.test.mjs",
-    "test": "node --test --test-concurrency=1 scripts/release-evidence.test.mjs scripts/verify-release-evidence.test.mjs scripts/verify-release-container.test.mjs scripts/verify-release-advisories.test.mjs scripts/verify-release-install.test.mjs scripts/verify-runner-smoke.test.mjs",
+    "test:release": "node --test --test-concurrency=1 scripts/release-evidence.test.mjs scripts/verify-release-evidence.test.mjs scripts/verify-release-container.test.mjs scripts/verify-release-advisories.test.mjs scripts/verify-release-install.test.mjs scripts/verify-runner-smoke.test.mjs scripts/repo-dossier.test.mjs",
+    "test": "node --test --test-concurrency=1 scripts/release-evidence.test.mjs scripts/verify-release-evidence.test.mjs scripts/verify-release-container.test.mjs scripts/verify-release-advisories.test.mjs scripts/verify-release-install.test.mjs scripts/verify-runner-smoke.test.mjs scripts/repo-dossier.test.mjs",
     "check:cockpit-quality": "bash scripts/check-cockpit-quality.sh",
     "check:connections": "python3 scripts/check-active-connections.py",
     "test:connections": "python3 -m unittest discover -s scripts -p test_active_connections.py",
     "test:cockpit-pty": "ANGEL_PTY_SMOKE_STRICT=1 cargo test --manifest-path cockpit/Cargo.toml --test interactive_terminal_smoke",
     "format": "prettier --write scripts/*.mjs",
     "format:check": "prettier --check scripts/*.mjs",
-    "test:cockpit": "bash scripts/check-cockpit-fast.sh --test-threads=1"
+    "test:cockpit": "bash scripts/check-cockpit-fast.sh --test-threads=1",
+    "test:machine-queue": "python3 scripts/angel-machine-queue.test.py"
   },
   "dependencies": {
     "pxpipe-proxy": "^0.8.0"
