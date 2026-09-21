@@ -24,6 +24,18 @@ use std::time::{Duration, Instant};
 const ATLAS: &[u8] = include_bytes!("../../assets/excalibur/rise.png");
 const FRAME_W: u32 = 680;
 const FRAME_H: u32 = 384;
+/// The clip's fixed framing, and the aspect every intro band is measured
+/// against: empty side wings trimmed, the whole blade, hand and water retained.
+const CROP_X: u32 = 140;
+const CROP_W: u32 = FRAME_W - CROP_X * 2;
+/// Widest intro band we will compose, in terminal columns. The crop is nearly
+/// square (`CROP_W` × `FRAME_H`), so the blade is always height-limited: past
+/// this many columns a wider pane buys no extra art, only a wider dithered
+/// canvas, a wider fine-dot raster and a wider Braille grid carrying the same
+/// blade — which is what read as the width pixelating the clip. Bounding the
+/// band, centring it and standing it on the floor of the pane keeps the art the
+/// same size it already was while making the composed surface width-invariant.
+const INTRO_MAX_COLUMNS: u16 = 96;
 const FRAMES: u8 = 60;
 const FPS: u128 = 12;
 /// The blade settles here; afterwards only the water keeps moving.
@@ -78,6 +90,38 @@ impl Flow {
                 melt: ((step - frames + 1) * 255 / (u128::from(SEAM) + 1)) as u8,
             }
         }
+    }
+}
+
+/// The presented intro band for one pane: width-clamped, horizontally centred,
+/// and stood on the floor of the pane.
+///
+/// The two bounds are one rule. The clip is nearly square, so the art it can
+/// actually fill at `rows` Braille rows is `rows * 4` dot rows tall and — at the
+/// crop's aspect — `rows * 4 * CROP_W / FRAME_H` dot columns wide, which is
+/// `rows * 2 * CROP_W / FRAME_H` terminal columns. Clamping to that means the
+/// composed surface is never wider than the dots that can carry it; clamping to
+/// `INTRO_MAX_COLUMNS` keeps a very tall pane from ballooning the band. Either
+/// way the canvas, the fine-dot raster and the Braille grid all shrink to the
+/// art, and the leftover width becomes margin on both sides instead of stretch
+/// or a dead letterbox band. Height is untouched, so the waterline stays on the
+/// floor of the pane. Idempotent: re-banding a band returns it.
+pub(crate) fn intro_band(area: Rect) -> Rect {
+    if area.width == 0 || area.height == 0 {
+        return area;
+    }
+    let rows = usize::from(area.height);
+    let fill = (rows * 4 * CROP_W as usize / FRAME_H as usize / 2).max(1);
+    let width = area
+        .width
+        .min(INTRO_MAX_COLUMNS)
+        .min(u16::try_from(fill).unwrap_or(u16::MAX))
+        .max(1);
+    Rect {
+        x: area.x + (area.width - width) / 2,
+        y: area.y,
+        width,
+        height: area.height,
     }
 }
 
@@ -533,8 +577,6 @@ impl Cache {
 fn prepare(atlas: &GrayImage, index: u8, columns: usize, rows: usize) -> GrayImage {
     // Fixed framing throughout the clip: trim empty side wings, retain the whole
     // blade, hand and water. Narrow mini-viz can then use its height.
-    const CROP_X: u32 = 140;
-    const CROP_W: u32 = FRAME_W - CROP_X * 2;
     let source = imageops::crop_imm(
         atlas,
         u32::from(index % 10) * FRAME_W + CROP_X,
