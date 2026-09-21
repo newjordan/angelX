@@ -127,7 +127,6 @@ _update() {
   mkdir -p "$HOME/.local/bin"
   ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angelX"
   ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel"
-  ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel0"
   ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angelx"
   ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel-harness"
 
