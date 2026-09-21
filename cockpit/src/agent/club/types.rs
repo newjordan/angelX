@@ -203,9 +203,16 @@ impl ChatMsg {
         calls: Vec<ToolCall>,
         private_reasoning: Option<String>,
     ) -> Self {
+        Self::assistant_calls_full(calls, private_reasoning, None)
+    }
+    pub(crate) fn assistant_calls_full(
+        calls: Vec<ToolCall>,
+        private_reasoning: Option<String>,
+        content: Option<String>,
+    ) -> Self {
         Self {
             role: ChatRole::Assistant,
-            content: Arc::from(""),
+            content: content.map(Arc::from).unwrap_or_else(|| Arc::from("")),
             attachments: Vec::new().into(),
             tool_calls: calls.into(),
             tool_call_id: None,

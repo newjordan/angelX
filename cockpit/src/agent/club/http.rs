@@ -3390,6 +3390,7 @@ impl Club for HttpClub {
         effort: Option<&str>,
     ) -> Result<ClubReply, String> {
         set_pending_tool_reasoning(None);
+        set_pending_tool_content(None);
         // Judge consult for metered, tool-less asks (fail-open, cached,
         // latency-bounded — see `provision.rs`). Staged, then consumed by the
         // body build below.
@@ -3509,6 +3510,7 @@ impl Club for HttpClub {
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
         set_pending_tool_reasoning(None);
+        set_pending_tool_content(None);
         if self.caveman_candidate
             && tools.is_empty()
             && let Some(d) = judge_directive(&self.name, messages)
@@ -3709,6 +3711,11 @@ impl HttpClub {
                     .filter(|reasoning| reasoning.len() <= TOOL_REASONING_RECEIPT_MAX_BYTES)
                     .map(str::to_string);
                 set_pending_tool_reasoning(replay_private_reasoning.then_some(reasoning).flatten());
+                let content = msg["content"]
+                    .as_str()
+                    .filter(|s| !s.trim().is_empty())
+                    .map(str::to_string);
+                set_pending_tool_content(content);
                 return Ok(ClubReply::Calls(calls));
             }
         }

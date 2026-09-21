@@ -939,7 +939,7 @@ fn task_coding_discipline_block() -> String {
      Action ladder (stay on it):\n\
      1. **Map** — use the workspace map + preturn recon; open implementing files with \
 `read_file`/`grep` *inside the coding root*. Do not `find /`, `find $HOME`, or inventory unrelated repos.\n\
-     2. **Edit** — smallest source change in src/pkg/lib/core/machinery (not docs/testdata copies).\n\
+     2. **Edit** — focused source change in implementing files. For new solutions, state machines, or multi-error type repairs, prefer `write_file` to rewrite the module cleanly rather than brittle line-by-line patching. Use `str_replace` for small, localized fixes.\n\
      3. **Verify** — run a *pre-existing* project test/check that matches the bug; read its diagnostics.\n\
      4. **Finish** — after green, complete any remaining requested work; after red, fix from diagnostics.\n\
      Speed:\n\
@@ -963,6 +963,9 @@ wait of at most 30 seconds that returns early on exit; avoid shell sleep loops.\
      - Never claim fixed without a workspace mutation (or a concrete blocker with residual risk).\n\
      - Keep root strategy short; park bulk under handles/`code_mode` when the lane is Treebeard.\n\
      - One failed identical patch → change approach (more context, different path, or measure first).\n\
+     - Working thought before every action: before invoking ANY tool (including `shell`, `read_file`, `write_file`, or `str_replace`), you MUST emit 1-2 concise sentences explaining your hypothesis, what you are checking or fixing, and what you expect the result to show. Interpret tool outputs and diagnostics in your next thought before acting.\n\
+     - Clean rewrite on compile cascades: if consecutive compiler errors occur, step back and replace the module cleanly with `write_file` instead of accumulating micro-patches.\n\
+     - No redundant verifiers: never re-run tests or build commands unless the workspace code has changed.\n\
      - Treat tool results as evidence: keep the earliest actual prerequisite failure; confirm \
 usable input before dependent measurements; stay inside allowed scratch; discover optional \
 dependencies and authorized reference paths from real tool errors and permissions. Do not score \

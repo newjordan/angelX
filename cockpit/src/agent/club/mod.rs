@@ -68,6 +68,12 @@ thread_local! {
     static PENDING_TOOL_REASONING: std::cell::RefCell<Option<String>> = const {
         std::cell::RefCell::new(None)
     };
+    /// Model-authored prose content associated with the most recent tool-call
+    /// reply on this execution thread. Consumed by the turn loop to preserve
+    /// the assistant's working thought and hypothesis in conversation history.
+    static PENDING_TOOL_CONTENT: std::cell::RefCell<Option<String>> = const {
+        std::cell::RefCell::new(None)
+    };
 }
 
 pub(crate) fn set_pending_tool_reasoning(reasoning: Option<String>) {
@@ -76,6 +82,14 @@ pub(crate) fn set_pending_tool_reasoning(reasoning: Option<String>) {
 
 pub(crate) fn take_pending_tool_reasoning() -> Option<String> {
     PENDING_TOOL_REASONING.with(|slot| slot.borrow_mut().take())
+}
+
+pub(crate) fn set_pending_tool_content(content: Option<String>) {
+    PENDING_TOOL_CONTENT.with(|slot| *slot.borrow_mut() = content);
+}
+
+pub(crate) fn take_pending_tool_content() -> Option<String> {
+    PENDING_TOOL_CONTENT.with(|slot| slot.borrow_mut().take())
 }
 
 pub trait Club: Send + Sync {

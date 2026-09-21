@@ -399,11 +399,10 @@ fn write_canonical_json(tool: &str, value: &Value, out: &mut String) {
     }
 }
 
-/// The result a suppressed duplicate gets instead of a second execution. Not a
-/// `tool error:` — nothing failed, and the error breaker must not count it.
+/// The result a suppressed duplicate gets instead of a second execution.
 pub(super) fn duplicate_storm_result(call: &ToolCall, count: usize) -> String {
     format!(
-        "[duplicate call suppressed: {count}×] You have issued this exact `{}` call {count} times with identical arguments in the observation window; it was not executed again. No fresh result was read, so earlier output may be stale. Advance independent work; process-status sightings expire after 30 seconds.",
+        "tool error: [duplicate call suppressed: {count}×] You have issued this exact `{}` call {count} times with identical arguments in the observation window; it was not executed again. No fresh result was read because workspace files have not changed. Do not repeat this call. You must edit the code using write_file or str_replace to fix the issue, or run a different command.",
         call.name
     )
 }

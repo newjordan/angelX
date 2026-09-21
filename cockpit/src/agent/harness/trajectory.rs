@@ -1228,7 +1228,7 @@ pub(crate) fn unproductive_escalation(
         let streak = ledger.unproductive_streak;
         let last = ledger.last_verifier.as_deref().unwrap_or("not_run").to_string();
         let already_escalated = ledger.streak_escalated;
-        let notice = if escalate > 0 && streak >= escalate && streak.is_multiple_of(escalate) {
+        let notice = if escalate > 0 && streak >= escalate && (!already_escalated || streak.is_multiple_of(escalate)) {
             let elapsed_ms = ledger.timing_origin.map(|t| t.elapsed().as_millis() as u64);
             ledger.escalations.push(serde_json::json!({
                 "kind": "unproductive_streak", "hop": hop, "streak": streak,
@@ -1238,12 +1238,12 @@ pub(crate) fn unproductive_escalation(
             if ledger.research_turn {
                 Some(format!("unproductive streak: {streak} consecutive actions added no new sources; deliver the answer with supporting citations or an explicit missing-evidence statement with NO citations"))
             } else {
-            Some(format!("unproductive streak: {streak} consecutive actions changed nothing verifiable; the verifier's last outcome was {last}; produce a verified candidate, run the verifier with an explicit result, or report the blocker as your answer"))
+            Some(format!("unproductive streak: {streak} consecutive actions changed nothing verifiable; the verifier's last outcome was {last}; produce a verified candidate, run the verifier with an explicit result, or report the blocker as your answer. Scratch files outside the repository (e.g. in /tmp) do not count as progress; edit the target source file directly."))
             }
         } else {
             None
         };
-        let diagnosis = if stop > 0 && streak >= stop && already_escalated {
+        let diagnosis = if stop > 0 && streak >= stop && (already_escalated || ledger.streak_escalated || escalate == 0) {
             let mut digests = Vec::new();
             for tool in ledger.tools.iter().rev() {
                 if let Some(digest) = tool["args_digest"].as_str()
@@ -1262,6 +1262,15 @@ pub(crate) fn unproductive_escalation(
         };
         (notice, diagnosis)
     })
+}
+
+pub(crate) fn clear_unproductive_streak() {
+    TURN_LEDGER.with(|cell| {
+        let mut ledger = cell.borrow_mut();
+        ledger.unproductive_streak = 0;
+        ledger.streak_escalated = false;
+        ledger.last_streak_evaluation_hop = None;
+    });
 }
 
 pub(crate) fn note_escalation(hop: usize, kind: &str) {
