@@ -30,8 +30,7 @@ pub mod science;
 pub mod self_model;
 pub mod shell;
 pub mod solo;
-#[path = "../harness/comp_packages/yukon/submit_identity.rs"]
-pub(crate) mod submit_identity;
+pub(crate) use crate::agent::harness::comp_packages::yukon::submit_identity;
 pub mod utilities;
 pub mod video;
 pub mod vision;
