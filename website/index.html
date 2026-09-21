@@ -37,7 +37,17 @@
     <pattern id="pGridDots" width="20" height="20" patternUnits="userSpaceOnUse">
       <circle cx="1" cy="1" r="1" fill="#ffffff" opacity=".16"/>
     </pattern>
-  </defs>
+    <!-- one tone curve for every picture: a straight line steeper than 1:1, so
+       shadows drop and highlights lift around the source's own range. CSS
+       contrast() pivots at mid-grey and would crush our dark footage to black. -->
+  <filter id="tone" color-interpolation-filters="sRGB">
+    <feComponentTransfer>
+      <feFuncR type="linear" slope="1.35" intercept="-0.04"/>
+      <feFuncG type="linear" slope="1.35" intercept="-0.04"/>
+      <feFuncB type="linear" slope="1.35" intercept="-0.04"/>
+    </feComponentTransfer>
+  </filter>
+</defs>
 </svg>
 
 <!-- atmosphere overlays -->
@@ -95,14 +105,77 @@
           </button>
         </div>
       </div>
-      <p class="fineprint">angelX · placeholder build · axcalibur v0.1 · MMXXV</p>
+      <div class="stack-strip" aria-label="What the harness is built from">
+        <div class="stack-row">
+          <div class="stack-item" title="Rust — the whole harness: 200k+ lines, one binary">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="14.6" rx="6" ry="4.2"/><path d="M9 10.4V8.6M15 10.4V8.6"/><circle cx="9" cy="7.4" r="1.1"/><circle cx="15" cy="7.4" r="1.1"/><path d="M6 12.7C3.6 12 2.4 9.4 4 7.6M5.4 9.4c-1.5-.6-2-2.4-.9-3.5"/><path d="M18 12.7c2.4-.7 3.6-3.3 2-5.1M18.6 9.4c1.5-.6 2-2.4.9-3.5"/><path d="M6.6 16.3 3.4 18.1M7.2 18.1 4.8 20.5M8.6 19.1 7 21.5M17.4 16.3l3.2 1.8M16.8 18.1l2.4 2.4M15.4 19.1l1.6 2.4"/></svg>
+          <span>rust</span>
+        </div>
+          <div class="stack-item" title="ratatui — the terminal UI toolkit behind every panel">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="M2.5 8.4h19"/><path d="M6.2 11.6 8.6 14l-2.4 2.4"/><rect x="12" y="14.4" width="4.6" height="3.2" rx=".6"/></svg>
+          <span>ratatui</span>
+        </div>
+          <div class="stack-item" title="rusty_v8 — JavaScript in-process, so code_mode runs really code">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3.5" width="18" height="17" rx="2.5"/><path d="M9.6 8.4c-1.6 0-1.2 2.1-2.2 3.1-.4.4-.9.6-1.4.5.5-.1 1 .1 1.4.5 1 1 .6 3.1 2.2 3.1"/><path d="M14.4 8.4c1.6 0 1.2 2.1 2.2 3.1.4.4.9.6 1.4.5-.5-.1-1 .1-1.4.5-1 1-.6 3.1-2.2 3.1"/></svg>
+          <span>v8</span>
+        </div>
+          <div class="stack-item" title="dotmax + terrain-forge — the dot-matrix world and its two scenes">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><ellipse cx="12" cy="12" rx="8" ry="3.2"/><ellipse cx="12" cy="12" rx="3.4" ry="8"/></svg>
+          <span>world</span>
+        </div>
+          <div class="stack-item" title="Node.js — the release and evidence tooling">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19.6 7.6v8.8L12 20.8 4.4 16.4V7.6Z"/><circle cx="12" cy="12" r="2.4"/></svg>
+          <span>node</span>
+        </div>
+          <div class="stack-item" title="Python 3 — helper scripts and local tooling">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 9.4c0-2.2 1.6-3.8 3.8-3.8h3.4c2.2 0 3.8 1.6 3.8 3.8s-1.6 3.6-3.8 3.6h-3.4c-2.2 0-3.8 1.5-3.8 3.6s1.6 3.6 3.8 3.6h3.4c2.2 0 3.8-1.6 3.8-3.8"/><circle cx="9.8" cy="8.1" r=".9"/><path d="M6.6 6.3 4.7 5.4"/></svg>
+          <span>python</span>
+        </div>
+        </div>
+        <div class="stack-row">
+          <div class="stack-item" title="git — every tool is repository-aware">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="6" r="2.2"/><circle cx="7" cy="18" r="2.2"/><circle cx="17.5" cy="9.5" r="2.2"/><path d="M7 8.2v7.6"/><path d="M17.5 11.7c0 3.2-4.4 2.6-8 4.4"/></svg>
+          <span>git</span>
+        </div>
+          <div class="stack-item" title="Docker — the pinned clean release builder">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="9.6" width="3.4" height="3.4"/><rect x="9.2" y="9.6" width="3.4" height="3.4"/><rect x="13.4" y="9.6" width="3.4" height="3.4"/><rect x="9.2" y="5.8" width="3.4" height="3.4"/><path d="M2.8 14.6h18.4c-.8 3.6-3.8 5.6-8.6 5.6-4.4 0-8.2-2-9.8-5.6Z"/></svg>
+          <span>docker</span>
+        </div>
+          <div class="stack-item" title="Linux x86_64 — the target it ships for">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8c-1.9 0-3.1 1.3-3.1 3.2v3.1c0 .9-.6 1.5-1.4 2.5-1 1.2-1.5 2.6-1.5 4.1 0 2.5 2.4 4.3 6 4.3s6-1.8 6-4.3c0-1.5-.5-2.9-1.5-4.1-.8-1-1.4-1.6-1.4-2.5V7c0-1.9-1.2-3.2-3.1-3.2Z"/><circle cx="10.4" cy="7.4" r=".7"/><circle cx="13.6" cy="7.4" r=".7"/><path d="M11.2 9.3 12 10.5l.8-1.2z"/></svg>
+          <span>linux</span>
+        </div>
+          <div class="stack-item" title="ffmpeg — media in and out, on the box and in the pipeline">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="5.2" width="18.4" height="13.6" rx="2"/><path d="M6.2 5.2v3.1M10 5.2v3.1M13.8 5.2v3.1M17.6 5.2v3.1M6.2 15.7v3.1M10 15.7v3.1M13.8 15.7v3.1M17.6 15.7v3.1"/></svg>
+          <span>ffmpeg</span>
+        </div>
+          <div class="stack-item" title="Playwright — the frame verifiers that gate the plates">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="5" width="18.4" height="14" rx="2"/><path d="M2.8 9h18.4"/><path d="M10 11.6 14.4 14 10 16.4Z"/></svg>
+          <span>playwright</span>
+        </div>
+
+          <div class="stack-item" title="opencode — the open-source terminal coding agent">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 5.2 4.6 12l4.8 6.8"/><path d="M14.6 5.2 19.4 12l-4.8 6.8"/><rect x="10.6" y="10.2" width="2.8" height="3.6" rx=".5"/></svg>
+          <span>opencode</span>
+        </div>
+
+          <div class="stack-item" title="dotagents — one dot, every agent: voice-controlled AI specialists on the open .agents protocol">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="3.2"/><circle cx="8.1" cy="13.6" r="1.25" fill="currentColor" stroke="none"/><circle cx="14.6" cy="11.8" r="2.5"/><path d="M17.1 9.3v5"/></svg>
+          <span>dotagents</span>
+        </div>
+          <div class="stack-item" title="model fleet — openai · xai · deepseek · glm · openrouter, routed per turn">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="4" r="1.5"/><circle cx="19" cy="8" r="1.5"/><circle cx="19" cy="16" r="1.5"/><circle cx="12" cy="20" r="1.5"/><circle cx="5" cy="16" r="1.5"/><circle cx="5" cy="8" r="1.5"/><path d="M12 5.5v3.9M17.6 8.9l-4.2 1.9M17.6 15.1l-4.2-1.9M12 18.5v-3.9M6.4 15.1l4.2-1.9M6.4 8.9l4.2 1.9"/></svg>
+          <span>models</span>
+        </div>
+        </div>
+      </div>
+      <p class="fineprint">AngelX created by Jordan Newman <a href="https://x.com/frostforger" target="_blank" rel="noopener noreferrer" aria-label="Jordan Newman on X — @frostforger">@frostforger</a></p>
     </div>
   </section>
 
   <!-- ══════════ 04 · TELEMETRY (teaser loop + placeholder charts) ══════════ -->
   <section id="charts" aria-label="Telemetry — charts and graphs">
     <div class="wrap reveal">
-      <p class="eyebrow">[ 04 · TELEMETRY ]</p>
       <h2 class="title">A one of a kind TUI experience.</h2>
       <p class="lede">Multi-panel TUI with unique and customizable model feedback.</p>
       <video class="teaser" src="assets/angelx-harness-preview-square.mp4" width="1600" height="1600" autoplay loop muted playsinline
@@ -114,8 +187,7 @@
   <section id="gallery" class="has-backdrop" aria-label="Sightings from the archive">
     <img class="section-backdrop" src="assets/background_lion_large.png" alt="" aria-hidden="true">
     <div class="wrap reveal">
-      <p class="eyebrow">[ 03 · SIGHTINGS ]</p>
-      <h2 class="title">Sightings from the archive.</h2>
+      <h2 class="title">Sightings.</h2>
 
       <div class="fig-grid">
         <figure>
@@ -137,7 +209,6 @@
   <!-- ══════════ 02 · THE TWELVE TENETS (12 points) ══════════ -->
   <section id="points" aria-label="The twelve tenets">
     <div class="wrap reveal">
-      <p class="eyebrow">[ 02 · THE TWELVE TENETS ]</p>
       <h2 class="title">Points of light.</h2>
       <ol class="tenets">
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Models and formations</h3><p>Choose models and thinking levels, configure teams, and run agent graphs.</p></div></li>
@@ -159,7 +230,6 @@
   <!-- ══════════ 01 · WHAT IT IS ══════════ -->
   <section id="intro" aria-label="What is angelX">
     <div class="wrap reveal">
-      <p class="eyebrow">[ 01 · WHAT IT IS ]</p>
       <h2 class="title">A coding and research harness.</h2>
       <p class="lede">angelX is a tool for explorers pushing the boundaries of research with AI. It is also a coding tool, a mini world, and a growing, self-reflective piece of software — built to evolve over time and adapt to the person driving it.</p>
       <p class="lede">Under the hood: 200k+ lines of Rust focused on performance in autoresearch, agentic fleet control, and coding.</p>
@@ -193,7 +263,6 @@
       <span class="mote" style="left:80%;top:70%;animation-delay:3.6s;animation-duration:12s"></span>
       <span class="mote" style="left:50%;top:78%;animation-delay:5s;animation-duration:9.5s"></span>
     </div>
-    <p class="gate-msg" aria-hidden="true">[ GATE RESTS · STAR RISES ]</p>
   </section>
 </main>
 

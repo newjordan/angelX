@@ -9,12 +9,12 @@ The page opens at the **bottom** of the document — the entrance — and is rea
 **upward**. DOM order is therefore the reverse of reading order:
 
 ```
-document top    #finale                     ← end of the journey
-                #charts   04 · telemetry
-                #gallery  03 · sightings
-                #points   02 · twelve tenets
-                #intro    01 · what it is
-document bottom #entrance the gate             ← the beginning
+document top    #finale      ← end of the journey
+                #charts
+                #gallery
+                #points
+                #intro
+document bottom #entrance    ← the beginning
 ```
 
 On load, JS pins the scroll to the bottom (`history.scrollRestoration =
