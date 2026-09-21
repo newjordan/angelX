@@ -942,6 +942,9 @@ impl RlState {
 
     /// Launch one campaign on the operator's selected club. Returns the
     /// operator-facing launch line; all work happens on the campaign thread.
+    /// Test-only: the cockpit types a command line, so production enters through
+    /// `start_campaign_argv`.
+    #[cfg(test)]
     pub fn start_campaign(
         &mut self,
         workspace: &Path,
