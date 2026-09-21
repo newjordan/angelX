@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import test from 'node:test'
 
-import { validateRunnerSmokeAudit, validateRunnerSmokeEnvelope } from '../../scripts/release/verify-runner-smoke.mjs'
+import {
+  validateRunnerSmokeAudit,
+  validateRunnerSmokeEnvelope,
+} from '../../scripts/release/verify-runner-smoke.mjs'
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue)
