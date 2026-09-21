@@ -15,6 +15,9 @@
   --font-fantasy:'Cinzel','Times New Roman',Georgia,serif;
   --font-dos:'VT323','Courier New',ui-monospace,monospace;
   --font-mono:ui-monospace,'Cascadia Mono',Menlo,Consolas,'Courier New',monospace;
+  /* one knob for every picture on the page: monochrome, then the #tone curve
+     from index.html pushes the contrast at both ends */
+  --media-filter:grayscale(1) url(#tone);
 }
 
 *{box-sizing:border-box}
@@ -82,13 +85,17 @@ main{position:relative;z-index:2}
 section{position:relative;min-height:100vh;padding:14vh 24px;
   display:flex;align-items:center;justify-content:center}
 section:not(#entrance){border-bottom:1px dashed var(--line)}
+/* centred page: with the numbered labels gone, every section reads from the
+   middle. #entrance is its own hero and the install box keeps its command
+   left-aligned, so both opt out. */
+section:not(#entrance) .wrap{text-align:center}
+section:not(#entrance) .lede{margin-left:auto;margin-right:auto}   /* keeps its 68ch measure */
 .wrap{width:min(980px,100%)}
 
 .noscript-note{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;
   font-family:var(--font-dos);color:var(--ink);background:#000;border:1px solid var(--line-2);
   padding:8px 16px;font-size:20px}
 
-.eyebrow{font-family:var(--font-dos);color:var(--faint);font-size:20px;letter-spacing:.16em;margin:0 0 10px}
 h2.title{font-family:var(--font-fantasy);font-weight:700;letter-spacing:.04em;
   font-size:clamp(30px,4.6vw,52px);margin:0 0 18px}
 .display{font-family:var(--font-fantasy);font-weight:900;line-height:1.12;letter-spacing:.03em;
@@ -97,7 +104,10 @@ h2.title{font-family:var(--font-fantasy);font-weight:700;letter-spacing:.04em;
 .lede.centered{margin-inline:auto;text-align:center}
 .rule{margin:34px auto;text-align:center;color:var(--faint);font-family:var(--font-dos);
   letter-spacing:1.2em;font-size:15px;padding-left:1.2em}
-.fineprint{font-family:var(--font-dos);color:var(--faint);font-size:16px;margin-top:26px;letter-spacing:.08em}
+.fineprint{font-family:var(--font-dos);color:var(--dim);font-size:18px;margin-top:26px;letter-spacing:.08em}
+.fineprint a{color:var(--ink);text-decoration:underline dotted;text-underline-offset:3px;
+  text-decoration-color:var(--faint);transition:color .25s ease,text-decoration-color .25s ease}
+.fineprint a:hover,.fineprint a:focus-visible{color:#fff;text-decoration-color:#fff}
 
 /* reveal-on-scroll: content arrives from ABOVE (we are ascending) */
 .reveal{opacity:0;transform:translateY(-36px);
@@ -112,8 +122,9 @@ dl.plate{margin:30px 0 0;font-family:var(--font-dos);font-size:21px;max-width:56
 .plate dd{margin:0;color:var(--ink);white-space:nowrap}
 
 /* ─── the twelve tenets ───────────────────────────────────────── */
-ol.tenets{list-style:none;margin:26px 0 0;padding:0;counter-reset:tenet}
-ol.tenets li{counter-increment:tenet;display:grid;grid-template-columns:86px 1fr;gap:18px;
+ol.tenets{list-style:none;margin:26px auto 0;padding:0;counter-reset:tenet;max-width:780px}
+ol.tenets li{counter-increment:tenet;display:grid;
+  grid-template-columns:86px minmax(0,1fr) 86px;gap:18px;
   padding:20px 10px;border-top:1px dotted var(--line-2)}
 ol.tenets li:last-child{border-bottom:1px dotted var(--line-2)}
 .tenet-num{font-family:var(--font-dos);font-size:42px;color:var(--faint);line-height:1;
@@ -158,6 +169,11 @@ section.has-backdrop::before{content:"";position:absolute;inset:0;z-index:1;poin
   .fig-grid{grid-template-columns:minmax(0,1fr)}
 }
 
+/* ─── pictures: photographs, plates and the teaser loop all resolve to the
+   page's own black and white. The dot-matrix canvases are drawn in white on
+   transparent already, so they are left alone. ── */
+img,video{filter:var(--media-filter)}
+
 /* ─── finale / summit ─────────────────────────────────────────── */
 #finale{text-align:center}
 /* the app's mountain scene: one canvas pixel per dot, scaled up crisp */
@@ -168,6 +184,19 @@ section.has-backdrop::before{content:"";position:absolute;inset:0;z-index:1;poin
   font-family:var(--font-dos);font-size:20px;letter-spacing:.1em;padding:10px 22px;
   cursor:pointer;transition:all .3s ease}
 .ghost-link:hover{color:#000;background:#fff;border-color:#fff}
+
+
+/* ─── what it is built from: two centred rows of small white line icons ── */
+.stack-strip{display:flex;flex-direction:column;gap:14px;margin:26px auto 0;max-width:620px}
+.stack-row{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 18px}
+.stack-item{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:50px;
+  color:var(--ink);opacity:.72;transition:opacity .25s ease}
+.stack-item:hover{opacity:1}
+.stack-item .ico{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.4;
+  stroke-linecap:round;stroke-linejoin:round}
+.stack-item span{font-family:var(--font-dos);font-size:16px;line-height:1;
+  letter-spacing:.06em;color:var(--dim);white-space:nowrap}
+.stack-item:hover span{color:var(--ink)}
 
 /* ─── THE ENTRANCE (bottom of the document = the beginning) ───── */
 #entrance{height:100vh;height:100svh;min-height:100svh;padding:0 24px;cursor:pointer;border-bottom:none}
@@ -182,7 +211,7 @@ section.has-backdrop::before{content:"";position:absolute;inset:0;z-index:1;poin
 
 
 /* 01 · the points — the plate style, carried over */
-.intro-points{margin:30px 0 0;font-family:var(--font-dos);font-size:21px;max-width:760px}
+.intro-points{margin:30px auto 0;font-family:var(--font-dos);font-size:21px;max-width:760px}
 .intro-points .row{display:flex;align-items:baseline;gap:10px;padding:5px 0}
 .intro-points dt{color:var(--dim);white-space:nowrap}
 .intro-points .leader{flex:1;border-bottom:2px dotted var(--faint);transform:translateY(-4px);min-width:24px}
@@ -228,13 +257,7 @@ h1.logo img{display:block;width:min(510px,64vw);aspect-ratio:1429/331;height:aut
 
 /* gate lifts once the star rises */
 #entrance.lifted{cursor:default}
-#entrance.lifted .stage,#entrance.lifted .pick{opacity:.08;transform:translateY(40px);
-  pointer-events:none;animation:none}
 #entrance.lifted .motes{opacity:0;transition:opacity 1s ease}
-.gate-msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;
-  font-family:var(--font-dos);color:var(--faint);font-size:20px;letter-spacing:.3em;
-  padding-left:.3em;opacity:0;transition:opacity 1.2s ease .4s;white-space:nowrap}
-#entrance.lifted .gate-msg{opacity:.65}
 
 
 /* the tiny star ping at the sword tip (before the ascent) */
@@ -283,4 +306,11 @@ body:not(.ascended) .light-streak{opacity:0}
     transition-duration:.01ms!important}
   .reveal{opacity:1;transform:none}
   .axcalibur-wrap,.pick{opacity:1;transform:none}
+}
+
+/* the number gutter shifts the copy 52px right of the axis; at narrow widths the
+   mirrored gutter costs more than it buys, so the number stacks above instead */
+@media (max-width:760px){
+  ol.tenets li{grid-template-columns:1fr;gap:6px;justify-items:center}
+  .tenet-num{font-size:32px}
 }

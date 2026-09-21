@@ -132,8 +132,12 @@
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
     const goingUp = lastY - y > 4;
+    const goingDown = y - lastY > 4;
     lastY = y;
     if (!ascended && goingUp && y < maxScroll - 40) ascend({ manual: true });
+    /* scrolling back DOWN to the gate re-arms the ritual: the mark and the
+       blade light up again and the star waits to be picked up once more */
+    if (ascended && goingDown && y >= maxScroll - window.innerHeight * 0.4) rearm();
     if (!ticking) { ticking = true; requestAnimationFrame(update); }
   }, { passive: true });
 
@@ -170,16 +174,20 @@
   }
 
   /* ── return to the gate and re-arm the ritual ── */
-  function reset() {
+  function rearm() {
     ascended = false;
     if (streak) { streak.remove(); streak = null; }
-    startPing();
     body.classList.remove('ascended');
     entrance.classList.remove('lifted');
     finale.classList.remove('crowned');
     if (window.Mountain) window.Mountain.reset();
     guide.style.opacity = '0';
     document.querySelectorAll('.in-view').forEach((el) => el.classList.remove('in-view'));
+    startPing();
+  }
+  /* the button: re-arm, then glide home to the gate */
+  function reset() {
+    rearm();
     window.scrollTo({ top: maxScroll, behavior: reduced ? 'auto' : 'smooth' });
   }
   /* the ping begins once the blade is raised and settled (~4.5s of intro) */
