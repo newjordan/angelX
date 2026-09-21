@@ -207,5 +207,9 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
     }
     d.custom_length_digit('0');
     assert!(!d.commit_custom_length(), "zero is not a length");
-    assert_eq!(d.custom_iterations, Some(137), "the committed length survives");
+    assert_eq!(
+        d.custom_iterations,
+        Some(137),
+        "the committed length survives"
+    );
 }

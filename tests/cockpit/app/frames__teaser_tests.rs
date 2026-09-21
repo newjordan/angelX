@@ -29,11 +29,7 @@ fn write_frame(
     }
     let mut cells = Vec::with_capacity((area.width * area.height) as usize);
     for cell in buffer.content() {
-        cells.push(format!(
-            "{:?}|{:?}",
-            cell.fg,
-            cell.bg
-        ));
+        cells.push(format!("{:?}|{:?}", cell.fg, cell.bg));
     }
     std::fs::write(dir.join(format!("{name}.txt")), &text).unwrap();
     std::fs::write(dir.join(format!("{name}.cells")), cells.join("\n")).unwrap();
@@ -41,8 +37,8 @@ fn write_frame(
 
 #[test]
 fn frames_teaser() {
-    use crate::agent::formations::{FormationId, MoaDeckState, MoaModelChoice, MoaModelRef};
     use crate::agent::backplane::{ModelRevision, RouteId};
+    use crate::agent::formations::{FormationId, MoaDeckState, MoaModelChoice, MoaModelRef};
     use crate::drive::loop_ctl::LoopState;
     use ratatui::{Terminal, backend::TestBackend as Backend};
 
@@ -122,7 +118,10 @@ and a world TUI where the work is drawn as it happens.";
             expected_revision: ModelRevision("0".to_string()),
             metered: false,
         };
-        let mut deck = MoaDeckState::new(vec![MoaModelChoice { route, available: true }]);
+        let mut deck = MoaDeckState::new(vec![MoaModelChoice {
+            route,
+            available: true,
+        }]);
         deck.select(FormationId::Council);
         app.moa_deck = Some(deck);
         // The deck overlay only owns input (and thus renders its panel) when
