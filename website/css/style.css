@@ -220,7 +220,11 @@ img,video{filter:var(--media-filter)}
 /* ─── the mark: the angelX chrome wordmark ─────────────────────── */
 .logo-wrap{z-index:2;display:flex;flex-direction:column;align-items:center;margin:0}
 h1.logo{margin:0;line-height:1}
-h1.logo img{display:block;width:min(510px,64vw);aspect-ratio:1429/331;height:auto}
+/* the wordmark keeps its chrome tint — the one deliberate break from the page's
+   monochrome, so the mark reads as polished metal instead of flat white. It
+   still takes the #tone curve, so its contrast matches every other picture. */
+h1.logo img{display:block;width:min(510px,64vw);aspect-ratio:1429/331;height:auto;
+  filter:url(#tone)}
 .logo-sub{font-family:var(--font-dos);font-size:clamp(15px,2.2vw,22px);color:var(--faint);
   letter-spacing:.42em;text-transform:uppercase;margin:0;padding-left:.42em}
 
