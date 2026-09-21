@@ -134,8 +134,14 @@ where
 /// A chrome frame that *keeps the cockpit around the plate*: the whole
 /// compositor draws first, then a centered panel carries the renderer so the
 /// capture shows where in the TUI the chart lives.
-fn capture_in_cockpit<F>(app: &mut App, width: u16, height: u16, dir: &std::path::Path, name: &str, body: F)
-where
+fn capture_in_cockpit<F>(
+    app: &mut App,
+    width: u16,
+    height: u16,
+    dir: &std::path::Path,
+    name: &str,
+    body: F,
+) where
     F: FnOnce(&mut Frame, Rect, &mut App),
 {
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -207,7 +213,11 @@ fn star_series(width_cells: usize) -> ratatui::text::Text<'static> {
 
 /// A vertical bar chart: one column per label, drawn with dotmax's real
 /// `vblock` primitive, with the label and value under each column.
-fn vbars_block(labels: &[(&str, f32)], width: usize, height: usize) -> ratatui::text::Text<'static> {
+fn vbars_block(
+    labels: &[(&str, f32)],
+    width: usize,
+    height: usize,
+) -> ratatui::text::Text<'static> {
     use dotmax::BrailleGrid;
     let width = width.max(8);
     let height = height.max(4);
@@ -281,7 +291,8 @@ fn frames_capture() {
         },
     );
     let read = crate::agent::harness::ToolEventId("frames-edit".into());
-    app.world.note_tool_call_event(read, "edit", "hashline · cockpit.rs");
+    app.world
+        .note_tool_call_event(read, "edit", "hashline · cockpit.rs");
     // Seed a real session so the plate shows the console in use, not a cold
     // shell: two committed turns, a live tool trace, and an in-flight partial.
     use crate::ui::transcript::{Message, Role};
@@ -330,11 +341,9 @@ fn frames_capture() {
         },
     );
     let shell = crate::agent::harness::ToolEventId("frames-shell".into());
-    coding.world.note_tool_call_event(
-        shell,
-        "shell",
-        "cargo test chart -- --nocapture",
-    );
+    coding
+        .world
+        .note_tool_call_event(shell, "shell", "cargo test chart -- --nocapture");
     coding.messages.push(Message::new(
         Role::User,
         "the plot plate needs star nodes on the line — connect node to node",
@@ -400,7 +409,14 @@ fn frames_capture() {
     think.thinking = Some(crate::agent::turn::Thinking::pending_for_test("practice"));
     think.partial = "stars on the chart's own path — then vertical bars, then the gate".into();
     think.settle_transcript_spawns();
-    capture_pane(&mut think, (120, 40), "Thinking", 16, &dir, "fig02-thinking");
+    capture_pane(
+        &mut think,
+        (120, 40),
+        "Thinking",
+        16,
+        &dir,
+        "fig02-thinking",
+    );
 
     // ── FIG.02 — formations deck ─────────────────────────────────────────
     let mut deck = seed_preview_app();
@@ -419,11 +435,7 @@ fn frames_capture() {
     // ── FIG.03 — the loop workshop: engage a loop, set its length, confirm ─
     // Drawn by the same dialog the operator confirms with. The rounds row ends
     // in SET CUSTOM and the entry is open on a typed length.
-    let mut workshop = crate::drive::loop_dialog::LoopLaunchDialog::new(
-        "chart plate",
-        0,
-        false,
-    );
+    let mut workshop = crate::drive::loop_dialog::LoopLaunchDialog::new("chart plate", 0, false);
     workshop.begin_custom_length();
     for ch in "137".chars() {
         workshop.custom_length_digit(ch);
@@ -436,9 +448,16 @@ fn frames_capture() {
     let mut plot_app = seed_preview_app();
     plot_app.settle_transcript_spawns();
     let plot = star_series(96);
-    capture_in_cockpit(&mut plot_app, 120, 40, &dir, "figA-plot", move |frame, area, _app| {
-        frame.render_widget(as_block(plot, "measured · acceptance per attempt"), area);
-    });
+    capture_in_cockpit(
+        &mut plot_app,
+        120,
+        40,
+        &dir,
+        "figA-plot",
+        move |frame, area, _app| {
+            frame.render_widget(as_block(plot, "measured · acceptance per attempt"), area);
+        },
+    );
 
     // ── FIG.B — vertical bars, inside the cockpit ────────────────────────
     let bars = vbars_block(
@@ -455,9 +474,16 @@ fn frames_capture() {
     );
     let mut bars_app = seed_preview_app();
     bars_app.settle_transcript_spawns();
-    capture_in_cockpit(&mut bars_app, 120, 40, &dir, "figB-bars", move |frame, area, _app| {
-        frame.render_widget(as_block(bars, "measured · tool calls by kind"), area);
-    });
+    capture_in_cockpit(
+        &mut bars_app,
+        120,
+        40,
+        &dir,
+        "figB-bars",
+        move |frame, area, _app| {
+            frame.render_widget(as_block(bars, "measured · tool calls by kind"), area);
+        },
+    );
 
     // ── FIG.04 — the cockpit's own raytracer ─────────────────────────────
     let cube = crate::stage::raytrace::render(1.7, 74, 22);

@@ -9,8 +9,8 @@
 //!   --no-default-features frames_world_rasters -- --nocapture
 //! ```
 
-use super::*;
 use super::super::scene;
+use super::*;
 
 fn view(pos: V3, heading_rad: f32, pitch: f32, fov_rad: f32) -> View3 {
     View3 {
