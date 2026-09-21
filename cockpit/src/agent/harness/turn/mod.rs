@@ -29,7 +29,11 @@ fn configured_unproductive_policy(metered_sota: bool, competition: bool) -> Unpr
     let task_active = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value == "1");
     let escalate = env_usize(
         "ANGEL_UNPRODUCTIVE_STREAK_ESCALATE",
-        if metered_interactive || task_active { 8 } else { 0 },
+        if metered_interactive || task_active {
+            8
+        } else {
+            0
+        },
     );
     if competition {
         return UnproductivePolicy { escalate, stop: 0 };
@@ -4058,7 +4062,8 @@ fn run_turn_tiered(
                                 )
                             };
                             crate::agent::harness::trajectory::note_timing(
-                                &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
+                                &timing
+                                    .finish_with_history(turn_start.elapsed().as_millis(), history),
                             );
                             crate::agent::harness::trajectory::note_stop_reason(
                                 TurnStopReason::Spin.as_str(),
@@ -5269,7 +5274,8 @@ fn run_turn_tiered(
                                  or change approach."
                             );
                             crate::agent::harness::trajectory::note_timing(
-                                &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
+                                &timing
+                                    .finish_with_history(turn_start.elapsed().as_millis(), history),
                             );
                             crate::agent::harness::trajectory::note_stop_reason(
                                 TurnStopReason::ErrorStop.as_str(),

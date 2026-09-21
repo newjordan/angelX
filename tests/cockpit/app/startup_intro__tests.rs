@@ -91,7 +91,10 @@ fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
         let height = rows as u32 * 4;
         let inked = |y: u32| (0..canvas.width()).any(|x| canvas.get_pixel(x, y).0[0] > 0);
         let first = (0..height).find(|&y| inked(y)).expect("frame carries ink");
-        let last = (0..height).rev().find(|&y| inked(y)).expect("frame carries ink");
+        let last = (0..height)
+            .rev()
+            .find(|&y| inked(y))
+            .expect("frame carries ink");
         (first, last, height)
     };
     // A height-limited pane carries no fit slack at all, so whatever blank rows
@@ -895,10 +898,22 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
     let fill = |rows: usize| (rows * 4 * CROP_W as usize / FRAME_H as usize / 2) as u16;
     let cases = [
         // (pane, expected width, why)
-        (Rect::new(0, 0, 200, 20), fill(20), "wide and short: the fit width"),
-        (Rect::new(0, 0, 300, 64), INTRO_MAX_COLUMNS, "tall: the hard cap"),
+        (
+            Rect::new(0, 0, 200, 20),
+            fill(20),
+            "wide and short: the fit width",
+        ),
+        (
+            Rect::new(0, 0, 300, 64),
+            INTRO_MAX_COLUMNS,
+            "tall: the hard cap",
+        ),
         (Rect::new(7, 3, 20, 10), fill(10), "already the fit width"),
-        (Rect::new(7, 3, 30, 10), fill(10), "narrower pane, still the fit"),
+        (
+            Rect::new(7, 3, 30, 10),
+            fill(10),
+            "narrower pane, still the fit",
+        ),
         // Degenerate rows still yield a small band rather than a zero one.
         (Rect::new(4, 4, 30, 1), fill(1), "one row"),
     ];
@@ -906,7 +921,10 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
         let band = intro_band(pane);
         assert_eq!(band.width, width, "{why}: {pane:?}");
         assert!(band.width <= pane.width, "{why}: never wider than its pane");
-        assert!(band.width <= INTRO_MAX_COLUMNS, "{why}: width genuinely clamped");
+        assert!(
+            band.width <= INTRO_MAX_COLUMNS,
+            "{why}: width genuinely clamped"
+        );
         assert!(
             band.width <= fill(usize::from(pane.height)).max(1),
             "{why}: never wider than the art can fill"

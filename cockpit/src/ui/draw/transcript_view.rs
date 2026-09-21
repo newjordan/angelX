@@ -75,9 +75,8 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
             height: inner.height.saturating_sub(strip_h),
             ..inner
         });
-        let intro_area = crate::app::startup_intro::intro_band(
-            body.inner(ratatui::layout::Margin::new(1, 1)),
-        );
+        let intro_area =
+            crate::app::startup_intro::intro_band(body.inner(ratatui::layout::Margin::new(1, 1)));
         // Banded before the geometry is derived, so the composed canvas, the
         // fine-dot raster and the declared cell rect are all one width: a narrow
         // rect declared over a full-pane raster is what squeezed the clip.
