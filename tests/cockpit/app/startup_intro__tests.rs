@@ -77,6 +77,56 @@ fn startup_intro_rises_once_holds_and_fades_without_restarting() {
     assert!(intro.sample(now, MotionMode::Full).is_none());
 }
 
+/// The clip's waterline and hand live in the frame's lower rows, so a prepared
+/// canvas has to carry them on the pane floor. In a wide pane the fit is
+/// height-limited and the anchor cannot be told apart from a centered one; in a
+/// narrow pane (mini-viz, a tall bay) it can — a centered Y floated the blade
+/// into the middle of the pane with a dead strip underneath, which is what read
+/// as a hard cut through the water instead of a surface resting on the floor.
+#[test]
+fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
+    let atlas = decode_atlas(ATLAS).unwrap();
+    let extent = |columns: usize, rows: usize| -> (u32, u32, u32) {
+        let canvas = prepare(&atlas, HOLD, columns, rows);
+        let height = rows as u32 * 4;
+        let inked = |y: u32| (0..canvas.width()).any(|x| canvas.get_pixel(x, y).0[0] > 0);
+        let first = (0..height).find(|&y| inked(y)).expect("frame carries ink");
+        let last = (0..height).rev().find(|&y| inked(y)).expect("frame carries ink");
+        (first, last, height)
+    };
+    // A height-limited pane carries no fit slack at all, so whatever blank rows
+    // sit under the water there are the clip's own tail — its floor. Every other
+    // geometry has to reproduce that same gap; a centered Y adds half the slack
+    // on top of it, which is the dead strip the operator saw.
+    let (_, baseline_last, baseline_h) = extent(72, 32);
+    let floor_gap = baseline_h - 1 - baseline_last;
+    for (columns, rows) in [(36usize, 24usize), (40, 40), (36, 32)] {
+        let (first, last, height) = extent(columns, rows);
+        let gap = height - 1 - last;
+        assert!(
+            gap <= floor_gap + 2,
+            "waterline must sit on the pane floor: {gap} blank rows under the ink against the \
+             clip's own {floor_gap} ({columns}x{rows})"
+        );
+        // Mirror of prepare()'s own fit, so this can tell "bottom-anchored" apart
+        // from "centered" instead of only "some ink somewhere": the spare height
+        // has to be above the blade, which is why the case has to be width-limited.
+        let crop_w = (FRAME_W - 140 * 2) as f32;
+        let scale = (columns as f32 * 2.0 / crop_w).min(height as f32 / FRAME_H as f32);
+        let fitted_h = (FRAME_H as f32 * scale).round().max(1.0) as u32;
+        let anchored_top = height.saturating_sub(fitted_h);
+        assert!(
+            anchored_top > 0,
+            "({columns}x{rows}) is height-limited, so it cannot distinguish the anchors"
+        );
+        assert!(
+            first >= anchored_top,
+            "spare height belongs above the blade: first inked row {first}, the \
+             bottom-anchored top is {anchored_top} ({columns}x{rows})"
+        );
+    }
+}
+
 #[test]
 fn startup_intro_respects_motion_and_hidden_tick_policy() {
     let now = Instant::now();

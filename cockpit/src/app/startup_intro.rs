@@ -553,11 +553,18 @@ fn prepare(atlas: &GrayImage, index: u8, columns: usize, rows: usize) -> GrayIma
         imageops::FilterType::Lanczos3,
     );
     let mut canvas = GrayImage::new(width, height);
+    // X stays centered; Y is pinned to the floor. In a wide pane the fit is
+    // height-limited and the two agree, but in a narrow pane (the mini-viz, a
+    // tall bay) the fit is width-limited, and a centered Y floated the whole
+    // blade — waterline, hand and all — into the middle of the pane with a dead
+    // strip underneath: the water read as a hard cut mid-frame instead of a
+    // surface sitting on the floor. The slack belongs above the blade. Uses
+    // saturating_sub because the rounded fit can land a pixel past the canvas.
     imageops::overlay(
         &mut canvas,
         &fitted,
         i64::from((width - fitted.width()) / 2),
-        i64::from((height - fitted.height()) / 2),
+        i64::from(height.saturating_sub(fitted.height())),
     );
     // A fixed toe removes compression haze; lift steel midtones before spatial
     // dithering. Never normalize per frame (which would pump/flicker).
