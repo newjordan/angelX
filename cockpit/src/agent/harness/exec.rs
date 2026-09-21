@@ -143,9 +143,10 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
 
     let mut combined = String::from_utf8_lossy(&out.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&out.stderr);
-    if !stderr.trim().is_empty() {
+    let cleaned_stderr = sandbox::strip_launcher_stderr(&stderr);
+    if !cleaned_stderr.trim().is_empty() {
         combined.push_str("\n[stderr] ");
-        combined.push_str(stderr.trim());
+        combined.push_str(cleaned_stderr.trim());
     }
     #[cfg(target_os = "linux")]
     if !out.status.success() && stderr.contains("bwrap:") {
