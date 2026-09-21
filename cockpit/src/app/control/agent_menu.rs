@@ -315,9 +315,15 @@ impl App {
         }
     }
 
-    /// Cycle the in-hand route's thinking effort across its reasoning levels.
-    /// Deliberate keybind (`[`/`]`) — the arrow keys never touch the model or
-    /// the effort. Returns the applied effort when one exists.
+    /// Cycle the in-hand route's thinking effort across its reasoning levels,
+    /// returning the applied effort when one exists.
+    ///
+    /// Test-only. This was written for a deliberate `[`/`]` keybind, but those
+    /// keys now drive the Scryglass gallery (`turn_io.rs`) and the agent menu's
+    /// own movement (`agent_menu.rs`), so no production path calls it: the live
+    /// way to choose an effort is `open_thinking_menu_for_route`. Give it a key
+    /// it owns, or delete it together with its tests.
+    #[cfg(test)]
     fn cycle_thinking(&mut self, forward: bool) -> Option<String> {
         let levels = self.bag.reasoning_levels();
         if levels.is_empty() {
