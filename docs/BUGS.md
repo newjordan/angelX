@@ -168,3 +168,17 @@ the live polyglot campaign).
 Not verified here: the full suite. BUG-0001's wall-clock cap plus a live benchmark
 campaign on the same box prevent a complete run; every result above comes from the
 exact-test form, which is what makes each pairing meaningful.
+
+Seen live, 2026-09-21 18:32: a `/yolo on` cockpit launched at 17:10 (binary built
+16:50, before the fix landed in the tree at 17:17) ran
+`python3 -m http.server 8765 …` through the shell tool in the foreground. The
+server never wrote a byte, sat in S, and the turn waited on it for 20+ minutes:
+yolo had stripped `ANGEL_TOOL_TIMEOUT`, and the bypass above had stripped the idle
+floor, so nothing was left to fire. The wait loop was iterating the whole time —
+it was choosing not to kill. `yolo_does_not_disable_containment_ceilings` only
+checks the accessors, so
+`exec::timeout_diag_tests::yolo_idle_floor_reaps_a_silent_foreground_server` now
+drives the real sandboxed path under `ANGEL_YOLO=1` with the cancel token the
+shell tool always passes; it fails in 30 s with the bypass reintroduced and passes
+in ~2 s without it. Any cockpit launched before 17:17 still runs the unguarded
+binary until it is restarted (the launcher rebuilds from HEAD).
