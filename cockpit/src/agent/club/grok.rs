@@ -45,8 +45,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
+/// Selectable Grok HTTP club models. `grok-4.7` is the stable default.
+/// `grok-4.5` stays on the list. `grok-4.6` is not offered; an explicit pin
+/// still resolves to that id.
 pub(crate) const GROK_SOTA_MODEL_OPTIONS: &[&str] = &[
-    "grok-4.6",
+    "grok-4.7",
     "grok-4",
     "grok-4-latest",
     "grok-4.5",
@@ -59,10 +62,10 @@ pub(crate) const GROK_SOTA_MODEL_OPTIONS: &[&str] = &[
 /// Fallback THINK ladder when `models_cache.json` has no effort list for the
 /// pinned model. Matches the Grok 4.5 catalog shipped with the CLI.
 const GROK_DEFAULT_EFFORT_LEVELS: &[&str] = &["low", "medium", "high"];
-/// xAI's provider-authored Grok 4.6 capability ladder. Unlike the generic HTTP
-/// ladder it has no `none` rung and adds `xhigh`; `high` is the default.
+/// Published ladder for Grok 4.7 and Grok 4.6. Unlike the generic HTTP ladder
+/// it has no `none` rung and adds `xhigh`; `high` is the provider default.
 const GROK_46_EFFORT_LEVELS: &[&str] = &["low", "medium", "high", "xhigh"];
-const GROK_DEFAULT_MODEL: &str = "grok-4.6";
+const GROK_DEFAULT_MODEL: &str = "grok-4.7";
 const GROK_46_CONTEXT_WINDOW: u64 = 500_000;
 
 /// Default wall clock for one ACP prompt. This bounds one failed provider
@@ -1255,11 +1258,21 @@ struct GrokCatalog {
     context_window: Option<u64>,
 }
 
+fn grok_published_xhigh_label(model: &str) -> Option<&'static str> {
+    if model.eq_ignore_ascii_case("grok-4.7") {
+        Some("Grok 4.7")
+    } else if model.eq_ignore_ascii_case("grok-4.6") {
+        Some("Grok 4.6")
+    } else {
+        None
+    }
+}
+
 fn grok_model_catalog(model: Option<&str>) -> GrokCatalog {
-    // The CLI cache can lag a same-day API release. For the exact stable 4.6
-    // id, prefer xAI's published contract so the cockpit does not silently hide
+    // The CLI cache can lag a same-day API release. For the published 4.7 and
+    // 4.6 ids, prefer xAI's contract so the cockpit does not silently hide
     // xhigh or budget a 500k route as unknown.
-    if model.is_some_and(|model| model.eq_ignore_ascii_case("grok-4.6")) {
+    if let Some(label) = model.and_then(grok_published_xhigh_label) {
         return GrokCatalog {
             levels: GROK_46_EFFORT_LEVELS
                 .iter()
@@ -1269,7 +1282,7 @@ fn grok_model_catalog(model: Option<&str>) -> GrokCatalog {
                 ("low".into(), "Fast reasoning".into()),
                 ("medium".into(), "Balanced reasoning".into()),
                 ("high".into(), "Default deep reasoning".into()),
-                ("xhigh".into(), "Maximum Grok 4.6 reasoning effort".into()),
+                ("xhigh".into(), format!("Maximum {label} reasoning effort")),
             ],
             default_effort: Some("high".to_string()),
             context_window: Some(GROK_46_CONTEXT_WINDOW),
@@ -1564,7 +1577,8 @@ fn resolve_grok_model_alias_with_available(raw: &str, available: &[String]) -> S
         | "4-latest" | "grok4-latest" | "grok-4-latest" => {
             best_available_grok_4_model(available).unwrap_or_else(|| GROK_DEFAULT_MODEL.to_string())
         }
-        "4.6" | "grok4.6" | "grok-4-6" | "grok-4.6" => GROK_DEFAULT_MODEL.to_string(),
+        "4.7" | "grok4.7" | "grok-4-7" | "grok-4.7" => "grok-4.7".to_string(),
+        "4.6" | "grok4.6" | "grok-4-6" | "grok-4.6" => "grok-4.6".to_string(),
         "4.5" | "grok4.5" | "grok-4-5" | "grok-4.5" => "grok-4.5".to_string(),
         "4.3" | "grok4.3" | "grok-4-3" | "grok-4.3" => "grok-4.3".to_string(),
         "4.20" | "grok4.20" | "grok-4-20" | "grok-4.20" => "grok-4.20".to_string(),
@@ -1580,6 +1594,7 @@ fn resolve_grok_model_alias_with_available(raw: &str, available: &[String]) -> S
 
 fn best_available_grok_4_model(available: &[String]) -> Option<String> {
     for candidate in [
+        "grok-4.7",
         "grok-4.6",
         "grok-4.5",
         "grok-4.20",

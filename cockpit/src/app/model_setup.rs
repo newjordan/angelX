@@ -41,7 +41,7 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
             1. Install the Grok CLI and run: grok login --oauth\n\
             2. Default credential store: ~/.grok/auth.json\n\
             3. Optional paths: ANGEL_GROK_OAUTH_FILE or ANGEL_GROK_HOME/GROK_HOME\n\
-            4. Optional model: ANGEL_GROK_MODEL or GROK_MODEL (default: grok-4.6)\n\
+            4. Optional model: ANGEL_GROK_MODEL or GROK_MODEL (default: grok-4.7)\n\
             API-key alternative: set XAI_API_KEY or ANGEL_GROK_KEY for the separate\n\
             `grok-api` route, with ANGEL_GROK_API_URL and ANGEL_GROK_API_MODEL/GROK_API_MODEL\n\
             as needed (API model selection is separate from OAuth model selection).\n\

@@ -1018,9 +1018,10 @@ fn grok_46_http_metadata_and_xhigh_are_model_scoped() {
     let _global = ScopedEnv::unset("ANGEL_REASONING_EFFORT");
     let _grok = ScopedEnv::unset("ANGEL_GROK_REASONING_EFFORT");
     resync_reasoning_effort_env_from_env();
+    assert_eq!(static_model_window("grok-4.7"), Some((500_000, false)));
     assert_eq!(static_model_window("grok-4.6"), Some((500_000, false)));
 
-    let current = HttpClub::new("grok", "https://api.x.ai/v1", "grok-4.6", None);
+    let current = HttpClub::new("grok", "https://api.x.ai/v1", "grok-4.7", None);
     assert_eq!(
         current.reasoning_levels(),
         vec!["low", "medium", "high", "xhigh"]
@@ -1030,6 +1031,21 @@ fn grok_46_http_metadata_and_xhigh_are_model_scoped() {
         Some("xhigh")
     );
     let body = current
+        .build_body(&[ChatMsg::user("hi")], &[], false)
+        .expect("Grok 4.7 request body");
+    assert_eq!(body["model"], serde_json::json!("grok-4.7"));
+    assert_eq!(body["reasoning_effort"], serde_json::json!("xhigh"));
+
+    let previous = HttpClub::new("grok-46", "https://api.x.ai/v1", "grok-4.6", None);
+    assert_eq!(
+        previous.reasoning_levels(),
+        vec!["low", "medium", "high", "xhigh"]
+    );
+    assert_eq!(
+        previous.set_reasoning_effort("XHIGH").as_deref(),
+        Some("xhigh")
+    );
+    let body = previous
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("Grok 4.6 request body");
     assert_eq!(body["model"], serde_json::json!("grok-4.6"));
