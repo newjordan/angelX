@@ -695,7 +695,7 @@ fn run_tests_names_the_missing_runner_instead_of_trying_cargo() {
 }
 
 #[test]
-fn run_tests_finds_the_one_nested_crate_like_angelX_cockpit() {
+fn run_tests_finds_the_one_nested_crate_like_angel_x_cockpit() {
     if !sandbox::available() {
         eprintln!("landlock unavailable; skipping nested-crate run_tests test");
         return;

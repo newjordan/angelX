@@ -92,12 +92,13 @@ and a world TUI where the work is drawn as it happens.";
             "loop · iteration 12 · verifier green · 3 candidates promoted",
         ));
         app.settle_transcript_spawns();
-        let mut loop_state = LoopState::default();
-        loop_state.task = "stabilize the kernel test".into();
-        loop_state.status = crate::drive::loop_ctl::LoopStatus::Running;
-        loop_state.iteration = 12;
-        loop_state.max_iters = 40;
-        app.loop_ctl = loop_state;
+        app.loop_ctl = LoopState {
+            task: "stabilize the kernel test".into(),
+            status: crate::drive::loop_ctl::LoopStatus::Running,
+            iteration: 12,
+            max_iters: 40,
+            ..LoopState::default()
+        };
         let mut term = Terminal::new(Backend::new(120, 40)).unwrap();
         for i in 0..4 {
             let _ = term.draw(|f| crate::ui::draw::ui(f, &mut app));
