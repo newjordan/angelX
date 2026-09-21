@@ -573,9 +573,9 @@ pub(crate) fn static_model_window(model_l: &str) -> Option<(usize, bool)> {
         // cache on the coding-plan endpoint (see backend_prompt_cache_capable).
         return Some((1_000_000, true));
     }
-    if m == "grok-4.6" {
-        // xAI publishes a 500k context. Its Chat Completions cache affinity is
-        // expressed through an x-grok-conv-id header rather than angelX's
+    if is_grok_xhigh_model(m) {
+        // xAI publishes a 500k context for Grok 4.7 and Grok 4.6. Cache
+        // affinity is an x-grok-conv-id header rather than angelX's
         // OpenAI-style body key, so keep that separate capability conservative.
         return Some((500_000, false));
     }
@@ -730,7 +730,13 @@ fn idle_connections_override_from_env() -> Option<usize> {
 /// Bounded THINK ladder offered by the agent panel for HTTP-backed models —
 /// the canonical lowercase values sent as `reasoning_effort`.
 const HTTP_EFFORT_LEVELS: [&str; 4] = ["none", "low", "medium", "high"];
+/// Grok 4.7 and Grok 4.6. No `none` rung; `xhigh` is the top. Grok 4.5 stops
+/// at `high` and stays on the generic ladder.
 const GROK_46_HTTP_EFFORT_LEVELS: [&str; 4] = ["low", "medium", "high", "xhigh"];
+
+fn is_grok_xhigh_model(model_l: &str) -> bool {
+    matches!(model_l, "grok-4.7" | "grok-4.6")
+}
 /// Current DeepSeek V4 thinking-mode controls (verified 2026-09-17 against the
 /// provider's thinking-mode guide): thinking is on by default at `high`, the
 /// depth rungs are `low` / `high` / `max` (`minimal`→low, `medium`/`xhigh`→high,
@@ -762,7 +768,9 @@ pub(crate) enum ReasoningDialect {
 /// honest rungs instead of pretending four distinct efforts exist.
 fn dialect_effort_levels(dialect: ReasoningDialect, model_l: &str) -> &'static [&'static str] {
     match dialect {
-        ReasoningDialect::OpenAiEffort if model_l == "grok-4.6" => &GROK_46_HTTP_EFFORT_LEVELS,
+        ReasoningDialect::OpenAiEffort if is_grok_xhigh_model(model_l) => {
+            &GROK_46_HTTP_EFFORT_LEVELS
+        }
         ReasoningDialect::OpenAiEffort if is_deepseek_v4_model(model_l) => {
             &DEEPSEEK_V4_HTTP_EFFORT_LEVELS
         }
@@ -3242,7 +3250,7 @@ impl Club for HttpClub {
         }
         let model_l = self.model_id().unwrap_or_default().to_ascii_lowercase();
         match dialect {
-            ReasoningDialect::OpenAiEffort if model_l == "grok-4.6" => GROK_46_LEVELS
+            ReasoningDialect::OpenAiEffort if is_grok_xhigh_model(&model_l) => GROK_46_LEVELS
                 .get_or_init(|| vec!["low".into(), "medium".into(), "high".into(), "xhigh".into()]),
             ReasoningDialect::OpenAiEffort if is_deepseek_v4_model(&model_l) => DEEPSEEK_V4_LEVELS
                 .get_or_init(|| {

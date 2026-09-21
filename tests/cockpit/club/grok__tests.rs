@@ -540,8 +540,9 @@ fn grok_harness_reply_recovers_only_offered_prose_tool_calls() {
 
 #[test]
 fn grok_model_aliases_cover_grok_4_family_options() {
-    assert_eq!(GROK_SOTA_MODEL_OPTIONS[0], "grok-4.6");
-    assert!(GROK_SOTA_MODEL_OPTIONS.contains(&"grok-4.6"));
+    assert_eq!(GROK_SOTA_MODEL_OPTIONS[0], "grok-4.7");
+    assert!(GROK_SOTA_MODEL_OPTIONS.contains(&"grok-4.7"));
+    assert!(!GROK_SOTA_MODEL_OPTIONS.contains(&"grok-4.6"));
     assert!(GROK_SOTA_MODEL_OPTIONS.contains(&"grok-4"));
     assert!(GROK_SOTA_MODEL_OPTIONS.contains(&"grok-4.5"));
     let available = vec![
@@ -565,9 +566,22 @@ fn grok_model_aliases_cover_grok_4_family_options() {
         resolve_grok_model_alias_with_available("grok 4 new", &available),
         "grok-4.6"
     );
+    let with_47 = vec![
+        "grok-4.5".to_string(),
+        "grok-4.6".to_string(),
+        "grok-4.7".to_string(),
+    ];
+    assert_eq!(
+        resolve_grok_model_alias_with_available("latest", &with_47),
+        "grok-4.7"
+    );
     assert_eq!(
         resolve_grok_model_alias_with_available("grok", &[]),
-        "grok-4.6"
+        "grok-4.7"
+    );
+    assert_eq!(
+        resolve_grok_model_alias_with_available("grok4.7", &[]),
+        "grok-4.7"
     );
     assert_eq!(
         resolve_grok_model_alias_with_available("grok4.6", &[]),
@@ -575,7 +589,7 @@ fn grok_model_aliases_cover_grok_4_family_options() {
     );
     assert_eq!(
         resolve_grok_model_alias_with_available("latest", &[]),
-        "grok-4.6"
+        "grok-4.7"
     );
     assert_eq!(
         resolve_grok_model_alias_with_available("grok4.5", &available),
@@ -584,6 +598,20 @@ fn grok_model_aliases_cover_grok_4_family_options() {
     assert_eq!(
         resolve_grok_model_alias_with_available("grok-4-20-fast", &available),
         "grok-4.20-fast"
+    );
+}
+
+#[test]
+fn grok_47_builtin_catalog_is_exact_and_network_free() {
+    let catalog = grok_model_catalog(Some("grok-4.7"));
+    assert_eq!(catalog.levels, vec!["low", "medium", "high", "xhigh"]);
+    assert_eq!(catalog.default_effort.as_deref(), Some("high"));
+    assert_eq!(catalog.context_window, Some(500_000));
+    assert!(
+        catalog
+            .descriptions
+            .iter()
+            .any(|(id, desc)| id == "xhigh" && desc.contains("Grok 4.7"))
     );
 }
 
@@ -600,10 +628,10 @@ fn grok_model_default_and_bare_alias_are_canonical_before_launch() {
     let _lock = env_lock();
     let _angel_model = EnvGuard::unset("ANGEL_GROK_MODEL");
     let _legacy_model = EnvGuard::unset("GROK_MODEL");
-    assert_eq!(grok_model_from_env(), "grok-4.6");
+    assert_eq!(grok_model_from_env(), "grok-4.7");
 
     let _bare = EnvGuard::set("ANGEL_GROK_MODEL", "grok");
-    assert_eq!(grok_model_from_env(), "grok-4.6");
+    assert_eq!(grok_model_from_env(), "grok-4.7");
 }
 
 #[test]
@@ -682,7 +710,7 @@ fn grok_oauth_auth_loads_and_skips_refresh_when_fresh() {
 }
 
 #[test]
-fn grok_oauth_http_catalog_lists_46_and_live_supported_models() {
+fn grok_oauth_http_catalog_lists_47_and_keeps_45() {
     let _lock = env_lock();
     let dir = std::env::temp_dir().join(format!("angelX-grok-oauth-club-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -719,8 +747,8 @@ fn grok_oauth_http_catalog_lists_46_and_live_supported_models() {
         routes,
         vec![
             ("grok", "grok-4.5".to_string()),
-            ("grok-4.6", "grok-4.6".to_string()),
-            ("grok-api", "grok-4.6".to_string()),
+            ("grok-4.7", "grok-4.7".to_string()),
+            ("grok-api", "grok-4.7".to_string()),
         ]
     );
     assert_eq!(links[0].1.label(), "grok");
@@ -731,13 +759,15 @@ fn grok_oauth_http_catalog_lists_46_and_live_supported_models() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_GROK_MODEL", "grok-4.6") };
     let current = grok_http_clubs();
-    assert_eq!(current.len(), 3);
+    assert_eq!(current.len(), 4);
     assert_eq!(current[0].0, "grok");
     assert_eq!(current[0].1.model_identity().as_deref(), Some("grok-4.6"));
-    assert_eq!(current[1].0, "grok-4.5");
-    assert_eq!(current[1].1.model_identity().as_deref(), Some("grok-4.5"));
-    assert_eq!(current[2].0, "grok-api");
-    assert_eq!(current[2].1.model_identity().as_deref(), Some("grok-4.6"));
+    assert_eq!(current[1].0, "grok-4.7");
+    assert_eq!(current[1].1.model_identity().as_deref(), Some("grok-4.7"));
+    assert_eq!(current[2].0, "grok-4.5");
+    assert_eq!(current[2].1.model_identity().as_deref(), Some("grok-4.5"));
+    assert_eq!(current[3].0, "grok-api");
+    assert_eq!(current[3].1.model_identity().as_deref(), Some("grok-4.7"));
 }
 
 #[test]

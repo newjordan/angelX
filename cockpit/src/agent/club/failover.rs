@@ -461,6 +461,7 @@ pub(crate) const SOTA_MOA_INTELLIGENCE_ORDER: &[&str] = &[
     "grok-research",
     "grok-4",
     "grok-4-latest",
+    "grok-4.7",
     "grok-4.5",
     "grok-4.3",
     "grok-4.20",
@@ -767,7 +768,7 @@ pub(crate) fn mathgod_club(
 ) -> Option<(Arc<dyn Club>, Arc<AtomicBool>)> {
     let (sol, sol_avail) =
         find_named_link(links, &["openai", "codex-run", "codex", "gpt-5.6-sol"])?;
-    let (grok, _) = find_named_link(links, &["grok", "grok-4.6", "grok-4.5", "xai"])?;
+    let (grok, _) = find_named_link(links, &["grok", "grok-4.7", "grok-4.6", "grok-4.5", "xai"])?;
     let extra = mathgod_mix_seats(links, sol.as_ref(), grok.as_ref());
     Some((
         Arc::new(crate::agent::swarm::SwarmClub::mathgod(sol, grok, extra)),
