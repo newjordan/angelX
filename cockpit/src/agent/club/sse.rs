@@ -642,6 +642,8 @@ impl StreamAccumulator {
             }
             ClubReply::Text(self.content)
         } else {
+            let content = (!self.content.trim().is_empty()).then(|| self.content.clone());
+            crate::agent::club::set_pending_tool_content(content);
             ClubReply::Calls(calls)
         }
     }
