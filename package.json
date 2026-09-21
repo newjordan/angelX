@@ -33,8 +33,8 @@
       "check:licenses": "node scripts/check/check-licenses.mjs",
     "test:connections": "python3 -m unittest discover -s tests/python -p test_active_connections.py",
     "test:cockpit-pty": "ANGEL_PTY_SMOKE_STRICT=1 cargo test --manifest-path cockpit/Cargo.toml --test interactive_terminal_smoke",
-    "format": "prettier --write scripts/**/*.mjs tests/scripts/**/*.mjs",
-    "format:check": "prettier --check scripts/**/*.mjs tests/scripts/**/*.mjs",
+    "format": "prettier --write 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs' 'website/tools/*.mjs'",
+    "format:check": "prettier --check 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs' 'website/tools/*.mjs'",
     "test:cockpit": "bash scripts/check/check-cockpit-fast.sh --test-threads=1",
     "test:workers": "node --test --test-concurrency=1 tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs"
   },
