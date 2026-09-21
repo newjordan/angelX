@@ -48,3 +48,39 @@ NODE_PATH=/tmp/shot/node_modules node tools/verify-frames.mjs http://127.0.0.1:8
 Exits non-zero unless every plate (`PLATES`, default 5 — the four frame plates
 plus the section backdrop `index.html` shows today) loads as a real bitmap
 (`naturalWidth > 0`) with no failed requests.
+
+## 4. A slow Y pan over one plate
+
+```sh
+cd website
+NODE_PATH=/tmp/shot/node_modules node tools/pan-to-mp4.mjs /tmp/angelx-teaser shotB /tmp/angelx-answer-pan.mp4
+```
+
+`pan-to-mp4.mjs` takes one captured plate — `shotB` is the answer to "what is
+angelX?" holding in the transcript — renders it once through the same headless
+cell renderer `teaser-to-mp4.mjs` uses, and rolls a window down it with
+ffmpeg's per-frame `crop` expression: a constant-speed Y pan with no easing,
+because the pace is the whole point. The still is left beside the captures as
+`<prefix>-still.png`.
+
+The duration is not a taste call. `pan-pace.mjs` derives it from the words under
+the window at 275 wpm (a moderate delivery) times a 1.8 comfort margin, floored
+at 18s, and the tool refuses a pan that would carry a row off screen before a
+moderate reader is finished with it:
+
+```text
+frame shotB-00 · 120x40 cells · window 72x18 cells (4.00:1)
+text 45 words over 8 rows → 9.8s at 275 wpm → take 18s (1.8x margin)
+pan rows 0→6 (6 rows = 216 px at 36 px/cell) · 0.33 rows/s · 3.00s per row · 12.0 px/s · 0.40 px/frame
+readability: 3.00s per row on screen vs 1.23s to read it (5.6 words/row) → camera never outruns the reader
+hold: rows 5–10 (41 words) whole in frame for 15.0s vs 10.4s to read + a beat → held
+```
+
+`PAN_WINDOW_ROWS`, `PAN_FROM`/`PAN_TO`, `PAN_CROP_COLS`, `PAN_READ_ROWS` (the
+words the shot asks the viewer to read), `PAN_BLOCK_ROWS` (the response itself)
+and `PAN_TEXT_COLS` override the geometry. The reading assumption stays at 275
+wpm with a 1.8 margin, so a slower shot means fewer rows or a longer floor, never
+a weaker reading rule. `PAN_DRY=1` prints the
+report and exits without rendering — exit 3 means the move would outrun a
+moderate reader. `tests/scripts/pan-pace.test.mjs` pins that arithmetic, so the
+"slow enough to read" rule is a test rather than a comment.
