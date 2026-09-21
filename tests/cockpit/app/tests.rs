@@ -11230,9 +11230,17 @@ fn thinking_stream_flows_above_the_bottom_right_bay_portrait() {
     let portrait_right = portrait.x + portrait.width;
     let header_right = bay.x + bay.width;
     let portrait_top = portrait_cells.iter().map(|(_, y)| *y).min().unwrap();
+    let portrait_bottom = portrait_cells.iter().map(|(_, y)| *y).max().unwrap();
+    let bay_bottom = bay.y + bay.height;
     assert!(
         header_right.saturating_sub(portrait_right) <= 2,
-        "portrait must sit in the top-right corner of the thinking box: portrait={portrait:?} header={header:?}"
+        "portrait must sit hard against the bay's right edge: portrait={portrait:?} bay={bay:?}"
+    );
+    assert!(
+        bay_bottom.saturating_sub(portrait_bottom + 1) <= 2,
+        "portrait ink must reach the bay's last content row — the corner is the \
+         lower-right one: ink_bottom={portrait_bottom} bay_bottom={bay_bottom} \
+         portrait={portrait:?}"
     );
     assert!(
         portrait_top > header.y && portrait_top >= bay.y,
