@@ -315,11 +315,16 @@ pub fn plan_tests(workspace: &Path, hits: &[LangHit], prefer: Option<Lang>) -> O
                 Some(TestPlan {
                     lang: Lang::Python,
                     program: "python3",
+                    // `-p *test*.py` matches both `test_foo.py` and the
+                    // exercism-style `foo_test.py` suffix; the unittest default
+                    // `test*.py` silently finds zero suffix-named suites.
                     args: vec![
                         "-m".into(),
                         "unittest".into(),
                         "discover".into(),
                         "-v".into(),
+                        "-p".into(),
+                        "*test*.py".into(),
                     ],
                     dir,
                     label: "python3 -m unittest discover -v".into(),

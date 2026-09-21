@@ -296,7 +296,11 @@ fn python_tests(root: &Path, extra: Vec<String>) -> Result<Vec<String>, String> 
     } else {
         root.to_path_buf()
     };
-    let mut pattern = "test*.py".to_string();
+    // Exercism-style suites name tests `foo_test.py` (suffix), not
+    // `test_foo.py` (prefix); unittest's default `test*.py` finds zero of
+    // them, exits 5, and the run_tests receipt degrades to "no tests ran".
+    // Default to the pattern that matches both shapes.
+    let mut pattern = "*test*.py".to_string();
     let mut top = None;
     let mut modules = Vec::new();
     let explicit_discover = extra.first().is_some_and(|s| s == "discover");
@@ -386,7 +390,7 @@ fn python_tests(root: &Path, extra: Vec<String>) -> Result<Vec<String>, String> 
     ];
     if !modules.is_empty() {
         if top.is_some()
-            || pattern != "test*.py"
+            || pattern != "*test*.py"
             || start
                 != confined(
                     root,
