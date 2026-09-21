@@ -24,12 +24,19 @@ partial) so the plates are the console *at work*. `fig01c` seeds
 
 ```sh
 NODE_PATH=/tmp/shot/node_modules node tools/frames-to-png.mjs /tmp/angelx-frames assets/frames --cell 8x16 --scale 2
-cp /tmp/angelx-frames/fig03-world.png assets/frames/
 ```
 
 `frames-to-png.mjs` maps ratatui `Color` debug strings (Rgb / Indexed-256 /
 named / Reset) plus BOLD·DIM·REVERSED modifiers onto a headless Chromium cell
 grid, using a monospace stack chosen for braille + box-drawing coverage.
+
+It rasterizes **only the plates `index.html` references** — the capture run
+produces more frames than the page shows, and a capture nothing references is a
+byproduct of the run rather than an asset, so promoting it would ship bytes no
+visitor loads. `--all` converts every capture; `--only fig01-console,fig03-loop`
+names them. Referencing a plate from `index.html` is what puts it in
+`assets/frames/`. (`fig03-world.png` is written straight to the capture dir by
+the world test above and stays there until a section shows it.)
 
 ## 3. Gate
 
@@ -38,5 +45,6 @@ python3 -m http.server 8711 --bind 127.0.0.1   # from website/
 NODE_PATH=/tmp/shot/node_modules node tools/verify-frames.mjs http://127.0.0.1:8711/index.html
 ```
 
-Exits non-zero unless every plate (`PLATES`, default 7) loads as a real bitmap (`naturalWidth > 0`)
-with no failed requests.
+Exits non-zero unless every plate (`PLATES`, default 5 — the four frame plates
+plus the section backdrop `index.html` shows today) loads as a real bitmap
+(`naturalWidth > 0`) with no failed requests.
