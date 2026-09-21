@@ -201,4 +201,6 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
     let later = format!("{program}{helper}");
     assert_eq!(super::strip_launcher_stderr(&later), later);
     assert_eq!(super::strip_launcher_stderr(""), "");
+    let helper_no_newline = "sandbox-hardlinks: {\"hardlink_readonly_count\":0,\"scan_complete\":false}";
+    assert_eq!(super::strip_launcher_stderr(helper_no_newline), "");
 }

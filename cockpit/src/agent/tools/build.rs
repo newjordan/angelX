@@ -860,18 +860,7 @@ fn capture_toolchain_executable(
 /// receipt, callers need the terminal cargo/libtest summary to derive a reward,
 /// so this keeps the capped head+tail supplied by `output_timed` rather than
 /// flattening it to a short display snippet.
-/// The sandbox helper announces its hardlink scan on the child's stderr before
-/// exec (`sandbox-hardlinks: {json}`); it is launcher protocol, not program
-/// output, and never belongs in a receipt whose tail the model reads. Only a
-/// leading line is removed: later matching text is the program's own.
-fn strip_launcher_stderr(stderr: &str) -> String {
-    if let Some(rest) = stderr.strip_prefix("sandbox-hardlinks: {")
-        && let Some(end) = rest.find('\n')
-    {
-        return rest[end + 1..].to_string();
-    }
-    stderr.to_string()
-}
+pub(crate) use crate::agent::sandbox::strip_launcher_stderr;
 
 struct CapturedCommand {
     checked_sources: Option<std::collections::BTreeSet<PathBuf>>,

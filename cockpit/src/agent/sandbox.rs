@@ -1064,6 +1064,20 @@ pub fn available() -> bool {
     false
 }
 
+/// The sandbox helper announces its hardlink scan on the child's stderr before
+/// exec (`sandbox-hardlinks: {json}`); it is launcher protocol, not program
+/// output, and never belongs in a receipt whose tail the model reads. Only a
+/// leading line is removed: later matching text is the program's own.
+pub(crate) fn strip_launcher_stderr(stderr: &str) -> String {
+    if let Some(rest) = stderr.strip_prefix("sandbox-hardlinks: {") {
+        if let Some(end) = rest.find('\n') {
+            return rest[end + 1..].to_string();
+        }
+        return String::new();
+    }
+    stderr.to_string()
+}
+
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/sandbox__seatbelt_profile_tests.rs"]
 mod seatbelt_profile_tests;
