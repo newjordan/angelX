@@ -38,6 +38,11 @@ fn nested_test_dir_counts_and_python_unittest_is_default() {
     assert_eq!(lang_names(&hits), vec!["python"]);
     let plan = plan_tests(&d, &hits, None).unwrap();
     assert_eq!(plan.label, "python3 -m unittest discover -v");
+    // The default pattern must match suffix-named suites (`foo_test.py`,
+    // exercism style) as well as prefix-named ones; unittest's own default
+    // `test*.py` silently discovers zero suffix-named tests (exit 5).
+    assert!(plan.args.contains(&"-p".to_string()));
+    assert!(plan.args.contains(&"*test*.py".to_string()));
     // pytest config flips the runner
     std::fs::write(d.join("pytest.ini"), "[pytest]\n").unwrap();
     let hits = detect(&d);
