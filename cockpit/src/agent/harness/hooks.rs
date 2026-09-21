@@ -15,7 +15,7 @@ pub(crate) fn is_hook_blocked_result(result: &str) -> bool {
 // ---------------------------------------------------------------------------
 // Lifecycle hooks — run configured shell commands at PreToolUse / PostToolUse
 // (the Codex/Claude-Code hooks model). A PreToolUse hook can BLOCK a tool. Config
-// at ~/.angel0/hooks.json (override ANGEL_HOOKS_CONFIG):
+// at ~/.angelX/hooks.json (override ANGEL_HOOKS_CONFIG):
 //   { "hooks": {
 //       "PreToolUse":  [ { "matcher": "shell|cargo", "command": "..." } ],
 //       "PostToolUse": [ { "matcher": "*",           "command": "..." } ] } }
@@ -43,7 +43,7 @@ impl Hooks {
                 std::env::var_os("HOME")
                     .map(PathBuf::from)
                     .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".angel0/hooks.json")
+                    .join(".angelX/hooks.json")
             });
         // Re-parsed only when the file changes (mtime+len key) — load() runs at
         // the top of every turn. Hook edits still take effect live because a

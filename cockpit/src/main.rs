@@ -441,7 +441,7 @@ fn write_private_export(path: &str, value: &serde_json::Value) -> std::io::Resul
 #[path = "../../tests/cockpit/app/main__rollout_export_output_tests.rs"]
 mod rollout_export_output_tests;
 
-const CLI_HELP: &str = r#"angel0 — terminal cockpit and competition/RL task runner
+const CLI_HELP: &str = r#"angelX — terminal cockpit and competition/RL task runner
 
 USAGE
   angel [--yolo] [--turbo|--comp]                     Open the terminal cockpit
@@ -492,7 +492,7 @@ EXIT STATUS
   2  Invalid invocation or empty prompt
   3  Guarded stop without an answer (strict task mode, the default)
 
-Run the source launcher as `bin/angel0 ...` or `bin/AngelTurbo ...`; release installs expose `angel` and `AngelTurbo`.
+Run the source launcher as `bin/angelX ...` or `bin/AngelTurbo ...`; release installs expose `angel` and `AngelTurbo`.
 "#;
 
 fn print_cli_help() {
@@ -791,7 +791,7 @@ fn main() -> std::io::Result<()> {
         return Ok(());
     }
     if raw_args.as_slice() == ["--version"] || raw_args.as_slice() == ["-V"] {
-        println!("angel0-cockpit {}", env!("CARGO_PKG_VERSION"));
+        println!("angelX-cockpit {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     if yolo::enabled() {
@@ -1204,7 +1204,7 @@ fn main() -> std::io::Result<()> {
             );
             let operator_prompt_sha256 = crate::knowledge::cut::sha256_hex(prompt.as_bytes());
             // Same precedence as the TUI (--workspace > $ANGEL_WORKSPACE > fallback),
-            // but `--task` keeps the isolated `~/.angel0/workspace` fallback that
+            // but `--task` keeps the isolated `~/.angelX/workspace` fallback that
             // benchmark harnesses rely on rather than defaulting to the cwd.
             if let Err(e) = std::fs::create_dir_all(&workspace) {
                 let message = format!("cannot create workspace {}: {e}", workspace.display());

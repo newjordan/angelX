@@ -1,7 +1,7 @@
 //! Native, read-only campaign/report catalog for the ordinary cockpit.
 //!
 //! The report house already publishes a small version-1 `manifest.json` under
-//! `~/.angel0/reports`. Observatory accepts that legacy shape unchanged, while
+//! `~/.angelX/reports`. Observatory accepts that legacy shape unchanged, while
 //! version 2 adds campaign and evidence provenance to each report. No catalog
 //! command writes or migrates the source manifest.
 
@@ -606,7 +606,7 @@ fn default_manifest_path() -> PathBuf {
     let live = std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".angel0/reports/manifest.json");
+        .join(".angelX/reports/manifest.json");
     if live.is_file() {
         return live;
     }
@@ -738,7 +738,7 @@ pub(crate) fn render(frame: &mut Frame, state: &mut ObservatoryState, area: Rect
             Paragraph::new(Line::from(vec![
                 Span::styled("NO CATALOG  ", Style::new().fg(HUD_GOLD)),
                 Span::styled(
-                    "publish reports under ~/.angel0/reports or point \
+                    "publish reports under ~/.angelX/reports or point \
                      ANGEL_OBSERVATORY_MANIFEST at a manifest · /observatory reload",
                     Style::new().fg(HUD_DIM),
                 ),

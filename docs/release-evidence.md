@@ -1,6 +1,6 @@
 # Source release evidence
 
-angel0 produces a deterministic, checksummed source archive of the ordinary
+angelX produces a deterministic, checksummed source archive of the ordinary
 terminal cockpit and its headless `angel --task-json` runtime:
 
 ```bash
@@ -11,15 +11,15 @@ npm run release:evidence -- --out .angel/release/<receipt-dir>
 must stay under `.angel/` (ignored), and an absolute path outside the checkout
 is also accepted. The command writes an untracked release set:
 
-- `angel0-source-<version>-<commit>.tar` — normalized GNU tar source archive;
+- `angelX-source-<version>-<commit>.tar` — normalized GNU tar source archive;
 - `*.tar.sha256` — archive checksum sidecar;
 - `*.manifest.json` — source, dependency, toolchain, file, and artifact
-  evidence (`schema: angel0-source-release-evidence/v1`,
+  evidence (`schema: angelX-source-release-evidence/v1`,
   `scope: ordinary-terminal-cockpit-source`);
 - `*.manifest.json.sha256` — manifest-file checksum sidecar.
 
 The archive is a source distribution, not a relocatable prebuilt binary. After
-extraction, `bin/angel0` builds `cockpit/target/release/angel` and
+extraction, `bin/angelX` builds `cockpit/target/release/angel` and
 `angel-sandbox` from the included cockpit source and the two vendored path
 dependencies, `vendor/dotmax` and the patched `vendor/ureq`. Local credentials
 and `.angel.env` are never included.
@@ -59,7 +59,7 @@ private-network behavior stays testable. Operator-specific values such as the
 fleet `overwatch` binary path and the Spark peer's tailnet/Hydra host labels
 are therefore runtime inputs (`ANGEL_OVERWATCH_CMD`, `$HOME`, and
 `ANGEL_SPARK_HOST`), never source literals. Operators supply them through the
-gitignored repo-local `.angel.env` that `bin/angel0` sources (see
+gitignored repo-local `.angel.env` that `bin/angelX` sources (see
 `cockpit/docs/ENV.md`).
 
 The manifest binds:
@@ -109,7 +109,7 @@ its narrower negative claims explicitly.
 
 ```bash
 npm run release:verify -- \
-  .angel/release/<receipt-dir>/angel0-source-<version>-<commit>.manifest.json \
+  .angel/release/<receipt-dir>/angelX-source-<version>-<commit>.manifest.json \
   --v8-archive /path/to/librusty_v8.a
 ```
 
@@ -144,11 +144,11 @@ checkout as `cockpit/target/release/gn_out/obj/librusty_v8.a`.
 docker pull docker.io/library/rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
 docker build --pull=false --network=bridge \
   --file release/Dockerfile.clean-builder \
-  --tag angel0-clean-builder:rust-1.95.0-bookworm-v1 \
+  --tag angelX-clean-builder:rust-1.95.0-bookworm-v1 \
   release/
 
 npm run release:verify:container -- \
-  .angel/release/<receipt-dir>/angel0-source-<version>-<commit>.manifest.json \
+  .angel/release/<receipt-dir>/angelX-source-<version>-<commit>.manifest.json \
   --v8-archive /path/to/librusty_v8.a
 ```
 
@@ -158,7 +158,7 @@ Rust/platform identity, and all nine direct native package versions. The
 verifier refuses to pull or rebuild implicitly and accepts the local candidate
 only when every recorded fact matches. The recorded image ID comes from the
 previous build of this byte-identical Dockerfile on the prior evidence host; it
-has not yet been rebuilt on an angel0 Docker host, and the Dockerfile names
+has not yet been rebuilt on an angelX Docker host, and the Dockerfile names
 Debian packages without version constraints, so rebuilding is not by itself a
 guarantee of reproducing that ID. When it differs, re-pin the policy from the
 inspected image rather than weakening the check.
@@ -173,7 +173,7 @@ manifest as `*.cockpit-linux-x86_64` with a checksum sidecar.
 
 ```bash
 npm run release:verify:install -- \
-  .angel/release/<receipt-dir>/angel0-source-<version>-<commit>.manifest.json
+  .angel/release/<receipt-dir>/angelX-source-<version>-<commit>.manifest.json
 ```
 
 Requires the clean-container receipt and published executable from the
@@ -193,7 +193,7 @@ package-manager integration, or a physically clean host.
 docker pull ghcr.io/google/osv-scanner@sha256:64e86bec6df2466feea5137fc7c78fb3b7c21ec077f014d7130f64810e50676b
 
 npm run release:verify:advisories -- \
-  .angel/release/<receipt-dir>/angel0-source-<version>-<commit>.manifest.json
+  .angel/release/<receipt-dir>/angelX-source-<version>-<commit>.manifest.json
 ```
 
 Requires Docker and outbound access to OSV.dev. The verifier freshly extracts
@@ -222,8 +222,8 @@ be re-checked with:
 
 ```bash
 cd .angel/release/<receipt-dir>
-sha256sum -c angel0-source-*.tar.sha256
-sha256sum -c angel0-source-*.manifest.json.sha256
+sha256sum -c angelX-source-*.tar.sha256
+sha256sum -c angelX-source-*.manifest.json.sha256
 ```
 
 ## Claims this evidence does not make

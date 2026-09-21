@@ -26,7 +26,7 @@ fn fmt_clock_handles_minutes_and_hours() {
 fn header_line_uses_cached_idle_lines_for_known_agents() {
     let line = header_line("practice", Glyph::Idle, 0.0, 0.0);
     let text = flatten(std::slice::from_ref(&line));
-    assert!(text.contains("angel0"));
+    assert!(text.contains("angelX"));
     assert!(text.contains("Practice"));
     assert!(text.contains("idle"));
     assert!(text.contains("00%"));

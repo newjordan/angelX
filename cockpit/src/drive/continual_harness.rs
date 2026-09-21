@@ -1,14 +1,14 @@
 //! Continual harness — Prime Agent-inspired durable, editable agent state.
 //!
 //! Port of the high-value slice of [Prime Agent](https://github.com/newjordan/prime-agent)'s
-//! continual harness / `/refine` subsystem into angel0:
+//! continual harness / `/refine` subsystem into angelX:
 //!
 //! * **Kinds:** `prompt` (supplemental notes only — base system prompt stays
 //!   immutable), `memory` (durable facts), `skill` (reusable procedure
 //!   descriptions for angel skill/tool routing), `subagent` (delegation specs
 //!   for `spawn` / agent graphs).
-//! * **Scopes:** `project` (repo-keyed under `~/.angel0/continual-harness/`) and
-//!   `global` (`~/.angel0/continual-harness/global.json`).
+//! * **Scopes:** `project` (repo-keyed under `~/.angelX/continual-harness/`) and
+//!   `global` (`~/.angelX/continual-harness/global.json`).
 //! * **Edits:** create / update / delete with recorded refinement events and
 //!   snapshot-based rollback.
 //! * **Injection:** compact overview into the system prompt and headless

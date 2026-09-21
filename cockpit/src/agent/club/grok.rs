@@ -625,7 +625,7 @@ impl GrokAcpConnection {
                     "terminal": false
                 },
                 "clientInfo": {
-                    "name": "angel0-cockpit",
+                    "name": "angelX-cockpit",
                     "version": env!("CARGO_PKG_VERSION")
                 }
             }),
@@ -1113,7 +1113,7 @@ fn answer_grok_acp_server_request(
         serde_json::json!({
             "jsonrpc": "2.0",
             "id": id,
-            "error": {"code": -32601, "message": format!("unsupported angel0 ACP client method: {method}")}
+            "error": {"code": -32601, "message": format!("unsupported angelX ACP client method: {method}")}
         })
     };
     write_grok_acp_message(writer, &response)
@@ -1557,7 +1557,7 @@ fn resolve_grok_model_alias_with_available(raw: &str, available: &[String]) -> S
         return trimmed.to_ascii_lowercase();
     }
     match normalized.as_str() {
-        // `grok` is an angel0 compatibility alias, not a documented xAI API id.
+        // `grok` is an angelX compatibility alias, not a documented xAI API id.
         // Always collapse it locally so it can never reach the wire.
         "grok" => GROK_DEFAULT_MODEL.to_string(),
         "4" | "new" | "latest" | "grok4" | "grok-4" | "4-new" | "grok4-new" | "grok-4-new"
@@ -2029,7 +2029,7 @@ impl GrokOauthShared {
             .timeout_connect(Duration::from_secs(10))
             .timeout_read(Duration::from_secs(30))
             .timeout_write(Duration::from_secs(15))
-            .user_agent(concat!("angel0-cockpit/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("angelX-cockpit/", env!("CARGO_PKG_VERSION")))
             .build();
         Arc::new(Self {
             auth: Mutex::new(auth),

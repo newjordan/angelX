@@ -19,7 +19,7 @@
 //!     network beyond a short timeout) and to RECORD the user's confirmation.
 //!
 //! The established context is persisted per-workspace to
-//! `~/.angel0/work-context/<key>.json` (override the dir with
+//! `~/.angelX/work-context/<key>.json` (override the dir with
 //! `ANGEL_WORK_CONTEXT_DIR`), so the mode survives restarts and a `/cd` to a new
 //! repo lands a fresh (unconfirmed) context that re-triggers onboarding.
 //!
@@ -321,11 +321,11 @@ pub fn assemble_context(
 }
 
 // ---------------------------------------------------------------------------
-// Persistence — `~/.angel0/work-context/<key>.json` (per workspace).
+// Persistence — `~/.angelX/work-context/<key>.json` (per workspace).
 // ---------------------------------------------------------------------------
 
 /// The directory that holds per-workspace context files. `ANGEL_WORK_CONTEXT_DIR`
-/// overrides it (tests point this at a tempdir); default `~/.angel0/work-context`.
+/// overrides it (tests point this at a tempdir); default `~/.angelX/work-context`.
 pub fn context_base_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("ANGEL_WORK_CONTEXT_DIR") {
         return PathBuf::from(dir);
@@ -333,7 +333,7 @@ pub fn context_base_dir() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".angel0/work-context")
+        .join(".angelX/work-context")
 }
 
 /// A stable, filesystem-safe key for a workspace path: a sanitized, length-bounded

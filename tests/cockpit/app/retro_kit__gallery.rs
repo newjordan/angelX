@@ -2,9 +2,9 @@ use ratatui::style::Color;
 use ratatui::text::Text;
 
 pub(crate) fn out_dir() -> std::path::PathBuf {
-    let dir = std::env::var("ANGEL0_GALLERY_DIR")
+    let dir = std::env::var("ANGELX_GALLERY_DIR")
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::env::temp_dir().join("angel0-gallery"));
+        .unwrap_or_else(|_| std::env::temp_dir().join("angelX-gallery"));
     std::fs::create_dir_all(&dir).expect("gallery dir");
     dir
 }

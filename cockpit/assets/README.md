@@ -1,7 +1,7 @@
 # Project artwork
 
-The artwork in this directory was created for angel0 with ImageGen. The project
-owner confirms the rights to use and distribute it. It ships with angel0 under
+The artwork in this directory was created for angelX with ImageGen. The project
+owner confirms the rights to use and distribute it. It ships with angelX under
 the repository's MIT license.
 
 The source distribution includes these assets because the cockpit loads

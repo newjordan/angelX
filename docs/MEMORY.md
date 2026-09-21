@@ -11,8 +11,8 @@ From the source checkout, with Node.js and Python 3 installed:
 node scripts/runtime/repo-dossier.mjs --refresh
 ```
 
-The default stores are `~/.angel0/experience/ledger.jsonl`, `~/.angel0/cut/` and
-`~/.angel0/dossier/`. `ANGEL_EXPERIENCE_LOG`, `ANGEL_CUT_DIR` and
+The default stores are `~/.angelX/experience/ledger.jsonl`, `~/.angelX/cut/` and
+`~/.angelX/dossier/`. `ANGEL_EXPERIENCE_LOG`, `ANGEL_CUT_DIR` and
 `ANGEL_DOSSIER_DIR` override them. The graph is stored inside the Dossier output
 directory. CLI overrides are `--ledger`, `--cut`, `--out` and `--graph`.
 

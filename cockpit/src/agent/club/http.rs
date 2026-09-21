@@ -575,7 +575,7 @@ pub(crate) fn static_model_window(model_l: &str) -> Option<(usize, bool)> {
     }
     if m == "grok-4.6" {
         // xAI publishes a 500k context. Its Chat Completions cache affinity is
-        // expressed through an x-grok-conv-id header rather than angel0's
+        // expressed through an x-grok-conv-id header rather than angelX's
         // OpenAI-style body key, so keep that separate capability conservative.
         return Some((500_000, false));
     }
@@ -1319,7 +1319,7 @@ fn glm_thinking_is_flash(model: &str) -> bool {
 /// idles on the closest-to-off rung (`low`). GLM-5.3-Flash idles on `auto`:
 /// the field is omitted and z.ai's own adaptive default applies — exactly what
 /// opencode sends, and the reason it solved the 2026-09-05 arena tasks 2×
-/// faster with the same model (angel0's former Flash idle of `high` made every
+/// faster with the same model (angelX's former Flash idle of `high` made every
 /// hop, even a 95-byte `read_file` call, think at full depth: 2–7× the
 /// reasoning tokens, ~20 s per hop). `ANGEL_GLM_FLASH_IDLE_EFFORT`
 /// (`auto` | `low` | `high` | `max`) pins it.
@@ -1574,7 +1574,7 @@ impl HttpClub {
             // Preserve a full local swarm wave across stages instead of making
             // 64+ agents reconnect; WAN links retain a smaller pool.
             .max_idle_connections_per_host(idle_connections_per_host(&base_url))
-            .user_agent(concat!("angel0-cockpit/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("angelX-cockpit/", env!("CARGO_PKG_VERSION")))
             .build();
         let model = model.into();
         let model = (!model.trim().is_empty()).then(|| model.trim().to_string());

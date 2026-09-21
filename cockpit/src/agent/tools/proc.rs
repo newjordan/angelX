@@ -478,7 +478,7 @@ fn first_free_id() -> u64 {
 }
 
 /// Log directory for background processes (`ANGEL_PROC_DIR`, default
-/// `~/.angel0/proc`).
+/// `~/.angelX/proc`).
 fn proc_confinement_label() -> String {
     if crate::platform::yolo::enabled() {
         "yolo-command-authority".into()
@@ -499,7 +499,7 @@ pub(crate) fn proc_dir() -> PathBuf {
         return PathBuf::from(d);
     }
     let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(home).join(".angel0").join("proc")
+    PathBuf::from(home).join(".angelX").join("proc")
 }
 
 /// A filesystem-safe short name derived from the user-supplied label (or the

@@ -3279,7 +3279,7 @@ impl App {
                 }
             }
             "feedback" => self.system_msg(
-                "/feedback: no built-in channel — file issues on the angel0 repo.".to_string(),
+                "/feedback: no built-in channel — file issues on the angelX repo.".to_string(),
             ),
             other => self.system_msg(format!("/{other}: not handled")),
         }
@@ -3823,7 +3823,7 @@ fn last_fenced_code_block(text: &str) -> Option<&str> {
 }
 
 fn conversation_markdown(history: &[ChatMsg]) -> Option<String> {
-    let mut out = String::from("# angel0 conversation\n");
+    let mut out = String::from("# angelX conversation\n");
     let mut included = 0usize;
     for message in history {
         let heading = match message.role {

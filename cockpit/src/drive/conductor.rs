@@ -2,7 +2,7 @@
 //! `docs/WORKERS.md`).
 //!
 //! The graph remains Node-owned. Rust reads only the small status artifacts the
-//! tick writes under `~/.angel0/conductor`: `status.json`, `queue.json`, and
+//! tick writes under `~/.angelX/conductor`: `status.json`, `queue.json`, and
 //! `heartbeat.json`. Approval/rejection spool verdicts for the next worker tick.
 
 use crate::agent::harness::run_git;
@@ -501,7 +501,7 @@ fn now_secs() -> u64 {
 /// `/conductor [status | approve <id> | reject <id>]` dispatch.
 pub(crate) fn run(arg: Option<&str>, workspace: &Path) -> String {
     if !is_live_project(workspace) {
-        return "/conductor is bound to the angel0 source project; /cd to that repository before reviewing or mutating its queue".to_string();
+        return "/conductor is bound to the angelX source project; /cd to that repository before reviewing or mutating its queue".to_string();
     }
     let arg = arg.unwrap_or("").trim();
     if arg.is_empty() || arg == "status" {

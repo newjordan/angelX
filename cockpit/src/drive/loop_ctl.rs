@@ -46,7 +46,7 @@
 //! `ANGEL_LOOP_STALL_STOP` (4), `ANGEL_LOOP_PIVOT` (2),
 //! `ANGEL_LOOP_FIRST_CANDIDATE_ITERS` (3, podrace: steer measurement after this
 //! many iterations without a verified measured candidate; 0 = off). Persisted to
-//! `~/.angel0/loops/<workspace-key>--<session-key>.json` (override
+//! `~/.angelX/loops/<workspace-key>--<session-key>.json` (override
 //! `ANGEL_LOOP_FILE`).
 //! `/loop podrace <task>` is the explicit competition profile: five days, no
 //! iteration/token cap, outcome-action progress, and unattended stall recovery.
@@ -366,10 +366,10 @@ pub struct LoopState {
     /// Novel verified submission receipts this run.
     #[serde(default)]
     pub submissions: usize,
-    /// Every stamped `hilbert|yukon submit --model grok-4.6 --harness angel0` (accepted, refused, or rejected).
+    /// Every stamped `hilbert|yukon submit --model grok-4.6 --harness angelX` (accepted, refused, or rejected).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub submissions_log: Vec<SubmissionLogRow>,
-    /// angel0 binary identity at loop start / last change.
+    /// angelX binary identity at loop start / last change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binary: Option<LoopBinaryIdentity>,
     /// Paid/cached/output token split alongside `tokens_spent`.
@@ -1106,7 +1106,34 @@ impl crate::App {
     pub(crate) fn loop_dialog_key(&mut self, code: KeyCode) -> bool {
         let mut start = false;
         let mut cancel = false;
+        let mut note: Option<String> = None;
         if let Some(dialog) = self.loop_dialog.as_mut() {
+            // While a custom length is being typed the entry owns every key:
+            // digits edit it, Enter commits it, Esc drops it, and nothing slips
+            // through to the workshop as an accidental start mid-number.
+            if dialog.custom_entry_active() {
+                match code {
+                    KeyCode::Char(ch) if ch.is_ascii_digit() => {
+                        dialog.custom_length_digit(ch);
+                    }
+                    KeyCode::Backspace | KeyCode::Delete => {
+                        dialog.custom_length_backspace();
+                    }
+                    KeyCode::Enter => {
+                        if !dialog.commit_custom_length() {
+                            note = Some(
+                                "custom loop length needs a number — kept the chosen preset"
+                                    .to_string(),
+                            );
+                        }
+                    }
+                    KeyCode::Esc => {
+                        dialog.cancel_custom_length();
+                    }
+                    _ => {}
+                }
+                return true;
+            }
             match code {
                 KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => cancel = true,
                 KeyCode::Tab | KeyCode::Down => dialog.focus_next(),
@@ -1127,6 +1154,8 @@ impl crate::App {
             self.note(msg);
         } else if cancel {
             let msg = self.loop_dialog_cancel();
+            self.note(msg);
+        } else if let Some(msg) = note {
             self.note(msg);
         }
         true

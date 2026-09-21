@@ -1,7 +1,7 @@
 //! Hashline — a compact, content-anchored patch format for the agent's edits.
 //!
 //! Ported and adapted from oh-my-pi's `hashline` (github.com/can1357/oh-my-pi).
-//! The problem it solves: angel0's other edit tools (`str_replace`, `multi_edit`,
+//! The problem it solves: angelX's other edit tools (`str_replace`, `multi_edit`,
 //! freeform `apply_patch`) locate a region by re-emitting the *old* text and
 //! fuzzy-matching it. That costs output tokens twice (old **and** new), and a
 //! non-unique `old` must be padded with surrounding context — more tokens still.

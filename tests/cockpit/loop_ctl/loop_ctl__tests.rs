@@ -1230,7 +1230,7 @@ fn ambiguous_workspace_fingerprint_never_reuses_red_acceptance() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-// Real evaluator checks need a Git-backed candidate, not the live angel0
+// Real evaluator checks need a Git-backed candidate, not the live angelX
 // checkout. Keep the fingerprint small and independent of concurrent work.
 struct AcceptanceFixture(PathBuf, PathBuf);
 

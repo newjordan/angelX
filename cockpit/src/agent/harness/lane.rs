@@ -93,7 +93,7 @@ pub(crate) fn lane_system_suffix() -> &'static str {
     }
 }
 
-/// Path to living B200 peer state (`POPCORN_PEER_STATE` or `~/.angel0/popcorn-peer.json`).
+/// Path to living B200 peer state (`POPCORN_PEER_STATE` or `~/.angelX/popcorn-peer.json`).
 pub(crate) fn popcorn_peer_state_path() -> Option<PathBuf> {
     if let Ok(raw) = std::env::var("POPCORN_PEER_STATE") {
         let p = PathBuf::from(raw);
@@ -102,7 +102,7 @@ pub(crate) fn popcorn_peer_state_path() -> Option<PathBuf> {
         }
     }
     let home = std::env::var_os("HOME")?;
-    Some(Path::new(&home).join(".angel0").join("popcorn-peer.json"))
+    Some(Path::new(&home).join(".angelX").join("popcorn-peer.json"))
 }
 
 /// Parsed JSON keyed on path+mtime+len. Treebeard header paint re-queries living
@@ -881,7 +881,7 @@ fn forge_when_free_status_path() -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(
         Path::new(&home)
-            .join(".angel0")
+            .join(".angelX")
             .join("forge-when-free-status.json"),
     )
 }
@@ -896,7 +896,7 @@ fn forge_last_cycle_path() -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(
         Path::new(&home)
-            .join(".angel0")
+            .join(".angelX")
             .join("forge-last-cycle.json"),
     )
 }

@@ -2,7 +2,7 @@
 //!
 //! The dossier compiler (`scripts/runtime/repo-dossier.mjs`) mines the experience
 //! ledger's per-command events into per-repo facts with beliefs and writes one
-//! artifact per workspace to `~/.angel0/dossier/<workspace_key>.json`. This
+//! artifact per workspace to `~/.angelX/dossier/<workspace_key>.json`. This
 //! module renders that artifact into a small context block so a session opens
 //! already knowing the repo's verified rituals ("`cargo test` is the test
 //! command and passes"), standing traps ("`npm test` always fails here"), and
@@ -44,7 +44,7 @@ fn enabled() -> bool {
     }
 }
 
-/// Artifact directory: `ANGEL_DOSSIER_DIR`, else `~/.angel0/dossier`.
+/// Artifact directory: `ANGEL_DOSSIER_DIR`, else `~/.angelX/dossier`.
 fn dossier_dir() -> PathBuf {
     match std::env::var("ANGEL_DOSSIER_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),

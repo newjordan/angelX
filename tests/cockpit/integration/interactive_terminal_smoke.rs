@@ -23,7 +23,7 @@ impl ScratchDir {
             .map_err(|error| error.to_string())?
             .as_nanos();
         let path =
-            std::env::temp_dir().join(format!("angel0-{label}-{}-{nonce}", std::process::id()));
+            std::env::temp_dir().join(format!("angelX-{label}-{}-{nonce}", std::process::id()));
         fs::create_dir(&path).map_err(|error| format!("create {}: {error}", path.display()))?;
         for child in ["home", "work", "sessions", "config", "cache", "state"] {
             fs::create_dir(path.join(child))
@@ -652,7 +652,7 @@ fn run_scenario(rows: u16, cols: u16, resize_to: Option<(u16, u16)>) -> Result<(
     let mut cockpit = CockpitPty::spawn(rows, cols, &scratch)?;
 
     let startup = cockpit.wait_for("startup cockpit frame", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
     if startup.contains("ARRIVAL") {
         return Err("fresh startup rendered ARRIVAL instead of Realm".to_string());
@@ -724,7 +724,7 @@ fn run_input_latency_scenario(motion: &str, unicode: bool) -> Result<(), String>
     let scratch = ScratchDir::new("pty-input-latency")?;
     let mut cockpit = CockpitPty::spawn_with_motion(40, 120, &scratch, &[], motion)?;
     cockpit.wait_for("input latency startup", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
 
     let mut expected = String::new();
@@ -885,7 +885,7 @@ fn run_session_recovery_scenario() -> Result<(), String> {
     let scratch = ScratchDir::new("pty-session-recovery")?;
     let mut first = CockpitPty::spawn(40, 120, &scratch)?;
     first.wait_for("first session startup", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
     first.send(format!("{USER_TEXT}\r").as_bytes())?;
     first.wait_for("completed offline practice turn", |screen| {
@@ -920,7 +920,7 @@ fn run_session_write_failure_scenario() -> Result<(), String> {
     let scratch = ScratchDir::new("pty-session-write-failure")?;
     let mut cockpit = CockpitPty::spawn(40, 120, &scratch)?;
     cockpit.wait_for("session failure startup", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
     let cockpit_pid = cockpit
         .child
@@ -983,7 +983,7 @@ fn run_session_write_failure_scenario() -> Result<(), String> {
     cockpit.wait_for("unsaved conversation exported", |screen| {
         screen.contains("copy-friendly") && screen.contains("Markdown")
     })?;
-    let exported = fs::read_to_string(scratch.path().join("home/.angel0/transcript.txt"))
+    let exported = fs::read_to_string(scratch.path().join("home/.angelX/transcript.txt"))
         .map_err(|error| format!("read unsaved conversation export: {error}"))?;
     if exported.matches(LIVE_USER).count() != 1
         || !exported.contains(FIRST_USER)
@@ -1031,7 +1031,7 @@ fn run_local_image_scenario() -> Result<(), String> {
     let image = write_visual_fixture(&scratch)?;
     let mut cockpit = CockpitPty::spawn(40, 120, &scratch)?;
     cockpit.wait_for("local image startup", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
 
     cockpit.send(format!("/show {}\r", image.display()).as_bytes())?;
@@ -1070,7 +1070,7 @@ fn run_approval_paths_scenario() -> Result<(), String> {
     let scratch = ScratchDir::new("pty-approval-probe")?;
     let mut cockpit = CockpitPty::spawn(40, 120, &scratch)?;
     cockpit.wait_for("approval probe startup", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
 
     cockpit.send(b"/approvals probe\r")?;
@@ -1138,7 +1138,7 @@ fn run_brain_route_controls_scenario() -> Result<(), String> {
     scratch.provision_codex_route_fixture()?;
     let mut cockpit = CockpitPty::spawn(40, 120, &scratch)?;
     cockpit.wait_for("brain route control startup", |screen| {
-        screen.contains("angel0") && screen.contains("Write a message")
+        screen.contains("angelX") && screen.contains("Write a message")
     })?;
 
     cockpit.send(b"/model ChatGPT\r")?;

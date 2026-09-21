@@ -14,57 +14,63 @@
     {
       "agent": "turbo",
       "file": "turbo.png",
-      "width": 1774,
-      "height": 887,
+      "width": 1678,
+      "height": 937,
       "columns": 4,
       "rows": 2,
-      "sha256": "0751d39c668418d44f09e33fc3adc66edba8b3b46fd8ace44e651f644ccd21d4",
-      "generation": "Astra via built-in imagegen",
-      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-59897c58-5fb0-43e0-9e39-a4ae8f325c1a.png"
+      "sha256": "e3cba2c681edbb84d723f4681f31856ab8fd25c9a9e8f9001ed2ca283ae19d56",
+      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
+      "original": "knight-01-sprite-sheet-guide.png (this dir, unmodified)",
+      "superseded": "shiny/turbo.png \u2014 the glossy built-in-imagegen pass"
     },
     {
       "agent": "atlas",
       "file": "atlas.png",
-      "width": 1774,
-      "height": 887,
+      "width": 1678,
+      "height": 937,
       "columns": 4,
       "rows": 2,
-      "sha256": "bfcf787c65feb3bf92cf9d38697c7053a937e742ff6abdafaded06b491016c45",
-      "generation": "Astra via built-in imagegen",
-      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-cfe8282d-516b-4c02-8dcb-4456efb3ee26.png"
+      "sha256": "b0b55862e3a3114c670dcc5788bfc0ddf677d45d8e331ad7b201105b6c379be9",
+      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
+      "original": "knight-02-sprite-sheet-guide.png (this dir, unmodified)",
+      "superseded": "shiny/atlas.png \u2014 the glossy built-in-imagegen pass"
     },
     {
       "agent": "sparky",
       "file": "sparky.png",
-      "width": 1774,
-      "height": 887,
+      "width": 1678,
+      "height": 937,
       "columns": 4,
       "rows": 2,
-      "sha256": "64950edd6d39e71588a01f5b70f42cb808bb9a1e10c95bfc6e26b71f8d3d6598",
-      "generation": "Astra via built-in imagegen",
-      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-76ac706f-38f5-4824-a336-4a4946634993.png"
+      "sha256": "d065310df15ec697aae99cdff41df1a7d773a6824a6c9e0529d53f6f961f0ca1",
+      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
+      "original": "knight-03-sprite-sheet-guide.png (this dir, unmodified)",
+      "superseded": "shiny/sparky.png \u2014 the glossy built-in-imagegen pass"
     },
     {
       "agent": "apollo",
       "file": "apollo.png",
-      "width": 1774,
-      "height": 887,
+      "width": 1678,
+      "height": 937,
       "columns": 4,
       "rows": 2,
-      "sha256": "0381699aeba26b0233b995b37ea829e0acd2b03e3b0d5729bcae2c4c11dbb67e",
-      "generation": "Astra via built-in imagegen",
-      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-be1c28a8-9049-4941-8046-245b7fb3b2e6.png"
+      "sha256": "2263297453cb721ebc7819221f040b40fa8fd515a787b414f219f94ace9d1f58",
+      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
+      "original": "knight-04-sprite-sheet-guide.png (this dir, unmodified)",
+      "superseded": "shiny/apollo.png \u2014 the glossy built-in-imagegen pass"
     },
     {
       "agent": "codex",
       "file": "codex.png",
-      "width": 1774,
-      "height": 887,
+      "width": 1678,
+      "height": 937,
       "columns": 4,
       "rows": 2,
-      "sha256": "6520b7904353c2b241cc3ae37925cd76819943a673cdf492023efc6a55f26eec",
-      "generation": "Astra via built-in imagegen",
-      "original": "~/.codex/generated_images/01a0a554-f70c-73d1-8143-7b6f2e377780/exec-036b6e2d-6350-4e51-8cc5-3ea8950c1cdd.png"
+      "sha256": "e8a971dd847fb76db21169aecf8517d85c65057a9bc5e2bf7c6d2765cca0113c",
+      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
+      "original": "knight-05-sprite-sheet-guide.png (this dir, unmodified)",
+      "superseded": "shiny/codex.png \u2014 the glossy built-in-imagegen pass"
     }
-  ]
+  ],
+  "note": "The sheets in this directory are the gritty knight art. The glossy built-in-imagegen pass that briefly replaced them is archived in shiny/, same filenames, so the two generations stay comparable."
 }

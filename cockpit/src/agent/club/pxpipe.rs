@@ -1,7 +1,7 @@
 //! pxpipe request compression for image-capable SOTA clubs.
 //!
 //! pxpipe renders bulky OpenAI request context into PNG input parts. That only
-//! belongs on models with reliable image input, so angel0 gates it by label/model
+//! belongs on models with reliable image input, so angelX gates it by label/model
 //! and keeps every unsupported provider byte-identical.
 
 use super::*;

@@ -650,14 +650,14 @@ pub(crate) fn relevant_skill_name<'a>(skills: &'a [SkillSummary], task: &str) ->
 }
 
 /// Discover skills from the compatible harness surfaces available to
-/// `workspace`: bundled angel0 skills, repo `.claude/skills`,
+/// `workspace`: bundled angelX skills, repo `.claude/skills`,
 /// `.opencode/skills`, and `.agents/skills`, plugin-bundled skills, compatible
-/// global skill roots, and angel0 user skills.
+/// global skill roots, and angelX user skills.
 ///
-/// Because angel0's `skill(name)` tool is name-addressed, duplicate names are
+/// Because angelX's `skill(name)` tool is name-addressed, duplicate names are
 /// merged with later sources winning. Deeper repo scopes beat shallower ones;
 /// within one scope `.agents` beats `.opencode`, which beats `.claude`.
-/// `~/.angel0/skills` remains the final explicit user override.
+/// `~/.angelX/skills` remains the final explicit user override.
 pub fn load_skills_for(workspace: &Path) -> Vec<Skill> {
     let scoped = |dir: &Path| {
         cached_skill_scan(dir)
@@ -680,12 +680,12 @@ fn configured_user_skill_dir() -> PathBuf {
             std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".angel0/skills")
+                .join(".angelX/skills")
         })
 }
 
 fn skill_source_dirs(workspace: &Path) -> Vec<PathBuf> {
-    // Skills angel0 ships with — methodology playbooks adapted from the Hermes
+    // Skills angelX ships with — methodology playbooks adapted from the Hermes
     // library. `ANGEL_BUNDLED_SKILLS_DIR` overrides the crate-local default.
     let bundled = std::env::var_os("ANGEL_BUNDLED_SKILLS_DIR")
         .map(PathBuf::from)

@@ -81,14 +81,14 @@ function write(path, value, mode = 0o644) {
 }
 
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'angel0-release-test-'))
+  const root = mkdtempSync(join(tmpdir(), 'angelX-release-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   command(root, 'git', ['init', '--quiet'])
   command(root, 'git', ['config', 'user.name', 'Release Test'])
   command(root, 'git', ['config', 'user.email', 'release-test@example.invalid'])
   write(join(root, 'README.md'), 'fixture\n')
-  write(join(root, 'bin/angel0'), '#!/bin/sh\nexit 0\n', 0o755)
-  command(root, 'git', ['add', 'README.md', 'bin/angel0'])
+  write(join(root, 'bin/angelX'), '#!/bin/sh\nexit 0\n', 0o755)
+  command(root, 'git', ['add', 'README.md', 'bin/angelX'])
   command(root, 'git', ['commit', '--quiet', '-m', 'fixture'])
   return root
 }
@@ -171,7 +171,7 @@ test('repository-local release output is confined to the ignored evidence direct
     /must stay under \.angel/u,
   )
   assert.throws(
-    () => assertSafeOutputDirectory('/repo', '/repo/.angel0/release'),
+    () => assertSafeOutputDirectory('/repo', '/repo/.angelX/release'),
     /must stay under \.angel/u,
   )
 })
@@ -184,14 +184,14 @@ test('tracked inventory and GNU tar artifact are deterministic', (t) => {
     entries.map((entry) => [entry.path, entry.mode]),
     [
       ['README.md', '100644'],
-      ['bin/angel0', '100755'],
+      ['bin/angelX', '100755'],
     ],
   )
   const first = createSourceArchive(root, join(root, 'out/first.tar'), entries)
   const second = createSourceArchive(root, join(root, 'out/second.tar'), entries)
   assert.equal(first.sha256, second.sha256)
   assert.equal(first.bytes, second.bytes)
-  assert.equal(command(root, 'tar', ['-tf', 'out/first.tar']), 'README.md\nbin/angel0\n')
+  assert.equal(command(root, 'tar', ['-tf', 'out/first.tar']), 'README.md\nbin/angelX\n')
   const verbose = command(root, 'tar', [
     '--list',
     '--verbose',
@@ -200,7 +200,7 @@ test('tracked inventory and GNU tar artifact are deterministic', (t) => {
     'out/first.tar',
   ])
   assert.match(verbose, /^-rw-r--r-- 0\/0\s+8 .* README\.md$/mu)
-  assert.match(verbose, /^-rwxr-xr-x 0\/0\s+17 .* bin\/angel0$/mu)
+  assert.match(verbose, /^-rwxr-xr-x 0\/0\s+17 .* bin\/angelX$/mu)
 })
 
 test('dirty tracked and untracked release inputs fail closed', (t) => {
@@ -255,7 +255,7 @@ test('tracked symbolic links cannot enter the source artifact', (t) => {
 })
 
 test('public inventory rejects operator paths and live fleet coordinates', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'angel0-public-inventory-test-'))
+  const root = mkdtempSync(join(tmpdir(), 'angelX-public-inventory-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const entry = (path) => ({ path })
   const sourcePath = 'cockpit/src/policy_fixture.rs'
@@ -579,7 +579,7 @@ test('source release excludes the retired benchmark producer and rejects benchma
       'benchmark tasks and operator instructions must stay outside the source release',
     )
   }
-  const root = mkdtempSync(join(tmpdir(), 'angel0-benchmark-exclusion-test-'))
+  const root = mkdtempSync(join(tmpdir(), 'angelX-benchmark-exclusion-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const path = 'benchmarks/action-agent/fixtures/example/package.json'
   write(join(root, path), '{}\n')
@@ -590,7 +590,7 @@ test('source release excludes the retired benchmark producer and rejects benchma
 })
 
 test('Node dependency policy requires registry integrity, licenses, and MIT root intent', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'angel0-node-lock-test-'))
+  const root = mkdtempSync(join(tmpdir(), 'angelX-node-lock-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   validNodePackage(root)
   const evidence = inspectNodeLock(root)

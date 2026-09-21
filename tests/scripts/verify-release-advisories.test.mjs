@@ -167,7 +167,7 @@ test('scanner inspection and runtime identity must match policy', () => {
 })
 
 test('scanner container exposes only exact locks and a bounded live query', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'angel0-advisory-args-'))
+  const root = mkdtempSync(join(tmpdir(), 'angelX-advisory-args-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const { policy } = fixture()
   const args = dockerScanArgs(SCANNER, root, policy)

@@ -6,7 +6,7 @@ import { join } from 'node:path'
 export function workerPaths(env = process.env, userHomeDir = homedir()) {
   const configured = (value, fallback) =>
     typeof value === 'string' && value.trim() ? value : fallback
-  const base = join(userHomeDir, '.angel0')
+  const base = join(userHomeDir, '.angelX')
   const dossier = configured(env.ANGEL_DOSSIER_DIR, join(base, 'dossier'))
   const still = configured(env.ANGEL_STILL_DIR, join(base, 'still'))
   return {

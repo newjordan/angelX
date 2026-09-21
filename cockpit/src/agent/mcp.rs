@@ -9,7 +9,7 @@
 //! Transport is newline-delimited JSON-RPC 2.0 over the child's stdin/stdout (the
 //! MCP stdio framing). A reader thread forwards every line over a channel so
 //! request/response round-trips can be bounded by a deadline without OS-level
-//! pipe timeouts. Everything is **opt-in**: with no config file (`~/.angel0/mcp.json`)
+//! pipe timeouts. Everything is **opt-in**: with no config file (`~/.angelX/mcp.json`)
 //! nothing is spawned and behavior is unchanged.
 //!
 //! A server is a long-lived third-party daemon spawned outside the tool sandbox,
@@ -369,7 +369,7 @@ fn parse_mcp_config(text: &str) -> Vec<ServerSpec> {
     out
 }
 
-/// Load configured servers from `ANGEL_MCP_CONFIG` (default `~/.angel0/mcp.json`).
+/// Load configured servers from `ANGEL_MCP_CONFIG` (default `~/.angelX/mcp.json`).
 /// Missing file → no servers.
 fn load_mcp_servers() -> Vec<ServerSpec> {
     let path = std::env::var_os("ANGEL_MCP_CONFIG")
@@ -378,7 +378,7 @@ fn load_mcp_servers() -> Vec<ServerSpec> {
             std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".angel0/mcp.json")
+                .join(".angelX/mcp.json")
         });
     match std::fs::read_to_string(&path) {
         Ok(text) => parse_mcp_config(&text),
@@ -548,7 +548,7 @@ impl McpClient {
             json!({
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {},
-                "clientInfo": { "name": "angel0-cockpit", "version": env!("CARGO_PKG_VERSION") },
+                "clientInfo": { "name": "angelX-cockpit", "version": env!("CARGO_PKG_VERSION") },
             }),
         )?;
         self.notify("notifications/initialized", json!({}))

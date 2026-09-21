@@ -32,7 +32,7 @@ const DOC_SCAN_LINES: usize = 80;
 /// Resolution order, most-explicit first:
 ///   1. `ANGEL_SELF_SRC` if it points at a crate root.
 ///   2. The shipped resource bundle or relocated source checkout.
-///   3. Walk up from the current dir looking for `angel0-cockpit`'s `Cargo.toml`.
+///   3. Walk up from the current dir looking for `angelX-cockpit`'s `Cargo.toml`.
 ///
 /// `None` only when the source genuinely can't be found (e.g. a relocated binary
 /// with no tree nearby) — self-understanding of source is moot in that case.
@@ -58,13 +58,13 @@ pub fn source_root() -> Option<PathBuf> {
 }
 
 /// A dir is the cockpit crate root if it has a `src/main.rs` and a `Cargo.toml`
-/// declaring `name = "angel0-cockpit"` (so we don't latch onto a sibling crate).
+/// declaring `name = "angelX-cockpit"` (so we don't latch onto a sibling crate).
 fn is_cockpit_root(dir: &Path) -> bool {
     if !dir.join("src/main.rs").is_file() {
         return false;
     }
     match std::fs::read_to_string(dir.join("Cargo.toml")) {
-        Ok(toml) => toml.contains("name = \"angel0-cockpit\""),
+        Ok(toml) => toml.contains("name = \"angelX-cockpit\""),
         Err(_) => false,
     }
 }
@@ -231,7 +231,7 @@ fn parse_crate_meta(toml: &str) -> CrateMeta {
     }
     CrateMeta {
         name: if name.is_empty() {
-            "angel0-cockpit".into()
+            "angelX-cockpit".into()
         } else {
             name
         },
@@ -476,7 +476,7 @@ pub fn generate_self_model() -> String {
     let root = match source_root() {
         Some(r) => r,
         None => {
-            return "self-model unavailable: could not locate the angel0-cockpit source tree \
+            return "self-model unavailable: could not locate the angelX-cockpit source tree \
                     (set ANGEL_SELF_SRC to the crate root)."
                 .to_string();
         }
@@ -491,7 +491,7 @@ fn generate_self_model_at(root: &Path) -> String {
 
     let mut s = String::new();
     s.push_str(&format!(
-        "# angel0 cockpit — self-model (`{name}` v{ver}, edition {ed})\n\n\
+        "# angelX cockpit — self-model (`{name}` v{ver}, edition {ed})\n\n\
          A terminal-first Rust/ratatui agent harness: a `Bag` of model `Club`s driven \
          through a tool-using `run_turn` loop, with workspace-confined file tools, \
          git-worktree delegation, and a verifiable-reward (RLVR) substrate. This map is \
@@ -624,7 +624,7 @@ pub fn self_context(workspace: &Path) -> String {
 
     let mut s = String::from(
         "\n\n# Self-model (your own source)\n\
-         You are `angel0-cockpit`, a Rust/ratatui agent harness, and THIS is a map of your \
+         You are `angelX-cockpit`, a Rust/ratatui agent harness, and THIS is a map of your \
          OWN code. Build/test/run from the crate root: `cargo build` · `cargo test` \
          (the self-modification gate — keep it green) · `cargo run`. Call `self_map` for \
          the full structure (key types, symbol counts) or `self_map({\"module\":\"<name>\"})` \
@@ -721,7 +721,7 @@ impl SelfMapTool {
         SelfMapTool {
             read_only_root: Some(pinned.ok_or_else(|| {
                 format!(
-                    "invalid ANGEL_SELF_SRC pin: {} is not an angel0-cockpit crate root",
+                    "invalid ANGEL_SELF_SRC pin: {} is not an angelX-cockpit crate root",
                     root.display()
                 )
             })),
@@ -764,7 +764,7 @@ impl Tool for SelfMapTool {
         }
         ToolDef {
             name: "self_map".to_string(),
-            description: "Your OWN source structure (angel0-cockpit). No args: the full map — \
+            description: "Your OWN source structure (angelX-cockpit). No args: the full map — \
                           crate identity, build/test/run, every module's purpose + key public \
                           types, and the self-modification safety contract. `module=\"<name>\"`: \
                           that module's doc + symbol outline. `write=true`: also write SELF.md \
@@ -793,14 +793,14 @@ impl Tool for SelfMapTool {
             let root = root.as_ref().map_err(Clone::clone)?;
             if !is_cockpit_root(root) {
                 return Err(format!(
-                    "invalid ANGEL_SELF_SRC pin: {} is not an angel0-cockpit crate root",
+                    "invalid ANGEL_SELF_SRC pin: {} is not an angelX-cockpit crate root",
                     root.display()
                 ));
             }
             root.clone()
         } else {
             source_root().ok_or_else(|| {
-                "could not locate the angel0-cockpit source tree (set ANGEL_SELF_SRC)".to_string()
+                "could not locate the angelX-cockpit source tree (set ANGEL_SELF_SRC)".to_string()
             })?
         };
         if let Some(module) = args.get("module").and_then(|v| v.as_str()) {

@@ -27,7 +27,7 @@ use super::*;
 use std::sync::Mutex as StdMutex;
 use std::time::{Duration, Instant};
 
-const CONTRACT_MARKER: &str = "angel0 output contract";
+const CONTRACT_MARKER: &str = "angelX output contract";
 
 /// What the judge (or the heuristics) decided for one outbound call.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -347,7 +347,7 @@ fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
         // thought; lenient OpenAI-compatible servers ignore the field.
         "chat_template_kwargs": { "enable_thinking": false },
         "messages": [
-            { "role": "system", "content": "You are angel0's outbound pre-provisioner. \
+            { "role": "system", "content": "You are angelX's outbound pre-provisioner. \
     Read the task excerpt and answer ONLY a JSON object with these fields: \
     \"task\": one of \"extraction\"|\"reasoning\"|\"chat\"; \
     \"max_tokens\": integer output budget for a complete answer, or null to leave uncapped \

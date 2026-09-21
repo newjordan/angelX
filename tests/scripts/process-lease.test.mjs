@@ -15,7 +15,7 @@ import {
 } from '../../lib/control/process-lease.mjs'
 
 function fixturePaths() {
-  const root = fs.mkdtempSync(join(os.tmpdir(), 'angel0-process-lease-'))
+  const root = fs.mkdtempSync(join(os.tmpdir(), 'angelX-process-lease-'))
   return {
     root,
     leaseDir: join(root, 'lock.lease'),

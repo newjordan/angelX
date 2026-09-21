@@ -5,7 +5,7 @@
 //! counters, dissent scores, the knobs in force — but every one of those signals
 //! evaporates when the turn ends (a local `let mut`, an `eprintln!`, a discarded
 //! return value). This module keeps them: a durable, structured record of what
-//! angel0 did and how it went, keyed by the configuration hash so rows group by
+//! angelX did and how it went, keyed by the configuration hash so rows group by
 //! the exact seat/knob layout that produced them.
 //!
 //! It is the substrate for Reflex (`docs/reflex/`): the causal engine mines this
@@ -29,7 +29,7 @@
 //! user's own sessions actually ran and whether it worked.
 //!
 //! Controls: `ANGEL_EXPERIENCE=0` disables all recording; `ANGEL_EXPERIENCE_LOG`
-//! overrides the path (default `~/.angel0/experience/ledger.jsonl`);
+//! overrides the path (default `~/.angelX/experience/ledger.jsonl`);
 //! `ANGEL_EXPERIENCE_EVENTS=0` disables just the per-command `event` records
 //! (chattier than turns). The active ledger compacts to its newest complete
 //! records before a write would exceed 50 MiB; no new archive files accumulate.
@@ -73,7 +73,7 @@ pub(crate) fn env_flag(key: &str, default: bool) -> bool {
     }
 }
 
-/// Ledger file: `ANGEL_EXPERIENCE_LOG`, else `~/.angel0/experience/ledger.jsonl`.
+/// Ledger file: `ANGEL_EXPERIENCE_LOG`, else `~/.angelX/experience/ledger.jsonl`.
 pub(crate) fn ledger_path() -> PathBuf {
     match std::env::var("ANGEL_EXPERIENCE_LOG") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -1623,7 +1623,7 @@ pub(crate) fn moa_record(
 }
 
 /// Append one MoA pipeline turn to the experience ledger. Best-effort and
-/// test-silent. Independent of the legacy `~/.angel0/moa/ledger.jsonl` writer,
+/// test-silent. Independent of the legacy `~/.angelX/moa/ledger.jsonl` writer,
 /// which stays byte-identical.
 pub(crate) fn record_moa(exp: &MoaExperience) {
     if cfg!(test) || !enabled() {

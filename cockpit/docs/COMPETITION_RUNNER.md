@@ -1,6 +1,6 @@
-# angel0 competition/RL runner
+# angelX competition/RL runner
 
-angel0 exposes one supported machine seam: the compiled `angel --task-json`
+angelX exposes one supported machine seam: the compiled `angel --task-json`
 command. It runs one tool-using policy turn inside an explicit workspace and
 prints exactly one `angel.task_result` JSON object to stdout. Progress,
 diagnostics, and tool events go to stderr.
@@ -24,7 +24,7 @@ cockpit/target/release/angel --help
 install -Dm0755 cockpit/target/release/angel "$HOME/.local/bin/angel"
 ```
 
-`bin/angel0` performs the same locked, no-default-feature build automatically
+`bin/angelX` performs the same locked, no-default-feature build automatically
 for headless commands. It preserves stdout and stderr, refuses to fall back to a
 stale binary after a failed runner build, skips the WebGPU portal, and never
 loads broad home-directory env files. Pass an explicitly trusted shell env file
@@ -44,7 +44,7 @@ without it the runner exits with `no_route`.
 ```bash
 smoke_workspace="$(mktemp -d)"
 printf '%s\n' 'Return a short runner transport acknowledgement.' | \
-ANGEL_PRACTICE=1 bin/angel0 --task-json \
+ANGEL_PRACTICE=1 bin/angelX --task-json \
   --driver practice \
   --workspace "$smoke_workspace" \
   --task-id transport-smoke \
@@ -65,7 +65,7 @@ task/run IDs, the route and reasoning policy, and required local capture:
 
 ```bash
 printf '%s\n' 'Implement the task described by the checked-in TASK.md.' | \
-bin/angel0 --task-json \
+bin/angelX --task-json \
   --workspace /absolute/path/to/disposable-attempt \
   --task-id suite.case-17 \
   --run-id candidate-a.seed-3 \
@@ -165,7 +165,7 @@ failure are different training events.
 A competition wrapper should additionally bind and retain:
 
 - immutable fixture/setup and task-manifest digests;
-- the exact angel0 binary SHA-256 and `--build-info --json` receipt;
+- the exact angelX binary SHA-256 and `--build-info --json` receipt;
 - a fresh workspace or content-addressed base for every attempt;
 - an outer container/bubblewrap boundary for the policy process and a separate
   read-only, networkless verifier boundary;

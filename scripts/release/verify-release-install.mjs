@@ -22,9 +22,9 @@ import { CONTAINER_VERIFICATION_SCHEMA, cleanContainerPolicy } from './verify-re
 import { REQUIRED_RUNNER_CAPABILITIES, verifyReleaseSet } from './verify-release-evidence.mjs'
 import { verifyRunnerContractSmoke } from './verify-runner-smoke.mjs'
 
-export const INSTALL_VERIFICATION_SCHEMA = 'angel0-prefix-install-verification/v1'
-export const PREFIX_INSTALL_SCHEMA = 'angel0-prefix-install/v1'
-export const INSTALL_JOURNAL_SCHEMA = 'angel0-prefix-install-journal/v1'
+export const INSTALL_VERIFICATION_SCHEMA = 'angelX-prefix-install-verification/v1'
+export const PREFIX_INSTALL_SCHEMA = 'angelX-prefix-install/v1'
+export const INSTALL_JOURNAL_SCHEMA = 'angelX-prefix-install-journal/v1'
 
 const DOCKER = '/usr/bin/docker'
 const MAX_COMMAND_OUTPUT = 8 * 1024 * 1024
@@ -96,12 +96,12 @@ export function prefixLayout(sandboxRoot, prefix = join(sandboxRoot, 'prefix')) 
     prefix: managedPrefix,
     binDirectory: join(managedPrefix, 'bin'),
     binary: join(managedPrefix, 'bin', 'angel'),
-    shareDirectory: join(managedPrefix, 'share', 'angel0'),
-    metadata: join(managedPrefix, 'share', 'angel0', 'install.json'),
-    journal: join(managedPrefix, '.angel0-install-journal.json'),
-    rollbackDirectory: join(managedPrefix, '.angel0-rollback'),
-    rollbackBinary: join(managedPrefix, '.angel0-rollback', 'angel'),
-    rollbackMetadata: join(managedPrefix, '.angel0-rollback', 'install.json'),
+    shareDirectory: join(managedPrefix, 'share', 'angelX'),
+    metadata: join(managedPrefix, 'share', 'angelX', 'install.json'),
+    journal: join(managedPrefix, '.angelX-install-journal.json'),
+    rollbackDirectory: join(managedPrefix, '.angelX-rollback'),
+    rollbackBinary: join(managedPrefix, '.angelX-rollback', 'angel'),
+    rollbackMetadata: join(managedPrefix, '.angelX-rollback', 'install.json'),
   }
 }
 
@@ -370,7 +370,7 @@ export function runInstallVerification(
   }
   const verified = verifyReleaseSet(manifestPath)
   const inputs = validateInstallInputs(verified, { containerReceiptPath, binaryPath })
-  const scratch = mkdtempSync(join(tmpdir(), 'angel0-install-verification-'))
+  const scratch = mkdtempSync(join(tmpdir(), 'angelX-install-verification-'))
   try {
     const runnerContract = verifyRunnerContractSmoke(inputs.binaryPath)
     mkdirSync(join(scratch, 'home'), { mode: 0o700 })
@@ -412,7 +412,7 @@ export function runInstallVerification(
     atomicJson(
       statePath,
       {
-        schema: 'angel0-install-state-sentinel/v1',
+        schema: 'angelX-install-state-sentinel/v1',
         session: 'preserve-across-package-lifecycle',
       },
       0o600,
@@ -453,7 +453,7 @@ export function runInstallVerification(
       layout: {
         prefix: '/isolated/prefix',
         binary: 'bin/angel',
-        metadata: 'share/angel0/install.json',
+        metadata: 'share/angelX/install.json',
         state_home: '/isolated/home',
       },
       isolation: {

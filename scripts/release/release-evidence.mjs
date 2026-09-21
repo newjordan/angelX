@@ -17,7 +17,7 @@ import {
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-export const RELEASE_SCHEMA = 'angel0-source-release-evidence/v1'
+export const RELEASE_SCHEMA = 'angelX-source-release-evidence/v1'
 // The archive is the ordinary terminal cockpit and its headless task runtime.
 export const RELEASE_SCOPE = 'ordinary-terminal-cockpit-source'
 export const SUPPORTED_CARGO_TARGET = 'x86_64-unknown-linux-gnu'
@@ -189,7 +189,7 @@ export const RELEASE_PATHS = Object.freeze([
   'rust-toolchain.toml',
   'release/supply-chain-policy.json',
   'release/Dockerfile.clean-builder',
-  'bin/angel0',
+  'bin/angelX',
   'scripts/check/angel-club-policy.sh',
   'tests/scripts/angel-club-policy.test.mjs',
   'cockpit/Cargo.toml',
@@ -265,7 +265,7 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'rust-toolchain.toml',
   'release/supply-chain-policy.json',
   'release/Dockerfile.clean-builder',
-  'bin/angel0',
+  'bin/angelX',
   'scripts/check/angel-club-policy.sh',
   'tests/scripts/angel-club-policy.test.mjs',
   'cockpit/Cargo.toml',
@@ -383,7 +383,7 @@ export function cockpitSourceIdentityFromRows(rows) {
     .toSorted((left, right) => left.path.localeCompare(right.path))
   if (source.length === 0) fail('release contains no cockpit source identity inputs')
   const hash = createHash('sha256')
-  hash.update('angel0-cockpit-source-identity/v2\0')
+  hash.update('angelX-cockpit-source-identity/v2\0')
   for (const row of source) {
     const path = Buffer.from(row.path, 'utf8')
     const content = Buffer.from(row.content)
@@ -512,7 +512,7 @@ function isTestFixturePath(path) {
 }
 
 function isTextReleasePath(path) {
-  return path === 'LICENSE' || path === 'bin/angel0' || TEXT_RELEASE_PATH.test(path)
+  return path === 'LICENSE' || path === 'bin/angelX' || TEXT_RELEASE_PATH.test(path)
 }
 
 function isCgnatHost(host) {
@@ -850,7 +850,7 @@ function inspectSupplyChainPolicy(repoRoot, metadata, toolchain, releaseEntries)
   const path = join(repoRoot, 'release/supply-chain-policy.json')
   const policy = JSON.parse(readFileSync(path, 'utf8'))
   if (
-    policy.schema !== 'angel0-release-supply-chain-policy/v1' ||
+    policy.schema !== 'angelX-release-supply-chain-policy/v1' ||
     !Array.isArray(policy.prebuilt_artifacts) ||
     policy.prebuilt_artifacts.length !== 1 ||
     !Array.isArray(policy.container_images) ||
@@ -888,7 +888,7 @@ function inspectSupplyChainPolicy(repoRoot, metadata, toolchain, releaseEntries)
     image.name !== 'clean_release_builder' ||
     image.reference !== image.digest ||
     !/^sha256:[0-9a-f]{64}$/u.test(image.digest) ||
-    image.local_tag !== 'angel0-clean-builder:rust-1.95.0-bookworm-v1' ||
+    image.local_tag !== 'angelX-clean-builder:rust-1.95.0-bookworm-v1' ||
     image.base_reference !== `docker.io/library/rust@${image.base_digest}` ||
     !/^sha256:[0-9a-f]{64}$/u.test(image.base_digest) ||
     image.dockerfile_sha256 !== sha256File(dockerfilePath) ||
@@ -1015,8 +1015,8 @@ export function inspectCargoGraph(repoRoot, releaseEntries = undefined) {
   const supplyChain = inspectSupplyChainPolicy(repoRoot, metadata, toolchain, releaseEntries)
   const rootId = metadata.resolve?.root
   const rootPackage = metadata.packages.find((pkg) => pkg.id === rootId)
-  if (!rootPackage || rootPackage.name !== 'angel0-cockpit') {
-    fail('Cargo metadata did not resolve angel0-cockpit as the workspace root')
+  if (!rootPackage || rootPackage.name !== 'angelX-cockpit') {
+    fail('Cargo metadata did not resolve angelX-cockpit as the workspace root')
   }
 
   let registryPackages = 0
@@ -1030,7 +1030,7 @@ export function inspectCargoGraph(repoRoot, releaseEntries = undefined) {
       assertWithin(repoRoot, manifestPath, `path dependency ${pkg.name}`)
       if (pkg.id === rootId) {
         if (pkg.license !== 'MIT') {
-          fail('angel0-cockpit must declare the MIT license')
+          fail('angelX-cockpit must declare the MIT license')
         }
       } else if (!pkg.license && !pkg.license_file) {
         fail(`path dependency lacks license metadata: ${pkg.name}@${pkg.version}`)
@@ -1256,7 +1256,7 @@ export function runReleaseGate({ cwd = process.cwd(), outputDirectory } = {}) {
   const shortCommit = commit.slice(0, 12)
   const outputRoot = resolve(repoRoot, outputDirectory || '.angel/release')
   assertSafeOutputDirectory(repoRoot, outputRoot)
-  const stem = `angel0-source-${packageJson.version}-${shortCommit}`
+  const stem = `angelX-source-${packageJson.version}-${shortCommit}`
   const archivePath = join(outputRoot, `${stem}.tar`)
 
   const nodeDependencies = inspectNodeLock(repoRoot)

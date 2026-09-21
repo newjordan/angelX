@@ -520,7 +520,7 @@ fn deterministic_initialize_failure_suppresses_a_concurrent_storm() {
 fn missing_executable_spawn_failure_is_negatively_cached() {
     let mut server = mock_server();
     server.command = format!(
-        "/angel0-test-missing-lsp-{}-{}",
+        "/angelX-test-missing-lsp-{}-{}",
         std::process::id(),
         LSP_TEST_NONCE.fetch_add(1, Ordering::Relaxed)
     );

@@ -6,14 +6,14 @@ import { workerPaths } from './worker-paths.mjs'
 // user's observed workflows.
 //
 // One headless, cron-driven tick:
-//   1. fold the /habits verdict spool (~/.angel0/habitsmith/verdicts.jsonl,
+//   1. fold the /habits verdict spool (~/.angelX/habitsmith/verdicts.jsonl,
 //      written Rust-side) into SUPPORTS/CONTRADICTS 0.9 edges — the graph is
 //      Node-owned, so the cockpit never touches it directly;
 //   2. re-mine workflow facts from the live ledger (observational refresh —
 //      belief keeps tracking whether the habit's steps still pass);
 //   3. attach skill-usage telemetry (event:"skill" rows) to the facts that
 //      spawned installed skills, via their `fact:` frontmatter;
-//   4. compile ~/.angel0/habitsmith/status.json — beliefs + drift flags, the
+//   4. compile ~/.angelX/habitsmith/status.json — beliefs + drift flags, the
 //      artifact /habits renders alongside the drafts;
 //   5. run the propose pass (same daily budget + dedupe as the CLI), so new
 //      habits surface as drafts while the box is idle and greet the user via

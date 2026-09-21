@@ -921,3 +921,7 @@ fn hash01(seed: u64, x: i32, y: i32) -> f32 {
 #[cfg(test)]
 #[path = "../../../../../tests/cockpit/world_viz/world3d__raster__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/world_viz/frames__world_tests.rs"]
+mod frames_world_tests;

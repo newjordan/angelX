@@ -46,7 +46,7 @@ impl Drop for EnvGuard {
 #[test]
 fn grok_uses_oauth_file_even_with_api_key_env() {
     let _lock = env_lock();
-    let dir = std::env::temp_dir().join(format!("angel0-grok-auth-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("angelX-grok-auth-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth = dir.join("auth.json");
     std::fs::write(&auth, r#"{"entry":{"key":"oauth-token"}}"#).unwrap();
@@ -134,7 +134,7 @@ fn grok_acp_child_is_account_oauth_headless_and_scrubbed() {
 
 fn grok_login_state_with_credentials(tag: &str, auth_json: &str) -> bool {
     let dir =
-        std::env::temp_dir().join(format!("angel0-grok-refresh-{}-{tag}", std::process::id()));
+        std::env::temp_dir().join(format!("angelX-grok-refresh-{}-{tag}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth = dir.join("auth.json");
     std::fs::write(&auth, auth_json).unwrap();
@@ -656,7 +656,7 @@ fn grok_startup_file_read_rejects_fifo_without_waiting_for_writer() {
 #[test]
 fn grok_oauth_auth_loads_and_skips_refresh_when_fresh() {
     let _lock = env_lock();
-    let dir = std::env::temp_dir().join(format!("angel0-grok-oauth-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("angelX-grok-oauth-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth_path = dir.join("auth.json");
     let far_future = "2099-01-01T00:00:00Z";
@@ -684,7 +684,7 @@ fn grok_oauth_auth_loads_and_skips_refresh_when_fresh() {
 #[test]
 fn grok_oauth_http_catalog_lists_46_and_live_supported_models() {
     let _lock = env_lock();
-    let dir = std::env::temp_dir().join(format!("angel0-grok-oauth-club-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("angelX-grok-oauth-club-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth_path = dir.join("auth.json");
     let models_path = dir.join("models_cache.json");
@@ -827,7 +827,7 @@ fn grok_api_route_is_absent_when_api_family_is_none() {
 fn fake_grok_acp_fixture(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
     use std::os::unix::fs::PermissionsExt;
 
-    let dir = std::env::temp_dir().join(format!("angel0-grok-acp-{}-{tag}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("angelX-grok-acp-{}-{tag}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth = dir.join("auth.json");
     let script = dir.join("fake-grok-acp");
@@ -1081,7 +1081,7 @@ fn live_grok_oauth_http_calls_an_offered_host_tool() {
 fn grok_research_tool_advertises_and_guards_query() {
     use crate::agent::harness::Tool;
     let _lock = env_lock();
-    let dir = std::env::temp_dir().join(format!("angel0-grok-tool-auth-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("angelX-grok-tool-auth-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth = dir.join("auth.json");
     std::fs::write(&auth, r#"{"entry":{"key":"oauth-token"}}"#).unwrap();

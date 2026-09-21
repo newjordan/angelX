@@ -1,7 +1,7 @@
 //! `pr://` and `issue://` virtual URL resolution via the GitHub CLI (`gh`).
 //!
 //! oh-my-pi treats PRs/issues as FS-shaped paths so one `read` surface covers
-//! local files and GitHub objects. angel0 adapts that: `read_file` resolves
+//! local files and GitHub objects. angelX adapts that: `read_file` resolves
 //! these schemes by shelling out to `gh` in the workspace (default repo from
 //! git remote). Fail closed when `gh` is missing or the id is invalid.
 //!

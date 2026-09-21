@@ -249,7 +249,7 @@ fn agent() -> ureq::Agent {
         .timeout_connect(Duration::from_secs(5))
         .timeout_read(Duration::from_secs(10))
         .timeout(Duration::from_secs(12))
-        .user_agent("angel0-repos/0.1 (+https://github.com/newjordan/angel0)")
+        .user_agent("angelX-repos/0.1 (+https://github.com/newjordan/angelX)")
         .build()
 }
 
@@ -548,10 +548,10 @@ fn urlencode(s: &str) -> String {
 
 // ─── persistence: a short TTL cache so repeat queries are instant ────────────
 
-/// Where shortlists memoize (`~/.angel0/repos/<hash>.json`). `None` outside a
+/// Where shortlists memoize (`~/.angelX/repos/<hash>.json`). `None` outside a
 /// HOME, so unit-test worlds never touch the disk.
 fn cache_dir() -> Option<std::path::PathBuf> {
-    std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".angel0").join("repos"))
+    std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".angelX").join("repos"))
 }
 
 /// Surface with a disk cache: a fresh hit (younger than `ttl_secs`) returns
@@ -619,7 +619,7 @@ pub(crate) fn run(arg: Option<&str>) -> String {
     let Some(raw) = arg.map(str::trim).filter(|q| !q.is_empty()) else {
         return "usage: /repos [best|latest] <query>\n  fans the query at GitHub repository \
                 search, ranks by stars + recency, and returns a cited shortlist (cached 30m \
-                under ~/.angel0/repos/). Prefix `latest` for recency-first, `best` (default) \
+                under ~/.angelX/repos/). Prefix `latest` for recency-first, `best` (default) \
                 for reputation-first."
             .to_string();
     };

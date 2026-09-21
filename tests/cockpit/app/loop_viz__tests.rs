@@ -98,7 +98,7 @@ fn render_preserves_requested_dimensions() {
 }
 
 /// Manual art-review dump — see retro_kit::gallery.
-/// Run with: ANGEL0_GALLERY_DIR=... cargo test -- --ignored loop_gallery
+/// Run with: ANGELX_GALLERY_DIR=... cargo test -- --ignored loop_gallery
 #[test]
 #[ignore = "manual gallery dump for art review"]
 fn loop_gallery() {

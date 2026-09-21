@@ -1083,7 +1083,7 @@ fn new_run_id() -> String {
 }
 
 /// Root of the durable campaign store. `ANGEL_RL_DIR` overrides it (tests and
-/// sandboxed runners must never write the operator's real `~/.angel0`).
+/// sandboxed runners must never write the operator's real `~/.angelX`).
 fn rl_root() -> PathBuf {
     match std::env::var("ANGEL_RL_DIR") {
         Ok(path) if !path.trim().is_empty() => PathBuf::from(path),

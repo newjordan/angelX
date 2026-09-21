@@ -10,7 +10,7 @@
 //! Rules are **opt-in**: with none configured (the default) the streaming loop's
 //! check is a single `is_empty()` short-circuit, so the hot path is untouched.
 //! Configure via `ANGEL_STREAM_RULES` (a path to a JSON file) or, failing that,
-//! `~/.angel0/stream_rules.json`. Format:
+//! `~/.angelX/stream_rules.json`. Format:
 //!
 //! ```json
 //! [
@@ -80,7 +80,7 @@ fn read_rules_source() -> Option<String> {
     }
     let home = std::env::var_os("HOME")?;
     let default = std::path::Path::new(&home)
-        .join(".angel0")
+        .join(".angelX")
         .join("stream_rules.json");
     std::fs::read_to_string(default).ok()
 }

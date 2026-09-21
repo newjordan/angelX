@@ -16,7 +16,7 @@
 //! All sensing lives on ONE background thread (`spawn_poller`) with staggered
 //! probes and bounded timeouts; it reports over an mpsc channel drained in
 //! `App::advance`, so nothing here can ever block the UI. Atlas fully down →
-//! the village renders from `~/.angel0/village.json` and the buildings go dark.
+//! the village renders from `~/.angelX/village.json` and the buildings go dark.
 //!
 //! Persistence follows the `world_rewards.json` pattern: versioned JSON,
 //! atomic tmp+rename writes, corrupt/absent file = a fresh village, never a
@@ -85,13 +85,13 @@ pub(crate) fn voice_url() -> String {
         .unwrap_or_else(|| "http://127.0.0.1:11434".to_string())
 }
 
-/// `ANGEL_VILLAGE_STATE` override, else `~/.angel0/village.json`. `None` with no
+/// `ANGEL_VILLAGE_STATE` override, else `~/.angelX/village.json`. `None` with no
 /// HOME — the village then runs unpersisted rather than crashing.
 pub(crate) fn state_path() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("ANGEL_VILLAGE_STATE") {
         return Some(PathBuf::from(p));
     }
-    std::env::var_os("HOME").map(|h| Path::new(&h).join(".angel0").join("village.json"))
+    std::env::var_os("HOME").map(|h| Path::new(&h).join(".angelX").join("village.json"))
 }
 
 // ─── persisted state: the village survives restarts ─────────────────────────
@@ -247,7 +247,7 @@ pub(crate) fn parse_forge_health(v: &serde_json::Value) -> ForgeSnapshot {
 }
 
 /// Path to free-train last-cycle handoff (`FORGE_LAST_CYCLE` or
-/// `~/.angel0/forge-last-cycle.json`).
+/// `~/.angelX/forge-last-cycle.json`).
 pub(crate) fn forge_last_cycle_path() -> Option<PathBuf> {
     if let Ok(raw) = std::env::var("FORGE_LAST_CYCLE") {
         let p = PathBuf::from(raw);
@@ -255,7 +255,7 @@ pub(crate) fn forge_last_cycle_path() -> Option<PathBuf> {
             return Some(p);
         }
     }
-    std::env::var_os("HOME").map(|h| Path::new(&h).join(".angel0").join("forge-last-cycle.json"))
+    std::env::var_os("HOME").map(|h| Path::new(&h).join(".angelX").join("forge-last-cycle.json"))
 }
 
 /// Merge free-train local handoff into a forge snapshot (AUTOPROMOTE=0 path).
@@ -296,7 +296,7 @@ pub(crate) fn merge_local_last_cycle(mut snap: ForgeSnapshot) -> ForgeSnapshot {
 }
 
 /// Path to free-train live status (`FORGE_WHEN_FREE_STATUS` or
-/// `~/.angel0/forge-when-free-status.json`).
+/// `~/.angelX/forge-when-free-status.json`).
 pub(crate) fn forge_when_free_status_path() -> Option<PathBuf> {
     if let Ok(raw) = std::env::var("FORGE_WHEN_FREE_STATUS") {
         let p = PathBuf::from(raw);
@@ -306,7 +306,7 @@ pub(crate) fn forge_when_free_status_path() -> Option<PathBuf> {
     }
     std::env::var_os("HOME").map(|h| {
         Path::new(&h)
-            .join(".angel0")
+            .join(".angelX")
             .join("forge-when-free-status.json")
     })
 }
@@ -557,7 +557,7 @@ fn probe_agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(4))
         .timeout(Duration::from_secs(8))
-        .user_agent("angel0-village/0.1")
+        .user_agent("angelX-village/0.1")
         .build()
 }
 
@@ -567,7 +567,7 @@ fn voice_agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(4))
         .timeout(Duration::from_secs(30))
-        .user_agent("angel0-village/0.1")
+        .user_agent("angelX-village/0.1")
         .build()
 }
 

@@ -420,7 +420,7 @@ fn http_agent() -> ureq::Agent {
         .timeout_connect(Duration::from_secs(3))
         .timeout_read(Duration::from_secs(6))
         .timeout(Duration::from_secs(6))
-        .user_agent("angel0-quick-lookup/0.1 (+https://github.com/newjordan/angel0)");
+        .user_agent("angelX-quick-lookup/0.1 (+https://github.com/newjordan/angelX)");
     if !crate::platform::yolo::enabled() {
         let allow_private =
             crate::agent::harness::env_flag("ANGEL_HTTP_ALLOW_PRIVATE_NETWORK", false);

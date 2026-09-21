@@ -15,7 +15,7 @@ import {
 } from '../../scripts/release/verify-release-install.mjs'
 
 function fixture(t) {
-  const root = mkdtempSync(join(process.cwd(), '.angel0-install-test-'))
+  const root = mkdtempSync(join(process.cwd(), '.angelX-install-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const candidate = join(root, 'candidate')
   writeFileSync(candidate, '#!/bin/sh\necho angel\n', { mode: 0o755 })
@@ -25,7 +25,7 @@ function fixture(t) {
     release: { semantic_manifest_sha256: 'a'.repeat(64) },
     binary: {
       name: 'angel-fixture',
-      media_type: 'application/vnd.angel0.cockpit-executable',
+      media_type: 'application/vnd.angelX.cockpit-executable',
       platform: 'linux-x86_64',
       mode: '0755',
       bytes: readFileSync(candidate).length,

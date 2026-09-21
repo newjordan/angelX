@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 
 export function collectManifest(
-  dir = process.env.ANGEL_CUT_DIR || join(homedir(), '.angel0', 'cut'),
+  dir = process.env.ANGEL_CUT_DIR || join(homedir(), '.angelX', 'cut'),
 ) {
   if (!existsSync(dir)) return []
   const rows = []

@@ -382,7 +382,7 @@ fn cockpit_header_renders_active_box_mode_without_composer_roster() {
     );
     let text = render_app_text(&mut app, 96, 36);
     assert!(
-        text.contains(&format!("angel0 {}", env!("CARGO_PKG_VERSION"))),
+        text.contains(&format!("angelX {}", env!("CARGO_PKG_VERSION"))),
         "header names the product and version\n{text}"
     );
     assert!(
@@ -710,8 +710,8 @@ fn copy_all_exports_role_filtered_markdown_to_the_recoverable_file() {
     let receipt = &app.messages.last().unwrap().text;
     assert!(receipt.contains("OSC-52 skipped"), "{receipt}");
     assert!(receipt.contains("conversation.md"), "{receipt}");
-    let exported = std::fs::read_to_string(home.join(".angel0/conversation.md")).unwrap();
-    assert!(exported.contains("# angel0 conversation"));
+    let exported = std::fs::read_to_string(home.join(".angelX/conversation.md")).unwrap();
+    assert!(exported.contains("# angelX conversation"));
     assert!(exported.contains("## You\n\nwhole conversation"));
     assert!(exported.contains("## Angel"));
     assert!(!exported.contains("do not export bootstrap"));
@@ -746,7 +746,7 @@ fn copy_code_exports_only_the_latest_complete_fenced_block() {
     let receipt = &app.messages.last().unwrap().text;
     assert!(receipt.contains("last-code-block.txt"), "{receipt}");
     assert_eq!(
-        std::fs::read_to_string(home.join(".angel0/last-code-block.txt")).unwrap(),
+        std::fs::read_to_string(home.join(".angelX/last-code-block.txt")).unwrap(),
         "print('copy me')"
     );
 
@@ -792,7 +792,7 @@ fn copy_live_exports_the_sanitized_background_tail_without_a_model_turn() {
     assert!(app.thinking.is_none(), "live copy must stay local");
     let receipt = &app.messages.last().unwrap().text;
     assert!(receipt.contains("live-output.txt"), "{receipt}");
-    let exported = std::fs::read_to_string(home.join(".angel0/live-output.txt")).unwrap();
+    let exported = std::fs::read_to_string(home.join(".angelX/live-output.txt")).unwrap();
     assert_eq!(exported, "Documenting cockpit\n\n[stderr]\nwarning tail\n");
     assert!(!exported.contains("\x1b["), "{exported:?}");
     assert!(
@@ -811,7 +811,7 @@ fn copy_live_exports_the_sanitized_background_tail_without_a_model_turn() {
     app.input = "/copy live".to_string();
     app.submit();
     assert_eq!(
-        std::fs::read_to_string(home.join(".angel0/live-output.txt")).unwrap(),
+        std::fs::read_to_string(home.join(".angelX/live-output.txt")).unwrap(),
         exported,
         "the latest bounded tail should remain copyable after completion"
     );
@@ -934,7 +934,7 @@ fn raw_export_uses_persisted_visible_roles_and_atomically_replaces_the_file() {
         role: Role::Activity,
         text: "secret activity row".into(),
     });
-    let path = home.join(".angel0/transcript.txt");
+    let path = home.join(".angelX/transcript.txt");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, "stale export").unwrap();
     app.input = "/raw".to_string();
@@ -942,7 +942,7 @@ fn raw_export_uses_persisted_visible_roles_and_atomically_replaces_the_file() {
     app.submit();
 
     let exported = std::fs::read_to_string(&path).unwrap();
-    assert!(exported.starts_with("# angel0 conversation"));
+    assert!(exported.starts_with("# angelX conversation"));
     assert!(exported.contains("## You\n\nvisible prompt"));
     assert!(exported.contains("_[attachments: 1 image]_"));
     assert!(exported.contains("## Angel\n\nvisible answer"));
@@ -1023,7 +1023,7 @@ fn raw_export_fails_closed_for_empty_history_and_unusable_home() {
             .text
             .contains("no operator/agent conversation")
     );
-    assert!(!home.join(".angel0/transcript.txt").exists());
+    assert!(!home.join(".angelX/transcript.txt").exists());
     let _ = std::fs::remove_dir_all(&home);
 }
 
@@ -5563,14 +5563,14 @@ fn goal_go_drives_the_goal_via_the_loop() {
 #[test]
 fn self_loop_worktree_lifecycle_and_gated_merge() {
     let _guard = env_lock();
-    // --- a scratch git repo holding a minimal angel0-cockpit crate (1 test) ---
+    // --- a scratch git repo holding a minimal angelX-cockpit crate (1 test) ---
     let root = std::env::temp_dir().join(format!("angel_self_repo_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let crate_dir = root.join("cockpit");
     std::fs::create_dir_all(crate_dir.join("src")).unwrap();
     std::fs::write(
         crate_dir.join("Cargo.toml"),
-        "[package]\nname = \"angel0-cockpit\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+        "[package]\nname = \"angelX-cockpit\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
     )
     .unwrap();
     std::fs::write(
@@ -5729,7 +5729,7 @@ fn self_discard_drops_worktree_branch_and_restores_workspace() {
     std::fs::create_dir_all(crate_dir.join("src")).unwrap();
     std::fs::write(
         crate_dir.join("Cargo.toml"),
-        "[package]\nname = \"angel0-cockpit\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+        "[package]\nname = \"angelX-cockpit\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
     )
     .unwrap();
     std::fs::write(crate_dir.join("src/main.rs"), "fn main() {}\n").unwrap();
@@ -7150,7 +7150,7 @@ fn local_doc_prefixes_exactly_one_subcommand_and_runs_off_thread() {
 
         fn call(&self, args: &serde_json::Value) -> Result<String, String> {
             assert_eq!(args, &serde_json::json!({"args": "doc --no-deps"}));
-            Ok("Documenting angel0-cockpit\n[cargo verdict: pass]".to_string())
+            Ok("Documenting angelX-cockpit\n[cargo verdict: pass]".to_string())
         }
     }
 
@@ -7176,7 +7176,7 @@ fn local_doc_prefixes_exactly_one_subcommand_and_runs_off_thread() {
     }
     assert!(app.bg_job.is_none(), "doc worker should land");
     assert!(app.messages.last().is_some_and(|message| {
-        message.text.contains("docs · Documenting angel0-cockpit")
+        message.text.contains("docs · Documenting angelX-cockpit")
             && message.text.contains("[cargo verdict: pass]")
     }));
     assert!(app.thinking.is_none(), "local doc must not start a model");
@@ -7201,7 +7201,7 @@ fn local_tree_prefixes_exactly_one_subcommand_and_runs_off_thread() {
 
         fn call(&self, args: &serde_json::Value) -> Result<String, String> {
             assert_eq!(args, &serde_json::json!({"args": "tree -i serde"}));
-            Ok("serde v1.0\n└── angel0-cockpit\n[cargo verdict: pass]".to_string())
+            Ok("serde v1.0\n└── angelX-cockpit\n[cargo verdict: pass]".to_string())
         }
     }
 
@@ -9971,7 +9971,7 @@ fn cockpit_reference_layout_renders_expected_zones() {
     let text = render_preview_text(144, 48).unwrap();
 
     for needle in [
-        "angel0",
+        "angelX",
         "agent shell",
         "agent",
         // The canonical home is the useful top-down realm, never a startup
@@ -13225,7 +13225,7 @@ fn show_command_routes_local_images_to_the_scryglass() {
 #[test]
 fn show_command_reports_missing_images_without_touching_either_viewer() {
     let mut app = seed_preview_app();
-    app.input = "/show definitely-not-an-angel0-image.png".to_string();
+    app.input = "/show definitely-not-an-angelX-image.png".to_string();
     app.submit();
 
     assert!(app.media.is_empty());

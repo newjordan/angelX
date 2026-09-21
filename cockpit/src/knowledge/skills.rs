@@ -9,7 +9,7 @@
 //! flat `<name>.md` layout are recognised identically. Project skills may live
 //! under `.claude/skills`, `.opencode/skills`, or `.agents/skills`; compatible
 //! global roots are also discovered. User skills live in `ANGEL_SKILLS_DIR`
-//! (default `~/.angel0/skills`) and win over every compatible source.
+//! (default `~/.angelX/skills`) and win over every compatible source.
 
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,7 @@ fn user_dir() -> PathBuf {
         return PathBuf::from(d);
     }
     let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(home).join(".angel0").join("skills")
+    PathBuf::from(home).join(".angelX").join("skills")
 }
 
 /// Where user skills are read from (for the "no skills" help text).

@@ -797,7 +797,7 @@ fn scenario_run_turn_read_then_answer() {
         .find(|m| m.role == ChatRole::Tool)
         .expect("a tool result is recorded");
     assert!(
-        tool_msg.content.contains("angel0-cockpit") || tool_msg.content.contains("[package]"),
+        tool_msg.content.contains("angelX-cockpit") || tool_msg.content.contains("[package]"),
         "read_file should have returned the manifest:\n{}",
         tool_msg.content
     );

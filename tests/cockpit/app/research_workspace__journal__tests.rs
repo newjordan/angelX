@@ -46,7 +46,7 @@ fn envelope(sequence: u64, previous: &str, payload: serde_json::Value) -> String
 }
 
 fn path(root: &Path) -> std::path::PathBuf {
-    let dir = root.join(".angel0/research");
+    let dir = root.join(".angelX/research");
     fs::create_dir_all(&dir).unwrap();
     dir.join("experiments.jsonl")
 }

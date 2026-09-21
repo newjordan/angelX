@@ -13,7 +13,7 @@ fn resolve_root(
     }
     if let Some(executable) = executable {
         if let Some(prefix) = executable.parent().and_then(Path::parent) {
-            let installed = prefix.join("share/angel0/bundles").join(source);
+            let installed = prefix.join("share/angelX/bundles").join(source);
             if installed.join("cockpit").is_dir() && installed.join("scripts").is_dir() {
                 return installed;
             }

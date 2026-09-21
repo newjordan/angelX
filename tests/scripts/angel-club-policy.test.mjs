@@ -124,7 +124,7 @@ test('real launcher loads system.env, preserves API choices, and isolates headle
   const source = join(root, 'source')
   for (const dir of ['bin', 'scripts/check', 'cockpit/target/release']) mkdirSync(join(source, dir), { recursive: true })
   mkdirSync(join(home, '.config/host_env'), { recursive: true })
-  copyFileSync(fileURLToPath(new URL('../../bin/angel0', import.meta.url)), join(source, 'bin/angel0'))
+  copyFileSync(fileURLToPath(new URL('../../bin/angelX', import.meta.url)), join(source, 'bin/angelX'))
   copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
   const probe = join(source, 'cockpit/target/release/angel')
   writeFileSync(probe, `#!/usr/bin/env python3
@@ -136,7 +136,7 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
   writeFileSync(join(home, '.config/host_env/system.env'),
     'XAI_API_KEY=fixture-xai\nOPENAI_API_KEY=fixture-openai\nANGEL_TEST_CONFIG=system\n')
   const launch = (args = [], extra = {}) => {
-    const result = spawnSync('bash', [join(source, 'bin/angel0'), ...args], {
+    const result = spawnSync('bash', [join(source, 'bin/angelX'), ...args], {
       cwd: root, encoding: 'utf8', timeout: 15000,
       env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', ANGEL_NO_BUILD: '1',
         ANGEL_VIDEO: '0', ANGEL_WEBGPU_PORTAL: '0', ...extra },

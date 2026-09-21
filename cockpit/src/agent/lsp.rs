@@ -109,7 +109,7 @@ fn default_servers() -> Vec<LspServer> {
     ]
 }
 
-/// Parse `~/.angel0/lsp.json`. Shape (each field optional but `command` required):
+/// Parse `~/.angelX/lsp.json`. Shape (each field optional but `command` required):
 /// ```json
 /// { "servers": { "rust": { "command": "rust-analyzer", "args": [],
 ///                          "extensions": ["rs"], "languageId": "rust" } } }
@@ -173,7 +173,7 @@ fn load_servers() -> Vec<LspServer> {
             std::env::var("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_default()
-                .join(".angel0/lsp.json")
+                .join(".angelX/lsp.json")
         });
     let user = std::fs::read_to_string(&path)
         .map(|t| parse_lsp_config(&t))
@@ -371,7 +371,7 @@ impl LspClient {
                         "documentSymbol": { "hierarchicalDocumentSymbolSupport": true }
                     }
                 },
-                "clientInfo": { "name": "angel0-cockpit", "version": env!("CARGO_PKG_VERSION") },
+                "clientInfo": { "name": "angelX-cockpit", "version": env!("CARGO_PKG_VERSION") },
             }),
         )?;
         let pull = res.pointer("/capabilities/diagnosticProvider").is_some();
@@ -996,7 +996,7 @@ impl LspCtx {
         let abs = self.resolve(path)?;
         let server = pick_server(&self.servers, &abs).ok_or_else(|| {
             format!(
-                "tool error: no language server configured for {} (configure ~/.angel0/lsp.json)",
+                "tool error: no language server configured for {} (configure ~/.angelX/lsp.json)",
                 abs.display()
             )
         })?;

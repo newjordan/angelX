@@ -8,11 +8,11 @@ import { canonicalJson, sha256File } from './release-evidence.mjs'
 import { installCandidate, PREFIX_INSTALL_SCHEMA } from './verify-release-install.mjs'
 
 export function runRollbackVerification({ previous, next, previousSha256, nextSha256, receiptPath, worktree = process.cwd() }) {
-  const receipt = { schema: 'angel0-prefix-rollback-verification/v1',
+  const receipt = { schema: 'angelX-prefix-rollback-verification/v1',
     timestamp_utc: new Date().toISOString(), host: { platform: platform(), arch: arch(), release: release() },
     status: 'fail', steps: [],
     coverage: { executable: 'bin/angel', operation: 'N -> N+1 -> N using retained N artifact',
-      not_covered: ['bin/angel0 launcher and aliases/shims', 'angel-portal-renderer helper',
+      not_covered: ['bin/angelX launcher and aliases/shims', 'angel-portal-renderer helper',
         'interactive terminal operation', 'operator state migration', 'package manager integration',
         'clean-host dependency provisioning', 'other supported hosts'],
       network_isolation: 'build-info only with empty credential environment; no network namespace claim' } }

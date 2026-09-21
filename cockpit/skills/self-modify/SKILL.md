@@ -1,11 +1,11 @@
 ---
 name: self-modify
-description: Safely change angel0-cockpit's OWN source — understand it with self_map, edit in an isolated git worktree, and integrate only when build+test are green.
+description: Safely change angelX-cockpit's OWN source — understand it with self_map, edit in an isolated git worktree, and integrate only when build+test are green.
 ---
 
 # Modify yourself safely
 
-You are `angel0-cockpit`. This playbook is for changing **your own code**. The one
+You are `angelX-cockpit`. This playbook is for changing **your own code**. The one
 rule: **never let a change reach the live tree unless it builds AND the tests pass.**
 You must never brick yourself.
 

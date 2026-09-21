@@ -7,14 +7,14 @@
 //!
 //! [`workspace_key`] keys on the *directory path*, which is right for
 //! directory-scoped state and wrong for anything that accumulates knowledge
-//! about a **repository**. A git worktree of angel0 (`git worktree add`) is a
+//! about a **repository**. A git worktree of angelX (`git worktree add`) is a
 //! different directory, so it minted a different key — and every organ that
 //! learns per-repo (the Repo Dossier's ledger events, The Cut's authored-diff
 //! manifest) filed its evidence under a throwaway identity that nothing would
 //! ever read again. The substrate factory (`scripts/cut-forge.mjs`) runs
 //! `angel --task` in exactly such disposable worktrees, so its entire output
 //! was being written to a new, dead repo every run. Same for a `/cd` into a
-//! subdirectory: `angel0/cockpit` was a different "repo" than `angel0`.
+//! subdirectory: `angelX/cockpit` was a different "repo" than `angelX`.
 //!
 //! [`repo_identity`] resolves a workspace to the repository it belongs to, the
 //! way git itself does — the **main worktree** (`git worktree list` always
@@ -50,7 +50,7 @@ pub fn angel_dir() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".angel0")
+        .join(".angelX")
 }
 
 pub fn angel_subdir(name: &str) -> PathBuf {

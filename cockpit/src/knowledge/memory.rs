@@ -2,7 +2,7 @@
 //! asks Angel to remember; they survive restarts (JSON on disk) and are injected
 //! into every agent turn (see `App::submit`) so the model actually *uses* them.
 //!
-//! Backed by a canonical-project-keyed record under `~/.angel0/memories/`
+//! Backed by a canonical-project-keyed record under `~/.angelX/memories/`
 //! (override with `ANGEL_MEMORY_FILE` in tests). Legacy global arrays and
 //! mismatched project bindings are ignored rather than injected.
 

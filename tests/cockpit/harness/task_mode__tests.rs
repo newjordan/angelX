@@ -186,7 +186,7 @@ fn seed_dossier(dir: &Path, workspace: &Path) {
 fn seed_work_context(dir: &Path, workspace: &Path, confirmed: bool) {
     let ctx = WorkContext {
         folder: workspace.display().to_string(),
-        repo: Some("newjordan/angel0".to_string()),
+        repo: Some("newjordan/angelX".to_string()),
         visibility: Visibility::Private,
         mode: Mode::InternalDev,
         confirmed,

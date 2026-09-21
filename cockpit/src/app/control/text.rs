@@ -334,7 +334,7 @@ pub(crate) fn clipboard_receipt(
 }
 
 /// Request a clipboard update via OSC-52 and always mirror the selection to a
-/// fallback file under `~/.angel0/`. Emitting OSC-52 cannot prove that the outer
+/// fallback file under `~/.angelX/`. Emitting OSC-52 cannot prove that the outer
 /// terminal accepted it, so the receipt reports a request rather than claiming
 /// clipboard success. The returned string is shown in the transcript.
 pub(crate) fn deliver_to_clipboard(text: &str, file_name: &str) -> String {
@@ -363,7 +363,7 @@ pub(crate) fn deliver_to_clipboard(text: &str, file_name: &str) -> String {
 
     // Always-on file fallback.
     let home = std::env::var("HOME").unwrap_or_default();
-    let path = std::path::Path::new(&home).join(".angel0").join(file_name);
+    let path = std::path::Path::new(&home).join(".angelX").join(file_name);
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }

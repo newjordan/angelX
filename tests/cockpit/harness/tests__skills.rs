@@ -569,7 +569,7 @@ fn load_skills_for_discovers_compatible_global_skill_roots() {
             .unwrap()
             .body,
         "angel",
-        "the explicit angel0 user root must remain the final override"
+        "the explicit angelX user root must remain the final override"
     );
 }
 
@@ -714,7 +714,7 @@ fn merge_skills_user_overrides_bundled_and_sorts() {
 
 #[test]
 fn bundled_skill_library_parses() {
-    // The skills angel0 ships with (cockpit/skills/) are real and parse.
+    // The skills angelX ships with (cockpit/skills/) are real and parse.
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skills");
     let skills = load_skills_from(&dir);
     let names: Vec<&str> = skills.iter().map(|s| s.name.as_str()).collect();

@@ -6,7 +6,7 @@
 //! tests. Before this module `run_tests` was Cargo-only — on a JS workspace it
 //! spent a whole model hop failing at `cargo test` before the model fell back to
 //! `node --test` by hand (seen in the 2026-09-06 arena capture) — and the caddy
-//! read only root markers, so angel0 itself (Cargo.toml under `cockpit/`) was
+//! read only root markers, so angelX itself (Cargo.toml under `cockpit/`) was
 //! reported as `js`.
 
 use std::path::{Path, PathBuf};
@@ -76,7 +76,7 @@ const SKIP_DIRS: &[&str] = &[
     "venv",
     "__pycache__",
     ".home",
-    ".angel0",
+    ".angelX",
     "off-limits",
 ];
 
@@ -408,7 +408,7 @@ fn runtime_shims_in(home: &Path, search: &std::ffi::OsStr) -> Option<PathBuf> {
     let mut identity = std::collections::hash_map::DefaultHasher::new();
     links.hash(&mut identity);
     let dir = home
-        .join(".angel0/shims")
+        .join(".angelX/shims")
         .join(format!("{:016x}", identity.finish()));
     if !dir.is_dir() {
         std::fs::create_dir_all(&dir).ok()?;

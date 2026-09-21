@@ -1,5 +1,5 @@
 {
-  "schema": "angel0-release-supply-chain-policy/v1",
+  "schema": "angelX-release-supply-chain-policy/v1",
   "prebuilt_artifacts": [
     {
       "name": "rusty_v8",
@@ -19,7 +19,7 @@
       "name": "clean_release_builder",
       "reference": "sha256:521b1efb8209990e28d17794b05a338df5c02962328c1ec63b7924c195f7dc52",
       "digest": "sha256:521b1efb8209990e28d17794b05a338df5c02962328c1ec63b7924c195f7dc52",
-      "local_tag": "angel0-clean-builder:rust-1.95.0-bookworm-v1",
+      "local_tag": "angelX-clean-builder:rust-1.95.0-bookworm-v1",
       "base_reference": "docker.io/library/rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1",
       "base_digest": "sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1",
       "dockerfile_sha256": "84adc88972f5e4a2512cfec127a8eb79d3396ef5fc4fc08491cb9c72592bef9b",
@@ -38,7 +38,7 @@
         "libswscale-dev:amd64=7:5.1.9-0+deb12u1",
         "pkg-config:amd64=1.8.1-1"
       ],
-      "trust": "locally built from a registry-digest-pinned official Rust base (digest re-checked against Docker Hub on 2026-09-17) with recorded native package versions; the image ID was recorded by the previous build of this byte-identical Dockerfile on the prior evidence host and has not yet been rebuilt or inspected on an angel0 Docker host; no signature, registry publication, or external attestation verified"
+      "trust": "locally built from a registry-digest-pinned official Rust base (digest re-checked against Docker Hub on 2026-09-17) with recorded native package versions; the image ID was recorded by the previous build of this byte-identical Dockerfile on the prior evidence host and has not yet been rebuilt or inspected on an angelX Docker host; no signature, registry publication, or external attestation verified"
     }
   ],
   "advisory_scanners": [
@@ -58,7 +58,7 @@
       {
         "path": "cockpit/Cargo.lock",
         "ecosystem": "crates.io",
-        "sha256": "0e394ee37d749e64aa569cc529184a46d0f8096466613e56ab7841eb19fe2eed",
+        "sha256": "391b1a3cf1835b8acca3e45d4898cb5eb6e767cfe3dd7100236fc57d08e6ee20",
         "package_count": 370
       },
       {
@@ -70,7 +70,7 @@
       {
         "path": "package-lock.json",
         "ecosystem": "npm",
-        "sha256": "2229e8df37c48750df12db1d13c6ab265e8a1c0b86b44d6f33879e1fe1444465",
+        "sha256": "311d7184e3cd4b428a4748b7c9522cce05936d7db0c900174ddae23080d0935f",
         "package_count": 79
       }
     ],

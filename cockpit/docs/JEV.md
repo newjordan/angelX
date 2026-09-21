@@ -48,7 +48,7 @@ questions with at most sixteen options each. Errors do not echo response bodies.
 For scripts, use the same native implementation without a generation turn:
 
 ```sh
-ANGEL_RUNNER_ENV_FILE="$PWD/.angel.env" bin/angel0 --jev-json <<'JSON'
+ANGEL_RUNNER_ENV_FILE="$PWD/.angel.env" bin/angelX --jev-json <<'JSON'
 {
   "state": "Synthetic example: correctness passed on three public diagnostic cases; no full-corpus result yet.",
   "questions": [

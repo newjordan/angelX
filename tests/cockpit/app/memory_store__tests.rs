@@ -46,14 +46,14 @@ fn interpret_write_distinguishes_soft_failures() {
 #[test]
 fn parse_search_results_extracts_one_block_per_hit() {
     let json = r#"{"results": [
-            {"wing": "angel0", "room": "Facts", "text": "gemma4 listens on :8000"},
-            {"wing": "angel0", "room": "Files", "text": "  compaction.rs  "},
-            {"wing": "angel0", "room": "Empty", "text": "   "}
+            {"wing": "angelX", "room": "Facts", "text": "gemma4 listens on :8000"},
+            {"wing": "angelX", "room": "Files", "text": "  compaction.rs  "},
+            {"wing": "angelX", "room": "Empty", "text": "   "}
         ], "total_before_filter": 3}"#;
     let blocks = parse_search_results(json);
     assert_eq!(blocks.len(), 2, "the blank-text hit is dropped");
-    assert_eq!(blocks[0], "[angel0/Facts] gemma4 listens on :8000");
-    assert_eq!(blocks[1], "[angel0/Files] compaction.rs");
+    assert_eq!(blocks[0], "[angelX/Facts] gemma4 listens on :8000");
+    assert_eq!(blocks[1], "[angelX/Files] compaction.rs");
 }
 
 #[test]

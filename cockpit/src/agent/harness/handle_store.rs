@@ -1,6 +1,6 @@
 //! Session handle store — opaque bulk evidence with root-visible receipts.
 //!
-//! Implements the RLM/HiQ structural offload principle for angel0:
+//! Implements the RLM/HiQ structural offload principle for angelX:
 //! task-specific bulk and intermediate sub-work live under handle-addressed
 //! storage, while the root model sees bounded, strategy-level receipts.
 //! Disclosure of handle bodies is explicit and capped.

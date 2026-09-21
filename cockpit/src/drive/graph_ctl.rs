@@ -79,7 +79,7 @@ impl GraphState {
 pub(crate) fn list_text() -> String {
     let catalog = load_graphs();
     if catalog.is_empty() {
-        return "graph · no graphs installed — add TOML specs to ~/.angel0/graphs (see cockpit/graphs/ for the shape)"
+        return "graph · no graphs installed — add TOML specs to ~/.angelX/graphs (see cockpit/graphs/ for the shape)"
             .to_string();
     }
     let mut lines = vec![format!("graph · {} installed:", catalog.len())];

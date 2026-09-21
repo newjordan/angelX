@@ -3,7 +3,7 @@ name = "angel-portal-renderer"
 version = "0.1.0"
 edition = "2024"
 resolver = "3"
-description = "Headless fixed-scene WebGPU renderer for the angel0 Kitty portal"
+description = "Headless fixed-scene WebGPU renderer for the angelX Kitty portal"
 license = "MIT"
 
 [dependencies]
