@@ -23,7 +23,7 @@ fn captures_written_bytes_to_a_file_sink_end_to_end() {
     // Mutates ANGEL_TERM_PIPE — hold the shared env lock so the parallel
     // runner can't race the environ table.
     let _guard = crate::tests::env_lock();
-    let path = std::env::temp_dir().join(format!("angel0-termpipe-{}.log", std::process::id()));
+    let path = std::env::temp_dir().join(format!("angelX-termpipe-{}.log", std::process::id()));
     let _ = std::fs::remove_file(&path);
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TERM_PIPE", &path) };

@@ -148,7 +148,7 @@ fn conversation_markdown_keeps_only_operator_and_angel_prose() {
 
     let markdown = conversation_markdown(&history).unwrap();
 
-    assert!(markdown.starts_with("# angel0 conversation"));
+    assert!(markdown.starts_with("# angelX conversation"));
     assert!(markdown.contains("## You\n\ninspect this"));
     assert!(markdown.contains("_[attachments: 1 image, 1 audio]_"));
     assert!(markdown.contains("## Angel\n\nfinished safely"));

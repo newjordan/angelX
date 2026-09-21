@@ -123,8 +123,8 @@ impl Journal {
 
     fn read(&mut self, workspace: &Path) -> Result<(), &'static str> {
         let root = fs::canonicalize(workspace).map_err(|_| "research workspace unavailable")?;
-        let dir = root.join(".angel0/research");
-        for path in [root.join(".angel0"), dir.clone()] {
+        let dir = root.join(".angelX/research");
+        for path in [root.join(".angelX"), dir.clone()] {
             match fs::symlink_metadata(path) {
                 Ok(meta) if meta.is_dir() && !meta.file_type().is_symlink() => (),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {

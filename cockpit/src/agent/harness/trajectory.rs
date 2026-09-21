@@ -82,7 +82,7 @@ pub fn default_max_hops() -> usize {
 // Trajectory logging — persist each run_turn rollout as JSONL for offline RL /
 // analysis. The raw training data the reinforce loop feeds on. Opt-in via
 // `ANGEL_TRAJECTORY_LOG`; dir overridable via `ANGEL_TRAJECTORY_DIR` (default
-// ~/.angel0/trajectories; under cfg(test) a per-process temp dir, so cockpit
+// ~/.angelX/trajectories; under cfg(test) a per-process temp dir, so cockpit
 // test suites never feed the live trainer inbox). One file per process,
 // appended.
 // ---------------------------------------------------------------------------
@@ -456,7 +456,7 @@ pub(crate) fn trajectory_dir() -> PathBuf {
     }
     if cfg!(test) {
         // Cockpit test suites must never feed the live trainer inbox: a
-        // practice-club rollout written to the real ~/.angel0/trajectories is
+        // practice-club rollout written to the real ~/.angelX/trajectories is
         // rsynced to the Spark trainer within ten minutes. Unit-test binaries
         // default to a per-process temp directory instead.
         return std::env::temp_dir()
@@ -465,7 +465,7 @@ pub(crate) fn trajectory_dir() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".angel0/trajectories")
+        .join(".angelX/trajectories")
 }
 
 pub(crate) fn now_ms() -> u64 {
@@ -519,7 +519,7 @@ pub(crate) fn ensure_private_store(dir: &Path) {
     {
         let mut targets = vec![dir.to_path_buf()];
         if let Some(parent) = dir.parent()
-            && parent.file_name().is_some_and(|n| n == ".angel0")
+            && parent.file_name().is_some_and(|n| n == ".angelX")
         {
             targets.push(parent.to_path_buf());
         }

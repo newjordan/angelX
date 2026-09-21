@@ -592,14 +592,14 @@ pub(crate) fn is_meta_note_mutation_path(path: &str) -> bool {
         return true;
     }
     // Angel notes / handoff store (relative or absolute; with or without slash).
-    path_contains_slash_ignore_case(path, "/.angel0/notes/")
-        || path_contains_slash_ignore_case(path, "/.angel0/handoff/")
-        || path_starts_with_slash_ignore_case(path, ".angel0/notes/")
-        || path_starts_with_slash_ignore_case(path, ".angel0/handoff/")
-        || path_ends_with_slash_ignore_case(path, "/.angel0/notes")
-        || path_ends_with_slash_ignore_case(path, "/.angel0/handoff")
-        || path_eq_slash_ignore_case(path, ".angel0/notes")
-        || path_eq_slash_ignore_case(path, ".angel0/handoff")
+    path_contains_slash_ignore_case(path, "/.angelX/notes/")
+        || path_contains_slash_ignore_case(path, "/.angelX/handoff/")
+        || path_starts_with_slash_ignore_case(path, ".angelX/notes/")
+        || path_starts_with_slash_ignore_case(path, ".angelX/handoff/")
+        || path_ends_with_slash_ignore_case(path, "/.angelX/notes")
+        || path_ends_with_slash_ignore_case(path, "/.angelX/handoff")
+        || path_eq_slash_ignore_case(path, ".angelX/notes")
+        || path_eq_slash_ignore_case(path, ".angelX/handoff")
         || path_ends_with_slash_ignore_case(path, "/notes")
         || path.eq_ignore_ascii_case("notes")
 }

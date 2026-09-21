@@ -17,7 +17,7 @@ pub(crate) fn ledger_enabled() -> bool {
     env_flag_or("ANGEL_MOA_LEDGER", true)
 }
 
-/// Ledger file: `~/.angel0/moa/ledger.jsonl`, or `ANGEL_MOA_LEDGER_PATH`.
+/// Ledger file: `~/.angelX/moa/ledger.jsonl`, or `ANGEL_MOA_LEDGER_PATH`.
 pub(crate) fn ledger_path() -> PathBuf {
     match std::env::var("ANGEL_MOA_LEDGER_PATH") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),

@@ -1,7 +1,7 @@
 //! Shared fleet embedding and semantic-reading support.
 //!
 //! The embedding server is intentionally stateless: one Casper-hosted model can
-//! serve any number of angel0 processes and repositories.  Every tool instance
+//! serve any number of angelX processes and repositories.  Every tool instance
 //! remains rooted to its own workspace, reads through the descriptor-confined
 //! filesystem helpers, and sends only explicitly named, non-sensitive files.
 
@@ -16,7 +16,7 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
-const CONFIG_SCHEMA: &str = "angel0.embedding-service/v1";
+const CONFIG_SCHEMA: &str = "angelX.embedding-service/v1";
 const DEFAULT_MODEL: &str = "nvidia/Nemotron-3-Embed-1B-BF16";
 const MAX_QUERY_BYTES: usize = 8 * 1024;
 const MAX_PATHS: usize = 32;
@@ -121,7 +121,7 @@ fn config_path() -> Option<PathBuf> {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
-    Some(base.join("angel0").join("embed.json"))
+    Some(base.join("angelX").join("embed.json"))
 }
 
 fn expand_home(path: PathBuf) -> PathBuf {
@@ -578,7 +578,7 @@ pub(crate) fn maybe_register_embedding_tools(r: &mut ToolRegistry, workspace: Pa
             config,
         })),
         Ok(None) => {}
-        Err(error) => eprintln!("angel0 embedding service disabled: {error}"),
+        Err(error) => eprintln!("angelX embedding service disabled: {error}"),
     }
 }
 

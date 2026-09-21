@@ -95,10 +95,10 @@ fn cfg_hash_is_stable_and_order_independent() {
 
 #[test]
 fn rotated_path_preserves_stem() {
-    let p = PathBuf::from("/home/u/.angel0/experience/ledger.jsonl");
+    let p = PathBuf::from("/home/u/.angelX/experience/ledger.jsonl");
     assert_eq!(
         rotated_path(&p, 1_700_000_000),
-        PathBuf::from("/home/u/.angel0/experience/ledger-1700000000.jsonl")
+        PathBuf::from("/home/u/.angelX/experience/ledger-1700000000.jsonl")
     );
 }
 
@@ -1029,7 +1029,7 @@ fn skill_event_record_mirrors_the_cmd_shape() {
         "slug": null,
     });
     let exp = SkillExperience {
-        name: "angel0-build-test-run",
+        name: "angelX-build-test-run",
         ok: true,
         dur_ms: 3,
     };
@@ -1038,7 +1038,7 @@ fn skill_event_record_mirrors_the_cmd_shape() {
     assert_eq!(rec["event"], "skill");
     assert_eq!(rec["v"], SCHEMA_V);
     assert_eq!(rec["repo"]["key"], "home-u-proj-0011223344556677");
-    assert_eq!(rec["skill"]["name"], "angel0-build-test-run");
+    assert_eq!(rec["skill"]["name"], "angelX-build-test-run");
     assert_eq!(rec["skill"]["ok"], true);
     assert_eq!(rec["skill"]["dur_ms"], 3);
     // One line of valid JSON, like every ledger record.

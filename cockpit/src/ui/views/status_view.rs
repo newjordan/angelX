@@ -43,7 +43,7 @@ pub fn header_line(label: &str, state: Glyph, cpu_pct: f32, gpu_pct: f32) -> Lin
     }
     let active = state == Glyph::Thinking || state == Glyph::Active;
     Line::from(vec![
-        Span::styled("angel0 ", HUD_BLUE_BOLD_STYLE),
+        Span::styled("angelX ", HUD_BLUE_BOLD_STYLE),
         Span::raw(label),
         Span::raw(" "),
         Span::styled(
@@ -64,7 +64,7 @@ fn fixed_idle_header_line(label: &str) -> Option<&'static Line<'static>> {
     ) -> &'static Line<'static> {
         slot.get_or_init(|| {
             Line::from(vec![
-                Span::styled("angel0 ", HUD_BLUE_BOLD_STYLE),
+                Span::styled("angelX ", HUD_BLUE_BOLD_STYLE),
                 Span::raw(label),
                 Span::raw(" "),
                 Span::styled(Glyph::Idle.token(), HUD_DIM_STYLE),

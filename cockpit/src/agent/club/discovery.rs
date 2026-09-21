@@ -774,7 +774,7 @@ pub(crate) fn scan_fleet() -> Vec<Surface> {
         .timeout_connect(Duration::from_millis(800))
         .timeout_read(Duration::from_millis(1500))
         .timeout_write(Duration::from_millis(800))
-        .user_agent(concat!("angel0-cockpit-scan/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("angelX-cockpit-scan/", env!("CARGO_PKG_VERSION")))
         .build();
     let mut targets: Vec<(String, String, u16)> = Vec::new();
     let mut queued: std::collections::HashSet<(String, u16)> = std::collections::HashSet::new();

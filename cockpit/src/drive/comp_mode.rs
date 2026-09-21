@@ -1,4 +1,4 @@
-//! Lean / Comp Mode — ultra-high-speed execution posture for angel0.
+//! Lean / Comp Mode — ultra-high-speed execution posture for angelX.
 //!
 //! When Comp Mode is enabled:
 //! - Background visual simulation (world_viz miniworld, terrain raycasting / 3D,

@@ -760,7 +760,7 @@ impl CodexClub {
             .timeout_connect(Duration::from_secs(10))
             .timeout_read(read_timeout)
             .timeout_write(Duration::from_secs(60))
-            .user_agent(concat!("angel0-cockpit/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("angelX-cockpit/", env!("CARGO_PKG_VERSION")))
             .build();
         Self {
             name: name.into(),

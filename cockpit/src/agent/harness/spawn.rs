@@ -202,7 +202,7 @@ pub(crate) fn load_personas() -> Vec<Skill> {
             std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".angel0/personas")
+                .join(".angelX/personas")
         });
     merge_personas(merge_personas(embedded, bundled), load_personas_from(&user))
 }

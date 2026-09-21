@@ -125,12 +125,12 @@ fn meta_note_path_matches_in_place() {
         "backslash living-handoff still counts as board bookkeeping"
     );
     assert!(
-        is_meta_note_mutation_path(".ANGEL0\\NOTES\\session.txt"),
-        "mixed-case .angel0/notes store still counts"
+        is_meta_note_mutation_path(".ANGELX\\NOTES\\session.txt"),
+        "mixed-case .angelX/notes store still counts"
     );
     assert!(
-        is_meta_note_mutation_path("workspace\\.angel0\\handoff\\tip.txt"),
-        "backslash .angel0/handoff store still counts"
+        is_meta_note_mutation_path("workspace\\.angelX\\handoff\\tip.txt"),
+        "backslash .angelX/handoff store still counts"
     );
     assert!(
         is_meta_note_mutation_path("NOTES.md"),
@@ -146,10 +146,10 @@ fn meta_note_path_matches_in_place() {
     );
     for path in [
         ".angel/notes/session.txt",
-        "prefix.angel0/notes/session.txt",
-        ".angel00/notes/session.txt",
-        "workspace/.angel0/notes-extra/session.txt",
-        "workspace/.angel0/handoff-extra/session.txt",
+        "prefix.angelX/notes/session.txt",
+        ".angelX0/notes/session.txt",
+        "workspace/.angelX/notes-extra/session.txt",
+        "workspace/.angelX/handoff-extra/session.txt",
     ] {
         assert!(
             !is_meta_note_mutation_path(path),

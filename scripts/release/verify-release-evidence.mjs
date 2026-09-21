@@ -31,7 +31,7 @@ import {
 } from './release-evidence.mjs'
 import { verifyRunnerContractSmoke } from './verify-runner-smoke.mjs'
 
-export const VERIFICATION_SCHEMA = 'angel0-source-release-verification/v1'
+export const VERIFICATION_SCHEMA = 'angelX-source-release-verification/v1'
 export const REQUIRED_RUNNER_CAPABILITIES = Object.freeze([
   'task-json/v1',
   'task-runtime-config/v1',
@@ -553,7 +553,7 @@ function atomicWrite(path, value) {
 
 export function runReleaseVerification(manifestPath, { receiptPath, v8Archive } = {}) {
   const verified = verifyReleaseSet(manifestPath)
-  const scratch = mkdtempSync(join(tmpdir(), 'angel0-release-verification-'))
+  const scratch = mkdtempSync(join(tmpdir(), 'angelX-release-verification-'))
   try {
     const sourceRoot = extractVerifiedRows(verified.rows, scratch)
     const build = buildExtractedRelease(sourceRoot, verified.manifest, { v8Archive })

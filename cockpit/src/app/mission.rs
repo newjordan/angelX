@@ -1,7 +1,7 @@
 //! Mission-line projection for `/status`.
 //!
 //! The headless Mission ledger (`scripts/runtime/mission.mjs`) persists completion
-//! objectives under `~/.angel0/missions/` (`ANGEL_MISSION_DIR` overrides). This
+//! objectives under `~/.angelX/missions/` (`ANGEL_MISSION_DIR` overrides). This
 //! module is a read-only, best-effort projection: the most recently updated
 //! mission becomes one `/status` line so the operator can see the objective's
 //! state from inside the TUI without leaving for the CLI. A malformed,
@@ -83,7 +83,7 @@ fn mission_dir() -> PathBuf {
             std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("/tmp"))
-                .join(".angel0")
+                .join(".angelX")
                 .join("missions")
         })
 }

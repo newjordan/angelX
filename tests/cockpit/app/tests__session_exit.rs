@@ -84,7 +84,7 @@ fn exit_failed_save_keeps_exact_history_available_for_export_and_retry() {
     ));
     app.input = "/raw".into();
     app.submit();
-    let export = fixture.0.join(".angel0/transcript.txt");
+    let export = fixture.0.join(".angelX/transcript.txt");
     let exported = std::fs::read_to_string(&export).unwrap();
     assert_eq!(exported.matches(pending_text.trim()).count(), 1);
     assert_eq!(exported.matches(queued_text.as_str()).count(), 1);

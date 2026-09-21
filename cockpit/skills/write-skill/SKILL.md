@@ -14,7 +14,7 @@ that economy.
      every checkout; reserve for skills worth versioning with the code.
    - Per-repo: `<repo>/.agents/skills/<name>/SKILL.md` — conventions for one
      project.
-   - Personal: `~/.angel0/skills/<name>/SKILL.md` (or flat `<name>.md`;
+   - Personal: `~/.angelX/skills/<name>/SKILL.md` (or flat `<name>.md`;
      `ANGEL_SKILLS_DIR` overrides) — the user's own overrides, wins over all.
 2. **Format:** `---` frontmatter with `name:` and `description:`, then the
    body. The description is the trigger — it must say *when to reach for

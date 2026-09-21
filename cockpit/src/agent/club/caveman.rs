@@ -5,7 +5,7 @@
 
 use super::*;
 
-const CAVEMAN_MARKER: &str = "angel0 SOTA brevity mode";
+const CAVEMAN_MARKER: &str = "angelX SOTA brevity mode";
 
 /// The brevity instruction and where it belongs in `messages` (right after the
 /// leading system block), or `None` when the mode is off or already applied.
@@ -66,7 +66,7 @@ fn sota_caveman_instruction_from_env() -> String {
             "Ultra: shortest unambiguous answer. State each fact once. Use fragments when clear."
         }
         "wenyan" | "wenyan-lite" | "wenyan-full" | "wenyan-ultra" => {
-            "Wenyan levels are disabled for angel0 SOTA outbounds; use full terse English unless the user writes Chinese."
+            "Wenyan levels are disabled for angelX SOTA outbounds; use full terse English unless the user writes Chinese."
         }
         _ => "Full: drop filler, pleasantries, and padded narration. Fragments OK.",
     };

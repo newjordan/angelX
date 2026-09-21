@@ -17,7 +17,7 @@
 //! verdict, so *no self-edit reaches the live tree unless the gate is green and
 //! a human said yes*. Everything is git — a bad run is `/self discard`.
 //!
-//! Worktrees live under `~/.angel0/self-worktrees` (override:
+//! Worktrees live under `~/.angelX/self-worktrees` (override:
 //! `ANGEL_SELF_WORKTREE_DIR`, used by tests).
 
 use crate::agent::harness::run_git;
@@ -477,7 +477,7 @@ impl crate::App {
 }
 
 /// Where self-run worktrees are created. `ANGEL_SELF_WORKTREE_DIR` overrides the
-/// default `~/.angel0/self-worktrees` (tests point it at a scratch dir).
+/// default `~/.angelX/self-worktrees` (tests point it at a scratch dir).
 fn worktree_base() -> PathBuf {
     if let Ok(p) = std::env::var("ANGEL_SELF_WORKTREE_DIR")
         && !p.trim().is_empty()

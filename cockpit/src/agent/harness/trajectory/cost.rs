@@ -7,7 +7,7 @@
 //!
 //! Price-table resolution order:
 //!   1. `ANGEL_PRICES_FILE` (if set)
-//!   2. `~/.angel0/prices.toml`
+//!   2. `~/.angelX/prices.toml`
 //!   3. the repo table embedded at build time (`include_str!`)
 //!
 //! The source actually used is reported in `cost.source`. Resolution is
@@ -110,12 +110,12 @@ fn load_rows() -> (Vec<PriceRow>, &'static str) {
     }
     let user: PathBuf = [
         std::env::var_os("HOME").unwrap_or_default(),
-        ".angel0/prices.toml".into(),
+        ".angelX/prices.toml".into(),
     ]
     .iter()
     .collect();
     if let Ok(text) = std::fs::read_to_string(&user) {
-        return (parse_rows(&text), "~/.angel0/prices.toml");
+        return (parse_rows(&text), "~/.angelX/prices.toml");
     }
     (
         parse_rows(include_str!("../../../../../docs/telemetry/prices.toml")),

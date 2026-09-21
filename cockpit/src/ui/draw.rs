@@ -142,7 +142,7 @@ pub(crate) fn render_header(
     let version = env!("CARGO_PKG_VERSION");
     let mut spans = vec![
         Span::styled(
-            "angel0",
+            "angelX",
             Style::new().fg(HUD_BLUE).add_modifier(Modifier::BOLD),
         ),
         Span::styled(format!(" {version}"), Style::new().fg(HUD_DIM)),
@@ -608,7 +608,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         && app.scryglass_enabled
         && agent_info_header_enabled()
         && crate::ui::surfaces::BackdropMode::from_env().shows_side_column();
-    // Thin default: one content row (angel0/version, route chips, workspace).
+    // Thin default: one content row (angelX/version, route chips, workspace).
     // The retired 6-row info header (`ANGEL_AGENT_INFO_HEADER=1`) keeps its split.
     let header_h = if box_chrome {
         if agent_info_header {
@@ -2135,3 +2135,11 @@ mod caption_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/draw__merge_frame_tests.rs"]
 mod merge_frame_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/frames__capture_tests.rs"]
+mod frames_capture_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/frames__teaser_tests.rs"]
+mod frames_teaser_tests;

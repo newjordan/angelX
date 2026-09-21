@@ -407,7 +407,7 @@ fn yolo_bypasses_sealed_child_environment_scrubbing() {
 
 #[test]
 fn sandbox_path_keeps_resolved_mise_tools_before_install_wrappers() {
-    let root = std::env::temp_dir().join(format!("angel0_mise_path_{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("angelX_mise_path_{}", std::process::id()));
     let local = root.join(".local/bin");
     let installed = root.join(".local/share/mise/installs/gh/fixture/bin");
     std::fs::create_dir_all(&local).unwrap();

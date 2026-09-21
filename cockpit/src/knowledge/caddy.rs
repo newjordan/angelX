@@ -6,7 +6,7 @@
 //! the working local-verifier recipe and the failure hazard sat in that
 //! morning's receipts on the same machine.
 //!
-//! Storage: bounded atomic JSON-lines snapshots under `~/.angel0/caddy/<repo_key>/`
+//! Storage: bounded atomic JSON-lines snapshots under `~/.angelX/caddy/<repo_key>/`
 //! (`recipes.jsonl` / `hazards.jsonl`), keyed by the canonical repository
 //! identity so a linked worktree or subdirectory shares its main checkout's
 //! bag. Directory resolution mirrors `dossier.rs`: an `ANGEL_CADDY_DIR`
@@ -302,7 +302,7 @@ pub(crate) fn card_cap() -> usize {
         .max(MIN_CARD_BYTES)
 }
 
-/// Store root: `ANGEL_CADDY_DIR`, else `~/.angel0/caddy` (mirrors
+/// Store root: `ANGEL_CADDY_DIR`, else `~/.angelX/caddy` (mirrors
 /// `dossier.rs`'s `ANGEL_DOSSIER_DIR` resolution).
 fn caddy_dir() -> PathBuf {
     match std::env::var("ANGEL_CADDY_DIR") {
@@ -338,7 +338,7 @@ pub(crate) fn read_lie(workspace: &Path) -> Lie {
         .map(|out| out.lines().filter(|l| !l.trim().is_empty()).count())
         .unwrap_or(0);
     // Shared shallow scan (root + one level), so a repo whose crate lives under
-    // a subdirectory (angel0: cockpit/Cargo.toml) is no longer read as `js`.
+    // a subdirectory (angelX: cockpit/Cargo.toml) is no longer read as `js`.
     let langs = crate::platform::workspace_lang::lang_names(
         &crate::platform::workspace_lang::detect(workspace),
     );
@@ -956,7 +956,7 @@ fn doors_line(lie: &Lie, workspace: &Path) -> Option<String> {
     (!parts.is_empty()).then(|| bound_line(&format!("doors: {}", parts.join(" · "))))
 }
 
-/// ≤6 skill names from `~/.angel0/skills` + `cockpit/skills` whose SKILL.md
+/// ≤6 skill names from `~/.angelX/skills` + `cockpit/skills` whose SKILL.md
 /// description mentions one of the repo's languages or
 /// "competition"/"benchmark".
 fn door_skills(lie: &Lie) -> Vec<String> {

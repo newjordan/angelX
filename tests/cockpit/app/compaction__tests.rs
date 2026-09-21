@@ -738,11 +738,11 @@ fn compact_window_single_pass_builds_drawers_and_note() {
     let club = ScriptedClub::new(reply);
     let window = vec![user("did X"), asst("did Y"), user("then Z")];
     let result =
-        compact_window(&club, &window, "angel0", "sess-1", 100_000, true).expect("compacts");
+        compact_window(&club, &window, "angelX", "sess-1", 100_000, true).expect("compacts");
     // (none) Facts dropped → two drawers.
     assert_eq!(result.drawers.len(), 2);
     assert_eq!(result.drawers[0].room, "Task");
-    assert_eq!(result.drawers[0].wing, "angel0");
+    assert_eq!(result.drawers[0].wing, "angelX");
     assert_eq!(result.drawers[0].source, "sess-1");
     assert!(result.inline_note.contains("memory_store.rs"));
     assert_eq!(
@@ -768,7 +768,7 @@ fn fast_compaction_is_bounded_and_preserves_typed_continuity() {
         asst("The critical path now uses a deterministic local fallback."),
     ];
 
-    let result = compact_window_fast(&window, "angel0", "sess-fast", 20_000, false)
+    let result = compact_window_fast(&window, "angelX", "sess-fast", 20_000, false)
         .expect("local compaction succeeds without a model");
 
     assert!(result.inline_note.starts_with(COMPACTION_NOTE_HEADER));
@@ -789,7 +789,7 @@ fn fast_compaction_is_bounded_and_preserves_typed_continuity() {
         result
             .drawers
             .iter()
-            .all(|drawer| drawer.wing == "angel0" && drawer.source == "sess-fast")
+            .all(|drawer| drawer.wing == "angelX" && drawer.source == "sess-fast")
     );
 }
 

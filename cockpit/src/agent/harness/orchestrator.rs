@@ -925,7 +925,7 @@ impl Drop for RepoIntegrateLock {
 }
 
 /// Cross-process companion to [`INTEGRATE_LOCK`]. `flock` is advisory but all
-/// angel0 integrators use this common-Git-dir file; the kernel releases it if a
+/// angelX integrators use this common-Git-dir file; the kernel releases it if a
 /// process crashes, avoiding stale lock cleanup heuristics.
 fn acquire_repo_integrate_lock(repo: &Path) -> Result<RepoIntegrateLock, String> {
     acquire_repo_integrate_lock_with_timeout(repo, git_timeout())

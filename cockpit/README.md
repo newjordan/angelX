@@ -4,7 +4,7 @@ Angel's **terminal-first** cockpit: a Rust/ratatui agent harness that drives a
 MOA system of model agents through a tool-using loop, with a verifiable-reward RL
 substrate for software-dev tasks.
 
-> **Direction:** angel0 is a terminal-native application. The ordinary terminal
+> **Direction:** angelX is a terminal-native application. The ordinary terminal
 > is the complete production surface: model and thinking controls, portraits,
 > miniviz, image viewing, shell, and transcripts must all work without an
 > external renderer or terminal fork.
@@ -64,7 +64,7 @@ model, `agent/`; if it runs unattended across turns, `drive/`.
   individual turn unbounded, while later settled turns and campaigns remain
   separate.
 - `src/knowledge/session.rs` — **session log + resume.** Published snapshots atomically
-  replace `~/.angel0/sessions/<id>.json`; writes are queued off the UI thread, so
+  replace `~/.angelX/sessions/<id>.json`; writes are queued off the UI thread, so
   abrupt process death can still lose the newest enqueue-to-write window and a
   surfaced write failure leaves only the prior good snapshot. `/sessions` lists
   saved sessions (newest first); `/resume [id]` reloads one (no id = latest) and
@@ -185,7 +185,7 @@ canonical output is capped at 64 items × 500 characters to bound resend cost.
 | Git (read-only)            | `git_diff` (uncommitted changes), `git_status` (branch + staged/modified/untracked), `git_log` (recent commits, path-scopable)                                                                                                                                                                                 |
 | Web                        | `web_search` (local SearXNG; `ANGEL_WEB_SEARCH=0` disables, `ANGEL_SEARXNG_URL` overrides), `web_fetch` (GET → readable text), `http_request` (full-verb HTTP with headers/body for JSON APIs)                                                                                                                 |
 | Build/verify               | `shell` (landlock¹), `cargo`, `run_tests`, `lint` (clippy), `check` (cargo check), `fmt`. Local `/build [cargo args]`, `/run [cargo args]`, `/check [cargo args]`, `/test [cargo args]`, and `/lint [cargo args]` reuse those tools off the UI thread; `/verify [cargo args]` runs non-mutating fmt-check → check → lint → tests and says `clean` only when every stage proves it. `/fmt` checks only; exact `/fmt write` formats. Each owns the named flight slot and is physically cancellable. |
-| Processes                  | `proc_run` (launch a daemon — inference server, dev server, long build — detached, log to `~/.angel0/proc`), `proc_status` (state + log tail), `proc_stop` (SIGTERM→SIGKILL the whole tree)                                                                                                                     |
+| Processes                  | `proc_run` (launch a daemon — inference server, dev server, long build — detached, log to `~/.angelX/proc`), `proc_status` (state + log tail), `proc_stop` (SIGTERM→SIGKILL the whole tree)                                                                                                                     |
 | GPU/Fleet (read-only)      | `gpu_stat` (util/VRAM/temp/power/processes; nvidia-smi → rocm-smi → xpu-smi), `fleet_status` (tailscale peers), `vast_instances` (rented pods; recon only — never destroys)                                                                                                                                    |
 | LLM endpoints              | `llm_probe` (is it up + what does it serve), `llm_bench` (measured TTFT + decode tok/s, warmup excluded)                                                                                                                                                                                                       |
 | Technical decisions | `jev_decide` (deferred, configured TypeSafe key; advisory probabilities) and `benchmark_compare` (deferred, local paired-sample percentages and speedups). See [Jev workflows](docs/JEV.md). |
@@ -230,26 +230,26 @@ Verifiable rewards from ground truth, not just an LLM judge:
 
 - `run_tests`/`lint`/`check` return structured counts **and** a `[0,1]` reward. `run_tests` picks the runner
   from the workspace's own files — `cargo test`, `npm test` / `node --test`, `pytest` / `unittest discover`,
-  `go test ./...`, `swift test` — resolves the largest of several nested crates (angel0's `cockpit/`), and
+  `go test ./...`, `swift test` — resolves the largest of several nested crates (angelX's `cockpit/`), and
   takes `{dir}` / `{crate}` to point at a subtree (`sidecar/forge` runs its python suite).
 - `reinforce.rs` reward impls: `TestReward`, `LintReward`, `CompositeReward`
   (+ `code_health()` = 80% tests + 20% lint).
 - `run_coding_eval(club, registry, task, verify)` drives a task through
   `run_turn` then scores it with a verifiable reward — the end-to-end loop.
 - Set `ANGEL_TRAJECTORY_LOG=1` to persist each rollout as **reward-labeled
-  JSONL** under `~/.angel0/trajectories` (training data).
+  JSONL** under `~/.angelX/trajectories` (training data).
 
 ## Run
 
 ```sh
 ANGEL_BRAIN_KEY=<turbo key> cargo run        # authenticate fleet routes that require it
 cargo run                                    # practice floor, upgraded when a live route is reachable
-../bin/angel0 --yolo                         # unrestricted operator profile
+../bin/angelX --yolo                         # unrestricted operator profile
 ```
 
-`bin/angel0` builds and serves the cockpit and bundled world assets from the
+`bin/angelX` builds and serves the cockpit and bundled world assets from the
 checkout that contains the launcher, so switching branches changes the next
-normal launch. Run `angel0 update` after moving or replacing the checkout to
+normal launch. Run `angelX update` after moving or replacing the checkout to
 refresh the CLI and desktop shortcuts; leave `ANGEL_NO_BUILD` unset while
 reviewing branch changes.
 
@@ -323,7 +323,7 @@ hosts without FFmpeg development libraries.
 
 ### Agent-graph role pools
 
-- `/graph list` shows bundled and `~/.angel0/graphs` TOML specs; `/graph run
+- `/graph list` shows bundled and `~/.angelX/graphs` TOML specs; `/graph run
   <name> <task>` launches one and opens its live Round Table stage.
 - Nodes with the same `pool` are one reusable logical specialist role. Their
   persona, club, tools, effort, and trainable intent must match; prompts and
@@ -338,7 +338,7 @@ hosts without FFmpeg development libraries.
 Common env knobs: `ANGEL_DRIVER`, `ANGEL_<LABEL>_URL`/`_MODEL`, `ANGEL_MAX_HOPS`
 (0 = explicitly unbounded; headless/sub-agent default 64), `ANGEL_IMAGE_PROTOCOL`
 (`kitty`, `sixel`, `iterm2`, or `halfblocks`), `ANGEL_TRAJECTORY_LOG`,
-`ANGEL_SESSION_DIR` (default `~/.angel0/sessions`). **Full reference:
+`ANGEL_SESSION_DIR` (default `~/.angelX/sessions`). **Full reference:
 [`docs/ENV.md`](docs/ENV.md)** — every `ANGEL_*` knob, grouped, with defaults (a
 test keeps it complete).
 

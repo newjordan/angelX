@@ -25,7 +25,7 @@ fn absent_aliased_goal_store_does_not_poison_future_fallback_reads() {
         let workspace = physical.join("workspace");
         std::fs::create_dir_all(&workspace).unwrap();
         symlink(&physical, &alias).unwrap();
-        let store = alias.join(".angel0/goals");
+        let store = alias.join(".angelX/goals");
         let file = store.join("goal.json");
         let _goal = crate::tests::TestEnvGuard::set("ANGEL_GOAL_FILE", file.to_str().unwrap());
         assert!(!store.exists());

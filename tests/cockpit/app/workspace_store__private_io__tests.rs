@@ -257,7 +257,7 @@ fn actual_store_writers_are_private_under_zero_umask() {
 #[test]
 fn trajectory_directory_permissions_use_checked_existing_targets_only() {
     let fixture = Fixture::new();
-    let angel = fixture.0.join(".angel0");
+    let angel = fixture.0.join(".angelX");
     let store = angel.join("trajectories");
     std::fs::create_dir_all(&store).unwrap();
     for path in [&angel, &store] {

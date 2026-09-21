@@ -940,7 +940,7 @@ pub(crate) fn report_topic(history: &[ChatMsg]) -> String {
 
 /// Resolve the effective auto-compaction budget for the in-hand club.
 ///
-/// An explicit `ANGEL_CONTEXT_BUDGET_TOKENS` always wins. Otherwise, angel0 uses
+/// An explicit `ANGEL_CONTEXT_BUDGET_TOKENS` always wins. Otherwise, angelX uses
 /// a 333k target budget and caps it to the model's reported context window with
 /// ~20% headroom when that metadata is available. `ANGEL_CONTEXT_SOFT_CAP`
 /// overrides the 333k target; `ANGEL_NO_AUTOCOMPACT=1` forces compaction off.

@@ -3,7 +3,7 @@
 //!
 //! The Habitsmith compiler (`scripts/runtime/habitsmith.mjs --propose`) renders
 //! confident observed workflows into draft skill folders under
-//! `~/.angel0/skills-proposed/<name>/SKILL.md`. This module is the human side
+//! `~/.angelX/skills-proposed/<name>/SKILL.md`. This module is the human side
 //! of that Tier B loop: list the drafts with their evidence, and turn one
 //! keypress into the ONLY path a draft can take into the live skills dir
 //! (`/habits approve <name>` moves the folder; `/habits reject <name>`
@@ -12,14 +12,14 @@
 //! Verdicts don't touch the causal graph directly — the graph is Node-owned
 //! and unlocked, and racing the idle ticks from Rust would corrupt it.
 //! Instead approve/reject append one JSONL line to
-//! `~/.angel0/habitsmith/verdicts.jsonl`; the habitsmith tick (H5) folds the
+//! `~/.angelX/habitsmith/verdicts.jsonl`; the habitsmith tick (H5) folds the
 //! spool into SUPPORTS/CONTRADICTS edges (conf 0.9) via updateBeliefs on its
 //! next run. A rejected workflow's belief sinks under the propose gate, so it
 //! never re-proposes.
 
 use std::path::{Path, PathBuf};
 
-/// Draft dir: `ANGEL_HABIT_PROPOSED_DIR`, else `~/.angel0/skills-proposed`.
+/// Draft dir: `ANGEL_HABIT_PROPOSED_DIR`, else `~/.angelX/skills-proposed`.
 pub(crate) fn proposed_dir() -> PathBuf {
     match std::env::var("ANGEL_HABIT_PROPOSED_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -27,7 +27,7 @@ pub(crate) fn proposed_dir() -> PathBuf {
     }
 }
 
-/// Live skills dir the loader reads: `ANGEL_SKILLS_DIR`, else `~/.angel0/skills`.
+/// Live skills dir the loader reads: `ANGEL_SKILLS_DIR`, else `~/.angelX/skills`.
 fn live_dir() -> PathBuf {
     match std::env::var("ANGEL_SKILLS_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),

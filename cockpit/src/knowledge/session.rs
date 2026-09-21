@@ -1,7 +1,7 @@
 //! Session log + resume — so a cutoff is recoverable.
 //!
 //! Each cockpit run owns a [`Session`] that snapshots the full model-facing
-//! thread to `~/.angel0/sessions/<id>.json` after every turn. Every snapshot is
+//! thread to `~/.angelX/sessions/<id>.json` after every turn. Every snapshot is
 //! bound to the canonical repository that created it; unbound legacy snapshots
 //! and snapshots from another repository fail closed on list/resume. The write is
 //! atomic (temp file + rename), so a crash leaves the last completed turn
@@ -361,7 +361,7 @@ pub fn sessions_dir() -> PathBuf {
             std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("/tmp"))
-                .join(".angel0/sessions")
+                .join(".angelX/sessions")
         })
 }
 

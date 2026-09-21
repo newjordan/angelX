@@ -1091,7 +1091,7 @@ impl App {
             return "/raw: HOME is empty; no transcript written".to_string();
         }
         let path = std::path::Path::new(&home)
-            .join(".angel0")
+            .join(".angelX")
             .join("transcript.txt");
         if let Some(dir) = path.parent()
             && let Err(error) = std::fs::create_dir_all(dir)

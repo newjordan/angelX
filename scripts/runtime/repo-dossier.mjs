@@ -14,7 +14,7 @@ import { runGraphCli } from './worker-lock.mjs'
 //   • idle probes (D4) add SUPPORTS/CONTRADICTS edges via updateBeliefs;
 //   • compile blends both into a per-fact belief, decays it toward 0.5 with
 //     age since last verification, and emits the injection artifact the
-//     cockpit renders at session start (D3): ~/.angel0/dossier/<key>.json.
+//     cockpit renders at session start (D3): ~/.angelX/dossier/<key>.json.
 //
 // Pure core (no file I/O, no network) + a CLI shell at the bottom, exactly the
 // config-causal.mjs layout. Node ids embed the repo key VERBATIM — the key is
@@ -33,7 +33,7 @@ export function dossierPaths(argv = [], env = process.env, userHomeDir = homedir
     return index >= 0 ? argv[index + 1] : undefined
   }
   const configured = (value) => (typeof value === 'string' && value.trim() ? value : undefined)
-  const stateDir = join(userHomeDir, '.angel0')
+  const stateDir = join(userHomeDir, '.angelX')
   const outDir = flag('--out') || configured(env.ANGEL_DOSSIER_DIR) || join(stateDir, 'dossier')
   return {
     graphPath: flag('--graph') || configured(env.ANGEL_CAUSAL_GRAPH) || join(outDir, 'graph.json'),
@@ -157,8 +157,8 @@ function chdirStaysInRepo(target, { root, cwd } = {}) {
  *
  * @param {string} text  the recorded command line
  * @param {{root?:string, cwd?:string}} [repo]  the row's repo stamp, used to
- *   reject a `cd` into a DIFFERENT repository — `cd ~/angel0 && cargo test` run
- *   from inside gpug is evidence about angel0, and must never become a gpug fact.
+ *   reject a `cd` into a DIFFERENT repository — `cd ~/angelX && cargo test` run
+ *   from inside gpug is evidence about angelX, and must never become a gpug fact.
  * @returns {{command:string, attributable:boolean}|null}  null when the sample
  *   belongs to another repo. `attributable` is false when the recorded exit
  *   status is some later stage's, not this command's.
@@ -203,12 +203,12 @@ export function classifyCommand(text) {
 // The ledger's `cmd` events are what an AGENT TYPED, and it types pipelines:
 // `cargo check 2>&1 | tail -20` records tail(1)'s exit, so the row proves
 // recurrence and nothing else. On the live ledger that is not an edge case — it
-// is every single build command angel0 has ever recorded, which is why this
+// is every single build command angelX has ever recorded, which is why this
 // repo's dossier has minted exactly zero facts since the day it shipped.
 //
 // The native Cut verifier does not have that problem. It runs its
 // verify DIRECTLY — no shell, no pipe — and stamps the true exit code onto the
-// authored-write manifest (`~/.angel0/cut/authored-*.jsonl`, `cockpit/src/knowledge/cut.rs`).
+// authored-write manifest (`~/.angelX/cut/authored-*.jsonl`, `cockpit/src/knowledge/cut.rs`).
 // Every one of those rows is an attributable verdict. So the manifest is mined
 // here as a first-class verdict source alongside the ledger.
 //
@@ -679,7 +679,7 @@ export function factBelief(graph, node, opts = {}) {
 /**
  * Compile one repo's dossier artifact — the JSON the cockpit renders at
  * session start (D3). Pure; the caller writes it to
- * `~/.angel0/dossier/<repoKey>.json`.
+ * `~/.angelX/dossier/<repoKey>.json`.
  *
  * @param {CausalGraph} graph
  * @param {string} repoKey

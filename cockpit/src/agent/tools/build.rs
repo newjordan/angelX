@@ -988,7 +988,7 @@ fn cargo_args_are_typed_verifier(args: &[&str]) -> bool {
 }
 
 /// The directory Cargo should run in: the workspace when it has a root
-/// `Cargo.toml`, else the single first-level directory that has one (angel0
+/// `Cargo.toml`, else the single first-level directory that has one (angelX
 /// itself keeps its crate under `cockpit/`, and every typed verifier used to
 /// fail there with "no Cargo.toml"). Ambiguous (several nested crates) or none
 /// → `None`; callers keep their existing error paths.
@@ -1000,7 +1000,7 @@ pub(crate) fn cargo_workspace_root(workspace: &Path) -> Option<PathBuf> {
     match nested.len() {
         0 => None,
         1 => nested.pop(),
-        // Several crates one level down (angel0: cockpit/, harness/, render-kit/):
+        // Several crates one level down (angelX: cockpit/, harness/, render-kit/):
         // the one with the most source files is the product; the receipt names
         // it and `run_tests {crate: ...}` pins another.
         _ => {

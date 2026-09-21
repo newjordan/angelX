@@ -23,7 +23,7 @@ settings in the caller or set `ANGEL_RUNNER_ENV_FILE=/path/to/your.env`.
 Select a startup route with `ANGEL_DRIVER`, for example:
 
 ```sh
-ANGEL_DRIVER=local ANGEL_LOCAL_URL=http://127.0.0.1:8080/v1 ./bin/angel0
+ANGEL_DRIVER=local ANGEL_LOCAL_URL=http://127.0.0.1:8080/v1 ./bin/angelX
 ```
 
 OAuth and API routes have separate labels and credentials. An API key does not

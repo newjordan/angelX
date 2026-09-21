@@ -319,13 +319,13 @@ test('proposeSkills: belief gate, dedupe against existing, daily cap — in that
     budget,
     existing: [
       {
-        name: 'run-angel0',
+        name: 'run-angelX',
         steps: new Set(['cargo build', 'cargo test -p cockpit', 'npm run dev']),
       },
     ],
   })
   assert.equal(dup.proposals.length, 0)
-  assert.match(dup.skipped[0].reason, /duplicate of skill 'run-angel0'/)
+  assert.match(dup.skipped[0].reason, /duplicate of skill 'run-angelX'/)
 
   // Budget already spent → skipped as budget, not proposed.
   const broke = proposeSkills(g, {

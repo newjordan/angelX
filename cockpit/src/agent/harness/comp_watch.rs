@@ -526,7 +526,7 @@ pub(crate) fn open_configured_status_source(workspace: &Path) -> Option<Configur
                 .map(ConfiguredWatchSource::Fixture);
         }
     }
-    let dir = workspace.join(".angel0").join("watch");
+    let dir = workspace.join(".angelX").join("watch");
     Some(ConfiguredWatchSource::File(FileStatusSource::new(dir)))
 }
 

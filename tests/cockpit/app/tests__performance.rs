@@ -376,7 +376,7 @@ fn foundational_terminal_preview_dump_under_50ms() {
         elapsed
     });
     assert!(
-        dumped.contains("angel0"),
+        dumped.contains("angelX"),
         "preview dump missed cockpit header"
     );
     assert_best_under("preview-dump-render", PERF_BUDGET, best);
@@ -391,7 +391,7 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_IMAGE_PROTOCOL", "kitty") };
     let session_dir = std::env::temp_dir().join(format!(
-        "angel0-terminal-command-perf-{}",
+        "angelX-terminal-command-perf-{}",
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&session_dir);

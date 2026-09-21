@@ -41,7 +41,7 @@ pub(crate) struct CurriculumShelf {
 
 /// A deterministic teaching plan that is useful without a network or model.
 ///
-/// `source_*` is deliberately catalog metadata, not a claim that angel0 read
+/// `source_*` is deliberately catalog metadata, not a claim that angelX read
 /// or vendored the linked course. Optional reference enrichment lives in
 /// `term_lookup`; it can fail without taking this lesson away.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -345,7 +345,7 @@ pub(crate) fn local_lesson(raw_topic: &str) -> Option<LocalLesson> {
 /// Preserve the operator's topic while allowing an optional reference excerpt
 /// to improve discipline/shelf routing. The returned lesson still contains
 /// only local teaching scaffolding; `context` is never represented as course
-/// content that angel0 has read.
+/// content that angelX has read.
 pub(crate) fn local_lesson_with_context(raw_topic: &str, context: &str) -> Option<LocalLesson> {
     let topic = normalize_topic(raw_topic)?;
     let discipline = classify(context);

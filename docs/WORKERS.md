@@ -16,8 +16,8 @@ and `/still` read their workers' artifacts.
 apply. Graph writers share one process lease. Conductor hands its graph and
 ledger paths to child workers and reloads their completed writes.
 
-The shared graph defaults to `~/.angel0/dossier/graph.json`; `ANGEL_CAUSAL_GRAPH`
-or `--graph` overrides it. State lives under `~/.angel0/`. Overrides include
+The shared graph defaults to `~/.angelX/dossier/graph.json`; `ANGEL_CAUSAL_GRAPH`
+or `--graph` overrides it. State lives under `~/.angelX/`. Overrides include
 `ANGEL_DOSSIER_DIR`, `ANGEL_HABITS_DIR`, `ANGEL_HABIT_PROPOSED_DIR`,
 `ANGEL_SKILLS_DIR`, `ANGEL_CONDUCTOR_DIR`, `ANGEL_REFLEX_DIR`, `ANGEL_CUT_DIR`,
 `ANGEL_STILL_DIR`, `ANGEL_BARREL_DIR`, `ANGEL_TRAJECTORY_DIR` and
@@ -58,7 +58,7 @@ The numbers above illustrate the schema. The evaluator owns task isolation and
 independent verification; the [native runner contract](../cockpit/docs/COMPETITION_RUNNER.md)
 describes the policy process. Missing measurements, null values, stale request
 IDs and failed processes are rejected. Reports persist under
-`ANGEL_BENCHMARK_REPORTS_DIR` (default `~/.angel0/benchmarks`). Reflex defaults to
+`ANGEL_BENCHMARK_REPORTS_DIR` (default `~/.angelX/benchmarks`). Reflex defaults to
 four attempts per day; `ANGEL_REFLEX=0` disables it. It only applies an overlay
 after a measured experiment concludes. Conductor compares only reports with
 matching evaluation identities and subjects. Its confidence is a graph heuristic,

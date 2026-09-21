@@ -14,7 +14,7 @@
 **/.pytest_cache/
 **/.env
 **/.env.*
-# Repo-local operator env (live API keys, host aliases); sourced by bin/angel0.
+# Repo-local operator env (live API keys, host aliases); sourced by bin/angelX.
 .angel.env
 .angel.*.env
 **/*.log
@@ -27,3 +27,5 @@ off-limits/
 .github/workflows/
 angel_test_output/
 .astra-tmp/
+.refactor-notes/
+artifacts/

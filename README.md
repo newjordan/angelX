@@ -11,7 +11,7 @@ together in one cockpit.
 # The first launch builds from source.
 git clone https://github.com/newjordan/angelX.git
 cd angelX
-ANGEL_VIDEO=0 ./bin/angel0
+ANGEL_VIDEO=0 ./bin/angelX
 ```
 
 - **Models and formations** — Choose models and thinking levels, configure teams, and run agent graphs.
@@ -39,11 +39,13 @@ Research and public work that informed Angel:
 - [Learning, Fast and Slow: Towards LLMs That Adapt Continually](https://arxiv.org/abs/2605.12484v2) — Rishabh Tiwari and collaborators (2026); Sloptomizer's fast-context and slow-learner design.
 - [Finite-time Analysis of the Multiarmed Bandit Problem](https://doi.org/10.1023/A:1013689704352) — Peter Auer, Nicolò Cesa-Bianchi and Paul Fischer (2002); UCB1 exploration.
 - [Prime Agent: A Self-Improving RLM Harness](https://arxiv.org/abs/2608.23552) — Seth Karten and collaborators (2026); editable, persistent harness state.
+- [Geoffrey Huntley's Ralph loop](https://ghuntley.com/ralph/) — an agent put on a loop with a simple prime directive: read the issues, pick one, write the patch, run the tests, repeat. The measured campaign and autonomous loop work here is a direct descendant of that idea.
 - [RL Systems Mind the Gap: Matching Trainer and Generator Throughput](https://newsletter.semianalysis.com/p/rl-systems-mind-the-gap-matching) — Kimbo Chen, Cheang Kang Wen and Dylan Patel / SemiAnalysis (2026); rollout staleness, pruning and reward-variance guards.
 - [Deli_AutoResearch](https://victorchen96.github.io/auto_research/framework.html) — Deli Chen; retained findings, fresh-context deliberation and stall recovery.
 - [OpenScience](https://github.com/synthetic-sciences/openscience) — Synthetic Sciences; literature-search design. Search metadata comes from [OpenAlex](https://openalex.org), [Crossref](https://www.crossref.org), [Semantic Scholar](https://www.semanticscholar.org) and [Europe PMC](https://europepmc.org).
 
 Code and tooling credits include [OpenAI Codex](https://github.com/openai/codex),
+[xAI's Grok CLI](https://github.com/superagent-ai/grok-cli),
 [oh-my-pi](https://github.com/can1357/oh-my-pi),
 [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix),
 [Hermes Agent](https://github.com/NousResearch/hermes-agent),
