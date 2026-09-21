@@ -204,6 +204,9 @@ else
   fi
 fi
 
+export ANGEL_TOOL_IDLE_FLOOR_SECS="${ANGEL_TOOL_IDLE_FLOOR_SECS:-120}"
+export ANGEL_TOOL_HARD_TIMEOUT="${ANGEL_TOOL_HARD_TIMEOUT:-600}"
+
 # Apply the user's optional provider allowlist before any binary is launched, even
 # when ANGEL_NO_BUILD selects an older image without the Rust registration gate.
 # shellcheck source=../scripts/check/angel-club-policy.sh

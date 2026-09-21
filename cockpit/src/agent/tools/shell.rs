@@ -718,18 +718,44 @@ fn task_shell_git_redirect(command: &str) -> Option<String> {
     None
 }
 
-fn task_shell_poll_redirect(command: &str) -> Option<String> {
-    if !task_shell_no_detach_active() {
-        return None;
+fn contains_excessive_sleep(command: &str, max_secs: u64) -> bool {
+    let words = command.split_whitespace().collect::<Vec<_>>();
+    for (i, &word) in words.iter().enumerate() {
+        let w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.');
+        if w == "sleep" {
+            if let Some(&next) = words.get(i + 1) {
+                let next_clean = next.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
+                if let Ok(secs) = next_clean.parse::<f64>() {
+                    if secs > max_secs as f64 {
+                        return true;
+                    }
+                }
+            }
+        }
     }
-    let command = strip_shell_heredoc_bodies(command);
-    let command = strip_unquoted_shell_comments(&command);
-    unquoted_shell_word(&command, "sleep").then(|| {
-        "shell command rejected: this sealed task does not spend a tool hop sleeping or polling. \
-         Run the foreground build/benchmark directly and let it own its wait, or do other useful \
-         work before taking one later status snapshot."
-            .to_string()
-    })
+    false
+}
+
+fn task_shell_poll_redirect(command: &str) -> Option<String> {
+    let command_stripped = strip_shell_heredoc_bodies(command);
+    let command_stripped = strip_unquoted_shell_comments(&command_stripped);
+    if task_shell_no_detach_active() {
+        if unquoted_shell_word(&command_stripped, "sleep") {
+            return Some(
+                "shell command rejected: this sealed task does not spend a tool hop sleeping or polling. \
+                 Run the foreground build/benchmark directly and let it own its wait, or do other useful \
+                 work before taking one later status snapshot."
+                    .to_string(),
+            );
+        }
+    } else if contains_excessive_sleep(&command_stripped, 10) {
+        return Some(
+            "shell command rejected: sleeping for more than 10s inside a synchronous tool call freezes the terminal UI. \
+             To check on a running background command or build, inspect its log or status directly without a long sleep."
+                .to_string(),
+        );
+    }
+    None
 }
 
 fn last_unquoted_background_operator(command: &str) -> Option<usize> {
@@ -1214,7 +1240,12 @@ impl Tool for ShellTool {
         if let Some(redirect) = task_shell_git_redirect(command) {
             return Err(redirect);
         }
-        if let Some(redirect) = task_shell_poll_redirect(command) {
+        // A registry cancel token outranks the sleep guard. Rejecting here
+        // returns before the runner can observe a cancel that is already
+        // queued or arrives a moment later (`sleep 30 & wait`).
+        if cancel.is_none()
+            && let Some(redirect) = task_shell_poll_redirect(command)
+        {
             return Err(redirect);
         }
         if let Some(redirect) = task_shell_detach_redirect(command) {

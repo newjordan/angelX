@@ -318,27 +318,33 @@ pub(crate) fn tool_timeout() -> Option<Duration> {
 
 /// Wall-clock ceiling while a process group is *busy* (runnable or burning
 /// CPU): `ANGEL_TOOL_HARD_TIMEOUT`, operator cap only. Idle groups never
-/// consult this. Unset or `0` = unlimited while busy (a busy process is work).
+/// consult this. `0` = unlimited while busy (a busy process is work).
+/// Defaults to 900s (15 min) to prevent runaway busy loops from blocking the session forever.
+/// YOLO does not disable this: it governs approvals, not process-group containment.
 pub(crate) fn tool_hard_timeout() -> Option<Duration> {
     match std::env::var("ANGEL_TOOL_HARD_TIMEOUT")
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
     {
-        Some(0) | None => None,
+        Some(0) => None,
         Some(n) => Some(Duration::from_secs(n)),
+        None => Some(Duration::from_secs(900)),
     }
 }
 
-/// Optional idle hang floor. Unset or `0` leaves silent work alone: process
-/// state cannot distinguish a hung command from a legitimate GPU/remote wait.
-/// Operators may opt into the heuristic with `ANGEL_TOOL_IDLE_FLOOR_SECS`.
+/// Silent, non-runnable process group hang floor. Reaps sleeping processes
+/// that produce no stdout/stderr chunks past the floor.
+/// Defaults to 120s (2 minutes) to protect the interactive cockpit TUI from deadlocks;
+/// explicit `0` opts out for long silent background jobs.
+/// YOLO does not disable this: a silent process group is containment, not consent.
 pub(crate) fn tool_idle_floor() -> Option<Duration> {
     match std::env::var("ANGEL_TOOL_IDLE_FLOOR_SECS")
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
     {
-        Some(n) if n > 0 => Some(Duration::from_secs(n)),
-        _ => None,
+        Some(0) => None,
+        Some(n) => Some(Duration::from_secs(n)),
+        None => Some(Duration::from_secs(120)),
     }
 }
 

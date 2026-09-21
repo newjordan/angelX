@@ -306,23 +306,39 @@ fn tool_ceilings_and_idle_floor_are_operator_caps_only() {
     let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
     let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
-    // No default wall ceiling in either direction: a running tool is work.
+    // Safe defaults prevent silent deadlocks and runaway busy loops from freezing the cockpit TUI.
     assert_eq!(tool_timeout(), None);
-    assert_eq!(tool_hard_timeout(), None);
+    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
     assert_eq!(tool_idle_timeout(), None);
-    assert_eq!(tool_idle_floor(), None);
+    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(120)));
     let _armed = crate::tests::TestEnvGuard::set("ANGEL_COMPETITION_MODE", "1");
-    assert_eq!(tool_idle_floor(), None);
+    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(120)));
     drop(_armed);
     // Explicit operator caps are honoured verbatim; `0` keeps them off.
     let _explicit = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "45");
     assert_eq!(tool_idle_floor(), Some(Duration::from_secs(45)));
+    let _idle_zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "0");
+    assert_eq!(tool_idle_floor(), None);
     let _tool_idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_SECS", "75");
     assert_eq!(tool_idle_timeout(), Some(Duration::from_secs(75)));
     let _cap = crate::tests::TestEnvGuard::set("ANGEL_TOOL_TIMEOUT", "600");
     assert_eq!(tool_timeout(), Some(Duration::from_secs(600)));
     let _zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "0");
     assert_eq!(tool_hard_timeout(), None);
+}
+
+#[test]
+fn yolo_does_not_disable_containment_ceilings() {
+    let _env = crate::tests::env_lock();
+    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
+    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
+    let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_FLOOR_SECS");
+    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
+    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(120)));
+    let _hard_zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "0");
+    assert_eq!(tool_hard_timeout(), None);
+    let _idle_zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "0");
+    assert_eq!(tool_idle_floor(), None);
 }
 
 #[test]
@@ -404,6 +420,9 @@ fn detached_pipe_holder_cannot_strand_output_reader_threads() {
 #[test]
 fn sigterm_grace_lets_a_polite_child_exit_before_sigkill() {
     let _env = crate::tests::env_lock();
+    // Non-fixed caller deadlines are still removed under YOLO. This test
+    // asserts the explicit deadline fires, so pin that contract off.
+    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
     let _grace = crate::tests::TestEnvGuard::set("ANGEL_TOOL_KILL_GRACE_MS", "2000");
     let mut cmd = Command::new("sleep");
     cmd.arg("30");
@@ -426,6 +445,9 @@ fn sigterm_grace_lets_a_polite_child_exit_before_sigkill() {
 #[test]
 fn cancellable_timeout_path_also_captures_diagnostics() {
     let _env = crate::tests::env_lock();
+    // Same as the grace test: an explicit non-fixed deadline must not be
+    // confused with the containment ceilings, which stay armed under YOLO.
+    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
     let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
     let cancel = AtomicBool::new(false);
     let mut cmd = Command::new("sleep");
