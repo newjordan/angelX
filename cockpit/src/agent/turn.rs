@@ -229,7 +229,7 @@ impl Thinking {
                 let _loop_scope = is_loop_worker.then(|| {
                     let package = crate::agent::harness::comp_packages::active_package();
                     tools.bind_loop_worker_scope_static(package, package.worker_profile());
-                    LoopWorkerScopeGuard(&*tools)
+                    LoopWorkerScopeGuard(&tools)
                 });
                 // One Vec clone of message headers; content bytes stay shared.
                 // Taken here so Enter-after-echo does not pay a second snapshot.

@@ -1,7 +1,7 @@
 //! Pure, display-only motion for the selected MoA formation card.
 
 use crate::agent::formations::{self, Formation, FormationId};
-use crate::ui::term::art::{self, ColoredBrailleCell, ColoredBrailleImage, DMD_PALETTE};
+use crate::ui::term::art::{ColoredBrailleCell, ColoredBrailleImage, DMD_PALETTE};
 use crate::ui::viz::lifecycle_viz::MotionMode;
 use ratatui::{
     style::{Color, Style},

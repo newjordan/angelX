@@ -389,10 +389,10 @@ impl LoopLaunchDialog {
             self.pre_custom_idx = self.iterations_idx.min(ITERATIONS.len() - 1);
             self.custom_entry = Some(String::new());
         }
-        if let Some(committed) = self.custom_iterations {
-            if self.custom_entry.as_deref().is_some_and(str::is_empty) {
-                self.custom_entry = Some(committed.to_string());
-            }
+        if let Some(committed) = self.custom_iterations
+            && self.custom_entry.as_deref().is_some_and(str::is_empty)
+        {
+            self.custom_entry = Some(committed.to_string());
         }
         self.focus = LoopDialogFocus::Iterations;
     }
@@ -565,7 +565,7 @@ pub(crate) fn render(
     // for a length the presets do not offer. While the entry is open it shows
     // the buffer with a caret instead of a label.
     let custom_length = match dialog.custom_entry_text() {
-        Some(buffer) if buffer.is_empty() => format!("{CUSTOM_LENGTH_LABEL}_"),
+        Some("") => format!("{CUSTOM_LENGTH_LABEL}_"),
         Some(buffer) => format!("{buffer}_"),
         None => custom_iterations.unwrap_or_else(|| CUSTOM_LENGTH_LABEL.to_string()),
     };

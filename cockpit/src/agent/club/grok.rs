@@ -2332,36 +2332,35 @@ pub(crate) fn grok_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)>
         }
     }
 
-    if super::api_club_enabled("grok-api") {
-        if let Some(key) = env_first(&[
+    if super::api_club_enabled("grok-api")
+        && let Some(key) = env_first(&[
             "ANGEL_GROK_KEY",
             "ANGEL_XAI_KEY",
             "XAI_API_KEY",
             "GROK_API_KEY",
         ])
         .filter(|key| !key.trim().is_empty())
-        {
-            let url = env_first(&[
-                "ANGEL_GROK_API_URL",
-                "ANGEL_GROK_URL",
-                "ANGEL_GROK_BASE_URL",
-                "GROK_API_URL",
-                "XAI_BASE_URL",
-            ])
-            .filter(|url| !url.trim().is_empty())
-            .unwrap_or_else(|| GROK_DEFAULT_API_BASE.to_string());
-            let model = env_first(&["ANGEL_GROK_API_MODEL", "GROK_API_MODEL"])
-                .filter(|model| !model.trim().is_empty())
-                .unwrap_or_else(|| GROK_DEFAULT_MODEL.to_string());
-            let club: Arc<dyn Club> = Arc::new(
-                crate::agent::club::HttpClub::new("grok-api", url, model, Some(key)).sota_tuned(),
-            );
-            links.push((
-                "grok-api".to_string(),
-                club,
-                Arc::new(AtomicBool::new(true)),
-            ));
-        }
+    {
+        let url = env_first(&[
+            "ANGEL_GROK_API_URL",
+            "ANGEL_GROK_URL",
+            "ANGEL_GROK_BASE_URL",
+            "GROK_API_URL",
+            "XAI_BASE_URL",
+        ])
+        .filter(|url| !url.trim().is_empty())
+        .unwrap_or_else(|| GROK_DEFAULT_API_BASE.to_string());
+        let model = env_first(&["ANGEL_GROK_API_MODEL", "GROK_API_MODEL"])
+            .filter(|model| !model.trim().is_empty())
+            .unwrap_or_else(|| GROK_DEFAULT_MODEL.to_string());
+        let club: Arc<dyn Club> = Arc::new(
+            crate::agent::club::HttpClub::new("grok-api", url, model, Some(key)).sota_tuned(),
+        );
+        links.push((
+            "grok-api".to_string(),
+            club,
+            Arc::new(AtomicBool::new(true)),
+        ));
     }
     links
 }

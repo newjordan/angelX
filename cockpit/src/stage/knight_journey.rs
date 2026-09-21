@@ -5,7 +5,7 @@
 //! colored Braille cells. Original jousting remains the preview/fallback when
 //! this path declines (jousting `/tourney calibrate` names, missing assets).
 
-use crate::ui::term::art::{self, ColoredBrailleCell, DMD_PALETTE, ImageRegion};
+use crate::ui::term::art::{ColoredBrailleCell, DMD_PALETTE, ImageRegion};
 use crate::ui::viz::lifecycle_viz::{CeremonyKind, FPS, FRAME_COUNT, MotionMode};
 use ratatui::{
     style::{Color, Style},

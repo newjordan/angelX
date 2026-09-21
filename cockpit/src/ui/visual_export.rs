@@ -1,7 +1,7 @@
 //! Deterministic terminal-cell export for visual calibration and contact sheets.
 
 use crate::agent::formations::{self, FormationId};
-use crate::ui::viz::lifecycle_viz::{self, CeremonyKind, MotionMode};
+use crate::ui::viz::lifecycle_viz::{CeremonyKind, MotionMode};
 use ratatui::{style::Color, text::Text};
 use serde_json::{Value, json};
 

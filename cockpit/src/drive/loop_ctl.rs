@@ -1106,7 +1106,7 @@ impl crate::App {
     pub(crate) fn loop_dialog_key(&mut self, code: KeyCode) -> bool {
         let mut start = false;
         let mut cancel = false;
-        let mut note: Option<String> = None;
+        let note: Option<String> = None;
         if let Some(dialog) = self.loop_dialog.as_mut() {
             // While a custom length is being typed the entry owns every key:
             // digits edit it, Enter commits it, Esc drops it, and nothing slips
@@ -1119,13 +1119,10 @@ impl crate::App {
                     KeyCode::Backspace | KeyCode::Delete => {
                         dialog.custom_length_backspace();
                     }
+                    // An empty entry is refused and the chosen preset stands, so
+                    // this key has nothing to report: it just commits what is typed.
                     KeyCode::Enter => {
-                        if !dialog.commit_custom_length() {
-                            note = Some(
-                                "custom loop length needs a number — kept the chosen preset"
-                                    .to_string(),
-                            );
-                        }
+                        let _ = dialog.commit_custom_length();
                     }
                     KeyCode::Esc => {
                         dialog.cancel_custom_length();
