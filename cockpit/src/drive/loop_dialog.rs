@@ -368,6 +368,8 @@ impl LoopLaunchDialog {
     }
 
     /// The index of the always-present custom-length slot in the iters row.
+    /// Test-only: production compares against `ITERATIONS.len()` inline.
+    #[cfg(test)]
     pub(crate) fn custom_length_slot() -> usize {
         ITERATIONS.len()
     }
