@@ -98,3 +98,55 @@ that is where the "it is still running" reading came from. Use
   suite that is aspirational.
 - Re-measure once: `time cargo test --bin angel -- --test-threads=32` detached,
   to record the suite's true wall clock rather than the 8-thread partial.
+
+## BUG-0002 — the new hang guards are inert under `ANGEL_YOLO=1`
+
+Status: open. It is why the in-flight timeout package was not pushed.
+
+The package that sat uncommitted on top of `36adc72` changes `tool_hard_timeout()`
+(default 900 s) and `tool_idle_floor()` (default 120 s) in
+`cockpit/src/agent/harness/exec.rs`, rejects `sleep` polling in
+`cockpit/src/agent/tools/shell.rs`, and exports `ANGEL_TOOL_IDLE_FLOOR_SECS=120` /
+`ANGEL_TOOL_HARD_TIMEOUT=600` from `bin/angelX`. Both new defaults sit behind a bypass:
+
+```rust
+pub(crate) fn tool_hard_timeout() -> Option<Duration> {
+    if crate::platform::yolo::enabled() {
+        return None;
+    }
+    ...
+```
+
+`yolo::enabled()` is `profile() == Profile::Full`, and this box runs with `ANGEL_YOLO=1`.
+So the guard does nothing in the posture the operator actually uses — which is where the
+hang was experienced. Yolo governs *approvals*; a runaway process group is containment,
+not consent.
+
+Four of the package's failures are that bypass, measured on one unchanged tree:
+
+| test | `ANGEL_YOLO=1` | `ANGEL_YOLO` unset |
+|---|---|---|
+| `exec::timeout_diag_tests::cancellable_timeout_path_also_captures_diagnostics` | FAILED, 30.06 s | ok, 0.31 s |
+| `exec::timeout_diag_tests::sigterm_grace_lets_a_polite_child_exit_before_sigkill` | FAILED | ok, 0.31 s |
+| `exec::activity::tests::run_turn_child_activity_is_owned_recent_and_released` | FAILED (`owned_child_active`) | ok, 0.00 s |
+| `exec::delegate_activity::tests::delegate_heartbeat_does_not_erase_silence_and_panic_cleans_up` | FAILED (`worker panic`) | ok, 0.07 s |
+
+The 30 s red is the tell: the test waits out its own deadline for a timeout the bypass
+removed, then asserts `capture.timed_out` false. Nothing in these tests pins the posture
+they assume, so they inherit ambient env — green in CI, red on the operator's box.
+
+The fifth is a real regression, red with the bypass either way:
+
+- `agent::tools::shell::tests::shell_tool_honors_registry_cancel_authority` — FAILED,
+  3.61 s. The new synchronous-sleep guard rejects the command before the registry's
+  queued cancel can be honored: *"shell command rejected: sleeping for more than 10s
+  inside a synchronous tool call freezes the terminal UI."* A cancel already queued
+  should outrank the guard.
+
+Fix directions: honor the ceilings regardless of yolo (or scope the bypass to
+approvals), pin the posture inside those tests instead of inheriting it, and let a
+pending cancel bypass the sleep guard.
+
+Not verified here: the full suite. BUG-0001's wall-clock cap plus a live benchmark
+campaign on the same box prevent a complete run; every result above comes from the
+exact-test form, which is what makes each pairing meaningful.
