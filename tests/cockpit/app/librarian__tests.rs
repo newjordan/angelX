@@ -18,7 +18,7 @@ impl MemoryStore for RecordingStore {
 
 fn report(body: &str) -> Report {
     Report {
-        wing: "angel0".into(),
+        wing: "angelX".into(),
         topic: "Findings".into(),
         body: body.into(),
         source: "moa".into(),

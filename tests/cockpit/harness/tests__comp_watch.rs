@@ -818,7 +818,7 @@ fn board_outline_is_recon_not_preflight() {
     let outline = call("outline", serde_json::json!({"path": "LIVING_HANDOFF.md"}));
     let defs = call(
         "defs",
-        serde_json::json!({"path": ".angel0/notes/board.md"}),
+        serde_json::json!({"path": ".angelX/notes/board.md"}),
     );
     let product = call(
         "outline",

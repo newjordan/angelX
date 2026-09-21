@@ -874,7 +874,7 @@ fn sota_tuned_build_request_keeps_caveman_opt_in() {
         body["instructions"]
             .as_str()
             .unwrap_or_default()
-            .contains("angel0 SOTA brevity mode"),
+            .contains("angelX SOTA brevity mode"),
         "{body}"
     );
     assert_eq!(body["input"][0]["role"], "user");

@@ -25,8 +25,8 @@ fn temp_dir(tag: &str) -> PathBuf {
 
 #[test]
 fn normalize_remote_ssh_scp_form() {
-    let s = normalize_remote("git@github.com:newjordan/angel0.git").unwrap();
-    assert_eq!(s.slug(), "newjordan/angel0");
+    let s = normalize_remote("git@github.com:newjordan/angelX.git").unwrap();
+    assert_eq!(s.slug(), "newjordan/angelX");
     assert_eq!(s.host, "github.com");
     assert!(s.is_github());
 }
@@ -34,16 +34,16 @@ fn normalize_remote_ssh_scp_form() {
 #[test]
 fn normalize_remote_https_form_with_and_without_dot_git() {
     assert_eq!(
-        normalize_remote("https://github.com/newjordan/angel0.git")
+        normalize_remote("https://github.com/newjordan/angelX.git")
             .unwrap()
             .slug(),
-        "newjordan/angel0"
+        "newjordan/angelX"
     );
     assert_eq!(
-        normalize_remote("https://github.com/newjordan/angel0")
+        normalize_remote("https://github.com/newjordan/angelX")
             .unwrap()
             .slug(),
-        "newjordan/angel0"
+        "newjordan/angelX"
     );
 }
 

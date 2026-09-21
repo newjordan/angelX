@@ -20,7 +20,7 @@
 //! `prosperity` is the long score: it integrates warmth + grain + light into
 //! tiers that unlock garden → well → lanterns → banners in the hamlet.
 //!
-//! Persistence: same JSON file as `WorldRewards` (`~/.angel0/world.json`),
+//! Persistence: same JSON file as `WorldRewards` (`~/.angelX/world.json`),
 //! atomically written, throttled — identical discipline to the rewards save.
 //!
 //! Efficiency budget: everything here is O(1) integer math on beats that are

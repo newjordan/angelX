@@ -264,7 +264,7 @@ impl SwarmClub {
 
     fn grok_research_prompt(problem: &str) -> String {
         format!(
-            "You are Grok, the live research scout for an angel0 mixture-of-agents \
+            "You are Grok, the live research scout for an angelX mixture-of-agents \
              panel. Bring fresh web/X context back to the team without solving the \
              whole task. Focus on current, latest, trending, or online facts. Return \
              concise bullets with dates when available, include source URLs, and flag \

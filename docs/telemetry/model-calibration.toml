@@ -1,4 +1,4 @@
-# Embedded measured defaults; runtime override: ~/.angel0/model-calibration.toml.
+# Embedded measured defaults; runtime override: ~/.angelX/model-calibration.toml.
 # No model entries means no complete measured effort cohort is available.
 status = "promoted"
 date = "2026-09-09"

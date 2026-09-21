@@ -346,7 +346,7 @@ export const workflowBelief = (graph, node, opts = {}) => factBelief(graph, node
 // ─── H3: skill compiler (propose-only) ───────────────────────────────────────
 // Confident workflows render into draft skill folders under the PROPOSED dir —
 // never the live one. Tier B propose-only, the Reflex M4 doctrine: a human
-// keypress (`/habits approve`, H4) is the only path into `~/.angel0/skills`.
+// keypress (`/habits approve`, H4) is the only path into `~/.angelX/skills`.
 
 export const DEFAULT_MIN_BELIEF = 0.75 // ANGEL_HABIT_MIN_BELIEF
 export const DEFAULT_MAX_PROPOSALS_PER_DAY = 2 // ANGEL_HABIT_MAX_PROPOSALS_PER_DAY
@@ -609,7 +609,7 @@ export function foldVerdicts(graph, verdicts, opts = {}) {
 }
 
 /**
- * The status artifact the tick writes to `~/.angel0/habitsmith/status.json` and
+ * The status artifact the tick writes to `~/.angelX/habitsmith/status.json` and
  * `/habits` renders alongside the drafts: every workflow fact with its belief,
  * skill usage, and the drift flag. Pure.
  */

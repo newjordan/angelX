@@ -34,12 +34,12 @@ function write(path, value, mode = 0o644) {
 }
 
 function fixture(t, { dotmax = false } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'angel0-release-verifier-test-'))
+  const root = mkdtempSync(join(tmpdir(), 'angelX-release-verifier-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   command(root, 'git', ['init', '--quiet'])
   command(root, 'git', ['config', 'user.name', 'Release Verifier Test'])
   command(root, 'git', ['config', 'user.email', 'release-verifier@example.invalid'])
-  write(join(root, 'cockpit/Cargo.toml'), '[package]\nname="angel0-cockpit"\nversion="0.1.0"\n')
+  write(join(root, 'cockpit/Cargo.toml'), '[package]\nname="angelX-cockpit"\nversion="0.1.0"\n')
   write(join(root, 'cockpit/Cargo.lock'), 'version = 4\n', 0o660)
   write(join(root, 'cockpit/src/main.rs'), 'fn main() {}\n')
   write(join(root, 'cockpit/src/helper.sh'), '#!/bin/sh\nexit 0\n', 0o755)
@@ -122,7 +122,7 @@ test('verifier binds manifest sidecars to normalized USTAR paths, modes, sizes, 
       ['cockpit/src/main.rs', 0o644],
     ],
   )
-  const extraction = mkdtempSync(join(tmpdir(), 'angel0-release-extract-test-'))
+  const extraction = mkdtempSync(join(tmpdir(), 'angelX-release-extract-test-'))
   t.after(() => rmSync(extraction, { recursive: true, force: true }))
   const source = extractVerifiedRows(verified.rows, extraction)
   assert.equal(readFileSync(join(source, 'cockpit/src/main.rs'), 'utf8'), 'fn main() {}\n')

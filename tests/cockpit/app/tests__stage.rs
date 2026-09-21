@@ -352,7 +352,7 @@ fn compact_header_keeps_project_controls_when_operator_status_is_long() {
                 .filter_map(|x| buffer.cell((x, y)).map(|cell| cell.symbol()))
                 .collect::<String>()
         })
-        .find(|row| row.contains("angel0"))
+        .find(|row| row.contains("angelX"))
         .expect("rendered compact header row");
     assert!(
         row.contains("MODEL") && row.contains("THINK") && row.contains("FORMATION"),

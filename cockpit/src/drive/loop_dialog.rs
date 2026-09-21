@@ -60,6 +60,12 @@ pub(crate) struct LoopLaunchDialog {
     custom_budget: Option<usize>,
     podrace: bool,
     focus: LoopDialogFocus,
+    /// The typed buffer while the operator sets a custom loop length. `Some`
+    /// means the iters row is in entry mode: digits edit it, Enter commits the
+    /// length, Esc drops it and the row returns to the choice it left.
+    custom_entry: Option<String>,
+    /// The choice the iters row falls back to when the entry is dropped.
+    pre_custom_idx: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -122,6 +128,9 @@ const ITERATIONS: &[IterChoice] = &[
     },
 ];
 
+/// The always-present iters choice that opens the typed length entry.
+const CUSTOM_LENGTH_LABEL: &str = "set custom";
+
 const BUDGETS: &[BudgetChoice] = &[
     BudgetChoice {
         label: "250k",
@@ -163,6 +172,8 @@ impl LoopLaunchDialog {
             custom_budget: None,
             podrace: false,
             focus: LoopDialogFocus::Duration,
+            custom_entry: None,
+            pre_custom_idx: ITERATIONS.len() - 1,
         }
     }
 
@@ -186,6 +197,8 @@ impl LoopLaunchDialog {
             custom_budget: None,
             podrace: true,
             focus: LoopDialogFocus::Duration,
+            custom_entry: None,
+            pre_custom_idx: ITERATIONS.len() - 1,
         }
     }
 
@@ -287,9 +300,13 @@ impl LoopLaunchDialog {
                 );
             }
             LoopDialogFocus::Iterations => {
+                if self.custom_entry.is_some() {
+                    return; // the entry owns the row until it is committed or dropped
+                }
                 self.select_iterations(cycle_index(
                     self.iterations_idx,
-                    ITERATIONS.len() + usize::from(self.custom_iterations.is_some()),
+                    // presets + the always-present custom-length slot
+                    ITERATIONS.len() + 1,
                     forward,
                 ));
             }
@@ -332,12 +349,107 @@ impl LoopLaunchDialog {
     }
 
     fn select_iterations(&mut self, index: usize) {
-        self.iterations_idx =
-            index.min(ITERATIONS.len() + usize::from(self.custom_iterations.is_some()) - 1);
+        // The custom slot lives one past the presets. With a committed length it
+        // is an ordinary choice; without one it opens the entry instead of
+        // claiming a cap nobody set.
+        if index >= ITERATIONS.len() {
+            if self.custom_iterations.is_some() {
+                self.iterations_idx = ITERATIONS.len();
+            } else {
+                self.begin_custom_length();
+            }
+            return;
+        }
+        self.iterations_idx = index;
         if self.settings().max_iters == 0 {
             self.duration_idx = DURATIONS.len() - 1;
             self.budget_idx = BUDGETS.len() - 1;
         }
+    }
+
+    /// The index of the always-present custom-length slot in the iters row.
+    pub(crate) fn custom_length_slot() -> usize {
+        ITERATIONS.len()
+    }
+
+    /// True while the iters row is taking a typed length.
+    pub(crate) fn custom_entry_active(&self) -> bool {
+        self.custom_entry.is_some()
+    }
+
+    /// The typed buffer, as it should appear on screen.
+    pub(crate) fn custom_entry_text(&self) -> Option<&str> {
+        self.custom_entry.as_deref()
+    }
+
+    /// Open the custom-length entry, seeded with the committed length if there
+    /// is one, so re-opening it never loses what the operator set.
+    pub(crate) fn begin_custom_length(&mut self) {
+        if self.custom_entry.is_none() {
+            self.pre_custom_idx = self.iterations_idx.min(ITERATIONS.len() - 1);
+            self.custom_entry = Some(String::new());
+        }
+        if let Some(committed) = self.custom_iterations {
+            if self.custom_entry.as_deref().is_some_and(str::is_empty) {
+                self.custom_entry = Some(committed.to_string());
+            }
+        }
+        self.focus = LoopDialogFocus::Iterations;
+    }
+
+    /// Type a digit into the entry. Returns whether the key was consumed.
+    pub(crate) fn custom_length_digit(&mut self, ch: char) -> bool {
+        let Some(buffer) = self.custom_entry.as_mut() else {
+            return false;
+        };
+        if !ch.is_ascii_digit() {
+            return false;
+        }
+        if buffer.len() >= 7 {
+            return true; // consumed, but seven digits is the cap
+        }
+        if buffer == "0" {
+            buffer.clear(); // no leading zero: 0 is not a length
+        }
+        buffer.push(ch);
+        true
+    }
+
+    /// Delete the last typed digit.
+    pub(crate) fn custom_length_backspace(&mut self) -> bool {
+        let Some(buffer) = self.custom_entry.as_mut() else {
+            return false;
+        };
+        buffer.pop();
+        true
+    }
+
+    /// Commit the typed length. An empty entry, or a zero, is not a length: the
+    /// row falls back to the choice it had before the entry opened.
+    pub(crate) fn commit_custom_length(&mut self) -> bool {
+        let Some(buffer) = self.custom_entry.take() else {
+            return false;
+        };
+        match buffer.trim().parse::<usize>() {
+            Ok(iters) if iters > 0 => {
+                self.custom_iterations = Some(iters);
+                self.iterations_idx = ITERATIONS.len();
+                true
+            }
+            _ => {
+                self.iterations_idx = self.pre_custom_idx.min(ITERATIONS.len() - 1);
+                false
+            }
+        }
+    }
+
+    /// Drop the typed length and return the row to the choice it left.
+    pub(crate) fn cancel_custom_length(&mut self) -> bool {
+        if self.custom_entry.take().is_none() {
+            return false;
+        }
+        self.iterations_idx = self.pre_custom_idx.min(ITERATIONS.len() - 1);
+        true
     }
 
     pub(crate) fn focused_action(&self) -> Option<LoopDialogAction> {
@@ -406,6 +518,11 @@ pub(crate) fn render(
     } else {
         "enter workshop · agent loop"
     };
+    let title = if dialog.custom_entry_active() {
+        format!("{title} · set custom length")
+    } else {
+        title.to_string()
+    };
     let task = if dialog.task.trim().is_empty() {
         "task: active goal".to_string()
     } else {
@@ -444,10 +561,18 @@ pub(crate) fn render(
     );
     y = y.saturating_add(1);
     let custom_iterations = dialog.custom_iterations.map(|v| v.to_string());
+    // The custom-length slot is always on the row: it is how an operator asks
+    // for a length the presets do not offer. While the entry is open it shows
+    // the buffer with a caret instead of a label.
+    let custom_length = match dialog.custom_entry_text() {
+        Some(buffer) if buffer.is_empty() => format!("{CUSTOM_LENGTH_LABEL}_"),
+        Some(buffer) => format!("{buffer}_"),
+        None => custom_iterations.unwrap_or_else(|| CUSTOM_LENGTH_LABEL.to_string()),
+    };
     let iteration_choices: Vec<_> = ITERATIONS
         .iter()
         .map(|c| c.label)
-        .chain(custom_iterations.as_deref())
+        .chain([custom_length.as_str()])
         .collect();
     let iters_label = if dialog.is_handoff_rl() {
         "rolls"
@@ -518,7 +643,12 @@ pub(crate) fn render(
 
     let help_y = inner.y + inner.height.saturating_sub(1);
     frame.render_widget(
-        Paragraph::new("Tab/arrow keys or click · Enter starts · Esc exits").style(dim()),
+        Paragraph::new(if dialog.custom_entry_active() {
+            "digits set the length · Backspace edits · Enter sets it · Esc drops it"
+        } else {
+            "Tab/arrow keys or click · Enter starts · Esc exits"
+        })
+        .style(dim()),
         Rect::new(inner.x, help_y, inner.width, 1),
     );
     hits

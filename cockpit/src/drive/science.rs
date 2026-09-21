@@ -326,7 +326,7 @@ pub(crate) fn search(src: Source, query: &str, limit: usize) -> Result<Vec<Paper
     let response = crate::agent::tools::http_transport::request("GET", &url, true, 5)
         .set(
             "User-Agent",
-            "angel0-science/0.1 (+https://github.com/newjordan/angel0)",
+            "angelX-science/0.1 (+https://github.com/newjordan/angelX)",
         )
         .call()
         .map_err(|e| e.to_string())?;
@@ -808,10 +808,10 @@ fn urlencode(s: &str) -> String {
 
 // ─── persistence: a TTL cache so repeat queries are instant and offline ──────
 
-/// Where synthesis results memoize (`~/.angel0/science/<hash>.json`). `None`
+/// Where synthesis results memoize (`~/.angelX/science/<hash>.json`). `None`
 /// outside a HOME, so unit-test worlds never touch the disk.
 fn cache_dir() -> Option<std::path::PathBuf> {
-    std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".angel0").join("science"))
+    std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".angelX").join("science"))
 }
 
 /// Synthesize with a disk cache: a fresh hit (younger than `ttl_secs`) returns
@@ -1154,7 +1154,7 @@ pub(crate) fn run(arg: Option<&str>) -> String {
     let Some(query) = arg.map(str::trim).filter(|q| !q.is_empty()) else {
         return "usage: /science <query>\n  fans the query across OpenAlex, Crossref, Semantic \
                 Scholar and Europe PMC, then folds the hits into a ranked, deduplicated briefing \
-                (cached 1h under ~/.angel0/science/)."
+                (cached 1h under ~/.angelX/science/)."
             .to_string();
     };
     if query.chars().count() > MAX_QUERY_CHARS {

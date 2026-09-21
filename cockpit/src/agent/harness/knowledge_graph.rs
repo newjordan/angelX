@@ -439,7 +439,7 @@ impl KnowledgeGraph {
     }
 }
 
-/// One store per workspace: `~/.angel0/knowledge/<ws-key>.json`
+/// One store per workspace: `~/.angelX/knowledge/<ws-key>.json`
 /// (`ANGEL_KNOWLEDGE_DIR` overrides the directory).
 pub(crate) fn knowledge_store_path(workspace: &Path) -> PathBuf {
     std::env::var_os("ANGEL_KNOWLEDGE_DIR")

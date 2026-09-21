@@ -20,7 +20,7 @@ import { pathToFileURL } from 'node:url'
 import { ReleaseGateError, canonicalJson, sha256Bytes, sha256File } from './release-evidence.mjs'
 import { extractVerifiedRows, verifyReleaseSet } from './verify-release-evidence.mjs'
 
-export const ADVISORY_VERIFICATION_SCHEMA = 'angel0-release-advisory-verification/v1'
+export const ADVISORY_VERIFICATION_SCHEMA = 'angelX-release-advisory-verification/v1'
 const DOCKER = '/usr/bin/docker'
 const MAX_COMMAND_OUTPUT = 64 * 1024 * 1024
 const SCAN_TIMEOUT_MS = 5 * 60 * 1000
@@ -381,7 +381,7 @@ export function runAdvisoryVerification(
   const docker = executableFile(DOCKER, 'Docker CLI')
   const verified = verifyReleaseSet(manifestPath)
   const { scanner, policy } = advisoryPolicy(verified.manifest)
-  const scratch = mkdtempSync(join(tmpdir(), 'angel0-release-advisory-'))
+  const scratch = mkdtempSync(join(tmpdir(), 'angelX-release-advisory-'))
   try {
     const sourceRoot = extractVerifiedRows(verified.rows, scratch)
     const scanRoot = join(scratch, 'scan')

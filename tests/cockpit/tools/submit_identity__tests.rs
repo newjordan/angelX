@@ -39,7 +39,7 @@ fn quoted_nested_heredocs_are_literal_data_with_stable_attribution_offsets() {
             stamped.command
         );
         assert!(
-            stamped.command[command.len()..].contains("--model 'fixture-model' --harness 'angel0'")
+            stamped.command[command.len()..].contains("--model 'fixture-model' --harness 'angelX'")
         );
         assert!(!stamped.command[command.len()..].contains("copied"));
     }
@@ -144,7 +144,7 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
         stamped.command
     );
     assert!(!stamped.command.contains("Codex"), "{}", stamped.command);
-    let expected_flags = "hilbert submit --model 'deepseek-v4-flash' --harness 'angel0'";
+    let expected_flags = "hilbert submit --model 'deepseek-v4-flash' --harness 'angelX'";
     assert!(
         stamped.command.contains(expected_flags),
         "{}",
@@ -216,7 +216,7 @@ fn note_file_model_and_harness_lines_are_corrected() {
     let text = std::fs::read_to_string(&note).unwrap();
     assert_eq!(
         text,
-        "Model: deepseek-v4-flash\n**Harness:** angel0\n\n# Row tile\nThe model: unchanged prose here.\n"
+        "Model: deepseek-v4-flash\n**Harness:** angelX\n\n# Row tile\nThe model: unchanged prose here.\n"
     );
     assert!(
         stamped.notice.contains("2 Model/Harness line(s) corrected"),
@@ -238,7 +238,7 @@ fn journal_execution_records_refused_submit_without_network() {
     let _ = drain_journal();
     journal_execution(
         "shell",
-        "yukon submit --model grok-4.6 --harness angel0 --note-file /tmp/nope.md",
+        "yukon submit --model grok-4.6 --harness angelX --note-file /tmp/nope.md",
         None,
         Some(2),
         "rejected: byte-gate refused this payload",

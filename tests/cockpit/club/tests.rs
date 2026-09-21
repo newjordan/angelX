@@ -1589,7 +1589,7 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
         let rows = observed.lock().unwrap();
         assert_eq!(rows.len(), 1, "{}: {history:?}", wrapper.label());
         assert!(
-            rows[0].contains("--model 'actual-fixture-model' --harness 'angel0'"),
+            rows[0].contains("--model 'actual-fixture-model' --harness 'angelX'"),
             "{}",
             rows[0]
         );
@@ -2273,7 +2273,7 @@ fn sota_caveman_can_be_enabled_for_http_body() {
         messages[0]["content"]
             .as_str()
             .unwrap_or_default()
-            .contains("angel0 SOTA brevity mode"),
+            .contains("angelX SOTA brevity mode"),
         "{body}"
     );
     assert_eq!(messages[1]["content"], "answer this");
@@ -7255,7 +7255,7 @@ fn econ_contract_keeps_extraction_provider_native_by_default() {
         last["content"]
             .as_str()
             .unwrap_or_default()
-            .contains("angel0 output contract"),
+            .contains("angelX output contract"),
         "{body}"
     );
     assert!(body.get("max_tokens").is_none(), "{body}");
@@ -7318,7 +7318,7 @@ fn econ_leaves_prose_asks_provider_native() {
             .any(|m| m["content"]
                 .as_str()
                 .unwrap_or_default()
-                .contains("angel0 output contract")),
+                .contains("angelX output contract")),
         "{body}"
     );
 }
@@ -7405,7 +7405,7 @@ fn judge_json_parses_and_reasoning_provisions_nothing() {
     assert_eq!(d.max_tokens, Some(512));
     let contract = d.contract.as_deref().unwrap_or_default();
     assert!(
-        contract.contains("angel0 output contract") && contract.contains("Emit only the CSV rows."),
+        contract.contains("angelX output contract") && contract.contains("Emit only the CSV rows."),
         "{contract}"
     );
     assert_eq!(d.stop, vec!["\n\n".to_string()]);
@@ -7991,7 +7991,7 @@ fn output_budget_extraction_limit_outranks_judge_and_learned_defaults() {
         1024
     );
     club.stage_inferred_output_budget_for_test(16384);
-    let already = [ChatMsg::system("angel0 output contract"), ask[0].clone()];
+    let already = [ChatMsg::system("angelX output contract"), ask[0].clone()];
     assert_eq!(
         club.build_body(&already, &[], false).unwrap()["max_tokens"],
         1024

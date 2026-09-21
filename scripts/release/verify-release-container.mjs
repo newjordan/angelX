@@ -33,7 +33,7 @@ import {
 } from './verify-release-evidence.mjs'
 import { verifyRunnerContractSmoke } from './verify-runner-smoke.mjs'
 
-export const CONTAINER_VERIFICATION_SCHEMA = 'angel0-clean-container-release-verification/v1'
+export const CONTAINER_VERIFICATION_SCHEMA = 'angelX-clean-container-release-verification/v1'
 const DOCKER = '/usr/bin/docker'
 const MAX_COMMAND_OUTPUT = 64 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 10 * 60 * 1000
@@ -92,7 +92,7 @@ export function cleanContainerPolicy(manifest) {
     image.name !== 'clean_release_builder' ||
     !/^sha256:[0-9a-f]{64}$/u.test(String(image.digest || '')) ||
     image.reference !== image.digest ||
-    image.local_tag !== 'angel0-clean-builder:rust-1.95.0-bookworm-v1' ||
+    image.local_tag !== 'angelX-clean-builder:rust-1.95.0-bookworm-v1' ||
     !/^sha256:[0-9a-f]{64}$/u.test(String(image.base_digest || '')) ||
     image.base_reference !== `docker.io/library/rust@${image.base_digest}` ||
     !/^[0-9a-f]{64}$/u.test(String(image.dockerfile_sha256 || '')) ||
@@ -301,7 +301,7 @@ export function publishInstallableBinary(binaryPath, manifestPath) {
   chmodSync(temporary, 0o755)
   const artifact = {
     name: basename(output),
-    media_type: 'application/vnd.angel0.cockpit-executable',
+    media_type: 'application/vnd.angelX.cockpit-executable',
     platform: 'linux-x86_64',
     mode: '0755',
     bytes: statSync(temporary).size,
@@ -323,7 +323,7 @@ export function runContainerVerification(manifestPath, { v8Archive, receiptPath 
   const verified = verifyReleaseSet(manifestPath)
   const image = cleanContainerPolicy(verified.manifest)
   const pinnedV8 = verifyPinnedV8Archive(v8Archive, verified.manifest)
-  const scratch = mkdtempSync(join(tmpdir(), 'angel0-clean-container-'))
+  const scratch = mkdtempSync(join(tmpdir(), 'angelX-clean-container-'))
   try {
     const sourceRoot = extractVerifiedRows(verified.rows, scratch)
     mkdirSync(join(scratch, 'cargo'), { mode: 0o700 })

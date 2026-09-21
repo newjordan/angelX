@@ -47,7 +47,7 @@ fn idle_lines(width: usize) -> Vec<Line<'static>> {
         dim_line("No agent graph has run yet.", width),
         Line::default(),
         text_line(
-            "/graph list — installed graphs (bundled + ~/.angel0/graphs)",
+            "/graph list — installed graphs (bundled + ~/.angelX/graphs)",
             width,
         ),
         text_line("/graph run <name> <task> — launch a run", width),

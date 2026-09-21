@@ -854,7 +854,7 @@ fn cold_start_in_unrelated_projects_never_injects_installed_source_context() {
     std::fs::create_dir_all(installed.join("src")).unwrap();
     std::fs::write(
         installed.join("Cargo.toml"),
-        "[package]\nname = \"angel0-cockpit\"\n",
+        "[package]\nname = \"angelX-cockpit\"\n",
     )
     .unwrap();
     std::fs::write(
@@ -919,7 +919,7 @@ fn self_work_context_tracks_the_selected_checkout_and_respects_nested_projects()
         std::fs::create_dir_all(source.join("src")).unwrap();
         std::fs::write(
             source.join("Cargo.toml"),
-            "[package]\nname = \"angel0-cockpit\"\n",
+            "[package]\nname = \"angelX-cockpit\"\n",
         )
         .unwrap();
         std::fs::write(

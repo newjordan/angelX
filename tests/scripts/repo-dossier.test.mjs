@@ -34,10 +34,10 @@ import {
 
 test('dossier paths use the native cockpit stores and respect explicit overrides', () => {
   assert.deepEqual(dossierPaths([], {}, '/tmp/dossier-user'), {
-    graphPath: '/tmp/dossier-user/.angel0/dossier/graph.json',
-    ledgerPath: '/tmp/dossier-user/.angel0/experience/ledger.jsonl',
-    outDir: '/tmp/dossier-user/.angel0/dossier',
-    cutDir: '/tmp/dossier-user/.angel0/cut',
+    graphPath: '/tmp/dossier-user/.angelX/dossier/graph.json',
+    ledgerPath: '/tmp/dossier-user/.angelX/experience/ledger.jsonl',
+    outDir: '/tmp/dossier-user/.angelX/dossier',
+    cutDir: '/tmp/dossier-user/.angelX/cut',
     onlyRepo: undefined,
   })
   const env = {
@@ -252,12 +252,12 @@ test("a pipeline's exit belongs to its last stage, so the command gets NO verdic
 })
 
 test("a chdir into ANOTHER repo is that repo's evidence, never this one's", () => {
-  // Run from gpug, but the command builds angel0: it must not become a gpug fact.
+  // Run from gpug, but the command builds angelX: it must not become a gpug fact.
   const gpug = { root: '/home/user/gpug' }
-  assert.equal(normalizeCommand('cd /home/user/angel0/cockpit && cargo check', gpug), null)
+  assert.equal(normalizeCommand('cd /home/user/angelX/cockpit && cargo check', gpug), null)
   // The worktree case: the row's repo is the MAIN checkout, the work happened in
   // a linked worktree (`cwd`), and that is still this repo's evidence.
-  const wt = { root: '/home/user/angel0', cwd: '/tmp/cut-forge/item-3' }
+  const wt = { root: '/home/user/angelX', cwd: '/tmp/cut-forge/item-3' }
   assert.equal(
     normalizeCommand('cd /tmp/cut-forge/item-3/cockpit && cargo check', wt).command,
     'cargo check',

@@ -321,7 +321,7 @@ impl MachineQueueConfig {
                 .file_name()
                 .and_then(|name| name.to_str())
                 .filter(|name| !name.is_empty())
-                .unwrap_or("angel0")
+                .unwrap_or("angelX")
                 .to_string()
         });
         let owner =
@@ -332,7 +332,7 @@ impl MachineQueueConfig {
             remote_script: env_nonempty("ANGEL_MACHINE_QUEUE_REMOTE_SCRIPT")
                 .unwrap_or_else(|| ".local/bin/angel-machine-queue.py".to_string()),
             remote_db: env_nonempty("ANGEL_MACHINE_QUEUE_REMOTE_DB")
-                .unwrap_or_else(|| "~/.angel0/machine-queue.sqlite3".to_string()),
+                .unwrap_or_else(|| "~/.angelX/machine-queue.sqlite3".to_string()),
             resource: env_nonempty("ANGEL_MACHINE_QUEUE_RESOURCE")
                 .unwrap_or_else(|| "mac-test".to_string()),
             owner,

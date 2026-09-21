@@ -72,7 +72,7 @@ pub(crate) fn entry(model: &str) -> Option<Entry> {
     TABLE
         .get_or_init(|| {
             let path = std::env::var_os("HOME")
-                .map(|p| Path::new(&p).join(".angel0/model-calibration.toml"));
+                .map(|p| Path::new(&p).join(".angelX/model-calibration.toml"));
             load(path.as_deref()).unwrap_or_else(|_| {
                 eprintln!("[angel] invalid runtime model calibration; using embedded defaults");
                 parse(EMBEDDED).expect("valid embedded model calibration")

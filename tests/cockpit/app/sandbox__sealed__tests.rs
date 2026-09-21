@@ -29,7 +29,7 @@ fn fake_home(tag: &str) -> PathBuf {
         std::fs::create_dir_all(home.join(dir)).unwrap();
     }
     std::fs::write(home.join(".ssh/config"), b"SEAL-SECRET-KEY").unwrap();
-    std::fs::write(home.join(".angel0/KEY-sealed-test"), b"SEAL-SECRET-KEY").unwrap();
+    std::fs::write(home.join(".angelX/KEY-sealed-test"), b"SEAL-SECRET-KEY").unwrap();
     home
 }
 
@@ -76,7 +76,7 @@ fn sealed_bind_plan_grants_toolchains_and_denies_home_secrets() {
             "missing {allow}"
         );
     }
-    for deny in [".ssh", ".angel0", ".config", ".gnupg", ".mozilla"] {
+    for deny in [".ssh", ".angelX", ".config", ".gnupg", ".mozilla"] {
         assert!(
             !profile.read_roots.contains(&home.join(deny)),
             "{deny} readable"

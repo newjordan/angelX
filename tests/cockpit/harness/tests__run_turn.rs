@@ -3198,7 +3198,7 @@ fn board_marker_token_boundary_rejects_product_path_launder() {
         ),
         (
             "read_file",
-            serde_json::json!({"path": ".angel0/notes/board.md"}),
+            serde_json::json!({"path": ".angelX/notes/board.md"}),
         ),
     ] {
         let call = ToolCall {
@@ -4273,7 +4273,7 @@ fn meta_note_mutations_are_not_first_write_progress() {
         id: "2".into(),
         name: "str_replace".into(),
         args: serde_json::json!({
-            "path": ".angel0/notes/board.md",
+            "path": ".angelX/notes/board.md",
             "old": "a",
             "new": "b"
         }),
@@ -4315,7 +4315,7 @@ fn meta_note_mutations_are_not_first_write_progress() {
     assert_eq!(mutation_arg_path(&core.args), Some("src/lib.rs"));
     assert_eq!(
         mutation_arg_path(&notes.args),
-        Some(".angel0/notes/board.md")
+        Some(".angelX/notes/board.md")
     );
     assert!(mutation_call_has_product_path(&core));
     assert!(!mutation_call_has_product_path(&notes));
@@ -4365,9 +4365,9 @@ fn meta_note_mutations_are_not_first_write_progress() {
     }
     // Relative angel notes store (no leading slash) is still bookkeeping.
     for meta in [
-        ".angel0/notes/session.txt",
-        ".angel0/handoff/tip.txt",
-        "workspace/.angel0/notes/run.md",
+        ".angelX/notes/session.txt",
+        ".angelX/handoff/tip.txt",
+        "workspace/.angelX/notes/run.md",
     ] {
         assert!(
             is_meta_note_mutation_path(meta),
@@ -5448,7 +5448,7 @@ fn competition_board_state_does_not_launder_lsp_recon() {
     let digest = ToolCall {
         id: "d".into(),
         name: "read_file".into(),
-        args: serde_json::json!({"path": ".angel0/notes/board.md"}),
+        args: serde_json::json!({"path": ".angelX/notes/board.md"}),
     };
     assert!(is_competition_board_state_call(&digest));
     assert!(!burns_first_write_budget(&digest));

@@ -64,7 +64,7 @@ fn git_tools_parse_live_repo() {
         GitDiffTool {
             workspace: ws.clone(),
         }
-        .call(&serde_json::json!({ "base": "definitely-not-an-angel0-revision" }))
+        .call(&serde_json::json!({ "base": "definitely-not-an-angelX-revision" }))
         .is_err()
     );
     assert!(

@@ -564,7 +564,7 @@ impl World {
         let mut world = Self::new(fnv1a(identity.root.to_string_lossy().as_bytes()));
         world.rewards_path = std::env::var_os("HOME").map(|h| {
             std::path::Path::new(&h)
-                .join(".angel0")
+                .join(".angelX")
                 .join("world-rewards")
                 .join(format!("{}.json", identity.key))
         });

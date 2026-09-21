@@ -1277,7 +1277,7 @@ fn run_turn_tiered(
     let spin_perturb = env_flag("ANGEL_SPIN_PERTURB", true);
     let mut last_sig: Option<u64> = None;
     let mut spin = 0usize;
-    // Gemini CLI-style bounded k-cycle detection, adapted to use angel0's
+    // Gemini CLI-style bounded k-cycle detection, adapted to use angelX's
     // canonical call identity plus actual result/outcome evidence. Successful
     // workspace mutations clear the window. This catches alternating read/tool
     // loops that identical-batch anti-spin cannot see without penalizing a
@@ -1369,7 +1369,7 @@ fn run_turn_tiered(
     crate::agent::turn::phase::mark("auto_recall");
     maybe_auto_recall(registry, history, effective_budget, &defs, events);
     // Lifecycle hooks (PreToolUse/PostToolUse), loaded once from config. Empty
-    // unless ~/.angel0/hooks.json exists, so default dispatch is unchanged.
+    // unless ~/.angelX/hooks.json exists, so default dispatch is unchanged.
     crate::agent::turn::phase::mark("hooks_load");
     let hooks = Hooks::load();
     // This reads a small local mode once, never calls a model, and only becomes
@@ -1785,7 +1785,7 @@ fn run_turn_tiered(
     };
     // The Cut's machine verdicts for this turn (docs/plans/the-cut.md, T2),
     // folded at the post-write seam below and read at every exit as this
-    // rollout's REWARD — the label `~/.angel0/trajectories` has never carried, and
+    // rollout's REWARD — the label `~/.angelX/trajectories` has never carried, and
     // without which the forge can only imitate its teacher
     // (`crate::knowledge::cut::turn_reward` documents the semantics). A turn that wrote no
     // source earns no verdict and stays unlabeled, exactly as before.

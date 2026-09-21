@@ -176,14 +176,14 @@ pub fn project_context(workspace: &Path) -> String {
     )
 }
 
-/// The isolated last-resort workspace (`~/.angel0/workspace`). Still the fallback
+/// The isolated last-resort workspace (`~/.angelX/workspace`). Still the fallback
 /// for headless `--task` (benchmark harnesses rely on it) and the base for
 /// delegation worktrees / media resolution — but no longer the TUI default.
 pub fn default_workspace() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".angel0/workspace")
+        .join(".angelX/workspace")
 }
 
 /// The process's current directory (the TUI's default workspace — "operate on

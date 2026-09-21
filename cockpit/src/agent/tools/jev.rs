@@ -359,7 +359,7 @@ pub(crate) fn maybe_register_jev(r: &mut ToolRegistry) {
     if available() {
         match JevTool::from_env() {
             Ok(tool) => r.register_deferred(Box::new(tool)),
-            Err(error) => eprintln!("angel0: {error}"),
+            Err(error) => eprintln!("angelX: {error}"),
         }
     }
     r.register_deferred(Box::new(super::benchmark::BenchmarkCompareTool));

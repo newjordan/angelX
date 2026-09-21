@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ANGELX — Spread the Light of Knowledge</title>
+<meta name="description" content="angelX — research tools that spread the light of knowledge. Take up the Axcalibur and follow the guiding star.">
+<meta property="og:title" content="ANGELX — Spread the Light of Knowledge">
+<meta property="og:description" content="Research tools forged in the dark. Take up the Axcalibur and follow the guiding star.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- shared SVG defs (patterns / symbols referenced by every inline SVG on the page) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="star4" viewBox="0 0 46 46">
+      <path d="M23 0 L28.4 17.6 L46 23 L28.4 28.4 L23 46 L17.6 28.4 L0 23 L17.6 17.6 Z"/>
+    </symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24">
+      <rect x="9" y="9" width="11" height="11" rx="2"/>
+      <path d="M5 15V5a2 2 0 0 1 2-2h8"/>
+    </symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24">
+      <path d="M4 12.5 9.5 18 20 6.5"/>
+    </symbol>
+    <symbol id="icon-github" viewBox="0 0 16 16">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+    </symbol>
+    <pattern id="pDots" width="4" height="4" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.05" fill="#e8e8ee"/>
+    </pattern>
+    <pattern id="pGridDots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#ffffff" opacity=".16"/>
+    </pattern>
+  </defs>
+</svg>
+
+<!-- atmosphere overlays -->
+<div class="dotfield" aria-hidden="true"></div>
+<div class="scanlines" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<!-- the guiding star (fixed, leads the ascent upward) -->
+<div id="star-guide" aria-hidden="true"><svg class="star"><use href="#star4"/></svg></div>
+
+<!-- ascent HUD -->
+<div class="hud" id="hud">
+  <div class="hud-ascent" aria-hidden="true">
+    <div class="hud-row"><span class="hud-label">ASCENT</span><span class="hud-pct" id="hud-pct">000%</span></div>
+    <div class="hud-bar"><i id="hud-fill"></i></div>
+  </div>
+  <!-- repeat visitors: the install command, one click from the clipboard -->
+  <!-- and for anyone who just wants to read the source -->
+  <a class="repo-link" id="repo-link" href="https://github.com/newjordan/angelX"
+     target="_blank" rel="noopener noreferrer"
+     aria-label="Open the angelX source on GitHub">
+    <svg class="icon icon-github" aria-hidden="true"><use href="#icon-github"/></svg>
+    <code>github.com/newjordan/angelX</code>
+  </a>
+</div>
+
+<main>
+  <!-- ⚠ THIS PAGE IS INVERTED ON THE VERTICAL.
+       The document begins at the BOTTOM (#entrance) and is read UPWARD:
+       entrance → intro → tenets → gallery → charts → finale (the summit, at top). -->
+
+  <noscript>
+    <p class="noscript-note">The ascent needs JavaScript — <a href="#entrance">enter at the gate</a>.</p>
+    <style>#excalibur,#mountain{display:none}.pick{opacity:1;animation:none}</style>
+  </noscript>
+
+  <!-- ══════════ 05 · THE SUMMIT (top of document = end of the journey) ══════════ -->
+  <section id="finale" aria-label="The summit">
+    <div class="wrap reveal">
+      <!-- the app's second scene: the ascent chart; at the very top the wizard
+           walks in from the right and settles on the summit shelf -->
+      <canvas id="mountain" width="600" height="240" role="img" aria-label="A rising line-chart ascends to a summit shelf, where a cloaked wizard arrives and settles"></canvas>
+      <h2 class="display">Follow Your Star —<br>Discover the Unknown</h2>
+      <p class="lede centered">A self referential world model harness built for customization and long form agentic enjoyment.</p>
+      <div class="rule">✦</div>
+      <button class="ghost-link" id="return-link">▼ RETURN TO THE ENTRANCE</button>
+      <!-- one command, straight from README.md — no invented installer -->
+      <div class="install">
+        <p class="install-label">ONE-COMMAND LINUX INSTALL · x86_64 · BUILDS FROM SOURCE ON FIRST RUN</p>
+        <div class="install-row">
+          <code class="install-cmd" id="install-cmd">git clone https://github.com/newjordan/angelX.git &amp;&amp; cd angelX &amp;&amp; ANGEL_VIDEO=0 ./bin/angelX</code>
+          <button class="copy-btn" data-copy="install-cmd" aria-label="Copy the install command">
+            <svg class="icon icon-copy" aria-hidden="true"><use href="#icon-copy"/></svg>
+            <svg class="icon icon-check" aria-hidden="true"><use href="#icon-check"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="fineprint">angelX · placeholder build · axcalibur v0.1 · MMXXV</p>
+    </div>
+  </section>
+
+  <!-- ══════════ 04 · TELEMETRY (teaser loop + placeholder charts) ══════════ -->
+  <section id="charts" aria-label="Telemetry — charts and graphs">
+    <div class="wrap reveal">
+      <p class="eyebrow">[ 04 · TELEMETRY ]</p>
+      <h2 class="title">A one of a kind TUI experience.</h2>
+      <p class="lede">Multi-panel TUI with unique and customizable model feedback.</p>
+      <video class="teaser" src="assets/angelx-harness-preview-square.mp4" width="1600" height="1600" autoplay loop muted playsinline
+             aria-label="Live harness preview: asking GLM 5.3 High what angelX is, a thinking close-up, loop engagement, Council selection, and mini-viz video replay"></video>
+    </div>
+  </section>
+
+  <!-- ══════════ 03 · SIGHTINGS (real captures) ══════════ -->
+  <section id="gallery" class="has-backdrop" aria-label="Sightings from the archive">
+    <img class="section-backdrop" src="assets/background_lion_large.png" alt="" aria-hidden="true">
+    <div class="wrap reveal">
+      <p class="eyebrow">[ 03 · SIGHTINGS ]</p>
+      <h2 class="title">Sightings from the archive.</h2>
+
+      <div class="fig-grid">
+        <figure>
+          <img class="art" src="assets/frames/fig01-console.png" alt="A full cockpit frame: a turn in flight, the tool strip, HUD and the world pane">
+        </figure>
+        <figure>
+          <img class="art" src="assets/frames/fig02-thinking.png" alt="A close-up of the thinking panel: the agent's reasoning streaming as it works">
+        </figure>
+        <figure>
+          <img class="art" src="assets/frames/fig03-loop.png" alt="Engaging a loop: the workshop dialog showing time, rounds and token cap before the run starts">
+        </figure>
+        <figure>
+          <img class="art" src="assets/frames/fig05-operator.png" alt="A real operator session: the harness interrupted, steered, and re-routed to another model mid-run">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 02 · THE TWELVE TENETS (12 points) ══════════ -->
+  <section id="points" aria-label="The twelve tenets">
+    <div class="wrap reveal">
+      <p class="eyebrow">[ 02 · THE TWELVE TENETS ]</p>
+      <h2 class="title">Points of light.</h2>
+      <ol class="tenets">
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Models and formations</h3><p>Choose models and thinking levels, configure teams, and run agent graphs.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Repository tools</h3><p>Search files, inspect symbols, follow definitions, and review diffs.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Content-checked edits</h3><p>Hashline editing checks file content before applying anchored changes.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Programmable tools</h3><p>Run tool calls, loops, and filters locally in JavaScript with code_mode.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Long-session context</h3><p>Compact, deduplicate, and age retained context as work continues.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Project memory</h3><p>Review source-linked knowledge in Atlas and reuse it in later tasks.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Persistent goals</h3><p>Resume sessions and autonomous work with configurable run limits.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Headless runs</h3><p>Record task settings, source identity, tool activity, and acceptance evidence.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Measured campaigns</h3><p>Evaluate isolated attempts with verifiers and independent review.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Research loops</h3><p>Use Sloptomizer suggestions, Deli deliberation, and paired experiments.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Measured benchmarks</h3><p>Calculate measured changes from paired benchmark samples.</p></div></li>
+        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>World TUI</h3><p>Introducing world tui foundations for reviewing work, building internal world models, presenting data graphs and agent behavior.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ══════════ 01 · WHAT IT IS ══════════ -->
+  <section id="intro" aria-label="What is angelX">
+    <div class="wrap reveal">
+      <p class="eyebrow">[ 01 · WHAT IT IS ]</p>
+      <h2 class="title">A coding and research harness.</h2>
+      <p class="lede">angelX is a tool for explorers pushing the boundaries of research with AI. It is also a coding tool, a mini world, and a growing, self-reflective piece of software — built to evolve over time and adapt to the person driving it.</p>
+      <p class="lede">Under the hood: 200k+ lines of Rust focused on performance in autoresearch, agentic fleet control, and coding.</p>
+      <dl class="intro-points">
+        <div class="row"><dt>CUSTOM TUI LAYOUT</dt><span class="leader" aria-hidden="true"></span><dd>agent thinking · actions as primary surfaces</dd></div>
+        <div class="row"><dt>DEEP TOOLING</dt><span class="leader" aria-hidden="true"></span><dd>research · loops</dd></div>
+        <div class="row"><dt>WORLD MODEL</dt><span class="leader" aria-hidden="true"></span><dd>self-referential · adapts per user</dd></div>
+        <div class="row"><dt>FIELD PROVEN</dt><span class="leader" aria-hidden="true"></span><dd>kernel · cryptography research</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ══════════ THE ENTRANCE (bottom of document = the beginning) ══════════ -->
+  <section id="entrance" aria-label="Entrance — the angelX mark, the Axcalibur rising out of it">
+    <div class="stage">
+      <!-- the real intro, ported from cockpit/assets/excalibur/rise.png · js/excalibur.js -->
+      <div class="axcalibur-wrap" aria-hidden="true">
+        <canvas id="excalibur" width="340" height="192" role="img" aria-label="Excalibur rises from dark water, held by one hand, in dot-matrix ink"></canvas>
+        <!-- the mark: assets/logo-mark.png — angelx-final.png trimmed to the letters and
+             with its faint ground washed out, so it carries no plate or glow of its own -->
+        <div class="logo-wrap">
+          <h1 class="logo"><img src="assets/logo-mark.png" alt="AngelX" width="1429" height="331"></h1>
+        </div>
+</div>
+    </div>
+    <button class="pick" id="pick" aria-label="Pick it up — begin the ascent">...pick it up<span class="cursor" aria-hidden="true"></span></button>
+    <div class="motes" aria-hidden="true">
+      <span class="mote" style="left:18%;top:64%;animation-delay:0s;animation-duration:9s"></span>
+      <span class="mote" style="left:32%;top:72%;animation-delay:2.4s;animation-duration:11s"></span>
+      <span class="mote" style="left:68%;top:60%;animation-delay:1.2s;animation-duration:10s"></span>
+      <span class="mote" style="left:80%;top:70%;animation-delay:3.6s;animation-duration:12s"></span>
+      <span class="mote" style="left:50%;top:78%;animation-delay:5s;animation-duration:9.5s"></span>
+    </div>
+    <p class="gate-msg" aria-hidden="true">[ GATE RESTS · STAR RISES ]</p>
+  </section>
+</main>
+
+<script src="js/excalibur.js"></script>
+<script src="js/mountain.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

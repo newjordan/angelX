@@ -7,7 +7,7 @@
 //! controller uses as ground-truth done-detection rather than trusting the model's
 //! own "I'm done".
 //!
-//! Backed by a canonical-project-keyed file under `~/.angel0/goals/` (override
+//! Backed by a canonical-project-keyed file under `~/.angelX/goals/` (override
 //! with `ANGEL_GOAL_FILE`, used by tests so they never touch the real store).
 //! Both the filename and serialized binding are checked on load: an unscoped
 //! legacy goal or a record from another project is ignored rather than injected.

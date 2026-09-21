@@ -5,7 +5,7 @@
 //! note. Models fill those flags by copying whatever they last read — a
 //! leader's note head, a template, an older submission — so 2026-09-10 the
 //! spark qwen38 loop published four submissions as "GPT 5.6 Sol / Codex" from
-//! deepseek-v4-flash on angel0, and the operator reports this happens on every
+//! deepseek-v4-flash on angelX, and the operator reports this happens on every
 //! board ("it's always just copying whatever it pulled"). The harness knows
 //! its own identity; it stamps it and discards the model-supplied values.
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ use std::sync::{Mutex, OnceLock};
 
 use regex::Regex;
 
-pub(crate) const HARNESS_LABEL: &str = "angel0";
+pub(crate) const HARNESS_LABEL: &str = "angelX";
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SubmitJournalEntry {

@@ -16,7 +16,7 @@
 //! microsecond startup). No tokio: named threads + mpsc, the house concurrency
 //! model.
 //!
-//! Specs live in bundled `cockpit/graphs/` and user `~/.angel0/graphs` (user
+//! Specs live in bundled `cockpit/graphs/` and user `~/.angelX/graphs` (user
 //! wins on name collision). Every gate speaks: parse failures surface in
 //! `/graph list`, capacity/deadline/club failures name their cause.
 //! Finished runs also emit a native, digest-bound multi-agent episode receipt.
@@ -840,7 +840,7 @@ pub(crate) struct GraphNodeSpec {
     /// Unreferenced dependency receipts are appended as an "Upstream results"
     /// section automatically.
     pub prompt: String,
-    /// Persona from the spawn catalog (`cockpit/personas/` + `~/.angel0/personas`).
+    /// Persona from the spawn catalog (`cockpit/personas/` + `~/.angelX/personas`).
     #[serde(default)]
     pub persona: Option<String>,
     /// Club spec: `self`/`auto` (default, the in-hand driver), `smart` (the
@@ -1309,7 +1309,7 @@ fn graphs_user_dir() -> PathBuf {
             std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join(".angel0/graphs")
+                .join(".angelX/graphs")
         })
 }
 
@@ -3943,7 +3943,7 @@ pub(crate) fn find_graph<'a>(
     Err(format!(
         "unknown graph '{name}'. Installed: {}",
         if lines.is_empty() {
-            "(none — add TOML specs to ~/.angel0/graphs)".to_string()
+            "(none — add TOML specs to ~/.angelX/graphs)".to_string()
         } else {
             lines.join(", ")
         }

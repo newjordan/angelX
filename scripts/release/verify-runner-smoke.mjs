@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-export const RUNNER_SMOKE_SCHEMA = 'angel0-runner-contract-smoke/v1'
+export const RUNNER_SMOKE_SCHEMA = 'angelX-runner-contract-smoke/v1'
 
 const BUBBLEWRAP = '/usr/bin/bwrap'
 const MAX_OUTPUT = 4 * 1024 * 1024
@@ -269,7 +269,7 @@ export function verifyRunnerContractSmoke(binaryPath) {
   if (!existsSync(binary) || !lstatSync(binary).isFile()) fail('binary is not a regular file')
   if (!existsSync(BUBBLEWRAP)) fail('bubblewrap is unavailable')
 
-  const root = mkdtempSync(`${tmpdir()}/angel0-runner-smoke-`)
+  const root = mkdtempSync(`${tmpdir()}/angelX-runner-smoke-`)
   const expected = {
     taskId: 'release.transport-smoke',
     runId: 'release.local-1',

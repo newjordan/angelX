@@ -48,10 +48,10 @@ fn module_symbols_counts_and_collects_types() {
 
 #[test]
 fn parse_crate_meta_reads_package_and_bin() {
-    let toml = "[package]\nname = \"angel0-cockpit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n\
+    let toml = "[package]\nname = \"angelX-cockpit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n\
                     [[bin]]\nname = \"angel\"\npath = \"src/main.rs\"\n";
     let m = parse_crate_meta(toml);
-    assert_eq!(m.name, "angel0-cockpit");
+    assert_eq!(m.name, "angelX-cockpit");
     assert_eq!(m.version, "0.1.0");
     assert_eq!(m.edition, "2021");
     assert_eq!(m.bin, "angel");
@@ -98,7 +98,7 @@ fn source_root_finds_this_crate() {
 fn generate_self_model_describes_real_modules() {
     let _guard = crate::tests::env_lock();
     let map = generate_self_model();
-    assert!(map.contains("angel0-cockpit"), "names the crate");
+    assert!(map.contains("angelX-cockpit"), "names the crate");
     assert!(map.contains("cargo test"), "has the build/test contract");
     assert!(map.contains("harness/mod.rs"), "lists the harness module");
     assert!(map.contains("swarm/mod.rs"), "lists the swarm driver");
@@ -193,7 +193,7 @@ fn headless_self_map_requires_explicit_pin_and_is_read_only() {
     std::fs::create_dir_all(root.join("src")).unwrap();
     std::fs::write(
         root.join("Cargo.toml"),
-        "[package]\nname = \"angel0-cockpit\"\nversion = \"9.8.7\"\n",
+        "[package]\nname = \"angelX-cockpit\"\nversion = \"9.8.7\"\n",
     )
     .unwrap();
     std::fs::write(

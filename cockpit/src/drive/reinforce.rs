@@ -1343,7 +1343,7 @@ impl Reward for LintReward {
 ///
 /// Parses measured µs from candidate text (`score_us=…`, `geomean_us=…`,
 /// `⏱ N µs`) and scores improvement vs the living peer geomean in
-/// `~/.angel0/popcorn-peer.json` (or `baseline_us` override). Higher is better;
+/// `~/.angelX/popcorn-peer.json` (or `baseline_us` override). Higher is better;
 /// values in ~[0, 2] so they blend with judge scores after normalization.
 ///
 /// When the candidate names a shape (`32768x1`, `shape=512x640`, …), the

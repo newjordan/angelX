@@ -18,7 +18,7 @@ const IMAGE = {
   name: 'clean_release_builder',
   reference: DIGEST,
   digest: DIGEST,
-  local_tag: 'angel0-clean-builder:rust-1.95.0-bookworm-v1',
+  local_tag: 'angelX-clean-builder:rust-1.95.0-bookworm-v1',
   base_reference: `docker.io/library/rust@${`sha256:${'5'.repeat(64)}`}`,
   base_digest: `sha256:${'5'.repeat(64)}`,
   dockerfile_sha256: '4'.repeat(64),
@@ -48,7 +48,7 @@ function manifest(image = IMAGE) {
 }
 
 function fixture(t) {
-  const scratch = mkdtempSync(join(tmpdir(), 'angel0-container-args-test-'))
+  const scratch = mkdtempSync(join(tmpdir(), 'angelX-container-args-test-'))
   t.after(() => rmSync(scratch, { recursive: true, force: true }))
   const v8Archive = join(scratch, 'rusty-v8.a')
   writeFileSync(v8Archive, 'fixture')
@@ -97,7 +97,7 @@ test('container policy requires a digest-only derived image matching the release
 test('Docker inspection must match digest, platform, registry identity, and a minimal image environment', () => {
   const inspection = {
     Id: DIGEST,
-    RepoTags: ['angel0-clean-builder:rust-1.95.0-bookworm-v1'],
+    RepoTags: ['angelX-clean-builder:rust-1.95.0-bookworm-v1'],
     Os: 'linux',
     Architecture: 'amd64',
     Config: {
@@ -187,12 +187,12 @@ test('probe phase has no network, no dependency input, and a read-only verificat
 test('clean build publishes one checksummed executable beside the source manifest', (t) => {
   const { scratch } = fixture(t)
   const binary = join(scratch, 'angel')
-  const manifestPath = join(scratch, 'angel0-source-fixture.manifest.json')
+  const manifestPath = join(scratch, 'angelX-source-fixture.manifest.json')
   writeFileSync(binary, 'source-bound binary fixture\n', { mode: 0o755 })
   chmodSync(binary, 0o755)
   writeFileSync(manifestPath, '{}\n')
   const published = publishInstallableBinary(binary, manifestPath)
-  assert.equal(published.path, join(scratch, 'angel0-source-fixture.cockpit-linux-x86_64'))
+  assert.equal(published.path, join(scratch, 'angelX-source-fixture.cockpit-linux-x86_64'))
   assert.equal(published.artifact.mode, '0755')
   assert.equal(published.artifact.platform, 'linux-x86_64')
   assert.equal(statSync(published.path).mode & 0o777, 0o755)

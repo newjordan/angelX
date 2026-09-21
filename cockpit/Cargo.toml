@@ -1,10 +1,10 @@
 [package]
-name = "angel0-cockpit"
+name = "angelX-cockpit"
 version = "0.1.2"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
-description = "angel0 terminal cockpit and competition/RL task runner"
+description = "angelX terminal cockpit and competition/RL task runner"
 license = "MIT"
 readme = "../README.md"
 publish = false

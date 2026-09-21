@@ -455,7 +455,7 @@ fn now_secs() -> u64 {
 // ─── /still — the operator surface (AS4) ────────────────────────────────────
 // Rust never parses shards: it reads only the two small status artifacts —
 // writer-status.json (written by this module's thread) and
-// ~/.angel0/still/status.json (written by scripts/runtime/still-tick.mjs) — the
+// ~/.angelX/still/status.json (written by scripts/runtime/still-tick.mjs) — the
 // conductor read-side pattern. Zero interactive-prompt injection: this text
 // renders only when the operator types /still.
 

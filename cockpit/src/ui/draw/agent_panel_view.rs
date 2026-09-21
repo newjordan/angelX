@@ -508,7 +508,7 @@ pub(crate) fn header_portrait_bar_fits(area: Rect) -> bool {
     area.width >= HEADER_PORTRAIT_MIN_INNER_W && area.height == HEADER_PORTRAIT_MIN_INNER_H
 }
 
-/// Angel0/version left, MODEL/THINK/FORMATION chips in the remaining space,
+/// AngelX/version left, MODEL/THINK/FORMATION chips in the remaining space,
 /// workspace on the right. Portrait paint stays in the agent bay.
 pub(crate) fn render_header_portrait_bar(
     frame: &mut Frame,
@@ -527,7 +527,7 @@ pub(crate) fn render_header_portrait_bar(
     let ident = if save_degraded {
         "SESSION SAVE DEGRADED".to_string()
     } else {
-        format!("angel0 {version}")
+        format!("angelX {version}")
     };
     let mut ident_w = control_width_u16(&ident).saturating_add(1);
     let context = super::header_workspace_context(app);
@@ -588,7 +588,7 @@ pub(crate) fn render_header_portrait_bar(
     } else {
         vec![
             Span::styled(
-                "angel0",
+                "angelX",
                 Style::new().fg(HUD_BLUE).add_modifier(Modifier::BOLD),
             ),
             Span::styled(format!(" {version}"), Style::new().fg(HUD_DIM)),

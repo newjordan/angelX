@@ -10,7 +10,7 @@
 //!   them there ([`capture_writes`]) so there is exactly one capture site and no
 //!   write path can grow around it — code-mode host calls and delegate seats
 //!   dispatch through the same registry, so they are captured too. Records land
-//!   in `~/.angel0/cut/authored-YYYYMMDD.jsonl`.
+//!   in `~/.angelX/cut/authored-YYYYMMDD.jsonl`.
 //!
 //! * **T2 — the machine verdict.** After a successful mutation the turn loop
 //!   ([`crate::agent::harness::post_write_verdict`]) resolves a *cheap, scoped* verify
@@ -996,7 +996,7 @@ fn cap_head(mut text: String, max: usize) -> (String, bool) {
 // The turn reward — the machine verdict, turned into training signal
 // ---------------------------------------------------------------------------
 //
-// `~/.angel0/trajectories` held 204 rollouts and ZERO reward labels (measured
+// `~/.angelX/trajectories` held 204 rollouts and ZERO reward labels (measured
 // 2026-07-11). A LoRA trained on unlabeled rollouts is pure imitation: the
 // student converges on a cheaper copy of the teacher and cannot, by
 // construction, exceed it. `trajectory.rs` has carried `reward: Option<f32>`

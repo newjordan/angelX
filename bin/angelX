@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# angel0 — boot the Angel cockpit: the terminal-first TUI shell.
+# angelX — boot the Angel cockpit: the terminal-first TUI shell.
 #
-# Type `angel0` inside a project, or `angel0 /path/to/project`, to load the cockpit —
+# Type `angelX` inside a project, or `angelX /path/to/project`, to load the cockpit —
 # a Rust/ratatui agent harness: chat with model agents (Tab to switch), ^G for a
 # full PTY shell pane, ^T for a braille chart, `/show` images, `/sessions` +
 # `/resume` for crash-safe session history.
 #
-# `angel0 update` refreshes the local CLI alias that points at this launcher;
+# `angelX update` refreshes the local CLI alias that points at this launcher;
 # full checkouts also refresh their optional desktop entry.
 #
 # This IS the customized TUI shell. It lives in cockpit/ — edit the Rust there and
@@ -73,13 +73,13 @@ if command -v mise >/dev/null 2>&1; then
   if resolved_path=$(mise env --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["PATH"])'); then
     export PATH="$resolved_path"
   else
-    echo "angel0: could not resolve mise tools; keeping the existing PATH" >&2
+    echo "angelX: could not resolve mise tools; keeping the existing PATH" >&2
   fi
 fi
 
 # --- launch diagnostics (temporary) — trace how far the icon launch gets ------
-mkdir -p "$HOME/.angel0"
-exec 9>>"$HOME/.angel0/launch.log"
+mkdir -p "$HOME/.angelX"
+exec 9>>"$HOME/.angelX/launch.log"
 # Never persist task prompts or evaluator flags. Headless callers may place
 # secrets, held-out task text, or grader commands in argv; the launch log needs
 # only enough metadata to diagnose lifecycle failures.
@@ -112,7 +112,7 @@ trap 'exit 143' TERM
 # When launched from a desktop icon the window would vanish on a fatal error
 # before you could read it. Pause on the fatal paths if we're on a real TTY.
 _die() {
-  echo "angel0: $*" >&2
+  echo "angelX: $*" >&2
   [ -t 0 ] && read -rsn1 -p "press any key to close…" _ && echo
   exit 1
 }
@@ -122,29 +122,32 @@ _die() {
 _update() {
   local installer
 
-  [ "$#" -eq 0 ] || _die "usage: angel0 update"
+  [ "$#" -eq 0 ] || _die "usage: angelX update"
 
   mkdir -p "$HOME/.local/bin"
-  ln -sfn "$ANGEL_DIR/bin/angel0" "$HOME/.local/bin/angel0"
-  ln -sfn "$ANGEL_DIR/bin/angel0" "$HOME/.local/bin/angel"
+  ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angelX"
+  ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel"
+  ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel0"
+  ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angelx"
+  ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel-harness"
 
   if [ "$(uname -s)" = "Darwin" ]; then
-    echo "angel0: Darwin — CLI aliases only (no Linux desktop entry)" >&2
-    echo "angel0: local launchers now point at $ANGEL_DIR" >&2
+    echo "angelX: Darwin — CLI aliases only (no Linux desktop entry)" >&2
+    echo "angelX: local launchers now point at $ANGEL_DIR" >&2
     return 0
   fi
 
   installer="$ANGEL_DIR/scripts/install-desktop-icons.sh"
   if [ -f "$installer" ]; then
-    echo "angel0: refreshing local launchers for $ANGEL_DIR…" >&2
+    echo "angelX: refreshing local launchers for $ANGEL_DIR…" >&2
     if ! bash "$installer"; then
       _die "launcher refresh failed; run bash $installer to retry"
     fi
   else
-    echo "angel0: release archive has no desktop helper; refreshed CLI alias only" >&2
+    echo "angelX: release archive has no desktop helper; refreshed CLI alias only" >&2
   fi
 
-  echo "angel0: local launchers now point at $ANGEL_DIR" >&2
+  echo "angelX: local launchers now point at $ANGEL_DIR" >&2
 }
 
 if [ "${1:-}" = "update" ]; then
@@ -156,9 +159,9 @@ fi
 # Keyboard-accessible repair for a terminal left in mouse-capture mode by an
 # earlier hard kill. This intentionally does no build and launches no cockpit.
 if [ "${1:-}" = "reset-terminal" ]; then
-  [ "$#" -eq 1 ] || _die "usage: angel0 reset-terminal"
+  [ "$#" -eq 1 ] || _die "usage: angelX reset-terminal"
   _restore_terminal
-  echo "angel0: terminal mouse capture and paste modes reset" >&2
+  echo "angelX: terminal mouse capture and paste modes reset" >&2
   exit 0
 fi
 
@@ -208,7 +211,7 @@ fi
 . "$ANGEL_DIR/scripts/check/angel-club-policy.sh"
 
 # Convenience global flags. Keep these before workspace parsing so
-# `angel0 --yolo /path/to/project` and `angel0 --comp ...` work.
+# `angelX --yolo /path/to/project` and `angelX --comp ...` work.
 while [ $# -gt 0 ]; do
   case "${1:-}" in
     --yolo)
@@ -408,22 +411,22 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
     else
       unset ANGEL_BUILD_SOURCE_SHA256
       SOURCE_BIND="unbound"
-      echo "angel0: $digest_out" >&2
+      echo "angelX: $digest_out" >&2
     fi
   fi
-  echo "angel0: building cockpit ($PROFILE) with $CARGO … source $SOURCE_BIND" >&2
+  echo "angelX: building cockpit ($PROFILE) with $CARGO … source $SOURCE_BIND" >&2
   echo "$(date +%T)   cargo $CARGO  git=$(git -C "$ANGEL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')  source=$SOURCE_BIND" >&9
-  mkdir -p "$HOME/.angel0"
-  cargo_log="$HOME/.angel0/cargo.log"
+  mkdir -p "$HOME/.angelX"
+  cargo_log="$HOME/.angelX/cargo.log"
   echo "=== $(date '+%F %T') $CARGO ${CARGO_BUILD_ARGS[*]} ===" >>"$cargo_log"
   if ! (cd "$COCKPIT_DIR" && "$CARGO" build "${CARGO_BUILD_ARGS[@]}" 2>&1 | tee -a "$cargo_log" >&2); then
     _die "cockpit build failed; refusing to run a stale binary (cargo=$CARGO). See $cargo_log"
   fi
   if [ "$PORTAL_BUILD" = "1" ] && [ -f "$PORTAL_MANIFEST" ]; then
-    echo "angel0: building WebGPU portal renderer ($PROFILE)…" >&2
+    echo "angelX: building WebGPU portal renderer ($PROFILE)…" >&2
     echo "=== $(date '+%F %T') portal $CARGO ${CARGO_BUILD_ARGS[*]} ===" >>"$cargo_log"
     if ! (cd "$COCKPIT_DIR" && CARGO_TARGET_DIR="$COCKPIT_DIR/target" "$CARGO" build --manifest-path "$PORTAL_MANIFEST" "${CARGO_BUILD_ARGS[@]}" 2>&1 | tee -a "$cargo_log" >&2); then
-      echo "angel0: WebGPU portal build failed — terminal-native visualization remains active" >&2
+      echo "angelX: WebGPU portal build failed — terminal-native visualization remains active" >&2
     fi
   fi
 fi
@@ -452,8 +455,8 @@ for other in "$COCKPIT_DIR"/target/*/run/angel-*; do
   [ -e "$other" ] && [ "$other" != "$RUN_BIN" ] && OTHER_LIVE=1
 done
 pgrep -f "$COCKPIT_DIR/target/(release|debug)/angel( |\$)" >/dev/null 2>&1 && OTHER_LIVE=1
-ERR_FILE="$HOME/.angel0/cockpit.err"
-[ "$OTHER_LIVE" = "1" ] && ERR_FILE="$HOME/.angel0/cockpit-$$.err"
+ERR_FILE="$HOME/.angelX/cockpit.err"
+[ "$OTHER_LIVE" = "1" ] && ERR_FILE="$HOME/.angelX/cockpit-$$.err"
 
 if [ -z "${ANGEL_PORTAL_RENDERER:-}" ] && [ -x "$PORTAL_BIN" ]; then
   export ANGEL_PORTAL_RENDERER="$PORTAL_BIN"

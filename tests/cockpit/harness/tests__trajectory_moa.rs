@@ -606,7 +606,7 @@ fn the_eval_path_owns_its_rollouts_label() {
 }
 
 /// A trajectory written under cfg(test) never lands in the real home dir: the
-/// ten-minute rsync timer feeds `~/.angel0/trajectories` to the Spark trainer
+/// ten-minute rsync timer feeds `~/.angelX/trajectories` to the Spark trainer
 /// inbox, and cockpit test suites must default to a per-process temp dir.
 #[test]
 fn unit_test_trajectory_writes_never_land_in_the_real_home_dir() {
@@ -616,7 +616,7 @@ fn unit_test_trajectory_writes_never_land_in_the_real_home_dir() {
 
     let dir = trajectory_dir();
     if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-        let live = home.join(".angel0").join("trajectories");
+        let live = home.join(".angelX").join("trajectories");
         assert_ne!(dir, live, "cfg(test) default must not be the live dir");
         assert!(
             !dir.starts_with(&live),

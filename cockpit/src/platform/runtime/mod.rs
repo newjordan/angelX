@@ -688,7 +688,7 @@ fn layout_dir() -> PathBuf {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    home.join(".angel0").join("layouts")
+    home.join(".angelX").join("layouts")
 }
 
 fn clean_layout_name(name: &str) -> Result<String, String> {

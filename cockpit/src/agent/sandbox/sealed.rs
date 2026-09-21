@@ -36,7 +36,7 @@ const HOST_READ_ROOTS: [&str; 8] = [
 
 /// `$HOME` subtrees that must never be readable. Kept even when absent so the
 /// identity digest and the qualification cohort agree on the contract.
-const HOME_DENY: [&str; 5] = [".ssh", ".angel0", ".config", ".gnupg", ".mozilla"];
+const HOME_DENY: [&str; 5] = [".ssh", ".angelX", ".config", ".gnupg", ".mozilla"];
 
 /// `$HOME` subtrees granted read-only for the pinned toolchains.
 const HOME_TOOLCHAIN_ALLOW: [&str; 3] = [".cargo", ".rustup", ".nvm"];
