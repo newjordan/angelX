@@ -133,7 +133,10 @@ test('a tree without the bridge skips the embed-table comparison', () => {
 })
 
 test('the checked-in bridge embeds the whole receipted set', () => {
-  const bridge = fs.readFileSync(join(repoRoot, 'cockpit/src/drive/rl_ctl/research_bridge.rs'), 'utf8')
+  const bridge = fs.readFileSync(
+    join(repoRoot, 'cockpit/src/drive/rl_ctl/research_bridge.rs'),
+    'utf8',
+  )
   const paths = embeddedPaths(bridge)
   assert.equal(paths.length, new Set(paths).size, 'no duplicate include_bytes! entries')
   const receipt = JSON.parse(

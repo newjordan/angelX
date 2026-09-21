@@ -72,10 +72,13 @@ test('checksum mismatch fails before mutating an installed prefix', (t) => {
 test('installed resources remain bound to the binary release and survive rollback', (t) => {
   const { root, candidate, metadata } = fixture(t)
   const identity = 'c'.repeat(64)
-  const resources = { manifest: { entries_manifest_sha256: identity }, rows: [
-    { path: 'scripts/worker.mjs', mode: 0o644, content: Buffer.from('// exact worker\n') },
-    { path: 'cockpit/assets/fixture.txt', mode: 0o644, content: Buffer.from('exact asset\n') },
-  ] }
+  const resources = {
+    manifest: { entries_manifest_sha256: identity },
+    rows: [
+      { path: 'scripts/worker.mjs', mode: 0o644, content: Buffer.from('// exact worker\n') },
+      { path: 'cockpit/assets/fixture.txt', mode: 0o644, content: Buffer.from('exact asset\n') },
+    ],
+  }
   metadata.release.resources_sha256 = identity
   const installed = installCandidate({ sandboxRoot: root, candidate, metadata, resources })
   const worker = join(installed.layout.shareDirectory, 'bundles', identity, 'scripts/worker.mjs')
@@ -83,9 +86,15 @@ test('installed resources remain bound to the binary release and survive rollbac
   injectInterruptedReplacement(root)
   assert.equal(recoverInterruptedInstall(root).recovered, true)
   assert.equal(readFileSync(worker, 'utf8'), '// exact worker\n')
-  assert.throws(() => installCandidate({ sandboxRoot: root, candidate, metadata }), /requires its source-bound resource bundle/u)
+  assert.throws(
+    () => installCandidate({ sandboxRoot: root, candidate, metadata }),
+    /requires its source-bound resource bundle/u,
+  )
   writeFileSync(worker, '// corrupted\n')
-  assert.throws(() => installCandidate({ sandboxRoot: root, candidate, metadata, resources }), /resource differs/u)
+  assert.throws(
+    () => installCandidate({ sandboxRoot: root, candidate, metadata, resources }),
+    /resource differs/u,
+  )
 })
 
 test('interrupted replacement restores the verified binary and refuses corrupt rollback', (t) => {
@@ -125,18 +134,27 @@ test('installed probe is networkless, checkout-free, and limited to lifecycle st
   assert.deepEqual(args.slice(-3), ['/lifecycle/prefix/bin/angel', '--build-info', '--json'])
 })
 
-
 import { runRollbackVerification } from '../../scripts/release/verify-release-rollback.mjs'
 
 function rollbackFixture(t) {
   const { root } = fixture(t)
-  const previous = join(root, 'N'), next = join(root, 'N1')
-  for (const [path, digest] of [[previous, 'a'], [next, 'b']]) {
+  const previous = join(root, 'N'),
+    next = join(root, 'N1')
+  for (const [path, digest] of [
+    [previous, 'a'],
+    [next, 'b'],
+  ]) {
     const info = { schema: 'angel-build-info/v1', cockpit_source_sha256: digest.repeat(64) }
     writeFileSync(path, `#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(info)}'\n`, { mode: 0o755 })
   }
-  return { previous, next, previousSha256: sha256File(previous), nextSha256: sha256File(next),
-    receiptPath: join(root, 'receipt.json'), worktree: root }
+  return {
+    previous,
+    next,
+    previousSha256: sha256File(previous),
+    nextSha256: sha256File(next),
+    receiptPath: join(root, 'receipt.json'),
+    worktree: root,
+  }
 }
 
 test('host prefix installs N, upgrades to distinct N+1, rolls back to N and removes prefix', (t) => {
@@ -144,8 +162,14 @@ test('host prefix installs N, upgrades to distinct N+1, rolls back to N and remo
   const receipt = runRollbackVerification(options)
   assert.equal(receipt.status, 'pass', receipt.error)
   const steps = receipt.steps.filter((s) => s.phase === 'verified')
-  assert.deepEqual(steps.map((s) => s.sha256), [options.previousSha256, options.nextSha256, options.previousSha256])
-  assert.deepEqual(steps.map((s) => s.replaced), [false, true, true])
+  assert.deepEqual(
+    steps.map((s) => s.sha256),
+    [options.previousSha256, options.nextSha256, options.previousSha256],
+  )
+  assert.deepEqual(
+    steps.map((s) => s.replaced),
+    [false, true, true],
+  )
   assert.equal(receipt.cleanup.removed, true)
   assert.deepEqual(JSON.parse(readFileSync(options.receiptPath)), receipt)
 })

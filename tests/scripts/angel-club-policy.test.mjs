@@ -10,7 +10,10 @@ import { RELEASE_PATHS, REQUIRED_RELEASE_FILES } from '../../scripts/release/rel
 const policy = fileURLToPath(new URL('../../scripts/check/angel-club-policy.sh', import.meta.url))
 
 test('the launch-time provider policy is shipped in release archives', () => {
-  for (const path of ['scripts/check/angel-club-policy.sh', 'tests/scripts/angel-club-policy.test.mjs']) {
+  for (const path of [
+    'scripts/check/angel-club-policy.sh',
+    'tests/scripts/angel-club-policy.test.mjs',
+  ]) {
     assert.ok(RELEASE_PATHS.includes(path))
     assert.ok(REQUIRED_RELEASE_FILES.includes(path))
   }
@@ -122,30 +125,52 @@ test('real launcher loads system.env, preserves API choices, and isolates headle
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const home = join(root, 'home')
   const source = join(root, 'source')
-  for (const dir of ['bin', 'scripts/check', 'cockpit/target/release']) mkdirSync(join(source, dir), { recursive: true })
+  for (const dir of ['bin', 'scripts/check', 'cockpit/target/release'])
+    mkdirSync(join(source, dir), { recursive: true })
   mkdirSync(join(home, '.config/host_env'), { recursive: true })
-  copyFileSync(fileURLToPath(new URL('../../bin/angelX', import.meta.url)), join(source, 'bin/angelX'))
+  copyFileSync(
+    fileURLToPath(new URL('../../bin/angelX', import.meta.url)),
+    join(source, 'bin/angelX'),
+  )
   copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
   const probe = join(source, 'cockpit/target/release/angel')
-  writeFileSync(probe, `#!/usr/bin/env python3
+  writeFileSync(
+    probe,
+    `#!/usr/bin/env python3
 import json, os
 print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
  "openai": bool(os.environ.get("OPENAI_API_KEY")), "marker": os.environ.get("ANGEL_TEST_CONFIG")}))
-`)
+`,
+  )
   chmodSync(probe, 0o755)
-  writeFileSync(join(home, '.config/host_env/system.env'),
-    'XAI_API_KEY=fixture-xai\nOPENAI_API_KEY=fixture-openai\nANGEL_TEST_CONFIG=system\n')
+  writeFileSync(
+    join(home, '.config/host_env/system.env'),
+    'XAI_API_KEY=fixture-xai\nOPENAI_API_KEY=fixture-openai\nANGEL_TEST_CONFIG=system\n',
+  )
   const launch = (args = [], extra = {}) => {
     const result = spawnSync('bash', [join(source, 'bin/angelX'), ...args], {
-      cwd: root, encoding: 'utf8', timeout: 15000,
-      env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', ANGEL_NO_BUILD: '1',
-        ANGEL_VIDEO: '0', ANGEL_WEBGPU_PORTAL: '0', ...extra },
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 15000,
+      env: {
+        HOME: home,
+        PATH: '/usr/bin:/bin',
+        LANG: 'C.UTF-8',
+        ANGEL_NO_BUILD: '1',
+        ANGEL_VIDEO: '0',
+        ANGEL_WEBGPU_PORTAL: '0',
+        ...extra,
+      },
     })
     assert.equal(result.status, 0, result.stderr)
     return JSON.parse(result.stdout)
   }
   assert.deepEqual(launch(), { grok: true, openai: true, marker: 'system' })
-  assert.deepEqual(launch([], { ANGEL_API_CLUBS: 'none' }), { grok: false, openai: false, marker: 'system' })
+  assert.deepEqual(launch([], { ANGEL_API_CLUBS: 'none' }), {
+    grok: false,
+    openai: false,
+    marker: 'system',
+  })
   writeFileSync(join(source, '.angel.env'), 'ANGEL_TEST_CONFIG=project\n')
   assert.equal(launch().marker, 'project')
   assert.deepEqual(launch(['--build-info', '--json']), { grok: false, openai: false, marker: null })
