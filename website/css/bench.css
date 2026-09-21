@@ -1,0 +1,38 @@
+/* trials — benchmark plots in the cockpit's "measured" panel style: thin square frames
+   with the title set into the border, dot-matrix marks, DOS type. Site tokens only. */
+.bench{
+  --b-bg:#050506; --b-ink:#f4f4f7; --b-dim:#a2a2ac; --b-rule:#3a3a44;
+  --b-dos:'VT323','Courier New',ui-monospace,monospace;
+  --b-mono:ui-monospace,'Cascadia Mono',Menlo,Consolas,'Courier New',monospace;
+  margin:16vh 0 0;text-align:left;color:var(--b-ink)
+}
+.bench *{box-sizing:border-box}
+.bench .tv{position:relative;margin:48px 0 0;border:1px solid var(--b-rule);background:rgba(5,5,6,.86);
+  padding:28px 16px 12px;min-width:0}
+.bench .tv-title{position:absolute;top:0;left:14px;transform:translateY(-55%);margin:0;background:var(--b-bg);
+  padding:0 8px;font-family:var(--b-mono);font-size:13.5px;letter-spacing:.01em;color:var(--b-ink);white-space:nowrap}
+.bench .replay{position:absolute;top:0;right:14px;transform:translateY(-55%);background:var(--b-bg);
+  border:1px solid var(--b-rule);color:var(--b-dim);font-family:var(--b-dos);font-size:17px;letter-spacing:.08em;
+  padding:0 8px;cursor:pointer;line-height:1.35}
+.bench .replay:hover,.bench .replay:focus-visible{color:#fff;border-color:#fff;outline:none}
+.bench .panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px}
+.bench .panel-name{margin:0 0 2px;font-family:var(--b-dos);font-size:17px;letter-spacing:.12em;color:var(--b-dim)}
+.bench svg{width:100%;height:auto;display:block;overflow:visible}
+.bench svg .vt{font-family:var(--b-dos)}
+.bench .legend{display:flex;flex-wrap:wrap;gap:4px 22px;margin:10px 0 0;padding-top:8px;
+  border-top:1px dashed var(--b-rule);font-family:var(--b-dos);font-size:17px;letter-spacing:.06em;color:var(--b-dim)}
+.bench .legend i{display:inline-block;width:34px;height:6px;margin-right:8px;vertical-align:middle;
+  background-repeat:repeat-x;background-size:var(--w) 6px}
+.bench .legend .ax{--w:4px;background-image:linear-gradient(90deg,#f4f4f7 0 2px,transparent 2px)}
+.bench .legend .oc{--w:8px;background-image:linear-gradient(90deg,#a2a2ac 0 2px,transparent 2px)}
+.bench .legend .om{--w:16px;background-image:linear-gradient(90deg,#6f6f7a 0 2px,transparent 2px 4px,#6f6f7a 4px 6px,transparent 6px)}
+.bench .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
+.bench .provenance{margin:30px 0 0;font-family:var(--b-dos);font-size:17px;line-height:1.45;letter-spacing:.04em;color:var(--b-dim)}
+.bench .provenance a{color:var(--b-ink);text-decoration:underline dotted;text-underline-offset:3px}
+.bench .provenance a:hover,.bench .provenance a:focus-visible{color:#fff;text-decoration-color:#fff}
+@media (max-width:760px){
+  .bench{margin-top:10vh}
+  .bench .panels,.bench .row2{grid-template-columns:minmax(0,1fr)}
+  .bench .tv{padding:40px 10px 10px}
+  .bench .tv-title{font-size:12px;white-space:normal;max-width:calc(100% - 118px);line-height:1.3}
+}

@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/bench.css">
 </head>
 <body>
 
@@ -170,6 +171,70 @@
         </div>
       </div>
       <p class="fineprint">AngelX created by Jordan Newman <a href="https://x.com/frostforger" target="_blank" rel="noopener noreferrer" aria-label="Jordan Newman on X — @frostforger">@frostforger</a></p>
+      <!-- trials: benchmark plots, 2026-09-21 run (js/bench-data.js · js/bench.js · css/bench.css) -->
+      <div class="bench" id="trials" aria-label="Benchmarks, 2026-09-21: angelX, OpenCode and omp">
+        <figure class="tv" id="tv-race">
+          <figcaption class="tv-title">◇ measured · the race to 54 · 2026-09-21 ◇</figcaption>
+          <button class="replay" type="button" aria-label="Replay the race">[ ▶ ]</button>
+          <div class="panels">
+            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
+              <svg id="race-deepseek" viewBox="0 0 460 262" role="img" aria-label="Solved attempts against cumulative agent time, DeepSeek"></svg></div>
+            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
+              <svg id="race-glm" viewBox="0 0 460 262" role="img" aria-label="Solved attempts against cumulative agent time, GLM"></svg></div>
+          </div>
+          <div class="legend"><span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
+        </figure>
+
+        <div class="row2">
+          <figure class="tv" id="tv-score">
+            <figcaption class="tv-title">◇ measured · graded attempts · 2026-09-21 ◇</figcaption>
+            <button class="replay" type="button" aria-label="Replay the scoreboard">[ ▶ ]</button>
+            <svg id="score" viewBox="0 0 460 262" role="img" aria-label="Every graded attempt as one dot, lit when it passed"></svg>
+          </figure>
+          <figure class="tv" id="tv-bars">
+            <figcaption class="tv-title">◇ measured · output per task · 2026-09-21 ◇</figcaption>
+            <button class="replay" type="button" aria-label="Replay the output bars">[ ▶ ]</button>
+            <svg id="bars" viewBox="0 0 460 262" role="img" aria-label="Output tokens and model calls per task, as dot columns"></svg>
+          </figure>
+        </div>
+
+        <figure class="tv" id="tv-trace">
+          <figcaption class="tv-title">◇ measured · seconds per attempt · 2026-09-21 ◇</figcaption>
+          <button class="replay" type="button" aria-label="Replay seconds per attempt">[ ▶ ]</button>
+          <div class="panels">
+            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
+              <svg id="trace-deepseek" viewBox="0 0 460 262" role="img" aria-label="Seconds per attempt in run order, DeepSeek"></svg></div>
+            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
+              <svg id="trace-glm" viewBox="0 0 460 262" role="img" aria-label="Seconds per attempt in run order, GLM"></svg></div>
+          </div>
+          <div class="legend"><span>■ angelX</span><span>+ OpenCode</span><span>× omp</span></div>
+        </figure>
+
+        <figure class="tv" id="tv-burn">
+          <figcaption class="tv-title">◇ measured · context burned · 2026-09-21 ◇</figcaption>
+          <button class="replay" type="button" aria-label="Replay context burned">[ ▶ ]</button>
+          <div class="panels">
+            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
+              <svg id="burn-deepseek" viewBox="0 0 460 262" role="img" aria-label="Cumulative input tokens over the run, DeepSeek"></svg></div>
+            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
+              <svg id="burn-glm" viewBox="0 0 460 262" role="img" aria-label="Cumulative input tokens over the run, GLM"></svg></div>
+          </div>
+          <div class="legend"><span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
+        </figure>
+
+        <figure class="tv" id="tv-cache">
+          <figcaption class="tv-title">◇ measured · cache · 2026-09-21 ◇</figcaption>
+          <button class="replay" type="button" aria-label="Replay cache hit rate">[ ▶ ]</button>
+          <div class="panels">
+            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
+              <svg id="cache-deepseek" viewBox="0 0 460 262" role="img" aria-label="Running cache hit rate over the run, DeepSeek"></svg></div>
+            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
+              <svg id="cache-glm" viewBox="0 0 460 262" role="img" aria-label="Running cache hit rate over the run, GLM"></svg></div>
+          </div>
+          <div class="legend"><span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
+        </figure>
+        <p class="provenance">* All tests performed on the <a href="https://github.com/PrimeIntellect-ai/verifiers" target="_blank" rel="noopener noreferrer">Prime Intellect evaluators</a> (Verifiers v0.3.1) · prime-quality-v1: 18 repository-repair tasks (8 JS, 7 Python, 3 Rust), 3 runs per harness per model, 324 graded attempts, pass/fail decided by each task’s own tests · angelX a5e788f · oh-my-pi 18.2.4 · opencode 1.18.31 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (the model’s floor) · temperature 0 · 8,192-token output cap · fresh environment per attempt · 2026-09-21</p>
+      </div>
     </div>
   </section>
 
@@ -269,5 +334,7 @@
 <script src="js/excalibur.js"></script>
 <script src="js/mountain.js"></script>
 <script src="js/main.js"></script>
+<script src="js/bench-data.js"></script>
+<script src="js/bench.js"></script>
 </body>
 </html>
