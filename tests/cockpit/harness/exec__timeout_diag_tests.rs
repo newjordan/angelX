@@ -341,6 +341,61 @@ fn yolo_does_not_disable_containment_ceilings() {
     assert_eq!(tool_idle_floor(), None);
 }
 
+/// The 2026-09-21 live hang, end to end: a `/yolo on` session ran
+/// `python3 -m http.server` through the shell tool and the turn sat on it
+/// until the operator noticed. Yolo strips `ANGEL_TOOL_TIMEOUT`, so the idle
+/// floor is the only thing standing between a silent foreground server and a
+/// wedged turn. The accessor test above cannot see a bypass reintroduced
+/// inside the wait loop; this one can.
+#[test]
+fn yolo_idle_floor_reaps_a_silent_foreground_server() {
+    let _env = crate::tests::env_lock();
+    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
+    let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
+    let _tool_idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
+    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
+    let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
+    assert_eq!(tool_timeout(), None);
+    let policy = SandboxPolicy::permissive();
+    // See `idle_floor_kills_sleep_before_the_full_tool_timeout`: the first
+    // helper spawn may build, which is not idle-wait.
+    let warmup =
+        run_sandboxed_observed("sh", &["-c", "echo warmup"], None, &policy).expect("warmup");
+    assert!(
+        warmup.output.contains("warmup"),
+        "sandbox helper warmup failed: {}",
+        warmup.output
+    );
+    // The live shell tool always passes a cancel flag nobody sets.
+    let never = std::sync::atomic::AtomicBool::new(false);
+    let started = Instant::now();
+    let observation = run_sandboxed_observed_cancellable(
+        "sh",
+        &["-c", "sleep 30; echo never"],
+        None,
+        &policy,
+        Some(&never),
+    )
+    .expect("sandboxed run");
+    let elapsed = started.elapsed();
+    assert!(observation.timed_out, "{}", observation.output);
+    assert!(
+        elapsed < Duration::from_secs(8),
+        "yolo must not let a silent server own the turn ({elapsed:?}) out={}",
+        observation.output
+    );
+    assert!(
+        !observation.output.contains("never"),
+        "{}",
+        observation.output
+    );
+    assert!(
+        observation.output.contains("use proc_run"),
+        "the receipt must point the model at proc_run: {}",
+        observation.output
+    );
+}
+
 #[test]
 fn timeout_kill_defaults_to_immediate_sigkill_with_diagnostics() {
     let _env = crate::tests::env_lock();
