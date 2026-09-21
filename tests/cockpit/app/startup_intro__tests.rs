@@ -879,3 +879,130 @@ fn startup_intro_export_water_flow_proof() {
             .unwrap();
     }
 }
+
+/// Sideways slack the band leaves in its pane: left, then right.
+fn band_slack(area: Rect, band: Rect) -> (u16, u16) {
+    (band.x - area.x, area.x + area.width - (band.x + band.width))
+}
+
+/// The intro band: one rule — never compose a surface wider than the dots that
+/// can carry the art — plus a centring and a floor lock. The crop is nearly
+/// square, so a wider pane never bought a wider blade; it only grew the canvas,
+/// the fine-dot raster and the Braille grid the same blade was carried in, which
+/// is what read as the width pixelating the clip.
+#[test]
+fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
+    let fill = |rows: usize| (rows * 4 * CROP_W as usize / FRAME_H as usize / 2) as u16;
+    let cases = [
+        // (pane, expected width, why)
+        (Rect::new(0, 0, 200, 20), fill(20), "wide and short: the fit width"),
+        (Rect::new(0, 0, 300, 64), INTRO_MAX_COLUMNS, "tall: the hard cap"),
+        (Rect::new(7, 3, 20, 10), fill(10), "already the fit width"),
+        (Rect::new(7, 3, 30, 10), fill(10), "narrower pane, still the fit"),
+        // Degenerate rows still yield a small band rather than a zero one.
+        (Rect::new(4, 4, 30, 1), fill(1), "one row"),
+    ];
+    for (pane, width, why) in cases {
+        let band = intro_band(pane);
+        assert_eq!(band.width, width, "{why}: {pane:?}");
+        assert!(band.width <= pane.width, "{why}: never wider than its pane");
+        assert!(band.width <= INTRO_MAX_COLUMNS, "{why}: width genuinely clamped");
+        assert!(
+            band.width <= fill(usize::from(pane.height)).max(1),
+            "{why}: never wider than the art can fill"
+        );
+        // Centred, to within the odd column the split cannot share.
+        let (left, right) = band_slack(pane, band);
+        assert!(
+            left.abs_diff(right) <= 1,
+            "{why}: slack {left}/{right} is not a centring"
+        );
+        // Floor lock: the band is the pane's rows, so its foot is the pane's foot.
+        assert_eq!(band.y, pane.y, "{why}: top held");
+        assert_eq!(band.height, pane.height, "{why}: the rows are untouched");
+        assert_eq!(
+            band.y + band.height,
+            pane.y + pane.height,
+            "{why}: foot of the band is the foot of the pane"
+        );
+        // Banding a band is a no-op, so a banded caller and this rule cannot
+        // disagree about the rectangle.
+        assert_eq!(intro_band(band), band, "{why}: not idempotent");
+    }
+    // A zero-area pane is handed back untouched rather than turned into a
+    // one-column band at the origin.
+    let empty = Rect::new(9, 9, 0, 40);
+    assert_eq!(intro_band(empty), empty);
+    assert_eq!(intro_band(Rect::new(9, 9, 40, 0)), Rect::new(9, 9, 40, 0));
+}
+
+/// The render boundary, not just the helper: the Sword clip is banded before the
+/// geometry is derived, so the composed canvas, the fine-dot raster and the
+/// declared cell rect are one width, and nothing paints outside the band. A
+/// narrower rect declared over a wider raster is what squeezed the clip.
+#[test]
+fn startup_intro_sword_draws_only_inside_its_band() {
+    let pane = Rect::new(0, 0, 120, 24);
+    let band = intro_band(pane);
+    assert!(band.width < pane.width, "this pane must actually clamp");
+    // Banded before the geometry, exactly as the transcript pane does it.
+    let geometry = DotGeometry::new(band.width, band.height, (8, 16), 2).unwrap();
+    // The raster is the band's pixels, cell for cell: no wider canvas exists for
+    // the transport to squeeze into the band.
+    assert_eq!(geometry.width, u32::from(band.width) * 8);
+    let mut intro = StartupIntro {
+        // Settled: the blade has landed and the water is in, so the band's floor
+        // is the waterline rather than an empty early rise frame.
+        started: Some(Instant::now() - Duration::from_secs(90)),
+        ..Default::default()
+    };
+    let mut terminal = Terminal::new(TestBackend::new(pane.width, pane.height)).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        terminal
+            .draw(|frame| intro.render(frame, band, Some(geometry), MotionMode::Reduced))
+            .unwrap();
+        if intro.surfaces[0].current.is_some() {
+            break;
+        }
+        assert!(Instant::now() < deadline, "intro worker did not deliver");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let columns = usize::from(pane.width);
+    let mut inked = 0usize;
+    let mut floor_inked = 0usize;
+    for (index, cell) in terminal.backend().buffer().content().iter().enumerate() {
+        if cell.symbol() == " " {
+            continue;
+        }
+        inked += 1;
+        let x = (index % columns) as u16;
+        let y = (index / columns) as u16;
+        assert!(
+            (band.x..band.x + band.width).contains(&x)
+                && (band.y..band.y + band.height).contains(&y),
+            "intro ink at ({x}, {y}) is outside the band {band:?}"
+        );
+        if y == band.y + band.height - 1 {
+            floor_inked += 1;
+        }
+    }
+    assert!(inked > 0, "the settled clip painted nothing to check");
+    // The band is the aspect-fill width for its rows, so the fitted clip fills it
+    // rather than letterboxing inside it.
+    let band_area = usize::from(band.width) * usize::from(band.height);
+    assert!(
+        inked * 10 >= band_area * 9,
+        "the clip fills only {inked}/{band_area} of its band"
+    );
+    // Floor lock: the waterline is the last row of the band, edge to edge.
+    assert_eq!(
+        floor_inked,
+        usize::from(band.width),
+        "the clip is not standing on the floor of its band: {floor_inked} of {} columns inked on the last row",
+        band.width
+    );
+    assert!(!intro.finished);
+    intro.dismiss(Instant::now(), MotionMode::Off);
+    assert!(intro.finished && intro.surfaces[0].current.is_none());
+}
