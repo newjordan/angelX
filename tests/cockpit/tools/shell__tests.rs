@@ -750,3 +750,16 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn interactive_shell_rejects_excessive_sleep() {
+    let _guard = crate::tests::env_lock();
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
+
+    assert!(task_shell_poll_redirect("sleep 240").is_some());
+    assert!(task_shell_poll_redirect("sleep 240; echo done").is_some());
+    assert!(task_shell_poll_redirect("sleep 15").is_some());
+    assert!(task_shell_poll_redirect("sleep 1").is_none());
+    assert!(task_shell_poll_redirect("sleep 2; cargo check").is_none());
+}

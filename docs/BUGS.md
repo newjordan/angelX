@@ -101,7 +101,8 @@ that is where the "it is still running" reading came from. Use
 
 ## BUG-0002 — the new hang guards are inert under `ANGEL_YOLO=1`
 
-Status: open. It is why the in-flight timeout package was not pushed.
+Status: fixed in the working tree on 2026-09-21, not committed. The mixed dirty
+package (grok, website, intro) is still the other seat's; do not push it as-is.
 
 The package that sat uncommitted on top of `36adc72` changes `tool_hard_timeout()`
 (default 900 s) and `tool_idle_floor()` (default 120 s) in
@@ -143,9 +144,26 @@ The fifth is a real regression, red with the bypass either way:
   inside a synchronous tool call freezes the terminal UI."* A cancel already queued
   should outrank the guard.
 
-Fix directions: honor the ceilings regardless of yolo (or scope the bypass to
-approvals), pin the posture inside those tests instead of inheriting it, and let a
-pending cancel bypass the sleep guard.
+Fix, in the working tree, not committed:
+
+- `tool_hard_timeout()` and `tool_idle_floor()` no longer return `None` under
+  yolo. Operator `0` still opts out. `tool_timeout()` is unchanged: yolo still
+  removes the operator-workload timer. Non-fixed caller deadlines in
+  `output_timed_inner` stay stripped under yolo; that separate contract is
+  `yolo_preserves_background_descendants_after_the_shell_exits`. The two 30 s
+  diagnostics now pin `ANGEL_YOLO` off instead of inheriting the box.
+- `call_with_cancel` skips the excessive-sleep redirect when a registry cancel
+  token is present, so `sleep 30 & wait` can start and then be cancelled.
+  `call()` with no cancel token still rejects `sleep` over 10 s.
+
+Verified 2026-09-21, `cargo test --bin angel -- --exact <path>`, both
+`ANGEL_YOLO=1` and `env -u ANGEL_YOLO`, each 1 passed / 0 failed:
+`yolo_does_not_disable_containment_ceilings`, both 30 s diagnostics,
+`run_turn_child_activity_is_owned_recent_and_released`,
+`delegate_heartbeat_does_not_erase_silence_and_panic_cleans_up`,
+`shell_tool_honors_registry_cancel_authority`,
+`interactive_shell_rejects_excessive_sleep`. Full suite not run (BUG-0001 plus
+the live polyglot campaign).
 
 Not verified here: the full suite. BUG-0001's wall-clock cap plus a live benchmark
 campaign on the same box prevent a complete run; every result above comes from the
