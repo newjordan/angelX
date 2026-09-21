@@ -30,6 +30,35 @@ ANGEL_VIDEO=0 ./bin/angelX
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
 
+## Benchmarks
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/race-dark.png">
+  <img alt="The race to 54: solved attempts against agent time for angelX, OpenCode and omp, on DeepSeek V4.1 Flash and GLM-5.3-Flash" src="docs/images/bench/race-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/attempts-output-dark.png">
+  <img alt="Graded attempts (324 of 324 passed) and output tokens and model calls per task, for angelX, OpenCode and omp" src="docs/images/bench/attempts-output-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/seconds-dark.png">
+  <img alt="Seconds per attempt in run order with medians, for angelX, OpenCode and omp on both models" src="docs/images/bench/seconds-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/context-dark.png">
+  <img alt="Input tokens burned across all 54 attempts, for angelX, OpenCode and omp on both models" src="docs/images/bench/context-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/cache-dark.png">
+  <img alt="Running cache hit rate over the run, for angelX, OpenCode and omp on both models" src="docs/images/bench/cache-light.png">
+</picture>
+
+<sub>* All tests performed on the <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect evaluators</a> (Verifiers v0.3.1) · prime-quality-v1: 18 repository-repair tasks (8 JS, 7 Python, 3 Rust), 3 runs per harness per model, 324 graded attempts, pass/fail decided by each task’s own tests · angelX a5e788f · oh-my-pi 18.2.4 · opencode 1.18.31 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (the model’s floor) · temperature 0 · 8,192-token output cap · fresh environment per attempt · 2026-09-21</sub>
+
 ## Research and credits
 
 Research and public work that informed Angel:
