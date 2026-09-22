@@ -18,16 +18,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
 <title>Scoreboard Timeline — angelX</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=VT323&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #050506;
-    --card-bg: rgba(11, 11, 14, 0.96);
+    --card-bg: rgba(9, 9, 12, 0.96);
     --ink: #f4f4f7;
     --dim: #a2a2ac;
     --faint: #686875;
     --rule: #282833;
-    --rule-light: #3e3e4d;
+    --rule-card: #3a3a44;
     --hero: #ffffff;
     --mono: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
     --dos: 'VT323', ui-monospace, monospace;
@@ -35,250 +35,177 @@ const HTML_CONTENT = `<!DOCTYPE html>
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
-    width: 1920px;
+    width: 1080px;
     height: 1080px;
     overflow: hidden;
     background: var(--bg);
     color: var(--ink);
     font-family: var(--mono);
-  }
-  .stage {
-    width: 1920px;
-    height: 1080px;
-    padding: 34px 60px 26px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
+    align-items: center;
   }
-  /* Masthead */
-  .mast {
+  .stage {
+    width: 960px;
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    border-bottom: 1px solid var(--rule-light);
-    padding-bottom: 14px;
+    flex-direction: column;
   }
-  .kicker {
+  /* Header */
+  .sec-head {
+    margin-bottom: 22px;
+  }
+  .sec-kicker {
     font-family: var(--dos);
-    font-size: 21px;
-    letter-spacing: 0.22em;
+    font-size: 20px;
+    letter-spacing: 0.2em;
     color: var(--faint);
     text-transform: uppercase;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
-  h1 {
+  .sec-title {
     font-family: var(--fantasy);
     font-size: 42px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     color: var(--hero);
-    margin: 0;
+    line-height: 1.15;
   }
-  .mast-sub {
-    font-size: 14.5px;
+  .sec-sub {
+    font-family: var(--mono);
+    font-size: 14px;
     color: var(--dim);
-    letter-spacing: 0.02em;
-    text-align: right;
-    line-height: 1.5;
+    margin-top: 4px;
+    letter-spacing: 0.01em;
   }
 
-  /* Scoreboard Card */
-  .tv-box {
+  /* TV Frame (website .tv style) */
+  .tv {
     position: relative;
-    border: 1px solid var(--rule-light);
+    border: 1px solid var(--rule-card);
     background: var(--card-bg);
-    padding: 22px 30px 16px;
-    height: 575px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+    padding: 28px 24px 18px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75);
   }
-  .tv-tag {
+  .tv-title {
     position: absolute;
     top: 0;
-    left: 24px;
-    transform: translateY(-50%);
+    left: 20px;
+    transform: translateY(-55%);
     background: var(--bg);
-    padding: 0 12px;
-    font-family: var(--dos);
-    font-size: 17px;
+    padding: 0 10px;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .tv-replay {
+    position: absolute;
+    top: 0;
+    right: 20px;
+    transform: translateY(-55%);
+    background: var(--bg);
+    border: 1px solid var(--rule-card);
     color: var(--dim);
-    letter-spacing: 0.08em;
-  }
-  .tv-badge {
-    position: absolute;
-    top: 0;
-    right: 24px;
-    transform: translateY(-50%);
-    background: var(--bg);
-    padding: 0 12px;
     font-family: var(--dos);
-    font-size: 17px;
-    color: var(--hero);
-    letter-spacing: 0.1em;
-    text-shadow: 0 0 8px rgba(255,255,255,0.8);
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    padding: 0 10px;
+    line-height: 1.4;
   }
   svg {
     width: 100%;
-    height: 100%;
+    height: 520px;
     display: block;
     overflow: visible;
   }
   .vt { font-family: var(--dos); }
-  .mono { font-family: var(--mono); }
+  .num { font-weight: 700; }
   
   .ax-glow {
-    filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 8px rgba(255,255,255,0.85));
+    filter: drop-shadow(0 0 2px #ffffff) drop-shadow(0 0 6px rgba(255,255,255,0.85));
   }
   .ax-txt-glow {
     filter: drop-shadow(0 0 6px rgba(255,255,255,0.85));
     fill: #ffffff !important;
   }
 
-  /* Bottom 3 Summary Cards */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-    height: 175px;
-  }
-  .card {
-    border: 1px solid var(--rule);
-    background: var(--card-bg);
-    padding: 16px 20px;
+  /* Legend */
+  .legend {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  .card.hero {
-    border-color: rgba(255,255,255,0.45);
-    box-shadow: 0 0 24px rgba(255,255,255,0.08);
-  }
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-  .card-name {
-    font-family: var(--dos);
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-  }
-  .card-name.hero { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.7); }
-  .card-name.dim { color: var(--dim); }
-  .card-name.faint { color: var(--faint); }
-  .card-rate {
-    font-family: var(--dos);
-    font-size: 28px;
-    font-weight: 700;
-  }
-  .card-rate.hero { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.8); }
-  .card-rate.dim { color: var(--dim); }
-  .card-rate.faint { color: var(--faint); }
-  .card-metrics {
-    font-size: 13.5px;
-    color: var(--dim);
-    line-height: 1.6;
-  }
-  .card-status {
-    font-family: var(--dos);
-    font-size: 17px;
-    letter-spacing: 0.08em;
-    padding-top: 6px;
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+    margin-top: 14px;
+    padding-top: 12px;
     border-top: 1px dashed var(--rule);
+    font-family: var(--dos);
+    font-size: 18px;
+    letter-spacing: 0.06em;
+    color: var(--dim);
   }
-  .card-status.hero { color: #fff; font-weight: 700; }
-  .card-status.dim { color: var(--dim); }
-  .card-status.warn { color: #e5c07b; }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend .pass {
+    width: 9px;
+    height: 9px;
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255,255,255,0.8);
+    display: inline-block;
+  }
+  .legend .fail {
+    width: 9px;
+    height: 9px;
+    border: 1.5px solid #a2a2ac;
+    display: inline-block;
+  }
+  .legend .ax-hero {
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(255,255,255,0.6);
+  }
 
   /* Footer */
-  .footer {
+  .provenance {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    font-size: 12.5px;
-    color: var(--faint);
-    letter-spacing: 0.04em;
-    padding-top: 6px;
-  }
-  .legend-items {
-    display: flex;
-    gap: 20px;
+    margin-top: 20px;
     font-family: var(--dos);
-    font-size: 16px;
+    font-size: 17px;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+  }
+  .provenance strong {
     color: var(--dim);
   }
-  .legend-items span { display: flex; align-items: center; gap: 6px; }
-  .legend-items .pass-box { width: 9px; height: 9px; background: #fff; box-shadow: 0 0 6px #fff; }
-  .legend-items .fail-box { width: 9px; height: 9px; border: 1.5px solid #e06c75; }
 </style>
 </head>
 <body>
 <div class="stage">
 
-  <header class="mast">
-    <div>
-      <p class="kicker">angelX · measured telemetry</p>
-      <h1>Scoreboard Timeline</h1>
-    </div>
-    <div class="mast-sub">
-      <p><strong>136 repository-repair tasks</strong> (JS, Python, Rust, C++)</p>
-      <p>DeepSeek V4.1 Flash · thinking off · 600s wall cap per attempt</p>
-    </div>
-  </header>
-
-  <div class="tv-box">
-    <div class="tv-tag">◇ measured · scoreboard timeline · 2026-09-21 ◇</div>
-    <div class="tv-badge" id="status-badge">● 136 TASKS EVALUATED</div>
-    <svg id="scoreboard-svg" viewBox="0 0 1740 500"></svg>
+  <div class="sec-head">
+    <p class="sec-kicker">angelX · measured telemetry</p>
+    <h1 class="sec-title">Scoreboard</h1>
+    <p class="sec-sub">Every attempt placed at the moment it completed · DeepSeek V4.1 Flash</p>
   </div>
 
-  <div class="cards">
-    <div class="card hero">
-      <div class="card-top">
-        <span class="card-name hero">angelX</span>
-        <span class="card-rate hero" id="card-rate-ax">0 / 136</span>
-      </div>
-      <div class="card-metrics">
-        <div>Agent time: <strong>34.5 min</strong> (fastest by far)</div>
-        <div>Model calls: <strong>7.5 / task</strong> · 1,891 tokens/task</div>
-      </div>
-      <div class="card-status hero" id="stat-angelx">RUNNING...</div>
-    </div>
-
-    <div class="card">
-      <div class="card-top">
-        <span class="card-name dim">OpenCode 1.18.31</span>
-        <span class="card-rate dim" id="card-rate-oc">0 / 136</span>
-      </div>
-      <div class="card-metrics">
-        <div>Agent time: <strong>58.7 min</strong> (+70% slower)</div>
-        <div>Model calls: <strong>12.5 / task</strong> · 2,568 tokens/task</div>
-      </div>
-      <div class="card-status dim" id="stat-opencode">RUNNING...</div>
-    </div>
-
-    <div class="card">
-      <div class="card-top">
-        <span class="card-name faint">oh-my-pi 18.2.4</span>
-        <span class="card-rate faint" id="card-rate-omp">0 / 59</span>
-      </div>
-      <div class="card-metrics">
-        <div>Agent time: <strong>76.5 min (1.3h)</strong></div>
-        <div>Model calls: <strong>38.3 / task</strong> · 8,683 tokens/task</div>
-      </div>
-      <div class="card-status warn" id="stat-omp">RUNNING...</div>
+  <div class="tv">
+    <div class="tv-title">Scoreboard · DeepSeek V4.1 Flash · thinking off</div>
+    <div class="tv-replay">[ 136 TASKS ]</div>
+    <svg id="scoreboard-svg" viewBox="0 0 912 480"></svg>
+    <div class="legend">
+      <span class="ax-hero"><i class="pass"></i>passed</span>
+      <span><i class="fail"></i>failed</span>
     </div>
   </div>
 
-  <footer class="footer">
-    <div class="legend-items">
-      <span><i class="pass-box"></i> passed attempt (tests pass)</span>
-      <span><i class="fail-box"></i> failed attempt</span>
-      <span style="margin-left:14px">| Evaluator traces — zero self-reporting</span>
-    </div>
-    <div>Graded by task-native test suites on Prime Intellect evaluators (Verifiers v0.3.1) · <strong>angelx.dev</strong></div>
+  <footer class="provenance">
+    <div>Graded on Prime Intellect evaluators (Verifiers v0.3.1)</div>
+    <div><strong>angelx.dev</strong></div>
   </footer>
 
 </div>
@@ -295,7 +222,7 @@ const B = window.BENCH;
 const m = 'deepseek';
 const cell = (h) => B.cells.find(c => c.model === m && c.harness === h);
 
-const X0 = 240, W = 1240;
+const X0 = 135, W = 625;
 const rows = [];
 const ROW_Y = [115, 215, 315];
 const HARNESSES = ['angelx', 'opencode', 'omp'];
@@ -309,93 +236,61 @@ HARNESSES.forEach((h, i) => {
 
 const T = Math.max(...rows.map(r => r.times[r.times.length - 1] || 0)); // 4588.3s
 const xAt = t => Math.round(X0 + (t / T) * W);
-const axisY = 385;
+const axisY = 395;
 
-// Static Grid vertical lines every 15 min up to 60m
+// Grid vertical lines every 15 min up to 60m
 for (let q = 0; q <= 60; q += 15) {
   const x = xAt(q * 60);
   let d = '';
-  for (let y = 70; y < axisY - 10; y += 8) d += 'M' + x + ' ' + y + 'h2.5v2.5h-2.5z';
-  el(svg, 'path', { d, fill: '#333342', opacity: 0.75 });
-  txt(svg, { x, y: axisY + 24, 'text-anchor': q === 0 ? 'start' : 'middle', class: 'vt', 'font-size': 21, fill: '#a2a2ac' }, q + 'm');
+  for (let y = 70; y < axisY - 8; y += 7) d += 'M' + x + ' ' + y + 'h2v2h-2z';
+  el(svg, 'path', { d, fill: '#333342', opacity: 0.65 });
+  txt(svg, { x, y: axisY + 22, 'text-anchor': q === 0 ? 'start' : 'middle', class: 'vt', 'font-size': 18, fill: '#a2a2ac' }, q + 'm');
 }
 // 1.3h marker at end of timeline (budget cap)
 const xMax = xAt(T);
 let dCap = '';
-for (let y = 70; y < axisY - 10; y += 8) dCap += 'M' + xMax + ' ' + y + 'h2.5v2.5h-2.5z';
-el(svg, 'path', { d: dCap, fill: '#554830', opacity: 0.85 });
-txt(svg, { x: xMax, y: axisY + 24, 'text-anchor': 'middle', class: 'vt', 'font-size': 21, fill: '#e5c07b' }, '1.3h (cap)');
-txt(svg, { x: X0 + W, y: axisY + 48, 'text-anchor': 'end', class: 'vt', 'font-size': 18, fill: '#686875' }, 'cumulative agent time to completion (min)');
-
-// Dotted track lines for lanes
-rows.forEach(r => {
-  let trackD = '';
-  for (let x = X0; x < X0 + W; x += 6) trackD += 'M' + x + ' ' + (r.y - 1) + 'h2v2h-2z';
-  el(svg, 'path', { d: trackD, fill: '#2e2e3d', opacity: 0.8 });
-});
+for (let y = 70; y < axisY - 8; y += 7) dCap += 'M' + xMax + ' ' + y + 'h2v2h-2z';
+el(svg, 'path', { d: dCap, fill: '#4a4230', opacity: 0.75 });
+txt(svg, { x: xMax, y: axisY + 22, 'text-anchor': 'middle', class: 'vt', 'font-size': 18, fill: '#e5c07b' }, '1.3h (cap)');
+txt(svg, { x: X0 + W, y: axisY + 46, 'text-anchor': 'end', class: 'vt', 'font-size': 15, fill: '#686875' }, 'cumulative agent time to completion (min)');
 
 // Row labels on left
 rows.forEach(r => {
   const isAx = r.h === 'angelx';
   const label = isAx ? 'angelX' : (r.h === 'opencode' ? 'OpenCode' : 'oh-my-pi');
   txt(svg, {
-    x: X0 - 24, y: r.y + 7, 'text-anchor': 'end',
+    x: X0 - 16, y: r.y + 7, 'text-anchor': 'end',
     class: 'vt ' + (isAx ? 'ax-txt-glow' : ''),
-    'font-size': isAx ? 28 : 24,
+    'font-size': isAx ? 24 : 21,
     fill: isAx ? '#ffffff' : (r.h === 'opencode' ? '#a2a2ac' : '#7d8590')
   }, label);
 });
 
-// Dynamic Elements
-const readout = txt(svg, { x: 20, y: 34, class: 'vt', 'font-size': 24, fill: '#ffffff' }, '');
-const clock = txt(svg, { x: 1720, y: 34, 'text-anchor': 'end', class: 'vt', 'font-size': 24, fill: '#a2a2ac' }, '');
-
-// Sweep line cursor
-const sweepLine = el(svg, 'line', {
-  x1: X0, y1: 65, x2: X0, y2: axisY - 6,
-  stroke: '#ffffff', 'stroke-width': 1.5, 'stroke-dasharray': '3 3', opacity: 0.3
-});
-const sweepPointer = el(svg, 'polygon', { points: '', fill: '#ffffff', opacity: 0.65 });
+// Top telemetry readout: passed X/331 · T+XXm
+const readout = txt(svg, { x: 20, y: 24, class: 'vt num', 'font-size': 21, fill: '#f4f4f7' }, '');
 
 const litPaths = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? '#ffffff' : (r.h === 'opencode' ? '#a2a2ac' : '#7d8590'), class: r.h === 'angelx' ? 'ax-glow' : '' }));
-const missPaths = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: '#e06c75', 'stroke-width': 1.8 }));
+const missPaths = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: '#a2a2ac', 'stroke-width': 1.4 }));
 const countTexts = rows.map(r => txt(svg, {
-  x: 1720, y: r.y + 8, 'text-anchor': 'end',
-  class: 'vt ' + (r.h === 'angelx' ? 'ax-txt-glow' : ''),
-  'font-size': r.h === 'angelx' ? 28 : 24,
+  x: 888, y: r.y + 7, 'text-anchor': 'end',
+  class: 'vt num ' + (r.h === 'angelx' ? 'ax-txt-glow' : ''),
+  'font-size': r.h === 'angelx' ? 24 : 21,
   fill: r.h === 'angelx' ? '#ffffff' : '#a2a2ac'
 }, ''));
-const spanTexts = rows.map(r => txt(svg, { x: 0, y: r.y + 36, class: 'vt', 'font-size': 18, fill: '#888899' }, ''));
-
-const statCards = {
-  angelx: document.getElementById('stat-angelx'),
-  opencode: document.getElementById('stat-opencode'),
-  omp: document.getElementById('stat-omp')
-};
-const rateCards = {
-  angelx: document.getElementById('card-rate-ax'),
-  opencode: document.getElementById('card-rate-oc'),
-  omp: document.getElementById('card-rate-omp')
-};
+const spanTexts = rows.map(r => txt(svg, { x: 0, y: r.y + 26, class: 'vt', 'font-size': 16, fill: '#888899' }, ''));
 
 const fmtMin = sec => sec >= 3600 ? ((sec / 3600).toFixed(1) + 'h') : (Math.round(sec / 60) + 'm');
-const fmtClock = s => 'T+' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const total = rows.reduce((n, r) => n + r.c.attempts.length, 0);
 
 window.renderFrame = function(p) {
   const now = p * T;
   let totalPassed = 0;
-  
-  // Sweep cursor position
-  const curX = Math.min(xAt(now), X0 + W);
-  sweepLine.setAttribute('x1', curX);
-  sweepLine.setAttribute('x2', curX);
-  sweepPointer.setAttribute('points', (curX - 4) + ',62 ' + (curX + 4) + ',62 ' + curX + ',69');
 
   rows.forEach((r, ri) => {
     let d = '', dm = '', ok = 0, last = 0;
     const isAx = r.h === 'angelx';
-    const dotH = isAx ? 7 : 5;
-    const dotW = isAx ? 6 : 4;
+    const dotH = isAx ? 6.5 : 4.5;
+    const dotW = isAx ? 5.5 : 3.5;
     
     r.c.attempts.forEach((a, k) => {
       const t = r.times[k];
@@ -413,64 +308,52 @@ window.renderFrame = function(p) {
     litPaths[ri].setAttribute('d', d);
     missPaths[ri].setAttribute('d', dm);
     countTexts[ri].textContent = ok + ' / ' + r.c.attempts.length;
-    
-    const pct = ((ok / r.c.attempts.length) * 100).toFixed(1);
-    rateCards[r.h].textContent = ok + ' / ' + r.c.attempts.length + ' (' + pct + '%)';
 
     if (last > 0) {
       const isFinished = now >= r.totalTime;
       const pxLast = xAt(last);
       
       if (r.h === 'angelx') {
-        spanTexts[ri].setAttribute('x', pxLast + 12);
+        spanTexts[ri].setAttribute('x', pxLast + 8);
         spanTexts[ri].setAttribute('text-anchor', 'start');
         if (isFinished) {
           spanTexts[ri].setAttribute('fill', '#ffffff');
-          spanTexts[ri].textContent = '34.5m ★ FINISHED (ALL 136 TASKS)';
-          statCards.angelx.textContent = '★ FINISHED at 34.5m (ALL 136 TASKS)';
+          spanTexts[ri].textContent = '35m ★ finished';
         } else {
           spanTexts[ri].setAttribute('fill', '#ffffff');
-          spanTexts[ri].textContent = fmtMin(last) + ' · ' + ok + '/136';
-          statCards.angelx.textContent = 'RUNNING: ' + ok + '/136 (' + fmtMin(last) + ')';
+          spanTexts[ri].textContent = fmtMin(last);
         }
       } else if (r.h === 'opencode') {
-        spanTexts[ri].setAttribute('x', pxLast + 12);
+        spanTexts[ri].setAttribute('x', pxLast + 8);
         spanTexts[ri].setAttribute('text-anchor', 'start');
         if (isFinished) {
           spanTexts[ri].setAttribute('fill', '#a2a2ac');
-          spanTexts[ri].textContent = '58.7m (FINISHED)';
-          statCards.opencode.textContent = 'FINISHED at 58.7m (+70% slower)';
+          spanTexts[ri].textContent = '59m';
         } else {
           spanTexts[ri].setAttribute('fill', '#888899');
-          spanTexts[ri].textContent = fmtMin(last) + ' · ' + ok + '/136';
-          statCards.opencode.textContent = 'RUNNING: ' + ok + '/136 (' + fmtMin(last) + ')';
+          spanTexts[ri].textContent = fmtMin(last);
         }
       } else if (r.h === 'omp') {
         if (isFinished) {
-          // Anchor to end if near edge to prevent collision with right count text
-          spanTexts[ri].setAttribute('x', pxLast - 12);
+          spanTexts[ri].setAttribute('x', pxLast - 8);
           spanTexts[ri].setAttribute('text-anchor', 'end');
           spanTexts[ri].setAttribute('fill', '#e5c07b');
-          spanTexts[ri].textContent = '1.3h (BUDGET CAP REACHED)';
-          statCards.omp.textContent = '▲ STOPPED AT 59/136 (200M TOKEN BUDGET)';
+          spanTexts[ri].textContent = '1.3h (cap)';
         } else {
-          spanTexts[ri].setAttribute('x', pxLast + 12);
+          spanTexts[ri].setAttribute('x', pxLast + 8);
           spanTexts[ri].setAttribute('text-anchor', 'start');
           spanTexts[ri].setAttribute('fill', '#888899');
-          spanTexts[ri].textContent = fmtMin(last) + ' · ' + ok + '/59';
-          statCards.omp.textContent = 'RUNNING: ' + ok + '/59 (' + fmtMin(last) + ')';
+          spanTexts[ri].textContent = fmtMin(last);
         }
       }
     } else {
       spanTexts[ri].textContent = '';
-      statCards[r.h].textContent = 'STARTING...';
     }
     
     totalPassed += ok;
   });
 
-  readout.textContent = 'PASSED ' + totalPassed + ' / 331 ATTEMPTS';
-  clock.textContent = fmtClock(now);
+  readout.textContent = 'passed ' + totalPassed + ' / ' + total + '  \u00b7  T+' + fmtMin(now);
 };
 
 // Render completed state by default
@@ -490,7 +373,7 @@ async function main() {
     '--remote-debugging-port=9238',
     '--disable-gpu',
     '--no-sandbox',
-    '--window-size=1920,1080',
+    '--window-size=1080,1080',
     'file://' + HTML_PATH
   ]);
 
@@ -537,7 +420,7 @@ async function main() {
         await callCdp('Runtime.enable');
         await callCdp('Page.enable');
         await callCdp('Emulation.setDeviceMetricsOverride', {
-          width: 1920,
+          width: 1080,
           height: 1080,
           deviceScaleFactor: 1,
           mobile: false
@@ -550,41 +433,41 @@ async function main() {
           awaitPromise: true
         });
 
-        console.log('Viewport set and fonts ready.');
+        console.log('Square viewport (1080x1080) set and fonts ready.');
 
         if (isTestFrame) {
-          console.log('Capturing test frames...');
+          console.log('Capturing square test frames...');
           // Mid-race frame (p = 0.5)
           await callCdp('Runtime.evaluate', { expression: 'window.renderFrame(0.5);' });
           const snapMid = await callCdp('Page.captureScreenshot', {
             format: 'png',
-            clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 }
+            clip: { x: 0, y: 0, width: 1080, height: 1080, scale: 1 }
           });
-          fs.writeFileSync('/tmp/scoreboard_mid.png', Buffer.from(snapMid.data, 'base64'));
-          console.log('Saved /tmp/scoreboard_mid.png');
+          fs.writeFileSync('/tmp/scoreboard_square_mid.png', Buffer.from(snapMid.data, 'base64'));
+          console.log('Saved /tmp/scoreboard_square_mid.png');
 
           // Finished frame (p = 1.0)
           await callCdp('Runtime.evaluate', { expression: 'window.renderFrame(1.0);' });
           const snapDone = await callCdp('Page.captureScreenshot', {
             format: 'png',
-            clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 }
+            clip: { x: 0, y: 0, width: 1080, height: 1080, scale: 1 }
           });
-          fs.writeFileSync('/tmp/scoreboard_done.png', Buffer.from(snapDone.data, 'base64'));
-          console.log('Saved /tmp/scoreboard_done.png');
+          fs.writeFileSync('/tmp/scoreboard_square_done.png', Buffer.from(snapDone.data, 'base64'));
+          console.log('Saved /tmp/scoreboard_square_done.png');
 
           cleanup();
           process.exit(0);
           return;
         }
 
-        console.log('Spawning ffmpeg...');
+        console.log('Spawning ffmpeg for 1080x1080 square encode...');
         const ffmpeg = spawn('/usr/bin/ffmpeg', [
           '-y',
           '-f', 'image2pipe',
           '-vcodec', 'png',
           '-r', '30',
           '-i', '-',
-          '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p',
+          '-vf', 'scale=1080:1080,format=yuv420p',
           '-c:v', 'libx264',
           '-preset', 'slow',
           '-crf', '17',
@@ -600,13 +483,13 @@ async function main() {
         });
 
         // Frame timing: 30 fps
-        // Total 420 frames = 14 seconds
+        // Total 390 frames = 13 seconds
         // 0 to 14: intro holding at 0 (0.5s)
-        // 15 to 285: animation running 0.0 to 1.0 (9.0s)
-        // 286 to 419: freeze frame at 1.0 (4.5s)
-        const TOTAL_FRAMES = 420;
+        // 15 to 255: animation running 0.0 to 1.0 (8.0s)
+        // 256 to 389: freeze frame at 1.0 (4.5s)
+        const TOTAL_FRAMES = 390;
         const RUN_START = 15;
-        const RUN_END = 285;
+        const RUN_END = 255;
 
         console.log('Rendering ' + TOTAL_FRAMES + ' frames...');
         const t0 = Date.now();
@@ -630,7 +513,7 @@ async function main() {
 
             const snap = await callCdp('Page.captureScreenshot', {
               format: 'png',
-              clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 }
+              clip: { x: 0, y: 0, width: 1080, height: 1080, scale: 1 }
             });
             pngBuffer = Buffer.from(snap.data, 'base64');
             if (p === 1.0) lastPngBuffer = pngBuffer;
@@ -647,7 +530,7 @@ async function main() {
           }
         }
 
-        console.log('All frames sent. Finalizing video...');
+        console.log('All frames sent. Finalizing square video...');
         ffmpeg.stdin.end();
       };
     } catch (e) {
