@@ -1,10 +1,14 @@
 # angelX
 
-angelX is a cyberdynamic tool for explorers. It is a Rust terminal workspace
-for coding and research agents. It brings model teams, code tools, persistent
-project memory, and measured experiments together in one cockpit.
+angelX is a terminal coding agent. It works inside your repository with the
+models you choose, asks before it runs a command or edits a file, checks its
+work before it reports done, and keeps what it learns about your project.
 
-![Excalibur raised, with the wizard beside it](docs/images/intro.png)
+Field proven in kernel and cryptography work:
+[GPU MODE Cholesky · 2nd](https://www.gpumode.com/leaderboard/776?tab=rankings) ·
+[100+ records on Yukon](docs/yukon-field-results.md)
+
+![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
 ```sh
 # Requires Linux x86_64, Rust/Cargo, C/C++ tools, Bash, Node.js and Python 3.
@@ -13,6 +17,54 @@ git clone https://github.com/newjordan/angelX.git
 cd angelX
 ./bin/angelX
 ```
+
+[Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
+[Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
+
+## How it works
+
+![GLM-5.3 finds and fixes a unit bug in a small Rust crate, then shows the tests passing](docs/images/task.png)
+
+**1 · Choose a model.** `/model` lists every connected route with its thinking level; `/think` changes the level.
+
+![Model picker with GLM-5.3 selected](docs/images/ui/model-picker.png)
+
+**2 · Approve what it does.** Commands and edits arrive as action capsules: approve one (`y`), approve the rest of the turn (`a`), or deny (`n`).
+
+![Approval capsule for a shell command](docs/images/ui/approval.png)
+
+**3 · Content-checked edits.** Each edit is anchored to the file's current content and shows its byte change before it lands. `/diff` shows the result.
+
+<p>
+  <img alt="Edit approval: replace once in src/lib.rs, 32 B to 30 B" src="docs/images/ui/edit-approval.png" width="49%">
+  <img alt="The one-line fix in /diff" src="docs/images/ui/diff.png" width="49%">
+</p>
+
+**4 · Checked before done.** The agent runs the checks and reports with receipts: every tool call, its time and the model route.
+
+![Action receipts and the final answer with the tests passing](docs/images/ui/receipts.png)
+
+**5 · Longer work.** `/goal` sets a durable objective with acceptance criteria and a check. `/loop` runs it within time, iteration and token limits.
+
+<p>
+  <img alt="A goal with acceptance criteria and a verify command" src="docs/images/ui/goal.png" width="49%">
+  <img alt="Loop workshop: time, iterations and token cap" src="docs/images/ui/loop-workshop.png" width="49%">
+</p>
+
+## In the cockpit
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Formation roster" src="docs/images/ui/formation.png"><br><b>Formations</b> · model teams, from a lone coordinator to a full roster.</td>
+    <td width="50%"><img alt="Context budget" src="docs/images/ui/context.png"><br><b>Context budget</b> · where the window goes; compaction runs automatically.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Command help and completion" src="docs/images/ui/command-picker.png"><br><b>Commands</b> · <code>/help</code> and Tab completion for every command.</td>
+    <td width="50%"><img alt="World view beside the code" src="docs/images/world.png"><br><b>World view</b> · the Keep courtyard beside your code.</td>
+  </tr>
+</table>
+
+## Features
 
 - **Models and formations** — Choose models and thinking levels, configure teams, and run agent graphs.
 - **Repository tools** — Search files, inspect symbols, follow definitions, and review diffs.
@@ -26,9 +78,6 @@ cd angelX
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
 - **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
 - **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
-
-[Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
-[Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
 
 ## Benchmarks
 
@@ -96,7 +145,7 @@ Research and public work that informed Angel:
 - [OpenScience](https://github.com/synthetic-sciences/openscience) — Synthetic Sciences; literature-search design. Search metadata comes from [OpenAlex](https://openalex.org), [Crossref](https://www.crossref.org), [Semantic Scholar](https://www.semanticscholar.org) and [Europe PMC](https://europepmc.org).
 
 Code and tooling credits include [OpenAI Codex](https://github.com/openai/codex),
-[xAI's Grok CLI](https://github.com/superagent-ai/grok-cli),
+[Grok CLI](https://github.com/superagent-ai/grok-cli),
 [oh-my-pi](https://github.com/can1357/oh-my-pi),
 [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix),
 [Hermes Agent](https://github.com/NousResearch/hermes-agent),
@@ -111,3 +160,15 @@ File-tool interface references include [Claude Code](https://github.com/anthropi
 [aider](https://github.com/Aider-AI/aider) and [OpenHands](https://github.com/OpenHands/OpenHands).
 [Attributions](THIRD_PARTY_NOTICES.md) records implementation links, authors and
 retained licenses; research inspiration and incorporated code are identified separately.
+
+## Field results
+
+Field proven: 100+ records on public research leaderboards, with first-place
+results in kernel optimization, LLM inference and cryptography research, and
+2nd place on the [GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
+leaderboard. [Yukon field results](docs/yukon-field-results.md)
+
+## Special thanks
+
+[Yukon](https://www.yukon.org), the platform for open frontier research, where
+angelX set its leaderboard records.

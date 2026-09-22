@@ -1,21 +1,23 @@
 # Usage images
 
-Unedited captures of the running terminal cockpit in Kitty, 1600 × 960.
-The startup image uses a fresh workspace with Grok selected and no prompt
-submitted. The other captures use the offline `practice` route and local
-commands. The arithmetic patch was prepared outside the model. [Capture details and hashes](provenance.json).
+Unedited captures of the running cockpit in Kitty. The task images come from
+one live GLM-5.3 turn fixing a planted bug in a small Rust crate; each action
+was approved by hand. Files under `ui/` are crops of those captures.
+[Capture details and hashes](provenance.json).
 
 | Image | Shown behavior |
 |---|---|
-| [Startup](intro.png) | Raised Excalibur and the wizard on the summit. |
-| [Code diff](cockpit.png) | `/diff` displays a real local Rust change. |
-| [Command completion](command-picker.png) | `/help`, then `/` and `Tab`. |
-| [World and room view](world.png) | `/world enter` opens the Keep courtyard alongside the code diff. |
-
-![Excalibur startup with the wizard beside it](intro.png)
-
-![Local Rust diff](cockpit.png)
-
-![Slash-command completion](command-picker.png)
-
-![Native room view alongside code](world.png)
+| [Startup](intro.png) | Fresh launch: Excalibur raised, the knight on the summit. |
+| [Task](task.png) | GLM-5.3 finds and fixes the bug and shows the tests passing. |
+| [Model picker](ui/model-picker.png) | `/model` with each route's thinking level. |
+| [Thinking picker](ui/think-picker.png) | `/think` for the selected route. |
+| [Approval](ui/approval.png) | An action capsule waiting for approval. |
+| [Edit approval](ui/edit-approval.png) | An anchored edit with its byte change. |
+| [Receipts](ui/receipts.png) | Action receipts, the turn summary and the answer. |
+| [Diff](ui/diff.png) | `/diff` after the fix. |
+| [Goal](ui/goal.png) | `/goal` with criteria and a verify command. |
+| [Loop workshop](ui/loop-workshop.png) | `/loop` limits for the active goal. |
+| [Formations](ui/formation.png) | `/moa` formation roster. |
+| [Context](ui/context.png) | `/context` window occupancy. |
+| [Commands](ui/command-picker.png) | `/help`, then `/` and `Tab`. |
+| [World view](world.png) | `/world enter` beside the diff. |
