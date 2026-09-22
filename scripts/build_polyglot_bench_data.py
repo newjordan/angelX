@@ -10,7 +10,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
-RESULTS_FILE = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/results-20260921-final.json")
+RESULTS_FILE = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/results-20260921-full.json")
 SITE_JS = REPO_ROOT / "website" / "js" / "bench-data.js"
 
 HARNESS_ORDER = ["angelx", "omp", "opencode"]
