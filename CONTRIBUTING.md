@@ -6,6 +6,9 @@ A place for magic folk, wizards, and knights of the round sphere to come
 together, expand the microcosm together and cast the spell of light and truth
 upon the macrocosms.
 
+We hope to see expansion and development of the mini-world into stable
+multiplayer game systems and tooling environments.
+
 ## Setup
 
 - Use Linux x86_64 and the Rust toolchain pinned in `rust-toolchain.toml`.
