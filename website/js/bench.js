@@ -569,16 +569,7 @@ if (tabHost) {
 }
 applyTabs();
 
-// ── center-camera detector: returns true when element sits comfortably in central viewport
-function isCenterCamera(el) {
-  if (!el) return false;
-  const r = el.getBoundingClientRect();
-  const vh = window.innerHeight || document.documentElement.clientHeight;
-  const mid = r.top + r.height / 2;
-  return (mid >= vh * 0.25 && mid <= vh * 0.75) || (r.top <= vh * 0.5 && r.bottom >= vh * 0.5);
-}
-
-// ── wiring: draw when a figure scrolls into center camera; [ replay ] reruns
+// ── wiring: all figures render complete benchmark data immediately; [ replay ] reruns on demand
 const FIGS = CHARTS.map(({ fig, key, draw }) => [
   fig,
   (st, anim) => MODELS.forEach(m => {
@@ -592,27 +583,15 @@ FIGS.forEach(([id, draw]) => {
   if (!fig) return;
   const state = { played: false };
 
-  // 1. Immediately render the complete final benchmark state: every graph is fully drawn on load!
+  // Render the complete final benchmark state: every graph is fully drawn on load
   draw(state, false);
 
-  const replay = () => {
-    draw(state, true);
-  };
+  // [ ▶ replay ] runs the animation on demand
   const btn = fig.querySelector('.replay');
-  if (btn) btn.addEventListener('click', replay);
-
-  // Replay once when scrolled into center camera
-  if (!REDUCED && 'IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries, observer) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting && !state.played) {
-          state.played = true;
-          replay();
-          observer.disconnect();
-        }
-      });
-    }, { rootMargin: '-20% 0px -20% 0px', threshold: 0.15 });
-    io.observe(fig);
+  if (btn) {
+    btn.addEventListener('click', () => {
+      draw(state, true);
+    });
   }
 });
 
