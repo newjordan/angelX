@@ -72,11 +72,14 @@ body.ascended .hud-ascent{opacity:1}
 .install{margin:26px auto 0;max-width:min(760px,100%);border:1px solid var(--line-2);
   background:rgba(0,0,0,.55);padding:14px 16px;text-align:left}
 .install-label{font-family:var(--font-dos);color:var(--faint);font-size:15px;
-  letter-spacing:.14em;margin:0 0 10px}
-.install-row{display:flex;align-items:center;gap:12px}
-.install-cmd{flex:1;font-family:var(--font-dos);font-size:17px;color:var(--ink);
-  white-space:nowrap;overflow-x:auto}
-.copy-btn{display:grid;place-items:center;background:none;border:1px solid var(--line-2);
+  letter-spacing:.14em;margin:0 0 10px;text-align:center}
+/* command centred on the block, copy button pinned to the edge so it cannot
+   push the text off-centre */
+.install-row{position:relative;display:flex;align-items:center;justify-content:center}
+.install-cmd{flex:0 1 auto;font-family:var(--font-dos);font-size:17px;color:var(--ink);
+  white-space:nowrap;overflow-x:auto;text-align:center;padding:0 48px}
+.copy-btn{position:absolute;right:0;top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;background:none;border:1px solid var(--line-2);
   color:var(--dim);padding:7px;cursor:pointer}
 .copy-btn:hover,.copy-btn.copied{color:#000;background:#fff;border-color:#fff}
 
@@ -140,6 +143,13 @@ ol.tenets li:hover .tenet-num{color:var(--ink);text-shadow:0 0 14px rgba(255,255
 
 /* ─── figures / gallery / charts ──────────────────────────────── */
 .fig-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;margin-top:30px}
+/* the benchmarks door: centred under the four plates, which leaves it beside
+   the lion plate that sits bottom-left of this section */
+.bench-cta{text-align:center;margin:38px 0 0;position:relative;z-index:2}
+/* the door to the measured results: a touch louder than a ghost link */
+.bench-cta .ghost-link{padding:12px 26px;font-size:21px;color:var(--ink);
+  border-color:var(--line-2);background:rgba(5,5,6,.55)}
+.bench-cta .ghost-link:hover{color:#000;background:#fff;border-color:#fff}
 figure{margin:0}
 figure svg.art{width:100%;height:auto;display:block;background:var(--bg-2);border:1px solid var(--line)}
 /* one size for every plate: a fixed 3:2 window, the artwork centred and cropped
@@ -171,6 +181,14 @@ section.has-backdrop::before{content:"";position:absolute;inset:0;z-index:1;poin
 @media (max-width:760px){
   section.has-backdrop{padding-bottom:26vh}
   .fig-grid{grid-template-columns:minmax(0,1fr)}
+}
+
+/* narrow: the command scrolls, so the copy button must sit in flow beside it
+   rather than floating over text that can slide underneath */
+@media (max-width:640px){
+  .install-row{justify-content:flex-start}
+  .install-cmd{flex:1;text-align:left;padding:0 8px}
+  .copy-btn{position:static;transform:none;flex:none}
 }
 
 /* ─── pictures: photographs, plates and the teaser loop all resolve to the

@@ -9,7 +9,7 @@ const B = window.BENCH;
 if (!B) return;
 
 // site tokens (css/style.css :root); omp's mark gray is a TXT×BG mix (marks only, 4.0:1)
-const INK = '#f4f4f7', DIM = '#a2a2ac', D3 = '#6f6f7a', FAINT = '#5b5b66', RULE = '#3a3a44', BG = '#050506';
+const INK = '#f4f4f7', DIM = '#bcbcc7', D3 = '#7c7c88', FAINT = '#74747f', RULE = '#3a3a44', BG = '#050506';
 const P = 3, S = 2, FPS = 12;             // dot pitch, dot size (viewBox units), frame rate
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const NS = 'http://www.w3.org/2000/svg';
@@ -26,7 +26,9 @@ const SER = {
 };
 const LEGEND_ORDER = ['angelx', 'opencode', 'omp'];
 const DRAW_ORDER = ['omp', 'opencode', 'angelx'];      // angelX drawn last, on top
-const MODELS = ['deepseek', 'glm'];
+// model list is derived: add a model to js/bench-data.js and it becomes a tab
+const MODELS = [...new Set(B.cells.map(c => c.model))];
+const modelLabel = m => `${B.models[m].name} \u00b7 thinking ${B.models[m].thinking}`;
 const cell = (m, h) => B.cells.find(c => c.model === m && c.harness === h);
 const N = Math.max(...B.cells.map(c => c.attempts.length));
 const fmtS = s => s >= 600 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : `${Math.round(s)}s`;
@@ -137,11 +139,11 @@ function race(svg, m, state, anim = true) {
     xLabel(svg, f, c, `${q}m`, q === 0 ? 'start' : 'middle');
   }
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'agent time (min)');
-  const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 15, fill: DIM }, '');
+  const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt num', 'font-size': 15, fill: DIM }, '');
   const counters = {};
   LEGEND_ORDER.forEach((h, k) => {
     const at = [[0, 33, 19], [0, 52, 16], [196, 52, 16]][k];
-    counters[h] = txt(svg, { x: f.ox - 2 * P + at[0], y: at[1], class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': at[2], fill: SER[h].color === D3 ? DIM : SER[h].color }, '');
+    counters[h] = txt(svg, { x: f.ox - 2 * P + at[0], y: at[1], class: `vt num ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': at[2], fill: SER[h].color === D3 ? DIM : SER[h].color }, '');
   });
   const paths = {}, dots = {};
   series.forEach(s => {
@@ -188,7 +190,7 @@ function trace(svg, m, state, anim = true) {
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 2)) + 1, `${Math.round(q * top)}s`));
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell(a - 1, 0).c, k ? `#${a}` : '#1', k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempt (run order)');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt', 'font-size': 16, fill: INK }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 16, fill: INK }, '');
   const paths = {}, meds = {};
   cs.forEach(c => { paths[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, class: c.harness === 'angelx' ? 'ax-glow' : '' }); });
   cs.forEach(c => { meds[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, opacity: .9, class: c.harness === 'angelx' ? 'ax-glow-soft' : '' }); });
@@ -239,7 +241,7 @@ function burn(svg, m, state, anim = true) {
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 1)), q ? fmtTok(q * top) : '0'));
   [0, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 0 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempts');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt', 'font-size': 16, fill: INK }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 16, fill: INK }, '');
   const paths = {}, dots = {}, ends = el(svg, 'g', {});
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
@@ -262,7 +264,7 @@ function burn(svg, m, state, anim = true) {
         const lab = `${SER[s.h].label} ${fmtTok(s.total)}`;
         const w = lab.length * 8.4 + 8;
         el(ends, 'rect', { x: f.X(f.GW - 1) + 2 - w, y: y - 12, width: w, height: 16, fill: BG });
-        txt(ends, { x: f.X(f.GW - 1) - 4, y, 'text-anchor': 'end', class: `vt ${s.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color === D3 ? DIM : SER[s.h].color },
+        txt(ends, { x: f.X(f.GW - 1) - 4, y, 'text-anchor': 'end', class: `vt num ${s.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color === D3 ? DIM : SER[s.h].color },
           lab);
       });
       readout.textContent = 'UNCACHED  ' + LEGEND_ORDER.map(h => `${SER[h].label} ${fmtTok(series.find(s => s.h === h).uncached)}`).join('  ·  ');
@@ -298,7 +300,7 @@ function cache(svg, m, state, anim = true) {
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 100 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempts');
   const l1 = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 14, fill: DIM }, '');
-  const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt', 'font-size': 16, fill: INK }, '');
+  const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt num', 'font-size': 16, fill: INK }, '');
   const paths = {}, dots = {};
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
@@ -317,99 +319,97 @@ function cache(svg, m, state, anim = true) {
 }
 
 // ════ SCOREBOARD — one lit dot per graded attempt ════
-function scoreboard(svg, state, anim = true) {
+function scoreboard(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const X0 = 66, rows = [];
-  const W_AVAIL = 332;
-  // 136 tasks across 4 tracks: JS (48), Python (34), Rust (30), C++ (24)
-  // 3 track gaps of 4px each = 12px
-  const GAPS = 12;
-  const PITCH = (W_AVAIL - GAPS) / Math.max(1, N - 1);
-  const DOT = 2.2;
-  const xAt = k => {
-    let g = 0;
-    if (k >= 48) g += 4;
-    if (k >= 82) g += 4;
-    if (k >= 112) g += 4;
-    return Math.round(X0 + k * PITCH + g);
-  };
-
-  let y = 34;
-  MODELS.forEach((m, mi) => {
-    txt(svg, { x: 2, y, class: 'vt', 'font-size': 13.5, fill: DIM }, m === 'deepseek' ? 'DEEPSEEK' : 'GLM');
-    if (N >= 100) {
-      txt(svg, { x: Math.round(xAt(0) + (xAt(47) - xAt(0)) / 2), y, 'text-anchor': 'middle', class: 'vt', 'font-size': 11, fill: FAINT }, 'JS');
-      txt(svg, { x: Math.round(xAt(48) + (xAt(81) - xAt(48)) / 2), y, 'text-anchor': 'middle', class: 'vt', 'font-size': 11, fill: FAINT }, 'PY');
-      txt(svg, { x: Math.round(xAt(82) + (xAt(111) - xAt(82)) / 2), y, 'text-anchor': 'middle', class: 'vt', 'font-size': 11, fill: FAINT }, 'RS');
-      txt(svg, { x: Math.round(xAt(112) + (xAt(135) - xAt(112)) / 2), y, 'text-anchor': 'middle', class: 'vt', 'font-size': 11, fill: FAINT }, 'C++');
-    }
-    y += 18;
-    LEGEND_ORDER.forEach(h => {
-      const c = cell(m, h);
-      txt(svg, { x: X0 - 8, y: y + 5, 'text-anchor': 'end', class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: SER[h].color === D3 ? DIM : SER[h].color }, SER[h].label);
-      rows.push({ c, y, h });
-      y += 18;
-    });
-    y += 16;
+  /* One model per tab. Real time, not attempt index: every attempt sits at the
+     moment it finished, in cumulative agent time since the run began. One
+     shared scale across the rows, so a row that stops a fifth of the way
+     across really did finish in a fifth of the time. */
+  const X0 = 72, W = 320, DOT = 1.5, ROW = 44;
+  const rows = [];
+  let y = 74;
+  LEGEND_ORDER.forEach(h => {
+    const c = cell(m, h);
+    txt(svg, { x: X0 - 8, y: y + 6, 'text-anchor': 'end', class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 13, fill: SER[h].color === D3 ? DIM : SER[h].color }, SER[h].label);
+    let t = 0;
+    const times = c.attempts.map(a => (t += a.wall_s));
+    rows.push({ c, h, y, times });
+    y += ROW;
   });
-  const total = B.cells.reduce((n, c) => n + c.attempts.length, 0);
-  const readout = txt(svg, { x: 2, y: 14, class: 'vt', 'font-size': 16, fill: INK }, '');
-  const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? '#ffffff' : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
-  const miss = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: DIM, 'stroke-width': 1 }));
-  const counts = rows.map(r => txt(svg, { x: 454, y: r.y + 5, 'text-anchor': 'end', class: `vt ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? INK : DIM }, ''));
+  const T = Math.max(...rows.map(r => r.times[r.times.length - 1] || 0));
+  const xAt = t => Math.round(X0 + (t / T) * W);
+  const axisY = y - ROW + 52;
 
-  rows.forEach((r, ri) => r.c.attempts.forEach((a, k) => {
-    const hit = el(svg, 'rect', { x: xAt(k) - 1, y: r.y - 3, width: PITCH + 2, height: DOT + 6, fill: 'transparent' });
-    tip(hit, `${r.c.harness_label} · ${B.models[r.c.model].name} · ${a.task} · run ${a.run} — ${a.solved ? 'passed' : 'failed'} (${a.wall_s.toFixed(1)} s)`);
+  const mins = T / 60;
+  const stepM = [5, 10, 15, 20, 30, 45, 60].find(k => mins / k <= 6) || 60;
+  for (let q = 0; q <= mins + 1e-9; q += stepM) {
+    const c = xAt(q * 60);
+    let d = '';
+    for (let yy = 56; yy < axisY - 8; yy += 4) d += sq(c, yy, 1.3);
+    el(svg, 'path', { d, fill: RULE, opacity: .55 });
+    txt(svg, { x: c, y: axisY + 14, 'text-anchor': q === 0 ? 'start' : 'middle', class: 'vt', 'font-size': 12, fill: DIM }, `${q}m`);
+  }
+  txt(svg, { x: X0 + W, y: axisY + 30, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'cumulative agent time to completion (min)');
+
+  const total = rows.reduce((n, r) => n + r.c.attempts.length, 0);
+  const readout = txt(svg, { x: 2, y: 18, class: 'vt num', 'font-size': 16, fill: INK }, '');
+  const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? '#ffffff' : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
+  const miss = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: DIM, 'stroke-width': 1.2 }));
+  const counts = rows.map(r => txt(svg, { x: 454, y: r.y + 7, 'text-anchor': 'end', class: `vt num ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? INK : DIM }, ''));
+  const spans = rows.map(r => txt(svg, { x: 0, y: r.y + 24, class: 'vt', 'font-size': 11.5, fill: FAINT }, ''));
+
+  const fmtMin = sec => sec >= 3600 ? `${(sec / 3600).toFixed(1)}h` : `${Math.round(sec / 60)}m`;
+  rows.forEach(r => r.c.attempts.forEach((a, k) => {
+    const lang = (a.task.split('-')[0] || '').toUpperCase();
+    const hit = el(svg, 'rect', { x: xAt(r.times[k]) - 2, y: r.y - 5, width: 8, height: DOT + 10, fill: 'transparent' });
+    tip(hit, `${r.c.harness_label} \u00b7 ${B.models[m].name} \u00b7 ${a.task} (${lang}) \u00b7 run ${a.run} \u2014 ${a.solved ? 'passed' : 'failed'} in ${a.wall_s.toFixed(1)} s, ${fmtMin(r.times[k])} into the run`);
   }));
-  play(state, N + 6, p => {
-    const upto = Math.min(N, Math.ceil(p * (N + 6)));
+  play(state, Math.round(FPS * 8), p => {
+    const now = p * T;
     let passed = 0;
     rows.forEach((r, ri) => {
-      let d = '', dm = '', ok = 0;
-      r.c.attempts.slice(0, upto).forEach((a, k) => {
-        if (a.solved) { d += sq(xAt(k), r.y - 1, DOT); ok++; } else { dm += `M${xAt(k) + .5} ${r.y - .5}h${DOT - 1}v${DOT - 1}h-${DOT - 1}z`; }
+      let d = '', dm = '', ok = 0, last = 0;
+      r.c.attempts.forEach((a, k) => {
+        const t = r.times[k];
+        if (t > now) return;
+        last = t;
+        if (a.solved) { d += sq(xAt(t), r.y - 2, DOT); ok++; }
+        else { dm += `M${xAt(t) + 1} ${r.y - 1}h${DOT - 2}v${DOT - 2}h-${DOT - 2}z`; }
       });
       lit[ri].setAttribute('d', d);
       miss[ri].setAttribute('d', dm);
       counts[ri].textContent = `${ok}/${r.c.attempts.length}`;
+      if (last) { spans[ri].setAttribute('x', xAt(last) + 8); spans[ri].textContent = fmtMin(last); }
+      else spans[ri].textContent = '';
       passed += ok;
     });
-    readout.textContent = `passed ${passed}/${total}`;
+    readout.textContent = `passed ${passed}/${total}  \u00b7  T+${fmtMin(now)}`;
   }, anim);
 }
 
-// ════ OUTPUT PER TASK — dot columns, stacking thicker once reaching height cap ════
-function bars(svg, state, anim = true) {
+function bars(svg, m, state, anim = true) {
   svg.innerHTML = '';
   const BASE = 176, CAP_Y = 46, DOT = 2.8, PITCH_Y = 3.8, STACK_W = 12, PITCH_X = 3.4;
-  const MAX_ROWS = Math.floor((BASE - CAP_Y) / PITCH_Y); // 34 rows max height
-  const UNIT = 72; // tokens per row; 34 * 72 = 2448 cap
+  const MAX_ROWS = Math.floor((BASE - CAP_Y) / PITCH_Y);
+  const UNIT = 72; // tokens per row; 34 * 72 = 2448 cap ~ the 2.5k cap rule
   const cols = [];
 
-  MODELS.forEach((m, g) => {
-    const gx = g ? 244 : 14;
-    txt(svg, { x: gx, y: 18, class: 'vt', 'font-size': 12.5, fill: DIM }, m === 'deepseek' ? 'DEEPSEEK' : 'GLM');
-    /* three even slots per model, so centred labels never collide */
-    const SLOT = [43.5, 114.5, 185.5];
-    LEGEND_ORDER.forEach((h, k) => {
-      cols.push({ c: cell(m, h), h, x: gx + SLOT[k] - 5, cx: gx + SLOT[k] });
-    });
+  txt(svg, { x: 6, y: 18, class: 'vt', 'font-size': 13, fill: DIM }, B.models[m].name.toUpperCase());
+  /* three even slots across the panel: one per harness */
+  const SLOT = [95, 230, 365];
+  LEGEND_ORDER.forEach((h, k) => {
+    cols.push({ c: cell(m, h), h, x: SLOT[k] - 5, cx: SLOT[k] });
   });
 
-  // Base rule
   let rule = '';
   for (let x = 6; x < 454; x += 3) rule += sq(x, BASE + 3, 1.4);
   el(svg, 'path', { d: rule, fill: RULE });
-
-  // Height cap rule
   let capD = '';
   for (let x = 6; x < 454; x += 4) capD += sq(x, CAP_Y, 1.4);
   el(svg, 'path', { d: capD, fill: RULE, opacity: .7 });
-  txt(svg, { x: 454, y: CAP_Y - 4, 'text-anchor': 'end', class: 'vt', 'font-size': 11.5, fill: FAINT }, '2.5k cap');
-  /* one chart-level key, so the per-column headers stay short */
-  txt(svg, { x: 6, y: 33, class: 'vt', 'font-size': 11, fill: FAINT },
-      'top number: output tokens per task · bottom number: model calls per task');
+  txt(svg, { x: 454, y: CAP_Y - 5, 'text-anchor': 'end', class: 'vt', 'font-size': 11.5, fill: FAINT }, '2.5k cap');
+  txt(svg, { x: 6, y: 28, class: 'vt', 'font-size': 11, fill: FAINT },
+      'top number: output tokens per task \u00b7 bottom number: model calls per task');
 
   const paths = cols.map(c => el(svg, 'path', { d: '', fill: SER[c.h].color, class: c.h === 'angelx' ? 'ax-glow' : '' }));
   const capMarkers = cols.map(() => el(svg, 'path', { d: '', fill: FAINT }));
@@ -418,14 +418,12 @@ function bars(svg, state, anim = true) {
     const s = c.c.summary;
     const isAx = c.h === 'angelx';
     const mid = { 'text-anchor': 'middle' };
-    const v = txt(svg, { x: c.cx, y: BASE + 17, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 12.5, fill: INK, ...mid }, Math.round(s.out_per_task).toLocaleString('en-US'));
-    tip(v, `${c.c.harness_label} · ${B.models[c.c.model].name} — ${Math.round(s.out_per_task)} output tokens and ${s.calls_mean.toFixed(1)} model calls per task`);
-    txt(svg, { x: c.cx, y: BASE + 30, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 11.5, fill: SER[c.h].color === D3 ? DIM : SER[c.h].color, ...mid }, SER[c.h].label);
-    txt(svg, { x: c.cx, y: BASE + 43, class: 'vt', 'font-size': 12, fill: DIM, ...mid }, s.calls_mean.toFixed(1));
+    const v = txt(svg, { x: c.cx, y: BASE + 20, class: `vt num ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 14, fill: INK, ...mid }, Math.round(s.out_per_task).toLocaleString('en-US'));
+    tip(v, `${c.c.harness_label} \u00b7 ${B.models[m].name} \u2014 ${Math.round(s.out_per_task)} output tokens and ${s.calls_mean.toFixed(1)} model calls per task`);
+    txt(svg, { x: c.cx, y: BASE + 36, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 13, fill: SER[c.h].color === D3 ? DIM : SER[c.h].color, ...mid }, SER[c.h].label);
+    txt(svg, { x: c.cx, y: BASE + 52, class: 'vt num', 'font-size': 13, fill: DIM, ...mid }, s.calls_mean.toFixed(1));
     const stacks = Math.ceil((s.out_per_task / UNIT) / MAX_ROWS);
-    if (stacks > 1) {
-      txt(svg, { x: c.cx, y: BASE + 55, class: 'vt', 'font-size': 10.5, fill: FAINT, ...mid }, `${stacks}× stacked`);
-    }
+    if (stacks > 1) txt(svg, { x: c.cx, y: BASE + 68, class: 'vt', 'font-size': 11, fill: FAINT, ...mid }, `${stacks}\u00d7 stacked`);
   });
 
   const maxTotalUnits = Math.max(...cols.map(c => Math.round(c.c.summary.out_per_task / UNIT)));
@@ -434,18 +432,13 @@ function bars(svg, state, anim = true) {
     cols.forEach((c, i) => {
       const targetUnits = Math.round(c.c.summary.out_per_task / UNIT);
       const n = Math.min(progressUnits, targetUnits);
-      let d = '';
-      let capMarks = '';
+      let d = '', capMarks = '';
       for (let u = 0; u < n; u++) {
         const stack = Math.floor(u / MAX_ROWS);
         const row = u % MAX_ROWS;
         const colX = c.x + stack * STACK_W;
-        for (let k = 0; k < 3; k++) {
-          d += sq(colX + k * PITCH_X, BASE - row * PITCH_Y - DOT, DOT);
-        }
-        if (row === MAX_ROWS - 1) {
-          capMarks += `M${colX} ${CAP_Y - 2}h${3 * PITCH_X}v1h-${3 * PITCH_X}z`;
-        }
+        for (let k = 0; k < 3; k++) d += sq(colX + k * PITCH_X, BASE - row * PITCH_Y - DOT, DOT);
+        if (row === MAX_ROWS - 1) capMarks += `M${colX} ${CAP_Y - 2}h${3 * PITCH_X}v1h-${3 * PITCH_X}z`;
       }
       paths[i].setAttribute('d', d);
       capMarkers[i].setAttribute('d', capMarks);
@@ -453,22 +446,79 @@ function bars(svg, state, anim = true) {
   }, anim);
 }
 
-// ── wiring: draw when a figure scrolls into center camera; [ replay ] reruns
-const FIGS = [
-  ['tv-race', (st, anim) => MODELS.forEach(m => race(document.getElementById(`race-${m}`), m, st[m] = st[m] || {}, anim))],
-  ['tv-score', (st, anim) => scoreboard(document.getElementById('score'), st, anim)],
-  ['tv-bars', (st, anim) => bars(document.getElementById('bars'), st, anim)],
-  ['tv-trace', (st, anim) => MODELS.forEach(m => trace(document.getElementById(`trace-${m}`), m, st[m] = st[m] || {}, anim))],
-  ['tv-burn', (st, anim) => MODELS.forEach(m => burn(document.getElementById(`burn-${m}`), m, st[m] = st[m] || {}, anim))],
-  ['tv-cache', (st, anim) => MODELS.forEach(m => cache(document.getElementById(`cache-${m}`), m, st[m] = st[m] || {}, anim))],
+// ── model tabs: one tab per model in the data, holding every chart.
+// Add a model to js/bench-data.js and it gets a tab here with no other edit.
+const CHARTS = [
+  { fig: 'tv-race', key: 'race', draw: race },
+  { fig: 'tv-score', key: 'score', draw: scoreboard },
+  { fig: 'tv-bars', key: 'bars', draw: bars },
+  { fig: 'tv-trace', key: 'trace', draw: trace },
+  { fig: 'tv-burn', key: 'burn', draw: burn },
+  { fig: 'tv-cache', key: 'cache', draw: cache },
 ];
 
-function isCenterCamera(fig) {
-  const r = fig.getBoundingClientRect();
-  const vh = window.innerHeight || document.documentElement.clientHeight;
-  const elemCenter = r.top + r.height / 2;
-  return (r.top <= vh * 0.55 && r.bottom >= vh * 0.45) || (elemCenter >= vh * 0.3 && elemCenter <= vh * 0.7);
+/* build one SVG per model inside each figure's panel grid, then wire the tabs */
+const panels = [];   // { el, model }
+CHARTS.forEach(({ fig, key }) => {
+  const host = document.getElementById(fig)?.querySelector('[data-model-panels]');
+  if (!host) return;
+  MODELS.forEach(m => {
+    const wrap = document.createElement('div');
+    wrap.className = 'm-panel';
+    wrap.dataset.model = m;
+    wrap.hidden = true;
+    const svg = el(wrap, 'svg', {
+      id: `${key}-${m}`, viewBox: '0 0 460 262', role: 'img',
+      'aria-label': `${B.models[m].name}: ${key} chart`,
+    });
+    host.appendChild(wrap);
+    panels.push({ el: wrap, model: m });
+  });
+});
+
+const tabHost = document.getElementById('model-tabs');
+let activeModel = MODELS[0];
+function applyTabs() {
+  panels.forEach(p => { p.el.hidden = p.model !== activeModel; });
+  if (tabHost) {
+    tabHost.querySelectorAll('[role="tab"]').forEach(b => {
+      const on = b.dataset.model === activeModel;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+  }
 }
+if (tabHost) {
+  MODELS.forEach((m, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tab';
+    b.dataset.model = m;
+    b.setAttribute('role', 'tab');
+    b.textContent = modelLabel(m);
+    b.addEventListener('click', () => { activeModel = m; applyTabs(); });
+    b.addEventListener('keydown', e => {
+      const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!step) return;
+      e.preventDefault();
+      const next = MODELS[(i + step + MODELS.length) % MODELS.length];
+      activeModel = next;
+      applyTabs();
+      tabHost.querySelector(`[data-model="${next}"]`).focus();
+    });
+    tabHost.appendChild(b);
+  });
+}
+applyTabs();
+
+// ── wiring: draw when a figure scrolls into center camera; [ replay ] reruns
+const FIGS = CHARTS.map(({ fig, key, draw }) => [
+  fig,
+  (st, anim) => MODELS.forEach(m => {
+    const svg = document.getElementById(`${key}-${m}`);
+    if (svg) draw(svg, m, st[m] = st[m] || {}, anim);
+  }),
+]);
 
 FIGS.forEach(([id, draw]) => {
   const fig = document.getElementById(id);
@@ -484,34 +534,19 @@ FIGS.forEach(([id, draw]) => {
   const btn = fig.querySelector('.replay');
   if (btn) btn.addEventListener('click', () => { state.forceReplay = true; playNow(); });
 
-  if (window.BENCH_EAGER || REDUCED) {
-    playNow();
-    return;
-  }
+  if (window.BENCH_EAGER || REDUCED) { playNow(); return; }
 
-  // Draw static primed frame so grid and axes exist immediately
-  prime();
+  prime();                                       // grid + axes immediately
+  if (isCenterCamera(fig)) { playNow(); return; }
 
-  // If already at center camera on load, play immediately
-  if (isCenterCamera(fig)) {
-    playNow();
-    return;
-  }
-
-  // Observer targeting the center zone (middle 30% of viewport)
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries, observer) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting && !state.played) {
-          playNow();
-          observer.disconnect();
-        }
+        if (entry.isIntersecting && !state.played) { playNow(); observer.disconnect(); }
       });
     }, { rootMargin: '-35% 0px -35% 0px', threshold: 0 });
     io.observe(fig);
   }
-
-  // Scroll listener check ensures fast scrolls trigger when centered
   const onScroll = () => {
     if (!state.played && isCenterCamera(fig)) {
       playNow();

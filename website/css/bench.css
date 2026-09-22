@@ -15,58 +15,46 @@
   border:1px solid var(--b-rule);color:var(--b-dim);font-family:var(--b-dos);font-size:17px;letter-spacing:.08em;
   padding:0 8px;cursor:pointer;line-height:1.35}
 .bench .replay:hover,.bench .replay:focus-visible{color:#fff;border-color:#fff;outline:none}
-.bench .panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 22px}
+.bench .panels{display:grid;grid-template-columns:minmax(0,1fr);gap:18px 22px}
+.bench .m-panel[hidden]{display:none}
 .bench .panel-name{margin:0 0 2px;font-family:var(--b-dos);font-size:15px;letter-spacing:.12em;color:var(--b-dim)}
-.bench svg{width:100%;max-width:620px;height:auto;display:block;overflow:visible;margin:0 auto}
+.bench svg{width:100%;max-width:900px;height:auto;display:block;overflow:visible;margin:0 auto}
 .bench svg .vt{font-family:var(--b-mono);font-size:11px;fill:currentColor}
-.bench .legend{display:flex;flex-wrap:wrap;gap:4px 22px;margin:10px 0 0;padding-top:8px;
+.bench .legend{display:flex;flex-wrap:wrap;justify-content:center;text-align:center;gap:4px 22px;margin:10px 0 0;padding-top:8px;
   border-top:1px dashed var(--b-rule);font-family:var(--b-dos);font-size:17px;letter-spacing:.06em;color:var(--b-dim)}
 .bench .legend i{display:inline-block;width:34px;height:6px;margin-right:8px;vertical-align:middle;
   background-repeat:repeat-x;background-size:var(--w) 6px}
 .bench .legend .ax{--w:4px;background-image:linear-gradient(90deg,#f4f4f7 0 2px,transparent 2px)}
 .bench .legend .oc{--w:8px;background-image:linear-gradient(90deg,#a2a2ac 0 2px,transparent 2px)}
+.bench .legend .pass{width:8px;height:8px;border-radius:1px;background:#f4f4f7;box-shadow:0 0 4px rgba(255,255,255,.5)}
+.bench .legend .fail{width:8px;height:8px;border-radius:1px;background:transparent;border:1px solid #a2a2ac}
 .bench .legend .om{--w:16px;background-image:linear-gradient(90deg,#6f6f7a 0 2px,transparent 2px 4px,#6f6f7a 4px 6px,transparent 6px)}
 .bench .legend .ax-hero{color:#ffffff;font-weight:600}
-.bench .legend .ax-hero i{box-shadow:0 0 6px rgba(255,255,255,.9),0 0 12px rgba(244,244,247,.6);animation:ax-badge-pulse 2s ease-in-out infinite}
+.bench .legend .ax-hero i{box-shadow:0 0 5px rgba(255,255,255,.7),0 0 10px rgba(244,244,247,.4)}
 
-/* ambient flashing / pulsing glow on angelX lines, markers & text */
+/* angelX: a gentle ambient pulse, just enough to hold the line off the
+   background. Narrow range on purpose — wide swings read as flashing on
+   sparse dot-matrix marks. (filter, not text-shadow: text-shadow is
+   unreliable on SVG <text>.) */
 @keyframes ax-ambient-pulse {
-  0%, 100% {
-    filter: drop-shadow(0 0 1px rgba(255,255,255,.6));
-    opacity: .96;
-  }
-  50% {
-    filter: drop-shadow(0 0 1.5px rgba(255,255,255,.8)) drop-shadow(0 0 4px rgba(244,244,247,.35));
-    opacity: 1;
-  }
+  0%, 100% { filter: drop-shadow(0 0 1.3px rgba(255,255,255,.50)) drop-shadow(0 0 3.5px rgba(244,244,247,.24)); }
+  50%      { filter: drop-shadow(0 0 2.0px rgba(255,255,255,.72)) drop-shadow(0 0 6.5px rgba(244,244,247,.40)); }
 }
 @keyframes ax-ambient-pulse-soft {
-  0%, 100% {
-    filter: drop-shadow(0 0 .8px rgba(255,255,255,.5));
-    opacity: .92;
-  }
-  50% {
-    filter: drop-shadow(0 0 1.2px rgba(255,255,255,.7)) drop-shadow(0 0 3px rgba(244,244,247,.3));
-    opacity: 1;
-  }
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(255,255,255,.42)) drop-shadow(0 0 3px rgba(244,244,247,.20)); }
+  50%      { filter: drop-shadow(0 0 1.6px rgba(255,255,255,.60)) drop-shadow(0 0 5px rgba(244,244,247,.32)); }
 }
-@keyframes ax-badge-pulse {
-  0%, 100% {
-    box-shadow: 0 0 4px rgba(255,255,255,.6), 0 0 8px rgba(244,244,247,.3);
-  }
-  50% {
-    box-shadow: 0 0 5px rgba(255,255,255,.8), 0 0 10px rgba(244,244,247,.35);
-  }
+.bench .ax-glow      { animation: ax-ambient-pulse 3.4s ease-in-out infinite; }
+.bench .ax-glow-soft { animation: ax-ambient-pulse-soft 4.2s ease-in-out infinite; }
+.bench .ax-txt-glow  { filter: drop-shadow(0 0 1px rgba(255,255,255,.40)); }
+@media (prefers-reduced-motion: reduce) {
+  .bench .ax-glow { animation: none; filter: drop-shadow(0 0 1.6px rgba(255,255,255,.6)) drop-shadow(0 0 5px rgba(244,244,247,.32)); }
+  .bench .ax-glow-soft { animation: none; filter: drop-shadow(0 0 1.2px rgba(255,255,255,.5)) drop-shadow(0 0 4px rgba(244,244,247,.26)); }
 }
-.bench .ax-glow {
-  animation: ax-ambient-pulse 2s ease-in-out infinite;
-}
-.bench .ax-glow-soft {
-  animation: ax-ambient-pulse-soft 2.6s ease-in-out infinite;
-}
-.bench .ax-txt-glow {
-  text-shadow: 0 0 1.5px rgba(255,255,255,.45);
-}
+
+/* main readouts: heavier than the axis furniture */
+.bench svg text { font-weight: 500; }
+.bench svg .num { font-weight: 700; letter-spacing: .01em; }
 
 .bench .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
 .bench .provenance{margin:30px 0 0;font-family:var(--b-dos);font-size:17px;line-height:1.45;letter-spacing:.04em;color:var(--b-dim)}

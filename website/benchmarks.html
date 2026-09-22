@@ -39,6 +39,13 @@
     that flatter nobody.
   </p>
 
+  <div class="tabs-wrap">
+    <p class="tabs-label" id="model-tabs-label">Model</p>
+    <div class="tabs" id="model-tabs" role="tablist" aria-labelledby="model-tabs-label"></div>
+    <p class="tabs-note">Every chart below follows the selected model. One tab per model &mdash; adding a
+      model to the run adds a tab, not a redesign.</p>
+  </div>
+
   <table class="summary">
     <caption>Results at a glance · polyglot-v1 · 2026-09-21</caption>
     <thead>
@@ -54,14 +61,6 @@
       <tr><th scope="row">OpenCode 1.18.31</th><td>132 / 136</td><td>133 / 136</td><td class="tot">265 / 272<br><span class="pct">97.4%</span></td></tr>
       <tr><th scope="row">oh-my-pi 18.2.4</th><td class="dim">53 / 59<br><span class="dim">budget cap</span></td><td>133 / 136</td><td class="tot dim">186 / 195<br><span class="pct">95.4%</span></td></tr>
     </tbody>
-    <tfoot>
-      <tr>
-        <th scope="row">All harnesses</th>
-        <td>318 / 331<br><span class="pct">96.1%</span></td>
-        <td>401 / 408<br><span class="pct">98.3%</span></td>
-        <td class="tot">719 / 739<br><span class="pct">97.3%</span></td>
-      </tr>
-    </tfoot>
   </table>
 
   <p class="tnote">
@@ -78,25 +77,21 @@
         <p class="sec-q"><span class="sub">Solved attempts against cumulative agent time</span>Each line steps up once when a task passes. Higher and further left is strictly better: more tasks solved in less wall-clock time. Flat stretches are failed attempts and retries.</p>
         <figure class="tv" id="tv-race">
           <button class="replay" type="button" aria-label="Replay the race">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="race-deepseek" viewBox="0 0 460 262" role="img" aria-label="Solved attempts against cumulative agent time, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="race-glm" viewBox="0 0 460 262" role="img" aria-label="Solved attempts against cumulative agent time, GLM"></svg></div>
-          </div>
+          <div class="panels" data-model-panels></div>
           <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
         </figure>
-        <p class="tv-note"><b>How to read it.</b> The vertical axis counts solved tasks, 0&ndash;136 across the suite. oh-my-pi&rsquo;s DeepSeek run ends at 59 because it hit its 200M-token budget cap, so compare its <i>slope</i> rather than its height. The horizontal axis is <i>cumulative agent time</i> &mdash; the sum of per-attempt durations, not elapsed wall-clock, so a harness that idles between attempts is not penalised here. Two panels, one per model; each is scaled to that model&rsquo;s own longest run, so the tick ranges differ &mdash; compare shape and slope within a panel, not the two panels against each other. <span class='hint'>Press [ &#9654; ] to replay the run at the harness&rsquo;s own 12&nbsp;fps.</span></p>
+        <p class="tv-note"><b>How to read it.</b> The vertical axis counts solved tasks, 0&ndash;136 across the suite. oh-my-pi&rsquo;s DeepSeek run ends at 59 because it hit its 200M-token budget cap, so compare its <i>slope</i> rather than its height. The horizontal axis is <i>cumulative agent time</i> &mdash; the sum of per-attempt durations, not elapsed wall-clock, so a harness that idles between attempts is not penalised here. Each tab holds one model, scaled to that model&rsquo;s own longest run, so compare shape and slope across tabs rather than absolute tick values &mdash; the two models ran the same suite at very different speeds. <span class='hint'>Press [ &#9654; ] to replay the run at the harness&rsquo;s own 12&nbsp;fps.</span></p>
       </section>
 
       <section class="sec" aria-labelledby="tv-score-h">
-        <h2 id="tv-score-h">The scoreboard, attempt by attempt</h2>
-        <p class="sec-q"><span class="sub">Every graded attempt as a single dot</span>One dot per attempt, grouped by model and language, lit when it passed. This is the raw evidence behind the solved counts: it shows which tasks each harness missed, not just how many.</p>
+        <h2 id="tv-score-h">Every attempt, placed at the moment it finished</h2>
+        <p class="sec-q"><span class="sub">Pass and fail on a real time axis, not an attempt counter</span>Each dot sits where its attempt completed, measured in cumulative agent time since that run began. The three rows are the harnesses on the selected model, so you read both things at once: how many each one solved, and how long it took to get there.</p>
         <figure class="tv" id="tv-score">
             <button class="replay" type="button" aria-label="Replay the scoreboard">[ ▶ ]</button>
-            <svg id="score" viewBox="0 0 460 262" role="img" aria-label="Every graded attempt as one dot, lit when it passed"></svg>
+          <div class="panels" data-model-panels></div>
+          <div class="legend"><span><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span></div>
           </figure>
-        <p class="tv-note"><b>How to read it.</b> A column is one language bucket &mdash; JS, PY, RS, C++ &mdash; for one model under one harness. Solid dots passed, hollow dots failed. Pass and fail are decided by each task&rsquo;s own test suite, not by a rubric or a judge model, so a dot here is a test result rather than an opinion.</p>
+        <p class="tv-note"><b>How to read it.</b> Solid dots passed, hollow dots failed, decided by each task&rsquo;s own test suite rather than a rubric or a judge model. The horizontal axis is one shared scale &mdash; the longest run on the page &mdash; so a row that ends a fifth of the way across really did finish in a fifth of the time, and the row readouts carry both <b>passed/attempted</b> and the <b>total time to completion</b>. Attempts bunch up where tasks were quick and spread out where they were not, so a cluster of hollow dots late in a row is a genuinely slow, failing stretch rather than a run of bad luck. Hover any dot for the task, its language, and the time it finished.</p>
       </section>
 
       <section class="sec" aria-labelledby="tv-bars-h">
@@ -104,7 +99,8 @@
         <p class="sec-q"><span class="sub">Tokens generated and model calls made, per task</span>What each attempt cost to produce. Two harnesses can reach the same score at very different expense, and that difference compounds over a long run.</p>
         <figure class="tv" id="tv-bars">
             <button class="replay" type="button" aria-label="Replay the output bars">[ ▶ ]</button>
-            <svg id="bars" viewBox="0 0 460 262" role="img" aria-label="Output tokens and model calls per task, as dot columns"></svg>
+          <div class="panels" data-model-panels></div>
+          <div class="legend"><span><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span></div>
           </figure>
         <p class="tv-note"><b>How to read it.</b> The tall column is output tokens per task, capped at 2.5k; the short column beside it is model calls per task. Lower is not automatically better &mdash; a harness that answers in a single call may simply be guessing &mdash; but the pair makes the tradeoff visible: fewer calls at an equal score means less orchestration overhead.</p>
       </section>
@@ -114,12 +110,7 @@
         <p class="sec-q"><span class="sub">The spread behind the cumulative curve</span>The per-attempt wall time for each model, plotted in the order the attempts ran. The race chart shows the total this produces; this shows the distribution that produced it, including the slow tail.</p>
         <figure class="tv" id="tv-trace">
           <button class="replay" type="button" aria-label="Replay seconds per attempt">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="trace-deepseek" viewBox="0 0 460 262" role="img" aria-label="Seconds per attempt in run order, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="trace-glm" viewBox="0 0 460 262" role="img" aria-label="Seconds per attempt in run order, GLM"></svg></div>
-          </div>
+          <div class="panels" data-model-panels></div>
           <div class="legend"><span class="ax-hero">■ angelX</span><span>+ OpenCode</span><span>× omp</span></div>
         </figure>
         <p class="tv-note"><b>How to read it.</b> Each mark is one attempt: x is attempt number, y is seconds, and the horizontal line is the median. Look at the spread rather than the average. A tight band means predictable latency; a long upper tail means occasional stalls &mdash; retries, large files, cold caches &mdash; that the cumulative curve hides entirely. A 600&nbsp;s cap applies per attempt.</p>
@@ -130,12 +121,7 @@
         <p class="sec-q"><span class="sub">Cumulative input tokens, cached versus fresh</span>Input tokens consumed as the run progresses, split into the part served from the provider&rsquo;s cache and the fresh part that had to be ingested afresh. This is the cost line that decides whether a long agentic run is affordable.</p>
         <figure class="tv" id="tv-burn">
           <button class="replay" type="button" aria-label="Replay context burned">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="burn-deepseek" viewBox="0 0 460 262" role="img" aria-label="Cumulative input tokens over the run, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="burn-glm" viewBox="0 0 460 262" role="img" aria-label="Cumulative input tokens over the run, GLM"></svg></div>
-          </div>
+          <div class="panels" data-model-panels></div>
           <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
         </figure>
         <p class="tv-note"><b>How to read it.</b> The vertical axis is total input tokens, labelled in <b>k</b> (thousands) or <b>M</b> (millions) depending on the run. Cached tokens are billed cheaply; fresh tokens are paid for in full. A curve whose fresh band stays flat while the total climbs is a harness re-reading its own history instead of re-sending it &mdash; good context reuse, visible as a widening gap between the bands.</p>
@@ -146,12 +132,7 @@
         <p class="sec-q"><span class="sub">The share of input tokens served from cache</span>Cache behaviour is a property of how a harness orders and reuses its context, which makes it one of the clearest structural differences between these tools.</p>
         <figure class="tv" id="tv-cache">
           <button class="replay" type="button" aria-label="Replay cache hit rate">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="cache-deepseek" viewBox="0 0 460 262" role="img" aria-label="Running cache hit rate over the run, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="cache-glm" viewBox="0 0 460 262" role="img" aria-label="Running cache hit rate over the run, GLM"></svg></div>
-          </div>
+          <div class="panels" data-model-panels></div>
           <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
         </figure>
         <p class="tv-note"><b>How to read it.</b> The horizontal axis is progress through the run; the vertical axis is hit rate, fitted to the band actually observed (roughly 50&ndash;100%) rather than a full 0&ndash;100%, so real differences are visible instead of compressed into the top half. A high, stable line means the prompt prefix is being reused turn over turn. Dips mark the points where context was rebuilt &mdash; compaction, reordering, or a fresh session shape.</p>
