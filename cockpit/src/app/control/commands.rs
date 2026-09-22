@@ -742,7 +742,7 @@ impl App {
         // submitted task or other command explicitly returns control to the user.
         let exit_control = matches!(
             &parsed,
-            ParsedInput::Exit | ParsedInput::Help(_) | ParsedInput::Status
+            ParsedInput::Exit | ParsedInput::ForceExit | ParsedInput::Help(_) | ParsedInput::Status
         ) || matches!(&parsed, ParsedInput::Cmd { name, .. } if name == "raw");
         if self.exit_request.is_some() && !exit_control {
             self.exit_request = None;
@@ -1068,6 +1068,10 @@ impl App {
             // Typed `exit`/`quit`: let existing work settle, then save and close.
             ParsedInput::Exit => {
                 self.request_graceful_exit();
+                return;
+            }
+            ParsedInput::ForceExit => {
+                self.force_exit();
                 return;
             }
             // Codex-style commands ported into the cockpit.
@@ -1495,6 +1499,10 @@ impl App {
     }
 
     fn request_graceful_exit(&mut self) {
+        if self.exit_request.is_some() {
+            self.force_exit();
+            return;
+        }
         self.exit_request = Some(crate::app::ExitRequest::WaitingForIdle);
         self.loop_cancel_experiment();
         if self.exit_has_owner() {
@@ -1506,12 +1514,33 @@ impl App {
                 "existing background, verifier or campaign work is still active"
             };
             self.system_msg(format!(
-                "exit requested · {owner}; {} accepted message(s) still queued. Will save and close when existing work finishes. A new task or command cancels exit; /status, /help and /raw remain available. /raw exports current history only.",
+                "exit requested · {owner}; {} accepted message(s) still queued. Will save and close when existing work finishes. Repeat exit to force close immediately. A new task or command cancels exit; /status, /help and /raw remain available. /raw exports current history only.",
                 self.steer_queue.len()
             ));
         } else {
             self.finish_requested_exit();
         }
+    }
+
+    pub(crate) fn force_exit(&mut self) {
+        if let Some(mut thinking) = self.thinking.take() {
+            thinking.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            thinking.begin_draining();
+        }
+        if let Some(job) = self.bg_job.take() {
+            job.cancel();
+        }
+        if let Some(pending) = self.pending_approval.take() {
+            let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
+        }
+        self.loop_cancel_experiment();
+        self.loop_retire_pending();
+        self.campaign_pending = None;
+        self.shell = None;
+        self.shell_focused = false;
+        let _ = self.session.checkpoint_for_exit(&self.history);
+        self.should_quit = true;
+        self.exit_request = None;
     }
 
     pub(crate) fn finish_requested_exit(&mut self) {

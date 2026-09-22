@@ -170,6 +170,24 @@ impl ShellPane {
         self.size
     }
 
+    /// Check whether the shell child process is still running.
+    pub fn is_alive(&self) -> bool {
+        let Ok(mut child) = self.child.lock() else {
+            return false;
+        };
+        if child.claim.is_none() {
+            return false;
+        }
+        match child.handle.try_wait() {
+            Ok(Some(_)) => {
+                child.claim.take();
+                false
+            }
+            Ok(None) => true,
+            Err(_) => false,
+        }
+    }
+
     /// The xterm mouse-tracking mode + report encoding the program currently
     /// running in the PTY has requested (via DECSET 1000/1002/1003 + 1006). The
     /// cockpit uses this to decide whether to *forward* the mouse to the program
