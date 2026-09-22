@@ -685,6 +685,10 @@ pub(crate) fn set_research_turn(selected: bool) {
     TURN_LEDGER.with(|cell| cell.borrow_mut().research_turn = selected);
 }
 
+pub(crate) fn is_research_turn() -> bool {
+    TURN_LEDGER.with(|cell| cell.borrow().research_turn)
+}
+
 pub(crate) fn note_research_answer(answer: &str) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
@@ -1262,6 +1266,15 @@ pub(crate) fn unproductive_escalation(
         };
         (notice, diagnosis)
     })
+}
+
+pub(crate) fn clear_unproductive_streak() {
+    TURN_LEDGER.with(|cell| {
+        let mut ledger = cell.borrow_mut();
+        ledger.unproductive_streak = 0;
+        ledger.streak_escalated = false;
+        ledger.last_streak_evaluation_hop = None;
+    });
 }
 
 pub(crate) fn note_escalation(hop: usize, kind: &str) {

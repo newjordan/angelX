@@ -154,15 +154,12 @@ pub(crate) enum TurnStopReason {
     Deadline,
     MaxHops,
     DeferredStop,
-    Spin,
-    ErrorStop,
     ExecutionBlocked,
     CaptureFailure,
     CheckpointFailure,
     ProviderError,
     NeedsPro,
     AcceptanceStop,
-    EscalatedUnproductive,
 }
 
 impl TurnStopReason {
@@ -174,15 +171,12 @@ impl TurnStopReason {
             Self::Deadline => "deadline",
             Self::MaxHops => "max_hops",
             Self::DeferredStop => "deferred_stop",
-            Self::Spin => "spin",
-            Self::ErrorStop => "error_stop",
             Self::ExecutionBlocked => "execution_blocked",
             Self::CaptureFailure => "capture_failure",
             Self::CheckpointFailure => "checkpoint_failure",
             Self::ProviderError => "provider_error",
             Self::NeedsPro => "needs_pro",
             Self::AcceptanceStop => "acceptance_stop",
-            Self::EscalatedUnproductive => "escalated_unproductive",
         }
     }
 }
@@ -2031,40 +2025,34 @@ fn run_turn_tiered(
                 streak_escalate,
                 streak_stop,
             );
+            // Research turns get the research instruction in the note itself;
+            // only code turns are told to edit source.
+            let research = crate::agent::harness::trajectory::is_research_turn();
             if let Some(note) = notice {
-                history.push(ChatMsg::harness(format!(
-                    "{note}. MANDATORY PROGRESS REDIRECTION: Stop inspecting and stop running unchanged commands. You MUST edit the target source code using `write_file` or `str_replace` before executing any more tools. State your concrete fix and modify the file now."
-                )));
+                history.push(ChatMsg::harness(if research {
+                    note.clone()
+                } else {
+                    format!(
+                        "{note}. MANDATORY PROGRESS REDIRECTION: Stop inspecting and stop running unchanged commands. You MUST edit the target source code using `write_file` or `str_replace` before executing any more tools. State your concrete fix and modify the file now."
+                    )
+                }));
                 let _ = events.send(TurnEvent::Notice(note));
             }
             if let Some(note) = diagnosis {
-                let note =
-                    format!("{note}; operator cap ANGEL_UNPRODUCTIVE_STREAK_STOP={streak_stop}");
-                crate::agent::harness::trajectory::note_timing(
-                    &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                );
-                crate::agent::harness::trajectory::note_stop_reason("escalated_unproductive");
-                log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                write_exp(
-                    "escalated_unproductive",
-                    false,
-                    hop,
-                    turn_counters!(
-                        deferred_action_nudges,
-                        spin,
-                        err_streak,
-                        0,
-                        first_write_rejections,
-                        duplicate_inspection_results,
-                        duplicate_inspection_bytes_saved,
-                        final_verification_nudges,
-                        action_capsule_metrics,
-                    ),
-                );
-                observed_outcome!(
-                    TurnOutcome::stopped(note, TurnStopReason::EscalatedUnproductive, hop),
-                    "escalated_unproductive"
-                );
+                // Guards redirect and restart the streak; they never end the turn.
+                let redirect = if research {
+                    format!("[harness-telemetry] RESEARCH REDIRECTION: {note}.")
+                } else {
+                    format!(
+                        "[harness-telemetry] MANDATORY PROGRESS REDIRECTION: {note}. \
+                         You must stop inspecting and stop running unchanged commands. You MUST edit \
+                         the target source code using `write_file` or `str_replace` before executing \
+                         any more tools. State your concrete fix and modify the file now."
+                    )
+                };
+                history.push(ChatMsg::harness(redirect.clone()));
+                let _ = events.send(TurnEvent::Notice(redirect));
+                crate::agent::harness::trajectory::clear_unproductive_streak();
             }
         }};
     }
@@ -3776,39 +3764,11 @@ fn run_turn_tiered(
                 if first_write_guard_suppressing
                     && first_write_rejections >= first_write_rejection_limit
                 {
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    let note = format!(
-                        "⚠ stopped after {first_write_rejections} post-budget inspection \
-                         batch(es) were denied without candidate progress. \
-                         Conversation kept — the autonomous loop can resume from this evidence."
-                    );
-                    crate::agent::harness::trajectory::note_timing(
-                        &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                    );
-                    crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::Spin.as_str(),
-                    );
-                    log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                    write_exp(
-                        "first_write_stop",
-                        false,
-                        hop,
-                        turn_counters!(
-                            deferred_action_nudges,
-                            spin,
-                            err_streak,
-                            0,
-                            first_write_rejections,
-                            duplicate_inspection_results,
-                            duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
-                            action_capsule_metrics,
-                        ),
-                    );
-                    observed_outcome!(
-                        TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                        "first_write_stop"
-                    );
+                    crate::agent::harness::trajectory::note_escalation(hop, "first_write_redirect");
+                    first_write_rejections = 0;
+                    let redirect = "[harness-telemetry] MANDATORY PROGRESS REDIRECTION: the inspection budget is spent and further inspection batches are denied. Edit the target source file now with `write_file` or `str_replace`, then verify.";
+                    history.push(ChatMsg::harness(redirect.to_string()));
+                    let _ = events.send(TurnEvent::Notice(redirect.to_string()));
                 }
                 if first_write_guard_suppressing {
                     first_write_rejections = first_write_rejections.saturating_add(1);
@@ -4037,46 +3997,12 @@ fn run_turn_tiered(
                 }
                 {
                     if spin_stop > 0 && count_spin && spin >= spin_stop {
-                        crate::agent::harness::trajectory::note_escalation(hop, "spin_stop");
-                        let note = if spin_fp == Some(PASSIVE_TREADMILL_SPIN_FINGERPRINT) {
-                            format!(
-                                "⚠ stopped after {spin} consecutive passive wait batches were \
-                                 denied with no candidate progress (deny→retry treadmill). \
-                                 Operator cap ANGEL_SPIN_LIMIT={spin_stop}; conversation kept."
-                            )
-                        } else {
-                            format!(
-                                "⚠ stopped after the same tool call repeated {spin}× with no new \
-                                 outcome; operator cap ANGEL_SPIN_LIMIT={spin_stop}. Conversation kept."
-                            )
-                        };
-                        crate::agent::harness::trajectory::note_timing(
-                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                        );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::Spin.as_str(),
-                        );
-                        log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                        write_exp(
-                            "spin",
-                            false,
-                            hop,
-                            turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
-                                duplicate_inspection_results,
-                                duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
-                                action_capsule_metrics,
-                            ),
-                        );
-                        observed_outcome!(
-                            TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                            "spin"
-                        );
+                        crate::agent::harness::trajectory::note_escalation(hop, "spin_redirect");
+                        spin = 0;
+                        last_sig = None;
+                        let redirect = "[harness-telemetry] MANDATORY REDIRECTION: You have repeated the same tool call multiple times without making progress. You are caught in a deterministic loop. Break this loop immediately: you MUST NOT repeat this call or run another inspection. Step back and use `write_file` to rewrite the implementing file cleanly from first principles, or use `str_replace` to apply a completely different fix. State your new hypothesis and edit the code now.";
+                        history.push(ChatMsg::harness(redirect.to_string()));
+                        let _ = events.send(TurnEvent::Notice(redirect.to_string()));
                     }
                 }
                 // Storm guard: count this batch against the sliding window before
@@ -4878,38 +4804,18 @@ fn run_turn_tiered(
                     });
                 crate::agent::harness::trajectory::note_progress_hop(progress_mutated);
                 if repeated_poll_guard.observe(repeated_poll_fingerprint, progress_mutated) {
-                    let note = format!(
-                        "⚠ stopped repeated passive polling: the same status/log batch ran \
-                         {poll_repeat_limit} times within 32 polling batches without intervening \
-                         work. Changing timestamps are not candidate progress. Conversation kept; \
-                         inspect the background job or use its completion notification before \
-                         resuming. ANGEL_POLL_REPEAT_LIMIT={poll_repeat_limit} (0 disables)."
-                    );
-                    crate::agent::harness::trajectory::note_escalation(hop, "repeated_poll_stop");
-                    crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::Spin.as_str(),
-                    );
-                    log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                    write_exp(
-                        "spin",
-                        false,
+                    crate::agent::harness::trajectory::note_escalation(
                         hop,
-                        turn_counters!(
-                            deferred_action_nudges,
-                            poll_repeat_limit,
-                            err_streak,
-                            0,
-                            first_write_rejections,
-                            duplicate_inspection_results,
-                            duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
-                            action_capsule_metrics,
-                        ),
+                        "repeated_poll_redirect",
                     );
-                    observed_outcome!(
-                        TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                        "repeated_poll_stop"
+                    repeated_poll_guard.clear();
+                    let redirect = format!(
+                        "[harness-telemetry] REDIRECTION: the same status/log batch ran {poll_repeat_limit} \
+                         times without intervening work; changing timestamps are not progress. Stop \
+                         polling: wait on the job's completion notification or do the next piece of work."
                     );
+                    history.push(ChatMsg::harness(redirect.clone()));
+                    let _ = events.send(TurnEvent::Notice(redirect));
                 }
                 handle_unproductive_streak!();
                 // Stop before another paid model hop. Finish pairing the entire
@@ -4959,41 +4865,19 @@ fn run_turn_tiered(
                     } else if let Some(period) =
                         cycle_observation.and_then(|observation| detector.observe(observation))
                     {
-                        crate::agent::harness::trajectory::note_escalation(hop, "spin_cycle");
-                        let repeated_calls = period.saturating_mul(tool_cycle_repeats);
-                        let note = format!(
-                            "⚠ stopped after detecting a {period}-batch tool cycle repeated \
-                             {tool_cycle_repeats}× ({repeated_calls} paired batches) with \
-                             unchanged outcomes; operator cap ANGEL_SPIN_LIMIT={spin_stop}, ANGEL_TOOL_CYCLE_REPEATS={tool_cycle_repeats}. Conversation kept — break the cycle with a \
-                             different hypothesis/tool or report the blocker."
-                        );
-                        crate::agent::harness::trajectory::note_timing(
-                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                        );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::Spin.as_str(),
-                        );
-                        log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                        write_exp(
-                            "spin_cycle",
-                            false,
+                        crate::agent::harness::trajectory::note_escalation(
                             hop,
-                            turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
-                                duplicate_inspection_results,
-                                duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
-                                action_capsule_metrics,
-                            ),
+                            "spin_cycle_redirect",
                         );
-                        observed_outcome!(
-                            TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                            "spin_cycle"
+                        detector.clear();
+                        let redirect = format!(
+                            "[harness-telemetry] MANDATORY REDIRECTION: a {period}-batch tool cycle repeated \
+                             {tool_cycle_repeats}× with unchanged outcomes. Break the cycle: do not repeat \
+                             these calls. Form a different hypothesis and edit the code with `write_file` or \
+                             `str_replace`."
                         );
+                        history.push(ChatMsg::harness(redirect.clone()));
+                        let _ = events.send(TurnEvent::Notice(redirect));
                     }
                 }
                 // Deferred quality guards after tool pairing is intact.
@@ -5242,40 +5126,15 @@ fn run_turn_tiered(
                         history.push(ChatMsg::harness(ERROR_NUDGE.to_string()));
                     }
                     if error_stop > 0 && err_streak >= error_stop {
-                        crate::agent::harness::trajectory::note_escalation(hop, "error_stop");
-                        let note = format!(
-                            "⚠ stopped after {err_streak} hops where every tool call errored — \
-                             operator cap ANGEL_ERROR_LIMIT={error_stop}. Conversation kept; \
-                             read the error messages and fix the precondition (path/state/args) \
-                             or change approach."
+                        crate::agent::harness::trajectory::note_escalation(hop, "error_redirect");
+                        err_streak = 0;
+                        let redirect = format!(
+                            "[harness-telemetry] ERROR CASCADE REDIRECTION: Every tool call in the last {error_stop} hops failed. \
+                             Stop repeating failing commands. Read the compiler diagnostics above and rewrite the file cleanly \
+                             using `write_file` instead of accumulating micro-patches."
                         );
-                        crate::agent::harness::trajectory::note_timing(
-                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                        );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::ErrorStop.as_str(),
-                        );
-                        log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                        write_exp(
-                            "error_stop",
-                            false,
-                            hop,
-                            turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
-                                duplicate_inspection_results,
-                                duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
-                                action_capsule_metrics,
-                            ),
-                        );
-                        observed_outcome!(
-                            TurnOutcome::stopped(note, TurnStopReason::ErrorStop, hop),
-                            "error_stop"
-                        );
+                        history.push(ChatMsg::harness(redirect.clone()));
+                        let _ = events.send(TurnEvent::Notice(redirect));
                     }
                 }
                 // No-progress nudge (hint only): re-reading known files without
