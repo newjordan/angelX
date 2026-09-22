@@ -45,7 +45,7 @@ cd angelX
 | | OpenCode 1.18.31 | 133 / 136 | 38.9 s | 7.4 | 10.1 M | 85% | 179 k |
 | | oh-my-pi 18.2.4 | 133 / 136 | 37.7 s | 8.9 | 24.1 M | 90% | 203 k |
 
-* oh-my-pi on DeepSeek reached its 200M-token budget cap after 93 tasks (86 solved). The run was paused once for debugging and resumed. The other five cells ran all 136.
+* oh-my-pi on DeepSeek reached its 200M-token budget cap after 93 tasks.
 
 angelX runs a verification step before reporting a task done. That step accounts for its extra wall time on GLM; higher thinking levels add more.
 
