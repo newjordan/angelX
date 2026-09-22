@@ -59,7 +59,9 @@ def main() -> None:
             rs = [r for r in rows if r["model"] == model and r["harness"] == harness]
             if not rs:
                 continue
-            rs.sort(key=lambda r: (r.get("run", ""), r.get("task_index", 0)))
+            # Keep export order within a run: it is execution order, and a
+            # resumed (pickup) segment restarts task_index at 0.
+            rs.sort(key=lambda r: r.get("run", ""))
             runs = sorted({r.get("run", "") for r in rs})
             attempts = [
                 {

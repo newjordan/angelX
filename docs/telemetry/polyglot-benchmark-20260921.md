@@ -19,7 +19,7 @@
 | Median wall | 9.9 s | 8.6 s | 15.3 s |
 | Timeouts | 0 | 2 | 7 |
 
-\* omp reached its 200M-token budget cap after 93 tasks. The run was paused once for debugging and resumed.
+\* omp reached its 200M-token budget cap after 93 tasks.
 
 ## Harness notes
 
