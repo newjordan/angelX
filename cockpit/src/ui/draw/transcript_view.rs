@@ -75,8 +75,11 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
             height: inner.height.saturating_sub(strip_h),
             ..inner
         });
+        // One column of side margin only: a vertical margin put a blank text
+        // row between the water and the pane's bottom border, and the fit
+        // pins the frame to the floor of exactly this rect.
         let intro_area =
-            crate::app::startup_intro::intro_band(body.inner(ratatui::layout::Margin::new(1, 1)));
+            crate::app::startup_intro::intro_band(body.inner(ratatui::layout::Margin::new(1, 0)));
         // Banded before the geometry is derived, so the composed canvas, the
         // fine-dot raster and the declared cell rect are all one width: a narrow
         // rect declared over a full-pane raster is what squeezed the clip.

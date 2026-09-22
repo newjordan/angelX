@@ -103,6 +103,13 @@ fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
     // on top of it, which is the dead strip the operator saw.
     let (_, baseline_last, baseline_h) = extent(72, 32);
     let floor_gap = baseline_h - 1 - baseline_last;
+    // The crop ends where the clip's ink ends (`CROP_H`), so the clip's own
+    // tail is at most the levels curve eating the faintest rows: on the pane
+    // floor means on the floor, not a dead strip the height of a text row.
+    assert!(
+        floor_gap <= 4,
+        "the settled frame leaves {floor_gap} blank dot rows under the water; the crop should end at the ink"
+    );
     for (columns, rows) in [(36usize, 24usize), (40, 40), (36, 32)] {
         let (first, last, height) = extent(columns, rows);
         let gap = height - 1 - last;
@@ -115,8 +122,8 @@ fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
         // from "centered" instead of only "some ink somewhere": the spare height
         // has to be above the blade, which is why the case has to be width-limited.
         let crop_w = (FRAME_W - 140 * 2) as f32;
-        let scale = (columns as f32 * 2.0 / crop_w).min(height as f32 / FRAME_H as f32);
-        let fitted_h = (FRAME_H as f32 * scale).round().max(1.0) as u32;
+        let scale = (columns as f32 * 2.0 / crop_w).min(height as f32 / CROP_H as f32);
+        let fitted_h = (CROP_H as f32 * scale).round().max(1.0) as u32;
         let anchored_top = height.saturating_sub(fitted_h);
         assert!(
             anchored_top > 0,
@@ -895,7 +902,7 @@ fn band_slack(area: Rect, band: Rect) -> (u16, u16) {
 /// is what read as the width pixelating the clip.
 #[test]
 fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
-    let fill = |rows: usize| (rows * 4 * CROP_W as usize / FRAME_H as usize / 2) as u16;
+    let fill = |rows: usize| (rows * 4 * CROP_W as usize / CROP_H as usize / 2) as u16;
     let cases = [
         // (pane, expected width, why)
         (
@@ -908,7 +915,7 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
             INTRO_MAX_COLUMNS,
             "tall: the hard cap",
         ),
-        (Rect::new(7, 3, 20, 10), fill(10), "already the fit width"),
+        (Rect::new(7, 3, fill(10), 10), fill(10), "already the fit width"),
         (
             Rect::new(7, 3, 30, 10),
             fill(10),

@@ -28,8 +28,14 @@ const FRAME_H: u32 = 384;
 /// against: empty side wings trimmed, the whole blade, hand and water retained.
 const CROP_X: u32 = 140;
 const CROP_W: u32 = FRAME_W - CROP_X * 2;
+/// No frame of the clip lights a pixel below row 369: the last 14 rows are
+/// black in every one of the 60 frames (measured on the atlas alpha plane).
+/// Cropping them off makes the water's own bottom the frame's bottom, so the
+/// floor-pinned fit in `prepare` puts the last ripple on the floor of the pane
+/// instead of a dead strip.
+const CROP_H: u32 = 370;
 /// Widest intro band we will compose, in terminal columns. The crop is nearly
-/// square (`CROP_W` × `FRAME_H`), so the blade is always height-limited: past
+/// square (`CROP_W` × `CROP_H`), so the blade is always height-limited: past
 /// this many columns a wider pane buys no extra art, only a wider dithered
 /// canvas, a wider fine-dot raster and a wider Braille grid carrying the same
 /// blade — which is what read as the width pixelating the clip. Bounding the
@@ -98,8 +104,8 @@ impl Flow {
 ///
 /// The two bounds are one rule. The clip is nearly square, so the art it can
 /// actually fill at `rows` Braille rows is `rows * 4` dot rows tall and — at the
-/// crop's aspect — `rows * 4 * CROP_W / FRAME_H` dot columns wide, which is
-/// `rows * 2 * CROP_W / FRAME_H` terminal columns. Clamping to that means the
+/// crop's aspect — `rows * 4 * CROP_W / CROP_H` dot columns wide, which is
+/// `rows * 2 * CROP_W / CROP_H` terminal columns. Clamping to that means the
 /// composed surface is never wider than the dots that can carry it; clamping to
 /// `INTRO_MAX_COLUMNS` keeps a very tall pane from ballooning the band. Either
 /// way the canvas, the fine-dot raster and the Braille grid all shrink to the
@@ -111,7 +117,7 @@ pub(crate) fn intro_band(area: Rect) -> Rect {
         return area;
     }
     let rows = usize::from(area.height);
-    let fill = (rows * 4 * CROP_W as usize / FRAME_H as usize / 2).max(1);
+    let fill = (rows * 4 * CROP_W as usize / CROP_H as usize / 2).max(1);
     let width = area
         .width
         .min(INTRO_MAX_COLUMNS)
@@ -582,16 +588,16 @@ fn prepare(atlas: &GrayImage, index: u8, columns: usize, rows: usize) -> GrayIma
         u32::from(index % 10) * FRAME_W + CROP_X,
         u32::from(index / 10) * FRAME_H,
         CROP_W,
-        FRAME_H,
+        CROP_H,
     )
     .to_image();
     let width = columns as u32 * 2;
     let height = rows as u32 * 4;
-    let scale = (width as f32 / CROP_W as f32).min(height as f32 / FRAME_H as f32);
+    let scale = (width as f32 / CROP_W as f32).min(height as f32 / CROP_H as f32);
     let fitted = imageops::resize(
         &source,
         (CROP_W as f32 * scale).round().max(1.0) as u32,
-        (FRAME_H as f32 * scale).round().max(1.0) as u32,
+        (CROP_H as f32 * scale).round().max(1.0) as u32,
         imageops::FilterType::Lanczos3,
     );
     let mut canvas = GrayImage::new(width, height);
