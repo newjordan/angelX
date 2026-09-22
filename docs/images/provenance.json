@@ -1,63 +1,124 @@
 {
   "schema": "angel.usage-images/v1",
-  "captured_date_utc": "2026-09-20",
-  "method": "Unedited window-region screenshots from the running ordinary cockpit, captured with grim.",
-  "terminal": "Kitty",
-  "model_route": "per image",
-  "fixture": "Local arithmetic example; the patch was prepared outside the model. These images demonstrate UI behavior, not model task performance.",
+  "captured_date_utc": "2026-09-22",
+  "method": "Unedited window-region screenshots of the running cockpit in Kitty (captured with grim); files under ui/ are crops of those captures.",
+  "terminal": "Kitty, 1576 x 893 window",
+  "model_route": "glm-5.3, thinking low",
+  "fixture": "trailpace: a small Rust crate with one planted bug (minutes multiplied by 3600). The fix, diff and answer are the model's own work in one live turn; each action was approved by hand.",
   "binary": {
-    "package_version": "0.1.2",
-    "sha256": "b1fad2cc514e864f23b19fd592cb3ac2571e71f362c9d11ffd0084629d6a989d",
-    "reported_source_binding": "unbound"
+    "package_version": "0.1.4",
+    "source_commit": "e7df7f0",
+    "sha256": "4e0b59c756db98a393b0d67823d9ee853bca8d49b7fa7488689063d09ecc9b91"
   },
   "images": [
     {
       "file": "intro.png",
-      "sha256": "7f831d260686a998689917abc35c94f73b8e15d02f47b09a099086ada6d1459c",
-      "width": 1600,
-      "height": 960,
-      "model_route": "grok",
-      "actions": [
-        "Launch a fresh workspace without submitting a prompt",
-        "Wait for the raised sword and settled wizard"
-      ],
-      "model_completions": 0,
-      "fixture": "Empty local workspace; existing Grok route selected; no conversation submitted."
+      "sha256": "36ced5f833e8573e8e8565a81c248115b32db3cad6ba55b510d1f06b7c4864ff",
+      "shows": "Fresh launch in the demo workspace; no prompt submitted."
     },
     {
-      "file": "cockpit.png",
-      "sha256": "71a69f2056a7e0390358fec199f62797c3c6f9e4ce9491602b109e303598821e",
-      "width": 1600,
-      "height": 960,
+      "file": "task.png",
+      "sha256": "490a64b8a4bdb56712f281c7478c691091eb623c2bf108ff35a76dfe92fa7347",
+      "shows": "Final frame of the live fix task.",
       "actions": [
+        "/model glm-5.3 (think low)",
         "/new",
-        "/diff"
-      ],
-      "model_route": "practice"
+        "prompt: cargo test fails in this crate. Find the bug, fix it, and show me the tests passing.",
+        "approve each action capsule"
+      ]
     },
     {
-      "file": "command-picker.png",
-      "sha256": "5ec047df7e530e20c0a12a2cd0b039e5214b79b27dd800f978d460fe3a031491",
-      "width": 1600,
-      "height": 960,
+      "file": "world.png",
+      "sha256": "ccc264b84416b2a6e5b531a8dff8c2244336ce3a150c04e4d5e3df0ed81c9e09",
+      "shows": "World view beside the diff.",
+      "actions": [
+        "/diff",
+        "/world enter"
+      ]
+    },
+    {
+      "file": "ui/model-picker.png",
+      "sha256": "c5094849aedf7bbdfcaa99de99f7da07e8f829ee632cac622f17ee5cc842dd4c",
+      "shows": "/model with glm-5.3 highlighted.",
+      "actions": [
+        "/model"
+      ]
+    },
+    {
+      "file": "ui/think-picker.png",
+      "sha256": "8e9aca9f1e9754826e8880c74cdb9eec664e29e35b5f4d4403a67a37a3b01980",
+      "shows": "/think for glm-5.3.",
+      "actions": [
+        "/think"
+      ]
+    },
+    {
+      "file": "ui/approval.png",
+      "sha256": "1dd830d3255933a36c78d4a402b9e1df0cad8c6b0263aee2a37a1b1e08b0c683",
+      "shows": "First action capsule of the live task."
+    },
+    {
+      "file": "ui/edit-approval.png",
+      "sha256": "e3a0b1ef0eee2bda2cd8f16a4ee968ece0ff8148fbe8e2392a086773d9e85598",
+      "shows": "Edit capsule of the live task."
+    },
+    {
+      "file": "ui/receipts.png",
+      "sha256": "2df6c610cbf0b32da747a1f7c277bbe2f9dc10936c1ee38da40e72cce877e887",
+      "shows": "Receipts and final answer of the live task."
+    },
+    {
+      "file": "ui/diff.png",
+      "sha256": "8afa48037a0b843fadd6342ecd55ec969bc212cfa1773e48518bee760738e96f",
+      "shows": "/diff after the live task.",
+      "actions": [
+        "/clear",
+        "/diff"
+      ]
+    },
+    {
+      "file": "ui/formation.png",
+      "sha256": "31cafb0c2326875f02a0edcdd1a67b55559ff5790eb08ac4d0a1e6d27144889a",
+      "shows": "Formation roster.",
+      "actions": [
+        "/moa"
+      ]
+    },
+    {
+      "file": "ui/context.png",
+      "sha256": "5c76011e0b632b2f66979b59cd2e2271752a365f97c5465a5a98389fabb0125d",
+      "shows": "Context occupancy.",
+      "actions": [
+        "/context"
+      ]
+    },
+    {
+      "file": "ui/goal.png",
+      "sha256": "fd86c02afad5748197b19f21c71530f109a1bed5d4501eed47df9a07c0ad09f1",
+      "shows": "A goal with criteria and a check.",
+      "actions": [
+        "/goal <text>",
+        "/goal criteria <text>",
+        "/goal cmd cargo test -q"
+      ]
+    },
+    {
+      "file": "ui/loop-workshop.png",
+      "sha256": "4e92c6e376bd5b619c7264d9d54877a71865a2404f847c1b5b966d1763e066bb",
+      "shows": "Loop workshop for the active goal.",
+      "actions": [
+        "/loop"
+      ]
+    },
+    {
+      "file": "ui/command-picker.png",
+      "sha256": "b48cd758635c804b6f162c3e3e91b53c5b6ccd10d46ab50f8113ca3ab9cd185e",
+      "shows": "/help, then / and Tab.",
       "actions": [
         "/help",
         "type /",
         "Tab"
-      ],
-      "model_route": "practice"
-    },
-    {
-      "file": "world.png",
-      "sha256": "9f3f4734932ff7b2729773a5979bd34ef234eb14fa095d03ae8129ab85b4bafc",
-      "width": 1600,
-      "height": 960,
-      "actions": [
-        "/diff",
-        "/world enter"
-      ],
-      "model_route": "practice"
+      ]
     }
-  ],
-  "model_completions": 0
+  ]
 }
