@@ -189,11 +189,26 @@ if [ "$HEADLESS_MODE" = "1" ]; then
     set -a; . "$ANGEL_RUNNER_ENV_FILE"; set +a
   fi
 else
-  # Interactive convenience: broad host defaults first, then repo/user overrides.
-  for envf in "$HOME/.config/host_env/system.env" "$HOME/.config/host_env/api_keys.sh" "$HOME/.env" "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env" "$HOME/.openrouter.env"; do
+  # Interactive convenience: the checkout's own ignored env files always load.
+  # Generic home env files are other tools' shell code and load only when
+  # ANGEL_HOST_ENV=1 (exported, or set in .angel.env); repo files are then
+  # re-read so they still override the broad host defaults.
+  _angel_source_env() {
     # shellcheck disable=SC1090
-    [ -f "$envf" ] && { set -a; . "$envf"; set +a; }
+    [ -f "$1" ] && { set -a; . "$1"; set +a; }
+    return 0
+  }
+  for envf in "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env"; do
+    _angel_source_env "$envf"
   done
+  if [ "${ANGEL_HOST_ENV:-0}" = "1" ]; then
+    for envf in "$HOME/.config/host_env/system.env" "$HOME/.config/host_env/api_keys.sh" "$HOME/.env" "$HOME/.openrouter.env"; do
+      _angel_source_env "$envf"
+    done
+    for envf in "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env"; do
+      _angel_source_env "$envf"
+    done
+  fi
   # Shared credential/default files must not switch the user's working project.
   # An explicit caller export and --workspace remain supported; machine runner
   # env files above keep their deliberate invocation-local selection.
