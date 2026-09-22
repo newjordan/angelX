@@ -15,10 +15,10 @@
   border:1px solid var(--b-rule);color:var(--b-dim);font-family:var(--b-dos);font-size:17px;letter-spacing:.08em;
   padding:0 8px;cursor:pointer;line-height:1.35}
 .bench .replay:hover,.bench .replay:focus-visible{color:#fff;border-color:#fff;outline:none}
-.bench .panels{display:grid;grid-template-columns:minmax(0,1fr);gap:18px 22px}
+.bench .panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 22px}
 .bench .panel-name{margin:0 0 2px;font-family:var(--b-dos);font-size:15px;letter-spacing:.12em;color:var(--b-dim)}
-.bench svg{width:100%;height:auto;display:block;overflow:visible}
-.bench svg .vt{font-family:var(--b-dos)}
+.bench svg{width:100%;max-width:620px;height:auto;display:block;overflow:visible;margin:0 auto}
+.bench svg .vt{font-family:var(--b-mono);font-size:11px;fill:currentColor}
 .bench .legend{display:flex;flex-wrap:wrap;gap:4px 22px;margin:10px 0 0;padding-top:8px;
   border-top:1px dashed var(--b-rule);font-family:var(--b-dos);font-size:17px;letter-spacing:.06em;color:var(--b-dim)}
 .bench .legend i{display:inline-block;width:34px;height:6px;margin-right:8px;vertical-align:middle;
@@ -68,7 +68,7 @@
   text-shadow: 0 0 1.5px rgba(255,255,255,.45);
 }
 
-.bench .row2{display:grid;grid-template-columns:minmax(0,1fr);gap:0 26px}
+.bench .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
 .bench .provenance{margin:30px 0 0;font-family:var(--b-dos);font-size:17px;line-height:1.45;letter-spacing:.04em;color:var(--b-dim)}
 .bench .provenance a{color:var(--b-ink);text-decoration:underline dotted;text-underline-offset:3px}
 .bench .provenance a:hover,.bench .provenance a:focus-visible{color:#fff;text-decoration-color:#fff}

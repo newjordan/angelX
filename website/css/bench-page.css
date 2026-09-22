@@ -1,0 +1,74 @@
+/* Benchmarks page — chrome around the shared .bench panel system.
+   The panels themselves live in css/bench.css; this file only frames them
+   as a standalone document: masthead, section headings, per-figure notes. */
+
+:root{
+  --bg:#050506; --ink:#f4f4f7; --dim:#a2a2ac; --faint:#6f6f7a; --rule:#3a3a44;
+  --mono:ui-monospace,'Cascadia Mono',Menlo,Consolas,'Courier New',monospace;
+  --fantasy:'Cinzel',Palatino,'Palatino Linotype',serif;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
+body{font-family:var(--mono);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+
+.wrap{width:min(1180px,92vw);margin:0 auto;padding:0 0 56px}
+
+/* ─── masthead ─────────────────────────────────────────────────── */
+.mast{border-bottom:1px solid var(--rule);padding:44px 0 22px;margin:0 0 6px;
+  display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:14px}
+.mast h1{font-family:var(--fantasy);font-weight:700;letter-spacing:.05em;
+  font-size:clamp(26px,3.4vw,40px);margin:0}
+.mast .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+.mast .back{font-size:13px;color:var(--dim);text-decoration:none;
+  border:1px solid var(--rule);padding:8px 14px;letter-spacing:.06em;white-space:nowrap}
+.mast .back:hover,.mast .back:focus-visible{color:#fff;border-color:#fff}
+
+/* ─── intro + summary ──────────────────────────────────────────── */
+.lede{color:var(--dim);font-size:15px;line-height:1.65;max-width:78ch;margin:22px 0 0}
+.lede strong{color:var(--ink);font-weight:600}
+.summary{margin:34px 0 0;border:1px solid var(--rule);border-collapse:collapse;width:100%;
+  font-size:13.5px;font-variant-numeric:tabular-nums}
+.summary caption{caption-side:top;text-align:left;padding:0 0 10px;color:var(--faint);
+  font-size:11.5px;letter-spacing:.2em;text-transform:uppercase}
+.summary .tot{border-left:1px solid var(--rule);background:rgba(255,255,255,.025)}
+.summary tfoot th,.summary tfoot td{border-top:1px solid var(--rule);color:var(--ink);font-weight:600}
+.summary tfoot .pct{font-weight:400}
+.summary .pct{color:var(--dim);font-size:11.5px;letter-spacing:.04em}
+.tnote{color:var(--dim);font-size:13px;line-height:1.6;margin:14px 0 0;max-width:88ch}
+.tnote strong{color:var(--ink);font-weight:600}
+.summary th,.summary td{border:1px solid var(--rule);padding:9px 12px;text-align:right}
+.summary th:first-child,.summary td:first-child{text-align:left}
+.summary thead th{color:var(--dim);font-weight:500;background:rgba(255,255,255,.03)}
+.summary td.hero{color:#fff;font-weight:600}
+.summary td.dim{color:var(--faint)}
+
+/* ─── section headings for each figure ─────────────────────────── */
+.sec{margin:74px 0 0;border-top:1px solid var(--rule);padding-top:26px}
+.sec h2{font-family:var(--fantasy);font-weight:600;letter-spacing:.04em;
+  font-size:clamp(19px,2.2vw,26px);margin:0}
+.sec .sec-q{color:var(--dim);font-size:14px;line-height:1.65;margin:10px 0 0;max-width:80ch}
+.sec .sec-q .sub{display:block;color:var(--ink);font-size:15px;margin:0 0 4px}
+.sec .sec-q em{color:var(--ink);font-style:normal}
+
+/* per-figure reading notes sit directly under their panel */
+.bench .tv-note{border-top:1px dashed var(--rule);margin:14px 0 0;padding:12px 0 0;
+  font-size:13px;line-height:1.6;color:var(--dim)}
+.bench .tv-note b{color:var(--ink);font-weight:600}
+.bench .tv-note .hint{color:var(--faint)}
+
+.provenance a{color:var(--ink)}
+.provenance a:hover{color:#fff}
+
+/* standalone page: the landing page's tall top offset is unnecessary here */
+.bench{margin:0}
+.bench .tv{margin:34px 0 0}
+.bench svg{max-width:560px}
+
+@media (max-width:900px){
+  .bench .panels{grid-template-columns:minmax(0,1fr)}
+  .bench svg{max-width:100%}
+  .summary{font-size:12px}
+  .summary th,.summary td{padding:7px 8px}
+  .summary .pct{font-size:10.5px}
+}

@@ -16,7 +16,6 @@
   /* the real intro (canvas) when it's live; the wordmark otherwise */
   const swordEl = () => (window.Excalibur && window.Excalibur.visible()
     ? document.getElementById('excalibur') : document.querySelector('.logo-wrap'));
-  const returnLink = document.getElementById('return-link');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let ascended = false;
@@ -133,7 +132,7 @@
   pick.addEventListener('click', (e) => { e.stopPropagation(); ascend(); });
 
   /* scrolling UP past the gate by hand also begins the ascent —
-     direction-aware so reset()'s downward glide doesn't re-trigger it */
+     direction-aware, so scrolling back down does not re-trigger it */
   let lastY = window.scrollY;
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
@@ -191,11 +190,6 @@
     document.querySelectorAll('.in-view').forEach((el) => el.classList.remove('in-view'));
     startPing();
   }
-  /* the button: re-arm, then glide home to the gate */
-  function reset() {
-    rearm();
-    window.scrollTo({ top: maxScroll, behavior: reduced ? 'auto' : 'smooth' });
-  }
   /* the ping begins once the blade is raised and settled (~4.5s of intro) */
   setTimeout(() => { if (!ascended) startPing(); }, 4500);
   document.addEventListener('visibilitychange', () => {
@@ -242,5 +236,4 @@
     });
   }
 
-  returnLink.addEventListener('click', reset);
 })();

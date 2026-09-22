@@ -89,8 +89,8 @@ function frame(svg, o = {}) {
   el(svg, 'path', { d: a, fill: RULE });
   return f;
 }
-const yLabel = (svg, f, r, s) => txt(svg, { x: f.ox - 10, y: f.Y(r) + 5, 'text-anchor': 'end', class: 'vt', 'font-size': 14.5, fill: DIM }, s);
-const xLabel = (svg, f, c, s, anchor = 'middle') => txt(svg, { x: f.X(c), y: f.Y(f.GH) + 18, 'text-anchor': anchor, class: 'vt', 'font-size': 14.5, fill: DIM }, s);
+const yLabel = (svg, f, r, s) => txt(svg, { x: f.ox - 10, y: f.Y(r) + 5, 'text-anchor': 'end', class: 'vt', 'font-size': 12.5, fill: DIM }, s);
+const xLabel = (svg, f, c, s, anchor = 'middle') => txt(svg, { x: f.X(c), y: f.Y(f.GH) + 18, 'text-anchor': anchor, class: 'vt', 'font-size': 12.5, fill: DIM }, s);
 
 // 12 fps ticker with cancellation (the app's cadence)
 function play(state, ticks, onTick, animate = true) {
@@ -136,7 +136,7 @@ function race(svg, m, state, anim = true) {
     const c = Math.round(q * 60 / T * (f.GW - 1));
     xLabel(svg, f, c, `${q}m`, q === 0 ? 'start' : 'middle');
   }
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'AGENT TIME →');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'agent time (min)');
   const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 15, fill: DIM }, '');
   const counters = {};
   LEGEND_ORDER.forEach((h, k) => {
@@ -152,17 +152,20 @@ function race(svg, m, state, anim = true) {
   const finish = el(svg, 'g', {});
   play(state, Math.round(FPS * 6.5), p => {
     const now = p * last;
-    clock.textContent = `${fmtClock(now)}  AGENT CLOCK`;
+    clock.textContent = fmtClock(now);
     series.forEach(s => {
       paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join(''));
-      const done = s.pts.filter(q => q.t <= now).length - 1;
-      counters[s.h].textContent = `${SER[s.h].label} ${String(done).padStart(2, '0')}/${s.pts.length - 1}` + (now >= s.total ? ` ✓${fmtClock(s.total).slice(2)}` : '');
+      /* solved-so-far: the cumulative value of the last elapsed point, not the
+         number of points elapsed (those differ — 136 attempts, 133 solved) */
+      const cur = s.pts.filter(q => q.t <= now).pop();
+      const done = cur ? cur.v : 0;
+      counters[s.h].textContent = `${SER[s.h].label} ${String(done).padStart(2, '0')}/${s.pts.length - 1}`;
     });
     if (p >= 1) {
       finish.innerHTML = '';
       series.forEach(s => {
         const e = toCell(s.pts[s.pts.length - 1]);
-        const star = txt(finish, { x: f.X(e.c) + 1, y: f.Y(e.r) - 4, 'text-anchor': 'middle', class: `vt ${s.h === 'angelx' ? 'ax-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color }, '✦');
+        const star = txt(finish, { x: f.X(e.c) + 1, y: f.Y(e.r) - 4, 'text-anchor': 'middle', class: `vt ${s.h === 'angelx' ? 'ax-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color }, '');
         tip(star, `${SER[s.h].label} finished ${s.solved}/${s.pts.length - 1} at ${Math.round(s.total)} s`);
       });
     }
@@ -184,7 +187,7 @@ function trace(svg, m, state, anim = true) {
   const toCell = (i, s) => ({ c: Math.round(i / (N - 1) * (f.GW - 3)) + 1, r: Math.round((1 - Math.min(s, top) / top) * (f.GH - 2)) + 1 });
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 2)) + 1, `${Math.round(q * top)}s`));
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell(a - 1, 0).c, k ? `#${a}` : '#1', k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'ATTEMPT, IN RUN ORDER →');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempt (run order)');
   const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt', 'font-size': 16, fill: INK }, '');
   const paths = {}, meds = {};
   cs.forEach(c => { paths[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, class: c.harness === 'angelx' ? 'ax-glow' : '' }); });
@@ -235,7 +238,7 @@ function burn(svg, m, state, anim = true) {
   const toCell = p => ({ c: Math.round(p.t / N * (f.GW - 1)), r: Math.round((1 - p.v / top) * (f.GH - 1)) });
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 1)), q ? fmtTok(q * top) : '0'));
   [0, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 0 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'ATTEMPTS →');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempts');
   const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt', 'font-size': 16, fill: INK }, '');
   const paths = {}, dots = {}, ends = el(svg, 'g', {});
   series.forEach(s => {
@@ -248,14 +251,19 @@ function burn(svg, m, state, anim = true) {
     series.forEach(s => paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join('')));
     if (p >= 1) {
       ends.innerHTML = '';
+      svg.appendChild(ends);   /* paint the labels last: re-append moves the group above the curves */
       const placed = [];
       series.slice().sort((a, b) => b.total - a.total).forEach(s => {
         let y = f.Y(toCell({ t: N, v: s.total }).r) - 6;
         while (placed.some(q => Math.abs(q - y) < 15)) y += 15;
         placed.push(y);
-        txt(ends, { x: f.X(f.GW - 1) - 4, y, 'text-anchor': 'end', class: `vt ${s.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color === D3 ? DIM : SER[s.h].color,
-          style: `paint-order:stroke;stroke:${BG};stroke-width:5px;stroke-linejoin:round` },
-          `${SER[s.h].label} ${fmtTok(s.total)}`);
+        /* a solid BG plate under each endpoint label, so the three converging
+           curves never cross the text */
+        const lab = `${SER[s.h].label} ${fmtTok(s.total)}`;
+        const w = lab.length * 8.4 + 8;
+        el(ends, 'rect', { x: f.X(f.GW - 1) + 2 - w, y: y - 12, width: w, height: 16, fill: BG });
+        txt(ends, { x: f.X(f.GW - 1) - 4, y, 'text-anchor': 'end', class: `vt ${s.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color === D3 ? DIM : SER[s.h].color },
+          lab);
       });
       readout.textContent = 'UNCACHED  ' + LEGEND_ORDER.map(h => `${SER[h].label} ${fmtTok(series.find(s => s.h === h).uncached)}`).join('  ·  ');
     } else {
@@ -288,7 +296,7 @@ function cache(svg, m, state, anim = true) {
     yLabel(svg, f, r, `${Math.round(v)}%`);
   });
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 100 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'ATTEMPTS →');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempts');
   const l1 = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 14, fill: DIM }, '');
   const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt', 'font-size': 16, fill: INK }, '');
   const paths = {}, dots = {};
@@ -367,7 +375,7 @@ function scoreboard(svg, state, anim = true) {
       counts[ri].textContent = `${ok}/${r.c.attempts.length}`;
       passed += ok;
     });
-    readout.textContent = `PASSED ${String(passed).padStart(3, '0')}/${total}`;
+    readout.textContent = `passed ${passed}/${total}`;
   }, anim);
 }
 
@@ -381,9 +389,11 @@ function bars(svg, state, anim = true) {
 
   MODELS.forEach((m, g) => {
     const gx = g ? 244 : 14;
-    txt(svg, { x: gx, y: 18, class: 'vt', 'font-size': 14.5, fill: DIM }, m === 'deepseek' ? 'DEEPSEEK' : 'GLM');
+    txt(svg, { x: gx, y: 18, class: 'vt', 'font-size': 12.5, fill: DIM }, m === 'deepseek' ? 'DEEPSEEK' : 'GLM');
+    /* three even slots per model, so centred labels never collide */
+    const SLOT = [43.5, 114.5, 185.5];
     LEGEND_ORDER.forEach((h, k) => {
-      cols.push({ c: cell(m, h), h, x: gx + 8 + [0, 48, 106][k] });
+      cols.push({ c: cell(m, h), h, x: gx + SLOT[k] - 5, cx: gx + SLOT[k] });
     });
   });
 
@@ -396,7 +406,10 @@ function bars(svg, state, anim = true) {
   let capD = '';
   for (let x = 6; x < 454; x += 4) capD += sq(x, CAP_Y, 1.4);
   el(svg, 'path', { d: capD, fill: RULE, opacity: .7 });
-  txt(svg, { x: 454, y: CAP_Y - 4, 'text-anchor': 'end', class: 'vt', 'font-size': 11.5, fill: FAINT }, 'CAP 2.5k');
+  txt(svg, { x: 454, y: CAP_Y - 4, 'text-anchor': 'end', class: 'vt', 'font-size': 11.5, fill: FAINT }, '2.5k cap');
+  /* one chart-level key, so the per-column headers stay short */
+  txt(svg, { x: 6, y: 33, class: 'vt', 'font-size': 11, fill: FAINT },
+      'top number: output tokens per task · bottom number: model calls per task');
 
   const paths = cols.map(c => el(svg, 'path', { d: '', fill: SER[c.h].color, class: c.h === 'angelx' ? 'ax-glow' : '' }));
   const capMarkers = cols.map(() => el(svg, 'path', { d: '', fill: FAINT }));
@@ -404,13 +417,14 @@ function bars(svg, state, anim = true) {
   cols.forEach(c => {
     const s = c.c.summary;
     const isAx = c.h === 'angelx';
-    const v = txt(svg, { x: c.x, y: BASE + 17, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 16.5, fill: isAx ? INK : INK }, Math.round(s.out_per_task).toLocaleString('en-US'));
+    const mid = { 'text-anchor': 'middle' };
+    const v = txt(svg, { x: c.cx, y: BASE + 17, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 12.5, fill: INK, ...mid }, Math.round(s.out_per_task).toLocaleString('en-US'));
     tip(v, `${c.c.harness_label} · ${B.models[c.c.model].name} — ${Math.round(s.out_per_task)} output tokens and ${s.calls_mean.toFixed(1)} model calls per task`);
-    txt(svg, { x: c.x, y: BASE + 31, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 14.5, fill: SER[c.h].color === D3 ? DIM : SER[c.h].color }, SER[c.h].label);
-    txt(svg, { x: c.x, y: BASE + 44, class: 'vt', 'font-size': 13, fill: DIM }, `${s.calls_mean.toFixed(1)} calls`);
+    txt(svg, { x: c.cx, y: BASE + 30, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 11.5, fill: SER[c.h].color === D3 ? DIM : SER[c.h].color, ...mid }, SER[c.h].label);
+    txt(svg, { x: c.cx, y: BASE + 43, class: 'vt', 'font-size': 12, fill: DIM, ...mid }, s.calls_mean.toFixed(1));
     const stacks = Math.ceil((s.out_per_task / UNIT) / MAX_ROWS);
     if (stacks > 1) {
-      txt(svg, { x: c.x, y: BASE + 56, class: 'vt', 'font-size': 11, fill: FAINT }, `[${stacks}× STACK]`);
+      txt(svg, { x: c.cx, y: BASE + 55, class: 'vt', 'font-size': 10.5, fill: FAINT, ...mid }, `${stacks}× stacked`);
     }
   });
 

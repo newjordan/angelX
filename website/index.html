@@ -12,7 +12,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=UnifrakturMaguntia&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/bench.css">
 </head>
 <body>
 
@@ -94,7 +93,7 @@
       <h2 class="display blackletter">Follow Your Star</h2>
       <p class="lede centered">A self referential world model harness built for customization and long form agentic enjoyment.</p>
       <div class="rule">✦</div>
-      <button class="ghost-link" id="return-link">▼ RETURN TO THE ENTRANCE</button>
+      <a class="ghost-link" id="benchmarks-link" href="benchmarks.html" target="_blank" rel="noopener">◇ BENCHMARKS · 2026-09-21 ↗</a>
       <!-- one command, straight from README.md — no invented installer -->
       <div class="install">
         <p class="install-label">ONE-COMMAND LINUX INSTALL · x86_64 · BUILDS FROM SOURCE ON FIRST RUN</p>
@@ -171,70 +170,6 @@
         </div>
       </div>
       <p class="fineprint">AngelX created by Jordan Newman <a href="https://x.com/frostforger" target="_blank" rel="noopener noreferrer" aria-label="Jordan Newman on X — @frostforger">@frostforger</a></p>
-      <!-- trials: benchmark plots, 2026-09-21 run (js/bench-data.js · js/bench.js · css/bench.css) -->
-      <div class="bench" id="trials" aria-label="Benchmarks, 2026-09-21: angelX, OpenCode and omp">
-        <figure class="tv" id="tv-race">
-          <figcaption class="tv-title">◇ measured · the race to 136 · 2026-09-21 ◇</figcaption>
-          <button class="replay" type="button" aria-label="Replay the race">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="race-deepseek" viewBox="0 0 460 262" role="img" aria-label="Solved attempts against cumulative agent time, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="race-glm" viewBox="0 0 460 262" role="img" aria-label="Solved attempts against cumulative agent time, GLM"></svg></div>
-          </div>
-          <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
-        </figure>
-
-        <div class="row2">
-          <figure class="tv" id="tv-score">
-            <figcaption class="tv-title">◇ measured · graded attempts · 2026-09-21 ◇</figcaption>
-            <button class="replay" type="button" aria-label="Replay the scoreboard">[ ▶ ]</button>
-            <svg id="score" viewBox="0 0 460 262" role="img" aria-label="Every graded attempt as one dot, lit when it passed"></svg>
-          </figure>
-          <figure class="tv" id="tv-bars">
-            <figcaption class="tv-title">◇ measured · output per task · 2026-09-21 ◇</figcaption>
-            <button class="replay" type="button" aria-label="Replay the output bars">[ ▶ ]</button>
-            <svg id="bars" viewBox="0 0 460 262" role="img" aria-label="Output tokens and model calls per task, as dot columns"></svg>
-          </figure>
-        </div>
-
-        <figure class="tv" id="tv-trace">
-          <figcaption class="tv-title">◇ measured · seconds per attempt · 2026-09-21 ◇</figcaption>
-          <button class="replay" type="button" aria-label="Replay seconds per attempt">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="trace-deepseek" viewBox="0 0 460 262" role="img" aria-label="Seconds per attempt in run order, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="trace-glm" viewBox="0 0 460 262" role="img" aria-label="Seconds per attempt in run order, GLM"></svg></div>
-          </div>
-          <div class="legend"><span class="ax-hero">■ angelX</span><span>+ OpenCode</span><span>× omp</span></div>
-        </figure>
-
-        <figure class="tv" id="tv-burn">
-          <figcaption class="tv-title">◇ measured · context burned · 2026-09-21 ◇</figcaption>
-          <button class="replay" type="button" aria-label="Replay context burned">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="burn-deepseek" viewBox="0 0 460 262" role="img" aria-label="Cumulative input tokens over the run, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="burn-glm" viewBox="0 0 460 262" role="img" aria-label="Cumulative input tokens over the run, GLM"></svg></div>
-          </div>
-          <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
-        </figure>
-
-        <figure class="tv" id="tv-cache">
-          <figcaption class="tv-title">◇ measured · cache · 2026-09-21 ◇</figcaption>
-          <button class="replay" type="button" aria-label="Replay cache hit rate">[ ▶ ]</button>
-          <div class="panels">
-            <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
-              <svg id="cache-deepseek" viewBox="0 0 460 262" role="img" aria-label="Running cache hit rate over the run, DeepSeek"></svg></div>
-            <div><p class="panel-name">GLM-5.3-FLASH · THINKING LOW</p>
-              <svg id="cache-glm" viewBox="0 0 460 262" role="img" aria-label="Running cache hit rate over the run, GLM"></svg></div>
-          </div>
-          <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
-        </figure>
-        <p class="provenance">* All tests performed on the <a href="https://github.com/PrimeIntellect-ai/verifiers" target="_blank" rel="noopener noreferrer">Prime Intellect evaluators</a> (Verifiers v0.3.1) · polyglot-v1: 136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++), pass/fail decided by each task’s own tests · DeepSeek V4.1 Flash, thinking off: angelX 133/136 · opencode 132/136 · oh-my-pi 53/59 (run stopped at its 200M-token budget cap) · GLM-5.3-Flash, thinking low: angelX 135/136 · opencode 133/136 · oh-my-pi 133/136 · angelX 7373b11 · opencode 1.18.31 · oh-my-pi 18.2.4 · 600 s wall clock per attempt · fresh environment per attempt · 2026-09-21</p>
-      </div>
     </div>
   </section>
 
@@ -276,7 +211,7 @@
     <div class="wrap reveal">
       <h2 class="title">What it does.</h2>
       <ol class="tenets">
-        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Models and formations</h3><p>Choose models and thinking levels, configure teams, and run agent graphs.</p></div></li>
+               <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Models and formations</h3><p>Choose models and thinking levels, configure teams, and run agent graphs.</p></div></li>
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Repository tools</h3><p>Search files, inspect symbols, follow definitions, and review diffs.</p></div></li>
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Content-checked edits</h3><p>Hashline editing checks file content before applying anchored changes.</p></div></li>
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Programmable tools</h3><p>Run tool calls, loops, and filters locally in JavaScript with code_mode.</p></div></li>
@@ -284,11 +219,14 @@
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Project memory</h3><p>Review source-linked knowledge in Atlas and reuse it in later tasks.</p></div></li>
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Persistent goals</h3><p>Resume sessions and autonomous work with configurable run limits.</p></div></li>
         <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Headless runs</h3><p>Record task settings, source identity, tool activity, and acceptance evidence.</p></div></li>
-        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Measured campaigns</h3><p>Evaluate isolated attempts with verifiers and independent review.</p></div></li>
-        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Research loops</h3><p>Use Sloptomizer suggestions, Deli deliberation, and paired experiments.</p></div></li>
-        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Measured benchmarks</h3><p>Calculate measured changes from paired benchmark samples.</p></div></li>
-        <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Adventure world model TUI</h3><p>Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.</p></div></li>
-      </ol>
+ 
+<li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Adventure world model TUI</h3><p>Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.</p></div></li>
+          <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Measured benchmarks</h3><p>Calculate measured changes from paired benchmark samples.</p></div></li>
+          <li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Measured campaigns</h3><p>Evaluate isolated attempts with verifiers and independent review.</p></div></li>
+ 
+<li><span class="tenet-num" aria-hidden="true"></span><div class="tenet-body"><h3>Research loops</h3><p>Match the tooling to the model: determinate systems for lighter models; expansive RL toolsets and confirmation systems for frontier models, built for long-form research and development.</p></div></li>
+          <!-- adventure TUI stays last -->
+             </ol>
     </div>
   </section>
 
@@ -334,7 +272,5 @@
 <script src="js/excalibur.js"></script>
 <script src="js/mountain.js"></script>
 <script src="js/main.js"></script>
-<script src="js/bench-data.js"></script>
-<script src="js/bench.js"></script>
 </body>
 </html>
