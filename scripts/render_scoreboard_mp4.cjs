@@ -15,7 +15,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Scoreboard Timeline — angelX</title>
+<title>Task Completion and Timing — angelX</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=VT323&display=swap" rel="stylesheet">
@@ -50,18 +50,20 @@ const HTML_CONTENT = `<!DOCTYPE html>
     width: 960px;
     display: flex;
     flex-direction: column;
+    align-items: center;
   }
-  /* Header */
+  /* Letterhead */
   .sec-head {
-    margin-bottom: 22px;
+    text-align: center;
+    margin-bottom: 24px;
   }
   .sec-kicker {
     font-family: var(--dos);
     font-size: 20px;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.22em;
     color: var(--faint);
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
   .sec-title {
     font-family: var(--fantasy);
@@ -72,47 +74,35 @@ const HTML_CONTENT = `<!DOCTYPE html>
     line-height: 1.15;
   }
   .sec-sub {
-    font-family: var(--mono);
-    font-size: 14px;
+    font-family: var(--dos);
+    font-size: 22px;
     color: var(--dim);
     margin-top: 4px;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.08em;
   }
 
   /* TV Frame (website .tv style) */
   .tv {
     position: relative;
+    width: 960px;
     border: 1px solid var(--rule-card);
     background: var(--card-bg);
     padding: 28px 24px 18px;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75);
   }
-  .tv-title {
+  /* Centered micrographic at top of frame */
+  .tv-badge {
     position: absolute;
     top: 0;
-    left: 20px;
-    transform: translateY(-55%);
+    left: 50%;
+    transform: translate(-50%, -50%);
     background: var(--bg);
-    padding: 0 10px;
-    font-family: var(--mono);
-    font-size: 13.5px;
-    letter-spacing: 0.01em;
-    color: var(--ink);
-    white-space: nowrap;
-  }
-  .tv-replay {
-    position: absolute;
-    top: 0;
-    right: 20px;
-    transform: translateY(-55%);
-    background: var(--bg);
-    border: 1px solid var(--rule-card);
-    color: var(--dim);
+    padding: 0 14px;
     font-family: var(--dos);
     font-size: 16px;
-    letter-spacing: 0.08em;
-    padding: 0 10px;
-    line-height: 1.4;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    white-space: nowrap;
   }
   svg {
     width: 100%;
@@ -131,7 +121,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
     fill: #ffffff !important;
   }
 
-  /* Legend */
+  /* Centered micrographic at bottom of frame: Legend */
   .legend {
     display: flex;
     justify-content: center;
@@ -169,14 +159,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
     text-shadow: 0 0 8px rgba(255,255,255,0.6);
   }
 
-  /* Footer */
+  /* Centered provenance footer below frame */
   .provenance {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20px;
+    width: 960px;
+    text-align: center;
+    margin-top: 22px;
     font-family: var(--dos);
-    font-size: 17px;
-    letter-spacing: 0.04em;
+    font-size: 18px;
+    letter-spacing: 0.05em;
     color: var(--faint);
   }
   .provenance strong {
@@ -189,13 +179,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
   <div class="sec-head">
     <p class="sec-kicker">angelX · measured telemetry</p>
-    <h1 class="sec-title">Scoreboard</h1>
-    <p class="sec-sub">Every attempt placed at the moment it completed · DeepSeek V4.1 Flash</p>
+    <h1 class="sec-title">Task Completion and Timing</h1>
+    <p class="sec-sub">DeepSeek V4.1 Flash</p>
   </div>
 
   <div class="tv">
-    <div class="tv-title">Scoreboard · DeepSeek V4.1 Flash · thinking off</div>
-    <div class="tv-replay">[ 136 TASKS ]</div>
+    <div class="tv-badge">◇ 136 REPOSITORY-REPAIR TASKS · 600s WALL CAP ◇</div>
     <svg id="scoreboard-svg" viewBox="0 0 912 480"></svg>
     <div class="legend">
       <span class="ax-hero"><i class="pass"></i>passed</span>
@@ -204,8 +193,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
   </div>
 
   <footer class="provenance">
-    <div>Graded on Prime Intellect evaluators (Verifiers v0.3.1)</div>
-    <div><strong>angelx.dev</strong></div>
+    Graded on Prime Intellect evaluators (Verifiers v0.3.1) · <strong>angelx.dev</strong>
   </footer>
 
 </div>
@@ -252,7 +240,9 @@ let dCap = '';
 for (let y = 70; y < axisY - 8; y += 7) dCap += 'M' + xMax + ' ' + y + 'h2v2h-2z';
 el(svg, 'path', { d: dCap, fill: '#4a4230', opacity: 0.75 });
 txt(svg, { x: xMax, y: axisY + 22, 'text-anchor': 'middle', class: 'vt', 'font-size': 18, fill: '#e5c07b' }, '1.3h (cap)');
-txt(svg, { x: X0 + W, y: axisY + 46, 'text-anchor': 'end', class: 'vt', 'font-size': 15, fill: '#686875' }, 'cumulative agent time to completion (min)');
+
+// Centered axis label under the timeline
+txt(svg, { x: Math.round(X0 + W / 2), y: axisY + 46, 'text-anchor': 'middle', class: 'vt', 'font-size': 15, fill: '#686875' }, 'cumulative agent time to completion (min)');
 
 // Row labels on left
 rows.forEach(r => {
@@ -266,8 +256,8 @@ rows.forEach(r => {
   }, label);
 });
 
-// Top telemetry readout: passed X/331 · T+XXm
-const readout = txt(svg, { x: 20, y: 24, class: 'vt num', 'font-size': 21, fill: '#f4f4f7' }, '');
+// Centered top telemetry readout
+const readout = txt(svg, { x: 456, y: 26, 'text-anchor': 'middle', class: 'vt num', 'font-size': 22, fill: '#f4f4f7' }, '');
 
 const litPaths = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? '#ffffff' : (r.h === 'opencode' ? '#a2a2ac' : '#7d8590'), class: r.h === 'angelx' ? 'ax-glow' : '' }));
 const missPaths = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: '#a2a2ac', 'stroke-width': 1.4 }));
