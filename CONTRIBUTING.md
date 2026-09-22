@@ -1,5 +1,13 @@
 # Contributing to Angel
 
+## The dream
+
+A place for magic folk, wizards, and knights of the round sphere to come
+together, expand the microcosm together and cast the spell of light and truth
+upon the macrocosms.
+
+## Setup
+
 - Use Linux x86_64 and the Rust toolchain pinned in `rust-toolchain.toml`.
 - Start with `ANGEL_VIDEO=0 bin/angelX`; this includes portraits and images.
 - Use Node.js for release-tool tests. The Rust trace-validator tests also need
