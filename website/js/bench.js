@@ -34,6 +34,7 @@ const modelLabel = m => `${B.models[m].name} \u00b7 thinking ${B.models[m].think
 const cell = (m, h) => B.cells.find(c => c.model === m && c.harness === h);
 const N = Math.max(...B.cells.map(c => c.attempts.length));
 const fmtS = s => s >= 600 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : `${Math.round(s)}s`;
+const fmtClock = s => `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const fmtTok = v => {
   if (v >= 1e6) {
     const m = v / 1e6;
@@ -41,6 +42,7 @@ const fmtTok = v => {
   }
   return `${Math.round(v / 1e3)}k`;
 };
+const niceCeil = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const f of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (f * p >= v) return f * p; return 10 * p; };
 
 // Bresenham over cells, one callback per dot — the app's draw_dot_line
 function line(c0, r0, c1, r1, cb) {
@@ -104,8 +106,7 @@ const xLabel = (svg, f, c, s, anchor = 'middle') => txt(svg, { x: f.X(c), y: f.Y
 function play(state, ticks, onTick, animate = true) {
   (state.timers || []).forEach(clearInterval);
   state.timers = [];
-  if (REDUCED || window.BENCH_STATIC || ticks <= 1) { onTick(1); return; }
-  if (!animate) { onTick(0); return; }
+  if (REDUCED || window.BENCH_STATIC || ticks <= 1 || !animate) { onTick(1); return; }
   let k = 0;
   onTick(0);
   const t = setInterval(() => {
@@ -390,7 +391,7 @@ function scoreboard(svg, m, state, anim = true) {
         if (t > now) return;
         last = t;
         if (a.solved) { d += sq(xAt(t), r.y - 2, isAx ? 2.4 : DOT); ok++; }
-        else { dm += `M${xAt(t) + 1} ${r.y - 1}h${DOT - 2}v${DOT - 2}h-${DOT - 2}z`; }
+        else { dm += `M${xAt(t)} ${r.y - 2}h2v2h-2z`; }
       });
       lit[ri].setAttribute('d', d);
       miss[ri].setAttribute('d', dm);
@@ -589,56 +590,30 @@ const FIGS = CHARTS.map(({ fig, key, draw }) => [
 FIGS.forEach(([id, draw]) => {
   const fig = document.getElementById(id);
   if (!fig) return;
-  const state = { played: false, forceReplay: false };
-  const prime = () => draw(state, false);
-  const playNow = () => {
-    if (state.played && !state.forceReplay) return;
-    state.played = true;
-    state.forceReplay = false;
+  const state = { played: false };
+
+  // 1. Immediately render the complete final benchmark state: every graph is fully drawn on load!
+  draw(state, false);
+
+  const replay = () => {
     draw(state, true);
   };
   const btn = fig.querySelector('.replay');
-  if (btn) btn.addEventListener('click', () => { state.forceReplay = true; playNow(); });
+  if (btn) btn.addEventListener('click', replay);
 
-  // 1. Prime grid + axes immediately on load so no chart is a pitch black box
-  prime();
-
-  if (window.BENCH_EAGER || REDUCED) { playNow(); return; }
-
-  // 2. If already in center camera on page load (or scrolled past top)
-  const rect = fig.getBoundingClientRect();
-  const vh = window.innerHeight || document.documentElement.clientHeight;
-  if (isCenterCamera(fig) || (rect.bottom > 0 && rect.bottom < vh * 0.5)) {
-    playNow();
-    return;
-  }
-
-  // 3. IntersectionObserver: trigger animation when scrolled into center camera
-  if ('IntersectionObserver' in window) {
+  // Replay once when scrolled into center camera
+  if (!REDUCED && 'IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries, observer) => {
       entries.forEach(entry => {
         if (entry.isIntersecting && !state.played) {
-          playNow();
+          state.played = true;
+          replay();
           observer.disconnect();
         }
       });
-    }, { rootMargin: '-20% 0px -20% 0px', threshold: 0.1 });
+    }, { rootMargin: '-20% 0px -20% 0px', threshold: 0.15 });
     io.observe(fig);
   }
-
-  // 4. Scroll / resize listener fallback
-  const onScroll = () => {
-    if (state.played) return;
-    const r = fig.getBoundingClientRect();
-    const vhNow = window.innerHeight || document.documentElement.clientHeight;
-    if (isCenterCamera(fig) || (r.bottom > 0 && r.bottom < vhNow * 0.4)) {
-      playNow();
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    }
-  };
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll, { passive: true });
 });
 
 // ── table view: every number the plots draw

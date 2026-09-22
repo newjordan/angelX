@@ -1,6 +1,5 @@
 /* Benchmarks page — chrome around the shared .bench panel system.
-   The panels themselves live in css/bench.css; this file only frames them
-   as a standalone document: masthead, section headings, per-figure notes. */
+   Clean, dense telemetry cockpit style. Zero wordslop. */
 
 :root{
   --bg:#050506; --ink:#f4f4f7; --dim:#a2a2ac; --faint:#6f6f7a; --rule:#3a3a44;
@@ -11,74 +10,62 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
 body{font-family:var(--mono);-webkit-font-smoothing:antialiased}
 a{color:inherit}
 
-.wrap{width:min(1180px,92vw);margin:0 auto;padding:0 0 56px}
+.wrap{width:min(1180px,92vw);margin:0 auto;padding:0 0 60px}
 
 /* ─── masthead ─────────────────────────────────────────────────── */
-.mast{border-bottom:1px solid var(--rule);padding:44px 0 22px;margin:0 0 6px;
+.mast{border-bottom:1px solid var(--rule);padding:36px 0 18px;margin:0 0 6px;
   display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:14px}
 .mast h1{font-family:var(--fantasy);font-weight:700;letter-spacing:.05em;
-  font-size:clamp(26px,3.4vw,40px);margin:0}
-.mast .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.22em;
-  text-transform:uppercase;color:var(--faint);margin:0 0 8px}
-.mast .back{font-size:13px;color:var(--dim);text-decoration:none;
-  border:1px solid var(--rule);padding:8px 14px;letter-spacing:.06em;white-space:nowrap}
+  font-size:clamp(26px,3.4vw,38px);margin:0}
+.mast .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+.mast .back{font-size:12.5px;color:var(--dim);text-decoration:none;
+  border:1px solid var(--rule);padding:6px 12px;letter-spacing:.06em;white-space:nowrap}
 .mast .back:hover,.mast .back:focus-visible{color:#fff;border-color:#fff}
 
-/* ─── intro + summary ──────────────────────────────────────────── */
-.lede{color:var(--dim);font-size:15px;line-height:1.65;max-width:78ch;margin:22px 0 0}
-.lede strong{color:var(--ink);font-weight:600}
-.tabs-wrap{margin:34px 0 0}
-.tabs-label{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+.summary-kicker{color:var(--dim);font-size:13px;letter-spacing:.02em;margin:18px 0 0}
+
+/* ─── tabs + summary ───────────────────────────────────────────── */
+.tabs-wrap{margin:22px 0 0}
 .tabs{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);width:max-content;max-width:100%}
-.tabs .tab{font:inherit;font-size:13px;letter-spacing:.04em;background:none;border:0;color:var(--dim);
-  padding:9px 18px;cursor:pointer;border-right:1px solid var(--rule);transition:color .2s,background .2s}
+.tabs .tab{font:inherit;font-size:12.5px;letter-spacing:.04em;background:none;border:0;color:var(--dim);
+  padding:8px 16px;cursor:pointer;border-right:1px solid var(--rule);transition:color .2s,background .2s}
 .tabs .tab:last-child{border-right:0}
 .tabs .tab:hover{color:#fff;background:rgba(255,255,255,.04)}
 .tabs .tab[aria-selected="true"]{color:#fff;font-weight:600;background:rgba(255,255,255,.07);
   box-shadow:inset 0 -2px 0 #fff}
 .tabs .tab:focus-visible{outline:1px solid #fff;outline-offset:-3px}
-.tabs-note{color:var(--dim);font-size:12.5px;margin:8px 0 0;max-width:80ch}
 
-.summary{margin:34px 0 0;border:1px solid var(--rule);border-collapse:collapse;width:100%;
+.summary{margin:22px 0 0;border:1px solid var(--rule);border-collapse:collapse;width:100%;
   font-size:13.5px;font-variant-numeric:tabular-nums}
-.summary caption{caption-side:top;text-align:left;padding:0 0 10px;color:var(--faint);
-  font-size:11.5px;letter-spacing:.2em;text-transform:uppercase}
+.summary caption{caption-side:top;text-align:left;padding:0 0 8px;color:var(--faint);
+  font-size:11px;letter-spacing:.2em;text-transform:uppercase}
 .summary .tot{border-left:1px solid var(--rule);background:rgba(255,255,255,.025)}
 .summary .pct{color:var(--dim);font-size:11.5px;letter-spacing:.04em}
-.tnote{color:var(--dim);font-size:13px;line-height:1.6;margin:14px 0 0;max-width:88ch}
-.tnote strong{color:var(--ink);font-weight:600}
-.summary th,.summary td{border:1px solid var(--rule);padding:9px 12px;text-align:right}
+.summary th,.summary td{border:1px solid var(--rule);padding:8px 12px;text-align:right}
 .summary th:first-child,.summary td:first-child{text-align:left}
 .summary thead th{color:var(--dim);font-weight:500;background:rgba(255,255,255,.03)}
 .summary td.hero{color:#fff;font-weight:600}
 .summary td.dim{color:var(--faint)}
 
 /* ─── section headings for each figure ─────────────────────────── */
-.sec{margin:74px 0 0;border-top:1px solid var(--rule);padding-top:26px}
+.sec{margin:44px 0 0;border-top:1px solid var(--rule);padding-top:20px}
 .sec h2{font-family:var(--fantasy);font-weight:600;letter-spacing:.04em;
-  font-size:clamp(19px,2.2vw,26px);margin:0}
-.sec .sec-q{color:var(--dim);font-size:14px;line-height:1.65;margin:10px 0 0;max-width:80ch}
-.sec .sec-q .sub{display:block;color:var(--ink);font-size:15px;margin:0 0 4px}
-.sec .sec-q em{color:var(--ink);font-style:normal}
+  font-size:clamp(19px,2.2vw,24px);margin:0}
+.sec .sec-sub{color:var(--dim);font-size:12.5px;letter-spacing:.02em;margin:5px 0 0}
 
-/* per-figure reading notes sit directly under their panel */
-.bench .tv-note{border-top:1px dashed var(--rule);margin:14px 0 0;padding:12px 0 0;
-  font-size:13px;line-height:1.6;color:var(--dim)}
-.bench .tv-note b{color:var(--ink);font-weight:600}
-.bench .tv-note .hint{color:var(--faint)}
-
-.provenance a{color:var(--ink)}
+.provenance{margin:36px 0 0;font-size:11.5px;line-height:1.5;color:var(--faint)}
+.provenance a{color:var(--dim);text-decoration:underline dotted}
 .provenance a:hover{color:#fff}
 
-/* standalone page: the landing page's tall top offset is unnecessary here */
 .bench{margin:0}
-.bench .tv{margin:34px 0 0}
+.bench .tv{margin:18px 0 0}
 .bench svg{max-width:900px}
 
 @media (max-width:900px){
   .bench .panels{grid-template-columns:minmax(0,1fr)}
   .bench svg{max-width:100%}
   .summary{font-size:12px}
-  .summary th,.summary td{padding:7px 8px}
+  .summary th,.summary td{padding:6px 8px}
   .summary .pct{font-size:10.5px}
 }
