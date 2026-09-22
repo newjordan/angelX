@@ -1,0 +1,15 @@
+target
+node_modules
+.git
+angel_test_output
+artifacts
+.refactor-notes
+crates
+benchmarks
+docs
+brand
+src
+tests
+benches
+videos
+Videos
