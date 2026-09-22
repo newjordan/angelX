@@ -65,17 +65,7 @@ fn parse_scene(raw: &str) -> Option<VisualScene> {
     {
         return Some(VisualScene::Tourney(kind));
     }
-    let id = match lower.strip_prefix("moa-")? {
-        "gpu-comp" => FormationId::GpuComp,
-        "solo-strike" => FormationId::SoloStrike,
-        "recon" => FormationId::Recon,
-        "duel" => FormationId::Duel,
-        "council" => FormationId::Council,
-        "all-in" => FormationId::AllIn,
-        "grok-war" | "war" | "war-trio" => FormationId::GrokWar,
-        "math-god" | "math" | "mathgod" => FormationId::MathGod,
-        _ => return None,
-    };
+    let id = formations::formation_alias(lower.strip_prefix("moa-")?)?;
     Some(VisualScene::Moa(id))
 }
 

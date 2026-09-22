@@ -849,6 +849,62 @@ fn grok_war_command_selects_and_enter_engages_formation() {
 }
 
 #[test]
+fn tag_team_command_selects_the_two_local_corners_not_council() {
+    use ratatui::crossterm::event::{KeyCode, KeyModifiers};
+
+    let mut app = seed_preview_app();
+    app.bag = Bag::for_render_test(&[
+        ("spark", &[("leanstral-24b", true)]),
+        ("turbo", &[("qwen3-30b-a3b", true)]),
+        ("openai", &[("gpt-5.6-sol", true)]),
+    ]);
+
+    app.input = "/moa tag-team".to_string();
+    app.cursor = app.input.chars().count();
+    app.submit();
+    assert!(app.thinking.is_none(), "opening Tag Team is local UI work");
+    assert_eq!(
+        app.moa_deck.as_ref().map(|deck| deck.selected().id),
+        Some(formations::FormationId::TagTeam),
+        "the canonical tag-team slug must land on Tag Team, not Council"
+    );
+    let deck = app.moa_deck.as_ref().expect("deck open");
+    assert_eq!(
+        deck.selected_roster().slot_count(),
+        4,
+        "Tag Team has four execution slots (2 corners + advice + synthesis), not the council's panel"
+    );
+    assert_eq!(deck.selected().name, "Tag Team");
+    assert!(
+        deck.selected_roster().is_ready(),
+        "recommended local corners plus the metered Sol advice seat must auto-fill"
+    );
+    let labels: Vec<_> = deck
+        .selected_roster()
+        .assignments()
+        .iter()
+        .map(|a| a.as_ref().map(|r| r.model.as_str()).unwrap_or("?"))
+        .collect();
+    assert_eq!(
+        labels,
+        vec![
+            "leanstral-24b", // P1 — the local math engine leads
+            "qwen3-30b-a3b", // P2 — the second local corner
+            "gpt-5.6-sol",   // J1 — metered advice only on dissent
+            "leanstral-24b", // A1 — the local math engine synthesizes
+        ]
+    );
+
+    app.focus_module("artifacts");
+    assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));
+    assert!(app.moa_deck.is_none(), "engage closes the deck");
+    assert_eq!(
+        app.moa_one_shot.as_ref().map(|armed| armed.formation),
+        Some(formations::FormationId::TagTeam)
+    );
+}
+
+#[test]
 fn grok_war_formation_sets_frontier_trio_env_contract() {
     let _guard = env_lock();
     // TODO: Audit that the environment access only happens in single-threaded code.

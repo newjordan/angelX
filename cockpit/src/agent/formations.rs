@@ -525,6 +525,35 @@ pub(crate) fn formation(id: FormationId) -> &'static Formation {
         .expect("formation id is in built-in deck")
 }
 
+/// Resolve an operator/command alias to a formation id. This is the single
+/// routing table used by `/moa <formation>` and by `moa-<formation>` visual
+/// scenes, so the canonical slugs (for example `tag-team`) and their spoken
+/// aliases cannot drift apart between the command parser and the deck opener.
+pub(crate) fn formation_alias(raw: &str) -> Option<FormationId> {
+    let alias = raw.trim().to_ascii_lowercase().replace(['_', '-'], " ");
+    let alias = alias.split_whitespace().collect::<Vec<_>>().join(" ");
+    match alias.as_str() {
+        "gpu" | "gpu comp" | "gpu competition" | "gpu comp moa" | "comp" | "competition"
+        | "overnight" | "sleep" | "night loop" | "overnight loop" => Some(FormationId::GpuComp),
+        "solo" | "solo strike" | "rest" | "resting" => Some(FormationId::SoloStrike),
+        "recon" | "scout" => Some(FormationId::Recon),
+        "duel" => Some(FormationId::Duel),
+        "council" => Some(FormationId::Council),
+        "all in" | "allin" | "all" => Some(FormationId::AllIn),
+        "grok" | "grok war" | "grokwar" | "war" | "war trio" | "trio" | "sota war"
+        | "frontier war" | "last stand" | "battle" => Some(FormationId::GrokWar),
+        "tag" | "tag team" | "tagteam" | "tag out" | "local" | "local pair" | "local tag"
+        | "local tag team" | "home team" => Some(FormationId::TagTeam),
+        "math" | "math god" | "mathgod" | "proximity" | "soundness" | "lean" => {
+            Some(FormationId::MathGod)
+        }
+        "auto" | "auto moa" | "automoa" | "standing" | "standing moa" | "sota" | "sota moa" => {
+            Some(FormationId::AutoMoa)
+        }
+        _ => None,
+    }
+}
+
 impl Formation {
     pub(crate) fn is_resting(self) -> bool {
         self.id == FormationId::SoloStrike
