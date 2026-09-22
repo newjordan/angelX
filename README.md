@@ -40,12 +40,12 @@ cd angelX
 |---|---|---:|---:|---:|---:|---:|---:|
 | DeepSeek V4.1 Flash, thinking off | angelX | 133 / 136 | 9.9 s | 7.5 | 11.5 M | 88% | 257 k |
 | | OpenCode 1.18.31 | 132 / 136 | 8.6 s | 12.5 | 67.7 M | 97% | 349 k |
-| | oh-my-pi 18.2.4 | 53 / 59 * | 15.9 s | 38.3 | 148.1 M | 99% | 512 k |
+| | oh-my-pi 18.2.4 | 86 / 93 * | 15.3 s | 35.5 | 200.1 M | 99% | 866 k |
 | GLM-5.3-Flash, thinking low | angelX | 135 / 136 | 50.7 s | 8.9 | 10.9 M | 84% | 256 k |
 | | OpenCode 1.18.31 | 133 / 136 | 38.9 s | 7.4 | 10.1 M | 85% | 179 k |
 | | oh-my-pi 18.2.4 | 133 / 136 | 37.7 s | 8.9 | 24.1 M | 90% | 203 k |
 
-\* oh-my-pi on DeepSeek stopped after 59 tasks at its 200M-token budget cap; the other five cells ran all 136.
+* oh-my-pi on DeepSeek stopped after 93 tasks across its combined runs at its 200M-token budget cap (86 solved); the other five cells ran all 136.
 
 angelX runs a verification stage before it reports a task done; that is where its extra wall time on GLM goes. Raising the thinking level moves it further along the same trade: slower, more checked.
 

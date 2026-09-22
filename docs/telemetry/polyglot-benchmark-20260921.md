@@ -19,10 +19,10 @@ Following harness calibration—which restored persistent assistant working memo
 - **133 / 136 (97.8%)** tasks passed cleanly.
 - **Python (100%)** and **C++ (100%)** achieved perfect scores.
 - **5.8× more token-efficient** than OpenCode (11.5M vs 67.7M input tokens).
-- **25× more token-efficient** than OMP (~85k vs ~2.51M tokens/task).
+- **25× more token-efficient** than OMP (~85k vs ~2.15M tokens/task).
 - **Zero timeouts** and zero abnormal exits across all 136 tasks.
 
-In contrast, `omp` breached the 200,000,000 token hard cap after 59 tasks due to unbounded turn limits and the absence of loop circuit breakers, resulting in an automatic termination and benchmark failure on budget exhaustion.
+In contrast, `omp` breached the 200,000,000 token hard cap at task 93 across its combined runs due to unbounded turn limits and the absence of loop circuit breakers, resulting in an automatic termination and benchmark failure on budget exhaustion.
 
 ---
 
@@ -30,19 +30,19 @@ In contrast, `omp` breached the 200,000,000 token hard cap after 59 tasks due to
 
 | Metric | `deepseek/angelx` | `deepseek/opencode` | `deepseek/omp` |
 |---|:---:|:---:|:---:|
-| **Overall Score** | **133 / 136 (97.8%)** 🏆 | **132 / 136 (97.1%)** | **53 / 59 (89.8%)** * ❌ |
-| **Python** | **34 / 34 (100%)** | 34 / 34 (100%) | 14 / 15 |
-| **C++** | **24 / 24 (100%)** | 23 / 24 (95.8%) | 14 / 14 |
-| **Rust** | **29 / 30 (96.7%)** | 28 / 30 (93.3%) | 13 / 15 |
-| **JavaScript** | **46 / 48 (95.8%)** | 47 / 48 (97.9%) | 12 / 15 |
-| **Total Input Tokens** | **11,541,247** (87.9% cache hit) | 67,700,028 (97.4% cache hit) | **148,131,526** (99.2% cache hit) |
-| **Output Tokens** | **257,203** | 349,248 | 512,295 |
-| **Tokens / Task** | **~84,800** | ~497,800 | ~2,510,700 |
-| **Median Wall Clock** | **9.9s** | 8.6s | 15.9s (multiple >10m runs) |
-| **Timeouts** | **0** | 2 | 5 |
+| **Overall Score** | **133 / 136 (97.8%)** 🏆 | **132 / 136 (97.1%)** | **86 / 93 (92.5%)** * ❌ |
+| **Python** | **34 / 34 (100%)** | 34 / 34 (100%) | 21 / 23 |
+| **C++** | **24 / 24 (100%)** | 23 / 24 (95.8%) | 23 / 23 |
+| **Rust** | **29 / 30 (96.7%)** | 28 / 30 (93.3%) | 21 / 23 |
+| **JavaScript** | **46 / 48 (95.8%)** | 47 / 48 (97.9%) | 21 / 24 |
+| **Total Input Tokens** | **11,541,247** (87.9% cache hit) | 67,700,028 (97.4% cache hit) | **200,112,329** (Capped Breach) |
+| **Output Tokens** | **257,203** | 349,248 | **865,720** |
+| **Tokens / Task** | **~84,800** | ~497,800 | **~2,151,700** |
+| **Median Wall Clock** | **9.9s** | 8.6s | **15.3s** (multiple >10m runs) |
+| **Timeouts** | **0** | 2 | **7** |
 | **Benchmark Outcome** | **PASS (1st Place)** | **PASS (2nd Place)** | **FAIL (Budget Exhaustion)** |
 
-\* oh-my-pi stopped after 59 tasks at its 200M-token budget cap; the other cells evaluated all 136 tasks.
+\* oh-my-pi stopped after 93 tasks across its two combined runs upon breaching the 200,000,000 token cap (86 solved).
 
 ---
 
