@@ -2039,7 +2039,13 @@ impl HttpClub {
         // cache. GLM via z.ai/bigmodel: a 2026-08-10 paired probe against the
         // coding-plan endpoint reported `cached_tokens: 1920/1946` on the
         // second identical request, OpenAI-dialect accounting, and a usage
-        // frame under `stream_options.include_usage`.
+        // frame under `stream_options.include_usage`. Grok 4.7 via xAI (probed
+        // 2026-09-22) reports `prompt_tokens_details.cached_tokens` and
+        // `completion_tokens_details.reasoning_tokens`, but only when
+        // `stream_options.include_usage` is set — a silent stream leaves the
+        // cache meter and the eval trace at zero. Match the model id, not only
+        // the URL: the polyglot proxy rewrites base_url to loopback while the
+        // model stays `grok-4.7`.
         let base_l = self.base_url.to_ascii_lowercase();
         model_l.contains("deepseek")
             || base_l.contains("deepseek.com")
@@ -2051,6 +2057,8 @@ impl HttpClub {
             || model_l.contains("kimi")
             || base_l.contains("moonshot")
             || base_l.contains("kimi.com")
+            || model_l.contains("grok")
+            || base_l.contains("x.ai")
     }
 
     /// Lazily detect and cache [`Metadata`]. Probes the backend at most once per
