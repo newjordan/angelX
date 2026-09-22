@@ -637,8 +637,6 @@ pub(crate) struct App {
     pub(crate) personality: Option<String>,
     /// Relentless execution latch: prepended until a useful answer is delivered.
     pub(crate) relentless_execution: bool,
-    /// Plain mode: plain-language, bug-free / easy-to-use communication steer.
-    pub(crate) plain_mode: bool,
     /// Solo mode: in-hand agent owns the workload — no paid SOTA outsourcing.
     pub(crate) solo_mode: bool,
     /// Persistent memories (`/memories`) injected into every agent turn.
@@ -1208,7 +1206,6 @@ impl App {
             plan_mode: false,
             personality: None,
             relentless_execution: false,
-            plain_mode: false,
             solo_mode: false,
             memories: Vec::new(),
             parked_threads: Vec::new(),

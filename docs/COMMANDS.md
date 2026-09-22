@@ -110,8 +110,7 @@ Compatibility names with limited behavior: `/setup-default-sandbox` and
 `/sandbox-add-read-dir` only display sandbox status; `/approve` and
 `/test-approval` direct you to `/approvals`; `/theme` does not change the palette.
 `/logout` gives credential-location guidance. `/ide`, `/app`, `/plugins` and
-`/feedback` have no corresponding cockpit subsystem. The legacy `/plain`
-command toggles plain-language guidance; `/selftest` aliases `/solo`.
+`/feedback` have no corresponding cockpit subsystem. `/selftest` aliases `/solo`.
 
 Sources: [parser and completion](../cockpit/src/ui/input.rs),
 [command dispatch](../cockpit/src/app/control/commands.rs),

@@ -915,7 +915,11 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
             INTRO_MAX_COLUMNS,
             "tall: the hard cap",
         ),
-        (Rect::new(7, 3, fill(10), 10), fill(10), "already the fit width"),
+        (
+            Rect::new(7, 3, fill(10), 10),
+            fill(10),
+            "already the fit width",
+        ),
         (
             Rect::new(7, 3, 30, 10),
             fill(10),

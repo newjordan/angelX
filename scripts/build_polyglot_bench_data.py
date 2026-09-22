@@ -5,13 +5,14 @@ from __future__ import annotations
 
 import json
 import statistics
+import os
 import subprocess
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
-RESULTS_FILE = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/results-20260921-full.json")
-SITE_JS = REPO_ROOT / "website" / "js" / "bench-data.js"
+RESULTS_FILE = Path(os.environ.get("BENCH_RESULTS_FILE", REPO_ROOT / "benchmarks" / "results-polyglot-full.json"))
+SITE_JS = Path(os.environ.get("BENCH_SITE_JS", REPO_ROOT / "website" / "js" / "bench-data.js"))
 
 HARNESS_ORDER = ["angelx", "omp", "opencode"]
 HARNESS_LABEL = {"angelx": "angelX", "omp": "omp", "opencode": "OpenCode"}
@@ -113,7 +114,7 @@ def main() -> None:
             )
 
     # Get angel build info
-    angel_bin = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921/pin/angel")
+    angel_bin = Path(os.environ.get("BENCH_ANGEL_BIN", REPO_ROOT / "cockpit" / "target" / "release" / "angel"))
     build_info = json.loads(subprocess.check_output([str(angel_bin), "--build-info", "--json"]))
 
     commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, text=True).strip()

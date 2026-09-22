@@ -251,7 +251,11 @@ fn tag_team_rosters_exactly_two_local_corners() {
     ];
     let roster = FormationRoster::new(FormationId::TagTeam, &models);
     let slots = formation(FormationId::TagTeam).slots();
-    assert_eq!(slots.len(), 2, "Tag Team is two models, not the council panel");
+    assert_eq!(
+        slots.len(),
+        2,
+        "Tag Team is two models, not the council panel"
+    );
     let labels: Vec<_> = roster
         .assignments()
         .iter()
@@ -512,13 +516,7 @@ fn tag_team_partner_seat_never_doubles_up_on_the_lead_box() {
         .iter()
         .map(|a| a.as_ref().map(|r| r.model.clone()))
         .collect();
-    assert_eq!(
-        assigned,
-        vec![
-            Some("qwen3-30b-a3b".to_string()),
-            None,
-        ]
-    );
+    assert_eq!(assigned, vec![Some("qwen3-30b-a3b".to_string()), None,]);
     // With Leanstral down, turbo inherits the lead rather than the roster
     // stalling — the chain degrades, it does not pin one box.
     assert!(!roster.is_ready());

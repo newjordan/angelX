@@ -1524,7 +1524,9 @@ impl App {
 
     pub(crate) fn force_exit(&mut self) {
         if let Some(mut thinking) = self.thinking.take() {
-            thinking.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            thinking
+                .cancel
+                .store(true, std::sync::atomic::Ordering::Relaxed);
             thinking.begin_draining();
         }
         if let Some(job) = self.bg_job.take() {
@@ -1738,9 +1740,6 @@ impl App {
         }
         if self.relentless_execution {
             controls.push(crate::agent::harness::RELENTLESS_EXECUTION_DIRECTIVE.to_string());
-        }
-        if self.plain_mode {
-            controls.push(crate::agent::harness::PLAIN_MODE_DIRECTIVE.to_string());
         }
         if self.solo_mode {
             controls.push(crate::agent::tools::solo::SOLO_MODE_DIRECTIVE.to_string());
@@ -2913,11 +2912,6 @@ impl App {
                 self.system_msg(t);
                 return None;
             }
-            "plain" => {
-                let t = self.run_plain(arg);
-                self.system_msg(t);
-                return None;
-            }
             "solo" | "selftest" | "own-work" => {
                 let t = self.run_solo(arg);
                 self.system_msg(t);
@@ -3508,34 +3502,6 @@ impl App {
                 }
             ),
             Some(_) => "usage: /relentless [on|off|status]".to_string(),
-        }
-    }
-
-    /// `/plain`: plain-language communication mode until the operator turns it off.
-    fn run_plain(&mut self, arg: Option<&str>) -> String {
-        match arg
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_ascii_lowercase())
-            .as_deref()
-        {
-            None | Some("on") | Some("start") | Some("arm") | Some("go") => {
-                self.plain_mode = true;
-                "plain mode ON — plain-language contract active until /plain off".to_string()
-            }
-            Some("off") | Some("stop") | Some("clear") => {
-                self.plain_mode = false;
-                "plain mode OFF".to_string()
-            }
-            Some("status") => format!(
-                "plain mode {}",
-                if self.plain_mode {
-                    "ON — user is new to this; extra-simple + bug-free/easy-use checks"
-                } else {
-                    "OFF"
-                }
-            ),
-            Some(_) => "usage: /plain [on|off|status]".to_string(),
         }
     }
 

@@ -130,7 +130,6 @@ fn help_full_text() -> String {
      slash prefix · dim ghost completion while typing · Tab commits/list matches\n\
      /new (/clear) · /history [1-50] · /retry · /undo · /redo · /save · /compact · /diff [all|staged] [--stat] · /review · /fmt [check|write] · /build [cargo args] · /run [cargo args] · /bench [cargo args] · /doc [cargo args] · /tree [cargo args] · /check [cargo args] · /test [cargo args] · /lint [cargo args] · /verify [cargo args] · /diagnostics <file> · /symbols <file> · /symbol <query> · /definition <file> <symbol> · /references <file> <symbol> · /hover <file> <symbol> · /init · /keymap · /theme\n\
      /relentless [on|off|status] · force stalled turns into tool-backed execution until output lands\n\
-     /plain [on|off|status] · plain-language mode: bug-free focus, easy-to-use explanations\n\
      /solo [on|off|status] · self-managed workload: no paid SOTA/codex consult or delegate\n\
      typing while a turn/loop runs · queues a mid-run steer, delivered at the\n\
      model's next step while the work continues (Esc still interrupts)\n\

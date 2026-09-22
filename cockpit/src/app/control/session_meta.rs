@@ -214,7 +214,6 @@ impl App {
         self.plan_mode = false;
         self.personality = None;
         self.relentless_execution = false;
-        self.plain_mode = false;
         self.solo_mode = false;
         crate::agent::tools::solo::set_solo_mode(false);
         self.clear_moa_arm();
@@ -333,9 +332,6 @@ impl App {
         }
         if self.relentless_execution {
             out.push_str("\n  relentless ON");
-        }
-        if self.plain_mode {
-            out.push_str("\n  plain    ON");
         }
         if self.solo_mode {
             out.push_str("\n  solo      ON");

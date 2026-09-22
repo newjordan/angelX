@@ -73,7 +73,7 @@ with the log's mtime frozen, and `ps` named the reason: an unrelated benchmark w
 already in flight on the same box —
 
 ```
-/usr/bin/timeout -k 15 600 /home/frosty40/angel_tests/angelX-bench/polyglot-20260921/pin/angel \
+/usr/bin/timeout -k 15 600 /path/to/angel_tests/angelX-bench/polyglot-20260921/pin/angel \
   --task-json --workspace ws/doubly-linked-list --task-id task-43b562c9b8b1cd6ab966 ...
 ```
 

@@ -11,7 +11,7 @@ project memory, and measured experiments together in one cockpit.
 # The first launch builds from source.
 git clone https://github.com/newjordan/angelX.git
 cd angelX
-ANGEL_VIDEO=0 ./bin/angelX
+./bin/angelX
 ```
 
 - **Models and formations** — Choose models and thinking levels, configure teams, and run agent graphs.

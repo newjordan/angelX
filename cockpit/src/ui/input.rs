@@ -282,7 +282,6 @@ const CODEX_CMDS: &[&str] = &[
     "compact",
     "plan",
     "relentless",
-    "plain",
     "solo",
     "selftest",
     "personality",
@@ -443,7 +442,7 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "campaign" => " [status|new|start|advance|review|…]",
         "moa" => " [cards|gpu|ledger|<message>]",
         "self" => " [<goal>|status|integrate|discard|reborn]",
-        "solo" | "relentless" | "plain" | "yolo" | "yolos" => " [on|off|status]",
+        "solo" | "relentless" | "yolo" | "yolos" => " [on|off|status]",
         "help" | "?" => " · list commands",
         _ => return None,
     })
@@ -525,16 +524,10 @@ pub fn parse(raw: &str) -> Result<ParsedInput, String> {
     // Close the cockpit on a typed `exit`/`quit` (bare or slash-prefixed), so the
     // app is closed deliberately rather than with a stray Ctrl+C.
     let lower = trimmed.to_ascii_lowercase();
-    if matches!(
-        lower.as_str(),
-        "exit!" | "quit!" | "/exit!" | "/quit!"
-    ) {
+    if matches!(lower.as_str(), "exit!" | "quit!" | "/exit!" | "/quit!") {
         return Ok(ParsedInput::ForceExit);
     }
-    if matches!(
-        lower.as_str(),
-        "exit" | "quit" | "/exit" | "/quit"
-    ) {
+    if matches!(lower.as_str(), "exit" | "quit" | "/exit" | "/quit") {
         return Ok(ParsedInput::Exit);
     }
     if trimmed == "/hide" {

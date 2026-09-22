@@ -176,13 +176,6 @@ execution to the details: keep taking concrete tool-backed actions until the use
 actually advanced; ensure every action benefits the user; produce logical, evidence-grounded \
 output. Do not stop at status prose. Deliver a useful final answer, then this mode can turn off.";
 
-/// Operator-armed communication mode (`/plain`). Standing steer until explicitly
-/// turned off. Literal operator contract for science / UX ablation — do not soften.
-pub const PLAIN_MODE_DIRECTIVE: &str = "[plain mode active] The user is new to this \
-and needs extra help ensuring code is bug free and easy to use. Explain things in a way a \
-beginner can understand: short words, tiny steps, zero unexplained jargon, concrete examples, \
-and warn about gotchas before they bite. Prefer working code and checks over clever talk.";
-
 /// A capability the agent can invoke.
 pub trait Tool: Send + Sync {
     /// The tool's dispatch name — a cheap borrow (literal or owned field), no

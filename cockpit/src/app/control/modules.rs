@@ -120,15 +120,15 @@ impl App {
 
     /// Check if the embedded shell process has exited; if so, close the pane and return focus.
     pub(crate) fn poll_shell_status(&mut self) {
-        if let Some(shell) = self.shell.as_ref() {
-            if !shell.is_alive() {
-                self.shell = None;
-                self.shell_focused = false;
-                let _ = self
-                    .module_host
-                    .suspend(&crate::platform::runtime::ModuleId::new("shell"));
-                self.system_msg("shell process exited".to_string());
-            }
+        if let Some(shell) = self.shell.as_ref()
+            && !shell.is_alive()
+        {
+            self.shell = None;
+            self.shell_focused = false;
+            let _ = self
+                .module_host
+                .suspend(&crate::platform::runtime::ModuleId::new("shell"));
+            self.system_msg("shell process exited".to_string());
         }
     }
 
