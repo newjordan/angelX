@@ -293,8 +293,11 @@ impl GraphTraceTerminationV1 {
                 GraphTraceTerminationKind::CaptureFailure
             }
             TurnStopReason::DeferredStop
+            | TurnStopReason::Spin
+            | TurnStopReason::ErrorStop
             | TurnStopReason::ExecutionBlocked
             | TurnStopReason::NeedsPro
+            | TurnStopReason::EscalatedUnproductive
             | TurnStopReason::AcceptanceStop => GraphTraceTerminationKind::PolicyGuard,
         };
         Self {
