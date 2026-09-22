@@ -100,6 +100,7 @@ Code and tooling credits include [OpenAI Codex](https://github.com/openai/codex)
 [oh-my-pi](https://github.com/can1357/oh-my-pi),
 [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix),
 [Hermes Agent](https://github.com/NousResearch/hermes-agent),
+[DotAgents](https://github.com/aj47/dotagents-mono) and [SpeakMCP](https://github.com/aj47/SpeakMCP) by aj47,
 [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent),
 [Dotmax](https://github.com/newjordan/dotmax), [ureq](https://github.com/algesten/ureq),
 [Ratatui](https://github.com/ratatui/ratatui),
