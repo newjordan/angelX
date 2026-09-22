@@ -29,3 +29,4 @@ angel_test_output/
 .astra-tmp/
 .refactor-notes/
 artifacts/
+.vercel
