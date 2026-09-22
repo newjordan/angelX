@@ -120,7 +120,7 @@ test('unrelated tools keep their configuration instead of inheriting a global pr
   assert.equal(env.ANGEL_META_MODEL, 'user-model')
 })
 
-test('real launcher loads system.env, preserves API choices, and isolates headless configuration', (t) => {
+test('real launcher loads system.env only on opt-in, preserves API choices, and isolates headless configuration', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'angel-provider-launch-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const home = join(root, 'home')
@@ -165,13 +165,17 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
     assert.equal(result.status, 0, result.stderr)
     return JSON.parse(result.stdout)
   }
-  assert.deepEqual(launch(), { grok: true, openai: true, marker: 'system' })
-  assert.deepEqual(launch([], { ANGEL_API_CLUBS: 'none' }), {
+  // Generic home env files are other tools' shell code: never read by default.
+  assert.deepEqual(launch(), { grok: false, openai: false, marker: null })
+  const hostEnv = { ANGEL_HOST_ENV: '1' }
+  assert.deepEqual(launch([], hostEnv), { grok: true, openai: true, marker: 'system' })
+  assert.deepEqual(launch([], { ...hostEnv, ANGEL_API_CLUBS: 'none' }), {
     grok: false,
     openai: false,
     marker: 'system',
   })
-  writeFileSync(join(source, '.angel.env'), 'ANGEL_TEST_CONFIG=project\n')
-  assert.equal(launch().marker, 'project')
+  // The opt-in may live in .angel.env, whose values still override host defaults.
+  writeFileSync(join(source, '.angel.env'), 'ANGEL_HOST_ENV=1\nANGEL_TEST_CONFIG=project\n')
+  assert.deepEqual(launch(), { grok: true, openai: true, marker: 'project' })
   assert.deepEqual(launch(['--build-info', '--json']), { grok: false, openai: false, marker: null })
 })
