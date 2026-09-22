@@ -251,21 +251,13 @@ fn tag_team_rosters_two_fleet_boxes_with_sol_as_the_advice_seat() {
     ];
     let roster = FormationRoster::new(FormationId::TagTeam, &models);
     let slots = formation(FormationId::TagTeam).slots();
-    assert_eq!(slots.len(), 4); // 2 propose + judge + aggregate
+    assert_eq!(slots.len(), 2, "Tag Team is two models, not the council panel");
     let labels: Vec<_> = roster
         .assignments()
         .iter()
         .map(|a| a.as_ref().map(|r| r.model.as_str()).unwrap_or("?"))
         .collect();
-    assert_eq!(
-        labels,
-        vec![
-            "leanstral-24b", // P1 — the math engine leads
-            "qwen3-30b-a3b", // P2 — turbo works the second corner
-            "gpt-5.6-sol",   // J1 — the advice seat
-            "leanstral-24b", // A1 — the math engine also synthesizes
-        ]
-    );
+    assert_eq!(labels, vec!["leanstral-24b", "qwen3-30b-a3b"]);
     assert!(roster.is_ready());
 }
 
@@ -368,19 +360,17 @@ fn tag_team_pins_the_dissent_gate_and_leaving_clears_it() {
         .collect();
 
     formation(FormationId::TagTeam).apply_sota_env();
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_DISSENT_GATE").as_deref(),
-        Ok("1")
+    assert!(
+        std::env::var_os("ANGEL_SOTA_MOA_DISSENT_GATE").is_none(),
+        "dissent escalation would turn Tag Team into the council judge"
     );
-    // One live corner must be able to carry a turn; the strict 2-draft
-    // quorum is what turned a slow box into a dead turn.
     assert_eq!(
         std::env::var("ANGEL_SOTA_MOA_ALLOW_DEGRADED").as_deref(),
         Ok("1")
     );
-    assert_eq!(
-        std::env::var("ANGEL_OPENAI_MODEL").as_deref(),
-        Ok("gpt-5.6-sol")
+    assert!(
+        std::env::var_os("ANGEL_OPENAI_MODEL").is_none(),
+        "Tag Team must not pin Sol"
     );
     // A frontier formation must get its strict quorum back.
     formation(FormationId::Council).apply_sota_env();
@@ -525,10 +515,8 @@ fn tag_team_partner_seat_never_doubles_up_on_the_lead_box() {
     assert_eq!(
         assigned,
         vec![
-            Some("qwen3-30b-a3b".to_string()), // P1 — the one live box leads
-            None,                              // P2 — partner is missing, not faked
-            None,                              // J1 — no Sol configured here
-            Some("qwen3-30b-a3b".to_string()), // A1 — local synthesis is fine
+            Some("qwen3-30b-a3b".to_string()),
+            None,
         ]
     );
     // With Leanstral down, turbo inherits the lead rather than the roster
@@ -560,12 +548,8 @@ fn tag_team_leaves_local_seats_empty_rather_than_billing_a_frontier_model() {
         .iter()
         .map(|a| a.as_ref().map(|r| r.model.clone()))
         .collect();
-    // Only the judge seat fills; both proposers and the synthesis seat stay
-    // empty, so the deck refuses to engage instead of quietly spending.
-    assert_eq!(
-        assigned,
-        vec![None, None, Some("gpt-5.6-sol".to_string()), None,]
-    );
+    // No frontier model may occupy a tag-team seat.
+    assert_eq!(assigned, vec![None, None]);
     assert!(!roster.is_ready());
 }
 

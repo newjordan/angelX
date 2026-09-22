@@ -871,13 +871,13 @@ fn tag_team_command_selects_the_two_local_corners_not_council() {
     let deck = app.moa_deck.as_ref().expect("deck open");
     assert_eq!(
         deck.selected_roster().slot_count(),
-        4,
-        "Tag Team has four execution slots (2 corners + advice + synthesis), not the council's panel"
+        2,
+        "Tag Team is two models, not the council panel"
     );
     assert_eq!(deck.selected().name, "Tag Team");
     assert!(
         deck.selected_roster().is_ready(),
-        "recommended local corners plus the metered Sol advice seat must auto-fill"
+        "the two local corners must auto-fill when those boxes are online"
     );
     let labels: Vec<_> = deck
         .selected_roster()
@@ -885,15 +885,7 @@ fn tag_team_command_selects_the_two_local_corners_not_council() {
         .iter()
         .map(|a| a.as_ref().map(|r| r.model.as_str()).unwrap_or("?"))
         .collect();
-    assert_eq!(
-        labels,
-        vec![
-            "leanstral-24b", // P1 — the local math engine leads
-            "qwen3-30b-a3b", // P2 — the second local corner
-            "gpt-5.6-sol",   // J1 — metered advice only on dissent
-            "leanstral-24b", // A1 — the local math engine synthesizes
-        ]
-    );
+    assert_eq!(labels, vec!["leanstral-24b", "qwen3-30b-a3b"]);
 
     app.focus_module("artifacts");
     assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));

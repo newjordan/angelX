@@ -458,21 +458,17 @@ const BUILT_INS: &[Formation] = &[
     Formation {
         id: FormationId::TagTeam,
         name: "Tag Team",
-        flavor: "Local pair carries the turn: Spark's Leanstral math engine leads and synthesizes, Turbo works the second corner. Sol is tagged in for advice only when the two drafts disagree.",
+        flavor: "Pick two models. They carry the turn. No council seats, no judge, no verifier.",
         width: 2,
         max_width: 2,
         layers: 1,
-        samples: 1,
-        // The Sol seat. The dissent gate is what makes it *advice on demand*:
-        // agreeing local drafts relax the judge away, diverging ones call it in.
-        judge: true,
-        judge_panel: 1,
+        samples: 0,
+        judge: false,
+        judge_panel: 0,
         verify: 0,
         verify_guard: false,
         reflect: false,
         scout: false,
-        // Two fleet calls cost nothing; the metered Sol judge fires only on
-        // disagreement, so the expected spend sits well under one frontier turn.
         est_cost_x: 2.0,
         asset_rel: "assets/moa-cards/duel.png",
     },
@@ -628,11 +624,15 @@ impl Formation {
             ordinal,
             reserve: false,
         }));
-        slots.extend((0..self.samples.max(1)).map(|ordinal| FormationSlot {
-            role: FormationRole::Aggregate,
-            ordinal,
-            reserve: false,
-        }));
+        // Tag Team is exactly two operator-picked models. Every other
+        // formation keeps a synthesis seat even when samples is 0.
+        if self.id != FormationId::TagTeam {
+            slots.extend((0..self.samples.max(1)).map(|ordinal| FormationSlot {
+                role: FormationRole::Aggregate,
+                ordinal,
+                reserve: false,
+            }));
+        }
         slots
     }
 
@@ -757,35 +757,16 @@ impl Formation {
             clear_grok_war_role_pins();
             clear_tag_team_pins();
         } else if self.id == FormationId::TagTeam {
-            // Local-first posture. The roster supplies the concrete seats (two
-            // fleet boxes + one Sol); what the env owns here is *when* the
-            // metered seat is allowed to fire.
-            //
-            // The dissent gate is the whole mechanism: proposer disagreement is
-            // a free local signal, so agreeing drafts relax the judge away
-            // entirely (zero metered calls) and diverging drafts escalate —
-            // which is exactly "the locals call Sol for advice when stuck".
+            // Two operator-picked models. The dissent gate must stay off:
+            // escalation turns judge on and adds verify passes, which is the
+            // 5-seat council arriving through the side door. Do not pin Sol.
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_DISSENT_GATE", "1") };
-            // A fleet box is allowed to be slow, thrashing, or terse — and the
-            // frontier formations' 2-draft quorum turns any one of those into a
-            // dead turn ("kept 0/2 usable drafts"), throwing away the partner's
-            // perfectly good draft. Tagging out is the point: if one corner
-            // doesn't answer, the other's draft carries the turn.
+            unsafe { std::env::remove_var("ANGEL_SOTA_MOA_DISSENT_GATE") };
+            // If one corner doesn't answer, the other's draft carries the turn.
             // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var("ANGEL_SOTA_MOA_ALLOW_DEGRADED", "1") };
-            // A cheap-profile boundary would be about *link* selection; this
-            // formation's seats are explicit roster routes, so leave whatever
-            // spend boundary the operator set alone.
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", "gpt-5.6-sol") };
-            // Sol advises rather than drives here, so it does not need the war
-            // posture's max effort — but an operator pin still wins.
-            if std::env::var_os("ANGEL_OPENAI_REASONING_EFFORT").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_OPENAI_REASONING_EFFORT", "high") };
-            }
-            // Role pins owned by other formations would fight the roster seats.
+            unsafe { std::env::remove_var("ANGEL_OPENAI_MODEL") };
             clear_grok_war_role_pins();
             clear_gpu_comp_pins();
         } else if self.id == FormationId::GrokWar {
@@ -1003,38 +984,14 @@ fn recommended_model(
         // formation to a corner it cannot fill.
         const LEAD: &[&str] = &["leanstral", "spark", "gemma", "turbo"];
         const PARTNER: &[&str] = &["turbo", "gemma", "spark"];
-        match slot.role {
-            FormationRole::Propose if slot.ordinal == 0 => return pick(LEAD, None),
-            // The partner seat must be a *different* route than the lead. Left
-            // to fall through it would happily nominate the lead's own box a
-            // second time, which reads as a tag team in the deck while actually
-            // being one model arguing with itself. An empty seat that names the
-            // missing partner is the honest state.
-            FormationRole::Propose => return pick(PARTNER, pick(LEAD, None).as_ref()),
-            FormationRole::Aggregate => return pick(LEAD, None),
-            // The advice seat is only worth its call if it is an outside
-            // opinion: Sol first, then any other configured frontier link.
-            // Requiring a metered route keeps a local box — the very model
-            // being reviewed — from quietly landing here when Sol is absent.
-            FormationRole::Judge => {
-                let advisor = |selector: &str| {
-                    models
-                        .iter()
-                        .find(|choice| {
-                            choice.available
-                                && choice.route.metered
-                                && choice.route.matches(selector)
-                        })
-                        .map(|choice| choice.route.clone())
-                };
-                return advisor("openai").or_else(|| {
-                    crate::agent::club::SOTA_MOA_INTELLIGENCE_ORDER
-                        .iter()
-                        .find_map(|selector| advisor(selector))
-                });
-            }
-            _ => {}
-        }
+        // Two corners only. Never fall through to the intelligence order:
+        // that set is the council's five SOTA links, and it is what made
+        // Tag Team load Council.
+        return match slot.role {
+            FormationRole::Propose if slot.ordinal == 0 => pick(LEAD, None),
+            FormationRole::Propose => pick(PARTNER, pick(LEAD, None).as_ref()),
+            _ => None,
+        };
     }
 
     if formation == FormationId::MathGod {
