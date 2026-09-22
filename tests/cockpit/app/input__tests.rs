@@ -166,6 +166,12 @@ fn exit_and_quit_close_the_app() {
             "{word:?}"
         );
     }
+    for word in ["exit!", "quit!", "/exit!", "/quit!", "EXIT!", "  Quit!  "] {
+        assert!(
+            matches!(parse(word).unwrap(), ParsedInput::ForceExit),
+            "{word:?}"
+        );
+    }
     // Anything beyond the bare word is an ordinary message, not a close.
     assert!(matches!(
         parse("exit now").unwrap(),

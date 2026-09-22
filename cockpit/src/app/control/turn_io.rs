@@ -573,6 +573,7 @@ impl App {
     pub(crate) fn advance(&mut self) {
         self.drain_background_process_completions();
         self.flush_pending_atlas_harvest();
+        self.poll_shell_status();
         // Hidden / backdrop-off never paint artifacts, so expired ceremonies
         // would otherwise keep overlay + completion fireworks latched.
         self.clear_expired_lifecycle_ceremony();
@@ -2687,10 +2688,23 @@ impl App {
         }
         // When the shell is focused, every other key goes to the PTY.
         if self.shell_focused {
-            if let (Some(sh), Some(bytes)) = (self.shell.as_mut(), pty::key_to_bytes(&key)) {
-                sh.send(&bytes);
+            if let Some(sh) = self.shell.as_mut() {
+                if !sh.is_alive() {
+                    self.shell = None;
+                    self.shell_focused = false;
+                    let _ = self
+                        .module_host
+                        .suspend(&crate::platform::runtime::ModuleId::new("shell"));
+                    self.system_msg("shell process exited".to_string());
+                } else if let Some(bytes) = pty::key_to_bytes(&key) {
+                    sh.send(&bytes);
+                    return;
+                } else {
+                    return;
+                }
+            } else {
+                self.shell_focused = false;
             }
-            return;
         }
         // Ctrl-L mirrors `/redraw`: clear stale outer-terminal cells on the
         // next frame without touching the conversation or an active turn.

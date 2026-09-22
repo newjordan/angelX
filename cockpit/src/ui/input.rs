@@ -182,6 +182,8 @@ pub enum ParsedInput {
     },
     /// Close the cockpit (typed `exit`/`quit`, with or without the `/`).
     Exit,
+    /// Force close the cockpit immediately (`exit!`/`quit!`, with or without `/`).
+    ForceExit,
     Message(ChatMsg),
 }
 
@@ -522,8 +524,15 @@ pub fn parse(raw: &str) -> Result<ParsedInput, String> {
     let trimmed = raw.trim();
     // Close the cockpit on a typed `exit`/`quit` (bare or slash-prefixed), so the
     // app is closed deliberately rather than with a stray Ctrl+C.
+    let lower = trimmed.to_ascii_lowercase();
     if matches!(
-        trimmed.to_ascii_lowercase().as_str(),
+        lower.as_str(),
+        "exit!" | "quit!" | "/exit!" | "/quit!"
+    ) {
+        return Ok(ParsedInput::ForceExit);
+    }
+    if matches!(
+        lower.as_str(),
         "exit" | "quit" | "/exit" | "/quit"
     ) {
         return Ok(ParsedInput::Exit);
