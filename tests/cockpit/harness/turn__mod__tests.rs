@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn metered_unproductive_default_arms_redirection_and_stop() {
+fn metered_unproductive_default_is_advisory_only() {
     let _lock = crate::tests::env_lock();
     let _escalate = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE");
     let _stop = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_STOP");
@@ -9,7 +9,7 @@ fn metered_unproductive_default_arms_redirection_and_stop() {
 
     let policy = configured_unproductive_policy(true, false);
     assert_eq!(policy.escalate, 8);
-    assert_eq!(policy.stop, 16);
+    assert_eq!(policy.stop, 0);
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn non_metered_unproductive_defaults_remain_off() {
     let _lock = crate::tests::env_lock();
     let _escalate = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE");
     let _stop = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_STOP");
-    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
 
     let policy = configured_unproductive_policy(false, false);
     assert_eq!(policy.escalate, 0);

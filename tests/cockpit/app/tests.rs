@@ -1944,12 +1944,10 @@ fn fast_completed_stream_gets_a_visible_partial_frame() {
 }
 
 #[test]
-fn inner_policy_stop_pauses_outer_runner_instead_of_restarting() {
+fn inner_spin_stop_pauses_outer_runner_instead_of_restarting() {
     let _guard = env_lock();
-    let loop_path = std::env::temp_dir().join(format!(
-        "angel-inner-policy-stop-{}.json",
-        std::process::id()
-    ));
+    let loop_path =
+        std::env::temp_dir().join(format!("angel-inner-spin-{}.json", std::process::id()));
     let _loop_file = TestEnvGuard::set("ANGEL_LOOP_FILE", loop_path.to_str().unwrap());
     let (mut app, tx) = seed_live_streaming_app(Vec::new());
     app.loop_ctl.workspace = Some(app.tools.current_workspace().to_path_buf());
@@ -1959,14 +1957,14 @@ fn inner_policy_stop_pauses_outer_runner_instead_of_restarting() {
     app.relentless_execution = true;
     app.handoff_rl.active = true;
     tx.send(Ok((
-        vec![ChatMsg::assistant("deferred-action guard stopped")],
-        "deferred-action guard stopped".into(),
+        vec![ChatMsg::assistant("stopped repeated passive polling")],
+        "stopped repeated passive polling".into(),
         crate::agent::club::RouteIdentity {
             driver: "practice".into(),
             model: None,
             reasoning_effort: None,
         },
-        harness::TurnStopReason::DeferredStop,
+        harness::TurnStopReason::Spin,
     )))
     .unwrap();
     app.advance();
@@ -1976,13 +1974,7 @@ fn inner_policy_stop_pauses_outer_runner_instead_of_restarting() {
     assert!(app.loop_ctl.wake_at.is_none());
     assert!(!app.relentless_execution);
     assert!(!app.handoff_rl.active);
-    assert!(
-        app.loop_ctl
-            .last_error
-            .as_deref()
-            .unwrap()
-            .contains("deferred_stop")
-    );
+    assert!(app.loop_ctl.last_error.as_deref().unwrap().contains("spin"));
     assert!(app.thinking.is_none());
     for _ in 0..3 {
         app.advance();
