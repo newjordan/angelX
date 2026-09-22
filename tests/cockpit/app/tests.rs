@@ -13766,49 +13766,6 @@ fn handoff_rl_force_clear_inject_and_result_reforce() {
 }
 
 #[test]
-fn plain_mode_arms_and_injects_directive() {
-    let mut app = seed_preview_app();
-    app.input = "/plain".to_string();
-    app.submit();
-    assert!(app.plain_mode);
-    assert!(
-        app.messages
-            .iter()
-            .any(|m| m.text.contains("plain mode ON"))
-    );
-
-    app.input = "please fix the bug".to_string();
-    app.submit();
-    let context = app
-        .history
-        .iter()
-        .find(|message| {
-            message.role == ChatRole::Harness
-                && message.content.starts_with(control::TURN_CONTEXT_HEADER)
-        })
-        .expect("Harness-role cockpit controls");
-    assert!(
-        context.content.contains("new to this"),
-        "plain-language contract missing: {}",
-        context.content
-    );
-    assert!(
-        context.content.contains("bug free") || context.content.contains("easy to use"),
-        "bug-free/easy-use contract missing: {}",
-        context.content
-    );
-
-    app.input = "/plain off".to_string();
-    app.submit();
-    assert!(!app.plain_mode);
-    assert!(
-        app.messages
-            .iter()
-            .any(|m| m.text.contains("plain mode OFF"))
-    );
-}
-
-#[test]
 fn bind_graph_reward_cli_parses_args_and_fails_closed_without_an_episode() {
     let _guard = env_lock();
     let root = std::env::temp_dir().join(format!("angel-bind-cli-{}", std::process::id()));

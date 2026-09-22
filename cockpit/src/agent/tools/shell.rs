@@ -722,14 +722,14 @@ fn contains_excessive_sleep(command: &str, max_secs: u64) -> bool {
     let words = command.split_whitespace().collect::<Vec<_>>();
     for (i, &word) in words.iter().enumerate() {
         let w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.');
-        if w == "sleep" {
-            if let Some(&next) = words.get(i + 1) {
-                let next_clean = next.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
-                if let Ok(secs) = next_clean.parse::<f64>() {
-                    if secs > max_secs as f64 {
-                        return true;
-                    }
-                }
+        if w == "sleep"
+            && let Some(&next) = words.get(i + 1)
+        {
+            let next_clean = next.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
+            if let Ok(secs) = next_clean.parse::<f64>()
+                && secs > max_secs as f64
+            {
+                return true;
             }
         }
     }

@@ -1288,11 +1288,9 @@ fn run_turn_tiered(
     // changing poll result or productive edit sequence.
     let tool_cycle_max_period = env_usize("ANGEL_TOOL_CYCLE_MAX_PERIOD", 5).min(8);
     let tool_cycle_repeats = env_usize("ANGEL_TOOL_CYCLE_REPEATS", 5).min(10);
-    let mut tool_cycle = (spin_stop > 0
-        && tool_cycle_max_period >= 2
-        && tool_cycle_repeats >= 2
-        && !competition)
-        .then(|| ToolBatchCycle::new(tool_cycle_max_period, tool_cycle_repeats));
+    let mut tool_cycle =
+        (spin_stop > 0 && tool_cycle_max_period >= 2 && tool_cycle_repeats >= 2 && !competition)
+            .then(|| ToolBatchCycle::new(tool_cycle_max_period, tool_cycle_repeats));
     // Duplicate-call storm guard (opt-in). Reasoning models re-issue a
     // byte-identical call for hop after hop; anti-spin only ends the turn once
     // the whole batch repeats, so a storm interleaved with other work burns the
@@ -4053,8 +4051,7 @@ fn run_turn_tiered(
                             )
                         };
                         crate::agent::harness::trajectory::note_timing(
-                            &timing
-                                .finish_with_history(turn_start.elapsed().as_millis(), history),
+                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                         );
                         crate::agent::harness::trajectory::note_stop_reason(
                             TurnStopReason::Spin.as_str(),
@@ -5253,8 +5250,7 @@ fn run_turn_tiered(
                              or change approach."
                         );
                         crate::agent::harness::trajectory::note_timing(
-                            &timing
-                                .finish_with_history(turn_start.elapsed().as_millis(), history),
+                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                         );
                         crate::agent::harness::trajectory::note_stop_reason(
                             TurnStopReason::ErrorStop.as_str(),

@@ -1,6 +1,6 @@
 // The pace of a pan shot is the one thing about it that can be wrong on screen:
 // a response that rolls past faster than a viewer reads is a take nobody can use.
-// These hold the numbers still for website/tools/pan-pace.mjs.
+// These hold the numbers still for scripts/pan-pace.mjs.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
@@ -13,7 +13,7 @@ import {
   readSeconds,
   rollSeconds,
   wordsPerRow,
-} from '../../website/tools/pan-pace.mjs'
+} from '../../scripts/pan-pace.mjs'
 
 test('a moderate reader sets the clock', () => {
   assert.equal(READ_WPM, 275)

@@ -30,4 +30,6 @@ angel_test_output/
 .refactor-notes/
 artifacts/
 .vercel
+.vercelignore
 website/
+HANDOFF.md

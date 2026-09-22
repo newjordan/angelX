@@ -712,8 +712,7 @@ fn semantic_state(app: &App) -> Value {
             "operational_row_count": operational_rows,
             "plan": app.plan_mode,
             "vim": app.vim_mode,
-            "relentless": app.relentless_execution,
-            "plain": app.plain_mode
+            "relentless": app.relentless_execution
         },
         "persistence": { "session": session_health, "memory": format!("{:?}", app.tools.store.health()).to_ascii_lowercase() },
         "tool_argument_repairs": tool_arg_repairs.into_iter().map(|record| json!({
