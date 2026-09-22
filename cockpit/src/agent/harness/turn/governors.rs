@@ -138,6 +138,10 @@ impl RepeatedPollGuard {
             .count()
             >= self.limit
     }
+
+    pub(crate) fn clear(&mut self) {
+        self.recent.clear();
+    }
 }
 
 impl PassivePollGuard {

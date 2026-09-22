@@ -2896,7 +2896,7 @@ fn run_turn_mixed_batch_parallelizes_safe_runs_without_crossing_the_effect_barri
 }
 
 #[test]
-fn run_turn_anti_spin_stops_repeated_identical_calls() {
+fn run_turn_anti_spin_redirects_repeated_identical_calls() {
     let _guard = crate::tests::env_lock();
     let _operator_cap = EnvGuard::set("ANGEL_SPIN_LIMIT", "8");
     let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
@@ -2919,9 +2919,9 @@ fn run_turn_anti_spin_stops_repeated_identical_calls() {
         }
     }
     let mut history = vec![ChatMsg::user("go")];
-    // Unbounded hops, no cancel: only the anti-spin guardrail (default limit 8)
-    // ends it. max_hops=50 is a safety net so the test fails loud, never hangs.
-    let out = run_turn(
+    // Anti-spin redirects instead of ending the turn, so a model that never
+    // stops spinning runs into the max_hops=50 safety net.
+    let err = run_turn(
         &Stuck,
         &ToolRegistry::with_defaults(),
         &mut history,
@@ -2929,8 +2929,14 @@ fn run_turn_anti_spin_stops_repeated_identical_calls() {
         Some(50),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .unwrap();
-    assert!(out.contains("stopped"), "got: {out}");
+    .unwrap_err();
+    assert!(err.contains("runaway guard"), "got: {err}");
+    assert!(
+        history
+            .iter()
+            .any(|m| m.role == ChatRole::Harness && m.content.contains("deterministic loop")),
+        "anti-spin must inject its redirection"
+    );
 }
 
 /// A8: anti-spin identity is canonical JSON — key order cannot dodge the guard.
@@ -3469,7 +3475,7 @@ fn repeated_poll_guard_preserves_distinct_inspection_and_work_progress() {
 }
 
 #[test]
-fn repeated_poll_default_stops_glm_timestamp_treadmill_with_paired_history() {
+fn repeated_poll_default_redirects_glm_timestamp_treadmill_with_paired_history() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _spin = EnvGuard::set("ANGEL_SPIN_LIMIT", "0");
@@ -3521,7 +3527,7 @@ fn repeated_poll_default_stops_glm_timestamp_treadmill_with_paired_history() {
     registry.register(Box::new(TimestampPoll(dispatches.clone())));
     let club = AlternatingPoll(AtomicUsize::new(0));
     let mut history = vec![ChatMsg::user("monitor the existing benchmark")];
-    let result = run_turn_observed(
+    let failure = run_turn_observed(
         &club,
         &registry,
         &mut history,
@@ -3529,20 +3535,18 @@ fn repeated_poll_default_stops_glm_timestamp_treadmill_with_paired_history() {
         Some(40),
         &mpsc::channel().0,
     )
-    .unwrap();
-    assert_eq!(result.stop_reason, TurnStopReason::Spin);
-    assert!(result.answer.contains("repeated passive polling"));
-    assert_eq!(
-        club.0.load(Ordering::Relaxed),
-        15,
-        "no paid hop after eighth matching poll"
-    );
-    assert_eq!(dispatches.load(Ordering::Relaxed), 15);
+    .unwrap_err();
+    // The guard redirects and the turn keeps going; only the hop guard ends it.
+    assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
+    assert!(history.iter().any(|m| m.role == ChatRole::Harness
+        && m.content.contains("REDIRECTION: the same status/log batch")));
+    assert_eq!(club.0.load(Ordering::Relaxed), 40);
+    assert_eq!(dispatches.load(Ordering::Relaxed), 40);
     let calls: Vec<_> = history
         .iter()
         .flat_map(|message| message.tool_calls.iter())
         .collect();
-    assert_eq!(calls.len(), 15);
+    assert_eq!(calls.len(), 40);
     for call in calls {
         assert_eq!(
             history
@@ -3779,7 +3783,7 @@ fn actionable_turn_suppresses_repeat_proc_status_until_work_advances() {
 }
 
 #[test]
-fn varied_passive_poll_treadmill_is_bounded_by_shared_spin_identity() {
+fn varied_passive_poll_treadmill_is_redirected_by_shared_spin_identity() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _poll_guard = EnvGuard::set("ANGEL_POLL_GUARD", "1");
@@ -3809,7 +3813,7 @@ fn varied_passive_poll_treadmill_is_bounded_by_shared_spin_identity() {
 
     // Every hop emits a DIFFERENT passive batch — alternating status polls
     // (varying args) and long sleeps (varying durations). Per-batch hashing
-    // let this run forever; the shared sentinel must accumulate to the stop.
+    // missed it; the shared sentinel must accumulate to a redirection.
     struct VariedTreadmill {
         hop: AtomicUsize,
     }
@@ -3845,7 +3849,7 @@ fn varied_passive_poll_treadmill_is_bounded_by_shared_spin_identity() {
         polls: Arc::clone(&polls),
     }));
     let mut history = vec![ChatMsg::user("keep an eye on the benchmark for me")];
-    let outcome = run_turn_observed(
+    let failure = run_turn_observed(
         &VariedTreadmill {
             hop: AtomicUsize::new(0),
         },
@@ -3855,14 +3859,13 @@ fn varied_passive_poll_treadmill_is_bounded_by_shared_spin_identity() {
         Some(40),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("treadmill must stop cleanly, not exhaust hops");
+    .expect_err("treadmill turn ends at the hop guard");
 
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert!(
-        outcome.answer.contains("passive wait"),
-        "stop note names the treadmill: {}",
-        outcome.answer
-    );
+    // Guards redirect and keep the turn alive; only the hop guard ends it.
+    assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
+    assert!(history.iter().any(|message| {
+        message.role == ChatRole::Harness && message.content.contains("deterministic loop")
+    }));
     assert!(
         polls.load(Ordering::Relaxed) <= 1,
         "only the within-budget first poll may execute"
@@ -5847,7 +5850,7 @@ fn failed_mutation_does_not_disarm_first_write_recon_guard() {
 }
 
 #[test]
-fn first_write_rejection_limit_stops_a_turn_that_keeps_inspecting() {
+fn first_write_rejection_limit_redirects_a_turn_that_keeps_inspecting() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _budget = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "1");
@@ -5898,7 +5901,7 @@ fn first_write_rejection_limit_stops_a_turn_that_keeps_inspecting() {
     let mut history = vec![ChatMsg::user(
         "run the competition-loop and improve the candidate",
     )];
-    let outcome = run_turn_observed(
+    let failure = run_turn_observed(
         &InspectionForever {
             call: AtomicUsize::new(0),
         },
@@ -5908,10 +5911,14 @@ fn first_write_rejection_limit_stops_a_turn_that_keeps_inspecting() {
         Some(10),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("first-write circuit breaker returns a typed stopped outcome");
+    .expect_err("first-write guard keeps the turn alive until the hop guard");
 
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert!(outcome.answer.contains("stopped after 2 post-budget"));
+    assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
+    assert!(
+        history.iter().any(
+            |m| m.role == ChatRole::Harness && m.content.contains("inspection budget is spent")
+        )
+    );
     assert_eq!(reads.load(Ordering::SeqCst), 1);
 }
 
@@ -6626,8 +6633,7 @@ fn run_turn_injects_perturbation_when_spinning() {
         &AtomicBool::new(false),
         Some(50),
         &mpsc::channel::<TurnEvent>().0,
-    )
-    .unwrap();
+    );
     assert!(
         history
             .iter()
@@ -6637,7 +6643,7 @@ fn run_turn_injects_perturbation_when_spinning() {
 }
 
 #[test]
-fn alternating_tool_cycle_stops_after_paired_outcomes_repeat() {
+fn alternating_tool_cycle_redirects_after_paired_outcomes_repeat() {
     let _guard = crate::tests::env_lock();
     let _operator_cap = EnvGuard::set("ANGEL_SPIN_LIMIT", "8");
     let _cycle_period = EnvGuard::set("ANGEL_TOOL_CYCLE_MAX_PERIOD", "5");
@@ -6674,7 +6680,7 @@ fn alternating_tool_cycle_stops_after_paired_outcomes_repeat() {
         calls: AtomicUsize::new(0),
     };
     let mut history = vec![ChatMsg::user("go")];
-    let outcome = run_turn_observed(
+    let failure = run_turn_observed(
         &club,
         &ToolRegistry::with_defaults(),
         &mut history,
@@ -6682,15 +6688,21 @@ fn alternating_tool_cycle_stops_after_paired_outcomes_repeat() {
         Some(20),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("a detected cycle is a structured stopped outcome");
+    .expect_err("a detected cycle redirects; the hop guard ends the turn");
 
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert_eq!(outcome.hops, 6);
-    assert!(outcome.answer.contains("2-batch tool cycle"));
-    assert_eq!(club.calls.load(Ordering::Relaxed), 6);
+    assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
+    assert_eq!(club.calls.load(Ordering::Relaxed), 20);
+    let redirects = history
+        .iter()
+        .filter(|m| m.role == ChatRole::Harness && m.content.contains("2-batch tool cycle"))
+        .count();
+    assert!(redirects >= 1, "cycle redirection injected");
     let call_count = history.iter().map(|m| m.tool_calls.len()).sum::<usize>();
     let result_count = history.iter().filter(|m| m.role == ChatRole::Tool).count();
-    assert_eq!(call_count, result_count, "cycle stop must preserve pairing");
+    assert_eq!(
+        call_count, result_count,
+        "cycle redirection must preserve pairing"
+    );
 }
 
 #[test]
@@ -6816,14 +6828,14 @@ fn tool_batch_cycle_observation_reuses_anti_spin_fingerprint() {
 // --- residual run_turn guards (folded from parent) -----------------------
 
 #[test]
-fn yolo_turn_stops_on_consecutive_tool_errors() {
+fn yolo_turn_redirects_on_consecutive_tool_errors() {
     let _guard = crate::tests::env_lock();
     let _operator_cap = EnvGuard::set("ANGEL_ERROR_LIMIT", "8");
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     // A club that calls read_file on a fresh missing path each hop: every call
     // errors at dispatch, but the args change, so anti-spin never fires — only
-    // the error breaker should stop it.
+    // the error guard should redirect it.
     use std::sync::atomic::AtomicUsize;
     struct Erroring {
         n: AtomicUsize,
@@ -6838,8 +6850,7 @@ fn yolo_turn_stops_on_consecutive_tool_errors() {
         fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
             let i = self.n.fetch_add(1, Ordering::Relaxed);
             if i >= 10 {
-                // The old YOLO path disabled the error breaker and would
-                // incorrectly accept this eventual answer.
+                // The guard redirects rather than stopping, so this answer lands.
                 return Ok(ClubReply::Text("late answer".into()));
             }
             Ok(ClubReply::Calls(vec![ToolCall {
@@ -6857,15 +6868,17 @@ fn yolo_turn_stops_on_consecutive_tool_errors() {
         &ToolRegistry::with_defaults(),
         &mut history,
         &AtomicBool::new(false),
-        Some(50), // generous hop guard; the error breaker (default 8) fires first
+        Some(50), // generous hop guard; the error guard (8) fires first
         &mpsc::channel::<TurnEvent>().0,
     )
     .unwrap();
+    assert_eq!(out, "late answer");
     assert!(
-        out.contains("errored"),
-        "error breaker should stop the thrash: {out}"
+        history.iter().any(|m| m.role == ChatRole::Harness
+            && m.content.contains("ERROR CASCADE REDIRECTION")),
+        "error guard should inject a redirection under YOLO"
     );
-    // The one-time error nudge landed in history before the stop.
+    // The error nudge landed in history while thrashing.
     assert!(
         history
             .iter()
@@ -7077,7 +7090,7 @@ fn yolo_preserves_the_explicit_turn_deadline() {
 }
 
 #[test]
-fn yolo_preserves_the_anti_spin_guard() {
+fn yolo_preserves_the_anti_spin_redirect() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _spin = EnvGuard::set("ANGEL_SPIN_LIMIT", "4");
@@ -7108,19 +7121,25 @@ fn yolo_preserves_the_anti_spin_guard() {
     let club = EventuallyAnswers {
         calls: AtomicUsize::new(0),
     };
+    let mut history = vec![ChatMsg::user("go")];
     let outcome = run_turn_observed(
         &club,
         &ToolRegistry::with_defaults(),
-        &mut vec![ChatMsg::user("go")],
+        &mut history,
         &AtomicBool::new(false),
         None,
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("spin stop is a structured stopped outcome");
+    .expect("spin redirect keeps the turn alive");
 
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert_eq!(outcome.hops, 4);
-    assert!(outcome.answer.contains("same tool call repeated"));
+    // YOLO keeps the guard: it redirects instead of stopping, so the model still answers.
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(outcome.answer, "late answer");
+    assert!(
+        history
+            .iter()
+            .any(|m| m.role == ChatRole::Harness && m.content.contains("deterministic loop"))
+    );
 }
 
 #[test]
@@ -8703,12 +8722,9 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
         }
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.0.fetch_add(1, Ordering::Relaxed);
-            assert!(
-                hop < 9,
-                "existing eight-error guard did not escalate: {} tools={:?}",
-                trajectory::progress_ledger_snapshot(),
-                trajectory::tool_ledger_snapshot()
-            );
+            if hop >= 8 {
+                return Ok(ClubReply::Text("blocked: verifier times out".into()));
+            }
             Ok(ClubReply::Calls(vec![
                 ToolCall {
                     id: format!("shell-{hop}"),
@@ -8741,11 +8757,13 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
         &mpsc::channel::<TurnEvent>().0,
     )
     .unwrap();
-    assert!(out.contains("errored"), "{out}");
-    assert_eq!(club.0.load(Ordering::Relaxed), 8);
+    // The eight-error guard redirects; the turn continues until the model answers.
+    assert_eq!(out, "blocked: verifier times out");
+    assert_eq!(club.0.load(Ordering::Relaxed), 9);
     let progress = trajectory::progress_ledger_snapshot();
     assert!(progress["first_verified_at_ms"].is_null());
-    assert_eq!(progress["unproductive_streak_max"], 8);
+    // Eight stalled tool hops plus the answer hop, which also changes nothing.
+    assert_eq!(progress["unproductive_streak_max"], 9);
     let escalations = progress["escalations"].as_array().unwrap();
     assert!(
         escalations
@@ -8755,7 +8773,7 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
     assert!(
         escalations
             .iter()
-            .any(|e| e["kind"] == "error_stop" && e["hop"].as_u64().unwrap() <= 8)
+            .any(|e| e["kind"] == "error_redirect" && e["hop"].as_u64().unwrap() <= 8)
     );
     let tools = trajectory::tool_ledger_snapshot();
     assert_eq!(tools.len(), 16);
@@ -8775,7 +8793,7 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
 }
 
 #[test]
-fn dispatch_receipt_errors_stop_at_existing_limit() {
+fn dispatch_receipt_errors_redirect_at_existing_limit() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "0");
     let _capsules = EnvGuard::set("ANGEL_ACTION_CAPSULES", "observe");
@@ -8811,7 +8829,9 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
         }
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.0.fetch_add(1, Ordering::Relaxed);
-            assert!(hop < 8, "existing dispatch breaker failed");
+            if hop >= 8 {
+                return Ok(ClubReply::Text("diagnosis after redirect".into()));
+            }
             Ok(ClubReply::Calls(vec![ToolCall {
                 id: format!("r-{hop}"),
                 name: "shell".into(),
@@ -8835,11 +8855,9 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
         &tx,
     )
     .unwrap();
-    assert!(
-        out.contains("stopped after 8 hops where every tool call errored"),
-        "{out}"
-    );
-    assert_eq!(club.0.load(Ordering::Relaxed), 8);
+    // The error guard redirects at the limit; the turn continues to an answer.
+    assert_eq!(out, "diagnosis after redirect");
+    assert_eq!(club.0.load(Ordering::Relaxed), 9);
     let ledger = trajectory::tool_ledger_snapshot();
     assert_eq!(ledger.len(), 8);
     assert!(
@@ -8852,7 +8870,7 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|e| e["kind"] == "error_stop")
+            .any(|e| e["kind"] == "error_redirect")
     );
     assert!(
         ledger.iter().all(
@@ -8885,7 +8903,7 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
 /// Changing successful no-ops evade identical-action and error guards. These
 /// dialogues exercise the progress ledger's independent escalation boundary.
 #[test]
-fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
+fn r03b_unproductive_dialogues_escalate_redirect_and_reset() {
     let _guard = crate::tests::env_lock();
     let _caddy = EnvGuard::set("ANGEL_CADDY", "0");
     let _env = [
@@ -8959,13 +8977,14 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             }]))
         }
     }
-    for (task, competition, stop, progress_at, expected_hops, stopped) in [
-        ("1", "0", "16", 0, 16, true),
+    // Reaching the streak cap redirects and resets; the turn never stops on it.
+    for (task, competition, stop, progress_at, expected_hops, redirected) in [
+        ("1", "0", "16", 0, 34, true),
         ("0", "0", "16", 0, 21, false),
         ("1", "1", "16", 0, 21, false),
         ("1", "0", "0", 0, 21, false),
         ("1", "0", "unset", 0, 21, false),
-        ("1", "0", "16", 10, 26, true),
+        ("1", "0", "16", 10, 34, true),
     ] {
         let _mode = [
             EnvGuard::set("ANGEL_TASK_ACTIVE", task),
@@ -8984,7 +9003,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         let club = Dialogue {
             calls: AtomicUsize::new(0),
             progress_at,
-            finish: if stopped { 34 } else { 21 },
+            finish: if redirected { 34 } else { 21 },
         };
         let mut history = vec![ChatMsg::user("Investigate the blocker")];
         let (tx, rx) = mpsc::channel();
@@ -9002,13 +9021,19 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             "task={task} competition={competition} progress={progress_at}"
         );
         assert_eq!(club.calls.load(Ordering::SeqCst), expected_hops);
+        assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+        let redirects: Vec<_> = history
+            .iter()
+            .filter(|m| {
+                m.role == ChatRole::Harness
+                    && m.content
+                        .contains("MANDATORY PROGRESS REDIRECTION: Escalated")
+            })
+            .collect();
         assert_eq!(
-            outcome.stop_reason,
-            if stopped {
-                TurnStopReason::EscalatedUnproductive
-            } else {
-                TurnStopReason::Answer
-            }
+            !redirects.is_empty(),
+            redirected,
+            "task={task} progress={progress_at}"
         );
         let ledger = trajectory::progress_ledger_snapshot();
         let escalations: Vec<_> = ledger["escalations"]
@@ -9036,16 +9061,17 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             |n| crate::ui::views::turn_event_view::notice_coalesce_key(n)
                 == Some("unproductive-streak")
         ));
-        if stopped {
-            assert!(outcome.answer.contains("16 consecutive unproductive hops"));
-            let tools = trajectory::tool_ledger_snapshot();
-            for tool in tools.iter().rev().take(3) {
-                assert!(
-                    outcome
-                        .answer
-                        .contains(tool["args_digest"].as_str().unwrap())
-                );
-            }
+        if redirected {
+            assert!(
+                redirects[0]
+                    .content
+                    .contains("16 consecutive unproductive hops")
+            );
+            assert!(
+                redirects[0]
+                    .content
+                    .contains("last 3 distinct action digests")
+            );
         }
         let envelope = TaskJsonEnvelope::from_outcome(
             TaskJsonContext {
@@ -9069,18 +9095,8 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             &history,
         );
         let envelope = serde_json::to_value(envelope).unwrap();
-        assert_eq!(
-            envelope["status"],
-            if stopped { "stopped" } else { "completed" }
-        );
-        assert_eq!(
-            envelope["stop_reason"],
-            if stopped {
-                "escalated_unproductive"
-            } else {
-                "answer"
-            }
-        );
+        assert_eq!(envelope["status"], "completed");
+        assert_eq!(envelope["stop_reason"], "answer");
         std::fs::remove_dir_all(root).unwrap();
     }
 }
@@ -9304,8 +9320,12 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
         let progress = trajectory::progress_ledger_snapshot();
         assert_eq!(progress["research_turn"], true);
         if circular {
-            assert_eq!(outcome.stop_reason, TurnStopReason::EscalatedUnproductive);
+            // The circular search is redirected, not stopped; the model then answers.
+            assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
             assert!(rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.contains("added no new sources") && n.contains("NO citations") && !n.contains("verifier"))));
+            assert!(history.iter().any(|m| m.role == ChatRole::Harness
+                && m.content.contains("RESEARCH REDIRECTION")
+                && !m.content.contains("write_file")));
         } else if cap == 3 {
             assert_eq!(club.calls.load(Ordering::SeqCst), 3);
             assert_eq!(outcome.hops, 3);
@@ -9682,18 +9702,26 @@ fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
             count: AtomicUsize::new(0),
             mode,
         };
+        let mut history = vec![ChatMsg::user("Exercise the local fixture lane")];
         let outcome = run_turn_observed(
             &club,
             &registry,
-            &mut vec![ChatMsg::user("Exercise the local fixture lane")],
+            &mut history,
             &AtomicBool::new(false),
             Some(210),
             &mpsc::channel().0,
         )
         .unwrap();
+        // Every lane reaches the scripted answer: the streak cap redirects, never stops.
+        assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+        assert_eq!(outcome.hops, 201);
+        let redirected = history.iter().any(|m| {
+            m.role == ChatRole::Harness
+                && m.content.contains("MANDATORY PROGRESS REDIRECTION")
+                && m.content.contains("last credited progress:")
+        });
         if mode == 0 {
-            assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-            assert_eq!(outcome.hops, 201);
+            assert!(!redirected);
             assert!(
                 trajectory::progress_ledger_snapshot()["unproductive_streak_max"]
                     .as_u64()
@@ -9701,9 +9729,7 @@ fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
                     < 60
             );
         } else {
-            assert_eq!(outcome.stop_reason, TurnStopReason::EscalatedUnproductive);
-            assert_eq!(outcome.hops, if mode == 2 { 61 } else { 60 });
-            assert!(outcome.answer.contains("last credited progress:"));
+            assert!(redirected, "mode={mode} stalled lane is redirected");
         }
         println!(
             "R06 scripted mode={mode} hops={} stop={:?} ledger={}",
