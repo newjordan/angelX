@@ -1479,10 +1479,15 @@ impl Bag {
             .first()
             .ok_or_else(|| "formation has no proposer seat".to_string())?;
         let propose = Arc::clone(propose);
-        let (aggregate, _) = aggregators
+        // A formation may legitimately have no dedicated synthesis seat: Tag
+        // Team is exactly two picked models. Shaping the final output on the
+        // lead proposer keeps the wrapper buildable, instead of failing at the
+        // turn boundary — where the failure path reopens the deck, so the
+        // operator can never engage and loops on the formation menu.
+        let aggregate = aggregators
             .first()
-            .ok_or_else(|| "formation has no synthesis seat".to_string())?;
-        let aggregate = Arc::clone(aggregate);
+            .map(|(club, _)| Arc::clone(club))
+            .unwrap_or_else(|| Arc::clone(&propose));
         let judge = judges
             .first()
             .map(|(club, _)| Arc::clone(club))
@@ -1503,7 +1508,11 @@ impl Bag {
         } else {
             verifiers.drain(1..).collect()
         };
-        let aggregator_extras = aggregators.drain(1..).collect();
+        let aggregator_extras = if aggregators.is_empty() {
+            Vec::new()
+        } else {
+            aggregators.drain(1..).collect()
+        };
 
         let moa: Arc<dyn Club> = Arc::new(
             crate::agent::swarm::SwarmClub::from_sota_env_roles(

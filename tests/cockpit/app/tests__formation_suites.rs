@@ -894,6 +894,20 @@ fn tag_team_command_selects_the_two_local_corners_not_council() {
         app.moa_one_shot.as_ref().map(|armed| armed.formation),
         Some(formations::FormationId::TagTeam)
     );
+
+    // Typing the first message must actually start the turn. A formation whose
+    // roster cannot install fails inside `apply_armed_moa_to_turn`, whose error
+    // path reopens the deck — so the operator selects Tag Team, engages, types,
+    // and lands back on the formation menu forever.
+    assert!(
+        app.apply_armed_moa_to_turn(),
+        "armed Tag Team must engage the turn"
+    );
+    assert!(
+        app.moa_deck.is_none(),
+        "a failed engagement reopens the deck; Tag Team must not loop the operator back to the menu"
+    );
+    assert_eq!(app.bag.in_hand_mode().as_deref(), Some("sota-moa"));
 }
 
 #[test]

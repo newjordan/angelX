@@ -229,7 +229,7 @@ fn math_god_does_not_fill_deepseek_seat_from_intelligence_order() {
 }
 
 #[test]
-fn tag_team_rosters_two_fleet_boxes_with_sol_as_the_advice_seat() {
+fn tag_team_rosters_exactly_two_local_corners() {
     let model = |agent: &str, model: &str, metered: bool| MoaModelChoice {
         route: MoaModelRef {
             agent_index: 0,
@@ -312,7 +312,7 @@ fn apply_sota_env_pins_refine_width_to_the_formation_width() {
 /// The conditional-advice posture lives in one env knob, and it must not
 /// outlive the engagement that set it.
 #[test]
-fn tag_team_pins_the_dissent_gate_and_leaving_clears_it() {
+fn tag_team_clears_the_dissent_gate_and_council_keeps_it_off() {
     let _lock = crate::tests::env_lock();
     // `apply_sota_env` writes the whole MoA knob set as a side effect, and
     // tests that never take this lock still read those knobs. Snapshot every
