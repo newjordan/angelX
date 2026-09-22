@@ -6676,8 +6676,11 @@ fn per_club_prompt_cache_pin_overrides_detection() {
 /// Measured 2026-08-10: the GLM coding plan (z.ai) and the Kimi Code plan both
 /// run automatic prefix caches with OpenAI-dialect `cached_tokens` accounting
 /// (paired-probe hits of 1920/1946 and 2030/2030 respectively), so both count
-/// as cache-capable and inherit the cache-first defaults alongside DeepSeek;
-/// an unmeasured backend stays conservative.
+/// as cache-capable and inherit the cache-first defaults alongside DeepSeek.
+/// Grok 4.7 (probed 2026-09-22) reports `cached_tokens` and reasoning tokens
+/// on the same dialect once `include_usage` is requested. An unmeasured
+/// backend stays conservative. The loopback row is the polyglot proxy path:
+/// base_url is not x.ai, the model id still is.
 #[test]
 fn prompt_cache_capability_covers_measured_glm_kimi_and_deepseek_families() {
     let capable = [
@@ -6690,6 +6693,8 @@ fn prompt_cache_capability_covers_measured_glm_kimi_and_deepseek_families() {
         ),
         ("kimi", "https://api.kimi.com/coding/v1", "k3"),
         ("deepseek", "https://api.deepseek.com/v1", "deepseek-v4-pro"),
+        ("grok-api", "https://api.x.ai/v1", "grok-4.7"),
+        ("grok-api", "http://127.0.0.1:39689/v1", "grok-4.7"),
     ];
     for (name, url, model) in capable {
         let club = HttpClub::new(name, url, model, None);
