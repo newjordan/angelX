@@ -7,9 +7,9 @@ embedded into the authored raycast interior:
 - `resident-tutors.png` — six original resident faculty portraits.
 - `curriculum-books.png` — six domain book jackets.
 
-The `*-source.png` files are the full-resolution built-in image-generation
-outputs; the smaller siblings are Lanczos-downsampled runtime textures. All
-three prompts requested original, text-free pixel-art assets with no logos or
+These are Lanczos-downsampled runtime textures from full-resolution built-in
+image-generation outputs, which are kept outside the repository. All three
+prompts requested original, text-free pixel-art assets with no logos or
 watermarks.
 
 The curriculum catalog in `cockpit/src/library.rs` links rather than vendors

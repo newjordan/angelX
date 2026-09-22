@@ -22,7 +22,7 @@ speedup. A Jev probability of 90% is neither of those measurements.
 
 Keep `TYPESAFE_API_KEY` in a private environment file with owner-only permissions, or the ignored `.angel.env`.
 
-The interactive launcher loads the shared host credentials and `.angel.env`.
+The interactive launcher loads `.angel.env`, plus the shared host credentials when `ANGEL_HOST_ENV=1`.
 Headless launches inherit the caller's environment or use an explicit
 `ANGEL_RUNNER_ENV_FILE`, such as `~/.config/host_env/system.env` for the Jev CLI;
 they do not import all interactive secrets. A research runner's `--env-file`

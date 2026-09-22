@@ -5,8 +5,10 @@ choose a supported reasoning level. `/status` shows the current session.
 Provider adapters live in `cockpit/src/agent/club`; your credentials and preferences
 belong in your environment or account login files.
 
-For interactive launches, put settings in the checkout's ignored `.angel.env`
-or `~/.config/host_env/system.env`, then restart Angel. For headless runs, export
+For interactive launches, put settings in the checkout's ignored `.angel.env`,
+then restart Angel. The launcher also reads `~/.config/host_env/*`, `~/.env` and
+`~/.openrouter.env`, but only when `ANGEL_HOST_ENV=1` is exported or set in
+`.angel.env`. For headless runs, export
 settings in the caller or set `ANGEL_RUNNER_ENV_FILE=/path/to/your.env`.
 
 | Connection | Setup | Route |
