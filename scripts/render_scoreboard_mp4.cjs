@@ -308,7 +308,7 @@ window.renderFrame = function(p) {
         spanTexts[ri].setAttribute('text-anchor', 'start');
         if (isFinished) {
           spanTexts[ri].setAttribute('fill', '#ffffff');
-          spanTexts[ri].textContent = '35m ★ finished';
+          spanTexts[ri].textContent = '35m ★ finished · 11.8M tok';
         } else {
           spanTexts[ri].setAttribute('fill', '#ffffff');
           spanTexts[ri].textContent = fmtMin(last);
@@ -318,7 +318,7 @@ window.renderFrame = function(p) {
         spanTexts[ri].setAttribute('text-anchor', 'start');
         if (isFinished) {
           spanTexts[ri].setAttribute('fill', '#a2a2ac');
-          spanTexts[ri].textContent = '59m';
+          spanTexts[ri].textContent = '59m · 68.0M tok';
         } else {
           spanTexts[ri].setAttribute('fill', '#888899');
           spanTexts[ri].textContent = fmtMin(last);
@@ -328,7 +328,7 @@ window.renderFrame = function(p) {
           spanTexts[ri].setAttribute('x', pxLast - 8);
           spanTexts[ri].setAttribute('text-anchor', 'end');
           spanTexts[ri].setAttribute('fill', '#e5c07b');
-          spanTexts[ri].textContent = '1.3h (cap)';
+          spanTexts[ri].textContent = '1.3h (cap) · 200M tok';
         } else {
           spanTexts[ri].setAttribute('x', pxLast + 8);
           spanTexts[ri].setAttribute('text-anchor', 'start');
