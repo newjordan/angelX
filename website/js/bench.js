@@ -120,8 +120,8 @@ function play(state, ticks, onTick, animate = true) {
 // ════ THE RACE — solved attempts against the agent clock ════
 function race(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  // Header holds the clock, angelX's score on its own line and the peers on the next.
-  const f = frame(svg, { ox: 50, oy: 62, GW: 124, GH: 49 });
+  // Unified single-line header: all three harness scores on one baseline, clock on right
+  const f = frame(svg, { ox: 50, oy: 34, GW: 124, GH: 58 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
     let t = 0, v = 0;
@@ -146,12 +146,16 @@ function race(svg, m, state, anim = true) {
     xLabel(svg, f, c, `${q}m`, q === 0 ? 'start' : 'middle');
   }
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'agent time (min)');
-  const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt num', 'font-size': 15, fill: DIM }, '');
-  const counters = {};
-  LEGEND_ORDER.forEach((h, k) => {
-    const at = [[0, 33, 19], [0, 52, 16], [196, 52, 16]][k];
-    counters[h] = txt(svg, { x: f.ox - 2 * P + at[0], y: at[1], class: `vt num ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': at[2], fill: h === 'angelx' ? HERO : (SER[h].color === D3 ? DIM : SER[h].color) }, '');
-  });
+
+  const readout = el(svg, 'text', { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 14.5 });
+  const axSpan = el(readout, 'tspan', { fill: HERO, class: 'ax-txt-glow' });
+  const sep1 = el(readout, 'tspan', { fill: RULE }); sep1.textContent = '  \u00b7  ';
+  const ocSpan = el(readout, 'tspan', { fill: DIM });
+  const sep2 = el(readout, 'tspan', { fill: RULE }); sep2.textContent = '  \u00b7  ';
+  const ompSpan = el(readout, 'tspan', { fill: D3 });
+  const counters = { angelx: axSpan, opencode: ocSpan, omp: ompSpan };
+
+  const clock = txt(svg, { x: f.X(f.GW - 1), y: 16, 'text-anchor': 'end', class: 'vt num', 'font-size': 14.5, fill: DIM }, '');
   const paths = {}, dots = {};
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, true).filter(d => SER[s.h].on(d.i));
@@ -198,7 +202,7 @@ function trace(svg, m, state, anim = true) {
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 2)) + 1, `${Math.round(q * top)}s`));
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell(a - 1, 0).c, k ? `#${a}` : '#1', k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'attempt (run order)');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 15, fill: INK }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 14.5, fill: INK }, '');
   const paths = {}, meds = {};
   cs.forEach(c => { paths[c.harness] = el(svg, 'path', { d: '', fill: c.harness === 'angelx' ? HERO : SER[c.harness].color, class: c.harness === 'angelx' ? 'ax-glow' : '' }); });
   cs.forEach(c => { meds[c.harness] = el(svg, 'path', { d: '', fill: c.harness === 'angelx' ? HERO : SER[c.harness].color, opacity: .95, class: c.harness === 'angelx' ? 'ax-glow-soft' : '' }); });
@@ -251,7 +255,7 @@ function burn(svg, m, state, anim = true) {
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 1)), q ? fmtTok(q * top) : '0'));
   [0, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 0 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'attempts');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 14, fill: INK }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 14.5, fill: INK }, '');
   const paths = {}, dots = {}, ends = el(svg, 'g', {});
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
@@ -290,7 +294,7 @@ function burn(svg, m, state, anim = true) {
 // ════ CACHE — running cache hit rate over the run ════
 function cache(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const f = frame(svg, { ox: 50, oy: 44, GW: 124, GH: 55 });
+  const f = frame(svg, { ox: 50, oy: 34, GW: 124, GH: 58 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
     let tot = 0, hit = 0, fresh = 0;
@@ -312,8 +316,7 @@ function cache(svg, m, state, anim = true) {
   });
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 100 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'attempts');
-  const l1 = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 14, fill: DIM }, '');
-  const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt num', 'font-size': 15, fill: INK }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 14.5, fill: INK }, '');
   const paths = {}, dots = {};
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
@@ -327,10 +330,10 @@ function cache(svg, m, state, anim = true) {
       paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y), dotSize)).join(''));
     });
     const at = Math.max(1, Math.floor(now));
-    l1.textContent = 'HIT  ' + LEGEND_ORDER.map(h => { const s = series.find(x => x.h === h); return `${SER[h].label} ${s.pts[Math.min(at, s.pts.length) - 1].v.toFixed(1)}%`; }).join('  ·  ');
-    l2.textContent = p >= 1
-      ? 'FRESH/TASK  ' + LEGEND_ORDER.map(h => `${SER[h].label} ${(series.find(x => x.h === h).fresh / 1000).toFixed(1)}k`).join('  ·  ')
-      : `ATTEMPT ${String(at).padStart(2, '0')}/${N}`;
+    readout.textContent = 'HIT RATE  ' + LEGEND_ORDER.map(h => {
+      const s = series.find(x => x.h === h);
+      return `${SER[h].label} ${s.pts[Math.min(at, s.pts.length) - 1].v.toFixed(1)}%`;
+    }).join('  \u00b7  ');
   }, anim);
 }
 
@@ -368,7 +371,7 @@ function scoreboard(svg, m, state, anim = true) {
   txt(svg, { x: X0 + W, y: axisY + 30, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'cumulative agent time to completion (min)');
 
   const total = rows.reduce((n, r) => n + r.c.attempts.length, 0);
-  const readout = txt(svg, { x: 2, y: 18, class: 'vt num', 'font-size': 15, fill: INK }, '');
+  const readout = txt(svg, { x: 44, y: 16, class: 'vt num', 'font-size': 14.5, fill: INK }, '');
   const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? HERO : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
   const miss = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: DIM, 'stroke-width': 1.2 }));
   const counts = rows.map(r => txt(svg, { x: 450, y: r.y + 7, 'text-anchor': 'end', class: `vt num ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? HERO : DIM }, ''));
@@ -411,9 +414,7 @@ function bars(svg, m, state, anim = true) {
   const H = BASE - CAP_Y; // 122px
   const cols = [];
 
-  txt(svg, { x: 8, y: 18, class: 'vt', 'font-size': 13, fill: DIM }, B.models[m].name.toUpperCase());
-  txt(svg, { x: 8, y: 30, class: 'vt', 'font-size': 11, fill: FAINT },
-      'tokens generated (thick pillars) \u00b7 model calls per task \u00b7 cap at 2.5k tokens');
+  txt(svg, { x: 44, y: 16, class: 'vt num', 'font-size': 14.5, fill: INK }, 'OUTPUT PER TASK');
 
   /* three balanced slots across the 460px panel */
   const SLOT = [86, 230, 374];
