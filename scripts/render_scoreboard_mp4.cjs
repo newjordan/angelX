@@ -178,13 +178,13 @@ const HTML_CONTENT = `<!DOCTYPE html>
 <div class="stage">
 
   <div class="sec-head">
-    <p class="sec-kicker">angelX · measured telemetry</p>
+    <p class="sec-kicker">angelX · polyglot-v1 · 2026-09-21</p>
     <h1 class="sec-title">Task Completion and Timing</h1>
     <p class="sec-sub">DeepSeek V4.1 Flash</p>
   </div>
 
   <div class="tv">
-    <div class="tv-badge">◇ 136 REPOSITORY-REPAIR TASKS · 600s WALL CAP ◇</div>
+    <div class="tv-badge">136 REPOSITORY-REPAIR TASKS · 600 s LIMIT</div>
     <svg id="scoreboard-svg" viewBox="0 0 912 480"></svg>
     <div class="legend">
       <span class="ax-hero"><i class="pass"></i>passed</span>
@@ -193,7 +193,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
   </div>
 
   <footer class="provenance">
-    Graded on Prime Intellect evaluators (Verifiers v0.3.1) · <strong>angelx.dev</strong>
+    Evaluator: Prime Intellect Verifiers v0.3.1 · <strong>angelx.dev</strong>
   </footer>
 
 </div>

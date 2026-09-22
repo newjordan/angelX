@@ -34,7 +34,7 @@ cd angelX
 
 ### polyglot-v1 · 136 tasks · 2026-09-21
 
-136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++) from the Aider polyglot set, one attempt per task, 600 s wall clock per attempt, pass/fail decided by each task's own tests. Wall is the median agent time per attempt. Tokens are totals across the cell.
+136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++) from the Aider polyglot set. One attempt per task, 600 s limit, graded by each task's tests. Wall: median agent time per attempt. Tokens: totals per cell.
 
 | model | harness | solved | wall (median) | calls / task | input tokens | cache hit | output tokens |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -45,41 +45,41 @@ cd angelX
 | | OpenCode 1.18.31 | 133 / 136 | 38.9 s | 7.4 | 10.1 M | 85% | 179 k |
 | | oh-my-pi 18.2.4 | 133 / 136 | 37.7 s | 8.9 | 24.1 M | 90% | 203 k |
 
-* oh-my-pi on DeepSeek stopped after 93 tasks across its combined runs at its 200M-token budget cap (86 solved); the other five cells ran all 136.
+* oh-my-pi on DeepSeek reached its 200M-token budget cap after 93 tasks (86 solved). The run was paused once for debugging and resumed. The other five cells ran all 136.
 
-angelX runs a verification stage before it reports a task done; that is where its extra wall time on GLM goes. Raising the thinking level moves it further along the same trade: slower, more checked.
+angelX runs a verification step before reporting a task done. That step accounts for its extra wall time on GLM; higher thinking levels add more.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/race-dark.png">
-  <img alt="The race to 136: finished attempts against agent time for angelX, OpenCode and omp, on DeepSeek V4.1 Flash and GLM-5.3-Flash" src="docs/images/bench/race-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/solved-dark.png">
+  <img alt="Tasks solved vs. cumulative agent time" src="docs/images/bench/solved-light.png">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/score-dark.png">
-  <img alt="Every attempt, placed at the moment it finished: pass and fail on cumulative agent time, for angelX, OpenCode and omp on both models" src="docs/images/bench/score-light.png">
+  <img alt="Pass/fail per attempt vs. cumulative agent time" src="docs/images/bench/score-light.png">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/bars-dark.png">
-  <img alt="Output per task: tokens generated and model calls made per task, with stacked bars at the 2.5k cap, for angelX, OpenCode and omp on both models" src="docs/images/bench/bars-light.png">
+  <img alt="Output tokens and model calls per task, bars capped at 2.5k" src="docs/images/bench/bars-light.png">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/seconds-dark.png">
-  <img alt="Seconds per attempt in run order with medians, for angelX, OpenCode and omp on both models" src="docs/images/bench/seconds-light.png">
+  <img alt="Seconds per attempt in run order, with medians" src="docs/images/bench/seconds-light.png">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/context-dark.png">
-  <img alt="Input tokens burned across all attempts, for angelX, OpenCode and omp on both models" src="docs/images/bench/context-light.png">
+  <img alt="Cumulative input tokens, cached and uncached" src="docs/images/bench/context-light.png">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/cache-dark.png">
-  <img alt="Running cache hit rate over the run, for angelX, OpenCode and omp on both models" src="docs/images/bench/cache-light.png">
+  <img alt="Cache hit rate over the run" src="docs/images/bench/cache-light.png">
 </picture>
 
-<sub>* All tests performed on the <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect evaluators</a> (Verifiers v0.3.1) · polyglot-v1: 136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++), one attempt per task, pass/fail decided by each task’s own tests · angelX 98d7340 · oh-my-pi 18.2.4 · opencode 1.18.31 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (the model’s floor) · temperature 0 · 8,192-token output cap · 600 s wall clock per attempt · fresh environment per attempt · 2026-09-21</sub>
+<sub>Evaluator: <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect Verifiers</a> v0.3.1 · angelX 98d7340 · OpenCode 1.18.31 · oh-my-pi 18.2.4 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (lowest available) · temperature 0 · 8,192-token output cap · 600 s per attempt · fresh environment per attempt · 2026-09-21</sub>
 
 ## Research and credits
 
