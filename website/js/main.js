@@ -63,6 +63,21 @@
   }, { threshold: [0, 0.15] });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
+  /* play the teaser video when it enters viewport */
+  const teaserVideo = document.querySelector('video.teaser');
+  if (teaserVideo) {
+    const videoIo = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          teaserVideo.play().catch(() => {});
+        } else {
+          teaserVideo.pause();
+        }
+      }
+    }, { threshold: 0.1 });
+    videoIo.observe(teaserVideo);
+  }
+
   /* ── a tiny star ping breathes at the sword tip while the blade is raised ── */
   let ping = null, pingTimer = 0;
   function startPing() {
