@@ -17,6 +17,24 @@ fn selection_change_starts_250ms_dissolve_and_increments_epoch() {
 }
 
 #[test]
+fn formation_alias_routes_every_formation_to_its_own_id() {
+    assert_eq!(formation_alias("tag-team"), Some(FormationId::TagTeam));
+    assert_eq!(formation_alias("tag team"), Some(FormationId::TagTeam));
+    assert_eq!(formation_alias("council"), Some(FormationId::Council));
+    assert_eq!(formation_alias("auto-moa"), Some(FormationId::AutoMoa));
+    assert_eq!(formation_alias("grok-war"), Some(FormationId::GrokWar));
+    assert_eq!(formation_alias("math-god"), Some(FormationId::MathGod));
+    assert_eq!(formation_alias("gpu-comp"), Some(FormationId::GpuComp));
+    assert_eq!(
+        formation_alias("solo-strike"),
+        Some(FormationId::SoloStrike)
+    );
+    assert_eq!(formation_alias("recon"), Some(FormationId::Recon));
+    assert_eq!(formation_alias("duel"), Some(FormationId::Duel));
+    assert_eq!(formation_alias("all-in"), Some(FormationId::AllIn));
+}
+
+#[test]
 fn selection_wrap_preserves_formation_data_behavior() {
     let mut deck = MoaDeckState::new(Vec::new());
     let original = *deck.selected();

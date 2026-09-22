@@ -296,6 +296,14 @@ fn parses_codex_ported_commands() {
         ParsedInput::MoaDeck(Some(a)) if a == "soundness"
     ));
     assert!(matches!(
+        parse("/moa tag-team").unwrap(),
+        ParsedInput::MoaDeck(Some(a)) if a == "tag-team"
+    ));
+    assert!(matches!(
+        parse("/moa auto").unwrap(),
+        ParsedInput::MoaDeck(Some(a)) if a == "auto"
+    ));
+    assert!(matches!(
         parse("activate the moa").unwrap(),
         ParsedInput::MoaDeck(None)
     ));

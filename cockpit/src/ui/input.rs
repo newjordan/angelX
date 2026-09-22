@@ -756,7 +756,7 @@ fn moa_deck_subcommand(arg: &str) -> bool {
         .next()
         .unwrap_or("")
         .to_ascii_lowercase();
-    matches!(
+    if matches!(
         word.as_str(),
         "cards"
             | "deck"
@@ -799,7 +799,13 @@ fn moa_deck_subcommand(arg: &str) -> bool {
             | "proximity"
             | "soundness"
             | "lean"
-    )
+    ) {
+        return true;
+    }
+    // Hyphenated canonical slugs (tag-team, grok-war, gpu-comp, ...) and the
+    // newer aliases that are not listed above are resolved by the same table
+    // that `open_moa_deck` uses, instead of being misread as `/moa <message>`.
+    crate::agent::formations::formation_alias(arg).is_some()
 }
 
 fn looks_like_gpu_comp_moa_activation(trimmed: &str) -> bool {

@@ -25,8 +25,8 @@ impl App {
             Some(a) if a.eq_ignore_ascii_case("status") => {
                 self.system_msg(self.moa_card_status_text());
             }
-            Some(a) if formation_alias(a).is_some() => {
-                let id = formation_alias(a).expect("checked above");
+            Some(a) if crate::agent::formations::formation_alias(a).is_some() => {
+                let id = crate::agent::formations::formation_alias(a).expect("checked above");
                 self.open_moa_deck(None);
                 self.select_moa_card(id);
                 self.system_msg(format!(
@@ -622,37 +622,6 @@ impl App {
             "Agent formation\n  next turn {one}\n  session   {session}\n{}",
             self.bag.sota_moa_status()
         )
-    }
-}
-
-fn formation_alias(raw: &str) -> Option<crate::agent::formations::FormationId> {
-    let alias = raw.trim().to_ascii_lowercase().replace(['_', '-'], " ");
-    let alias = alias.split_whitespace().collect::<Vec<_>>().join(" ");
-    match alias.as_str() {
-        "gpu" | "gpu comp" | "gpu competition" | "gpu comp moa" | "comp" | "competition"
-        | "overnight" | "sleep" | "night loop" | "overnight loop" => {
-            Some(crate::agent::formations::FormationId::GpuComp)
-        }
-        "solo" | "solo strike" | "rest" | "resting" => {
-            Some(crate::agent::formations::FormationId::SoloStrike)
-        }
-        "recon" | "scout" => Some(crate::agent::formations::FormationId::Recon),
-        "duel" => Some(crate::agent::formations::FormationId::Duel),
-        "council" => Some(crate::agent::formations::FormationId::Council),
-        "all in" | "allin" | "all" => Some(crate::agent::formations::FormationId::AllIn),
-        "grok" | "grok war" | "grokwar" | "war" | "war trio" | "trio" | "sota war"
-        | "frontier war" | "last stand" | "battle" => {
-            Some(crate::agent::formations::FormationId::GrokWar)
-        }
-        "tag" | "tag team" | "tagteam" | "tag out" | "local" | "local pair" | "local tag"
-        | "local tag team" | "home team" => Some(crate::agent::formations::FormationId::TagTeam),
-        "math" | "math god" | "mathgod" | "proximity" | "soundness" | "lean" => {
-            Some(crate::agent::formations::FormationId::MathGod)
-        }
-        "auto" | "auto moa" | "automoa" | "standing" | "standing moa" | "sota" | "sota moa" => {
-            Some(crate::agent::formations::FormationId::AutoMoa)
-        }
-        _ => None,
     }
 }
 
