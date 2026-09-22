@@ -25,7 +25,7 @@ ANGEL_VIDEO=0 ./bin/angelX
 - **Measured campaigns** — Evaluate isolated attempts with verifiers and independent review.
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
 - **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
-- **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui foundations for reviewing work, presenting data graphs, adventure, and model behavior.
+- **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
 
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
