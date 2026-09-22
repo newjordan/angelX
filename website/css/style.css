@@ -80,11 +80,6 @@ body.ascended .hud-ascent{opacity:1}
   color:var(--dim);padding:7px;cursor:pointer}
 .copy-btn:hover,.copy-btn.copied{color:#000;background:#fff;border-color:#fff}
 
-/* footnote under the install: blackletter, kept small and dim */
-.dream-note{font-family:'UnifrakturMaguntia','Old English Text MT',Palatino,'Palatino Linotype',serif;
-  color:var(--dim);font-size:clamp(20px,2.2vw,26px);line-height:1.35;
-  max-width:40rem;margin:16px auto 0;text-align:center}
-.dream-title{display:block;color:var(--ink);font-size:1.2em;line-height:1.1;margin-bottom:.2em}
 
 /* ─── sections (document order = reverse reading order) ───────── */
 main{position:relative;z-index:2}
