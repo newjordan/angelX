@@ -79,7 +79,7 @@ angelX runs a verification stage before it reports a task done; that is where it
   <img alt="Running cache hit rate over the run, for angelX, OpenCode and omp on both models" src="docs/images/bench/cache-light.png">
 </picture>
 
-<sub>* All tests performed on the <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect evaluators</a> (Verifiers v0.3.1) · polyglot-v1: 136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++), one attempt per task, pass/fail decided by each task’s own tests · angelX 7373b11 · oh-my-pi 18.2.4 · opencode 1.18.31 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (the model’s floor) · temperature 0 · 8,192-token output cap · 600 s wall clock per attempt · fresh environment per attempt · 2026-09-21</sub>
+<sub>* All tests performed on the <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect evaluators</a> (Verifiers v0.3.1) · polyglot-v1: 136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++), one attempt per task, pass/fail decided by each task’s own tests · angelX 98d7340 · oh-my-pi 18.2.4 · opencode 1.18.31 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (the model’s floor) · temperature 0 · 8,192-token output cap · 600 s wall clock per attempt · fresh environment per attempt · 2026-09-21</sub>
 
 ## Research and credits
 
