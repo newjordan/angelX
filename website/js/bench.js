@@ -9,9 +9,9 @@ const B = window.BENCH;
 if (!B) return;
 
 // site tokens (css/style.css :root); omp's mark gray is a TXT×BG mix (marks only, 4.0:1)
-const TH = Object.assign({ INK: '#f4f4f7', DIM: '#bcbcc7', D3: '#7c7c88', FAINT: '#74747f', RULE: '#3a3a44', BG: '#050506', HERO: '' },
+const TH = Object.assign({ INK: '#f4f4f7', DIM: '#a2a2ac', D3: '#686875', FAINT: '#5d5d68', RULE: '#3a3a44', BG: '#050506', HERO: '#ffffff' },
   window.BENCH_THEME || {});      // optional palette override (README renders); the site uses these defaults
-const { INK, DIM, D3, FAINT, RULE, BG } = TH, HERO = TH.HERO || TH.INK;
+const { INK, DIM, D3, FAINT, RULE, BG, HERO } = TH;
 const P = 3, S = 2, FPS = 12;             // dot pitch, dot size (viewBox units), frame rate
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const NS = 'http://www.w3.org/2000/svg';
@@ -34,9 +34,13 @@ const modelLabel = m => `${B.models[m].name} \u00b7 thinking ${B.models[m].think
 const cell = (m, h) => B.cells.find(c => c.model === m && c.harness === h);
 const N = Math.max(...B.cells.map(c => c.attempts.length));
 const fmtS = s => s >= 600 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : `${Math.round(s)}s`;
-const fmtClock = s => `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const fmtTok = v => v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : `${Math.round(v / 1e3)}k`;
-const niceCeil = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const f of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (f * p >= v) return f * p; return 10 * p; };
+const fmtTok = v => {
+  if (v >= 1e6) {
+    const m = v / 1e6;
+    return (m >= 100 || m % 1 === 0) ? `${Math.round(m)}M` : `${m.toFixed(1)}M`;
+  }
+  return `${Math.round(v / 1e3)}k`;
+};
 
 // Bresenham over cells, one callback per dot — the app's draw_dot_line
 function line(c0, r0, c1, r1, cb) {
@@ -81,7 +85,7 @@ function trail(points, toCell, stairs) {
 
 // plot frame: faint dot lattice, dotted axes; returns cell→unit mappers
 function frame(svg, o = {}) {
-  const f = { ox: 44, oy: 34, GW: 128, GH: 58, ...o };
+  const f = { ox: 50, oy: 34, GW: 124, GH: 58, ...o };
   f.X = c => f.ox + c * P;
   f.Y = r => f.oy + r * P;
   let d = '';
@@ -116,7 +120,7 @@ function play(state, ticks, onTick, animate = true) {
 function race(svg, m, state, anim = true) {
   svg.innerHTML = '';
   // Header holds the clock, angelX's score on its own line and the peers on the next.
-  const f = frame(svg, { oy: 62, GH: 49 });
+  const f = frame(svg, { ox: 50, oy: 62, GW: 124, GH: 49 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
     let t = 0, v = 0;
@@ -140,17 +144,17 @@ function race(svg, m, state, anim = true) {
     const c = Math.round(q * 60 / T * (f.GW - 1));
     xLabel(svg, f, c, `${q}m`, q === 0 ? 'start' : 'middle');
   }
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'agent time (min)');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'agent time (min)');
   const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt num', 'font-size': 15, fill: DIM }, '');
   const counters = {};
   LEGEND_ORDER.forEach((h, k) => {
     const at = [[0, 33, 19], [0, 52, 16], [196, 52, 16]][k];
-    counters[h] = txt(svg, { x: f.ox - 2 * P + at[0], y: at[1], class: `vt num ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': at[2], fill: SER[h].color === D3 ? DIM : SER[h].color }, '');
+    counters[h] = txt(svg, { x: f.ox - 2 * P + at[0], y: at[1], class: `vt num ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': at[2], fill: h === 'angelx' ? HERO : (SER[h].color === D3 ? DIM : SER[h].color) }, '');
   });
   const paths = {}, dots = {};
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, true).filter(d => SER[s.h].on(d.i));
-    paths[s.h] = el(svg, 'path', { d: '', fill: SER[s.h].color, class: s.h === 'angelx' ? 'ax-glow' : '' });
+    paths[s.h] = el(svg, 'path', { d: '', fill: s.h === 'angelx' ? HERO : SER[s.h].color, class: s.h === 'angelx' ? 'ax-glow' : '' });
     tip(paths[s.h], `${SER[s.h].label} — ${s.solved}/${s.pts.length - 1} solved in ${Math.round(s.total)} s of agent time`);
   });
   const finish = el(svg, 'g', {});
@@ -158,7 +162,8 @@ function race(svg, m, state, anim = true) {
     const now = p * last;
     clock.textContent = fmtClock(now);
     series.forEach(s => {
-      paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join(''));
+      const dotSize = s.h === 'angelx' ? 2.5 : S;
+      paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y), dotSize)).join(''));
       /* solved-so-far: the cumulative value of the last elapsed point, not the
          number of points elapsed (those differ — 136 attempts, 133 solved) */
       const cur = s.pts.filter(q => q.t <= now).pop();
@@ -169,7 +174,7 @@ function race(svg, m, state, anim = true) {
       finish.innerHTML = '';
       series.forEach(s => {
         const e = toCell(s.pts[s.pts.length - 1]);
-        const star = txt(finish, { x: f.X(e.c) + 1, y: f.Y(e.r) - 4, 'text-anchor': 'middle', class: `vt ${s.h === 'angelx' ? 'ax-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color }, '◆');
+        const star = txt(finish, { x: f.X(e.c) + 1, y: f.Y(e.r) - 4, 'text-anchor': 'middle', class: `vt ${s.h === 'angelx' ? 'ax-glow' : ''}`, 'font-size': 16, fill: s.h === 'angelx' ? HERO : SER[s.h].color }, '◆');
         tip(star, `${SER[s.h].label} finished ${s.solved}/${s.pts.length - 1} at ${Math.round(s.total)} s`);
       });
     }
@@ -184,18 +189,18 @@ const MARK = {  // cell offsets: angelX block, OpenCode plus, omp cross
 };
 function trace(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const f = frame(svg);
+  const f = frame(svg, { ox: 50, GW: 124 });
   const cs = DRAW_ORDER.map(h => cell(m, h));
   const walls = cs.flatMap(c => c.attempts.map(a => a.wall_s)).sort((a, b) => a - b);
   const top = niceCeil(walls[Math.floor(walls.length * .96)] * 1.1);
   const toCell = (i, s) => ({ c: Math.round(i / (N - 1) * (f.GW - 3)) + 1, r: Math.round((1 - Math.min(s, top) / top) * (f.GH - 2)) + 1 });
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 2)) + 1, `${Math.round(q * top)}s`));
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell(a - 1, 0).c, k ? `#${a}` : '#1', k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempt (run order)');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 16, fill: INK }, '');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'attempt (run order)');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 15, fill: INK }, '');
   const paths = {}, meds = {};
-  cs.forEach(c => { paths[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, class: c.harness === 'angelx' ? 'ax-glow' : '' }); });
-  cs.forEach(c => { meds[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, opacity: .9, class: c.harness === 'angelx' ? 'ax-glow-soft' : '' }); });
+  cs.forEach(c => { paths[c.harness] = el(svg, 'path', { d: '', fill: c.harness === 'angelx' ? HERO : SER[c.harness].color, class: c.harness === 'angelx' ? 'ax-glow' : '' }); });
+  cs.forEach(c => { meds[c.harness] = el(svg, 'path', { d: '', fill: c.harness === 'angelx' ? HERO : SER[c.harness].color, opacity: .95, class: c.harness === 'angelx' ? 'ax-glow-soft' : '' }); });
   const hits = el(svg, 'g', {});
   cs.forEach(c => c.attempts.forEach((a, i) => {
     const p = toCell(i, a.wall_s);
@@ -206,10 +211,11 @@ function trace(svg, m, state, anim = true) {
     const upto = Math.min(N, Math.ceil(p * (N + 8)));
     cs.forEach(c => {
       let d = '';
+      const isAx = c.harness === 'angelx';
       c.attempts.slice(0, upto).forEach((a, i) => {
         const q = toCell(i, a.wall_s);
-        MARK[c.harness].forEach(([dx, dy]) => { d += sq(f.X(q.c + dx), f.Y(q.r + dy)); });
-        if (a.wall_s > top) d += sq(f.X(q.c), Math.max(f.oy + 1, f.Y(q.r) - 2 * P), 1.4);
+        MARK[c.harness].forEach(([dx, dy]) => { d += sq(f.X(q.c + dx), f.Y(q.r + dy), isAx ? 2.4 : S); });
+        if (a.wall_s > top) d += sq(f.X(q.c), Math.max(f.oy + 1, f.Y(q.r) - 2 * P), 1.6);
       });
       paths[c.harness].setAttribute('d', d);
     });
@@ -217,7 +223,8 @@ function trace(svg, m, state, anim = true) {
       cs.forEach(c => {
         const r = toCell(0, c.summary.wall.median).r;
         let d = '';
-        for (let x = 0; x < f.GW; x++) if (SER[c.harness].on(x)) d += sq(f.X(x), f.Y(r) + .5, 1.4);
+        const isAx = c.harness === 'angelx';
+        for (let x = 0; x < f.GW; x++) if (SER[c.harness].on(x)) d += sq(f.X(x), f.Y(r) + .5, isAx ? 2.0 : 1.4);
         meds[c.harness].setAttribute('d', d);
       });
       readout.textContent = 'MEDIAN  ' + LEGEND_ORDER.map(h => `${SER[h].label} ${cell(m, h).summary.wall.median.toFixed(1)}s`).join('  ·  ');
@@ -230,7 +237,7 @@ function trace(svg, m, state, anim = true) {
 // ════ CONTEXT BURNED — cumulative input tokens over the run ════
 function burn(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const f = frame(svg);
+  const f = frame(svg, { ox: 50, GW: 124 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
     let v = 0, u = 0;
@@ -242,17 +249,20 @@ function burn(svg, m, state, anim = true) {
   const toCell = p => ({ c: Math.round(p.t / N * (f.GW - 1)), r: Math.round((1 - p.v / top) * (f.GH - 1)) });
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 1)), q ? fmtTok(q * top) : '0'));
   [0, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 0 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempts');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 16, fill: INK }, '');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'attempts');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt num', 'font-size': 14, fill: INK }, '');
   const paths = {}, dots = {}, ends = el(svg, 'g', {});
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
-    paths[s.h] = el(svg, 'path', { d: '', fill: SER[s.h].color, class: s.h === 'angelx' ? 'ax-glow' : '' });
+    paths[s.h] = el(svg, 'path', { d: '', fill: s.h === 'angelx' ? HERO : SER[s.h].color, class: s.h === 'angelx' ? 'ax-glow' : '' });
     tip(paths[s.h], `${SER[s.h].label} — ${Math.round(s.total).toLocaleString('en-US')} input tokens over ${N} attempts, ${Math.round(s.uncached).toLocaleString('en-US')} uncached`);
   });
   play(state, Math.round(FPS * 5), p => {
     const now = p * N;
-    series.forEach(s => paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join('')));
+    series.forEach(s => {
+      const dotSize = s.h === 'angelx' ? 2.5 : S;
+      paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y), dotSize)).join(''));
+    });
     if (p >= 1) {
       ends.innerHTML = '';
       svg.appendChild(ends);   /* paint the labels last: re-append moves the group above the curves */
@@ -266,7 +276,7 @@ function burn(svg, m, state, anim = true) {
         const lab = `${SER[s.h].label} ${fmtTok(s.total)}`;
         const w = lab.length * 8.4 + 8;
         el(ends, 'rect', { x: f.X(f.GW - 1) + 2 - w, y: y - 12, width: w, height: 16, fill: BG });
-        txt(ends, { x: f.X(f.GW - 1) - 4, y, 'text-anchor': 'end', class: `vt num ${s.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color === D3 ? DIM : SER[s.h].color },
+        txt(ends, { x: f.X(f.GW - 1) - 4, y, 'text-anchor': 'end', class: `vt num ${s.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 14.5, fill: s.h === 'angelx' ? HERO : (SER[s.h].color === D3 ? DIM : SER[s.h].color) },
           lab);
       });
       readout.textContent = 'UNCACHED  ' + LEGEND_ORDER.map(h => `${SER[h].label} ${fmtTok(series.find(s => s.h === h).uncached)}`).join('  ·  ');
@@ -279,7 +289,7 @@ function burn(svg, m, state, anim = true) {
 // ════ CACHE — running cache hit rate over the run ════
 function cache(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const f = frame(svg, { oy: 44, GH: 55 });
+  const f = frame(svg, { ox: 50, oy: 44, GW: 124, GH: 55 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
     let tot = 0, hit = 0, fresh = 0;
@@ -300,18 +310,21 @@ function cache(svg, m, state, anim = true) {
     yLabel(svg, f, r, `${Math.round(v)}%`);
   });
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 100 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
-  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'attempts');
+  txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'attempts');
   const l1 = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 14, fill: DIM }, '');
-  const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt num', 'font-size': 16, fill: INK }, '');
+  const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt num', 'font-size': 15, fill: INK }, '');
   const paths = {}, dots = {};
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
-    paths[s.h] = el(svg, 'path', { d: '', fill: SER[s.h].color, class: s.h === 'angelx' ? 'ax-glow' : '' });
+    paths[s.h] = el(svg, 'path', { d: '', fill: s.h === 'angelx' ? HERO : SER[s.h].color, class: s.h === 'angelx' ? 'ax-glow' : '' });
     tip(paths[s.h], `${SER[s.h].label} — ${s.rate.toFixed(1)}% of input served from cache; ${Math.round(s.fresh).toLocaleString('en-US')} fresh tokens per task`);
   });
   play(state, Math.round(FPS * 5), p => {
     const now = 1 + p * (N - 1);
-    series.forEach(s => paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join('')));
+    series.forEach(s => {
+      const dotSize = s.h === 'angelx' ? 2.5 : S;
+      paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y), dotSize)).join(''));
+    });
     const at = Math.max(1, Math.floor(now));
     l1.textContent = 'HIT  ' + LEGEND_ORDER.map(h => { const s = series.find(x => x.h === h); return `${SER[h].label} ${s.pts[Math.min(at, s.pts.length) - 1].v.toFixed(1)}%`; }).join('  ·  ');
     l2.textContent = p >= 1
@@ -327,12 +340,12 @@ function scoreboard(svg, m, state, anim = true) {
      moment it finished, in cumulative agent time since the run began. One
      shared scale across the rows, so a row that stops a fifth of the way
      across really did finish in a fifth of the time. */
-  const X0 = 72, W = 320, DOT = 1.5, ROW = 44;
+  const X0 = 76, W = 314, DOT = 1.6, ROW = 44;
   const rows = [];
   let y = 74;
   LEGEND_ORDER.forEach(h => {
     const c = cell(m, h);
-    txt(svg, { x: X0 - 8, y: y + 6, 'text-anchor': 'end', class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 13, fill: SER[h].color === D3 ? DIM : SER[h].color }, SER[h].label);
+    txt(svg, { x: X0 - 8, y: y + 6, 'text-anchor': 'end', class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 13, fill: h === 'angelx' ? HERO : (SER[h].color === D3 ? DIM : SER[h].color) }, SER[h].label);
     let t = 0;
     const times = c.attempts.map(a => (t += a.wall_s));
     rows.push({ c, h, y, times });
@@ -354,10 +367,10 @@ function scoreboard(svg, m, state, anim = true) {
   txt(svg, { x: X0 + W, y: axisY + 30, 'text-anchor': 'end', class: 'vt', 'font-size': 13, fill: FAINT }, 'cumulative agent time to completion (min)');
 
   const total = rows.reduce((n, r) => n + r.c.attempts.length, 0);
-  const readout = txt(svg, { x: 2, y: 18, class: 'vt num', 'font-size': 16, fill: INK }, '');
-  const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? (window.BENCH_THEME ? HERO : '#ffffff') : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
+  const readout = txt(svg, { x: 2, y: 18, class: 'vt num', 'font-size': 15, fill: INK }, '');
+  const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? HERO : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
   const miss = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: DIM, 'stroke-width': 1.2 }));
-  const counts = rows.map(r => txt(svg, { x: 454, y: r.y + 7, 'text-anchor': 'end', class: `vt num ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? (window.BENCH_THEME ? HERO : INK) : DIM }, ''));
+  const counts = rows.map(r => txt(svg, { x: 450, y: r.y + 7, 'text-anchor': 'end', class: `vt num ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? HERO : DIM }, ''));
   const spans = rows.map(r => txt(svg, { x: 0, y: r.y + 24, class: 'vt', 'font-size': 11.5, fill: FAINT }, ''));
 
   const fmtMin = sec => sec >= 3600 ? `${(sec / 3600).toFixed(1)}h` : `${Math.round(sec / 60)}m`;
@@ -371,11 +384,12 @@ function scoreboard(svg, m, state, anim = true) {
     let passed = 0;
     rows.forEach((r, ri) => {
       let d = '', dm = '', ok = 0, last = 0;
+      const isAx = r.h === 'angelx';
       r.c.attempts.forEach((a, k) => {
         const t = r.times[k];
         if (t > now) return;
         last = t;
-        if (a.solved) { d += sq(xAt(t), r.y - 2, DOT); ok++; }
+        if (a.solved) { d += sq(xAt(t), r.y - 2, isAx ? 2.4 : DOT); ok++; }
         else { dm += `M${xAt(t) + 1} ${r.y - 1}h${DOT - 2}v${DOT - 2}h-${DOT - 2}z`; }
       });
       lit[ri].setAttribute('d', d);
@@ -389,62 +403,103 @@ function scoreboard(svg, m, state, anim = true) {
   }, anim);
 }
 
+// ════ OUTPUT PER TASK — tokens generated and calls made, with thick stacking bars at 2.5k cap ════
 function bars(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const BASE = 176, CAP_Y = 46, DOT = 2.8, PITCH_Y = 3.8, STACK_W = 12, PITCH_X = 3.4;
-  const MAX_ROWS = Math.floor((BASE - CAP_Y) / PITCH_Y);
-  const UNIT = 72; // tokens per row; 34 * 72 = 2448 cap ~ the 2.5k cap rule
+  const BASE = 166, CAP_Y = 44, CAP_TOKENS = 2500;
+  const H = BASE - CAP_Y; // 122px
   const cols = [];
 
-  txt(svg, { x: 6, y: 18, class: 'vt', 'font-size': 13, fill: DIM }, B.models[m].name.toUpperCase());
-  /* three even slots across the panel: one per harness */
-  const SLOT = [95, 230, 365];
+  txt(svg, { x: 8, y: 18, class: 'vt', 'font-size': 13, fill: DIM }, B.models[m].name.toUpperCase());
+  txt(svg, { x: 8, y: 30, class: 'vt', 'font-size': 11, fill: FAINT },
+      'tokens generated (thick pillars) \u00b7 model calls per task \u00b7 cap at 2.5k tokens');
+
+  /* three balanced slots across the 460px panel */
+  const SLOT = [86, 230, 374];
   LEGEND_ORDER.forEach((h, k) => {
-    cols.push({ c: cell(m, h), h, x: SLOT[k] - 5, cx: SLOT[k] });
+    cols.push({ c: cell(m, h), h, cx: SLOT[k] });
   });
 
+  // Baseline rule
   let rule = '';
-  for (let x = 6; x < 454; x += 3) rule += sq(x, BASE + 3, 1.4);
+  for (let x = 8; x < 452; x += 3) rule += sq(x, BASE + 2, 1.4);
   el(svg, 'path', { d: rule, fill: RULE });
+
+  // 2.5k cap line
   let capD = '';
-  for (let x = 6; x < 454; x += 4) capD += sq(x, CAP_Y, 1.4);
-  el(svg, 'path', { d: capD, fill: RULE, opacity: .7 });
-  txt(svg, { x: 454, y: CAP_Y - 5, 'text-anchor': 'end', class: 'vt', 'font-size': 11.5, fill: FAINT }, '2.5k cap');
-  txt(svg, { x: 6, y: 28, class: 'vt', 'font-size': 11, fill: FAINT },
-      'top number: output tokens per task \u00b7 bottom number: model calls per task');
+  for (let x = 8; x < 452; x += 4) capD += sq(x, CAP_Y, 1.4);
+  el(svg, 'path', { d: capD, fill: RULE, opacity: .8 });
+  txt(svg, { x: 452, y: CAP_Y - 5, 'text-anchor': 'end', class: 'vt', 'font-size': 11.5, fill: FAINT }, '2.5k cap');
 
-  const paths = cols.map(c => el(svg, 'path', { d: '', fill: SER[c.h].color, class: c.h === 'angelx' ? 'ax-glow' : '' }));
-  const capMarkers = cols.map(() => el(svg, 'path', { d: '', fill: FAINT }));
+  // Paths for bars and cap roofs
+  const paths = cols.map(c => el(svg, 'path', {
+    d: '',
+    fill: c.h === 'angelx' ? HERO : SER[c.h].color,
+    class: c.h === 'angelx' ? 'ax-glow' : '',
+  }));
+  const capRoof = el(svg, 'path', { d: '', fill: '#f4f4f7', opacity: 0.95 });
 
+  // Labels under the baseline
   cols.forEach(c => {
     const s = c.c.summary;
     const isAx = c.h === 'angelx';
     const mid = { 'text-anchor': 'middle' };
-    const v = txt(svg, { x: c.cx, y: BASE + 20, class: `vt num ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 14, fill: INK, ...mid }, Math.round(s.out_per_task).toLocaleString('en-US'));
+    const v = txt(svg, { x: c.cx, y: BASE + 18, class: `vt num ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 14, fill: isAx ? HERO : INK, ...mid },
+      Math.round(s.out_per_task).toLocaleString('en-US') + ' tok');
     tip(v, `${c.c.harness_label} \u00b7 ${B.models[m].name} \u2014 ${Math.round(s.out_per_task)} output tokens and ${s.calls_mean.toFixed(1)} model calls per task`);
-    txt(svg, { x: c.cx, y: BASE + 36, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 13, fill: SER[c.h].color === D3 ? DIM : SER[c.h].color, ...mid }, SER[c.h].label);
-    txt(svg, { x: c.cx, y: BASE + 52, class: 'vt num', 'font-size': 13, fill: DIM, ...mid }, s.calls_mean.toFixed(1));
-    const stacks = Math.ceil((s.out_per_task / UNIT) / MAX_ROWS);
-    if (stacks > 1) txt(svg, { x: c.cx, y: BASE + 68, class: 'vt', 'font-size': 11, fill: FAINT, ...mid }, `${stacks}\u00d7 stacked`);
+    txt(svg, { x: c.cx, y: BASE + 33, class: `vt ${isAx ? 'ax-txt-glow' : ''}`, 'font-size': 13, fill: isAx ? HERO : (SER[c.h].color === D3 ? DIM : SER[c.h].color), ...mid }, SER[c.h].label);
+    txt(svg, { x: c.cx, y: BASE + 48, class: 'vt num', 'font-size': 12.5, fill: DIM, ...mid }, `${s.calls_mean.toFixed(1)} calls/task`);
+
+    const stacks = Math.max(1, Math.ceil(s.out_per_task / CAP_TOKENS));
+    if (stacks > 1) {
+      txt(svg, { x: c.cx, y: BASE + 62, class: 'vt', 'font-size': 11, fill: FAINT, ...mid }, `${stacks}\u00d7 stacked`);
+    }
   });
 
-  const maxTotalUnits = Math.max(...cols.map(c => Math.round(c.c.summary.out_per_task / UNIT)));
-  play(state, Math.min(MAX_ROWS + 12, maxTotalUnits + 4), p => {
-    const progressUnits = Math.ceil(p * (maxTotalUnits + 4));
+  play(state, Math.round(FPS * 5), p => {
+    let allCapRoofs = '';
     cols.forEach((c, i) => {
-      const targetUnits = Math.round(c.c.summary.out_per_task / UNIT);
-      const n = Math.min(progressUnits, targetUnits);
-      let d = '', capMarks = '';
-      for (let u = 0; u < n; u++) {
-        const stack = Math.floor(u / MAX_ROWS);
-        const row = u % MAX_ROWS;
-        const colX = c.x + stack * STACK_W;
-        for (let k = 0; k < 3; k++) d += sq(colX + k * PITCH_X, BASE - row * PITCH_Y - DOT, DOT);
-        if (row === MAX_ROWS - 1) capMarks += `M${colX} ${CAP_Y - 2}h${3 * PITCH_X}v1h-${3 * PITCH_X}z`;
+      const s = c.c.summary;
+      const currentTotal = p * s.out_per_task;
+      const totalStacks = Math.max(1, Math.ceil(s.out_per_task / CAP_TOKENS));
+      const isAx = c.h === 'angelx';
+
+      // Determine bar width and spacing based on number of stacks so they are thick and centered
+      let barW = 28, gap = 4;
+      if (totalStacks === 2) { barW = 18; gap = 6; }
+      else if (totalStacks === 3) { barW = 15; gap = 4; }
+      else if (totalStacks >= 4) { barW = 13; gap = 4; }
+
+      const totalGroupW = totalStacks * barW + (totalStacks - 1) * gap;
+      const startX = Math.round(c.cx - totalGroupW / 2);
+
+      let d = '';
+      for (let sIdx = 0; sIdx < totalStacks; sIdx++) {
+        const stackX = startX + sIdx * (barW + gap);
+        const stackTokens = Math.min(CAP_TOKENS, Math.max(0, currentTotal - sIdx * CAP_TOKENS));
+        if (stackTokens <= 0) continue;
+
+        const stackH = (stackTokens / CAP_TOKENS) * H;
+        const targetY = BASE - stackH;
+        const dotPitchY = 3.4;
+        const dotSize = isAx ? 2.5 : 2.2;
+
+        // Render thick scanline/dot pattern across the full bar width
+        for (let y = BASE - 2; y >= targetY; y -= dotPitchY) {
+          for (let bx = 0; bx <= barW - 2; bx += 3) {
+            d += sq(stackX + bx, Math.round(y), dotSize);
+          }
+        }
+
+        // When reaching the 2.5k cap: solid glowing cap roof bar
+        if (stackTokens >= CAP_TOKENS) {
+          allCapRoofs += `M${stackX} ${CAP_Y - 2}h${barW}v2h-${barW}z`;
+          allCapRoofs += `M${stackX + Math.round(barW / 2) - 2} ${CAP_Y - 5}h4v2h-4z`;
+        }
       }
       paths[i].setAttribute('d', d);
-      capMarkers[i].setAttribute('d', capMarks);
     });
+    capRoof.setAttribute('d', allCapRoofs);
   }, anim);
 }
 
@@ -513,6 +568,15 @@ if (tabHost) {
 }
 applyTabs();
 
+// ── center-camera detector: returns true when element sits comfortably in central viewport
+function isCenterCamera(el) {
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  const mid = r.top + r.height / 2;
+  return (mid >= vh * 0.25 && mid <= vh * 0.75) || (r.top <= vh * 0.5 && r.bottom >= vh * 0.5);
+}
+
 // ── wiring: draw when a figure scrolls into center camera; [ replay ] reruns
 const FIGS = CHARTS.map(({ fig, key, draw }) => [
   fig,
@@ -525,7 +589,7 @@ const FIGS = CHARTS.map(({ fig, key, draw }) => [
 FIGS.forEach(([id, draw]) => {
   const fig = document.getElementById(id);
   if (!fig) return;
-  const state = { played: false };
+  const state = { played: false, forceReplay: false };
   const prime = () => draw(state, false);
   const playNow = () => {
     if (state.played && !state.forceReplay) return;
@@ -536,21 +600,38 @@ FIGS.forEach(([id, draw]) => {
   const btn = fig.querySelector('.replay');
   if (btn) btn.addEventListener('click', () => { state.forceReplay = true; playNow(); });
 
+  // 1. Prime grid + axes immediately on load so no chart is a pitch black box
+  prime();
+
   if (window.BENCH_EAGER || REDUCED) { playNow(); return; }
 
-  prime();                                       // grid + axes immediately
-  if (isCenterCamera(fig)) { playNow(); return; }
+  // 2. If already in center camera on page load (or scrolled past top)
+  const rect = fig.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  if (isCenterCamera(fig) || (rect.bottom > 0 && rect.bottom < vh * 0.5)) {
+    playNow();
+    return;
+  }
 
+  // 3. IntersectionObserver: trigger animation when scrolled into center camera
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries, observer) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting && !state.played) { playNow(); observer.disconnect(); }
+        if (entry.isIntersecting && !state.played) {
+          playNow();
+          observer.disconnect();
+        }
       });
-    }, { rootMargin: '-35% 0px -35% 0px', threshold: 0 });
+    }, { rootMargin: '-20% 0px -20% 0px', threshold: 0.1 });
     io.observe(fig);
   }
+
+  // 4. Scroll / resize listener fallback
   const onScroll = () => {
-    if (!state.played && isCenterCamera(fig)) {
+    if (state.played) return;
+    const r = fig.getBoundingClientRect();
+    const vhNow = window.innerHeight || document.documentElement.clientHeight;
+    if (isCenterCamera(fig) || (r.bottom > 0 && r.bottom < vhNow * 0.4)) {
       playNow();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);

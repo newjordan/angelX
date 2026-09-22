@@ -89,7 +89,7 @@
         <figure class="tv" id="tv-score">
             <button class="replay" type="button" aria-label="Replay the scoreboard">[ ▶ ]</button>
           <div class="panels" data-model-panels></div>
-          <div class="legend"><span><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span></div>
+          <div class="legend"><span class="ax-hero"><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span></div>
           </figure>
         <p class="tv-note"><b>How to read it.</b> Solid dots passed, hollow dots failed, decided by each task&rsquo;s own test suite rather than a rubric or a judge model. The horizontal axis is one shared scale &mdash; the longest run on the page &mdash; so a row that ends a fifth of the way across really did finish in a fifth of the time, and the row readouts carry both <b>passed/attempted</b> and the <b>total time to completion</b>. Attempts bunch up where tasks were quick and spread out where they were not, so a cluster of hollow dots late in a row is a genuinely slow, failing stretch rather than a run of bad luck. Hover any dot for the task, its language, and the time it finished.</p>
       </section>
@@ -100,7 +100,7 @@
         <figure class="tv" id="tv-bars">
             <button class="replay" type="button" aria-label="Replay the output bars">[ ▶ ]</button>
           <div class="panels" data-model-panels></div>
-          <div class="legend"><span><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span></div>
+          <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span><span><i class="cap-indicator"></i>stacked at 2.5k cap</span></div>
           </figure>
         <p class="tv-note"><b>How to read it.</b> The tall column is output tokens per task, capped at 2.5k; the short column beside it is model calls per task. Lower is not automatically better &mdash; a harness that answers in a single call may simply be guessing &mdash; but the pair makes the tradeoff visible: fewer calls at an equal score means less orchestration overhead.</p>
       </section>
