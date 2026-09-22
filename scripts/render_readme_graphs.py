@@ -3,7 +3,7 @@
 for README.md (<picture> + prefers-color-scheme).
 
 Generates:
-  docs/images/bench/race-{dark,light}.png
+  docs/images/bench/solved-{dark,light}.png
   docs/images/bench/score-{dark,light}.png
   docs/images/bench/bars-{dark,light}.png
   docs/images/bench/seconds-{dark,light}.png
@@ -53,24 +53,24 @@ THEMES = {
 
 FIGURE_DEFS = [
     {
-        "name": "race",
+        "name": "solved",
         "fig_id": "tv-race",
         "key": "race",
-        "title": "the race to 136",
+        "title": "solved vs. agent time",
         "legend": '<span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span>',
     },
     {
         "name": "score",
         "fig_id": "tv-score",
         "key": "score",
-        "title": "every attempt, placed at the moment it finished",
+        "title": "pass / fail vs. agent time",
         "legend": '<span><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span>',
     },
     {
         "name": "bars",
         "fig_id": "tv-bars",
         "key": "bars",
-        "title": "output per task",
+        "title": "output tokens and calls per task",
         "legend": '<span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span>',
     },
     {
@@ -84,14 +84,14 @@ FIGURE_DEFS = [
         "name": "context",
         "fig_id": "tv-burn",
         "key": "burn",
-        "title": "context burned",
+        "title": "input tokens",
         "legend": '<span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span>',
     },
     {
         "name": "cache",
         "fig_id": "tv-cache",
         "key": "cache",
-        "title": "cache",
+        "title": "cache hit rate",
         "legend": '<span><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span>',
     },
 ]
@@ -126,7 +126,7 @@ body{{width:{PAGE_W}px;padding:22px 10px 12px;box-sizing:border-box}}
 </style></head><body>
 <div class="bench">
   <figure class="tv" id="{fig_id}">
-    <figcaption class="tv-title">◇ measured · {title} · {DATE} ◇</figcaption>
+    <figcaption class="tv-title">{title} · {DATE}</figcaption>
     <div class="panels">
       <div><p class="panel-name">DEEPSEEK V4.1 FLASH · THINKING OFF</p>
         <svg id="{key}-deepseek" viewBox="0 0 460 262" role="img"></svg></div>
