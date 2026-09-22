@@ -571,6 +571,7 @@ fn canonical_repo_root_enabled(workspace: &Path) -> Option<PathBuf> {
     }
     let mut command = Command::new("git");
     command
+        .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
         .args(["worktree", "list", "--porcelain", "-z"])
         .current_dir(workspace);
     let out = match run_identity_probe(command) {
@@ -627,6 +628,7 @@ fn slug_for_root(root: &Path) -> Option<String> {
     }
     let mut command = Command::new("git");
     command
+        .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
         .args(["remote", "get-url", "origin"])
         .current_dir(root);
     let bytes = identity_probe(command, "repository_slug")?;

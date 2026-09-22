@@ -360,6 +360,7 @@ pub(crate) fn refresh_binary(st: &mut LoopState) {
 
 fn git_out(dir: &Path, args: &[&str]) -> String {
     std::process::Command::new("git")
+        .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
         .args(args)
         .current_dir(dir)
         .output_owned()

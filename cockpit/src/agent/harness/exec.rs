@@ -121,13 +121,7 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     // On by default since 2026-09-07 (audit S04): a tool child that prints
     // its environment must not put a live key into the trajectory log.
     // `ANGEL_TOOL_STRIP_SECRETS=0` restores pass-through; YOLO bypasses.
-    if !crate::platform::yolo::enabled() && env_flag("ANGEL_TOOL_STRIP_SECRETS", true) {
-        for (name, _) in std::env::vars_os() {
-            if crate::knowledge::experience::is_secret_name(&name.to_string_lossy()) {
-                cmd.env_remove(name);
-            }
-        }
-    }
+    strip_secret_env(&mut cmd);
     let status_channel = sandbox::status::attach(&mut cmd)
         .map_err(|error| format!("sandbox status channel: {error}"))?;
     let capture =
@@ -243,6 +237,42 @@ pub(crate) fn run_sandboxed(
     policy: &SandboxPolicy,
 ) -> Result<String, String> {
     run_sandboxed_observed(program, args, cwd, policy).map(|o| o.output)
+}
+
+/// Remove credential-named variables from a tool child's environment.
+/// `ANGEL_TOOL_STRIP_SECRETS=0` restores pass-through; YOLO bypasses.
+pub(crate) fn strip_secret_env(cmd: &mut Command) {
+    if !crate::platform::yolo::enabled() && env_flag("ANGEL_TOOL_STRIP_SECRETS", true) {
+        for (name, _) in std::env::vars_os() {
+            if crate::knowledge::experience::is_secret_name(&name.to_string_lossy()) {
+                cmd.env_remove(name);
+            }
+        }
+    }
+}
+
+/// `sh -c <script>` in `cwd`, confined like the shell tool: writable
+/// `workspace` (plus a linked worktree's git dirs) and a credential-free env.
+/// Harness-run verifiers execute workspace code the model may have written
+/// (`build.rs`, proc-macros, `node_modules/.bin`), so they get no more
+/// authority than the model's own shell.
+pub(crate) fn sandboxed_workspace_sh(
+    script: &str,
+    cwd: &Path,
+    workspace: &Path,
+) -> Result<Command, String> {
+    let mut policy = SandboxPolicy::permissive();
+    policy
+        .writable_roots
+        .extend(SandboxPolicy::git_worktree_roots(workspace));
+    policy.writable_roots.push(workspace.to_path_buf());
+    let mut cmd = sandbox::command("sh", ["-c", script], &policy)?;
+    cmd.current_dir(cwd);
+    if let Some(path) = sandbox_command_path() {
+        cmd.env("PATH", path);
+    }
+    strip_secret_env(&mut cmd);
+    Ok(cmd)
 }
 
 pub(crate) fn sandbox_command_path() -> Option<OsString> {

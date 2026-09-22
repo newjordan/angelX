@@ -5339,9 +5339,10 @@ pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResu
     let started = Instant::now();
     let timeout =
         Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_TIMEOUT_SECS", 120).clamp(5, 600) as u64);
-    let mut process = Command::new("sh");
-    process.arg("-c").arg(command).current_dir(workspace);
-    let Ok((output, timed_out)) = output_timed(process, Some(timeout)) else {
+    let Ok((output, timed_out)) =
+        crate::agent::harness::exec::sandboxed_workspace_sh(command, workspace, workspace)
+            .and_then(|process| output_timed(process, Some(timeout)))
+    else {
         return TaskAcceptResult {
             passed: false,
             result_class: "spawn_error",

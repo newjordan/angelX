@@ -325,7 +325,10 @@ pub(crate) fn read_lie(workspace: &Path) -> Lie {
     let repo_key = crate::platform::workspace_store::repo_identity(workspace).key;
     let probe = |args: &[&str], step| {
         let mut command = std::process::Command::new("git");
-        command.args(args).current_dir(workspace);
+        command
+            .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
+            .args(args)
+            .current_dir(workspace);
         crate::platform::workspace_store::identity_probe(command, step)
             .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
     };

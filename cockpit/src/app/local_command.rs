@@ -187,6 +187,7 @@ fn help_full_text() -> String {
 fn git(args: &[&str]) -> Result<String, String> {
     let mut command = std::process::Command::new("git");
     command
+        .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
         .arg("--no-pager")
         .args(args)
         .env("GIT_TERMINAL_PROMPT", "0");
