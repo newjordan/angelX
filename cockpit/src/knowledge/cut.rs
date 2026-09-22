@@ -43,7 +43,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -918,10 +917,15 @@ fn run_verify(
         };
     }
     let started = Instant::now();
-    let mut cmd = Command::new("sh");
-    cmd.arg("-c")
-        .arg(&plan.cmd)
-        .current_dir(workspace.join(&plan.dir));
+    let Ok(cmd) = crate::agent::harness::exec::sandboxed_workspace_sh(
+        &plan.cmd,
+        &workspace.join(&plan.dir),
+        workspace,
+    ) else {
+        return Machine::Skipped {
+            reason: "sandbox-unavailable",
+        };
+    };
     let Ok(capture) = crate::agent::harness::exec::output_timed_captured_cancellable(
         cmd,
         Some(verify_timeout()),

@@ -216,9 +216,20 @@ pub(crate) fn git_timeout() -> Option<Duration> {
     }
 }
 
+/// Leading `git` args for unconfined harness git in an agent workspace. The
+/// agent's sandboxed shell can write `.git/config` and `.git/hooks`; harness git
+/// must not execute an fsmonitor command or hook planted there.
+pub(crate) const GIT_NO_WORKSPACE_EXEC: [&str; 4] = [
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.hooksPath=/dev/null",
+];
+
 pub(crate) fn run_git(workspace: &Path, args: &[&str]) -> Result<String, String> {
     let mut cmd = Command::new("git");
-    cmd.arg("-c")
+    cmd.args(GIT_NO_WORKSPACE_EXEC)
+        .arg("-c")
         .arg("user.name=angel")
         .arg("-c")
         .arg("user.email=angel@local")

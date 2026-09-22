@@ -3343,8 +3343,9 @@ fn verify_threshold() -> f32 {
 /// baseline for the regression guard). 0 if the command can't run or emits no
 /// test summary.
 pub(crate) fn count_passed_in(cmd: &str, dir: &Path) -> usize {
-    let mut command = std::process::Command::new("sh");
-    command.arg("-c").arg(cmd).current_dir(dir);
+    let Ok(command) = crate::agent::harness::exec::sandboxed_workspace_sh(cmd, dir, dir) else {
+        return 0;
+    };
     let Ok(capture) = crate::agent::harness::output_timed_captured(
         command,
         crate::agent::harness::tool_timeout(),

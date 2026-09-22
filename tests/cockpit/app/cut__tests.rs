@@ -551,7 +551,7 @@ fn cancelled_post_write_verifier_reaps_tree_without_reward_or_backoff() {
 #[test]
 fn python_post_write_check_preserves_inventory_and_does_not_execute_source() {
     let _lock = crate::tests::env_lock();
-    if !Command::new("python3")
+    if !std::process::Command::new("python3")
         .args(["-I", "-S", "-B", "--version"])
         .output()
         .is_ok_and(|output| output.status.success())

@@ -74,6 +74,7 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
     let git = |args: &[&str]| {
         let mut command = std::process::Command::new("git");
         command
+            .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
             .arg("--no-optional-locks")
             .arg("-C")
             .arg(root)
