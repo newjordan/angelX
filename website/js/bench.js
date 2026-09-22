@@ -111,7 +111,8 @@ function play(state, ticks, onTick, animate = true) {
 // ════ THE RACE — solved attempts against the agent clock ════
 function race(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  const f = frame(svg, { oy: 44, GH: 55 });
+  // Header holds the clock, angelX's score on its own line and the peers on the next.
+  const f = frame(svg, { oy: 62, GH: 49 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
     let t = 0, v = 0;
@@ -136,10 +137,11 @@ function race(svg, m, state, anim = true) {
     xLabel(svg, f, c, `${q}m`, q === 0 ? 'start' : 'middle');
   }
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'AGENT TIME →');
-  const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 17, fill: INK }, '');
+  const clock = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 15, fill: DIM }, '');
   const counters = {};
   LEGEND_ORDER.forEach((h, k) => {
-    counters[h] = txt(svg, { x: f.ox - 2 * P + [0, 134, 268][k], y: 30, class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 13.5, fill: SER[h].color === D3 ? DIM : SER[h].color }, '');
+    const at = [[0, 33, 19], [0, 52, 16], [196, 52, 16]][k];
+    counters[h] = txt(svg, { x: f.ox - 2 * P + at[0], y: at[1], class: `vt ${h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': at[2], fill: SER[h].color === D3 ? DIM : SER[h].color }, '');
   });
   const paths = {}, dots = {};
   series.forEach(s => {
@@ -183,7 +185,7 @@ function trace(svg, m, state, anim = true) {
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 2)) + 1, `${Math.round(q * top)}s`));
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell(a - 1, 0).c, k ? `#${a}` : '#1', k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'ATTEMPT, IN RUN ORDER →');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 15, class: 'vt', 'font-size': 13.5, fill: DIM }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt', 'font-size': 16, fill: INK }, '');
   const paths = {}, meds = {};
   cs.forEach(c => { paths[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, class: c.harness === 'angelx' ? 'ax-glow' : '' }); });
   cs.forEach(c => { meds[c.harness] = el(svg, 'path', { d: '', fill: SER[c.harness].color, opacity: .9, class: c.harness === 'angelx' ? 'ax-glow-soft' : '' }); });
@@ -234,7 +236,7 @@ function burn(svg, m, state, anim = true) {
   [0, .5, 1].forEach(q => yLabel(svg, f, Math.round((1 - q) * (f.GH - 1)), q ? fmtTok(q * top) : '0'));
   [0, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 0 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'ATTEMPTS →');
-  const readout = txt(svg, { x: f.ox - 2 * P, y: 15, class: 'vt', 'font-size': 13.5, fill: DIM }, '');
+  const readout = txt(svg, { x: f.ox - 2 * P, y: 16, class: 'vt', 'font-size': 16, fill: INK }, '');
   const paths = {}, dots = {}, ends = el(svg, 'g', {});
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
@@ -287,8 +289,8 @@ function cache(svg, m, state, anim = true) {
   });
   [1, Math.round(N / 3), Math.round(2 * N / 3), N].forEach((a, k) => xLabel(svg, f, toCell({ t: a, v: 100 }).c, `#${a}`, k === 0 ? 'start' : k === 3 ? 'end' : 'middle'));
   txt(svg, { x: f.X(f.GW - 1), y: f.Y(f.GH) + 34, 'text-anchor': 'end', class: 'vt', 'font-size': 14, fill: FAINT }, 'ATTEMPTS →');
-  const l1 = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 14, fill: INK }, '');
-  const l2 = txt(svg, { x: f.ox - 2 * P, y: 28, class: 'vt', 'font-size': 13.5, fill: DIM }, '');
+  const l1 = txt(svg, { x: f.ox - 2 * P, y: 14, class: 'vt', 'font-size': 14, fill: DIM }, '');
+  const l2 = txt(svg, { x: f.ox - 2 * P, y: 30, class: 'vt', 'font-size': 16, fill: INK }, '');
   const paths = {}, dots = {};
   series.forEach(s => {
     dots[s.h] = trail(s.pts, toCell, false).filter(d => SER[s.h].on(d.i));
