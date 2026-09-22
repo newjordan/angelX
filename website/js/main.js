@@ -53,9 +53,15 @@
   }
 
   /* reveal blocks as they enter the viewport (arriving from above) */
+  /* a block taller than the viewport (the stacked bench plots) can never show
+     15% of itself at once, so it reveals as soon as any of it is on screen */
   const io = new IntersectionObserver((entries) => {
-    for (const e of entries) if (e.isIntersecting) e.target.classList.add('in-view');
-  }, { threshold: 0.15 });
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const tall = e.boundingClientRect.height > window.innerHeight * 0.6;
+      if (tall || e.intersectionRatio >= 0.15) e.target.classList.add('in-view');
+    }
+  }, { threshold: [0, 0.15] });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
   /* ── a tiny star ping breathes at the sword tip while the blade is raised ── */
