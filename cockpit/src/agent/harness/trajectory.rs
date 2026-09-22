@@ -1264,15 +1264,6 @@ pub(crate) fn unproductive_escalation(
     })
 }
 
-pub(crate) fn clear_unproductive_streak() {
-    TURN_LEDGER.with(|cell| {
-        let mut ledger = cell.borrow_mut();
-        ledger.unproductive_streak = 0;
-        ledger.streak_escalated = false;
-        ledger.last_streak_evaluation_hop = None;
-    });
-}
-
 pub(crate) fn note_escalation(hop: usize, kind: &str) {
     TURN_LEDGER.with(|cell| {
         cell.borrow_mut()
