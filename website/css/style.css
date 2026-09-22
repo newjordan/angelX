@@ -156,9 +156,9 @@ figure svg.art{width:100%;height:auto;display:block;background:var(--bg-2);borde
    to fit — the capture sizes differ, the tiles do not */
 figure img.art{width:100%;aspect-ratio:3/2;height:auto;object-fit:cover;object-position:center top;
   display:block;background:var(--bg-2);border:1px solid var(--line)}
-/* Terminal interface video: 3:1 aspect ratio, full-width up to 1100px, natural terminal colors */
-video.teaser{width:100%;max-width:1100px;aspect-ratio:3/1;height:auto;display:block;margin:30px auto 0;
-  background:var(--bg-2);border:1px solid var(--line);object-fit:contain;filter:none}
+/* Square live capture: preserve the full harness frame at every screen size. */
+video.teaser{width:80%;aspect-ratio:1/1;height:auto;display:block;margin:30px auto 0;
+  background:var(--bg-2);border:1px solid var(--line);object-fit:contain}
 
 /* ─── section backdrop: the lion behind the field-imagery frame ──────
    A black-and-white photograph whose creature sits in the RIGHT edge and the
