@@ -9,7 +9,9 @@ const B = window.BENCH;
 if (!B) return;
 
 // site tokens (css/style.css :root); omp's mark gray is a TXT×BG mix (marks only, 4.0:1)
-const INK = '#f4f4f7', DIM = '#bcbcc7', D3 = '#7c7c88', FAINT = '#74747f', RULE = '#3a3a44', BG = '#050506';
+const TH = Object.assign({ INK: '#f4f4f7', DIM: '#bcbcc7', D3: '#7c7c88', FAINT: '#74747f', RULE: '#3a3a44', BG: '#050506', HERO: '' },
+  window.BENCH_THEME || {});      // optional palette override (README renders); the site uses these defaults
+const { INK, DIM, D3, FAINT, RULE, BG } = TH, HERO = TH.HERO || TH.INK;
 const P = 3, S = 2, FPS = 12;             // dot pitch, dot size (viewBox units), frame rate
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const NS = 'http://www.w3.org/2000/svg';
@@ -20,7 +22,7 @@ const sq = (x, y, s = S) => `M${x} ${y}h${s}v${s}h-${s}z`;
 
 // identity = label + gray + dot rhythm (never colour alone)
 const SER = {
-  angelx: { label: 'angelX', color: INK, on: i => true },
+  angelx: { label: 'angelX', color: HERO, on: i => true },
   opencode: { label: 'OpenCode', color: DIM, on: i => i % 2 === 0 },
   omp: { label: 'omp', color: D3, on: i => i % 4 < 2 },
 };
@@ -98,7 +100,7 @@ const xLabel = (svg, f, c, s, anchor = 'middle') => txt(svg, { x: f.X(c), y: f.Y
 function play(state, ticks, onTick, animate = true) {
   (state.timers || []).forEach(clearInterval);
   state.timers = [];
-  if (REDUCED || ticks <= 1) { onTick(1); return; }
+  if (REDUCED || window.BENCH_STATIC || ticks <= 1) { onTick(1); return; }
   if (!animate) { onTick(0); return; }
   let k = 0;
   onTick(0);
@@ -167,7 +169,7 @@ function race(svg, m, state, anim = true) {
       finish.innerHTML = '';
       series.forEach(s => {
         const e = toCell(s.pts[s.pts.length - 1]);
-        const star = txt(finish, { x: f.X(e.c) + 1, y: f.Y(e.r) - 4, 'text-anchor': 'middle', class: `vt ${s.h === 'angelx' ? 'ax-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color }, '');
+        const star = txt(finish, { x: f.X(e.c) + 1, y: f.Y(e.r) - 4, 'text-anchor': 'middle', class: `vt ${s.h === 'angelx' ? 'ax-glow' : ''}`, 'font-size': 15, fill: SER[s.h].color }, '◆');
         tip(star, `${SER[s.h].label} finished ${s.solved}/${s.pts.length - 1} at ${Math.round(s.total)} s`);
       });
     }
@@ -311,7 +313,7 @@ function cache(svg, m, state, anim = true) {
     const now = 1 + p * (N - 1);
     series.forEach(s => paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join('')));
     const at = Math.max(1, Math.floor(now));
-    l1.textContent = 'HIT  ' + LEGEND_ORDER.map(h => { const s = series.find(x => x.h === h); return `${SER[h].label} ${s.pts[Math.min(at, N) - 1].v.toFixed(1)}%`; }).join('  ·  ');
+    l1.textContent = 'HIT  ' + LEGEND_ORDER.map(h => { const s = series.find(x => x.h === h); return `${SER[h].label} ${s.pts[Math.min(at, s.pts.length) - 1].v.toFixed(1)}%`; }).join('  ·  ');
     l2.textContent = p >= 1
       ? 'FRESH/TASK  ' + LEGEND_ORDER.map(h => `${SER[h].label} ${(series.find(x => x.h === h).fresh / 1000).toFixed(1)}k`).join('  ·  ')
       : `ATTEMPT ${String(at).padStart(2, '0')}/${N}`;
@@ -353,9 +355,9 @@ function scoreboard(svg, m, state, anim = true) {
 
   const total = rows.reduce((n, r) => n + r.c.attempts.length, 0);
   const readout = txt(svg, { x: 2, y: 18, class: 'vt num', 'font-size': 16, fill: INK }, '');
-  const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? '#ffffff' : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
+  const lit = rows.map(r => el(svg, 'path', { d: '', fill: r.h === 'angelx' ? (window.BENCH_THEME ? HERO : '#ffffff') : INK, class: r.h === 'angelx' ? 'ax-glow' : '' }));
   const miss = rows.map(() => el(svg, 'path', { d: '', fill: 'none', stroke: DIM, 'stroke-width': 1.2 }));
-  const counts = rows.map(r => txt(svg, { x: 454, y: r.y + 7, 'text-anchor': 'end', class: `vt num ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? INK : DIM }, ''));
+  const counts = rows.map(r => txt(svg, { x: 454, y: r.y + 7, 'text-anchor': 'end', class: `vt num ${r.h === 'angelx' ? 'ax-txt-glow' : ''}`, 'font-size': 15, fill: r.h === 'angelx' ? (window.BENCH_THEME ? HERO : INK) : DIM }, ''));
   const spans = rows.map(r => txt(svg, { x: 0, y: r.y + 24, class: 'vt', 'font-size': 11.5, fill: FAINT }, ''));
 
   const fmtMin = sec => sec >= 3600 ? `${(sec / 3600).toFixed(1)}h` : `${Math.round(sec / 60)}m`;

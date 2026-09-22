@@ -55,8 +55,13 @@ angelX runs a verification stage before it reports a task done; that is where it
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/attempts-output-dark.png">
-  <img alt="Graded attempts (719 of 739 passed) and output tokens and model calls per task, for angelX, OpenCode and omp" src="docs/images/bench/attempts-output-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/score-dark.png">
+  <img alt="Every attempt, placed at the moment it finished: pass and fail on cumulative agent time, for angelX, OpenCode and omp on both models" src="docs/images/bench/score-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/bars-dark.png">
+  <img alt="Output per task: tokens generated and model calls made per task, with stacked bars at the 2.5k cap, for angelX, OpenCode and omp on both models" src="docs/images/bench/bars-light.png">
 </picture>
 
 <picture>
