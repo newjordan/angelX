@@ -25,7 +25,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent
 DEFAULT_OUT = REPO_ROOT / "docs" / "images" / "bench"
 PAGE_W = 900
 DATE = "2026-09-21"
@@ -111,12 +112,13 @@ body{{width:{PAGE_W}px;padding:22px 10px 12px;box-sizing:border-box}}
 .bench{{margin:0;--b-bg:{t['BG']};--b-ink:{t['INK']};--b-dim:{t['DIM']};--b-rule:{t['RULE']}}}
 .bench .tv{{background:{t['BG']};margin:0}}
 .bench .replay{{display:none}}
-.bench .panels{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px}}
-.bench .panel-name{{margin:0 0 2px;font-family:var(--b-dos);font-size:17px;letter-spacing:.12em;color:var(--b-dim)}}
+.bench .panels{{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}}
+.bench .panel-name{{margin:0 0 2px;font-family:var(--b-dos);font-size:26px;letter-spacing:.12em;color:var(--b-dim)}}
 .bench svg{{width:100%;height:auto;display:block;overflow:visible}}
 .bench svg .vt{{font-family:var(--b-dos)}}
-.bench .legend{{display:flex;flex-wrap:wrap;gap:4px 22px;margin:10px 0 0;padding-top:8px;border-top:1px dashed var(--b-rule);font-family:var(--b-dos);font-size:17px;letter-spacing:.06em;color:var(--b-dim)}}
-.bench .legend i{{display:inline-block;width:34px;height:6px;margin-right:8px;vertical-align:middle;background-repeat:repeat-x;background-size:var(--w) 6px}}
+.bench .tv-title{{font-size:26px}}
+.bench .legend{{display:flex;flex-wrap:wrap;gap:4px 28px;margin:10px 0 0;padding-top:10px;border-top:1px dashed var(--b-rule);font-family:var(--b-dos);font-size:26px;letter-spacing:.06em;color:var(--b-dim)}}
+.bench .legend i{{display:inline-block;width:44px;height:8px;margin-right:8px;vertical-align:middle;background-repeat:repeat-x;background-size:var(--w) 6px}}
 .bench .legend .ax{{--w:4px;background-image:linear-gradient(90deg,{t['HERO']} 0 2px,transparent 2px)}}
 .bench .legend .oc{{--w:8px;background-image:linear-gradient(90deg,{t['DIM']} 0 2px,transparent 2px)}}
 .bench .legend .om{{--w:16px;background-image:linear-gradient(90deg,{t['D3']} 0 2px,transparent 2px 4px,{t['D3']} 4px 6px,transparent 6px)}}
@@ -159,8 +161,8 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix="angelx_bench_render_") as tmp:
         work_dir = Path(tmp)
-        shutil.copy(REPO_ROOT / "website" / "css" / "bench.css", work_dir / "bench.css")
-        shutil.copy(REPO_ROOT / "website" / "js" / "bench.js", work_dir / "bench.js")
+        shutil.copy(HERE / "readme-charts" / "bench.css", work_dir / "bench.css")
+        shutil.copy(HERE / "readme-charts" / "bench.js", work_dir / "bench.js")
         shutil.copy(REPO_ROOT / "website" / "js" / "bench-data.js", work_dir / "bench-data.js")
 
         for fdef in FIGURE_DEFS:
