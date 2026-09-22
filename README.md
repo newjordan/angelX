@@ -100,12 +100,13 @@ Code and tooling credits include [OpenAI Codex](https://github.com/openai/codex)
 [oh-my-pi](https://github.com/can1357/oh-my-pi),
 [DeepSeek-Reasonix](https://github.com/esengine/DeepSeek-Reasonix),
 [Hermes Agent](https://github.com/NousResearch/hermes-agent),
-[DotAgents](https://github.com/aj47/dotagents-mono) and [SpeakMCP](https://github.com/aj47/SpeakMCP) by aj47,
 [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent),
 [Dotmax](https://github.com/newjordan/dotmax), [ureq](https://github.com/algesten/ureq),
 [Ratatui](https://github.com/ratatui/ratatui),
 [Crossterm](https://github.com/crossterm-rs/crossterm),
 [rusty_v8](https://github.com/denoland/rusty_v8) and [V8](https://v8.dev).
+Early inspiration: [DotAgents](https://github.com/aj47/dotagents-mono) and
+[SpeakMCP](https://github.com/aj47/SpeakMCP) by aj47.
 File-tool interface references include [Claude Code](https://github.com/anthropics/claude-code),
 [aider](https://github.com/Aider-AI/aider) and [OpenHands](https://github.com/OpenHands/OpenHands).
 [Attributions](THIRD_PARTY_NOTICES.md) records implementation links, authors and
