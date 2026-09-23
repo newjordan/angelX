@@ -435,6 +435,7 @@ fn loading_lesson_can_be_cancelled_without_reappearing() {
 
 #[test]
 fn rejected_operator_route_arrival_never_arms_a_timer() {
+    let _env = crate::tests::env_lock();
     let mut stage = Scryglass::default();
     stage.navigate(StageRoute::Observatory);
     stage.sync_arrival(Some(Building::Keep));
@@ -559,6 +560,7 @@ fn tool_journey_does_not_displace_user_opened_media() {
 
 #[test]
 fn arrival_expires_at_exact_visible_boundary_without_redraw_reset() {
+    let _env = crate::tests::env_lock();
     let mut stage = Scryglass::default();
     let started = Instant::now();
     stage.sync_arrival(Some(Building::Keep));
@@ -578,6 +580,9 @@ fn arrival_expires_at_exact_visible_boundary_without_redraw_reset() {
 
 #[test]
 fn arrival_expiry_holds_the_destination_in_first_person_without_an_operator_pin() {
+    let _env = crate::tests::env_lock();
+    // The 3D ride path; on the overworld map the knight stays on the map.
+    let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let mut stage = Scryglass::default();
     let started = Instant::now();
     stage.sync_arrival(Some(Building::Keep));
@@ -601,6 +606,7 @@ fn arrival_expiry_holds_the_destination_in_first_person_without_an_operator_pin(
 
 #[test]
 fn arrival_expiry_never_displaces_an_operator_pinned_destination() {
+    let _env = crate::tests::env_lock();
     let mut stage = Scryglass::default();
     let started = Instant::now();
     stage.navigate(StageRoute::Explore(Building::Gatehouse));
@@ -625,6 +631,7 @@ fn arrival_expiry_never_displaces_an_operator_pinned_destination() {
 
 #[test]
 fn operator_navigation_cancels_arrival_overlay_and_timer_together() {
+    let _env = crate::tests::env_lock();
     let mut stage = Scryglass::default();
     stage.sync_arrival(Some(Building::Keep));
     stage.sync_arrival(Some(Building::Smithy));
@@ -646,6 +653,7 @@ fn operator_navigation_cancels_arrival_overlay_and_timer_together() {
 
 #[test]
 fn hidden_time_does_not_consume_arrival_lifetime() {
+    let _env = crate::tests::env_lock();
     let mut stage = Scryglass::default();
     let started = Instant::now();
     stage.sync_arrival(Some(Building::Keep));
@@ -1332,5 +1340,45 @@ fn dotmax_frame_ink_runs_are_measured_beside_the_ride() {
     assert!(
         q5.0 <= raw.0 && q5.1 <= raw.1 && q5_diff.2 <= raw_diff.2,
         "quantizing must never add colors, runs, or flush bytes",
+    );
+}
+
+#[test]
+fn arrival_expiry_on_the_overworld_map_keeps_the_realm() {
+    let _env = crate::tests::env_lock();
+    let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
+    let mut stage = Scryglass::default();
+    let started = Instant::now();
+    stage.sync_arrival(Some(Building::Keep));
+    stage.sync_arrival(Some(Building::Smithy));
+    stage.set_stage_visibility(true, true);
+    stage.tick_visible(started, false, false);
+    stage.tick_visible(started + ARRIVAL_REVEAL, false, false);
+    assert_eq!(stage.arrival(), None);
+    assert_eq!(stage.controller.route(), StageRoute::Realm);
+    assert!(stage.controller.overlay().is_none());
+    assert_eq!(
+        stage.controller.resolved_scene(false, false, false),
+        StageSurface::WorldMap
+    );
+}
+
+#[test]
+fn a_session_opens_on_the_overworld_map() {
+    let _env = crate::tests::env_lock();
+    {
+        let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
+        let stage = Scryglass::for_session(Building::Smithy);
+        assert_eq!(stage.controller.route(), StageRoute::Realm);
+        assert_eq!(
+            stage.controller.resolved_scene(false, false, false),
+            StageSurface::WorldMap
+        );
+    }
+    let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
+    let stage = Scryglass::for_session(Building::Smithy);
+    assert_eq!(
+        stage.controller.route(),
+        StageRoute::Explore(Building::Smithy)
     );
 }

@@ -894,8 +894,8 @@ impl App {
             session,
             Overwatch::new(),
         );
-        // Renderer preferences apply to Explore, not the Realm overview map.
-        app.scryglass = crate::ui::scryglass::Scryglass::for_world(app.world.destination());
+        // Open on the overworld map (or the ride, when the map is off).
+        app.scryglass = crate::ui::scryglass::Scryglass::for_session(app.world.destination());
         // Recall only this project's persisted instruction-bearing state. A
         // goal or memory from another repository must never enter this prompt.
         app.memories = memory::load_for(app.tools.current_workspace())
