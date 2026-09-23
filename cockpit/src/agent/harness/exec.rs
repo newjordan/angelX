@@ -29,9 +29,10 @@ thread_local! {
     static CALL_BUDGET: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
 }
 
-/// Run `f` with every process it starts on this thread held to `budget`;
-/// `None` leaves the ordinary tool bounds alone. The previous budget is
-/// restored afterwards.
+/// Run `f` with every process it starts on this thread held to `budget`. A
+/// budget already in force still binds: nesting keeps the tighter of the two,
+/// and `None` leaves whatever is in force. The previous budget is restored
+/// afterwards.
 pub(crate) fn with_call_budget<T>(budget: Option<Duration>, f: impl FnOnce() -> T) -> T {
     struct Restore(Option<Duration>);
     impl Drop for Restore {
@@ -39,7 +40,12 @@ pub(crate) fn with_call_budget<T>(budget: Option<Duration>, f: impl FnOnce() -> 
             CALL_BUDGET.with(|cell| cell.set(self.0));
         }
     }
-    let _restore = Restore(CALL_BUDGET.with(|cell| cell.replace(budget)));
+    let previous = call_budget();
+    let effective = match (budget, previous) {
+        (Some(budget), Some(outer)) => Some(budget.min(outer)),
+        (budget, outer) => budget.or(outer),
+    };
+    let _restore = Restore(CALL_BUDGET.with(|cell| cell.replace(effective)));
     f()
 }
 

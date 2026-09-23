@@ -1951,3 +1951,48 @@ fn distinct_red_verifier_keeps_source_repair_and_green_recheck_available() {
         true,
     );
 }
+
+/// A test run started through `shell` is held to the task-mode test-run budget
+/// like run_tests is: a suite spinning on an infinite loop is killed at the
+/// budget and reported as hung, instead of holding the 900 s busy ceiling
+/// (polyglot-v1 py-forth ran `python3 -m pytest` via shell until the task wall).
+#[test]
+fn a_shell_test_run_is_held_to_the_test_run_budget() {
+    let _env_guard = crate::tests::env_lock();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _budget = EnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "2");
+    let _hard = EnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
+    let _timeout = EnvGuard::unset("ANGEL_TOOL_TIMEOUT");
+    let root = scratch("shell_test_budget");
+    std::fs::write(
+        root.join("test_spin.py"),
+        "import unittest\n\nclass Spin(unittest.TestCase):\n    def test_spin(self):\n        while True:\n            pass\n",
+    )
+    .unwrap();
+    let args = serde_json::json!({"command": "python3 -m unittest test_spin"});
+    let call = ToolCall {
+        id: String::new(),
+        name: "shell".into(),
+        args: args.clone(),
+    };
+    assert!(
+        is_verification_call(&call),
+        "the command must read as a test run"
+    );
+    let registry = ToolRegistry::with_team(root.clone(), Vec::new());
+    let started = std::time::Instant::now();
+    let result = registry.dispatch_with_cancel("shell", &args, None);
+    let elapsed = started.elapsed();
+    let text = match result {
+        Ok(text) | Err(text) => text,
+    };
+    assert!(
+        elapsed < std::time::Duration::from_secs(20),
+        "the spinning suite must stop near the 2 s budget, took {elapsed:?}: {text}"
+    );
+    assert!(
+        text.starts_with("tests: still running after the 2s test-run budget"),
+        "{text}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
