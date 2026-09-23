@@ -617,6 +617,9 @@ pub struct CodexClub {
     /// A provider API key in place of the ChatGPT OAuth login. Such a seat
     /// sends only `Authorization`, none of the ChatGPT account headers.
     api_key: Option<String>,
+    /// `reasoning.summary` level: `auto` for the ChatGPT seat; an API-key seat
+    /// can ask for `concise` or `detailed` summaries for the thinking panel.
+    reasoning_summary: String,
     /// Test-only endpoint override: points the Responses POST at a local
     /// server so the streaming loop's watchdogs can be exercised without the
     /// real ChatGPT backend. Always `None` in production.
@@ -796,6 +799,7 @@ impl CodexClub {
             stream_stall_secs,
             responses_url: RESPONSES_URL.to_string(),
             api_key: None,
+            reasoning_summary: "auto".to_string(),
             #[cfg(test)]
             responses_url_override: None,
         }
@@ -826,6 +830,12 @@ impl CodexClub {
         club.responses_url = responses_url.into();
         club.api_key = Some(api_key.into());
         club
+    }
+
+    /// Ask for `auto`, `concise` or `detailed` reasoning summaries.
+    pub(crate) fn with_reasoning_summary(mut self, level: impl Into<String>) -> Self {
+        self.reasoning_summary = level.into();
+        self
     }
 
     /// Tune this link for the mixture-of-agents path: keep a reply cut off at the
@@ -1101,7 +1111,7 @@ impl CodexClub {
         // labels the stream as provider-exposed rather than claiming verbatim.
         if let Some(obj) = body.as_object_mut() {
             let mut reasoning = serde_json::Map::new();
-            reasoning.insert("summary".into(), "auto".into());
+            reasoning.insert("summary".into(), self.reasoning_summary.clone().into());
             if let Some(effort) = effort.and_then(|requested| {
                 self.reasoning_levels
                     .iter()

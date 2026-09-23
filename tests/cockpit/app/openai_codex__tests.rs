@@ -1418,7 +1418,8 @@ data: {\"type\":\"response.completed\",\"response\":{}}\n\n",
         Some("low".into()),
         vec!["minimal".into(), "low".into(), "medium".into()],
         crate::agent::club::RouteMetadata::default(),
-    );
+    )
+    .with_reasoning_summary("detailed");
     let mut reasoning = String::new();
     let reply = club
         .chat_streaming(
@@ -1448,5 +1449,5 @@ data: {\"type\":\"response.completed\",\"response\":{}}\n\n",
     let body: serde_json::Value = serde_json::from_str(body).unwrap();
     assert_eq!(body["model"], "muse-spark-1.3");
     assert_eq!(body["reasoning"]["effort"], "low");
-    assert_eq!(body["reasoning"]["summary"], "auto");
+    assert_eq!(body["reasoning"]["summary"], "detailed");
 }
