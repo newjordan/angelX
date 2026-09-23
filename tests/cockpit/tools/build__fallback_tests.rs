@@ -205,3 +205,65 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
         "sandbox-hardlinks: {\"hardlink_readonly_count\":0,\"scan_complete\":false}";
     assert_eq!(super::strip_launcher_stderr(helper_no_newline), "");
 }
+
+/// In task mode a test run gets a budget (180 s, at most a third of the task
+/// wall); interactively it keeps the ordinary tool bounds unless the knob is set.
+#[test]
+fn test_run_budget_follows_task_mode_and_the_task_wall() {
+    use std::time::Duration;
+    let _env = crate::tests::env_lock();
+    let _knob = crate::tests::TestEnvGuard::unset("ANGEL_TEST_RUN_TIMEOUT_SECS");
+    let _wall = crate::tests::TestEnvGuard::unset("ANGEL_TASK_WALL_SECS");
+    {
+        let _interactive = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+        assert_eq!(super::test_run_budget(), None);
+    }
+    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    assert_eq!(super::test_run_budget(), Some(Duration::from_secs(180)));
+    {
+        let _wall = crate::tests::TestEnvGuard::set("ANGEL_TASK_WALL_SECS", "300");
+        assert_eq!(super::test_run_budget(), Some(Duration::from_secs(100)));
+    }
+    {
+        let _wall = crate::tests::TestEnvGuard::set("ANGEL_TASK_WALL_SECS", "600");
+        assert_eq!(super::test_run_budget(), Some(Duration::from_secs(180)));
+    }
+    {
+        let _off = crate::tests::TestEnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "0");
+        assert_eq!(super::test_run_budget(), None);
+    }
+    {
+        let _set = crate::tests::TestEnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "45");
+        assert_eq!(super::test_run_budget(), Some(Duration::from_secs(45)));
+    }
+}
+
+/// A suite killed at its budget names the tests that never finished, so the
+/// model can fix the loop instead of re-running the same hang. Observed on
+/// polyglot-v1 rust-decimal: every test touching zero spun forever.
+#[test]
+fn hung_suite_report_names_the_tests_that_never_finished() {
+    let report = "tests: timed out after 180s — process group killed\n\
+                  test sub_borrow ... ok\n\
+                  test add_id has been running for over 60 seconds\n\
+                  test eq has been running for over 60 seconds\n";
+    let text = super::hung_suite_report(std::time::Duration::from_secs(180), report);
+    assert!(
+        text.starts_with("tests: still running after the 180s test-run budget"),
+        "{text}"
+    );
+    assert!(
+        text.contains("2 test(s) never finished: add_id, eq."),
+        "{text}"
+    );
+    assert!(text.contains("loops forever"), "{text}");
+    assert!(
+        text.ends_with(report),
+        "the original report follows: {text}"
+    );
+    let silent = super::hung_suite_report(std::time::Duration::from_secs(60), "tests: timed out");
+    assert!(
+        silent.contains("stuck in an infinite loop or waiting forever"),
+        "{silent}"
+    );
+}

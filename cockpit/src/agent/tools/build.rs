@@ -1576,6 +1576,62 @@ impl RunTestsTool {
         }
     }
 }
+/// Wall budget for one `run_tests` call in task mode. A suite still running
+/// after it is treated as hung and killed, so the model hears about it with
+/// time left to fix the code instead of losing the task to its wall clock.
+/// `ANGEL_TEST_RUN_TIMEOUT_SECS` sets it (`0` = none). The task-mode default is
+/// 180 s, and never more than a third of the task's wall clock when the runner
+/// passes `ANGEL_TASK_WALL_SECS`. Interactive sessions keep the ordinary tool
+/// bounds unless the knob is set.
+pub(crate) fn test_run_budget() -> Option<Duration> {
+    let secs = |name: &str| {
+        std::env::var(name)
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+    };
+    if let Some(budget) = secs("ANGEL_TEST_RUN_TIMEOUT_SECS") {
+        return (budget > 0).then(|| Duration::from_secs(budget));
+    }
+    let task_mode = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value.trim() == "1");
+    if !task_mode {
+        return None;
+    }
+    let budget = match secs("ANGEL_TASK_WALL_SECS") {
+        Some(wall) if wall > 0 => 180.min((wall / 3).max(30)),
+        _ => 180,
+    };
+    Some(Duration::from_secs(budget))
+}
+
+/// Turn a suite killed at the test-run budget into something the model can act
+/// on: which tests never finished (Rust names each test still running after
+/// 60 s) and what that usually means.
+pub(crate) fn hung_suite_report(budget: Duration, report: &str) -> String {
+    let hung: Vec<&str> = report
+        .lines()
+        .filter_map(|line| {
+            line.trim()
+                .strip_prefix("test ")?
+                .strip_suffix(" has been running for over 60 seconds")
+        })
+        .collect();
+    let what = if hung.is_empty() {
+        "A test is probably stuck in an infinite loop or waiting forever.".to_string()
+    } else {
+        format!(
+            "{} test(s) never finished: {}. The code under test probably loops forever on \
+             those inputs; fix it before running the tests again.",
+            hung.len(),
+            hung.join(", ")
+        )
+    };
+    format!(
+        "tests: still running after the {}s test-run budget (ANGEL_TEST_RUN_TIMEOUT_SECS); \
+         the suite was killed. {what}\n{report}",
+        budget.as_secs()
+    )
+}
+
 impl Tool for RunTestsTool {
     fn name(&self) -> &str {
         "run_tests"
@@ -1622,6 +1678,27 @@ impl Tool for RunTestsTool {
     }
 
     fn call_with_cancel_and_progress(
+        &self,
+        args: &Value,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
+        progress: Option<Arc<ToolOutputProgress>>,
+    ) -> Result<String, String> {
+        let budget = test_run_budget();
+        let result = crate::agent::harness::exec::with_call_budget(budget, || {
+            self.run_suite(args, cancel, progress)
+        });
+        match (budget, result) {
+            (Some(budget), Ok(report)) if report.starts_with("tests: timed out") => {
+                Ok(hung_suite_report(budget, &report))
+            }
+            (_, result) => result,
+        }
+    }
+}
+
+impl RunTestsTool {
+    /// One suite run under whatever call budget the caller set.
+    fn run_suite(
         &self,
         args: &Value,
         cancel: Option<&std::sync::atomic::AtomicBool>,

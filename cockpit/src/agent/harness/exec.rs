@@ -22,6 +22,40 @@ thread_local! {
     static SANDBOX_RECEIPT: std::cell::RefCell<Option<serde_json::Value>> = const { std::cell::RefCell::new(None) };
 }
 
+thread_local! {
+    /// A tighter wall bound for the tool call running on this thread, such as
+    /// a test suite's budget. `tool_timeout` and `tool_hard_timeout` never
+    /// exceed it, so every process the call starts is held to it, busy or not.
+    static CALL_BUDGET: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `f` with every process it starts on this thread held to `budget`;
+/// `None` leaves the ordinary tool bounds alone. The previous budget is
+/// restored afterwards.
+pub(crate) fn with_call_budget<T>(budget: Option<Duration>, f: impl FnOnce() -> T) -> T {
+    struct Restore(Option<Duration>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CALL_BUDGET.with(|cell| cell.set(self.0));
+        }
+    }
+    let _restore = Restore(CALL_BUDGET.with(|cell| cell.replace(budget)));
+    f()
+}
+
+/// The budget [`with_call_budget`] set for the current tool call, if any.
+pub(crate) fn call_budget() -> Option<Duration> {
+    CALL_BUDGET.with(|cell| cell.get())
+}
+
+fn within_call_budget(bound: Option<Duration>) -> Option<Duration> {
+    match (bound, call_budget()) {
+        (Some(bound), Some(budget)) => Some(bound.min(budget)),
+        (bound, None) => bound,
+        (None, budget) => budget,
+    }
+}
+
 pub(crate) fn set_sandbox_receipt(receipt: Option<serde_json::Value>) {
     SANDBOX_RECEIPT.with(|cell| *cell.borrow_mut() = receipt);
 }
@@ -335,15 +369,18 @@ pub(crate) fn truncate_to_char_boundary(s: &mut String, max_bytes: usize) {
 /// the idle floor's job, not a deadline's.
 pub(crate) fn tool_timeout() -> Option<Duration> {
     if crate::platform::yolo::enabled() {
-        return None;
+        // A call budget is containment for one tool call, not an approval.
+        return call_budget();
     }
-    match std::env::var("ANGEL_TOOL_TIMEOUT")
-        .ok()
-        .and_then(|s| s.trim().parse::<u64>().ok())
-    {
-        Some(0) | None => None,
-        Some(n) => Some(Duration::from_secs(n)),
-    }
+    within_call_budget(
+        match std::env::var("ANGEL_TOOL_TIMEOUT")
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+        {
+            Some(0) | None => None,
+            Some(n) => Some(Duration::from_secs(n)),
+        },
+    )
 }
 
 /// Wall-clock ceiling while a process group is *busy* (runnable or burning
@@ -352,14 +389,16 @@ pub(crate) fn tool_timeout() -> Option<Duration> {
 /// Defaults to 900s (15 min) to prevent runaway busy loops from blocking the session forever.
 /// YOLO does not disable this: it governs approvals, not process-group containment.
 pub(crate) fn tool_hard_timeout() -> Option<Duration> {
-    match std::env::var("ANGEL_TOOL_HARD_TIMEOUT")
-        .ok()
-        .and_then(|s| s.trim().parse::<u64>().ok())
-    {
-        Some(0) => None,
-        Some(n) => Some(Duration::from_secs(n)),
-        None => Some(Duration::from_secs(900)),
-    }
+    within_call_budget(
+        match std::env::var("ANGEL_TOOL_HARD_TIMEOUT")
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+        {
+            Some(0) => None,
+            Some(n) => Some(Duration::from_secs(n)),
+            None => Some(Duration::from_secs(900)),
+        },
+    )
 }
 
 /// Silent, non-runnable process group hang floor. Reaps sleeping processes
