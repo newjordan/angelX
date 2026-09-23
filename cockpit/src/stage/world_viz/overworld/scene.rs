@@ -161,6 +161,44 @@ pub(crate) struct Scene {
 }
 
 impl Scene {
+    /// A stable fingerprint of everything that changes the picture; the
+    /// painter re-encodes only when it moves.
+    pub(crate) fn key(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.town.hash(&mut h);
+        (self.renown, self.verified, self.tier).hash(&mut h);
+        (self.active, &self.activity, self.tool).hash(&mut h);
+        (
+            self.knight.x.to_bits(),
+            self.knight.y.to_bits(),
+            self.knight.walking,
+        )
+            .hash(&mut h);
+        (&self.council, self.quest).hash(&mut h);
+        if let Some(j) = &self.joust {
+            (
+                &j.red,
+                &j.blue,
+                j.red_score,
+                j.blue_score,
+                j.charge.to_bits(),
+            )
+                .hash(&mut h);
+        }
+        (self.chapel_lit, self.cottages, self.forge_hot).hash(&mut h);
+        for w in &self.wards {
+            (&w.name, w.banner, w.lit).hash(&mut h);
+        }
+        for s in &self.muster {
+            (s.kind as u8, s.state as u8).hash(&mut h);
+        }
+        (self.region, self.weather as u8, self.fireworks).hash(&mut h);
+        (&self.hud.model, &self.hud.think, self.hud.ctx_free).hash(&mut h);
+        (self.ambient.to_bits(), self.tick).hash(&mut h);
+        h.finish()
+    }
+
     /// A quiet realm: nothing live, the knight home at the keep.
     pub(crate) fn resting(town: &str) -> Scene {
         Scene {

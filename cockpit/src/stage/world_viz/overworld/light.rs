@@ -123,6 +123,9 @@ pub(crate) fn light_at(lights: &[Light], x: f32, y: f32) -> (f32, f32) {
     let (mut sum, mut fire) = (0.0, 0.0);
     for li in lights {
         let (dx, dy) = (x - li.x, (y - li.y) * 1.2);
+        if dx.abs() >= li.r || dy.abs() >= li.r {
+            continue;
+        }
         let d = (dx * dx + dy * dy).sqrt();
         if d < li.r {
             let t = 1.0 - d / li.r;
@@ -144,6 +147,19 @@ pub(crate) fn dusk(
     (ox, oy): (i32, i32),
     ambient: f32,
 ) {
+    // Only lights whose reach touches this view.
+    let (w, h) = (cv.w as f32, cv.h as f32);
+    let lights: Vec<Light> = lights
+        .iter()
+        .copied()
+        .filter(|li| {
+            li.x + li.r > ox as f32
+                && li.x - li.r < ox as f32 + w
+                && li.y + li.r > oy as f32
+                && li.y - li.r < oy as f32 + h
+        })
+        .collect();
+    let lights = lights.as_slice();
     for y in 0..cv.h {
         for x in 0..cv.w {
             let (wx, wy) = (ox + x, oy + y);

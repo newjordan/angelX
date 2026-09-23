@@ -277,6 +277,12 @@ impl StageController {
         matches!(self.route, StageRoute::Realm | StageRoute::Explore(_))
     }
 
+    /// The Realm route shows the pixel overworld, where travel and arrival
+    /// play out on the map instead of cutting to the 3D ride.
+    fn map_hosts_travel(&self) -> bool {
+        self.route == StageRoute::Realm && crate::stage::world_viz::overworld::map_enabled()
+    }
+
     /// The only scene-resolution match. Automatic journey/arrival cues remain
     /// recorded but never displace an operator-selected destination.
     ///
@@ -305,6 +311,10 @@ impl StageController {
                     };
                 }
                 StageOverlay::Lifecycle { .. } => return StageSurface::Lifecycle,
+                // On the Realm route the overworld map hosts travel and
+                // arrival itself: the knight walks there on the map.
+                StageOverlay::Journey { .. } | StageOverlay::Arrival { .. }
+                    if self.map_hosts_travel() => {}
                 StageOverlay::Journey { .. } if self.automatic_overlay_allowed() => {
                     return StageSurface::WorldFirstPerson;
                 }

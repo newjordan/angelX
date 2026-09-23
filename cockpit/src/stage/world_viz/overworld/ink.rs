@@ -419,6 +419,16 @@ impl Img {
         out
     }
 
+    /// Row-major opaque RGBA bytes for image protocols.
+    pub(crate) fn rgba_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.px.len() * 4);
+        for p in &self.px {
+            out.extend_from_slice(&p.unwrap_or(BLACK));
+            out.push(255);
+        }
+        out
+    }
+
     pub(crate) fn pixels(&self) -> impl Iterator<Item = Rgb> + '_ {
         self.px.iter().map(|p| p.unwrap_or(BLACK))
     }

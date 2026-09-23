@@ -26,12 +26,16 @@ mod scene;
 
 pub(crate) use hud::HUD_H;
 pub(crate) use ink::Img;
-pub(crate) use kit::Tool;
 pub(crate) use live::{Walker, soldier_state};
-pub(crate) use map::{MAP_H, MAP_W, Place, SCREEN_H, SCREEN_W, TILE};
-pub(crate) use scene::{
-    Hud, Joust, Knight, Scene, Soldier, SoldierKind, SoldierState, Ward, Weather,
-};
+pub(crate) use map::{MAP_H, MAP_W, SCREEN_H, SCREEN_W, TILE};
+pub(crate) use scene::{Scene, SoldierKind, SoldierState};
+
+#[cfg(test)]
+use kit::Tool;
+#[cfg(test)]
+use map::Place;
+#[cfg(test)]
+use scene::{Hud, Joust, Knight, Soldier, Ward};
 
 use kit::{RockKind, Tiles};
 use map::Realm;
@@ -150,6 +154,73 @@ pub(crate) fn frame_at(scene: &Scene, view: View) -> Img {
 /// A frame on the screen that holds the knight.
 pub(crate) fn frame(scene: &Scene) -> Img {
     frame_at(scene, View::screen_at(scene.knight.x, scene.knight.y))
+}
+
+/// [`frame`] memoized on the scene key for the drawing thread: a paced scene
+/// changes a few times a second, the terminal redraws far more often.
+pub(crate) fn frame_cached(scene: &Scene) -> std::rc::Rc<Img> {
+    thread_local! {
+        static LAST: std::cell::RefCell<Option<(u64, std::rc::Rc<Img>)>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    let key = scene.key();
+    LAST.with(|last| {
+        let mut last = last.borrow_mut();
+        if let Some((k, img)) = last.as_ref()
+            && *k == key
+        {
+            return std::rc::Rc::clone(img);
+        }
+        let img = std::rc::Rc::new(frame(scene));
+        *last = Some((key, std::rc::Rc::clone(&img)));
+        img
+    })
+}
+
+/// Frame size in pixels: one Zelda screen under the HUD.
+pub(crate) const FRAME_W: u32 = (SCREEN_W * TILE) as u32;
+pub(crate) const FRAME_H: u32 = (SCREEN_H * TILE + HUD_H) as u32;
+
+/// Whether the Realm route shows this map (the default) or the Dotmax 3D
+/// ride as before (`ANGEL_WORLD_MAP=3d`).
+pub(crate) fn map_enabled() -> bool {
+    std::env::var("ANGEL_WORLD_MAP").map_or(true, |raw| {
+        !matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "3d" | "dotmax" | "off" | "0" | "false" | "no"
+        )
+    })
+}
+
+/// Settle a live scene onto the map's own cadence: animation steps about
+/// seven times a second (half that while a turn runs) and the knight moves
+/// in whole pixels, so an idle realm re-encodes rarely.
+pub(crate) fn pace(scene: &mut Scene, relaxed: bool) {
+    scene.tick /= if relaxed { 12 } else { 6 };
+    scene.knight.x = scene.knight.x.round();
+    scene.knight.y = scene.knight.y.round();
+}
+
+/// A frame rendered on first use — the image worker, not the draw thread,
+/// pays for the pixels.
+pub(crate) struct LazyFrame {
+    scene: Scene,
+    rgba: std::sync::OnceLock<Vec<u8>>,
+}
+
+impl LazyFrame {
+    pub(crate) fn new(scene: Scene) -> LazyFrame {
+        LazyFrame {
+            scene,
+            rgba: std::sync::OnceLock::new(),
+        }
+    }
+}
+
+impl AsRef<[u8]> for LazyFrame {
+    fn as_ref(&self) -> &[u8] {
+        self.rgba.get_or_init(|| frame(&self.scene).rgba_bytes())
+    }
 }
 
 #[cfg(test)]

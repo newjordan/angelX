@@ -449,6 +449,9 @@ fn rejected_operator_route_arrival_never_arms_a_timer() {
 
 #[test]
 fn journey_survives_the_in_transit_none_before_arrival() {
+    // The 3D ride path; the overworld map hosts Realm travel by default.
+    let _env = crate::tests::env_lock();
+    let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let mut stage = Scryglass::default();
     stage.sync_arrival(Some(Building::Keep));
     stage.begin_journey(ToolEventId("call-transit".into()), Building::Smithy, false);

@@ -333,3 +333,57 @@ fn night_sinks_below_the_dusk_mood() {
     assert!((live::ambient_for(1.0) - light::DUSK).abs() < 1e-6);
     assert!(live::ambient_for(0.55) < light::DUSK - 0.1);
 }
+
+// ─── painting it ─────────────────────────────────────────────────────────────
+
+#[test]
+fn the_map_paces_its_frames() {
+    let (mut a, mut b, mut c, mut r) = (busy(13), busy(17), busy(18), busy(13));
+    pace(&mut a, false);
+    pace(&mut b, false);
+    pace(&mut c, false);
+    pace(&mut r, true);
+    assert_eq!(a.tick, 2);
+    assert_eq!(a.key(), b.key(), "ticks inside one step share a frame");
+    assert_ne!(a.key(), c.key(), "the next step is a new frame");
+    assert_eq!(r.tick, 1, "a running turn halves the cadence");
+    let mut moved = busy(13);
+    moved.knight.x += 0.3;
+    pace(&mut moved, false);
+    assert_eq!(moved.key(), a.key(), "sub-pixel drift is not a new frame");
+}
+
+#[test]
+fn lazy_frames_render_rgba_on_the_worker() {
+    let lazy = LazyFrame::new(busy(0));
+    let bytes = lazy.as_ref();
+    assert_eq!(bytes.len(), (FRAME_W * FRAME_H * 4) as usize);
+    assert!(bytes.chunks_exact(4).all(|px| px[3] == 255));
+    assert_eq!(bytes, frame(&busy(0)).rgba_bytes().as_slice());
+}
+
+#[test]
+fn the_realm_route_keeps_travel_on_the_map() {
+    use crate::stage::world_viz::Building;
+    use crate::ui::scryglass::{Scryglass, StageRoute, StageSurface};
+    let _env = crate::tests::env_lock();
+    let mut stage = Scryglass::default();
+    stage.sync_arrival(Some(Building::Keep));
+    stage.begin_journey(ToolEventId("walk".into()), Building::Smithy, false);
+    assert_eq!(stage.controller.route(), StageRoute::Realm);
+    {
+        let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
+        assert!(map_enabled());
+        assert_eq!(
+            stage.controller.resolved_scene(false, false, true),
+            StageSurface::WorldMap,
+            "the knight walks on the map, even when a quest owns the pane"
+        );
+    }
+    let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
+    assert!(!map_enabled());
+    assert_eq!(
+        stage.controller.resolved_scene(false, false, false),
+        StageSurface::WorldFirstPerson
+    );
+}

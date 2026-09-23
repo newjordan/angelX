@@ -362,7 +362,11 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 /// Both sway/bob a couple of cells so they read as dancing *around*, not glued
 /// to a single corner. World overlays stay on subdued dots, not native portraits.
 fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
-    if !render_dotmax_interior(frame, app, area) {
+    if !render_dotmax_interior(frame, app, area)
+        && crate::stage::world_viz::overworld::map_enabled()
+    {
+        render_overworld(frame, app, area);
+    } else if !app.world.ambient_interior_visible() {
         let (width, height) = world_sample_size(app, area);
         let yaw = if app.scryglass.follow_agent {
             app.world_yaw_offset
@@ -385,6 +389,104 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
         }
     }
     render_hammertime_mascot(frame, app, area);
+}
+
+/// The Realm route's base layer: the pixel overworld. Image-capable
+/// terminals get the frame through the graphics protocol; any other terminal
+/// gets it in half blocks.
+fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
+    use crate::stage::world_viz::overworld;
+    let paper = ratatui::style::Color::Rgb(0, 0, 0);
+    let buf = frame.buffer_mut();
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_char(' ').set_bg(paper);
+            }
+        }
+    }
+    let scene = overworld_scene(app);
+    if app.viewer.map_pixels_native() {
+        let worker_scene = scene.clone();
+        let state = app
+            .viewer
+            .render_map_pixels(frame, area, scene.key(), move || {
+                (
+                    overworld::LazyFrame::new(worker_scene),
+                    overworld::FRAME_W,
+                    overworld::FRAME_H,
+                )
+            });
+        if state == crate::ui::viewer::WorldPixelsState::Ready {
+            return;
+        }
+    }
+    // Ordinary terminals, and the first frame while an image encodes.
+    paint_halfblock_frame(frame, area, &overworld::frame_cached(&scene));
+}
+
+/// The live scene plus the HUD facts only the app knows: the route, its
+/// thinking level and how full the context window is.
+fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
+    let mut scene = app.world.overworld_scene();
+    let chrome = app.bag.in_hand_chrome();
+    scene.hud.model = chrome
+        .mode
+        .clone()
+        .unwrap_or_else(|| app.bag.in_hand_label().to_string());
+    scene.hud.think = chrome.effort.clone().unwrap_or_default();
+    let used = app
+        .tools
+        .gauge
+        .used_tokens
+        .load(std::sync::atomic::Ordering::Relaxed);
+    if used > 0
+        && let Some(percent) = app
+            .bag
+            .in_hand()
+            .header_route_metadata()
+            .context_usage_percent(used)
+    {
+        scene.hud.ctx_free = 100u32.saturating_sub(percent.min(100) as u32);
+    }
+    crate::stage::world_viz::overworld::pace(&mut scene, app.scenery_relaxed());
+    scene
+}
+
+/// A pixel frame as `▀` half blocks (fg top, bg bottom), aspect kept and
+/// letterboxed on black paper.
+fn paint_halfblock_frame(
+    frame: &mut Frame,
+    area: Rect,
+    img: &crate::stage::world_viz::overworld::Img,
+) {
+    if area.width == 0 || area.height == 0 || img.w <= 0 || img.h <= 0 {
+        return;
+    }
+    let (grid_w, grid_h) = (f32::from(area.width), f32::from(area.height) * 2.0);
+    let scale = (grid_w / img.w as f32).min(grid_h / img.h as f32);
+    let (draw_w, draw_h) = (img.w as f32 * scale, img.h as f32 * scale);
+    let (ox, oy) = ((grid_w - draw_w) / 2.0, (grid_h - draw_h) / 2.0);
+    let sample = |gx: f32, gy: f32| -> ratatui::style::Color {
+        let (sx, sy) = ((gx - ox) / scale, (gy - oy) / scale);
+        let [r, g, b] = if sx < 0.0 || sy < 0.0 {
+            [0, 0, 0]
+        } else {
+            img.get(sx as i32, sy as i32).unwrap_or([0, 0, 0])
+        };
+        ratatui::style::Color::Rgb(r, g, b)
+    };
+    let buf = frame.buffer_mut();
+    for cy in 0..area.height {
+        for cx in 0..area.width {
+            let (gx, gy) = (f32::from(cx) + 0.5, f32::from(cy) * 2.0 + 0.5);
+            if let Some(cell) = buf.cell_mut((area.x + cx, area.y + cy)) {
+                cell.set_char('▀')
+                    .set_fg(sample(gx, gy))
+                    .set_bg(sample(gx, gy + 1.0));
+            }
+        }
+    }
 }
 
 fn render_hammertime_mascot(frame: &mut Frame, app: &mut App, area: Rect) {
