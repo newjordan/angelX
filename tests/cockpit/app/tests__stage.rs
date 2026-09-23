@@ -1951,7 +1951,10 @@ fn the_realm_route_paints_the_overworld_map_by_default() {
         app.scryglass.surface,
         crate::ui::scryglass::StageSurface::WorldMap
     );
-    assert!(app.world_pane_visible, "the map keeps the world clock running");
+    assert!(
+        app.world_pane_visible,
+        "the map keeps the world clock running"
+    );
     let area = app
         .panes
         .rect_of(crate::ui::mouse::PaneId::Artifacts)
@@ -1967,7 +1970,10 @@ fn the_realm_route_paints_the_overworld_map_by_default() {
             town_ink |= cell.fg == gold || cell.bg == gold;
         }
     }
-    assert!(halfblocks > 200, "the map paints in half blocks ({halfblocks})");
+    assert!(
+        halfblocks > 200,
+        "the map paints in half blocks ({halfblocks})"
+    );
     assert!(town_ink, "the HUD names the town in gold");
     assert_eq!(
         take_ride_compose_count(),
