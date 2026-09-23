@@ -623,6 +623,7 @@ fn cockpit_scenario_baselines_cover_representative_sizes() {
     // env-mutating test can never repaint these baselines mid-run.
     let _guard = env_lock();
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
+    let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
@@ -645,8 +646,7 @@ fn cockpit_scenario_baselines_cover_representative_sizes() {
         }
         assert!(scenario.app.scryglass.visible, "{width}x{height}");
         assert!(
-            text.chars()
-                .any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch)),
+            text.chars().any(|ch| ch == '▀' || ch == '\u{10EEEE}'),
             "startup must render the realm map at {width}x{height}\n{text}"
         );
         assert!(!text.contains("ARRIVAL"), "fresh startup\n{text}");
@@ -1311,6 +1311,8 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     use crate::ui::scryglass::{StageRoute, StageSurface};
     let _lock = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     // This contract inspects text cells; native generated-dot transport has
     // its own pixel, continuity, geometry and ordinary-terminal checks.
     let _text_dots = TestEnvGuard::set("ANGEL_DOTMAX_PITCH", "text");
@@ -1819,6 +1821,8 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
 fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     use crate::drive::loop_ctl::LoopStatus;
     let _lock = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
     let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
@@ -1924,5 +1928,50 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
             .resolved_scene(false, false, app.world.quest_owns_pane()),
         crate::ui::scryglass::StageSurface::Arrival(world_viz::Building::Scriptorium),
         "back in town, arrivals are exactly what they were"
+    );
+}
+
+#[test]
+fn the_realm_route_paints_the_overworld_map_by_default() {
+    use crate::stage::world_viz::take_ride_compose_count;
+    let _lock = env_lock();
+    let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
+    let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
+
+    let _ = take_ride_compose_count();
+    let mut app = seed_preview_app();
+    app.focus_module("artifacts");
+    let mut terminal = Terminal::new(TestBackend::new(144, 48)).unwrap();
+    terminal.draw(|frame| draw::ui(frame, &mut app)).unwrap();
+    assert_eq!(
+        app.scryglass.surface,
+        crate::ui::scryglass::StageSurface::WorldMap
+    );
+    assert!(app.world_pane_visible, "the map keeps the world clock running");
+    let area = app
+        .panes
+        .rect_of(crate::ui::mouse::PaneId::Artifacts)
+        .expect("world pane");
+    let buf = terminal.backend().buffer();
+    let gold = ratatui::style::Color::Rgb(0xf7, 0xca, 0x58);
+    let mut halfblocks = 0;
+    let mut town_ink = false;
+    for y in area.y..area.bottom() {
+        for x in area.x..area.right() {
+            let cell = &buf[(x, y)];
+            halfblocks += usize::from(cell.symbol() == "▀");
+            town_ink |= cell.fg == gold || cell.bg == gold;
+        }
+    }
+    assert!(halfblocks > 200, "the map paints in half blocks ({halfblocks})");
+    assert!(town_ink, "the HUD names the town in gold");
+    assert_eq!(
+        take_ride_compose_count(),
+        0,
+        "the map replaces the Dotmax ride on the Realm route"
     );
 }

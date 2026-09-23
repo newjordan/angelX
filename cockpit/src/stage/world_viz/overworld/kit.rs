@@ -1171,7 +1171,7 @@ pub(crate) fn smoke(tick: u32) -> Img {
 // ─── icons & cues ────────────────────────────────────────────────────────────
 
 /// What the knight is doing, as a HUD item and an emote.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Tool {
     Hammer,
     Book,

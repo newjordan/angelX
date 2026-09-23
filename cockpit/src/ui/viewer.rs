@@ -246,7 +246,6 @@ pub struct Viewer {
     /// it paints only through Kitty's in-memory pixel protocol. Other terminals
     /// retain the terminal-native Agent/Realm visualization.
     portal_picker: Picker,
-    #[cfg_attr(not(test), allow(dead_code))]
     world_font_size: (u16, u16),
     portal_enabled: bool,
     portal_current: Option<PortalCacheEntry>,
@@ -254,15 +253,10 @@ pub struct Viewer {
     portal_failure: Option<PortalCacheKey>,
     /// The authored backed Realm map. Same machinery as the portal, its own
     /// cache slot so a map repaint never evicts an activity frame.
-    #[cfg_attr(not(test), allow(dead_code))]
     map_enabled: bool,
-    #[cfg_attr(not(test), allow(dead_code))]
     map_current: Option<PortalCacheEntry>,
-    #[cfg_attr(not(test), allow(dead_code))]
     map_pending: Option<PendingPortal>,
-    #[cfg_attr(not(test), allow(dead_code))]
     map_failure: Option<PortalCacheKey>,
-    #[cfg_attr(not(test), allow(dead_code))]
     map_area: Option<Rect>,
     /// One resident worker composes and encodes map frames. The knight's ride
     /// changes the sequence many times a second, so a thread per miss would
@@ -277,7 +271,6 @@ pub struct Viewer {
 
 /// Readiness is not ownership: a supported pending sprite must not trigger a
 /// second compositor on the draw thread. Legacy routes still use readiness.
-#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WorldPixelsState {
     Ready,
@@ -285,9 +278,9 @@ pub(crate) enum WorldPixelsState {
     Unavailable,
 }
 
-#[cfg(test)]
 impl WorldPixelsState {
-    fn ready(self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn ready(self) -> bool {
         self == Self::Ready
     }
 }
@@ -1240,6 +1233,30 @@ impl Viewer {
         self.portal_picker.clone()
     }
 
+    /// The overworld map: in-memory RGBA pixel art through the terminal's
+    /// graphics protocol, keeping the last encoded
+    /// frame on screen while the next one encodes so a walking knight never
+    /// blanks the pane.
+    pub(crate) fn render_map_pixels<P, F>(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        compose: F,
+    ) -> WorldPixelsState
+    where
+        P: AsRef<[u8]> + Send + 'static,
+        F: FnOnce() -> (P, u32, u32),
+    {
+        self.render_world_pixels_inner(frame, area, sequence, false, true, compose)
+    }
+
+    /// Whether map frames go out as terminal images (Kitty, iTerm2, or Sixel
+    /// when asked for); other terminals paint the map in half blocks.
+    pub(crate) fn map_pixels_native(&self) -> bool {
+        self.map_enabled
+    }
+
     #[cfg(test)]
     fn render_world_pixels<P, F>(
         &mut self,
@@ -1247,6 +1264,22 @@ impl Viewer {
         area: Rect,
         sequence: u64,
         ambient: bool,
+        compose: F,
+    ) -> WorldPixelsState
+    where
+        P: AsRef<[u8]> + Send + 'static,
+        F: FnOnce() -> (P, u32, u32),
+    {
+        self.render_world_pixels_inner(frame, area, sequence, ambient, false, compose)
+    }
+
+    fn render_world_pixels_inner<P, F>(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        ambient: bool,
+        retain: bool,
         compose: F,
     ) -> WorldPixelsState
     where
@@ -1283,11 +1316,29 @@ impl Viewer {
         if self.map_failure.as_ref() == Some(&key) {
             return WorldPixelsState::Unavailable;
         }
+        // A retained surface keeps its last frame up (same cell box) until
+        // the newer one lands.
+        let mut painted = false;
+        if retain
+            && let Some(stale) = self
+                .map_current
+                .as_ref()
+                .filter(|entry| entry.key.width == key.width && entry.key.height == key.height)
+        {
+            let painted_area = fixed_protocol_area(&stale.protocol, area);
+            frame.render_widget(Image::new(&stale.protocol), painted_area);
+            self.map_area = Some(painted_area);
+            painted = true;
+        }
         // Coalesce changing world sequences behind the one admitted encode.
         // The next draw snapshots the latest state after it settles, keeping
         // the resident worker's FIFO at zero queued obsolete frames.
         if self.map_pending.is_some() {
-            return WorldPixelsState::Pending;
+            return if painted {
+                WorldPixelsState::Ready
+            } else {
+                WorldPixelsState::Pending
+            };
         }
         // Only now is a frame actually needed, and the closure only snapshots
         // world state: the per-pixel compose hides behind the pixels'
@@ -1345,7 +1396,9 @@ impl Viewer {
                 self.map_failure = Some(key);
             }
         }
-        if self.map_pending.is_some() {
+        if painted {
+            WorldPixelsState::Ready
+        } else if self.map_pending.is_some() {
             WorldPixelsState::Pending
         } else {
             WorldPixelsState::Unavailable
@@ -1389,7 +1442,6 @@ impl Viewer {
         Ok(())
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn promote_pending_map(&mut self) {
         let Some(pending) = self.map_pending.as_ref() else {
             return;
