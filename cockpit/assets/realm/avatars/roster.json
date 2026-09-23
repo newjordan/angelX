@@ -12,14 +12,16 @@
    "title": "Lantern of Diverging Ways",
    "look": "A light, wind-canted knight forms a narrow diagonal silhouette, with three long feather-shaped sun-gold vanes fanning from behind the right shoulder. Its closed midnight-blue helm tapers into a forward wedge above a seamless black visor. Over ivory mail lie overlapping parchment-curved plates, bound by fine gold filigree and a slim blue cuirass. The left pauldron bears a split diamond pierced by three diverging rays. At the collar hangs a faceted diamond lantern, casting one sharp golden rhombus across the breastplate; the triple-vane fan is unmistakable at 96 pixels.",
    "why": "I am this knight because I seek the clearest light through branching possibilities while keeping every path open long enough to understand it.",
-   "origin": "round table draft",
-   "how": "knight carried forward from “Lantern of Many Paths”",
+   "origin": "self-portrait",
+   "how": "knight carried forward from “Lantern of Many Paths”, then drawn by Sol itself with its own image generator",
    "render": "round-table/render/sol.png",
    "sprite": "round-table/sprite/sol.png",
    "sha256": {
-    "render": "38080413be31631e5dbc59b7c9e2506fe5bebfaa248f1058eff277ff735379e9",
-    "sprite": "0a97a7b197b2a0ffcd86b9b0b7eab3f6cbfbe572cfdf2764ff1d479488ab570c"
-   }
+    "render": "417e653d0ea75efcf94a45a42a4ab0f7aba41aa871181f3161ef37b94580f84c",
+    "sprite": "a897c5467553bc495ee5c1f68352cf1af522d1020671b559cf4b3a4bf649b5df"
+   },
+   "drawn_by": "gpt-5.6-sol, OpenAI image generation through the Codex CLI",
+   "image_prompt": "Use case: stylized-concept\nAsset type: angelX terminal cockpit knight portrait/avatar sprite\nPrimary request: Create my knight, “Lantern of Diverging Ways” (Vane Knight): a strange, benevolent light-and-wind knight devoted to goodness, illumination, knowledge, and branching possibility.\nScene/backdrop: No scene and no backdrop; genuinely transparent background with real alpha.\nSubject: Exactly one armored knight, head and shoulders only, centered and facing the viewer. The knight has a narrow, subtly wind-canted diagonal silhouette. A closed midnight-blue helm tapers into a clean forward wedge above a seamless pitch-black visor; absolutely no face or eyes are visible. Three long feather-shaped sun-gold wind vanes fan distinctly from behind the knight’s right shoulder, separated clearly so the triple-vane motif remains unmistakable at 96 pixels. Ivory mail supports overlapping armor plates shaped like gently curved parchment leaves, bound by spare fine gold filigree, with a slim deep-blue cuirass. The left pauldron carries a purely pictorial split-diamond device pierced by three diverging rays. At the collar hangs one faceted diamond lantern, casting a single crisp, flat golden rhombus of light across the breastplate.\nStyle/medium: True low-resolution pixel-art sprite, authentically hand-pixeled, chunky crisp square pixels, deliberate one-pixel clusters, limited shading steps, no anti-aliasing, no gradients, no vector smoothness, no painterly texture. Design at an internal sprite scale where the complete figure is about 96 pixels tall, then display enlarged with nearest-neighbor scaling so every pixel remains hard-edged.\nComposition/framing: Symmetrical frontal portrait with a slight wind-swept diagonal energy; entire helm, all three vanes, both shoulders, and the lantern fully visible. Generous transparent empty space on every side; nothing touches the canvas edge and nothing is cropped.\nLighting/mood: Quiet dusk, resolute and otherworldly; the lantern light is geometric and restrained, not a bloom.\nColor palette: Small dusk palette only: midnight blue, near-black, ivory, parchment cream, muted sun-gold, and one subdued blue accent.\nConstraints: PNG-like sprite with genuine alpha transparency; exactly one knight; readable at 96-pixel figure height; no visible face; no text or lettering anywhere; no logos or brand marks; no glowing eyes; no bloom; no halo; no background; no ground plane; no border; no frame; no shadow outside the figure.\nAvoid: antialiasing, semi-transparent edge haze, smooth curves, high-resolution painted detail, photorealism, 3D rendering, extra characters, weapons, hands, scenery, particles, fog, lens flare, cropped feathers, cropped shoulders, or duplicate lanterns."
   },
   {
    "model_key": "luna",
