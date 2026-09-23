@@ -1521,6 +1521,17 @@ fn run_turn_tiered(
     let mut last_green_run: Option<GreenRun> = None;
     let confirm_green_runs = confirm_green_extra_runs(competition);
     let mut confirm_green_rejections = 0usize;
+    // The model's last red test run and the workspace it failed on. A task-mode
+    // "done" on that same code, with budget left, is denied: the run's own
+    // evidence says the work is not finished (see `red_completion_denial_limit`).
+    let red_completion_limit = red_completion_denial_limit(task_active, competition);
+    let mut red_completion_denials = 0usize;
+    let mut last_red_run: Option<RedRun> = None;
+    let task_wall_secs = if turn_budget > 0 {
+        turn_budget
+    } else {
+        env_usize("ANGEL_TASK_WALL_SECS", 0)
+    };
     // A task that declares its editable surface (a Yukon benchmark.json, or
     // ANGEL_TASK_EDIT_SCOPE) gets a note on edits outside it: those changes are
     // not part of what is evaluated.
@@ -3667,6 +3678,40 @@ fn run_turn_tiered(
                         }
                     }
                 }
+                // The model's own last test run on this exact code was red.
+                // Accepting "done" now ends the task in a state its evidence
+                // says is broken while there is still budget to fix it. An
+                // evaluator acceptance command, when present, already decided.
+                if task_accept_cmd.is_none()
+                    && red_completion_denials < red_completion_limit
+                    && let Some(red) = last_red_run.as_ref().filter(|red| {
+                        red.workspace.is_some() && red.workspace == current_workspace_fingerprint
+                    })
+                    && let Some(left) = task_budget_left(
+                        hop,
+                        max_hops,
+                        final_mile_active,
+                        turn_start.elapsed().as_secs(),
+                        task_wall_secs,
+                    )
+                {
+                    red_completion_denials += 1;
+                    crate::agent::harness::trajectory::note_escalation(
+                        hop,
+                        "red_completion_denied",
+                    );
+                    let _ = events.send(TurnEvent::SuppressPartial);
+                    history.push(ChatMsg::assistant(answer));
+                    history.push(ChatMsg::harness(format!(
+                        "{RED_COMPLETION_NUDGE} {left}\nLast failing run, {}:\n{}",
+                        red.label, red.tail
+                    )));
+                    let _ = events.send(TurnEvent::Notice(format!(
+                        "the last test run on this code failed; denying completion \
+                         ({red_completion_denials}/{red_completion_limit}). {left}"
+                    )));
+                    continue;
+                }
                 let verification_outstanding = verification_needed
                     || workspace_changed_after_verification
                     || registry.mutation_targets.opaque_generation() > attempted_opaque_generation;
@@ -4587,9 +4632,13 @@ fn run_turn_tiered(
                     )
                 });
                 // Track the consecutive-error streak before the results are capped
-                // into history: a hop where every call errored at dispatch.
+                // into history: a hop where every call errored at dispatch. A red
+                // test run is a verdict, not a dispatch error.
                 let all_errored = !results.is_empty()
-                    && results.iter().all(|(result, _, _)| is_error_result(result));
+                    && results
+                        .iter()
+                        .zip(calls.iter())
+                        .all(|((result, _, _), call)| is_dispatch_failure(call, result));
                 err_streak = if all_errored { err_streak + 1 } else { 0 };
                 // Classify every dispatch-level failure into the bounded
                 // schema/exec/timeout/other buckets for the experience ledger.
@@ -4861,6 +4910,24 @@ fn run_turn_tiered(
                             consecutive_verification_failures = 0;
                             verification_recovery_emitted = false;
                         }
+                        // Remember a red verdict and the code it ran on; a full
+                        // green clears it. A runner that never started (exit
+                        // 127, a timeout) says nothing about the code.
+                        if red_completion_limit > 0 {
+                            if outcome == VerificationOutcome::Failed
+                                && (is_red_verifier_run(call, &result) || !is_error_result(&result))
+                            {
+                                last_red_run = Some(RedRun {
+                                    workspace: workspace_fingerprint(registry.current_workspace()),
+                                    label: green_run_label(call),
+                                    tail: tail_chars(&result, TASK_ACCEPT_TAIL_CHARS),
+                                });
+                            } else if outcome == VerificationOutcome::Passed
+                                && verification_is_completion_sufficient(call)
+                            {
+                                last_red_run = None;
+                            }
+                        }
                         let weak_self_authored = self_authored_verify_guard
                             && outcome == VerificationOutcome::Passed
                             && verification_targets_self_authored(
@@ -4997,6 +5064,9 @@ fn run_turn_tiered(
                             .is_some_and(|after| before != after)
                     });
                 crate::agent::harness::trajectory::note_progress_hop(progress_mutated);
+                if progress_mutated && let Some(storm) = toolcall_storm.as_mut() {
+                    storm.workspace_changed();
+                }
                 if repeated_poll_guard.observe(repeated_poll_fingerprint, progress_mutated) {
                     let note = format!(
                         "⚠ stopped repeated passive polling: the same status/log batch ran \
@@ -5664,6 +5734,69 @@ pub(crate) struct GreenRun {
     pub(crate) workspace: Option<u64>,
     /// `run_tests` standing in for a shell run angelX will not repeat as-is.
     pub(crate) substitute: bool,
+}
+
+/// The model's last red test run, kept for the completion check.
+pub(crate) struct RedRun {
+    /// The workspace it failed on; the check applies only to that same code.
+    pub(crate) workspace: Option<u64>,
+    pub(crate) label: String,
+    pub(crate) tail: String,
+}
+
+pub(crate) const RED_COMPLETION_NUDGE: &str = "Your last test run on this exact code failed, so the \
+task is not finished, and there is budget left to fix it. Read the failure below, change the code, \
+and run the tests again. If something outside the code blocks you, such as a missing tool or a \
+broken environment, say what it is and answer again.";
+
+/// Completions denied while the model's own last test run on the final code
+/// is red: `ANGEL_RED_COMPLETION_DENIALS` (0-4). Default 2 in task mode, where
+/// the run ends on its answer and nobody is there to say "keep going"; 0 in
+/// interactive sessions, where the answer goes to a person who decides. Never
+/// in competition, which does not deny answers. polyglot-v1: gpt-6-luna
+/// answered "tests still fail" on five tasks with 74-94% of its 600 s left,
+/// and solved all five when re-run at higher effort.
+pub(crate) fn red_completion_denial_limit(task_active: bool, competition: bool) -> usize {
+    if competition {
+        return 0;
+    }
+    match std::env::var("ANGEL_RED_COMPLETION_DENIALS") {
+        Ok(value) => value.trim().parse::<usize>().map_or(0, |n| n.min(4)),
+        Err(_) if task_active => 2,
+        Err(_) => 0,
+    }
+}
+
+/// What a task turn still has for acting on a denied completion, as a line for
+/// the model, or `None` when too little is left: the final-mile window is
+/// open, fewer than three steps remain (an edit, a test run, the answer), or
+/// less than a quarter of the task's wall clock. `wall_secs` 0 means no wall.
+pub(crate) fn task_budget_left(
+    hop: usize,
+    max_hops: Option<usize>,
+    final_mile_active: bool,
+    elapsed_secs: u64,
+    wall_secs: usize,
+) -> Option<String> {
+    if final_mile_active {
+        return None;
+    }
+    let steps = match max_hops {
+        Some(max) if max.saturating_sub(hop) < 3 => return None,
+        Some(max) => Some(max - hop),
+        None => None,
+    };
+    let secs = match wall_secs as u64 {
+        0 => None,
+        wall if wall.saturating_sub(elapsed_secs).saturating_mul(4) < wall => return None,
+        wall => Some(wall - elapsed_secs.min(wall)),
+    };
+    Some(match (secs, steps) {
+        (Some(secs), Some(steps)) => format!("About {secs} s and {steps} steps are left."),
+        (Some(secs), None) => format!("About {secs} s are left."),
+        (None, Some(steps)) => format!("{steps} steps are left."),
+        (None, None) => "This task has no time or step limit.".to_string(),
+    })
 }
 
 /// A shell test run angelX will not re-run as-is: an `a || b` fallback can turn

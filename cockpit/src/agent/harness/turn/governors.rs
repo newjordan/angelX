@@ -304,6 +304,12 @@ pub(crate) const TOOLCALL_STORM_THRESHOLD: usize = 3;
 /// immediately preceding one and ends the turn: this matches individual calls
 /// across a window of hops and answers only the duplicate, so the rest of a
 /// mixed batch keeps making progress.
+///
+/// A duplicate is the same call against the same workspace. A call's result
+/// depends on the files it reads, so an edit starts a fresh window: an earlier
+/// sighting described code that no longer exists. Without that, a plain
+/// edit → test → edit → test loop had its third test run suppressed as
+/// "unchanged" (polyglot-v1: 35 of 37 suppressions came right after an edit).
 pub(crate) struct ToolCallStorm {
     hops: std::collections::VecDeque<Vec<(String, std::time::Instant)>>,
     window: usize,
@@ -319,36 +325,57 @@ impl ToolCallStorm {
 
     /// Fold one hop's batch into the window and return each call's occurrence
     /// count (1 = first sighting). Earlier duplicates in the same batch count,
-    /// so a model that repeats a call inside one batch is caught too.
+    /// so a model that repeats a call inside one batch is caught too. A call
+    /// that follows an edit in the same batch is compared only with what came
+    /// after that edit.
     pub(crate) fn observe(&mut self, calls: &[ToolCall]) -> Vec<usize> {
         let observed_at = std::time::Instant::now();
         let mut counts = Vec::with_capacity(calls.len());
-        let mut batch = Vec::with_capacity(calls.len());
+        let mut batch: Vec<(String, std::time::Instant)> = Vec::with_capacity(calls.len());
+        let mut after_edit: Option<usize> = None;
         for call in calls {
             let signature = toolcall_storm_signature(call);
-            let seen = self
-                .hops
-                .iter()
-                .flatten()
-                .chain(batch.iter())
-                .filter(|(prior, seen_at)| {
-                    prior == &signature
-                        // A process snapshot is time-dependent. Real solver
-                        // runs were denied status even minutes after a prior
-                        // observation because too few model hops had elapsed.
-                        // Keep rapid-poll suppression, but age these sightings.
-                        && (!matches!(call.name.as_str(), "proc_status" | "proc_wait")
-                            || observed_at.saturating_duration_since(*seen_at).as_secs() < 30)
-                })
-                .count();
+            let repeats = |(prior, seen_at): &&(String, std::time::Instant)| {
+                prior == &signature
+                    // A process snapshot is time-dependent. Real solver
+                    // runs were denied status even minutes after a prior
+                    // observation because too few model hops had elapsed.
+                    // Keep rapid-poll suppression, but age these sightings.
+                    && (!matches!(call.name.as_str(), "proc_status" | "proc_wait")
+                        || observed_at.saturating_duration_since(*seen_at).as_secs() < 30)
+            };
+            let seen = match after_edit {
+                Some(start) => batch[start..].iter().filter(repeats).count(),
+                None => self
+                    .hops
+                    .iter()
+                    .flatten()
+                    .chain(batch.iter())
+                    .filter(repeats)
+                    .count(),
+            };
             counts.push(seen + 1);
             batch.push((signature, observed_at));
+            // Suppression is decided before dispatch, so an edit earlier in
+            // the batch counts as a change even though it has not run yet.
+            if is_mutation_call(call) {
+                after_edit = Some(batch.len());
+            }
         }
         self.hops.push_back(batch);
         while self.hops.len() > self.window {
             self.hops.pop_front();
         }
         counts
+    }
+
+    /// The workspace changed during the last hop, through a direct edit or an
+    /// opaque one such as a shell `sed -i`. Every earlier sighting described
+    /// files that are gone, so none of them can make a later call a duplicate.
+    /// An identical rewrite that changed no bytes does not get here, so a
+    /// storm of no-op writes is still caught.
+    pub(crate) fn workspace_changed(&mut self) {
+        self.hops.clear();
     }
 }
 

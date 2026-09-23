@@ -10492,3 +10492,476 @@ fn edits_outside_the_edit_scope_are_noted_once() {
         None
     );
 }
+
+// --- polyglot-v1 root causes: storm window, red verdicts, red completions ---
+
+/// Plays a fixed list of moves, then answers "done".
+enum Move {
+    Call(ToolCall),
+    Say(&'static str),
+}
+
+struct Script {
+    moves: Vec<Move>,
+    next: AtomicUsize,
+}
+
+impl Script {
+    fn new(moves: Vec<Move>) -> Self {
+        Self {
+            moves,
+            next: AtomicUsize::new(0),
+        }
+    }
+    fn chats(&self) -> usize {
+        self.next.load(Ordering::SeqCst)
+    }
+}
+
+impl Club for Script {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok(String::new())
+    }
+    fn label(&self) -> &str {
+        "script"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        let index = self.next.fetch_add(1, Ordering::SeqCst);
+        Ok(match self.moves.get(index) {
+            Some(Move::Call(call)) => ClubReply::Calls(vec![ToolCall {
+                id: format!("s{index}"),
+                ..call.clone()
+            }]),
+            Some(Move::Say(text)) => ClubReply::Text((*text).to_string()),
+            None => ClubReply::Text("done".to_string()),
+        })
+    }
+}
+
+fn run_tests_call(attempt: usize) -> Move {
+    Move::Call(tc("run_tests", json!({ "attempt": attempt })))
+}
+
+fn write_call(path: &str, content: &str) -> Move {
+    Move::Call(tc(
+        "write_file",
+        json!({ "path": path, "content": content }),
+    ))
+}
+
+/// Stands in for run_tests with the real runner's red format: red until the
+/// workspace has a `fixed` file, green after.
+struct Suite {
+    root: PathBuf,
+    runs: Arc<AtomicUsize>,
+}
+
+impl Tool for Suite {
+    fn name(&self) -> &str {
+        "run_tests"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "run_tests".into(),
+            description: "Run the workspace tests.".into(),
+            params: json!({"type": "object"}),
+        }
+    }
+    fn call(&self, _args: &Value) -> Result<String, String> {
+        self.runs.fetch_add(1, Ordering::SeqCst);
+        if self.root.join("fixed").exists() {
+            Ok("tests: 2 passed, 0 failed".into())
+        } else {
+            Err("cargo test failed (exit 101)\n---- sub_id stdout ----\n\
+                 assertion `left == right` failed: sub_id\n\
+                 test result: FAILED. 1 passed; 1 failed"
+                .into())
+        }
+    }
+}
+
+/// A plain file writer, so edits change real bytes in the workspace.
+struct Writer(PathBuf);
+
+impl Tool for Writer {
+    fn name(&self) -> &str {
+        "write_file"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "write_file".into(),
+            description: "Write a file.".into(),
+            params: json!({"type": "object"}),
+        }
+    }
+    fn call(&self, args: &Value) -> Result<String, String> {
+        let path = args["path"].as_str().ok_or("missing 'path'")?;
+        let content = args["content"].as_str().unwrap_or("");
+        std::fs::write(self.0.join(path), content).map_err(|e| e.to_string())?;
+        Ok(format!("wrote {} bytes to {path}", content.len()))
+    }
+}
+
+fn root_turn_env() -> Vec<EnvGuard> {
+    vec![
+        EnvGuard::set("ANGEL_SKILL_HINT", "0"),
+        EnvGuard::set("ANGEL_ADVISOR", "0"),
+        EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0"),
+        EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0"),
+        EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0"),
+        EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0"),
+        EnvGuard::set("ANGEL_EXPERIENCE", "0"),
+        EnvGuard::set("ANGEL_ATLAS", "0"),
+        EnvGuard::set("ANGEL_TRAJECTORY_LOG", "0"),
+        EnvGuard::set("ANGEL_HARNESS_ROLLOUT", "off"),
+        EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD"),
+        EnvGuard::unset("ANGEL_CONFIRM_GREEN_RUNS"),
+        EnvGuard::unset("ANGEL_TASK_WALL_SECS"),
+        EnvGuard::unset("ANGEL_TURN_DEADLINE_SECS"),
+        EnvGuard::unset("ANGEL_COMPETITION_MODE"),
+    ]
+}
+
+/// A Git workspace, so the turn can tell whether code changed since a test run.
+fn root_fixture(name: &str) -> PathBuf {
+    let root = scratch(name);
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .expect("git fixture command starts");
+        assert!(output.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q"]);
+    git(&["config", "user.email", "angel@example.invalid"]);
+    git(&["config", "user.name", "Angel Test"]);
+    std::fs::write(root.join("lib.rs"), "pub fn sub() {}\n").unwrap();
+    git(&["add", "lib.rs"]);
+    git(&["commit", "-q", "-m", "seed"]);
+    root
+}
+
+/// Runs `script` in `root` with the suite and writer registered. Returns the
+/// outcome, the history, and how many times the suite ran.
+fn run_root_turn(root: &Path, script: &Script) -> (TurnOutcome, Vec<ChatMsg>, usize) {
+    let runs = Arc::new(AtomicUsize::new(0));
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.to_path_buf());
+    registry.register(Box::new(Suite {
+        root: root.to_path_buf(),
+        runs: Arc::clone(&runs),
+    }));
+    registry.register(Box::new(Writer(root.to_path_buf())));
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    let outcome = run_turn_observed(
+        script,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(30),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    (outcome, history, runs.load(Ordering::SeqCst))
+}
+
+/// The same call after an edit reads different code, so it is not a
+/// duplicate. polyglot-v1: 35 of 37 storm suppressions came right after an
+/// edit, and gpt-6-luna gave up on js-food-chain when its re-run was refused.
+#[test]
+fn the_storm_window_restarts_when_the_workspace_changes() {
+    let test = tc("run_tests", json!({}));
+    let mut storm = ToolCallStorm::new(6);
+    assert_eq!(storm.observe(std::slice::from_ref(&test)), vec![1]);
+    assert_eq!(storm.observe(std::slice::from_ref(&test)), vec![2]);
+    storm.workspace_changed();
+    assert_eq!(
+        storm.observe(std::slice::from_ref(&test)),
+        vec![1],
+        "a run after an edit is a first sighting"
+    );
+    assert_eq!(storm.observe(std::slice::from_ref(&test)), vec![2]);
+    assert_eq!(
+        storm.observe(std::slice::from_ref(&test)),
+        vec![3],
+        "with nothing changed in between, repeats still count"
+    );
+}
+
+#[test]
+fn a_call_after_an_edit_in_the_same_batch_is_counted_afresh() {
+    let test = tc("run_tests", json!({}));
+    let edit = tc(
+        "str_replace",
+        json!({"path": "lib.rs", "old": "a", "new": "b"}),
+    );
+    let mut storm = ToolCallStorm::new(6);
+    storm.observe(std::slice::from_ref(&test));
+    storm.observe(std::slice::from_ref(&test));
+    assert_eq!(storm.observe(&[edit.clone(), test.clone()]), vec![1, 1]);
+    assert_eq!(
+        storm.observe(&[edit.clone(), test.clone(), test.clone()]),
+        vec![2, 1, 2],
+        "the edit itself still counts, and so do repeats after it"
+    );
+}
+
+/// Edit → test → edit → test → edit → test with the guard armed: every test
+/// run executes, because each one follows a change.
+#[test]
+fn an_armed_storm_guard_lets_each_test_run_after_an_edit_through() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _armed = EnvGuard::set("ANGEL_TOOLCALL_STORM", "1");
+    let _window = EnvGuard::set("ANGEL_TOOLCALL_STORM_WINDOW", "6");
+    let _task = EnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let root = root_fixture("storm_edits");
+    let test = || Move::Call(tc("run_tests", json!({})));
+    let script = Script::new(vec![
+        test(),
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        test(),
+        write_call("lib.rs", "pub fn sub() { 2 }\n"),
+        test(),
+    ]);
+    let (outcome, history, runs) = run_root_turn(&root, &script);
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(runs, 3, "no test run after an edit is suppressed");
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.content.contains("duplicate call suppressed")),
+        "no duplicate verdict after an edit"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_red_verifier_verdict_is_not_a_dispatch_failure() {
+    let shell = |command: &str| tc("shell", json!({ "command": command }));
+    let red =
+        "tool error: shell command failed (exit 101)\ntest result: FAILED. 20 passed; 24 failed";
+    assert!(is_red_verifier_run(
+        &shell("cargo test 2>&1 | tail -20"),
+        red
+    ));
+    assert!(!is_dispatch_failure(&shell("cargo test"), red));
+    let runner = "tool error: npm test (jest ./*) failed (exit 1) — chosen because of package.json; \
+                  pin another runner with `runner` or use `shell`\nTests: 2 failed, 47 passed";
+    assert!(is_red_verifier_run(&tc("run_tests", json!({})), runner));
+
+    // Runs that never reached a verdict are still dispatch failures.
+    for (call, result) in [
+        (
+            shell("cargo test"),
+            "tool error: shell command failed (exit 127)\ncargo: not found",
+        ),
+        (
+            shell("cargo test"),
+            "tool error: shell command failed (exit 126)",
+        ),
+        (
+            tc("run_tests", json!({})),
+            "tool error: cargo test failed (exit signal)",
+        ),
+        (
+            tc("run_tests", json!({})),
+            "tool error: tests: timed out after 120s",
+        ),
+        (
+            shell("ls missing"),
+            "tool error: shell command failed (exit 2)",
+        ),
+        (
+            tc("read_file", json!({"path": "x"})),
+            "tool error: no such file: x",
+        ),
+    ] {
+        assert!(is_dispatch_failure(&call, result), "{result}");
+    }
+    assert!(!is_dispatch_failure(
+        &tc("run_tests", json!({})),
+        "tests: 1 passed, 0 failed"
+    ));
+}
+
+/// A model re-running a red suite is looking at its own failing tests, not
+/// hitting a broken tool. polyglot-v1 rust-decimal: DeepSeek V4.1 Flash was
+/// stopped at 67 s of 600 s and told to fix a path while its tests were red.
+#[test]
+fn red_test_runs_do_not_trip_the_consecutive_error_stop() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _error = EnvGuard::set("ANGEL_ERROR_LIMIT", "2");
+    let _red_gate = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
+    let root = scratch("red_runs_error_stop");
+    let script = Script::new((0..7).map(run_tests_call).collect());
+    let (outcome, history, runs) = run_root_turn(&root, &script);
+    assert_eq!(runs, 7);
+    assert_eq!(
+        outcome.stop_reason,
+        TurnStopReason::Answer,
+        "seven red runs under ANGEL_ERROR_LIMIT=2 must not end the turn"
+    );
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.content.contains("ERROR CASCADE REDIRECTION")),
+        "no path/state advice for failing tests"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// Task mode: "done" while the last test run on the same code is red is
+/// denied with the failure; after a fix and a green run it is accepted.
+#[test]
+fn a_completion_on_red_code_is_denied_while_budget_remains() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
+    let root = root_fixture("red_completion");
+    let script = Script::new(vec![
+        run_tests_call(0),
+        Move::Say("sub_id still fails; I could not finish."),
+        write_call("fixed", "1"),
+        run_tests_call(1),
+        Move::Say("All tests pass."),
+    ]);
+    let (outcome, history, runs) = run_root_turn(&root, &script);
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(
+        script.chats(),
+        5,
+        "the red answer was denied, the green one accepted"
+    );
+    assert_eq!(runs, 2);
+    let denials: Vec<&ChatMsg> = history
+        .iter()
+        .filter(|m| m.role == ChatRole::Harness && m.content.contains(RED_COMPLETION_NUDGE))
+        .collect();
+    assert_eq!(denials.len(), 1);
+    assert!(
+        denials[0].content.contains("sub_id"),
+        "{}",
+        denials[0].content
+    );
+    assert!(
+        denials[0].content.contains("steps are left"),
+        "{}",
+        denials[0].content
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// A model that is truly stuck can still report: after the denial limit its
+/// answer stands.
+#[test]
+fn a_red_completion_is_accepted_after_the_denial_limit() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
+    let root = root_fixture("red_completion_limit");
+    let script = Script::new(vec![
+        run_tests_call(0),
+        Move::Say("Blocked: the fixture is wrong."),
+        Move::Say("Blocked: the fixture is wrong."),
+        Move::Say("Blocked: the fixture is wrong."),
+    ]);
+    let (outcome, history, _) = run_root_turn(&root, &script);
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(script.chats(), 4, "two denials, then the answer stands");
+    assert_eq!(
+        history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.contains(RED_COMPLETION_NUDGE))
+            .count(),
+        2
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// The check applies only to the code the red run saw, and only in task mode.
+#[test]
+fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
+
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let root = root_fixture("red_completion_edited");
+    let script = Script::new(vec![
+        run_tests_call(0),
+        write_call("lib.rs", "pub fn sub() { 0 }\n"),
+        Move::Say("Fixed sub_id."),
+    ]);
+    let (outcome, _, _) = run_root_turn(&root, &script);
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(
+        script.chats(),
+        3,
+        "new code, so the red run no longer describes it"
+    );
+    let _ = std::fs::remove_dir_all(root);
+
+    let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let root = root_fixture("red_completion_interactive");
+    let script = Script::new(vec![run_tests_call(0), Move::Say("sub_id still fails.")]);
+    let (outcome, _, _) = run_root_turn(&root, &script);
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(
+        script.chats(),
+        2,
+        "an interactive answer goes to the person"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn red_completion_denials_default_to_task_mode_only() {
+    let _guard = crate::tests::env_lock();
+    let _unset = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
+    assert_eq!(red_completion_denial_limit(true, false), 2);
+    assert_eq!(red_completion_denial_limit(false, false), 0);
+    assert_eq!(
+        red_completion_denial_limit(true, true),
+        0,
+        "never in competition"
+    );
+    let _set = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "9");
+    assert_eq!(red_completion_denial_limit(false, false), 4, "capped at 4");
+    assert_eq!(red_completion_denial_limit(true, true), 0);
+    let _off = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
+    assert_eq!(red_completion_denial_limit(true, false), 0);
+}
+
+#[test]
+fn a_denied_completion_needs_budget_to_act_on() {
+    assert_eq!(
+        task_budget_left(10, Some(60), false, 100, 600).as_deref(),
+        Some("About 500 s and 50 steps are left.")
+    );
+    assert_eq!(
+        task_budget_left(10, None, false, 0, 0).as_deref(),
+        Some("This task has no time or step limit.")
+    );
+    assert_eq!(
+        task_budget_left(10, Some(60), true, 0, 0),
+        None,
+        "final mile"
+    );
+    assert_eq!(
+        task_budget_left(58, Some(60), false, 0, 0),
+        None,
+        "two steps left"
+    );
+    assert_eq!(
+        task_budget_left(10, None, false, 451, 600),
+        None,
+        "less than a quarter of the wall left"
+    );
+    assert!(task_budget_left(10, None, false, 450, 600).is_some());
+}
