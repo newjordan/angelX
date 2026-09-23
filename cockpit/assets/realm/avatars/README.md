@@ -23,8 +23,8 @@ muted–vivid), one model at a time, each seeing the figures already chosen.
 - `roster.json`: every seat and inhabitant with its model, its own words
   (figure, title, look, why), where it came from, and file hashes.
 
-Sol drew its own seat with its own image generator; its prompt is in the
-roster. Every other figure has a `render/` (Qwen-Image 2.1, transparent, 512px) and a
+Sol, Luna and Grok drew their own seats with their own image generators;
+their prompts are in the roster. Every other figure has a `render/` (Qwen-Image 2.1, transparent, 512px) and a
 `sprite/` (96px, 24 colours, hard alpha, drawn at 2× in a 192px frame). The
 darker twins from the first poll are in `../doppelgangers/`. Nothing in the
 cockpit reads this directory yet: the Round Table seats become eight-pose
