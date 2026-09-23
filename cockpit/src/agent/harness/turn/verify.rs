@@ -378,6 +378,34 @@ fn shell_command_runs_verifier(command: &str) -> bool {
     }
 }
 
+/// A shell command that runs tests anywhere in it, including where their
+/// status is lost: `tests 2>&1 | tail -6; ls`, `tests || fallback`. Not
+/// evidence of green, but evidence that the model's latest run may be.
+pub(crate) fn shell_runs_tests_anywhere(call: &ToolCall) -> bool {
+    if call.name != "shell" {
+        return false;
+    }
+    let command = crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or("");
+    let Some(positions) = shell_control_positions(command) else {
+        return false;
+    };
+    let mut start = 0usize;
+    positions
+        .into_iter()
+        .filter(|index| {
+            matches!(
+                command.as_bytes()[*index],
+                b'|' | b'&' | b';' | b'\n' | b'\r'
+            )
+        })
+        .chain(std::iter::once(command.len()))
+        .any(|end| {
+            let segment = command.get(start..end).unwrap_or("");
+            start = end.saturating_add(1).min(command.len());
+            shell_segment_runs_verifier(segment)
+        })
+}
+
 /// Unquoted members of a status-bearing pipeline/mandatory-AND expression.
 /// The lexical scanner owns separator recognition for every verifier path so a
 /// quoted `| cargo test` or `& cargo test` can never manufacture evidence.

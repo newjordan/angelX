@@ -10967,21 +10967,62 @@ impl Tool for GreenShell {
     }
 }
 
+const SCRIPTED_RED: &str = "python3 -m unittest discover -v failed (exit 1)\nFAILED (errors=1)";
+
+/// Task mode: a red run_tests, then `next`, then "All tests pass." Returns how
+/// many model calls the turn took (3 = no denial) and whether one was denied.
+fn red_then(
+    name: &str,
+    second: Result<&'static str, &'static str>,
+    next: ToolCall,
+) -> (usize, bool) {
+    let root = root_fixture(name);
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    registry.register(Box::new(ScriptedSuite {
+        answers: vec![Err(SCRIPTED_RED), second],
+        next: AtomicUsize::new(0),
+    }));
+    registry.register(Box::new(GreenShell));
+    let script = Script::new(vec![
+        run_tests_call(0),
+        Move::Call(next),
+        Move::Say("All tests pass."),
+    ]);
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    let outcome = run_turn_observed(
+        &script,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(30),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    let denied = history
+        .iter()
+        .any(|m| m.content.contains(RED_COMPLETION_NUDGE));
+    let _ = std::fs::remove_dir_all(root);
+    (script.chats(), denied)
+}
+
 /// A red run followed by a run that did not fail, on the same code, is not red
 /// code. angelX's runner reports a pytest pass without a pinned pytest as
-/// Inconclusive rather than Passed, and `tests || fallback` carries no verdict;
-/// both must still replace the red record. polyglot-v1 GLM py-beer-song (and six
-/// other GLM passes) and Grok py-robot-name ended exactly this way.
+/// Inconclusive rather than Passed, and `tests || fallback` or `tests | tail;
+/// ls` carries no verdict; each must still replace the red record. polyglot-v1
+/// GLM py-beer-song (and five other GLM passes), GLM py-book-store and Grok
+/// py-robot-name ended exactly this way.
 #[test]
 fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
-    const RED: &str = "python3 -m unittest discover -v failed (exit 1)\nFAILED (errors=1)";
     const UNLABELED_GREEN: &str = "tests: 8 passed, 0 failed, 0 skipped — reward unlabeled \
          (verification inconclusive: no immutable system pytest installation is available)";
-    let cases = [
+    let shell = |command: &str| tc("shell", json!({ "command": command }));
+    for (name, second, next) in [
         (
             "red_then_inconclusive_green",
             Ok(UNLABELED_GREEN),
@@ -10989,51 +11030,55 @@ fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
         ),
         (
             "red_then_fallback_green",
-            Err(RED),
-            tc(
-                "shell",
-                json!({"command": "python3 -m pytest -q -- robot_name_test.py || python3 robot_name_test.py"}),
-            ),
+            Err(SCRIPTED_RED),
+            shell("python3 -m pytest -q -- robot_name_test.py || python3 robot_name_test.py"),
         ),
-    ];
-    for (name, second, rerun) in cases {
-        let root = root_fixture(name);
-        let mut registry = ToolRegistry::new();
-        registry.set_workspace(root.clone());
-        registry.register(Box::new(ScriptedSuite {
-            answers: vec![Err(RED), second],
-            next: AtomicUsize::new(0),
-        }));
-        registry.register(Box::new(GreenShell));
-        let script = Script::new(vec![
-            run_tests_call(0),
-            Move::Call(rerun),
-            Move::Say("All tests pass."),
-        ]);
-        let mut history = vec![ChatMsg::user("make the tests pass")];
-        let outcome = run_turn_observed(
-            &script,
-            &registry,
-            &mut history,
-            &AtomicBool::new(false),
-            Some(30),
-            &mpsc::channel::<TurnEvent>().0,
-        )
-        .expect("turn completes");
-        assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-        assert_eq!(
-            script.chats(),
-            3,
-            "{name}: the answer after that run stands"
-        );
-        assert!(
-            !history
-                .iter()
-                .any(|m| m.content.contains(RED_COMPLETION_NUDGE)),
-            "{name}: no denial"
-        );
-        let _ = std::fs::remove_dir_all(root);
+        (
+            "red_then_unread_green",
+            Err(SCRIPTED_RED),
+            shell("python3 -m unittest book_store_test -v 2>&1 | tail -6; ls"),
+        ),
+    ] {
+        assert_eq!(red_then(name, second, next), (3, false), "{name}");
     }
+}
+
+/// Only a test run replaces the red record: listing files after a red run
+/// says nothing about the code, so "done" on it is still denied.
+#[test]
+fn a_command_that_is_not_a_test_run_keeps_the_red_record() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
+    let (chats, denied) = red_then(
+        "red_then_ls",
+        Err(SCRIPTED_RED),
+        tc("shell", json!({"command": "ls; cat lib.rs"})),
+    );
+    assert!(denied, "the red run still describes this code");
+    assert_eq!(chats, 5, "two denials, then the answer stands");
+}
+
+#[test]
+fn a_test_run_is_found_anywhere_in_a_shell_command() {
+    let shell = |command: &str| tc("shell", json!({ "command": command }));
+    for command in [
+        "cd ws && python3 -m unittest book_store_test -v 2>&1 | tail -6; ls",
+        "python3 -m pytest -q || python3 robot_name_test.py",
+        "cargo test 2>&1 | tail -20",
+        "npx jest forth.spec.js | grep -v PASS",
+    ] {
+        assert!(shell_runs_tests_anywhere(&shell(command)), "{command}");
+    }
+    for command in [
+        "ls; cat lib.rs",
+        "echo 'cargo test'",
+        "grep -n pytest README.md",
+    ] {
+        assert!(!shell_runs_tests_anywhere(&shell(command)), "{command}");
+    }
+    assert!(!shell_runs_tests_anywhere(&tc("run_tests", json!({}))));
 }
 
 #[test]
