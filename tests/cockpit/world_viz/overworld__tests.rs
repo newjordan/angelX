@@ -225,6 +225,14 @@ fn write_overworld_shots() {
     grown.tier = 8;
     save("town_tier8.ppm", &frame_at(&grown, View::screen(1, 1)));
     save("resting.ppm", &frame(&Scene::resting("Dologard")));
+    let world = World::new(7);
+    let mut arrived = busy(4);
+    arrived.glass = Some(world.overworld_plate_glass(crate::stage::world_viz::Building::Smithy));
+    save("glass_plate.ppm", &frame_at(&arrived, View::screen(1, 1)));
+    let mut riding = busy(4);
+    riding.knight.walking = true;
+    riding.glass = Some(world.overworld_ride_glass(crate::stage::world_viz::Building::Chapel));
+    save("glass_ride.ppm", &frame_at(&riding, View::screen(1, 1)));
 }
 
 #[test]
@@ -385,5 +393,84 @@ fn the_realm_route_keeps_travel_on_the_map() {
     assert_eq!(
         stage.controller.resolved_scene(false, false, false),
         StageSurface::WorldFirstPerson
+    );
+}
+
+// ─── the scrying glass ───────────────────────────────────────────────────────
+
+#[test]
+fn glass_pictures_are_snapped_to_the_plain_palette() {
+    let rgba: Vec<u8> = (0..64u32 * 48)
+        .flat_map(|i| {
+            [
+                (i % 251) as u8,
+                (i * 7 % 253) as u8,
+                (i * 13 % 241) as u8,
+                255,
+            ]
+        })
+        .collect();
+    let pic = picture_from_rgba(&rgba, 64, 48);
+    assert_eq!((pic.w, pic.h), (GLASS_W, GLASS_H));
+    for c in pic.pixels() {
+        assert!(
+            c == BLACK || (palette_index(c).is_some() && !is_signal(c)),
+            "{c:?}"
+        );
+    }
+    assert_eq!(
+        picture_from_rgba(&[], 0, 0)
+            .pixels()
+            .filter(|&c| c != BLACK)
+            .count(),
+        0
+    );
+}
+
+#[test]
+fn a_glass_frames_its_place_and_tethers_to_it() {
+    let world = World::new(7);
+    let plate = world.overworld_plate_glass(crate::stage::world_viz::Building::Smithy);
+    let colours: std::collections::HashSet<_> = plate.picture.pixels().collect();
+    assert!(colours.len() > 8, "the smithy painting survives the glass");
+    let bare = frame(&busy(0));
+    let mut s = busy(0);
+    s.glass = Some(plate);
+    let framed = frame(&s);
+    assert_ne!(bare.rgba_bytes(), framed.rgba_bytes());
+    for c in framed.pixels() {
+        assert!(
+            c == BLACK || palette_index(c).is_some(),
+            "off-palette {c:?}"
+        );
+    }
+    // The smithy is on screen: the tether ends in a signal mark on it.
+    let (tx, ty, tw, th) = Place::Smithy.footprint();
+    let (ax, ay) = (
+        tx * TILE + tw * TILE / 2 - 256,
+        ty * TILE + th * TILE / 2 - 176 + HUD_H,
+    );
+    assert_eq!(framed.get(ax, ay), ink::ink('3'));
+    assert_ne!(
+        s.key(),
+        busy(0).key(),
+        "a glass is part of the frame's identity"
+    );
+}
+
+#[test]
+fn the_ride_glass_shows_the_dotmax_saddle_view() {
+    let world = World::new(7);
+    let ride = world.overworld_ride_glass(crate::stage::world_viz::Building::Chapel);
+    assert!(ride.live);
+    let lit = ride.picture.pixels().filter(|&c| c != BLACK).count();
+    assert!(
+        lit > (GLASS_W * GLASS_H / 4) as usize,
+        "the ride paints ({lit} px)"
+    );
+    let again = world.overworld_ride_glass(crate::stage::world_viz::Building::Chapel);
+    assert!(
+        std::sync::Arc::ptr_eq(&ride.picture, &again.picture),
+        "same frame, cached"
     );
 }

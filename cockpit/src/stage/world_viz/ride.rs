@@ -253,7 +253,10 @@ impl World {
 
 /// The red companion holds the left rail, blue the right, on one shared
 /// baseline. The shared sprite compositor preserves aspect and the road center.
-fn composite_rider_overlay(frame: &mut image::RgbaImage, key: cinematics::RiderFrameKey) {
+pub(super) fn composite_rider_overlay(
+    frame: &mut image::RgbaImage,
+    key: cinematics::RiderFrameKey,
+) {
     crate::stage::knight_cast::composite(frame, key);
 }
 

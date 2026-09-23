@@ -6,6 +6,7 @@
 //! tier the town has earned) and never pixels; [`stage`] turns it into
 //! sprites, lights and beacons at fixed places on the realm.
 
+use super::glass::Glass;
 use super::ink::Img;
 use super::kit::{self, Heraldry, House, Roof, Tool, Wall};
 use super::light::{DUSK, Light};
@@ -154,6 +155,8 @@ pub(crate) struct Scene {
     pub(crate) weather: Weather,
     /// A victory being celebrated.
     pub(crate) fireworks: bool,
+    /// Another modality framed over the map at a place.
+    pub(crate) glass: Option<Glass>,
     pub(crate) hud: Hud,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
@@ -194,6 +197,9 @@ impl Scene {
             (s.kind as u8, s.state as u8).hash(&mut h);
         }
         (self.region, self.weather as u8, self.fireworks).hash(&mut h);
+        if let Some(g) = &self.glass {
+            (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
+        }
         (&self.hud.model, &self.hud.think, self.hud.ctx_free).hash(&mut h);
         (self.ambient.to_bits(), self.tick).hash(&mut h);
         h.finish()
@@ -221,6 +227,7 @@ impl Scene {
             region: None,
             weather: Weather::Fair,
             fireworks: false,
+            glass: None,
             hud: Hud {
                 model: String::new(),
                 think: String::new(),

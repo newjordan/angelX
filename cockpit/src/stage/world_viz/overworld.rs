@@ -15,6 +15,7 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
+mod glass;
 mod ground;
 mod hud;
 mod ink;
@@ -24,6 +25,7 @@ mod live;
 mod map;
 mod scene;
 
+pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
 pub(crate) use hud::HUD_H;
 pub(crate) use ink::Img;
 pub(crate) use live::{Walker, soldier_state};
@@ -148,7 +150,30 @@ pub(crate) fn frame_at(scene: &Scene, view: View) -> Img {
     hud::draw(&mut f, scene);
     f.stamp(&render_view(scene, view), 0, HUD_H);
     light::vignette(&mut f, HUD_H);
+    if let Some(g) = &scene.glass {
+        let knight = (scene.knight.x, scene.knight.y);
+        glass::draw(
+            &mut f,
+            g,
+            (view.x, view.y),
+            HUD_H,
+            scene.tick,
+            knight,
+            scene.active,
+        );
+    }
     f
+}
+
+/// Whether travel and arrival show their glass over the map
+/// (`ANGEL_WORLD_GLASS=off` keeps the map bare).
+pub(crate) fn glass_enabled() -> bool {
+    std::env::var("ANGEL_WORLD_GLASS").map_or(true, |raw| {
+        !matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "off" | "0" | "false" | "no"
+        )
+    })
 }
 
 /// A frame on the screen that holds the knight.

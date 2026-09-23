@@ -14,6 +14,8 @@ use std::sync::OnceLock;
 
 use super::super::adventure::Region;
 use super::super::{Building, RealmActivity, World};
+use super::glass::{GLASS_H, GLASS_W, Glass, picture_from_rgba};
+use super::ink::Img;
 use super::ink::{BANK, PALETTE, SIGNAL_BANK, rgb};
 use super::kit::Tool;
 use super::light::DUSK;
@@ -81,10 +83,6 @@ impl Walker {
             y: self.y,
             walking: !self.path.is_empty(),
         }
-    }
-
-    pub(crate) fn goal(&self) -> Place {
-        self.goal
     }
 
     fn tile(&self) -> (i32, i32) {
@@ -327,6 +325,69 @@ impl World {
         s.ambient = ambient_for(self.hearth.daylight());
         s.tick = self.tick as u32;
         s
+    }
+}
+
+impl World {
+    /// The glass picture for `sequence`, rendered by `paint` only when the
+    /// source frame changed since the map last asked.
+    fn glass_picture(&self, sequence: u64, paint: impl FnOnce() -> Img) -> std::sync::Arc<Img> {
+        if let Some((key, img)) = self.overworld_glass.borrow().as_ref()
+            && *key == sequence
+        {
+            return std::sync::Arc::clone(img);
+        }
+        let img = std::sync::Arc::new(paint());
+        *self.overworld_glass.borrow_mut() = Some((sequence, std::sync::Arc::clone(&img)));
+        img
+    }
+
+    /// The arrival glass: the place's authored painting.
+    pub(crate) fn overworld_plate_glass(&self, building: Building) -> Glass {
+        let place = Place::of_building(building);
+        let sequence = 0x9_1a7e ^ building as u64;
+        let picture = self.glass_picture(sequence, || {
+            let plate = super::super::ambient::plate(building);
+            picture_from_rgba(plate.as_raw(), plate.width(), plate.height())
+        });
+        Glass {
+            anchor: place,
+            title: place.label().to_string(),
+            live: false,
+            picture,
+            sequence,
+        }
+    }
+
+    /// The travel glass: the Dotmax ride from the saddle, heading for
+    /// `destination`. It steps at the map's own pace.
+    pub(crate) fn overworld_ride_glass(&self, destination: Building) -> Glass {
+        let place = Place::of_building(destination);
+        let sequence = self.cinematic_key() ^ (self.tick / 6).rotate_left(17);
+        let picture = self.glass_picture(sequence, || {
+            let (map, view) = self.travel_scene();
+            let mut frame = super::super::world3d::render_region_frame(
+                self.quest(),
+                &map,
+                &view,
+                0.0,
+                self.tick / super::super::world3d::region::WISP_TICKS,
+                (GLASS_W * 2) as u32,
+                (GLASS_H * 2) as u32,
+            );
+            super::super::ride::composite_rider_overlay(
+                &mut frame,
+                super::super::cinematics::rider_frame_key(self),
+            );
+            picture_from_rgba(frame.as_raw(), frame.width(), frame.height())
+        });
+        Glass {
+            anchor: place,
+            title: format!("ride > {}", place.label()),
+            live: true,
+            picture,
+            sequence,
+        }
     }
 }
 
