@@ -10924,6 +10924,118 @@ fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// run_tests answering from a fixed list; the last answer repeats.
+struct ScriptedSuite {
+    answers: Vec<Result<&'static str, &'static str>>,
+    next: AtomicUsize,
+}
+
+impl Tool for ScriptedSuite {
+    fn name(&self) -> &str {
+        "run_tests"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "run_tests".into(),
+            description: "Run the workspace tests.".into(),
+            params: json!({"type": "object"}),
+        }
+    }
+    fn call(&self, _args: &Value) -> Result<String, String> {
+        let index = self.next.fetch_add(1, Ordering::SeqCst);
+        let answer = self.answers[index.min(self.answers.len() - 1)];
+        answer.map(str::to_string).map_err(str::to_string)
+    }
+}
+
+/// A shell whose every command exits 0.
+struct GreenShell;
+
+impl Tool for GreenShell {
+    fn name(&self) -> &str {
+        "shell"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "shell".into(),
+            description: "Run a shell command.".into(),
+            params: json!({"type": "object"}),
+        }
+    }
+    fn call(&self, _args: &Value) -> Result<String, String> {
+        Ok("Ran 4 tests in 0.001s\n\nOK".into())
+    }
+}
+
+/// A red run followed by a run that did not fail, on the same code, is not red
+/// code. angelX's runner reports a pytest pass without a pinned pytest as
+/// Inconclusive rather than Passed, and `tests || fallback` carries no verdict;
+/// both must still replace the red record. polyglot-v1 GLM py-beer-song (and six
+/// other GLM passes) and Grok py-robot-name ended exactly this way.
+#[test]
+fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
+    const RED: &str = "python3 -m unittest discover -v failed (exit 1)\nFAILED (errors=1)";
+    const UNLABELED_GREEN: &str = "tests: 8 passed, 0 failed, 0 skipped — reward unlabeled \
+         (verification inconclusive: no immutable system pytest installation is available)";
+    let cases = [
+        (
+            "red_then_inconclusive_green",
+            Ok(UNLABELED_GREEN),
+            tc("run_tests", json!({"attempt": 1})),
+        ),
+        (
+            "red_then_fallback_green",
+            Err(RED),
+            tc(
+                "shell",
+                json!({"command": "python3 -m pytest -q -- robot_name_test.py || python3 robot_name_test.py"}),
+            ),
+        ),
+    ];
+    for (name, second, rerun) in cases {
+        let root = root_fixture(name);
+        let mut registry = ToolRegistry::new();
+        registry.set_workspace(root.clone());
+        registry.register(Box::new(ScriptedSuite {
+            answers: vec![Err(RED), second],
+            next: AtomicUsize::new(0),
+        }));
+        registry.register(Box::new(GreenShell));
+        let script = Script::new(vec![
+            run_tests_call(0),
+            Move::Call(rerun),
+            Move::Say("All tests pass."),
+        ]);
+        let mut history = vec![ChatMsg::user("make the tests pass")];
+        let outcome = run_turn_observed(
+            &script,
+            &registry,
+            &mut history,
+            &AtomicBool::new(false),
+            Some(30),
+            &mpsc::channel::<TurnEvent>().0,
+        )
+        .expect("turn completes");
+        assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+        assert_eq!(
+            script.chats(),
+            3,
+            "{name}: the answer after that run stands"
+        );
+        assert!(
+            !history
+                .iter()
+                .any(|m| m.content.contains(RED_COMPLETION_NUDGE)),
+            "{name}: no denial"
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
 #[test]
 fn red_completion_denials_default_to_task_mode_only() {
     let _guard = crate::tests::env_lock();

@@ -4910,22 +4910,25 @@ fn run_turn_tiered(
                             consecutive_verification_failures = 0;
                             verification_recovery_emitted = false;
                         }
-                        // Remember a red verdict and the code it ran on; a full
-                        // green clears it. A runner that never started (exit
-                        // 127, a timeout) says nothing about the code.
+                        // Remember a red verdict and the code it ran on. Any later
+                        // run that did not come back red replaces it, so a denial
+                        // only ever quotes the model's latest run. A shell run
+                        // that exits 0 is Inconclusive, not Passed; keeping the
+                        // red record through it would have denied seven GLM
+                        // answers on polyglot-v1 whose last run was green. A
+                        // runner that never started (exit 127, a timeout) says
+                        // nothing about the code.
                         if red_completion_limit > 0 {
-                            if outcome == VerificationOutcome::Failed
-                                && (is_red_verifier_run(call, &result) || !is_error_result(&result))
+                            if outcome != VerificationOutcome::Failed {
+                                last_red_run = None;
+                            } else if is_red_verifier_run(call, &result)
+                                || !is_error_result(&result)
                             {
                                 last_red_run = Some(RedRun {
                                     workspace: workspace_fingerprint(registry.current_workspace()),
                                     label: green_run_label(call),
                                     tail: tail_chars(&result, TASK_ACCEPT_TAIL_CHARS),
                                 });
-                            } else if outcome == VerificationOutcome::Passed
-                                && verification_is_completion_sufficient(call)
-                            {
-                                last_red_run = None;
                             }
                         }
                         let weak_self_authored = self_authored_verify_guard
@@ -4971,6 +4974,12 @@ fn run_turn_tiered(
                             // success is supplemental evidence until the
                             // execution boundary can attest a pinned argv.
                         }
+                    }
+                    // `pytest || python3 test.py` runs the tests too, but angelX
+                    // cannot read a verdict from it. Once it exits 0 the earlier
+                    // red run is no longer the model's latest word on the code.
+                    if red_completion_limit > 0 && succeeded && test_run_behind_fallback(call) {
+                        last_red_run = None;
                     }
                     if succeeded
                         && confirm_green_runs > 0
