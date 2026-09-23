@@ -1084,6 +1084,34 @@ impl CodexClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
+        use crate::agent::club::wire_log::{WireCall, WireWindows};
+        let wire = WireCall::new(&self.name, &self.model, "responses");
+        wire.arm(WireWindows {
+            stall_secs: self.stream_stall_secs,
+            first_token_secs: self.stream_stall_secs,
+            hard_secs: 0,
+            stall_source: if std::env::var_os(CODEX_STREAM_STALL_ENV).is_some() {
+                "env".to_string()
+            } else {
+                "default".to_string()
+            },
+        });
+        let result =
+            self.run_with_effort_observed(messages, tools, effort, cancel, on_delta, &wire);
+        wire.finish(&result);
+        result
+    }
+
+    /// The Responses round itself; `wire` observes it (see `club::wire_log`).
+    fn run_with_effort_observed(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        effort: Option<&str>,
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+        wire: &crate::agent::club::wire_log::WireCall,
+    ) -> Result<ClubReply, String> {
         use std::sync::atomic::Ordering;
         if let Some(error) = self.selection.as_ref().and_then(|s| s.error.as_ref()) {
             return Err(error.clone());
@@ -1100,7 +1128,9 @@ impl CodexClub {
                 self.reasoning_levels.join(", ")
             ));
         }
+        wire.phase("auth");
         let (token, account) = self.token()?;
+        wire.phase("request");
         let body = self.build_request_with_effort(messages, tools, effort);
         let bytes = serde_json::to_vec(&body).map_err(|e| format!("encode request: {e}"))?;
         let bytes = if self.pxpipe_candidate {
@@ -1185,6 +1215,7 @@ impl CodexClub {
             s.rate_limits = rate;
         }
 
+        wire.phase("streaming");
         attempt.outcome("interrupted");
         let reader = BufReader::new(attempt.response_reader(resp.into_reader()));
         let mut content = String::new();
@@ -1227,9 +1258,12 @@ impl CodexClub {
                     return Err(format!("stream read error: {e}"));
                 }
             };
+            wire.bytes(line.len() + 1);
+            observe_responses_line(wire, &line);
             // A blocking read may yield a terminal usage frame just as cancel
             // flips. Account for the received frame before suppressing output.
             let event = attempt.receive(&line, cancelled);
+            observe_responses_event(wire, &event);
             if cancelled {
                 return Ok(ClubReply::Text(content));
             }
@@ -1303,7 +1337,10 @@ impl CodexClub {
             on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
             return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
         }
-        let calls = tool_calls.into_calls();
+        let (calls, notes) = tool_calls.into_calls_with_notes();
+        for (kind, message) in &notes {
+            wire.note(kind, message);
+        }
         if !calls.is_empty() {
             Ok(ClubReply::Calls(calls))
         } else if tools.is_empty() {
@@ -1318,6 +1355,80 @@ impl CodexClub {
                 Ok(ClubReply::Calls(recovered))
             }
         }
+    }
+}
+
+/// Feed one raw Responses SSE line to the wire log: its event type goes into the
+/// call's histogram, and an output item of a type this parser does not dispatch
+/// (anything but a function call, message or reasoning) is noted, so a tool call
+/// the model made in another shape cannot vanish silently.
+fn observe_responses_line(wire: &crate::agent::club::wire_log::WireCall, line: &str) {
+    let Some(data) = line.strip_prefix("data:").map(str::trim) else {
+        return;
+    };
+    if data.is_empty() || data == "[DONE]" {
+        return;
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(data) else {
+        wire.note(
+            "unparsed_event",
+            &format!("not JSON: {}", data.chars().take(160).collect::<String>()),
+        );
+        return;
+    };
+    let kind = v.get("type").and_then(|t| t.as_str()).unwrap_or("untyped");
+    wire.event(kind);
+    if matches!(
+        kind,
+        "response.output_item.added" | "response.output_item.done"
+    ) && let Some(item) = v.get("item")
+    {
+        let item_type = item
+            .get("type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("untyped");
+        if !matches!(item_type, "function_call" | "message" | "reasoning") {
+            wire.note(
+                &format!("ignored_item:{item_type}"),
+                &format!(
+                    "{kind} carried a {item_type} item (name {}, output {}) that is not dispatched",
+                    item.get("name").and_then(|n| n.as_str()).unwrap_or("-"),
+                    v.get("output_index")
+                        .map(|i| i.to_string())
+                        .unwrap_or_else(|| "-".to_string()),
+                ),
+            );
+        }
+    }
+}
+
+fn observe_responses_event(wire: &crate::agent::club::wire_log::WireCall, event: &ResponseEvent) {
+    let usage = |usage: &Usage| {
+        if let Ok(value) = serde_json::to_value(usage) {
+            wire.set_usage(value);
+        }
+    };
+    match event {
+        ResponseEvent::Text(text) => wire.text(text.len()),
+        ResponseEvent::Reasoning(r) | ResponseEvent::ReasoningSummary(r) => wire.reasoning(r.len()),
+        ResponseEvent::ToolCallStart { .. }
+        | ResponseEvent::ToolArgumentsDelta { .. }
+        | ResponseEvent::ToolArgumentsDone { .. }
+        | ResponseEvent::ToolCallDone { .. } => wire.tool_frame(),
+        ResponseEvent::Done(u) => {
+            wire.set_finish_reason(Some("completed"));
+            u.as_ref().map(usage);
+        }
+        ResponseEvent::Failed(_, u) => {
+            wire.set_finish_reason(Some("failed"));
+            u.as_ref().map(usage);
+        }
+        ResponseEvent::Incomplete(_, u) => {
+            wire.set_finish_reason(Some("incomplete"));
+            u.as_ref().map(usage);
+        }
+        ResponseEvent::Usage(u) => usage(u),
+        ResponseEvent::Ignore => wire.keepalive(),
     }
 }
 

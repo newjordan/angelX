@@ -1055,7 +1055,11 @@ fn response_tool_call_accumulator_builds_calls_from_deltas() {
     );
     calls.push_args("fc_1", r#"{"path""#);
     calls.push_args("fc_1", r#":"."}"#);
-    let out = calls.into_calls();
+    let (out, notes) = calls.into_calls_with_notes();
+    assert!(
+        notes.is_empty(),
+        "a clean stream needs no repair: {notes:?}"
+    );
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].id, "call_1");
     assert_eq!(out[0].name, "list_dir");
@@ -1085,7 +1089,11 @@ fn response_tool_call_accumulator_merges_item_and_call_ids() {
         },
     );
 
-    let out = calls.into_calls();
+    let (out, notes) = calls.into_calls_with_notes();
+    assert!(
+        notes.is_empty(),
+        "a clean stream needs no repair: {notes:?}"
+    );
     assert_eq!(out.len(), 1, "one logical stream item must dispatch once");
     assert_eq!(out[0].id, "call_1");
     assert_eq!(out[0].name, "list_dir");
@@ -1123,10 +1131,61 @@ fn response_tool_call_accumulator_keeps_multi_call_item_order() {
         },
     );
 
-    let out = calls.into_calls();
+    let (out, notes) = calls.into_calls_with_notes();
+    assert!(
+        notes.is_empty(),
+        "a clean stream needs no repair: {notes:?}"
+    );
     assert_eq!(out.len(), 2);
     assert_eq!(out[0].id, "call_first");
     assert_eq!(out[1].id, "call_second");
+}
+
+/// Anything the assembler repairs or drops is reported, never silent: a call
+/// that completes under a different name than it started with, completed
+/// arguments that differ from the streamed ones, final arguments that replace
+/// the deltas, and argument bytes that never got a name and so cannot dispatch.
+#[test]
+fn response_tool_call_accumulator_notes_repairs_and_drops() {
+    let mut calls = ResponseToolCalls::default();
+    calls.start("fc_1".into(), Some("call_1".into()), Some("shell".into()));
+    calls.push_args("fc_1", r#"{"command":"cmake -S . -B build"}"#);
+    calls.done(
+        "fc_1".into(),
+        ToolCall {
+            id: "call_1".into(),
+            name: "cargo".into(),
+            args: serde_json::json!({"args": "?"}),
+        },
+    );
+    calls.start(
+        "fc_2".into(),
+        Some("call_2".into()),
+        Some("read_file".into()),
+    );
+    calls.push_args("fc_2", r#"{"path":"a"}"#);
+    calls.set_args("fc_2", r#"{"path":"b"}"#.into());
+    calls.push_args("output:3", r#"{"path":"src/lib.rs"}"#);
+
+    let (out, notes) = calls.into_calls_with_notes();
+    assert_eq!(out.len(), 2, "the unnamed entry cannot dispatch");
+    assert_eq!(out[0].name, "cargo", "the completed item wins");
+    assert_eq!(out[1].args["path"], "b");
+    let kinds: Vec<&str> = notes.iter().map(|(kind, _)| *kind).collect();
+    assert_eq!(
+        kinds,
+        [
+            "tool_name_changed",
+            "tool_args_changed",
+            "tool_args_replaced",
+            "tool_entry_dropped"
+        ]
+    );
+    assert!(
+        notes[0].1.contains("started as shell, completed as cargo"),
+        "{notes:?}"
+    );
+    assert!(notes[3].1.contains("src/lib.rs"), "{notes:?}");
 }
 
 #[test]

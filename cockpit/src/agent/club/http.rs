@@ -3867,6 +3867,23 @@ impl HttpClub {
         on_delta: &mut dyn FnMut(StreamDelta),
         rules: &crate::agent::stream_rules::StreamRules,
     ) -> Result<ClubReply, String> {
+        let model = body["model"].as_str().unwrap_or_default().to_string();
+        let wire = super::wire_log::WireCall::new(&self.name, &model, "chat");
+        let result = self.stream_body_observed(body, tools, cancel, on_delta, rules, &wire);
+        wire.finish(&result);
+        result
+    }
+
+    /// The streaming round itself; `wire` observes it (see [`super::wire_log`]).
+    fn stream_body_observed(
+        &self,
+        body: serde_json::Value,
+        tools: &[ToolDef],
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+        rules: &crate::agent::stream_rules::StreamRules,
+        wire: &super::wire_log::WireCall,
+    ) -> Result<ClubReply, String> {
         std::thread::scope(|scope| {
             use std::io::Read as _;
             let sent = body.get("max_tokens").and_then(|value| value.as_u64());
@@ -3910,10 +3927,11 @@ impl HttpClub {
                 max_line,
                 max_rule_retries,
             ) = stream_hop_knobs();
-            let stall_window = model_defaults::budgets(
+            let budgets = model_defaults::budgets(
                 body["model"].as_str().unwrap_or_default(),
                 self.env_prefix(),
-            )["stream_stall_secs"]
+            );
+            let stall_window = budgets["stream_stall_secs"]
                 .as_u64()
                 .map(Duration::from_secs)
                 .unwrap_or(stall_window);
@@ -3931,6 +3949,16 @@ impl HttpClub {
                 )
             };
             let stall_window = widened_stream_window(stall_window, stall_streak, hard_window);
+            wire.set_retry_streak(stall_streak);
+            wire.arm(super::wire_log::WireWindows {
+                stall_secs: stall_window.as_secs(),
+                first_token_secs: first_token_window.as_secs(),
+                hard_secs: hard_window.as_secs(),
+                stall_source: budgets["stream_stall_source"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+            });
             let data_bound = |model_started: bool| {
                 if model_started {
                     (stall_window, "ANGEL_STREAM_STALL_SECS")
@@ -3960,8 +3988,10 @@ impl HttpClub {
                 };
                 let abort = ureq::AbortHandle::default();
                 let _cancel_read = super::sse::CancelReadGuard::new(scope, cancel, abort.clone());
+                wire.phase("request");
                 let (resp, mut accounting) =
                     self.send_with_retry(&bytes, Some(cancel), Some(&abort))?;
+                wire.phase("streaming");
                 let mut last_data = Instant::now();
                 let mut last_heartbeat = None;
                 let mut reader = BufReader::new(accounting.response_reader(resp.into_reader()));
@@ -4142,6 +4172,7 @@ impl HttpClub {
                     if reached_eof {
                         break;
                     }
+                    wire.bytes(raw.len());
                     if raw.len() > max_line {
                         return Err(format!(
                             "stream line exceeded {max_line} bytes (ANGEL_STREAM_MAX_LINE_BYTES) \
@@ -4152,10 +4183,12 @@ impl HttpClub {
                     let line = decoded.trim_end_matches(['\n', '\r']);
                     match parse_sse_line(line) {
                         SseEvent::Done => {
+                            wire.event("done");
                             saw_done = true;
                             break;
                         }
                         SseEvent::Ignore => {
+                            wire.keepalive();
                             // Keep-alives/blank lines are activity, not progress. When
                             // only these arrive for the active stall window, give up
                             // loudly (streamed prose survives, a half tool call fails).
@@ -4206,6 +4239,20 @@ impl HttpClub {
                             }
                             saw_data = true;
                             let d = acc.apply_chunk(&chunk);
+                            wire.event("chunk");
+                            if d.model_activity {
+                                match (&d.content, &d.reasoning) {
+                                    (None, None) => wire.tool_frame(),
+                                    (content, reasoning) => {
+                                        if let Some(c) = content {
+                                            wire.text(c.len());
+                                        }
+                                        if let Some(r) = reasoning {
+                                            wire.reasoning(r.len());
+                                        }
+                                    }
+                                }
+                            }
                             if d.model_activity {
                                 last_data = Instant::now();
                                 model_started = true;
@@ -4316,6 +4363,7 @@ impl HttpClub {
                 }
                 let reasoning = acc.take_reasoning();
                 let had_reasoning = !reasoning.is_empty();
+                wire.set_finish_reason(acc.finish_reason.as_deref());
                 let reply = acc.into_reply(!tools.is_empty());
                 if matches!(reply, ClubReply::Calls(_)) {
                     let reasoning = (!reasoning.is_empty()

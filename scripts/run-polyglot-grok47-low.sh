@@ -186,6 +186,9 @@ fi
 TAG=${ONLY:+smoke-}seed${SEED}
 OUT=$RR/${OUT_ROOT:-runs}/grok/angelx
 RUN_DIR=$TAG-$(date -u +%Y%m%dT%H%M%SZ)
+# Per-call wire records (club/wire_log.rs) land beside the traces: rollout
+# workdirs are deleted after grading, so this is the only copy.
+FLAGS+=(--env.agent.harness.env.ANGEL_WIRE_LOG_DIR "$OUT/$RUN_DIR/wire")
 mkdir -p "$OUT" "$RR/logs"
 printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/grok-angelx-current-run.txt"
 

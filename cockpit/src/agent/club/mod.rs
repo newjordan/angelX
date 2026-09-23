@@ -43,6 +43,7 @@ mod sse;
 mod tool_parse;
 mod types;
 mod usage;
+pub(crate) mod wire_log;
 pub(crate) use accounting::*;
 
 pub(crate) use bag::*;
