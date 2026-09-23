@@ -370,10 +370,12 @@ pub(crate) fn optional_sota_http_club(
     // default: otherwise a Flash request is displayed and attributed as Pro.
     // GLM does the same: pinning `ANGEL_GLM_MODEL=glm-5.3-flash` must make the
     // `glm` seat advertise that id, or `ANGEL_DRIVER=glm-5.3-flash` misses it.
+    // Muse likewise: a pinned `muse-spark-1.3-contributor` must not show as 1.3.
     let label = if deepseek_seat
         || default_url.contains("openrouter.ai")
         || default_url.contains("z.ai")
         || default_url.contains("bigmodel.cn")
+        || default_url.contains("api.meta.ai")
     {
         model.clone()
     } else {
@@ -519,6 +521,22 @@ pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, 
         &["ANGEL_OPENAI_API_MODEL", "OPENAI_MODEL"],
         None,
         &["ANGEL_OPENAI_KEY", "OPENAI_API_KEY"],
+    )
+}
+
+/// Meta Model API (Muse Spark), OpenAI chat format. Metered per token with no
+/// plan, so it sits late in the SOTA order and is not in the cheap profile.
+/// `muse-spark-1.3-contributor` is the cheaper data-sharing tier and must be
+/// chosen explicitly with `ANGEL_META_MODEL`.
+pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    optional_sota_http_club(
+        "meta",
+        "muse-spark-1.3",
+        &["ANGEL_META_URL"],
+        "https://api.meta.ai/v1",
+        &["ANGEL_META_MODEL"],
+        Some("muse-spark-1.3"),
+        &["ANGEL_META_KEY", "META_API_KEY"],
     )
 }
 

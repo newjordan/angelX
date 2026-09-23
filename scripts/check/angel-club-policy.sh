@@ -40,6 +40,9 @@ fi
 if ! _angel_api_club_enabled longcat; then
   unset ANGEL_LONGCAT_KEY LONGCAT_API_KEY
 fi
+if ! _angel_api_club_enabled meta; then
+  unset ANGEL_META_KEY META_API_KEY
+fi
 if ! _angel_api_club_enabled cerebras; then
   unset ANGEL_CEREBRAS_KEY CEREBRAS_API_KEY
 fi

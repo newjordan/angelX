@@ -585,6 +585,40 @@ fn openai_api_route_is_separate_and_builds_chat_completions_request() {
     assert_eq!(body["messages"][0]["role"], "user");
 }
 
+/// The Muse seat: Meta Model API, `muse-spark-1.3` unless pinned, keyed by
+/// `ANGEL_META_KEY` or `META_API_KEY`, and off when the allowlist omits `meta`.
+#[test]
+fn meta_route_serves_muse_spark_from_the_meta_model_api() {
+    let _guard = env_lock();
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "meta");
+    let _key = ScopedEnv::unset("ANGEL_META_KEY");
+    let _fallback_key = ScopedEnv::unset("META_API_KEY");
+    let _url = ScopedEnv::unset("ANGEL_META_URL");
+    let _model = ScopedEnv::unset("ANGEL_META_MODEL");
+    assert!(optional_meta_http_club().is_none(), "no key, no seat");
+
+    let _fallback_key = ScopedEnv::set("META_API_KEY", "test-key");
+    let (alias, club, _) = optional_meta_http_club().expect("META_API_KEY configures the seat");
+    assert_eq!(alias, "meta");
+    assert_eq!(club.label(), "muse-spark-1.3");
+    assert_eq!(club.model_identity().as_deref(), Some("muse-spark-1.3"));
+    assert!(is_sota_label(&alias) && is_sota_label(club.label()));
+
+    let _pinned = ScopedEnv::set("ANGEL_META_MODEL", "muse-spark-1.3-contributor");
+    let (_, club, _) = optional_meta_http_club().expect("pinned model");
+    assert_eq!(
+        club.label(),
+        "muse-spark-1.3-contributor",
+        "the seat shows the model it sends"
+    );
+
+    let _other = ScopedEnv::set("ANGEL_API_CLUBS", "glm");
+    assert!(
+        optional_meta_http_club().is_none(),
+        "the allowlist omits meta"
+    );
+}
+
 #[test]
 fn openai_api_route_sends_auth_tools_and_propagates_tool_calls() {
     use std::io::Write;
