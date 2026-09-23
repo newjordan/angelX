@@ -2013,7 +2013,11 @@ impl App {
                 }
             }
             "status" => self.handoff_rl.status_text(),
-            "stop" | "off" | "disable" => self.handoff_rl.stop(),
+            "stop" | "off" | "disable" => {
+                let note = self.handoff_rl.stop();
+                self.handoff_rl_unbind();
+                note
+            }
             "start" | "run" | "go" | "on" | "enable" | "every" => {
                 // `/handoff-rl go [now] <task>` — skip the workshop and fire the
                 // first forced inject immediately (the loop the operator wants:
@@ -2320,7 +2324,9 @@ impl App {
             return Err("handoff RL is not active".to_string());
         }
         if let Some(why) = self.handoff_rl.budget_tripped() {
-            return Err(self.handoff_rl.stop_for_budget(&why));
+            let note = self.handoff_rl.stop_for_budget(&why);
+            self.handoff_rl_unbind();
+            return Err(note);
         }
 
         // Hard-stop any in-flight turn so we never double-book the flight slot
@@ -2373,8 +2379,64 @@ impl App {
         self.scroll = 0;
 
         // Persist wiped history so a crash cannot resurrect the pre-handoff thread.
+        self.handoff_rl_bind();
         self.persist_and_start_turn_worker();
         Ok(())
+    }
+
+    fn handoff_rl_loop_id(&self) -> String {
+        format!("handoff-rl-{}", self.handoff_rl.started_ms)
+    }
+
+    /// Bind the RL controller to the running handoff-RL loop, as `/loop` does, so
+    /// the model sees rl_campaign, loop_research, spawn and continual_harness.
+    /// Without it the competition loop hid the harness's RL tooling from the
+    /// model it was running.
+    pub(crate) fn handoff_rl_bind(&mut self) {
+        let deadline = (self.handoff_rl.deadline_secs > 0).then(|| {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let remaining = self
+                .handoff_rl
+                .deadline_secs
+                .saturating_mul(1000)
+                .saturating_sub(now_ms.saturating_sub(self.handoff_rl.started_ms));
+            std::time::Instant::now()
+                .checked_add(std::time::Duration::from_millis(remaining))
+                .unwrap_or_else(std::time::Instant::now)
+        });
+        let context = crate::drive::rl_ctl::LoopCampaignContext {
+            loop_id: self.handoff_rl_loop_id(),
+            task: self.handoff_rl.task.clone(),
+            verify: None,
+            club: self.bag.in_hand_with_fallback(),
+            deadline,
+            remaining_tokens: (self.handoff_rl.token_budget > 0).then(|| {
+                self.handoff_rl
+                    .token_budget
+                    .saturating_sub(self.handoff_rl.tokens_spent)
+            }),
+        };
+        self.tools.rl().bind_loop(context);
+    }
+
+    /// End the RL binding when the handoff loop stops; a `/loop` that owns the
+    /// controller is left alone.
+    pub(crate) fn handoff_rl_unbind(&mut self) {
+        let id = self.handoff_rl_loop_id();
+        let mut rl = self.tools.rl();
+        if rl.bound_loop_id() == Some(id.as_str()) {
+            rl.end_loop();
+        }
+    }
+
+    /// RL campaign tokens spent inside the handoff loop count against its budget.
+    pub(crate) fn handoff_rl_charge_rl_tokens(&mut self) {
+        let id = self.handoff_rl_loop_id();
+        let used = self.tools.rl().take_loop_tokens_for(&id);
+        self.handoff_rl.tokens_spent = self.handoff_rl.tokens_spent.saturating_add(used);
     }
 
     /// Dispatch the remaining Codex commands by name. These commands are local;
