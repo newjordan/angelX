@@ -157,6 +157,14 @@ pub(crate) struct Scene {
     pub(crate) fireworks: bool,
     /// Another modality framed over the map at a place.
     pub(crate) glass: Option<Glass>,
+    /// Companions on the quest, trailing the knight (world pixels, feet).
+    pub(crate) party: Vec<(f32, f32)>,
+    /// An acceptance gate is judging: the dragon wakes on its keep.
+    pub(crate) dragon: bool,
+    /// Measurements this session: `(treasures, empty chests)`.
+    pub(crate) chests: (u32, u32),
+    /// A loop is stalled in the swamp.
+    pub(crate) wisps: bool,
     pub(crate) hud: Hud,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
@@ -197,6 +205,10 @@ impl Scene {
             (s.kind as u8, s.state as u8).hash(&mut h);
         }
         (self.region, self.weather as u8, self.fireworks).hash(&mut h);
+        for &(x, y) in &self.party {
+            (x.to_bits(), y.to_bits()).hash(&mut h);
+        }
+        (self.dragon, self.chests, self.wisps).hash(&mut h);
         if let Some(g) = &self.glass {
             (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
         }
@@ -228,6 +240,10 @@ impl Scene {
             weather: Weather::Fair,
             fireworks: false,
             glass: None,
+            party: Vec::new(),
+            dragon: false,
+            chests: (0, 0),
+            wisps: false,
             hud: Hud {
                 model: String::new(),
                 think: String::new(),
@@ -246,9 +262,11 @@ pub(crate) struct Prop {
     pub(crate) img: Img,
 }
 
-/// A staged scene: props to paint, lights to cast, beacons to mark.
+/// A staged scene: props to paint, lights to cast, beacons to mark, and
+/// cues (speech bubbles) that always sit on top.
 pub(crate) struct Stage {
     pub(crate) props: Vec<Prop>,
+    pub(crate) cues: Vec<Prop>,
     pub(crate) lights: Vec<Light>,
     pub(crate) beacons: Vec<(i32, i32, i32, i32)>,
 }
@@ -271,6 +289,7 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
     let mut props = Vec::new();
     let mut lights = Vec::new();
     let mut beacons = Vec::new();
+    let mut cues = Vec::new();
     let tick = scene.tick;
     let flicker = |k: u32| 0.9 + 0.1 * (tick as f32 * 1.7 + k as f32 * 2.3).sin();
     let fire = |x: i32, y: i32, r: f32, s: f32| Light {
@@ -470,6 +489,49 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
     }
     props.push(on(36, 19, 1, 1, kit::quintain(scene.quest.is_some(), tick)));
 
+    // ── the adventure: the dragon's gate, the mine's chests, the swamp's wisps ──
+    if scene.dragon {
+        props.push(Prop {
+            // In front of the gate it guards: drawn after the ruins.
+            x: 39 * TILE - 12,
+            base: 5 * TILE + 1,
+            img: kit::dragon(true, tick),
+        });
+        lights.push(fire(42 * TILE + 6, 3 * TILE + 12, 60.0, 0.8 * flicker(40)));
+    }
+    let (full, empty) = scene.chests;
+    for i in 0..full.min(5) as i32 {
+        props.push(on(23 - i, 5, 1, 1, kit::chest(true)));
+    }
+    for i in 0..empty.min(5) as i32 {
+        props.push(on(25 + i, 5, 1, 1, kit::chest(false)));
+    }
+    if full > 0 {
+        lights.push(fire(22 * TILE, 5 * TILE + 10, 30.0, 0.3));
+    }
+    if scene.wisps {
+        let (sx, sy) = (11 * TILE + 8, 27 * TILE);
+        for k in 0..3 {
+            let a = tick as f32 * 0.4 + k as f32 * 2.1;
+            let (wx, wy) = (
+                sx + (a.cos() * 18.0) as i32,
+                sy - 10 + (a.sin() * 8.0) as i32,
+            );
+            props.push(Prop {
+                x: wx - 3,
+                base: wy + 3,
+                img: kit::wisp(),
+            });
+            lights.push(Light {
+                x: wx as f32,
+                y: wy as f32,
+                r: 26.0,
+                s: 0.5,
+                fire: false,
+            });
+        }
+    }
+
     // ── repo wards ──
     for (i, (ward, (tx, ty))) in scene
         .wards
@@ -499,6 +561,12 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
             x: (tx + 2) * TILE + 2,
             base: (ty + 2) * TILE,
             img: kit::flag(ward.banner, ward.banner),
+        });
+        let plaque = kit::plaque(&ward.name);
+        props.push(Prop {
+            x: tx * TILE + TILE - plaque.w / 2,
+            base: (ty + 2) * TILE + 13,
+            img: plaque,
         });
         if ward.lit {
             lights.push(fire(tx * TILE + 16, (ty + 2) * TILE - 14, 24.0, 0.3));
@@ -591,6 +659,28 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         });
     }
 
+    // ── a victory lights the town ──
+    if scene.fireworks {
+        lights.push(Light {
+            x: (23 * TILE + 8) as f32,
+            y: (12 * TILE) as f32,
+            r: 90.0,
+            s: 0.45,
+            fire: false,
+        });
+    }
+
+    // ── the party trails the knight ──
+    const ROBES: [char; 4] = ['1', '2', '@', '3'];
+    for (i, &(x, y)) in scene.party.iter().take(4).enumerate() {
+        let img = kit::squire(ROBES[i]);
+        props.push(Prop {
+            x: x as i32 - img.w / 2,
+            base: y as i32 + 2,
+            img,
+        });
+    }
+
     // ── the knight, and what marks live work ──
     let k = scene.knight;
     let bob = if k.walking && tick % 2 == 1 { 1 } else { 0 };
@@ -609,7 +699,7 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         fire: false,
     });
     if let (Some(tool), false) = (scene.tool, k.walking) {
-        props.push(Prop {
+        cues.push(Prop {
             x: kx - 1,
             base: kbase - 15 - ((tick / 2) % 2) as i32,
             img: kit::bubble(tool),
@@ -629,6 +719,7 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
 
     Stage {
         props,
+        cues,
         lights,
         beacons,
     }

@@ -362,6 +362,9 @@ pub(crate) struct World {
     overworld: overworld::Walker,
     /// The last glass picture the map showed, keyed on its source frame.
     overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
+    /// A two-seat fan-out stage fought at the Lists, and the session tally.
+    overworld_duel: Option<overworld::Duel>,
+    lists_tally: BTreeMap<String, u32>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -511,6 +514,8 @@ impl World {
             growth_cache: RefCell::new(None),
             overworld: overworld::Walker::default(),
             overworld_glass: RefCell::new(None),
+            overworld_duel: None,
+            lists_tally: BTreeMap::new(),
         };
         world.tiles = (0..WORLD_H)
             .flat_map(|y| (0..WORLD_W).map(move |x| (x, y)))
@@ -2098,12 +2103,14 @@ impl World {
             None => {
                 self.muster.clear();
                 self.muster_seq = 0;
+                self.overworld_duel = None;
             }
             Some(s) => {
                 if s.seq != self.muster_seq {
                     self.muster_seq = s.seq;
                     self.form_muster(&s.name, s.agents.len().max(1));
                     self.apply_muster_states(&s.seat_states);
+                    self.note_duel(s.stage_id, &s.agents, &s.seat_states);
                 }
             }
         }
