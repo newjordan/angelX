@@ -10341,3 +10341,70 @@ fn a_masked_green_is_confirmed_with_run_tests() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// First reply is cut off at the output cap; the retry answers.
+struct CappedOnceClub {
+    calls: AtomicUsize,
+}
+
+impl Club for CappedOnceClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+    fn label(&self) -> &str {
+        "capped-once"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Err("response incomplete: configured request cap was 8192 tokens".into());
+        }
+        Ok(ClubReply::Text("done in smaller pieces".into()))
+    }
+}
+
+/// A reply cut off at a fixed output cap is not re-sent blind: the model is told
+/// before the retry, so the retry is a different request (polyglot-v1
+/// rust-decimal on DeepSeek re-sent the same capped request 25 times).
+#[test]
+fn an_output_cap_cut_off_tells_the_model_before_the_retry() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "2");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let registry = ToolRegistry::new();
+    let club = CappedOnceClub {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = vec![ChatMsg::user("write the implementation")];
+    let outcome = run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(4),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("the retry answers");
+    assert_eq!(club.calls.load(Ordering::SeqCst), 2);
+    assert!(
+        outcome.answer.contains("smaller pieces"),
+        "{}",
+        outcome.answer
+    );
+    let notes: Vec<_> = history
+        .iter()
+        .filter(|m| m.role == ChatRole::Harness && m.content.contains(OUTPUT_CAP_NUDGE))
+        .collect();
+    assert_eq!(notes.len(), 1, "one note before the retry");
+    assert!(
+        notes[0].content.contains("8192 tokens"),
+        "{}",
+        notes[0].content
+    );
+    assert!(is_output_cap_truncation(
+        crate::agent::club::TRUNCATED_OUTPUT_ERR
+    ));
+    assert!(!is_output_cap_truncation("openai responses: HTTP 500"));
+}
