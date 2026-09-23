@@ -6837,7 +6837,9 @@ fn yolo_turn_stops_on_consecutive_tool_errors() {
         }
         fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
             let i = self.n.fetch_add(1, Ordering::Relaxed);
-            if i >= 10 {
+            // The breaker redirects twice (resetting the streak) before it
+            // stops: at a limit of 8 the stop lands on the 24th failing hop.
+            if i >= 40 {
                 // The old YOLO path disabled the error breaker and would
                 // incorrectly accept this eventual answer.
                 return Ok(ClubReply::Text("late answer".into()));
@@ -6864,6 +6866,14 @@ fn yolo_turn_stops_on_consecutive_tool_errors() {
     assert!(
         out.contains("errored"),
         "error breaker should stop the thrash: {out}"
+    );
+    assert_eq!(
+        history
+            .iter()
+            .filter(|m| m.content.contains("ERROR CASCADE REDIRECTION"))
+            .count(),
+        2,
+        "two redirections before the stop"
     );
     // The one-time error nudge landed in history before the stop.
     assert!(
@@ -7094,7 +7104,7 @@ fn yolo_preserves_the_anti_spin_guard() {
         }
         fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
             let call = self.calls.fetch_add(1, Ordering::Relaxed);
-            if call >= 6 {
+            if call >= 20 {
                 return Ok(ClubReply::Text("late answer".into()));
             }
             Ok(ClubReply::Calls(vec![ToolCall {
@@ -7118,8 +7128,9 @@ fn yolo_preserves_the_anti_spin_guard() {
     )
     .expect("spin stop is a structured stopped outcome");
 
+    // Two redirections reset the count before the stop: 3 x ANGEL_SPIN_LIMIT.
     assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert_eq!(outcome.hops, 4);
+    assert_eq!(outcome.hops, 12);
     assert!(outcome.answer.contains("same tool call repeated"));
 }
 
@@ -8704,7 +8715,7 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.0.fetch_add(1, Ordering::Relaxed);
             assert!(
-                hop < 9,
+                hop < 25,
                 "existing eight-error guard did not escalate: {} tools={:?}",
                 trajectory::progress_ledger_snapshot(),
                 trajectory::tool_ledger_snapshot()
@@ -8737,15 +8748,16 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
         &registry,
         &mut history,
         &AtomicBool::new(false),
-        Some(12),
+        Some(30),
         &mpsc::channel::<TurnEvent>().0,
     )
     .unwrap();
     assert!(out.contains("errored"), "{out}");
-    assert_eq!(club.0.load(Ordering::Relaxed), 8);
+    // Two redirections reset the error streak before the stop: 3 x 8 hops.
+    assert_eq!(club.0.load(Ordering::Relaxed), 24);
     let progress = trajectory::progress_ledger_snapshot();
     assert!(progress["first_verified_at_ms"].is_null());
-    assert_eq!(progress["unproductive_streak_max"], 8);
+    assert_eq!(progress["unproductive_streak_max"], 24, "{progress}");
     let escalations = progress["escalations"].as_array().unwrap();
     assert!(
         escalations
@@ -8755,10 +8767,10 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
     assert!(
         escalations
             .iter()
-            .any(|e| e["kind"] == "error_stop" && e["hop"].as_u64().unwrap() <= 8)
+            .any(|e| e["kind"] == "error_stop" && e["hop"].as_u64().unwrap() <= 24)
     );
     let tools = trajectory::tool_ledger_snapshot();
-    assert_eq!(tools.len(), 16);
+    assert_eq!(tools.len(), 48);
     assert!(
         tools
             .iter()
@@ -8811,7 +8823,8 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
         }
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.0.fetch_add(1, Ordering::Relaxed);
-            assert!(hop < 8, "existing dispatch breaker failed");
+            // Two redirections reset the streak before the stop: 3 x 8 hops.
+            assert!(hop < 24, "existing dispatch breaker failed");
             Ok(ClubReply::Calls(vec![ToolCall {
                 id: format!("r-{hop}"),
                 name: "shell".into(),
@@ -8839,9 +8852,9 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
         out.contains("stopped after 8 hops where every tool call errored"),
         "{out}"
     );
-    assert_eq!(club.0.load(Ordering::Relaxed), 8);
+    assert_eq!(club.0.load(Ordering::Relaxed), 24);
     let ledger = trajectory::tool_ledger_snapshot();
-    assert_eq!(ledger.len(), 8);
+    assert_eq!(ledger.len(), 24);
     assert!(
         ledger
             .iter()
@@ -8865,19 +8878,26 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
             .iter()
             .filter(|e| matches!(e, TurnEvent::Notice(n) if n.starts_with("action receipt")))
             .count(),
-        8
+        24
     );
     let (mut app, _sender) = crate::tests::seed_live_streaming_app(events);
-    app.advance();
+    // advance() drains at most STREAM_EVENTS_PER_FRAME events per tick.
+    for _ in 0..16 {
+        app.advance();
+    }
     let rows: Vec<_> = app
         .messages
         .iter()
         .filter(|m| m.text.contains("action receipt"))
         .collect();
-    assert_eq!(rows.len(), 1);
-    assert!(rows[0].text.contains("×8"));
+    // One collapsed row per run of receipts; each redirection notice starts a
+    // new run.
+    assert_eq!(rows.len(), 3);
+    for row in &rows {
+        assert!(row.text.contains("×8"), "{}", row.text);
+    }
     println!(
-        "dispatch receipt: provider hops=8 ledger entries=8 error_class=Policy avoidable=true stop=error_stop transcript rows=1 count=8"
+        "dispatch receipt: provider hops=24 ledger entries=24 error_class=Policy avoidable=true stop=error_stop transcript rows=3 count=8 each"
     );
     std::fs::remove_dir_all(workspace).unwrap();
 }
@@ -8936,7 +8956,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         }
         fn chat(&self, history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
-            assert!(hop <= 35, "dialogue failed to terminate");
+            assert!(hop <= 61, "dialogue failed to terminate");
             if hop == 9 {
                 assert!(history.iter().any(|m| {
                     m.role == ChatRole::Harness
@@ -8959,13 +8979,15 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             }]))
         }
     }
+    // The stop redirects twice (clearing the streak) before it ends the turn:
+    // 3 x 16 unproductive hops, counted from the last progress.
     for (task, competition, stop, progress_at, expected_hops, stopped) in [
-        ("1", "0", "16", 0, 16, true),
+        ("1", "0", "16", 0, 48, true),
         ("0", "0", "16", 0, 21, false),
         ("1", "1", "16", 0, 21, false),
         ("1", "0", "0", 0, 21, false),
         ("1", "0", "unset", 0, 21, false),
-        ("1", "0", "16", 10, 26, true),
+        ("1", "0", "16", 10, 58, true),
     ] {
         let _mode = [
             EnvGuard::set("ANGEL_TASK_ACTIVE", task),
@@ -8984,7 +9006,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         let club = Dialogue {
             calls: AtomicUsize::new(0),
             progress_at,
-            finish: if stopped { 34 } else { 21 },
+            finish: if stopped { 60 } else { 21 },
         };
         let mut history = vec![ChatMsg::user("Investigate the blocker")];
         let (tx, rx) = mpsc::channel();
@@ -8993,7 +9015,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             &registry,
             &mut history,
             &AtomicBool::new(false),
-            Some(40),
+            Some(70),
             &tx,
         )
         .unwrap();
@@ -9199,7 +9221,9 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
                     .any(|m| m.role == ChatRole::Harness && m.content.contains("NO citations"))
             );
             let hop = self.calls.fetch_add(1, Ordering::SeqCst);
-            if hop == if self.circular { 18 } else { self.sources } {
+            // The unproductive stop redirects twice before it ends the turn
+            // (3 x 16 hops), so a circular search runs past 48 hops.
+            if hop == if self.circular { 60 } else { self.sources } {
                 return Ok(ClubReply::Text(self.answer.into()));
             }
             Ok(ClubReply::Calls(vec![ToolCall {
@@ -9269,7 +9293,7 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
         (
             true,
             8,
-            20,
+            60,
             None,
             "Evidence is missing; the repeated search cannot answer this.",
         ),
@@ -9305,6 +9329,8 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
         assert_eq!(progress["research_turn"], true);
         if circular {
             assert_eq!(outcome.stop_reason, TurnStopReason::EscalatedUnproductive);
+            // The first search adds a source; the next 3 x 16 add nothing.
+            assert_eq!(outcome.hops, 49);
             assert!(rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.contains("added no new sources") && n.contains("NO citations") && !n.contains("verifier"))));
         } else if cap == 3 {
             assert_eq!(club.calls.load(Ordering::SeqCst), 3);
@@ -9702,7 +9728,9 @@ fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
             );
         } else {
             assert_eq!(outcome.stop_reason, TurnStopReason::EscalatedUnproductive);
-            assert_eq!(outcome.hops, if mode == 2 { 61 } else { 60 });
+            // Two redirections clear the streak before the stop: 3 x 60 hops
+            // (mode 2's first red run is credited progress, so one more).
+            assert_eq!(outcome.hops, if mode == 2 { 181 } else { 180 });
             assert!(outcome.answer.contains("last credited progress:"));
         }
         println!(
