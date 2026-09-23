@@ -685,11 +685,25 @@ fn an_open_modal_or_focused_shell_keeps_ctrl_v_for_itself() {
     app.input = "draft".to_string();
     app.cursor = app.input.chars().count();
 
-    app.shell_focused = true;
-    app.on_key(ctrl_v());
-    assert!(!app.clipboard_paste.loading(), "the shell pane owns Ctrl-V");
+    // A focus flag with no live pane behind it is stale and hands keys back
+    // to the composer, so ownership is proven against a real shell (^G).
+    if super::pty_available() {
+        let _shell = TestEnvGuard::set("SHELL", "/bin/sh");
+        let ctrl_g = KeyEvent::new(KeyCode::Char('g'), KeyModifiers::CONTROL);
+        app.on_key(ctrl_g);
+        assert!(
+            app.shell.is_some() && app.shell_focused,
+            "^G focused a shell"
+        );
+        app.on_key(ctrl_v());
+        assert!(!app.clipboard_paste.loading(), "the shell pane owns Ctrl-V");
+        assert!(app.shell_focused, "the shell kept focus after Ctrl-V");
+        app.on_key(ctrl_g);
+        assert!(!app.shell_focused, "^G handed focus back to the composer");
+    } else {
+        eprintln!("skipping the shell-pane half: no PTY access in this environment");
+    }
 
-    app.shell_focused = false;
     app.bag = crate::agent::club::Bag::for_reasoning_render_test();
     app.open_agent_menu(crate::ui::agent_panel::controls::AgentMenuKind::Model);
     assert!(
