@@ -419,6 +419,27 @@ impl Img {
         out
     }
 
+    /// Row-major opaque RGBA bytes, each pixel blown up to a `k`x`k` block.
+    pub(crate) fn rgba_scaled(&self, k: u32) -> Vec<u8> {
+        let k = k.max(1) as usize;
+        let (w, h) = (self.w.max(0) as usize, self.h.max(0) as usize);
+        let mut out = Vec::with_capacity(w * h * k * k * 4);
+        let mut row = Vec::with_capacity(w * k * 4);
+        for y in 0..h {
+            row.clear();
+            for x in 0..w {
+                let [r, g, b] = self.px[y * w + x].unwrap_or(BLACK);
+                for _ in 0..k {
+                    row.extend_from_slice(&[r, g, b, 255]);
+                }
+            }
+            for _ in 0..k {
+                out.extend_from_slice(&row);
+            }
+        }
+        out
+    }
+
     /// Row-major opaque RGBA bytes for image protocols.
     pub(crate) fn rgba_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.px.len() * 4);

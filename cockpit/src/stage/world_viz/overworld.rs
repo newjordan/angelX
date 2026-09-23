@@ -81,6 +81,26 @@ impl View {
         }
     }
 
+    /// A `w`x`h` view centred on `(cx, cy)` and kept inside the realm. On
+    /// an axis where the view is larger than the realm, the realm sits in the
+    /// middle on black paper.
+    pub(crate) fn around(cx: f32, cy: f32, w: i32, h: i32) -> View {
+        let place = |c: f32, span: i32, world: i32| {
+            if span >= world {
+                (world - span) / 2
+            } else {
+                ((c - span as f32 / 2.0).round() as i32).clamp(0, world - span)
+            }
+        };
+        let (w, h) = (w.max(1), h.max(1));
+        View {
+            x: place(cx, w, MAP_W * TILE),
+            y: place(cy, h, MAP_H * TILE),
+            w,
+            h,
+        }
+    }
+
     fn touches(&self, x: i32, y: i32, w: i32, h: i32) -> bool {
         x < self.x + self.w && x + w > self.x && y < self.y + self.h && y + h > self.y
     }
@@ -100,9 +120,14 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
     let realm = Realm::get();
     let tiles = Tiles::get();
     let mut cv = Img::black(view.w, view.h);
+    let (realm_w, realm_h) = (MAP_W * TILE, MAP_H * TILE);
     for y in 0..view.h {
         for x in 0..view.w {
-            if let Some(ch) = ground::mark(realm, view.x + x, view.y + y) {
+            let (wx, wy) = (view.x + x, view.y + y);
+            if wx < 0 || wy < 0 || wx >= realm_w || wy >= realm_h {
+                continue;
+            }
+            if let Some(ch) = ground::mark(realm, wx, wy) {
                 cv.put(x, y, ch);
             }
         }
@@ -191,12 +216,12 @@ pub(crate) fn frame(scene: &Scene) -> Img {
 
 /// [`frame`] memoized on the scene key for the drawing thread: a paced scene
 /// changes a few times a second, the terminal redraws far more often.
-pub(crate) fn frame_cached(scene: &Scene) -> std::rc::Rc<Img> {
+pub(crate) fn frame_cached(scene: &Scene, w: i32, h: i32) -> std::rc::Rc<Img> {
     thread_local! {
         static LAST: std::cell::RefCell<Option<(u64, std::rc::Rc<Img>)>> =
             const { std::cell::RefCell::new(None) };
     }
-    let key = scene.key();
+    let key = scene.key() ^ ((w as u64) << 40 | (h as u64) << 20).rotate_left(7);
     LAST.with(|last| {
         let mut last = last.borrow_mut();
         if let Some((k, img)) = last.as_ref()
@@ -204,7 +229,7 @@ pub(crate) fn frame_cached(scene: &Scene) -> std::rc::Rc<Img> {
         {
             return std::rc::Rc::clone(img);
         }
-        let img = std::rc::Rc::new(frame(scene));
+        let img = std::rc::Rc::new(frame_sized(scene, w, h));
         *last = Some((key, std::rc::Rc::clone(&img)));
         img
     })
@@ -213,6 +238,19 @@ pub(crate) fn frame_cached(scene: &Scene) -> std::rc::Rc<Img> {
 /// Frame size in pixels: one Zelda screen.
 pub(crate) const FRAME_W: u32 = (SCREEN_W * TILE) as u32;
 pub(crate) const FRAME_H: u32 = (SCREEN_H * TILE) as u32;
+
+/// A `w`x`h` frame around the scene's camera. The camera never zooms: a
+/// larger pane shows more of the realm at the same scale.
+pub(crate) fn frame_sized(scene: &Scene, w: i32, h: i32) -> Img {
+    frame_at(scene, View::around(scene.camera.0, scene.camera.1, w, h))
+}
+
+/// Screen pixels per map pixel for a terminal cell height: the map keeps its
+/// size relative to the text (zooming the terminal out shows more realm),
+/// in whole pixels so the art stays crisp.
+pub(crate) fn map_scale(cell_h: u16) -> u32 {
+    ((f32::from(cell_h) / 12.0).round() as u32).max(1)
+}
 
 /// Whether the Realm route shows this map (the default) or the Dotmax 3D
 /// ride as before (`ANGEL_WORLD_MAP=3d`).
@@ -232,27 +270,44 @@ pub(crate) fn pace(scene: &mut Scene, relaxed: bool) {
     scene.tick /= if relaxed { 12 } else { 6 };
     scene.knight.x = scene.knight.x.round();
     scene.knight.y = scene.knight.y.round();
+    scene.camera = (scene.camera.0.round(), scene.camera.1.round());
 }
 
 /// A frame rendered on first use — the image worker, not the draw thread,
 /// pays for the pixels.
 pub(crate) struct LazyFrame {
     scene: Scene,
+    view: (i32, i32),
+    scale: u32,
     rgba: std::sync::OnceLock<Vec<u8>>,
 }
 
 impl LazyFrame {
-    pub(crate) fn new(scene: Scene) -> LazyFrame {
+    /// A `view_w`x`view_h` map frame, blown up `scale` times with whole
+    /// pixels so the terminal can place it without resampling.
+    pub(crate) fn new(scene: Scene, view_w: i32, view_h: i32, scale: u32) -> LazyFrame {
         LazyFrame {
             scene,
+            view: (view_w.max(1), view_h.max(1)),
+            scale: scale.max(1),
             rgba: std::sync::OnceLock::new(),
         }
+    }
+
+    /// Pixel size of the finished frame.
+    pub(crate) fn size(&self) -> (u32, u32) {
+        (
+            self.view.0 as u32 * self.scale,
+            self.view.1 as u32 * self.scale,
+        )
     }
 }
 
 impl AsRef<[u8]> for LazyFrame {
     fn as_ref(&self) -> &[u8] {
-        self.rgba.get_or_init(|| frame(&self.scene).rgba_bytes())
+        self.rgba.get_or_init(|| {
+            frame_sized(&self.scene, self.view.0, self.view.1).rgba_scaled(self.scale)
+        })
     }
 }
 

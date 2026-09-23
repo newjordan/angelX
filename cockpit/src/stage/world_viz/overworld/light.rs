@@ -178,8 +178,12 @@ pub(crate) fn dusk(
                     cv.set(x, y, step_down(c, steps));
                 }
                 _ => {
+                    let inside = wx >= 0
+                        && wy >= 0
+                        && wx < super::map::MAP_W * super::map::TILE
+                        && wy < super::map::MAP_H * super::map::TILE;
                     let p = (local - 0.22) * 0.55;
-                    if p > 0.0 && bayer(wx, wy) < p {
+                    if inside && p > 0.0 && bayer(wx, wy) < p {
                         cv.put(x, y, pool_ink(realm, wx, wy, fire > local * 0.5));
                     }
                 }
