@@ -1389,3 +1389,64 @@ fn model_catalog_strips_codex_spark_surfaces() {
     assert_eq!(models[0].slug, "gpt-5.6-luna");
     assert!(!models.iter().any(|m| m.slug.contains("spark")));
 }
+
+/// An API-key Responses seat (Meta's Muse Spark) posts to its own endpoint with
+/// only the bearer key, none of the ChatGPT account headers, asks for
+/// reasoning summaries at the configured effort, and streams the summary to
+/// the thinking panel. Meta's Chat Completions endpoint redacts reasoning.
+#[test]
+fn an_api_key_responses_seat_streams_reasoning_summaries() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut sock, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut sock);
+        sock.write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n\
+data: {\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"Checking the two buckets\"}\n\n\
+data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n\
+data: {\"type\":\"response.completed\",\"response\":{}}\n\n",
+        )
+        .unwrap();
+        request
+    });
+    let club = CodexClub::api_key_seat(
+        "muse-spark-1.3",
+        "muse-spark-1.3",
+        format!("http://{addr}/v1/responses"),
+        "meta-fixture-key",
+        Some("low".into()),
+        vec!["minimal".into(), "low".into(), "medium".into()],
+        crate::agent::club::RouteMetadata::default(),
+    );
+    let mut reasoning = String::new();
+    let reply = club
+        .chat_streaming(
+            &[ChatMsg::user("fixture")],
+            &[],
+            &AtomicBool::new(false),
+            &mut |delta| {
+                if let StreamDelta::Reasoning(text) = delta {
+                    reasoning.push_str(text);
+                }
+            },
+        )
+        .unwrap();
+    assert!(matches!(reply, ClubReply::Text(ref text) if text == "ok"));
+    assert_eq!(reasoning, "Checking the two buckets");
+    let request = server.join().unwrap();
+    let (head, body) = request.split_once("\r\n\r\n").unwrap();
+    let head_lc = head.to_ascii_lowercase();
+    assert!(head.starts_with("POST /v1/responses "), "{head}");
+    assert!(
+        head_lc.contains("authorization: bearer meta-fixture-key"),
+        "{head}"
+    );
+    for chatgpt_only in ["chatgpt-account-id", "originator", "session_id"] {
+        assert!(!head_lc.contains(chatgpt_only), "{chatgpt_only}: {head}");
+    }
+    let body: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(body["model"], "muse-spark-1.3");
+    assert_eq!(body["reasoning"]["effort"], "low");
+    assert_eq!(body["reasoning"]["summary"], "auto");
+}

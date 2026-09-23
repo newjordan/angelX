@@ -8679,6 +8679,10 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     let _error = EnvGuard::set("ANGEL_ERROR_LIMIT", "8");
+    // Interactive, no unproductive stop: only the error breaker ends this
+    // dialogue, whatever another test left in the environment.
+    let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let _unproductive = EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_STOP", "0");
     let _experience = EnvGuard::set("ANGEL_EXPERIENCE", "0");
     let _atlas = EnvGuard::set("ANGEL_ATLAS", "0");
     let _trajectory = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "0");

@@ -619,6 +619,32 @@ fn meta_route_serves_muse_spark_from_the_meta_model_api() {
     );
 }
 
+/// The Muse seat speaks the Responses API (reasoning summaries reach the
+/// thinking panel) at `ANGEL_META_REASONING_EFFORT`; Muse rejects `none`, so
+/// that value is ignored. `ANGEL_META_API=chat` keeps the Chat Completions seat.
+#[test]
+fn meta_route_takes_its_effort_and_can_fall_back_to_chat_completions() {
+    let _guard = env_lock();
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "meta");
+    let _key = ScopedEnv::set("ANGEL_META_KEY", "test-key");
+    let _model = ScopedEnv::unset("ANGEL_META_MODEL");
+    let _api = ScopedEnv::unset("ANGEL_META_API");
+
+    let _effort = ScopedEnv::set("ANGEL_META_REASONING_EFFORT", "LOW");
+    let (_, club, _) = optional_meta_http_club().expect("responses seat");
+    assert_eq!(club.label(), "muse-spark-1.3");
+    assert_eq!(club.reasoning_effort().as_deref(), Some("low"));
+
+    let _none = ScopedEnv::set("ANGEL_META_REASONING_EFFORT", "none");
+    let (_, club, _) = optional_meta_http_club().expect("responses seat");
+    assert_eq!(club.reasoning_effort(), None, "Muse rejects `none`");
+
+    let _chat = ScopedEnv::set("ANGEL_META_API", "chat");
+    let (alias, club, _) = optional_meta_http_club().expect("chat completions seat");
+    assert_eq!(alias, "meta");
+    assert_eq!(club.label(), "muse-spark-1.3");
+}
+
 #[test]
 fn openai_api_route_sends_auth_tools_and_propagates_tool_calls() {
     use std::io::Write;
