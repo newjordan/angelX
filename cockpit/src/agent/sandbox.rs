@@ -191,6 +191,20 @@ impl SandboxPolicy {
                 writable_roots.push(PathBuf::from(path));
             }
         }
+        // A shared cargo build directory the operator exported is build
+        // output, the same class as the caches below. Without it every
+        // sandboxed `cargo` call fails on `.cargo-lock: Permission denied`.
+        // Never widened to `/` or the home directory itself.
+        let home_dir = std::env::var_os("HOME").map(PathBuf::from);
+        for key in ["CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR"] {
+            if let Some(path) = std::env::var_os(key).map(PathBuf::from)
+                && path.is_absolute()
+                && path.parent().is_some()
+                && home_dir.as_deref() != Some(path.as_path())
+            {
+                writable_roots.push(path);
+            }
+        }
         // A headless worker or a launcher that scrubbed its environment may
         // carry no TMPDIR at all, yet macOS compilers still resolve the same
         // per-user scratch and cache roots through confstr(3). Without them
