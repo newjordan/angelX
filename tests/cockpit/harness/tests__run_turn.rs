@@ -10230,3 +10230,114 @@ fn confirm_green_is_on_in_task_mode_only_unless_configured() {
     let _set = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "4");
     assert_eq!(confirm_green_extra_runs(true), 4);
 }
+
+/// The command shapes Grok 4.7 used on cpp-robot-name: a test run with a
+/// fallback that can mask its failure.
+#[test]
+fn test_runs_behind_a_fallback_are_recognised() {
+    let shell = |command: &str| ToolCall {
+        id: String::new(),
+        name: "shell".into(),
+        args: serde_json::json!({"command": command}),
+    };
+    for command in [
+        "cmake -S . -B build && cmake --build build && (./build/robot-name || ctest --test-dir build --output-on-failure)",
+        "cmake -S . -B build && cmake --build build && ./build/robot-name 2>/dev/null || ctest --test-dir build --output-on-failure",
+        "make || true",
+    ] {
+        assert!(test_run_behind_fallback(&shell(command)), "{command}");
+    }
+    for command in ["ls || true", "cmake --build build", "echo ok"] {
+        assert!(!test_run_behind_fallback(&shell(command)), "{command}");
+    }
+}
+
+/// Stands in for run_tests: always red.
+struct RedRunTests;
+
+impl Tool for RedRunTests {
+    fn name(&self) -> &str {
+        "run_tests"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "run_tests".into(),
+            description: "Run the workspace tests.".into(),
+            params: serde_json::json!({"type": "object", "properties": {}}),
+        }
+    }
+    fn call(&self, _args: &Value) -> Result<String, String> {
+        Err("tests failed: 0 passed, 1 failed\nREQUIRE( names.count(name) == 0 ) failed".into())
+    }
+}
+
+/// Runs a masked test command once, then claims completion on every later call.
+struct MaskedGreenClub {
+    calls: AtomicUsize,
+}
+
+impl Club for MaskedGreenClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+    fn label(&self) -> &str {
+        "masked-green"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Ok(ClubReply::Calls(vec![ToolCall {
+                id: "call_make".into(),
+                name: "shell".into(),
+                args: serde_json::json!({"command": "make || true"}),
+            }]));
+        }
+        Ok(ClubReply::Text(
+            "All tests pass; the task is complete.".into(),
+        ))
+    }
+}
+
+/// A green that rests on a fallback-masked command is confirmed with angelX's
+/// own run_tests; when that is red, the completion is denied.
+#[test]
+fn a_masked_green_is_confirmed_with_run_tests() {
+    let _guard = crate::tests::env_lock();
+    let _runs = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "2");
+    let _accept = EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
+    let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let root = confirm_green_fixture("confirm_green_masked", "all:\n\t@false\n");
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    registry.register(Box::new(RootShell(root.clone())));
+    registry.register(Box::new(RedRunTests));
+    let club = MaskedGreenClub {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    let outcome = run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(8),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    assert_eq!(club.calls.load(Ordering::SeqCst), 3);
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    let denial = history
+        .iter()
+        .find(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
+        .expect("the masked green was not accepted");
+    assert!(denial.content.contains("`run_tests`"), "{}", denial.content);
+    assert!(
+        denial.content.contains("names.count(name) == 0"),
+        "{}",
+        denial.content
+    );
+    let _ = std::fs::remove_dir_all(root);
+}

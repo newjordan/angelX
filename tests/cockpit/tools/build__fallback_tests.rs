@@ -267,3 +267,75 @@ fn hung_suite_report_names_the_tests_that_never_finished() {
         "{silent}"
     );
 }
+
+fn cmake_available() -> bool {
+    ["cmake", "c++"]
+        .iter()
+        .all(|tool| crate::platform::workspace_lang::resolve_on_path(tool).is_some())
+}
+
+fn cmake_project(name: &str, main: &str) -> std::path::PathBuf {
+    let root = std::env::temp_dir().join(format!("angel-cmake-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("CMakeLists.txt"),
+        "cmake_minimum_required(VERSION 3.10)\nproject(t CXX)\nenable_testing()\n\
+         add_executable(t t.cpp)\nadd_test(NAME t COMMAND t)\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("t.cpp"), main).unwrap();
+    root
+}
+
+/// run_tests runs a CMake project's registered tests: configure, build, ctest.
+#[test]
+fn run_tests_runs_a_cmake_project() {
+    if !cmake_available() {
+        eprintln!("skipped: cmake or a C++ compiler is not installed");
+        return;
+    }
+    let green = cmake_project("green", "int main() { return 0; }\n");
+    let report = super::RunTestsTool::in_dir(green.clone())
+        .call(&serde_json::json!({}))
+        .expect("a passing suite");
+    assert!(report.contains("1 passed, 0 failed"), "{report}");
+    let _ = std::fs::remove_dir_all(green);
+
+    let red = cmake_project("red", "int main() { return 1; }\n");
+    let report = super::RunTestsTool::in_dir(red.clone()).call(&serde_json::json!({}));
+    let text = match report {
+        Ok(text) | Err(text) => text,
+    };
+    assert!(text.contains("tests failed out of 1"), "{text}");
+    let _ = std::fs::remove_dir_all(red);
+}
+
+/// A build that runs its own tests (Exercism's C++ track) fails at the build
+/// step, and CTest having nothing registered does not turn that green.
+#[test]
+fn run_tests_fails_a_cmake_build_whose_own_tests_fail() {
+    if !cmake_available() {
+        eprintln!("skipped: cmake or a C++ compiler is not installed");
+        return;
+    }
+    let root = std::env::temp_dir().join(format!("angel-cmake-{}-selftest", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("CMakeLists.txt"),
+        "cmake_minimum_required(VERSION 3.10)\nproject(t CXX)\nadd_executable(t t.cpp)\n\
+         add_custom_target(test_t ALL DEPENDS t COMMAND t)\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("t.cpp"), "int main() { return 1; }\n").unwrap();
+    let report = super::RunTestsTool::in_dir(root.clone()).call(&serde_json::json!({}));
+    let text = match &report {
+        Ok(text) | Err(text) => text.clone(),
+    };
+    assert!(
+        report.is_err() || text.to_lowercase().contains("fail"),
+        "a failing self-testing build must not read as green: {text}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}

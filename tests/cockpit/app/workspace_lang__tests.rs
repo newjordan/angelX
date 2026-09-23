@@ -309,3 +309,75 @@ fn parses_go() {
     let c = parse_runner_output(Lang::Go, "ok  \texample.com/x\t0.003s\n", "");
     assert_eq!(c.passed, 1);
 }
+
+#[test]
+fn cmake_project_plans_configure_build_and_ctest() {
+    let root = scratch("cmake_plan");
+    std::fs::write(root.join("CMakeLists.txt"), "project(t CXX)\n").unwrap();
+    let hits = detect(&root);
+    assert_eq!(hits[0].lang, Lang::Cpp);
+    let plan = plan_tests(&root, &hits, None).expect("a C++ plan");
+    assert_eq!(plan.program, "sh");
+    assert!(plan.args[1].starts_with("cmake -S . -B build && cmake --build build"));
+    assert!(plan.args[1].contains("ctest --test-dir build"));
+    assert_eq!(parse_lang("c++"), Some(Lang::Cpp));
+    assert_eq!(parse_lang("cmake"), Some(Lang::Cpp));
+}
+
+/// A CMakeLists.txt beside another language's manifest (a native addon) must
+/// not take over that project's own test runner.
+#[test]
+fn cmake_never_outranks_another_manifest_in_the_same_directory() {
+    let root = scratch("cmake_beside_node");
+    std::fs::write(root.join("CMakeLists.txt"), "project(addon CXX)\n").unwrap();
+    std::fs::write(
+        root.join("package.json"),
+        r#"{"scripts":{"test":"node --test"}}"#,
+    )
+    .unwrap();
+    let plan = plan_tests(&root, &detect(&root), None).expect("a plan");
+    assert_eq!(plan.lang, Lang::Js);
+}
+
+#[test]
+fn cpp_runner_output_reads_catch2_ctest_and_googletest() {
+    let catch_pass = "All tests passed (2004 assertions in 5 test cases)\n";
+    assert_eq!(
+        parse_runner_output(Lang::Cpp, catch_pass, ""),
+        RunnerCounts {
+            passed: 5,
+            failed: 0,
+            skipped: 0
+        }
+    );
+    let catch_fail =
+        "test cases:    5 |    4 passed | 1 failed\nassertions: 1821 | 1820 passed | 1 failed\n";
+    assert_eq!(
+        parse_runner_output(Lang::Cpp, catch_fail, ""),
+        RunnerCounts {
+            passed: 4,
+            failed: 1,
+            skipped: 0
+        }
+    );
+    // CTest's summary counts registered tests and wins over the binary's own.
+    let ctest = "All tests passed (9 assertions in 3 test cases)\n67% tests passed, 1 tests failed out of 3\n";
+    assert_eq!(
+        parse_runner_output(Lang::Cpp, ctest, ""),
+        RunnerCounts {
+            passed: 2,
+            failed: 1,
+            skipped: 0
+        }
+    );
+    let gtest =
+        "[  PASSED  ] 3 tests.\n[  FAILED  ] 1 test, listed below:\n[  FAILED  ] Suite.Case\n";
+    assert_eq!(
+        parse_runner_output(Lang::Cpp, gtest, ""),
+        RunnerCounts {
+            passed: 3,
+            failed: 1,
+            skipped: 0
+        }
+    );
+}

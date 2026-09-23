@@ -19,6 +19,7 @@ pub enum Lang {
     Python,
     Go,
     Swift,
+    Cpp,
 }
 
 impl Lang {
@@ -29,6 +30,7 @@ impl Lang {
             Lang::Python => "python",
             Lang::Go => "go",
             Lang::Swift => "swift",
+            Lang::Cpp => "cpp",
         }
     }
 }
@@ -137,6 +139,7 @@ fn scan_dir(root: &Path, rel: &Path, hits: &mut Vec<LangHit>) {
             "pytest.ini" | "tox.ini" | "conftest.py" => push(Lang::Python, &name, true, hits),
             "go.mod" => push(Lang::Go, "go.mod", true, hits),
             "Package.swift" => push(Lang::Swift, "Package.swift", true, hits),
+            "CMakeLists.txt" => push(Lang::Cpp, "CMakeLists.txt", true, hits),
             _ => {
                 if is_js_test_file(&name) {
                     js_tests += 1;
@@ -216,8 +219,10 @@ pub fn detect(workspace: &Path) -> Vec<LangHit> {
             }
         }
     }
-    // Root-first, manifests-first within a directory; stable otherwise.
-    hits.sort_by_key(|h| (h.dir != Path::new("."), !h.manifest));
+    // Root-first, manifests-first within a directory; stable otherwise. A
+    // CMakeLists.txt beside another language's manifest (a native addon, a
+    // bundled C library) never outranks that language's own runner.
+    hits.sort_by_key(|h| (h.dir != Path::new("."), !h.manifest, h.lang == Lang::Cpp));
     hits
 }
 
@@ -353,8 +358,24 @@ pub fn plan_tests(workspace: &Path, hits: &[LangHit], prefer: Option<Lang>) -> O
             because,
             script: None,
         }),
+        // Configure, build, then run whatever the project registered with CTest.
+        // A build that runs its own tests (Exercism's C++ track wires the test
+        // binary into the default target) fails at the build step instead;
+        // `--no-tests=ignore` keeps such a project green when CTest has nothing.
+        Lang::Cpp => Some(TestPlan {
+            lang: Lang::Cpp,
+            program: "sh",
+            args: vec!["-c".into(), CMAKE_TEST_SCRIPT.into()],
+            dir,
+            label: "cmake -S . -B build && cmake --build build && ctest".into(),
+            because,
+            script: Some(CMAKE_TEST_SCRIPT.into()),
+        }),
     }
 }
+
+const CMAKE_TEST_SCRIPT: &str = "cmake -S . -B build && cmake --build build && \
+     ctest --test-dir build --output-on-failure --no-tests=ignore";
 
 /// Resolve a program on `PATH` (or verify an explicit path). Shared by
 /// `run_tests`' non-Cargo runners and the shell tool's exit-127 hint.
@@ -548,6 +569,7 @@ pub fn parse_lang(s: &str) -> Option<Lang> {
         "python" | "py" | "pytest" | "unittest" => Some(Lang::Python),
         "go" | "golang" => Some(Lang::Go),
         "swift" => Some(Lang::Swift),
+        "cpp" | "c++" | "cxx" | "c" | "cmake" | "ctest" => Some(Lang::Cpp),
         _ => None,
     }
 }
@@ -756,6 +778,62 @@ pub fn parse_runner_output(lang: Lang, stdout: &str, stderr: &str) -> RunnerCoun
                     } else if t.starts_with("FAIL") && t.split_whitespace().count() >= 2 {
                         c.failed += 1;
                     }
+                }
+            }
+        }
+        Lang::Cpp => {
+            // CTest's own summary counts registered tests and wins when present:
+            // "67% tests passed, 1 tests failed out of 3". Otherwise the test
+            // binary's summary: Catch2 "All tests passed (N assertions in M test
+            // cases)" / "test cases: 5 | 4 passed | 1 failed", GoogleTest
+            // "[  PASSED  ] 3 tests." / "[  FAILED  ] 1 test, listed below:".
+            for line in text.lines() {
+                let t = line.trim();
+                if let Some(rest) = t.split_once("tests passed, ").map(|(_, rest)| rest)
+                    && t.contains("% tests passed")
+                {
+                    let toks: Vec<&str> = rest.split_whitespace().collect();
+                    let failed = toks.first().and_then(|n| n.parse().ok()).unwrap_or(0);
+                    let total = toks.last().and_then(|n| n.parse().ok()).unwrap_or(0);
+                    return RunnerCounts {
+                        passed: usize::saturating_sub(total, failed),
+                        failed,
+                        skipped: 0,
+                    };
+                }
+            }
+            for line in text.lines() {
+                let t = line.trim();
+                if let Some(rest) = t.strip_prefix("All tests passed (") {
+                    let toks: Vec<&str> = rest.split_whitespace().collect();
+                    if let Some(i) = toks.iter().position(|w| *w == "test") {
+                        c.passed += num_before(&toks, i).unwrap_or(0);
+                    }
+                } else if let Some(rest) = t.strip_prefix("test cases:") {
+                    let fields: Vec<&str> = rest.split('|').map(str::trim).collect();
+                    for field in fields.iter().skip(1) {
+                        let toks: Vec<&str> = field.split_whitespace().collect();
+                        match toks.get(1) {
+                            Some(&"passed") => c.passed += num_before(&toks, 1).unwrap_or(0),
+                            Some(&"failed") => c.failed += num_before(&toks, 1).unwrap_or(0),
+                            _ => {}
+                        }
+                    }
+                } else if let Some(rest) = t.strip_prefix("[  PASSED  ]") {
+                    c.passed += rest
+                        .split_whitespace()
+                        .next()
+                        .and_then(|n| n.parse().ok())
+                        .unwrap_or(0);
+                } else if let Some(rest) = t.strip_prefix("[  FAILED  ]")
+                    && t.ends_with("listed below:")
+                {
+                    // The count line; the other FAILED lines name single tests.
+                    c.failed += rest
+                        .split_whitespace()
+                        .next()
+                        .and_then(|n| n.parse().ok())
+                        .unwrap_or(0);
                 }
             }
         }
