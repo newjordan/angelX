@@ -537,6 +537,15 @@ fn call_budget_caps_tool_bounds_and_restores_them() {
     with_call_budget(None, || {
         assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
     });
+    // Nesting keeps the tighter budget; None leaves the outer one in force.
+    with_call_budget(Some(Duration::from_secs(30)), || {
+        with_call_budget(None, || {
+            assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(30)));
+        });
+        with_call_budget(Some(Duration::from_secs(180)), || {
+            assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(30)));
+        });
+    });
 }
 
 /// A busy process (an infinite loop in code under test) never trips the idle

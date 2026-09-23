@@ -1446,6 +1446,36 @@ impl ToolRegistry {
         cancel: Option<&AtomicBool>,
         progress: Option<Arc<ToolOutputProgress>>,
     ) -> Result<String, String> {
+        // A test run in task mode is held to the test-run budget whichever tool
+        // starts it. Through `shell` or `cargo` a suite spinning on an infinite
+        // loop otherwise keeps the 900 s busy ceiling, past the task's wall
+        // (polyglot-v1 py-forth: `python3 -m pytest` via shell, 590 s).
+        let call = ToolCall {
+            id: String::new(),
+            name: name.to_string(),
+            args: args.clone(),
+        };
+        let budget = super::turn::is_verification_call(&call)
+            .then(crate::agent::tools::build::test_run_budget)
+            .flatten();
+        let result = super::exec::with_call_budget(budget, || {
+            self.dispatch_within_budget(name, args, cancel, progress)
+        });
+        match budget {
+            Some(budget) => result
+                .map(|text| budgeted_test_report(budget, text))
+                .map_err(|text| budgeted_test_report(budget, text)),
+            None => result,
+        }
+    }
+
+    fn dispatch_within_budget(
+        &self,
+        name: &str,
+        args: &Value,
+        cancel: Option<&AtomicBool>,
+        progress: Option<Arc<ToolOutputProgress>>,
+    ) -> Result<String, String> {
         if let Some(error) = crate::agent::club::invalid_tool_args_error(args) {
             return Err(format!("{error}; reissue `{name}` with valid JSON"));
         }
@@ -2184,4 +2214,17 @@ fn skill_hint_enabled() -> bool {
     }
     #[cfg(test)]
     env_flag("ANGEL_SKILL_HINT", true)
+}
+
+/// A test run killed at its budget reads as a hang the model can act on, not a
+/// plain timeout. Other results pass through untouched.
+fn budgeted_test_report(budget: std::time::Duration, text: String) -> String {
+    // Only a kill counts: a slow suite that finished still prints Rust's
+    // "running for over 60 seconds" lines.
+    let killed_at_budget = text.to_ascii_lowercase().contains("timed out after");
+    if killed_at_budget && !text.starts_with("tests: still running after") {
+        crate::agent::tools::build::hung_suite_report(budget, &text)
+    } else {
+        text
+    }
 }
