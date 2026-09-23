@@ -5995,6 +5995,7 @@ fn stream_stall_watchdog_fails_loudly_on_transport_only_streams() {
     let _guard = env_lock();
     {
         let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
+        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "1");
         resync_stream_knobs_from_env();
         use std::io::Write;
         use std::net::TcpListener;
@@ -6226,6 +6227,7 @@ fn blank_tool_call_frames_do_not_hold_a_stream_open() {
     let _guard = env_lock();
     {
         let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
+        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "1");
         let _read = ScopedEnv::set("ANGEL_HTTP_TIMEOUT", "1");
         let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
         resync_stream_knobs_from_env();
@@ -6283,6 +6285,128 @@ fn blank_tool_call_frames_do_not_hold_a_stream_open() {
         handle.join().unwrap();
     }
     resync_stream_knobs_from_env();
+}
+
+/// Serve `requests` SSE responses in turn; each pings for `ping_ms` before the
+/// model's first token, then answers "ok" and ends the stream.
+fn serve_pings_then_answer(ping_ms: u64, requests: usize) -> std::net::SocketAddr {
+    use std::io::Write;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    std::thread::spawn(move || {
+        for _ in 0..requests {
+            let Ok((mut sock, _)) = listener.accept() else {
+                return;
+            };
+            let _ = read_http_request(&mut sock);
+            let _ = sock.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            );
+            let mut hung_up = false;
+            for _ in 0..ping_ms / 100 {
+                if sock.write_all(b": ping\n\n").is_err() {
+                    hung_up = true;
+                    break;
+                }
+                let _ = sock.flush();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            if !hung_up {
+                let _ = sock.write_all(
+                b"data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n\
+                  data: [DONE]\n\n",
+            );
+                let _ = sock.flush();
+            }
+        }
+    });
+    addr
+}
+
+/// A model that is still thinking before its first token (reasoning that is not
+/// streamed, or a queued request) must not be cut at the between-chunk stall
+/// bound: keep-alives before the first token are held to the longer
+/// first-token window. Observed live: grok-4.7 through a buffering proxy sent
+/// only keep-alives for over 45 s, and the old bound cut and re-sent the same
+/// request until the task's wall clock ran out.
+#[test]
+fn keep_alives_before_the_first_token_get_the_first_token_window() {
+    let _guard = env_lock();
+    {
+        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
+        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "5");
+        let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
+        resync_stream_knobs_from_env();
+        let addr = serve_pings_then_answer(2_000, 1);
+        let club = HttpClub::new("t-first-token", format!("http://{addr}"), "m", None);
+        let reply = club
+            .chat_streaming(
+                &[ChatMsg::user("hi")],
+                &[],
+                &AtomicBool::new(false),
+                &mut |_| {},
+            )
+            .expect("a model that answers after 2 s of keep-alives is not stalled");
+        assert!(
+            matches!(reply, ClubReply::Text(ref text) if text == "ok"),
+            "{reply:?}"
+        );
+    }
+    resync_stream_knobs_from_env();
+}
+
+/// A retry after a stall must not re-send the request under the deadline that
+/// just cut it: each stall doubles the club's data deadlines for the next
+/// attempt, and a completed stream resets them.
+#[test]
+fn a_stall_widens_the_next_attempt_and_success_resets_it() {
+    let _guard = env_lock();
+    {
+        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
+        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "1");
+        let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
+        resync_stream_knobs_from_env();
+        let addr = serve_pings_then_answer(1_600, 2);
+        let club = HttpClub::new("t-stall-widen", format!("http://{addr}"), "m", None);
+        let ask = || {
+            club.chat_streaming(
+                &[ChatMsg::user("hi")],
+                &[],
+                &AtomicBool::new(false),
+                &mut |_| {},
+            )
+        };
+        let err = ask().expect_err("1.6 s of pings outlives 1 s");
+        assert!(err.contains("stream stalled"), "{err}");
+        assert_eq!(club.stream_stall_streak_for_test(), 1);
+        // The same 1.6 s wait now fits the widened 2 s window.
+        let reply = ask().expect("the retry waits longer");
+        assert!(
+            matches!(reply, ClubReply::Text(ref text) if text == "ok"),
+            "{reply:?}"
+        );
+        assert_eq!(club.stream_stall_streak_for_test(), 0);
+    }
+    resync_stream_knobs_from_env();
+}
+
+#[test]
+fn widened_stream_window_doubles_per_stall_up_to_the_hard_window() {
+    let s = std::time::Duration::from_secs;
+    assert_eq!(widened_stream_window(s(45), 0, s(900)), s(45));
+    assert_eq!(widened_stream_window(s(45), 1, s(900)), s(90));
+    assert_eq!(widened_stream_window(s(45), 3, s(900)), s(360));
+    assert_eq!(widened_stream_window(s(45), 9, s(900)), s(900));
+    assert_eq!(
+        widened_stream_window(s(300), 2, s(0)),
+        s(1200),
+        "no hard window, no cap"
+    );
+    assert_eq!(
+        widened_stream_window(s(0), 4, s(900)),
+        s(0),
+        "disabled stays disabled"
+    );
 }
 
 /// Multiple unusable tool-call truncations progressively get more output room;

@@ -2,7 +2,7 @@
 
 use super::*;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicU32, AtomicUsize};
 
 mod local_deepseek;
 
@@ -102,6 +102,9 @@ fn stalled_stream_error(
 /// every hop, so the env vars are read once. Tests resync under `env_lock`
 /// the same way markdown syntax / stall pulse do.
 const DEFAULT_STREAM_STALL_SECS: u64 = 45;
+/// Before the model's first output a quiet stream is usually a model thinking
+/// (reasoning that is not streamed) or a queued request, not a dead one.
+const DEFAULT_STREAM_FIRST_TOKEN_SECS: u64 = 300;
 const DEFAULT_STREAM_HARD_SECS: u64 = 900;
 const DEFAULT_STREAM_TOOL_SILENCE_SECS: u64 = 900;
 const STREAM_HEARTBEAT_MIN_INTERVAL_SECS: u64 = 15;
@@ -109,15 +112,20 @@ const DEFAULT_STREAM_MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 const DEFAULT_STREAM_RULE_RETRIES: usize = 2;
 
 static STREAM_STALL_SECS: AtomicU64 = AtomicU64::new(DEFAULT_STREAM_STALL_SECS);
+static STREAM_FIRST_TOKEN_SECS: AtomicU64 = AtomicU64::new(DEFAULT_STREAM_FIRST_TOKEN_SECS);
 static STREAM_HARD_SECS: AtomicU64 = AtomicU64::new(DEFAULT_STREAM_HARD_SECS);
 static STREAM_TOOL_SILENCE_SECS: AtomicU64 = AtomicU64::new(DEFAULT_STREAM_TOOL_SILENCE_SECS);
 static STREAM_MAX_LINE_BYTES: AtomicUsize = AtomicUsize::new(DEFAULT_STREAM_MAX_LINE_BYTES);
 static STREAM_RULE_RETRIES: AtomicUsize = AtomicUsize::new(DEFAULT_STREAM_RULE_RETRIES);
 static STREAM_KNOBS_SEEDED: AtomicBool = AtomicBool::new(false);
 
-fn stream_knobs_from_env() -> (Duration, Duration, Duration, usize, usize) {
+fn stream_knobs_from_env() -> (Duration, Duration, Duration, Duration, usize, usize) {
     (
         env_secs("ANGEL_STREAM_STALL_SECS", DEFAULT_STREAM_STALL_SECS),
+        env_secs(
+            "ANGEL_STREAM_FIRST_TOKEN_SECS",
+            DEFAULT_STREAM_FIRST_TOKEN_SECS,
+        ),
         env_secs("ANGEL_STREAM_HARD_SECS", DEFAULT_STREAM_HARD_SECS),
         env_secs(
             "ANGEL_STREAM_TOOL_SILENCE_SECS",
@@ -133,8 +141,9 @@ fn seed_stream_knobs_from_env() {
         .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
         .is_ok()
     {
-        let (stall, hard, tool_silence, max_line, retries) = stream_knobs_from_env();
+        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_knobs_from_env();
         STREAM_STALL_SECS.store(stall.as_secs(), Ordering::Relaxed);
+        STREAM_FIRST_TOKEN_SECS.store(first_token.as_secs(), Ordering::Relaxed);
         STREAM_HARD_SECS.store(hard.as_secs(), Ordering::Relaxed);
         STREAM_TOOL_SILENCE_SECS.store(tool_silence.as_secs(), Ordering::Relaxed);
         STREAM_MAX_LINE_BYTES.store(max_line, Ordering::Relaxed);
@@ -142,10 +151,11 @@ fn seed_stream_knobs_from_env() {
     }
 }
 
-fn stream_hop_knobs() -> (Duration, Duration, Duration, usize, usize) {
+fn stream_hop_knobs() -> (Duration, Duration, Duration, Duration, usize, usize) {
     seed_stream_knobs_from_env();
     (
         Duration::from_secs(STREAM_STALL_SECS.load(Ordering::Relaxed)),
+        Duration::from_secs(STREAM_FIRST_TOKEN_SECS.load(Ordering::Relaxed)),
         Duration::from_secs(STREAM_HARD_SECS.load(Ordering::Relaxed)),
         Duration::from_secs(STREAM_TOOL_SILENCE_SECS.load(Ordering::Relaxed)),
         STREAM_MAX_LINE_BYTES.load(Ordering::Relaxed),
@@ -157,13 +167,35 @@ pub(crate) fn identity_stream_stall_secs() -> u64 {
     stream_hop_knobs().0.as_secs()
 }
 
-/// Re-read the five stream hop knobs into the cache. Tests that hold
+/// Re-read the six stream hop knobs into the cache. Tests that hold
 /// `crate::tests::env_lock()` and mutate the vars must call this so the cache
 /// observes the override; call again after the env guard drops to restore.
 #[cfg(test)]
 pub(crate) fn resync_stream_knobs_from_env() {
     STREAM_KNOBS_SEEDED.store(false, Ordering::Relaxed);
     seed_stream_knobs_from_env();
+}
+
+/// A data deadline after `streak` consecutive stalls on the same club: doubled per
+/// stall and capped at the hard window, so a retry never re-sends the request
+/// under the deadline that just cut it. Zero (disabled) stays zero.
+pub(crate) fn widened_stream_window(base: Duration, streak: u32, cap: Duration) -> Duration {
+    if base.is_zero() {
+        return base;
+    }
+    let widened = base.saturating_mul(1u32 << streak.min(6));
+    if cap.is_zero() {
+        widened
+    } else {
+        widened.min(cap.max(base))
+    }
+}
+
+#[cfg(test)]
+impl HttpClub {
+    pub(crate) fn stream_stall_streak_for_test(&self) -> u32 {
+        self.stream_stall_streak.load(Ordering::Relaxed)
+    }
 }
 
 fn stream_read_timed_out(error: &std::io::Error) -> bool {
@@ -329,6 +361,9 @@ pub struct HttpClub {
     /// `HttpClub`; without this gate every cold caller can independently issue
     /// `/props` + `/models` probes before the first result reaches the cache.
     metadata_probe: Mutex<()>,
+    /// Consecutive stream stalls on this club, reset by any completed stream.
+    /// Each one widens the next attempt's data deadlines.
+    stream_stall_streak: AtomicU32,
 
     /// In-memory, validated reasoning-effort override chosen from the agent
     /// panel's THINK deck. Wins over the per-club/global env fallback for
@@ -1611,6 +1646,7 @@ impl HttpClub {
             rate_limit: Mutex::new(None),
             metadata: Mutex::new(None),
             metadata_probe: Mutex::new(()),
+            stream_stall_streak: AtomicU32::new(0),
             effort_override: Mutex::new(None),
             now: Arc::new(Instant::now),
             effort_snapshot: Mutex::new(None),
@@ -3866,8 +3902,14 @@ impl HttpClub {
             // otherwise grow the line buffer without bound (OOM), and neither the idle
             // read timeout nor the stall guard fires mid-line to stop it.
             // Seed-once process cache — hop start no longer getenv's these knobs.
-            let (stall_window, hard_window, tool_silence_window, max_line, max_rule_retries) =
-                stream_hop_knobs();
+            let (
+                stall_window,
+                first_token_window,
+                hard_window,
+                tool_silence_window,
+                max_line,
+                max_rule_retries,
+            ) = stream_hop_knobs();
             let stall_window = model_defaults::budgets(
                 body["model"].as_str().unwrap_or_default(),
                 self.env_prefix(),
@@ -3875,6 +3917,27 @@ impl HttpClub {
                 .as_u64()
                 .map(Duration::from_secs)
                 .unwrap_or(stall_window);
+            // Before the model's first output a quiet stream is a model thinking or a
+            // queued request, so it gets the longer first-token window. After a stall,
+            // both deadlines widen for the retry instead of cutting it at the same point.
+            let stall_streak = self.stream_stall_streak.load(Ordering::Relaxed);
+            let first_token_window = if stall_window.is_zero() {
+                Duration::ZERO
+            } else {
+                widened_stream_window(
+                    stall_window.max(first_token_window),
+                    stall_streak,
+                    hard_window,
+                )
+            };
+            let stall_window = widened_stream_window(stall_window, stall_streak, hard_window);
+            let data_bound = |model_started: bool| {
+                if model_started {
+                    (stall_window, "ANGEL_STREAM_STALL_SECS")
+                } else {
+                    (first_token_window, "ANGEL_STREAM_FIRST_TOKEN_SECS")
+                }
+            };
 
             let mut body = body;
             let mut fired: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -3908,17 +3971,19 @@ impl HttpClub {
                 // Qwen parser-recovery window (which also allows zero-payload
                 // heartbeats upstream). One selector keeps the keep-alive,
                 // read-timeout, and blank-frame paths on the same bound.
-                let idle_bound = |acc: &StreamAccumulator| {
+                let idle_bound = |acc: &StreamAccumulator, model_started: bool| {
                     let grace = !tool_silence_window.is_zero()
                         && local_tool_stream_started(local_qwen_tool_stream, acc, &[]);
                     if grace {
                         (tool_silence_window, "ANGEL_STREAM_TOOL_SILENCE_SECS", true)
                     } else {
-                        (stall_window, "ANGEL_STREAM_STALL_SECS", false)
+                        let (window, bound_name) = data_bound(model_started);
+                        (window, bound_name, false)
                     }
                 };
                 let mut usage_commit = StreamUsageCommit::from_attempt(self, accounting);
                 let mut saw_data = false;
+                let mut model_started = false;
                 let mut saw_done = false;
                 let mut raw: Vec<u8> = Vec::new();
                 let mut rule_tripped: Option<(usize, String)> = None;
@@ -3977,20 +4042,22 @@ impl HttpClub {
                             // EOF after a timed-out partial line still leaves a line
                             // to parse; an empty buffer is the real end of stream.
                             Ok(0) => {
-                                if !stall_window.is_zero()
-                                    && last_data.elapsed() >= stall_window
+                                let (data_window, bound_name) = data_bound(model_started);
+                                if !data_window.is_zero()
+                                    && last_data.elapsed() >= data_window
                                     && acc.finish_reason.is_none()
                                 {
                                     let stalled = last_data.elapsed().as_secs();
                                     eprintln!(
                                         "[club:{}] stream stalled — connection went idle for {stalled}s, \
-                                     giving up (ANGEL_STREAM_STALL_SECS)",
+                                     giving up ({bound_name})",
                                         self.name
                                     );
+                                    self.stream_stall_streak.fetch_add(1, Ordering::Relaxed);
                                     return Err(stalled_stream_error(
                                         &mut acc,
                                         stalled,
-                                        "ANGEL_STREAM_STALL_SECS",
+                                        bound_name,
                                         &mut pending_deltas,
                                         on_delta,
                                     ));
@@ -4035,20 +4102,22 @@ impl HttpClub {
                                     ));
                                 }
 
+                                let (data_window, bound_name) = data_bound(model_started);
                                 if stream_read_timed_out(&error)
-                                    && !stall_window.is_zero()
-                                    && last_data.elapsed() >= stall_window
+                                    && !data_window.is_zero()
+                                    && last_data.elapsed() >= data_window
                                 {
                                     let stalled = last_data.elapsed().as_secs();
                                     eprintln!(
                                         "[club:{}] stream stalled — no data for {stalled}s, \
-                                     giving up (ANGEL_STREAM_STALL_SECS)",
+                                     giving up ({bound_name})",
                                         self.name
                                     );
+                                    self.stream_stall_streak.fetch_add(1, Ordering::Relaxed);
                                     return Err(stalled_stream_error(
                                         &mut acc,
                                         stalled,
-                                        "ANGEL_STREAM_STALL_SECS",
+                                        bound_name,
                                         &mut pending_deltas,
                                         on_delta,
                                     ));
@@ -4093,7 +4162,8 @@ impl HttpClub {
                             // An already-generating private tool stream gets the same
                             // bounded parser grace whether its server is silent or
                             // emits transport keep-alives.
-                            let (silence_window, bound_name, local_tool_grace) = idle_bound(&acc);
+                            let (silence_window, bound_name, local_tool_grace) =
+                                idle_bound(&acc, model_started);
                             if !silence_window.is_zero() && last_data.elapsed() >= silence_window {
                                 let stalled = last_data.elapsed().as_secs();
                                 if acc.finish_reason.is_some() {
@@ -4113,6 +4183,7 @@ impl HttpClub {
                                  giving up ({bound_name})",
                                     self.name,
                                 );
+                                self.stream_stall_streak.fetch_add(1, Ordering::Relaxed);
                                 return Err(stalled_stream_error(
                                     &mut acc,
                                     stalled,
@@ -4137,6 +4208,7 @@ impl HttpClub {
                             let d = acc.apply_chunk(&chunk);
                             if d.model_activity {
                                 last_data = Instant::now();
+                                model_started = true;
                             } else {
                                 // A well-formed frame that carried no model
                                 // output is a keep-alive wearing SSE clothes.
@@ -4144,7 +4216,8 @@ impl HttpClub {
                                 // keep-alive and read-timeout paths, or a
                                 // server can park a hop at the wall-clock
                                 // ceiling with blank envelopes alone.
-                                let (silence_window, bound_name, _) = idle_bound(&acc);
+                                let (silence_window, bound_name, _) =
+                                    idle_bound(&acc, model_started);
                                 if !silence_window.is_zero()
                                     && last_data.elapsed() >= silence_window
                                 {
@@ -4154,6 +4227,7 @@ impl HttpClub {
                                      output for {stalled}s, giving up ({bound_name})",
                                         self.name,
                                     );
+                                    self.stream_stall_streak.fetch_add(1, Ordering::Relaxed);
                                     return Err(stalled_stream_error(
                                         &mut acc,
                                         stalled,
@@ -4232,6 +4306,7 @@ impl HttpClub {
                     {
                         self.record_retained_truncation();
                         emit_pending_stream_deltas(&mut pending_deltas, on_delta);
+                        self.stream_stall_streak.store(0, Ordering::Relaxed);
                         return Ok(ClubReply::Text(mark_truncated(
                             &acc.content,
                             self.truncation_policy(sent),
@@ -4266,6 +4341,7 @@ impl HttpClub {
                     });
                 }
                 emit_pending_stream_deltas(&mut pending_deltas, on_delta);
+                self.stream_stall_streak.store(0, Ordering::Relaxed);
                 return Ok(reply);
             }
         })
