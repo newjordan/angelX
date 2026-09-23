@@ -2607,7 +2607,15 @@ fn run_turn_tiered(
         let mut provider_attempt = 0usize;
         // provider_retries / provider_retry_backoff_ms captured once per turn (A7).
         let mut empty_reply_nudged = false;
+        let mut output_cap_nudges = 0usize;
         let mut nudge_empty_reply = |error: &str, history: &mut Vec<ChatMsg>| {
+            // A reply cut off at a fixed output cap comes back identical on a
+            // plain re-send; tell the model so the retry is a different request.
+            if is_output_cap_truncation(error) && output_cap_nudges < OUTPUT_CAP_NUDGE_LIMIT {
+                output_cap_nudges += 1;
+                history.push(ChatMsg::harness(format!("{OUTPUT_CAP_NUDGE}\n({error})")));
+                return;
+            }
             if is_empty_reply_error(error) && !empty_reply_nudged {
                 empty_reply_nudged = true;
                 history.push(ChatMsg::harness(format!(
@@ -5586,6 +5594,23 @@ pub(crate) fn test_run_behind_fallback(call: &ToolCall) -> bool {
         args: args.clone(),
     };
     is_verification_call(&probe) || is_progress_verifier_call("shell", &args)
+}
+
+/// Output-cap notes per hop before retries fall back to plain re-sends.
+const OUTPUT_CAP_NUDGE_LIMIT: usize = 3;
+
+pub(crate) const OUTPUT_CAP_NUDGE: &str = "Your last reply was cut off at the output token limit \
+before it finished, so nothing in it ran. Usually one tool call carried too much text. Split the \
+work: write a large file in parts (create it with the first part, then add the rest with further \
+edits), keep each tool call well under the limit, and do not restate large content.";
+
+/// A provider error meaning the reply hit its output-token cap: re-sending the
+/// same request hits the same cap (polyglot-v1 rust-decimal, DeepSeek: 25
+/// identical 8192-token cut-offs until the task wall).
+pub(crate) fn is_output_cap_truncation(error: &str) -> bool {
+    error.starts_with("response incomplete:")
+        || error == crate::agent::club::TRUNCATED_OUTPUT_ERR
+        || error.contains("finish_reason=length")
 }
 
 /// Completions denied for a green that did not hold before one is accepted.

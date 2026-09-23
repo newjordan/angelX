@@ -4188,7 +4188,10 @@ impl HttpClub {
                             break;
                         }
                         SseEvent::Ignore => {
-                            wire.keepalive();
+                            // Blank lines only separate SSE events; comments are keep-alives.
+                            if !line.trim().is_empty() {
+                                wire.keepalive();
+                            }
                             // Keep-alives/blank lines are activity, not progress. When
                             // only these arrive for the active stall window, give up
                             // loudly (streamed prose survives, a half tool call fails).
