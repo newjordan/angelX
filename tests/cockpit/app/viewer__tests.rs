@@ -400,11 +400,13 @@ fn portrait_character_protocol_is_anchored_to_the_bottom_right() {
 
 #[test]
 fn portrait_canvas_moves_alpha_edges_without_rescaling() {
+    // The figure: clearly visible alpha. Faint resampling haze around it is
+    // not part of the portrait and is dropped by the anchor.
     fn visible(image: &image::RgbaImage) -> image::RgbaImage {
         let (mut left, mut top) = image.dimensions();
         let (mut right, mut bottom) = (0, 0);
         for (x, y, pixel) in image.enumerate_pixels() {
-            if pixel[3] != 0 {
+            if pixel[3] >= PORTRAIT_FIGURE_ALPHA {
                 left = left.min(x);
                 top = top.min(y);
                 right = right.max(x + 1);
@@ -496,18 +498,43 @@ fn atlas_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
         .resize(&original, picker.font_size(), target, None)
         .to_rgba8();
     let after = anchor_portrait_canvas(original, &picker, size).to_rgba8();
-    assert_eq!(before.dimensions(), after.dimensions());
-    let pixels = |image: &image::RgbaImage| {
+    // The canvas is the fitted image widened to whole cells.
+    let (fw, fh) = (
+        u32::from(picker.font_size().width),
+        u32::from(picker.font_size().height),
+    );
+    assert_eq!(
+        after.dimensions(),
+        (
+            before.width().div_ceil(fw) * fw,
+            before.height().div_ceil(fh) * fh
+        )
+    );
+    // The figure (clearly visible alpha) is unchanged and sits hard in the
+    // lower-right corner: shoulder against the wall, torso on the base.
+    let figure = |image: &image::RgbaImage| {
         image
             .pixels()
-            .filter(|pixel| pixel[3] != 0)
+            .filter(|pixel| pixel[3] >= PORTRAIT_FIGURE_ALPHA)
             .copied()
             .collect::<Vec<_>>()
     };
     assert_eq!(
-        pixels(&before),
-        pixels(&after),
+        figure(&before),
+        figure(&after),
         "armor colors, alpha and scale must stay unchanged"
+    );
+    let (mut right, mut bottom) = (0, 0);
+    for (x, y, pixel) in after.enumerate_pixels() {
+        if pixel[3] >= PORTRAIT_FIGURE_ALPHA {
+            right = right.max(x + 1);
+            bottom = bottom.max(y + 1);
+        }
+    }
+    assert_eq!(
+        (right, bottom),
+        after.dimensions(),
+        "anchored to the corner"
     );
     if let Ok(output) = std::env::var("ANGEL_T_PORTRAIT_PREVIEW") {
         let (w, h) = before.dimensions();
