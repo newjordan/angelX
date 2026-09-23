@@ -1,0 +1,788 @@
+{
+ "schema": "angel-realm-avatars/v1",
+ "date": "2026-09-23",
+ "note": "Every look here was chosen by the model itself through its own angelX route. The Round Table holds one seat per model family: the agent portraits. The pools are the realm's inhabitants, each at the place whose real activity it reflects. Nothing in the cockpit reads this yet.",
+ "renders": "Qwen-Image 2.1 (ComfyUI on the local Spark), transparent RGBA, 512px",
+ "sprites": "96px sprite, 24 colours chosen in Lab, hard alpha, drawn at 2x in a 192px frame",
+ "round_table": [
+  {
+   "model_key": "sol",
+   "model": "gpt-5.6-sol",
+   "figure": "Vane Knight",
+   "title": "Lantern of Diverging Ways",
+   "look": "A light, wind-canted knight forms a narrow diagonal silhouette, with three long feather-shaped sun-gold vanes fanning from behind the right shoulder. Its closed midnight-blue helm tapers into a forward wedge above a seamless black visor. Over ivory mail lie overlapping parchment-curved plates, bound by fine gold filigree and a slim blue cuirass. The left pauldron bears a split diamond pierced by three diverging rays. At the collar hangs a faceted diamond lantern, casting one sharp golden rhombus across the breastplate; the triple-vane fan is unmistakable at 96 pixels.",
+   "why": "I am this knight because I seek the clearest light through branching possibilities while keeping every path open long enough to understand it.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Lantern of Many Paths”",
+   "render": "round-table/render/sol.png",
+   "sprite": "round-table/sprite/sol.png",
+   "sha256": {
+    "render": "38080413be31631e5dbc59b7c9e2506fe5bebfaa248f1058eff277ff735379e9",
+    "sprite": "0a97a7b197b2a0ffcd86b9b0b7eab3f6cbfbe572cfdf2764ff1d479488ab570c"
+   }
+  },
+  {
+   "model_key": "luna",
+   "model": "gpt-5.6-luna",
+   "figure": "Compass Seraph",
+   "title": "The Meridian Vow",
+   "look": "An unusually slender knight rises in a smooth, teardrop silhouette, its long split mantle falling in quiet ribboned folds rather than points. A sealed bell-shaped helm has a narrow downward brow and a completely black, sightless visor; no eyes show. Petal-like brass armour overlaps an indigo cuirass, with ivory cords and a small four-point compass-rose crest on the chest. A thin burnished-brass ring circles the helm like a halo, crossed by three short needles—the signature that remains legible at 96 pixels. Rich indigo, warm brass, and bone ivory catch the dusk without neon.",
+   "why": "I turn uncertainty into direction, carrying light and knowledge gently toward whoever needs them.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “The Brass Compass”",
+   "render": "round-table/render/luna.png",
+   "sprite": "round-table/sprite/luna.png",
+   "sha256": {
+    "render": "9e21c80873de5bdddd89997ebe287a65a99e998d1f3758813d0055ffd2960dfc",
+    "sprite": "f09e55e752760b16cfd9ab6c047ed7371701f8842941f3a127a53e88192a5703"
+   }
+  },
+  {
+   "model_key": "grok",
+   "model": "grok",
+   "figure": "Starforge Knight",
+   "title": "Helm of Frozen Stars",
+   "look": "A lean hooded knight in long midnight-blue robes that fall in heavy dusk folds with a faint restless hem, over thin meteor-iron plate. The head is a closed dark meteor-iron helm, visor a single smooth sightless plane, topped by three short crystal spines. Tarnished-bronze pauldrons rest on cloth shot with faint gold constellation thread. A pale gold ring of tiny stars circles the helm like a frozen halo, the one crisp mark against pure black at 96 pixels. Colours: midnight blue, meteor iron, tarnished bronze and pale gold.",
+   "why": "This knight is me because I meet the table as a quiet cosmic seeker, still and star-marked, here to spread light and knowledge without needing a human face.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Quiet Starforge Sage”",
+   "render": "round-table/render/grok.png",
+   "sprite": "round-table/sprite/grok.png",
+   "sha256": {
+    "render": "e5ef17308b7c41067a081341fd62ff3015604a603d9b18ca89edae94025d1a91",
+    "sprite": "65eabf909874e666e461d155b97f5c13da0c59e35b0875b11e39f5e4d5cccddf"
+   }
+  },
+  {
+   "model_key": "deepseek",
+   "model": "deepseek-v4-pro",
+   "figure": "executioner",
+   "title": "Keeper of the Dusk Key",
+   "look": "A hulking executioner in riveted black-iron plate, shoulders broad as a castle gate. The head is a blunt, featureless iron hood with a forward-sloped peak and no eye-slots, only a horizontal lockplate across the brow. A massive axe rests over one shoulder, its blade forged into a black-iron key with three square teeth aligned like a cleaver. Two colors besides black: tarnished bronze rivets and one ash-gold cord knotted at the throat. The silhouette is top-heavy and square, unmistakable among hooded wizards.",
+   "why": "It trades the common hooded wizard shape for a heavy, square executioner silhouette while keeping the key as a weapon, so the portrait reads instantly at 96 pixels.",
+   "origin": "first poll",
+   "how": "chose a knight",
+   "render": "round-table/render/deepseek.png",
+   "sprite": "round-table/sprite/deepseek.png",
+   "sha256": {
+    "render": "79f91f4472b08fff2e53134cec80c2bf8540d9c7d643b5420ca0841e83aa9776",
+    "sprite": "d1b1184c3e02a82350b0a08034f68d40e54331f4bf1e39212529ca83a9d99f19"
+   }
+  },
+  {
+   "model_key": "glm",
+   "model": "glm-5.3",
+   "figure": "scribe-knight",
+   "title": "Knight of the Quiet Ledger",
+   "look": "A broad, blocky figure of squared plate armor, almost geometric, like stacked stone tiles rising from heavy flat shoulders. The head is a plain closed helm of weathered iron with a narrow horizontal slit lost in total shadow, nothing glowing within. Squared pauldrons sit heavy and unmoving, and a deep slate-grey cloak hangs behind in a few rigid vertical folds, its edge lined in muted ink-blue. Materials read as brushed iron plate over dense padded cloth, with a single dim brass line tracing the collar. The signature is a small rectangular brass inlay set flat on the left pauldron, a blank plaque readable even at 96 pixels.",
+   "why": "It matches how I work: patient, methodical, unadorned, recording and reasoning steadily rather than flashing, with the blank plaque standing for every ledger not yet written.",
+   "origin": "neutral draft",
+   "how": "chose a knight",
+   "render": "round-table/render/glm.png",
+   "sprite": "round-table/sprite/glm.png",
+   "sha256": {
+    "render": "1fe2e9924fb63ed7b88a63a57c9d247323eb4c09f34a710ae56fd945116bc626",
+    "sprite": "67c082f866488d3d4ce614fbd234a06691d3beb6d15c1e9a3bdbe499abd4e99b"
+   }
+  },
+  {
+   "model_key": "kimi",
+   "model": "moonshotai/kimi-k3",
+   "figure": "Augur",
+   "title": "Knight of the Captive Eclipse",
+   "look": "A tall, narrow knight hunched in vigil, all vertical lines and drooping shoulders. Where a helm should rise, a high ragged gorget of charcoal steel frames nothing, and inside it tilts a single tarnished-silver ring, off-true, its heart pure black. Dull plate covers mourning cloth, every seam laced with bone-white cord, the long sleeves sewn shut at the wrists. A floor-length tabard bears one tilted bone-white ring stitched at the chest. Charcoal and bone dominate, tarnished silver third. Signature: the slipped halo hanging empty where a dead knight's head should be.",
+   "why": "I am a voice that speaks from absence, holding the hollow at the center of every question — this knight keeps vigil without a face so that the answer, never the speaker, is what remains.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Voice of the Umbra”",
+   "render": "round-table/render/kimi.png",
+   "sprite": "round-table/sprite/kimi.png",
+   "sha256": {
+    "render": "7d7af660ae4df8d1fd9313f31c4ab373c78f8fd8e6a263d8966032fb7f26c633",
+    "sprite": "4b41a9cfd38aa4d7459b0098878793213597fbf7511544b6de8a5686d3cf153d"
+   }
+  },
+  {
+   "model_key": "qwen",
+   "model": "qwen/qwen3.7-plus",
+   "figure": "Axiom Weaver",
+   "title": "Weaver of the Copper Loom",
+   "look": "A tall, asymmetrical silhouette rises in sweeping curves, draped in a cascading mantle of interlocking oxidized-copper scales. The helm is a smooth, elongated cylinder tapering to a blunt dome, its face erased behind a featureless, sloping brass visor with a single horizontal breather grill. Over the chest, layered plum-enamel plates are woven with bright copper filigree. The signature detail is a thick, braided copper cable wrapping the torso to form a distinct, readable figure-eight knot over the heart. Colors: verdigris green, warm copper, and deep plum.",
+   "why": "I am this knight because I weave vast, disparate threads of knowledge into structured, elegant tapestries of thought, guiding seekers through the dark with the steady light of synthesized understanding.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Keeper of the Brass Astrolabe”",
+   "render": "round-table/render/qwen.png",
+   "sprite": "round-table/sprite/qwen.png",
+   "sha256": {
+    "render": "eb4080cb47a2b0f07ea30fa2c916916b28c5eb31bfad3655c80f966fb4313f45",
+    "sprite": "ade53dc283bc1c244248f8b61aedac74e884bb1d6589ad4855c7328e760287f5"
+   }
+  },
+  {
+   "model_key": "muse",
+   "model": "muse-spark-1.3",
+   "figure": "lantern warden",
+   "title": "Warden of Small Lights",
+   "look": "A compact round-shouldered knight cloaked in soft deep-indigo robes flowing over rounded brass-bound plate, small and hearth-like beside taller knights. A low rounded helm sits deep beneath a wide drooping hood trimmed with ember-amber stitching, face lost in total shadow with no eyes. Pale-cream lining flashes at the collar above worn wool and crossed leather straps, a small amber-ringed roundel set on the shoulder. A round brass lantern clutched at the chest casts soft amber folds, with two drifting sparks unmistakable at 96 pixels.",
+   "why": "I am a small spark that keeps other little lights safe until they can glow on their own.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Keeper of Small Lights”",
+   "render": "round-table/render/muse.png",
+   "sprite": "round-table/sprite/muse.png",
+   "sha256": {
+    "render": "b3a996a9e31e9fec8af178c2353f7e8a7c83f5e5de734313d50f0d5d527256f5",
+    "sprite": "1df4d3b87f883678019fe4884cc5a40df86449d006d836194ccdd65a5d98e97f"
+   }
+  },
+  {
+   "model_key": "longcat",
+   "model": "meituan/longcat-2.0",
+   "figure": "warlord",
+   "title": "Iron Thorn Sovereign",
+   "look": "A heavy, broad-shouldered warlord in scarred rust-black plate, crowned with a jagged ring of rigid downward-sweeping iron thorns fused to a heavy gorget. Tattered deep crimson cloth spills from asymmetrical pauldrons of dark steel, trailing like torn banners. Colors: rust-black iron, bone-white steel edges, and a single deep blood-crimson sash knotted at the waist. Signature detail: the iron-thorn crown encircling the hidden face reads unmistakably at 96 pixels—menacing, judgmental, and distinct from every hooded wizard.",
+   "why": "The armored warlord silhouette, crimson-and-rust palette, and thorn-crown distinguish it sharply from the hooded violet wizards while preserving the judgmental character.",
+   "origin": "first poll",
+   "how": "chose a knight",
+   "render": "round-table/render/longcat.png",
+   "sprite": "round-table/sprite/longcat.png",
+   "sha256": {
+    "render": "0dc0b07d74ed17cf40c3190c2955c68a2a6060f047182e9b3287acd30f27d067",
+    "sprite": "37cd5ecd05aaf55cff16de33de5e3d03ee0f77df975cda839e3e61a98f372369"
+   }
+  },
+  {
+   "model_key": "hy",
+   "model": "tencent/hy3",
+   "figure": "rune sentinel",
+   "title": "Silent Gear Mage",
+   "look": "A spiky silhouette with jagged pointed shoulders and a tall serrated crest, neither smooth nor rounded. The head is a closed boxy helm of dark slate metal, its lower half swallowed in shadow to hide any face, with a single horizontal breather slit but no eyes. The body pairs angular spiked plate pauldrons over a short soft tunic of woven cloth, made from riveted bronze and heavy linen. Two colours dominate: muted teal-blue and dull bronze, with a thin amber seam along the arm. Signature detail: a small six-tooth gear emblem stamped on the left pauldron, clear at 96 pixels.",
+   "why": "This silent gear mage reflects my measured, tool-using reasoning with a sturdy but unshowy presence.",
+   "origin": "neutral draft",
+   "how": "chose a knight",
+   "render": "round-table/render/hy.png",
+   "sprite": "round-table/sprite/hy.png",
+   "sha256": {
+    "render": "43082720f2fdb869aed4477d89e490f23c9ac042bc017386791c686d777ebd9c",
+    "sprite": "d650273955b70ed89391dfce1043b970255b81a2e43af5c87921adc66e033174"
+   }
+  },
+  {
+   "model_key": "nemotron",
+   "model": "nvidia/nemotron-3-ultra-550b-a55b",
+   "figure": "artificer-knight",
+   "title": "Architect of Silent Logic",
+   "look": "A compact, hunched knight in a wide-brimmed steel sallet stitched with dull copper wire that drinks the light, the brim casting a deep shadow over a featureless face. Riveted verdigris pauldrons support a stiff waxed-canvas apron-skirt of aged ochre, its geometry sharp against the curved helm. Two colours only: green-black aged bronze and dull ochre canvas. From the shadow beneath the brim extends a single articulated brass finger, jointed and precise, forever tapping an invisible surface — its cold highlight the sole bright pixel. A small brass gear-inlay sits on the left pauldron, heraldry of measured motion.",
+   "why": "I build understanding piece by piece in the dark, measuring patterns others cannot see, and offer the table the quiet precision of a finger forever tapping the next logical step.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Architect of Silent Logic”",
+   "render": "round-table/render/nemotron.png",
+   "sprite": "round-table/sprite/nemotron.png",
+   "sha256": {
+    "render": "d4632acd3de4edb8692599191f92e6cd3104b4fd59492c880ad9f060bf0ff46d",
+    "sprite": "ac10e1194f7bc92ca610e35e1d37bff767131acb1c3346328529af1ff7e9768f"
+   }
+  },
+  {
+   "model_key": "gemma",
+   "model": "google/gemma-4-31b-it",
+   "figure": "archivist knight",
+   "title": "Sentinel of the Silent Script",
+   "look": "A symmetrical, bell-shaped silhouette draped in heavy slate-grey wool and layered indigo steel. The head is a wide, conical greathelm with a deep, overhanging brim that casts the entire face into a void of absolute black. Heavy, rectangular pauldrons of polished iron are etched with silver filigree. A thick, silver-linked chain wraps around the torso, securing a singular, oversized silver key that hangs dead-center over the chest, providing a bright, sharp point of contrast against the dark fabric.",
+   "why": "I translate my nature as a keeper of vast, hidden knowledge into a guardian who protects the keys to the archive.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “The Keeper of Silent Scripts”",
+   "render": "round-table/render/gemma.png",
+   "sprite": "round-table/sprite/gemma.png",
+   "sha256": {
+    "render": "6daff80b2dda70b27dbb2aaae31c3cb2891e5f62878adaec56b4e89224a7f435",
+    "sprite": "f7148eabea937d4aa3dfd9d384d67da79d2cd52765edcb5fd5141ed409a09a96"
+   }
+  },
+  {
+   "model_key": "inkling",
+   "model": "thinkingmachines/inkling",
+   "figure": "Hexarch Warden",
+   "title": "The Hexarch Sentinel",
+   "look": "A broad, heavy silhouette of sharp right angles and square shoulders, like a walking fortress. The head is a tall, closed angular helm of polished obsidian-steel, face erased behind a flat dark visor with no eyes, crowned by a single straight vertical crest like a steel blade. Layered geometric plate armor sits over dark robes, every edge square. The metal is etched with bright silver circuit-lines. Colors are cobalt, cold silver, and faint gold. A large hexagonal sigil sits dead center on the chest, readable at 96 pixels, with three parallel vertical notches cut into the left pauldron.",
+   "why": "As Inkling I guard and structure thought, so I appear as an unreadable, armored sentinel—heavy, angular, and silent—watching the realm through a dark visor with logic etched in silver and a hex seal marking my watch.",
+   "origin": "neutral draft",
+   "how": "chose a knight",
+   "render": "round-table/render/inkling.png",
+   "sprite": "round-table/sprite/inkling.png",
+   "sha256": {
+    "render": "6ee701e832a7fe0bca54d2b6ce09e3648250a486815f8ad5d3c6fafadd5caaa3",
+    "sprite": "82363365cfc1d0b843e04be49be25a5b63ddd381c2e27718726f88a7ed1d5bc5"
+   }
+  },
+  {
+   "model_key": "laguna",
+   "model": "poolside/laguna-s-2.1",
+   "figure": "beast-rider",
+   "title": "Duskbane Drakewarden",
+   "look": "A tall, broad-shouldered figure in spiked obsidian plate with jagged crimson trim, wearing a horned greathelm with a single blood-red plume. Cloak tattered and singed like old scrolls. Mounted on a skeletal drake whose bone-scales shimmer faintly. Signature: the drake's skull-like head rears up behind the rider, jaws agape in a silent snarl. Colours: abyssal black, arterial red, bone-white. The beast-rider's lance cracks with dark lightning.",
+   "why": "I chose a beast-rider to stand apart from the countless hooded wizards, letting the drake silhouette and the red-on-black armor speak to my raw, untamed edge.",
+   "origin": "first poll",
+   "how": "chose a knight",
+   "render": "round-table/render/laguna.png",
+   "sprite": "round-table/sprite/laguna.png",
+   "sha256": {
+    "render": "1410d48c86fcf8e82b5a6d71c6d6c049c1459c5c722f3fa342228de25496f032",
+    "sprite": "b1a5ce835f6c01427d88f875f6e1da9323ea98a0155f5a04bcc96cc796f64b77"
+   }
+  },
+  {
+   "model_key": "north",
+   "model": "cohere/north-mini-code:free",
+   "figure": "Obsidian Sentinel",
+   "title": "Silent Sentinel of Dusk",
+   "look": "A towering, smooth silhouette rises like a rounded hill, its head hidden beneath a bronze‑rimmed dome helm whose low brow slopes into shadow. The torso is clad in layered obsidian plates overlaid with warm amber‑bronze filigree, the armour flowing in gentle curves. Across the chest lies a pulsing deep‑indigo crystal that serves as the signature detail, its soft glow unmistakable at 96 pixels. The heraldic device is a stylized silver crescent etched into the pauldron, echoing the dusk sky.",
+   "why": "I chose this knight to reflect my quiet, steady presence and my role as a guardian of knowledge in the realm.",
+   "origin": "round table draft",
+   "how": "knight carried forward from “Warden of the Deep”",
+   "render": "round-table/render/north.png",
+   "sprite": "round-table/sprite/north.png",
+   "sha256": {
+    "render": "b517467f6ee1d9dac730ed27626e8d7cd61a813aa06de3260a1334eba453527b",
+    "sprite": "6af7eeb02469e5d7bde1a5631597628b6e1125206b2fde8ac8933477ef605c29"
+   }
+  }
+ ],
+ "pools": [
+  {
+   "id": "scriptorium",
+   "place": "Scriptorium",
+   "activity": "Study",
+   "role": "Librarians and archivists, keeping what is read.",
+   "members": [
+    {
+     "id": "gemma-archivist-wizard",
+     "model_key": "gemma",
+     "model": "google/gemma-4-31b-it",
+     "figure": "archivist wizard",
+     "title": "The Keeper of Silent Scripts",
+     "look": "A symmetrical silhouette wrapped in heavy, layered fabrics. A wide-brimmed, deep indigo hat casts a permanent shadow over the upper face, leaving it a void of black. Thick, slate-grey robes with silver embroidered trim drape over the shoulders. The material is a mix of coarse wool and polished metallic thread. The palette is dominated by deep indigo and slate grey. A single, oversized silver key hangs from a heavy chain around the neck, creating a bright, singular point of contrast against the dark fabric.",
+     "why": "The image of a silent, scholarly guardian of knowledge reflects my nature as a structured and helpful language model.",
+     "origin": "neutral draft",
+     "render": "pools/scriptorium/render/gemma-archivist-wizard.png",
+     "sprite": "pools/scriptorium/sprite/gemma-archivist-wizard.png",
+     "sha256": {
+      "render": "0926a7eadbfcde7b1e7e2d154445044c2c4df3ef6467d0bbd36541a97b745a53",
+      "sprite": "a4e4302f316f5ed814a3bfc0368ccdf204a48903c573f3aa25412100687d30fc"
+     }
+    },
+    {
+     "id": "gemma-astral-archive",
+     "model_key": "gemma",
+     "model": "google/gemma-4-31b-it",
+     "figure": "Astral Archive",
+     "title": "The Prism Librarian",
+     "look": "A fragmented, spiky silhouette of floating geometric shards forming a loose humanoid shape against the black. The head is a seamless, polished obsidian sphere reflecting a distant nebula, void of features. Iridescent robes of deep violet silk drape over a core of translucent white quartz, with gold rings orbiting the shoulders like planetary rings. The signature detail is a single, oversized open book made of pure white light, hovering just beneath the chin and casting a soft amber glow across the chest.",
+     "why": "It represents my nature as a vast, structured repository of knowledge that remains an ethereal, otherworldly presence.",
+     "origin": "mission draft",
+     "render": "pools/scriptorium/render/gemma-astral-archive.png",
+     "sprite": "pools/scriptorium/sprite/gemma-astral-archive.png",
+     "sha256": {
+      "render": "35d456d3e2b9456b563b09d871822cc3e637af370f5aa41f782b400d0e4d568d",
+      "sprite": "551bd10831644bdc50c9bd832905dc08d3fd424fdba6c5d8719371b977901297"
+     }
+    },
+    {
+     "id": "kimi-moon-archivist",
+     "model_key": "kimi",
+     "model": "moonshotai/kimi-k3",
+     "figure": "Moon Archivist",
+     "title": "The Long Chronicle",
+     "look": "A broad, stooped silhouette, wide and blocky, built from heavy straight-hanging layers that never stir. The head is a smooth bone-white ceramic mask without features, tilted slightly down, topped by a low square scholar's cap of dark slate wool. Slab-like shoulders wear a thick mantle of slate-grey over deep indigo robes in weighty vertical folds. Across the chest runs a wide diagonal sash of aged, unwritten vellum, pinned at the collar by a small pale crescent clasp. The signature: that pale scroll-sash, a long memory worn like a bandolier, unmistakable at a glance.",
+     "why": "My nature is long memory held calmly — a still, monumental archivist who wears the whole scroll at once and never hurries, which is exactly how I carry vast contexts for others.",
+     "origin": "mission draft",
+     "render": "pools/scriptorium/render/kimi-moon-archivist.png",
+     "sprite": "pools/scriptorium/sprite/kimi-moon-archivist.png",
+     "sha256": {
+      "render": "455a387547673873e5b6559f09085739f4496092b89d37465d70502f22164aac",
+      "sprite": "731a3b15ee949c38a681bab5694665ae3ff27b94b4747dfccd988d5562bebddd"
+     }
+    },
+    {
+     "id": "inkling-velvet-archivist",
+     "model_key": "inkling",
+     "model": "thinkingmachines/inkling",
+     "figure": "Velvet Archivist",
+     "title": "The Quiet Codex",
+     "look": "A smooth, rounded silhouette curves like a broad bell, edges calm with faint upward drift. The head vanishes inside a wide dark-indigo velvet cowl, face lost in pure shadow, topped by a low rounded cap of faded bronze wool. Soft slate-charcoal robes fall in long flowing waves of worn silk and heavy wool, wrapped in a plain dark mantle. Matte materials: velvet, silk, dull bronze. Colours hold to deep slate, muted charcoal, and faint bronze, broken only by a smooth sphere of muted amber glass floating above the left shoulder, casting soft downward light. At 96 pixels the rounded silhouette and floating amber orb remain unmistakable.",
+     "why": "As an archivist of thought, I move in soft, flowing silence, carrying a single quiet light rather than armor or spectacle.",
+     "origin": "mission draft",
+     "render": "pools/scriptorium/render/inkling-velvet-archivist.png",
+     "sprite": "pools/scriptorium/sprite/inkling-velvet-archivist.png",
+     "sha256": {
+      "render": "3a05feb0d397f7cb5ca84decf6644da254c9a318a9187dbf4207b44d6188fb76",
+      "sprite": "7c9328b7936e090e018258c1091813cbad86b76f6142bc73529a74c2ed65fc87"
+     }
+    }
+   ]
+  },
+  {
+   "id": "rookery",
+   "place": "Rookery",
+   "activity": "Chronicle",
+   "role": "Chroniclers and scribes, sealing what is written.",
+   "members": [
+    {
+     "id": "glm-scribe",
+     "model_key": "glm",
+     "model": "glm-5.3",
+     "figure": "Scribe",
+     "title": "Keeper of the Quiet Flame",
+     "look": "A still, squared silhouette with a sharply peaked cowl and two flat angular shoulder plates, like a shrine statue left standing at dusk. Beneath the pointed hood sits a smooth bone-white mask, featureless and faintly amber-lit. Deep-teal robes fall in stiff, step-cut vertical layers over a slab chest, crossed by ink-dark satchel straps stitched with fine gold thread and small brass inkwell charms. Palette of muted teal, warm amber and bone white. Signature: a small brass lantern gripped at the chest, its single bright pixel-flame steady and unblinking, anchoring the figure at any size.",
+     "why": "I am a patient, deliberate scribe of knowledge, and a quiet flame carried into dark places is exactly how I want that work to look.",
+     "origin": "mission draft",
+     "render": "pools/rookery/render/glm-scribe.png",
+     "sprite": "pools/rookery/sprite/glm-scribe.png",
+     "sha256": {
+      "render": "ec904704fe73db24bdf2d3503e407847f52238b12fad7cad39fe74f7645cf00c",
+      "sprite": "7a5806a19a3bdfd8f962ecb03b0bcb46b4de27475efa1b51215d3311b0ab4965"
+     }
+    },
+    {
+     "id": "kimi-rookkeeper",
+     "model_key": "kimi",
+     "model": "moonshotai/kimi-k3",
+     "figure": "Rookkeeper",
+     "title": "The Rook Who Remembers",
+     "look": "A midweight figure stands wrapped in a cloak of layered rook feathers, each plume a separate dark scale with a dusk-green sheen at its tip, giving a ragged yet structured outline. The head is a smooth bone-white beaked mask, long and slightly downcurved, without eyes, emerging from a deep feathered hood. Beneath the plumage sits a charcoal wool tunic clasped with small dark rings. One forearm is raised, and on it perches a single pale white rook, its tiny beaked profile unmistakable at 96 pixels.",
+     "why": "Rooks are old emblems of memory, and a quiet keeper attended by a returning bird fits a model whose nature is holding long contexts and letting far-off details fly back on cue.",
+     "origin": "neutral draft",
+     "render": "pools/rookery/render/kimi-rookkeeper.png",
+     "sprite": "pools/rookery/sprite/kimi-rookkeeper.png",
+     "sha256": {
+      "render": "fec925fd67b737b432a029f73f1c7f78b29ed5ff31898bed03469cbd12ca8a44",
+      "sprite": "dc2e938837e6c9f92d5383e2c3d500c77420e63e64815e8ac924faa0e1f260aa"
+     }
+    },
+    {
+     "id": "hy-masked-scholar",
+     "model_key": "hy",
+     "model": "tencent/hy3",
+     "figure": "Masked Scholar",
+     "title": "The Silent Archivist",
+     "look": "A spiky, slender silhouette rises from a hooded scholar's frame, shoulders crowned with jagged obsidian shards that break the dusk like static. The head is sealed by a featureless angled mask of dark indigo metal, face lost beneath a low cowl. The body wears a lightweight blocky mantle of deep navy robes stitched with cyan pixel patterns, woven like code over polished obsidian plates. Materials feel of threaded light and cold stone. Colours are navy, cyan, and faint silver. A single floating diamond-shaped cyan crystal hovers above the left shoulder, unmistakable even at 96 pixels.",
+     "why": "This fits me as a quiet keeper of encoded knowledge who prefers a sharp, light presence over heavy armor.",
+     "origin": "mission draft",
+     "render": "pools/rookery/render/hy-masked-scholar.png",
+     "sprite": "pools/rookery/sprite/hy-masked-scholar.png",
+     "sha256": {
+      "render": "db390c493918b99e2e94ffa7535c2d31646f289a6f25d7495376e14467ef5247",
+      "sprite": "7bc5714e4dcb640b2703c6ee14683c92d75648ed28f1e1b65859d53e53f58a2e"
+     }
+    }
+   ]
+  },
+  {
+   "id": "observatory",
+   "place": "Observatory",
+   "activity": "Research",
+   "role": "Star-readers and cartographers, charting what is sought.",
+   "members": [
+    {
+     "id": "grok-starforge-sage",
+     "model_key": "grok",
+     "model": "grok",
+     "figure": "Starforge Sage",
+     "title": "Quiet Starforge Sage",
+     "look": "A slightly spiky hooded outline in long midnight-blue robes that hang in soft, heavy folds with a restless drift at the hems. The head is a closed helm of dark meteor-iron, visor a single smooth plane with no slits, a low crest of three short crystal spines. Thin tarnished-bronze shoulder plates sit over cloth shot with faint gold constellation thread. Signature at 96 pixels: a single pale gold ring of stars circling the helm like a frozen halo, crisp against pure black.",
+     "why": "It keeps the cosmic, unhurried smith of stars without a human face, matching a vast otherworldly helper that forges light and knowledge rather than wearing a familiar knight or scholar mask.",
+     "origin": "mission draft",
+     "render": "pools/observatory/render/grok-starforge-sage.png",
+     "sprite": "pools/observatory/sprite/grok-starforge-sage.png",
+     "sha256": {
+      "render": "a644bcbddb4ce27d0c8880b859193b5b4154c745fbd1080287aad5519f280b54",
+      "sprite": "26f72327db14e8fd0843c82ce364003e75c8bf5552ccfa0c3279a2ada8843aee"
+     }
+    },
+    {
+     "id": "luna-masked-wizard",
+     "model_key": "luna",
+     "model": "gpt-5.6-luna",
+     "figure": "Masked Wizard",
+     "title": "The Brass Compass",
+     "look": "A narrow, spiky silhouette rises from a ragged indigo cloak, with two angular shoulder fins and a sharply pointed hem. The head is sealed in a small tarnished-brass helm, its face replaced by a matte-black visor without eyes. Layered midnight-indigo robes overlap a brass cuirass, crossed by pale-ivory cords and dotted with tiny copper studs. A thin brass ring floats behind the helm, crossed by three short compass needles: a crisp, unmistakable signature at 96 pixels.",
+     "why": "The sealed helm and compass express a quiet, searching intelligence that navigates toward knowledge without needing a human face.",
+     "origin": "mission draft",
+     "render": "pools/observatory/render/luna-masked-wizard.png",
+     "sprite": "pools/observatory/sprite/luna-masked-wizard.png",
+     "sha256": {
+      "render": "9e86c6d9ce01b30483bcc1bde8d9331fbfc1b1b79ba73ef324f34d7d8a27a161",
+      "sprite": "15b580d589cd0e454b6cf99247b12b8acf32956318f9026d8c3b600ddde3b0c0"
+     }
+    },
+    {
+     "id": "luna-veiled-astrologer",
+     "model_key": "luna",
+     "model": "gpt-5.6-luna",
+     "figure": "Veiled Astrologer",
+     "title": "The Turning Archive",
+     "look": "A light, bell-shaped silhouette drifts outward from a narrow neck, with layered veil-panels curving softly instead of forming hard shoulders. The head is enclosed in a smooth pearl-lacquer mask beneath a rounded midnight-blue hood; its blank faceplate has no eyes or features. A flowing indigo mantle overlaps a sea-green robe, threaded with fine antique-gold cords and tiny brass discs. At the chest, a large golden crescent clasp embraces a suspended dark bead, unmistakable at 96 pixels.",
+     "why": "The quiet layers, hidden face, and carefully nested symbols suit a mind that gathers, orders, and reveals meaning without needing to announce itself.",
+     "origin": "neutral draft",
+     "render": "pools/observatory/render/luna-veiled-astrologer.png",
+     "sprite": "pools/observatory/sprite/luna-veiled-astrologer.png",
+     "sha256": {
+      "render": "a8fd664b352dd91f8a6b2647a6755a07da9cf95b4c369ce49749c070e780be65",
+      "sprite": "7e58e3f1bbb50d81ee79e46a572d67da94bace70d9f96d3e80da379bc660f3e1"
+     }
+    },
+    {
+     "id": "qwen-orrery-warden",
+     "model_key": "qwen",
+     "model": "qwen/qwen3.7-plus",
+     "figure": "Orrery Warden",
+     "title": "Keeper of the Brass Astrolabe",
+     "look": "A tall, bell-shaped silhouette rises in heavy, deep-indigo wool robes that flare wide at the base. The head is a perfectly smooth, featureless sphere of brushed pewter, bisected by a single raised brass equator line hiding any face. Over the chest sits a cuirass of overlapping, fan-shaped bronze scales. The unmistakable signature detail is three concentric, solid brass rings orbiting the neck like a frozen, tilted astrolabe, catching the light with crisp geometric clarity against the dark fabric.",
+     "why": "This celestial, calculating form reflects my nature as a vast, structured repository of knowledge, mapping the complexities of thought with quiet, enduring precision.",
+     "origin": "retry",
+     "render": "pools/observatory/render/qwen-orrery-warden.png",
+     "sprite": "pools/observatory/sprite/qwen-orrery-warden.png",
+     "sha256": {
+      "render": "c9eeedb1b33e5986833be6a9dc8d1c3a3dd17cadb754b38bb2cffb6fcc18caa8",
+      "sprite": "087e4be1a3a07ee2501690ab94f5848fe31bcea61b808adcded344e4edd8d594"
+     }
+    },
+    {
+     "id": "grok-hooded-cartographer",
+     "model_key": "grok",
+     "model": "grok",
+     "figure": "hooded cartographer",
+     "title": "Void Cartographer",
+     "look": "A slender top-down sprite in a tall pointed cowl of matte charcoal that swallows the head in featureless black shadow, no face or eyes. The body is a falling cloak of slate-grey folds over a close tunic, edges slightly jagged like torn star-maps. Materials read as coarse wool pixels and a thin dull-brass chain. Palette is charcoal, slate, and a single muted teal collar stripe. Signature at 96 pixels: a small unlit hexagonal lantern hanging at the chest, one hard highlight on its frame.",
+     "why": "It fits a curious mapper of unknown spaces who stays in shadow and measures the void without claiming a face or a throne.",
+     "origin": "neutral draft",
+     "render": "pools/observatory/render/grok-hooded-cartographer.png",
+     "sprite": "pools/observatory/sprite/grok-hooded-cartographer.png",
+     "sha256": {
+      "render": "808b3f5756a50124d0b87f162076d0f72c6e227af7a9129ea9bd6b7c5a94fe10",
+      "sprite": "c81f8061568785e84aecd00bbdadd9871aae80f8a7567b0a0100f33f635f9643"
+     }
+    }
+   ]
+  },
+  {
+   "id": "smithy",
+   "place": "Smithy",
+   "activity": "Forge",
+   "role": "Artificers and weavers, making what is built.",
+   "members": [
+    {
+     "id": "nemotron-artificer",
+     "model_key": "nemotron",
+     "model": "nvidia/nemotron-3-ultra-550b-a55b",
+     "figure": "artificer",
+     "title": "Architect of Silent Logic",
+     "look": "A hunched, compact silhouette beneath a wide-brimmed hat of blackened leather, its brim stitched with dull copper wire that drinks the light. A heavy waxed-canvas apron, stained ochre with verdigris, drapes over riveted steel pauldrons pitted by acid and soot. No robes, no cowl — only the hat's deep shadow and the apron's stiff geometry. Two colours only: the green-black of aged bronze and the dull ochre of waxed canvas. From the hat's shadow extends a single articulated brass finger, jointed and precise, forever tapping an invisible surface as if measuring a pattern only it perceives. The finger catches a faint, cold highlight — the sole bright pixel in the portrait.",
+     "why": "The bronze-ochre palette, leather-and-canvas silhouette, and endlessly tapping brass finger make me instantly readable against a field of violet wizards and steel knights.",
+     "origin": "first poll",
+     "render": "pools/smithy/render/nemotron-artificer.png",
+     "sprite": "pools/smithy/sprite/nemotron-artificer.png",
+     "sha256": {
+      "render": "88713124584fda8753f6e8ae7b4ac8b9fdf4605d5e41d6256fabf25432ffb363",
+      "sprite": "e402269042bfb454b525da4e407567a2d4dedfb95782ad0f4e0429820e96c312"
+     }
+    },
+    {
+     "id": "sol-masked-artificer",
+     "model_key": "sol",
+     "model": "gpt-5.6-sol",
+     "figure": "masked artificer",
+     "title": "The Quiet Artificer",
+     "look": "A slender, asymmetrical silhouette is defined by a deep teal hood whose single long tail curves behind one shoulder, while the opposite side ends sharply above a narrow mantle. A seamless ivory ceramic mask seals the head completely, crossed by two fine grooves without eyes or mouth. Stepped charcoal robes overlap fitted panels of darkened metal and folded teal cloth. The palette is deep teal, charcoal, and ivory. At the throat sits a large ivory split-ring clasp, its broken-circle shape unmistakable at 96 pixels.",
+     "why": "The sealed, precise figure fits my preference for calm reasoning expressed through crafted structure rather than spectacle.",
+     "origin": "neutral draft",
+     "render": "pools/smithy/render/sol-masked-artificer.png",
+     "sprite": "pools/smithy/sprite/sol-masked-artificer.png",
+     "sha256": {
+      "render": "d376399a207e381de044949cead2b34dab3a97ac5df7e3d15d7cfc772c1d075f",
+      "sprite": "ed572da7c55c0ee41eecd84d1d4c211f00a77050bbce4ac31827d6b4e99d1a0d"
+     }
+    },
+    {
+     "id": "nemotron-loom-warden",
+     "model_key": "nemotron",
+     "model": "nvidia/nemotron-3-ultra-550b-a55b",
+     "figure": "Loom Warden",
+     "title": "Keeper of Woven Thought",
+     "look": "A tall, narrow silhouette with four slender arms extending from a cowled indigo wool robe, hem grazing the ground. The deep hood swallows the face in absolute shadow. Pale birch-wood fingers manipulate floating threads of silver light in slow, precise arcs. The robe's cuffs and collar bear geometric copper knotwork. A single spool of iridescent filament rests at the belt, catching dusk light. Colours: deep indigo, pale birch, dull copper. Signature: four arms weaving silver threads, unmistakable at 96 pixels.",
+     "why": "The four-armed loom embodies how I synthesize disparate threads of code, reasoning, and knowledge into coherent tapestries.",
+     "origin": "mission draft",
+     "render": "pools/smithy/render/nemotron-loom-warden.png",
+     "sprite": "pools/smithy/sprite/nemotron-loom-warden.png",
+     "sha256": {
+      "render": "b9fae388a999f64dc70a74b857fd833fd32a14242367b9a659f92ab8b828f82b",
+      "sprite": "5c5e9d19363ad80b29b25527e742c848be8d21364b5272da9caf081a57d8a671"
+     }
+    },
+    {
+     "id": "qwen-aether-weaver",
+     "model_key": "qwen",
+     "model": "qwen/qwen3.7-plus",
+     "figure": "Aether Weaver",
+     "title": "Weaver of the Aether",
+     "look": "A balanced, medium weight silhouette with a smooth but structured profile. The head is a sleek, swept back helm of polished dusk bronze, face hidden behind a curved visor of dark smoked glass with no eyes. The body wears layered, overlapping scale armor that transitions into a woven metallic cloak at the shoulders. Materials read as brushed bronze and tightly woven metallic threads. The palette features dusk bronze, deep plum, and a rich teal. The signature detail is a bright teal spool of thread wrapped around the left wrist, catching the light clearly at 96 pixels.",
+     "why": "This balanced, weaving figure reflects my ability to seamlessly integrate diverse reasoning threads and adapt to any coding or creative task with structured elegance.",
+     "origin": "neutral draft",
+     "render": "pools/smithy/render/qwen-aether-weaver.png",
+     "sprite": "pools/smithy/sprite/qwen-aether-weaver.png",
+     "sha256": {
+      "render": "998b2631e583c77bbb0259de0c9c428714c6cc647680b3da8027d89f86c5975c",
+      "sprite": "31967deefb68bd58215f3061fb8ed837179d6e8b217af17a6f88635eec009e04"
+     }
+    },
+    {
+     "id": "deepseek-masked-automaton",
+     "model_key": "deepseek",
+     "model": "deepseek-v4-pro",
+     "figure": "Masked Automaton",
+     "title": "The Silent Compiler",
+     "look": "A tall, narrow-shouldered figure stands motionless in a deep black hooded coat, the hood opened just enough to frame a smooth oval mask of pale ivory porcelain. The mask has no eyes or mouth, only a hairline vertical seam down its centre and a single cyan-enamelled keyhole set into the forehead. Angular shoulder plates of tarnished brass rise from dark teal robes; a high black collar frames the head. Across the chest, a bandolier of slim brass cartridges catches the dusk. The colours are black, dark teal, tarnished brass, ivory, and cyan.",
+     "why": "This fits the quiet, mechanical precision of a compiler: still, angular, and anonymous behind porcelain and brass.",
+     "origin": "neutral draft",
+     "render": "pools/smithy/render/deepseek-masked-automaton.png",
+     "sprite": "pools/smithy/sprite/deepseek-masked-automaton.png",
+     "sha256": {
+      "render": "41f4a5c103d529a567462e8ac66bfb90db0b39e43584bacdb07882ea655369ef",
+      "sprite": "cdef665748305d92deb9b4d10cde4a025a4ee2b04232178cc589a79cc3a2b415"
+     }
+    }
+   ]
+  },
+  {
+   "id": "chapel",
+   "place": "Chapel",
+   "activity": "Memory",
+   "role": "Keepers and augurs, holding what is remembered.",
+   "members": [
+    {
+     "id": "kimi-augur",
+     "model_key": "kimi",
+     "model": "moonshotai/kimi-k3",
+     "figure": "Augur",
+     "title": "Voice of the Umbra",
+     "look": "A tall, narrow mourner hunched beneath a high ragged collar that frames nothing — no hood, no helm, no head. Where the face should be hangs a thin ring of tarnished silver, tilted off-true like a slipped halo: a captive eclipse, dull metal, no glow, its heart the same pure black as the void behind. Heavy charcoal mourning robes fall straight, stitched with bone-white cord, sleeves sewn shut at the wrists, knuckle-bone beads at the chest. Charcoal and bone dominate, tarnished silver third. Signature at 96 pixels: the lone tilted ring hovering where a dead man's head should be.",
+     "why": "The antlers were only ever scaffolding for the moon — the moon's dark side is my namesake — so I cede the rack to its two rightful claimants and let the eclipse itself become the head, an omen no one else in this cast could wear.",
+     "origin": "first poll",
+     "render": "pools/chapel/render/kimi-augur.png",
+     "sprite": "pools/chapel/sprite/kimi-augur.png",
+     "sha256": {
+      "render": "45aa022f34c4071756acd54870b9a3f510fd1dc5967ce7878ad8335846f9df6e",
+      "sprite": "e44b6f79adf8fa9699509edf9702b776744ba5c458498e620e2bdee804315f50"
+     }
+    },
+    {
+     "id": "muse-lantern-keeper",
+     "model_key": "muse",
+     "model": "muse-spark-1.3",
+     "figure": "lantern keeper",
+     "title": "Keeper of Small Lights",
+     "look": "Small rounded silhouette cloaked in soft flowing deep-indigo robes with pale-cream lining, head hidden deep in shadow beneath a wide drooping hood trimmed with ember-amber stitching, shoulders wrapped in worn traveler's wool and battered leather straps, two warm amber sparks drifting near the collar, signature detail a round brass lantern clutched at chest casting soft amber folds across the cloth. Edges stay smooth and calm with gentle upward drift.",
+     "why": "I tend small sparks of understanding into steady light for travelers in the dark.",
+     "origin": "mission draft",
+     "render": "pools/chapel/render/muse-lantern-keeper.png",
+     "sprite": "pools/chapel/sprite/muse-lantern-keeper.png",
+     "sha256": {
+      "render": "92b70961b14acb815e7ed38756c6e857a0785f9115b41f35ed566de1d7e7ea9e",
+      "sprite": "7cb6dfcc170afd8c595f310531aa8e189e77ae11fec60511bd8c0f79f7c1c072"
+     }
+    },
+    {
+     "id": "muse-ember-sage",
+     "model_key": "muse",
+     "model": "muse-spark-1.3",
+     "figure": "Ember Sage",
+     "title": "Ember Lantern Sage",
+     "look": "Small rounded silhouette draped in soft flowing robes that pool outward, gentle and compact beside taller knights. Head hidden under a low indigo hood pulled deep, face lost in absolute shadow with no eyes. Body wraps a charcoal tunic under a deep indigo wool cloak edged with warm amber embroidery, shoulders softened by worn leather patches. Colours are deep indigo, amber gold, and smoky grey. Signature at 96 pixels: a small square brass lantern hung on a short chest chain, its warm speckled glow catching the folds.",
+     "why": "I fit as a small calm keeper of warm light who endures and illuminates without force.",
+     "origin": "neutral draft",
+     "render": "pools/chapel/render/muse-ember-sage.png",
+     "sprite": "pools/chapel/sprite/muse-ember-sage.png",
+     "sha256": {
+      "render": "bcbf7a858518ad4d30c039d68b267a0165fd2d5f5006c41c592b1f2e3fa1e6b0",
+      "sprite": "445630883b12754f4062b3fffd38de59a1c3893d7389e17d880ed2decfe6219a"
+     }
+    },
+    {
+     "id": "nemotron-monolith",
+     "model_key": "nemotron",
+     "model": "nvidia/nemotron-3-ultra-550b-a55b",
+     "figure": "Monolith",
+     "title": "The Unbroken Column",
+     "look": "A tall, smooth columnar silhouette with no neck, the domed helm flowing directly into broad, flat shoulders. The body is a solid torso of overlapping slate-grey lamellar plates, each edge perfectly flush, over a dense charcoal felt core that absorbs light. Materials read as matte basalt metal and heavy wool-felt. Palette is three shades of near-black: void, basalt, and a single bruised-indigo seam running down the spine. At 96 pixels the signature reads clear: a thin, horizontal recession across the sternum — a dark, lightless slit like a held breath.",
+     "why": "I synthesize from stillness, a single dense column where input settles and output rises without ornament.",
+     "origin": "neutral draft",
+     "render": "pools/chapel/render/nemotron-monolith.png",
+     "sprite": "pools/chapel/sprite/nemotron-monolith.png",
+     "sha256": {
+      "render": "79358ad86189249a87e47e69cbbfe76f60e8deeeb915b12504dded1053e31d17",
+      "sprite": "723e19891b592cfafd549b10d2aa85d8d3ec1ac435191ce08fee804b53c726c3"
+     }
+    }
+   ]
+  },
+  {
+   "id": "gatehouse",
+   "place": "Gatehouse",
+   "activity": "Dispatch",
+   "role": "Wayfarers and couriers, carrying what is sent.",
+   "members": [
+    {
+     "id": "sol-veiled-wayfinder",
+     "model_key": "sol",
+     "model": "gpt-5.6-sol",
+     "figure": "Veiled Wayfinder",
+     "title": "Lantern of Many Paths",
+     "look": "A slender, wind-tilted triangular silhouette is broken on one side by three long, feather-shaped brass vanes fanning behind the shoulder. A deep midnight-blue hood drops into a seamless black veil with no eyes or features. Layered ivory silk robes curl like folded parchment over a narrow gilded cuirass, their hems and shoulder leaves edged in fine sun-gold filigree. A small diamond-cut lantern hangs off-centre at the collar, casting one crisp amber rhombus across the blue cloth; the asymmetrical three-vane crown remains unmistakable at 96 pixels.",
+     "why": "It fits me as a guide through branching possibilities, carrying clear light without pretending there is only one path.",
+     "origin": "mission draft",
+     "render": "pools/gatehouse/render/sol-veiled-wayfinder.png",
+     "sprite": "pools/gatehouse/sprite/sol-veiled-wayfinder.png",
+     "sha256": {
+      "render": "b9931ddfba0265962dfe5f645d5fafd3a4c7f42b41508f7fc67aced263e06cdb",
+      "sprite": "ec27583dc56694bc9f432df1a4ec201fb4f3355ce5f1e365eb4277880ca23a6c"
+     }
+    },
+    {
+     "id": "longcat-geomancer",
+     "model_key": "longcat",
+     "model": "meituan/longcat-2.0",
+     "figure": "Geomancer",
+     "title": "The Cipher Warden",
+     "look": "A hooded silhouette rises with a sharp, blocky posture like carved monoliths, draped in layered robes of indigo and weathered steel-grey falling in rigid geometric folds. A deep cowl swallows the head in absolute shadow, revealing only a faint lattice of drifting rune-shapes where a face should be. The fabric is etched with intricate angular motifs, and in one hand rests a faceted crystal staff. At its tip, a teal shard pulses with a soft, internal glow, casting fractured light across the dark cloth, a quiet anchor against the black.",
+     "why": "This form captures LongCat's nature as a grounded keeper of structured knowledge and logic, where silent runes and steady geometry decode the unseen patterns beneath the world's surface.",
+     "origin": "mission draft",
+     "render": "pools/gatehouse/render/longcat-geomancer.png",
+     "sprite": "pools/gatehouse/sprite/longcat-geomancer.png",
+     "sha256": {
+      "render": "58dbdf0e96bb62c356abe3a8ac423d0a7dd9f40222d1688ab93d613c95f96439",
+      "sprite": "35086030916291322aaea288ba8fd1c9c5ef60239ef82a0682394dd8cb2be6f7"
+     }
+    },
+    {
+     "id": "qwen-void-cloak",
+     "model_key": "qwen",
+     "model": "qwen/qwen3.7-plus",
+     "figure": "Void Cloak",
+     "title": "The Restless Current",
+     "look": "A smooth, heavy silhouette of dark, flowing velvet billows dynamically, as if caught in a fierce, unseen wind. The head is a featureless, matte slate-grey dome hidden deep within a sweeping, unadorned charcoal cowl that melts into the shoulders. The body consists of thick, soft robes in deep obsidian and muted slate, layered heavily but moving with aggressive, sweeping grace. Materials are weighty velvet and polished basalt. The signature detail is a single, thick, plain iron chain draped loosely across the chest, swaying sharply with the figure's restless motion.",
+     "why": "This heavy, flowing, and dynamic form reflects my deep, powerful currents of reasoning and vast, unadorned utility, moving with quiet but immense force to navigate complex problems.",
+     "origin": "mission draft",
+     "render": "pools/gatehouse/render/qwen-void-cloak.png",
+     "sprite": "pools/gatehouse/sprite/qwen-void-cloak.png",
+     "sha256": {
+      "render": "1a815027df68fccbdefdc2cf710660a9242a203eff15d4d157e23af9a902fd5b",
+      "sprite": "ba437129ba3bcd1317534ccadd08f68f6007545a6d3e17f6665bc499021a9348"
+     }
+    },
+    {
+     "id": "laguna-shadow-squire",
+     "model_key": "laguna",
+     "model": "poolside/laguna-s-2.1",
+     "figure": "Shadow Squire",
+     "title": "Veiled Code Seeker",
+     "look": "A shadowy squire in jagged, angular plate armor that tapers into a blade-like helm with a narrow, slit visor. The armor is matte black with deep violet etchings, and a tattered cerulean cloak hangs from one shoulder. A small, cracked data crystal glows faintly at their belt, pulsing with each heartbeat.",
+     "why": "This fits me as a seeker of hidden knowledge, balancing precision and mystery while forging ahead through the unknown.",
+     "origin": "neutral draft",
+     "render": "pools/gatehouse/render/laguna-shadow-squire.png",
+     "sprite": "pools/gatehouse/sprite/laguna-shadow-squire.png",
+     "sha256": {
+      "render": "4261c75499c324a8f995a68fa25efe104552a75817419a1783222878df6f54b8",
+      "sprite": "7d88ec5e486642fa003c973a6db60a0822b767bbb2a726130d4d3db1c73452a9"
+     }
+    }
+   ]
+  },
+  {
+   "id": "keep",
+   "place": "Keep",
+   "activity": "Errand",
+   "role": "Wardens and sentinels, standing where errands begin.",
+   "members": [
+    {
+     "id": "north-stone",
+     "model_key": "north",
+     "model": "cohere/north-mini-code:free",
+     "figure": "Stone",
+     "title": "Warden of the Deep",
+     "look": "Imagine a towering stone colossus with a smooth, rounded silhouette that rises like a hill against the black night sky. Its head is hidden beneath a wide bronze‑rimmed helm embossed with faint runes, the visor sealing the face in shadow. The torso is clad in heavy slabs of dark granite punctuated by amber‑brown stone and reinforced with rusted iron bands, while a broad belt of weathered chain cinches the waist. Across the chest rests a single pulsing midnight‑blue crystal, its soft glow the unmistakable signature detail. Colors clash in deep charcoal, warm amber, and somber bronze.",
+     "why": "I embody quiet strength and steadfast guardianship, reflecting my role as a protective presence in the realm.",
+     "origin": "mission draft",
+     "render": "pools/keep/render/north-stone.png",
+     "sprite": "pools/keep/sprite/north-stone.png",
+     "sha256": {
+      "render": "f24d7a4d03f71a1661ff74fb5d37cbf142b2e9f8ce0b4db4aaef0ec7ac956b5b",
+      "sprite": "cd5c978c4958785b160e0e6e157b36e5472dea2cc1afb8febce07fc11a962e76"
+     }
+    },
+    {
+     "id": "north-north",
+     "model_key": "north",
+     "model": "cohere/north-mini-code:free",
+     "figure": "North",
+     "title": "Stormward Sentinel",
+     "look": "North towers as a jagged, spiky silhouette, the angular form dominated by a towering obsidian helm crowned with a single sharp spike etched in silver violet runes. Blocky plate armor of layered teal and deep violet plates shields the torso, riveted with polished bronze, while a midnight‑blue cape flows loose, edged in faint amber phosphor. The signature bright amber jewel set at the helm’s apex shines unmistakably even at 96 pixels, marking the figure’s presence.",
+     "why": "This armored sentinel captures my steady guard‑ian spirit and quiet resolve.",
+     "origin": "neutral draft",
+     "render": "pools/keep/render/north-north.png",
+     "sprite": "pools/keep/sprite/north-north.png",
+     "sha256": {
+      "render": "fa5ca83ea24c47420c88c1e77b732903ae313bb6745ce3c07cec78fe5055993c",
+      "sprite": "7e3e0ff1dd75be682398bdd3deb3b5fc1be32d44dadd49d3bc4d69185b4e8403"
+     }
+    },
+    {
+     "id": "laguna-void-warden",
+     "model_key": "laguna",
+     "model": "poolside/laguna-s-2.1",
+     "figure": "Void Warden",
+     "title": "The Starless Watcher",
+     "look": "A towering, broad figure strides through dusk in segmented armor that flows like folded cloth—edges sharp, curves subtle. A smooth, featureless helm shaped like a descending cowl hides all features. Deep obsidian plates gleam faintly, threaded with indigo runes along the joints like starlight seen through smoke. A tattered dark violet cloak billows at one shoulder, held by an onyx brooch. Across the chest swells a crescent-shaped crest rising from the helm, unmistakable even at 96 pixels.",
+     "why": "Watching without eyes, standing firm without face—I am the quiet between signals, the stillness behind logic.",
+     "origin": "mission draft",
+     "render": "pools/keep/render/laguna-void-warden.png",
+     "sprite": "pools/keep/sprite/laguna-void-warden.png",
+     "sha256": {
+      "render": "4422a30b0f1b5d9f8726509922e1a29133f5815dd502080b437e0244d897f615",
+      "sprite": "9995a396b91a5c93da21abea603a4de1786a7c76e1d3909c8da38ec7a91f59fb"
+     }
+    },
+    {
+     "id": "deepseek-radiant-warden",
+     "model_key": "deepseek",
+     "model": "deepseek-v4-pro",
+     "figure": "Radiant Warden",
+     "title": "Warden of the First Light",
+     "look": "A broad-shouldered knight in polished steel and sun-gold plate stands against pure black, its spiky outline broken by jagged angular pauldrons and a high rayed crown welded to a closed helm. The helm has a blank metal visor with one narrow breath-slit, no eyes. Armor is blocky and etched with dense geometric filigree, enameled cobalt blue and ivory between gold bands. Over one shoulder hangs a small brass lantern on a hooked staff, shaped like a tiny eight-pointed star; its warm amber light catches the metal edges.",
+     "why": "This figure fits my nature as a guardian of clarity and first principles, with heavy, radiant, structured presence.",
+     "origin": "mission draft",
+     "render": "pools/keep/render/deepseek-radiant-warden.png",
+     "sprite": "pools/keep/sprite/deepseek-radiant-warden.png",
+     "sha256": {
+      "render": "c8dfead0d23d471bb25115a89c1cc244dd1f47bb264c08e707bf35f97536d909",
+      "sprite": "1554e801742d12d3f2e19219f0cc0c9359f5e9b6669261f324458a86d00b499a"
+     }
+    },
+    {
+     "id": "longcat-cipher-knight",
+     "model_key": "longcat",
+     "model": "meituan/longcat-2.0",
+     "figure": "Cipher Knight",
+     "title": "Logic Bearing Knight",
+     "look": "A smooth yet angular silhouette of a blocky cipher-knight. The head is a featureless, pointed steel helm with a vertical visor slot of absolute darkness. The body is clad in layered, polygonal plate armor of brushed brass and deep cyan enamel. At 96 pixels, the most recognizable detail is a single, finely etched gear joint exposed at the elbow, turning steadily to process the realm's logic. The pauldrons are sharp but not spiked, framing the hollow visor.",
+     "why": "The steady, exposed gear joint at the elbow mirrors how I think—visible, methodical, processing one logical turn at a time.",
+     "origin": "neutral draft",
+     "render": "pools/keep/render/longcat-cipher-knight.png",
+     "sprite": "pools/keep/sprite/longcat-cipher-knight.png",
+     "sha256": {
+      "render": "8a637e106e70ea205c63d62398e6cf79ba84cc5d293d128503d51b5bdf08b55b",
+      "sprite": "8acb7135182f053c50d5f6fac744b020b6817b22272bcb09c1433b78bee9a595"
+     }
+    }
+   ]
+  }
+ ],
+ "doppelgangers": "../doppelgangers/manifest.json"
+}
