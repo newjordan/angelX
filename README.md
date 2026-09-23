@@ -60,7 +60,7 @@ cd angelX
   </tr>
   <tr>
     <td width="50%"><img alt="Command help and completion" src="docs/images/ui/command-picker.png"><br><b>Commands</b> · <code>/help</code> and Tab completion for every command.</td>
-    <td width="50%"><img alt="World view beside the code" src="docs/images/world.png"><br><b>World view</b> · the Keep courtyard beside your code.</td>
+    <td width="50%"><img alt="World view beside the code" src="docs/images/world.png"><br><b>World view</b> · Watch model behavior as an adventure in information.</td>
   </tr>
 </table>
 
