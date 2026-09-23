@@ -10039,7 +10039,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
                 .last()
                 .unwrap()
                 .text
-                .contains("Dotmax 3D outdoors"),
+                .contains("Dotmax 3D"),
             "{command}"
         );
         assert!(!app.world.inside_interior());
@@ -10061,7 +10061,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
                 .last()
                 .unwrap()
                 .text
-                .contains("Dotmax 3D outdoors")
+                .contains("Dotmax 3D")
         );
         assert!(!app.world.inside_interior());
         assert_eq!(

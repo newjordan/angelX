@@ -3990,7 +3990,7 @@ fn nth_agent_response(messages: &[Message], ordinal: usize) -> Option<&str> {
 pub(crate) fn world_help_text() -> String {
     [
         "/world · open the Realm stage · verbs:",
-        "  view [3d|dotmax] · Dotmax 3D outdoors; older names also select Dotmax (/world 3d and v report the view)",
+        "  view [3d|dotmax] · the overworld map on the Realm, Dotmax 3D on Explore; older names also select Dotmax (/world 3d and v report the view)",
         "  zoom · cycle the map camera auto→wide→close",
         "  ride · saddle up; the road fills the glass",
         "  enter · step through the landmark's door",
