@@ -19,7 +19,7 @@ use super::ink::Img;
 use super::ink::{BANK, PALETTE, SIGNAL_BANK, rgb};
 use super::kit::Tool;
 use super::light::DUSK;
-use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE};
+use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE, place_tile};
 use super::scene::{Joust, Knight, Scene, Soldier, SoldierState, Ward, Weather};
 
 /// Walking pace in world pixels per world tick (the world ticks at 40 Hz).
@@ -60,6 +60,8 @@ pub(crate) struct Walker {
     /// Where the map camera looks. It holds still while the knight moves
     /// inside a dead zone and follows him out of it; it never zooms.
     cam: (f32, f32),
+    /// Pixels per tick for the current journey.
+    stride: f32,
 }
 
 impl Default for Walker {
@@ -72,6 +74,7 @@ impl Default for Walker {
             path: VecDeque::new(),
             trail: VecDeque::new(),
             cam: (home.x, home.y - FOCUS_LIFT),
+            stride: PACE,
         }
     }
 }
@@ -85,10 +88,12 @@ impl Walker {
     pub(crate) fn toward(&mut self, goal: Place) {
         if goal != self.goal {
             self.goal = goal;
-            self.path = route(self.tile(), goal.stand()).into();
+            self.path = route(self.tile(), goal.stand_world()).into();
+            // Long journeys ride faster: no trip takes much over four seconds.
+            self.stride = (self.path.len() as f32 * TILE as f32 / 160.0).max(PACE);
         }
         let before = (self.x, self.y);
-        let mut stride = PACE;
+        let mut stride = self.stride;
         while stride > 0.0 {
             let Some(&next) = self.path.front() else {
                 break;
@@ -156,7 +161,8 @@ fn closed_tiles() -> &'static [bool] {
     CLOSED.get_or_init(|| {
         let realm = Realm::get();
         let mut closed = vec![false; (MAP_W * MAP_H) as usize];
-        for (x0, y0, w, h) in STRUCTURES {
+        for (ax, ay, w, h) in STRUCTURES {
+            let (x0, y0) = place_tile(ax, ay);
             for y in y0..y0 + h {
                 for x in x0..x0 + w {
                     if !matches!(realm.at(x, y), b'=' | b':' | b'H') {

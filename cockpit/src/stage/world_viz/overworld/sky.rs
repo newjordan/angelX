@@ -113,7 +113,8 @@ fn rainbow(cv: &mut Img) {
 /// flash, a ring of sparks and an inner ring, thinning as they spread.
 pub(crate) fn fireworks(cv: &mut Img, tick: u32, (ox, oy): (i32, i32)) {
     const PERIOD: u32 = 12;
-    let (kx, ky) = (23 * TILE + 8 - ox, 12 * TILE + 14 - oy);
+    let (kx, ky) = super::map::place_px(23 * TILE + 8, 12 * TILE + 14);
+    let (kx, ky) = (kx - ox, ky - oy);
     let inks = ['5', '7', '2', '3', '6', '@', '1'];
     for burst in 0..4u32 {
         let t = tick + burst * 3;

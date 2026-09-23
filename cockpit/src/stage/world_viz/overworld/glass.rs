@@ -121,7 +121,7 @@ pub(crate) fn draw(
     live: Option<Place>,
 ) {
     let to_frame = |place: Place| {
-        let (tx, ty, tw, th) = place.footprint();
+        let (tx, ty, tw, th) = place.footprint_world();
         (
             tx * TILE - view_x,
             ty * TILE - view_y + top,

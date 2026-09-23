@@ -10,7 +10,7 @@ use super::glass::Glass;
 use super::ink::Img;
 use super::kit::{self, Heraldry, House, Roof, Tool, Wall};
 use super::light::{DUSK, Light};
-use super::map::{Place, TILE};
+use super::map::{Place, TILE, place_px};
 
 /// One tilt at the Lists: two model routes and their running scores.
 #[derive(Clone, Debug, PartialEq)]
@@ -106,7 +106,7 @@ pub(crate) struct Knight {
 
 impl Knight {
     pub(crate) fn at_place(place: Place) -> Knight {
-        let (tx, ty) = place.stand();
+        let (tx, ty) = place.stand_world();
         Knight {
             x: (tx * TILE + TILE / 2) as f32,
             y: ((ty + 1) * TILE - 2) as f32,
@@ -271,7 +271,7 @@ fn at_place(place: Place, img: Img) -> Prop {
 pub(crate) fn stage(scene: &Scene) -> Stage {
     let mut props = Vec::new();
     let mut lights = Vec::new();
-    let mut beacons = Vec::new();
+    let mut beacons: Vec<(i32, i32, i32, i32)> = Vec::new();
     let mut cues = Vec::new();
     let tick = scene.tick;
     let flicker = |k: u32| 0.9 + 0.1 * (tick as f32 * 1.7 + k as f32 * 2.3).sin();
@@ -653,6 +653,27 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         });
     }
 
+    // Everything above is written in the authored screens' coordinates:
+    // move it to its place in the realm. The party and the knight below
+    // already live in realm coordinates.
+    for p in &mut props {
+        let (ax, ay) = (p.x + p.img.w / 2, p.base - 1);
+        let (rx, ry) = place_px(ax, ay);
+        p.x += rx - ax;
+        p.base += ry - ay;
+    }
+    for l in &mut lights {
+        let (rx, ry) = place_px(l.x as i32, l.y as i32);
+        l.x += (rx - l.x as i32) as f32;
+        l.y += (ry - l.y as i32) as f32;
+    }
+    for b in &mut beacons {
+        let (ax, ay) = (b.0 + b.2 / 2, b.1 + b.3 - 1);
+        let (rx, ry) = place_px(ax, ay);
+        b.0 += rx - ax;
+        b.1 += ry - ay;
+    }
+
     // ── the party trails the knight ──
     const ROBES: [char; 4] = ['1', '2', '@', '3'];
     for (i, &(x, y)) in scene.party.iter().take(4).enumerate() {
@@ -689,7 +710,7 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         });
     }
     if let Some(place) = scene.active {
-        let (tx, ty, tw, th) = place.footprint();
+        let (tx, ty, tw, th) = place.footprint_world();
         let top = match place {
             Place::Keep => 16,
             Place::Chapel => 12,
