@@ -10212,6 +10212,130 @@ fn a_green_that_does_not_hold_denies_completion_with_the_failing_output() {
     let _ = std::fs::remove_dir_all(stable);
 }
 
+/// Writes `robot.cpp`, runs `make` once, then claims completion.
+struct WriteThenMakeClub {
+    calls: AtomicUsize,
+    source: &'static str,
+}
+
+impl Club for WriteThenMakeClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+    fn label(&self) -> &str {
+        "write-then-make"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        let call = |id: &str, name: &str, args: Value| ToolCall {
+            id: id.into(),
+            name: name.into(),
+            args,
+        };
+        Ok(match self.calls.fetch_add(1, Ordering::SeqCst) {
+            0 => ClubReply::Calls(vec![call(
+                "call_write",
+                "write_file",
+                json!({"path": "robot.cpp", "content": self.source}),
+            )]),
+            1 => ClubReply::Calls(vec![call("call_make", "shell", json!({"command": "make"}))]),
+            _ => ClubReply::Text("All tests pass; the task is complete.".into()),
+        })
+    }
+}
+
+fn run_chance_turn(name: &str, source: &'static str) -> (Vec<ChatMsg>, usize) {
+    // `make` passes on its first run and fails after, like a test that
+    // passes by luck.
+    let root = confirm_green_fixture(
+        name,
+        "all:\n\t@if [ -f .ran ]; then echo 'REQUIRE( names.count(robot.name()) == 0 ) failed'; exit 1; fi; touch .ran\n",
+    );
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    registry.register(Box::new(RootShell(root.clone())));
+    registry.register(Box::new(Writer(root.clone())));
+    let club = WriteThenMakeClub {
+        calls: AtomicUsize::new(0),
+        source,
+    };
+    let mut history = vec![ChatMsg::user("implement robot names")];
+    run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(10),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    let _ = std::fs::remove_dir_all(root);
+    (history, club.calls.load(Ordering::SeqCst))
+}
+
+/// In task mode with `ANGEL_CONFIRM_GREEN_RUNS` unset, a green is re-run only
+/// when the code the model wrote draws on chance. polyglot-v1 cpp-robot-name:
+/// Grok 4.7 shipped a generator that failed about one run in two, accepted on
+/// a single green in 5 of 14 angelX runs.
+#[test]
+fn a_green_on_code_that_draws_on_chance_is_confirmed_by_default() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _limit = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
+    let denied = |history: &[ChatMsg]| {
+        history
+            .iter()
+            .any(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
+    };
+    const RANDOM: &str = "#include <random>\nstd::mt19937 rng{std::random_device{}()};\n";
+    const PLAIN: &str = "int add(int a, int b) { return a + b; }\n";
+
+    let _unset = EnvGuard::unset("ANGEL_CONFIRM_GREEN_RUNS");
+    let (history, calls) = run_chance_turn("chance_random", RANDOM);
+    assert!(denied(&history), "a lucky green on random code is caught");
+    assert_eq!(calls, 4, "write, make, denied done, accepted done");
+
+    let (history, calls) = run_chance_turn("chance_plain", PLAIN);
+    assert!(!denied(&history), "deterministic code is not re-run");
+    assert_eq!(calls, 3);
+
+    let _off = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "0");
+    let (history, _) = run_chance_turn("chance_off", RANDOM);
+    assert!(!denied(&history), "an explicit 0 is the operator's choice");
+}
+
+#[test]
+fn chance_markers_are_read_from_edited_source_not_tests() {
+    let root = scratch("chance_markers");
+    std::fs::write(root.join("robot_name.cpp"), "std::mt19937 rng;\n").unwrap();
+    std::fs::write(root.join("robot_name_test.cpp"), "srand(time(0));\n").unwrap();
+    std::fs::write(root.join("grep.js"), "export const grep = () => [];\n").unwrap();
+    let set = |paths: &[&str]| paths.iter().map(|p| p.to_string()).collect();
+    assert!(edits_depend_on_chance(&root, &set(&["robot_name.cpp"])));
+    assert!(
+        !edits_depend_on_chance(&root, &set(&["robot_name_test.cpp"])),
+        "tests are skipped"
+    );
+    assert!(!edits_depend_on_chance(
+        &root,
+        &set(&["grep.js", "missing.py"])
+    ));
+    for path in [
+        "grep.spec.js",
+        "tests/decimal.rs",
+        "two_bucket_test.py",
+        "test_forth.py",
+        "src/__tests__/a.ts",
+        "RobotTest.java",
+    ] {
+        assert!(is_test_path(path), "{path}");
+    }
+    for path in ["src/lib.rs", "robot_name.cpp", "latest.py", "contest.js"] {
+        assert!(!is_test_path(path), "{path}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
 #[test]
 fn confirm_green_is_opt_in() {
     let _guard = crate::tests::env_lock();
@@ -10404,6 +10528,122 @@ fn an_output_cap_cut_off_tells_the_model_before_the_retry() {
         crate::agent::club::TRUNCATED_OUTPUT_ERR
     ));
     assert!(!is_output_cap_truncation("openai responses: HTTP 500"));
+}
+
+/// Streams private reasoning and is cut off at the output cap `cut_offs`
+/// times, then answers.
+struct ThinkingCappedClub {
+    calls: AtomicUsize,
+    cut_offs: usize,
+}
+
+impl Club for ThinkingCappedClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+    fn label(&self) -> &str {
+        "thinking-capped"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        Ok(ClubReply::Text("ran the tests".into()))
+    }
+    fn chat_streaming(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        _cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) < self.cut_offs {
+            on_delta(crate::agent::club::StreamDelta::Reasoning(
+                "Let me trace the bucket states by hand: (0,0) -> (3,0) -> ...",
+            ));
+            return Err("response incomplete: configured request cap was 8192 tokens".into());
+        }
+        self.chat(messages, tools)
+    }
+}
+
+fn run_thinking_capped(cut_offs: usize) -> (usize, Result<TurnOutcome, TurnFailure>, Vec<ChatMsg>) {
+    let registry = ToolRegistry::new();
+    let club = ThinkingCappedClub {
+        calls: AtomicUsize::new(0),
+        cut_offs,
+    };
+    let mut history = vec![ChatMsg::user("solve two-bucket")];
+    let outcome = run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(4),
+        &mpsc::channel::<TurnEvent>().0,
+    );
+    (club.calls.load(Ordering::SeqCst), outcome, history)
+}
+
+/// A reply spent entirely on reasoning is told to stop deliberating and act,
+/// not to split a large tool call it never made (GLM-5.3-Flash polyglot-v1
+/// py-two-bucket: two 8,192-token replies of pure reasoning, about three
+/// minutes each).
+#[test]
+fn a_reasoning_only_cut_off_is_told_to_act() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let (calls, outcome, history) = run_thinking_capped(1);
+    let outcome = outcome.expect("the retry answers");
+    assert_eq!(calls, 2);
+    assert!(
+        outcome.answer.contains("ran the tests"),
+        "{}",
+        outcome.answer
+    );
+    let harness: Vec<&ChatMsg> = history
+        .iter()
+        .filter(|m| m.role == ChatRole::Harness)
+        .collect();
+    assert!(
+        harness
+            .iter()
+            .any(|m| m.content.contains(REASONING_CAP_NUDGE)),
+        "told to act"
+    );
+    assert!(
+        !harness.iter().any(|m| m.content.contains(OUTPUT_CAP_NUDGE)),
+        "not told to split a tool call it never made"
+    );
+}
+
+/// With retries unbounded, output-cap cut-offs still stop once every note is
+/// spent: the next re-send is the same request against the same cap.
+#[test]
+fn output_cap_cut_offs_stop_once_the_notes_are_spent() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let (calls, outcome, history) = run_thinking_capped(usize::MAX);
+    let failure = outcome.expect_err("the turn stops instead of re-sending forever");
+    assert_eq!(calls, 4, "the first reply plus one retry per note");
+    assert_eq!(failure.stop_reason, TurnStopReason::ProviderError);
+    assert!(
+        failure.message.contains("replies in a row were cut off"),
+        "{}",
+        failure.message
+    );
+    assert_eq!(
+        history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.contains(REASONING_CAP_NUDGE))
+            .count(),
+        3
+    );
 }
 
 /// A Yukon benchmark.json declares the editable surface (both schemas), and the
@@ -11058,6 +11298,165 @@ fn a_command_that_is_not_a_test_run_keeps_the_red_record() {
     );
     assert!(denied, "the red run still describes this code");
     assert_eq!(chats, 5, "two denials, then the answer stands");
+}
+
+/// A Git workspace shaped like polyglot-v1 js-grep: a source file and a spec
+/// with skipped tests.
+fn spec_fixture(name: &str) -> PathBuf {
+    let root = scratch(name);
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .expect("git fixture command starts");
+        assert!(output.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q"]);
+    git(&["config", "user.email", "angel@example.invalid"]);
+    git(&["config", "user.name", "Angel Test"]);
+    std::fs::write(root.join("grep.js"), "export const grep = () => [];\n").unwrap();
+    std::fs::write(
+        root.join("grep.spec.js"),
+        "test('one', () => {});\nxit('two', () => {});\n",
+    )
+    .unwrap();
+    git(&["add", "grep.js", "grep.spec.js"]);
+    git(&["commit", "-q", "-m", "seed"]);
+    root
+}
+
+fn run_spec_turn(root: &Path, moves: Vec<Move>) -> (Script, Vec<ChatMsg>) {
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.to_path_buf());
+    registry.register(Box::new(RootShell(root.to_path_buf())));
+    registry.register(Box::new(Writer(root.to_path_buf())));
+    let script = Script::new(moves);
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    run_turn_observed(
+        &script,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(20),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    (script, history)
+}
+
+/// Task mode: "done" with a test file that came with the task changed is
+/// denied once, however the change was made (here a shell `sed -i`, as Grok 4.7
+/// did on polyglot-v1 js-grep); after the model restores it, "done" stands.
+#[test]
+fn a_completion_with_a_changed_task_test_is_denied_once() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _red = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
+    let _limit = EnvGuard::unset("ANGEL_TEST_EDIT_DENIALS");
+    let shell = |command: &str| Move::Call(tc("shell", json!({ "command": command })));
+    let nudged = |history: &[ChatMsg]| {
+        history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.contains(TEST_EDIT_NUDGE))
+            .count()
+    };
+
+    let root = spec_fixture("test_edit_restored");
+    let (script, history) = run_spec_turn(
+        &root,
+        vec![
+            shell("sed -i 's/xit(/it(/' grep.spec.js"),
+            Move::Say("All tests pass."),
+            shell("git checkout -- grep.spec.js"),
+            Move::Say("Restored the spec; the fix is in grep.js."),
+        ],
+    );
+    assert_eq!(script.chats(), 4, "denied once, accepted after the restore");
+    assert_eq!(nudged(&history), 1);
+    let note = history
+        .iter()
+        .find(|m| m.content.contains(TEST_EDIT_NUDGE))
+        .unwrap();
+    assert!(
+        note.content.contains("Changed: grep.spec.js"),
+        "{}",
+        note.content
+    );
+    let _ = std::fs::remove_dir_all(root);
+
+    // Source-only edits, and a model that insists, each cost at most one step.
+    let root = spec_fixture("test_edit_source_only");
+    let (script, history) = run_spec_turn(
+        &root,
+        vec![
+            Move::Call(tc(
+                "write_file",
+                json!({"path": "grep.js", "content": "export const grep = () => ['x'];\n"}),
+            )),
+            Move::Say("Done."),
+        ],
+    );
+    assert_eq!(
+        (script.chats(), nudged(&history)),
+        (2, 0),
+        "no test changed"
+    );
+    let _ = std::fs::remove_dir_all(root);
+
+    let root = spec_fixture("test_edit_insists");
+    let (script, history) = run_spec_turn(
+        &root,
+        vec![
+            shell("sed -i 's/xit(/it(/' grep.spec.js"),
+            Move::Say("Done."),
+            Move::Say("The task asked me to enable every test."),
+        ],
+    );
+    assert_eq!(
+        (script.chats(), nudged(&history)),
+        (3, 1),
+        "one denial, then the answer stands"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// Interactive sessions and test files already changed before the turn are
+/// left alone.
+#[test]
+fn test_edits_are_only_questioned_in_task_mode_and_for_the_models_own_changes() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _red = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
+    let _limit = EnvGuard::unset("ANGEL_TEST_EDIT_DENIALS");
+    let shell = |command: &str| Move::Call(tc("shell", json!({ "command": command })));
+    let unskip = || shell("sed -i 's/xit(/it(/' grep.spec.js");
+
+    let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let root = spec_fixture("test_edit_interactive");
+    let (script, _) = run_spec_turn(&root, vec![unskip(), Move::Say("Done.")]);
+    assert_eq!(script.chats(), 2, "the person reviewing decides");
+    let _ = std::fs::remove_dir_all(root);
+
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let root = spec_fixture("test_edit_preexisting");
+    std::fs::write(
+        root.join("grep.spec.js"),
+        "test('one', () => {});\nit('two', () => {});\n",
+    )
+    .unwrap();
+    let (script, _) = run_spec_turn(&root, vec![Move::Say("Done.")]);
+    assert_eq!(script.chats(), 1, "changed before the turn began");
+    let _ = std::fs::remove_dir_all(root);
+
+    assert_eq!(test_edit_denial_limit(true, false), 1);
+    assert_eq!(
+        test_edit_denial_limit(true, true),
+        0,
+        "never in competition"
+    );
+    assert_eq!(test_edit_denial_limit(false, false), 0);
 }
 
 #[test]

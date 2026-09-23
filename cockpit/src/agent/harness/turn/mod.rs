@@ -1520,6 +1520,9 @@ fn run_turn_tiered(
     // can be luck (see `confirm_green_run`).
     let mut last_green_run: Option<GreenRun> = None;
     let confirm_green_runs = confirm_green_extra_runs(competition);
+    let confirm_green_on_chance = confirm_green_by_chance(task_active, competition);
+    // Files the model edited with file tools this turn, for the chance check.
+    let mut edited_paths: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut confirm_green_rejections = 0usize;
     // The model's last red test run and the workspace it failed on. A task-mode
     // "done" on that same code, with budget left, is denied: the run's own
@@ -1531,6 +1534,16 @@ fn run_turn_tiered(
         turn_budget
     } else {
         env_usize("ANGEL_TASK_WALL_SECS", 0)
+    };
+    // Test files that came with the task are its contract. A task-mode "done"
+    // with one of them changed is denied once (see `test_edit_denial_limit`);
+    // files already changed before this turn are not the model's doing.
+    let test_edit_limit = test_edit_denial_limit(task_active, competition);
+    let mut test_edit_denials = 0usize;
+    let tests_changed_at_start = if test_edit_limit > 0 {
+        changed_test_files(registry.current_workspace()).unwrap_or_default()
+    } else {
+        Vec::new()
     };
     // A task that declares its editable surface (a Yukon benchmark.json, or
     // ANGEL_TASK_EDIT_SCOPE) gets a note on edits outside it: those changes are
@@ -2623,24 +2636,34 @@ fn run_turn_tiered(
         let mut provider_attempt = 0usize;
         // provider_retries / provider_retry_backoff_ms captured once per turn (A7).
         let mut empty_reply_nudged = false;
-        let mut output_cap_nudges = 0usize;
-        let mut nudge_empty_reply = |error: &str, history: &mut Vec<ChatMsg>| {
-            // A reply cut off at a fixed output cap comes back identical on a
-            // plain re-send; tell the model so the retry is a different request.
-            if is_output_cap_truncation(error) && output_cap_nudges < OUTPUT_CAP_NUDGE_LIMIT {
-                output_cap_nudges += 1;
-                history.push(ChatMsg::harness(format!("{OUTPUT_CAP_NUDGE}\n({error})")));
-                return;
-            }
-            if is_empty_reply_error(error) && !empty_reply_nudged {
-                empty_reply_nudged = true;
-                history.push(ChatMsg::harness(format!(
-                    "{TELEMETRY_MARK}Your previous reply arrived empty — no text \
+        let output_cap_nudges = std::cell::Cell::new(0usize);
+        let mut nudge_empty_reply =
+            |error: &str, reasoning_only: bool, history: &mut Vec<ChatMsg>| {
+                // A reply cut off at a fixed output cap comes back identical on a
+                // plain re-send; tell the model so the retry is a different request.
+                // A reply that was all reasoning needs different advice than one
+                // that overflowed on a large tool call.
+                if is_output_cap_truncation(error)
+                    && output_cap_nudges.get() < OUTPUT_CAP_NUDGE_LIMIT
+                {
+                    output_cap_nudges.set(output_cap_nudges.get() + 1);
+                    let nudge = if reasoning_only {
+                        REASONING_CAP_NUDGE
+                    } else {
+                        OUTPUT_CAP_NUDGE
+                    };
+                    history.push(ChatMsg::harness(format!("{nudge}\n({error})")));
+                    return;
+                }
+                if is_empty_reply_error(error) && !empty_reply_nudged {
+                    empty_reply_nudged = true;
+                    history.push(ChatMsg::harness(format!(
+                        "{TELEMETRY_MARK}Your previous reply arrived empty — no text \
                      and no tool calls were received. Respond now with either \
                      structured tool calls or answer text."
-                )));
-            }
-        };
+                    )));
+                }
+            };
         crate::agent::turn::phase::mark("context_assembled");
         let reply = loop {
             // A retry backoff can cross the existing turn deadline. Settle at
@@ -2983,6 +3006,9 @@ fn run_turn_tiered(
                     // be fatal on its first occurrence while the identical fault
                     // behind keep-alives recovered, purely by error string.
                     let incomplete_stream = is_recoverable_stream_error(&err);
+                    // Streamed private reasoning and no answer text: a cut-off
+                    // here means the reply was spent thinking.
+                    let reasoning_only_reply = emitted_reasoning && !emitted_answer;
                     if incomplete_stream && !attempt_cancelled() {
                         trajectory::note_stream_cut(hop);
                     }
@@ -3089,7 +3115,7 @@ fn run_turn_tiered(
                             && retry_budget_allows(provider_retries, provider_attempt)
                         {
                             provider_attempt = provider_attempt.saturating_add(1);
-                            nudge_empty_reply(&err, history);
+                            nudge_empty_reply(&err, reasoning_only_reply, history);
                             continue;
                         }
                         // Recovery notes are harness diagnostics, never an
@@ -3097,9 +3123,16 @@ fn run_turn_tiered(
                         // exhausted cloud request, including local-seat deaths.
                         stop_after_session_recovery = true;
                     }
+                    // Once every output-cap note is spent, a re-send is the same
+                    // request against the same cap and fails the same way (GLM
+                    // polyglot-v1 py-two-bucket: about three minutes of reasoning
+                    // per cut-off, until the wall ran out).
+                    let output_cap_exhausted = is_output_cap_truncation(&err)
+                        && output_cap_nudges.get() >= OUTPUT_CAP_NUDGE_LIMIT;
                     if !cancel.load(Ordering::Relaxed)
                         && !stop_after_session_recovery
                         && retry_allowed
+                        && !output_cap_exhausted
                         && retry_budget_allows(provider_retries, provider_attempt)
                     {
                         provider_attempt = provider_attempt.saturating_add(1);
@@ -3112,7 +3145,7 @@ fn run_turn_tiered(
                         // backend fed identical bytes fails identically. One
                         // transient re-prompt changes the token stream so the
                         // retry is not a pure replay.
-                        nudge_empty_reply(&err, history);
+                        nudge_empty_reply(&err, reasoning_only_reply, history);
                         let failure_stage = if incomplete_stream {
                             "provider stream incomplete"
                         } else {
@@ -3198,6 +3231,11 @@ fn run_turn_tiered(
                             .to_string()
                     } else if !retry_allowed {
                         "not retried: visible text was already streamed for this hop".to_string()
+                    } else if output_cap_exhausted {
+                        format!(
+                            "not retried: {OUTPUT_CAP_NUDGE_LIMIT} replies in a row were cut off at \
+                             the output cap after being told so; a re-send would repeat it"
+                        )
                     } else {
                         match provider_retries {
                             Some(limit) => format!(
@@ -3638,7 +3676,17 @@ fn run_turn_tiered(
                         continue;
                     }
                 }
-                if confirm_green_runs > 0
+                let confirm_runs = if confirm_green_runs > 0 {
+                    confirm_green_runs
+                } else if confirm_green_on_chance
+                    && last_green_run.is_some()
+                    && edits_depend_on_chance(registry.current_workspace(), &edited_paths)
+                {
+                    CHANCE_CONFIRM_GREEN_RUNS
+                } else {
+                    0
+                };
+                if confirm_runs > 0
                     && confirm_green_rejections < CONFIRM_GREEN_REJECTION_LIMIT
                     && last_green_run.as_ref().is_some_and(|green| {
                         green.workspace.is_some()
@@ -3649,7 +3697,7 @@ fn run_turn_tiered(
                     let green_call = green.call;
                     let label = green_run_label(&green_call);
                     // A substitute runner has not run yet: it owes one more run.
-                    let runs = confirm_green_runs + usize::from(green.substitute);
+                    let runs = confirm_runs + usize::from(green.substitute);
                     match confirm_green_run(registry, &green_call, runs, cancel) {
                         Ok(runs) => {
                             let _ = events.send(TurnEvent::Notice(format!(
@@ -3677,6 +3725,35 @@ fn run_turn_tiered(
                             continue;
                         }
                     }
+                }
+                // A test file that came with the task was changed: a pass that
+                // leans on that change says nothing about the code. The model
+                // restores it, or says the task asked for it and answers again.
+                if task_accept_cmd.is_none()
+                    && test_edit_denials < test_edit_limit
+                    && let Some(changed) = changed_test_files(registry.current_workspace())
+                        .map(|paths| {
+                            paths
+                                .into_iter()
+                                .filter(|path| !tests_changed_at_start.contains(path))
+                                .collect::<Vec<_>>()
+                        })
+                        .filter(|paths| !paths.is_empty())
+                {
+                    test_edit_denials += 1;
+                    crate::agent::harness::trajectory::note_escalation(hop, "test_edit_denied");
+                    let _ = events.send(TurnEvent::SuppressPartial);
+                    history.push(ChatMsg::assistant(answer));
+                    history.push(ChatMsg::harness(format!(
+                        "{TEST_EDIT_NUDGE}\nChanged: {}",
+                        changed.join(", ")
+                    )));
+                    let _ = events.send(TurnEvent::Notice(format!(
+                        "test files that came with the task were changed ({}); denying completion \
+                         ({test_edit_denials}/{test_edit_limit})",
+                        changed.join(", ")
+                    )));
+                    continue;
                 }
                 // The model's own last test run on this exact code was red.
                 // Accepting "done" now ends the task in a state its evidence
@@ -4991,7 +5068,7 @@ fn run_turn_tiered(
                         last_red_run = None;
                     }
                     if succeeded
-                        && confirm_green_runs > 0
+                        && (confirm_green_runs > 0 || confirm_green_on_chance)
                         && verification_outcome(call, &result) != Some(VerificationOutcome::Failed)
                     {
                         let workspace = workspace_fingerprint(registry.current_workspace());
@@ -5028,6 +5105,16 @@ fn run_turn_tiered(
                         .routed_execution(call, &result)
                         .map(|entry| entry.receipt);
                     let produced_bytes = result.len() as u64;
+                    if succeeded && is_mutation_call(call) && confirm_green_on_chance {
+                        crate::knowledge::cut::for_each_mutation_target_path(
+                            &call.name,
+                            &call.args,
+                            |path| {
+                                edited_paths.insert(path.to_owned());
+                                false
+                            },
+                        );
+                    }
                     let result = if succeeded && is_mutation_call(call) {
                         match edit_scope_note(
                             edit_scope.as_deref(),
@@ -5767,6 +5854,38 @@ task is not finished, and there is budget left to fix it. Read the failure below
 and run the tests again. If something outside the code blocks you, such as a missing tool or a \
 broken environment, say what it is and answer again.";
 
+pub(crate) const TEST_EDIT_NUDGE: &str = "You changed test files that came with the task. Those \
+tests are the task's contract: leave them as they were. Restore them (for example `git checkout -- \
+<file>`) and keep your fix in the source. To run tests that are skipped, run a copy or restore the \
+file afterwards. If the task asked you to change these tests, say so and answer again.";
+
+/// Completions denied while a test file that came with the task (tracked at
+/// `HEAD`, named like a test) is changed: `ANGEL_TEST_EDIT_DENIALS` (0-2).
+/// Default 1 in task mode, 0 in interactive sessions and competition. One
+/// denial, so a task that really asks for test changes costs one extra step.
+/// polyglot-v1 js-grep: Grok 4.7 un-skipped `grep.spec.js` in 5 of 6 runs
+/// across harnesses; the runs that passed restored it on their own.
+pub(crate) fn test_edit_denial_limit(task_active: bool, competition: bool) -> usize {
+    if competition {
+        return 0;
+    }
+    match std::env::var("ANGEL_TEST_EDIT_DENIALS") {
+        Ok(value) => value.trim().parse::<usize>().map_or(0, |n| n.min(2)),
+        Err(_) if task_active => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Test files tracked at `HEAD` that now differ from it. `None` outside Git.
+pub(crate) fn changed_test_files(root: &Path) -> Option<Vec<String>> {
+    Some(
+        crate::agent::harness::workspace_state::changed_tracked_paths(root)?
+            .into_iter()
+            .filter(|path| is_test_path(path))
+            .collect(),
+    )
+}
+
 /// Completions denied while the model's own last test run on the final code
 /// is red: `ANGEL_RED_COMPLETION_DENIALS` (0-4). Default 2 in task mode, where
 /// the run ends on its answer and nobody is there to say "keep going"; 0 in
@@ -5849,6 +5968,11 @@ before it finished, so nothing in it ran. Usually one tool call carried too much
 work: write a large file in parts (create it with the first part, then add the rest with further \
 edits), keep each tool call well under the limit, and do not restate large content.";
 
+pub(crate) const REASONING_CAP_NUDGE: &str = "Your last reply spent its whole output limit on \
+private reasoning and was cut off before it said or did anything, so nothing ran. Do not work the \
+problem out in your head: take the next concrete step now with one tool call (run the tests, read \
+the failing case, or make one small edit) and keep your reasoning short.";
+
 /// A provider error meaning the reply hit its output-token cap: re-sending the
 /// same request hits the same cap (polyglot-v1 rust-decimal, DeepSeek: 25
 /// identical 8192-token cut-offs until the task wall).
@@ -5867,7 +5991,7 @@ timing, iteration order or state shared between tests or runs. Find that and fix
 tests pass every run. Re-running until green is not a fix.";
 
 /// Extra runs of the model's last passing test before "done" is accepted:
-/// `ANGEL_CONFIRM_GREEN_RUNS` (0-5), off unless set. It repeats only what the
+/// `ANGEL_CONFIRM_GREEN_RUNS` (0-5) when set; unset, see `confirm_green_by_chance`. It repeats only what the
 /// model already chose to run, as an in-turn check when the evaluator's own
 /// acceptance command is withheld. Opt-in on the evidence: a two-seed polyglot-v1
 /// A/B on DeepSeek V4.1 Flash (272 tasks per arm) solved 267 with it at 2 against
@@ -5878,6 +6002,109 @@ pub(crate) fn confirm_green_extra_runs(_competition: bool) -> usize {
         .ok()
         .and_then(|value| value.trim().parse::<usize>().ok())
         .map_or(0, |runs| runs.min(5))
+}
+
+/// Extra confirming runs when `ANGEL_CONFIRM_GREEN_RUNS` is unset but the code
+/// the model wrote draws on chance (see `edits_depend_on_chance`). Two runs of
+/// a test that fails half the time catch it three times in four.
+pub(crate) const CHANCE_CONFIRM_GREEN_RUNS: usize = 2;
+
+/// Whether the unset-`ANGEL_CONFIRM_GREEN_RUNS` default applies: task mode,
+/// where nobody reviews the answer, and never in competition. An explicit value,
+/// including 0, is the operator's choice and stands.
+pub(crate) fn confirm_green_by_chance(task_active: bool, competition: bool) -> bool {
+    task_active && !competition && std::env::var_os("ANGEL_CONFIRM_GREEN_RUNS").is_none()
+}
+
+/// Calls whose presence makes a passing test run a sample rather than a proof:
+/// random numbers, clocks, threads. A plain substring scan over the source the
+/// model edited; a false hit costs two test re-runs.
+const CHANCE_MARKERS: &[&str] = &[
+    // C and C++
+    "rand(",
+    "random_device",
+    "mt19937",
+    "_distribution<",
+    "std::chrono",
+    "std::thread",
+    "std::async",
+    // Rust
+    "rand::",
+    "thread_rng",
+    "SystemTime",
+    "Instant::now",
+    "thread::spawn",
+    "tokio::spawn",
+    // Python
+    "import random",
+    "from random",
+    "random.",
+    "uuid",
+    "time.time",
+    "datetime.now",
+    "threading",
+    "asyncio",
+    // JavaScript and TypeScript
+    "Math.random",
+    "crypto.random",
+    "Date.now",
+    "new Date(",
+    "setTimeout",
+    "setInterval",
+    // Go and Java
+    "math/rand",
+    "time.Now",
+    "go func",
+    "new Random(",
+    "ThreadLocalRandom",
+    "currentTimeMillis",
+];
+
+/// Whether any non-test source file the model edited draws on chance.
+/// polyglot-v1 cpp-robot-name: Grok 4.7 wrote a name generator that reused a
+/// released name about half the time; one green run was accepted in 5 of 14
+/// angelX runs. Other harnesses caught it only when their first run happened to
+/// fail.
+pub(crate) fn edits_depend_on_chance(
+    workspace: &Path,
+    edited: &std::collections::BTreeSet<String>,
+) -> bool {
+    edited
+        .iter()
+        .filter(|path| !is_test_path(path))
+        .any(|path| {
+            let path = Path::new(path);
+            let file = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                workspace.join(path)
+            };
+            std::fs::read_to_string(file)
+                .is_ok_and(|source| CHANCE_MARKERS.iter().any(|marker| source.contains(marker)))
+        })
+}
+
+/// A test or spec file by name: `*_test.*`, `*.test.*`, `*.spec.*`,
+/// `test_*.py`, or anything under a `test`/`tests`/`spec`/`__tests__` directory.
+pub(crate) fn is_test_path(path: &str) -> bool {
+    let path = path.replace('\\', "/");
+    let name = path
+        .rsplit('/')
+        .next()
+        .unwrap_or(&path)
+        .to_ascii_lowercase();
+    let stem = name.split('.').next().unwrap_or(&name);
+    path.split('/').rev().skip(1).any(|dir| {
+        matches!(
+            dir.to_ascii_lowercase().as_str(),
+            "test" | "tests" | "spec" | "specs" | "__tests__"
+        )
+    }) || name.contains(".test.")
+        || name.contains(".spec.")
+        || stem.ends_with("_test")
+        || stem.ends_with("_spec")
+        || stem.ends_with("test") && stem.len() > 4 && name.ends_with(".java")
+        || stem.starts_with("test_")
 }
 
 /// Re-run the model's last passing test call up to `extra` more times on the

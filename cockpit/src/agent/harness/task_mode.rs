@@ -965,7 +965,9 @@ wait of at most 30 seconds that returns early on exit; avoid shell sleep loops.\
      - One failed identical patch → change approach (more context, different path, or measure first).\n\
      - Working thought before every action: before invoking ANY tool (including `shell`, `read_file`, `write_file`, or `str_replace`), you MUST emit 1-2 concise sentences explaining your hypothesis, what you are checking or fixing, and what you expect the result to show. Interpret tool outputs and diagnostics in your next thought before acting.\n\
      - Clean rewrite on compile cascades: if consecutive compiler errors occur, step back and replace the module cleanly with `write_file` instead of accumulating micro-patches.\n\
-     - No redundant verifiers: never re-run tests or build commands unless the workspace code has changed.\n\
+     - No redundant verifiers: never re-run tests or build commands unless the workspace code has changed, \
+or the code depends on randomness, time or threads (then one pass can be luck: run it a few times).\n\
+     - Tests that came with the task are its contract: leave them as they are unless the task asks you to change them.\n\
      - Treat tool results as evidence: keep the earliest actual prerequisite failure; confirm \
 usable input before dependent measurements; stay inside allowed scratch; discover optional \
 dependencies and authorized reference paths from real tool errors and permissions. Do not score \

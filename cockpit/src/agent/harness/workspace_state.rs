@@ -190,6 +190,34 @@ pub(crate) fn changed_rust_paths_for_verification(root: &Path) -> Option<Vec<Str
     Some(paths.into_iter().collect())
 }
 
+/// Tracked files that differ from `HEAD` (edited, staged or deleted), relative
+/// to `root`. `None` when this is not a Git checkout or Git does not answer in
+/// time; untracked files are not included.
+pub(crate) fn changed_tracked_paths(root: &Path) -> Option<Vec<String>> {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let changed = git_output(
+        root,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--name-only",
+            "--relative",
+            "-z",
+            "HEAD",
+        ],
+        deadline,
+    )?;
+    if changed.len() > 2 * 1024 * 1024 {
+        return None;
+    }
+    changed
+        .split(|b| *b == 0)
+        .filter(|row| !row.is_empty())
+        .map(|raw| std::str::from_utf8(raw).ok().map(str::to_owned))
+        .collect()
+}
+
 // Capture-enabled recovery owns these exact isolated roots. A process-global
 // root map deliberately covers native metadata probes on child tool threads;
 // parent workspaces and unconfigured turns do not inherit the restriction.
