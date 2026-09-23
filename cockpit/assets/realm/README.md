@@ -12,6 +12,9 @@ Keep these graphics:
 - `journey/`: authored location plates, retained as artwork.
 - `doppelgangers/`: each model's darker twin from the first portrait poll,
   kept for the realm but not yet placed or read by code.
+- `avatars/`: the Round Table (one knight per model family, the agent
+  portraits to be) and the realm's inhabitants in pools by place, every look
+  chosen by the model itself; not yet read by code.
 
 Explicit room entry shows the approved location plate; leaving returns to
 Dotmax. Generic images, reports, and portraits use the ordinary image viewer.
