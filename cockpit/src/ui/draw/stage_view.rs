@@ -425,30 +425,9 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
     paint_halfblock_frame(frame, area, &overworld::frame_cached(&scene));
 }
 
-/// The live scene plus the HUD facts only the app knows: the route, its
-/// thinking level and how full the context window is.
+/// The live scene, plus the travel and arrival glass the stage is showing.
 fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
     let mut scene = app.world.overworld_scene();
-    let chrome = app.bag.in_hand_chrome();
-    scene.hud.model = chrome
-        .mode
-        .clone()
-        .unwrap_or_else(|| app.bag.in_hand_label().to_string());
-    scene.hud.think = chrome.effort.clone().unwrap_or_default();
-    let used = app
-        .tools
-        .gauge
-        .used_tokens
-        .load(std::sync::atomic::Ordering::Relaxed);
-    if used > 0
-        && let Some(percent) = app
-            .bag
-            .in_hand()
-            .header_route_metadata()
-            .context_usage_percent(used)
-    {
-        scene.hud.ctx_free = 100u32.saturating_sub(percent.min(100) as u32);
-    }
     // Travel and arrival cues, which used to take the whole pane, become a
     // glass over the map: the ride while the knight travels, the place's
     // painting when he arrives.

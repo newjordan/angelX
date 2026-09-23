@@ -286,14 +286,11 @@ impl World {
 
     /// Everything the pixel map shows, read from the live world.
     pub(crate) fn overworld_scene(&self) -> Scene {
-        let mut s = Scene::resting(&self.town_name);
-        s.renown = self.renown;
-        s.verified = self.verified_wins;
+        let mut s = Scene::resting();
         s.tier = self.level();
         let work = self.latest_active_work();
         s.active = work.map(|w| Place::of_building(w.landmark));
         s.tool = work.and_then(|w| tool_for(w.activity));
-        s.activity = self.activity.clone();
         s.knight = self.overworld.knight();
         let council = self
             .active_work()
