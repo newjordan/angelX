@@ -71,6 +71,13 @@ impl RlState {
         self.loop_context.is_some()
     }
 
+    /// The id of the loop this controller is bound to, if any.
+    pub(crate) fn bound_loop_id(&self) -> Option<&str> {
+        self.loop_context
+            .as_ref()
+            .map(|context| context.loop_id.as_str())
+    }
+
     pub(crate) fn bind_loop(&mut self, context: LoopCampaignContext) {
         if self.loop_account_owner.as_deref() != Some(&context.loop_id) {
             // A retiring worker retains its old counter and can never charge

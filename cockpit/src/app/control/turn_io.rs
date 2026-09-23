@@ -1279,6 +1279,7 @@ impl App {
                     self.relentless_execution = false;
                     if self.handoff_rl.active {
                         let note = self.handoff_rl.stop_for_guard(stop_reason.as_str());
+                        self.handoff_rl_unbind();
                         self.system_msg(note);
                     }
                 }
@@ -1400,8 +1401,10 @@ impl App {
                 // Prose alone never trips. Budgets match the agent loop.
                 if self.handoff_rl.active {
                     self.handoff_rl.charge_tokens(&reply);
+                    self.handoff_rl_charge_rl_tokens();
                     if let Some(why) = self.handoff_rl.budget_tripped() {
                         let msg = self.handoff_rl.stop_for_budget(&why);
+                        self.handoff_rl_unbind();
                         self.system_msg(msg);
                     } else if self.exit_request.is_none()
                         && let Some(demand) = self

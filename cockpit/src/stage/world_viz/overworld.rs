@@ -26,6 +26,8 @@ mod map;
 mod scene;
 mod sky;
 
+// The overworld tests read these through `use super::*`; live.rs imports glass directly.
+#[cfg(test)]
 pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
 pub(crate) use hud::HUD_H;
 pub(crate) use ink::Img;

@@ -10035,11 +10035,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
         app.cursor = app.input.chars().count();
         app.submit();
         assert!(
-            app.messages
-                .last()
-                .unwrap()
-                .text
-                .contains("Dotmax 3D"),
+            app.messages.last().unwrap().text.contains("Dotmax 3D"),
             "{command}"
         );
         assert!(!app.world.inside_interior());
@@ -10056,13 +10052,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
     let _ = render_app_text(&mut app, 120, 40);
     for _ in 0..8 {
         app.on_key(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
-        assert!(
-            app.messages
-                .last()
-                .unwrap()
-                .text
-                .contains("Dotmax 3D")
-        );
+        assert!(app.messages.last().unwrap().text.contains("Dotmax 3D"));
         assert!(!app.world.inside_interior());
         assert_eq!(
             app.world
@@ -13773,6 +13763,50 @@ fn handoff_rl_force_clear_inject_and_result_reforce() {
     if let Some(t) = app.thinking.take() {
         t.cancel.store(true, Ordering::Relaxed);
     }
+}
+
+/// The competition loop must hand the model the harness's RL tooling, as
+/// `/loop` does: while /handoff-rl runs, the RL controller is bound and
+/// rl_campaign is in the tool list; stopping the loop takes it away again.
+#[test]
+fn handoff_rl_binds_the_rl_tooling_for_the_model_and_unbinds_on_stop() {
+    use std::sync::atomic::Ordering;
+    let mut app = App::preview(Viewer::static_preview());
+    // The preview registry is bare; production registries carry the RL tools.
+    app.tools = std::sync::Arc::new(crate::agent::harness::ToolRegistry::with_defaults());
+    let before = app.tools.defs_for_run(None, true);
+    assert!(!before.iter().any(|d| d.name == "rl_campaign"));
+
+    let out = app.handoff_rl_start_immediate("improve the benchmark".into(), 0, false);
+    assert!(app.handoff_rl.active, "arm failed: {out}");
+    if let Some(t) = app.thinking.take() {
+        t.cancel.store(true, Ordering::Relaxed);
+    }
+    {
+        let rl = app.tools.rl();
+        assert!(rl.loop_enabled(), "handoff-rl must bind the RL controller");
+        assert!(
+            rl.bound_loop_id()
+                .is_some_and(|id| id.starts_with("handoff-rl-")),
+            "{:?}",
+            rl.bound_loop_id()
+        );
+    }
+    let during = app.tools.defs_for_run(None, true);
+    for tool in ["rl_campaign", "loop_research"] {
+        assert!(
+            during.iter().any(|d| d.name == tool),
+            "{tool} hidden during handoff-rl"
+        );
+    }
+
+    app.handoff_rl_command(Some("stop"));
+    assert!(
+        !app.tools.rl().loop_enabled(),
+        "stopping handoff-rl unbinds the RL controller"
+    );
+    let after = app.tools.defs_for_run(None, true);
+    assert!(!after.iter().any(|d| d.name == "rl_campaign"));
 }
 
 #[test]
