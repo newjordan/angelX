@@ -537,7 +537,6 @@ fn the_sky_follows_the_weather_and_stays_on_the_palette() {
     let fair = frame(&busy(17));
     for sky in [
         Weather::Clouds,
-        Weather::Drizzle,
         Weather::Rain,
         Weather::Storm,
         Weather::Rainbow,
@@ -557,6 +556,30 @@ fn the_sky_follows_the_weather_and_stays_on_the_palette() {
             );
         }
     }
+    // No rain: wet weather is shade, never falling streaks.
+    let mut wet = busy(17);
+    wet.weather = Weather::Storm;
+    let mut wet_later = busy(17);
+    wet_later.weather = Weather::Storm;
+    wet_later.tick = 18;
+    let mut dry_later = busy(17);
+    dry_later.weather = Weather::Clouds;
+    dry_later.tick = 18;
+    let changed = |a: &Img, b: &Img| a.pixels().zip(b.pixels()).filter(|(x, y)| x != y).count();
+    let mut dry = busy(17);
+    dry.weather = Weather::Clouds;
+    assert_eq!(
+        changed(&frame(&wet), &frame(&wet_later)),
+        changed(&frame(&dry), &frame(&dry_later)),
+        "a storm animates exactly like plain cloud"
+    );
+    let mut drizzle = busy(17);
+    drizzle.weather = Weather::Drizzle;
+    assert_eq!(
+        frame(&drizzle).rgba_bytes(),
+        fair.rgba_bytes(),
+        "drizzle draws nothing"
+    );
     let mut won = busy(9);
     won.fireworks = true;
     assert_ne!(frame(&won).rgba_bytes(), frame(&busy(9)).rgba_bytes());
