@@ -10213,22 +10213,19 @@ fn a_green_that_does_not_hold_denies_completion_with_the_failing_output() {
 }
 
 #[test]
-fn confirm_green_is_on_in_task_mode_only_unless_configured() {
+fn confirm_green_is_opt_in() {
     let _guard = crate::tests::env_lock();
     let _runs = EnvGuard::unset("ANGEL_CONFIRM_GREEN_RUNS");
-    {
-        let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
-        assert_eq!(confirm_green_extra_runs(false), 0);
-    }
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    assert_eq!(confirm_green_extra_runs(false), 2);
     assert_eq!(
-        confirm_green_extra_runs(true),
+        confirm_green_extra_runs(false),
         0,
-        "competition stays untouched"
+        "off in task mode unless set"
     );
-    let _set = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "4");
-    assert_eq!(confirm_green_extra_runs(true), 4);
+    let _set = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "2");
+    assert_eq!(confirm_green_extra_runs(false), 2);
+    let _many = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "9");
+    assert_eq!(confirm_green_extra_runs(true), 5, "capped at 5");
 }
 
 /// The command shapes Grok 4.7 used on cpp-robot-name: a test run with a

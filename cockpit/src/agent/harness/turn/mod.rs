@@ -5622,19 +5622,17 @@ timing, iteration order or state shared between tests or runs. Find that and fix
 tests pass every run. Re-running until green is not a fix.";
 
 /// Extra runs of the model's last passing test before "done" is accepted:
-/// `ANGEL_CONFIRM_GREEN_RUNS`, default 2 in task mode and 0 (off)
-/// interactively and in competition. This is the in-turn check for public task
-/// mode, where the evaluator's own acceptance command is withheld from the
-/// agent. It repeats only what the model already chose to run.
-pub(crate) fn confirm_green_extra_runs(competition: bool) -> usize {
-    if let Some(runs) = std::env::var("ANGEL_CONFIRM_GREEN_RUNS")
+/// `ANGEL_CONFIRM_GREEN_RUNS` (0-5), off unless set. It repeats only what the
+/// model already chose to run, as an in-turn check when the evaluator's own
+/// acceptance command is withheld. Opt-in on the evidence: a two-seed polyglot-v1
+/// A/B on DeepSeek V4.1 Flash (272 tasks per arm) solved 267 with it at 2 against
+/// 269 without, for 21% more agent time; 255 greens re-run, one flaky pass
+/// caught (cpp-robot-name).
+pub(crate) fn confirm_green_extra_runs(_competition: bool) -> usize {
+    std::env::var("ANGEL_CONFIRM_GREEN_RUNS")
         .ok()
         .and_then(|value| value.trim().parse::<usize>().ok())
-    {
-        return runs.min(5);
-    }
-    let task_mode = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value.trim() == "1");
-    if task_mode && !competition { 2 } else { 0 }
+        .map_or(0, |runs| runs.min(5))
 }
 
 /// Re-run the model's last passing test call up to `extra` more times on the
