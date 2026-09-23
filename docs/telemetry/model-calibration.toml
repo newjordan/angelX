@@ -69,6 +69,14 @@ u02_qualified = true
 
 [[models]]
 route = "grok"
+model = "grok-4.7"
+date = "2026-09-23"
+stream_stall_secs = 240
+reason = "polyglot-v1 seed0 at low: under the 45 s default, 21 calls sent no data for 45 s and were cut; cpp-grade-school retried into the 600 s wall. omp, OpenCode, Hermes and Prime bash on grok-4.7 completed calls of up to 80 s. Stall budget only; effort stays unmeasured."
+receipt = "angel_tests/angelX-bench/polyglot-20260921/sealed/grok-4.7-low-seed0-20260922T220254Z/results-grok-4.7-low-seed0-20260922T220254Z.json"
+
+[[models]]
+route = "grok"
 model = "grok-4.5"
 default_effort = "low"
 stream_stall_secs = 240

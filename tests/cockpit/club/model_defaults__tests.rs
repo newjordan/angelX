@@ -21,12 +21,13 @@ fn model_defaults_precedence_and_unknown() {
         (240, "table 2026-09-08".into())
     );
     assert_eq!(resolve(None, None::<u64>, 45, ""), (45, "provider".into()));
-    assert!(
-        !parse(EMBEDDED)
-            .unwrap()
-            .iter()
-            .any(|e| e.model == "grok-4.7")
-    );
+    let grok47 = parse(EMBEDDED)
+        .unwrap()
+        .into_iter()
+        .find(|e| e.model == "grok-4.7")
+        .expect("grok-4.7 carries a measured stall budget");
+    assert_eq!(grok47.stream_stall_secs, Some(240));
+    assert_eq!(grok47.default_effort, None);
 }
 #[test]
 fn model_defaults_toml_override() {
