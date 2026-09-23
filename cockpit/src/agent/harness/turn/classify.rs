@@ -1,9 +1,36 @@
 use super::*;
-/// A dispatch-level failure: the tool itself errored (bad path, missing arg,
-/// spawn failure, panic). Tool results that merely *report* a failure (a red
-/// `run_tests`, "no files match") are NOT errors — they're successful tool runs.
+/// A tool error: the tool itself failed (bad path, missing arg, spawn failure,
+/// panic), or a command it ran exited non-zero. The shell and test runners
+/// report a red run this way too, so the model cannot read it as success;
+/// [`is_red_verifier_run`] separates the two where that matters.
 pub(crate) fn is_error_result(s: &str) -> bool {
     s.starts_with("tool error:")
+}
+
+/// A verifier that ran and came back red: the tests or the compiler reported,
+/// and the process exited with a status (`<runner> failed (exit N)`). That is
+/// evidence about the code, not a call that failed to run. Exit 126/127 (not
+/// executable, not found) and deaths by signal never reached a verdict.
+pub(crate) fn is_red_verifier_run(call: &ToolCall, result: &str) -> bool {
+    if !is_error_result(result) || !is_verification_call(call) {
+        return false;
+    }
+    result
+        .lines()
+        .next()
+        .and_then(|header| header.split_once(" failed (exit "))
+        .and_then(|(_, rest)| rest.split_once(')'))
+        .and_then(|(code, _)| code.parse::<i32>().ok())
+        .is_some_and(|code| code != 126 && code != 127)
+}
+
+/// A call that gave the model nothing to act on: a tool error that is not a
+/// red verifier verdict. The consecutive-error breaker counts these. Counting
+/// red test runs as well stopped polyglot-v1 rust-decimal (DeepSeek V4.1
+/// Flash) at 67 s of 600 s, telling it to fix a path while its tests were
+/// simply failing.
+pub(crate) fn is_dispatch_failure(call: &ToolCall, result: &str) -> bool {
+    is_error_result(result) && !is_red_verifier_run(call, result)
 }
 
 /// Provider errors that mean retrying the exact same serialized request cannot
