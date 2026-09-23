@@ -1,21 +1,36 @@
-// Capture a scoreboard page (window.ready, window.renderFrame(p)) as an H.264 MP4 and/or a PNG
-// of its final frame. Same pipeline as scripts/render_scoreboard_mp4.cjs: headless Chromium over
-// the DevTools protocol, PNG frames piped into ffmpeg (libx264, yuv420p, faststart).
+// Capture a scoreboard page as an H.264 MP4 and/or a PNG of its final frame.
+// Same pipeline as scripts/render_scoreboard_mp4.cjs: headless Chromium over the DevTools
+// protocol, PNG frames piped into ffmpeg (libx264, yuv420p, faststart). The page's directory is
+// served on 127.0.0.1 so canvases can read its images (file:// would taint them).
 //
-// usage: node capture.cjs --html page.html --size 1080x1080 [--mp4 out.mp4] [--png final.png]
-//        [--fps 30] [--intro 0.6] [--run 9] [--hold 5.4]
+// Page contract: window.ready (promise), window.DURATION (s), window.renderAt(t) -> key|null
+// (an unchanged non-null key reuses the previous frame), window.renderFinal().
+//
+// usage: node capture.cjs --html dir/page.html --size 1080x1080 [--mp4 out.mp4] [--png final.png] [--fps 30]
 'use strict';
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const http = require('http');
 const { spawn } = require('child_process');
 
 function args() {
-  const a = process.argv.slice(2), o = { fps: 30, intro: 0.6, run: 9, hold: 5.4 };
+  const a = process.argv.slice(2), o = { fps: 30 };
   for (let i = 0; i < a.length; i += 2) o[a[i].replace(/^--/, '')] = a[i + 1];
   if (!o.html || !o.size) throw new Error('need --html and --size');
   const [w, h] = o.size.split('x').map(Number);
-  return { ...o, w, h, fps: +o.fps, intro: +o.intro, run: +o.run, hold: +o.hold };
+  return { ...o, w, h, fps: +o.fps };
+}
+
+const TYPES = { '.html': 'text/html; charset=utf-8', '.png': 'image/png', '.js': 'text/javascript', '.css': 'text/css' };
+function serve(root) {
+  const server = http.createServer((req, res) => {
+    const file = path.join(root, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+    if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+    fs.createReadStream(file).pipe(res);
+  });
+  return new Promise(r => server.listen(0, '127.0.0.1', () => r(server)));
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -35,14 +50,19 @@ async function devtoolsPort(dir, chrome) {
 
 async function main() {
   const o = args();
+  const root = path.dirname(path.resolve(o.html));
+  const server = await serve(root);
+  const url = `http://127.0.0.1:${server.address().port}/${path.basename(o.html)}`;
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'angelx-capture-'));
   const chrome = spawn('chromium', [
     '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars', '--no-first-run',
-    '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--window-size=${o.w},${o.h}`, 'about:blank',
+    '--force-color-profile=srgb', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
+    `--window-size=${o.w},${o.h}`, 'about:blank',
   ], { stdio: 'ignore' });
   const cleanup = () => {
     try { chrome.kill(); } catch (e) { /* already gone */ }
     try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+    server.close();
   };
   process.on('exit', cleanup);
 
@@ -86,40 +106,34 @@ async function main() {
   await cdp('Runtime.enable');
   await cdp('Emulation.setDeviceMetricsOverride', { width: o.w, height: o.h, deviceScaleFactor: 1, mobile: false });
   const loaded = once('Page.loadEventFired');
-  await cdp('Page.navigate', { url: 'file://' + path.resolve(o.html) });
+  await cdp('Page.navigate', { url });
   await loaded;
   const info = await evaluate('window.ready');
-  console.log(`${path.basename(o.html)}: ${o.w}x${o.h}, grid pitch ${info.pitch}px, stage ${Math.round(info.height)}px`);
+  console.log(`${path.basename(o.html)}: ${o.w}x${o.h}, grid pitch ${info.pitch}px, stage ${Math.round(info.height)}px`
+    + (info.sword !== undefined ? `, excalibur ${info.sword ? 'on' : 'unavailable'}` : ''));
 
   if (o.mp4) {
-    const intro = Math.round(o.intro * o.fps), run = Math.round(o.run * o.fps), hold = Math.round(o.hold * o.fps);
-    const total = intro + run + hold;
+    const duration = await evaluate('window.DURATION');
+    const total = Math.round(duration * o.fps);
     const ff = spawn('ffmpeg', [
       '-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(o.fps), '-c:v', 'png', '-i', '-',
       '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p',
       '-r', String(o.fps), '-movflags', '+faststart', o.mp4,
     ], { stdio: ['pipe', 'inherit', 'inherit'] });
     const closed = new Promise((res, rej) => ff.on('close', c => (c === 0 ? res() : rej(new Error('ffmpeg exited ' + c)))));
-    let last = null, first = null;
+    let lastKey = null, lastBuf = null, shots = 0;
     for (let f = 0; f < total; f++) {
-      let buf;
-      if (f < intro && first) buf = first;
-      else if (f >= intro + run && last) buf = last;
-      else {
-        const p = f < intro ? 0 : Math.min(1, (f - intro) / (run - 1));
-        await evaluate(`window.renderFrame(${p})`);
-        buf = await shot();
-        if (f < intro) first = buf;
-        if (p === 1) last = buf;
-      }
-      if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
+      const key = await evaluate(`window.renderAt(${f / o.fps})`);
+      if (key === null || key !== lastKey || !lastBuf) { lastBuf = await shot(); shots++; }
+      lastKey = key;
+      if (!ff.stdin.write(lastBuf)) await new Promise(r => ff.stdin.once('drain', r));
     }
     ff.stdin.end();
     await closed;
-    console.log(`wrote ${o.mp4} (${total} frames, ${(total / o.fps).toFixed(1)} s)`);
+    console.log(`wrote ${o.mp4} (${total} frames, ${(total / o.fps).toFixed(1)} s, ${shots} captured)`);
   }
   if (o.png) {
-    await evaluate('window.renderFrame(1)');
+    await evaluate('window.renderFinal()');
     fs.writeFileSync(o.png, await shot());
     console.log(`wrote ${o.png}`);
   }
