@@ -24,11 +24,12 @@ mod light;
 mod live;
 mod map;
 mod scene;
+mod sky;
 
 pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
 pub(crate) use hud::HUD_H;
 pub(crate) use ink::Img;
-pub(crate) use live::{Walker, soldier_state};
+pub(crate) use live::{Duel, Walker, soldier_state};
 pub(crate) use map::{MAP_H, MAP_W, SCREEN_H, SCREEN_W, TILE};
 pub(crate) use scene::{Scene, SoldierKind, SoldierState};
 
@@ -37,7 +38,7 @@ use kit::Tool;
 #[cfg(test)]
 use map::Place;
 #[cfg(test)]
-use scene::{Hud, Joust, Knight, Soldier, Ward};
+use scene::{Hud, Joust, Knight, Soldier, Ward, Weather};
 
 use kit::{RockKind, Tiles};
 use map::Realm;
@@ -138,8 +139,15 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
         (view.x, view.y),
         scene.ambient,
     );
+    sky::weather(&mut cv, scene.weather, scene.tick, (view.x, view.y));
+    if scene.fireworks {
+        sky::fireworks(&mut cv, scene.tick, (view.x, view.y));
+    }
     for &(x, y, w, h) in &staged.beacons {
         kit::beacon(&mut cv, (x - view.x, y - view.y, w, h), scene.tick);
+    }
+    for c in &staged.cues {
+        cv.stamp(&c.img, c.x - view.x, c.base - c.img.h - view.y);
     }
     cv
 }

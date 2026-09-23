@@ -20,10 +20,13 @@ use super::ink::{BANK, PALETTE, SIGNAL_BANK, rgb};
 use super::kit::Tool;
 use super::light::DUSK;
 use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE};
-use super::scene::{Knight, Scene, Soldier, SoldierState, Ward, Weather};
+use super::scene::{Joust, Knight, Scene, Soldier, SoldierState, Ward, Weather};
 
 /// Walking pace in world pixels per world tick (the world ticks at 40 Hz).
 const PACE: f32 = 1.5;
+/// Trail samples kept, and the samples between companions (about 13 px).
+const TRAIL: usize = 64;
+const FOLLOW_GAP: usize = 9;
 
 /// The knight's walk across the realm.
 #[derive(Clone, Debug, PartialEq)]
@@ -32,6 +35,8 @@ pub(crate) struct Walker {
     y: f32,
     goal: Place,
     path: VecDeque<(i32, i32)>,
+    /// Where he has just been, newest first — the party walks in his steps.
+    trail: VecDeque<(f32, f32)>,
 }
 
 impl Default for Walker {
@@ -42,6 +47,7 @@ impl Default for Walker {
             y: home.y,
             goal: Place::Keep,
             path: VecDeque::new(),
+            trail: VecDeque::new(),
         }
     }
 }
@@ -57,6 +63,7 @@ impl Walker {
             self.goal = goal;
             self.path = route(self.tile(), goal.stand()).into();
         }
+        let before = (self.x, self.y);
         let mut stride = PACE;
         while stride > 0.0 {
             let Some(&next) = self.path.front() else {
@@ -75,6 +82,27 @@ impl Walker {
                 stride = 0.0;
             }
         }
+        if (self.x, self.y) != before {
+            self.trail.push_front(before);
+            self.trail.truncate(TRAIL);
+        }
+    }
+
+    /// Where `n` companions stand: at intervals along his trail, or in a
+    /// short file behind him before he has walked anywhere.
+    pub(crate) fn followers(&self, n: usize) -> Vec<(f32, f32)> {
+        (1..=n)
+            .map(|i| match self.trail.get(i * FOLLOW_GAP) {
+                Some(&p) => p,
+                None => self
+                    .trail
+                    .back()
+                    .copied()
+                    .map_or((self.x - 12.0 * i as f32, self.y), |(x, y)| {
+                        (x - 3.0 * i as f32, y)
+                    }),
+            })
+            .collect()
     }
 
     pub(crate) fn knight(&self) -> Knight {
@@ -322,7 +350,32 @@ impl World {
             Weather::Fair
         };
         s.fireworks = self.tick < self.firework_until;
-        s.ambient = ambient_for(self.hearth.daylight());
+        s.ambient = ambient_for(self.hearth.daylight())
+            - match s.weather {
+                Weather::Rain | Weather::Storm => 0.05,
+                Weather::Clouds | Weather::Drizzle => 0.03,
+                _ => 0.0,
+            };
+        let quest = &self.quest;
+        s.party = self.overworld.followers(usize::from(quest.party()).min(4));
+        s.chests = (quest.treasures(), quest.empty_chests());
+        s.dragon = self.loop_active && quest.region() == Region::DragonKeep;
+        s.wisps = self.loop_active && quest.region() == Region::Swamp;
+        if let Some(duel) = &self.overworld_duel {
+            let charging = duel.states.iter().all(|&st| st == SoldierState::Running);
+            let score = |seat: &String| self.lists_tally.get(seat).copied().unwrap_or(0);
+            s.joust = Some(Joust {
+                red: duel.seats[0].clone(),
+                blue: duel.seats[1].clone(),
+                red_score: score(&duel.seats[0]),
+                blue_score: score(&duel.seats[1]),
+                charge: if charging {
+                    (self.tick.saturating_sub(duel.since) % 96) as f32 / 96.0
+                } else {
+                    1.0
+                },
+            });
+        }
         s.tick = self.tick as u32;
         s
     }
@@ -387,6 +440,54 @@ impl World {
             live: true,
             picture,
             sequence,
+        }
+    }
+}
+
+/// A two-seat fan-out stage, fought at the Lists.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Duel {
+    stage_id: u64,
+    seats: [String; 2],
+    states: [SoldierState; 2],
+    since: u64,
+}
+
+impl World {
+    /// Mirror the published fan-out stage onto the Lists: exactly two seats
+    /// is a duel; a seat coming back with a result scores for its label in
+    /// the session tally. Any other stage ends the duel; the tally stays.
+    pub(crate) fn note_duel(
+        &mut self,
+        stage_id: u64,
+        agents: &[String],
+        states: &[crate::ui::viz::agentviz::SeatState],
+    ) {
+        if agents.len() != 2 {
+            self.overworld_duel = None;
+            return;
+        }
+        if self
+            .overworld_duel
+            .as_ref()
+            .is_none_or(|d| d.stage_id != stage_id)
+        {
+            self.overworld_duel = Some(Duel {
+                stage_id,
+                seats: [agents[0].clone(), agents[1].clone()],
+                states: [SoldierState::Running; 2],
+                since: self.tick,
+            });
+        }
+        let Some(duel) = self.overworld_duel.as_mut() else {
+            return;
+        };
+        for i in 0..2 {
+            let now = states.get(i).map_or(SoldierState::Running, soldier_state);
+            if now == SoldierState::Returned && duel.states[i] != SoldierState::Returned {
+                *self.lists_tally.entry(duel.seats[i].clone()).or_default() += 1;
+            }
+            duel.states[i] = now;
         }
     }
 }

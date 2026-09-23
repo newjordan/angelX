@@ -233,6 +233,36 @@ fn write_overworld_shots() {
     riding.knight.walking = true;
     riding.glass = Some(world.overworld_ride_glass(crate::stage::world_viz::Building::Chapel));
     save("glass_ride.ppm", &frame_at(&riding, View::screen(1, 1)));
+    for (name, sky) in [
+        ("rain", Weather::Rain),
+        ("storm", Weather::Storm),
+        ("rainbow", Weather::Rainbow),
+        ("clouds", Weather::Clouds),
+    ] {
+        let mut s = busy(17);
+        s.weather = sky;
+        save(
+            &format!("sky_{name}.ppm"),
+            &frame_at(&s, View::screen(1, 1)),
+        );
+    }
+    let mut win = busy(9);
+    win.fireworks = true;
+    save("fireworks.ppm", &frame_at(&win, View::screen(1, 1)));
+    let mut quest = busy(6);
+    quest.knight = Knight::at_place(Place::DragonKeep);
+    quest.party = vec![(640.0, 110.0), (628.0, 104.0), (616.0, 98.0)];
+    quest.dragon = true;
+    save("dragon.ppm", &frame_at(&quest, View::screen(2, 0)));
+    let mut mine = busy(6);
+    mine.knight = Knight::at_place(Place::Mines);
+    mine.chests = (3, 2);
+    save("mines.ppm", &frame_at(&mine, View::screen(1, 0)));
+    let mut bog = busy(6);
+    bog.knight = Knight::at_place(Place::Swamp);
+    bog.wisps = true;
+    save("swamp.ppm", &frame_at(&bog, View::screen(0, 2)));
+    save("wards.ppm", &frame_at(&busy(6), View::screen(3, 1)));
 }
 
 #[test]
@@ -473,4 +503,105 @@ fn the_ride_glass_shows_the_dotmax_saddle_view() {
         std::sync::Arc::ptr_eq(&ride.picture, &again.picture),
         "same frame, cached"
     );
+}
+
+// ─── the world built out ─────────────────────────────────────────────────────
+
+#[test]
+fn the_sky_follows_the_weather_and_stays_on_the_palette() {
+    let fair = frame(&busy(17));
+    for sky in [
+        Weather::Clouds,
+        Weather::Drizzle,
+        Weather::Rain,
+        Weather::Storm,
+        Weather::Rainbow,
+    ] {
+        let mut s = busy(17);
+        s.weather = sky;
+        let f = frame(&s);
+        assert_ne!(
+            f.rgba_bytes(),
+            fair.rgba_bytes(),
+            "{sky:?} changes the frame"
+        );
+        for c in f.pixels() {
+            assert!(
+                c == BLACK || palette_index(c).is_some(),
+                "{sky:?}: off-palette {c:?}"
+            );
+        }
+    }
+    let mut won = busy(9);
+    won.fireworks = true;
+    assert_ne!(frame(&won).rgba_bytes(), frame(&busy(9)).rgba_bytes());
+}
+
+#[test]
+fn the_party_walks_in_the_knights_steps() {
+    let mut w = Walker::default();
+    for _ in 0..200 {
+        w.toward(Place::Scriptorium);
+    }
+    let followers = w.followers(3);
+    assert_eq!(followers.len(), 3);
+    let k = w.knight();
+    for (i, &(x, y)) in followers.iter().enumerate() {
+        let d = ((x - k.x).powi(2) + (y - k.y).powi(2)).sqrt();
+        assert!(
+            d > 4.0 * (i + 1) as f32,
+            "follower {i} keeps its distance ({d})"
+        );
+        assert!(d < 60.0 * (i + 1) as f32, "follower {i} keeps up ({d})");
+    }
+}
+
+#[test]
+fn a_two_seat_stage_is_a_duel_at_the_lists() {
+    use crate::ui::viz::agentviz::SeatState;
+    let mut world = World::new(7);
+    let seats = vec!["glm-5.3".to_string(), "deepseek".to_string()];
+    world.note_duel(11, &seats, &[]);
+    let j = world.overworld_scene().joust.expect("a duel rides");
+    assert_eq!((j.red.as_str(), j.blue.as_str()), ("glm-5.3", "deepseek"));
+    assert_eq!((j.red_score, j.blue_score), (0, 0));
+    world.note_duel(11, &seats, &[SeatState::Returned, SeatState::Running]);
+    world.note_duel(11, &seats, &[SeatState::Returned, SeatState::Failed]);
+    let j = world.overworld_scene().joust.expect("still riding");
+    assert_eq!((j.red_score, j.blue_score), (1, 0), "a result scores once");
+    assert_eq!(j.charge, 1.0, "the pass is over");
+    world.note_duel(12, &["a".into(), "b".into(), "c".into()], &[]);
+    assert!(
+        world.overworld_scene().joust.is_none(),
+        "three seats muster, they do not joust"
+    );
+    world.note_duel(13, &seats, &[SeatState::Running, SeatState::Returned]);
+    let j = world.overworld_scene().joust.unwrap();
+    assert_eq!(
+        (j.red_score, j.blue_score),
+        (1, 1),
+        "the tally is the session's ladder"
+    );
+}
+
+#[test]
+fn the_adventure_shows_what_the_quest_holds() {
+    let base = scene::stage(&busy(3)).props.len();
+    let mut s = busy(3);
+    s.dragon = true;
+    s.chests = (2, 1);
+    s.wisps = true;
+    s.party = vec![(300.0, 300.0), (290.0, 300.0)];
+    let staged = scene::stage(&s);
+    assert_eq!(
+        staged.props.len(),
+        base + 1 + 3 + 3 + 2,
+        "dragon, chests, wisps, party"
+    );
+    assert!(
+        staged.lights.len() > scene::stage(&busy(3)).lights.len(),
+        "fire and wisps glow"
+    );
+    let resting = Scene::resting("Dologard");
+    assert!(!resting.dragon && !resting.wisps && resting.party.is_empty());
 }

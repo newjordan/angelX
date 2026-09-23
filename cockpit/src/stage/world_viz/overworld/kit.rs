@@ -1147,6 +1147,144 @@ pub(crate) fn soldier(s: Soldier) -> Img {
     im
 }
 
+/// A companion on the quest, robed in the party's ink.
+pub(crate) fn squire(robe: char) -> Img {
+    let rows = [
+        "...hhh....",
+        "..hHHhJ...",
+        "..JhhhJ...",
+        "...JhJ....",
+        "..RRRRR...",
+        ".hRRRRRh..",
+        "..RRRRR...",
+        "..RR.RR...",
+        "..J...J...",
+    ];
+    let rows: Vec<String> = rows
+        .iter()
+        .map(|r| r.replace('R', &robe.to_string()))
+        .collect();
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    Img::from_rows(&refs)
+}
+
+/// The dragon curled on the ruined keep; `breathing` while a gate judges.
+/// Its scales are half signal red: a judging gate is live state and must
+/// read at a glance.
+pub(crate) fn dragon(breathing: bool, tick: u32) -> Img {
+    let mut im = Img::new(72, 46);
+    // wings behind, ribbed
+    for (x0, dir) in [(24, -1), (42, 1)] {
+        for i in 0..17 {
+            let h = 20 - i;
+            let ink = if i % 4 == 0 {
+                '8'
+            } else if i % 2 == 0 {
+                'p'
+            } else {
+                'b'
+            };
+            im.line(x0 + dir * i, 20 - h / 2, x0 + dir * i, 20 + h / 3, ink);
+        }
+    }
+    let body = blob(
+        72,
+        46,
+        &[
+            (31.0, 31.0, 15.0, 9.0),
+            (44.0, 23.0, 7.0, 7.0),
+            (51.0, 14.0, 7.5, 5.5),
+            (15.0, 34.0, 8.0, 4.5),
+        ],
+        &['n', '8', 'p', '7', 'R', 'o'],
+        0.3,
+        17,
+        3.0,
+    );
+    im.stamp(&body, 0, 0);
+    for t in 0..18 {
+        let a = t as f32 * 0.3;
+        im.ellipse(
+            15.0 - a.cos() * 10.0,
+            39.0 - a.sin() * 4.0,
+            2.0,
+            1.7,
+            if t % 2 == 0 { '7' } else { 'p' },
+        );
+    }
+    im.outline_inside('n');
+    // horns, eye and jaw
+    im.line(49, 9, 46, 5, 'h');
+    im.line(52, 9, 51, 4, 'h');
+    im.rect(54, 12, 2, 2, '6');
+    im.put(55, 12, '5');
+    im.line(55, 17, 58, 17, 'n');
+    if breathing {
+        for k in 0..30 {
+            let spread = k / 4;
+            let jitter = (hash(k, tick as i32, 231) % 5) as i32 - 2;
+            let (x, y) = (59 + k * 2 / 3, 16 + jitter * spread / 3);
+            let ink = if k < 8 {
+                '6'
+            } else if k < 18 {
+                '5'
+            } else {
+                '@'
+            };
+            im.put(x, y, ink);
+            im.put(x, y + 1, if k < 12 { '5' } else { '@' });
+            if spread > 1 {
+                im.put(x, y + spread / 2 + 1, '@');
+                im.put(x, y - spread / 2, 'a');
+            }
+        }
+    }
+    im
+}
+
+/// A treasure chest: gold-banded and shut, or open and empty.
+pub(crate) fn chest(full: bool) -> Img {
+    if full {
+        Img::from_rows(&[
+            ".kkkkkkkkkk.",
+            "k4rRRRRRRr4k",
+            "k4RRRRRRRR4k",
+            "k4444664444k",
+            "k4BBBBBBBB4k",
+            "k4BBB55BBB4k",
+            "k4BBBBBBBB4k",
+            ".kkkkkkkkkk.",
+        ])
+    } else {
+        Img::from_rows(&[
+            ".kkkkkkkkkk.",
+            "krRRRRRRRRrk",
+            ".kkkkkkkkkk.",
+            "kBnnnnnnnnBk",
+            "kBnnnnnnnnBk",
+            "kBBBBBBBBBBk",
+            "kBBBBBBBBBBk",
+            ".kkkkkkkkkk.",
+        ])
+    }
+}
+
+/// A will-o'-wisp over the swamp.
+pub(crate) fn wisp() -> Img {
+    Img::from_rows(&["...2...", "..232..", ".23w32.", "..232..", "...2..."])
+}
+
+/// A name plaque: readable text on a dark board.
+pub(crate) fn plaque(name: &str) -> Img {
+    let text: String = name.to_uppercase().chars().take(7).collect();
+    let w = super::ink::text_width(&text) + 6;
+    let mut im = Img::new(w, 11);
+    im.rect(0, 0, w, 11, 'K');
+    im.frame(0, 0, w, 11, 'B');
+    im.text(3, 2, &text, '9');
+    im
+}
+
 pub(crate) fn dust(k: i32) -> Img {
     let mut im = Img::new(5, 4);
     let r = 1.0 + (3 - k) as f32 * 0.5;
