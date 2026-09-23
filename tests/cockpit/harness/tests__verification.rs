@@ -349,6 +349,53 @@ fn verifier_outcomes_do_not_confuse_dispatch_with_green_evidence() {
     );
 }
 
+/// A JavaScript test runner called directly is a test run, as `npm test` is.
+/// polyglot-v1 js-forth: DeepSeek ran `npx jest` about 30 times, and none of
+/// its red runs reached the verifier state.
+#[test]
+fn direct_js_test_runners_are_verification_calls() {
+    let shell = |command: &str| ToolCall {
+        id: String::new(),
+        name: "shell".into(),
+        args: serde_json::json!({"command": command}),
+    };
+    for command in [
+        "npx jest forth.spec.js 2>&1 | tail -30",
+        "cd ws && npx jest forth.spec.js 2>&1 | sed -n '1,80p'",
+        "npx --yes vitest run",
+        "bunx vitest run src",
+        "pnpm exec mocha test/",
+        "pnpm vitest run",
+        "yarn jest --ci",
+        "npm exec -- jest",
+        "./node_modules/.bin/jest -i",
+        "CI=true jest",
+        "mocha",
+    ] {
+        assert!(is_verification_call(&shell(command)), "{command}");
+        assert_eq!(
+            verification_outcome(&shell(command), "tool error: shell command failed (exit 1)"),
+            Some(VerificationOutcome::Failed),
+            "{command}"
+        );
+        assert!(
+            !verification_is_completion_sufficient(&shell(command)),
+            "a raw shell run is never durable green: {command}"
+        );
+    }
+    for command in [
+        "npx prettier --check .",
+        "npx tsc --noEmit",
+        "cat jest.config.js",
+        "grep -n jest package.json",
+        "echo jest",
+        "npm install jest",
+        "yarn add -D vitest",
+    ] {
+        assert!(!is_verification_call(&shell(command)), "{command}");
+    }
+}
+
 #[test]
 fn execution_events_do_not_classify_successful_output_as_cancellation_or_panic() {
     let call = ToolCall {
