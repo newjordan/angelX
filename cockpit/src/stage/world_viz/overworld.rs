@@ -128,7 +128,7 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
             if wx < 0 || wy < 0 || wx >= realm_w || wy >= realm_h {
                 continue;
             }
-            if let Some(ch) = ground::mark(realm, wx, wy) {
+            if let Some(ch) = ground::mark(realm, wx, wy, scene.tick) {
                 cv.put(x, y, ch);
             }
         }
@@ -152,6 +152,7 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
         }
     }
     let mut staged = scene::stage(scene);
+    lava_glow(&mut staged.lights, view, scene.tick);
     staged.props.sort_by_key(|p| p.base);
     for p in &staged.props {
         let top = p.base - p.img.h;
@@ -177,6 +178,41 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
         cv.stamp(&c.img, c.x - view.x, c.base - c.img.h - view.y);
     }
     cv
+}
+
+/// Lava warms what is near it: one breathing firelight per 2x2 block of
+/// lava tiles touching the view.
+fn lava_glow(lights: &mut Vec<light::Light>, view: View, tick: u32) {
+    let realm = Realm::get();
+    let margin = 3 * TILE;
+    let (bx0, by0) = (
+        (view.x - margin).div_euclid(TILE * 2),
+        (view.y - margin).div_euclid(TILE * 2),
+    );
+    let (bx1, by1) = (
+        (view.x + view.w + margin).div_euclid(TILE * 2),
+        (view.y + view.h + margin).div_euclid(TILE * 2),
+    );
+    for by in by0.max(0)..=by1.min(MAP_H / 2) {
+        for bx in bx0.max(0)..=bx1.min(MAP_W / 2) {
+            let molten = (0..2)
+                .flat_map(|dy| (0..2).map(move |dx| (bx * 2 + dx, by * 2 + dy)))
+                .filter(|&(tx, ty)| {
+                    tx < MAP_W && ty < MAP_H && matches!(realm.at(tx, ty), b'L' | b'F')
+                })
+                .count();
+            if molten > 0 {
+                let breath = 0.9 + 0.1 * (tick as f32 * 0.4 + (bx * 7 + by * 3) as f32).sin();
+                lights.push(light::Light {
+                    x: ((bx * 2 + 1) * TILE) as f32,
+                    y: ((by * 2 + 1) * TILE) as f32,
+                    r: 34.0,
+                    s: (0.14 + 0.07 * molten as f32) * breath,
+                    fire: true,
+                });
+            }
+        }
+    }
 }
 
 /// A frame: one view of the map, rim vignetted, with any glass laid over.
@@ -264,11 +300,12 @@ pub(crate) fn map_enabled() -> bool {
     })
 }
 
-/// Settle a live scene onto the map's own cadence: animation steps about
-/// seven times a second (half that while a turn runs) and the knight moves
-/// in whole pixels, so an idle realm re-encodes rarely.
+/// Settle a live scene onto the map's own cadence. Ambient motion — water,
+/// lava, breathing fires — steps about four times a second (twice while a
+/// turn runs): slow and smooth, and an idle realm re-encodes rarely. The
+/// knight and the camera move in whole pixels.
 pub(crate) fn pace(scene: &mut Scene, relaxed: bool) {
-    scene.tick /= if relaxed { 12 } else { 6 };
+    scene.tick /= if relaxed { 20 } else { 10 };
     scene.knight.x = scene.knight.x.round();
     scene.knight.y = scene.knight.y.round();
     scene.camera = (scene.camera.0.round(), scene.camera.1.round());

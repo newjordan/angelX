@@ -2,7 +2,9 @@
 //!
 //! The ground is never filled. Each terrain leaves sparse marks — grass
 //! tufts, road pebbles, wave dashes, stone joints — and everything between
-//! them stays black. Every mark is a pure function of the world pixel.
+//! them stays black. Water and lava move, slowly: wave dashes drift,
+//! streams run downhill, falls pour and lava creeps, one pixel per ambient
+//! step. Every mark is a pure function of the world pixel and that step.
 
 use super::ink::{bayer, hash, vnoise};
 use super::map::{Realm, TILE};
@@ -11,12 +13,17 @@ fn road_like(t: u8) -> bool {
     matches!(t, b'=' | b':' | b'H')
 }
 
-/// The ink at a world pixel, or `None` for black paper.
-pub(crate) fn mark(realm: &Realm, wx: i32, wy: i32) -> Option<char> {
+/// The ink at a world pixel at ambient step `tick`, or `None` for black paper.
+pub(crate) fn mark(realm: &Realm, wx: i32, wy: i32, tick: u32) -> Option<char> {
     let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
     let (lx, ly) = (wx.rem_euclid(TILE), wy.rem_euclid(TILE));
+    let t = tick as i32;
     match realm.at(tx, ty) {
-        b'~' => water(realm, wx, wy),
+        b'~' => water(realm, wx, wy, t),
+        b'w' => Some(stream(realm, wx, wy, (tx, ty), t)),
+        b'f' => Some(fall(realm, wx, wy, (tx, ty), t, false)),
+        b'L' => Some(lava(realm, wx, wy, (tx, ty), t)),
+        b'F' => Some(fall(realm, wx, wy, (tx, ty), t, true)),
         b'=' => road(realm, wx, wy, (tx, ty), (lx, ly)),
         b':' => cobble(wx, wy),
         b's' => sand(wx, wy),
@@ -41,7 +48,8 @@ pub(crate) fn mark(realm: &Realm, wx: i32, wy: i32) -> Option<char> {
 /// What a light pool shows on bare paper: a dim ink matching the ground.
 pub(crate) fn pool_ink(realm: &Realm, wx: i32, wy: i32, fire: bool) -> char {
     match realm.at_px(wx, wy) {
-        b'~' => 'q',
+        b'~' | b'w' | b'f' => 'q',
+        b'L' | b'F' => 'p',
         b'=' | b's' => {
             if fire {
                 'B'
@@ -138,8 +146,9 @@ fn cobble(wx: i32, wy: i32) -> Option<char> {
     })
 }
 
-fn water(realm: &Realm, wx: i32, wy: i32) -> Option<char> {
-    let land = |x: i32, y: i32| realm.at_px(x, y) != b'~';
+/// Still water: a pale shoreline and wave dashes drifting east.
+fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
+    let land = |x: i32, y: i32| !matches!(realm.at_px(x, y), b'~' | b'w' | b'f');
     let mut shore = i32::MAX;
     for k in 1..=4 {
         if land(wx - k, wy) || land(wx + k, wy) || land(wx, wy - k) || land(wx, wy + k) {
@@ -153,11 +162,12 @@ fn water(realm: &Realm, wx: i32, wy: i32) -> Option<char> {
         2 => return ((wx + wy) % 2 == 0).then_some('q'),
         _ => {}
     }
-    let (cx, cy) = (wx.div_euclid(9), wy.div_euclid(6));
+    let dx = wx - t / 2;
+    let (cx, cy) = (dx.div_euclid(9), wy.div_euclid(6));
     let h = hash(cx, cy, 9);
     if h % 2 == 0 {
         let (ox, oy) = (((h >> 4) % 5) as i32, ((h >> 8) % 5) as i32);
-        let (lx, ly) = (wx.rem_euclid(9), wy.rem_euclid(6));
+        let (lx, ly) = (dx.rem_euclid(9), wy.rem_euclid(6));
         if ly == oy && lx >= ox && lx < ox + 4 {
             return Some(if lx == ox + 1 { 'Q' } else { 'q' });
         }
@@ -214,5 +224,79 @@ fn planks(wx: i32, wy: i32) -> char {
         'r'
     } else {
         'R'
+    }
+}
+
+/// Which way a watercourse runs through tile `(tx, ty)`: down when it
+/// continues above or below, east otherwise.
+fn runs_down(realm: &Realm, (tx, ty): (i32, i32), course: &[u8]) -> bool {
+    course.contains(&realm.at(tx, ty - 1)) || course.contains(&realm.at(tx, ty + 1))
+}
+
+/// A stream: dark water with pale streaks sliding along its course.
+fn stream(realm: &Realm, wx: i32, wy: i32, tile: (i32, i32), t: i32) -> char {
+    let down = runs_down(realm, tile, b"wf~");
+    let (along, across) = if down { (wy - t, wx) } else { (wx - t, wy) };
+    let lane = hash(across, 0, 431) % 5;
+    match (along + (hash(across, 1, 432) % 11) as i32).rem_euclid(9) {
+        0 if lane < 2 => 'z',
+        0 | 1 if lane < 3 => 'Q',
+        _ if (wx + wy) % 2 == 0 => 'q',
+        _ => 'S',
+    }
+}
+
+/// A fall pouring down a cliff face — water, or lava — with foam or
+/// spatter where it lands.
+fn fall(realm: &Realm, wx: i32, wy: i32, (tx, ty): (i32, i32), t: i32, molten: bool) -> char {
+    let same = if molten { b'F' } else { b'f' };
+    let landing = realm.at(tx, ty + 1) != same && wy.rem_euclid(TILE) >= TILE - 3;
+    let phase = (wy - t * 2 + (hash(wx, 0, 441) % 7) as i32).rem_euclid(6);
+    // Mostly dark water with streaks sliding down it; spray where it lands.
+    let streak = hash(wx, 1, 444) % 3 == 0;
+    match (molten, landing, phase) {
+        (false, true, _) => match hash(wx, wy + t, 442) % 4 {
+            0 => 'V',
+            1 => 'z',
+            _ => 'Q',
+        },
+        (true, true, _) => match hash(wx, wy + t, 443) % 4 {
+            0 => 'o',
+            1 => 'R',
+            _ => 'p',
+        },
+        (false, false, 0) if streak => 'z',
+        (false, false, 0 | 1) => 'Q',
+        (false, false, 2 | 3) => 'q',
+        (false, false, _) => 'S',
+        (true, false, 0) if streak => 'o',
+        (true, false, 0 | 1) => 'R',
+        (true, false, 2 | 3) => 'p',
+        (true, false, _) => 'B',
+    }
+}
+
+/// Lava: a warm crust creeping along its course, glowing through cracks.
+fn lava(realm: &Realm, wx: i32, wy: i32, tile: (i32, i32), t: i32) -> char {
+    let down = runs_down(realm, tile, b"LF");
+    let (along, across) = if down {
+        (wy - t / 2, wx)
+    } else {
+        (wx - t / 2, wy)
+    };
+    // Mostly dark crust; the warm melt shows through in slow-moving seams.
+    let crust = vnoise(along as f32 / 6.0, across as f32 / 3.0, 451);
+    if crust > 0.62 {
+        'n'
+    } else if crust > 0.5 {
+        'b'
+    } else if crust > 0.38 {
+        'B'
+    } else if crust > 0.24 {
+        'p'
+    } else if crust > 0.14 {
+        'R'
+    } else {
+        'o'
     }
 }

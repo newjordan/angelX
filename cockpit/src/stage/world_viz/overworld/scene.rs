@@ -274,7 +274,8 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
     let mut beacons: Vec<(i32, i32, i32, i32)> = Vec::new();
     let mut cues = Vec::new();
     let tick = scene.tick;
-    let flicker = |k: u32| 0.9 + 0.1 * (tick as f32 * 1.7 + k as f32 * 2.3).sin();
+    // Fires breathe slowly rather than flicker: a few seconds a breath.
+    let flicker = |k: u32| 0.92 + 0.08 * (tick as f32 * 0.5 + k as f32 * 2.3).sin();
     let fire = |x: i32, y: i32, r: f32, s: f32| Light {
         x: x as f32,
         y: y as f32,
@@ -687,9 +688,19 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
 
     // ── the knight, and what marks live work ──
     let k = scene.knight;
-    let bob = if k.walking && tick % 2 == 1 { 1 } else { 0 };
-    let kimg = kit::knight();
-    let (kx, kbase) = (k.x as i32 - kimg.w / 2, k.y as i32 + 2 - bob);
+    // A step every few pixels walked, so the gait follows the road.
+    let bob = if k.walking && ((k.x + k.y) as i32 / 4) % 2 == 1 {
+        1
+    } else {
+        0
+    };
+    let reading = scene.tool == Some(Tool::Book) && !k.walking;
+    let kimg = if reading {
+        kit::reader()
+    } else {
+        kit::knight()
+    };
+    let (kx, kbase) = (k.x as i32 - 8, k.y as i32 + 2 - bob);
     props.push(Prop {
         x: kx,
         base: kbase,
@@ -702,7 +713,17 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         s: 0.42,
         fire: false,
     });
-    if let (Some(tool), false) = (scene.tool, k.walking) {
+    if reading {
+        // The reading lantern: a warm pool around him and his pages.
+        lights.push(Light {
+            x: k.x + 11.0,
+            y: k.y - 4.0,
+            r: 38.0,
+            s: 0.62 * flicker(50),
+            fire: true,
+        });
+    }
+    if let (Some(tool), false, false) = (scene.tool, k.walking, reading) {
         cues.push(Prop {
             x: kx - 1,
             base: kbase - 15 - ((tick / 2) % 2) as i32,

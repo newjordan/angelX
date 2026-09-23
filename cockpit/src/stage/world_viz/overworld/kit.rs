@@ -1068,6 +1068,32 @@ pub(crate) fn knight() -> Img {
     ])
 }
 
+/// The knight at rest with a book: seated on a bench, pages open in his
+/// lap, a lantern burning at his side. Cozy reading by warm light.
+pub(crate) fn reader() -> Img {
+    let head = knight();
+    let mut im = Img::new(22, 16);
+    for y in 0..8 {
+        for x in 0..head.w {
+            if let Some(c) = head.get(x, y) {
+                im.set(x, y, c);
+            }
+        }
+    }
+    let lap = Img::from_rows(&[
+        "..iHh777777hHi........",
+        ".hHk99$9$99kHh........",
+        ".hk9$9999$99kh...kkk..",
+        "..k99$99$999k....k5k..",
+        "..kkBBBBBBBkk....k6k..",
+        "..BRRRRRRRRRB...kkkkk.",
+        "..B.hJ...hJ.B.........",
+        "..B.GG...GG.B.........",
+    ]);
+    im.stamp(&lap, 0, 8);
+    im
+}
+
 /// A mounted knight in profile, facing right, lance couched.
 pub(crate) fn rider(house: Heraldry) -> Img {
     let (c1, c2) = house.inks();
