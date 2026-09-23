@@ -1234,19 +1234,24 @@ fn stream_rule_gate_exhausted_encodes_by_move_single_attempt() {
 }
 
 /// Seed-once cache: EnvGuard overrides are invisible until resync, then
-/// visible, then restored after the guard drops. Covers all five knobs.
+/// visible, then restored after the guard drops. Covers all six knobs.
 #[test]
 fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
     let _guard = crate::tests::env_lock();
     {
         let _stall_clear = EnvGuard::unset("ANGEL_STREAM_STALL_SECS");
+        let _first_clear = EnvGuard::unset("ANGEL_STREAM_FIRST_TOKEN_SECS");
         let _hard_clear = EnvGuard::unset("ANGEL_STREAM_HARD_SECS");
         let _tool_clear = EnvGuard::unset("ANGEL_STREAM_TOOL_SILENCE_SECS");
         let _line_clear = EnvGuard::unset("ANGEL_STREAM_MAX_LINE_BYTES");
         let _retries_clear = EnvGuard::unset("ANGEL_STREAM_RULE_RETRIES");
         resync_stream_knobs_from_env();
-        let (stall, hard, tool_silence, max_line, retries) = stream_hop_knobs();
+        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
         assert_eq!(stall, Duration::from_secs(DEFAULT_STREAM_STALL_SECS));
+        assert_eq!(
+            first_token,
+            Duration::from_secs(DEFAULT_STREAM_FIRST_TOKEN_SECS)
+        );
         assert_eq!(hard, Duration::from_secs(DEFAULT_STREAM_HARD_SECS));
         assert_eq!(
             tool_silence,
@@ -1256,14 +1261,20 @@ fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
         assert_eq!(retries, DEFAULT_STREAM_RULE_RETRIES);
 
         let _stall = EnvGuard::set("ANGEL_STREAM_STALL_SECS", "1");
+        let _first = EnvGuard::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "5");
         let _hard = EnvGuard::set("ANGEL_STREAM_HARD_SECS", "2");
         let _tool = EnvGuard::set("ANGEL_STREAM_TOOL_SILENCE_SECS", "3");
         let _line = EnvGuard::set("ANGEL_STREAM_MAX_LINE_BYTES", "4096");
         let _retries = EnvGuard::set("ANGEL_STREAM_RULE_RETRIES", "0");
-        let (stall, hard, tool_silence, max_line, retries) = stream_hop_knobs();
+        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
         assert_eq!(
             stall,
             Duration::from_secs(DEFAULT_STREAM_STALL_SECS),
+            "cache must not re-read env until seed reset"
+        );
+        assert_eq!(
+            first_token,
+            Duration::from_secs(DEFAULT_STREAM_FIRST_TOKEN_SECS),
             "cache must not re-read env until seed reset"
         );
         assert_eq!(
@@ -1280,18 +1291,26 @@ fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
         assert_eq!(retries, DEFAULT_STREAM_RULE_RETRIES);
 
         resync_stream_knobs_from_env();
-        let (stall, hard, tool_silence, max_line, retries) = stream_hop_knobs();
+        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
         assert_eq!(stall, Duration::from_secs(1));
+        assert_eq!(first_token, Duration::from_secs(5));
         assert_eq!(hard, Duration::from_secs(2));
         assert_eq!(tool_silence, Duration::from_secs(3));
         assert_eq!(max_line, 4096);
         assert_eq!(retries, 0);
     }
     resync_stream_knobs_from_env();
-    let (stall, hard, tool_silence, max_line, retries) = stream_hop_knobs();
+    let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
     assert_eq!(
         stall,
         env_secs("ANGEL_STREAM_STALL_SECS", DEFAULT_STREAM_STALL_SECS)
+    );
+    assert_eq!(
+        first_token,
+        env_secs(
+            "ANGEL_STREAM_FIRST_TOKEN_SECS",
+            DEFAULT_STREAM_FIRST_TOKEN_SECS
+        )
     );
     assert_eq!(
         hard,
