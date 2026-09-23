@@ -5623,6 +5623,14 @@ fn self_loop_worktree_lifecycle_and_gated_merge() {
     let _iterations = TestEnvGuard::set("ANGEL_LOOP_MAX_ITERS", "1");
     // Never spawn real MCP servers from a test registry rebuild.
     let _mcp = TestEnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/mcp.json");
+    // The sandboxed baseline may write only the worktree and scratch roots. A
+    // `CARGO_TARGET_DIR` inherited from whoever ran the suite (a shared cache)
+    // denies its `.cargo-lock`, and the baseline silently reads as 0 passing.
+    // Build under the scratch root instead: writable, outside the worktree's
+    // `add -A` at integration, and removed with the fixture.
+    let target = root.join("target");
+    let _target = TestEnvGuard::set("CARGO_TARGET_DIR", target.to_str().unwrap());
+    let _build_target = TestEnvGuard::unset("CARGO_BUILD_TARGET_DIR");
 
     let mut app = seed_preview_app();
     app.input = format!("/cd {}", crate_dir.display());

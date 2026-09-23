@@ -312,6 +312,13 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
     let _env = crate::tests::env_lock();
     let dir = scratch("brokencrate");
     broken_crate(&dir);
+    // A `CARGO_TARGET_DIR` inherited from whoever ran the suite (a shared
+    // cache outside the sandbox's writable roots) turns every build below
+    // into a `.cargo-lock` permission denial, so the "broken" verdict would
+    // come from the sandbox, not the compiler. Keep the build in the crate.
+    let target = dir.join("target");
+    let _target = crate::tests::TestEnvGuard::set("CARGO_TARGET_DIR", target.to_str().unwrap());
+    let _build_target = crate::tests::TestEnvGuard::unset("CARGO_BUILD_TARGET_DIR");
 
     // Ground truth: unpiped, this build fails (cargo exits 101).
     let (bare_exit, bare_verdict, _) = row(&dir, "cargo check");
