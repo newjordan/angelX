@@ -382,6 +382,60 @@ fn a_definite_nonzero_exit_is_a_tool_error_not_ordinary_output() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A model that marks a lookup `read_only` narrows writes, not the network: a
+/// `yukon submissions` fetch sent with `read_only: true` failed with "Unable to
+/// connect". A read-only seat (a reviewer) keeps its full ceiling.
+#[test]
+fn a_models_read_only_scope_blocks_writes_but_keeps_network() {
+    let dir = scratch("read-only-keeps-network");
+    let tool = ShellTool::in_dir(dir.clone());
+    for args in [
+        serde_json::json!({"command": "yukon submissions --all", "read_only": true}),
+        serde_json::json!({"command": "yukon submissions --all", "write_paths": []}),
+    ] {
+        let scope = tool.scope(&args).expect("scope");
+        assert!(scope.policy.writable_roots.is_empty(), "{args}");
+        assert_eq!(
+            scope.policy.allow_network, tool.policy.allow_network,
+            "network follows the shell's normal policy: {args}"
+        );
+    }
+    std::fs::write(dir.join("notes.txt"), "").unwrap();
+    let scope = tool
+        .scope(&serde_json::json!({"command": "true", "write_paths": ["notes.txt"]}))
+        .expect("scope");
+    assert_eq!(scope.policy.allow_network, tool.policy.allow_network);
+
+    let seat = ShellTool::read_only_in_dir(dir.clone());
+    let scope = seat
+        .scope(&serde_json::json!({"command": "ls"}))
+        .expect("scope");
+    assert!(
+        !scope.policy.allow_network,
+        "a read-only seat stays offline"
+    );
+
+    // End to end: a socket to a closed local port is refused when the network
+    // is allowed, and cannot be created at all when it is not. The seat is the
+    // control: where the sandbox does not enforce, the probe proves nothing.
+    let probe = "python3 -c \"import socket\ntry:\n    socket.create_connection(('127.0.0.1', 9), 1)\nexcept OSError as e:\n    print(type(e).__name__)\"";
+    let run = |tool: &ShellTool, read_only: bool| {
+        tool.call(&serde_json::json!({"command": probe, "read_only": read_only}))
+            .unwrap_or_else(|error| error)
+    };
+    let seat_probe = run(&seat, false);
+    eprintln!("seat probe: {seat_probe}");
+    if tool.policy.allow_network && seat_probe.contains("PermissionError") {
+        let model_probe = run(&tool, true);
+        eprintln!("read_only probe: {model_probe}");
+        assert!(
+            model_probe.contains("ConnectionRefusedError"),
+            "read_only kept the network: {model_probe}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn empty_write_paths_stays_read_only_and_reports_effective_scope() {
     let _guard = crate::tests::env_lock();
@@ -395,8 +449,15 @@ fn empty_write_paths_stays_read_only_and_reports_effective_scope() {
         }))
         .expect_err("an explicit empty grant must never become writable");
     assert!(!dir.join("scope-probe.txt").exists());
+    let network = if tool.policy.allow_network {
+        "network available"
+    } else {
+        "network disabled"
+    };
     assert!(
-        error.contains("effective shell scope: filesystem read-only; network disabled"),
+        error.contains(&format!(
+            "effective shell scope: filesystem read-only; {network}"
+        )),
         "{error}"
     );
     std::fs::write(dir.join("benchmark.log"), "").unwrap();
@@ -686,8 +747,8 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
         .expect_err("empty write_paths remains a real denial");
     assert!(!dir.join("scope-probe.txt").exists());
     assert!(
-        empty_grant.contains("effective shell scope: filesystem read-only; network disabled"),
-        "{empty_grant}"
+        empty_grant.contains("effective shell scope: filesystem read-only; network available"),
+        "network follows the shell's policy: {empty_grant}"
     );
 
     let read_only = tool
