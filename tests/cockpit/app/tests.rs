@@ -10039,7 +10039,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
                 .last()
                 .unwrap()
                 .text
-                .contains("Dotmax 3D outdoors"),
+                .contains("Dotmax 3D"),
             "{command}"
         );
         assert!(!app.world.inside_interior());
@@ -10061,7 +10061,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
                 .last()
                 .unwrap()
                 .text
-                .contains("Dotmax 3D outdoors")
+                .contains("Dotmax 3D")
         );
         assert!(!app.world.inside_interior());
         assert_eq!(
@@ -10314,6 +10314,8 @@ fn atlas_review_keys_yield_to_a_nonempty_composer() {
 #[test]
 fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_controls() {
     let _guard = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _view =
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
@@ -10354,6 +10356,8 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
 #[test]
 fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     let _guard = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _view =
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
@@ -10575,6 +10579,8 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
     let _view =
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_WORLD_FP") };
     let mut app = seed_preview_app();
@@ -10619,6 +10625,8 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
 #[test]
 fn obsolete_world_fp_env_does_not_override_scryglass_view_mode() {
     let _guard = env_lock();
+    // The 3D ride path; the overworld map hosts Realm travel by default.
+    let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_WORLD_FP", "0") };
     let mut app = seed_preview_app();
@@ -13295,6 +13303,8 @@ fn heavy_transcript_renders_across_widths() {
 #[test]
 fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     let _guard = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
 

@@ -72,10 +72,17 @@ pub(crate) fn cycle() -> WorldView {
 }
 
 pub(crate) fn status_line() -> String {
-    format!(
-        "world renderer: {} outdoors; Enter opens room plates, Leave returns to the world",
-        current().label()
-    )
+    if super::overworld::map_enabled() {
+        format!(
+            "world renderer: overworld map on the Realm, {} on Explore; Enter opens room plates, Leave returns to the world",
+            current().label()
+        )
+    } else {
+        format!(
+            "world renderer: {} outdoors; Enter opens room plates, Leave returns to the world",
+            current().label()
+        )
+    }
 }
 
 /// Shared render fixtures retain their guard-shaped API. There is now only one
