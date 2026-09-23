@@ -1960,21 +1960,20 @@ fn the_realm_route_paints_the_overworld_map_by_default() {
         .rect_of(crate::ui::mouse::PaneId::Artifacts)
         .expect("world pane");
     let buf = terminal.backend().buffer();
-    let gold = ratatui::style::Color::Rgb(0xf7, 0xca, 0x58);
     let mut halfblocks = 0;
-    let mut town_ink = false;
+    let mut inks = std::collections::HashSet::new();
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
             let cell = &buf[(x, y)];
-            halfblocks += usize::from(cell.symbol() == "▀");
-            town_ink |= cell.fg == gold || cell.bg == gold;
+            if cell.symbol() == "▀" {
+                halfblocks += 1;
+                inks.insert(cell.fg);
+                inks.insert(cell.bg);
+            }
         }
     }
-    assert!(
-        halfblocks > 200,
-        "the map paints in half blocks ({halfblocks})"
-    );
-    assert!(town_ink, "the HUD names the town in gold");
+    assert!(halfblocks > 200, "the map paints in half blocks ({halfblocks})");
+    assert!(inks.len() > 12, "the realm, not a flat fill ({} inks)", inks.len());
     assert_eq!(
         take_ride_compose_count(),
         0,

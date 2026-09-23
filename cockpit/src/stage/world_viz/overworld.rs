@@ -1,8 +1,9 @@
 //! The overworld — the realm as a top-down pixel map.
 //!
 //! The map is the world's base layer: a Zelda-1 field of 16x11-tile screens
-//! under a HUD, drawn on black paper (black ground, sparse marks, figures
-//! laid over it) in the realm master palette. The true-3D Dotmax world,
+//! drawn on black paper (black ground, sparse marks, figures laid over it)
+//! in the realm master palette. There is no HUD: every pixel is the world,
+//! and anything added later has to earn its place. The true-3D Dotmax world,
 //! authored room plates and generated images or video are modalities layered
 //! over this map; this module owns only the map itself.
 //!
@@ -17,7 +18,6 @@
 
 mod glass;
 mod ground;
-mod hud;
 mod ink;
 mod kit;
 mod light;
@@ -29,7 +29,6 @@ mod sky;
 // The overworld tests read these through `use super::*`; live.rs imports glass directly.
 #[cfg(test)]
 pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
-pub(crate) use hud::HUD_H;
 pub(crate) use ink::Img;
 pub(crate) use live::{Duel, Walker, soldier_state};
 pub(crate) use map::{MAP_H, MAP_W, SCREEN_H, SCREEN_W, TILE};
@@ -40,7 +39,7 @@ use kit::Tool;
 #[cfg(test)]
 use map::Place;
 #[cfg(test)]
-use scene::{Hud, Joust, Knight, Soldier, Ward, Weather};
+use scene::{Joust, Knight, Soldier, Ward, Weather};
 
 use kit::{RockKind, Tiles};
 use map::Realm;
@@ -154,19 +153,18 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
     cv
 }
 
-/// A frame: the HUD over one view of the map, rim vignetted.
+/// A frame: one view of the map, rim vignetted, with any glass laid over.
+/// Nothing else: every pixel in the frame is the world.
 pub(crate) fn frame_at(scene: &Scene, view: View) -> Img {
-    let mut f = Img::black(view.w, view.h + HUD_H);
-    hud::draw(&mut f, scene);
-    f.stamp(&render_view(scene, view), 0, HUD_H);
-    light::vignette(&mut f, HUD_H);
+    let mut f = render_view(scene, view);
+    light::vignette(&mut f, 0);
     if let Some(g) = &scene.glass {
         let knight = (scene.knight.x, scene.knight.y);
         glass::draw(
             &mut f,
             g,
             (view.x, view.y),
-            HUD_H,
+            0,
             scene.tick,
             knight,
             scene.active,
@@ -212,9 +210,9 @@ pub(crate) fn frame_cached(scene: &Scene) -> std::rc::Rc<Img> {
     })
 }
 
-/// Frame size in pixels: one Zelda screen under the HUD.
+/// Frame size in pixels: one Zelda screen.
 pub(crate) const FRAME_W: u32 = (SCREEN_W * TILE) as u32;
-pub(crate) const FRAME_H: u32 = (SCREEN_H * TILE + HUD_H) as u32;
+pub(crate) const FRAME_H: u32 = (SCREEN_H * TILE) as u32;
 
 /// Whether the Realm route shows this map (the default) or the Dotmax 3D
 /// ride as before (`ANGEL_WORLD_MAP=3d`).

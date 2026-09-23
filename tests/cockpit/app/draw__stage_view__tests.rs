@@ -232,7 +232,7 @@ fn room_graphics_require_entry_and_leaving_restores_outdoors() {
 #[test]
 fn overworld_half_blocks_letterbox_the_frame_on_black_paper() {
     use crate::stage::world_viz::overworld;
-    let img = overworld::frame(&overworld::Scene::resting("Dologard"));
+    let img = overworld::frame(&overworld::Scene::resting());
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
     terminal
         .draw(|frame| paint_halfblock_frame(frame, Rect::new(0, 0, 40, 12), &img))
@@ -240,7 +240,7 @@ fn overworld_half_blocks_letterbox_the_frame_on_black_paper() {
     let buf = terminal.backend().buffer();
     let black = ratatui::style::Color::Rgb(0, 0, 0);
     assert!(buf.content.iter().all(|cell| cell.symbol() == "▀"));
-    // 256x240 into a 40x24 half-block grid: 25.6 columns wide, centred.
+    // 256x176 into a 40x24 half-block grid: about 35 columns wide, centred.
     for y in 0..12 {
         assert_eq!(buf[(0, y)].fg, black, "left letterbox row {y}");
         assert_eq!(buf[(39, y)].bg, black, "right letterbox row {y}");

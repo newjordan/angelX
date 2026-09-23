@@ -115,25 +115,13 @@ impl Knight {
     }
 }
 
-/// HUD facts.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Hud {
-    pub(crate) model: String,
-    pub(crate) think: String,
-    /// Share of the context window still free, `0..=100`.
-    pub(crate) ctx_free: u32,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Scene {
-    pub(crate) town: String,
-    pub(crate) renown: u64,
-    pub(crate) verified: u64,
     /// Growth tier `0..=8` (`life::town_tier`).
     pub(crate) tier: u32,
     /// The place where work is happening now, if any.
     pub(crate) active: Option<Place>,
-    pub(crate) activity: String,
+    /// What the knight is doing there, shown in his bubble.
     pub(crate) tool: Option<Tool>,
     pub(crate) knight: Knight,
     /// Council seats `(seat, robe ink)` while subagents sit at the Round Table.
@@ -165,7 +153,6 @@ pub(crate) struct Scene {
     pub(crate) chests: (u32, u32),
     /// A loop is stalled in the swamp.
     pub(crate) wisps: bool,
-    pub(crate) hud: Hud,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
     pub(crate) tick: u32,
@@ -177,9 +164,7 @@ impl Scene {
     pub(crate) fn key(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        self.town.hash(&mut h);
-        (self.renown, self.verified, self.tier).hash(&mut h);
-        (self.active, &self.activity, self.tool).hash(&mut h);
+        (self.tier, self.active, self.tool).hash(&mut h);
         (
             self.knight.x.to_bits(),
             self.knight.y.to_bits(),
@@ -212,20 +197,15 @@ impl Scene {
         if let Some(g) = &self.glass {
             (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
         }
-        (&self.hud.model, &self.hud.think, self.hud.ctx_free).hash(&mut h);
         (self.ambient.to_bits(), self.tick).hash(&mut h);
         h.finish()
     }
 
     /// A quiet realm: nothing live, the knight home at the keep.
-    pub(crate) fn resting(town: &str) -> Scene {
+    pub(crate) fn resting() -> Scene {
         Scene {
-            town: town.to_string(),
-            renown: 0,
-            verified: 0,
             tier: 0,
             active: None,
-            activity: "resting in the keep".to_string(),
             tool: None,
             knight: Knight::at_place(Place::Keep),
             council: Vec::new(),
@@ -244,11 +224,6 @@ impl Scene {
             dragon: false,
             chests: (0, 0),
             wisps: false,
-            hud: Hud {
-                model: String::new(),
-                think: String::new(),
-                ctx_free: 100,
-            },
             ambient: DUSK,
             tick: 0,
         }

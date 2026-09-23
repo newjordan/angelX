@@ -2,12 +2,9 @@ use super::ink::{BLACK, PALETTE, is_signal, palette_index, rgb};
 use super::*;
 
 fn busy(tick: u32) -> Scene {
-    let mut s = Scene::resting("Dologard");
-    s.renown = 33;
-    s.verified = 1;
+    let mut s = Scene::resting();
     s.tier = 2;
     s.active = Some(Place::Smithy);
-    s.activity = "cargo test -p cockpit".to_string();
     s.tool = Some(Tool::Hammer);
     s.knight = Knight::at_place(Place::Smithy);
     s.council = vec![(0, '1'), (2, '7'), (4, '2')];
@@ -47,11 +44,6 @@ fn busy(tick: u32) -> Scene {
     .into_iter()
     .map(|(kind, state)| Soldier { kind, state })
     .collect();
-    s.hud = Hud {
-        model: "glm-5.3".to_string(),
-        think: "low".to_string(),
-        ctx_free: 62,
-    };
     s.tick = tick;
     s
 }
@@ -156,7 +148,7 @@ fn signal_inks_never_dim_and_shade_stays_in_its_bank() {
 
 #[test]
 fn light_means_activity() {
-    let rest = scene::stage(&Scene::resting("Dologard"));
+    let rest = scene::stage(&Scene::resting());
     assert!(
         rest.beacons.is_empty(),
         "a resting realm marks nothing live"
@@ -173,7 +165,7 @@ fn light_means_activity() {
 
 #[test]
 fn renown_builds_the_town() {
-    let mut s = Scene::resting("Dologard");
+    let mut s = Scene::resting();
     let bare = scene::stage(&s).props.len();
     s.tier = 8;
     let grown = scene::stage(&s).props.len();
@@ -187,7 +179,12 @@ fn renown_builds_the_town() {
 fn the_knight_frames_his_own_screen() {
     let s = busy(0);
     let f = frame(&s);
-    assert_eq!((f.w, f.h), (SCREEN_W * TILE, SCREEN_H * TILE + HUD_H));
+    assert_eq!((f.w, f.h), (SCREEN_W * TILE, SCREEN_H * TILE));
+    assert_eq!(
+        (f.w as u32, f.h as u32),
+        (FRAME_W, FRAME_H),
+        "no HUD band: the frame is the world"
+    );
     assert_eq!(View::screen_at(s.knight.x, s.knight.y), View::screen(1, 1));
     assert_eq!(Place::Lists.screen(), (2, 1));
 }
@@ -224,7 +221,7 @@ fn write_overworld_shots() {
     let mut grown = busy(8);
     grown.tier = 8;
     save("town_tier8.ppm", &frame_at(&grown, View::screen(1, 1)));
-    save("resting.ppm", &frame(&Scene::resting("Dologard")));
+    save("resting.ppm", &frame(&Scene::resting()));
     let world = World::new(7);
     let mut arrived = busy(4);
     arrived.glass = Some(world.overworld_plate_glass(crate::stage::world_viz::Building::Smithy));
@@ -340,7 +337,6 @@ fn the_live_scene_reads_the_world() {
     let rest = world.overworld_scene();
     assert_eq!(rest.active, None);
     assert_eq!(rest.knight, Knight::at_place(Place::Keep));
-    assert_eq!(rest.town, world.town_name());
 
     world.note_tool_call_event(ToolEventId("r1".to_string()), "read_file", "src/lib.rs");
     let reading = world.overworld_scene();
@@ -480,7 +476,7 @@ fn a_glass_frames_its_place_and_tethers_to_it() {
     let (tx, ty, tw, th) = Place::Smithy.footprint();
     let (ax, ay) = (
         tx * TILE + tw * TILE / 2 - 256,
-        ty * TILE + th * TILE / 2 - 176 + HUD_H,
+        ty * TILE + th * TILE / 2 - 176,
     );
     assert_eq!(framed.get(ax, ay), ink::ink('3'));
     assert_ne!(
@@ -606,6 +602,6 @@ fn the_adventure_shows_what_the_quest_holds() {
         staged.lights.len() > scene::stage(&busy(3)).lights.len(),
         "fire and wisps glow"
     );
-    let resting = Scene::resting("Dologard");
+    let resting = Scene::resting();
     assert!(!resting.dragon && !resting.wisps && resting.party.is_empty());
 }
