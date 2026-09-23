@@ -24,6 +24,7 @@ pub(crate) mod cinematics;
 mod hud;
 mod interiors;
 pub(crate) mod life;
+pub(crate) mod overworld;
 mod raycast;
 mod region_walk;
 mod ride;
@@ -357,6 +358,13 @@ pub(crate) struct World {
     /// site, memoized — the island and its landmarks never move, so the tier
     /// is the whole key (`life.rs`).
     growth_cache: RefCell<Option<(u32, life::GrowthLayout)>>,
+    /// The knight's walk on the pixel overworld, which has its own roads.
+    overworld: overworld::Walker,
+    /// The last glass picture the map showed, keyed on its source frame.
+    overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
+    /// A two-seat fan-out stage fought at the Lists, and the session tally.
+    overworld_duel: Option<overworld::Duel>,
+    lists_tally: BTreeMap<String, u32>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -390,6 +398,8 @@ struct MusterUnit {
     slot: (usize, usize),
     glyph: char,
     ink: DotColor,
+    kind: overworld::SoldierKind,
+    state: overworld::SoldierState,
 }
 
 impl World {
@@ -502,6 +512,10 @@ impl World {
             terrain_epoch: 0,
             growth_announced: 0,
             growth_cache: RefCell::new(None),
+            overworld: overworld::Walker::default(),
+            overworld_glass: RefCell::new(None),
+            overworld_duel: None,
+            lists_tally: BTreeMap::new(),
         };
         world.tiles = (0..WORLD_H)
             .flat_map(|y| (0..WORLD_W).map(move |x| (x, y)))
@@ -2035,6 +2049,7 @@ impl World {
         }
 
         self.ease_avatar_vis();
+        self.tick_overworld();
         self.ease_travel_heading();
         self.tick_muster();
         self.tick_hearth();
@@ -2088,12 +2103,14 @@ impl World {
             None => {
                 self.muster.clear();
                 self.muster_seq = 0;
+                self.overworld_duel = None;
             }
             Some(s) => {
                 if s.seq != self.muster_seq {
                     self.muster_seq = s.seq;
                     self.form_muster(&s.name, s.agents.len().max(1));
                     self.apply_muster_states(&s.seat_states);
+                    self.note_duel(s.stage_id, &s.agents, &s.seat_states);
                 }
             }
         }
@@ -2156,6 +2173,8 @@ impl World {
                 slot,
                 glyph,
                 ink,
+                kind: overworld::SoldierKind::of_stage(stage),
+                state: overworld::SoldierState::Running,
             });
         }
         self.muster = units;
@@ -2169,6 +2188,7 @@ impl World {
     fn apply_muster_states(&mut self, states: &[crate::ui::viz::agentviz::SeatState]) {
         use crate::ui::viz::agentviz::SeatState;
         for (u, st) in self.muster.iter_mut().zip(states) {
+            u.state = overworld::soldier_state(st);
             match st {
                 SeatState::Running => {}
                 SeatState::Returned => u.glyph = '⚑',

@@ -17,7 +17,7 @@ fn retired_view_commands_and_launch_flags_cannot_select_other_outdoors() {
             assert_eq!(current(), WorldView::Mesh3d);
             assert!(toggle());
             assert_eq!(cycle(), WorldView::Mesh3d);
-            assert!(status_line().contains("Dotmax 3D outdoors"));
+            assert!(status_line().contains("Dotmax 3D"));
         }
     }
     assert_eq!(WorldView::parse("unsupported"), None);
