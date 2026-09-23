@@ -31,6 +31,70 @@ pub(crate) struct Ward {
     pub(crate) lit: bool,
 }
 
+/// What kind of seat a fan-out stage fills, by the stage's name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SoldierKind {
+    Judge,
+    Verify,
+    Quorum,
+    Layer,
+    Foot,
+}
+
+impl SoldierKind {
+    pub(crate) fn of_stage(name: &str) -> SoldierKind {
+        let lower = name.to_ascii_lowercase();
+        if lower.contains("judge") {
+            SoldierKind::Judge
+        } else if lower.contains("verify") {
+            SoldierKind::Verify
+        } else if lower.contains("quorum") {
+            SoldierKind::Quorum
+        } else if lower.contains("layer") || lower.contains("moa") {
+            SoldierKind::Layer
+        } else {
+            SoldierKind::Foot
+        }
+    }
+
+    /// Signal ink: a seat on the field is live state.
+    pub(crate) fn ink(self) -> char {
+        match self {
+            SoldierKind::Judge => '3',
+            SoldierKind::Verify => '1',
+            SoldierKind::Quorum => '2',
+            SoldierKind::Layer => '@',
+            SoldierKind::Foot => '5',
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SoldierState {
+    Running,
+    Returned,
+    Failed,
+    Cut,
+}
+
+/// One seat of the muster — a fan-out stage drawn up on the plaza.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Soldier {
+    pub(crate) kind: SoldierKind,
+    pub(crate) state: SoldierState,
+}
+
+/// The sky over the realm, folded from real health.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Weather {
+    Fair,
+    Clouds,
+    Drizzle,
+    Rain,
+    Storm,
+    Rainbow,
+}
+
 /// The knight's pose on the map, in world pixels (feet, centre).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Knight {
@@ -83,6 +147,13 @@ pub(crate) struct Scene {
     /// The fleet forge is training.
     pub(crate) forge_hot: bool,
     pub(crate) wards: Vec<Ward>,
+    /// A fan-out stage's seats, drawn up on the plaza.
+    pub(crate) muster: Vec<Soldier>,
+    /// The quest region while an adventure has left town.
+    pub(crate) region: Option<Place>,
+    pub(crate) weather: Weather,
+    /// A victory being celebrated.
+    pub(crate) fireworks: bool,
     pub(crate) hud: Hud,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
@@ -108,6 +179,10 @@ impl Scene {
             cottages: [false; 3],
             forge_hot: false,
             wards: Vec::new(),
+            muster: Vec::new(),
+            region: None,
+            weather: Weather::Fair,
+            fireworks: false,
             hud: Hud {
                 model: String::new(),
                 think: String::new(),
@@ -456,6 +531,20 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
             chimney: false,
         }),
     ));
+
+    // ── the muster: a fan-out stage drawn up in ranks on the plaza ──
+    let ranks = scene.muster.len().min(18);
+    for (i, soldier) in scene.muster.iter().take(ranks).enumerate() {
+        let (row, col) = ((i / 6) as i32, (i % 6) as i32);
+        let in_row = (ranks as i32 - row * 6).min(6);
+        let x = 23 * TILE + 8 - in_row * 4 + col * 8;
+        let base = 17 * TILE + 2 + row * 12;
+        props.push(Prop {
+            x: x - 3,
+            base,
+            img: kit::soldier(*soldier),
+        });
+    }
 
     // ── the knight, and what marks live work ──
     let k = scene.knight;

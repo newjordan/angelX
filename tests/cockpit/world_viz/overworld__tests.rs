@@ -34,6 +34,19 @@ fn busy(tick: u32) -> Scene {
             lit: false,
         },
     ];
+    s.muster = [
+        (SoldierKind::Verify, SoldierState::Returned),
+        (SoldierKind::Verify, SoldierState::Running),
+        (SoldierKind::Verify, SoldierState::Running),
+        (SoldierKind::Verify, SoldierState::Failed),
+        (SoldierKind::Verify, SoldierState::Running),
+        (SoldierKind::Verify, SoldierState::Cut),
+        (SoldierKind::Judge, SoldierState::Running),
+        (SoldierKind::Judge, SoldierState::Returned),
+    ]
+    .into_iter()
+    .map(|(kind, state)| Soldier { kind, state })
+    .collect();
     s.hud = Hud {
         model: "glm-5.3".to_string(),
         think: "low".to_string(),
@@ -228,4 +241,95 @@ fn the_palette_is_the_realm_master_palette() {
             assert_eq!(PALETTE[b * ink::BANK + i], v, "{name}[{i}]");
         }
     }
+}
+
+// ─── the live map ────────────────────────────────────────────────────────────
+
+use crate::agent::harness::ToolEventId;
+use crate::stage::world_viz::World;
+
+fn adjacent(a: (i32, i32), b: (i32, i32)) -> bool {
+    (a.0 - b.0).abs() + (a.1 - b.1).abs() == 1
+}
+
+#[test]
+fn every_place_is_reachable_on_foot_from_the_keep() {
+    for place in Place::ALL {
+        let path = live::route(Place::Keep.stand(), place.stand());
+        if place == Place::Keep {
+            assert!(path.is_empty());
+            continue;
+        }
+        assert_eq!(path.last(), Some(&place.stand()), "{place:?}");
+        let mut at = Place::Keep.stand();
+        for &step in &path {
+            assert!(
+                adjacent(at, step),
+                "{place:?}: {at:?} -> {step:?} is not one step"
+            );
+            at = step;
+        }
+    }
+}
+
+#[test]
+fn town_errands_keep_to_the_roads() {
+    let realm = Realm::get();
+    let path = live::route(Place::Keep.stand(), Place::Smithy.stand());
+    assert!(
+        path.iter()
+            .all(|&(x, y)| matches!(realm.at(x, y), b'=' | b':')),
+        "keep to smithy should stay on road and cobble: {path:?}"
+    );
+}
+
+#[test]
+fn the_walker_arrives_and_stops() {
+    let mut w = Walker::default();
+    assert_eq!(w.knight(), Knight::at_place(Place::Keep));
+    w.toward(Place::Smithy);
+    assert!(w.knight().walking, "a new goal sets him walking");
+    for _ in 0..400 {
+        w.toward(Place::Smithy);
+    }
+    assert_eq!(w.knight(), Knight::at_place(Place::Smithy));
+    assert!(!w.knight().walking);
+}
+
+#[test]
+fn the_live_scene_reads_the_world() {
+    let mut world = World::new(7);
+    let rest = world.overworld_scene();
+    assert_eq!(rest.active, None);
+    assert_eq!(rest.knight, Knight::at_place(Place::Keep));
+    assert_eq!(rest.town, world.town_name());
+
+    world.note_tool_call_event(ToolEventId("r1".to_string()), "read_file", "src/lib.rs");
+    let reading = world.overworld_scene();
+    assert_eq!(reading.active, Some(Place::Scriptorium));
+    assert_eq!(reading.tool, Some(Tool::Book));
+    for _ in 0..600 {
+        world.tick();
+    }
+    assert_eq!(world.overworld_goal(), Place::Scriptorium);
+    assert_eq!(
+        world.overworld_scene().knight,
+        Knight::at_place(Place::Scriptorium)
+    );
+}
+
+#[test]
+fn a_loop_between_rounds_rests_at_the_quintain() {
+    let mut world = World::new(7);
+    world.loop_active = true;
+    assert_eq!(world.overworld_goal(), Place::Lists);
+    world.loop_iteration = 3;
+    let s = world.overworld_scene();
+    assert_eq!(s.quest.map(|(i, _)| i), Some(3));
+}
+
+#[test]
+fn night_sinks_below_the_dusk_mood() {
+    assert!((live::ambient_for(1.0) - light::DUSK).abs() < 1e-6);
+    assert!(live::ambient_for(0.55) < light::DUSK - 0.1);
 }

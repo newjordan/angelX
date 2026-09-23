@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 use std::sync::OnceLock;
 
 use super::ink::{Img, bayer, hash, norm3, shade, vnoise};
+use super::scene::{Soldier, SoldierState};
 
 // ─── organic shapes ──────────────────────────────────────────────────────────
 
@@ -1114,6 +1115,35 @@ pub(crate) fn rider(house: Heraldry) -> Img {
     im.line(16, 10, 33, 8, 'o');
     im.put(33, 7, 'W');
     im.put(32, 7, 'V');
+    im
+}
+
+/// A seat of the muster: helm over a tabard in the stage's ink. A returned
+/// seat raises its pennant, a failed seat goes dark red, a cut seat grey.
+pub(crate) fn soldier(s: Soldier) -> Img {
+    let tabard = match s.state {
+        SoldierState::Failed => '8',
+        SoldierState::Cut => 'G',
+        _ => s.kind.ink(),
+    };
+    let rows = [
+        "..iHi..", ".iHHhJ.", "..JhJ..", ".TTTTT.", "hTTTTTh", ".TTTTT.", "..T.T..", "..J.J..",
+    ];
+    let rows: Vec<String> = rows
+        .iter()
+        .map(|r| r.replace('T', &tabard.to_string()))
+        .collect();
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let mut body = Img::from_rows(&refs);
+    if s.state == SoldierState::Cut {
+        body = body.recolor(&[('i', 'j'), ('H', 'G'), ('h', 'g'), ('J', 'g')]);
+    }
+    let mut im = Img::new(10, 12);
+    im.stamp(&body, 0, 4);
+    if s.state == SoldierState::Returned {
+        im.line(8, 0, 8, 11, 'h');
+        im.rect(9, 0, 1, 3, '5');
+    }
     im
 }
 
