@@ -34,6 +34,9 @@ impl Drop for TestWorkspace {
 #[test]
 fn planted_cohort_tokens_are_found_in_an_ignored_nested_workspace() {
     let _guard = crate::tests::env_lock();
+    let Some(script) = crate::tests::operator_script("repo-search-cohort.py") else {
+        return;
+    };
     let workspace = TestWorkspace::new("cohort-parent");
     workspace.write(".gitignore", "work/\n");
     assert!(
@@ -45,7 +48,6 @@ fn planted_cohort_tokens_are_found_in_an_ignored_nested_workspace() {
             .success()
     );
     let fixtures = workspace.0.join("work");
-    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/repo-search-cohort.py");
     assert!(
         std::process::Command::new("python3")
             .arg(script)

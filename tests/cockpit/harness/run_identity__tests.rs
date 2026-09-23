@@ -363,19 +363,19 @@ fn run_identity_scripted_task_json() {
         1,
     ));
     std::fs::write(&trace_fixture, serde_json::to_vec(&schema_rows).unwrap()).unwrap();
-    let validator =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/trace_schema.py");
-    let checked = std::process::Command::new("python3")
-        .arg(validator)
-        .arg(&trace_fixture)
-        .output()
-        .unwrap();
-    assert!(
-        checked.status.success(),
-        "stdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&checked.stdout),
-        String::from_utf8_lossy(&checked.stderr)
-    );
+    if let Some(validator) = crate::tests::operator_script("runtime/trace_schema.py") {
+        let checked = std::process::Command::new("python3")
+            .arg(validator)
+            .arg(&trace_fixture)
+            .output()
+            .unwrap();
+        assert!(
+            checked.status.success(),
+            "stdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&checked.stdout),
+            String::from_utf8_lossy(&checked.stderr)
+        );
+    }
     if let Some(dir) = std::env::var_os("ANGEL_T_IDENTITY_RECEIPT_DIR") {
         let dir = std::path::PathBuf::from(dir);
         std::fs::write(

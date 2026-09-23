@@ -167,6 +167,21 @@ pub(crate) fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
+/// An operator bench script under `scripts/`, or `None` when this checkout does
+/// not carry it: the research cohorts and the trace-schema validator were
+/// dropped from the public tree (`1d47920`, `897ad8f`), so tests that drive them
+/// skip in a public clone instead of failing on a missing file.
+pub(crate) fn operator_script(relative: &str) -> Option<std::path::PathBuf> {
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../scripts")
+        .join(relative);
+    if script.is_file() {
+        return Some(script);
+    }
+    eprintln!("skipped: operator script scripts/{relative} is not in this checkout");
+    None
+}
+
 /// An owned, tiny Git tree for tests of turn behavior, independent of checkout size.
 /// Callers hold `env_lock()` while spawning Git and using the registry.
 pub(crate) struct TestGitWorkspace(std::path::PathBuf);

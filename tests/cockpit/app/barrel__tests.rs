@@ -2,6 +2,9 @@ use super::*;
 
 #[test]
 fn still_worker_export_reaches_the_native_status_reader() {
+    let Some(worker) = crate::tests::operator_script("runtime/still-tick.mjs") else {
+        return;
+    };
     let fixture = crate::tests::TestGitWorkspace::new("still-worker-roundtrip");
     let root = fixture.path();
     let barrel = root.join("barrel");
@@ -21,7 +24,7 @@ fn still_worker_export_reaches_the_native_status_reader() {
     )
     .unwrap();
     let result = std::process::Command::new("node")
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/still-tick.mjs"))
+        .arg(worker)
         .args(["--force", "--distill"])
         .env("ANGEL_STILL", "1")
         .env("ANGEL_STILL_DIR", &state)

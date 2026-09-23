@@ -1719,13 +1719,14 @@ fn tool_aging_c03d_long_workload_scripted_smoke() {
             }).collect()))
         }
     }
+    let Some(script) = crate::tests::operator_script("aging-parity-cohort.py") else {
+        return;
+    };
     for (language, extension) in [("rust", "rs"), ("js", "mjs")] {
         let workspace = scratch(&format!("c03d-long-{language}"));
-        let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../scripts/aging-parity-cohort.py");
         let generated = std::process::Command::new("python3").args(["-c",
             "import importlib.util,sys; from pathlib import Path; s=importlib.util.spec_from_file_location('cohort',sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.materialize_long(next(t for t in m.long_tasks() if t['language']==sys.argv[2]),Path(sys.argv[3]))"])
-            .arg(script).arg(language).arg(&workspace).env("PYTHONDONTWRITEBYTECODE", "1").output().unwrap();
+            .arg(&script).arg(language).arg(&workspace).env("PYTHONDONTWRITEBYTECODE", "1").output().unwrap();
         assert!(
             generated.status.success(),
             "{}",
