@@ -28,6 +28,17 @@ pub(crate) fn sheet(key: AgentKey) -> &'static str {
         AgentKey::Sparky | AgentKey::Unknown => "assets/agents/helms/sparky.png",
         AgentKey::Apollo => "assets/agents/helms/apollo.png",
         AgentKey::Codex | AgentKey::MathGod => "assets/agents/helms/codex.png",
+        AgentKey::Luna => "assets/agents/helms/luna.png",
+        AgentKey::Glm => "assets/agents/helms/glm.png",
+        AgentKey::Kimi => "assets/agents/helms/kimi.png",
+        AgentKey::Qwen => "assets/agents/helms/qwen.png",
+        AgentKey::LongCat => "assets/agents/helms/longcat.png",
+        AgentKey::Muse => "assets/agents/helms/muse.png",
+        AgentKey::Hy => "assets/agents/helms/hy.png",
+        AgentKey::Nemotron => "assets/agents/helms/nemotron.png",
+        AgentKey::Cerebras => "assets/agents/helms/cerebras.png",
+        AgentKey::OpenRouter => "assets/agents/helms/openrouter.png",
+        AgentKey::Local => "assets/agents/helms/local.png",
     }
 }
 

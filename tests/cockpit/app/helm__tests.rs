@@ -81,6 +81,17 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
         AgentKey::Sparky,
         AgentKey::Apollo,
         AgentKey::Codex,
+        AgentKey::Luna,
+        AgentKey::Glm,
+        AgentKey::Kimi,
+        AgentKey::Qwen,
+        AgentKey::LongCat,
+        AgentKey::Muse,
+        AgentKey::Hy,
+        AgentKey::Nemotron,
+        AgentKey::Cerebras,
+        AgentKey::OpenRouter,
+        AgentKey::Local,
     ] {
         let path = root.join(sheet(key));
         let mut signatures = std::collections::HashSet::new();

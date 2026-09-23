@@ -7,6 +7,17 @@ pub enum AgentKey {
     Codex,
     GpuComp,
     MathGod,
+    Luna,
+    Glm,
+    Kimi,
+    Qwen,
+    LongCat,
+    Muse,
+    Hy,
+    Nemotron,
+    Cerebras,
+    OpenRouter,
+    Local,
     Unknown,
 }
 
@@ -82,7 +93,12 @@ fn apply_specialist_override(base: AgentProfile, apollo_specialist: bool) -> Age
     // Apollo is the swarm's specialist persona. An active specialist may
     // change the swarm portrait, while other selected agent portraits retain
     // their own identity. Persona names do not require particular machines.
-    if apollo_specialist && matches!(base.key, AgentKey::Sparky | AgentKey::Unknown) {
+    if apollo_specialist
+        && matches!(
+            base.key,
+            AgentKey::Sparky | AgentKey::Local | AgentKey::Unknown
+        )
+    {
         return APOLLO_PROFILE;
     }
     base
@@ -102,6 +118,12 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
             || contains_ascii_case(field, b"codex")
             || contains_ascii_case(field, b"gpt-")
     }) {
+        if fields
+            .iter()
+            .any(|field| contains_ascii_case(field, b"luna"))
+        {
+            return Some(LUNA_PROFILE);
+        }
         return Some(base_profile_for("codex"));
     }
     if fields.iter().any(|field| {
@@ -121,6 +143,9 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
     }) {
         return Some(base_profile_for("turbo"));
     }
+    if let Some(knight) = family_profile_for(driver.trim(), &fields) {
+        return Some(knight);
+    }
     if fields
         .iter()
         .any(|field| crate::agent::club::is_sota_label(field.trim()))
@@ -128,6 +153,46 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
         return Some(base_profile_for("atlas"));
     }
     None
+}
+
+/// Every other model family wears its own knight. A local slot wears the
+/// homestead knight whatever checkpoint it serves, while the swarm keeps its
+/// runner portrait (and the Apollo specialist override). Hosted families come
+/// next; providers that serve many families are the fallback.
+fn family_profile_for(driver: &str, fields: &[&str; 2]) -> Option<AgentProfile> {
+    if driver.eq_ignore_ascii_case("local") {
+        return Some(LOCAL_PROFILE);
+    }
+    if driver.eq_ignore_ascii_case("swarm") || driver.eq_ignore_ascii_case("local-swarm") {
+        return None;
+    }
+    let any = |test: fn(&str) -> bool| fields.iter().any(|field| test(field.trim()));
+    let knight = if any(|f| contains_ascii_case(f, b"glm") || contains_ascii_case(f, b"zhipu")) {
+        GLM_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"kimi") || contains_ascii_case(f, b"moonshot")) {
+        KIMI_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"qwen")) {
+        QWEN_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"longcat")) {
+        LONGCAT_PROFILE
+    } else if any(|f| f.eq_ignore_ascii_case("meta") || starts_with_ascii_case(f, b"muse-")) {
+        MUSE_PROFILE
+    } else if any(|f| {
+        f.eq_ignore_ascii_case("hy")
+            || contains_ascii_case(f, b"hy3")
+            || contains_ascii_case(f, b"hunyuan")
+    }) {
+        HY_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"nemotron")) {
+        NEMOTRON_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"cerebras")) {
+        CEREBRAS_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"openrouter") || contains_ascii_case(f, b":free")) {
+        OPENROUTER_PROFILE
+    } else {
+        return None;
+    };
+    Some(knight)
 }
 
 fn base_profile_for(label: &str) -> AgentProfile {
@@ -264,6 +329,110 @@ const APOLLO_PROFILE: AgentProfile = AgentProfile {
     standard_asset: Some("assets/agents/apollo-champion.png"),
     high_effort_asset: Some("assets/agents/apollo-champion-high.png"),
 };
+
+/// A model-family knight. Its helm sheet is the portrait; the legacy
+/// champion stills (used only when portrait states are off) stay those the
+/// family showed before it had a knight of its own.
+const fn knight(
+    key: AgentKey,
+    name: &'static str,
+    role: &'static str,
+    detail: &'static str,
+    champion: (&'static str, &'static str),
+) -> AgentProfile {
+    AgentProfile {
+        key,
+        name,
+        role,
+        detail,
+        standard_asset: Some(champion.0),
+        high_effort_asset: Some(champion.1),
+    }
+}
+
+const ATLAS_STILLS: (&str, &str) = (
+    "assets/agents/atlas-champion.png",
+    "assets/agents/atlas-champion-high.png",
+);
+
+const LUNA_PROFILE: AgentProfile = knight(
+    AgentKey::Luna,
+    "Luna",
+    "SOTA escalation",
+    "ChatGPT-OAuth Luna route",
+    (
+        "assets/agents/codex-champion.png",
+        "assets/agents/codex-champion-high.png",
+    ),
+);
+const GLM_PROFILE: AgentProfile =
+    knight(AgentKey::Glm, "GLM", "SOTA seat", "GLM route", ATLAS_STILLS);
+const KIMI_PROFILE: AgentProfile = knight(
+    AgentKey::Kimi,
+    "Kimi",
+    "SOTA seat",
+    "Moonshot Kimi route",
+    ATLAS_STILLS,
+);
+const QWEN_PROFILE: AgentProfile = knight(
+    AgentKey::Qwen,
+    "Qwen",
+    "SOTA seat",
+    "hosted Qwen route",
+    ATLAS_STILLS,
+);
+const LONGCAT_PROFILE: AgentProfile = knight(
+    AgentKey::LongCat,
+    "LongCat",
+    "SOTA seat",
+    "LongCat route",
+    ATLAS_STILLS,
+);
+const MUSE_PROFILE: AgentProfile = knight(
+    AgentKey::Muse,
+    "Muse",
+    "SOTA seat",
+    "Meta Muse route",
+    ATLAS_STILLS,
+);
+const HY_PROFILE: AgentProfile = knight(
+    AgentKey::Hy,
+    "Hy",
+    "SOTA seat",
+    "Tencent Hy route",
+    ATLAS_STILLS,
+);
+const NEMOTRON_PROFILE: AgentProfile = knight(
+    AgentKey::Nemotron,
+    "Nemotron",
+    "SOTA seat",
+    "Nemotron route",
+    ATLAS_STILLS,
+);
+const CEREBRAS_PROFILE: AgentProfile = knight(
+    AgentKey::Cerebras,
+    "Cerebras",
+    "fast inference",
+    "Cerebras-served route",
+    ATLAS_STILLS,
+);
+const OPENROUTER_PROFILE: AgentProfile = knight(
+    AgentKey::OpenRouter,
+    "OpenRouter",
+    "breadth seat",
+    "OpenRouter-served model",
+    ATLAS_STILLS,
+);
+const LOCAL_PROFILE: AgentProfile = knight(
+    AgentKey::Local,
+    "Local",
+    "local model",
+    "self-hosted route",
+    (
+        "assets/agents/sparky-champion.png",
+        "assets/agents/sparky-champion-high.png",
+    ),
+);
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/agent_profile__tests.rs"]
