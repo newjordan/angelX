@@ -137,7 +137,7 @@ fi
 
 # The proxy is not on the Codex path. A placeholder keeps the eval client config valid.
 KEY_VALUE=unused-luna-direct
-N=136
+N=${N_TASKS:-136}
 
 FLAGS=(
   --env.taskset.id angel-action-v1
