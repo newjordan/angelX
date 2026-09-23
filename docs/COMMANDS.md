@@ -94,7 +94,7 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/see <image>`, `/hear <audio>` | Attach media to the model flow; route capabilities apply. |
 | `/open <n\|url\|module>`, `/media` | Open a media card, URL or module; browse media. |
 | `/modules`, `/close <module>`, `/layout save\|load <name>` | Inspect modules or save/restore pane layout. |
-| `/world [ride\|enter\|leave\|weather\|zoom]`, `/world help` | Navigate Dotmax scenery and room views. |
+| `/world [ride\|enter\|leave\|weather\|zoom]`, `/world help` | Navigate the overworld map, Dotmax scenery and room views. |
 | `/raytrace`, `/cube` | Display the debug cube. |
 | `/tourney calibrate <scene>` | Display a calibration animation; it does not indicate a won run. |
 | `/trace`, `/rollout` | Toggle the tool transcript; `/rollout` shows the current session file path. |
