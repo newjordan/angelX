@@ -1,11 +1,11 @@
 //! Sky: the weather and the celebrations laid over the lit map.
 //!
-//! The sky is folded from real health (`World::weather`): drizzle and rain
-//! while errors pile up, a storm with lightning when quotas bite, cloud
-//! shadows while the loop budget runs thin, and a rainbow on the first green
+//! The sky is folded from real health (`World::weather`): cloud shadows
+//! drift over the realm while errors pile up, quotas bite or the loop
+//! budget runs thin, and a rainbow arcs over the field on the first green
 //! after a red run. Fireworks burst over the keep while a victory is being
-//! celebrated. Rain and shadows use the plain banks; the rainbow and the
-//! fireworks are state, so they burn in the signal bank.
+//! celebrated. Shadows step colours down their own banks; the rainbow and
+//! the fireworks are state, so they burn in the signal bank.
 
 use super::ink::{Img, bayer, hash, vnoise};
 use super::light::step_down;
@@ -13,22 +13,12 @@ use super::map::TILE;
 use super::scene::Weather;
 
 /// Weather over a view whose top-left sits at world pixel `(ox, oy)`.
+/// Wet weather is shade, not streaks: rain and lightning are left out so
+/// the realm stays dark and a frame is not re-sent for every falling drop.
 pub(crate) fn weather(cv: &mut Img, sky: Weather, tick: u32, (ox, oy): (i32, i32)) {
     match sky {
-        Weather::Fair => {}
-        Weather::Clouds => cloud_shadows(cv, tick, (ox, oy)),
-        Weather::Drizzle => rain(cv, tick, 40, false),
-        Weather::Rain => {
-            cloud_shadows(cv, tick, (ox, oy));
-            rain(cv, tick, 90, true);
-        }
-        Weather::Storm => {
-            cloud_shadows(cv, tick, (ox, oy));
-            rain(cv, tick, 140, true);
-            if tick % 17 == 0 {
-                lightning(cv, tick);
-            }
-        }
+        Weather::Fair | Weather::Drizzle => {}
+        Weather::Clouds | Weather::Rain | Weather::Storm => cloud_shadows(cv, tick, (ox, oy)),
         Weather::Rainbow => rainbow(cv),
     }
 }
@@ -44,50 +34,6 @@ fn cloud_shadows(cv: &mut Img, tick: u32, (ox, oy): (i32, i32)) {
                 && let Some(c) = cv.get(x, y)
             {
                 cv.set(x, y, step_down(c, 1));
-            }
-        }
-    }
-}
-
-/// Slanted streaks falling with the tick; heavy rain also splashes.
-fn rain(cv: &mut Img, tick: u32, drops: u32, splash: bool) {
-    for i in 0..drops {
-        let h = hash(i as i32, 0, 211);
-        let x0 = (h % cv.w.max(1) as u32) as i32;
-        let speed = 5 + (h >> 12) % 3;
-        let y0 = (((h >> 4) % 997) as i32 + (tick * speed) as i32) % (cv.h + 12) - 6;
-        let len = 3 + ((h >> 20) % 2) as i32;
-        for k in 0..len {
-            cv.put(
-                x0 - k / 2 - (y0 + k) / 9,
-                y0 + k,
-                if k == 0 { 'V' } else { 'u' },
-            );
-        }
-        if splash && (h >> 24) % 3 == 0 {
-            let (sx, sy) = (x0 - (y0 + len) / 9, y0 + len + 2);
-            cv.put(sx - 1, sy, 'u');
-            cv.put(sx + 1, sy, 'u');
-        }
-    }
-}
-
-/// A forked bolt and a flash of lit dither across the field.
-fn lightning(cv: &mut Img, tick: u32) {
-    let mut x = (hash(tick as i32, 1, 212) % cv.w.max(1) as u32) as i32;
-    let mut y = 0;
-    while y < cv.h * 2 / 3 {
-        cv.put(x, y, 'W');
-        cv.put(x + 1, y, 'V');
-        y += 1;
-        if hash(x, y, 213) % 3 == 0 {
-            x += if hash(x, y, 214) % 2 == 0 { 1 } else { -1 };
-        }
-    }
-    for yy in 0..cv.h {
-        for xx in 0..cv.w {
-            if bayer(xx, yy) < 0.08 && cv.get(xx, yy) == Some([0, 0, 0]) {
-                cv.put(xx, yy, 'j');
             }
         }
     }
