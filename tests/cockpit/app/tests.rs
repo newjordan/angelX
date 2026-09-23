@@ -13064,6 +13064,12 @@ fn render_transcript_full_reference(frame: &mut Frame, app: &mut App, area: Rect
 /// message counts, widths, scroll offsets, and with/without a live partial.
 #[test]
 fn windowed_transcript_matches_full_render() {
+    // Both renders reserve the ambient strip row from the process-global
+    // comp-mode env. Hold the env lock so no concurrent test flips it between
+    // the windowed and reference draws (that moved the strip and the scroll
+    // anchor by one row under full-suite load).
+    let _env = env_lock();
+    let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let body = "Representative reply text that wraps across the panel a couple \
                 of rows when rendered, enough to exercise wrapping + windowing.";
     let mk = |n: usize, partial: &str| -> App {
@@ -13097,7 +13103,9 @@ fn windowed_transcript_matches_full_render() {
                     // A budgeted cold index can intentionally show a loading
                     // row. This contract compares the settled rendering, so
                     // finish the real layout before selecting its scroll row.
-                    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+                    // The deadline is a hang guard, not a budget: each draw
+                    // still advances at least one message under CPU load.
+                    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
                     loop {
                         t1.draw(|f| render_transcript(f, &mut a1, area)).unwrap();
                         if a1.transcript_heights.len() == a1.messages.len()
@@ -13106,7 +13114,10 @@ fn windowed_transcript_matches_full_render() {
                         {
                             break;
                         }
-                        assert!(std::time::Instant::now() < deadline);
+                        assert!(
+                            std::time::Instant::now() < deadline,
+                            "transcript layout never settled: n={n} w={w} h={h}"
+                        );
                     }
                     assert!(a1.transcript_layouts.failure().is_none());
                     a1.scroll = scroll;

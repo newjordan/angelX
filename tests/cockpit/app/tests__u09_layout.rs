@@ -165,9 +165,11 @@ fn u09_loop_modal_is_topmost_and_esc_preserves_the_underlying_surface() {
                 loop_dialog::render(f, f.area(), dialog);
             })
             .unwrap();
+        // 5 durations, 4 iteration presets plus the always-present "set
+        // custom" length slot, 4 token caps, then START and BACK.
         assert_eq!(
             app.loop_dialog_hits.len(),
-            15,
+            5 + (4 + 1) + 4 + 2,
             "every choice and action must have a visible hit target"
         );
         for y in (h - 12) / 2..(h - 12) / 2 + 12 {
@@ -248,7 +250,9 @@ fn u09_every_loop_choice_and_action_is_keyboard_reachable_at_80x24() {
         .controller
         .show_overlay(scryglass::StageOverlay::Catalog);
     app.loop_command(Some("start U09 local fixture".into()));
-    for (field, count) in [(0, 5), (1, 4), (2, 4)] {
+    // The iters row is four presets plus the "set custom" slot, which opens a
+    // typed length entry instead of claiming a cap nobody set.
+    for (field, count) in [(0, 5), (1, 4 + 1), (2, 4)] {
         let mut seen = std::collections::BTreeSet::new();
         for _ in 0..count {
             let text = capture(
@@ -263,6 +267,16 @@ fn u09_every_loop_choice_and_action_is_keyboard_reachable_at_80x24() {
                     && !text.contains("resize for controls"),
                 "{text}"
             );
+            if app.loop_dialog.as_ref().unwrap().custom_entry_active() {
+                assert!(
+                    text.contains("set custom_") && text.contains("digits set the length"),
+                    "{text}"
+                );
+                for key in [KeyCode::Char('7'), KeyCode::Enter] {
+                    app.on_key(KeyEvent::new(key, KeyModifiers::NONE));
+                }
+                assert!(!app.loop_dialog.as_ref().unwrap().custom_entry_active());
+            }
             let settings = app.loop_dialog.as_ref().unwrap().settings();
             seen.insert(match field {
                 0 => settings.deadline_secs,
