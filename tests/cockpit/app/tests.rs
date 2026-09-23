@@ -13303,6 +13303,8 @@ fn heavy_transcript_renders_across_widths() {
 #[test]
 fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     let _guard = env_lock();
+    // The 3D ride path; the overworld map hosts the Realm route by default.
+    let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
 

@@ -459,6 +459,8 @@ fn glass_pictures_are_snapped_to_the_plain_palette() {
 
 #[test]
 fn a_glass_frames_its_place_and_tethers_to_it() {
+    // The ride and the plates read assets through env-dependent runtime paths.
+    let _env = crate::tests::env_lock();
     let world = World::new(7);
     let plate = world.overworld_plate_glass(crate::stage::world_viz::Building::Smithy);
     let colours: std::collections::HashSet<_> = plate.picture.pixels().collect();
@@ -490,6 +492,8 @@ fn a_glass_frames_its_place_and_tethers_to_it() {
 
 #[test]
 fn the_ride_glass_shows_the_dotmax_saddle_view() {
+    // The ride and the plates read assets through env-dependent runtime paths.
+    let _env = crate::tests::env_lock();
     let world = World::new(7);
     let ride = world.overworld_ride_glass(crate::stage::world_viz::Building::Chapel);
     assert!(ride.live);

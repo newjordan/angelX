@@ -230,7 +230,7 @@ impl App {
         // A screenshot staged before /cd belongs to the thread being detached.
         self.clipboard_paste.clear();
         self.world = crate::stage::world_viz::World::for_workspace(&target);
-        self.scryglass = crate::ui::scryglass::Scryglass::for_world(self.world.destination());
+        self.scryglass = crate::ui::scryglass::Scryglass::for_session(self.world.destination());
         self.world
             .enable_districts(crate::app::scan_workspace_districts(&target));
         self.world_buttons.clear();

@@ -1279,6 +1279,17 @@ impl Scryglass {
         stage.navigate(StageRoute::Explore(destination));
         stage
     }
+
+    /// The stage a session opens on: the overworld map on the Realm route,
+    /// or the Dotmax ride at the destination when the map is switched off
+    /// (`ANGEL_WORLD_MAP=3d`).
+    pub(crate) fn for_session(destination: Building) -> Self {
+        if crate::stage::world_viz::overworld::map_enabled() {
+            Self::default()
+        } else {
+            Self::for_world(destination)
+        }
+    }
 }
 
 /// World-frame ink is averaged per braille cell, so neighbouring cells land on
@@ -1889,8 +1900,11 @@ impl Scryglass {
                     self.controller.overlay(),
                     Some(StageOverlay::Arrival { .. })
                 ) {
+                    // On the overworld map the knight simply stands where he
+                    // arrived; the ride only takes over first-person views.
                     if self.controller.automatic_overlay_allowed()
                         && matches!(self.controller.route(), StageRoute::Realm)
+                        && !self.controller.map_hosts_travel()
                     {
                         self.controller.navigate(StageRoute::Explore(destination));
                     } else {
