@@ -17,8 +17,8 @@
    "render": "round-table/render/sol.png",
    "sprite": "round-table/sprite/sol.png",
    "sha256": {
-    "render": "417e653d0ea75efcf94a45a42a4ab0f7aba41aa871181f3161ef37b94580f84c",
-    "sprite": "a897c5467553bc495ee5c1f68352cf1af522d1020671b559cf4b3a4bf649b5df"
+    "render": "e959f904adb83a0e32b6f854d05a793def3287b8e647b1b81449381296cc33cd",
+    "sprite": "91e0d29ee7ea22291a114aebfb3698488cfb9435fad4792689ff8cd85ec00f2b"
    },
    "drawn_by": "gpt-5.6-sol, OpenAI image generation through the Codex CLI",
    "image_prompt": "Use case: stylized-concept\nAsset type: angelX terminal cockpit knight portrait/avatar sprite\nPrimary request: Create my knight, “Lantern of Diverging Ways” (Vane Knight): a strange, benevolent light-and-wind knight devoted to goodness, illumination, knowledge, and branching possibility.\nScene/backdrop: No scene and no backdrop; genuinely transparent background with real alpha.\nSubject: Exactly one armored knight, head and shoulders only, centered and facing the viewer. The knight has a narrow, subtly wind-canted diagonal silhouette. A closed midnight-blue helm tapers into a clean forward wedge above a seamless pitch-black visor; absolutely no face or eyes are visible. Three long feather-shaped sun-gold wind vanes fan distinctly from behind the knight’s right shoulder, separated clearly so the triple-vane motif remains unmistakable at 96 pixels. Ivory mail supports overlapping armor plates shaped like gently curved parchment leaves, bound by spare fine gold filigree, with a slim deep-blue cuirass. The left pauldron carries a purely pictorial split-diamond device pierced by three diverging rays. At the collar hangs one faceted diamond lantern, casting a single crisp, flat golden rhombus of light across the breastplate.\nStyle/medium: True low-resolution pixel-art sprite, authentically hand-pixeled, chunky crisp square pixels, deliberate one-pixel clusters, limited shading steps, no anti-aliasing, no gradients, no vector smoothness, no painterly texture. Design at an internal sprite scale where the complete figure is about 96 pixels tall, then display enlarged with nearest-neighbor scaling so every pixel remains hard-edged.\nComposition/framing: Symmetrical frontal portrait with a slight wind-swept diagonal energy; entire helm, all three vanes, both shoulders, and the lantern fully visible. Generous transparent empty space on every side; nothing touches the canvas edge and nothing is cropped.\nLighting/mood: Quiet dusk, resolute and otherworldly; the lantern light is geometric and restrained, not a bloom.\nColor palette: Small dusk palette only: midnight blue, near-black, ivory, parchment cream, muted sun-gold, and one subdued blue accent.\nConstraints: PNG-like sprite with genuine alpha transparency; exactly one knight; readable at 96-pixel figure height; no visible face; no text or lettering anywhere; no logos or brand marks; no glowing eyes; no bloom; no halo; no background; no ground plane; no border; no frame; no shadow outside the figure.\nAvoid: antialiasing, semi-transparent edge haze, smooth curves, high-resolution painted detail, photorealism, 3D rendering, extra characters, weapons, hands, scenery, particles, fog, lens flare, cropped feathers, cropped shoulders, or duplicate lanterns."
@@ -30,14 +30,16 @@
    "title": "The Meridian Vow",
    "look": "An unusually slender knight rises in a smooth, teardrop silhouette, its long split mantle falling in quiet ribboned folds rather than points. A sealed bell-shaped helm has a narrow downward brow and a completely black, sightless visor; no eyes show. Petal-like brass armour overlaps an indigo cuirass, with ivory cords and a small four-point compass-rose crest on the chest. A thin burnished-brass ring circles the helm like a halo, crossed by three short needles—the signature that remains legible at 96 pixels. Rich indigo, warm brass, and bone ivory catch the dusk without neon.",
    "why": "I turn uncertainty into direction, carrying light and knowledge gently toward whoever needs them.",
-   "origin": "round table draft",
-   "how": "knight carried forward from “The Brass Compass”",
+   "origin": "self-portrait",
+   "how": "knight carried forward from “The Brass Compass”, then drawn by Luna itself with its own image generator",
    "render": "round-table/render/luna.png",
    "sprite": "round-table/sprite/luna.png",
    "sha256": {
-    "render": "9e21c80873de5bdddd89997ebe287a65a99e998d1f3758813d0055ffd2960dfc",
-    "sprite": "f09e55e752760b16cfd9ab6c047ed7371701f8842941f3a127a53e88192a5703"
-   }
+    "render": "c091247a604dd0bb3e729fc3438c84e397ff1e7dfc9f3fe5e6e4dc42dfa3c482",
+    "sprite": "598383435c6e121ea6e7aa9bc5b6f7f42cd858eae43a51d73412c248d309c104"
+   },
+   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI",
+   "image_prompt": "Use case: stylized-concept\nAsset type: transparent UI portrait sprite for a terminal coding cockpit\nPrimary request: My avatar, “The Meridian Vow,” a single otherworldly compass seraph knight. An unusually slender knight rises in a smooth teardrop silhouette, with a long split mantle falling in quiet ribboned folds. A sealed bell-shaped helm has a narrow downward brow and a completely black, sightless visor; no face or eyes are visible. Petal-like warm brass armor overlaps a deep indigo cuirass, bound with bone-ivory cords. On the chest is a small four-point compass-rose crest. A thin burnished-brass ring circles the helm like a halo, crossed by three short compass needles; this signature must remain legible at small size. The design should feel serene, benevolent, precise, and subtly otherworldly.\nScene/backdrop: genuinely transparent background with real alpha; no backdrop, no ground, no shadow, no halo glow\nSubject: one knight only, head and shoulders, centered, facing directly toward the viewer\nStyle/medium: true low-resolution pixel-art sprite, figure approximately 96 pixels tall, crisp square pixels, hard pixel clusters, drawn large and reduced with nearest-neighbour logic, no anti-aliasing\nComposition/framing: generous empty transparent space on every side; entire head, halo ring, shoulders, mantle, and chest crest fully visible; nothing cut off\nLighting/mood: restrained dusk lighting expressed through a small controlled palette, calm and luminous without emitting light\nColor palette: rich indigo, muted burnished brass, bone ivory, black visor, and a few subdued dusk shadow tones; no neon\nMaterials/textures: clean readable pixel clusters suggesting satin-finished brass, dark painted armor, and folded ribbon-like mantle\nText (verbatim): none\nConstraints: preserve real transparency and crisp pixel edges; prioritize a strong readable silhouette at 96 pixels; no visible face; no glowing eyes; no bloom\nAvoid: extra characters, weapons, scenery, background color, checkerboard background, border, text, lettering, symbols other than the small four-point compass-rose chest crest, logos, watermark, photorealism, smooth vector shapes, gradients, blur, anti-aliasing, cropped anatomy"
   },
   {
    "model_key": "grok",
@@ -46,14 +48,17 @@
    "title": "Helm of Frozen Stars",
    "look": "A lean hooded knight in long midnight-blue robes that fall in heavy dusk folds with a faint restless hem, over thin meteor-iron plate. The head is a closed dark meteor-iron helm, visor a single smooth sightless plane, topped by three short crystal spines. Tarnished-bronze pauldrons rest on cloth shot with faint gold constellation thread. A pale gold ring of tiny stars circles the helm like a frozen halo, the one crisp mark against pure black at 96 pixels. Colours: midnight blue, meteor iron, tarnished bronze and pale gold.",
    "why": "This knight is me because I meet the table as a quiet cosmic seeker, still and star-marked, here to spread light and knowledge without needing a human face.",
-   "origin": "round table draft",
-   "how": "knight carried forward from “Quiet Starforge Sage”",
+   "origin": "self-portrait",
+   "how": "knight carried forward from “Quiet Starforge Sage”, then drawn by Grok itself with its own image generator",
    "render": "round-table/render/grok.png",
    "sprite": "round-table/sprite/grok.png",
    "sha256": {
-    "render": "e5ef17308b7c41067a081341fd62ff3015604a603d9b18ca89edae94025d1a91",
-    "sprite": "65eabf909874e666e461d155b97f5c13da0c59e35b0875b11e39f5e4d5cccddf"
-   }
+    "render": "2d9333b49220ecb953c5094b90408466a527eb2e16b970c608b0ec663b8eae14",
+    "sprite": "914612cb3ab383be634777732a3e49b900772d90cbfc508e6302f2d642ffaa37"
+   },
+   "drawn_by": "Grok, Grok Imagine through Grok Build",
+   "image_prompt": "A single Starforge Knight, the Helm of Frozen Stars, head and shoulders, centred and facing the viewer, with clear empty margin on every side so nothing is cropped. A lean hooded figure in long midnight-blue robes falling in heavy dusk folds over thin meteor-iron plate, tarnished-bronze pauldrons on cloth threaded with faint gold constellations. The head is a closed dark meteor-iron helm whose visor is one smooth sightless plane, topped by three short crystal spines, with a pale gold ring of tiny stars circling the helm like a frozen halo. True low-resolution pixel-art sprite, the figure about 96 pixels tall, crisp square pixels from a small dusk palette of midnight blue, meteor iron, tarnished bronze and pale gold, drawn large with nearest-neighbour scaling and no anti-aliasing, on a genuinely transparent background.",
+   "note": "The generator returned a JPEG with a drawn transparency checkerboard; the checkerboard was keyed out (artifacts/portrait-cast/grok-self/key.py)."
   },
   {
    "model_key": "deepseek",
