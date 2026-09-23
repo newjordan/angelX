@@ -1518,7 +1518,7 @@ fn run_turn_tiered(
     // The model's last passing test run and the workspace it passed on. Before
     // "done" is accepted, the run is repeated on the unchanged code: one pass
     // can be luck (see `confirm_green_run`).
-    let mut last_green_run: Option<(ToolCall, Option<u64>)> = None;
+    let mut last_green_run: Option<GreenRun> = None;
     let confirm_green_runs = confirm_green_extra_runs(competition);
     let mut confirm_green_rejections = 0usize;
     let mut green_verify_nudge_emitted = false;
@@ -3616,13 +3616,17 @@ fn run_turn_tiered(
                 }
                 if confirm_green_runs > 0
                     && confirm_green_rejections < CONFIRM_GREEN_REJECTION_LIMIT
-                    && last_green_run.as_ref().is_some_and(|(_, workspace)| {
-                        workspace.is_some() && *workspace == current_workspace_fingerprint
+                    && last_green_run.as_ref().is_some_and(|green| {
+                        green.workspace.is_some()
+                            && green.workspace == current_workspace_fingerprint
                     })
                 {
-                    let (green_call, _) = last_green_run.take().expect("checked above");
+                    let green = last_green_run.take().expect("checked above");
+                    let green_call = green.call;
                     let label = green_run_label(&green_call);
-                    match confirm_green_run(registry, &green_call, confirm_green_runs, cancel) {
+                    // A substitute runner has not run yet: it owes one more run.
+                    let runs = confirm_green_runs + usize::from(green.substitute);
+                    match confirm_green_run(registry, &green_call, runs, cancel) {
                         Ok(runs) => {
                             let _ = events.send(TurnEvent::Notice(format!(
                                 "confirmed green: re-ran {label} {runs} more time(s) on the final code"
@@ -3637,7 +3641,7 @@ fn run_turn_tiered(
                             let _ = events.send(TurnEvent::SuppressPartial);
                             history.push(ChatMsg::assistant(answer));
                             history.push(ChatMsg::harness(format!(
-                                "{CONFIRM_GREEN_NUDGE}\nRe-run {run} of {confirm_green_runs} of {label} \
+                                "{CONFIRM_GREEN_NUDGE}\nRe-run {run} of {runs} of {label} \
                                  failed:\n{}",
                                 tail_chars(&output, TASK_ACCEPT_TAIL_CHARS)
                             )));
@@ -4891,13 +4895,29 @@ fn run_turn_tiered(
                     if succeeded
                         && confirm_green_runs > 0
                         && verification_outcome(call, &result) != Some(VerificationOutcome::Failed)
-                        && (is_verification_call(call)
-                            || is_progress_verifier_call(&call.name, &call.args))
                     {
-                        last_green_run = Some((
-                            call.clone(),
-                            workspace_fingerprint(registry.current_workspace()),
-                        ));
+                        let workspace = workspace_fingerprint(registry.current_workspace());
+                        if is_verification_call(call)
+                            || is_progress_verifier_call(&call.name, &call.args)
+                        {
+                            last_green_run = Some(GreenRun {
+                                call: call.clone(),
+                                workspace,
+                                substitute: false,
+                            });
+                        } else if test_run_behind_fallback(call) && registry.has_tool("run_tests") {
+                            // `./test || ctest` can read green while the test
+                            // failed; confirm with angelX's own runner instead.
+                            last_green_run = Some(GreenRun {
+                                call: ToolCall {
+                                    id: "confirm_green".into(),
+                                    name: "run_tests".into(),
+                                    args: serde_json::json!({}),
+                                },
+                                workspace,
+                                substitute: true,
+                            });
+                        }
                     }
                     // Universal ceiling: cap every result before it enters the
                     // conversation, so an uncapped tool (git_diff, find_files,
@@ -5534,6 +5554,39 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
 }
 
 const TASK_ACCEPT_TAIL_CHARS: usize = 1_500;
+
+/// The model's last passing test run, kept for the completion check.
+pub(crate) struct GreenRun {
+    pub(crate) call: ToolCall,
+    /// The workspace it passed on; the check runs only on that same code.
+    pub(crate) workspace: Option<u64>,
+    /// `run_tests` standing in for a shell run angelX will not repeat as-is.
+    pub(crate) substitute: bool,
+}
+
+/// A shell test run angelX will not re-run as-is: an `a || b` fallback can turn
+/// a failing test green (`./test || ctest` passes when CTest has nothing
+/// registered). Recognised when the command without its fallbacks is a test run.
+pub(crate) fn test_run_behind_fallback(call: &ToolCall) -> bool {
+    if call.name != "shell" {
+        return false;
+    }
+    let command = crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or("");
+    let Some((primary, _)) = command.split_once("||") else {
+        return false;
+    };
+    let primary: String = primary
+        .chars()
+        .filter(|ch| !matches!(ch, '(' | ')' | '{' | '}'))
+        .collect();
+    let args = serde_json::json!({"command": primary.trim()});
+    let probe = ToolCall {
+        id: String::new(),
+        name: "shell".into(),
+        args: args.clone(),
+    };
+    is_verification_call(&probe) || is_progress_verifier_call("shell", &args)
+}
 
 /// Completions denied for a green that did not hold before one is accepted.
 const CONFIRM_GREEN_REJECTION_LIMIT: usize = 2;
