@@ -28,16 +28,23 @@ fn metered_unproductive_overrides_and_competition_are_authoritative() {
     assert_eq!(competition.stop, 0);
 }
 
+/// Interactive non-metered sessions keep the unproductive streak off; task
+/// mode arms it (escalate at 8, stop at 16), as benchmarked on polyglot-v1.
 #[test]
 fn non_metered_unproductive_defaults_remain_off() {
     let _lock = crate::tests::env_lock();
     let _escalate = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE");
     let _stop = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_STOP");
-    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _interactive = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
 
     let policy = configured_unproductive_policy(false, false);
     assert_eq!(policy.escalate, 0);
     assert_eq!(policy.stop, 0);
+
+    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let task = configured_unproductive_policy(false, false);
+    assert_eq!(task.escalate, 8);
+    assert_eq!(task.stop, 16);
 }
 
 #[test]
