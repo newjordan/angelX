@@ -1251,6 +1251,12 @@ impl Viewer {
         self.render_world_pixels_inner(frame, area, sequence, false, true, compose)
     }
 
+    /// Terminal cell size in physical pixels, as the map's image path sees it.
+    pub(crate) fn map_cell_pixels(&self) -> (u16, u16) {
+        let picker = self.world_pixel_picker();
+        (picker.font_size().width, picker.font_size().height)
+    }
+
     /// Whether map frames go out as terminal images (Kitty, iTerm2, or Sixel
     /// when asked for); other terminals paint the map in half blocks.
     pub(crate) fn map_pixels_native(&self) -> bool {
@@ -1369,7 +1375,13 @@ impl Viewer {
                             //
                             // Nearest keeps the pixel art crisp; a smooth
                             // filter turns 8px tiles into mush.
-                            Resize::Scale(Some(image::imageops::FilterType::Nearest)),
+                            if retain {
+                                // The map arrives pre-scaled with whole
+                                // pixels: place it at natural size.
+                                Resize::Fit(Some(image::imageops::FilterType::Nearest))
+                            } else {
+                                Resize::Scale(Some(image::imageops::FilterType::Nearest))
+                            },
                         )
                         .map_err(|error| format!("prepare world image: {error}"))
                 });

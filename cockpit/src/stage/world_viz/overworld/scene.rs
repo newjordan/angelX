@@ -124,6 +124,8 @@ pub(crate) struct Scene {
     /// What the knight is doing there, shown in his bubble.
     pub(crate) tool: Option<Tool>,
     pub(crate) knight: Knight,
+    /// Where the map camera centres (world pixels); the view grows around it.
+    pub(crate) camera: (f32, f32),
     /// Council seats `(seat, robe ink)` while subagents sit at the Round Table.
     pub(crate) council: Vec<(usize, char)>,
     /// `(iteration, max)` while a loop runs at the quintain.
@@ -169,6 +171,8 @@ impl Scene {
             self.knight.x.to_bits(),
             self.knight.y.to_bits(),
             self.knight.walking,
+            self.camera.0.to_bits(),
+            self.camera.1.to_bits(),
         )
             .hash(&mut h);
         (&self.council, self.quest).hash(&mut h);
@@ -208,6 +212,10 @@ impl Scene {
             active: None,
             tool: None,
             knight: Knight::at_place(Place::Keep),
+            camera: {
+                let home = Knight::at_place(Place::Keep);
+                (home.x, home.y - 8.0)
+            },
             council: Vec::new(),
             quest: None,
             joust: None,

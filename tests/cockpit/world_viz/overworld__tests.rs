@@ -260,6 +260,9 @@ fn write_overworld_shots() {
     bog.wisps = true;
     save("swamp.ppm", &frame_at(&bog, View::screen(0, 2)));
     save("wards.ppm", &frame_at(&busy(6), View::screen(3, 1)));
+    // Pane-shaped views at the locked scale: a tall narrow pane, a wide one.
+    save("pane_tall.ppm", &frame_sized(&busy(6), 170, 330));
+    save("pane_wide.ppm", &frame_sized(&busy(6), 420, 200));
 }
 
 #[test]
@@ -389,11 +392,16 @@ fn the_map_paces_its_frames() {
 
 #[test]
 fn lazy_frames_render_rgba_on_the_worker() {
-    let lazy = LazyFrame::new(busy(0));
+    let lazy = LazyFrame::new(busy(0), 200, 150, 3);
+    assert_eq!(lazy.size(), (600, 450));
     let bytes = lazy.as_ref();
-    assert_eq!(bytes.len(), (FRAME_W * FRAME_H * 4) as usize);
+    assert_eq!(bytes.len(), 600 * 450 * 4);
     assert!(bytes.chunks_exact(4).all(|px| px[3] == 255));
-    assert_eq!(bytes, frame(&busy(0)).rgba_bytes().as_slice());
+    let native = frame_sized(&busy(0), 200, 150);
+    assert_eq!(bytes, native.rgba_scaled(3).as_slice());
+    // Whole pixels: every 3x3 block is one map pixel.
+    let at = |x: usize, y: usize| &bytes[(y * 600 + x) * 4..(y * 600 + x) * 4 + 4];
+    assert_eq!(at(3 * 77, 3 * 41), at(3 * 77 + 2, 3 * 41 + 2));
 }
 
 #[test]
@@ -604,4 +612,74 @@ fn the_adventure_shows_what_the_quest_holds() {
     );
     let resting = Scene::resting();
     assert!(!resting.dragon && !resting.wisps && resting.party.is_empty());
+}
+
+// ─── the locked camera ───────────────────────────────────────────────────────
+
+#[test]
+fn views_keep_inside_the_realm_and_centre_what_they_outgrow() {
+    let v = View::around(10.0, 10.0, 200, 120);
+    assert_eq!((v.x, v.y), (0, 0), "clamped at the north-west corner");
+    let v = View::around(5000.0, 5000.0, 200, 120);
+    assert_eq!(
+        (v.x + v.w, v.y + v.h),
+        (MAP_W * TILE, MAP_H * TILE),
+        "clamped at the south-east"
+    );
+    let v = View::around(400.0, 300.0, 200, 120);
+    assert_eq!((v.x, v.y), (300, 240), "centred on the camera");
+    let wide = View::around(400.0, 300.0, MAP_W * TILE + 100, 120);
+    assert_eq!(wide.x, -50, "a view wider than the realm centres it");
+}
+
+#[test]
+fn a_bigger_pane_shows_more_realm_at_the_same_scale() {
+    let s = busy(0);
+    let small = frame_sized(&s, 160, 100);
+    let big = frame_sized(&s, 480, 300);
+    assert_eq!((small.w, small.h), (160, 100));
+    assert_eq!((big.w, big.h), (480, 300));
+    // The knight sits at the same scale: his sprite pixels are unchanged.
+    let knight_px = |f: &Img| f.pixels().filter(|&c| Some(c) == ink::ink('7')).count();
+    assert!(knight_px(&small) > 0 && knight_px(&big) >= knight_px(&small));
+    // Past the realm's edge is black paper.
+    let whole = frame_sized(&s, MAP_W * TILE + 40, MAP_H * TILE + 40);
+    for y in 0..whole.h {
+        for x in 0..20 {
+            assert_eq!(whole.get(x, y), Some(BLACK), "margin ({x},{y})");
+        }
+    }
+}
+
+#[test]
+fn the_map_scale_follows_the_text() {
+    assert_eq!(map_scale(8), 1);
+    assert_eq!(map_scale(12), 1);
+    assert_eq!(map_scale(20), 2);
+    assert_eq!(map_scale(26), 2);
+    assert_eq!(map_scale(32), 3);
+    assert_eq!(map_scale(0), 1);
+}
+
+#[test]
+fn the_camera_holds_inside_its_dead_zone_and_follows_out_of_it() {
+    use super::live::follow;
+    assert_eq!(follow((100.0, 100.0), (130.0, 110.0)), (100.0, 100.0));
+    assert_eq!(follow((100.0, 100.0), (160.0, 100.0)), (120.0, 100.0));
+    assert_eq!(follow((100.0, 100.0), (100.0, 40.0)), (100.0, 68.0));
+    let mut w = Walker::default();
+    let start = w.camera();
+    for _ in 0..400 {
+        w.toward(Place::Scriptorium);
+    }
+    let (cx, cy) = w.camera();
+    let k = w.knight();
+    assert!(
+        cx != start.0 || cy != start.1,
+        "a long walk moves the camera"
+    );
+    assert!(
+        (k.x - cx).abs() <= 40.0 && (k.y - 8.0 - cy).abs() <= 28.0,
+        "and keeps him in the dead zone"
+    );
 }

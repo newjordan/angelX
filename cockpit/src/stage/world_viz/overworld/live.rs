@@ -24,6 +24,26 @@ use super::scene::{Joust, Knight, Scene, Soldier, SoldierState, Ward, Weather};
 
 /// Walking pace in world pixels per world tick (the world ticks at 40 Hz).
 const PACE: f32 = 1.5;
+/// The camera's dead zone, half-width and half-height in map pixels, and
+/// how far above his feet the camera looks (his middle, not his boots).
+const DEAD_X: f32 = 40.0;
+const DEAD_Y: f32 = 28.0;
+const FOCUS_LIFT: f32 = 8.0;
+
+/// Move the camera just enough to keep `focus` inside the dead zone.
+pub(crate) fn follow(cam: (f32, f32), focus: (f32, f32)) -> (f32, f32) {
+    let axis = |c: f32, f: f32, dead: f32| {
+        if f - c > dead {
+            f - dead
+        } else if c - f > dead {
+            f + dead
+        } else {
+            c
+        }
+    };
+    (axis(cam.0, focus.0, DEAD_X), axis(cam.1, focus.1, DEAD_Y))
+}
+
 /// Trail samples kept, and the samples between companions (about 13 px).
 const TRAIL: usize = 64;
 const FOLLOW_GAP: usize = 9;
@@ -37,6 +57,9 @@ pub(crate) struct Walker {
     path: VecDeque<(i32, i32)>,
     /// Where he has just been, newest first — the party walks in his steps.
     trail: VecDeque<(f32, f32)>,
+    /// Where the map camera looks. It holds still while the knight moves
+    /// inside a dead zone and follows him out of it; it never zooms.
+    cam: (f32, f32),
 }
 
 impl Default for Walker {
@@ -48,6 +71,7 @@ impl Default for Walker {
             goal: Place::Keep,
             path: VecDeque::new(),
             trail: VecDeque::new(),
+            cam: (home.x, home.y - FOCUS_LIFT),
         }
     }
 }
@@ -86,6 +110,12 @@ impl Walker {
             self.trail.push_front(before);
             self.trail.truncate(TRAIL);
         }
+        self.cam = follow(self.cam, (self.x, self.y - FOCUS_LIFT));
+    }
+
+    /// The point the map camera centres on.
+    pub(crate) fn camera(&self) -> (f32, f32) {
+        self.cam
     }
 
     /// Where `n` companions stand: at intervals along his trail, or in a
@@ -292,6 +322,7 @@ impl World {
         s.active = work.map(|w| Place::of_building(w.landmark));
         s.tool = work.and_then(|w| tool_for(w.activity));
         s.knight = self.overworld.knight();
+        s.camera = self.overworld.camera();
         let council = self
             .active_work()
             .filter(|w| w.landmark == Building::RoundTable)

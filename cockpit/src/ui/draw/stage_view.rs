@@ -391,9 +391,12 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
     render_hammertime_mascot(frame, app, area);
 }
 
-/// The Realm route's base layer: the pixel overworld. Image-capable
-/// terminals get the frame through the graphics protocol; any other terminal
-/// gets it in half blocks.
+/// The Realm route's base layer: the pixel overworld. The camera's scale is
+/// locked to the terminal's cell size and the view takes the pane's shape,
+/// so a larger pane (or a zoomed-out terminal) shows more of the realm
+/// rather than a bigger picture of the same place. Image-capable terminals
+/// get the frame through the graphics protocol; any other terminal gets it
+/// in half blocks.
 fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
     use crate::stage::world_viz::overworld;
     let paper = ratatui::style::Color::Rgb(0, 0, 0);
@@ -407,23 +410,35 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
     }
     let scene = overworld_scene(app);
     if app.viewer.map_pixels_native() {
-        let worker_scene = scene.clone();
+        let (cell_w, cell_h) = app.viewer.map_cell_pixels();
+        let scale = overworld::map_scale(cell_h);
+        let view_w = (u32::from(area.width) * u32::from(cell_w) / scale).max(1) as i32;
+        let view_h = (u32::from(area.height) * u32::from(cell_h) / scale).max(1) as i32;
+        let lazy = overworld::LazyFrame::new(scene.clone(), view_w, view_h, scale);
+        let (frame_w, frame_h) = lazy.size();
+        let key = scene.key() ^ (u64::from(frame_w) << 32 | u64::from(frame_h)).rotate_left(11);
         let state = app
             .viewer
-            .render_map_pixels(frame, area, scene.key(), move || {
-                (
-                    overworld::LazyFrame::new(worker_scene),
-                    overworld::FRAME_W,
-                    overworld::FRAME_H,
-                )
-            });
+            .render_map_pixels(frame, area, key, move || (lazy, frame_w, frame_h));
         if state == crate::ui::viewer::WorldPixelsState::Ready {
             return;
         }
     }
-    // Ordinary terminals, and the first frame while an image encodes.
-    paint_halfblock_frame(frame, area, &overworld::frame_cached(&scene));
+    // Ordinary terminals, and the first frame while an image encodes: two
+    // map pixels per half-block pixel, the view shaped like the pane.
+    let (view_w, view_h) = (
+        i32::from(area.width) * HALFBLOCK_MAP_PX,
+        i32::from(area.height) * 2 * HALFBLOCK_MAP_PX,
+    );
+    paint_halfblock_frame(
+        frame,
+        area,
+        &overworld::frame_cached(&scene, view_w, view_h),
+    );
 }
+
+/// Map pixels per half-block pixel on terminals without graphics.
+const HALFBLOCK_MAP_PX: i32 = 2;
 
 /// The live scene, plus the travel and arrival glass the stage is showing.
 fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
