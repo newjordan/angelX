@@ -62,6 +62,16 @@ pub(crate) struct Walker {
     cam: (f32, f32),
     /// Pixels per tick for the current journey.
     stride: f32,
+    /// What the map shows: the pose published every other world tick, so a
+    /// walk draws at about twenty frames a second, not forty.
+    shown: Shown,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct Shown {
+    knight: Knight,
+    cam: (f32, f32),
+    party: Vec<(f32, f32)>,
 }
 
 impl Default for Walker {
@@ -75,6 +85,11 @@ impl Default for Walker {
             trail: VecDeque::new(),
             cam: (home.x, home.y - FOCUS_LIFT),
             stride: PACE,
+            shown: Shown {
+                knight: home,
+                cam: (home.x, home.y - FOCUS_LIFT),
+                party: Vec::new(),
+            },
         }
     }
 }
@@ -121,6 +136,20 @@ impl Walker {
     /// The point the map camera centres on.
     pub(crate) fn camera(&self) -> (f32, f32) {
         self.cam
+    }
+
+    /// The knight as the map last published him.
+    pub(crate) fn shown_knight(&self) -> Knight {
+        self.shown.knight
+    }
+
+    /// Publish the current pose to the map.
+    pub(crate) fn publish(&mut self) {
+        self.shown = Shown {
+            knight: self.knight(),
+            cam: self.cam,
+            party: self.followers(4),
+        };
     }
 
     /// Where `n` companions stand: at intervals along his trail, or in a
@@ -318,6 +347,9 @@ impl World {
     pub(crate) fn tick_overworld(&mut self) {
         let goal = self.overworld_goal();
         self.overworld.toward(goal);
+        if self.tick.is_multiple_of(2) {
+            self.overworld.publish();
+        }
     }
 
     /// Everything the pixel map shows, read from the live world.
@@ -327,8 +359,8 @@ impl World {
         let work = self.latest_active_work();
         s.active = work.map(|w| Place::of_building(w.landmark));
         s.tool = work.and_then(|w| tool_for(w.activity));
-        s.knight = self.overworld.knight();
-        s.camera = self.overworld.camera();
+        s.knight = self.overworld.shown.knight;
+        s.camera = self.overworld.shown.cam;
         let council = self
             .active_work()
             .filter(|w| w.landmark == Building::RoundTable)
@@ -391,7 +423,14 @@ impl World {
                 _ => 0.0,
             };
         let quest = &self.quest;
-        s.party = self.overworld.followers(usize::from(quest.party()).min(4));
+        s.party = self
+            .overworld
+            .shown
+            .party
+            .iter()
+            .take(usize::from(quest.party()).min(4))
+            .copied()
+            .collect();
         s.chests = (quest.treasures(), quest.empty_chests());
         s.dragon = self.loop_active && quest.region() == Region::DragonKeep;
         s.wisps = self.loop_active && quest.region() == Region::Swamp;

@@ -56,8 +56,67 @@ pub(crate) fn grow(sx: i32, sy: i32, edges: &Edges, lean: Lean) -> Rows {
     }
     shore(&mut rows);
     bleed(&mut rows, edges, sx, sy);
+    watercourse(&mut rows, sx, sy, lean);
+    shore(&mut rows);
     roads(&mut rows, edges, sx, sy);
     rows
+}
+
+/// A stream from a spring high in the screen down to a pool: a fall where
+/// it leaves the rock, a run through the open, a pool where it settles. In
+/// the ash wastes the same course runs with lava.
+fn watercourse(rows: &mut Rows, sx: i32, sy: i32, lean: Lean) {
+    let h = hash(sx, sy, 431);
+    let molten = lean == Lean::Ash;
+    let flows = match lean {
+        Lean::Hills | Lean::Ash => true,
+        Lean::Forest => h % 2 == 0,
+        Lean::Meadow | Lean::Marsh => false,
+    };
+    if !flows {
+        return;
+    }
+    let (run, drop, pool) = if molten {
+        (b'L', b'F', b'L')
+    } else {
+        (b'w', b'f', b'~')
+    };
+    // Rise among the rocks near the top when there are any.
+    let mut x = (3 + (h % 10) as usize).min(W - 4);
+    for dx in 0..10 {
+        let cand = 2 + ((h as usize >> 4) + dx) % (W - 4);
+        if rows[1][cand] == b'^' || rows[2][cand] == b'^' {
+            x = cand;
+            break;
+        }
+    }
+    let end = 6 + ((h >> 9) % 2) as usize;
+    for y in 1..=end {
+        rows[y][x] = if rows[y][x] == b'^' { drop } else { run };
+        if y < end && y >= 3 {
+            let step = hash(sx * 31 + x as i32, sy * 17 + y as i32, 432) % 4;
+            let nx = match step {
+                0 if x > 2 => x - 1,
+                1 if x < W - 3 => x + 1,
+                _ => x,
+            };
+            if nx != x {
+                rows[y][nx] = if rows[y][nx] == b'^' { drop } else { run };
+                x = nx;
+            }
+        }
+    }
+    // A round, ragged pool where the course settles.
+    let (cx, cy) = (x as f32, end as f32 + 2.0);
+    for py in end + 1..H - 1 {
+        for px in 1..W - 1 {
+            let (dx, dy) = ((px as f32 - cx) / 2.3, (py as f32 - cy) / 1.6);
+            let ragged = (hash(px as i32 + sx * 16, py as i32 + sy * 11, 433) % 100) as f32 / 250.0;
+            if dx * dx + dy * dy <= 1.0 + ragged {
+                rows[py][px] = pool;
+            }
+        }
+    }
 }
 
 fn terrain(wx: i32, wy: i32, lean: Lean) -> u8 {
@@ -96,7 +155,9 @@ fn terrain(wx: i32, wy: i32, lean: Lean) -> u8 {
             }
         }
         Lean::Ash => {
-            if hill > 0.55 {
+            if lake > 0.8 {
+                b'L'
+            } else if hill > 0.55 {
                 b'^'
             } else if h % 17 == 0 {
                 b'd'
@@ -123,7 +184,7 @@ fn shore(rows: &mut Rows) {
     let src = *rows;
     for y in 0..H {
         for x in 0..W {
-            if src[y][x] != b'.' {
+            if src[y][x] != b'.' && src[y][x] != b'a' {
                 continue;
             }
             let wet = [(-1i32, 0i32), (1, 0), (0, -1), (0, 1)]
@@ -134,9 +195,9 @@ fn shore(rows: &mut Rows) {
                         && ny >= 0
                         && (nx as usize) < W
                         && (ny as usize) < H
-                        && src[ny as usize][nx as usize] == b'~'
+                        && matches!(src[ny as usize][nx as usize], b'~' | b'w' | b'L')
                 });
-            if wet {
+            if wet && src[y][x] == b'.' {
                 rows[y][x] = b's';
             }
         }
@@ -198,7 +259,11 @@ fn roads(rows: &mut Rows, edges: &Edges, sx: i32, sy: i32) {
     let h = hash(sx, sy, 421);
     let (jx, jy) = (6 + (h % 4) as usize, 3 + ((h >> 4) % 4) as usize);
     let mut lay = |x: usize, y: usize| {
-        rows[y][x] = if rows[y][x] == b'~' { b'H' } else { b'=' };
+        rows[y][x] = if matches!(rows[y][x], b'~' | b'w' | b'f' | b'L' | b'F') {
+            b'H'
+        } else {
+            b'='
+        };
     };
     let exits = |edge: Option<&[u8]>| -> Vec<usize> {
         edge.map_or_else(Vec::new, |e| {

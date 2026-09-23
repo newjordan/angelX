@@ -278,6 +278,27 @@ fn write_overworld_shots() {
     save("wards.ppm", &frame_at(&busy(6), screen_of(Place::Wards)));
     // Pane-shaped views at the locked scale: a tall narrow pane, a wide one.
     save("pane_tall.ppm", &frame_sized(&busy(6), 170, 330));
+    for (name, (sx, sy)) in [
+        ("waterfall", (2, 1)),
+        ("lava", (5, 1)),
+        ("wild_forest", (1, 1)),
+    ] {
+        let mut s = busy(6);
+        s.camera = (
+            ((sx * SCREEN_W + 8) * TILE) as f32,
+            ((sy * SCREEN_H + 5) * TILE) as f32,
+        );
+        save(&format!("{name}.ppm"), &frame_sized(&s, 256, 176));
+    }
+    let mut reading = busy(6);
+    reading.active = Some(Place::Scriptorium);
+    reading.tool = Some(Tool::Book);
+    reading.knight = Knight::at_place(Place::Scriptorium);
+    reading.muster.clear();
+    save(
+        "reading.ppm",
+        &frame_at(&reading, screen_of(Place::Scriptorium)),
+    );
     save("pane_wide.ppm", &frame_sized(&busy(6), 420, 200));
 }
 
@@ -391,12 +412,12 @@ fn night_sinks_below_the_dusk_mood() {
 
 #[test]
 fn the_map_paces_its_frames() {
-    let (mut a, mut b, mut c, mut r) = (busy(13), busy(17), busy(18), busy(13));
+    let (mut a, mut b, mut c, mut r) = (busy(13), busy(19), busy(20), busy(33));
     pace(&mut a, false);
     pace(&mut b, false);
     pace(&mut c, false);
     pace(&mut r, true);
-    assert_eq!(a.tick, 2);
+    assert_eq!(a.tick, 1, "ambient motion steps about four times a second");
     assert_eq!(a.key(), b.key(), "ticks inside one step share a frame");
     assert_ne!(a.key(), c.key(), "the next step is a new frame");
     assert_eq!(r.tick, 1, "a running turn halves the cadence");
@@ -722,4 +743,91 @@ fn the_camera_holds_inside_its_dead_zone_and_follows_out_of_it() {
         (k.x - cx).abs() <= 40.0 && (k.y - 8.0 - cy).abs() <= 28.0,
         "and keeps him in the dead zone"
     );
+}
+
+// ─── slow, warm ambiance ─────────────────────────────────────────────────────
+
+#[test]
+fn the_realm_has_streams_falls_and_lava() {
+    let realm = Realm::get();
+    let count = |t: u8| {
+        (0..MAP_H)
+            .flat_map(|y| (0..MAP_W).map(move |x| (x, y)))
+            .filter(|&(x, y)| realm.at(x, y) == t)
+            .count()
+    };
+    assert!(count(b'w') > 4, "streams run");
+    assert!(count(b'f') > 0, "somewhere a stream falls off the rock");
+    assert!(count(b'L') > 4, "lava in the ash wastes");
+    // The hills just north of Castle Town carry a waterfall.
+    let (sx, sy) = (2, 1);
+    let falls = (0..SCREEN_H)
+        .flat_map(|y| (0..SCREEN_W).map(move |x| (x, y)))
+        .filter(|&(x, y)| matches!(realm.at(sx * SCREEN_W + x, sy * SCREEN_H + y), b'f' | b'w'))
+        .count();
+    assert!(falls > 3, "a stream above the town ({falls} tiles)");
+}
+
+#[test]
+fn water_and_lava_move_slowly() {
+    let mut s = busy(6);
+    s.camera = (
+        ((2 * SCREEN_W + 8) * TILE) as f32,
+        ((SCREEN_H + 5) * TILE) as f32,
+    );
+    let a = frame_sized(&s, 256, 176);
+    s.tick += 1;
+    let b = frame_sized(&s, 256, 176);
+    let moved = a.pixels().zip(b.pixels()).filter(|(x, y)| x != y).count();
+    assert!(moved > 0, "the water moves");
+    assert!(
+        moved < (256 * 176) / 10,
+        "slowly: most of the frame stands still ({moved} px)"
+    );
+}
+
+#[test]
+fn reading_is_done_by_lantern() {
+    let mut s = busy(0);
+    s.tool = Some(Tool::Book);
+    s.knight = Knight::at_place(Place::Scriptorium);
+    let staged = scene::stage(&s);
+    assert!(
+        staged.props.iter().any(|p| p.img.w == 22),
+        "the knight sits with his book"
+    );
+    assert!(
+        staged.cues.is_empty(),
+        "the book in his lap says it; no bubble"
+    );
+    let k = s.knight;
+    assert!(
+        staged
+            .lights
+            .iter()
+            .any(|l| l.fire && (l.x - k.x - 11.0).abs() < 1.0),
+        "a warm lantern burns beside him"
+    );
+    let mut walking = s.clone();
+    walking.knight.walking = true;
+    assert!(
+        scene::stage(&walking).props.iter().all(|p| p.img.w != 22),
+        "no reading on the road"
+    );
+}
+
+#[test]
+fn the_map_shows_the_published_pose() {
+    let mut w = Walker::default();
+    let start = w.knight();
+    w.toward(Place::Smithy);
+    w.toward(Place::Smithy);
+    assert_ne!(w.knight(), start, "he walks every tick");
+    assert_eq!(
+        w.shown_knight(),
+        start,
+        "the map shows him only when published"
+    );
+    w.publish();
+    assert_eq!(w.shown_knight(), w.knight());
 }
