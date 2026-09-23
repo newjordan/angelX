@@ -445,6 +445,8 @@ fn execution_outcomes_have_stable_snake_case_projections() {
 #[test]
 fn raw_shell_verifier_is_not_reused_or_completion_skipped() {
     let _env_guard = crate::tests::env_lock();
+    // Counts every verifier execution; completion confirmation would add runs.
+    let _confirm = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "0");
     let _reuse = EnvGuard::set("ANGEL_REUSE_VERIFIER_RESULTS", "1");
     let _verify_before_done = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
     let root = scratch("raw_shell_verifier_not_reused");
