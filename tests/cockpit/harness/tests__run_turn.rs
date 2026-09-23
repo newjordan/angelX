@@ -10405,3 +10405,87 @@ fn an_output_cap_cut_off_tells_the_model_before_the_retry() {
     ));
     assert!(!is_output_cap_truncation("openai responses: HTTP 500"));
 }
+
+/// A Yukon benchmark.json declares the editable surface (both schemas), and the
+/// operator can set it directly.
+#[test]
+fn task_edit_scope_reads_the_env_then_benchmark_json() {
+    let _guard = crate::tests::env_lock();
+    let _unset = EnvGuard::unset("ANGEL_TASK_EDITABLE_PATHS_JSON");
+    let root = scratch("edit_scope_manifest");
+    assert_eq!(task_edit_scope(&root), None, "no manifest, no scope");
+    std::fs::write(
+        root.join("benchmark.json"),
+        r#"{"schemaVersion":1,"editablePaths":["ds4","harness/"],"optionalEditablePaths":["mtp-head.manifest.json"]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        task_edit_scope(&root),
+        Some(vec![
+            "ds4".into(),
+            "harness".into(),
+            "mtp-head.manifest.json".into()
+        ])
+    );
+    std::fs::write(
+        root.join("benchmark.json"),
+        r#"{"schemaVersion":2,"tracks":[{"name":"subset","editablePaths":["candidates/subset"]},{"name":"pinning","editablePaths":["candidates/pinning"]}]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        task_edit_scope(&root),
+        Some(vec![
+            "candidates/pinning".into(),
+            "candidates/subset".into()
+        ])
+    );
+    let _set = EnvGuard::set("ANGEL_TASK_EDITABLE_PATHS_JSON", r#"["src/lib.rs", "src/extra/"]"#);
+    assert_eq!(
+        task_edit_scope(&root),
+        Some(vec!["src/lib.rs".into(), "src/extra".into()])
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// Edits outside the declared scope get one note per path per turn; edits inside
+/// it, and turns without a scope, get none.
+#[test]
+fn edits_outside_the_edit_scope_are_noted_once() {
+    let root = PathBuf::from("/ws/task");
+    let scope = vec!["src/lib.rs".to_string(), "crates/core".to_string()];
+    let write = |path: &str| ToolCall {
+        id: String::new(),
+        name: "write_file".into(),
+        args: serde_json::json!({"path": path, "content": "x"}),
+    };
+    let mut noted = std::collections::HashSet::new();
+    assert_eq!(
+        edit_scope_note(Some(&scope), &root, &write("src/lib.rs"), &mut noted),
+        None
+    );
+    assert_eq!(
+        edit_scope_note(
+            Some(&scope),
+            &root,
+            &write("/ws/task/crates/core/a.rs"),
+            &mut noted
+        ),
+        None,
+        "absolute paths inside the scope are fine"
+    );
+    let note = edit_scope_note(Some(&scope), &root, &write("Cargo.toml"), &mut noted)
+        .expect("an out-of-scope edit is noted");
+    assert!(
+        note.contains("Cargo.toml is outside this task's editable paths"),
+        "{note}"
+    );
+    assert_eq!(
+        edit_scope_note(Some(&scope), &root, &write("Cargo.toml"), &mut noted),
+        None,
+        "once per path per turn"
+    );
+    assert_eq!(
+        edit_scope_note(None, &root, &write("Cargo.toml"), &mut noted),
+        None
+    );
+}

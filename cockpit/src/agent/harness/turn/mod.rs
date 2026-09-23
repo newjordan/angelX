@@ -1521,6 +1521,11 @@ fn run_turn_tiered(
     let mut last_green_run: Option<GreenRun> = None;
     let confirm_green_runs = confirm_green_extra_runs(competition);
     let mut confirm_green_rejections = 0usize;
+    // A task that declares its editable surface (a Yukon benchmark.json, or
+    // ANGEL_TASK_EDIT_SCOPE) gets a note on edits outside it: those changes are
+    // not part of what is evaluated.
+    let edit_scope = task_edit_scope(registry.current_workspace());
+    let mut edit_scope_noted: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut green_verify_nudge_emitted = false;
     let mut post_green_tool_batches = 0usize;
     let mut consecutive_verification_failures = 0usize;
@@ -4938,6 +4943,19 @@ fn run_turn_tiered(
                         .routed_execution(call, &result)
                         .map(|entry| entry.receipt);
                     let produced_bytes = result.len() as u64;
+                    let result = if succeeded && is_mutation_call(call) {
+                        match edit_scope_note(
+                            edit_scope.as_deref(),
+                            registry.current_workspace(),
+                            call,
+                            &mut edit_scope_noted,
+                        ) {
+                            Some(note) => format!("{result}\n{note}"),
+                            None => result,
+                        }
+                    } else {
+                        result
+                    };
                     let capped = cap_tool_output_owned(result, ctx_window);
                     let identity = inspection_identity_for_offload(call, &capped);
                     let off = eager_offload_tool_result(&call.name, capped, identity.as_deref());
@@ -5562,6 +5580,82 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
 }
 
 const TASK_ACCEPT_TAIL_CHARS: usize = 1_500;
+
+/// The paths a task declares as its editable surface, when it declares one:
+/// the sealed-task allowlist `ANGEL_TASK_EDITABLE_PATHS_JSON` (whose file-tool
+/// edits are already refused outside it, so this catches shell edits), else a
+/// Yukon `benchmark.json` in the workspace (`editablePaths` and `optionalEditablePaths`, and every
+/// track's for a schema-v2 manifest). Edits elsewhere are not evaluated.
+pub(crate) fn task_edit_scope(workspace: &Path) -> Option<Vec<String>> {
+    if let Ok(raw) = std::env::var("ANGEL_TASK_EDITABLE_PATHS_JSON") {
+        let scope: Vec<String> = serde_json::from_str::<Vec<String>>(&raw)
+            .ok()?
+            .into_iter()
+            .map(|path| path.trim().trim_matches('/').to_string())
+            .filter(|path| !path.is_empty())
+            .collect();
+        return (!scope.is_empty()).then_some(scope);
+    }
+    let text = std::fs::read_to_string(workspace.join("benchmark.json")).ok()?;
+    let manifest: Value = serde_json::from_str(&text).ok()?;
+    let mut scope = Vec::new();
+    let mut take = |value: &Value| {
+        for key in ["editablePaths", "optionalEditablePaths"] {
+            if let Some(list) = value.get(key).and_then(Value::as_array) {
+                scope.extend(
+                    list.iter()
+                        .filter_map(Value::as_str)
+                        .map(|path| path.trim_matches('/').to_string()),
+                );
+            }
+        }
+    };
+    take(&manifest);
+    if let Some(tracks) = manifest.get("tracks").and_then(Value::as_array) {
+        tracks.iter().for_each(&mut take);
+    }
+    scope.sort();
+    scope.dedup();
+    (!scope.is_empty()).then_some(scope)
+}
+
+/// A one-line note when a mutation lands outside the declared edit scope, once
+/// per path per turn. polyglot-v1 rust-doubly-linked-list went green locally on
+/// edits to Cargo.toml and src/pre_implemented.rs that the evaluator discards.
+pub(crate) fn edit_scope_note(
+    scope: Option<&[String]>,
+    workspace: &Path,
+    call: &ToolCall,
+    noted: &mut std::collections::HashSet<String>,
+) -> Option<String> {
+    let scope = scope?;
+    let mut outside = Vec::new();
+    crate::knowledge::cut::for_each_mutation_target_path(&call.name, &call.args, |path| {
+        let relative = Path::new(path)
+            .strip_prefix(workspace)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|_| PathBuf::from(path));
+        let relative = relative
+            .to_string_lossy()
+            .trim_start_matches("./")
+            .to_string();
+        let inside = scope
+            .iter()
+            .any(|allowed| relative == *allowed || relative.starts_with(&format!("{allowed}/")));
+        if !inside && noted.insert(relative.clone()) {
+            outside.push(relative);
+        }
+        false
+    });
+    (!outside.is_empty()).then(|| {
+        format!(
+            "[edit scope] {} is outside this task's editable paths ({}): the evaluated copy will \
+             not include this change.",
+            outside.join(", "),
+            scope.join(", ")
+        )
+    })
+}
 
 /// The model's last passing test run, kept for the completion check.
 pub(crate) struct GreenRun {
