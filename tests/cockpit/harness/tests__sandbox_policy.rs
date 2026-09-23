@@ -27,6 +27,28 @@ fn shell_tool_runs_under_sandbox() {
     assert!(out.contains("hello-sandbox"), "got: {out}");
 }
 
+/// An exported shared cargo build directory is writable build output, like the
+/// caches; `/`, the home directory and relative paths are never granted.
+#[test]
+fn permissive_sandbox_grants_an_exported_cargo_target_dir() {
+    let _guard = crate::tests::env_lock();
+    let root = scratch("exported_cargo_target");
+    let target = root.join("target");
+    let home = root.join("home");
+    std::fs::create_dir_all(&target).unwrap();
+    std::fs::create_dir_all(&home).unwrap();
+    let _home = EnvGuard::set("HOME", home.to_str().unwrap());
+    let _build = EnvGuard::unset("CARGO_BUILD_TARGET_DIR");
+    let _target = EnvGuard::set("CARGO_TARGET_DIR", target.to_str().unwrap());
+    assert!(SandboxPolicy::permissive().writable_roots.contains(&target));
+    for denied in ["/", home.to_str().unwrap(), "relative/target"] {
+        let _target = EnvGuard::set("CARGO_TARGET_DIR", denied);
+        let roots = SandboxPolicy::permissive().writable_roots;
+        assert!(!roots.contains(&PathBuf::from(denied)), "{denied}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
 #[test]
 fn permissive_sandbox_allows_local_nvidia_compute_devices() {
     if !sandbox::available() || !Path::new("/dev/nvidiactl").exists() {
