@@ -1,0 +1,362 @@
+//! The default realm: twelve Zelda screens of terrain and where every place
+//! stands on them.
+//!
+//! Terrain legend (one byte per tile):
+//!
+//! | byte | tile        | byte | tile          |
+//! |------|-------------|------|---------------|
+//! | `.`  | meadow      | `=`  | road          |
+//! | `T`  | tree        | `:`  | cobble        |
+//! | `^`  | rock        | `%`  | swamp         |
+//! | `~`  | water       | `c`  | crops         |
+//! | `s`  | shore sand  | `a`  | ash           |
+//! | `d`  | dead tree   | `H`  | planks        |
+//!
+//! Buildings are drawn over meadow; their footprints live in [`Place`].
+
+use std::sync::OnceLock;
+
+use crate::stage::world_viz::Building;
+
+pub(crate) const TILE: i32 = 16;
+pub(crate) const SCREEN_W: i32 = 16;
+pub(crate) const SCREEN_H: i32 = 11;
+pub(crate) const SCREENS_X: i32 = 4;
+pub(crate) const SCREENS_Y: i32 = 3;
+pub(crate) const MAP_W: i32 = SCREEN_W * SCREENS_X;
+pub(crate) const MAP_H: i32 = SCREEN_H * SCREENS_Y;
+
+/// Row-major screens, `(sx, sy)` at index `sy * SCREENS_X + sx`.
+const SCREENS: [[&str; SCREEN_H as usize]; (SCREENS_X * SCREENS_Y) as usize] = [
+    // (0,0) Observatory hill and the Dark Forest
+    [
+        "TTTTTTTTTTTTTTTT",
+        "TTTTTTT.......^^",
+        "TTTTT..........^",
+        "TTTT...........^",
+        "TTTT.....=.....T",
+        "TTT.....==.....T",
+        "TT..T...========",
+        "TTT.....=......T",
+        "TTTT..T.=...T..T",
+        "TTTTT...=.....TT",
+        "TTTTTTTT=TTTTTTT",
+    ],
+    // (1,0) The Mines
+    [
+        "^^^^^^^^^^^^^^^^",
+        "^^^^^^^..^^^^^^^",
+        "^^^^^^^..^^^^^^^",
+        "^^^^^^^.=^^^^^^^",
+        "^^^^....=....^^^",
+        "^^^.....=.....^^",
+        "================",
+        "^^^.=........^^^",
+        "^^^^=.......^^^^",
+        "^^^^=.a..a.^^^^^",
+        "^^^^=^^^^^^^^^^^",
+    ],
+    // (2,0) Dragon Keep
+    [
+        "^^^^^^^^^^^^^^^^",
+        "^^aaadaaaaaadaa^",
+        "^aaaaaaaaaaaaaa^",
+        "^adaaaaaaaaaaad^",
+        "^aaaaaaaaaaaaaa^",
+        "^aaaaaaa=aaaaaa^",
+        "========aadaaaa^",
+        "^^aadaaaaaaaaa^^",
+        "^^^aaaaaaadaa^^^",
+        "^^^^^aaaaaa^^^^^",
+        "^^^^^^^^^^^^^^^^",
+    ],
+    // (3,0) North coast
+    [
+        "~~~~~~~~~~~~~~~~",
+        "~~~~~~~~~~~~~~~~",
+        "^^~~~~~~~ss~~~~~",
+        "^^s~~~~~sTTs~~~~",
+        "^ss~~~~~~ss~~~~~",
+        "^ss~~~~~~~~~~~~~",
+        "^sss~~~~~~~~~~~~",
+        "^^ss~~~~~~~~~~~~",
+        "^^sss~~~~~~~~~~~",
+        "^^^ss~~~~~~~~~~~",
+        "^^^Tss~~~~~~~~~~",
+    ],
+    // (0,1) Gatehouse and harbour
+    [
+        "~~~sTTTT=TTTTTTT",
+        "~~~sT...=......T",
+        "~~~s....=......T",
+        "~~~s....=......T",
+        "~~~s============",
+        "~~~s...........T",
+        "~~~s..T.....T..T",
+        "~~~ss..........T",
+        "~~~~s...TT.....T",
+        "~~~~ss........TT",
+        "~~~~~sTTTTTTTTTT",
+    ],
+    // (1,1) Castle town
+    [
+        "TTTT=TTTTTTTTTTT",
+        "T...=..........T",
+        "T...=..........T",
+        "T...=..........T",
+        "================",
+        "T.....:::......T",
+        "T.....:::......T",
+        "T.....:::......T",
+        "T.=============T",
+        "T......=.......T",
+        "TTTTTTT=TTTTTTTT",
+    ],
+    // (2,1) The Lists
+    [
+        "TTTTTTTTTTTTTTTT",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "===............T",
+        "T.=............T",
+        "T.=............T",
+        "T.==============",
+        "T......=.......T",
+        "T......=.......T",
+        "TTTTTTT=TTTTTTTT",
+    ],
+    // (3,1) Repo wards
+    [
+        "TTTTTTTTTTTTTTTT",
+        "T.............s~",
+        "T.............s~",
+        "T.............s~",
+        "T.............s~",
+        "T...=....=....s~",
+        "T...=....=....s~",
+        "==============s~",
+        "T.......=.....s~",
+        "T.......=....ss~",
+        "TTTTTTTTTTTTTss~",
+    ],
+    // (0,2) The Swamp
+    [
+        "~~~~~~TTTTTTTTTT",
+        "~~~~%%%%%%%%%%%T",
+        "~~~%%%~~%%%%%%%T",
+        "~~%%%~~~%%d%%%%T",
+        "~~%%%%~%%%%%%%%T",
+        "~~%%%%%%%%%%====",
+        "~~~%%d%%%~~%%%%T",
+        "~~~%%%%%%~~~%%%T",
+        "~~~~%%%%%%%%%%TT",
+        "~~~~~%%%%%%%TTTT",
+        "~~~~~~~~TTTTTTTT",
+    ],
+    // (1,2) The Village — the fleet
+    [
+        "TTTTTTT=TTTTTTTT",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "================",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (2,2) Homecoming road and the fields
+    [
+        "TTTTTTT=TTTTTTTT",
+        "T......=.......T",
+        "T.cccc.=.ccccc.T",
+        "T.cccc.=.ccccc.T",
+        "T.cccc.=.......T",
+        "========.......T",
+        "T......=.cccc..T",
+        "T.ccc..=.cccc..~",
+        "T.ccc..=.......~",
+        "T......=....ss~~",
+        "TTTTTTTTTTTss~~~",
+    ],
+    // (3,2) South sea
+    [
+        "TTTTTTTTTTTss~~~",
+        "TTTTTTTTsss~~~~~",
+        "TTTTTsss~~~~~~~~",
+        "TTTss~~~~~~~~~~~",
+        "Tss~~~~~~~~~~~~~",
+        "Ts~~~~~~~~~~~~~~",
+        "Ts~~~~~~~~~ss~~~",
+        "~~~~~~~~~~sTTs~~",
+        "~~~~~~~~~~~ss~~~",
+        "~~~~~~~~~~~~~~~~",
+        "~~~~~~~~~~~~~~~~",
+    ],
+];
+
+/// The terrain grid of the default realm.
+pub(crate) struct Realm {
+    tiles: Vec<u8>,
+}
+
+impl Realm {
+    /// The default realm, built once.
+    pub(crate) fn get() -> &'static Realm {
+        static REALM: OnceLock<Realm> = OnceLock::new();
+        REALM.get_or_init(Realm::build)
+    }
+
+    fn build() -> Realm {
+        let mut tiles = vec![b'.'; (MAP_W * MAP_H) as usize];
+        for sy in 0..SCREENS_Y {
+            for sx in 0..SCREENS_X {
+                for (ly, row) in SCREENS[(sy * SCREENS_X + sx) as usize].iter().enumerate() {
+                    for (lx, b) in row.bytes().enumerate().take(SCREEN_W as usize) {
+                        let (x, y) = (sx * SCREEN_W + lx as i32, sy * SCREEN_H + ly as i32);
+                        tiles[(y * MAP_W + x) as usize] = b;
+                    }
+                }
+            }
+        }
+        Realm { tiles }
+    }
+
+    /// Terrain at a tile; off-map reads clamp to the nearest edge tile so
+    /// edges never grow seams.
+    pub(crate) fn at(&self, x: i32, y: i32) -> u8 {
+        let (x, y) = (x.clamp(0, MAP_W - 1), y.clamp(0, MAP_H - 1));
+        self.tiles[(y * MAP_W + x) as usize]
+    }
+
+    /// Terrain under a world pixel.
+    pub(crate) fn at_px(&self, wx: i32, wy: i32) -> u8 {
+        self.at(wx.div_euclid(TILE), wy.div_euclid(TILE))
+    }
+
+    pub(crate) fn screen_rows(sx: i32, sy: i32) -> &'static [&'static str; SCREEN_H as usize] {
+        &SCREENS[(sy.clamp(0, SCREENS_Y - 1) * SCREENS_X + sx.clamp(0, SCREENS_X - 1)) as usize]
+    }
+}
+
+pub(crate) fn walkable(t: u8) -> bool {
+    matches!(t, b'=' | b':' | b'H' | b'.' | b's' | b'c' | b'a')
+}
+
+/// Every place on the default realm.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum Place {
+    Keep,
+    Gatehouse,
+    Rookery,
+    Scriptorium,
+    Smithy,
+    Chapel,
+    RoundTable,
+    Observatory,
+    /// The tournament ground and its quintain — the loop and the ladder.
+    Lists,
+    Mines,
+    DragonKeep,
+    /// The fleet's hamlet: cottages for the heads, the forge, the granary.
+    Village,
+    Wards,
+}
+
+impl Place {
+    pub(crate) const ALL: [Place; 13] = [
+        Place::Keep,
+        Place::Gatehouse,
+        Place::Rookery,
+        Place::Scriptorium,
+        Place::Smithy,
+        Place::Chapel,
+        Place::RoundTable,
+        Place::Observatory,
+        Place::Lists,
+        Place::Mines,
+        Place::DragonKeep,
+        Place::Village,
+        Place::Wards,
+    ];
+
+    pub(crate) fn of_building(b: Building) -> Place {
+        match b {
+            Building::Keep => Place::Keep,
+            Building::Gatehouse => Place::Gatehouse,
+            Building::Rookery => Place::Rookery,
+            Building::Scriptorium => Place::Scriptorium,
+            Building::Smithy => Place::Smithy,
+            Building::Chapel => Place::Chapel,
+            Building::RoundTable => Place::RoundTable,
+            Building::Observatory => Place::Observatory,
+        }
+    }
+
+    /// HUD name.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Place::Keep => "KEEP",
+            Place::Gatehouse => "GATEHOUSE",
+            Place::Rookery => "ROOKERY",
+            Place::Scriptorium => "SCRIPTORIUM",
+            Place::Smithy => "SMITHY",
+            Place::Chapel => "CHAPEL",
+            Place::RoundTable => "ROUND TABLE",
+            Place::Observatory => "OBSERVATORY",
+            Place::Lists => "THE LISTS",
+            Place::Mines => "THE MINES",
+            Place::DragonKeep => "DRAGON KEEP",
+            Place::Village => "THE VILLAGE",
+            Place::Wards => "REPO WARDS",
+        }
+    }
+
+    /// Footprint in tiles: `(tx, ty, tw, th)`.
+    pub(crate) fn footprint(self) -> (i32, i32, i32, i32) {
+        match self {
+            Place::Keep => (22, 12, 3, 3),
+            Place::Gatehouse => (5, 14, 2, 2),
+            Place::Rookery => (26, 12, 1, 2),
+            Place::Scriptorium => (28, 17, 2, 2),
+            Place::Smithy => (17, 17, 2, 2),
+            Place::Chapel => (28, 12, 2, 2),
+            Place::RoundTable => (17, 12, 2, 2),
+            Place::Observatory => (9, 2, 2, 2),
+            Place::Lists => (35, 12, 12, 5),
+            Place::Mines => (23, 1, 2, 2),
+            Place::DragonKeep => (39, 2, 3, 3),
+            Place::Village => (18, 24, 12, 7),
+            Place::Wards => (51, 13, 9, 8),
+        }
+    }
+
+    /// The tile the knight stands on to work here — always on a road or open
+    /// ground in front of the door.
+    pub(crate) fn stand(self) -> (i32, i32) {
+        match self {
+            Place::Keep => (23, 15),
+            Place::Gatehouse => (8, 15),
+            Place::Rookery => (26, 15),
+            Place::Scriptorium => (30, 19),
+            Place::Smithy => (19, 19),
+            Place::Chapel => (29, 15),
+            Place::RoundTable => (20, 13),
+            Place::Observatory => (9, 4),
+            Place::Lists => (35, 19),
+            Place::Mines => (24, 3),
+            Place::DragonKeep => (40, 5),
+            Place::Village => (23, 27),
+            Place::Wards => (52, 18),
+        }
+    }
+
+    /// Which Zelda screen holds this place.
+    pub(crate) fn screen(self) -> (i32, i32) {
+        let (tx, ty) = self.stand();
+        (tx / SCREEN_W, ty / SCREEN_H)
+    }
+}
