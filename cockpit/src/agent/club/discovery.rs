@@ -535,8 +535,10 @@ pub(crate) const META_REASONING_LEVELS: &[&str] = &["minimal", "low", "medium", 
 /// Muse Spark always reasons, and Meta's Chat Completions endpoint redacts that
 /// reasoning to empty. The seat therefore speaks the Responses API, which
 /// streams reasoning summaries to the thinking panel.
-/// `ANGEL_META_REASONING_EFFORT` picks the effort; `ANGEL_META_API=chat`
-/// keeps the Chat Completions route.
+/// `ANGEL_META_REASONING_EFFORT` picks the effort and
+/// `ANGEL_META_REASONING_SUMMARY` the summary level (`detailed` by default, so
+/// the panel shows more than one sentence); `ANGEL_META_API=chat` keeps the
+/// Chat Completions route.
 pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     if std::env::var("ANGEL_META_API").is_ok_and(|api| api.trim().eq_ignore_ascii_case("chat")) {
         return optional_sota_http_club(
@@ -570,6 +572,12 @@ pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<At
             .map(|level| level.to_string())
             .collect(),
         RouteMetadata::default(),
+    )
+    .with_reasoning_summary(
+        env_first(&["ANGEL_META_REASONING_SUMMARY"])
+            .map(|level| level.to_ascii_lowercase())
+            .filter(|level| ["auto", "concise", "detailed"].contains(&level.as_str()))
+            .unwrap_or_else(|| "detailed".to_string()),
     )
     .sota_tuned();
     Some((
