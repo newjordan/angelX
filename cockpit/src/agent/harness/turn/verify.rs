@@ -117,6 +117,33 @@ fn ascii_choice(word: &str, options: &[&str]) -> bool {
         .any(|option| word.eq_ignore_ascii_case(option))
 }
 
+/// JavaScript test runners a model calls directly or through a package
+/// launcher. `npm test` covers only the package script, so a direct `npx jest`
+/// was not a test run at all: DeepSeek ran it about 30 times on polyglot-v1
+/// js-forth, and every red run counted as a broken tool instead.
+const JS_TEST_RUNNERS: &[&str] = &["jest", "vitest", "mocha", "ava", "jasmine", "tap"];
+
+/// `jest …`, `npx jest …`, `bunx vitest …`, `pnpm exec mocha …`, `yarn jest …`,
+/// `npm exec -- jest …`, `./node_modules/.bin/jest …`.
+fn runs_js_test_runner(program: &str, words: &[&str]) -> bool {
+    let subcommand = words.get(1).copied().unwrap_or("");
+    let rest = if ascii_choice(program, &["npx", "bunx", "pnpx"]) {
+        &words[1..]
+    } else if ascii_choice(program, &["npm", "pnpm", "yarn", "bun"])
+        && ascii_choice(subcommand, &["exec", "dlx", "x"])
+    {
+        &words[2..]
+    } else if ascii_choice(program, &["pnpm", "yarn"]) {
+        &words[1..]
+    } else {
+        words
+    };
+    rest.iter()
+        .find(|word| !word.starts_with('-'))
+        .map(|word| word.rsplit('/').next().unwrap_or(word))
+        .is_some_and(|runner| ascii_choice(runner, JS_TEST_RUNNERS))
+}
+
 fn shell_segment_runs_verifier(segment: &str) -> bool {
     let words = segment.split_whitespace().collect::<Vec<_>>();
     let mut start = 0;
@@ -133,6 +160,9 @@ fn shell_segment_runs_verifier(segment: &str) -> bool {
     else {
         return false;
     };
+    if runs_js_test_runner(program, words) {
+        return true;
+    }
     // Match argv in place. `is_verification_call` used to lowercase the
     // whole command on every hop; mixed-case `CARGO TEST` still counts.
     if program.eq_ignore_ascii_case("cargo") {

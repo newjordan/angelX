@@ -10747,6 +10747,10 @@ fn a_red_verifier_verdict_is_not_a_dispatch_failure() {
         red
     ));
     assert!(!is_dispatch_failure(&shell("cargo test"), red));
+    assert!(!is_dispatch_failure(
+        &shell("cd ws && npx jest forth.spec.js 2>&1 | sed -n '1,80p'"),
+        "tool error: shell command failed (exit 1)\nTests: 2 failed, 47 passed"
+    ));
     let runner = "tool error: npm test (jest ./*) failed (exit 1) — chosen because of package.json; \
                   pin another runner with `runner` or use `shell`\nTests: 2 failed, 47 passed";
     assert!(is_red_verifier_run(&tc("run_tests", json!({})), runner));
