@@ -24,6 +24,7 @@ pub(crate) mod cinematics;
 mod hud;
 mod interiors;
 pub(crate) mod life;
+pub(crate) mod overworld;
 mod raycast;
 mod region_walk;
 mod ride;
