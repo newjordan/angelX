@@ -524,20 +524,59 @@ pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, 
     )
 }
 
-/// Meta Model API (Muse Spark), OpenAI chat format. Metered per token with no
-/// plan, so it sits late in the SOTA order and is not in the cheap profile.
+/// Reasoning efforts Muse Spark accepts (`none` is rejected with HTTP 400).
+pub(crate) const META_REASONING_LEVELS: &[&str] = &["minimal", "low", "medium", "high", "xhigh"];
+
+/// Meta Model API (Muse Spark). Metered per token with no plan, so it sits
+/// late in the SOTA order and is not in the cheap profile.
 /// `muse-spark-1.3-contributor` is the cheaper data-sharing tier and must be
 /// chosen explicitly with `ANGEL_META_MODEL`.
+///
+/// Muse Spark always reasons, and Meta's Chat Completions endpoint redacts that
+/// reasoning to empty. The seat therefore speaks the Responses API, which
+/// streams reasoning summaries to the thinking panel.
+/// `ANGEL_META_REASONING_EFFORT` picks the effort; `ANGEL_META_API=chat`
+/// keeps the Chat Completions route.
 pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
-    optional_sota_http_club(
-        "meta",
-        "muse-spark-1.3",
-        &["ANGEL_META_URL"],
-        "https://api.meta.ai/v1",
-        &["ANGEL_META_MODEL"],
-        Some("muse-spark-1.3"),
-        &["ANGEL_META_KEY", "META_API_KEY"],
+    if std::env::var("ANGEL_META_API").is_ok_and(|api| api.trim().eq_ignore_ascii_case("chat")) {
+        return optional_sota_http_club(
+            "meta",
+            "muse-spark-1.3",
+            &["ANGEL_META_URL"],
+            "https://api.meta.ai/v1",
+            &["ANGEL_META_MODEL"],
+            Some("muse-spark-1.3"),
+            &["ANGEL_META_KEY", "META_API_KEY"],
+        );
+    }
+    if !api_club_enabled("meta") {
+        return None;
+    }
+    let key = env_first(&["ANGEL_META_KEY", "META_API_KEY"])?;
+    let model = env_first(&["ANGEL_META_MODEL"]).unwrap_or_else(|| "muse-spark-1.3".to_string());
+    let base =
+        env_first(&["ANGEL_META_URL"]).unwrap_or_else(|| "https://api.meta.ai/v1".to_string());
+    let effort = env_first(&["ANGEL_META_REASONING_EFFORT"])
+        .map(|effort| effort.to_ascii_lowercase())
+        .filter(|effort| META_REASONING_LEVELS.contains(&effort.as_str()));
+    let club = crate::agent::openai_codex::CodexClub::api_key_seat(
+        model.clone(),
+        model,
+        format!("{}/responses", base.trim_end_matches('/')),
+        key,
+        effort,
+        META_REASONING_LEVELS
+            .iter()
+            .map(|level| level.to_string())
+            .collect(),
+        RouteMetadata::default(),
     )
+    .sota_tuned();
+    Some((
+        "meta".to_string(),
+        Arc::new(club),
+        Arc::new(AtomicBool::new(true)),
+    ))
 }
 
 pub(crate) fn openrouter_configured() -> bool {

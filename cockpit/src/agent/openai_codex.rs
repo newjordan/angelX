@@ -310,6 +310,17 @@ pub(crate) fn canonicalize_openai_model(slug: &str) -> String {
 }
 
 impl ChatGptAuth {
+    /// No ChatGPT login: an API-key Responses seat never reads or refreshes it.
+    fn detached() -> Self {
+        Self {
+            access_token: String::new(),
+            refresh_token: String::new(),
+            account_id: String::new(),
+            path: PathBuf::new(),
+            disk_snapshot: None,
+        }
+    }
+
     /// Load an evaluator-scoped in-memory snapshot when explicitly supplied,
     /// otherwise use the ordinary Codex credential file. A present but invalid
     /// snapshot fails closed instead of falling back to a host credential path.
@@ -600,6 +611,12 @@ pub struct CodexClub {
     /// off). Snapshotted where the ureq agent is built so the read deadline
     /// and the stall error message always agree.
     stream_stall_secs: u64,
+    /// The Responses endpoint: the ChatGPT Codex backend, or a provider's own
+    /// `/v1/responses` for an API-key seat.
+    responses_url: String,
+    /// A provider API key in place of the ChatGPT OAuth login. Such a seat
+    /// sends only `Authorization`, none of the ChatGPT account headers.
+    api_key: Option<String>,
     /// Test-only endpoint override: points the Responses POST at a local
     /// server so the streaming loop's watchdogs can be exercised without the
     /// real ChatGPT backend. Always `None` in production.
@@ -777,9 +794,38 @@ impl CodexClub {
             caveman_candidate: false,
             session_id: synth_session_id(),
             stream_stall_secs,
+            responses_url: RESPONSES_URL.to_string(),
+            api_key: None,
             #[cfg(test)]
             responses_url_override: None,
         }
+    }
+
+    /// A Responses-API seat on a provider API key (Meta's Muse Spark on
+    /// `https://api.meta.ai/v1/responses`), sharing this client's request
+    /// building, event decoding and stall handling. The provider's Chat
+    /// Completions endpoint redacts the model's reasoning; the Responses API
+    /// streams reasoning summaries, which reach the thinking panel.
+    pub(crate) fn api_key_seat(
+        name: impl Into<String>,
+        model: impl Into<String>,
+        responses_url: impl Into<String>,
+        api_key: impl Into<String>,
+        reasoning_effort: Option<String>,
+        reasoning_levels: Vec<String>,
+        route_metadata: crate::agent::club::RouteMetadata,
+    ) -> Self {
+        let mut club = Self::new_with_route_metadata_shared(
+            name,
+            model,
+            CodexSharedState::new(ChatGptAuth::detached()),
+            reasoning_effort,
+            reasoning_levels,
+            route_metadata,
+        );
+        club.responses_url = responses_url.into();
+        club.api_key = Some(api_key.into());
+        club
     }
 
     /// Tune this link for the mixture-of-agents path: keep a reply cut off at the
@@ -876,7 +922,20 @@ impl CodexClub {
     }
 
     /// A valid `(access_token, account_id)`, refreshing first if it's expired.
+    /// Error-message prefix: `openai` for the ChatGPT seat, the seat's own
+    /// label for an API-key provider, so a Muse failure is not read as OpenAI's.
+    fn provider_label(&self) -> &str {
+        if self.api_key.is_some() {
+            &self.name
+        } else {
+            "openai"
+        }
+    }
+
     fn token(&self) -> Result<(String, String), String> {
+        if let Some(key) = &self.api_key {
+            return Ok((key.clone(), String::new()));
+        }
         // Fast path: adopt any cross-process rotation and return a still-valid
         // token. The auth lock is held only for this cheap check, never across a
         // network refresh.
@@ -1150,9 +1209,9 @@ impl CodexClub {
         let responses_url = self
             .responses_url_override
             .as_deref()
-            .unwrap_or(RESPONSES_URL);
+            .unwrap_or(&self.responses_url);
         #[cfg(not(test))]
-        let responses_url = RESPONSES_URL;
+        let responses_url = self.responses_url.as_str();
         // Observation only: binding the run identity must never change the
         // request path (see HttpClub::send_with_retry). Failures leave the
         // identity unbound and are reported as such by the coverage report.
@@ -1180,31 +1239,33 @@ impl CodexClub {
                 Some(self.stream_stall_secs),
             );
         }
-        let resp = self
+        let mut request = self
             .agent
             .post(responses_url)
             .set("Content-Type", "application/json")
             .set("Accept", "text/event-stream")
-            .set("Authorization", &format!("Bearer {token}"))
-            .set("ChatGPT-Account-Id", &account)
-            .set("OpenAI-Beta", "responses=experimental")
-            .set("originator", ORIGINATOR)
-            .set("session_id", &self.session_id)
-            .send_bytes(&bytes)
-            .map_err(|e| {
-                let detail = match e {
-                    ureq::Error::Status(code, response) => {
-                        let mut body = String::new();
-                        let _ = std::io::Read::read_to_string(
-                            &mut attempt.response_reader(response.into_reader()),
-                            &mut body,
-                        );
-                        describe_response_error(code, &body)
-                    }
-                    other => describe_err(other),
-                };
-                format!("openai responses: {detail}")
-            })?;
+            .set("Authorization", &format!("Bearer {token}"));
+        if self.api_key.is_none() {
+            request = request
+                .set("ChatGPT-Account-Id", &account)
+                .set("OpenAI-Beta", "responses=experimental")
+                .set("originator", ORIGINATOR)
+                .set("session_id", &self.session_id);
+        }
+        let resp = request.send_bytes(&bytes).map_err(|e| {
+            let detail = match e {
+                ureq::Error::Status(code, response) => {
+                    let mut body = String::new();
+                    let _ = std::io::Read::read_to_string(
+                        &mut attempt.response_reader(response.into_reader()),
+                        &mut body,
+                    );
+                    describe_response_error(code, &body)
+                }
+                other => describe_err(other),
+            };
+            format!("{} responses: {detail}", self.provider_label())
+        })?;
 
         // Plan rate-limits ride on the response headers; capture them before the
         // body is consumed. Best-effort — absent on endpoints that don't send them.
@@ -1290,7 +1351,9 @@ impl CodexClub {
                 ResponseEvent::ToolCallDone { key, call } => {
                     tool_calls.done(key, call);
                 }
-                ResponseEvent::Failed(msg, _) => return Err(format!("openai: {msg}")),
+                ResponseEvent::Failed(msg, _) => {
+                    return Err(format!("{}: {msg}", self.provider_label()));
+                }
                 ResponseEvent::Incomplete(msg, _) => {
                     // Cut off at the output cap. A SOTA-tuned link keeps the prose
                     // streamed so far (when no tool call is mid-flight — its args
@@ -1302,7 +1365,7 @@ impl CodexClub {
                             crate::agent::club::OutputBudgetPolicy::EndpointManaged,
                         )));
                     }
-                    return Err(format!("openai: {msg}"));
+                    return Err(format!("{}: {msg}", self.provider_label()));
                 }
                 ResponseEvent::Done(_) => {
                     saw_done = true;

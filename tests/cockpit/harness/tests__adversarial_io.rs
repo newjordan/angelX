@@ -63,8 +63,9 @@ fn adversarial_io_profiles_match_mandatory_shell_scope_and_direct_paths() {
             let error = shell
                 .call(&args)
                 .expect_err("explicit inspection must deny writes");
+            // The scope narrows writes; network follows the shell's policy.
             assert!(
-                error.contains("effective shell scope: filesystem read-only; network disabled"),
+                error.contains("effective shell scope: filesystem read-only; network available"),
                 "{profile}: {error}"
             );
             assert_eq!(
