@@ -10439,7 +10439,10 @@ fn task_edit_scope_reads_the_env_then_benchmark_json() {
             "candidates/subset".into()
         ])
     );
-    let _set = EnvGuard::set("ANGEL_TASK_EDITABLE_PATHS_JSON", r#"["src/lib.rs", "src/extra/"]"#);
+    let _set = EnvGuard::set(
+        "ANGEL_TASK_EDITABLE_PATHS_JSON",
+        r#"["src/lib.rs", "src/extra/"]"#,
+    );
     assert_eq!(
         task_edit_scope(&root),
         Some(vec!["src/lib.rs".into(), "src/extra".into()])

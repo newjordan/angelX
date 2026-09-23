@@ -268,13 +268,23 @@ fn travel_and_arrival_cues_become_a_glass_over_the_map() {
         false,
     );
     let riding = overworld_scene(&app).glass.expect("the ride glass");
-    assert!(riding.live && riding.title.contains("SMITHY"), "{}", riding.title);
+    assert!(
+        riding.live && riding.title.contains("SMITHY"),
+        "{}",
+        riding.title
+    );
 
-    app.scryglass.controller.show_overlay(StageOverlay::Arrival {
-        destination: Building::Chapel,
-    });
+    app.scryglass
+        .controller
+        .show_overlay(StageOverlay::Arrival {
+            destination: Building::Chapel,
+        });
     let arrived = overworld_scene(&app).glass.expect("the arrival glass");
-    assert!(!arrived.live && arrived.title == "CHAPEL", "{}", arrived.title);
+    assert!(
+        !arrived.live && arrived.title == "CHAPEL",
+        "{}",
+        arrived.title
+    );
 
     let _bare = crate::tests::TestEnvGuard::set("ANGEL_WORLD_GLASS", "off");
     assert!(overworld_scene(&app).glass.is_none());
