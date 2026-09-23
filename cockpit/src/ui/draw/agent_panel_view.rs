@@ -150,6 +150,19 @@ pub(crate) fn profile_badge(profile: AgentProfile) -> AgentBadge {
         AgentKey::Codex => AgentBadge::Unknown,
         AgentKey::GpuComp => AgentBadge::Turbo,
         AgentKey::MathGod => AgentBadge::Unknown,
+        // Model-family knights have portraits of their own; the terminal
+        // badge table stays at its authored five marks.
+        AgentKey::Luna
+        | AgentKey::Glm
+        | AgentKey::Kimi
+        | AgentKey::Qwen
+        | AgentKey::LongCat
+        | AgentKey::Muse
+        | AgentKey::Hy
+        | AgentKey::Nemotron
+        | AgentKey::Cerebras
+        | AgentKey::OpenRouter
+        | AgentKey::Local => AgentBadge::Unknown,
         AgentKey::Unknown => AgentBadge::Unknown,
     }
 }

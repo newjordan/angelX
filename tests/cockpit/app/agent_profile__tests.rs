@@ -32,7 +32,7 @@ fn route_profiles_distinguish_provider_models_on_one_logical_agent() {
     assert_eq!(openai.key, AgentKey::Codex);
     assert_eq!(deepseek.key, AgentKey::Sparky);
     assert_eq!(grok.key, AgentKey::Turbo);
-    assert_eq!(kimi.key, AgentKey::Atlas);
+    assert_eq!(kimi.key, AgentKey::Kimi);
     assert_eq!(
         profile_for_route("sota", "openai", Some("GPT-5.6-SOL"), false).key,
         AgentKey::Codex
@@ -54,6 +54,79 @@ fn route_profiles_distinguish_provider_models_on_one_logical_agent() {
     assert!(
         !body.contains("to_ascii_lowercase"),
         "route portrait matching must not lowercase driver/model: {body}"
+    );
+}
+
+#[test]
+fn every_model_family_wears_its_own_knight() {
+    let route =
+        |driver: &str, model: &str| profile_for_route("sota", driver, Some(model), false).key;
+    assert_eq!(route("openai", "gpt-5.6-luna"), AgentKey::Luna);
+    assert_eq!(route("openai", "gpt-5.6-sol"), AgentKey::Codex);
+    assert_eq!(route("glm", "glm-5.3"), AgentKey::Glm);
+    assert_eq!(route("kimi", "kimi-k3"), AgentKey::Kimi);
+    assert_eq!(route("qwen", "qwen3.7-plus"), AgentKey::Qwen);
+    assert_eq!(route("longcat", "LongCat-Flash"), AgentKey::LongCat);
+    assert_eq!(route("meta", "muse-spark"), AgentKey::Muse);
+    assert_eq!(route("hy", "tencent/hy3-preview"), AgentKey::Hy);
+    assert_eq!(
+        route("openrouter", "nvidia/nemotron-3-super:free"),
+        AgentKey::Nemotron
+    );
+    // Providers that serve many families fall back to their own knight only
+    // when the served model has no family of its own.
+    assert_eq!(route("cerebras", "zai-glm-4.7"), AgentKey::Glm);
+    assert_eq!(route("cerebras", "cerebras-native"), AgentKey::Cerebras);
+    assert_eq!(route("openrouter", "moonshotai/kimi-k3"), AgentKey::Kimi);
+    assert_eq!(
+        route("openrouter", "some-lab/model:free"),
+        AgentKey::OpenRouter
+    );
+    // Unmatched frontier seats keep Atlas.
+    assert_eq!(route("sota", "inkling-large"), AgentKey::Atlas);
+    let names: std::collections::HashSet<_> = [
+        AgentKey::Luna,
+        AgentKey::Glm,
+        AgentKey::Kimi,
+        AgentKey::Qwen,
+        AgentKey::LongCat,
+        AgentKey::Muse,
+        AgentKey::Hy,
+        AgentKey::Nemotron,
+        AgentKey::Cerebras,
+        AgentKey::OpenRouter,
+        AgentKey::Local,
+    ]
+    .into_iter()
+    .map(crate::ui::helm::sheet)
+    .collect();
+    assert_eq!(names.len(), 11, "each family knight has its own sheet");
+}
+
+#[test]
+fn local_slot_wears_the_homestead_knight_and_the_swarm_keeps_its_runner() {
+    assert_eq!(
+        profile_for_route("local", "local", Some("qwen3.6-27b"), false).key,
+        AgentKey::Local
+    );
+    // The swarm still resolves as before, so the Apollo specialist persona
+    // can take its portrait during a specialist turn.
+    assert_eq!(
+        profile_for_route("local", "swarm", Some("qwen3.6-27b"), false).key,
+        AgentKey::Unknown
+    );
+    assert_eq!(
+        profile_for_route("local", "local-swarm", Some("qwen3.6-27b"), true).key,
+        AgentKey::Apollo
+    );
+    assert_eq!(
+        profile_for_route("local", "local", Some("qwen3.6-27b"), true).key,
+        AgentKey::Apollo
+    );
+    // A local DeepSeek checkpoint keeps Sparky's family portrait.
+    assert_eq!(
+        profile_for_route("sota", "local", Some("DSFLASH-local"), false).key,
+        AgentKey::Sparky
     );
 }
 
