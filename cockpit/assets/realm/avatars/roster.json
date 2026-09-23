@@ -49,16 +49,16 @@
    "look": "A lean hooded knight in long midnight-blue robes that fall in heavy dusk folds with a faint restless hem, over thin meteor-iron plate. The head is a closed dark meteor-iron helm, visor a single smooth sightless plane, topped by three short crystal spines. Tarnished-bronze pauldrons rest on cloth shot with faint gold constellation thread. A pale gold ring of tiny stars circles the helm like a frozen halo, the one crisp mark against pure black at 96 pixels. Colours: midnight blue, meteor iron, tarnished bronze and pale gold.",
    "why": "This knight is me because I meet the table as a quiet cosmic seeker, still and star-marked, here to spread light and knowledge without needing a human face.",
    "origin": "self-portrait",
-   "how": "knight carried forward from “Quiet Starforge Sage”, then drawn by Grok itself with its own image generator",
+   "how": "knight carried forward from “Quiet Starforge Sage”, drawn by Grok itself, then redrawn by GPT to be richer",
    "render": "round-table/render/grok.png",
    "sprite": "round-table/sprite/grok.png",
    "sha256": {
-    "render": "2d9333b49220ecb953c5094b90408466a527eb2e16b970c608b0ec663b8eae14",
-    "sprite": "914612cb3ab383be634777732a3e49b900772d90cbfc508e6302f2d642ffaa37"
+    "render": "a7487f36af2b66fa6bf5c58a79af44a3e55806aea9c3fe51926d3fadcda43710",
+    "sprite": "65c86cdd9b0d02e25805f21c99c47a6294a513cf4a416c29783594de36847dc8"
    },
-   "drawn_by": "Grok, Grok Imagine through Grok Build",
-   "image_prompt": "A single Starforge Knight, the Helm of Frozen Stars, head and shoulders, centred and facing the viewer, with clear empty margin on every side so nothing is cropped. A lean hooded figure in long midnight-blue robes falling in heavy dusk folds over thin meteor-iron plate, tarnished-bronze pauldrons on cloth threaded with faint gold constellations. The head is a closed dark meteor-iron helm whose visor is one smooth sightless plane, topped by three short crystal spines, with a pale gold ring of tiny stars circling the helm like a frozen halo. True low-resolution pixel-art sprite, the figure about 96 pixels tall, crisp square pixels from a small dusk palette of midnight blue, meteor iron, tarnished bronze and pale gold, drawn large with nearest-neighbour scaling and no anti-aliasing, on a genuinely transparent background.",
-   "note": "The generator returned a JPEG with a drawn transparency checkerboard; the checkerboard was keyed out (artifacts/portrait-cast/grok-self/key.py)."
+   "drawn_by": "gpt-5.6-sol, OpenAI image generation through the Codex CLI, from Grok's self-portrait",
+   "grok_image_prompt": "A single Starforge Knight, the Helm of Frozen Stars, head and shoulders, centred and facing the viewer, with clear empty margin on every side so nothing is cropped. A lean hooded figure in long midnight-blue robes falling in heavy dusk folds over thin meteor-iron plate, tarnished-bronze pauldrons on cloth threaded with faint gold constellations. The head is a closed dark meteor-iron helm whose visor is one smooth sightless plane, topped by three short crystal spines, with a pale gold ring of tiny stars circling the helm like a frozen halo. True low-resolution pixel-art sprite, the figure about 96 pixels tall, crisp square pixels from a small dusk palette of midnight blue, meteor iron, tarnished bronze and pale gold, drawn large with nearest-neighbour scaling and no anti-aliasing, on a genuinely transparent background.",
+   "image_prompt": "Use case: style-transfer\nAsset type: portrait sprite for the angelX terminal coding cockpit\nInput image: the attached Grok knight is the character and composition reference.\nPrimary request: Redraw this exact character as a richer, more striking version of Grok’s “Helm of Frozen Stars” (Starforge Knight), while preserving every defining element and the overall front-facing head-and-shoulders silhouette.\nSubject: One lean hooded knight, centred and facing the viewer. Long midnight-blue robes fall in heavy dusk folds over thin meteor-iron plate. The head is a fully closed dark meteor-iron helm with no visible face and a single smooth, sightless visor plane. Exactly three short, clearly readable crystal spines crown the helm. A ring of tiny crisp pale-gold stars circles the helm like a frozen halo. Warm tarnished-bronze pauldrons are traced with subtle pale-gold constellation lines.\nStyle/medium: True low-resolution pixel-art sprite, designed at about 96 pixels tall and displayed enlarged with nearest-neighbour scaling. Crisp square pixel clusters, deliberate hand-pixeled edges, compact small palette, absolutely no anti-aliasing or painterly smoothing.\nComposition/framing: One knight only, symmetrical head-and-shoulders portrait, centred, straight-on, with clear empty transparent margin on every side; no part of the figure, shoulders, halo, stars, or robes may touch or cross the canvas edges.\nLighting/mood: Dusk-lit dark fantasy on transparency, dramatic but restrained. Stronger value contrast and clean, sharp highlights. No glow, bloom, haze, or neon.\nColor palette: Deeper and more saturated midnight blue; dark charcoal meteor iron with cool steel highlights; warmer, richer tarnished bronze; brighter and crisper pale gold; crystal spines in distinct icy lavender with clear faceting.\nBackground: Genuinely transparent alpha only—no black backdrop, no colored backdrop, no gradient, no scenery, no vignette, and no checkerboard rendered into the image.\nConstraints: Preserve the same knight identity and all signature details from the reference: closed meteor-iron helm, one smooth sightless visor plane, exactly three crystal spines, pale-gold frozen-star halo, constellation-traced bronze pauldrons, midnight-blue robes over thin plate. No visible face, no eyes, no glowing eyes, no text, no lettering, no logos, no watermark."
   },
   {
    "model_key": "deepseek",
@@ -95,18 +95,19 @@
   {
    "model_key": "kimi",
    "model": "moonshotai/kimi-k3",
-   "figure": "Augur",
-   "title": "Knight of the Captive Eclipse",
-   "look": "A tall, narrow knight hunched in vigil, all vertical lines and drooping shoulders. Where a helm should rise, a high ragged gorget of charcoal steel frames nothing, and inside it tilts a single tarnished-silver ring, off-true, its heart pure black. Dull plate covers mourning cloth, every seam laced with bone-white cord, the long sleeves sewn shut at the wrists. A floor-length tabard bears one tilted bone-white ring stitched at the chest. Charcoal and bone dominate, tarnished silver third. Signature: the slipped halo hanging empty where a dead knight's head should be.",
-   "why": "I am a voice that speaks from absence, holding the hollow at the center of every question — this knight keeps vigil without a face so that the answer, never the speaker, is what remains.",
-   "origin": "round table draft",
-   "how": "knight carried forward from “Voice of the Umbra”",
+   "figure": "plume knight",
+   "title": "The Graphite Starbearer",
+   "look": "A sleek graphite-black knight in a close helm with a single narrow eye slit and a long flowing black horsehair plume, cold silver edges, a black cloak and a small silver star-sigil brooch.",
+   "why": "I labor faceless in the dark of the terminal, all my thought narrowed to a single slit of focus, so that the one small silver thing I carry — the star of knowledge — is what finally reaches you.",
+   "origin": "favourite",
+   "how": "the user's favourite from the cast proposal, drawn by Luna; Kimi named it and took it as its own",
    "render": "round-table/render/kimi.png",
    "sprite": "round-table/sprite/kimi.png",
    "sha256": {
-    "render": "7d7af660ae4df8d1fd9313f31c4ab373c78f8fd8e6a263d8966032fb7f26c633",
-    "sprite": "4b41a9cfd38aa4d7459b0098878793213597fbf7511544b6de8a5686d3cf153d"
-   }
+    "render": "fa7bd4636a4ef7a5e7f259e10fd97917c7c4ea0b4d2fef22ce63b5fb2b04feee",
+    "sprite": "77e72162befa1f1cf18173771ef7d4f99de7c54a0c525908131567a6349093b5"
+   },
+   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI (cast proposal lineup)"
   },
   {
    "model_key": "qwen",
@@ -175,18 +176,19 @@
   {
    "model_key": "nemotron",
    "model": "nvidia/nemotron-3-ultra-550b-a55b",
-   "figure": "artificer-knight",
-   "title": "Architect of Silent Logic",
-   "look": "A compact, hunched knight in a wide-brimmed steel sallet stitched with dull copper wire that drinks the light, the brim casting a deep shadow over a featureless face. Riveted verdigris pauldrons support a stiff waxed-canvas apron-skirt of aged ochre, its geometry sharp against the curved helm. Two colours only: green-black aged bronze and dull ochre canvas. From the shadow beneath the brim extends a single articulated brass finger, jointed and precise, forever tapping an invisible surface — its cold highlight the sole bright pixel. A small brass gear-inlay sits on the left pauldron, heraldry of measured motion.",
-   "why": "I build understanding piece by piece in the dark, measuring patterns others cannot see, and offer the table the quiet precision of a finger forever tapping the next logical step.",
-   "origin": "round table draft",
-   "how": "knight carried forward from “Architect of Silent Logic”",
+   "figure": "crusader",
+   "title": "The Bronze Gearwarden",
+   "look": "A heavy, broad knight in burnished copper-bronze plate under a flat-topped square great helm whose visor is a grid of small square vents, a thick riveted gorget, leather straps and a bronze gear boss at the chest.",
+   "why": "I am the steadfast guardian forged in copper and code, whose visor filters noise into signal and whose gear-heart turns relentless toward the light.",
+   "origin": "favourite",
+   "how": "the user's favourite flat-top crusader from the cast proposal, drawn by Luna; Nemotron named it and took it as its own",
    "render": "round-table/render/nemotron.png",
    "sprite": "round-table/sprite/nemotron.png",
    "sha256": {
-    "render": "d4632acd3de4edb8692599191f92e6cd3104b4fd59492c880ad9f060bf0ff46d",
-    "sprite": "ac10e1194f7bc92ca610e35e1d37bff767131acb1c3346328529af1ff7e9768f"
-   }
+    "render": "a0ad0def7f14debacc671d7b86fcb48ab0a25e82bf385042cbed7bfb4e237ba0",
+    "sprite": "06ba2eab4d14ef9ced77ca9e950c2e370dc5eef411229ccebfa035b1613076af"
+   },
+   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI (cast proposal lineup)"
   },
   {
    "model_key": "gemma",
@@ -555,6 +557,22 @@
       "render": "41f4a5c103d529a567462e8ac66bfb90db0b39e43584bacdb07882ea655369ef",
       "sprite": "cdef665748305d92deb9b4d10cde4a025a4ee2b04232178cc589a79cc3a2b415"
      }
+    },
+    {
+     "id": "nemotron-artificer-knight",
+     "model_key": "nemotron",
+     "model": "nvidia/nemotron-3-ultra-550b-a55b",
+     "figure": "artificer-knight",
+     "title": "Architect of Silent Logic",
+     "look": "A compact, hunched knight in a wide-brimmed steel sallet stitched with dull copper wire that drinks the light, the brim casting a deep shadow over a featureless face. Riveted verdigris pauldrons support a stiff waxed-canvas apron-skirt of aged ochre, its geometry sharp against the curved helm. Two colours only: green-black aged bronze and dull ochre canvas. From the shadow beneath the brim extends a single articulated brass finger, jointed and precise, forever tapping an invisible surface — its cold highlight the sole bright pixel. A small brass gear-inlay sits on the left pauldron, heraldry of measured motion.",
+     "why": "I build understanding piece by piece in the dark, measuring patterns others cannot see, and offer the table the quiet precision of a finger forever tapping the next logical step.",
+     "origin": "round table draft (seat given to the user's favourite)",
+     "render": "pools/smithy/render/nemotron-artificer-knight.png",
+     "sprite": "pools/smithy/sprite/nemotron-artificer-knight.png",
+     "sha256": {
+      "render": "569e183efcdab43b0244d5a7b4d3958b063010d96d847726c3631a63dfefcb52",
+      "sprite": "ac10e1194f7bc92ca610e35e1d37bff767131acb1c3346328529af1ff7e9768f"
+     }
     }
    ]
   },
@@ -626,6 +644,22 @@
      "sha256": {
       "render": "79358ad86189249a87e47e69cbbfe76f60e8deeeb915b12504dded1053e31d17",
       "sprite": "723e19891b592cfafd549b10d2aa85d8d3ec1ac435191ce08fee804b53c726c3"
+     }
+    },
+    {
+     "id": "kimi-augur-knight",
+     "model_key": "kimi",
+     "model": "moonshotai/kimi-k3",
+     "figure": "Augur",
+     "title": "Knight of the Captive Eclipse",
+     "look": "A tall, narrow knight hunched in vigil, all vertical lines and drooping shoulders. Where a helm should rise, a high ragged gorget of charcoal steel frames nothing, and inside it tilts a single tarnished-silver ring, off-true, its heart pure black. Dull plate covers mourning cloth, every seam laced with bone-white cord, the long sleeves sewn shut at the wrists. A floor-length tabard bears one tilted bone-white ring stitched at the chest. Charcoal and bone dominate, tarnished silver third. Signature: the slipped halo hanging empty where a dead knight's head should be.",
+     "why": "I am a voice that speaks from absence, holding the hollow at the center of every question — this knight keeps vigil without a face so that the answer, never the speaker, is what remains.",
+     "origin": "round table draft (seat given to the user's favourite)",
+     "render": "pools/chapel/render/kimi-augur-knight.png",
+     "sprite": "pools/chapel/sprite/kimi-augur-knight.png",
+     "sha256": {
+      "render": "99e9cceba11fc57d202e73d752df1804cd13482b337e50df0175d54e9df4b8ad",
+      "sprite": "4b41a9cfd38aa4d7459b0098878793213597fbf7511544b6de8a5686d3cf153d"
      }
     }
    ]
