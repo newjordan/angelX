@@ -1784,12 +1784,16 @@ fn portrait_image(path: &Path, pose: Option<u8>) -> Result<image::DynamicImage, 
     }
 }
 
-/// Prepare a portrait on the exact pixel canvas that ratatui-image will use.
-/// Its `Fit` resize preserves aspect ratio by placing the fitted image at the
-/// canvas origin, which leaves rounded cell pixels on the lower and right
-/// edges. Translate the authored pixels within that same canvas so the visible
-/// alpha bounds finish at its lower-right edge. The existing Fit scale is
-/// preserved; alignment adds only a translation, without mirroring the pose.
+/// Prepare a portrait on the exact pixel canvas that ratatui-image will use,
+/// with the figure hard in its lower-right corner: shoulder against the
+/// right wall, torso on the base.
+///
+/// The fitted image is widened to whole cells (the terminal places images
+/// in whole cells, so a fractional canvas left a gap of up to one cell on
+/// the right and bottom). The figure is found by clearly visible alpha: the
+/// helm sheets carry a faint halo out to their edges, and anchoring on any
+/// non-zero alpha left the knight floating in his own haze. Haze outside the
+/// figure is dropped; the figure's pixels, scale and pose are unchanged.
 fn anchor_portrait_canvas(
     image: image::DynamicImage,
     picker: &Picker,
@@ -1819,7 +1823,7 @@ fn anchor_portrait_canvas(
     let (mut left, mut top) = source.dimensions();
     let (mut right, mut bottom) = (0, 0);
     for (x, y, pixel) in source.enumerate_pixels() {
-        if pixel[3] != 0 {
+        if pixel[3] >= PORTRAIT_FIGURE_ALPHA {
             left = left.min(x);
             top = top.min(y);
             right = right.max(x + 1);
@@ -1829,16 +1833,22 @@ fn anchor_portrait_canvas(
     if right <= left || bottom <= top {
         return image::DynamicImage::ImageRgba8(source);
     }
-    let mut anchored = image::RgbaImage::new(source.width(), source.height());
+    let (fw, fh) = (u32::from(font.width).max(1), u32::from(font.height).max(1));
+    let canvas_w = source.width().div_ceil(fw) * fw;
+    let canvas_h = source.height().div_ceil(fh) * fh;
+    let mut anchored = image::RgbaImage::new(canvas_w, canvas_h);
     let crop = image::imageops::crop_imm(&source, left, top, right - left, bottom - top).to_image();
     image::imageops::replace(
         &mut anchored,
         &crop,
-        i64::from(source.width() - (right - left)),
-        i64::from(source.height() - (bottom - top)),
+        i64::from(canvas_w - (right - left)),
+        i64::from(canvas_h - (bottom - top)),
     );
     image::DynamicImage::ImageRgba8(anchored)
 }
+
+/// Alpha at which a portrait pixel counts as part of the figure (10%).
+pub(crate) const PORTRAIT_FIGURE_ALPHA: u8 = 26;
 
 fn cached_bounded_preview(path: &Path) -> Result<(image::DynamicImage, (u32, u32)), String> {
     let metadata = std::fs::metadata(path).map_err(|e| format!("stat {}: {e}", path.display()))?;
