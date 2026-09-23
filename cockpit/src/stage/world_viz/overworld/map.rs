@@ -1,5 +1,10 @@
-//! The default realm: twelve Zelda screens of terrain and where every place
-//! stands on them.
+//! The default realm: twelve authored Zelda screens spread across a wider
+//! grid with grown wilderness between them, and where every place stands.
+//!
+//! Authored screens sit at even grid coordinates; every other screen is
+//! wilderness (`wild.rs`) that carries the authored roads through. Place
+//! footprints and stand tiles are written in the authored screens' own
+//! coordinates and moved into the realm by [`place_tile`] / [`place_px`].
 //!
 //! Terrain legend (one byte per tile):
 //!
@@ -21,13 +26,32 @@ use crate::stage::world_viz::Building;
 pub(crate) const TILE: i32 = 16;
 pub(crate) const SCREEN_W: i32 = 16;
 pub(crate) const SCREEN_H: i32 = 11;
-pub(crate) const SCREENS_X: i32 = 4;
-pub(crate) const SCREENS_Y: i32 = 3;
+/// The authored screens' own grid.
+pub(crate) const AUTHORED_X: i32 = 4;
+pub(crate) const AUTHORED_Y: i32 = 3;
+/// The realm's grid: an authored screen at every even coordinate,
+/// wilderness between.
+pub(crate) const SCREENS_X: i32 = AUTHORED_X * 2 - 1;
+pub(crate) const SCREENS_Y: i32 = AUTHORED_Y * 2 - 1;
 pub(crate) const MAP_W: i32 = SCREEN_W * SCREENS_X;
 pub(crate) const MAP_H: i32 = SCREEN_H * SCREENS_Y;
 
-/// Row-major screens, `(sx, sy)` at index `sy * SCREENS_X + sx`.
-const SCREENS: [[&str; SCREEN_H as usize]; (SCREENS_X * SCREENS_Y) as usize] = [
+/// An authored tile `(tx, ty)` moved to its place in the realm.
+pub(crate) fn place_tile(tx: i32, ty: i32) -> (i32, i32) {
+    (
+        tx + tx.div_euclid(SCREEN_W) * SCREEN_W,
+        ty + ty.div_euclid(SCREEN_H) * SCREEN_H,
+    )
+}
+
+/// An authored pixel point moved to its place in the realm.
+pub(crate) fn place_px(x: i32, y: i32) -> (i32, i32) {
+    let (sw, sh) = (SCREEN_W * TILE, SCREEN_H * TILE);
+    (x + x.div_euclid(sw) * sw, y + y.div_euclid(sh) * sh)
+}
+
+/// Authored screens, row-major: `(ax, ay)` at index `ay * AUTHORED_X + ax`.
+const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] = [
     // (0,0) Observatory hill and the Dark Forest
     [
         "TTTTTTTTTTTTTTTT",
@@ -214,8 +238,12 @@ impl Realm {
         let mut tiles = vec![b'.'; (MAP_W * MAP_H) as usize];
         for sy in 0..SCREENS_Y {
             for sx in 0..SCREENS_X {
-                for (ly, row) in SCREENS[(sy * SCREENS_X + sx) as usize].iter().enumerate() {
-                    for (lx, b) in row.bytes().enumerate().take(SCREEN_W as usize) {
+                let rows = match authored_at(sx, sy) {
+                    Some(rows) => rows,
+                    None => super::wild::grow(sx, sy, &edges_of(sx, sy), lean_of(sx, sy)),
+                };
+                for (ly, row) in rows.iter().enumerate() {
+                    for (lx, &b) in row.iter().enumerate() {
                         let (x, y) = (sx * SCREEN_W + lx as i32, sy * SCREEN_H + ly as i32);
                         tiles[(y * MAP_W + x) as usize] = b;
                     }
@@ -237,8 +265,57 @@ impl Realm {
         self.at(wx.div_euclid(TILE), wy.div_euclid(TILE))
     }
 
-    pub(crate) fn screen_rows(sx: i32, sy: i32) -> &'static [&'static str; SCREEN_H as usize] {
-        &SCREENS[(sy.clamp(0, SCREENS_Y - 1) * SCREENS_X + sx.clamp(0, SCREENS_X - 1)) as usize]
+    /// An authored screen's rows, in the authored grid.
+    pub(crate) fn authored_rows(ax: i32, ay: i32) -> &'static [&'static str; SCREEN_H as usize] {
+        &AUTHORED[(ay.clamp(0, AUTHORED_Y - 1) * AUTHORED_X + ax.clamp(0, AUTHORED_X - 1)) as usize]
+    }
+}
+
+/// The authored screen at realm screen `(sx, sy)`, if one sits there.
+fn authored_at(sx: i32, sy: i32) -> Option<super::wild::Rows> {
+    if sx % 2 != 0 || sy % 2 != 0 || !(0..SCREENS_X).contains(&sx) || !(0..SCREENS_Y).contains(&sy)
+    {
+        return None;
+    }
+    let mut rows = [[b'.'; SCREEN_W as usize]; SCREEN_H as usize];
+    for (ly, row) in Realm::authored_rows(sx / 2, sy / 2).iter().enumerate() {
+        for (lx, b) in row.bytes().enumerate().take(SCREEN_W as usize) {
+            rows[ly][lx] = b;
+        }
+    }
+    Some(rows)
+}
+
+/// The borders a wild screen shares with authored neighbours.
+fn edges_of(sx: i32, sy: i32) -> super::wild::Edges {
+    let (w, h) = (SCREEN_W as usize, SCREEN_H as usize);
+    let mut edges = super::wild::Edges::default();
+    if let Some(n) = authored_at(sx, sy - 1) {
+        edges.north = Some(n[h - 1]);
+    }
+    if let Some(s) = authored_at(sx, sy + 1) {
+        edges.south = Some(s[0]);
+    }
+    if let Some(west) = authored_at(sx - 1, sy) {
+        edges.west = Some(std::array::from_fn(|y| west[y][w - 1]));
+    }
+    if let Some(east) = authored_at(sx + 1, sy) {
+        edges.east = Some(std::array::from_fn(|y| east[y][0]));
+    }
+    edges
+}
+
+/// What each wild screen leans toward, by where it lies: hills below the
+/// mines, ash around the dragon's keep, marsh by the swamp, woods and
+/// meadow elsewhere.
+fn lean_of(sx: i32, sy: i32) -> super::wild::Lean {
+    use super::wild::Lean;
+    match (sx, sy) {
+        (3, 0) | (2, 1) | (3, 1) => Lean::Hills,
+        (5, 0) | (4, 1) | (5, 1) => Lean::Ash,
+        (0, 3) | (1, 3) | (1, 4) => Lean::Marsh,
+        (0, 1) | (1, 0) | (1, 1) | (5, 2) | (5, 3) => Lean::Forest,
+        _ => Lean::Meadow,
     }
 }
 
@@ -407,9 +484,22 @@ impl Place {
         }
     }
 
-    /// Which Zelda screen holds this place.
-    pub(crate) fn screen(self) -> (i32, i32) {
+    /// The stand tile in the realm.
+    pub(crate) fn stand_world(self) -> (i32, i32) {
         let (tx, ty) = self.stand();
+        place_tile(tx, ty)
+    }
+
+    /// The footprint in the realm.
+    pub(crate) fn footprint_world(self) -> (i32, i32, i32, i32) {
+        let (tx, ty, tw, th) = self.footprint();
+        let (x, y) = place_tile(tx, ty);
+        (x, y, tw, th)
+    }
+
+    /// Which realm screen holds this place.
+    pub(crate) fn screen(self) -> (i32, i32) {
+        let (tx, ty) = self.stand_world();
         (tx / SCREEN_W, ty / SCREEN_H)
     }
 }

@@ -1,6 +1,12 @@
 use super::ink::{BLACK, PALETTE, is_signal, palette_index, rgb};
 use super::*;
 
+/// The realm screen that holds a place.
+fn screen_of(place: Place) -> View {
+    let (sx, sy) = place.screen();
+    View::screen(sx, sy)
+}
+
 fn busy(tick: u32) -> Scene {
     let mut s = Scene::resting();
     s.tier = 2;
@@ -50,9 +56,9 @@ fn busy(tick: u32) -> Scene {
 
 #[test]
 fn every_screen_is_sixteen_by_eleven() {
-    for sy in 0..map::SCREENS_Y {
-        for sx in 0..map::SCREENS_X {
-            let rows = Realm::screen_rows(sx, sy);
+    for sy in 0..map::AUTHORED_Y {
+        for sx in 0..map::AUTHORED_X {
+            let rows = Realm::authored_rows(sx, sy);
             for (i, row) in rows.iter().enumerate() {
                 assert_eq!(row.len(), SCREEN_W as usize, "screen ({sx},{sy}) row {i}");
             }
@@ -90,7 +96,7 @@ fn roads_that_leave_a_screen_arrive_on_the_next() {
 fn every_place_has_ground_to_stand_on() {
     let realm = Realm::get();
     for place in Place::ALL {
-        let (tx, ty) = place.stand();
+        let (tx, ty) = place.stand_world();
         assert!(
             map::walkable(realm.at(tx, ty)),
             "{place:?} stand ({tx},{ty}) is not walkable"
@@ -185,8 +191,12 @@ fn the_knight_frames_his_own_screen() {
         (FRAME_W, FRAME_H),
         "no HUD band: the frame is the world"
     );
-    assert_eq!(View::screen_at(s.knight.x, s.knight.y), View::screen(1, 1));
-    assert_eq!(Place::Lists.screen(), (2, 1));
+    assert_eq!(
+        View::screen_at(s.knight.x, s.knight.y),
+        screen_of(Place::Keep)
+    );
+    assert_eq!(Place::Lists.screen(), (4, 2));
+    assert_eq!(Place::Keep.screen(), (2, 2), "the town sits mid-realm");
 }
 
 /// Offline renders for review: `ANGEL_OVERWORLD_SHOTS=<dir> cargo test ... -- --ignored`.
@@ -210,26 +220,29 @@ fn write_overworld_shots() {
         }
         save(
             &format!("town_{t:02}.ppm"),
-            &frame_at(&s, View::screen(1, 1)),
+            &frame_at(&s, screen_of(Place::Keep)),
         );
         save(
             &format!("lists_{t:02}.ppm"),
-            &frame_at(&s, View::screen(2, 1)),
+            &frame_at(&s, screen_of(Place::Lists)),
         );
     }
     save("realm.ppm", &render_view(&busy(8), View::realm()));
     let mut grown = busy(8);
     grown.tier = 8;
-    save("town_tier8.ppm", &frame_at(&grown, View::screen(1, 1)));
+    save("town_tier8.ppm", &frame_at(&grown, screen_of(Place::Keep)));
     save("resting.ppm", &frame(&Scene::resting()));
     let world = World::new(7);
     let mut arrived = busy(4);
     arrived.glass = Some(world.overworld_plate_glass(crate::stage::world_viz::Building::Smithy));
-    save("glass_plate.ppm", &frame_at(&arrived, View::screen(1, 1)));
+    save(
+        "glass_plate.ppm",
+        &frame_at(&arrived, screen_of(Place::Keep)),
+    );
     let mut riding = busy(4);
     riding.knight.walking = true;
     riding.glass = Some(world.overworld_ride_glass(crate::stage::world_viz::Building::Chapel));
-    save("glass_ride.ppm", &frame_at(&riding, View::screen(1, 1)));
+    save("glass_ride.ppm", &frame_at(&riding, screen_of(Place::Keep)));
     for (name, sky) in [
         ("rain", Weather::Rain),
         ("storm", Weather::Storm),
@@ -240,26 +253,29 @@ fn write_overworld_shots() {
         s.weather = sky;
         save(
             &format!("sky_{name}.ppm"),
-            &frame_at(&s, View::screen(1, 1)),
+            &frame_at(&s, screen_of(Place::Keep)),
         );
     }
     let mut win = busy(9);
     win.fireworks = true;
-    save("fireworks.ppm", &frame_at(&win, View::screen(1, 1)));
+    save("fireworks.ppm", &frame_at(&win, screen_of(Place::Keep)));
     let mut quest = busy(6);
     quest.knight = Knight::at_place(Place::DragonKeep);
     quest.party = vec![(640.0, 110.0), (628.0, 104.0), (616.0, 98.0)];
     quest.dragon = true;
-    save("dragon.ppm", &frame_at(&quest, View::screen(2, 0)));
+    save(
+        "dragon.ppm",
+        &frame_at(&quest, screen_of(Place::DragonKeep)),
+    );
     let mut mine = busy(6);
     mine.knight = Knight::at_place(Place::Mines);
     mine.chests = (3, 2);
-    save("mines.ppm", &frame_at(&mine, View::screen(1, 0)));
+    save("mines.ppm", &frame_at(&mine, screen_of(Place::Mines)));
     let mut bog = busy(6);
     bog.knight = Knight::at_place(Place::Swamp);
     bog.wisps = true;
-    save("swamp.ppm", &frame_at(&bog, View::screen(0, 2)));
-    save("wards.ppm", &frame_at(&busy(6), View::screen(3, 1)));
+    save("swamp.ppm", &frame_at(&bog, screen_of(Place::Swamp)));
+    save("wards.ppm", &frame_at(&busy(6), screen_of(Place::Wards)));
     // Pane-shaped views at the locked scale: a tall narrow pane, a wide one.
     save("pane_tall.ppm", &frame_sized(&busy(6), 170, 330));
     save("pane_wide.ppm", &frame_sized(&busy(6), 420, 200));
@@ -293,13 +309,13 @@ fn adjacent(a: (i32, i32), b: (i32, i32)) -> bool {
 #[test]
 fn every_place_is_reachable_on_foot_from_the_keep() {
     for place in Place::ALL {
-        let path = live::route(Place::Keep.stand(), place.stand());
+        let path = live::route(Place::Keep.stand_world(), place.stand_world());
         if place == Place::Keep {
             assert!(path.is_empty());
             continue;
         }
-        assert_eq!(path.last(), Some(&place.stand()), "{place:?}");
-        let mut at = Place::Keep.stand();
+        assert_eq!(path.last(), Some(&place.stand_world()), "{place:?}");
+        let mut at = Place::Keep.stand_world();
         for &step in &path {
             assert!(
                 adjacent(at, step),
@@ -313,7 +329,7 @@ fn every_place_is_reachable_on_foot_from_the_keep() {
 #[test]
 fn town_errands_keep_to_the_roads() {
     let realm = Realm::get();
-    let path = live::route(Place::Keep.stand(), Place::Smithy.stand());
+    let path = live::route(Place::Keep.stand_world(), Place::Smithy.stand_world());
     assert!(
         path.iter()
             .all(|&(x, y)| matches!(realm.at(x, y), b'=' | b':')),
@@ -481,10 +497,11 @@ fn a_glass_frames_its_place_and_tethers_to_it() {
         );
     }
     // The smithy is on screen: the tether ends in a signal mark on it.
-    let (tx, ty, tw, th) = Place::Smithy.footprint();
+    let town = screen_of(Place::Smithy);
+    let (tx, ty, tw, th) = Place::Smithy.footprint_world();
     let (ax, ay) = (
-        tx * TILE + tw * TILE / 2 - 256,
-        ty * TILE + th * TILE / 2 - 176,
+        tx * TILE + tw * TILE / 2 - town.x,
+        ty * TILE + th * TILE / 2 - town.y,
     );
     assert_eq!(framed.get(ax, ay), ink::ink('3'));
     assert_ne!(

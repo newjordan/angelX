@@ -25,6 +25,7 @@ mod live;
 mod map;
 mod scene;
 mod sky;
+mod wild;
 
 // The overworld tests read these through `use super::*`; live.rs imports glass directly.
 #[cfg(test)]
@@ -109,8 +110,8 @@ impl View {
 fn rock_kind(tx: i32, ty: i32) -> RockKind {
     let (sx, sy) = (tx / SCREEN_W, ty / SCREEN_H);
     match (sx, sy) {
-        (1, 0) => RockKind::Ore,
-        (2, 0) => RockKind::Char,
+        (2, 0) | (3, 0) | (2, 1) | (3, 1) => RockKind::Ore,
+        (4, 0) | (5, 0) | (4, 1) | (5, 1) => RockKind::Char,
         _ => RockKind::Slate,
     }
 }
