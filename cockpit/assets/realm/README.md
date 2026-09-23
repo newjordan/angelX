@@ -10,6 +10,8 @@ Keep these graphics:
 - `scriptorium-baseline*`: the approved Scriptorium plate and source variants.
 - `palette*`: shared authored palette data and strip.
 - `journey/`: authored location plates, retained as artwork.
+- `doppelgangers/`: each model's darker twin from the first portrait poll,
+  kept for the realm but not yet placed or read by code.
 
 Explicit room entry shows the approved location plate; leaving returns to
 Dotmax. Generic images, reports, and portraits use the ordinary image viewer.

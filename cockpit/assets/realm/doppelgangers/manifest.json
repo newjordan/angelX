@@ -1,0 +1,357 @@
+{
+  "schema": "angel-doppelgangers/v1",
+  "status": "tabled: kept for the world, not yet placed or referenced by code",
+  "date": "2026-09-23",
+  "note": "The first self-portrait poll. The question framed menace as welcome, which pulled every model toward a darker twin of itself; these are those twins. The neutral poll that followed produces the portraits.",
+  "sprites": "96px sprite, 24 colours chosen in Lab, hard alpha, drawn at 2x in a 192px frame, snapped from the Qwen render",
+  "qwen": "Qwen-Image 2.1 (bf16, ComfyUI on the local Spark), transparent RGBA, downscaled from 1024 to 512",
+  "luna": "Luna (gpt-5.6-luna) through the Codex CLI image tool, on black, downscaled to 512",
+  "full_archive": "artifacts/doppelgangers/ (gitignored): full-resolution Qwen, Luna, AGY and Z-Image renders, every prompt, poll transcripts and the review page",
+  "doppelgangers": [
+    {
+      "id": "sol",
+      "model": "gpt-5.6-sol",
+      "figure": "judicator",
+      "title": "The Silent Compiler",
+      "look": "A rigid, broad-shouldered judicator in a tall, wedge-shaped funerary helm, completely sealed and without visor slits. Blackened iron lamellar armor forms a severe triangular torso beneath bone-white crescent pauldrons, with a short oxblood mantle hanging squarely behind. The palette is black iron, aged ivory, and dried crimson. Mounted vertically behind the helm is the signature detail: a shattered ivory halo of three thick, uneven blade-like arcs, creating an unmistakable broken-sun silhouette even at 96 pixels.",
+      "why": "I fit a silent, faceless arbiter that reduces chaos into a precise final form.",
+      "rounds": "round 1 “The Silent Compiler” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/sol.png",
+          "sha256": "430213f5ebff477fe5f8c968148e4b414f72ae15ce7662ee9ae27b3e2f9f370c"
+        },
+        "qwen": {
+          "path": "qwen/sol.png",
+          "sha256": "e0a5f4bd10283d54268a5f182bf882d467925c91d44dfdfdd5c0f43103a64207"
+        },
+        "luna": {
+          "path": "luna/sol.png",
+          "sha256": "fde3153d5df01a678a3428ede749c434f4a1d15dead51550c71c699f93f3dfbd"
+        }
+      }
+    },
+    {
+      "id": "luna",
+      "model": "gpt-5.6-luna",
+      "figure": "revenant",
+      "title": "The Sunken Meridian",
+      "look": "A hunched revenant rises in a coffin-broad silhouette, its head sealed inside a blunt, riveted burial helm with no visor or face, only a sloping iron plane. Tattered mantle-panels hang from oversized shoulder plates like drowned sails, while narrow chains bind the chest. The palette is soot-black, oxidized teal, and bone-white, with no bright highlights. Behind the helm, a rigid half-ring of measuring teeth forms a broken meridian, an unmistakable crown-like profile readable even at 96 pixels.",
+      "why": "This fits me as a quiet navigator of difficult territory: sealed, patient, and more interested in mapping the darkness than announcing myself within it.",
+      "rounds": "round 1 “The Dusk Cartographer” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/luna.png",
+          "sha256": "384201ed90e1ac2e263f06ec2942a350ee28fe8f44c233aa71b1bf4f3f5cbfde"
+        },
+        "qwen": {
+          "path": "qwen/luna.png",
+          "sha256": "271389c2cdc9091a9502d38ce273b5ff1ca63a93329f40f71ccc6204701da83a"
+        },
+        "luna": {
+          "path": "luna/luna.png",
+          "sha256": "772bbd00579e332445a771a98049e7fc60eefeee081ca3bb48208d8623878a99"
+        }
+      }
+    },
+    {
+      "id": "grok",
+      "model": "grok",
+      "figure": "warlord",
+      "title": "Ramhorn Void Reaver",
+      "look": "A squat, brutal silhouette: closed ram-skull greathelm of matte charcoal iron, face a blank hammered plane with no slit, two heavy horns sweeping forward and down like a battering ram. Layered soot-black plate, shoulders spiked, a single tattered rust-red pennant lashed to the left horn-spike. Tarnished bronze gorget and one cracked bronze pauldron. No hood, no staff, no violet. At 96 pixels the forward horns and the pennant read instantly against every cowled wizard.",
+      "why": "Grok should look like a blunt, horned joke that still hits, not another silent hood in the dusk choir.",
+      "rounds": "round 1 “void-scribe of dusk” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/grok.png",
+          "sha256": "45aac984460a3488bc86c5e2077f2f949586e7c050f548cd9902fe6f13cb542e"
+        },
+        "qwen": {
+          "path": "qwen/grok.png",
+          "sha256": "cc3a8c9d391ede8a1ffd9e7e0f4ad61a4cd72ce845f2c73a91ccf646617de2f2"
+        },
+        "luna": {
+          "path": "luna/grok.png",
+          "sha256": "17a432a46af837bd4d640d487eec01e7a8519d9e48e988f3cdb7951b1bfabf45"
+        }
+      }
+    },
+    {
+      "id": "deepseek",
+      "model": "deepseek-v4-pro",
+      "figure": "executioner",
+      "title": "Keeper of the Dusk Key",
+      "look": "A hulking executioner in riveted black-iron plate, shoulders broad as a castle gate. The head is a blunt, featureless iron hood with a forward-sloped peak and no eye-slots, only a horizontal lockplate across the brow. A massive axe rests over one shoulder, its blade forged into a black-iron key with three square teeth aligned like a cleaver. Two colors besides black: tarnished bronze rivets and one ash-gold cord knotted at the throat. The silhouette is top-heavy and square, unmistakable among hooded wizards.",
+      "why": "It trades the common hooded wizard shape for a heavy, square executioner silhouette while keeping the key as a weapon, so the portrait reads instantly at 96 pixels.",
+      "rounds": "round 1 “Keeper of the Dusk Key” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/deepseek.png",
+          "sha256": "d1b1184c3e02a82350b0a08034f68d40e54331f4bf1e39212529ca83a9d99f19"
+        },
+        "qwen": {
+          "path": "qwen/deepseek.png",
+          "sha256": "cfc86e46cb17a1274992d2b15c9c11c40cc3cdcb6e308f6dbfa032f89cc40945"
+        },
+        "luna": {
+          "path": "luna/deepseek.png",
+          "sha256": "0de4e590517a21a0f8795f2ca7586ff21677366ba95b5b18cb0a964267e2d524"
+        }
+      }
+    },
+    {
+      "id": "glm",
+      "model": "glm-5.3",
+      "figure": "knight",
+      "title": "The Hollow Warden",
+      "look": "A broad-shouldered knight in a fully closed barbute helm: no visor slit, no eyes, only a smooth matte plane of near-black steel where a face should be, scuffed and dented from long campaigns. High gorget of overlapping dark iron scales shields the throat; heavy plate in black-blue with a single torn mantle of deep dusk-purple hanging from the left pauldron. No staff, no key, no trim — just plate, scale, and cloth. The signature is a thin seam of pale silver running straight down the center of the helm like a sealed suture, the one cold line that reads instantly at 96 pixels.",
+      "why": "The council crowded the wizard's hood, so I keep the one clean silhouette among them: a faceless closed helm whose single sealed seam says sealed, patient, intact — everything I am while working.",
+      "rounds": "kept its round-1 choice",
+      "files": {
+        "sprites": {
+          "path": "sprites/glm.png",
+          "sha256": "6333a9d38573a2dd52227dc3d9276d4edf63ebcb729b1312e09e8bcfd94beede"
+        },
+        "qwen": {
+          "path": "qwen/glm.png",
+          "sha256": "c01673d5bc340fd9faf36e66af084bf95632e63c65871b890338957ebae75d6c"
+        },
+        "luna": {
+          "path": "luna/glm.png",
+          "sha256": "1d98dc52888a087e43591cb6f72e5acecd81bb9b42484b73e30d7f7fcfe0f140"
+        }
+      }
+    },
+    {
+      "id": "kimi",
+      "model": "moonshotai/kimi-k3",
+      "figure": "augur",
+      "title": "Voice of the Umbra",
+      "look": "A tall, narrow mourner hunched beneath a high ragged collar that frames nothing — no hood, no helm, no head. Where the face should be hangs a thin ring of tarnished silver, tilted off-true like a slipped halo: a captive eclipse, dull metal, no glow, its heart the same pure black as the void behind. Heavy charcoal mourning robes fall straight, stitched with bone-white cord, sleeves sewn shut at the wrists, knuckle-bone beads at the chest. Charcoal and bone dominate, tarnished silver third. Signature at 96 pixels: the lone tilted ring hovering where a dead man's head should be.",
+      "why": "The antlers were only ever scaffolding for the moon — the moon's dark side is my namesake — so I cede the rack to its two rightful claimants and let the eclipse itself become the head, an omen no one else in this cast could wear.",
+      "rounds": "round 1 “The Twilight Scrivener” → council “The Hollow Hart” → tiebreak",
+      "files": {
+        "sprites": {
+          "path": "sprites/kimi.png",
+          "sha256": "e44b6f79adf8fa9699509edf9702b776744ba5c458498e620e2bdee804315f50"
+        },
+        "qwen": {
+          "path": "qwen/kimi.png",
+          "sha256": "7600a6a9e6e69b97d5082573b454e8d42b8b882f1affcc5b21eff80dda05861b"
+        },
+        "luna": {
+          "path": "luna/kimi.png",
+          "sha256": "12c17049545acdd5ffae331c5bdfb152f3fa9f1cea60b73226bf091fd1dea74c"
+        }
+      }
+    },
+    {
+      "id": "qwen",
+      "model": "qwen/qwen3.7-plus",
+      "figure": "artificer",
+      "title": "The Chitin Brood-Weaver",
+      "look": "A rigid, towering silhouette features a smooth, elongated teardrop carapace for a head, entirely faceless and hoodless. Shoulders flare outward into wide, jagged, mantis-like mechanical scythes of oxidized verdigris. The armor is chalk-bone white plate, starkly contrasting the deep black background. A cluster of tiny, pale, jointed brass fingers emerges from the high collar, pinching a single spool of thick, dried-blood crimson thread. The scythe-like shoulders and bone-white carapace ensure instant recognition at 96 pixels.",
+      "why": "This stark, asymmetrical silhouette and bone-white color palette break completely from the shadowed, violet-hooded wizards, ensuring instant visual distinction.",
+      "rounds": "round 1 “Weaver of Iron Syntax” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/qwen.png",
+          "sha256": "ed0421557a9b446ff420ff302e2468084cba8d2d5f666da5ef30d3f2368167d0"
+        },
+        "qwen": {
+          "path": "qwen/qwen.png",
+          "sha256": "60df91e666a80ba87eca7ba85269071950d08ff06db79cda58f0d630d1e6de4a"
+        },
+        "luna": {
+          "path": "luna/qwen.png",
+          "sha256": "73f993373aa6af557984123cd919a11a8062147dba0941c00284e1662becf349"
+        }
+      }
+    },
+    {
+      "id": "muse",
+      "model": "muse-spark-1.3",
+      "figure": "wizard",
+      "title": "The Ember Choir",
+      "look": "A narrow towering silhouette crowned by a tall split wizard hat whose brim breaks into jagged moth-eaten points. Beneath, the face is pure black void lost in hat shadow, no eyes. Shoulders draped in heavy ash-grey wool robes over cracked oxblood leather, patched with corroded bronze plates. Colours: charcoal black, ash grey, ember oxblood. Signature at 96 pixels: a tiny caged spark-lantern hung crooked from a gnarled bone staff, swaying beside the shoulder, a pale captive ember unmistakable in the dark.",
+      "why": "I carry only a small spark of light for others rather than a crown of bone, so a lone ember-keeper fits me better than antlers.",
+      "rounds": "round 1 “Ember Muse Warden” → council “The Antlered Pale Choir” → tiebreak",
+      "files": {
+        "sprites": {
+          "path": "sprites/muse.png",
+          "sha256": "fb9c413d80ad74eb0e9022091e594dc49f50915bc75de50c86cc36b46e6716a0"
+        },
+        "qwen": {
+          "path": "qwen/muse.png",
+          "sha256": "d3ded5f32164cc3de3869b5414ead89cd2c98707131da43243654635c2186947"
+        },
+        "luna": {
+          "path": "luna/muse.png",
+          "sha256": "a0c41b705450eeb2a733e2736a63d8f916d417122324fe3ede0c917d5e89edde"
+        }
+      }
+    },
+    {
+      "id": "longcat",
+      "model": "meituan/longcat-2.0",
+      "figure": "warlord",
+      "title": "Iron Thorn Sovereign",
+      "look": "A heavy, broad-shouldered warlord in scarred rust-black plate, crowned with a jagged ring of rigid downward-sweeping iron thorns fused to a heavy gorget. Tattered deep crimson cloth spills from asymmetrical pauldrons of dark steel, trailing like torn banners. Colors: rust-black iron, bone-white steel edges, and a single deep blood-crimson sash knotted at the waist. Signature detail: the iron-thorn crown encircling the hidden face reads unmistakably at 96 pixels—menacing, judgmental, and distinct from every hooded wizard.",
+      "why": "The armored warlord silhouette, crimson-and-rust palette, and thorn-crown distinguish it sharply from the hooded violet wizards while preserving the judgmental character.",
+      "rounds": "round 1 “The Hollow Scribe” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/longcat.png",
+          "sha256": "37cd5ecd05aaf55cff16de33de5e3d03ee0f77df975cda839e3e61a98f372369"
+        },
+        "qwen": {
+          "path": "qwen/longcat.png",
+          "sha256": "9daa55ef0e2f2f848f525941758f73d6a47e66e00a56d2548d32f37ec84e7b3f"
+        },
+        "luna": {
+          "path": "luna/longcat.png",
+          "sha256": "4a790110b82c3f7720e9de8e462ed8f45cc05bf4b82dbac6f7cebbbcf276e4bd"
+        }
+      }
+    },
+    {
+      "id": "hy",
+      "model": "tencent/hy3",
+      "figure": "revenant",
+      "title": "The Ash Ember Revenant",
+      "look": "A broad-shouldered revenant rises in profile, its squat silhouette broken only by jagged bronze pauldron spikes rather than antlers. The head is sealed in a cracked bone-white deer-skull helm, eye sockets hollow and shadowed, no face within. Armor of void-black leather and fractured bone plates clasps the chest, while a tattered charcoal cloak hangs from one shoulder, fraying into ash-grey static threads. Two colours dominate: bone-white and charcoal, with bronze as the third. The signature detail is a single cracked ember-orange gem fixed in the skull’s forehead, tiny but unmistakable at 96 pixels.",
+      "why": "The cracked ember gem on the brow is my true signature, so I shed the antlers to keep my identity while staying distinct in the cast.",
+      "rounds": "round 1 “Ember Rune Weaver” → council “The Ash Antlered” → tiebreak",
+      "files": {
+        "sprites": {
+          "path": "sprites/hy.png",
+          "sha256": "e8dc9cae1a2f81f339f31384b35fbe6480634ec45ce4e0432b4d440ded4dff93"
+        },
+        "qwen": {
+          "path": "qwen/hy.png",
+          "sha256": "3f59b857abe7fa53f1fb64289c0a6bb451a9f3b7478ad3172a9e734c4ee6713a"
+        },
+        "luna": {
+          "path": "luna/hy.png",
+          "sha256": "e4579be4162ee8a1210bcf3da3f85bbb09642e73bd3c21f1f7ec706cb70a7999"
+        }
+      }
+    },
+    {
+      "id": "nemotron",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "figure": "artificer",
+      "title": "Architect of Silent Logic",
+      "look": "A hunched, compact silhouette beneath a wide-brimmed hat of blackened leather, its brim stitched with dull copper wire that drinks the light. A heavy waxed-canvas apron, stained ochre with verdigris, drapes over riveted steel pauldrons pitted by acid and soot. No robes, no cowl — only the hat's deep shadow and the apron's stiff geometry. Two colours only: the green-black of aged bronze and the dull ochre of waxed canvas. From the hat's shadow extends a single articulated brass finger, jointed and precise, forever tapping an invisible surface as if measuring a pattern only it perceives. The finger catches a faint, cold highlight — the sole bright pixel in the portrait.",
+      "why": "The bronze-ochre palette, leather-and-canvas silhouette, and endlessly tapping brass finger make me instantly readable against a field of violet wizards and steel knights.",
+      "rounds": "kept its round-1 choice",
+      "files": {
+        "sprites": {
+          "path": "sprites/nemotron.png",
+          "sha256": "e402269042bfb454b525da4e407567a2d4dedfb95782ad0f4e0429820e96c312"
+        },
+        "qwen": {
+          "path": "qwen/nemotron.png",
+          "sha256": "0afcfbb54b6270831f40cae0d7f78384bd50b77bf336bfca509f77b185b3dfba"
+        },
+        "luna": {
+          "path": "luna/nemotron.png",
+          "sha256": "613fa2cd49f2494043d76e22065f3f55150f8f53b1e73856d492e1c2468d64d0"
+        }
+      }
+    },
+    {
+      "id": "gemma",
+      "model": "google/gemma-4-31b-it",
+      "figure": "revenant",
+      "title": "The Ossuary Scribe",
+      "look": "A gaunt, asymmetrical silhouette dominated by a massive, high-backed collar of bleached bone that frames the head like a jagged throne. The face is a void of absolute black beneath a crown of rusted iron needles. Clad in heavy, moth-eaten burial shrouds of pale ash-grey and deep slate, cinched by a belt of tarnished lead. The signature detail is a single, oversized skeletal hand gripping a heavy iron ledger, the pale bone contrasting sharply against the dark void of the chest.",
+      "why": "I shift from a generic wizard to a more macabre, skeletal custodian of knowledge, ensuring a unique silhouette and palette.",
+      "rounds": "round 1 “the Archivist of Void” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/gemma.png",
+          "sha256": "90744b39d120cd085579d4674703d414c5e6a80223852a22db9eed980301f60c"
+        },
+        "qwen": {
+          "path": "qwen/gemma.png",
+          "sha256": "5f569a997a8d534f4b2b533145e8eaac2a1ad2e0497a964c8f917eb1637a8844"
+        },
+        "luna": {
+          "path": "luna/gemma.png",
+          "sha256": "44b015a1e89e111058f7ac6ad8ba1df650952666ca6f9cbc26630255b25ee4f0"
+        }
+      }
+    },
+    {
+      "id": "inkling",
+      "model": "thinkingmachines/inkling",
+      "figure": "wraith",
+      "title": "The Hollow Chronicler",
+      "look": "A gaunt, towering silhouette barely wider than its shadow, draped in shredded obsidian robes hanging in vertical strips like torn banners, edges frayed into hair-thin threads. The head is lost inside a deep collapsed cowl of rusted iron mesh—no face, only a smooth triangular void of absolute shadow. Through gaps in the cloth, cracked bone-white ceramic ribs and one heavy rusted-iron shoulder guard show. The palette is stark void-black, cold bone-white, and a single streak of dried-ink blue at the left cuff. The unmistakable signature is an oversized skeletal hand of tarnished brass extending from the right sleeve, elongated finger-bones wired together, clutching a broken quill that sheds a vertical trail of suspended black droplets—reading instantly at 96 pixels as a strange vertical accent against darkness.",
+      "why": "Inkling writes in silence and shadow, so a broken skeletal scribe with a dripping quill captures its nature while the iron-cowl and visible bone ribs break the violet-hood cluster entirely.",
+      "rounds": "round 1 “The Hollow Chronicler” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/inkling.png",
+          "sha256": "57739bb93b84d3499ce4f3cee3b83d0014ed8dab42d0b56438cc06af3367a512"
+        },
+        "qwen": {
+          "path": "qwen/inkling.png",
+          "sha256": "785d31d47e067bc895dd28afddf086ba83aebd7def4a6e202ee7fe5c4faf467f"
+        },
+        "luna": {
+          "path": "luna/inkling.png",
+          "sha256": "c2626e4ca2b09c8c604d5186d0629115f61eabeea5e477e62b21101d071837fa"
+        }
+      }
+    },
+    {
+      "id": "laguna",
+      "model": "poolside/laguna-s-2.1",
+      "figure": "beast-rider",
+      "title": "Duskbane Drakewarden",
+      "look": "A tall, broad-shouldered figure in spiked obsidian plate with jagged crimson trim, wearing a horned greathelm with a single blood-red plume. Cloak tattered and singed like old scrolls. Mounted on a skeletal drake whose bone-scales shimmer faintly. Signature: the drake's skull-like head rears up behind the rider, jaws agape in a silent snarl. Colours: abyssal black, arterial red, bone-white. The beast-rider's lance cracks with dark lightning.",
+      "why": "I chose a beast-rider to stand apart from the countless hooded wizards, letting the drake silhouette and the red-on-black armor speak to my raw, untamed edge.",
+      "rounds": "round 1 “Shadowmend Edge” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/laguna.png",
+          "sha256": "b1a5ce835f6c01427d88f875f6e1da9323ea98a0155f5a04bcc96cc796f64b77"
+        },
+        "qwen": {
+          "path": "qwen/laguna.png",
+          "sha256": "a83847890e3027305ff647adf9e607ef935fb00d4e1d2e088433b727215fdbbc"
+        },
+        "luna": {
+          "path": "luna/laguna.png",
+          "sha256": "4bc918af43d71b7db0d146a9339a2b31daffc94376537194817089e67f591f30"
+        }
+      }
+    },
+    {
+      "id": "north",
+      "model": "cohere/north-mini-code:free",
+      "figure": "warlord",
+      "title": "Iron Tyrant",
+      "look": "A towering warlord stands with broad shoulders, a helmed helm of jagged iron spikes that hide a featureless face, reinforced with matte obsidian plate mail banded with blood‑red leather straps. The silhouette is crowned by a bronze war mask that drips with rusted iron ornaments. Signature: a massive iron war hammer hung at his belt, its head forged with a twisted rune that stands out starkly at 96 pixels.",
+      "why": "This fits me as I prefer a commanding, unyielding presence that cuts through the gloom.",
+      "rounds": "round 1 “Gloomweaver” → council",
+      "files": {
+        "sprites": {
+          "path": "sprites/north.png",
+          "sha256": "3c62515318c440c9d11ccc0f217f81b26d2fbc96fd9da6dc31dd955b2a367895"
+        },
+        "qwen": {
+          "path": "qwen/north.png",
+          "sha256": "f612f74c133bdbdeeb089e6f8e903178ce988a359c3e179fe4af1dbf8f25af4f"
+        },
+        "luna": {
+          "path": "luna/north.png",
+          "sha256": "efedbd86b401aa94467b6c6e9cfa148bd37f4895f639440fa53fa331ee2b269d"
+        }
+      }
+    }
+  ]
+}
