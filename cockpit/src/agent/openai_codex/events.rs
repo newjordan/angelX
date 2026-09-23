@@ -268,6 +268,8 @@ pub(crate) struct PartialResponseToolCall {
 pub(crate) struct ResponseToolCalls {
     order: Vec<String>,
     calls: BTreeMap<String, PartialResponseToolCall>,
+    /// Repairs and drops made while assembling calls, for the wire log.
+    notes: Vec<(&'static str, String)>,
 }
 
 impl ResponseToolCalls {
@@ -321,7 +323,20 @@ impl ResponseToolCalls {
     }
 
     pub(crate) fn set_args(&mut self, key: &str, arguments: String) {
-        self.entry_for_alias(key).arguments = arguments;
+        let entry = self.entry_for_alias(key);
+        let replaced = (!entry.arguments.is_empty() && entry.arguments != arguments)
+            .then(|| (entry.name.clone(), entry.arguments.len()));
+        entry.arguments = arguments;
+        if let Some((name, streamed)) = replaced {
+            let replacement = self.entry_for_alias(key).arguments.len();
+            self.notes.push((
+                "tool_args_replaced",
+                format!(
+                    "{} ({key}): final arguments ({replacement} B) differ from the streamed deltas ({streamed} B)",
+                    name.as_deref().unwrap_or("unnamed")
+                ),
+            ));
+        }
     }
 
     pub(crate) fn done(&mut self, key: String, call: ToolCall) {
@@ -329,7 +344,32 @@ impl ResponseToolCalls {
             .existing_key_for(&key)
             .or_else(|| self.existing_key_for(&call.id))
             .unwrap_or(key);
-        self.entry(&canonical).done = Some(call);
+        let entry = self.entry(&canonical);
+        let renamed = entry
+            .name
+            .as_deref()
+            .filter(|started| *started != call.name)
+            .map(str::to_string);
+        let reshaped =
+            !entry.arguments.is_empty() && parse_tool_args(&entry.arguments) != call.args;
+        entry.done = Some(call);
+        let name = entry
+            .done
+            .as_ref()
+            .map(|c| c.name.clone())
+            .unwrap_or_default();
+        if let Some(started) = renamed {
+            self.notes.push((
+                "tool_name_changed",
+                format!("{canonical}: started as {started}, completed as {name}"),
+            ));
+        }
+        if reshaped {
+            self.notes.push((
+                "tool_args_changed",
+                format!("{name} ({canonical}): completed arguments differ from the streamed ones"),
+            ));
+        }
     }
 
     /// Any tool call seen this turn. A stream cut off mid-tool-call has
@@ -339,8 +379,10 @@ impl ResponseToolCalls {
         !self.calls.is_empty()
     }
 
-    pub(crate) fn into_calls(self) -> Vec<ToolCall> {
+    /// The assembled calls, plus every repair and drop made on the way.
+    pub(crate) fn into_calls_with_notes(self) -> (Vec<ToolCall>, Vec<(&'static str, String)>) {
         let mut out = Vec::new();
+        let mut notes = self.notes;
         for key in self.order {
             let Some(partial) = self.calls.get(&key) else {
                 continue;
@@ -350,6 +392,14 @@ impl ResponseToolCalls {
                 continue;
             }
             let Some(name) = partial.name.clone() else {
+                notes.push((
+                    "tool_entry_dropped",
+                    format!(
+                        "{key}: a tool entry with no name was dropped ({} B of arguments: {})",
+                        partial.arguments.len(),
+                        partial.arguments.chars().take(120).collect::<String>()
+                    ),
+                ));
                 continue;
             };
             out.push(ToolCall {
@@ -358,7 +408,7 @@ impl ResponseToolCalls {
                 args: parse_tool_args(&partial.arguments),
             });
         }
-        out
+        (out, notes)
     }
 }
 
