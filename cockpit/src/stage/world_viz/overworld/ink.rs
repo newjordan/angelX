@@ -366,6 +366,22 @@ impl Img {
         }
     }
 
+    /// Swap inks: every pixel painted `from` becomes `to`.
+    pub(crate) fn recolor(&self, pairs: &[(char, char)]) -> Img {
+        let mut o = self.clone();
+        for &(from, to) in pairs {
+            let (Some(f), Some(t)) = (ink(from), ink(to)) else {
+                continue;
+            };
+            for p in o.px.iter_mut() {
+                if *p == Some(f) {
+                    *p = Some(t);
+                }
+            }
+        }
+        o
+    }
+
     pub(crate) fn flip_h(&self) -> Img {
         let mut o = Img::new(self.w, self.h);
         for y in 0..self.h {

@@ -358,6 +358,8 @@ pub(crate) struct World {
     /// site, memoized — the island and its landmarks never move, so the tier
     /// is the whole key (`life.rs`).
     growth_cache: RefCell<Option<(u32, life::GrowthLayout)>>,
+    /// The knight's walk on the pixel overworld, which has its own roads.
+    overworld: overworld::Walker,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -391,6 +393,8 @@ struct MusterUnit {
     slot: (usize, usize),
     glyph: char,
     ink: DotColor,
+    kind: overworld::SoldierKind,
+    state: overworld::SoldierState,
 }
 
 impl World {
@@ -503,6 +507,7 @@ impl World {
             terrain_epoch: 0,
             growth_announced: 0,
             growth_cache: RefCell::new(None),
+            overworld: overworld::Walker::default(),
         };
         world.tiles = (0..WORLD_H)
             .flat_map(|y| (0..WORLD_W).map(move |x| (x, y)))
@@ -2036,6 +2041,7 @@ impl World {
         }
 
         self.ease_avatar_vis();
+        self.tick_overworld();
         self.ease_travel_heading();
         self.tick_muster();
         self.tick_hearth();
@@ -2157,6 +2163,8 @@ impl World {
                 slot,
                 glyph,
                 ink,
+                kind: overworld::SoldierKind::of_stage(stage),
+                state: overworld::SoldierState::Running,
             });
         }
         self.muster = units;
@@ -2170,6 +2178,7 @@ impl World {
     fn apply_muster_states(&mut self, states: &[crate::ui::viz::agentviz::SeatState]) {
         use crate::ui::viz::agentviz::SeatState;
         for (u, st) in self.muster.iter_mut().zip(states) {
+            u.state = overworld::soldier_state(st);
             match st {
                 SeatState::Running => {}
                 SeatState::Returned => u.glyph = '⚑',

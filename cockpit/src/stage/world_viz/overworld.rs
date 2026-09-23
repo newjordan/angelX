@@ -20,14 +20,18 @@ mod hud;
 mod ink;
 mod kit;
 mod light;
+mod live;
 mod map;
 mod scene;
 
 pub(crate) use hud::HUD_H;
 pub(crate) use ink::Img;
 pub(crate) use kit::Tool;
+pub(crate) use live::{Walker, soldier_state};
 pub(crate) use map::{MAP_H, MAP_W, Place, SCREEN_H, SCREEN_W, TILE};
-pub(crate) use scene::{Hud, Joust, Knight, Scene, Ward};
+pub(crate) use scene::{
+    Hud, Joust, Knight, Scene, Soldier, SoldierKind, SoldierState, Ward, Weather,
+};
 
 use kit::{RockKind, Tiles};
 use map::Realm;
