@@ -10054,3 +10054,179 @@ fn run_turn_research_compose_rechecks_reservation_after_identity_binding() {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+/// Runs `make` once, then claims completion on every later call.
+struct FlakyGreenClub {
+    calls: AtomicUsize,
+}
+
+impl Club for FlakyGreenClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+
+    fn label(&self) -> &str {
+        "flaky-green"
+    }
+
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Ok(ClubReply::Calls(vec![ToolCall {
+                id: "call_make".into(),
+                name: "shell".into(),
+                args: serde_json::json!({"command": "make"}),
+            }]));
+        }
+        Ok(ClubReply::Text(
+            "All tests pass; the task is complete.".into(),
+        ))
+    }
+}
+
+fn confirm_green_fixture(name: &str, makefile: &str) -> PathBuf {
+    let root = scratch(name);
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .expect("git fixture command starts");
+        assert!(output.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q"]);
+    git(&["config", "user.email", "angel@example.invalid"]);
+    git(&["config", "user.name", "Angel Test"]);
+    std::fs::write(root.join("Makefile"), makefile).unwrap();
+    git(&["add", "Makefile"]);
+    git(&["commit", "-q", "-m", "seed"]);
+    root
+}
+
+/// A minimal `shell` for turn tests: runs the command in its root, and a
+/// non-zero exit is a tool error, as with the real shell tool.
+struct RootShell(PathBuf);
+
+impl Tool for RootShell {
+    fn name(&self) -> &str {
+        "shell"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "shell".into(),
+            description: "Run a shell command in the workspace.".into(),
+            params: serde_json::json!({
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
+            }),
+        }
+    }
+    fn call(&self, args: &Value) -> Result<String, String> {
+        let command = args["command"].as_str().ok_or("missing 'command'")?;
+        let out = Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .current_dir(&self.0)
+            .output()
+            .map_err(|e| e.to_string())?;
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        if out.status.success() {
+            Ok(text)
+        } else {
+            Err(format!("exit {}\n{text}", out.status.code().unwrap_or(-1)))
+        }
+    }
+}
+
+fn run_confirm_green_turn(root: &Path) -> (TurnOutcome, Vec<ChatMsg>, usize) {
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.to_path_buf());
+    registry.register(Box::new(RootShell(root.to_path_buf())));
+    let club = FlakyGreenClub {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    let outcome = run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(8),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("turn completes");
+    (outcome, history, club.calls.load(Ordering::SeqCst))
+}
+
+/// A test run that passed once is re-run on the unchanged code before "done"
+/// is accepted. A pass that does not hold denies the completion with the
+/// failing output (polyglot-v1 cpp-robot-name passed about one run in four); a
+/// stable pass is confirmed and accepted.
+#[test]
+fn a_green_that_does_not_hold_denies_completion_with_the_failing_output() {
+    let _guard = crate::tests::env_lock();
+    let _runs = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "2");
+    let _accept = EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
+    let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+
+    let flaky = confirm_green_fixture(
+        "confirm_green_flaky",
+        "all:\n\t@if [ -f .ran ]; then echo 'REQUIRE( names.count(name) == 0 ) failed'; exit 1; fi; touch .ran\n",
+    );
+    let (outcome, history, calls) = run_confirm_green_turn(&flaky);
+    assert_eq!(calls, 3, "the first done is denied, the second accepted");
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    let denial = history
+        .iter()
+        .find(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
+        .expect("the completion was denied");
+    assert!(
+        denial.content.contains("names.count(name) == 0"),
+        "{}",
+        denial.content
+    );
+    assert!(
+        denial.content.contains("`shell: make`"),
+        "{}",
+        denial.content
+    );
+    let _ = std::fs::remove_dir_all(flaky);
+
+    let stable = confirm_green_fixture("confirm_green_stable", "all:\n\t@true\n");
+    let (outcome, history, calls) = run_confirm_green_turn(&stable);
+    assert_eq!(calls, 2, "a green that holds is accepted at once");
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
+    );
+    let _ = std::fs::remove_dir_all(stable);
+}
+
+#[test]
+fn confirm_green_is_on_in_task_mode_only_unless_configured() {
+    let _guard = crate::tests::env_lock();
+    let _runs = EnvGuard::unset("ANGEL_CONFIRM_GREEN_RUNS");
+    {
+        let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
+        assert_eq!(confirm_green_extra_runs(false), 0);
+    }
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    assert_eq!(confirm_green_extra_runs(false), 2);
+    assert_eq!(
+        confirm_green_extra_runs(true),
+        0,
+        "competition stays untouched"
+    );
+    let _set = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "4");
+    assert_eq!(confirm_green_extra_runs(true), 4);
+}

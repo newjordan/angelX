@@ -1515,6 +1515,12 @@ fn run_turn_tiered(
     // step after its verifier goes green.
     let post_green_tool_budget = env_usize("ANGEL_POST_GREEN_TOOL_BATCHES", 0);
     let mut green_verify_achieved = false;
+    // The model's last passing test run and the workspace it passed on. Before
+    // "done" is accepted, the run is repeated on the unchanged code: one pass
+    // can be luck (see `confirm_green_run`).
+    let mut last_green_run: Option<(ToolCall, Option<u64>)> = None;
+    let confirm_green_runs = confirm_green_extra_runs(competition);
+    let mut confirm_green_rejections = 0usize;
     let mut green_verify_nudge_emitted = false;
     let mut post_green_tool_batches = 0usize;
     let mut consecutive_verification_failures = 0usize;
@@ -3608,6 +3614,42 @@ fn run_turn_tiered(
                         continue;
                     }
                 }
+                if confirm_green_runs > 0
+                    && confirm_green_rejections < CONFIRM_GREEN_REJECTION_LIMIT
+                    && last_green_run.as_ref().is_some_and(|(_, workspace)| {
+                        workspace.is_some() && *workspace == current_workspace_fingerprint
+                    })
+                {
+                    let (green_call, _) = last_green_run.take().expect("checked above");
+                    let label = green_run_label(&green_call);
+                    match confirm_green_run(registry, &green_call, confirm_green_runs, cancel) {
+                        Ok(runs) => {
+                            let _ = events.send(TurnEvent::Notice(format!(
+                                "confirmed green: re-ran {label} {runs} more time(s) on the final code"
+                            )));
+                        }
+                        Err((run, output)) => {
+                            confirm_green_rejections += 1;
+                            crate::agent::harness::trajectory::note_escalation(
+                                hop,
+                                "confirm_green_flaky",
+                            );
+                            let _ = events.send(TurnEvent::SuppressPartial);
+                            history.push(ChatMsg::assistant(answer));
+                            history.push(ChatMsg::harness(format!(
+                                "{CONFIRM_GREEN_NUDGE}\nRe-run {run} of {confirm_green_runs} of {label} \
+                                 failed:\n{}",
+                                tail_chars(&output, TASK_ACCEPT_TAIL_CHARS)
+                            )));
+                            let _ = events.send(TurnEvent::Notice(format!(
+                                "passing tests did not hold: re-run {run} of {label} failed on the \
+                                 same code; denying completion ({confirm_green_rejections}/\
+                                 {CONFIRM_GREEN_REJECTION_LIMIT})"
+                            )));
+                            continue;
+                        }
+                    }
+                }
                 let verification_outstanding = verification_needed
                     || workspace_changed_after_verification
                     || registry.mutation_targets.opaque_generation() > attempted_opaque_generation;
@@ -4846,6 +4888,17 @@ fn run_turn_tiered(
                             // execution boundary can attest a pinned argv.
                         }
                     }
+                    if succeeded
+                        && confirm_green_runs > 0
+                        && verification_outcome(call, &result) != Some(VerificationOutcome::Failed)
+                        && (is_verification_call(call)
+                            || is_progress_verifier_call(&call.name, &call.args))
+                    {
+                        last_green_run = Some((
+                            call.clone(),
+                            workspace_fingerprint(registry.current_workspace()),
+                        ));
+                    }
                     // Universal ceiling: cap every result before it enters the
                     // conversation, so an uncapped tool (git_diff, find_files,
                     // delegate/integrate, MCP/peer…) can't dump unbounded text
@@ -5481,6 +5534,85 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
 }
 
 const TASK_ACCEPT_TAIL_CHARS: usize = 1_500;
+
+/// Completions denied for a green that did not hold before one is accepted.
+const CONFIRM_GREEN_REJECTION_LIMIT: usize = 2;
+
+pub(crate) const CONFIRM_GREEN_NUDGE: &str = "Your last passing test run did not hold: angelX re-ran it on \
+the same code and it failed. The solution passes by luck; something depends on randomness, \
+timing, iteration order or state shared between tests or runs. Find that and fix it so the \
+tests pass every run. Re-running until green is not a fix.";
+
+/// Extra runs of the model's last passing test before "done" is accepted:
+/// `ANGEL_CONFIRM_GREEN_RUNS`, default 2 in task mode and 0 (off)
+/// interactively and in competition. This is the in-turn check for public task
+/// mode, where the evaluator's own acceptance command is withheld from the
+/// agent. It repeats only what the model already chose to run.
+pub(crate) fn confirm_green_extra_runs(competition: bool) -> usize {
+    if let Some(runs) = std::env::var("ANGEL_CONFIRM_GREEN_RUNS")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+    {
+        return runs.min(5);
+    }
+    let task_mode = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value.trim() == "1");
+    if task_mode && !competition { 2 } else { 0 }
+}
+
+/// Re-run the model's last passing test call up to `extra` more times on the
+/// unchanged workspace, judged exactly as the turn judges any tool result.
+/// `Ok(runs)` when every run passed; `Err((run, output))` at the first that did
+/// not. Runs stop once they have taken `ANGEL_CONFIRM_GREEN_SECS` (default 60),
+/// so a slow suite is not repeated at length. polyglot-v1 cpp-robot-name
+/// passed about one run in four; a single green run was accepted and the
+/// grader's run failed.
+pub(crate) fn confirm_green_run(
+    registry: &ToolRegistry,
+    call: &ToolCall,
+    extra: usize,
+    cancel: &AtomicBool,
+) -> Result<usize, (usize, String)> {
+    let budget = Duration::from_secs(env_usize("ANGEL_CONFIRM_GREEN_SECS", 60) as u64);
+    let started = Instant::now();
+    let mut runs = 0;
+    while runs < extra && started.elapsed() < budget && !cancel.load(Ordering::Relaxed) {
+        runs += 1;
+        let output = match registry.dispatch_with_cancel(&call.name, &call.args, Some(cancel)) {
+            Ok(output) => output,
+            Err(error) => format!("tool error: {error}"),
+        };
+        let executed =
+            turn_event_outcome(call, &output, false).execution == ExecutionOutcome::Succeeded;
+        if !executed || verification_outcome(call, &output) == Some(VerificationOutcome::Failed) {
+            return Err((runs, output));
+        }
+    }
+    Ok(runs)
+}
+
+fn green_run_label(call: &ToolCall) -> String {
+    let detail = match call.name.as_str() {
+        "shell" => crate::agent::tools::shell::shell_command_arg(&call.args)
+            .unwrap_or("")
+            .to_string(),
+        "cargo" => call
+            .args
+            .get("args")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        _ => String::new(),
+    };
+    if detail.is_empty() {
+        format!("`{}`", call.name)
+    } else {
+        format!(
+            "`{}: {}`",
+            call.name,
+            detail.chars().take(120).collect::<String>()
+        )
+    }
+}
 
 fn tail_chars(text: &str, limit: usize) -> String {
     let text = text.trim_end();
