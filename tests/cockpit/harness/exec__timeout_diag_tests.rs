@@ -513,3 +513,56 @@ fn cancellable_timeout_path_also_captures_diagnostics() {
     assert!(capture.timed_out);
     assert!(capture.timeout_diag.is_some());
 }
+
+/// A call budget caps both tool bounds for the calls made inside it, and only
+/// there: the previous bounds come back when it ends.
+#[test]
+fn call_budget_caps_tool_bounds_and_restores_them() {
+    let _env = crate::tests::env_lock();
+    let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
+    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
+    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
+    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
+    assert_eq!(tool_timeout(), None);
+    with_call_budget(Some(Duration::from_secs(180)), || {
+        assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(180)));
+        assert_eq!(tool_timeout(), Some(Duration::from_secs(180)));
+        with_call_budget(Some(Duration::from_secs(30)), || {
+            assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(30)));
+        });
+        assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(180)));
+    });
+    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
+    assert_eq!(tool_timeout(), None);
+    with_call_budget(None, || {
+        assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
+    });
+}
+
+/// A busy process (an infinite loop in code under test) never trips the idle
+/// floor and would run to the 900 s hard timeout; inside a call budget it is
+/// killed at the budget instead.
+#[test]
+fn busy_process_is_killed_at_the_call_budget() {
+    let _env = crate::tests::env_lock();
+    let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
+    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
+    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
+    let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
+    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
+    let policy = SandboxPolicy::permissive();
+    let warmup =
+        run_sandboxed_observed("sh", &["-c", "echo warmup"], None, &policy).expect("warmup");
+    assert!(warmup.output.contains("warmup"), "{}", warmup.output);
+    let started = Instant::now();
+    let observation = with_call_budget(Some(Duration::from_secs(2)), || {
+        run_sandboxed_observed("sh", &["-c", "exec yes >/dev/null"], None, &policy)
+            .expect("sandboxed run")
+    });
+    let elapsed = started.elapsed();
+    assert!(observation.timed_out, "{}", observation.output);
+    assert!(
+        elapsed < Duration::from_secs(8),
+        "the busy child must stop at the 2s budget, not the 900s hard timeout ({elapsed:?})"
+    );
+}
