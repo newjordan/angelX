@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Task Completion and Timing</title>
+{{FONT_LINK}}
+<style>
+{{FONTS}}
+:root{
+  --bg:#050506; --card:rgba(9,9,12,.96); --ink:#f4f4f7; --dim:#a2a2ac; --faint:#6f6f7a;
+  --rule:#282833; --rule-card:#3a3a44; --slot:#17171e;
+  --dos:'VT323',ui-monospace,monospace; --fantasy:'Cinzel',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:{{W}}px;height:{{H}}px;overflow:hidden;background:var(--bg);color:var(--ink)}
+body{display:flex;align-items:center;justify-content:center}
+.stage{display:flex;flex-direction:column;align-items:center}
+.sec-head{text-align:center}
+.sec-kicker{font-family:var(--dos);letter-spacing:.22em;color:var(--faint);text-transform:uppercase}
+.sec-title{font-family:var(--fantasy);font-weight:700;letter-spacing:.03em;color:#fff;line-height:1.12}
+.sec-sub{font-family:var(--dos);color:var(--dim);letter-spacing:.08em}
+.tv{position:relative;border:1px solid var(--rule-card);background:var(--card);box-shadow:0 16px 48px rgba(0,0,0,.75)}
+.tv-badge{position:absolute;top:0;left:50%;transform:translate(-50%,-50%);background:var(--bg);padding:0 16px;
+  font-family:var(--dos);letter-spacing:.1em;color:var(--dim);white-space:nowrap}
+svg{display:block;overflow:visible}
+svg text{font-family:var(--dos)}
+.glow{filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 5px rgba(255,255,255,.7))}
+.txt-glow{filter:drop-shadow(0 0 6px rgba(255,255,255,.75))}
+.legend{display:flex;justify-content:center;align-items:center;gap:36px;border-top:1px dashed var(--rule);
+  font-family:var(--dos);letter-spacing:.06em;color:var(--dim)}
+.legend span{display:inline-flex;align-items:center;gap:10px}
+.legend .pass{background:#fff;box-shadow:0 0 6px rgba(255,255,255,.8);display:inline-block}
+.legend .fail{border:1.5px solid var(--dim);display:inline-block}
+.legend .hero{color:#fff}
+.provenance{text-align:center;font-family:var(--dos);letter-spacing:.05em;color:var(--faint)}
+.provenance strong{color:var(--dim);font-weight:400}
+
+/* square: 1080 x 1080, stacked blocks */
+.square .stage{width:960px}
+.square .sec-head{margin-bottom:34px}
+.square .sec-kicker{font-size:24px;margin-bottom:4px}
+.square .sec-title{font-size:52px}
+.square .sec-sub{font-size:27px;margin-top:6px}
+.square .tv{width:960px;padding:40px 26px 18px}
+.square .tv-badge{font-size:21px}
+.square .legend{font-size:24px;margin-top:18px;padding-top:14px}
+.square .legend .pass,.square .legend .fail{width:14px;height:14px}
+.square .provenance{font-size:22px;margin-top:24px}
+
+/* card: 1200 x 675, one row per model */
+.card .stage{width:1136px}
+.card .sec-head{margin-bottom:26px}
+.card .sec-kicker{font-size:20px;margin-bottom:2px}
+.card .sec-title{font-size:40px}
+.card .sec-sub{font-size:22px;margin-top:3px}
+.card .tv{width:1136px;padding:32px 24px 12px}
+.card .tv-badge{font-size:18px}
+.card .legend{font-size:20px;margin-top:12px;padding-top:10px}
+.card .legend .pass,.card .legend .fail{width:11px;height:11px}
+.card .provenance{font-size:18px;margin-top:14px}
+</style>
+</head>
+<body class="{{LAYOUT}}">
+<div class="stage" id="stage">
+  <header class="sec-head">
+    <p class="sec-kicker">angelX · polyglot-v1</p>
+    <h1 class="sec-title">Task Completion and Timing</h1>
+    <p class="sec-sub" id="sub"></p>
+  </header>
+  <div class="tv">
+    <div class="tv-badge" id="badge"></div>
+    <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="legend">
+      <span class="hero"><i class="pass"></i>solved</span>
+      <span><i class="fail"></i>unsolved</span>
+    </div>
+  </div>
+  <footer class="provenance" id="prov"></footer>
+</div>
+<script>
+const BOARD = {{BOARD}};
+const LAYOUT = '{{LAYOUT}}';
+const PAGE_H = {{H}};
+const NS = 'http://www.w3.org/2000/svg';
+const COLS = 34, ROWS = 4;
+const el = (p, t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); p.appendChild(n); return n; };
+
+document.getElementById('sub').textContent =
+  BOARD.tasks + ' tasks · JavaScript · Python · Rust · C++';
+document.getElementById('badge').textContent = 'ONE ATTEMPT · ' + BOARD.cap + ' s LIMIT';
+document.getElementById('prov').innerHTML = 'Evaluator: ' + BOARD.evaluator + ' · <strong>angelx.dev</strong>';
+
+const models = BOARD.models.map(m => {
+  let t = 0;
+  const done = m.attempts.map(a => (t += a[1]));
+  return { ...m, done };
+});
+const T = Math.max(...models.map(m => m.total_s));
+const fmtMin = s => (s / 60).toFixed(1) + ' min';
+
+const S = LAYOUT === 'square'
+  ? { name: 40, reason: 26, big: 58, den: 30, time: 25, readout: 26, gap: BOARD.models.length >= 5 ? 20 : 30, pitchMax: 26, pitchMin: 12, margin: 48 }
+  : { name: 32, reason: 22, big: 48, den: 26, time: 21, readout: 0, gap: 18, pitchMax: 20, pitchMin: 10, margin: 24 };
+
+const svg = document.getElementById('board');
+const tv = svg.parentNode;
+const IW = tv.clientWidth - parseFloat(getComputedStyle(tv).paddingLeft) - parseFloat(getComputedStyle(tv).paddingRight);
+
+function measure(text, size, extra) {
+  const n = el(svg, 'text', { 'font-size': size, ...(extra || {}) });
+  n.textContent = text;
+  const w = n.getComputedTextLength();
+  n.remove();
+  return w;
+}
+
+let parts = null;
+
+function build(pitch) {
+  while (svg.firstChild) svg.firstChild.remove();
+  const cell = Math.max(4, Math.round(pitch * 0.78));
+  const gridH = ROWS * pitch - (pitch - cell);
+  const countW = measure(BOARD.tasks + ' / ' + BOARD.tasks, S.big) + 4;
+  const timeW = measure('000.0 min agent time', S.time);
+  const rightW = Math.max(countW, timeW);
+  const nameW = LAYOUT === 'card'
+    ? Math.max(...models.map(m => Math.max(measure(m.name, S.name), measure('reasoning ' + m.reasoning, S.reason)))) : 0;
+  const nameH = LAYOUT === 'square' ? S.name + 12 : 0;
+  const top = S.readout ? S.readout + 26 : 4;
+  const blockH = LAYOUT === 'square' ? nameH + gridH : Math.max(gridH, S.name + S.reason + 8);
+  const H = top + models.length * blockH + (models.length - 1) * S.gap + 6;
+  svg.setAttribute('viewBox', `0 0 ${IW} ${H}`);
+  svg.setAttribute('width', IW);
+  svg.setAttribute('height', H);
+
+  const readout = S.readout
+    ? el(svg, 'text', { x: IW / 2, y: S.readout - 2, 'text-anchor': 'middle', 'font-size': S.readout, fill: '#a2a2ac' })
+    : null;
+
+  const rows = models.map((m, i) => {
+    const y = top + i * (blockH + S.gap);
+    let gx, gy;
+    const g = el(svg, 'g', {});
+    if (LAYOUT === 'square') {
+      const t = el(g, 'text', { x: 0, y: y + S.name * 0.78, 'font-size': S.name, fill: '#ffffff' });
+      const a = document.createElementNS(NS, 'tspan'); a.textContent = m.name; t.appendChild(a);
+      const b = document.createElementNS(NS, 'tspan');
+      b.setAttribute('dx', 16); b.setAttribute('font-size', S.reason); b.setAttribute('fill', '#8c8c98');
+      b.textContent = 'reasoning ' + m.reasoning; t.appendChild(b);
+      gx = 0; gy = y + nameH;
+    } else {
+      const cy = y + blockH / 2;
+      el(g, 'text', { x: 0, y: cy - 4, 'font-size': S.name, fill: '#ffffff' }).textContent = m.name;
+      el(g, 'text', { x: 0, y: cy + S.reason - 2, 'font-size': S.reason, fill: '#8c8c98' }).textContent = 'reasoning ' + m.reasoning;
+      gx = nameW + 30; gy = y + (blockH - gridH) / 2;
+    }
+    const slots = el(g, 'path', { fill: '#17171e' });
+    const fails = el(g, 'path', { fill: 'none', stroke: '#a2a2ac', 'stroke-width': 1.6 });
+    const oks = el(g, 'path', { fill: '#ffffff', class: 'glow' });
+    const cyMid = gy + gridH / 2;
+    const count = el(g, 'text', { x: IW, y: cyMid + S.big * 0.18, 'text-anchor': 'end', 'font-size': S.big, fill: '#ffffff' });
+    const cBig = document.createElementNS(NS, 'tspan'); count.appendChild(cBig);
+    const cDen = document.createElementNS(NS, 'tspan'); cDen.setAttribute('font-size', S.den); cDen.setAttribute('fill', '#a2a2ac'); count.appendChild(cDen);
+    const time = el(g, 'text', { x: IW, y: cyMid + S.big * 0.18 + S.time + 8, 'text-anchor': 'end', 'font-size': S.time, fill: '#8c8c98' });
+    const pos = m.attempts.map((_, k) => {
+      const c = Math.floor(k / ROWS), r = k % ROWS;
+      return [gx + c * pitch, gy + r * pitch];
+    });
+    return { m, slots, fails, oks, count, cBig, cDen, time, pos };
+  });
+  const maxGridRight = Math.max(...rows.map(r => r.pos[r.pos.length - 1][0] + cell));
+  return { cell, rows, readout, fits: maxGridRight + 24 + rightW <= IW };
+}
+
+function layout() {
+  for (let pitch = S.pitchMax; pitch >= S.pitchMin; pitch--) {
+    parts = build(pitch);
+    window.renderFrame(1);
+    const h = document.getElementById('stage').getBoundingClientRect().height;
+    if (parts.fits && h <= PAGE_H - S.margin) return pitch;
+  }
+  return S.pitchMin;
+}
+
+window.renderFrame = function (p) {
+  if (!parts) return;
+  const now = p * T;
+  const cs = parts.cell;
+  const sq = (x, y) => `M${x} ${y}h${cs}v${cs}h-${cs}z`;
+  const sqStroke = (x, y) => `M${x + 0.8} ${y + 0.8}h${cs - 1.6}v${cs - 1.6}h-${cs - 1.6}z`;
+  parts.rows.forEach(r => {
+    let ok = '', bad = '', slot = '', solved = 0;
+    const finished = now >= r.m.total_s - 1e-9;
+    r.m.attempts.forEach((a, k) => {
+      const [x, y] = r.pos[k];
+      const done = finished || r.m.done[k] <= now;
+      if (!done) slot += sq(x, y);
+      else if (a[0]) { ok += sq(x, y); solved++; }
+      else bad += sqStroke(x, y);
+    });
+    r.oks.setAttribute('d', ok);
+    r.fails.setAttribute('d', bad);
+    r.slots.setAttribute('d', slot);
+    r.cBig.textContent = finished ? r.m.solved : solved;
+    r.cDen.textContent = ' / ' + r.m.tasks;
+    r.count.setAttribute('class', finished ? 'txt-glow' : '');
+    r.time.textContent = finished ? fmtMin(r.m.total_s) + ' agent time' : Math.floor(Math.min(now, r.m.total_s) / 60) + ' min';
+    r.time.setAttribute('fill', finished ? '#c8c8d0' : '#8c8c98');
+  });
+  if (parts.readout) parts.readout.textContent = 'cumulative agent time  ' + Math.floor(now / 60) + ' min';
+};
+
+window.ready = document.fonts.ready.then(() => {
+  const pitch = layout();
+  window.renderFrame(1);
+  return { pitch, height: document.getElementById('stage').getBoundingClientRect().height };
+});
+</script>
+</body>
+</html>
