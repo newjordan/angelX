@@ -10,11 +10,13 @@ Writes to --out (default: <bench root>/report-0.1.6/):
   models.json          every number rendered below, plus per-task results
   report.html          self-contained page, light and dark
   post.txt             draft post, numbers only from models.json
-  scoreboard.mp4       1080x1080 H.264 yuv420p, 15 s   (skipped with --no-video)
+  scoreboard.mp4       1080x1080 H.264 yuv420p, 16 s: the board fills, then the end card (skipped with --no-video)
   scoreboard-final.png 1080x1080 last frame
   card.png             1200x675 post card
 
-usage: python3 scripts/build_release_report.py [--bench-root DIR] [--out DIR] [--no-video]
+The wordmark comes from website/assets/logo-mark.png (--site, else ./website, else ~/angelX/website).
+
+usage: python3 scripts/build_release_report.py [--bench-root DIR] [--out DIR] [--site DIR] [--no-video]
 """
 
 from __future__ import annotations
@@ -37,8 +39,12 @@ from pathlib import Path
 sys.dont_write_bytecode = True  # the bench root is read-only data
 
 HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent
 TEMPLATES = HERE / "release-report"
 DEFAULT_BENCH = Path.home() / "angel_tests" / "angelX-bench" / "polyglot-20260921"
+# The site (website/, untracked) carries the wordmark; the main checkout's copy is the fallback.
+SITE_DIRS = [REPO_ROOT / "website", Path.home() / "angelX" / "website"]
+LETTERHEAD = "angelX | github.com/newjordan/angelX · @frostforger"
 
 NAMES = {
     "deepseek-flash": "DeepSeek V4.1 Flash",
@@ -51,7 +57,7 @@ NAMES = {
 EXPECTED = {"muse": "Muse Spark"}
 GROK_HARNESSES = ["angelx", "omp", "opencode", "hermes", "primebash"]
 LANGS = [("javascript", "JavaScript", "JS"), ("python", "Python", "Python"), ("rust", "Rust", "Rust"), ("cpp", "C++", "C++")]
-EVALUATOR = "Prime Intellect Verifiers v0.3.1"
+EVALUATOR = "Verifiers v0.3.1"
 FONTS_URL = "https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=VT323&display=swap"
 POST_LIMIT = 280
 
@@ -115,6 +121,7 @@ def entry(board, bench: Path, c: dict) -> dict:
         "reasoning": reasoning_label(cfg.get("reasoning")),
         "temperature": cfg.get("temperature"),
         "angelx_bin_sha256": cfg.get("bin_sha256"),
+        "angelx_source_sha256": cfg.get("source_sha256"),
         "metered": metered,
         "solved": s["solved"],
         "tasks": s["rollouts"],
@@ -251,7 +258,7 @@ def cell_line(data: dict) -> str:
         "fresh HOME" if cell["home"] == "fresh" else "HOME " + "/".join(cell["home"]),
         "evaluator-owned grading",
         "sampling imposed by the proxy",
-        "reasoning per model: " + ", ".join(f"{m['name']} {m['reasoning']}" for m in data["models"]),
+        "thinking per model: " + ", ".join(f"{m['name']} {m['reasoning']}" for m in data["models"]),
     ]
     return " · ".join(parts)
 
@@ -281,6 +288,32 @@ def font_css(cache_dir: Path) -> str:
     return css
 
 
+def find_logo(site: Path | None) -> Path | None:
+    for d in ([site] if site else []) + SITE_DIRS:
+        f = d / "assets" / "logo-mark.png"
+        if f.is_file():
+            return f
+    print("logo: website/assets/logo-mark.png not found; the letterhead text stands alone", file=sys.stderr)
+    return None
+
+
+def logo_img(logo: Path | None, width: int = 840) -> str:
+    """The wordmark as an inline data: URI: flattened onto the plate's #050506 and JPEG-encoded
+    when ffmpeg is available (the report stays small), else the original PNG."""
+    if not logo:
+        return ""
+    data, mime = logo.read_bytes(), "image/png"
+    if shutil.which("ffmpeg"):
+        with tempfile.TemporaryDirectory() as tmp:
+            small = Path(tmp) / "logo.jpg"
+            graph = f"[0]split[a][b];[b]drawbox=c=0x050506:t=fill[bg];[bg][a]overlay,scale={width}:-1:flags=lanczos"
+            r = subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(logo), "-filter_complex", graph,
+                                "-frames:v", "1", "-update", "1", "-q:v", "2", str(small)], capture_output=True)
+            if r.returncode == 0 and small.is_file():
+                data, mime = small.read_bytes(), "image/jpeg"
+    return f'<img src="data:{mime};base64,{base64.b64encode(data).decode()}" alt="AngelX" width="1429" height="331">'
+
+
 def font_link(fonts: str) -> str:
     return "" if fonts else f'<link rel="stylesheet" href="{FONTS_URL}">'
 
@@ -307,7 +340,7 @@ def strip_svg(e: dict) -> str:
         parts.append(f'<text x="{x}" y="10" class="sl">{html.escape(label)}</text>')
         for i, a in enumerate(items):
             cx, cy = x + (i // 2) * pitch, 16 + (i % 2) * pitch
-            tip = f"{a['task']} · {'solved' if a['solved'] else 'unsolved'} · {a['wall_s']:.1f} s"
+            tip = f"{a['task']} · {'passed' if a['solved'] else 'failed'} · {a['wall_s']:.1f} s"
             cls = "ok" if a["solved"] else "no"
             parts.append(f'<rect class="{cls}" x="{cx}" y="{cy}" width="{cell}" height="{cell}"><title>{html.escape(tip)}</title></rect>')
         x += cols * pitch + gap_group
@@ -332,7 +365,7 @@ def table_html(entries: list[dict], header: list[str], sub: list[str], rows: lis
 def metric_rows(entries: list[dict], with_reasoning: bool) -> list[tuple[str, list[str]]]:
     rows = []
     if with_reasoning:
-        rows.append(("Reasoning", [e["reasoning"] for e in entries]))
+        rows.append(("Thinking", [e["reasoning"] for e in entries]))
         rows.append(("Temperature", [str(e["temperature"]) for e in entries]))
     rows += [
         ("Solved", [f_solved(e) for e in entries]),
@@ -351,19 +384,19 @@ def metric_rows(entries: list[dict], with_reasoning: bool) -> list[tuple[str, li
     return rows
 
 
-def render_report(data: dict, fonts: str) -> str:
+def render_report(data: dict, fonts: str, logo: Path | None) -> str:
     models = data["models"]
     grok = data["grok_by_harness"]
     suite = data["suite"]
     langs = suite["languages"]
-    lede = (f"{suite['tasks']} repository-repair tasks: {langs['javascript']} JavaScript, {langs['python']} Python, "
-            f"{langs['rust']} Rust, {langs['cpp']} C++.")
+    lede = (f"{suite['tasks']} repository-repair tasks ({langs['javascript']} JS, {langs['python']} Python, "
+            f"{langs['rust']} Rust, {langs['cpp']} C++) · {data['cell']['wall_cap_s']} s limit · graded by the evaluator")
 
     model_table = table_html(
         models, [m["name"] for m in models], [""] * len(models), metric_rows(models, True), "models")
     pending = "".join(
         f'<p class="pending"><span class="dot"></span>{html.escape(p["name"])}'
-        + (f" · reasoning {html.escape(p['reasoning'])}" if p.get("reasoning") else "")
+        + (f" · thinking {html.escape(p['reasoning'])}" if p.get("reasoning") else "")
         + " · running</p>"
         for p in data["pending"])
     strips = "".join(
@@ -371,7 +404,7 @@ def render_report(data: dict, fonts: str) -> str:
         f'<span>{m["solved"]} / {m["tasks"]}</span></p>{strip_svg(m)}</div>' for m in models)
 
     grok_sub = [(f"{g['harness_version']}" if g["harness_version"] else "") for g in grok]
-    grok_rows = [("Reasoning", [g["reasoning"] for g in grok])] + metric_rows(grok, False)
+    grok_rows = [("Thinking", [g["reasoning"] for g in grok])] + metric_rows(grok, False)
     grok_table = table_html(grok, [g["harness_name"] for g in grok], grok_sub, grok_rows, "harness")
 
     def unsolved_list(entries, label_key):
@@ -388,14 +421,15 @@ def render_report(data: dict, fonts: str) -> str:
     ]
     if unmetered:
         notes.append(f"{', '.join(sorted(set(unmetered)))}: token usage and model calls are not metered.")
-    notes.append(f"Evaluator: {data['cell']['evaluator']}.")
+    notes.append(f"Graded by task-native test suites on Prime Intellect evaluators ({data['cell']['evaluator']}) · polyglot-v1.")
 
     template = (TEMPLATES / "report.html").read_text()
     return fill(
         template,
         FONTS=fonts,
         FONT_LINK=font_link(fonts),
-        TITLE="angelX · polyglot-v1",
+        LOGO=logo_img(logo),
+        SUB=html.escape(LETTERHEAD),
         LEDE=html.escape(lede),
         CELL=html.escape(cell_line(data)),
         MODEL_TABLE=model_table,
@@ -430,7 +464,7 @@ def render_post(data: dict) -> str:
 
 # ---------------------------------------------------------------- video + card
 
-def render_media(data: dict, fonts: str, out: Path) -> None:
+def render_media(data: dict, fonts: str, out: Path, logo: Path | None) -> None:
     node = shutil.which("node")
     if not node or not shutil.which("chromium") or not shutil.which("ffmpeg"):
         raise SystemExit("video: needs node, chromium and ffmpeg on PATH (or pass --no-video)")
@@ -441,7 +475,7 @@ def render_media(data: dict, fonts: str, out: Path) -> None:
         "models": [
             {
                 "name": m["name"],
-                "reasoning": m["reasoning"],
+                "thinking": m["reasoning"],
                 "solved": m["solved"],
                 "tasks": m["tasks"],
                 "total_s": m["wall_total_s"],
@@ -454,10 +488,15 @@ def render_media(data: dict, fonts: str, out: Path) -> None:
     capture = TEMPLATES / "capture.cjs"
     with tempfile.TemporaryDirectory(prefix="angelx-release-") as tmp:
         tmp = Path(tmp)
+        mark = ""
+        if logo:
+            (tmp / "assets").mkdir()
+            shutil.copy(logo, tmp / "assets" / "logo-mark.png")
+            mark = '<img class="mark" src="assets/logo-mark.png" alt="AngelX">'
         for layout, (w, h) in {"square": (1080, 1080), "card": (1200, 675)}.items():
             page = tmp / f"{layout}.html"
-            page.write_text(fill(template, FONTS=fonts, FONT_LINK=font_link(fonts), BOARD=json.dumps(board),
-                                 LAYOUT=layout, W=str(w), H=str(h)))
+            page.write_text(fill(template, FONTS=fonts, FONT_LINK=font_link(fonts), BOARD=json.dumps(board), MARK=mark,
+                                 LETTERHEAD=html.escape(LETTERHEAD), LAYOUT=layout, W=str(w), H=str(h)))
         subprocess.run([node, str(capture), "--html", str(tmp / "square.html"), "--size", "1080x1080",
                         "--mp4", str(out / "scoreboard.mp4"), "--png", str(out / "scoreboard-final.png")], check=True)
         subprocess.run([node, str(capture), "--html", str(tmp / "card.html"), "--size", "1200x675",
@@ -471,6 +510,7 @@ def main() -> None:
     parser.add_argument("--bench-root", type=Path, default=Path(os.environ.get("ANGELX_BENCH_ROOT", DEFAULT_BENCH)))
     parser.add_argument("--out", type=Path)
     parser.add_argument("--no-video", action="store_true", help="skip scoreboard.mp4, scoreboard-final.png and card.png")
+    parser.add_argument("--site", type=Path, help="website/ checkout holding assets/logo-mark.png")
     parser.add_argument("--font-cache", type=Path,
                         default=Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "angelx-release-report")
     args = parser.parse_args()
@@ -482,13 +522,14 @@ def main() -> None:
     if not data["models"]:
         raise SystemExit("no complete angelX runs found")
     fonts = font_css(args.font_cache)
+    logo = find_logo(args.site)
 
     (out / "models.json").write_text(json.dumps(data, indent=2) + "\n")
-    (out / "report.html").write_text(render_report(data, fonts))
+    (out / "report.html").write_text(render_report(data, fonts, logo))
     post = render_post(data)
     (out / "post.txt").write_text(post)
     if not args.no_video:
-        render_media(data, fonts, out)
+        render_media(data, fonts, out, logo)
 
     for m in data["models"]:
         print(f"{m['name']:<22} {m['solved']:>3} / {m['tasks']}  median {f_s(m['wall_median_s'])}  total {f_min(m['wall_total_s'])}")
