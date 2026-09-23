@@ -1195,7 +1195,7 @@ impl Tool for ShellTool {
         ToolDef {
             name: "shell".to_string(),
             description: format!(
-                "{description} Omit scope options for builds, benchmarks, installs and background jobs: they need scratch writes. read_only and write_paths restrict the entire process tree, including temporary files and network; write_paths is not an output-file list. Act on actual tool evidence: preserve the earliest prerequisite failure, check usable input before dependent measurements, use allowed scratch, and discover optional dependencies or authorized reference paths from real errors and permissions. Do not score failed input as zero performance. Explicit read_only/write_paths remain authoritative; request a user-visible scope change if they block needed work, never omit or auto-remove them. {}{}Never use shell `sleep` to poll a job or submission; keep doing \
+                "{description} Omit scope options for builds, benchmarks, installs and background jobs: they need scratch writes. read_only and write_paths restrict writes for the entire process tree, including temporary files; network stays as usual. write_paths is not an output-file list. Act on actual tool evidence: preserve the earliest prerequisite failure, check usable input before dependent measurements, use allowed scratch, and discover optional dependencies or authorized reference paths from real errors and permissions. Do not score failed input as zero performance. Explicit read_only/write_paths remain authoritative; request a user-visible scope change if they block needed work, never omit or auto-remove them. {}{}Never use shell `sleep` to poll a job or submission; keep doing \
                  useful work and use one later status snapshot. Competition submission status \
                  arrives from the harness watcher.",
                 if task_shell_no_detach_active() {
@@ -1216,7 +1216,7 @@ impl Tool for ShellTool {
                 "type": "object",
                 "properties": {
                     "command": { "type": "string", "description": "shell command. Judge from actual exit status and output; quoted text, a quiet success, and a valid `$url` are not empty-input or zero-frame evidence." },
-                    "read_only": { "type": "boolean", "description": "Enforce no filesystem writes except /dev/null and no network; default false. Explicit restrictions stay authoritative; request a user-visible scope change instead of omitting them." },
+                    "read_only": { "type": "boolean", "description": "Enforce no filesystem writes except /dev/null; network is unchanged; default false. Explicit restrictions stay authoritative; request a user-visible scope change instead of omitting them." },
                     "write_paths": { "type": "array", "maxItems": 128, "items": { "type": "string" }, "description": "Optional strict edit restriction, NOT an output-file list. Only listed existing source files are writable; temporary files, new files and network are denied, including in child processes. Omit for builds, benchmarks, installs and background jobs. Empty means read-only. A denial under this grant is a permission failure, not zero performance." }
                 },
                 "required": ["command"],
@@ -1337,10 +1337,15 @@ impl Tool for ShellTool {
                     );
                 }
                 if let Some(paths) = &scope.paths {
-                    if paths.is_empty() {
-                        message.push_str("\n[effective shell scope: filesystem read-only; network disabled. An empty write_paths array selects this scope even with read_only=false. This result alone does not establish a host DNS, disk or permissions failure.]");
+                    let network = if scope.policy.allow_network {
+                        "network available"
                     } else {
-                        message.push_str("\n[effective shell scope: writes only to write_paths; temporary-file creation and network disabled for the entire process tree. For builds or benchmarks, omit write_paths to use the workspace's normal permissions.]");
+                        "network disabled"
+                    };
+                    if paths.is_empty() {
+                        message.push_str(&format!("\n[effective shell scope: filesystem read-only; {network}. An empty write_paths array selects this scope even with read_only=false. This result alone does not establish a host DNS, disk or permissions failure.]"));
+                    } else {
+                        message.push_str(&format!("\n[effective shell scope: writes only to write_paths; temporary-file creation blocked for the entire process tree; {network}. For builds or benchmarks, omit write_paths to use the workspace's normal permissions.]"));
                     }
                 }
                 if obs.exit == Some(127)

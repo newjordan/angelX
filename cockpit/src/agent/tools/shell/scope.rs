@@ -29,7 +29,7 @@ impl ShellTool {
                 return Err("read-only execution cannot grant write_paths".into());
             }
             return Ok(ExecutionScope {
-                policy: SandboxPolicy::read_only(),
+                policy: self.write_scope_policy(Vec::new()),
                 paths: Some(Vec::new()),
             });
         }
@@ -41,7 +41,7 @@ impl ShellTool {
         };
         if paths.is_empty() {
             return Ok(ExecutionScope {
-                policy: SandboxPolicy::read_only(),
+                policy: self.write_scope_policy(Vec::new()),
                 paths: Some(Vec::new()),
             });
         }
@@ -139,16 +139,26 @@ impl ShellTool {
             writable.insert(canonical);
         }
         Ok(ExecutionScope {
-            policy: SandboxPolicy {
-                writable_roots: writable.into_iter().collect(),
-                allow_network: false,
-                enforce: true,
-                mandatory: true,
-                sealed_reads: Vec::new(),
-                deny_reads: Vec::new(),
-            },
+            policy: self.write_scope_policy(writable.into_iter().collect()),
             paths: Some(relative.into_iter().collect()),
         })
+    }
+
+    /// The enforced policy for a narrowed write scope. A read-only seat (a
+    /// reviewer, `read_only_in_dir`) keeps its full ceiling, network included.
+    /// A scope the model picks per call narrows writes only: network follows
+    /// the shell's normal policy. Coupling the two cut a model off the network
+    /// when it marked a lookup `read_only` (a `yukon submissions` fetch failed
+    /// with "Unable to connect").
+    fn write_scope_policy(&self, writable_roots: Vec<PathBuf>) -> SandboxPolicy {
+        SandboxPolicy {
+            writable_roots,
+            allow_network: !self.read_only && self.policy.allow_network,
+            enforce: true,
+            mandatory: true,
+            sealed_reads: Vec::new(),
+            deny_reads: Vec::new(),
+        }
     }
 }
 
