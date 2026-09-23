@@ -53,7 +53,7 @@ Use `results` for retained evidence, and submit when there is a verified winner.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ANGEL_API_CLUBS` | unset (allow configured providers) | Optional comma-separated API-provider allowlist: `glm`, `kimi`, `deepseek`, `qwen`, `longcat`, `cerebras`, `openrouter`, `grok`, `openai`. Unset, `*`, or `all` permits configured providers; empty or `none` disables API routes. Credentials and required model pins still apply. OAuth and local routes are separate. The launcher removes disabled provider keys from its process only when the user supplies this restriction. |
+| `ANGEL_API_CLUBS` | unset (allow configured providers) | Optional comma-separated API-provider allowlist: `glm`, `kimi`, `deepseek`, `qwen`, `longcat`, `meta`, `cerebras`, `openrouter`, `grok`, `openai`. Unset, `*`, or `all` permits configured providers; empty or `none` disables API routes. Credentials and required model pins still apply. OAuth and local routes are separate. The launcher removes disabled provider keys from its process only when the user supplies this restriction. |
 
 ## Agent loop (`harness.rs`)
 

@@ -41,6 +41,8 @@ const credentials = [
   'DASHSCOPE_API_KEY',
   'ANGEL_LONGCAT_KEY',
   'LONGCAT_API_KEY',
+  'ANGEL_META_KEY',
+  'META_API_KEY',
   'ANGEL_CEREBRAS_KEY',
   'CEREBRAS_API_KEY',
   'ANGEL_OPENROUTER_KEY',
@@ -115,9 +117,17 @@ test('empty and none are explicit operator choices to disable API credentials', 
 })
 
 test('unrelated tools keep their configuration instead of inheriting a global provider ban', () => {
-  const env = filtered({ META_API_KEY: 'fixture', ANGEL_META_MODEL: 'user-model' })
-  assert.equal(env.META_API_KEY, 'fixture')
+  const env = filtered({ ANGEL_API_CLUBS: 'glm', HF_TOKEN: 'fixture', ANGEL_META_MODEL: 'user-model' })
+  assert.equal(env.HF_TOKEN, 'fixture')
   assert.equal(env.ANGEL_META_MODEL, 'user-model')
+  assert.equal(env.META_API_KEY, undefined, 'the Muse key belongs to the meta club')
+})
+
+test('the meta club keeps its Muse credentials when allowed', () => {
+  const env = filtered({ ANGEL_API_CLUBS: 'glm,meta' })
+  assert.equal(env.ANGEL_META_KEY, 'test-only-key')
+  assert.equal(env.META_API_KEY, 'test-only-key')
+  assert.equal(env.DEEPSEEK_API_KEY, undefined)
 })
 
 test('real launcher loads system.env only on opt-in, preserves API choices, and isolates headless configuration', (t) => {

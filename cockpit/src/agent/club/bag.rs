@@ -740,7 +740,7 @@ impl Bag {
 
         // The remaining SOTA links are pushed in the canonical intelligence
         // order (smartest first, see SOTA_MOA_INTELLIGENCE_ORDER): codex-run
-        // above, then Kimi → deepseek → GLM → qwen → grok → longcat →
+        // above, then Kimi → deepseek → GLM → qwen → grok → longcat → meta →
         // openrouter/hy3 → cerebras. This order is load-bearing: it is the SOTA-MOA quota
         // failover bench walk and the `links[0]` last-resort seat pick, so a
         // capped frontier link degrades to the *next smartest* model — never
@@ -833,6 +833,7 @@ impl Bag {
                 Some("LongCat-2.0"),
                 &["ANGEL_LONGCAT_KEY", "LONGCAT_API_KEY"],
             ),
+            optional_meta_http_club(),
             optional_sota_http_club(
                 "cerebras",
                 "cerebras",
