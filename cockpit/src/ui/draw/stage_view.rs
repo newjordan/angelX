@@ -449,6 +449,21 @@ fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
     {
         scene.hud.ctx_free = 100u32.saturating_sub(percent.min(100) as u32);
     }
+    // Travel and arrival cues, which used to take the whole pane, become a
+    // glass over the map: the ride while the knight travels, the place's
+    // painting when he arrives.
+    if crate::stage::world_viz::overworld::glass_enabled() {
+        use crate::ui::scryglass::StageOverlay;
+        scene.glass = match app.scryglass.controller.overlay() {
+            Some(StageOverlay::Arrival { destination }) => {
+                Some(app.world.overworld_plate_glass(*destination))
+            }
+            Some(StageOverlay::Journey { destination, .. }) => {
+                Some(app.world.overworld_ride_glass(*destination))
+            }
+            _ => None,
+        };
+    }
     crate::stage::world_viz::overworld::pace(&mut scene, app.scenery_relaxed());
     scene
 }

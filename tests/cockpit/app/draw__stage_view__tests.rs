@@ -252,3 +252,30 @@ fn overworld_half_blocks_letterbox_the_frame_on_black_paper() {
         .count();
     assert!(lit > 60, "the frame itself paints ({lit} lit cells)");
 }
+
+#[test]
+fn travel_and_arrival_cues_become_a_glass_over_the_map() {
+    use crate::stage::world_viz::Building;
+    use crate::ui::scryglass::StageOverlay;
+    let _guard = crate::tests::env_lock();
+    let _glass = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_GLASS");
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    assert!(overworld_scene(&app).glass.is_none(), "a quiet map is bare");
+
+    app.scryglass.begin_journey(
+        crate::agent::harness::ToolEventId("ride".into()),
+        Building::Smithy,
+        false,
+    );
+    let riding = overworld_scene(&app).glass.expect("the ride glass");
+    assert!(riding.live && riding.title.contains("SMITHY"), "{}", riding.title);
+
+    app.scryglass.controller.show_overlay(StageOverlay::Arrival {
+        destination: Building::Chapel,
+    });
+    let arrived = overworld_scene(&app).glass.expect("the arrival glass");
+    assert!(!arrived.live && arrived.title == "CHAPEL", "{}", arrived.title);
+
+    let _bare = crate::tests::TestEnvGuard::set("ANGEL_WORLD_GLASS", "off");
+    assert!(overworld_scene(&app).glass.is_none());
+}

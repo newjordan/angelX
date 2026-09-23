@@ -360,6 +360,8 @@ pub(crate) struct World {
     growth_cache: RefCell<Option<(u32, life::GrowthLayout)>>,
     /// The knight's walk on the pixel overworld, which has its own roads.
     overworld: overworld::Walker,
+    /// The last glass picture the map showed, keyed on its source frame.
+    overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -508,6 +510,7 @@ impl World {
             growth_announced: 0,
             growth_cache: RefCell::new(None),
             overworld: overworld::Walker::default(),
+            overworld_glass: RefCell::new(None),
         };
         world.tiles = (0..WORLD_H)
             .flat_map(|y| (0..WORLD_W).map(move |x| (x, y)))
