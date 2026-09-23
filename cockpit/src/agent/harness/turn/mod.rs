@@ -3542,7 +3542,15 @@ fn run_turn_tiered(
                                 (Some(before), Some(after)) if before == after => Some(after),
                                 _ => None,
                             };
-                        (proof.passed, proof.summary)
+                        let summary = if proof.result_class == "flaky" {
+                            format!(
+                                "{}\nFailing run output:\n{}",
+                                proof.summary, proof.output_tail
+                            )
+                        } else {
+                            proof.summary
+                        };
+                        (proof.passed, summary)
                     };
                     if passed {
                         crate::agent::harness::trajectory::note_verified(
@@ -5238,6 +5246,14 @@ fn run_turn_tiered(
                             ),
                         );
                         observed_outcome!(TurnOutcome::answer(answer, hop), "accept_cmd");
+                    } else if proof.result_class == "flaky" {
+                        // The model just saw its own run go green; say at once that
+                        // the green does not hold, with the failing run's output.
+                        let _ = events.send(TurnEvent::Notice(proof.summary.clone()));
+                        history.push(ChatMsg::harness(format!(
+                            "{}\nFailing run output:\n{}",
+                            proof.summary, proof.output_tail
+                        )));
                     }
                 }
                 // One redirect before the hard stop, in case it can self-correct.
@@ -5359,9 +5375,53 @@ pub(crate) struct TaskAcceptResult {
     pub(crate) result_class: &'static str,
     pub(crate) summary: String,
     pub(crate) elapsed_ms: u128,
+    /// The end of a failing run's output; empty when it passed.
+    pub(crate) output_tail: String,
 }
 
+/// Run the task acceptance command until it has passed
+/// `ANGEL_TASK_ACCEPT_REPEATS` times in a row (default 3) or failed once. One
+/// green run is not proof: a solution that depends on randomness, timing or
+/// state shared between tests can pass by luck. On polyglot-v1
+/// cpp-robot-name, a `reset()` that released old names passed about one run
+/// in four, and the single acceptance run happened to be one of them. Repeats
+/// stop once the proof has taken `ANGEL_TASK_ACCEPT_REPEAT_SECS` (default 60)
+/// in total, so a slow suite is not run three times. A failure after an earlier
+/// pass comes back as `flaky`, with the failing output.
 pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResult {
+    let repeats = env_usize("ANGEL_TASK_ACCEPT_REPEATS", 3).clamp(1, 10);
+    let repeat_budget = Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_REPEAT_SECS", 60) as u64);
+    let started = Instant::now();
+    let mut result = run_task_accept_once(command, workspace);
+    let mut runs = 1;
+    while result.passed && runs < repeats && started.elapsed() < repeat_budget {
+        let next = run_task_accept_once(command, workspace);
+        runs += 1;
+        if !next.passed {
+            return TaskAcceptResult {
+                passed: false,
+                result_class: "flaky",
+                summary: format!(
+                    "task acceptance is nondeterministic: it passed {} run(s), then failed on run \
+                     {runs} of {repeats} ({}). The solution passes by luck; something depends on \
+                     randomness, timing or state shared between tests. Make it pass every run.",
+                    runs - 1,
+                    next.summary
+                ),
+                elapsed_ms: started.elapsed().as_millis(),
+                output_tail: next.output_tail,
+            };
+        }
+        result = next;
+    }
+    if result.passed && runs > 1 {
+        result.summary = format!("{} ({runs} consecutive runs)", result.summary);
+    }
+    result.elapsed_ms = started.elapsed().as_millis();
+    result
+}
+
+fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
     let started = Instant::now();
     let timeout =
         Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_TIMEOUT_SECS", 120).clamp(5, 600) as u64);
@@ -5374,6 +5434,7 @@ pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResu
             result_class: "spawn_error",
             summary: "task acceptance command could not start".to_string(),
             elapsed_ms: started.elapsed().as_millis(),
+            output_tail: String::new(),
         };
     };
     let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
@@ -5411,7 +5472,20 @@ pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResu
             format!("task acceptance {status}")
         },
         elapsed_ms: started.elapsed().as_millis(),
+        output_tail: if passed {
+            String::new()
+        } else {
+            tail_chars(&combined, TASK_ACCEPT_TAIL_CHARS)
+        },
     }
+}
+
+const TASK_ACCEPT_TAIL_CHARS: usize = 1_500;
+
+fn tail_chars(text: &str, limit: usize) -> String {
+    let text = text.trim_end();
+    let skip = text.chars().count().saturating_sub(limit);
+    text.chars().skip(skip).collect()
 }
 
 /// The post-write seam: everything the machine can say about a mutation the

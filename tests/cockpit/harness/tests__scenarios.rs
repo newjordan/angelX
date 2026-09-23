@@ -19,6 +19,49 @@ fn task_accept_gate_requires_red_then_green_and_rejects_zero_tests() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// One green acceptance run is not proof: the gate repeats a passing command
+/// and reports a later failure as flaky, with that run's output, so a solution
+/// that passes by luck (polyglot-v1 cpp-robot-name) is not accepted.
+#[test]
+fn task_accept_gate_repeats_a_pass_and_names_a_flaky_one() {
+    let _env = crate::tests::env_lock();
+    let _repeats = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACCEPT_REPEATS");
+    let _budget = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACCEPT_REPEAT_SECS");
+    let root = scratch("task_accept_flaky");
+    std::fs::create_dir_all(&root).unwrap();
+
+    let stable = run_task_accept("true", &root);
+    assert!(stable.passed, "{stable:?}");
+    assert!(
+        stable.summary.ends_with("(3 consecutive runs)"),
+        "{stable:?}"
+    );
+
+    // Passes once, then fails every later run: the second run exposes it.
+    let flaky_cmd = "if [ -f seen ]; then echo 'REQUIRE( names.count(name) == 0 ) failed'; exit 1; fi; touch seen";
+    let flaky = run_task_accept(flaky_cmd, &root);
+    assert!(!flaky.passed, "{flaky:?}");
+    assert_eq!(flaky.result_class, "flaky");
+    assert!(
+        flaky
+            .summary
+            .contains("passed 1 run(s), then failed on run 2 of 3"),
+        "{flaky:?}"
+    );
+    assert!(
+        flaky.output_tail.contains("names.count(name) == 0"),
+        "{flaky:?}"
+    );
+
+    // One run only when repeats are turned down.
+    std::fs::remove_file(root.join("seen")).unwrap();
+    let _once = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACCEPT_REPEATS", "1");
+    let single = run_task_accept(flaky_cmd, &root);
+    assert!(single.passed, "{single:?}");
+    assert!(!single.summary.contains("consecutive"), "{single:?}");
+    let _ = std::fs::remove_dir_all(root);
+}
+
 /// Scenario: path traversal out of the workspace is refused (confinement).
 #[test]
 fn scenario_safe_path_rejects_escape() {
