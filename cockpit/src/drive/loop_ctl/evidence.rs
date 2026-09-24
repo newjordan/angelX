@@ -14,8 +14,8 @@ use crate::ui::toolstrip::ToolStripSnapshot;
 use std::path::Path;
 
 use super::{
-    LOOP_EVIDENCE_REVIEW_INTERVAL, LoopBinaryIdentity, LoopIterLog, LoopState, LoopVerifierId,
-    MeasuredCandidateRow, SubmissionLogRow, now_ms,
+    FindingStamp, LOOP_EVIDENCE_REVIEW_INTERVAL, LoopBinaryIdentity, LoopIterLog, LoopState,
+    LoopVerifierId, MeasuredCandidateRow, SubmissionLogRow, now_ms,
 };
 
 #[cfg(test)]
@@ -31,6 +31,7 @@ pub(crate) fn apply_reply_with_tools(
     // Whatever setback this reply's iteration was shown, it has had its chance
     // to act on it; a persisting failure re-arms via the verify/error paths.
     st.last_setback = None;
+    st.loop_note = None;
     let non_result = is_non_result_reply(reply);
     let (direction, mut reported, mut hypotheses) = parse_iteration_sections(reply);
     // Prose without the evidence protocol is retained as an unverified lead so
@@ -53,7 +54,14 @@ pub(crate) fn apply_reply_with_tools(
             }
             if evidence_is_admissible(&finding, st.workspace.as_deref(), tools) {
                 if st.seen.insert(key) {
+                    // Rows admitted before stamping existed stay unstamped.
+                    st.finding_stamps
+                        .resize(st.findings.len(), FindingStamp::default());
                     st.findings.push(finding);
+                    st.finding_stamps.push(FindingStamp {
+                        at_ms: now_ms(),
+                        iteration: st.iteration + 1,
+                    });
                     fresh_verified += 1;
                 }
             } else {
@@ -89,7 +97,10 @@ pub(crate) fn apply_reply_with_tools(
     // Verified measurement/submission receipts land even when the wider tool
     // chain was error-heavy (a succeeded benchmark is a succeeded benchmark).
     // These execution receipts advance activity clocks, not objective progress.
+    let (measured_before, submitted_before) =
+        (st.measured_candidates_log.len(), st.submissions_log.len());
     register_verified_outcome_actions(st, &tools.verified_outcome_actions);
+    attach_measurement_results(st, tools);
     drain_submission_journal(st);
     // Blocker-first (podrace): a failed benchmark/verify/validate/submit
     // action or a `VERIFY/DECISION … blocked` checkpoint arms the diagnostic;
@@ -130,6 +141,14 @@ pub(crate) fn apply_reply_with_tools(
         }
     }
     st.iteration += 1;
+    // Rows this reply produced carry its iteration number, as the error path's
+    // rows (registered after its increment) and the finding stamps already do.
+    for row in &mut st.measured_candidates_log[measured_before..] {
+        row.iteration = st.iteration;
+    }
+    for row in &mut st.submissions_log[submitted_before..] {
+        row.iteration = st.iteration;
+    }
     st.observe_verifier_failure(tools);
     st.tokens_spent += est_tokens(reply);
     let out = est_tokens(reply) as u64;
@@ -295,6 +314,7 @@ pub(crate) fn register_verified_outcome_actions(
     const MAX_ACTIONS: usize = 512;
     let mut novel = 0;
     let mut novel_submissions = 0;
+    let mut novel_measured = Vec::new();
     for receipt in receipts {
         if st.outcome_actions_seen.contains(receipt) {
             continue;
@@ -303,6 +323,8 @@ pub(crate) fn register_verified_outcome_actions(
         novel += 1;
         if receipt.starts_with("submitted:") {
             novel_submissions += 1;
+        } else {
+            novel_measured.push(receipt);
         }
     }
     if st.outcome_actions_seen.len() > MAX_ACTIONS {
@@ -313,23 +335,34 @@ pub(crate) fn register_verified_outcome_actions(
     st.measured_candidates = st.measured_candidates.saturating_add(measured_new);
     st.measured_candidates_n = st.measured_candidates;
     st.submissions = st.submissions.saturating_add(novel_submissions);
-    if measured_new > 0 {
-        for receipt in receipts {
-            if receipt.starts_with("submitted:") {
-                continue;
-            }
-            if st
-                .measured_candidates_log
-                .iter()
-                .any(|row| row.verifier.command == *receipt)
-            {
-                continue;
-            }
-            st.measured_candidates_log
-                .push(measured_row_from_receipt(st, receipt));
-        }
+    // One row per novel measurement: a re-run with a new result is a new row,
+    // a repeated identical receipt is not.
+    for receipt in novel_measured {
+        st.measured_candidates_log
+            .push(measured_row_from_receipt(st, receipt));
     }
     (novel, novel_submissions)
+}
+
+/// Give this iteration's new measured rows their result excerpt and wall
+/// time from the tool strip, matched by the row's command.
+pub(crate) fn attach_measurement_results(st: &mut LoopState, tools: &ToolStripSnapshot) {
+    for measured in &tools.measurement_results {
+        let command = measured
+            .receipt
+            .split(":result=")
+            .next()
+            .unwrap_or(&measured.receipt);
+        if let Some(row) = st
+            .measured_candidates_log
+            .iter_mut()
+            .rev()
+            .find(|row| row.result.is_none() && row.verifier.command == command)
+        {
+            row.result = Some(measured.excerpt.clone());
+            row.elapsed_ms = measured.elapsed_ms;
+        }
+    }
 }
 
 pub(crate) fn loop_binary_identity() -> LoopBinaryIdentity {
@@ -400,6 +433,8 @@ fn measured_row_from_receipt(st: &LoopState, receipt: &str) -> MeasuredCandidate
             sha256: digest,
         },
         binary: st.binary.clone().unwrap_or_else(loop_binary_identity),
+        result: None,
+        elapsed_ms: None,
     }
 }
 

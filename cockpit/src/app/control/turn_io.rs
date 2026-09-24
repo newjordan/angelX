@@ -358,9 +358,6 @@ fn stream_event_is_operator_visible(event: &TurnEvent) -> bool {
 /// when the guard has one, byte-identical body otherwise — so ANY notifier
 /// that repeats verbatim coalesces, not just the curated guard families.
 fn notice_gauge_row_index(messages: &[Message], note: &str) -> Option<usize> {
-    if note.starts_with("action receipt · ") {
-        return None;
-    }
     let key = crate::ui::views::turn_event_view::notice_coalesce_key(note);
     messages
         .iter()
@@ -1194,21 +1191,16 @@ impl App {
                     let conversation =
                         self.transcript_mode == crate::app::TranscriptMode::Conversation;
                     let receipt = note.starts_with("action receipt · ");
-                    if !receipt && !crate::ui::views::turn_event_view::notice_rides_strip(&note) {
-                        self.receipt_run_open = false;
-                    }
-                    if receipt {
+                    if receipt && conversation {
+                        // The tool strip already carries each action: the
+                        // herald row names its outcome and failure reason,
+                        // the ledger lists the call. `/trace` keeps receipts.
+                    } else if receipt {
                         self.flush_partial();
-                        if !conversation
-                            || !self.receipt_run_open
-                            || !self.bump_receipt_gauge(&note)
-                        {
-                            self.messages.push(Message::new(
-                                Role::Activity,
-                                crate::ui::views::turn_event_view::notice_text(&note),
-                            ));
-                        }
-                        self.receipt_run_open = conversation;
+                        self.messages.push(Message::new(
+                            Role::Activity,
+                            crate::ui::views::turn_event_view::notice_text(&note),
+                        ));
                     } else if conversation && self.bump_notice_gauge(&note) {
                         // The gauge row advanced in place.
                     } else if conversation
@@ -1776,23 +1768,6 @@ impl App {
         } else {
             self.messages.push(Message::new(Role::Activity, row));
         }
-    }
-
-    fn bump_receipt_gauge(&mut self, note: &str) -> bool {
-        let Some(index) = self.messages.len().checked_sub(1) else {
-            return false;
-        };
-        if !matches!(self.messages[index].role, Role::Activity) {
-            return false;
-        }
-        let Some(text) =
-            crate::ui::views::turn_event_view::receipt_gauge_text(&self.messages[index].text, note)
-        else {
-            return false;
-        };
-        self.messages[index] = Message::new(Role::Activity, text);
-        self.refresh_transcript_row_height(index);
-        true
     }
 
     /// Advance a repeating notice's one-slot gauge row in place: latest text,
@@ -2650,15 +2625,19 @@ impl App {
             match crate::ui::views::approval_view::decision_for_key(key.code) {
                 Some(d) => {
                     let _ = pa.reply.send(d);
-                    self.messages.push(Message {
-                        role: Role::Activity,
-                        text: format!(
-                            "{} approval: {}",
-                            Glyph::Approval.token(),
-                            crate::ui::views::approval_view::decision_text(d)
-                        )
-                        .into(),
-                    });
+                    // The call's own row in the tool strip shows what the
+                    // decision did; only `/trace` keeps an echo of the key.
+                    if self.transcript_mode == crate::app::TranscriptMode::Trace {
+                        self.messages.push(Message {
+                            role: Role::Activity,
+                            text: format!(
+                                "{} approval: {}",
+                                Glyph::Approval.token(),
+                                crate::ui::views::approval_view::decision_text(d)
+                            )
+                            .into(),
+                        });
+                    }
                 }
                 None => self.pending_approval = Some(pa), // keep waiting for a valid key
             }
@@ -3396,6 +3375,14 @@ impl App {
                         }
                         AgentButton::Model | AgentButton::ReasoningEffort => {}
                     }
+                    return;
+                }
+                // The herald row opens and closes its ledger of literal calls.
+                if self
+                    .tool_herald_area
+                    .is_some_and(|rect| mouse::point_in(rect, x, y))
+                {
+                    self.tool_strip.toggle_ledger();
                     return;
                 }
                 // Scryglass and Formation-deck controls swallow the click before

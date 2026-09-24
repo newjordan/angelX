@@ -27,6 +27,8 @@ template as the first five, plus a line asking for the reference's chunky
 pixel-art style. The generator returned the alpha mask directly. The files
 are its unmodified output. Designs are original; no marks or likenesses.
 
-Portrait routing (`profile_for_route`) resolves a served model to its family
-knight. Named boxes keep their own knights. The swarm keeps its runner
-portrait so the Apollo specialist can take it.
+The live portraits have since moved to the Round Table sheets in
+`assets/realm/avatars/round-table/sheet/`: one knight per model family, chosen
+by the model itself. Portrait routing (`profile_for_route`) follows the served
+model, never the machine that serves it. These helms remain for label-only
+identities and the unnamed route.

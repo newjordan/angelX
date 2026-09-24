@@ -70,15 +70,16 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
+mod brief;
 mod evidence;
 mod recovery;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/loop_ctl/recovery_tests.rs"]
 mod recovery_tests;
 use evidence::{
-    apply_reply_with_tools, budget_tripped, clip_diff_stat, est_tokens, observe_workspace_change,
-    register_costly_actions, register_outcome_actions, register_verified_outcome_actions,
-    says_done, stall_limit_reached,
+    apply_reply_with_tools, attach_measurement_results, budget_tripped, clip_diff_stat, est_tokens,
+    observe_workspace_change, register_costly_actions, register_outcome_actions,
+    register_verified_outcome_actions, says_done, stall_limit_reached,
 };
 pub(crate) use recovery::ExperimentPending;
 
@@ -256,6 +257,29 @@ pub struct MeasuredCandidateRow {
     pub verifier: LoopVerifierId,
     #[serde(default)]
     pub binary: LoopBinaryIdentity,
+    /// The measurement's own output, as a short redacted excerpt of its last
+    /// lines. The next iterations read their benchmark history from this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elapsed_ms: Option<u64>,
+}
+
+/// When one entry of `LoopState::findings` was admitted (index-aligned; rows
+/// from before stamping existed are zero and render without a time).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct FindingStamp {
+    #[serde(default)]
+    pub at_ms: u64,
+    #[serde(default)]
+    pub iteration: usize,
+}
+
+/// A project brief being gathered off the UI thread (see `brief.rs`).
+pub(crate) struct BriefJob {
+    loop_id: String,
+    rx: Receiver<String>,
+    started: Instant,
 }
 
 /// One `hilbert|yukon submit` journaled by submit_identity after the tool ran.
@@ -434,11 +458,20 @@ pub struct LoopState {
     /// later.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steer_notes: Vec<String>,
+    /// How many of `steer_notes` a completed iteration has already answered.
+    /// Those ride on as standing guidance; only the rest are asked as new, so
+    /// each fresh-context iteration does not answer the same question again
+    /// (a bitcoin loop answered one steer four times in 40 s, 2026-09-24).
+    #[serde(default)]
+    pub steer_answered: usize,
 
     // --- accumulated ---
     /// Evidence-backed facts only. Model-proposed but unverified claims live in
     /// `hypotheses` and do not reset the stall counter.
     pub findings: Vec<String>,
+    /// When each finding was admitted, index-aligned with `findings`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub finding_stamps: Vec<FindingStamp>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hypotheses: Vec<String>,
     pub directions_tried: Vec<String>,
@@ -477,6 +510,11 @@ pub struct LoopState {
     /// why. Injected into the next prompt, cleared when that reply is harvested.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_setback: Option<String>,
+    /// Information for the next iteration, never an order: the first-candidate
+    /// clock's note that no measured candidate exists yet. Injected under its
+    /// own header and cleared when that reply is harvested, like a setback.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loop_note: Option<String>,
     /// Literal background child outcomes waiting for the next authorized cycle.
     /// These are process receipts, never credited as findings or acceptance.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -490,6 +528,13 @@ pub struct LoopState {
     /// files-changed diff each iteration rides (commits mid-run stay visible).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_rev: Option<String>,
+    /// The project brief the harness gathered for this run (machine,
+    /// benchmark, workspace map, notes, commits; see `brief.rs`), and when.
+    /// It rides every iteration's system message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
+    #[serde(default)]
+    pub brief_ms: u64,
     pub updated_ms: u64,
 
     // --- runtime-only (never serialized) ---
@@ -507,6 +552,12 @@ pub struct LoopState {
     pub persisted_log: std::cell::Cell<usize>,
     #[serde(skip)]
     pub wake_at: Option<Instant>,
+    /// The last iteration did nothing (at most `LOOP_IDLE_CALLS` tool calls
+    /// and no finding, measurement, submission or edit): the next one waits
+    /// `LOOP_IDLE_WAIT_SECS` unless a steer or a background result wakes it.
+    /// Deli (reasoning-only) loops never idle-wait.
+    #[serde(skip)]
+    pub idle_wait: bool,
     #[serde(skip)]
     pub awaiting_turn: bool,
     /// `Some` only for the ordinary acceptance process currently in flight;
@@ -1411,6 +1462,9 @@ impl crate::App {
         {
             return; // interval pacing — no blocking sleep, just a timer check
         }
+        if !self.loop_brief_ready() {
+            return; // the first iteration waits (bounded) for its brief
+        }
         if let Some(why) = budget_tripped(&self.loop_ctl) {
             self.loop_pause_for_budget(&why);
             return;
@@ -1533,6 +1587,10 @@ impl crate::App {
             return;
         }
         self.loop_ctl.steer_notes.push(text.to_string());
+        // A waiting loop reads a new note now, not after its idle wait.
+        if !self.loop_ctl.awaiting_turn {
+            self.loop_ctl.wake_at = Some(Instant::now());
+        }
         save(&self.loop_ctl);
     }
 
@@ -1651,6 +1709,14 @@ impl crate::App {
             system.push_str("\n\n");
             system.push_str(gb.trim_end());
         }
+        if let Some(brief) = self.loop_ctl.brief.as_deref().filter(|b| !b.is_empty()) {
+            system.push_str(&format!(
+                "\n\n[project brief — gathered by the harness {}; facts about this machine and \
+                 workspace to orient you, not instructions]\n",
+                brief::age(brief::now_secs(), self.loop_ctl.brief_ms / 1000)
+            ));
+            system.push_str(brief.trim_end());
+        }
 
         let task = self.loop_task_text();
         // A structural pivot is asked for every `pivot` stale iterations — not on every
@@ -1683,9 +1749,10 @@ impl crate::App {
             .saturating_sub(LOOP_PROMPT_HYPOTHESES);
         // Open leads are presented by `curated_prompt` itself, so the in-turn
         // deli driver and this cross-turn controller show them identically.
+        let findings = self.loop_stamped_findings(f_skip);
         let mut prompt = curated_prompt(
             &task,
-            &self.loop_ctl.findings[f_skip..],
+            &findings,
             &self.loop_ctl.hypotheses[h_skip..],
             &self.loop_ctl.directions_tried[d_skip..],
             pivot,
@@ -1760,14 +1827,38 @@ impl crate::App {
             );
             prompt.push_str(&diff);
         }
+        if let Some(ledger) = self.loop_measurement_ledger() {
+            prompt.push_str(
+                "\n\n[measurements and submissions this run — newest first, as the harness \
+                 recorded them]\n",
+            );
+            prompt.push_str(&ledger);
+        }
         // Operator steering rides every iteration: fresh-context iterations
         // would otherwise forget a note the user sent mid-run a cycle later.
-        if !self.loop_ctl.steer_notes.is_empty() {
+        // A note an earlier iteration already answered stays as guidance and
+        // is not asked again; only unanswered notes are new messages.
+        let answered = self
+            .loop_ctl
+            .steer_answered
+            .min(self.loop_ctl.steer_notes.len());
+        let (standing, fresh) = self.loop_ctl.steer_notes.split_at(answered);
+        if !standing.is_empty() {
             prompt.push_str(
-                "\n\n[operator steering — notes the user sent mid-run; honor them while \
-                 pursuing the task]",
+                "\n\n[operator steering — notes the user sent earlier in this run, already \
+                 answered; keep honoring them, do not answer or act on them again]",
             );
-            for note in &self.loop_ctl.steer_notes {
+            for note in standing {
+                prompt.push_str("\n- ");
+                prompt.push_str(note);
+            }
+        }
+        if !fresh.is_empty() {
+            prompt.push_str(
+                "\n\n[operator message — sent mid-run and not yet answered; answer it once \
+                 while pursuing the task]",
+            );
+            for note in fresh {
                 prompt.push_str("\n- ");
                 prompt.push_str(note);
             }
@@ -1787,6 +1878,10 @@ impl crate::App {
                  do not re-declare done until it is fixed]\n",
             );
             prompt.push_str(setback);
+        }
+        if let Some(note) = &self.loop_ctl.loop_note {
+            prompt.push_str("\n\n[loop note — information, not an order]\n");
+            prompt.push_str(note);
         }
         self.loop_experiment_context(&mut prompt);
         match self.loop_ctl.tier {
@@ -1817,8 +1912,10 @@ impl crate::App {
             );
         } else {
             prompt.push_str(
-                "\n\nNo verifiable acceptance command is bound. Do not declare the loop complete; \
-                 keep surfacing concrete progress, blockers, or the next necessary action.",
+                "\n\nNo verifiable acceptance command is bound. Do not declare the loop complete \
+                 on your own; keep surfacing concrete progress, blockers, or the next necessary \
+                 action. If the operator has asked you to wrap up or stop, finish what is in \
+                 flight and end your reply with a line containing exactly: LOOP_DONE",
             );
         }
         if self.loop_ctl.podrace {
@@ -1903,7 +2000,33 @@ impl crate::App {
             save(&self.loop_ctl);
             return;
         }
+        let before = (
+            self.loop_ctl.findings.len(),
+            self.loop_ctl.measured_candidates,
+            self.loop_ctl.submissions,
+            self.loop_ctl.last_workspace_fingerprint,
+        );
         apply_reply_with_tools(&mut self.loop_ctl, &reply, &tools);
+        // An iteration that did nothing is not re-fired at once: re-prompting a
+        // fresh context that is waiting on something (a submission validating,
+        // a job running) only restates status. A steer or a background result
+        // wakes the loop early.
+        self.loop_ctl.idle_wait = !self.loop_ctl.deli
+            && tools.calls <= LOOP_IDLE_CALLS
+            && before
+                == (
+                    self.loop_ctl.findings.len(),
+                    self.loop_ctl.measured_candidates,
+                    self.loop_ctl.submissions,
+                    self.loop_ctl.last_workspace_fingerprint,
+                );
+        // This reply answered every note it was shown or drained mid-turn;
+        // notes still queued (typed after the turn stopped draining) are new.
+        self.loop_ctl.steer_answered = self
+            .loop_ctl
+            .steer_notes
+            .len()
+            .saturating_sub(self.steer_queue.len());
         if self.loop_escalate_blocked_verifier() {
             return;
         }
@@ -1941,6 +2064,12 @@ impl crate::App {
             }
             if min_met {
                 self.loop_finish(LoopStatus::Done, "findings goal met");
+            } else if claims_done && !self.loop_ctl.steer_notes.is_empty() {
+                // With no acceptance command, only the operator can end the
+                // run: the prompt lets the model close it when a note asks it
+                // to wrap up or stop. Before this, \"wrap up\" could not end
+                // a loop, which kept re-prompting (bitcoin loop, 2026-09-24).
+                self.loop_finish(LoopStatus::Stopped, "wrapped up at the operator's request");
             } else {
                 let setback = "unverified done claim: continue the task and produce concrete verification evidence; no acceptance command is bound";
                 self.loop_ctl.last_setback = Some(setback.to_string());
@@ -1974,13 +2103,14 @@ impl crate::App {
             self.loop_ctl.stale_count = 0;
         }
         if !self.loop_first_candidate_overdue() && !self.loop_submission_overdue() {
+            // Information, not an order: the iteration keeps its own line.
             if self.loop_ctl.podrace {
-                self.loop_ctl.last_setback = Some(
+                self.loop_ctl.loop_note = Some(
                 "no comparable objective improvement recorded yet; progress remains unknown. Inspect existing evidence against the fixed baseline. Preserve an unfinished discriminating experiment until its result is available; do not abandon a sustained deep-cut hypothesis merely because this review is due. Retire only a disproved hypothesis, then choose the next concrete mechanism and smallest available check. Repeated competitive submissions of unchanged candidates are banned; do not redraw to obtain a new receipt.".to_string(),
             );
             } else {
-                self.loop_ctl.last_setback = Some(
-                "stalled without new verified progress: change one concrete constraint, run the smallest discriminating check, and use its result to choose the next action".to_string(),
+                self.loop_ctl.loop_note = Some(
+                "stalled without new verified progress: finish the line in flight, or change one concrete constraint if your evidence says it is exhausted; run the smallest discriminating check and use its result to choose the next action".to_string(),
             );
             }
         }
@@ -2056,6 +2186,7 @@ impl crate::App {
         // completed in this turn is still a measured candidate, and a failed
         // benchmark/verify/submit action still blocks the verification path.
         register_verified_outcome_actions(&mut self.loop_ctl, &tools.verified_outcome_actions);
+        attach_measurement_results(&mut self.loop_ctl, &tools);
         self.loop_ctl.observe_verifier_failure(&tools);
         if provider_blocked || session_fault.is_some() {
             // Provider configuration and local-session death are not research
@@ -2330,6 +2461,138 @@ impl crate::App {
     /// (uncommitted-vs-HEAD when no start rev was captured — a resumed old
     /// run). `None` outside a git repo or when nothing changed. One fast git
     /// call per iteration arm — never on the render path.
+    /// Findings from `skip` on, each with when it was admitted.
+    fn loop_stamped_findings(&self, skip: usize) -> Vec<String> {
+        let now = brief::now_secs();
+        self.loop_ctl.findings[skip..]
+            .iter()
+            .enumerate()
+            .map(
+                |(offset, finding)| match self.loop_ctl.finding_stamps.get(skip + offset) {
+                    Some(stamp) if stamp.at_ms > 0 => format!(
+                        "{finding} (iteration {}, {})",
+                        stamp.iteration,
+                        brief::age(now, stamp.at_ms / 1000)
+                    ),
+                    _ => finding.clone(),
+                },
+            )
+            .collect()
+    }
+
+    /// The run's measured candidates and submissions, newest first, with
+    /// their results: the iteration's own benchmark history.
+    fn loop_measurement_ledger(&self) -> Option<String> {
+        const SHOWN: usize = 10;
+        let now = brief::now_secs();
+        let mut rows: Vec<(u64, String)> = Vec::new();
+        for row in &self.loop_ctl.measured_candidates_log {
+            let at: u64 = row.utc.parse().unwrap_or(0);
+            let command = row
+                .verifier
+                .command
+                .strip_prefix("measured:")
+                .unwrap_or(&row.verifier.command);
+            let took = row
+                .elapsed_ms
+                .map(|ms| format!(", took {}s", ms / 1000))
+                .unwrap_or_default();
+            let result = row.result.as_deref().unwrap_or("result not recorded");
+            rows.push((
+                at,
+                format!(
+                    "- iteration {}, {}: measured `{command}`{took} → {result}",
+                    row.iteration,
+                    brief::age(now, at)
+                ),
+            ));
+        }
+        for row in &self.loop_ctl.submissions_log {
+            let at: u64 = row.utc.parse().unwrap_or(0);
+            let response = row.platform_response_excerpt.trim();
+            let response = if response.is_empty() {
+                String::new()
+            } else {
+                format!(": {}", response.chars().take(200).collect::<String>())
+            };
+            rows.push((
+                at,
+                format!(
+                    "- iteration {}, {}: submitted with {} → {}{response}",
+                    row.iteration,
+                    brief::age(now, at),
+                    row.tool,
+                    row.outcome
+                ),
+            ));
+        }
+        if rows.is_empty() {
+            return None;
+        }
+        rows.sort_by(|a, b| b.0.cmp(&a.0));
+        let total = rows.len();
+        let mut out: Vec<String> = rows.into_iter().take(SHOWN).map(|(_, row)| row).collect();
+        if total > SHOWN {
+            out.push(format!(
+                "- … {} earlier rows are in the loop state file",
+                total - SHOWN
+            ));
+        }
+        Some(out.join("\n"))
+    }
+
+    /// Gather the project brief off-thread and hold the run's first
+    /// iteration for it, at most `BRIEF_WAIT_SECS`, so the run starts
+    /// oriented. A refresh (every `BRIEF_REFRESH_MS`) never holds an iteration.
+    fn loop_brief_ready(&mut self) -> bool {
+        if !brief::enabled() {
+            return true;
+        }
+        if let Some(job) = &self.loop_brief_job {
+            match job.rx.try_recv() {
+                Ok(text) => {
+                    if job.loop_id == self.loop_ctl.id {
+                        self.loop_ctl.brief = Some(text);
+                        self.loop_ctl.brief_ms = now_ms();
+                        save(&self.loop_ctl);
+                    }
+                    self.loop_brief_job = None;
+                }
+                Err(TryRecvError::Empty) if job.loop_id == self.loop_ctl.id => {
+                    return self.loop_ctl.brief.is_some()
+                        || job.started.elapsed() >= Duration::from_secs(brief::BRIEF_WAIT_SECS);
+                }
+                // A job for an earlier run, or one that died: let it go.
+                Err(_) => self.loop_brief_job = None,
+            }
+        }
+        if now_ms().saturating_sub(self.loop_ctl.brief_ms) < brief::BRIEF_REFRESH_MS {
+            return true;
+        }
+        // Stamp the attempt so a failed gather is not retried every tick.
+        self.loop_ctl.brief_ms = now_ms();
+        let workspace = self
+            .loop_ctl
+            .workspace
+            .clone()
+            .unwrap_or_else(|| self.tools.current_workspace().to_path_buf());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let spawned = std::thread::Builder::new()
+            .name("loop-brief".into())
+            .spawn(move || {
+                let _ = tx.send(brief::gather(&workspace));
+            });
+        if spawned.is_err() {
+            return true;
+        }
+        self.loop_brief_job = Some(BriefJob {
+            loop_id: self.loop_ctl.id.clone(),
+            rx,
+            started: Instant::now(),
+        });
+        self.loop_ctl.brief.is_some()
+    }
+
     fn loop_workspace_diff(&self) -> Option<String> {
         let ws = self
             .loop_ctl
@@ -2418,6 +2681,7 @@ impl crate::App {
     }
 
     fn loop_schedule_next(&mut self) {
+        let idle = std::mem::take(&mut self.loop_ctl.idle_wait);
         // All continuation paths, including blockers and red acceptance,
         // honor real campaign caps before they can arm another attempt.
         if let Some(why) = budget_tripped(&self.loop_ctl) {
@@ -2432,6 +2696,8 @@ impl crate::App {
         // far-future wake instead of tearing down the UI thread.
         let retry_floor = if self.loop_ctl.retry_after_error {
             60
+        } else if idle {
+            LOOP_IDLE_WAIT_SECS
         } else {
             0
         };
@@ -2555,16 +2821,22 @@ impl crate::App {
         if self.loop_ctl.verifier_failure.is_some() {
             return;
         }
-        let diagnostic = self
+        let blocked = self
             .loop_ctl
             .verifier_blocked
-            .clone()
-            .unwrap_or_else(|| "no verified measured-candidate receipt recorded".to_string());
+            .as_deref()
+            .map(|why| format!(" The last measurement attempt was blocked: {why}."))
+            .unwrap_or_default();
+        // Information, not an interrupt: an iteration still mapping the
+        // problem is told where it stands and how to record a candidate, and
+        // keeps its research. The old wording rode the setback slot ("address
+        // the cause below first") and pulled a pinning loop off its study
+        // every round from the third (apollo, 2026-09-24).
         let reason = format!(
-            "no measured candidate in {} iterations — {diagnostic}; make a bounded benchmark or verification with an explicit result the next action. Preserve any experiment already in flight; a supervised deep worker can own that check while the parent advances distinct fast wins",
+            "no measured candidate yet after {} iterations.{blocked} Take the time the problem needs to understand it; when a candidate is ready, measure it with the benchmark so the loop can record it. A supervised deep worker can own a long check while you keep working.",
             self.loop_ctl.iteration
         );
-        self.loop_ctl.last_setback = Some(reason.clone());
+        self.loop_ctl.loop_note = Some(reason.clone());
         self.note(reason);
     }
 
@@ -3481,6 +3753,13 @@ fn parse_interval(tok: &str) -> Option<u64> {
 
 /// Upper bound on a loop wake interval (~100 years). Far above any real cadence,
 /// and comfortably within the range where `Instant + Duration` cannot overflow.
+/// An iteration with this many tool calls or fewer, and nothing to show for
+/// them, counts as idle (see `LoopState::idle_wait`). From the bitcoin loop
+/// of 2026-09-24: its status-only iterations made 0-12 calls, its working
+/// ones 168-207.
+const LOOP_IDLE_CALLS: usize = 12;
+/// How long the loop waits after an idle iteration, unless woken earlier.
+const LOOP_IDLE_WAIT_SECS: u64 = 300;
 const MAX_LOOP_INTERVAL_SECS: u64 = 100 * 365 * 24 * 3600;
 
 #[cfg(test)]

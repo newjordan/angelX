@@ -113,13 +113,9 @@ model, `agent/`; if it runs unattended across turns, `drive/`.
   blocks its objective, exercise, checkpoint, or editable Ask Tutor draft.
   Delivered visuals queue behind the active reveal; manual `/show` and `/open N`
   reveals pin until dismissed.
-- `src/stage/world_viz/life.rs` — the living realm: a slow weather drift, golden-hour
-  and moon-blue grading, drifting cloud shadows, shoreline foam, starlight on
-  the night sea, meadow wind gusts, and a prosperity ladder that physically
-  grows the town (dock → windmill → market → tall keep, with construction
-  sites previewing the next build). Arrival plates can be **forged-3D**
-  (Hunyuan3D meshes baked to noir plates by `scripts/world-forge/` — see
-  `assets/world-forge/README.md`), falling back to the woodcut set.
+- `src/stage/world_viz/life.rs` — the living realm's clock: a slow weather drift
+  folded with session health, and the renown ladder that grows the town (dock →
+  windmill → market → tall keep), which the overworld draws on its own sites.
 - `src/app/observatory.rs` — the native read-only campaign/report gallery inside
   the ordinary Artifacts pane. `/observatory` loads the report house;
   `/observatory campaign <id>` and `/observatory open <report-id>` retain exact
@@ -205,16 +201,15 @@ the model and experience ledger. A trustworthy nonzero exit is a tool error;
 timeouts or unavailable status are explicitly inconclusive; only exit zero gets
 a pass receipt. `cargo test` still needs observed test results to count as green.
 
-¹ **`shell` sandbox posture (honest):** the Landlock ruleset confines _writes_ to
-the active workspace plus explicitly enumerated scratch/runtime/cache,
-per-user-install, worktree-Git, process-log, and accelerator-device roots needed
-by local tools. It does **not** grant all of `$HOME` or the launch cwd. It leaves
-the **whole filesystem readable**, the **network on** for the ordinary write
-posture, and the child **inherits the parent environment** — including
-`ANGEL_BRAIN_KEY` unless the separate secret-stripping control is armed. It
-guards against accidental damage, **not** an adversarial model that wants to
-exfiltrate or read secrets. It is on by default; `ANGEL_SANDBOX=0` is an explicit
-unconfined override. The exact writable-root contract is in
+¹ **`shell` sandbox posture:** every seat's shell runs with the same full
+developer posture. Writes reach the active workspace plus the scratch/runtime/
+cache, per-user-install, worktree-Git, process-log and accelerator-device roots
+local tools need, so the GPU is always reachable. The **whole filesystem is
+readable**, the **network is on**, and the child **inherits the parent
+environment**. It is an accident guard between projects (it does not grant all
+of `$HOME` or the launch cwd), not a cage for the model: there is no read-only
+or reduced posture, and none should be added. It is on by default;
+`ANGEL_SANDBOX=0` runs unconfined. The exact writable-root contract is in
 [`docs/ENV.md`](docs/ENV.md).
 
 **Platform: Linux-only in practice.** Landlock is implemented only on Linux; on

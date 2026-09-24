@@ -551,6 +551,31 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     );
     app.overwatch.refresh();
     let root = frame.area();
+    // Name this frame's dialogs before any pane paints: a Kitty image
+    // re-sends whole placeholder rows whenever it changes, repainting over a
+    // dialog's unchanged cells, so image panes under a dialog draw in plain
+    // cells instead. The model menu keeps last frame's box; it does not move.
+    app.image_occluders.clear();
+    if app.loop_dialog.is_some() {
+        app.image_occluders
+            .push(crate::drive::loop_dialog::modal_area(root));
+    }
+    if let Some(pa) = &app.pending_approval {
+        app.image_occluders
+            .push(crate::ui::views::approval_view::modal_area(
+                root,
+                &pa.prompt,
+                pa.scope_label.as_deref(),
+            ));
+    }
+    if app.agent_menu.is_some()
+        && let Some(menu) = app.agent_menu_area
+    {
+        app.image_occluders.push(menu);
+    }
+    if app.moa_deck_owns_input() {
+        app.image_occluders.push(root);
+    }
     // Visual panes re-earn visibility every frame. Reset before the zero-area
     // return too: a resize, shell, image, or compact Core frame must pause
     // hidden reveal lifetime and cannot retain the preceding fast tick.
@@ -577,6 +602,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // Button hitboxes are frame-local. In particular, a focused game surface
     // must not inherit a stale Scryglass action from the preceding draw.
     app.world_buttons.clear();
+    app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
     // One route-control snapshot serves every rail this frame (header strip,
     // header rail, agent bay) instead of re-taking club locks per rail.

@@ -166,6 +166,33 @@ export const DEFAULT_RULES = [
       ['docs/images/bench/attempts-output-light.png', 'docs/images/bench/score-light.png'],
     ],
   },
+  {
+    id: 'doppelganger-forms-seated',
+    reason:
+      'The operator seated five models in their first-poll doppelganger forms: DeepSeek, LongCat and Laguna at the Round Table, and the Kimi augur and Nemotron artificer in the chapel and smithy pools (cockpit/assets/realm/avatars/roster.json). The doppelganger set is kept whole under cockpit/assets/realm/doppelgangers/ as the record of that poll, so each seated form is also a doppelganger sprite. Pinning the exact pairs keeps any other realm duplicate a hard failure.',
+    exact_paths: [
+      [
+        'cockpit/assets/realm/avatars/round-table/sprite/deepseek.png',
+        'cockpit/assets/realm/doppelgangers/sprites/deepseek.png',
+      ],
+      [
+        'cockpit/assets/realm/avatars/round-table/sprite/longcat.png',
+        'cockpit/assets/realm/doppelgangers/sprites/longcat.png',
+      ],
+      [
+        'cockpit/assets/realm/avatars/round-table/sprite/laguna.png',
+        'cockpit/assets/realm/doppelgangers/sprites/laguna.png',
+      ],
+      [
+        'cockpit/assets/realm/avatars/pools/smithy/sprite/nemotron-artificer.png',
+        'cockpit/assets/realm/doppelgangers/sprites/nemotron.png',
+      ],
+      [
+        'cockpit/assets/realm/avatars/pools/chapel/sprite/kimi-augur.png',
+        'cockpit/assets/realm/doppelgangers/sprites/kimi.png',
+      ],
+    ],
+  },
 ]
 
 function ruleMatches(rule, group) {

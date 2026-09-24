@@ -237,18 +237,21 @@ fn brain_route_cursor_previews_agent_portrait_without_committing() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
-    app.bag = Bag::for_render_test(&[("turbo", &[("turbo", true)]), ("atlas", &[("atlas", true)])]);
+    app.bag = Bag::for_render_test(&[
+        ("turbo", &[("qwen3.6-27b", true)]),
+        ("atlas", &[("glm-5.3", true)]),
+    ]);
     app.open_agent_menu(AgentMenuKind::Model);
-    assert_eq!(app.active_profile().key, AgentKey::Turbo);
+    assert_eq!(app.active_profile().key, AgentKey::Qwen);
 
     app.move_agent_menu(1);
     assert_eq!(app.bag.in_hand_label(), "turbo");
     assert_eq!(app.agent_menu_profile_preview().as_deref(), Some("atlas"));
-    assert_eq!(app.active_profile().key, AgentKey::Atlas);
+    assert_eq!(app.active_profile().key, AgentKey::Glm);
 
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(app.bag.in_hand_label(), "turbo");
-    assert_eq!(app.active_profile().key, AgentKey::Turbo);
+    assert_eq!(app.active_profile().key, AgentKey::Qwen);
 }
 
 #[test]
@@ -269,13 +272,13 @@ fn portrait_tracks_the_selected_provider_model_inside_one_sota_agent() {
 
     assert!(app.bag.select_route(0, 1));
     let deepseek = app.active_profile();
-    assert_eq!(deepseek.key, AgentKey::Sparky);
+    assert_eq!(deepseek.key, AgentKey::DeepSeek);
     assert!(app.active_profile_label.contains("deepseek-v4-pro"));
     assert_ne!(openai.asset(false), deepseek.asset(false));
 
     assert!(app.bag.select_route(0, 2));
     let grok = app.active_profile();
-    assert_eq!(grok.key, AgentKey::Turbo);
+    assert_eq!(grok.key, AgentKey::Grok);
     assert!(app.active_profile_label.contains("grok-4.6"));
     assert_ne!(deepseek.asset(false), grok.asset(false));
 }
@@ -293,7 +296,7 @@ fn brain_route_cursor_previews_provider_portrait_without_committing() {
 
     app.move_agent_menu(1);
     assert_eq!(app.bag.in_hand_mode().as_deref(), Some("gpt-5.6-sol"));
-    assert_eq!(app.active_profile().key, AgentKey::Sparky);
+    assert_eq!(app.active_profile().key, AgentKey::DeepSeek);
     assert!(app.active_profile_label.contains("deepseek-v4-pro"));
 
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
@@ -305,7 +308,7 @@ fn brain_route_cursor_previews_provider_portrait_without_committing() {
 fn live_portrait_uses_the_spawned_requested_route_not_a_shared_box_label() {
     let mut app = seed_preview_app();
     app.bag = Bag::for_render_test(&[("sota", &[("deepseek-v4-pro", true)])]);
-    assert_eq!(app.active_profile().key, AgentKey::Sparky);
+    assert_eq!(app.active_profile().key, AgentKey::DeepSeek);
 
     let mut thinking = Thinking::pending_for_test("sota");
     thinking.requested_route = crate::agent::club::RouteIdentity {
@@ -315,7 +318,7 @@ fn live_portrait_uses_the_spawned_requested_route_not_a_shared_box_label() {
     };
     app.thinking = Some(thinking);
 
-    assert_eq!(app.active_profile().key, AgentKey::Turbo);
+    assert_eq!(app.active_profile().key, AgentKey::Grok);
     assert!(app.active_profile_label.contains("xai"));
     assert!(app.active_profile_label.contains("grok-4.6"));
 }

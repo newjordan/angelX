@@ -44,7 +44,7 @@ pub(crate) enum Region {
 }
 
 impl Region {
-    /// The place's name as the HUD, the pane title and `/world quest` say it.
+    /// The place's name as the pane title and `/world quest` say it.
     pub(crate) fn label(self) -> &'static str {
         match self {
             Region::CastleTown => "Castle Town",
@@ -53,23 +53,6 @@ impl Region {
             Region::Swamp => "The Swamp",
             Region::DragonKeep => "Dragon Keep",
             Region::Homecoming => "Homecoming",
-        }
-    }
-
-    /// One-cell sigil that opens the quest line. Every glyph is display
-    /// width 1 so the HUD's cell budget is the character count.
-    ///
-    /// Castle Town has no sigil of its own in the Z4 spec — the chess king
-    /// is chosen to sit beside the keep's rook, and the town line is only
-    /// ever raised by a live banner anyway.
-    pub(crate) fn glyph(self) -> char {
-        match self {
-            Region::CastleTown => '\u{2654}',
-            Region::TheMines => '\u{2694}',
-            Region::DarkForest => '\u{2663}',
-            Region::Swamp => '\u{2248}',
-            Region::DragonKeep => '\u{265C}',
-            Region::Homecoming => '\u{2302}',
         }
     }
 }

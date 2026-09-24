@@ -1,8 +1,6 @@
 //! Deterministic weather, town growth, and activity state shared by the
 //! retained ride and room plates. Rendering lives in their own modules.
 
-#![cfg_attr(not(test), allow(dead_code))]
-
 use super::*;
 use crate::ui::retro_kit;
 
@@ -118,32 +116,6 @@ pub(super) fn villager_walk_position(
     )
 }
 
-/// Golden-hour warmth: peaks in the dawn/dusk light band, absent at full day
-/// and full night. A pure function of the daylight scalar, so identical cache
-/// buckets always share one tint.
-pub(crate) fn golden_amount(daylight: f32) -> f32 {
-    (1.0 - (daylight - 0.765).abs() / 0.185).clamp(0.0, 1.0)
-}
-
-/// Night grade: how far this cell slides toward moon-blue as daylight falls
-/// below the night band.
-pub(crate) fn night_grade_amount(daylight: f32) -> f32 {
-    ((0.64 - daylight) / 0.12).clamp(0.0, 1.0)
-}
-
-/// The deterministic build plan for the current tier: which growth structures
-/// have sites, and where. Computed once per tier and cached — the island and
-/// its landmarks never move, so only a tier crossing re-plans.
-#[derive(Clone, Copy, Debug, Default)]
-pub(super) struct GrowthLayout {
-    /// Shore root of the jetty: a land tile touching water, nearest the anchor.
-    docks: Option<((usize, usize), (i32, i32))>,
-    /// A breezy rise for the windmill, a walk south-west of the anchor.
-    windmill: Option<(usize, usize)>,
-    /// Two market stalls on the keep's plaza.
-    market: Option<(usize, usize)>,
-}
-
 impl World {
     /// Outcome weather overlays the pure hearth clock. Red can only worsen the
     /// clock's weather; it can never turn a naturally wet beat bright.
@@ -168,94 +140,6 @@ impl World {
         let clock_weather = weather_for_beats(self.hearth.beats, self.seed).bucket();
         let bucket = self.hearth.render_bucket(self.seed);
         bucket ^ ((clock_weather ^ self.outcome_weather().bucket()) << 8)
-    }
-
-    /// Where the town's growth anchors: the hamlet forge when the fleet is
-    /// mirrored in, else the knight's keep.
-    fn growth_anchor(&self) -> (usize, usize) {
-        match &self.village {
-            Some(v) => v.forge_pos,
-            None => self.building_pos(Building::Keep),
-        }
-    }
-
-    /// The plan for `tier` and its next construction site, memoized on the
-    /// current tier (world geometry is static after generation, so the tier is
-    /// the whole key).
-    fn growth_layout(&self) -> GrowthLayout {
-        let tier = life::town_tier(self.renown.min(u64::from(u32::MAX)) as u32);
-        if let Some((cached_tier, layout)) = *self.growth_cache.borrow()
-            && cached_tier == tier
-        {
-            return layout;
-        }
-        // Plan one rung ahead so the next structure has a stable site while it
-        // is still scaffolding. Drawing remains gated by the earned tier.
-        let layout = self.plan_growth(tier.saturating_add(1).min(8));
-        *self.growth_cache.borrow_mut() = Some((tier, layout));
-        layout
-    }
-
-    fn plan_growth(&self, tier: u32) -> GrowthLayout {
-        let mut layout = GrowthLayout::default();
-        if tier < 5 {
-            return layout;
-        }
-        let anchor = self.growth_anchor();
-        let mut taken: Vec<(usize, usize)> = self.buildings.iter().map(|&(_, p)| p).collect();
-        taken.push(self.quintain);
-        taken.push(anchor);
-
-        // The dock roots itself on the land tile nearest the anchor that
-        // touches open water; the jetty planks march from it toward the sea.
-        // (cell, direction, score) — a one-off local; a named alias would not aid
-        // readability here.
-        #[allow(clippy::type_complexity)]
-        let mut best: Option<((usize, usize), (i32, i32), f64)> = None;
-        for y in 1..WORLD_H - 1 {
-            for x in 1..WORLD_W - 1 {
-                if !self.is_land(x, y) {
-                    continue;
-                }
-                for dir in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
-                    let (nx, ny) = (x as i32 + dir.0, y as i32 + dir.1);
-                    if nx < 0 || ny < 0 {
-                        continue;
-                    }
-                    let (nxu, nyu) = (nx as usize, ny as usize);
-                    if nxu >= WORLD_W || nyu >= WORLD_H {
-                        continue;
-                    }
-                    if !matches!(self.at(nxu, nyu), Biome::Water | Biome::DeepWater) {
-                        continue;
-                    }
-                    let d = (x as f64 - anchor.0 as f64).powi(2)
-                        + ((y as f64 - anchor.1 as f64) * 2.0).powi(2);
-                    if best.is_none_or(|(_, _, bd)| d < bd) {
-                        best = Some(((x, y), dir, d));
-                    }
-                }
-            }
-        }
-        if let Some((root, dir, _)) = best {
-            layout.docks = Some((root, dir));
-        }
-
-        if tier >= 6 {
-            let spot = self.nearest_land(
-                anchor.0 as f64 - 6.0,
-                (anchor.1 as f64 - 4.0).max(1.0),
-                &taken,
-            );
-            taken.push(spot);
-            layout.windmill = Some(spot);
-        }
-        if tier >= 7 {
-            let keep = self.building_pos(Building::Keep);
-            let spot = self.nearest_land(keep.0 as f64 + 2.0, keep.1 as f64 + 2.0, &taken);
-            layout.market = Some(spot);
-        }
-        layout
     }
 
     /// Growth fanfare: a tier crossing announces itself once — fireworks over

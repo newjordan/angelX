@@ -287,8 +287,6 @@ pub struct ToolRegistry {
     /// grant(seat)` under the narrowing-only monoid, so a descendant can never widen
     /// an ancestor's denials. The root context is the reserved seat `ROOT_SEAT`.
     seat_grants: std::sync::Mutex<std::collections::BTreeMap<String, Interception>>,
-    /// Non-zero while a competition loop worker's tool allowlist is in force.
-    loop_worker_allowlist: std::sync::Mutex<Option<(&'static str, &'static [&'static str])>>,
     /// Denial receipts, bounded, newest last: what was refused, under which policy,
     /// for which seat (Def 27's consulted-at-use metadata, made observable).
     policy_denials: std::sync::Mutex<Vec<PolicyDenial>>,
@@ -454,7 +452,6 @@ impl ToolRegistry {
         Self {
             routed_verifications: Default::default(),
             seat_grants: Default::default(),
-            loop_worker_allowlist: Default::default(),
             policy_denials: Default::default(),
             tools: Vec::new(),
             deferred: Vec::new(),
@@ -675,20 +672,36 @@ impl ToolRegistry {
         }
     }
 
+    /// Append every registered research tool (`is_research_tool`) the set
+    /// lacks, with its full schema.
+    fn with_research_tools(&self, mut definitions: Vec<ToolDef>) -> Vec<ToolDef> {
+        for tool in &self.tools {
+            if is_research_tool(tool.name())
+                && !definitions
+                    .iter()
+                    .any(|definition| definition.name == tool.name())
+            {
+                definitions.push(tool.def());
+            }
+        }
+        definitions
+    }
+
     fn with_activated_tools(&self, mut definitions: Vec<ToolDef>) -> Vec<ToolDef> {
         let active = self.tool_activations.snapshot();
         let loop_on = self.rl().loop_enabled();
         for tool in &self.tools {
             if (active.contains(tool.name())
                 || (loop_on
-                    && matches!(
-                        tool.name(),
-                        "rl_campaign"
-                            | "loop_research"
-                            | "consult_model"
-                            | "spawn"
-                            | "continual_harness"
-                    )))
+                    && (is_research_tool(tool.name())
+                        || matches!(
+                            tool.name(),
+                            "rl_campaign"
+                                | "loop_research"
+                                | "consult_model"
+                                | "spawn"
+                                | "continual_harness"
+                        ))))
                 && !definitions
                     .iter()
                     .any(|definition| definition.name == tool.name())
@@ -1374,6 +1387,20 @@ impl ToolRegistry {
         bounded_task: bool,
         competition: bool,
     ) -> Vec<ToolDef> {
+        let defs = self.trimmed_defs_for_turn(window, bounded_task, competition);
+        if competition {
+            self.with_research_tools(defs)
+        } else {
+            defs
+        }
+    }
+
+    fn trimmed_defs_for_turn(
+        &self,
+        window: Option<usize>,
+        bounded_task: bool,
+        competition: bool,
+    ) -> Vec<ToolDef> {
         let (full, full_tokens) = self.defs_arc_and_tokens();
         match tool_schema_profile() {
             ToolSchemaProfile::Essential => {
@@ -1406,7 +1433,12 @@ impl ToolRegistry {
     ) -> Vec<ToolDef> {
         if metered_sota && tool_schema_profile() == ToolSchemaProfile::Auto {
             let (full, _) = self.defs_arc_and_tokens();
-            return self.lean_defs(full.as_ref(), true);
+            let defs = self.lean_defs(full.as_ref(), true);
+            return if competition {
+                self.with_research_tools(defs)
+            } else {
+                defs
+            };
         }
         self.defs_for_turn(window, bounded_task, competition)
     }
@@ -1478,19 +1510,6 @@ impl ToolRegistry {
     ) -> Result<String, String> {
         if let Some(error) = crate::agent::club::invalid_tool_args_error(args) {
             return Err(format!("{error}; reissue `{name}` with valid JSON"));
-        }
-        // Loop-worker scoping: while a competition loop worker holds the
-        // LOOP_WORKER_SEAT grant, only that package's allowlist dispatches.
-        // The denial is a receipt naming the seat and package — the worker
-        // sees exactly what was refused and why, then continues on a
-        // permitted action. It never blocks, interrupts, or asks permission.
-        if self.loop_worker_scoped() && !self.loop_worker_allows(name) {
-            let package = crate::agent::harness::comp_packages::active_package();
-            return Err(format!(
-                "policy denied tool {name}: deny:tool:{name} (seat loop_worker, package {}); \
-choose a permitted action and continue",
-                package.id
-            ));
         }
         // §3.2.3: policy is consulted *here*, at invocation, so a grant tightened
         // mid-session binds the very next call with no reload. Checked before the
@@ -1679,50 +1698,6 @@ impl Drop for SeatGrant<'_> {
 }
 
 impl ToolRegistry {
-    /// Bind the loop-worker allowlist for the duration of one worker's run.
-    /// `package` names the owning competition family for denial receipts.
-    pub(crate) fn bind_loop_worker_scope_static(
-        &self,
-        package: &'static crate::agent::harness::comp_packages::CompetitionPackage,
-        profile: &'static crate::agent::harness::comp_packages::WorkerProfile,
-    ) {
-        self.bind_loop_worker_scope(package.id, profile.allowed_tools);
-    }
-
-    pub(crate) fn bind_loop_worker_scope(
-        &self,
-        package: &'static str,
-        allowed: &'static [&'static str],
-    ) {
-        *self
-            .loop_worker_allowlist
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some((package, allowed));
-    }
-
-    /// Release the loop-worker allowlist (worker finished or unwound).
-    pub(crate) fn release_loop_worker_scope(&self) {
-        *self
-            .loop_worker_allowlist
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-    }
-
-    fn loop_worker_scoped(&self) -> bool {
-        self.loop_worker_allowlist
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .is_some()
-    }
-
-    fn loop_worker_allows(&self, name: &str) -> bool {
-        self.loop_worker_allowlist
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .map(|(_, allowed)| allowed.contains(&name))
-            .unwrap_or(true)
-    }
-
     /// Grant (or retune) a seat's narrowing table.
     pub(crate) fn grant_seat(&self, seat: &str, grant: Interception) {
         self.seat_grants
@@ -2187,6 +2162,25 @@ pub(crate) fn lean_advertised_tool_def(definition: &ToolDef) -> ToolDef {
             _ => definition.params.clone(),
         },
     }
+}
+
+/// The research surface long work always sees: the web, papers, code hosts,
+/// symbol and file navigation, and the GPU. The per-hop schema trim exists for
+/// short bounded edits, where resending schemas every hop is pure cost; a
+/// competition or an autonomous loop is long research, so it never hides
+/// these (the apollo and turbo comps read all night without them, 2026-09-24).
+pub(crate) fn is_research_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "web_search"
+            | "web_fetch"
+            | "science_search"
+            | "repo_search"
+            | "defs"
+            | "find_files"
+            | "outline"
+            | "gpu_stat"
+    )
 }
 
 pub(crate) fn is_coding_hot_path_tool(name: &str) -> bool {

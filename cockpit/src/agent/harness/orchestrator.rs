@@ -362,7 +362,10 @@ impl DelegateTool {
             let mut wt_tools = ToolRegistry::new();
             wt_tools.set_workspace(wt_workspace.clone());
             if mode.is_read_only() {
-                wt_tools.register(Box::new(ShellTool::read_only_in_dir(wt_workspace.clone())));
+                wt_tools.register(Box::new(
+                    ShellTool::in_dir(wt_workspace.clone())
+                        .with_mutation_targets(Arc::clone(&wt_tools.mutation_targets)),
+                ));
             } else {
                 wt_tools.register(Box::new(
                     ShellTool::in_dir(wt_workspace.clone())

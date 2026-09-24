@@ -8884,24 +8884,33 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
             .count(),
         24
     );
-    let (mut app, _sender) = crate::tests::seed_live_streaming_app(events);
+    let (mut app, _sender) = crate::tests::seed_live_streaming_app(events.clone());
     // advance() drains at most STREAM_EVENTS_PER_FRAME events per tick.
     for _ in 0..16 {
         app.advance();
     }
-    let rows: Vec<_> = app
-        .messages
-        .iter()
-        .filter(|m| m.text.contains("action receipt"))
-        .collect();
-    // One collapsed row per run of receipts; each redirection notice starts a
-    // new run.
-    assert_eq!(rows.len(), 3);
-    for row in &rows {
-        assert!(row.text.contains("×8"), "{}", row.text);
+    // The conversation carries no receipt rows: the tool strip's herald and
+    // ledger show each action and its failure reason. `/trace` keeps them.
+    assert!(
+        !app.messages
+            .iter()
+            .any(|m| m.text.contains("action receipt"))
+    );
+    let (mut trace, _sender) = crate::tests::seed_live_streaming_app(events);
+    trace.transcript_mode = crate::app::TranscriptMode::Trace;
+    for _ in 0..16 {
+        trace.advance();
     }
+    assert_eq!(
+        trace
+            .messages
+            .iter()
+            .filter(|m| m.text.contains("action receipt"))
+            .count(),
+        24
+    );
     println!(
-        "dispatch receipt: provider hops=24 ledger entries=24 error_class=Policy avoidable=true stop=error_stop transcript rows=3 count=8 each"
+        "dispatch receipt: provider hops=24 ledger entries=24 error_class=Policy avoidable=true stop=error_stop conversation rows=0 trace rows=24"
     );
     std::fs::remove_dir_all(workspace).unwrap();
 }

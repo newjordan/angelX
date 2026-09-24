@@ -40,7 +40,10 @@ fn delegate_status_renders_before_delegate_completion_without_child_process() {
         let text: String = (0..110)
             .filter_map(|x| buffer.cell((x, 0)).map(|c| c.symbol()))
             .collect();
-        assert!(text.contains("delegate · tool shell"), "{text}");
+        assert!(
+            text.contains("⚜ Awaiting the council · tool shell"),
+            "{text}"
+        );
         assert!(text.contains("#1 · update 0s ago"), "{text}");
         assert!(
             !text.contains("awaiting agents") && !text.contains("private arguments"),
@@ -210,8 +213,8 @@ fn wide_unicode_tool_status_preserves_the_right_rail_in_terminal_cells() {
         .filter_map(|x| buffer.cell((x, 0)).map(|cell| cell.symbol()))
         .collect::<String>();
     assert!(
-        status.contains("#1"),
-        "wide operation must yield cells to the call rail: {status:?}"
+        status.trim_end().ends_with("0s"),
+        "wide operation must yield cells to the rail clock: {status:?}"
     );
 }
 
@@ -1057,4 +1060,103 @@ fn rebuilt_same_length_history_invalidates_cached_heights_and_spawns() {
     );
     sync_transcript_heights(&mut app, 24);
     assert_ne!(app.transcript_heights, old_heights);
+}
+
+#[test]
+fn herald_row_click_opens_the_ledger_of_literal_calls() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(Viewer::static_preview());
+    app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("test"));
+    app.tool_strip.call_event(
+        harness::ToolEventId("read".into()),
+        "read_file",
+        "path=cockpit/src/ui/toolstrip.rs, offset=400",
+    );
+    app.tool_strip.call_event(
+        harness::ToolEventId("test".into()),
+        "shell",
+        "cd /repo && cargo test -p cockpit",
+    );
+    let mut terminal = Terminal::new(TestBackend::new(140, 40)).unwrap();
+    let mut draw = |app: &mut App| {
+        terminal
+            .draw(|frame| crate::ui::draw::ui(frame, app))
+            .unwrap();
+        let herald = app.tool_herald_area.expect("the herald row is a toggle");
+        let buffer = terminal.backend().buffer().clone();
+        let row = |y: u16| -> String {
+            (herald.x..herald.right())
+                .filter_map(|x| buffer.cell((x, y)).map(|cell| cell.symbol()))
+                .collect()
+        };
+        (herald, row(herald.y), row(herald.y + 1), row(herald.y + 2))
+    };
+    let click = |app: &mut App, x: u16, y: u16| {
+        app.on_mouse(ratatui::crossterm::event::MouseEvent {
+            kind: ratatui::crossterm::event::MouseEventKind::Down(
+                ratatui::crossterm::event::MouseButton::Left,
+            ),
+            column: x,
+            row: y,
+            modifiers: ratatui::crossterm::event::KeyModifiers::NONE,
+        })
+    };
+
+    let (herald, status, _, _) = draw(&mut app);
+    assert!(status.starts_with("⚔ Trial by cargo test "), "{status}");
+    click(&mut app, herald.x, herald.y);
+    assert!(app.tool_strip.ledger_open());
+
+    let (_, status, first, second) = draw(&mut app);
+    assert!(status.starts_with("⚔ Trial by cargo test "), "{status}");
+    assert!(
+        first.starts_with("├ ▸ read_file  path=cockpit/src/ui/toolstrip.rs, offset=400"),
+        "{first}"
+    );
+    assert!(
+        second.starts_with("└ ▸ shell      cd /repo && cargo test -p cockpit"),
+        "{second}"
+    );
+
+    let (herald, ..) = draw(&mut app);
+    click(&mut app, herald.x + 3, herald.y);
+    assert!(!app.tool_strip.ledger_open(), "the same row closes it");
+}
+
+#[test]
+fn an_open_loop_dialog_keeps_terminal_images_out_from_under_it() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(Viewer::static_preview());
+    let _ = app
+        .module_host
+        .activate(&crate::platform::runtime::ModuleId::new("artifacts"));
+    app.loop_dialog = Some(crate::drive::loop_dialog::LoopLaunchDialog::new(
+        "chart plate",
+        0,
+        false,
+    ));
+    let size = ratatui::layout::Rect::new(0, 0, 110, 32);
+    let mut terminal = Terminal::new(TestBackend::new(size.width, size.height)).unwrap();
+    terminal
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
+        .unwrap();
+    let dialog = crate::drive::loop_dialog::modal_area(size);
+    assert_eq!(app.image_occluders, vec![dialog]);
+    let stage = app
+        .panes
+        .rect_of(crate::ui::mouse::PaneId::Artifacts)
+        .expect("the stage shows beside the transcript");
+    assert!(
+        stage.intersects(dialog),
+        "on a smaller screen the dialog reaches the stage — the case this guards"
+    );
+
+    app.loop_dialog = None;
+    terminal
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
+        .unwrap();
+    assert!(
+        app.image_occluders.is_empty(),
+        "images return when it closes"
+    );
 }

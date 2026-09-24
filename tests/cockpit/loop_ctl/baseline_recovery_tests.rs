@@ -190,13 +190,13 @@ fn repeated_missing_candidate_pressure_is_one_directive_per_prompt_after_every_r
             assert_eq!(app.loop_ctl.status, LoopStatus::Running);
             assert_eq!(app.loop_ctl.measured_candidates, 0);
             assert_eq!(
-                prompt.matches("no measured candidate in ").count(),
+                prompt.matches("no measured candidate yet after ").count(),
                 usize::from(iteration >= 3)
             );
             if iteration >= 3 {
-                assert!(
-                    prompt.contains(&format!("no measured candidate in {iteration} iterations"))
-                );
+                assert!(prompt.contains(&format!(
+                    "no measured candidate yet after {iteration} iterations"
+                )));
             }
             if iteration >= 30 {
                 lengths.push(prompt.len());

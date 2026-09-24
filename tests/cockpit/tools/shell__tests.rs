@@ -389,131 +389,6 @@ fn a_definite_nonzero_exit_is_a_tool_error_not_ordinary_output() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A model that marks a lookup `read_only` narrows writes, not the network: a
-/// `yukon submissions` fetch sent with `read_only: true` failed with "Unable to
-/// connect". A read-only seat (a reviewer) keeps its full ceiling.
-#[test]
-fn a_models_read_only_scope_blocks_writes_but_keeps_network() {
-    let dir = scratch("read-only-keeps-network");
-    let tool = ShellTool::in_dir(dir.clone());
-    for args in [
-        serde_json::json!({"command": "yukon submissions --all", "read_only": true}),
-        serde_json::json!({"command": "yukon submissions --all", "write_paths": []}),
-    ] {
-        let scope = tool.scope(&args).expect("scope");
-        assert!(scope.policy.writable_roots.is_empty(), "{args}");
-        assert_eq!(
-            scope.policy.allow_network, tool.policy.allow_network,
-            "network follows the shell's normal policy: {args}"
-        );
-    }
-    std::fs::write(dir.join("notes.txt"), "").unwrap();
-    let scope = tool
-        .scope(&serde_json::json!({"command": "true", "write_paths": ["notes.txt"]}))
-        .expect("scope");
-    assert_eq!(scope.policy.allow_network, tool.policy.allow_network);
-
-    let seat = ShellTool::read_only_in_dir(dir.clone());
-    let scope = seat
-        .scope(&serde_json::json!({"command": "ls"}))
-        .expect("scope");
-    assert!(
-        !scope.policy.allow_network,
-        "a read-only seat stays offline"
-    );
-
-    // End to end: a socket to a closed local port is refused when the network
-    // is allowed, and cannot be created at all when it is not. The seat is the
-    // control: where the sandbox does not enforce, the probe proves nothing.
-    let probe = "python3 -c \"import socket\ntry:\n    socket.create_connection(('127.0.0.1', 9), 1)\nexcept OSError as e:\n    print(type(e).__name__)\"";
-    let run = |tool: &ShellTool, read_only: bool| {
-        tool.call(&serde_json::json!({"command": probe, "read_only": read_only}))
-            .unwrap_or_else(|error| error)
-    };
-    let seat_probe = run(&seat, false);
-    eprintln!("seat probe: {seat_probe}");
-    if tool.policy.allow_network && seat_probe.contains("PermissionError") {
-        let model_probe = run(&tool, true);
-        eprintln!("read_only probe: {model_probe}");
-        assert!(
-            model_probe.contains("ConnectionRefusedError"),
-            "read_only kept the network: {model_probe}"
-        );
-    }
-    let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn empty_write_paths_stays_read_only_and_reports_effective_scope() {
-    let _guard = crate::tests::env_lock();
-    let dir = scratch("empty-write-paths-scope");
-    let tool = ShellTool::in_dir(dir.clone());
-    let error = tool
-        .call(&serde_json::json!({
-            "command": "printf denied > scope-probe.txt",
-            "read_only": false,
-            "write_paths": []
-        }))
-        .expect_err("an explicit empty grant must never become writable");
-    assert!(!dir.join("scope-probe.txt").exists());
-    let network = if tool.policy.allow_network {
-        "network available"
-    } else {
-        "network disabled"
-    };
-    assert!(
-        error.contains(&format!(
-            "effective shell scope: filesystem read-only; {network}"
-        )),
-        "{error}"
-    );
-    std::fs::write(dir.join("benchmark.log"), "").unwrap();
-    let error = tool
-        .call(&serde_json::json!({
-            "command": "mktemp ./benchmark-scratch.XXXXXX > benchmark.log",
-            "write_paths": ["benchmark.log"]
-        }))
-        .expect_err("a log-only grant must not permit benchmark scratch files");
-    assert!(error.contains("omit write_paths"), "{error}");
-    assert!(error.contains("entire process tree"), "{error}");
-    let normal_error = tool
-        .call(&serde_json::json!({"command": "exit 7"}))
-        .expect_err("retain ordinary command failure");
-    assert!(
-        !normal_error.contains("effective shell scope:"),
-        "{normal_error}"
-    );
-    let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn headless_yolo_preserves_explicit_scope_and_leaves_omission_unrestricted() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
-    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let dir = scratch("yolo-scope");
-    let tool = ShellTool::in_dir(dir.clone());
-    assert!(tool.scope(&serde_json::json!({})).unwrap().paths.is_none());
-    for mut args in [
-        serde_json::json!({"read_only":true}),
-        serde_json::json!({"write_paths":[]}),
-    ] {
-        let scope = tool.scope(&args).unwrap();
-        assert_eq!(scope.paths, Some(Vec::new()));
-        assert!(scope.policy.mandatory);
-        args["command"] = "printf forbidden > blocked.txt".into();
-        assert!(tool.call(&args).is_err());
-        assert!(!dir.join("blocked.txt").exists());
-    }
-    assert!(
-        tool.scope(
-            &serde_json::json!({"read_only":true,"write_paths":["not-yet-created/output.txt"]})
-        )
-        .is_err()
-    );
-    let _ = std::fs::remove_dir_all(&dir);
-}
-
 #[test]
 fn runtime_missing_shell_error_has_the_shared_onboarding_hint() {
     let _env = crate::tests::env_lock();
@@ -617,53 +492,6 @@ fn lifecycle_signal_killed_shell_returns_failed_inconclusive_receipt() {
 }
 
 #[test]
-fn t06c_stdin_eof_and_signal_names() {
-    let _lock = crate::tests::env_lock();
-    let _env = crate::tests::TestEnvGuard::set("ANGEL_EXPERIENCE", "0");
-    let dir = scratch("t06c-stdin");
-    let tool = ShellTool::in_dir(dir.clone());
-    for yolo in ["0", "1"] {
-        let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", yolo);
-        let started = std::time::Instant::now();
-        let out = tool.call(&serde_json::json!({"command":"cat && python3 -c 'import sys; assert sys.stdin.read() == \"\"' && echo stdin-eof", "read_only":false})).unwrap();
-        assert!(out.contains("stdin-eof"), "{out}");
-        // `call` has waited for the child status and drained its output.
-        // This marker is emitted only after both readers observe EOF;
-        // scheduler latency (including cold helper startup) is not EOF.
-        assert_eq!(out.lines().filter(|line| *line == "stdin-eof").count(), 1);
-        eprintln!(
-            "T06C_STDIN_RECEIPT yolo={yolo} eof=true elapsed_ms={}",
-            started.elapsed().as_millis()
-        );
-    }
-    for signal in ["TERM", "KILL", "SEGV"] {
-        let args = serde_json::json!({"command":format!("ulimit -c 0; kill -{signal} $$")});
-        let error = tool.call(&args).unwrap_err();
-        assert!(error.contains(&format!("killed by SIG{signal}")), "{error}");
-        assert!(
-            error.contains(&format!("reason=signal:SIG{signal}")),
-            "{error}"
-        );
-        let call = crate::agent::club::ToolCall {
-            id: signal.into(),
-            name: "shell".into(),
-            args,
-        };
-        let outcome = crate::agent::harness::turn_event_outcome(
-            &call,
-            &format!("tool error: {error}"),
-            false,
-        );
-        assert_eq!(
-            outcome.execution,
-            crate::agent::harness::ExecutionOutcome::Failed
-        );
-        eprintln!("T06C_SIGNAL_RECEIPT reason=signal:SIG{signal} execution=Failed");
-    }
-    std::fs::remove_dir_all(dir).unwrap();
-}
-
-#[test]
 fn a_no_verdict_exit_is_labelled_without_becoming_a_false_failure() {
     let dir = scratch("call-no-verdict-visible");
     let tool = ShellTool::in_dir(dir.clone());
@@ -716,6 +544,66 @@ fn the_resolved_shell_reports_whether_it_can_be_trusted() {
 }
 
 #[test]
+fn interactive_shell_rejects_excessive_sleep() {
+    let _guard = crate::tests::env_lock();
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
+
+    assert!(task_shell_poll_redirect("sleep 240").is_some());
+    assert!(task_shell_poll_redirect("sleep 240; echo done").is_some());
+    assert!(task_shell_poll_redirect("sleep 15").is_some());
+    assert!(task_shell_poll_redirect("sleep 1").is_none());
+    assert!(task_shell_poll_redirect("sleep 2; cargo check").is_none());
+}
+
+#[test]
+fn t06c_stdin_eof_and_signal_names() {
+    let _lock = crate::tests::env_lock();
+    let _env = crate::tests::TestEnvGuard::set("ANGEL_EXPERIENCE", "0");
+    let dir = scratch("t06c-stdin");
+    let tool = ShellTool::in_dir(dir.clone());
+    for yolo in ["0", "1"] {
+        let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", yolo);
+        let started = std::time::Instant::now();
+        let out = tool.call(&serde_json::json!({"command":"cat && python3 -c 'import sys; assert sys.stdin.read() == \"\"' && echo stdin-eof"})).unwrap();
+        assert!(out.contains("stdin-eof"), "{out}");
+        // `call` has waited for the child status and drained its output.
+        // This marker is emitted only after both readers observe EOF;
+        // scheduler latency (including cold helper startup) is not EOF.
+        assert_eq!(out.lines().filter(|line| *line == "stdin-eof").count(), 1);
+        eprintln!(
+            "T06C_STDIN_RECEIPT yolo={yolo} eof=true elapsed_ms={}",
+            started.elapsed().as_millis()
+        );
+    }
+    for signal in ["TERM", "KILL", "SEGV"] {
+        let args = serde_json::json!({"command":format!("ulimit -c 0; kill -{signal} $$")});
+        let error = tool.call(&args).unwrap_err();
+        assert!(error.contains(&format!("killed by SIG{signal}")), "{error}");
+        assert!(
+            error.contains(&format!("reason=signal:SIG{signal}")),
+            "{error}"
+        );
+        let call = crate::agent::club::ToolCall {
+            id: signal.into(),
+            name: "shell".into(),
+            args,
+        };
+        let outcome = crate::agent::harness::turn_event_outcome(
+            &call,
+            &format!("tool error: {error}"),
+            false,
+        );
+        assert_eq!(
+            outcome.execution,
+            crate::agent::harness::ExecutionOutcome::Failed
+        );
+        eprintln!("T06C_SIGNAL_RECEIPT reason=signal:SIG{signal} execution=Failed");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     use crate::agent::harness::Tool;
     let _env = crate::tests::env_lock();
@@ -725,11 +613,7 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     for needle in [
         "earliest prerequisite failure",
         "usable input before dependent measurements",
-        "allowed scratch",
-        "authorized reference paths",
         "zero performance",
-        "user-visible scope change",
-        "never omit or auto-remove",
     ] {
         assert!(
             def.description.contains(needle),
@@ -741,34 +625,6 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     assert!(params.contains("valid `$url`"));
     assert!(params.contains("quiet success"));
     assert!(params.contains("quoted text"));
-    assert!(params.contains("permission failure, not zero performance"));
-    assert!(params.contains("request a user-visible scope change instead of omitting"));
-    assert!(!params.to_lowercase().contains("omit read_only"));
-
-    let empty_grant = tool
-        .call(&serde_json::json!({
-            "command": "printf denied > scope-probe.txt",
-            "read_only": false,
-            "write_paths": []
-        }))
-        .expect_err("empty write_paths remains a real denial");
-    assert!(!dir.join("scope-probe.txt").exists());
-    assert!(
-        empty_grant.contains("effective shell scope: filesystem read-only; network available"),
-        "network follows the shell's policy: {empty_grant}"
-    );
-
-    let read_only = tool
-        .call(&serde_json::json!({
-            "command": "printf denied > readonly-probe.txt",
-            "read_only": true
-        }))
-        .expect_err("explicit read_only remains authoritative");
-    assert!(!dir.join("readonly-probe.txt").exists());
-    assert!(
-        read_only.contains("read-only") || read_only.contains("cannot run a command that writes"),
-        "{read_only}"
-    );
 
     let quoted = tool
         .call(&serde_json::json!({
@@ -817,17 +673,4 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     }
 
     let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn interactive_shell_rejects_excessive_sleep() {
-    let _guard = crate::tests::env_lock();
-    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
-    let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
-
-    assert!(task_shell_poll_redirect("sleep 240").is_some());
-    assert!(task_shell_poll_redirect("sleep 240; echo done").is_some());
-    assert!(task_shell_poll_redirect("sleep 15").is_some());
-    assert!(task_shell_poll_redirect("sleep 1").is_none());
-    assert!(task_shell_poll_redirect("sleep 2; cargo check").is_none());
 }

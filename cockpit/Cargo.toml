@@ -1,6 +1,6 @@
 [package]
 name = "angelX-cockpit"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
@@ -109,7 +109,3 @@ path = "../tests/cockpit/integration/interactive_terminal_smoke.rs"
 [[test]]
 name = "process_ownership"
 path = "../tests/cockpit/integration/process_ownership.rs"
-
-[[test]]
-name = "research_compose"
-path = "../tests/cockpit/integration/research_compose.rs"

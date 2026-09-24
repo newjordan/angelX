@@ -6,6 +6,24 @@ A place for magic folk, wizards, and knights of the round sphere to come
 together, expand the microcosm together and cast the spell of light and truth
 upon the macrocosms.
 
+## Operable models, not confined ones
+
+angelX exists to make models operable: long, deep research and competition
+work at machine speed, with the whole rig at their disposal. Every seat and
+worker gets the full developer posture: the GPU device nodes, the network,
+scratch space, background jobs (`proc_run`) and every registered tool.
+
+- Do not add read-only modes, per-call write scopes, confined worker shells,
+  tool allowlists, or instructions that tell a model to ask for a scope change.
+  Where one shows up in a failing run, remove it.
+- Trimming tool schemas to save tokens is for short bounded edits only. A
+  competition or an autonomous loop always sees the research tools: web
+  search and fetch, papers, code hosts, symbol navigation and the GPU.
+- The only boundaries kept are the ones that stop work corrupting itself: an
+  experiment copy must not alias the live tree it came from, and one project's
+  workspace is not a write root for its siblings.
+- Anyone who wants a locked-down sandbox should use a different program.
+
 
 ## Setup
 

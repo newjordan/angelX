@@ -37,11 +37,9 @@ use ui::{
 };
 
 use agent_panel::profile::{
-    AgentKey, AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route,
-    specialist_text,
+    AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route, specialist_text,
 };
 use club::{Bag, ChatMsg, ChatRole};
-use glyphs::AgentBadge;
 use hud::{
     HUD_BLUE, HUD_DIM, HUD_PHOSPHOR, chrome_style, dim_panel_style, hud_block, panel_style,
     transparent_hud_block,

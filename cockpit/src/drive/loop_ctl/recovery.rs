@@ -325,6 +325,10 @@ impl crate::App {
             if let Some(reference) = context_ref {
                 self.loop_ctl.pending_recovery_contexts.push(reference);
             }
+            // A waiting loop takes the result now, not after its idle wait.
+            if !self.loop_ctl.awaiting_turn {
+                self.loop_ctl.wake_at = Some(Instant::now());
+            }
         }
         save(&self.loop_ctl);
         self.note(summary);

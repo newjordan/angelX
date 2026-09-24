@@ -116,79 +116,6 @@ pub fn activity_gauge_count(text: &str) -> Option<usize> {
     digits.parse::<usize>().ok().filter(|count| *count >= 2)
 }
 
-/// Parsed receipt state lives in the row itself, so scrollback eviction and
-/// transcript replacement cannot leave a stale index or unbounded side table.
-pub(crate) struct ActionReceipt<'a> {
-    pub head: &'a str,
-    pub key: String,
-    pub last: u128,
-    pub min: u128,
-    pub max: u128,
-    pub reason: Option<&'a str>,
-}
-
-pub(crate) fn action_receipt(note: &str) -> Option<ActionReceipt<'_>> {
-    let mut parts = note.split(" · ");
-    if parts.next()? != "action receipt" {
-        return None;
-    }
-    let head = parts.next()?.split(" ×").next()?;
-    let (tool, verb) = head.split_once(' ')?;
-    let class = [
-        "dispatch error",
-        "applied",
-        "ran",
-        "denied",
-        "timeout",
-        "verifier",
-    ]
-    .into_iter()
-    .find(|class| verb == *class || verb.starts_with(&format!("{class} ")))?;
-    let timing = parts.next()?;
-    let last = timing.strip_prefix("last ").unwrap_or(timing);
-    let last = last.strip_suffix(" ms")?.parse().ok()?;
-    let mut receipt = ActionReceipt {
-        head,
-        key: format!("receipt:{tool}:{class}"),
-        last,
-        min: last,
-        max: last,
-        reason: None,
-    };
-    if let Some(next) = parts.next() {
-        if let Some((min, max)) = next.strip_suffix(" ms").and_then(|s| s.split_once('–')) {
-            receipt.min = min.parse().ok()?;
-            receipt.max = max.parse().ok()?;
-            receipt.reason = parts.next();
-        } else {
-            receipt.reason = Some(next);
-        }
-    }
-    Some(receipt)
-}
-
-pub(crate) fn receipt_gauge_text(previous: &str, note: &str) -> Option<String> {
-    let old = action_receipt(previous.strip_prefix(Glyph::Idle.token())?.trim_start())?;
-    let new = action_receipt(note)?;
-    if old.key != new.key {
-        return None;
-    }
-    let count = activity_gauge_count(previous)
-        .unwrap_or(1)
-        .saturating_add(1);
-    let head = notice_gauge_text(&format!("action receipt · {}", new.head), count);
-    let reason = new
-        .reason
-        .map(|reason| format!(" · {reason}"))
-        .unwrap_or_default();
-    Some(format!(
-        "{head} · last {} ms · {}–{} ms{reason}",
-        new.last,
-        old.min.min(new.last),
-        old.max.max(new.last)
-    ))
-}
-
 /// Routine harness murmurs ride the live tool strip's note line instead of
 /// stacking in the scrollback (Conversation mode). Anything unrecognized — and
 /// anything that reads as a failure — keeps its transcript line, so a new or
@@ -349,7 +276,3 @@ pub fn media_delivery_text(label: &str, preview_result: Result<String, String>) 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/turn_event_view__tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../../../../tests/cockpit/app/turn_event_view__receipt_tests.rs"]
-mod receipt_tests;

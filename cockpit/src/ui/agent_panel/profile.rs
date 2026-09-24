@@ -8,6 +8,7 @@ pub enum AgentKey {
     GpuComp,
     MathGod,
     Luna,
+    Astra,
     Glm,
     Kimi,
     Qwen,
@@ -15,9 +16,12 @@ pub enum AgentKey {
     Muse,
     Hy,
     Nemotron,
-    Cerebras,
-    OpenRouter,
-    Local,
+    Grok,
+    DeepSeek,
+    Gemma,
+    Inkling,
+    Laguna,
+    North,
     Unknown,
 }
 
@@ -66,39 +70,41 @@ pub fn profile_for(label: &str, apollo_specialist: bool) -> AgentProfile {
     apply_specialist_override(base_profile_for(label), apollo_specialist)
 }
 
-/// Resolve the portrait for one concrete route. Named local boxes keep their
-/// authored identities even when the checkpoint they serve changes; logical
-/// provider boxes such as `sota` instead derive an identity from the route that
-/// is actually selected. This keeps several provider models housed in the same
-/// Bag agent from sharing a stale generic portrait.
+/// Resolve the portrait for one concrete route. The portrait is the model's
+/// own knight: the served model family decides it, whichever machine or
+/// provider serves it. Machines are hosts, never personas, so a route whose
+/// model has no family falls back to the agent's label only when that label
+/// is not a machine, and otherwise to the unnamed wanderer.
 pub fn profile_for_route(
     agent_label: &str,
     driver: &str,
     model: Option<&str>,
     apollo_specialist: bool,
 ) -> AgentProfile {
-    let agent = base_profile_for(agent_label);
-    let base = if agent.key != AgentKey::Unknown {
-        // Physical/local named boxes are the stable visual identity. A Spark
-        // serving DeepSeek remains Sparky; a Turbo serving another checkpoint
-        // remains Turbo.
-        agent
-    } else {
-        route_profile_for(driver, model).unwrap_or(agent)
-    };
+    let base = route_profile_for(driver, model).unwrap_or_else(|| {
+        let agent = base_profile_for(agent_label);
+        if is_machine(agent.key) {
+            base_profile_for("")
+        } else {
+            agent
+        }
+    });
     apply_specialist_override(base, apollo_specialist)
+}
+
+/// The user's own boxes. Their names label hosts; they are not characters.
+fn is_machine(key: AgentKey) -> bool {
+    matches!(
+        key,
+        AgentKey::Turbo | AgentKey::Atlas | AgentKey::Sparky | AgentKey::Apollo
+    )
 }
 
 fn apply_specialist_override(base: AgentProfile, apollo_specialist: bool) -> AgentProfile {
     // Apollo is the swarm's specialist persona. An active specialist may
     // change the swarm portrait, while other selected agent portraits retain
     // their own identity. Persona names do not require particular machines.
-    if apollo_specialist
-        && matches!(
-            base.key,
-            AgentKey::Sparky | AgentKey::Local | AgentKey::Unknown
-        )
-    {
+    if apollo_specialist && matches!(base.key, AgentKey::Sparky | AgentKey::Unknown) {
         return APOLLO_PROFILE;
     }
     base
@@ -124,6 +130,12 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
         {
             return Some(LUNA_PROFILE);
         }
+        if fields
+            .iter()
+            .any(|field| contains_ascii_case(field, b"astra"))
+        {
+            return Some(ASTRA_PROFILE);
+        }
         return Some(base_profile_for("codex"));
     }
     if fields.iter().any(|field| {
@@ -133,7 +145,7 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
             || field.eq_ignore_ascii_case("dsflash")
             || starts_with_ascii_case(field, b"dsflash-")
     }) {
-        return Some(base_profile_for("spark"));
+        return Some(DEEPSEEK_PROFILE);
     }
     if fields.iter().any(|field| {
         let field = field.trim();
@@ -141,28 +153,18 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
             || contains_ascii_case(field, b"xai")
             || contains_ascii_case(field, b"x.ai")
     }) {
-        return Some(base_profile_for("turbo"));
+        return Some(GROK_PROFILE);
     }
     if let Some(knight) = family_profile_for(driver.trim(), &fields) {
         return Some(knight);
     }
-    if fields
-        .iter()
-        .any(|field| crate::agent::club::is_sota_label(field.trim()))
-    {
-        return Some(base_profile_for("atlas"));
-    }
     None
 }
 
-/// Every other model family wears its own knight. A local slot wears the
-/// homestead knight whatever checkpoint it serves, while the swarm keeps its
-/// runner portrait (and the Apollo specialist override). Hosted families come
-/// next; providers that serve many families are the fallback.
+/// Every other model family wears its own knight, whichever machine or
+/// provider serves it. The swarm keeps its runner portrait (and the Apollo
+/// specialist override) whatever checkpoint it serves.
 fn family_profile_for(driver: &str, fields: &[&str; 2]) -> Option<AgentProfile> {
-    if driver.eq_ignore_ascii_case("local") {
-        return Some(LOCAL_PROFILE);
-    }
     if driver.eq_ignore_ascii_case("swarm") || driver.eq_ignore_ascii_case("local-swarm") {
         return None;
     }
@@ -185,10 +187,18 @@ fn family_profile_for(driver: &str, fields: &[&str; 2]) -> Option<AgentProfile> 
         HY_PROFILE
     } else if any(|f| contains_ascii_case(f, b"nemotron")) {
         NEMOTRON_PROFILE
-    } else if any(|f| contains_ascii_case(f, b"cerebras")) {
-        CEREBRAS_PROFILE
-    } else if any(|f| contains_ascii_case(f, b"openrouter") || contains_ascii_case(f, b":free")) {
-        OPENROUTER_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"gemma")) {
+        GEMMA_PROFILE
+    } else if any(|f| {
+        contains_ascii_case(f, b"inkling") || contains_ascii_case(f, b"thinkingmachines")
+    }) {
+        INKLING_PROFILE
+    } else if any(|f| contains_ascii_case(f, b"laguna") || contains_ascii_case(f, b"poolside")) {
+        LAGUNA_PROFILE
+    } else if any(|f| {
+        contains_ascii_case(f, b"north-mini") || contains_ascii_case(f, b"cohere/north")
+    }) {
+        NORTH_PROFILE
     } else {
         return None;
     };
@@ -365,6 +375,16 @@ const LUNA_PROFILE: AgentProfile = knight(
         "assets/agents/codex-champion-high.png",
     ),
 );
+const ASTRA_PROFILE: AgentProfile = knight(
+    AgentKey::Astra,
+    "Astra",
+    "SOTA seat",
+    "ChatGPT-OAuth Astra route",
+    (
+        "assets/agents/codex-champion.png",
+        "assets/agents/codex-champion-high.png",
+    ),
+);
 const GLM_PROFILE: AgentProfile =
     knight(AgentKey::Glm, "GLM", "SOTA seat", "GLM route", ATLAS_STILLS);
 const KIMI_PROFILE: AgentProfile = knight(
@@ -409,29 +429,53 @@ const NEMOTRON_PROFILE: AgentProfile = knight(
     "Nemotron route",
     ATLAS_STILLS,
 );
-const CEREBRAS_PROFILE: AgentProfile = knight(
-    AgentKey::Cerebras,
-    "Cerebras",
-    "fast inference",
-    "Cerebras-served route",
-    ATLAS_STILLS,
+const GROK_PROFILE: AgentProfile = knight(
+    AgentKey::Grok,
+    "Grok",
+    "SOTA seat",
+    "Grok route",
+    (
+        "assets/agents/turbo-champion.png",
+        "assets/agents/turbo-champion-high.png",
+    ),
 );
-const OPENROUTER_PROFILE: AgentProfile = knight(
-    AgentKey::OpenRouter,
-    "OpenRouter",
-    "breadth seat",
-    "OpenRouter-served model",
-    ATLAS_STILLS,
-);
-const LOCAL_PROFILE: AgentProfile = knight(
-    AgentKey::Local,
-    "Local",
-    "local model",
-    "self-hosted route",
+const DEEPSEEK_PROFILE: AgentProfile = knight(
+    AgentKey::DeepSeek,
+    "DeepSeek",
+    "SOTA seat",
+    "DeepSeek route",
     (
         "assets/agents/sparky-champion.png",
         "assets/agents/sparky-champion-high.png",
     ),
+);
+const GEMMA_PROFILE: AgentProfile = knight(
+    AgentKey::Gemma,
+    "Gemma",
+    "open model",
+    "Gemma route",
+    ATLAS_STILLS,
+);
+const INKLING_PROFILE: AgentProfile = knight(
+    AgentKey::Inkling,
+    "Inkling",
+    "SOTA seat",
+    "Inkling route",
+    ATLAS_STILLS,
+);
+const LAGUNA_PROFILE: AgentProfile = knight(
+    AgentKey::Laguna,
+    "Laguna",
+    "SOTA seat",
+    "Laguna route",
+    ATLAS_STILLS,
+);
+const NORTH_PROFILE: AgentProfile = knight(
+    AgentKey::North,
+    "North",
+    "SOTA seat",
+    "North route",
+    ATLAS_STILLS,
 );
 
 #[cfg(test)]

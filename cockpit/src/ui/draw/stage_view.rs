@@ -235,6 +235,67 @@ fn render_workshop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
+/// The active loop's discoveries as the intro's plotline (see
+/// `research_plot`): the dotted contour and wizard above, and under it the
+/// run's start and the frontier as machine-speed offsets.
+fn render_research_plotline(frame: &mut Frame, app: &mut App, area: Rect) {
+    use crate::ui::viz::research_plot;
+    let dim = Style::new().fg(crate::ui::hud::HUD_DIM);
+    let st = &app.loop_ctl;
+    if st.started_ms == 0 {
+        frame.render_widget(
+            Paragraph::new("no research run yet: /loop starts one").style(dim),
+            Rect { height: 1, ..area },
+        );
+        return;
+    }
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    // A stopped run's clock stops at its last update.
+    let until = if app.loop_active() {
+        now_ms
+    } else {
+        st.updated_ms.max(st.started_ms)
+    };
+    let elapsed = until.saturating_sub(st.started_ms);
+    let discoveries = research_plot::discoveries(st);
+    let run = st.id.clone();
+    let reveal = app.research_plot.observe(
+        &run,
+        discoveries.len(),
+        std::time::Instant::now(),
+        app.visual_motion,
+    );
+    let art = Rect {
+        height: area.height.saturating_sub(1),
+        ..area
+    };
+    let (columns, rows) = match app.viewer.dot_geometry(art) {
+        Some(geometry) => (geometry.grid_width, geometry.grid_height),
+        None => (usize::from(art.width), usize::from(art.height)),
+    };
+    let image = std::sync::Arc::new(research_plot::compose(
+        &discoveries,
+        elapsed,
+        columns,
+        rows,
+        reveal,
+    ));
+    use std::hash::{Hash, Hasher};
+    let mut tag = std::collections::hash_map::DefaultHasher::new();
+    ("research-plotline", &run).hash(&mut tag);
+    paint_dot_frame(frame, app, art, &image, tag.finish());
+    let start = research_plot::offset_label(0);
+    let frontier = research_plot::offset_label(elapsed);
+    let gap = usize::from(area.width).saturating_sub(start.len() + frontier.len());
+    frame.render_widget(
+        Paragraph::new(format!("{start}{}{frontier}", " ".repeat(gap))).style(dim),
+        Rect::new(area.x, art.bottom(), area.width, 1),
+    );
+}
+
 fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     use crate::drive::research_workspace::{Action, Place};
     let block = hud_block(" Research · Realm workspace ");
@@ -246,12 +307,27 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         0
     };
-    let body = Rect::new(
+    let mut body = Rect::new(
         inner.x,
         inner.y,
         inner.width.saturating_sub(map_width),
         inner.height,
     );
+    // The loop's research plotline rides the top of the stage when there is
+    // room for it and the workspace text below.
+    if body.height >= 16 && body.width >= 30 {
+        let plot_h = (body.height * 2 / 5).clamp(7, 16);
+        render_research_plotline(
+            frame,
+            app,
+            Rect {
+                height: plot_h,
+                ..body
+            },
+        );
+        body.y += plot_h;
+        body.height -= plot_h;
+    }
     let hits =
         crate::drive::research_workspace::view::render(frame, &mut app.research, body, &context);
     app.world_buttons.extend(
@@ -409,7 +485,13 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
         }
     }
     let scene = overworld_scene(app);
-    if app.viewer.map_pixels_native() {
+    // Under an open dialog the map draws in half blocks: a terminal image
+    // would repaint over the dialog each time the map moves.
+    let covered = app
+        .image_occluders
+        .iter()
+        .any(|dialog| dialog.intersects(area));
+    if app.viewer.map_pixels_native() && !covered {
         let (cell_w, cell_h) = app.viewer.map_cell_pixels();
         let scale = overworld::map_scale(cell_h);
         let view_w = (u32::from(area.width) * u32::from(cell_w) / scale).max(1) as i32;

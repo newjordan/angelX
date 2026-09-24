@@ -41,6 +41,18 @@ impl DotProtocol {
         id: u32,
         background: Option<[u8; 4]>,
     ) -> Result<Self, String> {
+        Self::encode_for(geometry, image, size, id, background, tmux_passthrough())
+    }
+
+    /// `tmux` wraps every command for tmux passthrough.
+    fn encode_for(
+        geometry: DotGeometry,
+        image: &ColoredBrailleImage,
+        size: Size,
+        id: u32,
+        background: Option<[u8; 4]>,
+        tmux: bool,
+    ) -> Result<Self, String> {
         if size.width == 0
             || size.height == 0
             || size.width > 256
@@ -72,23 +84,33 @@ impl DotProtocol {
             return Err("dot frame exceeds bounded terminal payload".into());
         }
         let payload = base64::engine::general_purpose::STANDARD.encode(png);
+        // Inside tmux each command rides a DCS passthrough with its escapes
+        // doubled; the Unicode placeholders it pairs with pass through as text.
+        let (start, escape, end) = if tmux {
+            ("\x1bPtmux;", "\x1b\x1b", "\x1b\\")
+        } else {
+            ("", "\x1b", "")
+        };
         let mut upload = String::with_capacity(payload.len() + payload.len() / 100);
         let chunks = payload.as_bytes().chunks(4096);
         let count = chunks.len();
         for (index, chunk) in chunks.enumerate() {
             let more = u8::from(index + 1 < count);
+            upload.push_str(start);
             if index == 0 {
                 write!(
                     upload,
-                    "\x1b_Gq=2,a=T,U=1,f=100,C=1,i={id},c={},r={},m={more};",
+                    "{escape}_Gq=2,a=T,U=1,f=100,C=1,i={id},c={},r={},m={more};",
                     size.width, size.height
                 )
                 .unwrap();
             } else {
-                write!(upload, "\x1b_Gq=2,m={more};").unwrap();
+                write!(upload, "{escape}_Gq=2,m={more};").unwrap();
             }
             upload.push_str(std::str::from_utf8(chunk).expect("base64 is ASCII"));
-            upload.push_str("\x1b\\");
+            upload.push_str(escape);
+            upload.push('\\');
+            upload.push_str(end);
         }
         Ok(Self {
             size,
@@ -129,6 +151,24 @@ impl DotProtocol {
                 }
             }
         }
+    }
+}
+
+/// Whether graphics commands must be wrapped for tmux (read once; tests
+/// never wrap, whatever terminal runs them).
+pub(crate) fn tmux_passthrough() -> bool {
+    #[cfg(test)]
+    {
+        false
+    }
+    #[cfg(not(test))]
+    {
+        static TMUX: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *TMUX.get_or_init(|| {
+            std::env::var_os("TMUX").is_some()
+                || std::env::var("TERM").is_ok_and(|term| term.starts_with("tmux"))
+                || std::env::var("TERM_PROGRAM").is_ok_and(|program| program == "tmux")
+        })
     }
 }
 

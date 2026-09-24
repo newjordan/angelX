@@ -62,16 +62,6 @@ pub(crate) fn hammertime_asset(time_secs: f32) -> &'static str {
     }
 }
 
-/// Opposite frame for portrait prefetch (keeps the flip warm in the protocol cache).
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn hammertime_asset_other(time_secs: f32) -> &'static str {
-    if hammertime_asset(time_secs).ends_with("hammertime-a.png") {
-        "assets/loop/hammertime-b.png"
-    } else {
-        "assets/loop/hammertime-a.png"
-    }
-}
-
 /// Dancer #2 — mirrored twin, phase-shifted so the pair doesn't flip in lockstep.
 /// Uses the dedicated flip plate on even ticks and pose B on odd ticks.
 pub(crate) fn hammertime_twin_asset(time_secs: f32) -> &'static str {
@@ -81,16 +71,6 @@ pub(crate) fn hammertime_twin_asset(time_secs: f32) -> &'static str {
         "assets/loop/hammertime-a-flip.png"
     } else {
         "assets/loop/hammertime-b.png"
-    }
-}
-
-/// Prefetch opposite for the twin dancer.
-#[allow(dead_code)]
-pub(crate) fn hammertime_twin_asset_other(time_secs: f32) -> &'static str {
-    if hammertime_twin_asset(time_secs).ends_with("hammertime-a-flip.png") {
-        "assets/loop/hammertime-b.png"
-    } else {
-        "assets/loop/hammertime-a-flip.png"
     }
 }
 
@@ -148,9 +128,6 @@ pub(crate) fn hammertime_duo_boxes(
 
 /// Frame rate of the video mascot dance (matches `scripts/video-to-mascot-frames.py`).
 const MASCOT_FPS: f32 = 8.0;
-/// How long a just-passed frame stays queued behind the live prefetch horizon.
-#[cfg_attr(not(test), allow(dead_code))]
-const MASCOT_TRAIL: usize = 6;
 
 /// One lazily-populated ping-pong cycle of the video dance: forward through the
 /// clip, then backward — so the dancer rewinds and dances forward again with no
@@ -195,21 +172,6 @@ pub(crate) fn mascot_frame(time_secs: f32) -> Option<&'static std::path::Path> {
     }
     let idx = ((time_secs.max(0.0) * MASCOT_FPS) as usize) % frames.len();
     Some(frames[idx].as_path())
-}
-
-/// Prefetch horizon around the live video frame (trail + short lookahead).
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn mascot_warm_frames(time_secs: f32) -> Vec<&'static std::path::Path> {
-    let frames = mascot_frames();
-    let n = frames.len();
-    if n == 0 {
-        return Vec::new();
-    }
-    let idx = ((time_secs.max(0.0) * MASCOT_FPS) as usize) % n;
-    (0..=MASCOT_TRAIL)
-        .map(|off| frames[(idx + n - off) % n].as_path())
-        .chain((1..=3usize).map(|ahead| frames[(idx + ahead) % n].as_path()))
-        .collect()
 }
 
 pub(crate) fn title(st: &LoopState) -> String {

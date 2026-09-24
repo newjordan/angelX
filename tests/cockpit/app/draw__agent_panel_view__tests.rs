@@ -1,6 +1,5 @@
 use super::{
-    render_agent_bay, speech_flow_split, treebeard_strip_label, treebeard_strip_label_with_forge,
-    treebeard_strip_label_with_open, treebeard_strip_label_with_p1, truncate_control_value,
+    render_agent_bay, speech_flow_split, treebeard_strip_label_with_open, truncate_control_value,
 };
 use crate::agent::harness::{ForgeTrainSnap, HandleStoreStats, LastRootHiq};
 
@@ -116,7 +115,7 @@ fn treebeard_header_strip_cache_compares_open_key_without_cloning() {
         .find("fn treebeard_header_strip_label")
         .expect("header strip");
     let body = src[start..]
-        .split("pub(crate) fn treebeard_strip_label(")
+        .split("fn treebeard_open_key_is_p1(")
         .next()
         .expect("strip cache body");
     assert!(
@@ -146,11 +145,13 @@ fn treebeard_strip_includes_peer_and_offload() {
         discloses: 0,
         evictions: 0,
     };
-    let s = treebeard_strip_label_with_p1(
+    let s = treebeard_strip_label_with_open(
         Some(hiq),
         stats,
         Some((867.91, "c3".into(), None)),
         Some(1685.0),
+        None,
+        None,
     );
     assert!(s.contains("offload 100%"), "got: {s}");
     assert!(
@@ -159,7 +160,7 @@ fn treebeard_strip_includes_peer_and_offload() {
     );
     assert!(s.contains("peer 867.9µs"), "got: {s}");
     assert!(s.contains("P1 1685µs"), "got: {s}");
-    let bare = treebeard_strip_label(None, stats, None);
+    let bare = treebeard_strip_label_with_open(None, stats, None, None, None, None);
     assert_eq!(bare, "treebeard · Hi/Q");
     let forge = ForgeTrainSnap {
         state: "training".into(),
@@ -186,20 +187,22 @@ fn treebeard_strip_includes_peer_and_offload() {
         coding_eval_n: Some(24),
         coding_eval_primary_n: Some(4),
     };
-    let with_forge = treebeard_strip_label_with_forge(
+    let with_forge = treebeard_strip_label_with_open(
         Some(hiq),
         stats,
         Some((867.91, "c3".into(), None)),
         Some(1685.0),
+        None,
         Some(forge),
     );
     assert!(
         with_forge.contains("forge 40/200 ~38m") && with_forge.contains("L1.23"),
         "got: {with_forge}"
     );
-    let post = treebeard_strip_label_with_forge(
+    let post = treebeard_strip_label_with_open(
         None,
         stats,
+        None,
         None,
         None,
         Some(ForgeTrainSnap {
@@ -232,9 +235,10 @@ fn treebeard_strip_includes_peer_and_offload() {
         post.contains("forge 200/200 eval"),
         "post-step phase on strip: {post}"
     );
-    let done = treebeard_strip_label_with_forge(
+    let done = treebeard_strip_label_with_open(
         None,
         stats,
+        None,
         None,
         None,
         Some(ForgeTrainSnap {
@@ -400,15 +404,15 @@ fn active_webgpu_stage_has_a_visible_agent_pane_card() {
         .map(|cell| cell.symbol())
         .collect::<String>();
     assert!(
-        rendered.contains("WebGPU"),
+        rendered.contains("Round Table · judge"),
         "portal title missing: {rendered}"
     );
     assert!(
-        rendered.contains("judge") && rendered.contains("3 seats"),
-        "portal activity summary missing: {rendered}"
+        !rendered.contains("WebGPU") && !rendered.contains("seats"),
+        "the table shows its seats; the title is no spec line: {rendered}"
     );
     assert!(
-        rendered.contains("rendering GPU portal"),
+        rendered.contains("the council gathers"),
         "portal pending state missing: {rendered}"
     );
 }
@@ -566,52 +570,6 @@ fn hidden_comp_skips_agent_route_capability_without_slowing_default() {
 }
 
 #[test]
-fn hidden_comp_skips_agent_route_title_without_slowing_default() {
-    use crate::app::App;
-    use crate::tests::{TestEnvGuard, env_lock};
-    use crate::ui::viewer::Viewer;
-
-    let _lock = env_lock();
-    let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
-    let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
-    crate::drive::comp_mode::invalidate_cache();
-    crate::ui::surfaces::invalidate_backdrop_cache();
-    assert!(
-        super::agent_route_title_allowed(),
-        "default bay still paints the tab/clock route title"
-    );
-    let mut app = App::preview(Viewer::static_preview());
-    let _default = super::agent_route_title(&mut app, 48, 8);
-
-    let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::drive::comp_mode::invalidate_cache();
-    assert!(
-        !super::agent_route_title_allowed(),
-        "comp/lean must not walk bag.tabs() for the bay title"
-    );
-    assert!(
-        super::agent_route_title(&mut app, 48, 8).is_none(),
-        "comp/lean must skip the route-title string build"
-    );
-
-    drop(_on);
-    crate::drive::comp_mode::invalidate_cache();
-    assert!(
-        super::agent_route_title_allowed(),
-        "default cockpit must not stay gated after /comp off"
-    );
-
-    let _hidden = TestEnvGuard::set("ANGEL_BACKDROP", "off");
-    crate::ui::surfaces::invalidate_backdrop_cache();
-    assert!(
-        !super::agent_route_title_allowed(),
-        "backdrop-off must not build an invisible bay route title"
-    );
-    assert!(super::agent_route_title(&mut app, 48, 8).is_none());
-}
-
-#[test]
 fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
     use crate::app::App;
     use crate::tests::{TestEnvGuard, env_lock};
@@ -655,7 +613,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
         .map(|cell| cell.symbol())
         .collect::<String>();
     assert!(
-        standard.contains("WebGPU") && standard.contains("rendering GPU portal"),
+        standard.contains("Round Table") && standard.contains("the council gathers"),
         "default visible bay still paints the portal card\n{standard}"
     );
 
@@ -690,7 +648,7 @@ fn comp_mode_skips_side_column_kitty_compose_without_slowing_default() {
         "comp-mode keeps bay chrome\n{lean_text}"
     );
     assert!(
-        !lean_text.contains("WebGPU") && !lean_text.contains("rendering GPU portal"),
+        !lean_text.contains("Round Table") && !lean_text.contains("the council gathers"),
         "comp-mode must not compose the portal card\n{lean_text}"
     );
 
@@ -820,4 +778,58 @@ fn agent_control_rail_reuses_chip_strings_across_unchanged_frames() {
     let chrome = FrameChrome::compute(&app.bag);
     assert_eq!(cached.mode.as_deref(), chrome.mode());
     assert_eq!(cached.effort.as_deref(), chrome.effort());
+}
+
+/// Operator definition: the avatar block is a quarter of the bay's width, and
+/// that width defines the avatar: the height is what the portrait needs to fill
+/// it. Borderless: the block keeps its corner spot with no frame lines.
+#[test]
+fn the_avatar_block_is_a_quarter_of_the_bay_wide_and_as_tall_as_its_portrait() {
+    use ratatui::layout::Rect;
+    let bay = Rect::new(1, 1, 64, 28);
+    let body = Rect::new(1, 3, 64, 26);
+    // A portrait 0.45 rows per column: 15 image columns need 7 rows (ceil).
+    let (flow, block) = super::agent_bay_flow_layout(body, bay, true, Some(0.45));
+    let block = block.expect("avatar block");
+    assert_eq!(block.width, 64 / 4);
+    assert_eq!(block.height, 7 + 1, "the image rows plus the gutter row");
+    assert_eq!((block.right(), block.bottom()), (bay.right(), bay.bottom()));
+    assert_eq!(flow.bottom(), block.y);
+    // Unknown shape: a third of the bay's height.
+    let (_, block) = super::agent_bay_flow_layout(body, bay, true, None);
+    assert_eq!(block.unwrap().height, 28 / 3);
+    // A tall portrait takes at most half the bay, and never the trace strip.
+    let (flow, block) = super::agent_bay_flow_layout(body, bay, true, Some(4.0));
+    assert!(flow.height >= 2);
+    let block = block.unwrap();
+    assert_eq!(block.height, 28 / 2);
+    assert_eq!(block.bottom(), bay.bottom());
+
+    let _guard = crate::tests::env_lock();
+    let mut app = crate::seed_preview_app();
+    app.viewer = crate::ui::viewer::Viewer::portrait_preview();
+    let (width, height) = (66u16, 30u16);
+    let mut terminal =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
+        .unwrap();
+    let block = app.bay_portrait_area.expect("avatar block drawn");
+    let buffer = terminal.backend().buffer();
+    assert_eq!(block.width, (width - 2) / 4);
+    // No frame lines: the gutter is blank and the bay's borders run unbroken.
+    assert_eq!(buffer[(block.x, block.y)].symbol(), " ");
+    assert_eq!(buffer[(block.x + 1, block.y)].symbol(), " ");
+    assert_eq!(buffer[(block.x, block.y + 1)].symbol(), " ");
+    assert_eq!(
+        buffer[(width - 1, block.y)].symbol(),
+        "│",
+        "right border unbroken"
+    );
+    assert_eq!(
+        buffer[(block.x, height - 1)].symbol(),
+        "─",
+        "bottom border unbroken"
+    );
+    assert_eq!((block.right(), block.bottom()), (width - 1, height - 1));
 }

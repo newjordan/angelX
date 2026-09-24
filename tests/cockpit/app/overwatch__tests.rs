@@ -26,19 +26,6 @@ fn fleet_overwatch_hung_tree_returns_within_its_probe_deadline() {
 }
 
 #[test]
-fn snapshot_load_tracks_peak_system_pressure() {
-    let snapshot = OverwatchSnapshot {
-        cpu_pct: 12.0,
-        mem_pct: 90.0,
-        gpu_pct: 33.0,
-        gpu_mem_pct: 10.0,
-        fleet_cpu_pct: Some(44.0),
-        fleet_gpu_pct: Some(55.0),
-    };
-    assert_eq!(snapshot.load_pct(), 55.0);
-}
-
-#[test]
 fn overwatch_cmd_derives_from_launch_inputs_without_a_literal_home() {
     let home = |value: &str| Some(std::ffi::OsString::from(value));
     assert_eq!(

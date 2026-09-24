@@ -1,7 +1,7 @@
 //! Surface-free WebGPU producer for the Cockpit Kitty portal.
 //!
 //! Wire protocol, one request per process:
-//! stdin  = u32 big-endian JSON length + one `AngelVizStateV1` JSON packet
+//! stdin  = u32 big-endian JSON length + one `AngelVizStateV2` JSON packet
 //! stdout = u32 big-endian receipt length + receipt JSON + optional raw RGBA8
 //!          frame bytes
 //!
@@ -12,7 +12,7 @@ use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::time::Instant;
 
-const SCHEMA_VERSION: u16 = 1;
+const SCHEMA_VERSION: u16 = 2;
 const MAX_PACKET_BYTES: usize = 4 * 1024;
 const MAX_STAGE_BYTES: usize = 64;
 const MAX_SEATS: usize = 16;
@@ -30,6 +30,19 @@ const BYTES_PER_ROW: u32 = FRAME_WIDTH * FRAME_CHANNELS as u32;
 struct Seat {
     slot: u8,
     label: String,
+    #[serde(default)]
+    state: SeatState,
+}
+
+/// Where a seat is in its work. The numbers are the shader's `seat_state`.
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SeatState {
+    #[default]
+    Running = 0,
+    Returned = 1,
+    Failed = 2,
+    Cut = 3,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,7 +110,7 @@ impl Packet {
             return Err("idle packet contains active stage data".into());
         }
         let _ = self.published_at_monotonic_ms;
-        let _ = &self.palette;
+        let _ = (&self.palette, &self.status.health);
         Ok(())
     }
 }
@@ -252,24 +265,13 @@ async fn render(packet: Packet) -> Result<Rendered, (&'static str, String)> {
         label: Some("angel-portal-wgsl"),
         source: wgpu::ShaderSource::Wgsl(include_str!("portal.wgsl").into()),
     });
+    let uniform_bytes = uniform_bytes(&packet);
     let uniform = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("angel-portal-state"),
-        size: 16,
+        size: uniform_bytes.len() as u64,
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let health = match packet.status.health {
-        Health::Nominal => 0.0f32,
-        Health::Degraded => 1.0,
-        Health::Unknown => 0.45,
-    };
-    let phase = (packet.sequence % 4096) as f32 * 0.03125;
-    let tint = stage_hash(packet.stage.as_deref().unwrap_or_default());
-    let values = [packet.status.active_seats as f32, health, phase, tint];
-    let mut uniform_bytes = [0u8; 16];
-    for (chunk, value) in uniform_bytes.chunks_exact_mut(4).zip(values) {
-        chunk.copy_from_slice(&value.to_ne_bytes());
-    }
     queue.write_buffer(&uniform, 0, &uniform_bytes);
 
     let bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -315,7 +317,7 @@ async fn render(packet: Packet) -> Result<Rendered, (&'static str, String)> {
             entry_point: Some("fs_main"),
             compilation_options: Default::default(),
             targets: &[Some(wgpu::ColorTargetState {
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                format: wgpu::TextureFormat::Rgba8Unorm,
                 blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -336,7 +338,7 @@ async fn render(packet: Packet) -> Result<Rendered, (&'static str, String)> {
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        format: wgpu::TextureFormat::Rgba8Unorm,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
         view_formats: &[],
     });
@@ -426,11 +428,32 @@ async fn render(packet: Packet) -> Result<Rendered, (&'static str, String)> {
     })
 }
 
-fn stage_hash(stage: &str) -> f32 {
-    let hash = stage.bytes().fold(2_166_136_261u32, |hash, byte| {
-        hash.wrapping_mul(16_777_619) ^ u32::from(byte)
-    });
-    (hash & 0xffff) as f32 / 65_535.0
+/// The deed the table's centre shows, the shader's `STAGE_*`: the answers
+/// gathered in synthesis, scales for a judging panel, a seal for a verify
+/// round, and the bare boss for every other stage.
+fn stage_kind(stage: Option<&str>) -> u32 {
+    match stage.unwrap_or_default() {
+        "synthesis" => 1,
+        stage if stage.starts_with("judge") => 2,
+        "verify" => 3,
+        _ => 0,
+    }
+}
+
+/// The shader's `PortalState`: seat count, stage kind, two reserved words,
+/// then one state word per seat slot.
+fn uniform_bytes(packet: &Packet) -> [u8; 80] {
+    let mut words = [0u32; 20];
+    words[0] = packet.seats.len() as u32;
+    words[1] = stage_kind(packet.stage.as_deref());
+    for (word, seat) in words[4..].iter_mut().zip(&packet.seats) {
+        *word = seat.state as u32;
+    }
+    let mut bytes = [0u8; 80];
+    for (chunk, word) in bytes.chunks_exact_mut(4).zip(words) {
+        chunk.copy_from_slice(&word.to_ne_bytes());
+    }
+    bytes
 }
 
 fn truncate_utf8(value: &str, max_bytes: usize) -> String {
@@ -460,7 +483,7 @@ mod tests {
 
     #[test]
     fn cockpit_normal_fixture_matches_renderer_contract() {
-        let raw = include_bytes!("../../fixtures/agentviz-portal/normal-v1.json");
+        let raw = include_bytes!("../../fixtures/agentviz-portal/normal-v2.json");
         let packet = read_packet(framed(raw).as_slice()).unwrap();
         assert_eq!(packet.sequence, 42);
         assert_eq!(packet.seats.len(), 2);
@@ -468,8 +491,8 @@ mod tests {
 
     #[test]
     fn oversized_and_invalid_fixtures_fail_closed() {
-        let oversized = include_bytes!("../../fixtures/agentviz-portal/oversized-v1.json");
-        let invalid = include_bytes!("../../fixtures/agentviz-portal/invalid-v1.json");
+        let oversized = include_bytes!("../../fixtures/agentviz-portal/oversized-v2.json");
+        let invalid = include_bytes!("../../fixtures/agentviz-portal/invalid-v2.json");
         assert!(read_packet(framed(oversized).as_slice()).is_err());
         assert!(read_packet(framed(invalid).as_slice()).is_err());
     }
@@ -494,8 +517,31 @@ mod tests {
     }
 
     #[test]
-    fn stage_hash_is_stable_and_distinguishes_stages() {
-        assert_eq!(stage_hash("judge"), stage_hash("judge"));
-        assert_ne!(stage_hash("judge"), stage_hash("verify"));
+    fn uniform_carries_each_seat_state_and_the_synthesis_stage() {
+        let raw = include_bytes!("../../fixtures/agentviz-portal/normal-v2.json");
+        let packet = read_packet(framed(raw).as_slice()).unwrap();
+        let bytes = uniform_bytes(&packet);
+        let word = |i: usize| u32::from_ne_bytes(bytes[i * 4..i * 4 + 4].try_into().unwrap());
+        assert_eq!((word(0), word(1)), (2, 0));
+        assert_eq!((word(4), word(5), word(6)), (1, 0, 0), "returned, running");
+        let synthesis = br#"{"schema_version":2,"sequence":1,"published_at_monotonic_ms":1,
+            "stage":"synthesis","seats":[{"slot":0,"label":"aggregator"}],
+            "status":{"active_seats":1,"omitted_seats":0,"health":"nominal"},"palette":"noir"}"#;
+        let packet = read_packet(framed(synthesis).as_slice()).unwrap();
+        let bytes = uniform_bytes(&packet);
+        assert_eq!(bytes[4..8], 1u32.to_ne_bytes(), "synthesis stage");
+        assert_eq!(bytes[16..20], 0u32.to_ne_bytes(), "a seat without state runs");
+    }
+
+    #[test]
+    fn the_table_centre_names_every_published_deed() {
+        assert_eq!(stage_kind(Some("synthesis")), 1);
+        assert_eq!(stage_kind(Some("judge")), 2);
+        assert_eq!(stage_kind(Some("judge panel")), 2);
+        assert_eq!(stage_kind(Some("verify")), 3);
+        for plain in ["proposer wave 1", "layer 1/2", "spawn moa", "graph plan", "direct"] {
+            assert_eq!(stage_kind(Some(plain)), 0, "{plain}");
+        }
+        assert_eq!(stage_kind(None), 0);
     }
 }

@@ -708,7 +708,7 @@ fn render_choices(
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-fn modal_area(root: Rect) -> Rect {
+pub(crate) fn modal_area(root: Rect) -> Rect {
     let w = root.width.min(70).max(root.width.min(24));
     let h = root.height.min(12).max(root.height.min(8));
     Rect::new(

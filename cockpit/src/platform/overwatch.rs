@@ -37,17 +37,6 @@ impl Default for OverwatchSnapshot {
     }
 }
 
-impl OverwatchSnapshot {
-    pub fn load_pct(self) -> f32 {
-        self.cpu_pct
-            .max(self.gpu_pct)
-            .max(self.fleet_cpu_pct.unwrap_or(0.0))
-            .max(self.fleet_gpu_pct.unwrap_or(0.0))
-            .max(self.mem_pct * 0.55)
-            .clamp(0.0, 100.0)
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 struct FleetOverwatchSample {
     cpu_pct: f32,

@@ -71,8 +71,8 @@ fn three_iteration_swift_receipt_gap_steers_without_claiming_no_execution() {
                 .unwrap()
                 .content
                 .to_string();
-            assert!(prompt.contains("no verified measured-candidate receipt recorded"));
-            assert!(prompt.contains("next action"));
+            assert!(prompt.contains("[loop note — information, not an order]"));
+            assert!(prompt.contains("no measured candidate yet after"));
             assert!(
                 !app.messages
                     .iter()

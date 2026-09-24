@@ -1318,22 +1318,6 @@ impl CargoTool {
         Self::in_dir_with_cargo(workspace, cargo)
     }
 
-    pub(crate) fn confined_in_dir_with_cargo(workspace: PathBuf, cargo: PinnedCargo) -> Self {
-        Self {
-            policy: SandboxPolicy {
-                writable_roots: vec![workspace.clone()],
-                allow_network: false,
-                enforce: true,
-                mandatory: true,
-                sealed_reads: Vec::new(),
-                deny_reads: Vec::new(),
-            },
-            workspace,
-            cargo,
-            mutation_targets: Arc::new(MutationTargets::default()),
-        }
-    }
-
     pub(crate) fn in_dir_with_cargo(workspace: PathBuf, cargo: PinnedCargo) -> Self {
         let mut policy = SandboxPolicy::permissive();
         policy.writable_roots.push(workspace.clone());

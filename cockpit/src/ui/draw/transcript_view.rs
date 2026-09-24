@@ -26,8 +26,9 @@ pub(crate) fn transcript_text_and_rail(body: Rect) -> (Rect, Option<Rect>) {
 }
 
 /// Rows claimed by the live tool strip at the bottom of the transcript inner
-/// rect, including one ambient row while idle. Shared with pane registration so clipboard
-/// selection never covers strip chrome.
+/// rect, including one ambient row while idle and the herald's open ledger.
+/// Shared with pane registration so clipboard selection never covers strip
+/// chrome.
 pub(crate) fn tool_strip_height(app: &App, inner_height: u16) -> u16 {
     let strip_on = app.thinking.is_some()
         && app.transcript_mode == crate::app::TranscriptMode::Conversation
@@ -36,7 +37,8 @@ pub(crate) fn tool_strip_height(app: &App, inner_height: u16) -> u16 {
         return 0;
     }
     if strip_on {
-        (2 + u16::from(app.tool_strip.note().is_some())).min(inner_height)
+        let ledger = (app.tool_strip.ledger_height() as u16).min(inner_height / 2);
+        (2 + u16::from(app.tool_strip.note().is_some()) + ledger).min(inner_height)
     } else {
         u16::from(
             app.transcript_mode == crate::app::TranscriptMode::Conversation
@@ -87,7 +89,7 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
         app.startup_intro
             .render(frame, intro_area, geometry, app.visual_motion);
         if strip_h > 0 {
-            render_tool_strip(
+            place_tool_strip(
                 frame,
                 app,
                 Rect {
@@ -126,7 +128,7 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
                 height: strip_h,
                 ..inner
             };
-            render_tool_strip(frame, app, strip_area);
+            place_tool_strip(frame, app, strip_area);
         }
         return;
     }
@@ -156,7 +158,7 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
         transcript::oversized::paint(painted, frame.buffer_mut(), body);
         app.transcript_rolling = false;
         if strip_h > 0 {
-            render_tool_strip(
+            place_tool_strip(
                 frame,
                 app,
                 Rect {
@@ -332,7 +334,7 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
             height: strip_h,
             ..inner
         };
-        render_tool_strip(frame, app, strip_area);
+        place_tool_strip(frame, app, strip_area);
     }
 }
 
@@ -537,6 +539,14 @@ fn render_tool_strip(frame: &mut Frame, app: &App, area: Rect) {
     render_tool_strip_at(frame, app, area, std::time::Instant::now());
 }
 
+/// Draw the strip and publish its herald row as the ledger's toggle. The
+/// idle ambient row and a strip with no calls yet offer nothing to open.
+fn place_tool_strip(frame: &mut Frame, app: &mut App, area: Rect) {
+    render_tool_strip(frame, app, area);
+    app.tool_herald_area =
+        (area.height >= 2 && app.tool_strip.count() > 0).then_some(Rect { height: 1, ..area });
+}
+
 fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time::Instant) {
     if area.width == 0 || area.height == 0 {
         return;
@@ -598,11 +608,11 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
     let stall_severity = stall.as_ref().map(|readout| readout.severity);
     let status = child
         .as_ref()
-        .map(|child| toolstrip::worker_status_row(child, w))
+        .map(|child| toolstrip::worker_status_row(child, app.tool_strip.current_herald(), w))
         .or_else(|| {
-            delegate
-                .as_ref()
-                .map(|delegate| toolstrip::delegate_status_row(delegate, w))
+            delegate.as_ref().map(|delegate| {
+                toolstrip::delegate_status_row(delegate, app.tool_strip.current_herald(), w)
+            })
         })
         .or_else(|| toolstrip::status_row_parts_with_silence(&app.tool_strip, w, stall));
     let waiting_on_agents =
@@ -629,14 +639,20 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
         let status_line = status.as_ref().map_or_else(Line::default, |row| {
             let marker_len = row.left.chars().next().map(char::len_utf8).unwrap_or(0);
             let (marker, body) = row.left.split_at(marker_len);
+            let mut lead = row.lead.saturating_sub(marker_len).min(body.len());
+            while !body.is_char_boundary(lead) {
+                lead -= 1;
+            }
+            let (verb, object) = body.split_at(lead);
             let verdict_style = if row.verifier {
                 state_style
             } else {
                 dim_panel_style()
             };
-            let mut spans = Vec::with_capacity(6);
+            let mut spans = Vec::with_capacity(7);
             spans.push(Span::styled(marker, state_style));
-            spans.push(Span::styled(body, dim_panel_style()));
+            spans.push(Span::styled(verb, panel_style()));
+            spans.push(Span::styled(object, dim_panel_style()));
             push_space_pad(&mut spans, row.padding, dim_panel_style());
             if !row.right.is_empty() {
                 spans.push(Span::styled(row.right.as_str(), verdict_style));
@@ -650,7 +666,27 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
         });
         lines.push(status_line);
     }
-    if area.height >= 3 && app.tool_strip.note().is_some() {
+    let note_row = area.height >= 3 && app.tool_strip.note().is_some();
+    let ledger_budget = (area.height as usize).saturating_sub(2 + usize::from(note_row));
+    for row in app.tool_strip.ledger_rows(w, ledger_budget) {
+        let mut spans = Vec::with_capacity(7);
+        spans.push(Span::styled(row.branch, dim_panel_style()));
+        if let Some(state) = row.state {
+            spans.push(Span::styled(row.mark, ledger_mark_style(state)));
+            spans.push(Span::styled(" ", dim_panel_style()));
+            spans.push(Span::styled(row.call, panel_style()));
+        } else {
+            spans.push(Span::styled(row.call, dim_panel_style()));
+        }
+        spans.push(Span::styled(row.args, dim_panel_style()));
+        push_space_pad(&mut spans, row.padding, dim_panel_style());
+        if let Some(state) = row.state.filter(|_| !row.note.is_empty()) {
+            spans.push(Span::styled(row.note, ledger_mark_style(state)));
+        }
+        spans.push(Span::styled(row.age, dim_panel_style()));
+        lines.push(Line::from(spans));
+    }
+    if note_row {
         lines.push(Line::from(Span::styled(
             app.tool_strip.rolling_note(
                 w,
@@ -737,6 +773,19 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
 #[cfg(test)]
 fn strip_note_row_text(note: &str, count: usize, prefixes: &[String]) -> String {
     toolstrip::note_row_text(note, count, prefixes)
+}
+
+/// A ledger mark keeps its call's semantic colour without the status row's
+/// weight: the list reads as record, the herald above it as the live line.
+fn ledger_mark_style(state: toolstrip::ToolState) -> Style {
+    match state {
+        toolstrip::ToolState::Running => PHOSPHOR_STYLE,
+        toolstrip::ToolState::Passed => Style::new().fg(hud::HUD_VERIFIED),
+        toolstrip::ToolState::Failed => Style::new().fg(hud::HUD_DANGER),
+        toolstrip::ToolState::NotStarted | toolstrip::ToolState::Inconclusive => {
+            Style::new().fg(hud::HUD_GOLD)
+        }
+    }
 }
 
 /// Stall-readout palette: gold while the stream is merely silent, danger once

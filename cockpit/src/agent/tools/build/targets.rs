@@ -40,11 +40,6 @@ impl MutationTargets {
     pub(crate) fn is_opaque(&self) -> bool {
         self.opaque_generation() != 0
     }
-    pub(crate) fn record_scoped_paths(&self, paths: &[String]) {
-        for path in paths {
-            self.record("write_file", &serde_json::json!({"path":path,"content":""}));
-        }
-    }
     pub(crate) fn snapshot(&self) -> Option<Vec<String>> {
         let state = self.0.lock().ok()?;
         (state.opaque == 0 && state.paths.len() <= MAX_PATHS)

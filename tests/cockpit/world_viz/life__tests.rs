@@ -25,41 +25,6 @@ fn weather_is_deterministic_and_moored_to_the_clock() {
 }
 
 #[test]
-fn golden_hour_peaks_in_the_band_and_dies_at_the_edges() {
-    assert!(golden_amount(1.0) <= 0.01, "full day has no golden tint");
-    assert!(golden_amount(0.55) <= 0.01, "deep night has no golden tint");
-    assert!(golden_amount(0.76) > 0.9, "mid-band should glow");
-    // Night grade is the mirror: full after dark, none by day.
-    assert!(night_grade_amount(0.95) <= 0.01);
-    assert!(night_grade_amount(0.55) > 0.5);
-}
-
-#[test]
-fn construction_sites_preview_the_next_structure() {
-    let mut world = World::new(9);
-    world.camera.mode = CameraMode::Wide;
-    // 70% of the way to the dock tier: scaffolding, no lantern yet.
-    world.renown = u64::from((TIER_DOCKS as f32 * 0.70) as u32);
-    assert!(
-        world.growth_layout().docks.is_some(),
-        "the next dock must have a planned construction site"
-    );
-    world.renown = u64::from((TIER_DOCKS as f32 * 0.40) as u32);
-    assert!(world.growth_layout().docks.is_none());
-
-    world.renown = u64::from(TIER_DOCKS);
-    assert!(
-        world.growth_layout().windmill.is_some(),
-        "the next windmill must have a planned construction site"
-    );
-    world.renown = u64::from(TIER_WINDMILL);
-    assert!(
-        world.growth_layout().market.is_some(),
-        "the next market must have a planned construction site"
-    );
-}
-
-#[test]
 fn growth_announcements_fire_once_per_crossing() {
     let mut world = World::new(9);
     world.renown = u64::from(TIER_DOCKS);

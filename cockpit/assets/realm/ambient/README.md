@@ -6,4 +6,4 @@ location entry. Outdoor travel is rendered by Dotmax.
 
 The admitted plates use the shared [Realm palette](../palette.json). Source art
 is retained beside its processed plate. Runtime loading and animation are in
-[world_viz/cinematics.rs](../../../src/world_viz/cinematics.rs).
+[world_viz/cinematics.rs](../../../src/stage/world_viz/cinematics.rs).

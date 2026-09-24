@@ -525,47 +525,6 @@ fn repo_integration_flock_blocks_a_second_file_description() {
 }
 
 #[test]
-fn read_only_delegate_blocks_workspace_writes() {
-    if !sandbox::available() {
-        eprintln!("landlock unavailable; skipping read-only delegate test");
-        return;
-    }
-    let ws = std::env::temp_dir().join(format!("angel_delegate_readonly_{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&ws);
-
-    let roster: Vec<Arc<dyn Club>> = vec![Arc::new(ScribeClub::new(
-        "reviewer",
-        "should_not_exist.txt",
-        "bad",
-    ))];
-    let delegate = DelegateTool::new(ws.clone(), roster);
-    let o = delegate
-        .run(
-            "reviewer",
-            "try to write during review",
-            DelegateMode::ReadOnly,
-        )
-        .unwrap();
-
-    assert!(
-        o.diff.trim().is_empty(),
-        "read-only delegate should produce no diff; got: {}",
-        o.diff
-    );
-    assert!(
-        o.tool_failures > 0,
-        "the denied write attempt must remain observable to strict review gates"
-    );
-    assert!(
-        !ws.join("should_not_exist.txt").exists(),
-        "shared workspace must remain untouched"
-    );
-
-    let _ = std::fs::remove_dir_all(delegate.worktree_base());
-    let _ = std::fs::remove_dir_all(&ws);
-}
-
-#[test]
 fn failed_delegate_cleans_worktree_and_drops_partial_branch() {
     let ws = std::env::temp_dir().join(format!("angel_delegate_fail_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&ws);

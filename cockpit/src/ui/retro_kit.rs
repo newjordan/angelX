@@ -1,5 +1,5 @@
-//! The cockpit's shared retro art direction — ordered dither, banded warm
-//! palettes, and procedural firelight for every dotmax braille surface.
+//! The cockpit's shared retro art direction — ordered dither, banded
+//! palettes and value noise for every dotmax braille surface.
 //!
 //! The braille matrix is treated the way OG-era tile hardware was: one ink
 //! per terminal cell (the "attribute"), 2×4 dots per cell for texture. All
@@ -13,13 +13,11 @@
 //!   deliberately quantized so color steps land like 16-color scene art
 //!   rather than smooth 24-bit gradients.
 //!
-//! On top sit the ambient ingredients every surface shares: value noise and
-//! fbm for organic variation, a stateless flame field for firelight, and
-//! radial glow/flicker helpers for lanterns and forges. Everything here is a
-//! pure function of its inputs — same frame in, same art out — because the
-//! surfaces that consume it are cached, fixture-pinned, or both.
-
-#![cfg_attr(not(test), allow(dead_code))]
+//! On top sits value noise for organic variation, shared by every surface.
+//! Everything here is a pure function of its inputs — same frame in, same art
+//! out — because the surfaces that consume it are cached, fixture-pinned, or
+//! both. Firelight and dusk now belong to the pixel overworld's own light
+//! pass (`stage/world_viz/overworld/light.rs`).
 
 use dotmax::Color as DotColor;
 
@@ -83,27 +81,6 @@ impl Ramp {
     }
 }
 
-/// Firelight: near-black coal → deep red → orange → amber → candle-white.
-pub(crate) const EMBER: Ramp = Ramp(&[
-    (12, 4, 4),
-    (66, 10, 14),
-    (140, 34, 18),
-    (219, 86, 24),
-    (255, 158, 44),
-    (255, 224, 140),
-    (255, 250, 220),
-]);
-
-/// Torch/lantern spill: umber shadows warming to gold. Gentler than EMBER —
-/// this is light *landing on* things, not the fire itself.
-pub(crate) const TORCH: Ramp = Ramp(&[
-    (26, 16, 12),
-    (74, 44, 24),
-    (146, 92, 40),
-    (222, 160, 72),
-    (255, 214, 138),
-]);
-
 /// Night air: indigo depths up to pale moonlight.
 pub(crate) const MOONLIT: Ramp = Ramp(&[
     (6, 8, 20),
@@ -112,26 +89,6 @@ pub(crate) const MOONLIT: Ramp = Ramp(&[
     (120, 140, 190),
     (212, 222, 242),
 ]);
-
-/// A dusk sky, horizon-warm: indigo → violet → rose → amber afterglow.
-pub(crate) const DUSK: Ramp = Ramp(&[
-    (18, 10, 38),
-    (58, 24, 72),
-    (128, 42, 84),
-    (206, 90, 78),
-    (247, 166, 90),
-    (255, 216, 150),
-]);
-
-/// Blend two inks: `t = 0` is all `a`, `t = 1` all `b`. The lantern-light
-/// primitive — warm a terrain cell toward TORCH without leaving its biome.
-#[inline]
-#[allow(dead_code)]
-pub(crate) fn mix(a: DotColor, b: DotColor, t: f32) -> DotColor {
-    let t = t.clamp(0.0, 1.0);
-    let ch = |x: u8, y: u8| (f32::from(x) + (f32::from(y) - f32::from(x)) * t) as u8;
-    DotColor::rgb(ch(a.r, b.r), ch(a.g, b.g), ch(a.b, b.b))
-}
 
 // ============================================================================
 // Noise — deterministic, allocation-free
@@ -170,68 +127,9 @@ pub(crate) fn value_noise(x: f32, y: f32, seed: u64) -> f32 {
     top + (bot - top) * uy
 }
 
-/// Fractal brownian motion: `octaves` layers of value noise, each half the
-/// amplitude and double the frequency. Normalized to [0,1].
-pub(crate) fn fbm(x: f32, y: f32, octaves: u32, seed: u64) -> f32 {
-    let mut sum = 0.0;
-    let mut amp = 0.5;
-    let mut freq = 1.0;
-    let mut norm = 0.0;
-    for octave in 0..octaves.max(1) {
-        sum += value_noise(x * freq, y * freq, seed.wrapping_add(u64::from(octave))) * amp;
-        norm += amp;
-        amp *= 0.5;
-        freq *= 2.0;
-    }
-    sum / norm
-}
-
 // ============================================================================
 // Firelight
 // ============================================================================
-
-/// Heat of a stateless flame at normalized coordinates: `u` ∈ [-1,1] across
-/// the flame's width, `v` ∈ [0,1] from base to tip, `t` in seconds.
-///
-/// A teardrop envelope (wide at the base, tapering to the tip, swaying with
-/// time) is eaten into by upward-scrolling fbm turbulence — the classic
-/// demoscene fire read, but reproducible per frame so cached surfaces and
-/// tests stay deterministic. Returns heat in [0,1]: ≥0.85 is the white core,
-/// mid-range the orange body, low values the ember fringe.
-pub(crate) fn flame_heat(u: f32, v: f32, t: f32, seed: u64) -> f32 {
-    let v = v.clamp(0.0, 1.0);
-    // The tongue sways as it rises; higher = more sway.
-    let sway = (t * 2.3 + v * 3.4).sin() * 0.28 * v;
-    let u = u - sway;
-    // Width tapers from base to tip; a soft shoulder keeps the base round.
-    let width = (1.0 - v).mul_add(0.85, 0.15);
-    let core = 1.0 - (u / width).powi(2);
-    if core <= 0.0 {
-        return 0.0;
-    }
-    // Turbulence scrolls downward through sample space => flame licks upward.
-    let lick = fbm(u * 2.4, v * 3.2 - t * 2.1, 3, seed);
-    let heat = core * (1.0 - v * 0.55) - lick * v * 0.65;
-    heat.clamp(0.0, 1.0)
-}
-
-/// Radial glow falloff: 1 at the source, 0 at `radius`, eased so the pool of
-/// light has a bright heart and a long soft skirt.
-#[inline]
-pub(crate) fn glow(distance: f32, radius: f32) -> f32 {
-    if radius <= 0.0 {
-        return 0.0;
-    }
-    let d = (distance / radius).clamp(0.0, 1.0);
-    (1.0 - d) * (1.0 - d)
-}
-
-/// Lantern flicker: a slow noise wander in [0.82, 1.12], time-keyed so every
-/// light with a distinct `seed` breathes on its own rhythm.
-#[inline]
-pub(crate) fn flicker(t: f32, seed: u64) -> f32 {
-    0.82 + value_noise(t * 3.1, 0.5, seed) * 0.30
-}
 
 /// Test-only art-review support: rasterize a rendered ratatui `Text` to PNG —
 /// braille dots as pixel blocks in their span ink, glyph cells as solid

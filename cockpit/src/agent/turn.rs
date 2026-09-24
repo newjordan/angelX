@@ -78,15 +78,6 @@ pub(crate) fn published_spawn_usage(
     slot
 }
 
-/// Releases the loop-worker allowlist on drop (worker exit or unwind).
-struct LoopWorkerScopeGuard<'a>(&'a crate::agent::harness::ToolRegistry);
-
-impl Drop for LoopWorkerScopeGuard<'_> {
-    fn drop(&mut self) {
-        self.0.release_loop_worker_scope();
-    }
-}
-
 /// An in-flight agent turn running off the UI thread.
 pub(crate) struct Thinking {
     pub(crate) started: Instant,
@@ -209,28 +200,7 @@ impl Thinking {
             .spawn(move || {
                 // Ownership travels with this launch, never a global registry
                 // pointer that a failed spawn could leave for a later turn.
-                // Scope only *competition* loop workers (handoff-RL / podrace),
-                // detected the same way the turn loop arms race cadence: the
-                // launch phrase in the worker's own first user message.
-                let is_loop_worker = loop_owner.is_some() && {
-                    let convo_blob = convo
-                        .iter()
-                        .rev()
-                        .find(|m| m.role == crate::agent::harness::ChatRole::User)
-                        .map(|m| m.content.as_ref())
-                        .unwrap_or_default();
-                    crate::agent::harness::ascii_contains_ignore_case(convo_blob, "competition")
-                };
                 let _owner = crate::agent::harness::run_identity::LiveTurnScope::enter(loop_owner);
-                // Competition loop workers run scoped: the active package's
-                // tool allowlist binds for exactly this worker thread and is
-                // released on every exit path (including unwind). Ordinary
-                // foreground turns are untouched.
-                let _loop_scope = is_loop_worker.then(|| {
-                    let package = crate::agent::harness::comp_packages::active_package();
-                    tools.bind_loop_worker_scope_static(package, package.worker_profile());
-                    LoopWorkerScopeGuard(&tools)
-                });
                 // One Vec clone of message headers; content bytes stay shared.
                 // Taken here so Enter-after-echo does not pay a second snapshot.
                 let _phase = crate::agent::turn::phase::Scope::enter();

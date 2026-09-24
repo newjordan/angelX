@@ -154,6 +154,66 @@ fn snapshot_prunes_owned_excluded_fixture_and_rejects_symlink_escape() {
     });
 }
 
+#[cfg(unix)]
+#[test]
+fn snapshot_reproduces_links_that_cannot_alias_the_live_tree() {
+    fixture(|root, source| {
+        // A build tree's link to a system library (apollo's
+        // lib/libcrypto.so -> /usr/lib/.../libcrypto.so.3) and an in-tree
+        // soname link are reproduced as links, never followed.
+        let system = root.join("system");
+        std::fs::create_dir(&system).unwrap();
+        std::fs::write(system.join("libcrypto.so.3"), "system library\n").unwrap();
+        std::fs::create_dir(source.join("lib")).unwrap();
+        std::os::unix::fs::symlink(
+            system.join("libcrypto.so.3"),
+            source.join("lib/libcrypto.so"),
+        )
+        .unwrap();
+        std::fs::write(source.join("lib/libfoo.so.1"), "in-tree library\n").unwrap();
+        std::os::unix::fs::symlink("libfoo.so.1", source.join("lib/libfoo.so")).unwrap();
+        let copy = root.join("copy");
+        std::fs::create_dir(&copy).unwrap();
+        let manifest = snapshot_live(source, Some(&copy), &AtomicBool::new(false)).unwrap();
+        assert_eq!(
+            std::fs::read_link(copy.join("lib/libcrypto.so")).unwrap(),
+            system.join("libcrypto.so.3")
+        );
+        assert_eq!(
+            std::fs::read_link(copy.join("lib/libfoo.so")).unwrap(),
+            Path::new("libfoo.so.1")
+        );
+        assert_eq!(
+            std::fs::read_to_string(copy.join("lib/libfoo.so")).unwrap(),
+            "in-tree library\n"
+        );
+        assert_eq!(
+            manifest[Path::new("lib/libcrypto.so")].symlink.as_deref(),
+            Some(system.join("libcrypto.so.3").as_path())
+        );
+        // A link-free entry serializes as before, so existing digests hold.
+        let entry = serde_json::to_string(&manifest[Path::new("candidate.txt")]).unwrap();
+        assert!(!entry.contains("symlink"), "{entry}");
+
+        // Links that could lead the copy back into the live tree are refused.
+        for (name, target) in [
+            ("up", PathBuf::from("../..")),
+            ("quarantine", PathBuf::from("off-limits/secret")),
+            ("live", source.join("candidate.txt")),
+            ("parent", root.to_path_buf()),
+        ] {
+            let link = source.join(name);
+            std::os::unix::fs::symlink(&target, &link).unwrap();
+            let error = snapshot_live(source, None, &AtomicBool::new(false)).unwrap_err();
+            assert!(
+                error.contains("snapshot refuses symlink"),
+                "{name}: {error}"
+            );
+            std::fs::remove_file(&link).unwrap();
+        }
+    });
+}
+
 pub(super) struct SelectedLeaf {
     pub(super) calls: AtomicUsize,
     pub(super) held: bool,

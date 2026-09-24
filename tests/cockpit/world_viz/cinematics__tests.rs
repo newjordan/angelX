@@ -305,27 +305,6 @@ fn disabled_village_leaves_stage_five_frame_stable() {
 }
 
 #[test]
-fn ward_caption_names_only_a_district_crossed_by_the_route() {
-    let mut world = super::World::new(7);
-    world.target = super::Building::Observatory;
-    let destination = world.building_pos(world.target);
-    world.avatar_vis = (destination.0 as f32 - 20.0, destination.1 as f32);
-    world.districts = vec![super::District {
-        name: "Lantern".to_string(),
-        anchor: (destination.0 as i32 - 10, destination.1 as i32),
-        banner_color: (52, 211, 153),
-    }];
-
-    let caption = world.ride_ward_caption();
-    assert_eq!(caption, " — through the Lantern ward");
-    assert_eq!(caption, world.ride_ward_caption());
-
-    world.districts[0].anchor = (destination.0 as i32 - 10, destination.1 as i32 + 8);
-    assert_eq!(world.ride_ward_caption(), "");
-    assert_eq!(world.ride_ward_caption(), "");
-}
-
-#[test]
 fn travel_scene_emits_landmarks_behind_their_facades() {
     let mut world = super::World::new(7);
     world.target = super::Building::Observatory;
@@ -957,7 +936,7 @@ fn hill_cells_are_open_tall_rock_terrain() {
     for y in 0..super::WORLD_H as i32 {
         for x in 0..super::WORLD_W as i32 {
             if !matches!(
-                world.close_biome_at(x as f32, y as f32),
+                world.natural_biome_at(f64::from(x) + 1.0 / 32.0, f64::from(y) + 1.0 / 32.0),
                 super::Biome::Hill | super::Biome::Peak
             ) {
                 continue;
@@ -1011,7 +990,7 @@ fn eye_relief_lowers_the_same_crest_from_high_ground() {
         .flat_map(|x| (3..super::WORLD_H as i32 - 3).map(move |y| (x, y)))
         .find(|&(x, y)| {
             matches!(
-                world.close_biome_at(x as f32, y as f32),
+                world.natural_biome_at(f64::from(x) + 1.0 / 32.0, f64::from(y) + 1.0 / 32.0),
                 super::Biome::Grass
             ) && matches!(world.at(x as usize, y as usize), super::Biome::Grass)
         })

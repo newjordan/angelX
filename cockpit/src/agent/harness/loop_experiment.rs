@@ -80,6 +80,58 @@ pub(crate) struct LoopExperimentResult {
 struct SnapshotFile {
     sha256: String,
     executable: bool,
+    /// The target a reproduced symlink names. Its text is hashed and recreated
+    /// in the copy; the snapshot never reads through it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    symlink: Option<PathBuf>,
+}
+
+/// One inventoried path as the snapshot copies it.
+enum LiveEntry {
+    File {
+        bytes: Vec<u8>,
+        executable: bool,
+    },
+    /// A final-component symlink, reproduced as a link (see [`symlink_entry`]).
+    Link(PathBuf),
+}
+
+/// Resolve `.` and `..` lexically; `None` when a `..` climbs above the start.
+fn normalize_lexically(path: &Path) -> Option<PathBuf> {
+    let mut out = PathBuf::new();
+    for part in path.components() {
+        match part {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !out.pop() {
+                    return None;
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    Some(out)
+}
+
+/// Whether a symlink at `path` (relative to the snapshot `root`) naming
+/// `target` can be reproduced without aliasing the live tree. A relative link
+/// must resolve to an active path inside the tree, so it points at the copy's
+/// own file (`libfoo.so -> libfoo.so.1`). An absolute link must lie outside the
+/// tree and must not be the tree or one of its ancestors, both as written and
+/// as resolved (`libcrypto.so -> /usr/lib/.../libcrypto.so.3`). Everything else
+/// could lead the copy back into the live source or its quarantine.
+fn link_is_admissible(root: &Path, path: &Path, target: &Path) -> bool {
+    if target.is_absolute() {
+        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        let outside =
+            |candidate: &Path| !candidate.starts_with(&root) && !root.starts_with(candidate);
+        return normalize_lexically(target).is_some_and(|lexical| outside(&lexical))
+            && target
+                .canonicalize()
+                .map_or(true, |resolved| outside(&resolved));
+    }
+    let parent = path.parent().unwrap_or(Path::new(""));
+    normalize_lexically(&parent.join(target)).is_some_and(|resolved| active_relative(&resolved))
 }
 
 fn active_relative(path: &Path) -> bool {
@@ -435,10 +487,11 @@ fn active_files(root: &Path, cancel: &AtomicBool) -> Result<Vec<PathBuf>, String
     Ok(paths)
 }
 
-/// Walk every component through directory descriptors: neither a directory nor
-/// final-file symlink can lead this snapshot into excluded or external content.
+/// Walk every component through directory descriptors: no directory symlink
+/// can lead this snapshot into excluded or external content, and a final
+/// symlink is recorded as a link, never followed ([`symlink_entry`]).
 #[cfg(unix)]
-fn read_live_file(root: &Path, path: &Path) -> Result<Option<(Vec<u8>, bool)>, String> {
+fn read_live_file(root: &Path, path: &Path) -> Result<Option<LiveEntry>, String> {
     use std::os::fd::{AsRawFd, FromRawFd};
     use std::os::unix::ffi::OsStrExt;
     use std::os::unix::fs::MetadataExt;
@@ -462,6 +515,10 @@ fn read_live_file(root: &Path, path: &Path) -> Result<Option<(Vec<u8>, bool)>, S
             let error = std::io::Error::last_os_error();
             if error.kind() == std::io::ErrorKind::NotFound {
                 return Ok(None);
+            }
+            // `O_NOFOLLOW` on a final symlink fails with ELOOP.
+            if last && error.raw_os_error() == Some(libc::ELOOP) {
+                return symlink_entry(&directory, &name, root, path).map(Some);
             }
             return Err(format!("snapshot refuses {}: {error}", path.display()));
         }
@@ -494,13 +551,60 @@ fn read_live_file(root: &Path, path: &Path) -> Result<Option<(Vec<u8>, bool)>, S
         {
             return Err("source changed while snapshot was being copied".into());
         }
-        return Ok(Some((bytes, before.mode() & 0o111 != 0)));
+        return Ok(Some(LiveEntry::File {
+            bytes,
+            executable: before.mode() & 0o111 != 0,
+        }));
     }
     Err("empty snapshot path".into())
 }
 
+/// Read a final-component symlink's target through its directory descriptor
+/// and admit it when [`link_is_admissible`]. A build tree's `lib/libcrypto.so ->
+/// /usr/lib/.../libcrypto.so.3` made every deep experiment of a night-long loop
+/// fail at setup (apollo, 2026-09-24) while the snapshot refused all symlinks.
+#[cfg(unix)]
+fn symlink_entry(
+    directory: &std::fs::File,
+    name: &std::ffi::CStr,
+    root: &Path,
+    path: &Path,
+) -> Result<LiveEntry, String> {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::ffi::OsStringExt;
+    let mut buffer = vec![0u8; libc::PATH_MAX as usize];
+    // SAFETY: a valid retained directory descriptor, a NUL-terminated name and
+    // an owned buffer of the stated length.
+    let read = unsafe {
+        libc::readlinkat(
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            buffer.as_mut_ptr().cast(),
+            buffer.len(),
+        )
+    };
+    if read < 0 || read as usize >= buffer.len() {
+        return Err(format!(
+            "snapshot refuses {}: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        ));
+    }
+    buffer.truncate(read as usize);
+    let target = PathBuf::from(std::ffi::OsString::from_vec(buffer));
+    if link_is_admissible(root, path, &target) {
+        Ok(LiveEntry::Link(target))
+    } else {
+        Err(format!(
+            "snapshot refuses symlink {} -> {}",
+            path.display(),
+            target.display()
+        ))
+    }
+}
+
 #[cfg(not(unix))]
-fn read_live_file(_root: &Path, _path: &Path) -> Result<Option<(Vec<u8>, bool)>, String> {
+fn read_live_file(_root: &Path, _path: &Path) -> Result<Option<LiveEntry>, String> {
     Err("no-follow experiment snapshots currently require Unix".into())
 }
 
@@ -513,8 +617,36 @@ fn snapshot_live(
     let mut total = 0usize;
     for path in active_files(root, cancel)? {
         check_cancel(cancel)?;
-        let Some((bytes, executable)) = read_live_file(root, &path)? else {
+        let Some(entry) = read_live_file(root, &path)? else {
             continue;
+        };
+        let (bytes, executable) = match entry {
+            LiveEntry::File { bytes, executable } => (bytes, executable),
+            LiveEntry::Link(target) => {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::ffi::OsStrExt;
+                    let text = target.as_os_str().as_bytes();
+                    total = total.saturating_add(text.len());
+                    if let Some(destination) = destination {
+                        let at = destination.join(&path);
+                        if let Some(parent) = at.parent() {
+                            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                        }
+                        // Never chmod a link: that would follow it to its target.
+                        std::os::unix::fs::symlink(&target, &at).map_err(|e| e.to_string())?;
+                    }
+                    manifest.insert(
+                        path,
+                        SnapshotFile {
+                            sha256: crate::knowledge::cut::sha256_hex(text),
+                            executable: false,
+                            symlink: Some(target),
+                        },
+                    );
+                }
+                continue;
+            }
         };
         total = total.saturating_add(bytes.len());
         if total > SNAPSHOT_LIMIT {
@@ -541,6 +673,7 @@ fn snapshot_live(
             SnapshotFile {
                 sha256: crate::knowledge::cut::sha256_hex(&bytes),
                 executable,
+                symlink: None,
             },
         );
     }
@@ -675,71 +808,6 @@ fn recovery_authority(working: &Path, scratch: &Path) -> Result<Option<PathBuf>,
     Ok(Some(authority))
 }
 
-struct RecoveryLocalFile(Box<dyn Tool>);
-impl Tool for RecoveryLocalFile {
-    fn name(&self) -> &str {
-        self.0.name()
-    }
-    fn def(&self) -> ToolDef {
-        let mut definition = self.0.def();
-        definition.description.push_str(
-            " This experiment accepts local filesystem paths only; virtual URIs are unavailable.",
-        );
-        definition
-    }
-    fn call(&self, args: &Value) -> Result<String, String> {
-        if args
-            .get("path")
-            .and_then(Value::as_str)
-            .is_some_and(|path| path.contains(':'))
-        {
-            return Err("confined recovery accepts local filesystem paths only".into());
-        }
-        self.0.call(args)
-    }
-}
-
-fn confined_recovery_registry(working: &Path, cargo: &PinnedCargo) -> Result<ToolRegistry, String> {
-    std::fs::create_dir_all(working.join(".angel-experiment-tmp/cache"))
-        .map_err(|e| format!("create confined recovery scratch: {e}"))?;
-    // The pinned empty Git template deliberately creates no info directory.
-    std::fs::create_dir_all(working.join(".git/info"))
-        .map_err(|e| format!("create confined recovery Git info: {e}"))?;
-    let exclude = working.join(".git/info/exclude");
-    let mut contents = std::fs::read_to_string(&exclude).unwrap_or_default();
-    contents.push_str("\n/.angel-experiment-tmp/\n");
-    std::fs::write(exclude, contents)
-        .map_err(|e| format!("write confined recovery Git exclude: {e}"))?;
-    let root = working.to_path_buf();
-    let mut registry = ToolRegistry::new();
-    registry.set_workspace(root.clone());
-    registry.external_evaluator_only = true;
-    registry.register(Box::new(
-        ShellTool::confined_in_dir(root.clone())
-            .with_mutation_targets(Arc::clone(&registry.mutation_targets)),
-    ));
-    registry.register(Box::new(
-        CargoTool::confined_in_dir_with_cargo(root.clone(), cargo.clone())
-            .with_mutation_targets(Arc::clone(&registry.mutation_targets)),
-    ));
-    // Explicit filesystem-only tools: no repair, Git process helpers, or Cut
-    // wrappers with ambient execution outside the mandatory process policy.
-    registry.register(Box::new(RecoveryLocalFile(Box::new(ReadFileTool {
-        root: root.clone(),
-    }))));
-    registry.register(Box::new(RecoveryLocalFile(Box::new(WriteFileTool {
-        root: root.clone(),
-    }))));
-    registry.register(Box::new(RecoveryLocalFile(Box::new(StrReplaceTool {
-        root: root.clone(),
-    }))));
-    registry.register(Box::new(RecoveryLocalFile(Box::new(MultiEditTool {
-        root: root.clone(),
-    }))));
-    registry.register(Box::new(RecoveryLocalFile(Box::new(ListDirTool { root }))));
-    Ok(registry)
-}
-
 pub(crate) fn run_loop_experiment(
     mut request: LoopExperimentRequest,
     club: Arc<dyn Club>,
@@ -855,11 +923,10 @@ pub(crate) fn run_loop_experiment(
             let _git_scope = capture_enabled
                 .then(|| super::workspace_state::ConfinedRecoveryGit::new(&working))
                 .transpose()?;
-            let registry = if capture_enabled {
-                confined_recovery_registry(&working, &cargo)?
-            } else {
-                Grant::Code.registry(&working, None, &cargo)
-            };
+            // Every experiment gets the full coding grant: network, the GPU and
+            // scratch space. A confined capture registry once cut deep
+            // experiments off the board CLI and the device nodes.
+            let registry = Grant::Code.registry(&working, None, &cargo);
             // Every recovery leaf is an experiment, even without training capture.
             // Its raw log must not become legacy imitation before evaluation.
             let _eval_label = EvalLabelScope::new();

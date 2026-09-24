@@ -22,9 +22,8 @@
 //! active tool workspace, explicit cache/runtime roots, `/tmp`, `/var/tmp`, and
 //! `/dev/shm`; network left ON (no seccomp filter). The whole home directory and
 //! process cwd are deliberately not implicit write roots: either may contain a
-//! different project after `/cd`. Read-only postures
-//! ([`SandboxPolicy::read_only`]) are a *semantic guarantee* for reviewer
-//! agents and stay enforced regardless of the knob.
+//! different project after `/cd`. There is no read-only posture: every seat's
+//! shell gets the same developer roots, GPU device nodes and network.
 //!
 //! When armed, this sandbox guards against the agent's *commands* doing damage
 //! (writing outside the workspace, escalating privs). It does NOT cap GPU/VRAM
@@ -83,8 +82,7 @@ pub struct SandboxPolicy {
     pub allow_network: bool,
     /// Whether [`apply`] actually installs the landlock ruleset. `false` makes
     /// the policy a no-op (unconfined). [`SandboxPolicy::permissive`] reads
-    /// this from `ANGEL_SANDBOX` (default on); [`SandboxPolicy::read_only`]
-    /// always enforces — it's a guarantee, not a containment preference.
+    /// this from `ANGEL_SANDBOX` (default on).
     pub enforce: bool,
     /// Semantic capability ceilings (review/read-only seats) remain mandatory
     /// even when the root operator enables YOLO. Ordinary confinement is an
@@ -308,22 +306,6 @@ impl SandboxPolicy {
         roots.push(gitdir);
         roots.retain(|path| path.exists());
         roots
-    }
-
-    /// Read-only posture: read the filesystem, write only to `/dev/null`.
-    ///
-    /// This is useful for reviewer/explorer agents where the harness should
-    /// guarantee that inspection cannot silently become implementation. Always
-    /// enforced, regardless of `ANGEL_SANDBOX`.
-    pub fn read_only() -> Self {
-        Self {
-            writable_roots: Vec::new(),
-            allow_network: false,
-            enforce: true,
-            mandatory: true,
-            sealed_reads: Vec::new(),
-            deny_reads: Vec::new(),
-        }
     }
 }
 

@@ -627,9 +627,10 @@ fn agent_inspector_visible(screen: &str) -> bool {
 }
 
 fn world_stage_visible(screen: &str) -> bool {
+    // The Realm overworld is half-block pixel art; braille remains a fallback.
     screen
         .chars()
-        .any(|c| ('\u{2801}'..='\u{28ff}').contains(&c))
+        .any(|c| matches!(c, '▀' | '▄') || ('\u{2801}'..='\u{28ff}').contains(&c))
         && screen.lines().any(|line| {
             (line.contains("[Map]") || line.contains("[Explore]"))
                 && line.contains("[Library]")
@@ -660,8 +661,8 @@ fn run_scenario(rows: u16, cols: u16, resize_to: Option<(u16, u16)>) -> Result<(
     if !cockpit.raw_mode_active()? {
         return Err("cockpit rendered without entering terminal raw mode".to_string());
     }
-    // Wide terminals mount the Realm world map stage at startup (narrow ones
-    // reveal it on focus below). Wait for rendered dots and working controls;
+    // Wide terminals mount the Realm overworld at startup (narrow ones reveal
+    // it on focus below). Wait for rendered pixels and working controls;
     // world views intentionally omit the old decorative route headings.
     if cols >= 100 {
         cockpit.wait_for("startup Realm stage", world_stage_visible)?;
@@ -676,12 +677,7 @@ fn run_scenario(rows: u16, cols: u16, resize_to: Option<(u16, u16)>) -> Result<(
     })?;
 
     cockpit.send(b"\x1bOS")?; // xterm F4
-    cockpit.wait_for("focused Realm stage", |screen| {
-        screen.contains("smoke-draft") && world_stage_visible(screen) && screen.contains("[Map]")
-    })?;
-
-    cockpit.send(b"\x1b")?;
-    cockpit.wait_for("Explore Back returned to map", |screen| {
+    cockpit.wait_for("focused Realm overworld", |screen| {
         screen.contains("smoke-draft")
             && world_stage_visible(screen)
             && screen.contains("[Explore]")

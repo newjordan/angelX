@@ -11,12 +11,9 @@
 //! through it.
 
 use super::*;
-use crate::ui::hud::{HUD_DIM, HUD_GOLD, HUD_TEXT};
 use crate::ui::term::art::{
     ColoredBrailleCell, ColoredBrailleImage, braille_char, braille_dot_bit,
 };
-use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
 
 /// Tone calibration for the moonlit frame → 1-bit dots. Tuned against the
 /// moving and settled scene fixtures: while riding, the sky stays
@@ -232,22 +229,6 @@ impl World {
             image: std::sync::Arc::clone(&image),
         });
         Some(image)
-    }
-
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn ride_caption(&self) -> Line<'static> {
-        Line::from(vec![
-            Span::styled("▌ ", Style::new().fg(HUD_GOLD)),
-            Span::styled(self.knight_caption_verb(), Style::new().fg(HUD_DIM)),
-            Span::styled(
-                cinematics::building_name(self.target).to_string(),
-                Style::new().fg(HUD_TEXT).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                format!(" — {}{}", self.activity, self.ride_ward_caption()),
-                Style::new().fg(HUD_DIM),
-            ),
-        ])
     }
 }
 

@@ -47,6 +47,8 @@ pub(crate) struct ToolEntry {
     pub(crate) id: ToolEventId,
     pub(crate) name: String,
     pub(crate) args: String,
+    /// The realm's telling of this call, fixed when it starts.
+    herald: crate::stage::world_viz::Herald,
     pub(crate) done: bool,
     pub(crate) err: bool,
     not_started: bool,
@@ -68,6 +70,12 @@ pub(crate) struct ToolEntry {
     /// can distinguish a changed score/status receipt without persisting its
     /// potentially sensitive text.
     result_digest: Option<String>,
+    /// A measurement's or submission's own output: a short redacted excerpt of
+    /// its last lines, so a loop can show the model its benchmark history.
+    result_excerpt: Option<String>,
+    /// A fixed reason class for a failed call (`timeout`, `policy: denied`):
+    /// never the command body, paths or credentials.
+    reason: Option<&'static str>,
 }
 
 /// Machine-readable evidence from one turn's tool activity. The visual strip
@@ -99,12 +107,52 @@ pub(crate) struct ToolStripSnapshot {
     /// Failed measurement/submission actions with a bounded redacted diagnostic.
     pub(crate) verifier_failures: Vec<(String, String)>,
     pub(crate) verifier_failure_details: Vec<VerifierFailure>,
+    /// Each verified receipt's result excerpt and wall time.
+    pub(crate) measurement_results: Vec<MeasurementResult>,
+}
+
+/// What a verified measurement or submission printed, bounded and redacted.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct MeasurementResult {
+    /// The receipt in `verified_outcome_actions` this belongs to.
+    pub(crate) receipt: String,
+    pub(crate) excerpt: String,
+    pub(crate) elapsed_ms: Option<u64>,
+}
+
+/// Lines of a measurement's output kept for its excerpt, and the cap on each.
+const EXCERPT_LINES: usize = 4;
+const EXCERPT_LINE_CHARS: usize = 160;
+
+/// The last non-empty lines of `summary`, redacted, joined with ` | `.
+fn result_excerpt(summary: &str) -> String {
+    let summary = crate::platform::secrets::redact_str(summary);
+    let lines: Vec<String> = summary
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .rev()
+        .take(EXCERPT_LINES)
+        .map(|line| {
+            if line.chars().count() > EXCERPT_LINE_CHARS {
+                let mut clipped: String = line.chars().take(EXCERPT_LINE_CHARS - 1).collect();
+                clipped.push('…');
+                clipped
+            } else {
+                line.to_string()
+            }
+        })
+        .collect();
+    lines.into_iter().rev().collect::<Vec<_>>().join(" | ")
 }
 
 /// Styled status-row content. Keeping the metadata separate lets the draw
 /// layer dim it without sacrificing the semantic state color on the left.
 pub(crate) struct StatusRow {
     pub(crate) left: String,
+    /// Bytes of `left` that are the mark and verb; the draw layer lifts them
+    /// out of the dimmer object that follows. Zero keeps the row one tone.
+    pub(crate) lead: usize,
     pub(crate) padding: usize,
     pub(crate) right: String,
     /// Stream-silence readout riding the right rail, kept apart from `right`
@@ -141,6 +189,9 @@ pub(crate) struct ToolStrip {
     reading_paused: bool,
     warp_last_tick: Cell<Option<Instant>>,
     ambience: RefCell<ambient::Ambient>,
+    /// The herald's dropdown: the turn's literal calls under the status row.
+    /// An operator choice, so it outlives the turn that opened it.
+    ledger_open: bool,
 }
 
 impl ToolStrip {
@@ -265,6 +316,7 @@ impl ToolStrip {
         let args = sanitize(args_summary);
         self.entries.push(ToolEntry {
             id,
+            herald: crate::stage::world_viz::herald(name, &args),
             name: name.to_string(),
             verifier: verifier_label(name, &args),
             args,
@@ -279,6 +331,8 @@ impl ToolStrip {
             started: Instant::now(),
             elapsed_ms: None,
             result_digest: None,
+            result_excerpt: None,
+            reason: None,
         });
     }
 
@@ -309,8 +363,14 @@ impl ToolStrip {
         e.inconclusive = outcome.verification == VerificationOutcome::Inconclusive;
         e.result_digest =
             Some(crate::knowledge::cut::sha256_hex(summary.as_bytes())[..16].to_string());
+        if measured_submission_fingerprint(&e.name, &e.args).is_some() {
+            e.result_excerpt = Some(result_excerpt(summary));
+        }
         if e.verifier.is_some() {
             e.result_detail = verifier_result_detail(summary);
+        }
+        if e.execution != ExecutionOutcome::Succeeded {
+            e.reason = crate::agent::harness::failure_reason(summary);
         }
         if matches!(
             outcome.execution,
@@ -440,6 +500,113 @@ impl ToolStrip {
             .or_else(|| self.entries.last())
     }
 
+    /// The running call's herald, for telemetry rows that lead with it.
+    pub(crate) fn current_herald(&self) -> Option<&crate::stage::world_viz::Herald> {
+        self.current()
+            .filter(|entry| !entry.done)
+            .map(|entry| &entry.herald)
+    }
+
+    pub(crate) fn toggle_ledger(&mut self) {
+        self.ledger_open = !self.ledger_open;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn ledger_open(&self) -> bool {
+        self.ledger_open
+    }
+
+    /// Rows the open ledger asks for: one per call, up to [`LEDGER_ROWS`].
+    pub(crate) fn ledger_height(&self) -> usize {
+        if self.ledger_open {
+            self.entries.len().min(LEDGER_ROWS)
+        } else {
+            0
+        }
+    }
+
+    /// The ledger fitted to `rows` × `width`: the newest calls as they were
+    /// made, oldest first, with anything older folded into one leading line.
+    pub(crate) fn ledger_rows(&self, width: usize, rows: usize) -> Vec<LedgerRow> {
+        let rows = rows.min(self.ledger_height());
+        if rows == 0 || width == 0 {
+            return Vec::new();
+        }
+        let total = self.entries.len();
+        let folded = if total > rows && rows > 1 {
+            total - (rows - 1)
+        } else {
+            total.saturating_sub(rows)
+        };
+        let mut out = Vec::with_capacity(rows);
+        if folded > 0 && rows > 1 {
+            out.push(LedgerRow {
+                branch: "├ ",
+                state: None,
+                mark: "",
+                call: format!("⋯ {folded} earlier"),
+                args: String::new(),
+                padding: 0,
+                note: String::new(),
+                age: String::new(),
+            });
+        }
+        let shown = &self.entries[total - (rows - out.len())..];
+        // Arguments start in one column, set by the longest name on show.
+        let name_col = shown
+            .iter()
+            .map(|entry| UnicodeWidthStr::width(entry.name.as_str()))
+            .max()
+            .unwrap_or(0)
+            .min(LEDGER_NAME_COLS);
+        for (index, entry) in shown.iter().enumerate() {
+            let state = entry_state(entry);
+            let age = ledger_age(
+                entry
+                    .elapsed_ms
+                    .unwrap_or_else(|| entry.started.elapsed().as_millis() as u64),
+            );
+            // "├ ✓ " ahead; a failure's note and " 0.2s" behind; the name
+            // first, arguments in the rest.
+            let note = failure_note(entry)
+                .map(|note| format!("{note} "))
+                .unwrap_or_default();
+            let room = width.saturating_sub(
+                4 + 1
+                    + UnicodeWidthStr::width(note.as_str())
+                    + UnicodeWidthStr::width(age.as_str()),
+            );
+            let call = ellipsize(&entry.name, room.min(name_col));
+            let gap = name_col.saturating_sub(UnicodeWidthStr::width(call.as_str())) + 2;
+            let args_room = room.saturating_sub(UnicodeWidthStr::width(call.as_str()) + gap);
+            let args = if entry.args.is_empty() || args_room < 2 {
+                String::new()
+            } else {
+                format!("{}{}", " ".repeat(gap), ellipsize(&entry.args, args_room))
+            };
+            let used = 4
+                + UnicodeWidthStr::width(call.as_str())
+                + UnicodeWidthStr::width(args.as_str())
+                + UnicodeWidthStr::width(note.as_str())
+                + UnicodeWidthStr::width(age.as_str());
+            out.push(LedgerRow {
+                branch: if index + 1 == shown.len() {
+                    "└ "
+                } else {
+                    "├ "
+                },
+                state: Some(state),
+                mark: state_mark(state),
+                call,
+                args,
+                padding: width.saturating_sub(used),
+                note,
+                age,
+            });
+        }
+        out
+    }
+
     pub(crate) fn elapsed_secs(&self) -> u64 {
         self.started.map(|s| s.elapsed().as_secs()).unwrap_or(0)
     }
@@ -485,6 +652,22 @@ impl ToolStrip {
                 .entries
                 .iter()
                 .filter_map(|e| e.verifier_failure.clone())
+                .collect(),
+            measurement_results: self
+                .entries
+                .iter()
+                .filter(|entry| entry.done && entry.execution == ExecutionOutcome::Succeeded)
+                .filter_map(|entry| {
+                    let (action, submission) =
+                        measured_submission_fingerprint(&entry.name, &entry.args)?;
+                    let kind = if submission { "submitted" } else { "measured" };
+                    let digest = entry.result_digest.as_deref().unwrap_or("no-result");
+                    Some(MeasurementResult {
+                        receipt: format!("{kind}:{action}:result={digest}"),
+                        excerpt: entry.result_excerpt.clone()?,
+                        elapsed_ms: entry.elapsed_ms,
+                    })
+                })
                 .collect(),
             verifier_failures: self
                 .entries
@@ -613,6 +796,78 @@ impl ToolStrip {
         }
         self.begin_turn();
         Some(out)
+    }
+}
+
+/// Rows the herald's dropdown lists at most; older calls fold into one line.
+const LEDGER_ROWS: usize = 8;
+/// Widest tool name the ledger's name column grows to.
+const LEDGER_NAME_COLS: usize = 16;
+
+/// One literal call in the herald's dropdown. `state: None` is the fold line.
+pub(crate) struct LedgerRow {
+    pub(crate) branch: &'static str,
+    pub(crate) state: Option<ToolState>,
+    pub(crate) mark: &'static str,
+    pub(crate) call: String,
+    pub(crate) args: String,
+    pub(crate) padding: usize,
+    /// How a failed call ended, right before its age.
+    pub(crate) note: String,
+    pub(crate) age: String,
+}
+
+/// How a failed call ended, in plain words: the fixed reason class when the
+/// result carried one, else the way it stopped. `None` for a call that ran.
+fn failure_note(entry: &ToolEntry) -> Option<String> {
+    if !entry.done || !entry.err {
+        return None;
+    }
+    let ended = match entry.execution {
+        ExecutionOutcome::NotStarted => "not started",
+        ExecutionOutcome::Denied => "denied",
+        ExecutionOutcome::Cancelled => "cancelled",
+        ExecutionOutcome::Panicked => "panicked",
+        ExecutionOutcome::Succeeded | ExecutionOutcome::Failed => "failed",
+    };
+    // Only a call that ran and failed has a reason worth naming; a denial or
+    // a call that never started says so itself.
+    Some(match entry.reason {
+        Some(reason) if ended == "failed" || ended == "panicked" => format!("{ended} · {reason}"),
+        _ => ended.to_string(),
+    })
+}
+
+fn entry_state(entry: &ToolEntry) -> ToolState {
+    if !entry.done {
+        ToolState::Running
+    } else if entry.not_started {
+        ToolState::NotStarted
+    } else if entry.err {
+        ToolState::Failed
+    } else if entry.inconclusive {
+        ToolState::Inconclusive
+    } else {
+        ToolState::Passed
+    }
+}
+
+fn state_mark(state: ToolState) -> &'static str {
+    match state {
+        ToolState::Running => "\u{25b8}",
+        ToolState::Passed => "\u{2713}",
+        ToolState::NotStarted => "\u{2298}",
+        ToolState::Failed => "\u{2717}",
+        ToolState::Inconclusive => "?",
+    }
+}
+
+/// Call age for the ledger: tenths under a second, then the strip's clock.
+fn ledger_age(ms: u64) -> String {
+    if ms < 1000 {
+        format!("{}.{}s", ms / 1000, (ms % 1000) / 100)
+    } else {
+        format_age_secs(ms / 1000)
     }
 }
 
@@ -1088,12 +1343,21 @@ fn segment_program(segment: &str) -> Option<(String, Option<String>)> {
 }
 
 /// Does this shell line *execute* a measurement — a benchmark / measure /
-/// verify / validate program or script in program position?
+/// verify / validate program or script in program position, or a competition
+/// family's own measurement subcommand (`yukon run`), and not a help call?
 fn shell_measurement(args_key: &str) -> bool {
     command_segments(args_key).iter().any(|segment| {
-        segment_program(segment).is_some_and(|(program, _)| {
-            !READ_ONLY_PROGRAMS.contains(&program.as_str())
-                && MEASUREMENT_WORDS.iter().any(|word| program.contains(word))
+        segment_program(segment).is_some_and(|(program, operand)| {
+            if READ_ONLY_PROGRAMS.contains(&program.as_str()) {
+                return false;
+            }
+            MEASUREMENT_WORDS.iter().any(|word| program.contains(word))
+                || (!segment
+                    .split_whitespace()
+                    .any(|token| matches!(token, "--help" | "-h" | "help"))
+                    && crate::agent::harness::comp_packages::PACKAGES
+                        .iter()
+                        .any(|package| package.measures(&program, operand.as_deref())))
         })
     })
 }
@@ -1379,6 +1643,7 @@ pub(crate) fn child_quiet_secs(child: &crate::agent::harness::ChildSnapshot) -> 
 /// Never read /proc here: the process owner samples it off the draw thread.
 pub(crate) fn worker_status_row(
     child: &crate::agent::harness::ChildSnapshot,
+    herald: Option<&crate::stage::world_viz::Herald>,
     width: usize,
 ) -> StatusRow {
     let activity = if child.setting_up {
@@ -1400,7 +1665,7 @@ pub(crate) fn worker_status_row(
     } else {
         String::new()
     };
-    let left = format!("▸ {operation} · {activity}{workers}");
+    let (lead, left) = heralded(herald, format!("{operation} · {activity}{workers}"));
     let output = child
         .output_age_secs
         .map(|age| format!("{} ago", format_age_secs(age)))
@@ -1409,7 +1674,7 @@ pub(crate) fn worker_status_row(
         "run {} · output {output}",
         format_age_secs(child.elapsed_secs)
     );
-    activity_status_row(left, right, width)
+    activity_status_row(left, lead, right, width)
 }
 
 pub(crate) fn delegate_quiet_secs(delegate: &crate::agent::harness::DelegateSnapshot) -> u64 {
@@ -1418,22 +1683,27 @@ pub(crate) fn delegate_quiet_secs(delegate: &crate::agent::harness::DelegateSnap
 
 pub(crate) fn delegate_status_row(
     delegate: &crate::agent::harness::DelegateSnapshot,
+    herald: Option<&crate::stage::world_viz::Herald>,
     width: usize,
 ) -> StatusRow {
     let quiet = delegate_quiet_secs(delegate);
-    let left = if quiet >= 30 {
+    let detail = if quiet >= 30 {
         let transport = if delegate.event_age_secs.is_some_and(|age| age <= 2) {
             " · connected"
         } else {
             ""
         };
         format!(
-            "▸ delegate · quiet {}{transport} · last: {}",
+            "quiet {}{transport} · last: {}",
             format_age_secs(quiet),
             delegate.phase
         )
     } else {
-        format!("▸ delegate · {} · {}", delegate.phase, delegate.label)
+        format!("{} · {}", delegate.phase, delegate.label)
+    };
+    let (lead, left) = match herald {
+        Some(_) => heralded(herald, detail),
+        None => (0, format!("▸ delegate · {detail}")),
     };
     let peers = if delegate.delegates > 1 {
         format!(" · {} agents", delegate.delegates)
@@ -1446,10 +1716,22 @@ pub(crate) fn delegate_status_row(
         format_age_secs(quiet),
         format_age_secs(delegate.elapsed_secs)
     );
-    activity_status_row(left, right, width)
+    activity_status_row(left, lead, right, width)
 }
 
-fn activity_status_row(left: String, right: String, width: usize) -> StatusRow {
+/// Lead a live telemetry row with the call's herald, so a long build still
+/// reads `⚔ Trial by cargo test · compiling (rustc) · CPU active`.
+fn heralded(herald: Option<&crate::stage::world_viz::Herald>, detail: String) -> (usize, String) {
+    match herald {
+        Some(herald) => (
+            herald.lead_len(false),
+            format!("{} · {detail}", herald.text(false)),
+        ),
+        None => (0, format!("▸ {detail}")),
+    }
+}
+
+fn activity_status_row(left: String, lead: usize, right: String, width: usize) -> StatusRow {
     let rail = UnicodeWidthStr::width(right.as_str());
     let (left, padding, right) = if width > rail + 24 {
         let left = ellipsize(&left, width - rail - 1);
@@ -1464,6 +1746,7 @@ fn activity_status_row(left: String, right: String, width: usize) -> StatusRow {
     };
     StatusRow {
         left,
+        lead,
         padding,
         right,
         stall: None,
@@ -1498,6 +1781,7 @@ pub(crate) fn status_row_parts_with_silence(
         if stall_width == 0 || width <= stall_width + 4 {
             return Some(StatusRow {
                 left: ellipsize(&left, width),
+                lead: 0,
                 padding: 0,
                 right: String::new(),
                 stall: None,
@@ -1509,6 +1793,7 @@ pub(crate) fn status_row_parts_with_silence(
         let padding = width.saturating_sub(UnicodeWidthStr::width(left.as_str()) + stall_width);
         return Some(StatusRow {
             left,
+            lead: 0,
             padding,
             right: String::new(),
             stall,
@@ -1516,48 +1801,25 @@ pub(crate) fn status_row_parts_with_silence(
             verifier: false,
         });
     };
-    let state = if !cur.done {
-        ToolState::Running
-    } else if cur.not_started {
-        ToolState::NotStarted
-    } else if cur.err {
-        ToolState::Failed
-    } else if cur.inconclusive {
-        ToolState::Inconclusive
-    } else {
-        ToolState::Passed
-    };
-    let mark = match state {
-        ToolState::Running => "\u{25b8}",
-        ToolState::Passed => "\u{2713}",
-        ToolState::NotStarted => "\u{2298}",
-        ToolState::Failed => "\u{2717}",
-        ToolState::Inconclusive => "?",
-    };
+    let state = entry_state(cur);
+    // The herald names the place, the deed and its object; the literal call
+    // lives one click away in the ledger. Outcomes stay plain words.
+    let settled = state == ToolState::Passed;
     let verifier = cur.verifier.is_some();
-    let left = if !cur.done && is_agent_wait_tool(&cur.name) {
-        if cur.args.is_empty() {
-            "◇ COUNCIL · awaiting agents".to_string()
-        } else {
-            format!("◇ COUNCIL · awaiting agents · {}", cur.args)
-        }
-    } else if let Some(kind) = cur.verifier {
-        if cur.done && !cur.result_detail.is_empty() {
-            format!("{mark} VERIFY · {kind} · {}", cur.result_detail)
-        } else if cur.args.is_empty() {
-            format!("{mark} VERIFY · {kind}")
-        } else {
-            format!("{mark} VERIFY · {kind} · {}", cur.args)
-        }
-    } else if cur.not_started && cur.args.is_empty() {
-        format!("{mark} NOT STARTED · {}", cur.name)
-    } else if cur.not_started {
-        format!("{mark} NOT STARTED · {} · {}", cur.name, cur.args)
-    } else if cur.args.is_empty() {
-        format!("{mark} {}", cur.name)
+    let outcome = if verifier && cur.done && !cur.result_detail.is_empty() {
+        format!(" · {}", cur.result_detail)
     } else {
-        format!("{mark} {} · {}", cur.name, cur.args)
+        match state {
+            ToolState::NotStarted | ToolState::Failed if !verifier => failure_note(cur)
+                .map(|note| format!(" · {note}"))
+                .unwrap_or_default(),
+            ToolState::NotStarted => " · not started".to_string(),
+            ToolState::Inconclusive if !verifier => " · inconclusive".to_string(),
+            _ => String::new(),
+        }
     };
+    let left = format!("{}{outcome}", cur.herald.text(settled));
+    let lead = cur.herald.lead_len(settled);
     let verdict = if verifier {
         match state {
             ToolState::Running => "RUNNING · ",
@@ -1572,21 +1834,10 @@ pub(crate) fn status_row_parts_with_silence(
     // Live fan-out pips: while a multi-seat stage has published seat states,
     // the right rail leads with "proposer wave 2 · 3/6 back".
     let seat_pips = crate::ui::viz::agentviz::current_seat_pips().unwrap_or_default();
-    // Per-call age on the gating wait: unfinished entries use wall clock since
-    // start; a lingering finished entry keeps its stamped duration (≥1s).
-    let call_frag = if !cur.done {
-        format!(
-            "call {} · ",
-            format_age_secs(cur.started.elapsed().as_secs())
-        )
-    } else if let Some(ms) = cur.elapsed_ms.filter(|ms| *ms >= 1000) {
-        format!("call {} · ", format_age_secs(ms / 1000))
-    } else {
-        String::new()
-    };
+    // One clock on the rail. Per-call ages and the call count live in the
+    // ledger and the end-of-turn tally.
     let right = format!(
-        "{seat_pips}{verdict}{call_frag}#{} · {}",
-        strip.count(),
+        "{seat_pips}{verdict}{}",
         format_age_secs(strip.elapsed_secs())
     );
     let rail_width = UnicodeWidthStr::width(right.as_str()) + stall_width;
@@ -1597,6 +1848,7 @@ pub(crate) fn status_row_parts_with_silence(
     if width <= rail_width + gap + 4 {
         return Some(StatusRow {
             left: ellipsize(&left, width),
+            lead,
             padding: 0,
             right: String::new(),
             stall: None,
@@ -1610,6 +1862,7 @@ pub(crate) fn status_row_parts_with_silence(
     let padding = width.saturating_sub(left_width + rail_width);
     Some(StatusRow {
         left,
+        lead,
         padding,
         right,
         stall,

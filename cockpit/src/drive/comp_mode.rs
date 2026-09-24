@@ -72,13 +72,6 @@ pub(crate) fn stage_world_mirrors_allowed(world_pane_visible: bool) -> bool {
     world_pane_visible && ambient_stage_sim_allowed()
 }
 
-/// Decorative header/bay Realm pulse. Comp / lean keeps route chrome;
-/// default still paints the pulse.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn realm_pulse_paint_allowed() -> bool {
-    ambient_stage_sim_allowed()
-}
-
 fn store_mode(active: bool) {
     let code = if active { COMP_ON } else { COMP_OFF };
     CACHED_COMP_MODE.store(code, Ordering::Release);

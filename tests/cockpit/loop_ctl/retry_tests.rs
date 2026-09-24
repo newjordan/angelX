@@ -167,7 +167,13 @@ fn expired_retry_arms_one_offline_turn_and_success_restores_zero_interval() {
             .unwrap()
             .unwrap();
         assert_eq!(calls.load(Ordering::SeqCst), 1);
-        app.loop_harvest(reply);
+        app.loop_harvest_with_tools(
+            reply,
+            ToolStripSnapshot {
+                calls: 20,
+                ..Default::default()
+            },
+        );
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);
         assert!(app.loop_ctl.wake_at.unwrap() <= Instant::now());
         // The transcript retains the failure; successful recovery clears its active diagnostic.
@@ -191,7 +197,13 @@ fn retry_respects_longer_interval_and_successful_round_cadence() {
         assert!(app.loop_ctl.wake_at.unwrap() >= before_reload + Duration::from_secs(180));
         app.loop_ctl.interval_secs = 3;
         let before_success = Instant::now();
-        app.loop_harvest("DIRECTION: next owned check".into());
+        app.loop_harvest_with_tools(
+            "DIRECTION: next owned check".into(),
+            ToolStripSnapshot {
+                calls: 20,
+                ..Default::default()
+            },
+        );
         let wake = app.loop_ctl.wake_at.unwrap();
         assert!(wake >= before_success + Duration::from_secs(3));
         assert!(wake < Instant::now() + Duration::from_secs(4));

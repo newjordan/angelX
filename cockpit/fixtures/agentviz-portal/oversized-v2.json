@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sequence": 44,
   "published_at_monotonic_ms": 12200,
   "stage": "this stage label is deliberately longer than the sixty-four-byte portal boundary",

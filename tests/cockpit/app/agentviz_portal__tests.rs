@@ -1,13 +1,13 @@
 use super::*;
 use crate::ui::viz::agentviz::StageSnapshot;
 
-fn fixture(name: &str) -> AngelVizStateV1 {
+fn fixture(name: &str) -> AngelVizStateV2 {
     let raw = match name {
-        "normal" => include_str!("../../../cockpit/fixtures/agentviz-portal/normal-v1.json"),
-        "empty" => include_str!("../../../cockpit/fixtures/agentviz-portal/empty-v1.json"),
-        "oversized" => include_str!("../../../cockpit/fixtures/agentviz-portal/oversized-v1.json"),
-        "stale" => include_str!("../../../cockpit/fixtures/agentviz-portal/stale-v1.json"),
-        "invalid" => include_str!("../../../cockpit/fixtures/agentviz-portal/invalid-v1.json"),
+        "normal" => include_str!("../../../cockpit/fixtures/agentviz-portal/normal-v2.json"),
+        "empty" => include_str!("../../../cockpit/fixtures/agentviz-portal/empty-v2.json"),
+        "oversized" => include_str!("../../../cockpit/fixtures/agentviz-portal/oversized-v2.json"),
+        "stale" => include_str!("../../../cockpit/fixtures/agentviz-portal/stale-v2.json"),
+        "invalid" => include_str!("../../../cockpit/fixtures/agentviz-portal/invalid-v2.json"),
         _ => panic!("unknown fixture {name}"),
     };
     serde_json::from_str(raw).expect("fixture must be syntactically valid JSON")
@@ -28,11 +28,11 @@ fn projection_is_utf8_safe_and_bounded() {
             seq: 91,
         }),
     };
-    let packet = AngelVizStateV1::project(
+    let packet = AngelVizStateV2::project(
         &activity,
         12_345,
-        AngelVizHealthV1::Nominal,
-        AngelVizPaletteV1::Noir,
+        AngelVizHealthV2::Nominal,
+        AngelVizPaletteV2::Noir,
     );
     packet.validate().expect("projected packet must validate");
     assert_eq!(packet.seats.len(), MAX_SEATS);
@@ -99,17 +99,16 @@ fn seat_updates_refresh_returned_count_and_carry_the_frame() {
     let mut runtime = PortalRuntime::with_renderer(None);
     runtime.note_activity(&wave(5, Vec::new()));
     let shown = runtime.presentation().expect("stage presents");
-    assert_eq!((shown.active_seats, shown.returned_seats), (3, 0));
+    assert_eq!(shown.stage, "proposer wave 2");
 
     // A frame lands for the current sequence, then two seats come back:
-    // the returned count refreshes and the frame rides the seq bump.
+    // the frame rides the seq bump until the table with their answers lands.
     runtime.frame = Some(PortalFrame {
         sequence: 5,
         pixels: Arc::from(vec![0u8; 4]),
     });
     runtime.note_activity(&wave(6, vec![SeatState::Returned, SeatState::Failed]));
     let shown = runtime.presentation().expect("stage still presents");
-    assert_eq!(shown.returned_seats, 1, "only Returned counts as back");
     assert!(
         shown.frame.is_some(),
         "the frame carries across a same-stage seat bump"
@@ -127,7 +126,7 @@ fn seat_updates_refresh_returned_count_and_carry_the_frame() {
         }),
     });
     let shown = runtime.presentation().expect("judge presents");
-    assert_eq!((shown.active_seats, shown.returned_seats), (1, 0));
+    assert_eq!(shown.stage, "judge");
     assert!(
         shown.frame.is_none(),
         "a new stage never wears an old frame"
@@ -208,5 +207,42 @@ fn renderer_error_receipt_cannot_smuggle_a_frame() {
     assert_eq!(
         parse_renderer_output(9, &output).unwrap_err(),
         "renderer error receipt included frame bytes"
+    );
+}
+
+#[test]
+fn each_seat_carries_its_state_to_the_table() {
+    // Seats without a published update are still at work.
+    let activity = ActivitySnapshot {
+        sequence: 12,
+        stage: Some(StageSnapshot {
+            stage_id: 10,
+            name: "proposer wave 1".into(),
+            agents: vec!["a".into(), "b".into(), "c".into(), "d".into()],
+            seat_states: vec![SeatState::Returned, SeatState::Failed, SeatState::Cut],
+            seq: 12,
+        }),
+    };
+    let packet = AngelVizStateV2::project(
+        &activity,
+        1,
+        AngelVizHealthV2::Nominal,
+        AngelVizPaletteV2::Noir,
+    );
+    let states: Vec<_> = packet.seats.iter().map(|seat| seat.state).collect();
+    assert_eq!(
+        states,
+        [
+            AngelVizSeatStateV2::Returned,
+            AngelVizSeatStateV2::Failed,
+            AngelVizSeatStateV2::Cut,
+            AngelVizSeatStateV2::Running,
+        ]
+    );
+    let json = serde_json::to_string(&packet).unwrap();
+    assert!(json.contains(r#""state":"returned""#), "{json}");
+    assert_eq!(
+        fixture("normal").seats[0].state,
+        AngelVizSeatStateV2::Returned
     );
 }

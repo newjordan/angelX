@@ -200,7 +200,14 @@ print('network-denied-unix-retained')
             "import pathlib,sys; pathlib.Path(sys.argv[1]).write_text('bad')",
             allowed.join("reviewer-must-not-write").to_str().unwrap(),
         ],
-        &SandboxPolicy::read_only(),
+        &SandboxPolicy {
+            writable_roots: Vec::new(),
+            allow_network: false,
+            enforce: true,
+            mandatory: true,
+            sealed_reads: Vec::new(),
+            deny_reads: Vec::new(),
+        },
     )
     .unwrap();
     launch

@@ -8,8 +8,6 @@
 use super::raycast::{self, RayMap, RaySprite, RayView};
 use super::*;
 use image::DynamicImage;
-use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
@@ -790,35 +788,6 @@ impl World {
         (!self.cinematic_travelling()).then_some(self.target)
     }
 
-    /// Noir caption row for the braille plate scene: gold sigil bar, the
-    /// landmark bold, the live activity murmured dim after an em-dash.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn plate_caption(&self) -> Line<'static> {
-        use crate::ui::hud::{HUD_DIM, HUD_GOLD, HUD_TEXT};
-        Line::from(vec![
-            Span::styled("▌ ", Style::new().fg(HUD_GOLD)),
-            Span::styled(
-                building_name(self.ambient_building()).to_string(),
-                Style::new().fg(HUD_TEXT).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                format!(" — {}", self.ride_caption()),
-                Style::new().fg(HUD_DIM),
-            ),
-        ])
-    }
-
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn ride_ward_caption(&self) -> String {
-        let destination = self.building_pos(self.target);
-        self.district_on_route(
-            self.avatar_vis,
-            (destination.0 as f32, destination.1 as f32),
-        )
-        .map(|district| format!(" — through the {} ward", district.name))
-        .unwrap_or_default()
-    }
-
     pub(super) fn cinematic_zoom_pending(&self) -> bool {
         !self.cinematic_travelling() && self.settle_ticks < CINEMATIC_SETTLE_TICKS
     }
@@ -923,20 +892,6 @@ fn load_location_atlas() -> Option<DynamicImage> {
     let path = crate::platform::runtime_paths::cockpit_dir()
         .join("assets/world-cinematics/location-atlas.png");
     image::ImageReader::open(path).ok()?.decode().ok()
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn building_name(building: Building) -> &'static str {
-    match building {
-        Building::Keep => "keep",
-        Building::Gatehouse => "gatehouse",
-        Building::Rookery => "rookery",
-        Building::Scriptorium => "scriptorium",
-        Building::Smithy => "smithy",
-        Building::Chapel => "chapel",
-        Building::RoundTable => "Round Table",
-        Building::Observatory => "observatory",
-    }
 }
 
 fn district_waymarker_id(color: (u8, u8, u8)) -> u8 {

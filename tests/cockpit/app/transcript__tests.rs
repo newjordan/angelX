@@ -197,34 +197,6 @@ fn activity_lines_are_indented_and_yellow_per_line() {
 }
 
 #[test]
-fn receipt_gauge_testbackend_matches_guard_fill() {
-    use ratatui::{Terminal, backend::TestBackend, widgets::Paragraph};
-    let receipt = crate::ui::views::turn_event_view::receipt_gauge_text(
-        ".. action receipt · shell dispatch error ×29 · last 2 ms · 1–29 ms",
-        "action receipt · shell dispatch error · 30 ms",
-    )
-    .unwrap();
-    let guard = crate::ui::views::turn_event_view::notice_gauge_text("passive wait blocked", 30);
-    let mut terminal = Terminal::new(TestBackend::new(140, 2)).unwrap();
-    terminal
-        .draw(|frame| {
-            frame.render_widget(
-                Paragraph::new(vec![activity_line(&receipt), activity_line(&guard)]),
-                frame.area(),
-            );
-        })
-        .unwrap();
-    let buffer = terminal.backend().buffer();
-    assert_eq!(buffer[(2, 0)].bg, buffer[(2, 1)].bg);
-    assert_eq!(buffer[(2, 0)].bg, GAUGE_HOT_FILL.bg.unwrap());
-    assert_ne!(buffer[(2, 0)].bg, Color::Reset);
-    println!(
-        "receipt TestBackend: saturated receipt and guard background match {:?}",
-        buffer[(2, 0)].bg
-    );
-}
-
-#[test]
 fn gauge_rows_fill_progressively_and_keep_height_stable() {
     let note = "passive wait blocked: status/sleep calls were not started";
     let low = crate::ui::views::turn_event_view::notice_gauge_text(note, 3);

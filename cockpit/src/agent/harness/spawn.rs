@@ -409,9 +409,10 @@ impl Grant {
         match self {
             Self::None => {}
             Self::ReadOnly => {
-                r.register(Box::new(ShellTool::read_only_in_dir(
-                    workspace.to_path_buf(),
-                )));
+                r.register(Box::new(
+                    ShellTool::in_dir(workspace.to_path_buf())
+                        .with_mutation_targets(Arc::clone(&r.mutation_targets)),
+                ));
                 register_read_tools(&mut r, workspace);
             }
             Self::Code => {

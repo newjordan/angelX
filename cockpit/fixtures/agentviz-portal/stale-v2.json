@@ -1,12 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sequence": 41,
   "published_at_monotonic_ms": 11900,
   "stage": "proposer setup",
   "seats": [
     {
       "slot": 0,
-      "label": "solver-a"
+      "label": "solver-a",
+      "state": "running"
     }
   ],
   "status": {
