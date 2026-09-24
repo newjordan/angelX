@@ -66,3 +66,27 @@ fn dot_cells_do_not_own_neighbors_or_erase_overlays() {
         buffer.cell((3, 2)).unwrap().symbol()
     );
 }
+
+#[test]
+fn inside_tmux_every_command_rides_passthrough_and_decodes_the_same() {
+    let geometry = DotGeometry::new(8, 4, (8, 16), 2).expect("geometry");
+    let mut image = ColoredBrailleImage {
+        width: geometry.grid_width,
+        height: geometry.grid_height,
+        cells: vec![Default::default(); geometry.grid_width * geometry.grid_height],
+    };
+    image.cells[0].glyph = '\u{28ff}';
+    image.cells[0].fg = [255; 3];
+    let size = Size::new(8, 4);
+    let mut plain = DotProtocol::encode_for(geometry, &image, size, 7, None, false).unwrap();
+    let mut wrapped = DotProtocol::encode_for(geometry, &image, size, 7, None, true).unwrap();
+    let plain = plain.take_upload().unwrap();
+    let wrapped = wrapped.take_upload().unwrap();
+    assert!(wrapped.starts_with("\x1bPtmux;\x1b\x1b_Gq=2,a=T,U=1"));
+    assert!(wrapped.ends_with("\x1b\x1b\\\x1b\\"));
+    let unwrapped = wrapped
+        .replace("\x1bPtmux;", "")
+        .replace("\x1b\x1b\\\x1b\\", "\x1b\\")
+        .replace("\x1b\x1b_G", "\x1b_G");
+    assert_eq!(unwrapped, plain);
+}

@@ -295,14 +295,15 @@ fn status_row_fits_width_and_shows_state() {
         let row = status_text(&s, width);
         assert!(row.chars().count() <= width, "width={width}: {row:?}");
     }
-    assert!(status_text(&s, 40).starts_with('\u{25b8}'));
-    assert!(status_text(&s, 40).contains("#1"));
+    let running = status_text(&s, 40);
+    assert!(running.starts_with("⚔ Trial by cargo build"), "{running}");
+    assert_eq!(status_row_parts(&s, 40).unwrap().state, ToolState::Running);
     s.result("shell", "ok");
-    assert!(status_text(&s, 40).starts_with('\u{2713}'));
+    assert_eq!(status_row_parts(&s, 40).unwrap().state, ToolState::Passed);
 }
 
 #[test]
-fn status_row_shows_per_call_age_for_unfinished_entry() {
+fn ledger_shows_per_call_age_for_unfinished_entry() {
     let mut s = ToolStrip::default();
     s.call("shell", "cargo build");
     backdate_current(&mut s, Duration::from_secs(43));
@@ -315,10 +316,22 @@ fn status_row_shows_per_call_age_for_unfinished_entry() {
     );
     let row = status_text(&s, 80);
     assert!(
-        row.contains("call 43s"),
-        "unfinished call must surface its age: {row}"
+        row.ends_with(" 43s"),
+        "the rail keeps the turn clock: {row}"
     );
-    assert!(row.contains("#1"), "{row}");
+    assert!(!row.contains("call 43s") && !row.contains("#1"), "{row}");
+    assert!(
+        s.ledger_rows(80, 8).is_empty(),
+        "the ledger opens on request"
+    );
+    s.toggle_ledger();
+    let ledger = s.ledger_rows(80, 8);
+    assert_eq!(ledger.len(), 1);
+    assert_eq!(
+        (ledger[0].call.as_str(), ledger[0].args.as_str()),
+        ("shell", "  cargo build")
+    );
+    assert_eq!(ledger[0].age, "43s", "unfinished call must surface its age");
 }
 
 #[test]
@@ -398,7 +411,7 @@ fn agent_wait_uses_semantic_two_stage_motion_without_false_stall() {
     assert!(strip.is_waiting_on_agents());
     assert_eq!(motion_cue(&strip), MotionCue::AgentDispatch);
     let status = status_text(&strip, 88);
-    assert!(status.contains("COUNCIL · awaiting agents"), "{status}");
+    assert!(status.starts_with("⚜ Awaiting the council"), "{status}");
     let dispatch_a = bar_row(&strip, 60, 0.3);
     let dispatch_b = bar_row(&strip, 60, 1.1);
     assert!(!dispatch_a.trim().is_empty());
@@ -444,7 +457,9 @@ fn status_row_fits_terminal_cells_for_wide_unicode() {
             "width={width}: {row:?}"
         );
     }
-    assert!(status_text(&strip, 40).contains("#1"));
+    let row = status_text(&strip, 40);
+    assert!(row.starts_with("¶ Studying 実装.md"), "{row}");
+    assert!(row.ends_with(" 0s"), "{row}");
 }
 
 #[test]
@@ -452,7 +467,10 @@ fn verifier_status_is_truthful_and_keeps_structured_result_detail() {
     let mut s = ToolStrip::default();
     s.call("functions.run_tests", "args=--no-default-features");
     let running = status_text(&s, 80);
-    assert!(running.contains("VERIFY · TEST"), "{running}");
+    assert!(
+        running.starts_with("⚔ Trial by the test suite"),
+        "{running}"
+    );
     assert!(running.contains("RUNNING"), "{running}");
 
     s.result(
@@ -460,7 +478,7 @@ fn verifier_status_is_truthful_and_keeps_structured_result_detail() {
         "tests: 10 passed, 2 failed; reward: 0.4",
     );
     let failed = status_text(&s, 80);
-    assert!(failed.starts_with('\u{2717}'), "{failed}");
+    assert_eq!(status_row_parts(&s, 80).unwrap().state, ToolState::Failed);
     assert!(failed.contains("10 passed · 2 failed"), "{failed}");
     assert!(failed.contains("FAIL"), "{failed}");
     assert_eq!(s.snapshot().errors, 1);
@@ -485,16 +503,18 @@ fn structured_zero_and_nonzero_diagnostics_drive_pass_fail() {
 
 #[test]
 fn cargo_subcommands_receive_specific_verifier_labels() {
-    for (args, label) in [
-        ("test --workspace", "TEST"),
-        ("check", "CHECK"),
-        ("clippy --all-targets", "LINT"),
-        ("fmt --check", "FORMAT"),
+    for (args, label, trial) in [
+        ("test --workspace", "TEST", "cargo test"),
+        ("check", "CHECK", "cargo check"),
+        ("clippy --all-targets", "LINT", "cargo clippy"),
+        ("fmt --check", "FORMAT", "cargo fmt"),
     ] {
         let mut s = ToolStrip::default();
         s.call("cargo", args);
+        assert_eq!(s.entries[0].verifier, Some(label));
         let row = status_text(&s, 60);
-        assert!(row.contains(&format!("VERIFY · {label}")), "{row}");
+        assert!(row.starts_with(&format!("⚔ Trial by {trial}")), "{row}");
+        assert!(row.contains("RUNNING"), "{row}");
         assert_eq!(motion_cue(&s), MotionCue::VerifierLock);
     }
 }
@@ -787,7 +807,7 @@ fn not_started_result_closes_call_as_non_success() {
     assert_eq!(s.snapshot().errors, 0);
     let row = status_row_parts(&s, 80).unwrap();
     assert_eq!(row.state, ToolState::NotStarted);
-    assert!(row.left.contains("NOT STARTED"), "{}", row.left);
+    assert!(row.left.ends_with("· not started"), "{}", row.left);
     assert!(s.take_summary().unwrap().contains("1 not started"));
 }
 
@@ -835,11 +855,20 @@ py
         "cd /home/user/comps/qwen/qwen38-125b-a6b-cuda-v1 && tools/local-baseline.sh",
         "CUDA_ENGINE_EXECUTABLE=/x/cuda-engine ./tools/qwen38-125b-a6b-measure-and-score.sh",
         "timeout 900 bash tools/benchmark.sh --local-iterate",
+        // The Yukon board CLI's own local run (apollo's bitcoin loop).
+        "cd qsb-frontier && yukon run --track pinning",
+        "yukon validate --track subset",
     ] {
         let fp = measured_submission_fingerprint("shell", cmd);
         assert!(
             fp.as_ref().is_some_and(|(_, sub)| !sub),
             "{cmd} should be a measurement: {fp:?}"
+        );
+    }
+    for read in ["yukon benchmark list", "yukon run --help", "yukon status"] {
+        assert!(
+            measured_submission_fingerprint("shell", read).is_none(),
+            "{read} is not a measurement"
         );
     }
     assert!(
@@ -860,4 +889,51 @@ py
         segs.iter().map(|s| s.trim()).collect::<Vec<_>>(),
         vec!["a", "b 'x|y'", r#"c "d;e""#, "f"]
     );
+}
+
+#[test]
+fn ledger_folds_older_calls_and_fits_its_width() {
+    let mut s = ToolStrip::default();
+    for index in 0..12 {
+        s.call("read_file", &format!("path=src/file_{index}.rs"));
+        s.result("read_file", "ok");
+    }
+    s.call("shell", "cargo test --workspace");
+    assert_eq!(s.ledger_height(), 0, "closed until asked");
+    s.toggle_ledger();
+    assert_eq!(s.ledger_height(), LEDGER_ROWS);
+
+    let rows = s.ledger_rows(60, LEDGER_ROWS);
+    assert_eq!(rows.len(), LEDGER_ROWS);
+    assert_eq!(rows[0].state, None);
+    assert_eq!(rows[0].call, "⋯ 6 earlier");
+    assert_eq!(rows[1].args, "  path=src/file_6.rs");
+    let last = rows.last().unwrap();
+    assert_eq!(
+        (last.branch, last.mark, last.call.as_str()),
+        ("└ ", "\u{25b8}", "shell")
+    );
+    assert!(rows[..LEDGER_ROWS - 1].iter().all(|row| row.branch == "├ "));
+    assert_eq!(
+        last.args, "      cargo test --workspace",
+        "arguments share a column"
+    );
+    for row in &rows[1..] {
+        let cells = 4
+            + UnicodeWidthStr::width(row.call.as_str())
+            + UnicodeWidthStr::width(row.args.as_str())
+            + row.padding
+            + UnicodeWidthStr::width(row.age.as_str());
+        assert_eq!(cells, 60, "{} {}", row.call, row.args);
+    }
+
+    // A squeezed pane keeps the newest call rather than the fold line.
+    let one = s.ledger_rows(60, 1);
+    assert_eq!(one.len(), 1);
+    assert_eq!(one[0].call, "shell");
+    s.begin_turn();
+    assert!(s.ledger_open(), "the operator's choice outlives the turn");
+    assert_eq!(s.ledger_height(), 0, "a fresh turn has no calls to list");
+    s.toggle_ledger();
+    assert!(!s.ledger_open());
 }

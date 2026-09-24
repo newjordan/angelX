@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sequence": 43,
   "published_at_monotonic_ms": 12100,
   "stage": null,

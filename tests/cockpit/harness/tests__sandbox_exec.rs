@@ -25,7 +25,14 @@ fn sandboxed_relative_policy_keeps_workspace_identity_after_chdir() {
     let workspace = parent.join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     std::fs::write(parent.join("outside.txt"), "unchanged").unwrap();
-    let mut policy = SandboxPolicy::read_only();
+    let mut policy = SandboxPolicy {
+        writable_roots: Vec::new(),
+        allow_network: false,
+        enforce: true,
+        mandatory: true,
+        sealed_reads: Vec::new(),
+        deny_reads: Vec::new(),
+    };
     policy.writable_roots.push(relative_workspace.clone());
 
     let observation = run_sandboxed_observed(

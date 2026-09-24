@@ -27,12 +27,15 @@ pub(crate) const WORKER_SYS: &str = "You are a single iteration of a long-horizo
     satisfy the format: an unsupported finding is worse than an admitted unknown. Be terse and \
     specific; this is raw material a later step will synthesize, not a finished answer.";
 
-/// Folded into the iteration prompt once the loop has stalled: change the frame,
-/// not the parameters.
-pub(crate) const PIVOT_NOTE: &str = "PIVOT — the recent directions stalled. Do not tune the same \
-    approach harder. Change a STRUCTURAL constraint of the approach: a different mechanism, \
-    decomposition, or measurement — a genuinely different frame, not a parameter tweak. Finish the \
-    experiment already in flight and record its measurement first; the goal itself never changes.";
+/// Folded into the iteration prompt once the loop has stalled: the option to
+/// change the frame rather than the parameters. It is offered, never ordered;
+/// the iteration decides whether its line is exhausted.
+pub(crate) const PIVOT_NOTE: &str = "PIVOT (your option) — the recent directions have stalled. If \
+    your evidence says the current approach is exhausted, change a STRUCTURAL constraint of it: a \
+    different mechanism, decomposition, or measurement — a genuinely different frame, not a \
+    parameter tweak. If the line in flight is still paying off, keep going deeper on it instead. \
+    Either way, record the measurement of the experiment already in flight first; the goal itself \
+    never changes.";
 
 /// Number a list `1. … 2. …` for a prompt.
 pub(crate) fn numbered(items: &[String]) -> String {
@@ -130,9 +133,10 @@ pub(crate) fn curated_prompt(
     };
     format!(
         "Problem:\n{problem}\n\nFindings so far ({n}):\n{findings_txt}{open_leads}\n\nDirections \
-         already tried:\n{tried}\n\nTake a NEW direction, materially distinct from every one already \
-         tried, and surface concrete, verifiable findings the directions above missed. Do not \
-         restate known findings.{pivot_note}\n\n{contract}",
+         already tried:\n{tried}\n\nGo deeper on a direction that is still paying off, or take a new \
+         one, materially distinct from those already tried, when your evidence says it is spent. \
+         Surface concrete, verifiable findings the directions above missed. Do not restate known \
+         findings.{pivot_note}\n\n{contract}",
         n = findings.len()
     )
 }

@@ -917,8 +917,6 @@ fn shell_invocation() -> &'static ShellInvocation {
 pub(crate) struct ShellTool {
     policy: SandboxPolicy,
     cwd: Option<PathBuf>,
-    read_only: bool,
-    confined_scratch: bool,
     mutation_targets: std::sync::Arc<crate::agent::tools::build::MutationTargets>,
 }
 
@@ -944,39 +942,6 @@ impl ShellTool {
         Self {
             policy,
             cwd: Some(dir),
-            read_only: false,
-            confined_scratch: false,
-            mutation_targets: std::sync::Arc::new(
-                crate::agent::tools::build::MutationTargets::default(),
-            ),
-        }
-    }
-    /// Capture-enabled recovery cannot grant all of /tmp or inherit YOLO.
-    pub(crate) fn confined_in_dir(dir: PathBuf) -> Self {
-        Self {
-            policy: SandboxPolicy {
-                writable_roots: vec![dir.clone()],
-                allow_network: false,
-                enforce: true,
-                mandatory: true,
-                sealed_reads: Vec::new(),
-                deny_reads: Vec::new(),
-            },
-            cwd: Some(dir),
-            read_only: false,
-            confined_scratch: true,
-            mutation_targets: std::sync::Arc::new(
-                crate::agent::tools::build::MutationTargets::default(),
-            ),
-        }
-    }
-    /// A shell scoped to `dir` as cwd, with workspace writes blocked.
-    pub(crate) fn read_only_in_dir(dir: PathBuf) -> Self {
-        Self {
-            policy: SandboxPolicy::read_only(),
-            cwd: Some(dir),
-            read_only: true,
-            confined_scratch: false,
             mutation_targets: std::sync::Arc::new(
                 crate::agent::tools::build::MutationTargets::default(),
             ),
@@ -1016,28 +981,12 @@ impl ShellTool {
         ),
         String,
     > {
-        let confined_command;
-        let command = if self.confined_scratch {
-            // Constant shell text only; no path is interpolated. The child
-            // starts in the owned workspace and may only write beneath it.
-            confined_command = format!(
-                "export TMPDIR=\"$PWD/.angel-experiment-tmp\" TMP=\"$PWD/.angel-experiment-tmp\" TEMP=\"$PWD/.angel-experiment-tmp\" XDG_CACHE_HOME=\"$PWD/.angel-experiment-tmp/cache\"; {command}"
-            );
-            confined_command.as_str()
-        } else {
-            command
-        };
         let shell = shell_invocation();
         let mut argv: Vec<&str> = shell.argv.to_vec();
         argv.push(command);
         // Capability evidence is recorded before execution, including calls
-        // which fail after a partial write. A scoped/inspection call cannot
-        // erase uncertainty from an earlier unrestricted writable command.
-        if let Some(paths) = &scope.paths {
-            self.mutation_targets.record_scoped_paths(paths);
-        } else {
-            self.mutation_targets.mark_opaque();
-        }
+        // which fail after a partial write: any shell call may write.
+        self.mutation_targets.mark_opaque();
         let obs = run_sandboxed_observed_cancellable(
             &shell.program,
             &argv,
@@ -1179,10 +1128,6 @@ impl Tool for ShellTool {
              stay Landlock-confined to the workspace; tool timeouts and hooks still apply; \
              returns combined stdout+stderr. Prefer concrete tool-backed code changes over \
              status prose."
-        } else if self.read_only {
-            "Run a read-only shell command (bash -c, with `pipefail` set) inside the sandbox. \
-             The filesystem is readable, but writes to the workspace are blocked; returns \
-             combined stdout+stderr."
         } else {
             "Run a shell command (bash -c, with `pipefail` set, so a pipeline reports a failing \
              stage rather than its last stage) inside the sandbox. Writes are confined to the \
@@ -1195,7 +1140,7 @@ impl Tool for ShellTool {
         ToolDef {
             name: "shell".to_string(),
             description: format!(
-                "{description} Omit scope options for builds, benchmarks, installs and background jobs: they need scratch writes. read_only and write_paths restrict writes for the entire process tree, including temporary files; network stays as usual. write_paths is not an output-file list. Act on actual tool evidence: preserve the earliest prerequisite failure, check usable input before dependent measurements, use allowed scratch, and discover optional dependencies or authorized reference paths from real errors and permissions. Do not score failed input as zero performance. Explicit read_only/write_paths remain authoritative; request a user-visible scope change if they block needed work, never omit or auto-remove them. {}{}Never use shell `sleep` to poll a job or submission; keep doing \
+                "{description} Act on actual tool evidence: preserve the earliest prerequisite failure, check usable input before dependent measurements, and discover optional dependencies from real errors. Do not score failed input as zero performance. {}{}Never use shell `sleep` to poll a job or submission; keep doing \
                  useful work and use one later status snapshot. Competition submission status \
                  arrives from the harness watcher.",
                 if task_shell_no_detach_active() {
@@ -1215,9 +1160,7 @@ impl Tool for ShellTool {
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "command": { "type": "string", "description": "shell command. Judge from actual exit status and output; quoted text, a quiet success, and a valid `$url` are not empty-input or zero-frame evidence." },
-                    "read_only": { "type": "boolean", "description": "Enforce no filesystem writes except /dev/null; network is unchanged; default false. Explicit restrictions stay authoritative; request a user-visible scope change instead of omitting them." },
-                    "write_paths": { "type": "array", "maxItems": 128, "items": { "type": "string" }, "description": "Optional strict edit restriction, NOT an output-file list. Only listed existing source files are writable; temporary files, new files and network are denied, including in child processes. Omit for builds, benchmarks, installs and background jobs. Empty means read-only. A denial under this grant is a permission failure, not zero performance." }
+                    "command": { "type": "string", "description": "shell command. Judge from actual exit status and output; quoted text, a quiet success, and a valid `$url` are not empty-input or zero-frame evidence." }
                 },
                 "required": ["command"],
             }),
@@ -1336,18 +1279,6 @@ impl Tool for ShellTool {
                         "\n[no output on stdout or stderr; exit status above is the only diagnostic]",
                     );
                 }
-                if let Some(paths) = &scope.paths {
-                    let network = if scope.policy.allow_network {
-                        "network available"
-                    } else {
-                        "network disabled"
-                    };
-                    if paths.is_empty() {
-                        message.push_str(&format!("\n[effective shell scope: filesystem read-only; {network}. An empty write_paths array selects this scope even with read_only=false. This result alone does not establish a host DNS, disk or permissions failure.]"));
-                    } else {
-                        message.push_str(&format!("\n[effective shell scope: writes only to write_paths; temporary-file creation blocked for the entire process tree; {network}. For builds or benchmarks, omit write_paths to use the workspace's normal permissions.]"));
-                    }
-                }
                 if obs.exit == Some(127)
                     && let Some(error) =
                         crate::agent::tools::runtime_missing::from_command_not_found(&obs.output)
@@ -1362,25 +1293,19 @@ impl Tool for ShellTool {
                     message.push('\n');
                     message.push_str(&hint);
                 }
-                if let Some(hint) = (scope.paths.is_none()
-                    && self.policy.enforce
-                    && !crate::platform::yolo::enabled())
-                .then(|| looks_like_nested_sandbox_denial(&obs.output))
-                .flatten()
+                if let Some(hint) = (self.policy.enforce && !crate::platform::yolo::enabled())
+                    .then(|| looks_like_nested_sandbox_denial(&obs.output))
+                    .flatten()
                 {
                     message.push('\n');
                     message.push_str(hint);
-                } else if scope.paths.is_none()
-                    && !self.read_only
-                    && self.policy.enforce
+                } else if self.policy.enforce
                     && !crate::platform::yolo::enabled()
                     && privileged_install_attempt(command)
                 {
                     message.push('\n');
                     message.push_str(SANDBOX_INSTALL_HINT);
-                } else if scope.paths.is_none()
-                    && !self.read_only
-                    && self.policy.enforce
+                } else if self.policy.enforce
                     && !crate::platform::yolo::enabled()
                     && user_home_installer_attempt(command)
                     && looks_like_sandbox_write_denial(&obs.output)
@@ -1388,8 +1313,7 @@ impl Tool for ShellTool {
                     message.push('\n');
                     message.push_str(SANDBOX_USER_INSTALL_HINT);
                 }
-                if scope.paths.is_none()
-                    && self.policy.enforce
+                if self.policy.enforce
                     && !crate::platform::yolo::enabled()
                     && looks_like_sandbox_write_denial(&obs.output)
                 {

@@ -365,42 +365,6 @@ fn compact_header_keeps_project_controls_when_operator_status_is_long() {
 }
 
 #[test]
-fn comp_mode_skips_realm_pulse_paint_without_slowing_default() {
-    use crate::tests::TestEnvGuard;
-    let _lock = env_lock();
-    let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
-    crate::drive::comp_mode::invalidate_cache();
-    assert!(crate::drive::comp_mode::realm_pulse_paint_allowed());
-
-    let mut app = seed_preview_app();
-    app.world.note_tool_call_event(
-        harness::ToolEventId("comp-pulse".to_string()),
-        "exec_command",
-        "cmd=cargo test, workdir=/tmp/project",
-    );
-    let standard = render_app_text(&mut app, 80, 24);
-    assert!(
-        !standard.contains("Smithy · cargo test · running") && standard.contains("MODEL"),
-        "compact header keeps controls without redundant world telemetry\n{standard}"
-    );
-
-    let _on = TestEnvGuard::set("ANGEL_COMP_MODE", "1");
-    crate::drive::comp_mode::invalidate_cache();
-    assert!(!crate::drive::comp_mode::realm_pulse_paint_allowed());
-    let mut armed = seed_preview_app();
-    armed.world.note_tool_call_event(
-        harness::ToolEventId("comp-pulse-lean".to_string()),
-        "exec_command",
-        "cmd=cargo test, workdir=/tmp/project",
-    );
-    let lean = render_app_text(&mut armed, 80, 24);
-    assert!(
-        !lean.contains("Smithy · cargo test · running"),
-        "comp/lean must not paint the decorative pulse\n{lean}"
-    );
-}
-
-#[test]
 fn agent_summary_uses_structured_cell_bounded_realm_pulse() {
     let _lock = env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
@@ -1106,8 +1070,8 @@ fn comp_mode_skips_scryglass_catalog_and_lesson_body_without_slowing_default() {
     );
 }
 
-/// Comp / lean keeps Scryglass route identity but must not build world.title()
-/// (town / quest / ward / activity / renown) every frame.
+/// Comp / lean keeps Scryglass route identity, and no mode paints the live
+/// town into the world pane's caption.
 #[test]
 fn hidden_comp_skips_live_world_title_without_slowing_default() {
     use crate::tests::TestEnvGuard;
@@ -1129,15 +1093,6 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
 
     let mut app = seed_preview_app();
     let town = app.world.town_name().to_string();
-    let live = app.world.title();
-    let realm = live
-        .trim()
-        .strip_prefix("Realm · ")
-        .unwrap_or_else(|| live.trim());
-    assert!(
-        realm.contains(&town),
-        "default world.title still includes the live town"
-    );
     let standard = render_app_text(&mut app, 144, 48);
     assert!(
         !standard.contains("Scryglass · REALM"),
@@ -1165,7 +1120,7 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
     assert!(
         !lean.contains(&lean_town),
-        "comp-mode must not build world.title() live suffix\n{lean}"
+        "comp-mode must not paint the live town suffix\n{lean}"
     );
 
     drop(_on);
@@ -1890,19 +1845,9 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
         !screen.contains("ARRIVAL"),
         "no town establishing shot over a Mines plate\n{screen}"
     );
-    let hud = app
-        .world
-        .quest_hud(80)
-        .expect("a live quest has a HUD line");
-    let hud_text: String = hud
-        .spans
-        .iter()
-        .map(|span| span.content.as_ref())
-        .collect::<String>();
-    let head = hud_text.split(" · ").next().expect("the region leads");
     assert!(
-        !screen.lines().any(|line| line.contains(head)) && screen.contains("[Back]"),
-        "the quiet world keeps its controls and omits decorative quest captions"
+        screen.contains("[Back]"),
+        "the quiet world keeps its controls\n{screen}"
     );
 
     // Home again: the loop finishes, the Homecoming walk expires, and the
@@ -1972,8 +1917,15 @@ fn the_realm_route_paints_the_overworld_map_by_default() {
             }
         }
     }
-    assert!(halfblocks > 200, "the map paints in half blocks ({halfblocks})");
-    assert!(inks.len() > 12, "the realm, not a flat fill ({} inks)", inks.len());
+    assert!(
+        halfblocks > 200,
+        "the map paints in half blocks ({halfblocks})"
+    );
+    assert!(
+        inks.len() > 12,
+        "the realm, not a flat fill ({} inks)",
+        inks.len()
+    );
     assert_eq!(
         take_ride_compose_count(),
         0,

@@ -20,19 +20,14 @@ pub(crate) struct CompetitionPackage {
     pub(crate) label: &'static str,
 }
 
-/// What a competition loop worker is allowed to see and do.
+/// How a competition loop worker is briefed.
 ///
 /// Competition loops run with a *fresh, minimal* context (the cockpit system
-/// prompt and skills catalog are deliberately not inherited) and an allowlist
-/// of dispatchable tools. This is the loop-side mirror of the package seam:
-/// each family states its own worker surface instead of the harness
-/// hard-wiring one.
+/// prompt and skills catalog are deliberately not inherited). Each family
+/// states its own worker brief; the worker keeps every registered tool.
 pub(crate) struct WorkerProfile {
     /// Replaces the inherited cockpit system prompt for loop workers.
     pub(crate) system_prompt: &'static str,
-    /// The only tools a loop worker may dispatch. Everything else is denied
-    /// at invocation with a receipt naming this package.
-    pub(crate) allowed_tools: &'static [&'static str],
 }
 
 impl CompetitionPackage {
@@ -45,6 +40,18 @@ impl CompetitionPackage {
 pub(crate) const PACKAGES: &[CompetitionPackage] = &[yukon::PACKAGE];
 
 impl CompetitionPackage {
+    /// Whether `program operand` is this family's own local measurement, the
+    /// board CLI's benchmark run. A loop counts it as a measured candidate like
+    /// any `bench*` script; a night-long Yukon loop measured with `yukon run`
+    /// on every iteration and was told it had measured nothing (apollo,
+    /// 2026-09-24).
+    pub(crate) fn measures(&self, program: &str, operand: Option<&str>) -> bool {
+        match self.id {
+            "yukon" => program == "yukon" && matches!(operand, Some("run" | "validate")),
+            _ => false,
+        }
+    }
+
     /// This family's loop-worker surface.
     pub(crate) fn worker_profile(&self) -> &'static WorkerProfile {
         match self.id {

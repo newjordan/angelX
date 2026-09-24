@@ -81,9 +81,21 @@ cd angelX
 
 ## Benchmarks
 
-### polyglot-v1 · 136 tasks · 2026-09-21
-
 136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++) from the Aider polyglot set. One attempt per task, 600 s limit, graded by each task's tests. Wall: median agent time per attempt. Tokens: totals per cell.
+
+### angelX 0.1.6 · polyglot-v1 · 2026-09-23
+
+| model | solved | wall (median) | calls / task | input tokens | cache hit | output tokens |
+|---|---:|---:|---:|---:|---:|---:|
+| DeepSeek V4.1 Flash, thinking off | 134 / 136 | 10.7 s | 7.8 | 12.7 M | 89% | 310 k |
+| GLM-5.3-Flash, thinking low | 134 / 136 | 46.1 s | 7.9 | 9.4 M | 83% | 222 k |
+| Grok 4.7, thinking low | 136 / 136 | 17.5 s | 5.0 | 6.7 M | 57% | 134 k |
+| gpt-6-luna, thinking medium | 136 / 136 | 31.3 s | — | — | — | — |
+| Muse Spark, thinking low | 136 / 136 | 25.5 s | 4.9 | 5.9 M | 54% | 311 k |
+
+<sub>Evaluator: <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect Verifiers</a> v0.3.1 · angelX 0.1.6 · temperature 0; Muse Spark 1.0 (Meta's recommended setting); gpt-6-luna on its ChatGPT plan, which reports no token counts · 600 s per attempt · fresh environment per attempt · 2026-09-23</sub>
+
+### Harness comparison · polyglot-v1 · 2026-09-21
 
 | model | harness | solved | wall (median) | calls / task | input tokens | cache hit | output tokens |
 |---|---|---:|---:|---:|---:|---:|---:|

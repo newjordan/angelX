@@ -747,7 +747,7 @@ fn blocked_verifier_rides_first_in_the_iteration_prompt() {
             "{prompt}"
         );
     let steer_at = prompt
-        .find("[operator steering")
+        .find("[operator ")
         .expect("steer block present for ordering");
     assert!(
         blocked_at < steer_at,
@@ -800,25 +800,22 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     );
     app.loop_harvest("DIRECTION: explore micro-opt 3".into());
     assert_eq!(app.loop_ctl.status, LoopStatus::Running);
-    let last_setback = app.loop_ctl.last_setback.clone().unwrap_or_default();
+    let note = app.loop_ctl.loop_note.clone().unwrap_or_default();
     assert!(
-        last_setback.contains("no measured candidate in 3 iterations"),
-        "{last_setback}"
+        note.contains("no measured candidate yet after 3 iterations"),
+        "{note}"
     );
+    assert!(note.contains("measure it with the benchmark"), "{note}");
     assert!(
-        last_setback.contains("no verified measured-candidate receipt recorded"),
-        "{last_setback}"
+        app.loop_ctl.last_setback.is_none(),
+        "the clock informs; it does not set back"
     );
-    assert!(app.messages.iter().any(|m| matches!(m.role, Role::System)
-        && m.text.contains("no measured candidate in 3 iterations")));
+    assert!(app.messages.iter().any(|m| {
+        matches!(m.role, Role::System)
+            && m.text
+                .contains("no measured candidate yet after 3 iterations")
+    }));
     assert!(app.loop_ctl.wake_at.is_some());
-    assert!(
-        app.loop_ctl
-            .last_setback
-            .as_deref()
-            .unwrap()
-            .contains("next action")
-    );
     assert!(!app.take_attention_request());
 
     // An armed blocker diagnostic rides the continuation directive.
@@ -830,7 +827,7 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     assert_eq!(app.loop_ctl.status, LoopStatus::Running);
     assert!(
         app.loop_ctl
-            .last_setback
+            .loop_note
             .as_deref()
             .unwrap_or_default()
             .contains("missing required --golden")
@@ -1601,4 +1598,350 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         app.world.quest().region(),
         crate::stage::world_viz::Region::CastleTown
     );
+}
+
+fn research_fixture(tag: &str, test: impl FnOnce(&Path)) {
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!(
+        "angel-research-{tag}-{}-{}",
+        std::process::id(),
+        now_ms()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    let _file = crate::tests::TestEnvGuard::set(
+        "ANGEL_LOOP_FILE",
+        root.join("loop.json").to_str().unwrap(),
+    );
+    let _mirror = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_STATE_DIR");
+    test(&root);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn the_project_brief_rides_the_system_message() {
+    research_fixture("brief-system", |root| {
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            brief: Some("machine:\n- GPU 0: Test GPU, 24576 MiB".into()),
+            brief_ms: now_ms(),
+            ..Default::default()
+        };
+        let convo = app.loop_iteration_convo();
+        let system = convo[0].content.to_string();
+        assert!(
+            system.contains("[project brief — gathered by the harness just now;"),
+            "{system}"
+        );
+        assert!(system.contains("- GPU 0: Test GPU, 24576 MiB"), "{system}");
+        let user = convo[1].content.to_string();
+        assert!(
+            !user.contains("GPU 0"),
+            "the brief is not repeated in the task"
+        );
+    });
+}
+
+#[test]
+fn findings_carry_when_they_were_found() {
+    research_fixture("stamps", |root| {
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            findings: vec!["legacy finding".into(), "fresh finding".into()],
+            // The legacy row predates stamping.
+            finding_stamps: vec![
+                FindingStamp::default(),
+                FindingStamp {
+                    at_ms: now_ms(),
+                    iteration: 2,
+                },
+            ],
+            ..Default::default()
+        };
+        let prompt = app
+            .loop_iteration_convo()
+            .pop()
+            .unwrap()
+            .content
+            .to_string();
+        assert!(prompt.contains("1. legacy finding\n"), "{prompt}");
+        assert!(
+            prompt.contains("2. fresh finding (iteration 2, just now)"),
+            "{prompt}"
+        );
+    });
+}
+
+#[test]
+fn admitted_findings_are_stamped_index_aligned() {
+    let mut st = LoopState {
+        findings: vec!["old".into()],
+        ..Default::default()
+    };
+    st.seen.insert(normalize("old"));
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let cited = format!(
+        "DIRECTION: read the manifest\nFINDINGS:\n- the crate has a manifest [evidence: file:{}:1]",
+        manifest.display()
+    );
+    let tools = ToolStripSnapshot {
+        calls: 1,
+        ..Default::default()
+    };
+    evidence::apply_reply_with_tools(&mut st, &cited, &tools);
+    assert_eq!(st.findings.len(), 2, "{:?}", st.findings);
+    assert_eq!(st.finding_stamps.len(), 2);
+    assert_eq!(
+        st.finding_stamps[0],
+        FindingStamp::default(),
+        "legacy row unstamped"
+    );
+    assert_eq!(st.finding_stamps[1].iteration, 1);
+    assert!(st.finding_stamps[1].at_ms > 0);
+}
+
+#[test]
+fn measurements_come_back_with_their_results() {
+    research_fixture("ledger", |root| {
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            podrace: true,
+            ..Default::default()
+        };
+        app.terminal_focused = false;
+        let receipt = "measured:shell:./benchmark.sh pinning:result=ab12".to_string();
+        app.loop_harvest_with_tools(
+            "DIRECTION: measure the baseline".into(),
+            ToolStripSnapshot {
+                calls: 1,
+                verified_outcome_actions: vec![receipt.clone()],
+                measurement_results: vec![crate::ui::toolstrip::MeasurementResult {
+                    receipt,
+                    excerpt: "verified 812 hits | score 1.5e9 candidates/s".into(),
+                    elapsed_ms: Some(3_400),
+                }],
+                ..Default::default()
+            },
+        );
+        assert_eq!(app.loop_ctl.measured_candidates, 1);
+        let row = &app.loop_ctl.measured_candidates_log[0];
+        assert_eq!(
+            row.result.as_deref(),
+            Some("verified 812 hits | score 1.5e9 candidates/s")
+        );
+        let prompt = app
+            .loop_iteration_convo()
+            .pop()
+            .unwrap()
+            .content
+            .to_string();
+        assert!(
+            prompt.contains("[measurements and submissions this run — newest first"),
+            "{prompt}"
+        );
+        assert!(
+            prompt.contains(
+                "- iteration 1, just now: measured `shell:./benchmark.sh pinning`, took 3s → \
+                 verified 812 hits | score 1.5e9 candidates/s"
+            ),
+            "{prompt}"
+        );
+        // The same receipt again is not a second measurement or a second row.
+        app.loop_harvest_with_tools(
+            "DIRECTION: look again".into(),
+            ToolStripSnapshot {
+                calls: 1,
+                verified_outcome_actions: vec![
+                    "measured:shell:./benchmark.sh pinning:result=ab12".into(),
+                ],
+                ..Default::default()
+            },
+        );
+        assert_eq!(app.loop_ctl.measured_candidates_log.len(), 1);
+    });
+}
+
+#[test]
+fn the_first_iteration_waits_for_its_brief_and_refreshes_never_wait() {
+    research_fixture("brief-gather", |root| {
+        let _on = crate::tests::TestEnvGuard::set("ANGEL_LOOP_BRIEF", "1");
+        std::fs::write(root.join("NOTES.md"), "# notes\n").unwrap();
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            id: "brief-run".into(),
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            ..Default::default()
+        };
+        assert!(
+            !app.loop_brief_ready(),
+            "the first iteration holds for the brief"
+        );
+        let deadline = Instant::now() + Duration::from_secs(brief::BRIEF_WAIT_SECS + 5);
+        while !app.loop_brief_ready() {
+            assert!(Instant::now() < deadline, "released within the wait bound");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let text = app.loop_ctl.brief.clone().expect("brief gathered");
+        assert!(text.contains("machine:"), "{text}");
+        assert!(text.contains("NOTES.md (8 B, just now)"), "{text}");
+        // A due refresh gathers in the background without holding the run.
+        app.loop_ctl.brief_ms = 1;
+        assert!(app.loop_brief_ready());
+        assert!(app.loop_brief_job.is_some());
+    });
+}
+
+#[test]
+fn a_steer_is_answered_once_then_rides_as_standing_guidance() {
+    research_fixture("steer-once", |root| {
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            steer_notes: vec!["get a submission in and wrap up".into()],
+            ..Default::default()
+        };
+        let prompt = app
+            .loop_iteration_convo()
+            .pop()
+            .unwrap()
+            .content
+            .to_string();
+        assert!(
+            prompt
+                .contains("[operator message — sent mid-run and not yet answered; answer it once"),
+            "{prompt}"
+        );
+        assert!(!prompt.contains("already answered"), "{prompt}");
+        app.terminal_focused = false;
+        app.loop_harvest_with_tools(
+            "Submitted; the slot is validating.".into(),
+            ToolStripSnapshot {
+                calls: 20,
+                ..Default::default()
+            },
+        );
+        assert_eq!(app.loop_ctl.steer_answered, 1);
+        let prompt = app
+            .loop_iteration_convo()
+            .pop()
+            .unwrap()
+            .content
+            .to_string();
+        assert!(
+            prompt.contains("already answered; keep honoring them, do not answer or act on them again]\n- get a submission in and wrap up"),
+            "{prompt}"
+        );
+        assert!(!prompt.contains("[operator message"), "{prompt}");
+        // A new note is asked; the old one stays standing.
+        app.loop_ctl.status = LoopStatus::Running;
+        app.loop_note_steer("now look at the leader");
+        let prompt = app
+            .loop_iteration_convo()
+            .pop()
+            .unwrap()
+            .content
+            .to_string();
+        assert!(
+            prompt.contains("answer it once while pursuing the task]\n- now look at the leader"),
+            "{prompt}"
+        );
+        assert!(
+            prompt.contains("do not answer or act on them again]\n- get a submission in"),
+            "{prompt}"
+        );
+    });
+}
+
+#[test]
+fn an_idle_iteration_waits_and_a_steer_wakes_it() {
+    research_fixture("idle-wait", |root| {
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            stall_stop: 99,
+            ..Default::default()
+        };
+        app.terminal_focused = false;
+        // A status-only reply: a few calls, nothing to show.
+        let before = Instant::now();
+        app.loop_harvest_with_tools(
+            "Yes. The slot is still validating.".into(),
+            ToolStripSnapshot {
+                calls: 5,
+                ..Default::default()
+            },
+        );
+        let wake = app.loop_ctl.wake_at.expect("scheduled");
+        assert!(
+            wake >= before + Duration::from_secs(LOOP_IDLE_WAIT_SECS),
+            "idle iterations wait"
+        );
+        // A steer wakes it at once.
+        app.loop_note_steer("the result is in, go");
+        assert!(app.loop_ctl.wake_at.unwrap() <= Instant::now());
+        // A working iteration keeps the configured cadence (zero).
+        app.loop_ctl.status = LoopStatus::Running;
+        app.loop_harvest_with_tools(
+            "DIRECTION: measure the fold".into(),
+            ToolStripSnapshot {
+                calls: 40,
+                ..Default::default()
+            },
+        );
+        assert!(app.loop_ctl.wake_at.unwrap() <= Instant::now() + Duration::from_secs(1));
+    });
+}
+
+#[test]
+fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
+    research_fixture("wrap-up", |root| {
+        let running = || LoopState {
+            status: LoopStatus::Running,
+            task: "put wins on the board".into(),
+            workspace: Some(root.to_path_buf()),
+            ..Default::default()
+        };
+        // Without an operator note a done claim is still refused.
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = running();
+        app.terminal_focused = false;
+        app.loop_harvest("All done.\nLOOP_DONE".into());
+        assert_eq!(app.loop_ctl.status, LoopStatus::Running);
+        // Asked to wrap up, the model may close the run.
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = running();
+        app.loop_ctl.steer_notes = vec!["ok get a submission in and wrap up please".into()];
+        app.terminal_focused = false;
+        let prompt = app
+            .loop_iteration_convo()
+            .pop()
+            .unwrap()
+            .content
+            .to_string();
+        assert!(
+            prompt.contains("If the operator has asked you to wrap up or stop"),
+            "{prompt}"
+        );
+        app.loop_harvest("Submitted; wrapping up.\nLOOP_DONE".into());
+        assert_eq!(app.loop_ctl.status, LoopStatus::Stopped);
+        assert!(
+            app.messages
+                .iter()
+                .any(|m| m.text.contains("wrapped up at the operator's request"))
+        );
+    });
 }

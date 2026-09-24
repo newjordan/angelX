@@ -1,16 +1,18 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sequence": 42,
   "published_at_monotonic_ms": 12000,
   "stage": "proposer wave 1",
   "seats": [
     {
       "slot": 0,
-      "label": "solver-a"
+      "label": "solver-a",
+      "state": "returned"
     },
     {
       "slot": 1,
-      "label": "solver-b"
+      "label": "solver-b",
+      "state": "running"
     }
   ],
   "status": {

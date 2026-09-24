@@ -222,28 +222,7 @@ impl ActionPreview {
         } else {
             "applied"
         };
-        let reason = result.strip_prefix("tool error:").map(|error| {
-            let first = error
-                .split(['\n', ';'])
-                .next()
-                .unwrap_or("")
-                .trim()
-                .to_ascii_lowercase();
-            // Fixed reason classes cannot leak command bodies, paths, or credentials.
-            if first.contains("mount") || first.contains("not confined") {
-                "sandbox: mount not confined"
-            } else if first.contains("enoent") || first.contains("no such file") {
-                "helper: ENOENT"
-            } else if first.contains("timeout") || first.contains("timed out") {
-                "timeout"
-            } else if first.contains("sandbox") || first.contains("confinement") {
-                "sandbox: confinement failed"
-            } else if first.contains("denied") || first.contains("permission") {
-                "policy: denied"
-            } else {
-                "dispatch: failed"
-            }
-        });
+        let reason = failure_reason(result);
         let reason = reason
             .map(|reason| format!(" · {reason}"))
             .unwrap_or_default();
@@ -252,6 +231,34 @@ impl ActionPreview {
             self.tool
         )
     }
+}
+
+/// A fixed reason class for a failed tool result. Fixed classes cannot leak
+/// command bodies, paths or credentials, so receipts and the tool strip can
+/// both show them.
+pub(crate) fn failure_reason(result: &str) -> Option<&'static str> {
+    let error = result.strip_prefix("tool error:")?;
+    let first = error
+        .split(['\n', ';'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    Some(
+        if first.contains("mount") || first.contains("not confined") {
+            "sandbox: mount not confined"
+        } else if first.contains("enoent") || first.contains("no such file") {
+            "helper: ENOENT"
+        } else if first.contains("timeout") || first.contains("timed out") {
+            "timeout"
+        } else if first.contains("sandbox") || first.contains("confinement") {
+            "sandbox: confinement failed"
+        } else if first.contains("denied") || first.contains("permission") {
+            "policy: denied"
+        } else {
+            "dispatch: failed"
+        },
+    )
 }
 
 /// All action previews in one model-emitted tool batch. A single batch is the

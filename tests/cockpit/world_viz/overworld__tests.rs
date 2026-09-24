@@ -393,6 +393,59 @@ fn the_live_scene_reads_the_world() {
 }
 
 #[test]
+fn a_trial_sends_the_wagon_and_the_knight_to_the_lists() {
+    use crate::agent::harness::{ExecutionOutcome, ToolOutcome, VerificationOutcome};
+    let mut world = World::new(7);
+    let trial = ToolEventId("t1".to_string());
+    world.note_tool_call_event(trial.clone(), "shell", "cargo test --workspace");
+    assert_eq!(world.overworld_goal(), Place::Lists);
+    let s = world.overworld_scene();
+    assert_eq!(s.active, Some(Place::Lists));
+    assert_eq!(s.tool, Some(Tool::Sword));
+    assert_eq!(s.wayfarers.len(), 1, "the cargo wagon sets out");
+    for _ in 0..600 {
+        world.tick();
+    }
+    assert_eq!(
+        world.overworld_scene().knight,
+        Knight::at_place(Place::Lists),
+        "he waits at the Lists for the verdict"
+    );
+    world.note_tool_result_event(
+        &trial,
+        "shell",
+        "test result: FAILED",
+        ToolOutcome {
+            execution: ExecutionOutcome::Failed,
+            verification: VerificationOutcome::Failed,
+        },
+    );
+    world.tick();
+    let s = world.overworld_scene();
+    assert_eq!(
+        s.record.pennants,
+        vec![false],
+        "an amber pennant, not a red one"
+    );
+    assert_eq!(s.wayfarers[0].verdict, Some(false));
+    assert_ne!(world.overworld_goal(), Place::Lists);
+
+    world.note_tool_call_event(ToolEventId("c1".to_string()), "shell", "git commit -m x");
+    world.turn_ended(false);
+    for _ in 0..2_000 {
+        world.tick();
+    }
+    let s = world.overworld_scene();
+    assert!(s.wayfarers.is_empty(), "everyone is home after the turn");
+    assert_eq!(s.record.ravens, 0, "an unfinished commit earns no raven");
+    assert_eq!(
+        s.record.pennants,
+        vec![false],
+        "the record outlives the turn"
+    );
+}
+
+#[test]
 fn a_loop_between_rounds_rests_at_the_quintain() {
     let mut world = World::new(7);
     world.loop_active = true;
@@ -830,4 +883,237 @@ fn the_map_shows_the_published_pose() {
     );
     w.publish();
     assert_eq!(w.shown_knight(), w.knight());
+}
+
+/// A scripted session acted out on the map, for review:
+/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_deed_shots -- --ignored`.
+#[test]
+#[ignore]
+fn write_deed_shots() {
+    use crate::agent::harness::{ExecutionOutcome, ToolEventId, ToolOutcome, VerificationOutcome};
+    let Some(dir) = std::env::var_os("ANGEL_OVERWORLD_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img| {
+        let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+        out.extend(img.rgb_bytes());
+        std::fs::write(dir.join(name), out).unwrap();
+    };
+    let outcome = |passed: bool| ToolOutcome {
+        execution: if passed {
+            ExecutionOutcome::Succeeded
+        } else {
+            ExecutionOutcome::Failed
+        },
+        verification: VerificationOutcome::NotApplicable,
+    };
+    let mut w = World::new(7);
+    let mut n = 0;
+    let mut call = |w: &mut World, name: &str, args: &str| {
+        n += 1;
+        let id = ToolEventId(format!("shot-{n}"));
+        w.note_tool_call_event(id.clone(), name, args);
+        id
+    };
+    let ticks = |w: &mut World, k: u32| {
+        for _ in 0..k {
+            w.tick();
+        }
+    };
+    let shot = |w: &World, name: &str, focus: Option<(f32, f32)>| {
+        let mut s = w.overworld_scene();
+        if let Some(focus) = focus {
+            s.camera = focus;
+        }
+        save(name, &frame_sized(&s, 320, 200));
+    };
+    let at = |p: Place| {
+        let k = Knight::at_place(p);
+        (k.x, k.y - 8.0)
+    };
+
+    for file in [
+        "src/a.rs",
+        "src/b.rs",
+        "README.md",
+        "docs/x.md",
+        "src/c.rs",
+        "Cargo.toml",
+        "src/d.rs",
+    ] {
+        let id = call(&mut w, "read_file", &format!("path={file}"));
+        ticks(&mut w, 4);
+        w.note_tool_result_event(&id, "read_file", "ok", outcome(true));
+    }
+    for file in ["src/a.rs", "src/b.rs", "src/c.rs", "src/e.rs"] {
+        let id = call(&mut w, "edit_file", &format!("path={file}"));
+        ticks(&mut w, 3);
+        w.note_tool_result_event(&id, "edit_file", "ok", outcome(true));
+    }
+    shot(&w, "d01_forge_sparks.ppm", Some(at(Place::Smithy)));
+    ticks(&mut w, 30);
+    shot(
+        &w,
+        "d02_scriptorium_books.ppm",
+        Some(at(Place::Scriptorium)),
+    );
+
+    let trial = call(&mut w, "shell", "cd /repo && cargo test -p cockpit");
+    ticks(&mut w, 90);
+    let wagon = w
+        .overworld_scene()
+        .wayfarers
+        .first()
+        .map(|f| (f.x, f.y - 8.0));
+    shot(&w, "d03_wagon_on_the_road.ppm", wagon);
+    ticks(&mut w, 900);
+    shot(&w, "d04_wagon_at_the_lists.ppm", Some(at(Place::Lists)));
+    w.note_tool_result_event(&trial, "shell", "ok", outcome(true));
+    ticks(&mut w, 20);
+    shot(&w, "d05_trial_passed.ppm", Some(at(Place::Lists)));
+    ticks(&mut w, 900);
+    let second = call(&mut w, "cargo", "clippy --all-targets");
+    ticks(&mut w, 160);
+    w.note_tool_result_event(&second, "cargo", "error: 3 warnings", outcome(false));
+    ticks(&mut w, 10);
+    let broken = w
+        .overworld_scene()
+        .wayfarers
+        .first()
+        .map(|f| (f.x, f.y - 8.0));
+    shot(&w, "d06_trial_failed.ppm", broken);
+    ticks(&mut w, 1_200);
+    shot(&w, "d07_lists_record.ppm", Some(at(Place::Lists)));
+
+    let fetch = call(&mut w, "web_fetch", "url=https://docs.rs/ratatui");
+    ticks(&mut w, 12);
+    shot(&w, "d08_courier_out.ppm", Some(at(Place::Gatehouse)));
+    ticks(&mut w, 200);
+    w.note_tool_result_event(&fetch, "web_fetch", "ok", outcome(true));
+    ticks(&mut w, 30);
+    shot(&w, "d09_courier_home.ppm", Some(at(Place::Gatehouse)));
+
+    for k in 0..3 {
+        let commit = call(&mut w, "shell", "git commit -m 'deed'");
+        ticks(&mut w, 40);
+        if k == 2 {
+            shot(&w, "d10_raven_aloft.ppm", Some(at(Place::Rookery)));
+        }
+        w.note_tool_result_event(&commit, "shell", "ok", outcome(true));
+        ticks(&mut w, 400);
+    }
+    shot(&w, "d11_ravens_perched.ppm", Some(at(Place::Rookery)));
+
+    let authored = |tx: i32, ty: i32| {
+        let (x, y) = map::place_tile(tx, ty);
+        ((x * TILE + 8) as f32, (y * TILE + 8) as f32)
+    };
+
+    // Searches: the hands in the fields, stooks, messengers on the road.
+    let seeks: Vec<_> = (0..3)
+        .map(|k| call(&mut w, "grep", &format!("pattern=needle{k}, path=cockpit")))
+        .collect();
+    ticks(&mut w, 200);
+    shot(&w, "d12_fields_at_work.ppm", Some(authored(39, 26)));
+    for (k, seek) in seeks.iter().enumerate() {
+        w.note_tool_result_event(seek, "grep", "ok", outcome(k != 2));
+        ticks(&mut w, 25);
+    }
+    ticks(&mut w, 120);
+    let runner = w
+        .overworld_scene()
+        .wayfarers
+        .iter()
+        .find(|f| f.carrying)
+        .map(|f| (f.x, f.y - 8.0));
+    shot(&w, "d13_messengers.ppm", runner);
+    for k in 0..6 {
+        let seek = call(&mut w, "rg_search", &format!("query=more{k}"));
+        ticks(&mut w, 5);
+        w.note_tool_result_event(&seek, "rg_search", "ok", outcome(true));
+    }
+    ticks(&mut w, 900);
+    shot(&w, "d14_fields_stooks.ppm", Some(authored(39, 26)));
+
+    // Errands: villagers carry sacks to the granary.
+    let errands: Vec<_> = ["ls -la", "python3 x.py", "du -sh target"]
+        .into_iter()
+        .map(|cmd| call(&mut w, "shell", cmd))
+        .collect();
+    ticks(&mut w, 50);
+    shot(&w, "d15_village_errands.ppm", Some(authored(23, 27)));
+    for (k, errand) in errands.iter().enumerate() {
+        w.note_tool_result_event(errand, "shell", "ok", outcome(k != 1));
+    }
+    for k in 0..6 {
+        let errand = call(&mut w, "shell", &format!("echo {k}"));
+        ticks(&mut w, 30);
+        w.note_tool_result_event(&errand, "shell", "ok", outcome(true));
+    }
+    ticks(&mut w, 60);
+    shot(&w, "d16_village_granary.ppm", Some(authored(25, 28)));
+
+    // Memory: a monk at vigil, candles on the step.
+    let recall = call(&mut w, "memory_recall", "query=bench pin");
+    ticks(&mut w, 60);
+    shot(&w, "d17_chapel_vigil.ppm", Some(at(Place::Chapel)));
+    w.note_tool_result_event(&recall, "memory_recall", "ok", outcome(true));
+    for k in 0..4 {
+        let kept = call(&mut w, "memory_deposit", &format!("key=note{k}"));
+        ticks(&mut w, 10);
+        w.note_tool_result_event(&kept, "memory_deposit", "ok", outcome(true));
+    }
+    ticks(&mut w, 400);
+    shot(&w, "d18_chapel_candles.ppm", Some(at(Place::Chapel)));
+
+    // Research: the glass sweeps, stars are fixed, owls fly.
+    let study = call(&mut w, "arxiv", "query=sparse attention");
+    ticks(&mut w, 40);
+    shot(&w, "d19_observatory_beam.ppm", Some(at(Place::Observatory)));
+    w.note_tool_result_event(&study, "arxiv", "ok", outcome(true));
+    for k in 0..6 {
+        let more = call(&mut w, "openalex", &format!("query=q{k}"));
+        ticks(&mut w, 8);
+        w.note_tool_result_event(&more, "openalex", "ok", outcome(true));
+    }
+    ticks(&mut w, 60);
+    shot(
+        &w,
+        "d20_observatory_stars.ppm",
+        Some(at(Place::Observatory)),
+    );
+    let owl = w
+        .overworld_scene()
+        .wayfarers
+        .iter()
+        .find(|f| f.errand == deeds::Errand::Owl)
+        .map(|f| (f.x, f.y));
+    shot(&w, "d21_owl_in_flight.ppm", owl);
+    ticks(&mut w, 1_200);
+    save(
+        "d22_realm_after.ppm",
+        &render_view(&w.overworld_scene(), View::realm()),
+    );
+
+    // A trial as a film: the wagon out, the verdict, the wagon home.
+    let film = call(&mut w, "shell", "cargo test --workspace");
+    for f in 0..90u32 {
+        if f == 60 {
+            w.note_tool_result_event(&film, "shell", "ok", outcome(true));
+        }
+        ticks(&mut w, 24);
+        let focus = w
+            .overworld_scene()
+            .wayfarers
+            .first()
+            .map(|wagon| (wagon.x, wagon.y - 8.0));
+        let mut s = w.overworld_scene();
+        if let Some(focus) = focus {
+            s.camera = focus;
+        }
+        crate::stage::world_viz::overworld::pace(&mut s, false);
+        save(&format!("film_{f:03}.ppm"), &frame_sized(&s, 256, 160));
+    }
 }

@@ -16,6 +16,7 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
+mod deeds;
 mod glass;
 mod ground;
 mod ink;
@@ -28,6 +29,7 @@ mod sky;
 mod wild;
 
 // The overworld tests read these through `use super::*`; live.rs imports glass directly.
+pub(crate) use deeds::Deeds;
 #[cfg(test)]
 pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
 pub(crate) use ink::Img;
@@ -308,6 +310,9 @@ pub(crate) fn pace(scene: &mut Scene, relaxed: bool) {
     scene.tick /= if relaxed { 20 } else { 10 };
     scene.knight.x = scene.knight.x.round();
     scene.knight.y = scene.knight.y.round();
+    for w in &mut scene.wayfarers {
+        (w.x, w.y) = (w.x.round(), w.y.round());
+    }
     scene.camera = (scene.camera.0.round(), scene.camera.1.round());
 }
 

@@ -452,7 +452,7 @@ fn portrait_canvas_moves_alpha_edges_without_rescaling() {
                         None,
                     )
                 };
-                let anchored = anchor_portrait_canvas(source, &picker, size).to_rgba8();
+                let anchored = anchor_portrait_canvas(source, &picker, size, false).to_rgba8();
                 let (mut left, mut top) = anchored.dimensions();
                 let (mut right, mut bottom) = (0, 0);
                 for (x, y, pixel) in anchored.enumerate_pixels() {
@@ -497,7 +497,7 @@ fn atlas_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
     let before = fit
         .resize(&original, picker.font_size(), target, None)
         .to_rgba8();
-    let after = anchor_portrait_canvas(original, &picker, size).to_rgba8();
+    let after = anchor_portrait_canvas(original, &picker, size, false).to_rgba8();
     // The canvas is the fitted image widened to whole cells.
     let (fw, fh) = (
         u32::from(picker.font_size().width),
@@ -903,4 +903,112 @@ fn missing_portrait_is_negatively_cached_instead_of_retried_each_frame() {
     }
     assert_eq!(viewer.portrait_failures.len(), 1);
     assert!(viewer.portrait_cache.is_empty());
+}
+
+#[test]
+fn pixel_portraits_fill_the_bay_sharp_and_keep_their_frame() {
+    #[allow(deprecated)]
+    let picker = Picker::from_fontsize((8, 16).into());
+    // A shared-canvas pixel frame: this pose leaves the top-left empty, which
+    // another pose of the sheet fills. The empty space is kept, not trimmed.
+    let mut frame = image::RgbaImage::new(120, 160);
+    for y in 40..160 {
+        for x in 30..120 {
+            let v = if ((x / 2) + (y / 2)) % 2 == 0 {
+                30
+            } else {
+                210
+            };
+            frame.put_pixel(x, y, image::Rgba([v, v, v, 255]));
+        }
+    }
+    let visible_bounds = |image: &image::RgbaImage| {
+        let (mut left, mut top, mut right, mut bottom) = (u32::MAX, u32::MAX, 0, 0);
+        for (x, y, p) in image.enumerate_pixels() {
+            if p[3] > 0 {
+                left = left.min(x);
+                top = top.min(y);
+                right = right.max(x + 1);
+                bottom = bottom.max(y + 1);
+            }
+        }
+        (left, top, right, bottom)
+    };
+    // Opaque pixels within `tolerance` of one of the sprite's two values.
+    let hard = |image: &image::RgbaImage, tolerance: u8| {
+        let opaque: Vec<_> = image.pixels().filter(|p| p[3] == 255).collect();
+        let pure = opaque
+            .iter()
+            .filter(|p| p[0].abs_diff(30) <= tolerance || p[0].abs_diff(210) <= tolerance)
+            .count();
+        (pure, opaque.len())
+    };
+
+    // A 480x480px bay takes exactly 3x: every pixel stays hard.
+    let out = anchor_portrait_canvas(
+        image::DynamicImage::ImageRgba8(frame.clone()),
+        &picker,
+        Rect::new(0, 0, 60, 30),
+        true,
+    )
+    .to_rgba8();
+    let (pure, opaque) = hard(&out, 0);
+    assert_eq!(pure, opaque, "no blended pixels at a whole multiple");
+    assert_eq!(opaque, 270 * 360);
+    let (left, top, right, bottom) = visible_bounds(&out);
+    assert_eq!((right - left, bottom - top), (270, 360), "exactly 3x");
+    assert_eq!(
+        (right, bottom),
+        (out.width(), out.height()),
+        "lower-right anchor"
+    );
+    assert_eq!((out.width(), out.height()), (360, 480), "whole frame kept");
+
+    // A 400x400px bay is filled at 2.5x, not left at the 2x half step, and
+    // stays sharp: a seam is at most a faint blend, never a mid-grey.
+    let out = anchor_portrait_canvas(
+        image::DynamicImage::ImageRgba8(frame.clone()),
+        &picker,
+        Rect::new(0, 0, 50, 25),
+        true,
+    )
+    .to_rgba8();
+    assert_eq!(out.height(), 400, "fills the bay's height");
+    let (_, _, right, bottom) = visible_bounds(&out);
+    assert_eq!(
+        (right, bottom),
+        (out.width(), out.height()),
+        "lower-right anchor"
+    );
+    let (pure, opaque) = hard(&out, 24);
+    assert_eq!(pure, opaque, "{pure} of {opaque} hard");
+
+    // A tiny bay shrinks the figure and still fits it.
+    let tiny = anchor_portrait_canvas(
+        image::DynamicImage::ImageRgba8(frame),
+        &picker,
+        Rect::new(0, 0, 5, 3),
+        true,
+    )
+    .to_rgba8();
+    assert!(
+        tiny.width() <= 40 && tiny.height() <= 48,
+        "{:?}",
+        tiny.dimensions()
+    );
+    assert!(tiny.pixels().any(|p| p[3] > 0));
+}
+
+#[test]
+fn a_tmux_client_on_a_kitty_graphics_terminal_gets_pixel_graphics() {
+    for name in ["xterm-kitty", "xterm-ghostty", "wezterm"] {
+        assert_eq!(
+            super::protocol_for_client_termname(name),
+            Some(ProtocolType::Kitty),
+            "{name}"
+        );
+    }
+    for name in ["screen-256color", "xterm-256color", "alacritty", ""] {
+        assert_eq!(super::protocol_for_client_termname(name), None, "{name}");
+    }
 }

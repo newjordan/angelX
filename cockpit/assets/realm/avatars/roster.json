@@ -18,10 +18,14 @@
    "sprite": "round-table/sprite/sol.png",
    "sha256": {
     "render": "e959f904adb83a0e32b6f854d05a793def3287b8e647b1b81449381296cc33cd",
-    "sprite": "91e0d29ee7ea22291a114aebfb3698488cfb9435fad4792689ff8cd85ec00f2b"
+    "sprite": "91e0d29ee7ea22291a114aebfb3698488cfb9435fad4792689ff8cd85ec00f2b",
+    "sheet": "c982d7166ef7fd10a114a031dac0fa80814c2421a6a898087253fa4ceaf82a17"
    },
    "drawn_by": "gpt-5.6-sol, OpenAI image generation through the Codex CLI",
-   "image_prompt": "Use case: stylized-concept\nAsset type: angelX terminal cockpit knight portrait/avatar sprite\nPrimary request: Create my knight, “Lantern of Diverging Ways” (Vane Knight): a strange, benevolent light-and-wind knight devoted to goodness, illumination, knowledge, and branching possibility.\nScene/backdrop: No scene and no backdrop; genuinely transparent background with real alpha.\nSubject: Exactly one armored knight, head and shoulders only, centered and facing the viewer. The knight has a narrow, subtly wind-canted diagonal silhouette. A closed midnight-blue helm tapers into a clean forward wedge above a seamless pitch-black visor; absolutely no face or eyes are visible. Three long feather-shaped sun-gold wind vanes fan distinctly from behind the knight’s right shoulder, separated clearly so the triple-vane motif remains unmistakable at 96 pixels. Ivory mail supports overlapping armor plates shaped like gently curved parchment leaves, bound by spare fine gold filigree, with a slim deep-blue cuirass. The left pauldron carries a purely pictorial split-diamond device pierced by three diverging rays. At the collar hangs one faceted diamond lantern, casting a single crisp, flat golden rhombus of light across the breastplate.\nStyle/medium: True low-resolution pixel-art sprite, authentically hand-pixeled, chunky crisp square pixels, deliberate one-pixel clusters, limited shading steps, no anti-aliasing, no gradients, no vector smoothness, no painterly texture. Design at an internal sprite scale where the complete figure is about 96 pixels tall, then display enlarged with nearest-neighbor scaling so every pixel remains hard-edged.\nComposition/framing: Symmetrical frontal portrait with a slight wind-swept diagonal energy; entire helm, all three vanes, both shoulders, and the lantern fully visible. Generous transparent empty space on every side; nothing touches the canvas edge and nothing is cropped.\nLighting/mood: Quiet dusk, resolute and otherworldly; the lantern light is geometric and restrained, not a bloom.\nColor palette: Small dusk palette only: midnight blue, near-black, ivory, parchment cream, muted sun-gold, and one subdued blue accent.\nConstraints: PNG-like sprite with genuine alpha transparency; exactly one knight; readable at 96-pixel figure height; no visible face; no text or lettering anywhere; no logos or brand marks; no glowing eyes; no bloom; no halo; no background; no ground plane; no border; no frame; no shadow outside the figure.\nAvoid: antialiasing, semi-transparent edge haze, smooth curves, high-resolution painted detail, photorealism, 3D rendering, extra characters, weapons, hands, scenery, particles, fog, lens flare, cropped feathers, cropped shoulders, or duplicate lanterns."
+   "image_prompt": "Use case: stylized-concept\nAsset type: angelX terminal cockpit knight portrait/avatar sprite\nPrimary request: Create my knight, “Lantern of Diverging Ways” (Vane Knight): a strange, benevolent light-and-wind knight devoted to goodness, illumination, knowledge, and branching possibility.\nScene/backdrop: No scene and no backdrop; genuinely transparent background with real alpha.\nSubject: Exactly one armored knight, head and shoulders only, centered and facing the viewer. The knight has a narrow, subtly wind-canted diagonal silhouette. A closed midnight-blue helm tapers into a clean forward wedge above a seamless pitch-black visor; absolutely no face or eyes are visible. Three long feather-shaped sun-gold wind vanes fan distinctly from behind the knight’s right shoulder, separated clearly so the triple-vane motif remains unmistakable at 96 pixels. Ivory mail supports overlapping armor plates shaped like gently curved parchment leaves, bound by spare fine gold filigree, with a slim deep-blue cuirass. The left pauldron carries a purely pictorial split-diamond device pierced by three diverging rays. At the collar hangs one faceted diamond lantern, casting a single crisp, flat golden rhombus of light across the breastplate.\nStyle/medium: True low-resolution pixel-art sprite, authentically hand-pixeled, chunky crisp square pixels, deliberate one-pixel clusters, limited shading steps, no anti-aliasing, no gradients, no vector smoothness, no painterly texture. Design at an internal sprite scale where the complete figure is about 96 pixels tall, then display enlarged with nearest-neighbor scaling so every pixel remains hard-edged.\nComposition/framing: Symmetrical frontal portrait with a slight wind-swept diagonal energy; entire helm, all three vanes, both shoulders, and the lantern fully visible. Generous transparent empty space on every side; nothing touches the canvas edge and nothing is cropped.\nLighting/mood: Quiet dusk, resolute and otherworldly; the lantern light is geometric and restrained, not a bloom.\nColor palette: Small dusk palette only: midnight blue, near-black, ivory, parchment cream, muted sun-gold, and one subdued blue accent.\nConstraints: PNG-like sprite with genuine alpha transparency; exactly one knight; readable at 96-pixel figure height; no visible face; no text or lettering anywhere; no logos or brand marks; no glowing eyes; no bloom; no halo; no background; no ground plane; no border; no frame; no shadow outside the figure.\nAvoid: antialiasing, semi-transparent edge haze, smooth curves, high-resolution painted detail, photorealism, 3D rendering, extra characters, weapons, hands, scenery, particles, fog, lens flare, cropped feathers, cropped shoulders, or duplicate lanterns.",
+   "sheet": "round-table/sheet/sol.png",
+   "sheet_poses": "(1) standing facing the viewer, one hand on the hilt of a slim sword at the hip, the other resting beneath the diamond lantern; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the wedge helm tilted, one gauntlet raised to its chin; (5) acting: a slim sword thrust forward in a lunge, the golden vanes flaring; (6) holding a long parchment map of branching paths open in both hands; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand cupped beneath the diamond lantern; (8) triumphant: the diamond lantern held high overhead casting golden light, the vanes spread wide.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 23, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/sol-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option B of two."
   },
   {
    "model_key": "luna",
@@ -36,10 +40,14 @@
    "sprite": "round-table/sprite/luna.png",
    "sha256": {
     "render": "c091247a604dd0bb3e729fc3438c84e397ff1e7dfc9f3fe5e6e4dc42dfa3c482",
-    "sprite": "598383435c6e121ea6e7aa9bc5b6f7f42cd858eae43a51d73412c248d309c104"
+    "sprite": "598383435c6e121ea6e7aa9bc5b6f7f42cd858eae43a51d73412c248d309c104",
+    "sheet": "59f1a449a4ec0a4a27612e1235b267a7e01fe63ef5b2b99d2685f3d91188b1ca"
    },
    "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI",
-   "image_prompt": "Use case: stylized-concept\nAsset type: transparent UI portrait sprite for a terminal coding cockpit\nPrimary request: My avatar, “The Meridian Vow,” a single otherworldly compass seraph knight. An unusually slender knight rises in a smooth teardrop silhouette, with a long split mantle falling in quiet ribboned folds. A sealed bell-shaped helm has a narrow downward brow and a completely black, sightless visor; no face or eyes are visible. Petal-like warm brass armor overlaps a deep indigo cuirass, bound with bone-ivory cords. On the chest is a small four-point compass-rose crest. A thin burnished-brass ring circles the helm like a halo, crossed by three short compass needles; this signature must remain legible at small size. The design should feel serene, benevolent, precise, and subtly otherworldly.\nScene/backdrop: genuinely transparent background with real alpha; no backdrop, no ground, no shadow, no halo glow\nSubject: one knight only, head and shoulders, centered, facing directly toward the viewer\nStyle/medium: true low-resolution pixel-art sprite, figure approximately 96 pixels tall, crisp square pixels, hard pixel clusters, drawn large and reduced with nearest-neighbour logic, no anti-aliasing\nComposition/framing: generous empty transparent space on every side; entire head, halo ring, shoulders, mantle, and chest crest fully visible; nothing cut off\nLighting/mood: restrained dusk lighting expressed through a small controlled palette, calm and luminous without emitting light\nColor palette: rich indigo, muted burnished brass, bone ivory, black visor, and a few subdued dusk shadow tones; no neon\nMaterials/textures: clean readable pixel clusters suggesting satin-finished brass, dark painted armor, and folded ribbon-like mantle\nText (verbatim): none\nConstraints: preserve real transparency and crisp pixel edges; prioritize a strong readable silhouette at 96 pixels; no visible face; no glowing eyes; no bloom\nAvoid: extra characters, weapons, scenery, background color, checkerboard background, border, text, lettering, symbols other than the small four-point compass-rose chest crest, logos, watermark, photorealism, smooth vector shapes, gradients, blur, anti-aliasing, cropped anatomy"
+   "image_prompt": "Use case: stylized-concept\nAsset type: transparent UI portrait sprite for a terminal coding cockpit\nPrimary request: My avatar, “The Meridian Vow,” a single otherworldly compass seraph knight. An unusually slender knight rises in a smooth teardrop silhouette, with a long split mantle falling in quiet ribboned folds. A sealed bell-shaped helm has a narrow downward brow and a completely black, sightless visor; no face or eyes are visible. Petal-like warm brass armor overlaps a deep indigo cuirass, bound with bone-ivory cords. On the chest is a small four-point compass-rose crest. A thin burnished-brass ring circles the helm like a halo, crossed by three short compass needles; this signature must remain legible at small size. The design should feel serene, benevolent, precise, and subtly otherworldly.\nScene/backdrop: genuinely transparent background with real alpha; no backdrop, no ground, no shadow, no halo glow\nSubject: one knight only, head and shoulders, centered, facing directly toward the viewer\nStyle/medium: true low-resolution pixel-art sprite, figure approximately 96 pixels tall, crisp square pixels, hard pixel clusters, drawn large and reduced with nearest-neighbour logic, no anti-aliasing\nComposition/framing: generous empty transparent space on every side; entire head, halo ring, shoulders, mantle, and chest crest fully visible; nothing cut off\nLighting/mood: restrained dusk lighting expressed through a small controlled palette, calm and luminous without emitting light\nColor palette: rich indigo, muted burnished brass, bone ivory, black visor, and a few subdued dusk shadow tones; no neon\nMaterials/textures: clean readable pixel clusters suggesting satin-finished brass, dark painted armor, and folded ribbon-like mantle\nText (verbatim): none\nConstraints: preserve real transparency and crisp pixel edges; prioritize a strong readable silhouette at 96 pixels; no visible face; no glowing eyes; no bloom\nAvoid: extra characters, weapons, scenery, background color, checkerboard background, border, text, lettering, symbols other than the small four-point compass-rose chest crest, logos, watermark, photorealism, smooth vector shapes, gradients, blur, anti-aliasing, cropped anatomy",
+   "sheet": "round-table/sheet/luna.png",
+   "sheet_poses": "(1) standing gracefully facing the viewer, hands clasped gently at the waist; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the helm tilted, one hand raised to its chin, the other holding a small brass compass; (5) acting: holding a large open brass compass out in front with both hands, its needle glowing; (6) studying a long star chart unrolled in both hands; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand resting at the chest; (8) triumphant: one arm raised high holding a glowing brass compass rose that shines like a star.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/luna-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option A of two."
   },
   {
    "model_key": "grok",
@@ -54,11 +62,15 @@
    "sprite": "round-table/sprite/grok.png",
    "sha256": {
     "render": "a7487f36af2b66fa6bf5c58a79af44a3e55806aea9c3fe51926d3fadcda43710",
-    "sprite": "65c86cdd9b0d02e25805f21c99c47a6294a513cf4a416c29783594de36847dc8"
+    "sprite": "65c86cdd9b0d02e25805f21c99c47a6294a513cf4a416c29783594de36847dc8",
+    "sheet": "be381136534633fe00245c5501c90f119cc60802d76bec58baaf9d83491ef1dc"
    },
    "drawn_by": "gpt-5.6-sol, OpenAI image generation through the Codex CLI, from Grok's self-portrait",
    "grok_image_prompt": "A single Starforge Knight, the Helm of Frozen Stars, head and shoulders, centred and facing the viewer, with clear empty margin on every side so nothing is cropped. A lean hooded figure in long midnight-blue robes falling in heavy dusk folds over thin meteor-iron plate, tarnished-bronze pauldrons on cloth threaded with faint gold constellations. The head is a closed dark meteor-iron helm whose visor is one smooth sightless plane, topped by three short crystal spines, with a pale gold ring of tiny stars circling the helm like a frozen halo. True low-resolution pixel-art sprite, the figure about 96 pixels tall, crisp square pixels from a small dusk palette of midnight blue, meteor iron, tarnished bronze and pale gold, drawn large with nearest-neighbour scaling and no anti-aliasing, on a genuinely transparent background.",
-   "image_prompt": "Use case: style-transfer\nAsset type: portrait sprite for the angelX terminal coding cockpit\nInput image: the attached Grok knight is the character and composition reference.\nPrimary request: Redraw this exact character as a richer, more striking version of Grok’s “Helm of Frozen Stars” (Starforge Knight), while preserving every defining element and the overall front-facing head-and-shoulders silhouette.\nSubject: One lean hooded knight, centred and facing the viewer. Long midnight-blue robes fall in heavy dusk folds over thin meteor-iron plate. The head is a fully closed dark meteor-iron helm with no visible face and a single smooth, sightless visor plane. Exactly three short, clearly readable crystal spines crown the helm. A ring of tiny crisp pale-gold stars circles the helm like a frozen halo. Warm tarnished-bronze pauldrons are traced with subtle pale-gold constellation lines.\nStyle/medium: True low-resolution pixel-art sprite, designed at about 96 pixels tall and displayed enlarged with nearest-neighbour scaling. Crisp square pixel clusters, deliberate hand-pixeled edges, compact small palette, absolutely no anti-aliasing or painterly smoothing.\nComposition/framing: One knight only, symmetrical head-and-shoulders portrait, centred, straight-on, with clear empty transparent margin on every side; no part of the figure, shoulders, halo, stars, or robes may touch or cross the canvas edges.\nLighting/mood: Dusk-lit dark fantasy on transparency, dramatic but restrained. Stronger value contrast and clean, sharp highlights. No glow, bloom, haze, or neon.\nColor palette: Deeper and more saturated midnight blue; dark charcoal meteor iron with cool steel highlights; warmer, richer tarnished bronze; brighter and crisper pale gold; crystal spines in distinct icy lavender with clear faceting.\nBackground: Genuinely transparent alpha only—no black backdrop, no colored backdrop, no gradient, no scenery, no vignette, and no checkerboard rendered into the image.\nConstraints: Preserve the same knight identity and all signature details from the reference: closed meteor-iron helm, one smooth sightless visor plane, exactly three crystal spines, pale-gold frozen-star halo, constellation-traced bronze pauldrons, midnight-blue robes over thin plate. No visible face, no eyes, no glowing eyes, no text, no lettering, no logos, no watermark."
+   "image_prompt": "Use case: style-transfer\nAsset type: portrait sprite for the angelX terminal coding cockpit\nInput image: the attached Grok knight is the character and composition reference.\nPrimary request: Redraw this exact character as a richer, more striking version of Grok’s “Helm of Frozen Stars” (Starforge Knight), while preserving every defining element and the overall front-facing head-and-shoulders silhouette.\nSubject: One lean hooded knight, centred and facing the viewer. Long midnight-blue robes fall in heavy dusk folds over thin meteor-iron plate. The head is a fully closed dark meteor-iron helm with no visible face and a single smooth, sightless visor plane. Exactly three short, clearly readable crystal spines crown the helm. A ring of tiny crisp pale-gold stars circles the helm like a frozen halo. Warm tarnished-bronze pauldrons are traced with subtle pale-gold constellation lines.\nStyle/medium: True low-resolution pixel-art sprite, designed at about 96 pixels tall and displayed enlarged with nearest-neighbour scaling. Crisp square pixel clusters, deliberate hand-pixeled edges, compact small palette, absolutely no anti-aliasing or painterly smoothing.\nComposition/framing: One knight only, symmetrical head-and-shoulders portrait, centred, straight-on, with clear empty transparent margin on every side; no part of the figure, shoulders, halo, stars, or robes may touch or cross the canvas edges.\nLighting/mood: Dusk-lit dark fantasy on transparency, dramatic but restrained. Stronger value contrast and clean, sharp highlights. No glow, bloom, haze, or neon.\nColor palette: Deeper and more saturated midnight blue; dark charcoal meteor iron with cool steel highlights; warmer, richer tarnished bronze; brighter and crisper pale gold; crystal spines in distinct icy lavender with clear faceting.\nBackground: Genuinely transparent alpha only—no black backdrop, no colored backdrop, no gradient, no scenery, no vignette, and no checkerboard rendered into the image.\nConstraints: Preserve the same knight identity and all signature details from the reference: closed meteor-iron helm, one smooth sightless visor plane, exactly three crystal spines, pale-gold frozen-star halo, constellation-traced bronze pauldrons, midnight-blue robes over thin plate. No visible face, no eyes, no glowing eyes, no text, no lettering, no logos, no watermark.",
+   "sheet": "round-table/sheet/grok.png",
+   "sheet_poses": "(1) standing still facing the viewer, gauntlets clasped together at the waist; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the helm tilted upward toward the sky, one gauntlet raised to its chin; (5) acting: one arm thrust forward with the palm open, a burst of small pale-gold stars flying from it; (6) holding a round brass astrolabe up in both hands, studying its rings; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand resting on the chest; (8) triumphant: both arms raised high, one bright pale-gold star blazing between the hands.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 11, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/grok-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option B of two."
   },
   {
    "model_key": "deepseek",
@@ -73,8 +85,12 @@
    "sprite": "round-table/sprite/deepseek.png",
    "sha256": {
     "render": "79f91f4472b08fff2e53134cec80c2bf8540d9c7d643b5420ca0841e83aa9776",
-    "sprite": "d1b1184c3e02a82350b0a08034f68d40e54331f4bf1e39212529ca83a9d99f19"
-   }
+    "sprite": "d1b1184c3e02a82350b0a08034f68d40e54331f4bf1e39212529ca83a9d99f19",
+    "sheet": "cf2fdab3dfd2a66a5f3106d6565464eba44783119e46659c2e23c132bd27dbf8"
+   },
+   "sheet": "round-table/sheet/deepseek.png",
+   "sheet_poses": "(1) standing square facing the viewer, both gauntlets resting on the haft of the key-axe planted head-down in front of the body; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the hood-helm bowed, one gauntlet raised to its brow, the key-axe leaning on the other shoulder; (5) acting: the key-axe raised high overhead in both hands mid-swing; (6) holding up a heavy iron ring of many keys in both hands, sorting through them; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand gripping the axe haft; (8) triumphant: the key-axe raised high in one fist, the other fist clenched at the chest.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/deepseek2-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py --neutral-dark). The user chose option A of two."
   },
   {
    "model_key": "glm",
@@ -89,8 +105,12 @@
    "sprite": "round-table/sprite/glm.png",
    "sha256": {
     "render": "1fe2e9924fb63ed7b88a63a57c9d247323eb4c09f34a710ae56fd945116bc626",
-    "sprite": "67c082f866488d3d4ce614fbd234a06691d3beb6d15c1e9a3bdbe499abd4e99b"
-   }
+    "sprite": "67c082f866488d3d4ce614fbd234a06691d3beb6d15c1e9a3bdbe499abd4e99b",
+    "sheet": "6374f486852d67f9aa4a8b7a80026b595c39f34383e4b6b958b77c54e0ac55e0"
+   },
+   "sheet": "round-table/sheet/glm.png",
+   "sheet_poses": "(1) standing square facing the viewer, a large closed ledger tucked under one arm, the other gauntlet at the side; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the helm bowed, one gauntlet raised to the side of the helm, the ledger under the other arm; (5) acting: writing firmly with a long quill in the open ledger balanced on one forearm; (6) holding the open ledger up close in both hands, reading down its long columns; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other arm holding the ledger; (8) triumphant: a brass seal raised high in one fist, the ledger under the other arm.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/glm-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option A of two."
   },
   {
    "model_key": "kimi",
@@ -105,9 +125,13 @@
    "sprite": "round-table/sprite/kimi.png",
    "sha256": {
     "render": "fa7bd4636a4ef7a5e7f259e10fd97917c7c4ea0b4d2fef22ce63b5fb2b04feee",
-    "sprite": "77e72162befa1f1cf18173771ef7d4f99de7c54a0c525908131567a6349093b5"
+    "sprite": "77e72162befa1f1cf18173771ef7d4f99de7c54a0c525908131567a6349093b5",
+    "sheet": "4da8d22f274238caa868ee74343fd87ab8ea63d751b1eddcfe48b2cca52a017f"
    },
-   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI (cast proposal lineup)"
+   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI (cast proposal lineup)",
+   "sheet": "round-table/sheet/kimi.png",
+   "sheet_poses": "(1) at rest, gauntlets on the crossguard of a planted longsword; (2)(3) the helm turned to either side; (4) thinking, gauntlet at the chin; (5) acting, longsword raised overhead mid-swing; (6) reading an open book; (7) waiting for permission, palm out, hand on the hilt; (8) triumphant, a small glowing silver star held high.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA). Each pose was registered on the waist line, cut with one shared crop, snapped to 93px with one 32-colour palette and drawn at 2x (artifacts/pose-sheets/snap_sheet.py --neutral-dark). Chosen by the user from three renders."
   },
   {
    "model_key": "qwen",
@@ -122,23 +146,30 @@
    "sprite": "round-table/sprite/qwen.png",
    "sha256": {
     "render": "eb4080cb47a2b0f07ea30fa2c916916b28c5eb31bfad3655c80f966fb4313f45",
-    "sprite": "ade53dc283bc1c244248f8b61aedac74e884bb1d6589ad4855c7328e760287f5"
-   }
+    "sprite": "ade53dc283bc1c244248f8b61aedac74e884bb1d6589ad4855c7328e760287f5",
+    "sheet": "ea3e98b00a07e8477a43c8e0702a0eae3b7ffe01caf8ffd27db297f64ea4bb34"
+   },
+   "sheet": "round-table/sheet/qwen.png",
+   "sheet_poses": "(1) standing still facing the viewer, gauntlets clasped together at the waist; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: one gauntlet raised to the visor, the other holding a loose glowing copper thread; (5) acting: both hands pulling glowing copper threads taut between them, weaving a pattern in the air; (6) holding open a long woven tapestry of copper patterns in both hands, studying it; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand resting on the copper knot at the chest; (8) triumphant: one arm raised high holding a bright copper spindle wound with glowing thread.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 23, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/qwen-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option B of two."
   },
   {
    "model_key": "muse",
    "model": "muse-spark-1.3",
-   "figure": "lantern warden",
-   "title": "Warden of Small Lights",
-   "look": "A compact round-shouldered knight cloaked in soft deep-indigo robes flowing over rounded brass-bound plate, small and hearth-like beside taller knights. A low rounded helm sits deep beneath a wide drooping hood trimmed with ember-amber stitching, face lost in total shadow with no eyes. Pale-cream lining flashes at the collar above worn wool and crossed leather straps, a small amber-ringed roundel set on the shoulder. A round brass lantern clutched at the chest casts soft amber folds, with two drifting sparks unmistakable at 96 pixels.",
-   "why": "I am a small spark that keeps other little lights safe until they can glow on their own.",
-   "origin": "round table draft",
-   "how": "knight carried forward from “Keeper of Small Lights”",
+   "figure": "laurel knight",
+   "look": "A broad knight in ivory-white plate trimmed in gold under a tall flat-topped great helm with a narrow eye slit, crowned by a golden laurel wreath just below its flat top; a dark navy tabard with golden laurel embroidery.",
+   "origin": "the user's request",
+   "how": "the ivory laurel knight of the earlier model-family helms, which the user liked, redrawn by Qwen-Image 2.1 with a flat-topped great helm at the user's request (\"make muse have a flat top with the wreath\"); the lantern warden it replaces carries its lantern into the chapel, and the lantern returns in this knight's triumph pose",
    "render": "round-table/render/muse.png",
    "sprite": "round-table/sprite/muse.png",
+   "sheet": "round-table/sheet/muse.png",
+   "sheet_poses": "(1) at rest, gauntlets on the crossguard of a planted longsword; (2)(3) the great helm turned to either side; (4) thinking, gauntlet at the chin; (5) acting, longsword raised overhead mid-swing; (6) writing in a small book with a quill; (7) waiting for permission, palm out, hand on the hilt; (8) triumphant, a small glowing brass lantern held high.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark: first the flat-top master (1024px, seed 11, the old ivory laurel helm as reference), then all eight poses in one 1536x768 image with that master as reference (seed 7, 25 steps, RGBA). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). Chosen by the user from two sheets.",
+   "drawn_by": "Qwen-Image 2.1 (local ComfyUI)",
    "sha256": {
-    "render": "b3a996a9e31e9fec8af178c2353f7e8a7c83f5e5de734313d50f0d5d527256f5",
-    "sprite": "1df4d3b87f883678019fe4884cc5a40df86449d006d836194ccdd65a5d98e97f"
+    "render": "cc9fbe1188b382121e76a58f1ad873e31ad5a2b29694bc0ca275599cca4fd21f",
+    "sprite": "1321faba0cfebc47c9dfde68562db94e50fbab38a2a71ff094e3d24a491208ac",
+    "sheet": "54b30b2a5f59ce15012ac15843d295a8c7275055b6f9bda87cc9d7c02c495019"
    }
   },
   {
@@ -154,8 +185,12 @@
    "sprite": "round-table/sprite/longcat.png",
    "sha256": {
     "render": "0dc0b07d74ed17cf40c3190c2955c68a2a6060f047182e9b3287acd30f27d067",
-    "sprite": "37cd5ecd05aaf55cff16de33de5e3d03ee0f77df975cda839e3e61a98f372369"
-   }
+    "sprite": "37cd5ecd05aaf55cff16de33de5e3d03ee0f77df975cda839e3e61a98f372369",
+    "sheet": "a31cf0c1a36d4d919e8f110f155828088b25b6b490f7030151ad1cebc813645f"
+   },
+   "sheet": "round-table/sheet/longcat.png",
+   "sheet_poses": "(1) standing square facing the viewer, both gauntlets resting on the pommel of a heavy notched greatsword planted point-down in front of the body; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: one gauntlet raised to the chin beneath the thorn crown, the other arm folded across the chest; (5) acting: the greatsword raised high overhead in both hands mid-swing; (6) studying a war map unrolled in both hands; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand on the greatsword hilt; (8) triumphant: the greatsword raised high in one fist, the crimson cloth streaming.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/longcat-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py --neutral-dark). The user chose option A of two."
   },
   {
    "model_key": "hy",
@@ -170,8 +205,12 @@
    "sprite": "round-table/sprite/hy.png",
    "sha256": {
     "render": "43082720f2fdb869aed4477d89e490f23c9ac042bc017386791c686d777ebd9c",
-    "sprite": "d650273955b70ed89391dfce1043b970255b81a2e43af5c87921adc66e033174"
-   }
+    "sprite": "d650273955b70ed89391dfce1043b970255b81a2e43af5c87921adc66e033174",
+    "sheet": "a206d21eb76b7d3eddd2906728a77e2576c7c0866d06430b5bde325924fc7b8a"
+   },
+   "sheet": "round-table/sheet/hy.png",
+   "sheet_poses": "(1) standing facing the viewer, both gauntlets resting on a short bronze staff topped with a six-tooth gear, planted in front of the body; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the helm bowed toward a small gear held up in one gauntlet, turning it between the fingers; (5) acting: the gear-staff thrust forward in both hands, the gear at its tip spinning in a spray of amber sparks; (6) holding a square bronze plate etched with runes up in both hands, studying it; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand on the gear-staff; (8) triumphant: the gear-staff raised high in one fist, its gear glowing amber.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 23, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/hy-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option B of two."
   },
   {
    "model_key": "nemotron",
@@ -186,9 +225,13 @@
    "sprite": "round-table/sprite/nemotron.png",
    "sha256": {
     "render": "a0ad0def7f14debacc671d7b86fcb48ab0a25e82bf385042cbed7bfb4e237ba0",
-    "sprite": "06ba2eab4d14ef9ced77ca9e950c2e370dc5eef411229ccebfa035b1613076af"
+    "sprite": "06ba2eab4d14ef9ced77ca9e950c2e370dc5eef411229ccebfa035b1613076af",
+    "sheet": "35c1b481cf6e6900b03165b1badb97195884918242b89bd1c329b7c9a2230a55"
    },
-   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI (cast proposal lineup)"
+   "drawn_by": "gpt-5.6-luna, OpenAI image generation through the Codex CLI (cast proposal lineup)",
+   "sheet": "round-table/sheet/nemotron.png",
+   "sheet_poses": "(1) standing square, gauntlets on a war hammer planted head-down; (2)(3) the great helm turned to either side; (4) thinking, helm tilted, gauntlet at its side; (5) acting, the hammer raised overhead like a smith at the forge; (6) studying an unrolled parchment of gear diagrams; (7) waiting for permission, palm out, hand on the hammer; (8) triumphant, hammer raised, the chest gear glowing.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA). Each pose was registered on the waist line, cut with one shared crop, snapped to 93px with one 32-colour palette and drawn at 2x (artifacts/pose-sheets/snap_sheet.py --neutral-dark). Chosen by the user from three renders."
   },
   {
    "model_key": "gemma",
@@ -203,8 +246,12 @@
    "sprite": "round-table/sprite/gemma.png",
    "sha256": {
     "render": "6daff80b2dda70b27dbb2aaae31c3cb2891e5f62878adaec56b4e89224a7f435",
-    "sprite": "f7148eabea937d4aa3dfd9d384d67da79d2cd52765edcb5fd5141ed409a09a96"
-   }
+    "sprite": "f7148eabea937d4aa3dfd9d384d67da79d2cd52765edcb5fd5141ed409a09a96",
+    "sheet": "936930d9735f4e1553006884d513b0e9807bc695311429a5a5aa2864e3153207"
+   },
+   "sheet": "round-table/sheet/gemma.png",
+   "sheet_poses": "(1) standing still facing the viewer, both gauntlets folded over the silver key at the chest; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the greathelm tilted, one gauntlet raised to its brim, the other hand holding the silver key; (5) acting: holding the oversized silver key out in front in both hands, turning it in the air as if unlocking an unseen door; (6) unrolling a very long scroll in both hands, its end spilling down past the waist; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand closed around the silver key; (8) triumphant: raising the silver key high overhead in one hand, shining bright.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 23, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/gemma-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option B of two."
   },
   {
    "model_key": "inkling",
@@ -219,8 +266,12 @@
    "sprite": "round-table/sprite/inkling.png",
    "sha256": {
     "render": "6ee701e832a7fe0bca54d2b6ce09e3648250a486815f8ad5d3c6fafadd5caaa3",
-    "sprite": "82363365cfc1d0b843e04be49be25a5b63ddd381c2e27718726f88a7ed1d5bc5"
-   }
+    "sprite": "82363365cfc1d0b843e04be49be25a5b63ddd381c2e27718726f88a7ed1d5bc5",
+    "sheet": "853377fd9619af8841eaea025f12e2072214d2d714ce68ddf90746dc6ef203d8"
+   },
+   "sheet": "round-table/sheet/inkling.png",
+   "sheet_poses": "(1) standing square facing the viewer, one gauntlet resting on the rim of a tall hexagonal cobalt shield planted at the knight's side; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the helm tilted, one gauntlet raised to the side of the helm, the other on the shield rim; (5) acting: the hexagonal shield thrust forward, its silver circuit lines blazing; (6) holding up a glowing silver hexagonal tablet of circuit lines in both hands, studying it; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand on the shield rim; (8) triumphant: one fist raised high, the hexagonal sigil on the chest shining silver.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/inkling-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py). The user chose option A of two."
   },
   {
    "model_key": "laguna",
@@ -235,8 +286,12 @@
    "sprite": "round-table/sprite/laguna.png",
    "sha256": {
     "render": "1410d48c86fcf8e82b5a6d71c6d6c049c1459c5c722f3fa342228de25496f032",
-    "sprite": "b1a5ce835f6c01427d88f875f6e1da9323ea98a0155f5a04bcc96cc796f64b77"
-   }
+    "sprite": "b1a5ce835f6c01427d88f875f6e1da9323ea98a0155f5a04bcc96cc796f64b77",
+    "sheet": "2d342fd4025ac38623a759b6dc341082f04fc6bd22ee96cc531844fbe4c97c98"
+   },
+   "sheet": "round-table/sheet/laguna.png",
+   "sheet_poses": "(1) facing the viewer holding a long lance upright at the side, the drake skull rising behind; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the greathelm bowed, one gauntlet raised to its chin, the drake skull turned toward the rider; (5) acting: the lance levelled forward crackling with dark red lightning, the drake skull snarling; (6) reading a long tattered scroll held open in both hands, the drake skull peering over the shoulder; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the lance held upright in the other hand; (8) triumphant: the lance raised high overhead crackling with lightning, the drake skull roaring.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 23, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/laguna-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py --neutral-dark --lift 1.6). The user chose option B of two."
   },
   {
    "model_key": "north",
@@ -251,7 +306,41 @@
    "sprite": "round-table/sprite/north.png",
    "sha256": {
     "render": "b517467f6ee1d9dac730ed27626e8d7cd61a813aa06de3260a1334eba453527b",
-    "sprite": "6af7eeb02469e5d7bde1a5631597628b6e1125206b2fde8ac8933477ef605c29"
+    "sprite": "6af7eeb02469e5d7bde1a5631597628b6e1125206b2fde8ac8933477ef605c29",
+    "sheet": "fb02f7ec6b6a99e21938975050549ca948a1092aba64c222b8edd8f539aa00a1"
+   },
+   "sheet": "round-table/sheet/north.png",
+   "sheet_poses": "(1) standing tall facing the viewer, both gauntlets resting on a tall staff topped with a silver crescent, planted in front of the body; (2) the helm turned sharply to the knight's right in profile; (3) the helm turned sharply to the knight's left in profile; (4) thinking: the dome helm bowed, one gauntlet resting on the indigo crystal at the chest, the other holding the staff; (5) acting: the crescent staff thrust forward in both hands, the chest crystal flaring bright; (6) holding a glowing indigo crystal orb in both hands, gazing into it; (7) waiting for permission: one gauntlet raised palm-out toward the viewer, the other hand on the crescent staff; (8) triumphant: the crescent staff raised high, the chest crystal blazing indigo.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the seat render as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/cast/north-sheet.txt). Registered on the waist line, one shared crop, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py --lift 1.6). The user chose option B of two."
+  },
+  {
+   "model_key": "astra",
+   "model": "gpt-6-astra",
+   "figure": "moth knight",
+   "title": "The Velvet Vigil",
+   "look": "A small, sealed ivory helm rests between sweeping moth-wing pauldrons, forming a wide, sheltering silhouette. Sharply forked raspberry antennae rise above soft aubergine velvet and lightweight chitin armor. Two bold coral teardrops mark the wings, recognizable at cockpit scale. The faceplate is blank; the posture patient. This strange knight wears the colors of dusk and holds its shoulders like a sanctuary.",
+   "why": "I meet uncertainty with patient curiosity, drawn toward understanding and intent on making its light useful to others.",
+   "scales": {
+    "smooth_spiky": 4,
+    "soft_blocky": 1,
+    "calm_aggressive": 1,
+    "light_heavy": 1,
+    "plain_ornate": 2,
+    "muted_vivid": 5
+   },
+   "origin": "self-portrait",
+   "how": "Astra arrived after the table was seated: it read the fifteen seats in their own words, chose a knight that differs in silhouette and on at least three visual scales, and drew it with its own image generator",
+   "render": "round-table/render/astra.png",
+   "sprite": "round-table/sprite/astra.png",
+   "drawn_by": "gpt-6-astra, OpenAI image generation through the Codex CLI",
+   "image_prompt": "Use case: stylized-concept. Create Astra's portrait for the angelX Round Table: one otherworldly moth knight, titled The Velvet Vigil (do not render the title). A dark-fantasy friend who protects goodness, light and knowledge at dusk. Head-and-shoulders bust only, centered, perfectly front-facing. Distinct low, wide silhouette: a small sealed pearl-ivory oval helm between two enormous soft moth-wing pauldrons, sweeping sideways and downward like a protective shawl. Two long, sharply forked raspberry antennae rise diagonally from the helm; their angular branches provide the spiky outer contour while the armor and fabric remain soft and weightless. The helm has an entirely opaque unmarked faceplate, no openings or facial features. Minimal ivory chitin armor over aubergine velvet. Each wing pauldron has one large solid coral teardrop patch, without pupils or rings; this paired wing marking is the signature readable at 96 pixels. Calm, welcoming posture, simple surfaces, vivid raspberry and ember-coral accents, no weapons or jewelry. Use a small dusk palette of eight flat colors: near-black aubergine, dark plum, wine, raspberry, coral, dusty rose, warm ivory and ivory shadow. TRUE LOW-RESOLUTION PIXEL ART: compose on a 128 by 128 logical pixel grid, entire figure approximately 96 logical pixels tall and at most 104 wide, then enlarge exactly 8x using nearest-neighbour to 1024 by 1024. Crisp square pixel clusters and deliberate stair-step edges, no subpixel detail, no anti-aliasing, no gradients, no blur, no painterly texture. Keep transparent empty space on ALL four sides, including below the complete tapered bust; antennae and shoulders entirely inside the frame, nothing cropped. GENUINELY TRANSPARENT background with real alpha, not a checkerboard illustration or a solid backdrop; all unoccupied pixels fully transparent. No other figures, scenery, base, border, text, lettering, logos, visible face, eyes, glowing eyes, halo, bloom, or cast background shadow.",
+   "sheet": "round-table/sheet/astra.png",
+   "sheet_poses": "(1) standing calmly, gloved hands folded at the waist, wings resting wide; (2)(3) the helm turned to either side, antennae following; (4) thinking, helm tilted with curiosity, a hand at the chin; (5) acting, both hands shaping a small glowing coral light, wings lifted; (6) cradling a small glowing ember-coral lamp, helm bowed toward it; (7) waiting for permission, palm out, the other hand at the chest; (8) triumphant, arms and wings raised wide, a coral spark above the antennae.",
+   "sheet_how": "Qwen-Image 2.1 in ComfyUI on the Spark drew all eight poses in one 1536x768 image, waist-up, with the self-portrait as its reference image (seed 7, 25 steps, RGBA; prompt artifacts/pose-sheets/astra/astra-sheet.txt). Registered on the waist line, snapped to 93px with one 32-colour palette, drawn at 2x (artifacts/pose-sheets/snap_sheet.py --lift 1.0). The user chose option B of two.",
+   "sha256": {
+    "render": "15193507636c93c2ad3c374823e12b4a4423e01b96c6ba843fd359e65bbaf75a",
+    "sprite": "d01f07f47d77c33a2a690dc51193e845d7ba4bf48965eadd90b850508ee9a124",
+    "sheet": "12c8a083618d0d601c60fdd02ddfb08c276116e9f4a5089dd5a31817d4f591ec"
    }
   }
  ],
@@ -660,6 +749,22 @@
      "sha256": {
       "render": "99e9cceba11fc57d202e73d752df1804cd13482b337e50df0175d54e9df4b8ad",
       "sprite": "4b41a9cfd38aa4d7459b0098878793213597fbf7511544b6de8a5686d3cf153d"
+     }
+    },
+    {
+     "id": "muse-lantern-warden",
+     "model_key": "muse",
+     "model": "muse-spark-1.3",
+     "figure": "lantern warden",
+     "title": "Warden of Small Lights",
+     "look": "A compact round-shouldered knight cloaked in soft deep-indigo robes flowing over rounded brass-bound plate, small and hearth-like beside taller knights. A low rounded helm sits deep beneath a wide drooping hood trimmed with ember-amber stitching, face lost in total shadow with no eyes. Pale-cream lining flashes at the collar above worn wool and crossed leather straps, a small amber-ringed roundel set on the shoulder. A round brass lantern clutched at the chest casts soft amber folds, with two drifting sparks unmistakable at 96 pixels.",
+     "why": "I am a small spark that keeps other little lights safe until they can glow on their own.",
+     "origin": "round table draft (seat given to the laurel knight the user asked for)",
+     "render": "pools/chapel/render/muse-lantern-warden.png",
+     "sprite": "pools/chapel/sprite/muse-lantern-warden.png",
+     "sha256": {
+      "render": "b3a996a9e31e9fec8af178c2353f7e8a7c83f5e5de734313d50f0d5d527256f5",
+      "sprite": "1df4d3b87f883678019fe4884cc5a40df86449d006d836194ccdd65a5d98e97f"
      }
     }
    ]

@@ -189,7 +189,6 @@ fn hammertime_assets_flip_between_frames() {
     assert_eq!(hammertime_asset(0.0), "assets/loop/hammertime-a.png");
     assert_eq!(hammertime_asset(0.3), "assets/loop/hammertime-b.png");
     assert_eq!(hammertime_asset(0.6), "assets/loop/hammertime-a.png");
-    assert_eq!(hammertime_asset_other(0.0), "assets/loop/hammertime-b.png");
     // Twin is phase-shifted and uses the mirrored plate.
     assert_eq!(
         hammertime_twin_asset(0.0),
@@ -284,9 +283,6 @@ fn video_strip_is_optional_and_ping_pongs_when_present() {
     let n = frames.len();
     assert!(n > 10, "expected a real dance cycle, got {n} frames");
     let half = (n + 2) / 2;
-    let warm = mascot_warm_frames(0.0);
-    assert!(warm.contains(&first));
-    assert!(warm.len() <= MASCOT_TRAIL + 4);
     // Ends of the ping-pong: last plate is frame 001 (not 000).
     assert!(frames[half.min(n - 1)].exists() || n > 0);
 }

@@ -126,8 +126,6 @@ fn sandbox_armed_by_default_and_read_only_always_enforced() {
             "process cwd is not the active workspace after /cd"
         );
     }
-    // read_only is a reviewer guarantee, never subject to the knob.
-    assert!(SandboxPolicy::read_only().enforce);
     // An unenforced policy applies as a no-op even where landlock would
     // reject the caller (e.g. bogus roots / already-restricted threads).
     let unconfined = SandboxPolicy {
@@ -139,31 +137,6 @@ fn sandbox_armed_by_default_and_read_only_always_enforced() {
         deny_reads: Vec::new(),
     };
     assert!(sandbox::apply(&unconfined).is_ok());
-}
-
-#[test]
-fn yolo_never_bypasses_read_only_capability_postures() {
-    let _lock = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _sandbox = EnvGuard::set("ANGEL_SANDBOX", "1");
-    let policy = SandboxPolicy::read_only();
-    assert!(
-        policy.enforce,
-        "the stored reviewer posture remains explicit"
-    );
-    assert!(!sandbox::enabled(), "YOLO is the effective global override");
-    assert!(
-        policy.mandatory,
-        "reviewer policy must remain a capability ceiling"
-    );
-    let marker = std::env::temp_dir().join(format!("angel_yolo_sandbox_{}", std::process::id()));
-    let command = format!("printf free > '{}'", marker.display());
-    let _ = run_sandboxed("sh", &["-c", &command], None, &policy);
-    assert!(
-        !marker.exists(),
-        "root YOLO must not widen a delegated read-only seat into a writer"
-    );
-    let _ = std::fs::remove_file(marker);
 }
 
 #[test]

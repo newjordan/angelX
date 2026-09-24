@@ -18,7 +18,7 @@ use std::io::{IsTerminal, Read};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 // Portrait and explicit `/show` previews stay bounded. Scryglass Still inspection
 // bypasses this thumbnail cache and retains only its active decoded source.
@@ -109,8 +109,84 @@ fn still_pixel_picker(protocol: ProtocolType, reported: Option<(u16, u16)>) -> P
 
 fn terminal_cell_pixels() -> Option<(u16, u16)> {
     // Existing safe TIOCGWINSZ helper, not an escape query on shared stdin.
-    let window = ratatui::crossterm::terminal::window_size().ok()?;
-    reported_cell_pixels(window.width, window.height, window.columns, window.rows)
+    let window = ratatui::crossterm::terminal::window_size().ok();
+    window
+        .and_then(|window| {
+            reported_cell_pixels(window.width, window.height, window.columns, window.rows)
+        })
+        .or_else(tmux_client_cell_pixels)
+}
+
+/// The attached tmux client's cell size (`client_cell_width/height`), for a
+/// pane whose tty reports no pixels. Asked of tmux (never of stdin) at most
+/// every few seconds, so a zoom still lands.
+fn tmux_client_cell_pixels() -> Option<(u16, u16)> {
+    if !crate::ui::dots::protocol::tmux_passthrough() {
+        return None;
+    }
+    static CACHE: Mutex<Option<(Instant, Option<(u16, u16)>)>> = Mutex::new(None);
+    let mut cache = CACHE.lock().ok()?;
+    if let Some((at, cell)) = *cache
+        && at.elapsed() < Duration::from_secs(5)
+    {
+        return cell;
+    }
+    let cell = tmux_query("#{client_cell_width} #{client_cell_height}").and_then(|text| {
+        let mut parts = text.split_whitespace().map(|n| n.parse::<u16>().ok());
+        match (parts.next().flatten(), parts.next().flatten()) {
+            (Some(w), Some(h)) if w > 0 && h > 0 => Some((w, h)),
+            _ => None,
+        }
+    });
+    *cache = Some((Instant::now(), cell));
+    cell
+}
+
+/// One tmux format query about the attached client, stdin detached.
+fn tmux_query(format: &str) -> Option<String> {
+    std::env::var_os("TMUX")?;
+    crate::platform::workspace_store::capture_repo_probe(
+        "tmux",
+        &["display-message", "-p", format],
+        Path::new("/"),
+        2,
+    )
+}
+
+/// The graphics protocol of the terminal tmux is attached to. tmux hides the
+/// outer terminal's environment from its panes, but it knows the client's
+/// terminal name; kitty, Ghostty and WezTerm speak Kitty graphics through
+/// passthrough (ratatui-image wraps its commands and enables the pane's
+/// `allow-passthrough`).
+fn tmux_client_protocol() -> Option<ProtocolType> {
+    protocol_for_client_termname(tmux_query("#{client_termname}")?.trim())
+}
+
+fn protocol_for_client_termname(name: &str) -> Option<ProtocolType> {
+    protocol_from_terminal_hints(Some(name), Some(name), false, false, false)
+        .filter(|protocol| *protocol == ProtocolType::Kitty)
+}
+
+/// A picker for a real cell size. Built once per protocol and cell size:
+/// inside tmux each construction runs `tmux set` (ratatui-image enabling
+/// passthrough), which must never happen per frame.
+fn cell_picker(protocol: ProtocolType, cell: (u16, u16)) -> Picker {
+    static CACHE: Mutex<Vec<(ProtocolType, (u16, u16), Picker)>> = Mutex::new(Vec::new());
+    if let Ok(cache) = CACHE.lock()
+        && let Some((_, _, picker)) = cache.iter().find(|(p, c, _)| *p == protocol && *c == cell)
+    {
+        return picker.clone();
+    }
+    #[allow(deprecated)]
+    let mut picker = Picker::from_fontsize(cell.into());
+    picker.set_protocol_type(protocol);
+    if let Ok(mut cache) = CACHE.lock() {
+        if cache.len() >= 4 {
+            cache.remove(0);
+        }
+        cache.push((protocol, cell, picker.clone()));
+    }
+    picker
 }
 
 struct PreparedArtifact {
@@ -148,6 +224,10 @@ struct PortraitCacheKey {
     width: u16,
     height: u16,
     pose: Option<u8>,
+    /// The terminal's real cell size in pixels when the tty reports it. A
+    /// canvas built for another cell size is drawn short of (or past) its
+    /// cells, so a zoom or a move to another monitor re-renders the portrait.
+    cell: Option<(u16, u16)>,
 }
 
 struct PortraitCacheEntry {
@@ -313,10 +393,14 @@ impl Viewer {
         } else if inside_terminal_multiplexer() {
             // A DSR reply is not proof that the subsequent graphics query will
             // finish. Its detached stdin reader can outlive calibration and
-            // steal literal bursts or Enter from TerminalInput. Ambiguous tmux
-            // sessions use the terminal-native fallback; explicit protocol and
-            // trustworthy environment hints above still select pixel graphics.
-            (halfblock_picker(), "multiplexer-fallback")
+            // steal literal bursts or Enter from TerminalInput. So tmux itself
+            // is asked which terminal it is attached to (no stdin involved);
+            // a Kitty-graphics client gets pixel graphics through passthrough,
+            // anything else the terminal-native fallback.
+            match tmux_client_protocol() {
+                Some(protocol) => (Self::picker_for_protocol(protocol), "tmux-client"),
+                None => (halfblock_picker(), "multiplexer-fallback"),
+            }
         } else if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
             match terminal_answers_status_report(STATUS_REPORT_PREFLIGHT) {
                 Ok(()) => {
@@ -939,8 +1023,10 @@ impl Viewer {
         }
 
         let protocol = match portrait_image(path, pose).and_then(|image| {
-            let image = anchor_portrait_canvas(image, &self.portrait_picker, size);
-            self.portrait_picker
+            let pixel = crate::ui::helm::is_pixel_sheet(path);
+            let picker = self.portrait_pixel_picker(key.cell);
+            let image = anchor_portrait_canvas(image, &picker, size, pixel);
+            picker
                 .new_protocol(
                     image,
                     size.into(),
@@ -1008,7 +1094,8 @@ impl Viewer {
             return false;
         }
         let pixels = Arc::clone(&portal_frame.pixels);
-        let picker = self.portal_picker.clone();
+        // Real cells, as the map uses: a fit to guessed cells drew the card short.
+        let picker = self.world_pixel_picker();
         let size = Rect::new(0, 0, area.width, area.height);
         let worker_key = key.clone();
         let (tx, rx) = mpsc::channel();
@@ -1087,10 +1174,10 @@ impl Viewer {
     /// Fine world dots require real pixel placement. Other protocols keep
     /// ordinary Braille; half blocks cannot represent independent dot spacing.
     pub(crate) fn dot_geometry(&self, area: Rect) -> Option<crate::ui::dots::canvas::DotGeometry> {
+        // Inside tmux the dot uploads ride passthrough (`DotProtocol`).
         if self.portal_picker.protocol_type() != ProtocolType::Kitty
             || area.width > 256
             || area.height > 256
-            || std::env::var_os("TMUX").is_some()
         {
             return None;
         }
@@ -1224,10 +1311,7 @@ impl Viewer {
             // TIOCGWINSZ does not consume terminal input or issue escape probes.
             // Keep the existing estimate only when the host omits pixel sizes.
             if let Some(font) = terminal_cell_pixels() {
-                #[allow(deprecated)]
-                let mut picker = Picker::from_fontsize(font.into());
-                picker.set_protocol_type(self.portal_picker.protocol_type());
-                return picker;
+                return cell_picker(self.portal_picker.protocol_type(), font);
             }
         }
         self.portal_picker.clone()
@@ -1515,6 +1599,44 @@ impl Viewer {
             width: area.width,
             height: area.height,
             pose: None,
+            cell: terminal_cell_pixels(),
+        }
+    }
+
+    /// The cell size a portrait canvas is built for (see
+    /// `portrait_pixel_picker`), for laying out the avatar block.
+    pub(crate) fn portrait_cell_pixels(&self) -> (u16, u16) {
+        match terminal_cell_pixels() {
+            Some(cell) if self.portrait_picker.protocol_type() != ProtocolType::Halfblocks => cell,
+            _ => {
+                let font = self.portrait_picker.font_size();
+                (font.width.max(1), font.height.max(1))
+            }
+        }
+    }
+
+    /// Whether this viewer paints portrait images at all.
+    pub(crate) fn portraits_enabled(&self) -> bool {
+        self.portrait_enabled
+    }
+
+    /// Whether portraits are prepared on the draw thread (headless previews
+    /// and tests); the live cockpit decodes them on a worker.
+    pub(crate) fn portrait_synchronous(&self) -> bool {
+        self.portrait_synchronous
+    }
+
+    /// The picker a portrait is built with. A pixel protocol takes the
+    /// terminal's real cell size (`cell`, from the tty) rather than the
+    /// picker's estimate: Kitty draws a placement at the image's own pixel
+    /// size, so a canvas sized to guessed cells came up short of its box and
+    /// left a gap below and beside the figure.
+    fn portrait_pixel_picker(&self, cell: Option<(u16, u16)>) -> Picker {
+        match cell {
+            Some(font) if self.portrait_picker.protocol_type() != ProtocolType::Halfblocks => {
+                cell_picker(self.portrait_picker.protocol_type(), font)
+            }
+            _ => self.portrait_picker.clone(),
         }
     }
 
@@ -1522,13 +1644,14 @@ impl Viewer {
         let path = key.path.clone();
         let pose = key.pose;
         let size = Rect::new(0, 0, key.width, key.height);
-        let picker = self.portrait_picker.clone();
+        let picker = self.portrait_pixel_picker(key.cell);
         let (tx, rx) = mpsc::channel();
         let _ = std::thread::Builder::new()
             .name("angel-agent-portrait".to_string())
             .spawn(move || {
                 let result = portrait_image(&path, pose).and_then(|image| {
-                    let image = anchor_portrait_canvas(image, &picker, size);
+                    let pixel = crate::ui::helm::is_pixel_sheet(&path);
+                    let image = anchor_portrait_canvas(image, &picker, size, pixel);
                     picker
                         .new_protocol(image, size.into(), Resize::Crop(None))
                         .map_err(|error| error.to_string())
@@ -1794,10 +1917,18 @@ fn portrait_image(path: &Path, pose: Option<u8>) -> Result<image::DynamicImage, 
 /// helm sheets carry a faint halo out to their edges, and anchoring on any
 /// non-zero alpha left the knight floating in his own haze. Haze outside the
 /// figure is dropped; the figure's pixels, scale and pose are unchanged.
+///
+/// A pixel sheet (`helm::is_pixel_sheet`) fills the bay like any portrait but
+/// stays sharp: it is enlarged nearest-neighbour to the next whole multiple,
+/// then smoothed down to the fit, so every sprite pixel keeps a hard face and
+/// only a faint seam, at any bay size. Its frame already stands the pose in
+/// the lower-right corner of a canvas shared by all poses, so it is placed
+/// whole.
 fn anchor_portrait_canvas(
     image: image::DynamicImage,
     picker: &Picker,
     size: Rect,
+    pixel: bool,
 ) -> image::DynamicImage {
     if size.width == 0 || size.height == 0 {
         return image;
@@ -1809,7 +1940,29 @@ fn anchor_portrait_canvas(
     // requested cells, including small portraits, instead of upscaling it to
     // the whole bay. Only the same rounded target that Picker would resize to
     // is prepared before the alpha translation.
-    let fitted = if desired.width <= size.width
+    let fitted = if pixel {
+        let (bay_w, bay_h) = (
+            u32::from(size.width) * u32::from(font.width),
+            u32::from(size.height) * u32::from(font.height),
+        );
+        let (w, h) = (image.width().max(1), image.height().max(1));
+        let (tw, th) = if u64::from(bay_w) * u64::from(h) <= u64::from(bay_h) * u64::from(w) {
+            (
+                bay_w,
+                (u64::from(h) * u64::from(bay_w) / u64::from(w)) as u32,
+            )
+        } else {
+            (
+                (u64::from(w) * u64::from(bay_h) / u64::from(h)) as u32,
+                bay_h,
+            )
+        };
+        let (tw, th) = (tw.max(1), th.max(1));
+        let k = tw.div_ceil(w).max(th.div_ceil(h)).max(1);
+        image
+            .resize_exact(w * k, h * k, image::imageops::FilterType::Nearest)
+            .resize_exact(tw, th, image::imageops::FilterType::Triangle)
+    } else if desired.width <= size.width
         && desired.height <= size.height
         && (image.width() == u32::from(desired.width) * u32::from(font.width)
             || image.height() == u32::from(desired.height) * u32::from(font.height))
@@ -1820,16 +1973,21 @@ fn anchor_portrait_canvas(
         fit.resize(&image, font, target, None)
     };
     let source = fitted.to_rgba8();
-    let (mut left, mut top) = source.dimensions();
-    let (mut right, mut bottom) = (0, 0);
-    for (x, y, pixel) in source.enumerate_pixels() {
-        if pixel[3] >= PORTRAIT_FIGURE_ALPHA {
-            left = left.min(x);
-            top = top.min(y);
-            right = right.max(x + 1);
-            bottom = bottom.max(y + 1);
+    let (left, top, right, bottom) = if pixel {
+        (0, 0, source.width(), source.height())
+    } else {
+        let (mut left, mut top) = source.dimensions();
+        let (mut right, mut bottom) = (0, 0);
+        for (x, y, pixel) in source.enumerate_pixels() {
+            if pixel[3] >= PORTRAIT_FIGURE_ALPHA {
+                left = left.min(x);
+                top = top.min(y);
+                right = right.max(x + 1);
+                bottom = bottom.max(y + 1);
+            }
         }
-    }
+        (left, top, right, bottom)
+    };
     if right <= left || bottom <= top {
         return image::DynamicImage::ImageRgba8(source);
     }

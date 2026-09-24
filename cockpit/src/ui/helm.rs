@@ -23,22 +23,30 @@ pub(crate) enum Pose {
 
 pub(crate) fn sheet(key: AgentKey) -> &'static str {
     match key {
+        // The Round Table: one knight per model family, eight held poses drawn
+        // from the seat portrait the model chose.
+        AgentKey::Codex | AgentKey::MathGod => "assets/realm/avatars/round-table/sheet/sol.png",
+        AgentKey::Luna => "assets/realm/avatars/round-table/sheet/luna.png",
+        AgentKey::Astra => "assets/realm/avatars/round-table/sheet/astra.png",
+        AgentKey::Grok => "assets/realm/avatars/round-table/sheet/grok.png",
+        AgentKey::DeepSeek => "assets/realm/avatars/round-table/sheet/deepseek.png",
+        AgentKey::Glm => "assets/realm/avatars/round-table/sheet/glm.png",
+        AgentKey::Kimi => "assets/realm/avatars/round-table/sheet/kimi.png",
+        AgentKey::Qwen => "assets/realm/avatars/round-table/sheet/qwen.png",
+        AgentKey::Muse => "assets/realm/avatars/round-table/sheet/muse.png",
+        AgentKey::LongCat => "assets/realm/avatars/round-table/sheet/longcat.png",
+        AgentKey::Hy => "assets/realm/avatars/round-table/sheet/hy.png",
+        AgentKey::Nemotron => "assets/realm/avatars/round-table/sheet/nemotron.png",
+        AgentKey::Gemma => "assets/realm/avatars/round-table/sheet/gemma.png",
+        AgentKey::Inkling => "assets/realm/avatars/round-table/sheet/inkling.png",
+        AgentKey::Laguna => "assets/realm/avatars/round-table/sheet/laguna.png",
+        AgentKey::North => "assets/realm/avatars/round-table/sheet/north.png",
+        // Label-only identities (machines and formations) keep the older helms;
+        // routes never resolve to a machine.
         AgentKey::Turbo | AgentKey::GpuComp => "assets/agents/helms/turbo.png",
         AgentKey::Atlas => "assets/agents/helms/atlas.png",
         AgentKey::Sparky | AgentKey::Unknown => "assets/agents/helms/sparky.png",
         AgentKey::Apollo => "assets/agents/helms/apollo.png",
-        AgentKey::Codex | AgentKey::MathGod => "assets/agents/helms/codex.png",
-        AgentKey::Luna => "assets/agents/helms/luna.png",
-        AgentKey::Glm => "assets/agents/helms/glm.png",
-        AgentKey::Kimi => "assets/agents/helms/kimi.png",
-        AgentKey::Qwen => "assets/agents/helms/qwen.png",
-        AgentKey::LongCat => "assets/agents/helms/longcat.png",
-        AgentKey::Muse => "assets/agents/helms/muse.png",
-        AgentKey::Hy => "assets/agents/helms/hy.png",
-        AgentKey::Nemotron => "assets/agents/helms/nemotron.png",
-        AgentKey::Cerebras => "assets/agents/helms/cerebras.png",
-        AgentKey::OpenRouter => "assets/agents/helms/openrouter.png",
-        AgentKey::Local => "assets/agents/helms/local.png",
     }
 }
 
@@ -68,14 +76,35 @@ pub(crate) fn pose(
 
 type Frames = Arc<Vec<image::RgbaImage>>;
 
+fn frame_cache() -> &'static Mutex<HashMap<PathBuf, Frames>> {
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Frames>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Pixel size of a sheet's frames (every pose shares one canvas). With
+/// `decode` false this only reads the cache, so the draw thread never decodes
+/// a sheet; `None` until a portrait worker has decoded it once.
+pub(crate) fn frame_size(path: &Path, decode: bool) -> Option<(u32, u32)> {
+    let cached = frame_cache()
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(path).map(|frames| frames[0].dimensions()));
+    match cached {
+        Some(size) => Some(size),
+        None if decode => frame_image(path, 0)
+            .ok()
+            .map(|frame| (frame.width(), frame.height())),
+        None => None,
+    }
+}
+
 /// Decode each selected sheet off the draw thread, then retain bounded 192px
 /// frames. No original-sized sheet remains in the cache (five sheets < 6 MiB).
 pub(crate) fn frame_image(path: &Path, pose: u8) -> Result<image::DynamicImage, String> {
     if pose >= 8 {
         return Err("unknown helm pose".into());
     }
-    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Frames>>> = OnceLock::new();
-    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let cache = frame_cache();
     let cached = cache.lock().ok().and_then(|cache| cache.get(path).cloned());
     let frames = if let Some(frames) = cached {
         frames
@@ -100,7 +129,11 @@ pub(crate) fn frame_image(path: &Path, pose: u8) -> Result<image::DynamicImage, 
             let cell = image::imageops::crop_imm(&source, x, y, w, h).to_image();
             frames.push(cell);
         }
-        let frames = Arc::new(anchor_character_frames(&frames));
+        let frames = Arc::new(if is_pixel_sheet(path) {
+            anchor_pixel_frames(&frames)
+        } else {
+            anchor_character_frames(&frames)
+        });
         if let Ok(mut cache) = cache.lock() {
             if cache.len() >= 5 && !cache.contains_key(path) {
                 cache.clear();
@@ -128,6 +161,45 @@ fn character_bounds(frame: &image::RgbaImage) -> Option<(u32, u32, u32, u32)> {
         }
     }
     (right > left && bottom > top).then_some((left, top, right, bottom))
+}
+
+/// The Round Table sheets are pixel sprites on a hard 2x grid.
+pub(crate) fn is_pixel_sheet(path: &Path) -> bool {
+    path.to_string_lossy().contains("round-table/sheet/")
+}
+
+/// Pixel frames share one canvas, as wide as the widest pose and as tall as
+/// the tallest, so every pose takes one scale in the bay. Each pose stands in
+/// its lower-right corner on its own mask: shoulder against the right wall,
+/// torso on the base. The sheets' poses sit loosely in their cells, and a
+/// shared crop left the idle knight short of the wall and above the base.
+/// Nothing is resampled (see `viewer::anchor_portrait_canvas`).
+fn anchor_pixel_frames(frames: &[image::RgbaImage]) -> Vec<image::RgbaImage> {
+    let bounds: Vec<_> = frames.iter().map(character_bounds).collect();
+    let (width, height) = bounds
+        .iter()
+        .flatten()
+        .fold((0, 0), |(w, h), &(l, t, r, b)| (w.max(r - l), h.max(b - t)));
+    if width == 0 || height == 0 {
+        return frames.to_vec();
+    }
+    frames
+        .iter()
+        .zip(bounds)
+        .map(|(frame, bounds)| {
+            let mut canvas = image::RgbaImage::new(width, height);
+            if let Some((l, t, r, b)) = bounds {
+                let crop = image::imageops::crop_imm(frame, l, t, r - l, b - t).to_image();
+                image::imageops::replace(
+                    &mut canvas,
+                    &crop,
+                    i64::from(width - (r - l)),
+                    i64::from(height - (b - t)),
+                );
+            }
+            canvas
+        })
+        .collect()
 }
 
 /// Fit the character rather than the sheet cell. One scale across all poses

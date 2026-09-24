@@ -34,8 +34,10 @@ pub(crate) mod world_camera;
 
 #[cfg(test)]
 use activity::ClassifiedActivity;
-pub(crate) use activity::{ActiveWork, RealmActivity, classify_tool_activity};
-use activity::{pulse_operation, tool_leaf};
+use activity::tool_leaf;
+pub(crate) use activity::{
+    ActiveWork, Deed, Herald, RealmActivity, classify_tool_activity, herald,
+};
 pub(crate) use adventure::{AdventureEvent, LoopMirror, Quest, ToolMix};
 #[cfg(test)]
 pub(crate) use adventure::{LoopKind, Region};
@@ -57,12 +59,8 @@ use crate::agent::harness::{ExecutionOutcome, ToolEventId, ToolOutcome, Verifica
 
 use dotmax::Color as DotColor;
 
-mod budget;
 mod seed;
 mod terrain;
-pub(crate) use budget::{
-    fit_spans_to_cells, health_bar, remaining_fraction, spans_cell_width, world_budget_status,
-};
 #[cfg(test)]
 use ratatui::style::{Color, Style};
 #[cfg(test)]
@@ -82,34 +80,6 @@ const DISTRICT_FRACTIONS: [(f64, f64); 8] = crate::stage::identity::district_fra
 // the dark silhouette. Only the world around them (terrain, shop signs,
 // sparkles) carries color — the characters themselves stay monochrome so they
 // read as little ink sketches against the colored map.
-
-#[cfg_attr(not(test), allow(dead_code))]
-fn cell_width(text: &str) -> usize {
-    unicode_width::UnicodeWidthStr::width(text)
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-fn fit_cells(text: &str, max: usize) -> String {
-    if cell_width(text) <= max {
-        return text.to_string();
-    }
-    if max == 0 {
-        return String::new();
-    }
-    let keep = max.saturating_sub(1);
-    let mut fitted = String::new();
-    let mut used = 0usize;
-    for ch in text.chars() {
-        let width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
-        if used.saturating_add(width) > keep {
-            break;
-        }
-        fitted.push(ch);
-        used += width;
-    }
-    fitted.push('…');
-    fitted
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Biome {
@@ -169,14 +139,6 @@ impl Building {
     fn arrive_activity(self) -> &'static str {
         crate::stage::identity::landmark(self).arrive_activity
     }
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum KnightPose {
-    Riding,
-    Working,
-    Resting,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -328,14 +290,6 @@ pub(crate) struct World {
     /// celebrates over the forge instead of the knight's target. Reset by
     /// `light_fireworks`; only read while the show runs.
     firework_focus: Option<(usize, usize)>,
-    /// Memoized close-camera terrain: the zoomed renderer samples the noise
-    /// fields at sub-tile world points every frame, but the island never
-    /// changes — answers are cached on a 1/16-tile lattice (well under the
-    /// braille dot pitch at Z_CLOSE, so quantization is invisible). RefCell
-    /// because `render` is `&self`; bounded so a long pan can't grow it
-    /// unbounded while the retained ride samples continuous terrain.
-    #[cfg_attr(not(test), allow(dead_code))]
-    close_cache: std::cell::RefCell<std::collections::HashMap<(i16, i16), Biome>>,
     // ─── the muster: fan-out stages rendered as an army on the field ────────
     /// Sequence of the last stage snapshot consumed from `agentviz`, so a new
     /// wave/panel re-forms the ranks exactly once.
@@ -354,16 +308,14 @@ pub(crate) struct World {
     /// adopt their persisted tier silently (set in `for_workspace`), so only
     /// fresh crossings celebrate.
     growth_announced: u32,
-    /// The growth build plan for the current tier plus its next construction
-    /// site, memoized — the island and its landmarks never move, so the tier
-    /// is the whole key (`life.rs`).
-    growth_cache: RefCell<Option<(u32, life::GrowthLayout)>>,
     /// The knight's walk on the pixel overworld, which has its own roads.
     overworld: overworld::Walker,
     /// The last glass picture the map showed, keyed on its source frame.
     overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
     /// A two-seat fan-out stage fought at the Lists, and the session tally.
     overworld_duel: Option<overworld::Duel>,
+    /// Tool calls acted out on the map, and what they left there.
+    overworld_deeds: overworld::Deeds,
     lists_tally: BTreeMap<String, u32>,
 }
 
@@ -505,16 +457,15 @@ impl World {
             completion_ceremony_active: false,
             village: None,
             firework_focus: None,
-            close_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
             muster_seq: 0,
             muster: Vec::new(),
             ride_cache: RefCell::new(None),
             terrain_epoch: 0,
             growth_announced: 0,
-            growth_cache: RefCell::new(None),
             overworld: overworld::Walker::default(),
             overworld_glass: RefCell::new(None),
             overworld_duel: None,
+            overworld_deeds: overworld::Deeds::default(),
             lists_tally: BTreeMap::new(),
         };
         world.tiles = (0..WORLD_H)
@@ -599,30 +550,6 @@ impl World {
 
     fn at(&self, x: usize, y: usize) -> Biome {
         self.tiles[y * WORLD_W + x]
-    }
-
-    /// Close-camera terrain lookup, memoized on a 1/16-tile lattice. The
-    /// answer is `natural_biome_at` evaluated at the lattice point's centre —
-    /// finer than the braille dot pitch at `Z_CLOSE`, so the quantization
-    /// never shows — cached because the 4-octave FBM is the whole cost of the
-    /// zoomed render. Bounded: a runaway pan clears and starts over.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn close_biome_at(&self, wx: f32, wy: f32) -> Biome {
-        const CAP: usize = 120_000;
-        let key = ((wx * 16.0).floor() as i16, (wy * 16.0).floor() as i16);
-        let mut cache = self.close_cache.borrow_mut();
-        if let Some(&b) = cache.get(&key) {
-            return b;
-        }
-        let b = self.natural_biome_at(
-            (f64::from(key.0) + 0.5) / 16.0,
-            (f64::from(key.1) + 0.5) / 16.0,
-        );
-        if cache.len() >= CAP {
-            cache.clear();
-        }
-        cache.insert(key, b);
-        b
     }
 
     /// The discrete tile at a fractional world point, or `DeepWater` off-map.
@@ -876,51 +803,6 @@ impl World {
             .collect()
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
-    fn district_at(&self, point: (f32, f32)) -> Option<&District> {
-        self.districts.iter().min_by(|a, b| {
-            let distance = |district: &District| {
-                let dx = point.0 - district.anchor.0 as f32;
-                let dy = (point.1 - district.anchor.1 as f32) * 2.0;
-                dx * dx + dy * dy
-            };
-            distance(a).total_cmp(&distance(b))
-        })
-    }
-
-    /// Nearest named ward intersected by a route segment. Distance is measured
-    /// in the same display-space metric as the map's district regions.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn district_on_route(
-        &self,
-        start: (f32, f32),
-        end: (f32, f32),
-    ) -> Option<&District> {
-        const REGION_RADIUS_SQ: f32 = 7.0 * 7.0;
-        let start = (start.0, start.1 * 2.0);
-        let end = (end.0, end.1 * 2.0);
-        let segment = (end.0 - start.0, end.1 - start.1);
-        let length_sq = segment.0 * segment.0 + segment.1 * segment.1;
-        self.districts
-            .iter()
-            .filter_map(|district| {
-                let anchor = (district.anchor.0 as f32, district.anchor.1 as f32 * 2.0);
-                let offset = (anchor.0 - start.0, anchor.1 - start.1);
-                let along = if length_sq > f32::EPSILON {
-                    ((offset.0 * segment.0 + offset.1 * segment.1) / length_sq).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                };
-                let closest = (start.0 + segment.0 * along, start.1 + segment.1 * along);
-                let dx = anchor.0 - closest.0;
-                let dy = anchor.1 - closest.1;
-                let distance_sq = dx * dx + dy * dy;
-                (distance_sq <= REGION_RADIUS_SQ).then_some((distance_sq, district))
-            })
-            .min_by(|(a, _), (b, _)| a.total_cmp(b))
-            .map(|(_, district)| district)
-    }
-
     pub(crate) fn destination(&self) -> Building {
         self.target
     }
@@ -1025,7 +907,6 @@ impl World {
         let work = ActiveWork {
             id: id.clone(),
             operation: name.chars().take(240).collect(),
-            pulse_operation: pulse_operation(name, args_summary),
             literal: literal.clone(),
             landmark: classified.building,
             activity: classified.activity,
@@ -1036,6 +917,8 @@ impl World {
         self.target = classified.building;
         self.carrying_mail = classified.building == Building::Gatehouse;
         self.activity = format!("{literal} → {}", classified.building.label());
+        self.overworld_deeds
+            .begin(&id, name, args_summary, self.tick);
         self.active_work.insert(id, work);
     }
 
@@ -1067,6 +950,8 @@ impl World {
         }
         work.summary = summary.chars().take(240).collect();
         work.outcome = Some(outcome);
+        self.overworld_deeds
+            .settle(id, outcome.attributable_success(), self.tick);
         self.completed_event_ids.insert(id.clone());
         self.completed_event_order.push_back(id.clone());
         while self.completed_event_order.len() > 512 {
@@ -1147,36 +1032,6 @@ impl World {
         self.active_work.values().max_by_key(|work| work.seq)
     }
 
-    /// The wide-map knight's pose is a pure read of journey and work state.
-    /// Only classified build/research work animates a settled worker; the
-    /// activity-text fallback covers authored work such as the workshop.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn knight_pose(&self) -> KnightPose {
-        if self.avatar != self.dest() || !self.avatar_vis_settled() {
-            return KnightPose::Riding;
-        }
-
-        let active_here = self.active_build_landmark() == Some(self.target)
-            || self.active_research_landmark() == Some(self.target);
-        if self.avatar == self.building_pos(self.target)
-            && (active_here || self.activity.contains("work"))
-        {
-            KnightPose::Working
-        } else {
-            KnightPose::Resting
-        }
-    }
-
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn knight_caption_verb(&self) -> &'static str {
-        match self.knight_pose() {
-            KnightPose::Riding => "riding to ",
-            KnightPose::Working => "working at ",
-            KnightPose::Resting if self.target == Building::Keep => "resting at ",
-            KnightPose::Resting => "at ",
-        }
-    }
-
     pub(crate) fn event_diagnostics(&self) -> u64 {
         self.event_diagnostics
     }
@@ -1221,45 +1076,6 @@ impl World {
         Some(Self::format_detailed_causal_ribbon(work, &work.literal))
     }
 
-    /// Fit the causal ribbon by semantic priority, not by flat end clipping.
-    /// Arguments disappear first, then outcome detail; the literal operation
-    /// and its realm landmark remain visible for as long as the row permits.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn causal_ribbon_for_width(&self, width: usize) -> Option<String> {
-        let work = self
-            .active_work
-            .values()
-            .max_by_key(|work| work.seq)
-            .or_else(|| self.recent_work.back())?;
-        if width == 0 {
-            return Some(String::new());
-        }
-
-        let full = Self::format_detailed_causal_ribbon(work, &work.literal);
-        if cell_width(&full) <= width {
-            return Some(full);
-        }
-
-        let without_arguments = Self::format_detailed_causal_ribbon(work, &work.operation);
-        if cell_width(&without_arguments) <= width {
-            return Some(without_arguments);
-        }
-
-        let destination = format!(" → {}", work.landmark.label());
-        let relationship = format!("{}{destination}", work.operation);
-        if cell_width(&relationship) <= width {
-            return Some(relationship);
-        }
-
-        let destination_width = cell_width(&destination);
-        if destination_width < width {
-            let operation = fit_cells(&work.operation, width - destination_width);
-            return Some(format!("{operation}{destination}"));
-        }
-
-        Some(fit_cells(&relationship, width))
-    }
-
     fn format_detailed_causal_ribbon(work: &ActiveWork, literal: &str) -> String {
         let detail = match work.outcome {
             None => work.activity.running_label().to_string(),
@@ -1286,74 +1102,6 @@ impl World {
             },
         };
         format!("{literal} → {} · {detail}", work.landmark.label())
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn realm_pulse(&self) -> Option<String> {
-        let work = self
-            .active_work
-            .values()
-            .max_by_key(|work| work.seq)
-            .or_else(|| self.recent_work.back())?;
-        Some(format!(
-            "{} · {} · {}",
-            work.landmark.label(),
-            work.literal,
-            Self::realm_pulse_status(work)
-        ))
-    }
-
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn realm_pulse_for_width(&self, width: usize) -> Option<String> {
-        let work = self
-            .active_work
-            .values()
-            .max_by_key(|work| work.seq)
-            .or_else(|| self.recent_work.back())?;
-        if width == 0 {
-            return Some(String::new());
-        }
-
-        let prefix = format!("{} · ", work.landmark.label());
-        let suffix = format!(" · {}", Self::realm_pulse_status(work));
-        let fixed_width = cell_width(&prefix).saturating_add(cell_width(&suffix));
-        if fixed_width < width {
-            let operation = fit_cells(&work.pulse_operation, width - fixed_width);
-            return Some(format!("{prefix}{operation}{suffix}"));
-        }
-
-        let compact = format!(
-            "{} · {}",
-            work.landmark.label(),
-            Self::realm_pulse_status(work)
-        );
-        Some(fit_cells(&compact, width))
-    }
-
-    fn realm_pulse_status(work: &ActiveWork) -> &'static str {
-        match work.outcome {
-            None => "running",
-            Some(outcome) if outcome.attributable_success() => {
-                if outcome.verification == VerificationOutcome::Passed {
-                    "verified"
-                } else {
-                    "succeeded"
-                }
-            }
-            Some(ToolOutcome {
-                execution: ExecutionOutcome::Denied,
-                ..
-            }) => "denied",
-            Some(ToolOutcome {
-                execution: ExecutionOutcome::Cancelled,
-                ..
-            }) => "cancelled",
-            Some(ToolOutcome {
-                execution: ExecutionOutcome::Panicked,
-                ..
-            }) => "panicked",
-            Some(_) => "failed",
-        }
     }
 
     #[cfg(test)]
@@ -1470,15 +1218,6 @@ impl World {
 
     pub(crate) fn hearth_state(&self) -> &crate::stage::hearth::HearthState {
         &self.hearth
-    }
-
-    #[cfg_attr(not(test), allow(dead_code))]
-    fn construction_preview(&self) -> Option<(u64, &'static str)> {
-        let (threshold, label) = self.next_unlock()?;
-        self.renown
-            .saturating_mul(5)
-            .ge(&threshold.saturating_mul(3))
-            .then_some((threshold, label))
     }
 
     fn reward_chrome(&self) -> String {
@@ -1990,6 +1729,7 @@ impl World {
         // Any tool call still in flight at turn end never got its ToolResult;
         // drop it so orphaned entries can't accumulate across turns.
         self.active_work.clear();
+        self.overworld_deeds.abandon();
     }
 
     /// One animation frame. The knight walks a tile toward its target every
@@ -2331,18 +2071,6 @@ impl World {
             )
     }
 
-    fn mood(&self) -> &'static str {
-        if self.recent_errors >= 3 {
-            "(x_x)"
-        } else if self.tick < self.storm_until {
-            "(o_o)"
-        } else if self.carrying_mail || self.tick < self.sparkle_until {
-            "(^o^)"
-        } else {
-            "(^-^)"
-        }
-    }
-
     /// Session weather, folded from real health: quota storms dominate, then
     /// the recovery rainbow, rain while errors pile up, clouds while the loop
     /// budget runs thin — the living weather's drizzle murmurs under all of
@@ -2369,83 +2097,11 @@ impl World {
     }
 
     /// Under a quarter of the loop's token budget left → clouds gather.
+    /// An uncapped budget never thins.
     fn budget_thin(&self) -> bool {
         self.loop_budget.is_some_and(|b| {
-            remaining_fraction(b.tokens_spent as u64, b.token_budget as u64) < 0.25
+            b.token_budget > 0 && (b.tokens_spent as f32 / b.token_budget as f32) > 0.75
         })
-    }
-
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn title(&self) -> String {
-        let quest = if self.loop_active {
-            format!(" · quest {}", self.loop_iteration)
-        } else {
-            String::new()
-        };
-        // The forge chip: training on Atlas reads off the pane title even when
-        // the hamlet itself is out of frame.
-        let forge = match &self.village {
-            Some(v) if v.forge_up && v.training => " · forge lit",
-            _ => "",
-        };
-        // A pinned camera override shows in the title; Auto adds nothing.
-        let cam = match self.camera.mode {
-            CameraMode::Close => " · close",
-            CameraMode::Wide => " · wide",
-            CameraMode::Auto => "",
-        };
-        let ward = if self.camera.zoom > Z_WIDE {
-            self.district_at(self.camera.center)
-                .map(|district| format!(" · {} Ward", district.name))
-                .unwrap_or_default()
-        } else {
-            String::new()
-        };
-        let activity = self.activity.chars().take(48).collect::<String>();
-        // Chapel health follows the selected place, before clip-prone activity
-        // and progression chrome, so the live Stage preserves it at standard
-        // rail widths as well as full-body Realm focus.
-        let memory = if self.target == Building::Chapel {
-            match self.memory_health {
-                crate::knowledge::memory::store::MemoryHealth::Disabled => " · memory disabled",
-                crate::knowledge::memory::store::MemoryHealth::Healthy => " · memory healthy",
-                crate::knowledge::memory::store::MemoryHealth::Degraded => " · memory degraded",
-            }
-        } else {
-            ""
-        };
-        let atlas = if self.target == Building::Chapel
-            && self.atlas_health != crate::knowledge::atlas::AtlasHealth::Disabled
-        {
-            format!(
-                " · atlas {} · review {}",
-                self.atlas_health.label(),
-                self.atlas_review_count
-            )
-        } else {
-            String::new()
-        };
-        // Off Castle Town the pane title names the place first: the adventure
-        // is the headline, the town is only where it starts and ends.
-        let region = match self.quest_region_chrome() {
-            "" => String::new(),
-            name => format!("{name} · "),
-        };
-        format!(
-            " Realm · {}{}{} · {}{}{} · {} · {}{}{}{}{} ",
-            region,
-            self.town_name,
-            ward,
-            self.target.label(),
-            memory,
-            atlas,
-            activity,
-            self.reward_chrome().trim(),
-            quest,
-            forge,
-            cam,
-            self.weather(),
-        )
     }
 }
 #[cfg(test)]
@@ -2478,9 +2134,6 @@ impl World {
                         .collect::<Vec<_>>(),
                 ));
             }
-        }
-        if height > 0 {
-            lines.push(self.status_line(width as usize));
         }
         Text::from(lines)
     }

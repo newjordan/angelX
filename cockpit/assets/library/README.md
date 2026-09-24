@@ -12,7 +12,7 @@ image-generation outputs, which are kept outside the repository. All three
 prompts requested original, text-free pixel-art assets with no logos or
 watermarks.
 
-The curriculum catalog in `cockpit/src/library.rs` links rather than vendors
+The curriculum catalog in `cockpit/src/knowledge/library.rs` links rather than vendors
 course content. Its upstream shelves currently include MIT 18.06 and 18.335,
 GPU MODE, Tiny Renderer, Ray Tracing in One Weekend, `wgpu`, Bevy, Stanford
 CS336, nanochat, MIT 18.S191, OSSU, and OpenStax Statistics, University

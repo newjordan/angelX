@@ -139,34 +139,6 @@ fn reasoning_flow_suffix_fits(settled: &str, fresh: &str, cells: usize) -> bool 
         && settled.chars().next_back().is_none_or(|ch| ch.is_ascii())
 }
 
-pub(crate) fn profile_badge(profile: AgentProfile) -> AgentBadge {
-    match profile.key {
-        AgentKey::Turbo => AgentBadge::Turbo,
-        AgentKey::Atlas => AgentBadge::Atlas,
-        AgentKey::Sparky => AgentBadge::Sparky,
-        AgentKey::Apollo => AgentBadge::Apollo,
-        // Codex has its own portrait but reuses the generic glyph badge — adding a
-        // distinct terminal mark would ripple through glyphs.rs's badge table.
-        AgentKey::Codex => AgentBadge::Unknown,
-        AgentKey::GpuComp => AgentBadge::Turbo,
-        AgentKey::MathGod => AgentBadge::Unknown,
-        // Model-family knights have portraits of their own; the terminal
-        // badge table stays at its authored five marks.
-        AgentKey::Luna
-        | AgentKey::Glm
-        | AgentKey::Kimi
-        | AgentKey::Qwen
-        | AgentKey::LongCat
-        | AgentKey::Muse
-        | AgentKey::Hy
-        | AgentKey::Nemotron
-        | AgentKey::Cerebras
-        | AgentKey::OpenRouter
-        | AgentKey::Local => AgentBadge::Unknown,
-        AgentKey::Unknown => AgentBadge::Unknown,
-    }
-}
-
 fn agent_profile_caption_label(app: &App) -> String {
     if let Some(preview) = app.agent_menu_profile_preview() {
         return format!("preview {preview}");
@@ -1038,28 +1010,15 @@ fn render_agentviz_portal_card(frame: &mut Frame, app: &mut App, area: Rect) -> 
     }
     let [portal_area, remainder] =
         Layout::vertical([Constraint::Length(portal_height), Constraint::Min(3)]).areas(area);
-    let seats = if presentation.omitted_seats > 0 {
-        format!(
-            "{}+{} seats",
-            presentation.active_seats, presentation.omitted_seats
-        )
-    } else if presentation.active_seats == 1 {
-        "1 seat".to_string()
+    // The table itself shows who sits and who has answered; the title names
+    // the place and what it is doing, and only the seats the table cannot fit.
+    let beyond = if presentation.omitted_seats > 0 {
+        format!(" · {} more", presentation.omitted_seats)
     } else {
-        format!("{} seats", presentation.active_seats)
-    };
-    // Seat-return pips from the live fan-out: "3/6 back" beside the count.
-    let seats = if presentation.returned_seats > 0 {
-        format!(
-            "{seats} · {}/{} back",
-            presentation.returned_seats,
-            presentation.active_seats + presentation.omitted_seats
-        )
-    } else {
-        seats
+        String::new()
     };
     let title = truncate_control_value(
-        &format!(" WebGPU · {} · {seats} ", presentation.stage),
+        &format!(" Round Table · {}{beyond} ", presentation.stage),
         portal_area.width.saturating_sub(2) as usize,
     );
     let block = Block::default()
@@ -1076,7 +1035,7 @@ fn render_agentviz_portal_card(frame: &mut Frame, app: &mut App, area: Rect) -> 
     });
     if !painted {
         frame.render_widget(
-            Paragraph::new("rendering GPU portal…")
+            Paragraph::new("the council gathers…")
                 .alignment(Alignment::Center)
                 .style(dim_panel_style()),
             inner,
@@ -1101,7 +1060,22 @@ pub(crate) fn render_agent_bay(frame: &mut Frame, app: &mut App, area: Rect) {
 /// times, even when the canvas is compressed).
 const MIN_TRACE_ROWS: u16 = 2;
 
-fn agent_bay_flow_layout(area: Rect, stable_h: u16, with_portrait: bool) -> (Rect, Option<Rect>) {
+/// The bay's reasoning flow and the avatar's block. Operator definition
+/// (2026-09-24): the block is a quarter of the bay's inner width (`bay`,
+/// stable while rows come and go), and that width defines the avatar. Its
+/// height is what the portrait needs to fill the width (`rows_per_column`:
+/// the image's height over width in cells, at the real cell size), plus the
+/// gutter row above it, up to half the bay's height (a short bay keeps its text; the
+/// image then fits the height instead). Without a portrait image, or until
+/// its shape is known, it takes a third of the bay's height. The block stands
+/// in the lower-right corner of `area`, the body below the controls, and
+/// never takes the trace strip above it.
+fn agent_bay_flow_layout(
+    area: Rect,
+    bay: Rect,
+    with_portrait: bool,
+    rows_per_column: Option<f32>,
+) -> (Rect, Option<Rect>) {
     // Operator request 2026-09-16: the agent trace must be accessible at all
     // bay sizes. Even the smallest bays keep a guaranteed trace strip at the
     // top and stack the portrait vertically beneath it — no size class drops
@@ -1109,39 +1083,74 @@ fn agent_bay_flow_layout(area: Rect, stable_h: u16, with_portrait: bool) -> (Rec
     if !with_portrait || area.width < 20 || area.height < 4 {
         return (area, None);
     }
-    // Operator request: keep the reactive fraction-based sizing, but make it
-    // (a) consistent frame to frame. The old sizing
-    // keyed off the ever-changing body area (controls/feedback rows appear
-    // and vanish), so the knight shrank and grew as lines rose. Fractions are
-    // now taken against the bay's stable inner height (`stable_h`) so the
-    // portrait holds one size for a given terminal size, while still scaling
-    // reactively on resize. Operator request: pull the avatar back 25% from the
-    // oversized caps; keep it pinned to the lower-right corner.
-    let (portrait_w, portrait_h) = if area.width >= 30 && stable_h >= 12 {
-        (
-            (area.width * 9 / 16).clamp(11, 30),
-            (stable_h * 27 / 64).clamp(4, 10),
-        )
-    } else {
-        (
-            (area.width / 4).clamp(8, 12),
-            (area.height * 3 / 16).clamp(2, 4),
-        )
-    };
-    // The portrait may never swallow the trace: cap it so the top strip keeps
-    // MIN_TRACE_ROWS no matter how short the bay becomes.
-    let portrait_h = portrait_h.min(area.height - MIN_TRACE_ROWS);
+    let block_w = (bay.width / 4).clamp(4, area.width);
+    // A one-cell gutter on the left and top (where the L's edges were drawn)
+    // keeps the image in its spot; the image fills the rest in width and is
+    // given every row it needs (rounded up), plus the gutter row.
+    let fitted = rows_per_column
+        .filter(|rows| rows.is_finite() && *rows > 0.0)
+        .map(|rows| ((f32::from(block_w - 1) * rows).ceil() as u16 + 1).min(bay.height / 2));
+    let block_h = fitted
+        .unwrap_or(bay.height / 3)
+        .max(2)
+        .min(area.height.saturating_sub(MIN_TRACE_ROWS));
     let flow = Rect {
-        height: area.height - portrait_h,
+        height: area.height - block_h,
         ..area
     };
-    let portrait = Rect::new(
-        area.right() - portrait_w,
-        area.bottom() - portrait_h,
-        portrait_w,
-        portrait_h,
+    let block = Rect::new(
+        area.right() - block_w,
+        area.bottom() - block_h,
+        block_w,
+        block_h,
     );
-    (flow, Some(portrait))
+    (flow, Some(block))
+}
+
+/// The avatar's height over width in cells, from the helm sheet's frame size
+/// and the cell size its canvas is built for. `None` until the sheet is
+/// decoded (the live cockpit decodes on a worker; previews decode here).
+fn avatar_rows_per_column(app: &App, profile: AgentProfile) -> Option<f32> {
+    // Only a portrait image has a shape to fit; the compact identity text
+    // takes the fixed third.
+    if !portrait_states_enabled()
+        || !app.viewer.portraits_enabled()
+        || !side_column_kitty_compose_allowed()
+    {
+        return None;
+    }
+    let path =
+        crate::platform::runtime_paths::cockpit_dir().join(crate::ui::helm::sheet(profile.key));
+    let (w, h) = crate::ui::helm::frame_size(&path, app.viewer.portrait_synchronous())?;
+    let (cell_w, cell_h) = app.viewer.portrait_cell_pixels();
+    (w > 0 && h > 0).then(|| (h as f32 / w as f32) * (f32::from(cell_w) / f32::from(cell_h)))
+}
+
+/// Draw the avatar block, borderless, in the bay's lower-right corner. The
+/// portrait, or the compact identity without image support, fills the block
+/// less a one-cell gutter on its left and top, anchored to the bay's corner
+/// (operator request 2026-09-24: no frame lines, same spot).
+fn render_avatar_frame(
+    frame: &mut Frame,
+    app: &mut App,
+    block: Rect,
+    profile: AgentProfile,
+    chrome: &FrameChrome,
+    caption: &str,
+    active: bool,
+) {
+    app.bay_portrait_area = Some(block);
+    if block.width < 2 || block.height < 2 {
+        return;
+    }
+    let inner = Rect::new(block.x + 1, block.y + 1, block.width - 1, block.height - 1);
+    if !render_terminal_agent_portrait(frame, app, inner, profile, chrome) {
+        frame.render_widget(
+            Paragraph::new(bay_profile_lines(app, profile, caption, active))
+                .style(dim_panel_style()),
+            inner,
+        );
+    }
 }
 
 pub(crate) fn render_agent_bay_in(
@@ -1155,7 +1164,6 @@ pub(crate) fn render_agent_bay_in(
     }
     let profile = app.active_profile();
     let active = portrait_active(app);
-    let _badge = profile_badge(profile);
     let _header_owns_card = app.header_card_area.is_some();
     let title = if app.pending_approval.is_some() {
         format!(" {} · Approval needed ", profile.name)
@@ -1172,10 +1180,11 @@ pub(crate) fn render_agent_bay_in(
         .module_host
         .focused()
         .is_some_and(|module| module.as_str() == "agent");
-    let mut block = transparent_hud_block(title.as_str());
-    if focused {
-        block = block.border_style(HUD_BLUE_BORDER_STYLE);
-    }
+    let mut border = if focused {
+        HUD_BLUE_BORDER_STYLE
+    } else {
+        Style::new().fg(HUD_DIM)
+    };
     // Six-state border tint: the portrait state paints the bay frame. Blocked
     // outranks the focus tint (a missed approval modal must read from across
     // the room); the other states tint only an unfocused bay so the focus
@@ -1185,9 +1194,10 @@ pub(crate) fn render_agent_bay_in(
         if let Some(tint) = state.border_tint()
             && (state == crate::ui::views::agent_view::PortraitState::Blocked || !focused)
         {
-            block = block.border_style(Style::new().fg(tint));
+            border = Style::new().fg(tint);
         }
     }
+    let block = transparent_hud_block(title.as_str()).border_style(border);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -1229,26 +1239,15 @@ pub(crate) fn render_agent_bay_in(
         || body_area.height < 6;
     let header_owns_portrait = app.header_portrait_area.is_some();
     if show_reasoning_body {
-        let (flow_area, portrait_area) =
-            agent_bay_flow_layout(body_area, inner.height, !header_owns_portrait);
+        let shape = avatar_rows_per_column(app, profile);
+        let (flow_area, avatar_area) =
+            agent_bay_flow_layout(body_area, inner, !header_owns_portrait, shape);
         render_reasoning_body(frame, app, flow_area);
-        if let Some(portrait_area) = portrait_area {
-            app.bay_portrait_area = Some(portrait_area);
-            let ready = render_terminal_agent_portrait(frame, app, portrait_area, profile, chrome);
-            // Without image support the compact identity still occupies the
-            // same bottom-right slot, never the reasoning hit rectangle.
-            if !ready {
-                frame.render_widget(
-                    Paragraph::new(bay_profile_lines(
-                        app,
-                        profile,
-                        &agent_profile_caption_label(app),
-                        active,
-                    ))
-                    .style(dim_panel_style()),
-                    portrait_area,
-                );
-            }
+        // Without image support the compact identity still occupies the
+        // same framed slot, never the reasoning hit rectangle.
+        if let Some(avatar_area) = avatar_area {
+            let caption = agent_profile_caption_label(app);
+            render_avatar_frame(frame, app, avatar_area, profile, chrome, &caption, active);
         }
         return;
     }
@@ -1283,22 +1282,15 @@ pub(crate) fn render_agent_bay_in(
     } else {
         0
     };
-    let (upper_area, portrait_area) =
-        agent_bay_flow_layout(body_area, inner.height, !header_owns_portrait);
+    let shape = avatar_rows_per_column(app, profile);
+    let (upper_area, avatar_area) =
+        agent_bay_flow_layout(body_area, inner, !header_owns_portrait, shape);
     let [notice_area, metrics_area] =
         Layout::vertical([Constraint::Min(1), Constraint::Length(metrics_h)]).areas(upper_area);
     render_reasoning_body(frame, app, notice_area);
     let label = agent_profile_caption_label(app);
-    if let Some(portrait_area) = portrait_area {
-        app.bay_portrait_area = Some(portrait_area);
-        let ready = render_terminal_agent_portrait(frame, app, portrait_area, profile, chrome);
-        if !ready {
-            frame.render_widget(
-                Paragraph::new(bay_profile_lines(app, profile, &label, active))
-                    .style(dim_panel_style()),
-                portrait_area,
-            );
-        }
+    if let Some(avatar_area) = avatar_area {
+        render_avatar_frame(frame, app, avatar_area, profile, chrome, &label, active);
     }
 
     if metrics_h > 0 {
@@ -1330,69 +1322,6 @@ pub(crate) fn render_agent_bay_in(
         lines.extend(token_lines);
         frame.render_widget(Paragraph::new(lines).style(dim_panel_style()), metrics_area);
     }
-}
-
-/// Right-aligned bay tab/clock title. Comp / lean and backdrop-off skip
-/// `bag.tabs()` and the string build; default still paints the route.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn agent_route_title_allowed() -> bool {
-    crate::App::side_column_visuals_allowed()
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn agent_route_title(
-    app: &mut App,
-    width: u16,
-    left_title_chars: usize,
-) -> Option<String> {
-    if !agent_route_title_allowed() {
-        return None;
-    }
-    let max_chars = (width as usize).saturating_sub(left_title_chars.saturating_add(4));
-    let tabs = app.bag.tabs();
-    let thinking = app.think_state().is_some();
-    let treebeard = crate::agent::harness::is_treebeard();
-    if !thinking {
-        let key = (std::sync::Arc::as_ptr(&tabs) as usize, max_chars, treebeard);
-        if let Some((ptr, width, lane, title)) = &app.idle_route_title
-            && (*ptr, *width, *lane) == key
-        {
-            return Some(title.clone());
-        }
-    }
-    let (clock, load_pct) = match app.think_state() {
-        Some((_progress, secs, _club)) => (
-            Some(crate::ui::views::status_view::fmt_clock(secs)),
-            Some(app.overwatch.snapshot.load_pct()),
-        ),
-        None => (None, None),
-    };
-    let mut title = crate::ui::views::status_view::agent_route_title(
-        tabs.as_slice(),
-        clock.as_deref(),
-        load_pct,
-        max_chars,
-    )?;
-    // Phase 3 Treebeard strip: surface the active RLM lane on the agent bay
-    // so operators see strategy-only mode without opening ENV docs.
-    if treebeard {
-        let bare = title.trim();
-        let tagged = format!(" treebeard · {bare} ");
-        if tagged.chars().count() <= max_chars.saturating_add(2) {
-            title = tagged;
-        } else if max_chars >= 12 {
-            title = " treebeard ".into();
-        }
-    }
-    if !thinking {
-        app.idle_route_title = Some((
-            std::sync::Arc::as_ptr(&tabs) as usize,
-            max_chars,
-            treebeard,
-            title.clone(),
-        ));
-    }
-    Some(title)
 }
 
 pub(crate) fn render_reasoning_body(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -1604,21 +1533,6 @@ pub(crate) fn speech_flow_split(text: &str, max_fresh: usize) -> (&str, &str) {
     (&text[..fresh_start], text[fresh_start..].trim_end())
 }
 
-#[allow(dead_code)]
-pub(crate) fn render_reasoning_canvas(frame: &mut Frame, app: &mut App, area: Rect) {
-    if area.height == 0 || area.width == 0 {
-        return;
-    }
-    let title = crate::ui::views::status_view::reasoning_title(app.active_profile().name);
-    let title = Span::styled(title.as_ref(), PHOSPHOR_BOLD_STYLE);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(PHOSPHOR_STYLE)
-        .title(title);
-    let inner = block.inner(area);
-    render_reasoning_body(frame, app, inner);
-}
-
 /// Pure strip label for Treebeard lane (testable). Living peer geomean is the
 fn treebeard_header_strip_label() -> String {
     let hiq = crate::agent::harness::last_root_hiq();
@@ -1676,40 +1590,6 @@ fn treebeard_header_strip_label() -> String {
         ));
     }
     label
-}
-
-/// GPU MODE competition frontier from `popcorn-promote-peer`. Optional P1
-/// shape µs keeps the open lever visible without stuffing bulk logs.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn treebeard_strip_label(
-    hiq: Option<crate::agent::harness::LastRootHiq>,
-    stats: crate::agent::harness::HandleStoreStats,
-    peer: Option<(f64, String, Option<String>)>,
-) -> String {
-    treebeard_strip_label_with_p1(hiq, stats, peer, None)
-}
-
-/// Same as [`treebeard_strip_label`] with optional living P1 shape µs.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn treebeard_strip_label_with_p1(
-    hiq: Option<crate::agent::harness::LastRootHiq>,
-    stats: crate::agent::harness::HandleStoreStats,
-    peer: Option<(f64, String, Option<String>)>,
-    p1_us: Option<f64>,
-) -> String {
-    treebeard_strip_label_with_forge(hiq, stats, peer, p1_us, None)
-}
-
-/// Treebeard strip + optional free-train / last-cycle forge fragment.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn treebeard_strip_label_with_forge(
-    hiq: Option<crate::agent::harness::LastRootHiq>,
-    stats: crate::agent::harness::HandleStoreStats,
-    peer: Option<(f64, String, Option<String>)>,
-    p1_us: Option<f64>,
-    forge: Option<crate::agent::harness::ForgeTrainSnap>,
-) -> String {
-    treebeard_strip_label_with_open(hiq, stats, peer, p1_us, None, forge)
 }
 
 /// P1 board keys arrive as `512x640` or `512·640`. Match in place so the

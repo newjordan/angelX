@@ -574,7 +574,6 @@ pub(crate) struct App {
     pub(crate) tool_strip: toolstrip::ToolStrip,
     /// `/trace`: flip the old full T:/R: tool trace back on for debugging.
     pub(crate) transcript_mode: TranscriptMode,
-    pub(crate) receipt_run_open: bool,
     pub(crate) turn_renown_started: u64,
     pub(crate) turn_truncated: bool,
     pub(crate) turn_route_receipt: Option<String>,
@@ -619,6 +618,8 @@ pub(crate) struct App {
     pub(crate) yukon_fleet_polled_at: Instant,
     /// Off-thread work the loop is awaiting (acceptance command / SOTA approval).
     pub(crate) loop_pending: Option<crate::drive::loop_ctl::LoopPending>,
+    /// The loop's project brief, gathering off-thread.
+    pub(crate) loop_brief_job: Option<crate::drive::loop_ctl::BriefJob>,
     /// Independent deep experiment; its receiver owns cancellation settlement.
     pub(crate) loop_experiment: Option<crate::drive::loop_ctl::ExperimentPending>,
     /// Last-seen loop facts diffed each frame into `AdventureEvent`s for the
@@ -712,6 +713,8 @@ pub(crate) struct App {
     /// state only; switching lenses never changes or launches an RL run.
     pub(crate) rl_view: crate::ui::viz::rl_viz::RlView,
     pub(crate) research: crate::drive::research_workspace::Workspace,
+    /// What the Research stage's plotline has drawn of which run.
+    pub(crate) research_plot: crate::ui::viz::research_plot::PlotMotion,
     pub(crate) agent_graph: crate::drive::graph_ctl::GraphState,
     /// `/handoff-rl`: fresh-context handoff RL competition loop controller.
     pub(crate) handoff_rl: crate::drive::handoff_rl::HandoffRlState,
@@ -737,6 +740,12 @@ pub(crate) struct App {
     pub(crate) world_buttons: Vec<(Rect, WorldButton)>,
     /// Agent-panel button hitboxes recorded by the last draw.
     pub(crate) agent_buttons: Vec<(Rect, AgentButton)>,
+    /// The tool strip's herald row on the last draw; a click opens its ledger.
+    pub(crate) tool_herald_area: Option<Rect>,
+    /// Where this frame's dialogs will be drawn. A terminal image repaints
+    /// over anything drawn on its cells, so image panes under a dialog fall
+    /// back to plain cells while it is open.
+    pub(crate) image_occluders: Vec<Rect>,
     /// Floating selector opened by MODEL or THINK, plus its last-drawn geometry.
     pub(crate) agent_menu: Option<crate::ui::agent_panel::controls::AgentControlMenu>,
     /// `Some` while `/` filter mode owns printable keys; empty means the filter
@@ -808,9 +817,6 @@ pub(crate) struct App {
     pub(crate) pending_quick_lookup: Option<String>,
     pub(crate) last_root_area: Option<Rect>,
     pub(crate) last_resize_at: Instant,
-    /// Idle bay-title cache: `(tabs ptr, max_chars, treebeard, title)`.
-    /// Live turns skip it because the clock changes every second.
-    pub(crate) idle_route_title: Option<(usize, usize, bool, String)>,
     /// MODEL/THINK/FORMATION chip strings for the last unchanged rail.
     pub(crate) agent_control_chips: Option<AgentControlChipCache>,
     pub(crate) overwatch: Overwatch,
@@ -1178,7 +1184,6 @@ impl App {
             divider_motion: crate::ui::pane_motion::Divider::default(),
             tool_strip: toolstrip::ToolStrip::default(),
             transcript_mode: TranscriptMode::Conversation,
-            receipt_run_open: false,
             turn_renown_started: 0,
             turn_truncated: false,
             turn_route_receipt: None,
@@ -1198,6 +1203,7 @@ impl App {
                 .checked_sub(crate::agent::harness::comp_packages::yukon::fleet::POLL_INTERVAL)
                 .unwrap_or_else(Instant::now),
             loop_pending: None,
+            loop_brief_job: None,
             loop_experiment: None,
             loop_mirror: world_viz::LoopMirror::default(),
             loop_dialog: None,
@@ -1244,6 +1250,7 @@ impl App {
             scryglass: crate::ui::scryglass::Scryglass::default(),
             rl_view: crate::ui::viz::rl_viz::RlView::default(),
             research: crate::drive::research_workspace::Workspace::default(),
+            research_plot: Default::default(),
             agent_graph: crate::drive::graph_ctl::GraphState::default(),
             handoff_rl: crate::drive::handoff_rl::HandoffRlState::default(),
             lifecycle_ceremony: None,
@@ -1265,7 +1272,6 @@ impl App {
             attention_requested: false,
             last_root_area: None,
             last_resize_at: Instant::now(),
-            idle_route_title: None,
             agent_control_chips: None,
             overwatch,
             world,
@@ -1277,6 +1283,8 @@ impl App {
             village_rx: None,
             world_buttons: Vec::new(),
             agent_buttons: Vec::new(),
+            tool_herald_area: None,
+            image_occluders: Vec::new(),
             agent_menu: None,
             agent_menu_search: None,
             agent_menu_details: false,
@@ -1387,13 +1395,6 @@ impl App {
         self.transcript_spawns.clear();
         self.transcript_last_bottom = 0;
         self.transcript_anchor_w = 0;
-    }
-
-    /// `(progress 0..1, elapsed secs, club label)` while thinking, else `None`.
-    /// Progress asymptotically approaches 1 — indeterminate, since we don't know
-    /// the reply's ETA — and resets when the reply lands.
-    pub(crate) fn think_state(&self) -> Option<(f32, f32, &str)> {
-        self.thinking.as_ref().map(Thinking::progress)
     }
 
     /// Decorative avatar reasoning slide. Comp / lean snaps the think text

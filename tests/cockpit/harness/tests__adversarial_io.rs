@@ -26,7 +26,7 @@ const DIRECT: &[&str] = &[
 ];
 
 #[test]
-fn adversarial_io_profiles_match_mandatory_shell_scope_and_direct_paths() {
+fn adversarial_io_profiles_keep_direct_paths_in_the_workspace() {
     let _lock = crate::tests::env_lock();
     let _experience = EnvGuard::set("ANGEL_EXPERIENCE", "0");
     let base = scratch("adversarial-profiles");
@@ -52,41 +52,6 @@ fn adversarial_io_profiles_match_mandatory_shell_scope_and_direct_paths() {
                 .call(&serde_json::json!({"path":protected}))
                 .is_err()
         );
-        let shell = ShellTool::in_dir(root.clone());
-        std::fs::write(root.join("source.rs"), "original\n").unwrap();
-        for scope in [
-            serde_json::json!({"read_only":true}),
-            serde_json::json!({"write_paths":[]}),
-        ] {
-            let mut args = scope;
-            args["command"] = "printf forbidden > source.rs".into();
-            let error = shell
-                .call(&args)
-                .expect_err("explicit inspection must deny writes");
-            // The scope narrows writes; network follows the shell's policy.
-            assert!(
-                error.contains("effective shell scope: filesystem read-only; network available"),
-                "{profile}: {error}"
-            );
-            assert_eq!(
-                std::fs::read_to_string(root.join("source.rs")).unwrap(),
-                "original\n"
-            );
-        }
-        shell.call(&serde_json::json!({"command":"printf replacement > source.rs", "write_paths":["source.rs"]})).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(root.join("source.rs")).unwrap(),
-            "replacement"
-        );
-        assert!(shell.call(&serde_json::json!({"command":"printf forbidden > new.rs", "write_paths":["source.rs"]})).is_err());
-        assert!(!root.join("new.rs").exists());
-        for path in ["../protected.rs", "source.rs\0suffix"] {
-            assert!(
-                shell
-                    .call(&serde_json::json!({"command":"printf forbidden", "write_paths":[path]}))
-                    .is_err()
-            );
-        }
         assert_eq!(std::fs::read_to_string(&protected).unwrap(), "original\n");
     }
     std::fs::remove_dir_all(base).unwrap();

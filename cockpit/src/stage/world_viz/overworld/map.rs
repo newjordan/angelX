@@ -325,7 +325,7 @@ pub(crate) fn walkable(t: u8) -> bool {
 
 /// Every tile a structure stands on; the knight walks around them. Road
 /// tiles inside a footprint (the gatehouse arch) stay open.
-pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 26] = [
+pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 30] = [
     (22, 12, 3, 3), // keep
     (21, 12, 1, 3), // keep turrets
     (25, 12, 1, 3),
@@ -345,10 +345,14 @@ pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 26] = [
     (41, 19, 3, 1), // standings board
     (42, 26, 2, 2), // windmill
     (18, 24, 2, 2), // cottages
+    (21, 24, 2, 2),
     (25, 24, 2, 2),
     (28, 24, 2, 2),
     (18, 29, 2, 2), // forge
+    (21, 29, 2, 2), // weaver
+    (24, 29, 2, 2), // cooper
     (27, 29, 2, 2), // granary
+    (30, 29, 1, 1), // village well
     (51, 13, 2, 2), // wards
     (56, 13, 2, 2),
     (58, 19, 2, 2),

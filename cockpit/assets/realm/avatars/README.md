@@ -23,14 +23,18 @@ muted–vivid), one model at a time, each seeing the figures already chosen.
 - `roster.json`: every seat and inhabitant with its model, its own words
   (figure, title, look, why), where it came from, and file hashes.
 
-Sol and Luna drew their own seats with their own image generators; Grok
+Astra arrived after the table was seated; it read the fifteen seats, chose a moth knight unlike any of them, and drew it itself. Sol and Luna drew their own seats with their own image generators; Grok
 drew its own and GPT redrew it richer. Kimi's plume knight and Nemotron's
 flat-top crusader are the user's favourites from the cast proposal, named
 by the models themselves. Prompts and origins are in the roster. Every other figure has a `render/` (Qwen-Image 2.1, transparent, 512px) and a
 `sprite/` (96px, 24 colours, hard alpha, drawn at 2× in a 192px frame). The
-darker twins from the first poll are in `../doppelgangers/`. Nothing in the
-cockpit reads this directory yet: the Round Table seats become eight-pose
-helm sheets first, and the pools become inhabitants of the overworld.
+darker twins from the first poll are in `../doppelgangers/`.
+
+`round-table/sheet/` holds one eight-pose sheet per seat, which the cockpit
+portrait reads: 4x2 cells of 192px, one waist-up pixel sprite per pose,
+registered so the body holds still between poses. The cockpit keeps each
+sheet's shared crop and scales it only in half steps. The pools are not read
+yet; they become inhabitants of the overworld.
 
 Qwen-Image 2.1 ran locally in ComfyUI. Qwen is licensed under the Qwen RESEARCH
 LICENSE AGREEMENT, Copyright (c) 2026 Hangzhou Tongyi Laboratory Technology

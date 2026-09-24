@@ -273,7 +273,7 @@ fn periodic_soft_pivot_preserves_objective_staleness_and_continuation() {
         assert!(app.loop_ctl.wake_at.is_some());
         assert!(
             app.loop_ctl
-                .last_setback
+                .loop_note
                 .as_deref()
                 .unwrap()
                 .starts_with("no comparable objective improvement recorded")

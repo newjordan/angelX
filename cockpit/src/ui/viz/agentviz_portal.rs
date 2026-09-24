@@ -8,7 +8,7 @@
 //! unavailable.
 
 use crate::agent::sandbox::process_owner::OwnedCommandExt;
-use crate::ui::viz::agentviz::ActivitySnapshot;
+use crate::ui::viz::agentviz::{ActivitySnapshot, SeatState};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::io::{Read, Write};
@@ -17,7 +17,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
-pub const SCHEMA_VERSION: u16 = 1;
+pub const SCHEMA_VERSION: u16 = 2;
 pub const MAX_PACKET_BYTES: usize = 4 * 1024;
 pub const MAX_STAGE_BYTES: usize = 64;
 pub const MAX_SEATS: usize = 16;
@@ -37,14 +37,14 @@ const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AngelVizPaletteV1 {
+pub enum AngelVizPaletteV2 {
     #[default]
     Noir,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AngelVizHealthV1 {
+pub enum AngelVizHealthV2 {
     Nominal,
     Degraded,
     #[default]
@@ -53,39 +53,64 @@ pub enum AngelVizHealthV1 {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct AngelVizSeatV1 {
+pub struct AngelVizSeatV2 {
     pub slot: u8,
     pub label: String,
+    /// Where the seat is in its work: the portal lights a running seat's
+    /// candle and lays a returned seat's answer on the table.
+    #[serde(default)]
+    pub state: AngelVizSeatStateV2,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AngelVizSeatStateV2 {
+    #[default]
+    Running,
+    Returned,
+    Failed,
+    Cut,
+}
+
+impl From<SeatState> for AngelVizSeatStateV2 {
+    fn from(state: SeatState) -> Self {
+        match state {
+            SeatState::Running => Self::Running,
+            SeatState::Returned => Self::Returned,
+            SeatState::Failed => Self::Failed,
+            SeatState::Cut => Self::Cut,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct AngelVizStatusV1 {
+pub struct AngelVizStatusV2 {
     pub active_seats: u8,
     pub omitted_seats: u16,
-    pub health: AngelVizHealthV1,
+    pub health: AngelVizHealthV2,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct AngelVizStateV1 {
+pub struct AngelVizStateV2 {
     pub schema_version: u16,
     pub sequence: u64,
     pub published_at_monotonic_ms: u64,
     pub stage: Option<String>,
-    pub seats: Vec<AngelVizSeatV1>,
-    pub status: AngelVizStatusV1,
-    pub palette: AngelVizPaletteV1,
+    pub seats: Vec<AngelVizSeatV2>,
+    pub status: AngelVizStatusV2,
+    pub palette: AngelVizPaletteV2,
 }
 
-impl AngelVizStateV1 {
+impl AngelVizStateV2 {
     /// Project the current activity into the renderer contract. All untrusted
     /// display strings are truncated at a UTF-8 boundary before serialization.
     pub fn project(
         activity: &ActivitySnapshot,
         published_at_monotonic_ms: u64,
-        health: AngelVizHealthV1,
-        palette: AngelVizPaletteV1,
+        health: AngelVizHealthV2,
+        palette: AngelVizPaletteV2,
     ) -> Self {
         let (stage, seats, omitted_seats) = match activity.stage.as_ref() {
             Some(snapshot) => {
@@ -94,9 +119,15 @@ impl AngelVizStateV1 {
                     .iter()
                     .take(MAX_SEATS)
                     .enumerate()
-                    .map(|(slot, label)| AngelVizSeatV1 {
+                    .map(|(slot, label)| AngelVizSeatV2 {
                         slot: slot as u8,
                         label: truncate_utf8(label, MAX_SEAT_LABEL_BYTES),
+                        state: snapshot
+                            .seat_states
+                            .get(slot)
+                            .copied()
+                            .unwrap_or_default()
+                            .into(),
                     })
                     .collect::<Vec<_>>();
                 let omitted = snapshot.agents.len().saturating_sub(seats.len());
@@ -112,7 +143,7 @@ impl AngelVizStateV1 {
             schema_version: SCHEMA_VERSION,
             sequence: activity.sequence,
             published_at_monotonic_ms,
-            status: AngelVizStatusV1 {
+            status: AngelVizStatusV2 {
                 active_seats: seats.len() as u8,
                 omitted_seats,
                 health,
@@ -231,7 +262,7 @@ impl fmt::Display for PacketError {
 /// producer while a previous frame is being rendered.
 #[derive(Debug, Default)]
 pub struct LatestStateSlot {
-    latest: Option<AngelVizStateV1>,
+    latest: Option<AngelVizStateV2>,
     last_sequence: Option<u64>,
     published: u64,
     coalesced: u64,
@@ -239,7 +270,7 @@ pub struct LatestStateSlot {
 }
 
 impl LatestStateSlot {
-    pub fn publish(&mut self, state: AngelVizStateV1) -> Result<(), PacketError> {
+    pub fn publish(&mut self, state: AngelVizStateV2) -> Result<(), PacketError> {
         if let Err(error) = state.validate() {
             self.rejected = self.rejected.saturating_add(1);
             return Err(error);
@@ -262,7 +293,7 @@ impl LatestStateSlot {
         Ok(())
     }
 
-    pub fn take_latest(&mut self) -> Option<AngelVizStateV1> {
+    pub fn take_latest(&mut self) -> Option<AngelVizStateV2> {
         self.latest.take()
     }
 
@@ -281,24 +312,20 @@ pub struct PortalFrame {
 #[derive(Clone, Debug)]
 pub struct PortalPresentation {
     pub stage: String,
-    pub active_seats: usize,
+    /// Seats beyond the sixteen the table can show.
     pub omitted_seats: usize,
-    /// Seats that have come back with a result (`SeatState::Returned`) —
-    /// renders as "3/6 back" pips beside the seat count.
-    pub returned_seats: usize,
     pub frame: Option<PortalFrame>,
 }
 
 /// The stage the portal is currently presenting, folded from the activity
-/// signal. Kept separate from the renderer packet: seat-return pips update
-/// here on every seq bump whether or not a frame is in flight.
+/// signal. Kept separate from the renderer packet: it tracks every seq bump
+/// whether or not a frame is in flight.
 #[derive(Clone, Debug)]
 struct ActiveStage {
     sequence: u64,
     stage: String,
     active_seats: usize,
     omitted_seats: usize,
-    returned_seats: usize,
 }
 
 struct PendingRender {
@@ -370,9 +397,9 @@ impl PortalRuntime {
     /// Fold a new activity revision into the runtime: refresh the presented
     /// stage (including its returned-seat count) and queue a packet for the
     /// renderer. A seat-state update re-publishes the *same* stage under a
-    /// newer sequence, so the current frame is carried across such bumps —
-    /// the packet is visually identical and the portal must not flash back to
-    /// the text viz while the refreshed render is in flight.
+    /// newer sequence, so the current frame is carried across such bumps:
+    /// the table keeps its last picture until the one with the new candle or
+    /// answer arrives, and never flashes back to the text viz meanwhile.
     fn note_activity(&mut self, activity: &ActivitySnapshot) {
         if self.observed_sequence == Some(activity.sequence) {
             return;
@@ -386,7 +413,6 @@ impl PortalRuntime {
                 stage: truncate_utf8(&stage.name, MAX_STAGE_BYTES),
                 active_seats,
                 omitted_seats: stage.agents.len().saturating_sub(active_seats),
-                returned_seats: stage.returned(),
             }
         });
         if let (Some(prev), Some(next)) = (previous.as_ref(), self.active_stage.as_ref())
@@ -400,15 +426,15 @@ impl PortalRuntime {
         }
         self.failed_sequence = None;
         let health = if activity.stage.is_some() {
-            AngelVizHealthV1::Nominal
+            AngelVizHealthV2::Nominal
         } else {
-            AngelVizHealthV1::Unknown
+            AngelVizHealthV2::Unknown
         };
-        let packet = AngelVizStateV1::project(
+        let packet = AngelVizStateV2::project(
             activity,
             self.started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
             health,
-            AngelVizPaletteV1::Noir,
+            AngelVizPaletteV2::Noir,
         );
         if let Err(error) = self.latest.publish(packet) {
             self.failed_sequence = Some(activity.sequence);
@@ -428,9 +454,7 @@ impl PortalRuntime {
             .cloned();
         Some(PortalPresentation {
             stage: active.stage.clone(),
-            active_seats: active.active_seats,
             omitted_seats: active.omitted_seats,
-            returned_seats: active.returned_seats,
             frame,
         })
     }
@@ -454,7 +478,6 @@ impl PortalRuntime {
             stage: truncate_utf8(stage, MAX_STAGE_BYTES),
             active_seats: active_seats.min(MAX_SEATS),
             omitted_seats: active_seats.saturating_sub(MAX_SEATS),
-            returned_seats: 0,
         });
         runtime
     }
@@ -575,7 +598,7 @@ fn discover_renderer() -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn invoke_renderer(renderer: &Path, packet: &AngelVizStateV1) -> Result<PortalFrame, String> {
+fn invoke_renderer(renderer: &Path, packet: &AngelVizStateV2) -> Result<PortalFrame, String> {
     packet.validate().map_err(|error| error.to_string())?;
     let encoded = serde_json::to_vec(packet).map_err(|error| format!("encode packet: {error}"))?;
     if encoded.is_empty() || encoded.len() > MAX_PACKET_BYTES {

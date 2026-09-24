@@ -6,8 +6,9 @@
 //! tier the town has earned) and never pixels; [`stage`] turns it into
 //! sprites, lights and beacons at fixed places on the realm.
 
+use super::deeds::{self, Errand, Record, Wayfarer};
 use super::glass::Glass;
-use super::ink::Img;
+use super::ink::{Img, hash};
 use super::kit::{self, Heraldry, House, Roof, Tool, Wall};
 use super::light::{DUSK, Light};
 use super::map::{Place, TILE, place_px};
@@ -155,6 +156,14 @@ pub(crate) struct Scene {
     pub(crate) chests: (u32, u32),
     /// A loop is stalled in the swamp.
     pub(crate) wisps: bool,
+    /// Who is out on the roads for calls in flight.
+    pub(crate) wayfarers: Vec<Wayfarer>,
+    /// What the session's deeds have left in the realm.
+    pub(crate) record: Record,
+    /// Ticks since the anvil was struck, while its sparks fly.
+    pub(crate) sparks: Option<u32>,
+    /// Research is out: the Observatory's glass sweeps the sky.
+    pub(crate) stargazing: bool,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
     pub(crate) tick: u32,
@@ -198,6 +207,19 @@ impl Scene {
             (x.to_bits(), y.to_bits()).hash(&mut h);
         }
         (self.dragon, self.chests, self.wisps).hash(&mut h);
+        for w in &self.wayfarers {
+            (
+                w.errand,
+                w.x.to_bits(),
+                w.y.to_bits(),
+                w.facing_left,
+                w.moving,
+                w.verdict,
+                w.carrying,
+            )
+                .hash(&mut h);
+        }
+        (&self.record, self.sparks, self.stargazing).hash(&mut h);
         if let Some(g) = &self.glass {
             (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
         }
@@ -232,11 +254,45 @@ impl Scene {
             dragon: false,
             chests: (0, 0),
             wisps: false,
+            wayfarers: Vec::new(),
+            record: Record::default(),
+            sparks: None,
+            stargazing: false,
             ambient: DUSK,
             tick: 0,
         }
     }
 }
+
+/// Most of each record the realm shows at once: books in the pile, blades on
+/// the rack, ravens on the Rookery.
+const BOOKS: u32 = 10;
+const BLADES: u32 = 6;
+const RAVENS: u32 = 5;
+const STOOKS: u32 = deeds::STOOKS.len() as u32;
+const SACKS: u32 = 12;
+const CANDLES: u32 = 8;
+
+/// Where research findings shine over the Observatory hill (authored
+/// pixels), in the order they are found.
+const STARS: [(i32, i32); 16] = [
+    (186, 10),
+    (204, 20),
+    (122, 12),
+    (216, 6),
+    (138, 4),
+    (230, 22),
+    (108, 24),
+    (174, 4),
+    (196, 34),
+    (240, 10),
+    (116, 36),
+    (224, 40),
+    (150, 12),
+    (210, 48),
+    (100, 8),
+    (236, 30),
+];
 
 /// A sprite placed by the bottom of its footprint (painter's order).
 pub(crate) struct Prop {
@@ -557,7 +613,31 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         }
     }
 
-    // ── the village: the fleet ──
+    // ── the village: the fleet's cottages, and the folk who run errands ──
+    for (tx, ty, wall, roof) in [
+        (21, 24, Wall::Plaster, Roof::Tile),
+        (21, 29, Wall::Timber, Roof::Thatch),
+        (24, 29, Wall::Plaster, Roof::Thatch),
+    ] {
+        props.push(on(
+            tx,
+            ty,
+            2,
+            2,
+            kit::house(&House {
+                w: 28,
+                h: 28,
+                roof_h: 13,
+                wall,
+                roof,
+                door_glow: false,
+                windows: 1,
+                lit: false,
+                chimney: ty == 24,
+            }),
+        ));
+    }
+    props.push(on(30, 29, 1, 1, kit::well()));
     for (i, (tx, ty)) in [(18, 24), (25, 24), (28, 24)].into_iter().enumerate() {
         let lit = scene.cottages[i];
         props.push(on(
@@ -654,15 +734,118 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         });
     }
 
+    // ── the session's record, kept where each deed was done ──
+    // Marks that sit above everything (stars, the glass's beam), still in
+    // the authored screens' coordinates.
+    let mut cues_authored: Vec<Prop> = Vec::new();
+    let record = &scene.record;
+    // Pennants hang on the Lists' south fence, one to a post.
+    let (lx, ly) = (32 * TILE + 48, 11 * TILE + 16);
+    for (i, &passed) in record.pennants.iter().enumerate() {
+        props.push(Prop {
+            x: lx + 26 + i as i32 * 8,
+            base: ly + 81,
+            img: kit::pennant(passed),
+        });
+    }
+    for (i, &(tx, ty)) in deeds::STOOKS
+        .iter()
+        .take(record.stooks.min(STOOKS) as usize)
+        .enumerate()
+    {
+        props.push(Prop {
+            x: tx * TILE + 5 + (i as i32 % 2) * 2,
+            base: (ty + 1) * TILE - 3,
+            img: kit::stook(),
+        });
+    }
+    if record.sacks > 0 {
+        props.push(Prop {
+            x: 29 * TILE + 2,
+            base: 31 * TILE - 1,
+            img: kit::sacks(record.sacks.min(SACKS)),
+        });
+    }
+    if record.candles > 0 {
+        props.push(Prop {
+            x: 28 * TILE + 3,
+            base: 14 * TILE + 3,
+            img: kit::candles(record.candles.min(CANDLES), tick),
+        });
+    }
+    for (i, &(x, y)) in STARS
+        .iter()
+        .take(record.stars.min(STARS.len() as u32) as usize)
+        .enumerate()
+    {
+        let twinkle = !hash(i as i32, (tick / 3) as i32, 83).is_multiple_of(3);
+        cues_authored.push(Prop {
+            x: x - 1,
+            base: y + 2,
+            img: kit::star(twinkle),
+        });
+    }
+    if scene.stargazing {
+        let (dx, dy) = (10 * TILE, 2 * TILE + 4);
+        let sweep = (tick as f32 * 0.05).sin();
+        let img = kit::beam(std::f32::consts::FRAC_PI_2 + sweep * 1.1);
+        cues_authored.push(Prop {
+            x: dx - img.w / 2,
+            base: dy + 1,
+            img,
+        });
+        lights.push(Light {
+            x: dx as f32,
+            y: dy as f32,
+            r: 40.0,
+            s: 0.55,
+            fire: false,
+        });
+    }
+    if record.ravens > 0 {
+        let (x, base) = deeds::ROOST;
+        props.push(Prop {
+            x,
+            base,
+            img: kit::roost(record.ravens.min(RAVENS)),
+        });
+    }
+    if record.books > 0 {
+        props.push(Prop {
+            x: 30 * TILE + 2,
+            base: 19 * TILE - 1,
+            img: kit::books(record.books.min(BOOKS)),
+        });
+    }
+    if record.blades > 0 {
+        let img = kit::blade_rack(record.blades.min(BLADES));
+        props.push(Prop {
+            x: 17 * TILE - 2 - img.w,
+            base: 19 * TILE - 1,
+            img,
+        });
+    }
+    if let Some(age) = scene.sparks {
+        // In front of the Smithy, so its walls never hide the strike.
+        props.push(Prop {
+            x: 18 * TILE - 7,
+            base: 19 * TILE + 3,
+            img: kit::sparks(age),
+        });
+        let fade = 1.0 - age as f32 / deeds::SPARKS as f32;
+        lights.push(fire(18 * TILE, 19 * TILE - 6, 30.0, 0.55 * fade));
+    }
+
     // Everything above is written in the authored screens' coordinates:
     // move it to its place in the realm. The party and the knight below
     // already live in realm coordinates.
-    for p in &mut props {
+    for p in props.iter_mut().chain(cues_authored.iter_mut()) {
         let (ax, ay) = (p.x + p.img.w / 2, p.base - 1);
         let (rx, ry) = place_px(ax, ay);
         p.x += rx - ax;
         p.base += ry - ay;
     }
+    cues.extend(cues_authored);
     for l in &mut lights {
         let (rx, ry) = place_px(l.x as i32, l.y as i32);
         l.x += (rx - l.x as i32) as f32;
@@ -684,6 +867,65 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
             base: y as i32 + 2,
             img,
         });
+    }
+
+    // ── deeds on the roads: whoever is out for a call in flight ──
+    let frame = tick / 2;
+    for w in &scene.wayfarers {
+        let img = match w.errand {
+            Errand::Wagon => kit::wagon(w.moving, frame, w.verdict),
+            Errand::Courier => kit::courier(w.moving, frame, w.verdict),
+            Errand::Raven => kit::raven(frame, w.carrying),
+            Errand::Hand => kit::field_hand(if w.moving { frame } else { tick / 5 }),
+            Errand::Messenger => kit::messenger(frame),
+            Errand::Villager => kit::villager(frame, w.carrying),
+            Errand::Monk => kit::monk(frame, tick),
+            Errand::Owl => kit::owl(frame),
+        };
+        let img = if w.facing_left { img.flip_h() } else { img };
+        let prop = Prop {
+            x: w.x as i32 - img.w / 2,
+            base: w.y as i32 + 2,
+            img,
+        };
+        let flying = matches!(w.errand, Errand::Raven | Errand::Owl);
+        // Wings are in the air: nothing on the ground covers them.
+        if flying {
+            cues.push(prop);
+        } else {
+            props.push(prop);
+        }
+        // Whoever is out on a deed carries light: light means activity.
+        if !flying {
+            lights.push(Light {
+                x: w.x,
+                y: w.y - 6.0,
+                r: 30.0,
+                s: 0.36,
+                fire: false,
+            });
+        }
+        // The monk's candle.
+        if w.errand == Errand::Monk {
+            lights.push(Light {
+                x: w.x + if w.facing_left { -3.0 } else { 3.0 },
+                y: w.y - 7.0,
+                r: 20.0,
+                s: 0.5 * flicker(70),
+                fire: true,
+            });
+        }
+        // The wagon's lantern burns while its trial runs.
+        if (w.errand, w.verdict) == (Errand::Wagon, None) {
+            let ahead = if w.facing_left { -3.0 } else { 3.0 };
+            lights.push(Light {
+                x: w.x + ahead,
+                y: w.y - 6.0,
+                r: 26.0,
+                s: 0.55 * flicker(60),
+                fire: true,
+            });
+        }
     }
 
     // ── the knight, and what marks live work ──

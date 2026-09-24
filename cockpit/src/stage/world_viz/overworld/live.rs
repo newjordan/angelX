@@ -205,7 +205,7 @@ fn closed_tiles() -> &'static [bool] {
 }
 
 /// What a step onto `(x, y)` costs, or `None` where no one walks.
-fn step_cost(x: i32, y: i32) -> Option<u32> {
+pub(super) fn step_cost(x: i32, y: i32) -> Option<u32> {
     if x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || closed_tiles()[(y * MAP_W + x) as usize] {
         return None;
     }
@@ -332,6 +332,10 @@ impl World {
     /// adventure is out, the quintain at the Lists between loop rounds,
     /// otherwise the landmark the work is happening in.
     pub(crate) fn overworld_goal(&self) -> Place {
+        // A trial is fought at the Lists: he rides out to see the verdict.
+        if !self.loop_active && self.overworld_deeds.trial_underway() {
+            return Place::Lists;
+        }
         if self.loop_active {
             if let Some(place) = region_place(self.quest.region()) {
                 return place;
@@ -345,6 +349,7 @@ impl World {
 
     /// Advance the pixel knight one world tick.
     pub(crate) fn tick_overworld(&mut self) {
+        self.overworld_deeds.step(self.tick);
         let goal = self.overworld_goal();
         self.overworld.toward(goal);
         if self.tick.is_multiple_of(2) {
@@ -359,6 +364,14 @@ impl World {
         let work = self.latest_active_work();
         s.active = work.map(|w| Place::of_building(w.landmark));
         s.tool = work.and_then(|w| tool_for(w.activity));
+        if !self.loop_active && self.overworld_deeds.trial_underway() {
+            s.active = Some(Place::Lists);
+            s.tool = Some(Tool::Sword);
+        }
+        s.wayfarers = self.overworld_deeds.wayfarers();
+        s.record = self.overworld_deeds.record().clone();
+        s.sparks = self.overworld_deeds.sparks(self.tick);
+        s.stargazing = self.overworld_deeds.stargazing();
         s.knight = self.overworld.shown.knight;
         s.camera = self.overworld.shown.cam;
         let council = self

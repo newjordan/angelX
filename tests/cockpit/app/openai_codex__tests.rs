@@ -121,13 +121,9 @@ fn responses_request_preserves_optional_shell_scope() {
         tool["parameters"]["required"],
         serde_json::json!(["command"])
     );
-    assert_eq!(
-        tool["parameters"]["properties"]["write_paths"]["type"],
-        "array"
-    );
     assert!(
-        tool["parameters"]["properties"]["write_paths"]
-            .get("default")
+        tool["parameters"]["properties"]
+            .get("write_paths")
             .is_none()
     );
 }

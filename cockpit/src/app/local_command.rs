@@ -93,6 +93,7 @@ fn help_first_screen() -> String {
         "commands\n\
      /help {b} /status {b} /usage {b} /context [all] {b} /connect [provider] {b} /goal [text|clear] {b} /model [filter|exact@effort|auto] {b} /think [filter] {b} /rate useful|miss {b} /mcp (/tools)\n\
      /goal [<text>|go|tick|rounds <N|unset>|blocked <reason>|pause|resume|criteria <c>|cmd <check>|note <n>|done|clear] {b} durable, steers\n\
+     /sessions (/resume [id]) {b} pick up where you left off {b} /observatory {b} evidence {b} /ledger [N] {b} last turns {b} /world help {b} every Realm verb\n\
      more: /help all {b} topics: goal loop world session tools keymap PageDown"
     )
 }

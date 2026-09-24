@@ -6,5 +6,6 @@ pub(crate) mod graph_viz;
 pub(crate) mod lifecycle_viz;
 pub(crate) mod loop_viz;
 pub(crate) mod moa_viz;
+pub(crate) mod research_plot;
 pub(crate) mod rl_viz;
 pub(crate) mod spend_viz;

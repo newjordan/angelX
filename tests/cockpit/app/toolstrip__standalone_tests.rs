@@ -10,16 +10,16 @@ fn delegate_status_reports_real_activity_and_heartbeat_only_silence() {
         calls: 12,
         delegates: 1,
     };
-    let row = delegate_status_row(&delegate, 110);
+    let row = delegate_status_row(&delegate, None, 110);
     assert!(row.left.contains("delegate · thinking"));
     assert!(row.right.contains("#12 · update 1s ago"));
     assert!(!row.verifier);
     delegate.progress_age_secs = Some(180);
-    let row = delegate_status_row(&delegate, 150);
+    let row = delegate_status_row(&delegate, None, 150);
     assert!(row.left.contains("quiet 3m00s · connected"), "{}", row.left);
     assert_eq!(delegate_quiet_secs(&delegate), 180);
     for width in 0..151 {
-        let row = delegate_status_row(&delegate, width);
+        let row = delegate_status_row(&delegate, None, width);
         assert!(
             UnicodeWidthStr::width(row.left.as_str())
                 + row.padding
@@ -40,22 +40,31 @@ fn worker_status_distinguishes_cpu_silence_and_small_panes() {
         setting_up: false,
         workers: 1,
     };
-    let row = worker_status_row(&child, 100);
+    let row = worker_status_row(&child, None, 100);
     assert!(row.left.contains("compiling (rustc) · CPU active"));
+    let herald = crate::stage::world_viz::herald("shell", "cd /repo && cargo test -p cockpit");
+    let led = worker_status_row(&child, Some(&herald), 100);
+    assert!(
+        led.left
+            .starts_with("⚔ Trial by cargo test · compiling (rustc) · CPU active"),
+        "{}",
+        led.left
+    );
+    assert_eq!(&led.left[..led.lead], "⚔ Trial by");
     assert!(row.right.contains("output none"));
     assert!(!row.verifier);
     assert_eq!(child_quiet_secs(&child), 0);
     child.cpu_age_secs = Some(40);
-    assert!(worker_status_row(&child, 100).left.contains("quiet 40s"));
+    assert!(worker_status_row(&child, None, 100).left.contains("quiet 40s"));
     assert_eq!(child_quiet_secs(&child), 40);
     child.output_age_secs = Some(0);
     assert!(
-        worker_status_row(&child, 100)
+        worker_status_row(&child, None, 100)
             .left
             .contains("output received")
     );
     for width in 0..101 {
-        let row = worker_status_row(&child, width);
+        let row = worker_status_row(&child, None, width);
         assert!(
             UnicodeWidthStr::width(row.left.as_str())
                 + row.padding

@@ -69,22 +69,3 @@ fn stage_world_mirrors_skip_hidden_and_comp_without_slowing_default() {
         "default cockpit must not stay gated after /comp off"
     );
 }
-
-#[test]
-fn realm_pulse_paint_skip_comp_without_slowing_default() {
-    let _guard = crate::tests::env_lock();
-    let _off = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
-    invalidate_cache();
-    assert!(
-        realm_pulse_paint_allowed(),
-        "default cockpit still paints the Realm pulse"
-    );
-    set(true);
-    assert!(
-        !realm_pulse_paint_allowed(),
-        "comp/lean must not build decorative pulse strings"
-    );
-    set(false);
-    assert!(realm_pulse_paint_allowed());
-}

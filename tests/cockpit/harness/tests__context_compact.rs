@@ -1234,7 +1234,23 @@ fn defs_for_turn_leans_on_competition_without_shrinking_default() {
         comp.len(),
         full.len()
     );
-    assert!(comp.iter().all(|tool| is_coding_hot_path_tool(&tool.name)));
+    assert!(
+        comp.iter()
+            .all(|tool| is_coding_hot_path_tool(&tool.name) || is_research_tool(&tool.name))
+    );
+    // A competition is long research: the trim never hides the research tools.
+    for research in [
+        "web_search",
+        "web_fetch",
+        "science_search",
+        "repo_search",
+        "defs",
+    ] {
+        assert!(
+            comp.iter().any(|tool| tool.name == research),
+            "competition advertises {research}"
+        );
+    }
     assert!(comp.iter().any(|tool| tool.name == "tool_search"));
     assert!(comp.iter().any(|tool| tool.name == "code_mode"));
     assert!(!comp.iter().any(|tool| tool.name == "ui_inspect"));

@@ -182,16 +182,12 @@ fn district_overflow_folds_into_outlands_and_empty_stays_empty() {
 }
 
 #[test]
-fn district_anchors_are_land_and_close_title_names_the_ward() {
+fn district_anchors_are_land() {
     let mut world = World::new(123);
     world.enable_districts(vec!["src".to_string(), "docs".to_string()]);
     for district in &world.districts {
         assert!(world.is_land(district.anchor.0 as usize, district.anchor.1 as usize));
     }
-    let district = world.districts[0].clone();
-    world.camera.center = (district.anchor.0 as f32, district.anchor.1 as f32);
-    world.camera.zoom = Z_CLOSE;
-    assert!(world.title().contains(&format!("{} Ward", district.name)));
 }
 
 #[test]
@@ -236,24 +232,23 @@ fn tool_traffic_drives_the_avatar() {
 }
 
 #[test]
-fn storms_sparkles_and_mood_track_system_health() {
+fn storms_and_errors_track_system_health() {
     let mut w = World::new(3);
-    assert_eq!(w.mood(), "(^-^)");
+    assert!(w.recent_errors < 3);
     w.note_notice("[club:longcat] quota exhausted — benched for 3600s");
     assert!(w.animating(), "storm keeps the animation ticking");
-    assert!(w.title().contains("storm"));
-    assert_eq!(w.mood(), "(o_o)");
+    assert_eq!(w.weather_label(), "storm");
 
     for _ in 0..3 {
         w.note_tool_call("shell", "cargo test");
         w.note_tool_result("shell", "error: it broke");
     }
-    assert_eq!(w.mood(), "(x_x)");
+    assert!(w.recent_errors >= 3, "errors pile up into rain");
     for _ in 0..4 {
         w.note_tool_call("shell", "cargo test");
         w.note_tool_result("shell", "ok: 812 passed");
     }
-    assert_ne!(w.mood(), "(x_x)");
+    assert!(w.recent_errors < 3, "passing calls clear the errors");
 
     // Compaction is a chapel vigil.
     w.note_notice("context compaction: folded 12 messages");
@@ -285,27 +280,6 @@ fn render_survives_any_pane_size() {
                 );
                 assert!(!flat.contains('@'), "no @ fallback at {width}x{height}");
             }
-            let status = text.lines.last().expect("status line");
-            let status_text = status
-                .spans
-                .iter()
-                .map(|span| span.content.as_ref())
-                .collect::<String>();
-            assert!(
-                spans_cell_width(&status.spans) <= width as usize,
-                "status line escaped {width} cells: {status_text:?}"
-            );
-            if width as usize >= cell_width(&format!(" {}", w.mood())) {
-                assert!(
-                    status_text.contains(w.mood()),
-                    "status line present at {width}x{height}: {status_text:?}"
-                );
-            } else {
-                assert!(
-                    !status_text.is_empty(),
-                    "tiny status retains a compact signal at {width}x{height}"
-                );
-            }
         }
     }
 }
@@ -317,15 +291,11 @@ fn the_quintain_absorbs_the_loop() {
         !w.visiting_quintain(),
         "no quintain visit before a loop runs"
     );
-    assert!(!w.title().contains("quest"));
+    assert!(!w.loop_active);
 
-    // A loop starts: the quintain turns and the title advertises the quest.
+    // A loop starts: the quintain turns.
     w.note_loop(true, 1, false, false, Some(budget(12_000, 2_000_000)));
-    assert!(
-        w.title().contains("quest 1"),
-        "title shows the quest: {}",
-        w.title()
-    );
+    assert_eq!((w.loop_active, w.loop_iteration), (true, 1));
 
     // The resting knight rides to the quintain and settles — the cue to expand.
     for _ in 0..(WORLD_W + WORLD_H) * 2 {
@@ -341,145 +311,12 @@ fn the_quintain_absorbs_the_loop() {
 
     // Escalation storms the town on its rising edge.
     w.note_loop(true, 1, true, false, Some(budget(12_000, 2_000_000)));
-    assert!(
-        w.title().contains("storm"),
-        "escalation storms the town: {}",
-        w.title()
-    );
+    assert_eq!(w.weather_label(), "storm", "escalation storms the town");
 
     // The loop ends: the quintain stops and stops drawing the knight to it.
     w.note_loop(false, 0, false, true, None);
-    assert!(!w.title().contains("quest"));
+    assert!(!w.loop_active);
     assert!(!w.visiting_quintain());
-}
-
-#[test]
-fn loop_budget_health_bar_rides_in_the_world_status() {
-    let mut w = World::new(9);
-    w.note_loop(true, 4, false, false, Some(budget(500_000, 2_000_000)));
-    let rendered = flat(&w.render(60, 14));
-    assert!(rendered.contains("tok"), "{rendered}");
-    assert!(rendered.contains("500k/2m"), "{rendered}");
-    assert!(rendered.contains("[######"), "{rendered}");
-
-    w.note_loop(false, 0, false, true, None);
-    let rendered = flat(&w.render(60, 14));
-    assert!(!rendered.contains("500k/2m"), "{rendered}");
-}
-
-#[test]
-fn world_status_line_stays_within_one_terminal_cell_budget() {
-    let mut w = World::new(9);
-    w.activity = "cargo test 🧪 → 鍛冶場 · verifying every workspace package ".repeat(4);
-    w.note_loop(true, 4, false, false, Some(budget(500_000, 2_000_000)));
-    w.gain_note = "+3 renown · verified discovery".to_string();
-    w.gain_until = w.tick + 20;
-
-    let mut village = crate::stage::village::VillageState::default();
-    village.chatter.push("雪の便りを待っています".repeat(8));
-    w.enable_village(village, None, &[]);
-
-    for width in 0..=96 {
-        let status = w.status_line(width);
-        let rendered = status
-            .spans
-            .iter()
-            .map(|span| span.content.as_ref())
-            .collect::<String>();
-        assert!(
-            spans_cell_width(&status.spans) <= width,
-            "status overflowed {width} cells: {rendered:?}"
-        );
-        assert_eq!(
-            rendered.matches('\u{201C}').count(),
-            rendered.matches('\u{201D}').count(),
-            "chatter quotes must remain paired at {width} cells: {rendered:?}"
-        );
-    }
-}
-
-#[test]
-fn world_status_line_preserves_literal_activity_before_progression_chrome() {
-    let mut w = World::new(7);
-    w.activity = "cargo test → Smithy · running until every workspace package passes".to_string();
-    let width = cell_width(" (^-^) cargo test → Smithy · run…");
-    let status = w.status_line(width);
-    let rendered = status
-        .spans
-        .iter()
-        .map(|span| span.content.as_ref())
-        .collect::<String>();
-
-    assert!(
-        rendered.contains("cargo test → Smithy"),
-        "literal operation and destination disappeared: {rendered:?}"
-    );
-    assert!(
-        rendered.ends_with('…'),
-        "clipping must be explicit: {rendered:?}"
-    );
-    assert!(
-        !rendered.contains("Renown"),
-        "progression chrome must not displace live activity: {rendered:?}"
-    );
-    assert!(cell_width(&rendered) <= width);
-}
-
-#[test]
-fn world_status_line_drops_chatter_before_gain_without_fragments() {
-    let mut w = World::new(11);
-    w.gain_note = "+3 renown · discovery".to_string();
-    w.gain_until = w.tick + 20;
-    let chatter_note = "雪の便り".repeat(16);
-    let mut village = crate::stage::village::VillageState::default();
-    village.chatter.push(chatter_note.clone());
-    w.enable_village(village, None, &[]);
-
-    let progression = format!("{}{}", w.reward_chrome(), w.renown_chrome());
-    let core = format!(" {}{} {}", w.mood(), progression, w.activity);
-    let gain = format!("  {}", w.gain_note);
-    let gain_budget = cell_width(&core) + cell_width(&gain);
-    let status = w.status_line(gain_budget);
-    let rendered = status
-        .spans
-        .iter()
-        .map(|span| span.content.as_ref())
-        .collect::<String>();
-
-    assert!(
-        rendered.contains(&w.gain_note),
-        "gain should survive: {rendered:?}"
-    );
-    assert!(
-        !rendered.contains(['\u{201C}', '\u{201D}']),
-        "chatter must leave as one complete span: {rendered:?}"
-    );
-    assert_eq!(cell_width(&rendered), gain_budget);
-
-    let roomy = w.status_line(200);
-    let roomy_text = roomy
-        .spans
-        .iter()
-        .map(|span| span.content.as_ref())
-        .collect::<String>();
-    assert!(roomy_text.contains("  \u{201C}"));
-    assert!(roomy_text.ends_with("…\u{201D}"), "{roomy_text:?}");
-    assert_eq!(
-        roomy
-            .spans
-            .iter()
-            .find(|span| span.content.contains(&w.gain_note))
-            .and_then(|span| span.style.fg),
-        Some(crate::ui::hud::HUD_GOLD)
-    );
-    assert_eq!(
-        roomy
-            .spans
-            .iter()
-            .find(|span| span.content.contains('\u{201C}'))
-            .and_then(|span| span.style.fg),
-        Some(crate::ui::hud::HUD_BLUE)
-    );
 }
 
 #[test]
@@ -557,35 +394,18 @@ fn flat_render(w: &World, width: u16, height: u16) -> String {
 }
 
 #[test]
-fn chapel_status_surfaces_typed_memory_health_semantically() {
-    for (health, label, color) in [
-        (
-            crate::knowledge::memory::store::MemoryHealth::Disabled,
-            "memory disabled",
-            crate::ui::hud::HUD_DIM,
-        ),
-        (
-            crate::knowledge::memory::store::MemoryHealth::Healthy,
-            "memory healthy",
-            crate::ui::hud::HUD_VERIFIED,
-        ),
-        (
-            crate::knowledge::memory::store::MemoryHealth::Degraded,
-            "memory degraded",
-            crate::ui::hud::HUD_DANGER,
-        ),
+fn the_chapel_is_lit_only_while_memory_is_healthy() {
+    use crate::knowledge::memory::store::MemoryHealth;
+    for (health, lit) in [
+        (MemoryHealth::Disabled, false),
+        (MemoryHealth::Healthy, true),
+        (MemoryHealth::Degraded, false),
     ] {
         let mut world = World::new(7);
         world.target = Building::Chapel;
         world.note_memory_health(health);
-        let rendered = world.render(64, 16);
-        let status = rendered.lines.last().expect("world status line");
-        let health_span = status
-            .spans
-            .iter()
-            .find(|span| span.content.contains(label))
-            .unwrap_or_else(|| panic!("active Chapel status must show {label}"));
-        assert_eq!(health_span.style.fg, Some(color), "{label} semantic color");
+        assert_eq!(world.memory_health(), health);
+        assert_eq!(world.overworld_scene().chapel_lit, lit, "{health:?}");
     }
 }
 
@@ -719,18 +539,14 @@ fn small_pane_never_leaves_wide() {
 }
 
 #[test]
-fn world_zoom_cycles_modes_and_marks_the_title() {
+fn world_zoom_cycles_modes() {
     let mut w = World::new(7);
     assert_eq!(w.camera.mode, CameraMode::Auto);
-    assert!(!w.title().contains("wide") && !w.title().contains("close"));
     assert_eq!(w.cycle_camera_zoom(), "wide");
     assert_eq!(w.camera.mode, CameraMode::Wide);
-    assert!(w.title().contains("· wide"), "title: {}", w.title());
     assert_eq!(w.cycle_camera_zoom(), "close");
-    assert!(w.title().contains("· close"), "title: {}", w.title());
     assert_eq!(w.cycle_camera_zoom(), "auto");
     assert_eq!(w.camera.mode, CameraMode::Auto);
-    assert!(!w.title().contains("wide") && !w.title().contains("close"));
 }
 
 #[test]
@@ -858,62 +674,6 @@ fn parallel_same_name_results_complete_their_own_landmark_records() {
 }
 
 #[test]
-fn compact_causal_ribbon_drops_arguments_before_the_relationship() {
-    let mut w = World::new(18);
-    w.note_tool_call_event(
-        ToolEventId("compact-ribbon".to_string()),
-        "read_file",
-        "資料/設計🧪/実装/検証/結果.md",
-    );
-
-    let budget = unicode_width::UnicodeWidthStr::width("read_file → Scriptorium · study running");
-    let ribbon = w
-        .causal_ribbon_for_width(budget)
-        .expect("active work has a ribbon");
-    assert!(
-        unicode_width::UnicodeWidthStr::width(ribbon.as_str()) <= budget,
-        "ribbon exceeded its terminal-cell budget: {ribbon}"
-    );
-    assert_eq!(ribbon, "read_file → Scriptorium · study running");
-    assert!(
-        !ribbon.contains("資料"),
-        "arguments should be discarded first"
-    );
-
-    let relationship_budget = unicode_width::UnicodeWidthStr::width("read_file → Scriptorium");
-    assert_eq!(
-        w.causal_ribbon_for_width(relationship_budget).as_deref(),
-        Some("read_file → Scriptorium"),
-        "secondary detail should be discarded before the causal relationship"
-    );
-}
-
-#[test]
-fn compact_realm_pulse_extracts_shell_command_and_preserves_status() {
-    let mut w = World::new(20);
-    w.note_tool_call_event(
-        ToolEventId("compact-pulse".to_string()),
-        "exec_command",
-        "cmd=cargo test, workdir=/tmp/project",
-    );
-
-    let expected = "Smithy · cargo test · running";
-    let width = unicode_width::UnicodeWidthStr::width(expected);
-    assert_eq!(w.realm_pulse_for_width(width).as_deref(), Some(expected));
-    assert!(
-        !w.realm_pulse_for_width(width).unwrap().contains("cmd="),
-        "argument-summary keys are trace detail, not compact header copy"
-    );
-
-    let status_only = "Smithy · running";
-    let status_width = unicode_width::UnicodeWidthStr::width(status_only);
-    assert_eq!(
-        w.realm_pulse_for_width(status_width).as_deref(),
-        Some(status_only)
-    );
-}
-
-#[test]
 fn invalid_and_inconclusive_outcomes_never_earn_or_sparkle() {
     let outcomes = [
         ToolOutcome {
@@ -991,26 +751,6 @@ fn unknown_and_duplicate_results_are_neutral_and_never_pay_twice() {
     assert_eq!(w.renown, 3);
     w.note_tool_result_event(&known, "science_search", "duplicate", success);
     assert_eq!((w.renown, w.event_diagnostics), (3, 2));
-}
-
-#[test]
-fn knight_pose_follows_journey_active_work_and_idle_keep() {
-    let mut w = World::new(7);
-    assert_eq!(w.knight_pose(), KnightPose::Resting);
-
-    let work = ToolEventId("pose-work".to_string());
-    w.note_tool_call_event(work, "shell", "cargo test world_viz");
-    assert_eq!(w.knight_pose(), KnightPose::Riding);
-
-    let destination = w.dest();
-    w.avatar = destination;
-    w.avatar_vis = (destination.0 as f32, destination.1 as f32);
-    assert_eq!(w.active_build_landmark(), Some(w.target));
-    assert_eq!(w.knight_pose(), KnightPose::Working);
-
-    let idle = World::new(7);
-    assert_eq!(idle.avatar, idle.building_pos(Building::Keep));
-    assert_eq!(idle.knight_pose(), KnightPose::Resting);
 }
 
 #[test]
@@ -1099,7 +839,7 @@ fn turn_ended_hidden_stage_clears_work_without_renown() {
 }
 
 #[test]
-fn renown_thresholds_and_sixty_percent_previews_are_exact() {
+fn renown_thresholds_are_exact() {
     let thresholds = [10u64, 24, 42, 64, 96, 132, 172, 216];
     let mut w = World::new(5);
     for (index, threshold) in thresholds.into_iter().enumerate() {
@@ -1107,23 +847,6 @@ fn renown_thresholds_and_sixty_percent_previews_are_exact() {
         assert_eq!(w.level(), index as u32);
         w.renown = threshold;
         assert_eq!(w.level(), index as u32 + 1);
-    }
-    let mut previous = 0;
-    for threshold in thresholds {
-        let preview_at = threshold.saturating_mul(3).div_ceil(5).max(previous);
-        w.renown = preview_at - 1;
-        if preview_at > previous {
-            assert_ne!(
-                w.construction_preview().map(|preview| preview.0),
-                Some(threshold)
-            );
-        }
-        w.renown = preview_at;
-        assert_eq!(
-            w.construction_preview().map(|preview| preview.0),
-            Some(threshold)
-        );
-        previous = threshold;
     }
     w.renown = 37;
     assert_eq!(w.reward_chrome(), " Renown 37/42 · lanterns next");
@@ -1253,7 +976,7 @@ fn clearing_requires_green_after_red_lasts_fixed_beats_and_uses_fourth_bucket() 
 #[test]
 fn weather_tracks_session_health() {
     let mut w = World::new(3);
-    assert!(!w.title().contains("·  "), "fair skies say nothing");
+    assert_eq!(w.weather_label(), "", "fair skies say nothing");
 
     // A gray run rains on the town; the first green after it hangs a
     // rainbow (and the rain dries out with it).
@@ -1261,24 +984,24 @@ fn weather_tracks_session_health() {
     assert!(!w.raining(), "one gray turn is not a run");
     w.turn_ended(false);
     assert!(w.raining());
-    assert!(w.title().contains("rain"), "title: {}", w.title());
+    assert_eq!(w.weather_label(), "rain");
     w.turn_ended(true);
-    assert!(w.title().contains("rainbow"), "title: {}", w.title());
+    assert_eq!(w.weather_label(), "rainbow");
     assert!(!w.raining(), "recovery dries the town out");
 
     // Clouds gather when the loop budget runs thin — and clear when the
     // loop puts the lance away.
     let mut w = World::new(3);
     w.note_loop(true, 1, false, false, Some(budget(80, 100)));
-    assert!(w.title().contains("clouds"), "title: {}", w.title());
+    assert_eq!(w.weather_label(), "clouds");
     w.note_loop(false, 0, false, true, None);
-    assert!(!w.title().contains("clouds"));
+    assert_ne!(w.weather_label(), "clouds");
 
     // A quota storm outranks everything.
     w.note_notice("quota exhausted, failing over");
     w.turn_ended(false);
     w.turn_ended(false);
-    assert!(w.title().contains("storm"), "title: {}", w.title());
+    assert_eq!(w.weather_label(), "storm");
 }
 
 #[test]
@@ -1321,20 +1044,6 @@ fn renown_v2_migrates_and_persists_without_losing_legacy_fields() {
     let _ = std::fs::remove_file(&path);
 }
 
-#[test]
-fn streak_flame_rides_the_wide_view() {
-    let mut w = World::new(7);
-    w.camera.mode = CameraMode::Wide;
-    for _ in 0..3 {
-        w.turn_ended(true);
-    }
-    let flat = flat(&w.render(80, 24));
-    assert!(
-        flat.contains('^') || flat.contains('!'),
-        "a 3-streak plants a torch by the knight"
-    );
-}
-
 // ─── the village: the fleet mirrored into the town ──────────────────────
 
 use crate::stage::village::{ForgeSnapshot, VillagePulse, VillageState};
@@ -1368,15 +1077,15 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
         "{}",
         w.village_report()
     );
-    assert!(!w.title().contains("forge lit"));
+    assert!(!w.overworld_scene().forge_hot);
 
-    // Training lights the smithy and the title chip.
+    // Training lights the smithy.
     w.note_village(forge_pulse(ForgeSnapshot {
         training: true,
         dataset_total: 10,
         ..Default::default()
     }));
-    assert!(w.title().contains("forge lit"), "{}", w.title());
+    assert!(w.overworld_scene().forge_hot);
     assert!(w.village_report().contains("LIT"));
 
     // The adapter advancing = a promotion: fireworks, renown, and a
@@ -1420,14 +1129,17 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
 #[test]
 fn a_failed_gate_is_a_soot_puff_not_doom() {
     let mut w = village_world(None);
-    let mood_before = w.mood();
+    let errors_before = w.recent_errors;
     w.note_village(forge_pulse(ForgeSnapshot {
         gate_pass: Some(false),
         ..Default::default()
     }));
     assert!(w.animating(), "the soot puff is a live (bounded) beat");
-    assert_eq!(w.mood(), mood_before, "gentle: the mood is untouched");
-    assert!(!w.title().contains("storm"), "no storm for a failed gate");
+    assert_eq!(
+        w.recent_errors, errors_before,
+        "gentle: no error is counted"
+    );
+    assert_ne!(w.weather_label(), "storm", "no storm for a failed gate");
     // Bounded: the beat settles so the event loop can idle (invariant 5).
     for _ in 0..300 {
         w.tick();
@@ -1446,14 +1158,14 @@ fn a_failed_gate_is_a_soot_puff_not_doom() {
 }
 
 #[test]
-fn village_chatter_rides_the_status_line_briefly() {
+fn village_chatter_is_kept_briefly() {
     let mut w = village_world(None);
     w.note_village(VillagePulse {
         chatter: Some("the anvil remembers".into()),
         ..Default::default()
     });
-    let rendered = flat(&w.render(64, 16));
-    assert!(rendered.contains("the anvil remembers"), "{rendered}");
+    let village = w.village.as_ref().expect("village");
+    assert_eq!(village.chatter_note, "the anvil remembers");
     assert!(w.animating(), "the chatter window keeps the frame alive");
 }
 
@@ -1530,10 +1242,9 @@ fn note_loop_adapter_emits_iteration_and_stall_into_the_quest() {
     w.note_loop(true, 3, false, false, Some(budget(1_000, 2_000_000)));
     assert_eq!(w.quest().danger().level(), 0);
 
-    // The old sparkle/storm behaviour is untouched (title smoke).
-    assert!(w.title().contains("quest 3"), "{}", w.title());
+    assert_eq!(w.loop_iteration, 3);
     w.note_loop(false, 0, false, true, None);
-    assert!(!w.title().contains("quest"));
+    assert!(!w.loop_active);
 }
 
 #[test]
@@ -1582,4 +1293,56 @@ fn cinematic_key_tracks_the_quest_state() {
         d.cinematic_key(),
         "room plates hold through invisible quest changes"
     );
+}
+
+#[test]
+fn herald_names_the_place_the_deed_and_its_object() {
+    let told = |name: &str, args: &str| herald(name, args).text(false);
+    assert_eq!(
+        told("read_file", "path=cockpit/src/ui/toolstrip.rs, offset=400"),
+        "¶ Studying toolstrip.rs"
+    );
+    assert_eq!(
+        told("grep", "pattern=note_row_text, path=cockpit"),
+        "¶ Seeking \"note_row_text\""
+    );
+    assert_eq!(told("edit_file", "path=src/a.rs"), "⚒ Forging a.rs");
+    assert_eq!(
+        told("shell", "cd /repo && RUST_LOG=1 cargo test -p cockpit"),
+        "⚔ Trial by cargo test"
+    );
+    assert_eq!(told("run_tests", ""), "⚔ Trial by the test suite");
+    assert_eq!(told("shell", "git commit -m 'x'"), "✎ Sealing a commit");
+    assert_eq!(
+        herald("shell", "git commit -m 'x'").deed,
+        activity::Deed::Seal
+    );
+    assert_eq!(told("shell", "git log --oneline"), "✎ Chronicling git log");
+    assert_eq!(told("todo", "items=3"), "✎ Chronicling the todo");
+    assert_eq!(
+        told("web_fetch", "url=https://docs.rs/ratatui/latest"),
+        "✉ Riding to docs.rs"
+    );
+    assert_eq!(told("wait_agent", "workers=a,b"), "⚜ Awaiting the council");
+    assert_eq!(
+        told("memory_recall", "query=bench pin"),
+        "☩ Recalling \"bench pin\""
+    );
+    assert_eq!(
+        told("arxiv", "query=sparse attention"),
+        "☽ Consulting arxiv on \"sparse attention\""
+    );
+    assert_eq!(
+        told("shell", "cmd=ls -la target, timeout=30"),
+        "♜ Running ls"
+    );
+    assert_eq!(told("vision_look", "image"), "♜ Wielding vision look");
+    assert_eq!(told("list_dir", "path=."), "¶ Studying the workspace");
+
+    let forged = herald("write_file", "path=src/lib.rs");
+    assert_eq!(forged.text(true), "⚒ Forged lib.rs");
+    assert_eq!(&forged.text(true)[..forged.lead_len(true)], "⚒ Forged");
+    let long = herald("read_file", &format!("path={}", "x".repeat(80)));
+    assert_eq!(long.object.chars().count(), 40);
+    assert!(long.object.ends_with('…'));
 }

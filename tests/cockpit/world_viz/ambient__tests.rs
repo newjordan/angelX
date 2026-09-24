@@ -332,17 +332,12 @@ fn real_tool_event_leaves_the_entered_plate_before_rendering_new_outdoors() {
         Building::Chapel,
         "entered room stays authoritative until leave"
     );
-    assert_eq!(world.plate_caption().spans[1].content.as_ref(), "chapel");
     world.tick();
     assert!(
         !world.inside_interior(),
         "new work retains the established room-exit lifecycle"
     );
     assert_eq!(world.ambient_building(), Building::Scriptorium);
-    assert_eq!(
-        world.plate_caption().spans[1].content.as_ref(),
-        "scriptorium"
-    );
     let outside = world
         .scryglass_frame_paced(32, 14, true, 0.0, 0.0, 1.05)
         .unwrap();

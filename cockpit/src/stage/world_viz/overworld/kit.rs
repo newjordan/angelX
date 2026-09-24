@@ -1332,6 +1332,426 @@ pub(crate) fn smoke(tick: u32) -> Img {
     im
 }
 
+// ─── deeds: tool calls out on the roads ──────────────────────────────────────
+
+/// A wheel turning: rim, hub and a spoke that alternates with `turn`.
+fn wheel(im: &mut Img, cx: i32, cy: i32, turn: bool) {
+    for (dx, dy) in [
+        (-1, -2),
+        (0, -2),
+        (1, -2),
+        (-2, -1),
+        (2, -1),
+        (-2, 0),
+        (2, 0),
+        (-2, 1),
+        (2, 1),
+        (-1, 2),
+        (0, 2),
+        (1, 2),
+    ] {
+        im.put(cx + dx, cy + dy, 'o');
+    }
+    im.put(cx, cy, 'O');
+    if turn {
+        im.put(cx, cy - 1, 'r');
+        im.put(cx, cy + 1, 'r');
+    } else {
+        im.put(cx - 1, cy, 'r');
+        im.put(cx + 1, cy, 'r');
+    }
+}
+
+/// A horse in profile facing right, its body's left end at `x`, back at `y`,
+/// in a `coat` with a darker `mane`. Coats stay light: on black paper at dusk
+/// a bay horse vanishes into the road.
+fn horse(im: &mut Img, x: i32, y: i32, stride: bool, (coat, mane): (char, char)) {
+    im.ellipse(x as f32 + 3.5, y as f32 + 2.0, 3.6, 1.9, coat);
+    im.rect(x + 5, y - 3, 2, 4, coat);
+    im.rect(x + 6, y - 4, 3, 2, coat);
+    im.put(x + 6, y - 5, coat);
+    im.line(x + 5, y - 3, x + 5, y, mane);
+    im.put(x - 1, y + 1, mane);
+    im.put(x - 1, y + 2, mane);
+    let legs = if stride {
+        [(x + 1, x), (x + 6, x + 7)]
+    } else {
+        [(x + 1, x + 2), (x + 6, x + 5)]
+    };
+    for (top, foot) in legs {
+        im.line(top, y + 3, foot, y + 5, coat);
+        im.put(foot, y + 6, mane);
+    }
+}
+
+/// The cargo wagon of a trial, facing right: a canvas tilt over a timber
+/// bed, a lantern lit while the trial runs, a grey in the shafts. Its
+/// verdict flies from the pole — verified green passed, amber failed — and a
+/// failed trial throws its rear wheel.
+pub(crate) fn wagon(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
+    let mut im = Img::new(26, 17);
+    let turn = moving && frame % 2 == 1;
+    // Canvas tilt with its hoops.
+    im.rect(3, 2, 10, 1, 'O');
+    im.rect(2, 3, 12, 6, 'T');
+    for x in [5, 9] {
+        im.line(x, 3, x, 8, 't');
+    }
+    im.line(2, 8, 13, 8, 't');
+    im.line(1, 3, 1, 8, 'O');
+    im.line(14, 3, 14, 8, 'O');
+    // Bed and shafts.
+    im.line(0, 9, 15, 9, 'R');
+    im.line(1, 10, 14, 10, 'r');
+    im.line(15, 9, 17, 9, 'o');
+    horse(&mut im, 17, 7, turn, ('h', 'G'));
+    match verdict {
+        Some(false) => {
+            wheel(&mut im, 11, 12, false);
+            // The rear wheel lies in the road; the pole leans.
+            im.ellipse(2.5, 15.5, 2.6, 1.0, 'o');
+            im.put(2, 15, 'O');
+            im.line(0, 1, 1, 8, 'J');
+            im.rect(1, 1, 2, 2, '@');
+        }
+        _ => {
+            wheel(&mut im, 4, 12, turn);
+            wheel(&mut im, 11, 12, turn);
+            im.line(1, 0, 1, 8, 'J');
+        }
+    }
+    match verdict {
+        None => {
+            // The trial runs: the lantern burns.
+            im.put(15, 7, '5');
+            im.put(15, 8, '6');
+        }
+        Some(true) => {
+            im.rect(2, 0, 3, 1, '2');
+            im.rect(2, 1, 2, 1, '2');
+            im.put(2, 0, '3');
+        }
+        Some(false) => {}
+    }
+    im
+}
+
+/// A courier at the gallop, facing right, cloaked in the dispatch blue.
+/// Riding home he carries the answer as a sealed scroll — or, for a call
+/// that failed, an amber pennant and nothing else.
+pub(crate) fn courier(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
+    let mut im = Img::new(18, 16);
+    horse(&mut im, 4, 9, moving && frame % 2 == 1, ('i', 'J'));
+    im.rect(7, 4, 3, 5, '1');
+    im.rect(5, 5, 2, 3, '0');
+    im.rect(7, 1, 3, 3, 'i');
+    im.put(8, 1, 'H');
+    im.put(9, 2, 'J');
+    match verdict {
+        Some(true) => {
+            im.rect(10, 5, 2, 2, '9');
+            im.put(11, 4, '$');
+        }
+        Some(false) => {
+            im.line(6, 0, 6, 5, 'J');
+            im.rect(4, 0, 2, 2, '@');
+        }
+        None => {}
+    }
+    im
+}
+
+/// A raven on the wing, wings up or down with `frame`, carrying the sealed
+/// scroll of a commit while it is still being sealed.
+pub(crate) fn raven(frame: u32, carrying: bool) -> Img {
+    let mut im = if frame.is_multiple_of(2) {
+        Img::from_rows(&["hh...hh", "..JhJ..", "...J..."])
+    } else {
+        Img::from_rows(&["..JhJ..", ".h.J.h.", "h..J..h"])
+    };
+    im.put(3, 1, 'i');
+    if carrying {
+        im.put(3, 3, '9');
+    }
+    im
+}
+
+/// A raven at rest: one sealed commit.
+pub(crate) fn raven_perched() -> Img {
+    Img::from_rows(&[".hh.", "hJho", ".JJ.", ".G.."])
+}
+
+/// The Rookery's roost: a timber perch that goes up with the first sealed
+/// commit, one raven on it for each.
+pub(crate) fn roost(ravens: u32) -> Img {
+    let w = ROOST_W;
+    let mut im = Img::new(w, 13);
+    im.line(0, 4, w - 1, 4, 'o');
+    im.line(0, 5, w - 1, 5, 'r');
+    for x in [1, w - 2] {
+        im.line(x, 5, x, 12, 'r');
+    }
+    for n in 0..ravens as i32 {
+        im.stamp(&raven_perched(), 2 + n * 5, 1);
+    }
+    im
+}
+
+/// The roost's width: five ravens and their posts.
+pub(crate) const ROOST_W: i32 = 27;
+
+/// Folk of the realm at work, facing right: a hat or hood over a face, a
+/// tunic in `cloth`, legs that step with `frame`.
+fn folk(cloth: char, hood: bool, frame: u32) -> Img {
+    let head: [&str; 4] = if hood {
+        ["...ooo....", "..oooo....", "..oTTo....", "...oo....."]
+    } else {
+        ["...tt.....", "..tTTt....", "...OO.....", "...OO....."]
+    };
+    let legs: [&str; 2] = if frame.is_multiple_of(2) {
+        ["..rr.rr...", "..r...r..."]
+    } else {
+        ["...rrr....", "...r.r...."]
+    };
+    let body = ["..CCCC....", ".OCCCCO...", "..CCCC...."];
+    let rows: Vec<String> = head
+        .iter()
+        .chain(body.iter())
+        .chain(legs.iter())
+        .map(|r| r.replace('C', &cloth.to_string()))
+        .collect();
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let mut im = Img::new(12, 11);
+    im.stamp(&Img::from_rows(&refs), 0, 2);
+    im
+}
+
+/// A field hand working a crop row with the scythe, swinging with `frame`.
+pub(crate) fn field_hand(frame: u32) -> Img {
+    let mut im = folk('M', false, frame);
+    if frame.is_multiple_of(2) {
+        im.line(7, 2, 7, 9, 'r');
+        im.line(4, 1, 7, 1, 'H');
+        im.put(3, 2, 'i');
+    } else {
+        im.line(7, 5, 9, 10, 'r');
+        im.line(9, 10, 11, 9, 'H');
+        im.put(11, 8, 'i');
+    }
+    im
+}
+
+/// A messenger at the run, a harvest sheaf over the shoulder: a finding on
+/// its way to the Scriptorium.
+pub(crate) fn messenger(frame: u32) -> Img {
+    let mut im = folk('R', false, frame);
+    for (x, y, c) in [
+        (6, 3, '5'),
+        (7, 2, '6'),
+        (7, 3, '5'),
+        (8, 2, '5'),
+        (6, 4, 'o'),
+    ] {
+        im.put(x, y, c);
+    }
+    im
+}
+
+/// A villager on an errand, the sack on its back until it is delivered.
+pub(crate) fn villager(frame: u32, carrying: bool) -> Img {
+    let mut im = folk('U', false, frame);
+    if carrying {
+        im.rect(0, 5, 2, 4, 't');
+        im.put(0, 5, 'T');
+        im.put(1, 4, 'o');
+    }
+    im
+}
+
+/// A monk at vigil in the chapel yard: a rust habit with a rope belt, a
+/// lantern held out before him.
+pub(crate) fn monk(frame: u32, tick: u32) -> Img {
+    let mut im = folk('R', true, frame).recolor(&[('o', 'r'), ('O', 'T')]);
+    im.line(2, 8, 5, 8, 't');
+    im.line(7, 4, 7, 5, 'o');
+    im.rect(
+        7,
+        6,
+        2,
+        2,
+        if hash(tick as i32 / 2, 3, 81).is_multiple_of(3) {
+            '6'
+        } else {
+            '5'
+        },
+    );
+    im.put(8, 5, 'o');
+    im
+}
+
+/// An owl on the wing, a finding under it, bound for the Scriptorium.
+pub(crate) fn owl(frame: u32) -> Img {
+    let mut im = if frame.is_multiple_of(2) {
+        Img::from_rows(&["O.....O", "OO.O.OO", ".OOTOO.", "..OOO..", "...o..."])
+    } else {
+        Img::from_rows(&["...O...", ".OOTOO.", "OOOOOOO", "O.OOO.O", "...o..."])
+    };
+    im.put(3, 5, '9');
+    let mut framed = Img::new(7, 6);
+    framed.stamp(&im, 0, 0);
+    framed
+}
+
+/// A stook: one search harvested, standing in the field it came from.
+pub(crate) fn stook() -> Img {
+    Img::from_rows(&[
+        "..t..", ".tOt.", ".OOO.", "tOoOt", "OOoOO", "O.o.O", "o...o",
+    ])
+}
+
+/// Sacks delivered at the granary door, one for every errand run, heaped
+/// into a mound from the middle out.
+pub(crate) fn sacks(n: u32) -> Img {
+    const HEAP: [(i32, i32); 12] = [
+        (9, 8),
+        (5, 8),
+        (13, 8),
+        (7, 5),
+        (11, 5),
+        (9, 2),
+        (1, 8),
+        (17, 8),
+        (3, 5),
+        (15, 5),
+        (5, 2),
+        (13, 2),
+    ];
+    let sack = Img::from_rows(&[".oo.", "tTTt", "tTtt", ".tt."]);
+    let mut im = Img::new(21, 12);
+    // Lower sacks first, so the upper ones sit on them.
+    let mut placed: Vec<(i32, i32)> = HEAP.iter().copied().take(n as usize).collect();
+    placed.sort_by_key(|&(_, y)| std::cmp::Reverse(y));
+    for (x, y) in placed {
+        im.stamp(&sack, x, y);
+    }
+    im
+}
+
+/// Votive candles on the chapel step: one for every memory kept.
+pub(crate) fn candles(n: u32, tick: u32) -> Img {
+    let mut im = Img::new((n as i32 * 3).max(1), 4);
+    for i in 0..n as i32 {
+        let x = i * 3 + 1;
+        im.line(x, 2, x, 3, 'c');
+        let steady = !hash(tick as i32 / 3, i, 82).is_multiple_of(4);
+        im.put(x, 1, if steady { '5' } else { '6' });
+    }
+    im
+}
+
+/// A star over the Observatory: one research finding. Some twinkle.
+pub(crate) fn star(twinkle: bool) -> Img {
+    let mut im = Img::new(3, 3);
+    im.put(1, 1, 'w');
+    if twinkle {
+        for (x, y) in [(0, 1), (2, 1), (1, 0), (1, 2)] {
+            im.put(x, y, '3');
+        }
+    }
+    im
+}
+
+/// The Observatory's glass sweeping the sky while research runs: a beam
+/// from the dome at `angle` radians, brightest at the glass. The image's
+/// bottom centre is the dome.
+pub(crate) fn beam(angle: f32) -> Img {
+    const REACH: i32 = 40;
+    let mut im = Img::new(REACH * 2 + 1, REACH + 1);
+    let (dx, dy) = (angle.cos(), -angle.sin().abs());
+    for step in 4..REACH {
+        let x = REACH + (dx * step as f32).round() as i32;
+        let y = REACH + (dy * step as f32).round() as i32;
+        let ink = match step {
+            0..=13 => '3',
+            14..=26 => '2',
+            _ => '0',
+        };
+        if step < 27 || step % 2 == 0 {
+            im.put(x, y, ink);
+        }
+    }
+    im
+}
+
+/// One trial on the Lists fence: verified green at the head of the pole for
+/// a pass, amber at half-mast for a failure.
+pub(crate) fn pennant(passed: bool) -> Img {
+    let mut im = Img::new(4, 8);
+    im.line(0, 0, 0, 7, 'J');
+    if passed {
+        im.rect(1, 0, 2, 1, '2');
+        im.rect(1, 1, 3, 1, '2');
+        im.put(1, 2, '2');
+        im.put(1, 0, '3');
+    } else {
+        im.rect(1, 3, 2, 1, '@');
+        im.rect(1, 4, 3, 1, '@');
+        im.put(1, 5, '@');
+    }
+    im
+}
+
+/// Books studied this session, in low stacks by the Scriptorium door: a
+/// cover over cream page edges, so a pile never reads as a figure.
+pub(crate) fn books(n: u32) -> Img {
+    const COVERS: [char; 5] = ['R', 'z', 'O', 'M', 'U'];
+    const STACK: u32 = 3;
+    let stacks = n.div_ceil(STACK).max(1) as i32;
+    let mut im = Img::new(stacks * 8, STACK as i32 * 2 + 1);
+    for i in 0..n {
+        let (col, row) = ((i / STACK) as i32, (i % STACK) as i32);
+        let x = col * 8 + (hash(i as i32, 3, 61) % 2) as i32;
+        let y = im.h - 2 - row * 2;
+        let cover = COVERS[(hash(i as i32, 5, 62) % COVERS.len() as u32) as usize];
+        im.rect(x, y, 6, 1, cover);
+        im.rect(x, y + 1, 6, 1, 'T');
+        im.put(x, y + 1, cover);
+    }
+    im
+}
+
+/// The Smithy's rack: a blade for every file forged this session.
+pub(crate) fn blade_rack(n: u32) -> Img {
+    let n = n as i32;
+    let mut im = Img::new(n * 3 + 3, 12);
+    im.line(0, 2, 0, 11, 'r');
+    im.line(im.w - 1, 2, im.w - 1, 11, 'r');
+    im.line(0, 10, im.w - 1, 10, 'r');
+    for i in 0..n {
+        let x = 2 + i * 3;
+        im.put(x, 0, 'H');
+        im.line(x, 1, x, 7, 'i');
+        im.line(x - 1, 8, x + 1, 8, 'o');
+        im.put(x, 9, 'R');
+    }
+    im
+}
+
+/// Sparks off the anvil, `age` ticks after the strike: they rise and thin.
+pub(crate) fn sparks(age: u32) -> Img {
+    let mut im = Img::new(14, 12);
+    let rise = (age / 2) as i32;
+    for i in 0..6u32 {
+        if hash(i as i32, age as i32 / 4, 71) % 5 < age / 4 {
+            continue;
+        }
+        let x = 2 + (hash(i as i32, 7, 72) % 10) as i32;
+        let y = 10 - rise - (hash(i as i32, 9, 73) % 4) as i32;
+        im.put(x, y, if i % 2 == 0 { '5' } else { '6' });
+    }
+    im
+}
+
 // ─── icons & cues ────────────────────────────────────────────────────────────
 
 /// What the knight is doing, as a HUD item and an emote.

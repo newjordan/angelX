@@ -17,7 +17,7 @@ fn episode(mode: &str) -> Value {
         .args(["-c", r#"
 import importlib.util, json, os, pathlib, subprocess, sys, tempfile
 root, binary, mode = sys.argv[1:]
-spec = importlib.util.spec_from_file_location('seed', pathlib.Path(root)/'scripts/gen-harness-rollout-seed.py')
+spec = importlib.util.spec_from_file_location('seed', pathlib.Path(root)/'tests/cockpit/integration/fixtures/scripted_sse.py')
 gen = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gen)
 workspace = pathlib.Path(tempfile.mkdtemp(prefix='rollout-contract-'))

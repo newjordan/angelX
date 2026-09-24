@@ -11,9 +11,13 @@ boundary.
 
 ## Sandbox and approval defaults
 
-- Interactive action approval and Landlock confinement are on by default.
-  Sandboxed shell tool spawns re-exec through `angel-sandbox` (or the cockpit
-  itself with `ANGEL_SANDBOX_HELPER=self`).
+- Interactive action approval and Landlock are on by default. Landlock is an
+  accident guard between projects, not a cage for the model: every seat's shell
+  gets the workspace, scratch/cache/install roots, the GPU device nodes and the
+  network. There is no read-only or reduced-capability posture for models; see
+  "Operable models" in [CONTRIBUTING.md](CONTRIBUTING.md). Shell tool spawns
+  re-exec through `angel-sandbox` (or the cockpit itself with
+  `ANGEL_SANDBOX_HELPER=self`).
 - `--yolo`, `ANGEL_YOLO=1`, or a live `/yolo on` deliberately disables approval,
   Landlock, shared subprocess/HTTP timeouts, child-environment scrubbing, hook
   denials, and effect/network gates. Never use it for untrusted or scored work.

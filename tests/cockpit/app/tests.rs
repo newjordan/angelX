@@ -3,6 +3,7 @@
 //! main.rs-native units (terminal lifecycle, layout math). Split out of
 //! main.rs; `super::*` resolves to the crate root exactly as before.
 use super::*;
+use crate::ui::agent_panel::profile::AgentKey;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -2181,7 +2182,7 @@ fn hard_stop_retains_the_already_visible_partial() {
         "hard stop suppresses visibility but retains worker ownership"
     );
     assert_eq!(
-        app.think_state().map(|(_, _, label)| label),
+        app.thinking.as_ref().map(|thinking| thinking.progress().2),
         Some("draining stopped worker")
     );
     assert!(
@@ -5152,10 +5153,10 @@ fn loop_steers_persist_into_iteration_prompts() {
         app.loop_ctl.steer_notes,
         vec!["prefer fixing the parser first".to_string()]
     );
-    // The next iteration's prompt carries the operator-steering block.
+    // The next iteration's prompt carries the note as a new operator message.
     let convo = app.loop_iteration_convo();
     let prompt = &convo[1].content;
-    assert!(prompt.contains("operator steering"), "{prompt}");
+    assert!(prompt.contains("[operator message"), "{prompt}");
     assert!(
         prompt.contains("prefer fixing the parser first"),
         "{prompt}"
@@ -6462,9 +6463,10 @@ fn loop_stalls_continue_on_selected_route_with_state_preserved() {
     app.loop_harvest("DIRECTION: still stuck".to_string());
     assert_eq!(app.loop_ctl.status, loop_ctl::LoopStatus::Running);
     assert_eq!(app.loop_ctl.stale_count, 0);
+    // The stall advice is information, not a setback order.
     assert!(
         app.loop_ctl
-            .last_setback
+            .loop_note
             .as_deref()
             .unwrap_or("")
             .contains("smallest discriminating check")
@@ -9200,12 +9202,14 @@ fn approval_probe_captures_keys_without_mutating_the_live_gate() {
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert!(app.pending_approval.is_none());
     assert!(
-        app.messages
-            .last()
-            .is_some_and(|message| { message.text.contains("approval: denied") })
+        !app.messages
+            .iter()
+            .any(|message| message.text.contains("approval: ")),
+        "the conversation keeps no echo of the key; the strip shows the call"
     );
     assert!(std::env::var_os("ANGEL_SWARM_APPROVE").is_none());
 
+    app.transcript_mode = TranscriptMode::Trace;
     app.input = "/approvals probe".to_string();
     app.submit();
     app.on_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE));
@@ -9213,7 +9217,8 @@ fn approval_probe_captures_keys_without_mutating_the_live_gate() {
     assert!(
         app.messages
             .last()
-            .is_some_and(|message| { message.text.contains("approval: approved") })
+            .is_some_and(|message| { message.text.contains("approval: approved") }),
+        "/trace keeps the echo"
     );
     assert!(std::env::var_os("ANGEL_SWARM_APPROVE").is_none());
 }
@@ -11394,9 +11399,10 @@ fn specialist_persona_never_sticks_to_the_in_hand_agent() {
 
 #[test]
 fn swarm_specialist_coloring_is_transient_per_turn() {
-    // The swarm host (Sparky) *may* be recoloured Apollo while a turn surfaces
+    // The swarm host *may* be recoloured Apollo while a turn surfaces
     // apollo-class work, but the effect is transient: a later non-apollo turn
-    // shows Sparky again rather than inheriting the previous turn's persona.
+    // drops the persona rather than inheriting it. The machine itself is a
+    // host, not a character, so it shows the unnamed portrait.
     let mut app = seed_preview_app();
     app.thinking = Some(Thinking::pending_for_test("spark"));
     app.messages.push(Message {
@@ -11405,13 +11411,13 @@ fn swarm_specialist_coloring_is_transient_per_turn() {
     });
     assert_eq!(app.active_profile().key, AgentKey::Apollo);
 
-    // New turn boundary clears the persona; without new apollo work Sparky returns.
+    // New turn boundary clears the persona; without new apollo work it is gone.
     app.reset_specialist_persona();
     app.messages.push(Message {
         role: Role::Angel,
         text: "ordinary follow-up answer".into(),
     });
-    assert_eq!(app.active_profile().key, AgentKey::Sparky);
+    assert_eq!(app.active_profile().key, AgentKey::Unknown);
 }
 
 /// Put the app into a realistic "thinking, streaming reasoning" state.
@@ -11833,7 +11839,7 @@ fn routine_policy_notices_ride_the_strip_not_the_transcript() {
         .filter(|message| matches!(message.role, Role::Activity))
         .map(|message| message.text.as_ref())
         .collect::<Vec<&str>>();
-    for note in routine.into_iter().filter(|note| *note != action_receipt) {
+    for note in routine {
         assert!(
             !activity.iter().any(|line| line.contains(note)),
             "routine notice leaked into scrollback: {note:?}\n{activity:?}"
@@ -11843,8 +11849,8 @@ fn routine_policy_notices_ride_the_strip_not_the_transcript() {
         activity.iter().any(|line| line.contains("denying")),
         "present-tense denying (failure) vanished from scrollback: {activity:?}"
     );
-    // Successful action receipts now have their own coalescible rows.
-    assert!(activity.iter().any(|line| line.contains(action_receipt)));
+    // Action receipts leave the conversation entirely: the tool strip's
+    // herald and ledger carry each action and its outcome.
     assert_eq!(app.tool_strip.note(), Some(storm));
     assert_eq!(
         app.tool_strip.note_count(),
@@ -12308,10 +12314,9 @@ fn tool_strip_renders_under_transcript_and_collapses_to_tally() {
     // Live: the strip shows the running tool + the lateral bar in the render.
     let text = render_app_text(&mut app, 160, 48);
     assert!(
-        text.contains("read_file · path=src/main.rs"),
-        "strip status row shows the running tool\n{text}"
+        text.contains("¶ Studying main.rs"),
+        "strip status row heralds the running tool\n{text}"
     );
-    assert!(text.contains("#2"), "strip shows the call count\n{text}");
     assert!(
         !text.contains("T: shell(") && !text.contains("R: shell:"),
         "no per-call T:/R: rows in the transcript\n{text}"
@@ -14148,7 +14153,7 @@ fn ledger_command_renders_the_recent_turn_table() {
 }
 
 #[test]
-fn receipt_consecutive_rows_and_trace() {
+fn receipts_stay_out_of_the_conversation_and_trace_keeps_them() {
     let _guard = env_lock();
     let receipt = |tool: &str, verb: &str, ms| {
         harness::TurnEvent::Notice(format!("action receipt · {tool} {verb} · {ms} ms"))
@@ -14156,28 +14161,28 @@ fn receipt_consecutive_rows_and_trace() {
     let events = || {
         (1..=30)
             .map(|ms| receipt("shell", "dispatch error", ms))
+            .chain([
+                harness::TurnEvent::Token("model message".into()),
+                receipt("apply_patch", "applied", 2),
+            ])
             .collect()
     };
     let (mut app, _tx) = seed_live_streaming_app(events());
     app.advance();
-    let rows: Vec<_> = app
-        .messages
-        .iter()
-        .filter(|m| m.text.contains("action receipt"))
-        .collect();
-    assert_eq!(rows.len(), 1);
     assert!(
-        rows[0].text.contains("×30 · last 30 ms · 1–30 ms"),
-        "{}",
-        rows[0].text
+        !app.messages
+            .iter()
+            .any(|m| m.text.contains("action receipt")),
+        "the tool strip carries each action; the conversation stays the conversation"
     );
-    assert_eq!(
-        crate::ui::views::turn_event_view::activity_gauge_count(&rows[0].text)
-            .unwrap()
-            .min(crate::ui::views::turn_event_view::NOTICE_GAUGE_FULL),
-        10
+    assert!(
+        app.partial.contains("model message")
+            || app
+                .messages
+                .iter()
+                .any(|m| m.text.contains("model message")),
+        "the agent's words still land"
     );
-    println!("receipt rows: before=30 after=1 count=30 range=1–30 ms gauge_fill=10");
     let (mut trace, _tx) = seed_live_streaming_app(events());
     trace.transcript_mode = TranscriptMode::Trace;
     trace.advance();
@@ -14187,64 +14192,8 @@ fn receipt_consecutive_rows_and_trace() {
             .iter()
             .filter(|m| m.text.contains("action receipt"))
             .count(),
-        30
-    );
-    println!("receipt trace rows: before=30 after=30");
-    for middle in [
-        receipt("apply_patch", "dispatch error", 4),
-        harness::TurnEvent::Token("model message".into()),
-        harness::TurnEvent::Notice("background compaction failed".into()),
-    ] {
-        let (mut app, _tx) = seed_live_streaming_app(vec![
-            receipt("shell", "dispatch error", 1),
-            middle,
-            receipt("shell", "dispatch error", 2),
-        ]);
-        app.advance();
-        assert_eq!(
-            app.messages
-                .iter()
-                .filter(|m| m.text.contains("shell dispatch error"))
-                .count(),
-            2
-        );
-    }
-    let (mut app, _tx) = seed_live_streaming_app(vec![
-        receipt("shell", "ran", 1),
-        receipt("apply_patch", "applied", 2),
-    ]);
-    app.advance();
-    assert_eq!(
-        app.messages
-            .iter()
-            .filter(|m| m.text.contains("action receipt"))
-            .count(),
-        2
-    );
-    let note = || harness::TurnEvent::Notice("background compaction failed".into());
-    let (mut app, _tx) = seed_live_streaming_app(vec![
-        note(),
-        receipt("shell", "dispatch error", 1),
-        note(),
-        receipt("shell", "dispatch error", 2),
-    ]);
-    app.advance();
-    assert_eq!(
-        app.messages
-            .iter()
-            .filter(|m| m.text.contains("shell dispatch error"))
-            .count(),
-        2
-    );
-    assert_eq!(
-        app.messages
-            .iter()
-            .filter(|m| m.text.contains("background compaction failed"))
-            .count(),
-        1
-    );
-    println!(
-        "receipt boundaries: different tool/model/notice split shell into 2 rows; distinct successes=2 rows"
+        31,
+        "/trace keeps every receipt"
     );
 }
 

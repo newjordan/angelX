@@ -46,7 +46,13 @@ fn successful_reply_retires_provider_and_ordinary_errors_before_reload() {
                     .iter()
                     .any(|message| message.text.contains(error))
             );
-            app.loop_harvest("DIRECTION: continue with the recovered route".into());
+            app.loop_harvest_with_tools(
+                "DIRECTION: continue with the recovered route".into(),
+                ToolStripSnapshot {
+                    calls: 20,
+                    ..Default::default()
+                },
+            );
             assert!(app.loop_ctl.last_error.is_none());
             assert!(
                 app.messages

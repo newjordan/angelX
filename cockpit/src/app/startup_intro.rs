@@ -798,7 +798,7 @@ fn render_cells(
 
 // A single rising contour: no mesh, hidden edges, axes or terrain underneath.
 // Coordinates are pane-relative so the low base and summit headroom survive resize.
-const INTRO_INK: [u8; 3] = [255; 3];
+pub(crate) const INTRO_INK: [u8; 3] = [255; 3];
 const WIZARD_INK: [u8; 3] = INTRO_INK;
 const ASCENT: [(f32, f32); 9] = [
     (0.06, 0.89),
@@ -812,7 +812,7 @@ const ASCENT: [(f32, f32); 9] = [
     (0.95, 0.43),
 ];
 
-fn smoothstep(value: f32) -> f32 {
+pub(crate) fn smoothstep(value: f32) -> f32 {
     let value = value.clamp(0.0, 1.0);
     value * value * (3.0 - 2.0 * value)
 }
@@ -824,7 +824,13 @@ fn plot_point(point: (f32, f32), dot_w: usize, dot_h: usize) -> (i32, i32) {
     )
 }
 
-fn paint_dot(image: &mut ColoredBrailleImage, x: i32, y: i32, color: [u8; 3], opacity: u8) {
+pub(crate) fn paint_dot(
+    image: &mut ColoredBrailleImage,
+    x: i32,
+    y: i32,
+    color: [u8; 3],
+    opacity: u8,
+) {
     let dot_w = image.width.saturating_mul(2) as i32;
     let dot_h = image.height.saturating_mul(4) as i32;
     if opacity == 0 || x < 0 || y < 0 || x >= dot_w || y >= dot_h {
@@ -896,7 +902,7 @@ fn clip_dot_line(
     Some((point(enter), point(leave)))
 }
 
-fn draw_dot_line(
+pub(crate) fn draw_dot_line(
     image: &mut ColoredBrailleImage,
     from: (i32, i32),
     to: (i32, i32),
@@ -930,7 +936,7 @@ fn draw_dot_line(
     }
 }
 
-fn draw_wizard(
+pub(crate) fn draw_wizard(
     image: &mut ColoredBrailleImage,
     centre_x: i32,
     ground_y: i32,
@@ -938,12 +944,27 @@ fn draw_wizard(
     settled: bool,
     opacity: u8,
 ) {
-    // Continuous contours sample directly onto Dotmax's dot grid: the hat and
-    // cloak stay fine-edged instead of enlarging a chunky bitmap in integer steps.
     let height = (image.height as f32 * 4.0 * 0.23)
         .min(image.width as f32 * 2.0 * 0.28)
         .max(12.0)
         * 0.5;
+    draw_wizard_sized(
+        image, centre_x, ground_y, height, walk_pose, settled, opacity,
+    );
+}
+
+/// The wizard `height` dots tall (hat tip to feet).
+pub(crate) fn draw_wizard_sized(
+    image: &mut ColoredBrailleImage,
+    centre_x: i32,
+    ground_y: i32,
+    height: f32,
+    walk_pose: u8,
+    settled: bool,
+    opacity: u8,
+) {
+    // Continuous contours sample directly onto Dotmax's dot grid: the hat and
+    // cloak stay fine-edged instead of enlarging a chunky bitmap in integer steps.
     let scale = height / 100.0;
     let point = |x: f32, y: f32| {
         (
