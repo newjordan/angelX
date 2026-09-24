@@ -584,6 +584,64 @@ fn portrait_preview_renders_bundled_asset_as_halfblocks_and_reuses_cache() {
 }
 
 #[test]
+fn intro_portrait_paints_tonal_greys_then_colour_as_its_own_upload() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use ratatui::style::Color;
+
+    fn painted(terminal: &Terminal<TestBackend>) -> Vec<(u8, u8, u8)> {
+        terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .filter(|cell| matches!(cell.symbol(), "▀" | "▄" | "█"))
+            .flat_map(|cell| [cell.fg, cell.bg])
+            .filter_map(|color| match color {
+                Color::Rgb(r, g, b) => Some((r, g, b)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/agents/sparky-neutral.png");
+    let mut viewer = Viewer::portrait_preview();
+    let mut terminal = Terminal::new(TestBackend::new(28, 14)).expect("test terminal");
+
+    viewer.set_portrait_mono(true);
+    terminal
+        .draw(|frame| assert!(viewer.render_portrait(frame, frame.area(), &path)))
+        .expect("render intro portrait");
+    let intro = painted(&terminal);
+    assert!(!intro.is_empty(), "the intro portrait paints image cells");
+    assert!(
+        intro.iter().all(|(r, g, b)| r == g && g == b),
+        "every intro portrait pixel is a grey"
+    );
+    let mut shades: Vec<u8> = intro.iter().map(|(r, _, _)| *r).collect();
+    shades.sort_unstable();
+    shades.dedup();
+    assert!(
+        shades.len() > 8,
+        "tonal greys, not a black/white threshold: {shades:?}"
+    );
+
+    viewer.set_portrait_mono(false);
+    terminal
+        .draw(|frame| assert!(viewer.render_portrait(frame, frame.area(), &path)))
+        .expect("render session portrait");
+    assert!(
+        painted(&terminal).iter().any(|(r, g, b)| r != g || g != b),
+        "the session portrait is in colour"
+    );
+    assert_eq!(
+        viewer.portrait_cache.len(),
+        2,
+        "grey and colour are separate uploads, so the grey one is never re-served"
+    );
+}
+
+#[test]
 fn production_portrait_preparation_never_blocks_the_draw_thread() {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;

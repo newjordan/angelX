@@ -434,6 +434,9 @@ fn render_terminal_agent_portrait(
     profile: AgentProfile,
     chrome: &FrameChrome,
 ) -> bool {
+    // The intro stays black paper: portraits paint in greys until the
+    // session starts, then in colour.
+    app.viewer.set_portrait_mono(!app.startup_intro.dismissed());
     maybe_paint_side_column_kitty(|| {
         if portrait_states_enabled() {
             let state = portrait_state(app);

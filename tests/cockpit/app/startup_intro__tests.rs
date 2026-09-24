@@ -224,6 +224,28 @@ fn startup_intro_keystroke_and_paste_dismiss_before_submission() {
 }
 
 #[test]
+fn startup_intro_dismissed_marks_the_session_start_for_good() {
+    let mut intro = StartupIntro::default();
+    intro.started = Some(Instant::now());
+    intro.begin_frame(false, false, MotionMode::Full);
+    assert!(!intro.dismissed(), "the ceremony is still up");
+    intro.begin_frame(false, true, MotionMode::Full);
+    assert!(intro.dismissed(), "a draft starts the session");
+    intro.begin_frame(false, false, MotionMode::Full);
+    assert!(
+        intro.dismissed(),
+        "clearing the draft does not bring the intro back"
+    );
+
+    let mut restored = StartupIntro::default();
+    restored.begin_frame(true, false, MotionMode::Full);
+    assert!(
+        restored.dismissed(),
+        "a conversation on screen is a started session"
+    );
+}
+
+#[test]
 fn startup_intro_real_content_and_prefilled_drafts_never_flash_art() {
     let _guard = crate::tests::env_lock();
     for occupied in [false, true] {

@@ -228,6 +228,9 @@ struct PortraitCacheKey {
     /// canvas built for another cell size is drawn short of (or past) its
     /// cells, so a zoom or a move to another monitor re-renders the portrait.
     cell: Option<(u16, u16)>,
+    /// Painted in tonal greys (the intro), not colour. Part of the key so the
+    /// colour portrait is its own upload once the session starts.
+    mono: bool,
 }
 
 struct PortraitCacheEntry {
@@ -322,6 +325,9 @@ pub struct Viewer {
     portrait_shown: Option<PortraitCacheKey>,
     portrait_enabled: bool,
     portrait_synchronous: bool,
+    /// Portraits paint in greys until the session starts (see
+    /// `set_portrait_mono`), so the intro keeps its black-paper look.
+    portrait_mono: bool,
     /// The WebGPU portal is deliberately narrower than ordinary image support:
     /// it paints only through Kitty's in-memory pixel protocol. Other terminals
     /// retain the terminal-native Agent/Realm visualization.
@@ -514,6 +520,7 @@ impl Viewer {
             portrait_shown: None,
             portrait_enabled: false,
             portrait_synchronous: false,
+            portrait_mono: false,
             portal_picker,
             world_font_size,
             portal_enabled,
@@ -984,6 +991,7 @@ impl Viewer {
         self.promote_pending_portrait();
         let mut key = Self::portrait_key(area, path);
         key.pose = pose;
+        key.mono = self.portrait_mono;
         if self.render_cached_portrait(frame, area, &key) {
             return true;
         }
@@ -1026,6 +1034,11 @@ impl Viewer {
             let pixel = crate::ui::helm::is_pixel_sheet(path);
             let picker = self.portrait_pixel_picker(key.cell);
             let image = anchor_portrait_canvas(image, &picker, size, pixel);
+            let image = if key.mono {
+                mono_portrait(&image)
+            } else {
+                image
+            };
             picker
                 .new_protocol(
                     image,
@@ -1584,6 +1597,7 @@ impl Viewer {
         self.promote_pending_portrait();
         let mut key = Self::portrait_key(area, path);
         key.pose = pose;
+        key.mono = self.portrait_mono;
         if self.portrait_cache.iter().any(|entry| entry.key == key)
             || self.portrait_failures.contains(&key)
             || self.portrait_pending.is_some()
@@ -1600,7 +1614,14 @@ impl Viewer {
             height: area.height,
             pose: None,
             cell: terminal_cell_pixels(),
+            mono: false,
         }
+    }
+
+    /// Paint portraits in tonal greys (`true`, the intro) or in colour. The
+    /// draw loop sets this every frame from whether the session has started.
+    pub(crate) fn set_portrait_mono(&mut self, mono: bool) {
+        self.portrait_mono = mono;
     }
 
     /// The cell size a portrait canvas is built for (see
@@ -1643,6 +1664,7 @@ impl Viewer {
     fn queue_portrait(&mut self, key: PortraitCacheKey, prefetch: bool) {
         let path = key.path.clone();
         let pose = key.pose;
+        let mono = key.mono;
         let size = Rect::new(0, 0, key.width, key.height);
         let picker = self.portrait_pixel_picker(key.cell);
         let (tx, rx) = mpsc::channel();
@@ -1652,6 +1674,7 @@ impl Viewer {
                 let result = portrait_image(&path, pose).and_then(|image| {
                     let pixel = crate::ui::helm::is_pixel_sheet(&path);
                     let image = anchor_portrait_canvas(image, &picker, size, pixel);
+                    let image = if mono { mono_portrait(&image) } else { image };
                     picker
                         .new_protocol(image, size.into(), Resize::Crop(None))
                         .map_err(|error| error.to_string())
@@ -1898,6 +1921,16 @@ fn dot_pitch(raw: Option<&str>) -> Option<u16> {
         ),
         None => Some(2),
     }
+}
+
+/// The intro's black-paper portrait: every pixel keeps its luminance as a
+/// tonal grey and its alpha, so the figure loses only its colour, not a shade
+/// or an edge.
+fn mono_portrait(image: &image::DynamicImage) -> image::DynamicImage {
+    // Back to RGBA: every protocol encoder takes the same pixel layout.
+    image::DynamicImage::ImageRgba8(
+        image::DynamicImage::ImageLumaA8(image.to_luma_alpha8()).to_rgba8(),
+    )
 }
 
 fn portrait_image(path: &Path, pose: Option<u8>) -> Result<image::DynamicImage, String> {
