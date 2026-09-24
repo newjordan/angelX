@@ -190,6 +190,12 @@ impl StartupIntro {
         }
     }
 
+    /// The session has started: a draft or a conversation dismissed the
+    /// ceremony (or it never ran). Once true it stays true for the launch.
+    pub(crate) fn dismissed(&self) -> bool {
+        self.finished || self.fading.is_some()
+    }
+
     pub(crate) fn dismiss(&mut self, now: Instant, motion: MotionMode) {
         if self.finished || self.fading.is_some() {
             return;
