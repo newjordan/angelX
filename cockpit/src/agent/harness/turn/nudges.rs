@@ -182,43 +182,26 @@ pub(crate) const NO_EDIT_ANSWER_NUDGE: &str = "[harness-telemetry] NO WORKSPACE 
 pub(crate) const COMPETITION_ACTION_POSTURE: &str = "[harness-telemetry] COMPETITION CHALLENGE PACE — RAPID. ALWAYS BE IMPROVING. \
     Revolving door: mutate → local preflight → the current BEST goes up to bat (SUBMIT, receipt/ID) → immediately improve the next best. \
     Once a submission is in play the harness watcher owns that slot. A WATCHER NOTIFY arrives with id + status + score/reason; do not poll-wait. \
-    Sitting on a prepped submission is a competition failure. Constant output: one bat in flight, the next best being prepped. \
+    Sitting on a prepped submission is a competition failure. Keep one bat in flight and the next best being prepped. \
+    Don't restate the board, the in-flight slot or your plan in replies: report only new results. \
     After notify, one receipt check is optional; then submit-next (best to bat) or improve-candidate. \
     Long monologues or passive waiting do not count. Never wrap builds, engine boots, or benchmarks in `timeout`: \
     the harness has no tool ceiling and reports long tools live; a self-imposed timeout that kills a load mid-flight \
     is the most common cause of \"no verifier result\".";
-
-/// Compact always-on board digest template.
-pub(crate) const COMPETITION_WORLD_CARD: &str = "\
-[harness-telemetry] COMPETITION WORLD CARD — RAPID (fill from tools; do not invent):
-tip: (board tip / living-handoff head — one line)
-score: (last measured score or unknown)
-slot: (in-flight UUID or none)
-status: active | validating | candidate-ready
-next action: improve-candidate | local-benchmark | submit-next | check-receipt
-Doctrine: ALWAYS BE IMPROVING. Revolving door — best always bats. Watcher owns in-flight status. NEVER sit idle, poll-wait, or hold a prepped submission. Mutate + preflight the next best until WATCHER NOTIFY; then submit-next or improve-candidate.";
 
 pub(crate) const DEEP_COMPETITION_POSTURE: &str = "[harness-telemetry] COMPETITION CHALLENGE PACE — DEEP. \
     This is a slow-burn solve: build a coherent evidence chain, test distinct hypotheses, and \
     converge only when the candidate is defensible. Hop count, first-write pressure, and watcher \
     state are never instructions to submit — but a candidate that passes the local gate IS \
     submitted (receipt/ID) and then improved; depth is a reason to measure more, never a reason \
-    to withhold a measured candidate. Never wrap builds, engine boots, or benchmarks in `timeout`: \
+    to withhold a measured candidate. Don't restate the board, the in-flight slot or your plan in \
+    replies: report only new results. Never wrap builds, engine boots, or benchmarks in `timeout`: \
     the harness has no tool ceiling, long tools are reported live, and a self-imposed timeout that \
     kills a load mid-flight is the most common cause of \"no verifier result\".";
 
-pub(crate) const DEEP_COMPETITION_WORLD_CARD: &str = "\
-[harness-telemetry] COMPETITION WORLD CARD — DEEP (fill from tools; do not invent):
-hypothesis: (current falsifiable theory — one line)
-evidence: (strongest measurement or unknown)
-candidate: untouched | exploring | edited | validating | evidence-ready
-remaining uncertainty: (largest unresolved risk)
-next action: targeted-research | targeted-experiment | improve-candidate | local-benchmark | final-report
-Doctrine: depth before cadence. Continue the evidence chain; never submit solely because the hop counter advanced — and never sit on a candidate that passed the local gate.";
-
-pub(crate) fn competition_posture(pace: TaskPace) -> (&'static str, &'static str) {
+pub(crate) fn competition_posture(pace: TaskPace) -> &'static str {
     match pace {
-        TaskPace::Rapid => (COMPETITION_ACTION_POSTURE, COMPETITION_WORLD_CARD),
-        TaskPace::Deep => (DEEP_COMPETITION_POSTURE, DEEP_COMPETITION_WORLD_CARD),
+        TaskPace::Rapid => COMPETITION_ACTION_POSTURE,
+        TaskPace::Deep => DEEP_COMPETITION_POSTURE,
     }
 }

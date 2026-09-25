@@ -1401,7 +1401,7 @@ fn run_turn_tiered(
         // model history. Competition awareness and rapid submission cadence are
         // separate contracts; deep work must never inherit the latter merely
         // because the standing goal mentions a leaderboard.
-        let (posture, world_card) = competition_posture(task_pace);
+        let posture = competition_posture(task_pace);
         let pace_marker = format!(
             "COMPETITION CHALLENGE PACE — {}",
             task_pace.as_str().to_ascii_uppercase()
@@ -1411,16 +1411,6 @@ fn run_turn_tiered(
             .any(|m| m.role == ChatRole::Harness && m.content.contains(&pace_marker));
         if !already {
             history.push(ChatMsg::harness(posture.to_string()));
-            // Standing board digest so cold seats don't burn the inspection
-            // budget re-deriving tip/slot/score every hop.
-            let has_card = history.iter().any(|m| {
-                m.role == ChatRole::Harness
-                    && m.content.contains("COMPETITION WORLD CARD")
-                    && m.content.contains(&task_pace.as_str().to_ascii_uppercase())
-            });
-            if !has_card {
-                history.push(ChatMsg::harness(world_card.to_string()));
-            }
             let policy = match task_pace {
                 TaskPace::Rapid => {
                     "mutate + local preflight → explicit submission contract → improve next candidate"

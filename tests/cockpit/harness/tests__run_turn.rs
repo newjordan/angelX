@@ -4202,14 +4202,15 @@ fn deep_competition_keeps_context_without_arming_submission_cadence() {
     assert_eq!(configured_first_write_limit(), 0);
     assert!(!first_write_nudge(true, pace).contains("submit the current"));
     assert!(first_write_nudge(true, pace).contains("never implied"));
-    let (posture, card) = competition_posture(pace);
+    let posture = competition_posture(pace);
     assert!(posture.contains("PACE — DEEP"));
     // Operator law 2026-09-11: deep pace still ships a gate-passing candidate.
     assert!(posture.contains("are never instructions to submit"));
     assert!(posture.contains("passes the local gate IS"));
     assert!(posture.contains("Never wrap builds, engine boots, or benchmarks in `timeout`"));
-    assert!(card.contains("never submit solely"));
-    assert!(card.contains("never sit on a candidate that passed the local gate"));
+    // Standing status is never a reply template: no world card to re-fill every message.
+    assert!(posture.contains("report only new results"));
+    assert!(competition_posture(TaskPace::Rapid).contains("report only new results"));
     assert!(passive_poll_nudge(pace).contains("not a request"));
 }
 

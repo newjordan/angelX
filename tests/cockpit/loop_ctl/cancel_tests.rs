@@ -304,3 +304,47 @@ mod exit;
 
 #[path = "cancel_pending_tests.rs"]
 mod pending;
+
+fn settle_interrupted(app: &mut crate::App, held: &Held) {
+    let route = app.bag.in_hand_with_fallback().route_identity();
+    held.terminal
+        .send(Ok((
+            vec![ChatMsg::assistant("partial read")],
+            "partial read".into(),
+            route,
+            crate::agent::harness::TurnStopReason::Interrupt,
+        )))
+        .unwrap();
+    app.advance();
+}
+
+#[test]
+fn a_steer_releasing_the_request_does_not_pause_the_loop() {
+    fixture("steer-release", |root| {
+        let (mut app, held, _calls) = held_app(root);
+        // What queue_steer does while the provider holds the request.
+        app.steer_queue.push(ChatMsg::user("look at the carrier first"));
+        app.thinking.as_mut().unwrap().steer_interrupt_fired = true;
+        held.cancel.store(true, Ordering::Release);
+        settle_interrupted(&mut app, &held);
+        assert_ne!(app.loop_ctl.status, LoopStatus::Paused);
+        assert!(
+            app.loop_ctl
+                .last_error
+                .as_deref()
+                .is_none_or(|error| !error.contains("inner turn stopped")),
+            "a steer is guidance for the next iteration, not an operator stop"
+        );
+    });
+}
+
+#[test]
+fn an_interrupt_without_a_queued_steer_still_pauses_the_loop() {
+    fixture("plain-interrupt", |root| {
+        let (mut app, held, _calls) = held_app(root);
+        // Esc drops queued steers; the interrupt is the operator's.
+        app.thinking.as_mut().unwrap().steer_interrupt_fired = true;
+        settle_interrupted(&mut app, &held);
+        assert_eq!(app.loop_ctl.status, LoopStatus::Paused);
+    });
+}
