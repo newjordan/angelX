@@ -1298,7 +1298,15 @@ impl App {
                 // A loop iteration: fold it into loop state (fresh context — it
                 // never touches the user thread or session) and run the stop ladder.
                 if self.loop_ctl.awaiting_turn {
-                    if completed {
+                    // A queued steer releases the in-flight request so its
+                    // guidance lands on the next iteration. That is not the
+                    // operator stopping the loop (Esc drops the queue), so fold
+                    // the iteration and keep going instead of pausing.
+                    let steer_release = stop_reason
+                        == crate::agent::harness::TurnStopReason::Interrupt
+                        && thinking.steer_interrupt_fired
+                        && !self.steer_queue.is_empty();
+                    if completed || steer_release {
                         self.loop_harvest_with_tools(reply, loop_tools.unwrap_or_default());
                     } else {
                         self.loop_harvest_stopped(
