@@ -100,6 +100,8 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/realm/ambient/scriptorium-mountain-v2.png',
   'cockpit/assets/realm/ambient/smithy-mountain-source.png',
   'cockpit/assets/realm/ambient/smithy-mountain.png',
+  'cockpit/assets/realm/inhabitants/archivist.png',
+  'cockpit/assets/realm/inhabitants/courier.png',
   'cockpit/assets/realm/palette.json',
   // Telemetry tables the cockpit compiles in for cost/calibration/store caps.
   'docs/telemetry/model-calibration.toml',
