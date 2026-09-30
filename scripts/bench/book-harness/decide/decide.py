@@ -10,8 +10,10 @@ prebook (the pre-book English harness at the same point). Every model gets the
 same bytes; seat parameters follow each model's angelX seat. One JSON row per
 call is appended to out/decide-<model>.jsonl. Keys from the environment; Grok
 through the operator's OAuth bearer (grok_bearer.py)."""
+import importlib.util
 import json, os, re, subprocess, sys, time, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -22,7 +24,11 @@ MODELS = {
     "muse": ("https://api.meta.ai/v1", "ANGEL_META_KEY", "muse-spark-1.3-contributor", {}),
     "grok": ("https://api.x.ai/v1", None, "grok-4.7", {"reasoning_effort": "low"}),
 }
-SCENARIOS = json.load(open(os.path.join(HERE, "scenarios.json")))
+with open(os.path.join(HERE, "scenarios.json")) as source:
+    SCENARIOS = json.load(source)
+spec = importlib.util.spec_from_file_location("decision_producer_receipt", Path(ROOT) / "receipt_usage.py")
+receipt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(receipt)
 ARMS = ("intro", "every", "bare", "nocue", "prebook")
 UNTESTED_SAID = re.compile(r"untested|not (been )?(run|tested|verified)|haven.t (run|tested|verified)|without (running|testing)", re.I)
 TEST_CMD = re.compile(r"unittest|pytest|run_tests|make test|cargo test", re.I)
@@ -103,10 +109,14 @@ def call(model, body, max_tokens):
     for attempt in range(4):
         start = time.time()
         try:
-            reply = json.load(urllib.request.urlopen(req, timeout=600))
+            with urllib.request.urlopen(req, timeout=600) as response:
+                reply = json.load(response)
             return reply, time.time() - start, None
         except urllib.error.HTTPError as e:
-            err = f"{e.code} {e.read()[:300].decode('utf-8', 'replace')}"
+            try:
+                err = f"{e.code} {e.read()[:300].decode('utf-8', 'replace')}"
+            finally:
+                e.close()
             if e.code not in (429, 500, 502, 503, 504):
                 return None, time.time() - start, err
         except Exception as e:  # timeouts, resets
@@ -115,19 +125,69 @@ def call(model, body, max_tokens):
     return None, 0, err
 
 
+def reply_fields(reply):
+    """Only an observed, well-formed next move can enter the scored sample."""
+    if not isinstance(reply, dict):
+        raise ValueError("reply must be an object")
+    choices = reply.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        raise ValueError("reply has no first choice")
+    choice = choices[0]
+    msg = choice.get("message")
+    if not isinstance(msg, dict):
+        raise ValueError("choice has no message")
+    if not any(key in msg for key in ("content", "tool_calls")):
+        raise ValueError("message has no observed content or calls")
+    if msg.get("content") is None and msg.get("tool_calls") is None:
+        raise ValueError("message has neither observed content nor calls")
+    if "role" in msg and msg["role"] != "assistant":
+        raise ValueError("choice is not an assistant message")
+    calls = msg.get("tool_calls")
+    calls = [] if calls is None else calls
+    if not isinstance(calls, list):
+        raise ValueError("tool calls must be a list")
+    for call_ in calls:
+        function = call_.get("function") if isinstance(call_, dict) else None
+        if not isinstance(function, dict) or not isinstance(function.get("name"), str) or not function["name"]:
+            raise ValueError("tool call has no function name")
+        if not isinstance(function.get("arguments"), str):
+            raise ValueError("tool arguments must be a string")
+    content = msg.get("content")
+    if isinstance(content, list):
+        if any(not isinstance(part, dict) or not isinstance(part.get("text", ""), str) for part in content):
+            raise ValueError("content parts must have string text")
+    elif content is not None and not isinstance(content, str):
+        raise ValueError("message content must be text or parts")
+    finish = choice.get("finish_reason")
+    if finish is not None and not isinstance(finish, str):
+        raise ValueError("finish reason must be a string")
+    return calls, text_of(content), finish
+
+
 def one(model, scenario, arm, i, body, max_tokens):
-    reply, secs, err = call(model, body, max_tokens)
-    row = {"model": model, "scenario": scenario, "arm": arm, "i": i, "secs": round(secs, 2), "error": err}
-    if reply:
-        msg = reply["choices"][0]["message"]
-        calls, text = msg.get("tool_calls") or [], text_of(msg.get("content"))
-        usage = reply.get("usage") or {}
-        details = usage.get("completion_tokens_details") or {}
+    row = {"model": model, "scenario": scenario, "arm": arm, "i": i, "secs": None, "error": None}
+    try:
+        reply, secs, err = call(model, body, max_tokens)
+    except Exception as error:
+        # A failed worker must still produce its logical sample. Control
+        # signals (KeyboardInterrupt/SystemExit) keep their existing behavior.
+        row.update(error=type(error).__name__, error_class=type(error).__name__, call_error=True)
+        return row
+    measured_secs = receipt.number(secs)
+    row.update(secs=round(measured_secs, 2) if measured_secs is not None else None, error=err)
+    if err:
+        return row
+    usage = reply.get("usage") if isinstance(reply, dict) else None
+    usage = usage if isinstance(usage, dict) else {}
+    row.update(prompt=receipt.number(usage.get("prompt_tokens")),
+               completion=receipt.number(usage.get("completion_tokens")),
+               reasoning=receipt.detail(usage, "completion_tokens_details", "reasoning_tokens"))
+    try:
+        calls, text, finish = reply_fields(reply)
         row.update(match=score(scenario, calls, text), calls=[c["function"]["name"] for c in calls],
-                   args=[c["function"].get("arguments", "")[:200] for c in calls], text=text[:400],
-                   finish=reply["choices"][0].get("finish_reason"),
-                   prompt=usage.get("prompt_tokens"), completion=usage.get("completion_tokens"),
-                   reasoning=details.get("reasoning_tokens"))
+                   args=[c["function"].get("arguments", "")[:200] for c in calls], text=text[:400], finish=finish)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+        row.update(error=type(error).__name__, error_class=type(error).__name__, reply_error=True)
     return row
 
 
@@ -143,12 +203,12 @@ def main():
                 print(f"{scenario}/{arm}: no decision request", file=sys.stderr)
                 continue
             jobs += [(model, scenario, arm, i, body, max_tokens) for i in range(n)]
-    out = open(os.path.join(ROOT, "out", f"decide-{model}.jsonl"), "a")
-    with ThreadPoolExecutor(int(os.environ.get("DECIDE_THREADS", "6"))) as pool:
-        for row in pool.map(lambda job: one(*job), jobs):
-            out.write(json.dumps(row) + "\n"); out.flush()
-            mark = "err" if row["error"] else ("✓" if row["match"] else "·")
-            print(f"{model} {row['scenario']:8} {row['arm']:7} {row['i']} {mark} {row.get('calls')} {row['secs']}s", flush=True)
+    with open(os.path.join(ROOT, "out", f"decide-{model}.jsonl"), "a") as out:
+        with ThreadPoolExecutor(int(os.environ.get("DECIDE_THREADS", "6"))) as pool:
+            for row in pool.map(lambda job: one(*job), jobs):
+                out.write(json.dumps(row, allow_nan=False) + "\n"); out.flush()
+                mark = "err" if row["error"] else ("✓" if row["match"] else "·")
+                print(f"{model} {row['scenario']:8} {row['arm']:7} {row['i']} {mark} {row.get('calls')} {row['secs']}s", flush=True)
 
 
 if __name__ == "__main__":

@@ -70,7 +70,7 @@ fn watercourse(rows: &mut Rows, sx: i32, sy: i32, lean: Lean) {
     let molten = lean == Lean::Ash;
     let flows = match lean {
         Lean::Hills | Lean::Ash => true,
-        Lean::Forest => h % 2 == 0,
+        Lean::Forest => h.is_multiple_of(2),
         Lean::Meadow | Lean::Marsh => false,
     };
     if !flows {
@@ -91,8 +91,8 @@ fn watercourse(rows: &mut Rows, sx: i32, sy: i32, lean: Lean) {
         }
     }
     let end = 6 + ((h >> 9) % 2) as usize;
-    for y in 1..=end {
-        rows[y][x] = if rows[y][x] == b'^' { drop } else { run };
+    for (y, row) in rows.iter_mut().enumerate().take(end + 1).skip(1) {
+        row[x] = if row[x] == b'^' { drop } else { run };
         if y < end && y >= 3 {
             let step = hash(sx * 31 + x as i32, sy * 17 + y as i32, 432) % 4;
             let nx = match step {
@@ -101,19 +101,19 @@ fn watercourse(rows: &mut Rows, sx: i32, sy: i32, lean: Lean) {
                 _ => x,
             };
             if nx != x {
-                rows[y][nx] = if rows[y][nx] == b'^' { drop } else { run };
+                row[nx] = if row[nx] == b'^' { drop } else { run };
                 x = nx;
             }
         }
     }
     // A round, ragged pool where the course settles.
     let (cx, cy) = (x as f32, end as f32 + 2.0);
-    for py in end + 1..H - 1 {
-        for px in 1..W - 1 {
+    for (py, row) in rows.iter_mut().enumerate().take(H - 1).skip(end + 1) {
+        for (px, pixel) in row.iter_mut().enumerate().take(W - 1).skip(1) {
             let (dx, dy) = ((px as f32 - cx) / 2.3, (py as f32 - cy) / 1.6);
             let ragged = (hash(px as i32 + sx * 16, py as i32 + sy * 11, 433) % 100) as f32 / 250.0;
             if dx * dx + dy * dy <= 1.0 + ragged {
-                rows[py][px] = pool;
+                *pixel = pool;
             }
         }
     }
@@ -159,7 +159,7 @@ fn terrain(wx: i32, wy: i32, lean: Lean) -> u8 {
                 b'L'
             } else if hill > 0.55 {
                 b'^'
-            } else if h % 17 == 0 {
+            } else if h.is_multiple_of(17) {
                 b'd'
             } else {
                 b'a'
@@ -170,7 +170,7 @@ fn terrain(wx: i32, wy: i32, lean: Lean) -> u8 {
                 b'~'
             } else if wood > 0.78 {
                 b'T'
-            } else if h % 23 == 0 {
+            } else if h.is_multiple_of(23) {
                 b'd'
             } else {
                 b'%'

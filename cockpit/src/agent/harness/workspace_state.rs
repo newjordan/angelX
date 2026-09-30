@@ -381,6 +381,10 @@ fn stream_child_output(
     let pid = child.id();
     let mut stdout = child.stdout.take()?;
     let stderr = child.stderr.take()?;
+    // A descendant may leave the private group and retain only stderr after
+    // stdout reaches EOF. Its full digest is available only if this pipe also
+    // closes within the caller's original budget; joining must not renew it.
+    let stderr = crate::platform::workspace_store::DeadlinePipe::new(stderr, deadline);
     let stderr_thread = match std::thread::Builder::new()
         .name("workspace-git-stderr".to_string())
         .spawn(move || hash_reader(stderr))

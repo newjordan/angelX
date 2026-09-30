@@ -248,6 +248,139 @@ fn streamed_child_deadline_also_bounds_wait_after_early_pipe_close() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn detached_stderr_deadline_fixture() {
+    use std::os::unix::process::CommandExt as _;
+
+    let Some(root) = std::env::var_os("ANGEL_T_STREAM_DETACHED_STDERR") else {
+        return;
+    };
+    crate::agent::sandbox::process_owner::initialize().unwrap();
+    let root = PathBuf::from(root);
+    for mode in ["exit", "timeout"] {
+        let marker = root.join(format!("{mode}.pid"));
+        let child_marker = marker.clone();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let started = Instant::now();
+        let worker = std::thread::spawn(move || {
+            let mut command = Command::new("python3");
+            command.args([
+                "-c",
+                r#"import os, sys, time
+from pathlib import Path
+marker = Path(sys.argv[1])
+if os.fork() == 0:
+    os.setsid()
+    os.close(1)
+    marker.write_text(str(os.getpid()))
+    time.sleep(30)
+    os._exit(0)
+while not marker.exists():
+    time.sleep(0.001)
+print('direct-child-output', flush=True)
+if sys.argv[2] == 'timeout':
+    os.close(1)
+    time.sleep(30)
+"#,
+            ]);
+            let child = command
+                .arg(child_marker)
+                .arg(mode)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .process_group(0)
+                .spawn_owned()
+                .unwrap();
+            let result = stream_child_output(
+                child,
+                |_| true,
+                Instant::now() + Duration::from_millis(250),
+                true,
+            );
+            let _ = sender.send(result);
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let descendant = loop {
+            if let Some(pid) = std::fs::read_to_string(&marker)
+                .ok()
+                .and_then(|text| text.trim().parse::<i32>().ok())
+            {
+                break pid;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "fixture did not record its descendant"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        let observed = receiver.recv_timeout(Duration::from_secs(2));
+        let completed = observed.is_ok();
+        let elapsed = started.elapsed();
+        // The deliberate new session must be cleaned and reaped even if a
+        // regression blocked the stderr reader past its evidence deadline.
+        unsafe { libc::killpg(descendant, libc::SIGKILL) };
+        let result =
+            observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
+        worker.join().unwrap();
+        let stat = PathBuf::from(format!("/proc/{descendant}/stat"));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while stat.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!stat.exists(), "fixture descendant was not reaped");
+        assert!(
+            completed,
+            "{mode}: stderr digest escaped its deadline ({elapsed:?})"
+        );
+        assert!(
+            result.is_none(),
+            "{mode}: incomplete stderr must not become evidence"
+        );
+        eprintln!(
+            "LIFECYCLE_STREAM mode={mode} incomplete_stderr=timeout elapsed_ms={} descendant_reaped=true",
+            elapsed.as_millis()
+        );
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn streamed_child_deadline_bounds_escaped_stderr_after_stdout_eof() {
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!("angel-stream-stderr-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let filter = format!(
+        "{}::detached_stderr_deadline_fixture",
+        module_path!()
+            .split_once("::")
+            .map_or(module_path!(), |(_, rest)| rest)
+    );
+    let mut child = Command::new("/proc/self/exe")
+        .args(["--exact", &filter, "--nocapture", "--test-threads=1"])
+        .env("ANGEL_T_STREAM_DETACHED_STDERR", &root)
+        .stdin(Stdio::null())
+        .spawn_owned()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            // The fixture owns a subreaper/exit handler, so TERM also reaps
+            // the escaped session before this direct child finishes.
+            unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
+            let _ = child.wait();
+            std::fs::remove_dir_all(&root).unwrap();
+            panic!("escaped stderr fixture exceeded its outer deadline");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(status.success(), "escaped stderr subprocess failed");
+}
+
 #[test]
 fn evidence_hashes_middle_only_change_in_oversized_tracked_diff() {
     let root = std::env::temp_dir().join(format!(

@@ -255,6 +255,14 @@ impl Agent {
 /// value can name a mode (`local`/`swarm`) or a box. `deli` folds into `swarm`.
 /// Returns the agent index.
 pub(crate) fn resolve_driver(agents: &mut [Agent], pref: &str) -> Option<usize> {
+    let (agent, slot) = driver_target(agents, pref)?;
+    agents[agent].active = slot;
+    Some(agent)
+}
+
+/// Resolve without changing selection so startup diagnostics can compare the
+/// requested slot with the actual route after availability-based fallback.
+fn driver_target(agents: &[Agent], pref: &str) -> Option<(usize, usize)> {
     let raw_pref = pref.trim();
     let normalized = raw_pref.to_ascii_lowercase().replace(['_', ' '], "-");
     let pref = match normalized.as_str() {
@@ -273,9 +281,9 @@ pub(crate) fn resolve_driver(agents: &mut [Agent], pref: &str) -> Option<usize> 
     if pref == "openai"
         && let Some(ai) = agents.iter().position(|a| a.name == "openai")
     {
-        return Some(ai);
+        return Some((ai, agents[ai].active));
     }
-    for (ai, a) in agents.iter_mut().enumerate() {
+    for (ai, a) in agents.iter().enumerate() {
         // Match the static mode label, the club's own label, or the live
         // checkpoint id (full or short form) — so `ANGEL_DRIVER` can name a
         // model the operator just pulled up, not only a baked-in mode hint.
@@ -286,11 +294,14 @@ pub(crate) fn resolve_driver(agents: &mut [Agent], pref: &str) -> Option<usize> 
                     .live_model_name()
                     .is_some_and(|id| id == pref || short_model_label(&id) == pref)
         }) {
-            a.active = si;
-            return Some(ai);
+            return Some((ai, si));
         }
     }
-    agents.iter().position(|a| a.name == pref)
+    agents
+        .iter()
+        .enumerate()
+        .find(|(_, agent)| agent.name == pref)
+        .map(|(index, agent)| (index, agent.active))
 }
 
 #[cfg(test)]
@@ -997,7 +1008,7 @@ impl Bag {
         if prober_enabled() {
             spawn_prober(probe_targets, probe_interval());
         }
-        Self {
+        let bag = Self {
             agents,
             in_hand,
             discovery_rx,
@@ -1008,7 +1019,47 @@ impl Bag {
             cached_route_choices: std::sync::Mutex::new(None),
             cached_tabs: std::sync::Mutex::new(None),
             cached_in_hand_mode: std::sync::Mutex::new(None),
+        };
+        if let Some(notice) = bag.driver_startup_notice() {
+            eprintln!("[angel] {notice}");
         }
+        bag
+    }
+
+    /// Explain fallback only for an explicit environment pin. The implicit
+    /// default preference chain is allowed to select its next reachable route.
+    pub(crate) fn driver_startup_notice(&self) -> Option<String> {
+        let preference = std::env::var("ANGEL_DRIVER").ok()?;
+        let preference = preference.trim();
+        if preference.is_empty() {
+            return None;
+        }
+        let reason = match driver_target(&self.agents, preference) {
+            None => "does not match a configured route",
+            Some((agent, slot)) => {
+                let requested = self.agents[agent].slots.get(slot)?;
+                if !requested.available.load(Ordering::Relaxed) {
+                    "is unavailable at startup"
+                } else if (agent, slot) != self.selected_route_indices() {
+                    "was not selected at startup"
+                } else {
+                    return None;
+                }
+            }
+        };
+        let agent = self.agents.get(self.in_hand)?;
+        let slot = agent.slots.get(agent.active)?;
+        let model = slot
+            .club
+            .live_model_name()
+            .filter(|model| model != &slot.label);
+        let route = match model {
+            Some(model) => format!("{} / {} ({model})", agent.name, slot.label),
+            None => format!("{} / {}", agent.name, slot.label),
+        };
+        Some(format!(
+            "ANGEL_DRIVER={preference:?} {reason}; selected startup route: {route}"
+        ))
     }
 
     fn bump_generation(&mut self) {

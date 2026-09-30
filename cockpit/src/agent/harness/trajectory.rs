@@ -888,6 +888,7 @@ pub(crate) fn note_tool_outcome(
             });
         }
         let signature = canonical_signature(name, args);
+        let new_signature = !ledger.signatures.contains_key(&signature);
         entry["duplicate_of"] = serde_json::json!(ledger.signatures.get(&signature));
         let index = ledger.tools.len();
         ledger.signatures.entry(signature).or_insert(index);
@@ -928,6 +929,13 @@ pub(crate) fn note_tool_outcome(
                     "verifier_run"
                 });
             }
+        }
+        // A graph call's product is the chart itself, held in memory: a new
+        // point, begin or finish that the store accepted is progress even
+        // though no workspace byte changes. An identical repeat is not.
+        if name == "graph" && execution == "ok" && !errored && new_signature {
+            ledger.hop_progress = true;
+            ledger.hop_credit = Some("graph_receipt");
         }
         ledger.tools.push(entry);
     });

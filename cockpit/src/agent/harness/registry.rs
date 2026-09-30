@@ -143,6 +143,11 @@ pub enum TurnEvent {
         summary: String,
         outcome: ToolOutcome,
     },
+    /// Native graph request/result data, retained even while Stage is hidden.
+    GraphCrop {
+        id: ToolEventId,
+        event: Box<crate::knowledge::graph_crop::GraphEvent>,
+    },
     /// An out-of-band status note (e.g. context compaction) — shown in the
     /// activity trace, never part of the assistant's reply text.
     Notice(String),
@@ -866,6 +871,7 @@ impl ToolRegistry {
             crate::drive::continual_harness::ContinualHarnessTool::new(&workspace),
         ));
         r.register(Box::new(PresentTool::new(&workspace)));
+        r.register(Box::new(crate::agent::tools::graph::GraphTool::default()));
         r.register(Box::new(ContextTool::new(r.gauge())));
         register_file_tools(&mut r, workspace.clone());
         maybe_register_web_search(&mut r);
@@ -949,6 +955,7 @@ impl ToolRegistry {
             crate::drive::continual_harness::ContinualHarnessTool::new(&workspace),
         ));
         r.register(Box::new(PresentTool::new(&workspace)));
+        r.register(Box::new(crate::agent::tools::graph::GraphTool::default()));
         r.register(Box::new(ContextTool::new(r.gauge())));
         register_file_tools(&mut r, workspace.clone());
         r.register(Box::new(DelegateTool::new_with_cargo(

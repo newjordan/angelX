@@ -460,12 +460,14 @@ fn fake_cargo_workspace(name: &str, script: &str) -> (PathBuf, String) {
 #[cfg(unix)]
 #[test]
 fn self_gate_drains_noisy_build_before_running_tests() {
+    // Exercise concurrent drain beyond pipe capacity, below the complete
+    // evidence byte cap. Capped builds have separate rejection coverage.
     let _guard = crate::tests::env_lock();
     let (root, path) = fake_cargo_workspace(
         "noisy",
         "#!/bin/sh\n\
              if [ \"$1\" = build ]; then\n\
-               head -c 2097152 /dev/zero | tr '\\000' e >&2\n\
+               head -c 262144 /dev/zero | tr '\\000' e >&2\n\
                exit 0\n\
              fi\n\
              printf 'test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\\n'\n",

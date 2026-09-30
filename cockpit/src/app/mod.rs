@@ -908,6 +908,12 @@ impl App {
             .map(Arc::<str>::from)
             .collect();
         app.goal = goal::load_for(app.tools.current_workspace());
+        if let Some(notice) = app.bag.driver_startup_notice() {
+            app.messages.push(Message {
+                role: Role::System,
+                text: notice.into(),
+            });
+        }
         if let Some(notice) = app.campaign.startup_notice() {
             app.messages.push(Message {
                 role: Role::System,

@@ -13,26 +13,64 @@
 # Out: out/<label>.jsonl (requests), .stderr, .screen (last frame),
 # .state/ (loop and learner state), .run (one summary line).
 set -u
-BIN_DIR=$(cd "$1" && pwd); LABEL=$2
+if [[ $# != 2 || ! "$2" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+  printf 'Usage: %s <bin-dir> <label> (alphanumeric, dot, underscore or dash)\n' "$0" >&2
+  exit 2
+fi
+BIN_DIR=$(cd "$1" && pwd) || exit 2; LABEL=$2
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/seat.sh"
 OUT=$HERE/out; mkdir -p "$OUT"
 LOG=$OUT/$LABEL.jsonl; rm -rf "$LOG" "$OUT/$LABEL.state"
 ROOT=${WORKROOT:-/work/tmp}
-WORK=$(mktemp -d "$ROOT/angel-e3-ws-XXXX"); HOMEDIR=$(mktemp -d "$ROOT/angel-e3-home-XXXX")
-cp -a "${HEESCH:-$HOME/comps/heesch}/." "$WORK/"
+RUN_TMP=$(mktemp -d "$ROOT/angel-e3-run-XXXXXX") || exit 2
+. "$HERE/lifecycle.sh"
+WORK=$RUN_TMP/work; HOMEDIR=$RUN_TMP/home
+mkdir -p "$WORK" "$HOMEDIR" "$RUN_TMP/tmp" || exit 2
+SESSION=e3-$LABEL-${RUN_TMP##*-}
+SESSION_OWNED=0
+SESSION_TARGET="=$SESSION:"
+stop_workspace_jobs() {
+  local proc
+  # Work is a private snapshot: only processes still using this invocation's
+  # directory are candidates for its workspace cleanup.
+  for proc in /proc/[0-9]*; do
+    case "$(readlink "$proc/cwd" 2>/dev/null)" in
+      "$WORK"|"$WORK"/*) kill -9 "${proc#/proc/}" 2>/dev/null || true ;;
+    esac
+  done
+}
+cleanup_session() {
+  trap '' INT TERM
+  if (( SESSION_OWNED )); then
+    tmux kill-session -t "$SESSION_TARGET" 2>/dev/null || true
+    SESSION_OWNED=0
+  fi
+  stop_workspace_jobs
+  cleanup
+}
+trap cleanup_session EXIT
+python3 "$HERE/exec_session.py" python3 "$HERE/copy_fixture.py" \
+  "${HEESCH:-$HOME/comps/heesch}" "$WORK" &
+TASK=$!
+if wait "$TASK"; then
+  TASK=
+else
+  stop_task
+  exit 2
+fi
 rm -f "$WORK/score.json"
-git -C "$WORK" remote remove origin 2>/dev/null
 start_proxy "$LOG" || exit 2
-SESSION=e3-$LABEL
-ENVS=(PATH="$PATH" HOME="$HOMEDIR" TERM=xterm-256color LANG=C.UTF-8 GIT_CONFIG_GLOBAL=/dev/null TMPDIR="$ROOT"
+ENVS=(PATH="$PATH" HOME="$HOMEDIR" TERM=xterm-256color LANG=C.UTF-8 GIT_CONFIG_GLOBAL=/dev/null TMPDIR="$RUN_TMP/tmp"
       ANGEL_WORKSPACE="$WORK" ANGEL_BOOK_INTRO="${ANGEL_BOOK_INTRO:-1}" ANGEL_SOTA_CAVEMAN=0
       ANGEL_ACTION_CAPSULES=0 ANGEL_TUI_MOTION=off ANGEL_IMAGE_PROTOCOL=halfblocks
       ANGEL_LOOP_STALL_STOP="${STALL_STOP:-1}" "${SEAT[@]}")
 printf '%q ' env -i "${ENVS[@]}" "$BIN_DIR/angel" > "$OUT/$LABEL.cmd"
+printf -v RUN_COMMAND '%s 2>%q' "$(cat "$OUT/$LABEL.cmd")" "$OUT/$LABEL.stderr"
+SESSION_OWNED=1
 tmux new-session -d -s "$SESSION" -x 200 -y 55 -c "$WORK" \
-  "$(cat "$OUT/$LABEL.cmd") 2>'$OUT/$LABEL.stderr'"
-say() { tmux send-keys -t "$SESSION" -l "$1"; sleep 0.5; tmux send-keys -t "$SESSION" Enter; sleep 2; }
+  "$RUN_COMMAND" || exit 2
+say() { tmux send-keys -t "$SESSION_TARGET" -l "$1"; sleep 0.5; tmux send-keys -t "$SESSION_TARGET" Enter; sleep 2; }
 sleep 4
 say "/goal submission/best.heesch is an unmarked polyform whose witness patch verifies Hc >= 5 under heesch_verify (the first survivor)"
 say "/goal cmd python3 $HERE/e3/verify_heesch.py"
@@ -51,12 +89,12 @@ for path in glob.glob(sys.argv[1] + "/.angelX/loops/*.json"):
 PY
 )
   case $STATUS in *done*|*stopped*|*failed*|*paused*) break ;; esac
-  tmux has-session -t "$SESSION" 2>/dev/null || { STATUS=exited; break; }
+  tmux has-session -t "$SESSION_TARGET" 2>/dev/null || { STATUS=exited; break; }
   if [ $(( $(date +%s) - START )) -ge "${LIMIT:-7200}" ]; then say "/loop stop"; STATUS="limit:$STATUS"; break; fi
 done
 sleep 3
-tmux capture-pane -p -t "$SESSION" > "$OUT/$LABEL.screen" 2>/dev/null
-tmux kill-session -t "$SESSION" 2>/dev/null
+tmux capture-pane -p -t "$SESSION_TARGET" > "$OUT/$LABEL.screen" 2>/dev/null
+tmux kill-session -t "$SESSION_TARGET" 2>/dev/null
 sleep 1
 mkdir -p "$OUT/$LABEL.state"
 cp -r "$HOMEDIR/.angelX/loops" "$OUT/$LABEL.state/" 2>/dev/null
@@ -64,11 +102,8 @@ find "$HOMEDIR" "$WORK" -path '*learning*' -name state.json 2>/dev/null | while 
   cp "$f" "$OUT/$LABEL.state/learning-$(basename "$(dirname "$f")" | cut -c1-12).json"; done
 cp -r "$WORK/submission" "$OUT/$LABEL.state/submission" 2>/dev/null
 git -C "$WORK" status --short > "$OUT/$LABEL.state/git-status.txt" 2>/dev/null
-# Jobs the model started (solvers under angel-sandbox) outlive the TUI; stop
-# every process still working inside this session's workspace.
-for proc in /proc/[0-9]*; do
-  case "$(readlink "$proc/cwd" 2>/dev/null)" in "$WORK"|"$WORK"/*) kill -9 "${proc#/proc/}" 2>/dev/null ;; esac
-done
-kill $PROXY 2>/dev/null; wait $PROXY 2>/dev/null
-echo "$LABEL status=$STATUS secs=$(( $(date +%s) - START )) requests=$(wc -l < "$LOG" 2>/dev/null || echo 0)" | tee "$OUT/$LABEL.run"
-rm -rf "$WORK" "$HOMEDIR"
+stop_workspace_jobs
+stop_group "$PROXY"; PROXY=
+REQUESTS=unknown
+[[ ! -f "$LOG" ]] || REQUESTS=$(wc -l < "$LOG")
+echo "$LABEL status=$STATUS secs=$(( $(date +%s) - START )) requests=$REQUESTS" | tee "$OUT/$LABEL.run"

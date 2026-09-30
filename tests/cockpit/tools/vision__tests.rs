@@ -149,6 +149,43 @@ fn duration_probe_hung_tree_is_bounded_even_under_yolo() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn duration_incomplete_pipe_fixture() {
+    use crate::agent::service_process::tests::{
+        FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
+    };
+    let Some(root) = std::env::var_os("ANGEL_T_DURATION_EOF") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    for stream in ["stdout", "stderr"] {
+        let mut fixture = EvidenceFixture::new(Path::new(&root), "duration", stream, "123.5\n");
+        let result = probe_duration_command_with_timeout(fixture.command(), Duration::from_secs(5));
+        fixture.finish();
+        assert_eq!(
+            result, None,
+            "a numeric prefix needs complete output: {stream}"
+        );
+    }
+    let mut command = std::process::Command::new("sh");
+    command.args(["-c", "printf '123.5\\n'"]);
+    assert_eq!(
+        probe_duration_command_with_timeout(command, Duration::from_secs(5)),
+        Some(123.5)
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn duration_rejects_numeric_prefix_with_missing_stdout_or_stderr_eof() {
+    let filter = format!(
+        "{}::duration_incomplete_pipe_fixture",
+        module_path!().split_once("::").unwrap().1
+    );
+    crate::agent::service_process::tests::isolated_fixture(&filter, "ANGEL_T_DURATION_EOF");
+}
+
 #[test]
 fn text_only_heuristic_covers_the_local_v4_serve_and_pro() {
     for label in [

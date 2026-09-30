@@ -108,25 +108,38 @@ def first_call(turns, start):
     return None
 
 
+def tally_bodies(bodies):
+    """Count one already-loaded request snapshot without reopening its wire."""
+    raised = collections.Counter()
+    matched = collections.Counter()
+    judged = collections.Counter()
+    for now, after in zip(bodies, bodies[1:]):
+        turns = history(now)
+        routes = newest_routes(turns)
+        if not routes:
+            continue
+        call = first_call(history(after), len(turns))
+        for route in routes:
+            raised[route] += 1
+            predicate = ACTIONS.get(route, (None, None))[1]
+            if predicate is None or call is None:
+                continue
+            judged[route] += 1
+            matched[route] += bool(predicate(*call))
+    return raised, judged, matched
+
+
 def tally(paths):
     raised = collections.Counter()
     matched = collections.Counter()
     judged = collections.Counter()
     for path in paths:
-        bodies = [json.loads(line)["body"] for line in open(path)]
-        for now, after in zip(bodies, bodies[1:]):
-            turns = history(now)
-            routes = newest_routes(turns)
-            if not routes:
-                continue
-            call = first_call(history(after), len(turns))
-            for route in routes:
-                raised[route] += 1
-                predicate = ACTIONS.get(route, (None, None))[1]
-                if predicate is None or call is None:
-                    continue
-                judged[route] += 1
-                matched[route] += bool(predicate(*call))
+        with open(path) as stream:
+            bodies = [json.loads(line)["body"] for line in stream]
+        run_raised, run_judged, run_matched = tally_bodies(bodies)
+        raised.update(run_raised)
+        judged.update(run_judged)
+        matched.update(run_matched)
     return raised, judged, matched
 
 

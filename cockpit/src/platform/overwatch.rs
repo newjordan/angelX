@@ -333,10 +333,10 @@ fn fleet_overwatch_from_command(
 fn bounded_overwatch_stdout(command: Command, timeout: Duration) -> Option<Vec<u8>> {
     let captured = crate::agent::harness::output_timed_fixed_captured(command, timeout).ok()?;
     (!captured.timed_out
+        && !captured.cancelled
         && captured.output.status.success()
-        && !captured.stdout_truncated
-        && !captured.stderr_truncated)
-        .then_some(captured.output.stdout)
+        && captured.output_complete())
+    .then_some(captured.output.stdout)
 }
 
 fn parse_fleet_overwatch_totals(text: &str) -> Option<FleetOverwatchSample> {

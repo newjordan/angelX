@@ -312,13 +312,22 @@ fn pages_of(address: &ledger::Address) -> Option<String> {
 
 /// A page's English with each value slot (`{level}`, `{next_offset}`, `{}`)
 /// read as `…`. The values ride beside the stamp as data; the model meets the
-/// sentence, not the template syntax.
+/// sentence, not the template syntax. A doubled brace (`{{connector_id}}`) is
+/// literal text a page ported from another harness's prompt carries, and is
+/// kept as written.
 fn unslotted(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(open) = rest.find('{') {
         out.push_str(&rest[..open]);
         let tail = &rest[open + 1..];
+        if tail.starts_with('{')
+            && let Some(close) = tail.find("}}")
+        {
+            out.push_str(&rest[open..open + 1 + close + 2]);
+            rest = &tail[close + 2..];
+            continue;
+        }
         match tail.find('}') {
             Some(close)
                 if tail[..close]

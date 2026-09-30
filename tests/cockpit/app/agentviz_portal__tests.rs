@@ -210,6 +210,190 @@ fn renderer_error_receipt_cannot_smuggle_a_frame() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn renderer_deadline_fixture() {
+    use crate::agent::process_test_support::capture_evidence_fixture::EvidenceFixture;
+    use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let Some(root) = std::env::var_os("ANGEL_T_PORTAL_DEADLINE") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    let root = Path::new(&root);
+    let packet = fixture("empty");
+    let pixels = vec![7; FRAME_BYTES];
+    let output = renderer_output(packet.sequence, &pixels);
+    let frame_path = root.join("frame.bin");
+    std::fs::write(&frame_path, &output).unwrap();
+
+    // Consume the real framed packet before emitting the exact binary frame.
+    // A same-group wrapper retains stdout after a successful launcher exit.
+    let marker = root.join("wrapper.pid");
+    let renderer = root.join("healthy.py");
+    let script = format!(
+        r#"#!/usr/bin/python3
+import json, os, signal, struct, sys, time
+length = struct.unpack('>I', sys.stdin.buffer.read(4))[0]
+packet = json.loads(sys.stdin.buffer.read(length))
+assert packet['sequence'] == {sequence}
+read_fd, write_fd = os.pipe()
+descendant = os.fork()
+if descendant == 0:
+    os.close(read_fd)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    os.write(write_fd, b'ready')
+    os.close(write_fd)
+    time.sleep(30)
+    os._exit(0)
+os.close(write_fd)
+os.read(read_fd, 5)
+os.close(read_fd)
+with open({marker}, 'w') as receipt:
+    receipt.write(str(descendant))
+with open({frame_path}, 'rb') as frame:
+    sys.stdout.buffer.write(frame.read())
+sys.stdout.buffer.flush()
+os._exit(0)
+"#,
+        sequence = packet.sequence,
+        marker = serde_json::to_string(marker.to_str().unwrap()).unwrap(),
+        frame_path = serde_json::to_string(frame_path.to_str().unwrap()).unwrap(),
+    );
+    std::fs::write(&renderer, script).unwrap();
+    std::fs::set_permissions(&renderer, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let started = Instant::now();
+    let frame = invoke_renderer_with_timeout(&renderer, &packet, Duration::from_millis(100))
+        .expect("a complete renderer frame must survive wrapper retirement");
+    eprintln!(
+        "portal complete frame: budget=100ms elapsed={:?}",
+        started.elapsed()
+    );
+    assert!(started.elapsed() < Duration::from_millis(500));
+    assert_eq!(frame.sequence, packet.sequence);
+    assert_eq!(frame.pixels.as_ref(), pixels);
+    let descendant = std::fs::read_to_string(marker).unwrap().parse().unwrap();
+    ServiceFixture::assert_reaped(descendant);
+
+    // Legal JSON trailing whitespace makes the binary length prefix UTF-8,
+    // allowing the shared escaped-holder fixture to publish a valid full frame.
+    let receipt_end = 4 + u32::from_be_bytes(output[..4].try_into().unwrap()) as usize;
+    assert!(receipt_end <= 4 + 256);
+    let mut padded = 256u32.to_be_bytes().to_vec();
+    padded.extend_from_slice(&output[4..receipt_end]);
+    padded.resize(4 + 256, b' ');
+    padded.extend_from_slice(&pixels);
+    let padded = String::from_utf8(padded).unwrap();
+    let mut held = EvidenceFixture::new(root, "portal-held", "stdout", &padded);
+    let started = Instant::now();
+    let result = invoke_renderer_with_timeout(
+        Path::new(held.command().get_program()),
+        &packet,
+        Duration::from_millis(100),
+    );
+    let elapsed = started.elapsed();
+    held.finish();
+    eprintln!("portal inherited stdout: budget=100ms elapsed={elapsed:?}");
+    assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
+    assert_eq!(result.unwrap_err(), "renderer exceeded 100 ms");
+
+    // An active launcher consumes the same allowance even after complete input.
+    let running = root.join("running.py");
+    let leader = root.join("running.pid");
+    std::fs::write(
+        &running,
+        format!(
+            "#!/usr/bin/python3\nimport os, time\nwith open({}, 'w') as receipt: receipt.write(str(os.getpid()))\ntime.sleep(30)\n",
+            serde_json::to_string(leader.to_str().unwrap()).unwrap()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&running, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let started = Instant::now();
+    let error =
+        invoke_renderer_with_timeout(&running, &packet, Duration::from_millis(100)).unwrap_err();
+    let elapsed = started.elapsed();
+    eprintln!("portal active launcher: budget=100ms elapsed={elapsed:?}");
+    assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
+    assert_eq!(error, "renderer exceeded 100 ms");
+    ServiceFixture::assert_reaped(std::fs::read_to_string(leader).unwrap().parse().unwrap());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn renderer_frame_and_inherited_stdout_share_one_deadline() {
+    crate::agent::process_test_support::isolated_fixture(
+        &format!(
+            "{}::renderer_deadline_fixture",
+            module_path!().split_once("::").unwrap().1
+        ),
+        "ANGEL_T_PORTAL_DEADLINE",
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn renderer_blocked_input_fixture() {
+    use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
+    use std::os::fd::AsRawFd as _;
+
+    if std::env::var_os("ANGEL_T_PORTAL_INPUT").is_none() {
+        return;
+    }
+    let _cleanup = FixtureCleanup::new();
+    let mut command = Command::new("/usr/bin/python3");
+    command
+        .args(["-c", "import time; time.sleep(30)"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let mut child = ServiceChild::spawn(&mut command).unwrap();
+    let pid = child.id();
+    let mut stdin = child.take_stdin().unwrap();
+    // Valid portal packets fit a normal empty pipe. Fill this real pipe first
+    // to exercise the same writer's blocked-input path without changing caps.
+    let fd = stdin.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    assert!(flags >= 0);
+    assert_eq!(
+        unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) },
+        0
+    );
+    loop {
+        match stdin.write(&[b'x'; 4096]) {
+            Ok(0) => panic!("fixture pipe closed"),
+            Ok(_) => continue,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
+            Err(error) => panic!("fill fixture pipe: {error}"),
+        }
+    }
+    let encoded = serde_json::to_vec(&fixture("empty")).unwrap();
+    let mut framed = (encoded.len() as u32).to_be_bytes().to_vec();
+    framed.extend_from_slice(&encoded);
+    let started = Instant::now();
+    let result = write_renderer_packet(&stdin, &framed, started + Duration::from_millis(100));
+    let elapsed = started.elapsed();
+    drop(stdin);
+    child.retire().unwrap();
+    ServiceFixture::assert_reaped(pid as i32);
+    eprintln!("portal blocked input: budget=100ms elapsed={elapsed:?}");
+    assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
+    assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn renderer_input_write_stops_at_its_absolute_deadline() {
+    crate::agent::process_test_support::isolated_fixture(
+        &format!(
+            "{}::renderer_blocked_input_fixture",
+            module_path!().split_once("::").unwrap().1
+        ),
+        "ANGEL_T_PORTAL_INPUT",
+    );
+}
+
 #[test]
 fn each_seat_carries_its_state_to_the_table() {
     // Seats without a published update are still at work.

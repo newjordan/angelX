@@ -195,7 +195,7 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
             };
             if ly == 3 || lx == 0 {
                 mortar
-            } else if ly == 0 && hash((x + off) / 6, row, 51) % 2 == 0 {
+            } else if ly == 0 && hash((x + off) / 6, row, 51).is_multiple_of(2) {
                 hi
             } else {
                 brick
@@ -207,7 +207,7 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
                 'b'
             } else if lx == 0 {
                 'r'
-            } else if hash(x, y / 3, 52) % 9 == 0 {
+            } else if hash(x, y / 3, 52).is_multiple_of(9) {
                 'B'
             } else {
                 'p'
@@ -217,7 +217,7 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
             let beam = x < 2 || x >= ww - 2 || x == ww / 2 || x == ww / 2 - 1 || y < 2;
             if beam {
                 if x == 0 || y == 0 { 'r' } else { 'B' }
-            } else if hash(x, y, 53) % 9 == 0 {
+            } else if hash(x, y, 53).is_multiple_of(9) {
                 'o'
             } else {
                 't'
@@ -278,10 +278,10 @@ pub(crate) fn house(hs: &House) -> Img {
             let off = if course % 2 == 1 { 2 } else { 0 };
             let mut i: i32 = 2;
             if hs.roof == Roof::Thatch {
-                if hash(x, 0, 41) % 3 == 0 {
+                if hash(x, 0, 41).is_multiple_of(3) {
                     i -= 1;
                 }
-                if cy == 2 && hash(x, course, 42) % 2 == 0 {
+                if cy == 2 && hash(x, course, 42).is_multiple_of(2) {
                     i -= 1;
                 }
             } else {
@@ -687,7 +687,7 @@ pub(crate) fn cottage(variant: u32, lit: bool) -> Img {
             h: 31,
             roof_h: 16,
             wall: Wall::Plaster,
-            roof: if variant % 2 == 0 {
+            roof: if variant.is_multiple_of(2) {
                 Roof::Slate
             } else {
                 Roof::Tile
@@ -708,7 +708,7 @@ pub(crate) fn cottage(variant: u32, lit: bool) -> Img {
     im.rect(5, 34, 6, 2, 'r');
     for x in [5, 7, 10] {
         im.put(x, 33, 'C');
-        im.put(x + 1, 32, if variant % 2 == 0 { 'T' } else { 'R' });
+        im.put(x + 1, 32, if variant.is_multiple_of(2) { 'T' } else { 'R' });
     }
     im.line(13, 40, 23, 40, 'V');
     im
@@ -847,7 +847,7 @@ pub(crate) fn colosseum() -> Img {
     im.ellipse(80.0, 42.0, 43.0, 18.0, 't');
     for y in 26..59 {
         for x in 37..123 {
-            if im.get(x, y) == super::ink::ink('t') && hash(x, y, 204) % 9 == 0 {
+            if im.get(x, y) == super::ink::ink('t') && hash(x, y, 204).is_multiple_of(9) {
                 im.put(x, y, 'o');
             }
         }
@@ -914,7 +914,7 @@ pub(crate) fn garden() -> Img {
         for x in 1..31 {
             let c = if y % 3 == 0 {
                 'I'
-            } else if y % 3 == 1 && hash(x, y, 71) % 3 == 0 {
+            } else if y % 3 == 1 && hash(x, y, 71).is_multiple_of(3) {
                 'L'
             } else if y % 3 == 1 && x % 2 == 0 {
                 'l'
@@ -951,7 +951,11 @@ pub(crate) fn lantern(lit: bool) -> Img {
 
 pub(crate) fn market_stall(v: u32) -> Img {
     let mut im = Img::new(16, 16);
-    let stripes = if v % 2 == 0 { ('T', 'R') } else { ('T', 'u') };
+    let stripes = if v.is_multiple_of(2) {
+        ('T', 'R')
+    } else {
+        ('T', 'u')
+    };
     for y in 0..6 {
         for x in 0..16 {
             im.put(
@@ -981,7 +985,7 @@ pub(crate) fn docks() -> Img {
         for x in 0..48 {
             let c = if x % 4 == 3 {
                 'b'
-            } else if hash(x / 4, y, 81) % 5 == 0 {
+            } else if hash(x / 4, y, 81).is_multiple_of(5) {
                 'r'
             } else {
                 'R'
@@ -1071,7 +1075,7 @@ pub(crate) fn ruins() -> Img {
     }
     for y in 0..46 {
         for x in 0..48 {
-            if hash(x, y, 92) % 23 == 0 {
+            if hash(x, y, 92).is_multiple_of(23) {
                 im.clear(x, y);
             }
         }
@@ -1106,7 +1110,7 @@ pub(crate) fn lists_ground() -> Img {
     }
     for y in 16..76 {
         for x in 20..172 {
-            if hash(x, y, 102) % 11 == 0 {
+            if hash(x, y, 102).is_multiple_of(11) {
                 im.put(x, y, 'I');
             }
         }
@@ -1765,6 +1769,28 @@ pub(crate) fn field_hand(frame: u32) -> Img {
         im.line(9, 10, 11, 9, 'H');
         im.put(11, 8, 'i');
     }
+    im
+}
+
+/// A small winged graph sprite. Signal light is an actual call's status.
+pub(crate) fn graph_sprite(frame: u32, returned: Option<bool>) -> Img {
+    let mut im = Img::new(9, 11);
+    let wing = if frame.is_multiple_of(2) { 2 } else { 4 };
+    im.line(0, wing, 3, 5, 'i');
+    im.line(5, 5, 8, wing, 'i');
+    im.rect(3, 3, 3, 3, 'H');
+    im.line(4, 6, 4, 9, 'C');
+    im.put(3, 10, 'E');
+    im.put(5, 10, 'E');
+    im.put(
+        4,
+        1,
+        match returned {
+            None => '2',
+            Some(true) => '1',
+            Some(false) => 'c',
+        },
+    );
     im
 }
 

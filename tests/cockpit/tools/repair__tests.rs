@@ -29,6 +29,43 @@ fn repair_command_text_has_a_fixed_hung_tree_deadline() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn repair_incomplete_pipe_fixture() {
+    use crate::agent::service_process::tests::{
+        FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
+    };
+    let Some(root) = std::env::var_os("ANGEL_T_REPAIR_EOF") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    for stream in ["stdout", "stderr"] {
+        let mut fixture =
+            EvidenceFixture::new(Path::new(&root), "repair", stream, "partial diagnostic\n");
+        let result = bounded_repair_output(fixture.command(), Duration::from_secs(5));
+        fixture.finish();
+        assert!(
+            result.unwrap_err().contains("did not reach EOF"),
+            "{stream}"
+        );
+    }
+    let mut command = Command::new("sh");
+    command.args(["-c", "printf 'complete red diagnostic' >&2; exit 17"]);
+    let complete = bounded_repair_output(command, Duration::from_secs(5)).unwrap();
+    assert_eq!(complete.status.code(), Some(17));
+    assert_eq!(complete.stderr, b"complete red diagnostic");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn repair_diagnostics_reject_missing_stdout_or_stderr_eof() {
+    let filter = format!(
+        "{}::repair_incomplete_pipe_fixture",
+        module_path!().split_once("::").unwrap().1
+    );
+    crate::agent::service_process::tests::isolated_fixture(&filter, "ANGEL_T_REPAIR_EOF");
+}
+
 #[test]
 fn snap_launcher_detection_handles_real_snap_symlink_shape() {
     let dir = std::env::temp_dir().join(format!("angel_snap_{}", std::process::id()));

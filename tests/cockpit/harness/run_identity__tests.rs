@@ -174,6 +174,82 @@ fn run_identity_executable_and_unbound() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn replaced_running_image_identity_fixture() {
+    let Some(executable) = std::env::var_os("ANGEL_T_IDENTITY_RUNNING_IMAGE") else {
+        return;
+    };
+    let _lock = crate::tests::env_lock();
+    let executable = std::path::PathBuf::from(executable);
+    assert_eq!(std::env::current_exe().unwrap(), executable);
+    std::fs::remove_file(&executable).unwrap();
+    let replacement = b"new pathname bytes must not identify the running process";
+    std::fs::write(&executable, replacement).unwrap();
+    assert!(!std::env::current_exe().unwrap().exists());
+
+    let build = static_identity().unwrap();
+    let expected = std::env::var("ANGEL_T_IDENTITY_RUNNING_SHA256").unwrap();
+    assert_eq!(build.executable_sha256, expected);
+    assert_ne!(
+        build.executable_sha256,
+        crate::knowledge::cut::sha256_hex(replacement)
+    );
+    assert!(build.executable_path.ends_with(" (deleted)"));
+    assert_eq!(static_identity().unwrap().executable_sha256, expected);
+    eprintln!("RUN_IDENTITY replaced_path=true running_image_preserved=true");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn run_identity_preserves_running_image_after_path_replacement() {
+    use crate::agent::sandbox::process_owner::OwnedCommandExt;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!(
+        "angel-identity-running-image-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    let executable = root.join("fixture-runner");
+    let source = std::env::current_exe().unwrap();
+    let expected = executable_sha256(Path::new("/proc/self/exe")).unwrap();
+    // Never replace the suite's image. This test owns only the new link/copy and
+    // the fixture unlinks it before writing replacement bytes at its pathname.
+    if std::fs::hard_link(&source, &executable).is_err() {
+        std::fs::copy(&source, &executable).unwrap();
+    }
+    let filter = format!(
+        "{}::replaced_running_image_identity_fixture",
+        module_path!()
+            .split_once("::")
+            .map_or(module_path!(), |(_, rest)| rest)
+    );
+    let mut child = Command::new(&executable)
+        .args(["--exact", &filter, "--nocapture", "--test-threads=1"])
+        .env("ANGEL_T_IDENTITY_RUNNING_IMAGE", &executable)
+        .env("ANGEL_T_IDENTITY_RUNNING_SHA256", expected)
+        .stdin(Stdio::null())
+        .spawn_owned()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = std::fs::remove_dir_all(&root);
+            panic!("running-image identity fixture exceeded its deadline");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(status.success(), "running-image identity fixture failed");
+}
+
 #[test]
 fn model_defaults_identity_capture() {
     let _env = crate::tests::env_lock();

@@ -1224,8 +1224,8 @@ some once preceded are gone.
 
 The stop checkpoint's turn carries what 0.1.6's completion notes quoted beside
 the stamps: what is left to act on, the failing run's tail, the changed files,
-the receipt. `docs/telemetry/nudge-port-20260929.md` maps every 0.1.6
-injection to its route.
+the receipt. The [nudge port inventory](https://github.com/newjordan/angelX/blob/main/docs/telemetry/nudge-port-20260929.md)
+maps every 0.1.6 injection to its route.
 
 **Stop checkpoint.** When the model answers while the turn holds stop facts, it
 is shown the two most pressing as a warpath ending in `⠟⠁` (e.g. `⠧⠁⠧⠋⠟⠁`),

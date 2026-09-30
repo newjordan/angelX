@@ -8,11 +8,15 @@ import os
 import sys
 
 run = sys.argv[1]
+rc = os.path.join(run, "rc")
+if os.path.exists(rc):
+    with open(rc) as receipt:
+        print(f"DONE {receipt.read().strip()}")
+    sys.exit(0)
 reqs = sorted(glob.glob(os.path.join(run, "*.req.json")), key=lambda p: int(os.path.basename(p).split(".")[0]))
 pending = [p for p in reqs if not os.path.exists(p.replace(".req.json", ".resp.json"))]
 if not pending:
-    rc = os.path.join(run, "rc")
-    print(f"DONE {open(rc).read().strip()}" if os.path.exists(rc) else "WAIT")
+    print("WAIT")
     sys.exit(0)
 body = json.load(open(pending[0]))["body"]
 

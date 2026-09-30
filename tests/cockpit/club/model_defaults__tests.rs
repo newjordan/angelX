@@ -25,9 +25,9 @@ fn model_defaults_precedence_and_unknown() {
         .unwrap()
         .into_iter()
         .find(|e| e.model == "grok-4.7")
-        .expect("grok-4.7 carries a measured stall budget");
+        .expect("grok-4.7 carries a measured stall budget and effort");
     assert_eq!(grok47.stream_stall_secs, Some(240));
-    assert_eq!(grok47.default_effort, None);
+    assert_eq!(grok47.default_effort.as_deref(), Some("low"));
 }
 #[test]
 fn model_defaults_toml_override() {

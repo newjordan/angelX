@@ -11,6 +11,7 @@ import os
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from relay_files import write_json
 
 DIR = os.environ["RELAY_DIR"]
 PORT = int(os.environ["RELAY_PORT"])
@@ -51,8 +52,8 @@ class Handler(BaseHTTPRequestHandler):
                     break
         state["n"] += 1
         n = state["n"]
-        with open(os.path.join(DIR, f"{n}.req.json"), "w") as f:
-            json.dump({"t": time.time(), "bytes": len(raw), "body": body}, f, ensure_ascii=False)
+        write_json(os.path.join(DIR, f"{n}.req.json"),
+                   {"t": time.time(), "bytes": len(raw), "body": body})
         resp_path = os.path.join(DIR, f"{n}.resp.json")
         while not os.path.exists(resp_path):
             time.sleep(0.5)
@@ -95,4 +96,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    with ThreadingHTTPServer(("127.0.0.1", PORT), Handler) as server:
+        ready = os.environ.get("RELAY_READY")
+        if ready:
+            with open(ready, "w") as receipt:
+                receipt.write(str(server.server_port) + "\n")
+        server.serve_forever()

@@ -1,10 +1,9 @@
 use super::schema::CommandProof;
 use super::store::compact_scrubbed;
-use crate::agent::harness::{output_timed, parse_test_result, run_git, sandbox_command_path};
+use crate::agent::harness::{parse_test_result, run_git, sandbox_command_path};
 #[cfg(target_os = "linux")]
 use crate::agent::sandbox::{self, SandboxPolicy};
 use std::path::{Path, PathBuf};
-#[cfg(not(target_os = "linux"))]
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
@@ -94,8 +93,9 @@ fn run_command(
     if let Some(path) = sandbox_command_path() {
         command.env("PATH", path);
     }
-    let (output, timed_out) =
-        output_timed(command, Some(std::time::Duration::from_secs(timeout_secs)))?;
+    let capture = capture_verifier_output(command, std::time::Duration::from_secs(timeout_secs))?;
+    let timed_out = capture.timed_out;
+    let output = capture.output;
     let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
     combined.push('\n');
     combined.push_str(&String::from_utf8_lossy(&output.stderr));
@@ -122,6 +122,20 @@ fn run_command(
         output_tail: compact_scrubbed(&tail_chars(&combined, 1_200), 1_200),
         elapsed_ms: started.elapsed().as_millis(),
     })
+}
+
+/// A marker or passing summary in a prefix cannot prove a completed command.
+/// Keep ordinary user command captures flexible; verifier evidence requires
+/// both complete streams before interpreting any test counts or proof markers.
+fn capture_verifier_output(
+    command: Command,
+    timeout: std::time::Duration,
+) -> Result<crate::agent::harness::exec::TimedCapture, String> {
+    let capture = crate::agent::harness::exec::output_timed_captured(command, Some(timeout))?;
+    if !capture.output_complete() {
+        return Err("verification output is incomplete (missing EOF or capture byte limit)".into());
+    }
+    Ok(capture)
 }
 
 #[cfg(target_os = "linux")]
@@ -241,3 +255,7 @@ fn secure_dir(path: &Path) -> Result<(), String> {
 fn secure_dir(_path: &Path) -> Result<(), String> {
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/harness/swarm_compile__verify_capture_tests.rs"]
+mod capture_tests;

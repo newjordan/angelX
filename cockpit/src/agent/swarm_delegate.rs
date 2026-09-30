@@ -866,12 +866,26 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// Run `cmd` with a kill-on-timeout deadline, draining pipes in threads so a full
-/// pipe can't deadlock. (Mirrors the harness's `output_timed`.)
+/// pipe can't deadlock. Incomplete output cannot establish a test verdict or
+/// become a completed peer opinion.
 fn run_capture(cmd: Command, timeout: Duration) -> Result<(std::process::Output, bool), String> {
-    // Use the harness's hardened runner: bounded 1 MiB pipe capture, exact
-    // deadline wake-up, and process-group kill so a timed-out test cannot leave
-    // grandchildren holding pipes (or GPUs) indefinitely.
-    crate::agent::harness::output_timed(cmd, Some(timeout))
+    let capture = crate::agent::harness::exec::output_timed_captured(cmd, Some(timeout))?;
+    if capture.timed_out {
+        return Ok((capture.output, true));
+    }
+    if capture.cancelled {
+        return Err(format!(
+            "command cancelled: {}",
+            fmt_output(&capture.output, false, "")
+        ));
+    }
+    if !capture.output_complete() {
+        return Err(format!(
+            "command output capture incomplete: {}",
+            fmt_output(&capture.output, false, "")
+        ));
+    }
+    Ok((capture.output, false))
 }
 
 fn truthy_env(key: &str) -> bool {

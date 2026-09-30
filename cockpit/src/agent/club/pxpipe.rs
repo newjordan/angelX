@@ -6,13 +6,21 @@
 
 use super::*;
 use crate::agent::sandbox::process_owner::{Child, OwnedCommandExt};
+#[cfg(unix)]
+use crate::agent::service_process::ServiceChild;
+#[cfg(unix)]
+use crate::platform::workspace_store::DeadlinePipe;
 use std::collections::HashSet;
+#[cfg(unix)]
+use std::io;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
-use std::process::{ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{ChildStdin, ChildStdout, Command, Output, Stdio};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, OnceLock, mpsc};
 use std::time::Duration;
+#[cfg(unix)]
+use std::time::Instant;
 
 const DEFAULT_PXPIPE_MODELS: &[&str] = &["gpt-5", "gpt-4o", "gpt-4.1"];
 
@@ -297,19 +305,154 @@ pub(super) fn run_pxpipe_helper(
         .arg(helper)
         .arg(api.arg())
         .env("ANGEL_PXPIPE_LABEL", label)
-        .env("ANGEL_PXPIPE_MODEL", model)
+        .env("ANGEL_PXPIPE_MODEL", model);
+    let output = run_pxpipe_one_shot(&mut command, body, pxpipe_timeout())?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "helper exited with {}: {}",
+            output.status,
+            truncate_for_log(stderr.trim(), 500)
+        ));
+    }
+    Ok(output.stdout)
+}
+
+/// On Unix, writing, process completion and both output EOFs share one budget.
+/// Readers run while stdin is written so a helper may produce output before it
+/// finishes consuming a large request. Keep all transformed bytes: this is a
+/// transport deadline, not a request-size policy.
+#[cfg(unix)]
+fn run_pxpipe_one_shot(
+    command: &mut Command,
+    body: &[u8],
+    timeout: Duration,
+) -> Result<Output, String> {
+    let deadline = Instant::now() + timeout;
+    command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt as _;
-        command.process_group(0);
+    let mut child = ServiceChild::spawn(command).map_err(|e| format!("spawn helper: {e}"))?;
+    let stdin = child.take_stdin().ok_or("helper stdin unavailable")?;
+    let stdout = child.take_stdout().ok_or("helper stdout unavailable")?;
+    let stderr = child.take_stderr().ok_or("helper stderr unavailable")?;
+    let read_stdout = std::thread::spawn(move || read_pxpipe_output(stdout, deadline));
+    let read_stderr = std::thread::spawn(move || read_pxpipe_output(stderr, deadline));
+    let write_result = write_pxpipe_input(&stdin, body, deadline);
+    drop(stdin);
+
+    let mut timed_out = false;
+    if write_result.is_ok() {
+        while child.alive() {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                timed_out = true;
+                break;
+            }
+            std::thread::sleep(remaining.min(Duration::from_millis(5)));
+        }
     }
+    // Retire the private group before consuming the launcher's wait status.
+    // An escaped pipe holder is outside that group, so the readers also need
+    // their own checks against the same absolute deadline.
+    let status = child.retire();
+    let stdout = read_stdout
+        .join()
+        .unwrap_or_else(|_| Err(io::Error::other("helper stdout reader panicked")));
+    let stderr = read_stderr
+        .join()
+        .unwrap_or_else(|_| Err(io::Error::other("helper stderr reader panicked")));
+    if timed_out
+        || write_result
+            .as_ref()
+            .is_err_and(|e| e.kind() == io::ErrorKind::TimedOut)
+        || stdout
+            .as_ref()
+            .is_err_and(|e| e.kind() == io::ErrorKind::TimedOut)
+        || stderr
+            .as_ref()
+            .is_err_and(|e| e.kind() == io::ErrorKind::TimedOut)
+    {
+        return Err(format!("helper timed out after {}ms", timeout.as_millis()));
+    }
+    write_result.map_err(|e| format!("write helper stdin: {e}"))?;
+    Ok(Output {
+        status: status.map_err(|e| format!("wait helper: {e}"))?,
+        stdout: stdout.map_err(|e| format!("read helper stdout: {e}"))?,
+        stderr: stderr.map_err(|e| format!("read helper stderr: {e}"))?,
+    })
+}
+
+#[cfg(unix)]
+fn read_pxpipe_output(
+    pipe: impl Read + std::os::fd::AsRawFd,
+    deadline: Instant,
+) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    DeadlinePipe::new(pipe, deadline).read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
+#[cfg(unix)]
+fn write_pxpipe_input(
+    mut stdin: &ChildStdin,
+    mut bytes: &[u8],
+    deadline: Instant,
+) -> io::Result<()> {
+    use std::os::fd::AsRawFd as _;
+    let fd = stdin.as_raw_fd();
+    // SAFETY: this is the one-shot helper's exclusively owned write descriptor.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    while !bytes.is_empty() {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or(io::ErrorKind::TimedOut)?;
+        match stdin.write(bytes) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(written) => bytes = &bytes[written..],
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                let mut descriptor = libc::pollfd {
+                    fd,
+                    events: libc::POLLOUT,
+                    revents: 0,
+                };
+                let millis = remaining
+                    .as_millis()
+                    .saturating_add(1)
+                    .min(i32::MAX as u128) as i32;
+                // SAFETY: one live descriptor; recheck the budget after waking.
+                if unsafe { libc::poll(&mut descriptor, 1, millis) } < 0 {
+                    let error = io::Error::last_os_error();
+                    if error.kind() != io::ErrorKind::Interrupted {
+                        return Err(error);
+                    }
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn run_pxpipe_one_shot(
+    command: &mut Command,
+    body: &[u8],
+    timeout: Duration,
+) -> Result<Output, String> {
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     let mut child = command
         .spawn_owned()
         .map_err(|e| format!("spawn helper: {e}"))?;
-    let timeout = pxpipe_timeout();
     let (cancel, watchdog) = pxpipe_watchdog(child.id(), timeout);
     let write_result = child
         .stdin
@@ -321,33 +464,18 @@ pub(super) fn run_pxpipe_helper(
                 .map_err(|e| format!("write helper stdin: {e}"))
         });
     if let Err(error) = write_result {
-        #[cfg(unix)]
-        // SAFETY: this one-shot child leads a private process group.
-        unsafe {
-            libc::killpg(child.id() as libc::pid_t, libc::SIGKILL);
-        }
         let _ = child.kill();
         let _ = child.wait();
         let _ = finish_pxpipe_watchdog(cancel, watchdog);
         return Err(error);
     }
-
     let output = child
         .wait_with_output()
         .map_err(|e| format!("wait helper: {e}"));
     if finish_pxpipe_watchdog(cancel, watchdog) {
         return Err(format!("helper timed out after {}ms", timeout.as_millis()));
     }
-    let output = output?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "helper exited with {}: {}",
-            output.status,
-            truncate_for_log(stderr.trim(), 500)
-        ));
-    }
-    Ok(output.stdout)
+    output
 }
 
 fn pxpipe_helper_path() -> PathBuf {

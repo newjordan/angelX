@@ -63,6 +63,10 @@ cd angelX
     <td width="50%"><img alt="Command help and completion" src="docs/images/ui/command-picker.png"><br><b>Commands</b> · <code>/help</code> and Tab completion for every command.</td>
     <td width="50%"><img alt="The overworld map beside the code" src="docs/images/world.png"><br><b>World view</b> · Watch model behavior as an adventure in information.</td>
   </tr>
+  <tr>
+    <td width="50%"><img alt="GLM-5.3 plants a bar chart one graph call at a time while a sprite carries the next point to the field" src="docs/images/graph-garden-live.png"><br><b>Graph garden</b> · every <code>graph</code> call grows a crop; a sprite carries each point.</td>
+    <td width="50%"><img alt="The finished chart in the garden beside its planted values from /world crops" src="docs/images/graph-garden-planted.png"><br><b>Planted</b> · <code>/world crops</code> reports the exact values it grew.</td>
+  </tr>
 </table>
 
 ## Features
@@ -80,6 +84,8 @@ cd angelX
 - **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
 - **Book of behaviors** — The harness steers the model with compact braille stamps; each stamp's English is taught the first time it appears.
 - **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
+- **Graph garden · 0.1.9** — Farmers and sprites turn actual `graph` calls into bar, line, and scatter crops on the fields. Visit with `/world visit garden`, inspect with `/world crops`, and begin again to regrow the bed. [Guide and preview](docs/GRAPH_GARDEN.md).
+- **Calibrated seats · 0.1.9** — Muse Spark runs at minimal effort and Grok 4.7 at low, each picked on its hardest benchmark tasks, and playbook hints no longer send a model after a procedure its task rules out.
 
 ## Benchmarks
 
@@ -121,7 +127,7 @@ cd angelX
 
 * oh-my-pi on DeepSeek reached its 200M-token budget cap after 93 tasks.
 
-The full GLM cohort took 34.5% longer than OpenCode in the September 21 comparison and 17.6% longer in the September 23 Angel run. The later gap is in model time; Angel's measured non-model time was lower. Verification alone does not explain the difference. See the [full 136-task slowdown audit](docs/telemetry/polyglot-full136-slowdown-20260926.md) for totals, tails, task-level causes and comparison limits.
+The full GLM cohort took 34.5% longer than OpenCode in the September 21 comparison and 17.6% longer in the September 23 Angel run. The later gap is in model time; Angel's measured non-model time was lower. Verification alone does not explain the difference. See the [full 136-task slowdown audit](https://github.com/newjordan/angelX/blob/main/docs/telemetry/polyglot-full136-slowdown-20260926.md) for totals, tails, task-level causes and comparison limits.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/solved-dark.png">

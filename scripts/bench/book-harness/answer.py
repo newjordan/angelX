@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from relay_files import write_json
 
 run, reply_file = sys.argv[1], sys.argv[2]
 reply = json.load(open(reply_file))
@@ -15,8 +16,7 @@ pending = [p for p in reqs if not os.path.exists(p.replace(".req.json", ".resp.j
 if not pending:
     sys.exit(f"{run}: nothing pending")
 n = int(os.path.basename(pending[0]).split(".")[0])
-with open(pending[0].replace(".req.json", ".resp.json"), "w") as f:
-    json.dump(reply, f, ensure_ascii=False)
+write_json(pending[0].replace(".req.json", ".resp.json"), reply)
 here = os.path.dirname(os.path.abspath(__file__))
 for _ in range(600):
     time.sleep(0.5)

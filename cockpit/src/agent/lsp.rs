@@ -32,7 +32,8 @@
 
 use crate::agent::club::ToolDef;
 use crate::agent::harness::Tool;
-use crate::agent::sandbox::process_owner::{Child, OwnedCommandExt};
+use crate::agent::sandbox::process_owner::OwnedCommandExt;
+use crate::agent::service_process::ServiceChild;
 use serde_json::{Value, json};
 
 mod format;
@@ -47,7 +48,7 @@ pub(crate) use protocol::{
     read_frame, server_request_reply,
 };
 use std::collections::HashMap;
-use std::io::{BufReader, Write};
+use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -205,6 +206,104 @@ fn pick_server<'a>(servers: &'a [LspServer], path: &Path) -> Option<&'a LspServe
 // The stdio client
 // ---------------------------------------------------------------------------
 
+#[cfg(unix)]
+fn nonblocking_stdin(stdin: &ChildStdin) -> io::Result<()> {
+    use std::os::fd::AsRawFd as _;
+    let fd = stdin.as_raw_fd();
+    // SAFETY: the caller owns this descriptor; fcntl only changes its flags.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn write_until(mut stdin: &ChildStdin, mut bytes: &[u8], deadline: Instant) -> io::Result<()> {
+    use std::os::fd::AsRawFd as _;
+    while !bytes.is_empty() {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or(io::ErrorKind::TimedOut)?;
+        match stdin.write(bytes) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(written) => bytes = &bytes[written..],
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                let mut descriptor = libc::pollfd {
+                    fd: stdin.as_raw_fd(),
+                    events: libc::POLLOUT,
+                    revents: 0,
+                };
+                let millis = remaining
+                    .as_millis()
+                    .saturating_add(1)
+                    .min(i32::MAX as u128) as i32;
+                // SAFETY: this writer owns the pipe lock while polling one
+                // live descriptor. Recheck the absolute budget after waking.
+                let ready = unsafe { libc::poll(&mut descriptor, 1, millis) };
+                if ready < 0 {
+                    let error = io::Error::last_os_error();
+                    if error.kind() != io::ErrorKind::Interrupted {
+                        return Err(error);
+                    }
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    stdin.flush()
+}
+
+#[cfg(not(unix))]
+fn write_until(mut stdin: &ChildStdin, bytes: &[u8], _deadline: Instant) -> io::Result<()> {
+    stdin.write_all(bytes)?;
+    stdin.flush()
+}
+
+fn lock_until<T>(mutex: &Mutex<T>, deadline: Instant) -> io::Result<std::sync::MutexGuard<'_, T>> {
+    loop {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or(io::ErrorKind::TimedOut)?;
+        match mutex.try_lock() {
+            Ok(guard) => return Ok(guard),
+            Err(std::sync::TryLockError::Poisoned(_)) => {
+                return Err(io::Error::other("mutex poisoned"));
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {
+                std::thread::sleep(remaining.min(Duration::from_millis(5)));
+            }
+        }
+    }
+}
+
+fn write_frame_until(
+    stdin: &Mutex<Option<ChildStdin>>,
+    value: &Value,
+    deadline: Instant,
+) -> Result<(), String> {
+    let frame = build_frame(value);
+    let mut stdin = lock_until(stdin, deadline).map_err(|error| {
+        if error.kind() == io::ErrorKind::TimedOut {
+            "lsp timed out waiting for stdin".into()
+        } else {
+            format!("lsp stdin: {error}")
+        }
+    })?;
+    let pipe = stdin.as_ref().ok_or("lsp closed the connection")?;
+    if let Err(error) = write_until(pipe, &frame, deadline) {
+        // Even a partial frame may already have reached the server. Never
+        // append another message to it; the ordinary dead-client path evicts
+        // and respawns this connection before retrying a document operation.
+        stdin.take();
+        return Err(format!("lsp write: {error}"));
+    }
+    Ok(())
+}
+
 /// What to send for a document we're about to analyze: a first `didOpen`, or a
 /// `didChange` (with the next version) if the server already has it open. LSP
 /// servers reject a second `didOpen` for the same URI, so a cached client must
@@ -230,14 +329,14 @@ fn doc_action(last_version: Option<i64>) -> DocAction {
 struct LspClient {
     name: String,
     /// Shared with the reader thread so it can answer server→client requests.
-    stdin: Arc<Mutex<ChildStdin>>,
+    stdin: Arc<Mutex<Option<ChildStdin>>>,
     /// Inbound responses + notifications (server requests are answered + dropped
     /// by the reader thread). The Mutex serializes request/collect so two callers
     /// never split each other's messages off the channel.
     rx: Mutex<mpsc::Receiver<Value>>,
     next_id: AtomicU64,
     timeout: Duration,
-    child: Mutex<Child>,
+    child: Mutex<ServiceChild>,
     /// URIs this client has `didOpen`'d, with their current version — so the
     /// next analysis of the same file becomes a `didChange`, not a re-open.
     open_docs: Mutex<HashMap<String, i64>>,
@@ -246,24 +345,34 @@ struct LspClient {
     /// Pull (request/response) is how we re-query a *warm* document, since push
     /// (`publishDiagnostics`) only reliably fires on the first analysis.
     supports_pull: AtomicBool,
+    /// A failed connection stays unusable even if its hot-path eviction could
+    /// not acquire the pool lock within the remaining allowance.
+    unusable: Arc<AtomicBool>,
     readiness: Mutex<Option<bool>>,
     diagnostics: Mutex<HashMap<String, Value>>,
 }
 
 impl LspClient {
     fn spawn(server: &LspServer, timeout: Duration) -> Result<Self, String> {
-        let mut child = Command::new(&server.command)
+        let mut command = Command::new(&server.command);
+        command
             .args(&server.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn_owned()
+            .stderr(Stdio::null());
+        let mut child = ServiceChild::spawn(&mut command)
             .map_err(|e| format!("spawn {}: {e}", server.command))?;
-        let child_stdin = child.stdin.take().ok_or("no child stdin")?;
-        let stdout = child.stdout.take().ok_or("no child stdout")?;
-        let stdin = Arc::new(Mutex::new(child_stdin));
+        let child_stdin = child.take_stdin().ok_or("no child stdin")?;
+        #[cfg(unix)]
+        if let Err(error) = nonblocking_stdin(&child_stdin) {
+            return Err(format!("lsp {} stdin setup: {error}", server.name));
+        }
+        let stdout = child.take_stdout().ok_or("no child stdout")?;
+        let stdin = Arc::new(Mutex::new(Some(child_stdin)));
         let (tx, rx) = mpsc::channel();
         let reader_stdin = Arc::clone(&stdin);
+        let unusable = Arc::new(AtomicBool::new(false));
+        let reader_unusable = Arc::clone(&unusable);
         std::thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             // Loop ends on EOF / broken frame (anything but `Ok(Some)`).
@@ -272,8 +381,16 @@ impl LspClient {
                 // configuration) are answered here and NOT forwarded — an
                 // unanswered one can stall the server on a big project.
                 if is_server_request(&v) {
-                    if let Ok(mut s) = reader_stdin.lock() {
-                        let _ = Self::send(&mut *s, &server_request_reply(&v));
+                    // Replies have no caller request budget. Bound them by
+                    // this client's configured ANGEL_LSP_TIMEOUT instead.
+                    if write_frame_until(
+                        &reader_stdin,
+                        &server_request_reply(&v),
+                        Instant::now() + timeout,
+                    )
+                    .is_err()
+                    {
+                        break;
                     }
                     continue;
                 }
@@ -281,6 +398,9 @@ impl LspClient {
                     break; // client dropped
                 }
             }
+            // EOF, a broken frame, or a failed server-request reply retires
+            // the transport even when no foreground caller has written yet.
+            reader_unusable.store(true, Ordering::Release);
         });
         Ok(Self {
             name: server.name.clone(),
@@ -292,20 +412,23 @@ impl LspClient {
             open_docs: Mutex::new(HashMap::new()),
             open_text: Mutex::new(HashMap::new()),
             supports_pull: AtomicBool::new(false),
+            unusable,
             readiness: Mutex::new(None),
             diagnostics: Mutex::new(HashMap::new()),
         })
     }
 
-    fn send<W: Write>(mut w: W, value: &Value) -> Result<(), String> {
-        w.write_all(&build_frame(value))
-            .map_err(|e| format!("lsp write: {e}"))?;
-        w.flush().map_err(|e| format!("lsp flush: {e}"))
+    fn ensure_connected(&self) -> Result<(), String> {
+        if self.unusable.load(Ordering::Acquire) {
+            return Err(format!("lsp {} closed the connection", self.name));
+        }
+        Ok(())
     }
 
-    fn write_msg(&self, value: &Value) -> Result<(), String> {
-        let mut s = self.stdin.lock().map_err(|_| "lsp stdin poisoned")?;
-        Self::send(&mut *s, value).map_err(|e| format!("lsp {}: {e}", self.name))
+    fn write_msg(&self, value: &Value, deadline: Instant) -> Result<(), String> {
+        self.ensure_connected()?;
+        write_frame_until(&self.stdin, value, deadline)
+            .map_err(|error| format!("lsp {}: {error}", self.name))
     }
 
     /// Send a request; drain inbound messages until the matching response or the
@@ -322,34 +445,57 @@ impl LspClient {
         params: Value,
         timeout: Duration,
     ) -> Result<Value, String> {
+        self.request_until(method, params, Instant::now() + timeout)
+    }
+
+    fn request_until(
+        &self,
+        method: &str,
+        params: Value,
+        deadline: Instant,
+    ) -> Result<Value, String> {
+        // One request allowance includes transport serialization, writes and
+        // the response. Writing a large didOpen/query must not precede it.
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let msg = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
-        let rx = self.rx.lock().map_err(|_| "lsp rx poisoned")?;
-        self.write_msg(&msg)?;
-        let deadline = Instant::now() + timeout;
+        let rx = lock_until(&self.rx, deadline).map_err(|error| {
+            if error.kind() == io::ErrorKind::TimedOut {
+                format!(
+                    "lsp {} timed out on {method} (waiting for connection)",
+                    self.name
+                )
+            } else {
+                format!("lsp rx: {error}")
+            }
+        })?;
+        self.write_msg(&msg, deadline)?;
         loop {
-            let remaining = deadline
-                .checked_duration_since(Instant::now())
-                .ok_or_else(|| format!("lsp {} timed out on {method}", self.name))?;
-            match rx.recv_timeout(remaining) {
-                Ok(v) => {
-                    self.remember_diagnostics(&v);
+            if Instant::now() >= deadline {
+                return Err(format!("lsp {} timed out on {method}", self.name));
+            }
+            match self.recv_cached(&rx, deadline) {
+                Ok(Some(v)) => {
                     if let Some(res) = match_response(&v, id) {
                         return res.map_err(|e| format!("lsp {}: {e}", self.name));
                     }
                 }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    return Err(format!("lsp {} timed out on {method}", self.name));
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(format!("lsp {} closed the connection", self.name));
-                }
+                Ok(None) => {}
+                Err(error) => return Err(error),
             }
         }
     }
 
     fn notify(&self, method: &str, params: Value) -> Result<(), String> {
-        self.write_msg(&json!({ "jsonrpc": "2.0", "method": method, "params": params }))
+        // Notifications have no response wait; use ANGEL_LSP_TIMEOUT as their
+        // local write/serialization allowance, like reader-thread replies.
+        self.notify_until(method, params, Instant::now() + self.timeout)
+    }
+
+    fn notify_until(&self, method: &str, params: Value, deadline: Instant) -> Result<(), String> {
+        self.write_msg(
+            &json!({ "jsonrpc": "2.0", "method": method, "params": params }),
+            deadline,
+        )
     }
 
     /// `initialize` (advertising the workspace root + pull-diagnostics support) +
@@ -385,12 +531,49 @@ impl LspClient {
         )
     }
 
+    #[cfg(test)]
     fn remember_diagnostics(&self, message: &Value) {
+        if let Ok(mut diagnostics) = self.diagnostics.lock() {
+            Self::remember_in(&mut diagnostics, message);
+        }
+    }
+
+    fn remember_in(diagnostics: &mut HashMap<String, Value>, message: &Value) {
         if message["method"] == "textDocument/publishDiagnostics"
             && let Some(uri) = message["params"]["uri"].as_str()
-            && let Ok(mut diagnostics) = self.diagnostics.lock()
         {
             diagnostics.insert(uri.to_owned(), message["params"].clone());
+        }
+    }
+
+    /// Own the cache before removing an inbound message: if cache queueing
+    /// expires, its diagnostics remain on the channel for a later call. Short
+    /// receive slices avoid monopolizing cache writers during a slow response.
+    fn recv_cached(
+        &self,
+        rx: &mpsc::Receiver<Value>,
+        deadline: Instant,
+    ) -> Result<Option<Value>, String> {
+        let mut diagnostics = lock_until(&self.diagnostics, deadline).map_err(|error| {
+            if error.kind() == io::ErrorKind::TimedOut {
+                format!("lsp {} timed out waiting for diagnostics cache", self.name)
+            } else {
+                "lsp diagnostics poisoned".to_owned()
+            }
+        })?;
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(|| format!("lsp {} timed out waiting for diagnostics cache", self.name))?;
+        match rx.recv_timeout(remaining.min(Duration::from_millis(5))) {
+            Ok(message) => {
+                Self::remember_in(&mut diagnostics, &message);
+                Ok(Some(message))
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(format!("lsp {} closed the connection", self.name))
+            }
         }
     }
 
@@ -403,10 +586,14 @@ impl LspClient {
     /// a push. Normalizes the report to `{ uri, diagnostics: [...] }` so
     /// [`format_diagnostics`] handles it like a push payload.
     fn pull_diagnostics_with_timeout(&self, uri: &str, timeout: Duration) -> Result<Value, String> {
-        let res = self.request_with_timeout(
+        self.pull_diagnostics_until(uri, Instant::now() + timeout)
+    }
+
+    fn pull_diagnostics_until(&self, uri: &str, deadline: Instant) -> Result<Value, String> {
+        let res = self.request_until(
             "textDocument/diagnostic",
             json!({ "textDocument": { "uri": uri } }),
-            timeout,
+            deadline,
         )?;
         Ok(pull_report_to_params(uri, &res))
     }
@@ -415,51 +602,84 @@ impl LspClient {
     /// → `didChange` (full sync) with a bumped version. Returns the action taken
     /// so the caller can pick push (first analysis) vs pull (warm re-query).
     fn sync_doc(&self, uri: &str, language_id: &str, text: &str) -> Result<DocAction, String> {
-        let mut contents = self
-            .open_text
-            .lock()
-            .map_err(|_| "lsp open_text poisoned")?;
+        self.sync_doc_until(uri, language_id, text, None)
+    }
+
+    fn document_lock<'a, T>(
+        &self,
+        mutex: &'a Mutex<T>,
+        state: &str,
+        deadline: Option<Instant>,
+    ) -> Result<std::sync::MutexGuard<'a, T>, String> {
+        match deadline {
+            Some(deadline) => lock_until(mutex, deadline).map_err(|error| {
+                if error.kind() == io::ErrorKind::TimedOut {
+                    format!("lsp {} timed out waiting for document {state}", self.name)
+                } else {
+                    format!("lsp {state} poisoned")
+                }
+            }),
+            None => mutex.lock().map_err(|_| format!("lsp {state} poisoned")),
+        }
+    }
+
+    /// Warm post-edit synchronization shares its caller's absolute allowance.
+    /// With a caller deadline, caches and versions remain untouched until a
+    /// complete notification is sent.
+    fn sync_doc_until(
+        &self,
+        uri: &str,
+        language_id: &str,
+        text: &str,
+        deadline: Option<Instant>,
+    ) -> Result<DocAction, String> {
+        self.ensure_connected()?;
+        let mut contents = self.document_lock(&self.open_text, "open_text", deadline)?;
         if contents.get(uri).is_some_and(|previous| previous == text) {
+            self.ensure_connected()?;
             return Ok(DocAction::Unchanged);
         }
-        let action = {
-            let docs = self
-                .open_docs
+        // Keep the version guard through the write and commit. Reacquiring it
+        // after a completed frame could expire the budget without recording
+        // the version already observed by the server.
+        let mut docs = self.document_lock(&self.open_docs, "open_docs", deadline)?;
+        let action = doc_action(docs.get(uri).copied());
+        let mut diagnostics = if deadline.is_some() {
+            Some(self.document_lock(&self.diagnostics, "diagnostics", deadline)?)
+        } else {
+            self.diagnostics
                 .lock()
-                .map_err(|_| "lsp open_docs poisoned")?;
-            doc_action(docs.get(uri).copied())
+                .map_err(|_| "lsp diagnostics poisoned")?
+                .remove(uri);
+            None
         };
-        self.diagnostics
-            .lock()
-            .map_err(|_| "lsp diagnostics poisoned")?
-            .remove(uri);
+        let write_deadline = deadline.unwrap_or_else(|| Instant::now() + self.timeout);
         match &action {
             DocAction::Unchanged => unreachable!(),
             DocAction::Open => {
-                self.notify(
+                self.notify_until(
                     "textDocument/didOpen",
                     json!({ "textDocument": {
                         "uri": uri, "languageId": language_id, "version": 1, "text": text,
                     }}),
+                    write_deadline,
                 )?;
-                self.open_docs
-                    .lock()
-                    .map_err(|_| "lsp open_docs poisoned")?
-                    .insert(uri.into(), 1);
+                docs.insert(uri.into(), 1);
             }
             DocAction::Change { version } => {
-                self.notify(
+                self.notify_until(
                     "textDocument/didChange",
                     json!({
                         "textDocument": { "uri": uri, "version": version },
                         "contentChanges": [ { "text": text } ], // full-document sync
                     }),
+                    write_deadline,
                 )?;
-                self.open_docs
-                    .lock()
-                    .map_err(|_| "lsp open_docs poisoned")?
-                    .insert(uri.into(), *version);
+                docs.insert(uri.into(), *version);
             }
+        }
+        if let Some(diagnostics) = &mut diagnostics {
+            diagnostics.remove(uri);
         }
         contents.insert(uri.to_owned(), text.to_owned());
         Ok(action)
@@ -479,11 +699,24 @@ impl LspClient {
         timeout: Duration,
         settle: Duration,
     ) -> Option<Value> {
-        let rx = self.rx.lock().ok()?;
-        let deadline = Instant::now() + timeout;
-        let mut latest = self.diagnostics.lock().ok()?.get(uri).cloned();
+        self.collect_diagnostics_until(uri, Instant::now() + timeout, settle)
+    }
+
+    fn collect_diagnostics_until(
+        &self,
+        uri: &str,
+        deadline: Instant,
+        settle: Duration,
+    ) -> Option<Value> {
+        self.ensure_connected().ok()?;
+        let rx = lock_until(&self.rx, deadline).ok()?;
+        let mut latest = lock_until(&self.diagnostics, deadline)
+            .ok()?
+            .get(uri)
+            .cloned();
         let mut settle_until = latest.as_ref().map(|_| Instant::now() + settle);
         loop {
+            self.ensure_connected().ok()?;
             let cap = settle_until.map_or(deadline, |settled| settled.min(deadline));
             // Use saturating (returns ZERO past the deadline), not
             // `checked_duration_since(..)?` — the `?` returned None when `now`
@@ -494,29 +727,31 @@ impl LspClient {
             if remaining.is_zero() {
                 break;
             }
-            match rx.recv_timeout(remaining) {
-                Ok(v) => {
-                    self.remember_diagnostics(&v);
+            match self.recv_cached(&rx, cap) {
+                Ok(Some(v)) => {
                     if let Some(params) = publish_diagnostics_for(&v, uri) {
                         latest = Some(params.clone());
                         // got a report — keep draining briefly for a refined one
                         settle_until = Some(Instant::now() + settle);
                     }
                 }
-                Err(mpsc::RecvTimeoutError::Timeout) => break,
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                Ok(None) => {}
+                Err(_) => break,
             }
         }
+        self.ensure_connected().ok()?;
         latest
     }
 }
 
 impl Drop for LspClient {
     fn drop(&mut self) {
-        if let Ok(mut child) = self.child.lock() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        // ServiceChild also covers setup failures and poisoned client locks.
+        let child = self
+            .child
+            .get_mut()
+            .unwrap_or_else(|error| error.into_inner());
+        let _ = child.retire();
     }
 }
 
@@ -707,7 +942,9 @@ impl LspPool {
             let mut state = self.state.lock().map_err(|_| "lsp pool poisoned")?;
 
             let reusable = state.clients.get(&server.name).is_some_and(|cached| {
-                cached.fingerprint == fingerprint && workspace_root.starts_with(&cached.index_root)
+                cached.fingerprint == fingerprint
+                    && workspace_root.starts_with(&cached.index_root)
+                    && !cached.client.unusable.load(Ordering::Acquire)
             });
             if state.clients.get(&server.name).is_some_and(|_| !reusable) {
                 // Config change OR a workspace outside the warm client's index
@@ -834,25 +1071,50 @@ impl LspPool {
     /// The cached client must cover `workspace_root` (inside its index root) or
     /// the warm result is None — a cross-root warm hit would misanalyze.
     fn get_warm(&self, server: &LspServer, workspace_root: &Path) -> Option<Arc<LspClient>> {
+        self.get_warm_until(server, workspace_root, None)
+            .ok()
+            .flatten()
+    }
+
+    fn get_warm_until(
+        &self,
+        server: &LspServer,
+        workspace_root: &Path,
+        deadline: Option<Instant>,
+    ) -> Result<Option<Arc<LspClient>>, String> {
         let fingerprint = LspServerFingerprint::from(server);
         let mut retired = None;
-        let client = self.state.lock().ok().and_then(|mut state| {
+        let mut state = match deadline {
+            Some(deadline) => lock_until(&self.state, deadline).map_err(|error| {
+                if error.kind() == io::ErrorKind::TimedOut {
+                    "lsp timed out waiting for warm-client admission".to_owned()
+                } else {
+                    "lsp pool poisoned".to_owned()
+                }
+            })?,
+            None => self.state.lock().map_err(|_| "lsp pool poisoned")?,
+        };
+        let client = {
             let cached = state.clients.get(&server.name);
             let reusable = cached.is_some_and(|cached| {
-                cached.fingerprint == fingerprint && workspace_root.starts_with(&cached.index_root)
+                cached.fingerprint == fingerprint
+                    && workspace_root.starts_with(&cached.index_root)
+                    && !cached.client.unusable.load(Ordering::Acquire)
             });
             if cached.is_some_and(|_| !reusable) {
                 retired = state.clients.remove(&server.name);
                 state.failures.remove(&server.name);
-                return None;
+                None
+            } else {
+                state
+                    .clients
+                    .get(&server.name)
+                    .map(|cached| Arc::clone(&cached.client))
             }
-            state
-                .clients
-                .get(&server.name)
-                .map(|cached| Arc::clone(&cached.client))
-        });
+        };
+        drop(state);
         drop(retired);
-        client
+        Ok(client)
     }
 
     /// Drop the cached client for a language (e.g. after it died), so the next
@@ -866,6 +1128,36 @@ impl LspPool {
         drop(retired);
     }
 
+    /// Remove only the failed instance, never a replacement published while
+    /// its caller was in flight. Hot cleanup may attempt an immediately free
+    /// lock after its I/O budget expires, but never waits beyond that budget.
+    fn evict_client_until(
+        &self,
+        name: &str,
+        client: &Arc<LspClient>,
+        deadline: Option<Instant>,
+    ) -> Result<(), String> {
+        let mut state = match deadline {
+            Some(deadline) => match self.state.try_lock() {
+                Ok(state) => state,
+                Err(std::sync::TryLockError::WouldBlock) => lock_until(&self.state, deadline)
+                    .map_err(|_| "lsp timed out waiting for failed-client eviction")?,
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err("lsp pool poisoned".into());
+                }
+            },
+            None => self.state.lock().map_err(|_| "lsp pool poisoned")?,
+        };
+        let retired = state
+            .clients
+            .get(name)
+            .is_some_and(|cached| Arc::ptr_eq(&cached.client, client))
+            .then(|| state.clients.remove(name));
+        drop(state);
+        drop(retired);
+        Ok(())
+    }
+
     /// Snapshot of the currently-warm clients (language, client). Used by
     /// project-wide queries that have no file to route by.
     fn warm_clients(&self) -> Vec<(String, Arc<LspClient>)> {
@@ -875,6 +1167,7 @@ impl LspPool {
                 state
                     .clients
                     .iter()
+                    .filter(|(_, cached)| !cached.client.unusable.load(Ordering::Acquire))
                     .map(|(name, cached)| (name.clone(), Arc::clone(&cached.client)))
                     .collect()
             })
@@ -936,6 +1229,40 @@ fn shared_pool(timeout: Duration) -> Arc<LspPool> {
     Arc::clone(POOL.get_or_init(|| Arc::new(LspPool::new(timeout))))
 }
 
+/// Documents are finite regular files, never streams or devices. On Linux,
+/// reuse the workspace reader's nonblocking, descriptor-validated open. Other
+/// platforms validate the same handle they read; Unix nonblocking open also
+/// prevents a FIFO substituted between path resolution and open from hanging.
+fn read_document(root: &Path, path: &Path) -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let bytes = crate::agent::harness::confined_read(root, path)?;
+        String::from_utf8(bytes).map_err(|_| "document is not valid UTF-8".into())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = root;
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.custom_flags(libc::O_NONBLOCK);
+        }
+        let mut file = options.open(path).map_err(|error| error.to_string())?;
+        if !file
+            .metadata()
+            .map_err(|error| error.to_string())?
+            .is_file()
+        {
+            return Err("language-server document must be a regular file".into());
+        }
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut file, &mut text).map_err(|error| error.to_string())?;
+        Ok(text)
+    }
+}
+
 impl LspCtx {
     fn new(workspace: PathBuf) -> Self {
         let timeout = env_duration(
@@ -993,6 +1320,16 @@ impl LspCtx {
         warm_only: bool,
         op: impl Fn(&LspClient, &str, DocAction, &str) -> Result<T, String>,
     ) -> Result<T, String> {
+        self.with_doc_mode_until(path, warm_only, None, op)
+    }
+
+    fn with_doc_mode_until<T>(
+        &self,
+        path: &str,
+        warm_only: bool,
+        deadline: Option<Instant>,
+        op: impl Fn(&LspClient, &str, DocAction, &str) -> Result<T, String>,
+    ) -> Result<T, String> {
         let abs = self.resolve(path)?;
         let server = pick_server(&self.servers, &abs).ok_or_else(|| {
             format!(
@@ -1000,33 +1337,57 @@ impl LspCtx {
                 abs.display()
             )
         })?;
-        let text = std::fs::read_to_string(&abs)
+        let text = read_document(&self.resolve_root, &abs)
             .map_err(|e| format!("tool error: read {}: {e}", abs.display()))?;
         let uri = path_to_uri(&abs);
         let mut last = String::new();
         for _ in 0..2 {
             let client = if warm_only {
-                self.pool
-                    .get_warm(server, &self.resolve_root)
-                    .ok_or_else(|| {
-                        format!(
-                            "tool error: {} is not warm; post-edit diagnostics skipped",
-                            server.name
-                        )
-                    })?
+                let cached = match deadline {
+                    Some(deadline) => self
+                        .pool
+                        .get_warm_until(server, &self.resolve_root, Some(deadline))
+                        .map_err(tool_err)?,
+                    None => self.pool.get_warm(server, &self.resolve_root),
+                };
+                cached.ok_or_else(|| {
+                    format!(
+                        "tool error: {} is not warm; post-edit diagnostics skipped",
+                        server.name
+                    )
+                })?
             } else {
                 self.pool
                     .get_or_spawn(server, &self.resolve_root)
                     .map_err(|e| format!("tool error: {e}"))?
             };
-            let result = client
-                .sync_doc(&uri, parity::language_id(&abs, &server.language_id), &text)
-                .and_then(|action| op(&client, &uri, action, &text));
+            let action = match deadline {
+                Some(deadline) => client.sync_doc_until(
+                    &uri,
+                    parity::language_id(&abs, &server.language_id),
+                    &text,
+                    Some(deadline),
+                ),
+                None => {
+                    client.sync_doc(&uri, parity::language_id(&abs, &server.language_id), &text)
+                }
+            };
+            let result = action.and_then(|action| {
+                client.ensure_connected()?;
+                let result = op(&client, &uri, action, &text)?;
+                client.ensure_connected()?;
+                Ok(result)
+            });
             match result {
                 Ok(t) => return Ok(t),
                 Err(e) if is_dead_client(&e) => {
                     last = e;
-                    self.pool.evict(&server.name); // genuinely dead — respawn next loop
+                    client.unusable.store(true, Ordering::Release);
+                    // Preserve the transport error if cleanup's lock budget
+                    // expires. The unusable bit prevents later cache reuse.
+                    let _ = self
+                        .pool
+                        .evict_client_until(&server.name, &client, deadline);
                     if warm_only {
                         return Err(tool_err(last));
                     }
@@ -1100,6 +1461,7 @@ impl Tool for LspDiagnosticsTool {
         }
     }
     fn call(&self, args: &Value) -> Result<String, String> {
+        let started = Instant::now();
         let path = args
             .get("path")
             .and_then(|p| p.as_str())
@@ -1113,24 +1475,32 @@ impl Tool for LspDiagnosticsTool {
             .get("_warm_only")
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        let deadline = args
+        let timeout = args
             .get("_deadline_ms")
             .and_then(Value::as_u64)
             .map(|ms| Duration::from_millis(ms.clamp(50, 5_000)))
             .unwrap_or(ctx.timeout);
-        let settle = ctx.settle.min(deadline);
-        ctx.with_doc_mode(path, warm_only, |client, uri, action, _text| {
+        let deadline = warm_only.then_some(started + timeout);
+        let settle = ctx.settle.min(timeout);
+        ctx.with_doc_mode_until(path, warm_only, deadline, |client, uri, action, _text| {
             // Cold open: wait for the push (analysis-ready). Warm change: pull.
             let warm_pull = !matches!(action, DocAction::Open) && client.supports_pull();
             let params = if warm_pull {
-                client.pull_diagnostics_with_timeout(uri, deadline)?
+                match deadline {
+                    Some(deadline) => client.pull_diagnostics_until(uri, deadline)?,
+                    None => client.pull_diagnostics_with_timeout(uri, timeout)?,
+                }
             } else {
-                match client.collect_diagnostics_with_timeout(uri, deadline, settle) {
+                let report = match deadline {
+                    Some(deadline) => client.collect_diagnostics_until(uri, deadline, settle),
+                    None => client.collect_diagnostics_with_timeout(uri, timeout, settle),
+                };
+                match report {
                     Some(p) => p,
                     None => {
                         return Ok(format!(
                             "{path}: no diagnostics within {}ms (server may still be indexing)",
-                            deadline.as_millis()
+                            timeout.as_millis()
                         ));
                     }
                 }

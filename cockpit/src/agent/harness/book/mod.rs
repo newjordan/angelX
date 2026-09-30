@@ -24,6 +24,10 @@
 //! - **Volume VIII, the hop advisories ⠼ and the competition's shelf ⡅:** what
 //!   the 0.1.6 harness said to a model at the moments that decide a run, in the
 //!   words it said them (see [`VOICED`]).
+//! - **Volume IX, the seat profiles ⡞ ⢞ ⣞ ⡯:** what a model's own vendor
+//!   harness tells it, in its words. Every 6-dot cell is taken, so the volume
+//!   lives on 8-dot shelves: ⡞ ⢞ ⣞ (dots 7, 8 and 7+8 on ⠞) and ⡯ (dot 7 on ⠯).
+//!   A library: nothing in it is sent to a seat until a driver is wired to it.
 //!
 //! Volume I:
 //!
@@ -131,6 +135,19 @@
 //! own answers, the teacher-watch), ⠗⠓–⠗⠚ (the goal and memory bounds, the RL
 //! grader and prompt optimizer). ⡸ is the 8-dot shelf, dot 7 on ⠸.
 //!
+//! Volume IX, the seat profiles — a vendor's own words for its model, each
+//! section a heading's block of the vendor's prompt, ported whole (sentences as
+//! pages, a bullet one page, a block past ten pages continued in a
+//! `<name>, continued` section); the seat's knobs are data, not pages. Read
+//! through the ledger, never sent by default:
+//!
+//! | cell     | chapter              | surface                                                   |
+//! |----------|----------------------|-----------------------------------------------------------|
+//! | ⡞ d23457 | `d23457_codex_sol.rs` | Codex `gpt-6.1-sol` (CLI 0.159.0): the opening, permission, autonomy, personality, writing style, technical communication, PR descriptions |
+//! | ⢞ d23458 | `d23457_codex_sol.rs` | working with the user, commentary, the final answer, formatting, visualizations, the rules for getting work done |
+//! | ⣞ d234578 | `d23457_codex_sol.rs` | using skills, when and how to use a skill, apps, plugins, how to use plugins |
+//! | ⡯ d123467 | `d23457_codex_sol.rs` | the context window messages: the reminder, the notes guidance, the fallback |
+//!
 //! Addresses nest: `⠞` a chapter, `⠞⠉` a section (a route), `⠞⠉⠃` a page. A
 //! page is one sentence of the prompt it came from, verbatim; a section's pages
 //! rebuild that block exactly. Nothing is paraphrased, merged or dropped.
@@ -163,6 +180,7 @@ pub(crate) mod and_session;
 pub(crate) mod ar_seats;
 pub(crate) mod ch_edits;
 pub(crate) mod connect;
+pub(crate) mod d23457_codex_sol;
 pub(crate) mod d2467_research;
 pub(crate) mod d3456_advisories;
 pub(crate) mod d3_roles;
@@ -275,7 +293,7 @@ pub(crate) struct Sub {
 }
 
 /// The first layer, in table-of-contents order.
-pub(crate) const TOC: [&Primary; 45] = [
+pub(crate) const TOC: [&Primary; 49] = [
     &k_competition::PRIMARY,
     &l_loops::PRIMARY,
     &m_method::PRIMARY,
@@ -329,6 +347,11 @@ pub(crate) const TOC: [&Primary; 45] = [
     // Volume VIII: the hop advisories, and the competition's shelf.
     &d3456_advisories::PRIMARY,
     &k_competition::SHELF,
+    // Volume IX: the seat profiles, Codex gpt-6.1-sol.
+    &d23457_codex_sol::PRIMARY,
+    &d23457_codex_sol::SHELF_II,
+    &d23457_codex_sol::SHELF_III,
+    &d23457_codex_sol::CONTEXT,
 ];
 
 pub(crate) fn primary(cell: char) -> Option<&'static Primary> {

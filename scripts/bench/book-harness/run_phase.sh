@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 # run_one.sh <angel-binary> <sandbox-helper> <label> <plain|reader>
 # One headless task against the stub model; the request log lands in out/<label>.jsonl.
-set -u
+set -euo pipefail
+if [[ $# != 4 ]]; then
+  printf 'Usage: %s <angel-binary> <sandbox-helper> <label> <plain|reader>\n' "$0" >&2
+  exit 2
+fi
 BIN=$1; HELPER=$2; LABEL=$3; MODE=$4
+if [[ ! "$LABEL" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ || ! "$MODE" =~ ^(plain|reader)$ ]]; then
+  printf 'Invalid benchmark label or mode.\n' >&2
+  exit 2
+fi
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT=$HERE/out; mkdir -p "$OUT"
 LOG=$OUT/$LABEL.jsonl; rm -f "$LOG" "$LOG.paths"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}"/angel-bench-ws-XXXX); HOMEDIR=$(mktemp -d "${TMPDIR:-/tmp}"/angel-bench-home-XXXX)
+RUN_TMP=$(mktemp -d "${TMPDIR:-/tmp}/angel-bench-run-XXXXXX")
+source "$HERE/lifecycle.sh"
+WORK=$RUN_TMP/work; HOMEDIR=$RUN_TMP/home
+mkdir "$WORK" "$HOMEDIR"
 cat > "$WORK/calc.py" <<'EOF'
 def add(a, b):
     return a - b
@@ -25,23 +36,46 @@ class CalcTest(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 EOF
-( cd "$WORK" && git init -q && git -c user.name=b -c user.email=b@b.invalid -c commit.gpgsign=false add -A \
+( export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+  cd "$WORK" && git init -q && git -c user.name=b -c user.email=b@b.invalid -c commit.gpgsign=false add -A \
   && git -c user.name=b -c user.email=b@b.invalid -c commit.gpgsign=false commit -qm init )
-PORT=$((18000 + RANDOM % 1000))
-STUB_LOG=$LOG STUB_MODE=$MODE STUB_PORT=$PORT STUB_CYCLES=${STUB_CYCLES:-0} python3 "$HERE/stub_model.py" 2>"$OUT/$LABEL.stub.err" &
+READY=$RUN_TMP/stub.ready
+STUB_LOG=$LOG STUB_MODE=$MODE STUB_PORT=0 STUB_READY=$READY STUB_CYCLES=${STUB_CYCLES:-0} python3 "$HERE/stub_model.py" 2>"$OUT/$LABEL.stub.err" &
 STUB=$!
-for _ in $(seq 50); do curl -s "http://127.0.0.1:$PORT/v1/models" >/dev/null && break; sleep 0.1; done
+PORT=
+for ((i=0; i<50; i++)); do
+  if ! kill -0 "$STUB" 2>/dev/null; then
+    printf 'Stub failed to start; see %s\n' "$OUT/$LABEL.stub.err" >&2
+    exit 2
+  fi
+  if [[ -s "$READY" ]]; then
+    read -r PORT < "$READY"
+    [[ "$PORT" =~ ^[0-9]+$ ]] && break
+  fi
+  sleep 0.1
+done
+if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+  printf 'Stub did not become ready; see %s\n' "$OUT/$LABEL.stub.err" >&2
+  exit 2
+fi
+mkfifo "$RUN_TMP/stderr.fifo"
+python3 "$HERE/ts.py" < "$RUN_TMP/stderr.fifo" > "$OUT/$LABEL.stderr" &
+LOGGER=$!
 START=$(date +%s.%N)
-env -i PATH="$PATH" HOME="$HOMEDIR" TERM=dumb LANG=C.UTF-8 \
+python3 "$HERE/exec_session.py" env -i PATH="$PATH" HOME="$HOMEDIR" TMPDIR="$RUN_TMP" TERM=dumb LANG=C.UTF-8 \
   GIT_CONFIG_GLOBAL=/dev/null \
   ANGEL_DRIVER=local ANGEL_LOCAL_URL="http://127.0.0.1:$PORT/v1" ANGEL_LOCAL_MODEL=stub \
   ANGEL_SOTA_CAVEMAN=0 ANGEL_TASK_RECON=0 ANGEL_YOLO=0 ANGEL_T_SANDBOX_HELPER="$HELPER" \
   ANGEL_TURN_PHASE_TRACE=1 ANGEL_BOOK_INTRO=${ANGEL_BOOK_INTRO:-1} \
   "$BIN" --task-json --workspace "$WORK" --task-id bench-calc --max-hops ${MAX_HOPS:-40} \
   "The unittest suite in this repository fails. Fix the code so it passes." \
-  > "$OUT/$LABEL.result.json" 2> >(python3 "$HERE/ts.py" > "$OUT/$LABEL.stderr")
-RC=$?
+  > "$OUT/$LABEL.result.json" 2> "$RUN_TMP/stderr.fifo" &
+TASK=$!
+if wait "$TASK"; then RC=0; else RC=$?; fi
 END=$(date +%s.%N)
-kill $STUB 2>/dev/null; wait $STUB 2>/dev/null
-echo "$LABEL rc=$RC wall=$(awk "BEGIN{print $END - $START}") requests=$(wc -l < "$LOG" 2>/dev/null || echo 0)"
-rm -rf "$WORK" "$HOMEDIR"
+stop_task
+finish_logger
+REQUESTS=unknown
+if [[ -f "$LOG" ]]; then REQUESTS=$(wc -l < "$LOG"); fi
+echo "$LABEL rc=$RC wall=$(awk "BEGIN{print $END - $START}") requests=$REQUESTS"
+exit "$RC"

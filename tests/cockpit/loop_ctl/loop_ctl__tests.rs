@@ -1235,6 +1235,103 @@ fn run_accept_cmd_judges_exit_status() {
 }
 
 #[test]
+fn run_accept_cmd_rejects_capped_exit_only_receipts() {
+    let _env = crate::tests::env_lock();
+    let fixture = AcceptanceFixture::new("capped-exit-only");
+    for stream in [1, 2] {
+        let command =
+            format!("/usr/bin/python3 -c 'import os; os.write({stream}, b\"x\" * 1048577)'");
+        let result = run_accept_cmd(&command, None, fixture.workspace(), "loop-test");
+        assert!(!result.passed, "{stream}: {}", result.summary);
+        assert!(
+            result.summary.contains("REJECTED EVIDENCE"),
+            "{}",
+            result.summary
+        );
+        assert!(
+            result.summary.contains("complete-capture limit"),
+            "{}",
+            result.summary
+        );
+        assert!(!result.detail.is_empty(), "retained diagnostics missing");
+        assert!(
+            result.detail.chars().count() <= 3000,
+            "failure detail not bounded"
+        );
+        assert!(
+            result.receipt.is_some(),
+            "actual execution receipt discarded"
+        );
+    }
+}
+
+#[test]
+fn run_accept_cmd_zero_threshold_cannot_accept_capped_green_prefix() {
+    let _env = crate::tests::env_lock();
+    let _threshold = crate::tests::TestEnvGuard::set("ANGEL_LOOP_VERIFY_THRESHOLD", "0");
+    let fixture = AcceptanceFixture::new("capped-zero-threshold");
+    for stream in [1, 2] {
+        let command = format!(
+            "/usr/bin/python3 -c 'import os; os.write(1, b\"test result: ok. 9 passed; 0 failed; 0 ignored;\\n\"); os.write({stream}, b\"x\" * 1048577)'"
+        );
+        let result = run_accept_cmd(&command, Some(9), fixture.workspace(), "loop-test");
+        assert!(!result.passed, "{stream}: {}", result.summary);
+        assert!(
+            result.summary.contains("REJECTED EVIDENCE"),
+            "{}",
+            result.summary
+        );
+        assert!(result.receipt.is_some());
+    }
+}
+
+#[test]
+fn run_accept_cmd_zero_threshold_rejects_invalid_reward_evidence() {
+    let _env = crate::tests::env_lock();
+    let _threshold = crate::tests::TestEnvGuard::set("ANGEL_LOOP_VERIFY_THRESHOLD", "0");
+    let fixture = AcceptanceFixture::new("invalid-zero-threshold");
+    for command in [
+        "/usr/bin/printf 'test result: ok. 9 passed; 0 failed; 0 ignored;\\n'; exit 17",
+        "/usr/bin/printf 'test result: ok. 9 passed; 0 failed; -1 ignored;\\n'",
+    ] {
+        let result = run_accept_cmd(command, Some(9), fixture.workspace(), "loop-test");
+        assert!(!result.passed, "{}", result.summary);
+        assert!(
+            result.summary.contains("REJECTED EVIDENCE"),
+            "{}",
+            result.summary
+        );
+        assert!(!result.detail.is_empty());
+        assert!(result.receipt.is_some());
+    }
+}
+
+#[test]
+fn run_accept_cmd_zero_threshold_preserves_valid_green_and_partial_rewards() {
+    let _env = crate::tests::env_lock();
+    let _threshold = crate::tests::TestEnvGuard::set("ANGEL_LOOP_VERIFY_THRESHOLD", "0");
+    let fixture = AcceptanceFixture::new("valid-zero-threshold");
+    for (command, baseline, reward) in [
+        (
+            "/usr/bin/printf 'test result: ok. 9 passed; 0 failed; 0 ignored;\\n'",
+            9,
+            "1.00",
+        ),
+        (
+            "/usr/bin/printf 'test result: FAILED. 3 passed; 1 failed; 0 ignored;\\n'",
+            3,
+            "0.75",
+        ),
+    ] {
+        let result = run_accept_cmd(command, Some(baseline), fixture.workspace(), "loop-test");
+        assert!(result.passed, "{}", result.summary);
+        assert!(result.summary.contains(&format!("RLVR reward {reward}")));
+        assert!(result.detail.is_empty());
+        assert!(result.receipt.is_some());
+    }
+}
+
+#[test]
 fn run_accept_cmd_scores_test_output_via_rlvr() {
     let fixture = AcceptanceFixture::new("rlvr");
     // A libtest summary is scored through evaluator-owned LEVI/reinforce
@@ -1336,6 +1433,29 @@ fn count_passed_parses_summary_in_dir() {
     );
 }
 
+#[test]
+fn count_passed_does_not_pin_a_partial_green_prefix_as_the_baseline() {
+    let _lock = crate::tests::env_lock();
+    for stream in [1, 2] {
+        let command = format!(
+            "python3 -c 'import os; os.write(1, b\"test result: ok. 7 passed; 0 failed;\\n\"); os.write({stream}, b\"x\" * (1024 * 1024 + 1))'"
+        );
+        assert_eq!(
+            count_passed_in(&command, Path::new(".")),
+            0,
+            "stream {stream}"
+        );
+    }
+    // A completed red suite still supplies its actual pre-edit pass count.
+    assert_eq!(
+        count_passed_in(
+            "printf 'test result: FAILED. 7 passed; 2 failed;\\n'; exit 1",
+            Path::new(".")
+        ),
+        7
+    );
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 fn count_passed_drains_noisy_stderr_before_the_summary() {
@@ -1343,7 +1463,7 @@ fn count_passed_drains_noisy_stderr_before_the_summary() {
     let _lock = crate::tests::env_lock();
     assert_eq!(
         count_passed_in(
-            "i=0; while [ \"$i\" -lt 40000 ]; do printf 'noise-%05d-xxxxxxxxxxxxxxxxxxxxxxxx\\n' \"$i\" >&2; i=$((i + 1)); done; printf 'test result: ok. 9 passed; 0 failed; 0 ignored;\\n'",
+            "i=0; while [ \"$i\" -lt 8000 ]; do printf 'noise-%05d-xxxxxxxxxxxxxxxxxxxxxxxx\\n' \"$i\" >&2; i=$((i + 1)); done; printf 'test result: ok. 9 passed; 0 failed; 0 ignored;\\n'",
             Path::new("."),
         ),
         9

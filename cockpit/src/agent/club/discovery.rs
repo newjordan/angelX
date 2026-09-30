@@ -568,7 +568,7 @@ pub(crate) const META_REASONING_LEVELS: &[&str] = &["minimal", "low", "medium", 
 /// Muse Spark always reasons, and Meta's Chat Completions endpoint redacts that
 /// reasoning to empty. The seat therefore speaks the Responses API, which
 /// streams reasoning summaries to the thinking panel.
-/// `ANGEL_META_REASONING_EFFORT` picks the effort and
+/// `ANGEL_META_REASONING_EFFORT` picks the effort (unset, the calibrated one) and
 /// `ANGEL_META_REASONING_SUMMARY` the summary level (`detailed` by default, so
 /// the panel shows more than one sentence); `ANGEL_META_API=chat` keeps the
 /// Chat Completions route.
@@ -593,7 +593,12 @@ pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<At
         env_first(&["ANGEL_META_URL"]).unwrap_or_else(|| "https://api.meta.ai/v1".to_string());
     let effort = env_first(&["ANGEL_META_REASONING_EFFORT"])
         .map(|effort| effort.to_ascii_lowercase())
-        .filter(|effort| META_REASONING_LEVELS.contains(&effort.as_str()));
+        .filter(|effort| META_REASONING_LEVELS.contains(&effort.as_str()))
+        .or_else(|| {
+            super::model_defaults::entry(&model)
+                .and_then(|entry| entry.default_effort)
+                .filter(|effort| META_REASONING_LEVELS.contains(&effort.as_str()))
+        });
     let club = crate::agent::openai_codex::CodexClub::api_key_seat(
         model.clone(),
         model,

@@ -33,19 +33,31 @@ seat_env() {
   esac
 }
 
-# start_proxy <log>: proxy_log.py on a port the OS hands out, retried until it
-# binds (a random port once collided with another session's proxy, and the
-# harness then talked to that session's model). Sets PORT and PROXY.
+# start_proxy <log>: proxy_log.py binds its own ephemeral port, then reports
+# that exact listener through a private ready receipt. Sets PORT and PROXY.
 start_proxy() {
-  local log=$1 attempt
-  for attempt in 1 2 3 4 5; do
-    PORT=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
-    seat_env "$PORT" || return 2
-    PROXY_LOG=$log PROXY_PORT=$PORT python3 "$HERE/proxy_log.py" 2>"${log%.jsonl}.proxy.err" &
-    PROXY=$!
-    sleep 0.5
-    kill -0 "$PROXY" 2>/dev/null && return 0
+  local log=$1 ready i
+  seat_env 0 || return 2
+  ready=$(mktemp "${RUN_TMP:-${TMPDIR:-/tmp}}/angel-proxy-ready.XXXXXX") || return 2
+  PROXY_LOG=$log PROXY_PORT=0 PROXY_READY=$ready \
+    python3 "$HERE/exec_session.py" python3 "$HERE/proxy_log.py" 2>"${log%.jsonl}.proxy.err" &
+  PROXY=$!
+  PORT=
+  for ((i=0; i<50; i++)); do
+    if ! kill -0 "$PROXY" 2>/dev/null; then break; fi
+    if [[ -s "$ready" ]]; then
+      read -r PORT < "$ready"
+      [[ "$PORT" =~ ^[0-9]+$ ]] && break
+    fi
+    sleep 0.1
   done
-  echo "proxy never bound a port" >&2
+  rm -f -- "$ready" "$ready.tmp"
+  if [[ "$PORT" =~ ^[0-9]+$ ]]; then
+    seat_env "$PORT" || return 2
+    return 0
+  fi
+  kill "$PROXY" 2>/dev/null || true
+  wait "$PROXY" 2>/dev/null || true
+  echo "proxy did not become ready; see ${log%.jsonl}.proxy.err" >&2
   return 2
 }

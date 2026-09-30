@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -11,6 +11,12 @@ import { auditResearchEmbed, embeddedPaths } from '../../scripts/check-research-
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
 const REL = 'orchestrator/self_improvement/stats.py'
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')
+const fixtureRoots = new Set()
+
+afterEach(() => {
+  for (const root of fixtureRoots) fs.rmSync(root, { recursive: true, force: true })
+  fixtureRoots.clear()
+})
 
 function write(root, rel, body) {
   const abs = join(root, rel)
@@ -25,6 +31,7 @@ function embedFixture({
   recorded = null,
 } = {}) {
   const root = fs.mkdtempSync(join(os.tmpdir(), 'angel-research-embed-'))
+  fixtureRoots.add(root)
   write(root, `cockpit/research/sloptomizer/${REL}`, body)
   write(root, 'cockpit/research/sloptomizer/runner.py', 'runner\n')
   write(

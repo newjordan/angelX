@@ -695,6 +695,120 @@ fn store_lease_is_nonblocking_and_exclusive() {
     let _ = std::fs::remove_dir_all(base);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn nonregular_campaign_store_fixture() {
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::{FileTypeExt, OpenOptionsExt};
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    let Some(base) = std::env::var_os("ANGEL_T_CAMPAIGN_FIFO") else {
+        return;
+    };
+    let base = PathBuf::from(base);
+    let workspace = base.join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let store = CampaignStore::in_root(&workspace, base.join("store"));
+    let lease = store.acquire_lease().unwrap();
+    let record = ready_record(&workspace);
+    store.save(&record).unwrap();
+    drop(lease);
+    let mut blocked_operations = Vec::new();
+    for (label, path) in [
+        ("load", store.record_path().to_path_buf()),
+        (
+            "append",
+            store.record_path().parent().unwrap().join("events.jsonl"),
+        ),
+    ] {
+        if path.exists() {
+            std::fs::remove_file(&path).unwrap();
+        }
+        let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+        // SAFETY: the path belongs to this isolated fixture directory.
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        let worker_store = store.clone();
+        let worker_record = record.clone();
+        let (send, receive) = mpsc::channel();
+        let started = Instant::now();
+        let worker = std::thread::spawn(move || {
+            let result = if label == "load" {
+                match worker_store.load() {
+                    LoadedCampaign::Inert(error) => Err(error),
+                    _ => Ok(()),
+                }
+            } else {
+                worker_store.append_event(
+                    &worker_record,
+                    CampaignStatus::Draft,
+                    "fixture",
+                    "owned nonregular fixture",
+                )
+            };
+            send.send(result).unwrap();
+        });
+        let first = receive.recv_timeout(Duration::from_millis(500));
+        let blocked = first.is_err();
+        let result = match first {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                // Release both read and write opens in the old implementation
+                // before failing, leaving no blocked worker or FIFO peer.
+                let peer = std::fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .custom_flags(libc::O_NONBLOCK)
+                    .open(&path)
+                    .unwrap();
+                let result = receive.recv_timeout(Duration::from_secs(1)).unwrap();
+                drop(peer);
+                result
+            }
+            Err(error) => panic!("campaign worker disconnected: {error}"),
+        };
+        worker.join().unwrap();
+        println!(
+            "campaign operation={label} blocked_before_validation={blocked} elapsed={:?}",
+            started.elapsed()
+        );
+        assert!(result.is_err());
+        assert!(
+            std::fs::symlink_metadata(path)
+                .unwrap()
+                .file_type()
+                .is_fifo()
+        );
+        if blocked {
+            blocked_operations.push(label);
+        }
+    }
+    let lock_path = store.record_path().parent().unwrap().join("campaign.lock");
+    std::fs::remove_file(&lock_path).unwrap();
+    let lock_name = std::ffi::CString::new(lock_path.as_os_str().as_bytes()).unwrap();
+    // SAFETY: lock_name belongs to this isolated fixture directory.
+    assert_eq!(unsafe { libc::mkfifo(lock_name.as_ptr(), 0o600) }, 0);
+    let lease = store.acquire_lease();
+    println!("campaign FIFO lease accepted={}", lease.is_ok());
+    assert!(lease.is_err(), "campaign lease accepted a FIFO");
+    assert!(
+        blocked_operations.is_empty(),
+        "campaign operations waited for FIFO peers: {blocked_operations:?}"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn campaign_load_and_event_append_refuse_fifo_without_peer() {
+    crate::agent::process_test_support::isolated_fixture(
+        &format!(
+            "{}::nonregular_campaign_store_fixture",
+            module_path!().split_once("::").unwrap().1
+        ),
+        "ANGEL_T_CAMPAIGN_FIFO",
+    );
+}
+
 #[test]
 fn bounded_campaign_lens_is_harness_role_after_operator_text() {
     let (base, workspace, _) = scratch("lens");

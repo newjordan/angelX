@@ -53,6 +53,23 @@ _angel_realpath() {
   python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$p"
 }
 
+# A selected launch image must be a regular executable. Nonblocking open lets
+# invalid special-file inputs fail before a hash read can wait for a writer.
+_angel_image_sha256() {
+  python3 - "$1" <<'PY'
+import hashlib, os, stat, sys
+descriptor = os.open(sys.argv[1], os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0))
+with os.fdopen(descriptor, 'rb') as source:
+    metadata = os.fstat(source.fileno())
+    if not stat.S_ISREG(metadata.st_mode) or not metadata.st_mode & 0o111:
+        raise ValueError('launch image is not a regular executable')
+    digest = hashlib.sha256()
+    for block in iter(lambda: source.read(1024 * 1024), b''):
+        digest.update(block)
+print(digest.hexdigest())
+PY
+}
+
 # Derive the repo root from this script's own location (bin/ is directly under
 # the root). Resolves symlinks so a linked launcher still works on Linux and macOS.
 ANGEL_DIR="$(cd "$(dirname "$(_angel_realpath "${BASH_SOURCE[0]}")")/.." && pwd)"
@@ -321,15 +338,7 @@ if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
   [ -n "${ANGEL_LAUNCH_BINARY_SHA256:-}" ] || _die "ANGEL_LAUNCH_BINARY requires its expected SHA-256"
   BIN="$(_angel_realpath "$ANGEL_LAUNCH_BINARY")" || _die "cannot resolve ANGEL_LAUNCH_BINARY"
   [ -x "$BIN" ] || _die "selected launch binary is not executable"
-  selected_sha=$(python3 - "$BIN" <<'PY'
-import hashlib, sys
-digest = hashlib.sha256()
-with open(sys.argv[1], 'rb') as source:
-    for block in iter(lambda: source.read(1024 * 1024), b''):
-        digest.update(block)
-print(digest.hexdigest())
-PY
-  ) || _die "cannot verify selected launch binary"
+  selected_sha=$(_angel_image_sha256 "$BIN") || _die "cannot verify selected launch binary"
   [ "$selected_sha" = "$ANGEL_LAUNCH_BINARY_SHA256" ] || _die "selected launch binary SHA-256 differs"
 fi
 PORTAL_MANIFEST="$COCKPIT_DIR/portal-renderer/Cargo.toml"
@@ -482,6 +491,12 @@ mkdir -p "$RUN_DIR"
 # Random suffixes also avoid collisions between equal PIDs in namespaces.
 RUN_BIN=$(mktemp "$RUN_DIR/angel-$$-XXXXXXXX")
 ln -f "$BIN" "$RUN_BIN" 2>/dev/null || cp -p "$BIN" "$RUN_BIN"
+# The selected pathname can be replaced after its earlier source check. The
+# private launch image is what actually executes, so bind that image as well.
+if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
+  launch_sha=$(_angel_image_sha256 "$RUN_BIN") || _die "cannot verify launch image"
+  [ "$launch_sha" = "$ANGEL_LAUNCH_BINARY_SHA256" ] || _die "launch image SHA-256 differs"
+fi
 
 # Another instance may be live. Retained crash links conservatively select a
 # separate log; also match older cockpits running target/<profile>/angel

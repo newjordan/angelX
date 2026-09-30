@@ -186,7 +186,11 @@ pub(crate) fn draw(
     let title: String = glass.title.to_uppercase().chars().take(room).collect();
     f.text(x + BORDER + 3, bar_y + 1, &title, '9');
     if glass.live {
-        let pip = if (tick / 2) % 2 == 0 { '2' } else { '3' };
+        let pip = if (tick / 2).is_multiple_of(2) {
+            '2'
+        } else {
+            '3'
+        };
         f.rect(x + BORDER + GLASS_W - 6, bar_y + 3, 3, 3, pip);
     }
     f.stamp(&glass.picture, x + BORDER, bar_y + TITLE_H);

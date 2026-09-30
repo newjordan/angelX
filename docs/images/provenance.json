@@ -119,6 +119,25 @@
         "type /",
         "Tab"
       ]
+    },
+    {
+      "file": "graph-garden-live.png",
+      "sha256": "cc58eb458f1506d96bb7c03530b95a39ec16f6effb876487d88aa3383fb54985",
+      "captured_date_utc": "2026-09-30",
+      "shows": "angelX 0.1.9 on GLM-5.3 (thinking low) mid-turn: four bars grown, a sprite carrying the next point, the farmer in the field.",
+      "actions": [
+        "fresh launch in an empty workspace",
+        "prompt: Use graph to make a bar chart of these measured bushels: day 1 had 7, day 2 had 4, day 3 had 9, day 4 had 6, day 5 had 11, day 6 had 8. Label the axes Day and Bushels and use a zero-based y scale. Fill one point per call, then finish the chart."
+      ]
+    },
+    {
+      "file": "graph-garden-planted.png",
+      "sha256": "20046eeb0fb4f2fa973b0f79ea849ba2d9809015386f240b553dfcb85b39c23f",
+      "captured_date_utc": "2026-09-30",
+      "shows": "The same turn finished (8 graph calls, 29 s), then /world crops: the planted chart and its six values.",
+      "actions": [
+        "/world crops"
+      ]
     }
   ]
 }

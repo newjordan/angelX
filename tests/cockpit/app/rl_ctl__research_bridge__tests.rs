@@ -1,5 +1,90 @@
 use super::*;
 
+#[cfg(target_os = "linux")]
+#[test]
+fn sloptomizer_nonregular_store_fixture() {
+    use std::os::unix::ffi::OsStrExt as _;
+    use std::os::unix::fs::FileTypeExt as _;
+
+    let Some(root) = std::env::var_os("ANGEL_T_RESEARCH_FIFO") else {
+        return;
+    };
+    let _cleanup = crate::agent::process_test_support::FixtureCleanup::new();
+    let root = PathBuf::from(root);
+    let state = root.join("state.json");
+    let name = std::ffi::CString::new(state.as_os_str().as_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    let cancel = std::sync::Arc::new(AtomicBool::new(false));
+    let worker_cancel = std::sync::Arc::clone(&cancel);
+    let worker_root = root.clone();
+    let (send, receive) = std::sync::mpsc::channel();
+    let started = std::time::Instant::now();
+    let worker = std::thread::spawn(move || {
+        send.send(transform(
+            &worker_root,
+            json!({"action":"suggest"}),
+            &worker_cancel,
+        ))
+        .unwrap();
+    });
+    let first = receive.recv_timeout(Duration::from_millis(500));
+    let blocked = first.is_err();
+    let result = match first {
+        Ok(result) => result,
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            // Release the old blocking-open implementation before failing the
+            // regression, so it leaves no stuck worker. The fixture's outer
+            // process deadline also bounds assertion/setup failures.
+            cancel.store(true, Ordering::Release);
+            let writer = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .custom_flags(libc::O_NONBLOCK)
+                .open(&state)
+                .unwrap();
+            let result = receive.recv_timeout(Duration::from_secs(1)).unwrap();
+            drop(writer);
+            result
+        }
+        Err(error) => panic!("research worker disconnected: {error}"),
+    };
+    worker.join().unwrap();
+    assert!(!blocked, "regular-file check waited for a FIFO writer");
+    assert!(started.elapsed() < Duration::from_millis(500));
+    assert!(
+        result
+            .unwrap_err()
+            .contains("research store entry is not a regular file")
+    );
+    assert!(
+        std::fs::symlink_metadata(&state)
+            .unwrap()
+            .file_type()
+            .is_fifo()
+    );
+
+    let plain = root.join("plain.json");
+    let bytes = b"{\"receipt\":\"exact bytes\"}\n\0\xff";
+    std::fs::write(&plain, bytes).unwrap();
+    assert_eq!(read(&plain).unwrap(), bytes);
+    let linked = root.join("linked.json");
+    std::os::unix::fs::symlink(&plain, &linked).unwrap();
+    assert!(read(&linked).is_err(), "O_NOFOLLOW must remain in force");
+    assert_eq!(std::fs::read(plain).unwrap(), bytes);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn sloptomizer_rejects_fifo_state_without_blocking_and_preserves_plain_reads() {
+    crate::agent::process_test_support::isolated_fixture(
+        &format!(
+            "{}::sloptomizer_nonregular_store_fixture",
+            module_path!().split_once("::").unwrap().1
+        ),
+        "ANGEL_T_RESEARCH_FIFO",
+    );
+}
+
 #[test]
 fn sloptomizer_bundled_originals_match_source_receipt() {
     let manifest: Value =

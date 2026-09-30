@@ -169,6 +169,7 @@ pub(crate) struct Scene {
     pub(crate) outcome_motion: MotionMode,
     /// Research is out: the Observatory's glass sweeps the sky.
     pub(crate) stargazing: bool,
+    pub(crate) garden: super::garden::GardenFrame,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
     pub(crate) tick: u32,
@@ -226,6 +227,12 @@ impl Scene {
         }
         (&self.record, self.sparks, self.stargazing).hash(&mut h);
         (&self.outcomes, self.outcome_motion as u8).hash(&mut h);
+        (
+            self.garden.epoch,
+            self.garden.tick,
+            self.garden.motion as u8,
+        )
+            .hash(&mut h);
         if let Some(g) = &self.glass {
             (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
         }
@@ -266,6 +273,7 @@ impl Scene {
             outcomes: Vec::new(),
             outcome_motion: MotionMode::Full,
             stargazing: false,
+            garden: super::garden::GardenFrame::default(),
             ambient: DUSK,
             tick: 0,
         }
@@ -990,6 +998,8 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
             });
         }
     }
+
+    super::garden::stage(&scene.garden, &mut props, &mut cues);
 
     // ── the party trails the knight ──
     const ROBES: [char; 4] = ['1', '2', '@', '3'];

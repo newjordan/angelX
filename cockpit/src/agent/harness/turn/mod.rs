@@ -3788,6 +3788,12 @@ fn run_turn_tiered(
                         name: call.name.clone(),
                         args_summary: summarize_args(&call.args),
                     });
+                    crate::agent::tools::graph::emit_requested(
+                        events,
+                        &ToolEventId(call.id.clone()),
+                        &call.name,
+                        &call.args,
+                    );
                     let preview = action_batch_ref.and_then(|batch| batch.contains(index));
                     let mut dispatch_elapsed = None;
                     let denied_this = deny_actions && preview.is_some();
@@ -3832,6 +3838,13 @@ fn run_turn_tiered(
                         ));
                     }
                     let outcome = registry.executed_outcome(call, &result, denied_this);
+                    crate::agent::tools::graph::emit_returned(
+                        events,
+                        &ToolEventId(call.id.clone()),
+                        &call.name,
+                        &result,
+                        outcome,
+                    );
                     let _ = events.send(TurnEvent::ToolResult {
                         id: ToolEventId(call.id.clone()),
                         name: call.name.clone(),

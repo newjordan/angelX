@@ -564,6 +564,133 @@ fn interactive_shell_rejects_excessive_sleep() {
 }
 
 #[test]
+fn interactive_sleep_guard_recognizes_literal_duration_and_command_forms() {
+    for command in [
+        "sleep 1m",
+        "sleep .01h",
+        "sleep 0.001d",
+        "sleep 1e2",
+        "sleep inf",
+        "sleep 6 6",
+        "sleep 0.1m 5s",
+        "sleep 1;sleep 30",
+        "true&&sleep 30",
+        "printf ok|sleep 30",
+        "(sleep 30)",
+        "/bin/sleep 30",
+        "'sleep' '30'",
+        "sl\\eep 30",
+        "DELAY=30 sleep 30",
+        "time -p sleep 30",
+        "time -p -- sleep 30",
+        "command -- sleep 30",
+        "exec -a wait sleep 30",
+        "env -u DELAY sleep 30",
+        "env --unset DELAY sleep 30",
+        "env --chdir=/tmp sleep 30",
+        "env -S 'sleep 30'",
+        "env --split-string='sleep 1m'",
+        "env -S 'sleep' 30",
+        "timeout 60 sleep 30",
+        "timeout -k 2 -s TERM 60 sleep 30",
+        "gtimeout --signal=TERM 60s sleep 30",
+        "nice -n 10 sleep 30",
+        "stdbuf -oL sleep 30",
+        "busybox sleep 30",
+        "eval 'sleep 30'",
+        "ssh host 'sleep 30'",
+        "ssh -o BatchMode=yes -p 22 host 'sleep 1m'",
+        "ssh -p22 host sleep 30",
+        "while true;do sleep 30;done",
+        "sleep 30 >/dev/null",
+        "sleep '30'>/dev/null",
+        "sleep 1m>/dev/null",
+        "2>/dev/null sleep 30",
+        "bash -lc 'sleep 1m'",
+        "bash --noprofile -o pipefail -c 'sleep 30'",
+        "sh -c \"sleep 6 6\"",
+    ] {
+        assert!(
+            contains_excessive_sleep(command, 10),
+            "must reject {command:?}"
+        );
+    }
+}
+
+#[test]
+fn interactive_sleep_guard_allows_short_waits_and_literal_data() {
+    for command in [
+        "sleep 10",
+        "sleep 5s 5s",
+        "sleep 0.1m",
+        "sleep 0.002h",
+        "sleep --help",
+        "sleep 30 --help",
+        "sleep 30 --bogus",
+        "sleep 30>/dev/null",
+        "sleep \"3\\0\"",
+        "\"sl\\eep\" 30",
+        "command -v sleep 30",
+        "command -V sleep 30",
+        "env --help sleep 30",
+        "env -S 'printf \"sleep 30\"'",
+        "nohup --help sleep 30",
+        "timeout --help sleep 30",
+        "nice --help sleep 30",
+        "ssh -G host sleep 30",
+        "ssh host 'printf \"sleep 30\"'",
+        "eval 'printf \"sleep 30\"'",
+        "printf '%s\\n' 'sleep 30'",
+        "printf '%s\\n' sleep 30",
+        "grep -n \"sleep 30\" benchmark.sh",
+        "rg sleep 30",
+        "cat sleep 30",
+        "echo sleep 30 # sleep 1m",
+        "cat <<'EOF'\nsleep 30\nEOF",
+        "bash -c 'printf \"sleep 30\"'",
+        "bash benchmark.sh -c 'sleep 30'",
+        "printf ok >sleep 30",
+        "sleep 1;printf done",
+    ] {
+        assert!(
+            !contains_excessive_sleep(command, 10),
+            "must allow {command:?}"
+        );
+    }
+}
+
+#[test]
+fn interactive_sleep_guard_rejects_before_spawn_and_allows_quoted_output() {
+    let _guard = crate::tests::env_lock();
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
+    let dir = scratch("sleep-literal-boundary");
+    let tool = ShellTool::in_dir(dir.clone());
+    // A regression must fail promptly, rather than actually sleeping a minute.
+    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let trigger = std::sync::Arc::clone(&cancel);
+    let setter = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        trigger.store(true, std::sync::atomic::Ordering::Release);
+    });
+    let error = tool
+        .call_with_cancel(
+            &serde_json::json!({"command": "printf spawned > guard-started; sleep 1m"}),
+            Some(cancel.as_ref()),
+        )
+        .unwrap_err();
+    setter.join().unwrap();
+    assert!(error.starts_with("shell command rejected:"), "{error}");
+    assert!(!dir.join("guard-started").exists());
+
+    let output = tool
+        .call(&serde_json::json!({"command": "printf '%s' 'sleep 30'"}))
+        .expect("quoted data must reach the shell");
+    assert_eq!(output.trim(), "sleep 30");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn t06c_stdin_eof_and_signal_names() {
     let _lock = crate::tests::env_lock();
     let _env = crate::tests::TestEnvGuard::set("ANGEL_EXPERIENCE", "0");

@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -116,7 +126,11 @@ test('empty and none are explicit operator choices to disable API credentials', 
 })
 
 test('unrelated tools keep their configuration instead of inheriting a global provider ban', () => {
-  const env = filtered({ ANGEL_API_CLUBS: 'glm', HF_TOKEN: 'fixture', ANGEL_META_MODEL: 'user-model' })
+  const env = filtered({
+    ANGEL_API_CLUBS: 'glm',
+    HF_TOKEN: 'fixture',
+    ANGEL_META_MODEL: 'user-model',
+  })
   assert.equal(env.HF_TOKEN, 'fixture')
   assert.equal(env.ANGEL_META_MODEL, 'user-model')
   assert.equal(env.META_API_KEY, undefined, 'the Muse key belongs to the meta club')
@@ -188,3 +202,75 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
   assert.deepEqual(launch(), { grok: true, openai: true, marker: 'project' })
   assert.deepEqual(launch(['--build-info', '--json']), { grok: false, openai: false, marker: null })
 })
+
+for (const replaced of [false, true]) {
+  test(`selected launcher image ${replaced ? 'refuses replacement after source verification' : 'runs with its expected digest'}`, (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'angel-selected-launch-'))
+    t.after(() => rmSync(root, { recursive: true, force: true }))
+    const source = join(root, 'source')
+    const home = join(root, 'home')
+    const tools = join(root, 'tools')
+    for (const path of [
+      source,
+      home,
+      tools,
+      join(source, 'bin'),
+      join(source, 'scripts/check'),
+      join(source, 'cockpit/target/release'),
+    ])
+      mkdirSync(path, { recursive: true })
+    copyFileSync(
+      fileURLToPath(new URL('../../bin/angelX', import.meta.url)),
+      join(source, 'bin/angelX'),
+    )
+    copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
+    const selected = join(root, 'selected')
+    const replacement = join(root, 'replacement')
+    const marker = join(root, 'executed')
+    const image =
+      '#!/usr/bin/env python3\nimport os, pathlib\npathlib.Path(os.environ["FIXTURE_EXECUTED"]).write_text("selected")\nprint("selected image")\n'
+    writeFileSync(selected, image, { mode: 0o755 })
+    writeFileSync(replacement, image.replaceAll('selected', 'replacement'), { mode: 0o755 })
+    // Replace a regular source at the actual link boundary, after the
+    // launcher's first SHA check. Only private fixture files are involved.
+    if (replaced) {
+      writeFileSync(
+        join(tools, 'ln'),
+        `#!/usr/bin/env python3
+import os, sys
+if sys.argv[-2] == os.environ['FIXTURE_SOURCE']:
+    os.replace(os.environ['FIXTURE_REPLACEMENT'], sys.argv[-2])
+os.execv('/usr/bin/ln', ['ln', *sys.argv[1:]])
+`,
+        { mode: 0o755 },
+      )
+    }
+    const result = spawnSync('bash', [join(source, 'bin/angelX'), '--build-info', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 10_000,
+      env: {
+        HOME: home,
+        PATH: `${tools}:/usr/bin:/bin`,
+        LANG: 'C.UTF-8',
+        ANGEL_NO_BUILD: '1',
+        ANGEL_LAUNCH_BINARY: selected,
+        ANGEL_LAUNCH_BINARY_SHA256: createHash('sha256').update(image).digest('hex'),
+        ANGEL_WEBGPU_PORTAL: '0',
+        FIXTURE_SOURCE: selected,
+        FIXTURE_REPLACEMENT: replacement,
+        FIXTURE_EXECUTED: marker,
+      },
+    })
+    if (replaced) {
+      assert.notEqual(result.status, 0, 'a replacement with another digest must not execute')
+      assert.equal(existsSync(marker), false)
+      assert.match(result.stderr, /launch image SHA-256 differs/u)
+    } else {
+      assert.equal(result.status, 0, result.stderr)
+      assert.equal(result.stdout, 'selected image\n')
+      assert.equal(existsSync(marker), true)
+    }
+    assert.deepEqual(readdirSync(join(source, 'cockpit/target/release/run')), [])
+  })
+}

@@ -224,7 +224,7 @@ fn cuda_compiler_lines(workspace: &Path, walk: &Walk) -> Vec<String> {
         let env = workspace.join(&entry.rel);
         candidates.push(env.join("bin/nvcc"));
         for site in children_with(
-            &env.join("lib"),
+            env.join("lib"),
             "python",
             "site-packages/nvidia/cuda_nvcc/bin",
         ) {
@@ -704,7 +704,7 @@ fn top_level(walk: &Walk) -> Vec<String> {
         .filter(|entry| entry.depth == 1)
         .filter(|entry| {
             let name = entry.name();
-            !name.starts_with('.') && !(entry.dir && SKIP_DIRS.contains(&name.as_str()))
+            !(name.starts_with('.') || entry.dir && SKIP_DIRS.contains(&name.as_str()))
         })
         .collect();
     // `bench-iteration7` → `bench-`, `run12` → `run`: up to and including
@@ -771,7 +771,7 @@ fn top_level(walk: &Walk) -> Vec<String> {
             .map(|(kind, n)| format!("{n} {kind}"))
             .collect();
         let mut largest: Vec<&&&WalkEntry> = files.iter().collect();
-        largest.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        largest.sort_by_key(|entry| std::cmp::Reverse(entry.bytes));
         let largest: Vec<String> = largest
             .iter()
             .take(3)
@@ -807,7 +807,7 @@ fn notes(walk: &Walk, now: u64) -> String {
                 || name == "todo"
         })
         .collect();
-    notes.sort_by(|a, b| b.modified.cmp(&a.modified));
+    notes.sort_by_key(|note| std::cmp::Reverse(note.modified));
     let lines: Vec<String> = notes
         .iter()
         .take(NOTES_SHOWN)

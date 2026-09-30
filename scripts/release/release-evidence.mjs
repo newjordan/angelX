@@ -138,6 +138,10 @@ export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
 
 const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/FEATURES.md',
+  'docs/GRAPH_GARDEN.md',
+  'docs/images/graph-garden-growing.png',
+  'docs/images/graph-garden-live.png',
+  'docs/images/graph-garden-planted.png',
   'docs/SELF_MODEL.md',
   'docs/MEMORY.md',
   'docs/MODELS.md',
@@ -160,6 +164,19 @@ const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/images/intro.png',
   'docs/images/ui/command-picker.png',
   'docs/images/world.png',
+  'docs/images/bench/tokens-time-deepseek.png',
+  'docs/images/bench/solved-dark.png',
+  'docs/images/bench/solved-light.png',
+  'docs/images/bench/score-dark.png',
+  'docs/images/bench/score-light.png',
+  'docs/images/bench/bars-dark.png',
+  'docs/images/bench/bars-light.png',
+  'docs/images/bench/seconds-dark.png',
+  'docs/images/bench/seconds-light.png',
+  'docs/images/bench/context-dark.png',
+  'docs/images/bench/context-light.png',
+  'docs/images/bench/cache-dark.png',
+  'docs/images/bench/cache-light.png',
 ])
 
 const PUBLIC_RELEASE_NOTICES = Object.freeze([
@@ -212,6 +229,7 @@ export const RELEASE_PATHS = Object.freeze([
   'cockpit/portal-renderer/src',
   'scripts/check/cockpit-source-digest.sh',
   'scripts/check/check-cockpit-fast.sh',
+  'scripts/check/copy-cockpit-test-image.py',
   'scripts/check/check-cockpit-quality.sh',
   'scripts/check/check-active-connections.py',
   'tests/python/test_active_connections.py',
@@ -282,6 +300,7 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'cockpit/portal-renderer/src/main.rs',
   'scripts/check/cockpit-source-digest.sh',
   'scripts/check/check-cockpit-fast.sh',
+  'scripts/check/copy-cockpit-test-image.py',
   'scripts/check/check-cockpit-quality.sh',
   'scripts/check/check-active-connections.py',
   'tests/python/test_active_connections.py',

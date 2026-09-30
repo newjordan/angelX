@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -14,9 +14,16 @@ import {
 } from '../../scripts/check-duplicate-content.mjs'
 
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
+const fixtureRoots = new Set()
+
+afterEach(() => {
+  for (const root of fixtureRoots) fs.rmSync(root, { recursive: true, force: true })
+  fixtureRoots.clear()
+})
 
 function fixture(files) {
   const root = fs.mkdtempSync(join(os.tmpdir(), 'angel-duplicate-content-'))
+  fixtureRoots.add(root)
   for (const [rel, body] of Object.entries(files)) {
     const abs = join(root, rel)
     fs.mkdirSync(join(abs, '..'), { recursive: true })

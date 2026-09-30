@@ -259,6 +259,67 @@ struct CapturedStdout {
     overflow: bool,
 }
 
+/// A pipe can outlive its direct child when a descendant changes sessions.
+/// Poll before each read so the caller's deadline also bounds EOF, without
+/// leaving a reader thread blocked for that descendant's lifetime.
+#[cfg(unix)]
+pub(crate) struct DeadlinePipe<R> {
+    pipe: R,
+    deadline: Instant,
+}
+
+#[cfg(unix)]
+impl<R> DeadlinePipe<R> {
+    /// The owned pipe must have one reader, so readiness makes its next read
+    /// nonblocking. Shared by bounded metadata capture and streamed evidence.
+    pub(crate) fn new(pipe: R, deadline: Instant) -> Self {
+        Self { pipe, deadline }
+    }
+}
+
+#[cfg(unix)]
+impl<R: std::io::Read + std::os::fd::AsRawFd> std::io::Read for DeadlinePipe<R> {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        if bytes.is_empty() {
+            return Ok(0);
+        }
+        loop {
+            let remaining = self
+                .deadline
+                .checked_duration_since(Instant::now())
+                .ok_or(std::io::ErrorKind::TimedOut)?;
+            let mut descriptor = libc::pollfd {
+                fd: self.pipe.as_raw_fd(),
+                events: libc::POLLIN | libc::POLLHUP | libc::POLLERR,
+                revents: 0,
+            };
+            let millis = remaining
+                .as_millis()
+                .saturating_add(1)
+                .min(i32::MAX as u128) as i32;
+            // SAFETY: this thread owns the pipe and one live pollfd. No other
+            // reader can consume its ready bytes before the following read.
+            let ready = unsafe { libc::poll(&mut descriptor, 1, millis) };
+            if ready == 0 {
+                // Recheck the absolute deadline; very large caller budgets
+                // can require more than one poll's i32 millisecond allowance.
+                continue;
+            }
+            if ready < 0 {
+                let error = std::io::Error::last_os_error();
+                if error.kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(error);
+            }
+            match std::io::Read::read(&mut self.pipe, bytes) {
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                result => return result,
+            }
+        }
+    }
+}
+
 fn drain_stdout<R>(
     mut stdout: R,
     limit: usize,
@@ -300,7 +361,8 @@ fn kill_capture_group(child: &mut std::process::Child, pid: u32) {
 /// The reader drains concurrently and retains only `limit` bytes, so a noisy
 /// child cannot deadlock on a full pipe or grow the cockpit without bound.
 /// `None` means the deadline expired. The child leads a private process group
-/// so timeout cleanup also closes pipes inherited by grandchildren.
+/// so timeout cleanup also closes pipes inherited by grandchildren. On Unix,
+/// the same deadline bounds EOF even if a descendant escapes that group.
 fn capture_command_with_deadline(
     mut command: Command,
     timeout: Duration,
@@ -321,8 +383,10 @@ fn capture_command_with_deadline(
         kill_capture_group(&mut child, pid);
         return Err(std::io::Error::other("capture stdout pipe unavailable"));
     };
-    let reader = drain_stdout(stdout, limit);
     let started = Instant::now();
+    #[cfg(unix)]
+    let stdout = DeadlinePipe::new(stdout, started + timeout);
+    let reader = drain_stdout(stdout, limit);
     let exit_wake = CaptureExitWake::new(pid);
     let status = loop {
         match child.try_wait() {
@@ -343,15 +407,20 @@ fn capture_command_with_deadline(
         }
     };
     // A successful parent can still leave a grandchild holding stdout open.
-    // Reap that private group before joining the reader, making the deadline
-    // guarantee cover the whole spawned tree rather than only direct `git`.
+    // Reap that private group before joining the reader. The reader's own
+    // deadline also bounds an out-of-group descendant retaining the pipe.
     #[cfg(unix)]
     unsafe {
         libc::killpg(pid as libc::pid_t, libc::SIGKILL);
     }
-    let captured = reader
+    let captured = match reader
         .join()
-        .map_err(|_| std::io::Error::other("capture stdout reader panicked"))??;
+        .map_err(|_| std::io::Error::other("capture stdout reader panicked"))?
+    {
+        Ok(captured) => captured,
+        Err(error) if error.kind() == std::io::ErrorKind::TimedOut => return Ok(None),
+        Err(error) => return Err(error),
+    };
     Ok(Some((status, captured)))
 }
 

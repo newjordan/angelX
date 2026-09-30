@@ -265,7 +265,7 @@ fn the_ledger_decodes_the_toc_a_primary_a_route_and_a_warpath() {
     let deli = ledger::read(&root, "⠟⠁").unwrap();
     assert!(deli.contains("→ ") && deli.contains("consult_model") && deli.contains("\"deli\""));
     let path = ledger::read(&root, "⠧⠁⠧⠋⠟⠁").unwrap();
-    assert!(path.contains("failed") && path.contains("run_tests") && path.contains("deli"));
+    assert!(path.contains("failed") && path.contains("`shell`") && path.contains("deli"));
     // The first free sub on the first layer: a digit past a chapter's last
     // section.
     let unattached = TOC
@@ -637,7 +637,7 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ),
     (
         "⠥⠃",
-        "\n\nPlaybooks: {count} available. Use `tool_search` to discover the `skill` tool and its available names, then `skill(name)` to load a relevant procedure when needed.\n",
+        "\n\nPlaybooks: {count} available. Call `skill(name)` to load a relevant procedure when needed; if `skill` is not among your tools, `tool_search` finds it.\n",
     ),
     (
         "⠥⠉",

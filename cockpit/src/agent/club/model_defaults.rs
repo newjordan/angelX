@@ -41,7 +41,8 @@ fn parse(text: &str) -> Result<Vec<Entry>, String> {
         if entry.default_effort.as_deref().is_some_and(|v| {
             !matches!(
                 v,
-                "auto" | "none" | "low" | "medium" | "high" | "max" | "xhigh" | "ultra"
+                "auto" | "none" | "minimal" | "low" | "medium" | "high" | "max" | "xhigh"
+                    | "ultra"
             )
         }) {
             return Err("invalid calibration effort".into());

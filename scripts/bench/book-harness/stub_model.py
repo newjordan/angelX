@@ -215,5 +215,11 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"stub model on :{PORT} mode={MODE}", file=sys.stderr, flush=True)
+    port = server.server_address[1]
+    if ready := os.environ.get("STUB_READY"):
+        temporary = ready + ".tmp"
+        with open(temporary, "w") as output:
+            output.write(f"{port}\n")
+        os.replace(temporary, ready)
+    print(f"stub model on :{port} mode={MODE}", file=sys.stderr, flush=True)
     server.serve_forever()

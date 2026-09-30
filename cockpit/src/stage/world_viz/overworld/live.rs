@@ -99,6 +99,9 @@ fn feet((tx, ty): (i32, i32)) -> (f32, f32) {
 }
 
 impl Walker {
+    pub(crate) fn travelling_to(&self, goal: Place) -> bool {
+        self.goal != goal || !self.path.is_empty() || self.shown.knight.walking
+    }
     /// One world tick toward `goal`; a new goal reroutes from where he stands.
     pub(crate) fn toward(&mut self, goal: Place) {
         if goal != self.goal {
@@ -328,6 +331,9 @@ pub(crate) fn ambient_for(daylight: f32) -> f32 {
 }
 
 impl World {
+    pub(crate) fn graph_knight_travelling(&self) -> bool {
+        self.graph_destination && self.overworld.travelling_to(Place::Fields)
+    }
     /// Look at a district without redirecting the knight or changing work.
     /// Resolve names only when the operator asks, never on the render path.
     pub(crate) fn visit_overworld(&mut self, name: &str) -> Option<&'static str> {
@@ -338,6 +344,11 @@ impl World {
                 .collect::<String>()
         };
         let name = normalize(name);
+        if matches!(name.as_str(), "garden" | "graphgarden" | "crops") {
+            let (x, y) = super::garden::centre();
+            self.overworld_view = Some((x, y, "GRAPH GARDEN"));
+            return Some("GRAPH GARDEN");
+        }
         let place = match name.as_str() {
             "artisan" | "artisans" | "artisanquarter" => Place::ArtisanQuarter,
             "colosseum" | "arena" => Place::Colosseum,
@@ -372,6 +383,9 @@ impl World {
     /// adventure is out, the quintain at the Lists between loop rounds,
     /// otherwise the landmark the work is happening in.
     pub(crate) fn overworld_goal(&self) -> Place {
+        if self.graph_destination {
+            return Place::Fields;
+        }
         // A trial is fought at the Lists: he rides out to see the verdict.
         if !self.loop_active && self.overworld_deeds.trial_underway() {
             return Place::Lists;
@@ -413,6 +427,11 @@ impl World {
         s.sparks = self.overworld_deeds.sparks(self.tick);
         s.outcomes = self.overworld_outcomes.shown(self.tick);
         s.stargazing = self.overworld_deeds.stargazing();
+        s.garden = self.graph_garden.frame(self.tick);
+        if self.graph_garden.working() {
+            s.active = Some(Place::Fields);
+            s.tool = Some(Tool::Quill);
+        }
         s.knight = self.overworld.shown.knight;
         s.camera = self
             .overworld_view

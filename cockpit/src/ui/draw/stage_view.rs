@@ -526,11 +526,13 @@ const HALFBLOCK_MAP_PX: i32 = 2;
 fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
     let mut scene = app.world.overworld_scene();
     scene.outcome_motion = app.visual_motion;
+    scene.garden.motion = app.visual_motion;
     // Travel and arrival cues, which used to take the whole pane, become a
     // glass over the map: the ride while the knight travels, the place's
     // painting when he arrives.
     if crate::stage::world_viz::overworld::glass_enabled()
         && app.world.overworld_view_label().is_none()
+        && !app.world.graph_visiting()
     {
         use crate::ui::scryglass::StageOverlay;
         scene.glass = match app.scryglass.controller.overlay() {

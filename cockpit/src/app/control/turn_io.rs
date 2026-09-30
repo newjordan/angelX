@@ -313,6 +313,17 @@ fn stream_event_payload_bytes(event: &TurnEvent) -> usize {
         | TurnEvent::RolloutCaptureError(text) => text.len(),
         TurnEvent::Heartbeat | TurnEvent::SuppressPartial | TurnEvent::SpendMilestone { .. } => 0,
         TurnEvent::SubmissionSlot(slot) => slot.payload_bytes(),
+        TurnEvent::GraphCrop { id, event } => {
+            id.0.len()
+                + match event.as_ref() {
+                    crate::knowledge::graph_crop::GraphEvent::Requested(request) => {
+                        serde_json::to_vec(request).map_or(0, |v| v.len())
+                    }
+                    crate::knowledge::graph_crop::GraphEvent::Returned(receipt) => {
+                        serde_json::to_vec(receipt).map_or(0, |v| v.len())
+                    }
+                }
+        }
         TurnEvent::ToolCall {
             name, args_summary, ..
         } => name.len().saturating_add(args_summary.len()),
@@ -348,6 +359,7 @@ fn stream_event_is_operator_visible(event: &TurnEvent) -> bool {
         TurnEvent::Heartbeat | TurnEvent::SuppressPartial => false,
         TurnEvent::ToolCall { .. }
         | TurnEvent::ToolResult { .. }
+        | TurnEvent::GraphCrop { .. }
         | TurnEvent::SpendMilestone { .. }
         | TurnEvent::SubmissionSlot(_)
         | TurnEvent::Media { .. } => true,
@@ -1112,6 +1124,10 @@ impl App {
                     let reasoning = self.reasoning_text_sanitizer.push(&reasoning);
                     self.reasoning.push_str(&reasoning);
                 }
+                TurnEvent::GraphCrop { id, event } => {
+                    self.world.note_graph_event(&id, &event);
+                    self.request_redraw("graph crop data");
+                }
                 TurnEvent::Heartbeat => {}
                 TurnEvent::SuppressPartial => {
                     self.clear_partial();
@@ -1166,6 +1182,9 @@ impl App {
                     outcome,
                 } => {
                     self.research.result(&id, &name, &summary, outcome);
+                    if name == "graph" {
+                        self.world.settle_graph_call(&id, outcome);
+                    }
                     // A2: Stage-only result sparks — strip/trace still update.
                     if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
                     {
@@ -4287,6 +4306,10 @@ mod terminal_text_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__turn_io__world_clock_tests.rs"]
 mod world_clock_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/app/app_control__turn_io__graph_crop_tests.rs"]
+mod graph_crop_tests;
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__turn_io__reflow_tests.rs"]

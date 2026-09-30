@@ -106,7 +106,16 @@ impl CampaignStore {
         reject_symlink(&self.project_dir)?;
         reject_symlink(&self.record_path)?;
         check_private_file(&self.record_path)?;
-        let mut file = File::open(&self.record_path)
+        let mut options = OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            // Inspect the opened descriptor without waiting for a FIFO peer.
+            options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+        }
+        let mut file = options
+            .open(&self.record_path)
             .map_err(|error| format!("read {}: {error}", self.record_path.display()))?;
         let metadata = file
             .metadata()
@@ -460,11 +469,20 @@ fn open_private(path: &Path, create_new: bool) -> Result<File, String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        options
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
     let file = options
         .open(path)
         .map_err(|error| format!("open {}: {error}", path.display()))?;
+    if !file
+        .metadata()
+        .map_err(|error| format!("stat {}: {error}", path.display()))?
+        .is_file()
+    {
+        return Err(format!("not a regular campaign file: {}", path.display()));
+    }
     secure_file(path)?;
     Ok(file)
 }
@@ -475,11 +493,20 @@ fn open_private_append(path: &Path) -> Result<File, String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        options
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
     let file = options
         .open(path)
         .map_err(|error| format!("open {}: {error}", path.display()))?;
+    if !file
+        .metadata()
+        .map_err(|error| format!("stat {}: {error}", path.display()))?
+        .is_file()
+    {
+        return Err(format!("not a regular campaign file: {}", path.display()));
+    }
     secure_file(path)?;
     Ok(file)
 }

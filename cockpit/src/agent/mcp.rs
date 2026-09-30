@@ -21,7 +21,7 @@
 
 use crate::agent::club::ToolDef;
 use crate::agent::harness::Tool;
-use crate::agent::sandbox::process_owner::{Child, OwnedCommandExt};
+use crate::agent::service_process::ServiceChild;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -497,10 +497,40 @@ pub struct McpClient {
     conn: Mutex<Conn>,
     next_id: AtomicU64,
     timeout: Duration,
-    child: Mutex<Child>,
+    child: Mutex<ServiceChild>,
 }
 
 impl McpClient {
+    /// Serializing a busy connection consumes the caller's local allowance.
+    /// An expired queue has written no frame and leaves the warm transport
+    /// alone; distinguish it from a response/write timeout that needs restart.
+    fn connection_until(
+        &self,
+        method: &str,
+        deadline: Instant,
+    ) -> Result<std::sync::MutexGuard<'_, Conn>, String> {
+        loop {
+            let remaining = deadline
+                .checked_duration_since(Instant::now())
+                .filter(|left| !left.is_zero())
+                .ok_or_else(|| {
+                    format!(
+                        "mcp {} timed out waiting for connection on {method}",
+                        self.name
+                    )
+                })?;
+            match self.conn.try_lock() {
+                Ok(conn) => return Ok(conn),
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err("mcp conn poisoned".into());
+                }
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    std::thread::sleep(remaining.min(Duration::from_millis(5)));
+                }
+            }
+        }
+    }
+
     /// Spawn `spec` and wire a reader thread. Does NOT handshake — call
     /// [`McpClient::initialize`] next.
     fn spawn(spec: &ServerSpec, timeout: Duration) -> Result<Self, String> {
@@ -524,17 +554,14 @@ impl McpClient {
         if let Some(cwd) = cwd {
             command.current_dir(cwd);
         }
-        let mut child = command
-            .spawn_owned()
+        let mut child = ServiceChild::spawn(&mut command)
             .map_err(|e| format!("spawn {}: {e}", spec.command))?;
-        let stdin = child.stdin.take().ok_or("no child stdin")?;
+        let stdin = child.take_stdin().ok_or("no child stdin")?;
         #[cfg(unix)]
         if let Err(error) = nonblocking_stdin(&stdin) {
-            let _ = child.kill();
-            let _ = child.wait();
             return Err(format!("mcp {} stdin setup: {error}", spec.name));
         }
-        let stdout = child.stdout.take().ok_or("no child stdout")?;
+        let stdout = child.take_stdout().ok_or("no child stdout")?;
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -564,10 +591,10 @@ impl McpClient {
     /// Send a request and read inbound lines until the matching response arrives
     /// or the deadline passes. Serialized by the `conn` lock.
     fn request(&self, method: &str, params: Value) -> Result<Value, String> {
+        let deadline = Instant::now() + self.timeout;
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let line = build_request(id, method, params);
-        let mut conn = self.conn.lock().map_err(|_| "mcp conn poisoned")?;
-        let deadline = Instant::now() + self.timeout;
+        let mut conn = self.connection_until(method, deadline)?;
         self.write_line(&mut conn, method, &line, deadline)?;
         loop {
             let remaining = deadline
@@ -591,9 +618,10 @@ impl McpClient {
     }
 
     fn notify(&self, method: &str, params: Value) -> Result<(), String> {
+        let deadline = Instant::now() + self.timeout;
         let line = build_notification(method, params);
-        let mut conn = self.conn.lock().map_err(|_| "mcp conn poisoned")?;
-        self.write_line(&mut conn, method, &line, Instant::now() + self.timeout)
+        let mut conn = self.connection_until(method, deadline)?;
+        self.write_line(&mut conn, method, &line, deadline)
     }
 
     fn write_line(
@@ -678,10 +706,7 @@ impl McpClient {
 
     /// Whether the server subprocess is still running — the warm-reuse guard.
     fn alive(&self) -> bool {
-        self.child
-            .lock()
-            .map(|mut c| matches!(c.try_wait(), Ok(None)))
-            .unwrap_or(false)
+        self.child.lock().map(|mut c| c.alive()).unwrap_or(false)
     }
 
     /// The child's process id, for teardown proofs: a retracted provider must
@@ -693,11 +718,12 @@ impl McpClient {
 
 impl Drop for McpClient {
     fn drop(&mut self) {
-        // The child has no kill-on-drop; reap it so we don't leak subprocesses.
-        if let Ok(mut child) = self.child.lock() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        // ServiceChild also covers setup failures and poisoned client locks.
+        let child = self
+            .child
+            .get_mut()
+            .unwrap_or_else(|error| error.into_inner());
+        let _ = child.retire();
     }
 }
 

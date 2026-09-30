@@ -9,8 +9,9 @@ use crate::agent::harness::{TaskPace, book::ledger};
 
 /// The 0.1.6 advisories as they stood at 9d73e92 (`nudges.rs`, the turn loop,
 /// the reply notes), the `[harness-telemetry]` tag aside, each with the
-/// address whose pages must rebuild it verbatim. A page dropped, merged or
-/// paraphrased fails here. What is missing from a text is named beside it.
+/// address whose pages must rebuild it verbatim, except the ⠧⠋ verification
+/// command examples: that route now names `shell`, available in task mode.
+/// A page dropped, merged or paraphrased fails here. Adaptations are named beside it.
 const ORIGINAL_ADVISORIES: &[(&str, &str)] = &[
     (
         "⠇⠁",
@@ -53,10 +54,10 @@ const ORIGINAL_ADVISORIES: &[(&str, &str)] = &[
         "⠧⠑",
         r##"Your last passing test run did not hold: angelX re-ran it on the same code and it failed. The solution passes by luck; something depends on randomness, timing, iteration order or state shared between tests or runs. Find that and fix it so the tests pass every run. Re-running until green is not a fix."##,
     ),
-    // the denial threat is gone with the denial
+    // the denial threat is gone with the denial; use the loaded shell tool
     (
         "⠧⠋",
-        r##"You edited the workspace but have not run a verifier since the latest edit. Before claiming completion, run the smallest relevant `check`, `run_tests`, `lint`, `fmt --check`, or equivalent repository command. One relevant green verifier is sufficient; do not follow it with broader or overlapping checks unless the task explicitly requires them. If verification cannot run, state the concrete blocker and the unverified risk in your final answer. A real verifier attempt, even when red or unavailable, is sufficient evidence for an honest blocker report."##,
+        r##"You edited the workspace but have not run a verifier since the latest edit. Before claiming completion, use `shell` to run the smallest relevant repository test, check, lint, or formatting command. One relevant green verifier is sufficient; do not follow it with broader or overlapping checks unless the task explicitly requires them. If verification cannot run, state the concrete blocker and the unverified risk in your final answer. A real verifier attempt, even when red or unavailable, is sufficient evidence for an honest blocker report."##,
     ),
     (
         "⠧⠛",

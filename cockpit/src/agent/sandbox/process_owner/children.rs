@@ -80,6 +80,46 @@ impl Child {
         self.inner.id()
     }
 
+    /// Signal only while this claimed direct child still pins its PID. The
+    /// callback may signal, but must not wait, spawn, or drain IO under this
+    /// lock. Global destructive cleanup acquires it before relinquishing
+    /// ordinary wait ownership, so a service cannot race that boundary.
+    #[cfg(unix)]
+    pub(crate) fn with_unreaped_identity(
+        &self,
+        signal: impl FnOnce(libc::pid_t) -> io::Result<()>,
+    ) -> io::Result<()> {
+        let claims = claims().lock().unwrap_or_else(|error| error.into_inner());
+        let identity = self.claim.as_ref().and_then(|claim| claim.identity);
+        if claims.stopped
+            || !identity.is_some_and(|(pid, generation)| {
+                pid == self.id() && claims.direct.get(&pid) == Some(&generation)
+            })
+        {
+            return Err(io::Error::from_raw_os_error(libc::ECHILD));
+        }
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        loop {
+            // SAFETY: readiness only for this claimed child; WNOWAIT retains
+            // its status, and the claims lock excludes cleanup through signal.
+            let ready = unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    self.id() as libc::id_t,
+                    &mut info,
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            };
+            if ready == 0 {
+                return signal(self.id() as libc::pid_t);
+            }
+            let error = io::Error::last_os_error();
+            if error.kind() != io::ErrorKind::Interrupted {
+                return Err(error);
+            }
+        }
+    }
+
     pub(crate) fn wait(&mut self) -> io::Result<ExitStatus> {
         let status = self.inner.wait()?;
         self.claim.take();
