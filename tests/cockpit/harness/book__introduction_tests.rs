@@ -1,6 +1,6 @@
 //! The book's introduction: each stamp is introduced once, in English, where
 //! the model first sees it; after that it rides alone.
-use super::{LEAD, apply, introductions};
+use super::{LEAD, apply, introductions, unslotted};
 use crate::agent::club::{ChatMsg, ToolCall};
 
 fn call(id: &str, name: &str, args: serde_json::Value) -> ChatMsg {
@@ -27,6 +27,19 @@ fn turn() -> Vec<ChatMsg> {
         call("b", "run_tests", serde_json::json!({})),
         tool("b", "tests: 0 passed, 1 failed\n⠧⠉"),
     ]
+}
+
+#[test]
+fn untested_introduction_uses_a_tool_loaded_in_bounded_task_mode() {
+    let messages = vec![tool("edit", "changed\n⠧⠋")];
+    let intros = introductions(&messages, None);
+    let text = &intros[0].1;
+    assert!(crate::agent::harness::is_essential_tool("shell"));
+    assert!(
+        text.contains("use `shell` to run the smallest relevant repository"),
+        "{text}"
+    );
+    assert!(!text.contains("`run_tests`"), "{text}");
 }
 
 #[test]
@@ -197,7 +210,7 @@ fn the_http_wire_carries_the_introduction_only_where_the_model_can_read() {
     let messages = turn();
     let text = |body: &serde_json::Value| body["messages"].to_string();
     let body = club
-        .build_body(&messages, &[read_file.clone()], false)
+        .build_body(&messages, std::slice::from_ref(&read_file), false)
         .unwrap();
     assert!(text(&body).contains("fix the first diagnostic before the next edit"));
     // The history itself is untouched.
@@ -224,7 +237,7 @@ fn the_legend_copy_is_introduced_and_leaves_history_alone() {
     let history = turn();
     {
         let _unset = crate::tests::TestEnvGuard::unset("ANGEL_BOOK_INTRO");
-        let copy = super::introduced(&history, &[read_file.clone()]);
+        let copy = super::introduced(&history, std::slice::from_ref(&read_file));
         assert!(matches!(copy, std::borrow::Cow::Owned(_)), "on by default");
         assert!(
             copy[3]
@@ -292,5 +305,22 @@ fn a_loop_turn_after_the_warning_sign_is_introduced_once() {
             .1
             .contains("⠇⠁ You've repeated the same tool call several times with no new result"),
         "{intros:?}"
+    );
+}
+
+#[test]
+fn a_value_slot_reads_as_an_ellipsis_and_a_doubled_brace_is_kept() {
+    assert_eq!(
+        unslotted("only {n_remaining} tokens remain"),
+        "only … tokens remain"
+    );
+    assert_eq!(unslotted("at `{}` now"), "at `…` now");
+    // Braces that are a ported prompt's own text stay as written.
+    let ported = "the format `[$app-name](app://{{connector_id}})` and `{\"authority\":{\"kind\":\"orchestrator\"}}`";
+    assert_eq!(unslotted(ported), ported);
+    assert_eq!(unslotted("{{a}} then {b}"), "{{a}} then …");
+    assert_eq!(
+        unslotted("an open {{ never closes"),
+        "an open {{ never closes"
     );
 }

@@ -244,7 +244,9 @@ fn deepseek_passes_back_every_reasoned_turn_while_tools_ride_the_request() {
         ChatMsg::assistant_calls(call.clone()),
         ChatMsg::tool("call_1", "source again"),
     ];
-    let body = club.build_body(&history, &[tool.clone()], true).unwrap();
+    let body = club
+        .build_body(&history, std::slice::from_ref(&tool), true)
+        .unwrap();
     let reasoning = |i: usize| body["messages"][i].get("reasoning_content").cloned();
     assert_eq!(reasoning(1), Some(serde_json::json!("read first")));
     assert_eq!(

@@ -3041,6 +3041,20 @@ impl App {
                 self.system_msg(text);
             }
             "world" => match arg {
+                Some(a) if a == "crops" || a.starts_with("crops ") => {
+                    let selected = a
+                        .strip_prefix("crops ")
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty());
+                    let report = self.world.graph_report(selected);
+                    self.world.visit_overworld("garden");
+                    self.scryglass_enabled = true;
+                    self.scryglass.return_to_world();
+                    self.focus_module("artifacts");
+                    self.request_redraw("graph garden visit");
+                    self.system_msg(report);
+                }
+
                 Some(a) if a.eq_ignore_ascii_case("follow") => {
                     self.world.follow_overworld();
                     self.scryglass.return_to_world();
@@ -4088,11 +4102,12 @@ pub(crate) fn world_help_text() -> String {
         "/world · open the Realm stage · verbs:",
         "  view [3d|dotmax] · the overworld map on the Realm, Dotmax 3D on Explore; older names also select Dotmax (/world 3d and v report the view)",
         "  zoom · cycle the map camera auto→wide→close",
-        "  visit <place> · view artisans, colosseum, tournament, village, round-table, or another landmark",
+        "  visit <place> · view garden, artisans, colosseum, tournament, village, round-table, or another landmark",
         "  follow · return the camera to the working knight",
         "  ride · saddle up; the road fills the glass",
         "  enter · step through the landmark's door",
         "  leave · step back under the open sky",
+        "  crops [plot-id] · visit the graph garden and inspect exact chart data",
         "  weather · the realm's weather report",
         "  quest · the live adventure: region, danger, loot, party, waypoint",
         "  on|off · the visual backdrop (off = lean text mode)",

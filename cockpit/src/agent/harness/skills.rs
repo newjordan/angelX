@@ -570,6 +570,26 @@ fn research_answer_intent(task: &str) -> bool {
     .any(|phrase| request.contains(phrase))
 }
 
+fn tests_are_given(task_lc: &str) -> bool {
+    [
+        "are correct; do not change them",
+        "do not change the test",
+        "do not modify the test",
+        "do not edit the test",
+        "don't change the test",
+        "don't modify the test",
+        "don't edit the test",
+    ]
+    .iter()
+    .any(|phrase| task_lc.contains(phrase))
+}
+
+fn self_source_intent(task_lc: &str) -> bool {
+    ["angelx", "cockpit", "self_map", "your own source", "your own code"]
+        .iter()
+        .any(|phrase| task_lc.contains(phrase))
+}
+
 pub(crate) fn relevant_skill_name<'a>(skills: &'a [SkillSummary], task: &str) -> Option<&'a str> {
     if task.trim().is_empty() {
         return None;
@@ -605,6 +625,20 @@ pub(crate) fn relevant_skill_name<'a>(skills: &'a [SkillSummary], task: &str) ->
             // requesting an answer-only workflow (observed in live MODEXP).
             // Description overlap must not promote one ambient name token.
             if name_slug == "research-answer" && !name_in_task && !research_answer_intent(task) {
+                return None;
+            }
+            // This playbook edits angelX's own source. Code that says `self`
+            // and a task that says "modify" (py-forth, rust-xorcism) are not
+            // asking for it.
+            if name_slug == "self-modify" && !name_in_task && !self_source_intent(&task_lc) {
+                return None;
+            }
+            // Red/green/refactor writes the failing test first. A task that
+            // hands over its tests and forbids changing them (every polyglot
+            // prompt: "The tests in … are correct; do not change them") is not
+            // asking for it; sol and Muse spent two calls fetching it.
+            if name_slug == "test-driven-development" && !name_in_task && tests_are_given(&task_lc)
+            {
                 return None;
             }
             let description_tokens = skill_tokens(&skill.description);

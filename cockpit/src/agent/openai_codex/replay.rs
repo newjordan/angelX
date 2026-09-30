@@ -51,9 +51,9 @@ impl ResponseReplay {
         // history. Require every returned function and all visible prose.
         if items.iter().any(|item| {
             item["type"] == "reasoning"
-                && !item["encrypted_content"]
+                && item["encrypted_content"]
                     .as_str()
-                    .is_some_and(|value| !value.is_empty())
+                    .is_none_or(|value| value.is_empty())
         }) {
             return None;
         }

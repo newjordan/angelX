@@ -1,26 +1,50 @@
-"""Split each hop into: reply→call (reply handling), call→done (tool), done→next
-request (post-tool work and request building), from the stub log and the
-timestamped task events."""
-import json, sys, re, statistics as st
-from collections import defaultdict
-label=sys.argv[1]
-reqs=[json.loads(l)["t"] for l in open(f"out/{label}.jsonl")]
-ev=[]
-for line in open(f"out/{label}.stderr", errors="replace"):
-    m=re.match(r"(\d+\.\d+) \[task-event\] (call|done) (\w+)", line)
-    if m: ev.append((float(m.group(1)), m.group(2), m.group(3)))
-import bisect
-ph=defaultdict(lambda: defaultdict(list))
-for i,t0 in enumerate(reqs[:-1]):
-    t3=reqs[i+1]
-    inside=[e for e in ev if t0<=e[0]<=t3]
-    calls=[e for e in inside if e[1]=="call"]; dones=[e for e in inside if e[1]=="done"]
-    if not calls or not dones: continue
-    name=calls[0][2]; q=min(3, i*4//len(reqs))
-    ph[name]["reply"].append((calls[0][0]-t0)*1000)
-    ph[name]["tool"].append((dones[-1][0]-calls[0][0])*1000)
-    ph[name]["post"].append((t3-dones[-1][0])*1000)
-    ph[name][f"post_q{q}"].append((t3-dones[-1][0])*1000)
-    ph[name][f"reply_q{q}"].append((calls[0][0]-t0)*1000)
-for name,d in ph.items():
-    print(name, " ".join(f"{k}={st.median(v):.1f}" for k,v in sorted(d.items())))
+"""Checked response latency, reply→call, tool-span and done→next-request phases.
+
+--assume-instant-stub explicitly estimates missing legacy response clocks.
+Timestamped tool names support elapsed spans, not invocation-level timings.
+Response latency includes proxy/transport work and completion logging.
+"""
+import argparse
+import importlib.util
+import json
+from pathlib import Path
+
+
+spec = importlib.util.spec_from_file_location("grouped_phase_accounting", Path(__file__).with_name("phase_accounting.py"))
+phase = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(phase)
+
+
+def summary(group):
+    fields = " ".join(f"{field}={value * 1000:.1f}" if value is not None else f"{field}=—"
+                      for field, value in sorted(group["medians"].items()))
+    coverage = "; ".join(f"{field} {value['reported']}/{value['attempts']} observed={value['observed']} estimated={value['estimated']}"
+                         for field, value in sorted(group["metric_coverage"].items()))
+    return f"{group['tool']} {fields} [hops={group['hops']}; {coverage}]"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("label")
+    parser.add_argument("--out-dir", type=Path, default=Path("out"))
+    parser.add_argument("--assume-instant-stub", action="store_true", help="explicitly estimate missing done clocks as arrival")
+    parser.add_argument("--audit-json", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        result = phase.load(args.label, args.out_dir, args.assume_instant_stub)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    groups = phase.phase_groups(result)
+    if args.audit_json:
+        print(json.dumps({"label": args.label, **result, "groups": groups}, indent=1, allow_nan=False))
+    else:
+        print(f"{args.label}: {len(result['hops'])} between-request hops; assume_instant_stub={args.assume_instant_stub}")
+        for group in groups:
+            print(summary(group))
+        if not groups:
+            print("no between-request phases observed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

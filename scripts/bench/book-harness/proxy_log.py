@@ -11,6 +11,7 @@ in the stub_model.py format ({"t", "bytes", "body", ...}), so gaps.py,
 phases.py, harness_time.py and tokens/analyze.mjs read real-model runs too.
 """
 import json
+import http.client
 import os
 import subprocess
 import time
@@ -41,13 +42,18 @@ PORT = int(os.environ.get("PROXY_PORT", "18100"))
 def usage_in(event):
     # Chat Completions carries usage at the top; the Responses API nests it in
     # the response object (the final `response.completed` event, or the body).
-    return event.get("usage") or (event.get("response") or {}).get("usage")
+    if not isinstance(event, dict):
+        return None
+    response = event.get("response")
+    usage = event.get("usage") or (response.get("usage") if isinstance(response, dict) else None)
+    return usage if isinstance(usage, dict) else None
 
 
 def usage_of(text):
     try:
         body = json.loads(text)
-        return usage_in(body) or (body.get("message") or {}).get("usage")
+        message = body.get("message") if isinstance(body, dict) else None
+        return usage_in(body) or usage_in(message)
     except ValueError:
         pass
     usage = None
@@ -59,7 +65,8 @@ def usage_of(text):
                 continue
             # Messages: message_start carries the input side, message_delta
             # the output side; merge them.
-            found = usage_in(event) or (event.get("message") or {}).get("usage")
+            message = event.get("message") if isinstance(event, dict) else None
+            found = usage_in(event) or usage_in(message)
             if found:
                 usage = {**(usage or {}), **found}
     return usage
@@ -87,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
         except urllib.error.HTTPError as error:
             return error
 
-    def relay(self, response, raw=None, arrived=None):
+    def relay(self, response):
         status = getattr(response, "status", None) or response.code
         self.send_response(status)
         self.send_header("Content-Type", response.headers.get("Content-Type", "application/json"))
@@ -97,33 +104,73 @@ class Handler(BaseHTTPRequestHandler):
         while True:
             chunk = response.read1(65536) if hasattr(response, "read1") else response.read(65536)
             if not chunk:
+                # HTTPResponse.read1 (and bounded read) accepts an early EOF
+                # without raising when Content-Length still promises bytes.
+                # Already forwarded headers/body cannot be recalled; refuse
+                # the completion receipt rather than claiming full usage.
+                remaining = getattr(response, "length", None)
+                if isinstance(remaining, int) and remaining > 0:
+                    raise http.client.IncompleteRead(b"", remaining)
                 break
             chunks.append(chunk)
             self.wfile.write(chunk)
             self.wfile.flush()
         self.close_connection = True
-        if raw is not None:
-            text = b"".join(chunks).decode("utf-8", "replace")
-            with open(LOG, "a") as f:
-                f.write(json.dumps({"t": arrived, "done": time.time(), "bytes": len(raw),
-                                    "status": status, "body": json.loads(raw),
-                                    "usage": usage_of(text)}) + "\n")
+        return b"".join(chunks).decode("utf-8", "replace")
+
+    def proxy_failure(self, error, record):
+        # Keep the attempted call even when no response/usage was observed.
+        # Exception strings can contain URLs or credential command output.
+        record["proxy_error"] = type(error).__name__
+        self.close_connection = True
+        if record["status"] is None:
+            try:
+                self.send_error(502, "Upstream request failed")
+            except OSError:
+                pass
 
     def do_GET(self):
         # Probes (/models, /props) go to <log>.get, so the request log keeps
         # only chat bodies.
         arrived = time.time()
-        response = self.forward("GET")
-        self.relay(response)
-        with open(LOG + ".get", "a") as f:
-            f.write(json.dumps({"t": arrived, "done": time.time(), "path": self.path,
-                                "status": getattr(response, "status", None) or response.code}) + "\n")
+        record = {"t": arrived, "path": self.path, "status": None}
+        try:
+            with self.forward("GET") as response:
+                record["status"] = getattr(response, "status", None) or response.code
+                self.relay(response)
+        except (OSError, http.client.HTTPException, subprocess.SubprocessError) as error:
+            self.proxy_failure(error, record)
+        finally:
+            record["done"] = time.time()
+            with open(LOG + ".get", "a") as f:
+                f.write(json.dumps(record) + "\n")
 
     def do_POST(self):
         raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         arrived = time.time()
-        self.relay(self.forward("POST", raw), raw if raw else None, arrived)
+        try:
+            body = json.loads(raw)
+        except ValueError:
+            body = None
+        record = {"t": arrived, "bytes": len(raw), "body": body, "status": None, "usage": None}
+        try:
+            with self.forward("POST", raw) as response:
+                record["status"] = getattr(response, "status", None) or response.code
+                text = self.relay(response)
+                record["usage"] = usage_of(text)
+        except (OSError, http.client.HTTPException, subprocess.SubprocessError) as error:
+            self.proxy_failure(error, record)
+        finally:
+            record["done"] = time.time()
+            with open(LOG, "a") as f:
+                f.write(json.dumps(record) + "\n")
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    ready = os.environ.get("PROXY_READY")
+    if ready:
+        with open(ready + ".tmp", "w") as receipt:
+            receipt.write(str(server.server_address[1]) + "\n")
+        os.replace(ready + ".tmp", ready)
+    server.serve_forever()

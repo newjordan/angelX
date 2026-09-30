@@ -1156,6 +1156,32 @@ pub(crate) struct ProcRunTool {
     workspace: PathBuf,
 }
 
+/// A cancelled setup has not published a job yet. Retain the direct launcher's
+/// claimed identity through group/direct signals, then wait outside that guard.
+/// A reaped launcher or global shutdown refuses signalling rather than using a
+/// numeric PID whose private group identity is no longer pinned.
+fn cancel_proc_setup(child: &mut Child) -> String {
+    let retired = child
+        .with_unreaped_identity(|pid| {
+            // SAFETY: sandbox::command created this private group; the claim
+            // guard excludes cleanup/reaping through both signal operations.
+            unsafe { libc::killpg(pid, libc::SIGKILL) };
+            if unsafe { libc::kill(pid, libc::SIGKILL) } == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        })
+        .and_then(|()| child.wait());
+    match retired {
+        Ok(_) => "process launch cancelled during helper setup".to_string(),
+        Err(error) if error.raw_os_error() == Some(libc::ECHILD) => {
+            "process launch cancelled during helper setup".to_string()
+        }
+        Err(error) => format!("process launch cancelled during helper setup (cleanup: {error})"),
+    }
+}
+
 impl ProcRunTool {
     pub(crate) fn in_dir(dir: PathBuf) -> Self {
         Self { workspace: dir }
@@ -1275,6 +1301,10 @@ impl Tool for ProcRunTool {
         // dedicated channel distinguishes setup errors from nested bwrap output.
         #[cfg(target_os = "linux")]
         let sandbox_receipt = loop {
+            if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                crate::agent::harness::exec::set_sandbox_receipt(sandbox_status.receive());
+                return Err(cancel_proc_setup(&mut child));
+            }
             if let Some(receipt) = sandbox_status.receive() {
                 break Some(receipt);
             }
@@ -1290,6 +1320,9 @@ impl Tool for ProcRunTool {
         #[cfg(not(target_os = "linux"))]
         let sandbox_receipt = sandbox_status.receive();
         crate::agent::harness::exec::set_sandbox_receipt(sandbox_receipt.clone());
+        if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return Err(cancel_proc_setup(&mut child));
+        }
         if let Some(error) = sandbox_receipt
             .as_ref()
             .and_then(|receipt| receipt["helper_error"].as_str())

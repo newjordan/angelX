@@ -410,20 +410,7 @@ impl crate::App {
             if release {
                 cmd.arg("--release");
             }
-            let res = match crate::agent::harness::output_timed(cmd, None) {
-                Ok((o, false)) if o.status.success() => Ok(exe),
-                Ok((o, false)) => {
-                    let err = String::from_utf8_lossy(&o.stderr);
-                    let tail = err
-                        .lines()
-                        .rev()
-                        .find(|l| !l.trim().is_empty())
-                        .unwrap_or("cargo build failed");
-                    Err(tail.trim().to_string())
-                }
-                Ok((_, true)) => Err("cargo build timed out".to_string()),
-                Err(e) => Err(format!("cargo build: {e}")),
-            };
+            let res = reborn_build(cmd, exe);
             let _ = tx.send(res);
         });
         self.reborn_rx = Some(rx);
@@ -474,6 +461,34 @@ impl crate::App {
         self.tools = Arc::new(registry);
         self.system_msg(format!("workspace restored → {}", prev.display()));
     }
+}
+
+fn reborn_build(command: std::process::Command, executable: PathBuf) -> Result<PathBuf, String> {
+    // Keep the rebuild's ordinary unlimited budget and inherited hang controls.
+    // Neither a green prefix nor exit 0 establishes a completed build capture.
+    let capture = crate::agent::harness::output_timed_captured(command, None)
+        .map_err(|error| format!("cargo build: {error}"))?;
+    if capture.timed_out {
+        return Err("cargo build timed out".into());
+    }
+    if capture.cancelled {
+        return Err("cargo build cancelled".into());
+    }
+    if !capture.output_complete() {
+        return Err(
+            "cargo build output capture incomplete (missing EOF or capture byte limit)".into(),
+        );
+    }
+    if capture.output.status.success() {
+        return Ok(executable);
+    }
+    let stderr = String::from_utf8_lossy(&capture.output.stderr);
+    let tail = stderr
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or("cargo build failed");
+    Err(tail.trim().to_string())
 }
 
 /// Where self-run worktrees are created. `ANGEL_SELF_WORKTREE_DIR` overrides the
@@ -561,3 +576,7 @@ fn same_canonical_project(left: &Path, right: &Path) -> bool {
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/self_loop__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/self_loop__reborn_capture_tests.rs"]
+mod reborn_capture_tests;

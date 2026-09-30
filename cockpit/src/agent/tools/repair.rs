@@ -394,6 +394,9 @@ fn bounded_repair_output(
     if captured.stdout_truncated || captured.stderr_truncated {
         return Err("output exceeded the bounded diagnostic capture".to_string());
     }
+    if !captured.output_complete() {
+        return Err("diagnostic output did not reach EOF within the capture allowance".into());
+    }
     Ok(captured.output)
 }
 

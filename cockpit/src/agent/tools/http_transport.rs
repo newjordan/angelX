@@ -258,7 +258,15 @@ impl Body {
     fn start(wire: WireRequest) -> io::Result<Self> {
         let started = Instant::now();
         let ctx = context();
-        let mut cmd = Command::new(std::env::current_exe()?);
+        // Keep the helper on this process's exact running image. A live rebuild
+        // can unlink the launch path, making current_exe() end in " (deleted)";
+        // stripping that suffix would instead execute a different build with a
+        // potentially different private wire protocol. procfs retains the image.
+        #[cfg(target_os = "linux")]
+        let executable = std::path::PathBuf::from("/proc/self/exe");
+        #[cfg(not(target_os = "linux"))]
+        let executable = std::env::current_exe()?;
+        let mut cmd = Command::new(executable);
         #[cfg(not(test))]
         cmd.arg("--tool-http-helper");
         #[cfg(test)]

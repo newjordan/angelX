@@ -800,10 +800,14 @@ fn delegate_diff_digest(
         tip,
         "--",
     ]);
+    delegate_diff_command(command, cancel)
+}
+
+fn delegate_diff_command(command: Command, cancel: Option<&AtomicBool>) -> Result<String, String> {
     let captured = super::exec::output_timed_captured_cancellable(command, git_timeout(), cancel)?;
     if captured.timed_out
         || captured.cancelled
-        || captured.stdout_truncated
+        || !captured.output_complete()
         || !captured.output.status.success()
     {
         return Err("delegate binary diff capture did not complete".into());
@@ -816,10 +820,14 @@ fn delegate_git(repo: &Path, args: &[&str], cancel: Option<&AtomicBool>) -> Resu
     command
         .args(["-c", "user.name=angel", "-c", "user.email=angel@local"])
         .args(args);
+    delegate_git_command(command, cancel)
+}
+
+fn delegate_git_command(command: Command, cancel: Option<&AtomicBool>) -> Result<String, String> {
     let captured = super::exec::output_timed_captured_cancellable(command, git_timeout(), cancel)?;
     if captured.timed_out
         || captured.cancelled
-        || captured.stdout_truncated
+        || !captured.output_complete()
         || !captured.output.status.success()
     {
         return Err(format!(
@@ -830,6 +838,10 @@ fn delegate_git(repo: &Path, args: &[&str], cancel: Option<&AtomicBool>) -> Resu
     String::from_utf8(captured.output.stdout)
         .map_err(|_| "delegate Git metadata is not UTF-8".into())
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/harness/orchestrator__capture_tests.rs"]
+mod capture_tests;
 
 pub(crate) struct IntegrateTool {
     workspace: PathBuf,

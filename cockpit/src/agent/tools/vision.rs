@@ -510,6 +510,13 @@ fn probe_duration_with_timeout(path: &Path, timeout: Duration) -> Option<f64> {
         "csv=p=0",
         path.to_str()?,
     ]);
+    probe_duration_command_with_timeout(cmd, timeout)
+}
+
+fn probe_duration_command_with_timeout(
+    cmd: std::process::Command,
+    timeout: Duration,
+) -> Option<f64> {
     // Duration discovery sits synchronously inside an agent-facing tool call.
     // A malformed clip or wedged ffprobe must not own the turn forever, even
     // under YOLO. The result is a tiny scalar, so overflow or any incomplete
@@ -517,8 +524,7 @@ fn probe_duration_with_timeout(path: &Path, timeout: Duration) -> Option<f64> {
     let capture = crate::agent::harness::output_timed_fixed_captured(cmd, timeout).ok()?;
     if capture.timed_out
         || capture.cancelled
-        || capture.stdout_truncated
-        || capture.stderr_truncated
+        || !capture.output_complete()
         || !capture.output.status.success()
     {
         return None;

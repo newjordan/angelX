@@ -3,16 +3,23 @@
 ledger reads (turns spent decoding stamps), tool calls by name, provider
 tokens (prompt / cached / completion, when the provider reports them) and
 wall time. Reads stub_model.py and proxy_log.py logs alike."""
+import argparse
 import collections
+import importlib.util
 import json
-import sys
+from pathlib import Path
+
+
+spec = importlib.util.spec_from_file_location("book_summary_receipt_usage", Path(__file__).with_name("receipt_usage.py"))
+receipt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(receipt)
 
 
 def summary(path):
-    rows = [json.loads(line) for line in open(path)]
+    rows = receipt.read_receipts(path)
     tools = collections.Counter()
     reads = 0
-    body = rows[-1]["body"] if rows else {}
+    body = rows[-1].get("body") if rows and isinstance(rows[-1].get("body"), dict) else {}
     calls = []
     for message in body.get("messages", []):
         calls += [call.get("function", {}) for call in message.get("tool_calls") or []]
@@ -28,18 +35,35 @@ def summary(path):
         tools[fn.get("name", "?")] += 1
         if "ledger://" in fn.get("arguments", ""):
             reads += 1
-    prompt = cached = completion = 0
-    for row in rows:
-        usage = row.get("usage") or {}
-        messages_cache = (usage.get("cache_read_input_tokens") or 0) + (usage.get("cache_creation_input_tokens") or 0)
-        prompt += usage.get("prompt_tokens") or ((usage.get("input_tokens") or 0) + messages_cache)
-        completion += usage.get("completion_tokens") or usage.get("output_tokens") or 0
-        details = usage.get("prompt_tokens_details") or usage.get("input_tokens_details") or {}
-        cached += details.get("cached_tokens") or usage.get("prompt_cache_hit_tokens") or usage.get("cache_read_input_tokens") or 0
-    wall = (rows[-1].get("done", rows[-1]["t"]) - rows[0]["t"]) if rows else 0
-    return (f"{path}: requests={len(rows)} ledger_reads={reads} prompt={prompt} "
-            f"cached={cached} completion={completion} wall={wall:.1f}s tools={dict(tools)}")
+    measured = receipt.usage_summary(rows)
+    start = receipt.number(rows[0].get("t")) if rows else None
+    end = receipt.number(rows[-1].get("done", rows[-1].get("t"))) if rows else None
+    wall = end - start if start is not None and end is not None and end >= start else None
+
+    def metric(key):
+        value = measured[key]
+        if value is not None:
+            return str(value)
+        coverage = measured["usage_metric_coverage"][key]
+        subtotal = measured["usage_reported_subtotals"][key]
+        return f"unknown[reported_subtotal={subtotal};coverage={coverage['reported']}/{coverage['attempts']}]"
+
+    wall_text = f"{wall:.1f}s" if wall is not None else "unknown"
+    return (f"{path}: requests={len(rows)} ledger_reads={reads} prompt={metric('prompt')} "
+            f"cached={metric('cached')} completion={metric('completion')} wall={wall_text} tools={dict(tools)}")
 
 
-for path in sys.argv[1:]:
-    print(summary(path))
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("paths", nargs="*", type=Path)
+    args = parser.parse_args(argv)
+    try:
+        summaries = [summary(path) for path in args.paths]
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    for text in summaries:
+        print(text)
+
+
+if __name__ == "__main__":
+    main()

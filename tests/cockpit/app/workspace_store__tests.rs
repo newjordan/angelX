@@ -98,6 +98,143 @@ fn command_capture_reaps_successful_parents_background_pipe_holders() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn command_capture_preserves_nonzero_status_and_output_overflow() {
+    let (status, captured) = capture_with_deadline(
+        "sh",
+        &["-c", "printf prefix-extra; exit 7"],
+        Path::new("."),
+        Duration::from_secs(1),
+        6,
+    )
+    .unwrap()
+    .expect("a complete capture must preserve the process result");
+    assert_eq!(status.code(), Some(7));
+    assert_eq!(captured.bytes, b"prefix");
+    assert!(captured.overflow);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn detached_stdout_deadline_fixture() {
+    let Some(root) = std::env::var_os("ANGEL_T_CAPTURE_DETACHED_STDOUT") else {
+        return;
+    };
+    crate::agent::sandbox::process_owner::initialize().unwrap();
+    let root = PathBuf::from(root);
+    for mode in ["exit", "timeout"] {
+        let marker = root.join(format!("{mode}.pid"));
+        let child_marker = marker.clone();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let started = Instant::now();
+        let worker = thread::spawn(move || {
+            let mut command = Command::new("python3");
+            command.args([
+                "-c",
+                r#"import os, sys, time
+from pathlib import Path
+marker = Path(sys.argv[1])
+if os.fork() == 0:
+    os.setsid()
+    marker.write_text(str(os.getpid()))
+    time.sleep(30)
+    os._exit(0)
+while not marker.exists():
+    time.sleep(0.001)
+print('direct-child-output', flush=True)
+if sys.argv[2] == 'timeout':
+    time.sleep(30)
+"#,
+            ]);
+            command.arg(child_marker).arg(mode);
+            let result = capture_command_with_deadline(command, Duration::from_millis(150), 1024);
+            let _ = sender.send(result);
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let descendant = loop {
+            if let Some(pid) = std::fs::read_to_string(&marker)
+                .ok()
+                .and_then(|text| text.trim().parse::<i32>().ok())
+            {
+                break pid;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "fixture did not record its descendant"
+            );
+            thread::sleep(Duration::from_millis(10));
+        };
+        let observed = receiver.recv_timeout(Duration::from_secs(2));
+        let completed = observed.is_ok();
+        let elapsed = started.elapsed();
+        // Clean the deliberately escaped fixture before asserting, so even a
+        // regression that blocks in reader.join() cannot leave a process behind.
+        unsafe { libc::killpg(descendant, libc::SIGKILL) };
+        let result =
+            observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
+        worker.join().unwrap();
+        let stat = PathBuf::from(format!("/proc/{descendant}/stat"));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while stat.exists() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!stat.exists(), "fixture descendant was not reaped");
+        assert!(
+            completed,
+            "{mode}: stdout capture exceeded its deadline ({elapsed:?})"
+        );
+        assert!(
+            result.unwrap().is_none(),
+            "{mode}: incomplete stdout must report a timeout"
+        );
+        eprintln!(
+            "LIFECYCLE_CAPTURE mode={mode} incomplete_stdout=timeout elapsed_ms={} descendant_reaped=true",
+            elapsed.as_millis()
+        );
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn command_capture_deadline_covers_detached_stdout_after_exit_and_timeout() {
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!("angel-capture-detached-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let filter = format!(
+        "{}::detached_stdout_deadline_fixture",
+        module_path!()
+            .split_once("::")
+            .map_or(module_path!(), |(_, rest)| rest)
+    );
+    let mut child = Command::new("/proc/self/exe")
+        .args(["--exact", &filter, "--nocapture", "--test-threads=1"])
+        .env("ANGEL_T_CAPTURE_DETACHED_STDOUT", &root)
+        .stdin(Stdio::null())
+        .spawn_owned()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            // initialize() gives this isolated fixture an orderly signal path
+            // that kills and reaps every descendant, including new sessions.
+            unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
+            let _ = child.wait();
+            std::fs::remove_dir_all(&root).unwrap();
+            panic!("detached stdout capture fixture exceeded its outer deadline");
+        }
+        thread::sleep(Duration::from_millis(10));
+    };
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        status.success(),
+        "detached stdout capture subprocess failed"
+    );
+}
+
 #[test]
 fn workspace_key_is_deterministic_and_distinct() {
     let a = workspace_key(Path::new("/home/u/alpha"));

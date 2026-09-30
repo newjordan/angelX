@@ -15,6 +15,9 @@ pub(crate) mod lsp;
 pub(crate) mod mcp;
 pub(crate) mod openai_codex;
 pub(crate) mod sandbox;
+pub(crate) mod service_process;
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) use service_process::tests as process_test_support;
 pub(crate) mod staged_edit;
 pub(crate) mod steer;
 pub(crate) mod stream_rules;

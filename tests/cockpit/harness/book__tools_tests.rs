@@ -1084,6 +1084,10 @@ fn schema_texts(def: &crate::agent::club::ToolDef) -> Vec<String> {
 fn every_schema(root: &std::path::Path) -> Vec<crate::agent::club::ToolDef> {
     use crate::agent::harness::Tool;
     use crate::tests::TestEnvGuard;
+    // Schema coverage must include the optional vision tool on hosts without
+    // credentials or a cached image-capable model catalog. No request is made.
+    let _vision_url = TestEnvGuard::set("ANGEL_VISION_URL", "http://127.0.0.1:9/v1");
+    let _vision_model = TestEnvGuard::set("ANGEL_VISION_MODEL", "schema-fixture");
     let bag = crate::agent::club::Bag::practice_for_test();
     let mut defs = Vec::new();
     let modes: [&[(&'static str, &str)]; 3] = [

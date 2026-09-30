@@ -17,6 +17,144 @@ fn cli_pipe_capture_drains_beyond_its_retained_prefix() {
     assert!(!exact.overflow);
 }
 
+#[cfg(unix)]
+#[test]
+fn local_cli_capture_preserves_complete_status_and_output_rules() {
+    let mut command = Command::new("python3");
+    command.args(["-c", "print('\\033[32mcomplete output\\033[0m')"]);
+    assert_eq!(
+        run_yukon_command(&mut command, false, Duration::from_secs(2)).unwrap(),
+        "complete output\n"
+    );
+
+    let mut command = Command::new("python3");
+    command.args([
+        "-c",
+        "import sys; print('reported failure', file=sys.stderr); sys.exit(17)",
+    ]);
+    assert_eq!(
+        run_yukon_command(&mut command, false, Duration::from_secs(2)).unwrap_err(),
+        "Yukon CLI: reported failure"
+    );
+
+    for allowed in [false, true] {
+        let mut command = Command::new("python3");
+        command.args(["-c", "raise SystemExit(17)"]);
+        let result = run_yukon_command(&mut command, allowed, Duration::from_secs(2));
+        if allowed {
+            assert_eq!(result.unwrap(), "");
+        } else {
+            assert!(result.unwrap_err().contains("Yukon CLI exited with"));
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn local_cli_rejects_overflow_on_either_output_stream() {
+    for stream in ["stdout", "stderr"] {
+        let mut command = Command::new("python3");
+        command.args([
+            "-c",
+            &format!(
+                "import sys; sys.{stream}.write('x' * {})",
+                MAX_CLI_OUTPUT_BYTES + 1
+            ),
+        ]);
+        assert_eq!(
+            run_yukon_command(&mut command, false, Duration::from_secs(2)).unwrap_err(),
+            "Yukon CLI output exceeded the watcher limit"
+        );
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn fleet_cli_ownership_fixture() {
+    use crate::agent::service_process::tests::{FixtureCleanup, ServiceFixture};
+    let Some(root) = std::env::var_os("ANGEL_T_FLEET_PIPE_OWNERSHIP") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    let root = std::path::Path::new(&root);
+    for mode in ["same-group", "escaped-stdout", "escaped-stderr", "running"] {
+        let marker = root.join(format!("{mode}.pid"));
+        let mut command = Command::new("python3");
+        command.args([
+            "-c",
+            r#"import os, signal, sys, time
+from pathlib import Path
+mode, marker = sys.argv[1], Path(sys.argv[2])
+read_fd, write_fd = os.pipe()
+descendant = os.fork()
+if descendant == 0:
+    os.close(read_fd)
+    if mode.startswith('escaped'):
+        os.setsid()
+        os.close(2 if mode == 'escaped-stdout' else 1)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    os.write(write_fd, b'ready')
+    os.close(write_fd)
+    time.sleep(30)
+    os._exit(0)
+os.close(write_fd)
+os.read(read_fd, 5)
+os.close(read_fd)
+marker.write_text(f'{os.getpid()} {descendant} {os.getpgrp()}')
+print('bounded complete output', flush=True)
+if mode == 'running':
+    time.sleep(30)
+os._exit(0)
+"#,
+            mode,
+            marker.to_str().unwrap(),
+        ]);
+        let started = Instant::now();
+        let result = run_yukon_command(&mut command, true, Duration::from_millis(150));
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(700),
+            "{mode} {elapsed:?}: {result:?}"
+        );
+        let pids = std::fs::read_to_string(marker)
+            .unwrap()
+            .split_whitespace()
+            .map(|value| value.parse::<i32>().unwrap())
+            .collect::<Vec<_>>();
+        let [leader, descendant, group] = pids.as_slice() else {
+            panic!("fixture identity receipt malformed");
+        };
+        assert_eq!(leader, group, "CLI must own a private group");
+        ServiceFixture::assert_reaped(*leader);
+        if mode == "same-group" {
+            assert_eq!(result.unwrap(), "bounded complete output\n");
+        } else if mode.starts_with("escaped") {
+            assert!(
+                result
+                    .unwrap_err()
+                    .contains("read Yukon CLI output: timed out")
+            );
+            // Escaped groups remain outside service retirement. This isolated
+            // subreaper owns the fixture's final cleanup, including assertions.
+            assert!(std::path::Path::new(&format!("/proc/{descendant}/stat")).exists());
+            unsafe { libc::kill(*descendant, libc::SIGKILL) };
+        } else {
+            assert!(result.unwrap_err().contains("Yukon CLI timed out"));
+        }
+        ServiceFixture::assert_reaped(*descendant);
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn fleet_cli_group_cleanup_and_pipe_eof_share_the_command_budget() {
+    let filter = format!(
+        "{}::fleet_cli_ownership_fixture",
+        module_path!().split_once("::").unwrap().1
+    );
+    crate::agent::service_process::tests::isolated_fixture(&filter, "ANGEL_T_FLEET_PIPE_OWNERSHIP");
+}
+
 #[test]
 fn parses_open_benchmarks_from_colored_table() {
     let table = "\u{1b}[2mbenchmark status\u{1b}[22m\n\

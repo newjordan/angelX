@@ -31,7 +31,7 @@ fn pixel_frames_stand_in_the_corner_of_one_canvas_and_keep_every_pixel() {
     // in their cells: the second raises a staff above and right of the body.
     // Any resampling would blend.
     let checker = |x: u32, y: u32| {
-        let v = if ((x / 2) + (y / 2)) % 2 == 0 {
+        let v = if ((x / 2) + (y / 2)).is_multiple_of(2) {
             20
         } else {
             220

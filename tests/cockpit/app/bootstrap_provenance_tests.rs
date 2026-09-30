@@ -544,7 +544,11 @@ mod s05 {
                     // The fence opens and closes on the same route, so a
                     // position is inside one after an odd count of them.
                     let before = &joined[..joined.len() - rest.len() + at];
-                    if before.matches(EVIDENCE_FENCE_HEADER).count() % 2 == 0 {
+                    if before
+                        .matches(EVIDENCE_FENCE_HEADER)
+                        .count()
+                        .is_multiple_of(2)
+                    {
                         covered = false;
                     }
                     rest = &rest[at + marker.len()..];

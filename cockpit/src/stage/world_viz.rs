@@ -320,6 +320,8 @@ pub(crate) struct World {
     overworld_deeds: overworld::Deeds,
     /// Short-lived, bounded lantern seals from correlated tool receipts.
     overworld_outcomes: overworld::Outcomes,
+    graph_garden: overworld::garden::Garden,
+    graph_destination: bool,
     lists_tally: BTreeMap<String, u32>,
 }
 
@@ -472,6 +474,8 @@ impl World {
             overworld_duel: None,
             overworld_deeds: overworld::Deeds::default(),
             overworld_outcomes: overworld::Outcomes::default(),
+            graph_garden: overworld::garden::Garden::default(),
+            graph_destination: false,
             lists_tally: BTreeMap::new(),
         };
         world.tiles = (0..WORLD_H)
@@ -892,6 +896,9 @@ impl World {
             self.event_diagnostics = self.event_diagnostics.saturating_add(1);
             return;
         }
+        if name != "graph" {
+            self.graph_destination = false;
+        }
         let classified = classify_tool_activity(name, args_summary);
         // Z1: tool traffic feeds the adventure's rolling mix (for
         // `loop_kind_for`) and the quest's Tool event; the town-landmark walk
@@ -923,12 +930,42 @@ impl World {
         self.target = classified.building;
         self.carrying_mail = classified.building == Building::Gatehouse;
         self.activity = format!("{literal} → {}", classified.building.label());
-        self.overworld_deeds
-            .begin(&id, name, args_summary, self.tick);
+        if name != "graph" {
+            self.overworld_deeds
+                .begin(&id, name, args_summary, self.tick);
+        }
         if let Some(place) = self.overworld_deeds.destination(&id) {
             self.overworld_outcomes.clear(place);
         }
         self.active_work.insert(id, work);
+    }
+
+    pub(crate) fn note_graph_event(
+        &mut self,
+        id: &ToolEventId,
+        event: &crate::knowledge::graph_crop::GraphEvent,
+    ) {
+        if matches!(
+            event,
+            crate::knowledge::graph_crop::GraphEvent::Requested(_)
+        ) {
+            self.graph_destination = true;
+        }
+        self.graph_garden.note(id, event, self.tick);
+    }
+    pub(crate) fn graph_visiting(&self) -> bool {
+        self.graph_destination
+    }
+    pub(crate) fn settle_graph_call(&mut self, id: &ToolEventId, outcome: ToolOutcome) {
+        self.graph_garden.settle(id, outcome, self.tick);
+    }
+    pub(crate) fn graph_report(&mut self, selected: Option<&str>) -> String {
+        if let Some(id) = selected
+            && !self.graph_garden.select(id)
+        {
+            return format!("Unknown graph plot {id:?}");
+        }
+        self.graph_garden.report()
     }
 
     /// Mirror the currently visible completion ceremony. Callers derive this
@@ -1742,6 +1779,7 @@ impl World {
         // drop it so orphaned entries can't accumulate across turns.
         self.active_work.clear();
         self.overworld_deeds.abandon();
+        self.graph_garden.abandon(self.tick);
     }
 
     /// One animation frame. The knight walks a tile toward its target every
@@ -2050,7 +2088,9 @@ impl World {
     /// Anything moving on screen? (Keeps the event loop on the fast tick — and
     /// must reach false once everything settles, or the loop spins forever.)
     pub(crate) fn animating(&self) -> bool {
-        self.avatar != self.dest()
+        self.graph_garden.animating(self.tick)
+            || self.graph_knight_travelling()
+            || self.avatar != self.dest()
             || !self.route.is_empty()
             || !self.avatar_vis_settled()
             || self.camera.easing() || self.cinematic_zoom_pending()

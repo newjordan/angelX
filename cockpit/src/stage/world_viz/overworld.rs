@@ -18,6 +18,7 @@
 
 mod clerks;
 mod deeds;
+pub(crate) mod garden;
 mod glass;
 mod ground;
 mod ink;
@@ -138,6 +139,7 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
             }
         }
     }
+    garden::paint_ground(&mut cv, &scene.garden, view);
     let (tx0, ty0) = (
         view.x.div_euclid(TILE).max(0),
         view.y.div_euclid(TILE).max(0),

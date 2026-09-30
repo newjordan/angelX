@@ -1,8 +1,374 @@
 use super::*;
+
+#[cfg(unix)]
+#[path = "lsp__hot_budget_tests.rs"]
+mod hot_budget;
+
+#[cfg(target_os = "linux")]
+#[test]
+fn lsp_wrapper_retirement_fixture() {
+    use crate::agent::service_process::tests::{FixtureCleanup, ServiceFixture};
+
+    let Some(root) = std::env::var_os("ANGEL_T_LSP_RETIREMENT") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    for mode in ["live", "exit", "retired"] {
+        let fixture = ServiceFixture::new(Path::new(&root), mode);
+        let server = LspServer {
+            name: "wrapper-retirement".into(),
+            command: "python3".into(),
+            args: fixture.args(),
+            extensions: vec!["rs".into()],
+            language_id: "rust".into(),
+        };
+        let mut client = LspClient::spawn(&server, Duration::from_millis(100)).unwrap();
+        let (leader, descendant, group) = fixture.pids();
+        assert_eq!(group, leader, "the LSP wrapper must own its group");
+        assert!(client.child.get_mut().unwrap().alive());
+        if mode != "live" {
+            fixture.release();
+            let child = client.child.get_mut().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while child.alive() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert!(!child.alive());
+            ServiceFixture::assert_unreaped_launcher(leader);
+        }
+        if mode == "retired" {
+            let child = client.child.get_mut().unwrap();
+            assert_eq!(child.retire().unwrap().code(), Some(17));
+            assert_eq!(child.retire().unwrap().code(), Some(17));
+        }
+        let rx = std::mem::replace(client.rx.get_mut().unwrap(), mpsc::channel().1);
+        let started = Instant::now();
+        drop(client);
+        let reader = rx.recv_timeout(Duration::from_secs(1));
+        let elapsed = started.elapsed();
+        ServiceFixture::assert_reaped(leader);
+        ServiceFixture::assert_reaped(descendant);
+        assert!(matches!(reader, Err(mpsc::RecvTimeoutError::Disconnected)));
+        assert!(elapsed < Duration::from_secs(1), "reader EOF: {elapsed:?}");
+        eprintln!("LIFECYCLE_LSP mode={mode} reader_eof=true descendant_reaped=true");
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn lsp_retirement_stops_term_ignoring_wrapper_children_and_reader() {
+    let filter = format!(
+        "{}::lsp_wrapper_retirement_fixture",
+        module_path!().split_once("::").unwrap().1
+    );
+    crate::agent::service_process::tests::isolated_fixture(&filter, "ANGEL_T_LSP_RETIREMENT");
+}
+
+#[cfg(unix)]
+#[test]
+fn diagnostic_queue_budget_preserves_pending_push_and_cached_report() {
+    let uri = "file:///queued.rs";
+    let server = LspServer {
+        name: "queued-diagnostics".into(),
+        command: "python3".into(),
+        args: vec![
+            "-c".into(),
+            r#"import json, sys, time
+body = json.dumps({'jsonrpc': '2.0', 'method': 'textDocument/publishDiagnostics', 'params': {'uri': 'file:///queued.rs', 'diagnostics': [{'message': 'pending push'}]}}).encode()
+sys.stdout.buffer.write(f'Content-Length: {len(body)}\r\n\r\n'.encode() + body)
+sys.stdout.buffer.flush()
+time.sleep(30)
+"#
+            .into(),
+        ],
+        extensions: vec!["rs".into()],
+        language_id: "rust".into(),
+    };
+    let client = Arc::new(LspClient::spawn(&server, Duration::from_millis(100)).unwrap());
+    let cached = json!({"uri": uri, "diagnostics": [{"message": "cached report"}]});
+    client
+        .diagnostics
+        .lock()
+        .unwrap()
+        .insert(uri.into(), cached.clone());
+    let held = client.rx.lock().unwrap();
+    let queued = Arc::clone(&client);
+    let (sender, receiver) = mpsc::channel();
+    let started = Instant::now();
+    let worker = std::thread::spawn(move || {
+        let _ = sender.send(queued.collect_diagnostics_with_timeout(
+            uri,
+            Duration::from_millis(100),
+            Duration::from_millis(5),
+        ));
+    });
+    let observed = receiver.recv_timeout(Duration::from_millis(500));
+    let completed = observed.is_ok();
+    let elapsed = started.elapsed();
+    // The old implementation can still be waiting on rx here; release it
+    // before every join/assertion so the fixture remains bounded on failure.
+    drop(held);
+    let result =
+        observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
+    worker.join().unwrap();
+    let retained_cache = client.diagnostics.lock().unwrap().get(uri).cloned();
+    let pending = client
+        .rx
+        .lock()
+        .unwrap()
+        .recv_timeout(Duration::from_millis(200))
+        .ok();
+    let reusable_cache = pending.as_ref().map(|message| {
+        client.remember_diagnostics(message);
+        client.collect_diagnostics_with_timeout(
+            uri,
+            Duration::from_millis(100),
+            Duration::from_millis(5),
+        )
+    });
+    drop(client);
+    assert!(
+        completed,
+        "diagnostic queue exceeded its budget: {elapsed:?}"
+    );
+    assert!(elapsed < Duration::from_millis(400));
+    assert!(result.is_none(), "the collector never owned the connection");
+    assert_eq!(retained_cache, Some(cached));
+    let pending = pending.expect("the queued collector must not consume the push");
+    assert_eq!(
+        pending["params"]["diagnostics"][0]["message"],
+        "pending push"
+    );
+    assert_eq!(reusable_cache, Some(Some(pending["params"].clone())));
+}
 use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static LSP_TEST_NONCE: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(unix)]
+fn blocked_stdin_server() -> LspServer {
+    LspServer {
+        name: "blocked-writer".into(),
+        command: "/bin/sh".into(),
+        args: vec!["-c".into(), "exec sleep 30".into()],
+        extensions: vec![],
+        language_id: "plaintext".into(),
+    }
+}
+
+#[cfg(unix)]
+fn assert_blocked_write_obeys_deadline(notification: bool) {
+    let client =
+        Arc::new(LspClient::spawn(&blocked_stdin_server(), Duration::from_millis(100)).unwrap());
+    let watchdog_client = Arc::clone(&client);
+    let (done, stop) = mpsc::channel();
+    let watchdog = std::thread::spawn(move || {
+        if stop.recv_timeout(Duration::from_secs(2)).is_err() {
+            let mut child = watchdog_client.child.lock().unwrap();
+            let _ = child.retire();
+            return true;
+        }
+        false
+    });
+    let params = json!({"blob": "x".repeat(1 << 20)});
+    let started = Instant::now();
+    let result = if notification {
+        client.notify("textDocument/didOpen", params)
+    } else {
+        client.request("workspace/blocked", params).map(|_| ())
+    };
+    let elapsed = started.elapsed();
+    let _ = done.send(());
+    let rescued = watchdog.join().unwrap();
+    let error = result.expect_err("a full stdin pipe must time out");
+    let after = client.request("workspace/after-partial-write", json!({}));
+    let pipe_closed = client.stdin.lock().unwrap().is_none();
+    drop(client); // Drop kills and waits on the single owned sleep process.
+    assert!(!rescued, "write required fixture watchdog cleanup: {error}");
+    assert!(
+        elapsed < Duration::from_secs(1),
+        "write escaped its deadline: {elapsed:?}"
+    );
+    assert!(error.contains("timed out"), "{error}");
+    assert!(
+        is_dead_client(&error),
+        "a partial write must invalidate the client: {error}"
+    );
+    assert!(pipe_closed);
+    assert!(after.unwrap_err().contains("closed the connection"));
+}
+
+#[cfg(unix)]
+#[test]
+fn request_deadline_covers_blocked_stdin() {
+    assert_blocked_write_obeys_deadline(false);
+}
+
+#[cfg(unix)]
+#[test]
+fn notification_deadline_covers_blocked_stdin() {
+    assert_blocked_write_obeys_deadline(true);
+}
+
+#[cfg(unix)]
+#[test]
+fn request_deadline_bounds_serialization_without_poisoning_an_unwritten_frame() {
+    let client =
+        Arc::new(LspClient::spawn(&blocked_stdin_server(), Duration::from_millis(100)).unwrap());
+    let held = client.rx.lock().unwrap();
+    let worker_client = Arc::clone(&client);
+    let (sender, receiver) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let _ = sender.send(worker_client.request("workspace/queued", json!({})));
+    });
+    let early = receiver.recv_timeout(Duration::from_secs(1));
+    let bounded = early.is_ok();
+    drop(held);
+    if !bounded {
+        let mut child = client.child.lock().unwrap();
+        let _ = child.retire();
+    }
+    let result = early.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(1)).unwrap());
+    worker.join().unwrap();
+    let error = result.unwrap_err();
+    let pipe_open = client.stdin.lock().unwrap().is_some();
+    drop(client);
+    assert!(
+        bounded,
+        "transport serialization escaped the request budget"
+    );
+    assert!(
+        error.contains("timed out") && error.contains("waiting for connection"),
+        "{error}"
+    );
+    assert!(
+        !is_dead_client(&error),
+        "an unwritten queued request must leave the client reusable"
+    );
+    assert!(pipe_open);
+}
+
+#[cfg(unix)]
+#[test]
+fn server_reply_write_uses_the_configured_deadline_and_closes_a_partial_frame() {
+    let server = LspServer {
+        name: "blocked-reply".into(),
+        command: "python3".into(),
+        args: vec!["-c".into(), r#"
+import json, sys, time
+message = json.dumps({'jsonrpc': '2.0', 'id': 'r' * (1 << 20), 'method': 'workspace/configuration', 'params': {}}).encode()
+sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n' % len(message)).encode() + message)
+sys.stdout.buffer.flush()
+time.sleep(30)
+"#.into()],
+        extensions: vec![],
+        language_id: "plaintext".into(),
+    };
+    let client = LspClient::spawn(&server, Duration::from_millis(100)).unwrap();
+    let observed = client
+        .rx
+        .lock()
+        .unwrap()
+        .recv_timeout(Duration::from_secs(2));
+    // A regression can leave the reader holding stdin's mutex in write_all.
+    // Close/reap the owned peer before inspecting that mutex, bounding failure
+    // cleanup as well as the successful deadline path.
+    {
+        let mut child = client.child.lock().unwrap();
+        let _ = child.retire();
+    }
+    let pipe_closed = client.stdin.lock().unwrap().is_none();
+    drop(client); // Also unblocks the reader if this regression ever hangs.
+    assert!(
+        matches!(observed, Err(mpsc::RecvTimeoutError::Disconnected)),
+        "{observed:?}"
+    );
+    assert!(
+        pipe_closed,
+        "failed reader-thread replies must not append a later frame"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn large_stdio_frames_preserve_notifications_and_request_arguments() {
+    let server = LspServer {
+        name: "large-frames".into(),
+        command: "python3".into(),
+        args: vec!["-c".into(), r#"
+import json, sys
+def read_frame():
+    header = sys.stdin.buffer.readline()
+    size = int(header.split(b':')[1])
+    assert sys.stdin.buffer.readline() == b'\r\n'
+    return json.loads(sys.stdin.buffer.read(size))
+notice, request = read_frame(), read_frame()
+reply = json.dumps({'id': request['id'], 'result': {'notice': len(notice['params']['blob']), 'request': len(request['params']['blob']), 'last': request['params']['blob'][-1]}}).encode()
+sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n' % len(reply)).encode() + reply)
+sys.stdout.buffer.flush()
+"#.into()],
+        extensions: vec![],
+        language_id: "plaintext".into(),
+    };
+    let client = LspClient::spawn(&server, Duration::from_secs(2)).unwrap();
+    client
+        .notify("textDocument/didOpen", json!({"blob": "x".repeat(1 << 20)}))
+        .unwrap();
+    let result = client
+        .request(
+            "workspace/large",
+            json!({"blob": format!("{}π", "y".repeat(1 << 20))}),
+        )
+        .unwrap();
+    drop(client);
+    assert_eq!(
+        result,
+        json!({"notice": 1 << 20, "request": (1 << 20) + 1, "last": "π"})
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn slow_write_and_response_share_one_request_budget() {
+    let server = LspServer {
+        name: "shared-budget".into(),
+        command: "python3".into(),
+        args: vec![
+            "-c".into(),
+            r#"
+import json, sys, time
+time.sleep(.12)
+header = sys.stdin.buffer.readline()
+size = int(header.split(b':')[1])
+sys.stdin.buffer.readline()
+message = json.loads(sys.stdin.buffer.read(size))
+time.sleep(.35)
+reply = json.dumps({'id': message['id'], 'result': 'too-late'}).encode()
+sys.stdout.buffer.write(('Content-Length: %d\r\n\r\n' % len(reply)).encode() + reply)
+sys.stdout.buffer.flush()
+"#
+            .into(),
+        ],
+        extensions: vec![],
+        language_id: "plaintext".into(),
+    };
+    let client = LspClient::spawn(&server, Duration::from_millis(400)).unwrap();
+    let result = client.request(
+        "workspace/shared-budget",
+        json!({"blob": "x".repeat(1 << 20)}),
+    );
+    drop(client);
+    let error = result.expect_err("write latency must consume the response allowance");
+    assert!(
+        error.contains("timed out on workspace/shared-budget"),
+        "{error}"
+    );
+    assert!(
+        !is_dead_client(&error),
+        "a completely written request remains a healthy transport"
+    );
+}
 
 #[test]
 fn lsp_prewarm_requires_an_explicit_truthy_opt_in() {
@@ -629,9 +995,8 @@ fn dead_cached_server_is_evicted_and_next_request_respawns_once() {
         .child
         .lock()
         .unwrap()
-        .kill()
+        .retire()
         .expect("kill mock server");
-    let _ = first.child.lock().unwrap().wait();
 
     let tool = LspNavTool {
         kind: NavKind::Definition,

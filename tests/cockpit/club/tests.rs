@@ -386,14 +386,13 @@ fn wrapper_labels_match_without_a_lowercase_copy() {
     assert!(is_logical_wrapper_label("local-moa"));
     assert!(!is_logical_wrapper_label("spark"));
     let src = include_str!("../../../cockpit/src/agent/club/mod.rs");
-    for name in ["pub(crate) fn is_logical_wrapper_label"] {
-        let start = src.find(name).expect(name);
-        let body = &src[start..start.saturating_add(500)];
-        assert!(
-            !body.contains("to_ascii_lowercase"),
-            "{name} is on the tab-strip draw path:\n{body}"
-        );
-    }
+    let name = "pub(crate) fn is_logical_wrapper_label";
+    let start = src.find(name).expect(name);
+    let body = &src[start..start.saturating_add(500)];
+    assert!(
+        !body.contains("to_ascii_lowercase"),
+        "{name} is on the tab-strip draw path:\n{body}"
+    );
 }
 
 /// Mirrors the OpenRouter seat in `bag.rs`. `tencent/hy3:free` was retired in
@@ -613,8 +612,8 @@ fn meta_route_serves_muse_spark_from_the_meta_model_api() {
 }
 
 /// The Muse seat speaks the Responses API (reasoning summaries reach the
-/// thinking panel) at `ANGEL_META_REASONING_EFFORT`; Muse rejects `none`, so
-/// that value is ignored. `ANGEL_META_API=chat` keeps the Chat Completions seat.
+/// thinking panel) at `ANGEL_META_REASONING_EFFORT`, else its calibrated effort;
+/// Muse rejects `none`, so that value is ignored. `ANGEL_META_API=chat` keeps the Chat Completions seat.
 #[test]
 fn meta_route_takes_its_effort_and_can_fall_back_to_chat_completions() {
     let _guard = env_lock();
@@ -630,7 +629,14 @@ fn meta_route_takes_its_effort_and_can_fall_back_to_chat_completions() {
 
     let _none = ScopedEnv::set("ANGEL_META_REASONING_EFFORT", "none");
     let (_, club, _) = optional_meta_http_club().expect("responses seat");
-    assert_eq!(club.reasoning_effort(), None, "Muse rejects `none`");
+    assert_eq!(
+        club.reasoning_effort().as_deref(),
+        Some("minimal"),
+        "Muse rejects `none`; the calibrated effort stands"
+    );
+    let _unset = ScopedEnv::unset("ANGEL_META_REASONING_EFFORT");
+    let (_, club, _) = optional_meta_http_club().expect("responses seat");
+    assert_eq!(club.reasoning_effort().as_deref(), Some("minimal"));
 
     let _chat = ScopedEnv::set("ANGEL_META_API", "chat");
     let (alias, club, _) = optional_meta_http_club().expect("chat completions seat");

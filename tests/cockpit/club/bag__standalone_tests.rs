@@ -70,3 +70,87 @@ fn k3_driver_aliases_resolve_to_the_kimi_seat() {
         );
     }
 }
+
+#[test]
+fn explicit_driver_startup_notice_names_missing_preference_and_selected_route() {
+    let _lock = crate::tests::env_lock();
+    let bag = Bag::practice_only();
+    let _driver = crate::tests::TestEnvGuard::set("ANGEL_DRIVER", "missing-model");
+    let notice = bag.driver_startup_notice().unwrap();
+    assert!(
+        notice.contains("ANGEL_DRIVER=\"missing-model\""),
+        "{notice}"
+    );
+    assert!(
+        notice.contains("does not match a configured route"),
+        "{notice}"
+    );
+    assert!(
+        notice.contains("selected startup route: practice / practice"),
+        "{notice}"
+    );
+}
+
+#[test]
+fn explicit_driver_startup_notice_checks_requested_slot_without_mutating_selection() {
+    struct FixtureSeat;
+    impl Club for FixtureSeat {
+        fn label(&self) -> &str {
+            "fixture"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            panic!("startup diagnostics must not call a provider")
+        }
+        fn live_model_name(&self) -> Option<String> {
+            Some("fallback-checkpoint".into())
+        }
+    }
+    let _lock = crate::tests::env_lock();
+    let mut bag = Bag::practice_only();
+    bag.agents = vec![Agent {
+        name: "fixture-box".into(),
+        slots: ["wanted", "fallback"]
+            .into_iter()
+            .enumerate()
+            .map(|(index, label)| Slot {
+                label: label.into(),
+                club: Arc::new(FixtureSeat),
+                available: Arc::new(AtomicBool::new(index == 1)),
+            })
+            .collect(),
+        active: 1,
+    }];
+    let _driver = crate::tests::TestEnvGuard::set("ANGEL_DRIVER", "wanted");
+    assert!(bag.agents[0].available(), "the box is up via another slot");
+    let notice = bag.driver_startup_notice().unwrap();
+    assert!(
+        notice.contains("ANGEL_DRIVER=\"wanted\" is unavailable at startup"),
+        "{notice}"
+    );
+    assert!(
+        notice.contains("fixture-box / fallback (fallback-checkpoint)"),
+        "{notice}"
+    );
+    assert_eq!(bag.selected_route_indices(), (0, 1));
+
+    bag.agents[0].slots[0]
+        .available
+        .store(true, Ordering::Relaxed);
+    let notice = bag.driver_startup_notice().unwrap();
+    assert!(notice.contains("was not selected at startup"), "{notice}");
+    assert_eq!(bag.selected_route_indices(), (0, 1));
+    bag.agents[0].active = 0;
+    assert!(bag.driver_startup_notice().is_none());
+}
+
+#[test]
+fn driver_startup_notice_is_silent_for_implicit_defaults_and_satisfied_pins() {
+    let _lock = crate::tests::env_lock();
+    let bag = Bag::practice_only();
+    let _unset = crate::tests::TestEnvGuard::unset("ANGEL_DRIVER");
+    assert!(bag.driver_startup_notice().is_none());
+    let _empty = crate::tests::TestEnvGuard::set("ANGEL_DRIVER", "  ");
+    assert!(bag.driver_startup_notice().is_none());
+    let _satisfied = crate::tests::TestEnvGuard::set("ANGEL_DRIVER", "practice");
+    assert!(bag.driver_startup_notice().is_none());
+}

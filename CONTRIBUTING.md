@@ -48,6 +48,10 @@ cargo fmt --manifest-path cockpit/Cargo.toml --check
 
 - The fast runner starts test processes with both YOLO authority flags off;
   individual fixtures may opt in explicitly. Do not time builds as model work.
+- The development gate keeps a private copy of the test executable and its CLI
+  and sandbox-helper siblings, so concurrent builds can replace shared target
+  files while tests run. It removes its own temporary directory on exit;
+  `TMPDIR` selects the parent and must have room for the copied debug images.
 - A no-video test pass does not qualify video support or an optimized release.
   Follow the [release guide](docs/release-evidence.md) for those checks.
 - Keep credentials, personal configuration, raw sessions and machine-specific

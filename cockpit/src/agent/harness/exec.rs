@@ -953,6 +953,17 @@ pub(crate) struct TimedCapture {
     pub deadline_extended: bool,
 }
 
+impl TimedCapture {
+    /// Neither retained stream was marked truncated or still open at the
+    /// drain boundary. Process success, cancellation, and deadline are separate.
+    pub(crate) fn output_complete(&self) -> bool {
+        !self.stdout_truncated
+            && !self.stderr_truncated
+            && !self.grandchild_holds_stdout
+            && !self.grandchild_holds_stderr
+    }
+}
+
 pub(crate) fn output_timed_captured(
     cmd: Command,
     timeout: Option<Duration>,
@@ -981,6 +992,8 @@ pub(crate) fn output_timed_captured_cancellable_with_progress(
 /// even when YOLO removes operator-workload timeouts. This is intentionally not
 /// exposed to ordinary shell/build work: it is for health and repair probes
 /// whose subprocesses must never own an agent turn indefinitely.
+/// Spawn retries consume that allowance. Existing kill grace and output-drain
+/// convergence remain separate from the fixed execution budget.
 pub(crate) fn output_timed_fixed_captured(
     cmd: Command,
     timeout: Duration,
@@ -1008,6 +1021,9 @@ fn output_timed_inner(
     extensible: bool,
     fixed_timeout: bool,
 ) -> Result<TimedCapture, String> {
+    // Internal fixed probes include spawn/retry in their original allowance.
+    // Ordinary and operator-extensible tools retain their setup/relink grace.
+    let fixed_started = fixed_timeout.then(Instant::now);
     use std::io::Read;
     use std::os::unix::process::CommandExt;
     use std::process::Stdio;
@@ -1019,6 +1035,11 @@ fn output_timed_inner(
         call_budget()
     } else {
         timeout
+    };
+    let fixed_remaining = || {
+        fixed_started
+            .zip(timeout)
+            .map(|(started, budget)| budget.saturating_sub(started.elapsed()))
     };
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -1057,6 +1078,9 @@ fn output_timed_inner(
         .get_args()
         .next()
         .is_some_and(|arg| arg == "--sandbox-exec");
+    if fixed_remaining().is_some_and(|remaining| remaining.is_zero()) {
+        return Err("spawn failed: fixed execution deadline expired".into());
+    }
     let mut child = match cmd.spawn_owned() {
         Ok(child) => child,
         Err(e) if is_transient(&e) => {
@@ -1069,7 +1093,16 @@ fn output_timed_inner(
                 if Instant::now() >= deadline {
                     return Err(format!("spawn failed: {last_err}"));
                 }
-                std::thread::sleep(Duration::from_millis(50));
+                let pause = fixed_remaining().map_or(Duration::from_millis(50), |remaining| {
+                    remaining.min(Duration::from_millis(50))
+                });
+                if pause.is_zero() {
+                    return Err(format!("spawn failed: {last_err}"));
+                }
+                std::thread::sleep(pause);
+                if fixed_remaining().is_some_and(|remaining| remaining.is_zero()) {
+                    return Err(format!("spawn failed: {last_err}"));
+                }
                 match cmd.spawn_owned() {
                     Ok(child) => break child,
                     Err(err) if is_transient(&err) => {
@@ -1254,7 +1287,7 @@ fn output_timed_inner(
     };
     let mut tool_idle = false;
     let idle_limit = tool_idle_timeout();
-    let mut wait_started = Instant::now();
+    let mut wait_started = fixed_started.unwrap_or_else(Instant::now);
     let status = loop {
         // Observe an already-exited child before any kill decision.
         match rx_status.try_recv() {
@@ -1330,7 +1363,10 @@ fn output_timed_inner(
                 .ok_or_else(|| "child did not reap after group kill".to_string())?
                 .map_err(|e| format!("wait failed: {e}"))?;
         }
-        if let Some(status) = wait_status(&rx_status, Duration::from_millis(20)) {
+        let wait = fixed_remaining().map_or(Duration::from_millis(20), |remaining| {
+            remaining.min(Duration::from_millis(20))
+        });
+        if let Some(status) = wait_status(&rx_status, wait) {
             break status.map_err(|e| format!("wait failed: {e}"))?;
         }
     };
@@ -1401,3 +1437,7 @@ fn output_timed_inner(
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/harness/exec__timeout_diag_tests.rs"]
 mod timeout_diag_tests;
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "../../../../tests/cockpit/harness/exec__spawn_budget_tests.rs"]
+mod spawn_budget_tests;

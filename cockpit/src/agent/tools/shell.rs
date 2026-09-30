@@ -36,6 +36,7 @@
 
 use crate::agent::sandbox::process_owner::OwnedCommandExt;
 mod scope;
+mod sleep_guard;
 
 use crate::agent::club::ToolDef;
 use crate::agent::harness::{Tool, run_sandboxed_observed_cancellable};
@@ -719,21 +720,7 @@ fn task_shell_git_redirect(command: &str) -> Option<String> {
 }
 
 fn contains_excessive_sleep(command: &str, max_secs: u64) -> bool {
-    let words = command.split_whitespace().collect::<Vec<_>>();
-    for (i, &word) in words.iter().enumerate() {
-        let w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.');
-        if w == "sleep"
-            && let Some(&next) = words.get(i + 1)
-        {
-            let next_clean = next.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
-            if let Ok(secs) = next_clean.parse::<f64>()
-                && secs > max_secs as f64
-            {
-                return true;
-            }
-        }
-    }
-    false
+    sleep_guard::contains_excessive_sleep(command, max_secs)
 }
 
 fn task_shell_poll_redirect(command: &str) -> Option<String> {

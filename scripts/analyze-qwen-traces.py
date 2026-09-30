@@ -17,14 +17,25 @@ def size(value):
 
 def ancestors(nodes, index):
     visited, messages = set(), []
-    while isinstance(index, int) and index >= 0:
+    while index is not None:
+        if not valid_index(nodes, index):
+            raise ValueError("Trace graph contains an invalid ancestor reference")
         if index in visited:
             raise ValueError("Trace graph contains a cycle")
         visited.add(index)
         node = nodes[index]
+        if not isinstance(node, dict) or not isinstance(node.get("message"), dict):
+            raise ValueError("Trace graph contains an invalid ancestor message")
         messages.append(node["message"])
         index = node.get("parent")
     return messages[::-1]
+
+
+def valid_index(nodes, index):
+    return isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(nodes)
+
+
+REFERENCE_COVERAGE = ("missing_response_calls", "invalid_response_calls", "invalid_ancestry_calls")
 
 
 def trace_shapes(trace):
@@ -32,13 +43,26 @@ def trace_shapes(trace):
     calls, settings, tools = [], Counter(), Counter()
     attempted = trace.get("calls") or []
     nodes = trace.get("nodes") or []
+    coverage = dict.fromkeys(REFERENCE_COVERAGE, 0)
     for call in attempted:
         settings[json.dumps(call.get("sampling"), sort_keys=True)] += 1
-        if "node" not in call:
+        index = call.get("node")
+        if index is None:
+            coverage["missing_response_calls"] += 1
             continue
-        node = nodes[call["node"]]
-        message = node["message"]
-        history = ancestors(nodes, node.get("parent"))
+        if not valid_index(nodes, index):
+            coverage["invalid_response_calls"] += 1
+            continue
+        node = nodes[index]
+        message = node.get("message") if isinstance(node, dict) else None
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            coverage["invalid_response_calls"] += 1
+            continue
+        try:
+            history = ancestors(nodes, node.get("parent"))
+        except ValueError:
+            coverage["invalid_ancestry_calls"] += 1
+            continue
         emitted = message.get("tool_calls") or []
         for tool in emitted:
             tools[tool.get("name") or (tool.get("function") or {}).get("name")] += 1
@@ -57,7 +81,7 @@ def trace_shapes(trace):
         row["generation_chars"] = row["content_chars"] + row["reasoning_chars"] + row["tool_argument_chars"]
         calls.append(row)
     return {"calls": calls, "attempted_calls": len(attempted),
-            "unobserved_response_calls": len(attempted) - len(calls)}, settings, tools
+            "unobserved_response_calls": len(attempted) - len(calls), **coverage}, settings, tools
 
 
 def aggregate(rows):
@@ -69,6 +93,7 @@ def aggregate(rows):
     return {"tasks": len(rows), "attempted_calls": sum(row["attempted_calls"] for row in rows),
             "observed_response_calls": len(calls),
             "unobserved_response_calls": sum(row["unobserved_response_calls"] for row in rows),
+            **{key: sum(row[key] for row in rows) for key in REFERENCE_COVERAGE},
             "metrics": metrics}
 
 
@@ -105,7 +130,7 @@ def main():
     result["jointly_solved"] = {"tasks": len(shared),
         "angel-compact": aggregate([row for row in own if row["task"] in shared]),
         "opencode": aggregate([row for row in peer if row["task"] in shared])}
-    result["methodology"] = "Character counts from normalized evaluator nodes, not token counts or raw HTTP sizes; only sampled response calls are measured, with omitted/error call coverage explicit. Tool schemas are serialized once per request. Historical reasoning counts replayed input, not additional model generation."
+    result["methodology"] = "Character counts from normalized evaluator nodes, not token counts or raw HTTP sizes; only sampled assistant responses with valid acyclic ancestry are measured, with omitted responses, invalid response references/messages and invalid ancestry counted separately. Tool schemas are serialized once per request. Historical reasoning counts replayed input, not additional model generation."
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(f"jointly_solved={len(shared)} output={args.output}")

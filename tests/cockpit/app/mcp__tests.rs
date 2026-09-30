@@ -1,5 +1,63 @@
 use super::*;
 
+#[cfg(target_os = "linux")]
+#[test]
+fn mcp_wrapper_retirement_fixture() {
+    use crate::agent::service_process::tests::{FixtureCleanup, ServiceFixture};
+
+    let Some(root) = std::env::var_os("ANGEL_T_MCP_RETIREMENT") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    for mode in ["live", "exit", "retired"] {
+        let fixture = ServiceFixture::new(std::path::Path::new(&root), mode);
+        let spec = ServerSpec {
+            name: "wrapper-retirement".into(),
+            command: "python3".into(),
+            args: fixture.args(),
+            env: vec![],
+        };
+        let mut client = McpClient::spawn(&spec, Duration::from_millis(100)).unwrap();
+        let (leader, descendant, group) = fixture.pids();
+        assert_eq!(group, leader, "the MCP wrapper must own its group");
+        assert!(client.alive());
+        if mode != "live" {
+            fixture.release();
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while client.alive() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert!(!client.alive());
+            ServiceFixture::assert_unreaped_launcher(leader);
+        }
+        if mode == "retired" {
+            let child = client.child.get_mut().unwrap();
+            assert_eq!(child.retire().unwrap().code(), Some(17));
+            assert_eq!(child.retire().unwrap().code(), Some(17));
+        }
+        let rx = std::mem::replace(&mut client.conn.get_mut().unwrap().rx, mpsc::channel().1);
+        let started = Instant::now();
+        drop(client);
+        let reader = rx.recv_timeout(Duration::from_secs(1));
+        let elapsed = started.elapsed();
+        ServiceFixture::assert_reaped(leader);
+        ServiceFixture::assert_reaped(descendant);
+        assert!(matches!(reader, Err(mpsc::RecvTimeoutError::Disconnected)));
+        assert!(elapsed < Duration::from_secs(1), "reader EOF: {elapsed:?}");
+        eprintln!("LIFECYCLE_MCP mode={mode} reader_eof=true descendant_reaped=true");
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn mcp_retirement_stops_term_ignoring_wrapper_children_and_reader() {
+    let filter = format!(
+        "{}::mcp_wrapper_retirement_fixture",
+        module_path!().split_once("::").unwrap().1
+    );
+    crate::agent::service_process::tests::isolated_fixture(&filter, "ANGEL_T_MCP_RETIREMENT");
+}
+
 #[cfg(unix)]
 fn assert_blocked_write_obeys_deadline(notification: bool) {
     // `exec` leaves one owned process holding stdin open without reading it.
@@ -15,8 +73,7 @@ fn assert_blocked_write_obeys_deadline(notification: bool) {
     let watchdog = std::thread::spawn(move || {
         if stop.recv_timeout(Duration::from_millis(900)).is_err() {
             let mut child = watchdog_client.child.lock().unwrap();
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = child.retire();
         }
     });
     let params = json!({"blob": "x".repeat(1024 * 1024)});
@@ -52,6 +109,73 @@ fn request_deadline_covers_blocked_stdin() {
 #[test]
 fn notification_deadline_covers_blocked_stdin() {
     assert_blocked_write_obeys_deadline(true);
+}
+
+#[cfg(unix)]
+#[test]
+fn queued_budget_expires_without_writing_a_frame_or_retiring_the_client() {
+    for notification in [false, true] {
+        let spec = ServerSpec {
+            name: "queued-budget".into(),
+            command: "python3".into(),
+            args: vec![
+                "-c".into(),
+                r#"import json, sys
+count = 0
+for line in sys.stdin:
+    message = json.loads(line)
+    count += 1
+    if 'id' in message:
+        print(json.dumps({'id': message['id'], 'result': {'count': count, 'method': message['method']}}), flush=True)
+"#
+                .into(),
+            ],
+            env: vec![],
+        };
+        let client = Arc::new(McpClient::spawn(&spec, Duration::from_millis(100)).unwrap());
+        let held = client.conn.lock().unwrap();
+        let queued = Arc::clone(&client);
+        let (sender, receiver) = mpsc::channel();
+        let started = Instant::now();
+        let worker = std::thread::spawn(move || {
+            let result = if notification {
+                queued.notify("notifications/queued", json!({}))
+            } else {
+                queued.request("tools/queued", json!({})).map(|_| ())
+            };
+            let _ = sender.send(result);
+        });
+        let observed = receiver.recv_timeout(Duration::from_millis(500));
+        let completed = observed.is_ok();
+        let elapsed = started.elapsed();
+        // Always release the lock before joining, including the old unbounded
+        // implementation. The real server and child are owned by this client.
+        drop(held);
+        let result =
+            observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
+        worker.join().unwrap();
+        let first_written = client.request("tools/first-written", json!({})).unwrap();
+        drop(client);
+        assert!(
+            completed,
+            "queued operation escaped its budget: {elapsed:?}"
+        );
+        assert!(elapsed < Duration::from_millis(400));
+        let error = result.expect_err("the held connection must exhaust the queue budget");
+        assert!(
+            error.contains("timed out waiting for connection"),
+            "{error}"
+        );
+        assert!(
+            !is_unhealthy_mcp_error("queued-budget", &error),
+            "an unwritten queued operation must preserve its warm provider"
+        );
+        assert_eq!(
+            first_written,
+            json!({"count": 1, "method": "tools/first-written"}),
+            "a queue timeout must not write an ambiguous request/notification"
+        );
+    }
 }
 
 #[cfg(unix)]
@@ -215,14 +339,14 @@ fn parse_mcp_resources_and_prompts() {
 
 #[test]
 fn mcp_surface_tool_schema_and_arg_validation() {
-    let mut child = Command::new("/bin/sh")
+    let mut command = Command::new("/bin/sh");
+    command
         .arg("-c")
         .arg("cat >/dev/null")
         .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn_owned()
-        .unwrap();
-    let stdin = child.stdin.take().unwrap();
+        .stdout(Stdio::piped());
+    let mut child = ServiceChild::spawn(&mut command).unwrap();
+    let stdin = child.take_stdin().unwrap();
     let client = Arc::new(McpClient {
         name: "mock".to_string(),
         conn: Mutex::new(Conn {

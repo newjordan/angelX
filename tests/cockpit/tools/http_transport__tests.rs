@@ -181,3 +181,114 @@ fn http_child_entry() {
         std::process::exit(code);
     }
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn unlinked_running_image_http_fixture() {
+    let Some(executable) = std::env::var_os("ANGEL_T_HTTP_RUNNING_IMAGE") else {
+        return;
+    };
+    let _lock = crate::tests::env_lock();
+    let executable = std::path::PathBuf::from(executable);
+    assert_eq!(std::env::current_exe().unwrap(), executable);
+    std::fs::remove_file(&executable).unwrap();
+    assert!(!std::env::current_exe().unwrap().exists());
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}/running-image", listener.local_addr().unwrap());
+    let server = std::thread::spawn(move || {
+        // Bound accept as well as reads: a failed helper launch must not leave
+        // this regression hanging while it holds the process-wide env lock.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    if Instant::now() >= deadline {
+                        return false;
+                    }
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("running image fixture accept: {error}"),
+            }
+        };
+        stream
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        stream
+            .set_write_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let mut request = Vec::new();
+        while !request.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            request.push(byte[0]);
+        }
+        stream
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Length: 13\r\nConnection: close\r\n\r\nrunning-image",
+            )
+            .unwrap();
+        true
+    });
+    let response = with_context(test_context(3000, Some(3000)), || {
+        request("GET", &url, false, 0).call().and_then(|response| {
+            response
+                .into_string()
+                .map_err(|error| Error::Transport(error.to_string()))
+        })
+    });
+    assert!(
+        server.join().unwrap(),
+        "HTTP helper never reached the fixture"
+    );
+    assert_eq!(response.unwrap(), "running-image");
+    eprintln!("HTTP_RUNNING_IMAGE unlinked=true response=running-image");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn http_helper_survives_unlinking_its_running_executable() {
+    let _lock = crate::tests::env_lock();
+    let root =
+        std::env::temp_dir().join(format!("angel-http-running-image-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let executable = root.join("fixture-runner");
+    let source = std::env::current_exe().unwrap();
+    // Hard-link when possible to avoid duplicating the debug image; the child
+    // unlinks only this test-owned directory entry, preserving the suite image.
+    if std::fs::hard_link(&source, &executable).is_err() {
+        std::fs::copy(&source, &executable).unwrap();
+    }
+    let filter = format!(
+        "{}::unlinked_running_image_http_fixture",
+        module_path!()
+            .split_once("::")
+            .map_or(module_path!(), |(_, rest)| rest)
+    );
+    let mut child = Command::new(&executable)
+        .args(["--exact", &filter, "--nocapture", "--test-threads=1"])
+        .env("ANGEL_T_HTTP_RUNNING_IMAGE", &executable)
+        .stdin(Stdio::null())
+        .spawn_owned()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = std::fs::remove_dir_all(&root);
+            panic!("running-image HTTP fixture exceeded its deadline");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        status.success(),
+        "unlinked running image HTTP fixture failed"
+    );
+}

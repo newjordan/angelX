@@ -2589,7 +2589,7 @@ impl crate::App {
         if rows.is_empty() {
             return None;
         }
-        rows.sort_by(|a, b| b.0.cmp(&a.0));
+        rows.sort_by_key(|row| std::cmp::Reverse(row.0));
         let total = rows.len();
         let mut out: Vec<String> = rows.into_iter().take(SHOWN).map(|(_, row)| row).collect();
         if total > SHOWN {
@@ -3591,20 +3591,30 @@ fn run_accept_cmd(
         }
     };
     let combined = evidence.output();
+    // Both structured rewards and ordinary exit-only checks require a
+    // trustworthy, complete receipt. A threshold cannot override that gate.
+    if let Err(error) = evidence.validate_for_scoring() {
+        return VerifyResult {
+            passed: false,
+            summary: format!("REJECTED EVIDENCE: {error}"),
+            detail: failure_detail(combined),
+            receipt: Some(VerifyReceipt::of(&evidence)),
+        };
+    }
 
     // LEVI / RLVR verifiable reward: when there's a test summary, score it densely.
     if combined.contains("test result:") {
         let t = crate::agent::harness::parse_test_result(combined);
         let reward_result = TestReward.score(RewardInput::EvaluatorEvidence(&evidence));
-        let (reward, evidence_note) = match reward_result {
-            Ok(reward) => (reward, String::new()),
-            Err(error) => (0.0, format!(" · REJECTED EVIDENCE: {error}")),
+        let (reward, evidence_note, reward_valid) = match reward_result {
+            Ok(reward) => (reward, String::new(), true),
+            Err(error) => (0.0, format!(" · REJECTED EVIDENCE: {error}"), false),
         };
         // Reward-hack guards: a "green" with zero executed tests is not a pass, and
         // a green whose pass-count fell below the pre-edit baseline is a regression
         // (tests deleted / disabled to fake a pass) — reject it.
         let regressed = baseline_passed.is_some_and(|b| t.passed < b);
-        let passed = t.passed > 0 && reward >= verify_threshold() && !regressed;
+        let passed = reward_valid && t.passed > 0 && reward >= verify_threshold() && !regressed;
         let note = if regressed {
             format!(
                 " · REJECTED: {} passed < baseline {}",
@@ -3718,7 +3728,7 @@ fn verify_threshold() -> f32 {
 
 /// Run a command in `dir` and return its passing-test count (the pre-edit
 /// baseline for the regression guard). 0 if the command can't run or emits no
-/// test summary.
+/// complete test summary. An incomplete capture cannot pin a pre-edit count.
 pub(crate) fn count_passed_in(cmd: &str, dir: &Path) -> usize {
     let Ok(command) = crate::agent::harness::exec::sandboxed_workspace_sh(cmd, dir, dir) else {
         return 0;
@@ -3729,7 +3739,11 @@ pub(crate) fn count_passed_in(cmd: &str, dir: &Path) -> usize {
     ) else {
         return 0;
     };
-    if capture.timed_out || capture.cancelled {
+    count_passed_from_capture(&capture)
+}
+
+fn count_passed_from_capture(capture: &crate::agent::harness::exec::TimedCapture) -> usize {
+    if capture.timed_out || capture.cancelled || !capture.output_complete() {
         return 0;
     }
     let mut combined = String::from_utf8_lossy(&capture.output.stdout).into_owned();
@@ -4295,3 +4309,7 @@ mod cancel_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/loop_ctl/private_io_tests.rs"]
 mod private_io_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/loop_ctl/baseline_capture_tests.rs"]
+mod baseline_capture_tests;

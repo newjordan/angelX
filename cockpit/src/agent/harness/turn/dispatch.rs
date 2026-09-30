@@ -50,6 +50,12 @@ pub(super) fn dispatch_parallel_segment(
                         name: call.name.clone(),
                         args_summary: summarize_args(&call.args),
                     });
+                    crate::agent::tools::graph::emit_requested(
+                        &ev,
+                        &ToolEventId(call.id.clone()),
+                        &call.name,
+                        &call.args,
+                    );
                     let preview =
                         action_batch.and_then(|batch| batch.contains(index_offset + local_index));
                     let started = Instant::now();
@@ -72,6 +78,13 @@ pub(super) fn dispatch_parallel_segment(
                         ));
                     }
                     let outcome = registry.executed_outcome(call, &result, false);
+                    crate::agent::tools::graph::emit_returned(
+                        &ev,
+                        &ToolEventId(call.id.clone()),
+                        &call.name,
+                        &result,
+                        outcome,
+                    );
                     let _ = ev.send(TurnEvent::ToolResult {
                         id: ToolEventId(call.id.clone()),
                         name: call.name.clone(),

@@ -8,7 +8,6 @@ import importlib.util
 import json
 from pathlib import Path
 import statistics
-import subprocess
 
 
 def load_module(name):
@@ -79,13 +78,22 @@ def read_trace(root, path):
                 row['scoring_s'] = span(timing.get('scoring') or {})
                 row['episode_s'] = span({'start': timing.get('start'), 'end': (timing.get('scoring') or {}).get('end')})
                 call_spans = [span(call.get('time') or {}) for call in calls]
-                row['call_time_sum_s'] = sum(x for x in call_spans if x is not None) if calls else None
+                row['call_time_reported_sum_s'] = sum(x for x in call_spans if x is not None) if any(x is not None for x in call_spans) else None
+                row['call_time_sum_s'] = sum(call_spans) if calls and all(x is not None for x in call_spans) else None
                 row['calls_missing_end'] = sum(x is None for x in call_spans)
                 shapes = []
                 for call in calls:
-                    if not isinstance(call.get('node'), int):
+                    node = call.get('node')
+                    if node is None:
+                        audit['unobserved_response_call'] += 1
                         continue
-                    message = nodes[call['node']]['message']
+                    if not isinstance(node, int) or isinstance(node, bool) or not 0 <= node < len(nodes):
+                        audit['invalid_response_node'] += 1
+                        continue
+                    message = nodes[node].get('message')
+                    if not isinstance(message, dict) or message.get('role') != 'assistant':
+                        audit['invalid_response_message'] += 1
+                        continue
                     tools = message.get('tool_calls') or []
                     shapes.append((char_size(message.get('content')), char_size(message.get('reasoning_content')),
                         sum(char_size(tool.get('arguments') if 'arguments' in tool else (tool.get('function') or {}).get('arguments')) for tool in tools)))
@@ -97,7 +105,7 @@ def read_trace(root, path):
                 if row['wall_s'] is not None and proxy_model is not None and proxy_harness is not None:
                     if abs(row['wall_s'] - proxy_model - proxy_harness) > .001:
                         audit['agent_partition_mismatch'] += 1
-                if calls and row['wall_s'] is not None and proxy_model is not None:
+                if row['call_time_sum_s'] is not None and row['wall_s'] is not None and proxy_model is not None:
                     expected = min(row['call_time_sum_s'], row['wall_s'])
                     if abs(expected - proxy_model) > .001:
                         audit['proxy_call_duration_mismatch'] += 1
@@ -128,15 +136,19 @@ def read_trace(root, path):
 
 
 def pair(own, peer, solved_only=False):
-    a = {row['task']: row for row in own['rows']}
-    p = {row['task']: row for row in peer['rows']}
+    a, own_duplicates, own_unnamed = history.index_rows(own['rows'])
+    p, peer_duplicates, peer_unnamed = history.index_rows(peer['rows'])
+    ambiguous = set(own_duplicates) | set(peer_duplicates)
+    a = {name: row for name, row in a.items() if name not in ambiguous}
+    p = {name: row for name, row in p.items() if name not in ambiguous}
     shared = sorted(a.keys() & p.keys())
     if solved_only:
         shared = [task for task in shared if a[task]['solved'] and p[task]['solved']]
     deltas = []
     for task in shared:
         row = {'task': task, 'language': a[task]['language'], 'angel_solved': a[task]['solved'],
-               'peer_solved': p[task]['solved'], 'angel_timeout': a[task]['timeouts'], 'peer_timeout': p[task]['timeouts'],
+               'peer_solved': p[task]['solved'], 'angel_score': a[task]['score'], 'peer_score': p[task]['score'],
+               'angel_timeout': a[task]['timeouts'], 'peer_timeout': p[task]['timeouts'],
                'angel_wall_s': a[task]['wall_s'], 'peer_wall_s': p[task]['wall_s'],
                'angel_calls': a[task]['calls'], 'peer_calls': p[task]['calls'],
                'angel_line': a[task]['line'], 'peer_line': p[task]['line'],
@@ -148,6 +160,10 @@ def pair(own, peer, solved_only=False):
     metrics = {key: stats([row[key] for row in deltas]) for key in (*history.METRICS, *EXTRA)}
     return {'angel': own['id'], 'peer': peer['id'], 'scope': 'jointly_solved' if solved_only else 'all_tasks',
             'tasks': len(shared), 'angel_slower_tasks': sum((r['wall_s'] or 0)>0 for r in deltas),
+            'ambiguous_tasks': sorted(ambiguous),
+            'duplicate_attempts': {'angel': own_duplicates, 'peer': peer_duplicates},
+            'unnamed_attempts': {'angel': own_unnamed, 'peer': peer_unnamed},
+            'unscored_shared_tasks': [task for task in shared if a[task]['score'] is None or p[task]['score'] is None],
             'task_contract_mismatches': [task for task in shared if a[task].get('task_contract_sha256') != p[task].get('task_contract_sha256')],
             'angel_faster_tasks': sum((r['wall_s'] or 0)<0 for r in deltas), 'metrics': metrics,
             'language': {lang: {key: stats([r[key] for r in deltas if r['language']==lang])
@@ -229,13 +245,14 @@ def main():
     parser.add_argument('--root',type=Path,default=Path('/home/frosty40/angel_tests/angelX-bench/polyglot-20260921'))
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();root=args.root.resolve()
-    paths=[Path(p) for p in subprocess.check_output(['rg','--files','--hidden',str(root),'-g','traces.jsonl',
-           '-g','!**/.venv/**','-g','!**/node_modules/**','-g','!**/py-venv/**'],text=True).splitlines()]
+    paths=history.discover_traces(root)
     cells=[read_trace(root,path) for path in sorted(paths)]
     names={row['name'] for row in json.loads((root/'tasks-polyglot-v1.json').read_text())}
     full=[cell for cell in cells if len(cell['rows'])==136 and {r['task'] for r in cell['rows']}==names]
     for harness in ('angelx','opencode','omp'):
         parts=[c for c in cells if c['id'].startswith(f'runs-qwen/qwen/{harness}/')]
+        if not parts:
+            continue
         rows=[row for cell in parts for row in cell['rows']]
         if len(rows)!=136 or {r['task'] for r in rows}!=names:
             raise ValueError(f'Qwen {harness} does not have one exact full cohort')
@@ -247,15 +264,23 @@ def main():
                      'paths':[c['id'] for c in parts], 'trace_sha256_by_run':{c['id']:c['trace_sha256'] for c in parts},
                      'rows':rows,'summary':summarize(rows),
                      'timing_audit':dict(sum((Counter(c['timing_audit']) for c in parts),Counter()))})
-    peers={family:max((c for c in full if c['model_family']==family and c['harness']=='opencode'),key=lambda c:c['id'])
-           for family in ('deepseek','glm','grok','muse','qwen')}
+    peers={family:max(matches,key=lambda c:c['id'])
+           for family in ('deepseek','glm','grok','muse','qwen')
+           if (matches:=[c for c in full if c['model_family']==family and c['harness']=='opencode'])}
     eligible=[c for c in full if not any(s in c['id'].lower() for s in ('quarantine','archive','calibration'))]
     pairs=[pair(c,peers[c['model_family']],scope) for c in eligible
            if c['harness']=='angelx' and c['model_family'] in peers for scope in (False,True)]
     confirmation=[]
     for seed in ('seed1','seed2'):
-        arms=[next(c for c in eligible if c['id'].startswith(f'ab-confirm/{arm}/') and c['id'].split('/')[-1].startswith(seed))
-              for arm in ('on','off')]
+        matches={arm:[c for c in eligible if c['id'].startswith(f'ab-confirm/{arm}/') and c['id'].split('/')[-1].startswith(seed)]
+                 for arm in ('on','off')}
+        if not any(matches.values()):
+            continue
+        if any(len(cells)!=1 for cells in matches.values()):
+            confirmation.append({'seed_label':seed,'status':'ambiguous or incomplete',
+                                 'arm_runs':{arm:[c['id'] for c in cells] for arm,cells in matches.items()}})
+            continue
+        arms=[matches[arm][0] for arm in ('on','off')]
         confirmation.append({'seed_label':seed,'same_binary':arms[0]['pins']==arms[1]['pins'],
                              'on_minus_off_all_tasks':pair(*arms), 'on_minus_off_jointly_solved':pair(*arms,True)})
     for c in full:

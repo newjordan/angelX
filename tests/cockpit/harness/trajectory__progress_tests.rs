@@ -376,3 +376,28 @@ fn the_unproductive_redirect_stands_where_the_stop_was_and_the_count_starts_agai
         assert!(redirect.is_none());
     }
 }
+
+#[test]
+fn accepted_graph_points_are_progress_and_a_repeat_is_not() {
+    let _guard = crate::tests::env_lock();
+    TURN_LEDGER.with(|cell| *cell.borrow_mut() = TurnLedger::default());
+    // A six-point chart: begin, six points, finish; the store changes each hop.
+    let mut calls = vec![json!({"op":"begin","plot":"bushels"})];
+    for i in 0..6 {
+        calls.push(json!({"op":"point","plot":"bushels","generation":1,"index":i}));
+    }
+    calls.push(json!({"op":"finish","plot":"bushels","generation":1}));
+    for (hop, args) in calls.iter().enumerate() {
+        note_tool_outcome(hop + 1, "graph", args, "{}", "ok", false, None, None, None, 2);
+        note_progress_hop(false);
+    }
+    assert_eq!(TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak), 0);
+    // The same finish again changes nothing.
+    note_tool_outcome(9, "graph", &calls[7], "{}", "ok", false, None, None, None, 2);
+    note_progress_hop(false);
+    assert_eq!(TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak), 1);
+    // A rejected call is not progress either.
+    note_tool_outcome(10, "graph", &json!({"op":"point"}), "invalid graph request", "error", true, None, None, None, 2);
+    note_progress_hop(false);
+    assert_eq!(TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak), 2);
+}

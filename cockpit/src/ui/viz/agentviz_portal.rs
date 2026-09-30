@@ -7,13 +7,15 @@
 //! text Miniviz remains authoritative whenever the renderer or Kitty adapter is
 //! unavailable.
 
-use crate::agent::sandbox::process_owner::OwnedCommandExt;
+use crate::agent::service_process::ServiceChild;
+#[cfg(unix)]
+use crate::platform::workspace_store::DeadlinePipe;
 use crate::ui::viz::agentviz::{ActivitySnapshot, SeatState};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{ChildStdin, Command, Stdio};
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
@@ -599,6 +601,18 @@ fn discover_renderer() -> Option<PathBuf> {
 }
 
 fn invoke_renderer(renderer: &Path, packet: &AngelVizStateV2) -> Result<PortalFrame, String> {
+    invoke_renderer_with_timeout(renderer, packet, RENDER_TIMEOUT)
+}
+
+// On Unix, input, launcher completion and stdout EOF share one allowance. An
+// escaped descendant may retain stdout after the launcher's private group has
+// been retired, so the sole output reader also needs the absolute deadline.
+fn invoke_renderer_with_timeout(
+    renderer: &Path,
+    packet: &AngelVizStateV2,
+    timeout: Duration,
+) -> Result<PortalFrame, String> {
+    let deadline = Instant::now() + timeout;
     packet.validate().map_err(|error| error.to_string())?;
     let encoded = serde_json::to_vec(packet).map_err(|error| format!("encode packet: {error}"))?;
     if encoded.is_empty() || encoded.len() > MAX_PACKET_BYTES {
@@ -607,80 +621,63 @@ fn invoke_renderer(renderer: &Path, packet: &AngelVizStateV2) -> Result<PortalFr
             encoded.len()
         ));
     }
-    let mut child = Command::new(renderer)
+    let mut command = Command::new(renderer);
+    command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn_owned()
+        .stderr(Stdio::null());
+    let mut child = ServiceChild::spawn(&mut command)
         .map_err(|error| format!("spawn {}: {error}", renderer.display()))?;
-    let Some(stdout) = child.stdout.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err("renderer stdout was not piped".to_string());
-    };
-    let reader = match std::thread::Builder::new()
+    let stdin = child.take_stdin().ok_or("renderer stdin was not piped")?;
+    let stdout = child.take_stdout().ok_or("renderer stdout was not piped")?;
+    let reader = std::thread::Builder::new()
         .name("angel-webgpu-portal-output".to_string())
         .spawn(move || {
+            #[cfg(unix)]
+            let stdout = DeadlinePipe::new(stdout, deadline);
             let mut bytes = Vec::new();
             stdout
                 .take((MAX_RENDERER_OUTPUT_BYTES + 1) as u64)
                 .read_to_end(&mut bytes)
                 .map(|_| bytes)
-                .map_err(|error| format!("read renderer output: {error}"))
-        }) {
-        Ok(reader) => reader,
-        Err(error) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(format!("start renderer output reader: {error}"));
-        }
-    };
+        })
+        .map_err(|error| format!("start renderer output reader: {error}"))?;
 
-    let write_result = child
-        .stdin
-        .take()
-        .ok_or_else(|| "renderer stdin was not piped".to_string())
-        .and_then(|mut stdin| {
-            stdin
-                .write_all(&(encoded.len() as u32).to_be_bytes())
-                .and_then(|_| stdin.write_all(&encoded))
-                .and_then(|_| stdin.flush())
-                .map_err(|error| format!("write renderer packet: {error}"))
-        });
-    if let Err(error) = write_result {
-        let _ = child.kill();
-        let _ = child.wait();
-        let _ = reader.join();
-        return Err(error);
+    let mut framed = (encoded.len() as u32).to_be_bytes().to_vec();
+    framed.extend_from_slice(&encoded);
+    let write_result = write_renderer_packet(&stdin, &framed, deadline);
+    drop(stdin);
+
+    let mut timed_out = false;
+    if write_result.is_ok() {
+        while child.alive() {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                timed_out = true;
+                break;
+            }
+            std::thread::sleep(remaining.min(CHILD_POLL_INTERVAL));
+        }
     }
-
-    let deadline = Instant::now() + RENDER_TIMEOUT;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < deadline => {
-                std::thread::sleep(CHILD_POLL_INTERVAL);
-            }
-            Ok(None) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = reader.join();
-                return Err(format!(
-                    "renderer exceeded {} ms",
-                    RENDER_TIMEOUT.as_millis()
-                ));
-            }
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = reader.join();
-                return Err(format!("wait for renderer: {error}"));
-            }
-        }
-    };
+    // Preserve the launcher's own exit status without leaving wrapper children
+    // alive or signalling a group after its leader's PID could be reused.
+    let status = child.retire();
     let output = reader
         .join()
-        .map_err(|_| "renderer output reader panicked".to_string())??;
+        .unwrap_or_else(|_| Err(io::Error::other("renderer output reader panicked")));
+    if timed_out
+        || write_result
+            .as_ref()
+            .is_err_and(|error| error.kind() == io::ErrorKind::TimedOut)
+        || output
+            .as_ref()
+            .is_err_and(|error| error.kind() == io::ErrorKind::TimedOut)
+    {
+        return Err(format!("renderer exceeded {} ms", timeout.as_millis()));
+    }
+    write_result.map_err(|error| format!("write renderer packet: {error}"))?;
+    let status = status.map_err(|error| format!("wait for renderer: {error}"))?;
+    let output = output.map_err(|error| format!("read renderer output: {error}"))?;
     if output.len() > MAX_RENDERER_OUTPUT_BYTES {
         return Err(format!(
             "renderer output exceeds {MAX_RENDERER_OUTPUT_BYTES} bytes"
@@ -690,6 +687,59 @@ fn invoke_renderer(renderer: &Path, packet: &AngelVizStateV2) -> Result<PortalFr
         return Err(format!("renderer exited with {status}"));
     }
     parse_renderer_output(packet.sequence, &output)
+}
+
+#[cfg(unix)]
+fn write_renderer_packet(
+    mut stdin: &ChildStdin,
+    mut bytes: &[u8],
+    deadline: Instant,
+) -> io::Result<()> {
+    use std::os::fd::AsRawFd as _;
+    let fd = stdin.as_raw_fd();
+    // SAFETY: the renderer's input descriptor has one writer and is dropped
+    // after this complete frame or failed write; no later frame can follow it.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    while !bytes.is_empty() {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or(io::ErrorKind::TimedOut)?;
+        match stdin.write(bytes) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(written) => bytes = &bytes[written..],
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                let mut descriptor = libc::pollfd {
+                    fd,
+                    events: libc::POLLOUT,
+                    revents: 0,
+                };
+                let millis = remaining
+                    .as_millis()
+                    .saturating_add(1)
+                    .min(i32::MAX as u128) as i32;
+                // SAFETY: one live descriptor, with its deadline checked again
+                // after every wake or interrupted poll.
+                if unsafe { libc::poll(&mut descriptor, 1, millis) } < 0 {
+                    let error = io::Error::last_os_error();
+                    if error.kind() != io::ErrorKind::Interrupted {
+                        return Err(error);
+                    }
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn write_renderer_packet(mut stdin: &ChildStdin, bytes: &[u8], _: Instant) -> io::Result<()> {
+    stdin.write_all(bytes).and_then(|()| stdin.flush())
 }
 
 fn parse_renderer_output(expected_sequence: u64, output: &[u8]) -> Result<PortalFrame, String> {

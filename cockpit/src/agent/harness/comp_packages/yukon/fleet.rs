@@ -6,7 +6,7 @@
 //! snapshot. `App::advance` schedules the next sweep only after the previous
 //! worker settles, so a slow CLI can never block or multiply behind the TUI.
 
-use crate::agent::sandbox::process_owner::OwnedCommandExt;
+use crate::agent::service_process::ServiceChild;
 use std::collections::HashSet;
 use std::env::VarError;
 use std::io::Read;
@@ -252,53 +252,64 @@ fn phase_rank(phase: YukonSubmissionPhase) -> u8 {
 }
 
 fn run_yukon(args: &[&str], empty_failure_is_ok: bool) -> Result<String, String> {
-    let mut child = Command::new("yukon")
-        .args(args)
+    run_yukon_command(
+        Command::new("yukon").args(args),
+        empty_failure_is_ok,
+        COMMAND_TIMEOUT,
+    )
+}
+
+fn run_yukon_command(
+    command: &mut Command,
+    empty_failure_is_ok: bool,
+    timeout: Duration,
+) -> Result<String, String> {
+    let deadline = Instant::now() + timeout;
+    command
         .env("NO_COLOR", "1")
         .env("TERM", "dumb")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn_owned()
-        .map_err(|error| format!("start Yukon CLI: {error}"))?;
+        .stderr(Stdio::piped());
+    let mut child =
+        ServiceChild::spawn(command).map_err(|error| format!("start Yukon CLI: {error}"))?;
     let stdout = child
-        .stdout
-        .take()
+        .take_stdout()
         .ok_or_else(|| "capture Yukon stdout: pipe unavailable".to_string())?;
     let stderr = child
-        .stderr
-        .take()
+        .take_stderr()
         .ok_or_else(|| "capture Yukon stderr: pipe unavailable".to_string())?;
+    // A CLI wrapper can exit while another process still holds its pipes.
+    // The command budget bounds EOF as well as the direct process, including
+    // holders that leave the CLI's private group.
+    #[cfg(unix)]
+    let stdout = crate::platform::workspace_store::DeadlinePipe::new(stdout, deadline);
+    #[cfg(unix)]
+    let stderr = crate::platform::workspace_store::DeadlinePipe::new(stderr, deadline);
     let stdout = drain_pipe(stdout);
     let stderr = drain_pipe(stderr);
-    let started = Instant::now();
     let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if started.elapsed() < COMMAND_TIMEOUT => {
-                thread::sleep(CHILD_POLL_INTERVAL);
-            }
-            Ok(None) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = stdout.join();
-                let _ = stderr.join();
-                return Err(format!(
-                    "Yukon CLI timed out after {}s",
-                    COMMAND_TIMEOUT.as_secs()
-                ));
-            }
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = stdout.join();
-                let _ = stderr.join();
-                return Err(format!("wait for Yukon CLI: {error}"));
-            }
+        if !child.alive() {
+            // Keep the exited launcher unreaped until the private group has
+            // been stopped, so its numeric group identity cannot be reused.
+            break child
+                .retire()
+                .map_err(|error| format!("wait for Yukon CLI: {error}"));
         }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            let _ = child.retire();
+            break Err(format!("Yukon CLI timed out after {}s", timeout.as_secs()));
+        }
+        thread::sleep(remaining.min(CHILD_POLL_INTERVAL));
     };
-    let stdout = join_pipe(stdout, "stdout")?;
-    let stderr = join_pipe(stderr, "stderr")?;
+    // Join both readers even if the first fails; no background read is left
+    // behind on the error path, and incomplete output never becomes a snapshot.
+    let stdout = join_pipe(stdout, "stdout");
+    let stderr = join_pipe(stderr, "stderr");
+    let status = status?;
+    let stdout = stdout?;
+    let stderr = stderr?;
     if stdout.overflow || stderr.overflow {
         return Err("Yukon CLI output exceeded the watcher limit".to_string());
     }

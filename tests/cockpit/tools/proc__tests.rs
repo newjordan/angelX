@@ -664,6 +664,116 @@ fn lifecycle_proc_turn_cancel_receipt() {
     assert_owned_kill_receipt("cancelled");
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn proc_setup_cancel_fixture() {
+    use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
+    use std::sync::atomic::AtomicBool;
+
+    let Some(root) = std::env::var_os("ANGEL_T_PROC_SETUP_CANCEL") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    let fixture = TestProcStore::new();
+    let helper = Path::new(&root).join("finite-helper.py");
+    let _helper =
+        crate::tests::TestEnvGuard::set("ANGEL_T_SANDBOX_HELPER", helper.to_str().unwrap());
+    for mode in ["finite", "wrapper"] {
+        let marker = Path::new(&root).join(format!("{mode}.pid"));
+        std::fs::write(
+            &helper,
+            format!(
+                r#"#!/usr/bin/python3
+import os, signal, time
+pids = [os.getpid()]
+if {wrapper}:
+    read_fd, write_fd = os.pipe()
+    descendant = os.fork()
+    if descendant == 0:
+        os.close(read_fd)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        os.write(write_fd, b'ready')
+        os.close(write_fd)
+        time.sleep(30)
+        os._exit(0)
+    os.close(write_fd)
+    os.read(read_fd, 5)
+    os.close(read_fd)
+    pids.append(descendant)
+with open({marker}, 'w') as receipt:
+    receipt.write(' '.join(map(str, pids)))
+time.sleep(0.8)
+"#,
+                wrapper = if mode == "wrapper" { "True" } else { "False" },
+                marker = serde_json::to_string(marker.to_str().unwrap()).unwrap()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let cancel = AtomicBool::new(false);
+        let (result, elapsed) = std::thread::scope(|scope| {
+            let setter = scope.spawn(|| {
+                let ready = Instant::now() + Duration::from_secs(2);
+                while !marker.exists() {
+                    assert!(Instant::now() < ready, "finite helper did not start");
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+                cancel.store(true, Ordering::Release);
+            });
+            let started = Instant::now();
+            let result = fixture.runner().call_with_cancel(
+                &serde_json::json!({"command": "printf unused", "name": "cancel-during-setup"}),
+                Some(&cancel),
+            );
+            let elapsed = started.elapsed();
+            setter.join().unwrap();
+            (result, elapsed)
+        });
+        let pids = std::fs::read_to_string(marker)
+            .unwrap()
+            .split_whitespace()
+            .map(|value| value.parse::<i32>().unwrap())
+            .collect::<Vec<_>>();
+        eprintln!(
+            "proc public setup cancel {mode}: cancel50ms after start elapsed={elapsed:?} result={result:?} pids={pids:?}"
+        );
+        // Both the direct helper and a TERM-ignoring same-group pipe holder
+        // must be retired before a handle can be returned. Global isolated
+        // cleanup owns any failed setup or assertion's remaining descendants.
+        for pid in pids {
+            ServiceFixture::assert_reaped(pid);
+        }
+        assert!(elapsed < Duration::from_millis(400), "{mode}: {elapsed:?}");
+        assert!(result.unwrap_err().contains("cancelled"));
+        assert!(
+            table()
+                .lock()
+                .unwrap()
+                .values()
+                .all(|entry| entry.project_root != fixture.root.0),
+            "cancelled setup must not publish a background handle"
+        );
+        assert!(
+            load_receipts()
+                .iter()
+                .all(|receipt| receipt.project_root != fixture.root.0)
+        );
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn proc_run_observes_cancellation_during_helper_setup() {
+    crate::agent::process_test_support::isolated_fixture(
+        &format!(
+            "{}::proc_setup_cancel_fixture",
+            module_path!().split_once("::").unwrap().1
+        ),
+        "ANGEL_T_PROC_SETUP_CANCEL",
+    );
+}
+
 #[test]
 fn lifecycle_proc_deadline_receipt() {
     assert_owned_kill_receipt("deadline");

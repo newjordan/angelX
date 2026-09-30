@@ -89,6 +89,15 @@ that is where the "it is still running" reading came from. Use
 
 ### What would close this
 
+**Development update, 2026-09-30:** a current working-tree no-video snapshot
+completed **5,066 passed / 0 failed / 85 ignored** in 608.22 seconds with
+`--test-threads=1`, using a private test image and matching CLI/helper siblings.
+The ordinary `scripts/check/check-cockpit-fast.sh` now prepares that layout so a
+concurrent build cannot unlink the executable that tests re-exec. This establishes
+a complete development verdict; it does not qualify the original foreground
+wrapper, default video support, or an optimized release. Long foreground gates
+still need an execution surface that can remain active for the full run.
+
 - An agent-facing way to hand a gate to a detached runner and collect its
   verdict (the `setsid` recipe above works today, but nothing in the harness
   teaches it, so every long gate looks like a hang).
@@ -183,32 +192,47 @@ shell tool always passes; it fails in 30 s with the bypass reintroduced and pass
 in ~2 s without it. Any cockpit launched before 17:17 still runs the unguarded
 binary until it is restarted (the launcher rebuilds from HEAD).
 
-## BUG-0003..0007 — the five overwatch harness problems (triaged 2026-09-26; fixes post-war)
+## BUG-0003..0007 — the five overwatch harness problems (triaged 2026-09-26; reviewed 2026-09-30)
 
 Source: `/work/artifacts/overwatch-handoff-20260925.md` § "angelX harness problems seen today (fix after
 the comp)". Triage landed in that file; seams repeated here so the repo carries them. Separately verified:
 the five *polyglot harness-root* fixes (`angel_tests/HANDOFF-harness-roots-20260923.md`, branch
-`dev-harness-roots`) are all in `dev` already (`b205b31` is an ancestor of `dev`) — these five are open.
+`dev-harness-roots`) are all in `dev` already (`b205b31` is an ancestor of `dev`). The statuses below
+describe the ordinary cockpit; working-tree fixes still need to be committed and released.
 
-- **BUG-0003 `ANGEL_DRIVER=k3` silently falls back.** `resolve_driver` (`cockpit/src/agent/club/bag.rs:258`)
-  aliases `deli/spark-r1/ds4/gpu/math/or` but not `k3`/`kimi-k3`; the seat's sota-link alias is `kimi`
-  (bag.rs:749). Unresolved pref → practice floor + `pending_brain` (bag.rs:1028), no notice, and
-  `elect_brain` will later commit to an unrelated model. Fix: alias `k3`/`kimi-k3` → `kimi`, plus a loud
-  startup notice when a set `ANGEL_DRIVER` neither resolves nor is available.
+- **BUG-0003 `ANGEL_DRIVER=k3` silently falls back — fixed in the working tree.** `k3`/`kimi-k3`
+  aliases already resolve to `kimi`. Startup now reports an explicit preference that is unresolved,
+  unavailable, or not selected, along with the actual startup route. Availability is checked for
+  the requested slot, rather than another available slot in its box. The diagnostic does not call
+  a provider or change selection. Coverage: `k3_driver_aliases_resolve_to_the_kimi_seat` and the
+  `driver_startup_notice` tests in [bag__standalone_tests.rs](../tests/cockpit/club/bag__standalone_tests.rs).
+  The full no-video test run on 2026-09-30 passed these regressions.
 - **BUG-0004 a steer can't break a running `sleep`.** Steers deliver only at hop boundaries
   (`turn/mod.rs:2290` `steer_drain`); the shell sleep guard only rejects *excessive* sleep up front
   (shell.rs:1186). A queued steer waits out an in-hop sleep while background+sleep-poll seats accrue loop
   actions. Fix: wake in-flight sleeps from the steer queue (reuse the registry cancel channel), count
   cumulative per-turn sleep in the guard, and score background+sleep-poll hops as idle, not actions.
-- **BUG-0005 a mid-turn steer halted the rig B loop.** Only the cancel `AtomicBool` produces "⛔ interrupted
-  after N hop(s)" (`turn/mod.rs:2104`), yet steers are designed to inject without interrupting — so some
-  path converts a steer into cancel, and the loop then parks waiting for "another message". Fix: audit the
-  steer enqueue path so it never sets cancel; after an interrupted stop inside a loop, auto-resume by
-  feeding the steer as the next user message.
-- **BUG-0006 plan restatement loop (Sol, five identical turns).** Repetition detection covers costly
-  *actions* (`duplicate_costly_actions`, loop_ctl.rs:160; `ToolCallStorm`, turn/governors.rs) but not
-  identical final assistant plans. Fix: hash each turn's final plan text at the loop digest level; N
-  consecutive identical digests → breaker note, then escalate like `blocked_repeat_count`.
-- **BUG-0007 workshop START ignores Enter.** `loop_ctl.rs:1224` routes Enter through `focused_action()`, so
-  Enter only starts when focus is on Start; otherwise it adjusts — while the help line promises "Enter
-  starts" (loop_dialog.rs:651). `S` works unconditionally. Fix: Enter starts unless focus is Cancel.
+  **Still open.** The 2026-09-30 working-tree guard recognizes literal sleeps inside quotes, wrappers,
+  evaluation and shell payloads, and sums duration operands for one sleep invocation. It does not
+  wake a running tool from the steer queue, evaluate variable durations, or accumulate sleeps across
+  separate calls or loop iterations.
+- **BUG-0005 a mid-turn steer halted the rig B loop — fixed in `dev`.** A steer can now
+  intentionally release an in-flight provider request when no tool or background work is running.
+  The loop recognizes that interruption, preserves the guidance, and continues with the next
+  iteration. Explicit interruption with no queued steer still pauses. Cancelled stream events are
+  discarded before watchdog refresh, so a buffered token cannot erase the steer marker.
+  Coverage: `a_steer_releasing_the_request_does_not_pause_the_loop` and
+  `an_interrupt_without_a_queued_steer_still_pauses_the_loop` in
+  [cancel_tests.rs](../tests/cockpit/loop_ctl/cancel_tests.rs), passed in the full no-video run
+  on 2026-09-30. The new working-tree regression
+  `a_buffered_provider_token_after_a_steer_does_not_pause_the_loop` also passed in the
+  34-test cancellation family.
+- **BUG-0006 plan restatement loop (Sol, five identical turns) — fixed in `dev`.** Consecutive identical
+  normalized final replies accrue staleness even when workspace changes or novel receipts would
+  otherwise credit progress. The existing stall policy handles the accumulated count. Coverage:
+  `a_repeated_reply_does_not_reset_staleness_even_with_churn` in
+  [evidence__tests.rs](../tests/cockpit/loop_ctl/evidence__tests.rs); passed in the full no-video run
+  on 2026-09-30. A changed reply with fresh findings still resets staleness.
+- **BUG-0007 workshop START ignores Enter — fixed in `dev`.** Enter starts from settings rows as
+  promised by the workshop help. Coverage: `loop_workshop_enter_starts_even_when_focus_sits_on_a_row`
+  in [app/tests.rs](../tests/cockpit/app/tests.rs); passed in the full no-video run on 2026-09-30.

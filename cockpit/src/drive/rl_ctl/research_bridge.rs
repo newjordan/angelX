@@ -106,7 +106,9 @@ pub(super) fn ensure_dir(path: &Path) -> Result<(), String> {
 pub(super) fn read(path: &Path) -> Result<Vec<u8>, String> {
     let mut file = OpenOptions::new()
         .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
+        // Open before checking the handle type, without waiting for a FIFO's
+        // writer. Regular files retain their ordinary read behavior.
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(path)
         .map_err(|e| format!("read {}: {e}", path.display()))?;
     if !file.metadata().map_err(|e| e.to_string())?.is_file() {

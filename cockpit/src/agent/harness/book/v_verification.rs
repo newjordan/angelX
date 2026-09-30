@@ -98,7 +98,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "You edited the workspace but have not run a verifier since the latest edit.",
-                "Before claiming completion, run the smallest relevant `check`, `run_tests`, `lint`, `fmt --check`, or equivalent repository command.",
+                "Before claiming completion, use `shell` to run the smallest relevant repository test, check, lint, or formatting command.",
                 "One relevant green verifier is sufficient; do not follow it with broader or overlapping checks unless the task explicitly requires them.",
                 "If verification cannot run, state the concrete blocker and the unverified risk in your final answer.",
                 "A real verifier attempt, even when red or unavailable, is sufficient evidence for an honest blocker report.",
@@ -604,15 +604,31 @@ impl TaskAcceptResult {
 /// in total, so a slow suite is not run three times. A failure after an earlier
 /// pass comes back as `flaky`, with the failing output.
 pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResult {
+    run_task_accept_with(|| run_task_accept_once(command, workspace))
+}
+
+fn run_task_accept_with(mut run_once: impl FnMut() -> TaskAcceptResult) -> TaskAcceptResult {
     let repeats = env_usize("ANGEL_TASK_ACCEPT_REPEATS", 3).clamp(1, 10);
     let repeat_budget = Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_REPEAT_SECS", 60) as u64);
     let started = Instant::now();
-    let mut result = run_task_accept_once(command, workspace);
+    let mut result = run_once();
     let mut runs = 1;
     while result.passed && runs < repeats && started.elapsed() < repeat_budget {
-        let next = run_task_accept_once(command, workspace);
+        let next = run_once();
         runs += 1;
         if !next.passed {
+            if next.result_class == "incomplete" {
+                return TaskAcceptResult {
+                    summary: format!(
+                        "task acceptance output is incomplete on run {runs} of {repeats} \
+                         after {} completed pass(es): {}",
+                        runs - 1,
+                        next.summary
+                    ),
+                    elapsed_ms: started.elapsed().as_millis(),
+                    ..next
+                };
+            }
             return TaskAcceptResult {
                 passed: false,
                 result_class: "flaky",
@@ -639,10 +655,19 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
     let started = Instant::now();
     let timeout =
         Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_TIMEOUT_SECS", 120).clamp(5, 600) as u64);
-    let Ok((output, timed_out)) =
+    let capture =
         crate::agent::harness::exec::sandboxed_workspace_sh(command, workspace, workspace)
-            .and_then(|process| crate::agent::harness::exec::output_timed(process, Some(timeout)))
-    else {
+            .and_then(|process| {
+                crate::agent::harness::exec::output_timed_captured(process, Some(timeout))
+            });
+    task_accept_result(capture, started)
+}
+
+fn task_accept_result(
+    capture: Result<crate::agent::harness::exec::TimedCapture, String>,
+    started: Instant,
+) -> TaskAcceptResult {
+    let Ok(capture) = capture else {
         return TaskAcceptResult {
             passed: false,
             result_class: "spawn_error",
@@ -651,6 +676,10 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
             output_tail: String::new(),
         };
     };
+    let complete = capture.output_complete();
+    let timed_out = capture.timed_out;
+    let cancelled = capture.cancelled;
+    let output = capture.output;
     let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
     combined.push('\n');
     combined.push_str(&String::from_utf8_lossy(&output.stderr));
@@ -658,9 +687,15 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
     let libtest = combined.contains("test result:");
     let passed = output.status.success()
         && !timed_out
+        && !cancelled
+        && complete
         && (!libtest || (result.passed > 0 && result.failed == 0));
     let status = if timed_out {
         "timed out".to_string()
+    } else if cancelled {
+        "cancelled".to_string()
+    } else if !complete {
+        "capture incomplete".to_string()
     } else {
         output
             .status
@@ -672,6 +707,10 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
         passed,
         result_class: if timed_out {
             "timeout"
+        } else if cancelled {
+            "cancelled"
+        } else if !complete {
+            "incomplete"
         } else if passed {
             "passed"
         } else {
@@ -693,3 +732,7 @@ fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
         },
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/harness/book__accept_capture_tests.rs"]
+mod capture_tests;

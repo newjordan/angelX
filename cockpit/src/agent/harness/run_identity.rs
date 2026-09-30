@@ -1,5 +1,4 @@
 //! Immutable first-request provenance plus caller-local effective request identity.
-use crate::agent::sandbox::process_owner::OwnedCommandExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -171,25 +170,13 @@ pub(crate) fn source_sha256() -> &'static str {
     option_env!("ANGEL_BUILD_SOURCE_SHA256").unwrap_or("unbound")
 }
 
-/// Hash the running executable. The system hasher is preferred: it is C-fast
-/// under every profile, while the in-process hasher (`cut::sha256_hex`) is pure
-/// Rust and takes tens of seconds on a debug-profile test binary. The fallback
-/// keeps the identity bindable on hosts without coreutils.
+/// Hash executable bytes in bounded memory using the platform SHA-256 already
+/// linked into the harness. Identity never depends on a PATH-selected utility.
 fn executable_sha256(path: &std::path::Path) -> Result<String, String> {
-    if let Ok(out) = std::process::Command::new("sha256sum")
-        .arg(path)
-        .output_owned()
-        && out.status.success()
-        && let Some(hex) = String::from_utf8_lossy(&out.stdout)
-            .split_whitespace()
-            .next()
-        && hex.len() == 64
-        && hex.bytes().all(|b| b.is_ascii_hexdigit())
-    {
-        return Ok(hex.to_string());
-    }
-    let bytes = std::fs::read(path).map_err(|e| format!("run identity executable hash: {e}"))?;
-    Ok(crate::knowledge::cut::sha256_hex(&bytes))
+    let mut file = std::fs::File::open(path)
+        .map_err(|error| format!("run identity executable hash: {error}"))?;
+    super::workspace_state::sha256_reader_hex(&mut file)
+        .map_err(|error| format!("run identity executable hash: {error}"))
 }
 
 /// Start hashing the executable off the request path so the first model
@@ -209,7 +196,14 @@ pub(crate) fn static_identity() -> Result<&'static StaticIdentity, String> {
         .get_or_init(|| {
             let path =
                 std::env::current_exe().map_err(|e| format!("run identity executable: {e}"))?;
-            let executable_sha256 = executable_sha256(&path)?;
+            // A build can replace the launch pathname before the prewarm
+            // thread opens it. procfs pins the actual running image even after
+            // unlink; hashing the new pathname would misattribute this process.
+            #[cfg(target_os = "linux")]
+            let digest_path = Path::new("/proc/self/exe");
+            #[cfg(not(target_os = "linux"))]
+            let digest_path = path.as_path();
+            let executable_sha256 = executable_sha256(digest_path)?;
             let rustc = option_env!("ANGEL_BUILD_RUSTC").unwrap_or("unbound");
             let host = rustc
                 .lines()

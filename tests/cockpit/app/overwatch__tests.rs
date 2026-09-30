@@ -25,6 +25,64 @@ fn fleet_overwatch_hung_tree_returns_within_its_probe_deadline() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn fleet_overwatch_complete_output_fixture() {
+    use crate::agent::process_test_support::FixtureCleanup;
+    use crate::agent::process_test_support::capture_evidence_fixture::EvidenceFixture;
+
+    let Some(root) = std::env::var_os("ANGEL_T_OVERWATCH_EOF") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    for stream in ["stdout", "stderr"] {
+        let mut fixture = EvidenceFixture::new(
+            std::path::Path::new(&root),
+            "overwatch",
+            stream,
+            "FLEET GPU 58.5% CPU 51.0%\n",
+        );
+        let started = Instant::now();
+        let sample = fleet_overwatch_from_command(fixture.command(), Duration::from_millis(100));
+        let elapsed = started.elapsed();
+        fixture.finish();
+        eprintln!("overwatch missing {stream} EOF: elapsed={elapsed:?} sample={sample:?}");
+        assert!(
+            sample.is_none(),
+            "{stream}: accepted an unfinished measurement"
+        );
+        assert!(elapsed < Duration::from_secs(3), "{stream}: {elapsed:?}");
+    }
+
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", "printf 'FLEET GPU 58.5%% CPU 51.0%%\\n'"]);
+    let sample = fleet_overwatch_from_command(command, Duration::from_secs(1)).unwrap();
+    assert_eq!(sample.cpu_pct, 51.0);
+    assert_eq!(sample.gpu_pct, 58.5);
+
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", "printf 'FLEET GPU 58.5%% CPU 51.0%%\\n'; exit 17"]);
+    assert!(fleet_overwatch_from_command(command, Duration::from_secs(1)).is_none());
+
+    // A valid-looking terminal measurement after a capped output still cannot
+    // become a complete sample; keep the existing byte-cap behavior.
+    let mut command = Command::new("/usr/bin/python3");
+    command.args(["-c", "import sys; sys.stdout.write('x' * (2 * 1024 * 1024)); print('\\nFLEET GPU 58.5% CPU 51.0%')"]);
+    assert!(fleet_overwatch_from_command(command, Duration::from_secs(2)).is_none());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn fleet_overwatch_requires_complete_output_before_sampling() {
+    crate::agent::process_test_support::isolated_fixture(
+        &format!(
+            "{}::fleet_overwatch_complete_output_fixture",
+            module_path!().split_once("::").unwrap().1
+        ),
+        "ANGEL_T_OVERWATCH_EOF",
+    );
+}
+
 #[test]
 fn overwatch_cmd_derives_from_launch_inputs_without_a_literal_home() {
     let home = |value: &str| Some(std::ffi::OsString::from(value));

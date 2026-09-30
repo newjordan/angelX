@@ -18,18 +18,17 @@ fn dither_extremes_and_coverage() {
 
 #[test]
 fn ramps_run_dark_to_bright() {
-    for ramp in [MOONLIT] {
-        let lo = ramp.sample(0.0);
-        let hi = ramp.sample(1.0);
-        let luma = |c: DotColor| u32::from(c.r) + u32::from(c.g) + u32::from(c.b);
-        assert!(
-            luma(lo) < luma(hi),
-            "ramp must brighten from t=0 to t=1: {lo:?} vs {hi:?}"
-        );
-        // Out-of-range samples clamp instead of panicking.
-        assert_eq!(ramp.sample(-1.0), lo);
-        assert_eq!(ramp.sample(2.0), hi);
-    }
+    let ramp = MOONLIT;
+    let lo = ramp.sample(0.0);
+    let hi = ramp.sample(1.0);
+    let luma = |c: DotColor| u32::from(c.r) + u32::from(c.g) + u32::from(c.b);
+    assert!(
+        luma(lo) < luma(hi),
+        "ramp must brighten from t=0 to t=1: {lo:?} vs {hi:?}"
+    );
+    // Out-of-range samples clamp instead of panicking.
+    assert_eq!(ramp.sample(-1.0), lo);
+    assert_eq!(ramp.sample(2.0), hi);
 }
 
 #[test]

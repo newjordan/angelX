@@ -53,7 +53,11 @@ pub(super) fn open_private(path: &Path, kind: OpenKind) -> Result<File, String> 
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+        // Validate the opened descriptor before doing I/O. A FIFO must not
+        // wait for a peer during open before the regular-file check runs.
+        options
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
     let file = options
         .open(path)
@@ -131,3 +135,7 @@ pub(super) fn sync_dir(path: &Path) -> Result<(), String> {
 pub(super) fn io_error(action: &str, path: &Path, error: std::io::Error) -> String {
     format!("{action} {}: {error}", path.display())
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/competition/store_fs_tests.rs"]
+mod tests;

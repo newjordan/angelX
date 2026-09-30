@@ -340,6 +340,42 @@ fn a_steer_releasing_the_request_does_not_pause_the_loop() {
 }
 
 #[test]
+fn a_buffered_provider_token_after_a_steer_does_not_pause_the_loop() {
+    fixture("steer-buffered-token", |root| {
+        let (mut app, held, _calls) = held_app(root);
+        app.input = "look at the carrier first".into();
+        app.cursor = app.input.chars().count();
+        app.submit();
+        assert!(held.cancel.load(Ordering::Acquire));
+        assert!(app.thinking.as_ref().unwrap().steer_interrupt_fired);
+        assert_eq!(app.steer_queue.len(), 1);
+        // An event already in flight can arrive after queue_steer cancelled
+        // the provider, before its terminal Interrupt settles the iteration.
+        held.events
+            .send(crate::agent::harness::TurnEvent::Token(
+                "buffered provider token".into(),
+            ))
+            .unwrap();
+        app.advance();
+        assert!(!app.partial.contains("buffered provider token"));
+        assert!(app.thinking.as_ref().unwrap().steer_interrupt_fired);
+        settle_interrupted(&mut app, &held);
+        assert_ne!(app.loop_ctl.status, LoopStatus::Paused);
+        assert!(
+            app.loop_ctl
+                .steer_notes
+                .iter()
+                .any(|note| note.contains("carrier first"))
+        );
+        assert_eq!(
+            app.steer_queue.len(),
+            1,
+            "guidance belongs to the next iteration"
+        );
+    });
+}
+
+#[test]
 fn an_interrupt_without_a_queued_steer_still_pauses_the_loop() {
     fixture("plain-interrupt", |root| {
         let (mut app, held, _calls) = held_app(root);

@@ -31,5 +31,13 @@ fn completed_waits_release_claims_before_the_handle_is_dropped() {
         }
         assert!(!claims().lock().unwrap().direct.contains_key(&pid));
         assert_eq!(child.try_wait().unwrap().unwrap().code(), Some(23));
+        #[cfg(unix)]
+        assert_eq!(
+            child
+                .with_unreaped_identity(|_| panic!("a completed handle must not signal"))
+                .unwrap_err()
+                .raw_os_error(),
+            Some(libc::ECHILD)
+        );
     }
 }

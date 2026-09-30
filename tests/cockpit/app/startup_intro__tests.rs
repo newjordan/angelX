@@ -225,8 +225,10 @@ fn startup_intro_keystroke_and_paste_dismiss_before_submission() {
 
 #[test]
 fn startup_intro_dismissed_marks_the_session_start_for_good() {
-    let mut intro = StartupIntro::default();
-    intro.started = Some(Instant::now());
+    let mut intro = StartupIntro {
+        started: Some(Instant::now()),
+        ..StartupIntro::default()
+    };
     intro.begin_frame(false, false, MotionMode::Full);
     assert!(!intro.dismissed(), "the ceremony is still up");
     intro.begin_frame(false, true, MotionMode::Full);

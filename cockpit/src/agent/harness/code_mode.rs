@@ -547,6 +547,9 @@ pub(crate) fn run_code_mode_tool(
                 args_summary: summarize_args(a),
             });
         }
+        if let (Some((_, event_tx)), Some(child_id)) = (event_context, child_id.as_ref()) {
+            crate::agent::tools::graph::emit_requested(event_tx, child_id, name, a);
+        }
         let dispatched = if !hooks.is_empty() {
             hooks.pre_tool_use(name, a).map_or_else(
                 || registry.dispatch_with_cancel_in_seat(CODE_MODE_SEAT, name, a, cancel),
@@ -559,6 +562,24 @@ pub(crate) fn run_code_mode_tool(
             && !hooks.is_empty()
         {
             hooks.post_tool_use(name, a, out);
+        }
+        // World telemetry describes the executed mutation even if the outer
+        // code-mode output budget later rejects delivering its text result.
+        if let (Some((_, event_tx)), Some(child_id), Ok(result)) =
+            (event_context, child_id.as_ref(), dispatched.as_ref())
+        {
+            let call = ToolCall {
+                id: child_id.0.clone(),
+                name: name.to_string(),
+                args: a.clone(),
+            };
+            crate::agent::tools::graph::emit_returned(
+                event_tx,
+                child_id,
+                name,
+                result,
+                registry.executed_outcome(&call, result, false),
+            );
         }
         let r = dispatched.and_then(|out| {
             let produced = out.len();

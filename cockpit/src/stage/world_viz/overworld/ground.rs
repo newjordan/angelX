@@ -75,7 +75,7 @@ fn meadow(wx: i32, wy: i32) -> Option<char> {
     let h = hash(cx, cy, 21);
     if h % 5 < 2 {
         let (ox, oy) = (((h >> 3) % 4) as i32, ((h >> 6) % 4) as i32);
-        let bright = (h >> 9) % 3 == 0;
+        let bright = (h >> 9).is_multiple_of(3);
         if ly == oy && (lx == ox || lx == ox + 2) {
             return Some(if bright { 'l' } else { 'E' });
         }
@@ -115,7 +115,7 @@ fn road(
         }
     }
     if edge {
-        return (hash(wx, wy, 16) % 3 != 0).then_some('I');
+        return (!hash(wx, wy, 16).is_multiple_of(3)).then_some('I');
     }
     // A pebbled bed: sparse, warm, low.
     match hash(wx, wy, 15) % 64 {
@@ -131,7 +131,7 @@ fn cobble(wx: i32, wy: i32) -> Option<char> {
     let off = if row % 2 == 1 { 3 } else { 0 };
     let (lx, ly) = ((wx + off).rem_euclid(6), wy.rem_euclid(5));
     let stone = hash((wx + off).div_euclid(6), row, 17);
-    if lx == 0 || ly == 0 || stone % 5 == 0 {
+    if lx == 0 || ly == 0 || stone.is_multiple_of(5) {
         return None;
     }
     if (lx == 1 || lx == 5) && (ly == 1 || ly == 4) {
@@ -139,7 +139,7 @@ fn cobble(wx: i32, wy: i32) -> Option<char> {
     }
     Some(if ly == 1 {
         'g'
-    } else if stone % 3 == 0 {
+    } else if stone.is_multiple_of(3) {
         'X'
     } else {
         'K'
@@ -165,7 +165,7 @@ fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
     let dx = wx - t / 2;
     let (cx, cy) = (dx.div_euclid(9), wy.div_euclid(6));
     let h = hash(cx, cy, 9);
-    if h % 2 == 0 {
+    if h.is_multiple_of(2) {
         let (ox, oy) = (((h >> 4) % 5) as i32, ((h >> 8) % 5) as i32);
         let (lx, ly) = (dx.rem_euclid(9), wy.rem_euclid(6));
         if ly == oy && lx >= ox && lx < ox + 4 {
@@ -202,9 +202,13 @@ fn swamp(wx: i32, wy: i32) -> Option<char> {
 
 fn crops(wx: i32, wy: i32) -> Option<char> {
     match wy.rem_euclid(4) {
-        0 => Some(if hash(wx, wy, 33) % 3 == 0 { 'L' } else { 'l' }),
+        0 => Some(if hash(wx, wy, 33).is_multiple_of(3) {
+            'L'
+        } else {
+            'l'
+        }),
         1 => (wx % 2 == 0).then_some('E'),
-        _ => (hash(wx, wy, 34) % 13 == 0).then_some('I'),
+        _ => (hash(wx, wy, 34).is_multiple_of(13)).then_some('I'),
     }
 }
 
@@ -220,7 +224,7 @@ fn ash(wx: i32, wy: i32) -> Option<char> {
 fn planks(wx: i32, wy: i32) -> char {
     if wy.rem_euclid(4) == 3 {
         'b'
-    } else if hash(wx / 5, wy / 4, 3) % 4 == 0 {
+    } else if hash(wx / 5, wy / 4, 3).is_multiple_of(4) {
         'r'
     } else {
         'R'
@@ -253,7 +257,7 @@ fn fall(realm: &Realm, wx: i32, wy: i32, (tx, ty): (i32, i32), t: i32, molten: b
     let landing = realm.at(tx, ty + 1) != same && wy.rem_euclid(TILE) >= TILE - 3;
     let phase = (wy - t * 2 + (hash(wx, 0, 441) % 7) as i32).rem_euclid(6);
     // Mostly dark water with streaks sliding down it; spray where it lands.
-    let streak = hash(wx, 1, 444) % 3 == 0;
+    let streak = hash(wx, 1, 444).is_multiple_of(3);
     match (molten, landing, phase) {
         (false, true, _) => match hash(wx, wy + t, 442) % 4 {
             0 => 'V',

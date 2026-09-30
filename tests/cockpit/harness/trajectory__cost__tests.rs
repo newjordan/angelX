@@ -106,7 +106,7 @@ fn cost_attempts_missing_parallel_seat_or_retry_usage_keeps_total_unknown() {
         let cost = cost_for_attempts(
             Some("glm-5.3-air"),
             Some(&json!({"attempts":2})),
-            &[sample.clone()],
+            std::slice::from_ref(&sample),
         );
         assert!(cost["paid"].is_null());
         assert_eq!(cost["source"], "incomplete-model-attribution");

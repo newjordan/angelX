@@ -22,10 +22,17 @@ Position arms (the cue as its own message after the result, not inside it):
   tool_perturb C + the perturbation text           its content in the result
   user_intro ⛔⠇⠁ + its English as a user turn      the loop turn at first sight
   user_page  ⛔⠇⠓⠁ + a page carrying the perturbation's force, first sight
-CUES picks the arms (comma list); LOOP_AT the repeat the decision follows.
+CUES picks distinct known arms (comma list); LOOP_AT and n must be positive.
+The output must not alias the input trace file.
 One JSON row per call; the prompt-token delta against raw is each cue's cost."""
-import json, os, re, subprocess, sys, urllib.request
+import importlib.util
+import json, os, re, subprocess, sys, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("loop_decision_producer", Path(__file__).with_name("decide.py"))
+decision_producer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(decision_producer)
 
 LOOP_AT = int(os.environ.get("LOOP_AT", "5"))
 ACTION = "use the earlier result, or change one assumption before the next call"
@@ -137,51 +144,77 @@ def call(api_key, messages, tools):
     req = urllib.request.Request("https://api.deepseek.com/v1/chat/completions",
                                  data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json", "Authorization": "Bearer " + api_key})
-    return json.load(urllib.request.urlopen(req, timeout=600))
+    try:
+        response = urllib.request.urlopen(req, timeout=600)
+    except urllib.error.HTTPError as error:
+        try:
+            error.close()
+        except Exception:
+            pass
+        raise
+    with response:
+        return json.load(response)
+
+
+def one(job, api_key):
+    name, cue, i, messages, tools, repeated = job
+    row = {"task": name, "cue": cue, "i": i, "loop_at": LOOP_AT,
+           "prompt_tokens": None, "completion_tokens": None}
+    try:
+        reply = call(api_key, messages, tools)
+    except Exception as error:  # Control signals retain their existing behavior.
+        row.update(error=type(error).__name__, error_class=type(error).__name__, call_error=True)
+        return row
+    usage = reply.get("usage") if isinstance(reply, dict) else None
+    usage = usage if isinstance(usage, dict) else {}
+    row.update(prompt_tokens=decision_producer.receipt.number(usage.get("prompt_tokens")),
+               completion_tokens=decision_producer.receipt.number(usage.get("completion_tokens")))
+    try:
+        functions, text, _ = decision_producer.reply_fields(reply)
+        calls = [signature(c["function"]["name"], c["function"]["arguments"]) for c in functions]
+        names = {c["function"]["name"] for c in functions}
+        move = ("repeat" if calls == repeated else "edit" if names & EDITS
+                else "other_call" if calls else "answer")
+        row.update(move=move, broke=move != "repeat", next=calls[:2], text=text[:300])
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+        row.update(error=type(error).__name__, error_class=type(error).__name__, reply_error=True)
+    return row
 
 
 def main():
     path, out = sys.argv[1], sys.argv[2]
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     only = set(sys.argv[4:])
+    # Validate the experiment before reading credentials or making any call.
+    # Unknown arms otherwise fall through to raw while retaining a false label.
+    if n <= 0 or LOOP_AT <= 0:
+        sys.exit("sample count and LOOP_AT must be positive")
+    if not CUES or any(cue not in ALL_CUES for cue in CUES) or len(set(CUES)) != len(CUES):
+        sys.exit("CUES must contain distinct known arms")
+    source, destination = Path(path), Path(out)
+    if source.resolve() == destination.resolve() or (
+            source.exists() and destination.exists() and os.path.samefile(source, destination)):
+        sys.exit("replay output must not alias its input trace")
     api_key = key()
     jobs = []
-    for line in open(path):
-        for trace in json.loads(line)["traces"]:
-            name = trace["task"]["data"]["name"]
-            if only and name not in only:
-                continue
-            point = decision(trace)
-            if not point:
-                continue
-            messages, repeated, k = point
-            tools = [{"type": "function", "function": t} for t in trace["tools"]]
-            for cue in CUES:
-                for i in range(n):
-                    jobs.append((name, cue, i, cued(messages, cue, k), tools, repeated))
-
-    def one_row(row):
-        return {**row, "loop_at": LOOP_AT}
-
-    def one(job):
-        name, cue, i, messages, tools, repeated = job
-        try:
-            reply = call(api_key, messages, tools)
-        except Exception as error:  # a failed call is a row, not a crash
-            return {"task": name, "cue": cue, "i": i, "error": str(error)[:300]}
-        message = reply["choices"][0]["message"]
-        calls = [signature(c["function"]["name"], c["function"]["arguments"]) for c in message.get("tool_calls") or []]
-        names = {c["function"]["name"] for c in message.get("tool_calls") or []}
-        move = ("repeat" if calls == repeated else "edit" if names & EDITS
-                else "other_call" if calls else "answer")
-        usage = reply.get("usage") or {}
-        return {"task": name, "cue": cue, "i": i, "move": move, "broke": move != "repeat",
-                "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
-                "next": calls[:2], "text": (message.get("content") or "")[:300]}
+    with open(path) as source:
+        for line in source:
+            for trace in json.loads(line)["traces"]:
+                name = trace["task"]["data"]["name"]
+                if only and name not in only:
+                    continue
+                point = decision(trace)
+                if not point:
+                    continue
+                messages, repeated, k = point
+                tools = [{"type": "function", "function": t} for t in trace["tools"]]
+                for cue in CUES:
+                    for i in range(n):
+                        jobs.append((name, cue, i, cued(messages, cue, k), tools, repeated))
 
     with ThreadPoolExecutor(8) as pool, open(out, "a") as sink:
-        for row in pool.map(one, jobs):
-            sink.write(json.dumps(one_row(row), ensure_ascii=False) + "\n")
+        for row in pool.map(lambda job: one(job, api_key), jobs):
+            sink.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
             sink.flush()
             print(row.get("task"), row.get("cue"), row.get("move") or row.get("error"), flush=True)
 

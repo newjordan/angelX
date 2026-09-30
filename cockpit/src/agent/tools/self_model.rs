@@ -977,54 +977,39 @@ pub fn run_self_gate_with_baseline(
 ) -> (GateVerdict, String) {
     let mut build_cmd = Command::new("cargo");
     build_cmd.arg("build").current_dir(workspace);
+    let mut test_cmd = Command::new("cargo");
+    test_cmd.arg("test").current_dir(workspace);
+    run_self_gate_commands(build_cmd, test_cmd, baseline_passed)
+}
+
+fn run_self_gate_commands(
+    build_cmd: Command,
+    test_cmd: Command,
+    baseline_passed: Option<usize>,
+) -> (GateVerdict, String) {
     // `/self` verification runs off-thread, but a raw `Command::output` can
     // still wedge that worker forever: a noisy Cargo fills one pipe while the
     // parent waits, and a hung descendant keeps `verify_inflight` set. Keep
     // the ordinary verifier budget unlimited while inheriting the harness's
     // concurrent drains, idle-hang ceiling, and process-group cleanup.
-    let build = crate::agent::harness::output_timed(build_cmd, None);
-    let build_ok = matches!(&build, Ok((o, false)) if o.status.success());
-    if !build_ok {
-        let detail = match &build {
-            Ok((o, timed_out)) => {
-                let detail =
-                    crate::drive::loop_ctl::failure_detail(&String::from_utf8_lossy(&o.stderr));
-                if *timed_out && detail.is_empty() {
-                    "cargo build stopped after its execution deadline".to_string()
-                } else {
-                    detail
-                }
-            }
-            Err(e) => e.clone(),
-        };
-        return (evaluate_gate(false, &TestOutcome::default()), detail);
+    let build = match crate::agent::harness::output_timed_captured(build_cmd, None) {
+        Ok(capture) => capture,
+        Err(error) => return (evaluate_gate(false, &TestOutcome::default()), error),
+    };
+    if let Some(issue) = self_gate_capture_issue(&build, "build") {
+        return (
+            evaluate_gate(false, &TestOutcome::default()).with_note(&issue),
+            capture_failure_detail(&String::from_utf8_lossy(&build.output.stderr), &issue),
+        );
     }
-    let mut test_cmd = Command::new("cargo");
-    test_cmd.arg("test").current_dir(workspace);
-    let test_out = crate::agent::harness::output_timed(test_cmd, None);
-    let (stdout, combined) = match &test_out {
-        Ok((o, false)) => {
-            let out = String::from_utf8_lossy(&o.stdout).into_owned();
-            let combined = format!("{out}\n{}", String::from_utf8_lossy(&o.stderr));
-            (out, combined)
-        }
-        Ok((o, true)) => {
-            let combined = format!(
-                "{}\n{}",
-                String::from_utf8_lossy(&o.stdout),
-                String::from_utf8_lossy(&o.stderr)
-            );
-            let detail = crate::drive::loop_ctl::failure_detail(&combined);
-            return (
-                evaluate_gate(true, &TestOutcome::default())
-                    .with_note("cargo test stopped after its execution deadline"),
-                if detail.is_empty() {
-                    "cargo test stopped after its execution deadline".to_string()
-                } else {
-                    detail
-                },
-            );
-        }
+    if !build.output.status.success() {
+        return (
+            evaluate_gate(false, &TestOutcome::default()),
+            crate::drive::loop_ctl::failure_detail(&String::from_utf8_lossy(&build.output.stderr)),
+        );
+    }
+    let test = match crate::agent::harness::output_timed_captured(test_cmd, None) {
+        Ok(capture) => capture,
         Err(e) => {
             return (
                 evaluate_gate(false, &TestOutcome::default()).with_note(&e.to_string()),
@@ -1032,13 +1017,62 @@ pub fn run_self_gate_with_baseline(
             );
         }
     };
-    let verdict = evaluate_gate_with_baseline(true, &parse_test_result(&stdout), baseline_passed);
+    let stdout = String::from_utf8_lossy(&test.output.stdout);
+    let combined = format!("{stdout}\n{}", String::from_utf8_lossy(&test.output.stderr));
+    if let Some(issue) = self_gate_capture_issue(&test, "test") {
+        // An incomplete prefix cannot establish even the parsed test reward.
+        return (
+            evaluate_gate(true, &TestOutcome::default()).with_note(&issue),
+            capture_failure_detail(&combined, &issue),
+        );
+    }
+    let mut verdict =
+        evaluate_gate_with_baseline(true, &parse_test_result(&stdout), baseline_passed);
+    if !test.output.status.success() {
+        // Retain counts/reward from a complete red suite, but Cargo itself
+        // must also succeed before any passing summary grants acceptance.
+        if verdict.passed {
+            verdict.summary =
+                "REJECTED — builds, but cargo test exited nonzero or was terminated".to_string();
+        } else {
+            verdict = verdict.with_note("cargo test exited nonzero or was terminated");
+        }
+        verdict.passed = false;
+    }
     let detail = if verdict.passed {
         String::new()
     } else {
         crate::drive::loop_ctl::failure_detail(&combined)
     };
     (verdict, detail)
+}
+
+fn self_gate_capture_issue(
+    capture: &crate::agent::harness::exec::TimedCapture,
+    stage: &str,
+) -> Option<String> {
+    if capture.timed_out {
+        Some(format!(
+            "cargo {stage} stopped after its execution deadline"
+        ))
+    } else if capture.cancelled {
+        Some(format!("cargo {stage} was cancelled"))
+    } else if !capture.output_complete() {
+        Some(format!(
+            "cargo {stage} output is incomplete (missing EOF or capture byte limit)"
+        ))
+    } else {
+        None
+    }
+}
+
+fn capture_failure_detail(output: &str, issue: &str) -> String {
+    let detail = crate::drive::loop_ctl::failure_detail(output);
+    if detail.is_empty() {
+        issue.to_string()
+    } else {
+        format!("{issue}\n{detail}")
+    }
 }
 
 impl GateVerdict {
@@ -1055,3 +1089,7 @@ impl GateVerdict {
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/tools/self_model__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/tools/self_model__capture_tests.rs"]
+mod capture_tests;

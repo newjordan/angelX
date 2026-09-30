@@ -15,6 +15,7 @@ pub mod file;
 pub mod fleet;
 pub mod git;
 pub mod goal;
+pub(crate) mod graph;
 pub(crate) mod http_transport;
 pub(crate) mod jev;
 pub mod llm;

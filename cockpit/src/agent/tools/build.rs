@@ -179,7 +179,7 @@ struct PinnedFileIdentity {
 }
 
 #[cfg(not(unix))]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct PinnedFileIdentity {
     len: u64,
     modified: Option<SystemTime>,
@@ -919,7 +919,7 @@ fn capture_executable(path: PathBuf, label: &str) -> Result<PinnedExecutable, St
         .map_err(|error| format!("inspect {label} {}: {error}", path.display()))?;
     let captured = pinned_file_identity(&metadata);
     Ok(PinnedExecutable {
-        pending: Some(initial_executable_digest(&path, label, captured.clone())?),
+        pending: Some(initial_executable_digest(&path, label, captured)?),
         sha256: OnceLock::new(),
         path,
         captured,

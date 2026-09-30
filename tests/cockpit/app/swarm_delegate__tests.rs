@@ -165,15 +165,15 @@ fn policy_checks_every_program_in_shell_chains() {
 fn delegated_capture_is_bounded_and_kills_process_groups() {
     let mut noisy = Command::new("sh");
     noisy.args(["-c", "head -c 2097152 /dev/zero"]);
-    let (out, timed) = run_capture(noisy, Duration::from_secs(5)).unwrap();
-    assert!(!timed);
+    let error = run_capture(noisy, Duration::from_secs(5)).unwrap_err();
+    assert!(error.contains("capture incomplete"));
     assert!(
-        out.stdout.len() <= (1 << 20) + 128,
-        "capture must stay bounded (head+tail marker may add a few bytes): {}",
-        out.stdout.len()
+        error.len() <= (1 << 20) + 256,
+        "incomplete evidence must stay bounded (marker and diagnostic add a few bytes): {}",
+        error.len()
     );
     assert!(
-        String::from_utf8_lossy(&out.stdout).contains("output bytes omitted"),
+        error.contains("output bytes omitted"),
         "oversized capture must make its omitted middle explicit"
     );
 
@@ -338,4 +338,115 @@ fn an_evidence_block_marks_a_missing_claim_with_its_page() {
         "{block}"
     );
     assert!(!block.contains("(unstated)"), "{block}");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn incomplete_swarm_evidence_fixture() {
+    use crate::agent::service_process::tests::{
+        FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
+    };
+    let Some(root) = std::env::var_os("ANGEL_T_SWARM_EVIDENCE_EOF") else {
+        return;
+    };
+    let _cleanup = FixtureCleanup::new();
+    let root = std::path::Path::new(&root);
+    let request = TestRequest {
+        claim: "all tests pass".to_string(),
+        cmd: "offline fixture".to_string(),
+        placement: Placement::Local,
+        why: String::new(),
+    };
+    let mut router = Router::from_env();
+    router.timeout = Duration::from_secs(5);
+    for stream in ["stdout", "stderr"] {
+        for peer in [false, true] {
+            let mut fixture = EvidenceFixture::new(
+                root,
+                if peer { "peer" } else { "local" },
+                stream,
+                "1 passed\n",
+            );
+            let result = if peer {
+                // Local operator-command stand-in; it never contacts a peer.
+                router.peer_cmd = format!(
+                    "exec python3 '{}'",
+                    root.join(format!("peer-{stream}.py")).display()
+                );
+                router.run_peer(&request, "offline-fixture")
+            } else {
+                router.finish(&request, fixture.command(), "")
+            };
+            fixture.finish();
+            assert_eq!(
+                result.verdict, "error",
+                "{stream}/{peer}: {}",
+                result.detail
+            );
+            assert!(
+                result.detail.contains("capture incomplete"),
+                "{}",
+                result.detail
+            );
+            assert!(result.detail.contains("1 passed"), "{}", result.detail);
+            let block = evidence_block(&[result]);
+            assert!(block.contains("error"), "{block}");
+            assert!(!block.contains("[pass]"), "{block}");
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn swarm_verdict_rejects_incomplete_stdout_stderr_and_peer_output() {
+    let filter = format!(
+        "{}::incomplete_swarm_evidence_fixture",
+        module_path!().split_once("::").unwrap().1
+    );
+    crate::agent::service_process::tests::isolated_fixture(&filter, "ANGEL_T_SWARM_EVIDENCE_EOF");
+}
+
+#[test]
+fn complete_swarm_command_keeps_pass_fail_timeout_and_peer_verdicts() {
+    let mut router = Router::from_env();
+    router.timeout = Duration::from_secs(5);
+    let request = TestRequest {
+        claim: "offline output".to_string(),
+        cmd: "offline fixture".to_string(),
+        placement: Placement::Local,
+        why: String::new(),
+    };
+    for (script, verdict, detail) in [
+        ("printf 'green evidence'", "pass", "green evidence"),
+        ("printf 'red evidence' >&2; exit 17", "fail", "red evidence"),
+    ] {
+        let mut command = Command::new("sh");
+        command.args(["-c", script]);
+        let result = router.finish(&request, command, "");
+        assert_eq!(result.verdict, verdict, "{}", result.detail);
+        assert!(result.detail.contains(detail), "{}", result.detail);
+    }
+    router.peer_cmd = "printf 'offline opinion'".to_string();
+    let peer = router.run_peer(&request, "offline-fixture");
+    assert_eq!(peer.verdict, "second-opinion", "{}", peer.detail);
+    assert!(peer.detail.contains("offline opinion"));
+
+    router.timeout = Duration::from_millis(50);
+    let mut command = Command::new("sh");
+    command.args(["-c", "sleep 30"]);
+    let result = router.finish(&request, command, "");
+    assert_eq!(result.verdict, "timeout", "{}", result.detail);
+    assert!(result.detail.contains("timed out"));
+}
+
+#[test]
+fn swarm_verdict_rejects_capped_successful_output() {
+    let mut command = Command::new("python3");
+    command.args([
+        "-c",
+        "import os; os.write(1, b'1 passed\\n' + b'x' * (1024 * 1024))",
+    ]);
+    let error = run_capture(command, Duration::from_secs(5)).unwrap_err();
+    assert!(error.contains("capture incomplete"), "{error}");
+    assert!(error.contains("1 passed"), "{error}");
 }
