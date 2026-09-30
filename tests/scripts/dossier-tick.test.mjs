@@ -217,3 +217,102 @@ test('forced tick turns fresh v3 ledger passes into a compiled dossier fact', ()
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test(
+  'P1 deadline stops the probe and its descendants',
+  { skip: process.platform !== 'linux' },
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), 'angel-dossier-deadline-'))
+    const pidFile = join(dir, 'probe-pids')
+    let pids = []
+    try {
+      const repo = join(dir, 'repo')
+      const bin = join(dir, 'bin')
+      const state = join(dir, 'state')
+      const graphPath = join(dir, 'graph.json')
+      mkdirSync(repo)
+      mkdirSync(bin)
+      const git = spawnSync('git', ['init', '--quiet', repo], { encoding: 'utf8' })
+      assert.equal(git.status, 0, git.stderr)
+      writeFileSync(
+        join(bin, 'cargo'),
+        '#!/bin/sh\nexec >/dev/null 2>&1\nsleep 30 &\nprintf "%s %s\\n" "$$" "$!" > "$ANGEL_TEST_PROBE_PIDS"\nwait\n',
+        { mode: 0o700 },
+      )
+      const graph = new CausalGraph()
+      const rows = [1, 2, 3].map((session) => ({
+        ...cmd('cargo test', 0, session),
+        repo: { key: KEY, root: repo },
+      }))
+      ingestRepoFacts(graph, KEY, mineRepoFacts(rows)[KEY], { now: NOW })
+      writeFileSync(graphPath, JSON.stringify(graph.serialize()))
+
+      const started = performance.now()
+      const run = spawnSync(
+        process.execPath,
+        [
+          'scripts/runtime/dossier-tick.mjs',
+          '--force',
+          '--max',
+          '1',
+          '--graph',
+          graphPath,
+          '--ledger',
+          join(dir, 'missing-ledger'),
+          '--cut',
+          join(dir, 'cut'),
+          '--state-dir',
+          state,
+          '--out',
+          join(dir, 'out'),
+          '--p1-timeout',
+          '0.25',
+        ],
+        {
+          cwd: new URL('../..', import.meta.url),
+          encoding: 'utf8',
+          timeout: 10_000,
+          env: {
+            ...process.env,
+            PATH: `${bin}:${process.env.PATH}`,
+            ANGEL_DOSSIER: '1',
+            ANGEL_DOSSIER_PROBE_RITUALS: '1',
+            ANGEL_TEST_PROBE_PIDS: pidFile,
+          },
+        },
+      )
+      assert.equal(run.status, 0, run.stderr || run.stdout)
+      assert.ok(performance.now() - started < 10_000, 'probe exceeded its outer deadline')
+      pids = readFileSync(pidFile, 'utf8').trim().split(/\s+/).map(Number)
+      for (const pid of pids) {
+        let state = null
+        try {
+          state = readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1].split(' ')[0]
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error
+        }
+        assert.ok(
+          state === null || state === 'Z',
+          `probe process ${pid} survived in state ${state}`,
+        )
+      }
+      const heartbeat = JSON.parse(readFileSync(join(state, 'heartbeat.json'), 'utf8'))
+      assert.match(heartbeat.experiment.evidence, /p1:.*timed out/)
+      assert.equal(heartbeat.experiment.confidence, 0.7)
+    } finally {
+      if (pids.length === 0) {
+        try {
+          pids = readFileSync(pidFile, 'utf8').trim().split(/\s+/).map(Number)
+        } catch {}
+      }
+      for (const pid of pids) {
+        if (Number.isInteger(pid) && pid > 1) {
+          try {
+            process.kill(pid, 'SIGKILL')
+          } catch {}
+        }
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+  },
+)

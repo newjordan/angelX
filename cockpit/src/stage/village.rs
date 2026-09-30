@@ -1,8 +1,8 @@
 //! The village — the fleet mirrored into the miniworld, "as above, so below".
 //!
 //! Every structure corresponds to real, observable fleet state; nothing is
-//! decorative. The **forge** is head #2 (the ABT self-training loop on Atlas,
-//! polled at `/health`): it glows and smokes while `training` is true, and an
+//! decorative. The **forge** is head #2 (the ABT self-training loop on the
+//! forge host, polled at `/health`): it glows and smokes while `training` is true, and an
 //! adapter promotion fires the town's celebration machinery plus a *permanent*
 //! smithy upgrade. The **apprentice** is the trainee model (angel-head2 /
 //! qwen3.5:4b) — its level is the adapter version, a failed eval gate is a
@@ -313,9 +313,9 @@ pub(crate) fn forge_when_free_status_path() -> Option<PathBuf> {
 
 /// Merge free-train pulse/finalize status so the village forge glows mid-LoRA.
 ///
-/// Turbo free-train often leaves Atlas `/health.training=false` while the job
-/// runs on a different box; local status from forge-train-pulse is authoritative
-/// for "is free-train still cooking".
+/// A free-train job on another box often leaves the forge host's
+/// `/health.training=false` while it runs; local status from forge-train-pulse
+/// is authoritative for "is free-train still cooking".
 pub(crate) fn merge_local_free_train_status(mut snap: ForgeSnapshot) -> ForgeSnapshot {
     let Some(path) = forge_when_free_status_path() else {
         return snap;
@@ -422,8 +422,7 @@ pub(crate) struct VillagePulse {
 // ─── explicit head registry (JSON → cottages) ────────────────────────────────
 
 /// `(id, health_url)` per non-forge head. Reads only the explicit
-/// `ANGEL_HEADS_FILE`; unset, unreadable, or invalid input falls back to
-/// loopback-only service ports rather than a particular operator's fleet.
+/// `ANGEL_HEADS_FILE`; unset, unreadable, or invalid input means no heads.
 pub(crate) fn discover_heads() -> Vec<(String, String)> {
     if let Some(path) = std::env::var_os("ANGEL_HEADS_FILE").filter(|path| !path.is_empty())
         && let Ok(text) = std::fs::read_to_string(path)
@@ -434,11 +433,7 @@ pub(crate) fn discover_heads() -> Vec<(String, String)> {
             return heads;
         }
     }
-    vec![
-        ("dice".into(), "http://127.0.0.1:8008/health".into()),
-        ("math".into(), "http://127.0.0.1:8011/health".into()),
-        ("ocr".into(), "http://127.0.0.1:8018/health".into()),
-    ]
+    Vec::new()
 }
 
 /// Fold a head-registry JSON value into `(id, health_url)`. The forge is excluded — it is the

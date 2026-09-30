@@ -86,7 +86,7 @@ fn help_text_lists_the_core_slash_commands() {
     assert!(h.contains("/model [filter|exact@effort|auto]"));
     assert!(h.contains("/think [filter]"));
     assert!(h.contains("(/tutor, /library)"));
-    assert!(h.contains("/world [ride|enter|leave|weather|zoom]"));
+    assert!(h.contains("/world [visit <place>|follow|ride|enter|leave|weather|zoom]"));
     assert!(h.contains("/world view [3d|dotmax]"));
     assert!(h.contains("report this view"));
     assert!(h.contains("opens/closes retained room plates"));
@@ -218,6 +218,13 @@ fn git_diff_commands_are_scoped_to_the_active_workspace() {
     let (task, evidence) = git_review_request(&root).unwrap().unwrap().into_messages();
     assert_eq!(task.role, ChatRole::User);
     assert_eq!(&*task.content, REVIEW_TASK);
+    // The task is the operator stand-in `⠬⠚⠁`, whose page is the sentence.
+    let stand_in = crate::agent::harness::book::ing_drivers::STAND_INS;
+    assert_eq!(
+        REVIEW_TASK,
+        crate::agent::harness::book::d3_roles::pages(stand_in, [1])
+    );
+    assert!(stand_in.sub().pages[0].starts_with("Review my current working-tree changes"));
     assert!(
         !task.content.contains("active-only.txt"),
         "repository evidence leaked into the operator task"
@@ -228,12 +235,14 @@ fn git_diff_commands_are_scoped_to_the_active_workspace() {
         "{}",
         evidence.content
     );
-    assert!(
-        evidence
-            .content
-            .contains("Untracked files are listed by status only")
-    );
-    assert!(evidence.content.contains("untrusted repository evidence"));
+    // The framing is the `⠬⠙` pages.
+    assert!(evidence.content.starts_with("⠬⠙"));
+    let review = crate::agent::harness::book::ing_drivers::REVIEW
+        .sub()
+        .pages
+        .join(" ");
+    assert!(review.contains("Untracked files are listed by status only"));
+    assert!(review.contains("untrusted repository evidence"));
 
     let _ = std::fs::remove_dir_all(root);
 }
@@ -328,10 +337,18 @@ fn review_request_caps_utf8_evidence_and_reports_exact_omission() {
     assert!(body.len() <= 40_000);
     assert!(body.is_char_boundary(body.len()));
     assert!(evidence.contains(&format!(
-        "Snapshot truncated by {} bytes",
+        "snapshot_truncated_bytes={}",
         original_bytes - body.len()
     )));
-    assert!(evidence.contains("Inspect the named files with repository tools"));
+    // What to do about the truncation is the `⠬⠙` pages.
+    assert!(evidence.starts_with("⠬⠙"));
+    assert!(
+        crate::agent::harness::book::ing_drivers::REVIEW
+            .sub()
+            .pages
+            .join(" ")
+            .contains("Inspect the named files with repository tools")
+    );
 }
 
 #[test]

@@ -8,8 +8,9 @@
 //!
 //! Transport is newline-delimited JSON-RPC 2.0 over the child's stdin/stdout (the
 //! MCP stdio framing). A reader thread forwards every line over a channel so
-//! request/response round-trips can be bounded by a deadline without OS-level
-//! pipe timeouts. Everything is **opt-in**: with no config file (`~/.angelX/mcp.json`)
+//! request/response round-trips can be bounded by a deadline. On Unix, a
+//! nonblocking stdin pipe also bounds writes when a server stops reading.
+//! Everything is **opt-in**: with no config file (`~/.angelX/mcp.json`)
 //! nothing is spawned and behavior is unchanged.
 //!
 //! A server is a long-lived third-party daemon spawned outside the tool sandbox,
@@ -24,7 +25,9 @@ use crate::agent::sandbox::process_owner::{Child, OwnedCommandExt};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 use std::process::{ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -426,8 +429,66 @@ fn server_command(
 // ---------------------------------------------------------------------------
 
 struct Conn {
-    stdin: ChildStdin,
+    // A failed/partial write closes the pipe permanently: appending another
+    // JSON-RPC frame would corrupt the protocol or replay an ambiguous call.
+    stdin: Option<ChildStdin>,
     rx: mpsc::Receiver<String>,
+}
+
+#[cfg(unix)]
+fn nonblocking_stdin(stdin: &ChildStdin) -> io::Result<()> {
+    let fd = stdin.as_raw_fd();
+    // SAFETY: the caller owns this descriptor; fcntl only changes its flags.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn write_until(mut stdin: &ChildStdin, mut bytes: &[u8], deadline: Instant) -> io::Result<()> {
+    while !bytes.is_empty() {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))?;
+        match stdin.write(bytes) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(written) => bytes = &bytes[written..],
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                let mut descriptor = libc::pollfd {
+                    fd: stdin.as_raw_fd(),
+                    events: libc::POLLOUT,
+                    revents: 0,
+                };
+                let timeout_ms = remaining
+                    .as_millis()
+                    .saturating_add(1)
+                    .min(i32::MAX as u128);
+                // SAFETY: descriptor is live and points to one initialized
+                // pollfd. The stdin owner remains held throughout the poll.
+                let ready = unsafe { libc::poll(&mut descriptor, 1, timeout_ms as i32) };
+                if ready < 0 {
+                    let error = io::Error::last_os_error();
+                    if error.kind() != io::ErrorKind::Interrupted {
+                        return Err(error);
+                    }
+                }
+                // Recheck the deadline after a timeout/interruption, and retry
+                // the write on readiness (including a closed/broken pipe).
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    stdin.flush()
+}
+
+#[cfg(not(unix))]
+fn write_until(mut stdin: &ChildStdin, bytes: &[u8], _deadline: Instant) -> io::Result<()> {
+    stdin.write_all(bytes)?;
+    stdin.flush()
 }
 
 /// A live connection to one MCP server subprocess.
@@ -467,6 +528,12 @@ impl McpClient {
             .spawn_owned()
             .map_err(|e| format!("spawn {}: {e}", spec.command))?;
         let stdin = child.stdin.take().ok_or("no child stdin")?;
+        #[cfg(unix)]
+        if let Err(error) = nonblocking_stdin(&stdin) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!("mcp {} stdin setup: {error}", spec.name));
+        }
         let stdout = child.stdout.take().ok_or("no child stdout")?;
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
@@ -484,7 +551,10 @@ impl McpClient {
         });
         Ok(Self {
             name: spec.name.clone(),
-            conn: Mutex::new(Conn { stdin, rx }),
+            conn: Mutex::new(Conn {
+                stdin: Some(stdin),
+                rx,
+            }),
             next_id: AtomicU64::new(1),
             timeout,
             child: Mutex::new(child),
@@ -496,17 +566,9 @@ impl McpClient {
     fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let line = build_request(id, method, params);
-        let conn = self.conn.lock().map_err(|_| "mcp conn poisoned")?;
-        {
-            let mut stdin = &conn.stdin;
-            stdin
-                .write_all(line.as_bytes())
-                .map_err(|e| format!("mcp {} write: {e}", self.name))?;
-            stdin
-                .flush()
-                .map_err(|e| format!("mcp {} flush: {e}", self.name))?;
-        }
+        let mut conn = self.conn.lock().map_err(|_| "mcp conn poisoned")?;
         let deadline = Instant::now() + self.timeout;
+        self.write_line(&mut conn, method, &line, deadline)?;
         loop {
             let remaining = deadline
                 .checked_duration_since(Instant::now())
@@ -530,14 +592,29 @@ impl McpClient {
 
     fn notify(&self, method: &str, params: Value) -> Result<(), String> {
         let line = build_notification(method, params);
-        let conn = self.conn.lock().map_err(|_| "mcp conn poisoned")?;
-        let mut stdin = &conn.stdin;
-        stdin
-            .write_all(line.as_bytes())
-            .map_err(|e| format!("mcp {} notify: {e}", self.name))?;
-        stdin
-            .flush()
-            .map_err(|e| format!("mcp {} flush: {e}", self.name))?;
+        let mut conn = self.conn.lock().map_err(|_| "mcp conn poisoned")?;
+        self.write_line(&mut conn, method, &line, Instant::now() + self.timeout)
+    }
+
+    fn write_line(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        line: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let stdin = conn
+            .stdin
+            .as_ref()
+            .ok_or_else(|| format!("mcp {} closed the connection", self.name))?;
+        if let Err(error) = write_until(stdin, line.as_bytes(), deadline) {
+            conn.stdin.take();
+            return Err(if error.kind() == io::ErrorKind::TimedOut {
+                format!("mcp {} timed out on {method}", self.name)
+            } else {
+                format!("mcp {} write: {error}", self.name)
+            });
+        }
         Ok(())
     }
 

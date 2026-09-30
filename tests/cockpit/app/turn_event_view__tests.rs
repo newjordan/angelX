@@ -115,7 +115,10 @@ fn notice_rides_strip_keeps_timeout_notices() {
     let timeout_note = crate::agent::harness::timeout_note(120, None);
     assert_eq!(
         timeout_note,
-        "\n[timed out after 120s — process killed; raise/disable via ANGEL_TOOL_TIMEOUT]"
+        format!(
+            "\n[timed out after 120s — process killed]\n{}",
+            crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()
+        )
     );
     assert!(!notice_rides_strip(&timeout_note));
     assert!(!notice_rides_strip(

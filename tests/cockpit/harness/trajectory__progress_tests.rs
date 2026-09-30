@@ -36,7 +36,7 @@ fn trace_schema_emitters_join_attempts_and_preserve_unknowns() {
     );
     note_tool_outcome(
         3,
-        "machine_test",
+        "run_tests",
         &json!({"command":"pytest"}),
         "unknown",
         "failed",
@@ -60,7 +60,6 @@ fn trace_schema_emitters_join_attempts_and_preserve_unknowns() {
             crate::knowledge::cut::sha256_hex(b"report.md")
         );
         assert!(ledger.artifacts[0]["shown"].is_null());
-        assert_eq!(ledger.lease.as_ref().unwrap()["kind"], "fleet");
         assert!(ledger.tools[2]["ms"].is_null());
     });
 }
@@ -182,8 +181,10 @@ fn r03b_edit_and_verifier_run_progress_resets_escalation() {
         );
         note_progress_hop(false);
     }
-    let (notice, stop) = unproductive_escalation(9, 8, 16);
-    assert!(notice.unwrap().contains("8 consecutive"));
+    let (notice, stop) = unproductive_escalation(9, 8, 0);
+    // The streak is `⠇⠛⠃`, its count and the last verifier beside it.
+    let notice = notice.unwrap();
+    assert!(notice.starts_with("⠇⠛⠃ streak=8 "), "{notice}");
     assert!(stop.is_none());
     note_progress_hop(true); // byte-changing edits immediately reset the streak
     assert_eq!(progress_ledger_snapshot()["unproductive_streak_max"], 8);
@@ -312,4 +313,66 @@ fn t05_r03_ledger_canonical_duplicates_progress_and_reset() {
     TURN_LEDGER.with(|cell| *cell.borrow_mut() = TurnLedger::default());
     assert!(tool_ledger_snapshot().is_empty());
     assert!(progress_ledger_snapshot()["first_verified_at_ms"].is_null());
+}
+
+#[test]
+fn the_unproductive_redirect_stands_where_the_stop_was_and_the_count_starts_again() {
+    let _guard = crate::tests::env_lock();
+    TURN_LEDGER.with(|cell| *cell.borrow_mut() = TurnLedger::default());
+    let hop_of = |hop: usize| {
+        note_tool_outcome(
+            hop,
+            "read_file",
+            &json!({"path": format!("file-{hop}")}),
+            "new contents",
+            "ok",
+            false,
+            None,
+            None,
+            None,
+            12,
+        );
+        note_progress_hop(false);
+    };
+    let mut heard = Vec::new();
+    for hop in 1..=34 {
+        hop_of(hop);
+        let (notice, redirect) = unproductive_escalation(hop, 8, 16);
+        if notice.is_some() || redirect.is_some() {
+            heard.push((hop, notice, redirect));
+        }
+    }
+    // The notice at eight; at sixteen the redirect (0.1.6 stopped here, twice
+    // over, and the stop is gone) and the count starts again; then the same.
+    let cells: Vec<_> = heard
+        .iter()
+        .map(|(hop, notice, redirect)| {
+            (
+                *hop,
+                notice
+                    .as_deref()
+                    .map(|text| text.chars().take(3).collect::<String>()),
+                redirect
+                    .as_deref()
+                    .map(|text| text.chars().take(3).collect::<String>()),
+            )
+        })
+        .collect();
+    assert_eq!(
+        cells,
+        [
+            (8, Some("⠇⠛⠃".into()), None),
+            (16, Some("⠇⠛⠃".into()), Some("⠇⠛⠉".into())),
+            (24, Some("⠇⠛⠃".into()), None),
+            (32, Some("⠇⠛⠃".into()), Some("⠇⠛⠉".into())),
+        ]
+    );
+    assert!(heard[1].2.as_deref().unwrap().starts_with("⠇⠛⠉ streak=16 "));
+    // No redirect is asked for: the notice only.
+    TURN_LEDGER.with(|cell| *cell.borrow_mut() = TurnLedger::default());
+    for hop in 1..=20 {
+        hop_of(hop);
+        let (_, redirect) = unproductive_escalation(hop, 8, 0);
+        assert!(redirect.is_none());
+    }
 }

@@ -13,5 +13,9 @@ The `/self` workflow uses an isolated worktree. Its integration gate requires
 both the build and tests to pass. Inspect the resulting diff and evidence before
 integrating a change.
 
+For the benchmark-driven messaging and routing campaign, use the
+[speed-loop handoff](SPEED_LOOP.md). It includes the starting command, current
+evidence, experiment sequence and acceptance criteria.
+
 Implementation: [self_map](../cockpit/src/agent/tools/self_model.rs),
 [self-work controller](../cockpit/src/drive/self_loop.rs).

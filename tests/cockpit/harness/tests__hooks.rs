@@ -239,8 +239,8 @@ fn dispatch_with_hooks_blocks_then_allows() {
 fn blocked_write_is_denied_without_mutation_or_verification_credit() {
     let _lock = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
+    // Task mode: an unverified edit would raise the stop checkpoint.
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let root = scratch("blocked-write-accounting");
     let target = root.join("guarded.rs");
     std::fs::write(&target, "original\n").unwrap();
@@ -274,7 +274,7 @@ fn blocked_write_is_denied_without_mutation_or_verification_credit() {
                     self.saw_verify_nudge.store(
                         messages
                             .iter()
-                            .any(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE),
+                            .any(|message| book::ledger::is_warpath_message(&message.content)),
                         Ordering::Relaxed,
                     );
                     ClubReply::Text("policy denial reported".into())
@@ -393,10 +393,10 @@ fn configured_hooks_make_the_tool_batch_a_serial_barrier() {
     let results = history
         .iter()
         .filter(|message| message.role == ChatRole::Tool)
-        .map(|message| message.content.as_ref())
+        .map(|message| book::ledger::without_warpaths(&message.content).into_owned())
         .collect::<Vec<_>>();
     assert!(
-        results.contains(&"eno") && results.contains(&"owt"),
+        results.iter().any(|r| r == "eno") && results.iter().any(|r| r == "owt"),
         "{results:?}"
     );
     assert!(results.iter().all(|result| !is_hook_blocked_result(result)));

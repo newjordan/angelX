@@ -67,6 +67,58 @@ fn every_screen_is_sixteen_by_eleven() {
 }
 
 #[test]
+fn southern_precinct_preserves_the_original_map_and_landmark_coordinates() {
+    let mut digest = 0xcbf29ce484222325u64;
+    for ay in 0..3 {
+        for ax in 0..4 {
+            for (y, row) in Realm::authored_rows(ax, ay).iter().enumerate() {
+                for (x, byte) in row.bytes().enumerate() {
+                    // The only opening in the old border: the village's new south gate.
+                    if (ax, ay, x, y) == (1, 2, 7, 10) {
+                        continue;
+                    }
+                    digest = (digest ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+                }
+            }
+        }
+    }
+    assert_eq!(digest, 0xec12492f93b9ca44);
+    let original_stands = [
+        (23, 15),
+        (8, 15),
+        (26, 15),
+        (30, 19),
+        (19, 19),
+        (29, 15),
+        (20, 13),
+        (9, 4),
+        (35, 19),
+        (24, 3),
+        (40, 5),
+        (5, 7),
+        (11, 27),
+        (39, 31),
+        (23, 27),
+        (52, 18),
+    ];
+    for (place, expected) in Place::ALL.iter().zip(original_stands) {
+        assert_eq!(place.stand(), expected, "{place:?} moved");
+    }
+    for place in [Place::ArtisanQuarter, Place::Colosseum, Place::Tournament] {
+        let path = live::route(Place::Village.stand_world(), place.stand_world());
+        assert_eq!(
+            path.last(),
+            Some(&place.stand_world()),
+            "{place:?} unreachable"
+        );
+        assert!(
+            path.contains(&map::place_tile(23, 32)),
+            "new precinct must use the south gate"
+        );
+    }
+}
+
+#[test]
 fn roads_that_leave_a_screen_arrive_on_the_next() {
     let realm = Realm::get();
     let road = |t: u8| matches!(t, b'=' | b':' | b'H');
@@ -130,6 +182,21 @@ fn the_same_scene_renders_the_same_bytes() {
         frame(&busy(2)).rgb_bytes(),
         "ticks animate the forge and the beacon"
     );
+}
+
+#[test]
+fn new_arenas_show_the_live_muster_and_joust_above_their_floors() {
+    let live = busy(5);
+    let mut idle = live.clone();
+    idle.muster.clear();
+    idle.joust = None;
+    for place in [Place::Colosseum, Place::Tournament] {
+        assert_ne!(
+            frame_at(&live, screen_of(place)).rgb_bytes(),
+            frame_at(&idle, screen_of(place)).rgb_bytes(),
+            "{place:?} occupants must remain visible above arena architecture"
+        );
+    }
 }
 
 #[test]
@@ -228,6 +295,24 @@ fn write_overworld_shots() {
         );
     }
     save("realm.ppm", &render_view(&busy(8), View::realm()));
+    for place in [
+        Place::Village,
+        Place::ArtisanQuarter,
+        Place::Colosseum,
+        Place::Tournament,
+    ] {
+        save(
+            &format!("{}.ppm", place.label().to_lowercase().replace(' ', "_")),
+            &frame_at(&busy(8), screen_of(place)),
+        );
+    }
+    let mut council = busy(8);
+    council.active = Some(Place::RoundTable);
+    council.council = vec![(0, '1'), (1, '7'), (2, '2'), (3, '@'), (4, '3'), (5, '5')];
+    save(
+        "council.ppm",
+        &frame_at(&council, screen_of(Place::RoundTable)),
+    );
     let mut grown = busy(8);
     grown.tier = 8;
     save("town_tier8.ppm", &frame_at(&grown, screen_of(Place::Keep)));
@@ -748,7 +833,10 @@ fn views_keep_inside_the_realm_and_centre_what_they_outgrow() {
 
 #[test]
 fn a_bigger_pane_shows_more_realm_at_the_same_scale() {
-    let s = busy(0);
+    let mut s = busy(0);
+    // busy() stages work at the Smithy; follow that knight rather than the
+    // resting Keep camera (which only caught a red council robe at its edge).
+    s.camera = (s.knight.x, s.knight.y - 8.0);
     let small = frame_sized(&s, 160, 100);
     let big = frame_sized(&s, 480, 300);
     assert_eq!((small.w, small.h), (160, 100));

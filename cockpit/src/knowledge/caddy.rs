@@ -66,15 +66,7 @@ const RESULT_SCAN_BYTES: usize = 8 * 1024;
 const SKILL_MD_SCAN_BYTES: usize = 4 * 1024;
 
 /// Tools whose calls can become recipes/hazards.
-const TRACKED_TOOLS: &[&str] = &[
-    "shell",
-    "proc_run",
-    "cargo",
-    "run_tests",
-    "check",
-    "lint",
-    "machine_test",
-];
+const TRACKED_TOOLS: &[&str] = &["shell", "proc_run", "cargo", "run_tests", "check", "lint"];
 
 /// A command that produced a verified result in this repo.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -357,12 +349,10 @@ pub(crate) fn read_lie(workspace: &Path) -> Lie {
 /// Whether a competition board is armed. `goal.rs` has no competition
 /// accessor, so this mirrors the one the turn classifier uses
 /// (`turn/competition.rs::competition_mode_trigger`): the explicit
-/// `ANGEL_COMPETITION_MODE` / `ANGEL_GPU_COMP_LOCAL_MOA` env flags, else an
-/// Active `/goal` whose text carries competition vocabulary.
+/// `ANGEL_COMPETITION_MODE` env flag, else an Active `/goal` whose text
+/// carries competition vocabulary.
 fn board_armed(workspace: &Path) -> bool {
-    if crate::agent::harness::env_flag("ANGEL_COMPETITION_MODE", false)
-        || crate::agent::harness::env_flag("ANGEL_GPU_COMP_LOCAL_MOA", false)
-    {
+    if crate::agent::harness::env_flag("ANGEL_COMPETITION_MODE", false) {
         return true;
     }
     match crate::drive::goal::load_for(workspace) {
@@ -606,15 +596,35 @@ fn live_recipes(rows: Vec<Recipe>, state: &serde_json::Value) -> Vec<Recipe> {
         .collect()
 }
 
-fn identity_header(lie: &Lie) -> String {
+/// The card's identity line: `⠸⠃⠙` (and a degraded store's page) on the
+/// store's own section, the repo, HEAD, dirty count, languages and host
+/// runtimes beside it as data.
+fn identity_header(
+    lie: &Lie,
+    recipes_degraded: bool,
+    hazards_degraded: bool,
+    host: Option<&str>,
+) -> String {
+    use crate::agent::harness::book::d456_knowledge as book;
+    let mut pages = vec![book::CADDY_IDENTITY];
+    if recipes_degraded {
+        pages.push(book::CADDY_RECIPES_DEGRADED);
+    }
+    if hazards_degraded {
+        pages.push(book::CADDY_HAZARDS_DEGRADED);
+    }
     let mut header = format!(
-        "[caddy · {} · HEAD {} · {} dirty",
+        "{} repo={} head={} dirty={}",
+        crate::agent::harness::book::d46_recovery::run(&pages),
         short_key(&lie.repo_key),
         lie.head,
         lie.dirty_files
     );
     if !lie.langs.is_empty() {
-        header.push_str(&format!(" · {}", lie.langs.join(",")));
+        header.push_str(&format!(" langs={}", lie.langs.join(",")));
+    }
+    if let Some(host) = host.filter(|host| !host.is_empty()) {
+        header.push_str(&format!(" host={host}"));
     }
     header
 }
@@ -671,26 +681,37 @@ fn fit_card(
     state: &serde_json::Value,
     cap_bytes: usize,
 ) -> String {
+    use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::CADDY};
     loop {
-        let mut lines = vec![header.to_string()];
+        // The headings are `⠸⠃`'s pages, their addresses one route line on
+        // top, in order; each section keeps its bare name as its key.
+        let mut headings = Vec::new();
+        let mut body = Vec::new();
         if !recipe_lines.is_empty() {
-            lines.push(
+            headings.push(
                 if recipes
                     .iter()
                     .all(|(r, _)| matches!(stale_mark(r, state), StaleMark::Fresh))
                 {
-                    "recipes (verified on this workspace):"
+                    1
                 } else {
-                    "recipes (historical; source unbound; rerun before relying):"
-                }
-                .to_string(),
+                    2
+                },
             );
-            lines.extend(recipe_lines.iter().cloned());
+            body.push("recipes:".to_string());
+            body.extend(recipe_lines.iter().cloned());
         }
         if !hazard_lines.is_empty() {
-            lines.push("hazards (what failed here and why):".to_string());
-            lines.extend(hazard_lines.iter().cloned());
+            headings.push(3);
+            body.push("hazards:".to_string());
+            body.extend(hazard_lines.iter().cloned());
         }
+        let mut lines = Vec::new();
+        if !headings.is_empty() {
+            lines.push(pages(CADDY, headings));
+        }
+        lines.push(header.to_string());
+        lines.extend(body);
         if let Some(doors) = doors.as_ref() {
             lines.push(doors.clone());
         }
@@ -753,8 +774,7 @@ fn render_relevant_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> St
     }
     let recipes = take_newest_recipes(recipes);
     let hazards = take_newest_hazards(hazards);
-    let mut header = identity_header(&lie);
-    header.push(']');
+    let header = identity_header(&lie, false, false, None);
     let recipe_lines: Vec<String> = recipes
         .iter()
         .map(|(recipe, count)| recipe_card_line(recipe, *count, &state))
@@ -913,18 +933,12 @@ fn render_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> String {
     let recipes = take_newest_recipes(dedup_newest(recipes));
     let hazards = take_newest_hazards(hazards);
 
-    let mut header = identity_header(&lie);
-    if recipes_degraded {
-        header.push_str(" · recipes degraded");
-    }
-    if hazards_degraded {
-        header.push_str(" · hazards degraded");
-    }
-    let runtimes = crate::platform::workspace_lang::host_runtimes();
-    if !runtimes.is_empty() {
-        header.push_str(&format!(" · host: {runtimes}"));
-    }
-    header.push(']');
+    let header = identity_header(
+        &lie,
+        recipes_degraded,
+        hazards_degraded,
+        Some(crate::platform::workspace_lang::host_runtimes()),
+    );
 
     let recipe_lines: Vec<String> = recipes
         .iter()
@@ -942,21 +956,29 @@ fn render_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> String {
     )
 }
 
-/// `doors: skills … · dossier rituals: …` — names to open, never inline
-/// library content.
+/// `⠸⠃⠛ skills=… rituals=…` — names to open, never inline library content.
 fn doors_line(lie: &Lie, workspace: &Path) -> Option<String> {
     let mut parts = Vec::new();
     if lie.board_armed {
         let skills = door_skills(lie);
         if !skills.is_empty() {
-            parts.push(format!("skills {}", skills.join(", ")));
+            parts.push(format!("skills={}", skills.join(",")));
         }
     }
     let rituals = dossier_rituals(workspace, &lie.repo_key);
     if !rituals.is_empty() {
-        parts.push(format!("dossier rituals: {}", rituals.join("; ")));
+        parts.push(format!(
+            "rituals={}",
+            serde_json::to_string(&rituals).unwrap_or_default()
+        ));
     }
-    (!parts.is_empty()).then(|| bound_line(&format!("doors: {}", parts.join(" · "))))
+    (!parts.is_empty()).then(|| {
+        bound_line(&format!(
+            "{} {}",
+            crate::agent::harness::book::d456_knowledge::CADDY_DOORS.cells(),
+            parts.join(" ")
+        ))
+    })
 }
 
 /// ≤6 skill names from `~/.angelX/skills` + `cockpit/skills` whose SKILL.md

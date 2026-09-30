@@ -39,8 +39,7 @@ impl Tool for GoalTool {
                 replaces it with `text`, plus optional `accept_cmd` (a command whose success \
                 means the goal is truly met) and optional `criteria` (acceptance criteria); \
                 action=clear removes it. A set goal is re-injected into future turns so the \
-                session keeps steering toward it. This does NOT start an autonomous loop — \
-                that is the operator's call."
+                session keeps steering toward it. This does NOT start an autonomous loop. ⠯⠃"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -48,17 +47,17 @@ impl Tool for GoalTool {
                     "action": {
                         "type": "string",
                         "enum": ["show", "set", "clear"],
-                        "description": "default 'show'"
+                        "description": "⠯⠃⠃"
                     },
-                    "text": { "type": "string", "description": "the objective (action=set)" },
+                    "text": { "type": "string", "description": "⠯⠃⠉" },
                     "accept_cmd": {
                         "type": "string",
-                        "description": "optional verifiable command whose success means the goal is met (action=set)"
+                        "description": "⠯⠃⠙"
                     },
                     "criteria": {
                         "type": "array",
                         "items": { "type": "string" },
-                        "description": "optional acceptance criteria (action=set)"
+                        "description": "⠯⠃⠑"
                     }
                 },
                 "required": []
@@ -110,23 +109,39 @@ impl Tool for GoalTool {
 }
 
 /// Compact, bounded rendering of a goal for the `show` action — the essentials
-/// of `App::goal_show` without needing whole-cockpit state.
+/// of `App::goal_show` without needing whole-cockpit state. Its labels are the
+/// goal block's pages (`⠗⠃`), each value beside its address.
 fn format_goal(goal: &crate::drive::goal::Goal) -> String {
+    use crate::agent::harness::book::r_relentless as book;
     let mut out = String::new();
-    out.push_str(&format!("goal ({:?}): {}\n", goal.status, goal.text.trim()));
+    out.push_str(&format!(
+        "{} status={:?} {}\n",
+        book::GOAL_SHOW.cells(),
+        goal.status,
+        goal.text.trim()
+    ));
     if !goal.acceptance.is_empty() {
-        out.push_str("acceptance criteria:\n");
+        out.push_str(&book::GOAL_CRITERIA.cells());
+        out.push('\n');
         for criterion in &goal.acceptance {
             out.push_str(&format!("- {criterion}\n"));
         }
     }
     if let Some(command) = &goal.accept_cmd {
-        out.push_str(&format!("verifiable check (must pass): {command}\n"));
+        out.push_str(&format!("{} {command}\n", book::GOAL_CHECK.cells()));
     }
     if goal.rounds > 0 || goal.max_rounds.is_some() {
         match goal.max_rounds {
-            Some(cap) => out.push_str(&format!("progress: round {}/{cap}\n", goal.rounds)),
-            None => out.push_str(&format!("progress: round {}\n", goal.rounds)),
+            Some(cap) => out.push_str(&format!(
+                "{} rounds={}/{cap}\n",
+                book::GOAL_ROUND.cells(),
+                goal.rounds
+            )),
+            None => out.push_str(&format!(
+                "{} rounds={}\n",
+                book::GOAL_ROUND.cells(),
+                goal.rounds
+            )),
         }
     }
     out.trim_end().to_string()

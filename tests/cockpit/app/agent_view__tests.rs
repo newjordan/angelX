@@ -11,16 +11,16 @@ fn flatten(lines: &[Line<'_>]) -> String {
 
 #[test]
 fn profile_lines_include_identity_and_role() {
-    let profile = profile_for("spark", false);
-    let text = flatten(&profile_lines(profile, "spark", false));
-    assert!(text.contains("Sparky"));
-    assert!(text.contains("powerhouse"));
+    let profile = profile_for("codex");
+    let text = flatten(&profile_lines(profile, "codex", false));
+    assert!(text.contains("Codex"));
+    assert!(text.contains("SOTA escalation"));
     assert!(text.contains("idle"));
     let compact = flatten(&compact_profile_lines(profile, "", false));
-    assert!(compact.contains("Sparky"));
+    assert!(compact.contains("Codex"));
     assert!(
-        !compact.contains("spark"),
-        "caption must not repeat the machine slug: {compact}"
+        !compact.contains("codex"),
+        "caption must not repeat the route slug: {compact}"
     );
 }
 
@@ -81,16 +81,16 @@ fn portrait_marker_expires_and_recovery_needs_a_fail_run() {
 /// and the legacy wrapper still compiles by mapping active onto Thinking.
 #[test]
 fn stateful_caption_carries_dot_and_word() {
-    let profile = profile_for("spark", false);
-    let lines = compact_profile_lines_stateful(profile, "spark", PortraitState::Blocked);
+    let profile = profile_for("local");
+    let lines = compact_profile_lines_stateful(profile, "local", PortraitState::Blocked);
     let text = flatten(&lines);
     assert!(text.contains("blocked · awaiting approval"), "got: {text}");
     assert!(text.contains("●"), "dot missing: {text}");
     let dot = &lines[1].spans[2];
     assert_eq!(dot.style.fg, Some(HUD_GOLD), "blocked dot must be amber");
-    let text = flatten(&compact_profile_lines(profile, "spark", true));
+    let text = flatten(&compact_profile_lines(profile, "local", true));
     assert!(text.contains("thinking"), "got: {text}");
-    let text = flatten(&compact_profile_lines(profile, "spark", false));
+    let text = flatten(&compact_profile_lines(profile, "local", false));
     assert!(text.contains("idle"), "got: {text}");
 }
 

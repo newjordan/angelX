@@ -1,6 +1,8 @@
-//! Persona and stage prompts plus the swarm knobs.
+//! The persona roster and the stage prompts' routes, plus the swarm knobs.
+//! Every word the stages hear is a page in Volume IV of the book.
 
 use super::*;
+use crate::agent::harness::book::{Route, d3_roles, d4_angles};
 
 // ---------------------------------------------------------------------------
 // Angles of attack + stage prompts
@@ -9,74 +11,25 @@ use super::*;
 /// Distinct lenses for the layer-0 proposers. The swarm takes the first `width`
 /// of these, so the directions are diverse *by construction* — each agent is
 /// told to think differently — rather than relying on sampling temperature
-/// alone to scatter otherwise-identical prompts.
-pub(crate) const PERSONAS: &[(&str, &str)] = &[
-    (
-        "first-principles",
-        "You are a first-principles analyst. Strip the problem to its fundamentals \
-         and reason up from what must be true. Ignore convention; derive the answer.",
-    ),
-    (
-        "red-team",
-        "You are a skeptical red-teamer. Hunt the flaws, failure modes, and hidden \
-         assumptions in the obvious answer. Argue what would make it wrong, then say \
-         what survives that scrutiny.",
-    ),
-    (
-        "pragmatist",
-        "You are a pragmatic builder. Focus on what actually works in practice, the \
-         simplest thing that ships, and the real-world constraints others gloss over.",
-    ),
-    (
-        "lateral",
-        "You are a lateral, inventive thinker. Find the unconventional angle, the \
-         reframing, or the analogy from a distant field that cracks the problem open.",
-    ),
-    (
-        "systems",
-        "You are a systems thinker. Trace second-order effects, feedback loops, and \
-         how the parts interact over time. Map the whole, not the part.",
-    ),
-    (
-        "empiricist",
-        "You are an empiricist. Ground every claim in evidence, numbers, and what can \
-         be measured or tested. Flag what is unknown and how you would find out.",
-    ),
+/// alone to scatter otherwise-identical prompts. Each lens is its route on `⠈`
+/// (`book::d4_angles`).
+pub(crate) const PERSONAS: &[(&str, Route)] = &[
+    ("first-principles", d4_angles::FIRST_PRINCIPLES),
+    ("red-team", d4_angles::RED_TEAM),
+    ("pragmatist", d4_angles::PRAGMATIST),
+    ("lateral", d4_angles::LATERAL),
+    ("systems", d4_angles::SYSTEMS),
+    ("empiricist", d4_angles::EMPIRICIST),
 ];
 
-/// Appended to each proposer's persona. Proposers are *raw material* for the
-/// synthesizer, so they're told to be dense rather than polished — which also
-/// keeps the fan-out fast, since long prose is the main latency cost.
-pub(crate) const PROPOSER_BASE: &str = "Analyze the user's problem from your assigned angle. Be dense \
-    and concise: terse bullet points and decisive claims, not polished prose. Your output is \
-    raw material another agent will synthesize, so prioritize distinct, non-obvious insights \
-    over completeness or readability. No preamble, no conclusion. \
-    This stage is TEXT ONLY: no tool calls, and no tool-call markup of any kind \
-    (`<tool_call>`, `<function=…>`, `<SHELL>{…}`). The surrounding system prompt documents a \
-    tool protocol for the driver, not for you — imitating it here discards your draft. Write \
-    the analysis itself, from what you already know.";
-
-/// System prompt for an aggregator: fuse independent drafts into something better
-/// than any one of them, without narrating that it's merging anything.
-pub(crate) const AGGREGATOR_SYS: &str = "You are an aggregator in a mixture-of-agents. You will be \
-    shown several independent expert responses to the user's problem, each from a \
-    different angle. Produce a single response stronger than any one of them: integrate \
-    the best reasoning, reconcile contradictions, keep what is correct, discard what is \
-    wrong, and cover angles a single response missed.";
-
-/// One-word classifier that drives the adaptive gate.
-pub(crate) const CLASSIFIER_SYS: &str = "Classify the user's request. Answer with exactly one word: \
-    OPEN if it is open-ended, ambiguous, exploratory, or benefits from being attacked \
-    from multiple angles; TIGHT if it is a narrow, well-specified directive with one \
-    clear right answer or action. One word only.";
-
-/// `REFLECT`: the critic that finds weaknesses so the next layer can fix them.
-pub(crate) const CRITIC_SYS: &str = "You are a rigorous critic inside a mixture-of-agents. Your job is \
-    to find what is weak so the next revision is stronger. Be specific, skeptical, and brief.";
-
-/// `JUDGE`: scores candidate drafts for Pareto-style pruning.
-pub(crate) const JUDGE_SYS: &str = "You are an impartial, calibrated judge scoring candidate responses. \
-    Be harsh; reserve high scores for genuinely strong answers. Follow the output format exactly.";
+// The stage briefs are routes on `⠄` (`book::d3_roles`): the proposer's
+// (appended to its lens — proposers are *raw material* for the synthesizer, so
+// they are told to be dense rather than polished, which also keeps the fan-out
+// fast), the aggregator's, the one-word classifier that drives the adaptive
+// gate, the critic's (`REFLECT`), the judge's (`JUDGE`), the chooser's
+// (`SAMPLES`), the verifier's (`VERIFY`), and the hedge ladder (`HEDGE`),
+// folded into the base voice so every stage states a finding no more strongly
+// than its support allows.
 
 /// `JUDGE_DIMS`: the weighted quality dimensions the judge scores when per-dimension
 /// scoring is on. Weights sum to 1.0, so a draft's composite stays on the same 0–10
@@ -89,22 +42,6 @@ pub(crate) const JUDGE_DIMS: &[(&str, f64)] = &[
     ("novelty", 0.15),
 ];
 
-/// `SAMPLES`: picks the single best of several final candidates (self-consistency).
-pub(crate) const CHOOSER_SYS: &str = "You select the single best answer from a set of candidates. \
-    Output only the number of the best one.";
-
-/// `VERIFY`: the adversary that tries to break the final answer.
-pub(crate) const VERIFIER_SYS: &str = "You are an adversarial verifier. Find concrete errors, \
-    unsupported claims, logical gaps, or missing considerations in the answer under review.";
-
-/// `HEDGE`: the calibrated-claims "hedge ladder" — folded into the base voice so
-/// every stage states a finding no more strongly than its support allows.
-pub(crate) const HEDGE_LADDER: &str = "Calibrate every claim's strength to its evidence: write \
-    \"demonstrates\"/\"shows\" only for what is established, \"suggests\"/\"indicates\" for \
-    supported-but-partial, \"may\"/\"might\" for plausible, and \"hypothesize\" for \
-    speculation. Do not overstate. Flag what is uncertain or unverified rather than \
-    asserting it.";
-
 /// Tell every MoA worker to preserve compactable state. The actual transcript
 /// compactor remains budget-driven in the harness; this makes the agents write
 /// their intermediate work so a third-loop checkpoint has useful material.
@@ -113,12 +50,8 @@ pub(crate) fn compaction_prep_instruction() -> Option<String> {
     if every == 0 {
         return None;
     }
-    Some(format!(
-        "Context checkpointing: assume this MoA thread may be compacted after every \
-         {every} loop(s). Keep each stage checkpoint-ready: include durable decisions, \
-         key evidence or source URLs, relevant paths and commands, open risks, and the \
-         next action. Do not rely on raw earlier context surviving compaction."
-    ))
+    // `⠄⠊`, with the cadence beside it.
+    Some(format!("{} every={every}", d3_roles::CHECKPOINT.cells()))
 }
 
 pub(crate) fn answer_stage_with_compaction_prep(stage: &str) -> String {
@@ -128,20 +61,6 @@ pub(crate) fn answer_stage_with_compaction_prep(stage: &str) -> String {
         None => stage.to_string(),
     }
 }
-
-/// `DELEGATE`: appended to delegator personas so they can request a verifying test.
-pub(crate) const DELEGATOR_INSTRUCTION: &str = "If one key claim can be settled by a quick test or by \
-    consulting a specialist model, you MAY request exactly one. Append a single fenced block:\n\
-    ```swarm-test\n\
-    where: local            # local | remote:<host> | peer:<agent> | phone:<model>\n\
-    cmd: <a shell/cargo command — or, for phone, the question to ask>\n\
-    claim: <the claim this checks>\n\
-    why: <why here>\n\
-    ```\n\
-    phone targets are model specialists: phone:deepseek (the default — a strong external SOTA \
-    second opinion), phone:code, phone:reason, phone:fast. Use a sandboxed test for empirical/ \
-    runtime facts; phone a specialist for hard math/code/reasoning. Only if it genuinely helps; \
-    no destructive commands.";
 
 /// Whether the request warrants the full fan-out or a single direct pass.
 pub(crate) enum Mandate {

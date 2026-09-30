@@ -191,20 +191,28 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
         combined.push_str(&format!("\n[doctor hint: {}]", cause.remedy()));
     }
     if let Some(signal) = signal {
+        // `⡨⠉⠃` inside its bracket, the signal beside it.
         combined.push_str(&format!(
-            "\n[worker killed by {}; reason=signal:{}; signal {signal}; verification inconclusive]",
-            signal_name(signal),
+            "\n[{} reason=signal:{} signal={signal}]",
+            super::book::d467_receipts::WORKER_KILLED.cells(),
             signal_name(signal)
         ));
     }
     if capture.tool_idle {
-        combined.push_str("\n[escalation: tool_idle; silent tool child tree killed; retry with explicit input or use proc_run]");
+        combined.push_str("\n[escalation: tool_idle; silent tool child tree killed]\n");
+        combined.push_str(&super::book::p_processes::TOOL_IDLE.cells());
     }
     if capture.grandchild_holds_stdout {
-        combined.push_str("\n[grandchild_holds_stdout: drain deadline reached; inherited output pipe closed; capture incomplete]");
+        combined.push_str(&format!(
+            "\n[{}]",
+            super::book::d467_receipts::STDOUT_HELD.cells()
+        ));
     }
     if capture.grandchild_holds_stderr {
-        combined.push_str("\n[grandchild_holds_stderr: drain deadline reached; inherited error pipe closed; capture incomplete]");
+        combined.push_str(&format!(
+            "\n[{}]",
+            super::book::d467_receipts::STDERR_HELD.cells()
+        ));
     }
     if timed_out && !capture.tool_idle {
         // Idle-floor kills happen well before ANGEL_TOOL_TIMEOUT; report the
@@ -714,37 +722,35 @@ impl TimeoutDiagnostics {
     }
 }
 
-/// Operator-facing timeout receipt. The historical prefix and the
-/// `ANGEL_TOOL_TIMEOUT` pointer are kept byte-for-byte; when kill-time
-/// diagnostics exist they ride in the middle so a hang reads as evidence
-/// ("what was it doing?") instead of a bare elapsed number.
+/// Timeout receipt. The historical prefix and the facts are kept byte-for-byte;
+/// when kill-time diagnostics exist they ride in the middle so a hang reads as
+/// evidence ("what was it doing?") instead of a bare elapsed number. The
+/// `ANGEL_TOOL_TIMEOUT` pointer is the page on the line after.
 pub(crate) fn timeout_note(timeout_secs: u64, diag: Option<&TimeoutDiagnostics>) -> String {
+    let page = crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells();
     match diag {
         Some(diag) => format!(
-            "\n[timed out after {timeout_secs}s — {}; process killed; raise/disable via ANGEL_TOOL_TIMEOUT]",
+            "\n[timed out after {timeout_secs}s — {}; process killed]\n{page}",
             diag.summary()
         ),
-        None => format!(
-            "\n[timed out after {timeout_secs}s — process killed; raise/disable via ANGEL_TOOL_TIMEOUT]"
-        ),
+        None => format!("\n[timed out after {timeout_secs}s — process killed]\n{page}"),
     }
 }
 
 /// Idle-floor kill receipt: the same evidence format as [`timeout_note`], but
-/// the pointer names `ANGEL_TOOL_IDLE_FLOOR_SECS` — the group was reaped for
+/// its page names `ANGEL_TOOL_IDLE_FLOOR_SECS` — the group was reaped for
 /// sleeping silently past the floor, not for outliving `ANGEL_TOOL_TIMEOUT` —
-/// and names the legitimate silent waits the floor can mistake for a hang,
-/// with `proc_run` as the escape hatch for a deliberate long background wait.
+/// and the legitimate silent waits the floor can mistake for a hang, with
+/// `proc_run` as the escape hatch for a deliberate long background wait.
 fn idle_floor_note(floor_secs: u64, diag: Option<&TimeoutDiagnostics>) -> String {
-    const IDLE_SUFFIX: &str = "; process killed; silent sleeping wait reaped by the idle floor; \
-         if this was a legitimate wait (remote validation, polling, downloads) \
-         raise ANGEL_TOOL_IDLE_FLOOR_SECS or use proc_run";
+    const IDLE_SUFFIX: &str = "; process killed; silent sleeping wait reaped by the idle floor";
+    let page = crate::agent::harness::book::d46_recovery::IDLE_FLOOR.cells();
     match diag {
         Some(diag) => format!(
-            "\n[timed out after {floor_secs}s — {}{IDLE_SUFFIX}]",
+            "\n[timed out after {floor_secs}s — {}{IDLE_SUFFIX}]\n{page}",
             diag.summary()
         ),
-        None => format!("\n[timed out after {floor_secs}s{IDLE_SUFFIX}]"),
+        None => format!("\n[timed out after {floor_secs}s{IDLE_SUFFIX}]\n{page}"),
     }
 }
 
@@ -1007,11 +1013,10 @@ fn output_timed_inner(
     use std::process::Stdio;
     use std::sync::mpsc::channel;
     // Some internal verifiers and recon tools pass their own fixed deadline
-    // rather than `tool_timeout()`. Apply the unrestricted override here at
-    // the shared process boundary so none of those call sites can accidentally
-    // retain a command-killing timer while YOLO is live.
+    // rather than `tool_timeout()`. YOLO ignores those ordinary timers, but an
+    // explicit foreground call budget still bounds sleeping and busy children.
     let timeout = if crate::platform::yolo::enabled() && !fixed_timeout {
-        None
+        call_budget()
     } else {
         timeout
     };
@@ -1027,9 +1032,9 @@ fn output_timed_inner(
         && !dir.exists()
     {
         return Err(format!(
-            "working directory {} no longer exists (removed under this session?) — \
-                 cd to a live directory and retry",
-            dir.display()
+            "working directory {} no longer exists (removed under this session?)\n{}",
+            dir.display(),
+            crate::agent::harness::book::d46_recovery::LIVE_DIRECTORY.cells()
         ));
     }
     if cancel.is_some_and(|cancel| cancel.load(std::sync::atomic::Ordering::Acquire)) {

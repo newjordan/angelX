@@ -12,30 +12,6 @@
   ],
   "sheets": [
     {
-      "agent": "turbo",
-      "file": "turbo.png",
-      "width": 1678,
-      "height": 937,
-      "columns": 4,
-      "rows": 2,
-      "sha256": "e3cba2c681edbb84d723f4681f31856ab8fd25c9a9e8f9001ed2ca283ae19d56",
-      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
-      "original": "knight-01-sprite-sheet-guide.png (this dir, unmodified)",
-      "superseded": "shiny/turbo.png \u2014 the glossy built-in-imagegen pass"
-    },
-    {
-      "agent": "atlas",
-      "file": "atlas.png",
-      "width": 1678,
-      "height": 937,
-      "columns": 4,
-      "rows": 2,
-      "sha256": "b0b55862e3a3114c670dcc5788bfc0ddf677d45d8e331ad7b201105b6c379be9",
-      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
-      "original": "knight-02-sprite-sheet-guide.png (this dir, unmodified)",
-      "superseded": "shiny/atlas.png \u2014 the glossy built-in-imagegen pass"
-    },
-    {
       "agent": "sparky",
       "file": "sparky.png",
       "width": 1678,
@@ -46,18 +22,6 @@
       "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
       "original": "knight-03-sprite-sheet-guide.png (this dir, unmodified)",
       "superseded": "shiny/sparky.png \u2014 the glossy built-in-imagegen pass"
-    },
-    {
-      "agent": "apollo",
-      "file": "apollo.png",
-      "width": 1678,
-      "height": 937,
-      "columns": 4,
-      "rows": 2,
-      "sha256": "2263297453cb721ebc7819221f040b40fa8fd515a787b414f219f94ace9d1f58",
-      "generation": "gritty knight sheet, promoted from the guide art 2026-09-20",
-      "original": "knight-04-sprite-sheet-guide.png (this dir, unmodified)",
-      "superseded": "shiny/apollo.png \u2014 the glossy built-in-imagegen pass"
     },
     {
       "agent": "codex",
@@ -79,7 +43,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "17b9de623ba1d7147597bda1bc13cd3e5bb02209977b6694fc1dc652602a69ee",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "luna.png (this dir, unmodified output)"
     },
     {
@@ -90,7 +54,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "5f690de0dd9505425873f0e951b43e89a089fadd8908b48f6e2cf9981a402efc",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "glm.png (this dir, unmodified output)"
     },
     {
@@ -101,7 +65,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "71dcd5cac9cf2c9a786bb62f979915721cd6dfdbbfcb472aa370d720084babe5",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "kimi.png (this dir, unmodified output)"
     },
     {
@@ -112,7 +76,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "cb6270bc84a94a711905e9f20afd2d0c88153c232a89e4e02ed053db84274f72",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "qwen.png (this dir, unmodified output)"
     },
     {
@@ -123,7 +87,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "0d1aca58d315a9746ccdfad87f265359c85ad16ac904d2a6b82b7635f63997f2",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "longcat.png (this dir, unmodified output)"
     },
     {
@@ -134,7 +98,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "1396cfcfad3144d63aa460d91ea9aaba87ba828877f399d15dd81a31bd91009f",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "muse.png (this dir, unmodified output)"
     },
     {
@@ -145,7 +109,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "66e0f1f97a6d453dffb7a4a1681d95f16c57ced05abf009b1ddcbb096e7b344d",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "hy.png (this dir, unmodified output)"
     },
     {
@@ -156,7 +120,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "16c87129f329dcbd3f4e614c0d38956b87461547529012399dcb95558f48c6b7",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "nemotron.png (this dir, unmodified output)"
     },
     {
@@ -167,7 +131,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "bd5a3a5022d32e7f50616a9f3c08e37f0c024ba278c2a0043a653043468b4e9a",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "cerebras.png (this dir, unmodified output)"
     },
     {
@@ -178,7 +142,7 @@
       "columns": 4,
       "rows": 2,
       "sha256": "48871847d01a7d056a273962aa7f294575acc2773d452c05ca876ac463e5ebe8",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "openrouter.png (this dir, unmodified output)"
     },
     {
@@ -189,9 +153,9 @@
       "columns": 4,
       "rows": 2,
       "sha256": "48d1da201dcf43586ffb8885c81dd6f91ceac3183856999a4f93818554b028a4",
-      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; turbo.png as the layout reference",
+      "generation": "model-family knight, Luna (gpt-5.6-luna) through the Codex CLI built-in image_gen 2026-09-23; knight-01-sprite-sheet-guide.png as the layout reference",
       "original": "local.png (this dir, unmodified output)"
     }
   ],
-  "note": "The sheets in this directory are the gritty knight art. The glossy built-in-imagegen pass that briefly replaced them is archived in shiny/, same filenames, so the two generations stay comparable."
+  "note": "The sheets in this directory are the gritty knight art. The glossy built-in-imagegen pass that briefly replaced them is archived in shiny/, same filenames, so the two generations stay comparable. Three machine-named sheets were retired 2026-09-27; their art stays here unmodified as knight-01, knight-02 and knight-04-sprite-sheet-guide.png, the gritty counterparts of the glossy passes kept in shiny/."
 }

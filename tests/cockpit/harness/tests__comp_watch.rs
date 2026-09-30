@@ -833,7 +833,7 @@ fn board_outline_is_recon_not_preflight() {
         is_local_preflight_call(&product),
         "product outline must remain preflight"
     );
-    assert!(burns_first_write_budget(&outline));
+    assert!(is_free_form_recon(&outline));
     assert_eq!(
         classify_inflight_hop(std::slice::from_ref(&outline)),
         InFlightHopKind::Recon
@@ -875,7 +875,7 @@ fn pathless_defs_is_recon_not_preflight() {
         is_local_preflight_call(&product),
         "path-scoped product defs stay preflight"
     );
-    assert!(burns_first_write_budget(&symbol));
+    assert!(is_free_form_recon(&symbol));
     assert_eq!(
         classify_inflight_hop(std::slice::from_ref(&symbol)),
         InFlightHopKind::Recon
@@ -3562,8 +3562,8 @@ fn board_read_is_not_preflight_while_watcher_owns_inflight() {
         serde_json::json!({"path": "LIVING_HANDOFF.md"}),
     );
     assert!(is_competition_wait_or_progress_call(&board));
-    assert!(!burns_first_write_budget(&board));
-    assert!(!is_first_write_progress_call(&board));
+    assert!(!is_free_form_recon(&board));
+    assert!(!is_product_mutation_call(&board));
     assert!(
         !is_local_preflight_call(&board),
         "board digest must not count as candidate preflight"
@@ -3595,7 +3595,7 @@ fn board_read_is_not_preflight_while_watcher_owns_inflight() {
 
     let candidate = call("read_file", serde_json::json!({"path": "candidate.cu"}));
     assert!(is_local_preflight_call(&candidate));
-    assert!(burns_first_write_budget(&candidate));
+    assert!(is_free_form_recon(&candidate));
     assert_eq!(
         classify_inflight_hop(std::slice::from_ref(&candidate)),
         InFlightHopKind::LocalPreflight
@@ -3668,10 +3668,10 @@ fn board_write_is_not_wait_or_poll_while_inflight() {
         "first-write still treats meta writes as bookkeeping wait"
     );
     assert!(
-        !burns_first_write_budget(&handoff),
+        !is_free_form_recon(&handoff),
         "meta writes stay bookkeeping (do not burn first-write)"
     );
-    assert!(!is_first_write_progress_call(&handoff));
+    assert!(!is_product_mutation_call(&handoff));
     assert_eq!(
         classify_inflight_hop(std::slice::from_ref(&handoff)),
         InFlightHopKind::Recon,
@@ -3763,7 +3763,7 @@ fn first_write_guard_stays_soft_when_watcher_owns_inflight_poll() {
     // The new in-flight policy is a separate detector.
     let status = poll_status();
     assert!(is_competition_wait_or_progress_call(&status));
-    assert!(!burns_first_write_budget(&status));
+    assert!(!is_free_form_recon(&status));
     assert_eq!(
         evaluate_inflight_hop(classify_inflight_hop(&[status]), SlotPhase::InFlight, false),
         CadenceVerdict::FailPollOnly

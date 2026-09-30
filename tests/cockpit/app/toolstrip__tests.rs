@@ -257,11 +257,11 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
         "proc_run",
         "RUST_LOG=info python3 scripts/measure.py --rows 300",
     );
-    launched.result("proc_run", "geomean 0.86");
+    launched.result("proc_run", "started [7] measurement (pid 42)");
     let snap = launched.snapshot();
     assert_eq!(
         snap.verified_outcome_actions.len(),
-        2,
+        1,
         "{:?}",
         snap.verified_outcome_actions
     );
@@ -754,8 +754,8 @@ fn terminal_result_cues_are_static_and_require_correlated_evidence() {
 
 #[test]
 fn dotmax_live_v2_catalog_is_bundled() {
-    assert_eq!(dotmax::progress::themes().len(), 57);
-    assert_eq!(dotmax::progress::all_styles().len(), 644);
+    assert_eq!(dotmax::progress::themes().len(), 58);
+    assert_eq!(dotmax::progress::all_styles().len(), 656);
     for theme in ["matrix", "aurora", "inferno", "glitch", "fireworks"] {
         let styles = dotmax::progress::styles_for_theme(theme);
         assert_eq!(styles.len(), 10, "{theme}");
@@ -889,6 +889,247 @@ py
         segs.iter().map(|s| s.trim()).collect::<Vec<_>>(),
         vec!["a", "b 'x|y'", r#"c "d;e""#, "f"]
     );
+}
+
+#[test]
+fn measured_receipt_names_the_segment_that_qualified() {
+    // Heesch loop finding 2026-09-25: this line was recorded as
+    // `measured:shell:yukon --help` — the label came from the first segment
+    // while the qualification scanned all of them. The segment that measured
+    // was the `heesch_verify` one.
+    let line = "yukon --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify submission/best.heesch 2>&1 | tail -40";
+    assert_eq!(
+        measured_submission_fingerprint("shell", line),
+        Some((
+            "shell:python3 -m heesch_verify submission/best.heesch".to_string(),
+            false
+        )),
+        "{:?}",
+        measured_submission_fingerprint("shell", line)
+    );
+    // A submission segment labels a mixed line the same way (it is the
+    // stronger claim and the line's mutating act).
+    assert_eq!(
+        measured_submission_fingerprint(
+            "shell",
+            "yukon --help; ./benchmark.sh; hilbert submit cand.py"
+        ),
+        Some(("shell:hilbert submit cand.py".to_string(), true))
+    );
+    // A single-segment measurement keeps the fingerprint it had before.
+    assert_eq!(
+        measured_submission_fingerprint("shell", "./benchmark.sh --local-iterate 2>&1 | tail -5"),
+        Some(("shell:./benchmark.sh --local-iterate".to_string(), false))
+    );
+    // The strip's receipt and the loop ledger's row command follow the label.
+    let mut strip = ToolStrip::default();
+    strip.call("shell", line);
+    strip.result("shell", "heesch_verify: submission/best.heesch OK, 42 rows");
+    let snap = strip.snapshot();
+    assert_eq!(snap.verified_outcome_actions.len(), 1, "{:?}", snap);
+    assert!(
+        snap.verified_outcome_actions[0]
+            .starts_with("measured:shell:python3 -m heesch_verify submission/best.heesch:result="),
+        "{}",
+        snap.verified_outcome_actions[0]
+    );
+    assert_eq!(
+        snap.measurement_results[0].excerpt,
+        "heesch_verify: submission/best.heesch OK, 42 rows"
+    );
+}
+
+#[test]
+fn remote_and_locked_measurements_count() {
+    // Pinning seats 2026-09-25: every locked rig-B A/B ran through `ssh`, and
+    // the strip saw only `ssh`, so a night of measurements counted zero.
+    let ssh = "ssh -i ~/.ssh/id_ed25519_wsl -p 26606 root@ssh7.vast.ai";
+    let quoted_env = format!(
+        "{ssh} 'cd /workspace/qsb && QSB_GRINDER=\"cmd:python3 harness/gpu_wrap.py --src candidates/subset/subset.cu --no-build\" QSB_SECONDS=240 ./benchmark.sh subset'"
+    );
+    assert_eq!(
+        measured_submission_fingerprint("shell", &quoted_env),
+        Some((
+            "shell:qsb_grinder=\"cmd:python3 harness/gpu_wrap.py --src candidates/subset/subset.cu --no-build\" qsb_seconds=240 ./benchmark.sh subset".to_string(),
+            false
+        ))
+    );
+    let locked = format!(
+        "{ssh} 'flock -w 300 /tmp/rigb-gpu.lock bash -c \"cd /workspace/pm && timeout 200 ./benchmark.sh pinning\"'"
+    );
+    assert_eq!(
+        measured_submission_fingerprint("shell", &locked),
+        Some((
+            "shell:timeout 200 ./benchmark.sh pinning".to_string(),
+            false
+        ))
+    );
+    let ab_driver = format!("{ssh} 'bash /workspace/win-armA/run_ab_window.sh'");
+    assert_eq!(
+        measured_submission_fingerprint("shell", &ab_driver),
+        Some((
+            "shell:bash /workspace/win-arma/run_ab_window.sh".to_string(),
+            false
+        ))
+    );
+    let remote_submit = format!("{ssh} 'cd /workspace/qsb && yukon submit --note-file n.md'");
+    assert_eq!(
+        measured_submission_fingerprint("shell", &remote_submit).map(|(_, submit)| submit),
+        Some(true)
+    );
+    // Reads and setup stay reads, remote or local; `ab` counts only as a word.
+    for line in [
+        format!("{ssh} 'cat /workspace/run/score-pinning.json; ls benchmark-results'"),
+        format!(
+            "{ssh} 'flock /tmp/rigb-gpu.lock bash -c \"cd /workspace/pm && ./setup.sh pinning\"'"
+        ),
+        format!("{ssh} nvidia-smi"),
+        "cabal build".to_string(),
+    ] {
+        assert!(
+            measured_submission_fingerprint("shell", &line).is_none(),
+            "{line}"
+        );
+    }
+}
+
+#[test]
+fn measured_receipts_require_execution_not_syntax_help_or_detached_start() {
+    for command in [
+        "bash -n run_ab_trial.sh",
+        "bash -en run_ab_trial.sh",
+        "bash -o noexec run_ab_trial.sh",
+        "bash -nc './benchmark.sh'",
+        "timeout 30 bash -n run_ab_trial.sh",
+        "./benchmark.sh --help",
+        "python3 measure.py -h",
+        "./benchmark.sh --dry-run",
+        "./benchmark.sh --preflight-only",
+        "TEST_PREFLIGHT_ONLY=1 ./benchmark.sh",
+        "ssh worker 'bash -n run_ab_trial.sh'",
+        "nohup ./benchmark.sh > run.log 2>&1 &",
+        "./benchmark.sh | tee run.log &",
+        "./benchmark.sh && echo done &",
+        "./benchmark.sh || echo failed &",
+        "./benchmark.sh&echo launched",
+        "ssh worker 'nohup bash run_ab_trial.sh > run.log 2>&1 &'",
+        "ssh -f worker './benchmark.sh'",
+        "setsid ./benchmark.sh > run.log",
+    ] {
+        let mut strip = ToolStrip::default();
+        strip.call("shell", command);
+        strip.result("shell", "successful dispatch or syntax check");
+        let snap = strip.snapshot();
+        assert!(
+            snap.verified_outcome_actions.is_empty(),
+            "{command}: {snap:?}"
+        );
+        assert!(snap.measurement_results.is_empty(), "{command}: {snap:?}");
+    }
+}
+
+#[test]
+fn echoed_nonzero_verifier_exit_is_not_hidden_by_successful_shell() {
+    for command in [
+        "./benchmark.sh; echo EXIT:$?",
+        "ssh worker './benchmark.sh; echo \"EXIT:$?\"'",
+    ] {
+        let mut strip = ToolStrip::default();
+        strip.call("shell", command);
+        strip.result("shell", "input missing\nEXIT:2");
+        let snap = strip.snapshot();
+        assert_eq!(snap.errors, 1, "{command}: {snap:?}");
+        assert!(
+            snap.verified_outcome_actions.is_empty(),
+            "{command}: {snap:?}"
+        );
+        assert!(snap.measurement_results.is_empty());
+        assert_eq!(snap.verifier_failures.len(), 1, "{command}: {snap:?}");
+    }
+    for (command, output) in [
+        ("./benchmark.sh; echo EXIT:$?", "score 1.25\nEXIT:0"),
+        ("./benchmark.sh", "input fixture text: EXIT:2\nscore 1.25"),
+    ] {
+        let mut strip = ToolStrip::default();
+        strip.call("shell", command);
+        strip.result("shell", output);
+        assert_eq!(strip.snapshot().verified_outcome_actions.len(), 1);
+    }
+}
+
+#[test]
+fn detached_starts_do_not_advance_loop_progress_or_measurement_clocks() {
+    for (tool, command) in [
+        ("proc_run", "./benchmark.sh"),
+        ("proc_run", "yukon submit candidate"),
+        ("shell", "nohup ./benchmark.sh > run.log 2>&1 &"),
+        (
+            "shell",
+            "ssh worker 'nohup ./benchmark.sh > run.log 2>&1 &'",
+        ),
+    ] {
+        let mut strip = ToolStrip::default();
+        strip.call(tool, command);
+        strip.result(tool, "started [7] job (pid 42)");
+        let snap = strip.snapshot();
+        assert!(
+            snap.outcome_actions.is_empty(),
+            "{tool} {command}: {snap:?}"
+        );
+        assert!(
+            snap.verified_outcome_actions.is_empty(),
+            "{tool} {command}: {snap:?}"
+        );
+        assert!(snap.measurement_results.is_empty());
+    }
+}
+
+#[test]
+fn foreground_measurements_survive_wrappers_and_literal_ampersands() {
+    for command in [
+        "bash run_ab_trial.sh",
+        "nohup ./benchmark.sh > run.log 2>&1",
+        "setsid --wait ./benchmark.sh",
+        "./benchmark.sh --label 'A&B'",
+        "./benchmark.sh --label A\\&B",
+        "./benchmark.sh &> run.log",
+        "./benchmark.sh 2>&1 | tail -5",
+        "ssh -oControlPath=/tmp/foo worker './benchmark.sh'",
+        "ssh -F /tmp/config worker './benchmark.sh'",
+        "ssh worker 'flock /tmp/measurement.lock bash -c \"./benchmark.sh\"'",
+        "./setup.sh & ./benchmark.sh",
+    ] {
+        let mut strip = ToolStrip::default();
+        strip.call("shell", command);
+        strip.result("shell", "score 1.25");
+        let snap = strip.snapshot();
+        assert_eq!(
+            snap.verified_outcome_actions.len(),
+            1,
+            "{command}: {snap:?}"
+        );
+        assert_eq!(snap.measurement_results.len(), 1, "{command}: {snap:?}");
+    }
+}
+
+#[test]
+fn failed_typed_verification_never_earns_completed_measurement_credit() {
+    let mut strip = ToolStrip::default();
+    let id = ToolEventId("failed-verification".into());
+    strip.call_event(id.clone(), "shell", "./benchmark.sh");
+    strip.result_event(
+        &id,
+        "shell",
+        "verification failed",
+        ToolOutcome {
+            execution: ExecutionOutcome::Succeeded,
+            verification: VerificationOutcome::Failed,
+        },
+    );
+    let snap = strip.snapshot();
+    assert_eq!(snap.errors, 1);
+    assert!(snap.verified_outcome_actions.is_empty());
+    assert!(snap.measurement_results.is_empty());
 }
 
 #[test]

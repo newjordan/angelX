@@ -159,7 +159,10 @@ fn semantic_read_ranks_relevant_chunks_and_sends_auth() {
         result.contains("1. score=1.0000 relevant.rs:1-1"),
         "{result}"
     );
-    assert!(result.contains("untrusted workspace evidence"));
+    // The untrusted-evidence frame opens the result as its `⠰⠑` page.
+    let frame = crate::agent::harness::book::d56_replies::SEMANTIC_EVIDENCE;
+    assert!(result.starts_with(&frame.cells()), "{result}");
+    assert!(frame.text().contains("untrusted workspace evidence"));
     server.join().unwrap();
 
     let outside = root.parent().unwrap().join("outside.rs");

@@ -1088,13 +1088,12 @@ impl Tool for LspDiagnosticsTool {
             name: "lsp_diagnostics".into(),
             description: "Ground-truth errors/warnings for a source file from a language server \
                           (rust-analyzer/pyright/tsserver/…). Opens the file and returns its \
-                          diagnostics (severity line:col message). Use to verify an edit \
-                          compiles/type-checks instead of guessing. Read-only."
+                          diagnostics (severity line:col message). Read-only. ⠡⠛"
                 .into(),
             params: json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "File to analyze (workspace-relative or absolute)." }
+                    "path": { "type": "string", "description": "⠡⠛⠃" }
                 },
                 "required": ["path"]
             }),
@@ -1169,17 +1168,24 @@ impl NavKind {
         match self {
             NavKind::Definition => {
                 "Jump to where a symbol is DEFINED (path:line:col) via the \
-                language server. Give `symbol` (first occurrence is queried) or an explicit \
-                1-based `line`(+`character`). Read-only."
+                language server. Read-only. ⠮⠁"
             }
             NavKind::References => {
                 "List every USE of a symbol (path:line:col) via the language \
-                server. Give `symbol` or 1-based `line`(+`character`). Read-only."
+                server. Read-only. ⠮⠃"
             }
             NavKind::Hover => {
-                "Type signature / doc for a symbol via the language server. Give \
-                `symbol` or 1-based `line`(+`character`). Read-only."
+                "Type signature / doc for a symbol via the language server. Read-only. ⠮⠉"
             }
+        }
+    }
+    /// Page addresses of the `path`, `symbol`, `line` and `character` params,
+    /// in this tool's own section.
+    fn param_pages(self) -> [&'static str; 4] {
+        match self {
+            NavKind::Definition => ["⠮⠁⠃", "⠮⠁⠉⠮⠁⠙", "⠮⠁⠑", "⠮⠁⠋"],
+            NavKind::References => ["⠮⠃⠃", "⠮⠃⠉⠮⠃⠙", "⠮⠃⠑", "⠮⠃⠋"],
+            NavKind::Hover => ["⠮⠉⠃", "⠮⠉⠉⠮⠉⠙", "⠮⠉⠑", "⠮⠉⠋"],
         }
     }
 }
@@ -1196,16 +1202,17 @@ impl Tool for LspNavTool {
         self.kind.tool_name()
     }
     fn def(&self) -> ToolDef {
+        let [path, symbol, line, character] = self.kind.param_pages();
         ToolDef {
             name: self.kind.tool_name().into(),
             description: self.kind.description().into(),
             params: json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Source file (workspace-relative or absolute)." },
-                    "symbol": { "type": "string", "description": "Symbol to locate (first occurrence in the file). Use this OR line/character." },
-                    "line": { "type": "integer", "description": "1-based line of the symbol (alternative to `symbol`)." },
-                    "character": { "type": "integer", "description": "1-based column on `line` (default 1)." }
+                    "path": { "type": "string", "description": path },
+                    "symbol": { "type": "string", "description": symbol },
+                    "line": { "type": "integer", "description": line },
+                    "character": { "type": "integer", "description": character }
                 },
                 "required": ["path"]
             }),
@@ -1270,12 +1277,12 @@ impl Tool for LspSymbolsTool {
             description: "Outline a file's symbols (functions, structs, methods, …) from the \
                           language server — indented, with each symbol's line. Analyzer-grade \
                           (handles nesting/visibility), unlike the regex `outline`/`defs`. \
-                          Read-only."
+                          Read-only. ⠮⠙"
                 .into(),
             params: json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Source file to outline (workspace-relative or absolute)." }
+                    "path": { "type": "string", "description": "⠮⠙⠁" }
                 },
                 "required": ["path"]
             }),
@@ -1322,12 +1329,12 @@ impl Tool for LspWorkspaceSymbolTool {
             description: "Find a symbol by name ANYWHERE in the project (functions/structs/…), \
                           via the language server's workspace index — more precise than grepping \
                           for the name. Returns `kind name  path:line`. A server must be warm \
-                          first (run lsp_symbols/lsp_diagnostics on any project file). Read-only."
+                          first. Read-only. ⠮⠑"
                 .into(),
             params: json!({
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "Symbol name (or prefix/substring) to search for." }
+                    "query": { "type": "string", "description": "⠮⠑⠃" }
                 },
                 "required": ["query"]
             }),

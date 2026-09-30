@@ -452,18 +452,18 @@ fn scan_dir(dir: &Path, root: &Path, rel_prefix: &str, skip: &[&str]) -> Vec<Mod
 // Map generation.
 // ---------------------------------------------------------------------------
 
-/// The fixed build/test/run reference (the operator + agent contract).
+/// The fixed build/test/run reference (the operator + agent contract): its
+/// `⠰⠛` pages, the crate root and binary beside them as data.
 fn build_test_run(root: &Path, meta: &CrateMeta) -> String {
+    use crate::agent::harness::book::d56_replies as replies;
     format!(
-        "## Build · test · run\n\
-         Crate root: `{root}` (run cargo here).\n\
-         - build:  `cargo build`\n\
-         - check:  `cargo check`\n\
-         - test:   `cargo test`  ← the self-modification gate (must stay green)\n\
-         - lint:   `cargo clippy`\n\
-         - run:    `cargo run` (practice agent) · `ANGEL_BRAIN_KEY=<key> cargo run` (live fleet)\n\
-         Binary `{bin}` from `src/main.rs`. The git root is the parent dir, so git \
-         worktrees for isolated self-edits land beside the crate.\n",
+        "{} root={root} bin={bin}\n",
+        crate::agent::harness::book::d46_recovery::run(&[
+            replies::MAP_BUILD,
+            replies::MAP_COMMANDS,
+            replies::MAP_BINARY,
+            replies::MAP_GIT_ROOT,
+        ]),
         root = root.display(),
         bin = meta.bin,
     )
@@ -476,9 +476,10 @@ pub fn generate_self_model() -> String {
     let root = match source_root() {
         Some(r) => r,
         None => {
-            return "self-model unavailable: could not locate the angelX-cockpit source tree \
-                    (set ANGEL_SELF_SRC to the crate root)."
-                .to_string();
+            return format!(
+                "self-model unavailable: could not locate the angelX-cockpit source tree.\n{}",
+                crate::agent::harness::book::d56_replies::SELF_SRC_ROOT.cells()
+            );
         }
     };
     generate_self_model_at(&root)
@@ -489,13 +490,14 @@ fn generate_self_model_at(root: &Path) -> String {
     let meta = parse_crate_meta(&toml);
     let (top, tools) = scan_modules(root);
 
+    use crate::agent::harness::book::d46_recovery::run;
+    use crate::agent::harness::book::d56_replies as replies;
+    // The map's prose is `⠰⠛` (and the safety contract `⠰⠓`); the crate's
+    // identity, root, groups and modules are the data between the pages.
     let mut s = String::new();
     s.push_str(&format!(
-        "# angelX cockpit — self-model (`{name}` v{ver}, edition {ed})\n\n\
-         A terminal-first Rust/ratatui agent harness: a `Bag` of model `Club`s driven \
-         through a tool-using `run_turn` loop, with workspace-confined file tools, \
-         git-worktree delegation, and a verifiable-reward (RLVR) substrate. This map is \
-         generated from the live tree + module doc comments, so it tracks the code.\n\n",
+        "{} name={name} ver={ver} ed={ed}\n\n",
+        run(&[replies::MAP_TITLE, replies::MAP_HARNESS, replies::MAP_LIVE]),
         name = meta.name,
         ver = if meta.version.is_empty() {
             "?".into()
@@ -511,7 +513,8 @@ fn generate_self_model_at(root: &Path) -> String {
     s.push_str(&build_test_run(root, &meta));
     s.push('\n');
 
-    s.push_str("## Modules (src/) — grouped, with key public types\n");
+    s.push_str(&replies::MAP_MODULES.cells());
+    s.push('\n');
     for group in GROUP_ORDER {
         let mut members: Vec<&ModuleInfo> =
             top.iter().filter(|m| group_of(&m.stem) == *group).collect();
@@ -526,31 +529,20 @@ fn generate_self_model_at(root: &Path) -> String {
     }
 
     if !tools.is_empty() {
-        s.push_str(
-            "\n### Tool implementations (src/agent/tools/)\n\
-             Concrete `Tool` impls grouped by capability; the `Tool` trait, `ToolRegistry`, \
-             and `run_turn` loop live in `src/agent/harness/`.\n",
-        );
+        s.push('\n');
+        s.push_str(&replies::MAP_TOOLS.cells());
+        s.push('\n');
         for m in &tools {
             s.push_str(&module_line(m));
         }
     }
 
-    s.push_str(
-        "\n## Self-modification safety\n\
-         On Linux, file tools are confined at operation time by descriptor-relative \
-         `openat2`/`openat` helpers; outbound symlinks and post-validation swaps are \
-         rejected. The interactive workspace is the launch directory or explicit selection. \
-         To edit THIS crate, point the workspace at its checkout (see \
-         `docs/SELF_MODEL.md`) and gate every change on the build+test gate \
-         (`tools::self_model::run_self_gate`): a self-edit is only acceptable if the crate \
-         still builds AND `cargo test` is green. Prefer an isolated git worktree \
-         (`delegate`/`integrate`) for risky edits; everything is reversible via git. \
-         Self-modification is opt-in/break-fix behavior, not startup posture: use it only \
-         for an explicit user request or a concrete cockpit failure, then return to normal \
-         task work once the failure is handled.\n",
-    );
-    s.push_str("\n_Generated by `self_map` from the live tree — re-run it after edits._\n");
+    s.push('\n');
+    s.push_str(&replies::SELF_SAFETY.cells());
+    s.push('\n');
+    s.push('\n');
+    s.push_str(&replies::MAP_FOOTER.cells());
+    s.push('\n');
     s
 }
 
@@ -622,18 +614,11 @@ pub fn self_context(workspace: &Path) -> String {
         return String::new();
     }
 
-    let mut s = String::from(
-        "\n\n# Self-model (your own source)\n\
-         You are `angelX-cockpit`, a Rust/ratatui agent harness, and THIS is a map of your \
-         OWN code. Build/test/run from the crate root: `cargo build` · `cargo test` \
-         (the self-modification gate — keep it green) · `cargo run`. Call `self_map` for \
-         the full structure (key types, symbol counts) or `self_map({\"module\":\"<name>\"})` \
-         for one module's outline. This self-model is capability context, not a standing \
-         objective: do normal task work by default. Inspect or change your own code only when \
-         the user explicitly asks. To change your own code safely, \
-         see the `self-modify` skill: edit in an isolated worktree, and integrate only when \
-         build+test pass.\n\n\
-         Modules (purpose from live doc comments):\n",
+    // `⠝⠓` carries the self-model's words (its ledger pages); the module map
+    // is the data.
+    let mut s = format!(
+        "\n\n{}\n",
+        crate::agent::harness::book::n_environment::SELF_MODEL.cells()
     );
     for group in GROUP_ORDER {
         let members: Vec<&ModuleInfo> =
@@ -658,8 +643,13 @@ pub fn self_context(workspace: &Path) -> String {
     }
     if !tools.is_empty() {
         let names: Vec<&str> = tools.iter().map(|m| m.stem.as_str()).collect();
+        // `⠝⠓⠓`, the tool modules beside it.
         s.push_str(&format!(
-            "- **Tool impls (src/agent/tools/)**: {}\n",
+            "{} {}\n",
+            crate::agent::harness::book::d3_roles::pages(
+                crate::agent::harness::book::n_environment::SELF_MODEL,
+                [8]
+            ),
             names.join(", ")
         ));
     }
@@ -752,11 +742,11 @@ impl Tool for SelfMapTool {
         if self.read_only_root.is_some() {
             return ToolDef {
                 name: "self_map".to_string(),
-                description: "Read-only Angel harness source diagnostics, for an explicit self-work request. This is not the current project map. No args: source architecture map. module: one module's doc and symbol outline. Does not grant source editing or persist SELF.md; write=true is rejected.".to_string(),
+                description: "Read-only Angel harness source diagnostics, for an explicit self-work request. This is not the current project map. No args: source architecture map. module: one module's doc and symbol outline. Does not grant source editing or persist SELF.md; write=true is rejected. ⠣⠛".to_string(),
                 params: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "module": { "type": "string", "description": "source module stem, e.g. agent/harness/registry (the layer prefix is optional)" }
+                        "module": { "type": "string", "description": "⠣⠛⠃" }
                     },
                     "additionalProperties": false
                 }),
@@ -768,18 +758,18 @@ impl Tool for SelfMapTool {
                           crate identity, build/test/run, every module's purpose + key public \
                           types, and the self-modification safety contract. `module=\"<name>\"`: \
                           that module's doc + symbol outline. `write=true`: also write SELF.md \
-                          to the crate root. Use this to understand or plan changes to yourself."
+                          to the crate root. ⠣⠛"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "module": {
                         "type": "string",
-                        "description": "a module stem (e.g. \"harness\", \"swarm\", \"tools/nav\") for its outline only"
+                        "description": "⠣⠛⠉"
                     },
                     "write": {
                         "type": "boolean",
-                        "description": "also persist the full map to SELF.md at the crate root"
+                        "description": "⠣⠛⠙"
                     }
                 }
             }),
@@ -800,7 +790,10 @@ impl Tool for SelfMapTool {
             root.clone()
         } else {
             source_root().ok_or_else(|| {
-                "could not locate the angelX-cockpit source tree (set ANGEL_SELF_SRC)".to_string()
+                format!(
+                    "could not locate the angelX-cockpit source tree\n{}",
+                    crate::agent::harness::book::d56_replies::SELF_SRC.cells()
+                )
             })?
         };
         if let Some(module) = args.get("module").and_then(|v| v.as_str()) {

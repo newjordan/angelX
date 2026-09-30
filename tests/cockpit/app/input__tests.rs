@@ -67,6 +67,17 @@ fn parses_local_commands() {
         parse("/open example.com").unwrap(),
         ParsedInput::OpenTarget(target) if target == "http://example.com"
     ));
+    // Existing absolute paths open as file:// targets (folder reveal).
+    let dir = std::env::temp_dir();
+    assert!(matches!(
+        parse(&format!("/open {}", dir.display())).unwrap(),
+        ParsedInput::OpenTarget(target) if target == format!("file://{}", dir.display())
+    ));
+    // Nonexistent absolute paths do NOT fall through to module-open or http.
+    assert!(matches!(
+        parse("/open /no/such/path/anywhere").unwrap(),
+        ParsedInput::ModuleOpen(id) if id == "/no/such/path/anywhere"
+    ));
     assert!(matches!(
         parse("/close artifacts").unwrap(),
         ParsedInput::ModuleClose(id) if id == "artifacts"
@@ -274,10 +285,6 @@ fn parses_codex_ported_commands() {
         ParsedInput::MoaDeck(Some(a)) if a == "cards"
     ));
     assert!(matches!(
-        parse("/moa gpu comp").unwrap(),
-        ParsedInput::MoaDeck(Some(a)) if a == "gpu comp"
-    ));
-    assert!(matches!(
         parse("/moa war").unwrap(),
         ParsedInput::MoaDeck(Some(a)) if a == "war"
     ));
@@ -290,18 +297,6 @@ fn parses_codex_ported_commands() {
         ParsedInput::MoaDeck(Some(a)) if a == "grokwar"
     ));
     assert!(matches!(
-        parse("/moa math").unwrap(),
-        ParsedInput::MoaDeck(Some(a)) if a == "math"
-    ));
-    assert!(matches!(
-        parse("/moa math god").unwrap(),
-        ParsedInput::MoaDeck(Some(a)) if a == "math god"
-    ));
-    assert!(matches!(
-        parse("/moa soundness").unwrap(),
-        ParsedInput::MoaDeck(Some(a)) if a == "soundness"
-    ));
-    assert!(matches!(
         parse("/moa tag-team").unwrap(),
         ParsedInput::MoaDeck(Some(a)) if a == "tag-team"
     ));
@@ -312,10 +307,6 @@ fn parses_codex_ported_commands() {
     assert!(matches!(
         parse("activate the moa").unwrap(),
         ParsedInput::MoaDeck(None)
-    ));
-    assert!(matches!(
-        parse("activate gpu comp moa").unwrap(),
-        ParsedInput::MoaDeck(Some(a)) if a == "gpu comp"
     ));
     // Unknown slash + plain text stay ordinary messages.
     assert!(matches!(parse("/nope").unwrap(), ParsedInput::Message(_)));

@@ -14,8 +14,11 @@ use super::*;
 pub(crate) const PROJECT_DOC_FILENAMES: &[&str] = &["AGENTS.md", "AGENTS.override.md"];
 /// Default ceiling on the concatenated project-doc block (matches Codex's 32 KiB).
 pub(crate) const DEFAULT_PROJECT_DOC_MAX_BYTES: usize = 32 * 1024;
-const PROJECT_DOC_TRUNCATION_MARK: &str = "\n…[scoped project doc truncated: middle elided]…\n";
-pub(crate) const PROJECT_DOC_BYTES_MARKER: &str = "<!-- angel-project-doc-bytes:";
+/// Where a scoped project doc's middle was elided: `⠸⠉⠁`, between the elision
+/// marks.
+const PROJECT_DOC_TRUNCATION_MARK: &str = "\n…⠸⠉⠁…\n";
+/// The project-doc byte count, `⠸⠉⠃`, the count beside it.
+pub(crate) const PROJECT_DOC_BYTES_MARKER: &str = "⠸⠉⠃";
 
 /// Is `dir` a git root? Requires a *real* marker — a `.git` directory containing
 /// `HEAD` (a repo) or a `.git` file (a worktree) — not merely a `.git` entry, so
@@ -168,11 +171,9 @@ pub fn project_context(workspace: &Path) -> String {
         return String::new();
     }
     format!(
-        "\n\n{PROJECT_DOC_BYTES_MARKER}{} -->\n# Project context (AGENTS.md)\n\
-         The project's scoped instructions and conventions — apply them consistently with the \
-         operator's request and harness policy. Each section names \
-         its source; later, more deeply nested sections take precedence for their directory scope.\n\n{docs}\n",
-        docs.len()
+        "\n\n{PROJECT_DOC_BYTES_MARKER} {}\n{}\n\n{docs}\n",
+        docs.len(),
+        super::book::n_environment::PROJECT.cells()
     )
 }
 
@@ -276,8 +277,9 @@ pub(crate) fn ensure_git_workspace(workspace: &Path) -> Result<PathBuf, String> 
             let dirty = run_git(&root, &["status", "--porcelain"])?;
             if !dirty.trim().is_empty() {
                 return Err(format!(
-                    "git repository {} has no commits and contains uncommitted files; create an initial commit before delegating",
-                    root.display()
+                    "git repository {} has no commits and contains uncommitted files\n{}",
+                    root.display(),
+                    crate::agent::harness::book::d56_replies::INITIAL_COMMIT.cells()
                 ));
             }
             run_git(

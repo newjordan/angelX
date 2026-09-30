@@ -61,10 +61,10 @@ fn fallback_include_sota() -> bool {
 /// shows up as ONE tab, not a cluttered row of near-duplicates.
 #[derive(Debug, Clone)]
 pub struct ClubTab {
-    /// The box name (e.g. `spark`, `atlas`).
+    /// The box name (e.g. `local`, `sota`).
     pub label: String,
     /// The active mode within this box, shown only when the box has more than one
-    /// (e.g. `spark` → `swarm`). `None` for single-model boxes — no clutter.
+    /// (e.g. `local` → `swarm`). `None` for single-model boxes — no clutter.
     pub mode: Option<String>,
     /// The agent currently in hand (where a message would go).
     pub in_hand: bool,
@@ -252,22 +252,19 @@ impl Agent {
 }
 
 /// Resolve `ANGEL_DRIVER` to a starting box, setting that box's active mode. A
-/// value can name a mode (`swarm`/`gemma`/`coder`/`r1`/`turbo`) or a box; Atlas
-/// is only available when `ANGEL_ATLAS_MODEL_SERVING=1`. `deli` folds into
-/// `swarm`, `spark-r1` into `r1`. Returns the agent index.
+/// value can name a mode (`local`/`swarm`) or a box. `deli` folds into `swarm`.
+/// Returns the agent index.
 pub(crate) fn resolve_driver(agents: &mut [Agent], pref: &str) -> Option<usize> {
     let raw_pref = pref.trim();
     let normalized = raw_pref.to_ascii_lowercase().replace(['_', ' '], "-");
     let pref = match normalized.as_str() {
         "deli" => "swarm",
-        "spark-r1" => "r1",
-        // Local ds4-on-spark DeepSeek-V4-Flash (distinct from cloud deepseek-flash).
-        "ds4" | "ds-flash" | "dsflash-local" | "spark-flash" | "deepseek-flash-local" => "dsflash",
-        "gpu" | "gpu-comp" | "gpu-comp-local-moa" | "gpu-local-moa" | "overnight" => {
-            "gpu-comp-local-moa"
-        }
-        "math" | "math-god" | "mathgod" => "mathgod",
         "or" | "open-router" | "openrouter-free" => "openrouter",
+        // Moonshot Kimi Code plan: the plan's own model id is `k3`, the seat's
+        // sota-link alias is `kimi` (default model `kimi-k3`). Without this
+        // entry `ANGEL_DRIVER=k3` silently missed and the bag fell back to the
+        // smartest-available election (observed live on rig B, 2026-09-25).
+        "k3" | "kimi-k3" | "moonshot" | "kimi-code" => "kimi",
         _ => raw_pref,
     };
     // Every Codex catalog slot has club label "openai". Both the explicit
@@ -384,10 +381,47 @@ pub struct Bag {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct BootstrapSlotSpec {
-    label: &'static str,
+    label: String,
     env_key: &'static str,
     port: u16,
     is_swarm: bool,
+    /// An explicit endpoint (an `ANGEL_LOCAL_URLS` entry); `None` resolves
+    /// `ANGEL_{env_key}_URL` as usual.
+    url: Option<String>,
+}
+
+/// Extra self-hosted endpoints for the `local` box, from `ANGEL_LOCAL_URLS`: a
+/// comma-separated list of `url` or `name=url`. An unnamed entry is labeled
+/// `local-2`, `local-3`, …; each is another mode of the one local box.
+fn extra_local_slots(raw: &str) -> Vec<BootstrapSlotSpec> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .enumerate()
+        .filter_map(|(index, entry)| {
+            // A name never holds `:` or `/`, so a URL's own query `=` stays
+            // part of the URL.
+            let (name, url) = match entry.split_once('=') {
+                Some((name, url)) if !name.contains([':', '/']) => (name.trim(), url.trim()),
+                _ => ("", entry),
+            };
+            if url.is_empty() {
+                return None;
+            }
+            let label = if name.is_empty() {
+                format!("local-{}", index + 2)
+            } else {
+                name.to_string()
+            };
+            Some(BootstrapSlotSpec {
+                label,
+                env_key: "LOCAL",
+                port: 0,
+                is_swarm: false,
+                url: Some(url.to_string()),
+            })
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -399,100 +433,42 @@ struct BootstrapBoxSpec {
 }
 
 impl Bag {
-    /// Build the portable local bootstrap and explicitly configured legacy
-    /// slots without consulting the live network. Legacy machine names and
-    /// port maps are intentionally absent unless their URL is pinned.
+    /// Build the portable local bootstrap without consulting the live network:
+    /// one expandable self-hosted box. `ANGEL_LOCAL_URL` is its first mode
+    /// (plain and as a swarm); every `ANGEL_LOCAL_URLS` entry is another mode.
     fn bootstrap_specs(getenv: impl Fn(&str) -> Option<String>) -> Vec<BootstrapBoxSpec> {
-        let gemma_configured = getenv("ANGEL_GEMMA_URL").is_some_and(|url| !url.trim().is_empty());
-        let local_slots = vec![
+        let mut local_slots = vec![
             BootstrapSlotSpec {
-                label: "local",
+                label: "local".to_string(),
                 env_key: "LOCAL",
                 port: 8080,
                 is_swarm: false,
+                url: None,
             },
             BootstrapSlotSpec {
-                label: if gemma_configured {
-                    "local-swarm"
-                } else {
-                    "swarm"
-                },
+                label: "swarm".to_string(),
                 env_key: "LOCAL",
                 port: 8080,
                 is_swarm: true,
+                url: None,
             },
         ];
-        let mut boxes = vec![BootstrapBoxSpec {
+        local_slots.extend(extra_local_slots(
+            getenv("ANGEL_LOCAL_URLS").as_deref().unwrap_or_default(),
+        ));
+        vec![BootstrapBoxSpec {
             name: "local".to_string(),
             host: String::new(),
             fallback_ip: "127.0.0.1".to_string(),
             slots: local_slots,
-        }];
-
-        // Preserve the old selectable agent groups only when an operator pins
-        // their endpoint. Explicit URLs own routing, so these groups have no
-        // machine host or guessed port and cannot probe a private default.
-        let mut add_group = |name: &str, entries: &[(&'static str, &'static str, bool)]| {
-            let slots = entries
-                .iter()
-                .filter(|(_, env_key, _)| {
-                    let key = format!("ANGEL_{env_key}_URL");
-                    getenv(&key).is_some_and(|url| !url.trim().is_empty())
-                })
-                .map(|&(label, env_key, is_swarm)| BootstrapSlotSpec {
-                    label,
-                    env_key,
-                    port: 0,
-                    is_swarm,
-                })
-                .collect::<Vec<_>>();
-            if !slots.is_empty() {
-                boxes.push(BootstrapBoxSpec {
-                    name: name.to_string(),
-                    host: String::new(),
-                    fallback_ip: String::new(),
-                    slots,
-                });
-            }
-        };
-        add_group(
-            "spark",
-            &[
-                ("spark", "SPARK", false),
-                ("swarm", "GEMMA", true),
-                ("gemma", "GEMMA", false),
-                ("dsflash", "DSFLASH", false),
-                ("qwen38", "QWEN38", false),
-                ("coder", "SPARK", false),
-                ("r1", "SPARK_R1", false),
-                ("leanstral", "LEANSTRAL", false),
-            ],
-        );
-        add_group("turbo", &[("turbo", "TURBO", false)]);
-        add_group("toymaker", &[("ornith", "ORNITH", false)]);
-        boxes
+        }]
     }
 
     /// Build the standard bag from env and live `/models` discovery: one **agent
     /// per box/PC**, each owning the model endpoints that box serves. `Tab` cycles
     /// boxes; `←/→` cycles a box's modes.
     pub fn standard() -> Self {
-        let mut boxes = Self::bootstrap_specs(|key| std::env::var(key).ok());
-        if atlas_model_serving_enabled() && env_first(&["ANGEL_ATLAS_URL"]).is_some() {
-            // Retain the legacy route when explicitly configured. Atlas project
-            // memory is independent of this optional model endpoint.
-            boxes.push(BootstrapBoxSpec {
-                name: "atlas".to_string(),
-                host: String::new(),
-                fallback_ip: String::new(),
-                slots: vec![BootstrapSlotSpec {
-                    label: "atlas",
-                    env_key: "ATLAS",
-                    port: 0,
-                    is_swarm: false,
-                }],
-            });
-        }
+        let boxes = Self::bootstrap_specs(|key| std::env::var(key).ok());
 
         // Optional bearer key from the env ONLY — never bake secrets into source.
         let key = std::env::var("ANGEL_BRAIN_KEY").ok();
@@ -536,8 +512,8 @@ impl Bag {
             std::collections::HashMap::new();
         let mut box_ports: std::collections::HashMap<usize, Vec<u16>> =
             std::collections::HashMap::new();
-        // One probe per *endpoint*: slots that share a URL (e.g. `swarm` and
-        // `gemma`, two modes of the same :8000 server) share one availability
+        // One probe per *endpoint*: slots that share a URL (e.g. `local` and
+        // `swarm`, two modes of the same server) share one availability
         // bit, so a prober sweep hits each endpoint once instead of once per
         // slot — half the GET /models traffic on a multi-mode box.
         let mut probed_endpoints: std::collections::HashMap<String, Arc<AtomicBool>> =
@@ -560,16 +536,23 @@ impl Bag {
                 .unwrap_or_else(|| fallback_ip.to_string());
             let mut built: Vec<Slot> = Vec::new();
             for slot_spec in slots {
-                let label = slot_spec.label;
+                let label = slot_spec.label.as_str();
                 let env_key = slot_spec.env_key;
                 let port = slot_spec.port;
                 let is_swarm = slot_spec.is_swarm;
-                let url = resolve_club_url(env_key, host, port, fallback_ip, &tailnet);
-                let model = std::env::var(format!("ANGEL_{env_key}_MODEL"))
-                    .ok()
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_default();
+                // An extra local endpoint names its own URL and follows its live
+                // checkpoint; the primary resolves `ANGEL_LOCAL_URL`/`_MODEL`.
+                let (url, model) = match &slot_spec.url {
+                    Some(url) => (url.clone(), String::new()),
+                    None => (
+                        resolve_club_url(env_key, host, port, fallback_ip, &tailnet),
+                        std::env::var(format!("ANGEL_{env_key}_MODEL"))
+                            .ok()
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or_default(),
+                    ),
+                };
                 // Build the raw endpoint first; swarm-flagged slots are wrapped in a
                 // second pass once every box exists, so a cross-model mixture can
                 // resolve sibling clubs by label. Without an env pin the club
@@ -855,22 +838,7 @@ impl Bag {
             sota_links.extend(optional_openrouter_http_clubs());
         }
 
-        // Free local breadth for the cheap MoA profile: historical Gemma swarm
-        // surface plus the Spark ds4 DeepSeek-V4-Flash seat when that is the
-        // resident checkpoint on :8000.
-        let cheap_breadth: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = agents
-            .iter()
-            .flat_map(|agent| agent.slots.iter())
-            .filter(|slot| slot.label == "gemma" || slot.label == "dsflash")
-            .map(|slot| {
-                (
-                    slot.label.clone(),
-                    Arc::clone(&slot.club),
-                    Arc::clone(&slot.available),
-                )
-            })
-            .collect();
-        match sota_moa_club_with_breadth(&sota_links, &cheap_breadth) {
+        match sota_moa_club(&sota_links) {
             Some(moa) => {
                 let ai = agents.len();
                 let mut slots = vec![Slot {
@@ -918,51 +886,10 @@ impl Bag {
             }
         }
 
-        // Permanent logical configuration for the overnight GPU competition loop.
-        // This is intentionally not auto-elected as the brain: it is a visible
-        // control surface selected explicitly. Native formations and declared
-        // agent graphs own multi-agent dispatch.
-        let (gpu_comp_driver, gpu_comp_avail) = agents
-            .iter()
-            .find(|a| a.name == "turbo")
-            .and_then(|a| a.slots.first())
-            .map(|s| (Arc::clone(&s.club), Arc::clone(&s.available)))
-            .unwrap_or_else(|| {
-                (
-                    Arc::new(PracticeClub::new()) as Arc<dyn Club>,
-                    Arc::new(AtomicBool::new(false)),
-                )
-            });
-        let gpu_comp_club: Arc<dyn Club> = Arc::new(GpuCompLocalMoaClub::new(gpu_comp_driver));
-        agents.push(Agent {
-            name: "gpu-comp".to_string(),
-            slots: vec![Slot {
-                label: "local-moa".to_string(),
-                club: gpu_comp_club,
-                available: gpu_comp_avail,
-            }],
-            active: 0,
-        });
-
-        // Math God: first-class bag club. Sol@ultra is the only Sol head;
-        // GLM-5.3 and DeepSeek v4 Pro are extra proposers when configured;
-        // Grok weighs in.
-        if let Some((club, available)) = mathgod_club(&sota_links) {
-            agents.push(Agent {
-                name: "mathgod".to_string(),
-                slots: vec![Slot {
-                    label: "mathgod".to_string(),
-                    club,
-                    available,
-                }],
-                active: 0,
-            });
-        }
-
         // Second pass: wrap each swarm-flagged slot now that every box exists. The
         // resolver lets a cross-model mixture route a role to any sibling fleet club
         // by label via ANGEL_SWARM_{PROPOSE,JUDGE,VERIFY,AGG}_CLUB (e.g. propose on
-        // gemma, judge on turbo, verify on atlas). With no role env set every role
+        // one club, judge on another). With no role env set every role
         // falls back to the inner worker — the default homogeneous swarm.
         let roster: Vec<Arc<dyn Club>> = agents
             .iter()
@@ -996,7 +923,7 @@ impl Bag {
         // Brain selection. An explicit `ANGEL_DRIVER` wins — but ONLY if that
         // box/mode is actually reachable, so a named-but-dead preference can never
         // pin the brain to a corpse (the bug that made the cockpit land on a dead
-        // Spark). Otherwise the smartest *available* fleet model goes in hand —
+        // local box). Otherwise the smartest *available* model goes in hand —
         // biggest model, nudged for the swarm and reasoning/coder heads — then the
         // first reachable box, then the always-on practice swing.
         // An explicit ANGEL_DRIVER wins if reachable; else the smartest *reachable*
@@ -1011,7 +938,7 @@ impl Bag {
         // one-shot probe of that preferred slot only. Without this, fleet seats
         // stay unavailable under pessimistic load and the bag silently falls
         // through to a configured SOTA seat (e.g. longcat) even though the
-        // pinned dsflash endpoint is healthy — which zeros entire action-agent
+        // pinned endpoint is healthy — which zeros entire action-agent
         // cohorts on unrelated quota errors. Full-bag ANGEL_PROBE remains the
         // broader "probe everything" switch for interactive cold starts.
         if let Some(pref) = driver_pref.as_deref()
@@ -1430,8 +1357,6 @@ impl Bag {
                 .get(selected.slot_index)
                 .ok_or_else(|| format!("{} route disappeared", selected.display_label()))?;
             if agent.name == "practice"
-                || agent.name.eq_ignore_ascii_case("mathgod")
-                || slot.label.eq_ignore_ascii_case("mathgod")
                 || slot.label.eq_ignore_ascii_case("swarm")
                 || slot.label.to_ascii_lowercase().contains("moa")
             {
@@ -1583,7 +1508,7 @@ impl Bag {
         Ok(roster.slot_count())
     }
 
-    /// The in-hand **box** name (e.g. `spark`) — what the header/avatar key off.
+    /// The in-hand **box** name (e.g. `local`) — what the header/avatar key off.
     pub fn in_hand_label(&self) -> &str {
         &self.agents[self.in_hand].name
     }
@@ -1592,7 +1517,7 @@ impl Bag {
     /// follow-backend slots (e.g. `qwen3.6-27b-mtp-pi-tune`), else the static
     /// mode label (e.g. `swarm`). Shown when the box has more than one mode,
     /// and also on single-model boxes whose checkpoint differs from the box
-    /// name — models churn on a rig, so `apollo` alone says nothing about
+    /// name — models churn on a rig, so the box name alone says nothing about
     /// what's loaded. `None` only when it would repeat the box name.
     pub fn in_hand_mode(&self) -> Option<String> {
         self.in_hand_chrome().mode.clone()
@@ -1685,10 +1610,7 @@ impl Bag {
             .agents
             .iter()
             .enumerate()
-            .filter(|(i, a)| {
-                a.name != "practice"
-                    && (*i == self.in_hand || !crate::agent::club::is_mathgod_label(&a.name))
-            })
+            .filter(|(_, a)| a.name != "practice")
             .filter_map(|(i, a)| {
                 let available = a.available();
                 let in_hand = i == self.in_hand;
@@ -1761,10 +1683,7 @@ impl Bag {
         }
         for step in 1..=n {
             let idx = (self.in_hand + step) % n;
-            if self.agents[idx].name != "practice"
-                && !crate::agent::club::is_mathgod_label(&self.agents[idx].name)
-                && self.agents[idx].available()
-            {
+            if self.agents[idx].name != "practice" && self.agents[idx].available() {
                 self.in_hand = idx;
                 self.agents[idx].settle_active();
                 return;
@@ -1791,12 +1710,11 @@ impl Bag {
             let mut match_ok = true;
             let mut idx = 0;
             for agent in &self.agents {
-                if agent.name == "practice" || crate::agent::club::is_mathgod_label(&agent.name) {
+                if agent.name == "practice" {
                     continue;
                 }
                 for slot in &agent.slots {
-                    if slot.label == "sota-moa" || crate::agent::club::is_mathgod_label(&slot.label)
-                    {
+                    if slot.label == "sota-moa" {
                         continue;
                     }
                     let current = RouteChoiceStamp {
@@ -1821,11 +1739,11 @@ impl Bag {
         let mut choices = Vec::new();
         let mut stamps = Vec::new();
         for (agent_index, agent) in self.agents.iter().enumerate() {
-            if agent.name == "practice" || crate::agent::club::is_mathgod_label(&agent.name) {
+            if agent.name == "practice" {
                 continue;
             }
             for (slot_index, slot) in agent.slots.iter().enumerate() {
-                if slot.label == "sota-moa" || crate::agent::club::is_mathgod_label(&slot.label) {
+                if slot.label == "sota-moa" {
                     continue;
                 }
                 // Sample each mutable fact once. The same availability value now
@@ -2022,9 +1940,7 @@ impl Bag {
         }
         for step in 1..=n {
             let idx = (self.in_hand + step) % n;
-            if self.agents[idx].available()
-                && !crate::agent::club::is_mathgod_label(&self.agents[idx].name)
-            {
+            if self.agents[idx].available() {
                 self.in_hand = idx;
                 self.agents[idx].settle_active();
                 return;

@@ -417,8 +417,8 @@ mod tests {
 
     #[test]
     fn live_v2_catalog_contract_is_complete() {
-        assert_eq!(themes().len(), 57);
-        assert_eq!(all_styles().len(), 644);
+        assert_eq!(themes().len(), 58);
+        assert_eq!(all_styles().len(), 656);
         for theme in ["matrix", "aurora", "inferno", "glitch", "fireworks"] {
             assert_eq!(styles_for_theme(theme).len(), 10, "{theme}");
         }

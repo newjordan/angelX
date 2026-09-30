@@ -76,18 +76,16 @@ impl Tool for LlmProbeTool {
         ToolDef {
             name: "llm_probe".to_string(),
             description: "Check an OpenAI-compatible inference endpoint (llama.cpp, vLLM, \
-                          SGLang, …): GET /v1/models and report the served model ids. Use \
-                          after starting a server with proc_run to confirm it's ready, or to \
-                          discover what a fleet box serves."
+                          SGLang, …): GET /v1/models and report the served model ids. ⠱⠊"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "endpoint base, e.g. http://host:8000 (with or without /v1)"
+                        "description": "⠱⠊⠃"
                     },
-                    "api_key": { "type": "string", "description": "authentication credential if required" },
+                    "api_key": { "type": "string", "description": "⠱⠊⠉" },
                 },
                 "required": ["url"],
             }),
@@ -236,31 +234,29 @@ impl Tool for LlmBenchTool {
             name: "llm_bench".to_string(),
             description: "Measure an OpenAI-compatible endpoint's single-stream speed: streamed \
                           runs reporting TTFT (prefill) and decode tok/s per run plus the mean. \
-                          The first run is warmup and excluded from the mean. Meant for \
-                          local/self-hosted endpoints — pointing it at a paid API spends real \
-                          tokens."
+                          The first run is warmup and excluded from the mean. Pointing it at a paid API spends real tokens. ⠱⠚"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "endpoint base, e.g. http://host:8000 (with or without /v1)"
+                        "description": "⠱⠚⠃"
                     },
                     "model": {
                         "type": "string",
-                        "description": "model id (default: first id from /v1/models)"
+                        "description": "⠱⠚⠉"
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "fixed prompt (default: a ~40-token instruction)"
+                        "description": "⠱⠚⠙"
                     },
-                    "max_tokens": { "type": "integer", "description": "per run (default 128)" },
+                    "max_tokens": { "type": "integer", "description": "⠱⠚⠑" },
                     "runs": {
                         "type": "integer",
-                        "description": "measured runs after warmup (default 3, max 10)"
+                        "description": "⠱⠚⠋"
                     },
-                    "api_key": { "type": "string", "description": "authentication credential if required" },
+                    "api_key": { "type": "string", "description": "⠱⠚⠛" },
                 },
                 "required": ["url"],
             }),

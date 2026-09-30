@@ -1,5 +1,4 @@
-//! Immutable identity of the first request in this process. Subsequent route
-//! changes remain in the existing per-turn route/rollout receipts.
+//! Immutable first-request provenance plus caller-local effective request identity.
 use crate::agent::sandbox::process_owner::OwnedCommandExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -42,6 +41,9 @@ pub(crate) struct RunIdentity {
     pub budgets: Value,
     pub verifier: Value,
     pub bound_at_ms: u64,
+    /// Original process provenance, retained when emitting the effective request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_request: Option<Box<RunIdentity>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -61,6 +63,47 @@ thread_local! {
     static LIVE_MODEL: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
     static MODEL_DEFAULTS: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
     static TURN_BUDGETS: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
+    static REQUEST_IDENTITY: std::cell::RefCell<Option<RunIdentity>> = const { std::cell::RefCell::new(None) };
+    static TURN_IDENTITY: std::cell::RefCell<Option<RunIdentity>> = const { std::cell::RefCell::new(None) };
+    static TURN_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+pub(crate) fn reset_turn_identity() {
+    TURN_ACTIVE.with(|slot| slot.set(true));
+    REQUEST_IDENTITY.with(|slot| slot.borrow_mut().take());
+    TURN_IDENTITY.with(|slot| slot.borrow_mut().take());
+}
+
+/// Exact latest request on this caller, without borrowing another worker's seat.
+pub(crate) fn request_identity() -> Option<RunIdentity> {
+    REQUEST_IDENTITY.with(|slot| slot.borrow().clone())
+}
+
+pub(crate) fn begin_request() {
+    REQUEST_IDENTITY.with(|slot| slot.borrow_mut().take());
+}
+
+/// A wrapper may return a different seat, or a synthesized answer with no one
+/// certified seat. Never attach the last attempted seat's endpoint in that case.
+pub(crate) fn select_answer_route(route: &crate::agent::club::RouteIdentity) {
+    let request = request_identity().filter(|identity| {
+        identity.model.driver == route.driver
+            && Some(identity.model.id.as_str()) == route.model.as_deref()
+    });
+    let identity = request.or_else(|| {
+        capture(
+            Model {
+                club: route.driver.clone(),
+                driver: route.driver.clone(),
+                id: route.model.clone().unwrap_or_else(|| "unbound".into()),
+                base_url: "unbound".into(),
+            },
+            json!("unbound"),
+            json!("unbound"),
+        )
+        .ok()
+    });
+    TURN_IDENTITY.with(|slot| *slot.borrow_mut() = identity);
 }
 
 /// Executing seat identity, independent of immutable first-request provenance.
@@ -292,6 +335,43 @@ pub(crate) fn wire_effort(body: &Value) -> Value {
     }
 }
 
+/// Parse just request controls; skip potentially large message/tool payloads
+/// without allocating them. The returned object contains no prompt or secrets.
+pub(crate) fn wire_identity_controls(bytes: &[u8]) -> Result<Value, serde_json::Error> {
+    struct Controls;
+    impl<'de> serde::de::Visitor<'de> for Controls {
+        type Value = Value;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a request object")
+        }
+        fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Value, A::Error> {
+            let mut controls = serde_json::Map::new();
+            while let Some(key) = map.next_key::<String>()? {
+                if matches!(
+                    key.as_str(),
+                    "model"
+                        | "reasoning_effort"
+                        | "thinking"
+                        | "reasoning"
+                        | "chat_template_kwargs"
+                        | "max_tokens"
+                        | "max_completion_tokens"
+                        | "max_output_tokens"
+                ) {
+                    controls.insert(key, map.next_value()?);
+                } else {
+                    map.next_value::<serde::de::IgnoredAny>()?;
+                }
+            }
+            Ok(Value::Object(controls))
+        }
+    }
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    let controls = serde::Deserializer::deserialize_map(&mut deserializer, Controls)?;
+    deserializer.end()?;
+    Ok(controls)
+}
+
 fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdentity, String> {
     let mut budgets = TURN_BUDGETS
         .with(|slot| slot.borrow().clone())
@@ -339,6 +419,7 @@ fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdent
             .as_millis()
             .try_into()
             .map_err(|_| "identity timestamp overflow")?,
+        initial_request: None,
     })
 }
 
@@ -348,23 +429,35 @@ pub(crate) fn bind(
     output_tokens: Value,
     codex_stall_secs: Option<u64>,
 ) -> Result<(), String> {
+    let mut identity = capture(model, effort, output_tokens)?;
+    if let Some(seconds) = codex_stall_secs {
+        identity.budgets["codex_stream_stall_secs"] = json!(seconds);
+    }
     IDENTITY
-        .get_or_init(|| {
-            let mut identity = capture(model, effort, output_tokens)?;
-            if let Some(seconds) = codex_stall_secs {
-                identity.budgets["codex_stream_stall_secs"] = json!(seconds);
-            }
-            Ok(identity)
-        })
+        .get_or_init(|| Ok(identity.clone()))
         .as_ref()
-        .map(|_| ())
-        .map_err(Clone::clone)
+        .map_err(Clone::clone)?;
+    REQUEST_IDENTITY.with(|slot| *slot.borrow_mut() = Some(identity.clone()));
+    // Compaction and other auxiliary requests can run on this thread between
+    // policy calls. Their receipts must not replace the turn's answering seat
+    // if a deadline or cancellation ends the turn before the next policy call.
+    if !TURN_ACTIVE.with(|slot| slot.get()) || super::trajectory::model_request_active() {
+        TURN_IDENTITY.with(|slot| *slot.borrow_mut() = Some(identity));
+    }
+    Ok(())
 }
 
 /// Build identity stays immutable, but an emitted turn must show its own opt-in
 /// formation limits, including their removal on a later unbounded turn.
 pub(crate) fn current_for_turn() -> Option<RunIdentity> {
-    let mut identity = current()?.clone();
+    let mut identity = TURN_IDENTITY
+        .with(|slot| slot.borrow().clone())
+        .or_else(|| {
+            (!TURN_ACTIVE.with(|slot| slot.get()))
+                .then(|| current().cloned())
+                .flatten()
+        })?;
+    identity.initial_request = current().cloned().map(Box::new);
     if let Some(object) = identity.budgets.as_object_mut() {
         object.remove("formation_token_budget");
         object.remove("formation_wall_secs");
@@ -385,7 +478,7 @@ pub(crate) fn current() -> Option<&'static RunIdentity> {
 }
 
 pub(crate) fn summary() -> String {
-    current()
+    current_for_turn()
         .map(|id| {
             format!(
                 "identity exe={} source={} model={} effort={}",

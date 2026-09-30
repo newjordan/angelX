@@ -397,7 +397,7 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
         .content
         .to_string();
     assert!(
-        prompt.contains("[SUBMISSION OVERDUE — 1 measured candidate(s), 0 submissions, 2"),
+        prompt.contains("⠳⠃ measured=1 submissions=0 iterations_since_first_measurement=2"),
         "{prompt}"
     );
     app.loop_harvest_with_tools("DIRECTION: measure another".into(), measured("b"));
@@ -412,17 +412,16 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
         LoopStatus::Running,
         "4 iterations since: continue with submission steering"
     );
-    let last_setback = app.loop_ctl.last_setback.clone().unwrap_or_default();
-    assert!(
-        last_setback.contains("2 measured candidate(s) and no submission in the 4 iterations"),
-        "{last_setback}"
-    );
-    assert!(
-        app.loop_ctl
-            .last_setback
-            .as_deref()
-            .unwrap()
-            .contains("submit the best measured candidate")
+    // `⠘⠁⠋`: the board is the instrument; the counts ride beside the page.
+    assert_eq!(
+        app.loop_ctl.last_setback.as_deref(),
+        Some(
+            format!(
+                "{} measured=2 since=4",
+                crate::agent::harness::book::d45_iteration::SUBMIT_DUE
+            )
+            .as_str()
+        )
     );
     assert!(app.loop_ctl.wake_at.is_some());
     assert!(!app.take_attention_request());
@@ -567,8 +566,9 @@ fn loop_ctl_blocked_repeat_escalates_and_continues_by_default() {
     );
     assert_eq!(app.loop_ctl.blocked_repeat_count, 0);
     let setback = app.loop_ctl.last_setback.clone().unwrap_or_default();
+    let blocked = crate::agent::harness::book::l_loops::BLOCKED_REPEAT.cells();
     assert!(
-        setback.contains("do not run that command again"),
+        setback.starts_with(&format!("{blocked} count=3\n")),
         "{setback}"
     );
     assert!(setback.contains("missing fixture.json"), "{setback}");
@@ -605,14 +605,7 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
     assert_eq!(app.loop_ctl.status, LoopStatus::Running);
     assert_eq!(app.loop_ctl.blocked_repeat_count, 1);
     let prompt = app.loop_iteration_convo();
-    assert!(
-        prompt
-            .last()
-            .unwrap()
-            .content
-            .to_string()
-            .contains("VERIFICATION PATH BLOCKED")
-    );
+    assert!(prompt.last().unwrap().content.to_string().contains("⠳⠁"));
     app.loop_ctl.blocked_prompt_digest =
         Some(failed.verifier_failure_details[0].failure_digest.clone());
     let same_digest = scripted_verifier_failure(
@@ -628,7 +621,7 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
             .unwrap()
             .content
             .to_string()
-            .contains("VERIFICATION PATH BLOCKED")
+            .contains("⠳⠁")
     );
     // Model-only repetition still counts as an unresolved blocked iteration.
     app.loop_harvest("VERIFY blocked: please restore it".into());
@@ -656,6 +649,12 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
     let saved: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("loop.json")).unwrap()).unwrap();
     assert_eq!(saved["escalations"][0], *entry);
+    // The operator sees it in /loop status.
+    let status = app.loop_status_text();
+    assert!(
+        status.contains("escalated 1× · last verifier_blocked_repeat (iterations 1–3)"),
+        "{status}"
+    );
     assert!(
         crate::agent::harness::progress_ledger_snapshot()["escalations"]
             .as_array()
@@ -735,19 +734,22 @@ fn blocked_verifier_rides_first_in_the_iteration_prompt() {
         .content
         .to_string();
     let blocked_at = prompt
-        .find("[VERIFICATION PATH BLOCKED — restore it before anything else]")
+        .find("⠳⠁")
         .expect("the blocked block rides the prompt");
+    // The blocker's words are the `⠳⠁` pages, not wire prose.
+    let blocked_pages = crate::agent::harness::book::ou_checkpoints::BLOCKED
+        .sub()
+        .pages
+        .join(" ");
+    assert!(blocked_pages.contains("Do not propose a new optimization direction"));
+    assert!(blocked_pages.contains("Notes in the repository are not a blocker; missing inputs that a script in the repository can fetch are not a blocker"));
     assert!(
-        prompt.contains("Do not propose a new optimization direction"),
+        !prompt.contains("Do not propose a new optimization direction"),
         "{prompt}"
     );
-    assert!(
-            prompt
-                .contains("Notes in the repository are not a blocker; missing inputs that a script in the repository can fetch are not a blocker"),
-            "{prompt}"
-        );
     let steer_at = prompt
-        .find("[operator ")
+        .find("⠪⠙")
+        .or_else(|| prompt.find("⠪⠉"))
         .expect("steer block present for ordering");
     assert!(
         blocked_at < steer_at,
@@ -761,7 +763,7 @@ fn blocked_verifier_rides_first_in_the_iteration_prompt() {
         .expect("iteration prompt")
         .content
         .to_string();
-    assert!(!clean.contains("VERIFICATION PATH BLOCKED"));
+    assert!(!clean.contains("⠳⠁"));
 }
 
 #[test]
@@ -801,11 +803,13 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     app.loop_harvest("DIRECTION: explore micro-opt 3".into());
     assert_eq!(app.loop_ctl.status, LoopStatus::Running);
     let note = app.loop_ctl.loop_note.clone().unwrap_or_default();
-    assert!(
-        note.contains("no measured candidate yet after 3 iterations"),
-        "{note}"
+    assert_eq!(
+        note,
+        format!(
+            "{} iterations=3",
+            crate::agent::harness::book::d45_iteration::NO_CANDIDATE
+        )
     );
-    assert!(note.contains("measure it with the benchmark"), "{note}");
     assert!(
         app.loop_ctl.last_setback.is_none(),
         "the clock informs; it does not set back"
@@ -871,35 +875,6 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     assert_eq!(app.loop_ctl.status, LoopStatus::Running);
 
     let _ = std::fs::remove_dir_all(root);
-}
-
-#[test]
-fn loop_never_auto_picks_mathgod() {
-    let labels = vec![
-        "mathgod".into(),
-        "qwen3.8-27b".into(),
-        "glm".into(),
-        "practice".into(),
-    ];
-    let avail = vec![true, true, true, true];
-    assert_eq!(
-        preferred_loop_local_label("openai", &labels, &avail, None).as_deref(),
-        Some("qwen3.8-27b")
-    );
-    assert_eq!(
-        preferred_loop_local_label("mathgod", &labels, &avail, None).as_deref(),
-        Some("qwen3.8-27b"),
-        "mathgod in hand must not count as a local loop seat"
-    );
-    assert_eq!(
-        preferred_loop_sota_label("qwen3.8-27b", &labels, &avail, false, None).as_deref(),
-        Some("glm"),
-        "mathgod must not be the loop SOTA escalation"
-    );
-    assert_eq!(
-        preferred_loop_sota_label("mathgod", &labels, &avail, false, None).as_deref(),
-        Some("glm")
-    );
 }
 
 #[test]
@@ -1075,6 +1050,7 @@ fn execute_acceptance_plan_for_test(
                 passed: output.status.success(),
                 summary: format!("sentinel exit {:?}", output.status.code()),
                 detail: failure_detail(&combined),
+                receipt: None,
             };
             record_acceptance_result(state, run, &result, workspace);
             (result, true)
@@ -1340,6 +1316,8 @@ fn run_accept_cmd_rejects_count_regression() {
 
 #[test]
 fn count_passed_parses_summary_in_dir() {
+    // count_passed_in reads the global sandbox/timeout env other tests flip under the lock.
+    let _lock = crate::tests::env_lock();
     assert_eq!(
         count_passed_in(
             "echo 'test result: ok. 7 passed; 0 failed; 0 ignored;'",
@@ -1361,6 +1339,8 @@ fn count_passed_parses_summary_in_dir() {
 #[cfg(target_os = "linux")]
 #[test]
 fn count_passed_drains_noisy_stderr_before_the_summary() {
+    // count_passed_in reads the global sandbox/timeout env other tests flip under the lock.
+    let _lock = crate::tests::env_lock();
     assert_eq!(
         count_passed_in(
             "i=0; while [ \"$i\" -lt 40000 ]; do printf 'noise-%05d-xxxxxxxxxxxxxxxxxxxxxxxx\\n' \"$i\" >&2; i=$((i + 1)); done; printf 'test result: ok. 9 passed; 0 failed; 0 ignored;\\n'",
@@ -1631,10 +1611,7 @@ fn the_project_brief_rides_the_system_message() {
         };
         let convo = app.loop_iteration_convo();
         let system = convo[0].content.to_string();
-        assert!(
-            system.contains("[project brief — gathered by the harness just now;"),
-            "{system}"
-        );
+        assert!(system.contains("⠻⠋ just now"), "{system}");
         assert!(system.contains("- GPU 0: Test GPU, 24576 MiB"), "{system}");
         let user = convo[1].content.to_string();
         assert!(
@@ -1743,10 +1720,7 @@ fn measurements_come_back_with_their_results() {
             .unwrap()
             .content
             .to_string();
-        assert!(
-            prompt.contains("[measurements and submissions this run — newest first"),
-            "{prompt}"
-        );
+        assert!(prompt.contains("⠪⠃"), "{prompt}");
         assert!(
             prompt.contains(
                 "- iteration 1, just now: measured `shell:./benchmark.sh pinning`, took 3s → \
@@ -1792,7 +1766,8 @@ fn the_first_iteration_waits_for_its_brief_and_refreshes_never_wait() {
             std::thread::sleep(Duration::from_millis(50));
         }
         let text = app.loop_ctl.brief.clone().expect("brief gathered");
-        assert!(text.contains("machine:"), "{text}");
+        // The headings are `⠘⠛` page addresses (`⠘⠛⠁` machine).
+        assert!(text.contains("⠘⠛⠁\n"), "{text}");
         assert!(text.contains("NOTES.md (8 B, just now)"), "{text}");
         // A due refresh gathers in the background without holding the run.
         app.loop_ctl.brief_ms = 1;
@@ -1818,12 +1793,8 @@ fn a_steer_is_answered_once_then_rides_as_standing_guidance() {
             .unwrap()
             .content
             .to_string();
-        assert!(
-            prompt
-                .contains("[operator message — sent mid-run and not yet answered; answer it once"),
-            "{prompt}"
-        );
-        assert!(!prompt.contains("already answered"), "{prompt}");
+        assert!(prompt.contains("⠪⠙"), "{prompt}");
+        assert!(!prompt.contains("⠪⠉"), "{prompt}");
         app.terminal_focused = false;
         app.loop_harvest_with_tools(
             "Submitted; the slot is validating.".into(),
@@ -1840,10 +1811,10 @@ fn a_steer_is_answered_once_then_rides_as_standing_guidance() {
             .content
             .to_string();
         assert!(
-            prompt.contains("already answered; keep honoring them, do not answer or act on them again]\n- get a submission in and wrap up"),
+            prompt.contains("⠪⠉\n- get a submission in and wrap up"),
             "{prompt}"
         );
-        assert!(!prompt.contains("[operator message"), "{prompt}");
+        assert!(!prompt.contains("⠪⠙"), "{prompt}");
         // A new note is asked; the old one stays standing.
         app.loop_ctl.status = LoopStatus::Running;
         app.loop_note_steer("now look at the leader");
@@ -1853,14 +1824,8 @@ fn a_steer_is_answered_once_then_rides_as_standing_guidance() {
             .unwrap()
             .content
             .to_string();
-        assert!(
-            prompt.contains("answer it once while pursuing the task]\n- now look at the leader"),
-            "{prompt}"
-        );
-        assert!(
-            prompt.contains("do not answer or act on them again]\n- get a submission in"),
-            "{prompt}"
-        );
+        assert!(prompt.contains("⠪⠙\n- now look at the leader"), "{prompt}");
+        assert!(prompt.contains("⠪⠉\n- get a submission in"), "{prompt}");
     });
 }
 
@@ -1932,10 +1897,7 @@ fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
             .unwrap()
             .content
             .to_string();
-        assert!(
-            prompt.contains("If the operator has asked you to wrap up or stop"),
-            "{prompt}"
-        );
+        assert!(prompt.contains("⠳⠓"), "{prompt}");
         app.loop_harvest("Submitted; wrapping up.\nLOOP_DONE".into());
         assert_eq!(app.loop_ctl.status, LoopStatus::Stopped);
         assert!(
@@ -1944,4 +1906,159 @@ fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
                 .any(|m| m.text.contains("wrapped up at the operator's request"))
         );
     });
+}
+
+#[test]
+fn heartbeat_keeps_loop_state_live_during_a_long_iteration() {
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!("angel-l00-heartbeat-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let _file = crate::tests::TestEnvGuard::set(
+        "ANGEL_LOOP_FILE",
+        root.join("loop.json").to_str().unwrap(),
+    );
+    let _mirror = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_STATE_DIR");
+    let mut app = crate::seed_preview_app();
+    app.loop_ctl = LoopState {
+        status: LoopStatus::Running,
+        task: "improve".into(),
+        workspace: Some(root.clone()),
+        awaiting_turn: true,
+        tool_calls_total: 7,
+        // The iteration launched 61 seconds ago; nothing has written since.
+        updated_ms: now_ms().saturating_sub(61_000),
+        ..Default::default()
+    };
+    app.tool_strip.call_event(
+        crate::agent::harness::ToolEventId("hb-1".into()),
+        "shell",
+        "sleep 900",
+    );
+
+    app.loop_heartbeat();
+    let saved = load().expect("heartbeat persists the loop file");
+    assert!(
+        now_ms().saturating_sub(saved.updated_ms) < 5_000,
+        "heartbeat refreshed updated_ms: {}",
+        saved.updated_ms
+    );
+    // The published count includes the in-flight strip; the in-memory settled
+    // count is untouched, so the iteration-boundary harvest cannot double-count.
+    assert_eq!(saved.tool_calls_total, 8);
+    assert_eq!(app.loop_ctl.tool_calls_total, 7);
+
+    // A second heartbeat inside the minute writes nothing new.
+    app.loop_heartbeat();
+    assert_eq!(load().unwrap().updated_ms, saved.updated_ms);
+
+    // Between iterations (no turn in flight) the heartbeat is inert: the
+    // schedule/harvest paths own the file there.
+    app.loop_ctl.awaiting_turn = false;
+    app.loop_ctl.updated_ms = now_ms().saturating_sub(120_000);
+    app.loop_heartbeat();
+    assert_eq!(load().unwrap().updated_ms, saved.updated_ms);
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn provider_spend_replaces_the_iteration_estimates() {
+    // Pinning seat 2026-09-25: 18 iterations and ~930 tool rounds recorded
+    // ~72K tokens, because only the opening prompt and the reply were estimated.
+    // Iteration start charged a 4K estimate of the request.
+    let mut st = LoopState {
+        tokens_spent: 4_000,
+        tokens: LoopTokenSplit {
+            paid_input: 4_000,
+            total: 4_000,
+            ..Default::default()
+        },
+        iteration_input_estimate: 4_000,
+        ..Default::default()
+    };
+    // The turn's ~100 hops resent the context: 9M prompt, 8M of it cache reads.
+    st.settle_turn_spend(9_000_000, 8_000_000, 60_000);
+    let settled = LoopTokenSplit {
+        paid_input: 1_000_000,
+        cached_input: 8_000_000,
+        output: 60_000,
+        total: 9_060_000,
+    };
+    assert_eq!(st.tokens, settled);
+    assert_eq!(st.tokens_spent, 9_060_000);
+    // The harvest adds no reply estimate on top of the provider's count.
+    evidence::apply_reply_with_tools(
+        &mut st,
+        "DIRECTION: carrier loader\nFINDING: a correct loader is a wash",
+        &ToolStripSnapshot::default(),
+    );
+    assert_eq!(st.tokens, settled);
+    assert_eq!(st.tokens_spent, 9_060_000);
+
+    // A route that counts cache reads outside its input (read > input).
+    let mut separate = LoopState::default();
+    separate.settle_turn_spend(2_000, 50_000, 500);
+    assert_eq!(
+        separate.tokens,
+        LoopTokenSplit {
+            paid_input: 2_000,
+            cached_input: 50_000,
+            output: 500,
+            total: 52_500,
+        }
+    );
+
+    // A route that reports nothing keeps the reply estimate.
+    let mut unreported = LoopState::default();
+    evidence::apply_reply_with_tools(
+        &mut unreported,
+        "no provider usage",
+        &ToolStripSnapshot::default(),
+    );
+    assert!(unreported.tokens.output > 0 && unreported.tokens_spent > 0);
+}
+
+/// A mistyped ANGEL_COMP_PACKAGE still falls back to the default worker
+/// profile; the loop start notice names the fallback.
+#[test]
+fn an_unknown_competition_package_is_named_at_loop_start() {
+    let _guard = crate::tests::env_lock();
+    let tmp = std::env::temp_dir().join(format!("angel_loop_pkg_{}.json", std::process::id()));
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", tmp.to_str().unwrap());
+    let _pkg = crate::tests::TestEnvGuard::set("ANGEL_COMP_PACKAGE", "no-such-family");
+    let mut app = crate::seed_preview_app();
+    let started = app.loop_start_immediate("probe the package".into(), 0, false, false);
+    assert!(
+        started.contains("unknown competition package `no-such-family`"),
+        "{started}"
+    );
+    app.loop_command(Some("stop".into()));
+    let _ = std::fs::remove_file(tmp);
+}
+
+/// The iteration's DIRECTION is kept for its acceptance verdict (the
+/// Sloptomizer's observation), repeats included; a reply naming none clears it.
+#[test]
+fn each_harvest_records_the_direction_its_verdict_observes() {
+    let _guard = crate::tests::env_lock();
+    let tmp = std::env::temp_dir().join(format!("angel_loop_dir_{}.json", std::process::id()));
+    let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", tmp.to_str().unwrap());
+    let mut app = crate::seed_preview_app();
+    app.loop_ctl.status = LoopStatus::Running;
+    app.loop_ctl.accept_cmd = None;
+    app.loop_harvest("DIRECTION: cache the parsed manifest".into());
+    assert_eq!(
+        app.loop_ctl.iteration_direction.as_deref(),
+        Some("cache the parsed manifest")
+    );
+    app.loop_harvest("DIRECTION: cache the parsed manifest".into());
+    assert_eq!(
+        app.loop_ctl.iteration_direction.as_deref(),
+        Some("cache the parsed manifest")
+    );
+    assert_eq!(app.loop_ctl.directions_tried.len(), 1);
+    app.loop_harvest("FINDING: nothing new".into());
+    assert!(app.loop_ctl.iteration_direction.is_none());
+    let _ = std::fs::remove_file(tmp);
 }

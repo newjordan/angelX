@@ -237,7 +237,7 @@ impl Club for SelectedLeaf {
         assert!(
             messages
                 .iter()
-                .any(|message| message.content.contains("[LOOP RECOVERY EXPERIMENT]"))
+                .any(|message| message.content.contains("⠜⠛"))
         );
         assert!(!tools.iter().any(|tool| {
             ["spawn", "delegate", "agent_graph", "proc_run"].contains(&tool.name.as_str())

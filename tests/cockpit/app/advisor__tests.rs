@@ -45,12 +45,6 @@ fn annotate_marks_blocker_and_note_distinctly() {
     assert_eq!(note, "\n\n> 💡 advisor: y");
     assert!(annotate(&parse_verdict("CLEAR")).is_none());
     assert!(annotate(&parse_verdict("BLOCK:")).is_none());
-    let hop = annotate_hop(&parse_verdict("NOTE: thrash")).unwrap();
-    assert_eq!(hop, "[advisor hop · note] thrash");
-    assert_eq!(
-        annotate_hop(&parse_verdict("BLOCK: stop")),
-        Some("[advisor hop · blocker] stop".into())
-    );
     // Repeated annotation detection stays on the exact answer bytes.
     let twice = format!("done{block}{block}");
     assert!(already_annotated(&twice));
@@ -62,8 +56,6 @@ fn review_prompt_embeds_task_and_answer() {
     let p = review_prompt("do the thing", "here is the thing");
     assert!(p.contains("do the thing"));
     assert!(p.contains("here is the thing"));
-    let h = hop_review_prompt("task", "ran tests · red");
-    assert!(h.contains("TOOL HOP") && h.contains("ran tests"));
 }
 
 #[test]
@@ -73,10 +65,10 @@ fn mode_from_env_tokens() {
     assert_eq!(AdvisorMode::from_env(), AdvisorMode::Off);
     let _g = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "1");
     assert_eq!(AdvisorMode::from_env(), AdvisorMode::Final);
-    assert!(final_enabled() && !hops_enabled());
+    assert!(final_enabled());
+    // The old per-hop mode token now reviews finals only.
     let _g = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "hops");
-    assert_eq!(AdvisorMode::from_env(), AdvisorMode::Hops);
-    assert!(final_enabled() && hops_enabled());
+    assert_eq!(AdvisorMode::from_env(), AdvisorMode::Final);
     let _g = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "off");
     assert_eq!(AdvisorMode::from_env(), AdvisorMode::Off);
 }

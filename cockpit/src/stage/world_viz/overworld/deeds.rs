@@ -579,6 +579,24 @@ impl Party {
 // ─── the ledger of deeds ─────────────────────────────────────────────────────
 
 impl Deeds {
+    /// The district that owns a receipt. Use the same classified deed as
+    /// its journey so a test verdict stays at the Lists, a harvest in the
+    /// fields, and a shell errand with the working village.
+    pub(crate) fn destination(&self, id: &ToolEventId) -> Option<Place> {
+        Some(match self.calls.get(id)?.deed {
+            Deed::Study => Place::Scriptorium,
+            Deed::Seek => Place::Fields,
+            Deed::Forge => Place::Smithy,
+            Deed::Trial => Place::Lists,
+            Deed::Chronicle | Deed::Seal => Place::Rookery,
+            Deed::Dispatch => Place::Gatehouse,
+            Deed::Council => Place::RoundTable,
+            Deed::Memory => Place::Chapel,
+            Deed::Research => Place::Observatory,
+            Deed::Errand => Place::Village,
+        })
+    }
+
     /// A tool call starts: note what it is and send someone out for it.
     pub(crate) fn begin(&mut self, id: &ToolEventId, name: &str, args: &str, tick: u64) {
         let told = herald(name, args);

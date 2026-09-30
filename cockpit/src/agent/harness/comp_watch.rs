@@ -26,7 +26,7 @@ pub const WATCHER_NOTIFY_MARK: &str = "[harness-telemetry] WATCHER NOTIFY";
 
 // The per-verdict doctrine nudges (in-flight idle / sit-on-prepped / runner
 // waste) left model history in the 2026-09-01 notifier wave: the turn-start
-// COMPETITION_ACTION_POSTURE already carries the doctrine, cadence verdicts
+// comp-loop warpath (`book/k_competition.rs`) carries the doctrine, cadence verdicts
 // surface as one-slot gauge notices in the cockpit, and re-teaching the policy
 // per hop was pure history bloat.
 
@@ -617,7 +617,7 @@ pub(crate) fn extract_submission_id(text: &str) -> Option<String> {
         // "id"/"uuid" must be standalone tokens: harness-history lines such as
         // `git log`'s "Validate submission <uuid>" carry "id" inside
         // "Val-id-ate", and adopting one hands the watcher a phantom slot it
-        // then "notifies" terminal from board text (2026-09-01 toymaker: the
+        // then "notifies" terminal from board text (2026-09-01: the
         // morning run believed a repo-log uuid was its own in-flight
         // submission and reported it rejected without ever submitting).
         let hot = ascii_contains_ignore_case(line, "in flight")
@@ -2565,7 +2565,7 @@ pub(crate) fn hop_spec_to_call(spec: &HopSpec) -> ToolCall {
         "find_files" => serde_json::json!({"pattern": spec.args_hint}),
         "file_search" if spec.args_hint.is_empty() => serde_json::json!({"query": "kernel"}),
         "file_search" => serde_json::json!({"query": spec.args_hint}),
-        "check" | "run_tests" | "lint" | "machine_test" => serde_json::json!({}),
+        "check" | "run_tests" | "lint" => serde_json::json!({}),
         _ => serde_json::json!({"command": spec.args_hint}),
     };
     ToolCall {
@@ -3513,7 +3513,7 @@ pub(crate) fn classify_inflight_hop(calls: &[ToolCall]) -> InFlightHopKind {
     if calls.is_empty() {
         return InFlightHopKind::Idle;
     }
-    if calls.iter().any(is_first_write_progress_call) {
+    if calls.iter().any(is_product_mutation_call) {
         return InFlightHopKind::MutateCandidate;
     }
     if calls.iter().any(is_local_preflight_call) {
@@ -3535,7 +3535,7 @@ pub(crate) fn classify_inflight_hop(calls: &[ToolCall]) -> InFlightHopKind {
     }
     if calls
         .iter()
-        .any(|c| is_mutation_call(c) || burns_first_write_budget(c))
+        .any(|c| is_mutation_call(c) || is_free_form_recon(c))
     {
         return InFlightHopKind::Recon;
     }

@@ -176,7 +176,10 @@ fn atomic_recovery_retries_the_list_against_the_original_live_tag() {
         fields["expect_tag"],
         crate::agent::hashline::content_tag(original)
     );
-    assert!(error.contains("ENTIRE multi_edit list"), "{error}");
+    assert!(
+        error.contains(&crate::agent::harness::book::x_execution::EDIT_RECOVERY.cells()),
+        "{error}"
+    );
     args["expect_tag"] = fields["expect_tag"].clone();
     args["edits"][1]["old"] = fields["old"].clone();
     tool.call(&args).unwrap();
@@ -220,8 +223,17 @@ fn edit_recovery_does_not_clip_authoritative_unicode_or_large_regions() {
 #[test]
 fn outline_handle_mistake_points_to_handle_disclosure() {
     let error = read_outline_uri(Path::new("."), "/hnd_bs").unwrap_err();
-    assert!(error.contains("agent://hnd_bs"), "got: {error}");
-    assert!(error.contains("handle_read"), "got: {error}");
+    assert!(
+        error.contains("`hnd_bs` is an opaque result handle"),
+        "got: {error}"
+    );
+    // Where to read it is the `⠥⠊` page, the handle beside it as data.
+    let page = crate::agent::harness::book::u_skills::HANDLE_URI;
+    assert!(
+        error.contains(&format!("{} rel=hnd_bs", page.cells())),
+        "got: {error}"
+    );
+    assert!(page.text().contains("agent://{rel}") && page.text().contains("handle_read"));
 }
 
 #[test]
@@ -263,7 +275,36 @@ fn miss_errors_carry_a_near_miss_report() {
     assert!(err.contains("Closest region"), "got: {err}");
     assert!(err.contains("    c();"), "authoritative line shown: {err}");
 
-    // Nothing matches anywhere → tell the model to re-read, no fake region.
+    // Nothing matches anywhere → tell the model to re-read (its `⠨⠉` page),
+    // no fake region.
     let err = locate_replacement(content, "    zzz();\n    qqq();").unwrap_err();
-    assert!(err.contains("Re-read the file"), "got: {err}");
+    let reread = crate::agent::harness::book::d46_recovery::NO_LINE_MATCHES;
+    assert!(err.contains(&reread.cells()), "got: {err}");
+    assert!(!err.contains("Closest region"), "got: {err}");
+    assert!(reread.text().contains("Re-read the file"));
+}
+
+#[test]
+fn stage_on_a_non_hashline_patch_names_its_rule_as_a_page() {
+    let fixture = RecoveryFixture::new();
+    let tool = ApplyPatchTool {
+        root: fixture.0.clone(),
+    };
+    // A freeform envelope and a unified diff each refuse stage=true: the fact
+    // stays inline, the rule is its `⠨⠑` page.
+    let freeform = tool
+        .call(&serde_json::json!({
+            "diff": "*** Begin Patch\n*** Add File: a.txt\n+a\n*** End Patch",
+            "stage": true,
+        }))
+        .unwrap_err();
+    assert_eq!(freeform, "stage=true\n⠨⠑⠓");
+    let unified = tool
+        .call(&serde_json::json!({
+            "diff": "--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-a\n+b\n",
+            "stage": true,
+        }))
+        .unwrap_err();
+    assert_eq!(unified, "stage=true\n⠨⠑⠊");
+    assert!(!fixture.0.join("a.txt").exists());
 }

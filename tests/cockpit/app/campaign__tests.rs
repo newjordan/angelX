@@ -705,7 +705,7 @@ fn bounded_campaign_lens_is_harness_role_after_operator_text() {
     let rendered = lens::render(&record).unwrap();
     assert!(rendered.len() <= 6 * 1024);
     assert!(rendered.lines().count() <= 80);
-    assert!(rendered.ends_with("[/campaign-lens]"));
+    assert!(rendered.ends_with("⠎⠓"));
 
     let mut history = vec![ChatMsg::system("stable"), ChatMsg::user("operator task")];
     lens::replace_lens_message(&mut history, Some(rendered.clone()));

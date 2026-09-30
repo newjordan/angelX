@@ -175,13 +175,12 @@ impl Tool for VideoProbeTool {
         ToolDef {
             name: "video_probe".to_string(),
             description: "Probe a video/audio file with ffprobe and return JSON metadata: \
-                          duration, resolution, frame rate, codecs, stream layout. Use before \
-                          planning an edit so clip math is grounded in real container facts."
+                          duration, resolution, frame rate, codecs, stream layout. ⠫⠃"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "media file, workspace-relative" },
+                    "path": { "type": "string", "description": "⠫⠃⠃" },
                 },
                 "required": ["path"],
             }),
@@ -244,17 +243,16 @@ impl Tool for VideoBeatsTool {
         ToolDef {
             name: "video_beats".to_string(),
             description: "Analyze a music track and return its beat grid as JSON: estimated BPM, \
-                          beat timestamps, onset (transient) timestamps, and windowed RMS energy \
-                          so you can hear where phrases and the crescendo live. Cut points should \
-                          snap to these beats — music owns time. Uses librosa/aubio/essentia via python3; falls back to an energy-only analysis when no backend is installed."
+                          beat timestamps, onset (transient) timestamps, and windowed RMS energy. \
+                          Uses librosa/aubio/essentia via python3; falls back to an energy-only analysis when no backend is installed. ⠫⠉"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "audio file, workspace-relative" },
+                    "path": { "type": "string", "description": "⠫⠉⠉" },
                     "energy_window": {
                         "type": "integer",
-                        "description": "seconds per energy window (default 5)",
+                        "description": "⠫⠉⠙",
                     },
                 },
                 "required": ["path"],
@@ -307,13 +305,10 @@ impl Tool for VideoCutTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "video_cut".to_string(),
-            description: "Render an edit decision list to a finished mp4. Give clips as \
-                          {path, in, out} (seconds) in timeline order; segment boundaries are \
-                          joined with a crossfade of `fade` seconds (0 = hard cuts). Beat-snap \
-                          the boundaries yourself using video_beats output — this tool renders \
+            description: "Render an edit decision list to a finished mp4. This tool renders \
                           exactly what you specify. Optional music bed is trimmed to the timeline \
                           with an audio fade-out tail. Mixed-res sources are letterboxed to \
-                          width x height."
+                          width x height. ⠫⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -324,20 +319,20 @@ impl Tool for VideoCutTool {
                             "type": "object",
                             "properties": {
                                 "path": { "type": "string" },
-                                "in": { "type": "number", "description": "source in-point, seconds" },
-                                "out": { "type": "number", "description": "source out-point, seconds" },
+                                "in": { "type": "number", "description": "⠫⠙⠉" },
+                                "out": { "type": "number", "description": "⠫⠙⠙" },
                             },
                             "required": ["path", "in", "out"],
                         },
                     },
-                    "output": { "type": "string", "description": "destination mp4, workspace-relative" },
-                    "music": { "type": "string", "description": "optional audio bed, workspace-relative" },
-                    "music_start": { "type": "number", "description": "seconds into the music to start (default 0)" },
-                    "fade": { "type": "number", "description": "crossfade seconds between clips (default 0 = hard cuts)" },
-                    "audio_tail": { "type": "number", "description": "audio fade-out length at the end (default 1.0)" },
-                    "width": { "type": "integer", "description": "output width (default: first clip's)" },
-                    "height": { "type": "integer", "description": "output height (default: first clip's)" },
-                    "fps": { "type": "integer", "description": "output frame rate (default 24)" },
+                    "output": { "type": "string", "description": "⠫⠙⠑" },
+                    "music": { "type": "string", "description": "⠫⠙⠋" },
+                    "music_start": { "type": "number", "description": "⠫⠙⠛" },
+                    "fade": { "type": "number", "description": "⠫⠙⠓" },
+                    "audio_tail": { "type": "number", "description": "⠫⠙⠊" },
+                    "width": { "type": "integer", "description": "⠫⠙⠚" },
+                    "height": { "type": "integer", "description": "⠮⠓⠁" },
+                    "fps": { "type": "integer", "description": "⠮⠓⠃" },
                 },
                 "required": ["clips", "output"],
             }),
@@ -503,16 +498,15 @@ impl Tool for VideoContactSheetTool {
         ToolDef {
             name: "video_contact_sheet".to_string(),
             description: "Extract a tiled grid of frames (with timestamps burned in) from a video \
-                          for take review. Feed the sheet to video_look for a machine read, or \
-                          present() it to the director for circle/selects decisions."
+                          for take review. ⠫⠑"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "video file, workspace-relative" },
-                    "output": { "type": "string", "description": "destination png/jpg, workspace-relative" },
-                    "frames": { "type": "integer", "description": "number of samples (default 12, max 64)" },
-                    "columns": { "type": "integer", "description": "grid columns (default 4)" },
+                    "path": { "type": "string", "description": "⠫⠑⠃" },
+                    "output": { "type": "string", "description": "⠫⠑⠉" },
+                    "frames": { "type": "integer", "description": "⠫⠑⠙" },
+                    "columns": { "type": "integer", "description": "⠫⠑⠑" },
                 },
                 "required": ["path", "output"],
             }),
@@ -660,30 +654,28 @@ impl Tool for VideoLookTool {
             description: "Machine eyes for the edit suite: send frames from a video (or an \
                           existing image, e.g. a contact sheet) to a vision club with a \
                           question, and get back a textual read — framing, palette, continuity, \
-                          which take reads best. Use after video_contact_sheet for single-pass \
-                          take review, or directly with `frames`/`timestamps` for targeted \
-                          questions. Backend: ANGEL_VISION_URL/ANGEL_VISION_MODEL, else the \
-                          Kimi env route."
+                          which take reads best. Backend: ANGEL_VISION_URL/ANGEL_VISION_MODEL, else the \
+                          Kimi env route. ⠫⠋"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "video file (extract frames) or image file (sent as-is), workspace-relative"
+                        "description": "⠫⠋⠃"
                     },
                     "question": {
                         "type": "string",
-                        "description": "what to look for, e.g. 'rank the takes on handoff cleanliness' or 'describe palette and framing of each shot'"
+                        "description": "⠫⠋⠉"
                     },
                     "frames": {
                         "type": "integer",
-                        "description": "evenly spaced frames to extract when path is a video (default 6, max 8; ignored for images)"
+                        "description": "⠫⠋⠙"
                     },
                     "timestamps": {
                         "type": "array",
                         "items": { "type": "number" },
-                        "description": "exact timestamps (seconds) to grab instead of even spacing; overrides frames"
+                        "description": "⠫⠋⠑"
                     }
                 },
                 "required": ["path", "question"],

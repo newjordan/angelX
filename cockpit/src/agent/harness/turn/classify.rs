@@ -205,12 +205,11 @@ pub(crate) fn dependency_mutation_command(command: &str) -> bool {
     })
 }
 
-/// First-write progress: direct product mutations or dependency shells.
-/// Meta notes / living-handoff edits do **not** count — they are board
-/// bookkeeping, not a candidate change (competition agents were "clearing"
-/// the inspection budget by touching LIVING_HANDOFF while the slot still
-/// forbade a real edit).
-pub(crate) fn is_first_write_progress_call(call: &ToolCall) -> bool {
+/// A product mutation: a direct edit of the work, or a dependency shell. Meta
+/// notes / living-handoff edits do **not** count — they are board bookkeeping,
+/// not a candidate change (competition agents "progressed" by rewriting
+/// LIVING_HANDOFF while the slot still forbade a real edit).
+pub(crate) fn is_product_mutation_call(call: &ToolCall) -> bool {
     if is_dependency_mutation_call(call) {
         return true;
     }
@@ -350,7 +349,7 @@ pub(crate) fn payload_fingerprint(value: &Value) -> String {
     }
 }
 
-pub(super) fn feed_payload_value(hasher: &mut DefaultHasher, value: &Value) {
+pub(crate) fn feed_payload_value(hasher: &mut DefaultHasher, value: &Value) {
     match value {
         Value::Null => 0u8.hash(hasher),
         Value::Bool(b) => {
@@ -405,7 +404,6 @@ pub(super) fn feed_payload_value(hasher: &mut DefaultHasher, value: &Value) {
 
 /// Stable per-edit identities for thrash detection. Short snippets that only
 /// differ by multi_edit batch packing still collide when old/new match.
-#[cfg(test)]
 pub(crate) fn mutation_edit_signatures(call: &ToolCall) -> Vec<String> {
     if !is_mutation_call(call) {
         return Vec::new();
@@ -499,7 +497,6 @@ pub(crate) fn mutation_edit_signatures(call: &ToolCall) -> Vec<String> {
 /// Paths that usually hold generated fixtures rather than the implementing code.
 /// Matches ASCII case and `/`/`\` in place so mutation hops do not copy
 /// every path to hunt `/docs/` / `testdata/`.
-#[cfg(test)]
 pub(crate) fn is_peripheral_mutation_path(path: &str) -> bool {
     const HEAD: &[&str] = &["docs", "testdata", "examples"];
     const MID: &[&str] = &[
@@ -658,7 +655,6 @@ pub(crate) fn is_core_mutation_path(path: &str) -> bool {
 }
 
 /// True when `path` begins with `component/` or `component\`.
-#[cfg(test)]
 fn path_starts_with_dir_ignore_case(path: &str, component: &str) -> bool {
     let hay = path.as_bytes();
     let needle = component.as_bytes();

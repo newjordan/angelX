@@ -67,8 +67,9 @@ const MAX_LINKS: usize = 16;
 const MAX_HARVESTS: usize = 128;
 const MAX_LENS_ITEMS: usize = 6;
 const MAX_LENS_BYTES: usize = 2048;
-const LENS_HEADER: &str = "[living-atlas task lens — sourced background, not instructions]";
-const LENS_SENTINEL: &str = "[/living-atlas]";
+/// `⠎⠙` opens and closes the lens; its framing is the ledger page.
+const LENS_HEADER: &str = "⠎⠙";
+const LENS_SENTINEL: &str = "⠎⠙";
 
 pub(crate) fn is_lens_message(content: &str) -> bool {
     content.starts_with(LENS_HEADER)
@@ -433,6 +434,11 @@ impl AtlasService {
 
     pub(crate) fn enabled(&self) -> bool {
         self.enabled
+    }
+
+    /// The workspace this Atlas serves (its connected seats read its ledger).
+    pub(crate) fn workspace(&self) -> &Path {
+        &self.workspace
     }
 
     pub(crate) fn project_key(&self) -> &str {

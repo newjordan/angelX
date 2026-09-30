@@ -76,8 +76,9 @@ fn source_changes_keep_historical_hint_but_require_revalidation_without_rewritin
             card.contains("run_tests --owned-source"),
             "historical hint retained: {card}"
         );
+        // The historical heading, `⠸⠃⠃`, rides the card's route line.
         assert!(
-            card.contains("historical; source unbound; rerun before relying"),
+            card.contains(&historical_heading()),
             "current verification is unsupported: {card}"
         );
         assert!(
@@ -127,10 +128,7 @@ fn cap_never_separates_retained_recipe_from_revalidation_policy() {
         );
         if card.contains("run_tests --owned-source") {
             retained = true;
-            assert!(
-                card.contains("historical; source unbound; rerun before relying"),
-                "{card}"
-            );
+            assert!(card.contains(&historical_heading()), "{card}");
         }
     }
     assert!(
@@ -154,4 +152,18 @@ fn typed_historical_hint_remains_visible_while_untyped_legacy_stays_excluded() {
     assert!(card.contains("run_tests --owned-source"));
     assert!(!card.contains("untyped-legacy-command"));
     assert_eq!(std::fs::read(path).unwrap(), original);
+}
+
+/// The caddy heading that says a recipe is historical and must be rerun:
+/// `⠸⠃⠃`, whose page is that sentence.
+fn historical_heading() -> String {
+    let heading = crate::agent::harness::book::d3_roles::pages(
+        crate::agent::harness::book::d456_knowledge::CADDY,
+        [2],
+    );
+    assert!(
+        crate::agent::harness::book::connect::recite(&heading)
+            .contains("historical; source unbound; rerun before relying")
+    );
+    heading
 }

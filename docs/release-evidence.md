@@ -56,9 +56,9 @@ documentation may not carry a per-user absolute home path, a CGNAT literal,
 a live tailnet DNS name, a machine-specific hardware hostname, or a host mount
 coordinate. CGNAT values are tolerated only in test and fixture paths so
 private-network behavior stays testable. Operator-specific values such as the
-fleet `overwatch` binary path and the Spark peer's tailnet/Hydra host labels
-are therefore runtime inputs (`ANGEL_OVERWATCH_CMD`, `$HOME`, and
-`ANGEL_SPARK_HOST`), never source literals. Operators supply them through the
+fleet `overwatch` binary path and self-hosted model endpoints are therefore
+runtime inputs (`ANGEL_OVERWATCH_CMD`, `$HOME`, `ANGEL_LOCAL_URL` and
+`ANGEL_LOCAL_URLS`), never source literals. Operators supply them through the
 gitignored repo-local `.angel.env` that `bin/angelX` sources (see
 `cockpit/docs/ENV.md`).
 

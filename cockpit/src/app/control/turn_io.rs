@@ -557,11 +557,24 @@ impl App {
         } else {
             8
         };
-        for completion in crate::agent::tools::proc::take_completions(canonical, limit) {
-            let message = completion.message();
-            self.system_msg(message.clone());
-            self.history.push(ChatMsg::harness(message.clone()));
-            queue_proc_completion_for_loop(&mut self.loop_ctl, &workspace, message);
+        let finished = crate::agent::tools::proc::take_completions(canonical, limit);
+        for completion in &finished {
+            self.system_msg(completion.message());
+            queue_proc_completion_for_loop(
+                &mut self.loop_ctl,
+                &workspace,
+                completion.loop_message(),
+            );
+        }
+        // The model sees the book's route (`⠏⠃` / `⠏⠉`) and each job's id, name and state
+        // beside it; the full receipts are in the ledger.
+        if !finished.is_empty() {
+            let book = crate::agent::harness::book::p_processes::completions(&finished);
+            self.history.push(ChatMsg::harness(format!(
+                "{}\n{}",
+                crate::agent::harness::book::warpath(&workspace, &book),
+                crate::agent::harness::book::p_processes::receipt_lines(&finished),
+            )));
         }
     }
 
@@ -914,6 +927,9 @@ impl App {
                 return;
             }
         };
+        // A loop iteration is in flight: keep its persisted liveness fresh
+        // (at most once a minute) so monitors don't read a long turn as dead.
+        self.loop_heartbeat();
 
         // A hard stop retires the visible turn, not its ownership. Keep the
         // shared foreground slot reserved until the worker's terminal send (or
@@ -1185,9 +1201,10 @@ impl App {
                     // repeating guard holds ONE gauge row that bumps its
                     // ×count in place instead of stacking scrollback; only
                     // first-fire failures and unrecognized gates open a new
-                    // line. Crucially, a strip- or gauge-bound note never
-                    // flushes the streaming answer — the agent's prose stays
-                    // one block instead of being shredded into fragments.
+                    // line. Notices never end the assistant's current stream:
+                    // flushing several fragments loses the full draft's identity
+                    // and can duplicate it when the final answer arrives. It also
+                    // prevents a later SuppressPartial from retracting the draft.
                     let conversation =
                         self.transcript_mode == crate::app::TranscriptMode::Conversation;
                     let receipt = note.starts_with("action receipt · ");
@@ -1196,7 +1213,6 @@ impl App {
                         // herald row names its outcome and failure reason,
                         // the ledger lists the call. `/trace` keeps receipts.
                     } else if receipt {
-                        self.flush_partial();
                         self.messages.push(Message::new(
                             Role::Activity,
                             crate::ui::views::turn_event_view::notice_text(&note),
@@ -1208,7 +1224,6 @@ impl App {
                     {
                         self.tool_strip.note_event(&note);
                     } else {
-                        self.flush_partial();
                         self.messages.push(Message {
                             role: Role::Activity,
                             text: crate::ui::views::turn_event_view::notice_text(&note).into(),
@@ -1223,6 +1238,14 @@ impl App {
                     ));
                 }
                 TurnEvent::SubmissionSlot(slot) => {
+                    use crate::agent::harness::SubmissionSlotPhase;
+                    let same_flight = self.submission_slot.phase == SubmissionSlotPhase::InFlight
+                        && self.submission_slot.id == slot.id;
+                    if slot.phase != SubmissionSlotPhase::InFlight {
+                        self.submission_slot_since = None;
+                    } else if !same_flight || self.submission_slot_since.is_none() {
+                        self.submission_slot_since = Some(std::time::Instant::now());
+                    }
                     self.submission_slot = slot;
                 }
                 // The agent delivered a rich-media card via the `present` tool —
@@ -1694,12 +1717,20 @@ impl App {
             .saturating_sub(before.cache_before.read_input_tokens);
         let reported =
             cache.read_accounting_responses > before.cache_before.read_accounting_responses;
-        let input = club.token_usage().map_or(0, |after| {
-            after
-                .total_input
-                .saturating_sub(before.usage_before.map_or(0, |usage| usage.total_input))
+        let usage = club.token_usage();
+        let before_usage = before.usage_before.unwrap_or_default();
+        let input = usage.map_or(0, |after| {
+            after.total_input.saturating_sub(before_usage.total_input)
         });
         self.cache_meter.fold_turn(cache_read, input, reported);
+        // A loop iteration is one turn: its provider-reported spend replaces
+        // the iteration's estimates (routes that report nothing keep them).
+        if self.loop_ctl.awaiting_turn
+            && let Some(after) = usage.filter(|after| after.turns > before_usage.turns)
+        {
+            let output = after.total_output.saturating_sub(before_usage.total_output);
+            self.loop_ctl.settle_turn_spend(input, cache_read, output);
+        }
     }
 
     /// Collapse the turn's tool activity into one compact tally line in the
@@ -1745,6 +1776,14 @@ impl App {
         self.pending_transcript_reflow = None;
         let drop = self.messages.len() - SCROLLBACK_TARGET;
         self.messages.drain(0..drop);
+        // Draft handles index the same transcript. Rebase surviving drafts and
+        // forget evicted ones before finalization reuses or collapses them.
+        self.flushed_partial_msg = self
+            .flushed_partial_msg
+            .and_then(|index| index.checked_sub(drop));
+        self.retained_partial_msg = self
+            .retained_partial_msg
+            .and_then(|index| index.checked_sub(drop));
         // The parallel vecs may trail `messages` (draw syncs them lazily); drain
         // only what exists so each stays a valid prefix of `messages`.
         let sp = drop.min(self.transcript_spawns.len());
@@ -1877,7 +1916,7 @@ impl App {
     /// to preserve spatial continuity, but leave `history` untouched so retries
     /// begin at the last committed turn.
     fn retain_interrupted_partial(&mut self) -> bool {
-        let retained = !self.partial.is_empty();
+        let retained = !self.partial.trim().is_empty();
         self.flush_partial();
         if retained {
             // Remember the flushed draft so a successful follow-up answer can
@@ -3569,8 +3608,15 @@ impl App {
         .or_else(|| {
             crate::knowledge::library::local_lesson_for_shelf(self.scryglass.selected_shelf().id)
         });
-        lesson.map(|lesson| (lesson.tutor.name.to_string(), lesson.ask_tutor_prompt()))
-            .unwrap_or_else(|| ("Tutor".into(), "Use a concrete example and check understanding. No reference has been retrieved.".into()))
+        lesson
+            .map(|lesson| (lesson.tutor.name.to_string(), lesson.ask_tutor_prompt()))
+            // No lesson and no reference: the tutor's fallback, `⠬⠊`.
+            .unwrap_or_else(|| {
+                (
+                    "Tutor".into(),
+                    crate::agent::harness::book::ing_drivers::TUTOR_FALLBACK.cells(),
+                )
+            })
     }
 
     pub(crate) fn draft_current_lesson_for_tutor(&mut self) {
@@ -3701,7 +3747,11 @@ impl App {
             WorldButton::ScryglassCopySource => self.copy_current_lesson_source(),
             WorldButton::ScryglassFollow => {
                 if self.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Realm {
-                    self.world.cycle_camera_zoom();
+                    if self.world.overworld_view_label().is_some() {
+                        self.world.follow_overworld();
+                    } else {
+                        self.world.cycle_camera_zoom();
+                    }
                 } else {
                     self.scryglass.follow();
                 }

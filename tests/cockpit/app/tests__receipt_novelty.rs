@@ -111,8 +111,9 @@ fn unchanged_candidate_new_submission_id_is_activity_without_stagnation_reset() 
             .unwrap()
             .content
             .to_string();
+        // `⠘⠙`: the repeat ban and the comparison are the receipt's pages.
         assert!(
-            prompt.contains("Repeated competitive submissions of unchanged candidates are banned"),
+            prompt.contains(&crate::agent::harness::book::d45_iteration::RECEIPT.cells()),
             "next action must preserve the repeat ban and request a comparison: {prompt}"
         );
         assert_eq!(
@@ -245,14 +246,18 @@ fn competitive_prompt_preserves_repeat_ban_before_first_receipt() {
             .unwrap()
             .content
             .to_string();
-        assert!(prompt.contains("Never resubmit unchanged code"), "{prompt}");
+        // Podrace rides as `⠻⠚`; its rules are the ledger pages.
+        let podrace = crate::agent::harness::book::er_loop::PODRACE;
+        assert!(prompt.contains(&podrace.cells()), "{prompt}");
+        let pages = podrace.sub().pages.join(" ");
+        assert!(pages.contains("Never resubmit unchanged code"));
         assert!(
-            prompt.contains("Run only required checks"),
-            "required validation remains explicit: {prompt}"
+            pages.contains("Run only required checks"),
+            "required validation remains explicit"
         );
         assert!(
-            prompt.contains("distinct validated submission"),
-            "legitimate distinct submissions stay prompt: {prompt}"
+            pages.contains("distinct validated submission"),
+            "legitimate distinct submissions stay"
         );
     });
 }
@@ -271,21 +276,15 @@ fn periodic_soft_pivot_preserves_objective_staleness_and_continuation() {
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);
         assert_eq!(app.loop_ctl.tier, tier);
         assert!(app.loop_ctl.wake_at.is_some());
-        assert!(
-            app.loop_ctl
-                .loop_note
-                .as_deref()
-                .unwrap()
-                .starts_with("no comparable objective improvement recorded")
+        assert_eq!(
+            app.loop_ctl.loop_note,
+            Some(crate::agent::harness::book::d45_iteration::PODRACE_STALL.cells())
         );
         harvest(app, submit(830));
         assert_eq!(app.loop_ctl.stale_count, 4);
-        assert!(
-            app.loop_ctl
-                .last_setback
-                .as_deref()
-                .unwrap()
-                .starts_with("measurement/submission execution recorded"),
+        assert_eq!(
+            app.loop_ctl.last_setback,
+            Some(crate::agent::harness::book::d45_iteration::RECEIPT.cells()),
             "pivot must remain periodic, not fire on every later turn"
         );
     });

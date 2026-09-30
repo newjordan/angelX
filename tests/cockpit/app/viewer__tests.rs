@@ -484,9 +484,9 @@ fn portrait_canvas_moves_alpha_edges_without_rescaling() {
 }
 
 #[test]
-fn atlas_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
+fn helm_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(crate::ui::helm::sheet(
-        crate::ui::agent_panel::profile::AgentKey::Atlas,
+        crate::ui::agent_panel::profile::AgentKey::Unknown,
     ));
     let original = crate::ui::helm::frame_image(&path, 0).unwrap();
     #[allow(deprecated)]
@@ -778,10 +778,10 @@ fn helm_pending_pose_retains_its_agent_and_never_borrows_another_identity() {
     use ratatui::{Terminal, backend::TestBackend};
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = root.join(crate::ui::helm::sheet(
-        crate::ui::agent_panel::profile::AgentKey::Turbo,
+        crate::ui::agent_panel::profile::AgentKey::Unknown,
     ));
     let other = root.join(crate::ui::helm::sheet(
-        crate::ui::agent_panel::profile::AgentKey::Atlas,
+        crate::ui::agent_panel::profile::AgentKey::Codex,
     ));
     let mut viewer = Viewer::portrait_preview();
     let mut terminal = Terminal::new(TestBackend::new(20, 10)).unwrap();

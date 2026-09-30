@@ -2,14 +2,18 @@
 
 use super::*;
 
-/// Machine-stable prefix for a PreToolUse policy denial. Keep the human reason
-/// after this marker, but never make turn accounting infer denial from prose.
-pub(crate) const HOOK_BLOCKED_PREFIX: &str = "[angel-hook-blocked/v1] ";
+/// Machine-stable prefix for a PreToolUse policy denial: the `[angel-hook-blocked/v1]`
+/// marker's page address (`⠰⠙⠉`), which the append-only book keeps stable.
+/// Keep the human reason after this marker, but never make turn accounting
+/// infer denial from prose.
+pub(crate) const HOOK_BLOCKED_PREFIX: &str = "⠰⠙⠉ ";
+/// The marker as sessions saved before it became a page carry it.
+const LEGACY_HOOK_BLOCKED_PREFIX: &str = "[angel-hook-blocked/v1] ";
 const HOOK_ENV_VALUE_MAX_BYTES: usize = 32 * 1024;
 const HOOK_COMMAND_MAX_BYTES: usize = 64 * 1024;
 
 pub(crate) fn is_hook_blocked_result(result: &str) -> bool {
-    result.starts_with(HOOK_BLOCKED_PREFIX)
+    result.starts_with(HOOK_BLOCKED_PREFIX) || result.starts_with(LEGACY_HOOK_BLOCKED_PREFIX)
 }
 
 // ---------------------------------------------------------------------------

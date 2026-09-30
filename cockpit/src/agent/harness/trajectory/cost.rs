@@ -141,11 +141,20 @@ fn u64_field(usage: &Value, key: &str) -> Option<u64> {
 /// Compute `cost` for one record from its own `usage` block. Called after the
 /// usage ledger is attached. Subscription marginal cost does not require tokens.
 pub(super) fn cost_for(model_id: Option<&str>, usage: Option<&Value>) -> Value {
+    let (rows, source) = load_rows();
+    cost_with_rows(model_id, usage, &rows, source)
+}
+
+fn cost_with_rows(
+    model_id: Option<&str>,
+    usage: Option<&Value>,
+    rows: &[PriceRow],
+    source: &str,
+) -> Value {
     let Some(model_id) = model_id.filter(|id| !id.is_empty()) else {
         return json!({"paid":null,"cached":null,"currency":null,"price_date":null,
             "basis":"unreported-usage","source":"identity-model-absent","model":"unreported"});
     };
-    let (rows, source) = load_rows();
     let row = rows
         .iter()
         .find(|row| row.model == model_id)
@@ -216,7 +225,15 @@ pub(super) fn cost_for(model_id: Option<&str>, usage: Option<&Value>) -> Value {
     }
     // Reasoning is priced only when it is a separate reported total; when the
     // provider includes reasoning in output, its price is already counted.
-    let reasoning_separate = reasoning.filter(|_| output.is_some());
+    let reasoning_separate = reasoning.filter(|_| {
+        output.is_some()
+            && usage
+                .get("reasoning_convention_attempts")
+                .is_none_or(|conventions| {
+                    conventions["separate"].as_u64() == usage["attempts"].as_u64()
+                        && usage["attempts"].as_u64().is_some_and(|n| n > 0)
+                })
+    });
     if let Some(cost) = per_million(reasoning_separate, row.reasoning) {
         terms.push(cost);
     }
@@ -231,6 +248,90 @@ pub(super) fn cost_for(model_id: Option<&str>, usage: Option<&Value>) -> Value {
         "basis":"list-price",
         "source":source,
         "model":model_id})
+}
+
+/// Price the attempts that actually ran. Aggregate club counters can include
+/// retries, failover seats and parallel workers; never price all of them as the
+/// final answering model. Missing worker receipts leave the total unknown.
+pub(super) fn cost_for_attempts(
+    answer_model: Option<&str>,
+    usage: Option<&Value>,
+    samples: &[Value],
+) -> Value {
+    if samples.is_empty() && usage.is_none_or(|usage| usage["attempts"].as_u64() == Some(0)) {
+        return cost_for(answer_model, None);
+    }
+    let (rows, source) = load_rows();
+    let attempts: Vec<_> = samples
+        .iter()
+        .map(|sample| {
+            let model = sample["identity"]["model"]["id"]
+                .as_str()
+                .filter(|model| !model.is_empty() && *model != "unbound");
+            let mut cost = cost_with_rows(model, Some(&sample["usage_accounting"]), &rows, source);
+            cost["attempt_id"] = sample["id"].clone();
+            cost
+        })
+        .collect();
+    let covered = usage.is_some_and(|usage| {
+        usage["attempts"].as_u64() == Some(samples.len() as u64)
+            && usage["untracked_sources"] != true
+            && usage["overflowed"] != true
+    }) && !samples.is_empty()
+        && samples.iter().all(|sample| {
+            !sample["end"].is_null()
+                && sample["identity"]["model"]["id"]
+                    .as_str()
+                    .is_some_and(|id| !id.is_empty() && id != "unbound")
+        });
+    let models: std::collections::BTreeSet<_> = samples
+        .iter()
+        .filter_map(|sample| sample["identity"]["model"]["id"].as_str())
+        .collect();
+    let model = if models.len() == 1 {
+        models.first().copied()
+    } else {
+        None
+    };
+    let currency = attempts.first().and_then(|cost| cost["currency"].as_str());
+    let one_currency = currency.is_some_and(|currency| {
+        attempts.iter().all(|cost| {
+            cost["currency"]
+                .as_str()
+                .is_some_and(|other| other.eq_ignore_ascii_case(currency))
+        })
+    });
+    let complete = covered
+        && one_currency
+        && attempts.iter().zip(samples).all(|(cost, sample)| {
+            cost["paid"].is_number()
+                && (cost["basis"] == "subscription-marginal"
+                    || sample["usage_accounting"]["accounting_status"] == "reported")
+        });
+    let sum = |key: &str| {
+        attempts
+            .iter()
+            .try_fold(0.0, |total, cost| Some(total + cost[key].as_f64()?))
+            .map(round_cents)
+    };
+    let price_date = attempts
+        .first()
+        .map(|cost| cost["price_date"].clone())
+        .filter(|date| attempts.iter().all(|cost| cost["price_date"] == *date));
+    let subscription = !attempts.is_empty()
+        && attempts
+            .iter()
+            .all(|cost| cost["basis"] == "subscription-marginal");
+    json!({
+        "paid": if complete { sum("paid") } else { None },
+        "cached": if complete { sum("cached") } else { None },
+        "currency": if one_currency { currency } else { None },
+        "price_date": price_date,
+        "basis": if !complete { "unreported-usage" } else if subscription { "subscription-marginal" } else { "list-price" },
+        "source": if covered { "provider-attempts" } else { "incomplete-model-attribution" },
+        "model": model,
+        "attempts": attempts,
+    })
 }
 
 /// Money is reported to 8 decimal places — sub-cent precision without float

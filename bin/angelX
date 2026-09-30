@@ -306,8 +306,10 @@ if [ "$HEADLESS_MODE" = "1" ] && [ "${ANGEL_HEADLESS_DEFAULT_FEATURES:-0}" != "1
   SKIP_DEFAULT_FEATURES=1
 fi
 # Stock macOS has no FFmpeg; the default scryglass-video feature would fail the
-# rebuild. Skip it unless ffmpeg is on PATH or the operator forces defaults.
-if [ "$(uname -s)" = "Darwin" ] && ! command -v ffmpeg >/dev/null 2>&1; then
+# rebuild. It links FFmpeg's libraries through pkg-config, and a Homebrew
+# ffmpeg on PATH is not enough without pkg-config, so build video only when
+# pkg-config finds them.
+if [ "$(uname -s)" = "Darwin" ] && ! pkg-config --exists libavcodec libavformat libswscale 2>/dev/null; then
   SKIP_DEFAULT_FEATURES=1
 fi
 if [ "$SKIP_DEFAULT_FEATURES" = "1" ]; then
@@ -346,9 +348,9 @@ esac
 [ "$HEADLESS_MODE" = "1" ] && PORTAL_BUILD=0
 
 # Rebuild so cockpit/ edits are live. Skippable with ANGEL_NO_BUILD=1.
-# A failed rebuild must not boot a stale binary — that is how Math God-on
-# images kept running after git moved. Explicit ANGEL_NO_BUILD=1 is the
-# only allowed skip.
+# A failed rebuild must not boot a stale binary — that is how stale images
+# kept running after git moved. Explicit ANGEL_NO_BUILD=1 is the only
+# allowed skip.
 _angel_rust_host_triple() {
   local host arch
   if command -v rustc >/dev/null 2>&1; then
@@ -393,7 +395,25 @@ _angel_cargo() {
     echo "$tc"
     return 0
   done
-  _die "no working cargo. ~/.cargo/bin/cargo is a broken rustup shim (cargo build → toolchain/bin/build). Install rustc or put a real cargo at ~/.local/bin/cargo"
+  # A fresh rustup holds only its default toolchain, and the build below runs
+  # with RUSTUP_AUTO_INSTALL=0: install the pinned one here and use its cargo.
+  if [ -n "$channel" ] && command -v rustup >/dev/null 2>&1; then
+    echo "angelX: installing Rust $channel (rust-toolchain.toml) with rustup…" >&2
+    if rustup toolchain install "$channel" --profile minimal >&2 \
+      && tc=$(rustup which cargo --toolchain "$channel" 2>/dev/null) && [ -x "$tc" ]; then
+      echo "$tc"
+      return 0
+    fi
+  fi
+  # Homebrew or distro Rust keeps cargo outside rustup. Take the cargo on PATH
+  # once it answers; the broken shim fails `cargo -V` and lands on the message
+  # below.
+  tc=$(command -v cargo 2>/dev/null || true)
+  if [ -n "$tc" ] && "$tc" -V >/dev/null 2>&1; then
+    echo "$tc"
+    return 0
+  fi
+  _die "no working cargo. Install Rust from https://rustup.rs and open a new terminal, or put a real cargo at ~/.local/bin/cargo (~/.cargo/bin/cargo may be a broken rustup shim: cargo build → toolchain/bin/build)"
 }
 
 if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then

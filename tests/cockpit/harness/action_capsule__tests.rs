@@ -271,14 +271,6 @@ fn previews_are_argument_only_and_reads_stay_unclassified() {
         ActionPreview::from_call(&call("shell", serde_json::json!({"cmd":"cargo check"}))).unwrap();
     assert!(legacy_shell.scope.contains("cargo check"));
 
-    let machine_test = ActionPreview::from_call(&call(
-        "machine_test",
-        serde_json::json!({"command":"swift test --filter SchedulerTests"}),
-    ))
-    .unwrap();
-    assert!(machine_test.scope.contains("queue remote machine test"));
-    assert!(machine_test.scope.contains("SchedulerTests"));
-
     assert!(
         ActionPreview::from_call(&call(
             "code_mode",

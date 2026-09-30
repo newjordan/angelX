@@ -26,8 +26,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const SCHEMA: u32 = 1;
 const GLOBAL_FILE: &str = "global.json";
 
-pub(crate) const HARNESS_BLOCK_HEADER: &str = "[continual harness — supplemental state]";
-pub(crate) const HARNESS_BLOCK_SENTINEL: &str = "[/continual harness]";
+/// `⠎⠋` opens and closes the block; its framing sentences are the ledger pages.
+pub(crate) const HARNESS_BLOCK_HEADER: &str = "⠎⠋";
+pub(crate) const HARNESS_BLOCK_SENTINEL: &str = "⠎⠋";
 
 const DEFAULT_MAX_ENTRIES_PER_KIND: usize = 6;
 const DEFAULT_MAX_REFINEMENTS: usize = 5;
@@ -640,11 +641,7 @@ pub(crate) fn context_block(workspace: &Path) -> String {
     let max_content = env_usize("ANGEL_CONTINUAL_HARNESS_MAX_CONTENT", DEFAULT_MAX_CONTENT);
     let max_bytes = env_usize("ANGEL_CONTINUAL_HARNESS_MAX_BYTES", DEFAULT_MAX_BLOCK_BYTES);
 
-    let mut lines = vec![
-        HARNESS_BLOCK_HEADER.to_string(),
-        "Supplemental continual-harness state from prior refinements. Base system prompt is immutable; treat these as routing hints and durable lessons. Prefer the `continual_harness` tool (or `/refine`) for small evidence-backed create/update/delete edits — never rewrite the whole store.".to_string(),
-        String::new(),
-    ];
+    let mut lines = vec![HARNESS_BLOCK_HEADER.to_string()];
 
     for kind in EntryKind::all() {
         let entries = state.by_kind(kind);
@@ -1007,9 +1004,8 @@ impl crate::agent::harness::Tool for ContinualHarnessTool {
         crate::agent::club::ToolDef {
             name: "continual_harness".into(),
             description: "Continual harness (Prime-style): durable supplemental prompt notes, \
-memories, skill procedures, and subagent specs that survive turns. Prefer small evidence-backed \
-edits after a repeated failure, reusable tactic, or durable preference. action=list (default), \
-create, update, delete, rollback, seed_light. Scope project (default) or global."
+memories, skill procedures, and subagent specs that survive turns. action=list (default), \
+create, update, delete, rollback, seed_light. Scope project (default) or global. ⠫⠊"
                 .into(),
             params: serde_json::json!({
                 "type": "object",
@@ -1017,24 +1013,24 @@ create, update, delete, rollback, seed_light. Scope project (default) or global.
                     "action": {
                         "type": "string",
                         "enum": ["list", "create", "update", "delete", "rollback", "seed_light"],
-                        "description": "default list"
+                        "description": "⠫⠊⠃"
                     },
                     "scope": {
                         "type": "string",
                         "enum": ["project", "global"],
-                        "description": "default project"
+                        "description": "⠫⠊⠉"
                     },
                     "kind": {
                         "type": "string",
                         "enum": ["prompt", "memory", "skill", "subagent"],
-                        "description": "required for create/update"
+                        "description": "⠫⠊⠙"
                     },
-                    "id": { "type": "string", "description": "entry id (or refinement id for rollback)" },
+                    "id": { "type": "string", "description": "⠫⠊⠑" },
                     "title": { "type": "string" },
                     "content": { "type": "string" },
-                    "path": { "type": "string", "description": "grouping path, default general" },
-                    "evidence": { "type": "string", "description": "why this edit is justified" },
-                    "outcome": { "type": "string", "description": "expected improvement" },
+                    "path": { "type": "string", "description": "⠫⠊⠋" },
+                    "evidence": { "type": "string", "description": "⠫⠊⠛" },
+                    "outcome": { "type": "string", "description": "⠫⠊⠓" },
                 },
                 "required": [],
             }),

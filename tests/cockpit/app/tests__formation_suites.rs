@@ -40,16 +40,8 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
         "normal-turn formation renders at the top\n{text}"
     );
     assert!(
-        text.contains("GPU Night Shift"),
-        "specialized formation renders\n{text}"
-    );
-    assert!(
         text.contains("Grok War"),
         "frontier war formation renders\n{text}"
-    );
-    assert!(
-        text.contains("Math God"),
-        "lean/math formation renders\n{text}"
     );
     assert!(text.contains("Council"), "formation presets render\n{text}");
     assert!(
@@ -228,43 +220,6 @@ fn moa_graph_slot_opens_model_picker_and_assigns_only_that_seat() {
             .map(|route| route.model.as_str()),
         Some("model-a"),
         "assigning P1 must not rewrite P2"
-    );
-}
-
-#[test]
-fn mathgod_bag_club_cannot_be_a_seat_inside_another_formation() {
-    let _guard = env_lock();
-    let mut bag = Bag::for_render_test(&[
-        ("mathgod", &[("mathgod", true)]),
-        ("openai", &[("gpt-5.6-sol", true)]),
-        ("glm", &[("glm-5.3", true)]),
-    ]);
-    let models = bag.moa_model_choices();
-    assert!(
-        models
-            .iter()
-            .all(|choice| !choice.route.agent.eq_ignore_ascii_case("mathgod")),
-        "mathgod is a formation wrapper, so it must not be offered as a seat: {models:?}"
-    );
-    // Fail-closed even if a roster is hand-built around the wrapper tab.
-    let mathgod = formations::MoaModelRef {
-        agent_index: 0,
-        slot_index: 0,
-        agent: "mathgod".into(),
-        driver: "practice".into(),
-        model: "mathgod".into(),
-        route_id: crate::agent::backplane::RouteId::chat("mathgod", "practice", None),
-        expected_revision: crate::agent::backplane::ModelRevision::chat("mathgod"),
-        metered: false,
-    };
-    let mut roster = formations::FormationRoster::new(formations::FormationId::Duel, &models);
-    assert!(roster.assign(0, mathgod));
-    let err = bag
-        .activate_sota_moa_with_roster(&roster)
-        .expect_err("mathgod is a formation, not a seat inside another formation");
-    assert!(
-        err.contains("not a concrete MoA seat"),
-        "unexpected rejection: {err}"
     );
 }
 
@@ -715,93 +670,6 @@ fn unarmed_moa_message_opens_roster_and_preserves_the_composer() {
 }
 
 #[test]
-fn gpu_comp_formation_sets_sleep_loop_env_contract() {
-    let _guard = env_lock();
-    // Clear so formation can install Treebeard living-subject defaults.
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_LANE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_TASK_TREEBEARD") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_TRAJECTORY_LOG") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_ROOT_TRAJECTORY") };
-    crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp)
-        .apply_sota_env();
-    assert_eq!(
-        std::env::var("ANGEL_GPU_COMP_LOCAL_MOA").as_deref(),
-        Ok("1")
-    );
-    assert_eq!(
-        std::env::var("GPU_COMP_TURBO_MAX_AGENTS").as_deref(),
-        Ok("12")
-    );
-    assert_eq!(
-        std::env::var("GPU_COMP_DICE_ROLE").as_deref(),
-        Ok("advisor")
-    );
-    assert_eq!(
-        std::env::var("GPU_COMP_GROK_ROLE").as_deref(),
-        Ok("kernel-fix-scout")
-    );
-    assert_eq!(
-        std::env::var("GPU_COMP_OPENAI_INTERVAL_MIN").as_deref(),
-        Ok("45")
-    );
-    // Scout=true enables Grok research on deliberate MoA turns.
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_GROK_RESEARCH").as_deref(),
-        Ok("1")
-    );
-    assert_eq!(std::env::var("ANGEL_GROK_TOOL").as_deref(), Ok("1"));
-    assert!(
-        crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp).scout,
-        "GpuComp formation must include the Grok scout seat"
-    );
-    assert_eq!(std::env::var("ANGEL_LANE").as_deref(), Ok("treebeard"));
-    assert_eq!(std::env::var("ANGEL_TRAJECTORY_LOG").as_deref(), Ok("1"));
-    assert_eq!(std::env::var("ANGEL_ROOT_TRAJECTORY").as_deref(), Ok("1"));
-    // Phase-4: default popcorn peer scorer for coding seats (explicit wins).
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
-    crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp)
-        .apply_sota_env();
-    assert_eq!(
-        std::env::var("ANGEL_RL_REWARD").as_deref(),
-        Ok("popcorn_peer")
-    );
-    assert_eq!(
-        crate::drive::reinforce::reward_from_env().label(),
-        "popcorn_peer",
-        "ANGEL_RL_REWARD must resolve to PopcornPeerReward"
-    );
-    // When living peer state exists, POPCORN_PEER_LOG is pinned for submit-hiq.
-    if crate::agent::harness::load_living_peer_snapshot().is_some() {
-        // Only assert when peer file is present and path is a real file.
-        if let Ok(peer_log) = std::env::var("POPCORN_PEER_LOG") {
-            assert!(
-                std::path::Path::new(&peer_log).is_file(),
-                "POPCORN_PEER_LOG should be a real log file: {peer_log}"
-            );
-        }
-    }
-    // Explicit ReAct control pin must not be overwritten on re-apply.
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_LANE", "default") };
-    crate::agent::formations::formation(crate::agent::formations::FormationId::GpuComp)
-        .apply_sota_env();
-    assert_eq!(std::env::var("ANGEL_LANE").as_deref(), Ok("default"));
-    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
-        .apply_sota_env();
-    assert!(std::env::var("ANGEL_GPU_COMP_LOCAL_MOA").is_err());
-    // Formation-default popcorn scorer clears when leaving gpu-comp.
-    assert!(
-        std::env::var("ANGEL_RL_REWARD").is_err(),
-        "leaving gpu-comp should drop popcorn_peer default"
-    );
-}
-
-#[test]
 fn grok_war_command_selects_and_enter_engages_formation() {
     use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 
@@ -849,13 +717,12 @@ fn grok_war_command_selects_and_enter_engages_formation() {
 }
 
 #[test]
-fn tag_team_command_selects_the_two_local_corners_not_council() {
+fn tag_team_command_opens_two_operator_seats_not_council() {
     use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 
     let mut app = seed_preview_app();
     app.bag = Bag::for_render_test(&[
-        ("spark", &[("leanstral-24b", true)]),
-        ("turbo", &[("qwen3-30b-a3b", true)]),
+        ("local", &[("qwen3-30b-a3b", true)]),
         ("openai", &[("gpt-5.6-sol", true)]),
     ]);
 
@@ -868,7 +735,7 @@ fn tag_team_command_selects_the_two_local_corners_not_council() {
         Some(formations::FormationId::TagTeam),
         "the canonical tag-team slug must land on Tag Team, not Council"
     );
-    let deck = app.moa_deck.as_ref().expect("deck open");
+    let deck = app.moa_deck.as_mut().expect("deck open");
     assert_eq!(
         deck.selected_roster().slot_count(),
         2,
@@ -876,16 +743,29 @@ fn tag_team_command_selects_the_two_local_corners_not_council() {
     );
     assert_eq!(deck.selected().name, "Tag Team");
     assert!(
-        deck.selected_roster().is_ready(),
-        "the two local corners must auto-fill when those boxes are online"
+        !deck.selected_roster().is_ready(),
+        "nothing is pre-filled: the operator picks both models"
     );
+    // The operator seats both models.
+    let index_of = |deck: &formations::MoaDeckState, model: &str| {
+        deck.models()
+            .iter()
+            .position(|choice| choice.route.model == model)
+            .expect(model)
+    };
+    for (seat, model) in [(0, "qwen3-30b-a3b"), (1, "gpt-5.6-sol")] {
+        assert!(deck.select_slot(seat));
+        let index = index_of(deck, model);
+        assert!(deck.assign_model(index), "{model}");
+    }
     let labels: Vec<_> = deck
         .selected_roster()
         .assignments()
         .iter()
         .map(|a| a.as_ref().map(|r| r.model.as_str()).unwrap_or("?"))
         .collect();
-    assert_eq!(labels, vec!["leanstral-24b", "qwen3-30b-a3b"]);
+    assert_eq!(labels, vec!["qwen3-30b-a3b", "gpt-5.6-sol"]);
+    deck.focus_formations();
 
     app.focus_module("artifacts");
     assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));
@@ -965,163 +845,6 @@ fn grok_war_formation_sets_frontier_trio_env_contract() {
     assert!(std::env::var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS").is_err());
     assert!(std::env::var("ANGEL_SOTA_MOA_JUDGE_CLUB").is_err());
     assert!(std::env::var("ANGEL_SOTA_MOA_AGG_CLUB").is_err());
-}
-
-#[test]
-fn math_god_command_selects_and_enter_engages_formation() {
-    use ratatui::crossterm::event::{KeyCode, KeyModifiers};
-
-    let mut app = seed_preview_app();
-    app.bag = Bag::for_render_test(&[
-        ("glm", &[("glm-5.3", true)]),
-        ("openai", &[("gpt-5.6-sol", true)]),
-        ("grok", &[("grok-4.6", true)]),
-        ("deepseek", &[("deepseek-v4-pro", true)]),
-        ("spark", &[("leanstral-24b", true)]),
-    ]);
-
-    app.input = "/moa math".to_string();
-    app.cursor = app.input.chars().count();
-    app.submit();
-    assert!(app.thinking.is_none(), "opening Math God is local UI work");
-    assert_eq!(
-        app.moa_deck.as_ref().map(|deck| deck.selected().id),
-        Some(formations::FormationId::MathGod),
-        "math alias must land on the Math God card"
-    );
-    let deck = app.moa_deck.as_ref().expect("deck open");
-    assert!(
-        deck.selected_roster().is_ready(),
-        "recommended Sol+GLM+DeepSeek+Grok seats must auto-fill when routes are online"
-    );
-    assert_eq!(
-        deck.selected_roster()
-            .role_effort(crate::agent::formations::FormationRole::Propose),
-        Some("ultra")
-    );
-    assert_eq!(
-        deck.selected_roster()
-            .role_effort(crate::agent::formations::FormationRole::Judge),
-        Some("xhigh")
-    );
-
-    app.focus_module("artifacts");
-    assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(app.moa_deck.is_none(), "engage closes the deck");
-    assert_eq!(
-        app.moa_one_shot.as_ref().map(|armed| armed.formation),
-        Some(formations::FormationId::MathGod)
-    );
-    assert!(
-        app.messages
-            .last()
-            .is_some_and(|message| message.text.contains("Math God")
-                && message.text.contains("armed for one turn")),
-        "{:?}",
-        app.messages.last().map(|message| &message.text)
-    );
-}
-
-#[test]
-fn math_god_formation_sets_lean_solver_env_contract() {
-    let _guard = env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_SOTA_MOA_COST_PROFILE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GROK_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GLM_MODEL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GLM_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_DEEPSEEK_MODEL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_DEEPSEEK_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_OPENAI_REASONING_EFFORT") };
-    crate::agent::formations::formation(crate::agent::formations::FormationId::MathGod)
-        .apply_sota_env();
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").as_deref(),
-        Ok("openai")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS").as_deref(),
-        Ok("glm,deepseek")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_JUDGE_CLUB").as_deref(),
-        Ok("grok")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_AGG_CLUB").as_deref(),
-        Ok("openai")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_VERIFY_CLUB").as_deref(),
-        Ok("none")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_GROK_REASONING_EFFORT").as_deref(),
-        Ok("xhigh")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_OPENAI_MODEL").as_deref(),
-        Ok("gpt-5.6-sol")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
-        Ok("ultra")
-    );
-    assert_eq!(std::env::var("ANGEL_GLM_MODEL").as_deref(), Ok("glm-5.3"));
-    assert_eq!(
-        std::env::var("ANGEL_DEEPSEEK_MODEL").as_deref(),
-        Ok("deepseek-v4-pro")
-    );
-    assert_eq!(
-        std::env::var("ANGEL_DEEPSEEK_REASONING_EFFORT").as_deref(),
-        Ok("high")
-    );
-    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
-        .apply_sota_env();
-    assert!(std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").is_err());
-    assert!(std::env::var("ANGEL_SOTA_MOA_VERIFY_CLUB").is_err());
-    assert!(std::env::var("ANGEL_SOTA_MOA_AGG_CLUB").is_err());
-    assert!(
-        std::env::var("ANGEL_OPENAI_REASONING_EFFORT").is_err(),
-        "Math God Sol@ultra must not leak into the next formation"
-    );
-    assert!(
-        std::env::var("ANGEL_GROK_REASONING_EFFORT").is_err(),
-        "Math God Grok xhigh must not leak into the next formation"
-    );
-}
-
-#[test]
-fn math_god_pins_do_not_arm_when_another_formation_is_engaged_first() {
-    let _guard = env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_OPENAI_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GROK_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_SOTA_MOA_PROPOSE_CLUB") };
-    crate::agent::formations::formation(crate::agent::formations::FormationId::GrokWar)
-        .apply_sota_env();
-    assert_eq!(
-        std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").as_deref(),
-        Ok("glm")
-    );
-    assert_ne!(
-        std::env::var("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
-        Ok("ultra")
-    );
-    assert_ne!(
-        std::env::var("ANGEL_GROK_REASONING_EFFORT").as_deref(),
-        Ok("xhigh")
-    );
-    crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
-        .apply_sota_env();
 }
 
 #[test]

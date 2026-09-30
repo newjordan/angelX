@@ -213,12 +213,10 @@ fn phone_targets_resolve() {
     let _deep_bag = crate::tests::TestEnvGuard::unset("ANGEL_DEEPSEEK_URL");
     let _deep_phone_model = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_DEEPSEEK_MODEL");
     let _deep_bag_model = crate::tests::TestEnvGuard::unset("ANGEL_DEEPSEEK_MODEL");
-    let _spark_phone = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_SPARK_URL");
-    let _spark_bag = crate::tests::TestEnvGuard::unset("ANGEL_SPARK_URL");
-    let _spark_phone_model = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_SPARK_MODEL");
-    let _spark_bag_model = crate::tests::TestEnvGuard::unset("ANGEL_SPARK_MODEL");
-    let _r1_phone = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_SPARK_R1_URL");
-    let _r1_bag = crate::tests::TestEnvGuard::unset("ANGEL_SPARK_R1_URL");
+    let _local_phone = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_LOCAL_URL");
+    let _local_bag = crate::tests::TestEnvGuard::unset("ANGEL_LOCAL_URL");
+    let _local_phone_model = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_LOCAL_MODEL");
+    let _local_bag_model = crate::tests::TestEnvGuard::unset("ANGEL_LOCAL_MODEL");
     // the default / first phone is deepseek (external SOTA API)
     let (url, model, _) = phone_target("default").expect("default resolves");
     assert!(
@@ -228,14 +226,18 @@ fn phone_targets_resolve() {
     assert!(model.contains("deepseek"));
     assert!(phone_target("deepseek").is_some());
     assert!(phone_target("math").is_some()); // alias → deepseek
-    assert!(phone_target("code").is_none());
+    assert!(
+        phone_target("local").is_none(),
+        "no compiled local endpoint"
+    );
     assert!(phone_target("spark-r1").is_none());
 
+    // The local phone rides the local box's own URL.
     let _configured =
-        crate::tests::TestEnvGuard::set("ANGEL_PHONE_SPARK_URL", "http://runner.example/v1");
-    let (url, model, _) = phone_target("code").expect("explicit fleet phone resolves");
+        crate::tests::TestEnvGuard::set("ANGEL_LOCAL_URL", "http://runner.example/v1");
+    let (url, model, _) = phone_target("local").expect("the local box phone resolves");
     assert_eq!(url, "http://runner.example/v1");
-    assert!(model.is_empty(), "unpinned fleet models follow /models");
+    assert!(model.is_empty(), "an unpinned local model follows /models");
     // unknown + unconfigured → None
     assert!(phone_target("totally-unknown-xyz").is_none());
 }
@@ -313,4 +315,27 @@ fn phone_deepseek_answers() {
     eprintln!("phone:default(deepseek) → [{}] {}", res.verdict, res.detail);
     assert_eq!(res.verdict, "phoned", "detail: {}", res.detail);
     assert!(res.detail.contains("391"), "detail: {}", res.detail);
+}
+
+#[test]
+fn an_evidence_block_marks_a_missing_claim_with_its_page() {
+    let result = |claim: &str| TestResult {
+        request: TestRequest {
+            claim: claim.to_string(),
+            cmd: "cargo test --quiet".to_string(),
+            placement: Placement::Local,
+            why: String::new(),
+        },
+        verdict: "pass",
+        detail: "ok".to_string(),
+    };
+    let block = evidence_block(&[result(""), result("the parser handles empty input")]);
+    // The frame is `⠐⠚`; a request with no claim is `⠐⠚⠙`, never English.
+    assert!(block.starts_with("⠐⠚\n"), "{block}");
+    assert!(block.contains("  claim: ⠐⠚⠙\n"), "{block}");
+    assert!(
+        block.contains("  claim: the parser handles empty input\n"),
+        "{block}"
+    );
+    assert!(!block.contains("(unstated)"), "{block}");
 }

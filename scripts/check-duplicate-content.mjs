@@ -136,20 +136,8 @@ export const DEFAULT_RULES = [
       'Each helms agent sheet is the knight guide art it was promoted from, kept under both names and recorded in cockpit/assets/agents/helms/manifest.json (`generation: gritty knight sheet, promoted from the guide art`, `original: knight-0N-sprite-sheet-guide.png (this dir, unmodified)`). Both sides are load-bearing: cockpit/src/ui/helm.rs loads the agent-named sheet, and the guide file is the provenance record for that promotion. Pinning the exact pairs keeps a new asset duplicate a hard failure instead of quietly joining this set.',
     exact_paths: [
       [
-        'cockpit/assets/agents/helms/turbo.png',
-        'cockpit/assets/agents/helms/knight-01-sprite-sheet-guide.png',
-      ],
-      [
-        'cockpit/assets/agents/helms/atlas.png',
-        'cockpit/assets/agents/helms/knight-02-sprite-sheet-guide.png',
-      ],
-      [
         'cockpit/assets/agents/helms/sparky.png',
         'cockpit/assets/agents/helms/knight-03-sprite-sheet-guide.png',
-      ],
-      [
-        'cockpit/assets/agents/helms/apollo.png',
-        'cockpit/assets/agents/helms/knight-04-sprite-sheet-guide.png',
       ],
       [
         'cockpit/assets/agents/helms/codex.png',

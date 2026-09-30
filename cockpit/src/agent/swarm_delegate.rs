@@ -6,11 +6,11 @@
 //! the agent's per-request hint:
 //! - **local**  — run in a scratch workspace; default-on `ANGEL_SANDBOX` arms the
 //!   cockpit's [`sandbox`](crate::agent::sandbox), writes are landlock-confined to it.
-//! - **remote** — ssh to a fleet host (spark/atlas/turbo) and run there.
+//! - **remote** — ssh to a configured host (`ANGEL_SWARM_SSH_<HOST>`) and run there.
 //! - **peer**   — hand the claim to another network agent for a second opinion
 //!   (best-effort, via a configurable mq9/robusty command).
 //! - **phone**  — consult a model API (the "sota phone"): dial a specific model
-//!   or a category alias (math/code/reason/fast) for a hard sub-problem. Reuses
+//!   (`local` is the local box) or a category alias (math/fast) for a hard sub-problem. Reuses
 //!   [`HttpClub`](crate::agent::club::HttpClub), so any OpenAI-compatible endpoint works.
 //!
 //! The approval policy is the safety boundary: for command placements, a denylist
@@ -20,7 +20,7 @@
 //! Off by default; enabled per run with `ANGEL_SWARM_DELEGATE` (folded into
 //! `ANGEL_SWARM_MAX`); the non-local placements each need their own opt-in.
 
-use crate::agent::club::{Club, HttpClub};
+use crate::agent::club::HttpClub;
 use crate::agent::sandbox::{self, SandboxPolicy};
 use std::path::PathBuf;
 use std::process::Command;
@@ -30,9 +30,9 @@ use std::time::Duration;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Placement {
     Local,
-    Remote(String), // fleet host label, e.g. "spark"
+    Remote(String), // host label
     Peer(String),   // network agent name/mailbox
-    Phone(String),  // model key or category alias, e.g. "math" / "spark-r1"
+    Phone(String),  // model key or category alias, e.g. "math" / "flash"
 }
 
 impl Placement {
@@ -480,11 +480,20 @@ impl Router {
 
     fn run_peer(&self, req: &TestRequest, agent: &str) -> TestResult {
         // The peer agent gets the claim + proposed test and renders a verdict; we
-        // don't run the command ourselves. peer_cmd is operator-controlled.
+        // don't run the command ourselves. peer_cmd is operator-controlled. The
+        // peer is out of process, with no channel for the ledger reader, so it
+        // hears the consult's pages (`⠐⠊⠁…⠐⠊⠙`) recited, the claim and the test
+        // as data.
+        use crate::agent::harness::book::{connect::recite, d3_roles::pages, d5_frames};
+        let page = |n: usize| recite(&pages(d5_frames::CONSULTS, [n]));
         let prompt = format!(
-            "Second opinion requested. Claim: {}\nProposed test: {}\nEvaluate the claim (run \
-             the test if you can) and reply with a verdict and brief reasoning.",
-            req.claim, req.cmd
+            "{} {} {}\n{} {}\n{}",
+            page(1),
+            page(2),
+            req.claim,
+            page(3),
+            req.cmd,
+            page(4)
         );
         let mut cmd = Command::new("sh");
         cmd.arg("-c")
@@ -517,17 +526,22 @@ impl Router {
         } else {
             req.cmd.as_str()
         };
+        // `⠐⠊⠑⠐⠊⠋`, then the claim and the question after their labels
+        // (`⠐⠊⠛`, `⠐⠊⠓`). The phoned model is connected: offered the ledger
+        // reader alone, so it can read them.
+        use crate::agent::harness::book::{connect, d3_roles::pages, d5_frames::CONSULTS};
         let context = if req.claim.trim().is_empty() {
             String::new()
         } else {
-            format!("Context — the claim under consideration: {}\n\n", req.claim)
+            format!("{} {}\n\n", pages(CONSULTS, [7]), req.claim)
         };
         let prompt = format!(
-            "You are being consulted by a peer agent for your expertise. Answer concisely and \
-             decisively.\n\n{context}Question: {question}"
+            "{}\n\n{context}{} {question}",
+            pages(CONSULTS, [5, 6]),
+            pages(CONSULTS, [8])
         );
         let club = HttpClub::new(format!("phone:{target}"), url, model, key);
-        match club.respond(&prompt) {
+        match connect::respond(&club, &connect::workspace(), &prompt) {
             Ok(ans) if !ans.trim().is_empty() => TestResult {
                 request: req.clone(),
                 verdict: "phoned",
@@ -565,16 +579,17 @@ impl Router {
     }
 }
 
-/// Format executed results into an evidence block injected into the synthesis.
+/// Format executed results into an evidence block injected into the synthesis:
+/// `⠐⠚`, then each result as data; a request with no claim is `⠐⠚⠙`.
 pub fn evidence_block(results: &[TestResult]) -> String {
-    let mut s = String::from(
-        "Executed test evidence — ground your answer in these real results. A delegator agent \
-         proposed each; angel approved and routed it. Trust passing/failing tests and consulted \
-         specialists over the drafts' bare assertions:\n",
+    let mut s = format!(
+        "{}\n",
+        crate::agent::harness::book::d5_frames::EVIDENCE.cells()
     );
+    let unstated = crate::agent::harness::book::d5_frames::UNSTATED_CLAIM.cells();
     for r in results {
         let claim = if r.request.claim.is_empty() {
-            "(unstated)"
+            unstated.as_str()
         } else {
             &r.request.claim
         };
@@ -775,25 +790,15 @@ fn ssh_target(host: &str) -> Option<String> {
 /// so external SOTA APIs are wired purely by env. Unknown + unconfigured → None.
 fn phone_target(key: &str) -> Option<(String, String, Option<String>)> {
     // The default / first phone is DeepSeek — a strong external SOTA second
-    // opinion, and a *different* model from gemma (which the swarm already runs
-    // on, so phoning it would be phoning yourself). Category aliases map to the
-    // model best at that "bit" of problem.
+    // opinion. Category aliases map to the model best at that "bit" of problem.
     let key = match key.trim() {
         "" | "default" | "sota" | "deep" | "ds" | "math" => "deepseek",
-        "code" | "coder" => "spark",
-        "reason" | "reasoning" => "atlas",
-        "fast" | "quick" => "turbo",
-        "flash" => "deepseek-flash",
-        // Spark-local ds4 serve (DeepSeek-V4-Flash on the GB10) — free fleet seat.
-        "dsflash" | "ds4" | "ds-flash" | "spark-flash" => "dsflash",
-        "r1" | "deepseek-r1" => "spark-r1",
+        "flash" | "fast" | "quick" => "deepseek-flash",
         k => k,
     };
     let up = key.to_ascii_uppercase().replace('-', "_");
-    // (base_url, model, key-env-var). DeepSeek (external SOTA) is the default.
-    // Fleet boxes carry NO baked-in model id — checkpoints churn on the rigs
-    // daily, so an empty model lets HttpClub resolve whatever the endpoint's
-    // live `/models` reports (an env pin still wins below).
+    // (base_url, model, key-env-var). DeepSeek (external SOTA) is the default;
+    // any other key is wired by its ANGEL_PHONE_<KEY>_URL env.
     let builtin: Option<(Option<&str>, &str, Option<&str>)> = match key {
         "deepseek" => Some((
             Some("https://api.deepseek.com/v1"),
@@ -805,15 +810,10 @@ fn phone_target(key: &str) -> Option<(String, String, Option<String>)> {
             "deepseek-flash",
             Some("DEEPSEEK_API_KEY"),
         )),
-        // Fleet aliases deliberately carry no endpoint. Configure their
-        // ANGEL_PHONE_<KEY>_URL (or ANGEL_<KEY>_URL) route explicitly; the empty
-        // model retains live `/models` resolution when no model pin is supplied.
-        "spark" | "spark-r1" | "turbo" | "atlas" => Some((None, "", None)),
-        // The Spark-local ds4 serve keeps its own served checkpoint id: a
-        // text-only V4 serve, never the cloud V4.1 Flash. Route-scoped capability
-        // keeps it text-only, and ANGEL_DSFLASH_MODEL still overrides the pin, so
-        // no local model id disappears into an empty lookup.
-        "dsflash" => Some((None, "deepseek-v4-flash", None)),
+        // The local box carries no endpoint or model id: its URL comes from
+        // ANGEL_PHONE_LOCAL_URL or ANGEL_LOCAL_URL, and the empty model follows
+        // the endpoint's live `/models`.
+        "local" => Some((None, "", None)),
         _ => None,
     };
     let url = std::env::var(format!("ANGEL_PHONE_{up}_URL"))

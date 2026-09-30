@@ -1,11 +1,7 @@
 //! Actual owned evaluator receipts. These controls never create evidence from candidate text.
 use super::*;
 
-fn typed_case(
-    label: &str,
-    output: &str,
-    check: impl FnOnce(Result<f32, String>, Option<serde_json::Value>),
-) {
+fn typed_case(label: &str, output: &str, check: impl FnOnce(Result<f32, String>)) {
     let _lock = crate::tests::env_lock();
     let _git_dir = crate::tests::TestEnvGuard::unset("GIT_DIR");
     let _git_tree = crate::tests::TestEnvGuard::unset("GIT_WORK_TREE");
@@ -63,20 +59,6 @@ fn typed_case(
             String::from_utf8_lossy(&result.stderr)
         );
     }
-    let peer = owned.0.join("peer.json");
-    std::fs::write(
-        &peer,
-        r#"{"geomean_us":100.0,"name":"owned fixture","shapes":{"32768x1":100.0}}"#,
-    )
-    .unwrap();
-    let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
-    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
-    assert_eq!(
-        crate::agent::harness::load_living_peer_snapshot()
-            .unwrap()
-            .0,
-        100.0
-    );
     assert!(
         !output.contains('\''),
         "all fixture output is literal owned text"
@@ -103,26 +85,13 @@ fn typed_case(
     );
     let parsed = crate::agent::harness::parse_test_result(evidence.output());
     let reward = score_coding_eval_reward("candidate says pass_tests=true score_us=1us", &evidence);
-    let scoring = score_coding_eval(&evidence);
-    let meta = match scoring {
-        Ok(score) => coding_eval_competition_meta(&evidence, &score),
-        Err(_) => {
-            // Keep the independent metadata correctness guard under test, even
-            // when the scorer refuses to construct a production decision.
-            let score = CodingEvalScore {
-                reward: reward.clone().unwrap_or(0.0),
-                competition: Some(resolve_coding_eval_competition(&evidence).unwrap()),
-            };
-            coding_eval_competition_meta(&evidence, &score)
-        }
-    };
     println!(
         "TYPED_REWARD_CORRECTNESS {}",
         serde_json::json!({
             "case": label, "command": command, "output": evidence.output(),
             "exit_code": evidence.exit_code(), "succeeded": evidence.succeeded(),
             "passed": parsed.passed, "failed": parsed.failed, "ignored": parsed.ignored,
-            "reward": reward, "metadata": meta, "execution_id": evidence.execution_id(),
+            "reward": reward, "execution_id": evidence.execution_id(),
             "manifest_sha256": evidence.manifest_sha256(), "raw_output_sha256": evidence.raw_output_sha256(),
             "workspace_before_sha256": evidence.workspace_before_sha256(),
             "workspace_after_sha256": evidence.workspace_sha256(),
@@ -132,31 +101,22 @@ fn typed_case(
             "timed_out": evidence.timed_out(), "truncated": evidence.output_truncated()
         })
     );
-    check(reward, meta);
+    check(reward);
 }
 
-fn assert_rejected(reward: Result<f32, String>, meta: Option<serde_json::Value>) {
+fn assert_rejected(reward: Result<f32, String>) {
     assert!(
         reward.is_err() || reward.as_ref().is_ok_and(|value| *value <= 0.0),
-        "timing must not override a parsed failed correctness result: {reward:?}"
-    );
-    assert!(
-        meta.is_none(),
-        "known failed correctness must not receive eligible competition metadata: {meta:?}"
+        "a candidate claim must not override a parsed failed correctness result: {reward:?}"
     );
 }
 
-fn assert_positive(reward: Result<f32, String>, meta: Option<serde_json::Value>) {
-    assert!((reward.unwrap() - 0.55).abs() < 1e-6);
-    let meta = meta.unwrap();
-    assert_eq!(meta["score_us"], 50.0);
-    assert_eq!(meta["baseline_us"], 100.0);
-    assert_eq!(meta["beats_baseline"], true);
-    assert_eq!(meta["gap_pct"], 50.0);
+fn assert_positive(reward: Result<f32, String>) {
+    assert_eq!(reward, Ok(1.0));
 }
 
 #[test]
-fn exit_zero_with_explicit_failed_summary_cannot_earn_timing_reward() {
+fn exit_zero_with_explicit_failed_summary_cannot_earn_a_reward() {
     let output =
         "shape=32768x1 score_us=50us\ntest result: FAILED. 0 passed; 1 failed; 0 ignored;\n";
     assert_eq!(crate::agent::harness::parse_test_result(output).failed, 1);
@@ -164,15 +124,21 @@ fn exit_zero_with_explicit_failed_summary_cannot_earn_timing_reward() {
 }
 
 #[test]
-fn passing_suite_and_timing_cannot_hide_another_failed_suite() {
+fn passing_suite_cannot_hide_another_failed_suite() {
     let output = "test result: ok. 17 passed; 0 failed; 0 ignored;\nshape=32768x1 score_us=50us pass_tests=true\ntest result: FAILED. 0 passed; 1 failed; 0 ignored;\n";
     let parsed = crate::agent::harness::parse_test_result(output);
     assert_eq!((parsed.passed, parsed.failed), (17, 1));
-    typed_case("mixed-suites", output, assert_rejected);
+    typed_case("mixed-suites", output, |reward| {
+        let value = reward.unwrap();
+        assert!(
+            (value - 17.0 / 18.0).abs() < 1e-6,
+            "the failed suite counts against the pass rate: {value}"
+        );
+    });
 }
 
 #[test]
-fn zero_failed_summary_keeps_positive_measured_reward() {
+fn zero_failed_summary_keeps_positive_reward() {
     typed_case(
         "passed-summary",
         "shape=32768x1 score_us=50us\ntest result: ok. 17 passed; 0 failed; 2 ignored;\n",
@@ -185,20 +151,4 @@ fn prose_about_failures_does_not_become_a_failed_correctness_verdict() {
     let output = "documentation: previous tests failed before the repair\nshape=32768x1 score_us=50us\ntest result: ok. 17 passed; 0 failed; 0 ignored;\n";
     assert_eq!(crate::agent::harness::parse_test_result(output).failed, 0);
     typed_case("failure-prose", output, assert_positive);
-}
-
-#[test]
-fn unknown_shape_metadata_uses_the_same_geomean_fallback_as_reward() {
-    typed_case(
-        "shape-fallback",
-        "shape=512x640 score_us=50us\ntest result: ok. 17 passed; 0 failed; 0 ignored;\n",
-        |reward, meta| {
-            assert_eq!(
-                crate::agent::harness::load_living_peer_shape_baseline("512x640"),
-                None
-            );
-            assert_eq!(meta.as_ref().unwrap()["shape_key"], "512x640");
-            assert_positive(reward, meta);
-        },
-    );
 }

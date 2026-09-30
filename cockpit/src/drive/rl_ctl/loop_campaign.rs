@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::agent::club::{StreamDelta, ToolDef};
+use crate::agent::harness::book::d45_iteration;
 use serde_json::{Value, json};
 
 #[derive(Clone)]
@@ -78,6 +79,14 @@ impl RlState {
             .map(|context| context.loop_id.as_str())
     }
 
+    /// The verifier the bound loop measures with, if any.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn bound_verify(&self) -> Option<&str> {
+        self.loop_context
+            .as_ref()
+            .and_then(|context| context.verify.as_deref())
+    }
+
     pub(crate) fn bind_loop(&mut self, context: LoopCampaignContext) {
         if self.loop_account_owner.as_deref() != Some(&context.loop_id) {
             // A retiring worker retains its old counter and can never charge
@@ -125,13 +134,19 @@ impl RlState {
         let mut launched = None;
         match action {
             "run" => {
-                let context = self.loop_context.clone().ok_or("rl_campaign run needs an active /loop; /rl run remains available to the operator")?;
+                let context = self
+                    .loop_context
+                    .clone()
+                    .ok_or(d45_iteration::CAMPAIGN_NEEDS_LOOP)?;
                 let task = args
                     .get("task")
                     .and_then(Value::as_str)
                     .unwrap_or(&context.task);
-                let verify = args.get("verify").and_then(Value::as_str).or(context.verify.as_deref())
-                    .ok_or("supply a real verifier in 'verify', or bind /goal cmd; RL needs a measurement")?;
+                let verify = args
+                    .get("verify")
+                    .and_then(Value::as_str)
+                    .or(context.verify.as_deref())
+                    .ok_or(d45_iteration::CAMPAIGN_NEEDS_VERIFIER)?;
                 let mut argv = vec![
                     "--task".into(),
                     task.into(),
@@ -145,9 +160,7 @@ impl RlState {
                             .filter(|n| *n > 0)
                             .ok_or_else(|| format!("{name} must be a positive integer"))?;
                         if name == "samples" && n < 2 {
-                            return Err(
-                                "samples must be at least 2 for measured policy comparison".into(),
-                            );
+                            return Err(d45_iteration::SAMPLES_TOO_FEW.into());
                         }
                         argv.extend([format!("--{name}"), n.to_string()]);
                     }
@@ -165,11 +178,15 @@ impl RlState {
                 }
                 if let Some(audits) = args.get("audit") {
                     for audit in audits.as_array().ok_or("audit must be an array")? {
-                        let task = audit["task"].as_str().ok_or("audit requires task")?;
-                        let verify = audit["verify"].as_str().ok_or("audit requires verify")?;
+                        let task = audit["task"]
+                            .as_str()
+                            .ok_or(d45_iteration::AUDIT_NEEDS_TASK)?;
+                        let verify = audit["verify"]
+                            .as_str()
+                            .ok_or(d45_iteration::AUDIT_NEEDS_VERIFY)?;
                         let source = audit["source"]
                             .as_str()
-                            .ok_or("audit requires independent source")?;
+                            .ok_or(d45_iteration::AUDIT_NEEDS_SOURCE)?;
                         argv.extend(["--audit".into(), format!("{task} :: {verify} :: {source}")]);
                     }
                 }
@@ -208,7 +225,7 @@ impl RlState {
                 return Ok(json!({"campaigns": results}).to_string());
             }
             _ => {
-                return Err("unknown rl_campaign action; use run, status, results, or stop".into());
+                return Err(d45_iteration::CAMPAIGN_UNKNOWN_ACTION.into());
             }
         }
         Ok(json!({"launch": launched, "campaign": self.status_value()}).to_string())
@@ -216,7 +233,7 @@ impl RlState {
 
     fn status_value(&self) -> Value {
         let progress = self.progress_snapshot();
-        json!({
+        let mut status = json!({
             "available": self.loop_enabled(),
             "status": if self.running() { "running" } else if progress.outcome.is_some() { "settled" } else { "idle" },
             "stop_requested": self.cancel.as_ref().is_some_and(|c| c.load(Ordering::Acquire)),
@@ -228,7 +245,11 @@ impl RlState {
             "passed": progress.passed, "red": progress.red,
             "rounds_done": progress.rounds_done, "rounds_planned": progress.rounds_planned,
             "outcome": progress.outcome, "log_tail": progress.log_tail,
-        })
+        });
+        if let Some(route) = campaign_route(&status) {
+            status["warpath"] = json!(route);
+        }
+        status
     }
 
     fn retained_results(
@@ -242,7 +263,7 @@ impl RlState {
             && (!id.starts_with("run-")
                 || !id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-'))
         {
-            return Err("run_id must be a campaign identifier returned by this tool".into());
+            return Err(d45_iteration::CAMPAIGN_ID_INVALID.into());
         }
         let mut dirs = match std::fs::read_dir(&root) {
             Ok(entries) => entries
@@ -284,31 +305,52 @@ impl RlState {
             }
         }
         if id.is_some() && results.is_empty() {
-            return Err("no retained campaign with that run_id in this workspace".into());
+            return Err(d45_iteration::CAMPAIGN_ID_UNKNOWN.into());
         }
         Ok(results)
     }
 
-    pub(crate) fn loop_context_text(&self, workspace: &Path) -> String {
+    /// The loop's campaign and research ledgers for the next iteration.
+    /// `invite` is false while the verifier is blocked or a submission is
+    /// overdue: research is not an acceptable outcome for that iteration, so
+    /// the invitation (`⠪⠋⠪⠛⠪⠓`) stays off and only the history rides.
+    pub(crate) fn loop_context_text(&self, workspace: &Path, invite: bool) -> String {
         if !self.loop_enabled() {
             return String::new();
         }
-        let mut text = "[RL campaigns]\nrl_campaign is available throughout this loop: run starts asynchronous measured attempts on the current route; status, results, and stop manage them. Use it when comparing approaches or improving a policy would help. Continue useful work while it runs. Inspect actual verifier outcomes and retained attempt artifacts; apply a useful candidate to the main workspace and verify it there. Submit a verified winner when ready. Campaign availability does not require you to launch one.\nCampaigns without an independent audit are measured exploration; they do not install validated learning.\n".to_string();
-        text.push_str("Optional research paths: consult_model(method=\"deli\", club=\"self\") explores directions and returns a synthesis to this turn; spawn(formation=\"moa\") compares parallel approaches; continual_harness retains useful supplemental notes. Choose them when helpful, return to ordinary tools when ready, and check proposals against actual evidence.\n");
+        // `⠪⠋⠪⠛⠪⠓`: the campaign, research-path and loop_research words are
+        // the ledger pages; the history below is the data.
+        use crate::agent::harness::book::ow_ledgers;
+        let mut text = if invite {
+            format!(
+                "{}{}{}\n",
+                ow_ledgers::RL.cells(),
+                ow_ledgers::RESEARCH_PATHS.cells(),
+                ow_ledgers::LOOP_RESEARCH.cells()
+            )
+        } else {
+            String::new()
+        };
         text.push_str(&self.research_context(workspace));
         match self.retained_results(workspace, None, 3) {
             Ok(results) => {
                 for result in results {
                     // Keep the fresh iteration compact; full objectives, policies,
                     // evidence and errors remain accessible through results/artifacts.
-                    let summary = json!({"run_id": result["run_id"], "status": result["status"],
+                    let mut summary = json!({"run_id": result["run_id"], "status": result["status"],
                         "outcome": result["outcome"], "artifacts": result["artifacts"]});
+                    if !result["outcome"].is_null() {
+                        let settled = json!({"status": "settled", "outcome": result["outcome"]});
+                        if let Some(route) = campaign_route(&settled) {
+                            summary["warpath"] = json!(route);
+                        }
+                    }
                     let line = summary.to_string();
                     text.push_str(&line.chars().take(4000).collect::<String>());
                     text.push('\n');
                 }
             }
-            Err(error) => text.push_str(&format!("History unavailable: {error}\n")),
+            Err(error) => text.push_str(&format!("{} {error}\n", ow_ledgers::HISTORY_UNAVAILABLE)),
         }
         text
     }
@@ -559,4 +601,15 @@ impl Club for CampaignClub {
             .charge(returned.saturating_sub(streamed).div_ceil(4));
         Ok(reply)
     }
+}
+
+/// A campaign's `⡪` route: live while it runs; settled with its decision
+/// beside it, and the no-spread page when its last round could not learn.
+fn campaign_route(status: &Value) -> Option<String> {
+    use crate::agent::harness::book::d2467_research as research;
+    let mut cells = research::cells(&research::campaign(status));
+    if status["status"] == "settled" && research::no_spread(&status["outcome"]) {
+        cells.push_str(research::NO_SPREAD);
+    }
+    (!cells.is_empty()).then_some(cells)
 }

@@ -940,7 +940,10 @@ fn inline_note_omits_recall_hint_when_palace_is_not_live() {
     let club = ScriptedClub::new(reply);
     let window = vec![user("did X"), asst("did Y"), user("then Z")];
     let live = compact_window(&club, &window, "w", "s", 100_000, true).expect("compacts (live)");
-    assert!(live.inline_note.contains("long-term memory"));
+    assert!(
+        live.inline_note.starts_with("⠵⠓⠃⠵⠓⠉"),
+        "the palace pointer is its page"
+    );
     let offline =
         compact_window(&club, &window, "w", "s", 100_000, false).expect("compacts (offline)");
     assert!(
@@ -948,7 +951,10 @@ fn inline_note_omits_recall_hint_when_palace_is_not_live() {
         "offline note must not promise a recall source: {}",
         offline.inline_note
     );
-    assert!(offline.inline_note.contains("background reference"));
+    assert!(
+        offline.inline_note.starts_with("⠵⠓⠁\n"),
+        "the plain header is its page"
+    );
     // The distilled sections are still present inline either way.
     assert!(offline.inline_note.contains("## Task"));
 }
@@ -1147,14 +1153,21 @@ fn summarizer_prompts_exclude_transient_failures() {
     // local summarizer will distill raw `tool error:` lines into durable notes.
     let s = structured_prompt("excerpt");
     let m = map_prompt("excerpt");
-    assert!(
-        s.contains("Do not record transient tool errors"),
-        "structured prompt missing the guard:\n{s}"
-    );
-    assert!(
-        m.contains("Do not record transient tool errors"),
-        "map prompt missing the guard:\n{m}"
-    );
+    // The guard is a page of both routes the prompts carry.
+    use crate::agent::harness::book::st_connected::{MAP_NOTES, SUMMARIZER};
+    assert!(s.starts_with(&SUMMARIZER.cells()), "{s}");
+    assert!(m.starts_with(&MAP_NOTES.cells()), "{m}");
+    for route in [SUMMARIZER, MAP_NOTES] {
+        assert!(
+            route
+                .sub()
+                .pages
+                .join(" ")
+                .contains("Do not record transient tool errors"),
+            "{} missing the guard",
+            route.name()
+        );
+    }
     // OpenThreads no longer invites "known issues" (which captured failure noise).
     let open = SECTIONS
         .iter()
@@ -1166,4 +1179,24 @@ fn summarizer_prompts_exclude_transient_failures() {
         "OpenThreads: {open}"
     );
     assert!(!open.contains("known issues"), "OpenThreads: {open}");
+}
+
+#[test]
+fn summary_section_pages_mirror_the_parsed_sections() {
+    // The summarizer reads the schema off `⠌⠛`; the reply is parsed against
+    // `SECTIONS`. They must never drift apart.
+    let pages = crate::agent::harness::book::st_connected::SUMMARY_SECTIONS
+        .sub()
+        .pages;
+    let expected = SECTIONS
+        .iter()
+        .map(|(name, what)| format!("## {name}\n{what}"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        pages
+            .iter()
+            .map(|page| page.to_string())
+            .collect::<Vec<_>>(),
+        expected
+    );
 }

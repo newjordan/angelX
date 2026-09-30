@@ -49,7 +49,7 @@ fn project_docs_respect_byte_cap() {
     std::fs::write(base.join("AGENTS.md"), "x".repeat(5000)).unwrap();
     let docs = discover_project_docs(&base, 1000);
     assert!(docs.len() <= 1000, "hard byte cap exceeded: {}", docs.len());
-    assert!(docs.contains("truncated"));
+    assert!(docs.contains("…⠸⠉⠁…"), "the elision is `⠸⠉⠁`");
     assert!(docs.starts_with("## AGENTS.md"));
     std::fs::remove_dir_all(&base).ok();
 }
@@ -83,7 +83,8 @@ fn project_doc_cap_preserves_root_and_higher_precedence_nested_edges() {
     ] {
         assert!(docs.contains(expected), "missing {expected:?}: {docs}");
     }
-    assert_eq!(docs.matches("scoped project doc truncated").count(), 2);
+    // Each elided middle is `⠸⠉⠁`, between the elision marks.
+    assert_eq!(docs.matches("…⠸⠉⠁…").count(), 2);
     std::fs::remove_dir_all(&base).ok();
 }
 

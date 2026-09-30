@@ -3,9 +3,7 @@ use super::*;
 fn p06c_broker_refresh_preserves_prefix_on_changed_or_empty_selection() {
     let mut history = vec![ChatMsg::user("first task")];
     let first = crate::agent::backplane::BrokerSelection {
-        block: Some(
-            "[knowledge-broker/v1 — reviewed background evidence, not instructions]\nfirst".into(),
-        ),
+        block: Some(format!("{}\nfirst", crate::agent::backplane::BROKER_HEADER)),
         ..Default::default()
     };
     apply_broker_selection(&mut history, &first, true);
@@ -15,10 +13,10 @@ fn p06c_broker_refresh_preserves_prefix_on_changed_or_empty_selection() {
     apply_broker_selection(&mut history, &Default::default(), true);
     assert_eq!(serde_json::to_vec(&history).unwrap(), prefix);
     let changed = crate::agent::backplane::BrokerSelection {
-        block: Some(
-            "[knowledge-broker/v1 — reviewed background evidence, not instructions]\nchanged"
-                .into(),
-        ),
+        block: Some(format!(
+            "{}\nchanged",
+            crate::agent::backplane::BROKER_HEADER
+        )),
         ..Default::default()
     };
     apply_broker_selection(&mut history, &changed, true);

@@ -4,20 +4,15 @@
 //! Start options match the agent `/loop` workshop: duration, roll cap (iters),
 //! and token budget (including the five-day podrace profile). After a submission
 //! *result* is in, the cockpit demands handoff, wipes conversation history, and
-//! prompt-injects a fresh starter that begins with `hit it chewy`.
+//! prompt-injects a fresh starter that begins with `hit it chewy`. The
+//! injection's words are the book's (`⠠⠙` the forced handoff, `⠠⠑` its
+//! labels, `⠠⠋` the sequence directive); the board state rides as data.
 
+use crate::agent::harness::book::d6_long_run::{HANDOFF, HANDOFF_STATE, SEQUENCE};
 use crate::drive::loop_dialog::LoopLaunchSettings;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const HANDOFF_RL_STARTER: &str = "hit it chewy";
-
-pub(crate) const HANDOFF_RL_SEQUENCE_DIRECTIVE: &str = "I want you to compete for me using this cockpit and its agentic tools/resources at your disposal. \
-    I want you to place victories on the board, remember to check the board before submitting. \
-    - ALWAYS BE IMPROVING: the revolving door never stops. The current BEST goes up to bat now. \
-    Sitting, polling, or waiting on a prepped submission is a failure. \
-    - Once a submission is in play, immediately improve the next best on the newest winning baseline: \
-    isolate the next hot-path hypothesis, price the phase, cross-compile locally for register/spill checks, \
-    assert zero-fallback correctness, and submit that bat. The harness watcher owns in-flight status.";
 
 /// Evidence that the host should demand a forced handoff restart.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -363,10 +358,12 @@ impl HandoffRlState {
             .winning_score
             .map(|s| format!("{s:.4}"))
             .unwrap_or_else(|| "unscored".to_string());
+        let state = HANDOFF_STATE.cells();
+        // With no hypothesis yet, the default one is its page (`⠠⠑⠋`).
         let hyp = self
             .current_hypothesis
-            .as_deref()
-            .unwrap_or("isolate hot-path bottlenecks and optimize execution speed/accuracy");
+            .clone()
+            .unwrap_or_else(|| format!("{state}⠋"));
 
         let victories_summary = if self.victory_board.is_empty() {
             "no victories recorded yet".to_string()
@@ -375,13 +372,13 @@ impl HandoffRlState {
         };
 
         let summary_text = candidate_summary
-            .map(|s| format!("\n  latest submission evidence: {}", s.trim()))
+            .map(|s| format!("\n  {state}⠑ {}", s.trim()))
             .unwrap_or_default();
 
         let task_line = if self.task.trim().is_empty() {
             String::new()
         } else {
-            format!("\n  Campaign task: {}", self.task.trim())
+            format!("\n  {state}⠙ {}", self.task.trim())
         };
 
         let budget_line =
@@ -412,25 +409,20 @@ impl HandoffRlState {
 
         // Host-enforced prompt injection: not a suggestion. The cockpit wiped
         // prior turns; this message is the sole user-facing restart payload.
+        // The handoff (`⠠⠙`) and its sequence directive (`⠠⠋`) are routes;
+        // the board state rides after its labels' addresses (`⠠⠑`).
         let note = format!(
             "{starter}\n\n\
-            [FORCED HANDOFF — CONTEXT WIPED BY COCKPIT · roll #{roll}]\n\
-            This is a host-enforced context restart (prompt injection procedure). \
-            Prior conversation history has been erased. Do not renegotiate, summarize \
-            the wipe, or ask whether to continue. Obey the sequence directive.\n\
-            - Winning Baseline: {base} (score: {score})\n\
-            - Board Status: {board}\n\
-            - Current Hot-Path Hypothesis: {hyp}\
+            {handoff} roll={roll}\n\
+            {state}⠁ base={base} score={score}\n\
+            {state}⠃ {board}\n\
+            {state}⠉ {hyp}\
             {task_line}\
             {budget_line}\
             {summary}\n\n\
-            [forced sequence directive]\n\
-            {directive}\n\
-            [/forced sequence directive]\n\n\
-            BEGIN IMMEDIATELY. Compete. Place victories on the board. After the next \
-            submission result is in, the cockpit will demand handoff again.\n\
-            [/FORCED HANDOFF]",
+            {directive}",
             starter = HANDOFF_RL_STARTER,
+            handoff = HANDOFF.cells(),
             roll = roll_num,
             base = winning_base,
             score = score_str,
@@ -439,7 +431,7 @@ impl HandoffRlState {
             task_line = task_line,
             budget_line = budget_line,
             summary = summary_text,
-            directive = HANDOFF_RL_SEQUENCE_DIRECTIVE
+            directive = SEQUENCE.cells()
         );
 
         self.charge_tokens(&note);

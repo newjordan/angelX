@@ -120,14 +120,6 @@ pub(crate) const KNOB_CATALOG: &[&str] = &[
     "ANGEL_SPIN_LIMIT",
     "ANGEL_POLL_REPEAT_LIMIT",
     "ANGEL_MAX_HOPS",
-    "ANGEL_MACHINE_QUEUE_HOST",
-    "ANGEL_MACHINE_QUEUE_RESOURCE",
-    "ANGEL_MACHINE_QUEUE_OWNER",
-    "ANGEL_MACHINE_QUEUE_REMOTE_CWD",
-    "ANGEL_MACHINE_QUEUE_WAIT_SECS",
-    "ANGEL_MACHINE_QUEUE_LEASE_SECS",
-    "ANGEL_MACHINE_QUEUE_QUANTUM_SECS",
-    "ANGEL_COMPETITION_ID",
     "ANGEL_ERROR_LIMIT",
     "ANGEL_NOPROGRESS_LIMIT",
     "ANGEL_FIRST_WRITE_CALLS",
@@ -514,12 +506,10 @@ pub(crate) fn classify_tool_error(result: &str) -> ToolErrorClass {
 /// The anti-spin / progress counters a turn accumulated, snapshotted at exit.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct TurnCounters {
-    pub(crate) deferred_nudges: usize,
+    /// Replies that printed tool-call markup instead of calling a tool.
+    pub(crate) markup_replies: usize,
     pub(crate) spin: usize,
     pub(crate) err_streak: usize,
-    pub(crate) churn: usize,
-    /// Inspection batches rejected after the bounded first-write budget.
-    pub(crate) first_write_rejections: usize,
     /// Exact read/search outputs replaced by newest-full duplicate receipts.
     pub(crate) duplicate_inspection_results: usize,
     pub(crate) duplicate_inspection_bytes_saved: u64,
@@ -567,17 +557,11 @@ pub(crate) struct TurnCounters {
     pub(crate) cache_write_input_tokens: u64,
     pub(crate) cache_read_accounting_responses: u64,
     pub(crate) cache_write_accounting_responses: u64,
-    /// Unsupported completion claims accepted after verification policy was
-    /// disabled or its bounded denial budget was exhausted.
+    /// Answers that stood while their edits were untested (`⠧⠋`).
     pub(crate) unverified_completion_claims: usize,
-    /// Identical conclusive verifier calls reused on an unchanged Git-backed
-    /// workspace instead of re-executing redundant work.
-    pub(crate) redundant_verifier_skips: usize,
     /// Activated hidden-tool schemas missing from the actual next provider
     /// definition set.
     pub(crate) discovered_tool_schema_failures: usize,
-    /// Unsupported completion claims denied after a behavior-changing edit.
-    pub(crate) verification_denials: usize,
     /// Deterministic high-confidence skill hints injected before this turn.
     pub(crate) skill_hints: usize,
     /// Extra provider requests spent recovering unusable truncated output.
@@ -622,8 +606,8 @@ pub(crate) struct TurnExperience<'a> {
     pub(crate) model: Option<&'a str>,
     pub(crate) reasoning_effort: Option<&'a str>,
     pub(crate) ok: bool,
-    /// Why the turn ended: "answer" | "interrupt" | "deadline" | "spin" |
-    /// "error_stop" | "churn_stop" | "deferred_stop" | "max_hops".
+    /// Why the turn ended: "answer" | "interrupt" | "deadline" | "max_hops" |
+    /// "execution_blocked" | a failure seam such as "provider_error".
     pub(crate) stop: &'a str,
     pub(crate) latency_ms: u128,
     pub(crate) hops: usize,
@@ -678,11 +662,9 @@ pub(crate) fn turn_record(
     seq: u64,
 ) -> serde_json::Value {
     let mut counters = serde_json::json!({
-        "deferred_nudges": exp.counters.deferred_nudges,
+        "markup_replies": exp.counters.markup_replies,
         "spin": exp.counters.spin,
         "err_streak": exp.counters.err_streak,
-        "churn": exp.counters.churn,
-        "first_write_rejections": exp.counters.first_write_rejections,
         "duplicate_inspection_results": exp.counters.duplicate_inspection_results,
         "duplicate_inspection_bytes_saved": exp.counters.duplicate_inspection_bytes_saved,
         "aged_inspection_results": exp.counters.aged_inspection_results,
@@ -705,9 +687,7 @@ pub(crate) fn turn_record(
         "cache_read_accounting_responses": exp.counters.cache_read_accounting_responses,
         "cache_write_accounting_responses": exp.counters.cache_write_accounting_responses,
         "unverified_completion_claims": exp.counters.unverified_completion_claims,
-        "redundant_verifier_skips": exp.counters.redundant_verifier_skips,
         "discovered_tool_schema_failures": exp.counters.discovered_tool_schema_failures,
-        "verification_denials": exp.counters.verification_denials,
         "skill_hints": exp.counters.skill_hints,
         "provider_truncation_retries": exp.counters.provider_truncation_retries,
         "provider_truncation_recoveries": exp.counters.provider_truncation_recoveries,
@@ -860,13 +840,6 @@ pub(crate) fn hiq_outcome_json(counters: &TurnCounters) -> serde_json::Value {
         Some(h) => (Some(h.offload_ratio), Some(h.hiq_priority)),
         None => (None, None),
     };
-    // Living B200 peer frontier (GpuComp / Treebeard competition subject).
-    let peer = crate::agent::harness::load_living_peer_snapshot();
-    let (peer_us, peer_name) = match peer {
-        Some((geo, name, _)) => (Some(geo), Some(name)),
-        None => (None, None),
-    };
-    let peer_p1 = crate::agent::harness::load_living_peer_p1_us();
     let mut map = serde_json::Map::new();
     map.insert("lane".into(), serde_json::Value::String(lane));
     map.insert("eager_offload_results".into(), eager.into());
@@ -900,159 +873,6 @@ pub(crate) fn hiq_outcome_json(counters: &TurnCounters) -> serde_json::Value {
             "root_hiq_priority".into(),
             serde_json::json!((p * 1000.0).round() / 1000.0),
         );
-    }
-    if let Some(us) = peer_us {
-        map.insert(
-            "living_peer_us".into(),
-            serde_json::json!((us * 100.0).round() / 100.0),
-        );
-    }
-    if let Some(n) = peer_name {
-        map.insert("living_peer_name".into(), serde_json::Value::String(n));
-    }
-    if let Some(p1) = peer_p1 {
-        map.insert(
-            "living_peer_p1_us".into(),
-            serde_json::json!((p1 * 10.0).round() / 10.0),
-        );
-    }
-    // Free-train / last LoRA cycle (AUTOPROMOTE=0 handoff + live pulse).
-    if let Some(snap) = crate::agent::harness::load_forge_train_snap() {
-        map.insert(
-            "forge_train_state".into(),
-            serde_json::Value::String(snap.state.clone()),
-        );
-        if let Some(ref ver) = snap.version {
-            map.insert(
-                "forge_adapter_version".into(),
-                serde_json::Value::String(ver.clone()),
-            );
-        }
-        if let Some(g) = snap.gate_pass {
-            map.insert("forge_gate_pass".into(), serde_json::Value::Bool(g));
-        }
-        if snap.adapter_local {
-            map.insert("forge_adapter_local".into(), serde_json::Value::Bool(true));
-        }
-        if let (Some(step), Some(total)) = (snap.train_step, snap.train_total) {
-            map.insert("forge_train_step".into(), step.into());
-            map.insert("forge_train_total".into(), total.into());
-        }
-        // Mid-train pulse / last-cycle harvest PRIMARY densify surface.
-        if let Some(ref open) = snap.open_lever_top {
-            map.insert(
-                "forge_open_lever_top".into(),
-                serde_json::Value::String(open.clone()),
-            );
-        }
-        if let Some(n) = snap.free_train_primary_n
-            && n > 0
-        {
-            map.insert("forge_free_train_primary_n".into(), n.into());
-        }
-        if let Some(p) = snap.preference_n
-            && p > 0
-        {
-            map.insert("forge_preference_n".into(), p.into());
-        }
-        if let Some(c) = snap.coding_eval_n
-            && c > 0
-        {
-            map.insert("forge_coding_eval_n".into(), c.into());
-        }
-        if let Some(cp) = snap.coding_eval_primary_n
-            && cp > 0
-        {
-            map.insert("forge_coding_eval_primary_n".into(), cp.into());
-        }
-        if let Some(h) = snap.measured_hold_us
-            && h.is_finite()
-            && h > 0.0
-        {
-            map.insert(
-                "forge_measured_hold_us".into(),
-                serde_json::json!((h * 10.0).round() / 10.0),
-            );
-        }
-        if let Some(loss) = snap.train_loss
-            && loss.is_finite()
-        {
-            map.insert(
-                "forge_train_loss".into(),
-                serde_json::json!((loss * 10000.0).round() / 10000.0),
-            );
-        }
-        // Pulse/finalize loss extrema — Hi/Q join without re-reading forge logs.
-        if let Some(lo) = snap.train_loss_min
-            && lo.is_finite()
-            && lo > 0.0
-        {
-            map.insert(
-                "forge_train_loss_min".into(),
-                serde_json::json!((lo * 10000.0).round() / 10000.0),
-            );
-        }
-        if let Some(hi) = snap.train_loss_max
-            && hi.is_finite()
-            && hi > 0.0
-        {
-            map.insert(
-                "forge_train_loss_max".into(),
-                serde_json::json!((hi * 10000.0).round() / 10000.0),
-            );
-        }
-    }
-    let hold_n = crate::agent::harness::load_living_peer_shape_holds(8).len();
-    if hold_n > 0 {
-        map.insert("living_peer_shape_holds_n".into(), hold_n.into());
-    }
-    // Open levers ranked by board µs (equal-weight geomean) — same order as
-    // Treebeard root / popcorn-open-levers.
-    let open = crate::agent::harness::load_living_peer_open_levers(4);
-    if !open.is_empty() {
-        map.insert(
-            "living_peer_open_levers_n".into(),
-            serde_json::json!(open.len()),
-        );
-        let keys: Vec<String> = open.iter().map(|l| l.key.clone()).collect();
-        map.insert(
-            "living_peer_open_lever_keys".into(),
-            serde_json::json!(keys),
-        );
-        if let Some(top) = open.first() {
-            let top_us = (top.board_us * 10.0).round() / 10.0;
-            map.insert("living_peer_top_open_us".into(), serde_json::json!(top_us));
-            map.insert(
-                "living_peer_top_open_key".into(),
-                serde_json::Value::String(top.key.clone()),
-            );
-            // Canonical forge join keys (+ attack alias for older strip readers).
-            map.insert(
-                "living_peer_primary_key".into(),
-                serde_json::Value::String(top.key.clone()),
-            );
-            map.insert("living_peer_primary_us".into(), serde_json::json!(top_us));
-            map.insert(
-                "living_peer_primary_attack".into(),
-                serde_json::Value::String(top.key.clone()),
-            );
-            map.insert(
-                "living_peer_primary_geo_drop_half_pct".into(),
-                serde_json::json!((top.geo_drop_if_half_pct * 1000.0).round() / 1000.0),
-            );
-            if let Some(b) = top.best_us {
-                map.insert(
-                    "living_peer_primary_best_us".into(),
-                    serde_json::json!((b * 10.0).round() / 10.0),
-                );
-            }
-            if let Some(ref n) = top.best_name {
-                map.insert(
-                    "living_peer_primary_best_name".into(),
-                    serde_json::Value::String(n.clone()),
-                );
-            }
-        }
     }
     serde_json::Value::Object(map)
 }

@@ -47,8 +47,8 @@
 
 use crate::agent::club::{ChatMsg, ChatRole, Club, ClubReply, StreamDelta, ToolDef};
 use crate::drive::iterate::{
-    EvidenceRegime, WORKER_SYS, curated_prompt, finding_claim, has_evidence_tag, normalize,
-    numbered, parse_iteration_sections,
+    EvidenceRegime, curated_prompt, finding_claim, has_evidence_tag, normalize, numbered,
+    parse_iteration_sections,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -63,11 +63,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 // with the cross-turn loop controller. Only the synthesis prompt — deli's own
 // final-answer stage — stays here.
 
-/// Fuses the accumulated findings into the final answer for the user.
-const DELI_SYNTH_SYS: &str = "You synthesize the accumulated findings of an autonomous work \
-    loop into one final answer for the user. Integrate them, resolve contradictions, discard \
-    dead ends, and answer the problem directly — never narrate the loop or the iteration \
-    process.";
+/// Fuses the accumulated findings into the final answer for the user: `⠬⠋`,
+/// whose first two pages are the synthesizer's brief and the rest its task.
+const DELI_SYNTHESIS: crate::agent::harness::book::Route =
+    crate::agent::harness::book::ing_drivers::DELI_SYNTHESIS;
 
 /// deli's worker is offered no tools ([`DeliClub::call_cancellable`] passes an empty tool
 /// list and rejects a tool request outright), so it reasons over the problem
@@ -208,16 +207,16 @@ impl DeliClub {
         let mut full = Vec::with_capacity(msgs.len() + 1);
         full.push(ChatMsg::system(system));
         full.extend_from_slice(msgs);
-        match self.inner.chat_streaming_with_effort(
+        // The text-only worker is connected: offered the ledger reader alone,
+        // so its routes read like every other seat's, on the ledger of the
+        // workspace its turn entered.
+        crate::agent::harness::book::connect::chat(
+            &*self.inner,
+            &crate::agent::harness::book::connect::workspace(),
             &full,
-            &[],
             self.call_effort.as_deref(),
             cancel,
-            &mut |_| {},
-        )? {
-            ClubReply::Text(t) => Ok(t),
-            ClubReply::Calls(_) => Err("deli worker requested a tool (none offered)".to_string()),
-        }
+        )
     }
 
     /// Run the bounded loop, accumulating findings. Each round runs on a *fresh*
@@ -233,7 +232,10 @@ impl DeliClub {
         // later round. Distinct from `seen` / `seen_hypotheses`, which key off
         // finding *claims* (evidence-stripped) rather than DIRECTION lines.
         let mut seen_directions: HashSet<String> = HashSet::new();
-        let system = compose(WORKER_SYS, base_sys);
+        let system = compose(
+            &crate::agent::harness::book::er_loop::WORKER.cells(),
+            base_sys,
+        );
         for _ in 0..self.k.rounds {
             if cancel.load(Ordering::Relaxed) {
                 break;
@@ -348,10 +350,15 @@ impl DeliClub {
         hypotheses: &[String],
         cancel: &AtomicBool,
     ) -> Result<String, String> {
-        let system = compose(DELI_SYNTH_SYS, base_sys);
+        use crate::agent::harness::book::d3_roles::pages;
         if findings.is_empty() && hypotheses.is_empty() {
+            // Nothing surfaced: the brief alone (`⠬⠋⠁⠬⠋⠃`), the problem as data.
+            let system = compose(&pages(DELI_SYNTHESIS, [1, 2]), base_sys);
             return self.call_cancellable(&system, &[ChatMsg::user(problem)], cancel);
         }
+        // `⠬⠋`: the brief and the task are the pages; the problem, the findings
+        // and the open leads ride as data under their keys.
+        let system = compose(&DELI_SYNTHESIS.cells(), base_sys);
         let findings_txt = if findings.is_empty() {
             "none established".to_string()
         } else {
@@ -360,21 +367,9 @@ impl DeliClub {
         let leads_txt = if hypotheses.is_empty() {
             String::new()
         } else {
-            format!(
-                "\n\nOpen leads (raised but NOT evidenced — do not present these as \
-                 established; use them only where the answer must acknowledge an open \
-                 question):\n{}",
-                numbered(hypotheses)
-            )
+            format!("\n\nopen leads:\n{}", numbered(hypotheses))
         };
-        let msg = format!(
-            "Problem:\n{problem}\n\nEvidenced findings from autonomous iteration:\n\
-             {findings_txt}{leads_txt}\n\n\
-             Synthesize these into a single, direct, well-organized answer to the problem. \
-             Integrate them, resolve contradictions, drop dead ends, and answer the user \
-             directly — no mention of the iteration process. Distinguish what is established \
-             from what remains open; never state an open lead as fact.",
-        );
+        let msg = format!("Problem:\n{problem}\n\nfindings:\n{findings_txt}{leads_txt}");
         self.call_cancellable(&system, &[ChatMsg::user(msg)], cancel)
     }
 
@@ -526,9 +521,12 @@ impl DeliClub {
             return Err("deli cancelled".into());
         }
         let mut action = history.to_vec();
+        // `⠬⠁`: the action seat carries tools; the frame's words are the pages.
         action.push(ChatMsg::harness(format!(
-            "[Deli deliberation]\nFindings with cited support (check against actual tool evidence):\n{}\n\nOpen leads, unverified:\n{}\n\nUse the available tools to investigate, execute and verify the next useful action. RL campaigns and MoA remain available. Submit when you have a verified winner.",
-            numbered(&state.findings), numbered(&state.hypotheses),
+            "{}\nfindings:\n{}\n\nopen leads:\n{}",
+            crate::agent::harness::book::ing_drivers::DELI.cells(),
+            numbered(&state.findings),
+            numbered(&state.hypotheses),
         )));
         self.inner
             .chat_streaming_with_effort(&action, tools, effort, cancel, on_delta)

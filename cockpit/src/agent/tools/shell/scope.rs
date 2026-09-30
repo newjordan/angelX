@@ -4,7 +4,7 @@
 //! Those scopes also cut the process tree off the GPU device nodes and scratch
 //! space, and the tool told the model never to lift them, so a probe marked
 //! read-only saw no GPU and the model went hunting for a CUDA it already had
-//! (apollo, 2026-09-24). Every call now runs with the shell's full policy; such
+//! (2026-09-24). Every call now runs with the shell's full policy; such
 //! arguments, if a model still sends them, are ignored.
 use super::*;
 

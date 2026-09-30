@@ -17,7 +17,7 @@ pub(crate) struct TailHost {
 }
 
 /// The unique tailnet name = the first DNSName label, lowercased.
-/// `"atlas-1.tail-example.ts.net."` → `"atlas-1"`.
+/// `"gpu-box-1.tail-example.ts.net."` → `"gpu-box-1"`.
 pub(crate) fn tailnet_label(dns_name: &str) -> Option<String> {
     let label = dns_name.split('.').next().unwrap_or("").trim();
     (!label.is_empty()).then(|| label.to_lowercase())
@@ -98,73 +98,19 @@ pub(crate) fn tailnet_hosts() -> std::collections::HashMap<String, TailHost> {
     }
 }
 
-/// Environment variable listing the extra host labels that fold into the
-/// cockpit's `spark` box — typically the peer's tailnet name and its Hydra
-/// host id — as a comma-separated, case-insensitive list. The source ships no
-/// hardware hostnames: without this variable only the literal `spark` label
-/// resolves that box and every other label is looked up verbatim.
-pub(crate) const SPARK_HOST_ALIASES_ENV: &str = "ANGEL_SPARK_HOST";
-
-/// The `spark` box label plus every configured alias, lowercased and deduped.
-pub(crate) fn spark_host_aliases() -> Vec<String> {
-    let mut aliases = vec!["spark".to_string()];
-    if let Ok(raw) = std::env::var(SPARK_HOST_ALIASES_ENV) {
-        for alias in raw.split(',') {
-            let alias = alias.trim().to_ascii_lowercase();
-            if !alias.is_empty() && !aliases.contains(&alias) {
-                aliases.push(alias);
-            }
-        }
-    }
-    aliases
+/// Stable bag-box name for a discovered surface: every self-hosted model the
+/// scan finds folds into the one expandable `local` box as another mode (its
+/// label is the served model), never a per-machine tab.
+pub(crate) fn canonical_fleet_box(_host: &str) -> String {
+    "local".to_string()
 }
 
-/// Stable bag-box name for a tailnet / Hydra host label. Any label listed in
-/// `ANGEL_SPARK_HOST` canonicalizes to `spark`, which is what lets a live
-/// `:8001` surface fold into the spark tab instead of appearing as a stray box
-/// the operator never tabs onto. Every other label is returned trimmed and
-/// lowercased.
-pub(crate) fn canonical_fleet_box(host: &str) -> String {
-    canonical_fleet_box_with(host, &spark_host_aliases())
-}
-
-/// Pure form of [`canonical_fleet_box`]; `aliases` includes `spark` itself.
-pub(crate) fn canonical_fleet_box_with(host: &str, aliases: &[String]) -> String {
-    let label = host.trim().to_ascii_lowercase();
-    if aliases.contains(&label) {
-        "spark".to_string()
-    } else {
-        label
-    }
-}
-
-fn fleet_box_lookup_keys(host: &str) -> Vec<String> {
-    let aliases = spark_host_aliases();
-    let canonical = canonical_fleet_box_with(host, &aliases);
-    let mut keys = vec![canonical.clone()];
-    if canonical == "spark" {
-        for alias in aliases {
-            if !keys.contains(&alias) {
-                keys.push(alias);
-            }
-        }
-    } else if !host.trim().is_empty() {
-        let raw = host.trim().to_ascii_lowercase();
-        if raw != canonical {
-            keys.push(raw);
-        }
-    }
-    keys
-}
-
-/// Resolve a box host against a parsed tailnet, honoring Spark aliases.
+/// Resolve a box host against a parsed tailnet by its label.
 pub(crate) fn tailnet_lookup<'a>(
     host: &str,
     tailnet: &'a std::collections::HashMap<String, TailHost>,
 ) -> Option<&'a TailHost> {
-    fleet_box_lookup_keys(host)
-        .into_iter()
-        .find_map(|key| tailnet.get(&key))
+    tailnet.get(&host.trim().to_ascii_lowercase())
 }
 
 /// Build `http://<ip>:<port>/v1`, resolving `<ip>` from the tailnet by host (else
@@ -259,8 +205,8 @@ pub(crate) const OPENROUTER_API_MODEL_OPTIONS: &[&str] = &[
 /// separately, then retired them on 2026-07-24. V4.1 Flash now ships as
 /// `deepseek-flash`; the older `deepseek-v4-flash` and the experimental
 /// `deepseek-v4-flash-vision-exp` ids still alias it upstream but must never be
-/// the request body's model. Matching is exact — the Spark-local V4 serve
-/// (`deepseek-v4-flash-dspark`) and every custom/unknown pin pass through
+/// the request body's model. Matching is exact — a locally served V4
+/// checkpoint under its own id and every custom/unknown pin pass through
 /// untouched.
 pub(crate) fn resolve_deepseek_model_alias(raw: &str) -> String {
     let trimmed = raw.trim();
@@ -391,6 +337,13 @@ pub(crate) fn optional_sota_http_club(
         // the real API. Provider-private reasoning replay and the provider's
         // declared capabilities follow the contract, not the URL's host.
         http = http.with_provider_contract(ProviderContract::DeepSeek);
+        // DeepSeek's own harness speaks its Anthropic-compatible Messages API
+        // (Messages-only since 2026-09-19); `chat` keeps Chat Completions.
+        if std::env::var("ANGEL_DEEPSEEK_API")
+            .is_ok_and(|api| api.trim().eq_ignore_ascii_case("messages"))
+        {
+            http = http.with_deepseek_messages();
+        }
     } else if default_url.contains("z.ai") || default_url.contains("bigmodel.cn") {
         // All GLM catalog seats share ANGEL_GLM_* controls, including a
         // custom gateway/model pin. The display label remains the model id.
@@ -510,18 +463,98 @@ pub(crate) fn optional_openrouter_http_clubs() -> Vec<(String, Arc<dyn Club>, Ar
     configured.into_iter().collect()
 }
 
-/// Build the explicit OpenAI API-key route. This remains a separate `openai-api`
-/// alias so it never silently replaces the ChatGPT OAuth `openai` club.
+/// Resolve only known official GPT-6 families; custom model IDs are preserved.
+fn openai_gpt6_family(model: &str) -> Option<&'static str> {
+    ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"]
+        .into_iter()
+        .find(|base| {
+            model == *base
+                || model
+                    .strip_prefix(&format!("{base}-"))
+                    .is_some_and(|suffix| {
+                        suffix.len() == 10
+                            && suffix.bytes().enumerate().all(|(i, ch)| {
+                                if i == 4 || i == 7 {
+                                    ch == b'-'
+                                } else {
+                                    ch.is_ascii_digit()
+                                }
+                            })
+                    })
+        })
+}
+
+pub(crate) fn openai_api_uses_responses(
+    base: &str,
+    model: &str,
+    transport: Option<&str>,
+) -> Result<bool, String> {
+    match transport
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("auto")
+    {
+        "responses" => return Ok(true),
+        "chat" => return Ok(false),
+        "auto" => {}
+        value => {
+            return Err(format!(
+                "ANGEL_OPENAI_API_TRANSPORT={value:?} is invalid; use auto, responses or chat"
+            ));
+        }
+    }
+    let official = url::Url::parse(base).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.host_str() == Some("api.openai.com")
+            && url.port_or_known_default() == Some(443)
+            && url.path().trim_end_matches('/') == "/v1"
+            && url.query().is_none()
+            && url.fragment().is_none()
+            && url.username().is_empty()
+            && url.password().is_none()
+    });
+    Ok(official && openai_gpt6_family(model).is_some())
+}
+
+/// Explicit API-key seat, separate from ChatGPT OAuth. Known official GPT-6
+/// routes need Responses for reasoning with tools; custom gateways stay chat
+/// unless the operator selects a transport.
 pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
-    optional_sota_http_club(
+    if !api_club_enabled("openai-api") {
+        return None;
+    }
+    let key = env_first(&["ANGEL_OPENAI_KEY", "OPENAI_API_KEY"])?;
+    let model = env_first(&["ANGEL_OPENAI_API_MODEL", "OPENAI_MODEL"])?;
+    let base = env_first(&["ANGEL_OPENAI_API_URL", "OPENAI_BASE_URL"])
+        .unwrap_or_else(|| "https://api.openai.com/v1".into());
+    let transport = env_first(&["ANGEL_OPENAI_API_TRANSPORT"]);
+    let selection = openai_api_uses_responses(&base, &model, transport.as_deref());
+    if selection == Ok(false) {
+        let club: Arc<dyn Club> =
+            Arc::new(HttpClub::new("openai-api", base, model, Some(key)).sota_tuned());
+        return Some(("openai-api".into(), club, Arc::new(AtomicBool::new(true))));
+    }
+    let levels = if openai_gpt6_family(&model) == Some("gpt-6-astra") {
+        vec!["low", "medium", "high", "xhigh", "max"]
+    } else {
+        vec!["none", "low", "medium", "high", "xhigh", "max"]
+    };
+    let club = crate::agent::openai_codex::CodexClub::api_key_seat(
         "openai-api",
-        "openai-api",
-        &["ANGEL_OPENAI_API_URL", "OPENAI_BASE_URL"],
-        "https://api.openai.com/v1",
-        &["ANGEL_OPENAI_API_MODEL", "OPENAI_MODEL"],
+        model,
+        format!("{}/responses", base.trim_end_matches('/')),
+        key,
         None,
-        &["ANGEL_OPENAI_KEY", "OPENAI_API_KEY"],
+        levels.into_iter().map(str::to_string).collect(),
+        RouteMetadata::default(),
     )
+    .with_openai_api_controls(selection.err())
+    .sota_tuned();
+    Some((
+        "openai-api".into(),
+        Arc::new(club),
+        Arc::new(AtomicBool::new(true)),
+    ))
 }
 
 /// Reasoning efforts Muse Spark accepts (`none` is rejected with HTTP 400).
@@ -631,7 +664,7 @@ pub(crate) struct SlotMeta {
 /// available driver heuristic and the Hydra surface registration.
 #[derive(Debug, Clone)]
 pub(crate) struct Surface {
-    /// tailnet label of the host serving it (e.g. `atlas-1`, `compute-a`).
+    /// tailnet label of the host serving it (e.g. `gpu-box-1`, `compute-a`).
     host: String,
     ip: String,
     port: u16,
@@ -640,7 +673,8 @@ pub(crate) struct Surface {
     model_id: String,
 }
 
-/// Ports the fleet is known to serve models on, probed on every online peer
+/// Standard OpenAI-compatible server ports (llama.cpp 8080, vLLM 8000,
+/// LM Studio 1234, Ollama 11434, SGLang 30000), probed on every online peer
 /// during discovery. Override with `ANGEL_SCAN_PORTS` (comma-separated).
 pub(crate) fn scan_ports() -> Vec<u16> {
     if let Ok(s) = std::env::var("ANGEL_SCAN_PORTS") {
@@ -649,9 +683,7 @@ pub(crate) fn scan_ports() -> Vec<u16> {
             return v;
         }
     }
-    vec![
-        8093, 8080, 8000, 8001, 8002, 18888, 8081, 8011, 8090, 8092, 8360, 11434, 30000,
-    ]
+    vec![8080, 8000, 8001, 8081, 1234, 11434, 30000]
 }
 
 pub(crate) fn env_flag(name: &str, default: bool) -> bool {
@@ -679,10 +711,6 @@ pub(crate) fn hydra_discovery_enabled() -> bool {
 
 pub(crate) fn hydra_publish_enabled() -> bool {
     env_flag("ANGEL_HYDRA_PUBLISH", false)
-}
-
-pub(crate) fn atlas_model_serving_enabled() -> bool {
-    env_flag("ANGEL_ATLAS_MODEL_SERVING", false)
 }
 
 fn model_serving_host_excluded(host: &str, ip: &str) -> bool {
@@ -775,18 +803,8 @@ pub(crate) fn parse_hydra_chat_targets(v: &serde_json::Value) -> Vec<(String, St
         else {
             continue;
         };
-        let host = s
-            .get("host_id")
-            .and_then(|h| h.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_lowercase();
-        let host = if host.is_empty() {
-            ip.clone()
-        } else {
-            canonical_fleet_box(&host)
-        };
-        out.push((host, ip, port));
+        let host = s.get("host_id").and_then(|h| h.as_str()).unwrap_or("");
+        out.push((canonical_fleet_box(host), ip, port));
     }
     out
 }

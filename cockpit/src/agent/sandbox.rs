@@ -424,11 +424,15 @@ pub fn apply(policy: &SandboxPolicy) -> Result<(), String> {
 const HELPER_POLICY_ENV: &str = "ANGEL_INTERNAL_SANDBOX_POLICY";
 const HELPER_BACKEND_ENV: &str = "ANGEL_INTERNAL_SANDBOX_BACKEND";
 const HELPER_LIFECYCLE_ENV: &str = "ANGEL_INTERNAL_SANDBOX_LIFECYCLE";
+/// The parent's own namespace probe came back clean. The host facts it reads do
+/// not change while the cockpit runs, so each helper would only repeat it; a
+/// stale "clean" can only make Bubblewrap fail closed, never weaken the domain.
+const HELPER_NAMESPACES_ENV: &str = "ANGEL_INTERNAL_SANDBOX_NAMESPACES";
 
 /// Trusted process tools may outlive the cockpit. This is helper metadata,
 /// never a model-facing shell option; the caller must own a process group and
 /// provide detached stdio so process-stop can still reap the complete tree.
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 pub(crate) fn set_detached_lifecycle(command: &mut Command) {
     command.env(HELPER_LIFECYCLE_ENV, "detached");
 }
@@ -513,6 +517,10 @@ pub fn set_helper_policy(command: &mut Command, policy: &SandboxPolicy) -> Resul
         .map_err(|error| format!("serialize sandbox policy: {error}"))?;
     command.env(HELPER_POLICY_ENV, encoded);
     command.env(HELPER_LIFECYCLE_ENV, "attached");
+    #[cfg(target_os = "linux")]
+    if compatibility::detect().is_none() {
+        command.env(HELPER_NAMESPACES_ENV, "verified");
+    }
     // Keep the selected backend across callers' env_clear(), just like the
     // authoritative policy. Tool payloads cannot select a weaker outer domain.
     command.env(
@@ -709,6 +717,8 @@ fn exec_helper_inner(
         .or_else(|_| std::env::var("ANGEL_SANDBOX_BACKEND"))
         .unwrap_or_else(|_| "landlock".into());
     let detached = std::env::var(HELPER_LIFECYCLE_ENV).as_deref() == Ok("detached");
+    #[cfg(target_os = "linux")]
+    let namespaces_verified = std::env::var(HELPER_NAMESPACES_ENV).as_deref() == Ok("verified");
     // This entrypoint is reached before the cockpit starts any threads.
     // Scrub helper metadata before fork so neither supervisor nor command
     // child re-reads a trusted lifecycle choice from the environment.
@@ -716,6 +726,7 @@ fn exec_helper_inner(
         std::env::remove_var(HELPER_POLICY_ENV);
         std::env::remove_var(HELPER_BACKEND_ENV);
         std::env::remove_var(HELPER_LIFECYCLE_ENV);
+        std::env::remove_var(HELPER_NAMESPACES_ENV);
     }
     process_owner::supervise(detached)?;
     let confined = policy.enforce && (!crate::platform::yolo::enabled() || policy.mandatory);
@@ -744,7 +755,11 @@ fn exec_helper_inner(
         )));
     }
     #[cfg(target_os = "linux")]
-    let fallback = if confined { detect() } else { None };
+    let fallback = if confined && !namespaces_verified {
+        detect()
+    } else {
+        None
+    };
     #[cfg(target_os = "linux")]
     let mut receipt =
         serde_json::json!({"sandbox_profile": if confined { "landlock" } else { "unconfined" }});

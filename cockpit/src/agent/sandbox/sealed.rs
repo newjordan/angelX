@@ -189,6 +189,7 @@ fn identity_digest(
 }
 
 /// Reject overlapping grants: additive filesystem permissions cannot subtract secrets.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(super) fn validate_policy(policy: &SandboxPolicy) -> Result<(), String> {
     if !policy.enforce || !policy.mandatory || policy.allow_network {
         return Err("sealed requires enforced, mandatory, netless confinement".into());

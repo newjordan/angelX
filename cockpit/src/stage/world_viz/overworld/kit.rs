@@ -600,57 +600,277 @@ pub(crate) fn chapel(lit: bool) -> Img {
 
 /// The Round Table; `seated` are `(seat 0..6, robe ink)` for council members.
 pub(crate) fn round_table(seated: &[(usize, char)]) -> Img {
-    let mut im = Img::new(32, 32);
-    for y in 0..32 {
-        for x in 0..32 {
-            let (dx, dy) = (
-                (x as f32 + 0.5 - 16.0) / 15.5,
-                (y as f32 + 0.5 - 17.0) / 13.5,
-            );
-            if dx * dx + dy * dy <= 1.0 && x % 5 != 0 && y % 4 != 0 {
-                im.put(
-                    x,
-                    y,
-                    if hash(x / 5, y / 4, 61) % 3 == 0 {
-                        'g'
-                    } else {
-                        'X'
-                    },
-                );
-            }
+    let mut im = Img::new(48, 54);
+    // A stepped pale-stone rotunda, open toward the road. The slate canopy
+    // covers only the rear gallery, leaving all six chairs and the map clear.
+    for (cy, ry, ink) in [(42.0, 11.0, 'S'), (40.0, 11.0, 'U'), (38.0, 11.0, 'V')] {
+        im.ellipse(24.0, cy, 23.0, ry, ink);
+    }
+    im.ellipse(24.0, 37.0, 20.0, 10.0, 'h');
+    for y in [33, 37, 41, 45] {
+        let inset = (y - 37i32).abs();
+        im.line(7 + inset, y, 40 - inset, y, 'G');
+    }
+    for x in [12, 20, 28, 36] {
+        im.line(x, 30, x, 45, 'G');
+    }
+    for (x, y) in [(3, 19), (11, 12), (23, 10), (35, 12), (42, 19)] {
+        im.rect(x, y, 3, 19, 'U');
+        im.line(x, y, x, y + 18, 'W');
+        im.rect(x - 1, y - 1, 5, 2, 'V');
+        im.rect(x - 1, y + 17, 5, 2, 'V');
+    }
+    for x in 1..47 {
+        let arch = ((x as f32 - 24.0).abs() / 3.2) as i32;
+        let top = 2 + arch;
+        for y in top..top + 9 {
+            im.put(x, y, if (y + x / 5) % 3 == 0 { 'S' } else { 'Q' });
+        }
+        im.put(x, top, 'v');
+        im.put(x, top + 9, 'b');
+        im.put(x, top + 10, 'o');
+    }
+    im.line(5, 21, 14, 14, 'r');
+    im.line(42, 21, 33, 14, 'r');
+    for x in [5, 39] {
+        im.rect(x, 21, 4, 12, 'q');
+        im.line(x + 1, 23, x + 1, 29, 't');
+        im.line(x, 26, x + 3, 26, 'T');
+        im.put(x + 2, 32, 'Q');
+    }
+    let seats = [(17, 26), (31, 26), (9, 34), (39, 34), (16, 42), (32, 42)];
+    for (seat, &(x, y)) in seats.iter().enumerate() {
+        im.rect(x - 3, y - 5, 7, 8, 'b');
+        im.rect(x - 2, y - 5, 5, 3, 'O');
+        im.line(x - 3, y + 3, x - 3, y + 5, 'r');
+        im.line(x + 3, y + 3, x + 3, y + 5, 'r');
+        if let Some((_, robe)) = seated.iter().find(|(index, _)| *index % 6 == seat) {
+            im.rect(x - 2, y - 2, 5, 5, *robe);
+            im.rect(x - 1, y - 5, 3, 3, 'T');
+            im.put(x + 1, y - 4, 'o');
         }
     }
-    let seats: Vec<(f32, f32)> = (0..6)
-        .map(|i| {
-            let a = i as f32 / 6.0 * 2.0 * PI - PI / 2.0;
-            (16.0 + a.cos() * 11.5, 17.0 + a.sin() * 9.5)
-        })
-        .collect();
-    for &(sx, sy) in &seats {
-        im.ellipse(sx, sy, 2.2, 1.6, 'B');
+    im.ellipse(24.0, 36.0, 12.0, 7.0, 'b');
+    im.ellipse(24.0, 34.0, 12.0, 7.0, 'O');
+    im.ellipse(24.0, 34.0, 10.0, 5.5, 'r');
+    for x in [18, 23, 28] {
+        im.line(x, 30, x, 38, 'p');
     }
-    im.ellipse(16.0, 18.5, 8.5, 6.5, 'b');
+    im.ellipse(24.0, 34.0, 5.0, 3.5, 'b');
+    let active = !seated.is_empty();
+    im.ellipse(24.0, 33.0, 4.0, 3.0, if active { '2' } else { 'q' });
+    im.ellipse(23.0, 32.0, 2.0, 1.5, if active { '3' } else { 'z' });
+    for (x, y) in [(15, 32), (31, 33), (21, 39)] {
+        im.rect(x, y, 3, 2, 'T');
+        im.put(x, y + 1, 'o');
+    }
+    for x in [11, 35] {
+        im.rect(x, 22, 1, 3, 'T');
+        im.put(x, 21, if active { '5' } else { 'o' });
+    }
+    // Broad entrance steps leave the council approachable from the east road.
+    im.rect(16, 48, 17, 2, 'V');
+    im.rect(14, 50, 21, 2, 'U');
+    im.line(14, 50, 34, 50, 'W');
+    im
+}
+
+/// Inhabited village architecture: deeper roofs, a front stoop and a planted
+/// sill. Window light still reflects real fleet activity.
+pub(crate) fn cottage(variant: u32, lit: bool) -> Img {
+    let mut im = Img::new(36, 43);
+    im.rect(2, 37, 32, 5, 'S');
+    im.line(3, 37, 32, 37, 'U');
     im.stamp(
-        &blob(
-            32,
-            32,
-            &[(16.0, 17.0, 8.5, 6.5)],
-            &['p', 'r', 'R', 'O'],
-            0.15,
-            3,
-            3.0,
-        ),
+        &house(&House {
+            w: 32,
+            h: 31,
+            roof_h: 16,
+            wall: Wall::Plaster,
+            roof: if variant % 2 == 0 {
+                Roof::Slate
+            } else {
+                Roof::Tile
+            },
+            door_glow: false,
+            windows: 2,
+            lit,
+            chimney: true,
+        }),
+        2,
+        0,
+    );
+    // The small dormer breaks the silhouette of each roof.
+    im.line(12, 17, 17, 11, 'O');
+    im.line(17, 11, 22, 17, 'r');
+    im.rect(14, 16, 7, 5, 't');
+    im.rect(16, 16, 3, 4, if lit { '5' } else { 's' });
+    im.rect(5, 34, 6, 2, 'r');
+    for x in [5, 7, 10] {
+        im.put(x, 33, 'C');
+        im.put(x + 1, 32, if variant % 2 == 0 { 'T' } else { 'R' });
+    }
+    im.line(13, 40, 23, 40, 'V');
+    im
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum Trade {
+    Smith,
+    Weaver,
+    Cooper,
+    Granary,
+}
+
+/// A shop is recognizable by its open working bay and goods, even when idle.
+pub(crate) fn workshop(trade: Trade, active: bool) -> Img {
+    let wide = matches!(trade, Trade::Smith | Trade::Granary);
+    let width = if wide { 46 } else { 32 };
+    let mut im = Img::new(width, 45);
+    im.rect(1, 36, width - 2, 8, 'S');
+    im.stamp(
+        &house(&House {
+            w: width,
+            h: 32,
+            roof_h: 15,
+            wall: Wall::Timber,
+            roof: if matches!(trade, Trade::Granary) {
+                Roof::Thatch
+            } else {
+                Roof::Slate
+            },
+            door_glow: active && matches!(trade, Trade::Smith),
+            windows: 0,
+            lit: false,
+            chimney: matches!(trade, Trade::Smith),
+        }),
         0,
         0,
     );
-    im.ellipse(16.0, 17.0, 3.0, 2.0, 'B');
-    for &(seat, robe) in seated {
-        let (sx, sy) = seats[seat % seats.len()];
-        let mut fig = Img::new(7, 7);
-        fig.ellipse(3.5, 3.5, 3.2, 3.2, robe);
-        fig.put(2, 2, 'c');
-        fig.outline_inside('k');
-        im.stamp(&fig, sx as i32 - 3, sy as i32 - 5);
+    let bay = if matches!(trade, Trade::Smith) {
+        24
+    } else {
+        20
+    };
+    im.rect(4, bay, width - 8, 13, 'n');
+    im.line(3, bay - 1, width - 4, bay - 1, 'O');
+    im.line(4, bay, 4, 39, 'r');
+    im.line(width - 5, bay, width - 5, 39, 'r');
+    match trade {
+        Trade::Smith => {
+            im.rect(7, 26, 11, 9, if active { 'a' } else { 'X' });
+            im.rect(9, 29, 7, 6, if active { '@' } else { 'G' });
+            if active {
+                im.rect(11, 32, 3, 3, '6');
+            }
+            im.line(25, 34, 37, 34, 'V');
+            im.rect(28, 35, 7, 3, 'u');
+            im.rect(30, 38, 4, 3, 'U');
+            im.line(25, 32, 27, 34, 'W');
+        }
+        Trade::Weaver => {
+            im.frame(8, 23, 16, 14, 'o');
+            for x in 10..22 {
+                im.line(x, 25, x, 34, if x % 3 == 0 { 'q' } else { 'T' });
+            }
+            im.line(8, 30, 23, 30, 'r');
+            im.rect(8, 38, 7, 3, 'Q');
+            im.rect(16, 38, 7, 3, 'T');
+        }
+        Trade::Cooper => {
+            im.stamp(&barrels(), 6, 25);
+            im.line(22, 25, 24, 34, 'O');
+            im.line(25, 25, 27, 34, 'r');
+        }
+        Trade::Granary => {
+            im.stamp(&sacks(4), 6, 23);
+            im.stamp(&barrels(), 27, 26);
+            im.line(9, 36, 23, 36, 'O');
+            im.line(9, 37, 23, 37, 'B');
+        }
+    }
+    im
+}
+
+pub(crate) fn barrels() -> Img {
+    let mut im = Img::new(17, 15);
+    for (x, y) in [(0, 4), (8, 1)] {
+        im.ellipse((x + 4) as f32, (y + 6) as f32, 4.0, 5.0, 'r');
+        im.ellipse((x + 4) as f32, (y + 2) as f32, 4.0, 2.0, 'O');
+        im.line(x + 1, y + 5, x + 6, y + 5, 'U');
+        im.line(x + 1, y + 9, x + 6, y + 9, 'S');
+        im.line(x + 3, y + 4, x + 3, y + 9, 'B');
+    }
+    im
+}
+
+pub(crate) fn handcart() -> Img {
+    let mut im = Img::new(24, 16);
+    im.rect(3, 3, 13, 8, 'r');
+    for y in [3, 6, 9] {
+        im.line(2, y, 16, y, 'O');
+    }
+    im.line(16, 7, 23, 4, 'P');
+    im.line(16, 10, 23, 7, 'P');
+    im.ellipse(5.0, 12.0, 3.0, 3.0, 'b');
+    im.ellipse(14.0, 12.0, 3.0, 3.0, 'b');
+    im.put(5, 12, 'V');
+    im.put(14, 12, 'V');
+    im.rect(5, 0, 6, 4, 't');
+    im.line(6, 1, 9, 3, 'O');
+    im
+}
+
+pub(crate) fn garden_fence(w: i32) -> Img {
+    let mut im = Img::new(w, 11);
+    im.line(0, 5, w - 1, 5, 'o');
+    im.line(0, 9, w - 1, 9, 'r');
+    for x in (1..w).step_by(6) {
+        im.line(x, 3, x, 10, 'O');
+        im.put(x, 2, 't');
+    }
+    im
+}
+
+/// A sunken sand arena within three tiers of stone seating. The south arch
+/// stays visually open; this landmark is reached from its exterior gate.
+pub(crate) fn colosseum() -> Img {
+    let mut im = Img::new(160, 102);
+    im.ellipse(80.0, 54.0, 78.0, 45.0, 'S');
+    im.ellipse(80.0, 47.0, 78.0, 43.0, 'V');
+    im.ellipse(80.0, 44.0, 70.0, 37.0, 'G');
+    for (rx, ry, ink) in [(66.0, 34.0, 'h'), (60.0, 29.0, 'U'), (54.0, 25.0, 'V')] {
+        im.ellipse(80.0, 44.0, rx, ry, ink);
+        im.ellipse(80.0, 42.0, rx - 3.0, ry - 2.0, 'S');
+    }
+    im.ellipse(80.0, 43.0, 47.0, 21.0, 'O');
+    im.ellipse(80.0, 42.0, 43.0, 18.0, 't');
+    for y in 26..59 {
+        for x in 37..123 {
+            if im.get(x, y) == super::ink::ink('t') && hash(x, y, 204) % 9 == 0 {
+                im.put(x, y, 'o');
+            }
+        }
+    }
+    for k in 0..20 {
+        let angle = k as f32 * 2.0 * PI / 20.0;
+        let x = (80.0 + angle.cos() * 72.0) as i32;
+        let y = (47.0 + angle.sin() * 37.0) as i32;
+        im.rect(x - 2, y - 5, 5, 9, 'S');
+        im.rect(x - 1, y - 4, 3, 8, 'x');
+        im.put(x, y - 5, 'U');
+        im.line(x + 3, y - 7, x + 3, y + 5, 'W');
+    }
+    im.rect(66, 72, 28, 23, 'U');
+    im.rect(72, 75, 16, 20, 'n');
+    im.line(72, 75, 87, 75, 'V');
+    im.rect(63, 92, 34, 3, 'V');
+    im.rect(60, 95, 40, 3, 'U');
+    im.line(60, 95, 99, 95, 'W');
+    for x in [19, 133] {
+        im.rect(x, 42, 8, 18, 'q');
+        im.line(x + 3, 45, x + 3, 56, 't');
+        im.line(x + 1, 50, x + 6, 50, 't');
     }
     im
 }
@@ -1303,6 +1523,13 @@ pub(crate) fn wisp() -> Img {
 /// A name plaque: readable text on a dark board.
 pub(crate) fn plaque(name: &str) -> Img {
     let text: String = name.to_uppercase().chars().take(7).collect();
+    district_sign(&text)
+}
+
+/// Authored district names get a complete sign; repo-supplied ward names
+/// still use the compact plaque above.
+pub(crate) fn district_sign(name: &str) -> Img {
+    let text: String = name.to_uppercase().chars().take(20).collect();
     let w = super::ink::text_width(&text) + 6;
     let mut im = Img::new(w, 11);
     im.rect(0, 0, w, 11, 'K');

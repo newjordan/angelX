@@ -26,13 +26,10 @@ impl Tool for PresentTool {
         ToolDef {
             name: "present".to_string(),
             description: "Show the requested actual work in the ordinary terminal Stage. \
-                Use this when asked to show work, images, videos, or reports: image/video \
-                displays a local artifact; resource/report displays a local UTF-8 document \
-                (including Markdown, source, CSV, or JSON). Keep the artifact's actual path \
-                and a descriptive label; do not substitute example work. The display stays \
+                image/video displays a local artifact; resource/report displays a local UTF-8 document (including Markdown, source, CSV, or JSON). The display stays \
                 open until dismissed. Remote links show their URL, not fetched page contents. \
                 The result acknowledges a queued display request; decode/read failures are \
-                shown honestly in Stage."
+                shown honestly in Stage. ⠫⠁"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -40,10 +37,10 @@ impl Tool for PresentTool {
                     "kind": {
                         "type": "string",
                         "enum": ["image", "video", "link", "graph", "resource", "report"],
-                        "description": "image/video = local terminal-native preview; resource/report = local UTF-8 document; link/graph = exact URL or local report"
+                        "description": "⠫⠁⠉"
                     },
-                    "label": { "type": "string", "description": "Short label shown on the card." },
-                    "url": { "type": "string", "description": "Actual local artifact path (relative to the active workspace or absolute), or an exact http(s) URL for a link." }
+                    "label": { "type": "string", "description": "⠫⠁⠙" },
+                    "url": { "type": "string", "description": "⠫⠁⠑" }
                 },
                 "required": ["kind", "label", "url"]
             }),
@@ -72,13 +69,14 @@ impl Tool for PresentTool {
     }
 }
 
-fn string_param(name: &str, desc: &str) -> ToolDef {
+/// A one-string tool; `text` is the address of its page.
+fn string_param(name: &str, desc: &str, text: &str) -> ToolDef {
     ToolDef {
         name: name.to_string(),
         description: desc.to_string(),
         params: serde_json::json!({
             "type": "object",
-            "properties": { "text": { "type": "string", "description": "input text" } },
+            "properties": { "text": { "type": "string", "description": text } },
             "required": ["text"],
         }),
     }
@@ -90,7 +88,11 @@ impl Tool for ReverseTool {
         "reverse"
     }
     fn def(&self) -> ToolDef {
-        string_param("reverse", "Reverse the characters of the given text.")
+        string_param(
+            "reverse",
+            "Reverse the characters of the given text. ⠯⠑",
+            "⠯⠑⠁",
+        )
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let text = args["text"].as_str().ok_or("missing 'text'")?;
@@ -106,7 +108,8 @@ impl Tool for WordCountTool {
     fn def(&self) -> ToolDef {
         string_param(
             "word_count",
-            "Count the whitespace-separated words in text.",
+            "Count the whitespace-separated words in text. ⠯⠋",
+            "⠯⠋⠁",
         )
     }
     fn call(&self, args: &Value) -> Result<String, String> {

@@ -138,11 +138,11 @@ impl Tool for OutlineTool {
             description: "List the top-level symbols of a workspace source file (fn/struct/\
                           enum/trait/impl/mod/type/const, plus py def/class, js function/class, \
                           Go func/interface/package, and Java-style visibility methods) with line \
-                          numbers — a fast map without reading the whole file."
+                          numbers — a fast map without reading the whole file. ⠣⠁"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
-                "properties": { "path": { "type": "string", "description": "path inside the workspace (relative or absolute)" } },
+                "properties": { "path": { "type": "string", "description": "⠣⠁⠁" } },
                 "required": ["path"],
             }),
         }
@@ -187,17 +187,17 @@ impl Tool for ListDirTool {
             name: "list_dir".to_string(),
             description: "List the entries of a workspace directory (default: workspace \
                           root). Directories are suffixed with '/'. Optional hint/pattern ranks entries; \
-                          otherwise directories and source/config files come first. Results report paging when truncated."
+                          otherwise directories and source/config files come first. Results report paging when truncated. ⠣⠃"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "hint": { "type": "string", "description": "filename fragment to rank first (exact, substring, then fuzzy); does not filter" },
-                    "pattern": { "type": "string", "description": "basename glob to rank first; does not filter" },
-                    "offset": { "type": "integer", "minimum": 0, "description": "zero-based entry offset in the sorted listing" },
-                    "limit": { "type": "integer", "minimum": 1, "maximum": 700, "description": "page size (default 700); 24000-byte page window also applies; omitted counts and continuation are reported" },
-                    "no_ignore": { "type": "boolean", "description": "include ignored/generated paths (default false); credential and quarantine exclusions still apply" },
-                    "hidden": { "type": "boolean", "description": "include hidden paths (default false); .git and credential files remain excluded" }, "path": { "type": "string", "description": "workspace-relative directory (default '.')" } },
+                    "hint": { "type": "string", "description": "⠣⠃⠁" },
+                    "pattern": { "type": "string", "description": "⠣⠃⠃" },
+                    "offset": { "type": "integer", "minimum": 0, "description": "⠣⠃⠉" },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 700, "description": "⠣⠃⠙" },
+                    "no_ignore": { "type": "boolean", "description": "⠣⠃⠑" },
+                    "hidden": { "type": "boolean", "description": "⠣⠃⠋" }, "path": { "type": "string", "description": "⠣⠃⠛" } },
                 "required": [],
             }),
         }
@@ -265,38 +265,38 @@ impl Tool for GrepTool {
                 "Search one path, or up to eight workspace files/directories, for a regular-expression \
                           pattern. Uses Git ignore rules when available and skips hidden, credential, \
                           key, and quarantined files. Results are deterministic and diverse across \
-                          files; a bounded receipt provides `after_file` when another page exists."
+                          files; a bounded receipt provides `after_file` when another page exists. ⠣⠉"
                     .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "no_ignore": { "type": "boolean", "description": "include ignored/generated paths (default false); credential and quarantine exclusions still apply" },
-                    "hidden": { "type": "boolean", "description": "include hidden paths (default false); .git and credential files remain excluded" },
-                    "pattern": { "type": "string", "description": "regular expression" },
-                    "path": { "type": "string", "description": "file or directory inside the workspace, relative or absolute (default '.'); may be combined with `paths` — both are merged and deduplicated" },
+                    "no_ignore": { "type": "boolean", "description": "⠣⠉⠁" },
+                    "hidden": { "type": "boolean", "description": "⠣⠉⠃" },
+                    "pattern": { "type": "string", "description": "⠣⠉⠉" },
+                    "path": { "type": "string", "description": "⠣⠉⠙" },
                     "paths": {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": GREP_MAX_PATHS,
                         "items": { "type": "string" },
-                        "description": "1-8 files/directories to search as one sorted, deduplicated union; both `path` and `paths` together are accepted (merged, deduplicated)"
+                        "description": "⠣⠉⠑"
                     },
                     "after_file": {
                         "type": "string",
-                        "description": "deterministic continuation cursor from a prior grep receipt; only files lexically after this workspace-relative path are considered"
+                        "description": "⠣⠉⠋"
                     },
                     "skip_files": {
                         "type": "array",
                         "maxItems": GREP_MAX_SKIP_FILES,
                         "items": { "type": "string" },
-                        "description": "workspace-relative files to omit (maximum 128); useful for bounded explicit resumption/exclusion"
+                        "description": "⠣⠉⠛"
                     },
-                    "ignore_case": { "type": "boolean", "description": "case-insensitive (default false)" },
+                    "ignore_case": { "type": "boolean", "description": "⠣⠉⠓" },
                     "context": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": GREP_MAX_CONTEXT_LINES,
-                        "description": "lines before and after each match (default 0, maximum 10); overlapping windows are merged"
+                        "description": "⠣⠉⠊"
                     },
                 },
                 "required": ["pattern"],
@@ -760,11 +760,13 @@ fn grep_confined_many_with_options(
             let cursor = cursor.to_string_lossy().replace('\\', "/");
             let encoded = serde_json::to_string(&cursor).unwrap_or_else(|_| "\"\"".into());
             receipts.push(format!(
-                "[grep continuation: output cap reached before {first}; resume without duplicates with \"after_file\":{encoded}]"
+                "[grep continuation: output cap reached before {first}; \"after_file\":{encoded}]\n{}",
+                crate::agent::harness::book::w_workflow::GREP_CAP.cells()
             ));
         } else {
             receipts.push(format!(
-                "[grep receipt: output cap reached before {first}; narrow the path or pattern]"
+                "[grep receipt: output cap reached before {first}]\n{}",
+                crate::agent::harness::book::w_workflow::GREP_CAP.cells()
             ));
         }
     }
@@ -1120,13 +1122,13 @@ impl Tool for FindFilesTool {
             name: "find_files".to_string(),
             description: "List workspace files matching a glob (`*`/`?` within a segment, `**` \
                           across dirs), e.g. '**/*.rs' or 'src/*.toml'. Skips \
-                          hidden and ignored paths by default. Complements grep (by name vs by content)."
+                          hidden and ignored paths by default. Complements grep (by name vs by content). ⠣⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "no_ignore": { "type": "boolean", "description": "include ignored/generated paths (default false); credential and quarantine exclusions still apply" },
-                    "hidden": { "type": "boolean", "description": "include hidden paths (default false); .git and credential files remain excluded" }, "pattern": { "type": "string", "description": "glob pattern, matched against workspace-relative paths" } },
+                    "no_ignore": { "type": "boolean", "description": "⠣⠙⠁" },
+                    "hidden": { "type": "boolean", "description": "⠣⠙⠃" }, "pattern": { "type": "string", "description": "⠣⠙⠉" } },
                 "required": ["pattern"],
             }),
         }
@@ -1257,16 +1259,15 @@ impl Tool for FileSearchTool {
             name: "file_search".to_string(),
             description: "Fuzzy-find files by name: type a fragment of a path (fzf-style \
                           subsequence ranking) and get the best matches, best first. Skips \
-                          hidden and ignored paths by default. Use when you half-remember a filename; \
-                          complements find_files (exact glob) and grep (by content)."
+                          hidden and ignored paths by default. Complements find_files (exact glob) and grep (by content). ⠡⠑"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "no_ignore": { "type": "boolean", "description": "include ignored/generated paths (default false); credential and quarantine exclusions still apply" },
-                    "hidden": { "type": "boolean", "description": "include hidden paths (default false); .git and credential files remain excluded" },
-                    "query": { "type": "string", "description": "path fragment to fuzzy-match" },
-                    "limit": { "type": "integer", "description": "max results (default 20)" },
+                    "no_ignore": { "type": "boolean", "description": "⠡⠑⠃" },
+                    "hidden": { "type": "boolean", "description": "⠡⠑⠉" },
+                    "query": { "type": "string", "description": "⠡⠑⠙" },
+                    "limit": { "type": "integer", "description": "⠡⠑⠑" },
                 },
                 "required": ["query"],
             }),
@@ -1431,42 +1432,39 @@ impl Tool for DefsTool {
                           Python, JS, and Go declarations). Default discovery uses Git ignore \
                           rules when available. Both modes skip hidden, credential, key, and \
                           quarantined paths; explicit source mode also rejects symlinks. Returns \
-                          file:line by default. Set include_source with 1-8 discovered file paths to \
-                          collect bounded definition and reference windows with file hashes in one \
-                          read per file. Matches are lexical heuristics, not a semantic call graph. \
-                          Provide exactly one of name/names."
+                          file:line by default. Matches are lexical heuristics, not a semantic call graph. ⠣⠑"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "optional workspace file or directory to scope; outside targets are refused"
+                        "description": "⠣⠑⠉"
                     },
-                    "name": { "type": "string", "description": "one symbol name to locate" },
+                    "name": { "type": "string", "description": "⠣⠑⠙" },
                     "names": {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": DEFS_MAX_NAMES,
                         "items": { "type": "string" },
-                        "description": "1-8 symbol names to resolve in one workspace scan"
+                        "description": "⠣⠑⠑"
                     },
                     "ignore_case": {
                         "type": "boolean",
-                        "description": "case-insensitive symbol matching (default false)"
+                        "description": "⠣⠑⠋"
                     },
                     "include_source": {
                         "type": "boolean",
-                        "description": "return JSON source windows from explicit paths (default false)"
+                        "description": "⠣⠑⠛"
                     },
                     "paths": {
                         "type": "array", "minItems": 1, "maxItems": 8,
                         "items": { "type": "string", "maxLength": 1024 },
-                        "description": "discovered source files for include_source; no directories"
+                        "description": "⠣⠑⠓"
                     },
                     "max_source_bytes": {
                         "type": "integer", "minimum": 1024, "maximum": 65536,
-                        "description": "total returned source text bytes, excluding JSON metadata (default 16384)"
+                        "description": "⠣⠑⠊"
                     }
                 },
             }),

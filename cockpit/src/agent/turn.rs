@@ -279,6 +279,14 @@ impl Thinking {
                         )
                         .map_err(|failure| failure.message)
                         .map(|outcome| {
+                            // Fold the turn's verified recipes and failure
+                            // hazards into the caddy card the next turn and the
+                            // next /loop iteration read, as headless tasks do.
+                            // Idempotent per (command, day); off the UI thread.
+                            crate::knowledge::caddy::write_back_from_history(
+                                tools.current_workspace(),
+                                &convo,
+                            );
                             let route = club.resolved_route_identity();
                             (convo, outcome.answer, route, outcome.stop_reason)
                         })

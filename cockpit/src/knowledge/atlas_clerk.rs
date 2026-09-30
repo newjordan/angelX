@@ -174,6 +174,9 @@ impl AtlasClerkWorker {
     }
 }
 
+/// The clerk's reply shape, beside `⠸⠚⠉` (the page quotes it).
+pub(crate) const CLERK_SHAPE: &str = "{\"schema\":\"angel-atlas-clerk/v1\",\"action\":\"propose|merge|abstain\",\"candidates\":[{\"kind\":\"fact|decision|procedure|note|preference|open_thread|entity|artifact\",\"content\":\"...\",\"confidence\":0.0,\"sources\":[{\"id\":\"...\",\"kind\":\"...\",\"digest\":\"...\",\"excerpt\":null,\"independent\":true,\"influenced_by\":null}],\"merge_into\":null}]}";
+
 fn run_one(
     atlas: &crate::knowledge::atlas::AtlasService,
     route: &ClerkRoute,
@@ -182,24 +185,22 @@ fn run_one(
 ) -> Result<String, String> {
     let harvest_json = serde_json::to_string(harvest)
         .map_err(|error| format!("could not encode Atlas harvest: {error}"))?;
+    // `⠸⠚`: the teacher's brief is the route; the reply shape rides beside its
+    // page, the harvest below. Connected, so the teacher can read it.
+    use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::ATLAS_CLERK};
     let prompt = format!(
-        "You are the Living Atlas teacher. Draft zero to three review candidates from \
-         the bounded harvest below. Output only strict JSON matching \
-         {{\"schema\":\"angel-atlas-clerk/v1\",\"action\":\"propose|merge|abstain\",\
-         \"candidates\":[{{\"kind\":\"fact|decision|procedure|note|preference|open_thread|entity|artifact\",\
-         \"content\":\"...\",\"confidence\":0.0,\"sources\":[{{\"id\":\"...\",\
-         \"kind\":\"...\",\"digest\":\"...\",\"excerpt\":null,\"independent\":true,\
-         \"influenced_by\":null}}],\"merge_into\":null}}]}}. Never activate, accept, \
-         share, or train on a claim. Copy source ids and digests exactly from \
-         receipt_sources; independence and influence are owned by the harness. \
-         A merge is a proposed revision linked to merge_into, never an automatic \
-         edit. Abstain when bound independent receipts are absent or evidence \
-         is insufficient.\n\nHARVEST:\n{harvest_json}"
+        "{}\n{} {CLERK_SHAPE}\n\nHARVEST:\n{harvest_json}",
+        ATLAS_CLERK.cells(),
+        pages(ATLAS_CLERK, [3]),
     );
-    let raw = route
-        .club
-        .respond_cancellable(&prompt, lease.cancelled())
-        .map_err(|error| format!("Atlas teacher route failed: {error}"))?;
+    let raw = crate::agent::harness::book::connect::chat(
+        &*route.club,
+        atlas.workspace(),
+        &[crate::agent::club::ChatMsg::user(prompt)],
+        None,
+        lease.cancelled(),
+    )
+    .map_err(|error| format!("Atlas teacher route failed: {error}"))?;
     if lease.cancelled().load(std::sync::atomic::Ordering::Relaxed) {
         return Err("Atlas teacher yielded to foreground work; harvest remains queued".to_string());
     }

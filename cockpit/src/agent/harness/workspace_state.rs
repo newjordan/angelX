@@ -625,6 +625,27 @@ pub(crate) fn workspace_fingerprint(root: &Path) -> Option<u64> {
     ))
 }
 
+/// One tool result's workspace fingerprint, taken when a fact first asks for
+/// it and shared by the rest: the red run, the verifier attempt, the untested
+/// edit and the green run it records all describe the same unchanged tree, and
+/// a result that records none of them takes no snapshot.
+pub(crate) struct CallFingerprint<'a> {
+    root: &'a Path,
+    taken: Option<Option<u64>>,
+}
+
+impl<'a> CallFingerprint<'a> {
+    pub(crate) fn new(root: &'a Path) -> Self {
+        Self { root, taken: None }
+    }
+
+    pub(crate) fn get(&mut self) -> Option<u64> {
+        *self
+            .taken
+            .get_or_insert_with(|| workspace_fingerprint(self.root))
+    }
+}
+
 fn fingerprint_probe_args() -> [Vec<&'static str>; 4] {
     let mut status_args = vec![
         "status",

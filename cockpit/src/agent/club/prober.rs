@@ -83,7 +83,7 @@ pub(crate) fn prober_step(available: bool, confirmed: bool, misses: u8) -> Probe
 /// probe corrects it immediately instead of granting the 2-miss grace.
 /// Otherwise a dead box stays "in hand" for two whole sweeps (~5s), long
 /// enough to send the first message to a corpse (the exact bug where a launch
-/// landed on a down Spark and hard-failed). Once a box is confirmed up, the
+/// landed on a down box and hard-failed). Once a box is confirmed up, the
 /// consecutive-miss threshold applies, so one dropped packet never hides a
 /// working model.
 struct ProbeTarget {

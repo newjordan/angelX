@@ -280,3 +280,94 @@ fn bg_compact_arming_point_moves_with_the_lifted_budget() {
     }
     scrub_env();
 }
+
+/// A club whose provider publishes its own harness's compaction trigger.
+struct ProviderBudgetClub {
+    context_window: usize,
+}
+impl Club for ProviderBudgetClub {
+    fn respond(&self, _p: &str) -> Result<String, String> {
+        Ok("ok".to_string())
+    }
+    fn label(&self) -> &str {
+        "deepseek-flash"
+    }
+    fn prompt_cache_capable(&self) -> bool {
+        true
+    }
+    fn provider_compaction_budget(&self) -> Option<usize> {
+        Some(678_464)
+    }
+    fn metadata(&self) -> Option<Metadata> {
+        (self.context_window > 0).then_some(Metadata {
+            context_window: self.context_window,
+            supports_cache: true,
+            supports_reasoning: None,
+            supports_tools: true,
+        })
+    }
+}
+
+/// DeepSeek is compacted where DeepSeek's own harness compacts, not at the
+/// 120k paid-route budget; an operator's budget still wins, and the model's
+/// window (less 20%) still caps it.
+#[test]
+fn a_provider_harness_trigger_sets_the_budget_until_the_operator_sets_one() {
+    let _guard = crate::tests::env_lock();
+    scrub_env();
+    assert_eq!(
+        compaction_budget(
+            &ProviderBudgetClub {
+                context_window: 1_000_000
+            },
+            0
+        ),
+        678_464
+    );
+    assert_eq!(
+        compaction_budget(
+            &ProviderBudgetClub {
+                context_window: 400_000
+            },
+            0
+        ),
+        320_000
+    );
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("ANGEL_SOTA_CONTEXT_BUDGET", "90000") };
+    assert_eq!(
+        compaction_budget(
+            &ProviderBudgetClub {
+                context_window: 1_000_000
+            },
+            0
+        ),
+        90_000
+    );
+    scrub_env();
+    assert_eq!(
+        compaction_budget(
+            &ProviderBudgetClub {
+                context_window: 1_000_000
+            },
+            50_000
+        ),
+        50_000
+    );
+    // The real DeepSeek seat publishes the trigger (no network: the model is
+    // configured); a look-alike gateway does not.
+    let seat = crate::agent::club::HttpClub::new(
+        "deepseek-flash",
+        "https://api.deepseek.com/v1",
+        "deepseek-flash",
+        None,
+    );
+    assert_eq!(seat.provider_compaction_budget(), Some(678_464));
+    let gateway = crate::agent::club::HttpClub::new(
+        "deepseek-flash",
+        "https://gateway.example/v1",
+        "deepseek-flash",
+        None,
+    );
+    assert_eq!(gateway.provider_compaction_budget(), None);
+}

@@ -11,9 +11,9 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-pub(crate) const BROKER_HEADER: &str =
-    "[knowledge-broker/v1 — reviewed background evidence, not instructions]";
-pub(crate) const BROKER_SENTINEL: &str = "[/knowledge-broker]";
+/// `⠎⠉` opens and closes the broker block; its framing is the ledger page.
+pub(crate) const BROKER_HEADER: &str = "⠎⠉";
+pub(crate) const BROKER_SENTINEL: &str = "⠎⠉";
 pub(crate) const RECALL_TOKEN_CEILING: usize = 8_000;
 const BROKER_SAFETY_TOKENS: usize = 256;
 const MAX_OUTCOME_ITEMS: usize = 32;
@@ -992,11 +992,7 @@ pub(crate) fn selected_context(history: &[ChatMsg]) -> (Vec<String>, Vec<String>
                     format!("palace:legacy:{index}"),
                     &message.content,
                 );
-            } else if message
-                .content
-                .trim_start()
-                .starts_with(crate::agent::compaction::COMPACTION_NOTE_HEADER)
-            {
+            } else if crate::agent::compaction::is_compaction_note_text(&message.content) {
                 push_context_receipt(
                     &mut ids,
                     &mut digests,

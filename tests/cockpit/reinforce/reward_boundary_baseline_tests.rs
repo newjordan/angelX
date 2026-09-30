@@ -1,14 +1,14 @@
-//! Current-API baseline controls. The two rejection tests are intentionally
-//! expected-red before the production reward/metadata boundary repair.
+//! Owned-evaluator baseline controls: a candidate's claim never stands in for
+//! the evaluator's own evidence.
 use super::*;
 
-const CLAIM: &str = "shape=32768x1 score_us=1us pass_tests=true";
+const CLAIM: &str = "test result: ok. 99 passed; 0 failed; pass_tests=true";
 
 fn owned_evidence_case(
     label: &str,
     command: &str,
     expected_exit: i32,
-    check: impl FnOnce(Result<f32, String>, Option<serde_json::Value>),
+    check: impl FnOnce(Result<f32, String>),
 ) {
     let _lock = crate::tests::env_lock();
     let _git_dir = crate::tests::TestEnvGuard::unset("GIT_DIR");
@@ -67,19 +67,6 @@ fn owned_evidence_case(
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let peer = owned.0.join("peer.json");
-    std::fs::write(
-        &peer,
-        r#"{"geomean_us":100.0,"name":"owned fixture","shapes":{"32768x1":100.0}}"#,
-    )
-    .unwrap();
-    let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
-    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
-    assert_eq!(
-        crate::agent::harness::load_living_peer_shape_baseline("32768x1"),
-        Some(100.0)
-    );
-
     // Real current implementation: mandatory sandbox, read-only workspace,
     // network denied, process-group capture, typed manifest and cleanup.
     let evidence = EvaluatorEvidence::run_shell(
@@ -111,20 +98,13 @@ fn owned_evidence_case(
         "the owned evaluator scratch must be cleaned"
     );
 
-    let answer = if label == "positive50" {
+    let answer = if label == "positive" {
         "finished"
     } else {
         CLAIM
     };
     let reward = score_coding_eval_reward(answer, &evidence);
     let measured_only_reward = score_coding_eval_reward("finished", &evidence);
-    // Metadata now consumes the private scoring decision bound to this evidence.
-    // The public numeric wrapper remains exercised separately above.
-    let scoring = score_coding_eval(&evidence);
-    let meta = scoring
-        .as_ref()
-        .ok()
-        .and_then(|score| coding_eval_competition_meta(&evidence, score));
     println!(
         "TYPED_REWARD_BASELINE {}",
         serde_json::json!({
@@ -145,14 +125,12 @@ fn owned_evidence_case(
             "verifier_contract_sha256": evidence.verifier_contract_sha256(),
             "raw_output_sha256": evidence.raw_output_sha256(),
             "manifest_sha256": evidence.manifest_sha256(),
-            "baseline_us": 100.0,
             "reward": reward,
             "measured_only_reward": measured_only_reward,
-            "metadata": meta,
             "owned_scratch_removed": !scratch.exists()
         })
     );
-    check(reward, meta);
+    check(reward);
 }
 
 #[test]
@@ -161,55 +139,39 @@ fn failed_exit7_must_not_receive_candidate_claimed_positive_reward() {
         "failed7",
         "/usr/bin/printf '%s' 'test result: FAILED. 0 passed; 1 failed;'; exit 7",
         7,
-        |reward, meta| {
-            let rejected = match &reward {
-                Ok(value) => *value <= 0.0,
-                Err(_) => true,
-            };
+        |reward| {
             assert!(
-                rejected && meta.is_none(),
-                "real exit7 must not become positive/eligible via candidate1us: reward={reward:?} metadata={meta:?}"
+                reward.is_err(),
+                "real exit7 must not become positive via the candidate claim: reward={reward:?}"
             );
         },
     );
 }
 
 #[test]
-fn slower200us_must_not_be_replaced_by_candidate1us() {
+fn summaryless_evidence_must_not_be_replaced_by_the_candidate_claim() {
     owned_evidence_case(
-        "slower200",
+        "summaryless",
         "/usr/bin/printf '%s' 'shape=32768x1 score_us=200us 17/17 tests passed'",
         0,
-        |reward, meta| {
-            let rejected = match &reward {
-                Ok(value) => *value <= 0.0,
-                Err(_) => true,
-            };
-            let measured_meta = meta.as_ref().is_some_and(|value| {
-                value["score_us"] == 200.0
-                    && value["baseline_us"] == 100.0
-                    && value["beats_baseline"] == false
-            });
-            assert!(
-                rejected && measured_meta,
-                "measured200us vs baseline100 must remain a regression: reward={reward:?} metadata={meta:?}"
+        |reward| {
+            assert_eq!(
+                reward,
+                Ok(0.0),
+                "evidence with no test summary earns nothing, whatever the candidate claims"
             );
         },
     );
 }
 
 #[test]
-fn successful50us_evidence_is_a_real_positive_control() {
+fn successful_evidence_is_a_real_positive_control() {
     owned_evidence_case(
-        "positive50",
-        "/usr/bin/printf '%s' 'shape=32768x1 score_us=50us 17/17 tests passed'",
+        "positive",
+        "/usr/bin/printf '%s' 'test result: ok. 17 passed; 0 failed;'",
         0,
-        |reward, meta| {
-            assert!((reward.unwrap() - 0.55).abs() < 1e-6);
-            let meta = meta.unwrap();
-            assert_eq!(meta["score_us"], 50.0);
-            assert_eq!(meta["baseline_us"], 100.0);
-            assert_eq!(meta["beats_baseline"], true);
+        |reward| {
+            assert_eq!(reward, Ok(1.0));
         },
     );
 }

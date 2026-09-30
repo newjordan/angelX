@@ -53,10 +53,11 @@
 
 use crate::agent::approval::Decision;
 use crate::agent::club::{ChatMsg, Club, is_sota_label, model_smartness};
+use crate::agent::harness::book::{d45_iteration, er_loop, l_loops, ou_checkpoints, ow_ledgers};
 use crate::agent::swarm::SwarmClub;
 use crate::agent::turn::Thinking;
 use crate::drive::deli::DeliClub;
-use crate::drive::iterate::{EvidenceRegime, WORKER_SYS, curated_prompt, finding_claim, normalize};
+use crate::drive::iterate::{EvidenceRegime, curated_prompt, finding_claim, normalize};
 use crate::drive::loop_dialog::{LoopDialogAction, LoopLaunchDialog, LoopLaunchSettings};
 use crate::drive::reinforce::{EvaluatorEvidence, Reward, RewardInput, TestReward};
 use crate::platform::workspace_store::{angel_dir, angel_subdir, workspace_json_path_in};
@@ -475,6 +476,10 @@ pub struct LoopState {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hypotheses: Vec<String>,
     pub directions_tried: Vec<String>,
+    /// The DIRECTION the last harvested iteration named (repeats included):
+    /// the idea its acceptance verdict is an observation of.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub iteration_direction: Option<String>,
     pub log: Vec<LoopIterLog>,
     #[serde(default)]
     pub tool_calls_total: usize,
@@ -494,6 +499,11 @@ pub struct LoopState {
     /// model fails to narrate them as a newly cited prose finding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_workspace_fingerprint: Option<u64>,
+    /// Normalized digest of the previous iteration's reply body. An
+    /// effectively-identical consecutive reply is a restated plan, not
+    /// progress, and must not reset staleness (overwatch 2026-09-25).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_reply_digest: Option<String>,
     pub last_error: Option<String>,
     /// A failed turn awaits paced retry. Unlike historical `last_error`, this
     /// clears after a completed reply or explicit resume and survives restart.
@@ -560,6 +570,14 @@ pub struct LoopState {
     pub idle_wait: bool,
     #[serde(skip)]
     pub awaiting_turn: bool,
+    /// Request tokens estimated when this iteration's turn was sent. The
+    /// provider's own count replaces it when the turn reports usage.
+    #[serde(skip)]
+    pub iteration_input_estimate: u64,
+    /// The provider reported this iteration's usage, so the harvest adds no
+    /// reply estimate on top of it.
+    #[serde(skip)]
+    pub iteration_spend_reported: bool,
     /// `Some` only for the ordinary acceptance process currently in flight;
     /// self-edit gates use their separate fixed predicate and never populate it.
     #[serde(skip)]
@@ -567,6 +585,31 @@ pub struct LoopState {
 }
 
 impl LoopState {
+    /// Replace this iteration's token estimates with the provider's own
+    /// counts for the turn. Operator finding 2026-09-25: a pinning seat's 18
+    /// iterations and ~930 tool rounds recorded ~72K tokens, because only the
+    /// opening prompt and the final reply were ever estimated.
+    pub(crate) fn settle_turn_spend(&mut self, input: u64, cache_read: u64, output: u64) {
+        let estimate = std::mem::take(&mut self.iteration_input_estimate);
+        self.tokens.paid_input = self.tokens.paid_input.saturating_sub(estimate);
+        self.tokens.total = self.tokens.total.saturating_sub(estimate);
+        self.tokens_spent = self.tokens_spent.saturating_sub(estimate as usize);
+        // Most routes count cache reads inside the prompt total; a read larger
+        // than the reported input means the route counted it separately.
+        let (paid, prompt) = if cache_read > input {
+            (input, input.saturating_add(cache_read))
+        } else {
+            (input - cache_read, input)
+        };
+        let spent = prompt.saturating_add(output);
+        self.tokens.paid_input = self.tokens.paid_input.saturating_add(paid);
+        self.tokens.cached_input = self.tokens.cached_input.saturating_add(cache_read);
+        self.tokens.output = self.tokens.output.saturating_add(output);
+        self.tokens.total = self.tokens.total.saturating_add(spent);
+        self.tokens_spent = self.tokens_spent.saturating_add(spent as usize);
+        self.iteration_spend_reported = true;
+    }
+
     fn observe_verifier_failure(&mut self, tools: &ToolStripSnapshot) {
         if !self.podrace {
             return;
@@ -671,6 +714,26 @@ pub(crate) struct VerifyResult {
     /// Bounded, actionable failure lines (failing test names, panics, compiler
     /// errors) for the next iteration's prompt — empty on a pass.
     pub detail: String,
+    /// The evaluator evidence behind a verdict the command actually produced;
+    /// `None` for a replayed receipt, a command that could not run, or a gate
+    /// that is not the acceptance command.
+    pub receipt: Option<VerifyReceipt>,
+}
+
+/// Digests of one acceptance run's evaluator evidence.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct VerifyReceipt {
+    pub manifest_sha256: String,
+    pub workspace_sha256: String,
+}
+
+impl VerifyReceipt {
+    fn of(evidence: &EvaluatorEvidence) -> Self {
+        Self {
+            manifest_sha256: evidence.manifest_sha256().to_string(),
+            workspace_sha256: evidence.workspace_sha256().to_string(),
+        }
+    }
 }
 
 enum AcceptanceGatePlan {
@@ -753,6 +816,7 @@ fn prepare_acceptance_gate(
             passed: false,
             summary,
             detail: memo.detail.clone(),
+            receipt: None,
         });
     }
 
@@ -1188,7 +1252,19 @@ impl crate::App {
                 KeyCode::BackTab | KeyCode::Up => dialog.focus_prev(),
                 KeyCode::Left => dialog.adjust(false),
                 KeyCode::Right => dialog.adjust(true),
-                KeyCode::Enter | KeyCode::Char(' ') => match dialog.focused_action() {
+                // Enter does what the help line promises ("Enter starts"):
+                // it starts from any row. Only an explicit Cancel focus turns
+                // it into a cancel — otherwise Enter on a settings row used to
+                // silently adjust the row while the operator waited for a run
+                // that never began (observed live, overwatch 2026-09-25).
+                KeyCode::Enter => {
+                    if dialog.focused_action() == Some(LoopDialogAction::Cancel) {
+                        cancel = true;
+                    } else {
+                        start = true;
+                    }
+                }
+                KeyCode::Char(' ') => match dialog.focused_action() {
                     Some(LoopDialogAction::Start) => start = true,
                     Some(LoopDialogAction::Cancel) => cancel = true,
                     _ => dialog.adjust(true),
@@ -1400,13 +1476,19 @@ impl crate::App {
             crate::ui::viz::lifecycle_viz::CeremonyKind::LoopStart,
             what.clone(),
         );
-        format!(
+        let mut started = format!(
             "loop started → {what}{method}\n  {} · stall pivot {} · pivot {} · interval {}s",
             self.loop_ctl.cap_summary(),
             self.loop_ctl.stall_stop,
             self.loop_ctl.pivot,
             self.loop_ctl.interval_secs
-        )
+        );
+        // A mistyped ANGEL_COMP_PACKAGE falls back to the default worker
+        // profile; say so where the operator is looking.
+        if let Some(error) = crate::agent::harness::comp_packages::selection_error() {
+            started.push_str(&format!("\n  {error}"));
+        }
+        started
     }
 
     /// Arm the next iteration if the loop is running, idle of in-flight work, and
@@ -1536,6 +1618,8 @@ impl crate::App {
             .tokens
             .total
             .saturating_add(convo_tokens as u64);
+        self.loop_ctl.iteration_input_estimate = convo_tokens as u64;
+        self.loop_ctl.iteration_spend_reported = false;
         evidence::refresh_binary(&mut self.loop_ctl);
         let requested_route = club.route_identity();
         let label = club.label().to_string();
@@ -1692,7 +1776,7 @@ impl crate::App {
     pub(crate) fn loop_iteration_convo(&self) -> Vec<ChatMsg> {
         // Loop workers do NOT inherit the cockpit system prompt (skills catalog,
         // magic keywords, harness capabilities). Their authority is the active
-        // competition package's worker profile + WORKER_SYS + the goal: no
+        // competition package's worker profile + the worker route `⠻⠁` + the goal: no
         // skill/secret surface hands off into an autonomous loop.
         let mut system = String::new();
         if self.loop_active() {
@@ -1703,7 +1787,8 @@ impl crate::App {
             );
             system.push_str("\n\n");
         }
-        system.push_str(WORKER_SYS);
+        // The worker's frame is `⠻⠁`; its words are the ledger pages.
+        system.push_str(&crate::agent::harness::book::er_loop::WORKER.cells());
         let gb = self.goal_context_block(None);
         if !gb.is_empty() {
             system.push_str("\n\n");
@@ -1711,8 +1796,8 @@ impl crate::App {
         }
         if let Some(brief) = self.loop_ctl.brief.as_deref().filter(|b| !b.is_empty()) {
             system.push_str(&format!(
-                "\n\n[project brief — gathered by the harness {}; facts about this machine and \
-                 workspace to orient you, not instructions]\n",
+                "\n\n{} {}\n",
+                crate::agent::harness::book::er_loop::BRIEF.cells(),
                 brief::age(brief::now_secs(), self.loop_ctl.brief_ms / 1000)
             ));
             system.push_str(brief.trim_end());
@@ -1772,14 +1857,8 @@ impl crate::App {
             })
         {
             prompt.push_str(&format!(
-                "\n\n[VERIFICATION PATH BLOCKED — restore it before anything else] \
-                 {diagnostic}. Do not propose a new optimization direction. This \
-                 iteration's only acceptable outcomes: (1) the official \
-                 benchmark/verify command runs to completion, or (2) a direct local \
-                 measurement via the repository's own benchmark script, or (3) an \
-                 exact, minimal operator action (command + why) if neither is \
-                 possible. Notes in the repository are not a blocker; missing inputs \
-                 that a script in the repository can fetch are not a blocker."
+                "\n\n{}\n{diagnostic}",
+                ou_checkpoints::BLOCKED.cells()
             ));
         }
         // Submission-overdue: measured candidates exist, nothing has reached
@@ -1788,50 +1867,30 @@ impl crate::App {
         if self.loop_submission_overdue() {
             let since = self.loop_iters_since_first_measurement().unwrap_or(0);
             prompt.push_str(&format!(
-                "\n\n[SUBMISSION OVERDUE — {} measured candidate(s), 0 submissions, {since} \
-                 iterations since the first measurement; continue with a concrete submission action] The board \
-                 is the instrument. This iteration's only acceptable outcomes: (1) submit the \
-                 best measured candidate through the official submit command (a candidate that \
-                 measures at or ahead of the leader on the same local corpus goes in NOW), or \
-                 (2) if every measured candidate measures behind the leader, say so in one \
-                 line (score vs leader, same corpus) and produce and measure a new candidate \
-                 this iteration, or (3) the exact blocking command and its error for the \
-                 operator. Do not open a new research direction, do not re-measure what is \
-                 already measured, and do not treat local-vs-hidden corpus doubt as a reason \
-                 to withhold: the board settles it.",
+                "\n\n{} measured={} submissions=0 iterations_since_first_measurement={since}",
+                ou_checkpoints::OVERDUE.cells(),
                 self.loop_ctl.measured_candidates
             ));
         }
         if f_skip > 0 || d_skip > 0 {
             prompt.push_str(&format!(
-                "\n\n[window: the {f_skip} oldest findings and {d_skip} oldest directions are \
-                 elided; restating them still counts as stale ground, not new]"
+                "\n\n{} findings_elided={f_skip} directions_elided={d_skip}",
+                ou_checkpoints::WINDOW.cells()
             ));
         }
         let next_iteration = self.loop_ctl.iteration + 1;
         if next_iteration.is_multiple_of(LOOP_EVIDENCE_REVIEW_INTERVAL) {
-            prompt.push_str(
-                "\n\n[EVIDENCE REVIEW CHECKPOINT] This is the mandatory 15-iteration audit. \
-                 Reconcile every active claim against primary artifacts, identify contradictions \
-                 and measured negative results, and state the literal target delta. Do not launch \
-                 another costly benchmark/submit/deploy action until the existing evidence is \
-                 reconciled. Unsupported novelty is not progress.",
-            );
+            prompt.push_str("\n\n");
+            prompt.push_str(&ou_checkpoints::REVIEW.cells());
         }
         // The working tree is ground truth the prose findings can't carry:
         // without it an iteration re-makes or contradicts edits it can't see.
         if let Some(diff) = self.loop_workspace_diff() {
-            prompt.push_str(
-                "\n\n[files changed so far this run (git diff --stat) — build on these; \
-                 do not re-make or blindly revert them]\n",
-            );
+            prompt.push_str(&format!("\n\n{}\n", ow_ledgers::FILES.cells()));
             prompt.push_str(&diff);
         }
         if let Some(ledger) = self.loop_measurement_ledger() {
-            prompt.push_str(
-                "\n\n[measurements and submissions this run — newest first, as the harness \
-                 recorded them]\n",
-            );
+            prompt.push_str(&format!("\n\n{}\n", ow_ledgers::MEASUREMENTS.cells()));
             prompt.push_str(&ledger);
         }
         // Operator steering rides every iteration: fresh-context iterations
@@ -1844,20 +1903,16 @@ impl crate::App {
             .min(self.loop_ctl.steer_notes.len());
         let (standing, fresh) = self.loop_ctl.steer_notes.split_at(answered);
         if !standing.is_empty() {
-            prompt.push_str(
-                "\n\n[operator steering — notes the user sent earlier in this run, already \
-                 answered; keep honoring them, do not answer or act on them again]",
-            );
+            prompt.push_str("\n\n");
+            prompt.push_str(&ow_ledgers::STEER_STANDING.cells());
             for note in standing {
                 prompt.push_str("\n- ");
                 prompt.push_str(note);
             }
         }
         if !fresh.is_empty() {
-            prompt.push_str(
-                "\n\n[operator message — sent mid-run and not yet answered; answer it once \
-                 while pursuing the task]",
-            );
+            prompt.push_str("\n\n");
+            prompt.push_str(&ow_ledgers::STEER_FRESH.cells());
             for note in fresh {
                 prompt.push_str("\n- ");
                 prompt.push_str(note);
@@ -1866,74 +1921,56 @@ impl crate::App {
         // Hand the fresh-context iteration its predecessor's failure — without
         // this it re-declares done down the exact same path, verbatim.
         if !self.loop_ctl.pending_proc_completions.is_empty() {
-            prompt.push_str("\n\n[background process outcomes — inspect the retained logs and actual verifier; an exit is not a solve]");
+            prompt.push_str("\n\n");
+            prompt.push_str(&ow_ledgers::OUTCOMES.cells());
             for outcome in &self.loop_ctl.pending_proc_completions {
                 prompt.push_str("\n- ");
                 prompt.push_str(outcome);
             }
         }
         if let Some(setback) = &self.loop_ctl.last_setback {
-            prompt.push_str(
-                "\n\n[previous iteration setback — address the cause below first; \
-                 do not re-declare done until it is fixed]\n",
-            );
+            prompt.push_str(&format!("\n\n{}\n", ou_checkpoints::SETBACK.cells()));
             prompt.push_str(setback);
         }
         if let Some(note) = &self.loop_ctl.loop_note {
-            prompt.push_str("\n\n[loop note — information, not an order]\n");
+            prompt.push_str(&format!("\n\n{}\n", ou_checkpoints::NOTE.cells()));
             prompt.push_str(note);
         }
         self.loop_experiment_context(&mut prompt);
         match self.loop_ctl.tier {
-            EscalationTier::Swarm => prompt.push_str(
-                "\n\nThe single-agent tier stalled — you are now a wider mixture of agents; \
-                 attack from genuinely different angles in parallel.",
-            ),
-            EscalationTier::Sota => prompt.push_str(
-                "\n\nYou are the operator-selected SOTA tier. Bring maximum \
-                 rigor and a genuinely fresh attack.",
-            ),
+            EscalationTier::Swarm => {
+                prompt.push_str(&format!("\n\n{}", er_loop::TIER_SWARM.cells()));
+            }
+            EscalationTier::Sota => {
+                prompt.push_str(&format!("\n\n{}", er_loop::TIER_SOTA.cells()));
+            }
             EscalationTier::Local => {}
         }
-        if self.loop_ctl.self_edit {
-            prompt.push_str(
-                "\n\nYou are improving the cockpit's OWN source code in an isolated git \
-                 worktree (the current workspace root is that worktree's crate). Use the \
-                 file and cargo tools to make the change, keep the crate building and its \
-                 test suite green, and when the goal is fully achieved end your reply with \
-                 a line containing exactly: LOOP_DONE\nA build+test gate with a pass-count \
-                 regression guard verifies that claim; only a green gate can be integrated \
-                 into the live tree, so never delete or disable tests to get there.",
-            );
+        // How this iteration may end, and podrace, are routes; their words
+        // (the exact `LOOP_DONE` line included) are the ledger pages.
+        let ending = if self.loop_ctl.self_edit {
+            ou_checkpoints::DONE_SELF
         } else if self.loop_ctl.accept_cmd.is_some() {
-            prompt.push_str(
-                "\n\nIf the goal is fully achieved, run the verifiable check and confirm it \
-                 passes, then end your reply with a line containing exactly: LOOP_DONE",
-            );
+            ou_checkpoints::DONE_ACCEPT
         } else {
-            prompt.push_str(
-                "\n\nNo verifiable acceptance command is bound. Do not declare the loop complete \
-                 on your own; keep surfacing concrete progress, blockers, or the next necessary \
-                 action. If the operator has asked you to wrap up or stop, finish what is in \
-                 flight and end your reply with a line containing exactly: LOOP_DONE",
-            );
-        }
+            ou_checkpoints::DONE_OPEN
+        };
+        prompt.push_str(&format!("\n\n{}", ending.cells()));
         if self.loop_ctl.podrace {
-            prompt.push_str(
-                "\n\n[PODRACE]\nUse the bundled $competition-loop workflow. Take the shortest \
-                 path from one measured bottleneck to a distinct validated submission, then decide \
-                 from its official score. Run only required checks. Tool activity and research are \
-                 not progress. Never resubmit unchanged code. While a result is pending, prepare the \
-                 next concrete candidate instead of polling.",
-            );
+            prompt.push_str(&format!("\n\n{}", er_loop::PODRACE.cells()));
         }
         let mut user = ChatMsg::user(prompt);
         user.recovery_context = self.loop_recovery_context_refs();
         let mut conversation = vec![ChatMsg::system(system), user];
+        // Research is not an acceptable outcome while the verifier is blocked
+        // or a candidate or submission is overdue: the history rides alone.
+        let invite = self.loop_ctl.verifier_blocked.is_none()
+            && !self.loop_first_candidate_overdue()
+            && !self.loop_submission_overdue();
         let rl = self
             .tools
             .rl()
-            .loop_context_text(self.tools.current_workspace());
+            .loop_context_text(self.tools.current_workspace(), invite);
         if !rl.is_empty() {
             conversation.push(ChatMsg::harness(rl));
         }
@@ -1968,13 +2005,18 @@ impl crate::App {
         self.messages.push(Message::new(Role::Angel, visible));
         apply_reply_with_tools(&mut self.loop_ctl, &reply, &tools);
         self.loop_ctl.retry_after_error = false;
+        // The operator reads the pause; the next iteration reads `⠘⠃⠛`.
         let note = format!(
             "inner turn stopped ({}); automatic continuation paused — inspect the retained \
              evidence before `/loop resume`",
             reason.as_str()
         );
         self.loop_ctl.last_error = Some(note.clone());
-        self.loop_ctl.last_setback = Some(note.clone());
+        self.loop_ctl.last_setback = Some(format!(
+            "{} reason={}",
+            d45_iteration::TURN_STOPPED,
+            reason.as_str()
+        ));
         self.loop_finish(LoopStatus::Paused, &note);
     }
 
@@ -2071,9 +2113,8 @@ impl crate::App {
                 // a loop, which kept re-prompting (bitcoin loop, 2026-09-24).
                 self.loop_finish(LoopStatus::Stopped, "wrapped up at the operator's request");
             } else {
-                let setback = "unverified done claim: continue the task and produce concrete verification evidence; no acceptance command is bound";
-                self.loop_ctl.last_setback = Some(setback.to_string());
-                self.note(format!("loop · {setback}"));
+                self.loop_ctl.last_setback = Some(d45_iteration::DONE_UNVERIFIED.to_string());
+                self.note("loop · unverified done claim; no acceptance command is bound");
                 self.loop_ctl.stale_count = self.loop_ctl.stale_count.saturating_add(1);
                 self.loop_schedule_next();
             }
@@ -2104,15 +2145,22 @@ impl crate::App {
         }
         if !self.loop_first_candidate_overdue() && !self.loop_submission_overdue() {
             // Information, not an order: the iteration keeps its own line.
-            if self.loop_ctl.podrace {
-                self.loop_ctl.loop_note = Some(
-                "no comparable objective improvement recorded yet; progress remains unknown. Inspect existing evidence against the fixed baseline. Preserve an unfinished discriminating experiment until its result is available; do not abandon a sustained deep-cut hypothesis merely because this review is due. Retire only a disproved hypothesis, then choose the next concrete mechanism and smallest available check. Repeated competitive submissions of unchanged candidates are banned; do not redraw to obtain a new receipt.".to_string(),
-            );
+            // A stall with research idle routes to the Sloptomizer (`⡪⠊`):
+            // suggest, then run its top idea with compare.
+            let research_idle = {
+                let rl = self.tools.rl();
+                rl.loop_enabled() && !rl.research_running()
+            };
+            let stall = if research_idle {
+                crate::agent::harness::book::d2467_research::STALL.cells()
             } else {
-                self.loop_ctl.loop_note = Some(
-                "stalled without new verified progress: finish the line in flight, or change one concrete constraint if your evidence says it is exhausted; run the smallest discriminating check and use its result to choose the next action".to_string(),
-            );
-            }
+                String::new()
+            };
+            self.loop_ctl.loop_note = Some(if self.loop_ctl.podrace {
+                format!("{}{stall}", d45_iteration::PODRACE_STALL.cells())
+            } else {
+                format!("{}{stall}", d45_iteration::STALLED)
+            });
         }
         self.note(
             "loop · stalled — continuing on the selected route with a concrete next-action pivot"
@@ -2155,12 +2203,11 @@ impl crate::App {
         let provider_blocked = crate::agent::club::error_requires_provider_action(&err);
         self.loop_ctl.last_error = Some(err.clone());
         self.loop_ctl.last_setback = Some(if self.loop_ctl.podrace && hop_horizon {
-            "the prior turn hit an explicitly configured hop horizon; do not restart reconnaissance — continue from the current workspace and make validation, submission, or score retrieval the next action"
-                .to_string()
+            d45_iteration::HOP_HORIZON.to_string()
         } else if let Some(fault) = session_fault {
             crate::agent::harness::deterministic_recovery_note(fault)
         } else {
-            format!("the previous iteration ended in an error, not a result: {err}")
+            format!("{} {err}", d45_iteration::ERRORED)
         });
         self.loop_ctl.iteration += 1;
         self.loop_ctl.tool_calls_total = self.loop_ctl.tool_calls_total.saturating_add(tools.calls);
@@ -2231,9 +2278,8 @@ impl crate::App {
             self.loop_steer_submission();
         }
         if provider_blocked {
-            self.loop_ctl.last_setback = Some(format!(
-                "provider account/configuration blocked: {err}; retry on the selected route after the backoff"
-            ));
+            self.loop_ctl.last_setback =
+                Some(format!("{}\n{err}", d45_iteration::PROVIDER_BLOCKED));
             self.note(format!(
                 "loop · provider blocked; retry in at least 60s on the selected route: {err}"
             ));
@@ -2320,7 +2366,7 @@ impl crate::App {
                     self.loop_ctl.baseline_resume_to = Some(resume_to);
                     self.loop_ctl.baseline_passed = None;
                     self.loop_ctl.last_error = Some("baseline worker died".to_string());
-                    self.loop_ctl.last_setback = Some("baseline worker died; retrying the pinned baseline capture before model work".to_string());
+                    self.loop_ctl.last_setback = Some(d45_iteration::BASELINE_DIED.to_string());
                     if let Some(why) = budget_tripped(&self.loop_ctl) {
                         self.loop_pause_for_budget(&why);
                     } else {
@@ -2361,7 +2407,7 @@ impl crate::App {
                         self.loop_ctl.pending_acceptance = None;
                         let error = "verify worker died";
                         self.loop_ctl.last_error = Some(error.to_string());
-                        self.loop_ctl.last_setback = Some("verify worker died without an acceptance result; retry the check after the backoff, without treating it as a red receipt".to_string());
+                        self.loop_ctl.last_setback = Some(d45_iteration::VERIFY_DIED.to_string());
                         self.note("loop · verify worker died; retry in at least 60s on the selected route".to_string());
                         self.loop_schedule_next();
                         if self.loop_ctl.status == LoopStatus::Running {
@@ -2418,6 +2464,23 @@ impl crate::App {
     }
 
     fn loop_apply_verify_result(&mut self, res: VerifyResult, reused_red: bool) {
+        // The RL loop and the Sloptomizer are one learner: a verdict this
+        // command actually produced, on the direction the iteration named,
+        // becomes an observation in the learning scope loop_research reads.
+        // A replayed receipt is not a new measurement.
+        if !reused_red
+            && let (Some(receipt), Some(idea)) =
+                (&res.receipt, self.loop_ctl.iteration_direction.as_deref())
+        {
+            let workspace = self.tools.current_workspace().to_path_buf();
+            let _ = self.tools.rl().observe_loop_verdict(
+                &workspace,
+                self.loop_ctl.iteration,
+                idea,
+                res.passed,
+                receipt,
+            );
+        }
         if res.passed {
             if self.loop_ctl.self_edit {
                 // The Layer-2 invariant: a green gate never reaches the live
@@ -2441,12 +2504,9 @@ impl crate::App {
             ));
         }
         let mut setback = if reused_red {
-            format!(
-                "the unchanged acceptance check remains FAILED without rerunning the process: {}",
-                res.summary
-            )
+            format!("{} {}", l_loops::UNCHANGED_RED, res.summary)
         } else {
-            format!("the acceptance check FAILED: {}", res.summary)
+            format!("{} {}", d45_iteration::ACCEPT_FAILED, res.summary)
         };
         if !res.detail.is_empty() {
             setback.push('\n');
@@ -2716,6 +2776,30 @@ impl crate::App {
         save(&self.loop_ctl);
     }
 
+    /// Cheap liveness heartbeat for an in-flight iteration: a 90-minute turn
+    /// used to leave `updated_ms` frozen at its launch value, so anyone tailing
+    /// `~/.angelX/loops/<ws>.json` saw a dead loop. At most once a minute,
+    /// refresh `updated_ms` and publish the live tool-call count. The projection
+    /// goes into the persisted copy only — the in-memory counters stay exactly
+    /// as the iteration-boundary harvest expects them, so no call is ever
+    /// counted twice and no loop decision reads this file.
+    pub(crate) fn loop_heartbeat(&mut self) {
+        if self.loop_ctl.status != LoopStatus::Running || !self.loop_ctl.awaiting_turn {
+            return;
+        }
+        let now = now_ms();
+        if now.saturating_sub(self.loop_ctl.updated_ms) < LOOP_HEARTBEAT_MS {
+            return;
+        }
+        self.loop_ctl.updated_ms = now;
+        // Publish the live tool-call count without touching the in-memory
+        // counter the iteration-boundary harvest adds to (no double count).
+        let settled = self.loop_ctl.tool_calls_total;
+        self.loop_ctl.tool_calls_total = settled.saturating_add(self.tool_strip.snapshot().calls);
+        save(&self.loop_ctl);
+        self.loop_ctl.tool_calls_total = settled;
+    }
+
     pub(crate) fn loop_finish(&mut self, status: LoopStatus, reason: &str) {
         self.tools.rl().end_loop();
         self.loop_account_rl();
@@ -2805,14 +2889,16 @@ impl crate::App {
 
     fn loop_steer_submission(&mut self) {
         let since = self.loop_iters_since_first_measurement().unwrap_or(0);
-        let reason = format!(
-            "{} measured candidate(s) and no submission in the {since} iterations since the first \
-             measurement — the board is the instrument; submit the best measured candidate or \
-             identify and resolve the exact blocking command",
-            self.loop_ctl.measured_candidates
-        );
-        self.loop_ctl.last_setback = Some(reason.clone());
-        self.note(reason);
+        let measured = self.loop_ctl.measured_candidates;
+        self.loop_ctl.last_setback = Some(format!(
+            "{} measured={measured} since={since}",
+            d45_iteration::SUBMIT_DUE
+        ));
+        // The operator's line states the facts; the directive is `⠘⠁⠋`.
+        self.note(format!(
+            "loop · {measured} measured candidate(s) and no submission in the {since} iterations \
+             since the first measurement"
+        ));
     }
 
     /// Preserve the missing-receipt diagnostic and steer a real measurement
@@ -2821,23 +2907,30 @@ impl crate::App {
         if self.loop_ctl.verifier_failure.is_some() {
             return;
         }
-        let blocked = self
-            .loop_ctl
-            .verifier_blocked
-            .as_deref()
-            .map(|why| format!(" The last measurement attempt was blocked: {why}."))
-            .unwrap_or_default();
         // Information, not an interrupt: an iteration still mapping the
         // problem is told where it stands and how to record a candidate, and
         // keeps its research. The old wording rode the setback slot ("address
         // the cause below first") and pulled a pinning loop off its study
-        // every round from the third (apollo, 2026-09-24).
-        let reason = format!(
-            "no measured candidate yet after {} iterations.{blocked} Take the time the problem needs to understand it; when a candidate is ready, measure it with the benchmark so the loop can record it. A supervised deep worker can own a long check while you keep working.",
-            self.loop_ctl.iteration
-        );
-        self.loop_ctl.loop_note = Some(reason.clone());
-        self.note(reason);
+        // every round from the third (2026-09-24). Its words are
+        // `⠘⠑`; a blocked attempt's diagnostic rides below the route.
+        let iterations = self.loop_ctl.iteration;
+        let (note, blocked) = match self.loop_ctl.verifier_blocked.as_deref() {
+            Some(why) => (
+                format!(
+                    "{} iterations={iterations}\n{why}",
+                    d45_iteration::FIRST_CANDIDATE.cells()
+                ),
+                format!(" · last measurement attempt blocked: {why}"),
+            ),
+            None => (
+                format!("{} iterations={iterations}", d45_iteration::NO_CANDIDATE),
+                String::new(),
+            ),
+        };
+        self.loop_ctl.loop_note = Some(note);
+        self.note(format!(
+            "loop · no measured candidate yet after {iterations} iterations{blocked}"
+        ));
     }
 
     fn loop_escalate_blocked_verifier(&mut self) -> bool {
@@ -2886,9 +2979,8 @@ impl crate::App {
         // repeat count restarts so a further run of the same failure escalates again.
         let diag: String = failure.diagnostic().chars().take(400).collect();
         self.loop_ctl.last_setback = Some(format!(
-            "verification blocked {count}× identically — do not run that command again. Fix the error it \
-             printed or verify another way, then make a bounded measurement with an explicit result the \
-             next action. Last failure: {diag}"
+            "{} count={count}\n{diag}",
+            l_loops::BLOCKED_REPEAT.cells()
         ));
         self.loop_ctl.blocked_repeat_count = 0;
         self.loop_ctl.blocked_prompt_digest = None;
@@ -2943,6 +3035,7 @@ impl crate::App {
                 passed: v.passed,
                 summary: v.summary,
                 detail,
+                receipt: None,
             });
         });
         self.loop_pending = Some(LoopPending::Verify(rx));
@@ -3228,6 +3321,15 @@ impl crate::App {
                 red.attempts
             ));
         }
+        if let Some(last) = st.escalations.last() {
+            out.push_str(&format!(
+                "\n  escalated {}× · last {} (iterations {}–{})",
+                st.escalations.len(),
+                last["kind"].as_str().unwrap_or("?"),
+                last["iteration_start"],
+                last["iteration_end"],
+            ));
+        }
         if let Some(experiment) = st.experiments.last() {
             out.push_str(&format!(
                 "\n  deep     {} · {}\n  artifacts {}\n  reserved ~{} tokens (included above)",
@@ -3484,6 +3586,7 @@ fn run_accept_cmd(
                 passed: false,
                 summary: format!("could not run `{cmd}`: {e}"),
                 detail: String::new(),
+                receipt: None,
             };
         }
     };
@@ -3522,6 +3625,7 @@ fn run_accept_cmd(
             } else {
                 failure_detail(combined)
             },
+            receipt: Some(VerifyReceipt::of(&evidence)),
         };
     }
 
@@ -3551,6 +3655,7 @@ fn run_accept_cmd(
         passed,
         summary,
         detail,
+        receipt: Some(VerifyReceipt::of(&evidence)),
     }
 }
 
@@ -3761,6 +3866,8 @@ const LOOP_IDLE_CALLS: usize = 12;
 /// How long the loop waits after an idle iteration, unless woken earlier.
 const LOOP_IDLE_WAIT_SECS: u64 = 300;
 const MAX_LOOP_INTERVAL_SECS: u64 = 100 * 365 * 24 * 3600;
+/// Liveness refresh for `updated_ms` while an iteration is in flight.
+const LOOP_HEARTBEAT_MS: u64 = 60_000;
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/loop_ctl/loop_ctl__interval_stress.rs"]
@@ -3878,6 +3985,8 @@ fn persist_state_dir(st: &LoopState) {
         "tool_calls_total": st.tool_calls_total,
         "tool_errors_total": st.tool_errors_total,
         "execution_blocker": st.execution_blocker,
+        "escalations": st.escalations.len(),
+        "last_escalation": st.escalations.last(),
         "outcome_actions_seen": st.outcome_actions_seen.len(),
         "workspace_fingerprint": st.last_workspace_fingerprint,
         "tokens_spent": st.tokens_spent,

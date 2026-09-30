@@ -178,12 +178,14 @@ fn numbered_one_indexes_each_item() {
 #[test]
 fn curated_prompt_says_none_yet_when_empty() {
     let p = curated_prompt("solve", &[], &[], &[], false, EvidenceRegime::Grounded);
-    assert!(p.contains("Findings so far (0)"));
+    // The labels are `⠘⠋` page addresses: Problem, Findings so far ({n}),
+    // Open leads ({n}), Directions already tried, none yet.
+    assert!(p.contains("⠘⠋⠃ n=0"), "{p}");
     // Both the findings and directions sections fall back to "none yet".
-    assert_eq!(p.matches("none yet").count(), 2);
-    assert!(p.contains("Problem:\nsolve"));
+    assert_eq!(p.matches("⠘⠋⠑").count(), 2, "{p}");
+    assert!(p.contains("⠘⠋⠁\nsolve"), "{p}");
     // With no open leads the section is omitted entirely, not shown empty.
-    assert!(!p.contains("Open leads"));
+    assert!(!p.contains("⠘⠋⠉"), "{p}");
 }
 
 #[test]
@@ -196,15 +198,15 @@ fn curated_prompt_shows_open_leads_as_explicitly_unverified() {
         false,
         EvidenceRegime::Grounded,
     );
-    assert!(p.contains("Open leads (1)"));
+    assert!(p.contains("⠘⠋⠉ n=1"), "{p}");
     assert!(p.contains("1. the allocator may be hot"));
-    assert!(
-        p.contains("NOT yet evidenced"),
-        "a lead must never read as an established finding"
-    );
-    // Confirming a lead is framed as progress, so an iteration can spend
-    // itself validating rather than only chasing untouched ground.
-    assert!(p.contains("breaking new ground"));
+    // The grounded worker reads the lead framing off `⠻⠉`: a lead never reads
+    // as an established finding, and confirming one counts as progress.
+    let leads = crate::agent::harness::book::er_loop::OPEN_LEADS;
+    assert!(p.contains(&leads.cells()), "{p}");
+    let pages = leads.sub().pages.join(" ");
+    assert!(pages.contains("NOT yet evidenced"));
+    assert!(pages.contains("breaking new ground"));
 }
 
 #[test]
@@ -217,13 +219,14 @@ fn curated_prompt_injects_pivot_when_flagged() {
         false,
         EvidenceRegime::Grounded,
     );
-    assert!(!no_pivot.contains("PIVOT"), "no pivot unless flagged");
-    assert!(no_pivot.contains("Findings so far (1)"));
+    let pivot_cells = crate::agent::harness::book::er_loop::PIVOT.cells();
+    assert!(!no_pivot.contains(&pivot_cells), "no pivot unless flagged");
+    assert!(no_pivot.contains("⠘⠋⠃ n=1"), "{no_pivot}");
     assert!(no_pivot.contains("1. f1"));
     let pivot = curated_prompt("solve it", &[], &[], &[], true, EvidenceRegime::Grounded);
     assert!(
-        pivot.contains("PIVOT"),
+        pivot.contains(&pivot_cells),
         "pivot reframe injected when flagged"
     );
-    assert!(pivot.contains("none yet"));
+    assert!(pivot.contains("⠘⠋⠑"), "{pivot}");
 }

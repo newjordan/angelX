@@ -363,7 +363,10 @@ impl ToolStrip {
         e.inconclusive = outcome.verification == VerificationOutcome::Inconclusive;
         e.result_digest =
             Some(crate::knowledge::cut::sha256_hex(summary.as_bytes())[..16].to_string());
-        if measured_submission_fingerprint(&e.name, &e.args).is_some() {
+        let measurement = measured_submission_fingerprint(&e.name, &e.args).is_some();
+        let reported_failure = measurement && echoed_exit_failed(&e.args, summary);
+        e.err |= reported_failure;
+        if measurement {
             e.result_excerpt = Some(result_excerpt(summary));
         }
         if e.verifier.is_some() {
@@ -372,10 +375,12 @@ impl ToolStrip {
         if e.execution != ExecutionOutcome::Succeeded {
             e.reason = crate::agent::harness::failure_reason(summary);
         }
-        if matches!(
-            outcome.execution,
-            ExecutionOutcome::Failed | ExecutionOutcome::Panicked
-        ) && measured_submission_fingerprint(&e.name, &e.args).is_some()
+        if measurement
+            && (reported_failure
+                || matches!(
+                    outcome.execution,
+                    ExecutionOutcome::Failed | ExecutionOutcome::Panicked
+                ))
         {
             let failure = VerifierFailure::new(&e.args, summary);
             e.err_tail = failure.diagnostic();
@@ -629,7 +634,9 @@ impl ToolStrip {
             outcome_actions: self
                 .entries
                 .iter()
-                .filter(|entry| entry.done && !entry.err)
+                .filter(|entry| {
+                    entry.done && !entry.err && !starts_background_action(&entry.name, &entry.args)
+                })
                 .filter_map(|entry| {
                     let action = outcome_action_fingerprint(&entry.name, &entry.args)?;
                     let digest = entry.result_digest.as_deref().unwrap_or("no-result");
@@ -639,7 +646,12 @@ impl ToolStrip {
             verified_outcome_actions: self
                 .entries
                 .iter()
-                .filter(|entry| entry.done && entry.execution == ExecutionOutcome::Succeeded)
+                .filter(|entry| {
+                    entry.done
+                        && !entry.err
+                        && entry.execution == ExecutionOutcome::Succeeded
+                        && entry.verifier_failure.is_none()
+                })
                 .filter_map(|entry| {
                     let (action, submission) =
                         measured_submission_fingerprint(&entry.name, &entry.args)?;
@@ -656,7 +668,12 @@ impl ToolStrip {
             measurement_results: self
                 .entries
                 .iter()
-                .filter(|entry| entry.done && entry.execution == ExecutionOutcome::Succeeded)
+                .filter(|entry| {
+                    entry.done
+                        && !entry.err
+                        && entry.execution == ExecutionOutcome::Succeeded
+                        && entry.verifier_failure.is_none()
+                })
                 .filter_map(|entry| {
                     let (action, submission) =
                         measured_submission_fingerprint(&entry.name, &entry.args)?;
@@ -672,13 +689,7 @@ impl ToolStrip {
             verifier_failures: self
                 .entries
                 .iter()
-                .filter(|entry| {
-                    entry.done
-                        && matches!(
-                            entry.execution,
-                            ExecutionOutcome::Failed | ExecutionOutcome::Panicked
-                        )
-                })
+                .filter(|entry| entry.done && entry.verifier_failure.is_some())
                 .filter_map(|entry| {
                     let (action, _) = measured_submission_fingerprint(&entry.name, &entry.args)?;
                     Some((action, entry.err_tail.clone()))
@@ -1187,7 +1198,7 @@ const MEASUREMENT_WORDS: [&str; 7] = [
 /// Read-only viewers: a measurement word inside their arguments names a file,
 /// not an execution. `cat matrices-leader/benchmark.json` minted a "measured
 /// candidate" on every iteration of a 19-iteration, zero-submission matrices
-/// run (Toymaker, 2026-09-05); the first-candidate clock never fired.
+/// run (2026-09-05); the first-candidate clock never fired.
 const READ_ONLY_PROGRAMS: [&str; 24] = [
     "cat", "head", "tail", "less", "more", "grep", "rg", "ls", "echo", "printf", "jq", "find",
     "stat", "wc", "diff", "sed", "awk", "cp", "mv", "ln", "file", "tree", "bat", "git",
@@ -1195,10 +1206,24 @@ const READ_ONLY_PROGRAMS: [&str; 24] = [
 
 /// Generic launchers: the measurement identity is the token they launch
 /// (`timeout 900 python3 bench/measure.py` → `measure.py`).
-const RUNNERS: [&str; 22] = [
+const RUNNERS: [&str; 25] = [
     "bash", "sh", "zsh", "python", "python3", "uv", "cargo", "npm", "npx", "node", "bun",
     "timeout", "nice", "env", "sudo", "time", "make", "just", "poetry", "pnpm", "yarn", "exec",
+    "nohup", "setsid", "stdbuf",
 ];
+
+/// Whole words of a program name that mark an A/B driver (`run_ab_window.sh`,
+/// `abba.py`, Apache `ab`). Matched per word, never as a substring, so `cabal`
+/// and `tab` stay out. Operator finding 2026-09-25: a pinning seat's night of
+/// locked rig-B A/Bs ran as `run_ab_*.sh` scripts and counted zero measurements.
+const MEASUREMENT_NAME_WORDS: [&str; 3] = ["ab", "abab", "abba"];
+
+/// `ssh` options that take a value. Keep case: `-F config` and background
+/// `-f` are different options, even though receipt fingerprints normalize case.
+const SSH_VALUE_FLAGS: &str = "BbcDEeFIiJLlmOoPpQRSWw";
+
+/// Nesting bound for command-carrying launchers (`ssh … 'flock … bash -c "…"'`).
+const CARRY_DEPTH: usize = 4;
 
 fn basename(token: &str) -> &str {
     token.rsplit('/').next().unwrap_or(token)
@@ -1218,6 +1243,7 @@ fn is_env_assignment(token: &str) -> bool {
 /// loop minted two "measured candidates" from a read and a script body.
 fn command_segments(args_key: &str) -> Vec<String> {
     let mut segments = Vec::new();
+    let mut list_start = 0;
     let mut current = String::new();
     let mut quote: Option<char> = None;
     let mut heredoc: Option<String> = None;
@@ -1289,16 +1315,31 @@ fn command_segments(args_key: &str) -> Vec<String> {
             }
             ';' | '\n' => {
                 segments.push(std::mem::take(&mut current));
+                list_start = segments.len();
             }
             '|' => {
                 if chars.peek() == Some(&'|') {
                     chars.next();
+                    segments.push(std::mem::take(&mut current));
+                } else {
+                    segments.push(std::mem::take(&mut current));
                 }
-                segments.push(std::mem::take(&mut current));
             }
             '&' if chars.peek() == Some(&'&') => {
                 chars.next();
                 segments.push(std::mem::take(&mut current));
+            }
+            '&' if !current.ends_with('>') && chars.peek() != Some(&'>') => {
+                // Retain the background marker on this segment. A later
+                // foreground command must not inherit the launcher's credit.
+                // `&` backgrounds the entire preceding AND/OR list, including
+                // its pipelines, not just the final command in the list.
+                for segment in &mut segments[list_start..] {
+                    segment.push('&');
+                }
+                current.push('&');
+                segments.push(std::mem::take(&mut current));
+                list_start = segments.len();
             }
             _ => current.push(c),
         }
@@ -1319,8 +1360,10 @@ fn looks_like_program(token: &str) -> bool {
 /// The program a segment runs (basename) and its first operand, looking
 /// through generic launchers, flags, and numeric operands.
 fn segment_program(segment: &str) -> Option<(String, Option<String>)> {
-    let mut tokens = segment
-        .split_whitespace()
+    let words = shell_words(segment);
+    let mut tokens = words
+        .iter()
+        .map(String::as_str)
         .filter(|token| !is_env_assignment(token));
     let mut program = tokens.next()?;
     if !looks_like_program(program) {
@@ -1330,28 +1373,273 @@ fn segment_program(segment: &str) -> Option<(String, Option<String>)> {
         if !RUNNERS.contains(&basename(program)) {
             break;
         }
-        let next = tokens
-            .by_ref()
-            .find(|token| !(token.starts_with('-') || token.chars().all(|c| c.is_ascii_digit())));
+        let shell = matches!(basename(program), "bash" | "sh" | "zsh");
+        let next = tokens.by_ref().find(|token| {
+            !(token.starts_with('-') || token.chars().all(|c| c.is_ascii_digit()))
+                || (shell && shell_noexec_flag(token))
+        });
         match next {
+            Some(token) if shell && (shell_noexec_flag(token) || token == "noexec") => {
+                return None;
+            }
             Some(token) => program = token,
             None => break,
         }
     }
     let operand = tokens.next().map(str::to_string);
-    Some((basename(program).to_string(), operand))
+    Some((basename(program).to_ascii_lowercase(), operand))
 }
 
-/// Does this shell line *execute* a measurement — a benchmark / measure /
-/// verify / validate program or script in program position, or a competition
-/// family's own measurement subcommand (`yukon run`), and not a help call?
-fn shell_measurement(args_key: &str) -> bool {
-    command_segments(args_key).iter().any(|segment| {
+fn shell_noexec_flag(word: &str) -> bool {
+    word == "--noexec" || (word.starts_with('-') && !word.starts_with("--") && word.contains('n'))
+}
+
+/// A successful launcher reports dispatch, not completion of its child.
+/// These checks affect evidence credit only; execution remains unrestricted.
+fn segment_detaches(segment: &str) -> bool {
+    // Escaped/quoted ampersands and fd redirects are ordinary arguments.
+    let mut quote = None;
+    let mut chars = segment.chars().peekable();
+    let mut previous = None;
+    while let Some(c) = chars.next() {
+        if c == '\\' && quote != Some('\'') {
+            chars.next();
+        } else if quote == Some(c) {
+            quote = None;
+        } else if quote.is_none() && matches!(c, '\'' | '"') {
+            quote = Some(c);
+        } else if quote.is_none() && c == '&' && previous != Some('>') && chars.peek() != Some(&'>')
+        {
+            return true;
+        }
+        previous = Some(c);
+    }
+    let words = shell_words(segment);
+    let mut words = words
+        .iter()
+        .map(String::as_str)
+        .filter(|word| !is_env_assignment(word));
+    let Some(mut program) = words.next() else {
+        return false;
+    };
+    for _ in 0..4 {
+        let program_name = basename(program);
+        if program_name == "ssh" {
+            while let Some(flag) = words.next() {
+                if !flag.starts_with('-') {
+                    break;
+                }
+                let flags = &flag[1..];
+                for (index, option) in flags.char_indices() {
+                    if option == 'f' {
+                        return true;
+                    }
+                    if SSH_VALUE_FLAGS.contains(option) {
+                        if index + option.len_utf8() == flags.len() {
+                            words.next();
+                        }
+                        // The remaining bytes are this option's inline value,
+                        // so an `f` in a path is not the background flag.
+                        break;
+                    }
+                }
+            }
+            return false;
+        }
+        if !RUNNERS.contains(&program_name) {
+            return false;
+        }
+        let mut waited = false;
+        let next = words.by_ref().find(|word| {
+            waited |= *word == "--wait"
+                || (word.starts_with('-') && !word.starts_with("--") && word.contains('w'));
+            !(word.starts_with('-') || word.chars().all(|c| c.is_ascii_digit()))
+        });
+        if program_name == "setsid" && !waited {
+            return true;
+        }
+        match next {
+            Some(next) => program = next,
+            None => return false,
+        }
+    }
+    false
+}
+
+fn starts_background_action(name: &str, args: &str) -> bool {
+    fn line_detaches(line: &str, depth: usize) -> bool {
+        command_segments(line).iter().any(|segment| {
+            segment_detaches(segment)
+                || (depth > 0
+                    && carried_line(segment).is_some_and(|line| line_detaches(&line, depth - 1)))
+        })
+    }
+    let name = name.trim().to_ascii_lowercase();
+    name.contains("proc_run") || (runs_commands(&name) && line_detaches(args, CARRY_DEPTH))
+}
+
+/// The words of one segment with quotes removed, so a quoted env value
+/// (`QSB_GRINDER="cmd:python3 harness/gpu_wrap.py …"`) stays one assignment
+/// instead of putting `harness/gpu_wrap.py` in program position.
+fn shell_words(segment: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut in_word = false;
+    let mut quote: Option<char> = None;
+    let mut chars = segment.chars();
+    while let Some(c) = chars.next() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            Some('"') if c == '\\' => word.extend(chars.next()),
+            Some(_) => word.push(c),
+            None if c == '\'' || c == '"' => {
+                quote = Some(c);
+                in_word = true;
+            }
+            None if c == '\\' => {
+                word.extend(chars.next());
+                in_word = true;
+            }
+            None if c.is_whitespace() => {
+                if in_word {
+                    words.push(std::mem::take(&mut word));
+                    in_word = false;
+                }
+            }
+            None => {
+                word.push(c);
+                in_word = true;
+            }
+        }
+    }
+    if in_word {
+        words.push(word);
+    }
+    words
+}
+
+/// The command line a launcher carries: `ssh [opts] host '<line>'`,
+/// `bash -c '<line>'`, `flock [opts] LOCK <cmd…>` or `flock LOCK -c '<line>'`.
+/// The measurement is judged on that line. Operator finding 2026-09-25: every
+/// rig-B A/B ran as `ssh … 'cd X && flock … ./benchmark.sh pinning'`, the strip
+/// saw only `ssh`, and a night of locked measurements counted zero.
+fn carried_line(segment: &str) -> Option<String> {
+    let words = shell_words(segment);
+    let mut words = words
+        .iter()
+        .map(String::as_str)
+        .filter(|word| !is_env_assignment(word));
+    match basename(words.next()?) {
+        "ssh" => {
+            while let Some(word) = words.next() {
+                if let Some(flag) = word.strip_prefix('-') {
+                    if flag.len() == 1 && SSH_VALUE_FLAGS.contains(flag) {
+                        words.next();
+                    }
+                    continue;
+                }
+                // `word` is the host; the rest is the remote line.
+                let rest: Vec<&str> = words.collect();
+                return (!rest.is_empty()).then(|| rest.join(" "));
+            }
+            None
+        }
+        "bash" | "sh" | "zsh" => {
+            while let Some(word) = words.next() {
+                match word {
+                    word if shell_noexec_flag(word) => return None,
+                    "-o" | "+o" => {
+                        if words.next() == Some("noexec") && word == "-o" {
+                            return None;
+                        }
+                    }
+                    _ if word.starts_with("--") => {}
+                    _ if word.starts_with('-') && word.contains('c') => {
+                        return words.next().map(str::to_string);
+                    }
+                    _ if word.starts_with('-') => {}
+                    // A script path, not a carried line.
+                    _ => return None,
+                }
+            }
+            None
+        }
+        "flock" => {
+            while let Some(word) = words.next() {
+                if word.starts_with('-') {
+                    if matches!(
+                        word,
+                        "-w" | "--timeout" | "--wait" | "-e" | "--conflict-exit-code"
+                    ) {
+                        words.next();
+                    }
+                    continue;
+                }
+                // `word` is the lock file; the rest runs under it.
+                let rest: Vec<&str> = words.collect();
+                return match rest.split_first() {
+                    Some((&("-c" | "--command"), tail)) => {
+                        tail.first().map(|line| line.to_string())
+                    }
+                    _ => (!rest.is_empty()).then(|| rest.join(" ")),
+                };
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+/// The first segment of `line` that `qualifies`, looking through
+/// command-carrying launchers: for `ssh host 'cd X && ./benchmark.sh'` it is
+/// the carried `./benchmark.sh` segment.
+fn qualifying_segment(
+    line: &str,
+    depth: usize,
+    qualifies: &dyn Fn(&str) -> bool,
+) -> Option<String> {
+    command_segments(line).into_iter().find_map(|segment| {
+        if segment_detaches(&segment) {
+            return None;
+        }
+        match carried_line(&segment) {
+            Some(carried) if depth > 0 => qualifying_segment(&carried, depth - 1, qualifies),
+            _ => qualifies(&segment).then_some(segment),
+        }
+    })
+}
+
+/// The segment of this shell line that *executes* a measurement — a benchmark /
+/// measure / verify / validate program or script, or an A/B driver, in program
+/// position (also inside a line carried by `ssh`, `flock` or `bash -c`), or a
+/// competition family's own measurement subcommand (`yukon run`), and not a
+/// help call. The receipt must name this segment: a heesch loop recorded
+/// `yukon --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify …`
+/// as `measured:shell:yukon --help` because the label came from the first
+/// segment while the qualification scanned all of them (2026-09-25).
+fn shell_measurement_segment(args_key: &str) -> Option<String> {
+    qualifying_segment(args_key, CARRY_DEPTH, &|segment| {
+        if shell_words(segment).iter().any(|token| {
+            matches!(
+                token.as_str(),
+                "--help" | "-h" | "help" | "--dry-run" | "--preflight-only"
+            ) || token.split_once('=').is_some_and(|(key, value)| {
+                (key.eq_ignore_ascii_case("preflight_only")
+                    || key.to_ascii_lowercase().ends_with("_preflight_only")
+                    || key == "--preflight-only")
+                    && matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes")
+            })
+        }) {
+            return false;
+        }
         segment_program(segment).is_some_and(|(program, operand)| {
             if READ_ONLY_PROGRAMS.contains(&program.as_str()) {
                 return false;
             }
             MEASUREMENT_WORDS.iter().any(|word| program.contains(word))
+                || program
+                    .split(|c: char| !c.is_ascii_alphanumeric())
+                    .any(|word| MEASUREMENT_NAME_WORDS.contains(&word))
                 || (!segment
                     .split_whitespace()
                     .any(|token| matches!(token, "--help" | "-h" | "help"))
@@ -1362,11 +1650,34 @@ fn shell_measurement(args_key: &str) -> bool {
     })
 }
 
-/// Does this shell line *execute* a submission — `submit` as the program or
-/// its subcommand (`hilbert submit`, `yukon submit`, `./submit.sh`), and not a
-/// help / dry-run invocation?
-fn shell_submission(args_key: &str) -> bool {
-    command_segments(args_key).iter().any(|segment| {
+/// An explicit echoed status can expose a failed verifier even when the
+/// surrounding shell exits zero. Only interpret the marker the command
+/// actually prints; arbitrary numbers in benchmark output are not statuses.
+fn echoed_exit_failed(args: &str, summary: &str) -> bool {
+    let echoes_exit = qualifying_segment(args, CARRY_DEPTH, &|segment| {
+        let words = shell_words(segment);
+        words.first().is_some_and(|word| word == "echo")
+            && words
+                .iter()
+                .skip(1)
+                .any(|word| word.eq_ignore_ascii_case("exit:$?"))
+    })
+    .is_some();
+    echoes_exit
+        && summary.lines().any(|line| {
+            line.trim()
+                .to_ascii_lowercase()
+                .strip_prefix("exit:")
+                .and_then(|value| value.trim().parse::<i32>().ok())
+                .is_some_and(|status| status != 0)
+        })
+}
+
+/// The segment of this shell line that *executes* a submission — `submit` as
+/// the program or its subcommand (`hilbert submit`, `yukon submit`,
+/// `./submit.sh`), and not a help / dry-run invocation.
+fn shell_submission_segment(args_key: &str) -> Option<String> {
+    qualifying_segment(args_key, CARRY_DEPTH, &|segment| {
         if segment
             .split_whitespace()
             .any(|token| matches!(token, "--help" | "-h" | "help" | "--dry-run"))
@@ -1399,26 +1710,48 @@ fn runs_commands(name_key: &str) -> bool {
 /// none of them are receipts. Other tools qualify by name only (a `benchmark`
 /// tool, a `submit` tool). Bare `git status`, `submissions` listings, and
 /// status polls deliberately never match, so polling cannot masquerade as a
-/// measured candidate. Returns the canonical fingerprint and whether it is a
-/// submission.
+/// measured candidate. For shell lines the fingerprint names the segment that
+/// qualified, not the first segment of the line. Returns the canonical
+/// fingerprint and whether it is a submission.
 fn measured_submission_fingerprint(name: &str, args: &str) -> Option<(String, bool)> {
     let name_key = name.trim().to_ascii_lowercase();
-    let args_key = args.trim().to_ascii_lowercase();
-    let (measurement, submission) = if runs_commands(&name_key) {
-        (shell_measurement(&args_key), shell_submission(&args_key))
-    } else {
-        (
-            MEASUREMENT_WORDS.iter().any(|word| name_key.contains(word)),
-            name_key
-                .split(|c: char| !c.is_ascii_alphanumeric())
-                .any(|token| token == "submit"),
-        )
-    };
+    let args_key = args.trim();
+    // proc_run returns a process handle immediately. Its correlated terminal
+    // notice remains available through the process monitor; launch success
+    // alone must never advance measured-candidate or submission clocks.
+    if name_key.contains("proc_run") {
+        return None;
+    }
+    if runs_commands(&name_key) {
+        // A submission is the stronger claim; a measurement labels itself.
+        let (segment, is_submission) = match (
+            shell_submission_segment(args_key),
+            shell_measurement_segment(args_key),
+        ) {
+            (Some(segment), _) => (segment, true),
+            (None, Some(segment)) => (segment, false),
+            (None, None) => return None,
+        };
+        return Some((
+            format!(
+                "{name_key}:{}",
+                canonical_command_key(&segment.to_ascii_lowercase())
+            ),
+            is_submission,
+        ));
+    }
+    let measurement = MEASUREMENT_WORDS.iter().any(|word| name_key.contains(word));
+    let submission = name_key
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|token| token == "submit");
     if !submission && !measurement {
         return None;
     }
     Some((
-        format!("{name_key}:{}", canonical_command_key(&args_key)),
+        format!(
+            "{name_key}:{}",
+            canonical_command_key(&args_key.to_ascii_lowercase())
+        ),
         submission,
     ))
 }

@@ -21,8 +21,7 @@ impl Tool for ScienceTool {
                           ranks by citations + recency. Returns a briefing — the dominant \
                           title-metadata cues, the seminal and freshest papers, then a ranked \
                           reading list with validated DOI or source-record links. It does not \
-                          read abstracts or full text. Use for papers, prior work, citation counts, or a \
-                          literature review in ML, biology, physics or chemistry."
+                          read abstracts or full text. ⠱⠉"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -31,11 +30,11 @@ impl Tool for ScienceTool {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": crate::drive::science::MAX_QUERY_CHARS,
-                        "description": "the research question or topic"
+                        "description": "⠱⠉⠃"
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "papers per source (default 8, max 25)"
+                        "description": "⠱⠉⠉"
                     },
                 },
                 "required": ["query"],

@@ -82,9 +82,13 @@ mod sports;
 mod transit;
 mod weather;
 
+// Storybook scenes in indigo, gold and moonlight (dotmax 0.1.10).
+mod fable;
+
 /// All themes bundled with dotmax, in display order.
-pub const THEMES: [&str; 57] = [
+pub const THEMES: [&str; 58] = [
     "classic",
+    "fable",
     "matrix",
     "aurora",
     "inferno",
@@ -154,6 +158,7 @@ pub fn themes() -> &'static [&'static str] {
 pub fn all_styles() -> Vec<Box<dyn ProgressStyle>> {
     let mut v = Vec::new();
     v.extend(classic::styles());
+    v.extend(fable::styles());
     v.extend(matrix::styles());
     v.extend(aurora::styles());
     v.extend(inferno::styles());

@@ -1,14 +1,16 @@
 //! The project brief: facts the harness gathers when a loop starts so the first
 //! iteration begins oriented instead of spending its turns rediscovering the
-//! machine, the benchmark and the workspace. The apollo and turbo comps read
-//! all night (2026-09-24) for what a few probes answer: which GPU, where nvcc
+//! machine, the benchmark and the workspace. Two comps read all night
+//! (2026-09-24) for what a few probes answer: which GPU, where nvcc
 //! lives, what the benchmark measures, which repositories sit inside the
 //! workspace and which research notes already exist.
 //!
 //! Gathered off the UI thread (`gather` is blocking) and refreshed every
 //! [`BRIEF_REFRESH_MS`]. Every section has a fixed bound. The brief rides the
-//! iteration's system message, so it is stable between refreshes.
+//! iteration's system message, so it is stable between refreshes. Its headings
+//! and labels are page addresses (`⠘⠛`, `⠘⠓`); the facts are the data.
 
+use crate::agent::harness::book::d45_iteration::{BRIEF, BRIEF_BENCHMARK};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -83,32 +85,27 @@ pub(crate) fn gather(workspace: &Path) -> String {
     let now = now_secs();
     let walk = walk(workspace);
     let mut out = String::new();
-    section(&mut out, "machine", &machine(workspace, &walk), 1_000);
-    section(
-        &mut out,
-        "benchmark",
-        &benchmark(workspace, &walk, now),
-        2_000,
-    );
-    section(
-        &mut out,
-        "workspace",
-        &workspace_map(workspace, &walk),
-        1_800,
-    );
-    section(
-        &mut out,
-        "notes in the workspace, newest first",
-        &notes(&walk, now),
-        900,
-    );
-    section(&mut out, "recent commits", &commits(workspace), 900);
+    section(&mut out, '⠁', &machine(workspace, &walk), 1_000);
+    section(&mut out, '⠃', &benchmark(workspace, &walk, now), 2_000);
+    section(&mut out, '⠉', &workspace_map(workspace, &walk), 1_800);
+    section(&mut out, '⠙', &notes(&walk, now), 900);
+    section(&mut out, '⠑', &commits(workspace), 900);
     clip(&out, BRIEF_MAX_CHARS)
 }
 
-/// Append `body` under `title`, clipped at a line boundary to `max` chars so
-/// one long section never crowds out the rest.
-fn section(out: &mut String, title: &str, body: &str, max: usize) {
+/// A brief label: its page address on `⠘⠛` (headings, the workspace map).
+fn label(page: char) -> String {
+    format!("{}{page}", BRIEF.cells())
+}
+
+/// A benchmark card label: its page address on `⠘⠓`.
+fn card_label(page: char) -> String {
+    format!("{}{page}", BRIEF_BENCHMARK.cells())
+}
+
+/// Append `body` under the heading on page `heading` of `⠘⠛`, clipped at a
+/// line boundary to `max` chars so one long section never crowds out the rest.
+fn section(out: &mut String, heading: char, body: &str, max: usize) {
     let body = clip_lines(body.trim_end(), max);
     if body.is_empty() {
         return;
@@ -116,8 +113,8 @@ fn section(out: &mut String, title: &str, body: &str, max: usize) {
     if !out.is_empty() {
         out.push('\n');
     }
-    out.push_str(title);
-    out.push_str(":\n");
+    out.push_str(&label(heading));
+    out.push('\n');
     out.push_str(&body);
     out.push('\n');
 }
@@ -129,7 +126,7 @@ fn machine(workspace: &Path, walk: &Walk) -> String {
     lines.extend(cuda_compiler_lines(workspace, walk));
     let toolchains = toolchains(workspace);
     if !toolchains.is_empty() {
-        lines.push(format!("toolchains: {}", toolchains.join(", ")));
+        lines.push(format!("{} {}", label('⠋'), toolchains.join(", ")));
     }
     let threads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -424,7 +421,8 @@ fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String>
             String::new()
         };
         lines.push(format!(
-            "the same spec is in {} more copies: {}{more}",
+            "{} n={} {}{more}",
+            card_label('⠁'),
             copies.len() - 1,
             others.join(", ")
         ));
@@ -458,11 +456,15 @@ fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String>
             })
             .unwrap_or_default();
         if !edit.is_empty() {
-            lines.push(format!("  editable: {edit}"));
+            lines.push(format!("  {} {edit}", card_label('⠃')));
         }
-        for (label, key) in [("setup", "setupCommand"), ("run", "benchmarkCommand")] {
+        for (page, key) in [('⠉', "setupCommand"), ('⠙', "benchmarkCommand")] {
             if let Some(command) = track.get(key).and_then(command_text) {
-                lines.push(format!("  {label}: {command} (in {})", display_dir(dir)));
+                lines.push(format!(
+                    "  {} {command} (in {})",
+                    card_label(page),
+                    display_dir(dir)
+                ));
             }
         }
         if let Some(bips) = track
@@ -470,7 +472,8 @@ fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String>
             .and_then(|v| v.as_u64())
         {
             lines.push(format!(
-                "  a submission must beat the current score by {bips} bips ({:.2}%)",
+                "  {} bips={bips} percent={:.2}",
+                card_label('⠑'),
                 bips as f64 / 100.0
             ));
         }
@@ -488,13 +491,14 @@ fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String>
                     Some((unix_secs(modified), dir, file))
                 })
                 .max_by_key(|(modified, _, _)| *modified);
+            let score_file = card_label('⠋');
             lines.push(match newest {
                 Some((_, dir, file)) => format!(
-                    "  score file {score} in {}: {}",
+                    "  {score_file} {score} in {}: {}",
                     display_dir(dir),
                     local_score(&file, now).unwrap_or_default()
                 ),
-                None => format!("  score file {score}: not written yet"),
+                None => format!("  {score_file} {score}: not written yet"),
             });
         }
     }
@@ -610,10 +614,7 @@ fn workspace_map(workspace: &Path, walk: &Walk) -> String {
     let mut lines = vec![root_line(workspace)];
     let repos: Vec<&WalkEntry> = walk.entries.iter().filter(|entry| entry.repo).collect();
     if !repos.is_empty() {
-        lines.push(format!(
-            "{} repositories inside the workspace (their changes do not show in the top-level git diff):",
-            repos.len()
-        ));
+        lines.push(format!("{} n={}", label('⠛'), repos.len()));
         for repo in repos.iter().take(REPOS_SHOWN) {
             let last = git(
                 &workspace.join(&repo.rel),
@@ -627,7 +628,7 @@ fn workspace_map(workspace: &Path, walk: &Walk) -> String {
             lines.push(format!("  … and {} more", repos.len() - REPOS_SHOWN));
         }
     }
-    lines.push("top level:".to_string());
+    lines.push(label('⠓'));
     lines.extend(top_level(walk).into_iter().map(|line| format!("  {line}")));
     // One line per build file name, with the directories that carry it
     // (clones of one challenge all carry the same `benchmark.sh`).
@@ -662,11 +663,12 @@ fn workspace_map(workspace: &Path, walk: &Walk) -> String {
                 format!("{name} (in {}{more})", shown.join(", "))
             })
             .collect();
-        lines.push(format!("build and run files: {}", listed.join("; ")));
+        lines.push(format!("{} {}", label('⠊'), listed.join("; ")));
     }
     if walk.truncated {
         lines.push(format!(
-            "(mapped the first {WALK_LIMIT} entries, {WALK_DEPTH} levels deep)"
+            "{} WALK_LIMIT={WALK_LIMIT} WALK_DEPTH={WALK_DEPTH}",
+            label('⠚')
         ));
     }
     lines.join("\n")

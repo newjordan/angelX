@@ -133,8 +133,11 @@ pub(crate) struct SkillSummary {
     description: String,
 }
 
-pub(crate) const SKILL_HINT_HEADER: &str = "[skill hint — harness-selected playbook]";
-pub(crate) const SKILL_HINT_SENTINEL: &str = "[/skill hint]";
+/// The playbook hint is the `⠥⠉` route around the skill name (data); its words
+/// are `ledger://⠥⠉`, verbatim. Header and sentinel are the same line-anchored
+/// cells, so the block still strips as one span.
+pub(crate) const SKILL_HINT_HEADER: &str = "⠥⠉";
+pub(crate) const SKILL_HINT_SENTINEL: &str = "⠥⠉";
 pub(crate) const MAX_SKILL_AUDIT_ISSUES: usize = 24;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -543,7 +546,7 @@ fn slug_mentioned_as_segment(hay: &str, slug: &str) -> bool {
 pub(crate) fn relevant_skill_hint(skills: &[SkillSummary], task: &str) -> Option<String> {
     let name = relevant_skill_name(skills, task)?;
     Some(format!(
-        "{SKILL_HINT_HEADER}\nRelevant playbook: `{name}`. Call `skill(name=\"{name}\")` before acting if it fits this task.\n{SKILL_HINT_SENTINEL}\n\n"
+        "{SKILL_HINT_HEADER}\n`{name}`\n{SKILL_HINT_SENTINEL}\n\n"
     ))
 }
 
@@ -935,6 +938,7 @@ struct SkillEntrySignature {
     name: std::ffi::OsString,
     is_dir: bool,
     file: Option<SkillFileSignature>,
+    resolved_target: Option<(PathBuf, SkillFileSignature)>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -952,6 +956,33 @@ struct SkillFileSignature {
     change_secs: i64,
     #[cfg(unix)]
     change_nanos: i64,
+}
+
+impl SkillFileSignature {
+    fn from_metadata(metadata: std::fs::Metadata) -> Self {
+        let modified_nanos = metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_nanos());
+        #[cfg(unix)]
+        use std::os::unix::fs::MetadataExt;
+        Self {
+            len: metadata.len(),
+            modified_nanos,
+            readonly: metadata.permissions().readonly(),
+            is_file: metadata.file_type().is_file(),
+            is_symlink: metadata.file_type().is_symlink(),
+            #[cfg(unix)]
+            device: metadata.dev(),
+            #[cfg(unix)]
+            inode: metadata.ino(),
+            #[cfg(unix)]
+            change_secs: metadata.ctime(),
+            #[cfg(unix)]
+            change_nanos: metadata.ctime_nsec(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -977,6 +1008,7 @@ fn skill_scan_cache()
 /// ordinary catalog reads avoid reparsing every body, while edits, replacement,
 /// creation, removal, or ordering changes invalidate the cache.
 fn skill_source_signature(dir: &Path) -> Option<SkillSourceSignature> {
+    let canonical_dir = dir.canonicalize().ok()?;
     let mut entries = confined_read_dir(dir, Path::new("")).ok()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
     let entry_count = entries.len();
@@ -997,35 +1029,34 @@ fn skill_source_signature(dir: &Path) -> Option<SkillSourceSignature> {
             } else {
                 None
             };
+            let file = candidate
+                .as_ref()
+                .and_then(|path| std::fs::symlink_metadata(dir.join(path)).ok())
+                .map(SkillFileSignature::from_metadata);
+            // The loader follows in-source file symlinks. Link metadata alone
+            // misses edits/replacements of the body and intermediate-link
+            // retargets. Track the resolved, confined target without reading
+            // its body; dangling or outbound targets cannot retain an admitted
+            // skill from an earlier scan.
+            let resolved_target = file
+                .as_ref()
+                .filter(|metadata| metadata.is_symlink)
+                .and_then(|_| {
+                    let target = dir.join(candidate.as_ref()?).canonicalize().ok()?;
+                    if !target.starts_with(&canonical_dir) {
+                        return None;
+                    }
+                    let metadata = std::fs::symlink_metadata(&target).ok()?;
+                    if !metadata.is_file() {
+                        return None;
+                    }
+                    Some((target, SkillFileSignature::from_metadata(metadata)))
+                });
             SkillEntrySignature {
                 name: entry.name,
                 is_dir: entry.is_dir,
-                file: candidate
-                    .and_then(|path| std::fs::symlink_metadata(dir.join(path)).ok())
-                    .map(|metadata| {
-                        let modified_nanos = metadata
-                            .modified()
-                            .ok()
-                            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|duration| duration.as_nanos());
-                        #[cfg(unix)]
-                        use std::os::unix::fs::MetadataExt;
-                        SkillFileSignature {
-                            len: metadata.len(),
-                            modified_nanos,
-                            readonly: metadata.permissions().readonly(),
-                            is_file: metadata.file_type().is_file(),
-                            is_symlink: metadata.file_type().is_symlink(),
-                            #[cfg(unix)]
-                            device: metadata.dev(),
-                            #[cfg(unix)]
-                            inode: metadata.ino(),
-                            #[cfg(unix)]
-                            change_secs: metadata.ctime(),
-                            #[cfg(unix)]
-                            change_nanos: metadata.ctime_nsec(),
-                        }
-                    }),
+                file,
+                resolved_target,
             }
         })
         .collect();
@@ -1249,10 +1280,11 @@ pub(crate) fn parse_skill(text: &str, fallback_name: &str) -> Skill {
     let mut body = body.trim().to_string();
     if body.len() > MAX_SKILL_BODY_BYTES {
         truncate_to_char_boundary(&mut body, MAX_SKILL_BODY_BYTES);
-        body.push_str(
-            "\n\n[skill instructions truncated by the harness at 65536 UTF-8 bytes; \
-             inspect the source skill before treating this playbook as complete]",
-        );
+        // The label is its `⠥⠓` page; the cut bytes ride beside it.
+        body.push_str(&format!(
+            "\n\n{} bytes={MAX_SKILL_BODY_BYTES}",
+            crate::agent::harness::book::u_skills::SKILL_TRUNCATED.cells()
+        ));
     }
     description = description.chars().take(160).collect();
     Skill {
@@ -1267,8 +1299,8 @@ pub(crate) fn parse_skill(text: &str, fallback_name: &str) -> Skill {
     }
 }
 
-/// The compact skills catalog appended to the system prompt (empty when there are
-/// none). Tells the model to call `skill(name)` to load full instructions.
+/// The compact skills catalog for the workspace-context carrier (empty when
+/// there are none): the `⠥⠁` route and the skill names.
 pub fn skills_catalog(skills: &[Skill]) -> String {
     let visible = skills
         .iter()
@@ -1276,10 +1308,8 @@ pub fn skills_catalog(skills: &[Skill]) -> String {
     if visible.clone().next().is_none() {
         return String::new();
     }
-    let mut s = String::from(
-        "\n\nSkills — focused playbooks you can load on demand. Call `skill(name)` to get \
-         a skill's full instructions before doing that kind of task:\n",
-    );
+    // `⠥⠁`: the catalog's words are its ledger pages; the names are data.
+    let mut s = format!("\n\n{}\n", super::book::u_skills::CATALOG.cells());
     // Names are constrained identifiers. Descriptions can originate in the
     // repository, user skill directories, or plugin metadata, so never splice
     // that free-form text into the System-role bootstrap prompt.
@@ -1287,6 +1317,24 @@ pub fn skills_catalog(skills: &[Skill]) -> String {
         s.push_str(&format!("- `{}`\n", sk.name));
     }
     s
+}
+
+/// Referral card for compact task mode (`ANGEL_TASK_COMPACT_PROMPT`): the
+/// forced catalog lists every skill name up front, which re-prefills on
+/// every hop against cache-less local engines. The referral keeps one line —
+/// *how to ask* — and leaves discovery to the `skill` tool's own name/description
+/// surface (and `relevant_skill_hint`, which already pulls the top match into
+/// the first turn when the task text names a matching domain).
+pub fn skills_referral_card(skills: &[Skill]) -> String {
+    let visible = skills
+        .iter()
+        .filter(|skill| !skill.manual_only && safe_skill_name(&skill.name));
+    if visible.clone().next().is_none() {
+        return String::new();
+    }
+    let count = visible.clone().count();
+    // `⠥⠃`: the referral's words are its ledger pages; the count is data.
+    format!("\n\n{}\n{count}\n", super::book::u_skills::REFERRAL.cells())
 }
 
 /// `skill(name)` — return a discovered skill's full instructions on demand.
@@ -1358,7 +1406,9 @@ fn loaded_skill_body(skill: &Skill) -> String {
     };
     let paths = supporting_skill_paths(base);
     let mut output = skill.body.clone();
-    output.push_str("\n\n[skill resources — contents not loaded]\nbase: ");
+    output.push_str("\n\n");
+    output.push_str(&crate::agent::harness::book::u_skills::SKILL_RESOURCES.cells());
+    output.push_str("\nbase: ");
     output.push_str(&base.to_string_lossy());
     if paths.is_empty() {
         output.push_str("\nsupporting files: (none)");
@@ -1386,8 +1436,8 @@ impl Tool for SkillTool {
         ToolDef {
             name: "skill".to_string(),
             description: format!(
-                "Load a skill's full instructions by name before doing that kind of task. \
-                 Available: {}.",
+                "Load a skill's full instructions by name. \
+                 Available: {}. ⠹⠊",
                 if names.is_empty() {
                     "(none)".to_string()
                 } else {
@@ -1397,7 +1447,7 @@ impl Tool for SkillTool {
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "name": { "type": "string", "description": "skill name from the catalog" }
+                    "name": { "type": "string", "description": "⠹⠊⠃" }
                 },
                 "required": ["name"],
             }),

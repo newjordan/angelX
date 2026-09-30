@@ -1,6 +1,153 @@
 use super::*;
 
 #[test]
+fn run_identity_auxiliary_request_keeps_last_answer_receipt() {
+    let _env = crate::tests::env_lock();
+    let club =
+        crate::agent::club::HttpClub::new("answer", "http://127.0.0.1:9/v1", "answer-model", None);
+    crate::agent::harness::reset_turn_ledger(&club);
+    crate::agent::harness::begin_model_request();
+    let bind_model = |name: &str| {
+        bind(
+            Model {
+                club: name.into(),
+                driver: name.into(),
+                id: name.into(),
+                base_url: "fixture/v1".into(),
+            },
+            json!({"reasoning_effort":"low"}),
+            json!(123),
+            None,
+        )
+        .unwrap();
+    };
+    bind_model("answer-model");
+    crate::agent::harness::end_model_request();
+    select_answer_route(&crate::agent::club::RouteIdentity {
+        driver: "answer-model".into(),
+        model: Some("answer-model".into()),
+        reasoning_effort: None,
+    });
+    let answer = serde_json::to_value(current_for_turn()).unwrap();
+    bind_model("compact-model");
+    assert_eq!(request_identity().unwrap().model.id, "compact-model");
+    assert_eq!(
+        serde_json::to_value(current_for_turn()).unwrap(),
+        answer,
+        "auxiliary work before cancellation must retain the last answer receipt"
+    );
+    crate::agent::harness::begin_model_request();
+    bind_model("next-answer-model");
+    crate::agent::harness::end_model_request();
+    assert_eq!(current_for_turn().unwrap().model.id, "next-answer-model");
+}
+
+#[test]
+fn run_identity_controls_skip_payload_and_preserve_wire_controls() {
+    let wire = json!({"model":"fixture", "messages":[{"content":"private prompt"}],
+        "tools":[{"description":"private schema"}], "api_key":"private key",
+        "reasoning_effort":null, "reasoning":{"effort":"high"},
+        "chat_template_kwargs":{"enable_thinking":false}, "max_completion_tokens":123});
+    let controls = wire_identity_controls(&serde_json::to_vec(&wire).unwrap()).unwrap();
+    assert_eq!(wire_effort(&controls), wire_effort(&wire));
+    assert_eq!(controls["max_completion_tokens"], 123);
+    for key in ["messages", "tools", "api_key"] {
+        assert!(controls.get(key).is_none());
+    }
+    assert!(wire_identity_controls(b"{} trailing").is_err());
+}
+
+#[test]
+fn run_identity_http_route_switch_updates_receipts_preserving_origin() {
+    use crate::agent::club::{ChatMsg, Club};
+    use std::io::{Read, Write};
+    let _env = crate::tests::env_lock();
+    let _pipe = crate::tests::TestEnvGuard::unset("ANGEL_PXPIPE");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}/v1", listener.local_addr().unwrap());
+    let (requests, received) = std::sync::mpsc::channel();
+    let server = std::thread::spawn(move || {
+        for _ in 0..2 {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(3)))
+                .unwrap();
+            let mut request = Vec::new();
+            let mut byte = [0];
+            while !request.ends_with(b"\r\n\r\n") {
+                stream.read_exact(&mut byte).unwrap();
+                request.push(byte[0]);
+            }
+            let headers = String::from_utf8(request).unwrap();
+            let length: usize = headers
+                .lines()
+                .find_map(|line| {
+                    let (key, value) = line.split_once(':')?;
+                    key.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse().unwrap())
+                })
+                .unwrap();
+            let mut body = vec![0; length];
+            stream.read_exact(&mut body).unwrap();
+            requests
+                .send(serde_json::from_slice::<Value>(&body).unwrap())
+                .unwrap();
+            let response = json!({"choices":[{"message":{"role":"assistant","content":"done"},
+                "finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,
+                "prompt_tokens_details":{"cached_tokens":0}}})
+            .to_string();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
+        }
+    });
+    let mut original = None;
+    for (label, model) in [
+        ("identity-first", "grok-4.7"),
+        ("identity-second", "deepseek-v4-flash"),
+    ] {
+        let club = crate::agent::club::HttpClub::new(label, &endpoint, model, None);
+        crate::agent::harness::reset_turn_ledger(&club);
+        assert!(
+            current_for_turn().is_none(),
+            "a new turn cannot inherit the last seat"
+        );
+        crate::agent::harness::note_timing_origin(std::time::Instant::now());
+        crate::agent::harness::begin_model_request();
+        club.chat(&[ChatMsg::user("fixture")], &[]).unwrap();
+        crate::agent::harness::end_model_request();
+        select_answer_route(&club.resolved_route_identity());
+        let wire = received
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .unwrap();
+        let identity = current_for_turn().unwrap();
+        assert_eq!(identity.model.id, model);
+        assert_eq!(identity.model.driver, label);
+        assert_eq!(identity.model.base_url, endpoint_identity(&endpoint));
+        assert_eq!(identity.effort, wire_effort(&wire));
+        assert_eq!(
+            identity.initial_request.as_ref().unwrap().model.id,
+            current().unwrap().model.id
+        );
+        let immutable = serde_json::to_value(current()).unwrap();
+        assert_eq!(
+            immutable,
+            *original.get_or_insert_with(|| immutable.clone())
+        );
+        let attempts = crate::agent::harness::provider_call_samples();
+        assert_eq!(attempts.len(), 1);
+        assert_eq!(attempts[0]["identity"]["model"]["id"], model);
+        assert_eq!(attempts[0]["identity"]["effort"], wire_effort(&wire));
+    }
+    server.join().unwrap();
+    // A parallel synthesized answer has no single certified answering seat.
+    select_answer_route(&Default::default());
+    let identity = current_for_turn().unwrap();
+    assert_eq!(identity.model.id, "unbound");
+    assert_eq!(identity.model.base_url, "unbound");
+    assert_eq!(identity.effort, "unbound");
+    assert_eq!(serde_json::to_value(current()).unwrap(), original.unwrap());
+}
+
+#[test]
 fn run_identity_executable_and_unbound() {
     let _env = crate::tests::env_lock();
     let build = static_identity().unwrap();

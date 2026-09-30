@@ -102,14 +102,13 @@ grep,list_dir,web_search,web_fetch,Agent,todo_write,get_command_or_subagent_outp
 spawn_subagent,open_page,image_gen,image_edit,monitor,workflow,use_tool,search_tool,\
 bash,shell,read,edit";
 
-/// Short system-prompt override for harness hops. Kept tiny so it never blows
-/// ARG_MAX; the host tool catalog rides in the prompt body instead.
-const GROK_HARNESS_SYSTEM_OVERRIDE: &str = "\
-You are pure completion for the Angel host. You have no executable tools. \
-When you need the host to act, emit one or more blocks of the form \
-<tool_call name=\"NAME\">{json args}</tool_call> and stop. \
-Do not narrate denials, do not claim tools already ran, and do not invent \
-results. The host tool catalog and conversation follow in the user prompt.";
+/// Short system-prompt override for harness hops: the host seat's route,
+/// `⠜⠚`. Kept tiny so it never blows ARG_MAX; the host tool catalog — and its
+/// markup, how the seat calls `read_file` for the ledger — rides in the prompt
+/// body instead.
+fn grok_harness_system_override() -> String {
+    crate::agent::harness::book::ar_seats::GROK_HOST.cells()
+}
 
 /// Experimental ACP host-tool markup switch. **Off by default.** Grok 4.6
 /// refuses `<tool_call>` prose and keeps its own tool dialect, so Angel driver
@@ -420,7 +419,10 @@ impl GrokResearchClub {
         effort: Option<&str>,
         on_delta: Option<&mut dyn FnMut(StreamDelta)>,
     ) -> Result<ClubReply, String> {
-        let transcript = Self::chat_prompt(messages);
+        // The book's legend, as every wire carries it (a no-op without the
+        // ledger reader, as on the research surface).
+        let introduced = crate::agent::harness::book::introduction::introduced(messages, tools);
+        let transcript = Self::chat_prompt(&introduced);
         // Research/text seats keep Grok's own tools. Host-tool driver hops
         // belong on the HTTP OAuth seat: live Grok 4.6 refuses the markup
         // contract and narrates "I can't use that tool-call format".
@@ -900,7 +902,7 @@ fn build_grok_acp_command(key: &GrokAcpKey) -> Command {
             cmd.arg("--max-turns")
                 .arg(GROK_HARNESS_MAX_TURNS.to_string())
                 .arg("--system-prompt-override")
-                .arg(GROK_HARNESS_SYSTEM_OVERRIDE)
+                .arg(grok_harness_system_override())
                 .arg("--no-subagents")
                 .arg("--no-plan");
         }
@@ -940,13 +942,11 @@ fn scrub_grok_api_env_from_oauth_child(cmd: &mut Command) {
         "GROK_API_KEY",
         "ANGEL_GROK_KEY",
         "ANGEL_XAI_KEY",
-        "GPU_COMP_GROK_KEY",
         "XAI_BASE_URL",
         "ANGEL_GROK_URL",
         "GROK_API_URL",
         "XAI_API_URL",
         "ANGEL_GROK_BASE_URL",
-        "GPU_COMP_GROK_BASE_URL",
     ] {
         cmd.env_remove(key);
     }

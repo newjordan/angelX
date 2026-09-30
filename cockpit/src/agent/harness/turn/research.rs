@@ -2,12 +2,9 @@
 //! separate task-keyword detector. The bundled playbook declares no verifier.
 use super::*;
 
-pub(super) const GUIDANCE: &str = "Research completion: deliver the answer with supporting citations. If evidence is missing or insufficient, say so explicitly and cite nothing (NO citations, background links, document identifiers, or sources appendix). Do not invent a verifier run. Answer as soon as the requested claims are supported; batch independent source reads when possible. Source tracking is automatic and requires no extra tool calls or searches. Missing-evidence replies are rendered as a citation-free disclosure.";
-
-pub(crate) const COMPOSE: &str = "Research compose step: answer now from the fetched evidence with citations, or decline citing nothing. If the evidence is insufficient, say 'Evidence is missing' and cite nothing (NO citations, background links, or sources appendix). Your next reply is the candidate; do not search, fetch, or call tools.";
-
-pub(crate) const DISCLOSURE: &str =
-    "No evidence in the corpus supports an answer to this question.";
+/// The whole-question decline: `⠟⠛⠉`'s page, which the answer carries itself
+/// (its reader, an evaluator, cannot read the ledger).
+pub(crate) const DISCLOSURE: &str = super::book::q_stop::DISCLOSURE;
 
 /// Enforce the cite-nothing contract when the candidate explicitly declines the
 /// whole question. This is disclosure rendering, not a semantic support scorer.
@@ -60,14 +57,6 @@ pub(super) fn origin(history: &[ChatMsg]) -> Option<String> {
     })
 }
 
-pub(super) fn preamble(origin: Option<&str>) -> String {
-    let surface = match origin {
-        Some(origin) => format!("Search with web_search (origin {origin}); fetch documents with web_fetch; do not probe the host with shell."),
-        None => "Search with web_search; fetch documents with web_fetch; do not probe the host with shell. No research origin was declared; do not invent one.".into(),
-    };
-    format!("{surface}\n{GUIDANCE}")
-}
-
 pub(super) fn ensure_tools(defs: &mut Vec<ToolDef>, registry: &ToolRegistry) {
     for def in registry.defs() {
         if matches!(def.name.as_str(), "web_search" | "web_fetch")
@@ -78,68 +67,21 @@ pub(super) fn ensure_tools(defs: &mut Vec<ToolDef>, registry: &ToolRegistry) {
     }
 }
 
+/// A research turn's origin rides after the tool's route as data, behind the
+/// page (in that tool's own section) whose `{origin}` it fills.
 pub(super) fn describe_surface(defs: &mut [ToolDef], origin: Option<&str>) {
     if let Some(origin) = origin {
         for def in defs {
-            if matches!(def.name.as_str(), "web_search" | "web_fetch")
-                && !def.description.contains(origin)
-            {
-                def.description.push_str(&format!(
-                    " Research search origin: {origin}; fetch document URLs with web_fetch."
-                ));
-            }
-        }
-    }
-}
-
-/// Count repeated searches since the last document fetch in the current task.
-/// Search URLs are supported for providers that use the generic HTTP tool.
-pub(super) fn repeated_search(history: &[ChatMsg]) -> bool {
-    let mut searches = std::collections::HashSet::new();
-    for message in history
-        .iter()
-        .rev()
-        .take_while(|m| m.role != ChatRole::User)
-    {
-        for call in message.tool_calls.iter().rev() {
-            let query = match call.name.as_str() {
-                "web_search" => call
-                    .args
-                    .get("query")
-                    .and_then(Value::as_str)
-                    .map(str::to_string),
-                "http_request" | "web_fetch" => {
-                    let Some(url) = call
-                        .args
-                        .get("url")
-                        .and_then(Value::as_str)
-                        .and_then(|raw| url::Url::parse(raw).ok())
-                    else {
-                        continue;
-                    };
-                    if url.path().trim_end_matches('/') != "/search" {
-                        return false;
-                    }
-                    url.query_pairs()
-                        .find(|(key, _)| key == "q")
-                        .map(|(_, value)| value.into_owned())
-                }
-                _ => None,
+            let page = match def.name.as_str() {
+                "web_search" => "⠱⠁⠙",
+                "web_fetch" => "⠱⠃⠙",
+                _ => continue,
             };
-            if let Some(query) = query.filter(|q| !q.trim().is_empty())
-                && !searches.insert(
-                    query
-                        .split_whitespace()
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                        .to_lowercase(),
-                )
-            {
-                return true;
+            if !def.description.contains(origin) {
+                def.description.push_str(&format!(" {page} {origin}"));
             }
         }
     }
-    false
 }
 
 pub(crate) fn off_surface(name: &str, args: &Value) -> bool {

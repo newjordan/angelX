@@ -47,6 +47,7 @@ impl Receiver {
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(super) fn publish(receipt: &serde_json::Value) {
     let fd = std::env::var(ENV).ok().and_then(|s| s.parse::<i32>().ok());
     unsafe {

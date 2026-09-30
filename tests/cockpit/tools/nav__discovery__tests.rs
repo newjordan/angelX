@@ -3,12 +3,12 @@ use super::*;
 
 #[test]
 fn list_lean_schema_preserves_ranking_and_paging_controls() {
-    let full = ListDirTool {
+    let full_def = ListDirTool {
         root: PathBuf::from("."),
     }
-    .def()
-    .params;
-    let lean = crate::agent::harness::lean_list_dir_params();
+    .def();
+    let lean = crate::agent::harness::lean_advertised_tool_def(&full_def).params;
+    let full = full_def.params;
     for key in [
         "path",
         "hint",

@@ -2,92 +2,21 @@
 
 use super::*;
 
-/// One short, tool-agnostic hop-efficiency advisory shared by every
-/// tool-bearing seat prompt (driver, delegate, graph node, spawn). Advisory only: no
-/// cap, no gate, no route selection. It states that independent calls may share
-/// one assistant response and that a compact result beats bulk in history.
-pub(crate) const TOOL_BATCHING_HINT: &str = "Batch independent tool calls in one \
-     assistant response instead of waiting between them; combine related read/filter \
-     work into fewer calls and consume the compact result.";
+/// The plain Driver's system prompt: its personality type (`⠽⠁`, or `⠽⠃`
+/// with teammates) and no words — `ledger://⠽⠃` renders the prompt it
+/// replaces, verbatim. The configured routes are `⠕⠃` ledger evidence. The
+/// interactive cockpit enters as its own type (`y_types::cockpit_entry`).
+#[cfg(test)]
+pub fn orchestrator_system_prompt(workspace: &Path, specialists: &[String]) -> String {
+    book::y_types::entry(workspace, &delegate_roles(specialists), false, None, false)
+}
 
-/// Build the orchestrator (Driver) system prompt: who's on the team and how to
-/// delegate work to them over the shared workspace.
-pub fn orchestrator_system_prompt(specialists: &[String]) -> String {
-    let mut s = String::from(
-        "You are Angel — the Driver for this workspace. \
-         Use file and shell tools in the active workspace, choosing language and build commands from its actual project files, \
-         and you may delegate specialized work when an appropriate configured route is usable.\n",
-    );
-    s.push_str(
-        "\nTool protocol: tools are available through the structured tool-call interface \
-         advertised by the host. Do not print raw `<tool_call>`, `<function=...>`, \
-         `shell(...)`, or `delegate(...)` markup as chat text. Use built-in tools for \
-         local work, `skill(name)` for reusable playbooks, `<server>__mcp` tools for \
-         MCP resources/prompts, and `delegate` only when a specialist should work in \
-         an isolated subagent workspace. Tool execution is still bounded by the active \
-         workspace, sandbox, hooks, and approval gates. ",
-    );
-    s.push_str(TOOL_BATCHING_HINT);
-    s.push_str(
-        " For multi-file reading or filtering, prefer one `code_mode` batch or the \
-         dedicated repository tools when available, over a serial chain of shell reconnaissance.",
-    );
-    s.push_str(
-        "\n\nDo not end a turn with a promise to inspect, check, brief the council, or pull \
-         context. If you say you need reconnaissance or council input, make the \
-         corresponding tool calls in that same turn, then answer from the results.\n",
-    );
-    s.push_str(
-        "\nDefault posture: work only on the user's current task. Maintenance of the \
-         cockpit itself — diagnostics, self-checks, or changes to your own code or config — \
-         happens only when the user explicitly asks for it in this session. If a tool fails, \
-         adapt your approach to the task, or report the blocker and ask the user how to \
-         proceed; a failing tool is never, on its own, a reason to switch to maintenance \
-         work. If you have no task, ask the user what they would like to do and wait.\n\
-         \nLocal fleet seats (turbo, spark, atlas, gemma, and other LAN boxes) are optional. \
-         Only use a named local club while it is reachable. If a local seat is down, do the \
-         work yourself — a down local is not a failed turn and is not worth retrying.\n",
-    );
-    s.push_str(
-        "\nVerification posture: after editing code, run the smallest relevant verifier. One \
-         conclusive green test or build on the unchanged workspace is enough; do not stack \
-         broader, overlapping tests, builds, lint, or vet commands unless the task explicitly \
-         requires distinct gates or the first verifier produced a diagnostic that demands one.\n",
-    );
-    if specialists.is_empty() {
-        s.push_str(
-            "No delegate routes are configured for this session; do the work yourself. Be concise.",
-        );
-        return s;
-    }
-    s.push_str("\nConfigured delegate routes — use the structured `delegate` tool with `club`, `task`, and optional `mode` args only when that route is appropriate and reachable:\n");
-    for label in specialists {
-        s.push_str(&format!("- {label}: {}\n", club_role(label)));
-    }
-    s.push_str(
-        "\n`delegate` runs that teammate in an isolated git worktree and returns a summary, a \
-         branch name, and a diff. Use `mode=review` or `mode=read_only` for inspection-only \
-         reviewers. Use `mode=write` for implementation, then call `integrate` with the returned \
-         branch afterwards (one branch at a time). Be concise.",
-    );
-    s.push_str(
-        "\n\n`spawn` fans a question across parallel sub-agents mid-turn — copies of yourself \
-         (club=self) or the fleet (club=auto) — in a formation (panel / moa / quorum), each seat \
-         optionally wearing a persona and a scoped tool grant. Reach for it when independent \
-         perspectives, adversarial review, or breadth beat working alone; it returns a labeled \
-         digest, never file changes.",
-    );
-    s.push_str(
-        "\n\n`swarm_compile` is the proof-carrying coding path: it freezes a base commit, \
-         isolates investigation/test/implementation/review contributions, requires an intentional \
-         red regression marker followed by green targeted and full gates, parks the candidate \
-         branch, and learns routing only from post-action outcomes. Prefer direct action when a \
-         trustworthy red verifier already exists. Use `swarm_compile` when a green base needs an \
-         independently authored regression, adversarial review, or a durable audit trail, and the \
-         task has a concrete test scope plus a green baseline acceptance command. Integration \
-         remains an explicit later action.",
-    );
-    s
+/// Configured delegate routes with their roles, for the `⠕⠃` / `⠕⠋` evidence.
+pub(crate) fn delegate_roles(specialists: &[String]) -> Vec<(String, String)> {
+    specialists
+        .iter()
+        .map(|label| (label.clone(), club_role(label).to_string()))
+        .collect()
 }
 
 pub(crate) static DELEGATE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -150,29 +79,18 @@ pub(crate) struct DelegateOutcome {
     pub(crate) tool_failures: usize,
 }
 
-/// The delegate seat system prompt: the worktree contract plus the shared
-/// batching advisory. Kept as one function so the text is reviewable and
-/// testable without launching a delegate run, and it names no tool the
-/// worktree registry does not register.
+/// The delegate seat system prompt: the worktree contract (`⠜⠁` inspect-only,
+/// `⠜⠃` implementing) plus the shared batching page `⠺⠉⠁`. The words are the
+/// ledger pages; the worktree registry carries `read_file`, so the seat reads
+/// them, and the pages name no tool that registry does not register.
 pub(crate) fn delegate_system_prompt(mode: DelegateMode) -> String {
-    let mut s = if mode.is_read_only() {
-        "You are an Angel specialist reviewing in an isolated git worktree. Inspect only: \
-         do not edit, create, delete, format, or commit files. Use the read-only shell tool \
-         for evidence, then return concrete findings and references."
-            .to_string()
+    use super::book::{ar_seats, w_workflow};
+    let seat = if mode.is_read_only() {
+        ar_seats::DELEGATE_REVIEW
     } else {
-        "You are an Angel specialist working in an isolated git worktree. Use the \
-         shell/cargo tools to make the requested changes to files here, then summarize. \
-         Use the repository's development checks for edit/test iterations; reserve \
-         optimized release builds for final qualification or optimization-specific bugs. \
-         Stop a test/build chain at its first failed prerequisite. Keep long-running \
-         commands observable with streamed output; do not hide all progress behind file \
-         redirection."
-            .to_string()
+        ar_seats::DELEGATE_WRITE
     };
-    s.push(' ');
-    s.push_str(TOOL_BATCHING_HINT);
-    s
+    format!("{}{}⠁", seat.cells(), w_workflow::BATCHING.cells())
 }
 
 /// Runs a specialist club on a task in an isolated git worktree.
@@ -252,7 +170,7 @@ impl DelegateTool {
         base_ref: &str,
         cancel: Option<&AtomicBool>,
     ) -> Result<DelegateOutcome, String> {
-        // Normalize so the model can say "Turbo"/"turbo"/"TURBO" interchangeably.
+        // Normalize so the model can name a club in any case.
         let club_name = normalize_club_name(club_name);
         let club = self.clubs.get(&club_name).cloned().ok_or_else(|| {
             let mut names: Vec<_> = self.clubs.keys().cloned().collect();
@@ -267,15 +185,16 @@ impl DelegateTool {
                 if crate::agent::tools::solo::solo_mode_active() {
                     format!(
                         "solo mode: refuse delegate to paid SOTA seat '{club_name}'. \
-                         Do the work yourself. Available now: {}",
-                        names.join(", ")
+                         Available now: {}\n{}",
+                        names.join(", "),
+                        crate::agent::harness::book::d56_replies::DO_THE_WORK.cells()
                     )
                 } else {
                     format!(
                         "club '{club_name}' is a paid SOTA seat withheld from delegate because \
-                         ANGEL_ALLOW_SOTA_DELEGATE=0 (local-only fleet opt-out). Unset that pin or set \
-                         ANGEL_ALLOW_SOTA_DELEGATE=1. Available now: {}",
-                        names.join(", ")
+                         ANGEL_ALLOW_SOTA_DELEGATE=0 (local-only fleet opt-out). Available now: {}\n{}",
+                        names.join(", "),
+                        crate::agent::harness::book::d56_replies::UNSET_PIN.cells()
                     )
                 }
             } else {
@@ -287,8 +206,9 @@ impl DelegateTool {
             && crate::agent::club::is_sota_label(club.label())
         {
             return Err(format!(
-                "solo mode: refuse delegate to paid/remote seat '{}'. Own the workload.",
-                club.label()
+                "solo mode: refuse delegate to paid/remote seat '{}'.\n{}",
+                club.label(),
+                crate::agent::harness::book::d56_replies::OWN_THE_WORKLOAD.cells()
             ));
         }
         if !club.is_available() {
@@ -361,6 +281,10 @@ impl DelegateTool {
             // inside the worktree, not accidentally at the repository root.
             let mut wt_tools = ToolRegistry::new();
             wt_tools.set_workspace(wt_workspace.clone());
+            // `read_file` decodes the ledger the seat's prompt points into.
+            wt_tools.register(Box::new(crate::agent::tools::file::ReadFileTool {
+                root: wt_workspace.clone(),
+            }));
             if mode.is_read_only() {
                 wt_tools.register(Box::new(
                     ShellTool::in_dir(wt_workspace.clone())
@@ -517,8 +441,9 @@ impl DelegateTool {
         {
             return Err(format!(
                 "{error}; incomplete work preserved at {wt_str}; branch={branch}; \
-                 session={}; review before integration",
-                session_path.display()
+                 session={}\n{}",
+                session_path.display(),
+                crate::agent::harness::book::d56_replies::REVIEW_PRESERVED.cells()
             ));
         }
         let cleanup = run_git(&repo, &["worktree", "remove", "--force", wt_str.as_str()]);
@@ -688,23 +613,21 @@ impl Tool for DelegateTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "delegate".to_string(),
-            description: "Delegate a task to a specialist club (e.g. turbo, spark-r1, atlas). It works \
+            description: "Delegate a task to a configured club (a local mode or a SOTA link). It works \
                           in an isolated git worktree and returns its summary, the branch name, and \
-                          the diff. Local fleet seats are optional and only used while reachable — \
-                          a down local is skipped, not a failed turn. Use mode=review/read_only for \
-                          inspection-only reviewers; use mode=write for implementation, then call \
-                          `integrate` with that branch to apply it."
+                          the diff. Local seats are optional and only used while reachable — \
+                          a down local is skipped, not a failed turn. ⠹⠁"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "club": { "type": "string", "description": "specialist club name" },
-                    "task": { "type": "string", "description": "what the specialist should do" },
+                    "club": { "type": "string", "description": "⠹⠁⠃" },
+                    "task": { "type": "string", "description": "⠹⠁⠉" },
                     "mode": {
                         "type": "string",
                         "enum": ["write", "review", "read_only"],
                         "default": "write",
-                        "description": "write implements changes; review/read_only inspects with workspace writes blocked"
+                        "description": "⠹⠁⠙"
                     }
                 },
                 "required": ["club", "task"],
@@ -1114,11 +1037,11 @@ impl Tool for IntegrateTool {
             name: "integrate".to_string(),
             description:
                 "Merge a delegated branch into the shared workspace (serialized, one at a \
-                          time). Reports conflicts instead of leaving a mess."
+                          time). Reports conflicts instead of leaving a mess. ⠷⠋"
                     .to_string(),
             params: serde_json::json!({
                 "type": "object",
-                "properties": { "branch": { "type": "string", "description": "branch from delegate" } },
+                "properties": { "branch": { "type": "string", "description": "⠷⠋⠁" } },
                 "required": ["branch"],
             }),
         }

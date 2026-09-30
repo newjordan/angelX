@@ -1,0 +1,30 @@
+=== TOOLS (JSON schema you may call) ===
+{"name": "read_file", "description": "Read one bounded UTF-8 workspace page.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}
+{"name": "shell", "description": "Run a shell command in the workspace.", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}
+{"name": "apply_patch", "description": "Apply a unified diff or patch file to the workspace.", "parameters": {"type": "object", "properties": {"diff": {"type": "string"}, "path": {"type": "string"}}}}
+{"name": "run_tests", "description": "Run the project's tests.", "parameters": {"type": "object", "properties": {"args": {"type": "string"}}}}
+{"name": "loop_research", "description": "Sloptomizer research for the active /loop: options, suggest, run, status, results, stop.", "parameters": {"type": "object", "properties": {"action": {"type": "string", "enum": ["options", "suggest", "run", "status", "results", "stop"]}, "idea": {"type": "string"}, "compare": {"type": "boolean"}, "verify": {"type": ["string", "null"]}, "run_id": {"type": "string"}}}}
+
+=== CONVERSATION ===
+[system]
+⠽⠙⠍⠁
+⠻⠁
+
+Braille from the harness names the situation you are in. Each stamp is introduced once in English where it first appears; after that it rides as its cells alone. Act on it; `read_file ledger://<cells>` gives a route's full text.
+⠽⠙
+You are Angel — the Driver for this workspace. [core instructions elided for the vignette]
+⠻⠁ a /loop iteration: the worker's frame (the goal, the ground and the contract below)
+
+[user]
+Loop goal: make `cargo test` pass for the parser crate (3 failing tests in tests/parse.rs). Loop verifier: `cargo test -p parser`.
+
+iteration 7 · operator caps: none
+
+[assistant]
+<tool_call id=c1> loop_research {"action": "status"}
+
+[tool result for c1]
+{"run_id":"run-20260929-7","status":"completed","running":false,"idea":"memoize the tokenizer lookahead","compare":true,"measurements":{"candidate_passed":true,"baseline_passed":false,"paired_delta":1},"candidate":{"patch_path":".angel/research/run-20260929-7/candidate/patch.diff","stop_reason":"answer"},"artifacts":".angel/research/run-20260929-7","warpath":"⡪⠃⡪⠁"}
+
+⡪⠃ the candidate beat its paired baseline on the same snapshot (paired delta +1) → apply this idea first: it is a measured improvement
+⡪⠁ a loop_research candidate passed its verifier (its measurements beside it) → apply its patch from results to the main workspace, then run the loop's verifier there

@@ -214,11 +214,26 @@ fn forced_injection_starts_with_hit_it_chewy_and_wipes_pending() {
 
     let note = st.build_forced_injection(Some("promoted cand-win after 100 tests passed"));
     assert!(note.starts_with("hit it chewy"));
-    assert!(note.contains("[FORCED HANDOFF — CONTEXT WIPED BY COCKPIT · roll #1]"));
-    assert!(note.contains("cand-win"));
-    assert!(note.contains("99.1000"));
-    assert!(note.contains(HANDOFF_RL_SEQUENCE_DIRECTIVE));
-    assert!(note.contains("prompt injection procedure"));
+    // `⠠⠙` is the forced handoff (the prompt-injection procedure), `⠠⠋` its
+    // sequence directive; the board state rides after `⠠⠑` labels.
+    use crate::agent::harness::book::d6_long_run::{HANDOFF, HANDOFF_STATE, SEQUENCE};
+    assert!(
+        note.contains(&format!("{} roll=1\n", HANDOFF.cells())),
+        "{note}"
+    );
+    assert!(
+        note.contains(&format!(
+            "{}⠁ base=cand-win score=99.1000",
+            HANDOFF_STATE.cells()
+        )),
+        "{note}"
+    );
+    assert!(note.ends_with(&SEQUENCE.cells()), "{note}");
+    assert!(
+        crate::agent::harness::book::ledger::read(std::path::Path::new("."), &HANDOFF.cells())
+            .unwrap()
+            .contains("prompt injection procedure")
+    );
     assert_eq!(st.handoff_count, 1);
     assert!(!st.pending_submit);
     assert!(!st.victory_demands_handoff());
@@ -252,7 +267,10 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
             note.starts_with("hit it chewy"),
             "roll {roll}: injection must start with hit it chewy"
         );
-        assert!(note.contains("[FORCED HANDOFF"));
+        assert!(note.contains(&format!(
+            "{} roll={roll}\n",
+            crate::agent::harness::book::d6_long_run::HANDOFF.cells()
+        )));
         assert_eq!(st.handoff_count, roll);
         assert!(!st.pending_submit);
 

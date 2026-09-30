@@ -11,8 +11,9 @@ Field proven in kernel and cryptography work:
 ![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
 ```sh
-# Requires Linux x86_64, Rust/Cargo, C/C++ tools, Bash, Node.js and Python 3.
-# The first launch builds from source.
+# Requires Linux x86_64 or macOS on Apple silicon, Rust/Cargo, C/C++ tools,
+# Bash, Node.js and Python 3. The first launch builds from source.
+# macOS: xcode-select --install, then Rust from https://rustup.rs
 git clone https://github.com/newjordan/angelX.git
 cd angelX
 ./bin/angelX
@@ -23,7 +24,7 @@ cd angelX
 
 ## How it works
 
-![GLM-5.3 finds and fixes a unit bug in a small Rust crate, then shows the tests passing](docs/images/task.png)
+![GLM-5.3 reads a small Rust crate to find a unit bug while the knight rides to the Scriptorium on the overworld map](docs/images/task.png)
 
 **1 · Choose a model.** `/model` lists every connected route with its thinking level; `/think` changes the level.
 
@@ -42,7 +43,7 @@ cd angelX
 
 **4 · Checked before done.** The agent runs the checks and reports with receipts: every tool call, its time and the model route.
 
-![Action receipts and the final answer with the tests passing](docs/images/ui/receipts.png)
+![The turn summary and the final answer with the tests passing](docs/images/ui/receipts.png)
 
 **5 · Longer work.** `/goal` sets a durable objective with acceptance criteria and a check. `/loop` runs it within time, iteration and token limits.
 
@@ -60,7 +61,7 @@ cd angelX
   </tr>
   <tr>
     <td width="50%"><img alt="Command help and completion" src="docs/images/ui/command-picker.png"><br><b>Commands</b> · <code>/help</code> and Tab completion for every command.</td>
-    <td width="50%"><img alt="World view beside the code" src="docs/images/world.png"><br><b>World view</b> · Watch model behavior as an adventure in information.</td>
+    <td width="50%"><img alt="The overworld map beside the code" src="docs/images/world.png"><br><b>World view</b> · Watch model behavior as an adventure in information.</td>
   </tr>
 </table>
 
@@ -77,11 +78,23 @@ cd angelX
 - **Measured campaigns** — Evaluate isolated attempts with verifiers and independent review.
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
 - **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
+- **Book of behaviors** — The harness steers the model with compact braille stamps; each stamp's English is taught the first time it appears.
 - **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
 
 ## Benchmarks
 
 136 repository-repair tasks (48 JS, 34 Python, 30 Rust, 24 C++) from the Aider polyglot set. One attempt per task, 600 s limit, graded by each task's tests. Wall: median agent time per attempt. Tokens: totals per cell.
+
+### angelX 0.1.8 · polyglot-v1 · 2026-09-30
+
+![Agent time against input tokens on DeepSeek V4.1 Flash: angelX solves 135 of 136 twice, in 8.7M tokens and 29.3 agent minutes, then 6.9M and 27.7; OpenCode solves 132 in 67.7M tokens and 58.7 minutes. A failed task is the red stretch of its line.](docs/images/bench/tokens-time-deepseek.png)
+
+| model | solved | wall (median) | calls / task | input tokens | cache hit | output tokens |
+|---|---:|---:|---:|---:|---:|---:|
+| DeepSeek V4.1 Flash, thinking off · run 1 | 135 / 136 | 9.9 s | 6.0 | 8.7 M | 84% | 205 k |
+| DeepSeek V4.1 Flash, thinking off · run 2 | 135 / 136 | 9.1 s | 5.3 | 6.9 M | 80% | 195 k |
+
+<sub>Evaluator: <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect Verifiers</a> v0.3.1 · angelX 0.1.8 · temperature 0 · 600 s per attempt · fresh environment per attempt · 2026-09-30. The other models' latest results are 0.1.6's, below.</sub>
 
 ### angelX 0.1.6 · polyglot-v1 · 2026-09-23
 
@@ -108,7 +121,7 @@ cd angelX
 
 * oh-my-pi on DeepSeek reached its 200M-token budget cap after 93 tasks.
 
-angelX runs a verification step before reporting a task done. That step accounts for its extra wall time on GLM; higher thinking levels add more.
+The full GLM cohort took 34.5% longer than OpenCode in the September 21 comparison and 17.6% longer in the September 23 Angel run. The later gap is in model time; Angel's measured non-model time was lower. Verification alone does not explain the difference. See the [full 136-task slowdown audit](docs/telemetry/polyglot-full136-slowdown-20260926.md) for totals, tails, task-level causes and comparison limits.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/bench/solved-dark.png">

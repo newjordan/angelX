@@ -610,6 +610,50 @@ fn str_replace_rejects_ambiguous_match() {
 }
 
 #[test]
+fn an_edit_that_changes_nothing_says_so() {
+    let root = std::env::temp_dir().join(format!("angel_ft_noop_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let mut reg = ToolRegistry::new();
+    register_file_tools(&mut reg, root.clone());
+    reg.dispatch(
+        "write_file",
+        &serde_json::json!({"path": "e.txt", "content": "let a = 1;\nlet b = 2;\n"}),
+    )
+    .unwrap();
+    let same = reg.dispatch(
+        "str_replace",
+        &serde_json::json!({"path": "e.txt", "old": "let a = 1;", "new": "let a = 1;"}),
+    );
+    let error = same.expect_err("a replacement with itself is not an edit");
+    assert!(error.contains("no change"), "{error}");
+    let undone = reg.dispatch(
+        "multi_edit",
+        &serde_json::json!({"path": "e.txt", "edits": [
+            {"old": "let a = 1;", "new": "let a = 9;"},
+            {"old": "let a = 9;", "new": "let a = 1;"},
+        ]}),
+    );
+    let error = undone.expect_err("edits that cancel out are not an edit");
+    assert!(error.contains("no change"), "{error}");
+    let changed = reg
+        .dispatch(
+            "str_replace",
+            &serde_json::json!({"path": "e.txt", "old": "let b = 2;", "new": "let b = 3;"}),
+        )
+        .unwrap();
+    assert!(changed.starts_with("edited e.txt"), "{changed}");
+    let rewritten = reg
+        .dispatch(
+            "write_file",
+            &serde_json::json!({"path": "e.txt", "content": "let a = 1;\nlet b = 3;\n"}),
+        )
+        .unwrap();
+    assert!(rewritten.starts_with("no change: e.txt"), "{rewritten}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
 fn locate_replacement_exact_paths() {
     let c = "let a = 1;\nlet b = 2;\n";
     // Mid-line exact substring still works, no fuzzy flag.
@@ -642,9 +686,18 @@ Poco::DateTime X509Certificate::expiresOn() const\n\
         err.contains("L3") && err.contains("L7"),
         "line numbers of both sites: {err}"
     );
+    // The disambiguation guidance is its `⠨⠉` pages, decoded by the ledger.
+    let guidance = crate::agent::harness::book::d46_recovery::run(&[
+        crate::agent::harness::book::d46_recovery::NOT_UNIQUE,
+        crate::agent::harness::book::d46_recovery::ENCLOSING,
+    ]);
+    assert!(err.contains(&guidance), "disambiguation guidance: {err}");
+    assert!(!err.contains("enclosing function"), "{err}");
+    let decoded =
+        crate::agent::harness::book::ledger::read(std::path::Path::new("."), &guidance).unwrap();
     assert!(
-        err.contains("enclosing function") || err.contains("surrounding unique"),
-        "disambiguation guidance: {err}"
+        decoded.contains("enclosing function") && decoded.contains("distinguishes the target"),
+        "{decoded}"
     );
 }
 

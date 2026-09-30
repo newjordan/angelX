@@ -79,9 +79,9 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
         }
         "local" => {
             "Local model connection\n\
-            Configure ANGEL_LOCAL_URL and ANGEL_LOCAL_MODEL, or a named endpoint such as\n\
-            ANGEL_SPARK_URL, ANGEL_GEMMA_URL, or ANGEL_TURBO_URL. ANGEL_SCAN=1\n\
-            enables opt-in fleet discovery; local endpoints may not require credentials.\n\
+            Configure ANGEL_LOCAL_URL and ANGEL_LOCAL_MODEL; ANGEL_LOCAL_URLS adds more\n\
+            endpoints (url or name=url) as modes of the same local box. ANGEL_SCAN=1\n\
+            enables opt-in discovery; local endpoints may not require credentials.\n\
             Use /model to select a discovered route after it is configured."
         }
         _ => return format!("unknown provider {provider:?}\n{USAGE}"),

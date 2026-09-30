@@ -1,50 +1,19 @@
 use super::*;
 
 #[test]
-fn metered_unproductive_default_is_advisory_only() {
+fn unproductive_escalation_notice_default_and_env_override() {
     let _lock = crate::tests::env_lock();
     let _escalate = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE");
-    let _stop = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_STOP");
-    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
 
-    let policy = configured_unproductive_policy(true, false);
-    assert_eq!(policy.escalate, 8);
-    assert_eq!(policy.stop, 0);
-}
+    // The advisory notice defaults to hop 8 in every mode; there is no stop
+    // policy at all — the streak can never end a turn.
+    assert_eq!(configured_unproductive_escalate(true, false), 8);
+    assert_eq!(configured_unproductive_escalate(true, true), 8);
+    assert_eq!(configured_unproductive_escalate(false, false), 8);
 
-#[test]
-fn metered_unproductive_overrides_and_competition_are_authoritative() {
-    let _lock = crate::tests::env_lock();
-    let _escalate = crate::tests::TestEnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE", "0");
-    let _stop = crate::tests::TestEnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_STOP", "17");
-    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
-
-    let policy = configured_unproductive_policy(true, false);
-    assert_eq!(policy.escalate, 0);
-    assert_eq!(policy.stop, 17);
-
-    let competition = configured_unproductive_policy(true, true);
-    assert_eq!(competition.escalate, 0);
-    assert_eq!(competition.stop, 0);
-}
-
-/// Interactive non-metered sessions keep the unproductive streak off; task
-/// mode arms it (escalate at 8, stop at 16), as benchmarked on polyglot-v1.
-#[test]
-fn non_metered_unproductive_defaults_remain_off() {
-    let _lock = crate::tests::env_lock();
-    let _escalate = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE");
-    let _stop = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_STOP");
-    let _interactive = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
-
-    let policy = configured_unproductive_policy(false, false);
-    assert_eq!(policy.escalate, 0);
-    assert_eq!(policy.stop, 0);
-
-    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let task = configured_unproductive_policy(false, false);
-    assert_eq!(task.escalate, 8);
-    assert_eq!(task.stop, 16);
+    let _override = crate::tests::TestEnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE", "0");
+    assert_eq!(configured_unproductive_escalate(true, false), 0);
+    assert_eq!(configured_unproductive_escalate(false, false), 0);
 }
 
 #[test]
@@ -380,4 +349,33 @@ fn task_timing_accumulator_never_underflows_other_ms() {
     assert_eq!(empty.model_ms, 0);
     assert_eq!(empty.tool_calls, 0);
     assert!(empty.tool_max_name.is_none());
+}
+
+#[test]
+fn only_failed_or_unknown_job_completions_are_failures() {
+    use crate::agent::tools::proc::ProcCompletion;
+    use std::path::PathBuf;
+    let mk = |exit: Option<i32>| ProcCompletion {
+        id: 1,
+        name: "build".into(),
+        state: "exited 0".into(),
+        exit_code: exit,
+        log: PathBuf::from("/nonexistent/log"),
+        receipt: None,
+        persistence_error: None,
+    };
+    use crate::agent::harness::book::p_processes::{DONE, FAILED, any_failed, completions};
+    // A clean exit is `⠏⠃` and never a stop fact.
+    assert!(!any_failed(&[mk(Some(0))]));
+    assert_eq!(completions(&[mk(Some(0))])[0].route, DONE);
+    // Non-zero, signal-death (None) and wait-error (None) are `⠏⠉`.
+    assert!(any_failed(&[mk(Some(1))]));
+    assert!(any_failed(&[mk(None)]));
+    assert!(!any_failed(&[]));
+    let mixed = completions(&[mk(Some(0)), mk(Some(2)), mk(None)]);
+    assert_eq!(
+        mixed.iter().map(|raise| raise.route).collect::<Vec<_>>(),
+        [FAILED, DONE],
+        "failed receipts lead"
+    );
 }

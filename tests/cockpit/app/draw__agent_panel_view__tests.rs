@@ -1,7 +1,5 @@
-use super::{
-    render_agent_bay, speech_flow_split, treebeard_strip_label_with_open, truncate_control_value,
-};
-use crate::agent::harness::{ForgeTrainSnap, HandleStoreStats, LastRootHiq};
+use super::{render_agent_bay, speech_flow_split, treebeard_strip_label, truncate_control_value};
+use crate::agent::harness::{HandleStoreStats, LastRootHiq};
 
 /// The speech flow keeps whole trailing words in flight, settles the rest,
 /// treats a brand-new stream as entirely fresh, and never panics on
@@ -109,27 +107,7 @@ fn control_truncation_preserves_route_ends_within_terminal_cells() {
 }
 
 #[test]
-fn treebeard_header_strip_cache_compares_open_key_without_cloning() {
-    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
-    let start = src
-        .find("fn treebeard_header_strip_label")
-        .expect("header strip");
-    let body = src[start..]
-        .split("fn treebeard_open_key_is_p1(")
-        .next()
-        .expect("strip cache body");
-    assert!(
-        body.contains("cached.4.as_deref() == top_open_key"),
-        "hit path must compare the open key without cloning: {body}"
-    );
-    assert!(
-        !body.contains("|(key, _)| key.clone()"),
-        "cache key must not clone the open lever on every frame: {body}"
-    );
-}
-
-#[test]
-fn treebeard_strip_includes_peer_and_offload() {
+fn treebeard_strip_shows_offload_or_handle_pulse() {
     let hiq = LastRootHiq {
         offload_ratio: 1.0,
         hiq_priority: 2.1875,
@@ -145,182 +123,23 @@ fn treebeard_strip_includes_peer_and_offload() {
         discloses: 0,
         evictions: 0,
     };
-    let s = treebeard_strip_label_with_open(
-        Some(hiq),
-        stats,
-        Some((867.91, "c3".into(), None)),
-        Some(1685.0),
-        None,
-        None,
-    );
+    let s = treebeard_strip_label(Some(hiq), stats);
     assert!(s.contains("offload 100%"), "got: {s}");
     assert!(
         s.contains("hiq 2.19") || s.contains("hiq 2.1875"),
         "got: {s}"
     );
-    assert!(s.contains("peer 867.9µs"), "got: {s}");
-    assert!(s.contains("P1 1685µs"), "got: {s}");
-    let bare = treebeard_strip_label_with_open(None, stats, None, None, None, None);
-    assert_eq!(bare, "treebeard · Hi/Q");
-    let forge = ForgeTrainSnap {
-        state: "training".into(),
-        train_step: Some(40),
-        train_total: Some(200),
-        train_eta_sec: Some(2280),
-        train_loss: Some(1.23),
-        train_loss_min: Some(0.25),
-        train_loss_max: Some(1.23),
-        prior_train_loss: Some(0.41),
-        train_loss_improvement: Some(0.55),
-        gpu_free_mib: Some(15000.0),
-        free_mib_min: Some(14900.0),
-        vram_warn: None,
-        train_phase: None,
-        version: None,
-        gate_pass: None,
-        promoted: None,
-        adapter_local: false,
-        open_lever_top: None,
-        free_train_primary_n: None,
-        measured_hold_us: None,
-        preference_n: Some(96),
-        coding_eval_n: Some(24),
-        coding_eval_primary_n: Some(4),
+    assert_eq!(treebeard_strip_label(None, stats), "treebeard · Hi/Q");
+    let pulse = HandleStoreStats {
+        entries: 3,
+        total_bytes: 4096,
+        puts: 3,
+        discloses: 0,
+        evictions: 0,
     };
-    let with_forge = treebeard_strip_label_with_open(
-        Some(hiq),
-        stats,
-        Some((867.91, "c3".into(), None)),
-        Some(1685.0),
-        None,
-        Some(forge),
-    );
-    assert!(
-        with_forge.contains("forge 40/200 ~38m") && with_forge.contains("L1.23"),
-        "got: {with_forge}"
-    );
-    let post = treebeard_strip_label_with_open(
-        None,
-        stats,
-        None,
-        None,
-        None,
-        Some(ForgeTrainSnap {
-            state: "training".into(),
-            train_step: Some(200),
-            train_total: Some(200),
-            train_eta_sec: Some(0),
-            train_loss: None,
-            train_loss_min: None,
-            train_loss_max: None,
-            prior_train_loss: None,
-            train_loss_improvement: None,
-            gpu_free_mib: None,
-            free_mib_min: None,
-            vram_warn: None,
-            train_phase: Some("adapter_eval".into()),
-            version: None,
-            gate_pass: None,
-            promoted: None,
-            adapter_local: false,
-            open_lever_top: None,
-            free_train_primary_n: None,
-            measured_hold_us: None,
-            preference_n: None,
-            coding_eval_n: None,
-            coding_eval_primary_n: None,
-        }),
-    );
-    assert!(
-        post.contains("forge 200/200 eval"),
-        "post-step phase on strip: {post}"
-    );
-    let done = treebeard_strip_label_with_open(
-        None,
-        stats,
-        None,
-        None,
-        None,
-        Some(ForgeTrainSnap {
-            state: "done".into(),
-            train_step: None,
-            train_total: None,
-            train_eta_sec: None,
-            train_loss: None,
-            train_loss_min: None,
-            train_loss_max: None,
-            prior_train_loss: Some(0.41),
-            train_loss_improvement: Some(0.55),
-            gpu_free_mib: None,
-            free_mib_min: None,
-            vram_warn: None,
-            train_phase: None,
-            version: Some("v1".into()),
-            gate_pass: Some(true),
-            promoted: Some(false),
-            adapter_local: true,
-            open_lever_top: Some("32768x1".into()),
-            free_train_primary_n: Some(4),
-            measured_hold_us: Some(38300.0),
-            preference_n: Some(96),
-            coding_eval_n: Some(24),
-            coding_eval_primary_n: Some(4),
-        }),
-    );
-    assert!(
-        done.contains("forge v1 gate✓ local")
-            && done.contains("→32k")
-            && done.contains("ftP4")
-            && done.contains("H38k")
-            && done.contains("pref96")
-            && done.contains("ce24"),
-        "got: {done}"
-    );
-    let with_open = treebeard_strip_label_with_open(
-        None,
-        stats,
-        Some((867.91, "c3".into(), None)),
-        Some(1685.0),
-        Some(("32768x1".into(), 38800.0)),
-        None,
-    );
-    assert!(
-        with_open.contains("PRIMARY 32k 39ms") || with_open.contains("PRIMARY 32k 38ms"),
-        "got: {with_open}"
-    );
-    assert!(with_open.contains("P1 1685µs"), "got: {with_open}");
-    // P1 as top open must not double-print.
-    let p1_only = treebeard_strip_label_with_open(
-        None,
-        stats,
-        None,
-        Some(1685.0),
-        Some(("512x640".into(), 1685.0)),
-        None,
-    );
-    assert!(p1_only.contains("P1 1685µs"), "got: {p1_only}");
-    assert!(!p1_only.contains("open "), "got: {p1_only}");
-    let dotted_p1 = treebeard_strip_label_with_open(
-        None,
-        stats,
-        None,
-        Some(1685.0),
-        Some(("512·640".into(), 1685.0)),
-        None,
-    );
-    assert!(dotted_p1.contains("P1 1685µs"), "got: {dotted_p1}");
-    assert!(!dotted_p1.contains("open "), "got: {dotted_p1}");
-    let src = include_str!("../../../cockpit/src/ui/draw/agent_panel_view.rs");
-    let start = src
-        .find("fn treebeard_open_key_is_p1")
-        .expect("open-key matcher");
-    let body = src[start..]
-        .split("pub(crate) fn treebeard_strip_label_with_open")
-        .next()
-        .expect("matcher body");
-    assert!(
-        !body.contains("to_ascii_lowercase") && !body.contains("replace("),
-        "open-key match must not allocate a lowered copy: {body}"
+    assert_eq!(
+        treebeard_strip_label(None, pulse),
+        "treebeard · Hi/Q · hnd 3 / 4k"
     );
 }
 

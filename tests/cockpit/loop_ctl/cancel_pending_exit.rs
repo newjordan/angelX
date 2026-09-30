@@ -31,6 +31,7 @@ fn live_self_gate_green_during_exit_neither_prompts_nor_auto_integrates() {
                     passed: true,
                     summary: "owned actual gate result".into(),
                     detail: String::new(),
+                    receipt: None,
                 })
                 .unwrap();
             app.advance();

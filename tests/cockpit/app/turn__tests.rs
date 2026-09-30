@@ -332,3 +332,79 @@ fn cache_meter_folds_session_aggregate_and_last_turn() {
     meter.fold_turn(0, 900, false);
     assert_eq!(meter.usage_line(), "hit n/a session · n/a last turn");
 }
+
+/// An interactive or /loop turn folds its verified recipes into the caddy
+/// card the next turn reads, as a headless task does.
+#[test]
+fn a_worker_turn_writes_its_verified_recipe_to_the_caddy() {
+    let _env = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new(
+        "a_worker_turn_writes_its_verified_recipe_to_the_caddy",
+    );
+    let _backplane = crate::tests::TestEnvGuard::unset("ANGEL_BACKPLANE");
+    let _hops = crate::tests::TestEnvGuard::unset("ANGEL_MAX_HOPS");
+    let _traj = crate::tests::TestEnvGuard::unset("ANGEL_TRAJECTORY_LOG");
+    let caddy_dir = std::env::temp_dir().join(format!("angel-worker-caddy-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&caddy_dir);
+    std::fs::create_dir_all(&caddy_dir).unwrap();
+    let _caddy = crate::tests::TestEnvGuard::set("ANGEL_CADDY_DIR", &caddy_dir.to_string_lossy());
+    let _on = crate::tests::TestEnvGuard::unset("ANGEL_CADDY");
+
+    struct AnswerClub;
+    impl Club for AnswerClub {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("done".into())
+        }
+        fn label(&self) -> &str {
+            "probe-caddy"
+        }
+        fn chat(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+        ) -> Result<crate::agent::club::ClubReply, String> {
+            Ok(crate::agent::club::ClubReply::Text("done".to_string()))
+        }
+    }
+
+    let call = crate::agent::club::ToolCall {
+        id: "c1".to_string(),
+        name: "run_tests".to_string(),
+        args: serde_json::json!({"args": "--release"}),
+    };
+    let receipt = ChatMsg::tool("c1", "1 passed; 0 failed").with_tool_receipt(
+        &call,
+        crate::agent::harness::ToolOutcome {
+            execution: crate::agent::harness::ExecutionOutcome::Succeeded,
+            verification: crate::agent::harness::VerificationOutcome::Passed,
+        },
+    );
+    let history: Arc<[ChatMsg]> = Arc::from(vec![
+        ChatMsg::user("run the tests"),
+        ChatMsg::assistant_calls(vec![call]),
+        receipt,
+        ChatMsg::user("anything else?"),
+    ]);
+    let registry = workspace.registry();
+    let root = registry.current_workspace().to_path_buf();
+    let club = Arc::new(AnswerClub);
+    let thinking = Thinking::spawn(
+        club.label().to_string(),
+        club.clone(),
+        Arc::new(registry),
+        history,
+        Arc::new(crate::agent::steer::SteerQueue::default()),
+        crate::knowledge::session::Session::disabled(),
+        club.route_identity(),
+        None,
+    );
+    let result = thinking
+        .rx
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .expect("turn must settle");
+    assert!(result.is_ok(), "{result:?}");
+    let store = caddy_dir.join(crate::platform::workspace_store::repo_identity(&root).key);
+    let recipes = std::fs::read_to_string(store.join("recipes.jsonl")).unwrap_or_default();
+    assert!(recipes.contains("run_tests"), "{recipes}");
+    let _ = std::fs::remove_dir_all(&caddy_dir);
+}

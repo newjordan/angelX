@@ -1,17 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-
-/// Set while Math God owns process env (role pins + Sol ultra / Grok xhigh).
-/// Other formations must clear it so those pins cannot leak into a later mode.
-static MATH_GOD_PINS_ARMED: AtomicBool = AtomicBool::new(false);
 
 pub(crate) const SELECTION_DISSOLVE: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum FormationId {
-    GpuComp,
     SoloStrike,
     Recon,
     Duel,
@@ -19,26 +13,20 @@ pub(crate) enum FormationId {
     AllIn,
     /// Grok-managed frontier trio: GLM 5.2 + DeepSeek v4-pro + OpenAI Sol@max.
     GrokWar,
-    /// Local pair carries the turn — Spark's Leanstral math engine leads and
-    /// synthesizes, Turbo is the second corner; an OpenAI Sol seat is tagged in
-    /// for advice only when the two locals disagree.
+    /// Two operator-picked models share one workload; no council, judge or
+    /// verifier seats.
     TagTeam,
-    /// Lean/math solver: one Sol@ultra head plus GLM-5.3 and DeepSeek v4 Pro
-    /// in the mix; Grok xhigh scouts and weighs in. Leanstral is a send-to
-    /// specialist tool, not a seat.
-    MathGod,
     /// The standing bag mixture, expressed as a formation so the auto sota-moa
     /// and the roster deck are two doors to one engine. Its seats are NOT
     /// hand-pinned: they resolve to the live intelligence order over whatever
     /// SOTA links are configured and reachable right now — the exact behavior
-    /// the bag's implicit `sota_moa_club_with_breadth` path has always had.
+    /// the bag's implicit `sota_moa_club` path has always had.
     AutoMoa,
 }
 
 impl FormationId {
     pub(crate) const fn cache_key(self) -> u64 {
         match self {
-            Self::GpuComp => 0x51_00,
             Self::SoloStrike => 0x51_01,
             Self::Recon => 0x51_02,
             Self::Duel => 0x51_03,
@@ -46,7 +34,6 @@ impl FormationId {
             Self::AllIn => 0x51_05,
             Self::GrokWar => 0x51_06,
             Self::TagTeam => 0x51_07,
-            Self::MathGod => 0x51_08,
             Self::AutoMoa => 0x51_09,
         }
     }
@@ -54,7 +41,6 @@ impl FormationId {
     #[cfg(test)]
     pub(crate) const fn slug(self) -> &'static str {
         match self {
-            Self::GpuComp => "gpu-comp",
             Self::SoloStrike => "solo-strike",
             Self::Recon => "recon",
             Self::Duel => "duel",
@@ -62,7 +48,6 @@ impl FormationId {
             Self::AllIn => "all-in",
             Self::GrokWar => "grok-war",
             Self::TagTeam => "tag-team",
-            Self::MathGod => "math-god",
             Self::AutoMoa => "auto-moa",
         }
     }
@@ -183,12 +168,7 @@ impl FormationRoster {
             .iter()
             .map(|slot| recommended_model(formation, slot, models))
             .collect();
-        let mut role_efforts = HashMap::new();
-        if formation == FormationId::MathGod {
-            role_efforts.insert(FormationRole::Propose, "ultra".into());
-            role_efforts.insert(FormationRole::Aggregate, "ultra".into());
-            role_efforts.insert(FormationRole::Judge, "xhigh".into());
-        }
+        let role_efforts = HashMap::new();
         Self {
             formation,
             assignments,
@@ -420,24 +400,6 @@ const BUILT_INS: &[Formation] = &[
         asset_rel: "assets/moa-cards/all-in.png",
     },
     Formation {
-        id: FormationId::GpuComp,
-        name: "GPU Night Shift",
-        flavor: "Kernel team: configured proposers, math judge, CUDA review, aggregation and Grok research.",
-        width: 2,
-        max_width: 3,
-        layers: 1,
-        samples: 1,
-        judge: true,
-        judge_panel: 1,
-        verify: 1,
-        verify_guard: true,
-        reflect: true,
-        // Grok research scout + first-class grok_research tool on kernel turns.
-        scout: true,
-        est_cost_x: 7.5,
-        asset_rel: "assets/moa-cards/all-in.png",
-    },
-    Formation {
         id: FormationId::GrokWar,
         name: "Grok War",
         flavor: "Grok manages the SOTA trio: GLM-5.2 + DeepSeek v4-pro + OpenAI Sol@max propose; Grok scouts, judges, and synthesizes.",
@@ -471,24 +433,6 @@ const BUILT_INS: &[Formation] = &[
         scout: false,
         est_cost_x: 2.0,
         asset_rel: "assets/moa-cards/duel.png",
-    },
-    Formation {
-        id: FormationId::MathGod,
-        name: "Math God",
-        flavor: "Lean/math solver: one Sol@ultra head plus GLM-5.3 and DeepSeek v4 Pro in the mix; Grok xhigh scouts and weighs in. Leanstral is a send-to tool for lemmas/formulas, not a conversation seat.",
-        width: 3,
-        max_width: 3,
-        layers: 1,
-        samples: 1,
-        judge: true,
-        judge_panel: 1,
-        verify: 0,
-        verify_guard: false,
-        reflect: false,
-        scout: true,
-        // Sol head + GLM + DeepSeek mix + Grok weigh-in. Leanstral is a tool, not a seat.
-        est_cost_x: 10.0,
-        asset_rel: "assets/moa-cards/council.png",
     },
     Formation {
         id: FormationId::AutoMoa,
@@ -529,8 +473,6 @@ pub(crate) fn formation_alias(raw: &str) -> Option<FormationId> {
     let alias = raw.trim().to_ascii_lowercase().replace(['_', '-'], " ");
     let alias = alias.split_whitespace().collect::<Vec<_>>().join(" ");
     match alias.as_str() {
-        "gpu" | "gpu comp" | "gpu competition" | "gpu comp moa" | "comp" | "competition"
-        | "overnight" | "sleep" | "night loop" | "overnight loop" => Some(FormationId::GpuComp),
         "solo" | "solo strike" | "rest" | "resting" => Some(FormationId::SoloStrike),
         "recon" | "scout" => Some(FormationId::Recon),
         "duel" => Some(FormationId::Duel),
@@ -538,11 +480,7 @@ pub(crate) fn formation_alias(raw: &str) -> Option<FormationId> {
         "all in" | "allin" | "all" => Some(FormationId::AllIn),
         "grok" | "grok war" | "grokwar" | "war" | "war trio" | "trio" | "sota war"
         | "frontier war" | "last stand" | "battle" => Some(FormationId::GrokWar),
-        "tag" | "tag team" | "tagteam" | "tag out" | "local" | "local pair" | "local tag"
-        | "local tag team" | "home team" => Some(FormationId::TagTeam),
-        "math" | "math god" | "mathgod" | "proximity" | "soundness" | "lean" => {
-            Some(FormationId::MathGod)
-        }
+        "tag" | "tag team" | "tagteam" | "tag out" => Some(FormationId::TagTeam),
         "auto" | "auto moa" | "automoa" | "standing" | "standing moa" | "sota" | "sota moa" => {
             Some(FormationId::AutoMoa)
         }
@@ -689,74 +627,7 @@ impl Formation {
     }
 
     fn apply_specialized_env(self) {
-        if self.id != FormationId::MathGod {
-            clear_math_god_pins();
-        }
-        if self.id == FormationId::GpuComp {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_GPU_COMP_LOCAL_MOA", "1") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_TURBO_MAX_AGENTS", "12") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_TURBO_ROLE", "driver") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_LEANSTRAL_ROLE", "formula-math") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_DICE_ROLE", "advisor") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_GROK_ROLE", "kernel-fix-scout") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_OPENAI_INTERVAL_MIN", "45") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("GPU_COMP_MOA_PROFILE", "gpu-comp-local-moa") };
-            // Kernel MoA: Grok as live research scout + on-demand grok_research tool
-            // for fixes while Turbo explores. Explicit ANGEL_SOTA_MOA_GROK_RESEARCH=0
-            // / ANGEL_GROK_TOOL=0 still win if the operator set them *after* engage
-            // (apply_sota_env already set Grok research from scout=true).
-            if std::env::var_os("ANGEL_GROK_TOOL").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_GROK_TOOL", "1") };
-            }
-            // Living Treebeard/HiQ subject: large kernels under handles, popcorn
-            // measure, strategy-only roots for Forge. Explicit ANGEL_LANE wins;
-            // ANGEL_TASK_TREEBEARD=0 keeps classic ReAct ablation control.
-            if std::env::var_os("ANGEL_LANE").is_none()
-                && std::env::var_os("ANGEL_TASK_TREEBEARD").is_none()
-            {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_LANE", "treebeard") };
-            }
-            if std::env::var_os("ANGEL_TRAJECTORY_LOG").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_TRAJECTORY_LOG", "1") };
-            }
-            if std::env::var_os("ANGEL_ROOT_TRAJECTORY").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_ROOT_TRAJECTORY", "1") };
-            }
-            // Pin living peer log for popcorn-submit-hiq / peer-relative rewards.
-            if std::env::var_os("POPCORN_PEER_LOG").is_none()
-                && let Some((_geo, _name, Some(path))) =
-                    crate::agent::harness::load_living_peer_snapshot()
-                && std::path::Path::new(&path).is_file()
-            {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("POPCORN_PEER_LOG", path) };
-            }
-            // Phase-4 RL: coding seats score vs living peer (PopcornPeerReward).
-            // Explicit ANGEL_RL_REWARD wins; unset → popcorn_peer under gpu-comp.
-            if std::env::var_os("ANGEL_RL_REWARD").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_RL_REWARD", "popcorn_peer") };
-            }
-            if std::env::var_os("FORGE_COMP_ADVANTAGE").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("FORGE_COMP_ADVANTAGE", "1") };
-            }
-            // Leaving Grok War should drop its role pins so gpu-comp owns routing.
-            clear_grok_war_role_pins();
-            clear_tag_team_pins();
-        } else if self.id == FormationId::TagTeam {
+        if self.id == FormationId::TagTeam {
             // Two operator-picked models. The dissent gate must stay off:
             // escalation turns judge on and adds verify passes, which is the
             // 5-seat council arriving through the side door. Do not pin Sol.
@@ -768,7 +639,6 @@ impl Formation {
             // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var("ANGEL_OPENAI_MODEL") };
             clear_grok_war_role_pins();
-            clear_gpu_comp_pins();
         } else if self.id == FormationId::GrokWar {
             // Frontier war posture: leave the cheap LongCat profile so the
             // GLM / DeepSeek / OpenAI / Grok seats can actually fire.
@@ -798,8 +668,8 @@ impl Formation {
             unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", "gpt-5.6-sol") };
             // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var("ANGEL_OPENAI_REASONING_EFFORT", "max") };
-            // Kernel competition still wants Treebeard / popcorn scoring when
-            // the operator did not pin a different lane.
+            // Kernel competition still wants Treebeard when the operator did
+            // not pin a different lane.
             if std::env::var_os("ANGEL_LANE").is_none()
                 && std::env::var_os("ANGEL_TASK_TREEBEARD").is_none()
             {
@@ -810,105 +680,11 @@ impl Formation {
                 // TODO: Audit that the environment access only happens in single-threaded code.
                 unsafe { std::env::set_var("ANGEL_TRAJECTORY_LOG", "1") };
             }
-            if std::env::var_os("ANGEL_RL_REWARD").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_RL_REWARD", "popcorn_peer") };
-            }
-            if std::env::var_os("POPCORN_PEER_LOG").is_none()
-                && let Some((_geo, _name, Some(path))) =
-                    crate::agent::harness::load_living_peer_snapshot()
-                && std::path::Path::new(&path).is_file()
-            {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("POPCORN_PEER_LOG", path) };
-            }
-            // Drop gpu-comp-only markers so they do not leak into war turns.
-            clear_gpu_comp_pins();
             clear_tag_team_pins();
-        } else if self.id == FormationId::MathGod {
-            // One Sol@ultra head, GLM-5.3 + DeepSeek v4 Pro mix, Grok xhigh
-            // weigh-in. Leanstral is a send-to tool, not a conversation seat.
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::remove_var("ANGEL_SOTA_MOA_COST_PROFILE") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_PROPOSE_CLUB", "openai") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS", "glm,deepseek") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_JUDGE_CLUB", "grok") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_AGG_CLUB", "openai") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_VERIFY_CLUB", "none") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_GROK_TOOL", "1") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_GROK_RESEARCH", "1") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_GROK_REASONING_EFFORT", "xhigh") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", "gpt-5.6-sol") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_OPENAI_REASONING_EFFORT", "ultra") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_GLM_MODEL", "glm-5.3") };
-            if std::env::var_os("ANGEL_GLM_REASONING_EFFORT").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_GLM_REASONING_EFFORT", "high") };
-            }
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_DEEPSEEK_MODEL", "deepseek-v4-pro") };
-            if std::env::var_os("ANGEL_DEEPSEEK_REASONING_EFFORT").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_DEEPSEEK_REASONING_EFFORT", "high") };
-            }
-            clear_gpu_comp_pins();
-            clear_tag_team_pins();
-            MATH_GOD_PINS_ARMED.store(true, Ordering::Relaxed);
         } else {
-            clear_gpu_comp_pins();
             clear_grok_war_role_pins();
             clear_tag_team_pins();
-            // Drop formation-default popcorn scorer so non-gpu seats fall back
-            // to code_health. Explicit operator pins of other reward labels stay.
-            if std::env::var("ANGEL_RL_REWARD").as_deref() == Ok("popcorn_peer") {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
-            }
-            // Do not clobber a user-pinned treebeard lane when leaving gpu-comp.
-            // POPCORN_PEER_LOG stays if the operator set it for other work.
         }
-    }
-}
-
-/// Drop Math God role routing and the effort pins it writes unconditionally.
-/// No-op when Math God never armed this process, so an operator's `.angel.env`
-/// OpenAI/Grok effort is not deleted by engaging Council or Grok War.
-fn clear_math_god_pins() {
-    if !MATH_GOD_PINS_ARMED.swap(false, Ordering::Relaxed) {
-        return;
-    }
-    clear_grok_war_role_pins();
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_OPENAI_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GROK_REASONING_EFFORT") };
-    crate::agent::club::resync_reasoning_effort_env_from_env();
-}
-
-fn clear_gpu_comp_pins() {
-    for key in [
-        "ANGEL_GPU_COMP_LOCAL_MOA",
-        "GPU_COMP_TURBO_MAX_AGENTS",
-        "GPU_COMP_TURBO_ROLE",
-        "GPU_COMP_LEANSTRAL_ROLE",
-        "GPU_COMP_DICE_ROLE",
-        "GPU_COMP_GROK_ROLE",
-        "GPU_COMP_OPENAI_INTERVAL_MIN",
-        "GPU_COMP_MOA_PROFILE",
-    ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var(key) };
     }
 }
 
@@ -952,66 +728,17 @@ fn recommended_model(
             .map(|choice| choice.route.clone())
     };
 
-    // Tag Team's local seats resolve against the fleet only. Falling through to
-    // the intelligence order the way every other formation does would quietly
-    // swap a metered frontier model into a mode whose entire premise is that
-    // the two fleet boxes carry the turn — better to leave the seat visibly
-    // unassigned (the deck blocks engagement and names it) than to bill for it.
+    // Tag Team: two models share one workload, and the operator picks both.
+    // No seat is pre-filled — falling through to the intelligence order would
+    // quietly bill a frontier model the operator never chose.
     if formation == FormationId::TagTeam {
-        // Unmetered is the structural half of the guard: a selector can drift
-        // (a rig serving a model whose id happens to contain "turbo"), the
-        // billing flag cannot.
-        let pick = |chain: &[&str], exclude: Option<&MoaModelRef>| {
-            chain.iter().find_map(|selector| {
-                models
-                    .iter()
-                    .find(|choice| {
-                        choice.available
-                            && !choice.route.metered
-                            && choice.route.matches(selector)
-                            && exclude.is_none_or(|taken| taken != &choice.route)
-                    })
-                    .map(|choice| choice.route.clone())
-            })
-        };
-        // Leanstral leads. It is the fleet's mathematics/formula engine, so the
-        // derivation and optimization work belongs on it rather than in a
-        // reviewing seat — and it is the larger model (119B-A6B vs 35B-A3B) and
-        // measured ~57x faster per token than turbo, which also decides who can
-        // afford to hold the synthesis seat.
-        // Turbo trails both chains so that if Leanstral is down the lead seat
-        // degrades to whatever fleet box is live, rather than pinning the
-        // formation to a corner it cannot fill.
-        const LEAD: &[&str] = &["leanstral", "spark", "gemma", "turbo"];
-        const PARTNER: &[&str] = &["turbo", "gemma", "spark"];
-        // Two corners only. Never fall through to the intelligence order:
-        // that set is the council's five SOTA links, and it is what made
-        // Tag Team load Council.
-        return match slot.role {
-            FormationRole::Propose if slot.ordinal == 0 => pick(LEAD, None),
-            FormationRole::Propose => pick(PARTNER, pick(LEAD, None).as_ref()),
-            _ => None,
-        };
-    }
-
-    if formation == FormationId::MathGod {
-        // Sol is the only Sol head. GLM-5.3 and DeepSeek v4 Pro are mix seats.
-        // Do not fall through to the intelligence order or a later P-seat
-        // becomes a second copy of some other frontier model.
-        return match slot.role {
-            FormationRole::Propose if slot.ordinal == 0 => available("openai"),
-            FormationRole::Propose if slot.ordinal == 1 => available("glm"),
-            FormationRole::Propose => available("deepseek-v4-pro"),
-            FormationRole::Aggregate => available("openai"),
-            FormationRole::Judge | FormationRole::Scout => available("grok"),
-            _ => None,
-        };
+        return None;
     }
 
     if formation == FormationId::AutoMoa {
         // The standing mixture: no seat pinning. Every seat resolves from the
         // intelligence order over the live model list — the same ordering the
-        // bag's implicit `sota_moa_club_with_breadth` wrapper has always used —
+        // bag's implicit `sota_moa_club` wrapper has always used —
         // so the deck shows what the auto path would actually run: smartest
         // available first, nth-distinct model per seat. A single configured
         // provider legitimately fills every seat (the swarm pipeline tolerates
@@ -1039,12 +766,6 @@ fn recommended_model(
     }
 
     let specialist = match (formation, slot.role) {
-        (FormationId::GpuComp, FormationRole::Propose) => Some("turbo"),
-        (FormationId::GpuComp, FormationRole::Judge) => Some("leanstral"),
-        (FormationId::GpuComp, FormationRole::Verify) => Some("dice"),
-        (FormationId::GpuComp, FormationRole::Aggregate) => Some("openai"),
-        // Kernel MoA scout seat: Grok research / fix critique (live web + SOTA).
-        (FormationId::GpuComp, FormationRole::Scout) => Some("grok"),
         // Grok War: fixed trio under Grok command. Ordinals are stable seats —
         // P1 GLM, P2 DeepSeek, P3 OpenAI Sol; Grok owns scout/judge/aggregate.
         (FormationId::GrokWar, FormationRole::Propose) => match slot.ordinal {

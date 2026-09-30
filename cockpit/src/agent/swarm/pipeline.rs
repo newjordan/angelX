@@ -1,6 +1,11 @@
-//! The MoA pipeline stages and the run() driver.
+//! The MoA pipeline stages and the run() driver. Every stage speaks in routes
+//! (Volume IV of the book: `⠄` roles, `⠈` angles, `⠐` frames); the problem,
+//! drafts, counts and sources ride beside them as data, and every stage call is
+//! connected, so its seat reads them through the ledger.
 
 use super::*;
+use crate::agent::harness::book::d3_roles::{self, pages};
+use crate::agent::harness::book::{d4_angles, d5_frames};
 
 struct ProposalPool {
     drafts: Vec<String>,
@@ -69,7 +74,7 @@ impl SwarmClub {
     /// the swarm. Any failure defaults to `Open` — fanning out is the swarm's
     /// reason to exist, so we'd rather over-think than silently degrade.
     pub(crate) fn classify(&self, problem: &str) -> Mandate {
-        match self.call(CLASSIFIER_SYS, &[ChatMsg::user(problem)]) {
+        match self.call(&d3_roles::CLASSIFIER.cells(), &[ChatMsg::user(problem)]) {
             Ok(verdict) => {
                 let v = verdict.to_ascii_uppercase();
                 if v.contains("TIGHT") && !v.contains("OPEN") {
@@ -106,8 +111,7 @@ impl SwarmClub {
             .map(|m| m.content.clone())
             .unwrap_or_default();
         let prompt = crate::agent::advisor::review_prompt(&task, &answer);
-        let verdict = match self.call(crate::agent::advisor::ADVISOR_SYS, &[ChatMsg::user(prompt)])
-        {
+        let verdict = match self.call(&crate::agent::advisor::brief(), &[ChatMsg::user(prompt)]) {
             Ok(reply) => crate::agent::advisor::parse_verdict(&reply),
             Err(_) => return answer,
         };
@@ -178,7 +182,12 @@ impl SwarmClub {
                     match research.respond_cancellable(&Self::grok_research_prompt(problem), cancel)
                     {
                         Ok(text) if !text.trim().is_empty() => {
-                            Some(format!("### Grok research scout\n{}", text.trim()))
+                            // `⠐⠛⠓`, the scout's findings below it.
+                            Some(format!(
+                                "{}\n{}",
+                                crate::agent::harness::book::d5_frames::GROK_SCOUT_HEADING.cells(),
+                                text.trim()
+                            ))
                         }
                         Ok(_) => None,
                         Err(err) => {
@@ -194,8 +203,13 @@ impl SwarmClub {
             });
             let searx = want_searx.then(|| {
                 s.spawn(|| {
-                    self.searx_research_block(problem)
-                        .map(|text| format!("### SearXNG web search\n{text}"))
+                    // `⠐⠛⠊`, the search results below it.
+                    self.searx_research_block(problem).map(|text| {
+                        format!(
+                            "{}\n{text}",
+                            crate::agent::harness::book::d5_frames::SEARX_HEADING.cells()
+                        )
+                    })
                 })
             });
             (
@@ -262,13 +276,14 @@ impl SwarmClub {
         }
     }
 
+    /// The scout is a CLI seat with no tool channel, so it cannot be offered
+    /// the ledger reader: it hears `⠈⠚`'s pages recited, the request as data.
     fn grok_research_prompt(problem: &str) -> String {
+        use crate::agent::harness::book::connect::recite;
         format!(
-            "You are Grok, the live research scout for an angelX mixture-of-agents \
-             panel. Bring fresh web/X context back to the team without solving the \
-             whole task. Focus on current, latest, trending, or online facts. Return \
-             concise bullets with dates when available, include source URLs, and flag \
-             uncertainty.\n\nUser request:\n{problem}"
+            "{}\n\n{}\n{problem}",
+            recite(&pages(d4_angles::SCOUT, 1..=4)),
+            recite(&pages(d4_angles::SCOUT, [5]))
         )
     }
 
@@ -351,21 +366,27 @@ impl SwarmClub {
                 |i| {
                     let a = angle(launched + i);
                     let deleg = if self.k.delegate && is_delegator(&a.key) {
-                        format!("\n\n{DELEGATOR_INSTRUCTION}")
+                        format!("\n\n{}", d3_roles::DELEGATOR.cells())
                     } else {
                         String::new()
                     };
+                    // `⠈⠓⠃`, the frontier as data, then `⠈⠓⠉`.
                     let frontier = if frontier.trim().is_empty() {
                         String::new()
                     } else {
                         format!(
-                            "\n\nEarlier drafts exposed this disagreement frontier:\n{frontier}\n\
-                         Add a materially new angle or sharpen the unresolved split."
+                            "\n\n{}\n{frontier}\n{}",
+                            pages(d4_angles::WAVE, [2]),
+                            pages(d4_angles::WAVE, [3])
                         )
                     };
                     let stage = format!(
                         "{}\n\n{}{}{}{}",
-                        a.sys, PROPOSER_BASE, grounding_sys, deleg, frontier
+                        a.sys,
+                        d3_roles::PROPOSER.cells(),
+                        grounding_sys,
+                        deleg,
+                        frontier
                     );
                     let stage = answer_stage_with_compaction_prep(&stage);
                     stage_parts(&stage, base_sys, rest, None)
@@ -452,14 +473,10 @@ impl SwarmClub {
         let ctx = aux_context(rest);
         let cap =
             per_draft_cap_for(&*self.clubs.aggregate, drafts.len()).unwrap_or_else(draft_min_chars);
-        let task = format!(
-            "Critique these {} drafts answering the problem above. List the most important \
-             weaknesses, errors, contradictions, and unexplored angles across them — the \
-             specific things the next revision must fix or add. Terse bullet points only.\n\n{}",
-            drafts.len(),
-            numbered_bounded(drafts, "Draft", cap)
-        );
-        let (system, msgs) = stage_parts(CRITIC_SYS, "", &ctx, Some(task));
+        // `⠄⠙`: the critic's brief and its task, the draft count beside it.
+        let critic = format!("{} n={}", d3_roles::CRITIC.cells(), drafts.len());
+        let task = numbered_bounded(drafts, "Draft", cap);
+        let (system, msgs) = stage_parts(&critic, "", &ctx, Some(task));
         self.call(&system, &msgs)
             .ok()
             .filter(|t| !t.trim().is_empty())
@@ -539,24 +556,22 @@ impl SwarmClub {
                 .map(|(n, _)| *n)
                 .collect::<Vec<_>>()
                 .join(", ");
+            // `⠐⠁⠉⠐⠁⠙`: per dimension, the dimensions beside it.
             (
                 format!(
-                    "Score each of the {} responses below on these dimensions, each 0 to 10: \
-                     {dims}. Output one line per response as 'N: a b c d' where a b c d are the \
-                     scores for {dims} in that exact order (e.g. '1: 8 6 7 5'), nothing else.\n\n{}",
-                    drafts.len(),
-                    blocks
+                    "{} n={} dims={dims}\n\n{blocks}",
+                    pages(d5_frames::SCORING, [3, 4]),
+                    drafts.len()
                 ),
                 parse_dim_scores,
             )
         } else {
+            // `⠐⠁⠁⠐⠁⠃`: one combined score.
             (
                 format!(
-                    "Score each of the {} responses below from 0 to 10 for combined correctness, \
-                     insight, and rigor. Output one line per response as 'N: score' (e.g. '1: 7'), \
-                     nothing else.\n\n{}",
-                    drafts.len(),
-                    blocks
+                    "{} n={}\n\n{blocks}",
+                    pages(d5_frames::SCORING, [1, 2]),
+                    drafts.len()
                 ),
                 parse_scores,
             )
@@ -566,7 +581,7 @@ impl SwarmClub {
         // calls share the byte-identical `[system][conversation]` prefix with
         // the propose/aggregate seats of the same turn.
         let ctx = aux_context(rest);
-        let (system, msgs) = stage_parts(JUDGE_SYS, base_sys, &ctx, Some(prompt));
+        let (system, msgs) = stage_parts(&d3_roles::JUDGE.cells(), base_sys, &ctx, Some(prompt));
         // Each reviewer scores blind; a single judge is just a panel of one.
         let panel = panel.max(1);
         let panel = panel.min(self.k.judge_fanout.max(1));
@@ -652,15 +667,19 @@ impl SwarmClub {
             judged: bool,
         }
         let budget = crate::agent::harness::formation_budget::current();
+        // Each pod's judges read the caller's ledger (`book::connect`).
+        let ledger = crate::agent::harness::book::connect::workspace();
         let outcomes: Vec<PodOutcome> = std::thread::scope(|s| {
             let drafts = &drafts;
             let weights = &weights;
+            let ledger = &ledger;
             let handles: Vec<_> = pods
                 .into_iter()
                 .map(|pod| {
                     let budget = budget.clone();
                     s.spawn(move || {
                         let _budget_scope = crate::agent::harness::formation_budget::enter(budget);
+                        let _ledger = crate::agent::harness::book::connect::enter(ledger);
                         let pod_drafts = pod
                             .iter()
                             .map(|&idx| drafts[idx].clone())
@@ -785,7 +804,7 @@ impl SwarmClub {
         } else {
             agg_task_with_cap(drafts, false, cap)
         };
-        let stage = answer_stage_with_compaction_prep(AGGREGATOR_SYS);
+        let stage = answer_stage_with_compaction_prep(&d3_roles::AGGREGATOR.cells());
         let (system, messages) = stage_parts(&stage, base_sys, rest, Some(task));
         let results = self.fan_out(self.k.samples.max(1), |_| {
             (system.clone(), messages.clone())
@@ -856,7 +875,7 @@ impl SwarmClub {
                 .map(|pod| {
                     let cap = per_draft_cap_for(&*self.clubs.aggregate, pod.len())
                         .unwrap_or_else(draft_min_chars);
-                    let stage = answer_stage_with_compaction_prep(AGGREGATOR_SYS);
+                    let stage = answer_stage_with_compaction_prep(&d3_roles::AGGREGATOR.cells());
                     let (system, messages) = stage_parts(
                         &stage,
                         base_sys,
@@ -908,14 +927,10 @@ impl SwarmClub {
         let ctx = aux_context(rest);
         let cap = per_draft_cap_for(&*self.clubs.aggregate, candidates.len())
             .unwrap_or_else(draft_min_chars);
-        let task = format!(
-            "Below are {} candidate final answers to the problem above. Reply with ONLY the \
-             number (1-{}) of the single best — most correct, complete, and clear — answer.\n\n{}",
-            candidates.len(),
-            candidates.len(),
-            numbered_bounded(candidates, "Candidate", cap)
-        );
-        let (system, msgs) = stage_parts(CHOOSER_SYS, "", &ctx, Some(task));
+        // `⠄⠋`: the chooser's brief and its task, the candidate count beside it.
+        let chooser = format!("{} n={}", d3_roles::CHOOSER.cells(), candidates.len());
+        let task = numbered_bounded(candidates, "Candidate", cap);
+        let (system, msgs) = stage_parts(&chooser, "", &ctx, Some(task));
         match self.call(&system, &msgs) {
             Ok(t) => first_int(&t)
                 .filter(|n| *n >= 1 && *n <= candidates.len())
@@ -956,16 +971,14 @@ impl SwarmClub {
             if cancel.load(Ordering::Relaxed) {
                 break;
             }
-            let task = format!(
-                "Check the answer below against the problem above for concrete errors, \
-                 unsupported claims, logical gaps, or missing considerations. If it is \
-                 genuinely solid, reply with exactly OK. Otherwise list the specific problems \
-                 to fix, terse.\n\nAnswer:\n{current}"
-            );
+            // `⠄⠛`: the verifier's brief and its task; the answer under
+            // review rides after its label, `⠄⠛⠋`.
+            let task = format!("{}\n{current}", pages(d3_roles::VERIFIER, [6]));
             // Score-only, but cache-aligned with the conversation's own system
             // slot: the verifier's calls share the same `[system][conversation]`
             // prefix as every other seat of the turn.
-            let (system, msgs) = stage_parts(VERIFIER_SYS, base_sys, &ctx, Some(task));
+            let (system, msgs) =
+                stage_parts(&d3_roles::VERIFIER.cells(), base_sys, &ctx, Some(task));
             let verifier = &verifier_pool[pass % verifier_pool.len()];
             match self.call_on_with_effort(
                 &**verifier,
@@ -1014,12 +1027,14 @@ impl SwarmClub {
         issues: &str,
     ) -> Result<String, String> {
         let _seat_role = crate::agent::harness::formation_budget::enter_role("revise");
+        // `⠐⠃`; the problems and the answer ride after its labels.
         let task = format!(
-            "Revise the answer below to fix these problems, keeping everything already correct. \
-             Output the full corrected answer directly to the user — no preamble, no mention of \
-             the revision.\n\nProblems:\n{issues}\n\nAnswer:\n{answer}"
+            "{}\n\n{}\n{issues}\n\n{}\n{answer}",
+            d5_frames::REVISE.cells(),
+            pages(d5_frames::REVISE, [3]),
+            pages(d5_frames::REVISE, [4])
         );
-        let stage = answer_stage_with_compaction_prep(AGGREGATOR_SYS);
+        let stage = answer_stage_with_compaction_prep(&d3_roles::AGGREGATOR.cells());
         let (system, msgs) = stage_parts(&stage, base_sys, rest, Some(task));
         self.call(&system, &msgs)
     }
@@ -1035,15 +1050,14 @@ impl SwarmClub {
         answer: String,
         sources: &str,
     ) -> String {
+        // `⠐⠉`; the sources and the answer ride after its labels.
         let task = format!(
-            "Revise the answer below so every nontrivial factual claim is either supported by \
-             one of the sources listed here — attribute it inline (e.g. 'per [source]') — or \
-             explicitly hedged or removed when the sources don't support it. Never invent a \
-             citation or cite a source not in this list. Keep everything already correct and \
-             output the full answer directly, no preamble, no meta-commentary.\n\n\
-             Sources:\n{sources}\n\nAnswer:\n{answer}"
+            "{}\n\n{}\n{sources}\n\n{}\n{answer}",
+            d5_frames::CITE.cells(),
+            pages(d5_frames::CITE, [4]),
+            pages(d5_frames::CITE, [5])
         );
-        let stage = answer_stage_with_compaction_prep(AGGREGATOR_SYS);
+        let stage = answer_stage_with_compaction_prep(&d3_roles::AGGREGATOR.cells());
         let (system, msgs) = stage_parts(&stage, base_sys, rest, Some(task));
         match self.call(&system, &msgs) {
             Ok(r) if !r.trim().is_empty() => r,
@@ -1158,9 +1172,9 @@ impl SwarmClub {
         let base_sys = if !self.k.hedge {
             base_sys
         } else if base_sys.trim().is_empty() {
-            HEDGE_LADDER.to_string()
+            d3_roles::HEDGE.cells()
         } else {
-            format!("{base_sys}\n\n{HEDGE_LADDER}")
+            format!("{base_sys}\n\n{}", d3_roles::HEDGE.cells())
         };
         let problem = rest
             .iter()
@@ -1218,14 +1232,10 @@ impl SwarmClub {
         } else {
             None
         };
+        // `⠈⠓⠁`, the sources after it.
         let grounding_sys = sources
             .as_ref()
-            .map(|g| {
-                format!(
-                    "\n\nResearch scout context — use what is relevant, ignore the \
-                     rest, and never fabricate citations:\n{g}"
-                )
-            })
+            .map(|g| format!("\n\n{}\n{g}", pages(d4_angles::WAVE, [1])))
             .unwrap_or_default();
 
         // Layer 0: progressive waves of diverse proposers. Delegators
@@ -1312,15 +1322,21 @@ impl SwarmClub {
                         None
                     })
                     .collect();
+                // A phoned specialist is connected: it reads this ledger.
+                let ledger = crate::agent::harness::book::connect::workspace();
                 let results: Vec<_> = std::thread::scope(|s| {
                     let router = &router;
+                    let ledger = &ledger;
                     let handles: Vec<_> = requests
                         .iter()
                         .zip(denials)
                         .map(|(r, denied)| {
-                            s.spawn(move || match denied {
-                                Some(result) => result,
-                                None => router.run(r),
+                            s.spawn(move || {
+                                let _ledger = crate::agent::harness::book::connect::enter(ledger);
+                                match denied {
+                                    Some(result) => result,
+                                    None => router.run(r),
+                                }
                             })
                         })
                         .collect();
@@ -1476,10 +1492,9 @@ impl SwarmClub {
             );
             let crit_suffix = if k.reflect {
                 self.emit_progress(stream, on_delta, "reflect", "critiquing draft weaknesses");
+                // `⠈⠊⠃`, the critique after it.
                 turn.critique(&rest, &drafts)
-                    .map(|c| {
-                        format!("\n\nKnown weaknesses in these drafts — fix or address them:\n{c}")
-                    })
+                    .map(|c| format!("\n\n{}\n{c}", pages(d4_angles::REFINE, [2])))
                     .unwrap_or_default()
             } else {
                 String::new()
@@ -1488,8 +1503,11 @@ impl SwarmClub {
             let prev_weights = draft_weights.clone();
             let refined = turn.fan_out(refine_width, |i| {
                 let a = angle(i);
+                // The aggregator, then `⠈⠊⠁` with the angle's lens beside it.
                 let lens = format!(
-                    "{AGGREGATOR_SYS}\n\nWork the synthesis with this emphasis: {}{crit_suffix}",
+                    "{}\n\n{} {}{crit_suffix}",
+                    d3_roles::AGGREGATOR.cells(),
+                    pages(d4_angles::REFINE, [1]),
                     a.sys
                 );
                 let lens = answer_stage_with_compaction_prep(&lens);
@@ -1590,7 +1608,7 @@ impl SwarmClub {
                 } else {
                     agg_task_with_cap(&drafts, false, cap)
                 };
-            let stage = answer_stage_with_compaction_prep(AGGREGATOR_SYS);
+            let stage = answer_stage_with_compaction_prep(&d3_roles::AGGREGATOR.cells());
             let (system, messages) = stage_parts(&stage, &base_sys, &rest, Some(task));
             let mut full = Vec::with_capacity(messages.len() + 1);
             if !system.trim().is_empty() {

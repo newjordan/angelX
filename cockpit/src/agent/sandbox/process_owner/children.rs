@@ -16,6 +16,7 @@ struct Claims {
     next: u64,
     direct: HashMap<u32, u64>,
     opaque: usize,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     stopped: bool,
 }
 

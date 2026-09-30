@@ -26,9 +26,13 @@ fn cap_text_caps_by_lines_keeping_head_and_tail() {
     assert!(out.contains("line0"), "head kept: {out}");
     assert!(out.contains("line99"), "tail kept: {out}");
     assert!(
-        out.contains("middle line(s) elided"),
+        out.contains(&format!(
+            "…[{} dropped=",
+            crate::agent::harness::book::d467_receipts::MIDDLE_LINES.cells()
+        )),
         "marker present: {out}"
     );
+    assert!(out.contains("shown=10 total=100]"), "counts inline: {out}");
     assert!(
         out.lines().count() <= 12,
         "expected ~11 lines, got {}",
@@ -42,7 +46,13 @@ fn cap_text_caps_by_bytes_on_char_boundary() {
     let input = "é".repeat(10_000); // 2 bytes each = 20_000 bytes, 1 line
     let out = cap_text(&input, 1024, 0); // 1 KiB byte cap, lines off
     assert!(out.len() < input.len(), "did not shrink: {}", out.len());
-    assert!(out.contains("middle byte(s) elided"), "marker present");
+    assert!(
+        out.contains(&format!(
+            "…[{} dropped=",
+            crate::agent::harness::book::d467_receipts::MIDDLE_BYTES.cells()
+        )),
+        "marker present"
+    );
     assert!(out.starts_with('é'), "head kept on a char boundary");
     assert!(out.ends_with('é'), "tail kept on a char boundary");
 }
@@ -183,6 +193,116 @@ fn history_token_roll_reuses_on_append_and_recomputes_on_rewrite() {
     assert_ne!(
         rewritten, grown,
         "rewrite must change the estimate, not reuse the stale append count"
+    );
+}
+
+#[test]
+fn history_token_roll_preserves_fractional_tokens_across_appends() {
+    let mut roll = HistoryTokenRoll::default();
+    let mut history = Vec::new();
+    for _ in 0..32 {
+        history.push(ChatMsg::user("x"));
+        assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    }
+    history.truncate(3);
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    history.clear();
+    assert_eq!(roll.observe(&history), 0);
+}
+
+#[test]
+fn history_token_roll_reuses_large_tool_arguments_without_rescanning() {
+    let mut history = vec![ChatMsg::assistant_calls(vec![ToolCall {
+        id: "write".into(),
+        name: "write_file".into(),
+        args: serde_json::json!({"path": "large.txt", "content": "A".repeat(1024 * 1024)}),
+    }])];
+    let mut roll = HistoryTokenRoll::default();
+    let expected = estimate_tokens(&history);
+    let (initial, scans) = count_json_length_scans(|| roll.recompute(&history));
+    assert_eq!(initial, expected);
+    assert_eq!(
+        scans, 1,
+        "initial counting must visit each argument only once"
+    );
+    let (unchanged, scans) = count_json_length_scans(|| roll.observe(&history));
+    assert_eq!(unchanged, expected);
+    assert_eq!(scans, 0, "unchanged arguments must not be serialized again");
+    history.push(ChatMsg::tool("write", "saved"));
+    let expected = estimate_tokens(&history);
+    let (appended, scans) = count_json_length_scans(|| roll.observe(&history));
+    assert_eq!(appended, expected);
+    assert_eq!(scans, 0, "a plain append must not revisit prefix arguments");
+}
+
+#[test]
+fn history_token_roll_observes_copy_on_write_arguments_and_role_changes() {
+    let mut history = vec![ChatMsg::assistant_calls_with_reasoning(
+        vec![ToolCall {
+            id: "call".into(),
+            name: "read_file".into(),
+            args: serde_json::json!({"path": "a.rs"}),
+        }],
+        Some("reasoning".repeat(17)),
+    )];
+    let original = history.clone();
+    let mut roll = HistoryTokenRoll::default();
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    let mut cloned_roll = roll.clone();
+    std::sync::Arc::make_mut(&mut history[0].tool_calls)[0].args =
+        serde_json::json!({"path": "much-longer-file-name.rs"});
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    assert_eq!(cloned_roll.observe(&original), estimate_tokens(&original));
+    // Once only the live history and rolling cache retain the calls, a later
+    // make_mut must still invalidate the cache rather than mutate its snapshot.
+    drop(original);
+    drop(cloned_roll);
+    std::sync::Arc::make_mut(&mut history[0].tool_calls)[0].name = "different_tool_name".into();
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    history[0].role = ChatRole::User;
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    history[0].role = ChatRole::Assistant;
+    history[0].private_reasoning = None;
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    history[0].content = "same length".into();
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+    history[0].content = "new content".into();
+    assert_eq!(roll.observe(&history), estimate_tokens(&history));
+}
+
+#[test]
+#[ignore = "manual rolling-context measurement; timings are diagnostic, not a gate"]
+fn history_token_roll_large_payload_measurement() {
+    let history = vec![
+        ChatMsg::assistant_calls(vec![ToolCall {
+            id: "write".into(),
+            name: "write_file".into(),
+            args: serde_json::json!({"path": "large.txt", "content": "A".repeat(1024 * 1024)}),
+        }]),
+        ChatMsg::tool("write", "B".repeat(1024 * 1024)),
+    ];
+    let mut roll = HistoryTokenRoll::default();
+    let expected = roll.recompute(&history);
+    let started = std::time::Instant::now();
+    let (_, scans) = count_json_length_scans(|| {
+        for _ in 0..64 {
+            assert_eq!(
+                std::hint::black_box(roll.observe(std::hint::black_box(&history))),
+                expected
+            );
+        }
+    });
+    let rolling_us = started.elapsed().as_micros();
+    let started = std::time::Instant::now();
+    for _ in 0..64 {
+        assert_eq!(
+            std::hint::black_box(estimate_tokens(std::hint::black_box(&history))),
+            expected
+        );
+    }
+    eprintln!(
+        "HISTORY_TOKEN_ROLL_MEASUREMENT argument_bytes=1048576 content_bytes=1048576 observations=64 rolling_us={rolling_us} full_estimator_us={} argument_scans={scans}",
+        started.elapsed().as_micros()
     );
 }
 
@@ -610,6 +730,14 @@ fn coding_hot_path_drops_swarm_compile_from_bounded_set() {
     );
 }
 
+/// A schema parameter's pages: its description is their address.
+fn param_pages(params: &serde_json::Value, key: &str) -> String {
+    let address = params["properties"][key]["description"]
+        .as_str()
+        .expect("a page address");
+    crate::agent::harness::book::ledger::read(std::path::Path::new("."), address).expect("pages")
+}
+
 /// Bounded / competition hops advertise a short code_mode blurb. Default
 /// interactive keeps the full isolate/API essay.
 #[test]
@@ -631,13 +759,9 @@ fn coding_hot_path_leans_code_mode_description() {
         full_def.description.len()
     );
     assert!(!lean.description.contains("Default repository-read tools"));
-    assert_eq!(lean.params, lean_code_mode_params());
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean code_mode params must drop the never-executable / effects-gate essay"
-    );
-    assert!(!lean.params.to_string().contains("never executable"));
-    assert!(full_def.params.to_string().contains("never executable"));
+    // Lean and full name the same pages; the param essay lives in the book.
+    assert_eq!(lean.params, full_def.params);
+    assert!(param_pages(&full_def.params, "query").contains("never executable"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
     assert_eq!(
         lean.params["properties"]["recipe"]["enum"],
@@ -662,8 +786,8 @@ fn coding_hot_path_leans_code_mode_description() {
         "default unbounded interactive keeps the full code_mode essay"
     );
     assert!(
-        full_cm.params.to_string().contains("never executable"),
-        "default unbounded interactive keeps the full code_mode param essay"
+        param_pages(&full_cm.params, "query").contains("never executable"),
+        "default unbounded interactive names the code_mode param essay's page"
     );
 
     let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
@@ -672,7 +796,7 @@ fn coding_hot_path_leans_code_mode_description() {
         .find(|tool| tool.name == "code_mode")
         .expect("bounded set still advertises code_mode");
     assert_eq!(bounded_cm.description, lean_code_mode_description());
-    assert_eq!(bounded_cm.params, lean_code_mode_params());
+    assert_eq!(bounded_cm.params, full_cm.params);
 
     let comp = reg.defs_for_turn(Some(1_000_000), false, true);
     let comp_cm = comp
@@ -680,7 +804,7 @@ fn coding_hot_path_leans_code_mode_description() {
         .find(|tool| tool.name == "code_mode")
         .expect("competition set still advertises code_mode");
     assert_eq!(comp_cm.description, lean_code_mode_description());
-    assert_eq!(comp_cm.params, lean_code_mode_params());
+    assert_eq!(comp_cm.params, full_cm.params);
 }
 
 /// Bounded / competition hops advertise a short apply_patch blurb. Default
@@ -706,13 +830,9 @@ fn coding_hot_path_leans_apply_patch_description() {
     );
     assert!(!lean.description.contains("SWAP.BLK"));
     assert!(lean.description.contains("[path#tag]"));
-    assert_eq!(lean.params, lean_apply_patch_params());
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean apply_patch params must drop the hashline stage/resolve essay"
-    );
-    assert!(!lean.params.to_string().contains("no disk write"));
-    assert!(full_def.params.to_string().contains("no disk write"));
+    // Lean and full name the same pages; the param essay lives in the book.
+    assert_eq!(lean.params, full_def.params);
+    assert!(param_pages(&full_def.params, "stage").contains("no disk write"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
 
     let _guard = crate::tests::env_lock();
@@ -731,8 +851,8 @@ fn coding_hot_path_leans_apply_patch_description() {
         "default unbounded interactive keeps the full apply_patch essay"
     );
     assert!(
-        full_ap.params.to_string().contains("no disk write"),
-        "default unbounded interactive keeps the full apply_patch param essay"
+        param_pages(&full_ap.params, "stage").contains("no disk write"),
+        "default unbounded interactive names the apply_patch param essay's page"
     );
 
     let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
@@ -741,7 +861,7 @@ fn coding_hot_path_leans_apply_patch_description() {
         .find(|tool| tool.name == "apply_patch")
         .expect("bounded set still advertises apply_patch");
     assert_eq!(bounded_ap.description, lean_apply_patch_description());
-    assert_eq!(bounded_ap.params, lean_apply_patch_params());
+    assert_eq!(bounded_ap.params, full_ap.params);
 
     let comp = reg.defs_for_turn(Some(1_000_000), false, true);
     let comp_ap = comp
@@ -749,7 +869,7 @@ fn coding_hot_path_leans_apply_patch_description() {
         .find(|tool| tool.name == "apply_patch")
         .expect("competition set still advertises apply_patch");
     assert_eq!(comp_ap.description, lean_apply_patch_description());
-    assert_eq!(comp_ap.params, lean_apply_patch_params());
+    assert_eq!(comp_ap.params, full_ap.params);
 }
 
 /// Bounded / competition hops advertise a short read_file blurb. Default
@@ -777,13 +897,10 @@ fn coding_hot_path_leans_read_file_description() {
     );
     assert!(!lean.description.contains("Merge conflict markers"));
     assert!(lean.description.contains("[path#tag]"));
-    assert_eq!(lean.params, lean_read_file_params());
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean read_file params must drop the virtual-URL / truncation essay"
-    );
-    assert!(!lean.params.to_string().contains("truncated page"));
-    assert!(full_def.params.to_string().contains("truncated page"));
+    // Lean and full name the same pages; the param essay lives in the book.
+    assert_eq!(lean.params, full_def.params);
+    // The offset reuse note is a page of read_file's section; the schema names it.
+    assert!(param_pages(&full_def.params, "offset").contains("truncated page"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
     assert_eq!(
         lean.params["properties"]["limit"]["maximum"],
@@ -811,7 +928,7 @@ fn coding_hot_path_leans_read_file_description() {
         .find(|tool| tool.name == "read_file")
         .expect("bounded set still advertises read_file");
     assert_eq!(bounded_rf.description, lean_read_file_description());
-    assert_eq!(bounded_rf.params, lean_read_file_params());
+    assert_eq!(bounded_rf.params, full_rf.params);
 
     let comp = reg.defs_for_turn(Some(1_000_000), false, true);
     let comp_rf = comp
@@ -819,10 +936,10 @@ fn coding_hot_path_leans_read_file_description() {
         .find(|tool| tool.name == "read_file")
         .expect("competition set still advertises read_file");
     assert_eq!(comp_rf.description, lean_read_file_description());
-    assert_eq!(comp_rf.params, lean_read_file_params());
+    assert_eq!(comp_rf.params, full_rf.params);
     assert!(
-        full_rf.params.to_string().contains("truncated page"),
-        "default unbounded interactive keeps the full read_file param essay"
+        full_rf.params.to_string().contains("⠡⠁"),
+        "default unbounded interactive keeps the full read_file params, naming its section"
     );
 }
 
@@ -849,13 +966,9 @@ fn coding_hot_path_leans_write_file_description() {
     );
     assert!(!lean.description.contains("conflict://*"));
     assert!(lean.description.contains("conflict://N"));
-    assert_eq!(lean.params, lean_write_file_params());
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean write_file params must drop the conflict://* / resolve essay"
-    );
-    assert!(!lean.params.to_string().contains("conflict://*"));
-    assert!(full_def.params.to_string().contains("conflict://*"));
+    // Lean and full name the same pages; the param essay lives in the book.
+    assert_eq!(lean.params, full_def.params);
+    assert!(param_pages(&full_def.params, "path").contains("conflict://*"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
 
     let _guard = crate::tests::env_lock();
@@ -874,8 +987,8 @@ fn coding_hot_path_leans_write_file_description() {
         "default unbounded interactive keeps the full write_file essay"
     );
     assert!(
-        full_wf.params.to_string().contains("conflict://*"),
-        "default unbounded interactive keeps the full write_file param essay"
+        param_pages(&full_wf.params, "path").contains("conflict://*"),
+        "default unbounded interactive names the write_file param essay's page"
     );
 
     let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
@@ -884,7 +997,7 @@ fn coding_hot_path_leans_write_file_description() {
         .find(|tool| tool.name == "write_file")
         .expect("bounded set still advertises write_file");
     assert_eq!(bounded_wf.description, lean_write_file_description());
-    assert_eq!(bounded_wf.params, lean_write_file_params());
+    assert_eq!(bounded_wf.params, full_wf.params);
 
     let comp = reg.defs_for_turn(Some(1_000_000), false, true);
     let comp_wf = comp
@@ -892,7 +1005,7 @@ fn coding_hot_path_leans_write_file_description() {
         .find(|tool| tool.name == "write_file")
         .expect("competition set still advertises write_file");
     assert_eq!(comp_wf.description, lean_write_file_description());
-    assert_eq!(comp_wf.params, lean_write_file_params());
+    assert_eq!(comp_wf.params, full_wf.params);
 }
 
 /// Bounded / competition hops advertise a short shell blurb. Default
@@ -967,8 +1080,8 @@ fn coding_hot_path_leans_tool_search_description() {
         .find(|tool| tool.name == "tool_search")
         .expect("default set advertises tool_search");
     assert!(
-        full_ts.description.contains("not in your base tool list"),
-        "default unbounded interactive keeps the full tool_search essay"
+        full_ts.description.ends_with("⠹⠓"),
+        "default unbounded interactive names tool_search's section"
     );
     assert!(
         full_ts.description.contains("additional tools"),
@@ -1017,22 +1130,19 @@ fn coding_hot_path_leans_list_dir_description() {
         "full def keeps the default-root essay"
     );
     assert!(
-        full_def.params.to_string().contains("workspace-relative"),
-        "full params keep the workspace-relative essay"
+        param_pages(&full_def.params, "path").contains("workspace-relative"),
+        "full params name the workspace-relative essay's page"
     );
     let lean = lean_advertised_tool_def(&full_def);
     assert_eq!(lean.name, "list_dir");
     assert_eq!(lean.description, lean_list_dir_description());
-    assert_eq!(lean.params, lean_list_dir_params());
+    // Lean and full name the same pages; the param essay lives in the book.
+    assert_eq!(lean.params, full_def.params);
     assert!(
         lean.description.len() < full_def.description.len(),
         "lean blurb must be shorter: {} vs {}",
         lean.description.len(),
         full_def.description.len()
-    );
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean list_dir params must drop the workspace-relative essay"
     );
     assert!(!lean.description.contains("workspace root"));
     assert!(lean.description.contains("Directories end with /"));
@@ -1060,7 +1170,7 @@ fn coding_hot_path_leans_list_dir_description() {
         .find(|tool| tool.name == "list_dir")
         .expect("bounded set still advertises list_dir");
     assert_eq!(bounded_ld.description, lean_list_dir_description());
-    assert_eq!(bounded_ld.params, lean_list_dir_params());
+    assert_eq!(bounded_ld.params, full_ld.params);
 
     let comp = reg.defs_for_turn(Some(1_000_000), false, true);
     let comp_ld = comp
@@ -1068,7 +1178,7 @@ fn coding_hot_path_leans_list_dir_description() {
         .find(|tool| tool.name == "list_dir")
         .expect("competition set still advertises list_dir");
     assert_eq!(comp_ld.description, lean_list_dir_description());
-    assert_eq!(comp_ld.params, lean_list_dir_params());
+    assert_eq!(comp_ld.params, full_ld.params);
 }
 
 /// Bounded / competition hops advertise a short str_replace blurb. Default
@@ -1094,13 +1204,9 @@ fn coding_hot_path_leans_str_replace_description() {
     );
     assert!(!lean.description.contains("smart quotes"));
     assert!(lean.description.contains("unique"));
-    assert_eq!(lean.params, lean_str_replace_params());
-    assert!(
-        lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean str_replace params must drop the stale-edit / [path#tag] essay"
-    );
-    assert!(!lean.params.to_string().contains("no longer matches"));
-    assert!(full_def.params.to_string().contains("no longer matches"));
+    // Lean and full name the same pages; the param essay lives in the book.
+    assert_eq!(lean.params, full_def.params);
+    assert!(param_pages(&full_def.params, "expect_tag").contains("no longer matches"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
 
     let _guard = crate::tests::env_lock();
@@ -1119,8 +1225,8 @@ fn coding_hot_path_leans_str_replace_description() {
         "default unbounded interactive keeps the full str_replace essay"
     );
     assert!(
-        full_sr.params.to_string().contains("no longer matches"),
-        "default unbounded interactive keeps the full str_replace param essay"
+        param_pages(&full_sr.params, "expect_tag").contains("no longer matches"),
+        "default unbounded interactive names the str_replace param essay's page"
     );
 
     let bounded = reg.defs_for_turn(Some(1_000_000), true, false);
@@ -1129,7 +1235,7 @@ fn coding_hot_path_leans_str_replace_description() {
         .find(|tool| tool.name == "str_replace")
         .expect("bounded set still advertises str_replace");
     assert_eq!(bounded_sr.description, lean_str_replace_description());
-    assert_eq!(bounded_sr.params, lean_str_replace_params());
+    assert_eq!(bounded_sr.params, full_sr.params);
 
     let comp = reg.defs_for_turn(Some(1_000_000), false, true);
     let comp_sr = comp
@@ -1137,7 +1243,7 @@ fn coding_hot_path_leans_str_replace_description() {
         .find(|tool| tool.name == "str_replace")
         .expect("competition set still advertises str_replace");
     assert_eq!(comp_sr.description, lean_str_replace_description());
-    assert_eq!(comp_sr.params, lean_str_replace_params());
+    assert_eq!(comp_sr.params, full_sr.params);
 }
 
 /// Bounded / competition hops advertise a short grep blurb. Default
@@ -1166,10 +1272,14 @@ fn coding_hot_path_leans_grep_description() {
     assert_eq!(lean.params, lean_grep_params());
     assert!(
         lean.params.to_string().len() < full_def.params.to_string().len(),
-        "lean grep params must drop the continuation/union essay"
+        "lean grep params must drop the ignore toggles"
     );
-    assert!(!lean.params.to_string().contains("lexically after"));
-    assert!(full_def.params.to_string().contains("lexically after"));
+    // A kept parameter names the same page; the param essay lives in the book.
+    assert_eq!(
+        lean.params["properties"]["after_file"],
+        full_def.params["properties"]["after_file"]
+    );
+    assert!(param_pages(&full_def.params, "after_file").contains("lexically after"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
     assert_eq!(
         lean.params["properties"]["paths"]["maxItems"],
@@ -1208,8 +1318,8 @@ fn coding_hot_path_leans_grep_description() {
     assert_eq!(comp_gr.description, lean_grep_description());
     assert_eq!(comp_gr.params, lean_grep_params());
     assert!(
-        full_gr.params.to_string().contains("lexically after"),
-        "default unbounded interactive keeps the full grep param essay"
+        param_pages(&full_gr.params, "after_file").contains("lexically after"),
+        "default unbounded interactive names the grep param essay's page"
     );
 }
 
@@ -1335,6 +1445,76 @@ fn heuristic_tool_bubble_is_bounded_and_sticky_for_the_turn() {
         crate::agent::turn::defs_fingerprint(&second)
     );
     assert_eq!(generation, reg.tool_activation_generation());
+}
+
+/// A byte-exact prefix cache renders the tools ahead of the conversation, so
+/// on such a seat a new user turn offers exactly the tools the session already
+/// had (the bubble is seeded once); a seat without that cache starts each turn
+/// fresh.
+#[test]
+fn a_prefix_cached_seat_keeps_earlier_turns_tools() {
+    struct Recorder {
+        cache: bool,
+        offered: std::sync::Mutex<Vec<Vec<String>>>,
+    }
+    impl Club for Recorder {
+        fn respond(&self, _p: &str) -> Result<String, String> {
+            Ok("ok".into())
+        }
+        fn label(&self) -> &str {
+            "deepseek-flash"
+        }
+        fn prompt_cache_capable(&self) -> bool {
+            self.cache
+        }
+        fn chat(&self, _messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
+            self.offered
+                .lock()
+                .unwrap()
+                .push(tools.iter().map(|tool| tool.name.clone()).collect());
+            Ok(ClubReply::Text("done".into()))
+        }
+    }
+    let _guard = crate::tests::env_lock();
+    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "auto");
+    let _bubble = EnvGuard::set("ANGEL_TOOL_BUBBLE", "1");
+    let _router = EnvGuard::set("ANGEL_TOOL_BUBBLE_ROUTER", "heuristic");
+    let _max = EnvGuard::set("ANGEL_TOOL_BUBBLE_MAX", "3");
+    for cache in [true, false] {
+        let mut registry = ToolRegistry::with_defaults();
+        registry.enable_tool_search();
+        let club = Recorder {
+            cache,
+            offered: Default::default(),
+        };
+        let mut history = vec![ChatMsg::user("run the cargo tests and report failures")];
+        let (tx, _rx) = mpsc::channel();
+        for follow_up in ["", "show the git log of the last commits"] {
+            if !follow_up.is_empty() {
+                history.push(ChatMsg::user(follow_up));
+            }
+            run_turn(
+                &club,
+                &registry,
+                &mut history,
+                &AtomicBool::new(false),
+                Some(4),
+                &tx,
+            )
+            .unwrap();
+        }
+        let offered = club.offered.lock().unwrap();
+        let (first, last) = (offered.first().unwrap(), offered.last().unwrap());
+        assert!(first.iter().any(|name| name == "run_tests"), "{first:?}");
+        assert_eq!(
+            last.iter().any(|name| name == "run_tests"),
+            cache,
+            "cache={cache}: {last:?}"
+        );
+        if cache {
+            assert_eq!(first, last, "the follow-up keeps the tools byte-identical");
+        }
+    }
 }
 
 #[test]
@@ -1563,7 +1743,7 @@ fn run_turn_context_fit_preserves_fresh_result_when_schema_floor_is_infeasible()
                 .iter()
                 .find(|m| m.role == ChatRole::Tool)
                 .expect("actual registry result");
-            assert_eq!(result.content.as_ref(), PROOF);
+            assert_eq!(book::ledger::without_warpaths(&result.content), PROOF);
             assert_eq!(result.tool_call_id.as_deref(), Some("fresh-proof"));
             Ok(ClubReply::Text("fresh result received".into()))
         }
@@ -1831,14 +2011,20 @@ fn bounded_auto_recall_keeps_complete_ranked_notes_and_marks_omissions() {
         format!("second-{}", "b".repeat(100)),
         format!("third-{}", "c".repeat(100)),
     ];
-    let (note, included, omitted) = bounded_auto_recall_note(&blocks, 90).unwrap();
+    let (note, included, omitted) = bounded_auto_recall_note(&blocks, 70).unwrap();
     assert_eq!(included + omitted, blocks.len());
     assert!(
         note.contains(&blocks[0]),
         "highest-ranked complete block kept"
     );
     assert!(omitted > 0, "fixture must exercise the omission path");
-    assert!(note.contains("omitted to fit context"), "{note}");
+    assert!(
+        note.contains(&format!(
+            "…[{} omitted={omitted}]",
+            crate::agent::harness::book::d467_receipts::RECALLED_NOTES.cells()
+        )),
+        "{note}"
+    );
     assert!(
         note.len() <= 90 * 4,
         "note exceeds its strict byte allowance"
@@ -1961,6 +2147,199 @@ fn turn_boundary_compaction_default_never_calls_the_model() {
     );
 }
 
+struct TurnBoundarySummarizer {
+    reply: Result<&'static str, &'static str>,
+    calls: AtomicUsize,
+}
+
+impl Club for TurnBoundarySummarizer {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        self.calls.fetch_add(1, Ordering::Relaxed);
+        self.reply.map(str::to_owned).map_err(str::to_owned)
+    }
+
+    fn label(&self) -> &str {
+        "turn-boundary-summarizer"
+    }
+}
+
+#[test]
+fn turn_boundary_model_compaction_failure_falls_back_with_task_and_tool_pairs() {
+    let _env_lock = crate::tests::env_lock();
+    let _mode = EnvGuard::set("ANGEL_COMPACT_SYNC_LLM", "1");
+    let _url = EnvGuard::unset("ANGEL_COMPACT_URL");
+    let _aging = EnvGuard::set("ANGEL_TOOL_AGING", "0");
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
+    let task = "Repair the parser. Do not change the public API.";
+
+    for reply in [Err("summarizer unavailable"), Ok(" \n\t ")] {
+        let club = TurnBoundarySummarizer {
+            reply,
+            calls: AtomicUsize::new(0),
+        };
+        let mut history = long_history();
+        history[1] = ChatMsg::user(task);
+        history.insert(
+            2,
+            ChatMsg::assistant("Repeated inspection details. ".repeat(1000)),
+        );
+        let before = estimate_tokens(&history);
+        assert!(before > 4000);
+        let (tx, rx) = mpsc::channel();
+
+        assert!(maybe_compact_for_turn(
+            &club,
+            &mut history,
+            4000,
+            5,
+            0,
+            &[],
+            &reg,
+            &tx,
+        ));
+
+        assert!(club.calls.load(Ordering::Relaxed) > 0);
+        assert!(estimate_tokens(&history) < before);
+        assert_eq!(history[0].role, ChatRole::System);
+        assert_eq!(
+            history
+                .iter()
+                .filter(|message| message.role == ChatRole::User && message.content.as_ref() == task)
+                .count(),
+            1,
+            "the exact operator constraint must survive the fallback"
+        );
+        assert!(
+            history
+                .iter()
+                .any(crate::agent::compaction::is_compaction_note)
+        );
+        assert!(history.iter().any(|message| {
+            message.role == ChatRole::Tool && message.tool_call_id.as_deref() == Some("c7")
+        }));
+        for (index, message) in history.iter().enumerate() {
+            if let Some(id) = message.tool_call_id.as_deref() {
+                assert!(
+                    history[..index]
+                        .iter()
+                        .any(|prior| { prior.tool_calls.iter().any(|call| call.id == id) })
+                );
+            }
+        }
+        assert!(rx.try_iter().any(|event| {
+            matches!(event, TurnEvent::Notice(text) if text.contains("model-free fallback"))
+        }));
+    }
+}
+
+#[test]
+fn turn_boundary_model_compaction_success_preserves_the_model_summary_once() {
+    let _env_lock = crate::tests::env_lock();
+    let _mode = EnvGuard::set("ANGEL_COMPACT_SYNC_LLM", "1");
+    let _url = EnvGuard::unset("ANGEL_COMPACT_URL");
+    let club = TurnBoundarySummarizer {
+        reply: Ok("## Task\nMODEL SUMMARY RETAINED"),
+        calls: AtomicUsize::new(0),
+    };
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
+    let mut history = long_history();
+    let (tx, rx) = mpsc::channel();
+
+    assert!(maybe_compact_for_turn(
+        &club,
+        &mut history,
+        30,
+        5,
+        0,
+        &[],
+        &reg,
+        &tx,
+    ));
+
+    assert_eq!(club.calls.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        history
+            .iter()
+            .filter(|message| message.content.contains("MODEL SUMMARY RETAINED"))
+            .count(),
+        1
+    );
+    assert!(rx.try_iter().all(|event| {
+        !matches!(event, TurnEvent::Notice(text) if text.contains("compacting locally") || text.contains("compacted locally"))
+    }));
+}
+
+#[test]
+fn turn_boundary_compaction_counts_private_replay_without_exposing_it() {
+    let _env_lock = crate::tests::env_lock();
+    let _mode = EnvGuard::set("ANGEL_COMPACT_SYNC_LLM", "0");
+    let _aging = EnvGuard::set("ANGEL_TOOL_AGING", "0");
+    let mut history = vec![
+        ChatMsg::system("system"),
+        ChatMsg::user("Repair the parser; preserve its public API."),
+    ];
+    for i in 0..8 {
+        let id = format!("private-{i}");
+        history.push(ChatMsg::assistant_calls_with_reasoning(
+            vec![ToolCall {
+                id: id.clone(),
+                name: "read_file".into(),
+                args: serde_json::json!({"path": format!("src/file-{i}.rs")}),
+            }],
+            Some(format!("PRIVATE_TRACE_{i}:{}", "r".repeat(12_000))),
+        ));
+        history.push(ChatMsg::tool(id, format!("source evidence {i}")));
+    }
+    let latest_private = history[history.len() - 2].private_reasoning.clone();
+    let mut visible_only = history.clone();
+    for message in &mut visible_only {
+        message.private_reasoning = None;
+    }
+    let budget = 10_000;
+    assert!(estimate_tokens(&visible_only) < budget);
+    assert!(estimate_tokens(&history) > budget);
+    let reg = registry_with_store(Arc::new(crate::knowledge::memory::store::NullStore));
+    let (tx, _rx) = mpsc::channel();
+
+    assert!(maybe_compact_for_turn(
+        &PanickingSummarizerClub,
+        &mut history,
+        budget,
+        5,
+        2_000,
+        &[],
+        &reg,
+        &tx,
+    ));
+
+    assert!(estimate_tokens(&history) <= budget);
+    let retained_call = history
+        .iter()
+        .find(|message| message.tool_calls.iter().any(|call| call.id == "private-7"))
+        .expect("latest tool call retained");
+    assert_eq!(retained_call.private_reasoning, latest_private);
+    assert_eq!(
+        history.last().unwrap().tool_call_id.as_deref(),
+        Some("private-7")
+    );
+    for (index, message) in history.iter().enumerate() {
+        if let Some(id) = message.tool_call_id.as_deref() {
+            assert!(
+                history[..index]
+                    .iter()
+                    .any(|prior| { prior.tool_calls.iter().any(|call| call.id == id) })
+            );
+        }
+        assert!(!message.content.contains("PRIVATE_TRACE_"));
+    }
+    assert!(!render_transcript(&history).contains("PRIVATE_TRACE_"));
+    assert!(
+        !serde_json::to_string(&history)
+            .unwrap()
+            .contains("PRIVATE_TRACE_")
+    );
+}
+
 #[test]
 fn compaction_task_anchors_are_role_safe_bounded_and_preserve_directives() {
     let long = format!("BEGIN-{}-END", "日本語🚀".repeat(200));
@@ -1968,7 +2347,7 @@ fn compaction_task_anchors_are_role_safe_bounded_and_preserve_directives() {
     assert!(bounded.len() <= 240);
     assert!(bounded.starts_with("BEGIN-"));
     assert!(bounded.ends_with("-END"));
-    assert!(bounded.contains("bounded compaction anchor"));
+    assert!(bounded.contains(&crate::agent::harness::book::d467_receipts::TASK_MIDDLE.cells()));
     let budget_bounded =
         compaction_task_anchors(&[ChatMsg::system("system"), ChatMsg::user(long)], 1, 2, 60)
             .pop()
@@ -2005,13 +2384,11 @@ fn compaction_task_anchors_are_role_safe_bounded_and_preserve_directives() {
     );
 
     let internal_nudges = vec![
-        RELENTLESS_EXECUTION_DIRECTIVE.to_string(),
+        "⠗⠁".to_string(),
         format!("{TELEMETRY_MARK}correct the malformed tool call"),
-        FINAL_VERIFY_NUDGE.to_string(),
-        FINAL_MILE_NUDGE.to_string(),
-        FIRST_WRITE_NUDGE.to_string(),
-        spin_redirect(true).to_string(),
-        ERROR_NUDGE.to_string(),
+        MUTATION_THRASH_NUDGE.to_string(),
+        PERIPHERAL_FANOUT_NUDGE.to_string(),
+        "⠧⠋⠟⠁".to_string(),
         NOPROGRESS_NUDGE.to_string(),
     ];
     for nudge in internal_nudges {
@@ -2036,8 +2413,8 @@ fn compaction_task_anchors_are_role_safe_bounded_and_preserve_directives() {
 
 fn test_turn_context(label: &str) -> String {
     format!(
-        "{}\n[operator-selected cockpit controls]\n- {label}\n\
-         [/operator-selected cockpit controls]\n\n[/harness turn context]",
+        "{}\n⠞⠚ {label}\n\n{}",
+        crate::app::control::TURN_CONTEXT_HEADER,
         crate::app::control::TURN_CONTEXT_HEADER
     )
 }
@@ -2159,11 +2536,11 @@ fn model_free_turn_boundary_compaction_preserves_harness_turn_context() {
 
 #[test]
 fn harness_direction_retains_origin_but_serializes_as_provider_user() {
-    let message = ChatMsg::harness(FINAL_MILE_NUDGE);
+    let message = ChatMsg::harness(NOPROGRESS_NUDGE);
     assert_eq!(message.role, ChatRole::Harness);
     let serialized = crate::agent::club::messages_to_json(&[message], true);
     assert_eq!(serialized[0]["role"], "user");
-    assert_eq!(serialized[0]["content"], FINAL_MILE_NUDGE);
+    assert_eq!(serialized[0]["content"], NOPROGRESS_NUDGE);
 }
 
 #[test]
@@ -2175,7 +2552,7 @@ fn sync_compaction_preserves_one_active_user_task_across_repeated_rounds() {
             "working step {i} with enough detail to consume context"
         )));
         if i % 7 == 0 {
-            history.push(ChatMsg::harness(FINAL_MILE_NUDGE));
+            history.push(ChatMsg::harness(NOPROGRESS_NUDGE));
         }
     }
     let (tx, _rx) = mpsc::channel();
@@ -2204,7 +2581,7 @@ fn sync_compaction_preserves_one_active_user_task_across_repeated_rounds() {
             "working step {i} with enough detail to consume more context"
         )));
         if i % 7 == 0 {
-            history.push(ChatMsg::harness(FINAL_VERIFY_NUDGE));
+            history.push(ChatMsg::harness(MUTATION_THRASH_NUDGE));
         }
     }
     assert!(maybe_compact(&club, &mut history, 60, 3, 0, &[], &reg, &tx));
@@ -2328,7 +2705,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
     ));
     let plan_messages = history
         .iter()
-        .filter(|message| message.content.starts_with("[current-plan/v1"))
+        .filter(|message| message.content.starts_with("⠵⠊ "))
         .collect::<Vec<_>>();
     assert_eq!(plan_messages.len(), 1);
     assert_eq!(plan_messages[0].role, ChatRole::Assistant);
@@ -2341,7 +2718,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
     }));
     let plan_index = history
         .iter()
-        .position(|message| message.content.starts_with("[current-plan/v1"))
+        .position(|message| message.content.starts_with("⠵⠊ "))
         .unwrap();
     let task_index = history
         .iter()
@@ -2370,7 +2747,7 @@ fn sync_compaction_preserves_one_assistant_role_plan_across_repeated_rounds() {
     assert_eq!(
         history
             .iter()
-            .filter(|message| message.content.starts_with("[current-plan/v1"))
+            .filter(|message| message.content.starts_with("⠵⠊ "))
             .count(),
         1,
         "rolling compaction must replace rather than duplicate plan state"
@@ -2555,10 +2932,13 @@ fn context_compact_summary_input_excludes_operator_contract() {
     let summary = compaction_summary_window(&source);
     assert_eq!(summary[0].role, ChatRole::Harness);
     assert!(!summary[0].content.contains("ALPHA-KITE-9182"));
-    assert!(
-        summary[0]
-            .content
-            .contains(&crate::knowledge::cut::sha256_hex(contract.as_bytes()))
+    // The marker is `⡨⠉⠁` inside its bracket, the digest beside it.
+    assert_eq!(
+        &*summary[0].content,
+        format!(
+            "[⡨⠉⠁ sha256={}]",
+            crate::knowledge::cut::sha256_hex(contract.as_bytes())
+        )
     );
     assert_eq!(summary[1].content, source[1].content);
 }

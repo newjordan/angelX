@@ -22,11 +22,8 @@ impl Tool for RepoSearchTool {
             description: "Surface the latest/best code repositories for a topic via GitHub \
                           repository search. Returns a cited shortlist — owner/name, stars, \
                           last-push date, primary language, description, and a validated \
-                          github.com link — ranked by reputation (stars) or recency. Use when a \
-                          report or answer should point at real, maintained projects: reference \
-                          implementations, libraries, tools, or the freshest work in a fast-moving \
-                          area. `mode:\"latest\"` favours recently-pushed repos; `mode:\"best\"` \
-                          (default) favours established, high-star ones."
+                          github.com link — ranked by reputation (stars) or recency. `mode:\"latest\"` favours recently-pushed repos; `mode:\"best\"` \
+                          (default) favours established, high-star ones. ⠱⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -35,17 +32,16 @@ impl Tool for RepoSearchTool {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": crate::knowledge::repos::MAX_QUERY_CHARS,
-                        "description": "topic or GitHub search query (supports GitHub qualifiers \
-                                        like language:rust, stars:>1000)"
+                        "description": "⠱⠙⠃"
                     },
                     "mode": {
                         "type": "string",
                         "enum": ["best", "latest"],
-                        "description": "best = most-starred (default); latest = most-recently-pushed"
+                        "description": "⠱⠙⠉"
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "repositories to return (default 10, max 25)"
+                        "description": "⠱⠙⠙"
                     },
                 },
                 "required": ["query"],

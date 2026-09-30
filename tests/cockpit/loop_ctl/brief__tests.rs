@@ -50,20 +50,19 @@ fn benchmark_json_becomes_a_card_with_its_local_score() {
         card.contains("- track pinning (higher is better): Maximize"),
         "{card}"
     );
-    assert!(card.contains("editable: candidates/pinning"), "{card}");
+    // The card's labels are `⠘⠓` page addresses; the values are the data.
+    assert!(card.contains("⠘⠓⠃ candidates/pinning"), "{card}");
     assert!(
-        card.contains("run: ./benchmark.sh pinning (in challenge/)"),
+        card.contains("⠘⠓⠙ ./benchmark.sh pinning (in challenge/)"),
         "{card}"
     );
     assert!(
-        card.contains("setup: ./setup.sh pinning (in challenge/)"),
+        card.contains("⠘⠓⠉ ./setup.sh pinning (in challenge/)"),
         "{card}"
     );
-    assert!(card.contains("100 bips (1.00%)"), "{card}");
+    assert!(card.contains("⠘⠓⠑ bips=100 percent=1.00"), "{card}");
     assert!(
-        card.contains(
-            "score file score-pinning.json in challenge/: just now, { \"score\": 1.5e9 }"
-        ),
+        card.contains("⠘⠓⠋ score-pinning.json in challenge/: just now, { \"score\": 1.5e9 }"),
         "{card}"
     );
     std::fs::remove_dir_all(root).unwrap();
@@ -79,12 +78,9 @@ fn clones_of_one_benchmark_share_a_card() {
     let walk = walk(&root);
     let card = benchmark(&root, &walk, now_secs());
     assert_eq!(card.matches("(qsb-grind-benchmark):").count(), 1, "{card}");
+    assert!(card.contains("⠘⠓⠁ n=2 pin-a/, pin-b/"), "{card}");
     assert!(
-        card.contains("the same spec is in 2 more copies: pin-a/, pin-b/"),
-        "{card}"
-    );
-    assert!(
-        card.contains("score file score-pinning.json in pin-b/: just now, {\"score\": 29.0}"),
+        card.contains("⠘⠓⠋ score-pinning.json in pin-b/: just now, {\"score\": 29.0}"),
         "{card}"
     );
     std::fs::remove_dir_all(root).unwrap();
@@ -110,17 +106,13 @@ fn workspace_map_names_nested_repos_and_folds_sibling_runs() {
     );
     let map = workspace_map(&root, &walk);
     assert!(map.contains("(not a git repository)"), "{map}");
-    assert!(
-        map.contains("1 repositories inside the workspace (their changes do not show in the top-level git diff):"),
-        "{map}"
-    );
+    // The map's labels are `⠘⠛` page addresses; the counts are the data.
+    assert!(map.contains("⠘⠛⠛ n=1"), "{map}");
+    assert!(map.contains("⠘⠛⠓"), "{map}");
     assert!(map.contains("  challenge/"), "{map}");
     assert!(map.contains("bench-* (5 directories)"), "{map}");
     assert!(map.contains("HANDOFF.md (10 B)"), "{map}");
-    assert!(
-        map.contains("build and run files: benchmark.sh (in challenge/)"),
-        "{map}"
-    );
+    assert!(map.contains("⠘⠛⠊ benchmark.sh (in challenge/)"), "{map}");
     std::fs::remove_dir_all(root).unwrap();
 }
 

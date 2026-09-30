@@ -6,6 +6,9 @@
 
 mod cargo_controls;
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/tools/build__failure_detail_tests.rs"]
+mod failure_detail_tests;
+#[cfg(test)]
 #[path = "../../../../tests/cockpit/tools/build__fallback_tests.rs"]
 mod fallback_tests;
 mod targets;
@@ -94,6 +97,68 @@ struct PinnedExecutable {
     /// writes onto identical inode/mtime/ctime values, so metadata alone cannot
     /// safely defer this digest until the first tool call.
     sha256: OnceLock<String>,
+    /// The capture-time digest while it is still being read: the file is
+    /// opened at capture and hashed off the start-up path, and every tool
+    /// dispatch first waits for all such digests ([`settle_pending_pins`]), so
+    /// no tool runs before the pin exists. Taken only through [`Self::digest`].
+    pending: Option<Arc<PendingDigest>>,
+}
+
+/// A capture-time digest being read on a background thread.
+struct PendingDigest {
+    settled: OnceLock<Result<String, String>>,
+    worker: Mutex<Option<std::thread::JoinHandle<Result<String, String>>>>,
+}
+
+impl PendingDigest {
+    fn settle(&self) -> &Result<String, String> {
+        self.settled.get_or_init(|| {
+            let worker = self
+                .worker
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .take();
+            match worker {
+                Some(worker) => worker
+                    .join()
+                    .unwrap_or_else(|_| Err("pin digest worker panicked".into())),
+                None => Err("pin digest worker missing".into()),
+            }
+        })
+    }
+}
+
+/// Digests still being read, settled together before the first dispatch.
+static PENDING_PINS: Mutex<Vec<Arc<PendingDigest>>> = Mutex::new(Vec::new());
+
+/// Wait for every executable digest captured so far. Called before any tool
+/// dispatch: a model-owned action can never precede a pin it is judged by.
+/// Cheap once settled (the list is drained).
+pub(crate) fn settle_pending_pins() {
+    let pending = std::mem::take(
+        &mut *PENDING_PINS
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+    );
+    for digest in pending {
+        let _ = digest.settle();
+    }
+}
+
+impl PinnedExecutable {
+    /// The capture-time digest, waiting for it if it is still being read. A
+    /// capture that could not be read fails closed here, at first use.
+    fn digest(&self) -> Result<Option<&String>, String> {
+        if let Some(pending) = &self.pending {
+            match pending.settle() {
+                Ok(digest) => {
+                    let _ = self.sha256.set(digest.clone());
+                }
+                Err(error) => return Err(error.clone()),
+            }
+        }
+        Ok(self.sha256.get())
+    }
 }
 
 const MAX_PINNED_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
@@ -152,20 +217,44 @@ impl PinnedCargo {
     fn verified_executable(&self) -> Result<&PinnedCargoExecutable, String> {
         let executable = self.executable()?;
         executable.controls.revalidate()?;
-        revalidate_executable(&executable.cargo, "Cargo")?;
-        revalidate_executable(&executable.rustc, "rustc")?;
-        if let Some(rustdoc) = &executable.rustdoc {
-            revalidate_executable(rustdoc, "rustdoc")?;
-        }
-        for (tool, label) in [
+        let tools: Vec<(&PinnedExecutable, &str)> = [
+            (Some(&executable.cargo), "Cargo"),
+            (Some(&executable.rustc), "rustc"),
+            (executable.rustdoc.as_ref(), "rustdoc"),
             (executable.cargo_clippy.as_ref(), "cargo-clippy"),
             (executable.clippy_driver.as_ref(), "clippy-driver"),
             (executable.cargo_fmt.as_ref(), "cargo-fmt"),
             (executable.rustfmt.as_ref(), "rustfmt"),
-        ] {
-            if let Some(tool) = tool {
-                revalidate_executable(tool, label)?;
-            }
+        ]
+        .into_iter()
+        .filter_map(|(tool, label)| tool.map(|tool| (tool, label)))
+        .collect();
+        // Every image is re-hashed, each on its own thread: the check costs the
+        // largest binary rather than the toolchain's sum (~85 MB). The first
+        // failure in toolchain order is the one reported.
+        // Thread pressure falls back to the same check inline.
+        let verdicts: Vec<Result<(), String>> = std::thread::scope(|scope| {
+            let workers: Vec<_> = tools
+                .iter()
+                .map(|(tool, label)| {
+                    std::thread::Builder::new()
+                        .name("revalidate-toolchain".into())
+                        .spawn_scoped(scope, move || revalidate_executable(tool, label))
+                })
+                .collect();
+            workers
+                .into_iter()
+                .zip(&tools)
+                .map(|(worker, (tool, label))| match worker {
+                    Ok(worker) => worker
+                        .join()
+                        .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+                    Err(_) => revalidate_executable(tool, label),
+                })
+                .collect()
+        });
+        for verdict in verdicts {
+            verdict?;
         }
         // Re-land every canonical path after the complete toolchain has been
         // hashed. Without this aggregate pass, a replacement could race while
@@ -279,14 +368,14 @@ impl PinnedCargo {
     /// no pin could be established (the verifier then refuses elsewhere).
     pub(crate) fn pin_note(&self) -> Option<String> {
         let executable = self.executable().ok()?;
-        let sha256 = executable.cargo.sha256.get()?;
+        let sha256 = executable.cargo.digest().ok().flatten()?;
         let short = &sha256[..sha256.len().min(16)];
         Some(format!(
             "[verifier toolchain pin: cargo {} (sha256 {short})]\npin: {}",
             executable.cargo.path.display(),
             serde_json::json!({
                 "cargo": {"path": executable.cargo.path, "sha256": sha256},
-                "rustc": {"path": executable.rustc.path, "sha256": executable.rustc.sha256.get()},
+                "rustc": {"path": executable.rustc.path, "sha256": executable.rustc.digest().ok().flatten()},
                 "control_files": executable.controls.receipt(),
             })
         ))
@@ -368,14 +457,16 @@ fn ephemeral_cargo_home(executable: &PinnedCargoExecutable) -> Result<EphemeralC
 fn revalidate_executable(executable: &PinnedExecutable, label: &str) -> Result<(), String> {
     let mut file = std::fs::File::open(&executable.path).map_err(|error| {
         format!(
-            "pinned {label} disappeared at {}: {error}; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "pinned {label} disappeared at {}: {error} {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         )
     })?;
     let before = file.metadata().map_err(|error| {
         format!(
-            "inspect open pinned {label} {}: {error}; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "inspect open pinned {label} {}: {error} {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         )
     })?;
     if before.len() > MAX_PINNED_EXECUTABLE_BYTES {
@@ -388,30 +479,35 @@ fn revalidate_executable(executable: &PinnedExecutable, label: &str) -> Result<(
     require_captured_identity(executable, &before, label)?;
     let observed = crate::agent::harness::sha256_reader_hex(&mut file).map_err(|error| {
         format!(
-            "read pinned {label} {}: {error}; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "read pinned {label} {}: {error} {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         )
     })?;
     let after = file.metadata().map_err(|error| {
         format!(
-            "reinspect open pinned {label} {}: {error}; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "reinspect open pinned {label} {}: {error} {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         )
     })?;
     require_captured_identity(executable, &after, label)?;
     let landed = std::fs::symlink_metadata(&executable.path).map_err(|error| {
         format!(
-            "reinspect pinned {label} path {}: {error}; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "reinspect pinned {label} path {}: {error} {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         )
     })?;
     require_captured_identity(executable, &landed, label)?;
+    executable.digest()?;
     let pinned = executable.sha256.get_or_init(|| observed.clone());
     if observed != *pinned {
         return Err(format!(
-            "pinned {label} changed at {} (captured sha256 {}); toolchain changed since pin; restart Angel to re-pin the toolchain",
+            "pinned {label} changed at {} (captured sha256 {}); toolchain changed since pin {}",
             executable.path.display(),
-            pinned
+            pinned,
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         ));
     }
     Ok(())
@@ -439,8 +535,9 @@ fn require_landed_toolchain(executable: &PinnedCargoExecutable) -> Result<(), St
 fn require_landed_identity(executable: &PinnedExecutable, label: &str) -> Result<(), String> {
     let metadata = std::fs::symlink_metadata(&executable.path).map_err(|error| {
         format!(
-            "reinspect pinned {label} path {}: {error}; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "reinspect pinned {label} path {}: {error} {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         )
     })?;
     require_captured_identity(executable, &metadata, label)
@@ -454,8 +551,9 @@ fn require_captured_identity(
     let observed = pinned_file_identity(metadata);
     if observed != executable.captured {
         return Err(format!(
-            "pinned {label} identity changed at {} after registry construction; restart Angel to re-pin the toolchain",
-            executable.path.display()
+            "pinned {label} identity changed at {} after registry construction {}",
+            executable.path.display(),
+            crate::agent::harness::book::d46_recovery::REPIN.cells()
         ));
     }
     Ok(())
@@ -726,8 +824,7 @@ fn capture_pinned_cargo(workspace: &Path) -> Result<PinnedCargoExecutable, Strin
         .map(|error| error.chars().take(140).collect::<String>())
         .collect::<Vec<_>>();
     Err(format!(
-        "{}; no direct Cargo executable could be pinned for {}{}. Fallback: run `cargo test` \
-         through the `shell` tool (the toolchain on PATH is not affected by this pin)",
+        "{}; no direct Cargo executable could be pinned for {}{}.\n{}",
         crate::agent::tools::runtime_missing::RuntimeMissing::new(
             "cargo", "ANGEL_CARGO_BIN unset; CARGO, rustup and trusted installation paths (task PATH is not trusted)",
         ).encode(),
@@ -736,7 +833,8 @@ fn capture_pinned_cargo(workspace: &Path) -> Result<PinnedCargoExecutable, Strin
             String::new()
         } else {
             format!("; resolver errors: {}", detail.join(" | "))
-        }
+        },
+        crate::agent::harness::book::d46_recovery::CARGO_FALLBACK.cells()
     ))
 }
 
@@ -819,21 +917,70 @@ fn capture_executable(path: PathBuf, label: &str) -> Result<PinnedExecutable, St
     let path = canonical_existing_file(&path, label)?;
     let metadata = std::fs::symlink_metadata(&path)
         .map_err(|error| format!("inspect {label} {}: {error}", path.display()))?;
+    let captured = pinned_file_identity(&metadata);
     Ok(PinnedExecutable {
-        sha256: initial_executable_digest(&path, label)?,
+        pending: Some(initial_executable_digest(&path, label, captured.clone())?),
+        sha256: OnceLock::new(),
         path,
-        captured: pinned_file_identity(&metadata),
+        captured,
     })
 }
 
-fn initial_executable_digest(path: &Path, label: &str) -> Result<OnceLock<String>, String> {
+/// Open the executable now and hash that open file off the start-up path:
+/// the digest is of the image captured here even if the path is replaced
+/// before the read finishes, and no dispatch runs until it has.
+fn initial_executable_digest(
+    path: &Path,
+    label: &str,
+    captured: PinnedFileIdentity,
+) -> Result<Arc<PendingDigest>, String> {
     let mut file = std::fs::File::open(path)
         .map_err(|error| format!("open {label} {} for hashing: {error}", path.display()))?;
-    let hash = crate::agent::harness::sha256_reader_hex(&mut file)
-        .map_err(|error| format!("hash {label} {}: {error}", path.display()))?;
-    let digest = OnceLock::new();
-    let _ = digest.set(hash);
-    Ok(digest)
+    let described = format!("{label} {}", path.display());
+    // The open file is the captured image, and it must still be when read.
+    let opened = file
+        .metadata()
+        .map_err(|error| format!("inspect open {described}: {error}"))?;
+    if pinned_file_identity(&opened) != captured {
+        return Err(format!("{described} changed while being pinned"));
+    }
+    let hash = move || {
+        let digest = crate::agent::harness::sha256_reader_hex(&mut file)
+            .map_err(|error| format!("hash {described}: {error}"))?;
+        match file.metadata() {
+            Ok(read) if pinned_file_identity(&read) == captured => Ok(digest),
+            Ok(_) => Err(format!("{described} changed while being pinned")),
+            Err(error) => Err(format!("reinspect open {described}: {error}")),
+        }
+    };
+    let pending = Arc::new(PendingDigest {
+        settled: OnceLock::new(),
+        worker: Mutex::new(None),
+    });
+    match std::thread::Builder::new()
+        .name("pin-digest".into())
+        .spawn(hash)
+    {
+        Ok(worker) => {
+            *pending
+                .worker
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(worker);
+            PENDING_PINS
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push(Arc::clone(&pending));
+        }
+        // Thread pressure: pin inline, as before.
+        Err(_) => {
+            let mut file = std::fs::File::open(path)
+                .map_err(|error| format!("open {label} {} for hashing: {error}", path.display()))?;
+            let hash = crate::agent::harness::sha256_reader_hex(&mut file)
+                .map_err(|error| format!("hash {label} {}: {error}", path.display()))?;
+            let _ = pending.settled.set(Ok(hash));
+        }
+    }
+    Ok(pending)
 }
 
 fn capture_toolchain_executable(
@@ -1081,8 +1228,9 @@ fn trusted_verifier_argv(args: &[&str], workspace: &Path) -> Result<Vec<OsString
         && let Some(control) = workspace_cargo_control_file(&workspace)
     {
         return Err(format!(
-            "trusted Cargo verification refuses workspace-controlled Cargo/toolchain semantics at {} — this only blocks TYPED (reward-labeled) verifier evidence, not compilation. Run the same check through the `shell` tool instead (e.g. `cargo +<pinned> check`), which is legal unlabeled verification for this workspace.",
-            control.display()
+            "trusted Cargo verification refuses workspace-controlled Cargo/toolchain semantics at {}\n{}",
+            control.display(),
+            crate::agent::harness::book::u_skills::TYPED_CARGO.cells()
         ));
     }
     let manifest = workspace.join("Cargo.toml");
@@ -1187,7 +1335,10 @@ fn sandboxed_cargo_output_with_env(
         if argv.iter().any(|arg| {
             arg == "--message-format" || arg.as_encoded_bytes().starts_with(b"--message-format=")
         }) {
-            return Err("typed Cargo check owns --message-format; omit that flag".into());
+            return Err(format!(
+                "typed Cargo check owns --message-format\n{}",
+                crate::agent::harness::book::d46_recovery::OMIT_FLAG.cells()
+            ));
         }
         let insert = argv
             .iter()
@@ -1277,17 +1428,19 @@ fn timeout_detail(output: &CapturedCommand) -> String {
     if output.timed_out {
         match output.timeout_diag.as_ref() {
             Some(diag) => format!(
-                "timed out after {}s — {}; process group killed; raise/disable via ANGEL_TOOL_TIMEOUT",
+                "timed out after {}s — {}; process group killed {}",
                 tool_timeout()
                     .map(|duration| duration.as_secs())
                     .unwrap_or(0),
-                diag.summary()
+                diag.summary(),
+                crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()
             ),
             None => format!(
-                "timed out after {}s — process group killed; raise/disable via ANGEL_TOOL_TIMEOUT",
+                "timed out after {}s — process group killed {}",
                 tool_timeout()
                     .map(|duration| duration.as_secs())
-                    .unwrap_or(0)
+                    .unwrap_or(0),
+                crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()
             ),
         }
     } else {
@@ -1318,6 +1471,13 @@ impl CargoTool {
         Self::in_dir_with_cargo(workspace, cargo)
     }
 
+    /// The same tool with the network denied, for schema tests.
+    #[cfg(test)]
+    pub(crate) fn offline(mut self) -> Self {
+        self.policy.allow_network = false;
+        self
+    }
+
     pub(crate) fn in_dir_with_cargo(workspace: PathBuf, cargo: PinnedCargo) -> Self {
         let mut policy = SandboxPolicy::permissive();
         policy.writable_roots.push(workspace.clone());
@@ -1338,21 +1498,16 @@ impl Tool for CargoTool {
         ToolDef {
             name: "cargo".to_string(),
             description: format!(
-                "Run a cargo command in the workspace (sandboxed, network {}). Pass subcommand + flags as `args`, e.g. build or test. {}",
+                "Run a cargo command in the workspace (sandboxed, network {}). ⠩⠃",
                 if self.policy.allow_network {
                     "on"
                 } else {
                     "off"
                 },
-                if self.policy.allow_network {
-                    "Use this to pull crates and build/calibrate code."
-                } else {
-                    "Use available local dependencies; network fetches are unavailable in this confined experiment."
-                }
             ),
             params: serde_json::json!({
                 "type": "object",
-                "properties": { "args": { "type": "string", "description": "cargo subcommand + flags" } },
+                "properties": { "args": { "type": "string", "description": "⠩⠃⠙" } },
                 "required": ["args"],
             }),
         }
@@ -1560,37 +1715,30 @@ impl RunTestsTool {
         }
     }
 }
-/// Wall budget for one `run_tests` call in task mode. A suite still running
-/// after it is treated as hung and killed, so the model hears about it with
-/// time left to fix the code instead of losing the task to its wall clock.
-/// `ANGEL_TEST_RUN_TIMEOUT_SECS` sets it (`0` = none). The task-mode default is
-/// 180 s, and never more than a third of the task's wall clock when the runner
-/// passes `ANGEL_TASK_WALL_SECS`. Interactive sessions keep the ordinary tool
-/// bounds unless the knob is set.
-pub(crate) fn test_run_budget() -> Option<Duration> {
-    let secs = |name: &str| {
-        std::env::var(name)
-            .ok()
-            .and_then(|value| value.trim().parse::<u64>().ok())
-    };
-    if let Some(budget) = secs("ANGEL_TEST_RUN_TIMEOUT_SECS") {
-        return (budget > 0).then(|| Duration::from_secs(budget));
-    }
+/// Task-mode cap for each managed foreground process launched during a tool
+/// dispatch. This contains runaway commands without relying on verification
+/// classification; it is not a cumulative tool deadline or native-code
+/// preemption. Legitimate longer work can use `proc_run` or an operator override.
+pub(crate) const TASK_CALL_TIMEOUT_SECS: u64 = 120;
+
+pub(crate) fn task_call_budget() -> Option<Duration> {
+    // Preserve existing operator overrides. The new knob wins, including 0;
+    // the deprecated test-only name now has the broader foreground scope.
+    let knob = std::env::var("ANGEL_TASK_CALL_TIMEOUT_SECS")
+        .or_else(|_| std::env::var("ANGEL_TEST_RUN_TIMEOUT_SECS"))
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok());
     let task_mode = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value.trim() == "1");
-    if !task_mode {
-        return None;
+    match knob {
+        Some(0) => None,
+        Some(secs) => Some(Duration::from_secs(secs)),
+        None => task_mode.then(|| Duration::from_secs(TASK_CALL_TIMEOUT_SECS)),
     }
-    let budget = match secs("ANGEL_TASK_WALL_SECS") {
-        Some(wall) if wall > 0 => 180.min((wall / 3).max(30)),
-        _ => 180,
-    };
-    Some(Duration::from_secs(budget))
 }
 
-/// Turn a suite killed at the test-run budget into something the model can act
-/// on: which tests never finished (Rust names each test still running after
-/// 60 s) and what that usually means.
-pub(crate) fn hung_suite_report(budget: Duration, report: &str) -> String {
+/// Add unfinished-test clues without attributing a timeout to this cap: a
+/// tighter execution limit may have fired. Preserve the original timing report.
+pub(crate) fn hung_suite_report(report: &str) -> String {
     let hung: Vec<&str> = report
         .lines()
         .filter_map(|line| {
@@ -1599,20 +1747,19 @@ pub(crate) fn hung_suite_report(budget: Duration, report: &str) -> String {
                 .strip_suffix(" has been running for over 60 seconds")
         })
         .collect();
+    // The facts stay; where to look is the `⠨⠓` page on its own line.
     let what = if hung.is_empty() {
-        "A test is probably stuck in an infinite loop or waiting forever.".to_string()
+        String::new()
     } else {
         format!(
-            "{} test(s) never finished: {}. The code under test probably loops forever on \
-             those inputs; fix it before running the tests again.",
+            " {} test(s) were still running: {}.",
             hung.len(),
             hung.join(", ")
         )
     };
     format!(
-        "tests: still running after the {}s test-run budget (ANGEL_TEST_RUN_TIMEOUT_SECS); \
-         the suite was killed. {what}\n{report}",
-        budget.as_secs()
+        "tests: execution timed out; the suite was killed.{what}\n{}\n{report}",
+        crate::agent::harness::book::d46_recovery::HUNG_SUITE.cells()
     )
 }
 
@@ -1632,18 +1779,18 @@ impl Tool for RunTestsTool {
                           workspace's own files choose — `npm test` / `node --test`, `pytest` / \
                           `unittest discover`, `go test`, `swift test` — and the receipt says \
                           why the reward is unlabeled. Reports observed tests; project tests do \
-                          not replace an independent evaluator."
+                          not replace an independent evaluator. ⠾⠁"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "runtime": { "type": "string", "enum": ["auto", "rust", "node", "python", "go"],
-                        "description": "typed runtime selection; an explicit entrypoint selects its runtime, otherwise auto requires one root language (optional)" },
-                    "entrypoint": { "type": "string", "enum": ["", "node", "unittest", "pytest"], "description": "Explicit native test entrypoint; node bypasses package scripts, unittest accepts discover/modules/files, pytest requires an immutable system installation." },
-                    "runner": { "type": "string", "description": "alias of runtime for the scan fallback: rust|js|python|go|swift (optional)" },
-                    "args": { "type": "string", "description": "Rust: cargo test flags. Node: confined test files/globs and test-name/skip-pattern. Python: unittest -s directory, -p pattern, -k. Other runners: appended verbatim (optional)" },
-                    "dir": { "type": "string", "description": "run the suite of this subdirectory of the workspace (mono-repos: e.g. `sidecar/forge` for its python tests, `cockpit` for that crate); the runner is chosen from that directory's own files (optional)" },
-                    "crate": { "type": "string", "description": "alias of `dir` for repos whose crates live one directory down (e.g. cockpit/, harness/); default = the largest (optional)" }
+                        "description": "⠾⠁⠁" },
+                    "entrypoint": { "type": "string", "enum": ["", "node", "unittest", "pytest"], "description": "⠾⠁⠃" },
+                    "runner": { "type": "string", "description": "⠾⠁⠉" },
+                    "args": { "type": "string", "description": "⠾⠁⠙⠾⠁⠑⠾⠁⠋⠾⠁⠛" },
+                    "dir": { "type": "string", "description": "⠾⠁⠓" },
+                    "crate": { "type": "string", "description": "⠾⠁⠊" }
                 },
                 "required": [],
             }),
@@ -1667,13 +1814,13 @@ impl Tool for RunTestsTool {
         cancel: Option<&std::sync::atomic::AtomicBool>,
         progress: Option<Arc<ToolOutputProgress>>,
     ) -> Result<String, String> {
-        let budget = test_run_budget();
+        let budget = task_call_budget();
         let result = crate::agent::harness::exec::with_call_budget(budget, || {
             self.run_suite(args, cancel, progress)
         });
         match (budget, result) {
-            (Some(budget), Ok(report)) if report.starts_with("tests: timed out") => {
-                Ok(hung_suite_report(budget, &report))
+            (Some(_), Ok(report)) if report.starts_with("tests: timed out") => {
+                Ok(hung_suite_report(&report))
             }
             (_, result) => result,
         }
@@ -1784,8 +1931,12 @@ impl RunTestsTool {
             .or_else(|| args["lang"].as_str())
             .or_else(|| args["runtime"].as_str().filter(|r| *r != "auto"))
             .map(|s| {
-                workspace_lang::parse_lang(s)
-                    .ok_or_else(|| format!("unknown runner {s:?}: use rust|js|python|go|swift"))
+                workspace_lang::parse_lang(s).ok_or_else(|| {
+                    format!(
+                        "unknown runner {s:?}\n{}",
+                        crate::agent::harness::book::d46_recovery::RUNNERS.cells()
+                    )
+                })
             })
             .transpose()?;
         // `dir` (alias `crate`): a subdirectory whose own files choose the runner —
@@ -1846,14 +1997,17 @@ impl RunTestsTool {
         let Some(plan) = workspace_lang::plan_tests(&scan_root, &hits, prefer) else {
             let seen = workspace_lang::lang_names(&hits);
             return Err(if seen.is_empty() {
-                "run_tests: no test runner detected — the shallow scan (root + one level) found no \
-                 Cargo.toml, package.json, *.test.js, pyproject.toml, test_*.py, go.mod or \
-                 Package.swift. Run the suite with `shell` and its own command."
-                    .to_string()
+                format!(
+                    "run_tests: no test runner detected — the shallow scan (root + one level) found no \
+                     Cargo.toml, package.json, *.test.js, pyproject.toml, test_*.py, go.mod or \
+                     Package.swift.\n{}",
+                    crate::agent::harness::book::d46_recovery::SUITE_WITH_SHELL.cells()
+                )
             } else {
                 format!(
-                    "run_tests: detected {} but could not plan a runner; run the suite with `shell`",
-                    seen.join(",")
+                    "run_tests: detected {} but could not plan a runner\n{}",
+                    seen.join(","),
+                    crate::agent::harness::book::d46_recovery::PLAN_WITH_SHELL.cells()
                 )
             });
         };
@@ -1938,7 +2092,7 @@ impl RunTestsTool {
                 .unwrap_or_else(|| "signal".to_string());
             return Err(format!(
                 "cargo test failed (exit {code})\n{}",
-                tail(&format!("{}\n{}", out.stdout, out.stderr), 1500)
+                failure_detail(&format!("{}\n{}", out.stdout, out.stderr), 1500)
             ));
         }
 
@@ -1977,7 +2131,7 @@ impl RunTestsTool {
         }
         if outcome.failed > 0 {
             summary.push('\n');
-            summary.push_str(&tail(&out.stdout, 1500));
+            summary.push_str(&failure_detail(&out.stdout, 1500));
         }
         Ok(summary)
     }
@@ -2067,9 +2221,10 @@ impl RunTestsTool {
                 .map(|exit| exit.to_string())
                 .unwrap_or_else(|| "signal".to_string());
             return Err(format!(
-                "{label} failed (exit {code}) — chosen because of {}; pin another runner with `runner` or use `shell`\n{}",
+                "{label} failed (exit {code}) — chosen because of {}\n{}\n{}",
                 plan.because,
-                both()
+                crate::agent::harness::book::u_skills::RUNNER.cells(),
+                failure_detail(&format!("{}\n{}", out.stdout, out.stderr), 1500)
             ));
         }
         if ran == 0 {
@@ -2097,7 +2252,10 @@ impl RunTestsTool {
         );
         if counts.failed > 0 {
             summary.push('\n');
-            summary.push_str(&both());
+            summary.push_str(&failure_detail(
+                &format!("{}\n{}", out.stdout, out.stderr),
+                1500,
+            ));
         }
         Ok(summary)
     }
@@ -2237,6 +2395,95 @@ pub(crate) fn tail(s: &str, max: usize) -> String {
     format!("…[earlier output omitted]\n{}", s[start..].trim())
 }
 
+fn failure_detail(output: &str, max: usize) -> String {
+    const EARLIER: &str = "…[earlier output omitted]\n";
+    const BETWEEN: &str = "\n…[intervening output omitted]\n";
+    let output = output.trim();
+    if output.len() <= max {
+        return output.to_string();
+    }
+    let suffix = |bytes: usize| {
+        let mut start = output.len().saturating_sub(bytes);
+        while !output.is_char_boundary(start) {
+            start += 1;
+        }
+        &output[start..]
+    };
+    let fallback = || {
+        if max < EARLIER.len() {
+            suffix(max).to_string()
+        } else {
+            format!("{EARLIER}{}", suffix(max - EARLIER.len()))
+        }
+    };
+    let mut offset = 0;
+    let mut first_failure = None;
+    let mut summary_end = None;
+    for line in output.split_inclusive('\n') {
+        let text = line.trim();
+        // Match diagnostic blocks, not the runner's progress/failure-name
+        // listing or dependency build chatter. Keep the first assertion/trace
+        // visible so a model need not execute the suite again to retrieve it.
+        let marker = (text.starts_with("---- ")
+            && (text.ends_with(" stdout ----") || text.ends_with(" stderr ----")))
+            || (text.starts_with("___")
+                && text.ends_with("___")
+                && text.chars().any(|ch| ch != '_' && !ch.is_whitespace()))
+            || text.starts_with("FAIL: ")
+            || text.starts_with("ERROR: ")
+            || text.starts_with("Traceback (most recent call last):")
+            || text.starts_with("● ")
+            || text.starts_with("FAIL  ")
+            || text.starts_with("not ok ")
+            || (text.starts_with("thread ") && text.contains(" panicked at "))
+            || text.ends_with(": Failure")
+            || text.ends_with(": FAILED:")
+            || text.starts_with("error[")
+            || (text.starts_with("error: ")
+                && !text.starts_with("error: test failed")
+                && !text.starts_with("error: could not compile"))
+            || text.contains(": error:");
+        if marker && first_failure.is_none() {
+            first_failure = Some(offset);
+        }
+        // stdout and stderr are captured separately, so Cargo's stderr build
+        // chatter can follow its stdout test summary in the combined text.
+        if text.starts_with("test result: FAILED.") {
+            summary_end = Some(offset + line.trim_end().len());
+        }
+        offset += line.len();
+    }
+    let Some(start) = first_failure else {
+        return fallback();
+    };
+    let earlier = if start > 0 { EARLIER } else { "" };
+    let summary_end = summary_end
+        .filter(|end| *end > start)
+        .unwrap_or(output.len());
+    if summary_end - start + earlier.len() <= max {
+        return format!("{earlier}{}", &output[start..summary_end]);
+    }
+    let Some(available) = max.checked_sub(earlier.len() + BETWEEN.len()) else {
+        return fallback();
+    };
+    // Two thirds to the first diagnostic, one third to the runner's terminal
+    // summary. Both excerpts share the original 1500-byte failure budget.
+    let final_bytes = available / 3;
+    let mut end = start + available - final_bytes;
+    while !output.is_char_boundary(end) {
+        end -= 1;
+    }
+    let mut final_start = summary_end.saturating_sub(final_bytes);
+    while !output.is_char_boundary(final_start) {
+        final_start += 1;
+    }
+    format!(
+        "{earlier}{}{BETWEEN}{}",
+        &output[start..end],
+        &output[final_start..summary_end]
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Lint reward — run clippy, count warnings/errors, derive a quality reward.
 // A second verifiable signal alongside run_tests: fewer lints = higher reward.
@@ -2326,13 +2573,10 @@ impl Tool for LintTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "lint".to_string(),
-            description: "Run pinned Cargo clippy for Rust and return warning/error counts. \
-                          Select runtime explicitly for mixed roots. Node/Python custom linters \
-                          currently return inconclusive; syntax checks are not lint evidence."
+            description: "Run pinned Cargo clippy for Rust and return warning/error counts. Node/Python custom linters \
+                          currently return inconclusive; syntax checks are not lint evidence. ⠩⠉"
                 .to_string(),
-            params: verifier::schema_args(
-                "Extra cargo clippy arguments on the Rust route; other lint adapters are unsupported.",
-            ),
+            params: verifier::schema_args("⠩⠉⠃⠩⠉⠉", "⠩⠉⠙"),
         }
     }
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -2473,11 +2717,9 @@ impl Tool for CheckTool {
             description: "Run pinned cargo check for Rust, or syntax-only checks for JavaScript \
                           and Python without executing source. Native syntax checks do not \
                           establish types, dependencies, lint cleanliness or test correctness. \
-                          Auto selection needs one root language; mixed roots need runtime."
+                          Auto selection needs one root language; mixed roots need runtime. ⠾⠃"
                 .to_string(),
-            params: verifier::schema_args(
-                "Rust: cargo check flags. Node/Python: confined source files or simple filename globs; default scans up to 256 visible source files, excluding generated/vendor directories.",
-            ),
+            params: verifier::schema_args("⠾⠃⠁⠾⠃⠃", "⠾⠃⠉⠾⠃⠙"),
         }
     }
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -2605,11 +2847,11 @@ impl Tool for FmtTool {
             name: "fmt".to_string(),
             description: "Run `cargo fmt` in the workspace (sandboxed). With check=true, runs \
                           `cargo fmt --check` and reports whether the tree is rustfmt-clean \
-                          without modifying files; otherwise formats in place."
+                          without modifying files; otherwise formats in place. ⠾⠉"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
-                "properties": { "check": { "type": "boolean", "description": "check only, don't modify (default false)" } },
+                "properties": { "check": { "type": "boolean", "description": "⠾⠉⠁" } },
                 "required": [],
             }),
         }

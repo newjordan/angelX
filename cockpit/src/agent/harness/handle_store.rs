@@ -107,7 +107,7 @@ impl Receipt {
             .map(|p| format!(" preview={p}"))
             .unwrap_or_default();
         format!(
-            "{HANDLE_RECEIPT_MARK}: {} kind={} producer={} identity={identity} bytes={} lines={}{path_note}{preview} — read: handle_read tool (tool_search it if unlisted)]",
+            "{HANDLE_RECEIPT_MARK}: {} kind={} producer={} identity={identity} bytes={} lines={}{path_note}{preview}]\n⠥⠑",
             self.handle,
             self.kind.as_str(),
             self.producer,
@@ -504,8 +504,9 @@ pub(crate) fn age_receipt_for(identity: &str, original_bytes: usize, body: &str)
         bounded_identity.push('…');
     }
     Some(format!(
-        "{TOOL_AGED_MARK}: {bounded_identity} ({original_bytes} bytes) handle={} — re-run the tool if needed]",
-        receipt.handle.as_str()
+        "{TOOL_AGED_MARK}: {bounded_identity} ({original_bytes} bytes) handle={}{}",
+        receipt.handle.as_str(),
+        super::compact::AGED_TAIL
     ))
 }
 
@@ -678,27 +679,26 @@ impl Tool for HandleReadTool {
         ToolDef {
             name: "handle_read".into(),
             description: "Explicitly disclose a capped byte slice from a session \
-                 handle previously offloaded out of root history. Prefer strategy \
-                 over bulk: only call when the receipt is insufficient. Output is \
-                 hard-capped by ANGEL_HANDLE_MAX_DISCLOSE_BYTES."
+                 handle previously offloaded out of root history. Output is \
+                 hard-capped by ANGEL_HANDLE_MAX_DISCLOSE_BYTES. ⠹⠛"
                 .into(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "handle": {
                         "type": "string",
-                        "description": "Opaque handle id from a prior receipt (hnd_…)."
+                        "description": "⠹⠛⠃"
                     },
                     "offset": {
                         "type": "integer",
                         "minimum": 0,
                         "default": 0,
-                        "description": "Byte offset into the stored body."
+                        "description": "⠹⠛⠉"
                     },
                     "max_bytes": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Requested slice size; further capped by store policy."
+                        "description": "⠹⠛⠙"
                     }
                 },
                 "required": ["handle"]

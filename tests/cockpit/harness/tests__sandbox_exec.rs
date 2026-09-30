@@ -255,7 +255,9 @@ fn sandboxed_observation_keeps_stderr_tail_after_noisy_stdout() {
         observation.output
     );
     assert!(
-        observation.output.contains("middle byte(s) elided"),
+        observation
+            .output
+            .contains(&crate::agent::harness::book::d467_receipts::MIDDLE_BYTES.cells()),
         "bounded elision marker missing: {}",
         observation.output
     );

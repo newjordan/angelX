@@ -73,7 +73,7 @@ pub fn agent_metrics_line(
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn active_route_label(tabs: &[crate::agent::club::ClubTab]) -> Option<String> {
     let tab = tabs.iter().find(|t| t.in_hand)?;
-    // Prefer the live mode/checkpoint. Prefixing the machine slug (`spark·swarm`)
+    // Prefer the live mode/checkpoint. Prefixing the box slug (`local·swarm`)
     // made the bay title read like two internal nicknames.
     let mut label = tab
         .mode

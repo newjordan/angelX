@@ -54,6 +54,94 @@ fn usage(json: Value) -> Option<Value> {
     Some(json)
 }
 
+fn attempt(id: usize, model: &str, usage: Value) -> Value {
+    json!({"id":id,"end":1,"identity":{"model":{"id":model}},"usage_accounting":usage})
+}
+
+#[test]
+fn cost_attempts_price_route_switch_and_retry_at_each_executed_model() {
+    let guard = crate::tests::env_lock();
+    with_table(&guard, || {
+        let usage = json!({"input":1_000_000,"cache_read":0,"uncached_input":1_000_000,
+            "output":1_000_000,"reasoning":100_000,"attempts":1,
+            "accounting_status":"reported","reasoning_convention_attempts":{"included":1}});
+        let samples = vec![
+            attempt(0, "glm-5.3-air", usage.clone()),
+            attempt(1, "deepseek-v4-flash", usage.clone()),
+            attempt(2, "deepseek-v4-flash", usage),
+        ];
+        let cost = cost_for_attempts(
+            Some("deepseek-v4-flash"),
+            Some(&json!({"attempts":3})),
+            &samples,
+        );
+        assert_eq!(cost["paid"], 5.5); // 2.5 + 1.5 + 1.5; reasoning is already included.
+        assert!(
+            cost["model"].is_null(),
+            "mixed usage has no single model price"
+        );
+        assert_eq!(cost["source"], "provider-attempts");
+        assert_eq!(cost["attempts"][0]["model"], "glm-5.3-air");
+        assert_eq!(cost["attempts"][1]["model"], "deepseek-v4-flash");
+        let switched = cost_for_attempts(
+            Some("grok-4.7"),
+            Some(&json!({"attempts":1})),
+            &samples[1..2],
+        );
+        assert_eq!(switched["model"], "deepseek-v4-flash");
+        assert_eq!(switched["paid"], 1.5);
+    });
+}
+
+#[test]
+fn cost_attempts_missing_parallel_seat_or_retry_usage_keeps_total_unknown() {
+    let guard = crate::tests::env_lock();
+    with_table(&guard, || {
+        let sample = attempt(
+            0,
+            "glm-5.3-air",
+            json!({"input":1_000_000,"output":0,
+            "accounting_status":"reported"}),
+        );
+        let cost = cost_for_attempts(
+            Some("glm-5.3-air"),
+            Some(&json!({"attempts":2})),
+            &[sample.clone()],
+        );
+        assert!(cost["paid"].is_null());
+        assert_eq!(cost["source"], "incomplete-model-attribution");
+        assert_eq!(cost["attempts"][0]["paid"], 0.5);
+        let missing = attempt(
+            1,
+            "deepseek-v4-flash",
+            json!({"accounting_status":"unreported"}),
+        );
+        let cost = cost_for_attempts(
+            Some("deepseek-v4-flash"),
+            Some(&json!({"attempts":2})),
+            &[sample, missing],
+        );
+        assert!(cost["paid"].is_null());
+        assert_eq!(cost["basis"], "unreported-usage");
+    });
+}
+
+#[test]
+fn cost_attempts_subscription_retains_zero_without_provider_counters() {
+    let guard = crate::tests::env_lock();
+    with_table(&guard, || {
+        let samples = [attempt(0, "subscription-model", Value::Null)];
+        let cost = cost_for_attempts(
+            Some("subscription-model"),
+            Some(&json!({"attempts":1})),
+            &samples,
+        );
+        assert_eq!(cost["paid"], 0.0);
+        assert_eq!(cost["basis"], "subscription-marginal");
+        assert_eq!(cost["attempts"][0]["plan_fee_usd_month"], 20.0);
+    });
+}
+
 #[test]
 fn cost_exact_id_pricing() {
     let _guard = crate::tests::env_lock();

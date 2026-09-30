@@ -553,6 +553,47 @@ fn lifecycle_deadline_owner_transfer_survives_nested_unwind_and_terminal_kill() 
 }
 
 #[test]
+fn task_call_budget_leaves_background_proc_running() {
+    // env-lock-exempt: TestProcStore owns env_lock through all restoration guards.
+    let fixture = TestProcStore::new();
+    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _budget = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "1");
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(fixture.root.0.clone());
+    registry.register(Box::new(fixture.runner()));
+    let result = registry
+        .dispatch_with_cancel(
+            "proc_run",
+            &serde_json::json!({
+                "command": "sleep 2; printf done > survived-cap; sleep 30",
+                "name": "foreground-cap-exemption",
+            }),
+            None,
+        )
+        .unwrap();
+    let (id, _) = parse_handle(&result);
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while !fixture.root.0.join("survived-cap").exists() {
+        assert!(
+            Instant::now() < deadline,
+            "background job did not survive the foreground cap"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(
+        table().lock().unwrap().get_mut(&id).unwrap().state(),
+        "running"
+    );
+    ProcStopTool::new(fixture.root.0.clone())
+        .call(&serde_json::json!({"id": id}))
+        .unwrap();
+    assert_ne!(
+        table().lock().unwrap().get_mut(&id).unwrap().state(),
+        "running"
+    );
+}
+
+#[test]
 fn successful_turn_keeps_background_job_until_explicit_stop() {
     // env-lock-exempt: TestProcStore owns env_lock through all restoration guards.
     use crate::agent::club::{ChatMsg, Club, ClubReply, ToolCall};
@@ -745,10 +786,13 @@ fn proc_status_schema_does_not_advertise_host_wait() {
         "must not teach a 60s park: {}",
         def.description
     );
+    // The description is the address of its pages; they say it is ignored.
     let wait = def.params["properties"]["wait_ms"]["description"]
         .as_str()
         .expect("wait_ms description");
-    assert!(wait.contains("ignored"), "{wait}");
+    let pages = crate::agent::harness::book::ledger::read(std::path::Path::new("."), wait)
+        .expect("wait_ms pages");
+    assert!(pages.contains("ignored"), "{pages}");
 }
 
 #[test]
@@ -855,9 +899,47 @@ fn parse_handle(out: &str) -> (u64, u32) {
 
 #[test]
 fn proc_stat_fields_reads_state_and_starttime() {
-    let (state, starttime) = proc_stat_fields(std::process::id()).expect("own /proc stat");
+    let (state, starttime) =
+        proc_stat_fields(std::process::id()).expect("own native process identity");
     assert!(matches!(state, 'R' | 'S' | 'D'), "state {state}");
     assert!(starttime > 0);
+}
+
+#[test]
+fn receipt_liveness_requires_matching_native_birth_identity() {
+    let pid = std::process::id();
+    let (_, birth) = proc_stat_fields(pid).expect("own native process identity");
+    let mut receipt = Receipt {
+        id: 0,
+        pid,
+        pgid: 0,
+        name: "identity-fixture".into(),
+        command: String::new(),
+        log: PathBuf::new(),
+        project_root: PathBuf::new(),
+        project_key: String::new(),
+        started_unix: 0,
+        starttime_ticks: birth,
+        exit: None,
+        path: PathBuf::new(),
+    };
+    assert!(receipt_alive(&receipt));
+    receipt.starttime_ticks = birth.checked_add(1).unwrap();
+    assert!(
+        !receipt_alive(&receipt),
+        "a reused PID cannot adopt another job"
+    );
+    receipt.starttime_ticks = 0;
+    assert!(
+        !receipt_alive(&receipt),
+        "legacy unknown identity stays unknown"
+    );
+    receipt.starttime_ticks = birth;
+    receipt.exit = Some("exited 0".into());
+    assert!(
+        !receipt_alive(&receipt),
+        "terminal receipt is no longer live"
+    );
 }
 
 #[test]
@@ -931,6 +1013,61 @@ fn receipts_adopt_then_vanish_across_simulated_restart() {
         receipt_path.exists(),
         "receipt retained when the vanish is observed"
     );
+}
+
+#[test]
+fn proc_wait_adopted_job_waits_until_exit_without_claiming_success() {
+    let store = TestProcStore::new();
+    let run = store.runner();
+    let out = run
+        .call(&serde_json::json!({
+            "command": "echo adopted-wait-output; sleep 0.3",
+            "name": "adopted-wait"
+        }))
+        .expect("spawn");
+    let (id, _) = parse_handle(&out);
+    let mut entry = table().lock().unwrap().remove(&id).unwrap();
+
+    let result = ProcWaitTool {
+        workspace: run.workspace.clone(),
+    }
+    .call(&serde_json::json!({"id": id}));
+    // The fixture still owns the child handle; the simulated restarted tool
+    // does not, so it must report an unknown exit rather than invent success.
+    let _ = entry.child.wait();
+    let error = result.expect_err("adopted wait must observe exit before returning");
+    assert!(error.contains("vanished — exit unknown"), "{error}");
+    assert!(error.contains("adopted-wait-output"), "{error}");
+    assert!(!error.contains("still running"), "{error}");
+}
+
+#[test]
+fn proc_wait_adopted_job_remains_cancellable() {
+    let store = TestProcStore::new();
+    let run = store.runner();
+    let out = run
+        .call(&serde_json::json!({
+            "command": "sleep 300",
+            "name": "adopted-wait-cancel"
+        }))
+        .expect("spawn");
+    let (id, _) = parse_handle(&out);
+    table().lock().unwrap().remove(&id);
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+
+    let result = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            std::thread::sleep(Duration::from_millis(200));
+            cancel.store(true, Ordering::Release);
+        });
+        ProcWaitTool {
+            workspace: run.workspace.clone(),
+        }
+        .call_with_cancel(&serde_json::json!({"id": id}), Some(&cancel))
+    });
+
+    let error = result.expect_err("wait must stay active until cancellation");
+    assert!(error.contains("process wait cancelled"), "{error}");
 }
 
 #[test]

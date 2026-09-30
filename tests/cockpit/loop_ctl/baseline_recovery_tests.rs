@@ -189,14 +189,11 @@ fn repeated_missing_candidate_pressure_is_one_directive_per_prompt_after_every_r
                 .to_string();
             assert_eq!(app.loop_ctl.status, LoopStatus::Running);
             assert_eq!(app.loop_ctl.measured_candidates, 0);
-            assert_eq!(
-                prompt.matches("no measured candidate yet after ").count(),
-                usize::from(iteration >= 3)
-            );
+            // `⠘⠑`'s pages (no blocked attempt): one note, its count beside it.
+            let note = crate::agent::harness::book::d45_iteration::NO_CANDIDATE;
+            assert_eq!(prompt.matches(note).count(), usize::from(iteration >= 3));
             if iteration >= 3 {
-                assert!(prompt.contains(&format!(
-                    "no measured candidate yet after {iteration} iterations"
-                )));
+                assert!(prompt.contains(&format!("{note} iterations={iteration}")));
             }
             if iteration >= 30 {
                 lengths.push(prompt.len());

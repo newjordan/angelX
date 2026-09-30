@@ -2,12 +2,21 @@
 
 use super::research_bridge as bridge;
 use super::*;
+use crate::agent::harness::book::{self, d45_iteration, d2467_research, ow_ledgers};
 use crate::agent::harness::{LoopExperimentRequest, LoopExperimentResult};
 use serde_json::{Value, json};
 
 #[derive(Default)]
 pub(super) struct ResearchState {
     active: Option<ResearchRun>,
+    /// Loop verdicts folded into the Sloptomizer (see `observe_loop_verdict`).
+    loop_observations: Arc<Mutex<LoopObservations>>,
+}
+
+#[derive(Default)]
+struct LoopObservations {
+    admitted: usize,
+    last_error: Option<String>,
 }
 
 struct ResearchRun {
@@ -23,14 +32,24 @@ impl ResearchState {
         })
     }
     fn status(&self) -> Value {
-        self.active
+        let mut status = self
+            .active
             .as_ref()
             .map_or(json!({"status":"idle"}), |run| {
                 let mut value = run.record.lock().unwrap_or_else(|e| e.into_inner()).clone();
                 value["stop_requested"] = json!(run.cancel.load(Ordering::Acquire));
                 value["running"] = json!(!run.done.load(Ordering::Acquire));
                 value
-            })
+            });
+        let tally = self
+            .loop_observations
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if tally.admitted > 0 || tally.last_error.is_some() {
+            status["loop_observations"] =
+                json!({"admitted": tally.admitted, "last_error": tally.last_error});
+        }
+        status
     }
 }
 
@@ -44,13 +63,84 @@ fn scope_root(
     task: &str,
     verify: Option<&str>,
 ) -> PathBuf {
-    let scope =
-        json!({"schema":1,"task":task,"verify":verify,"route":context.club.route_identity()});
+    learning_scope(workspace, &context.club.route_identity(), task, verify)
+}
+
+/// One learner per objective: loop_research runs, verified /loop iterations
+/// and rl_campaign rounds on the same task, verifier and route share a state.
+fn learning_scope(
+    workspace: &Path,
+    route: &crate::agent::club::RouteIdentity,
+    task: &str,
+    verify: Option<&str>,
+) -> PathBuf {
+    let scope = json!({"schema":1,"task":task,"verify":verify,"route":route});
     runs_root(workspace)
         .join("learning")
         .join(crate::knowledge::cut::sha256_hex(
             scope.to_string().as_bytes(),
         ))
+}
+
+/// Whether /loop verdicts and rl_campaign rounds teach the Sloptomizer
+/// (`ANGEL_LOOP_OBSERVE`, default on). An ablation switch for measuring the
+/// shared learner: off means only "do not teach", never "refuse".
+fn loop_observe_enabled() -> bool {
+    crate::agent::harness::env_flag("ANGEL_LOOP_OBSERVE", true)
+}
+
+/// The Sloptomizer keys an idea by its exact text, so a loop's direction and a
+/// campaign's proposal take one form before they are observed: routes and
+/// ledger addresses dropped, whitespace collapsed. The same idea from /loop and
+/// from a campaign then lands in the same learning bucket.
+pub(super) fn idea_form(text: &str) -> String {
+    text.split_whitespace()
+        .map(|word| {
+            word.chars()
+                .filter(|c| !('\u{2800}'..='\u{28FF}').contains(c))
+                .collect::<String>()
+        })
+        .filter(|word| !word.is_empty() && !word.contains("ledger://") && word != "·")
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// A measured rl_campaign round is a paired observation for the Sloptomizer:
+/// the reflector's proposal, whether it was promoted over the incumbent, and
+/// the measured mean reward difference, in the learning scope loop_research
+/// uses for the same task, verifier and route. A round without evaluator
+/// receipts carries no physical evidence and is not observed.
+pub(super) fn observe_campaign_round(
+    workspace: &Path,
+    route: &crate::agent::club::RouteIdentity,
+    case: &RlCase,
+    round_id: &str,
+    proposal: &str,
+    report: &crate::drive::reinforce::promotion::PromotionReport,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
+    const MAX_IDEA_CHARS: usize = 4000;
+    let idea: String = idea_form(proposal).chars().take(MAX_IDEA_CHARS).collect();
+    if !loop_observe_enabled() || idea.is_empty() || report.evaluator_receipt_sha256s.is_empty() {
+        return Ok(());
+    }
+    let receipts = report.evaluator_receipt_sha256s.join("\n");
+    let paired_delta = report
+        .mean_delta
+        .filter(|delta| delta.is_finite())
+        .map(|delta| f64::from(delta.clamp(-1.0, 1.0)));
+    let observation = json!({"id": round_id, "idea": idea, "approach": "rl_campaign",
+        "task": case.task, "passed": report.promoted(), "paired_delta": paired_delta,
+        "source_sha256": report.cohort_manifest_sha256,
+        "receipt_sha256": crate::knowledge::cut::sha256_hex(receipts.as_bytes()),
+        "evidence_sha256": report.candidate_prompt_sha256});
+    let scope = learning_scope(workspace, route, &case.task, Some(case.verify.as_str()));
+    bridge::transform(
+        &scope,
+        json!({"action":"observe","task":case.task,"observation":observation}),
+        cancel,
+    )
+    .map(|_| ())
 }
 
 fn text_arg<'a>(args: &'a Value, key: &str, fallback: &'a str) -> Result<&'a str, String> {
@@ -67,6 +157,38 @@ fn flag(args: &Value, key: &str, fallback: bool) -> Result<bool, String> {
     })
 }
 
+/// A run's record with the `⡪` routes its state raises (live, a verdict, a
+/// red baseline, a learning error), their evidence in the workspace ledger.
+fn routed(workspace: &Path, mut record: Value) -> Value {
+    let routes = d2467_research::research(&record);
+    if !routes.is_empty() {
+        let evidence = json!({"research_run":record["run_id"],"status":record["status"],
+            "measurements":record["measurements"],"learning_error":record["learning_error"],
+            "error":record["error"]})
+        .to_string();
+        let raises: Vec<book::Raise> = routes
+            .iter()
+            .map(|route| book::Raise::new(*route, Some(evidence.clone())))
+            .collect();
+        record["warpath"] = json!(book::warpath(workspace, &raises));
+    }
+    record
+}
+
+/// Advice with its evidence note as its `⡪⠓` pages, and the cold-start page
+/// when no observation stands behind its ranking yet.
+fn routed_advice(mut value: Value) -> Value {
+    if let Some(advice) = value.get_mut("advice") {
+        if advice.get("evidence_note").is_some() {
+            advice["evidence_note"] = json!(d2467_research::EVIDENCE_NOTE);
+        }
+        if d2467_research::cold_advice(advice) {
+            value["warpath"] = json!(d2467_research::COLD);
+        }
+    }
+    value
+}
+
 fn persist(dir: &Path, record: &Value) -> Result<(), String> {
     bridge::write(
         &dir.join("research.json"),
@@ -75,6 +197,59 @@ fn persist(dir: &Path, record: &Value) -> Result<(), String> {
 }
 
 impl RlState {
+    /// A loop_research run is in flight.
+    /// A verified /loop iteration is an observation for the Sloptomizer: the
+    /// direction it named, the acceptance verdict, and the evidence digests,
+    /// in the learning scope loop_research uses for this loop (its task,
+    /// verifier and route), so `suggest` ranks ideas with the loop's own
+    /// history. Unpaired, like a run without compare. Runs off the caller's
+    /// thread; the store's lock orders it against a research run's learning.
+    pub(crate) fn observe_loop_verdict(
+        &self,
+        workspace: &Path,
+        iteration: usize,
+        idea: &str,
+        passed: bool,
+        receipt: &crate::drive::loop_ctl::VerifyReceipt,
+    ) -> Option<std::thread::JoinHandle<()>> {
+        let context = self.loop_context.clone()?;
+        let idea = idea_form(idea);
+        if !loop_observe_enabled() || idea.is_empty() || context.task.trim().is_empty() {
+            return None;
+        }
+        let scope = scope_root(
+            workspace,
+            &context,
+            &context.task,
+            context.verify.as_deref(),
+        );
+        let observation = json!({"id": format!("{}-iteration-{iteration}", context.loop_id),
+            "idea": idea, "approach": "loop-iteration", "task": context.task, "passed": passed,
+            "paired_delta": null, "source_sha256": receipt.workspace_sha256,
+            "receipt_sha256": receipt.manifest_sha256, "evidence_sha256": receipt.manifest_sha256,
+            "loop_id": context.loop_id});
+        let request = json!({"action":"observe","task":context.task,"observation":observation});
+        let tally = Arc::clone(&self.research.loop_observations);
+        std::thread::Builder::new()
+            .name("angel-loop-observe".into())
+            .spawn(move || {
+                let outcome = bridge::transform(&scope, request, &AtomicBool::new(false));
+                let mut tally = tally.lock().unwrap_or_else(|e| e.into_inner());
+                match outcome {
+                    Ok(_) => tally.admitted += 1,
+                    Err(error) => tally.last_error = Some(error),
+                }
+            })
+            .ok()
+    }
+
+    pub(crate) fn research_running(&self) -> bool {
+        self.research
+            .active
+            .as_ref()
+            .is_some_and(|run| !run.done.load(Ordering::Acquire))
+    }
+
     pub(crate) fn research_call(
         &mut self,
         workspace: &Path,
@@ -89,20 +264,23 @@ impl RlState {
                 "available":self.loop_enabled(), "engine":"sloptomizer", "experimental":true,
                 "methods":["pareto","bandit","memory"],
                 "actions":["options","suggest","run","status","results","stop"],
-                "execution":"Optional isolated attempt on the current loop route. compare=true adds a baseline attempt from the same frozen source. No extra hop, time or thinking caps; explicit loop budgets and cancellation apply.",
-                "learning":"Physical verifier receipts update original Sloptomizer UCB, Pareto and MicroLearner state. Exploratory advice, not an audited policy install or provider weight training.",
-                "runtime":"Bundled algorithms; requires Python 3 standard library. suggest checks the runtime without a model call.",
+                // The notes are `⠪⠚` pages; the facts around them are data.
+                "execution":ow_ledgers::RESEARCH_EXECUTION,
+                "learning":ow_ledgers::RESEARCH_LEARNING,
+                "runtime":ow_ledgers::RESEARCH_RUNTIME,
                 "related":["rl_campaign","consult_model(method=deli, club=self)","spawn(formation=moa)","continual_harness"]
             }).to_string()),
-            "status" => Ok(self.research.status().to_string()),
-            "stop" => Ok(json!({"stop_requested":self.research.stop(),"research":self.research.status()}).to_string()),
+            "status" => Ok(routed(workspace, self.research.status()).to_string()),
+            "stop" => Ok(json!({"stop_requested":self.research.stop(),"research":routed(workspace, self.research.status())}).to_string()),
             "results" => {
                 let id = args.get("run_id").map(|v| v.as_str().ok_or("run_id must be a string")).transpose()?;
                 let limit = args.get("limit").map(|v| v.as_u64().filter(|n| *n > 0).ok_or("limit must be positive")).transpose()?.unwrap_or(5);
-                Ok(json!({"runs":self.research_results(workspace, id, usize::try_from(limit).unwrap_or(usize::MAX))?}).to_string())
+                let runs = self.research_results(workspace, id, usize::try_from(limit).unwrap_or(usize::MAX))?;
+                let runs: Vec<Value> = runs.into_iter().map(|row| routed(workspace, row)).collect();
+                Ok(json!({"runs":runs}).to_string())
             }
             action @ ("suggest" | "run") => {
-                let context = self.loop_context.clone().ok_or("loop_research needs an active /loop")?;
+                let context = self.loop_context.clone().ok_or(d45_iteration::RESEARCH_NEEDS_LOOP)?;
                 let task = text_arg(args, "task", &context.task)?.to_owned();
                 let verify = match args.get("verify") {
                     None => context.verify.clone(), Some(Value::Null) => None,
@@ -117,21 +295,21 @@ impl RlState {
                     if let Some(candidates) = request.get("candidates") {
                         for row in candidates.as_array().ok_or("candidates must be an array")? {
                             if text_arg(row,"idea", "")?.trim().is_empty() {
-                                return Err("candidate requires idea".into());
+                                return Err(d45_iteration::CANDIDATE_NEEDS_IDEA.into());
                             }
                             text_arg(row,"approach","direct")?;
                         }
                     }
-                    return Ok(bridge::transform(&scope, request, cancel)?.to_string());
+                    return Ok(routed_advice(bridge::transform(&scope, request, cancel)?).to_string());
                 }
                 let idea = text_arg(args,"idea", "")?.to_owned();
-                if idea.trim().is_empty() { return Err("run requires the idea you want to try".into()); }
+                if idea.trim().is_empty() { return Err(d45_iteration::RUN_NEEDS_IDEA.into()); }
                 let approach = text_arg(args,"approach", "direct")?.to_owned();
                 let compare = flag(args,"compare",false)?;
                 let use_memory = flag(args,"use_memory",true)?;
-                if compare && verify.is_none() { return Err("compare requires a verifier to measure a difference".into()); }
+                if compare && verify.is_none() { return Err(d45_iteration::RESEARCH_NEEDS_VERIFIER.into()); }
                 if self.research.active.as_ref().is_some_and(|run| !run.done.load(Ordering::Acquire)) {
-                    return Err("a research run is already active; continue useful work or request stop and inspect status".into());
+                    return Err(ow_ledgers::RESEARCH_ACTIVE.into());
                 }
                 // Probe before spending model calls; invalid/missing state never
                 // silently falls back to fresh learning.
@@ -161,18 +339,18 @@ impl RlState {
                     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         let result = run(&source,&dir,&scope,club,&worker_flag,&worker_record);
                         budget.finish(result)
-                    })).unwrap_or_else(|_| Err("research worker panicked; inspect retained artifacts".into()));
+                    })).unwrap_or_else(|_| Err(d45_iteration::RESEARCH_PANICKED.into()));
                     let mut record = worker_record.lock().unwrap_or_else(|e| e.into_inner());
                     record["timings_ms"]["worker_total"] = json!(worker_started.elapsed().as_millis());
                     record["status"] = json!(if worker_flag.load(Ordering::Acquire) { "stopped" } else if outcome.is_err() { "failed" } else if !record["learning_error"].is_null() { "completed_with_learning_error" } else { "completed" });
                     if let Err(error) = outcome { record["error"] = json!(error); }
                     if let Err(error) = persist(&dir,&record) { record["retention_error"] = json!(error); }
                     worker_done.store(true,Ordering::Release);
-                }).map_err(|e| format!("could not start research worker; launch record retained: {e}"))?;
+                }).map_err(|e| format!("{} {e}", d45_iteration::RESEARCH_UNSTARTED))?;
                 self.research.active = Some(ResearchRun { cancel:worker_cancel,done,record:shared });
-                Ok(json!({"run_id":id,"artifacts":launched,"status":"running","message":"Continue useful work. status/results expose evidence and learning; stop exits this research run without ending the main loop."}).to_string())
+                Ok(json!({"run_id":id,"artifacts":launched,"status":"running","message":ow_ledgers::RESEARCH_RUNNING}).to_string())
             }
-            _ => Err("unknown loop_research action".into()),
+            _ => Err(d45_iteration::RESEARCH_UNKNOWN_ACTION.into()),
         }
     }
 
@@ -185,7 +363,7 @@ impl RlState {
         if id.is_some_and(|id| {
             !id.starts_with("run-") || !id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
         }) {
-            return Err("run_id must be an identifier returned by loop_research".into());
+            return Err(d45_iteration::RESEARCH_ID_INVALID.into());
         }
         let mut dirs = match std::fs::read_dir(runs_root(workspace)) {
             Ok(entries) => entries
@@ -229,23 +407,35 @@ impl RlState {
             }
         }
         if id.is_some() && rows.is_empty() {
-            return Err("no research run with that id in this workspace".into());
+            return Err(d45_iteration::RESEARCH_ID_UNKNOWN.into());
         }
         Ok(rows)
     }
 
+    /// The loop's research history: data beside `⠪⠓`, whose words are the
+    /// ledger pages.
     pub(super) fn research_context(&self, workspace: &Path) -> String {
-        let mut text = "Optional loop_research: Sloptomizer suggest offers pareto, bandit and memory advice; run tries your chosen idea asynchronously on this route. compare=true measures a baseline and candidate from the same source. status/results/stop let you step out and back into ordinary work. Verifier receipts update exploratory memory; no forced research step or policy install. Submit a verified winner when ready.\n".to_owned();
+        let mut text = String::new();
         match self.research_results(workspace, None, 3) {
             Ok(rows) => {
                 for row in rows {
-                    let summary = json!({"research_run":row["run_id"],"status":row["status"],"artifacts":row["artifacts"],"measurements":row["measurements"],"timings_ms":row["timings_ms"],"learning_error":row["learning_error"],"error":row["error"],"retention_error":row["retention_error"]}).to_string();
+                    let row = routed(workspace, row);
+                    let mut summary = json!({"research_run":row["run_id"],"status":row["status"],"warpath":row["warpath"],"artifacts":row["artifacts"],"measurements":row["measurements"],"timings_ms":row["timings_ms"],"learning_error":row["learning_error"],"error":row["error"],"retention_error":row["retention_error"]});
+                    if summary["warpath"].is_null()
+                        && let Some(fields) = summary.as_object_mut()
+                    {
+                        fields.remove("warpath");
+                    }
+                    let summary = summary.to_string();
                     // Full evidence and errors remain in results/artifacts.
                     text.push_str(&summary.chars().take(4000).collect::<String>());
                     text.push('\n');
                 }
             }
-            Err(e) => text.push_str(&format!("Research history unavailable: {e}\n")),
+            Err(e) => text.push_str(&format!(
+                "{} {e}\n",
+                crate::agent::harness::book::ow_ledgers::RESEARCH_HISTORY_UNAVAILABLE
+            )),
         }
         text
     }
@@ -335,9 +525,12 @@ fn run(
     if cancel.load(Ordering::Acquire) {
         return Err("research cancelled after baseline".into());
     }
+    // The attempt reads its labels off `⠘⠊`; the idea and memory are data.
     let candidate_task = format!(
-        "{task}\n\n[Selected experimental approach — task context]\n{}\n\n[Optional historical research snippets — evidence to assess]\n{}",
+        "{task}\n\n{}\n{}\n\n{}\n{}",
+        d45_iteration::RESEARCH_APPROACH,
         launch["idea"].as_str().unwrap_or_default(),
+        d45_iteration::RESEARCH_SNIPPETS,
         launch["memory"]
     );
     let candidate_started = Instant::now();

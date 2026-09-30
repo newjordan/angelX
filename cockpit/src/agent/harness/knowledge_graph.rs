@@ -423,8 +423,13 @@ impl KnowledgeGraph {
             }
             Err(e) => return Err(format!("read {}: {e}", path.display())),
         };
-        serde_json::from_str(&body)
-            .map_err(|e| format!("parse {} (fix or move it aside): {e}", path.display()))
+        serde_json::from_str(&body).map_err(|e| {
+            format!(
+                "parse {}: {e}\n{}",
+                path.display(),
+                crate::agent::harness::book::d56_replies::KG_STORE.cells()
+            )
+        })
     }
 
     pub(crate) fn save_to(&self, path: &Path) -> Result<(), String> {
@@ -481,7 +486,7 @@ impl KnowledgeGraphEngine {
     }
 
     #[cfg(test)]
-    fn with_store(mut self, path: PathBuf) -> Self {
+    pub(crate) fn with_store(mut self, path: PathBuf) -> Self {
         self.store_path = Some(path);
         self
     }
@@ -554,6 +559,18 @@ impl KnowledgeGraphEngine {
         }
     }
 
+    /// One seat call, connected: the seat is offered the ledger reader alone
+    /// (`book::connect`), so it can read the route its prompt opens with.
+    fn ask(&self, club: &dyn Club, prompt: &str, cancel: &AtomicBool) -> Result<String, String> {
+        super::book::connect::chat(
+            club,
+            &self.workspace,
+            &[ChatMsg::user(prompt)],
+            None,
+            cancel,
+        )
+    }
+
     /// Extract one document into the store. One club call, strict JSON out.
     pub(crate) fn ingest(
         &self,
@@ -568,7 +585,7 @@ impl KnowledgeGraphEngine {
         let truncated = text.chars().count() > cap;
         let body: String = text.chars().take(cap).collect();
         let prompt = extraction_prompt(source_doc, &body, truncated);
-        let reply = club.respond_cancellable(&prompt, cancel)?;
+        let reply = self.ask(&*club, &prompt, cancel)?;
         let extracted: ExtractedGraph = parse_reply_json(&reply).map_err(|e| {
             format!(
                 "extraction did not honor the schema (allowed types: {}): {e}",
@@ -630,7 +647,7 @@ impl KnowledgeGraphEngine {
             let over_cap = members.len() > KG_RESOLVE_GROUP_CAP;
             let listed = &members[..members.len().min(KG_RESOLVE_GROUP_CAP)];
             let prompt = resolution_prompt(entity_type, listed);
-            let reply = club.respond_cancellable(&prompt, cancel)?;
+            let reply = self.ask(&*club, &prompt, cancel)?;
             let clusters: ResolvedClusters = parse_reply_json(&reply)
                 .map_err(|e| format!("{} resolution reply: {e}", entity_type.label()))?;
             for cluster in clusters.clusters {
@@ -731,7 +748,7 @@ impl KnowledgeGraphEngine {
             let context = serialize_entity_context(&graph, &name);
             let node = &graph.nodes[&name];
             let prompt = profile_prompt(node, &context);
-            let reply = club.respond_cancellable(&prompt, cancel)?;
+            let reply = self.ask(&*club, &prompt, cancel)?;
             let mut profile: EntityProfile =
                 parse_reply_json(&reply).map_err(|e| format!("profile reply for '{name}': {e}"))?;
             profile.at_degree = degree;
@@ -752,7 +769,8 @@ impl KnowledgeGraphEngine {
         if waiting > 0 {
             line.push_str(&format!(
                 "\nnote: {waiting} more hubs await profiles ({cap}-per-run cap, \
-                 ANGEL_KG_SUMMARIZE_CAP) — run summarize again"
+                 ANGEL_KG_SUMMARIZE_CAP)\n{}",
+                crate::agent::harness::book::d56_replies::KG_SUMMARIZE.cells()
             ));
         }
         Ok(line)
@@ -769,18 +787,18 @@ impl KnowledgeGraphEngine {
         let graph = self.load()?;
         if graph.edges.is_empty() && graph.nodes.is_empty() {
             return Err(format!(
-                "the knowledge graph for this workspace is empty — ingest documents first \
-                 (store: {})",
+                "the knowledge graph for this workspace is empty (store: {})\n{}",
                 self.store_path
                     .as_deref()
                     .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "(none)".into())
+                    .unwrap_or_else(|| "(none)".into()),
+                crate::agent::harness::book::d56_replies::KG_INGEST.cells()
             ));
         }
         let cap = env_usize("ANGEL_KG_QUERY_EDGES", KG_QUERY_EDGE_CAP_DEFAULT).max(10);
         let (serialized, listed, total) = serialize_subgraph(&graph, question, cap);
         let prompt = query_prompt(&serialized, question);
-        let answer = club.respond_cancellable(&prompt, cancel)?;
+        let answer = self.ask(&*club, &prompt, cancel)?;
         let mut out = format!("[kg query edges={listed}/{total}]\n{answer}");
         if listed < total {
             out.push_str(&format!(
@@ -816,38 +834,42 @@ impl KnowledgeGraphEngine {
 // Prompts + reply parsing
 // ---------------------------------------------------------------------------
 
+/// The extraction's reply shape, beside `⠸⠑⠛` (the page quotes it).
+pub(crate) const EXTRACTION_SHAPE: &str = "{\"entities\":[{\"name\":\"…\",\"type\":\"PERSON\",\"description\":\"…\"}],\n \"relations\":[{\"source\":\"…\",\"predicate\":\"…\",\"target\":\"…\"}]}";
+/// The resolution's reply shape, beside `⠸⠋⠛`.
+pub(crate) const RESOLUTION_SHAPE: &str =
+    "{\"clusters\":[{\"canonical\":\"…\",\"aliases\":[\"…\"]}]}";
+/// A hub profile's reply shape, beside `⠸⠛⠉`.
+pub(crate) const PROFILE_SHAPE: &str = "{\"summary\":\"2-3 sentences\",\"key_facts\":[\"…\"],\"time_range\":{\"start\":\"YYYY or YYYY-MM or unknown\",\"end\":\"YYYY or YYYY-MM or ongoing or unknown\"}}";
+
+/// `⠸⠑`: the extractor's brief is the route; the allowed types, the reply
+/// shape and the source id ride beside their pages, and a truncated document
+/// adds `⠸⠑⠊`.
 fn extraction_prompt(source_doc: &str, body: &str, truncated: bool) -> String {
+    use super::book::{d3_roles::pages, d456_knowledge::KG_EXTRACT};
+    let types = EntityType::ALL
+        .iter()
+        .map(|t| t.label())
+        .collect::<Vec<_>>()
+        .join(", ");
     let truncation_note = if truncated {
-        "\n(The document was truncated to fit; extract from what is shown.)"
+        format!("\n{}", pages(KG_EXTRACT, [9]))
     } else {
-        ""
+        String::new()
     };
     format!(
-        "You extract a typed knowledge graph from one document.\n\
-         \n\
-         Entity types — the ONLY allowed values for \"type\": PERSON, ORGANIZATION, \
-         LOCATION, EVENT, ARTIFACT.\n\
-         \n\
-         Rules:\n\
-         - Extract only entities central to what the document is about; skip incidental \
-           mentions.\n\
-         - For each entity write a one-sentence description grounded in THIS document \
-           (it is used later to disambiguate entities with similar names).\n\
-         - Predicates are short verb phrases: \"commanded\", \"launched from\", \"part of\".\n\
-         - Every relation must connect two entities you extracted.\n\
-         \n\
-         Reply with STRICT JSON only — no prose, no code fence — matching exactly:\n\
-         {{\"entities\":[{{\"name\":\"…\",\"type\":\"PERSON\",\"description\":\"…\"}}],\n \
-          \"relations\":[{{\"source\":\"…\",\"predicate\":\"…\",\"target\":\"…\"}}]}}\n\
-         \n\
-         Document (source id: {source_doc}):{truncation_note}\n\
-         ---\n\
-         {body}\n\
-         ---"
+        "{}\n{} {types}\n{} {EXTRACTION_SHAPE}\n{} {source_doc}{truncation_note}\n---\n{body}\n---",
+        KG_EXTRACT.cells(),
+        pages(KG_EXTRACT, [2]),
+        pages(KG_EXTRACT, [7]),
+        pages(KG_EXTRACT, [8]),
     )
 }
 
+/// `⠸⠋`: the deduplicator's brief is the route; the entity type and the reply
+/// shape ride beside their pages, the entities below.
 fn resolution_prompt(entity_type: EntityType, members: &[(String, String)]) -> String {
+    use super::book::{d3_roles::pages, d456_knowledge::KG_RESOLVE};
     let listing = members
         .iter()
         .map(|(name, desc)| {
@@ -860,23 +882,11 @@ fn resolution_prompt(entity_type: EntityType, members: &[(String, String)]) -> S
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "You deduplicate entities in a knowledge graph. Below are {} entities, one per \
-         line as `name — description`.\n\
-         \n\
-         Cluster entries that refer to the SAME real-world {}. Use the descriptions — do \
-         NOT merge entities that merely share a name (\"Armstrong — walked on the Moon\" \
-         and \"Armstrong — jazz trumpeter\" stay separate), and DO merge different surface \
-         forms of one thing (\"Edwin Aldrin\" and \"Buzz Aldrin\"). The canonical name is \
-         the most complete, unambiguous form and MUST be one of the listed names. Only \
-         output clusters with 2+ members; singletons are implied.\n\
-         \n\
-         Reply with STRICT JSON only — no prose, no code fence:\n\
-         {{\"clusters\":[{{\"canonical\":\"…\",\"aliases\":[\"…\"]}}]}}\n\
-         \n\
-         Entities:\n\
-         {listing}",
+        "{}\n{} {}\n{} {RESOLUTION_SHAPE}\n\nEntities:\n{listing}",
+        KG_RESOLVE.cells(),
+        pages(KG_RESOLVE, [2]),
         entity_type.label(),
-        entity_type.label()
+        pages(KG_RESOLVE, [7]),
     )
 }
 
@@ -900,7 +910,10 @@ fn serialize_entity_context(graph: &KnowledgeGraph, name: &str) -> String {
     lines.join("\n")
 }
 
+/// `⠸⠛`: the profiler's brief is the route; the entity and its facts are the
+/// data, the reply shape beside its page.
 fn profile_prompt(node: &KnowledgeNode, context: &str) -> String {
+    use super::book::{d3_roles::pages, d456_knowledge::KG_PROFILE};
     let docs = node
         .source_docs
         .iter()
@@ -908,10 +921,7 @@ fn profile_prompt(node: &KnowledgeNode, context: &str) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!(
-        "Write a profile for one entity in a knowledge graph, grounded ONLY in the facts \
-         below. Do not add outside knowledge; if the facts do not support a claim, leave it \
-         out.\n\
-         \n\
+        "{}\n\n\
          Entity: {} [{}]\n\
          Current description: {}\n\
          Source documents: {docs}\n\
@@ -919,25 +929,21 @@ fn profile_prompt(node: &KnowledgeNode, context: &str) -> String {
          Facts (edges):\n\
          {context}\n\
          \n\
-         Reply with STRICT JSON only — no prose, no code fence:\n\
-         {{\"summary\":\"2-3 sentences\",\"key_facts\":[\"…\"],\
-         \"time_range\":{{\"start\":\"YYYY or YYYY-MM or unknown\",\
-         \"end\":\"YYYY or YYYY-MM or ongoing or unknown\"}}}}",
+         {} {PROFILE_SHAPE}",
+        KG_PROFILE.cells(),
         node.name,
         node.entity_type.label(),
-        node.description
+        node.description,
+        pages(KG_PROFILE, [3]),
     )
 }
 
+/// `⠸⠓`: the answerer's brief is the route; the subgraph and the question are
+/// the data.
 fn query_prompt(serialized: &str, question: &str) -> String {
     format!(
-        "Answer the question using ONLY the knowledge-graph facts below. Every claim must \
-         cite at least one edge, written as (source —predicate→ target [doc]). If the graph \
-         does not contain the answer, say exactly what is missing — do not guess.\n\
-         \n\
-         {serialized}\n\
-         \n\
-         Question: {question}"
+        "{}\n\n{serialized}\n\nQuestion: {question}",
+        super::book::d456_knowledge::KG_QUERY.cells()
     )
 }
 
@@ -1099,8 +1105,7 @@ impl Tool for KnowledgeGraphTool {
                 into the store; op=resolve deduplicates surface forms of the same real-world \
                 thing; op=summarize writes grounded profiles for well-connected hub entities; \
                 op=query answers a question from stored facts with edge citations; \
-                op=stats summarizes the store. Facts persist across sessions — use ingest for \
-                documents worth remembering, query before re-reading sources."
+                op=stats summarizes the store. Facts persist across sessions. ⠫⠓"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -1108,12 +1113,12 @@ impl Tool for KnowledgeGraphTool {
                     "op": {
                         "type": "string",
                         "enum": ["ingest", "resolve", "summarize", "query", "stats"],
-                        "description": "pipeline stage to run"
+                        "description": "⠫⠓⠃"
                     },
-                    "text": { "type": "string", "description": "ingest: the document text" },
-                    "source": { "type": "string", "description": "ingest: short source id for provenance (e.g. a path or URL)" },
-                    "question": { "type": "string", "description": "query: the question to answer from the graph" },
-                    "club": { "type": "string", "description": "optional club label; default self (the in-hand driver)" }
+                    "text": { "type": "string", "description": "⠫⠓⠉" },
+                    "source": { "type": "string", "description": "⠫⠓⠙" },
+                    "question": { "type": "string", "description": "⠫⠓⠑" },
+                    "club": { "type": "string", "description": "⠫⠓⠋" }
                 },
                 "required": ["op"]
             }),

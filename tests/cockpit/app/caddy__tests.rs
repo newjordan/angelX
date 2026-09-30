@@ -162,17 +162,32 @@ fn caddy_render_cap_drops_doors_first_and_keeps_newest_recipes() {
             .all(|line| line.chars().count() <= MAX_LINE_CHARS),
         "no split lines: {card}"
     );
-    assert!(card.contains("[caddy ·"), "header survives: {card}");
+    // The identity line is `⠸⠃⠙`, its values beside it.
+    let identity = crate::agent::harness::book::d456_knowledge::CADDY_IDENTITY.cells();
+    let doors = crate::agent::harness::book::d456_knowledge::CADDY_DOORS.cells();
+    assert!(
+        card.contains(&format!("\n{identity} repo=")),
+        "header survives: {card}"
+    );
+    assert!(!card.contains("[caddy"), "no English header: {card}");
     // Languages come from the shared shallow scan and the header names the
     // host runtimes so the model never guesses `python` vs `python3`.
-    assert!(card.contains("· rust"), "langs from workspace_lang: {card}");
-    assert!(card.contains("· host: "), "host runtimes in header: {card}");
-    assert!(card.contains("cmd-029"), "newest recipe survives: {card}");
-    assert!(!card.contains("doors:"), "doors drop first: {card}");
     assert!(
-        card.contains("recipes (historical; source unbound; rerun before relying):"),
+        card.contains(" langs=rust"),
+        "langs from workspace_lang: {card}"
+    );
+    assert!(card.contains(" host="), "host runtimes in header: {card}");
+    assert!(card.contains("cmd-029"), "newest recipe survives: {card}");
+    assert!(!card.contains(&doors), "doors drop first: {card}");
+    // The heading is `⠸⠃⠃`, on the card's route line; the section keeps its key.
+    assert!(
+        card.contains(&crate::agent::harness::book::d3_roles::pages(
+            crate::agent::harness::book::d456_knowledge::CADDY,
+            [2]
+        )),
         "{card}"
     );
+    assert!(card.contains("\nrecipes:\n"), "{card}");
     let _ = std::fs::remove_dir_all(caddy_dir.parent().unwrap());
 }
 
@@ -428,7 +443,7 @@ fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
         "build recipe is not a test verifier: {card}"
     );
     assert!(
-        !card.contains("doors:"),
+        !card.contains(&crate::agent::harness::book::d456_knowledge::CADDY_DOORS.cells()),
         "cost-aware card carries no doors: {card}"
     );
     assert!(
@@ -472,7 +487,10 @@ fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
     let _full_card = crate::tests::TestEnvGuard::set("ANGEL_CADDY_CARD", "full");
     let card = render_card_for_task(&workspace, card_cap());
     assert!(card.contains("node"), "full card shows everything: {card}");
-    assert!(card.contains("doors:"), "full card keeps doors: {card}");
+    assert!(
+        card.contains(&crate::agent::harness::book::d456_knowledge::CADDY_DOORS.cells()),
+        "full card keeps doors: {card}"
+    );
     let _ = std::fs::remove_dir_all(caddy_dir.parent().unwrap());
     let _ = std::fs::remove_file(&ledger);
 }
@@ -779,7 +797,7 @@ fn caddy_card_follows_the_dossier_block_in_task_warm_start() {
         .find(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER)
         .expect("dossier block present");
     let caddy_at = block_full
-        .find("[caddy ·")
+        .find(&crate::agent::harness::book::d456_knowledge::CADDY_IDENTITY.cells())
         .expect("caddy card present (full mode)");
     assert!(
         dossier_at < caddy_at,

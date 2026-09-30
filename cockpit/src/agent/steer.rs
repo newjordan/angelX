@@ -18,11 +18,10 @@ use crate::agent::club::ChatMsg;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
-/// Harness-role framing inserted immediately before queued User notes. The
-/// guidance explains their mid-run timing without rewriting the operator's
+/// Harness-role framing inserted immediately before queued User notes, `⠝⠚`.
+/// Its ledger page explains their mid-run timing without rewriting the operator's
 /// text or granting harness-generated prose User provenance.
-pub const STEER_CONTEXT: &str = "[harness steer context — the following User message(s) were sent mid-run; \
-     take them into account and keep pursuing the main objective]";
+pub const STEER_CONTEXT: &str = "⠝⠚";
 
 /// FIFO of steers queued while a turn holds the flight slot. Shared between
 /// the UI thread (pushes on Enter) and the turn worker (drains at hop

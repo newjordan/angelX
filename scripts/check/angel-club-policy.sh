@@ -23,7 +23,7 @@ if ! _angel_api_club_enabled openai; then
   unset ANGEL_OPENAI_KEY OPENAI_API_KEY
 fi
 if ! _angel_api_club_enabled grok; then
-  unset ANGEL_GROK_KEY ANGEL_XAI_KEY GROK_API_KEY XAI_API_KEY GPU_COMP_GROK_KEY
+  unset ANGEL_GROK_KEY ANGEL_XAI_KEY GROK_API_KEY XAI_API_KEY
 fi
 if ! _angel_api_club_enabled kimi; then
   unset ANGEL_KIMI_KEY KIMI_API_KEY MOONSHOT_API_KEY

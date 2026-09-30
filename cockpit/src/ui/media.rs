@@ -430,10 +430,34 @@ pub fn open_target(target: &str) -> std::io::Result<()> {
                     .map(|_| ())
             })
     } else {
+        let path = target.strip_prefix("file://").unwrap_or(target);
         Command::new("xdg-open")
-            .arg(target)
+            .arg(path)
             .spawn_owned()
             .map(|_| ())
+            .or_else(|_| {
+                // Minimal WMs (Omarchy/Hyprland) may ship no xdg-open folder
+                // handler; fall back to a known file manager for local dirs.
+                if !path.starts_with("http://")
+                    && !path.starts_with("https://")
+                    && std::path::Path::new(path).is_dir()
+                {
+                    ["thunar", "nautilus", "dolphin", "pcmanfm"]
+                        .iter()
+                        .find_map(|fm| Command::new(fm).arg(path).spawn_owned().map(|_| ()).ok())
+                        .ok_or_else(|| {
+                            std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "no xdg-open result and no known file manager",
+                            )
+                        })
+                } else {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "xdg-open unavailable",
+                    ))
+                }
+            })
     }
 }
 

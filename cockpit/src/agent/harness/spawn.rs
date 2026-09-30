@@ -117,7 +117,10 @@ fn bounded_moa_synthesis_with_deadline(
         .name("spawn-moa-synthesis".into())
         .spawn(move || {
             let _permit = permit;
-            let result = club.chat_streaming(&messages, &[], &worker_cancel, &mut |_| {});
+            // The aggregator is connected: offered the ledger reader alone.
+            let result =
+                super::book::connect::chat(&*club, Path::new("."), &messages, None, &worker_cancel)
+                    .map(crate::agent::club::ClubReply::Text);
             let _ = tx.send(result);
         })
         .is_ok();
@@ -293,15 +296,18 @@ pub(crate) fn requested_personas(value: Option<&Value>) -> Result<Vec<String>, S
             .iter()
             .map(|value| {
                 value.as_str().ok_or_else(|| {
-                    "persona list entries must be strings; use an exact installed name or omit `persona` for a plain seat".to_string()
+                    format!(
+                        "persona list entries must be strings\n{}",
+                        crate::agent::harness::book::d56_replies::PERSONA_NAME.cells()
+                    )
                 })
             })
             .collect::<Result<Vec<_>, _>>()
             .map(|values| values.into_iter().filter_map(normalize).collect()),
-        Some(_) => Err(
-            "persona must be a string or string array; use an exact installed name or omit `persona` for a plain seat"
-                .to_string(),
-        ),
+        Some(_) => Err(format!(
+            "persona must be a string or string array\n{}",
+            crate::agent::harness::book::d56_replies::PERSONA_NAME.cells()
+        )),
     }
 }
 
@@ -407,7 +413,13 @@ impl Grant {
         // inspect a different repository from the seat's actual tools.
         r.set_workspace(workspace.to_path_buf());
         match self {
-            Self::None => {}
+            // No workspace tools — only the ledger reader, so the seat reads its
+            // routes like every other seat (`book::connect`).
+            Self::None => {
+                r.register(Box::new(super::book::connect::LedgerReader {
+                    workspace: workspace.to_path_buf(),
+                }));
+            }
             Self::ReadOnly => {
                 r.register(Box::new(
                     ShellTool::in_dir(workspace.to_path_buf())
@@ -625,16 +637,18 @@ impl SpawnTool {
             {
                 if crate::agent::tools::solo::solo_mode_active() {
                     Err(format!(
-                        "solo mode: refuse spawn to paid SOTA seat '{spec}'. Do the work yourself. \
-                         Available now: self, auto, {}",
-                        self.sorted_club_names().join(", ")
+                        "solo mode: refuse spawn to paid SOTA seat '{spec}'. \
+                         Available now: self, auto, {}\n{}",
+                        self.sorted_club_names().join(", "),
+                        crate::agent::harness::book::d56_replies::DO_THE_WORK.cells()
                     ))
                 } else {
                     Err(format!(
                         "club '{spec}' is a paid SOTA seat withheld from spawn because \
-                         ANGEL_ALLOW_SOTA_DELEGATE=0 (local-only fleet opt-out). Unset that pin or set \
-                         ANGEL_ALLOW_SOTA_DELEGATE=1. Available now: self, auto, {}",
-                        self.sorted_club_names().join(", ")
+                         ANGEL_ALLOW_SOTA_DELEGATE=0 (local-only fleet opt-out). \
+                         Available now: self, auto, {}\n{}",
+                        self.sorted_club_names().join(", "),
+                        crate::agent::harness::book::d56_replies::UNSET_PIN.cells()
                     ))
                 }
             }
@@ -666,12 +680,13 @@ impl SpawnTool {
             .ok_or_else(|| {
                 let names: Vec<&str> = self.personas.iter().map(|p| p.name.as_str()).collect();
                 format!(
-                    "unknown persona '{want}'. Available: {}. Use an exact installed name, or omit `persona` for a plain seat",
+                    "unknown persona '{want}'. Available: {}.\n{}",
                     if names.is_empty() {
                         "(none installed)".to_string()
                     } else {
                         names.join(", ")
-                    }
+                    },
+                    crate::agent::harness::book::d56_replies::PERSONA_SEAT.cells()
                 )
             })
     }
@@ -970,12 +985,7 @@ impl SpawnTool {
                     .collect();
                 let folded = synth_club.and_then(|club| {
                     let msgs = vec![
-                        ChatMsg::system(
-                            "You are the aggregator of a spawn formation. Fold the drafts \
-                             into one best answer: keep every well-supported point, drop \
-                             contradictions and filler, resolve disagreements explicitly. \
-                             Output only the final answer.",
-                        ),
+                        ChatMsg::system(super::book::st_connected::AGGREGATOR.cells()),
                         ChatMsg::user(format!("Task:\n{task}\n\nDrafts:\n{joined}")),
                     ];
                     bounded_moa_synthesis_with_deadline(
@@ -1042,27 +1052,24 @@ fn seat_system(
     n: usize,
     grant: Grant,
 ) -> String {
+    // Every seat reads the ledger: a granted seat through `read_file`, a bare
+    // seat through the ledger reader alone. Its frame is `⠜⠉` (persona, count
+    // and formation beside it), its persona `⠜⠙`, then the batching page
+    // `⠺⠉⠁` or the bare-seat contract `⠌⠁`.
+    use super::book::{ar_seats, st_connected, w_workflow};
     let mut s = format!(
-        "You are one seat of an Angel spawn formation ({} of {n} independent agents \
-         working the same task in parallel — formation: {}). This is a bounded \
-         consultation, not an implementation turn. Work alone; do not \
-         reference other seats. Return your best complete result as plain text.",
-        persona_name,
+        "{} persona={persona_name} n={n} formation={}",
+        ar_seats::SPAWN_SEAT.cells(),
         formation.label()
     );
     if !persona_body.trim().is_empty() {
-        s.push_str("\n\nYour persona — inhabit it fully:\n");
+        s.push_str(&format!("\n\n{}\n", ar_seats::PERSONA.cells()));
         s.push_str(persona_body.trim());
     }
     if grant == Grant::None {
-        s.push_str(
-            "\n\nYou have no tools this run: answer from reasoning alone. \
-             Tool use and workspace mutation are intentionally out of scope \
-             for this consult; return the completed answer directly.",
-        );
+        s.push_str(&format!("\n\n{}", st_connected::BARE_SEAT.cells()));
     } else {
-        s.push_str("\n\n");
-        s.push_str(super::TOOL_BATCHING_HINT);
+        s.push_str(&format!("\n\n{}⠁", w_workflow::BATCHING.cells()));
     }
     s
 }
@@ -1131,9 +1138,7 @@ impl Tool for SpawnTool {
                  Formations: solo (one seat), \
                  panel (all answers back, labeled), moa (drafts folded into one answer), quorum (first K win). \
                  Each seat can wear one exact installed persona \
-                 and gets a tool grant. Installed personas: {}. Clubs: self, auto, {}. \
-                 For direct single-call model questions use `consult_model` or `code_review`; \
-                 for git-isolated implementation use `delegate`.{}",
+                 and gets a tool grant. Installed personas: {}. Clubs: self, auto, {}.{} ⠹⠑",
                 if personas.is_empty() {
                     "(none installed)".to_string()
                 } else {
@@ -1145,25 +1150,25 @@ impl Tool for SpawnTool {
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "task": { "type": "string", "description": "the task every seat works (or use tasks[])" },
+                    "task": { "type": "string", "description": "⠹⠑⠉" },
                     "tasks": { "type": "array", "items": { "type": "string" },
-                               "description": "one task per seat (sets n)" },
+                               "description": "⠹⠑⠙" },
                     "formation": { "type": "string", "enum": ["solo", "panel", "moa", "quorum"],
-                                   "description": "default: panel when n>1, else solo" },
-                    "n": { "type": "integer", "description": "seat count (default 3, capped by ANGEL_SPAWN_MAX)" },
+                                   "description": "⠹⠑⠑" },
+                    "n": { "type": "integer", "description": "⠹⠑⠋" },
                     "persona": {
                         "oneOf": [
                             { "type": "string", "enum": persona_string_options },
                             { "type": "array", "items": { "type": "string", "enum": persona_array_options } }
                         ],
-                        "description": format!("optional exact persona name or list cycling across seats; installed names: {}; omit this field for a plain seat", personas.join(", "))
+                        "description": format!("⠹⠑⠛ {}", personas.join(", ")).trim_end().to_string()
                     },
                     "tools": { "type": "string", "enum": grant_options,
                                "default": default_grant,
-                               "description": "seat tool grant; code requires n=1 (use delegate for parallel writes)" },
-                    "club": { "type": "string", "description": "self/auto = your own model replicated (default, self-same panel) | smart = the designated escalation seat (ANGEL_SOTA_SMART_CLUB, default luna) | fleet = spread across reachable fleet clubs (opt-in) | an explicit club label" },
-                    "timeout_secs": { "type": "integer", "description": "optional formation deadline in seconds; default 0 (unbounded)" },
-                    "quorum": { "type": "integer", "description": "K for quorum formation (default ceil(n/2))" }
+                               "description": "⠹⠑⠃" },
+                    "club": { "type": "string", "description": "⠹⠑⠓" },
+                    "timeout_secs": { "type": "integer", "description": "⠹⠑⠊" },
+                    "quorum": { "type": "integer", "description": "⠹⠑⠚" }
                 },
                 "required": [],
             }),

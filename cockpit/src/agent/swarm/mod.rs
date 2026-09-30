@@ -22,15 +22,18 @@
 //! ([`wants_synthesis`]); a tool-grounded action answer is already backed by real
 //! output, so it is normally returned as-is rather than re-synthesized text-only. The MoA
 //! *stages* (proposer/judge/verify/aggregate) remain text-only by design — they
-//! reason over evidence the tool loop already surfaced. With no tools offered
+//! reason over evidence the tool loop already surfaced. Text-only means no
+//! workspace tools: each stage is offered the ledger reader alone
+//! (`book::connect`), because every word a stage is told is a route in Volume
+//! IV of the book (`⠄` roles, `⠈` angles, `⠐` frames). With no tools offered
 //! (`respond`, benches, control-bench) the swarm is the pure MoA think it always
 //! was. `ANGEL_SOTA_MOA_ALWAYS` amplifies every turn.
 //!
-//! **Why gemma4-on-Spark exclusively.** A 26B / ~4B-active NVFP4 MoE on the
-//! GB10's unified memory makes a dozen concurrent generations cost about one
-//! dense reply, so the fan-out is practically free here and nowhere else in the
-//! fleet. The swarm wraps any [`Club`] (so it's testable over a mock), but in the
-//! [`Bag`](crate::agent::club::Bag) the inner club is the gemma4 vLLM endpoint.
+//! **Why the local box.** A small-active MoE served with continuous batching
+//! makes a dozen concurrent generations cost about one dense reply, so the
+//! fan-out is practically free on a self-hosted endpoint. The swarm wraps any
+//! [`Club`] (so it's testable over a mock); in the
+//! [`Bag`](crate::agent::club::Bag) the inner club is the `local` box's endpoint.
 //!
 //! **Concurrency.** The club layer is blocking (`ureq`), so a layer fans out via
 //! [`std::thread::scope`]: `width` threads each make one blocking chat call, and

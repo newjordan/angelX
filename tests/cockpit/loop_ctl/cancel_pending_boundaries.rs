@@ -37,6 +37,7 @@ fn repeated_cancel_finish_and_detach_keep_exact_receiver_and_newer_status() {
                     passed: true,
                     summary: "late old green".into(),
                     detail: String::new(),
+                    receipt: None,
                 })
                 .unwrap();
             app.loop_drain_pending();
@@ -78,6 +79,7 @@ fn late_retired_verifier_cannot_complete_a_new_loop() {
                 passed: true,
                 summary: "old work passed".into(),
                 detail: String::new(),
+                receipt: None,
             })
             .unwrap();
         app.loop_drain_pending();
@@ -140,6 +142,7 @@ fn retired_owner_blocks_direct_sota_self_and_workspace_admission() {
                 passed: false,
                 summary: "held owner survives every admission gate".into(),
                 detail: String::new(),
+                receipt: None,
             })
             .unwrap();
         app.loop_drain_pending();

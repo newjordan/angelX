@@ -325,21 +325,21 @@ impl Tool for SwarmCompilerTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "swarm_compile".to_string(),
-            description: "Compile a green-base coding goal into a durable proof graph: isolated investigator, independent regression-test author, implementer, adversarial reviewer, differential/full verification, causal credit, and learned routing. Use direct action instead when a trustworthy red verifier already exists. A verified result is parked on a branch and never auto-merged. Actions: run, resume, status, policy."
+            description: "Compile a green-base coding goal into a durable proof graph: isolated investigator, independent regression-test author, implementer, adversarial reviewer, differential/full verification, causal credit, and learned routing. A verified result is parked on a branch and never auto-merged. Actions: run, resume, status, policy. ⠹⠃"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {"type":"string", "enum":["run","resume","status","policy"], "default":"run"},
-                    "run_id": {"type":"string", "description":"required for resume/status"},
-                    "goal": {"type":"string", "description":"coding outcome to produce"},
-                    "task_type": {"type":"string", "description":"optional stable class used by learned routing"},
-                    "targeted_test_cmd": {"type":"string", "description":"must fail on the immutable test-only branch with the supplied run marker and pass on the candidate"},
-                    "accept_cmd": {"type":"string", "description":"full acceptance command; must pass on base and candidate"},
-                    "quality_cmds": {"type":"array", "items":{"type":"string"}, "description":"optional candidate-only lint/build/typecheck commands (max 4)"},
-                    "test_scope": {"type":"array", "items":{"type":"string"}, "description":"allowed test-file paths/prefixes; implementation may not edit files the test author changes"},
-                    "club": {"type":"string", "default":"auto", "description":"auto, self, or one explicit route for all roles"},
-                    "routes": {"type":"object", "description":"optional per-role route overrides for investigator/test_author/implementer/reviewer"}
+                    "run_id": {"type":"string", "description":"⠹⠃⠃"},
+                    "goal": {"type":"string", "description":"⠹⠃⠉"},
+                    "task_type": {"type":"string", "description":"⠹⠃⠙"},
+                    "targeted_test_cmd": {"type":"string", "description":"⠹⠃⠑"},
+                    "accept_cmd": {"type":"string", "description":"⠹⠃⠋"},
+                    "quality_cmds": {"type":"array", "items":{"type":"string"}, "description":"⠹⠃⠛"},
+                    "test_scope": {"type":"array", "items":{"type":"string"}, "description":"⠹⠃⠓"},
+                    "club": {"type":"string", "default":"auto", "description":"⠹⠃⠊"},
+                    "routes": {"type":"object", "description":"⠹⠃⠚"}
                 },
                 "required": []
             }),

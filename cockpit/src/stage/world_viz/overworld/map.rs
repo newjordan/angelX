@@ -28,7 +28,7 @@ pub(crate) const SCREEN_W: i32 = 16;
 pub(crate) const SCREEN_H: i32 = 11;
 /// The authored screens' own grid.
 pub(crate) const AUTHORED_X: i32 = 4;
-pub(crate) const AUTHORED_Y: i32 = 3;
+pub(crate) const AUTHORED_Y: i32 = 4;
 /// The realm's grid: an authored screen at every even coordinate,
 /// wilderness between.
 pub(crate) const SCREENS_X: i32 = AUTHORED_X * 2 - 1;
@@ -190,7 +190,7 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T..............T",
         "T..............T",
         "T..............T",
-        "TTTTTTTTTTTTTTTT",
+        "TTTTTTT=TTTTTTTT", // south gate into the new working precinct
     ],
     // (2,2) Homecoming road and the fields
     [
@@ -219,6 +219,64 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "~~~~~~~~~~~ss~~~",
         "~~~~~~~~~~~~~~~~",
         "~~~~~~~~~~~~~~~~",
+    ],
+    // The new southern precinct. Existing screens and place coordinates stay
+    // fixed; the village's single south gate is the only original terrain edit.
+    // (0,3) Market gardens
+    [
+        "TTTTTTTTTTTTTTTT",
+        "TT...cccc....TTT",
+        "T....cccc.....TT",
+        "T....cccc......T",
+        "T..............T",
+        "T.....==========",
+        "T.cccc=........T",
+        "T.cccc=..cccc..T",
+        "T.....=..cccc..T",
+        "TT............TT",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (1,3) Artisan quarter — workshops around a public market street
+    [
+        "TTTTTTT=TTTTTTTT",
+        "T......=.......T",
+        "T......=.......T",
+        "T.::::.=.::::..T",
+        "T.:::::=::::::.T",
+        "================",
+        "T.::::::::::::.T",
+        "T......=.......T",
+        "T......=.......T",
+        "T.cccc.=.cccc..T",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (2,3) Colosseum: clear approach along both sides to the south gate
+    [
+        "TTTTTTTTTTTTTTTT",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "===..........===",
+        "T.=..........=.T",
+        "T.=..........=.T",
+        "T.============.T",
+        "T..............T",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (3,3) Knights' tournament: the training tilt and the competitors' camp
+    [
+        "TTTTTTTTTTTTTTTT",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "T..............T",
+        "===............T",
+        "T.=............T",
+        "T.=............T",
+        "T.============.T",
+        "T..............T",
+        "TTTTTTTTTTTTTTTT",
     ],
 ];
 
@@ -325,7 +383,7 @@ pub(crate) fn walkable(t: u8) -> bool {
 
 /// Every tile a structure stands on; the knight walks around them. Road
 /// tiles inside a footprint (the gatehouse arch) stay open.
-pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 30] = [
+pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 43] = [
     (22, 12, 3, 3), // keep
     (21, 12, 1, 3), // keep turrets
     (25, 12, 1, 3),
@@ -356,6 +414,19 @@ pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 30] = [
     (51, 13, 2, 2), // wards
     (56, 13, 2, 2),
     (58, 19, 2, 2),
+    (17, 34, 2, 2), // new artisan cottages
+    (20, 34, 2, 2),
+    (25, 34, 2, 2),
+    (28, 34, 2, 2),
+    (17, 40, 3, 2),  // smith's working bay
+    (21, 40, 2, 2),  // loom
+    (24, 40, 2, 2),  // cooper
+    (27, 40, 3, 2),  // granary
+    (30, 36, 1, 1),  // precinct well
+    (35, 34, 10, 6), // colosseum
+    (50, 34, 2, 2),  // tournament pavilions
+    (60, 34, 2, 2),
+    (60, 40, 2, 1), // tournament stable
 ];
 
 /// Every place on the default realm.
@@ -384,10 +455,13 @@ pub(crate) enum Place {
     /// The fleet's hamlet: cottages for the heads, the forge, the granary.
     Village,
     Wards,
+    ArtisanQuarter,
+    Colosseum,
+    Tournament,
 }
 
 impl Place {
-    pub(crate) const ALL: [Place; 16] = [
+    pub(crate) const ALL: [Place; 19] = [
         Place::Keep,
         Place::Gatehouse,
         Place::Rookery,
@@ -404,6 +478,9 @@ impl Place {
         Place::Fields,
         Place::Village,
         Place::Wards,
+        Place::ArtisanQuarter,
+        Place::Colosseum,
+        Place::Tournament,
     ];
 
     pub(crate) fn of_building(b: Building) -> Place {
@@ -438,6 +515,9 @@ impl Place {
             Place::Fields => "HOMECOMING",
             Place::Village => "THE VILLAGE",
             Place::Wards => "REPO WARDS",
+            Place::ArtisanQuarter => "ARTISAN QUARTER",
+            Place::Colosseum => "COLOSSEUM",
+            Place::Tournament => "KNIGHTS TOURNAMENT",
         }
     }
 
@@ -458,6 +538,9 @@ impl Place {
             Place::DragonKeep => (39, 2, 3, 3),
             Place::Village => (18, 24, 12, 7),
             Place::Wards => (51, 13, 9, 8),
+            Place::ArtisanQuarter => (17, 34, 13, 8),
+            Place::Colosseum => (35, 34, 10, 6),
+            Place::Tournament => (50, 34, 12, 7),
             Place::DarkForest | Place::Swamp | Place::Fields => {
                 let (x, y) = self.stand();
                 (x, y, 1, 1)
@@ -485,6 +568,9 @@ impl Place {
             Place::Fields => (39, 31),
             Place::Village => (23, 27),
             Place::Wards => (52, 18),
+            Place::ArtisanQuarter => (23, 38),
+            Place::Colosseum => (40, 41),
+            Place::Tournament => (55, 41),
         }
     }
 

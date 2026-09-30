@@ -59,20 +59,6 @@ fn counter_case(label: &str, output: &str, check: impl FnOnce(&EvaluatorEvidence
             String::from_utf8_lossy(&result.stderr)
         );
     }
-    let peer = owned.0.join("peer.json");
-    std::fs::write(
-        &peer,
-        r#"{"geomean_us":100.0,"name":"owned fixture","shapes":{"32768x1":100.0}}"#,
-    )
-    .unwrap();
-    let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
-    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
-    assert_eq!(
-        crate::agent::harness::load_living_peer_snapshot()
-            .unwrap()
-            .0,
-        100.0
-    );
     assert!(
         !output.contains('\''),
         "all fixture output is literal owned text"
@@ -127,18 +113,10 @@ fn assert_bad_counter_rejected(evidence: &EvaluatorEvidence) {
             .score(RewardInput::EvaluatorEvidence(evidence))
             .is_err()
     );
-    // Metadata must validate independently, even with a forged private decision.
-    let scoring = CodingEvalScore {
-        reward: 0.55,
-        competition: Some(resolve_coding_eval_competition(evidence).unwrap()),
-    };
-    assert!(coding_eval_competition_meta(evidence, &scoring).is_none());
-    let _default_mode = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "tests");
-    assert!(score_coding_eval_reward("candidate claims a win", evidence).is_err());
 }
 
 #[test]
-fn overflowing_failed_count_cannot_become_positive_timing_reward() {
+fn overflowing_failed_count_cannot_become_a_positive_reward() {
     counter_case(
         "overflow-failed",
         "score_us=50us\ntest result: FAILED. 17 passed; 18446744073709551616 failed; 0 ignored;",
@@ -183,13 +161,12 @@ fn aggregate_and_total_count_overflow_are_errors_without_saturation() {
 }
 
 #[test]
-fn valid_positive_summary_preserves_rewards_and_competition_fields() {
+fn valid_positive_summary_preserves_rewards() {
     counter_case(
         "valid",
         "score_us=50us\ntest result: ok. 17 passed; 0 failed; 2 ignored;",
         |evidence| {
-            let scoring = score_coding_eval(evidence).unwrap();
-            assert!((scoring.reward - 0.55).abs() < 1e-6);
+            assert_eq!(score_coding_eval(evidence).unwrap(), 1.0);
             assert_eq!(
                 TestReward
                     .score(RewardInput::EvaluatorEvidence(evidence))
@@ -202,16 +179,12 @@ fn valid_positive_summary_preserves_rewards_and_competition_fields() {
                     .unwrap(),
                 1.0
             );
-            let meta = coding_eval_competition_meta(evidence, &scoring).unwrap();
-            assert_eq!(meta["score_us"], 50.0);
-            assert_eq!(meta["baseline_us"], 100.0);
-            assert_eq!(meta["gap_pct"], 50.0);
         },
     );
 }
 
 #[test]
-fn fractional_test_reward_remains_distinct_from_failed_timing_rejection() {
+fn fractional_test_reward_stays_fractional() {
     counter_case(
         "valid-partial",
         "score_us=50us\ntest result: FAILED. 3 passed; 1 failed; 0 ignored;",
@@ -228,13 +201,16 @@ fn fractional_test_reward_remains_distinct_from_failed_timing_rejection() {
                     .unwrap(),
                 0.0
             );
-            assert!(score_coding_eval_reward("finished", evidence).is_err());
+            assert_eq!(
+                score_coding_eval_reward("finished", evidence).unwrap(),
+                0.75
+            );
         },
     );
 }
 
 #[test]
-fn absent_summary_preserves_existing_zero_test_and_measured_timing_contracts() {
+fn absent_summary_earns_zero_and_timing_text_never_counts() {
     for output in [
         "score_us=50us",
         "owned verifier completed without a summary",
@@ -252,12 +228,7 @@ fn absent_summary_preserves_existing_zero_test_and_measured_timing_contracts() {
                     .is_err()
             );
             let reward = score_coding_eval_reward("candidate score_us=1us", evidence).unwrap();
-            let expected = if output.starts_with("score_us") {
-                0.55
-            } else {
-                0.0
-            };
-            assert!((reward - expected).abs() < 1e-6);
+            assert_eq!(reward, 0.0);
         });
     }
 }
@@ -297,7 +268,7 @@ fn malformed_recognized_summaries_do_not_borrow_timing_or_other_suite_counts() {
 }
 
 #[test]
-fn valid_multisuite_partial_test_reward_remains_fractional_and_timing_rejects_red() {
+fn valid_multisuite_partial_test_reward_remains_fractional() {
     counter_case(
         "valid-multisuite",
         "score_us=50us\ntest result: ok. 4 passed; 0 failed; 0 ignored;\n test result: FAILED. 3 passed; 1 failed; 0 ignored;",
@@ -314,27 +285,29 @@ fn valid_multisuite_partial_test_reward_remains_fractional_and_timing_rejects_re
                     .unwrap(),
                 0.0
             );
-            assert!(score_coding_eval_reward("candidate claims green", evidence).is_err());
+            assert_eq!(
+                score_coding_eval_reward("candidate claims green", evidence).unwrap(),
+                0.875
+            );
         },
     );
 }
 
 #[test]
-fn valid_whitespace_optional_ignored_and_zero_test_timing_keep_existing_contracts() {
-    for summary in [
-        "\t test result:\t ok. 17 passed; 0 failed;",
-        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;",
+fn valid_whitespace_optional_ignored_and_zero_test_summaries_keep_their_rewards() {
+    for (summary, expected) in [
+        ("\t test result:\t ok. 17 passed; 0 failed;", 1.0),
+        (
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;",
+            0.0,
+        ),
     ] {
         counter_case(
             "valid-summary-shape",
             &format!("score_us=50us\n{summary}"),
             |evidence| {
                 let reward = score_coding_eval_reward("finished", evidence).unwrap();
-                assert!((reward - 0.55).abs() < 1e-6);
-                let scoring = score_coding_eval(evidence).unwrap();
-                let meta = coding_eval_competition_meta(evidence, &scoring).unwrap();
-                assert_eq!(meta["score_us"], 50.0);
-                assert_eq!(meta["baseline_us"], 100.0);
+                assert_eq!(reward, expected);
             },
         );
     }

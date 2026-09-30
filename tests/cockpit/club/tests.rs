@@ -351,8 +351,6 @@ fn sota_label_covers_metered_provider_names() {
         "thinkingmachines/inkling:free",
         "thinkingmachines/inkling-small:free",
         "longcat",
-        "mathgod",
-        "math-god",
     ] {
         assert!(is_sota_label(label), "{label} should be treated as SOTA");
     }
@@ -383,18 +381,12 @@ fn sota_label_match_does_not_allocate_a_lowercase_copy() {
 }
 
 #[test]
-fn mathgod_and_wrapper_labels_match_without_a_lowercase_copy() {
-    assert!(is_mathgod_label("Math God"));
-    assert!(is_mathgod_label("MATHGOD"));
-    assert!(!is_mathgod_label("mathgodly"));
+fn wrapper_labels_match_without_a_lowercase_copy() {
     assert!(is_logical_wrapper_label("SOTA-MOA"));
-    assert!(is_logical_wrapper_label("gpu-comp-local"));
+    assert!(is_logical_wrapper_label("local-moa"));
     assert!(!is_logical_wrapper_label("spark"));
     let src = include_str!("../../../cockpit/src/agent/club/mod.rs");
-    for name in [
-        "pub(crate) fn is_mathgod_label",
-        "pub(crate) fn is_logical_wrapper_label",
-    ] {
+    for name in ["pub(crate) fn is_logical_wrapper_label"] {
         let start = src.find(name).expect(name);
         let body = &src[start..start.saturating_add(500)];
         assert!(
@@ -562,6 +554,7 @@ fn api_club_policy_defaults_to_credentials_and_supports_explicit_scopes() {
 #[test]
 fn openai_api_route_is_separate_and_builds_chat_completions_request() {
     let _guard = env_lock();
+    let _cave = ScopedEnv::set("ANGEL_SOTA_CAVEMAN", "0");
     let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "openai");
     let _key = ScopedEnv::set("ANGEL_OPENAI_KEY", "test-key");
     let _model_absent = ScopedEnv::unset("ANGEL_OPENAI_API_MODEL");
@@ -807,9 +800,9 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         assert_eq!(body["model"], serde_json::json!("deepseek-flash"));
     }
     assert_eq!(
-        resolve_deepseek_model_alias("deepseek-v4-flash-dspark"),
-        "deepseek-v4-flash-dspark",
-        "the Spark-local V4 serve is not the cloud V4.1 Flash"
+        resolve_deepseek_model_alias("deepseek-v4-flash-local"),
+        "deepseek-v4-flash-local",
+        "a locally served V4 checkpoint is not the cloud V4.1 Flash"
     );
     assert_eq!(
         resolve_deepseek_model_alias("private/deepseek-next"),
@@ -829,7 +822,7 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
             "{model}"
         );
     }
-    assert_eq!(static_model_window("deepseek-v4-flash-dspark"), None);
+    assert_eq!(static_model_window("deepseek-v4-flash-local"), None);
     // Id-scoped capability facts; the *route* decides whether it may claim them.
     assert_eq!(
         static_model_input_modalities("deepseek-flash"),
@@ -840,7 +833,7 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         Some(&["text"][..])
     );
     assert_eq!(
-        static_model_input_modalities("deepseek-v4-flash-dspark"),
+        static_model_input_modalities("deepseek-v4-flash-local"),
         None
     );
     let pro = HttpClub::new(
@@ -859,10 +852,9 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         .expect("DeepSeek V4 max-effort request body");
     assert_eq!(body["reasoning_effort"], serde_json::json!("max"));
     assert_eq!(body["thinking"]["type"], "enabled");
-    assert!(
-        body.get("max_tokens").is_none(),
-        "an interactive DeepSeek hop must not invent an output cap"
-    );
+    // Left unset, DeepSeek caps thinking-mode output at 64K; the seat sends
+    // the model card's floor instead, never a lower cap.
+    assert_eq!(body["max_tokens"], serde_json::json!(256_000));
 }
 
 /// The THINK control on the current provider contract: `none` is the documented
@@ -896,7 +888,11 @@ fn deepseek_thinking_control_encodes_the_live_provider_surface() {
             serde_json::json!(expected),
             "{requested}"
         );
-        assert!(body.get("max_tokens").is_none(), "{requested}");
+        assert_eq!(
+            body["max_tokens"],
+            serde_json::json!(256_000),
+            "{requested}"
+        );
     }
     assert_eq!(club.set_reasoning_effort("none").as_deref(), Some("none"));
     let off = club
@@ -907,9 +903,9 @@ fn deepseek_thinking_control_encodes_the_live_provider_surface() {
         off.get("reasoning_effort").is_none(),
         "`none` is a thinking toggle, not a reasoning_effort rung"
     );
-    assert!(off.get("max_tokens").is_none());
-    // Unpinned: neither control field is sent, so the provider's own default
-    // stands and we never imitate it with an output-token cap.
+    assert_eq!(off["max_tokens"], serde_json::json!(256_000));
+    // Unpinned: neither control field is sent, so the provider's own effort
+    // default stands; the output cap is the model card's, as on every rung.
     let plain = HttpClub::new(
         "deepseek-flash",
         "https://api.deepseek.com/v1",
@@ -921,7 +917,43 @@ fn deepseek_thinking_control_encodes_the_live_provider_surface() {
         .expect("DeepSeek body");
     assert!(unpinned.get("thinking").is_none());
     assert!(unpinned.get("reasoning_effort").is_none());
-    assert!(unpinned.get("max_tokens").is_none());
+    assert_eq!(unpinned["max_tokens"], serde_json::json!(256_000));
+}
+
+/// `ANGEL_DEEPSEEK_REASONING_EFFORT` (documented) reaches both DeepSeek seats,
+/// between each seat's own knob and the global one.
+#[test]
+fn the_provider_wide_deepseek_effort_knob_reaches_the_seat() {
+    let _guard = env_lock();
+    let _global = ScopedEnv::unset("ANGEL_REASONING_EFFORT");
+    let _seat = ScopedEnv::unset("ANGEL_DEEPSEEK_FLASH_REASONING_EFFORT");
+    let _provider = ScopedEnv::set("ANGEL_DEEPSEEK_REASONING_EFFORT", "low");
+    resync_reasoning_effort_env_from_env();
+    let club = HttpClub::new(
+        "deepseek-flash",
+        "https://api.deepseek.com/v1",
+        "deepseek-flash",
+        None,
+    )
+    .with_provider_contract(ProviderContract::DeepSeek);
+    let body = club.build_body(&[ChatMsg::user("hi")], &[], false).unwrap();
+    assert_eq!(body["reasoning_effort"], "low");
+    {
+        let _pin = ScopedEnv::set("ANGEL_DEEPSEEK_FLASH_REASONING_EFFORT", "max");
+        resync_reasoning_effort_env_from_env();
+        let fresh = HttpClub::new(
+            "deepseek-flash",
+            "https://api.deepseek.com/v1",
+            "deepseek-flash",
+            None,
+        )
+        .with_provider_contract(ProviderContract::DeepSeek);
+        let body = fresh
+            .build_body(&[ChatMsg::user("hi")], &[], false)
+            .unwrap();
+        assert_eq!(body["reasoning_effort"], "max", "the seat's own knob wins");
+    }
+    resync_reasoning_effort_env_from_env();
 }
 
 /// The seat root benchmarks with: the operator's configured DeepSeek route,
@@ -1253,9 +1285,11 @@ fn http_club_records_deepseek_native_prompt_cache_usage() {
         CacheUsage {
             control_requests: 0,
             read_input_tokens: 75,
+            // DeepSeek bills no cache write; its miss field makes that a
+            // reported zero rather than an unknown.
             write_input_tokens: 0,
             read_accounting_responses: 1,
-            write_accounting_responses: 0,
+            write_accounting_responses: 1,
         }
     );
     assert_eq!(
@@ -1311,8 +1345,8 @@ fn sota_moa_requires_multiple_links_by_default() {
 #[test]
 fn tailnet_label_takes_first_dns_segment_lowercased() {
     assert_eq!(
-        tailnet_label("Atlas-1.tail-example.ts.net.").as_deref(),
-        Some("atlas-1")
+        tailnet_label("Gpubox-1.tail-example.ts.net.").as_deref(),
+        Some("gpubox-1")
     );
     assert_eq!(
         tailnet_label("compute-a.tail-example.ts.net.").as_deref(),
@@ -1323,24 +1357,24 @@ fn tailnet_label_takes_first_dns_segment_lowercased() {
 
 #[test]
 fn parse_tailnet_disambiguates_by_dns_name() {
-    // Two boxes both report HostName "Atlas"; the DNSName label is what's
-    // unique (atlas vs atlas-1). Online is honored; Self defaults to online.
+    // Two boxes both report HostName "Gpubox"; the DNSName label is what's
+    // unique (gpubox vs gpubox-1). Online is honored; Self defaults to online.
     let v = serde_json::json!({
         "Self": {
-            "HostName": "Apollo",
-            "DNSName": "apollo.tail.ts.net.",
+            "HostName": "Workstation",
+            "DNSName": "workstation.tail.ts.net.",
             "TailscaleIPs": ["127.0.0.1", "fd7a::1"]
         },
         "Peer": {
             "k1": {
-                "HostName": "Atlas",
-                "DNSName": "atlas-1.tail.ts.net.",
+                "HostName": "Gpubox",
+                "DNSName": "gpubox-1.tail.ts.net.",
                 "TailscaleIPs": ["100.64.0.2", "fd7a::2"],
                 "Online": true
             },
             "k2": {
-                "HostName": "Atlas",
-                "DNSName": "atlas.tail.ts.net.",
+                "HostName": "Gpubox",
+                "DNSName": "gpubox.tail.ts.net.",
                 "TailscaleIPs": ["100.64.0.5", "fd7a::3"],
                 "Online": false
             },
@@ -1353,10 +1387,10 @@ fn parse_tailnet_disambiguates_by_dns_name() {
         }
     });
     let m = parse_tailnet(&v);
-    assert_eq!(m.get("atlas-1").map(|h| h.ip.as_str()), Some("100.64.0.2"));
-    assert_eq!(m.get("atlas").map(|h| h.ip.as_str()), Some("100.64.0.5"));
-    assert!(m["atlas-1"].online && !m["atlas"].online);
-    assert!(m["apollo"].online, "Self defaults to online");
+    assert_eq!(m.get("gpubox-1").map(|h| h.ip.as_str()), Some("100.64.0.2"));
+    assert_eq!(m.get("gpubox").map(|h| h.ip.as_str()), Some("100.64.0.5"));
+    assert!(m["gpubox-1"].online && !m["gpubox"].online);
+    assert!(m["workstation"].online, "Self defaults to online");
     // IPv4 picked, not the IPv6 that follows it.
     assert_eq!(m["compute-a"].ip, "100.64.0.3");
 }
@@ -1383,91 +1417,36 @@ fn url_from_uses_tailnet_then_fallback() {
 }
 
 #[test]
-fn spark_tailnet_aliases_resolve_the_configured_spark_peer() {
-    let _g = env_lock();
-    // The peer's tailnet name and Hydra host id come from the operator's env,
-    // never from source; mixed case and whitespace are tolerated.
-    let _aliases = ScopedEnv::set(
-        SPARK_HOST_ALIASES_ENV,
-        " Spark-Tailnet-Peer ,spark-hydra-peer,",
-    );
+fn every_discovered_host_folds_into_the_local_box() {
+    // No machine is a box of its own: whatever peer serves a model, the model
+    // is another mode of `local`.
+    for host in ["spark", "turbo", "toymaker", "Some-Peer", ""] {
+        assert_eq!(canonical_fleet_box(host), "local", "{host:?}");
+    }
     let mut m = std::collections::HashMap::new();
     m.insert(
-        "spark-tailnet-peer".to_string(),
-        TailHost {
-            ip: "127.0.0.1".into(),
-            online: true,
-        },
-    );
-    assert_eq!(
-        spark_host_aliases(),
-        vec!["spark", "spark-tailnet-peer", "spark-hydra-peer"]
-    );
-    assert_eq!(canonical_fleet_box("spark-tailnet-peer"), "spark");
-    assert_eq!(canonical_fleet_box("SPARK-HYDRA-PEER"), "spark");
-    assert_eq!(canonical_fleet_box("turbo"), "turbo");
-    assert_eq!(
-        url_from("spark", 8001, "127.0.0.1", &m),
-        "http://127.0.0.1:8001/v1"
-    );
-    assert!(host_online("spark", &m));
-    assert_eq!(
-        tailnet_lookup("spark", &m).map(|h| h.ip.as_str()),
-        Some("127.0.0.1")
-    );
-}
-
-#[test]
-fn spark_aliases_are_not_hardcoded_without_the_env() {
-    let _g = env_lock();
-    let _aliases = ScopedEnv::unset(SPARK_HOST_ALIASES_ENV);
-    assert_eq!(spark_host_aliases(), vec!["spark"]);
-    assert_eq!(canonical_fleet_box(" Spark "), "spark");
-    assert_eq!(canonical_fleet_box("spark-hydra-peer"), "spark-hydra-peer");
-    let mut m = std::collections::HashMap::new();
-    m.insert(
-        "spark".to_string(),
+        "compute-a".to_string(),
         TailHost {
             ip: "100.64.0.9".into(),
             online: true,
         },
     );
-    // Without aliases the box still resolves through its own tailnet label.
+    // A tailnet label still resolves case-insensitively to its address.
     assert_eq!(
-        url_from("spark", 8001, "127.0.0.1", &m),
+        url_from(" Compute-A ", 8001, "127.0.0.1", &m),
         "http://100.64.0.9:8001/v1"
     );
+    assert!(host_online("compute-a", &m));
     assert_eq!(
-        url_from("spark-hydra-peer", 8001, "127.0.0.1", &m),
+        url_from("elsewhere", 8001, "127.0.0.1", &m),
         "http://127.0.0.1:8001/v1"
     );
 }
 
 #[test]
-fn toymaker_is_a_distinct_spark_peer() {
-    let mut m = std::collections::HashMap::new();
-    m.insert(
-        "toymaker".to_string(),
-        TailHost {
-            ip: "127.0.0.1".into(),
-            online: true,
-        },
-    );
-    assert_eq!(canonical_fleet_box("toymaker"), "toymaker");
-    assert_eq!(
-        url_from("toymaker", 8002, "127.0.0.1", &m),
-        "http://127.0.0.1:8002/v1"
-    );
-    assert!(host_online("toymaker", &m));
-}
-
-#[test]
-fn resolve_club_url_dsflash_env_pin_wins_over_tailnet() {
-    // Local Spark ds4-server is the free `dsflash` seat. Operators pin
-    // ANGEL_DSFLASH_URL to the localhost (or tunnel) surface so the bag does
-    // not resolve to a different tailnet endpoint.
+fn resolve_club_url_local_env_pin_wins_over_tailnet() {
     let _g = env_lock();
-    let _url = ScopedEnv::set("ANGEL_DSFLASH_URL", "http://127.0.0.1:8000/v1");
+    let _url = ScopedEnv::set("ANGEL_LOCAL_URL", "http://127.0.0.1:8000/v1");
     let mut m = std::collections::HashMap::new();
     m.insert(
         "compute-a".to_string(),
@@ -1477,13 +1456,13 @@ fn resolve_club_url_dsflash_env_pin_wins_over_tailnet() {
         },
     );
     assert_eq!(
-        resolve_club_url("DSFLASH", "compute-a", 8000, "127.0.0.1", &m),
+        resolve_club_url("LOCAL", "compute-a", 8000, "127.0.0.1", &m),
         "http://127.0.0.1:8000/v1"
     );
-    // Without the pin, the slot still resolves to the spark host/port.
-    let _clear = ScopedEnv::unset("ANGEL_DSFLASH_URL");
+    // Without the pin, the slot resolves through the tailnet host.
+    let _clear = ScopedEnv::unset("ANGEL_LOCAL_URL");
     assert_eq!(
-        resolve_club_url("DSFLASH", "compute-a", 8000, "127.0.0.1", &m),
+        resolve_club_url("LOCAL", "compute-a", 8000, "127.0.0.1", &m),
         "http://100.64.0.3:8000/v1"
     );
 }
@@ -1492,7 +1471,7 @@ fn resolve_club_url_dsflash_env_pin_wins_over_tailnet() {
 fn missing_tailnet_host_uses_the_loopback_fallback() {
     let m = std::collections::HashMap::new();
     assert_eq!(
-        url_from("atlas", 8080, "127.0.0.1", &m),
+        url_from("gpubox", 8080, "127.0.0.1", &m),
         "http://127.0.0.1:8080/v1"
     );
 }
@@ -1502,11 +1481,10 @@ fn missing_tailnet_host_uses_the_loopback_fallback() {
 fn tailnet_hosts_resolves_live_fleet() {
     let m = live_tailnet_hosts();
     assert!(!m.is_empty(), "tailscale returned no hosts");
-    // The Spark serves gemma/spark; it should resolve to a 100.x address.
-    let spark = m.get("compute-a").expect("compute-a on the tailnet");
-    assert!(spark.ip.starts_with("100."), "got {}", spark.ip);
+    let peer = m.get("compute-a").expect("compute-a on the tailnet");
+    assert!(peer.ip.starts_with("100."), "got {}", peer.ip);
     eprintln!(
-        "resolved gemma → {}",
+        "resolved compute-a → {}",
         url_from("compute-a", 8000, "0.0.0.0", &m)
     );
 }
@@ -1532,7 +1510,7 @@ fn tailnet_status_hang_is_bounded_and_fails_closed() {
 fn host_online_semantics() {
     let mut m = std::collections::HashMap::new();
     m.insert(
-        "turbo".to_string(),
+        "beta".to_string(),
         TailHost {
             ip: "100.0.0.1".into(),
             online: false,
@@ -1546,7 +1524,7 @@ fn host_online_semantics() {
         },
     );
     assert!(host_online("compute-a", &m));
-    assert!(!host_online("turbo", &m), "offline host not auto-selected");
+    assert!(!host_online("beta", &m), "offline host not auto-selected");
     assert!(
         !host_online("absent", &m),
         "absent-from-tailnet → not selectable"
@@ -1561,8 +1539,6 @@ fn instant_practice() -> PracticeClub {
         latency: Duration::ZERO,
     }
 }
-
-struct EchoCoordinatorDriver;
 
 #[test]
 fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
@@ -1631,7 +1607,6 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
     }
     let driver: Arc<dyn Club> = Arc::new(Driver);
     let wrappers: Vec<Box<dyn Club>> = vec![
-        Box::new(GpuCompLocalMoaClub::new(driver.clone())),
         Box::new(crate::agent::swarm::SwarmClub::from_env(
             "swarm",
             driver.clone(),
@@ -1640,10 +1615,10 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
             crate::agent::swarm::SwarmClub::from_env("swarm", Arc::new(Exhausted))
                 .with_quota_fallbacks(vec![driver.clone()]),
         ),
-        Box::new(GpuCompLocalMoaClub::new(Arc::new(FallbackClub::new(vec![
+        Box::new(FallbackClub::new(vec![
             Arc::new(FailingCoordinatorDriver),
             driver,
-        ])))),
+        ])),
     ];
     for wrapper in wrappers {
         let observed = Arc::new(Mutex::new(Vec::new()));
@@ -1719,31 +1694,6 @@ fn attribution_shared_fallback_keeps_concurrent_callers_separate() {
     });
 }
 
-impl Club for EchoCoordinatorDriver {
-    fn respond(&self, prompt: &str) -> Result<String, String> {
-        Ok(prompt.to_string())
-    }
-
-    fn label(&self) -> &str {
-        "turbo"
-    }
-
-    fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-        let system = messages
-            .iter()
-            .find(|m| m.role == ChatRole::System)
-            .map(|m| m.content.as_ref())
-            .unwrap_or("");
-        let user = messages
-            .iter()
-            .rev()
-            .find(|m| m.role == ChatRole::User)
-            .map(|m| m.content.as_ref())
-            .unwrap_or("");
-        Ok(ClubReply::Text(format!("system={system}\nuser={user}")))
-    }
-}
-
 struct FailingCoordinatorDriver;
 
 impl Club for FailingCoordinatorDriver {
@@ -1752,27 +1702,11 @@ impl Club for FailingCoordinatorDriver {
     }
 
     fn label(&self) -> &str {
-        "turbo"
+        "beta"
     }
 
     fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
         Err("upstream returned no text and no tool calls".to_string())
-    }
-}
-
-struct DarkCoordinatorDriver;
-
-impl Club for DarkCoordinatorDriver {
-    fn respond(&self, _prompt: &str) -> Result<String, String> {
-        Err("turbo model not available".to_string())
-    }
-
-    fn label(&self) -> &str {
-        "turbo"
-    }
-
-    fn is_available(&self) -> bool {
-        false
     }
 }
 
@@ -1797,47 +1731,8 @@ fn practice_reports_its_label() {
 }
 
 #[test]
-fn gpu_comp_coordinator_delegates_questions_with_the_mission_contract() {
-    let club = GpuCompLocalMoaClub::new(Arc::new(EchoCoordinatorDriver));
-    assert_eq!(club.label(), "gpu-comp-local-moa");
-    let text = club.respond("what is your primary objective?").unwrap();
-    assert!(text.contains("what is your primary objective?"), "{text}");
-    assert!(text.contains("primary objective"), "{text}");
-    assert!(text.contains("measured experiments"), "{text}");
-    assert!(text.contains("/moa gpu"), "{text}");
-    assert!(
-        text.contains("Do not repeat setup instructions"),
-        "coordinator prompt should prevent the static-card loop: {text}"
-    );
-    assert!(
-        text.contains("one configured Turbo coordinator")
-            && text.contains("without its execution receipt"),
-        "the logical club must identify its actual driver and require dispatch evidence: {text}"
-    );
-}
-
-#[test]
-fn gpu_comp_coordinator_propagates_driver_failure_as_an_error() {
-    let club = GpuCompLocalMoaClub::new(Arc::new(FailingCoordinatorDriver));
-    let err = club
-        .chat(&[ChatMsg::user("continue the overnight run")], &[])
-        .expect_err("driver failure must not masquerade as a successful assistant finding");
-    assert!(err.contains("Turbo driver is not reachable"), "{err}");
-    assert!(err.contains("no text and no tool calls"), "{err}");
-}
-
-#[test]
-fn gpu_comp_coordinator_is_unavailable_when_turbo_is_down() {
-    let club = GpuCompLocalMoaClub::new(Arc::new(DarkCoordinatorDriver));
-    assert!(
-        !club.is_available(),
-        "gpu-comp must not advertise as up when its turbo driver is dark"
-    );
-}
-
-#[test]
 fn in_hand_mode_is_cached_until_the_active_route_changes() {
-    let bag = Bag::for_render_test(&[("spark", &[("swarm", true), ("gemma", true)])]);
+    let bag = Bag::for_render_test(&[("alpha", &[("swarm", true), ("gemma", true)])]);
     let first = bag.in_hand_mode();
     let second = bag.in_hand_mode();
     assert_eq!(first, second);
@@ -1883,147 +1778,21 @@ fn banned_boxes_parses_comma_list_and_ignores_empty() {
         assert!(super::banned_boxes().is_empty());
     }
     {
-        let _set = crate::tests::TestEnvGuard::set("ANGEL_BANNED_BOXES", " Spark, ,turbo ");
+        let _set = crate::tests::TestEnvGuard::set("ANGEL_BANNED_BOXES", " Alpha, ,beta ");
         let banned = super::banned_boxes();
-        assert_eq!(banned.as_ref(), ["spark", "turbo"]);
+        assert_eq!(banned.as_ref(), ["alpha", "beta"]);
     }
 }
 
 #[test]
 fn tabs_are_cached_until_generation_or_availability_changes() {
-    let bag = Bag::for_render_test(&[("spark", &[("swarm", true)]), ("turbo", &[("qwen", true)])]);
+    let bag = Bag::for_render_test(&[("alpha", &[("swarm", true)]), ("beta", &[("qwen", true)])]);
     let first = bag.tabs();
     let second = bag.tabs();
     assert!(
         std::sync::Arc::ptr_eq(&first, &second),
         "unchanged bag must reuse the tab-strip Arc"
     );
-}
-
-#[test]
-fn gpu_comp_config_is_a_visible_logical_tab() {
-    let bag = Bag::for_render_test(&[
-        ("spark", &[("swarm", false)]),
-        ("gpu-comp", &[("local-moa", true)]),
-        ("practice", &[("practice", true)]),
-    ]);
-    let tabs = bag.tabs();
-    assert!(
-        tabs.iter()
-            .any(|t| t.label == "gpu-comp" && t.mode.as_deref() == Some("local-moa")),
-        "tabs: {tabs:?}"
-    );
-    assert!(
-        !tabs.iter().any(|t| t.label == "practice"),
-        "practice remains the hidden local floor: {tabs:?}"
-    );
-}
-
-#[test]
-fn resolve_driver_accepts_gpu_comp_aliases() {
-    let available = Arc::new(AtomicBool::new(true));
-    let mut agents = vec![Agent {
-        name: "gpu-comp".to_string(),
-        slots: vec![Slot {
-            label: "local-moa".to_string(),
-            club: Arc::new(GpuCompLocalMoaClub::new(Arc::new(EchoCoordinatorDriver))),
-            available,
-        }],
-        active: 0,
-    }];
-
-    for pref in [
-        "gpu",
-        "gpu-comp",
-        "gpu_comp_local_moa",
-        "gpu comp local moa",
-        "overnight",
-    ] {
-        assert_eq!(resolve_driver(&mut agents, pref), Some(0), "pref {pref}");
-    }
-}
-
-#[test]
-fn resolve_driver_accepts_mathgod_aliases() {
-    let available = Arc::new(AtomicBool::new(true));
-    let sol: Arc<dyn Club> = Arc::new(LabelClub("gpt-5.6-sol"));
-    let grok: Arc<dyn Club> = Arc::new(LabelClub("grok"));
-    let mut agents = vec![Agent {
-        name: "mathgod".to_string(),
-        slots: vec![Slot {
-            label: "mathgod".to_string(),
-            club: Arc::new(crate::agent::swarm::SwarmClub::mathgod(
-                sol,
-                grok,
-                Vec::new(),
-            )),
-            available,
-        }],
-        active: 0,
-    }];
-    for pref in ["math", "math-god", "mathgod", "math_god"] {
-        assert_eq!(resolve_driver(&mut agents, pref), Some(0), "pref {pref}");
-    }
-}
-
-#[test]
-fn tab_cycle_and_strip_skip_mathgod_unless_already_in_hand() {
-    let mut bag = Bag::for_render_test(&[
-        ("openai", &[("gpt-5.6-sol", true)]),
-        ("mathgod", &[("mathgod", true)]),
-        ("glm", &[("glm-5.3", true)]),
-    ]);
-    assert_eq!(bag.in_hand_label(), "openai");
-    assert!(
-        bag.tabs()
-            .iter()
-            .all(|tab| !tab.label.eq_ignore_ascii_case("mathgod")),
-        "mathgod must not sit in the Tab strip waiting to be landed on"
-    );
-    bag.cycle();
-    assert_eq!(
-        bag.in_hand_label(),
-        "glm",
-        "Tab must skip mathgod and land on the next real box"
-    );
-    bag.cycle();
-    assert_eq!(bag.in_hand_label(), "openai");
-}
-
-#[test]
-fn resolve_driver_accepts_dsflash_aliases() {
-    let available = Arc::new(AtomicBool::new(true));
-    let mut agents = vec![Agent {
-        name: "spark".to_string(),
-        slots: vec![
-            Slot {
-                label: "gemma".to_string(),
-                club: Arc::new(LabelClub("gemma")),
-                available: Arc::clone(&available),
-            },
-            Slot {
-                label: "dsflash".to_string(),
-                club: Arc::new(LabelClub("dsflash")),
-                available: Arc::clone(&available),
-            },
-        ],
-        active: 0,
-    }];
-
-    for pref in [
-        "dsflash",
-        "ds4",
-        "ds-flash",
-        "dsflash-local",
-        "spark-flash",
-        "deepseek-flash-local",
-    ] {
-        assert_eq!(resolve_driver(&mut agents, pref), Some(0), "pref {pref}");
-        assert_eq!(
-            agents[0].active, 1,
-            "pref {pref} should land on the dsflash slot"
-        );
-    }
 }
 
 #[test]
@@ -2315,7 +2084,8 @@ fn sota_tuned_http_body_keeps_native_output_shape_by_default() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") };
 
-    let club = HttpClub::new("sota-caveman-probe", "http://127.0.0.1:9/v1", "m", None).sota_tuned();
+    let club =
+        HttpClub::new("sota-caveman-probe", "https://sota.example/v1", "m", None).sota_tuned();
     let body = club
         .build_body(&[ChatMsg::user("answer this")], &[], false)
         .expect("build SOTA body");
@@ -2330,6 +2100,32 @@ fn sota_tuned_http_body_keeps_native_output_shape_by_default() {
         // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") },
     }
+}
+
+#[test]
+fn caveman_is_on_by_default_for_a_self_hosted_link_and_its_reasoning() {
+    let _guard = env_lock();
+    let ask = [ChatMsg::user("answer this")];
+    let local = HttpClub::new("peer-box", "http://100.99.101.114:8000/v1", "m", None);
+    let _default = ScopedEnv::unset("ANGEL_SOTA_CAVEMAN");
+    let body = local.build_body(&ask, &[], false).expect("local body");
+    let brevity = body["messages"][0]["content"].as_str().unwrap_or_default();
+    assert_eq!(brevity, "⠵⠁⠵⠉⠵⠋", "marker, full level, rules: {body}");
+    assert_eq!(body["messages"][1]["content"], "answer this");
+    let public = HttpClub::new("gateway", "https://gateway.example/v1", "m", None);
+    let body = public.build_body(&ask, &[], false).expect("public body");
+    assert_eq!(
+        body["messages"].as_array().expect("messages").len(),
+        1,
+        "{body}"
+    );
+    let _off = ScopedEnv::set("ANGEL_SOTA_CAVEMAN", "0");
+    let body = local.build_body(&ask, &[], false).expect("local body");
+    assert_eq!(
+        body["messages"].as_array().expect("messages").len(),
+        1,
+        "{body}"
+    );
 }
 
 #[test]
@@ -2349,7 +2145,7 @@ fn sota_caveman_can_be_enabled_for_http_body() {
         messages[0]["content"]
             .as_str()
             .unwrap_or_default()
-            .contains("angelX SOTA brevity mode"),
+            .contains("⠵⠁⠵⠉⠵⠋"),
         "{body}"
     );
     assert_eq!(messages[1]["content"], "answer this");
@@ -2491,6 +2287,29 @@ fn concurrent_metadata_resolution_is_single_flight() {
         hits.load(Ordering::SeqCst),
         1,
         "metadata refresh must not stampede /props under a cold swarm wave"
+    );
+}
+
+/// `/props` is llama.cpp's: a cloud seat (here DeepSeek's contract behind a
+/// local forwarder) reads its window from `/models` without paying a round
+/// trip for each dead `/props` probe before its first request.
+#[test]
+fn a_cloud_seat_skips_the_llama_cpp_props_probes() {
+    let (base, hits, stop, server) = serve_counted_json(r#"{"data":[{"id":"deepseek-flash"}]}"#);
+    let club = HttpClub::new(
+        "deepseek-flash",
+        format!("{base}/v1"),
+        "deepseek-flash",
+        None,
+    )
+    .with_provider_contract(ProviderContract::DeepSeek);
+    let _ = club.metadata();
+    stop.store(true, Ordering::Relaxed);
+    server.join().unwrap();
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        1,
+        "one /models request, no /props"
     );
 }
 
@@ -2800,11 +2619,11 @@ fn tabs_hide_practice_floor() {
         "practice is an internal floor, not a selectable TUI model"
     );
 
-    let mut bag = bag_of(vec![solo("practice", true), solo("turbo", true)]);
+    let mut bag = bag_of(vec![solo("practice", true), solo("beta", true)]);
     bag.cycle();
-    assert_eq!(bag.in_hand_label(), "turbo");
+    assert_eq!(bag.in_hand_label(), "beta");
     assert_eq!(bag.tabs().len(), 1);
-    assert_eq!(bag.tabs()[0].label, "turbo");
+    assert_eq!(bag.tabs()[0].label, "beta");
 }
 
 #[test]
@@ -2818,9 +2637,9 @@ fn settle_moves_off_a_fully_offline_box() {
 
 #[test]
 fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
-    // One box (spark) with modes: swarm(up), gemma(up), coder(down).
-    let spark = Agent {
-        name: "spark".to_string(),
+    // One box (alpha) with modes: swarm(up), gemma(up), coder(down).
+    let alpha = Agent {
+        name: "alpha".to_string(),
         slots: vec![
             slot("swarm", true),
             slot("gemma", true),
@@ -2828,8 +2647,8 @@ fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
         ],
         active: 0,
     };
-    let mut bag = bag_of(vec![spark, solo("atlas", true)]);
-    assert_eq!(bag.in_hand_label(), "spark");
+    let mut bag = bag_of(vec![alpha, solo("gpubox", true)]);
+    assert_eq!(bag.in_hand_label(), "alpha");
     assert_eq!(bag.in_hand_mode().as_deref(), Some("swarm"));
     bag.cycle_sub(true);
     assert_eq!(
@@ -2851,7 +2670,7 @@ fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
     );
     // A single-mode box reports no mode and ignores the subcontrol.
     bag.cycle();
-    assert_eq!(bag.in_hand_label(), "atlas");
+    assert_eq!(bag.in_hand_label(), "gpubox");
     assert_eq!(bag.in_hand_mode().as_deref(), None);
     bag.cycle_sub(true);
     assert_eq!(bag.in_hand_mode().as_deref(), None);
@@ -2861,16 +2680,16 @@ fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
 fn settle_keeps_the_box_and_switches_to_a_live_mode() {
     // Active mode (swarm) dies but gemma on the same box is up → stay on the
     // box, just move the active mode. Don't jump to another box needlessly.
-    let spark = Agent {
-        name: "spark".to_string(),
+    let alpha = Agent {
+        name: "alpha".to_string(),
         slots: vec![slot("swarm", false), slot("gemma", true)],
         active: 0,
     };
-    let mut bag = bag_of(vec![spark, solo("atlas", true)]);
+    let mut bag = bag_of(vec![alpha, solo("gpubox", true)]);
     bag.settle_in_hand();
     assert_eq!(
         bag.in_hand_label(),
-        "spark",
+        "alpha",
         "stays on the box that's still up"
     );
     assert_eq!(
@@ -2897,7 +2716,7 @@ fn tab_landing_settles_onto_a_live_mode() {
 
 #[test]
 fn follow_backend_adopts_a_swapped_checkpoint() {
-    let club = learned_club("turbo", "nex2-mini");
+    let club = learned_club("beta", "nex2-mini");
     assert_eq!(club.live_model_name().as_deref(), Some("nex2-mini"));
     // The rig swaps checkpoints → the club follows the live id.
     club.remember_reported_model(&serde_json::json!({"data": [{"id": "ornith-1.0-35b-turbo"}]}));
@@ -2927,10 +2746,13 @@ fn display_label_prefers_the_live_checkpoint() {
 #[test]
 fn resolve_driver_matches_a_live_model_id() {
     let mut agents = vec![Agent {
-        name: "atlas".to_string(),
+        name: "gpubox".to_string(),
         slots: vec![Slot {
-            label: "atlas".to_string(),
-            club: Arc::new(learned_club("atlas", "Qwen3.6-27B-MTP-pi-tune-Q4_K_M.gguf")),
+            label: "gpubox".to_string(),
+            club: Arc::new(learned_club(
+                "gpubox",
+                "Qwen3.6-27B-MTP-pi-tune-Q4_K_M.gguf",
+            )),
             available: Arc::new(AtomicBool::new(true)),
         }],
         active: 0,
@@ -3013,32 +2835,31 @@ fn endpoint_host_port_parses_only_plain_http() {
 
 #[test]
 fn hydra_targets_take_only_chat_surfaces() {
-    let _g = env_lock();
-    let _aliases = ScopedEnv::set(SPARK_HOST_ALIASES_ENV, "spark-hydra-peer");
     let v = serde_json::json!({"ok": true, "surfaces": [
-        {"surface_id": "turbo:8090", "host_id": "turbo",
+        {"surface_id": "peer-a:8090", "host_id": "peer-a",
          "endpoint": "http://100.64.0.4:8090/v1",
-         "model_id": "ornith-1.0-35b-turbo", "roles": ["chat"]},
-        {"surface_id": "spark-hydra-peer:8001", "host_id": "spark-hydra-peer",
+         "model_id": "qwen3.6-35b", "roles": ["chat"]},
+        {"surface_id": "peer-b:8001", "host_id": "Peer-B",
          "endpoint": "http://127.0.0.1:8001/v1",
-         "model_id": "qwen38-27b", "roles": ["chat"]},
+         "model_id": "qwen3.6-27b", "roles": ["chat"]},
         // A gen surface on the same head is not a chat club.
-        {"surface_id": "apollo.trellis.3dgen", "host_id": "apollo",
+        {"surface_id": "peer-c.trellis.3dgen", "host_id": "peer-c",
          "endpoint": "http://127.0.0.1:18080/v1",
          "model_id": "microsoft/TRELLIS.2-4B", "roles": ["asset.3d", "image-to-3d"]},
         // Chat, but no scannable plain-http endpoint.
         {"surface_id": "cloud", "host_id": "cloud",
          "endpoint": "https://api.example.com/v1", "roles": ["chat"]},
-        // Chat, bare endpoint, blank host_id → host label falls back to the ip.
+        // Chat, bare endpoint, blank host_id.
         {"surface_id": "x", "host_id": "",
          "endpoint": "http://100.66.1.2:8012", "roles": ["chat"]},
     ]});
+    // Every chat surface is another mode of the one `local` box.
     assert_eq!(
         parse_hydra_chat_targets(&v),
         vec![
-            ("turbo".to_string(), "100.64.0.4".to_string(), 8090),
-            ("spark".to_string(), "127.0.0.1".to_string(), 8001),
-            ("100.66.1.2".to_string(), "100.66.1.2".to_string(), 8012),
+            ("local".to_string(), "100.64.0.4".to_string(), 8090),
+            ("local".to_string(), "127.0.0.1".to_string(), 8001),
+            ("local".to_string(), "100.66.1.2".to_string(), 8012),
         ]
     );
     // Degenerate replies parse to nothing rather than erroring.
@@ -3046,13 +2867,18 @@ fn hydra_targets_take_only_chat_surfaces() {
 }
 
 #[test]
-fn default_scan_ports_include_canonical_turbo_serving() {
+fn default_scan_ports_are_standard_server_ports() {
     let _guard = env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_SCAN_PORTS") };
-    assert!(scan_ports().contains(&8093));
-    assert!(scan_ports().contains(&8002));
-    assert!(scan_ports().contains(&18888));
+    let _ports = ScopedEnv::unset("ANGEL_SCAN_PORTS");
+    let ports = scan_ports();
+    for port in [8080, 8000, 1234, 11434, 30000] {
+        assert!(ports.contains(&port), "{port} missing from {ports:?}");
+    }
+    for port in [8093, 8002, 18888, 8360, 8011, 8090, 8092] {
+        assert!(!ports.contains(&port), "personal port {port} in {ports:?}");
+    }
+    let _custom = ScopedEnv::set("ANGEL_SCAN_PORTS", "9000, 9001");
+    assert_eq!(scan_ports(), vec![9000, 9001]);
 }
 
 #[test]
@@ -3169,11 +2995,11 @@ fn parse_params_picks_largest_b_token() {
 fn smartness_ranks_bigger_and_swarm_higher() {
     // Backend-reported params anchor the score; the swarm amplifies its inner
     // model (26B gemma4 × 1.5 tops a raw 27B); an unsized model sits on the floor.
-    let atlas = model_smartness("Qwen3.6-27B", Some(27_320_697_856), false);
+    let gpubox = model_smartness("Qwen3.6-27B", Some(27_320_697_856), false);
     let swarm = model_smartness("gemma4", None, true);
     let coder = model_smartness("qwopus-coder", None, false);
-    assert!(swarm > atlas, "swarm(26B×1.5) should top atlas(27B)");
-    assert!(atlas > coder, "a sized 27B should top an unsized coder");
+    assert!(swarm > gpubox, "swarm(26B×1.5) should top gpubox(27B)");
+    assert!(gpubox > coder, "a sized 27B should top an unsized coder");
 }
 
 #[test]
@@ -3778,11 +3604,6 @@ fn cheap_moa_pool_excludes_metered_frontier_links_and_routes_expected_roles() {
             Arc::new(LabelClub("tencent/hy3:free")),
             Arc::new(AtomicBool::new(true)),
         ),
-        (
-            "gemma".to_string(),
-            Arc::new(LabelClub("gemma")),
-            Arc::new(AtomicBool::new(false)),
-        ),
     ];
     let cheap = ordered_cheap_links(&links);
     assert_eq!(
@@ -3790,7 +3611,7 @@ fn cheap_moa_pool_excludes_metered_frontier_links_and_routes_expected_roles() {
             .iter()
             .map(|(alias, _, _)| alias.as_str())
             .collect::<Vec<_>>(),
-        vec!["gemma", "openrouter", "longcat"]
+        vec!["openrouter", "longcat"]
     );
     assert_eq!(
         pick_sota_role(&cheap, keys[0], SOTA_MOA_CHEAP_PROPOSE_PREFS).label(),
@@ -3811,25 +3632,32 @@ fn cheap_moa_pool_excludes_metered_frontier_links_and_routes_expected_roles() {
 }
 
 #[test]
-fn sota_moa_gemma_extra_proposer_is_default_and_can_be_disabled() {
+fn sota_moa_extra_proposers_are_opt_in() {
     let _guard = env_lock();
     let key = "ANGEL_SOTA_MOA_EXTRA_PROPOSERS";
     let _scrub = scrub_sota_moa_env();
     let breadth: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
         (
-            "gemma".to_string(),
-            Arc::new(LabelClub("gemma")),
+            "glm-5.3".to_string(),
+            Arc::new(LabelClub("glm-5.3")),
             Arc::new(AtomicBool::new(true)),
         ),
         (
-            "atlas".to_string(),
-            Arc::new(LabelClub("atlas")),
+            "kimi".to_string(),
+            Arc::new(LabelClub("kimi-k3")),
             Arc::new(AtomicBool::new(true)),
         ),
     ];
+    assert!(
+        extra_sota_proposers(&breadth).is_empty(),
+        "no default extras"
+    );
+
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var(key, "glm-5.3") };
     let extras = extra_sota_proposers(&breadth);
     assert_eq!(extras.len(), 1);
-    assert_eq!(extras[0].0.label(), "gemma");
+    assert_eq!(extras[0].0.label(), "glm-5.3");
 
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "none") };
@@ -3850,11 +3678,11 @@ fn cheap_moa_link_allowlist_can_hard_pin_longcat_only() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[1], "longcat") };
     // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var(keys[2], "gemma") };
+    unsafe { std::env::set_var(keys[2], "glm-5.3") };
     let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
         (
-            "gemma".to_string(),
-            Arc::new(LabelClub("gemma")),
+            "glm-5.3".to_string(),
+            Arc::new(LabelClub("glm-5.3")),
             Arc::new(AtomicBool::new(true)),
         ),
         (
@@ -3873,47 +3701,8 @@ fn cheap_moa_link_allowlist_can_hard_pin_longcat_only() {
     assert_eq!(cheap[0].0, "longcat");
     assert!(extra_sota_proposers(&links[..1]).is_empty());
     assert!(
-        sota_moa_club_with_breadth(&links[2..], &links[..1]).is_some(),
+        sota_moa_club(&links[2..]).is_some(),
         "cheap homogeneous MoA permits one provider with multiple agent calls"
-    );
-}
-
-#[test]
-fn mathgod_club_is_a_regular_bag_label_when_sol_and_grok_exist() {
-    let bit = || Arc::new(AtomicBool::new(true));
-    let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
-        ("glm".to_string(), Arc::new(LabelClub("glm-5.3")), bit()),
-        ("grok".to_string(), Arc::new(LabelClub("grok-4.6")), bit()),
-        (
-            "openai".to_string(),
-            Arc::new(LabelClub("gpt-5.6-sol")),
-            bit(),
-        ),
-        (
-            "deepseek".to_string(),
-            Arc::new(LabelClub("deepseek-v4-pro")),
-            bit(),
-        ),
-        (
-            "deepseek-flash".to_string(),
-            Arc::new(LabelClub("deepseek-v4-flash")),
-            bit(),
-        ),
-    ];
-    let (club, _) = mathgod_club(&links).expect("mathgod club");
-    assert_eq!(club.label(), "mathgod");
-    let mix: Vec<_> = mathgod_mix_seats(&links, links[2].1.as_ref(), links[1].1.as_ref())
-        .into_iter()
-        .map(|(club, _)| club.label().to_string())
-        .collect();
-    assert_eq!(
-        mix,
-        vec!["glm-5.3".to_string(), "deepseek-v4-pro".to_string()],
-        "mix is GLM + DeepSeek Pro; Flash is not a Math God seat"
-    );
-    assert!(
-        mathgod_club(&links[..2]).is_none(),
-        "no Sol → no mathgod club"
     );
 }
 
@@ -4555,13 +4344,13 @@ fn run_stream(club: &dyn Club, cancel: &AtomicBool) -> (Result<ClubReply, String
 #[test]
 fn fallback_skips_a_dead_primary() {
     let chain: Vec<Arc<dyn Club>> = vec![
-        Arc::new(FailClub("turbo")),
+        Arc::new(FailClub("beta")),
         Arc::new(PracticeClub {
             latency: Duration::ZERO,
         }),
     ];
     let fc = FallbackClub::new(chain);
-    assert_eq!(fc.label(), "turbo", "reports the primary label");
+    assert_eq!(fc.label(), "beta", "reports the primary label");
     let (r, _) = run_stream(&fc, &AtomicBool::new(false));
     assert!(
         matches!(r, Ok(ClubReply::Text(_))),
@@ -7360,7 +7149,7 @@ fn qwen3_dialect_toggles_enable_thinking() {
     let _per_club = ScopedEnv::unset("ANGEL_ATLAS_REASONING_EFFORT");
     let _global = ScopedEnv::unset("ANGEL_REASONING_EFFORT");
     resync_reasoning_effort_env_from_env();
-    let club = HttpClub::new("atlas", "http://127.0.0.1:9/v1", "qwen3.6-27b", None);
+    let club = HttpClub::new("gpubox", "http://127.0.0.1:9/v1", "qwen3.6-27b", None);
     let body = club
         .build_body_with_effort(&[ChatMsg::user("hi")], &[], false, Some("high"))
         .expect("build body");
@@ -7439,6 +7228,7 @@ fn glm_dialect_is_capability_truth_over_name_substring_metadata() {
 #[test]
 fn econ_contract_keeps_extraction_provider_native_by_default() {
     let _guard = env_lock();
+    let _cave = ScopedEnv::set("ANGEL_SOTA_CAVEMAN", "0");
     let _econ = ScopedEnv::unset("ANGEL_ECON");
     let _cap = ScopedEnv::unset("ANGEL_ECON_EXTRACT_MAX_TOKENS");
     let _global = ScopedEnv::unset("ANGEL_CLUB_MAX_TOKENS");
@@ -7548,6 +7338,7 @@ fn stop_seqs_env_applies_per_club() {
 #[test]
 fn optimizer_dup_scopes_to_free_declared_nonreasoning() {
     let _guard = env_lock();
+    let _cave = ScopedEnv::set("ANGEL_SOTA_CAVEMAN", "0");
     let _dup = ScopedEnv::unset("ANGEL_OPT_DUP");
     let _cap = ScopedEnv::unset("ANGEL_OPT_DUP_MAX_CHARS");
     let meta = Metadata {
@@ -7692,7 +7483,7 @@ fn effort_scoped_club_cannot_be_overridden_by_a_nested_per_call_request() {
 /// one direct-answer retry; the reminder rides in the request body without
 /// touching history, and the recovered answer is returned as plain text.
 #[test]
-fn reasoning_only_stream_retries_with_direct_answer_reminder() {
+fn reasoning_only_stream_retries_with_the_empty_reply_cue() {
     let _guard = env_lock();
     use std::io::{Read, Write};
     use std::net::TcpListener;
@@ -7747,24 +7538,25 @@ fn reasoning_only_stream_retries_with_direct_answer_reminder() {
         2,
         "exactly one retry after a reasoning-only stream"
     );
-    assert!(
-        !reqs[0].contains("Skip the reasoning"),
-        "the first request must not carry the recovery reminder"
-    );
-    assert!(
-        reqs[1].contains("Skip the reasoning"),
-        "the retry must carry the direct-answer reminder"
-    );
-    let retry_body = reqs[1]
-        .split_once("\r\n\r\n")
-        .and_then(|(_, body)| serde_json::from_str::<serde_json::Value>(body).ok())
-        .expect("retry request JSON");
-    let retry_messages = retry_body["messages"].as_array().expect("retry messages");
+    let body = |raw: &str| {
+        raw.split_once("\r\n\r\n")
+            .and_then(|(_, body)| serde_json::from_str::<serde_json::Value>(body).ok())
+            .expect("request JSON")
+    };
+    let (first, retry) = (body(&reqs[0]), body(&reqs[1]));
+    let first_messages = first["messages"].as_array().expect("first messages");
+    let retry_messages = retry["messages"].as_array().expect("retry messages");
+    // The retry is the same request plus its `⠭⠛` cue (answer directly: no
+    // tools were offered) as a trailing user line: no prose, and the prefix is
+    // byte-identical for caching servers.
+    assert_eq!(retry_messages.len(), first_messages.len() + 1);
     assert_eq!(
-        retry_messages[0]["role"], "system",
-        "strict Qwen templates require the recovery system block first"
+        &retry_messages[..first_messages.len()],
+        first_messages.as_slice()
     );
-    assert_eq!(retry_messages[1]["role"], "user");
+    let cue = retry_messages.last().unwrap();
+    assert_eq!(cue["role"], "user");
+    assert_eq!(cue["content"], "⠭⠛");
 }
 
 /// Two reasoning-only buffered replies in a row: the single retry fires, then
@@ -7792,8 +7584,8 @@ fn reasoning_only_buffered_reply_retries_once_then_fails_closed() {
         "exactly one retry attempt, then the original error"
     );
     assert!(
-        reqs[1].contains("Skip the reasoning"),
-        "the retry body must carry the direct-answer reminder"
+        reqs[1].contains("⠭⠛"),
+        "the retry body must carry the direct-answer route"
     );
 }
 
@@ -7811,7 +7603,7 @@ fn vllm_reasoning_only_buffered_reply_retries_once_then_fails_closed() {
     assert!(error.contains("reasoning but no answer"), "{error}");
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert!(requests[1].contains("Skip the reasoning"));
+    assert!(requests[1].contains("⠭⠛"));
 }
 
 #[test]
@@ -8557,50 +8349,6 @@ fn d06b_practice_identity_records_opt_in() {
 }
 
 #[test]
-fn final_mile_native_drivers_retain_schemas_and_disable_calls() {
-    let _guard = env_lock();
-    let tools = [ToolDef {
-        name: "read_file".into(),
-        description: "Read".into(),
-        params: serde_json::json!({"type":"object", "properties":{}}),
-    }];
-    for (label, model) in [
-        ("openrouter", "offline-model"),
-        ("openai", "gpt-5"),
-        ("grok", "grok-4.6"),
-    ] {
-        let club = HttpClub::new(label, "http://127.0.0.1:9/v1", model, None);
-        let mut messages = vec![ChatMsg::system("stable"), ChatMsg::user("work")];
-        let before = club.build_body(&messages, &tools, true).unwrap();
-        messages.push(ChatMsg::harness(FINAL_MILE_ANSWER_NUDGE));
-        let after = club.build_body(&messages, &tools, true).unwrap();
-        assert_eq!(before["tools"], after["tools"], "{label}");
-        assert_eq!(after["tool_choice"], "none", "{label}");
-        assert_eq!(before["model"], after["model"]);
-        let old = before["messages"].as_array().unwrap();
-        assert_eq!(
-            old.as_slice(),
-            &after["messages"].as_array().unwrap()[..old.len()]
-        );
-        messages.push(ChatMsg::user("continue"));
-        assert!(!final_response_requested(&messages));
-        assert!(
-            club.build_body(&messages, &tools, true)
-                .unwrap()
-                .get("tool_choice")
-                .is_none()
-        );
-    }
-    assert!(!final_response_requested(&[ChatMsg::user(
-        FINAL_MILE_ANSWER_NUDGE
-    )]));
-    assert!(!final_response_requested(&[ChatMsg::tool(
-        "x",
-        FINAL_MILE_ANSWER_NUDGE
-    )]));
-}
-
-#[test]
 fn sota_moa_configured_remote_extra_participates_and_names_both_seats() {
     let _lock = env_lock();
     let _scrub = scrub_sota_moa_env();
@@ -8647,7 +8395,7 @@ fn sota_moa_configured_remote_extra_participates_and_names_both_seats() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let formation = sota_moa_club_with_breadth(&links, &[]).unwrap();
+    let formation = sota_moa_club(&links).unwrap();
     let mut telemetry = String::new();
     formation
         .chat_streaming(
@@ -8699,4 +8447,282 @@ fn model_choices_collapse_shared_aliases_but_preserve_distinct_connections() {
         choices,
         "cache retains the same visible identity"
     );
+}
+
+#[test]
+fn openai_api_transport_selection_is_narrow_and_invalid_config_is_visible() {
+    for model in [
+        "gpt-6-astra",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-6-astra-2026-09-25",
+    ] {
+        assert_eq!(
+            openai_api_uses_responses("https://api.openai.com/v1", model, None),
+            Ok(true)
+        );
+    }
+    for (base, model) in [
+        ("http://api.openai.com/v1", "gpt-6-astra"),
+        ("https://api.openai.com.evil.invalid/v1", "gpt-6-astra"),
+        ("https://gateway.invalid/v1", "gpt-6-astra"),
+        ("https://api.openai.com/custom", "gpt-6-astra"),
+        ("https://api.openai.com/v1", "custom-gpt-6-astra"),
+        ("https://api.openai.com/v1", "gpt-6-astra-custom"),
+        ("https://api.openai.com/v1", "gpt-5.6-sol"),
+    ] {
+        assert_eq!(openai_api_uses_responses(base, model, None), Ok(false));
+    }
+    assert_eq!(
+        openai_api_uses_responses("http://gateway/v1", "custom", Some("responses")),
+        Ok(true)
+    );
+    assert_eq!(
+        openai_api_uses_responses("https://api.openai.com/v1", "gpt-6-astra", Some("chat")),
+        Ok(false)
+    );
+    let _guard = env_lock();
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "openai");
+    let _key = ScopedEnv::set("ANGEL_OPENAI_KEY", "fixture-key");
+    let _model = ScopedEnv::set("ANGEL_OPENAI_API_MODEL", "gpt-6-astra");
+    let _url = ScopedEnv::set("ANGEL_OPENAI_API_URL", "http://127.0.0.1:1/v1");
+    let _transport = ScopedEnv::set("ANGEL_OPENAI_API_TRANSPORT", "typo");
+    let (_, route, _) = optional_openai_api_http_club().expect("bad config remains visible");
+    assert!(
+        route.is_available(),
+        "API key availability does not need an OAuth login"
+    );
+    let error = route.chat(&[ChatMsg::user("inspect")], &[]).unwrap_err();
+    assert!(error.contains("ANGEL_OPENAI_API_TRANSPORT"), "{error}");
+    let _disabled = ScopedEnv::set("ANGEL_API_CLUBS", "none");
+    assert!(optional_openai_api_http_club().is_none());
+}
+
+#[test]
+fn openai_api_responses_preserves_effort_caps_auth_tools_and_formation_accounting() {
+    use crate::agent::harness::formation_budget::{Budget, enter};
+    use std::io::Write;
+    let _guard = env_lock();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        let request = read_http_request(&mut socket);
+        socket
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            )
+            .unwrap();
+        writeln!(socket, "data: {}\n", serde_json::json!({"type":"response.output_item.done", "item":{"type":"function_call","id":"fc-test","call_id":"call-test","name":"inspect","arguments":"{}"}})).unwrap();
+        writeln!(socket, "data: {}\n", serde_json::json!({"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":3,"input_tokens_details":{"cached_tokens":2}}}})).unwrap();
+        request
+    });
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "openai");
+    let _key = ScopedEnv::set("ANGEL_OPENAI_KEY", "fixture-key");
+    let _model = ScopedEnv::set("ANGEL_OPENAI_API_MODEL", "gpt-6-astra");
+    let _url = ScopedEnv::set("ANGEL_OPENAI_API_URL", &format!("http://{addr}/v1"));
+    let _transport = ScopedEnv::set("ANGEL_OPENAI_API_TRANSPORT", "responses");
+    let _effort = ScopedEnv::set("ANGEL_OPENAI_API_REASONING_EFFORT", "high");
+    let _cap = ScopedEnv::set("ANGEL_OPENAI_API_MAX_TOKENS", "8192");
+    resync_reasoning_effort_env_from_env();
+    resync_max_tokens_env_from_env();
+    let (_, route, _) = optional_openai_api_http_club().unwrap();
+    assert!(route.supports_formation_budget());
+    assert_eq!(route.reasoning_effort().as_deref(), Some("high"));
+    assert_eq!(route.env_namespace(), Some("OPENAI_API"));
+    assert!(matches!(
+        route.route_metadata().output_budget,
+        OutputBudgetPolicy::Explicit {
+            tokens: 8192,
+            source: OutputBudgetSource::PerClubEnv
+        }
+    ));
+    let budget = Budget::new(Some(1), None);
+    let _budget = enter(Some(budget.clone()));
+    let reply = route
+        .chat(
+            &[ChatMsg::user("inspect")],
+            &[ToolDef {
+                name: "inspect".into(),
+                description: "inspect fixture".into(),
+                params: serde_json::json!({"type":"object","properties":{}}),
+            }],
+        )
+        .unwrap();
+    assert!(matches!(reply, ClubReply::Calls(ref calls) if calls[0].name == "inspect"));
+    let request = server.join().unwrap();
+    let (headers, body) = request.split_once("\r\n\r\n").unwrap();
+    assert!(headers.starts_with("POST /v1/responses "));
+    let headers = headers.to_ascii_lowercase();
+    assert!(headers.contains("authorization: bearer fixture-key"));
+    for name in [
+        "chatgpt-account-id",
+        "session_id",
+        "originator",
+        "openai-beta",
+    ] {
+        assert!(!headers.contains(name));
+    }
+    let body: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(body["model"], "gpt-6-astra");
+    assert_eq!(body["reasoning"]["effort"], "high");
+    assert_eq!(
+        body["max_output_tokens"], 1024,
+        "shared allocation fits actual Responses output field"
+    );
+    assert_eq!(body["tools"][0]["name"], "inspect");
+    assert_eq!(body["tools"][0]["strict"], false);
+    assert!(body.get("messages").is_none());
+    assert!(
+        body.get("include").is_none(),
+        "custom endpoints do not inherit OAuth selectors"
+    );
+    let snapshot = budget.snapshot();
+    assert_eq!(snapshot["reserved"], 0);
+    assert_eq!(snapshot["spent"], 13);
+    assert_eq!(snapshot["calls"][0]["requested_output"], 8192);
+    assert_eq!(snapshot["calls"][0]["max_output"], 1024);
+    assert_eq!(snapshot["calls"][0]["settled"], true);
+}
+
+#[test]
+fn openai_api_responses_preserves_global_caps_and_rejects_invalid_effort_before_network() {
+    let _guard = env_lock();
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "openai");
+    let _key = ScopedEnv::set("ANGEL_OPENAI_KEY", "fixture-key");
+    let _model = ScopedEnv::set("ANGEL_OPENAI_API_MODEL", "gpt-6-astra");
+    let _url = ScopedEnv::set("ANGEL_OPENAI_API_URL", "http://127.0.0.1:1/v1");
+    let _transport = ScopedEnv::set("ANGEL_OPENAI_API_TRANSPORT", "responses");
+    let _effort = ScopedEnv::set("ANGEL_OPENAI_API_REASONING_EFFORT", "none");
+    let _cap = ScopedEnv::unset("ANGEL_OPENAI_API_MAX_TOKENS");
+    let _global = ScopedEnv::set("ANGEL_CLUB_MAX_TOKENS", "512");
+    resync_reasoning_effort_env_from_env();
+    resync_max_tokens_env_from_env();
+    let (_, route, _) = optional_openai_api_http_club().unwrap();
+    assert!(matches!(
+        route.route_metadata().output_budget,
+        OutputBudgetPolicy::Explicit {
+            tokens: 512,
+            source: OutputBudgetSource::GlobalEnv
+        }
+    ));
+    let error = route.chat(&[ChatMsg::user("inspect")], &[]).unwrap_err();
+    assert!(
+        error.contains("effort") && error.contains("none"),
+        "{error}"
+    );
+    let _global = ScopedEnv::unset("ANGEL_CLUB_MAX_TOKENS");
+    resync_max_tokens_env_from_env();
+    assert_eq!(
+        route.route_metadata().output_budget,
+        OutputBudgetPolicy::ProviderNative
+    );
+}
+
+#[test]
+fn openai_api_responses_settles_failed_cancelled_and_incomplete_attempts() {
+    use crate::agent::harness::formation_budget::{Budget, RequestWallScope, enter};
+    use std::io::Write;
+    let _guard = env_lock();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        for scenario in 0..3 {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            read_http_request(&mut socket);
+            if scenario == 0 {
+                socket.write_all(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+            } else {
+                socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n").unwrap();
+                writeln!(
+                    socket,
+                    "data: {}\n",
+                    serde_json::json!({"type":"response.output_text.delta","delta":"partial"})
+                )
+                .unwrap();
+                let _ = writeln!(
+                    socket,
+                    "data: {}\n",
+                    serde_json::json!({"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"}}})
+                );
+            }
+        }
+    });
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "openai");
+    let _key = ScopedEnv::set("ANGEL_OPENAI_KEY", "fixture-key");
+    let _model = ScopedEnv::set("ANGEL_OPENAI_API_MODEL", "gpt-6-astra");
+    let _url = ScopedEnv::set("ANGEL_OPENAI_API_URL", &format!("http://{addr}/v1"));
+    let _transport = ScopedEnv::set("ANGEL_OPENAI_API_TRANSPORT", "responses");
+    let _effort = ScopedEnv::set("ANGEL_OPENAI_API_REASONING_EFFORT", "low");
+    let _cap = ScopedEnv::set("ANGEL_OPENAI_API_MAX_TOKENS", "8192");
+    resync_reasoning_effort_env_from_env();
+    resync_max_tokens_env_from_env();
+    let (_, route, _) = optional_openai_api_http_club().unwrap();
+    for scenario in 0..3 {
+        let budget = Budget::new(Some(1), None);
+        let _budget = enter(Some(budget.clone()));
+        let cancel = AtomicBool::new(false);
+        let result =
+            route.chat_streaming(&[ChatMsg::user("inspect")], &[], &cancel, &mut |delta| {
+                if scenario == 1 && matches!(delta, StreamDelta::Content(_)) {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+            });
+        if scenario == 0 {
+            assert!(result.is_err());
+        }
+        if scenario == 2 {
+            let ClubReply::Text(text) = result.unwrap() else {
+                panic!("partial text")
+            };
+            assert!(
+                text.contains("1024"),
+                "actual formation-fitted cap must label truncation: {text}"
+            );
+            assert!(!text.contains("plan-managed") && !text.contains("8192"));
+        }
+        let snapshot = budget.snapshot();
+        assert_eq!(snapshot["reserved"], 0);
+        assert_eq!(snapshot["calls"][0]["settled"], true);
+        assert!(
+            snapshot["spent"].is_null(),
+            "missing provider usage remains unknown"
+        );
+    }
+    server.join().unwrap();
+    let budget = Budget::new(Some(100), None);
+    let _budget = enter(Some(budget.clone()));
+    let _wall = RequestWallScope::enter(std::time::Instant::now());
+    let error = route.chat(&[ChatMsg::user("too late")], &[]).unwrap_err();
+    assert!(error.contains("deadline"), "{error}");
+    assert!(
+        budget.snapshot()["calls"].as_array().unwrap().is_empty(),
+        "no reservation before an already-expired request"
+    );
+}
+
+#[test]
+fn econ_contract_rides_as_its_route_when_the_request_offers_tools() {
+    let ask = [ChatMsg::user("Return only the JSON, nothing else")];
+    let route = crate::agent::harness::book::ing_drivers::OUTPUT_CONTRACT.cells();
+    // A request offering tools offers the ledger reader: the route rides.
+    assert_eq!(
+        crate::agent::club::provision::econ_contract(&ask, true).as_deref(),
+        Some(route.as_str())
+    );
+    // A tool-less request cannot reach the ledger: the prose stays.
+    assert!(
+        crate::agent::club::provision::econ_contract(&ask, false)
+            .unwrap()
+            .contains("angelX output contract")
+    );
+    // Either form counts as already spliced.
+    let spliced = [ChatMsg::system(route.as_str()), ask[0].clone()];
+    assert!(crate::agent::club::provision::econ_contract(&spliced, true).is_none());
 }

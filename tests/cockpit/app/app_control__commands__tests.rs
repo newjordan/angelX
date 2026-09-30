@@ -357,8 +357,10 @@ fn goal_block_is_deduped_to_the_latest_turn() {
 
 #[test]
 fn strip_removes_both_blocks_but_keeps_other_steers() {
+    // The goal's field lines open with the header's own cells (`⠗⠃⠃ …`); only
+    // the whole `⠗⠃` line closes the block.
     let goal = format!(
-        "{}\nship\n{}\n\n",
+        "{}\n⠗⠃⠃ \"ship\"\n⠗⠃⠙ \"cargo test\"\n{}\n\n",
         crate::drive::goal::GOAL_BLOCK_HEADER,
         crate::drive::goal::GOAL_BLOCK_SENTINEL
     );

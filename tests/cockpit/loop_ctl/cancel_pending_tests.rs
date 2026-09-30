@@ -31,6 +31,7 @@ fn stop_retains_verify_owner_and_discards_late_green_without_resuming() {
                 passed: true,
                 summary: "retired verifier green must not apply".into(),
                 detail: String::new(),
+                receipt: None,
             })
             .unwrap();
         app.advance();

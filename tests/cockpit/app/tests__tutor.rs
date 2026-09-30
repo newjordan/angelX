@@ -81,7 +81,7 @@ fn tutor_direct_question_routes_to_an_answer_without_fabricated_source_access() 
     let sent = requests.lock().unwrap();
     assert_eq!(sent.len(), 1);
     assert!(sent[0].contains("How do policy gradients use returns?"));
-    assert!(sent[0].contains("not retrieved source material"));
+    assert!(sent[0].contains("⠬⠃"));
     assert!(
         app.messages
             .iter()
@@ -129,7 +129,10 @@ fn tutor_sending_a_question_restores_work_and_keeps_loading_context_honest() {
             .content
             .contains("Why is an eigenvector useful?")
     );
-    assert!(request.user_msg.content.contains("catalog pointer"));
+    // The handoff is `⠬⠛`, whose pages say the curriculum is a catalog pointer.
+    let handoff = crate::agent::harness::book::ing_drivers::TUTOR_HANDOFF;
+    assert!(request.user_msg.content.contains(&handoff.cells()));
+    assert!(handoff.sub().pages.join(" ").contains("catalog pointer"));
     assert!(
         !request.user_msg.content.contains("reference text"),
         "unreceived reference was claimed as evidence"
@@ -150,7 +153,7 @@ fn tutor_bare_ask_and_unknown_multiword_question_are_available_without_a_lesson(
     app.submit();
     let pending = app.pending_turn.as_ref().unwrap();
     assert!(pending.user_msg.content.contains("frobnication"));
-    assert!(pending.user_msg.content.contains("Explain uncertainty"));
+    assert!(pending.user_msg.content.contains("⠬⠃"));
 }
 
 #[cfg(test)]

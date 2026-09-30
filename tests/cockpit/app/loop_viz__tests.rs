@@ -465,3 +465,54 @@ fn yukon_fleet_line_pulses_live_rows_and_counts_every_status() {
             .any(|span| span.style.fg == Some(TUI_ALERT_RED))
     );
 }
+
+#[test]
+fn an_in_flight_slot_weaves_a_constellation_and_a_verdict_clears_it() {
+    let in_flight = SubmissionSlotTelemetry {
+        phase: SubmissionSlotPhase::InFlight,
+        id: Some("5b198ddf-f5d4-4975-802b-6e43a94282f6".into()),
+        ..Default::default()
+    };
+    let line = slot_line(&in_flight, Some(25.0 * 60.0), 3.5, 64);
+    let rendered = flatten_line(&line);
+    assert_eq!(line_width(&line), 64, "{rendered:?}");
+    assert!(rendered.contains("PENDING · a94282f6"), "{rendered:?}");
+    assert!(
+        rendered
+            .chars()
+            .any(|ch| ('\u{2801}'..='\u{28FF}').contains(&ch)),
+        "the constellation draws braille dots: {rendered:?}"
+    );
+    let trench_tones = [
+        TUI_PHOSPHOR_DIM,
+        TUI_PHOSPHOR,
+        TUI_PHOSPHOR_HOT,
+        TUI_WARNING_AMBER,
+    ];
+    assert!(
+        line.spans
+            .iter()
+            .filter_map(|span| span.style.fg)
+            .all(|fg| trench_tones.contains(&fg)),
+        "the bar stays on the trench palette"
+    );
+
+    // No flight clock, a verdict, or no room: the plain line, exactly.
+    assert_eq!(
+        slot_line(&in_flight, None, 3.5, 64),
+        submission_slot_line(&in_flight, 64)
+    );
+    let accepted = SubmissionSlotTelemetry {
+        phase: SubmissionSlotPhase::Accepted,
+        score: Some("629.9M".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        slot_line(&accepted, Some(25.0 * 60.0), 3.5, 64),
+        submission_slot_line(&accepted, 64)
+    );
+    assert_eq!(
+        slot_line(&in_flight, Some(60.0), 3.5, 30),
+        submission_slot_line(&in_flight, 30)
+    );
+}

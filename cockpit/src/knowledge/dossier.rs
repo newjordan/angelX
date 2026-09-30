@@ -22,9 +22,11 @@
 
 use std::path::{Path, PathBuf};
 
-pub(crate) const DOSSIER_BLOCK_HEADER: &str =
-    "[repo dossier — what angel has verified about this workspace]";
-pub(crate) const DOSSIER_BLOCK_SENTINEL: &str = "[/dossier]";
+/// The block opens and closes on the dossier's route, `⠸⠁`: its frame is the
+/// ledger pages, its fact lines the data. Inside the `⠎⠃` evidence fence the
+/// route lines stay readable (`book::d456_knowledge::store_route`).
+pub(crate) const DOSSIER_BLOCK_HEADER: &str = "⠸⠁";
+pub(crate) const DOSSIER_BLOCK_SENTINEL: &str = "⠸⠁";
 
 const DEFAULT_MIN_BELIEF: f64 = 0.70;
 const DEFAULT_MAX_BYTES: usize = 2048;
@@ -198,22 +200,30 @@ fn iso_day(value: &str) -> Option<i64> {
 ///
 /// Pure, and it reads the **final** block text, so a line the byte cap dropped is
 /// correctly not counted as asserted. Traps ride along with rituals deliberately:
-/// ``trap: `X` fails here`` puts `X` in the agent's mouth exactly as a ritual
+/// a trap (`⠸⠁⠙`, ``trap: `X` fails here``) puts `X` in the agent's mouth exactly as a ritual
 /// does, and a run of it is no more independent.
 pub(crate) fn asserted_commands(block: &str) -> Vec<String> {
+    let trap = crate::agent::harness::book::d456_knowledge::DOSSIER_TRAP.cells();
     block
         .lines()
         .filter_map(|line| {
-            // Fact lines are `<label>: \`<command>\` (…)`. The prose lines ("last
-            // session here: …"), the header, and the sentinel have no such shape.
-            let (label, rest) = line.split_once(": ")?;
-            let labelled = !label.is_empty()
-                && label
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
-            if !labelled {
-                return None;
-            }
+            // Fact lines are `<label>: \`<command>\` (…)`, a trap its page
+            // address then `\`<command>\` (…)`. The thread line, the withheld
+            // count, the header, and the sentinel have no such shape.
+            let rest = match line.strip_prefix(trap.as_str()) {
+                Some(rest) => rest.strip_prefix(' ')?,
+                None => {
+                    let (label, rest) = line.split_once(": ")?;
+                    let labelled = !label.is_empty()
+                        && label
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+                    if !labelled {
+                        return None;
+                    }
+                    rest
+                }
+            };
             let (cmd, _) = rest.strip_prefix('`')?.split_once('`')?;
             let cmd = cmd.trim();
             (!cmd.is_empty()).then(|| cmd.to_string())
@@ -327,7 +337,11 @@ pub(crate) fn render_block(
                     .unwrap_or_default();
                 lines.push(format!("{class}: `{text}` ({evidence}{dur})"));
             }
-            Some("trap") => lines.push(format!("trap: `{text}` fails here ({evidence})")),
+            // `⠸⠁⠙`, the command and its evidence beside it.
+            Some("trap") => lines.push(format!(
+                "{} `{text}` ({evidence})",
+                crate::agent::harness::book::d456_knowledge::DOSSIER_TRAP.cells()
+            )),
             _ => {}
         }
     }
@@ -339,11 +353,13 @@ pub(crate) fn render_block(
             let driver = thread
                 .get("driver")
                 .and_then(|v| v.as_str())
-                .map(|d| format!(" ({d})"))
+                .map(|d| format!(" driver={d}"))
                 .unwrap_or_default();
+            // `⠸⠁⠑`, the session's age, stop and driver beside it.
             lines.push(format!(
-                "last session here: {}, ended with {stop}{driver}",
-                ago(now, ts)
+                "{} age={} stop={stop}{driver}",
+                crate::agent::harness::book::d456_knowledge::DOSSIER_THREAD.cells(),
+                age(now, ts)
             ));
         }
     }
@@ -352,8 +368,13 @@ pub(crate) fn render_block(
         return String::new();
     }
     if withheld > 0 {
+        // `⠸⠁⠉`, the count and the belief threshold beside it.
         lines.push(format!(
-            "({withheld} fact(s) below {min_belief:.2} belief withheld pending re-verification)"
+            "{} withheld={withheld} min_belief={min_belief:.2}",
+            crate::agent::harness::book::d3_roles::pages(
+                crate::agent::harness::book::d456_knowledge::DOSSIER,
+                [3]
+            )
         ));
     }
 
@@ -437,14 +458,19 @@ pub(crate) fn status_text(workspace: &Path) -> String {
     out
 }
 
-/// Compact "how long ago" for the thread line.
-fn ago(now: u64, ts: u64) -> String {
+/// Compact age for the thread line (`2h`).
+fn age(now: u64, ts: u64) -> String {
     let secs = now.saturating_sub(ts);
     match secs {
-        0..=3_599 => format!("{}m ago", (secs / 60).max(1)),
-        3_600..=86_399 => format!("{}h ago", secs / 3_600),
-        _ => format!("{}d ago", secs / 86_400),
+        0..=3_599 => format!("{}m", (secs / 60).max(1)),
+        3_600..=86_399 => format!("{}h", secs / 3_600),
+        _ => format!("{}d", secs / 86_400),
     }
+}
+
+/// Compact "how long ago" for the operator's `/dossier` view.
+fn ago(now: u64, ts: u64) -> String {
+    format!("{} ago", age(now, ts))
 }
 
 fn now_secs() -> u64 {

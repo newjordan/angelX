@@ -85,20 +85,35 @@ impl PrivateDirectory {
 
     fn open_at(&self, name: &OsStr, flags: i32) -> io::Result<File> {
         let name = component(name)?;
-        // SAFETY: openat receives a live directory and C string. Ownership of
-        // the returned descriptor is transferred once into File.
-        let fd = unsafe {
-            libc::openat(
-                self.0.as_raw_fd(),
-                name.as_ptr(),
-                flags | libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK,
-                0o600,
-            )
-        };
-        if fd < 0 {
-            Err(io::Error::last_os_error())
+        // On macOS, threads creating the same new name at once can see
+        // O_CREAT fail with ENOENT; the name exists by the next attempt
+        // (16 racing threads never needed a third). Without the retry
+        // concurrent first appends to a ledger or lock file were lost.
+        let attempts = if cfg!(target_os = "macos") && flags & libc::O_CREAT != 0 {
+            3
         } else {
-            Ok(unsafe { File::from_raw_fd(fd) })
+            1
+        };
+        let mut attempt = 1;
+        loop {
+            // SAFETY: openat receives a live directory and C string. Ownership
+            // of the returned descriptor is transferred once into File.
+            let fd = unsafe {
+                libc::openat(
+                    self.0.as_raw_fd(),
+                    name.as_ptr(),
+                    flags | libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK,
+                    0o600,
+                )
+            };
+            if fd >= 0 {
+                return Ok(unsafe { File::from_raw_fd(fd) });
+            }
+            let error = io::Error::last_os_error();
+            if attempt == attempts || error.kind() != io::ErrorKind::NotFound {
+                return Err(error);
+            }
+            attempt += 1;
         }
     }
 

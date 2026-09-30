@@ -323,7 +323,8 @@ fn a_steer_releasing_the_request_does_not_pause_the_loop() {
     fixture("steer-release", |root| {
         let (mut app, held, _calls) = held_app(root);
         // What queue_steer does while the provider holds the request.
-        app.steer_queue.push(ChatMsg::user("look at the carrier first"));
+        app.steer_queue
+            .push(ChatMsg::user("look at the carrier first"));
         app.thinking.as_mut().unwrap().steer_interrupt_fired = true;
         held.cancel.store(true, Ordering::Release);
         settle_interrupted(&mut app, &held);
@@ -346,5 +347,74 @@ fn an_interrupt_without_a_queued_steer_still_pauses_the_loop() {
         app.thinking.as_mut().unwrap().steer_interrupt_fired = true;
         settle_interrupted(&mut app, &held);
         assert_eq!(app.loop_ctl.status, LoopStatus::Paused);
+    });
+}
+
+#[test]
+fn a_loop_turn_folds_the_provider_spend_into_loop_tokens() {
+    // Pinning seat 2026-09-25: the loop recorded only its own estimates, never
+    // the tokens the provider reported for the iteration's hops.
+    struct Metered;
+    impl Club for Metered {
+        fn label(&self) -> &str {
+            "metered"
+        }
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("ok".into())
+        }
+        fn token_usage(&self) -> Option<crate::agent::club::TokenUsage> {
+            Some(crate::agent::club::TokenUsage {
+                turns: 41,
+                total_input: 3_100_000,
+                total_output: 42_000,
+                ..Default::default()
+            })
+        }
+        fn cache_usage(&self) -> crate::agent::club::CacheUsage {
+            crate::agent::club::CacheUsage {
+                read_input_tokens: 2_900_000,
+                read_accounting_responses: 41,
+                ..Default::default()
+            }
+        }
+    }
+    fixture("provider-spend", |root| {
+        let (mut app, held, _calls) = held_app(root);
+        app.loop_ctl.iteration_input_estimate = 77;
+        let thinking = app.thinking.as_mut().unwrap();
+        thinking.club = Some(Arc::new(Metered));
+        thinking.spawn_usage = crate::agent::turn::published_spawn_usage(
+            Some(crate::agent::club::TokenUsage {
+                turns: 1,
+                total_input: 100_000,
+                total_output: 2_000,
+                ..Default::default()
+            }),
+            crate::agent::club::CacheUsage {
+                read_input_tokens: 90_000,
+                read_accounting_responses: 1,
+                ..Default::default()
+            },
+        );
+        let route = app.bag.in_hand_with_fallback().route_identity();
+        held.terminal
+            .send(Ok((
+                vec![ChatMsg::assistant("DIRECTION: carrier loader")],
+                "DIRECTION: carrier loader".into(),
+                route,
+                crate::agent::harness::TurnStopReason::Answer,
+            )))
+            .unwrap();
+        app.advance();
+        // 3.0M prompt (2.81M of it cache reads) and 40K output this turn; the
+        // 77-token estimate is gone and no reply estimate rides on top.
+        assert_eq!(app.loop_ctl.tokens.cached_input, 2_810_000);
+        assert_eq!(app.loop_ctl.tokens.output, 40_000);
+        assert!(
+            app.loop_ctl.tokens.total >= 3_040_000,
+            "{:?}",
+            app.loop_ctl.tokens
+        );
+        assert!(app.loop_ctl.tokens_spent >= 3_040_000);
     });
 }

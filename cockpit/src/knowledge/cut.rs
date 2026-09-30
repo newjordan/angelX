@@ -520,7 +520,7 @@ pub(crate) fn settle(
         // `ANGEL_DRIVER` sense, e.g. "sota-moa". `route_driver`/`model` are the
         // club that actually served the turn. Keeping both is the experience
         // ledger's own idiom (`path` + `route`), and it stops the tick from
-        // attributing a LongCat answer to a "turbo" driver.
+        // attributing a LongCat answer to whatever driver the path was set to.
         row.rec["route_driver"] = route.driver.as_str().into();
         if let Some(model) = &route.model {
             row.rec["model"] = model.as_str().into();
@@ -687,9 +687,7 @@ impl Machine {
         }
         if matches!(self, Machine::Skipped { reason } if reason.starts_with("incomplete-cargo-scaffold"))
         {
-            return Some(
-                "[post-write verify deferred: Cargo package has no target yet; finish the scaffold. A mandatory check runs before the turn can finish.]".into(),
-            );
+            return Some("post-write check deferred: the Cargo package has no target yet".into());
         }
         // A skipped verify (not source, opted out, backing off) is recorded in
         // the manifest but never editorializes into the turn.
@@ -707,16 +705,12 @@ impl Machine {
         if *timed_out {
             // A verify that outran its deadline is not a verdict — say so, and
             // say nothing about the code.
-            return Some(format!(
-                "[post-write verify — `{cmd}` timed out; verification skipped for now]"
-            ));
+            return Some(format!("`{cmd}` timed out; no verdict"));
         }
         let status = exit
             .map(|c| format!("exit {c}"))
             .unwrap_or_else(|| "killed by signal".to_string());
-        Some(format!(
-            "[post-write verify — `{cmd}` failed in {dir} ({status}); fix this before continuing]\n{err}"
-        ))
+        Some(format!("`{cmd}` failed in {dir} ({status})\n{err}"))
     }
 }
 
@@ -819,10 +813,12 @@ fn default_plan(workspace: &Path, target: &str) -> Option<VerifyPlan> {
             // py_compile writes __pycache__ outside the edited file set. The
             // fixed bootstrap parses source bytes without executing the module;
             // isolation suppresses project/user startup hooks and bytecode.
+            // Plain `open` reads the same bytes as `pathlib` without importing
+            // it (13 ms of a 22 ms check).
             format!(
                 "python3 -I -S -B -c {} {}",
                 shell_quote(
-                    "import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_bytes(), sys.argv[1], 'exec')"
+                    "import sys; compile(open(sys.argv[1], 'rb').read(), sys.argv[1], 'exec')"
                 ),
                 shell_quote(target),
             ),

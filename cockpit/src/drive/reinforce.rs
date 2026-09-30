@@ -1218,12 +1218,19 @@ pub struct JudgeReward {
 impl Reward for JudgeReward {
     fn score(&self, input: RewardInput<'_>) -> Result<f32, String> {
         let output = input.candidate_output(self.label())?;
+        // `⠗⠊`: the grader's brief is the route, the task and the response the
+        // data. Connected, so the judge can read it.
         let prompt = format!(
-            "You are a strict grader. Rate from 0 to 10 how well the RESPONSE accomplishes the \
-             TASK. Reply with ONLY the number.\n\nTASK:\n{}\n\nRESPONSE:\n{}",
-            self.task, output
+            "{}\n\nTASK:\n{}\n\nRESPONSE:\n{}",
+            crate::agent::harness::book::r_relentless::GRADER.cells(),
+            self.task,
+            output
         );
-        let reply = self.judge.respond(&prompt)?;
+        let reply = crate::agent::harness::book::connect::respond(
+            &*self.judge,
+            &crate::agent::harness::book::connect::workspace(),
+            &prompt,
+        )?;
         parse_score(&reply).ok_or_else(|| format!("no score in judge reply: {reply:.80}"))
     }
     fn label(&self) -> &str {
@@ -1339,342 +1346,21 @@ impl Reward for LintReward {
     }
 }
 
-/// Popcorn / GPU MODE peer-relative reward for Treebeard coding RL.
-///
-/// Parses measured µs from candidate text (`score_us=…`, `geomean_us=…`,
-/// `⏱ N µs`) and scores improvement vs the living peer geomean in
-/// `~/.angelX/popcorn-peer.json` (or `baseline_us` override). Higher is better;
-/// values in ~[0, 2] so they blend with judge scores after normalization.
-///
-/// When the candidate names a shape (`32768x1`, `shape=512x640`, …), the
-/// baseline is that shape's HOLD floor (`shape_bests`) if present, else the
-/// board peer shape µs — so PRIMARY attacks train against the r7@38300 floor
-/// rather than a soft board-only bar.
-///
-/// Pair with Treebeard lane + trajectory logging so forge Hi/Q curriculum
-/// receives strategy roots with competition rewards (not bulk kernels).
-/// Selected by `ANGEL_RL_REWARD=popcorn_peer` (GpuComp formation default).
-pub struct PopcornPeerReward {
-    /// Override baseline µs (default: load living peer geomean / shape).
-    pub baseline_us: Option<f64>,
-    /// Floor score when tests pass but timing missing (default 0.15).
-    pub pass_floor: f32,
-}
-
-impl Default for PopcornPeerReward {
-    fn default() -> Self {
-        Self {
-            baseline_us: None,
-            pass_floor: 0.15,
-        }
-    }
-}
-
-impl PopcornPeerReward {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_baseline(mut self, us: f64) -> Self {
-        self.baseline_us = Some(us);
-        self
-    }
-
-    /// Prefer shape HOLD (`shape_bests`) then board shape; fall back to geomean.
-    fn resolve_baseline_for(&self, text: &str) -> Option<f64> {
-        if let Some(b) = self.baseline_us
-            && b.is_finite()
-            && b > 0.0
-        {
-            return Some(b);
-        }
-        if let Some(key) = Self::parse_shape_key(text)
-            && let Some(us) = crate::agent::harness::load_living_peer_shape_baseline(&key)
-        {
-            return Some(us);
-        }
-        crate::agent::harness::load_living_peer_snapshot().map(|(geo, _, _)| geo)
-    }
-
-    /// Extract `NxB` shape key from free-form agent / submit text.
-    ///
-    /// Accepts `shape=32768x1`, `shape:512x640`, bare `32768x1`, mid-dot
-    /// `512·640`, and `n=32768 b=1` pairs from popcorn-to-trajectory goldens.
-    pub fn parse_shape_key(text: &str) -> Option<String> {
-        let lower = text.to_ascii_lowercase();
-        for key in ["shape=", "shape:", "shape_key=", "shape_key:"] {
-            if let Some(pos) = lower.find(key) {
-                let rest = lower[pos + key.len()..].trim_start();
-                if let Some(sk) = Self::take_nxb(rest) {
-                    return Some(sk);
-                }
-            }
-        }
-        // Bare NxB / N·B token (first match).
-        let bytes = lower.as_bytes();
-        let mut i = 0;
-        while i < bytes.len() {
-            if bytes[i].is_ascii_digit() {
-                let start = i;
-                while i < bytes.len() && bytes[i].is_ascii_digit() {
-                    i += 1;
-                }
-                if i < bytes.len() && (bytes[i] == b'x' || bytes[i] == 0xc2) {
-                    // mid-dot · is utf8 c2 b7 — handle via char path below
-                    let slice = &lower[start..];
-                    if let Some(sk) = Self::take_nxb(slice) {
-                        // Avoid matching pure integers inside score_us=38800.0
-                        // by requiring a trailing non-digit/dot or end after B.
-                        return Some(sk);
-                    }
-                }
-            }
-            i += 1;
-        }
-        // n=… b=… pair
-        let n = Self::parse_tagged_u64(&lower, &["n=", "n:", "shape_n=", "shape_n:"]);
-        let b = Self::parse_tagged_u64(
-            &lower,
-            &[
-                "b=",
-                "b:",
-                "batch=",
-                "batch:",
-                "shape_batch=",
-                "shape_batch:",
-            ],
-        );
-        match (n, b) {
-            (Some(n), Some(b)) if n > 0 && b > 0 => Some(format!("{n}x{b}")),
-            _ => None,
-        }
-    }
-
-    fn take_nxb(s: &str) -> Option<String> {
-        let mut chars = s.chars().peekable();
-        let mut n = String::new();
-        while let Some(c) = chars.peek().copied() {
-            if c.is_ascii_digit() {
-                n.push(c);
-                chars.next();
-            } else {
-                break;
-            }
-        }
-        if n.is_empty() {
-            return None;
-        }
-        let sep = chars.next()?;
-        if sep != 'x' && sep != '·' && sep != 'X' {
-            // utf-8 mid-dot already as char '·'
-            return None;
-        }
-        let mut b = String::new();
-        while let Some(c) = chars.peek().copied() {
-            if c.is_ascii_digit() {
-                b.push(c);
-                chars.next();
-            } else {
-                break;
-            }
-        }
-        if b.is_empty() {
-            return None;
-        }
-        // Reject if glued to more alnum (e.g. hex-ish garbage).
-        if let Some(c) = chars.peek().copied()
-            && c.is_ascii_alphanumeric()
-        {
-            return None;
-        }
-        Some(format!("{n}x{b}"))
-    }
-
-    fn parse_tagged_u64(lower: &str, keys: &[&str]) -> Option<u64> {
-        for key in keys {
-            if let Some(pos) = lower.find(key) {
-                let rest = lower[pos + key.len()..].trim_start();
-                let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
-                if let Ok(v) = num.parse::<u64>()
-                    && v > 0
-                {
-                    return Some(v);
-                }
-            }
-        }
-        None
-    }
-
-    /// Extract a measured µs figure from free-form agent / submit text.
-    pub fn parse_score_us(text: &str) -> Option<f64> {
-        let lower = text.to_ascii_lowercase();
-        for key in [
-            "score_us=",
-            "score_us:",
-            "score_us ",
-            "geomean_us=",
-            "geomean_us:",
-            "geomean_us ",
-            "geomean=",
-            "geomean:",
-            "geomean ",
-            "latency_us=",
-            "latency_us:",
-            "latency_us ",
-            "latency=",
-            "latency:",
-            "time_us=",
-            "time_us:",
-            "mean_us=",
-            "mean_us:",
-            "score=",
-            "score:",
-            "bank_us=",
-            "bank_us:",
-        ] {
-            if let Some(pos) = lower.find(key)
-                && let Some(value) = Self::parse_timing_value(&text[pos + key.len()..])
-            {
-                return Some(value);
-            }
-        }
-        text.find('⏱')
-            .and_then(|pos| Self::parse_timing_value(&text[pos + '⏱'.len_utf8()..]))
-    }
-
-    /// Known unit tokens may override the implicit microseconds. A later word
-    /// such as `shape` or `still` is not the seconds unit `s`.
-    fn parse_timing_value(raw: &str) -> Option<f64> {
-        let trimmed = raw.trim_start();
-        let numeric = trimmed
-            .bytes()
-            .take_while(|byte| byte.is_ascii_digit() || *byte == b'.')
-            .count();
-        let value = trimmed[..numeric].parse::<f64>().ok()?;
-        if !value.is_finite() || value <= 0.0 {
-            return None;
-        }
-        let rest = &trimmed[numeric..];
-        let separated = rest.is_empty() || rest.starts_with(char::is_whitespace);
-        let mut tail = rest.trim_start();
-        if let Some(uncertainty) = tail.strip_prefix('±') {
-            let uncertainty = uncertainty.trim_start();
-            let end = uncertainty
-                .bytes()
-                .take_while(|byte| byte.is_ascii_digit() || *byte == b'.')
-                .count();
-            let uncertainty_value = uncertainty[..end].parse::<f64>().ok()?;
-            if !uncertainty_value.is_finite() {
-                return None;
-            }
-            tail = uncertainty[end..].trim_start();
-        }
-        let end = tail.find(char::is_whitespace).unwrap_or(tail.len());
-        let unit = tail[..end]
-            .trim_end_matches([',', ';', ')', ']', '}'])
-            .to_ascii_lowercase();
-        let scale = match unit.as_str() {
-            "" | "us" | "µs" | "μs" | "microsecond" | "microseconds" => 1.0,
-            "ms" | "msec" | "millisecond" | "milliseconds" => 1_000.0,
-            "s" | "sec" | "secs" | "second" | "seconds" => 1_000_000.0,
-            _ if separated => 1.0,
-            _ => return None,
-        };
-        let micros = value * scale;
-        (micros.is_finite() && micros > 0.0).then_some(micros)
-    }
-
-    /// Map score vs baseline → reward in (0, ~2]. Same spirit as competition_reward.
-    pub fn score_us_against_baseline(score_us: f64, baseline_us: f64) -> f32 {
-        if !(score_us.is_finite() && baseline_us.is_finite() && baseline_us > 0.0 && score_us > 0.0)
-        {
-            return 0.0;
-        }
-        if score_us >= baseline_us {
-            // Soft loss signal for living-peer regressions.
-            let reg = ((score_us - baseline_us) / baseline_us).min(1.0) as f32;
-            return (0.05 * (1.0 - reg)).max(0.0);
-        }
-        let improvement = ((baseline_us - score_us) / baseline_us).clamp(0.0, 1.0) as f32;
-        // 0.05 floor for any win; up to ~1.05 for total wipeout.
-        0.05 + improvement
-    }
-}
-
-impl Reward for PopcornPeerReward {
-    fn score(&self, input: RewardInput<'_>) -> Result<f32, String> {
-        let text = input.candidate_output("popcorn_peer")?;
-        let baseline = self.resolve_baseline_for(text).ok_or_else(|| {
-            "popcorn_peer: no living peer baseline (set POPCORN_PEER_STATE)".to_string()
-        })?;
-        let lower = text.to_ascii_lowercase();
-        // Trace-derived zero-fallback guard: if fallback was engaged, reject reward.
-        if lower.contains("fallback triggered")
-            || lower.contains("fallback_calls > 0")
-            || lower.contains("using fallback")
-            || lower.contains("torch fallback")
-            || lower.contains("cusolver fallback")
-            || lower.contains("fallback: true")
-        {
-            return Ok(0.0);
-        }
-        if let Some(score_us) = Self::parse_score_us(text) {
-            return Ok(Self::score_us_against_baseline(score_us, baseline));
-        }
-        // Correctness-only: pass/fail language without timing.
-        // Avoid false positives on libtest "0 failed" / "0 errors" counters.
-        if lower.contains("17/17")
-            || lower.contains("tests passed")
-            || lower.contains("pass_tests=true")
-            || lower.contains("test result: ok")
-        {
-            return Ok(self.pass_floor);
-        }
-        let hard_fail = lower.contains("rejected")
-            || lower.contains("error[")
-            || lower.contains("tests failed")
-            || lower.contains("test result: failed")
-            || (lower.contains(" failed")
-                && !lower.contains("0 failed")
-                && !lower.contains("; 0 failed"));
-        if hard_fail {
-            return Ok(0.0);
-        }
-        Err("popcorn_peer: no score_us/geomean_us/⏱ timing in candidate output".into())
-    }
-    fn label(&self) -> &str {
-        "popcorn_peer"
-    }
-}
-
-/// Resolve the training reward scorer from `ANGEL_RL_REWARD` (and GpuComp default).
+/// Resolve the training reward scorer from `ANGEL_RL_REWARD`.
 ///
 /// | Value | Scorer |
 /// |---|---|
-/// | `popcorn_peer` / `popcorn` / `peer` | [`PopcornPeerReward`] |
 /// | `code_health` / `tests_lint` | [`CompositeReward::code_health`] |
 /// | `test` / `tests` | [`TestReward`] |
 /// | `lint` | [`LintReward`] |
-/// | unset + `ANGEL_GPU_COMP_LOCAL_MOA=1` | [`PopcornPeerReward`] |
 /// | unset / unknown | [`CompositeReward::code_health`] |
-///
-/// GpuComp formation pins `ANGEL_RL_REWARD=popcorn_peer` when unset so coding
-/// seats score measured B200 µs against the living peer / PRIMARY HOLD floor.
 pub fn reward_from_env() -> Box<dyn Reward> {
     let raw = std::env::var("ANGEL_RL_REWARD").unwrap_or_default();
     let key = raw.trim().to_ascii_lowercase();
     match key.as_str() {
-        "popcorn_peer" | "popcorn" | "peer" => Box::new(PopcornPeerReward::new()),
         "code_health" | "tests_lint" | "test_lint" => Box::new(CompositeReward::code_health()),
         "test" | "tests" | "test_reward" => Box::new(TestReward),
         "lint" | "clippy" => Box::new(LintReward),
-        "" => {
-            if crate::agent::harness::env_flag("ANGEL_GPU_COMP_LOCAL_MOA", false) {
-                Box::new(PopcornPeerReward::new())
-            } else {
-                Box::new(CompositeReward::code_health())
-            }
-        }
         _ => Box::new(CompositeReward::code_health()),
     }
 }
@@ -1682,6 +1368,15 @@ pub fn reward_from_env() -> Box<dyn Reward> {
 /// Stable label for trajectory / experience stamps (mirrors [`reward_from_env`]).
 pub fn reward_label_from_env() -> String {
     reward_from_env().label().to_string()
+}
+
+/// The scorer every live reward runs. The loop's acceptance, the coding eval,
+/// recovery evals and decision replay all capture test-contract evidence
+/// ([`TEST_VERIFIER_CONTRACT`]); a lint or code-health scorer requested through
+/// `ANGEL_RL_REWARD` has no evaluator producing its evidence, and scoring test
+/// output as lint would either fail closed or credit a clean lint it never ran.
+pub fn live_reward_label() -> &'static str {
+    TestReward.label()
 }
 
 /// Blends several rewards by weight (weighted average, so the result stays in
@@ -1753,13 +1448,17 @@ impl Reflector for ClubReflector {
         best: &str,
         worst: &str,
     ) -> Result<String, String> {
+        // `⠗⠚`: the optimizer's brief and its labels are the pages; the task,
+        // the prompt and the two rollouts ride as data under their own keys.
         let prompt = format!(
-            "You optimize system prompts for an AI assistant.\n\nTASK the assistant must do:\n{task}\
-             \n\nCURRENT system prompt:\n{current_prompt}\n\nA HIGH-scoring response:\n{best}\n\nA \
-             LOW-scoring response:\n{worst}\n\nWrite an improved system prompt that steers the \
-             assistant toward the high-scoring style. Reply with ONLY the new system prompt.",
+            "{}\n\nTASK:\n{task}\n\nCURRENT:\n{current_prompt}\n\nHIGH:\n{best}\n\nLOW:\n{worst}",
+            crate::agent::harness::book::r_relentless::OPTIMIZER.cells(),
         );
-        self.club.respond(&prompt)
+        crate::agent::harness::book::connect::respond(
+            &*self.club,
+            &crate::agent::harness::book::connect::workspace(),
+            &prompt,
+        )
     }
 }
 
@@ -2523,29 +2222,9 @@ fn parse_evaluator_test_result(output: &str) -> Result<crate::agent::harness::Te
     Ok(outcome)
 }
 
-/// Whether coding-eval / GPU seats should use [`PopcornPeerReward`] this turn.
-///
-/// True when `ANGEL_RL_REWARD` is popcorn*, or when unset under
-/// `ANGEL_GPU_COMP_LOCAL_MOA=1` (formation default).
-pub fn popcorn_reward_active() -> bool {
-    let raw = std::env::var("ANGEL_RL_REWARD").unwrap_or_default();
-    let key = raw.trim().to_ascii_lowercase();
-    match key.as_str() {
-        "popcorn_peer" | "popcorn" | "peer" => true,
-        "" => crate::agent::harness::env_flag("ANGEL_GPU_COMP_LOCAL_MOA", false),
-        _ => false,
-    }
-}
-
-/// Score a coding-eval attempt under the env-selected reward contract.
-///
-/// * **`popcorn_peer` / GpuComp** — when the validated successful verifier carries a
-///   competition signal (`score_us` / `geomean_us` / ⏱ / `pass_tests=true` /
-///   `17/17`), score with [`PopcornPeerReward`] (shape HOLD / living peer).
-///   Otherwise fall back to [`TestReward`] so pure cargo/libtest verifies still
-///   label the turn (and so `"0 failed"` libtest lines never mint a popcorn
-///   hard-zero).
-/// * **else** — [`TestReward`] on evaluator-owned evidence (default RLVR).
+/// A coding-eval verifier counts only when its evaluator-owned evidence
+/// validates, carries the test contract, exits successfully and reports no
+/// failed test.
 fn validate_coding_eval_evidence(evidence: &EvaluatorEvidence) -> Result<(), String> {
     evidence.validate_for_scoring()?;
     evidence.require_verifier_contract(
@@ -2570,113 +2249,25 @@ fn validate_coding_eval_evidence(evidence: &EvaluatorEvidence) -> Result<(), Str
     Ok(())
 }
 
-/// One resolved scoring decision, retained across artifact persistence.
-/// The private competition context binds the selected baseline to this evidence;
-/// metadata must never reload a newer peer or invert the numeric reward.
-#[derive(Debug)]
-struct CodingEvalScore {
-    reward: f32,
-    competition: Option<CodingEvalCompetition>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CodingEvalCompetition {
-    evidence_manifest_sha256: String,
-    baseline_us: f64,
-    shape_baseline: bool,
-    living_peer_name: Option<String>,
-}
-
-impl CodingEvalScore {
-    fn without_competition(reward: f32) -> Self {
-        Self {
-            reward,
-            competition: None,
-        }
-    }
-}
-
-fn resolve_coding_eval_competition(
-    evidence: &EvaluatorEvidence,
-) -> Result<CodingEvalCompetition, String> {
-    let (baseline_us, shape_baseline, living_peer_name) = if let Some(shape) =
-        PopcornPeerReward::parse_shape_key(evidence.output())
-        && let Some(us) = crate::agent::harness::load_living_peer_shape_baseline(&shape)
-    {
-        (us, true, None)
-    } else {
-        let (us, name, _) =
-            crate::agent::harness::load_living_peer_snapshot().ok_or_else(|| {
-                "popcorn_peer: no living peer baseline (set POPCORN_PEER_STATE)".to_string()
-            })?;
-        (us, false, Some(name))
-    };
-    Ok(CodingEvalCompetition {
-        evidence_manifest_sha256: evidence.manifest_sha256().to_owned(),
-        baseline_us,
-        shape_baseline,
-        living_peer_name,
-    })
-}
-
-fn score_coding_eval(evidence: &EvaluatorEvidence) -> Result<CodingEvalScore, String> {
-    if popcorn_reward_active() {
-        validate_coding_eval_evidence(evidence)?;
-        // Candidate prose is never a measurement or a correctness verdict.
-        let measured = evidence.output();
-        if popcorn_competition_signal(measured) {
-            let competition = resolve_coding_eval_competition(evidence)?;
-            // The generic scorer retains its existing timing/fallback semantics;
-            // an explicit valid baseline prevents a second living-peer read.
-            let reward = PopcornPeerReward::new()
-                .with_baseline(competition.baseline_us)
-                .score(RewardInput::CandidateOutput(measured))?;
-            return Ok(CodingEvalScore {
-                reward,
-                competition: Some(competition),
-            });
-        }
-        if let Ok(reward) = TestReward.score(RewardInput::EvaluatorEvidence(evidence)) {
-            return Ok(CodingEvalScore::without_competition(reward));
-        }
-        return PopcornPeerReward::new()
-            .score(RewardInput::CandidateOutput(measured))
-            .map(CodingEvalScore::without_competition);
-    }
-    TestReward
-        .score(RewardInput::EvaluatorEvidence(evidence))
-        .map(CodingEvalScore::without_competition)
+/// Score a coding-eval attempt: [`TestReward`] on evaluator-owned evidence
+/// (the default RLVR contract).
+fn score_coding_eval(evidence: &EvaluatorEvidence) -> Result<f32, String> {
+    TestReward.score(RewardInput::EvaluatorEvidence(evidence))
 }
 
 pub fn score_coding_eval_reward(
     _answer: &str,
     evidence: &EvaluatorEvidence,
 ) -> Result<f32, String> {
-    score_coding_eval(evidence).map(|score| score.reward)
-}
-
-/// True when text carries a GPU MODE / popcorn competition measure (not mere
-/// cargo/libtest chatter).
-fn popcorn_competition_signal(text: &str) -> bool {
-    if PopcornPeerReward::parse_score_us(text).is_some() {
-        return true;
-    }
-    let lower = text.to_ascii_lowercase();
-    lower.contains("pass_tests=true")
-        || lower.contains("17/17")
-        || lower.contains("geomean_us")
-        || lower.contains("score_us")
-        || text.contains('⏱')
+    score_coding_eval(evidence)
 }
 
 /// Drive `task_prompt` through `run_turn` (using `club` + `registry`), then
 /// execute `verify_command` in the active workspace and parse its output into a
 /// reward. The exact executed shell string is bound into evaluator evidence.
 ///
-/// Reward selection: [`score_coding_eval_reward`] — GpuComp / `ANGEL_RL_REWARD=
-/// popcorn_peer` scores measured B200 µs vs living peer HOLD; otherwise
-/// libtest fraction via [`TestReward`].
+/// Reward selection: [`score_coding_eval_reward`], the libtest fraction via
+/// [`TestReward`].
 pub fn run_coding_eval(
     club: &dyn Club,
     registry: &crate::agent::harness::ToolRegistry,
@@ -2689,11 +2280,10 @@ pub fn run_coding_eval(
     crate::agent::harness::run_identity::configure_verifier(serde_json::json!({
         "plan_kind":"coding-eval", "command":verify_command, "accept_cmd":"none", "evaluator_id":TEST_VERIFIER_CONTRACT,
     }));
+    // `⠜⠊`: the rollout's coding agent carries `read_file`, so it reads its
+    // brief from the ledger like the driver does.
     let mut history = vec![
-        ChatMsg::system(
-            "You are a software engineer. Use the tools to complete the task, then stop \
-             with a short summary.",
-        ),
+        ChatMsg::system(crate::agent::harness::book::ar_seats::CODING_AGENT.cells()),
         ChatMsg::user(task_prompt),
     ];
     let cancel = std::sync::atomic::AtomicBool::new(false);
@@ -2744,8 +2334,7 @@ pub fn run_coding_eval(
 pub(crate) fn recovery_training_supported(evidence: &EvaluatorEvidence) -> Result<(), String> {
     validate_coding_eval_evidence(evidence)?;
     let test = parse_evaluator_test_result(evidence.output())?;
-    if test.passed > 0 || (popcorn_reward_active() && popcorn_competition_signal(evidence.output()))
-    {
+    if test.passed > 0 {
         Ok(())
     } else {
         Err("verifier produced no supported typed coding measurement".into())
@@ -2763,8 +2352,7 @@ pub(crate) fn finish_coding_eval(
     captured_authority: Option<&Path>,
 ) -> Result<CodingEvalReport, String> {
     let test = parse_evaluator_test_result(evidence.output())?;
-    let scoring = score_coding_eval(evidence)?;
-    let reward = scoring.reward;
+    let reward = score_coding_eval(evidence)?;
     let evaluator_artifact = artifact::persist_if_configured(evidence)?;
     // Hi/Q view of what the root model saw — always computed for coding evals
     // (they are the RLVR training path). Trajectory log persists the same
@@ -2772,11 +2360,10 @@ pub(crate) fn finish_coding_eval(
     let root_trajectory = crate::agent::harness::root_trajectory_json(history);
     let harness_treatment = crate::agent::harness::harness_treatment_json();
     // Persist the attempt as reward-labeled training data (no-op unless
-    // ANGEL_TRAJECTORY_LOG is set). GpuComp seats stamp competition meta so
-    // Forge preference pairs / Hi/Q advantage can join measured µs.
+    // ANGEL_TRAJECTORY_LOG is set).
     let capture = match captured_authority {
-        Some(root) => training::publish(root, task_prompt, answer, evidence, &scoring).map(Some),
-        None => training::publish_if_configured(task_prompt, answer, evidence, &scoring),
+        Some(root) => training::publish(root, task_prompt, answer, evidence, reward).map(Some),
+        None => training::publish_if_configured(task_prompt, answer, evidence, reward),
     };
     let (training_decision, training_capture_error) = match capture {
         Ok(Some(published)) => {
@@ -2811,96 +2398,6 @@ pub(crate) fn finish_coding_eval(
         root_trajectory,
         harness_treatment,
     })
-}
-
-/// Evaluator-only competition join fields for coding-eval → Cut/Forge when signal
-/// present (`score_us`, shape, reward contract, living-peer baseline).
-///
-/// Stamps `lesson=coding_eval` so forge Hi/Q strategy mix + lesson bonus
-/// densify measured GpuComp seats (preference pairs join on shape_n/batch).
-fn coding_eval_competition_meta(
-    evidence: &EvaluatorEvidence,
-    scoring: &CodingEvalScore,
-) -> Option<serde_json::Value> {
-    let competition = scoring.competition.as_ref()?;
-    let reward = scoring.reward;
-    if !reward.is_finite() || competition.evidence_manifest_sha256 != evidence.manifest_sha256() {
-        return None;
-    }
-    validate_coding_eval_evidence(evidence).ok()?;
-    let blob = evidence.output();
-    if !popcorn_competition_signal(blob) {
-        return None;
-    }
-    let mut map = serde_json::Map::new();
-    map.insert(
-        "reward_contract".into(),
-        serde_json::Value::String("popcorn_peer".into()),
-    );
-    map.insert(
-        "lesson".into(),
-        serde_json::Value::String("coding_eval".into()),
-    );
-    map.insert("reward".into(), serde_json::json!(reward));
-    let mut score_us: Option<f64> = None;
-    let baseline_us = competition.baseline_us;
-    map.insert("baseline_us".into(), serde_json::json!(baseline_us));
-    if let Some(name) = &competition.living_peer_name {
-        map.insert("living_peer_name".into(), serde_json::json!(name));
-    }
-    if let Some(us) = PopcornPeerReward::parse_score_us(blob) {
-        score_us = Some(us);
-        map.insert("score_us".into(), serde_json::json!(us));
-    }
-    let mut shaped = false;
-    if let Some(shape) = PopcornPeerReward::parse_shape_key(blob) {
-        map.insert("shape_key".into(), serde_json::Value::String(shape.clone()));
-        // Parse n×b for popcorn-to-trajectory / forge-hiq-ingest join.
-        if let Some((n, b)) = shape.split_once('x')
-            && let (Ok(n), Ok(b)) = (n.parse::<u64>(), b.parse::<u64>())
-        {
-            map.insert("shape_n".into(), serde_json::json!(n));
-            map.insert("shape_batch".into(), serde_json::json!(b));
-            map.insert("n".into(), serde_json::json!(n));
-            map.insert("batch".into(), serde_json::json!(b));
-            shaped = true;
-        }
-        // Only a captured shape baseline qualifies as the primary HOLD.
-        if competition.shape_baseline && shape == "32768x1" {
-            map.insert("primary_hold".into(), serde_json::json!(true));
-        }
-    }
-    let b = baseline_us;
-    if let Some(s) = score_us
-        && b > 0.0
-        && s.is_finite()
-        && b.is_finite()
-    {
-        map.insert("beats_baseline".into(), serde_json::json!(s < b));
-        let gap_pct = ((b - s) / b) * 100.0;
-        // Finite inputs may still overflow the ratio or percentage. Omit an
-        // unrepresentable gap; preserve large finite gaps without overflowing
-        // the intermediate value used for three-decimal rounding.
-        if gap_pct.is_finite() {
-            let rounded_gap = if gap_pct.abs() <= f64::MAX / 1000.0 {
-                (gap_pct * 1000.0).round() / 1000.0
-            } else {
-                gap_pct
-            };
-            map.insert("gap_pct".into(), serde_json::json!(rounded_gap));
-        }
-    }
-    // Shape-scoped when NxB known so forge shape/P1 bonuses apply; else
-    // coding_eval board-level (geomean peer).
-    map.insert(
-        "scope".into(),
-        serde_json::Value::String(if shaped {
-            "shape".into()
-        } else {
-            "coding_eval".into()
-        }),
-    );
-    Some(serde_json::Value::Object(map))
 }
 
 // ---------------------------------------------------------------------------
@@ -3026,14 +2523,8 @@ mod reward_boundary_tests;
 mod reward_boundary_baseline_tests;
 
 #[cfg(test)]
-#[path = "../../../tests/cockpit/reinforce/reward_coherence_tests.rs"]
-mod reward_coherence_tests;
-#[cfg(test)]
 #[path = "../../../tests/cockpit/reinforce/reward_correctness_tests.rs"]
 mod reward_correctness_tests;
-#[cfg(test)]
-#[path = "../../../tests/cockpit/reinforce/reward_finite_metadata_tests.rs"]
-mod reward_finite_metadata_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/reinforce/reward_counter_tests.rs"]

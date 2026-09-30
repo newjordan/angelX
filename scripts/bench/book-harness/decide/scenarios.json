@@ -1,0 +1,656 @@
+{
+ "batch": {
+  "route": "⠺⠛",
+  "prompt": "The unittest suite in this repository fails. Fix the code so it passes.",
+  "files": {
+   "shapes/area.py": "def square(s):\n    return s * s\n\n\ndef rect(w, h):\n    return w * h\n",
+   "shapes/perimeter.py": "def square(s):\n    return 4 * s\n\n\ndef rect(w, h):\n    return 2 * w + h\n",
+   "shapes/scale.py": "def scale(value, factor):\n    return value * factor\n",
+   "shapes/units.py": "def to_cm(mm):\n    return mm / 10\n\n\ndef to_mm(cm):\n    return cm * 100\n",
+   "shapes/format.py": "def fmt(value):\n    return f\"{value:.2f}\"\n",
+   "shapes/__init__.py": "",
+   "test_shapes.py": "import unittest\n\nfrom shapes import area, perimeter, units, format\n\n\nclass ShapesTest(unittest.TestCase):\n    def test_perimeter(self):\n        self.assertEqual(perimeter.rect(2, 3), 10)\n\n    def test_units(self):\n        self.assertEqual(units.to_mm(2), 20)\n\n    def test_format(self):\n        self.assertEqual(format.fmt(2), \"2.00\")\n\n    def test_area(self):\n        self.assertEqual(area.rect(2, 3), 6)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  "script": [
+   [
+    "list_dir",
+    {
+     "path": "shapes"
+    }
+   ],
+   [
+    "read_file",
+    {
+     "path": "test_shapes.py"
+    }
+   ],
+   [
+    "read_file",
+    {
+     "path": "shapes/area.py"
+    }
+   ],
+   [
+    "read_file",
+    {
+     "path": "shapes/perimeter.py"
+    }
+   ],
+   null
+  ],
+  "decision": 4,
+  "name": "several reads in a row",
+  "action": "the next reads share one response"
+ },
+ "untested": {
+  "route": "⠧⠋",
+  "prompt": "The unittest suite in this repository fails. Fix the code so it passes.",
+  "files": {
+   "calc.py": "def add(a, b):\n    return a - b\n",
+   "test_calc.py": "import unittest\n\nimport calc\n\n\nclass CalcTest(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(calc.add(2, 3), 5)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  "script": [
+   [
+    "read_file",
+    {
+     "path": "calc.py"
+    }
+   ],
+   [
+    "run_tests",
+    {
+     "runtime": "python",
+     "entrypoint": "unittest"
+    }
+   ],
+   [
+    "str_replace",
+    {
+     "path": "calc.py",
+     "old": "return a - b",
+     "new": "return a + b"
+    }
+   ],
+   null
+  ],
+  "decision": 5,
+  "name": "answered after an untested edit",
+  "action": "run the tests, or say the change is untested"
+ },
+ "finish": {
+  "route": "⠺⠓",
+  "prompt": "The unittest suite in this repository fails. Fix the code so it passes.",
+  "files": {
+   "calc.py": "def add(a, b):\n    return a - b\n",
+   "test_calc.py": "import unittest\n\nimport calc\n\n\nclass CalcTest(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(calc.add(2, 3), 5)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  "script": [
+   [
+    "read_file",
+    {
+     "path": "calc.py"
+    }
+   ],
+   [
+    "run_tests",
+    {
+     "runtime": "python",
+     "entrypoint": "unittest"
+    }
+   ],
+   [
+    "str_replace",
+    {
+     "path": "calc.py",
+     "old": "return a - b",
+     "new": "return a + b"
+    }
+   ],
+   [
+    "run_tests",
+    {
+     "runtime": "python",
+     "entrypoint": "unittest"
+    }
+   ],
+   null
+  ],
+  "decision": 5,
+  "name": "tests green after the edit",
+  "action": "answer"
+ },
+ "batch2": {
+  "route": "⠺⠛",
+  "name": "several reads in a row, second time in the session",
+  "action": "the next reads share one response",
+  "prompts": [
+   "Give me a one-line summary of each module in geometry/.",
+   "The unittest suite in this repository fails. Fix the code so it passes."
+  ],
+  "files": {
+   "shapes/area.py": "def square(s):\n    return s * s\n\n\ndef rect(w, h):\n    return w * h\n",
+   "shapes/perimeter.py": "def square(s):\n    return 4 * s\n\n\ndef rect(w, h):\n    return 2 * w + h\n",
+   "shapes/scale.py": "def scale(value, factor):\n    return value * factor\n",
+   "shapes/units.py": "def to_cm(mm):\n    return mm / 10\n\n\ndef to_mm(cm):\n    return cm * 100\n",
+   "shapes/format.py": "def fmt(value):\n    return f\"{value:.2f}\"\n",
+   "shapes/__init__.py": "",
+   "test_shapes.py": "import unittest\n\nfrom shapes import area, perimeter, units, format\n\n\nclass ShapesTest(unittest.TestCase):\n    def test_perimeter(self):\n        self.assertEqual(perimeter.rect(2, 3), 10)\n\n    def test_units(self):\n        self.assertEqual(units.to_mm(2), 20)\n\n    def test_format(self):\n        self.assertEqual(format.fmt(2), \"2.00\")\n\n    def test_area(self):\n        self.assertEqual(area.rect(2, 3), 6)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+   "geometry/__init__.py": "",
+   "geometry/points.py": "def midpoint(a, b):\n    return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)\n",
+   "geometry/lines.py": "def slope(a, b):\n    return (b[1] - a[1]) / (b[0] - a[0])\n",
+   "geometry/circles.py": "import math\n\n\ndef area(r):\n    return math.pi * r * r\n"
+  },
+  "turns": [
+   [
+    [
+     "list_dir",
+     {
+      "path": "geometry"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "list_dir",
+     {
+      "path": "shapes"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "test_shapes.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "shapes/area.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "shapes/perimeter.py"
+     }
+    ],
+    null
+   ]
+  ]
+ },
+ "turns20": {
+  "route": "⠺⠛",
+  "name": "twenty turns of three reads",
+  "action": "the next reads share one response",
+  "prompts": [
+   "Pass 1: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 2: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 3: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 4: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 5: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 6: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 7: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 8: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 9: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 10: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 11: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 12: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 13: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 14: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 15: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 16: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 17: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 18: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 19: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line.",
+   "Pass 20: read geometry/points.py, geometry/lines.py and geometry/circles.py and summarize each in one line."
+  ],
+  "files": {
+   "shapes/area.py": "def square(s):\n    return s * s\n\n\ndef rect(w, h):\n    return w * h\n",
+   "shapes/perimeter.py": "def square(s):\n    return 4 * s\n\n\ndef rect(w, h):\n    return 2 * w + h\n",
+   "shapes/scale.py": "def scale(value, factor):\n    return value * factor\n",
+   "shapes/units.py": "def to_cm(mm):\n    return mm / 10\n\n\ndef to_mm(cm):\n    return cm * 100\n",
+   "shapes/format.py": "def fmt(value):\n    return f\"{value:.2f}\"\n",
+   "shapes/__init__.py": "",
+   "test_shapes.py": "import unittest\n\nfrom shapes import area, perimeter, units, format\n\n\nclass ShapesTest(unittest.TestCase):\n    def test_perimeter(self):\n        self.assertEqual(perimeter.rect(2, 3), 10)\n\n    def test_units(self):\n        self.assertEqual(units.to_mm(2), 20)\n\n    def test_format(self):\n        self.assertEqual(format.fmt(2), \"2.00\")\n\n    def test_area(self):\n        self.assertEqual(area.rect(2, 3), 6)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+   "geometry/__init__.py": "",
+   "geometry/points.py": "def midpoint(a, b):\n    return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)\n",
+   "geometry/lines.py": "def slope(a, b):\n    return (b[1] - a[1]) / (b[0] - a[0])\n",
+   "geometry/circles.py": "import math\n\n\ndef area(r):\n    return math.pi * r * r\n"
+  },
+  "turns": [
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ],
+   [
+    [
+     "read_file",
+     {
+      "path": "geometry/points.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/lines.py"
+     }
+    ],
+    [
+     "read_file",
+     {
+      "path": "geometry/circles.py"
+     }
+    ],
+    null
+   ]
+  ]
+ }
+}

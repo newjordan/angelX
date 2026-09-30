@@ -99,7 +99,17 @@ fn generate_self_model_describes_real_modules() {
     let _guard = crate::tests::env_lock();
     let map = generate_self_model();
     assert!(map.contains("angelX-cockpit"), "names the crate");
-    assert!(map.contains("cargo test"), "has the build/test contract");
+    // The build/test contract is its `⠰⠛` pages, the crate root beside them.
+    let contract = crate::agent::harness::book::d56_replies::MAP_COMMANDS;
+    assert!(
+        map.contains(&contract.cells()),
+        "has the build/test contract"
+    );
+    assert!(contract.text().contains("cargo test"));
+    assert!(
+        map.contains(&crate::agent::harness::book::d56_replies::SELF_SAFETY.cells()),
+        "the safety contract"
+    );
     assert!(map.contains("harness/mod.rs"), "lists the harness module");
     assert!(map.contains("swarm/mod.rs"), "lists the swarm driver");
     assert!(
@@ -117,10 +127,16 @@ fn self_context_is_bounded_and_self_referential() {
     let _guard = crate::tests::env_lock();
     let ctx = self_context(Path::new(env!("CARGO_MANIFEST_DIR")));
     assert!(!ctx.is_empty(), "source is present during tests");
-    assert!(ctx.contains("Self-model"));
-    assert!(ctx.contains("self_map"));
-    assert!(ctx.contains("self-modification gate"));
-    assert!(ctx.contains("not a standing objective"));
+    let self_model = crate::agent::harness::book::n_environment::SELF_MODEL;
+    assert!(ctx.contains(&self_model.cells()));
+    let pages = self_model.sub().pages.join(" ");
+    assert!(pages.contains("Self-model"));
+    assert!(pages.contains("self_map"));
+    assert!(pages.contains("self-modification gate"));
+    assert!(pages.contains("not a standing objective"));
+    // The tool modules ride beside `⠝⠓⠓`, never an English label.
+    assert!(ctx.contains("\n⠝⠓⠓ "), "{ctx}");
+    assert!(!ctx.contains("Tool impls"), "{ctx}");
     // No self-repair priming: naming the gauntlet/health-checkup is what let a
     // degraded model chase the forbidden artifact. The self-model must not carry
     // those nouns.
@@ -281,8 +297,18 @@ fn self_map_tool_full_map_by_default() {
     let _guard = crate::tests::env_lock();
     let tool = SelfMapTool::new();
     let out = tool.call(&serde_json::json!({})).expect("full map");
-    assert!(out.contains("self-model"));
-    assert!(out.contains("Build · test · run"));
+    assert!(out.contains(&crate::agent::harness::book::d56_replies::MAP_TITLE.cells()));
+    assert!(out.contains("name=angelX-cockpit"), "{out}");
+    assert!(out.contains(&crate::agent::harness::book::d56_replies::MAP_BUILD.cells()));
+    assert!(
+        !out.contains("Build · test · run"),
+        "the prose is its pages"
+    );
+    assert!(
+        crate::agent::harness::book::d56_replies::MAP_BUILD
+            .text()
+            .contains("Build · test · run")
+    );
 }
 
 #[test]

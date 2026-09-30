@@ -53,6 +53,13 @@ impl<'a> Attempt<'a> {
         }
     }
 
+    pub(super) fn reserve_formation(
+        &mut self,
+        reservation: crate::agent::harness::formation_budget::Reservation,
+    ) {
+        self.accounting.reserve_formation(reservation);
+    }
+
     pub(super) fn response_reader<R: std::io::Read>(
         &mut self,
         reader: R,

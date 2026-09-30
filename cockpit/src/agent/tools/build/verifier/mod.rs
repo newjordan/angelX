@@ -338,12 +338,14 @@ pub(super) fn dispatch(
     ))
 }
 
-pub(super) fn schema_args(operation: &str) -> Value {
+/// The lint/check schema; each description is the address of its page in the
+/// calling tool's book section.
+pub(super) fn schema_args(runtime: &str, operation: &str) -> Value {
     serde_json::json!({
         "type": "object",
         "properties": {
             "runtime": {"type":"string", "enum":["auto","rust","node","python"],
-                "description":"Runtime selection. Auto requires one root language; mixed projects need explicit selection."},
+                "description":runtime},
             "args": {"type":"string", "description":operation}
         },
         "required":[]

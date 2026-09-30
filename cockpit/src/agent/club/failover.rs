@@ -497,16 +497,13 @@ pub(crate) const SOTA_MOA_JUDGE_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
 pub(crate) const SOTA_MOA_VERIFY_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
 pub(crate) const SOTA_MOA_AGG_PREFS: &[&str] = SOTA_MOA_INTELLIGENCE_ORDER;
 
-/// A deliberately bounded everyday MoA. Gemma supplies free local breadth when
-/// Spark is up, OpenRouter's free route verifies, and LongCat/DeepSeek-Flash/Luna
-/// perform synthesis/proposal. Frontier/token-plan links are intentionally absent:
+/// A deliberately bounded everyday MoA. OpenRouter's free route verifies, and
+/// LongCat/DeepSeek-Flash/Luna perform synthesis/proposal. Frontier/token-plan links are intentionally absent:
 /// choosing this profile is a spend boundary, not merely a preference hint.
 pub(crate) const SOTA_MOA_CHEAP_PROPOSE_PREFS: &[&str] = &[
     "chatgpt-luna-on-high",
     "luna-on-high",
     "luna",
-    // Spark-local ds4 DeepSeek-V4-Flash (free fleet) before the metered cloud flash.
-    "dsflash",
     "deepseek-v4-flash",
     "deepseek-flash",
     "glm",
@@ -525,13 +522,11 @@ pub(crate) const SOTA_MOA_CHEAP_PROPOSE_PREFS: &[&str] = &[
     "z-ai/glm-5.2:free",
     "nvidia/nemotron-3.5-lightning:free",
     "tencent/hy3:free",
-    "gemma",
 ];
 pub(crate) const SOTA_MOA_CHEAP_JUDGE_PREFS: &[&str] = &[
     "chatgpt-luna-on-high",
     "luna-on-high",
     "luna",
-    "dsflash",
     "deepseek-v4-flash",
     "deepseek-flash",
     "glm",
@@ -550,10 +545,8 @@ pub(crate) const SOTA_MOA_CHEAP_JUDGE_PREFS: &[&str] = &[
     "z-ai/glm-5.2:free",
     "nvidia/nemotron-3.5-lightning:free",
     "tencent/hy3:free",
-    "gemma",
 ];
 pub(crate) const SOTA_MOA_CHEAP_VERIFY_PREFS: &[&str] = &[
-    "dsflash",
     "deepseek-v4-flash",
     "deepseek-flash",
     "glm",
@@ -575,13 +568,11 @@ pub(crate) const SOTA_MOA_CHEAP_VERIFY_PREFS: &[&str] = &[
     "tencent/hy3:free",
     "longcat",
     "LongCat-2.0",
-    "gemma",
 ];
 pub(crate) const SOTA_MOA_CHEAP_AGG_PREFS: &[&str] = &[
     "chatgpt-luna-on-high",
     "luna-on-high",
     "luna",
-    "dsflash",
     "deepseek-v4-flash",
     "deepseek-flash",
     "glm",
@@ -589,7 +580,6 @@ pub(crate) const SOTA_MOA_CHEAP_AGG_PREFS: &[&str] = &[
     "glm-5.2",
     "longcat",
     "LongCat-2.0",
-    "gemma",
     "openrouter",
     "stealth/ox-alpha",
     "thinkingmachines/inkling:free",
@@ -603,7 +593,6 @@ pub(crate) const SOTA_MOA_CHEAP_AGG_PREFS: &[&str] = &[
     "tencent/hy3:free",
 ];
 const SOTA_MOA_CHEAP_FALLBACK_ORDER: &[&str] = &[
-    "dsflash",
     "deepseek-v4-flash",
     "deepseek-flash",
     "glm",
@@ -612,7 +601,6 @@ const SOTA_MOA_CHEAP_FALLBACK_ORDER: &[&str] = &[
     "chatgpt-luna-on-high",
     "luna-on-high",
     "luna",
-    "gemma",
     "openrouter",
     "stealth/ox-alpha",
     "thinkingmachines/inkling:free",
@@ -698,14 +686,13 @@ fn cheap_role_with_fallbacks(
     Arc::new(FallbackClub::with_gates(chain, gates))
 }
 
-/// Configured proposer-only seats requested for SOTA-MoA breadth. Gemma is on by
-/// default; `ANGEL_SOTA_MOA_EXTRA_PROPOSERS=none` provides the calibration
-/// control. Explicit remote seats still obey provider opt-in and the cheap allowlist.
+/// Configured proposer-only seats requested for SOTA-MoA breadth
+/// (`ANGEL_SOTA_MOA_EXTRA_PROPOSERS`, off by default). Explicit seats still obey
+/// provider opt-in and the cheap allowlist.
 pub(crate) fn extra_sota_proposers(
-    local_breadth: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
+    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Vec<GatedClub> {
-    let requested =
-        std::env::var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS").unwrap_or_else(|_| "gemma".to_string());
+    let requested = std::env::var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS").unwrap_or_default();
     if matches!(
         requested.trim().to_ascii_lowercase().as_str(),
         "" | "0" | "off" | "false" | "none"
@@ -718,7 +705,7 @@ pub(crate) fn extra_sota_proposers(
         .filter(|value| !value.is_empty())
         .collect::<Vec<_>>();
     let mut out = Vec::new();
-    for entry in local_breadth {
+    for entry in links {
         if (cheap_moa_enabled() && !cheap_link_allowed(entry))
             || !wanted.iter().any(|name| link_matches(entry, name))
             || out
@@ -732,77 +719,6 @@ pub(crate) fn extra_sota_proposers(
         out.push((Arc::clone(&entry.1), Some(Arc::clone(&entry.2))));
     }
     out
-}
-
-fn find_named_link(
-    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
-    names: &[&str],
-) -> Option<(Arc<dyn Club>, Arc<AtomicBool>)> {
-    for name in names {
-        if let Some((_, club, available)) = links.iter().find(|(alias, club, _)| {
-            alias.eq_ignore_ascii_case(name)
-                || club.label().eq_ignore_ascii_case(name)
-                || club
-                    .label()
-                    .to_ascii_lowercase()
-                    .contains(&name.to_ascii_lowercase())
-                || club.live_model_name().is_some_and(|model| {
-                    model.eq_ignore_ascii_case(name)
-                        || model
-                            .to_ascii_lowercase()
-                            .contains(&name.to_ascii_lowercase())
-                })
-        }) {
-            return Some((Arc::clone(club), Arc::clone(available)));
-        }
-    }
-    None
-}
-
-/// One Sol@ultra head, GLM-5.3 + DeepSeek v4 Pro extra proposers, Grok xhigh
-/// weigh-in. Absent Sol or Grok, the club is not built — same as a missing
-/// HTTP SOTA pin. Mix seats are optional: a missing GLM or DeepSeek key still
-/// yields the club, just narrower.
-pub(crate) fn mathgod_club(
-    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
-) -> Option<(Arc<dyn Club>, Arc<AtomicBool>)> {
-    let (sol, sol_avail) =
-        find_named_link(links, &["openai", "codex-run", "codex", "gpt-5.6-sol"])?;
-    let (grok, _) = find_named_link(links, &["grok", "grok-4.7", "grok-4.6", "grok-4.5", "xai"])?;
-    let extra = mathgod_mix_seats(links, sol.as_ref(), grok.as_ref());
-    Some((
-        Arc::new(crate::agent::swarm::SwarmClub::mathgod(sol, grok, extra)),
-        sol_avail,
-    ))
-}
-
-pub(crate) fn mathgod_mix_seats(
-    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
-    sol: &dyn Club,
-    grok: &dyn Club,
-) -> Vec<GatedClub> {
-    let mut extra = Vec::new();
-    for names in [
-        ["glm", "glm-5.3"].as_slice(),
-        ["deepseek-v4-pro", "deepseek"].as_slice(),
-    ] {
-        let Some((club, avail)) = find_named_link(links, names) else {
-            continue;
-        };
-        let label = club.label();
-        let lower = label.to_ascii_lowercase();
-        if lower.contains("flash")
-            || label.eq_ignore_ascii_case(sol.label())
-            || label.eq_ignore_ascii_case(grok.label())
-            || extra.iter().any(|(existing, _): &(Arc<dyn Club>, _)| {
-                existing.label().eq_ignore_ascii_case(label)
-            })
-        {
-            continue;
-        }
-        extra.push((club, Some(avail)));
-    }
-    extra
 }
 
 pub(crate) fn pick_sota_role(
@@ -843,28 +759,14 @@ pub(crate) fn pick_sota_role(
     Arc::clone(&links[0].1)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+/// Build the SOTA wrapper over the configured links: the smartest-first
+/// formation and its failover order, or the explicit `cheap` cost profile.
 pub(crate) fn sota_moa_club(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
-) -> Option<Arc<dyn Club>> {
-    sota_moa_club_with_breadth(links, &[])
-}
-
-/// Build the SOTA wrapper with optional local breadth candidates. Local links
-/// are considered only by the explicit `cheap` cost profile; the normal
-/// smartest-first formation and its failover order remain unchanged.
-pub(crate) fn sota_moa_club_with_breadth(
-    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
-    local_breadth: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Option<Arc<dyn Club>> {
     let cheap = cheap_moa_enabled();
     let mut role_links = links.to_vec();
     if cheap {
-        role_links.extend(
-            local_breadth
-                .iter()
-                .map(|(alias, club, gate)| (alias.clone(), Arc::clone(club), Arc::clone(gate))),
-        );
         role_links = ordered_cheap_links(&role_links);
     }
     if role_links.is_empty() {
@@ -927,9 +829,7 @@ pub(crate) fn sota_moa_club_with_breadth(
             aggregate.label()
         );
     }
-    let mut proposer_links = local_breadth.to_vec();
-    proposer_links.extend_from_slice(links);
-    let extra_proposers = extra_sota_proposers(&proposer_links)
+    let extra_proposers = extra_sota_proposers(links)
         .into_iter()
         .filter(|(club, _)| !club.label().eq_ignore_ascii_case(propose.label()))
         .collect::<Vec<_>>();

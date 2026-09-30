@@ -44,7 +44,8 @@ impl Club for ScriptClub {
             .find(|m| m.role == ChatRole::System)
             .map(|m| m.content.as_ref())
             .unwrap_or("");
-        if sys.starts_with("You synthesize the accumulated") {
+        // The synthesizer's brief is `⠬⠋` (or its first two pages).
+        if sys.starts_with(&crate::agent::harness::book::ing_drivers::DELI_SYNTHESIS.cells()) {
             return Ok(ClubReply::Text("SYNTHESIZED".to_string()));
         }
         // Worker iteration.
@@ -161,9 +162,10 @@ fn iterate_forces_pivot_after_stalling() {
     assert_eq!(prompts.len(), 4);
     // Stale climbs 0,1,2,3 over rounds; the pivot fires when stale >= 2, i.e.
     // the 4th iteration (index 3). The first never pivots.
-    assert!(!prompts[0].contains("PIVOT"), "round 0 must not pivot");
+    let pivot = crate::agent::harness::book::er_loop::PIVOT.cells();
+    assert!(!prompts[0].contains(&pivot), "round 0 must not pivot");
     assert!(
-        prompts.iter().any(|p| p.contains("PIVOT")),
+        prompts.iter().any(|p| p.contains(&pivot)),
         "a structural pivot must be injected once stalled"
     );
 }
@@ -368,11 +370,23 @@ fn synthesis_prompt_separates_evidenced_findings_from_open_leads() {
             &["speculative lead".into()],
         )
         .unwrap();
+    // The findings and the open leads ride as data under their own keys; the
+    // words that keep them apart are `⠬⠋`'s pages.
     let msg = captured.lock().unwrap().clone();
-    assert!(msg.contains("Evidenced findings"));
-    assert!(msg.contains("Open leads"));
-    assert!(msg.contains("NOT evidenced"));
-    assert!(msg.contains("never state an open lead as fact"));
+    let findings = msg.find("findings:\n").expect(&msg);
+    let leads = msg.find("open leads:\n").expect(&msg);
+    assert!(findings < leads, "{msg}");
+    assert!(msg[findings..leads].contains("settled"), "{msg}");
+    assert!(msg[leads..].contains("speculative lead"), "{msg}");
+    assert!(!msg.contains("NOT evidenced"), "{msg}");
+    let pages = crate::agent::harness::book::ing_drivers::DELI_SYNTHESIS
+        .sub()
+        .pages
+        .join(" ");
+    assert!(pages.contains("Evidenced findings"));
+    assert!(pages.contains("Open leads"));
+    assert!(pages.contains("NOT evidenced"));
+    assert!(pages.contains("never state an open lead as fact"));
     let _ = deli;
 }
 
@@ -417,7 +431,7 @@ fn deli_keeps_rl_tools_available_without_restarting_deliberation_after_a_tool_re
             unreachable!()
         }
         fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-            if tools.is_empty() {
+            if crate::agent::harness::book::connect::is_ledger_only(tools) {
                 self.rounds.fetch_add(1, Ordering::AcqRel);
                 return Ok(ClubReply::Text(block_ev(
                     "inspect approach",
@@ -427,9 +441,11 @@ fn deli_keeps_rl_tools_available_without_restarting_deliberation_after_a_tool_re
             assert_eq!(tools[0].name, "rl_campaign");
             let hop = self.actions.fetch_add(1, Ordering::AcqRel);
             if hop == 0 {
-                assert!(messages.iter().any(
-                    |m| m.role == ChatRole::Harness && m.content.contains("Deli deliberation")
-                ));
+                assert!(
+                    messages
+                        .iter()
+                        .any(|m| m.role == ChatRole::Harness && m.content.contains("⠬⠁"))
+                );
                 return Ok(ClubReply::Calls(vec![ToolCall {
                     id: "rl-start".into(),
                     name: "rl_campaign".into(),
@@ -696,19 +712,24 @@ fn the_reasoning_contract_forbids_the_citations_the_worker_cannot_obtain() {
     );
     let _ = deli.iterate("solve it", "", &AtomicBool::new(false));
     let prompt = inner.prompts.lock().unwrap()[0].clone();
-    // It must offer the kinds this worker can supply...
-    assert!(prompt.contains("premise:"), "{prompt}");
-    assert!(prompt.contains("derivation:"), "{prompt}");
-    // ...name the ones it cannot, so the model does not infer them...
-    assert!(prompt.contains("NO repository"), "{prompt}");
-    assert!(prompt.contains("would be fabricated"), "{prompt}");
-    // ...and make honest labeling the cheap option.
-    assert!(prompt.contains("costs you nothing"), "{prompt}");
-    // The grounded example shapes must not leak into this regime.
+    // The text-only worker's contract is `⠌⠑`, read off the ledger; the
+    // grounded contract `⠻⠑` must not be pointed at.
+    use crate::agent::harness::book::{er_loop, st_connected};
     assert!(
-        !prompt.contains("[evidence: file:<path>:<line>]"),
-        "the grounded contract must not be shown to a tool-less worker: {prompt}"
+        prompt.contains(&st_connected::REASONING_CONTRACT.cells()),
+        "{prompt}"
     );
+    assert!(!prompt.contains(&er_loop::CONTRACT.cells()), "{prompt}");
+    let contract = st_connected::REASONING_CONTRACT.sub().pages.join(" ");
+    // It must offer the kinds this worker can supply...
+    assert!(contract.contains("premise:"));
+    assert!(contract.contains("derivation:"));
+    // ...name the ones it cannot, so the model does not infer them...
+    assert!(contract.contains("NO repository"));
+    assert!(contract.contains("would be fabricated"));
+    // ...and make honest labeling the cheap option.
+    assert!(contract.contains("costs you nothing"));
+    assert!(!contract.contains("[evidence: file:<path>:<line>]"));
 }
 
 #[test]

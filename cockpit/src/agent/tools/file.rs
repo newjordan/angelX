@@ -6,6 +6,7 @@
 //! Landlock domain on Linux.
 
 use crate::agent::club::ToolDef;
+use crate::agent::harness::book::d46_recovery as recovery;
 use crate::agent::harness::{
     Tool, confined_create_new, confined_edit, confined_read, confined_read_limited,
     confined_read_page, confined_remove_file, confined_write, env_flag, output_timed, safe_path,
@@ -111,7 +112,7 @@ pub(crate) fn with_missing_path_hints(root: &Path, path: &Path, error: String) -
 /// ordinary workspace paths, and `Err` for a malformed known scheme.
 fn try_read_virtual(root: &Path, path: &str) -> Result<Option<String>, String> {
     if path.starts_with("conflict:") || path.contains(":conflict://") {
-        return Ok(Some(read_conflict_uri(path)?));
+        return Ok(Some(read_conflict_uri(root, path)?));
     }
     if let Some(rest) = path.strip_prefix("skill://") {
         return Ok(Some(read_skill_uri(root, rest)?));
@@ -127,6 +128,9 @@ fn try_read_virtual(root: &Path, path: &str) -> Result<Option<String>, String> {
     if let Some(rest) = path.strip_prefix("outline://") {
         return Ok(Some(read_outline_uri(root, rest)?));
     }
+    if let Some(rest) = path.strip_prefix(crate::agent::harness::book::ledger::SCHEME) {
+        return Ok(Some(crate::agent::harness::book::ledger::read(root, rest)?));
+    }
     Ok(None)
 }
 
@@ -135,9 +139,10 @@ fn try_write_virtual(root: &Path, path: &str, content: &str) -> Result<Option<St
         return Ok(Some(write_conflict_uri(root, path, content)?));
     }
     if path.starts_with("skill://") {
-        return Err(
-            "skill:// is read-only; use the skill tool or edit the skill files on disk".into(),
-        );
+        return Err(format!(
+            "skill:// is read-only\n{}",
+            recovery::SKILL_TOOL.cells()
+        ));
     }
     if path.starts_with("agent://") {
         return Err(
@@ -145,10 +150,16 @@ fn try_write_virtual(root: &Path, path: &str, content: &str) -> Result<Option<St
         );
     }
     if crate::agent::git::hub_url::is_github_uri(path) {
-        return Err("pr:// and issue:// are read-only; use gh CLI or the browser to mutate".into());
+        return Err(format!(
+            "pr:// and issue:// are read-only\n{}",
+            recovery::GH_MUTATE.cells()
+        ));
     }
     if path.starts_with("outline://") {
         return Err("outline:// is read-only".into());
+    }
+    if path.starts_with(crate::agent::harness::book::ledger::SCHEME) {
+        return Err("ledger:// is read-only; the harness stamps it".into());
     }
     Ok(None)
 }
@@ -163,8 +174,8 @@ fn read_outline_uri(root: &Path, rest: &str) -> Result<String, String> {
     }
     if rel.starts_with("hnd_") {
         return Err(format!(
-            "outline:// expects a workspace source path; `{rel}` is an opaque result handle. \
-             Read it with `agent://{rel}` or call handle_read with handle `{rel}`"
+            "outline:// expects a workspace source path; `{rel}` is an opaque result handle.\n{} rel={rel}",
+            crate::agent::harness::book::u_skills::HANDLE_URI.cells()
         ));
     }
     let bytes = confined_read(root, Path::new(rel))?;
@@ -224,7 +235,8 @@ fn read_agent_uri(rest: &str) -> Result<String, String> {
         if receipts.len() > 64 {
             out.push_str(&format!("  …(+{} more)\n", receipts.len() - 64));
         }
-        out.push_str("Read agent://hnd_… for a capped body slice.\n");
+        out.push_str(&crate::agent::harness::book::u_skills::HANDLE_SLICE.cells());
+        out.push('\n');
         return Ok(out);
     }
 
@@ -259,7 +271,8 @@ fn read_agent_uri(rest: &str) -> Result<String, String> {
     }
     if slice.truncated && json_path.is_none() {
         out.push_str(&format!(
-            "…[truncated at {max} bytes; re-call handle_read with a higher budget if enabled]\n"
+            "…[truncated at {max} bytes]\n{}\n",
+            crate::agent::harness::book::u_skills::HANDLE_BUDGET.cells()
         ));
     }
     Ok(out)
@@ -268,8 +281,12 @@ fn read_agent_uri(rest: &str) -> Result<String, String> {
 /// Minimal dotted/indexed JSON path extractor: `a.b.0.c` over a JSON value.
 /// Returns pretty-printed JSON for complex values, or a bare string for scalars.
 fn extract_json_path(body: &str, path: &str) -> Result<String, String> {
-    let value: serde_json::Value = serde_json::from_str(body.trim())
-        .map_err(|e| format!("body is not JSON ({e}); use agent://id without a path"))?;
+    let value: serde_json::Value = serde_json::from_str(body.trim()).map_err(|e| {
+        format!(
+            "body is not JSON ({e})\n{}",
+            crate::agent::harness::book::u_skills::HANDLE_WHOLE.cells()
+        )
+    })?;
     let mut cur = &value;
     for seg in path.split('.').filter(|s| !s.is_empty()) {
         if let Ok(idx) = seg.parse::<usize>() {
@@ -288,28 +305,27 @@ fn extract_json_path(body: &str, path: &str) -> Result<String, String> {
     }
 }
 
-fn read_conflict_uri(path: &str) -> Result<String, String> {
+fn read_conflict_uri(root: &Path, path: &str) -> Result<String, String> {
     use crate::agent::conflict::{
         ConflictUri, format_conflict_detail, format_conflict_footer, get_conflict, list_conflicts,
         parse_conflict_uri,
     };
     match parse_conflict_uri(path)? {
         ConflictUri::List | ConflictUri::All => {
-            let entries = list_conflicts();
+            let entries = list_conflicts(root);
             if entries.is_empty() {
-                return Ok(
-                    "no registered merge conflicts — read a conflicted file first so \
-                     conflict:// ids are assigned\n"
-                        .into(),
-                );
+                return Ok(format!(
+                    "no registered merge conflicts\n{}\n",
+                    recovery::CONFLICT_READ_FIRST.cells()
+                ));
             }
             Ok(format_conflict_footer(&entries) + "\n")
         }
         ConflictUri::One { id, scope } => {
-            let entry = get_conflict(id).ok_or_else(|| {
+            let entry = get_conflict(root, id).ok_or_else(|| {
                 format!(
-                    "unknown conflict://{id} — read a conflicted file first, or call \
-                     read_file path=conflict:// to list active ids"
+                    "unknown conflict://{id}\n{}",
+                    recovery::CONFLICT_UNKNOWN.cells()
                 )
             })?;
             Ok(format_conflict_detail(&entry, scope.as_ref()))
@@ -323,13 +339,16 @@ fn write_conflict_uri(root: &Path, path: &str, content: &str) -> Result<String, 
         list_conflicts, parse_conflict_uri, resolve_replacement, splice_conflict,
     };
     match parse_conflict_uri(path)? {
-        ConflictUri::List => Err(
-            "conflict:// (list) is read-only; write conflict://N or conflict://* with a resolution"
-                .into(),
-        ),
+        ConflictUri::List => Err(format!(
+            "conflict:// (list) is read-only\n{}",
+            recovery::CONFLICT_WRITE_ONE.cells()
+        )),
         ConflictUri::One { id, scope: _ } => {
-            let entry = get_conflict(id).ok_or_else(|| {
-                format!("unknown conflict://{id}; read the conflicted file first")
+            let entry = get_conflict(root, id).ok_or_else(|| {
+                format!(
+                    "unknown conflict://{id}\n{}",
+                    recovery::CONFLICT_READ_FILE.cells()
+                )
             })?;
             let repl = resolve_replacement(&entry, content)?;
             let original = confined_read(root, Path::new(&entry.path))
@@ -339,10 +358,10 @@ fn write_conflict_uri(root: &Path, path: &str, content: &str) -> Result<String, 
             let updated = splice_conflict(&original_str, &entry, &repl)?;
             confined_write(root, Path::new(&entry.path), updated.as_bytes())?;
             crate::agent::hashline::record_snapshot(&entry.path, &updated);
-            invalidate_conflict(id);
+            invalidate_conflict(root, id);
             // Other conflicts in the same file may have shifted; drop them so
             // the agent re-reads for fresh ids.
-            invalidate_conflicts_for_path(&entry.path);
+            invalidate_conflicts_for_path(root, &entry.path);
             let tag = crate::agent::hashline::content_tag(&updated);
             Ok(format!(
                 "resolved conflict://{id} in {} · new tag #{tag}",
@@ -350,7 +369,7 @@ fn write_conflict_uri(root: &Path, path: &str, content: &str) -> Result<String, 
             ))
         }
         ConflictUri::All => {
-            let entries = list_conflicts();
+            let entries = list_conflicts(root);
             if entries.is_empty() {
                 return Err("no registered conflicts to bulk-resolve".into());
             }
@@ -376,7 +395,7 @@ fn write_conflict_uri(root: &Path, path: &str, content: &str) -> Result<String, 
                 }
                 confined_write(root, Path::new(&file_path), text.as_bytes())?;
                 crate::agent::hashline::record_snapshot(&file_path, &text);
-                invalidate_conflicts_for_path(&file_path);
+                invalidate_conflicts_for_path(root, &file_path);
             }
             Ok(format!(
                 "bulk-resolved {} conflict(s): {}",
@@ -401,7 +420,7 @@ fn read_skill_uri(root: &Path, rest: &str) -> Result<String, String> {
         if skills.is_empty() {
             return Ok("no skills available for this workspace\n".into());
         }
-        let mut out = String::from("skill:// catalog (read skill://NAME for full body):\n");
+        let mut out = format!("skill:// catalog {}:\n", recovery::SKILL_BODY.cells());
         for s in skills {
             out.push_str(&format!("  skill://{} — {}\n", s.name, s.description));
         }
@@ -435,7 +454,12 @@ fn read_skill_uri(root: &Path, rest: &str) -> Result<String, String> {
 
 /// Scan a just-read page for merge conflict markers, register them, and return
 /// a footer when any completed blocks were found.
-fn scan_and_register_conflicts(path: &str, text: &str, first_line: usize) -> Option<String> {
+fn scan_and_register_conflicts(
+    root: &Path,
+    path: &str,
+    text: &str,
+    first_line: usize,
+) -> Option<String> {
     // When hashline anchors are on, `text` may be annotated with a header and
     // line-number prefixes — scan the raw page body only (lines after the
     // optional `[path#tag]` header, stripping `NN  ` prefixes when present).
@@ -448,7 +472,11 @@ fn scan_and_register_conflicts(path: &str, text: &str, first_line: usize) -> Opt
     if blocks.is_empty() {
         return None;
     }
-    let entries = crate::agent::conflict::register_conflicts(path, &blocks);
+    // Reads may use an absolute path through a workspace alias. Store the
+    // relative spelling so resolving from its canonical root uses the same file.
+    let relative = crate::agent::harness::workspace_relative(root, Path::new(path)).ok()?;
+    let entries =
+        crate::agent::conflict::register_conflicts(root, &relative.to_string_lossy(), &blocks);
     Some(crate::agent::conflict::format_conflict_footer(&entries))
 }
 
@@ -543,8 +571,8 @@ pub(crate) fn guard_expected_tag(
         let live = crate::agent::hashline::content_tag(content);
         if live != tag {
             return Err(format!(
-                "stale edit for {path}: file tag is #{live} but you expected #{tag} — \
-                 re-read the file and retry"
+                "stale edit for {path}: file tag is #{live} but you expected #{tag}\n{}",
+                recovery::STALE_EDIT.cells()
             ));
         }
     }
@@ -561,8 +589,7 @@ impl Tool for ReadFileTool {
     fn def(&self) -> ToolDef {
         let anchors = if hashline_anchors_enabled() {
             " Each page is headed with `[path#tag]` (whole-file content tag) and \
-             absolute 1-based line numbers so you can author token-cheap hashline \
-             `apply_patch` edits that emit only the NEW lines. A mismatched tag is \
+             absolute 1-based line numbers. A mismatched tag is \
              rejected, or recovered when a session snapshot of that tag still \
              proves the anchors map cleanly onto the live file."
         } else {
@@ -577,25 +604,25 @@ impl Tool for ReadFileTool {
                  remains, the result names the next offset to use. Also resolves \
                  virtual URLs: `conflict://…`, `skill://name`, `agent://hnd_…`, \
                  `outline://path` (structural symbol map), `pr://N`[/diff|files|comments], \
-                 `issue://N`[/comments] (via `gh`). Merge conflict markers in ordinary \
+                 `issue://N`[/comments] (via `gh`); {stamps}. Merge conflict markers in ordinary \
                  files are registered and footered for write_file path=conflict://N. \
-                 Use `agent://hnd_…` or handle_read for opaque handles; `outline://` \
-                 always requires a workspace source path.{anchors}"
+                 `outline://` always requires a workspace source path.{anchors} ⠡⠁",
+                stamps = crate::agent::harness::book::DIRECTION,
             ),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "workspace path, or conflict:// / skill:// / agent:// / outline:// / pr:// / issue:// virtual URL" },
+                    "path": { "type": "string", "description": "⠡⠁⠙" },
                     "offset": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "one-based first source line; default 1. Reuse the next offset named by a truncated page"
+                        "description": "⠡⠁⠑⠡⠁⠃"
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": MAX_READ_PAGE_LINES,
-                        "description": "complete source lines to return; default 200, maximum 400"
+                        "description": "⠡⠁⠋"
                     }
                 },
                 "required": ["path"],
@@ -673,7 +700,7 @@ impl Tool for ReadFileTool {
             }
         }
         // Surface merge conflicts so the agent can resolve via conflict://N.
-        if let Some(footer) = scan_and_register_conflicts(path, &text, offset) {
+        if let Some(footer) = scan_and_register_conflicts(&self.root, path, &text, offset) {
             if !text.ends_with('\n') {
                 text.push('\n');
             }
@@ -690,7 +717,8 @@ impl Tool for ReadFileTool {
                     "[truncated: {more} more bytes; next offset {next_offset}]"
                 )),
                 None => text.push_str(&format!(
-                    "…[more content; re-call read_file with offset={next_offset}]"
+                    "…[more content; next offset {next_offset}]\n{}",
+                    crate::agent::harness::book::w_workflow::PAGING.cells()
                 )),
             }
         }
@@ -713,13 +741,13 @@ impl Tool for WriteFileTool {
                           follow-up edits without a reread. Also resolves \
                           `conflict://N` (and `conflict://*` bulk): content may be \
                           `@ours`, `@theirs`, `@base`, `@both`, or a custom body that \
-                          replaces the marker region."
+                          replaces the marker region. ⠷⠁"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "workspace path, or conflict://N / conflict://* virtual URL" },
-                    "content": { "type": "string", "description": "full file contents, or @ours/@theirs/@base/@both for conflict resolve" },
+                    "path": { "type": "string", "description": "⠷⠁⠁" },
+                    "content": { "type": "string", "description": "⠷⠁⠃" },
                 },
                 "required": ["path", "content"],
             }),
@@ -732,14 +760,35 @@ impl Tool for WriteFileTool {
             if let Some(msg) = try_write_virtual(&self.root, path, content)? {
                 return Ok(msg);
             }
-            confined_write(&self.root, Path::new(path), content.as_bytes())?;
+            // Rewriting a file with the bytes it already holds changes nothing;
+            // "new tag" would read as a landed change.
+            let unchanged = confined_read(&self.root, Path::new(path))
+                .is_ok_and(|existing| existing == content.as_bytes());
+            if !unchanged {
+                confined_write(&self.root, Path::new(path), content.as_bytes())?;
+            }
             let tag = crate::agent::hashline::record_snapshot(path, content);
+            if unchanged {
+                return Ok(format!(
+                    "no change: {path} already held these {} bytes (tag #{tag})",
+                    content.len()
+                ));
+            }
             Ok(format!(
                 "wrote {} bytes to {path} · new tag #{tag}",
                 content.len()
             ))
         })
     }
+}
+
+/// An edit whose `new` text equals what it replaces leaves the file as it was;
+/// saying "edited" would let the model believe a fix landed that did not.
+fn unchanged_edit(path: &str, content: &str) -> String {
+    format!(
+        "no change: 'new' is identical to the text it replaces; {path} is unchanged (tag #{})",
+        crate::agent::hashline::content_tag(content)
+    )
 }
 
 pub(crate) struct StrReplaceTool {
@@ -752,23 +801,19 @@ impl Tool for StrReplaceTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "str_replace".to_string(),
-            description: "Replace an exact, unique substring in a workspace file. Fails if \
-                          'old' is absent or appears more than once — include enough \
-                          surrounding context to make it unique. If the exact text isn't \
+            description: "Replace an exact, unique substring in a workspace file. Fails if 'old' is absent or appears more than once. If the exact text isn't \
                           found, falls back to a whole-line match tolerant of trailing \
                           whitespace, CRLF, and smart quotes/dashes (indentation must still \
                           match — it never silently re-indents). Returns the new content tag \
-                          for a guarded follow-up edit without a reread. An indentation-only \
-                          miss can return exact `old` and `expect_tag` recovery fields; copy \
-                          them and author `new` with the intended indentation."
+                          for a guarded follow-up edit without a reread. An indentation-only miss can return exact `old` and `expect_tag` recovery fields. ⠡⠃"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "path inside the workspace (relative or absolute)" },
-                    "old": { "type": "string", "description": "exact text to replace (must be unique)" },
-                    "new": { "type": "string", "description": "replacement text" },
-                    "expect_tag": { "type": "string", "description": "optional stale-edit guard: the file's content tag from read_file's [path#tag] header. The edit is rejected if the live file no longer matches it." },
+                    "path": { "type": "string", "description": "⠡⠃⠉" },
+                    "old": { "type": "string", "description": "⠡⠃⠙" },
+                    "new": { "type": "string", "description": "⠡⠃⠑" },
+                    "expect_tag": { "type": "string", "description": "⠡⠃⠋⠡⠃⠛" },
                 },
                 "required": ["path", "old", "new"],
             }),
@@ -794,6 +839,9 @@ impl Tool for StrReplaceTool {
                 updated.push_str(&content[..start]);
                 updated.push_str(new);
                 updated.push_str(&content[end..]);
+                if updated == content {
+                    return Err(unchanged_edit(path, &content));
+                }
                 Ok((updated.clone().into_bytes(), (fuzzy, updated)))
             })?;
             let tag = crate::agent::hashline::record_snapshot(path, &updated);
@@ -821,18 +869,17 @@ impl Tool for MultiEditTool {
             name: "multi_edit".to_string(),
             description: "Apply an ordered list of exact str-replace edits to ONE file, \
                           atomically (all-or-nothing). Edits apply in sequence; each 'old' \
-                          must be unique in the file's current state. Fewer hops than \
-                          repeated str_replace for a multi-site refactor. Returns the new \
-                          content tag for a guarded follow-up edit without a reread."
+                          must be unique in the file's current state. Returns the new \
+                          content tag for a guarded follow-up edit without a reread. ⠷⠃"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "path inside the workspace (relative or absolute)" },
-                    "expect_tag": { "type": "string", "description": "optional stale-edit guard: the file's content tag from read_file's [path#tag] header. All edits are rejected if the live file no longer matches it." },
+                    "path": { "type": "string", "description": "⠷⠃⠃" },
+                    "expect_tag": { "type": "string", "description": "⠷⠃⠉⠷⠃⠙" },
                     "edits": {
                         "type": "array",
-                        "description": "ordered edits, each applied to the result of the previous",
+                        "description": "⠷⠃⠑",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -862,6 +909,7 @@ impl Tool for MultiEditTool {
                     String::from_utf8(bytes).map_err(|e| format!("read {path}: {e}"))?;
                 guard_expected_tag(path, &content, expect_tag)?;
                 let live_tag = crate::agent::hashline::content_tag(&content);
+                let original = content.clone();
                 let mut any_fuzzy = false;
                 for (i, e) in edits.iter().enumerate() {
                     let n = i + 1;
@@ -886,6 +934,9 @@ impl Tool for MultiEditTool {
                     next.push_str(new);
                     next.push_str(&content[end..]);
                     content = next;
+                }
+                if content == original {
+                    return Err(unchanged_edit(path, &content));
                 }
                 Ok((content.clone().into_bytes(), (any_fuzzy, content)))
             })?;
@@ -971,11 +1022,14 @@ fn format_ambiguous_matches(
     } else {
         "matches"
     };
-    let mut msg = format!("'old' is not unique ({n} {kind}) — add more context");
+    // The fact keeps its sentence; how to disambiguate is the `⠨⠉` pages.
+    let mut msg = format!("'old' is not unique ({n} {kind})");
     if byte_starts.is_empty() {
+        msg.push('\n');
+        msg.push_str(&recovery::MORE_CONTEXT.cells());
         return msg;
     }
-    msg.push_str(" that distinguishes the target. Occurrences start at lines ");
+    msg.push_str(". Occurrences start at lines ");
     let shown: Vec<usize> = byte_starts.iter().take(CAP).copied().collect();
     let line_nums: Vec<String> = shown
         .iter()
@@ -1009,7 +1063,8 @@ fn format_ambiguous_matches(
             msg.push('…');
         }
     }
-    msg.push_str("\nInclude surrounding unique lines (e.g. the enclosing function) in `old`.");
+    msg.push('\n');
+    msg.push_str(&recovery::run(&[recovery::NOT_UNIQUE, recovery::ENCLOSING]));
     msg
 }
 
@@ -1092,7 +1147,8 @@ fn replacement_recovery(
         return error;
     };
     if matches.next().is_some() {
-        error.push_str("\nMultiple regions match after trimming; no recovery region selected. Add unique surrounding context.");
+        error.push_str("\nMultiple regions match after trimming; no recovery region selected.\n");
+        error.push_str(&recovery::TRIMMED_REGIONS.cells());
         return error;
     }
     let mut end = lines[start + pat.len() - 1].1;
@@ -1108,12 +1164,12 @@ fn replacement_recovery(
     // A unique line window can still be an ambiguous substring (for example
     // "    f();" also appears inside an eight-space line). Match retry semantics.
     if content.match_indices(exact).take(2).count() != 1 {
-        error.push_str("\nThe exact region is not a unique substring; add surrounding context before retrying.");
+        error.push_str("\nThe exact region is not a unique substring.\n⠭⠊⠓");
         return error;
     }
     if exact.len() > MAX_RECOVERY_BYTES {
         error.push_str(&format!(
-            "\nExact recovery exceeds {MAX_RECOVERY_BYTES} bytes; no clipped edit supplied. Read this path with offset={} limit={} and choose a smaller unique edit.",
+            "\nExact recovery exceeds {MAX_RECOVERY_BYTES} bytes; no clipped edit supplied; offset={} limit={}\n⠭⠊⠊",
             start + 1,
             pat.len().min(MAX_READ_PAGE_LINES),
         ));
@@ -1129,15 +1185,12 @@ fn replacement_recovery(
     }
     let recovery = recovery.to_string();
     if recovery.len() > MAX_RECOVERY_BYTES {
-        error.push_str("\nEscaped recovery exceeds 4096 bytes; no clipped edit supplied. Read the indicated region and choose a smaller unique edit.");
+        error.push_str("\nEscaped recovery exceeds 4096 bytes; no clipped edit supplied.\n⠭⠊⠛");
         return error;
     }
-    error.push_str("\nNo edit was applied. Exact source is JSON-escaped below; copy `old` and author `new` with the intended indentation. Trimming is only a discovery hint, including for Python/YAML; it does not authorize re-indentation.");
-    if atomic_retry.is_some() {
-        error.push_str(" Retry the ENTIRE multi_edit list with this outer expect_tag; replace only the identified edit's old. This old describes the buffer AFTER preceding edits, not the unchanged live file. edit_index is one-based recovery metadata, not a tool argument.");
-    } else {
-        error.push_str(" Retry str_replace on the same path with these old/expect_tag fields.");
-    }
+    // What to do with the recovery fields is the `⠭⠊` pages.
+    error.push_str("\nNo edit was applied.\n");
+    error.push_str(&crate::agent::harness::book::x_execution::EDIT_RECOVERY.cells());
     error.push_str("\n[edit recovery] ");
     error.push_str(&recovery);
     error.push('\n');
@@ -1182,7 +1235,8 @@ fn format_near_miss(content: &str, cl: &[(usize, usize)], pat: &[&str]) -> Strin
     }
     if best.0 == 0 {
         return format!(
-            "{BASE} — no line of `old` matches anywhere; the file likely changed since it was read. Re-read the file before editing."
+            "{BASE} — no line of `old` matches anywhere; the file likely changed since it was read.\n{}",
+            recovery::NO_LINE_MATCHES.cells()
         );
     }
     let start = best.2;
@@ -1212,12 +1266,12 @@ fn format_near_miss(content: &str, cl: &[(usize, usize)], pat: &[&str]) -> Strin
     }
     if indent_only {
         msg.push_str(
-            "\nEvery line matches after trimming: the LEADING WHITESPACE in `old` is wrong. Copy the exact indentation shown above.",
+            "\nEvery line matches after trimming: the LEADING WHITESPACE in `old` is wrong.\n",
         );
+        msg.push_str(&recovery::INDENTATION.cells());
     } else {
-        msg.push_str(
-            "\nCorrect `old` to the exact lines above (they may have changed since your last read).",
-        );
+        msg.push('\n');
+        msg.push_str(&recovery::CLOSEST_REGION.cells());
     }
     msg
 }
@@ -1465,7 +1519,8 @@ fn plan_freeform_patch(root: &Path, ops: Vec<FileOp>) -> Result<Vec<PlannedFileO
             let resolved = safe_path(root, path)?;
             if !claimed.insert(resolved) {
                 return Err(format!(
-                    "patch touches {path:?} more than once; combine its hunks into one operation"
+                    "patch touches {path:?} more than once\n{}",
+                    recovery::COMBINE_HUNKS.cells()
                 ));
             }
             Ok(())
@@ -1730,22 +1785,22 @@ impl Tool for ResolveEditTool {
             description: "Accept or reject a staged edit batch created by apply_patch \
                           with stage=true (oh-my-pi preview/accept). action=list shows \
                           pending proposals; accept writes transactionally; reject drops \
-                          the proposal. Disk is untouched until accept."
+                          the proposal. Disk is untouched until accept. ⠷⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "description": "accept | reject | list (default list)"
+                        "description": "⠷⠙⠁"
                     },
                     "id": {
                         "type": "integer",
-                        "description": "staged edit id from the proposal card (required for accept/reject)"
+                        "description": "⠷⠙⠃"
                     },
                     "reason": {
                         "type": "string",
-                        "description": "optional note recorded on accept/reject"
+                        "description": "⠷⠙⠉"
                     },
                 },
                 "required": [],
@@ -1761,29 +1816,26 @@ impl Tool for ResolveEditTool {
                 .to_ascii_lowercase();
             let reason = args["reason"].as_str().filter(|s| !s.is_empty());
             match action.as_str() {
-                "list" | "" => Ok(crate::agent::staged_edit::list_staged()),
+                "list" | "" => Ok(crate::agent::staged_edit::list_staged(&self.root)),
                 "accept" => {
                     let id = args["id"]
                         .as_u64()
-                        .ok_or("resolve_edit accept requires integer id")?
-                        as u32;
-                    // Ensure batch was staged for this workspace when possible.
+                        .and_then(|id| u32::try_from(id).ok())
+                        .ok_or("resolve_edit accept requires integer id in 0..=4294967295")?;
                     #[cfg(target_os = "linux")]
                     let _exit_guard = exit_safe_patch::Guard::enter()?;
-                    crate::agent::staged_edit::accept(id, reason).inspect(|_msg| {
-                        // Touch root so capture_writes / dependents see activity.
-                        let _ = &self.root;
-                    })
+                    crate::agent::staged_edit::accept(&self.root, id, reason)
                 }
                 "reject" => {
                     let id = args["id"]
                         .as_u64()
-                        .ok_or("resolve_edit reject requires integer id")?
-                        as u32;
-                    crate::agent::staged_edit::reject(id, reason)
+                        .and_then(|id| u32::try_from(id).ok())
+                        .ok_or("resolve_edit reject requires integer id in 0..=4294967295")?;
+                    crate::agent::staged_edit::reject(&self.root, id, reason)
                 }
                 other => Err(format!(
-                    "unknown action {other:?}; use accept, reject, or list"
+                    "unknown action {other:?}\n{}",
+                    recovery::RESOLVE_ACTIONS.cells()
                 )),
             }
         })
@@ -1818,16 +1870,16 @@ impl Tool for ApplyPatchTool {
                           each file's new tag so the next edit can chain without a reread. Every \
                           target path must stay inside the workspace; every edit is checked before \
                           the first write. Hashline also supports stage=true: preflight and queue \
-                          the plan without writing; call resolve_edit to accept or reject."
+                          the plan without writing. ⠷⠉"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "diff": { "type": "string", "description": "unified diff (a/ b/ headers)" },
-                    "strip": { "type": "integer", "description": "path strip level -pN (default 1)" },
+                    "diff": { "type": "string", "description": "⠷⠉⠃" },
+                    "strip": { "type": "integer", "description": "⠷⠉⠉" },
                     "stage": {
                         "type": "boolean",
-                        "description": "hashline only: when true, preflight and stage the plan (no disk write); resolve with resolve_edit"
+                        "description": "⠷⠉⠙"
                     },
                 },
                 "required": ["diff"],
@@ -1850,15 +1902,18 @@ impl Tool for ApplyPatchTool {
                     return apply_hashline_patch(&self.root, diff, stage);
                 }
                 if stage {
-                    return Err(
-                    "stage=true is only supported for hashline patches (sections with [path#tag])"
-                        .into(),
-                );
+                    return Err(format!(
+                        "stage=true\n{}",
+                        recovery::STAGE_HASHLINE_SECTIONS.cells()
+                    ));
                 }
                 return apply_freeform_patch(&self.root, diff);
             }
             if stage {
-                return Err("stage=true is only supported for hashline patches".into());
+                return Err(format!(
+                    "stage=true\n{}",
+                    recovery::STAGE_HASHLINE_ONLY.cells()
+                ));
             }
             let strip = args["strip"].as_u64().unwrap_or(1);
 

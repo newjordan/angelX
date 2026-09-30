@@ -281,14 +281,14 @@ impl Tool for UiInspectTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "ui_inspect".to_string(),
-            description: "Inspect the next fully rendered interactive cockpit frame. Defaults to the braille Scryglass and returns matching panel, focus, media, world, and control state. Use format=cells for exact Ratatui symbols, color variants, underline color, modifiers, and skip flags.".to_string(),
+            description: "Inspect the next fully rendered interactive cockpit frame. Defaults to the braille Scryglass and returns matching panel, focus, media, world, and control state. ⠮⠋".to_string(),
             params: json!({
                 "type": "object",
                 "properties": {
                     "snapshot_id": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Page an immutable cached snapshot without drawing a new frame."
+                        "description": "⠮⠋⠃"
                     },
                     "scope": {
                         "type": "string",
@@ -332,7 +332,7 @@ impl Tool for UiVerifyTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "ui_verify".to_string(),
-            description: "Apply one typed, display-only operation through the ordinary cockpit input path, then return its receipt with exact terminal cells and semantic state from that same completed frame. Page the immutable result later with ui_inspect(snapshot_id=...).".to_string(),
+            description: "Apply one typed, display-only operation through the ordinary cockpit input path, then return its receipt with exact terminal cells and semantic state from that same completed frame. ⠮⠛".to_string(),
             params: json!({
                 "type": "object",
                 "properties": {
@@ -381,7 +381,7 @@ impl Tool for UiVerifyTool {
                                     "campaign": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Optional exact campaign id from the loaded report catalog."
+                                        "description": "⠮⠛⠃"
                                     }
                                 },
                                 "required": ["op"],

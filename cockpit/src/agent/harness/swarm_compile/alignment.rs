@@ -4,6 +4,7 @@ use super::tool::{
     AlignmentIndependence, AlignmentVerdict, CampaignAlignmentReceipt, CampaignAlignmentRequest,
     SwarmCompilerEngine,
 };
+use crate::agent::harness::book::o_orchestration;
 use crate::agent::harness::{DelegateMode, normalize_club_name, run_git};
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -500,19 +501,16 @@ fn alignment_prompt(request: &CampaignAlignmentRequest) -> String {
         .map(|proof| format!("- {}: {}", proof.sha256, proof.summary))
         .collect::<Vec<_>>()
         .join("\n");
+    // The gate is `⠕⠊` (its labels are page addresses, the contract, the
+    // candidate, the criteria and the proofs the data) and its verdict
+    // contract is `⠕⠚`. The reviewer is a delegate seat: it reads the ledger
+    // through its own `read_file`.
+    let gate = o_orchestration::ALIGNMENT.cells();
     format!(
-        "Read and obey the repository scope instructions. Review only; never edit, create, delete, \
-         format, commit, or change refs. You are the final alignment gate for the exact parked \
-         candidate below.\nContract digest: {}\nCandidate OID: {}\nTarget criteria:\n{}\n\
-         Authorized technical proofs:\n{}\n\nInspect the candidate and decide whether it actually \
-         satisfies every criterion without scope regressions or proof gaming. Return exactly one \
-         raw JSON object (no markdown fence or surrounding prose) with keys: schema, \
-         contract_digest, candidate_oid, criteria, cited_proof_sha256, summary. `schema` must be \
-         `campaign-review/v1`. Each criteria item must contain criterion_id, verdict (`pass` or \
-         `block`), and non-empty concrete citations. Cite every listed criterion and every proof \
-         SHA exactly once. Then end with exactly one final line `CAMPAIGN_REVIEW: PASS` only if \
-         every criterion passes, otherwise `CAMPAIGN_REVIEW: BLOCK`.",
-        request.contract_digest, request.candidate_oid, criteria, proofs
+        "{gate}\n{gate}⠙ {}\n{gate}⠑ {}\n{gate}⠋\n{criteria}\n{gate}⠛\n{proofs}\n\n{}",
+        request.contract_digest,
+        request.candidate_oid,
+        o_orchestration::ALIGNMENT_VERDICT.cells()
     )
 }
 

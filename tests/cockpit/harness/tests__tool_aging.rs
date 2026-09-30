@@ -201,11 +201,7 @@ fn age_tool_results_elides_old_bulk_and_protects_recent_hops() {
             "{}",
             old.content
         );
-        assert!(
-            old.content.contains("re-run the tool if needed"),
-            "{}",
-            old.content
-        );
+        assert!(old.content.contains(AGED_TAIL), "{}", old.content);
     }
     for recent in &tools[2..] {
         assert_eq!(&*recent.content, big, "protected recent hops untouched");
@@ -846,7 +842,7 @@ fn effect_results_age_to_excerpt_receipts_when_enabled() {
         assert!(content.contains(&format!("head: HEAD-{i} ")), "{content}");
         assert!(content.contains("tail: "), "{content}");
         assert!(
-            content.contains(&format!("x TAIL-{i} — re-run the tool if needed]")),
+            content.contains(&format!("x TAIL-{i}{AGED_TAIL}")),
             "tail excerpt must carry the real last bytes: {content}"
         );
         assert!(
@@ -964,10 +960,7 @@ fn old_effect_receipts_drop_their_excerpt_after_the_window() {
             "handle text survives without re-parking bulk: {content}"
         );
         assert!(!content.contains(TOOL_EXCERPT_MARK), "{content}");
-        assert!(
-            content.ends_with(" — re-run the tool if needed]"),
-            "{content}"
-        );
+        assert!(content.ends_with(AGED_TAIL), "{content}");
     }
     for i in 24..28 {
         let content = &result(&format!("shell-{i}")).content;
@@ -1110,6 +1103,10 @@ struct AgingProbeClub {
     requests_with_aged_results: AtomicUsize,
     retained: std::sync::Mutex<Vec<ChatMsg>>,
     check_prefix: bool,
+    /// Publishes a provider harness's compaction trigger (DeepSeek's route).
+    provider_budget: bool,
+    /// Hops before the answer (ten for the historical probes).
+    stop_at: usize,
 }
 
 impl Club for AgingProbeClub {
@@ -1118,6 +1115,9 @@ impl Club for AgingProbeClub {
     }
     fn label(&self) -> &str {
         "aging-probe"
+    }
+    fn provider_compaction_budget(&self) -> Option<usize> {
+        self.provider_budget.then_some(678_464)
     }
     fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
         if self.check_prefix {
@@ -1137,7 +1137,7 @@ impl Club for AgingProbeClub {
                 .fetch_add(1, Ordering::SeqCst);
         }
         let hop = self.hops.fetch_add(1, Ordering::SeqCst);
-        if hop >= 10 {
+        if hop >= self.stop_at {
             return Ok(ClubReply::Text("done".into()));
         }
         // A distinct bulky inspection per hop: aging-eligible (`reverse` is a
@@ -1162,6 +1162,10 @@ fn aging_probe_turn_with_cadence(
     cadence: &str,
 ) -> (usize, Vec<ChatMsg>, Vec<String>) {
     let _cadence = EnvGuard::set("ANGEL_ROLLING_REWRITE_HOPS", cadence);
+    // The body-size floor is a separate, orthogonal gate: pin it off here so
+    // this probe exercises the cadence mechanism itself on a short history
+    // (see the `ANGEL_ROLLING_REWRITE_MIN_TOKENS` note in turn/mod.rs).
+    let _floor = EnvGuard::set("ANGEL_ROLLING_REWRITE_MIN_TOKENS", "0");
     let _broker = EnvGuard::set("ANGEL_BACKPLANE", "1");
     let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", cache_stable);
     let _hops = EnvGuard::set("ANGEL_TOOL_AGE_KEEP_HOPS", "1");
@@ -1175,6 +1179,8 @@ fn aging_probe_turn_with_cadence(
         requests_with_aged_results: AtomicUsize::new(0),
         retained: std::sync::Mutex::new(Vec::new()),
         check_prefix: cache_stable == "1" && cadence == "0",
+        provider_budget: false,
+        stop_at: 10,
     };
     let reg = ToolRegistry::with_defaults();
     let mut history = vec![ChatMsg::user("probe the aging boundary")];
@@ -1299,6 +1305,8 @@ fn cache_stable_held_hop_count_resets_at_a_real_rewrite_boundary() {
         requests_with_aged_results: AtomicUsize::new(0),
         retained: std::sync::Mutex::new(Vec::new()),
         check_prefix: false,
+        provider_budget: false,
+        stop_at: 10,
     };
     let reg = ToolRegistry::with_defaults();
     let mut history = vec![ChatMsg::user("probe the aging boundary")];
@@ -1627,7 +1635,7 @@ fn aging_boundary_appends_marker_measures_savings_and_rewrites_once() {
             .last()
             .unwrap()
             .content
-            .starts_with("[tool-aging boundary:")
+            .starts_with("[⡨⠃⠚ aged=2 dropped=")
     );
     assert_eq!(history.len(), len + 1);
     let after: usize = history.iter().map(|m| m.content.len()).sum();
@@ -1838,4 +1846,49 @@ fn tool_aging_c03e_threshold_counts_durable_receipt_bytes() {
         age_tool_results(&mut history, 1, 0, 512, false, 0).results,
         0
     );
+}
+
+/// A seat whose provider publishes its own harness's compaction policy
+/// (DeepSeek) keeps every prior byte across the hops where the default rolling
+/// flush (every 12 hops) rewrites them, with no cadence configured.
+#[test]
+fn a_provider_harness_seat_keeps_history_append_only_between_compactions() {
+    let _guard = crate::tests::env_lock();
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::remove_var("ANGEL_ROLLING_REWRITE_HOPS") };
+    let _floor = EnvGuard::set("ANGEL_ROLLING_REWRITE_MIN_TOKENS", "0");
+    let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", "1");
+    let _hops = EnvGuard::set("ANGEL_TOOL_AGE_KEEP_HOPS", "1");
+    let _tokens = EnvGuard::set("ANGEL_TOOL_AGE_PROTECT_TOKENS", "0");
+    let _min = EnvGuard::set("ANGEL_TOOL_AGE_MIN_BYTES", "512");
+    let _handles = EnvGuard::set("ANGEL_HANDLE_STORE", "0");
+    for provider_budget in [false, true] {
+        let club = AgingProbeClub {
+            hops: AtomicUsize::new(0),
+            requests_with_aged_results: AtomicUsize::new(0),
+            retained: std::sync::Mutex::new(Vec::new()),
+            check_prefix: provider_budget,
+            provider_budget,
+            stop_at: 16,
+        };
+        let reg = ToolRegistry::with_defaults();
+        let mut history = vec![ChatMsg::user("probe the aging boundary")];
+        let (events, _rx) = mpsc::channel::<TurnEvent>();
+        let answer = run_turn(
+            &club,
+            &reg,
+            &mut history,
+            &AtomicBool::new(false),
+            Some(20),
+            &events,
+        )
+        .unwrap();
+        assert_eq!(answer, "done");
+        let aged = club.requests_with_aged_results.load(Ordering::SeqCst);
+        if provider_budget {
+            assert_eq!(aged, 0, "append-only: nothing aged in place");
+        } else {
+            assert!(aged > 0, "the default cadence flushes by hop 12");
+        }
+    }
 }

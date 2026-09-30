@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>angelX agent time against tokens</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=VT323&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #050506; }
+  svg { display: block; }
+  .cz { font-family: 'Cinzel', Palatino, serif; }
+  .vt { font-family: 'VT323', 'Courier New', monospace; }
+  .mono { font-family: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace; }
+  .glow { filter: drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 7px rgba(255,255,255,.45)); }
+  .glow-soft { filter: drop-shadow(0 0 1.5px rgba(255,255,255,.75)) drop-shadow(0 0 5px rgba(255,255,255,.3)); }
+  .red { filter: drop-shadow(0 0 2px rgba(255,70,70,.95)) drop-shadow(0 0 7px rgba(255,60,60,.6)); }
+  .halo { paint-order: stroke; stroke: #050506; stroke-width: 12px; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<svg id="c" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+// Cumulative agent time (left axis) against input tokens (bottom axis). Each harness
+// is one line, one node per task in suite order; the stretch into a task is the
+// harness's color when it passed and red when it failed, and a dotted finish line
+// marks where each harness was done. #square or #wide.
+const DATA = /*DATA*/null;
+const SQUARE = location.hash !== '#wide';
+const W = SQUARE ? 1200 : 1600, H = SQUARE ? 1200 : 900;
+const INK = '#f4f4f7', DIM = '#a2a2ac', FAINT = '#5d5d68', RULE = '#3a3a44', HERO = '#ffffff', RED = '#ff4d4a';
+const P = 6, S = 4;                       // dot pitch and dot size: the site's 3/2 at 2x
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('c');
+svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+const el = (p, t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); p.appendChild(n); return n; };
+const txt = (p, a, s) => { const n = el(p, 'text', a); n.textContent = s; return n; };
+const sq = (x, y, s = S) => `M${x} ${y}h${s}v${s}h-${s}z`;
+function line(c0, r0, c1, r1, cb) {       // Bresenham over cells, the app's draw_dot_line
+  let x = c0, y = r0;
+  const dx = Math.abs(c1 - c0), sx = c0 < c1 ? 1 : -1, dy = -Math.abs(r1 - r0), sy = r0 < r1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) { cb(x, y); if (x === c1 && y === r1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x += sx; } if (e2 <= dx) { err += dx; y += sy; } }
+}
+
+// ── layout ──
+const L = SQUARE
+  ? { f: { ox: 150, oy: 352, GW: 158, GH: 96 }, title: ['Agent time', 'against tokens'], titleY: [138, 192], readY: 256,
+      right: 1130, legendY: 1070, footY: 1152 }
+  : { f: { ox: 170, oy: 256, GW: 222, GH: 78 }, title: ['Agent time against tokens'], titleY: [128], readY: 190,
+      right: 1530, legendY: 832, footY: 874 };
+const f = L.f;
+f.X = c => f.ox + c * P; f.Y = r => f.oy + r * P;
+const TOKMAX = 80e6, MINMAX = 60;
+const rowOf = min => Math.round((1 - min / MINMAX) * f.GH);
+const colOf = v => Math.round(v / TOKMAX * f.GW);
+
+// ── frame: faint lattice, dotted gridlines and axes ──
+let d = '';
+for (let r = 0; r <= f.GH; r += 6) for (let c = 0; c <= f.GW; c += 6) d += sq(f.X(c), f.Y(r));
+el(svg, 'path', { d, fill: FAINT, opacity: .4 });
+let g = '';
+for (let q = 0; q <= 4; q++) { const r = rowOf(q * 15); for (let c = 0; c <= f.GW; c += 3) g += sq(f.X(c), f.Y(r), 2); }
+el(svg, 'path', { d: g, fill: RULE });
+let a = '';
+for (let r = 0; r <= f.GH; r += 2) a += sq(f.X(0) - 2 * P, f.Y(r));
+for (let c = 0; c <= f.GW; c += 2) a += sq(f.X(c), f.Y(f.GH) + 2 * P);
+el(svg, 'path', { d: a, fill: RULE });
+for (let q = 0; q <= 4; q++) {
+  txt(svg, { x: f.X(0) - 2 * P - 14, y: f.Y(rowOf(q * 15)) + 9, 'text-anchor': 'end', class: 'vt', 'font-size': 30, fill: DIM }, `${q * 15}m`);
+}
+txt(svg, { x: f.X(0) - 2 * P - 14, y: f.oy - 26, 'text-anchor': 'end', class: 'vt', 'font-size': 26, fill: FAINT }, 'agent time');
+for (let q = 0; q <= 4; q++) {
+  txt(svg, { x: f.X(colOf(q * 20e6)) + 2, y: f.Y(f.GH) + 50, 'text-anchor': q === 0 ? 'start' : q === 4 ? 'end' : 'middle', class: 'vt', 'font-size': 28, fill: DIM }, q === 0 ? '0' : `${q * 20}M`);
+}
+txt(svg, { x: f.X(f.GW), y: f.Y(f.GH) + 82, 'text-anchor': 'end', class: 'vt', 'font-size': 26, fill: FAINT }, 'input tokens');
+
+// ── one line per harness, one node per task ──
+const SERIES = [
+  { h: 'opencode', label: 'OpenCode', color: DIM, cls: '', on: i => true },
+  { h: 'angelx2',  label: 'angelX',   color: HERO, cls: 'glow-soft', on: i => i % 3 !== 2 },
+  { h: 'angelx',   label: 'angelX',   color: HERO, cls: 'glow', on: i => true },
+].filter(s => DATA[s.h]);
+const ends = {};
+for (const s of SERIES) {
+  const rows = DATA[s.h];
+  let t = 0, tok = 0, solved = 0;
+  const nodes = [{ c: 0, r: f.GH, ok: true }];
+  for (const row of rows) {
+    t += row[2] / 60; tok += row[3]; solved += row[1] ? 1 : 0;
+    nodes.push({ c: colOf(tok), r: rowOf(t), ok: row[1] });
+  }
+  let pass = '', fail = '', last = '', i = 0;
+  for (let k = 1; k < nodes.length; k++) {
+    const ok = nodes[k].ok;
+    line(nodes[k - 1].c, nodes[k - 1].r, nodes[k].c, nodes[k].r, (x, y) => {
+      const key = `${x},${y}`; if (key === last) return; last = key;
+      if (!ok) fail += sq(f.X(x) - 1, f.Y(y) - 1, S + 2);
+      else if (s.on(i)) pass += sq(f.X(x), f.Y(y));
+      i++;
+    });
+    if (!ok) fail += sq(f.X(nodes[k].c) - 3, f.Y(nodes[k].r) - 3, S + 6);   // the failed node itself
+  }
+  el(svg, 'path', { d: pass, fill: s.color, class: s.cls });
+  if (fail) el(svg, 'path', { d: fail, fill: RED, class: 'red' });
+  const e = nodes[nodes.length - 1];
+  // the finish line: where this harness was done, across to the right edge
+  let fin = '';
+  for (let c = e.c + 3; c <= f.GW; c += 3) fin += sq(f.X(c), f.Y(e.r) + 1, 2);
+  el(svg, 'path', { d: fin, fill: s.color, opacity: s.h === 'opencode' ? .6 : s.h === 'angelx' ? .8 : .55, class: s.h === 'opencode' ? '' : 'glow-soft' });
+  ends[s.h] = { x: f.X(e.c), y: f.Y(e.r), t, tok, solved, s };
+  txt(svg, { x: f.X(e.c) + 2, y: f.Y(e.r) + 10, 'text-anchor': 'middle', class: `vt ${s.cls}`, 'font-size': 30, fill: s.color }, '◆');
+}
+
+// end labels: harness and score, then tokens and time; haloed off the lattice
+const lab = (h, side, dy) => {
+  const e = ends[h], anchor = side === 'right' ? 'start' : 'end';
+  const x = side === 'right' ? e.x + 22 : side === 'edge' ? f.X(f.GW) : e.x - 20;
+  const lines = [`${e.s.label} ${e.solved}/136`, `${(e.tok / 1e6).toFixed(1)}M tokens`, `${e.t.toFixed(1)} min`];
+  lines.forEach((text, k) => {
+    const y = e.y + dy + k * 32, size = k === 0 ? 32 : 28;
+    txt(svg, { x, y, 'text-anchor': anchor, class: 'vt halo', 'font-size': size, fill: '#050506' }, text);
+    txt(svg, { x, y, 'text-anchor': anchor, class: `vt ${h === 'angelx' ? 'glow-soft' : ''}`, 'font-size': size, fill: h === 'angelx' ? (k ? INK : HERO) : DIM }, text);
+  });
+};
+if (ends.angelx2) {
+  // one block for both angelX runs, beside run 1's finish, above its line
+  const e = ends.angelx, x = e.x + 22;
+  const block = [
+    [`angelX ${e.solved}/136${ends.angelx2.solved === e.solved ? ', twice' : ''}`, 32, HERO],
+    [`run 1: ${(e.tok / 1e6).toFixed(1)}M in ${e.t.toFixed(1)} min`, 28, INK],
+    [`run 2: ${(ends.angelx2.tok / 1e6).toFixed(1)}M in ${ends.angelx2.t.toFixed(1)} min`, 28, INK],
+  ];
+  block.forEach(([text, size, fill], k) => {
+    const y = e.y - 84 + k * 32;
+    txt(svg, { x, y, class: 'vt halo', 'font-size': size, fill: '#050506' }, text);
+    txt(svg, { x, y, class: 'vt glow-soft', 'font-size': size, fill }, text);
+  });
+} else lab('angelx', 'right', -84);
+if (SQUARE) lab('opencode', 'left', -76); else lab('opencode', 'edge', 46);   // wide: under its curve, off the header's line
+
+// ── header ──
+txt(svg, { x: 70, y: L.titleY[0] - 54, class: 'cz', 'font-size': 18, 'letter-spacing': 4, fill: FAINT }, 'ANGELX');
+L.title.forEach((t, k) => txt(svg, { x: 70, y: L.titleY[k], class: 'cz', 'font-size': SQUARE ? 50 : 46, 'font-weight': 700, fill: INK }, t));
+const ro = el(svg, 'text', { x: 70, y: L.readY, class: 'vt', 'font-size': 40 });
+const t1 = el(ro, 'tspan', { fill: HERO, class: 'glow-soft' });
+t1.textContent = ends.angelx2 && ends.angelx2.solved === ends.angelx.solved ? `angelX ${ends.angelx.solved}/136 twice` : `angelX ${ends.angelx.solved}/136`;
+const t2 = el(ro, 'tspan', { fill: RULE }); t2.textContent = '  ·  ';
+const t3 = el(ro, 'tspan', { fill: DIM }); t3.textContent = `OpenCode ${ends.opencode.solved}/136`;
+txt(svg, { x: L.right, y: L.titleY[0], 'text-anchor': 'end', class: 'vt', 'font-size': 30, fill: DIM }, 'DeepSeek V4.1 Flash');
+txt(svg, { x: L.right, y: L.titleY[0] + 32, 'text-anchor': 'end', class: 'vt', 'font-size': 26, fill: FAINT }, 'thinking off');
+
+// ── legend: the line's two colors ──
+const items = (DATA.angelx2 ? [
+  { label: 'angelX run 1', color: HERO, cls: 'glow', on: i => true },
+  { label: 'angelX run 2', color: HERO, cls: 'glow-soft', on: i => i % 3 !== 2 },
+] : [{ label: 'angelX, task passed', color: HERO, cls: 'glow', on: i => true }]).concat([
+  { label: DATA.angelx2 ? 'OpenCode' : 'OpenCode, task passed', color: DIM, cls: '', on: i => true },
+  { label: 'task failed', color: RED, cls: 'red', on: i => true },
+]);
+let lx = 70;
+for (const it of items) {
+  let dd = '';
+  for (let i = 0; i < 8; i++) if (it.on(i)) dd += sq(lx + i * P, L.legendY - 8);
+  el(svg, 'path', { d: dd, fill: it.color, class: it.cls });
+  const t = txt(svg, { x: lx + 8 * P + 12, y: L.legendY, class: 'vt', 'font-size': 28, fill: it.color === HERO ? INK : DIM }, it.label);
+  lx += 8 * P + 12 + t.getComputedTextLength() + 44;
+}
+txt(svg, { x: 70, y: L.footY, class: 'mono', 'font-size': SQUARE ? 16 : 17, fill: FAINT }, `136 repository-repair tasks (JS, Python, Rust, C++) · 600 s limit${SQUARE ? '' : ' · graded by the evaluator'}`);
+txt(svg, { x: L.right, y: L.footY, 'text-anchor': 'end', class: 'vt', 'font-size': 30, fill: DIM }, 'angelx.dev');
+</script>
+</body>
+</html>

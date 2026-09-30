@@ -36,14 +36,6 @@ pub(crate) use transcript_view::{
     tool_strip_height, transcript_roll_in_allowed, transcript_text_and_rail,
 };
 
-pub(crate) fn scan_start(previous_len: usize, current_len: usize) -> usize {
-    if previous_len <= current_len {
-        previous_len
-    } else {
-        0
-    }
-}
-
 fn cockpit_side_width(width: u16) -> u16 {
     let transcript_target = if width >= 180 {
         105
@@ -1799,7 +1791,7 @@ fn render_moa_roster_graph(
                     Style::new().fg(HUD_DIM),
                 )),
                 Line::from(Span::styled(
-                    "Choose Recon, Duel, Council, All-In, GPU Night Shift, Grok War, Tag Team, or Math God to draft a roster.",
+                    "Choose Recon, Duel, Council, All-In, Grok War, or Tag Team to draft a roster.",
                     Style::new().fg(HUD_BLUE),
                 )),
             ]),

@@ -1,5 +1,19 @@
 use super::*;
-use std::collections::HashMap;
+
+fn slot_rows(spec: &BootstrapBoxSpec) -> Vec<(&str, &str, u16, bool, Option<&str>)> {
+    spec.slots
+        .iter()
+        .map(|slot| {
+            (
+                slot.label.as_str(),
+                slot.env_key,
+                slot.port,
+                slot.is_swarm,
+                slot.url.as_deref(),
+            )
+        })
+        .collect()
+}
 
 #[test]
 fn default_bootstrap_is_one_generic_local_box() {
@@ -9,66 +23,35 @@ fn default_bootstrap_is_one_generic_local_box() {
     assert!(specs[0].host.is_empty());
     assert_eq!(specs[0].fallback_ip, "127.0.0.1");
     assert_eq!(
-        specs[0]
-            .slots
-            .iter()
-            .map(|slot| (slot.label, slot.env_key, slot.port, slot.is_swarm))
-            .collect::<Vec<_>>(),
+        slot_rows(&specs[0]),
         vec![
-            ("local", "LOCAL", 8080, false),
-            ("swarm", "LOCAL", 8080, true),
+            ("local", "LOCAL", 8080, false, None),
+            ("swarm", "LOCAL", 8080, true, None),
         ]
     );
-    assert!(specs[0].slots.iter().any(|slot| slot.label == "swarm"));
 }
 
 #[test]
-fn legacy_slots_require_explicit_url_pins() {
-    let mut configured = HashMap::new();
-    configured.insert(
-        "ANGEL_SPARK_URL".to_string(),
-        "http://legacy.example/v1".to_string(),
-    );
-    configured.insert(
-        "ANGEL_TURBO_URL".to_string(),
-        "http://turbo.example/v1".to_string(),
-    );
-    configured.insert(
-        "ANGEL_GEMMA_URL".to_string(),
-        "http://gemma.example/v1".to_string(),
-    );
-    let specs = Bag::bootstrap_specs(|key| configured.get(key).cloned());
-    let local_slots = specs[0]
-        .slots
-        .iter()
-        .map(|slot| slot.label)
-        .collect::<Vec<_>>();
-    assert_eq!(local_slots, vec!["local", "local-swarm"]);
-    assert_eq!(specs[1].name, "spark");
+fn local_urls_expand_the_one_local_box() {
+    let specs = Bag::bootstrap_specs(|key| {
+        (key == "ANGEL_LOCAL_URLS").then(|| {
+            " http://10.0.0.5:8000/v1 , coder=http://10.0.0.6:9000/v1,, =http://x/v1?k=v, empty= "
+                .to_string()
+        })
+    });
+    assert_eq!(specs.len(), 1, "extras are modes of `local`, not new boxes");
     assert_eq!(
-        specs[1]
-            .slots
-            .iter()
-            .map(|slot| (slot.label, slot.port, slot.is_swarm))
-            .collect::<Vec<_>>(),
-        vec![
-            ("spark", 0, false),
-            ("swarm", 0, true),
-            ("gemma", 0, false),
-            ("coder", 0, false),
+        slot_rows(&specs[0])[2..],
+        [
+            (
+                "local-2",
+                "LOCAL",
+                0,
+                false,
+                Some("http://10.0.0.5:8000/v1")
+            ),
+            ("coder", "LOCAL", 0, false, Some("http://10.0.0.6:9000/v1")),
+            ("local-4", "LOCAL", 0, false, Some("http://x/v1?k=v")),
         ]
     );
-    assert_eq!(
-        specs
-            .iter()
-            .flat_map(|spec| spec.slots.iter())
-            .filter(|slot| slot.label == "swarm")
-            .count(),
-        1
-    );
-    assert_eq!(specs[0].slots[1].label, "local-swarm");
-    assert_eq!(specs[2].name, "turbo");
-    assert_eq!(specs[2].slots[0].label, "turbo");
-    assert_eq!(specs[2].slots[0].port, 0);
-    assert_eq!(specs.len(), 3);
 }

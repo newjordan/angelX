@@ -205,16 +205,14 @@ pub(crate) fn refusal(children: &[ChildFootprint]) -> Option<String> {
     // The way out depends on what collided: a shared *checkout* has a ready answer
     // (a delegated worktree is disjoint from it), a shared ref or port does not.
     let advice = match resource {
-        Resource::Workspace(_) => {
-            "run them one at a time, or use `delegate` (git-worktree isolated) for parallel \
-             implementation — a delegated checkout is disjoint from the shared workspace"
-        }
-        _ => "run them one at a time, or give the second child a resource of its own",
+        Resource::Workspace(_) => crate::agent::harness::book::d56_replies::SHARED_WORKSPACE,
+        _ => crate::agent::harness::book::d56_replies::SHARED_RESOURCE,
     };
     Some(format!(
-        "child '{}' and child '{}' both claim {resource}; they do not commute — {advice}",
+        "child '{}' and child '{}' both claim {resource}; they do not commute\n{}",
         children[left].seat(),
         children[right].seat(),
+        advice.cells(),
     ))
 }
 

@@ -125,7 +125,12 @@ pub(crate) fn observe(history: &[ChatMsg]) {
                     current
                         .entry(id)
                         .or_default()
-                        .push(message.content.len() as u64);
+                        // A stamp tail is the harness's, not the tool's output.
+                        .push(
+                            (message.content.len()
+                                - crate::agent::harness::book::ledger::tail_bytes(&message.content))
+                                as u64,
+                        );
                 }
             }
             let mut aged = 0;
