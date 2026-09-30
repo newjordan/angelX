@@ -99,6 +99,14 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
         json!({"action":"suggest","candidates":[{"idea":NOTE,"approach":"write-first"}]}),
     );
     assert_eq!(cold["advice"]["observations"], 0);
+    // No evidence yet: `⡪⠓⠉`; the runner's note travels as its pages.
+    use crate::agent::harness::book::d2467_research;
+    assert_eq!(cold["warpath"], d2467_research::COLD, "{cold}");
+    assert_eq!(
+        cold["advice"]["evidence_note"],
+        d2467_research::EVIDENCE_NOTE,
+        "{cold}"
+    );
     assert_eq!(club.attempts.load(Ordering::Acquire), 0);
     let (events, _rx) = mpsc::channel();
     let answer = crate::agent::harness::run_turn(
@@ -118,6 +126,8 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
         paired["measurements"],
         json!({"candidate_passed":true,"baseline_passed":false,"paired_delta":1})
     );
+    // The candidate beat its baseline: `⡪⠃` then `⡪⠁`, apply and verify.
+    assert_eq!(paired["warpath"], "⡪⠃⡪⠁", "{paired}");
     assert_eq!(
         paired["baseline"]["snapshot_sha256"],
         paired["candidate"]["snapshot_sha256"]
@@ -171,18 +181,23 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
     );
     let red = settled(&registry);
     assert_eq!(red["measurements"]["candidate_passed"], false, "{red}");
+    assert_eq!(red["warpath"], "⡪⠉", "{red}");
     assert!(red["measurements"]["paired_delta"].is_null());
     assert!(red["learning_error"].is_null(), "{red}");
     assert_eq!(
         call(&registry, json!({"action":"suggest"}))["advice"]["observations"],
         3
     );
-    assert!(
-        registry
-            .rl()
-            .loop_context_text(workspace.path())
-            .contains(red["run_id"].as_str().unwrap())
-    );
+    let invited = registry.rl().loop_context_text(workspace.path(), true);
+    assert!(invited.contains(red["run_id"].as_str().unwrap()));
+    // The history row carries its verdict's route for the next iteration.
+    assert!(invited.contains(r#""warpath":"⡪⠉""#), "{invited}");
+    // While research is not an acceptable outcome, the invitation stays off
+    // and only the history rides.
+    let history = registry.rl().loop_context_text(workspace.path(), false);
+    assert!(!history.contains("⠪⠋⠪⠛⠪⠓"), "{history}");
+    assert!(invited.starts_with("⠪⠋⠪⠛⠪⠓\n"), "{invited}");
+    assert!(history.contains(red["run_id"].as_str().unwrap()));
 
     let restored =
         ToolRegistry::with_team_self(workspace.path().into(), vec![], Some(club.clone()));
@@ -216,7 +231,7 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
     assert!(
         !restored
             .rl()
-            .loop_context_text(workspace.path())
+            .loop_context_text(workspace.path(), true)
             .contains(red["run_id"].as_str().unwrap())
     );
     assert!(
@@ -265,6 +280,8 @@ fn sloptomizer_unverified_attempt_retains_patch_without_learning_or_invented_del
     let result = settled(&registry);
     assert_eq!(result["status"], "completed", "{result}");
     assert!(result["measurements"]["candidate_passed"].is_null());
+    // Finished without a verifier: `⡪⠙`, nothing was learned.
+    assert_eq!(result["warpath"], "⡪⠙", "{result}");
     assert_eq!(result["learning"], json!([]));
     assert!(result["candidate"]["patch_path"].as_str().is_some());
     assert_eq!(
@@ -353,6 +370,179 @@ fn sloptomizer_runtime_errors_are_visible_without_spending_model_calls() {
     );
 }
 
+/// The RL loop and the Sloptomizer are one learner: a verified loop iteration
+/// is an observation, so `suggest` stops being cold and ranks with it.
+#[test]
+fn a_loop_verdict_teaches_the_sloptomizer() {
+    // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
+    let env = FixtureEnv::new("slop-loop-verdict");
+    let workspace = env.workspace();
+    let club = Arc::new(ResearchClub {
+        root_calls: AtomicUsize::new(0),
+        attempts: AtomicUsize::new(0),
+    });
+    let registry =
+        ToolRegistry::with_team_self(workspace.path().into(), vec![], Some(club.clone()));
+    registry.rl().bind_loop(context(club.clone()));
+    let cold = call(&registry, json!({"action":"suggest"}));
+    assert_eq!(cold["advice"]["observations"], 0, "{cold}");
+    let receipt = crate::drive::loop_ctl::VerifyReceipt {
+        manifest_sha256: "a".repeat(64),
+        workspace_sha256: "b".repeat(64),
+    };
+    registry
+        .rl()
+        .observe_loop_verdict(
+            workspace.path(),
+            3,
+            "cache the parsed manifest",
+            true,
+            &receipt,
+        )
+        .expect("observation thread")
+        .join()
+        .unwrap();
+    let warm = call(&registry, json!({"action":"suggest"}));
+    assert_eq!(warm["advice"]["observations"], 1, "{warm}");
+    assert!(warm.get("warpath").is_none(), "no longer cold: {warm}");
+    let status = call(&registry, json!({"action":"status"}));
+    assert_eq!(status["loop_observations"]["admitted"], 1, "{status}");
+    // No direction, no observation; no bound loop, none either.
+    assert!(
+        registry
+            .rl()
+            .observe_loop_verdict(workspace.path(), 4, "  ", false, &receipt)
+            .is_none()
+    );
+    assert_eq!(club.attempts.load(Ordering::Acquire), 0);
+}
+
+/// `ANGEL_LOOP_OBSERVE=0` is the shared learner's ablation: a verified loop
+/// iteration then teaches nothing, and `suggest` stays cold.
+#[test]
+fn loop_observe_off_teaches_nothing() {
+    // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
+    let env = FixtureEnv::new("slop-observe-off");
+    let workspace = env.workspace();
+    let club = Arc::new(ResearchClub {
+        root_calls: AtomicUsize::new(0),
+        attempts: AtomicUsize::new(0),
+    });
+    let registry =
+        ToolRegistry::with_team_self(workspace.path().into(), vec![], Some(club.clone()));
+    registry.rl().bind_loop(context(club.clone()));
+    let _off = TestEnvGuard::set("ANGEL_LOOP_OBSERVE", "0");
+    let receipt = crate::drive::loop_ctl::VerifyReceipt {
+        manifest_sha256: "a".repeat(64),
+        workspace_sha256: "b".repeat(64),
+    };
+    assert!(
+        registry
+            .rl()
+            .observe_loop_verdict(
+                workspace.path(),
+                3,
+                "cache the parsed manifest",
+                true,
+                &receipt
+            )
+            .is_none()
+    );
+    let cold = call(&registry, json!({"action":"suggest"}));
+    assert_eq!(cold["advice"]["observations"], 0, "{cold}");
+}
+
+/// A loop's direction and a campaign's proposal for the same idea take one
+/// form, so they share the Sloptomizer's learning bucket (keyed by the text).
+#[test]
+fn a_loop_direction_and_a_campaign_proposal_share_a_bucket() {
+    use super::super::research::idea_form;
+    let direction = "cache the parsed manifest ⡪⠊";
+    let proposal = "  cache the\n  parsed   manifest\n ledger://⠘⠁⠑ · ⡪⠓⠁ ";
+    assert_eq!(idea_form(direction), "cache the parsed manifest");
+    assert_eq!(idea_form(proposal), idea_form(direction));
+    assert_eq!(idea_form("⡪⠊ · ledger://⠘⠁⠑"), "");
+}
+
+/// Each refusal of the loop tools answers with its page address and spends no
+/// model call.
+#[test]
+fn loop_tool_refusals_answer_with_their_page() {
+    // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
+    use crate::agent::harness::book::d45_iteration;
+    let env = FixtureEnv::new("slop-refusals");
+    let workspace = env.workspace();
+    let club = Arc::new(ResearchClub {
+        root_calls: AtomicUsize::new(0),
+        attempts: AtomicUsize::new(0),
+    });
+    let registry =
+        ToolRegistry::with_team_self(workspace.path().into(), vec![], Some(club.clone()));
+    registry.rl().bind_loop(context(club.clone()));
+    let research = "loop_research";
+    let campaign = "rl_campaign";
+    for (tool, args, page) in [
+        (
+            research,
+            json!({"action":"suggest","candidates":[{"approach":"direct"}]}),
+            d45_iteration::CANDIDATE_NEEDS_IDEA,
+        ),
+        (
+            research,
+            json!({"action":"run"}),
+            d45_iteration::RUN_NEEDS_IDEA,
+        ),
+        (
+            research,
+            json!({"action":"results","run_id":"../escape"}),
+            d45_iteration::RESEARCH_ID_INVALID,
+        ),
+        (
+            research,
+            json!({"action":"results","run_id":"run-missing"}),
+            d45_iteration::RESEARCH_ID_UNKNOWN,
+        ),
+        (
+            campaign,
+            json!({"action":"run","samples":1}),
+            d45_iteration::SAMPLES_TOO_FEW,
+        ),
+        (
+            campaign,
+            json!({"action":"run","audit":[{}]}),
+            d45_iteration::AUDIT_NEEDS_TASK,
+        ),
+        (
+            campaign,
+            json!({"action":"run","audit":[{"task":"t"}]}),
+            d45_iteration::AUDIT_NEEDS_VERIFY,
+        ),
+        (
+            campaign,
+            json!({"action":"run","audit":[{"task":"t","verify":"v"}]}),
+            d45_iteration::AUDIT_NEEDS_SOURCE,
+        ),
+        (
+            campaign,
+            json!({"action":"results","run_id":"../escape"}),
+            d45_iteration::CAMPAIGN_ID_INVALID,
+        ),
+        (
+            campaign,
+            json!({"action":"results","run_id":"run-missing"}),
+            d45_iteration::CAMPAIGN_ID_UNKNOWN,
+        ),
+    ] {
+        assert_eq!(
+            registry.dispatch(tool, &args).unwrap_err(),
+            page,
+            "{tool} {args}"
+        );
+    }
+    assert_eq!(club.attempts.load(Ordering::Acquire), 0);
+    assert_eq!(club.root_calls.load(Ordering::Acquire), 0);
+}
+
 struct LearningFailureClub {
     state: PathBuf,
     inner: ResearchClub,
@@ -405,6 +595,8 @@ fn sloptomizer_failed_baseline_stops_before_candidate_spending_or_learning() {
     );
     let result = settled(&registry);
     assert_eq!(result["status"], "failed", "{result}");
+    // The baseline never let the candidate start: `⡪⠑`.
+    assert_eq!(result["warpath"], "⡪⠑", "{result}");
     assert!(
         result["error"]
             .as_str()
@@ -481,11 +673,12 @@ fn sloptomizer_learning_failure_is_exposed_alongside_the_real_verifier_receipt()
             .contains("corrupt")
     );
     assert_eq!(result["status"], "completed_with_learning_error");
+    assert_eq!(result["warpath"], "⡪⠁⡪⠋", "{result}");
     assert!(result["learning"].is_null());
     assert!(
         registry
             .rl()
-            .loop_context_text(workspace.path())
+            .loop_context_text(workspace.path(), true)
             .contains("research state corrupt")
     );
     assert!(

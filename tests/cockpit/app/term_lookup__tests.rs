@@ -241,9 +241,9 @@ fn offline_lookup_is_immediately_useful_and_exposes_safe_handoff_apis() {
         "https://github.com/RayTracing/raytracing.github.io"
     );
     let prompt = lookup.ask_prompt();
-    assert!(prompt.contains("Tutor me on “ray tracing with a BVH”"));
+    assert!(prompt.contains("topic: ray tracing with a BVH"), "{prompt}");
     assert!(prompt.contains(lookup.source_url()));
-    assert!(prompt.contains("wait for my answer"));
+    assert!(prompt.starts_with(&crate::agent::harness::book::ing_drivers::TUTOR_HANDOFF.cells()));
 }
 
 #[test]

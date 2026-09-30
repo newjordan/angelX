@@ -182,7 +182,8 @@ fn root_trajectory_collapses_bulk_and_preserves_strategy() {
 
     // Handle-backed receipts classify as handle, not bulk.
     history[3].content = format!(
-        "{TOOL_AGED_MARK}: read_file|a.rs (5000 bytes) handle=hnd_1 — re-run the tool if needed]"
+        "{TOOL_AGED_MARK}: read_file|a.rs (5000 bytes) handle=hnd_1{}",
+        crate::agent::harness::compact::AGED_TAIL
     )
     .into();
     let handled = root_trajectory(&history);

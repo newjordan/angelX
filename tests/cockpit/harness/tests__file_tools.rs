@@ -60,7 +60,7 @@ fn unrecoverable_tool_arguments_fail_closed_without_dispatch() {
         .expect_err("an unrecoverable blob must never become an empty object");
     assert!(error.contains("unrecoverable tool arguments"), "{error}");
     assert!(
-        error.contains("reissue `reverse` with valid JSON"),
+        error.contains(&crate::agent::harness::book::x_execution::REISSUE.cells()),
         "{error}"
     );
     let record = crate::agent::club::tool_arg_repair_records()
@@ -167,7 +167,7 @@ fn read_file_pages_are_contiguous_bounded_and_schema_documented() {
         "{first}"
     );
     assert!(
-        first.ends_with("offset=201]"),
+        first.ends_with("next offset 201]\n⠺⠊"),
         "default page must teach the next contiguous offset: {first}"
     );
     assert!(
@@ -196,7 +196,7 @@ fn read_file_pages_are_contiguous_bounded_and_schema_documented() {
         !ranged.contains("line-1225: bounded paging payload"),
         "{ranged}"
     );
-    assert!(ranged.ends_with("offset=1225]"), "{ranged}");
+    assert!(ranged.ends_with("next offset 1225]\n⠺⠊"), "{ranged}");
     assert_eq!(
         cap_tool_output(&ranged, None),
         ranged,
@@ -249,7 +249,7 @@ fn read_file_pages_preserve_crlf_unicode_and_final_line() {
     assert_eq!(
         tool.call(&serde_json::json!({"path":"text.txt","offset":2,"limit":1}))
             .unwrap(),
-        "βeta\r\n…[more content; re-call read_file with offset=3]"
+        "βeta\r\n…[more content; next offset 3]\n⠺⠊"
     );
     assert_eq!(
         tool.call(&serde_json::json!({"path":"text.txt","offset":3,"limit":1}))
@@ -532,10 +532,7 @@ fn read_file_hashline_large_page_measurement() {
                 .unwrap();
             let elapsed = started.elapsed();
             let read_bytes = rchar().saturating_sub(before);
-            assert_eq!(
-                page,
-                "bounded\n…[more content; re-call read_file with offset=2]"
-            );
+            assert_eq!(page, "bounded\n…[more content; next offset 2]\n⠺⠊");
             eprintln!(
                 "HASHLINE_PAGE_IO sample={sample} anchors={anchors} file_bytes={} returned_bytes={} rchar_delta={read_bytes} elapsed_us={:.3}",
                 bytes.len(),
@@ -566,9 +563,6 @@ fn read_file_hashline_anchors_keep_huge_sparse_text_paged() {
     let page = tool
         .call(&serde_json::json!({"path":"huge.txt","limit":1}))
         .unwrap();
-    assert_eq!(
-        page,
-        "bounded\n…[more content; re-call read_file with offset=2]"
-    );
+    assert_eq!(page, "bounded\n…[more content; next offset 2]\n⠺⠊");
     std::fs::remove_dir_all(root).unwrap();
 }

@@ -812,6 +812,8 @@ impl Reward for ObjectiveTrainingReward {
 /// reaches a request that is already in flight rather than only the next one.
 struct CancellableReflector {
     club: Arc<dyn Club>,
+    /// The campaign's workspace: the ledger the connected seat reads.
+    workspace: PathBuf,
     cancel: Arc<AtomicBool>,
     progress: Arc<Mutex<RunProgress>>,
     verdicts: VerdictBook,
@@ -819,8 +821,10 @@ struct CancellableReflector {
 
 impl CancellableReflector {
     /// The reflection prompt the reflector club sees: what the attempt did, plus
-    /// the physical verdict the evaluator measured for it.
+    /// the physical verdict the evaluator measured for it. Its words are `⠠⠉`;
+    /// the task, the note and the attempts ride after their labels' addresses.
     fn prompt(&self, current_prompt: &str, task: &str, best: &str, worst: &str) -> String {
+        let optimizer = crate::agent::harness::book::d6_long_run::OPTIMIZER.cells();
         let annotate = |output: &str| {
             let verdict = self
                 .verdicts
@@ -828,16 +832,13 @@ impl CancellableReflector {
                 .ok()
                 .and_then(|verdicts| verdicts.get(&receipt_key(output)).cloned());
             match verdict {
-                Some(verdict) => format!("{output}\nphysical verifier: {verdict}"),
+                Some(verdict) => format!("{output}\n{optimizer}⠓ {verdict}"),
                 None => output.to_string(),
             }
         };
         format!(
-            "You optimize system prompts for a coding agent.\n\nTASK the agent must do:\n{task}\n\n\
-             CURRENT policy note:\n{current_prompt}\n\nA HIGH-scoring attempt (measured by the \
-             objective's own verifier):\n{}\n\nA LOW-scoring attempt:\n{}\n\nWrite an improved \
-             policy note that steers the agent toward what the high-scoring attempt did. Reply \
-             with ONLY the new note.",
+            "{optimizer}\n\n{optimizer}⠃\n{task}\n\n{optimizer}⠉\n{current_prompt}\n\n\
+             {optimizer}⠙\n{}\n\n{optimizer}⠑\n{}",
             annotate(best),
             annotate(worst)
         )
@@ -856,21 +857,20 @@ impl Reflector for CancellableReflector {
             return Err("campaign cancelled".into());
         }
         let prompt = self.prompt(current_prompt, task, best_output, worst_output);
-        let reply = match self.club.chat_streaming(
+        // The reflector has no workspace tools: it is connected, so it reads
+        // its route through the ledger reader and answers in text.
+        let improved = match crate::agent::harness::book::connect::chat(
+            &*self.club,
+            &self.workspace,
             &[ChatMsg::user(prompt)],
-            &[],
+            None,
             &self.cancel,
-            &mut |_delta| {},
         ) {
-            Ok(reply) => reply,
+            Ok(text) => text,
             Err(_) if self.cancel.load(Ordering::Acquire) => {
                 return Err("campaign cancelled".to_string());
             }
             Err(error) => return Err(error),
-        };
-        let improved = match reply {
-            ClubReply::Text(text) => text,
-            _ => return Err("the reflection step must answer in text".into()),
         };
         if self.cancel.load(Ordering::Acquire) {
             return Err("campaign cancelled".into());
@@ -985,7 +985,12 @@ impl RlState {
         owner: Option<LoopCampaignContext>,
     ) -> Result<String, String> {
         if self.running() {
-            return Err("an RL campaign is already in progress (/rl stop first)".into());
+            // The model's rl_campaign cannot type `/rl stop`; its own stop can.
+            return Err(if owner.is_some() {
+                crate::agent::harness::book::ow_ledgers::CAMPAIGN_ACTIVE.into()
+            } else {
+                "an RL campaign is already in progress (/rl stop first)".into()
+            });
         }
         let workspace = crate::platform::workspace_store::repo_identity(workspace).root;
         let run_id = new_run_id();
@@ -1195,6 +1200,7 @@ fn run_plan(
     };
     let reflector = CancellableReflector {
         club: Arc::clone(&club),
+        workspace: workspace.to_path_buf(),
         cancel: Arc::clone(cancel),
         progress: Arc::clone(progress),
         verdicts,
@@ -1282,7 +1288,7 @@ fn run_plan(
             return Err("stopped by operator".into());
         }
         let campaign_id = format!("{}-r{}", run_id_of(run_dir), round + 1);
-        let authority = TechnicalCampaignAuthority::new(campaign_id)?;
+        let authority = TechnicalCampaignAuthority::new(campaign_id.clone())?;
         match audit_manifest.as_ref() {
             // No independently authored audit case: measured exploration. The
             // promotion verdict is real and receipt-backed, and nothing is
@@ -1367,6 +1373,23 @@ fn run_plan(
                     ),
                     cancel,
                 )?;
+                // The same learner as loop_research: the measured round is a
+                // paired observation of the reflector's proposal.
+                if let Err(error) = research::observe_campaign_round(
+                    workspace,
+                    &club.route_identity(),
+                    &plan.cases[0],
+                    &campaign_id,
+                    &candidate,
+                    &report,
+                    cancel,
+                ) && let Ok(mut guard) = progress.lock()
+                {
+                    guard.note(format!(
+                        "round {} · Sloptomizer observation failed: {error}",
+                        round + 1
+                    ));
+                }
                 if report.promoted() {
                     incumbent = candidate;
                     version = version.saturating_add(1);

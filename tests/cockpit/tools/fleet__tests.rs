@@ -12,7 +12,7 @@ fn nvidia_csv_formats_per_gpu_lines() {
 
 #[test]
 fn nvidia_csv_omits_na_fields_on_unified_memory_parts() {
-    // Real GB10 (DGX Spark) output: no dedicated VRAM or power limit.
+    // Real GB10 output: no dedicated VRAM or power limit.
     let csv = "0, NVIDIA GB10, 580.159.03, 0, [N/A], [N/A], 61, 21.41, [N/A]";
     let out = format_nvidia_csv(csv);
     assert_eq!(
@@ -97,77 +97,6 @@ fn run_recon_truncates_with_marker() {
     assert_eq!(small, "ok");
     let missing = run_recon("definitely-not-a-binary-34", &[], 15);
     assert!(missing.is_err());
-}
-
-#[test]
-fn machine_test_clipping_preserves_streaming_and_exit_status() {
-    let _guard = crate::tests::env_lock();
-    use crate::agent::harness::ProcessStream;
-    use std::path::PathBuf;
-    use std::sync::Mutex;
-
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../tests/cockpit/integration/fixtures/machine_queue_output.py");
-    assert!(path.is_file(), "missing fake client: {}", path.display());
-    let config = MachineQueueConfig {
-        client_script: path,
-        host: "local-fake".into(),
-        remote_script: "unused".into(),
-        remote_db: "unused".into(),
-        resource: "fake".into(),
-        owner: "review".into(),
-        competition: "review".into(),
-        remote_cwd: ".".into(),
-        wait_seconds: 0,
-        lease_seconds: 15,
-        quantum_seconds: 15,
-    };
-    let tool = MachineTestTool { config };
-    let args = serde_json::json!({"command": "ok"});
-    let plain = tool.call(&args).unwrap();
-    assert!(plain.len() <= 16000);
-    assert!(plain.contains('O') && plain.contains('E'));
-    assert!(plain.contains("…[truncated; snipped "));
-    assert!(!plain.contains("full output remained live"));
-
-    let chunks = Arc::new(Mutex::new(Vec::<(ProcessStream, usize)>::new()));
-    let seen = Arc::clone(&chunks);
-    let progress: Arc<ToolOutputProgress> = Arc::new(move |stream, bytes| {
-        seen.lock().unwrap().push((stream, bytes.len()));
-    });
-    let streamed = tool
-        .call_with_cancel_and_progress(&args, None, Some(progress))
-        .unwrap();
-    assert!(streamed.contains("full output remained live"));
-    let seen = chunks.lock().unwrap();
-    assert!(
-        seen.iter()
-            .any(|(s, n)| *s == ProcessStream::Stdout && *n > 0)
-    );
-    assert!(
-        seen.iter()
-            .any(|(s, n)| *s == ProcessStream::Stderr && *n > 0)
-    );
-
-    let error = tool
-        .call(&serde_json::json!({"command": "fail"}))
-        .unwrap_err();
-    assert!(error.contains("queued machine test failed (exit 7)"));
-    assert!(error.contains('E'));
-    assert!(!error.contains("full output remained live"));
-}
-
-#[test]
-fn machine_queue_is_opt_in_and_uses_competition_as_fair_owner() {
-    let _guard = crate::tests::env_lock();
-    let _host = crate::tests::TestEnvGuard::set("ANGEL_MACHINE_QUEUE_HOST", "mac-builder");
-    let _competition = crate::tests::TestEnvGuard::set("ANGEL_COMPETITION_ID", "kernel-race");
-    let _owner = crate::tests::TestEnvGuard::unset("ANGEL_MACHINE_QUEUE_OWNER");
-    let config = MachineQueueConfig::from_env(Path::new("/tmp/project")).unwrap();
-    assert_eq!(config.host, "mac-builder");
-    assert_eq!(config.competition, "kernel-race");
-    assert_eq!(config.owner, "kernel-race");
-    assert_eq!(config.quantum_seconds, 1_800);
 }
 
 #[test]

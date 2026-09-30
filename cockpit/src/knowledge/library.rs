@@ -384,81 +384,36 @@ fn build_local_lesson(
     }
 }
 
-fn local_lesson_steps(discipline: Discipline, topic: &str) -> (String, String, String) {
+/// A discipline's lesson steps on the book (`⡸`): the section and the page of
+/// its objective; its exercise and its checkpoint follow.
+fn lesson_pages(discipline: Discipline) -> (crate::agent::harness::book::Route, usize) {
+    use crate::agent::harness::book::d4567_briefs::{LESSONS, LESSONS_LAST, LESSONS_MORE};
     match discipline {
-        Discipline::ProbabilityStatistics => (
-            format!(
-                "Frame “{topic}” as an experiment with a sample space, random variable, and explicit assumptions."
-            ),
-            "Choose one concrete case, calculate an expected outcome, then describe a small simulation that could check it."
-                .to_string(),
-            "You can state what is random, what is measured, and which assumption would invalidate the result."
-                .to_string(),
-        ),
-        Discipline::LinearAlgebra => (
-            format!(
-                "Represent “{topic}” as a map between named spaces and identify what the map preserves."
-            ),
-            "Draw a two- or three-dimensional example, label its input and output, and test one vector by hand."
-                .to_string(),
-            "You can name the domain, codomain, basis-dependent representation, and one invariant."
-                .to_string(),
-        ),
-        Discipline::GpuKernels => (
-            format!(
-                "Explain “{topic}” in terms of work per element, bytes moved, parallel ownership, and synchronization."
-            ),
-            "Write a tiny input/output contract, estimate arithmetic intensity, and identify the first measurement you would take."
-                .to_string(),
-            "You can distinguish a compute, bandwidth, launch, or synchronization bottleneck using evidence."
-                .to_string(),
-        ),
-        Discipline::Graphics3d => (
-            format!(
-                "Place “{topic}” precisely in the path from coordinates and scene data to a final pixel."
-            ),
-            "Trace one point, ray, or triangle through the relevant spaces and mark the visibility and sampling decisions."
-                .to_string(),
-            "You can predict one visible artifact caused by getting this stage wrong and explain why it appears."
-                .to_string(),
-        ),
-        Discipline::GameDevelopment => (
-            format!(
-                "Turn “{topic}” into an observable state transition inside one playable feedback loop."
-            ),
-            "Name the input, state before, update rule, state after, and the feedback shown to the player."
-                .to_string(),
-            "You can replay the loop step by step and identify which state makes a bug reproducible."
-                .to_string(),
-        ),
-        Discipline::LlmSystems => (
-            format!(
-                "Trace “{topic}” through tensor shapes, compute cost, information flow, and the training signal."
-            ),
-            "Choose a tiny batch and sequence length, write the important tensor shapes, and mark where loss can change the parameters."
-                .to_string(),
-            "You can explain one quality or efficiency tradeoff without hiding behind model scale."
-                .to_string(),
-        ),
-        Discipline::NaturalSciences => (
-            format!(
-                "Connect “{topic}” to an observation, a proposed mechanism, a relevant scale or unit, and a falsifiable prediction."
-            ),
-            "Work one concrete case: list what is observed, what is inferred, and what measurement could distinguish two explanations."
-                .to_string(),
-            "You can separate observation from mechanism and name evidence that would change your conclusion."
-                .to_string(),
-        ),
-        Discipline::Foundations => (
-            format!(
-                "Define “{topic}” plainly through one concrete example, then identify what the example generalizes."
-            ),
-            "Construct the smallest example you can, solve or execute it step by step, and change one condition."
-                .to_string(),
-            "You can explain the example in your own words and predict what changes in the nearby case."
-                .to_string(),
-        ),
+        Discipline::ProbabilityStatistics => (LESSONS, 1),
+        Discipline::LinearAlgebra => (LESSONS, 4),
+        Discipline::GpuKernels => (LESSONS, 7),
+        Discipline::Graphics3d => (LESSONS_MORE, 1),
+        Discipline::GameDevelopment => (LESSONS_MORE, 4),
+        Discipline::LlmSystems => (LESSONS_MORE, 7),
+        Discipline::NaturalSciences => (LESSONS_LAST, 1),
+        Discipline::Foundations => (LESSONS_LAST, 4),
     }
+}
+
+/// The page addresses of a discipline's objective, exercise and checkpoint.
+pub(crate) fn lesson_step_addresses(discipline: Discipline) -> [String; 3] {
+    use crate::agent::harness::book::d3_roles::pages;
+    let (route, first) = lesson_pages(discipline);
+    [first, first + 1, first + 2].map(|page| pages(route, [page]))
+}
+
+/// The steps as the operator reads them: recited from the book, the topic in
+/// its place.
+fn local_lesson_steps(discipline: Discipline, topic: &str) -> (String, String, String) {
+    let [objective, exercise, checkpoint] = lesson_step_addresses(discipline).map(|address| {
+        crate::agent::harness::book::connect::recite(&address).replace("{topic}", topic)
+    });
+    (objective, exercise, checkpoint)
 }
 
 impl LocalLesson {
@@ -488,30 +443,37 @@ impl LocalLesson {
     /// the objective, method, and checkpoint above the fold; nothing here is
     /// generated text and nothing is concealed from the lesson itself.
     pub(crate) fn recall_prompt(&self) -> String {
-        format!(
-            "Recall · answer from memory, then check above\n    state the objective\n    reconstruct {}'s method\n    name the checkpoint's proof",
-            self.tutor.name
-        )
+        // `⠬⠓`'s pages, recited for the operator, the tutor in place.
+        use crate::agent::harness::book::{
+            connect::recite, d3_roles::pages, ing_drivers::TUTOR_RECALL,
+        };
+        let [title, objective, method, proof] = [1, 2, 3, 4]
+            .map(|page| recite(&pages(TUTOR_RECALL, [page])).replace("{tutor}", self.tutor.name));
+        format!("{title}\n    {objective}\n    {method}\n    {proof}")
     }
 
-    /// Produce the visible, editable handoff for the ordinary composer. Merely
-    /// constructing this string cannot submit a turn or spend provider credit.
-    /// The tutor inherits the lesson's Recall practice, so the session ends by
-    /// CHECKING the retrieval answers instead of re-reading the material — the
-    /// same single-sourced prompts the offline render shows the operator.
+    /// Produce the tutor's handoff, the context the tutor frame (`⠬⠃`) carries.
+    /// Merely constructing this string cannot submit a turn or spend provider
+    /// credit. The tutor inherits the lesson's Recall practice (`⠬⠓`), so the
+    /// session ends by CHECKING the retrieval answers instead of re-reading the
+    /// material — the same single-sourced pages the offline render recites for
+    /// the operator.
     pub(crate) fn ask_tutor_prompt(&self) -> String {
+        // `⠬⠛`: the handoff's words are the pages; the topic, the tutor and
+        // the curriculum ride as data under their placeholders' names, the
+        // lesson's steps as their addresses (`⡸`), its recall as `⠬⠓`.
+        use crate::agent::harness::book::ing_drivers::{TUTOR_HANDOFF, TUTOR_RECALL};
+        let [objective, exercise, checkpoint] = lesson_step_addresses(self.discipline);
         format!(
-            "Tutor me on “{}” using {}'s method: {}.\n\nLearning objective: {}\nStart with this exercise: {}\nCheck my understanding against: {}\nSuggested curriculum: {} — {} ({}). This is a catalog pointer; do not claim you have read its content unless you actually access it.\n\nFirst ask what I already know. Teach one step at a time, make uncertainty explicit, and wait for my answer before continuing.\n\nEnd the lesson with retrieval practice — ask me to answer these before you confirm understanding:\n{}",
+            "{}\ntopic: {}\ntutor: {}\nmethod: {}\nobjective: {objective}\nexercise: {exercise}\ncheckpoint: {checkpoint}\ncurriculum: {} — {} ({})\nrecall: {}",
+            TUTOR_HANDOFF.cells(),
             self.topic,
             self.tutor.name,
             self.tutor.method,
-            self.objective,
-            self.exercise,
-            self.checkpoint,
             self.shelf.title,
             self.source_label,
             self.source_url,
-            self.recall_prompt()
+            TUTOR_RECALL.cells(),
         )
     }
 }

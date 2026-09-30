@@ -8,7 +8,7 @@ use std::sync::{
 mod projection;
 pub(crate) use projection::AccountingReport;
 
-pub(crate) const PATHS: [&str; 22] = [
+pub(crate) const PATHS: [&str; 23] = [
     "prompt_tokens",
     "input_tokens",
     "completion_tokens",
@@ -31,6 +31,7 @@ pub(crate) const PATHS: [&str; 22] = [
     "response.usage.output_tokens_details.reasoning_tokens",
     "response.usage.input_tokens_details.cached_tokens",
     "response.usage.input_tokens_details.cache_write_tokens",
+    "prompt_cache_miss_tokens",
 ];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -92,7 +93,7 @@ pub(crate) struct AccountingSnapshot {
     pub(crate) fields: [FieldTotal; 8],
     pub(crate) cache_conventions: [u64; 3],
     pub(crate) reasoning_conventions: [u64; 3],
-    pub(crate) path_reports: [u64; 22],
+    pub(crate) path_reports: [u64; 23],
     pub(crate) unknown_path_fields: u64,
     pub(crate) inconsistent: u64,
     pub(crate) overflowed: bool,

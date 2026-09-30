@@ -42,54 +42,40 @@ fn worktree_git_metadata_becomes_writable_for_confined_shells() {
 }
 
 #[test]
-fn orchestrator_prompt_teaches_structured_tool_protocol() {
-    let prompt = orchestrator_system_prompt(&["coder".to_string()]);
+fn orchestrator_prompt_is_the_entry_warpath_and_hygiene_is_in_the_ledger() {
+    let ws = std::env::temp_dir().join(format!("angel_orch_sign_{}", std::process::id()));
+    std::fs::create_dir_all(&ws).unwrap();
+    let prompt = orchestrator_system_prompt(&ws, &["coder".to_string()]);
+    assert_eq!(prompt, "⠽⠃", "the Driver with teammates, and no words");
+    let ledger = |cells: &str| crate::agent::harness::book::ledger::read(&ws, cells).unwrap();
     assert!(
-        prompt.contains("structured tool-call interface"),
-        "{prompt}"
+        ledger("⠕⠃").contains("- coder:"),
+        "configured routes are ledger evidence"
     );
-    assert!(prompt.contains("Do not print raw"), "{prompt}");
-    assert!(prompt.contains("<server>__mcp"), "{prompt}");
-    assert!(prompt.contains("sandbox"), "{prompt}");
-    assert!(prompt.contains("approval"), "{prompt}");
-    assert!(
-        prompt.contains("Batch independent tool calls") && prompt.contains("`code_mode` batch"),
-        "the stable tool protocol must teach hop-efficient batching:\n{prompt}"
-    );
-    assert!(
-        prompt.contains("Do not end a turn with a promise"),
-        "{prompt}"
-    );
-    assert!(
-        prompt.contains("Local fleet seats") && prompt.contains("optional"),
-        "models must not treat a down local as a required seat:\n{prompt}"
-    );
-    assert!(
-        prompt.contains("ask the user what they would like to do"),
-        "{prompt}"
-    );
-    // The posture no longer names the artifacts it forbids — naming them just hands
-    // a degraded model a searchable token to chase, and the old exception clause was
-    // a standing self-service license. Both are gone.
-    let lower = prompt.to_ascii_lowercase();
-    for banned in ["gauntlet", "health checkup", "repair mode"] {
-        assert!(
-            !lower.contains(banned),
-            "posture must not name '{banned}':\n{prompt}"
-        );
+    // The type renders the whole prompt it replaces, verbatim.
+    let driver = ledger("⠽⠃");
+    for taught in [
+        "structured tool-call interface",
+        "Do not print raw",
+        "<server>__mcp",
+        "sandbox",
+        "approval",
+        "Batch independent tool calls",
+        "`code_mode` batch",
+        "Do not end a turn with a promise",
+        "Local seats",
+        "optional",
+        "ask the user what they would like to do",
+        "dedicated repository tools when available",
+    ] {
+        assert!(driver.contains(taught), "{taught}:\n{driver}");
     }
-}
-
-/// Tool availability comes from the actual registry, not a second copy of its
-/// environment policy embedded in prompt construction.
-#[test]
-fn orchestrator_prompt_qualifies_optional_batching_tools() {
-    let prompt = orchestrator_system_prompt(&["coder".to_string()]);
-    assert!(prompt.contains(TOOL_BATCHING_HINT), "{prompt}");
-    assert!(
-        prompt.contains("dedicated repository tools when available"),
-        "{prompt}"
-    );
+    // Naming the forbidden artifacts hands a degraded model a token to chase.
+    let lower = driver.to_ascii_lowercase();
+    for banned in ["gauntlet", "health checkup", "repair mode"] {
+        assert!(!lower.contains(banned), "must not name '{banned}'");
+    }
+    let _ = std::fs::remove_dir_all(&ws);
 }
 
 /// Both delegate seats carry the shared batching advisory, and the seat
@@ -98,25 +84,25 @@ fn orchestrator_prompt_qualifies_optional_batching_tools() {
 fn delegate_prompts_teach_batching_without_naming_unregistered_tools() {
     let _lock = crate::tests::env_lock();
     for mode in [DelegateMode::ReadOnly, DelegateMode::Write] {
-        let prompt = delegate_system_prompt(mode);
+        let cells = delegate_system_prompt(mode);
         assert!(
-            prompt.contains(TOOL_BATCHING_HINT),
-            "delegate {mode:?} must carry the shared batching advisory:\n{prompt}"
+            cells.ends_with("⠺⠉⠁"),
+            "delegate {mode:?} must carry the shared batching page:\n{cells}"
         );
-        for unavailable in [
-            "proc_run",
-            "proc_status",
-            "code_mode",
-            "read_file",
-            "apply_patch",
-        ] {
+        // The seat reads its words off the ledger (its registry carries
+        // `read_file`); what they name must exist there.
+        let prompt = super::book::ledger::read(Path::new("."), &cells).unwrap();
+        assert!(prompt.contains("Batch independent tool calls"), "{prompt}");
+        for unavailable in ["proc_run", "proc_status", "code_mode", "apply_patch"] {
             assert!(
                 !prompt.contains(unavailable),
                 "delegate {mode:?} cannot call {unavailable}:\n{prompt}"
             );
         }
     }
-    let write = delegate_system_prompt(DelegateMode::Write);
+    let write =
+        super::book::ledger::read(Path::new("."), &delegate_system_prompt(DelegateMode::Write))
+            .unwrap();
     assert!(
         write.contains("Keep long-running commands observable"),
         "the observable-command guidance stays for the tools it has:\n{write}"
@@ -275,7 +261,10 @@ fn delegate_skips_a_down_local_instead_of_failing() {
         .unwrap();
     assert!(text.contains("delegate skipped"), "{text}");
     assert!(text.contains("turbo is not reachable"), "{text}");
-    assert!(text.contains("Do the work yourself"), "{text}");
+    assert!(
+        text.contains(&crate::agent::harness::book::o_orchestration::SEAT_SKIPPED.cells()),
+        "{text}"
+    );
     assert!(
         !text.contains("turbo model not available"),
         "must not chat a down local: {text}"
@@ -362,7 +351,7 @@ fn live_spark_orchestrates_turbo() {
     let reg = ToolRegistry::with_team(ws.clone(), vec![turbo]);
 
     let mut history = vec![
-        ChatMsg::system(orchestrator_system_prompt(&["turbo".to_string()])),
+        ChatMsg::system(orchestrator_system_prompt(&ws, &["turbo".to_string()])),
         ChatMsg::user(
             "Delegate to the turbo specialist: have turbo create a file named hello.txt whose \
                  contents are exactly the word 'angel'. Then integrate the resulting branch.",

@@ -107,12 +107,23 @@ pub(crate) fn extraction_ask(messages: &[ChatMsg]) -> bool {
 
 /// The tail-side output contract for an extraction-shaped ask, unless one was
 /// already spliced (marker check mirrors caveman's).
-pub(crate) fn econ_contract(messages: &[ChatMsg]) -> Option<String> {
+///
+/// A request that offers the model a tool offers it the ledger reader too, so
+/// the contract rides as its route `⠬⠋`; a request with no tools cannot reach
+/// the ledger and keeps the prose.
+pub(crate) fn econ_contract(messages: &[ChatMsg], has_tools: bool) -> Option<String> {
     if !econ_enabled() || !extraction_ask(messages) {
         return None;
     }
-    if messages.iter().any(|m| m.content.contains(CONTRACT_MARKER)) {
+    let route = crate::agent::harness::book::ing_drivers::OUTPUT_CONTRACT.cells();
+    if messages
+        .iter()
+        .any(|m| m.content.contains(CONTRACT_MARKER) || m.content.contains(&route))
+    {
         return None;
+    }
+    if has_tools {
+        return Some(route);
     }
     Some(format!(
         "{CONTRACT_MARKER}. Return only the structure or answer the task explicitly \
@@ -317,26 +328,29 @@ pub(crate) fn judge_directive(club_name: &str, messages: &[ChatMsg]) -> Option<P
     verdict
 }
 
-fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
-    let base = std::env::var("ANGEL_PROVISION_URL").ok()?;
-    let base = base.trim().trim_end_matches('/');
-    let model = std::env::var("ANGEL_PROVISION_MODEL")
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "default".to_string());
-    let timeout_ms = std::env::var("ANGEL_PROVISION_TIMEOUT_MS")
-        .ok()
-        .and_then(|v| v.trim().parse::<u64>().ok())
-        .unwrap_or(4000);
-    // A dedicated short-fuse agent: the club's own agent carries generation-
-    // sized read timeouts, and a slow judge must never stall the real call.
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_millis(timeout_ms.min(1500)))
-        .timeout_read(Duration::from_millis(timeout_ms))
-        .timeout_write(Duration::from_millis(timeout_ms))
-        .build();
-    let excerpt: String = ask.chars().take(4000).collect();
-    let body = serde_json::json!({
+/// One chat completion against the judge, with `tools` offered (the ledger
+/// reader, or none on the last hop). No clock unless the operator set one
+/// (`ANGEL_PROVISION_TIMEOUT_MS`).
+fn judge_hop(
+    base: &str,
+    model: &str,
+    deadline: Option<Instant>,
+    history: &[ChatMsg],
+    tools: &[ToolDef],
+) -> Result<ClubReply, String> {
+    let mut builder = ureq::AgentBuilder::new();
+    if let Some(deadline) = deadline {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err("past the operator's ANGEL_PROVISION_TIMEOUT_MS".to_string());
+        }
+        builder = builder
+            .timeout_connect(remaining.min(Duration::from_millis(1500)))
+            .timeout_read(remaining)
+            .timeout_write(remaining);
+    }
+    let agent = builder.build();
+    let mut body = serde_json::json!({
         "model": model,
         "stream": false,
         "max_tokens": 512,
@@ -346,26 +360,90 @@ fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
         // content (measured live 2026-07-22). Classification needs no chain of
         // thought; lenient OpenAI-compatible servers ignore the field.
         "chat_template_kwargs": { "enable_thinking": false },
-        "messages": [
-            { "role": "system", "content": "You are angelX's outbound pre-provisioner. \
-    Read the task excerpt and answer ONLY a JSON object with these fields: \
-    \"task\": one of \"extraction\"|\"reasoning\"|\"chat\"; \
-    \"max_tokens\": integer output budget for a complete answer, or null to leave uncapped \
-    (reasoning/research MUST be null); \
-    \"contract\": a one-sentence output-format instruction if the task demands a fixed \
-    structure, else null; \
-    \"stop\": array of at most 2 stop strings ONLY if the format has an unambiguous \
-    terminator, else null. Never invent constraints the task did not imply." },
-            { "role": "user", "content": excerpt }
-        ]
+        "messages": messages_to_json(history, false),
     });
-    let started = Instant::now();
-    let resp = agent
+    if !tools.is_empty() {
+        body["tools"] = tools
+            .iter()
+            .map(|tool| {
+                serde_json::json!({
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.params,
+                    },
+                })
+            })
+            .collect();
+    }
+    let text = agent
         .post(&format!("{base}/chat/completions"))
         .set("content-type", "application/json")
-        .send_string(&body.to_string());
-    let resp = match resp {
-        Ok(r) => r,
+        .send_string(&body.to_string())
+        .map_err(|error| error.to_string())?
+        .into_string()
+        .map_err(|error| error.to_string())?;
+    let value = serde_json::from_str::<serde_json::Value>(&text).map_err(|e| e.to_string())?;
+    let message = value
+        .pointer("/choices/0/message")
+        .ok_or("no choices[0].message in the judge's reply")?;
+    let calls: Vec<ToolCall> = message["tool_calls"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .enumerate()
+        .filter_map(|(index, call)| {
+            let id = call["id"]
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("call_{index}"));
+            let name = call["function"]["name"].as_str()?.to_string();
+            let raw = match &call["function"]["arguments"] {
+                serde_json::Value::String(raw) => raw.clone(),
+                serde_json::Value::Null => "{}".to_string(),
+                other => other.to_string(),
+            };
+            let args = parsed_tool_args(&id, &raw);
+            Some(ToolCall { id, name, args })
+        })
+        .collect();
+    if !calls.is_empty() {
+        return Ok(ClubReply::Calls(calls));
+    }
+    Ok(ClubReply::Text(
+        message["content"].as_str().unwrap_or_default().to_string(),
+    ))
+}
+
+fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
+    let base = std::env::var("ANGEL_PROVISION_URL").ok()?;
+    let base = base.trim().trim_end_matches('/');
+    let model = std::env::var("ANGEL_PROVISION_MODEL")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "default".to_string());
+    let excerpt: String = ask.chars().take(4000).collect();
+    let started = Instant::now();
+    // The judge's brief is `⡸⠙`; the excerpt is the data. Connected: the judge
+    // may read its route. It answers when it answers, unless the operator put
+    // a clock on it.
+    let deadline = std::env::var("ANGEL_PROVISION_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .map(|timeout_ms| started + Duration::from_millis(timeout_ms));
+    let messages = [
+        ChatMsg::system(crate::agent::harness::book::d4567_briefs::PROVISIONER.cells()),
+        ChatMsg::user(excerpt),
+    ];
+    let workspace = crate::agent::harness::book::connect::workspace();
+    let reply =
+        crate::agent::harness::book::connect::converse(&workspace, &messages, |history, tools| {
+            judge_hop(base, &model, deadline, history, tools)
+        });
+    let content = match reply {
+        Ok(ClubReply::Text(content)) => content,
+        Ok(ClubReply::Calls(_)) => String::new(),
         Err(e) => {
             eprintln!(
                 "[provision:{club_name}] judge skip ({}ms): {e} — sending unmodified",
@@ -374,12 +452,6 @@ fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
             return None;
         }
     };
-    let text = resp.into_string().ok()?;
-    let content = serde_json::from_str::<serde_json::Value>(&text)
-        .ok()?
-        .pointer("/choices/0/message/content")?
-        .as_str()?
-        .to_string();
     let directive = parse_judge_json(&content);
     if directive.is_none() {
         eprintln!("[provision:{club_name}] judge verdict unparseable — sending unmodified");
@@ -407,7 +479,18 @@ pub(crate) fn parse_judge_json(content: &str) -> Option<ProvisionDirective> {
         .and_then(|c| c.as_str())
         .map(str::trim)
         .filter(|c| !c.is_empty())
-        .map(|c| format!("{CONTRACT_MARKER}. {c} Do not mention this contract."));
+        // Spliced into a request with no tools, whose seat cannot reach the
+        // ledger: the contract's frame is `⠬⠑`'s pages, recited around it.
+        .map(|c| {
+            use crate::agent::harness::book::{
+                connect::recite, d3_roles::pages, ing_drivers::OUTPUT_CONTRACT,
+            };
+            format!(
+                "{} {c} {}",
+                recite(&pages(OUTPUT_CONTRACT, [1])),
+                recite(&pages(OUTPUT_CONTRACT, [4]))
+            )
+        });
     let stop = v
         .get("stop")
         .and_then(|s| s.as_array())

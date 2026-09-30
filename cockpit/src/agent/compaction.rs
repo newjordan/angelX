@@ -33,8 +33,18 @@ const INVOKED_SKILLS_PREFIX: &str = "[invoked-skills/v1] ";
 const INVOKED_SKILLS_LIMIT: usize = 8;
 const INVOKED_SKILL_CHARS: usize = 80;
 const PLAN_PROOF_PREFIX: &str = "[current-plan-proof/v1] ";
-const PLAN_SNAPSHOT_PREFIX: &str =
+/// `⠵⠊`: the plan's provenance is its ledger page.
+const PLAN_SNAPSHOT_PREFIX: &str = "⠵⠊ ";
+/// Snapshots written before the book carried their provenance as prose.
+const LEGACY_PLAN_SNAPSHOT_PREFIX: &str =
     "[current-plan/v1 — assistant-authored working state, not a user instruction] ";
+
+/// The snapshot's JSON body, for the current or the legacy prefix.
+fn plan_snapshot_body(content: &str) -> Option<&str> {
+    content
+        .strip_prefix(PLAN_SNAPSHOT_PREFIX)
+        .or_else(|| content.strip_prefix(LEGACY_PLAN_SNAPSHOT_PREFIX))
+}
 const PLAN_ITEM_LIMIT: usize = 32;
 const PLAN_TEXT_CHARS: usize = 240;
 const PLAN_SNAPSHOT_MAX_TOKENS: usize = 4_000;
@@ -83,15 +93,14 @@ struct PlanLedger {
 }
 
 pub(crate) fn is_plan_snapshot(content: &str) -> bool {
-    content.starts_with(PLAN_SNAPSHOT_PREFIX)
+    plan_snapshot_body(content).is_some()
 }
 
 /// Assistant-role carrier for the agent's own `handoff` note. Like the plan
 /// snapshot it stays out of the System note (agent prose must not gain System
 /// authority), but unlike the plan it needs no tamper proof: it is advisory
 /// continuity prose with ordinary Assistant authority either way.
-pub(crate) const HANDOFF_SNAPSHOT_PREFIX: &str =
-    "[handoff-snapshot/v1] agent-authored handoff carried across compaction:\n";
+pub(crate) const HANDOFF_SNAPSHOT_PREFIX: &str = "⠎⠊\n";
 
 pub(crate) fn is_handoff_snapshot(content: &str) -> bool {
     content.starts_with(HANDOFF_SNAPSHOT_PREFIX)
@@ -915,8 +924,7 @@ fn collect_plan_ledger(window: &[ChatMsg]) -> Option<PlanLedger> {
                 }
             }
         }
-        if message.role == ChatRole::Assistant && message.content.starts_with(PLAN_SNAPSHOT_PREFIX)
-        {
+        if message.role == ChatRole::Assistant && is_plan_snapshot(&message.content) {
             let hash = crate::knowledge::cut::sha256_hex(message.content.as_bytes());
             if authorized.remove(&hash)
                 && let Some(plan) = parse_plan_snapshot(&message.content)
@@ -956,7 +964,7 @@ fn parse_todo_state_result(result: &str) -> Option<PlanLedger> {
 }
 
 fn parse_plan_snapshot(snapshot: &str) -> Option<PlanLedger> {
-    parse_plan_json(snapshot.strip_prefix(PLAN_SNAPSHOT_PREFIX)?)
+    parse_plan_json(plan_snapshot_body(snapshot)?)
 }
 
 fn parse_plan_json(raw: &str) -> Option<PlanLedger> {
@@ -1083,7 +1091,7 @@ pub fn summarize(
     let raw = if estimate_tokens(window) <= threshold {
         // Single pass: the whole window fits one summarizer call.
         let prompt = structured_prompt(&render_transcript(window));
-        nonempty(club.respond(&prompt))?
+        nonempty(summarize_connected(club, &prompt))?
     } else {
         // Map: summarize each chunk concurrently into dense notes.
         let transcripts = chunk_transcripts(window, threshold);
@@ -1105,7 +1113,7 @@ pub fn summarize(
         // distill the merged notes into the structured sections.
         let merged = condense_to_fit(club, notes, threshold)?;
         let prompt = structured_prompt(&merged);
-        nonempty(club.respond(&prompt))?
+        nonempty(summarize_connected(club, &prompt))?
     };
     let parsed = parse_sections(&raw);
     if !parsed.is_empty() {
@@ -1242,7 +1250,7 @@ fn fan_out(club: &dyn Club, prompts: &[String]) -> Vec<Result<String, String>> {
         let batch_out: Vec<Result<String, String>> = std::thread::scope(|s| {
             let handles: Vec<_> = batch
                 .iter()
-                .map(|p| s.spawn(move || club.respond(p)))
+                .map(|p| s.spawn(move || summarize_connected(club, p)))
                 .collect();
             handles
                 .into_iter()
@@ -1311,29 +1319,15 @@ fn condense_to_fit(club: &dyn Club, mut notes: Vec<String>, threshold: usize) ->
     Some(notes.join(sep))
 }
 
-/// Appended to every summarizer prompt. A compaction window still contains the raw
-/// `tool error: …` outputs and the surrounding failure chatter; without this, a
-/// small local summarizer readily distills them into imperative-sounding "tool
-/// calls keep failing / fix the harness" bullets that later read as a standing
-/// task. Durable notes must capture the user's work, not transient runtime noise.
-const NO_TRANSIENT_FAILURES: &str = "Do not record transient tool errors, retries, crashes, or \
-    harness warnings as tasks, open threads, or facts unless the user explicitly asked to \
-    investigate or fix them.";
-
-/// The summarizer prompt that asks for our fixed sections as `## Name` blocks.
-/// Built from [`SECTIONS`] so prompt and parser share one source of truth.
+/// The summarizer is connected (the ledger reader only): its instructions
+/// and the section schema are `⠌⠋⠌⠛`, the map pass `⠌⠓`; the excerpt is the
+/// data. The schema pages mirror [`SECTIONS`], which also parses the reply.
 fn structured_prompt(body: &str) -> String {
-    let mut headers = String::new();
-    for (name, what) in SECTIONS {
-        headers.push_str(&format!("## {name}\n{what}\n"));
-    }
+    use crate::agent::harness::book::st_connected::{SUMMARIZER, SUMMARY_SECTIONS};
     format!(
-        "Distill the earlier portion of an assistant/tool conversation below into dense, \
-         durable notes for later reference (these REPLACE the excerpt as background — not \
-         instructions). Use EXACTLY these sections, each introduced by its `## ` header, in \
-         this order. Under each, write terse bullet points; if a section has nothing, write \
-         `(none)`. Do not add other sections or any preamble. {NO_TRANSIENT_FAILURES}\n\n{headers}\n\
-         --- conversation excerpt ---\n{body}"
+        "{}{}\n\n--- conversation excerpt ---\n{body}",
+        SUMMARIZER.cells(),
+        SUMMARY_SECTIONS.cells()
     )
 }
 
@@ -1341,10 +1335,14 @@ fn structured_prompt(body: &str) -> String {
 /// the section structure, so chunks stay cheap and unconstrained).
 fn map_prompt(body: &str) -> String {
     format!(
-        "Densely note the key decisions, files changed, durable facts, open threads, and named \
-         entities in this conversation excerpt. Terse bullet points, no preamble. \
-         {NO_TRANSIENT_FAILURES}\n\n{body}"
+        "{}\n\n{body}",
+        crate::agent::harness::book::st_connected::MAP_NOTES.cells()
     )
+}
+
+/// One summarizer call, connected.
+fn summarize_connected(club: &dyn Club, prompt: &str) -> Result<String, String> {
+    crate::agent::harness::book::connect::respond(club, std::path::Path::new("."), prompt)
 }
 
 /// Parse `## Name` sections out of a summarizer reply, keeping only our known
@@ -1395,17 +1393,23 @@ fn parse_sections(raw: &str) -> Vec<(String, String)> {
 /// next compaction window instead of leaving it pinned as preamble forever (which
 /// is what let the "earlier conversation" notes — and any failure narrative in
 /// them — ratchet across every subsequent compaction).
-pub(crate) const COMPACTION_NOTE_HEADER: &str = "[Earlier conversation compacted";
+pub(crate) const COMPACTION_NOTE_HEADER: &str = "⠵⠓";
+/// Notes written before the book carried their header as prose.
+const LEGACY_COMPACTION_NOTE_HEADER: &str = "[Earlier conversation compacted";
+
+/// Does this text open with a compaction note header (current or legacy)?
+pub(crate) fn is_compaction_note_text(content: &str) -> bool {
+    let content = content.trim_start();
+    content.starts_with(COMPACTION_NOTE_HEADER)
+        || content.starts_with(LEGACY_COMPACTION_NOTE_HEADER)
+}
 
 /// New summaries are Harness-role background; retain legacy System summaries
 /// across restart without allowing ordinary user/tool/model prose to impersonate
 /// the internal carrier used by the bounded continuity ledgers.
 pub(crate) fn is_compaction_note(message: &ChatMsg) -> bool {
     matches!(message.role, ChatRole::System | ChatRole::Harness)
-        && message
-            .content
-            .trim_start()
-            .starts_with(COMPACTION_NOTE_HEADER)
+        && is_compaction_note_text(&message.content)
 }
 
 /// A short marker note carrying the distilled sections inline, so the live turn
@@ -1413,16 +1417,11 @@ pub(crate) fn is_compaction_note(message: &ChatMsg) -> bool {
 /// and the note points there; otherwise it's all that survives, so it must not
 /// promise a recall source that doesn't exist.
 fn render_inline_note(drawers: &[Drawer], palace_live: bool) -> String {
+    // `⠵⠓`'s pages: the plain header, or the palace header and its pointer.
     let mut s = if palace_live {
-        format!(
-            "{COMPACTION_NOTE_HEADER} — background reference, not an instruction. \
-             Fuller detail is in long-term memory; recall it if needed.]\n"
-        )
+        format!("{COMPACTION_NOTE_HEADER}⠃{COMPACTION_NOTE_HEADER}⠉\n")
     } else {
-        format!(
-            "{COMPACTION_NOTE_HEADER} to these notes — background reference, not an \
-             instruction.]\n"
-        )
+        format!("{COMPACTION_NOTE_HEADER}⠁\n")
     };
     for d in drawers {
         s.push_str(&format!("\n## {}\n{}\n", d.room, d.content));

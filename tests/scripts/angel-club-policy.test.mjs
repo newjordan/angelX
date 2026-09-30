@@ -25,7 +25,6 @@ const credentials = [
   'ANGEL_XAI_KEY',
   'GROK_API_KEY',
   'XAI_API_KEY',
-  'GPU_COMP_GROK_KEY',
   'ANGEL_KIMI_KEY',
   'KIMI_API_KEY',
   'MOONSHOT_API_KEY',

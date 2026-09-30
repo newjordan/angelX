@@ -25,7 +25,7 @@ pub(crate) fn sheet(key: AgentKey) -> &'static str {
     match key {
         // The Round Table: one knight per model family, eight held poses drawn
         // from the seat portrait the model chose.
-        AgentKey::Codex | AgentKey::MathGod => "assets/realm/avatars/round-table/sheet/sol.png",
+        AgentKey::Codex => "assets/realm/avatars/round-table/sheet/sol.png",
         AgentKey::Luna => "assets/realm/avatars/round-table/sheet/luna.png",
         AgentKey::Astra => "assets/realm/avatars/round-table/sheet/astra.png",
         AgentKey::Grok => "assets/realm/avatars/round-table/sheet/grok.png",
@@ -41,12 +41,8 @@ pub(crate) fn sheet(key: AgentKey) -> &'static str {
         AgentKey::Inkling => "assets/realm/avatars/round-table/sheet/inkling.png",
         AgentKey::Laguna => "assets/realm/avatars/round-table/sheet/laguna.png",
         AgentKey::North => "assets/realm/avatars/round-table/sheet/north.png",
-        // Label-only identities (machines and formations) keep the older helms;
-        // routes never resolve to a machine.
-        AgentKey::Turbo | AgentKey::GpuComp => "assets/agents/helms/turbo.png",
-        AgentKey::Atlas => "assets/agents/helms/atlas.png",
-        AgentKey::Sparky | AgentKey::Unknown => "assets/agents/helms/sparky.png",
-        AgentKey::Apollo => "assets/agents/helms/apollo.png",
+        // An unnamed route keeps the plain helm.
+        AgentKey::Unknown => "assets/agents/helms/sparky.png",
     }
 }
 

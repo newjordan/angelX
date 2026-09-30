@@ -92,11 +92,15 @@ fn unsupported_novelty_is_a_hypothesis_not_progress() {
     assert_eq!(st.hypotheses.len(), 1);
     assert_eq!(st.stale_count, 1);
     assert_eq!(st.log[0].unverified_findings, 1);
-    assert!(
-        st.last_setback
-            .as_deref()
-            .unwrap_or("")
-            .contains("unverified")
+    assert_eq!(
+        st.last_setback.as_deref(),
+        Some(
+            format!(
+                "{} unverified=1",
+                crate::agent::harness::book::d45_iteration::UNVERIFIED
+            )
+            .as_str()
+        )
     );
 }
 
@@ -180,11 +184,15 @@ fn repeated_costly_action_is_persisted_for_the_next_iteration() {
         1
     );
     assert_eq!(st.log[1].duplicate_costly_actions, 1);
-    assert!(
-        st.last_setback
-            .as_deref()
-            .unwrap_or("")
-            .contains("repeated 1 costly")
+    assert_eq!(
+        st.last_setback.as_deref(),
+        Some(
+            format!(
+                "{} duplicate_costly_actions=1",
+                crate::agent::harness::book::l_loops::COSTLY_REPEAT
+            )
+            .as_str()
+        )
     );
 }
 
@@ -522,4 +530,92 @@ fn says_done_is_tolerant_but_anchored() {
     // Must be its own line, not buried in prose.
     assert!(!says_done("I will write LOOP_DONE when finished"));
     assert!(!says_done("not finished yet"));
+}
+
+/// A restated plan is not progress. Sol restated the same "submit + delegate
+/// a moonshot" plan five consecutive turns (overwatch 2026-09-25) while
+/// churning the workspace, so `workspace_changed`/novel receipts kept
+/// resetting `stale_count` and the stall ladder never fired. An
+/// effectively-identical consecutive reply must not credit progress.
+#[test]
+fn a_repeated_reply_does_not_reset_staleness_even_with_churn() {
+    let _env = crate::tests::env_lock();
+    let workspace = std::env::temp_dir().join(format!("angel-restate-{}", std::process::id()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    std::fs::write(workspace.join("a.rs"), "fn main() {}\n").unwrap();
+    let mut st = LoopState {
+        workspace: Some(workspace.clone()),
+        ..LoopState::default()
+    };
+    let plan = "DIRECTION: submit the carrier and delegate a moonshot\n\
+                FINDINGS:\n\
+                - the subset slot is free [evidence: file:a.rs:1]";
+    // Churn that used to mask restatement: a novel outcome receipt each turn.
+    let mut tools = ToolStripSnapshot {
+        calls: 2,
+        ..ToolStripSnapshot::default()
+    };
+    tools
+        .outcome_actions
+        .push("measure: cargo bench -p carrier".into());
+    apply_reply_with_tools(&mut st, plan, &tools);
+    assert_eq!(st.stale_count, 0, "first statement is not stale");
+    let mut tools2 = ToolStripSnapshot {
+        calls: 2,
+        ..ToolStripSnapshot::default()
+    };
+    tools2
+        .outcome_actions
+        .push("measure: cargo bench -p carrier --bench inverse".into());
+    apply_reply_with_tools(&mut st, plan, &tools2);
+    let mut tools3 = ToolStripSnapshot {
+        calls: 2,
+        ..ToolStripSnapshot::default()
+    };
+    tools3
+        .outcome_actions
+        .push("status: yukon submissions".into());
+    apply_reply_with_tools(&mut st, plan, &tools3);
+    assert!(
+        st.stale_count >= 2,
+        "verbatim restatements must accrue staleness despite receipt churn, got {}",
+        st.stale_count
+    );
+    let _ = std::fs::remove_dir_all(&workspace);
+}
+
+/// The detector must not fire on a reply that actually moved on: a different
+/// direction with fresh admissible findings still resets staleness.
+#[test]
+fn a_changed_reply_with_fresh_findings_still_resets_staleness() {
+    let _env = crate::tests::env_lock();
+    let workspace =
+        std::env::temp_dir().join(format!("angel-restate-fresh-{}", std::process::id()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    std::fs::write(workspace.join("a.rs"), "fn a() {}\n").unwrap();
+    std::fs::write(workspace.join("b.rs"), "fn b() {}\n").unwrap();
+    let mut st = LoopState {
+        workspace: Some(workspace.clone()),
+        ..LoopState::default()
+    };
+    let tools = ToolStripSnapshot {
+        calls: 1,
+        ..ToolStripSnapshot::default()
+    };
+    apply_reply_with_tools(
+        &mut st,
+        "DIRECTION: submit the carrier\nFINDINGS:\n- carrier built [evidence: file:a.rs:1]",
+        &tools,
+    );
+    st.stale_count = 2;
+    apply_reply_with_tools(
+        &mut st,
+        "DIRECTION: measure the inverse limb next\nFINDINGS:\n- inverse fused [evidence: file:b.rs:1]",
+        &tools,
+    );
+    assert_eq!(
+        st.stale_count, 0,
+        "a new direction with a fresh finding is progress, not restatement"
+    );
+    let _ = std::fs::remove_dir_all(&workspace);
 }

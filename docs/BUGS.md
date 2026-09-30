@@ -182,3 +182,33 @@ drives the real sandboxed path under `ANGEL_YOLO=1` with the cancel token the
 shell tool always passes; it fails in 30 s with the bypass reintroduced and passes
 in ~2 s without it. Any cockpit launched before 17:17 still runs the unguarded
 binary until it is restarted (the launcher rebuilds from HEAD).
+
+## BUG-0003..0007 — the five overwatch harness problems (triaged 2026-09-26; fixes post-war)
+
+Source: `/work/artifacts/overwatch-handoff-20260925.md` § "angelX harness problems seen today (fix after
+the comp)". Triage landed in that file; seams repeated here so the repo carries them. Separately verified:
+the five *polyglot harness-root* fixes (`angel_tests/HANDOFF-harness-roots-20260923.md`, branch
+`dev-harness-roots`) are all in `dev` already (`b205b31` is an ancestor of `dev`) — these five are open.
+
+- **BUG-0003 `ANGEL_DRIVER=k3` silently falls back.** `resolve_driver` (`cockpit/src/agent/club/bag.rs:258`)
+  aliases `deli/spark-r1/ds4/gpu/math/or` but not `k3`/`kimi-k3`; the seat's sota-link alias is `kimi`
+  (bag.rs:749). Unresolved pref → practice floor + `pending_brain` (bag.rs:1028), no notice, and
+  `elect_brain` will later commit to an unrelated model. Fix: alias `k3`/`kimi-k3` → `kimi`, plus a loud
+  startup notice when a set `ANGEL_DRIVER` neither resolves nor is available.
+- **BUG-0004 a steer can't break a running `sleep`.** Steers deliver only at hop boundaries
+  (`turn/mod.rs:2290` `steer_drain`); the shell sleep guard only rejects *excessive* sleep up front
+  (shell.rs:1186). A queued steer waits out an in-hop sleep while background+sleep-poll seats accrue loop
+  actions. Fix: wake in-flight sleeps from the steer queue (reuse the registry cancel channel), count
+  cumulative per-turn sleep in the guard, and score background+sleep-poll hops as idle, not actions.
+- **BUG-0005 a mid-turn steer halted the rig B loop.** Only the cancel `AtomicBool` produces "⛔ interrupted
+  after N hop(s)" (`turn/mod.rs:2104`), yet steers are designed to inject without interrupting — so some
+  path converts a steer into cancel, and the loop then parks waiting for "another message". Fix: audit the
+  steer enqueue path so it never sets cancel; after an interrupted stop inside a loop, auto-resume by
+  feeding the steer as the next user message.
+- **BUG-0006 plan restatement loop (Sol, five identical turns).** Repetition detection covers costly
+  *actions* (`duplicate_costly_actions`, loop_ctl.rs:160; `ToolCallStorm`, turn/governors.rs) but not
+  identical final assistant plans. Fix: hash each turn's final plan text at the loop digest level; N
+  consecutive identical digests → breaker note, then escalate like `blocked_repeat_count`.
+- **BUG-0007 workshop START ignores Enter.** `loop_ctl.rs:1224` routes Enter through `focused_action()`, so
+  Enter only starts when focus is on Start; otherwise it adjusts — while the help line promises "Enter
+  starts" (loop_dialog.rs:651). `S` works unconditionally. Fix: Enter starts unless focus is Cancel.

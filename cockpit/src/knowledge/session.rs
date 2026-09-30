@@ -725,7 +725,16 @@ pub fn load_for(id: &str, workspace: &Path) -> Result<Vec<ChatMsg>, String> {
     Ok(repair_interrupted_tool_batch(record.history))
 }
 
-const UNKNOWN_TOOL_OUTCOME: &str = "tool error: the previous cockpit exited after recording this call but before its result became durable; outcome unknown — inspect external and workspace state before retrying";
+/// The facts of an interrupted call; what to check before a retry is its
+/// `⠰⠙` page on the line after.
+const UNKNOWN_TOOL_OUTCOME: &str = "tool error: the previous cockpit exited after recording this call but before its result became durable; outcome unknown";
+
+fn unknown_tool_outcome() -> String {
+    format!(
+        "{UNKNOWN_TOOL_OUTCOME}\n{}",
+        crate::agent::harness::book::d56_replies::UNKNOWN_OUTCOME.cells()
+    )
+}
 
 /// Close a crash-interrupted tool-call batch without guessing whether any
 /// side effect happened. The pre-dispatch checkpoint deliberately ends with
@@ -742,7 +751,7 @@ fn repair_interrupted_tool_batch(mut history: Vec<ChatMsg>) -> Vec<ChatMsg> {
     history.extend(
         call_ids
             .into_iter()
-            .map(|call_id| ChatMsg::tool(call_id, UNKNOWN_TOOL_OUTCOME)),
+            .map(|call_id| ChatMsg::tool(call_id, unknown_tool_outcome())),
     );
     history
 }

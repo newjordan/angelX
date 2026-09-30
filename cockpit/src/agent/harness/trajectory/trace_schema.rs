@@ -70,8 +70,9 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
     let Some(root) = workspace else {
         return unbound("unbound");
     };
-    let probe_failed = std::cell::Cell::new(false);
-    let git = |args: &[&str]| {
+    // One probe: its output, and whether it could not run at all (deadline,
+    // timeout, overflow, io) as opposed to Git answering "no".
+    let git = |args: &[&str]| -> (Option<Vec<u8>>, bool) {
         let mut command = std::process::Command::new("git");
         command
             .args(crate::agent::harness::GIT_NO_WORKSPACE_EXEC)
@@ -86,78 +87,92 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
             // capture allowance admits tracked path lists from big repositories.
             let remaining = end.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
-                probe_failed.set(true);
-                return None;
+                return (None, true);
             }
             return match crate::platform::workspace_store::capture_startup_repo_command(
                 command, remaining,
             ) {
-                Ok(output) => output,
-                Err(_) => {
-                    probe_failed.set(true);
-                    None
-                }
+                Ok(output) => (output, false),
+                Err(_) => (None, true),
             };
         }
         match crate::platform::workspace_store::capture_optional_probe(
             command,
             std::time::Duration::from_millis(300),
         ) {
-            Ok(output) => output,
+            Ok(output) => (output, false),
             Err(error) => {
-                probe_failed.set(true);
                 eprintln!(
                     "[turn-phase-partial] step=workspace_identity status=partial io={:?} action=continue_with_unbound_identity",
                     error.kind()
                 );
-                None
+                (None, true)
             }
         }
     };
-    if git(&["rev-parse", "--is-inside-work-tree"]).is_none() {
+    let (inside, inside_failed) = git(&["rev-parse", "--is-inside-work-tree"]);
+    if inside.is_none() {
         // One reason string for every unavailable probe (deadline or not): the
         // partial notice and the receipts key on it.
-        return unbound(if probe_failed.get() {
+        return unbound(if inside_failed {
             "workspace identity probe unavailable"
         } else {
             "not a git repo"
         });
     }
-    let Some(head) = git(&["rev-parse", "HEAD"]) else {
+    // The active workspace contract excludes quarantines at Git's pathspec layer.
+    let paths = [".", ":(exclude)off-limits/**"];
+    // Four read-only views of one tree, run together: the identity costs the
+    // slowest probe rather than their sum (it is taken at start-up and again
+    // for each record written at the end).
+    let ((head, head_failed), (head_tree, _), (names, _), (dirty, _)) =
+        std::thread::scope(|scope| {
+            let head = scope.spawn(|| git(&["rev-parse", "HEAD"]));
+            let head_tree = scope.spawn(|| git(&["rev-parse", "HEAD^{tree}"]));
+            let names = scope.spawn(|| {
+                git(&[
+                    "ls-files",
+                    "--cached",
+                    "--others",
+                    "--exclude-standard",
+                    "-z",
+                    "--",
+                    paths[0],
+                    paths[1],
+                ])
+            });
+            let dirty = git(&[
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+                "--",
+                paths[0],
+                paths[1],
+            ]);
+            (
+                head.join().unwrap_or((None, true)),
+                head_tree.join().unwrap_or((None, true)),
+                names.join().unwrap_or((None, true)),
+                dirty,
+            )
+        });
+    let Some(head) = head else {
         // An unborn HEAD is a valid negative (fresh repository); only an
         // unavailable probe is reported as such.
-        return unbound(if probe_failed.get() {
+        return unbound(if head_failed {
             "workspace identity probe unavailable"
         } else {
             "unbound"
         });
     };
-    let head_tree = git(&["rev-parse", "HEAD^{tree}"])
+    let head_tree = head_tree
         .map(|bytes| String::from_utf8_lossy(&bytes).trim().to_owned())
         .unwrap_or_else(|| "unbound".to_owned());
-    // The active workspace contract excludes quarantines at Git's pathspec layer.
-    let paths = [".", ":(exclude)off-limits/**"];
-    let Some(names) = git(&[
-        "ls-files",
-        "--cached",
-        "--others",
-        "--exclude-standard",
-        "-z",
-        "--",
-        paths[0],
-        paths[1],
-    ]) else {
+    let Some(names) = names else {
         return unbound("workspace identity probe unavailable");
     };
-    let Some(dirty) = git(&[
-        "status",
-        "--porcelain=v1",
-        "-z",
-        "--untracked-files=all",
-        "--",
-        paths[0],
-        paths[1],
-    ]) else {
+    let Some(dirty) = dirty else {
         return unbound("workspace identity probe unavailable");
     };
     let Some(tree) = hash_tree_with_deadline(root, &names, deadline) else {

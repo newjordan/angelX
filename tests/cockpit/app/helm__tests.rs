@@ -119,10 +119,7 @@ fn live_state_owns_pose_and_motion_never_fabricates_work() {
 fn every_consumed_sheet_has_distinct_framed_poses() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     for key in [
-        AgentKey::Turbo,
-        AgentKey::Atlas,
-        AgentKey::Sparky,
-        AgentKey::Apollo,
+        AgentKey::Unknown,
         AgentKey::Codex,
         AgentKey::Luna,
         AgentKey::Astra,

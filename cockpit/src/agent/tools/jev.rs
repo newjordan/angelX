@@ -45,9 +45,10 @@ fn setting(name: &str, default: u64, min: u64, max: u64) -> u64 {
 impl JevTool {
     fn from_env() -> Result<Self, String> {
         if !available() {
-            return Err(
-                "jev_decide unavailable: set TYPESAFE_API_KEY; ANGEL_JEV=0 disables it".into(),
-            );
+            return Err(format!(
+                "jev_decide unavailable\n{}",
+                crate::agent::harness::book::d56_replies::JEV_KEY.cells()
+            ));
         }
         let key = std::env::var("TYPESAFE_API_KEY")
             .unwrap_or_default()
@@ -82,11 +83,17 @@ impl JevTool {
         let request = request_body(args, &self.model)?;
         let body = serde_json::to_string(&request).map_err(|_| "invalid Jev request")?;
         if body.len() > MAX_REQUEST {
-            return Err("Jev request exceeds 32768 bytes; narrow the evidence".into());
+            return Err(format!(
+                "Jev request exceeds 32768 bytes\n{}",
+                crate::agent::harness::book::d56_replies::JEV_NARROW.cells()
+            ));
         }
         // A tool argument must never accidentally become an authentication channel.
         if body.contains(&self.key) || crate::platform::secrets::contains_secret(&body) {
-            return Err("Jev evidence contains a credential; remove it before sending".into());
+            return Err(format!(
+                "Jev evidence contains a credential\n{}",
+                crate::agent::harness::book::d56_replies::JEV_CREDENTIAL.cells()
+            ));
         }
         let fingerprint = crate::knowledge::cut::sha256_hex(body.as_bytes());
         let mut session = self.session.lock().map_err(|_| "Jev session unavailable")?;
@@ -104,9 +111,10 @@ impl JevTool {
             return Ok(output);
         }
         if session.attempts >= self.max_calls {
-            return Err(
-                "Jev session request budget exhausted; continue with local evidence".into(),
-            );
+            return Err(format!(
+                "Jev session request budget exhausted\n{}",
+                crate::agent::harness::book::d56_replies::JEV_BUDGET.cells()
+            ));
         }
         session.attempts += 1;
         let start = Instant::now();
@@ -184,7 +192,10 @@ fn request_body(args: &Value, model: &str) -> Result<Value, String> {
                     .get("options")
                     .is_some_and(|v| !v.is_null() && v.as_array().is_none_or(|a| !a.is_empty()))
                 {
-                    return Err("noul has no options; ask a yes/no question".into());
+                    return Err(format!(
+                        "noul has no options\n{}",
+                        crate::agent::harness::book::d56_replies::JEV_NOUL.cells()
+                    ));
                 }
             }
             "choice" | "score" => {
@@ -323,7 +334,7 @@ fn normalize_response(request: &Value, payload: &Value) -> Result<Value, String>
     Ok(json!({
         "schema": "angel.jev-decision/v1", "source": "model_estimate", "model": model,
         "answers": normalized, "usage": {"input_tokens": input, "output_tokens": output},
-        "interpretation": "Advisory estimates from supplied evidence. Probability and confidence are not measured benchmark gains or correctness. Rubric position is a score, not a probability. Independent tests and evaluator receipts remain authoritative."
+        "interpretation": crate::agent::harness::book::d56_replies::JEV.cells()
     }))
 }
 
@@ -334,15 +345,15 @@ impl Tool for JevTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: self.name().into(),
-            description: "Ask Jev fast typed technical questions about explicit evidence: defect triage, hypothesis ranking, regression risk, or next diagnostic. Returns advisory probability percentages, choice confidence, rubric scores, latency and token usage. Batch independent questions about the same state. Never use as a verifier or as measured benchmark improvement; use benchmark_compare for measured percentages. Sends only supplied state/questions to TypeSafe; omit secrets. No automatic retries.".into(),
+            description: "Ask Jev fast typed technical questions about explicit evidence: defect triage, hypothesis ranking, regression risk, or next diagnostic. Returns advisory probability percentages, choice confidence, rubric scores, latency and token usage. Sends only supplied state/questions to TypeSafe. No automatic retries. ⠹⠚".into(),
             params: json!({"type":"object", "properties": {
-                "state": {"type":"string", "maxLength":24576, "description":"Concise evidence, code excerpts or measurement records. Include dataset, source and uncertainty. No credentials."},
+                "state": {"type":"string", "maxLength":24576, "description":"⠹⠚⠋⠹⠚⠙⠹⠚⠑"},
                 "questions": {"type":"array", "minItems":1, "maxItems":8, "items":{
                     "type":"object", "properties":{
                         "id":{"type":"string", "maxLength":64},
                         "type":{"type":"string", "enum":["noul","choice","score"]},
-                        "instructions":{"type":"string", "maxLength":2048, "description":"Explicit question; the model does not see the question id."},
-                        "options":{"type":"array", "maxItems":16, "items":{"type":"string", "maxLength":256}, "description":"For choice: distinct candidate descriptions. For score: ordered rubric levels from 0 upwards. Omit for noul."}
+                        "instructions":{"type":"string", "maxLength":2048, "description":"⠹⠚⠛"},
+                        "options":{"type":"array", "maxItems":16, "items":{"type":"string", "maxLength":256}, "description":"⠹⠚⠓⠹⠚⠊⠹⠚⠚"}
                     }, "required":["id","type","instructions"], "additionalProperties":false
                 }}
             }, "required":["state","questions"], "additionalProperties":false}),

@@ -149,8 +149,8 @@ pub fn save_for<S: AsRef<str>>(memories: &[S], workspace: &Path) -> Result<(), M
 /// Opening line of the injected memory block, and its closing sentinel. Kept as
 /// constants so the submit path can strip a prior block as a precise span (header
 /// line … sentinel line) and keep only the freshest copy per turn.
-pub(crate) const MEMORY_BLOCK_HEADER: &str = "[memory — persistent facts to honor]";
-pub(crate) const MEMORY_BLOCK_SENTINEL: &str = "[/memory]";
+pub(crate) const MEMORY_BLOCK_HEADER: &str = "⠎⠑";
+pub(crate) const MEMORY_BLOCK_SENTINEL: &str = "⠎⠑";
 
 /// Render memories as bounded Harness-role turn context. Wrapped in
 /// [`MEMORY_BLOCK_HEADER`] … [`MEMORY_BLOCK_SENTINEL`] so legacy copies remain
@@ -177,8 +177,13 @@ pub fn context_block<S: AsRef<str>>(memories: &[S]) -> String {
     }
     let omitted = memories.len().saturating_sub(included);
     if omitted > 0 {
+        // `⠗⠓⠃`, the count beside it.
         out.push_str(&format!(
-            "[harness omitted {omitted} memory item(s) outside the bounded context]\n"
+            "{} {omitted}\n",
+            crate::agent::harness::book::d3_roles::pages(
+                crate::agent::harness::book::r_relentless::BOUNDS,
+                [2]
+            )
         ));
     }
     out.push_str(MEMORY_BLOCK_SENTINEL);

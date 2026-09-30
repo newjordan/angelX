@@ -525,10 +525,13 @@ const HALFBLOCK_MAP_PX: i32 = 2;
 /// The live scene, plus the travel and arrival glass the stage is showing.
 fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
     let mut scene = app.world.overworld_scene();
+    scene.outcome_motion = app.visual_motion;
     // Travel and arrival cues, which used to take the whole pane, become a
     // glass over the map: the ride while the knight travels, the place's
     // painting when he arrives.
-    if crate::stage::world_viz::overworld::glass_enabled() {
+    if crate::stage::world_viz::overworld::glass_enabled()
+        && app.world.overworld_view_label().is_none()
+    {
         use crate::ui::scryglass::StageOverlay;
         scene.glass = match app.scryglass.controller.overlay() {
             Some(StageOverlay::Arrival { destination }) => {
@@ -864,11 +867,13 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             crate::ui::viz::lifecycle_viz::MotionMode::Reduced => elapsed * 0.28,
             crate::ui::viz::lifecycle_viz::MotionMode::Off => 0.0,
         };
-        let scene = crate::ui::viz::loop_viz::render(
+        let scene = crate::ui::viz::loop_viz::render_with_flight(
             &app.loop_ctl,
             &app.submission_slot,
             &app.yukon_fleet,
             trench_time,
+            app.submission_slot_since
+                .map(|since| since.elapsed().as_secs_f32()),
             scene_area.width,
             scene_area.height,
         );
@@ -1494,7 +1499,13 @@ fn render_scryglass(
     let _media_caption = media_label.is_some();
     // The composer shares and repaints our bottom border. Keep reset on the
     // top edge, with space reserved so the place title cannot cover the button.
-    let camera_title = world_pane.then(|| " [Follow] ".to_string());
+    let camera_title = world_pane.then(|| match app.world.overworld_view_label() {
+        Some(place) if matches!(resolved, crate::ui::scryglass::StageSurface::WorldMap) => {
+            let place = truncate_control_value(place, area.width.saturating_sub(14) as usize);
+            format!(" {place} [Follow] ")
+        }
+        _ => " [Follow] ".to_string(),
+    });
     let title_budget = area.width.saturating_sub(
         camera_title
             .as_ref()
@@ -1529,7 +1540,10 @@ fn render_scryglass(
         && area.height >= 2
     {
         app.world_buttons.push((
-            Rect::new(area.right() - label.len() as u16, area.y, 8, 1),
+            // Right-aligned title glyphs sit inside the block's right border,
+            // so "[Follow]" occupies right()-10..right()-3 — keep the hitbox
+            // on the visible cells, not one column past them.
+            Rect::new(area.right() - 10, area.y, 8, 1),
             WorldButton::ScryglassFollow,
         ));
     }

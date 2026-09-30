@@ -257,13 +257,17 @@ impl Club for ProofClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        // Each role's task opens on its route (`⠠⠛` … `⠠⠚`).
+        use crate::agent::harness::book::d6_long_run::{
+            IMPLEMENTER, INVESTIGATOR, REVIEWER, TEST_AUTHOR,
+        };
         let task = Self::user_text(messages);
-        if task.contains("Investigate only") {
+        if task.starts_with(&INVESTIGATOR.cells()) {
             return Ok(ClubReply::Text(
                 "baseline.sh is the full gate; add a standalone test.sh and feature.txt".into(),
             ));
         }
-        if task.contains("standalone regression test") {
+        if task.starts_with(&TEST_AUTHOR.cells()) {
             if Self::has_tool_result(messages) {
                 return Ok(ClubReply::Text("added immutable red regression".into()));
             }
@@ -282,7 +286,7 @@ impl Club for ProofClub {
                 args: serde_json::json!({"command": command}),
             }]));
         }
-        if task.contains("Implement the requested behavior") {
+        if task.starts_with(&IMPLEMENTER.cells()) {
             if Self::has_tool_result(messages) {
                 return Ok(ClubReply::Text(
                     "implemented feature.txt without touching test.sh".into(),
@@ -294,7 +298,7 @@ impl Club for ProofClub {
                 args: serde_json::json!({"command": "printf '%s\\n' enabled > feature.txt"}),
             }]));
         }
-        if task.contains("Review this candidate") {
+        if task.starts_with(&REVIEWER.cells()) {
             return Ok(ClubReply::Text(
                 "The protected test is unchanged and the change is scoped.\nSWARM_REVIEW: PASS"
                     .into(),

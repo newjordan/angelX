@@ -184,11 +184,6 @@ fn vision_capable_name(hay: &str) -> bool {
 /// provider's own capability statement.
 fn text_only_name(hay: &str) -> bool {
     [
-        // Spark-local / fleet DeepSeek V4 serves and the local route's own
-        // identity markers.
-        "dsflash",
-        "dspark",
-        "deepseek-flash-local",
         // The retired V4 Flash id: an undeclared route serving it is presumed
         // the older text-only checkpoint (a local/fleet serve reusing the old
         // name), never the cloud model. The configured DeepSeek route declares
@@ -262,8 +257,13 @@ pub(crate) fn describe_media(
     }
     let club = vision_describe_club()?;
     let msg = ChatMsg::user_with_media(question, media);
-    let reply = club
-        .chat(&[msg], &[])
+    // Connected: the describer is offered the ledger reader alone, so a
+    // question sent as routes (the sidecar's `⠸⠙`) reads like any seat's.
+    let workspace = crate::agent::harness::book::connect::workspace();
+    let reply =
+        crate::agent::harness::book::connect::converse(&workspace, &[msg], |history, tools| {
+            club.chat(history, tools)
+        })
         .map_err(|e| format!("vision sidecar ({}): {e}", club.label()))?;
     let text = match reply {
         ClubReply::Text(t) => t,
@@ -310,6 +310,33 @@ pub(crate) fn image_cli(mut args: impl Iterator<Item = std::ffi::OsString>) -> s
     Ok(())
 }
 
+/// The sidecar's describe question: `⠸⠙⠁⠸⠙⠃` for a bare image, or `⠸⠙⠉`, the
+/// operator's own question, then `⠸⠙⠙`.
+pub(crate) fn sidecar_question(operator: &str) -> String {
+    use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::VISION};
+    if operator.is_empty() {
+        pages(VISION, [1, 2])
+    } else {
+        format!(
+            "{}\n{operator}\n\n{}",
+            pages(VISION, [3]),
+            pages(VISION, [4])
+        )
+    }
+}
+
+/// The rewritten user frame: `⠸⠙⠑` with the backend and the image count, the
+/// description, then `⠸⠙⠛` with the operator's question beside it.
+pub(crate) fn sidecar_body(backend: &str, n: usize, description: &str, operator: &str) -> String {
+    use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::VISION};
+    let mut body = format!("{} {backend} · {n}\n{description}", pages(VISION, [5]));
+    if !operator.is_empty() {
+        body.push_str(&format!("\n\n{} ", pages(VISION, [7])));
+        body.push_str(operator);
+    }
+    body
+}
+
 /// Rewrite a user message that carries images into text-only form the main
 /// (text) club can consume. Returns a short operator-facing notice on success.
 ///
@@ -332,31 +359,9 @@ pub(crate) fn apply_vision_sidecar(
         return Ok(None);
     }
     let n = images.len();
-    let question = if msg.content.trim().is_empty() {
-        "Describe this image in detail. Include any visible text (OCR), layout, \
-         objects, and anything needed to answer a follow-up question about it."
-            .to_string()
-    } else {
-        format!(
-            "The operator's question about this image:\n{}\n\n\
-             Describe the image carefully (OCR any text) so a text-only model \
-             can answer that question without seeing the pixels.",
-            msg.content.trim()
-        )
-    };
+    let question = sidecar_question(msg.content.trim());
     let (backend, description) = describe_media(images, &question)?;
-    let original = msg.content.trim().to_string();
-    let mut body = String::new();
-    body.push_str("[vision sidecar · ");
-    body.push_str(&backend);
-    body.push_str(" · ");
-    body.push_str(&n.to_string());
-    body.push_str(" image(s)]\n");
-    body.push_str(&description);
-    if !original.is_empty() {
-        body.push_str("\n\nOperator question: ");
-        body.push_str(&original);
-    }
+    let body = sidecar_body(&backend, n, &description, msg.content.trim());
     // Drop image parts so a text-only endpoint never sees image_url (400).
     // Keep non-image attachments (audio) if any.
     let remaining: Vec<Media> = msg
@@ -396,11 +401,14 @@ pub(crate) fn drop_images_if_text_only(club: &dyn Club, msg: &mut ChatMsg) {
         .filter(|media| !matches!(media, Media::Image { .. }))
         .cloned()
         .collect();
+    // `⠸⠙⠋`: the sidecar was unavailable and the images were dropped.
     let note = format!(
-        "{}\n\n[vision sidecar unavailable — image attachments dropped; \
-         configure ANGEL_VISION_URL + ANGEL_VISION_MODEL or use vision_look \
-         once a backend is up]",
-        msg.content.trim()
+        "{}\n\n{}",
+        msg.content.trim(),
+        crate::agent::harness::book::d3_roles::pages(
+            crate::agent::harness::book::d456_knowledge::VISION,
+            [6]
+        )
     );
     *msg = if remaining.is_empty() {
         ChatMsg::user(note)
@@ -441,12 +449,8 @@ pub(crate) fn vision_sidecar_prompt_hint(club: &dyn Club) -> Option<String> {
     if !club_is_text_only_for_vision(club) && !vision_sidecar_forced() {
         return None;
     }
-    Some(
-        "Vision: this driver is text-only. Images attached with /see are auto-described \
-         by the vision sidecar (ANGEL_VISION_*). For paths on disk, call vision_look \
-         (or video_look) with path + question — do not invent visual details."
-            .to_string(),
-    )
+    // `⠝⠉`: the text-only driver's eyes; the words are its ledger pages.
+    Some(crate::agent::harness::book::n_environment::VISION.cells())
 }
 
 // ---------------------------------------------------------------------------
@@ -551,30 +555,30 @@ impl Tool for VisionLookTool {
             description: "Machine eyes for a text-only driver (DeepSeek Flash, …): send a \
                           workspace image (png/jpg/webp/gif) or sample frames from a video to \
                           the vision sidecar and get a textual read — OCR, layout, objects, \
-                          UI state. Prefer this over inventing visual details. Backend: \
+                          UI state. Backend: \
                           ANGEL_VISION_URL/ANGEL_VISION_MODEL (OpenAI-compatible VLM), else Kimi, \
                           else the signed-in Codex image model. \
-                          /see on a text-only club auto-routes through the same sidecar."
+                          /see on a text-only club auto-routes through the same sidecar. ⠫⠛"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "image or video path, workspace-relative"
+                        "description": "⠫⠛⠃"
                     },
                     "question": {
                         "type": "string",
-                        "description": "what to look for, e.g. 'OCR all text' or 'describe the UI state'"
+                        "description": "⠫⠛⠉"
                     },
                     "frames": {
                         "type": "integer",
-                        "description": "evenly spaced frames when path is a video (default 4, max 8; ignored for images)"
+                        "description": "⠫⠛⠙"
                     },
                     "timestamps": {
                         "type": "array",
                         "items": { "type": "number" },
-                        "description": "exact timestamps (seconds) for video frames; overrides frames"
+                        "description": "⠫⠛⠑"
                     }
                 },
                 "required": ["path", "question"],

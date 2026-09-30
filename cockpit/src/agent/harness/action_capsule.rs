@@ -151,19 +151,6 @@ impl ActionPreview {
                 ),
                 command_like: true,
             },
-            "machine_test" => Self {
-                tool: call.name.clone(),
-                scope: format!(
-                    "queue remote machine test: {}",
-                    bounded_command(
-                        call.args
-                            .get("command")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                    )
-                ),
-                command_like: true,
-            },
             "http_request"
                 if !matches!(
                     call.args

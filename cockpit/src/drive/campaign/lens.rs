@@ -1,7 +1,8 @@
 use super::schema::{CampaignRecord, CampaignStatus, CriterionStatus};
 
-const LENS_PREFIX: &str = "[campaign-lens/v1 ";
-const LENS_SENTINEL: &str = "[/campaign-lens]";
+// `⠎⠓` opens and closes the lens; its framing sentences are the ledger pages.
+const LENS_PREFIX: &str = "⠎⠓ ";
+const LENS_SENTINEL: &str = "⠎⠓";
 const MAX_LENS_BYTES: usize = 6 * 1024;
 const MAX_LENS_LINES: usize = 80;
 
@@ -28,7 +29,7 @@ pub(crate) fn render(record: &CampaignRecord) -> Option<String> {
     }
     let mut lines = Vec::new();
     lines.push(format!(
-        "{LENS_PREFIX}id={} revision={} status={}]",
+        "{LENS_PREFIX}id={} revision={} status={}",
         record.id,
         record.revision,
         status_label(record.status)
@@ -107,10 +108,7 @@ pub(crate) fn render(record: &CampaignRecord) -> Option<String> {
                 .join(", ")
         ));
     } else {
-        lines.push(
-            "active round: none · no model, verifier, or Git action is authorized by this lens"
-                .to_string(),
-        );
+        lines.push("active round: none".to_string());
     }
 
     let accepted = record
@@ -126,10 +124,6 @@ pub(crate) fn render(record: &CampaignRecord) -> Option<String> {
     lines.push(format!(
         "accepted evidence: {accepted} round(s) · {proofs} bounded proof reference(s)"
     ));
-    lines.push(
-        "authority: operator objective and criteria are immutable here; model prose cannot verify or waive them"
-            .to_string(),
-    );
     Some(cap_lines(lines))
 }
 

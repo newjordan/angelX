@@ -1,5 +1,97 @@
 use super::*;
 
+#[cfg(unix)]
+fn assert_blocked_write_obeys_deadline(notification: bool) {
+    // `exec` leaves one owned process holding stdin open without reading it.
+    let spec = ServerSpec {
+        name: "blocked-writer".into(),
+        command: "/bin/sh".into(),
+        args: vec!["-c".into(), "exec sleep 30".into()],
+        env: vec![],
+    };
+    let client = Arc::new(McpClient::spawn(&spec, Duration::from_millis(100)).unwrap());
+    let watchdog_client = Arc::clone(&client);
+    let (done, stop) = mpsc::channel();
+    let watchdog = std::thread::spawn(move || {
+        if stop.recv_timeout(Duration::from_millis(900)).is_err() {
+            let mut child = watchdog_client.child.lock().unwrap();
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    });
+    let params = json!({"blob": "x".repeat(1024 * 1024)});
+    let started = Instant::now();
+    let result = if notification {
+        client.notify("notifications/blocked", params)
+    } else {
+        client.request("tools/blocked", params).map(|_| ())
+    };
+    let elapsed = started.elapsed();
+    let _ = done.send(());
+    watchdog.join().unwrap();
+    let error = result.expect_err("a full stdin pipe must time out");
+    assert!(
+        elapsed < Duration::from_millis(600),
+        "write escaped its deadline: {elapsed:?}: {error}"
+    );
+    assert!(error.contains("timed out"), "{error}");
+    assert_eq!(
+        client.request("tools/after-partial-write", json!({})),
+        Err("mcp blocked-writer closed the connection".into()),
+        "a partial JSON-RPC frame must not be reused"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn request_deadline_covers_blocked_stdin() {
+    assert_blocked_write_obeys_deadline(false);
+}
+
+#[cfg(unix)]
+#[test]
+fn notification_deadline_covers_blocked_stdin() {
+    assert_blocked_write_obeys_deadline(true);
+}
+
+#[cfg(unix)]
+#[test]
+fn large_stdio_frames_preserve_notifications_and_request_arguments() {
+    let spec = ServerSpec {
+        name: "large-frames".into(),
+        command: "python3".into(),
+        args: vec![
+            "-c".into(),
+            r#"
+import json, sys
+notice = json.loads(sys.stdin.readline())
+request = json.loads(sys.stdin.readline())
+print(json.dumps({"id": request["id"], "result": {
+    "notice": len(notice["params"]["blob"]),
+    "request": len(request["params"]["blob"]),
+    "character": request["params"]["blob"][-1],
+}}), flush=True)
+"#
+            .into(),
+        ],
+        env: vec![],
+    };
+    let client = McpClient::spawn(&spec, Duration::from_secs(5)).unwrap();
+    client
+        .notify(
+            "notifications/large",
+            json!({"blob": "n".repeat(256 * 1024)}),
+        )
+        .unwrap();
+    let result = client
+        .request("tools/large", json!({"blob": "λ".repeat(256 * 1024)}))
+        .unwrap();
+    assert_eq!(
+        result,
+        json!({"notice": 256 * 1024, "request": 256 * 1024, "character": "λ"})
+    );
+}
+
 #[test]
 fn build_request_is_jsonrpc_line() {
     let line = build_request(7, "tools/list", json!({}));
@@ -134,7 +226,7 @@ fn mcp_surface_tool_schema_and_arg_validation() {
     let client = Arc::new(McpClient {
         name: "mock".to_string(),
         conn: Mutex::new(Conn {
-            stdin,
+            stdin: Some(stdin),
             rx: mpsc::channel().1,
         }),
         next_id: AtomicU64::new(1),

@@ -146,6 +146,7 @@ impl GraphRouteConfigV1 {
                         match source {
                             OutputBudgetSource::PerClubEnv => "per_club_env",
                             OutputBudgetSource::GlobalEnv => "global_env",
+                            OutputBudgetSource::ModelCard => "model_card",
                         }
                         .to_string(),
                     ),
@@ -292,13 +293,9 @@ impl GraphTraceTerminationV1 {
             TurnStopReason::CaptureFailure | TurnStopReason::CheckpointFailure => {
                 GraphTraceTerminationKind::CaptureFailure
             }
-            TurnStopReason::DeferredStop
-            | TurnStopReason::Spin
-            | TurnStopReason::ErrorStop
-            | TurnStopReason::ExecutionBlocked
-            | TurnStopReason::NeedsPro
-            | TurnStopReason::EscalatedUnproductive
-            | TurnStopReason::AcceptanceStop => GraphTraceTerminationKind::PolicyGuard,
+            TurnStopReason::ExecutionBlocked | TurnStopReason::NeedsPro => {
+                GraphTraceTerminationKind::PolicyGuard
+            }
         };
         Self {
             kind,
@@ -1223,8 +1220,11 @@ pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
             let code_ancestors = ancestors_of(spec, &index, code_idx);
             if !gate_ancestors.contains(&code_idx) && !code_ancestors.contains(&gate_idx) {
                 return Err(format!(
-                    "graph '{}': retry gate '{}' and affected code node '{}' are unordered; add a transitive depends_on edge so the writer lands before the gate or starts only after it passes",
-                    spec.name, gate_node.id, spec.nodes[code_idx].id
+                    "graph '{}': retry gate '{}' and affected code node '{}' are unordered {}",
+                    spec.name,
+                    gate_node.id,
+                    spec.nodes[code_idx].id,
+                    crate::agent::harness::book::d56_replies::GATE_ORDER.cells()
                 ));
             }
         }
@@ -1240,8 +1240,11 @@ pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
                 && !ancestors_of(spec, &index, right).contains(&left)
             {
                 return Err(format!(
-                    "graph '{}': code nodes '{}' and '{}' are unordered but share one workspace; serialize them via depends_on (directly or transitively), or use a worktree-isolated delegate",
-                    spec.name, spec.nodes[left].id, spec.nodes[right].id
+                    "graph '{}': code nodes '{}' and '{}' are unordered but share one workspace {}",
+                    spec.name,
+                    spec.nodes[left].id,
+                    spec.nodes[right].id,
+                    crate::agent::harness::book::d56_replies::SERIALIZE_WRITERS.cells()
                 ));
             }
         }
@@ -1839,12 +1842,13 @@ impl AgentGraphEngine {
             .ok_or_else(|| {
                 let names: Vec<&str> = self.personas.iter().map(|p| p.name.as_str()).collect();
                 format!(
-                    "unknown persona '{want}'. Available: {}. Use an exact installed name, or omit `persona` for a plain node",
+                    "unknown persona '{want}'. Available: {}.\n{}",
                     if names.is_empty() {
                         "(none installed)".to_string()
                     } else {
                         names.join(", ")
-                    }
+                    },
+                    crate::agent::harness::book::d56_replies::PERSONA_NODE.cells()
                 )
             })
     }
@@ -3115,31 +3119,27 @@ fn node_system_prompt(
     persona_body: &str,
     grant: Grant,
 ) -> String {
+    // Every node reads the ledger: a tool-bearing node through its grant's
+    // `read_file`, a bare node through the ledger reader alone. Its frame is
+    // `⠜⠑`, its persona `⠜⠙`, a gate `⠜⠋`, then the batching page `⠺⠉⠁`
+    // or the bare-node contract `⠌⠃`.
+    use super::book::{ar_seats, st_connected, w_workflow};
     let mut s = format!(
-        "You are node '{}' of the '{}' agent graph — specialized agents wired as a \
-         graph; edges route work between nodes and shared state flows along them. \
-         Work only your node's brief: upstream results arrive in your prompt, and \
-         your output becomes upstream context for the nodes that depend on you. \
-         Return your best complete result as plain text.",
-        node.id, graph_name
+        "{} node={} graph={graph_name}",
+        ar_seats::GRAPH_NODE.cells(),
+        node.id
     );
     if !persona_body.trim().is_empty() {
-        s.push_str("\n\nYour persona — inhabit it fully:\n");
+        s.push_str(&format!("\n\n{}\n", ar_seats::PERSONA.cells()));
         s.push_str(persona_body.trim());
     }
     if node.gate.as_ref().is_some_and(|gate| gate.verdict) {
-        s.push_str(
-            "\n\nYou are a gate node: end your reply with exactly one final line — \
-             `VERDICT: PASS` or `VERDICT: FAIL — <specific reasons>`.",
-        );
+        s.push_str(&format!("\n\n{}", ar_seats::GATE.cells()));
     }
     if grant == Grant::None {
-        s.push_str("\n\nYou have no tools this run: answer from reasoning alone.");
+        s.push_str(&format!("\n\n{}", st_connected::BARE_NODE.cells()));
     } else {
-        // A tool-bearing node gets the shared hop-efficiency advisory. The grant
-        // decides which tools exist, so the text stays tool-agnostic.
-        s.push_str("\n\n");
-        s.push_str(super::TOOL_BATCHING_HINT);
+        s.push_str(&format!("\n\n{}⠁", w_workflow::BATCHING.cells()));
     }
     s
 }
@@ -3828,16 +3828,14 @@ impl Tool for AgentGraphTool {
             description: format!(
                 "Run a declared agent graph: specialized nodes (persona + tool grant) wired \
                  by depends_on edges, with parallel fan-out/fan-in and reviewer gates that \
-                 can reject and loop back. Use for work that genuinely splits into \
-                 specialties with handoffs; for ad-hoc parallel seats use `spawn`, and for \
-                 most tasks just do the work yourself. Installed graphs: {}.",
+                 can reject and loop back. Installed graphs: {}. ⠹⠙",
                 self.catalog_line
             ),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "graph": { "type": "string", "description": "graph name from the installed catalog" },
-                    "task": { "type": "string", "description": "the task the graph works" }
+                    "graph": { "type": "string", "description": "⠹⠙⠃" },
+                    "task": { "type": "string", "description": "⠹⠙⠉" }
                 },
                 "required": ["graph", "task"]
             }),
@@ -3943,7 +3941,10 @@ pub(crate) fn find_graph<'a>(
     Err(format!(
         "unknown graph '{name}'. Installed: {}",
         if lines.is_empty() {
-            "(none — add TOML specs to ~/.angelX/graphs)".to_string()
+            format!(
+                "(none)\n{}",
+                crate::agent::harness::book::d56_replies::GRAPH_SPECS.cells()
+            )
         } else {
             lines.join(", ")
         }

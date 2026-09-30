@@ -254,10 +254,19 @@ fn render_block_active_for_confirmed_context() {
         updated_at: 0,
     };
     let block = render_block(Some(&ctx));
-    assert!(block.contains("Active work context"));
+    let public = crate::agent::harness::book::n_environment::WORK_PUBLIC;
+    assert!(block.contains(&public.cells()));
     assert!(block.contains("mode=public-facing"));
     assert!(
-        block.contains("NEVER commit secrets"),
+        !block.contains("NEVER commit secrets"),
+        "the guidance is the route's pages"
+    );
+    assert!(
+        public
+            .sub()
+            .pages
+            .join(" ")
+            .contains("NEVER commit secrets"),
         "injects mode guidance"
     );
 }
@@ -274,18 +283,36 @@ fn render_block_internal_dev_guidance() {
     };
     let block = render_block(Some(&ctx));
     assert!(block.contains("mode=internal-dev"));
-    assert!(block.contains("velocity"), "internal-dev guidance present");
+    let internal = crate::agent::harness::book::n_environment::WORK_INTERNAL;
+    assert!(
+        block.contains(&internal.cells()),
+        "internal-dev route present"
+    );
+    assert!(
+        internal.sub().pages.join(" ").contains("velocity"),
+        "internal-dev guidance is its pages"
+    );
 }
 
 #[test]
 fn render_block_not_established_for_none() {
     let block = render_block(None);
-    assert!(block.contains("not established"));
+    assert!(block.contains(&crate::agent::harness::book::n_environment::WORK_UNSET.cells()));
     assert!(
-        block.contains("work_landing"),
-        "tells the agent to self-direct"
+        crate::agent::harness::book::n_environment::WORK_UNSET
+            .sub()
+            .pages
+            .join(" ")
+            .contains("work_landing"),
+        "its pages tell the agent to self-direct"
     );
-    assert!(block.contains("confirm=true"));
+    assert!(
+        crate::agent::harness::book::n_environment::WORK_UNSET
+            .sub()
+            .pages
+            .join(" ")
+            .contains("confirm=true")
+    );
 }
 
 #[test]
@@ -299,8 +326,8 @@ fn render_block_unconfirmed_shows_detected_hint() {
         updated_at: 0,
     };
     let block = render_block(Some(&ctx));
-    assert!(block.contains("not established"));
-    assert!(block.contains("Detected so far"));
+    assert!(block.contains(&crate::agent::harness::book::n_environment::WORK_UNSET.cells()));
+    assert!(block.contains("proposed mode="));
     assert!(block.contains("org/app"));
 }
 

@@ -155,20 +155,31 @@ pub(super) fn annotate(
         )
     };
     let details = serde_json::json!({"basis":"changed-rust-paths-and-current-compiler-artifacts", "required_count":required.paths.len(), "required_set_sha256":digest(&required.paths), "checked_source_count":checked.map(BTreeSet::len), "checked_set_sha256":checked.map(digest), "missing_preview":missing, "command_status":"passed"});
+    // Each state keeps its fact sentence; what to do about it is the `⠨⠊`
+    // pages on the line after.
+    use crate::agent::harness::book::d46_recovery as recovery;
     let guidance = match state {
-        "complete" => "",
-        "incomplete" => {
-            "\nThe selected targets omit known changed Rust paths. Select the required package; unrelated packages need not be rebuilt."
-        }
-        _ if required.opaque => {
-            "\nEarlier unrestricted writable execution left the source inventory unknown. This result is useful command-local evidence; repeating a check or selecting another package cannot attest those earlier writes. Report the scope limitation or use independently pinned task acceptance. Use read_only/write_paths for future commands; neither resets prior uncertainty."
-        }
-        _ if !required.known => {
-            "\nThe required source inventory could not be established from bounded workspace evidence. Keep this result command-local and report the scope limitation; package selection alone cannot restore missing inventory evidence."
-        }
-        _ => {
-            "\nCurrent compiler dependency evidence could not establish source coverage. Keep this result command-local and report the evidence limitation; do not repeat unchanged checks as a cure."
-        }
+        "complete" => String::new(),
+        "incomplete" => format!(
+            "\nThe selected targets omit known changed Rust paths.\n{}",
+            recovery::SELECT_PACKAGE.cells()
+        ),
+        _ if required.opaque => format!(
+            "\nEarlier unrestricted writable execution left the source inventory unknown.\n{}",
+            recovery::run(&[
+                recovery::EARLIER_WRITES,
+                recovery::REPORT_SCOPE,
+                recovery::FUTURE_SCOPE,
+            ])
+        ),
+        _ if !required.known => format!(
+            "\nThe required source inventory could not be established from bounded workspace evidence.\n{}",
+            recovery::MISSING_INVENTORY.cells()
+        ),
+        _ => format!(
+            "\nCurrent compiler dependency evidence could not establish source coverage.\n{}",
+            recovery::MISSING_EVIDENCE.cells()
+        ),
     };
     format!("{header}; coverage={state}\n{details}\n{rest}{guidance}")
 }

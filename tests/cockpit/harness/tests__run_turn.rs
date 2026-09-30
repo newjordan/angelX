@@ -1,10 +1,13 @@
-//! run_turn loop, post-edit diagnostics, first-write guard, and spin redirect coverage.
+//! run_turn loop, post-edit diagnostics, and the book's detectors seen end to end.
 //!
 //! Extracted from `harness/tests.rs` without behavior change so the monolith can
 //! shrink while preserving the full harness test inventory. Shared helpers
 //! (`EnvGuard`, `scratch`) remain in the parent module. `ScriptedClub` remains in the parent module as a shared fixture.
 
 use super::*;
+use crate::agent::harness::book::l_loops::*;
+use crate::agent::harness::book::q_stop::task_budget_left;
+use crate::agent::harness::book::v_verification::*;
 use serde_json::json;
 
 #[cfg(unix)]
@@ -222,6 +225,7 @@ fn nested_bwrap_failure_continues_to_next_request() {
     assert_eq!(club.0.load(Ordering::SeqCst), 2);
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn sandbox_fallback_notice_and_envelope_are_bound_to_the_call() {
     let _guard = crate::tests::env_lock();
@@ -316,13 +320,9 @@ impl Club for RedAcceptanceClaimClub {
 }
 
 #[test]
-fn red_task_acceptance_contract_cannot_be_bypassed_by_repeated_done_answers() {
+fn red_task_acceptance_is_a_stop_fact_shown_once_then_the_answer_stands() {
     let _guard = crate::tests::env_lock();
     let _accept = EnvGuard::set("ANGEL_TASK_ACCEPT_CMD", "test -f never-created");
-    let _accept_rejections = EnvGuard::set("ANGEL_TASK_ACCEPT_REJECTIONS", "2");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
-    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
     let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
     let root = scratch("red_task_accept_claim");
@@ -358,11 +358,12 @@ fn red_task_acceptance_contract_cannot_be_bypassed_by_repeated_done_answers() {
         Some(8),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("red acceptance stops with truthful outcome metadata");
+    .expect("red acceptance never becomes a harness stop");
 
-    assert_eq!(outcome.stop_reason, TurnStopReason::AcceptanceStop);
+    // The red acceptance is measured, never a veto: one checkpoint carries it
+    // with the deli route, and the model's next answer stands.
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
     assert_eq!(club.calls.load(Ordering::SeqCst), 2);
-    assert!(outcome.answer.contains("acceptance remained red"));
     let receipt = outcome.acceptance.expect("acceptance telemetry");
     assert!(receipt.armed);
     assert!(!receipt.terminal_passed);
@@ -370,14 +371,20 @@ fn red_task_acceptance_contract_cannot_be_bypassed_by_repeated_done_answers() {
         receipt.post_checks, 0,
         "unchanged red replays without a process"
     );
+    let checkpoints = history
+        .iter()
+        .filter(|message| {
+            message.role == ChatRole::Harness && book::ledger::is_warpath_message(&message.content)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(checkpoints.len(), 1, "{history:?}");
+    assert!(has_route(first_line(&checkpoints[0].content), "⠧⠃"));
+    assert!(first_line(&checkpoints[0].content).ends_with("⠟⠁"));
     assert!(
-        history
-            .iter()
-            .filter(|message| {
-                message.role == ChatRole::Harness && message.content.contains(TASK_ACCEPT_RED_NUDGE)
-            })
-            .count()
-            >= 2
+        book::ledger::read(&root, "⠧⠃")
+            .unwrap()
+            .contains("Latest evidence"),
+        "the acceptance receipt is in the ledger"
     );
 
     let _ = std::fs::remove_dir_all(root);
@@ -418,7 +425,8 @@ fn run_turn_dispatches_tools_then_answers() {
     assert!(
         history
             .iter()
-            .any(|m| m.role == ChatRole::Tool && m.content.as_ref() == "olleh")
+            .any(|m| m.role == ChatRole::Tool
+                && book::ledger::without_warpaths(&m.content) == "olleh")
     );
     assert!(
         history
@@ -461,7 +469,7 @@ impl Club for MeteredMilestoneClub {
                 .iter()
                 .rev()
                 .find(|message| message.role == ChatRole::Tool)
-                .map(|message| message.content.clone())
+                .map(|message| book::ledger::without_warpaths(&message.content).into_owned())
                 .unwrap_or_default();
             Ok(ClubReply::Text(format!("done: {last_tool}")))
         }
@@ -598,7 +606,7 @@ fn multi_hop_checkpoint_tracks_each_provider_request_and_tool_intent() {
     let outcome = boundaries[2].last().unwrap();
     assert_eq!(outcome.role, ChatRole::Tool);
     assert_eq!(outcome.tool_call_id.as_deref(), Some("c1"));
-    assert_eq!(outcome.content.as_ref(), "olleh");
+    assert_eq!(book::ledger::without_warpaths(&outcome.content), "olleh");
 }
 
 #[test]
@@ -733,7 +741,6 @@ fn run_turn_records_each_real_policy_call_in_order_when_local_capture_is_enabled
     let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
     let _competition = EnvGuard::unset("ANGEL_COMPETITION_MODE");
-    let _gpu_moa = EnvGuard::unset("ANGEL_GPU_COMP_LOCAL_MOA");
     let _spin = EnvGuard::set("ANGEL_SPIN_PERTURB", "0");
     let _spin_limit = EnvGuard::set("ANGEL_SPIN_LIMIT", "0");
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
@@ -1048,7 +1055,11 @@ fn ranged_read_file_stays_one_local_tool_hop() {
     assert!(tool_results[0].content.contains("turn-line-0401"));
     assert!(tool_results[0].content.contains("turn-line-0403"));
     assert!(!tool_results[0].content.contains("turn-line-0400"));
-    assert!(!tool_results[0].content.contains("middle line(s) elided"));
+    assert!(
+        !tool_results[0]
+            .content
+            .contains(&crate::agent::harness::book::d467_receipts::MIDDLE_LINES.cells())
+    );
 
     let tool_calls: Vec<_> = received
         .try_iter()
@@ -1219,7 +1230,7 @@ fn post_edit_diagnostics_cover_patch_targets_filter_noise_and_hard_cap_output() 
     assert_eq!(counters.failures.get(), 0);
     assert_eq!(counters.paths_skipped.get(), 1);
     assert!(counters.output_bytes.get() <= 512);
-    assert!(output.contains("[post-edit LSP"));
+    assert!(!output.contains("[post-edit LSP"), "data only, no framing");
     assert!(output.contains("error 1:1"));
     assert!(
         !output.contains("warning-noise"),
@@ -1956,10 +1967,10 @@ fn run_turn_stream_cut_replay_preserves_completed_tool_work() {
     .expect("a cut after committed tool work must recover");
     assert_eq!(answer, "final");
     assert_eq!(club.calls.load(Ordering::SeqCst), 3);
-    let tool_results: Vec<&str> = history
+    let tool_results: Vec<String> = history
         .iter()
         .filter(|message| message.role == ChatRole::Tool)
-        .map(|message| message.content.as_ref())
+        .map(|message| book::ledger::without_warpaths(&message.content).into_owned())
         .collect();
     assert_eq!(tool_results.len(), 1, "the completed call ran exactly once");
     assert_eq!(
@@ -2188,9 +2199,9 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
                 1 => Err("club returned an empty reply (no text and no tool calls)".to_string()),
                 _ => {
                     self.retry_saw_reprompt.store(
-                        messages.iter().any(|m| {
-                            m.role == ChatRole::Harness && m.content.contains("reply arrived empty")
-                        }),
+                        messages
+                            .iter()
+                            .any(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠭⠑"),
                         Ordering::SeqCst,
                     );
                     on_delta(crate::agent::club::StreamDelta::Content("recovered"));
@@ -2231,10 +2242,10 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
     assert_eq!(
         history
             .iter()
-            .filter(|m| m.role == ChatRole::Harness && m.content.contains("reply arrived empty"))
+            .filter(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠭⠑")
             .count(),
         1,
-        "the re-prompt must be injected exactly once across consecutive empty replies"
+        "the ⠭⠑ route is raised exactly once across consecutive empty replies"
     );
 }
 
@@ -2297,7 +2308,7 @@ fn run_turn_compacts_and_rebuilds_once_after_provider_context_overflow() {
                     .iter()
                     .filter(|message| {
                         message.role == ChatRole::Assistant
-                            && message.content.starts_with("[current-plan/v1")
+                            && message.content.starts_with("⠵⠊ ")
                             && message.content.contains(ACTIVE_PLAN)
                     })
                     .count(),
@@ -2649,11 +2660,11 @@ fn run_turn_retries_repeated_recon_preambles_without_erasing_status_prose() {
 }
 
 #[test]
-fn run_turn_refuses_raw_tool_markup_as_final_answer() {
+fn run_turn_stamps_raw_tool_markup_at_the_stop_checkpoint() {
     let _guard = crate::tests::env_lock();
     // The live failure: a text "answer" carrying an unexecuted tool-call
-    // wrapper plus invented results. The turn must push back instead of
-    // presenting the hallucination to the user.
+    // wrapper plus invented results. The checkpoint shows `⠭⠃` once; the model
+    // takes it from there.
     struct MarkupClub {
         hops: AtomicUsize,
     }
@@ -2695,11 +2706,7 @@ fn run_turn_refuses_raw_tool_markup_as_final_answer() {
     .unwrap();
 
     assert_eq!(answer, "real status from evidence");
-    assert!(
-        history
-            .iter()
-            .any(|m| { m.role == ChatRole::Harness && m.content.contains("no tool was executed") })
-    );
+    assert_eq!(checkpoints_with(&history, "⠭⠃"), 1, "{history:?}");
     assert!(
         rx.try_iter()
             .any(|ev| matches!(ev, TurnEvent::SuppressPartial))
@@ -2896,11 +2903,9 @@ fn run_turn_mixed_batch_parallelizes_safe_runs_without_crossing_the_effect_barri
 }
 
 #[test]
-fn run_turn_anti_spin_stops_repeated_identical_calls() {
+fn run_turn_anti_spin_restamps_a_lasting_repeat_and_never_stops() {
     let _guard = crate::tests::env_lock();
-    let _operator_cap = EnvGuard::set("ANGEL_SPIN_LIMIT", "8");
     let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
-    let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
     let _competition = EnvGuard::unset("ANGEL_COMPETITION_MODE");
     struct Stuck;
     impl Club for Stuck {
@@ -2919,18 +2924,37 @@ fn run_turn_anti_spin_stops_repeated_identical_calls() {
         }
     }
     let mut history = vec![ChatMsg::user("go")];
-    // Unbounded hops, no cancel: only the anti-spin guardrail (default limit 8)
-    // ends it. max_hops=50 is a safety net so the test fails loud, never hangs.
+    // No harness stop exists for repetition: only the caller's hop cap ends it.
     let out = run_turn(
         &Stuck,
         &ToolRegistry::with_defaults(),
         &mut history,
         &AtomicBool::new(false),
-        Some(50),
+        Some(8),
         &mpsc::channel::<TurnEvent>().0,
-    )
-    .unwrap();
-    assert!(out.contains("stopped"), "got: {out}");
+    );
+    let error = out.unwrap_err();
+    assert!(error.contains("8-hop runaway guard"), "got: {error}");
+    // Seven straight repeats: named at the first, then every second hop, each
+    // time as its own turn after the result, and each turn new: the route,
+    // then the pages of `⠇⠓` in order.
+    assert_eq!(
+        loop_turn_texts(&history),
+        ["⛔⠇⠁", "⛔⠇⠓⠁", "⛔⠇⠓⠃", "⛔⠇⠓⠉"],
+        "{history:?}"
+    );
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.role == ChatRole::Tool && tool_routed(m, "⠇⠁")),
+        "a loop route is its own turn, never the result's tail"
+    );
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.role == ChatRole::Harness && m.content.contains("repeat")),
+        "the turn is the sign and the stamp, no prose"
+    );
 }
 
 /// A8: anti-spin identity is canonical JSON — key order cannot dodge the guard.
@@ -3177,7 +3201,7 @@ fn board_marker_token_boundary_rejects_product_path_launder() {
             "product path must not be board wait: {name} {args}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "product path must burn first-write: {name} {args}"
         );
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -3210,10 +3234,7 @@ fn board_marker_token_boundary_rejects_product_path_launder() {
             is_competition_board_state_call(&call),
             "board digest must remain wait: {name} {args}"
         );
-        assert!(
-            !burns_first_write_budget(&call),
-            "board digest: {name} {args}"
-        );
+        assert!(!is_free_form_recon(&call), "board digest: {name} {args}");
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
         assert!(
             !anti_spin_counts_batch(mutation, outcome, wait, burns),
@@ -3469,13 +3490,10 @@ fn repeated_poll_guard_preserves_distinct_inspection_and_work_progress() {
 }
 
 #[test]
-fn repeated_poll_default_stops_glm_timestamp_treadmill_with_paired_history() {
+fn repeated_poll_default_stamps_glm_timestamp_treadmill_with_paired_history() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _spin = EnvGuard::set("ANGEL_SPIN_LIMIT", "0");
-    let _suppress = EnvGuard::set("ANGEL_POLL_GUARD", "0");
     let _repeat = EnvGuard::unset("ANGEL_POLL_REPEAT_LIMIT");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "full");
     struct TimestampPoll(Arc<AtomicUsize>);
     impl Tool for TimestampPoll {
@@ -3521,28 +3539,27 @@ fn repeated_poll_default_stops_glm_timestamp_treadmill_with_paired_history() {
     registry.register(Box::new(TimestampPoll(dispatches.clone())));
     let club = AlternatingPoll(AtomicUsize::new(0));
     let mut history = vec![ChatMsg::user("monitor the existing benchmark")];
-    let result = run_turn_observed(
+    let failure = run_turn_observed(
         &club,
         &registry,
         &mut history,
         &AtomicBool::new(false),
-        Some(40),
+        Some(20),
         &mpsc::channel().0,
     )
-    .unwrap();
-    assert_eq!(result.stop_reason, TurnStopReason::Spin);
-    assert!(result.answer.contains("repeated passive polling"));
-    assert_eq!(
-        club.0.load(Ordering::Relaxed),
-        15,
-        "no paid hop after eighth matching poll"
-    );
-    assert_eq!(dispatches.load(Ordering::Relaxed), 15);
+    .unwrap_err();
+    // The treadmill is observed, not stopped: every poll the model chose runs,
+    // the eighth matching one raises a `repeat` stamp, and only the caller's
+    // hop cap ends the turn.
+    assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
+    assert_eq!(club.0.load(Ordering::Relaxed), 20);
+    assert_eq!(dispatches.load(Ordering::Relaxed), 20);
+    assert_eq!(loop_turns(&history, "⠇⠉"), 1, "{history:?}");
     let calls: Vec<_> = history
         .iter()
         .flat_map(|message| message.tool_calls.iter())
         .collect();
-    assert_eq!(calls.len(), 15);
+    assert_eq!(calls.len(), 20);
     for call in calls {
         assert_eq!(
             history
@@ -3627,250 +3644,6 @@ fn default_waiting_policy_dispatches_status_checks_and_explicit_waits() {
         !message
             .content
             .contains("passive status/sleep call not started")
-    }));
-}
-
-#[test]
-fn actionable_turn_suppresses_repeat_proc_status_until_work_advances() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _poll_guard = EnvGuard::set("ANGEL_POLL_GUARD", "1");
-    let _poll_limit = EnvGuard::set("ANGEL_POLL_ONLY_LIMIT", "1");
-    let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
-
-    struct CountingTool {
-        name: &'static str,
-        calls: Arc<AtomicUsize>,
-    }
-    impl Tool for CountingTool {
-        fn name(&self) -> &str {
-            self.name
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name.into(),
-                description: "poll-guard test tool".into(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.calls.fetch_add(1, Ordering::Relaxed);
-            Ok(if self.name == "proc_status" {
-                "[42] benchmark — running\nstill running — snapshot only".into()
-            } else {
-                "candidate updated".into()
-            })
-        }
-    }
-
-    struct PollThenWork {
-        hop: AtomicUsize,
-    }
-    impl Club for PollThenWork {
-        fn respond(&self, _p: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "poll-then-work"
-        }
-        fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-            let hop = self.hop.fetch_add(1, Ordering::Relaxed);
-            if hop == 4 {
-                return Ok(ClubReply::Calls(vec![
-                    ToolCall {
-                        id: "sleep-4".into(),
-                        name: "shell".into(),
-                        args: serde_json::json!({
-                            "command":"sleep 240; tail -1 /tmp/recon-progress.txt"
-                        }),
-                    },
-                    ToolCall {
-                        id: "edit-4".into(),
-                        name: "write_file".into(),
-                        args: serde_json::json!({
-                            "path":"src/candidate.rs","content":"improved again"
-                        }),
-                    },
-                ]));
-            }
-            let call = match hop {
-                0 | 3 => ToolCall {
-                    id: format!("poll-{hop}"),
-                    name: "proc_status".into(),
-                    args: serde_json::json!({"id":42}),
-                },
-                1 => ToolCall {
-                    id: "progress-tail-1".into(),
-                    name: "shell".into(),
-                    args: serde_json::json!({
-                        "command":"tail -1 /tmp/recon-progress.txt"
-                    }),
-                },
-                2 => ToolCall {
-                    id: "edit-2".into(),
-                    name: "write_file".into(),
-                    args: serde_json::json!({"path":"src/candidate.rs","content":"improved"}),
-                },
-                _ => return Ok(ClubReply::Text("done".into())),
-            };
-            Ok(ClubReply::Calls(vec![call]))
-        }
-    }
-
-    let polls = Arc::new(AtomicUsize::new(0));
-    let writes = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountingTool {
-        name: "proc_status",
-        calls: Arc::clone(&polls),
-    }));
-    registry.register(Box::new(CountingTool {
-        name: "write_file",
-        calls: Arc::clone(&writes),
-    }));
-    let mut history = vec![ChatMsg::user(
-        "please implement the candidate fix while the benchmark runs",
-    )];
-    let outcome = run_turn_observed(
-        &PollThenWork {
-            hop: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(8),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .expect("poll guard should redirect into useful work");
-
-    assert_eq!(outcome.answer, "done");
-    assert_eq!(
-        polls.load(Ordering::Relaxed),
-        2,
-        "the progress-file poll is skipped and proc_status is re-enabled after work"
-    );
-    assert_eq!(
-        writes.load(Ordering::Relaxed),
-        2,
-        "productive sibling executes while the long sleep is skipped"
-    );
-    assert!(history.iter().any(|message| {
-        message.role == ChatRole::Harness && message.content.contains("PASSIVE WAIT BLOCKED")
-    }));
-    assert!(history.iter().any(|message| {
-        message.role == ChatRole::Tool
-            && message
-                .content
-                .contains("passive status/sleep call not started")
-    }));
-    assert_eq!(
-        history
-            .iter()
-            .filter(|message| {
-                message.role == ChatRole::Tool
-                    && message
-                        .content
-                        .contains("passive status/sleep call not started")
-            })
-            .count(),
-        2,
-        "both the repeated progress poll and long sleep are suppressed"
-    );
-}
-
-#[test]
-fn varied_passive_poll_treadmill_is_bounded_by_shared_spin_identity() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _poll_guard = EnvGuard::set("ANGEL_POLL_GUARD", "1");
-    let _poll_limit = EnvGuard::set("ANGEL_POLL_ONLY_LIMIT", "1");
-    let _spin = EnvGuard::set("ANGEL_SPIN_LIMIT", "4");
-    let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
-
-    struct StatusTool {
-        polls: Arc<AtomicUsize>,
-    }
-    impl Tool for StatusTool {
-        fn name(&self) -> &str {
-            "proc_status"
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name().into(),
-                description: "treadmill test status tool".into(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.polls.fetch_add(1, Ordering::Relaxed);
-            Ok("still running".into())
-        }
-    }
-
-    // Every hop emits a DIFFERENT passive batch — alternating status polls
-    // (varying args) and long sleeps (varying durations). Per-batch hashing
-    // let this run forever; the shared sentinel must accumulate to the stop.
-    struct VariedTreadmill {
-        hop: AtomicUsize,
-    }
-    impl Club for VariedTreadmill {
-        fn respond(&self, _p: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "varied-treadmill"
-        }
-        fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-            let hop = self.hop.fetch_add(1, Ordering::Relaxed);
-            let call = if hop.is_multiple_of(2) {
-                ToolCall {
-                    id: format!("poll-{hop}"),
-                    name: "proc_status".into(),
-                    args: serde_json::json!({"id": 42, "tail_lines": hop + 1}),
-                }
-            } else {
-                ToolCall {
-                    id: format!("sleep-{hop}"),
-                    name: "shell".into(),
-                    args: serde_json::json!({"command": format!("sleep {}", 300 + hop)}),
-                }
-            };
-            Ok(ClubReply::Calls(vec![call]))
-        }
-    }
-
-    let polls = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(StatusTool {
-        polls: Arc::clone(&polls),
-    }));
-    let mut history = vec![ChatMsg::user("keep an eye on the benchmark for me")];
-    let outcome = run_turn_observed(
-        &VariedTreadmill {
-            hop: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(40),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .expect("treadmill must stop cleanly, not exhaust hops");
-
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert!(
-        outcome.answer.contains("passive wait"),
-        "stop note names the treadmill: {}",
-        outcome.answer
-    );
-    assert!(
-        polls.load(Ordering::Relaxed) <= 1,
-        "only the within-budget first poll may execute"
-    );
-    // The denial receipts escalate with the streak so the model sees the
-    // count climbing instead of an identical wall.
-    assert!(history.iter().any(|message| {
-        message.role == ChatRole::Tool && message.content.contains("passive-wait denial ×2")
     }));
 }
 
@@ -4021,15 +3794,6 @@ fn passive_sleep_parser_targets_wait_commands_not_prose() {
     assert!(!is_progress_artifact_snapshot_call(&shell(
         "grep progress src/solver.rs"
     )));
-
-    let long_sleep = vec![shell("sleep 240; tail -1 /tmp/recon-progress.txt")];
-    let mut active_guard = PassivePollGuard::default();
-    assert!(active_guard.should_suppress(&long_sleep, true, None, 1, 2));
-    let mut monitoring_guard = PassivePollGuard::default();
-    assert!(
-        !monitoring_guard.should_suppress(&long_sleep, false, None, 1, 2),
-        "dedicated read-only monitoring turns retain operator-requested waiting"
-    );
 }
 
 #[test]
@@ -4087,7 +3851,17 @@ fn run_turn_suppresses_exact_repeated_inspection_before_next_request() {
             assert!(!results[1].content.contains(TOOL_DUPLICATE_MARK));
             assert!(results[1].content.contains("[package]"));
             if self.cache_stable {
-                assert_eq!(results[0].content, results[1].content);
+                // The straight repeat's bytes match; `⛔⠇⠁` follows as a turn.
+                assert_eq!(
+                    book::ledger::without_warpaths(&results[0].content),
+                    book::ledger::without_warpaths(&results[1].content)
+                );
+                assert!(
+                    messages
+                        .iter()
+                        .any(|m| m.role == ChatRole::Harness && m.content.starts_with("⛔⠇⠁")),
+                    "{messages:?}"
+                );
             }
             Ok(ClubReply::Text("done".into()))
         }
@@ -4118,26 +3892,10 @@ fn run_turn_suppresses_exact_repeated_inspection_before_next_request() {
 }
 
 #[test]
-fn first_write_is_explicit_operator_opt_in() {
-    let _guard = crate::tests::env_lock();
-    let _unset = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
-    let _rejections = EnvGuard::unset("ANGEL_FIRST_WRITE_REJECTIONS");
-
-    assert_eq!(configured_first_write_limit(), 0);
-    assert_eq!(configured_first_write_rejection_limit(false), 0);
-    assert_eq!(configured_first_write_rejection_limit(true), 0);
-    assert_eq!(configured_turn_deadline_secs_for(true), 0);
-
-    let _explicit = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "7");
-    assert_eq!(configured_first_write_limit(), 7);
-}
-
-#[test]
 fn competition_goal_and_fire_imperatives_keep_cadence_armed() {
     let _guard = crate::tests::env_lock();
     let _unset = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
     let _comp = EnvGuard::unset("ANGEL_COMPETITION_MODE");
-    let _gpu = EnvGuard::unset("ANGEL_GPU_COMP_LOCAL_MOA");
     let _pace = EnvGuard::set("ANGEL_TASK_PACE", "rapid");
     let _resolved_pace = EnvGuard::unset("ANGEL_TASK_PACE_RESOLVED");
 
@@ -4145,10 +3903,10 @@ fn competition_goal_and_fire_imperatives_keep_cadence_armed() {
     // phrase used to DISARM the cadence — the message demanding action was
     // exactly what reverted the turn to ungoverned conversation mode. The
     // standing goal is durable operator intent and keeps it armed.
-    let goal_ctx = "[harness turn context]\n\
-        [goal — standing objective; keep every action aligned to it]\n\
-        objective: \"place winning submission on the board relentlessly\"\n\
-        [/goal]";
+    let goal_ctx = "⠝⠊\n\
+        ⠗⠃\n\
+        ⠗⠃⠃ \"place winning submission on the board relentlessly\"\n\
+        ⠗⠃";
     let steered = vec![
         ChatMsg::user("run the competition-loop"),
         ChatMsg::harness(goal_ctx),
@@ -4170,10 +3928,10 @@ fn competition_goal_and_fire_imperatives_keep_cadence_armed() {
 
     // A non-competitive goal must not arm anything: the anti-sticky contract
     // for ordinary conversation stays intact.
-    let calm_goal = "[harness turn context]\n\
-        [goal — standing objective; keep every action aligned to it]\n\
-        objective: \"refactor the parser for clarity\"\n\
-        [/goal]";
+    let calm_goal = "⠝⠊\n\
+        ⠗⠃\n\
+        ⠗⠃⠃ \"refactor the parser for clarity\"\n\
+        ⠗⠃";
     let calm = vec![
         ChatMsg::user("run the competition-loop"),
         ChatMsg::harness(calm_goal),
@@ -4189,7 +3947,6 @@ fn deep_competition_keeps_context_without_arming_submission_cadence() {
     let _guard = crate::tests::env_lock();
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
     let _comp = EnvGuard::unset("ANGEL_COMPETITION_MODE");
-    let _gpu = EnvGuard::unset("ANGEL_GPU_COMP_LOCAL_MOA");
     let _pace = EnvGuard::set("ANGEL_TASK_PACE", "deep");
     let _resolved_pace = EnvGuard::unset("ANGEL_TASK_PACE_RESOLVED");
     let history = vec![ChatMsg::user(
@@ -4199,19 +3956,27 @@ fn deep_competition_keeps_context_without_arming_submission_cadence() {
     assert!(competition_mode_active(&history));
     let pace = configured_task_pace(&history);
     assert_eq!(pace, TaskPace::Deep);
-    assert_eq!(configured_first_write_limit(), 0);
-    assert!(!first_write_nudge(true, pace).contains("submit the current"));
-    assert!(first_write_nudge(true, pace).contains("never implied"));
-    let posture = competition_posture(pace);
-    assert!(posture.contains("PACE — DEEP"));
+    use crate::agent::harness::book::k_competition;
+    let engage = k_competition::engage(pace);
+    assert_eq!(engage[0].route, k_competition::DEEP);
+    let deep = k_competition::DEEP.sub();
     // Operator law 2026-09-11: deep pace still ships a gate-passing candidate.
-    assert!(posture.contains("are never instructions to submit"));
-    assert!(posture.contains("passes the local gate IS"));
-    assert!(posture.contains("Never wrap builds, engine boots, or benchmarks in `timeout`"));
+    assert!(deep.ideas.contains("are never instructions to submit"));
+    assert!(deep.ideas.contains("passes the local gate is submitted"));
+    assert!(
+        k_competition::NO_TIMEOUT
+            .sub()
+            .action
+            .contains("never wrap builds")
+    );
     // Standing status is never a reply template: no world card to re-fill every message.
-    assert!(posture.contains("report only new results"));
-    assert!(competition_posture(TaskPace::Rapid).contains("report only new results"));
-    assert!(passive_poll_nudge(pace).contains("not a request"));
+    assert!(deep.ideas.contains("Report only new results"));
+    assert!(
+        k_competition::RAPID
+            .sub()
+            .ideas
+            .contains("Report only new results")
+    );
 }
 
 #[test]
@@ -4310,9 +4075,9 @@ fn meta_note_mutations_are_not_first_write_progress() {
         }),
     };
     assert!(is_meta_note_mutation_path("LIVING_HANDOFF.md"));
-    assert!(!is_first_write_progress_call(&handoff));
-    assert!(!is_first_write_progress_call(&notes));
-    assert!(is_first_write_progress_call(&core));
+    assert!(!is_product_mutation_call(&handoff));
+    assert!(!is_product_mutation_call(&notes));
+    assert!(is_product_mutation_call(&core));
     assert_eq!(mutation_arg_path(&core.args), Some("src/lib.rs"));
     assert_eq!(
         mutation_arg_path(&notes.args),
@@ -4324,12 +4089,12 @@ fn meta_note_mutations_are_not_first_write_progress() {
     assert!(is_meta_note_mutation_path(
         "/repo/.scratch/worktrees/crown/.scratch/iter36-lincheck-probe.rs"
     ));
-    assert!(!is_first_write_progress_call(&scratch_probe));
-    assert!(burns_first_write_budget(&scratch_probe));
+    assert!(!is_product_mutation_call(&scratch_probe));
+    assert!(is_free_form_recon(&scratch_probe));
     assert!(!is_meta_note_mutation_path(
         "/repo/.scratch/worktrees/crown/crates/prover/src/lib.rs"
     ));
-    assert!(is_first_write_progress_call(&scratch_worktree_product));
+    assert!(is_product_mutation_call(&scratch_worktree_product));
     let pathless = ToolCall {
         id: "0".into(),
         name: "integrate".into(),
@@ -4360,7 +4125,7 @@ fn meta_note_mutations_are_not_first_write_progress() {
             args: serde_json::json!({"path": product, "content": "x"}),
         };
         assert!(
-            is_first_write_progress_call(&call),
+            is_product_mutation_call(&call),
             "product mutation must count as first-write progress: {product}"
         );
     }
@@ -4432,9 +4197,9 @@ fn mutation_call_has_product_path_matches_in_place() {
         }),
     };
     assert!(mutation_call_has_product_path(&product));
-    assert!(is_first_write_progress_call(&product));
+    assert!(is_product_mutation_call(&product));
     assert!(!mutation_call_has_product_path(&board));
-    assert!(!is_first_write_progress_call(&board));
+    assert!(!is_product_mutation_call(&board));
     assert!(
         mutation_call_has_product_path(&pathless),
         "pathless mutation stays historical first-write yes"
@@ -4475,14 +4240,14 @@ fn competition_wait_and_board_state_do_not_burn_first_write_budget() {
     };
     assert!(is_competition_outcome_call(&status));
     assert!(is_competition_wait_or_progress_call(&status));
-    assert!(!burns_first_write_budget(&status));
+    assert!(!is_free_form_recon(&status));
     assert!(is_competition_board_state_call(&handoff));
-    assert!(!burns_first_write_budget(&handoff));
+    assert!(!is_free_form_recon(&handoff));
     assert!(is_competition_board_state_call(&tip));
-    assert!(!burns_first_write_budget(&tip));
+    assert!(!is_free_form_recon(&tip));
     // Free-form recon still burns the budget.
-    assert!(burns_first_write_budget(&thrash));
-    assert!(burns_first_write_budget(&src));
+    assert!(is_free_form_recon(&thrash));
+    assert!(is_free_form_recon(&src));
     // Wide find that only *mentions* living handoff still burns.
     let sneak = ToolCall {
         id: "6".into(),
@@ -4492,7 +4257,7 @@ fn competition_wait_and_board_state_do_not_burn_first_write_budget() {
         }),
     };
     assert!(
-        burns_first_write_budget(&sneak),
+        is_free_form_recon(&sneak),
         "inventory thrash must not hide behind board markers"
     );
 }
@@ -4527,21 +4292,20 @@ fn hop_budget_flags_match_per_call_predicates() {
         },
     ];
     let (mutation, outcome, wait, burns) = hop_budget_flags(&calls);
-    assert_eq!(mutation, calls.iter().any(is_first_write_progress_call));
+    assert_eq!(mutation, calls.iter().any(is_product_mutation_call));
     assert_eq!(outcome, calls.iter().any(is_competition_outcome_call));
     assert_eq!(wait, calls.iter().any(is_competition_wait_or_progress_call));
-    assert_eq!(burns, calls.iter().any(burns_first_write_budget));
+    assert_eq!(burns, calls.iter().any(is_free_form_recon));
     assert!(mutation && outcome && wait && burns);
 }
 
-/// Default hops skip competition hay. Slot / first-write / competition still
-/// classify; board wait keeps anti-spin immunity only on that path.
+/// Default hops skip competition hay. Slot / competition still classify;
+/// board wait keeps anti-spin immunity only on that path.
 #[test]
 fn hop_budget_flags_for_loop_skips_hay_on_ordinary_hops() {
-    assert!(!hop_budget_classify_applied(false, 0, false));
-    assert!(hop_budget_classify_applied(true, 0, false));
-    assert!(hop_budget_classify_applied(false, 7, false));
-    assert!(hop_budget_classify_applied(false, 0, true));
+    assert!(!hop_budget_classify_applied(false, false));
+    assert!(hop_budget_classify_applied(true, false));
+    assert!(hop_budget_classify_applied(false, true));
 
     let board = ToolCall {
         id: "b".into(),
@@ -4608,7 +4372,7 @@ fn hop_budget_flags_skip_mutation_payload_scan() {
         name: "write_file".into(),
         args: serde_json::json!({"path": "src/main.rs", "content": body}),
     };
-    assert!(is_first_write_progress_call(&write));
+    assert!(is_product_mutation_call(&write));
     assert!(
         !is_competition_outcome_call(&write),
         "write payload must not launder as submit"
@@ -4617,7 +4381,7 @@ fn hop_budget_flags_skip_mutation_payload_scan() {
         !is_competition_board_state_call(&write),
         "write payload must not launder as board wait"
     );
-    assert!(!burns_first_write_budget(&write));
+    assert!(!is_free_form_recon(&write));
     let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&write));
     assert!(mutation && !outcome && !wait && !burns);
     let (name, hay, is_shell) = competition_call_text(&write);
@@ -4643,12 +4407,12 @@ fn hop_budget_flags_skip_mutation_payload_scan() {
         name: "apply_patch".into(),
         args: serde_json::json!({"diff": patch}),
     };
-    assert!(!is_first_write_progress_call(&meta));
+    assert!(!is_product_mutation_call(&meta));
     assert!(
         is_competition_board_state_call(&meta),
         "meta-only patch path must remain board wait"
     );
-    assert!(!burns_first_write_budget(&meta));
+    assert!(!is_free_form_recon(&meta));
     let (_, patch_hay, _) = competition_call_text(&meta);
     assert!(
         patch_hay.len() < 512,
@@ -4681,7 +4445,7 @@ fn competition_call_text_borrows_single_path() {
     );
     assert!(!is_shell);
     assert!(
-        burns_first_write_budget(&read),
+        is_free_form_recon(&read),
         "product read still burns first-write"
     );
 
@@ -4718,7 +4482,7 @@ fn competition_call_text_borrows_single_path() {
         is_competition_board_state_call(&board),
         "mixed-case LIVING_HANDOFF still counts as board wait"
     );
-    assert!(!burns_first_write_budget(&board));
+    assert!(!is_free_form_recon(&board));
 
     let grep = ToolCall {
         id: "4".into(),
@@ -4758,7 +4522,7 @@ fn competition_call_text_borrows_apply_patch_path() {
         hay_ptr >= diff_ptr && hay_ptr < unsafe { diff_ptr.add(diff.len()) },
         "classify must borrow the path from the diff"
     );
-    assert!(is_first_write_progress_call(&call));
+    assert!(is_product_mutation_call(&call));
     assert!(!is_competition_outcome_call(&call));
     assert!(!is_competition_board_state_call(&call));
 
@@ -4777,7 +4541,7 @@ fn competition_call_text_borrows_apply_patch_path() {
         is_competition_board_state_call(&meta),
         "mixed-case handoff patch still counts as board wait"
     );
-    assert!(!is_first_write_progress_call(&meta));
+    assert!(!is_product_mutation_call(&meta));
 
     let multi = ToolCall {
         id: "2".into(),
@@ -4830,7 +4594,7 @@ fn competition_call_text_borrows_lowercase_shell() {
         "path-cased board digest must be borrowed"
     );
     assert!(is_competition_board_state_call(&board));
-    assert!(!burns_first_write_budget(&board));
+    assert!(!is_free_form_recon(&board));
 
     let mixed = ToolCall {
         id: "3".into(),
@@ -4903,7 +4667,7 @@ fn competition_board_state_does_not_launder_grep_recon() {
             "search thrash must not count as board wait: {cmd}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "search thrash must burn first-write budget: {cmd}"
         );
     }
@@ -4923,7 +4687,7 @@ fn competition_board_state_does_not_launder_grep_recon() {
             is_competition_board_state_call(&call),
             "board digest must remain wait: {cmd}"
         );
-        assert!(!burns_first_write_budget(&call), "board digest: {cmd}");
+        assert!(!is_free_form_recon(&call), "board digest: {cmd}");
     }
 }
 
@@ -4966,24 +4730,24 @@ fn apply_patch_meta_note_only_is_not_first_write_progress() {
         "patch paths should surface handoff target: {meta_paths:?}"
     );
     assert!(
-        !is_first_write_progress_call(&meta_unified),
+        !is_product_mutation_call(&meta_unified),
         "meta-only unified patch must not be first-write progress"
     );
     assert!(
-        !is_first_write_progress_call(&meta_freeform),
+        !is_product_mutation_call(&meta_freeform),
         "meta-only freeform patch must not be first-write progress"
     );
     assert!(
-        is_first_write_progress_call(&core),
+        is_product_mutation_call(&core),
         "product apply_patch remains first-write progress"
     );
     assert!(
-        is_first_write_progress_call(&mixed),
+        is_product_mutation_call(&mixed),
         "mixed meta+core patch is still progress"
     );
     // Meta patches are bookkeeping — not recon thrash and not product progress.
     assert!(
-        !burns_first_write_budget(&meta_unified),
+        !is_free_form_recon(&meta_unified),
         "meta-only patch must not burn first-write inspection budget"
     );
 }
@@ -5013,7 +4777,7 @@ fn apply_patch_classify_skips_hunk_bodies() {
         vec!["src/kernel.cu".to_string()]
     );
     assert!(mutation_call_has_product_path(&call));
-    assert!(is_first_write_progress_call(&call));
+    assert!(is_product_mutation_call(&call));
     assert!(
         mutation_requires_verification(&call),
         "product apply_patch still requires verification"
@@ -5065,7 +4829,7 @@ fn competition_board_state_does_not_launder_git_inventory() {
             "git inventory/history must not count as board wait: {cmd}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "git inventory/history must burn first-write budget: {cmd}"
         );
         let (_, _, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5087,7 +4851,7 @@ fn competition_board_state_does_not_launder_git_inventory() {
             is_competition_board_state_call(&call),
             "board digest must remain wait: {cmd}"
         );
-        assert!(!burns_first_write_budget(&call), "board digest: {cmd}");
+        assert!(!is_free_form_recon(&call), "board digest: {cmd}");
     }
 }
 
@@ -5122,7 +4886,7 @@ fn competition_board_state_does_not_launder_git_history_inventory() {
             "history inventory / content search must not count as board wait: {cmd}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "history inventory / content search must burn first-write: {cmd}"
         );
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5149,7 +4913,7 @@ fn competition_board_state_does_not_launder_git_history_inventory() {
             is_competition_board_state_call(&call),
             "board digest must remain wait: {cmd}"
         );
-        assert!(!burns_first_write_budget(&call), "board digest: {cmd}");
+        assert!(!is_free_form_recon(&call), "board digest: {cmd}");
     }
 }
 
@@ -5178,7 +4942,7 @@ fn competition_board_state_does_not_launder_git_diff_status() {
             "git diff/status must not count as board wait: {cmd}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "git diff/status must burn first-write budget: {cmd}"
         );
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5204,7 +4968,7 @@ fn competition_board_state_does_not_launder_git_diff_status() {
             is_competition_board_state_call(&call),
             "board digest must remain wait: {cmd}"
         );
-        assert!(!burns_first_write_budget(&call), "board digest: {cmd}");
+        assert!(!is_free_form_recon(&call), "board digest: {cmd}");
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
         assert!(
             !anti_spin_counts_batch(mutation, outcome, wait, burns),
@@ -5249,7 +5013,7 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
             "native recon must not count as board wait: {name} {args}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "native recon must burn first-write: {name}"
         );
         let (_, _, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5262,7 +5026,7 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
         args: serde_json::json!({"path": "LIVING_HANDOFF.md"}),
     };
     assert!(is_competition_board_state_call(&digest));
-    assert!(!burns_first_write_budget(&digest));
+    assert!(!is_free_form_recon(&digest));
     // Shell digests still legal wait.
     let tip = ToolCall {
         id: "s".into(),
@@ -5270,7 +5034,7 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
         args: serde_json::json!({"command": "head -40 /tmp/living-handoff.md"}),
     };
     assert!(is_competition_board_state_call(&tip));
-    assert!(!burns_first_write_budget(&tip));
+    assert!(!is_free_form_recon(&tip));
 }
 
 /// A8 adversarial: native git_diff / git_status / git_log tools must not launder
@@ -5309,7 +5073,7 @@ fn competition_board_state_does_not_launder_native_git_inventory() {
             "native git inventory must not count as board wait: {name} {args}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "native git inventory must burn first-write: {name}"
         );
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5326,14 +5090,14 @@ fn competition_board_state_does_not_launder_native_git_inventory() {
         args: serde_json::json!({"path": "LIVING_HANDOFF.md"}),
     };
     assert!(is_competition_board_state_call(&digest));
-    assert!(!burns_first_write_budget(&digest));
+    assert!(!is_free_form_recon(&digest));
     let show = ToolCall {
         id: "s".into(),
         name: "shell".into(),
         args: serde_json::json!({"command": "git show HEAD:LIVING_HANDOFF.md"}),
     };
     assert!(is_competition_board_state_call(&show));
-    assert!(!burns_first_write_budget(&show));
+    assert!(!is_free_form_recon(&show));
 }
 
 /// A8 adversarial: `git show --stat` / pathspec forms and `git whatchanged` that
@@ -5365,7 +5129,7 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
             "git show/whatchanged inventory must not count as board wait: {cmd}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "git show/whatchanged inventory must burn first-write: {cmd}"
         );
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5393,7 +5157,7 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
             is_competition_board_state_call(&call),
             "board blob digest must remain wait: {cmd}"
         );
-        assert!(!burns_first_write_budget(&call), "board digest: {cmd}");
+        assert!(!is_free_form_recon(&call), "board digest: {cmd}");
         let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
         assert!(
             !anti_spin_counts_batch(mutation, outcome, wait, burns),
@@ -5439,7 +5203,7 @@ fn competition_board_state_does_not_launder_lsp_recon() {
             "LSP recon must not count as board wait: {name} {args}"
         );
         assert!(
-            burns_first_write_budget(&call),
+            is_free_form_recon(&call),
             "LSP recon must burn first-write: {name}"
         );
         let (_, _, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
@@ -5452,7 +5216,7 @@ fn competition_board_state_does_not_launder_lsp_recon() {
         args: serde_json::json!({"path": ".angelX/notes/board.md"}),
     };
     assert!(is_competition_board_state_call(&digest));
-    assert!(!burns_first_write_budget(&digest));
+    assert!(!is_free_form_recon(&digest));
 }
 
 /// A8 adversarial: path/prose substrings must not launder recon as competition
@@ -5498,27 +5262,27 @@ fn competition_outcome_ignores_score_path_and_validating_prose() {
         "read_file of score.rs is recon, not a competition outcome"
     );
     assert!(
-        burns_first_write_budget(&score_src),
+        is_free_form_recon(&score_src),
         "score.rs recon must burn first-write budget"
     );
     assert!(
         !is_competition_outcome_call(&score_cat),
         "cat of a score.rs path must not count as outcome"
     );
-    assert!(burns_first_write_budget(&score_cat));
+    assert!(is_free_form_recon(&score_cat));
     assert!(
         !is_competition_outcome_call(&validating_write),
         "prose 'validating' in a product edit is not a board poll"
     );
     // Product mutation is first-write progress (does not burn inspection budget).
-    assert!(is_first_write_progress_call(&validating_write));
+    assert!(is_product_mutation_call(&validating_write));
     assert!(!is_competition_outcome_call(&submit_form));
-    assert!(burns_first_write_budget(&submit_form));
+    assert!(is_free_form_recon(&submit_form));
 
     assert!(is_competition_outcome_call(&real_submit));
-    assert!(!burns_first_write_budget(&real_submit));
+    assert!(!is_free_form_recon(&real_submit));
     assert!(is_competition_outcome_call(&real_score));
-    assert!(!burns_first_write_budget(&real_score));
+    assert!(!is_free_form_recon(&real_score));
 }
 
 #[test]
@@ -5542,716 +5306,6 @@ fn shell_argv_has_token_matches_in_place() {
         "still validating the parser",
         "submit"
     ));
-}
-
-#[test]
-fn first_write_does_not_artificially_reject_or_drop_calls() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _rejections = EnvGuard::set("ANGEL_FIRST_WRITE_REJECTIONS", "0");
-
-    struct InspectionOnly {
-        call: AtomicUsize,
-    }
-    struct CountedRead(Arc<AtomicUsize>);
-    impl Tool for CountedRead {
-        fn name(&self) -> &str {
-            "read_file"
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name().to_string(),
-                description: "count executions".to_string(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            Ok("observed".to_string())
-        }
-    }
-    impl Club for InspectionOnly {
-        fn respond(&self, _p: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "inspection-only"
-        }
-        fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-            let call = self.call.fetch_add(1, Ordering::Relaxed);
-            if call >= 4 {
-                return Ok(ClubReply::Text("inspection complete".into()));
-            }
-            Ok(ClubReply::Calls(vec![ToolCall {
-                id: format!("read-{call}"),
-                name: "read_file".into(),
-                args: serde_json::json!({ "path": "Cargo.toml" }),
-            }]))
-        }
-    }
-
-    for (budget, expected_nudges) in [("0", 0), ("2", 1), ("10", 0)] {
-        let _budget = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", budget);
-        let mut history = vec![ChatMsg::user("repair the code")];
-        let executions = Arc::new(AtomicUsize::new(0));
-        let mut registry = ToolRegistry::new();
-        registry.register(Box::new(CountedRead(Arc::clone(&executions))));
-        let (event_tx, _event_rx) = mpsc::channel::<TurnEvent>();
-        let outcome = run_turn_observed(
-            &InspectionOnly {
-                call: AtomicUsize::new(0),
-            },
-            &registry,
-            &mut history,
-            &AtomicBool::new(false),
-            Some(30),
-            &event_tx,
-        )
-        .expect("turn completes normally without artificial first-write stop");
-
-        assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-        assert_eq!(outcome.answer, "inspection complete");
-        assert_eq!(executions.load(Ordering::SeqCst), 4);
-        assert_eq!(
-            history
-                .iter()
-                .filter(|message| {
-                    message.role == ChatRole::Harness
-                        && message.content.contains("ACTIONABLE CANDIDATE PROGRESS")
-                })
-                .count(),
-            expected_nudges,
-            "the exhausted budget emits once; disabled and unreached budgets stay silent"
-        );
-        assert_eq!(
-            history
-                .iter()
-                .map(|message| message.tool_calls.len())
-                .sum::<usize>(),
-            4
-        );
-        assert_eq!(
-            history
-                .iter()
-                .filter(|message| message.role == ChatRole::Tool)
-                .count(),
-            4
-        );
-    }
-}
-
-#[test]
-fn first_write_rejection_blocks_post_budget_recon_but_allows_product_mutation() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _budget = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "1");
-    let _rejections = EnvGuard::set("ANGEL_FIRST_WRITE_REJECTIONS", "3");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let _diagnostics = EnvGuard::set("ANGEL_LSP_POSTCHECK", "0");
-    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
-
-    struct ReconThenMutation {
-        step: AtomicUsize,
-    }
-    struct CountedTool {
-        name: &'static str,
-        executions: Arc<AtomicUsize>,
-    }
-    impl Tool for CountedTool {
-        fn name(&self) -> &str {
-            self.name
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name.to_string(),
-                description: "count executions".to_string(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.executions.fetch_add(1, Ordering::SeqCst);
-            Ok(format!("{} executed", self.name))
-        }
-    }
-    impl Club for ReconThenMutation {
-        fn respond(&self, _prompt: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "recon-then-mutation"
-        }
-        fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-            let step = self.step.fetch_add(1, Ordering::SeqCst);
-            let call = match step {
-                0 | 1 => ToolCall {
-                    id: format!("read-{step}"),
-                    name: "read_file".into(),
-                    args: serde_json::json!({"path":"src/candidate.rs"}),
-                },
-                2 => {
-                    assert!(messages.iter().any(|message| {
-                        message.role == ChatRole::Tool
-                            && message.content.contains(FIRST_WRITE_REJECT_RESULT)
-                    }));
-                    ToolCall {
-                        id: "write-2".into(),
-                        name: "write_file".into(),
-                        args: serde_json::json!({"path":"src/candidate.rs","content":"better"}),
-                    }
-                }
-                _ => return Ok(ClubReply::Text("candidate advanced".into())),
-            };
-            Ok(ClubReply::Calls(vec![call]))
-        }
-    }
-
-    let reads = Arc::new(AtomicUsize::new(0));
-    let writes = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountedTool {
-        name: "read_file",
-        executions: Arc::clone(&reads),
-    }));
-    registry.register(Box::new(CountedTool {
-        name: "write_file",
-        executions: Arc::clone(&writes),
-    }));
-    let mut history = vec![ChatMsg::user(
-        "run the competition-loop and improve the candidate",
-    )];
-    let outcome = run_turn_observed(
-        &ReconThenMutation {
-            step: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(10),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .expect("mutation remains available after one rejected inspection");
-
-    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    assert_eq!(outcome.answer, "candidate advanced");
-    assert_eq!(reads.load(Ordering::SeqCst), 1);
-    assert_eq!(writes.load(Ordering::SeqCst), 1);
-}
-
-#[test]
-fn failed_mutation_does_not_disarm_first_write_recon_guard() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _budget = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "1");
-    let _rejections = EnvGuard::set("ANGEL_FIRST_WRITE_REJECTIONS", "3");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let _diagnostics = EnvGuard::set("ANGEL_LSP_POSTCHECK", "0");
-    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
-
-    struct FailedMutationThenRecon {
-        step: AtomicUsize,
-    }
-    struct CountedRead(Arc<AtomicUsize>);
-    struct FailingWrite(Arc<AtomicUsize>);
-    impl Tool for CountedRead {
-        fn name(&self) -> &str {
-            "read_file"
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name().to_string(),
-                description: "count executions".to_string(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            Ok("observed".to_string())
-        }
-    }
-    impl Tool for FailingWrite {
-        fn name(&self) -> &str {
-            "write_file"
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name().to_string(),
-                description: "fail after dispatch".to_string(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            Err("simulated write failure".to_string())
-        }
-    }
-    impl Club for FailedMutationThenRecon {
-        fn respond(&self, _prompt: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "failed-mutation-then-recon"
-        }
-        fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-            let step = self.step.fetch_add(1, Ordering::SeqCst);
-            let call = match step {
-                0 => ToolCall {
-                    id: "read-before-write".into(),
-                    name: "read_file".into(),
-                    args: serde_json::json!({"path":"src/candidate.rs"}),
-                },
-                1 => ToolCall {
-                    id: "failed-write".into(),
-                    name: "write_file".into(),
-                    args: serde_json::json!({"path":"src/candidate.rs","content":"better"}),
-                },
-                2 => ToolCall {
-                    id: "read-after-failed-write".into(),
-                    name: "read_file".into(),
-                    args: serde_json::json!({"path":"src/another.rs"}),
-                },
-                _ => {
-                    assert!(messages.iter().any(|message| {
-                        message.role == ChatRole::Tool
-                            && message.content.contains(FIRST_WRITE_REJECT_RESULT)
-                    }));
-                    return Ok(ClubReply::Text("failed write stayed guarded".into()));
-                }
-            };
-            Ok(ClubReply::Calls(vec![call]))
-        }
-    }
-
-    let reads = Arc::new(AtomicUsize::new(0));
-    let writes = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountedRead(Arc::clone(&reads))));
-    registry.register(Box::new(FailingWrite(Arc::clone(&writes))));
-    let mut history = vec![ChatMsg::user(
-        "run the competition-loop and improve the candidate",
-    )];
-    let outcome = run_turn_observed(
-        &FailedMutationThenRecon {
-            step: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(10),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .expect("a dispatched write failure keeps subsequent reconnaissance guarded");
-
-    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    assert_eq!(outcome.answer, "failed write stayed guarded");
-    assert_eq!(reads.load(Ordering::SeqCst), 1);
-    assert_eq!(writes.load(Ordering::SeqCst), 1);
-}
-
-#[test]
-fn first_write_rejection_limit_stops_a_turn_that_keeps_inspecting() {
-    let _guard = crate::tests::env_lock();
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _budget = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "1");
-    let _rejections = EnvGuard::set("ANGEL_FIRST_WRITE_REJECTIONS", "2");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
-
-    struct InspectionForever {
-        call: AtomicUsize,
-    }
-    struct CountedRead(Arc<AtomicUsize>);
-    impl Tool for CountedRead {
-        fn name(&self) -> &str {
-            "read_file"
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name().to_string(),
-                description: "count executions".to_string(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            Ok("observed".to_string())
-        }
-    }
-    impl Club for InspectionForever {
-        fn respond(&self, _prompt: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "inspection-forever"
-        }
-        fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-            let call = self.call.fetch_add(1, Ordering::SeqCst);
-            Ok(ClubReply::Calls(vec![ToolCall {
-                id: format!("read-{call}"),
-                name: "read_file".into(),
-                args: serde_json::json!({"path":format!("src/candidate-{call}.rs")}),
-            }]))
-        }
-    }
-
-    let reads = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountedRead(Arc::clone(&reads))));
-    let mut history = vec![ChatMsg::user(
-        "run the competition-loop and improve the candidate",
-    )];
-    let outcome = run_turn_observed(
-        &InspectionForever {
-            call: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(10),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .expect("first-write circuit breaker returns a typed stopped outcome");
-
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert!(outcome.answer.contains("stopped after 2 post-budget"));
-    assert_eq!(reads.load(Ordering::SeqCst), 1);
-}
-
-#[test]
-fn final_mile_dispatches_tools_without_artificial_call_dropping() {
-    let _guard = crate::tests::env_lock();
-    let _reserve = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "3");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _verify_gate = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-
-    struct MutateThenInspect {
-        hop: AtomicUsize,
-    }
-    impl Club for MutateThenInspect {
-        fn respond(&self, _p: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "mutate-then-inspect"
-        }
-        fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-            match self.hop.fetch_add(1, Ordering::SeqCst) {
-                0 => Ok(ClubReply::Calls(vec![ToolCall {
-                    id: "mutation".into(),
-                    name: "str_replace".into(),
-                    args: serde_json::json!({"path":"src/lib.rs","old":"a","new":"b"}),
-                }])),
-                1 => Ok(ClubReply::Calls(vec![
-                    ToolCall {
-                        id: "inspect-a".into(),
-                        name: "reverse".into(),
-                        args: serde_json::json!({"text":"a"}),
-                    },
-                    ToolCall {
-                        id: "inspect-b".into(),
-                        name: "reverse".into(),
-                        args: serde_json::json!({"text":"b"}),
-                    },
-                ])),
-                _ => Ok(ClubReply::Text("reported verifier blocker".into())),
-            }
-        }
-    }
-
-    let mutations = Arc::new(AtomicUsize::new(0));
-    let inspections = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountingProbe {
-        name: "str_replace",
-        calls: Arc::clone(&mutations),
-    }));
-    registry.register(Box::new(CountingProbe {
-        name: "reverse",
-        calls: Arc::clone(&inspections),
-    }));
-    let mut history = vec![ChatMsg::user("make a focused code change")];
-    let (event_tx, _event_rx) = mpsc::channel::<TurnEvent>();
-    let answer = run_turn(
-        &MutateThenInspect {
-            hop: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(4),
-        &event_tx,
-    )
-    .unwrap();
-
-    assert_eq!(answer, "reported verifier blocker");
-    assert_eq!(mutations.load(Ordering::SeqCst), 1);
-    assert_eq!(
-        inspections.load(Ordering::SeqCst),
-        2,
-        "inspections must dispatch directly without artificial call-dropping"
-    );
-}
-
-#[test]
-fn final_mile_answer_window_retains_tools_before_max_hops() {
-    let _guard = crate::tests::env_lock();
-    let _reserve = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "3");
-    let _answer_window = EnvGuard::set("ANGEL_FINAL_MILE_ANSWER_HOPS", "2");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _verify_gate = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-
-    struct MutateInspectThenAnswer {
-        hop: AtomicUsize,
-    }
-    impl Club for MutateInspectThenAnswer {
-        fn respond(&self, _prompt: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "final-mile-answer-window"
-        }
-        fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-            assert!(
-                !tools.is_empty(),
-                "schemas remain present in the final window"
-            );
-            match self.hop.fetch_add(1, Ordering::SeqCst) {
-                0 => Ok(ClubReply::Calls(vec![ToolCall {
-                    id: "mutation".into(),
-                    name: "str_replace".into(),
-                    args: serde_json::json!({"path":"src/lib.rs","old":"a","new":"b"}),
-                }])),
-                _ if crate::agent::club::final_response_requested(messages) => Ok(ClubReply::Text(
-                    "final answer from the bounded response window".into(),
-                )),
-                call => Ok(ClubReply::Calls(vec![ToolCall {
-                    id: format!("inspect-{call}"),
-                    name: "reverse".into(),
-                    args: serde_json::json!({"text":"inspect"}),
-                }])),
-            }
-        }
-    }
-
-    let mutations = Arc::new(AtomicUsize::new(0));
-    let inspections = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountingProbe {
-        name: "str_replace",
-        calls: Arc::clone(&mutations),
-    }));
-    registry.register(Box::new(CountingProbe {
-        name: "reverse",
-        calls: Arc::clone(&inspections),
-    }));
-    let mut history = vec![ChatMsg::user("make a focused code change")];
-    let (event_tx, _event_rx) = mpsc::channel::<TurnEvent>();
-    let answer = run_turn(
-        &MutateInspectThenAnswer {
-            hop: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(4),
-        &event_tx,
-    )
-    .unwrap();
-
-    assert_eq!(answer, "final answer from the bounded response window");
-    assert_eq!(mutations.load(Ordering::SeqCst), 1);
-    assert_eq!(inspections.load(Ordering::SeqCst), 1);
-    assert!(history.iter().any(|message| {
-        message.role == ChatRole::Harness && message.content.as_ref() == FINAL_MILE_ANSWER_NUDGE
-    }));
-}
-
-#[cfg(unix)]
-#[test]
-fn final_mile_headless_answer_reports_unfinished_background_work() {
-    let _guard = crate::tests::env_lock();
-    let root = scratch("final-mile-background");
-    let _env = [
-        EnvGuard::set("ANGEL_YOLO", "1"),
-        EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "3"),
-        EnvGuard::set("ANGEL_FINAL_MILE_ANSWER_HOPS", "2"),
-        EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0"),
-        EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0"),
-        EnvGuard::set("ANGEL_BACKPLANE", "0"),
-        EnvGuard::set("ANGEL_SKILL_HINT", "0"),
-        EnvGuard::set("ANGEL_ADVISOR", "0"),
-        EnvGuard::set("ANGEL_ROLLOUT_CAPTURE", "0"),
-        EnvGuard::set("ANGEL_TASK_RECON", "0"),
-        EnvGuard::set("ANGEL_TURN_DEADLINE_SECS", "60"),
-        EnvGuard::set(
-            "ANGEL_PROC_DIR",
-            root.join("process-store").to_str().unwrap(),
-        ),
-    ];
-    struct BackgroundThenAnswer<'a> {
-        hops: AtomicUsize,
-        workspace: &'a std::path::Path,
-        finished: bool,
-    }
-    impl Club for BackgroundThenAnswer<'_> {
-        fn label(&self) -> &str {
-            "final-mile-background"
-        }
-        fn respond(&self, _: &str) -> Result<String, String> {
-            unreachable!()
-        }
-        fn chat(&self, messages: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
-            if self.hops.fetch_add(1, Ordering::SeqCst) == 0 {
-                return Ok(ClubReply::Calls(vec![
-                    ToolCall {
-                        id: "mutation".into(),
-                        name: "str_replace".into(),
-                        args: json!({"path":"subject","old":"a","new":"b"}),
-                    },
-                    ToolCall {
-                        id: "background".into(),
-                        name: "proc_run".into(),
-                        args: json!({"command": if self.finished { "while [ ! -f release ]; do sleep 0.01; done" } else { "sleep 30" }}),
-                    },
-                ]));
-            }
-            assert!(crate::agent::club::final_response_requested(messages));
-            assert!(
-                messages
-                    .iter()
-                    .any(|m| m.role == ChatRole::Tool && m.content.starts_with("started [")),
-                "background job must actually launch"
-            );
-            if self.finished {
-                std::fs::write(self.workspace.join("release"), "go").unwrap();
-                let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
-                loop {
-                    if crate::agent::tools::proc::take_completions(self.workspace, 8)
-                        .iter()
-                        .any(|notice| notice.exit_code == Some(0))
-                    {
-                        break;
-                    }
-                    assert!(std::time::Instant::now() < until, "fixture failed to exit");
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                }
-            }
-            Ok(ClubReply::Text("Recorded handoff.".into()))
-        }
-    }
-    for finished in [false, true] {
-        let cancel = AtomicBool::new(false);
-        let mut registry = ToolRegistry::new();
-        registry.set_workspace(root.clone());
-        registry.register(Box::new(CountingProbe {
-            name: "str_replace",
-            calls: Arc::new(AtomicUsize::new(0)),
-        }));
-        registry.register(Box::new(crate::agent::tools::proc::ProcRunTool::in_dir(
-            root.clone(),
-        )));
-        let binding = TaskRolloutBindingV1::new(
-            None,
-            None,
-            "a".repeat(64),
-            "b".repeat(64),
-            "fixture".into(),
-            "c".repeat(64),
-        );
-        let mut history = vec![ChatMsg::user(
-            "Change the subject and run the background job.",
-        )];
-        let (tx, _rx) = mpsc::channel();
-        let outcome = run_task_turn_observed(
-            &BackgroundThenAnswer {
-                hops: AtomicUsize::new(0),
-                workspace: &root,
-                finished,
-            },
-            &registry,
-            &mut history,
-            &cancel,
-            Some(3),
-            &tx,
-            &binding,
-            None,
-        );
-        let outcome = outcome.unwrap();
-        assert_eq!(outcome.answer, "Recorded handoff.");
-        assert_eq!(
-            outcome.stop_reason,
-            if finished {
-                TurnStopReason::Answer
-            } else {
-                TurnStopReason::MaxHops
-            }
-        );
-        assert_eq!(outcome.max_hops_reached, !finished);
-        assert!(!outcome.deadline_reached);
-    }
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn final_mile_answer_window_never_executes_provider_calls_after_withdrawal() {
-    let _guard = crate::tests::env_lock();
-    let _reserve = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "1");
-    let _answer_window = EnvGuard::set("ANGEL_FINAL_MILE_ANSWER_HOPS", "1");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _verify_gate = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-
-    struct MutateThenIgnoreWithdrawnTools {
-        hop: AtomicUsize,
-    }
-    impl Club for MutateThenIgnoreWithdrawnTools {
-        fn respond(&self, _prompt: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "final-mile-withheld-call"
-        }
-        fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-            let (id, name) = if self.hop.fetch_add(1, Ordering::SeqCst) == 0 {
-                ("mutation", "str_replace")
-            } else {
-                ("withheld", "reverse")
-            };
-            Ok(ClubReply::Calls(vec![ToolCall {
-                id: id.into(),
-                name: name.into(),
-                args: serde_json::json!({"text":"must not run"}),
-            }]))
-        }
-    }
-
-    let mutations = Arc::new(AtomicUsize::new(0));
-    let inspections = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountingProbe {
-        name: "str_replace",
-        calls: Arc::clone(&mutations),
-    }));
-    registry.register(Box::new(CountingProbe {
-        name: "reverse",
-        calls: Arc::clone(&inspections),
-    }));
-    let mut history = vec![ChatMsg::user("make a focused code change")];
-    let (event_tx, _event_rx) = mpsc::channel::<TurnEvent>();
-    let answer = run_turn(
-        &MutateThenIgnoreWithdrawnTools {
-            hop: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(2),
-        &event_tx,
-    )
-    .unwrap();
-
-    assert!(answer.contains("attempted unavailable tool calls (reverse)"));
-    assert!(answer.contains("None executed"));
-    assert_eq!(mutations.load(Ordering::SeqCst), 1);
-    assert_eq!(inspections.load(Ordering::SeqCst), 0);
 }
 
 #[test]
@@ -6580,71 +5634,105 @@ fn dispatched_failure_and_denial_outcomes_keep_their_existing_meaning() {
 }
 
 #[test]
-fn spin_redirect_perturbs_by_default() {
-    // Perturbation text inverts the premise and reframes by analogy.
-    let p = spin_redirect(true);
-    assert!(
-        p.contains("OPPOSITE"),
-        "perturbation must test the opposite hypothesis"
-    );
-    assert!(
-        p.contains("analogy"),
-        "perturbation must offer a cross-domain reframe"
-    );
-    // The plain nudge is the bland fallback — no reframe.
-    let n = spin_redirect(false);
-    assert!(!n.contains("OPPOSITE"));
-    assert!(n.contains("Change your approach"));
-}
-
-#[test]
-fn run_turn_injects_perturbation_when_spinning() {
+fn loop_detectors_stamp_tool_results_and_offer_deli_at_the_stop() {
     let _guard = crate::tests::env_lock();
-    let _operator_cap = EnvGuard::set("ANGEL_SPIN_LIMIT", "8");
-    struct Stuck;
-    impl Club for Stuck {
-        fn respond(&self, _p: &str) -> Result<String, String> {
+    let _env = [
+        EnvGuard::set("ANGEL_SKILL_HINT", "0"),
+        EnvGuard::set("ANGEL_ADVISOR", "0"),
+    ];
+    struct Repeated {
+        failures: bool,
+        hops: AtomicUsize,
+    }
+    impl Club for Repeated {
+        fn respond(&self, _: &str) -> Result<String, String> {
             Ok(String::new())
         }
         fn label(&self) -> &str {
-            "stuck"
+            "loop-stamp-fixture"
         }
-        fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
+        fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
+            let hop = self.hops.fetch_add(1, Ordering::Relaxed);
+            if hop >= 6 {
+                return Ok(ClubReply::Text("The fixture completed.".into()));
+            }
             Ok(ClubReply::Calls(vec![ToolCall {
-                id: "x".into(),
-                name: "reverse".into(),
-                args: serde_json::json!({ "text": "x" }),
+                id: format!("call-{hop}"),
+                name: if self.failures {
+                    "read_file"
+                } else {
+                    "reverse"
+                }
+                .into(),
+                args: if self.failures {
+                    json!({"path": "missing/nudge-fixture.txt"})
+                } else {
+                    json!({"text": "hello"})
+                },
             }]))
         }
     }
-    let mut history = vec![ChatMsg::user("go")];
-    // Default env (perturbation on): hold the process-wide env lock so another
-    // policy-ablation test cannot change the assumed defaults mid-turn.
-    let _ = run_turn(
-        &Stuck,
-        &ToolRegistry::with_defaults(),
-        &mut history,
-        &AtomicBool::new(false),
-        Some(50),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .unwrap();
-    assert!(
-        history
+    for failures in [false, true] {
+        let club = Repeated {
+            failures,
+            hops: AtomicUsize::new(0),
+        };
+        let mut history = vec![ChatMsg::user("Run the fixture.")];
+        let answer = run_turn(
+            &club,
+            &ToolRegistry::with_defaults(),
+            &mut history,
+            &AtomicBool::new(false),
+            Some(20),
+            &mpsc::channel::<TurnEvent>().0,
+        )
+        .unwrap();
+        // Loop evidence reaches the stop: one checkpoint, then the answer stands.
+        assert_eq!(answer, "The fixture completed.");
+        assert_eq!(club.hops.load(Ordering::Relaxed), 8, "failures={failures}");
+        let tool_stamps = |route: &str| {
+            history
+                .iter()
+                .filter(|m| m.role == ChatRole::Tool && tool_routed(m, route))
+                .count()
+        };
+        // Five straight repeats: named at the first, then every second hop.
+        assert_eq!(
+            loop_turn_texts(&history),
+            ["⛔⠇⠁", "⛔⠇⠓⠁", "⛔⠇⠓⠃"],
+            "failures={failures}: {history:?}"
+        );
+        assert_eq!(tool_stamps("⠇⠁"), 0, "failures={failures}: {history:?}");
+        // The error streak is an advisory: its own turn, never the result's tail.
+        assert_eq!(tool_stamps("⠭⠁"), 0, "failures={failures}: {history:?}");
+        assert_eq!(
+            advisory_turns(&history, "⠭⠁"),
+            usize::from(failures),
+            "failures={failures}: {history:?}"
+        );
+        let harness = history
             .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.contains("OPPOSITE")),
-        "a perturbation redirect should be injected once while spinning"
-    );
+            .filter(|m| {
+                m.role == ChatRole::Harness
+                    && book::ledger::is_warpath_message(&m.content)
+                    && !m.content.starts_with(book::l_loops::WARNING)
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            harness.len(),
+            1,
+            "besides the loop turns, only the stop checkpoint is its own message"
+        );
+        assert!(has_route(first_line(&harness[0].content), "⠇⠁"));
+        assert!(first_line(&harness[0].content).ends_with("⠟⠁"));
+    }
 }
 
 #[test]
-fn alternating_tool_cycle_stops_after_paired_outcomes_repeat() {
+fn alternating_tool_cycle_is_stamped_and_never_stops_the_turn() {
     let _guard = crate::tests::env_lock();
-    let _operator_cap = EnvGuard::set("ANGEL_SPIN_LIMIT", "8");
     let _cycle_period = EnvGuard::set("ANGEL_TOOL_CYCLE_MAX_PERIOD", "5");
     let _cycle_repeats = EnvGuard::set("ANGEL_TOOL_CYCLE_REPEATS", "3");
-    let _churn = EnvGuard::set("ANGEL_NOPROGRESS_LIMIT", "0");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
 
     struct Alternating {
         calls: AtomicUsize,
@@ -6675,23 +5763,22 @@ fn alternating_tool_cycle_stops_after_paired_outcomes_repeat() {
         calls: AtomicUsize::new(0),
     };
     let mut history = vec![ChatMsg::user("go")];
-    let outcome = run_turn_observed(
+    let failure = run_turn_observed(
         &club,
         &ToolRegistry::with_defaults(),
         &mut history,
         &AtomicBool::new(false),
-        Some(20),
+        Some(10),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("a detected cycle is a structured stopped outcome");
+    .expect_err("only the caller's hop cap ends a cycling turn");
 
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert_eq!(outcome.hops, 6);
-    assert!(outcome.answer.contains("2-batch tool cycle"));
-    assert_eq!(club.calls.load(Ordering::Relaxed), 6);
+    assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
+    assert_eq!(club.calls.load(Ordering::Relaxed), 10);
+    assert_eq!(loop_turns(&history, "⠇⠙"), 1, "{history:?}");
     let call_count = history.iter().map(|m| m.tool_calls.len()).sum::<usize>();
     let result_count = history.iter().filter(|m| m.role == ChatRole::Tool).count();
-    assert_eq!(call_count, result_count, "cycle stop must preserve pairing");
+    assert_eq!(call_count, result_count, "stamping must preserve pairing");
 }
 
 #[test]
@@ -6817,14 +5904,12 @@ fn tool_batch_cycle_observation_reuses_anti_spin_fingerprint() {
 // --- residual run_turn guards (folded from parent) -----------------------
 
 #[test]
-fn yolo_turn_stops_on_consecutive_tool_errors() {
+fn yolo_turn_stamps_consecutive_tool_errors_and_keeps_going() {
     let _guard = crate::tests::env_lock();
-    let _operator_cap = EnvGuard::set("ANGEL_ERROR_LIMIT", "8");
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     // A club that calls read_file on a fresh missing path each hop: every call
-    // errors at dispatch, but the args change, so anti-spin never fires — only
-    // the error breaker should stop it.
+    // errors at dispatch and the args change, so anti-spin never fires — only
+    // the error detector sees it, and it never stops the turn.
     use std::sync::atomic::AtomicUsize;
     struct Erroring {
         n: AtomicUsize,
@@ -6838,11 +5923,7 @@ fn yolo_turn_stops_on_consecutive_tool_errors() {
         }
         fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
             let i = self.n.fetch_add(1, Ordering::Relaxed);
-            // The breaker redirects twice (resetting the streak) before it
-            // stops: at a limit of 8 the stop lands on the 24th failing hop.
-            if i >= 40 {
-                // The old YOLO path disabled the error breaker and would
-                // incorrectly accept this eventual answer.
+            if i >= 10 {
                 return Ok(ClubReply::Text("late answer".into()));
             }
             Ok(ClubReply::Calls(vec![ToolCall {
@@ -6852,36 +5933,59 @@ fn yolo_turn_stops_on_consecutive_tool_errors() {
             }]))
         }
     }
+    let club = Erroring {
+        n: AtomicUsize::new(0),
+    };
     let mut history = vec![ChatMsg::user("go")];
     let out = run_turn(
-        &Erroring {
-            n: AtomicUsize::new(0),
-        },
+        &club,
         &ToolRegistry::with_defaults(),
         &mut history,
         &AtomicBool::new(false),
-        Some(50), // generous hop guard; the error breaker (default 8) fires first
+        Some(50),
         &mpsc::channel::<TurnEvent>().0,
     )
     .unwrap();
+    assert_eq!(out, "late answer");
+    assert_eq!(
+        club.n.load(Ordering::Relaxed),
+        12,
+        "one checkpoint hop, then it stands"
+    );
     assert!(
-        out.contains("errored"),
-        "error breaker should stop the thrash: {out}"
+        !history
+            .iter()
+            .any(|m| m.role == ChatRole::Tool && tool_routed(m, "⠭⠁")),
+        "the stamp is its own turn, never the result's tail"
+    );
+    let stamped = history
+        .iter()
+        .filter(|m| m.role == ChatRole::Harness && m.content.starts_with("⛔⠭⠁"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        stamped.len(),
+        2,
+        "the advice at the third failed hop and again at the ninth: {history:?}"
     );
     assert_eq!(
-        history
-            .iter()
-            .filter(|m| m.content.contains("ERROR CASCADE REDIRECTION"))
-            .count(),
-        2,
-        "two redirections before the stop"
+        advisory_turns(&history, "⠼⠊"),
+        1,
+        "the cascade at the sixth: {history:?}"
     );
-    // The one-time error nudge landed in history before the stop.
+    let checkpoint = history
+        .iter()
+        .find(|m| {
+            m.role == ChatRole::Harness
+                && book::ledger::is_warpath_message(&m.content)
+                && !m.content.starts_with(book::l_loops::WARNING)
+        })
+        .expect("the stop checkpoint carries the loop evidence");
+    assert!(has_route(first_line(&checkpoint.content), "⠭⠁"));
     assert!(
-        history
+        !history
             .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.contains("tool call")),
-        "an error nudge should be injected once while thrashing"
+            .any(|m| m.content.contains("REDIRECTION") || m.content.contains("Stop and read")),
+        "no imperative prose in the history: the sentences arrive through the legend"
     );
 }
 
@@ -7088,10 +6192,9 @@ fn yolo_preserves_the_explicit_turn_deadline() {
 }
 
 #[test]
-fn yolo_preserves_the_anti_spin_guard() {
+fn yolo_spinning_turn_runs_to_the_models_own_answer() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _spin = EnvGuard::set("ANGEL_SPIN_LIMIT", "4");
 
     struct EventuallyAnswers {
         calls: AtomicUsize,
@@ -7127,12 +6230,13 @@ fn yolo_preserves_the_anti_spin_guard() {
         None,
         &mpsc::channel::<TurnEvent>().0,
     )
-    .expect("spin stop is a structured stopped outcome");
+    .expect("repetition never becomes a harness stop");
 
-    // Two redirections reset the count before the stop: 3 x ANGEL_SPIN_LIMIT.
-    assert_eq!(outcome.stop_reason, TurnStopReason::Spin);
-    assert_eq!(outcome.hops, 12);
-    assert!(outcome.answer.contains("same tool call repeated"));
+    // Twenty identical batches, one `repeat` stamp, one stop checkpoint; the
+    // model's second answer stands.
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    assert_eq!(outcome.hops, 22);
+    assert_eq!(outcome.answer, "late answer");
 }
 
 #[test]
@@ -7534,129 +6638,21 @@ fn duplicate_calls_all_dispatch_until_the_storm_guard_is_armed() {
 }
 
 #[test]
-fn armed_storm_guard_suppresses_the_third_identical_call_and_speaks() {
+fn armed_storm_detector_stamps_the_third_identical_call_and_runs_it() {
     let _guard = crate::tests::env_lock();
     let _armed = EnvGuard::set("ANGEL_TOOLCALL_STORM", "1");
     let _window = EnvGuard::set("ANGEL_TOOLCALL_STORM_WINDOW", "6");
-    let (executions, history, events) = run_storm_turn();
-    assert_eq!(
-        executions, 3,
-        "the third identical call never reaches the tool; the different one does"
-    );
-    let suppressed: Vec<&ChatMsg> = history
-        .iter()
-        .filter(|message| {
-            message.role == ChatRole::Tool && message.content.contains("duplicate call suppressed")
-        })
-        .collect();
-    assert_eq!(suppressed.len(), 1, "exactly one call is answered in place");
+    let (executions, history, _events) = run_storm_turn();
+    assert_eq!(executions, 4, "a storm is observed, never suppressed");
+    // The reordered-keys repeat at hop 1 is the same batch, so anti-spin
+    // claims the loop first (`⠇⠁`); the storm's third sighting at hop 2 is
+    // the loop's quiet hop, and hop 3 ends it: one `⠇` per hop, paced.
+    assert_eq!(loop_turns(&history, "⠇⠁"), 1, "{history:?}");
+    assert_eq!(loop_turns(&history, "⠇⠃"), 0, "{history:?}");
     assert!(
-        suppressed[0]
-            .content
-            .contains("issued this exact `grep` call 3 times"),
-        "reflection missing: {}",
-        suppressed[0].content
-    );
-    assert!(events.iter().any(|event| matches!(
-        event,
-        TurnEvent::Notice(text) if text == "storm: suppressed duplicate grep call (x3)"
-    )));
-    assert_eq!(
-        events
+        !history
             .iter()
-            .filter(|event| matches!(
-                event,
-                TurnEvent::ToolCall { id, .. } if id.0 == "g2"
-            ))
-            .count(),
-        1,
-        "the authored suppressed call must remain paired"
-    );
-    let outcomes = events
-        .iter()
-        .filter_map(|event| match event {
-            TurnEvent::ToolResult { id, outcome, .. } if id.0 == "g2" => Some(outcome),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(outcomes, vec![&ToolOutcome::not_started()]);
-    assert!(!outcomes[0].attributable_success());
-}
-
-/// Window-threshold storms re-issue the same notice text every hop. Speak it
-/// once; later identical suppressions stay silent in the operator stream.
-#[test]
-fn identical_storm_notices_are_spoken_once() {
-    let _guard = crate::tests::env_lock();
-    let _armed = EnvGuard::set("ANGEL_TOOLCALL_STORM", "1");
-    let _window = EnvGuard::set("ANGEL_TOOLCALL_STORM_WINDOW", "3");
-    let _spin = EnvGuard::set("ANGEL_SPIN_LIMIT", "0");
-    let _cycle = EnvGuard::set("ANGEL_TOOL_CYCLE_REPEATS", "0");
-    let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
-    let _competition = EnvGuard::unset("ANGEL_COMPETITION_MODE");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let calls = Arc::new(AtomicUsize::new(0));
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(CountingProbe {
-        name: "shell",
-        calls: Arc::clone(&calls),
-    }));
-    struct Repeater {
-        hops: AtomicUsize,
-    }
-    impl Club for Repeater {
-        fn respond(&self, _p: &str) -> Result<String, String> {
-            Ok(String::new())
-        }
-        fn label(&self) -> &str {
-            "storm-notice-repeater"
-        }
-        fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-            let hop = self.hops.fetch_add(1, Ordering::SeqCst);
-            if hop >= 8 {
-                return Ok(ClubReply::Text("done".into()));
-            }
-            Ok(ClubReply::Calls(vec![ToolCall {
-                id: format!("s{hop}"),
-                name: "shell".into(),
-                args: serde_json::json!({"command": "pwd"}),
-            }]))
-        }
-    }
-    let mut history = vec![ChatMsg::user("keep checking")];
-    let (events, event_rx) = mpsc::channel();
-    let answer = run_turn(
-        &Repeater {
-            hops: AtomicUsize::new(0),
-        },
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(12),
-        &events,
-    )
-    .unwrap();
-    assert_eq!(answer, "done");
-    let notices: Vec<String> = event_rx
-        .try_iter()
-        .filter_map(|event| match event {
-            TurnEvent::Notice(text) if text.starts_with("storm:") => Some(text),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(
-        notices.len(),
-        1,
-        "same-tool suppressions must not restack: {notices:?}"
-    );
-    assert_eq!(
-        notices[0], "storm: suppressed duplicate shell call (x3)",
-        "first crossing still names the threshold"
-    );
-    assert_eq!(
-        calls.load(Ordering::SeqCst),
-        2,
-        "only the first two identical shells should execute"
+            .any(|message| message.content.contains("duplicate call suppressed"))
     );
 }
 
@@ -7772,7 +6768,7 @@ fn needs_pro_turn(
 fn contract_installed(history: &[ChatMsg]) -> bool {
     history
         .iter()
-        .any(|message| message.content.starts_with("[tier contract]"))
+        .any(|message| [FAST_TIER_CONTRACT, PRO_TIER_CONTRACT].contains(&message.content.as_ref()))
 }
 
 fn assistant_marker_present(messages: &[ChatMsg]) -> bool {
@@ -8675,15 +7671,12 @@ fn provider_death_fixture_with_transport(
 /// Model-free R03 soak: each hop changes its shell arguments while the
 /// verifier keeps returning a stalled result. Neither tool mutates the tree.
 #[test]
-fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
+fn r03_changing_unproductive_actions_are_stamped_with_stalled_verifier() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _error = EnvGuard::set("ANGEL_ERROR_LIMIT", "8");
-    // Interactive, no unproductive stop: only the error breaker ends this
+    // Interactive, no harness stop: only the caller's hop cap ends this
     // dialogue, whatever another test left in the environment.
     let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
-    let _unproductive = EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_STOP", "0");
     let _experience = EnvGuard::set("ANGEL_EXPERIENCE", "0");
     let _atlas = EnvGuard::set("ANGEL_ATLAS", "0");
     let _trajectory = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "0");
@@ -8721,7 +7714,7 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
             let hop = self.0.fetch_add(1, Ordering::Relaxed);
             assert!(
                 hop < 25,
-                "existing eight-error guard did not escalate: {} tools={:?}",
+                "the caller's hop cap did not end the dialogue: {} tools={:?}",
                 trajectory::progress_ledger_snapshot(),
                 trajectory::tool_ledger_snapshot()
             );
@@ -8753,29 +7746,36 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
         &registry,
         &mut history,
         &AtomicBool::new(false),
-        Some(30),
+        Some(10),
         &mpsc::channel::<TurnEvent>().0,
     )
-    .unwrap();
-    assert!(out.contains("errored"), "{out}");
-    // Two redirections reset the error streak before the stop: 3 x 8 hops.
-    assert_eq!(club.0.load(Ordering::Relaxed), 24);
+    .unwrap_err();
+    assert!(out.contains("10-hop runaway guard"), "{out}");
+    assert_eq!(club.0.load(Ordering::Relaxed), 10);
     let progress = trajectory::progress_ledger_snapshot();
     assert!(progress["first_verified_at_ms"].is_null());
-    assert_eq!(progress["unproductive_streak_max"], 24, "{progress}");
+    assert_eq!(progress["unproductive_streak_max"], 10, "{progress}");
     let escalations = progress["escalations"].as_array().unwrap();
     assert!(
         escalations
             .iter()
-            .any(|e| e["kind"] == "error_advisory" && e["hop"].as_u64().unwrap() <= 4)
+            .any(|e| e["kind"] == "execution.errors" && e["hop"].as_u64().unwrap() == 3),
+        "{progress}"
     );
-    assert!(
-        escalations
+    assert_eq!(
+        history
             .iter()
-            .any(|e| e["kind"] == "error_stop" && e["hop"].as_u64().unwrap() <= 24)
+            .filter(|m| m.role == ChatRole::Tool && tool_routed(m, "⠭⠁"))
+            .count(),
+        0,
+        "the error streak is its own turn, not the result's tail"
     );
+    // Ten hops of every call failing: the advice at the third, the cascade at
+    // the sixth (the count starts again), the advice again at the ninth.
+    assert_eq!(advisory_turns(&history, "⠭⠁"), 2);
+    assert_eq!(advisory_turns(&history, "⠼⠊"), 1);
     let tools = trajectory::tool_ledger_snapshot();
-    assert_eq!(tools.len(), 48);
+    assert_eq!(tools.len(), 20);
     assert!(
         tools
             .iter()
@@ -8792,12 +7792,10 @@ fn r03_changing_unproductive_actions_escalate_with_stalled_verifier() {
 }
 
 #[test]
-fn dispatch_receipt_errors_stop_at_existing_limit() {
+fn dispatch_receipt_errors_are_stamped_and_never_stop() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "0");
     let _capsules = EnvGuard::set("ANGEL_ACTION_CAPSULES", "observe");
-    let _first_write = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _error = EnvGuard::set("ANGEL_ERROR_LIMIT", "8");
     let _experience = EnvGuard::set("ANGEL_EXPERIENCE", "0");
     let _atlas = EnvGuard::set("ANGEL_ATLAS", "0");
     let _trajectory = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "0");
@@ -8828,8 +7826,7 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
         }
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let hop = self.0.fetch_add(1, Ordering::Relaxed);
-            // Two redirections reset the streak before the stop: 3 x 8 hops.
-            assert!(hop < 24, "existing dispatch breaker failed");
+            assert!(hop < 10, "the caller's hop cap did not end the turn");
             Ok(ClubReply::Calls(vec![ToolCall {
                 id: format!("r-{hop}"),
                 name: "shell".into(),
@@ -8849,17 +7846,14 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
         &registry,
         &mut vec![ChatMsg::user("Diagnose this dispatch failure")],
         &AtomicBool::new(false),
-        None,
+        Some(10),
         &tx,
     )
-    .unwrap();
-    assert!(
-        out.contains("stopped after 8 hops where every tool call errored"),
-        "{out}"
-    );
-    assert_eq!(club.0.load(Ordering::Relaxed), 24);
+    .unwrap_err();
+    assert!(out.contains("10-hop runaway guard"), "{out}");
+    assert_eq!(club.0.load(Ordering::Relaxed), 10);
     let ledger = trajectory::tool_ledger_snapshot();
-    assert_eq!(ledger.len(), 24);
+    assert_eq!(ledger.len(), 10);
     assert!(
         ledger
             .iter()
@@ -8870,7 +7864,7 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|e| e["kind"] == "error_stop")
+            .any(|e| e["kind"] == "execution.errors")
     );
     assert!(
         ledger.iter().all(
@@ -8883,7 +7877,7 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
             .iter()
             .filter(|e| matches!(e, TurnEvent::Notice(n) if n.starts_with("action receipt")))
             .count(),
-        24
+        10
     );
     let (mut app, _sender) = crate::tests::seed_live_streaming_app(events.clone());
     // advance() drains at most STREAM_EVENTS_PER_FRAME events per tick.
@@ -8908,10 +7902,7 @@ fn dispatch_receipt_errors_stop_at_existing_limit() {
             .iter()
             .filter(|m| m.text.contains("action receipt"))
             .count(),
-        24
-    );
-    println!(
-        "dispatch receipt: provider hops=24 ledger entries=24 error_class=Policy avoidable=true stop=error_stop conversation rows=0 trace rows=24"
+        10
     );
     std::fs::remove_dir_all(workspace).unwrap();
 }
@@ -8972,10 +7963,11 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             let hop = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
             assert!(hop <= 61, "dialogue failed to terminate");
             if hop == 9 {
+                // The streak notice (`⠇⠛⠃`) is the model's to hear: its own turn
+                // under the warning sign, the count and the verifier beside it.
                 assert!(history.iter().any(|m| {
                     m.role == ChatRole::Harness
-                        && m.content
-                            .contains("8 consecutive actions changed nothing verifiable")
+                        && m.content.as_ref() == "⛔⠇⠛⠃ streak=8 last=not_run"
                 }));
             }
             if hop == self.finish {
@@ -8989,28 +7981,61 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
                     "probe"
                 }
                 .into(),
-                args: serde_json::json!({"case":hop}),
+                // A different case each hop, named by letter: changing
+                // actions, not a renumbered repeat of one.
+                args: serde_json::json!({"case": char::from(b'a' + (hop % 26) as u8).to_string()}),
             }]))
         }
     }
-    // The stop redirects twice (clearing the streak) before it ends the turn:
-    // 3 x 16 unproductive hops, counted from the last progress.
-    for (task, competition, stop, progress_at, expected_hops, stopped) in [
-        ("1", "0", "16", 0, 48, true),
-        ("0", "0", "16", 0, 21, false),
-        ("1", "1", "16", 0, 21, false),
-        ("1", "0", "0", 0, 21, false),
-        ("1", "0", "unset", 0, 21, false),
-        ("1", "0", "16", 10, 58, true),
+    // The unproductive streak never ends a turn: no env knob, mode, or streak
+    // length can. Every case runs to the scripted answer. The model hears the
+    // notice at the eighth unproductive hop and, in a task turn outside a
+    // competition, the redirect at the sixteenth (0.1.6 stopped the turn there;
+    // the stop is gone, the count starts again). Elsewhere the notice repeats at
+    // every multiple of eight while the streak lasts.
+    for (task, competition, progress_at, expected_hops, expected_turns) in [
+        (
+            "1",
+            "0",
+            0,
+            21,
+            vec![
+                "⛔⠇⠛⠃ streak=8 last=not_run",
+                "⛔⠇⠛⠉ streak=16 last=not_run",
+            ],
+        ),
+        (
+            "0",
+            "0",
+            0,
+            21,
+            vec![
+                "⛔⠇⠛⠃ streak=8 last=not_run",
+                "⛔⠇⠛⠃ streak=16 last=not_run",
+            ],
+        ),
+        (
+            "1",
+            "1",
+            0,
+            21,
+            vec![
+                "⛔⠇⠛⠃ streak=8 last=not_run",
+                "⛔⠇⠛⠃ streak=16 last=not_run",
+            ],
+        ),
+        (
+            "1",
+            "0",
+            10,
+            21,
+            // A verifier run at hop 10 restarts the streak; it reaches eight again at 18.
+            vec!["⛔⠇⠛⠃ streak=8 last=not_run", "⛔⠇⠛⠃ streak=8 last=failed"],
+        ),
     ] {
         let _mode = [
             EnvGuard::set("ANGEL_TASK_ACTIVE", task),
             EnvGuard::set("ANGEL_COMPETITION_MODE", competition),
-            if stop == "unset" {
-                EnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_STOP")
-            } else {
-                EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_STOP", stop)
-            },
         ];
         let root = scratch("r03b");
         let mut registry = ToolRegistry::new();
@@ -9020,7 +8045,7 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         let club = Dialogue {
             calls: AtomicUsize::new(0),
             progress_at,
-            finish: if stopped { 60 } else { 21 },
+            finish: 21,
         };
         let mut history = vec![ChatMsg::user("Investigate the blocker")];
         let (tx, rx) = mpsc::channel();
@@ -9037,15 +8062,17 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             outcome.hops, expected_hops,
             "task={task} competition={competition} progress={progress_at}"
         );
-        assert_eq!(club.calls.load(Ordering::SeqCst), expected_hops);
+        let streak_turns = history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.starts_with("⛔⠇⠛"))
+            .map(|m| m.content.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(
-            outcome.stop_reason,
-            if stopped {
-                TurnStopReason::EscalatedUnproductive
-            } else {
-                TurnStopReason::Answer
-            }
+            streak_turns, expected_turns,
+            "task={task} competition={competition} progress={progress_at}"
         );
+        assert_eq!(club.calls.load(Ordering::SeqCst), expected_hops);
+        assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
         let ledger = trajectory::progress_ledger_snapshot();
         let escalations: Vec<_> = ledger["escalations"]
             .as_array()
@@ -9056,33 +8083,23 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         assert_eq!(escalations[0]["hop"], 8);
         assert_eq!(escalations[0]["streak"], 8);
         assert_eq!(escalations[0]["last_verifier"], "not_run");
-        if progress_at == 10 {
-            assert_eq!(escalations[1]["hop"], 18);
-            assert_eq!(escalations[1]["last_verifier"], "failed");
-        }
+        // Each turn the model heard is also a tray notice.
         let notices: Vec<_> = rx
             .try_iter()
             .filter_map(|e| match e {
-                TurnEvent::Notice(n) if n.starts_with("unproductive streak:") => Some(n),
+                TurnEvent::Notice(n)
+                    if n.starts_with(&crate::agent::harness::book::l_loops::STREAK.cells()) =>
+                {
+                    Some(n)
+                }
                 _ => None,
             })
             .collect();
-        assert_eq!(notices.len(), escalations.len());
+        assert_eq!(notices.len(), expected_turns.len());
         assert!(notices.iter().all(
             |n| crate::ui::views::turn_event_view::notice_coalesce_key(n)
                 == Some("unproductive-streak")
         ));
-        if stopped {
-            assert!(outcome.answer.contains("16 consecutive unproductive hops"));
-            let tools = trajectory::tool_ledger_snapshot();
-            for tool in tools.iter().rev().take(3) {
-                assert!(
-                    outcome
-                        .answer
-                        .contains(tool["args_digest"].as_str().unwrap())
-                );
-            }
-        }
         let envelope = TaskJsonEnvelope::from_outcome(
             TaskJsonContext {
                 task_id: None,
@@ -9105,18 +8122,8 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             &history,
         );
         let envelope = serde_json::to_value(envelope).unwrap();
-        assert_eq!(
-            envelope["status"],
-            if stopped { "stopped" } else { "completed" }
-        );
-        assert_eq!(
-            envelope["stop_reason"],
-            if stopped {
-                "escalated_unproductive"
-            } else {
-                "answer"
-            }
-        );
+        assert_eq!(envelope["status"], "completed");
+        assert_eq!(envelope["stop_reason"], "answer");
         std::fs::remove_dir_all(root).unwrap();
     }
 }
@@ -9189,7 +8196,6 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
         EnvGuard::set("ANGEL_RELENTLESS_EXECUTION", "0"),
         EnvGuard::set("ANGEL_COMPETITION_MODE", "0"),
         EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE", "8"),
-        EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_STOP", "16"),
         EnvGuard::set("ANGEL_TASK_ACTIVE", "1"),
         EnvGuard::set("ANGEL_SPIN_LIMIT", "0"),
         EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "2"),
@@ -9232,7 +8238,7 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
             assert!(
                 history
                     .iter()
-                    .any(|m| m.role == ChatRole::Harness && m.content.contains("NO citations"))
+                    .any(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠎⠁")
             );
             let hop = self.calls.fetch_add(1, Ordering::SeqCst);
             // The unproductive stop redirects twice before it ends the turn
@@ -9342,10 +8348,16 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
         let progress = trajectory::progress_ledger_snapshot();
         assert_eq!(progress["research_turn"], true);
         if circular {
-            assert_eq!(outcome.stop_reason, TurnStopReason::EscalatedUnproductive);
-            // The first search adds a source; the next 3 x 16 add nothing.
-            assert_eq!(outcome.hops, 49);
-            assert!(rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.contains("added no new sources") && n.contains("NO citations") && !n.contains("verifier"))));
+            // The first search adds a source; the repeats add nothing, but the
+            // streak can no longer stop the turn: it runs to the scripted
+            // hop cap with the advisory notice delivered.
+            assert_eq!(outcome.stop_reason, TurnStopReason::MaxHops);
+            assert_eq!(outcome.hops, 60);
+            // A research turn's streak is page ⠇⠛⠁ (no new sources), never
+            // the verifier page ⠇⠛⠃.
+            let sources_page =
+                format!("{}⠁ ", crate::agent::harness::book::l_loops::STREAK.cells());
+            assert!(rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.starts_with(&sources_page) && !n.contains("last="))));
         } else if cap == 3 {
             assert_eq!(club.calls.load(Ordering::SeqCst), 3);
             assert_eq!(outcome.hops, 3);
@@ -9373,7 +8385,8 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
             assert_eq!(progress["research_sources"], sources);
             assert_eq!(progress["research_answer_delivered"], true);
             assert_eq!(progress["unproductive_streak_max"], 0);
-            assert!(!rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.contains("unproductive streak:") || n.contains("verifier's last outcome"))));
+            let streak = crate::agent::harness::book::l_loops::STREAK.cells();
+            assert!(!rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.contains(&streak) || n.contains("verifier's last outcome"))));
         }
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -9468,162 +8481,12 @@ fn run_turn_research_task_mode_boundary_envelopes_keep_drafts() {
 }
 
 #[test]
-fn run_turn_research_compose_search_loops_decline_early_and_wall() {
-    let _guard = crate::tests::env_lock();
-    let _env = [
-        EnvGuard::set("ANGEL_CADDY", "0"),
-        EnvGuard::set("ANGEL_YOLO", "1"),
-        EnvGuard::set("ANGEL_SKILL_HINT", "0"),
-        EnvGuard::set("ANGEL_ADVISOR", "0"),
-        EnvGuard::set("ANGEL_EXPERIENCE", "0"),
-        EnvGuard::set("ANGEL_ATLAS", "0"),
-        EnvGuard::set("ANGEL_TRAJECTORY_LOG", "0"),
-        EnvGuard::set("ANGEL_HARNESS_ROLLOUT", "off"),
-        EnvGuard::set("ANGEL_COMPETITION_MODE", "0"),
-        EnvGuard::set("ANGEL_SPIN_LIMIT", "0"),
-        EnvGuard::set("ANGEL_RELENTLESS_EXECUTION", "0"),
-        EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD"),
-    ];
-    struct Source(&'static str, bool);
-    impl Tool for Source {
-        fn name(&self) -> &str {
-            self.0
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.0.into(),
-                description: "fixture evidence".into(),
-                params: serde_json::json!({"type":"object"}),
-            }
-        }
-        fn call(&self, _: &Value) -> Result<String, String> {
-            if self.1 {
-                std::thread::sleep(Duration::from_millis(1100));
-            }
-            Ok("https://example.test/doc/1\nThe answer is 42.".into())
-        }
-    }
-    struct Dialogue {
-        hop: AtomicUsize,
-        mode: &'static str,
-        composed: AtomicBool,
-    }
-    impl Club for Dialogue {
-        fn label(&self) -> &str {
-            "research-compose-fixture"
-        }
-        fn respond(&self, _: &str) -> Result<String, String> {
-            unreachable!()
-        }
-        fn chat(&self, history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
-            let hop = self.hop.fetch_add(1, Ordering::SeqCst);
-            let compose = history.last().is_some_and(|m| {
-                m.content.as_ref() == crate::agent::harness::turn::research::COMPOSE
-            });
-            if compose || (self.mode == "early" && hop == 2) {
-                self.composed.store(compose, Ordering::SeqCst);
-                assert_eq!(
-                    crate::agent::club::final_response_requested(history),
-                    compose
-                );
-                let answer = if self.mode == "decline" || (self.mode == "repeat" && hop < 2) {
-                    "Evidence is missing; I cite nothing."
-                } else {
-                    "42 [source](https://example.test/doc/1)"
-                };
-                return Ok(ClubReply::Text(answer.into()));
-            }
-            let fetch = hop == 1 && self.mode != "decline";
-            Ok(ClubReply::Calls(vec![ToolCall {
-                id: format!("call-{hop}"),
-                name: if fetch { "web_fetch" } else { "web_search" }.into(),
-                args: if fetch {
-                    serde_json::json!({"url":"https://example.test/doc/1"})
-                } else {
-                    serde_json::json!({"query":if self.mode == "cap" {format!("clock-{hop}")} else {"clock".into()}})
-                },
-            }]))
-        }
-    }
-    for (mode, expected_hops, composed) in [
-        ("cap", 8, true),
-        ("repeat", 5, true),
-        ("decline", 3, true),
-        ("early", 3, false),
-        ("wall", 2, false),
-    ] {
-        let _deadline = EnvGuard::set(
-            "ANGEL_TURN_DEADLINE_SECS",
-            if mode == "wall" { "1" } else { "0" },
-        );
-        let root = scratch("research-compose");
-        let mut registry = ToolRegistry::new();
-        registry.set_workspace(root.clone());
-        registry.register(Box::new(Source("web_search", false)));
-        registry.register(Box::new(Source("web_fetch", mode == "wall")));
-        let club = Dialogue {
-            hop: AtomicUsize::new(0),
-            mode,
-            composed: AtomicBool::new(false),
-        };
-        let mut history = vec![ChatMsg::user(
-            "Research question: answer from sources and citations.",
-        )];
-        let outcome = run_turn_observed(
-            &club,
-            &registry,
-            &mut history,
-            &AtomicBool::new(false),
-            Some(8),
-            &mpsc::channel().0,
-        )
-        .unwrap();
-        assert_eq!(outcome.hops, expected_hops, "{mode}");
-        assert_eq!(club.composed.load(Ordering::SeqCst), composed, "{mode}");
-        assert_eq!(club.hop.load(Ordering::SeqCst), expected_hops, "{mode}");
-        if mode == "wall" {
-            assert!(outcome.deadline_reached);
-            assert!(
-                !history
-                    .iter()
-                    .any(|m| m.role == ChatRole::Assistant && !m.content.trim().is_empty())
-            );
-            assert!(
-                !history
-                    .iter()
-                    .any(|m| m.content.as_ref() == crate::agent::harness::turn::research::COMPOSE)
-            );
-        } else if mode == "decline" {
-            assert_eq!(
-                outcome.answer,
-                crate::agent::harness::turn::research::DISCLOSURE
-            );
-        } else {
-            assert_eq!(
-                outcome.answer, "42 [source](https://example.test/doc/1)",
-                "{mode}"
-            );
-        }
-        assert_eq!(
-            outcome.stop_reason,
-            if mode == "wall" {
-                TurnStopReason::Deadline
-            } else {
-                TurnStopReason::Answer
-            }
-        );
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}
-
-#[test]
 fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
     let _guard = crate::tests::env_lock();
     let _env = [
         EnvGuard::set("ANGEL_YOLO", "1"),
         EnvGuard::set("ANGEL_TASK_ACTIVE", "1"),
         EnvGuard::set("ANGEL_COMPETITION_MODE", "0"),
-        EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_STOP", "60"),
         EnvGuard::set("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE", "8"),
         EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0"),
         EnvGuard::set("ANGEL_SKILL_HINT", "0"),
@@ -9741,11 +8604,9 @@ fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
                     < 60
             );
         } else {
-            assert_eq!(outcome.stop_reason, TurnStopReason::EscalatedUnproductive);
-            // Two redirections clear the streak before the stop: 3 x 60 hops
-            // (mode 2's first red run is credited progress, so one more).
-            assert_eq!(outcome.hops, if mode == 2 { 181 } else { 180 });
-            assert!(outcome.answer.contains("last credited progress:"));
+            // The streak can no longer stop the turn: every lane runs to the
+            // scripted answer; the notice fires but nothing terminates.
+            assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
         }
         println!(
             "R06 scripted mode={mode} hops={} stop={:?} ledger={}",
@@ -9960,7 +8821,7 @@ fn run_turn_r06_stream_cut_budget_renews_on_each_hop() {
 }
 
 #[test]
-fn run_turn_research_at_wall_without_draft_does_not_compose() {
+fn run_turn_research_at_wall_without_draft_stops_at_the_deadline() {
     let _guard = crate::tests::env_lock();
     let _env = [
         EnvGuard::set("ANGEL_TURN_DEADLINE_SECS", "1"),
@@ -9980,13 +8841,12 @@ fn run_turn_research_at_wall_without_draft_does_not_compose() {
         fn respond(&self, _: &str) -> Result<String, String> {
             unreachable!()
         }
-        fn chat(&self, history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
+        fn chat(&self, _history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             assert_eq!(
                 self.0.fetch_add(1, Ordering::SeqCst),
                 0,
                 "no request after the wall"
             );
-            assert!(!crate::agent::club::final_response_requested(history));
             std::thread::sleep(Duration::from_millis(1100));
             Ok(ClubReply::Calls(vec![ToolCall {
                 id: "late-search".into(),
@@ -10017,84 +8877,9 @@ fn run_turn_research_at_wall_without_draft_does_not_compose() {
     assert!(
         !history
             .iter()
-            .any(|m| m.content.as_ref() == crate::agent::harness::turn::research::COMPOSE)
-    );
-    assert!(
-        !history
-            .iter()
             .any(|m| m.role == ChatRole::Assistant && !m.content.trim().is_empty())
     );
     std::fs::remove_dir_all(root).unwrap();
-}
-
-#[test]
-fn run_turn_research_compose_rechecks_reservation_after_identity_binding() {
-    let _guard = crate::tests::env_lock();
-    let _env = [
-        EnvGuard::set("ANGEL_TURN_DEADLINE_SECS", "1"),
-        EnvGuard::set("ANGEL_COMPETITION_MODE", "0"),
-        EnvGuard::set("ANGEL_ADVISOR", "0"),
-        EnvGuard::set("ANGEL_CADDY", "0"),
-        EnvGuard::set("ANGEL_EXPERIENCE", "0"),
-        EnvGuard::set("ANGEL_ATLAS", "0"),
-        EnvGuard::set("ANGEL_HARNESS_ROLLOUT", "off"),
-        EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD"),
-    ];
-    struct BindingDelay {
-        delay: Duration,
-        requests: AtomicUsize,
-    }
-    impl Club for BindingDelay {
-        fn label(&self) -> &str {
-            "research-reservation"
-        }
-        fn respond(&self, _: &str) -> Result<String, String> {
-            unreachable!()
-        }
-        fn bind_run_identity(&self, _: Option<&str>) -> Result<(), String> {
-            std::thread::sleep(self.delay);
-            Ok(())
-        }
-        fn chat(&self, history: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
-            self.requests.fetch_add(1, Ordering::SeqCst);
-            assert!(crate::agent::club::final_response_requested(history));
-            Ok(ClubReply::Text(
-                "Evidence is missing; I cite nothing.".into(),
-            ))
-        }
-    }
-    for delay_ms in [0, 950, 1100] {
-        let root = scratch("research-reservation");
-        let mut registry = ToolRegistry::new();
-        registry.set_workspace(root.clone());
-        let club = BindingDelay {
-            delay: Duration::from_millis(delay_ms),
-            requests: AtomicUsize::new(0),
-        };
-        let mut history = vec![ChatMsg::user("Use research-answer for this question.")];
-        let outcome = run_turn_observed(
-            &club,
-            &registry,
-            &mut history,
-            &AtomicBool::new(false),
-            Some(1),
-            &mpsc::channel().0,
-        )
-        .unwrap();
-        assert_eq!(
-            club.requests.load(Ordering::SeqCst),
-            usize::from(delay_ms == 0)
-        );
-        assert_eq!(
-            outcome.stop_reason,
-            if delay_ms == 0 {
-                TurnStopReason::Answer
-            } else {
-                TurnStopReason::Deadline
-            }
-        );
-        std::fs::remove_dir_all(root).unwrap();
-    }
 }
 
 /// Runs `make` once, then claims completion on every later call.
@@ -10209,13 +8994,10 @@ fn run_confirm_green_turn(root: &Path) -> (TurnOutcome, Vec<ChatMsg>, usize) {
 /// failing output (polyglot-v1 cpp-robot-name passed about one run in four); a
 /// stable pass is confirmed and accepted.
 #[test]
-fn a_green_that_does_not_hold_denies_completion_with_the_failing_output() {
+fn a_green_that_does_not_hold_is_a_flaky_fact_with_the_failing_output_in_the_ledger() {
     let _guard = crate::tests::env_lock();
     let _runs = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "2");
     let _accept = EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
-    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
     let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
 
@@ -10224,34 +9006,33 @@ fn a_green_that_does_not_hold_denies_completion_with_the_failing_output() {
         "all:\n\t@if [ -f .ran ]; then echo 'REQUIRE( names.count(name) == 0 ) failed'; exit 1; fi; touch .ran\n",
     );
     let (outcome, history, calls) = run_confirm_green_turn(&flaky);
-    assert_eq!(calls, 3, "the first done is denied, the second accepted");
+    assert_eq!(calls, 3, "one checkpoint, then the answer stands");
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    let denial = history
-        .iter()
-        .find(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
-        .expect("the completion was denied");
     assert!(
-        denial.content.contains("names.count(name) == 0"),
-        "{}",
-        denial.content
+        history.iter().any(is_flaky_checkpoint),
+        "the flaky green reached the stop checkpoint"
     );
     assert!(
-        denial.content.contains("`shell: make`"),
-        "{}",
-        denial.content
+        book::ledger::read(&flaky, "⠧⠑")
+            .unwrap()
+            .contains("shell: make")
     );
+    let ledger = book::ledger::read(&flaky, "⠧⠑").unwrap();
+    assert!(ledger.contains("names.count(name) == 0"), "{ledger}");
     let _ = std::fs::remove_dir_all(flaky);
 
     let stable = confirm_green_fixture("confirm_green_stable", "all:\n\t@true\n");
     let (outcome, history, calls) = run_confirm_green_turn(&stable);
     assert_eq!(calls, 2, "a green that holds is accepted at once");
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    assert!(
-        !history
-            .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
-    );
+    assert!(!history.iter().any(is_flaky_checkpoint));
     let _ = std::fs::remove_dir_all(stable);
+}
+
+fn is_flaky_checkpoint(message: &ChatMsg) -> bool {
+    message.role == ChatRole::Harness
+        && book::ledger::is_warpath_message(&message.content)
+        && has_route(first_line(&message.content), "⠧⠑")
 }
 
 /// Writes `robot.cpp`, runs `make` once, then claims completion.
@@ -10323,19 +9104,14 @@ fn a_green_on_code_that_draws_on_chance_is_confirmed_by_default() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _limit = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
-    let denied = |history: &[ChatMsg]| {
-        history
-            .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
-    };
+    let denied = |history: &[ChatMsg]| history.iter().any(is_flaky_checkpoint);
     const RANDOM: &str = "#include <random>\nstd::mt19937 rng{std::random_device{}()};\n";
     const PLAIN: &str = "int add(int a, int b) { return a + b; }\n";
 
     let _unset = EnvGuard::unset("ANGEL_CONFIRM_GREEN_RUNS");
     let (history, calls) = run_chance_turn("chance_random", RANDOM);
     assert!(denied(&history), "a lucky green on random code is caught");
-    assert_eq!(calls, 4, "write, make, denied done, accepted done");
+    assert_eq!(calls, 4, "write, make, checkpointed done, accepted done");
 
     let (history, calls) = run_chance_turn("chance_plain", PLAIN);
     assert!(!denied(&history), "deterministic code is not re-run");
@@ -10461,15 +9237,12 @@ impl Club for MaskedGreenClub {
 }
 
 /// A green that rests on a fallback-masked command is confirmed with angelX's
-/// own run_tests; when that is red, the completion is denied.
+/// own run_tests; when that is red, the stop checkpoint carries `flaky`.
 #[test]
 fn a_masked_green_is_confirmed_with_run_tests() {
     let _guard = crate::tests::env_lock();
     let _runs = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "2");
     let _accept = EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD");
-    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
-    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
-    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
     let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
     let root = confirm_green_fixture("confirm_green_masked", "all:\n\t@false\n");
@@ -10492,16 +9265,13 @@ fn a_masked_green_is_confirmed_with_run_tests() {
     .expect("turn completes");
     assert_eq!(club.calls.load(Ordering::SeqCst), 3);
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    let denial = history
-        .iter()
-        .find(|m| m.role == ChatRole::Harness && m.content.contains(CONFIRM_GREEN_NUDGE))
-        .expect("the masked green was not accepted");
-    assert!(denial.content.contains("`run_tests`"), "{}", denial.content);
     assert!(
-        denial.content.contains("names.count(name) == 0"),
-        "{}",
-        denial.content
+        history.iter().any(is_flaky_checkpoint),
+        "the masked green reached the stop checkpoint"
     );
+    let ledger = book::ledger::read(&root, "⠧⠑").unwrap();
+    assert!(ledger.contains("run_tests"), "{ledger}");
+    assert!(ledger.contains("names.count(name) == 0"), "{ledger}");
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -10558,14 +9328,10 @@ fn an_output_cap_cut_off_tells_the_model_before_the_retry() {
     );
     let notes: Vec<_> = history
         .iter()
-        .filter(|m| m.role == ChatRole::Harness && m.content.contains(OUTPUT_CAP_NUDGE))
+        .filter(|m| m.role == ChatRole::Harness && m.content.starts_with("⠭⠉"))
         .collect();
-    assert_eq!(notes.len(), 1, "one note before the retry");
-    assert!(
-        notes[0].content.contains("8192 tokens"),
-        "{}",
-        notes[0].content
-    );
+    assert_eq!(notes.len(), 1, "one ⠭⠉ before the retry");
+    use crate::agent::harness::book::x_execution::is_output_cap_truncation;
     assert!(is_output_cap_truncation(
         crate::agent::club::TRUNCATED_OUTPUT_ERR
     ));
@@ -10649,14 +9415,12 @@ fn a_reasoning_only_cut_off_is_told_to_act() {
         .filter(|m| m.role == ChatRole::Harness)
         .collect();
     assert!(
-        harness
-            .iter()
-            .any(|m| m.content.contains(REASONING_CAP_NUDGE)),
-        "told to act"
+        harness.iter().any(|m| m.content.starts_with("⠭⠙")),
+        "routed to act"
     );
     assert!(
-        !harness.iter().any(|m| m.content.contains(OUTPUT_CAP_NUDGE)),
-        "not told to split a tool call it never made"
+        !harness.iter().any(|m| m.content.starts_with("⠭⠉")),
+        "not routed to split a tool call it never made"
     );
 }
 
@@ -10682,7 +9446,7 @@ fn output_cap_cut_offs_stop_once_the_notes_are_spent() {
     assert_eq!(
         history
             .iter()
-            .filter(|m| m.role == ChatRole::Harness && m.content.contains(REASONING_CAP_NUDGE))
+            .filter(|m| m.role == ChatRole::Harness && m.content.starts_with("⠭⠙"))
             .count(),
         3
     );
@@ -10745,11 +9509,11 @@ fn edits_outside_the_edit_scope_are_noted_once() {
     };
     let mut noted = std::collections::HashSet::new();
     assert_eq!(
-        edit_scope_note(Some(&scope), &root, &write("src/lib.rs"), &mut noted),
+        out_of_scope_fact(Some(&scope), &root, &write("src/lib.rs"), &mut noted),
         None
     );
     assert_eq!(
-        edit_scope_note(
+        out_of_scope_fact(
             Some(&scope),
             &root,
             &write("/ws/task/crates/core/a.rs"),
@@ -10758,19 +9522,23 @@ fn edits_outside_the_edit_scope_are_noted_once() {
         None,
         "absolute paths inside the scope are fine"
     );
-    let note = edit_scope_note(Some(&scope), &root, &write("Cargo.toml"), &mut noted)
-        .expect("an out-of-scope edit is noted");
+    let fact = out_of_scope_fact(Some(&scope), &root, &write("Cargo.toml"), &mut noted)
+        .expect("an out-of-scope edit is a ⠧⠓ fact");
+    assert_eq!(fact.route, OUT_OF_SCOPE);
     assert!(
-        note.contains("Cargo.toml is outside this task's editable paths"),
-        "{note}"
+        fact.evidence
+            .as_deref()
+            .unwrap()
+            .contains("Outside the editable paths: Cargo.toml"),
+        "{fact:?}"
     );
     assert_eq!(
-        edit_scope_note(Some(&scope), &root, &write("Cargo.toml"), &mut noted),
+        out_of_scope_fact(Some(&scope), &root, &write("Cargo.toml"), &mut noted),
         None,
         "once per path per turn"
     );
     assert_eq!(
-        edit_scope_note(None, &root, &write("Cargo.toml"), &mut noted),
+        out_of_scope_fact(None, &root, &write("Cargo.toml"), &mut noted),
         None
     );
 }
@@ -10902,6 +9670,75 @@ fn root_turn_env() -> Vec<EnvGuard> {
         EnvGuard::unset("ANGEL_TURN_DEADLINE_SECS"),
         EnvGuard::unset("ANGEL_COMPETITION_MODE"),
     ]
+}
+
+/// Does this tool result end with a warpath carrying `route`?
+fn tool_routed(message: &ChatMsg, route: &str) -> bool {
+    message.role == ChatRole::Tool
+        && message
+            .content
+            .lines()
+            .last()
+            .is_some_and(|line| book::ledger::is_warpath_line(line) && has_route(line, route))
+}
+
+/// Loop turns (`⛔` then the loop route's cells) in `history` carrying `route`.
+fn loop_turns(history: &[ChatMsg], route: &str) -> usize {
+    history
+        .iter()
+        .filter(|m| {
+            m.role == ChatRole::Harness
+                && m.content
+                    .strip_prefix(book::l_loops::WARNING)
+                    .is_some_and(|cells| has_route(cells, route))
+        })
+        .count()
+}
+
+/// Every loop turn's text in `history`, in order (`⛔` then a `⠇` route; the
+/// other advisories that lead with the sign are not loop turns).
+fn loop_turn_texts(history: &[ChatMsg]) -> Vec<String> {
+    let loop_sign = format!("{}{}", book::l_loops::WARNING, book::l_loops::CELL);
+    let streak_sign = format!(
+        "{}{}",
+        book::l_loops::WARNING,
+        book::l_loops::STREAK.cells()
+    );
+    history
+        .iter()
+        .filter(|m| {
+            m.role == ChatRole::Harness
+                && m.content.starts_with(&loop_sign)
+                && !m.content.starts_with(&streak_sign)
+        })
+        .map(|m| m.content.to_string())
+        .collect()
+}
+
+/// Advisory turns in `history` carrying `route`: its own harness message, the
+/// warning sign first when the route is a warning, the stamps on its first line.
+fn advisory_turns(history: &[ChatMsg], route: &str) -> usize {
+    history
+        .iter()
+        .filter(|m| {
+            let line = first_line(&m.content);
+            m.role == ChatRole::Harness
+                && !line.ends_with("⠟⠁")
+                && has_route(line.trim_start_matches(book::l_loops::WARNING), route)
+        })
+        .count()
+}
+
+/// Stop checkpoints in `history` whose warpath carries `route`.
+fn checkpoints_with(history: &[ChatMsg], route: &str) -> usize {
+    history
+        .iter()
+        .filter(|m| {
+            m.role == ChatRole::Harness
+                && book::ledger::is_warpath_message(&m.content)
+                && has_route(m.content.lines().next().unwrap_or_default(), route)
+        })
+        .count()
 }
 
 /// A Git workspace, so the turn can tell whether code changed since a test run.
@@ -11076,38 +9913,38 @@ fn a_red_verifier_verdict_is_not_a_dispatch_failure() {
 /// hitting a broken tool. polyglot-v1 rust-decimal: DeepSeek V4.1 Flash was
 /// stopped at 67 s of 600 s and told to fix a path while its tests were red.
 #[test]
-fn red_test_runs_do_not_trip_the_consecutive_error_stop() {
+fn red_test_runs_are_not_dispatch_errors_and_are_stamped_red_once() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _error = EnvGuard::set("ANGEL_ERROR_LIMIT", "2");
-    let _red_gate = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
     let root = scratch("red_runs_error_stop");
     let script = Script::new((0..7).map(run_tests_call).collect());
     let (outcome, history, runs) = run_root_turn(&root, &script);
     assert_eq!(runs, 7);
-    assert_eq!(
-        outcome.stop_reason,
-        TurnStopReason::Answer,
-        "seven red runs under ANGEL_ERROR_LIMIT=2 must not end the turn"
-    );
-    assert!(
-        !history
+    assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+    let tool_stamp = |route: &str| {
+        history
             .iter()
-            .any(|m| m.content.contains("ERROR CASCADE REDIRECTION")),
-        "no path/state advice for failing tests"
+            .filter(|m| m.role == ChatRole::Tool && tool_routed(m, route))
+            .count()
+    };
+    assert_eq!(
+        tool_stamp("⠭⠁"),
+        0,
+        "failing tests are verdicts, not tool errors"
     );
+    assert_eq!(tool_stamp("⠧⠙"), 0, "the recovery advice is its own turn");
+    assert_eq!(advisory_turns(&history, "⠧⠙"), 1);
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Task mode: "done" while the last test run on the same code is red is
-/// denied with the failure; after a fix and a green run it is accepted.
+/// Task mode: "done" while the last test run on the same code is red meets the
+/// stop checkpoint once, with the failure in the ledger; the model fixes it.
 #[test]
-fn a_completion_on_red_code_is_denied_while_budget_remains() {
+fn a_completion_on_red_code_meets_the_stop_checkpoint_once() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
     let root = root_fixture("red_completion");
     let script = Script::new(vec![
         run_tests_call(0),
@@ -11121,35 +9958,23 @@ fn a_completion_on_red_code_is_denied_while_budget_remains() {
     assert_eq!(
         script.chats(),
         5,
-        "the red answer was denied, the green one accepted"
+        "the red answer met the checkpoint, the green one stood"
     );
     assert_eq!(runs, 2);
-    let denials: Vec<&ChatMsg> = history
-        .iter()
-        .filter(|m| m.role == ChatRole::Harness && m.content.contains(RED_COMPLETION_NUDGE))
-        .collect();
-    assert_eq!(denials.len(), 1);
-    assert!(
-        denials[0].content.contains("sub_id"),
-        "{}",
-        denials[0].content
-    );
-    assert!(
-        denials[0].content.contains("steps are left"),
-        "{}",
-        denials[0].content
-    );
+    assert_eq!(checkpoints_with(&history, "⠧⠁"), 1);
+    assert_eq!(checkpoints_with(&history, "⠟⠁"), 1);
+    let ledger = book::ledger::read(&root, "⠧⠁").unwrap();
+    assert!(ledger.contains("sub_id"), "{ledger}");
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A model that is truly stuck can still report: after the denial limit its
+/// A model that is truly stuck can still report: after one checkpoint its
 /// answer stands.
 #[test]
-fn a_red_completion_is_accepted_after_the_denial_limit() {
+fn a_red_completion_stands_after_one_checkpoint() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
     let root = root_fixture("red_completion_limit");
     let script = Script::new(vec![
         run_tests_call(0),
@@ -11159,14 +9984,8 @@ fn a_red_completion_is_accepted_after_the_denial_limit() {
     ]);
     let (outcome, history, _) = run_root_turn(&root, &script);
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    assert_eq!(script.chats(), 4, "two denials, then the answer stands");
-    assert_eq!(
-        history
-            .iter()
-            .filter(|m| m.role == ChatRole::Harness && m.content.contains(RED_COMPLETION_NUDGE))
-            .count(),
-        2
-    );
+    assert_eq!(script.chats(), 3, "one checkpoint, then the answer stands");
+    assert_eq!(checkpoints_with(&history, "⠧⠁"), 1);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -11175,7 +9994,6 @@ fn a_red_completion_is_accepted_after_the_denial_limit() {
 fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
-    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
 
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let root = root_fixture("red_completion_edited");
@@ -11184,13 +10002,13 @@ fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
         write_call("lib.rs", "pub fn sub() { 0 }\n"),
         Move::Say("Fixed sub_id."),
     ]);
-    let (outcome, _, _) = run_root_turn(&root, &script);
+    let (outcome, history, _) = run_root_turn(&root, &script);
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    assert_eq!(
-        script.chats(),
-        3,
-        "new code, so the red run no longer describes it"
-    );
+    // New code, so the red run no longer describes it; the edit itself is
+    // unverified, which is the only fact the checkpoint carries.
+    assert_eq!(script.chats(), 4);
+    assert_eq!(checkpoints_with(&history, "⠧⠁"), 0);
+    assert_eq!(checkpoints_with(&history, "⠧⠋"), 1);
     let _ = std::fs::remove_dir_all(root);
 
     let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
@@ -11252,7 +10070,7 @@ impl Tool for GreenShell {
 const SCRIPTED_RED: &str = "python3 -m unittest discover -v failed (exit 1)\nFAILED (errors=1)";
 
 /// Task mode: a red run_tests, then `next`, then "All tests pass." Returns how
-/// many model calls the turn took (3 = no denial) and whether one was denied.
+/// many model calls the turn took (3 = no checkpoint) and whether one carried `red`.
 fn red_then(
     name: &str,
     second: Result<&'static str, &'static str>,
@@ -11282,9 +10100,7 @@ fn red_then(
     )
     .expect("turn completes");
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    let denied = history
-        .iter()
-        .any(|m| m.content.contains(RED_COMPLETION_NUDGE));
+    let denied = checkpoints_with(&history, "⠧⠁") > 0;
     let _ = std::fs::remove_dir_all(root);
     (script.chats(), denied)
 }
@@ -11300,7 +10116,6 @@ fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
     const UNLABELED_GREEN: &str = "tests: 8 passed, 0 failed, 0 skipped — reward unlabeled \
          (verification inconclusive: no immutable system pytest installation is available)";
     let shell = |command: &str| tc("shell", json!({ "command": command }));
@@ -11326,20 +10141,19 @@ fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
 }
 
 /// Only a test run replaces the red record: listing files after a red run
-/// says nothing about the code, so "done" on it is still denied.
+/// says nothing about the code, so "done" on it still carries `red`.
 #[test]
 fn a_command_that_is_not_a_test_run_keeps_the_red_record() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _limit = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
     let (chats, denied) = red_then(
         "red_then_ls",
         Err(SCRIPTED_RED),
         tc("shell", json!({"command": "ls; cat lib.rs"})),
     );
     assert!(denied, "the red run still describes this code");
-    assert_eq!(chats, 5, "two denials, then the answer stands");
+    assert_eq!(chats, 4, "one checkpoint, then the answer stands");
 }
 
 /// A Git workspace shaped like polyglot-v1 js-grep: a source file and a spec
@@ -11387,23 +10201,17 @@ fn run_spec_turn(root: &Path, moves: Vec<Move>) -> (Script, Vec<ChatMsg>) {
     (script, history)
 }
 
-/// Task mode: "done" with a test file that came with the task changed is
-/// denied once, however the change was made (here a shell `sed -i`, as Grok 4.7
-/// did on polyglot-v1 js-grep); after the model restores it, "done" stands.
+/// Task mode: "done" with a test file that came with the task changed meets
+/// the checkpoint once, however the change was made (here a shell `sed -i`, as
+/// Grok 4.7 did on polyglot-v1 js-grep); after the model restores it, "done"
+/// stands.
 #[test]
-fn a_completion_with_a_changed_task_test_is_denied_once() {
+fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _red = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
-    let _limit = EnvGuard::unset("ANGEL_TEST_EDIT_DENIALS");
     let shell = |command: &str| Move::Call(tc("shell", json!({ "command": command })));
-    let nudged = |history: &[ChatMsg]| {
-        history
-            .iter()
-            .filter(|m| m.role == ChatRole::Harness && m.content.contains(TEST_EDIT_NUDGE))
-            .count()
-    };
+    let nudged = |history: &[ChatMsg]| checkpoints_with(history, "⠧⠛");
 
     let root = spec_fixture("test_edit_restored");
     let (script, history) = run_spec_turn(
@@ -11415,16 +10223,16 @@ fn a_completion_with_a_changed_task_test_is_denied_once() {
             Move::Say("Restored the spec; the fix is in grep.js."),
         ],
     );
-    assert_eq!(script.chats(), 4, "denied once, accepted after the restore");
+    assert_eq!(
+        script.chats(),
+        4,
+        "one checkpoint, accepted after the restore"
+    );
     assert_eq!(nudged(&history), 1);
-    let note = history
-        .iter()
-        .find(|m| m.content.contains(TEST_EDIT_NUDGE))
-        .unwrap();
     assert!(
-        note.content.contains("Changed: grep.spec.js"),
-        "{}",
-        note.content
+        book::ledger::read(&root, "⠧⠛")
+            .unwrap()
+            .contains("grep.spec.js")
     );
     let _ = std::fs::remove_dir_all(root);
 
@@ -11442,8 +10250,8 @@ fn a_completion_with_a_changed_task_test_is_denied_once() {
     );
     assert_eq!(
         (script.chats(), nudged(&history)),
-        (2, 0),
-        "no test changed"
+        (3, 0),
+        "no test changed; the unverified edit is the only fact"
     );
     let _ = std::fs::remove_dir_all(root);
 
@@ -11459,7 +10267,7 @@ fn a_completion_with_a_changed_task_test_is_denied_once() {
     assert_eq!(
         (script.chats(), nudged(&history)),
         (3, 1),
-        "one denial, then the answer stands"
+        "one checkpoint, then the answer stands"
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -11470,8 +10278,6 @@ fn a_completion_with_a_changed_task_test_is_denied_once() {
 fn test_edits_are_only_questioned_in_task_mode_and_for_the_models_own_changes() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
-    let _red = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
-    let _limit = EnvGuard::unset("ANGEL_TEST_EDIT_DENIALS");
     let shell = |command: &str| Move::Call(tc("shell", json!({ "command": command })));
     let unskip = || shell("sed -i 's/xit(/it(/' grep.spec.js");
 
@@ -11491,14 +10297,6 @@ fn test_edits_are_only_questioned_in_task_mode_and_for_the_models_own_changes() 
     let (script, _) = run_spec_turn(&root, vec![Move::Say("Done.")]);
     assert_eq!(script.chats(), 1, "changed before the turn began");
     let _ = std::fs::remove_dir_all(root);
-
-    assert_eq!(test_edit_denial_limit(true, false), 1);
-    assert_eq!(
-        test_edit_denial_limit(true, true),
-        0,
-        "never in competition"
-    );
-    assert_eq!(test_edit_denial_limit(false, false), 0);
 }
 
 #[test]
@@ -11523,47 +10321,581 @@ fn a_test_run_is_found_anywhere_in_a_shell_command() {
 }
 
 #[test]
-fn red_completion_denials_default_to_task_mode_only() {
-    let _guard = crate::tests::env_lock();
-    let _unset = EnvGuard::unset("ANGEL_RED_COMPLETION_DENIALS");
-    assert_eq!(red_completion_denial_limit(true, false), 2);
-    assert_eq!(red_completion_denial_limit(false, false), 0);
+fn a_stop_checkpoint_needs_budget_to_act_on() {
     assert_eq!(
-        red_completion_denial_limit(true, true),
-        0,
-        "never in competition"
-    );
-    let _set = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "9");
-    assert_eq!(red_completion_denial_limit(false, false), 4, "capped at 4");
-    assert_eq!(red_completion_denial_limit(true, true), 0);
-    let _off = EnvGuard::set("ANGEL_RED_COMPLETION_DENIALS", "0");
-    assert_eq!(red_completion_denial_limit(true, false), 0);
-}
-
-#[test]
-fn a_denied_completion_needs_budget_to_act_on() {
-    assert_eq!(
-        task_budget_left(10, Some(60), false, 100, 600).as_deref(),
+        task_budget_left(10, Some(60), 100, 600).as_deref(),
         Some("About 500 s and 50 steps are left.")
     );
     assert_eq!(
-        task_budget_left(10, None, false, 0, 0).as_deref(),
+        task_budget_left(10, None, 0, 0).as_deref(),
         Some("This task has no time or step limit.")
     );
+    assert_eq!(task_budget_left(58, Some(60), 0, 0), None, "two steps left");
     assert_eq!(
-        task_budget_left(10, Some(60), true, 0, 0),
-        None,
-        "final mile"
-    );
-    assert_eq!(
-        task_budget_left(58, Some(60), false, 0, 0),
-        None,
-        "two steps left"
-    );
-    assert_eq!(
-        task_budget_left(10, None, false, 451, 600),
+        task_budget_left(10, None, 451, 600),
         None,
         "less than a quarter of the wall left"
     );
-    assert!(task_budget_left(10, None, false, 450, 600).is_some());
+    assert!(task_budget_left(10, None, 450, 600).is_some());
+}
+
+// --- the 0.1.6 advisories, ported into the book: each is its own turn, given
+// under the condition it had at 0.1.6, and introduced in its own words ---
+
+/// A tool that only reads, so inspection is free-form recon.
+struct Peek;
+
+impl Tool for Peek {
+    fn name(&self) -> &str {
+        "read_file"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "read_file".into(),
+            description: "Read a file.".into(),
+            params: json!({"type": "object"}),
+        }
+    }
+    fn call(&self, _args: &Value) -> Result<String, String> {
+        Ok("contents".into())
+    }
+}
+
+fn peek_call(n: usize) -> Move {
+    Move::Call(tc("read_file", json!({"path": "lib.rs", "offset": n})))
+}
+
+/// `run_root_turn` with the suite, the writer and a reader, a hop cap of the
+/// caller's choosing, and the turn's result kept whole.
+fn run_advisory_turn(
+    root: &Path,
+    script: &Script,
+    cap: usize,
+) -> (Result<TurnOutcome, TurnFailure>, Vec<ChatMsg>) {
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.to_path_buf());
+    registry.register(Box::new(Suite {
+        root: root.to_path_buf(),
+        runs: Arc::new(AtomicUsize::new(0)),
+    }));
+    registry.register(Box::new(Writer(root.to_path_buf())));
+    registry.register(Box::new(Peek));
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    let outcome = run_turn_observed(
+        script,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(cap),
+        &mpsc::channel::<TurnEvent>().0,
+    );
+    (outcome, history)
+}
+
+/// Own-turn harness messages that are exactly `cells` (guidance) or `⛔cells`
+/// (a warning).
+fn own_turns(history: &[ChatMsg], cells: &str) -> usize {
+    history
+        .iter()
+        .filter(|m| {
+            m.role == ChatRole::Harness
+                && (m.content.as_ref() == cells
+                    || m.content.as_ref() == format!("{}{cells}", book::l_loops::WARNING))
+        })
+        .count()
+}
+
+/// The legend's introductions for `history`, joined: what the model reads.
+fn legend(history: &[ChatMsg]) -> String {
+    book::introduction::introductions(history, None)
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The stamp rides no tool result's tail.
+fn never_on_a_tail(history: &[ChatMsg], route: &str) {
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.role == ChatRole::Tool && tool_routed(m, route)),
+        "{route} must be its own turn: {history:?}"
+    );
+}
+
+#[test]
+fn the_first_edit_earns_the_post_edit_review_once_as_its_own_turn() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let root = root_fixture("advisory_post_edit");
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        write_call("lib.rs", "pub fn sub() { 2 }\n"),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⠼⠁"), 1, "{history:?}");
+    never_on_a_tail(&history, "⠼⠁");
+    // Guidance, not a warning: bare cells, right after the edit's result.
+    let at = history
+        .iter()
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠁")
+        .unwrap();
+    assert_eq!(history[at - 1].role, ChatRole::Tool);
+    // The model reads the advice in its own words at first sight.
+    let english = legend(&history);
+    assert!(
+        english.contains(
+            "⠼⠁ Review the edit logically before testing: trace the state transitions, \
+             invariants, cleanup/empty cases, and error paths implied by the task."
+        ),
+        "{english}"
+    );
+    assert!(
+        english.contains("Do not invent new tests as proof"),
+        "{english}"
+    );
+    // Off by the operator: never.
+    let _off = EnvGuard::set("ANGEL_POST_EDIT_LOGIC_REVIEW", "0");
+    let script = Script::new(vec![write_call("lib.rs", "pub fn sub() { 3 }\n")]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠁"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_green_verifier_is_told_once_and_again_after_the_code_changed() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let root = root_fixture("advisory_green");
+    let script = Script::new(vec![
+        write_call("fixed", "1"),
+        run_tests_call(0),
+        run_tests_call(1),
+        write_call("lib.rs", "pub fn sub() { 9 }\n"),
+        run_tests_call(2),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(
+        own_turns(&history, "⠼⠃"),
+        2,
+        "once for the green, again after an edit stales it: {history:?}"
+    );
+    never_on_a_tail(&history, "⠼⠃");
+    let english = legend(&history);
+    assert!(
+        english
+            .contains("⠼⠃ GREEN VERIFIER. A full project verifier just passed on this workspace."),
+        "{english}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_competition_banks_its_green_and_warns_when_the_candidate_changes() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _competition = EnvGuard::set("ANGEL_COMPETITION_MODE", "1");
+    let root = root_fixture("advisory_competition_green");
+    let script = Script::new(vec![
+        write_call("fixed", "1"),
+        run_tests_call(0),
+        write_call("lib.rs", "pub fn sub() { 9 }\n"),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⡅⠁"), 1, "{history:?}");
+    assert_eq!(own_turns(&history, "⡅⠃"), 1, "{history:?}");
+    assert_eq!(
+        own_turns(&history, "⠼⠃"),
+        0,
+        "the bank replaces the plain green"
+    );
+    let english = legend(&history);
+    assert!(
+        english.contains("COMPETITION CANDIDATE VERIFIED. A local check passed"),
+        "{english}"
+    );
+    assert!(
+        english
+            .contains("VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check."),
+        "{english}"
+    );
+    // The engage warpath speaks in the 0.1.6 posture's own words.
+    assert!(english.contains("COMPETITION CHALLENGE PACE"), "{english}");
+    assert!(
+        english.contains("Never wrap builds, engine boots, or benchmarks in `timeout`"),
+        "{english}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn the_final_mile_is_told_once_and_inspection_alone_hears_its_last_sentence() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let _reserve = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "3");
+    let root = root_fixture("advisory_final_mile");
+    let mut moves = vec![write_call("lib.rs", "pub fn sub() { 1 }\n")];
+    moves.extend((0..7).map(peek_call));
+    moves.push(Move::Say("done"));
+    let script = Script::new(moves);
+    let (outcome, history) = run_advisory_turn(&root, &script, 10);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⠼⠉"), 1, "{history:?}");
+    let first = history
+        .iter()
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠉")
+        .unwrap();
+    // Seven hops in of ten: three remain.
+    let hops_before = history[..first]
+        .iter()
+        .filter(|m| m.role == ChatRole::Assistant && !m.tool_calls.is_empty())
+        .count();
+    assert_eq!(hops_before, 7, "{history:?}");
+    // A hop of inspection alone while a verifier is owed hears the last sentence.
+    assert!(own_turns(&history, "⠼⠉⠑") >= 1, "{history:?}");
+    let english = legend(&history);
+    assert!(
+        english.contains("⠼⠉ FINAL-MILE BUDGET ACTIVE. The workspace has changed"),
+        "{english}"
+    );
+    assert!(
+        english.contains("⠼⠉⠑ Do not spend the remaining calls re-reading known context."),
+        "{english}"
+    );
+    // An unbounded turn has no horizon: none of it.
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 2 }\n"),
+        peek_call(0),
+        Move::Say("done"),
+    ]);
+    let (_, history) = {
+        let mut registry = ToolRegistry::new();
+        registry.set_workspace(root.clone());
+        registry.register(Box::new(Writer(root.clone())));
+        registry.register(Box::new(Peek));
+        let mut history = vec![ChatMsg::user("go")];
+        let outcome = run_turn_observed(
+            &script,
+            &registry,
+            &mut history,
+            &AtomicBool::new(false),
+            None,
+            &mpsc::channel::<TurnEvent>().0,
+        );
+        (outcome, history)
+    };
+    assert_eq!(own_turns(&history, "⠼⠉"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _armed = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "2");
+    let root = root_fixture("advisory_first_write");
+    let script = Script::new(vec![
+        peek_call(0),
+        peek_call(1),
+        peek_call(2),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⠼⠙"), 1, "once per turn: {history:?}");
+    let at = history
+        .iter()
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠙")
+        .unwrap();
+    let reads_before = history[..at]
+        .iter()
+        .filter(|m| m.role == ChatRole::Tool)
+        .count();
+    assert_eq!(reads_before, 2, "at the second inspection call");
+    assert!(
+        legend(&history)
+            .contains("⠼⠙ ACTIONABLE CANDIDATE PROGRESS. Inspection has not yet produced")
+    );
+    // An edit first spends nothing: no advice.
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        peek_call(0),
+        peek_call(1),
+        peek_call(2),
+        Move::Say("done"),
+    ]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠙"), 0);
+    // Unarmed (the default): never.
+    let _unarmed = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
+    let script = Script::new(vec![
+        peek_call(0),
+        peek_call(1),
+        peek_call(2),
+        Move::Say("done"),
+    ]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠙"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_rapid_competition_hears_its_own_first_write_advice() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _armed = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "2");
+    let _competition = EnvGuard::set("ANGEL_COMPETITION_MODE", "1");
+    let _pace = EnvGuard::set("ANGEL_TASK_PACE", "rapid");
+    let _resolved = EnvGuard::unset("ANGEL_TASK_PACE_RESOLVED");
+    let root = root_fixture("advisory_first_write_rapid");
+    let script = Script::new(vec![peek_call(0), peek_call(1), Move::Say("done")]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⡅⠉"), 1, "{history:?}");
+    assert_eq!(own_turns(&history, "⠼⠙"), 0);
+    assert!(legend(&history).contains("RAPID COMPETITION CANDIDATE PROGRESS."));
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_answer_with_no_edit_meets_the_no_edit_advice_at_the_checkpoint_when_armed() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _armed = [
+        EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "1"),
+        EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "1"),
+    ];
+    let root = root_fixture("advisory_no_edit");
+    let script = Script::new(vec![
+        Move::Say("The bug is already fixed."),
+        Move::Say("Still fixed."),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(script.chats(), 2, "one checkpoint, then the answer stands");
+    assert_eq!(checkpoints_with(&history, "⠼⠑"), 1, "{history:?}");
+    assert!(
+        legend(&history).contains("⠼⠑ NO WORKSPACE MUTATION. You claimed progress or completion")
+    );
+    // Without the operator's arming, or after an edit: nothing.
+    let _off = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let script = Script::new(vec![Move::Say("The bug is already fixed.")]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(checkpoints_with(&history, "⠼⠑"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_green_that_ran_only_the_models_own_tests_is_weak_once() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _armed = EnvGuard::set("ANGEL_SELF_AUTHORED_VERIFY_GUARD", "1");
+    let root = root_fixture("advisory_weak");
+    let script = Script::new(vec![
+        write_call("test_mine.py", "assert True\n"),
+        write_call("fixed", "1"),
+        Move::Call(tc("run_tests", json!({"file": "test_mine.py"}))),
+        Move::Call(tc("run_tests", json!({"file": "test_mine.py", "again": 1}))),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⠼⠋"), 1, "{history:?}");
+    never_on_a_tail(&history, "⠼⠋");
+    assert!(legend(&history).contains("⠼⠋ WEAK VERIFICATION. The green check only ran tests"));
+    // Unarmed (the default): never.
+    let _off = EnvGuard::set("ANGEL_SELF_AUTHORED_VERIFY_GUARD", "0");
+    let script = Script::new(vec![
+        write_call("test_mine.py", "assert True\n"),
+        write_call("fixed", "1"),
+        Move::Call(tc("run_tests", json!({"file": "test_mine.py"}))),
+        Move::Say("done"),
+    ]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠋"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn the_same_edit_issued_three_times_is_mutation_thrash_once() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let root = root_fixture("advisory_thrash");
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(
+        own_turns(&history, "⠼⠛"),
+        1,
+        "at the third, once: {history:?}"
+    );
+    let warning = format!("{}⠼⠛", book::l_loops::WARNING);
+    assert!(
+        history.iter().any(|m| m.content.as_ref() == warning),
+        "a warning leads with the sign"
+    );
+    let at = history
+        .iter()
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == warning)
+        .unwrap();
+    let edits_before = history[..at]
+        .iter()
+        .filter(|m| m.role == ChatRole::Tool)
+        .count();
+    assert_eq!(edits_before, 3);
+    assert!(legend(&history).contains("⠼⠛ MUTATION THRASH. You re-issued the same edit signature"));
+    // Three different edits are not thrash.
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        write_call("lib.rs", "pub fn sub() { 2 }\n"),
+        write_call("lib.rs", "pub fn sub() { 3 }\n"),
+        Move::Say("done"),
+    ]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠛"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn four_edits_under_docs_and_none_in_the_code_is_peripheral_fan_out_once() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let root = root_fixture("advisory_fanout");
+    std::fs::create_dir_all(root.join("docs")).unwrap();
+    let docs = |n: usize| write_call(&format!("docs/page{n}.md"), "text\n");
+    let script = Script::new(vec![
+        docs(1),
+        docs(2),
+        docs(3),
+        docs(4),
+        docs(5),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⠼⠓"), 1, "{history:?}");
+    let at = history
+        .iter()
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠓")
+        .unwrap();
+    assert_eq!(
+        history[..at]
+            .iter()
+            .filter(|m| m.role == ChatRole::Tool)
+            .count(),
+        4,
+        "at the fourth"
+    );
+    assert!(legend(&history).contains("⠼⠓ PERIPHERAL FAN-OUT. Several edits landed under docs/"));
+    // One edit in the code, and the fan-out has its source.
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        docs(1),
+        docs(2),
+        docs(3),
+        docs(4),
+        Move::Say("done"),
+    ]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠓"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_failing_run_at_the_checkpoint_carries_its_output_and_the_budget_beside_the_stamps() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
+    let root = root_fixture("advisory_checkpoint_facts");
+    let script = Script::new(vec![
+        run_tests_call(0),
+        Move::Say("sub_id still fails."),
+        Move::Say("sub_id still fails."),
+    ]);
+    let (_, history, _) = run_root_turn(&root, &script);
+    let checkpoint = history
+        .iter()
+        .find(|m| {
+            m.role == ChatRole::Harness
+                && book::ledger::is_warpath_message(&m.content)
+                && has_route(first_line(&m.content), "⠧⠁")
+        })
+        .expect("the red answer meets the checkpoint");
+    let lines = checkpoint.content.lines().collect::<Vec<_>>();
+    assert!(lines[0].starts_with("⠧⠁"), "{lines:?}");
+    assert!(
+        lines.iter().any(|line| line.contains("steps are left")),
+        "what is left to act on: {lines:?}"
+    );
+    assert!(
+        checkpoint
+            .content
+            .contains("assertion `left == right` failed: sub_id"),
+        "the failing run, inline: {}",
+        checkpoint.content
+    );
+    // The sentences of 0.1.6's completion denial arrive through the legend.
+    let english = legend(&history);
+    assert!(
+        english.contains(
+            "⠧⠁ Your last test run on this exact code failed, so the task is not finished"
+        ),
+        "{english}"
+    );
+    assert!(
+        english.contains("Read the failure below, change the code, and run the tests again."),
+        "{english}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn three_failing_runs_give_the_verification_recovery_advice_in_its_own_words() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let root = scratch("advisory_recovery");
+    let script = Script::new(
+        (0..3)
+            .map(run_tests_call)
+            .chain([Move::Say("done")])
+            .collect(),
+    );
+    let (_, history, _) = run_root_turn(&root, &script);
+    let warning = format!("{}⠧⠙", book::l_loops::WARNING);
+    assert_eq!(
+        history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.as_ref() == warning)
+            .count(),
+        1,
+        "{history:?}"
+    );
+    never_on_a_tail(&history, "⠧⠙");
+    let english = legend(&history);
+    assert!(
+        english.contains("⠧⠙ VERIFICATION RECOVERY: 3 consecutive verification failures detected."),
+        "{english}"
+    );
+    assert!(
+        english.contains(
+            "stop micro-patching with str_replace and use write_file to rewrite the module cleanly. \
+             Do not re-run tests without changing code."
+        ),
+        "{english}"
+    );
+    let _ = std::fs::remove_dir_all(root);
 }

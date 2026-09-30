@@ -130,8 +130,14 @@ fn code_mode_task_recon_bounds_wide_results_and_excludes_outbound_symlinks() {
         &Hooks::default(),
     )
     .unwrap();
-    let evidence: Value = serde_json::from_str(context.strip_prefix(TASK_RECON_PREFIX).unwrap())
-        .expect("recipe output is structured JSON");
+    // The map is the first line; the floor's whole pages ride after it.
+    let map = context
+        .strip_prefix(TASK_RECON_PREFIX)
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap();
+    let evidence: Value = serde_json::from_str(map).expect("recipe output is structured JSON");
     assert!(evidence["candidates"].as_array().unwrap().len() <= 8);
     assert!(!context.contains("EXTERNAL_NEEDLEWIDGET_SECRET"));
     assert!(!context.contains("QUARANTINED_NEEDLEWIDGET_MARKER"));
@@ -230,11 +236,12 @@ fn code_mode_task_recon_dense_fixture_nested_work_baseline() {
     .unwrap();
     let metrics = registry.take_preturn_code_mode_metrics();
     // v2: list+grep (2) + enough direct candidates to skip the sparse-only
-    // definition fallback + outlines for the top hits (8) = 10.
-    assert_eq!(metrics.nested_calls, 10);
+    // definition fallback + outlines for the top hits (8) + the floor's reads
+    // of the top four (4) = 14.
+    assert_eq!(metrics.nested_calls, 14);
     assert!(context.contains("\"filename_fallback\":false"), "{context}");
     assert!(context.contains("\"symbol_map\""), "{context}");
-    assert!(metrics.nested_calls <= 24);
+    assert!(metrics.nested_calls <= 32);
     std::fs::remove_dir_all(root).ok();
 }
 
@@ -256,5 +263,58 @@ fn code_mode_task_recon_sparse_fixture_uses_bounded_filename_fallback() {
     assert!(context.contains("\"filename_fallback\":true"), "{context}");
     assert!(context.contains("\"symbol_map\""), "{context}");
     assert!(metrics.nested_output_bytes <= 4 * 1024 * 1024);
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn the_floor_carries_small_candidates_whole_and_never_half_a_page() {
+    let (root, registry) = fixture_registry();
+    // A candidate too long for one page: it would ride half, so it stays off.
+    let long: String = (0..600)
+        .map(|n| format!("fn needlewidget_helper_{n}() -> usize {{ {n} }}\n"))
+        .collect();
+    std::fs::write(root.join("src/needlewidget_long.rs"), long).unwrap();
+    let hooks = Hooks::default();
+    let context = task_recon_context_with(
+        &registry,
+        "repair the NeedleWidget contract",
+        TaskReconMode::Repo,
+        12 * 1024,
+        &hooks,
+    )
+    .unwrap();
+    let (map, floor) = context
+        .split_once("\n[src/needlewidget.rs#")
+        .expect(&context);
+    assert!(map.contains("angel-repo-recon/v2"), "{map}");
+    assert!(
+        !map.contains("\"floor\""),
+        "the floor rides after the map: {map}"
+    );
+    assert!(
+        floor.contains("1  fn needlewidget_contract() -> bool { true }"),
+        "{floor}"
+    );
+    assert!(!context.contains("[src/needlewidget_long.rs#"), "{context}");
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn the_recon_map_is_never_parked() {
+    let _guard = crate::tests::env_lock();
+    let _store = crate::tests::TestEnvGuard::set("ANGEL_HANDLE_STORE", "1");
+    let _park = crate::tests::TestEnvGuard::set("ANGEL_HANDLE_CODE_MODE_MIN_BYTES", "64");
+    let (root, registry) = fixture_registry();
+    let context = task_recon_context_with(
+        &registry,
+        "repair the NeedleWidget contract",
+        TaskReconMode::Repo,
+        12 * 1024,
+        &Hooks::default(),
+    )
+    .unwrap();
+    assert!(!context.contains("[handle receipt:"), "{context}");
+    assert!(context.contains("angel-repo-recon/v2"), "{context}");
+    assert!(context.contains("[src/needlewidget.rs#"), "{context}");
     std::fs::remove_dir_all(root).ok();
 }

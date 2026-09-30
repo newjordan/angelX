@@ -182,7 +182,10 @@ fn consult_down_local_skips_instead_of_failing_when_nothing_is_up() {
         .unwrap();
     assert!(text.contains("consult_model skipped"), "{text}");
     assert!(text.contains("turbo is not reachable"), "{text}");
-    assert!(text.contains("Do the work yourself"), "{text}");
+    assert!(
+        text.contains(&crate::agent::harness::book::o_orchestration::SEAT_SKIPPED.cells()),
+        "{text}"
+    );
     assert!(!text.contains("should not run"), "{text}");
 }
 
@@ -201,31 +204,4 @@ fn code_review_down_local_falls_back_to_self() {
     assert!(text.contains("deepseek"), "{text}");
     assert!(text.contains("Verdict: Clean."), "{text}");
     assert!(text.contains("turbo is not reachable"), "{text}");
-}
-
-#[test]
-fn leanstral_tool_sends_only_the_caller_snippet() {
-    let leanstral: Arc<dyn Club> = Arc::new(MockClub::new("leanstral", "by decide"));
-    let glm: Arc<dyn Club> = Arc::new(MockClub::new("glm", "should not run"));
-    let tool = LeanstralTool::new(vec![leanstral, glm]);
-    let text = tool
-        .call(&serde_json::json!({
-            "prompt": "lemma foo : 1 + 1 = 2 := by sorry"
-        }))
-        .unwrap();
-    assert!(text.contains("[leanstral club=leanstral]"), "{text}");
-    assert!(text.contains("by decide"), "{text}");
-    assert!(!text.contains("should not run"), "{text}");
-}
-
-#[test]
-fn leanstral_tool_skips_when_the_specialist_is_down() {
-    let leanstral: Arc<dyn Club> = Arc::new(MockClub::down("leanstral"));
-    let turbo: Arc<dyn Club> = Arc::new(MockClub::new("turbo", "should not run"));
-    let tool = LeanstralTool::new(vec![leanstral, turbo]);
-    let text = tool
-        .call(&serde_json::json!({ "prompt": "lemma foo : True := trivial" }))
-        .unwrap();
-    assert!(text.contains("leanstral skipped"), "{text}");
-    assert!(!text.contains("should not run"), "{text}");
 }

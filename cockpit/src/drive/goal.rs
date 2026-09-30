@@ -18,9 +18,9 @@ use std::path::{Path, PathBuf};
 /// Opening line of the injected goal block, and its closing sentinel. Kept as
 /// constants so the submit path can strip a prior block as a precise span (header
 /// line … sentinel line) and keep only the freshest copy per turn.
-pub(crate) const GOAL_BLOCK_HEADER: &str =
-    "[goal — standing objective; keep every action aligned to it]";
-pub(crate) const GOAL_BLOCK_SENTINEL: &str = "[/goal]";
+/// `⠗⠃`, open and close; the framing sentence is its ledger page.
+pub(crate) const GOAL_BLOCK_HEADER: &str = "⠗⠃";
+pub(crate) const GOAL_BLOCK_SENTINEL: &str = "⠗⠃";
 pub(crate) const MAX_GOAL_RECORD_BYTES: usize = 512 * 1024;
 pub(crate) const MAX_GOAL_TEXT_BYTES: usize = 8192;
 pub(crate) const MAX_GOAL_ITEM_BYTES: usize = 1024;
@@ -354,16 +354,22 @@ impl crate::App {
         {
             return String::new();
         }
+        // Every field label is a page of `⠗⠃`, its value beside the address.
+        use crate::agent::harness::book::r_relentless as book;
         let objective = serde_json::to_string(g.text.trim())
             .unwrap_or_else(|_| "\"<invalid objective>\"".to_string());
-        let mut out = format!("{GOAL_BLOCK_HEADER}\nobjective: {objective}\n");
+        let mut out = format!(
+            "{GOAL_BLOCK_HEADER}\n{} {objective}\n",
+            book::GOAL_OBJECTIVE.cells()
+        );
         let fits = |current: &str, fragment: &str| {
             current.len() + fragment.len() + GOAL_BLOCK_SENTINEL.len() + 128
                 <= MAX_GOAL_CONTEXT_BYTES
         };
         let mut omitted = 0usize;
         if !g.acceptance.is_empty() {
-            out.push_str("acceptance criteria:\n");
+            out.push_str(&book::GOAL_CRITERIA.cells());
+            out.push('\n');
             for (index, c) in g.acceptance.iter().enumerate() {
                 let criterion = serde_json::to_string(c)
                     .unwrap_or_else(|_| "\"<invalid criterion>\"".to_string());
@@ -378,7 +384,7 @@ impl crate::App {
         if let Some(cmd) = &g.accept_cmd {
             let command =
                 serde_json::to_string(cmd).unwrap_or_else(|_| "\"<invalid command>\"".to_string());
-            let line = format!("verifiable check (must pass): {command}\n");
+            let line = format!("{} {command}\n", book::GOAL_CHECK.cells());
             if fits(&out, &line) {
                 out.push_str(&line);
             } else {
@@ -386,20 +392,26 @@ impl crate::App {
             }
         }
         if g.max_rounds.is_some() || g.blocked_reason.is_some() {
-            let mut state = String::new();
+            // `⠗⠃⠑`, then the budget's and the blocker's pages; their values
+            // follow the address run as data.
+            let mut pages = vec![book::GOAL_STATE];
+            let mut values = Vec::new();
             if let Some(cap) = g.max_rounds {
-                state.push_str(&format!("round budget: {}/{}", g.rounds, cap));
+                pages.push(book::GOAL_BUDGET);
+                values.push(format!("rounds={}/{cap}", g.rounds));
             }
             if let Some(reason) = &g.blocked_reason {
-                if !state.is_empty() {
-                    state.push_str("; ");
-                }
-                state.push_str(&format!(
-                    "blocked ({}/{GOAL_BLOCKED_MIN_ROUNDS}): {reason}",
+                pages.push(book::GOAL_BLOCKED);
+                values.push(format!(
+                    "blocked={}/{GOAL_BLOCKED_MIN_ROUNDS} reason={reason}",
                     g.blocked_streak
                 ));
             }
-            let line = format!("progress state: {state}\n");
+            let line = format!(
+                "{} {}\n",
+                crate::agent::harness::book::d46_recovery::run(&pages),
+                values.join(" ")
+            );
             if fits(&out, &line) {
                 out.push_str(&line);
             } else {
@@ -407,7 +419,8 @@ impl crate::App {
             }
         }
         if !g.notes.is_empty() {
-            out.push_str("progress so far:\n");
+            out.push_str(&book::GOAL_NOTES.cells());
+            out.push('\n');
             // Only the last few notes — the running log can grow without bound.
             let notes = g.notes.iter().rev().take(5).rev().collect::<Vec<_>>();
             for (index, n) in notes.iter().enumerate() {
@@ -422,8 +435,13 @@ impl crate::App {
             }
         }
         if omitted > 0 {
+            // `⠗⠓⠁`, the count beside it.
             out.push_str(&format!(
-                "[harness omitted {omitted} goal field(s) outside the bounded context]\n"
+                "{} {omitted}\n",
+                crate::agent::harness::book::d3_roles::pages(
+                    crate::agent::harness::book::r_relentless::BOUNDS,
+                    [1]
+                )
             ));
         }
         // Closing sentinel + trailing blank line so the submit path can strip a

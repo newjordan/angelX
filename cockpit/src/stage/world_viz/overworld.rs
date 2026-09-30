@@ -16,6 +16,7 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
+mod clerks;
 mod deeds;
 mod glass;
 mod ground;
@@ -24,6 +25,7 @@ mod kit;
 mod light;
 mod live;
 mod map;
+mod outcomes;
 mod scene;
 mod sky;
 mod wild;
@@ -35,6 +37,7 @@ pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
 pub(crate) use ink::Img;
 pub(crate) use live::{Duel, Walker, soldier_state};
 pub(crate) use map::{MAP_H, MAP_W, SCREEN_H, SCREEN_W, TILE};
+pub(crate) use outcomes::Outcomes;
 pub(crate) use scene::{Scene, SoldierKind, SoldierState};
 
 #[cfg(test)]
@@ -308,6 +311,17 @@ pub(crate) fn map_enabled() -> bool {
 /// knight and the camera move in whole pixels.
 pub(crate) fn pace(scene: &mut Scene, relaxed: bool) {
     scene.tick /= if relaxed { 20 } else { 10 };
+    for echo in &mut scene.outcomes {
+        echo.phase = if scene.outcome_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full {
+            if relaxed {
+                echo.phase / 2 * 2
+            } else {
+                echo.phase
+            }
+        } else {
+            0
+        };
+    }
     scene.knight.x = scene.knight.x.round();
     scene.knight.y = scene.knight.y.round();
     for w in &mut scene.wayfarers {

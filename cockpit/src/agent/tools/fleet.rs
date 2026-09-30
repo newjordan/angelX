@@ -1,4 +1,4 @@
-//! Fleet recon plus the opt-in `machine_test` fair remote-machine queue.
+//! Fleet recon.
 //!
 //! Recon only: nothing here mutates state — no process kills, no instance
 //! destroys, no service restarts. That posture is deliberate (and matches the
@@ -8,15 +8,9 @@
 //! toolbelt works on an NVIDIA rig, an Intel Arc box, or a CPU-only laptop.
 
 use crate::agent::club::ToolDef;
-use crate::agent::harness::{
-    Tool, ToolOutputProgress, ToolRegistry, env_flag, output_timed,
-    output_timed_captured_cancellable_with_progress,
-};
+use crate::agent::harness::{Tool, ToolRegistry, env_flag, output_timed};
 use serde_json::Value;
-use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 /// Run a read-only recon command with a snappy deadline, returning combined
@@ -111,7 +105,7 @@ fn clip_head_tail(text: &str, max: usize, note: &str) -> String {
 /// Format the nvidia-smi CSV rows (`index, name, driver, util, mem.used,
 /// mem.total, temp, power.draw, power.limit`) into compact per-GPU lines.
 /// Fields nvidia-smi reports as `[N/A]` (e.g. dedicated-VRAM numbers on
-/// unified-memory parts like the GB10) are omitted rather than echoed.
+/// unified-memory parts) are omitted rather than echoed.
 /// Pure → testable.
 pub(crate) fn format_nvidia_csv(csv: &str) -> String {
     fn known(f: &str) -> bool {
@@ -234,8 +228,7 @@ impl Tool for FleetStatusTool {
         ToolDef {
             name: "fleet_status".to_string(),
             description: "Read-only Tailscale fleet snapshot: each peer's hostname, tailnet IP, \
-                          OS, and online/offline state. Use to find which rigs are reachable \
-                          before SSHing or probing an endpoint on one."
+                          OS, and online/offline state. ⠱⠛"
                 .to_string(),
             params: serde_json::json!({ "type": "object", "properties": {} }),
         }
@@ -261,8 +254,7 @@ impl Tool for VastInstancesTool {
         ToolDef {
             name: "vast_instances".to_string(),
             description: "Read-only list of the account's Vast.ai instances (id, machine, GPU, \
-                          status, $/hr). Recon only — report an idle instance, never destroy \
-                          or restart one; that is the operator's call."
+                          status, $/hr). ⠱⠓"
                 .to_string(),
             params: serde_json::json!({ "type": "object", "properties": {} }),
         }
@@ -274,257 +266,6 @@ impl Tool for VastInstancesTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// machine_test — fair cross-process lease for one scarce remote test box.
-// ---------------------------------------------------------------------------
-
-#[derive(Clone, Debug)]
-struct MachineQueueConfig {
-    client_script: PathBuf,
-    host: String,
-    remote_script: String,
-    remote_db: String,
-    resource: String,
-    owner: String,
-    competition: String,
-    remote_cwd: String,
-    wait_seconds: u64,
-    lease_seconds: u64,
-    quantum_seconds: u64,
-}
-
-fn env_nonempty(key: &str) -> Option<String> {
-    std::env::var(key)
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
-fn env_u64(key: &str, default: u64) -> u64 {
-    env_nonempty(key)
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(default)
-}
-
-fn machine_queue_client_path() -> PathBuf {
-    if let Some(path) = env_nonempty("ANGEL_MACHINE_QUEUE_CLIENT") {
-        return PathBuf::from(path);
-    }
-    crate::platform::runtime_paths::script("runtime/angel-machine-queue.py")
-}
-
-impl MachineQueueConfig {
-    fn from_env(workspace: &Path) -> Option<Self> {
-        let host = env_nonempty("ANGEL_MACHINE_QUEUE_HOST")?;
-        let competition = env_nonempty("ANGEL_COMPETITION_ID").unwrap_or_else(|| {
-            workspace
-                .file_name()
-                .and_then(|name| name.to_str())
-                .filter(|name| !name.is_empty())
-                .unwrap_or("angelX")
-                .to_string()
-        });
-        let owner =
-            env_nonempty("ANGEL_MACHINE_QUEUE_OWNER").unwrap_or_else(|| competition.clone());
-        Some(Self {
-            client_script: machine_queue_client_path(),
-            host,
-            remote_script: env_nonempty("ANGEL_MACHINE_QUEUE_REMOTE_SCRIPT")
-                .unwrap_or_else(|| ".local/bin/angel-machine-queue.py".to_string()),
-            remote_db: env_nonempty("ANGEL_MACHINE_QUEUE_REMOTE_DB")
-                .unwrap_or_else(|| "~/.angelX/machine-queue.sqlite3".to_string()),
-            resource: env_nonempty("ANGEL_MACHINE_QUEUE_RESOURCE")
-                .unwrap_or_else(|| "mac-test".to_string()),
-            owner,
-            competition,
-            remote_cwd: env_nonempty("ANGEL_MACHINE_QUEUE_REMOTE_CWD")
-                .unwrap_or_else(|| ".".to_string()),
-            wait_seconds: env_u64("ANGEL_MACHINE_QUEUE_WAIT_SECS", 0),
-            lease_seconds: env_u64("ANGEL_MACHINE_QUEUE_LEASE_SECS", 90).max(15),
-            // A test invocation is one machine-time quantum.  On expiry the
-            // process group is stopped and this owner must queue again, so a
-            // broken suite cannot monopolize a rented box forever.
-            quantum_seconds: env_u64("ANGEL_MACHINE_QUEUE_QUANTUM_SECS", 1_800),
-        })
-    }
-}
-
-pub(crate) struct MachineTestTool {
-    config: MachineQueueConfig,
-}
-
-impl MachineTestTool {
-    fn command(&self, args: &Value) -> Result<Command, String> {
-        // `script` is a compatibility alias for the wrong-vocabulary calls
-        // model authors keep sending; only used when `command` is absent.
-        let test_command = args
-            .get("command")
-            .and_then(Value::as_str)
-            .or_else(|| args.get("script").and_then(Value::as_str))
-            .map(str::trim)
-            .filter(|command| !command.is_empty())
-            .ok_or("missing 'command'")?;
-        let competition = args
-            .get("competition")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or(&self.config.competition);
-        let cwd = args
-            .get("cwd")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or(&self.config.remote_cwd);
-        let mut command = Command::new("python3");
-        command
-            .arg(&self.config.client_script)
-            .arg("client-run")
-            .arg("--host")
-            .arg(&self.config.host)
-            .arg("--remote-script")
-            .arg(&self.config.remote_script)
-            .arg("--remote-db")
-            .arg(&self.config.remote_db)
-            .arg("--resource")
-            .arg(&self.config.resource)
-            .arg("--owner")
-            .arg(&self.config.owner)
-            .arg("--competition")
-            .arg(competition)
-            .arg("--command")
-            .arg(test_command)
-            .arg("--cwd")
-            .arg(cwd)
-            .arg("--wait-seconds")
-            .arg(self.config.wait_seconds.to_string())
-            .arg("--lease-seconds")
-            .arg(self.config.lease_seconds.to_string())
-            .arg("--max-run-seconds")
-            .arg(self.config.quantum_seconds.to_string());
-        Ok(command)
-    }
-
-    fn invoke(
-        &self,
-        args: &Value,
-        cancel: Option<&AtomicBool>,
-        progress: Option<Arc<ToolOutputProgress>>,
-    ) -> Result<String, String> {
-        if !self.config.client_script.is_file() {
-            return Err(format!(
-                "machine queue client is missing at {}; set ANGEL_MACHINE_QUEUE_CLIENT",
-                self.config.client_script.display()
-            ));
-        }
-        let command = self.command(args)?;
-        // Queue waits and remote tests are intentionally not subject to the
-        // ordinary short tool deadline.  The queue quantum bounds machine
-        // occupancy, while turn cancellation kills the SSH/client process
-        // group and the remote broker releases its lease.
-        let streamed = progress.is_some();
-        let capture =
-            output_timed_captured_cancellable_with_progress(command, None, cancel, progress)?;
-        let mut output = String::from_utf8_lossy(&capture.output.stdout).into_owned();
-        let stderr = String::from_utf8_lossy(&capture.output.stderr);
-        if !stderr.trim().is_empty() {
-            if !output.is_empty() {
-                output.push('\n');
-            }
-            output.push_str("[stderr] ");
-            output.push_str(stderr.trim());
-        }
-        let truncated = clip_head_tail(
-            output.trim(),
-            16_000,
-            if streamed {
-                "full output remained live in the tool stream"
-            } else {
-                ""
-            },
-        );
-        if capture.cancelled {
-            return Err(format!(
-                "queued machine test cancelled by operator\n{truncated}"
-            ));
-        }
-        if capture.timed_out {
-            return Err(format!("queued machine test client timed out\n{truncated}"));
-        }
-        if !capture.output.status.success() {
-            let code = capture
-                .output
-                .status
-                .code()
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "signal".to_string());
-            return Err(format!(
-                "queued machine test failed (exit {code})\n{truncated}"
-            ));
-        }
-        Ok(truncated)
-    }
-}
-
-impl Tool for MachineTestTool {
-    fn name(&self) -> &str {
-        "machine_test"
-    }
-
-    fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "machine_test".to_string(),
-            description: format!(
-                "Queue one test quantum on the shared remote machine '{}' (resource '{}'). \
-                 Owners alternate round-robin; a queued caller waits without polling the model, \
-                 streams the test output, heartbeats its lease, then releases and goes to the \
-                 back of the line on its next call. Use one coherent test/benchmark command per \
-                 call; do not background work on the remote box.",
-                self.config.host, self.config.resource
-            ),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "One shell test or benchmark command to execute on the remote machine"
-                    },
-                    "competition": {
-                        "type": "string",
-                        "description": "Receipt label; defaults to ANGEL_COMPETITION_ID"
-                    },
-                    "cwd": {
-                        "type": "string",
-                        "description": "Existing working directory on the remote machine"
-                    }
-                },
-                "required": ["command"]
-            }),
-        }
-    }
-
-    fn call(&self, args: &Value) -> Result<String, String> {
-        self.invoke(args, None, None)
-    }
-
-    fn call_with_cancel(
-        &self,
-        args: &Value,
-        cancel: Option<&AtomicBool>,
-    ) -> Result<String, String> {
-        self.invoke(args, cancel, None)
-    }
-
-    fn call_with_cancel_and_progress(
-        &self,
-        args: &Value,
-        cancel: Option<&AtomicBool>,
-        progress: Option<Arc<ToolOutputProgress>>,
-    ) -> Result<String, String> {
-        self.invoke(args, cancel, progress)
-    }
-}
-
 /// Register the read-only fleet recon tools, gated on `ANGEL_FLEET_TOOLS`
 /// (default on). Missing CLIs surface as call-time messages, not
 /// registration failures — the catalog stays stable across heterogeneous rigs.
@@ -533,9 +274,6 @@ pub(crate) fn maybe_register_fleet_tools(r: &mut ToolRegistry) {
         r.register(Box::new(GpuStatTool));
         r.register(Box::new(FleetStatusTool));
         r.register(Box::new(VastInstancesTool));
-    }
-    if let Some(config) = MachineQueueConfig::from_env(r.current_workspace()) {
-        r.register_deferred(Box::new(MachineTestTool { config }));
     }
 }
 

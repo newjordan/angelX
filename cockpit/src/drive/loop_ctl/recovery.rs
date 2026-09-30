@@ -1,5 +1,6 @@
 //! One supervised, isolated experiment beside the ordinary loop flight slot.
 use super::*;
+use crate::agent::harness::book::{d6_long_run, ow_ledgers};
 use crate::agent::harness::{LoopExperimentRequest, LoopExperimentResult, run_loop_experiment};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -144,8 +145,10 @@ impl crate::App {
         let request = LoopExperimentRequest {
             workspace: workspace.clone(),
             artifact_dir: artifact_dir.clone(),
+            // `⠠⠁` labels the objective, hypothesis, steering and evidence
+            // (the data); `⠠⠃` is the experiment's contract.
             task: format!(
-                "[LOOP RECOVERY EXPERIMENT] Parent objective: {}\nHypothesis: {}\nOperator steering: {}\nRecent evidence: {}\nRun one discriminating local experiment with the available file, shell, and evaluation tools. Inspect repository instructions and discover its actual benchmark or RL evaluation workflow. Use a fixed baseline and report comparable measurements, failed checks, and the next decision. Preserve an unfinished experiment and its logs. No competitive submissions, redraws, external publishing, model switching, or nested workers. The parent owns fast wins and any integration. Return artifact paths and an honest result; no objective credit for prose or process exit alone.",
+                "{frame}⠁ {}\n{frame}⠃ {}\n{frame}⠉ {}\n{frame}⠙ {}\n{}",
                 self.loop_task_text(),
                 hypothesis,
                 self.loop_ctl.steer_notes.join("\n"),
@@ -157,6 +160,8 @@ impl crate::App {
                     .cloned()
                     .collect::<Vec<_>>()
                     .join("\n"),
+                d6_long_run::RECOVERY_CONTRACT.cells(),
+                frame = d6_long_run::RECOVERY.cells(),
             ),
             max_hops: 8,
             deadline_secs: seconds,
@@ -231,16 +236,14 @@ impl crate::App {
                 record.settled_iteration = Some(self.loop_ctl.iteration);
                 record.context_is_supervisor_only = true;
                 record.context_ref = None;
-                record.summary = Some("Owner was interrupted; inspect retained working source and logs before choosing another experiment.".into());
+                record.summary = Some(ow_ledgers::OWNER_INTERRUPTED.into());
                 save(&self.loop_ctl);
             }
             return;
         };
         let result = match pending.rx.try_recv() {
             Err(TryRecvError::Empty) => return,
-            Err(TryRecvError::Disconnected) => {
-                Err("experiment worker disconnected; inspect retained artifacts".into())
-            }
+            Err(TryRecvError::Disconnected) => Err(ow_ledgers::WORKER_DISCONNECTED.into()),
             Ok(result) => result,
         };
         let pending = self.loop_experiment.take().expect("checked owner");
@@ -270,9 +273,10 @@ impl crate::App {
                         "deep experiment {status}: {} · artifacts {} · {} · {}",
                         result.stop_reason,
                         result.artifact_dir.display(),
-                        result.error.as_deref().unwrap_or(
-                            "inspect candidate and evaluation receipts before integration"
-                        ),
+                        result
+                            .error
+                            .as_deref()
+                            .unwrap_or(ow_ledgers::INSPECT_CANDIDATE),
                         result.answer.chars().take(2400).collect::<String>()
                     )
                 };
@@ -423,17 +427,20 @@ impl crate::App {
 
     pub(crate) fn loop_experiment_context(&self, prompt: &mut String) {
         if let Some(record) = self.loop_ctl.experiments.last() {
+            // `⠳⠊`: the record is the data; a fixed summary is its own page.
+            let deep = crate::agent::harness::book::ou_checkpoints::DEEP.cells();
             let summary = if record.status == "cancelled" {
-                "Cancelled reply discarded; inspect retained source and logs before resuming the hypothesis."
+                format!("{deep}⠉")
             } else {
-                record.summary.as_deref().unwrap_or(
-                    "An isolated worker owns this hypothesis; preserve its unfinished work.",
-                )
+                record.summary.clone().unwrap_or_else(|| format!("{deep}⠙"))
             };
+            // Its hypothesis and artifacts are `⠳⠊⠁` and `⠳⠊⠃`, their values
+            // beside the addresses.
             prompt.push_str(&format!(
-                "\n\n[DEEP EXPERIMENT — {}] Hypothesis: {}. Artifacts: {}. {} Keep the fast lane moving with distinct validated candidates. Do not duplicate or replace the active experiment. On return, inspect its patch and actual evaluation receipts; integrate only after checking against the current parent workspace. A child result does not establish acceptance or a percentage improvement.",
-                record.status, record.hypothesis, record.artifact_dir.display(),
-                summary
+                "\n\n{deep} status={}\n{deep}⠁ {}\n{deep}⠃ {}\n{summary}",
+                record.status,
+                record.hypothesis,
+                record.artifact_dir.display(),
             ));
         }
     }

@@ -1,6 +1,10 @@
-//! Free helpers: prompt assembly, score parsing, env plumbing.
+//! Free helpers: prompt assembly, score parsing, env plumbing. The words of
+//! the stage tasks and the labels on their payload are pages on `⠐`
+//! (`book::d5_frames`); the drafts, counts and ids ride beside them as data.
 
 use super::*;
+use crate::agent::harness::book::d3_roles::pages;
+use crate::agent::harness::book::d5_frames::{GUIDANCE, LABELS, MERGE, SYNTHESIS};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -125,7 +129,7 @@ pub(crate) fn aux_context_at(rest: &[ChatMsg], budget: usize) -> Vec<ChatMsg> {
                 let tail: String = m.content.chars().skip(len - keep).collect();
                 let omitted = len - keep;
                 bounded.content =
-                    format!("[context trimmed: {omitted} chars omitted]\n{tail}").into();
+                    format!("{} omitted={omitted}\n{tail}", pages(LABELS, [5])).into();
                 kept.push(bounded);
                 used = budget;
             } else {
@@ -172,6 +176,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
             tool_calls: Vec::new().into(),
             tool_call_id: None,
             private_reasoning: None,
+            responses_replay: None,
             tool_receipt: None,
             recovery_context: m.recovery_context.clone(),
         },
@@ -182,6 +187,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
             tool_calls: Vec::new().into(),
             tool_call_id: None,
             private_reasoning: None,
+            responses_replay: None,
             tool_receipt: None,
             recovery_context: m.recovery_context.clone(),
         },
@@ -191,7 +197,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
                 parts.push(m.content.to_string());
             }
             if !m.tool_calls.is_empty() {
-                parts.push("Assistant requested tools:".to_string());
+                parts.push(pages(LABELS, [6]));
                 for call in m.tool_calls.iter() {
                     parts.push(format!("- {} id={} args={}", call.name, call.id, call.args));
                 }
@@ -205,7 +211,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .unwrap_or("unknown");
-            ChatMsg::harness(format!("[tool result for {id}]\n{}", m.content))
+            ChatMsg::harness(format!("{} id={id}\n{}", pages(LABELS, [7]), m.content))
         }
     };
     message.recovery_context = m.recovery_context.clone();
@@ -242,7 +248,7 @@ pub(crate) fn numbered_weighted_bounded(
         .enumerate()
         .map(|(i, (d, weight))| {
             let suffix = if show_weights && total > items.len() {
-                format!(" ({weight} of {total} drafts converged here)")
+                format!(" {} weight={weight} total={total}", pages(LABELS, [3]))
             } else {
                 String::new()
             };
@@ -277,18 +283,16 @@ pub(crate) fn moa_final_target_chars() -> usize {
         .unwrap_or(0)
 }
 
-fn final_output_guidance() -> String {
+/// The final synthesis task: `⠐⠙` whole — the synthesis with its untargeted
+/// output guidance — or, with a target length, its first three pages and the
+/// targeted guidance `⠐⠋`, the target beside it.
+fn final_synthesis() -> String {
     match moa_final_target_chars() {
-        0 => "Use all internal evidence needed. Deliver a complete answer in the format and \
-              level of detail the user requested. Be direct and non-repetitive; remove \
-              repetition before evidence, caveats, code, or required detail. Do not shorten \
-              merely to meet an unstated length."
-            .to_string(),
+        0 => SYNTHESIS.cells(),
         target => format!(
-            "Use all internal evidence needed, but shape the delivered answer rather than \
-             constraining the panel's reasoning. Aim for at most about {target} characters \
-             unless completeness or an explicit user format requires more; remove repetition \
-             before removing evidence, caveats, or required detail."
+            "{}{} target={target}",
+            pages(SYNTHESIS, 1..=3),
+            GUIDANCE.cells()
         ),
     }
 }
@@ -300,7 +304,7 @@ pub(crate) fn bound_moa_draft(text: &str, max_chars: usize) -> String {
     let keep = max_chars.saturating_sub(96).max(32);
     let head: String = text.chars().take(keep).collect();
     let omitted = text.chars().count().saturating_sub(keep);
-    format!("{head}\n\n[MOA draft truncated before synthesis: {omitted} chars omitted]")
+    format!("{head}\n\n{} omitted={omitted}", pages(LABELS, [4]))
 }
 
 /// The aggregator's task text: a synthesis instruction carrying the numbered
@@ -316,23 +320,16 @@ pub(crate) fn agg_task_with_cap(
     concise: bool,
     per_draft_chars: usize,
 ) -> String {
+    // An intermediate merge is `⠐⠑`'s first three pages; the final answer is
+    // the synthesis. The response count rides beside its label, `⠐⠛⠁`.
     let instruction = if concise {
-        "Merge the responses below into a single, stronger set of dense bullet points. Keep \
-         what is correct, drop what is wrong, reconcile conflicts, and add what they missed. \
-         This is intermediate material for a later step, not the final answer — no preamble, \
-         no prose."
-            .to_string()
+        pages(MERGE, 1..=3)
     } else {
-        format!(
-            "Synthesize the single strongest answer to the problem above, drawing on the responses \
-         below. Keep what is correct, discard what is wrong, reconcile conflicts, and cover \
-         anything a single response missed. Answer the user directly and in full — do not \
-         mention this synthesis step or the responses. {}",
-            final_output_guidance()
-        )
+        final_synthesis()
     };
     format!(
-        "{instruction}\n\n{} independent responses:\n\n{}",
+        "{instruction}\n\n{} n={}\n\n{}",
+        pages(LABELS, [1]),
         drafts.len(),
         numbered_bounded(drafts, "Response", per_draft_chars)
     )
@@ -344,24 +341,16 @@ pub(crate) fn agg_task_weighted(
     per_draft_chars: usize,
 ) -> String {
     let total: usize = drafts.iter().map(|(_, w)| *w).sum();
+    // A weighted merge is `⠐⠑` whole — it holds conflicts open — and the
+    // final answer is the synthesis. The counts ride beside `⠐⠛⠃`.
     let instruction = if concise {
-        "Merge the responses below into a single, stronger set of dense bullet points. Keep \
-         what is correct, drop what is wrong, reconcile conflicts, and add what they missed. \
-         This is intermediate material for a later step, not the final answer — no preamble, \
-         no prose. If the inputs conflict, state both positions; do not resolve that conflict \
-         at this stage."
-            .to_string()
+        MERGE.cells()
     } else {
-        format!(
-            "Synthesize the single strongest answer to the problem above, drawing on the responses \
-         below. Keep what is correct, discard what is wrong, reconcile conflicts, and cover \
-         anything a single response missed. Answer the user directly and in full — do not \
-         mention this synthesis step or the responses. {}",
-            final_output_guidance()
-        )
+        final_synthesis()
     };
     format!(
-        "{instruction}\n\n{} independent responses represented by {} item(s):\n\n{}",
+        "{instruction}\n\n{} total={} n={}\n\n{}",
+        pages(LABELS, [2]),
         total,
         drafts.len(),
         numbered_weighted_bounded(drafts, "Response", per_draft_chars, true)

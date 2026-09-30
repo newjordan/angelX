@@ -310,12 +310,16 @@ pub(crate) struct World {
     growth_announced: u32,
     /// The knight's walk on the pixel overworld, which has its own roads.
     overworld: overworld::Walker,
+    /// Operator-selected camera centre and label; automatic work keeps moving.
+    overworld_view: Option<(f32, f32, &'static str)>,
     /// The last glass picture the map showed, keyed on its source frame.
     overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
     /// A two-seat fan-out stage fought at the Lists, and the session tally.
     overworld_duel: Option<overworld::Duel>,
     /// Tool calls acted out on the map, and what they left there.
     overworld_deeds: overworld::Deeds,
+    /// Short-lived, bounded lantern seals from correlated tool receipts.
+    overworld_outcomes: overworld::Outcomes,
     lists_tally: BTreeMap<String, u32>,
 }
 
@@ -463,9 +467,11 @@ impl World {
             terrain_epoch: 0,
             growth_announced: 0,
             overworld: overworld::Walker::default(),
+            overworld_view: None,
             overworld_glass: RefCell::new(None),
             overworld_duel: None,
             overworld_deeds: overworld::Deeds::default(),
+            overworld_outcomes: overworld::Outcomes::default(),
             lists_tally: BTreeMap::new(),
         };
         world.tiles = (0..WORLD_H)
@@ -919,6 +925,9 @@ impl World {
         self.activity = format!("{literal} → {}", classified.building.label());
         self.overworld_deeds
             .begin(&id, name, args_summary, self.tick);
+        if let Some(place) = self.overworld_deeds.destination(&id) {
+            self.overworld_outcomes.clear(place);
+        }
         self.active_work.insert(id, work);
     }
 
@@ -950,6 +959,9 @@ impl World {
         }
         work.summary = summary.chars().take(240).collect();
         work.outcome = Some(outcome);
+        if let Some(place) = self.overworld_deeds.destination(id) {
+            self.overworld_outcomes.note(place, outcome, self.tick);
+        }
         self.overworld_deeds
             .settle(id, outcome.attributable_success(), self.tick);
         self.completed_event_ids.insert(id.clone());

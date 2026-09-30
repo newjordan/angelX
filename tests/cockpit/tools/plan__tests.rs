@@ -88,10 +88,22 @@ fn stale_handoff_wears_age_banner_on_cold_show_and_warm_start() {
     std::fs::write(&path, serde_json::to_vec_pretty(&old).unwrap()).unwrap();
     let shown = tool.call(&serde_json::json!({"action":"show"})).unwrap();
     assert!(shown.starts_with(HANDOFF_STATE_PREFIX), "{shown}");
-    assert!(shown.contains("12d old — STALE"), "{shown}");
+    assert!(
+        shown.contains(&format!(
+            "{} 12d",
+            crate::agent::harness::book::s_sources::HANDOFF_STALE.cells()
+        )),
+        "{shown}"
+    );
     assert!(shown.contains("53.13"), "{shown}");
     let warm = load_workspace_handoff(&workspace).unwrap();
-    assert!(warm.contains("12d old — STALE"), "{warm}");
+    assert!(
+        warm.contains(&format!(
+            "{} 12d",
+            crate::agent::harness::book::s_sources::HANDOFF_STALE.cells()
+        )),
+        "{warm}"
+    );
 
     // A fresh write→show round trip carries no banner.
     let fresh_tool = HandoffTool::new(&workspace);

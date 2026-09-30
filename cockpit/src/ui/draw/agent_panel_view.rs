@@ -169,7 +169,6 @@ pub(crate) fn render_agent_header_info(frame: &mut Frame, app: &mut App, area: R
     // Treebeard / RLM lane is a process env policy — surface it so the operator
     // sees Hi/Q is active without digging into trajectories. Prefer last-turn
     // root offload_ratio (true LID mass); fall back to session handle pulse.
-    // Living B200 peer geomean joins the strip when popcorn-peer state exists.
     if crate::agent::harness::is_treebeard() {
         detail
             .spans
@@ -281,8 +280,7 @@ pub(crate) fn portrait_active(app: &App) -> bool {
     // still the one that produced the answer; switching routes must not make a
     // fresh portrait glow from the previous model's private trace.
     app.last_completed_route.as_ref().is_some_and(|last| {
-        profile_for(&last.route.driver, false).key
-            == profile_for(app.bag.in_hand_label(), false).key
+        profile_for(&last.route.driver).key == profile_for(app.bag.in_hand_label()).key
     })
 }
 
@@ -1536,102 +1534,21 @@ pub(crate) fn speech_flow_split(text: &str, max_fresh: usize) -> (&str, &str) {
     (&text[..fresh_start], text[fresh_start..].trim_end())
 }
 
-/// Pure strip label for Treebeard lane (testable). Living peer geomean is the
+/// Treebeard lane strip for the agent bay header.
 fn treebeard_header_strip_label() -> String {
-    let hiq = crate::agent::harness::last_root_hiq();
-    let stats = crate::agent::harness::session_stats();
-    let peer = crate::agent::harness::load_living_peer_snapshot();
-    let p1 = crate::agent::harness::load_living_peer_p1_us();
-    let top_open = crate::agent::harness::load_living_peer_top_open();
-    let forge = crate::agent::harness::load_forge_train_snap();
-    let forge_frag = forge
-        .as_ref()
-        .map(crate::agent::harness::forge_train_strip_fragment)
-        .unwrap_or_default();
-    type Key = (
-        Option<crate::agent::harness::LastRootHiq>,
-        crate::agent::harness::HandleStoreStats,
-        Option<u64>,
-        Option<u64>,
-        Option<String>,
-        Option<u64>,
-        String,
-    );
-    let peer_bits = peer.as_ref().map(|(geo, _, _)| geo.to_bits());
-    let p1_bits = p1.map(f64::to_bits);
-    let top_open_us = top_open.as_ref().map(|(_, us)| us.to_bits());
-    static CACHE: std::sync::Mutex<Option<(Key, String)>> = std::sync::Mutex::new(None);
-    let stored_open_key = {
-        let top_open_key = top_open.as_ref().map(|(key, _)| key.as_str());
-        if let Ok(guard) = CACHE.lock()
-            && let Some((cached, label)) = guard.as_ref()
-            && cached.0 == hiq
-            && cached.1 == stats
-            && cached.2 == peer_bits
-            && cached.3 == p1_bits
-            && cached.4.as_deref() == top_open_key
-            && cached.5 == top_open_us
-            && cached.6 == forge_frag
-        {
-            return label.clone();
-        }
-        top_open_key.map(str::to_owned)
-    };
-    let label = treebeard_strip_label_with_open(hiq, stats, peer, p1, top_open, forge);
-    if let Ok(mut guard) = CACHE.lock() {
-        *guard = Some((
-            (
-                hiq,
-                stats,
-                peer_bits,
-                p1_bits,
-                stored_open_key,
-                top_open_us,
-                forge_frag,
-            ),
-            label.clone(),
-        ));
-    }
-    label
+    treebeard_strip_label(
+        crate::agent::harness::last_root_hiq(),
+        crate::agent::harness::session_stats(),
+    )
 }
 
-/// P1 board keys arrive as `512x640` or `512·640`. Match in place so the
-/// strip builder does not allocate a lowered copy of the lever name.
-fn treebeard_open_key_is_p1(key: &str) -> bool {
-    let Some(rest) = key.strip_prefix("512") else {
-        return false;
-    };
-    let rest = rest
-        .strip_prefix('x')
-        .or_else(|| rest.strip_prefix('X'))
-        .or_else(|| rest.strip_prefix('·'));
-    rest.is_some_and(|rest| rest.starts_with("640"))
-}
-
-fn treebeard_open_key_short(key: &str) -> &str {
-    if key.starts_with("32768") {
-        "32k"
-    } else if key.starts_with("16384") {
-        "16k"
-    } else if key.starts_with("8192") {
-        "8k"
-    } else {
-        key
-    }
-}
-
-/// Full Treebeard strip: peer + P1 + top open lever (board µs) + forge.
-///
-/// Top open is suppressed when it is the P1 shape (already shown as P1).
-pub(crate) fn treebeard_strip_label_with_open(
+/// Pure Treebeard strip: last-turn root offload when known, else the session
+/// handle pulse.
+pub(crate) fn treebeard_strip_label(
     hiq: Option<crate::agent::harness::LastRootHiq>,
     stats: crate::agent::harness::HandleStoreStats,
-    peer: Option<(f64, String, Option<String>)>,
-    p1_us: Option<f64>,
-    top_open: Option<(String, f64)>,
-    forge: Option<crate::agent::harness::ForgeTrainSnap>,
 ) -> String {
-    let mut base = if let Some(hiq) = hiq {
+    if let Some(hiq) = hiq {
         format!(
             "treebeard · offload {:.0}% · hiq {:.2}",
             hiq.offload_ratio * 100.0,
@@ -1646,50 +1563,7 @@ pub(crate) fn treebeard_strip_label_with_open(
         )
     } else {
         "treebeard · Hi/Q".into()
-    };
-    if let Some((geo, _name, _)) = peer
-        && geo.is_finite()
-        && geo > 0.0
-    {
-        base.push_str(&format!(" · peer {:.1}µs", geo));
     }
-    if let Some(p1) = p1_us
-        && p1.is_finite()
-        && p1 > 0.0
-    {
-        base.push_str(&format!(" · P1 {:.0}µs", p1));
-    }
-    if let Some((ref key, us)) = top_open
-        && us.is_finite()
-        && us > 0.0
-    {
-        // P1 already shown — prefer the next geomean lever (usually huge).
-        if !treebeard_open_key_is_p1(key) {
-            // Compact: 32768x1 → 32k, 16384x1 → 16k, else key as-is.
-            let short = treebeard_open_key_short(key);
-            // Rank-1 board µs = PRIMARY attack (usually huge 32k). Label it
-            // so strip matches forge curriculum / popcorn-attack-primary.
-            let tag = if key.starts_with("32768") || short == "32k" {
-                "PRIMARY"
-            } else {
-                "open"
-            };
-            // µs for mid shapes; ms for huge singles so strip stays short.
-            if us >= 10_000.0 {
-                base.push_str(&format!(" · {tag} {} {:.0}ms", short, us / 1000.0));
-            } else {
-                base.push_str(&format!(" · {tag} {} {:.0}µs", short, us));
-            }
-        }
-    }
-    if let Some(ref snap) = forge {
-        let frag = crate::agent::harness::forge_train_strip_fragment(snap);
-        if !frag.is_empty() {
-            base.push_str(" · ");
-            base.push_str(&frag);
-        }
-    }
-    base
 }
 
 #[cfg(test)]

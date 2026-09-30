@@ -11,7 +11,7 @@ pub(crate) const TRUNCATED_OUTPUT_ERR: &str = "club output was cut off by finish
 
 /// Surfaced when the model produced private reasoning (raw ` ` markers or a
 /// `reasoning_content` field) but no visible answer. The caller retries once
-/// with [`ANSWER_DIRECTLY_REMINDER`] and then fails closed — a degenerate
+/// with its `⠭⠛` / `⠭⠓` route and then fails closed — a degenerate
 /// reasoning loop must not become a silent blank turn or an unbounded resend.
 pub(crate) const EMPTY_REPLY_REASONING_ONLY_ERR: &str =
     "club returned an empty reply: the model produced reasoning but no answer";
@@ -20,23 +20,6 @@ pub(crate) const EMPTY_REPLY_REASONING_ONLY_ERR: &str =
 /// stream event. Kept prose remains useful, but must never look complete.
 pub(crate) const STREAM_INTERRUPTED_SUFFIX: &str =
     "\n\n[response interrupted: provider stream ended before completion]";
-
-/// Injected into the leading system block on the single recovery retry, so
-/// strict chat templates keep every system instruction before conversation
-/// history. The caller mutates only its cloned request body, never history.
-pub(crate) const ANSWER_DIRECTLY_REMINDER: &str = "Your previous turn produced only internal reasoning and no final answer. \
-     Skip the reasoning this time: answer the request directly, without any \
-     think block.";
-
-/// Tool-turn variant of the recovery reminder. On an agentic turn the
-/// reasoning-only stall is almost always a tool call the model thought about
-/// but never emitted; telling it to \"answer directly\" here steers it into
-/// prose and converts one flaky turn into a no-action turn. Demand the action
-/// instead.
-pub(crate) const EMIT_TOOL_CALL_REMINDER: &str = "Your previous turn produced only internal reasoning and no action. Do not \
-     reason further. Execute the next step NOW as a structured tool call \
-     through the tool interface — no prose, no think block. Only if no tool \
-     applies, give the final answer directly.";
 
 /// Append a visible marker so a kept-but-truncated draft is never mistaken for a
 /// complete answer downstream (the MoA aggregator, the transcript, the user).

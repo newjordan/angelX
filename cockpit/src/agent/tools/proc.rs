@@ -125,11 +125,7 @@ impl ProcCompletion {
     }
 
     pub(crate) fn message(&self) -> String {
-        let warning = self
-            .persistence_error
-            .as_ref()
-            .map(|error| format!("; terminal receipt could not be persisted: {error}"))
-            .unwrap_or_default();
+        let warning = self.persistence_warning();
         format!(
             "background process [{}] {} {}{warning}. Inspect proc_status id={} for captured output (retained log {}). \
              Process exit is not benchmark acceptance or a verified solve.",
@@ -139,6 +135,28 @@ impl ProcCompletion {
             self.id,
             self.log.display()
         )
+    }
+
+    /// The loop's copy of [`Self::message`]: the facts, then the directions
+    /// as `⠪⠊` page addresses with their values.
+    pub(crate) fn loop_message(&self) -> String {
+        format!(
+            "background process [{}] {} {}{}. {} id={} log={}",
+            self.id,
+            self.name,
+            self.state,
+            self.persistence_warning(),
+            crate::agent::harness::book::ow_ledgers::PROC_NOTES,
+            self.id,
+            self.log.display()
+        )
+    }
+
+    fn persistence_warning(&self) -> String {
+        self.persistence_error
+            .as_ref()
+            .map(|error| format!("; terminal receipt could not be persisted: {error}"))
+            .unwrap_or_default()
     }
 }
 
@@ -410,6 +428,21 @@ pub(crate) fn stop_all_owned() {
 fn table() -> &'static Mutex<BTreeMap<u64, ProcEntry>> {
     static TABLE: OnceLock<Mutex<BTreeMap<u64, ProcEntry>>> = OnceLock::new();
     TABLE.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+/// Count of tracked background jobs that have not exited yet. The turn loop's
+/// poll-repeat latch treats "a spawned job is still running" as intervening
+/// work in progress, so a legitimate rig/build wait is never classified as a
+/// spin (the unattended-loop failure class of BUG-0005).
+pub(crate) fn live_job_count() -> usize {
+    table()
+        .lock()
+        .map(|t| {
+            t.values()
+                .filter(|e| e.exit.is_none() && !e.cancelled)
+                .count()
+        })
+        .unwrap_or(0)
 }
 
 fn next_id(cancel: Option<&std::sync::atomic::AtomicBool>) -> Result<u64, String> {
@@ -891,9 +924,9 @@ pub(crate) fn receipts_dir() -> PathBuf {
 
 /// One on-disk spawn receipt (`receipts_dir()/<id>-<pid>.json`). Written at
 /// spawn, removed once the exit is observed (reap, `proc_stop`, or a status
-/// call that finds the process gone). `starttime_ticks` is the `/proc` boot
-/// starttime of the spawned pid — the guard that keeps a recycled pid from
-/// masquerading as a still-running daemon.
+/// call that finds the process gone). `starttime_ticks` holds the native
+/// process birth identity (Linux boot ticks or macOS epoch microseconds),
+/// guarding against a recycled pid masquerading as a running daemon.
 struct Receipt {
     id: u64,
     pid: u32,
@@ -920,6 +953,7 @@ fn now_unix() -> u64 {
 /// `(state, starttime)` from `/proc/<pid>/stat`: field 3 (single-char state)
 /// and field 22 (starttime in clock ticks since boot). Parses after the last
 /// `)` so a comm containing spaces or parens cannot shift the fields.
+#[cfg(target_os = "linux")]
 fn proc_stat_fields(pid: u32) -> Option<(char, u64)> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let rest = stat.rsplit_once(')')?.1;
@@ -930,8 +964,50 @@ fn proc_stat_fields(pid: u32) -> Option<(char, u64)> {
     Some((state, starttime))
 }
 
+/// Native process identity without launching a status subprocess on each
+/// wait tick. Old macOS receipts with identity zero remain unverifiable.
+#[cfg(target_os = "macos")]
+fn proc_stat_fields(pid: u32) -> Option<(char, u64)> {
+    let pid_arg = i32::try_from(pid).ok()?;
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::uninit();
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    // SAFETY: proc_pidinfo receives an aligned buffer of the advertised size;
+    // inspect it only after the kernel reports the full structure written.
+    let written = unsafe {
+        libc::proc_pidinfo(
+            pid_arg,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            info.as_mut_ptr().cast::<libc::c_void>(),
+            size,
+        )
+    };
+    if written != size {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    if info.pbi_pid != pid || info.pbi_start_tvusec >= 1_000_000 {
+        return None;
+    }
+    let birth = info
+        .pbi_start_tvsec
+        .checked_mul(1_000_000)?
+        .checked_add(info.pbi_start_tvusec)?;
+    let state = if info.pbi_status == libc::SZOMB {
+        'Z'
+    } else {
+        'S'
+    };
+    Some((state, birth))
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn proc_stat_fields(_pid: u32) -> Option<(char, u64)> {
+    None
+}
+
 /// True only when the receipt's pid exists, is not a zombie/dead slot, and its
-/// `/proc` starttime matches the one recorded at spawn (pid-reuse guard).
+/// native birth identity matches the one recorded at spawn (pid-reuse guard).
 fn receipt_alive(receipt: &Receipt) -> bool {
     if receipt.exit.is_some() || receipt.starttime_ticks == 0 {
         // Starttime was unreadable at spawn — never claim a live match.
@@ -1100,28 +1176,21 @@ impl Tool for ProcRunTool {
         ToolDef {
             name: "proc_run".to_string(),
             description: "Start a long-running command in the BACKGROUND (own process group, \
-                          captured output) and return a handle id immediately. Do not redirect \
-                          output: proc_status reads the captured log. Use for \
-                          daemons and slow jobs — an inference server (llama-server, vllm \
-                          serve), a dev server, a long build — then keep working. Take one \
-                          proc_status snapshot only when its result can change your next action; \
-                          if no independent work remains, use proc_wait for a bounded wait that \
-                          returns early on completion rather than shell sleep. Use `shell` \
-                          for commands that finish quickly. Jobs survive successful answers in \
+                          captured output) and return a handle id immediately. proc_status reads the captured log. Jobs survive successful answers in \
                           this cockpit; turn cancellation/failure stops its jobs. proc_stop or \
-                          cockpit exit stops remaining jobs and retains their receipts."
+                          cockpit exit stops remaining jobs and retains their receipts. ⠩⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "command": { "type": "string", "description": "command line (sh -c)" },
+                    "command": { "type": "string", "description": "⠩⠙⠑" },
                     "name": {
                         "type": "string",
-                        "description": "short label for the handle/log (default: first word)"
+                        "description": "⠩⠙⠋"
                     },
                     "cwd": {
                         "type": "string",
-                        "description": "working directory (default: the workspace)"
+                        "description": "⠩⠙⠛"
                     },
                 },
                 "required": ["command"],
@@ -1285,12 +1354,21 @@ impl Tool for ProcRunTool {
                 confinement: proc_confinement_label(),
             },
         );
-        let monitor_note = ensure_completion_reaper().err().map(|error| {
-            format!("\ncompletion monitor unavailable: {error}; retained process handle/receipt requires proc_status. Automatic completion notification is unavailable for this session.")
-        }).unwrap_or_default();
+        let monitor_note = ensure_completion_reaper()
+            .err()
+            .map(|error| {
+                format!(
+                    "\ncompletion monitor unavailable: {error}\n{}",
+                    crate::agent::harness::book::d46_recovery::run(&[
+                        crate::agent::harness::book::d46_recovery::RETAINED_HANDLE,
+                        crate::agent::harness::book::d46_recovery::NO_COMPLETION_NOTICE
+                    ])
+                )
+            })
+            .unwrap_or_default();
         Ok(format!(
-            "started [{id}] {name} (pid {pid})\nRead captured output through `proc_status` id={id}; use contains to filter errors.\nSnapshot with `proc_status` (no wait) \
-             while you keep working; check later. Use `proc_stop` to kill the whole tree."
+            "started [{id}] {name} (pid {pid})\n{}",
+            crate::agent::harness::book::p_processes::PROC_STARTED.cells()
         ) + &receipt_note
             + &stamped.map_or(String::new(), |s| format!("\n{}", s.notice))
             + &monitor_note)
@@ -1320,29 +1398,26 @@ impl Tool for ProcStatusTool {
             name: "proc_status".to_string(),
             description: "Status of background processes started with proc_run. Without an id: \
                           one summary line per process. With an id: state + the tail of its \
-                          log. Use contains with an id to search captured compiler errors by literal \
-                          substring; captured host logs are not workspace files for grep/read_file. \
-                          Always a snapshot — wait_ms is ignored so the turn cannot freeze \
-                          thinking. If still running, do useful independent work. If all remaining \
-                          work depends on this job, use proc_wait instead of shell sleep."
+                          log. Always a snapshot — wait_ms is ignored so the turn cannot freeze \
+                          thinking. ⠩⠑"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "integer", "description": "handle id from proc_run" },
+                    "id": { "type": "integer", "description": "⠩⠑⠙" },
                     "tail_lines": {
                         "type": "integer",
-                        "description": "log lines to show for a single id (default 40)"
+                        "description": "⠩⠑⠑"
                     },
                     "contains": {
                         "type": "string",
-                        "description": "With id only: literal case-sensitive log filter, 1–256 UTF-8 bytes, no newlines. Searches trailing 8 MiB of each retained log file; tail_lines limits matching lines."
+                        "description": "⠩⠑⠋⠩⠑⠛"
                     },
                     "wait_ms": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 60000,
-                        "description": "ignored (legacy). Snapshot only; never parks the turn."
+                        "description": "⠩⠑⠓⠩⠑⠊"
                     },
                 },
             }),
@@ -1417,8 +1492,9 @@ impl Tool for ProcStatusTool {
             } else {
                 String::new()
             };
+            let captured = crate::agent::harness::book::d46_recovery::CAPTURED_OUTPUT.cells();
             let text = format!(
-                "[{id}] {} — {}, up {} (pid {})\ncmd: {}\ncaptured output: proc_status id={id}, optional contains filter\n--- captured log ---\n{tail}",
+                "[{id}] {} — {}, up {} (pid {})\ncmd: {}\n{captured} id={id}\n--- captured log ---\n{tail}",
                 snapshot.0,
                 snapshot.1,
                 fmt_uptime(snapshot.2),
@@ -1466,8 +1542,11 @@ impl Tool for ProcStatusTool {
                 if let Some(exit) = &receipt.exit {
                     failed |= exit != "exited 0";
                     lines.push(format!(
-                        "[{}] {} — {exit} (retained terminal receipt); inspect with proc_status id={}",
-                        receipt.id, receipt.name, receipt.id
+                        "[{}] {} — {exit} (retained terminal receipt) {} id={}",
+                        receipt.id,
+                        receipt.name,
+                        crate::agent::harness::book::d46_recovery::INSPECT_RECEIPT.cells(),
+                        receipt.id
                     ));
                 } else if receipt_alive(&receipt) {
                     let up = now_unix().saturating_sub(receipt.started_unix);
@@ -1509,14 +1588,12 @@ impl Tool for ProcStatusTool {
 /// Trailer on a still-running snapshot so the model keeps its logic chain
 /// instead of parking the turn on `wait_ms`.
 fn snapshot_running_trailer(requested_wait_ms: u64) -> String {
+    // The facts stay; what to do meanwhile is the `⠏⠑` pages.
+    let route = crate::agent::harness::book::p_processes::PROC_RUNNING.cells();
     if requested_wait_ms == 0 {
-        "\nstill running — advance useful independent work. If this job blocks all remaining \
-         work, use proc_wait; do not substitute shell sleep."
-            .to_string()
+        format!("\nstill running\n{route}")
     } else {
-        "\nstill running — snapshot only. wait_ms was ignored. Advance independent work; \
-         if this job blocks all remaining work, use proc_wait instead of shell sleep."
-            .to_string()
+        format!("\nstill running — snapshot only; wait_ms was ignored\n{route}")
     }
 }
 
@@ -1550,9 +1627,10 @@ fn adopted_status(
         truncate_to_char_boundary(&mut tail, MAX);
         tail.push_str("…[truncated]");
     }
+    let captured = crate::agent::harness::book::d46_recovery::CAPTURED_OUTPUT.cells();
     if let Some(exit) = &receipt.exit {
         let text = format!(
-            "[{id}] {} — {exit} (retained terminal receipt)\ncmd: {}\ncaptured output: proc_status id={id}, optional contains filter\n--- captured log ---\n{tail}",
+            "[{id}] {} — {exit} (retained terminal receipt)\ncmd: {}\n{captured} id={id}\n--- captured log ---\n{tail}",
             receipt.name, receipt.command,
         );
         if exit == "exited 0" {
@@ -1563,7 +1641,7 @@ fn adopted_status(
     } else if alive {
         let up = now_unix().saturating_sub(receipt.started_unix);
         Ok(format!(
-            "[{id}] {} — adopted from previous session · running, up {} (pid {})\ncmd: {}\ncaptured output: proc_status id={id}, optional contains filter\n--- captured log ---\n{tail}{}",
+            "[{id}] {} — adopted from previous session · running, up {} (pid {})\ncmd: {}\n{captured} id={id}\n--- captured log ---\n{tail}{}",
             receipt.name,
             fmt_uptime(Duration::from_secs(up)),
             receipt.pid,
@@ -1573,7 +1651,7 @@ fn adopted_status(
     } else {
         Err(format!(
             "[{id}] {} — vanished — exit unknown (pid {}, daemon from a previous session); \
-             receipt retained; verification inconclusive\ncmd: {}\ncaptured output: proc_status id={id}, optional contains filter\n--- captured log ---\n{tail}",
+             receipt retained; verification inconclusive\ncmd: {}\n{captured} id={id}\n--- captured log ---\n{tail}",
             receipt.name, receipt.pid, receipt.command,
         ))
     }
@@ -1601,12 +1679,12 @@ impl Tool for ProcStopTool {
         ToolDef {
             name: "proc_stop".to_string(),
             description: "Stop a background process started with proc_run: SIGTERM to its whole \
-                          process group, escalating to SIGKILL after a short grace period."
+                          process group, escalating to SIGKILL after a short grace period. ⠾⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "integer", "description": "handle id from proc_run" },
+                    "id": { "type": "integer", "description": "⠾⠙⠁" },
                 },
                 "required": ["id"],
             }),
@@ -1778,18 +1856,17 @@ impl Tool for ProcWaitTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "proc_wait".to_string(),
-            description: "Wait for one background job when no useful independent work remains. \
+            description: "Wait for one background job. \
                           Returns early when the job exits, or after at most 30 seconds, with \
-                          its actual status and captured output. Cancellable. Use instead of \
-                          shell sleep; use proc_status for an immediate snapshot. A running \
+                          its actual status and captured output. Cancellable. A running \
                           result means more work remains, not success. Process exit alone is \
-                          not benchmark acceptance."
+                          not benchmark acceptance. ⠩⠋"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "id": {"type": "integer", "description": "handle id from proc_run"},
-                    "tail_lines": {"type": "integer", "description": "captured log lines (default 40, maximum 400)"}
+                    "id": {"type": "integer", "description": "⠩⠋⠉"},
+                    "tail_lines": {"type": "integer", "description": "⠩⠋⠙"}
                 },
                 "required": ["id"]
             }),
@@ -1808,6 +1885,7 @@ impl Tool for ProcWaitTool {
         let id = args["id"].as_u64().ok_or("missing or invalid 'id'")?;
         let identity = crate::platform::workspace_store::repo_identity(&self.workspace);
         let started = Instant::now();
+        let mut adopted = None;
         loop {
             if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
                 return Err("process wait cancelled; no completion inferred".to_string());
@@ -1819,7 +1897,19 @@ impl Tool for ProcWaitTool {
                     .filter(|entry| {
                         entry.project_root == identity.root && entry.project_key == identity.key
                     })
-                    .is_some_and(|entry| entry.state() == "running")
+                    .map(|entry| entry.state() == "running")
+            };
+            let running = match running {
+                Some(running) => running,
+                None => {
+                    // Resumed jobs live in receipts, not this session's table.
+                    // Resolve once, then poll the pinned PID/starttime without
+                    // rescanning the receipt store on every wait tick.
+                    if adopted.is_none() && receipts_enabled() {
+                        adopted = find_receipt(id, &identity)?;
+                    }
+                    adopted.as_ref().is_some_and(receipt_alive)
+                }
             };
             if !running || started.elapsed() >= Duration::from_secs(30) {
                 break;

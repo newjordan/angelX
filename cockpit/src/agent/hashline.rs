@@ -446,9 +446,8 @@ fn parse_range(spec: &str) -> Result<(usize, usize), String> {
 fn parse_lid(s: &str) -> Result<usize, String> {
     let n: usize = s.trim().parse().map_err(|_| {
         format!(
-            "hashline: bad line id {s:?} — a line id is the bare 1-based number shown \
-                 in the read_file hashline gutter (e.g. `255`), and a range is `A.=B` \
-                 (e.g. `255.=257`); `=`, `-`, `:` and `#hash` suffixes are not ranges"
+            "hashline: bad line id {s:?}\n{}",
+            crate::agent::harness::book::d46_recovery::LINE_ID.cells()
         )
     })?;
     if n == 0 {
@@ -545,8 +544,10 @@ pub(crate) fn plan_section_detailed(
         // may have intended to delete a different revision.
         return Err(format!(
             "hashline: stale patch for {} — file tag is #{live} but the patch was written \
-             against #{}. Re-read the file before REM.",
-            section.path, section.tag
+             against #{}.\n{}",
+            section.path,
+            section.tag,
+            crate::agent::harness::book::d46_recovery::STALE_REM.cells()
         ));
     } else if let Some(snapshot) = lookup_snapshot(&section.path, &section.tag) {
         match try_recover_ops(&snapshot, current, section) {
@@ -558,16 +559,20 @@ pub(crate) fn plan_section_detailed(
             Err(reason) => {
                 return Err(format!(
                     "hashline: stale patch for {} — file tag is #{live} but the patch was written \
-                     against #{}. Recovery failed ({reason}). Re-read the file and rebuild the edit.",
-                    section.path, section.tag
+                     against #{}. Recovery failed ({reason}).\n{}",
+                    section.path,
+                    section.tag,
+                    crate::agent::harness::book::d46_recovery::RECOVERY_FAILED.cells()
                 ));
             }
         }
     } else {
         return Err(format!(
             "hashline: stale patch for {} — file tag is #{live} but the patch was written \
-             against #{}. No session snapshot for that tag; re-read the file and rebuild the edit.",
-            section.path, section.tag
+             against #{}. No session snapshot for that tag\n{}",
+            section.path,
+            section.tag,
+            crate::agent::harness::book::d46_recovery::NO_SNAPSHOT.cells()
         ));
     }
 
@@ -846,8 +851,8 @@ pub(crate) fn resolve_block(lines: &[&str], at: usize) -> Result<(usize, usize),
         }
         if end == at {
             return Err(format!(
-                "hashline: block at line {at} is a single-line heading with no body — \
-                 use plain SWAP/DEL/INS"
+                "hashline: block at line {at} is a single-line heading with no body\n{}",
+                crate::agent::harness::book::d46_recovery::PLAIN_OPS.cells()
             ));
         }
         return Ok((at, end));
@@ -856,7 +861,8 @@ pub(crate) fn resolve_block(lines: &[&str], at: usize) -> Result<(usize, usize),
     if let Some(end) = match_brace_block(lines, at) {
         if end == at {
             return Err(format!(
-                "hashline: block at line {at} closes on the same line — use plain SWAP/DEL/INS"
+                "hashline: block at line {at} closes on the same line\n{}",
+                crate::agent::harness::book::d46_recovery::PLAIN_OPS.cells()
             ));
         }
         return Ok((at, end));
@@ -865,16 +871,16 @@ pub(crate) fn resolve_block(lines: &[&str], at: usize) -> Result<(usize, usize),
     if let Some(end) = match_indent_block(lines, at) {
         if end == at {
             return Err(format!(
-                "hashline: block at line {at} has no deeper-indented body — use plain SWAP/DEL/INS"
+                "hashline: block at line {at} has no deeper-indented body\n{}",
+                crate::agent::harness::book::d46_recovery::PLAIN_OPS.cells()
             ));
         }
         return Ok((at, end));
     }
 
     Err(format!(
-        "hashline: cannot resolve multi-line block beginning at line {at} — \
-         re-read and use plain line ranges, or point at a real block opener \
-         ({{, [, (, heading, or indented suite)"
+        "hashline: cannot resolve multi-line block beginning at line {at}\n{}",
+        crate::agent::harness::book::d46_recovery::BLOCK_OPENER.cells()
     ))
 }
 

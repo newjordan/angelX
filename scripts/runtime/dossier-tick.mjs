@@ -1,5 +1,6 @@
 import { runGraphCli } from './worker-lock.mjs'
 import { workerPaths } from './worker-paths.mjs'
+import { boundedSpawnSync } from './bounded-child.mjs'
 // dossier-tick — the idle-time fact verifier (Repo Dossier D4,
 // docs/WORKERS.md).
 //
@@ -278,11 +279,10 @@ async function cli(argv) {
           if (dryRun) {
             console.log(`  would P1 re-run: \`${node.factText}\` in ${root}`)
           } else {
-            const run = spawnSync('sh', ['-c', node.factText], {
+            const run = boundedSpawnSync('sh', ['-c', node.factText], {
               cwd: root,
               encoding: 'utf8',
               timeout: p1TimeoutMs,
-              killSignal: 'SIGKILL',
             })
             const timedOut = run.error?.code === 'ETIMEDOUT'
             verdict = p1Verdict(node, { exit: run.status ?? -1, timedOut })

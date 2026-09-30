@@ -263,8 +263,9 @@ impl SwarmCompilerEngine {
                 let _ = self.store.save(&run);
                 let _ = self.store.event(&run.id, "error", "run_paused", &error);
                 Err(format!(
-                    "swarm run {} paused (resume with action=resume): {error}",
-                    run.id
+                    "swarm run {} paused {}: {error}",
+                    run.id,
+                    crate::agent::harness::book::d56_replies::RESUME_PAUSED.cells()
                 ))
             }
         }
@@ -456,15 +457,19 @@ fn path_text(path: &Path) -> String {
 }
 
 fn render_run(run: &SwarmRun, path: PathBuf) -> Result<String, String> {
+    // The run's state stays a fact; the step it calls for is a `⠰⠙` page.
     let next_step = match run.state {
         RunState::Verified => format!(
-            "Candidate is verified and parked on {}. Inspect it, then use integrate explicitly.",
-            run.parked_branch.as_deref().unwrap_or("(missing branch)")
+            "Candidate is verified and parked on {}. {}",
+            run.parked_branch.as_deref().unwrap_or("(missing branch)"),
+            crate::agent::harness::book::d56_replies::INTEGRATE_VERIFIED.cells()
         ),
-        RunState::Paused => format!("Resume with action=resume, run_id={}", run.id),
-        RunState::Rejected => {
-            "Inspect the proof report and parked rejected branch; do not integrate.".to_string()
-        }
+        RunState::Paused => format!(
+            "{} run_id={}",
+            crate::agent::harness::book::d56_replies::RESUME_RUN.cells(),
+            run.id
+        ),
+        RunState::Rejected => crate::agent::harness::book::d56_replies::REJECTED_RUN.cells(),
         _ => "Run is still active.".to_string(),
     };
     serde_json::to_string_pretty(&serde_json::json!({

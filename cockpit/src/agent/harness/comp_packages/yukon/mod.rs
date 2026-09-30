@@ -18,10 +18,8 @@ pub(crate) const PACKAGE: CompetitionPackage = CompetitionPackage::new("yukon", 
 /// The yukon loop-worker surface: every harness tool the session registers,
 /// background jobs (`proc_run`) and the GPU included.
 pub(crate) const WORKER_PROFILE: WorkerProfile = WorkerProfile {
-    system_prompt: "You are a competition loop worker on the yukon benchmark family. \
-Work the repo: read, edit, build, run the benchmark, submit through the board \
-CLI exactly as the loop task directs. Every harness tool is yours: run long \
-benchmarks as background jobs with proc_run and keep working while they finish.",
+    // `⠻⠊`: the words are the ledger pages.
+    system_prompt: "⠻⠊",
 };
 
 impl CompetitionPackage {

@@ -4,6 +4,7 @@ use super::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, AtomicUsize};
 
+mod deepseek_messages;
 mod local_deepseek;
 
 /// Supplies a Bearer token per request (OAuth seats with silent refresh).
@@ -205,26 +206,12 @@ fn stream_read_timed_out(error: &std::io::Error) -> bool {
     )
 }
 
-fn contains_qwen_hint(value: &str) -> bool {
-    value
-        .as_bytes()
-        .windows(4)
-        .any(|window| window.eq_ignore_ascii_case(b"qwen"))
-}
-
-/// SGLang's Qwen tool parser can withhold every byte of a large string
-/// argument until its closing delimiter. Admit only a Qwen-named model/club on
-/// a private endpoint which was offered tools; every other route keeps the
-/// ordinary fail-fast timeout behavior.
-fn local_qwen_tool_stream_eligible(
-    base_url: &str,
-    club_name: &str,
-    model: Option<&str>,
-    tools_offered: bool,
-) -> bool {
-    tools_offered
-        && is_private_host(base_url)
-        && (contains_qwen_hint(club_name) || model.is_some_and(contains_qwen_hint))
+/// A self-hosted tool parser (ds4-server, SGLang's Qwen parser) can withhold
+/// every byte of a large string argument until its closing delimiter. Admit a
+/// private endpoint which was offered tools, whatever the served model is
+/// called; every other route keeps the ordinary fail-fast timeout behavior.
+fn local_tool_stream_eligible(base_url: &str, tools_offered: bool) -> bool {
+    tools_offered && is_private_host(base_url)
 }
 
 /// A parsed model delta is the strongest start signal. A partial first `data:`
@@ -428,8 +415,9 @@ pub struct HttpClub {
     /// Whether this club may run pxpipe on eligible image-capable models. Set
     /// only by `sota_tuned`, then gated again by label/model/env at send time.
     pxpipe_candidate: bool,
-    /// Whether this club should prepend SOTA brevity instructions. Set only by
-    /// `sota_tuned`; env can still disable it globally.
+    /// Whether this club may prepend SOTA brevity instructions (enabled by
+    /// `ANGEL_SOTA_CAVEMAN`). Set only by `sota_tuned`; a self-hosted link
+    /// gets them by default unless `ANGEL_SOTA_CAVEMAN=0`.
     caveman_candidate: bool,
     /// Track the backend's live model id: when set, every `/models` probe that
     /// reports a *different* id than the cached one adopts it (and drops the
@@ -456,6 +444,9 @@ pub struct HttpClub {
     /// model string, so a route that merely *looks* DeepSeek cannot inherit
     /// provider-private reasoning replay or the cloud model's capabilities.
     provider_contract: Option<ProviderContract>,
+    /// Speak DeepSeek's Anthropic-compatible Messages API, as DeepSeek's own
+    /// harness does, instead of Chat Completions (`ANGEL_DEEPSEEK_API=messages`).
+    deepseek_messages: bool,
 }
 
 /// Authority attached to this exact built request, never sent as provider JSON.
@@ -551,8 +542,8 @@ fn accounting_contract_for_url(base: &str) -> super::UsageContract {
 /// Provider-authored ids of DeepSeek's V4 Chat Completions family.
 /// `deepseek-flash` is the live V4.1 Flash id; `deepseek-v4-flash` and the
 /// experimental `deepseek-v4-flash-vision-exp` are the retired ids it
-/// temporarily aliases. Matches are exact — the Spark-local V4 serve
-/// (`deepseek-v4-flash-dspark`) is a different, text-only checkpoint.
+/// temporarily aliases. Matches are exact — a locally served V4 checkpoint
+/// under its own id is a different, text-only checkpoint.
 pub(crate) fn is_deepseek_v4_flash(model_l: &str) -> bool {
     matches!(
         model_l,
@@ -569,6 +560,17 @@ pub(crate) fn is_deepseek_v4_pro(model_l: &str) -> bool {
 /// Either current DeepSeek V4 seat. The static window/cache map, the canonical
 /// THINK ladder, and the provider-route gate all key off this one predicate so
 /// the id set lives in exactly one place.
+/// Where DeepSeek's own harness compacts (deepseek-harness
+/// `compaction-basic`): min(0.8·W, W − O − 65,536) for its 1,000,000-token
+/// window W and 256,000-token output reservation O. A cache hit is billed at
+/// 1/50 of a miss, so a long cached context costs little; compacting early
+/// loses working context and rebuilds the cache.
+const DEEPSEEK_HARNESS_COMPACTION_BUDGET: usize = 678_464;
+
+/// DeepSeek's output cap when no operator cap is set: its own harness's
+/// default, within the V4.1 card's "at least 256K" and the API's 393,216.
+const DEEPSEEK_MODEL_CARD_MAX_TOKENS: u32 = 256_000;
+
 pub(crate) fn is_deepseek_v4_model(model_l: &str) -> bool {
     is_deepseek_v4_pro(model_l) || is_deepseek_v4_flash(model_l)
 }
@@ -1227,7 +1229,7 @@ fn parse_max_tokens_env(name: &str) -> Option<u32> {
         .filter(|tokens| *tokens > 0)
 }
 
-fn max_tokens_env(name: &str) -> Option<u32> {
+pub(crate) fn max_tokens_env(name: &str) -> Option<u32> {
     let mut cache = max_tokens_env_cache()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -1281,7 +1283,7 @@ pub(crate) fn reasoning_env_generation() -> u64 {
 }
 
 /// Re-read reasoning-effort and dialect env strings into the cache. Formation
-/// apply/leave call this after writing those knobs so Math God / Grok War pins
+/// apply/leave call this after writing those knobs so Grok War pins
 /// land on the next draw. Tests that hold `crate::tests::env_lock()` and mutate
 /// the vars must call this so the cache observes the override; call again after
 /// the env guard drops to restore.
@@ -1453,6 +1455,14 @@ impl HttpClub {
     /// seeded.
     fn effort_env_read(&self) -> Option<String> {
         reasoning_env_var(&self.effort_env_name)
+            // A DeepSeek seat's env prefix is its model id (DEEPSEEK_FLASH,
+            // DEEPSEEK_V4_PRO); the documented provider-wide knob sits between
+            // that and the global one.
+            .or_else(|| {
+                (self.provider_contract == Some(ProviderContract::DeepSeek))
+                    .then(|| reasoning_env_var("ANGEL_DEEPSEEK_REASONING_EFFORT"))
+                    .flatten()
+            })
             .or_else(|| reasoning_env_var("ANGEL_REASONING_EFFORT"))
             .map(|effort| effort.trim().to_string())
             .filter(|effort| !effort.is_empty())
@@ -1578,6 +1588,24 @@ impl HttpClub {
                 Some("ANGEL_CLUB_MAX_TOKENS".to_string()),
             );
         }
+        // DeepSeek's API defaults to 64K output in thinking mode (128K at
+        // `max`), below what its model cards recommend for agent work (V4.1:
+        // at least 256K). Its own harness always sends 256,000.
+        let model_l = self
+            .model
+            .lock()
+            .ok()
+            .and_then(|model| model.as_ref().map(|id| id.to_ascii_lowercase()))
+            .unwrap_or_default();
+        if self.is_deepseek_v4_provider_route(&model_l) {
+            return (
+                OutputBudgetPolicy::Explicit {
+                    tokens: DEEPSEEK_MODEL_CARD_MAX_TOKENS,
+                    source: OutputBudgetSource::ModelCard,
+                },
+                Some("DeepSeek model card".to_string()),
+            );
+        }
         (OutputBudgetPolicy::ProviderNative, None)
     }
 
@@ -1666,6 +1694,7 @@ impl HttpClub {
             quota_gate: Mutex::new(None),
             provision_directive: Mutex::new(None),
             provider_contract: None,
+            deepseek_messages: false,
         }
     }
 
@@ -1697,6 +1726,13 @@ impl HttpClub {
     /// while a club that merely reuses a provider id or name does not.
     pub(crate) fn with_provider_contract(mut self, contract: ProviderContract) -> Self {
         self.provider_contract = Some(contract);
+        self
+    }
+
+    /// Speak DeepSeek's Messages API: the Chat body this seat builds is
+    /// translated on the way out, and each reply back (`deepseek_messages`).
+    pub(crate) fn with_deepseek_messages(mut self) -> Self {
+        self.deepseek_messages = true;
         self
     }
 
@@ -1883,7 +1919,7 @@ impl HttpClub {
     }
 
     /// Quick readiness probe: `GET {base_url}/models` returns 200 once the model
-    /// is loaded. (turbo answers 503 "Loading model" while warming up.) Sends the
+    /// is loaded. (llama.cpp answers 503 "Loading model" while warming up.) Sends the
     /// key in case the server protects /models too. Uses a short fixed timeout so
     /// a probe never hangs the UI, regardless of the (longer) chat read timeout.
     pub fn is_ready(&self) -> bool {
@@ -2003,11 +2039,20 @@ impl HttpClub {
     fn probe_backend_capabilities(&self, model: &str) -> (Option<usize>, Option<bool>) {
         let base = self.base_url.trim_end_matches('/');
         let root = base.strip_suffix("/v1").unwrap_or(base);
-        // When base has no /v1 suffix, root == base and the two candidate URLs
-        // are identical — probing the same dead endpoint twice doubles the stall.
-        let mut urls = vec![format!("{root}/props")];
-        if root != base {
-            urls.push(format!("{base}/props"));
+        // `/props` is llama.cpp's, so only a self-hosted server has one. A cloud
+        // provider answers each probe with a 404 a round trip later, before the
+        // first request (0.8 s of a DeepSeek task's 1.2 s start, measured
+        // 2026-09-29); its window comes from `/models` or the static map. A
+        // provider contract marks a cloud seat even behind a local forwarder.
+        let mut urls = Vec::new();
+        if is_private_host(base) && self.provider_contract.is_none() {
+            urls.push(format!("{root}/props"));
+            // When base has no /v1 suffix, root == base and the two candidate
+            // URLs are identical — probing the same dead endpoint twice doubles
+            // the stall.
+            if root != base {
+                urls.push(format!("{base}/props"));
+            }
         }
         for url in urls {
             if let Some(v) = self.get_json(&url) {
@@ -2150,12 +2195,20 @@ impl HttpClub {
     /// forwarder that relays the real API) or on the provider's own host.
     ///
     /// Everything else — a local/fleet serve reusing a DeepSeek id, a club
-    /// wearing the name on an unrelated endpoint — is *not* the provider, so its
-    /// private reasoning stays withheld and it declares no cloud capability.
+    /// wearing the name on an unrelated endpoint — is *not* the provider, so it
+    /// declares no cloud capability.
     fn is_deepseek_v4_provider_route(&self, model_l: &str) -> bool {
         is_deepseek_v4_model(model_l)
             && (self.provider_contract == Some(ProviderContract::DeepSeek)
                 || self.official_deepseek_host())
+    }
+
+    /// Whether a tool-call turn carries the model's own reasoning back: the
+    /// DeepSeek V4 provider requires it, and a self-hosted serve keeps its
+    /// live KV prefix only when history re-renders the tokens it generated
+    /// (without it every hop re-prefills the whole context).
+    fn replays_private_reasoning(&self, model_l: &str) -> bool {
+        self.is_deepseek_v4_provider_route(model_l) || is_private_host(&self.base_url)
     }
 
     /// The provider's own API host, parsed rather than substring-matched, so a
@@ -2211,20 +2264,27 @@ impl HttpClub {
         // Combined 1:1 amendment of the outbound copy before the caveman
         // splice, while live messages still zip onto wire objects. Private
         // reasoning stays on the exact in-memory assistant tool-call
-        // message for a DeepSeek V4 provider route only; generic
+        // message for a replaying route only; generic
         // JSON/session/rollout serialization never sees it. Harness filler
         // whitespace is squeezed in the outbound copy only (operator text is
         // never touched).
-        let replay_private_reasoning = self.is_deepseek_v4_provider_route(&model);
+        let replay_private_reasoning = self.replays_private_reasoning(&model);
+        // DeepSeek's thinking mode: while `tools` ride the request, every
+        // earlier assistant turn passes its reasoning back, tool call or answer,
+        // or the API may answer 400. A turn whose reasoning this process never
+        // held (a resumed session, a foreign seat's history) goes back empty,
+        // which the provider renders as no reasoning; nothing is invented.
+        let pass_back_every_turn =
+            !tools.is_empty() && self.is_deepseek_v4_provider_route(&model.to_ascii_lowercase());
         let squeeze_harness_ws = self.caveman_candidate && econ_enabled();
         if replay_private_reasoning || squeeze_harness_ws {
             for (message, wire) in messages.iter().zip(outbound.iter_mut()) {
-                if replay_private_reasoning
-                    && message.role == ChatRole::Assistant
-                    && !message.tool_calls.is_empty()
-                    && let Some(reasoning) = &message.private_reasoning
-                {
-                    wire["reasoning_content"] = json!(reasoning.as_ref());
+                if replay_private_reasoning && message.role == ChatRole::Assistant {
+                    if let Some(reasoning) = &message.private_reasoning {
+                        wire["reasoning_content"] = json!(reasoning.as_ref());
+                    } else if pass_back_every_turn {
+                        wire["reasoning_content"] = json!("");
+                    }
                 }
                 if squeeze_harness_ws
                     && message.role == ChatRole::Harness
@@ -2235,12 +2295,30 @@ impl HttpClub {
                 }
             }
         }
-        // Brevity instruction for token-metered SOTA links: spliced into the
-        // outbound JSON, so the history is never cloned to carry one message.
-        if self.caveman_candidate
-            && let Some((at, text)) = sota_caveman_insert(messages)
+        // Brevity instruction for token-metered SOTA links and self-hosted
+        // serves: spliced into the outbound JSON, so the history is never
+        // cloned to carry one message.
+        let self_hosted = is_private_host(&self.base_url);
+        let caveman = if self.caveman_candidate || self_hosted {
+            sota_caveman_insert(messages, self_hosted)
+        } else {
+            None
+        };
+        if let Some((at, text)) = &caveman {
+            outbound.insert(*at, json!({ "role": "system", "content": text }));
+        }
+        // The book's introduction: each stamp is introduced once in English
+        // where the model first sees it (the brevity warpath at its own
+        // index), appended to the outbound copy only. Only where the model
+        // holds the ledger reader, so the stamps after it stay decodable.
+        if tools.iter().any(|tool| tool.name == "read_file")
+            && crate::agent::harness::book::introduction::enabled()
         {
-            outbound.insert(at, json!({ "role": "system", "content": text }));
+            let standing = caveman.as_ref().map(|(at, text)| (*at, text.as_str()));
+            crate::agent::harness::book::introduction::apply(
+                &mut outbound,
+                crate::agent::harness::book::introduction::introductions(messages, standing),
+            );
         }
         // Pre-provisioning (economizer + optimizer — `provision.rs`). A judge
         // directive staged by the chat entry wins per-field; deterministic
@@ -2259,7 +2337,7 @@ impl HttpClub {
                 None
             };
         if self.caveman_candidate && econ_enabled() && prov.contract.is_none() {
-            prov.contract = econ_contract(messages);
+            prov.contract = econ_contract(messages, !tools.is_empty());
         }
         // An explicit extraction limit outranks inferred judge provisioning.
         // It remains active when the output contract was already spliced.
@@ -2381,9 +2459,6 @@ impl HttpClub {
             // pure allocator churn on a multi-hop coding turn; cache by the same
             // fingerprint the hop ledger uses for prefix-breaker attribution.
             body["tools"] = tools_wire_json(tools);
-            if crate::agent::club::final_response_requested(messages) {
-                body["tool_choice"] = json!("none");
-            }
         }
         // Opt-in passthroughs — no-ops unless enabled, so default bodies stay
         // byte-identical and lenient servers (vLLM) see nothing new. Capability
@@ -2848,16 +2923,11 @@ impl HttpClub {
         cancel: Option<&AtomicBool>,
         abort: Option<&ureq::AbortHandle>,
     ) -> Result<(ureq::Response, super::AccountingAttempt<'_>), String> {
-        // Observation only: binding the run identity must never change the
-        // request path. A body that is not JSON, or a capture that fails,
-        // leaves the identity unbound (reported as such) and the request
-        // proceeds exactly as before.
-        if crate::agent::harness::run_identity::current().is_none()
-            && let Ok(wire) = serde_json::from_slice::<serde_json::Value>(bytes)
-        {
-            let _ = self.bind_wire_identity(&wire);
-        }
-        let url = self.chat_completions_url();
+        let url = if self.deepseek_messages {
+            deepseek_messages::messages_url(&self.base_url)
+        } else {
+            self.chat_completions_url()
+        };
         let p = &self.policy;
         // Quota circuit breaker: while a weekly/monthly exhaustion is cooling
         // down, fail the call instantly (no network) with the provider's own
@@ -2885,7 +2955,12 @@ impl HttpClub {
                 .post(&url)
                 .set("Content-Type", "application/json");
             if let Some(key) = self.bearer_token()? {
-                req = req.set("Authorization", &format!("Bearer {key}"));
+                req = if self.deepseek_messages {
+                    req.set("x-api-key", &key)
+                        .set("anthropic-version", "2023-06-01")
+                } else {
+                    req.set("Authorization", &format!("Bearer {key}"))
+                };
             }
             if let Some(abort) = abort {
                 req = req.with_abort_handle(abort.clone());
@@ -2955,6 +3030,11 @@ impl HttpClub {
                 } else {
                     None
                 };
+            // Observe every actual attempt after output fitting. Capture failure
+            // never changes transport, and no prompt or credentials are retained.
+            if let Ok(wire) = crate::agent::harness::run_identity::wire_identity_controls(bytes) {
+                let _ = self.bind_wire_identity(&wire);
+            }
             let mut accounting = self.accounting.attempt();
             if let Some(reservation) = reservation {
                 accounting.reserve_formation(reservation);
@@ -3081,6 +3161,11 @@ impl HttpClub {
         let v: serde_json::Value =
             serde_json::from_reader(accounting.response_reader(r.into_reader()))
                 .map_err(|e| format!("decode response: {e}"))?;
+        let v = if self.deepseek_messages {
+            deepseek_messages::to_chat_response(&v)
+        } else {
+            v
+        };
         accounting.observe(
             v.get("usage")
                 .and_then(super::usage::parse_http_usage)
@@ -3100,6 +3185,10 @@ impl HttpClub {
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
+        if self.deepseek_messages {
+            let body = deepseek_messages::to_messages_body(&body)?;
+            return encode_json_bytes(&body).map_err(|e| format!("encode request: {e}"));
+        }
         // Reuse a thread-local buffer so multi-hop turns don't re-allocate the
         // multi-KB request scratch on every encode. pxpipe still takes ownership.
         let bytes = encode_json_bytes(&body).map_err(|e| format!("encode request: {e}"))?;
@@ -3424,6 +3513,17 @@ impl Club for HttpClub {
         self.backend_prompt_cache_capable()
     }
 
+    fn provider_compaction_budget(&self) -> Option<usize> {
+        let model_l = self
+            .model
+            .lock()
+            .ok()
+            .and_then(|model| model.as_ref().map(|id| id.to_ascii_lowercase()))
+            .unwrap_or_default();
+        self.is_deepseek_v4_provider_route(&model_l)
+            .then_some(DEEPSEEK_HARNESS_COMPACTION_BUDGET)
+    }
+
     fn truncation_usage(&self) -> TruncationUsage {
         self.truncation
             .lock()
@@ -3473,20 +3573,10 @@ impl Club for HttpClub {
                 else {
                     return first;
                 };
-                let reminder = if tools.is_empty() {
-                    ANSWER_DIRECTLY_REMINDER
-                } else {
-                    EMIT_TOOL_CALL_REMINDER
-                };
-                inject_stream_reminder(&mut retry, reminder);
+                append_reasoning_only_cue(&mut retry, tools.is_empty());
                 eprintln!(
-                    "[club:{}] reply was reasoning-only — retrying with a {} reminder",
-                    self.name,
-                    if tools.is_empty() {
-                        "direct-answer"
-                    } else {
-                        "emit-tool-call"
-                    }
+                    "[club:{}] reply was reasoning-only — retrying with its ⠭ cue",
+                    self.name
                 );
                 return self.chat_body(retry, tools);
             }
@@ -3604,20 +3694,10 @@ impl Club for HttpClub {
                 else {
                     return first;
                 };
-                let reminder = if tools.is_empty() {
-                    ANSWER_DIRECTLY_REMINDER
-                } else {
-                    EMIT_TOOL_CALL_REMINDER
-                };
-                inject_stream_reminder(&mut retry, reminder);
+                append_reasoning_only_cue(&mut retry, tools.is_empty());
                 eprintln!(
-                    "[club:{}] stream was reasoning-only — retrying with a {} reminder",
-                    self.name,
-                    if tools.is_empty() {
-                        "direct-answer"
-                    } else {
-                        "emit-tool-call"
-                    }
+                    "[club:{}] stream was reasoning-only — retrying with its ⠭ cue",
+                    self.name
                 );
                 let mut retry_wrapped = |delta: StreamDelta| on_delta(delta);
                 return self.stream_body(retry, tools, cancel, &mut retry_wrapped);
@@ -3690,7 +3770,8 @@ impl HttpClub {
                 driver: self.label().into(),
             },
             crate::agent::harness::run_identity::wire_effort(body),
-            body.get("max_tokens")
+            body.get("max_completion_tokens")
+                .or_else(|| body.get("max_tokens"))
                 .cloned()
                 .unwrap_or_else(|| serde_json::json!("provider-native")),
             None,
@@ -3705,7 +3786,7 @@ impl HttpClub {
         let replay_private_reasoning = body
             .get("model")
             .and_then(|model| model.as_str())
-            .is_some_and(|model| self.is_deepseek_v4_provider_route(model));
+            .is_some_and(|model| self.replays_private_reasoning(model));
         let v = self.post_chat(body)?;
         // Validate the response shape rather than silently treating a malformed
         // or empty body as a blank reply (which shows up as Angel saying nothing).
@@ -3792,12 +3873,21 @@ impl HttpClub {
                 marker_reasoning = sp.reasoning;
                 std::borrow::Cow::Owned(sp.content)
             };
+        let protocol_reasoning = response_reasoning(msg)
+            .filter(|reasoning| !reasoning.is_empty())
+            .filter(|reasoning| reasoning.len() <= TOOL_REASONING_RECEIPT_MAX_BYTES)
+            .map(str::to_string);
         if !tools.is_empty() {
             let recovered = extract_prose_tool_calls(&content);
             if !recovered.is_empty() {
                 if truncated {
                     return Err(TRUNCATED_OUTPUT_ERR.to_string());
                 }
+                set_pending_tool_reasoning(
+                    replay_private_reasoning
+                        .then_some(protocol_reasoning)
+                        .flatten(),
+                );
                 return Ok(ClubReply::Calls(recovered));
             }
         }
@@ -3823,6 +3913,14 @@ impl HttpClub {
         if truncated && !self.keep_truncated {
             return Err(TRUNCATED_OUTPUT_ERR.to_string());
         }
+        // DeepSeek's thinking mode wants every reasoned turn back while tools
+        // are offered, final answers included, and a self-hosted serve renders
+        // an answer's reasoning into its prefix too.
+        set_pending_tool_reasoning(
+            replay_private_reasoning
+                .then_some(protocol_reasoning)
+                .flatten(),
+        );
         if truncated {
             self.record_retained_truncation();
             return Ok(ClubReply::Text(mark_truncated(
@@ -3890,13 +3988,8 @@ impl HttpClub {
             let replay_private_reasoning = body
                 .get("model")
                 .and_then(|model| model.as_str())
-                .is_some_and(|model| self.is_deepseek_v4_provider_route(model));
-            let local_qwen_tool_stream = local_qwen_tool_stream_eligible(
-                &self.base_url,
-                &self.name,
-                body.get("model").and_then(|model| model.as_str()),
-                !tools.is_empty(),
-            );
+                .is_some_and(|model| self.replays_private_reasoning(model));
+            let local_tool_stream = local_tool_stream_eligible(&self.base_url, !tools.is_empty());
             // Each read is bounded by the agent's read timeout — but while streaming
             // that is normally only an *idle* deadline, and keep-alive comments
             // defeat it:
@@ -3908,13 +4001,13 @@ impl HttpClub {
             // A second wall-clock bound catches a provider that evades the data
             // deadline by dribbling real SSE deltas indefinitely. The ordinary
             // default is 15 minutes; competition runners can set a tighter bound.
-            // One narrow exception covers a real local-serving failure mode: Qwen
-            // tool parsers can keep decoding while withholding a large string
-            // argument until its closing delimiter. Once a private Qwen tool stream
-            // has emitted a model delta or begun a `data:` line, tolerate read
-            // timeouts for a bounded `ANGEL_STREAM_TOOL_SILENCE_SECS` window and
-            // emit zero-payload liveness upstream. Cold streams, other models, and
-            // public providers retain the short deadline.
+            // One narrow exception covers a real local-serving failure mode: a
+            // self-hosted tool parser can keep decoding while withholding a large
+            // string argument until its closing delimiter. Once a private tool
+            // stream has emitted a model delta or begun a `data:` line, tolerate
+            // read timeouts for a bounded `ANGEL_STREAM_TOOL_SILENCE_SECS` window
+            // and emit zero-payload liveness upstream. Cold streams and public
+            // providers retain the short deadline.
             // Per-line cap: a server that drips bytes without ever sending `\n` would
             // otherwise grow the line buffer without bound (OOM), and neither the idle
             // read timeout nor the stall guard fires mid-line to stop it.
@@ -3998,12 +4091,12 @@ impl HttpClub {
                 let mut acc = StreamAccumulator::default();
                 // Which deadline applies to a frame that carried no model
                 // output, and whether this stream is inside the narrow private
-                // Qwen parser-recovery window (which also allows zero-payload
+                // tool-parser recovery window (which also allows zero-payload
                 // heartbeats upstream). One selector keeps the keep-alive,
                 // read-timeout, and blank-frame paths on the same bound.
                 let idle_bound = |acc: &StreamAccumulator, model_started: bool| {
                     let grace = !tool_silence_window.is_zero()
-                        && local_tool_stream_started(local_qwen_tool_stream, acc, &[]);
+                        && local_tool_stream_started(local_tool_stream, acc, &[]);
                     if grace {
                         (tool_silence_window, "ANGEL_STREAM_TOOL_SILENCE_SECS", true)
                     } else {
@@ -4015,6 +4108,9 @@ impl HttpClub {
                 let mut saw_data = false;
                 let mut model_started = false;
                 let mut saw_done = false;
+                let mut messages_stream = self
+                    .deepseek_messages
+                    .then(deepseek_messages::StreamTranslator::default);
                 let mut raw: Vec<u8> = Vec::new();
                 let mut rule_tripped: Option<(usize, String)> = None;
                 // A retryable TTSR attempt is speculative. The caller cannot
@@ -4104,7 +4200,7 @@ impl HttpClub {
                                 }
 
                                 let waiting_on_local_tool =
-                                    local_tool_stream_started(local_qwen_tool_stream, &acc, &raw);
+                                    local_tool_stream_started(local_tool_stream, &acc, &raw);
                                 if stream_read_timed_out(&error)
                                     && waiting_on_local_tool
                                     && !tool_silence_window.is_zero()
@@ -4181,6 +4277,10 @@ impl HttpClub {
                     }
                     let decoded = String::from_utf8_lossy(&raw);
                     let line = decoded.trim_end_matches(['\n', '\r']);
+                    let translated = messages_stream
+                        .as_mut()
+                        .map(|stream| stream.line(line).unwrap_or_default());
+                    let line = translated.as_deref().unwrap_or(line);
                     match parse_sse_line(line) {
                         SseEvent::Done => {
                             wire.event("done");
@@ -4368,13 +4468,13 @@ impl HttpClub {
                 let had_reasoning = !reasoning.is_empty();
                 wire.set_finish_reason(acc.finish_reason.as_deref());
                 let reply = acc.into_reply(!tools.is_empty());
-                if matches!(reply, ClubReply::Calls(_)) {
-                    let reasoning = (!reasoning.is_empty()
-                        && reasoning.len() <= TOOL_REASONING_RECEIPT_MAX_BYTES
-                        && replay_private_reasoning)
-                        .then_some(reasoning);
-                    set_pending_tool_reasoning(reasoning);
-                }
+                // Tool-call turns and answers alike: DeepSeek's thinking mode
+                // wants every reasoned turn back while tools are offered.
+                let reasoning = (!reasoning.is_empty()
+                    && reasoning.len() <= TOOL_REASONING_RECEIPT_MAX_BYTES
+                    && replay_private_reasoning)
+                    .then_some(reasoning);
+                set_pending_tool_reasoning(reasoning);
                 if let ClubReply::Text(t) = &reply
                     && t.trim().is_empty()
                 {
@@ -4396,6 +4496,22 @@ impl HttpClub {
                 return Ok(reply);
             }
         })
+    }
+}
+
+/// The reasoning-only retry carries its reminder as a route — `⠭⠛` (answer
+/// directly) with no tools offered, `⠭⠓` (emit the tool call) with tools —
+/// on a trailing user line: the prefix stays byte-identical for servers that
+/// cache it, and a strict template accepts a user turn at the tail.
+fn append_reasoning_only_cue(body: &mut serde_json::Value, no_tools: bool) {
+    use crate::agent::harness::book::x_execution::{ANSWER_DIRECTLY, EMIT_TOOL_CALL};
+    let route = if no_tools {
+        ANSWER_DIRECTLY
+    } else {
+        EMIT_TOOL_CALL
+    };
+    if let Some(messages) = body.get_mut("messages").and_then(|m| m.as_array_mut()) {
+        messages.push(serde_json::json!({ "role": "user", "content": route.cells() }));
     }
 }
 

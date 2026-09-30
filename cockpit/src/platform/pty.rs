@@ -2,7 +2,7 @@
 //!
 //! A real `$SHELL` runs in a pseudo-terminal (portable-pty); a background thread
 //! feeds its output to a `vt100` parser, and tui-term renders that screen as a
-//! ratatui widget. This is the HUMAN's full-access shell into Apollo — it is
+//! ratatui widget. This is the HUMAN's full-access shell into this machine — it is
 //! deliberately NOT sandboxed (unlike the agent's landlock-confined `shell`
 //! tool). The `vt100::Parser` sits behind a `Mutex`, so rendering is `&self`.
 

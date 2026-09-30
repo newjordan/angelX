@@ -137,10 +137,7 @@ fn hiq_outcome_prefers_treebeard_and_eager_offload() {
     assert!(tree_p > 1.0);
     assert!((j["root_offload_ratio"].as_f64().unwrap() - 1.0).abs() < 1e-9);
     assert!(j["root_hiq_priority"].as_f64().unwrap() > 2.0);
-    // Living peer is optional (file may be absent in CI) — only type-check.
-    if j.get("living_peer_us").is_some() {
-        assert!(j["living_peer_us"].as_f64().unwrap() > 0.0);
-    }
+    assert!(j.get("living_peer_us").is_none());
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LANE") };
     let j2 = hiq_outcome_json(&counters);
@@ -221,11 +218,9 @@ fn turn_record_has_expected_shape() {
         tool_schema_peak_tokens: 1_456,
         tool_schema_token_requests: 8_292,
         counters: TurnCounters {
-            deferred_nudges: 0,
+            markup_replies: 3,
             spin: 0,
             err_streak: 0,
-            churn: 0,
-            first_write_rejections: 3,
             duplicate_inspection_results: 7,
             duplicate_inspection_bytes_saved: 12_345,
             aged_inspection_results: 8,
@@ -256,9 +251,7 @@ fn turn_record_has_expected_shape() {
             cache_read_accounting_responses: 2,
             cache_write_accounting_responses: 1,
             unverified_completion_claims: 1,
-            redundant_verifier_skips: 3,
             discovered_tool_schema_failures: 0,
-            verification_denials: 2,
             skill_hints: 1,
             provider_truncation_retries: 3,
             provider_truncation_episodes: 2,
@@ -310,7 +303,7 @@ fn turn_record_has_expected_shape() {
     assert_eq!(rec["outcome"]["hiq"]["eager_offload_results"], 3);
     assert_eq!(rec["outcome"]["hiq"]["eager_offload_bytes_saved"], 50_000);
     assert!(rec["outcome"]["hiq"]["hiq_priority"].as_f64().unwrap() >= 0.5);
-    assert_eq!(rec["outcome"]["counters"]["first_write_rejections"], 3);
+    assert_eq!(rec["outcome"]["counters"]["markup_replies"], 3);
     assert_eq!(
         rec["outcome"]["counters"]["duplicate_inspection_results"],
         7
@@ -422,7 +415,6 @@ fn turn_record_has_expected_shape() {
     assert_eq!(rec["outcome"]["tool_schema_peak_count"], 19);
     assert_eq!(rec["outcome"]["tool_schema_peak_tokens"], 1_456);
     assert_eq!(rec["outcome"]["tool_schema_token_requests"], 8_292);
-    assert_eq!(rec["outcome"]["counters"]["verification_denials"], 2);
     assert_eq!(rec["outcome"]["counters"]["skill_hints"], 1);
     assert_eq!(rec["outcome"]["counters"]["provider_truncation_retries"], 3);
     assert_eq!(

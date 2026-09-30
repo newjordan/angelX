@@ -86,13 +86,21 @@ fn renders_confident_facts_and_withholds_the_rest() {
         "{block}"
     );
     assert!(block.contains("~5s"));
-    // The trap renders as a trap.
-    assert!(block.contains("trap: `npm test` fails here"));
-    // The 0.55 build ritual is withheld, and the block says so.
+    // The trap renders as a trap: `⠸⠁⠙`, the command and evidence beside it.
+    assert!(
+        block.contains("\n⠸⠁⠙ `npm test` (3 runs, 0 pass (3 fail)"),
+        "{block}"
+    );
+    // The 0.55 build ritual is withheld, and the block says so: `⠸⠁⠉`, the
+    // count and the threshold beside it.
     assert!(!block.contains("cargo build"));
-    assert!(block.contains("1 fact(s) below 0.70 belief withheld"));
-    // The thread line is humanized.
-    assert!(block.contains("last session here: 2h ago, ended with answer (gemma)"));
+    assert!(block.contains("⠸⠁⠉ withheld=1 min_belief=0.70"), "{block}");
+    // The thread line is `⠸⠁⠑`, the session's age, stop and driver beside it.
+    assert!(
+        block.contains("\n⠸⠁⠑ age=2h stop=answer driver=gemma\n"),
+        "{block}"
+    );
+    assert!(!block.contains("last session here"), "{block}");
 }
 
 /// What the block asserts is what the agent was told to run — the input to the
@@ -106,9 +114,9 @@ fn asserted_commands_are_every_command_the_block_names() {
     assert!(asserted.contains(&"npm test".to_string()), "{asserted:?}");
     // The withheld build ritual was never asserted, so it never contaminates.
     assert!(!asserted.contains(&"cargo build".to_string()));
-    // Prose lines ("last session here: …"), the header, and the sentinel are
-    // not commands — a `: ` alone must not be mistaken for a fact line.
-    assert!(!asserted.iter().any(|c| c.contains("last session")));
+    // The thread line (`⠸⠁⠑`), the header, and the sentinel are not
+    // commands — a `: ` alone must not be mistaken for a fact line.
+    assert!(!asserted.iter().any(|c| c.contains("age=")));
     assert_eq!(asserted.len(), 2, "{asserted:?}");
     // Nothing asserted from an empty block.
     assert!(asserted_commands("").is_empty());
@@ -335,4 +343,27 @@ fn ago_is_humane() {
     assert_eq!(ago(1_000_000, 1_000_000 - 1_800), "30m ago");
     assert_eq!(ago(1_000_000, 1_000_000 - 7_200), "2h ago");
     assert_eq!(ago(1_000_000, 1_000_000 - 300_000), "3d ago");
+}
+
+/// The block's frame is the dossier's route: its header and sentinel are the
+/// `⠸⠁` pages, and only the facts ride as data.
+#[test]
+fn the_dossier_frame_is_its_route() {
+    let route = crate::agent::harness::book::d456_knowledge::DOSSIER;
+    assert_eq!(DOSSIER_BLOCK_HEADER, route.cells());
+    assert_eq!(DOSSIER_BLOCK_SENTINEL, route.cells());
+    let pages = route.sub().pages;
+    assert_eq!(
+        pages[..2],
+        [
+            "[repo dossier — what angel has verified about this workspace]",
+            "[/dossier]"
+        ]
+    );
+    let block = render_block(&artifact(), 0.70, 2048, 1_783_300_000 + 7_200);
+    assert!(!block.contains("repo dossier"), "{block}");
+    assert!(
+        block.starts_with(&format!("\n\n{}\n", route.cells())),
+        "{block}"
+    );
 }

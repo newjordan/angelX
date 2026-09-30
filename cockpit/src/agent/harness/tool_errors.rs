@@ -103,6 +103,7 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
             "requires a handle id",
             "requires a workspace path",
             "omit that flag",
+            "owns --message-format",
             "is not a directory inside the workspace — crates here:",
         ],
     ) {
@@ -144,24 +145,27 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
     {
         return Policy;
     }
-    // Missing runtimes are never legitimate red verifier results.
-    if contains_any(
-        &text,
-        &[
-            "exit 127",
-            "exit=127",
-            "exit code 127",
-            "enoent",
-            "no such file or directory",
-            "command not found",
-            "missing runtime",
-            "permission denied",
-            "spawn failed:",
-            "unavailable in the pinned toolchain",
-            "toolchain changed since pin",
-            "re-pin the toolchain",
-        ],
-    ) {
+    // Missing runtimes are never legitimate red verifier results. A pinned
+    // toolchain that drifted names its re-pin page (`⠨⠓⠁`) beside the facts.
+    if text.contains(&super::book::d46_recovery::REPIN.cells())
+        || contains_any(
+            &text,
+            &[
+                "exit 127",
+                "exit=127",
+                "exit code 127",
+                "enoent",
+                "no such file or directory",
+                "command not found",
+                "missing runtime",
+                "permission denied",
+                "spawn failed:",
+                "unavailable in the pinned toolchain",
+                "toolchain changed since pin",
+                "re-pin the toolchain",
+            ],
+        )
+    {
         return Environment;
     }
     if contains_any(
@@ -186,10 +190,8 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
     if tool == "shell" && has_test_summary(&text) {
         return Verifier;
     }
-    if matches!(
-        tool,
-        "run_tests" | "check" | "lint" | "cargo" | "machine_test" | "fmt"
-    ) && contains_any(&text, &["failed", "tests: fail", "build: fail"])
+    if matches!(tool, "run_tests" | "check" | "lint" | "cargo" | "fmt")
+        && contains_any(&text, &["failed", "tests: fail", "build: fail"])
     {
         return Verifier;
     }

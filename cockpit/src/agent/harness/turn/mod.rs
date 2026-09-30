@@ -1,10 +1,11 @@
-//! Single-agent turn execution: `run_turn` and its anti-spin / nudge machinery.
+//! Single-agent turn execution: `run_turn`. Everything the turn tells the
+//! model goes through the book of behaviors (`harness/book/`) as a braille
+//! warpath; this file gathers the facts and dispatches the work.
 pub(crate) mod background;
 
 mod classify;
 mod competition;
-mod governors;
-mod nudges;
+mod dispatch;
 mod reasoning;
 pub(crate) mod research;
 mod verify;
@@ -13,36 +14,19 @@ use super::*;
 
 pub(crate) use classify::*;
 pub(crate) use competition::*;
-pub(crate) use governors::*;
-pub(crate) use nudges::*;
+pub(crate) use dispatch::*;
 pub(crate) use reasoning::*;
 pub(crate) use verify::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct UnproductivePolicy {
-    escalate: usize,
-    stop: usize,
-}
+/// The unproductive streak never ends a turn: it gives the model a notice.
+/// Returns the hop count at which the notice fires (0 = never).
+/// Unproductive hops at which the redirect is given (`⠇⠛⠉`): the 0.1.6 task
+/// value of `ANGEL_UNPRODUCTIVE_STREAK_STOP`, whose stop is gone.
+pub(crate) const UNPRODUCTIVE_REDIRECT_HOPS: usize = 16;
 
-fn configured_unproductive_policy(metered_sota: bool, competition: bool) -> UnproductivePolicy {
-    let metered_interactive = metered_sota && !competition;
-    let task_active = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value == "1");
-    let escalate = env_usize(
-        "ANGEL_UNPRODUCTIVE_STREAK_ESCALATE",
-        if metered_interactive || task_active {
-            8
-        } else {
-            0
-        },
-    );
-    if competition {
-        return UnproductivePolicy { escalate, stop: 0 };
-    }
-
-    let default_stop = if task_active { 16 } else { 0 };
-    let stop = env_usize("ANGEL_UNPRODUCTIVE_STREAK_STOP", default_stop);
-
-    UnproductivePolicy { escalate, stop }
+fn configured_unproductive_escalate(metered_sota: bool, competition: bool) -> usize {
+    let _ = (metered_sota, competition);
+    env_usize("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE", 8)
 }
 
 /// Build the one compact telemetry snapshot written at each turn exit. A
@@ -50,23 +34,18 @@ fn configured_unproductive_policy(metered_sota: bool, competition: bool) -> Unpr
 /// expanding metrics record into a long positional function interface.
 macro_rules! turn_counters {
     (
-        $deferred_nudges:expr_2021,
+        $markup_replies:expr_2021,
         $spin:expr_2021,
         $err_streak:expr_2021,
-        $churn:expr_2021,
-        $first_write_rejections:expr_2021,
         $duplicate_inspection_results:expr_2021,
         $duplicate_inspection_bytes_saved:expr_2021,
-        $verification_denials:expr_2021,
         $actions:expr_2021 $(,)?
     ) => {{
         let actions: ActionCapsuleMetrics = $actions;
         crate::knowledge::experience::TurnCounters {
-            deferred_nudges: $deferred_nudges,
+            markup_replies: $markup_replies,
             spin: $spin,
             err_streak: $err_streak,
-            churn: $churn,
-            first_write_rejections: $first_write_rejections,
             duplicate_inspection_results: $duplicate_inspection_results,
             duplicate_inspection_bytes_saved: $duplicate_inspection_bytes_saved,
             aged_inspection_results: 0,
@@ -97,9 +76,7 @@ macro_rules! turn_counters {
             cache_read_accounting_responses: 0,
             cache_write_accounting_responses: 0,
             unverified_completion_claims: 0,
-            redundant_verifier_skips: 0,
             discovered_tool_schema_failures: 0,
-            verification_denials: $verification_denials,
             skill_hints: 0,
             provider_truncation_retries: 0,
             provider_truncation_episodes: 0,
@@ -139,16 +116,11 @@ pub(crate) enum TurnStopReason {
     IdleTimeout,
     Deadline,
     MaxHops,
-    DeferredStop,
-    Spin,
-    ErrorStop,
     ExecutionBlocked,
     CaptureFailure,
     CheckpointFailure,
     ProviderError,
     NeedsPro,
-    AcceptanceStop,
-    EscalatedUnproductive,
 }
 
 impl TurnStopReason {
@@ -159,16 +131,11 @@ impl TurnStopReason {
             Self::IdleTimeout => "idle_timeout",
             Self::Deadline => "deadline",
             Self::MaxHops => "max_hops",
-            Self::DeferredStop => "deferred_stop",
-            Self::Spin => "spin",
-            Self::ErrorStop => "error_stop",
             Self::ExecutionBlocked => "execution_blocked",
             Self::CaptureFailure => "capture_failure",
             Self::CheckpointFailure => "checkpoint_failure",
             Self::ProviderError => "provider_error",
             Self::NeedsPro => "needs_pro",
-            Self::AcceptanceStop => "acceptance_stop",
-            Self::EscalatedUnproductive => "escalated_unproductive",
         }
     }
 }
@@ -299,7 +266,10 @@ pub(crate) struct TaskTimingTelemetry {
     pub(crate) residual_ms: u128,
     pub(crate) overlap_ms: u128,
     pub(crate) spans: serde_json::Value,
-    pub(crate) calls: serde_json::Value,
+    /// Every model and provider call sample so far: the receipt's one part
+    /// that grows with the turn. Shared, so the per-hop snapshots the ledger
+    /// and the retained copy hold do not each deep-copy it.
+    pub(crate) calls: std::sync::Arc<serde_json::Value>,
 }
 
 /// Running per-turn totals behind [`TaskTimingTelemetry`]. Batch wall time is
@@ -455,9 +425,22 @@ impl TaskTimingAccumulator {
                 "longest_silence_ms":self.call_max_idle_ms,
                 "first_action":self.first_action,
                 "last_tool_end":self.last_tool_end,"turn_end":turn_elapsed_ms}),
-            calls: serde_json::json!({"model_calls":self.model_samples,
-                "retry_backoff_ms":self.model_retry_ms,
-                "provider_calls":crate::agent::harness::trajectory::provider_call_samples()}),
+            calls: std::sync::Arc::new(serde_json::Value::Object(serde_json::Map::from_iter([
+                (
+                    "model_calls".to_string(),
+                    serde_json::Value::Array(self.model_samples.clone()),
+                ),
+                (
+                    "retry_backoff_ms".to_string(),
+                    serde_json::json!(self.model_retry_ms),
+                ),
+                (
+                    "provider_calls".to_string(),
+                    serde_json::Value::Array(
+                        crate::agent::harness::trajectory::provider_call_samples(),
+                    ),
+                ),
+            ]))),
             other_ms: turn_elapsed_ms
                 .saturating_sub(self.model_ms)
                 .saturating_sub(self.tool_ms),
@@ -648,25 +631,34 @@ struct TaskCaptureContext<'a> {
     requested_driver: Option<&'a str>,
 }
 
-/// Headless tasks have no App::advance consumer for proc_run completions.
-/// Deliver only bounded, workspace-bound outcome notices, never log contents
-/// or a fabricated verification result. Interactive turns retain their UI path.
-fn inject_task_proc_completions(
+/// Headless tasks have no App::advance consumer for proc_run completions: a
+/// finished job reaches the model as a `⠏` warpath at the hop boundary, its
+/// receipt in the ledger. Returns whether any failed or ended without a known
+/// exit (`⠏⠉`); a clean exit never buys another model hop.
+fn deliver_job_completions(
     registry: &ToolRegistry,
     history: &mut Vec<ChatMsg>,
     events: &mpsc::Sender<TurnEvent>,
-) -> usize {
-    let notices = crate::agent::tools::proc::take_completions(
+) -> bool {
+    let finished = crate::agent::tools::proc::take_completions(
         &registry.workspace_boundary().canonical_root,
         8,
     );
-    let count = notices.len();
-    for completion in notices {
-        let message = completion.task_message();
-        history.push(ChatMsg::harness(message.clone()));
-        let _ = events.send(TurnEvent::Notice(message));
+    if finished.is_empty() {
+        return false;
     }
-    count
+    for job in &finished {
+        let _ = events.send(TurnEvent::Notice(job.task_message()));
+    }
+    history.push(ChatMsg::harness(format!(
+        "{}\n{}",
+        book::warpath(
+            registry.current_workspace(),
+            &book::p_processes::completions(&finished),
+        ),
+        book::p_processes::receipt_lines(&finished),
+    )));
+    book::p_processes::any_failed(&finished)
 }
 
 /// Headless task turn with an immutable task-to-rollout identity binding.
@@ -1180,20 +1172,30 @@ fn run_turn_tiered(
     let competition_trigger = competition_mode_trigger(history);
     let competition = competition_trigger.is_some();
     let metered_sota = crate::agent::club::is_sota_label(club.label());
-    let unproductive_policy = configured_unproductive_policy(metered_sota, competition);
-    let streak_escalate = unproductive_policy.escalate;
+    let streak_escalate = configured_unproductive_escalate(metered_sota, competition);
     let research_turn = !competition && research::selected(history);
     let research_origin = research_turn.then(|| research::origin(history)).flatten();
     if research_turn {
-        history.push(ChatMsg::harness(research::preamble(
-            research_origin.as_deref(),
+        let contract = [book::s_sources::contract(research_origin.as_deref())];
+        history.push(ChatMsg::harness(book::warpath(
+            registry.current_workspace(),
+            &contract,
         )));
     }
-    let mut research_compose_sent = false;
     let turn_budget = configured_turn_deadline_secs_for(competition);
     let task_pace = configured_task_pace(history);
-    registry.reset_tool_activations();
-    let bubble = if metered_sota {
+    // A byte-exact provider prefix cache renders the tool schemas ahead of the
+    // whole conversation, so a tool set that changes at a new user turn
+    // re-reads everything uncached (DeepSeek: every /loop iteration and every
+    // follow-up, measured 2026-09-29). On such a seat a turn keeps the
+    // activations earlier turns made, and the bubble is seeded once per
+    // session: later turns add a tool only when the model searches for one.
+    // DeepSeek's own harness keeps its catalogue fixed for the cache.
+    let prefix_cached = club.prompt_cache_capable();
+    if !prefix_cached {
+        registry.reset_tool_activations();
+    }
+    let bubble = if metered_sota && !(prefix_cached && registry.has_tool_activations()) {
         let task = history
             .iter()
             .rev()
@@ -1251,57 +1253,9 @@ fn run_turn_tiered(
         env_flag("ANGEL_POST_EDIT_DIAGNOSTICS", true) && registry.has_tool("lsp_diagnostics");
     let mut hop: usize = 0;
     let mut last_answer_route = club.route_identity();
-    // Anti-spin guardrail: if the model emits the *same* tool-call batch over and
-    // over with no new outcome, it's stuck — not reasoning. Nudge once, then stop.
-    // Distinct from `max_hops` (which counts every hop, productive ones included);
-    // `ANGEL_SPIN_LIMIT=0` disables it entirely for pure unbounded loops.
     let task_active = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value == "1");
-    let spin_stop = std::env::var("ANGEL_SPIN_LIMIT")
-        .ok()
-        .and_then(|s| s.trim().parse::<usize>().ok())
-        .unwrap_or(if task_active { 4 } else { 0 });
-    let spin_nudge = (spin_stop / 2).max(2);
-    // Perturbation injection: at the nudge point, jolt the model out of the loop
-    // with a concrete reframe (opposite hypothesis / cross-domain analogy) rather
-    // than a generic "change approach". On by default; `ANGEL_SPIN_PERTURB=0`
-    // restores the plain nudge.
-    let spin_perturb = env_flag("ANGEL_SPIN_PERTURB", true);
-    let mut last_sig: Option<u64> = None;
-    let mut spin = 0usize;
-    // Gemini CLI-style bounded k-cycle detection, adapted to use angelX's
-    // canonical call identity plus actual result/outcome evidence. Successful
-    // workspace mutations clear the window. This catches alternating read/tool
-    // loops that identical-batch anti-spin cannot see without penalizing a
-    // changing poll result or productive edit sequence.
-    let tool_cycle_max_period = env_usize("ANGEL_TOOL_CYCLE_MAX_PERIOD", 5).min(8);
-    let tool_cycle_repeats = env_usize("ANGEL_TOOL_CYCLE_REPEATS", 5).min(10);
-    let mut tool_cycle = (spin_stop > 0
-        && std::env::var_os("ANGEL_TOOL_CYCLE_REPEATS").is_some()
-        && tool_cycle_max_period >= 2
-        && tool_cycle_repeats >= 2)
-        .then(|| ToolBatchCycle::new(tool_cycle_max_period, tool_cycle_repeats));
-    // Duplicate-call storm guard (opt-in). Reasoning models re-issue a
-    // byte-identical call for hop after hop; anti-spin only ends the turn once
-    // the whole batch repeats, so a storm interleaved with other work burns the
-    // horizon undetected. Off unless armed; `ANGEL_TOOLCALL_STORM_WINDOW=0` also
-    // disarms it.
-    let mut toolcall_storm = env_flag("ANGEL_TOOLCALL_STORM", false)
-        .then(|| env_usize("ANGEL_TOOLCALL_STORM_WINDOW", 6))
-        .filter(|window| *window > 0)
-        .map(ToolCallStorm::new);
-    // The watcher supports waiting without requiring repeated status calls.
-    // Suppression is operator opt-in: the model may still need to monitor a
-    // real experiment, and a heuristic must not silently block that choice.
-    let poll_guard_enabled = env_flag("ANGEL_POLL_GUARD", false);
-    let poll_only_limit = env_usize("ANGEL_POLL_ONLY_LIMIT", 1).min(8);
-    let passive_sleep_max_secs = env_usize("ANGEL_PASSIVE_SLEEP_MAX_SECS", 2) as u64;
-    let mut passive_poll_guard = PassivePollGuard::default();
-    let poll_repeat_limit = env_usize("ANGEL_POLL_REPEAT_LIMIT", 8).min(32);
-    let mut repeated_poll_guard = RepeatedPollGuard::new(poll_repeat_limit);
-    let mut passive_poll_nudge_sent = false;
-    // One operator storm notice per tool name per turn; the model still gets
-    // a per-call not-started result.
-    let mut last_storm_notice: Option<String> = None;
+    // The book's detectors for this turn (`harness/book/`).
+    let mut loops = book::l_loops::Loops::from_env();
     // Tool-call scavenging (opt-in): recover a call the model stranded in its
     // answer text with an empty structured `tool_calls` array.
     let toolcall_scavenge = env_flag("ANGEL_TOOLCALL_SCAVENGE", false);
@@ -1311,7 +1265,18 @@ fn run_turn_tiered(
     // Rolling tool-aging and deduplication cadence under cache-stable mode.
     // Flushes held inspection rewrites periodically so long turns never balloon
     // into 100k+ token request bodies.
-    let rolling_rewrite_hops = env_usize("ANGEL_ROLLING_REWRITE_HOPS", 12);
+    // A provider that publishes its own harness's compaction policy (DeepSeek)
+    // keeps history append-only between compactions: its harness prunes tool
+    // results only once compaction qualifies, and a held rewrite re-reads the
+    // whole prefix uncached (39,530 and 44,011 tokens in a live DeepSeek loop,
+    // 2026-09-29). An operator's cadence still wins.
+    let rolling_rewrite_hops = if std::env::var_os("ANGEL_ROLLING_REWRITE_HOPS").is_none()
+        && club.provider_compaction_budget().is_some()
+    {
+        0
+    } else {
+        env_usize("ANGEL_ROLLING_REWRITE_HOPS", 12)
+    };
     // Auto-compaction: target budget above which the oldest turns are summarized
     // (not just evicted). 0 means "use the built-in 333k policy" unless
     // ANGEL_NO_AUTOCOMPACT disables it. Protect a token-sized recent tail by
@@ -1397,20 +1362,20 @@ fn run_turn_tiered(
     crate::agent::harness::trajectory::note_timing_origin(turn_start);
     crate::agent::harness::trajectory::note_turn_session(&registry.session_id);
     if let Some(trigger) = competition_trigger {
-        // Once per competition turn: stamp the resolved challenge pace into
-        // model history. Competition awareness and rapid submission cadence are
-        // separate contracts; deep work must never inherit the latter merely
-        // because the standing goal mentions a leaderboard.
-        let posture = competition_posture(task_pace);
-        let pace_marker = format!(
-            "COMPETITION CHALLENGE PACE — {}",
-            task_pace.as_str().to_ascii_uppercase()
+        // Once per competition turn: engage the loop at the resolved pace
+        // (`⠅⠁…` rapid, `⠅⠃…` deep). Competition awareness and rapid
+        // submission cadence are separate contracts; deep work must never
+        // inherit the latter merely because the standing goal mentions a
+        // leaderboard.
+        let engage = book::warpath(
+            registry.current_workspace(),
+            &book::k_competition::engage(task_pace),
         );
         let already = history
             .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.contains(&pace_marker));
+            .any(|m| m.role == ChatRole::Harness && m.content.as_ref() == engage);
         if !already {
-            history.push(ChatMsg::harness(posture.to_string()));
+            history.push(ChatMsg::harness(engage));
             let policy = match task_pace {
                 TaskPace::Rapid => {
                     "mutate + local preflight → explicit submission contract → improve next candidate"
@@ -1447,13 +1412,8 @@ fn run_turn_tiered(
     let mut preflight_seen_this_turn = false;
     let time_to_first_mutation_ms = std::cell::Cell::new(None::<u64>);
     let time_to_green_ms = std::cell::Cell::new(None::<u64>);
-    // Consecutive-error circuit breaker: a hop where *every* tool call errored is
-    // a failed hop; several in a row is thrashing, not progress. Nudge at half,
-    // stop at the limit. `ANGEL_ERROR_LIMIT=0` disables. Orthogonal to anti-spin
-    // (identical-batch) — this catches *changing-but-failing* calls.
-    let error_stop = env_usize("ANGEL_ERROR_LIMIT", if task_active { 6 } else { 0 });
-    let error_nudge = (error_stop / 2).max(2);
-    let mut err_streak = 0usize;
+    // Hops where every call errored at dispatch (`⠭⠁` on the third).
+    let mut errors = book::x_execution::ErrorStreak::default();
     let preturn_code_mode = registry.take_preturn_code_mode_metrics();
     let code_mode_calls = std::cell::Cell::new(preturn_code_mode.calls);
     let code_mode_recipe_calls = std::cell::Cell::new(preturn_code_mode.recipe_calls);
@@ -1490,119 +1450,99 @@ fn run_turn_tiered(
     // True when the previous hop ended in a plain answer (no tool calls): a
     // submit resets the runaway-thinking burn counter.
     let glm_last_hop_answered = std::cell::Cell::new(false);
-    // First-write pressure is operator opt-in. Real evidence and proof audits
-    // can require long read-only stretches; inferred limits coerced premature
-    // edits without guaranteeing progress.
-    let first_write_limit = configured_first_write_limit();
-    let first_write_rejection_limit = configured_first_write_rejection_limit(competition);
+    let mut green_verify_achieved = false;
+    // The hop advisories of 0.1.6 (`⠼`, and `⡅` in a competition): each is a
+    // route with its own turn, given under the condition 0.1.6 gave it.
+    let mut green_verify_nudge_emitted = false;
+    let post_edit_review = book::d3456_advisories::post_edit_review_enabled();
+    let mut post_edit_logic_reviewed = false;
+    let mut weak_verification_pending = false;
+    let mut weak_verification_told = false;
+    let mut mutation_thrash = book::d3456_advisories::MutationThrash::default();
+    let mut peripheral_fanout = book::d3456_advisories::PeripheralFanout::default();
+    let first_write_limit = book::d3456_advisories::first_write_limit();
+    let no_edit_guard = book::d3456_advisories::no_edit_guard_armed();
     let mut prewrite_calls = 0usize;
     let mut first_write_attempted = false;
     let mut first_write_nudge_emitted = false;
-    let mut first_write_rejections = 0usize;
-    // After a real green verifier, force the model to answer rather than thrash
-    // until max hops (Roll 09 OpenCC: gold patches with protocol_completed=0).
-    // Two grace batches: a real task typically owes a commit and an artifact
-    // step after its verifier goes green.
-    let post_green_tool_budget = env_usize("ANGEL_POST_GREEN_TOOL_BATCHES", 0);
-    let mut green_verify_achieved = false;
-    // The model's last passing test run and the workspace it passed on. Before
-    // "done" is accepted, the run is repeated on the unchanged code: one pass
-    // can be luck (see `confirm_green_run`).
-    let mut last_green_run: Option<GreenRun> = None;
-    let confirm_green_runs = confirm_green_extra_runs(competition);
-    let confirm_green_on_chance = confirm_green_by_chance(task_active, competition);
+    // A bounded turn that has edited keeps a reserve of hops for its final
+    // mile; a task turn defaults it, as the 0.1.6 task defaults did.
+    let final_mile_hops = if research_turn {
+        0
+    } else {
+        env_usize(
+            "ANGEL_FINAL_MILE_HOPS",
+            if task_active {
+                book::d3456_advisories::final_mile_reserve(task_pace, max_hops.is_some())
+            } else {
+                0
+            },
+        )
+    };
+    let mut final_mile_active = false;
+    // The model's last passing test run and the workspace it passed on. At its
+    // first stop the run is repeated on the unchanged code: one pass can be
+    // luck. A failed re-run is `⠧⠑`.
+    let mut last_green_run: Option<book::v_verification::GreenRun> = None;
+    let confirm_green_runs = book::v_verification::confirm_green_extra_runs(competition);
+    let confirm_green_on_chance =
+        book::v_verification::confirm_green_by_chance(task_active, competition);
     // Files the model edited with file tools this turn, for the chance check.
     let mut edited_paths: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    let mut confirm_green_rejections = 0usize;
     // The model's last red test run and the workspace it failed on. A task-mode
-    // "done" on that same code, with budget left, is denied: the run's own
-    // evidence says the work is not finished (see `red_completion_denial_limit`).
-    let red_completion_limit = red_completion_denial_limit(task_active, competition);
-    let mut red_completion_denials = 0usize;
-    let mut last_red_run: Option<RedRun> = None;
+    // answer on that same code carries `⠧⠁` to the stop checkpoint.
+    // Task mode only: the run ends on its answer and nobody is there to say
+    // "keep going"; interactive answers go to a person; competition never
+    // re-opens answers. polyglot-v1: gpt-6-luna answered "tests still fail" on
+    // five tasks with 74-94% of its 600 s left, and solved all five when re-run
+    // at higher effort. Grok 4.7 un-skipped `grep.spec.js` in 5 of 6 js-grep
+    // runs; the runs that passed restored it on their own.
+    let track_task_facts = task_active && !competition;
+    let mut last_red_run: Option<book::v_verification::RedRun> = None;
+    let mut red_streak = book::v_verification::RedStreak::default();
     let task_wall_secs = if turn_budget > 0 {
         turn_budget
     } else {
         env_usize("ANGEL_TASK_WALL_SECS", 0)
     };
-    // Test files that came with the task are its contract. A task-mode "done"
-    // with one of them changed is denied once (see `test_edit_denial_limit`);
-    // files already changed before this turn are not the model's doing.
-    let test_edit_limit = test_edit_denial_limit(task_active, competition);
-    let mut test_edit_denials = 0usize;
-    let tests_changed_at_start = if test_edit_limit > 0 {
-        changed_test_files(registry.current_workspace()).unwrap_or_default()
+    // Test files that came with the task are its contract. A task-mode answer
+    // with one of them changed carries `⠧⠛`; files already changed before
+    // this turn are not the model's doing.
+    let tests_changed_at_start = if track_task_facts {
+        book::v_verification::changed_test_files(registry.current_workspace()).unwrap_or_default()
     } else {
         Vec::new()
     };
     // A task that declares its editable surface (a Yukon benchmark.json, or
-    // ANGEL_TASK_EDIT_SCOPE) gets a note on edits outside it: those changes are
-    // not part of what is evaluated.
-    let edit_scope = task_edit_scope(registry.current_workspace());
+    // ANGEL_TASK_EDITABLE_PATHS_JSON) gets `⠧⠓` on edits outside it: those
+    // changes are not part of what is evaluated.
+    let edit_scope = book::v_verification::task_edit_scope(registry.current_workspace());
     let mut edit_scope_noted: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let mut green_verify_nudge_emitted = false;
-    let mut post_green_tool_batches = 0usize;
-    let mut consecutive_verification_failures = 0usize;
-    let mut verification_recovery_emitted = false;
-    // Coding tasks that answer "done" without mutating: default disabled (no synthetic completion denial).
-    let no_edit_answer_guard = env_flag("ANGEL_NO_EDIT_ANSWER_GUARD", false);
     // Paths that look like tests created/rewritten this turn — green checks that
-    // only name these basenames do not clear verify-before-done.
+    // only name these basenames leave the edits `⠧⠋`.
     let mut self_authored_test_basenames: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     let self_authored_verify_guard = env_flag("ANGEL_SELF_AUTHORED_VERIFY_GUARD", false);
-    let mut self_authored_verify_nudge_emitted = false;
-    // Completion verification: in competition mode, never deny completion or block answers.
-    let verify_before_done = if competition {
-        false
-    } else {
-        env_flag("ANGEL_VERIFY_BEFORE_DONE", false)
-    };
     let mut verification_needed = false;
+    // Where the model last ran a test of any kind (`⠧⠋` when it moved since).
+    let mut untested = book::v_verification::Untested::default();
+    // Timed cues (`⠺`): hygiene at the turn's first tool result, then cues
+    // as the model's own actions make them relevant (`⠺`).
+    let mut cues = book::w_workflow::Cues::default();
     let mut attempted_opaque_generation = 0;
-    let post_edit_logic_review = env_flag("ANGEL_POST_EDIT_LOGIC_REVIEW", true);
-    let mut post_edit_logic_reviewed = false;
-    let final_verification_max_nudges = env_usize("ANGEL_VERIFY_NUDGES", 2).min(4);
-    let mut final_verification_nudges = 0usize;
-    // Set once the operator answers the first verification-gate modal with
-    // "approve": the gate stands down for the rest of this turn.
-    let mut verification_gate_released = false;
     let unverified_completion_claims = std::cell::Cell::new(0usize);
-    // Re-running an identical verifier against identical Git-backed workspace
-    // bytes cannot produce new repository evidence. Reuse a prior conclusive
-    // pass/fail result so the policy spends its remaining horizon fixing code or
-    // finishing instead of repeatedly testing an unchanged tree. Non-Git
-    // workspaces and inconclusive/denied attempts fail open and execute normally.
-    let reuse_verifier_results = env_flag("ANGEL_REUSE_VERIFIER_RESULTS", true);
-    // Reuse a successful exact verifier invocation on unchanged workspace bytes.
-    // A different tool or argument set is a distinct obligation and must execute;
-    // a compile success cannot stand in for an unexecuted behavioral test.
-    let single_green_verifier = env_flag("ANGEL_SINGLE_GREEN_VERIFIER", true);
-    let mut verifier_results: HashMap<(String, String), VerificationOutcome> = HashMap::new();
-    // Attempt identity is not a green receipt: remember red/inconclusive attempts
-    // too, so post-green exemptions cannot become an unchanged-verifier retry lane.
-    let mut attempted_verifier_invocations = std::collections::HashSet::new();
-    let mut sufficient_green_verifiers: std::collections::HashSet<(String, String)> =
-        std::collections::HashSet::new();
-    let redundant_verifier_skips = std::cell::Cell::new(0usize);
-    // Evaluator-only last-mile reserve. Once a real mutation exists and the
-    // bounded horizon is close, force unresolved work toward verification or a
-    // concrete follow-up edit instead of allowing the remaining calls to drain
-    // into broad inspection. Zero preserves the exact historical off-control.
-    let final_mile_hops = if research_turn {
-        0
-    } else {
-        env_usize("ANGEL_FINAL_MILE_HOPS", 0)
-    };
-    let final_mile_answer_hops = env_usize("ANGEL_FINAL_MILE_ANSWER_HOPS", 0).min(final_mile_hops);
+    // The once-per-turn stop checkpoint (`⠟`).
+    let mut checkpoint = book::q_stop::Checkpoint::default();
+    // Loop evidence raised this turn (`⠇…`, `⠭⠁`), carried to the checkpoint.
+    let mut loop_facts: Vec<book::Raise> = Vec::new();
+    // Competition slots already announced to the model (`⠅⠉`).
+    let mut watcher_announced: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut mutation_seen = false;
-    let mut final_mile_active = false;
-    let mut final_mile_answer_notice_sent = false;
     let mut hooks_serial_notice_sent = false;
     // Tool names are not proof of workspace state: shell, MCP, code mode, or a
     // nested integration can edit without presenting as a direct write call.
     // Compare the real Git-backed state at finalization and after verifiers so
-    // an opaque edit cannot bypass verify-before-done.
+    // an opaque edit still reads as `⠥` at the stop checkpoint.
     let fingerprint_started = Instant::now();
     let initial_workspace_fingerprint = workspace_fingerprint(registry.current_workspace());
     super::trajectory::note_task_startup_phase(
@@ -1637,8 +1577,8 @@ fn run_turn_tiered(
     let provider_retries = provider_retry_budget();
     let provider_retry_backoff_ms = env_usize("ANGEL_PROVIDER_RETRY_BACKOFF_MS", 500);
     let evaluate_max_hops_workspace = env_flag("ANGEL_EVALUATE_MAX_HOPS_WORKSPACE", false);
-    let deferred_action_stop = env_usize("ANGEL_DEFERRED_ACTION_LIMIT", 0);
-    let mut deferred_action_nudges = 0usize;
+    // Replies that printed raw tool markup instead of calling a tool.
+    let mut markup_replies = 0usize;
     let mut action_capsule_metrics = ActionCapsuleMetrics::default();
     // Experience ledger: record this turn's config + outcome at whichever exit
     // it takes. Snapshot the driver's cumulative token counters up front so the
@@ -1756,7 +1696,6 @@ fn run_turn_tiered(
             .write_accounting_responses
             .saturating_sub(cache_before.write_accounting_responses);
         counters.unverified_completion_claims = unverified_completion_claims.get();
-        counters.redundant_verifier_skips = redundant_verifier_skips.get();
         counters.discovered_tool_schema_failures = discovered_tool_schema_failures.get();
         counters.tool_argument_shrinks = tool_argument_shrinks.get();
         counters.tool_argument_strings_shrunk = tool_argument_strings_shrunk.get();
@@ -1817,8 +1756,6 @@ fn run_turn_tiered(
     let mut accept_last_post_result = None;
     let mut accept_last_checked_workspace = None;
     let mut accept_last_summary = None;
-    let task_accept_rejection_limit = env_usize("ANGEL_TASK_ACCEPT_REJECTIONS", 2).clamp(1, 4);
-    let mut task_accept_rejections = 0usize;
     let task_accept_requested = std::env::var("ANGEL_TASK_ACCEPT_CMD")
         .ok()
         .filter(|command| {
@@ -1830,7 +1767,8 @@ fn run_turn_tiered(
         });
     let task_accept_cmd = task_accept_requested.clone().and_then(|command| {
         let workspace_before_baseline = workspace_evidence_sha256(registry.current_workspace());
-        let baseline = run_task_accept(&command, registry.current_workspace());
+        let baseline =
+            book::v_verification::run_task_accept(&command, registry.current_workspace());
         accept_baseline_ms = baseline.elapsed_ms;
         accept_baseline_result = Some(baseline.result_class);
         let workspace_after_baseline = workspace_evidence_sha256(registry.current_workspace());
@@ -2037,62 +1975,32 @@ fn run_turn_tiered(
             return Err(failure);
         }};
     }
-    let mut unproductive_redirections = 0usize;
-    let mut spin_redirections = 0usize;
-    let mut error_redirections = 0usize;
+    // The unproductive streak never ends a turn. At 0.1.6 it spoke to the model
+    // at eight unproductive hops and again, as a redirect, at sixteen, before
+    // it stopped the turn; the stop is gone and the two stamps of `⠇⠛` remain,
+    // each its own turn under the warning sign with the count and the last
+    // verifier beside it. A stretch that goes on earns the notice, then the
+    // redirect, again.
+    let unproductive_redirect = if task_active && !competition {
+        UNPRODUCTIVE_REDIRECT_HOPS
+    } else {
+        0
+    };
     macro_rules! handle_unproductive_streak {
         () => {{
-            let streak_stop = unproductive_policy.stop;
-            let (notice, diagnosis) = crate::agent::harness::trajectory::unproductive_escalation(
+            let (notice, redirect) = crate::agent::harness::trajectory::unproductive_escalation(
                 hop,
                 streak_escalate,
-                streak_stop,
+                unproductive_redirect,
             );
-            if let Some(note) = notice {
-                history.push(ChatMsg::harness(note.clone()));
-                let _ = events.send(TurnEvent::Notice(note));
-            }
-            if let Some(note) = diagnosis {
-                if unproductive_redirections < 2 {
-                    unproductive_redirections += 1;
-                    let redirect = format!(
-                        "[harness-telemetry] MANDATORY PROGRESS REDIRECTION: {note}. \
-                         You must stop inspecting and stop running unchanged commands. You MUST edit \
-                         the target source code using `write_file` or `str_replace` before executing \
-                         any more tools. State your concrete fix and modify the file now."
-                    );
-                    history.push(ChatMsg::harness(redirect.clone()));
-                    let _ = events.send(TurnEvent::Notice(redirect));
-                    crate::agent::harness::trajectory::clear_unproductive_streak();
-                } else {
-                    let note =
-                        format!("{note}; operator cap ANGEL_UNPRODUCTIVE_STREAK_STOP={streak_stop}");
-                    crate::agent::harness::trajectory::note_timing(
-                        &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                    );
-                    crate::agent::harness::trajectory::note_stop_reason("escalated_unproductive");
-                    log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                    write_exp(
-                        "escalated_unproductive",
-                        false,
-                        hop,
-                        turn_counters!(
-                            deferred_action_nudges,
-                            spin,
-                            err_streak,
-                            0,
-                            first_write_rejections,
-                            duplicate_inspection_results,
-                            duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
-                            action_capsule_metrics,
-                        ),
-                    );
-                    observed_outcome!(
-                        TurnOutcome::stopped(note, TurnStopReason::EscalatedUnproductive, hop),
-                        "escalated_unproductive"
-                    );
-                }
+            // The redirect is the later word: when both fall on one hop the
+            // model is given it, not the notice it already met.
+            if let Some(turn) = redirect.clone().or_else(|| notice.clone()) {
+                history.push(ChatMsg::harness(format!(
+                    "{}{turn}",
+                    book::l_loops::WARNING
+                )));
+                let _ = events.send(TurnEvent::Notice(turn));
             }
         }};
     }
@@ -2111,7 +2019,7 @@ fn run_turn_tiered(
             // at a moment of their choosing, which can land one hop before the
             // fix. Scoring that 0.0 would punish the model for a repair it was
             // never allowed to attempt.
-            crate::agent::harness::trajectory::note_timing(
+            crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
             crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Interrupt.as_str());
@@ -2121,14 +2029,11 @@ fn run_turn_tiered(
                 false,
                 hop,
                 turn_counters!(
-                    deferred_action_nudges,
-                    spin,
-                    err_streak,
-                    0,
-                    first_write_rejections,
+                    markup_replies,
+                    loops.spin(),
+                    errors.streak(),
                     duplicate_inspection_results,
                     duplicate_inspection_bytes_saved,
-                    final_verification_nudges,
                     action_capsule_metrics,
                 ),
             );
@@ -2138,21 +2043,7 @@ fn run_turn_tiered(
             );
         }
         handle_unproductive_streak!();
-        // Reserve the final tenth of the declared wall for composition. Start
-        // considering it with two reservations left; never borrow past the wall.
-        let compose_reservation = Duration::from_secs(turn_budget as u64) / 10;
-        let remaining_deadline =
-            turn_deadline.map(|deadline| deadline.saturating_duration_since(Instant::now()));
-        let compose_fits = remaining_deadline
-            .is_none_or(|remaining| !remaining.is_zero() && remaining >= compose_reservation);
-        let research_compose = research_turn
-            && !research_compose_sent
-            && (remaining_deadline.is_some_and(|remaining| remaining <= compose_reservation * 2)
-                || max_hops.is_some_and(|max| hop >= max.saturating_sub(1))
-                || research::repeated_search(history));
-        if turn_expired(turn_start.elapsed().as_secs(), turn_budget)
-            || ((research_compose || research_compose_sent) && !compose_fits)
-        {
+        if turn_expired(turn_start.elapsed().as_secs(), turn_budget) {
             let deadline_source = if std::env::var_os("ANGEL_TURN_DEADLINE_SECS").is_some() {
                 "ANGEL_TURN_DEADLINE_SECS"
             } else {
@@ -2163,7 +2054,7 @@ fn run_turn_tiered(
                  after {hop} hop(s) — stopping; conversation kept. Send another message to \
                  continue."
             );
-            crate::agent::harness::trajectory::note_timing(
+            crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
             crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Deadline.as_str());
@@ -2173,14 +2064,11 @@ fn run_turn_tiered(
                 false,
                 hop,
                 turn_counters!(
-                    deferred_action_nudges,
-                    spin,
-                    err_streak,
-                    0,
-                    first_write_rejections,
+                    markup_replies,
+                    loops.spin(),
+                    errors.streak(),
                     duplicate_inspection_results,
                     duplicate_inspection_bytes_saved,
-                    final_verification_nudges,
                     action_capsule_metrics,
                 ),
             );
@@ -2209,7 +2097,7 @@ fn run_turn_tiered(
             // with every other guarded stop. The stop note is the record's
             // answer field only; history remains untouched and all prior
             // assistant tool calls already have their tool results.
-            crate::agent::harness::trajectory::note_timing(
+            crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
             crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::MaxHops.as_str());
@@ -2219,14 +2107,11 @@ fn run_turn_tiered(
                 false,
                 hop,
                 turn_counters!(
-                    deferred_action_nudges,
-                    spin,
-                    err_streak,
-                    0,
-                    first_write_rejections,
+                    markup_replies,
+                    loops.spin(),
+                    errors.streak(),
                     duplicate_inspection_results,
                     duplicate_inspection_bytes_saved,
-                    final_verification_nudges,
                     action_capsule_metrics,
                 ),
             );
@@ -2237,9 +2122,9 @@ fn run_turn_tiered(
             // the cohort row. Ordinary task and interactive callers retain
             // the historical structured error by default.
             if research_turn {
-                let answer = research::draft(history).unwrap_or_else(|| {
-                    "Evidence is missing; no research draft was produced before the hop cap.".into()
-                });
+                // The answer's reader cannot read the ledger: `⠟⠛⠃`'s page.
+                let answer =
+                    research::draft(history).unwrap_or_else(|| book::q_stop::NO_DRAFT.to_string());
                 observed_outcome!(
                     TurnOutcome::stopped(answer, TurnStopReason::MaxHops, hop)
                         .with_stop_notice(message),
@@ -2266,12 +2151,6 @@ fn run_turn_tiered(
                 "max_hops"
             );
         }
-        let final_mile_answer_only = should_force_final_mile_answer(
-            max_hops,
-            hop,
-            final_mile_answer_hops,
-            final_mile_active,
-        );
         hop += 1;
         crate::agent::turn::phase::mark("hop_start");
         let _phase_hop = crate::agent::turn::phase::Hop;
@@ -2327,14 +2206,6 @@ fn run_turn_tiered(
             }
             prev_defs_fingerprint = next_fp;
             cached_tool_schema_tokens = estimate_tool_tokens(&defs);
-        }
-        if final_mile_answer_only && !final_mile_answer_notice_sent {
-            final_mile_answer_notice_sent = true;
-            crate::agent::harness::trajectory::note_escalation(hop, "final_mile_answer_advisory");
-            history.push(ChatMsg::harness(FINAL_MILE_ANSWER_NUDGE.to_string()));
-            let _ = events.send(TurnEvent::Notice(
-                "final-mile answer window active; schemas retained, tool calls disabled".into(),
-            ));
         }
         discovered_tool_schema_failures.set(
             discovered_tool_schema_failures
@@ -2482,6 +2353,26 @@ fn run_turn_tiered(
         let rolling_flush = cache_stable
             && rolling_rewrite_hops > 0
             && deferred_rewrite_hops.get() >= rolling_rewrite_hops.max(4);
+        // A rolling flush pays the whole held prefix again as a cache miss on
+        // the next request. On a byte-exact provider prefix cache (the rust30
+        // wire cohort: three tasks re-billed 4,096–12,288 tokens exactly at
+        // hops 12 and 24) that penalty is paid in tokens *and* first-token
+        // latency, for savings that only matter when the request body is
+        // actually large. Gate the cadence flush on a body-size floor: short
+        // turns keep their cache-warm prefix and never pay the rewrite. The
+        // floor defaults to a sixth of the live compaction budget so a
+        // small-window seat still flushes before its body balloons, and an
+        // operator keeps the old behavior with
+        // `ANGEL_ROLLING_REWRITE_MIN_TOKENS=0`; compaction/prune breakers above
+        // still flush immediately.
+        let rolling_rewrite_min_tokens = env_usize("ANGEL_ROLLING_REWRITE_MIN_TOKENS", 24_000);
+        let rolling_rewrite_min_tokens = if rolling_rewrite_min_tokens > 0 {
+            rolling_rewrite_min_tokens.min(effective_budget / 6)
+        } else {
+            0
+        };
+        let rolling_flush =
+            rolling_flush && hist_tok + cached_tool_schema_tokens >= rolling_rewrite_min_tokens;
         if cache_stable
             && (rolling_flush
                 || hop_breakers.iter().any(|b| {
@@ -2557,21 +2448,8 @@ fn run_turn_tiered(
                 events,
             );
         }
-        // Compaction may have consumed the prior directive. Restore it only at
-        // the tail so the transport still forbids calls in this window.
-        if final_mile_answer_only && !crate::agent::club::final_response_requested(history) {
-            history.push(ChatMsg::harness(FINAL_MILE_ANSWER_NUDGE));
-        }
-        if research_compose {
-            research_compose_sent = true;
-            history.push(ChatMsg::harness(research::COMPOSE));
-            crate::agent::harness::trajectory::note_escalation(hop, "research_compose");
-            let _ = events.send(TurnEvent::Notice(
-                "Research compose step: answer from evidence or decline citing nothing".into(),
-            ));
-        }
         if task_capture.is_some() {
-            inject_task_proc_completions(registry, history, events);
+            deliver_job_completions(registry, history, events);
         }
         // Publish the live token gauge for the `get_context_remaining` tool —
         // count the tool schemas too, so "remaining" reflects the whole request.
@@ -2607,10 +2485,14 @@ fn run_turn_tiered(
             competition,
             &mut published_slot_telemetry,
         );
-        if let Some(notify) = watch_notify {
-            let text = notify.injection_text();
-            history.push(ChatMsg::harness(text.clone()));
-            let _ = events.send(TurnEvent::Notice(text));
+        if let Some(notify) = watch_notify
+            && watcher_announced.insert(notify.id.clone())
+        {
+            let _ = events.send(TurnEvent::Notice(notify.injection_text()));
+            history.push(ChatMsg::harness(book::k_competition::watcher_turn(
+                registry.current_workspace(),
+                &notify,
+            )));
         }
         // Stream the reply: forward each text delta to the UI as it arrives, and
         // let the club check `cancel` between chunks for a prompt mid-reply stop.
@@ -2625,34 +2507,37 @@ fn run_turn_tiered(
         // were dispatched, and SuppressPartial retracts its speculative text.
         let mut provider_attempt = 0usize;
         // provider_retries / provider_retry_backoff_ms captured once per turn (A7).
-        let mut empty_reply_nudged = false;
-        let output_cap_nudges = std::cell::Cell::new(0usize);
-        let mut nudge_empty_reply =
+        let mut empty_reply_noted = false;
+        let output_cap_notes = std::cell::Cell::new(0usize);
+        let notes_workspace = registry.current_workspace().to_path_buf();
+        // A reply that failed before it could act: `⠭⠉` output cap, `⠭⠙` all
+        // reasoning, `⠭⠑` empty. A reply cut off at a fixed cap comes back
+        // identical on a plain re-send; the route makes the retry different.
+        let mut note_failed_reply =
             |error: &str, reasoning_only: bool, history: &mut Vec<ChatMsg>| {
-                // A reply cut off at a fixed output cap comes back identical on a
-                // plain re-send; tell the model so the retry is a different request.
-                // A reply that was all reasoning needs different advice than one
-                // that overflowed on a large tool call.
-                if is_output_cap_truncation(error)
-                    && output_cap_nudges.get() < OUTPUT_CAP_NUDGE_LIMIT
-                {
-                    output_cap_nudges.set(output_cap_nudges.get() + 1);
-                    let nudge = if reasoning_only {
-                        REASONING_CAP_NUDGE
-                    } else {
-                        OUTPUT_CAP_NUDGE
-                    };
-                    history.push(ChatMsg::harness(format!("{nudge}\n({error})")));
+                let Some(route) = book::x_execution::failed_reply(error, reasoning_only) else {
+                    return;
+                };
+                if route == book::x_execution::EMPTY {
+                    if empty_reply_noted {
+                        return;
+                    }
+                    empty_reply_noted = true;
+                } else if output_cap_notes.get() < book::x_execution::OUTPUT_CAP_LIMIT {
+                    output_cap_notes.set(output_cap_notes.get() + 1);
+                } else {
                     return;
                 }
-                if is_empty_reply_error(error) && !empty_reply_nudged {
-                    empty_reply_nudged = true;
-                    history.push(ChatMsg::harness(format!(
-                        "{TELEMETRY_MARK}Your previous reply arrived empty — no text \
-                     and no tool calls were received. Respond now with either \
-                     structured tool calls or answer text."
-                    )));
+                let mut note = book::warpath(
+                    &notes_workspace,
+                    &[book::Raise::new(route, error.to_string())],
+                );
+                // The provider's own words for the cut-off ride beside the
+                // stamp, as they did at 0.1.6.
+                if route != book::x_execution::EMPTY {
+                    note.push_str(&format!("\n({error})"));
                 }
+                history.push(ChatMsg::harness(note));
             };
         crate::agent::turn::phase::mark("context_assembled");
         let reply = loop {
@@ -2660,10 +2545,6 @@ fn run_turn_tiered(
             // the owned boundary before opening another provider request.
             if cancel.load(Ordering::Acquire)
                 || turn_expired(turn_start.elapsed().as_secs(), turn_budget)
-                || (research_compose
-                    && turn_deadline.is_some_and(|deadline| {
-                        deadline.saturating_duration_since(Instant::now()) < compose_reservation
-                    }))
             {
                 continue 'turn;
             }
@@ -2705,7 +2586,7 @@ fn run_turn_tiered(
             // merely the first read-only batch of the turn — every normal
             // read-then-edit task has one — and treating it as friction pinned
             // `high` on every hop after the first (arena, 2026-09-05).
-            let has_friction = err_streak > 0 || spin >= 2;
+            let has_friction = errors.streak() > 0 || loops.spin() >= 2;
             // Explicit opt-in only. The former locked-GLM auto-arm flipped the
             // rung between hops (low → high), and z.ai keys its prefix cache on
             // the effort value: every flip re-prefilled the whole prompt
@@ -2786,6 +2667,9 @@ fn run_turn_tiered(
             timing.call_last_delta = None;
             timing.call_max_idle_ms = 0;
             let mut provider_not_started = false;
+            // A connected seat inside this call (a mixture stage) reads this
+            // workspace's ledger.
+            let _ledger = book::connect::enter(registry.current_workspace());
             let result = with_turn_deadline_cancel(cancel, turn_deadline, |effective_cancel| {
                 crate::agent::turn::phase::mark("bind_run_identity");
                 club.bind_run_identity(effective_effort.as_deref())?;
@@ -2794,12 +2678,13 @@ fn run_turn_tiered(
                 if effective_cancel.load(Ordering::Acquire)
                     || turn_deadline.is_some_and(|deadline| {
                         let remaining = deadline.saturating_duration_since(Instant::now());
-                        remaining.is_zero() || (research_compose && remaining < compose_reservation)
+                        remaining.is_zero()
                     })
                 {
                     provider_not_started = true;
                     return Err("provider request not started: turn deadline reached".into());
                 }
+                crate::agent::club::set_pending_responses_replay(None);
                 crate::agent::turn::phase::mark("request_sent");
                 match effective_effort.as_deref() {
                     Some(effort) => club.chat_streaming_with_effort(
@@ -2859,7 +2744,7 @@ fn run_turn_tiered(
                 (model_end_ms - model_start_ms) as u64,
             ));
             timing.note_model_span(model_start_ms, model_end_ms);
-            crate::agent::harness::trajectory::note_timing(
+            crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
             if provider_not_started {
@@ -2902,6 +2787,7 @@ fn run_turn_tiered(
             match result {
                 Ok(reply) => {
                     let resolved = club.resolved_route_identity();
+                    super::run_identity::select_answer_route(&resolved);
                     if resolved.driver != last_answer_route.driver
                         || resolved.model != last_answer_route.model
                     {
@@ -3099,13 +2985,16 @@ fn run_turn_tiered(
                         if emitted_reasoning {
                             let _ = events.send(TurnEvent::SuppressPartial);
                         }
-                        history.push(ChatMsg::harness(format!("{TELEMETRY_MARK}{note}")));
+                        history.push(ChatMsg::harness(book::warpath(
+                            registry.current_workspace(),
+                            &[book::Raise::new(book::x_execution::SESSION, note.clone())],
+                        )));
                         let _ = events.send(TurnEvent::Notice(note.clone()));
                         if fault.retries_same_club()
                             && retry_budget_allows(provider_retries, provider_attempt)
                         {
                             provider_attempt = provider_attempt.saturating_add(1);
-                            nudge_empty_reply(&err, reasoning_only_reply, history);
+                            note_failed_reply(&err, reasoning_only_reply, history);
                             continue;
                         }
                         // Recovery notes are harness diagnostics, never an
@@ -3117,8 +3006,8 @@ fn run_turn_tiered(
                     // request against the same cap and fails the same way (GLM
                     // polyglot-v1 py-two-bucket: about three minutes of reasoning
                     // per cut-off, until the wall ran out).
-                    let output_cap_exhausted = is_output_cap_truncation(&err)
-                        && output_cap_nudges.get() >= OUTPUT_CAP_NUDGE_LIMIT;
+                    let output_cap_exhausted = book::x_execution::is_output_cap_truncation(&err)
+                        && output_cap_notes.get() >= book::x_execution::OUTPUT_CAP_LIMIT;
                     if !cancel.load(Ordering::Relaxed)
                         && !stop_after_session_recovery
                         && retry_allowed
@@ -3135,7 +3024,7 @@ fn run_turn_tiered(
                         // backend fed identical bytes fails identically. One
                         // transient re-prompt changes the token stream so the
                         // retry is not a pure replay.
-                        nudge_empty_reply(&err, reasoning_only_reply, history);
+                        note_failed_reply(&err, reasoning_only_reply, history);
                         let failure_stage = if incomplete_stream {
                             "provider stream incomplete"
                         } else {
@@ -3198,14 +3087,11 @@ fn run_turn_tiered(
                         false,
                         hop,
                         turn_counters!(
-                            deferred_action_nudges,
-                            spin,
-                            err_streak,
-                            0,
-                            first_write_rejections,
+                            markup_replies,
+                            loops.spin(),
+                            errors.streak(),
                             duplicate_inspection_results,
                             duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
                             action_capsule_metrics,
                         ),
                     );
@@ -3223,8 +3109,9 @@ fn run_turn_tiered(
                         "not retried: visible text was already streamed for this hop".to_string()
                     } else if output_cap_exhausted {
                         format!(
-                            "not retried: {OUTPUT_CAP_NUDGE_LIMIT} replies in a row were cut off at \
-                             the output cap after being told so; a re-send would repeat it"
+                            "not retried: {} replies in a row were cut off at \
+                             the output cap after being told so; a re-send would repeat it",
+                            book::x_execution::OUTPUT_CAP_LIMIT
                         )
                     } else {
                         match provider_retries {
@@ -3259,49 +3146,6 @@ fn run_turn_tiered(
         // the accumulated assistant text is available here — private reasoning
         // is streamed to the UI, never retained — so that is what is scanned.
         let reply = match reply {
-            crate::agent::club::ClubReply::Calls(calls) if final_mile_answer_only => {
-                // A provider can still violate an empty tool schema by
-                // returning remembered/native calls. Never execute those in
-                // the response-only window: close truthfully over the
-                // workspace and receipts already produced.
-                let _ = crate::agent::club::take_pending_tool_reasoning();
-                let _ = crate::agent::club::take_pending_tool_content();
-                let names = calls
-                    .iter()
-                    .map(|call| call.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let _ = events.send(TurnEvent::SuppressPartial);
-                let _ = events.send(TurnEvent::Notice(format!(
-                    "final-mile answer window withheld {} unavailable tool call(s)",
-                    calls.len()
-                )));
-                crate::agent::club::ClubReply::Text(format!(
-                    "Final response window closed without a model-authored answer: the model \
-                     attempted unavailable tool calls ({names}) after tool schemas were \
-                     withdrawn. None executed; the workspace and prior verification receipts \
-                     are preserved."
-                ))
-            }
-            crate::agent::club::ClubReply::Text(answer)
-                if final_mile_answer_only
-                    && crate::agent::club::contains_raw_tool_markup(&answer) =>
-            {
-                // Raw markup is not an executable fallback when schemas are
-                // absent. Replace it with an honest boundary result instead
-                // of publishing apparent tool output that never happened.
-                let _ = events.send(TurnEvent::SuppressPartial);
-                let _ = events.send(TurnEvent::Notice(
-                    "final-mile answer window withheld raw tool markup".into(),
-                ));
-                crate::agent::club::ClubReply::Text(
-                    "Final response window closed without a model-authored answer: the model \
-                     printed tool markup after tool schemas were withdrawn. Nothing in that \
-                     markup executed; the workspace and prior verification receipts are \
-                     preserved."
-                        .into(),
-                )
-            }
             crate::agent::club::ClubReply::Text(answer)
                 if toolcall_scavenge && !defs.is_empty() =>
             {
@@ -3328,6 +3172,9 @@ fn run_turn_tiered(
         };
         match reply {
             crate::agent::club::ClubReply::Text(answer) => {
+                // The answer's own reasoning, for a route that replays it
+                // (DeepSeek's thinking mode wants every reasoned turn back).
+                let answer_reasoning = crate::agent::club::take_pending_tool_reasoning();
                 // Self-report escalation: the marker is a control token, not an
                 // answer, so it is read before any answer policy sees the text.
                 // Inert at `Off`, which is every unarmed turn.
@@ -3344,14 +3191,11 @@ fn run_turn_tiered(
                             false,
                             hop,
                             turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
+                                markup_replies,
+                                loops.spin(),
+                                errors.streak(),
                                 duplicate_inspection_results,
                                 duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
                                 action_capsule_metrics,
                             ),
                         );
@@ -3373,6 +3217,18 @@ fn run_turn_tiered(
                         rest
                     }
                 };
+                // Stop checkpoint (`book/q_stop.rs`). Every measurement the harness
+                // owns still runs here — post-write verification, the pinned
+                // acceptance command, the confirming re-run, background-job state —
+                // but none of them can deny the answer. Their findings are stop
+                // facts; the first answer that carries any is shown them once as a
+                // warpath ending in `⠟⠁`, and every later answer stands.
+                let mut stop_facts: Vec<book::Raise> = Vec::new();
+                let mut add_fact = |raise: book::Raise| {
+                    if !stop_facts.iter().any(|seen| seen.route == raise.route) {
+                        stop_facts.push(raise);
+                    }
+                };
                 let final_check_notes =
                     with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
                         finish_post_write_verification(
@@ -3386,176 +3242,35 @@ fn run_turn_tiered(
                         )
                     });
                 if !final_check_notes.is_empty() {
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    history.push(ChatMsg::harness(final_check_notes.join("\n\n")));
-                    // Existing hop/deadline/cancellation bounds still govern
-                    // this recovery. A withheld answer is not completed work.
-                    continue;
-                }
-                // A long provider call can race a background build's exit.
-                // Let the task see the newly finished job before accepting an
-                // answer based on its obsolete "running" snapshot. Existing
-                // hop/deadline bounds and explicit escalation retain priority.
-                if task_capture.is_some()
-                    && !final_mile_answer_only
-                    && inject_task_proc_completions(registry, history, events) > 0
-                {
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    history.push(ChatMsg::harness(
-                        "Background work finished while your answer was being generated. \
-                         Inspect its proc_status outcome and incorporate it before finishing."
-                            .to_string(),
+                    add_fact(book::Raise::new(
+                        book::v_verification::POST_WRITE,
+                        final_check_notes.join("\n\n"),
                     ));
-                    continue;
                 }
-                // A headless answer shuts down its process registry. Real
-                // proof runs repeatedly answered while their last build was
-                // still running, losing that work despite completion notices.
-                // Give only this task's jobs a bounded, cancellable idle window
-                // outside the provider/tool call. Interactive proc_status stays
-                // nonblocking; the existing hop/deadline/final-mile policy wins.
+                // A long provider call can race a background build's exit:
+                // deliver the completions, and a failed one is a fact.
+                if task_capture.is_some() && deliver_job_completions(registry, history, events) {
+                    add_fact(book::Raise::new(book::p_processes::FAILED, None));
+                }
+                // A headless answer shuts down its process registry; jobs the
+                // task still owns stop with it. Say so; never wait on them.
                 let proc_owner = cancel as *const AtomicBool as usize;
                 let proc_workspace = &registry.workspace_boundary().canonical_root;
                 if task_capture.is_some()
                     && crate::agent::tools::proc::owned_work_pending(proc_owner, proc_workspace)
                 {
-                    // The bounded answer window cannot inspect or finish this
-                    // work. Preserve the model's handoff, but never label a
-                    // task that is about to stop its live jobs as completed.
-                    if final_mile_answer_only {
-                        let reason =
-                            if turn_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
-                                TurnStopReason::Deadline
-                            } else {
-                                TurnStopReason::MaxHops
-                            };
-                        let source = reason.as_str();
-                        history.push(ChatMsg::assistant(answer.clone()));
-                        crate::agent::harness::trajectory::note_stop_reason(source);
-                        log_trajectory(club, history, &answer, hop, true, verdicts.reward());
-                        observed_outcome!(
-                            TurnOutcome::stopped(answer, reason, hop).with_stop_notice(
-                                "Task stopped with owned background work unfinished; task exit stops remaining jobs."
-                                    .to_string(),
-                            ),
-                            source
-                        );
-                    }
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    let _ = events.send(TurnEvent::Notice(
-                        "Headless answer deferred: owned background work is still running; waiting up to 30s for its outcome.".to_string(),
-                    ));
-                    let idle_until = Instant::now() + Duration::from_secs(30);
-                    while !cancel.load(Ordering::Acquire)
-                        && Instant::now() < idle_until
-                        && turn_deadline.is_none_or(|deadline| Instant::now() < deadline)
-                        && crate::agent::tools::proc::owned_work_pending(proc_owner, proc_workspace)
-                    {
-                        std::thread::sleep(Duration::from_millis(100));
-                    }
-                    inject_task_proc_completions(registry, history, events);
-                    history.push(ChatMsg::harness(
-                        "Your final answer was deferred because this task still owned running background work. \
-                         Inspect proc_status and finish from its actual outcome. If a job is no longer needed, \
-                         explicitly stop it with proc_stop before answering. Do not report an in-flight build \
-                         as complete; task exit stops remaining jobs."
-                            .to_string(),
-                    ));
-                    continue;
+                    add_fact(book::Raise::new(book::p_processes::LIVE, None));
                 }
-                // Raw tool markup surviving into a text answer means the model
-                // "called" a tool in prose that never ran — whatever the text
-                // claims about results is invented. Refuse it like an
-                // announce-only false start and force a real call.
-                let raw_markup =
-                    !defs.is_empty() && crate::agent::club::contains_raw_tool_markup(&answer);
-                if raw_markup {
-                    deferred_action_nudges += 1;
-                    // Raw tool markup is unsafe to preserve: it looks executable
-                    // while no tool actually ran. A plain progress sentence is
-                    // different — the operator already saw it stream, and
-                    // erasing it leaves a baffling blank answer until the next
-                    // tool event. Keep legitimate status prose visible while we
-                    // still nudge the model to continue with a real tool call.
-                    if raw_markup {
-                        let _ = events.send(TurnEvent::SuppressPartial);
-                    }
-                    history.push(ChatMsg::assistant(answer.clone()));
-                    if deferred_action_stop > 0 && deferred_action_nudges >= deferred_action_stop {
-                        let note = format!(
-                            "⚠ stopped after {deferred_action_nudges} assistant false-starts: \
-                             the model kept announcing work or printing raw tool markup \
-                             without issuing tool calls. Conversation kept — send another \
-                             message to retry or steer it."
-                        );
-                        crate::agent::harness::trajectory::note_timing(
-                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                        );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::DeferredStop.as_str(),
-                        );
-                        log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                        write_exp(
-                            "deferred_stop",
-                            false,
-                            hop,
-                            turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
-                                duplicate_inspection_results,
-                                duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
-                                action_capsule_metrics,
-                            ),
-                        );
-                        observed_outcome!(
-                            TurnOutcome::stopped(note, TurnStopReason::DeferredStop, hop),
-                            "deferred_stop"
-                        );
-                    }
-                    let _ = events.send(TurnEvent::Notice(format!(
-                        "{} ({deferred_action_nudges}/{deferred_action_stop})",
-                        if raw_markup {
-                            "assistant printed raw tool markup; forcing a real tool call"
-                        } else {
-                            "assistant announced work without tools; forcing tool use"
-                        }
-                    )));
-                    let correction = if raw_markup {
-                        "Your previous message printed raw tool markup as plain text — no \
-                         tool was executed, and any results it described were invented. \
-                         Re-issue the action through the structured tool-call interface now \
-                         (no tool markup in chat text), then answer from the real output."
-                    } else {
-                        "Your previous message only announced work; it did not do the work. \
-                         Continue this same turn now by issuing structured tool calls only. \
-                         Use shell/read/search tools to inspect the workspace, use delegate if \
-                         council input was requested, then answer from evidence. Do not write \
-                         another status sentence before the tool calls."
-                    };
-                    // The relentless directive is a standing steer (also re-injected
-                    // per submit) — leave it unmarked so it can inform a summary. The
-                    // correction is transient false-start commentary: mark it as
-                    // telemetry so it never becomes a durable "the agent keeps failing"
-                    // note. Split into two messages so only the correction is dropped
-                    // by `render_transcript`; both stay visible to the model in the tail.
-                    history.push(ChatMsg::harness(RELENTLESS_EXECUTION_DIRECTIVE.to_string()));
-                    history.push(ChatMsg::harness(format!("{TELEMETRY_MARK}{correction}")));
-                    continue;
+                // Raw tool markup in a text answer: nothing in it ran.
+                if !defs.is_empty() && crate::agent::club::contains_raw_tool_markup(&answer) {
+                    markup_replies += 1;
+                    add_fact(book::Raise::new(book::x_execution::MARKUP, None));
                 }
                 let current_workspace_fingerprint =
                     workspace_fingerprint(registry.current_workspace());
                 let current_acceptance_workspace = task_accept_cmd
                     .as_ref()
                     .and_then(|_| workspace_evidence_sha256(registry.current_workspace()));
-                let workspace_changed =
-                    match (initial_workspace_fingerprint, current_workspace_fingerprint) {
-                        (Some(initial), Some(current)) => current != initial,
-                        _ => false,
-                    };
                 let workspace_changed_after_verification =
                     match (initial_workspace_fingerprint, current_workspace_fingerprint) {
                         (Some(initial), Some(current)) => {
@@ -3565,30 +3280,29 @@ fn run_turn_tiered(
                         }
                         _ => false,
                     };
-                // An evaluator-pinned task acceptance command is a hard
-                // completion contract. Passing it can terminate immediately at
-                // the post-mutation seam below; a red result must likewise be
-                // authoritative here. Previously the ordinary verification
-                // nudge budget could expire and publish the model's "done"
-                // answer even while this deterministic predicate remained red.
+                // The evaluator-pinned acceptance command is measured, never a
+                // veto: red is `⠧⠃`, flaky `⠧⠑`, green is recorded.
                 if let Some(command) = task_accept_cmd.as_deref() {
                     let last_result = accept_last_post_result.or(accept_baseline_result);
                     let reuse_unchanged_red = current_acceptance_workspace.is_some()
                         && current_acceptance_workspace == accept_last_checked_workspace
                         && last_result.is_some_and(|result| result != "passed")
                         && accept_last_summary.is_some();
-                    let (passed, summary) = if reuse_unchanged_red {
-                        (
-                            false,
-                            format!(
-                                "unchanged red task acceptance replay (process skipped): {}",
-                                accept_last_summary
-                                    .as_deref()
-                                    .unwrap_or("task acceptance failed")
-                            ),
-                        )
+                    let (passed, fact) = if reuse_unchanged_red {
+                        let route = if last_result == Some("flaky") {
+                            book::v_verification::FLAKY
+                        } else {
+                            book::v_verification::ACCEPTANCE
+                        };
+                        let summary = accept_last_summary
+                            .clone()
+                            .unwrap_or_else(|| "task acceptance failed".into());
+                        (false, Some(book::Raise::new(route, summary)))
                     } else {
-                        let proof = run_task_accept(command, registry.current_workspace());
+                        let proof = book::v_verification::run_task_accept(
+                            command,
+                            registry.current_workspace(),
+                        );
                         accept_post_checks = accept_post_checks.saturating_add(1);
                         accept_post_ms = accept_post_ms.saturating_add(proof.elapsed_ms);
                         accept_last_post_result = Some(proof.result_class);
@@ -3600,15 +3314,7 @@ fn run_turn_tiered(
                                 (Some(before), Some(after)) if before == after => Some(after),
                                 _ => None,
                             };
-                        let summary = if proof.result_class == "flaky" {
-                            format!(
-                                "{}\nFailing run output:\n{}",
-                                proof.summary, proof.output_tail
-                            )
-                        } else {
-                            proof.summary
-                        };
-                        (proof.passed, summary)
+                        (proof.passed, proof.fact())
                     };
                     if passed {
                         crate::agent::harness::trajectory::note_verified(
@@ -3616,234 +3322,163 @@ fn run_turn_tiered(
                         );
                         verification_needed = false;
                         verification_attempt_workspace_fingerprint = current_workspace_fingerprint;
+                        untested.note_attempt(current_workspace_fingerprint);
                         green_verify_achieved = true;
                         let _ = events.send(TurnEvent::Notice(format!(
-                            "task acceptance passed at finalization: {summary}"
+                            "task acceptance passed at finalization: {}",
+                            accept_last_summary.as_deref().unwrap_or("")
                         )));
-                    } else {
-                        task_accept_rejections = task_accept_rejections.saturating_add(1);
-                        let _ = events.send(TurnEvent::SuppressPartial);
-                        history.push(ChatMsg::assistant(answer));
-                        history.push(ChatMsg::harness(format!(
-                            "{TASK_ACCEPT_RED_NUDGE}\nLatest receipt: {summary}"
-                        )));
+                    } else if let Some(fact) = fact {
                         let _ = events.send(TurnEvent::Notice(format!(
-                            "task acceptance remains red; denying completion ({task_accept_rejections}/{task_accept_rejection_limit}): {summary}"
+                            "task acceptance remains red at answer: {}",
+                            accept_last_summary.as_deref().unwrap_or("")
                         )));
-                        if task_accept_rejections >= task_accept_rejection_limit {
-                            let note = format!(
-                                "⚠ stopped after {task_accept_rejections} completion claim(s) while the operator-pinned task acceptance remained red. Last receipt: {summary}"
-                            );
-                            crate::agent::harness::trajectory::note_timing(
-                                &timing
-                                    .finish_with_history(turn_start.elapsed().as_millis(), history),
-                            );
-                            crate::agent::harness::trajectory::note_stop_reason(
-                                TurnStopReason::AcceptanceStop.as_str(),
-                            );
-                            log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                            write_exp(
-                                "acceptance_stop",
-                                false,
-                                hop,
-                                turn_counters!(
-                                    deferred_action_nudges,
-                                    spin,
-                                    err_streak,
-                                    0,
-                                    first_write_rejections,
-                                    duplicate_inspection_results,
-                                    duplicate_inspection_bytes_saved,
-                                    final_verification_nudges,
-                                    action_capsule_metrics,
-                                ),
-                            );
-                            observed_outcome!(
-                                TurnOutcome::stopped(note, TurnStopReason::AcceptanceStop, hop),
-                                "acceptance_stop"
-                            );
-                        }
-                        continue;
+                        add_fact(fact);
                     }
                 }
+                // One pass can be luck: repeat the model's last green run on the
+                // unchanged code before its first stop. Once the checkpoint is
+                // spent the answer stands, so the re-run would buy nothing.
                 let confirm_runs = if confirm_green_runs > 0 {
                     confirm_green_runs
                 } else if confirm_green_on_chance
                     && last_green_run.is_some()
-                    && edits_depend_on_chance(registry.current_workspace(), &edited_paths)
+                    && book::v_verification::edits_depend_on_chance(
+                        registry.current_workspace(),
+                        &edited_paths,
+                    )
                 {
-                    CHANCE_CONFIRM_GREEN_RUNS
+                    book::v_verification::CHANCE_CONFIRM_GREEN_RUNS
                 } else {
                     0
                 };
                 if confirm_runs > 0
-                    && confirm_green_rejections < CONFIRM_GREEN_REJECTION_LIMIT
+                    && !checkpoint.spent()
                     && last_green_run.as_ref().is_some_and(|green| {
                         green.workspace.is_some()
                             && green.workspace == current_workspace_fingerprint
                     })
                 {
                     let green = last_green_run.take().expect("checked above");
-                    let green_call = green.call;
-                    let label = green_run_label(&green_call);
+                    let label = book::v_verification::run_label(&green.call);
                     // A substitute runner has not run yet: it owes one more run.
                     let runs = confirm_runs + usize::from(green.substitute);
-                    match confirm_green_run(registry, &green_call, runs, cancel) {
+                    match book::v_verification::confirm_green_run(
+                        registry,
+                        &green.call,
+                        runs,
+                        cancel,
+                    ) {
                         Ok(runs) => {
                             let _ = events.send(TurnEvent::Notice(format!(
                                 "confirmed green: re-ran {label} {runs} more time(s) on the final code"
                             )));
                         }
                         Err((run, output)) => {
-                            confirm_green_rejections += 1;
                             crate::agent::harness::trajectory::note_escalation(
                                 hop,
                                 "confirm_green_flaky",
                             );
-                            let _ = events.send(TurnEvent::SuppressPartial);
-                            history.push(ChatMsg::assistant(answer));
-                            history.push(ChatMsg::harness(format!(
-                                "{CONFIRM_GREEN_NUDGE}\nRe-run {run} of {runs} of {label} \
-                                 failed:\n{}",
-                                tail_chars(&output, TASK_ACCEPT_TAIL_CHARS)
-                            )));
-                            let _ = events.send(TurnEvent::Notice(format!(
-                                "passing tests did not hold: re-run {run} of {label} failed on the \
-                                 same code; denying completion ({confirm_green_rejections}/\
-                                 {CONFIRM_GREEN_REJECTION_LIMIT})"
-                            )));
-                            continue;
+                            add_fact(book::Raise::new(
+                                book::v_verification::FLAKY,
+                                format!(
+                                    "Re-run {run} of {runs} of {label} failed:\n{}",
+                                    book::v_verification::tail_chars(
+                                        &output,
+                                        book::v_verification::RUN_TAIL_CHARS
+                                    )
+                                ),
+                            ));
                         }
                     }
                 }
                 // A test file that came with the task was changed: a pass that
-                // leans on that change says nothing about the code. The model
-                // restores it, or says the task asked for it and answers again.
-                if task_accept_cmd.is_none()
-                    && test_edit_denials < test_edit_limit
-                    && let Some(changed) = changed_test_files(registry.current_workspace())
-                        .map(|paths| {
-                            paths
-                                .into_iter()
-                                .filter(|path| !tests_changed_at_start.contains(path))
-                                .collect::<Vec<_>>()
-                        })
-                        .filter(|paths| !paths.is_empty())
+                // leans on that change says nothing about the code.
+                if track_task_facts
+                    && task_accept_cmd.is_none()
+                    && let Some(fact) = book::v_verification::tests_edited_fact(
+                        registry.current_workspace(),
+                        &tests_changed_at_start,
+                    )
                 {
-                    test_edit_denials += 1;
-                    crate::agent::harness::trajectory::note_escalation(hop, "test_edit_denied");
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    history.push(ChatMsg::assistant(answer));
-                    history.push(ChatMsg::harness(format!(
-                        "{TEST_EDIT_NUDGE}\nChanged: {}",
-                        changed.join(", ")
-                    )));
-                    let _ = events.send(TurnEvent::Notice(format!(
-                        "test files that came with the task were changed ({}); denying completion \
-                         ({test_edit_denials}/{test_edit_limit})",
-                        changed.join(", ")
-                    )));
-                    continue;
+                    add_fact(fact);
                 }
                 // The model's own last test run on this exact code was red.
-                // Accepting "done" now ends the task in a state its evidence
-                // says is broken while there is still budget to fix it. An
-                // evaluator acceptance command, when present, already decided.
-                if task_accept_cmd.is_none()
-                    && red_completion_denials < red_completion_limit
+                if track_task_facts
+                    && task_accept_cmd.is_none()
                     && let Some(red) = last_red_run.as_ref().filter(|red| {
                         red.workspace.is_some() && red.workspace == current_workspace_fingerprint
                     })
-                    && let Some(left) = task_budget_left(
-                        hop,
-                        max_hops,
-                        final_mile_active,
-                        turn_start.elapsed().as_secs(),
-                        task_wall_secs,
-                    )
                 {
-                    red_completion_denials += 1;
-                    crate::agent::harness::trajectory::note_escalation(
-                        hop,
-                        "red_completion_denied",
-                    );
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    history.push(ChatMsg::assistant(answer));
-                    history.push(ChatMsg::harness(format!(
-                        "{RED_COMPLETION_NUDGE} {left}\nLast failing run, {}:\n{}",
-                        red.label, red.tail
-                    )));
-                    let _ = events.send(TurnEvent::Notice(format!(
-                        "the last test run on this code failed; denying completion \
-                         ({red_completion_denials}/{red_completion_limit}). {left}"
-                    )));
-                    continue;
+                    add_fact(red.fact());
                 }
                 let verification_outstanding = verification_needed
                     || workspace_changed_after_verification
                     || registry.mutation_targets.opaque_generation() > attempted_opaque_generation;
-                if !verification_gate_released
-                    && should_nudge_final_verification(
-                        verify_before_done,
-                        verification_outstanding,
-                        final_verification_nudges,
-                        final_verification_max_nudges,
+                if track_task_facts
+                    && let Some(fact) = untested.fact(
+                        initial_workspace_fingerprint,
+                        current_workspace_fingerprint,
+                        prose_only_workspace_fingerprint,
                     )
                 {
-                    // First denial of the turn is the one the operator can still
-                    // act on, so it prompts rather than murmurs. Approving
-                    // releases the gate for the rest of the turn — re-asking on
-                    // every hop would just be the same nag with a modal.
-                    if final_verification_nudges == 0
-                        && operator_releases_unverified_completion(registry.current_workspace())
-                    {
-                        verification_gate_released = true;
-                        let _ = events.send(TurnEvent::Notice(
-                            "verification gate released by operator; accepting the completion \
-                             unverified"
-                                .to_string(),
-                        ));
-                    } else {
-                        final_verification_nudges += 1;
-                        // The provider already streamed this answer. Retract it from
-                        // the live pane, retain it in the model tail as the claim it
-                        // must now substantiate, and add one transient policy nudge.
-                        let _ = events.send(TurnEvent::SuppressPartial);
-                        history.push(ChatMsg::assistant(answer));
-                        crate::agent::harness::trajectory::note_escalation(
+                    add_fact(fact);
+                }
+                // An answer that claims progress with no edit (armed like 0.1.6:
+                // an operator opt-in, with a first-write limit).
+                let workspace_changed =
+                    match (initial_workspace_fingerprint, current_workspace_fingerprint) {
+                        (Some(initial), Some(current)) => current != initial,
+                        _ => false,
+                    };
+                if no_edit_guard && !mutation_seen && !workspace_changed && !green_verify_achieved {
+                    add_fact(book::Raise::new(book::d3456_advisories::NO_EDIT, None));
+                }
+                for raise in &loop_facts {
+                    add_fact(book::Raise::new(raise.route, None));
+                }
+                // Research turns end on their own answer, unchecked.
+                let left = (!research_turn)
+                    .then(|| {
+                        book::q_stop::task_budget_left(
                             hop,
-                            "final_verify_advisory",
-                        );
-                        history.push(ChatMsg::harness(FINAL_VERIFY_NUDGE.to_string()));
-                        let _ = events.send(TurnEvent::Notice(
-                            format!(
-                                "edited workspace is not yet verified; denying unsupported completion ({final_verification_nudges}/{final_verification_max_nudges})"
-                            ),
-                        ));
-                        continue;
-                    }
-                }
-                // Optional soft advisory note for no-edit answers, never deny completion.
-                if no_edit_answer_guard
-                    && first_write_limit > 0
-                    && !mutation_seen
-                    && !workspace_changed
-                    && !green_verify_achieved
+                            max_hops,
+                            turn_start.elapsed().as_secs(),
+                            task_wall_secs,
+                        )
+                    })
+                    .flatten();
+                if let Some((cells, shown)) =
+                    checkpoint.engage(registry.current_workspace(), &stop_facts, left.is_some())
                 {
-                    crate::agent::harness::trajectory::note_escalation(hop, "no_edit_advisory");
-                    history.push(ChatMsg::harness(NO_EDIT_ANSWER_NUDGE.to_string()));
+                    crate::agent::harness::trajectory::note_hop_stamps(
+                        &shown.iter().map(|raise| raise.route).collect::<Vec<_>>(),
+                    );
+                    crate::agent::harness::trajectory::note_escalation(hop, "stop_checkpoint");
+                    // The streamed answer is not final yet: retract it from the
+                    // live pane, keep it in the model tail as the claim the
+                    // checkpoint is about.
+                    let _ = events.send(TurnEvent::SuppressPartial);
+                    history.push(ChatMsg::assistant_with_reasoning(answer, answer_reasoning));
+                    history.push(ChatMsg::harness(book::q_stop::stop_turn(
+                        &cells,
+                        &shown,
+                        left.as_deref(),
+                    )));
+                    let _ = events.send(TurnEvent::Notice(format!(
+                        "stop checkpoint {cells} · {}",
+                        book::names(&shown)
+                    )));
+                    continue;
                 }
-                // An operator release is still an unverified claim shipping —
-                // the ledger records it as one, exactly like exhausting the
-                // nudge budget would.
-                if verification_gate_released
-                    || accepted_unverified_completion(
-                        verify_before_done,
-                        verification_outstanding,
-                        final_verification_nudges,
-                        final_verification_max_nudges,
-                    )
-                {
+                if !stop_facts.is_empty() {
+                    let _ = events.send(TurnEvent::Notice(format!(
+                        "answer stands · {}",
+                        book::names(&stop_facts)
+                    )));
+                }
+                // The ledger still records an unverified claim shipping.
+                if verification_outstanding {
                     unverified_completion_claims
                         .set(unverified_completion_claims.get().saturating_add(1));
                 }
@@ -3871,8 +3506,11 @@ fn run_turn_tiered(
                     history,
                     &answer,
                 );
-                history.push(ChatMsg::assistant(answer.clone()));
-                crate::agent::harness::trajectory::note_timing(
+                history.push(ChatMsg::assistant_with_reasoning(
+                    answer.clone(),
+                    answer_reasoning,
+                ));
+                crate::agent::harness::trajectory::note_task_timing(
                     &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                 );
                 if research_turn && turn_expired(turn_start.elapsed().as_secs(), turn_budget) {
@@ -3903,20 +3541,21 @@ fn run_turn_tiered(
                     true,
                     hop,
                     turn_counters!(
-                        deferred_action_nudges,
-                        spin,
-                        err_streak,
-                        0,
-                        first_write_rejections,
+                        markup_replies,
+                        loops.spin(),
+                        errors.streak(),
                         duplicate_inspection_results,
                         duplicate_inspection_bytes_saved,
-                        final_verification_nudges,
                         action_capsule_metrics,
                     ),
                 );
                 observed_outcome!(TurnOutcome::answer(answer, hop), "answer");
             }
             crate::agent::club::ClubReply::Calls(mut calls) => {
+                // Routes this hop raises; they ride the tail of its last tool
+                // result as one warpath, never a message of their own.
+                let mut raised: Vec<book::Raise> = Vec::new();
+                cues.observe_calls(calls.iter().map(|call| call.name.as_str()));
                 if let Some(origin) = research_origin.as_deref() {
                     for call in &mut calls {
                         if call.name == "web_search"
@@ -3931,6 +3570,7 @@ fn run_turn_tiered(
                 // live assistant message; serde deliberately skips it.
                 let private_reasoning = crate::agent::club::take_pending_tool_reasoning();
                 let tool_content = crate::agent::club::take_pending_tool_content();
+                let responses_replay = crate::agent::club::take_pending_responses_replay();
                 let repaired_call_ids = normalize_tool_call_ids(&mut calls, history, hop);
                 if repaired_call_ids > 0 {
                     let _ = events.send(TurnEvent::Notice(format!(
@@ -3945,59 +3585,9 @@ fn run_turn_tiered(
                     wait_or_progress_this_hop,
                     burns_budget_this_hop,
                 ) = hop_budget_flags_for_loop(
-                    hop_budget_classify_applied(competition, first_write_limit, hop_path_active),
+                    hop_budget_classify_applied(competition, hop_path_active),
                     &calls,
                 );
-                let first_write_guard_suppressing = first_write_limit > 0
-                    && first_write_rejection_limit > 0
-                    && !first_write_attempted
-                    && prewrite_calls >= first_write_limit
-                    && !mutation_this_hop
-                    && !outcome_this_hop
-                    && burns_budget_this_hop;
-                if first_write_guard_suppressing
-                    && first_write_rejections >= first_write_rejection_limit
-                {
-                    let _ = events.send(TurnEvent::SuppressPartial);
-                    let note = format!(
-                        "⚠ stopped after {first_write_rejections} post-budget inspection \
-                         batch(es) were denied without candidate progress. \
-                         Conversation kept — the autonomous loop can resume from this evidence."
-                    );
-                    crate::agent::harness::trajectory::note_timing(
-                        &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                    );
-                    crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::Spin.as_str(),
-                    );
-                    log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                    write_exp(
-                        "first_write_stop",
-                        false,
-                        hop,
-                        turn_counters!(
-                            deferred_action_nudges,
-                            spin,
-                            err_streak,
-                            0,
-                            first_write_rejections,
-                            duplicate_inspection_results,
-                            duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
-                            action_capsule_metrics,
-                        ),
-                    );
-                    observed_outcome!(
-                        TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                        "first_write_stop"
-                    );
-                }
-                if first_write_guard_suppressing {
-                    first_write_rejections = first_write_rejections.saturating_add(1);
-                    let _ = events.send(TurnEvent::Notice(format!(
-                        "first-write guard: blocked post-budget inspection batch ({first_write_rejections}/{first_write_rejection_limit})"
-                    )));
-                }
                 let mut cadence_verdict = None;
                 if hop_path_active {
                     let inflight_kind = classify_inflight_hop(&calls);
@@ -4035,250 +3625,24 @@ fn run_turn_tiered(
                         ));
                     }
                 }
-                let poll_batch_progress = poll_batch_advances_work(&calls);
-                if poll_batch_progress {
-                    passive_poll_nudge_sent = false;
-                }
-                let poll_guard_suppressing = poll_guard_enabled
-                    && passive_poll_guard.should_suppress(
-                        &calls,
-                        true,
-                        cadence_verdict,
-                        poll_only_limit,
-                        passive_sleep_max_secs,
-                    );
-                let passive_denied_streak = passive_poll_guard.denied_streak();
-                let entire_batch_passive = passive_poll_only_batch(&calls, passive_sleep_max_secs);
-                let repeated_poll_fingerprint =
-                    (poll_repeat_limit > 0 && entire_batch_passive && !poll_batch_progress)
-                        .then(|| anti_spin_batch_fingerprint(&calls));
-                if poll_guard_suppressing {
-                    // Full doctrine once per stall episode; each denied call
-                    // still gets its short per-call receipt. Re-teaching the
-                    // whole policy every suppressed hop is pure history bloat.
-                    if !passive_poll_nudge_sent {
-                        crate::agent::harness::trajectory::note_escalation(
-                            hop,
-                            "passive_poll_advisory",
-                        );
-                        history.push(ChatMsg::harness(passive_poll_nudge(task_pace).to_string()));
-                        passive_poll_nudge_sent = true;
-                    }
-                    let _ = events.send(TurnEvent::Notice(
-                        "passive wait blocked: status/sleep calls were not started; advance the candidate before checking again"
-                            .into(),
-                    ));
-                }
-                // Other execution remains uninterrupted: only passive
-                // status/sleep members are suppressed; productive siblings in
-                // a mixed batch still dispatch.
-                // Post-green grace window: after a completion-grade green, the
-                // model gets a bounded number of tool batches for protocol
-                // steps (commit, artifact dump — the things a real task owes
-                // after its verifier passes); exceeding the budget forces an
-                // answer so protocol completion is not lost to max_hops
-                // (Roll 09 OpenCC). Redundant re-verification inside the
-                // window is separately skipped by the sufficient-green
-                // interception, so the grace cannot become a thrash lane.
-                let distinct_verification_batch = green_verify_achieved
-                    && !calls.is_empty()
-                    && (reuse_verifier_results || single_green_verifier)
-                    && workspace_evidence_sha256(registry.current_workspace()).is_some_and(
-                        |state| {
-                            let mut batch_keys = std::collections::HashSet::new();
-                            calls.iter().all(|call| {
-                                if call.name == "shell" || verification_identity(call).is_none() {
-                                    return false;
-                                }
-                                let key = (
-                                    state.clone(),
-                                    serde_json::json!([
-                                        call.name,
-                                        call.args,
-                                        registry.mutation_targets.snapshot(),
-                                        registry.mutation_targets.opaque_generation()
-                                    ])
-                                    .to_string(),
-                                );
-                                !attempted_verifier_invocations.contains(&key)
-                                    && batch_keys.insert(key)
-                            })
-                        },
-                    );
-                // A green compile cannot discharge a different verification
-                // obligation. Only wholly distinct verifier batches get this
-                // exception; the finite horizon and final-answer reserve still apply.
-                if green_verify_achieved && !distinct_verification_batch {
-                    post_green_tool_batches = post_green_tool_batches.saturating_add(1);
-                    if post_green_tool_budget > 0
-                        && post_green_tool_batches > post_green_tool_budget
-                    {
-                        let mut answer = format!(
-                            "A workspace verifier already passed green. Operator cap ANGEL_POST_GREEN_TOOL_BATCHES={post_green_tool_budget} reached."
-                        );
-                        let notes =
-                            with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
-                                finish_post_write_verification(
-                                    registry,
-                                    club,
-                                    hop,
-                                    &mut post_write_verification,
-                                    &mut verdicts,
-                                    &mut rollout_recorder,
-                                    verify_cancel,
-                                )
-                            });
-                        for note in notes {
-                            answer.push_str(&format!("\n\n{note}"));
-                        }
-                        history.push(ChatMsg::assistant(answer.clone()));
-                        crate::agent::harness::trajectory::note_timing(
-                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                        );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::Answer.as_str(),
-                        );
-                        log_trajectory(club, history, &answer, hop, false, verdicts.reward());
-                        file_report(
-                            club,
-                            registry.current_workspace(),
-                            history,
-                            &answer,
-                            &registry.store,
-                            &registry.session_id,
-                        );
-                        write_exp(
-                            "post_green_answer",
-                            true,
-                            hop,
-                            turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
-                                duplicate_inspection_results,
-                                duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
-                                action_capsule_metrics,
-                            ),
-                        );
-                        observed_outcome!(TurnOutcome::answer(answer, hop), "post_green_answer");
-                    }
-                    // Within the grace budget: dispatch normally so the task's
-                    // protocol steps (commit, dump) actually run.
-                    let note = if post_green_tool_budget == 0 {
-                        format!("post-green work continues: batch {post_green_tool_batches}")
-                    } else {
-                        format!(
-                            "post-green grace batch {post_green_tool_batches}/{post_green_tool_budget}; ANGEL_POST_GREEN_TOOL_BATCHES={post_green_tool_budget}"
-                        )
-                    };
-                    let _ = events.send(TurnEvent::Notice(note));
-                }
-                // Soft advisory notice if final mile or first-write budget is reached,
-                // but NEVER drop or reject the agent's tool calls.
-                if final_mile_rejects_inspection(final_mile_active, verification_needed, &calls) {
-                    crate::agent::harness::trajectory::note_escalation(hop, "final_mile_advisory");
-                    history.push(ChatMsg::harness(FINAL_MILE_NUDGE.to_string()));
-                }
+                let _ = cadence_verdict;
                 if calls.iter().any(|c| c.id.starts_with("prose_")) {
                     let _ = events.send(TurnEvent::SuppressPartial);
                 }
-                // Anti-spin: fingerprint this batch; bail if it keeps repeating.
-                // Pure competition board wait/poll does not advance the counter
-                // (legal under first-write; outcome can change under the same call).
-                // Poll-guard denials count only when the WHOLE batch was passive
-                // (a denied sleep beside a real edit is progress, not spin), and
-                // all such batches share one sentinel identity: the deny→retry
-                // treadmill varies its polls (sleep 30 → sleep 60 → status …),
-                // and per-batch hashing let that variation reset the counter
-                // forever — burning a full provider round trip per denial.
-                let passive_treadmill = poll_guard_suppressing && entire_batch_passive;
-                let count_spin = passive_treadmill
-                    || anti_spin_counts_batch(
+                // Loop detectors see the batch as issued (`book/l_loops.rs`). A
+                // pure competition board wait/poll does not count: its outcome
+                // can change under the same call.
+                let loop_batch = loops.before_dispatch(
+                    &calls,
+                    book::l_loops::anti_spin_counts_batch(
                         mutation_this_hop,
                         outcome_this_hop,
                         wait_or_progress_this_hop,
                         burns_budget_this_hop,
-                    );
-                let spin_fp = count_spin.then(|| {
-                    if passive_treadmill {
-                        PASSIVE_TREADMILL_SPIN_FINGERPRINT
-                    } else {
-                        anti_spin_batch_fingerprint(&calls)
-                    }
-                });
-                if let Some(sig) = spin_fp {
-                    if last_sig == Some(sig) {
-                        spin += 1;
-                    } else {
-                        last_sig = Some(sig);
-                        spin = 1;
-                    }
-                }
-                {
-                    if spin_stop > 0 && count_spin && spin >= spin_stop {
-                        if spin_redirections < 2 {
-                            spin_redirections += 1;
-                            spin = 0;
-                            last_sig = None;
-                            let redirect = "[harness-telemetry] MANDATORY REDIRECTION: You have repeated the same tool call multiple times without making progress. You are caught in a deterministic loop. Break this loop immediately: you MUST NOT repeat this call or run another inspection. Step back and use `write_file` to rewrite the implementing file cleanly from first principles, or use `str_replace` to apply a completely different fix. State your new hypothesis and edit the code now.";
-                            history.push(ChatMsg::harness(redirect.to_string()));
-                            let _ = events.send(TurnEvent::Notice(redirect.to_string()));
-                        } else {
-                            crate::agent::harness::trajectory::note_escalation(hop, "spin_stop");
-                            let note = if spin_fp == Some(PASSIVE_TREADMILL_SPIN_FINGERPRINT) {
-                                format!(
-                                    "⚠ stopped after {spin} consecutive passive wait batches were \
-                                     denied with no candidate progress (deny→retry treadmill). \
-                                     Operator cap ANGEL_SPIN_LIMIT={spin_stop}; conversation kept."
-                                )
-                            } else {
-                                format!(
-                                    "⚠ stopped after the same tool call repeated {spin}× with no new \
-                                     outcome; operator cap ANGEL_SPIN_LIMIT={spin_stop}. Conversation kept."
-                                )
-                            };
-                            crate::agent::harness::trajectory::note_timing(
-                                &timing
-                                    .finish_with_history(turn_start.elapsed().as_millis(), history),
-                            );
-                            crate::agent::harness::trajectory::note_stop_reason(
-                                TurnStopReason::Spin.as_str(),
-                            );
-                            log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                            write_exp(
-                                "spin",
-                                false,
-                                hop,
-                                turn_counters!(
-                                    deferred_action_nudges,
-                                    spin,
-                                    err_streak,
-                                    0,
-                                    first_write_rejections,
-                                    duplicate_inspection_results,
-                                    duplicate_inspection_bytes_saved,
-                                    final_verification_nudges,
-                                    action_capsule_metrics,
-                                ),
-                            );
-                            observed_outcome!(
-                                TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                                "spin"
-                            );
-                        }
-                    }
-                }
-                // Storm guard: count this batch against the sliding window before
-                // anything dispatches, so a suppressed duplicate never runs.
-                let storm_counts = toolcall_storm.as_mut().map(|storm| storm.observe(&calls));
-                let storm_suppressing = storm_counts.as_ref().is_some_and(|counts| {
-                    counts
-                        .iter()
-                        .any(|count| *count >= TOOLCALL_STORM_THRESHOLD)
-                });
+                    ),
+                    &mut raised,
+                );
+                raised.extend(mutation_thrash.observe(&calls));
                 // Measure actual file state for potentially mutating batches;
                 // successful opaque shell diagnostics alone are not progress.
                 let progress_bytes_before =
@@ -4297,9 +3661,7 @@ fn run_turn_tiered(
                 // preview never calls a model, reads a file, shells out, or
                 // enters model history. In approve mode one decision covers
                 // the whole model-emitted batch, avoiding modal-per-file drag.
-                let action_batch = if action_capsule_mode.active()
-                    && !(poll_guard_suppressing && entire_batch_passive)
-                {
+                let action_batch = if action_capsule_mode.active() {
                     let capsule_started = Instant::now();
                     let batch = ActionBatch::from_calls(
                         &calls,
@@ -4379,14 +3741,11 @@ fn run_turn_tiered(
                             false,
                             hop,
                             turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
+                                markup_replies,
+                                loops.spin(),
+                                errors.streak(),
                                 duplicate_inspection_results,
                                 duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
                                 action_capsule_metrics,
                             ),
                         );
@@ -4418,9 +3777,6 @@ fn run_turn_tiered(
                     ));
                 }
                 let parallel = hooks.is_empty()
-                    && !storm_suppressing
-                    && !poll_guard_suppressing
-                    && !first_write_guard_suppressing
                     && parallel_allowed(action_capsule_mode, registry.workspace_boundary(), &calls);
                 let hooks = &hooks; // a Copy reference the move-closures can share
                 let action_batch_ref = action_batch.as_ref();
@@ -4435,93 +3791,11 @@ fn run_turn_tiered(
                     let preview = action_batch_ref.and_then(|batch| batch.contains(index));
                     let mut dispatch_elapsed = None;
                     let denied_this = deny_actions && preview.is_some();
-                    let poll_denied_this = poll_guard_suppressing
-                        && (is_passive_status_call(call)
-                            || shell_passive_sleep_secs(call)
-                                .is_some_and(|secs| secs > passive_sleep_max_secs));
-                    let first_write_denied_this =
-                        first_write_guard_suppressing && burns_first_write_budget(call);
-                    let storm_repeat = storm_counts
-                        .as_ref()
-                        .and_then(|counts| counts.get(index).copied())
-                        .filter(|count| *count >= TOOLCALL_STORM_THRESHOLD);
-                    let verifier_state = (!denied_this
-                        && !poll_denied_this
-                        && !first_write_denied_this
-                        && storm_repeat.is_none()
-                        && (reuse_verifier_results || single_green_verifier)
-                        && is_verification_call(call))
-                    .then(|| workspace_evidence_sha256(registry.current_workspace()))
-                    .flatten();
-                    let verifier_identity = verifier_state
-                        .as_ref()
-                        .and_then(|_| verification_identity(call))
-                        // Keep full arguments and tool identity in the cache boundary.
-                        // Semantic aliases are not proof of identical dispatch/configuration.
-                        .map(|_| {
-                            serde_json::json!([
-                                call.name,
-                                call.args,
-                                registry.mutation_targets.snapshot(),
-                                registry.mutation_targets.opaque_generation()
-                            ])
-                            .to_string()
-                        });
-                    let verifier_key = (reuse_verifier_results && call.name != "shell")
-                        .then(|| Some((verifier_state.clone()?, verifier_identity.clone()?)))
-                        .flatten();
-                    let reused = verifier_key
-                        .as_ref()
-                        .and_then(|key| verifier_results.get(key).copied());
-                    let sufficient_green = (single_green_verifier
-                        && reused.is_none()
-                        && verification_is_completion_sufficient(call))
-                    .then(|| {
-                        let state = verifier_state.as_ref()?;
-                        let identity = verifier_identity.as_ref()?;
-                        sufficient_green_verifiers
-                            .contains(&(state.clone(), identity.clone()))
-                            .then_some(())
-                    })
-                    .flatten();
-                    let result = if first_write_denied_this {
-                        FIRST_WRITE_REJECT_RESULT.to_string()
-                    } else if poll_denied_this {
-                        // The streak makes the treadmill visible to the model:
-                        // each retry sees the count climbing toward the stop.
-                        format!(
-                            "{PASSIVE_POLL_RESULT} [passive-wait denial \
-                             ×{passive_denied_streak} this turn without candidate progress]"
-                        )
-                    } else if denied_this {
+                    let result = if denied_this {
                         format!(
                             "action capsule denied — {} not executed",
                             preview.expect("checked is_some").tool
                         )
-                    } else if let Some(count) = storm_repeat {
-                        // One operator line per tool name per turn. Window
-                        // counts flicker (x3/x4) as hops age out; restacking
-                        // that as scrollback is just a repeat notification.
-                        if last_storm_notice.as_deref() != Some(call.name.as_str()) {
-                            crate::agent::harness::trajectory::note_escalation(
-                                hop,
-                                "duplicate_storm_advisory",
-                            );
-                            let _ = events.send(TurnEvent::Notice(format!(
-                                "storm: suppressed duplicate {} call (x{count})",
-                                call.name
-                            )));
-                            last_storm_notice = Some(call.name.clone());
-                        }
-                        duplicate_storm_result(call, count)
-                    } else if let Some(outcome) = reused {
-                        redundant_verifier_skips
-                            .set(redundant_verifier_skips.get().saturating_add(1));
-                        cached_verification_result(call, outcome)
-                    } else if sufficient_green.is_some() {
-                        redundant_verifier_skips
-                            .set(redundant_verifier_skips.get().saturating_add(1));
-                        sufficient_verification_result(call)
                     } else {
                         let outer_id = ToolEventId(call.id.clone());
                         let call_started = Instant::now();
@@ -4541,7 +3815,8 @@ fn run_turn_tiered(
                                     .into(),
                             ));
                             result = format!(
-                                "tool error: tool_idle: silence limit reached; child tree termination requested; retry with explicit input or use proc_run\n{result}"
+                                "tool error: tool_idle: silence limit reached; child tree termination requested\n{result}\n{}",
+                                super::book::p_processes::TOOL_IDLE.cells()
                             );
                         }
                         let elapsed = call_started.elapsed();
@@ -4549,45 +3824,6 @@ fn run_turn_tiered(
                         dispatch_elapsed = Some(elapsed);
                         result
                     };
-                    let not_started = first_write_denied_this
-                        || poll_denied_this
-                        || storm_repeat.is_some()
-                        || reused.is_some()
-                        || sufficient_green.is_some();
-                    if !not_started
-                        && !denied_this
-                        && call.name != "shell"
-                        && let (Some(state), Some(identity)) = (&verifier_state, &verifier_identity)
-                    {
-                        attempted_verifier_invocations.insert((state.clone(), identity.clone()));
-                    }
-                    if !first_write_denied_this
-                        && !poll_denied_this
-                        && reused.is_none()
-                        && sufficient_green.is_none()
-                        && storm_repeat.is_none()
-                        && let Some(outcome) = registry
-                            .routed_execution(call, &result)
-                            .map(|entry| entry.outcome.verification)
-                            .or_else(|| verification_outcome(call, &result))
-                    {
-                        if let Some(key) = verifier_key
-                            && outcome != VerificationOutcome::Inconclusive
-                            && verification_result_covers_changes(&result)
-                            && !registry.mutation_targets.is_opaque()
-                        {
-                            verifier_results.insert(key, outcome);
-                        }
-                        if outcome == VerificationOutcome::Passed
-                            && !registry.mutation_targets.is_opaque()
-                            && verification_result_covers_changes(&result)
-                            && verification_is_completion_sufficient(call)
-                            && let (Some(state), Some(identity)) =
-                                (verifier_state, verifier_identity)
-                        {
-                            sufficient_green_verifiers.insert((state, identity));
-                        }
-                    }
                     // Every dispatched call has timing, including headless and
                     // YOLO turns. Action previews only control the UI receipt.
                     if let Some((preview, elapsed)) = preview.zip(dispatch_elapsed) {
@@ -4595,11 +3831,7 @@ fn run_turn_tiered(
                             preview.receipt(&result, elapsed.as_millis()),
                         ));
                     }
-                    let outcome = if not_started {
-                        ToolOutcome::not_started()
-                    } else {
-                        registry.executed_outcome(call, &result, denied_this)
-                    };
+                    let outcome = registry.executed_outcome(call, &result, denied_this);
                     let _ = events.send(TurnEvent::ToolResult {
                         id: ToolEventId(call.id.clone()),
                         name: call.name.clone(),
@@ -4622,17 +3854,12 @@ fn run_turn_tiered(
                     sandbox_receipts.lock().unwrap()[index] = super::exec::sandbox_receipt();
                     (result, dispatch_elapsed, outcome)
                 };
-                let segments = if !hooks.is_empty()
-                    || parallel
-                    || storm_suppressing
-                    || poll_guard_suppressing
-                    || first_write_guard_suppressing
-                    || action_capsule_mode.needs_approval()
-                {
-                    Vec::new()
-                } else {
-                    batch_segments_in(registry.workspace_boundary(), &calls)
-                };
+                let segments =
+                    if !hooks.is_empty() || parallel || action_capsule_mode.needs_approval() {
+                        Vec::new()
+                    } else {
+                        batch_segments_in(registry.workspace_boundary(), &calls)
+                    };
                 let segmented = segments.iter().any(|segment| segment.len() > 1);
                 crate::agent::turn::phase::mark("tool_dispatch");
                 let tool_wait_started = Instant::now();
@@ -4692,12 +3919,8 @@ fn run_turn_tiered(
                     dispatch_wall.as_millis(),
                 );
                 timing.last_tool_end = Some(turn_start.elapsed().as_millis());
-                let cycle_observation = tool_cycle.as_ref().map(|_| {
-                    tool_batch_cycle_observation_from_calls_fp(
-                        spin_fp.unwrap_or_else(|| anti_spin_batch_fingerprint(&calls)),
-                        &results,
-                    )
-                });
+                let cycle_observation = loops.cycle_observation(&loop_batch, &calls, &results);
+                loops.observe_outcome(&loop_batch, &calls, &results);
                 // Track the consecutive-error streak before the results are capped
                 // into history: a hop where every call errored at dispatch. A red
                 // test run is a verdict, not a dispatch error.
@@ -4706,7 +3929,7 @@ fn run_turn_tiered(
                         .iter()
                         .zip(calls.iter())
                         .all(|((result, _, _), call)| is_dispatch_failure(call, result));
-                err_streak = if all_errored { err_streak + 1 } else { 0 };
+                let error_streak = errors.observe(all_errored);
                 // Classify every dispatch-level failure into the bounded
                 // schema/exec/timeout/other buckets for the experience ledger.
                 for (result, _, outcome) in results.iter() {
@@ -4725,7 +3948,7 @@ fn run_turn_tiered(
                 }
                 // Ledger snapshot after this hop's results are counted, so a
                 // record written at any later exit seam carries this hop.
-                crate::agent::harness::trajectory::note_timing(
+                crate::agent::harness::trajectory::note_task_timing(
                     &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                 );
                 // Calls have now been fully dispatched, so move them into
@@ -4733,11 +3956,10 @@ fn run_turn_tiered(
                 // before dispatch. Results still follow immediately in the
                 // original order, preserving the provider tool-call protocol.
                 let call_history_index = history.len();
-                history.push(ChatMsg::assistant_calls_full(
-                    calls,
-                    private_reasoning,
-                    tool_content,
-                ));
+                let mut assistant =
+                    ChatMsg::assistant_calls_full(calls, private_reasoning, tool_content);
+                assistant.responses_replay = responses_replay;
+                history.push(assistant);
                 let mut successful_mutation_this_hop = false;
                 let mut cycle_state_changed_this_hop = false;
                 let mut execution_blocked = None;
@@ -4764,17 +3986,20 @@ fn run_turn_tiered(
                             verification: &mut post_write_verification,
                         };
                         let result = if tool_outcome.execution == ExecutionOutcome::Succeeded {
-                            with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
-                                post_write_verdict(
-                                    registry,
-                                    club,
-                                    call,
-                                    hop,
-                                    result,
-                                    &mut observers,
-                                    verify_cancel,
-                                )
-                            })
+                            let (result, post_write) =
+                                with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
+                                    post_write_verdict(
+                                        registry,
+                                        club,
+                                        call,
+                                        hop,
+                                        result,
+                                        &mut observers,
+                                        verify_cancel,
+                                    )
+                                });
+                            raised.extend(post_write);
+                            result
                         } else {
                             result
                         };
@@ -4826,6 +4051,7 @@ fn run_turn_tiered(
                         ExecutionOutcome::NotStarted | ExecutionOutcome::Denied
                     );
                     let succeeded = tool_outcome.execution == ExecutionOutcome::Succeeded;
+                    let mut call_fingerprint = CallFingerprint::new(registry.current_workspace());
                     if eval_owns_label() {
                         rollout_recorder.observe_task_verifier(
                             call,
@@ -4907,10 +4133,11 @@ fn run_turn_tiered(
                         // Meta notes / living-handoff are bookkeeping: they do not
                         // arm mutation_seen or clear first-write (competition agents
                         // were "progressing" by rewriting LIVING_HANDOFF only).
-                        if is_first_write_progress_call(call) {
+                        if is_product_mutation_call(call) {
                             successful_mutation_this_hop = true;
                             cycle_state_changed_this_hop = true;
                             mutation_seen = true;
+                            raised.extend(peripheral_fanout.observe(call));
                             if time_to_first_mutation_ms.get().is_none() {
                                 time_to_first_mutation_ms
                                     .set(Some(turn_start.elapsed().as_millis() as u64));
@@ -4921,6 +4148,8 @@ fn run_turn_tiered(
                             );
                             if mutation_requires_verification(call) {
                                 verification_needed = true;
+                                untested.note_edit();
+                                cues.note_edit();
                                 prose_only_workspace_fingerprint = None;
                             } else {
                                 prose_only_workspace_fingerprint =
@@ -4934,6 +4163,8 @@ fn run_turn_tiered(
                         mutation_seen = true;
                         cycle_state_changed_this_hop = true;
                         first_write_attempted = true;
+                        untested.note_edit();
+                        cues.note_edit();
                         crate::agent::harness::trajectory::note_first_action(
                             hop,
                             turn_start.elapsed().as_millis() as u64,
@@ -4963,30 +4194,37 @@ fn run_turn_tiered(
                         // even if an earlier compile passed on these bytes. Keep
                         // repair calls available; failure is not new green evidence.
                         if outcome == VerificationOutcome::Failed {
-                            consecutive_verification_failures =
-                                consecutive_verification_failures.saturating_add(1);
-                            if green_verify_achieved {
-                                green_verify_achieved = false;
-                                green_verify_nudge_emitted = false;
-                                post_green_tool_batches = 0;
-                                let _ = events.send(TurnEvent::Notice(
-                                    "post-green guard disarmed: an executed verifier failed".into(),
-                                ));
-                            }
-                        } else if outcome == VerificationOutcome::Passed {
-                            consecutive_verification_failures = 0;
-                            verification_recovery_emitted = false;
+                            green_verify_achieved = false;
+                            // A red on the code un-stales the advisory for the
+                            // next green.
+                            green_verify_nudge_emitted = false;
+                        }
+                        if let Some(raise) = red_streak.observe(outcome) {
+                            raised.push(raise);
+                        }
+                        // A shell test that exits zero is not typed green, but
+                        // it is what the model saw: the finish cue's fact.
+                        if outcome == VerificationOutcome::Passed
+                            || (call.name == "shell"
+                                && outcome == VerificationOutcome::Inconclusive)
+                        {
+                            let command = call
+                                .args
+                                .get("command")
+                                .and_then(|command| command.as_str())
+                                .unwrap_or(call.name.as_str());
+                            cues.observe_clean_run(command);
                         }
                         // Remember a red verdict and the code it ran on. A later
-                        // test run that did not come back red replaces it, so a
-                        // denial only ever quotes the model's latest run. A
+                        // test run that did not come back red replaces it, so
+                        // `⠧⠁` only ever carries the model's latest run. A
                         // shell run that exits 0 is Inconclusive, not Passed;
                         // keeping the red record through it would have denied
                         // seven GLM answers on polyglot-v1 whose last run was
                         // green. A call that is not a test run (NotApplicable)
                         // and a runner that never started (exit 127, a timeout)
                         // say nothing about the code.
-                        if red_completion_limit > 0 {
+                        if track_task_facts {
                             match outcome {
                                 VerificationOutcome::Passed | VerificationOutcome::Inconclusive => {
                                     last_red_run = None;
@@ -4995,12 +4233,13 @@ fn run_turn_tiered(
                                     if is_red_verifier_run(call, &result)
                                         || !is_error_result(&result) =>
                                 {
-                                    last_red_run = Some(RedRun {
-                                        workspace: workspace_fingerprint(
-                                            registry.current_workspace(),
+                                    last_red_run = Some(book::v_verification::RedRun {
+                                        workspace: call_fingerprint.get(),
+                                        label: book::v_verification::run_label(call),
+                                        tail: book::v_verification::tail_chars(
+                                            &result,
+                                            book::v_verification::RUN_TAIL_CHARS,
                                         ),
-                                        label: green_run_label(call),
-                                        tail: tail_chars(&result, TASK_ACCEPT_TAIL_CHARS),
                                     });
                                 }
                                 _ => {}
@@ -5013,12 +4252,8 @@ fn run_turn_tiered(
                                 &self_authored_test_basenames,
                             );
                         if weak_self_authored {
-                            if !self_authored_verify_nudge_emitted {
-                                self_authored_verify_nudge_emitted = true;
-                                // Nudge is deferred until after tool results are
-                                // paired so the model sees the green receipt first.
-                            }
-                            // Keep verification_needed; do not release opaque-write tracking.
+                            // Keep verification_needed: the edits stay `⠧⠋`.
+                            weak_verification_pending = true;
                         } else if verification_attempt_releases_gate(call, outcome)
                             && (outcome == VerificationOutcome::Failed
                                 || !verification_result_has_known_gap(&result))
@@ -5028,17 +4263,13 @@ fn run_turn_tiered(
                             // changed file). Unknown coverage — no git, an earlier
                             // opaque shell — is not a gap; `attempted_opaque_generation`
                             // below is what re-arms the gate on a *later* opaque edit.
-                            // Result caching and the post-green guard stay strict
-                            // (`verification_result_covers_changes`) further down.
                             verification_needed = false;
                             attempted_opaque_generation =
                                 registry.mutation_targets.opaque_generation();
-                            verification_attempt_workspace_fingerprint =
-                                workspace_fingerprint(registry.current_workspace());
-                            // Only a full-strength verifier arms the post-green
-                            // guard: a filtered slice going green is progress,
-                            // not proof, and must not cut off the gates and
-                            // protocol steps a task still owes.
+                            verification_attempt_workspace_fingerprint = call_fingerprint.get();
+                            // Only a full-strength verifier counts as a completion
+                            // green: a filtered slice going green is progress,
+                            // not proof.
                             if is_completion_green(outcome, mutation_seen)
                                 && verification_is_completion_sufficient(call)
                             {
@@ -5050,36 +4281,52 @@ fn run_turn_tiered(
                             // execution boundary can attest a pinned argv.
                         }
                     }
+                    // Opt-in: a green that only ran tests this turn wrote is not
+                    // a test of the code, so it leaves the edits `⠧⠋`.
+                    let self_authored_only = self_authored_verify_guard
+                        && verification_outcome(call, &result) == Some(VerificationOutcome::Passed)
+                        && verification_targets_self_authored(call, &self_authored_test_basenames);
+                    if started
+                        && book::v_verification::is_test_attempt(
+                            registry,
+                            call,
+                            &result,
+                            self_authored_only,
+                        )
+                    {
+                        untested.note_attempt(call_fingerprint.get());
+                    }
                     // `tests | tail; ls` or `tests || fallback` runs the tests
                     // too, but angelX cannot read a verdict from it. Once it
                     // exits 0 the earlier red run is no longer the model's
                     // latest word on the code (GLM py-book-store, polyglot-v1).
-                    if red_completion_limit > 0 && succeeded && shell_runs_tests_anywhere(call) {
+                    if track_task_facts && succeeded && shell_runs_tests_anywhere(call) {
                         last_red_run = None;
                     }
                     if succeeded
                         && (confirm_green_runs > 0 || confirm_green_on_chance)
                         && verification_outcome(call, &result) != Some(VerificationOutcome::Failed)
                     {
-                        let workspace = workspace_fingerprint(registry.current_workspace());
                         if is_verification_call(call)
                             || is_progress_verifier_call(&call.name, &call.args)
                         {
-                            last_green_run = Some(GreenRun {
+                            last_green_run = Some(book::v_verification::GreenRun {
                                 call: call.clone(),
-                                workspace,
+                                workspace: call_fingerprint.get(),
                                 substitute: false,
                             });
-                        } else if test_run_behind_fallback(call) && registry.has_tool("run_tests") {
+                        } else if book::v_verification::test_run_behind_fallback(call)
+                            && registry.has_tool("run_tests")
+                        {
                             // `./test || ctest` can read green while the test
                             // failed; confirm with angelX's own runner instead.
-                            last_green_run = Some(GreenRun {
+                            last_green_run = Some(book::v_verification::GreenRun {
                                 call: ToolCall {
                                     id: "confirm_green".into(),
                                     name: "run_tests".into(),
                                     args: serde_json::json!({}),
                                 },
-                                workspace,
+                                workspace: call_fingerprint.get(),
                                 substitute: true,
                             });
                         }
@@ -5105,19 +4352,17 @@ fn run_turn_tiered(
                             },
                         );
                     }
-                    let result = if succeeded && is_mutation_call(call) {
-                        match edit_scope_note(
+                    if succeeded
+                        && is_mutation_call(call)
+                        && let Some(raise) = book::v_verification::out_of_scope_fact(
                             edit_scope.as_deref(),
                             registry.current_workspace(),
                             call,
                             &mut edit_scope_noted,
-                        ) {
-                            Some(note) => format!("{result}\n{note}"),
-                            None => result,
-                        }
-                    } else {
-                        result
-                    };
+                        )
+                    {
+                        raised.push(raise);
+                    }
                     let capped = cap_tool_output_owned(result, ctx_window);
                     let identity = inspection_identity_for_offload(call, &capped);
                     let off = eager_offload_tool_result(&call.name, capped, identity.as_deref());
@@ -5140,6 +4385,8 @@ fn run_turn_tiered(
                             ),
                     );
                 }
+                // The hop's stamps ride the tail of its last tool result.
+                let last_tool_index = history.len() - 1;
                 timing.note_tool_batch(tool_wait_started.elapsed());
                 timing.tool_member_ms += tool_shares.iter().sum::<u128>();
                 debug_assert_eq!(
@@ -5159,49 +4406,19 @@ fn run_turn_tiered(
                             .is_some_and(|after| before != after)
                     });
                 crate::agent::harness::trajectory::note_progress_hop(progress_mutated);
-                if progress_mutated && let Some(storm) = toolcall_storm.as_mut() {
-                    storm.workspace_changed();
-                }
-                if repeated_poll_guard.observe(repeated_poll_fingerprint, progress_mutated) {
-                    let note = format!(
-                        "⚠ stopped repeated passive polling: the same status/log batch ran \
-                         {poll_repeat_limit} times within 32 polling batches without intervening \
-                         work. Changing timestamps are not candidate progress. Conversation kept; \
-                         inspect the background job or use its completion notification before \
-                         resuming. ANGEL_POLL_REPEAT_LIMIT={poll_repeat_limit} (0 disables)."
-                    );
-                    crate::agent::harness::trajectory::note_escalation(hop, "repeated_poll_stop");
-                    crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::Spin.as_str(),
-                    );
-                    log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                    write_exp(
-                        "spin",
-                        false,
-                        hop,
-                        turn_counters!(
-                            deferred_action_nudges,
-                            poll_repeat_limit,
-                            err_streak,
-                            0,
-                            first_write_rejections,
-                            duplicate_inspection_results,
-                            duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
-                            action_capsule_metrics,
-                        ),
-                    );
-                    observed_outcome!(
-                        TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                        "repeated_poll_stop"
-                    );
-                }
+                loops.after_hop(
+                    &loop_batch,
+                    cycle_observation,
+                    progress_mutated,
+                    cycle_state_changed_this_hop,
+                    &mut raised,
+                );
                 handle_unproductive_streak!();
                 // Stop before another paid model hop. Finish pairing the entire
                 // dispatched batch first; unrelated successful calls cannot
                 // erase a failed execution prerequisite.
                 if let Some(note) = execution_blocked {
-                    crate::agent::harness::trajectory::note_timing(
+                    crate::agent::harness::trajectory::note_task_timing(
                         &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                     );
                     crate::agent::harness::trajectory::note_stop_reason(
@@ -5213,14 +4430,11 @@ fn run_turn_tiered(
                         false,
                         hop,
                         turn_counters!(
-                            deferred_action_nudges,
-                            spin,
-                            err_streak,
-                            0,
-                            first_write_rejections,
+                            markup_replies,
+                            loops.spin(),
+                            errors.streak(),
                             duplicate_inspection_results,
                             duplicate_inspection_bytes_saved,
-                            final_verification_nudges,
                             action_capsule_metrics,
                         ),
                     );
@@ -5238,111 +4452,15 @@ fn run_turn_tiered(
                         "execution_blocked"
                     );
                 }
-                if let Some(detector) = tool_cycle.as_mut() {
-                    if cycle_state_changed_this_hop || !count_spin {
-                        detector.clear();
-                    } else if let Some(period) =
-                        cycle_observation.and_then(|observation| detector.observe(observation))
-                    {
-                        crate::agent::harness::trajectory::note_escalation(hop, "spin_cycle");
-                        let repeated_calls = period.saturating_mul(tool_cycle_repeats);
-                        let note = format!(
-                            "⚠ stopped after detecting a {period}-batch tool cycle repeated \
-                             {tool_cycle_repeats}× ({repeated_calls} paired batches) with \
-                             unchanged outcomes; operator cap ANGEL_SPIN_LIMIT={spin_stop}, ANGEL_TOOL_CYCLE_REPEATS={tool_cycle_repeats}. Conversation kept — break the cycle with a \
-                             different hypothesis/tool or report the blocker."
-                        );
-                        crate::agent::harness::trajectory::note_timing(
-                            &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
-                        );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::Spin.as_str(),
-                        );
-                        log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                        write_exp(
-                            "spin_cycle",
-                            false,
-                            hop,
-                            turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
-                                duplicate_inspection_results,
-                                duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
-                                action_capsule_metrics,
-                            ),
-                        );
-                        observed_outcome!(
-                            TurnOutcome::stopped(note, TurnStopReason::Spin, hop),
-                            "spin_cycle"
-                        );
-                    }
-                }
-                // Deferred quality guards after tool pairing is intact.
-                if self_authored_verify_nudge_emitted
-                    && !history.iter().any(|m| {
-                        m.role == ChatRole::Harness && m.content.contains("WEAK VERIFICATION")
-                    })
+                if let Some(notify) = slot_watcher.pending_notify()
+                    && watcher_announced.insert(notify.id.clone())
                 {
-                    crate::agent::harness::trajectory::note_escalation(
-                        hop,
-                        "self_authored_verify_advisory",
-                    );
-                    history.push(ChatMsg::harness(SELF_AUTHORED_VERIFY_NUDGE.to_string()));
-                    let _ = events.send(TurnEvent::Notice(
-                        "self-authored verifier guard: green check only covers agent-written tests"
-                            .into(),
-                    ));
+                    let _ = events.send(TurnEvent::Notice(notify.injection_text()));
+                    history.push(ChatMsg::harness(book::k_competition::watcher_turn(
+                        registry.current_workspace(),
+                        &notify,
+                    )));
                 }
-                if consecutive_verification_failures >= 3 && !verification_recovery_emitted {
-                    verification_recovery_emitted = true;
-                    crate::agent::harness::trajectory::note_escalation(
-                        hop,
-                        "verification_recovery",
-                    );
-                    history.push(ChatMsg::harness(
-                        "[harness-telemetry] VERIFICATION RECOVERY: 3 consecutive verification failures detected. Pause speculative edits and inspect the first failing diagnostic. If errors span multiple functions, types, or borrow lifetimes, stop micro-patching with str_replace and use write_file to rewrite the module cleanly. Do not re-run tests without changing code. Report infrastructure failures honestly; never discard unrelated changes or assume a clean baseline exists."
-                            .to_string(),
-                    ));
-                    let _ = events.send(TurnEvent::Notice(
-                        "verification recovery: inspect repeated failures and preserve existing work"
-                            .into(),
-                    ));
-                }
-                if green_verify_achieved && !green_verify_nudge_emitted {
-                    green_verify_nudge_emitted = true;
-                    crate::agent::harness::trajectory::note_escalation(
-                        hop,
-                        "green_verify_advisory",
-                    );
-                    let nudge = if competition {
-                        COMPETITION_WINNER_BANK_NUDGE
-                    } else {
-                        GREEN_VERIFY_DONE_NUDGE
-                    };
-                    history.push(ChatMsg::harness(nudge.to_string()));
-                    let notice_text = if competition {
-                        "competition candidate verified; preserve it and follow the authorized submission plan"
-                    } else {
-                        "green verifier achieved; continue any remaining requested work"
-                    };
-                    let _ = events.send(TurnEvent::Notice(notice_text.into()));
-                }
-                if let Some(notify) = slot_watcher.pending_notify() {
-                    let text = notify.injection_text();
-                    if !history.iter().any(|m| {
-                        m.role == ChatRole::Harness
-                            && m.content.contains(&notify.id)
-                            && m.content.contains(WATCHER_NOTIFY_MARK)
-                    }) {
-                        history.push(ChatMsg::harness(text.clone()));
-                        let _ = events.send(TurnEvent::Notice(text));
-                    }
-                }
-                // Mutation loop allowed without artificial thrash kill switches.
                 // Close the hop's manifest rows. Writes the postcheck above never
                 // claimed (a `code_mode` script's inner edits, which dispatch
                 // through the same registry but aren't tool calls of this loop)
@@ -5359,73 +4477,89 @@ fn run_turn_tiered(
                         (Some(before), Some(after)) => before != after,
                         _ => successful_mutation_this_hop,
                     };
+                // The hop advisories (`⠼`, `⡅`), in the order 0.1.6 gave them.
+                // A green that only ran the model's own tests is weak, once.
+                if weak_verification_pending && !weak_verification_told {
+                    weak_verification_told = true;
+                    raised.push(book::Raise::new(book::d3456_advisories::WEAK, None));
+                }
+                weak_verification_pending = false;
+                // A full verifier passed on changed code: use it as evidence and
+                // finish what remains. In a competition, bank the candidate.
+                if green_verify_achieved && !green_verify_nudge_emitted {
+                    green_verify_nudge_emitted = true;
+                    raised.push(book::Raise::new(
+                        if competition {
+                            book::k_competition::WINNER_BANK
+                        } else {
+                            book::d3456_advisories::GREEN
+                        },
+                        None,
+                    ));
+                }
+                // The armed inspection budget is spent and nothing was edited.
                 if first_write_limit > 0 && !first_write_attempted {
-                    // Intent is not progress: a denied, failed, cancelled, or
-                    // panicked mutation must leave later recon behind the gate.
                     if successful_mutation_this_hop {
                         first_write_attempted = true;
                     } else {
-                        // Only free-form recon burns the pre-edit budget.
-                        // Hilbert/popcorn status·submissions·score and living
-                        // handoff / board-tip reads are wait/progress, not thrash.
                         let burned = history[call_history_index]
                             .tool_calls
                             .iter()
-                            .filter(|c| burns_first_write_budget(c))
+                            .filter(|call| is_free_form_recon(call))
                             .count();
                         prewrite_calls = prewrite_calls.saturating_add(burned);
                         if burned > 0
                             && prewrite_calls >= first_write_limit
                             && !first_write_nudge_emitted
                         {
-                            // One advisory per turn. Repeating the same directive
-                            // before and after every later call crowds out the
-                            // concrete tool evidence needed to recover.
-                            crate::agent::harness::trajectory::note_escalation(
-                                hop,
-                                "first_write_advisory",
-                            );
+                            // Once per turn: repeating the directive before and
+                            // after every later call crowds out the evidence.
                             first_write_nudge_emitted = true;
-                            history.push(ChatMsg::harness(
-                                first_write_nudge(competition, task_pace).to_string(),
+                            raised.push(book::Raise::new(
+                                if competition && task_pace == TaskPace::Rapid {
+                                    book::k_competition::FIRST_WRITE_RAPID
+                                } else {
+                                    book::d3456_advisories::FIRST_WRITE
+                                },
+                                format!(
+                                    "{prewrite_calls} inspection call(s) before the first edit"
+                                ),
                             ));
-                            let _ = events.send(TurnEvent::Notice(format!(
-                                "first-write guard: {prewrite_calls} inspection call(s); mutation or board wait/poll required next"
-                            )));
                         }
                     }
                 }
                 // A mutation after the green stales it: the verifier proved a
-                // tree that no longer exists. Disarm the post-green guard so
-                // the model can re-verify and finish, instead of being forced
-                // to answer for a workspace its green never described (run11
-                // lost its district wiring to the sticky version of this).
+                // tree that no longer exists.
                 if green_verify_achieved && successful_mutation_this_hop {
                     if competition {
-                        history.push(ChatMsg::harness(
-                            "[harness-telemetry] VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check. Preserve the prior candidate if available and verify the new bytes before claiming success. Follow the operator-authorized submission plan; a local pass alone does not prove a competitive win."
-                                .to_string(),
+                        raised.push(book::Raise::new(
+                            book::k_competition::CANDIDATE_CHANGED,
+                            None,
                         ));
                     }
                     green_verify_achieved = false;
                     green_verify_nudge_emitted = false;
-                    post_green_tool_batches = 0;
-                    let _ = events.send(TurnEvent::Notice(
-                        "post-green guard disarmed: the workspace changed after the green".into(),
+                }
+                // The first successful edit of the turn: review it before
+                // testing, once.
+                if post_edit_review && successful_mutation_this_hop && !post_edit_logic_reviewed {
+                    post_edit_logic_reviewed = true;
+                    raised.push(book::Raise::new(book::d3456_advisories::POST_EDIT, None));
+                }
+                // The final mile. Inspection alone while a verifier is owed hears
+                // the last sentence again, as its own page; the calls still run.
+                if book::d3456_advisories::rejects_inspection(
+                    final_mile_active,
+                    verification_needed,
+                    &history[call_history_index].tool_calls,
+                ) {
+                    raised.push(book::Raise::page(
+                        book::d3456_advisories::FINAL_MILE,
+                        book::d3456_advisories::FINAL_MILE_AGAIN,
+                        None,
                     ));
                 }
-                if post_edit_logic_review
-                    && successful_mutation_this_hop
-                    && !post_edit_logic_reviewed
-                {
-                    post_edit_logic_reviewed = true;
-                    crate::agent::harness::trajectory::note_escalation(
-                        hop,
-                        "post_edit_logic_advisory",
-                    );
-                    history.push(ChatMsg::harness(POST_EDIT_LOGIC_NUDGE.to_string()));
-                }
-                if should_activate_final_mile(
+                if book::d3456_advisories::should_activate_final_mile(
                     max_hops,
                     hop,
                     final_mile_hops,
@@ -5433,15 +4567,17 @@ fn run_turn_tiered(
                     final_mile_active,
                 ) {
                     final_mile_active = true;
-                    crate::agent::harness::trajectory::note_escalation(hop, "final_mile_advisory");
-                    history.push(ChatMsg::harness(FINAL_MILE_NUDGE.to_string()));
                     let remaining = max_hops.unwrap_or(hop).saturating_sub(hop);
-                    let _ = events.send(TurnEvent::Notice(format!(
-                        "final-mile reserve active with {remaining} bounded hop(s) remaining"
-                    )));
+                    raised.push(book::Raise::new(
+                        book::d3456_advisories::FINAL_MILE,
+                        format!("{remaining} bounded hop(s) remaining"),
+                    ));
                 }
                 if verify_after_hop && let Some(command) = task_accept_cmd.as_deref() {
-                    let proof = run_task_accept(command, registry.current_workspace());
+                    let proof = book::v_verification::run_task_accept(
+                        command,
+                        registry.current_workspace(),
+                    );
                     accept_post_checks += 1;
                     accept_post_ms += proof.elapsed_ms;
                     accept_last_post_result = Some(proof.result_class);
@@ -5458,9 +4594,9 @@ fn run_turn_tiered(
                             turn_start.elapsed().as_millis() as u64,
                         );
                         time_to_green_ms.set(Some(turn_start.elapsed().as_millis() as u64));
-                        let mut answer = format!(
-                            "Acceptance gate passed after {hop} tool hop(s); the verified workspace is ready for inspection."
-                        );
+                        // The answer's reader cannot read the ledger:
+                        // `⠟⠛⠁`'s page, the hop count in place.
+                        let mut answer = book::q_stop::ACCEPTED.replace("{hop}", &hop.to_string());
                         let notes =
                             with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
                                 finish_post_write_verification(
@@ -5478,7 +4614,7 @@ fn run_turn_tiered(
                         }
                         let _ = events.send(TurnEvent::Notice(proof.summary));
                         history.push(ChatMsg::assistant(answer.clone()));
-                        crate::agent::harness::trajectory::note_timing(
+                        crate::agent::harness::trajectory::note_task_timing(
                             &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                         );
                         crate::agent::harness::trajectory::note_stop_reason(
@@ -5498,102 +4634,92 @@ fn run_turn_tiered(
                             true,
                             hop,
                             turn_counters!(
-                                deferred_action_nudges,
-                                spin,
-                                err_streak,
-                                0,
-                                first_write_rejections,
+                                markup_replies,
+                                loops.spin(),
+                                errors.streak(),
                                 duplicate_inspection_results,
                                 duplicate_inspection_bytes_saved,
-                                final_verification_nudges,
                                 action_capsule_metrics,
                             ),
                         );
                         observed_outcome!(TurnOutcome::answer(answer, hop), "accept_cmd");
-                    } else if proof.result_class == "flaky" {
-                        // The model just saw its own run go green; say at once that
-                        // the green does not hold, with the failing run's output.
+                    } else if let Some(fact) = proof.fact() {
+                        // The model just saw its own run go green; the pinned
+                        // acceptance says the green does not hold (`⠧⠑`), or is
+                        // red (`⠧⠃`).
                         let _ = events.send(TurnEvent::Notice(proof.summary.clone()));
-                        history.push(ChatMsg::harness(format!(
-                            "{}\nFailing run output:\n{}",
-                            proof.summary, proof.output_tail
-                        )));
-                    }
-                }
-                // One redirect before the hard stop, in case it can self-correct.
-                // Perturbation (default) actively reframes; the plain nudge just
-                // asks for a different approach.
-                if spin > 0 && spin.is_multiple_of(spin_nudge) {
-                    crate::agent::harness::trajectory::note_escalation(hop, "spin_advisory");
-                    history.push(ChatMsg::harness(spin_redirect(spin_perturb)));
-                }
-                // Consecutive-error breaker: nudge once at half, hard-stop at the
-                // limit — the model is failing every call, not converging.
-                if all_errored {
-                    if err_streak > 0 && err_streak.is_multiple_of(error_nudge) {
-                        crate::agent::harness::trajectory::note_escalation(hop, "error_advisory");
-                        history.push(ChatMsg::harness(ERROR_NUDGE.to_string()));
-                    }
-                    if error_stop > 0 && err_streak >= error_stop {
-                        if error_redirections < 2 {
-                            error_redirections += 1;
-                            err_streak = 0;
-                            let redirect = format!(
-                                "[harness-telemetry] ERROR CASCADE REDIRECTION: Every tool call in the last {error_stop} hops failed. \
-                                 Stop repeating failing commands. Read the compiler diagnostics above and rewrite the file cleanly \
-                                 using `write_file` instead of accumulating micro-patches."
-                            );
-                            history.push(ChatMsg::harness(redirect.clone()));
-                            let _ = events.send(TurnEvent::Notice(redirect));
-                        } else {
-                            crate::agent::harness::trajectory::note_escalation(hop, "error_stop");
-                            let note = format!(
-                                "⚠ stopped after {err_streak} hops where every tool call errored — \
-                                 operator cap ANGEL_ERROR_LIMIT={error_stop}. Conversation kept; \
-                                 read the error messages and fix the precondition (path/state/args) \
-                                 or change approach."
-                            );
-                            crate::agent::harness::trajectory::note_timing(
-                                &timing
-                                    .finish_with_history(turn_start.elapsed().as_millis(), history),
-                            );
-                            crate::agent::harness::trajectory::note_stop_reason(
-                                TurnStopReason::ErrorStop.as_str(),
-                            );
-                            log_trajectory(club, history, &note, hop, true, verdicts.reward());
-                            write_exp(
-                                "error_stop",
-                                false,
-                                hop,
-                                turn_counters!(
-                                    deferred_action_nudges,
-                                    spin,
-                                    err_streak,
-                                    0,
-                                    first_write_rejections,
-                                    duplicate_inspection_results,
-                                    duplicate_inspection_bytes_saved,
-                                    final_verification_nudges,
-                                    action_capsule_metrics,
-                                ),
-                            );
-                            observed_outcome!(
-                                TurnOutcome::stopped(note, TurnStopReason::ErrorStop, hop),
-                                "error_stop"
-                            );
+                        if fact.route == book::v_verification::FLAKY {
+                            raised.push(fact);
                         }
                     }
                 }
-                // No-progress nudge (hint only): re-reading known files without
-                // No synthetic churn/reread stops.
-                // Mid-turn hop advisor (ANGEL_ADVISOR=hops): sparse NOTE/BLOCK
-                // after tool batches so the next model call sees course-correction.
-                if crate::agent::advisor::hops_enabled()
-                    && let Some(note) = run_hop_advisor(club, registry, history)
-                {
-                    history.push(ChatMsg::harness(note.clone()));
-                    let _ = events.send(TurnEvent::Notice(note));
+                raised.extend(error_streak);
+                raised.extend(cues.take());
+                loops.latch(&mut raised, progress_mutated);
+                for raise in &raised {
+                    if raise.route.primary == book::l_loops::CELL
+                        || raise.route == book::x_execution::ERRORS
+                    {
+                        loop_facts.push(raise.clone());
+                    }
                 }
+                // The hop's routes: an advisory (`book::VOICED`) and a loop route
+                // (`⠇`) each ride a turn of their own; the rest ride the tail of
+                // the last tool result as one warpath. Inside the result a model
+                // reads a cue as more output: replayed at DeepSeek loop points, no
+                // cue there broke a loop (0/26, stamp through full English), while
+                // `⛔⠇⠁` as its own turn broke 11/26 for 7 tokens. The advice of
+                // 0.1.6 was always its own turn, and it said what to do.
+                if !raised.is_empty() && history[last_tool_index].role == ChatRole::Tool {
+                    let (looped, rest): (Vec<_>, Vec<_>) = raised
+                        .iter()
+                        .cloned()
+                        .partition(|raise| raise.route.primary == book::l_loops::CELL);
+                    let (voiced, riding): (Vec<_>, Vec<_>) = rest
+                        .into_iter()
+                        .partition(|raise| book::is_voiced(raise.route));
+                    let mut shown = String::new();
+                    if !riding.is_empty() {
+                        let cells = book::warpath(registry.current_workspace(), &riding);
+                        let message = &mut history[last_tool_index];
+                        message.content = format!("{}\n{cells}", message.content).into();
+                        shown.push_str(&cells);
+                    }
+                    // A warning leads with the sign; guidance is bare cells.
+                    let (warnings, guidance): (Vec<_>, Vec<_>) = voiced
+                        .into_iter()
+                        .partition(|raise| book::is_warning(raise.route));
+                    for (group, warning) in [(&guidance, false), (&warnings, true)] {
+                        if !group.is_empty() {
+                            let turn =
+                                book::advice_turn(registry.current_workspace(), group, warning);
+                            history.push(ChatMsg::harness(turn.clone()));
+                            shown.push_str(turn.lines().next().unwrap_or_default());
+                        }
+                    }
+                    if !looped.is_empty() {
+                        let cells = book::warpath(registry.current_workspace(), &looped);
+                        let turn = format!("{}{}", book::l_loops::WARNING, loops.turn_cells(cells));
+                        history.push(ChatMsg::harness(turn.clone()));
+                        shown.push_str(&turn);
+                    }
+                    for raise in &raised {
+                        crate::agent::harness::trajectory::note_escalation(
+                            hop,
+                            &raise.route.name(),
+                        );
+                        if let Some(kind) = book::legacy_kind(raise.route) {
+                            crate::agent::harness::trajectory::note_escalation(hop, kind);
+                        }
+                    }
+                    let _ = events.send(TurnEvent::Notice(format!(
+                        "warpath {shown} · {}",
+                        book::names(&raised)
+                    )));
+                }
+                crate::agent::harness::trajectory::note_hop_stamps(
+                    &raised.iter().map(|raise| raise.route).collect::<Vec<_>>(),
+                );
             }
         }
     }
@@ -5618,557 +4744,6 @@ pub(crate) fn configured_turn_deadline_secs_for(competition: bool) -> usize {
     0
 }
 
-pub(crate) fn configured_first_write_limit() -> usize {
-    env_usize("ANGEL_FIRST_WRITE_CALLS", 0)
-}
-
-/// Number of post-budget inspection batches that may be denied before a stuck
-/// turn is stopped. Ordinary interactive coding keeps the historical soft-only
-/// posture; an explicitly armed competition gets a bounded circuit breaker.
-/// Headless task defaults set the same value explicitly, and `0` is exact off.
-pub(crate) fn configured_first_write_rejection_limit(_competition: bool) -> usize {
-    if std::env::var_os("ANGEL_FIRST_WRITE_REJECTIONS").is_some() {
-        return env_usize("ANGEL_FIRST_WRITE_REJECTIONS", 0);
-    }
-    0
-}
-
-#[derive(Debug)]
-pub(crate) struct TaskAcceptResult {
-    pub(crate) passed: bool,
-    pub(crate) result_class: &'static str,
-    pub(crate) summary: String,
-    pub(crate) elapsed_ms: u128,
-    /// The end of a failing run's output; empty when it passed.
-    pub(crate) output_tail: String,
-}
-
-/// Run the task acceptance command until it has passed
-/// `ANGEL_TASK_ACCEPT_REPEATS` times in a row (default 3) or failed once. One
-/// green run is not proof: a solution that depends on randomness, timing or
-/// state shared between tests can pass by luck. On polyglot-v1
-/// cpp-robot-name, a `reset()` that released old names passed about one run
-/// in four, and the single acceptance run happened to be one of them. Repeats
-/// stop once the proof has taken `ANGEL_TASK_ACCEPT_REPEAT_SECS` (default 60)
-/// in total, so a slow suite is not run three times. A failure after an earlier
-/// pass comes back as `flaky`, with the failing output.
-pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResult {
-    let repeats = env_usize("ANGEL_TASK_ACCEPT_REPEATS", 3).clamp(1, 10);
-    let repeat_budget = Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_REPEAT_SECS", 60) as u64);
-    let started = Instant::now();
-    let mut result = run_task_accept_once(command, workspace);
-    let mut runs = 1;
-    while result.passed && runs < repeats && started.elapsed() < repeat_budget {
-        let next = run_task_accept_once(command, workspace);
-        runs += 1;
-        if !next.passed {
-            return TaskAcceptResult {
-                passed: false,
-                result_class: "flaky",
-                summary: format!(
-                    "task acceptance is nondeterministic: it passed {} run(s), then failed on run \
-                     {runs} of {repeats} ({}). The solution passes by luck; something depends on \
-                     randomness, timing or state shared between tests. Make it pass every run.",
-                    runs - 1,
-                    next.summary
-                ),
-                elapsed_ms: started.elapsed().as_millis(),
-                output_tail: next.output_tail,
-            };
-        }
-        result = next;
-    }
-    if result.passed && runs > 1 {
-        result.summary = format!("{} ({runs} consecutive runs)", result.summary);
-    }
-    result.elapsed_ms = started.elapsed().as_millis();
-    result
-}
-
-fn run_task_accept_once(command: &str, workspace: &Path) -> TaskAcceptResult {
-    let started = Instant::now();
-    let timeout =
-        Duration::from_secs(env_usize("ANGEL_TASK_ACCEPT_TIMEOUT_SECS", 120).clamp(5, 600) as u64);
-    let Ok((output, timed_out)) =
-        crate::agent::harness::exec::sandboxed_workspace_sh(command, workspace, workspace)
-            .and_then(|process| output_timed(process, Some(timeout)))
-    else {
-        return TaskAcceptResult {
-            passed: false,
-            result_class: "spawn_error",
-            summary: "task acceptance command could not start".to_string(),
-            elapsed_ms: started.elapsed().as_millis(),
-            output_tail: String::new(),
-        };
-    };
-    let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
-    combined.push('\n');
-    combined.push_str(&String::from_utf8_lossy(&output.stderr));
-    let result = parse_test_result(&combined);
-    let libtest = combined.contains("test result:");
-    let passed = output.status.success()
-        && !timed_out
-        && (!libtest || (result.passed > 0 && result.failed == 0));
-    let status = if timed_out {
-        "timed out".to_string()
-    } else {
-        output
-            .status
-            .code()
-            .map(|code| format!("exit {code}"))
-            .unwrap_or_else(|| "terminated by signal".to_string())
-    };
-    TaskAcceptResult {
-        passed,
-        result_class: if timed_out {
-            "timeout"
-        } else if passed {
-            "passed"
-        } else {
-            "failed"
-        },
-        summary: if libtest {
-            format!(
-                "task acceptance {status}: {} passed / {} failed",
-                result.passed, result.failed
-            )
-        } else {
-            format!("task acceptance {status}")
-        },
-        elapsed_ms: started.elapsed().as_millis(),
-        output_tail: if passed {
-            String::new()
-        } else {
-            tail_chars(&combined, TASK_ACCEPT_TAIL_CHARS)
-        },
-    }
-}
-
-const TASK_ACCEPT_TAIL_CHARS: usize = 1_500;
-
-/// The paths a task declares as its editable surface, when it declares one:
-/// the sealed-task allowlist `ANGEL_TASK_EDITABLE_PATHS_JSON` (whose file-tool
-/// edits are already refused outside it, so this catches shell edits), else a
-/// Yukon `benchmark.json` in the workspace (`editablePaths` and `optionalEditablePaths`, and every
-/// track's for a schema-v2 manifest). Edits elsewhere are not evaluated.
-pub(crate) fn task_edit_scope(workspace: &Path) -> Option<Vec<String>> {
-    if let Ok(raw) = std::env::var("ANGEL_TASK_EDITABLE_PATHS_JSON") {
-        let scope: Vec<String> = serde_json::from_str::<Vec<String>>(&raw)
-            .ok()?
-            .into_iter()
-            .map(|path| path.trim().trim_matches('/').to_string())
-            .filter(|path| !path.is_empty())
-            .collect();
-        return (!scope.is_empty()).then_some(scope);
-    }
-    let text = std::fs::read_to_string(workspace.join("benchmark.json")).ok()?;
-    let manifest: Value = serde_json::from_str(&text).ok()?;
-    let mut scope = Vec::new();
-    let mut take = |value: &Value| {
-        for key in ["editablePaths", "optionalEditablePaths"] {
-            if let Some(list) = value.get(key).and_then(Value::as_array) {
-                scope.extend(
-                    list.iter()
-                        .filter_map(Value::as_str)
-                        .map(|path| path.trim_matches('/').to_string()),
-                );
-            }
-        }
-    };
-    take(&manifest);
-    if let Some(tracks) = manifest.get("tracks").and_then(Value::as_array) {
-        tracks.iter().for_each(&mut take);
-    }
-    scope.sort();
-    scope.dedup();
-    (!scope.is_empty()).then_some(scope)
-}
-
-/// A one-line note when a mutation lands outside the declared edit scope, once
-/// per path per turn. polyglot-v1 rust-doubly-linked-list went green locally on
-/// edits to Cargo.toml and src/pre_implemented.rs that the evaluator discards.
-pub(crate) fn edit_scope_note(
-    scope: Option<&[String]>,
-    workspace: &Path,
-    call: &ToolCall,
-    noted: &mut std::collections::HashSet<String>,
-) -> Option<String> {
-    let scope = scope?;
-    let mut outside = Vec::new();
-    crate::knowledge::cut::for_each_mutation_target_path(&call.name, &call.args, |path| {
-        let relative = Path::new(path)
-            .strip_prefix(workspace)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|_| PathBuf::from(path));
-        let relative = relative
-            .to_string_lossy()
-            .trim_start_matches("./")
-            .to_string();
-        let inside = scope
-            .iter()
-            .any(|allowed| relative == *allowed || relative.starts_with(&format!("{allowed}/")));
-        if !inside && noted.insert(relative.clone()) {
-            outside.push(relative);
-        }
-        false
-    });
-    (!outside.is_empty()).then(|| {
-        format!(
-            "[edit scope] {} is outside this task's editable paths ({}): the evaluated copy will \
-             not include this change.",
-            outside.join(", "),
-            scope.join(", ")
-        )
-    })
-}
-
-/// The model's last passing test run, kept for the completion check.
-pub(crate) struct GreenRun {
-    pub(crate) call: ToolCall,
-    /// The workspace it passed on; the check runs only on that same code.
-    pub(crate) workspace: Option<u64>,
-    /// `run_tests` standing in for a shell run angelX will not repeat as-is.
-    pub(crate) substitute: bool,
-}
-
-/// The model's last red test run, kept for the completion check.
-pub(crate) struct RedRun {
-    /// The workspace it failed on; the check applies only to that same code.
-    pub(crate) workspace: Option<u64>,
-    pub(crate) label: String,
-    pub(crate) tail: String,
-}
-
-pub(crate) const RED_COMPLETION_NUDGE: &str = "Your last test run on this exact code failed, so the \
-task is not finished, and there is budget left to fix it. Read the failure below, change the code, \
-and run the tests again. If something outside the code blocks you, such as a missing tool or a \
-broken environment, say what it is and answer again.";
-
-pub(crate) const TEST_EDIT_NUDGE: &str = "You changed test files that came with the task. Those \
-tests are the task's contract: leave them as they were. Restore them (for example `git checkout -- \
-<file>`) and keep your fix in the source. To run tests that are skipped, run a copy or restore the \
-file afterwards. If the task asked you to change these tests, say so and answer again.";
-
-/// Completions denied while a test file that came with the task (tracked at
-/// `HEAD`, named like a test) is changed: `ANGEL_TEST_EDIT_DENIALS` (0-2).
-/// Default 1 in task mode, 0 in interactive sessions and competition. One
-/// denial, so a task that really asks for test changes costs one extra step.
-/// polyglot-v1 js-grep: Grok 4.7 un-skipped `grep.spec.js` in 5 of 6 runs
-/// across harnesses; the runs that passed restored it on their own.
-pub(crate) fn test_edit_denial_limit(task_active: bool, competition: bool) -> usize {
-    if competition {
-        return 0;
-    }
-    match std::env::var("ANGEL_TEST_EDIT_DENIALS") {
-        Ok(value) => value.trim().parse::<usize>().map_or(0, |n| n.min(2)),
-        Err(_) if task_active => 1,
-        Err(_) => 0,
-    }
-}
-
-/// Test files tracked at `HEAD` that now differ from it. `None` outside Git.
-pub(crate) fn changed_test_files(root: &Path) -> Option<Vec<String>> {
-    Some(
-        crate::agent::harness::workspace_state::changed_tracked_paths(root)?
-            .into_iter()
-            .filter(|path| is_test_path(path))
-            .collect(),
-    )
-}
-
-/// Completions denied while the model's own last test run on the final code
-/// is red: `ANGEL_RED_COMPLETION_DENIALS` (0-4). Default 2 in task mode, where
-/// the run ends on its answer and nobody is there to say "keep going"; 0 in
-/// interactive sessions, where the answer goes to a person who decides. Never
-/// in competition, which does not deny answers. polyglot-v1: gpt-6-luna
-/// answered "tests still fail" on five tasks with 74-94% of its 600 s left,
-/// and solved all five when re-run at higher effort.
-pub(crate) fn red_completion_denial_limit(task_active: bool, competition: bool) -> usize {
-    if competition {
-        return 0;
-    }
-    match std::env::var("ANGEL_RED_COMPLETION_DENIALS") {
-        Ok(value) => value.trim().parse::<usize>().map_or(0, |n| n.min(4)),
-        Err(_) if task_active => 2,
-        Err(_) => 0,
-    }
-}
-
-/// What a task turn still has for acting on a denied completion, as a line for
-/// the model, or `None` when too little is left: the final-mile window is
-/// open, fewer than three steps remain (an edit, a test run, the answer), or
-/// less than a quarter of the task's wall clock. `wall_secs` 0 means no wall.
-pub(crate) fn task_budget_left(
-    hop: usize,
-    max_hops: Option<usize>,
-    final_mile_active: bool,
-    elapsed_secs: u64,
-    wall_secs: usize,
-) -> Option<String> {
-    if final_mile_active {
-        return None;
-    }
-    let steps = match max_hops {
-        Some(max) if max.saturating_sub(hop) < 3 => return None,
-        Some(max) => Some(max - hop),
-        None => None,
-    };
-    let secs = match wall_secs as u64 {
-        0 => None,
-        wall if wall.saturating_sub(elapsed_secs).saturating_mul(4) < wall => return None,
-        wall => Some(wall - elapsed_secs.min(wall)),
-    };
-    Some(match (secs, steps) {
-        (Some(secs), Some(steps)) => format!("About {secs} s and {steps} steps are left."),
-        (Some(secs), None) => format!("About {secs} s are left."),
-        (None, Some(steps)) => format!("{steps} steps are left."),
-        (None, None) => "This task has no time or step limit.".to_string(),
-    })
-}
-
-/// A shell test run angelX will not re-run as-is: an `a || b` fallback can turn
-/// a failing test green (`./test || ctest` passes when CTest has nothing
-/// registered). Recognised when the command without its fallbacks is a test run.
-pub(crate) fn test_run_behind_fallback(call: &ToolCall) -> bool {
-    if call.name != "shell" {
-        return false;
-    }
-    let command = crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or("");
-    let Some((primary, _)) = command.split_once("||") else {
-        return false;
-    };
-    let primary: String = primary
-        .chars()
-        .filter(|ch| !matches!(ch, '(' | ')' | '{' | '}'))
-        .collect();
-    let args = serde_json::json!({"command": primary.trim()});
-    let probe = ToolCall {
-        id: String::new(),
-        name: "shell".into(),
-        args: args.clone(),
-    };
-    is_verification_call(&probe) || is_progress_verifier_call("shell", &args)
-}
-
-/// Output-cap notes per hop before retries fall back to plain re-sends.
-const OUTPUT_CAP_NUDGE_LIMIT: usize = 3;
-
-pub(crate) const OUTPUT_CAP_NUDGE: &str = "Your last reply was cut off at the output token limit \
-before it finished, so nothing in it ran. Usually one tool call carried too much text. Split the \
-work: write a large file in parts (create it with the first part, then add the rest with further \
-edits), keep each tool call well under the limit, and do not restate large content.";
-
-pub(crate) const REASONING_CAP_NUDGE: &str = "Your last reply spent its whole output limit on \
-private reasoning and was cut off before it said or did anything, so nothing ran. Do not work the \
-problem out in your head: take the next concrete step now with one tool call (run the tests, read \
-the failing case, or make one small edit) and keep your reasoning short.";
-
-/// A provider error meaning the reply hit its output-token cap: re-sending the
-/// same request hits the same cap (polyglot-v1 rust-decimal, DeepSeek: 25
-/// identical 8192-token cut-offs until the task wall).
-pub(crate) fn is_output_cap_truncation(error: &str) -> bool {
-    error.starts_with("response incomplete:")
-        || error == crate::agent::club::TRUNCATED_OUTPUT_ERR
-        || error.contains("finish_reason=length")
-}
-
-/// Completions denied for a green that did not hold before one is accepted.
-const CONFIRM_GREEN_REJECTION_LIMIT: usize = 2;
-
-pub(crate) const CONFIRM_GREEN_NUDGE: &str = "Your last passing test run did not hold: angelX re-ran it on \
-the same code and it failed. The solution passes by luck; something depends on randomness, \
-timing, iteration order or state shared between tests or runs. Find that and fix it so the \
-tests pass every run. Re-running until green is not a fix.";
-
-/// Extra runs of the model's last passing test before "done" is accepted:
-/// `ANGEL_CONFIRM_GREEN_RUNS` (0-5) when set; unset, see `confirm_green_by_chance`. It repeats only what the
-/// model already chose to run, as an in-turn check when the evaluator's own
-/// acceptance command is withheld. Opt-in on the evidence: a two-seed polyglot-v1
-/// A/B on DeepSeek V4.1 Flash (272 tasks per arm) solved 267 with it at 2 against
-/// 269 without, for 21% more agent time; 255 greens re-run, one flaky pass
-/// caught (cpp-robot-name).
-pub(crate) fn confirm_green_extra_runs(_competition: bool) -> usize {
-    std::env::var("ANGEL_CONFIRM_GREEN_RUNS")
-        .ok()
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .map_or(0, |runs| runs.min(5))
-}
-
-/// Extra confirming runs when `ANGEL_CONFIRM_GREEN_RUNS` is unset but the code
-/// the model wrote draws on chance (see `edits_depend_on_chance`). Two runs of
-/// a test that fails half the time catch it three times in four.
-pub(crate) const CHANCE_CONFIRM_GREEN_RUNS: usize = 2;
-
-/// Whether the unset-`ANGEL_CONFIRM_GREEN_RUNS` default applies: task mode,
-/// where nobody reviews the answer, and never in competition. An explicit value,
-/// including 0, is the operator's choice and stands.
-pub(crate) fn confirm_green_by_chance(task_active: bool, competition: bool) -> bool {
-    task_active && !competition && std::env::var_os("ANGEL_CONFIRM_GREEN_RUNS").is_none()
-}
-
-/// Calls whose presence makes a passing test run a sample rather than a proof:
-/// random numbers, clocks, threads. A plain substring scan over the source the
-/// model edited; a false hit costs two test re-runs.
-const CHANCE_MARKERS: &[&str] = &[
-    // C and C++
-    "rand(",
-    "random_device",
-    "mt19937",
-    "_distribution<",
-    "std::chrono",
-    "std::thread",
-    "std::async",
-    // Rust
-    "rand::",
-    "thread_rng",
-    "SystemTime",
-    "Instant::now",
-    "thread::spawn",
-    "tokio::spawn",
-    // Python
-    "import random",
-    "from random",
-    "random.",
-    "uuid",
-    "time.time",
-    "datetime.now",
-    "threading",
-    "asyncio",
-    // JavaScript and TypeScript
-    "Math.random",
-    "crypto.random",
-    "Date.now",
-    "new Date(",
-    "setTimeout",
-    "setInterval",
-    // Go and Java
-    "math/rand",
-    "time.Now",
-    "go func",
-    "new Random(",
-    "ThreadLocalRandom",
-    "currentTimeMillis",
-];
-
-/// Whether any non-test source file the model edited draws on chance.
-/// polyglot-v1 cpp-robot-name: Grok 4.7 wrote a name generator that reused a
-/// released name about half the time; one green run was accepted in 5 of 14
-/// angelX runs. Other harnesses caught it only when their first run happened to
-/// fail.
-pub(crate) fn edits_depend_on_chance(
-    workspace: &Path,
-    edited: &std::collections::BTreeSet<String>,
-) -> bool {
-    edited
-        .iter()
-        .filter(|path| !is_test_path(path))
-        .any(|path| {
-            let path = Path::new(path);
-            let file = if path.is_absolute() {
-                path.to_path_buf()
-            } else {
-                workspace.join(path)
-            };
-            std::fs::read_to_string(file)
-                .is_ok_and(|source| CHANCE_MARKERS.iter().any(|marker| source.contains(marker)))
-        })
-}
-
-/// A test or spec file by name: `*_test.*`, `*.test.*`, `*.spec.*`,
-/// `test_*.py`, or anything under a `test`/`tests`/`spec`/`__tests__` directory.
-pub(crate) fn is_test_path(path: &str) -> bool {
-    let path = path.replace('\\', "/");
-    let name = path
-        .rsplit('/')
-        .next()
-        .unwrap_or(&path)
-        .to_ascii_lowercase();
-    let stem = name.split('.').next().unwrap_or(&name);
-    path.split('/').rev().skip(1).any(|dir| {
-        matches!(
-            dir.to_ascii_lowercase().as_str(),
-            "test" | "tests" | "spec" | "specs" | "__tests__"
-        )
-    }) || name.contains(".test.")
-        || name.contains(".spec.")
-        || stem.ends_with("_test")
-        || stem.ends_with("_spec")
-        || stem.ends_with("test") && stem.len() > 4 && name.ends_with(".java")
-        || stem.starts_with("test_")
-}
-
-/// Re-run the model's last passing test call up to `extra` more times on the
-/// unchanged workspace, judged exactly as the turn judges any tool result.
-/// `Ok(runs)` when every run passed; `Err((run, output))` at the first that did
-/// not. Runs stop once they have taken `ANGEL_CONFIRM_GREEN_SECS` (default 60),
-/// so a slow suite is not repeated at length. polyglot-v1 cpp-robot-name
-/// passed about one run in four; a single green run was accepted and the
-/// grader's run failed.
-pub(crate) fn confirm_green_run(
-    registry: &ToolRegistry,
-    call: &ToolCall,
-    extra: usize,
-    cancel: &AtomicBool,
-) -> Result<usize, (usize, String)> {
-    let budget = Duration::from_secs(env_usize("ANGEL_CONFIRM_GREEN_SECS", 60) as u64);
-    let started = Instant::now();
-    let mut runs = 0;
-    while runs < extra && started.elapsed() < budget && !cancel.load(Ordering::Relaxed) {
-        runs += 1;
-        let output = match registry.dispatch_with_cancel(&call.name, &call.args, Some(cancel)) {
-            Ok(output) => output,
-            Err(error) => format!("tool error: {error}"),
-        };
-        let executed =
-            turn_event_outcome(call, &output, false).execution == ExecutionOutcome::Succeeded;
-        if !executed || verification_outcome(call, &output) == Some(VerificationOutcome::Failed) {
-            return Err((runs, output));
-        }
-    }
-    Ok(runs)
-}
-
-fn green_run_label(call: &ToolCall) -> String {
-    let detail = match call.name.as_str() {
-        "shell" => crate::agent::tools::shell::shell_command_arg(&call.args)
-            .unwrap_or("")
-            .to_string(),
-        "cargo" => call
-            .args
-            .get("args")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string(),
-        _ => String::new(),
-    };
-    if detail.is_empty() {
-        format!("`{}`", call.name)
-    } else {
-        format!(
-            "`{}: {}`",
-            call.name,
-            detail.chars().take(120).collect::<String>()
-        )
-    }
-}
-
-fn tail_chars(text: &str, limit: usize) -> String {
-    let text = text.trim_end();
-    let skip = text.chars().count().saturating_sub(limit);
-    text.chars().skip(skip).collect()
-}
-
-/// The post-write seam: everything the machine can say about a mutation the
-/// instant it lands, folded back into the tool result the model is about to read
-/// — and stamped onto The Cut's manifest (docs/plans/the-cut.md, T2).
-///
-/// Two checks, cheapest first:
-/// 1. the language server's errors for the edited file ([`maybe_lsp_postcheck`],
-///    unchanged — gated on `ANGEL_LSP`);
-/// 2. the project's *verify* command — `cargo check`, `node --check`, `tsc
-///    --noEmit`, never a test run — run under a hard timeout
-///    ([`crate::knowledge::cut::PostWriteVerification`]). On by default; `ANGEL_CUT_VERIFY=0` opts out.
-///
 /// Last operator/user task text for advisor prompts.
 fn last_user_task(history: &[ChatMsg]) -> String {
     history
@@ -6177,74 +4752,6 @@ fn last_user_task(history: &[ChatMsg]) -> String {
         .find(|m| m.role == ChatRole::User)
         .map(|m| m.content.to_string())
         .unwrap_or_default()
-}
-
-/// Compact summary of the most recent tool hop (assistant calls + tool results).
-fn last_hop_summary(history: &[ChatMsg]) -> String {
-    // Walk backward to the last assistant_calls, then collect following tools.
-    let mut start = None;
-    for (i, m) in history.iter().enumerate().rev() {
-        if m.role == ChatRole::Assistant && m.content.contains("tool_call") {
-            start = Some(i);
-            break;
-        }
-        // Also match structured tool-call assistant rows (empty content, has tool_calls).
-        if m.role == ChatRole::Assistant && !m.tool_calls.is_empty() {
-            start = Some(i);
-            break;
-        }
-    }
-    let Some(start) = start else {
-        return "(no tool hop)".into();
-    };
-    let mut lines = Vec::new();
-    for m in &history[start..] {
-        match m.role {
-            ChatRole::Assistant => {
-                if !m.tool_calls.is_empty() {
-                    for c in m.tool_calls.iter() {
-                        lines.push(format!("call {}({})", c.name, truncate_args(&c.args, 120)));
-                    }
-                } else if !m.content.is_empty() {
-                    lines.push(format!("assistant: {}", bound_line(&m.content, 160)));
-                }
-            }
-            ChatRole::Tool => {
-                let head = m.content.lines().next().unwrap_or("").trim();
-                let status = if is_error_result(&m.content) {
-                    "ERR"
-                } else {
-                    "ok"
-                };
-                lines.push(format!("result[{status}]: {}", bound_line(head, 200)));
-            }
-            _ => {}
-        }
-        if lines.len() >= 24 {
-            break;
-        }
-    }
-    if lines.is_empty() {
-        "(empty hop)".into()
-    } else {
-        lines.join("\n")
-    }
-}
-
-fn bound_line(s: &str, max: usize) -> String {
-    let t = s.trim();
-    if t.chars().count() <= max {
-        t.to_string()
-    } else {
-        let mut o: String = t.chars().take(max.saturating_sub(1)).collect();
-        o.push('…');
-        o
-    }
-}
-
-fn truncate_args(args: &serde_json::Value, max: usize) -> String {
-    let s = args.to_string();
-    bound_line(&s, max)
 }
 
 /// Final-answer advisor gate for ordinary (and swarm-pre-annotated) turns.
@@ -6261,13 +4768,9 @@ fn apply_final_advisor(
         return answer;
     }
     let task = last_user_task(history);
-    let prompt = format!(
-        "{}\n\n{}",
-        crate::agent::advisor::ADVISOR_SYS,
-        crate::agent::advisor::review_prompt(&task, &answer)
-    );
     registry.auxiliary.utility_entered("advisor");
-    match club.respond(&prompt) {
+    // The reviewer is connected: its brief is `⠌⠊`, read through the ledger.
+    match crate::agent::advisor::review(club, registry.current_workspace(), &task, &answer) {
         Ok(reply) => {
             match crate::agent::advisor::annotate(&crate::agent::advisor::parse_verdict(&reply)) {
                 Some(a) => format!("{answer}{a}"),
@@ -6278,27 +4781,26 @@ fn apply_final_advisor(
     }
 }
 
-/// Mid-turn hop advisor; returns a harness note or None on CLEAR/failure.
-fn run_hop_advisor(
-    club: &dyn Club,
-    registry: &ToolRegistry,
-    history: &[ChatMsg],
-) -> Option<String> {
-    let task = last_user_task(history);
-    let summary = crate::agent::advisor::bound_hop_summary(&last_hop_summary(history), 4000);
-    let prompt = format!(
-        "{}\n\n{}",
-        crate::agent::advisor::ADVISOR_HOP_SYS,
-        crate::agent::advisor::hop_review_prompt(&task, &summary)
-    );
-    registry.auxiliary.utility_entered("advisor");
-    let reply = club.respond(&prompt).ok()?;
-    crate::agent::advisor::annotate_hop(&crate::agent::advisor::parse_verdict(&reply))
+struct PostWriteObservers<'a> {
+    diagnostic_counters: &'a PostEditDiagnosticCounters,
+    verdicts: &'a mut crate::knowledge::cut::TurnVerdicts,
+    rollout_recorder: &'a mut RolloutRecorder,
+    verification: &'a mut crate::knowledge::cut::PostWriteVerification,
 }
 
+/// The post-write seam: everything the machine can say about a mutation the
+/// instant it lands, folded back into the tool result the model is about to read
+/// — and stamped onto The Cut's manifest (docs/plans/the-cut.md, T2).
 ///
-/// Only a *failure* is spoken back into the turn: a passing verify would spend
-/// context to say nothing. The verdict is recorded either way, so the manifest
+/// Two checks, cheapest first:
+/// 1. the language server's errors for the edited file ([`maybe_lsp_postcheck`],
+///    unchanged — gated on `ANGEL_LSP`);
+/// 2. the project's *verify* command — `cargo check`, `node --check`, `tsc
+///    --noEmit`, never a test run — run under a hard timeout
+///    ([`crate::knowledge::cut::PostWriteVerification`]). On by default; `ANGEL_CUT_VERIFY=0` opts out.
+///
+/// Only a *failure* reaches the model — its data on the result, `⠧⠉` on the
+/// warpath: a passing verify would spend context to say nothing. The verdict is recorded either way, so the manifest
 /// carries a machine label on every write — the label density the whole plan
 /// turns on — while the turn only pays tokens when angel actually broke the
 /// build. This is also where the manifest row gets the facts only the loop knows
@@ -6308,13 +4810,6 @@ fn run_hop_advisor(
 /// trajectory row is finally *rewarded* on ([`crate::knowledge::cut::TurnVerdicts`]). One
 /// verify, three consumers: the model reads it, the manifest records it, and the
 /// forge trains on it.
-struct PostWriteObservers<'a> {
-    diagnostic_counters: &'a PostEditDiagnosticCounters,
-    verdicts: &'a mut crate::knowledge::cut::TurnVerdicts,
-    rollout_recorder: &'a mut RolloutRecorder,
-    verification: &'a mut crate::knowledge::cut::PostWriteVerification,
-}
-
 fn post_write_verdict(
     registry: &ToolRegistry,
     club: &dyn Club,
@@ -6323,19 +4818,20 @@ fn post_write_verdict(
     result: String,
     observers: &mut PostWriteObservers<'_>,
     cancel: &AtomicBool,
-) -> String {
+) -> (String, Option<book::Raise>) {
     if registry.external_evaluator_only {
-        return result;
+        return (result, None);
     }
     // A failed or denied call authored nothing — there is nothing to check and
     // nothing to record.
     if is_error_result(&result) || result.starts_with("action capsule denied") {
-        return result;
+        return (result, None);
     }
     let targets = crate::knowledge::cut::mutation_targets(&call.name, &call.args);
     if targets.is_empty() {
-        return result; // not a mutation tool
+        return (result, None); // not a mutation tool
     }
+    let receipt_len = result.len();
     let result = maybe_lsp_postcheck(
         registry,
         observers.diagnostic_counters.enabled,
@@ -6376,11 +4872,23 @@ fn post_write_verdict(
             }
         }
     }
-    if notes.is_empty() {
+    // The machine's own words ride the result as data; the route is `⠧⠉`.
+    let lsp = result[receipt_len..].trim().to_string();
+    let mut data = Vec::new();
+    if !lsp.is_empty() {
+        data.push(lsp);
+    }
+    data.extend(notes.iter().cloned());
+    if data.is_empty() {
+        return (result, None);
+    }
+    let result = if notes.is_empty() {
         result
     } else {
         format!("{result}\n\n{}", notes.join("\n\n"))
-    }
+    };
+    let raise = book::Raise::new(book::v_verification::POST_WRITE, data.join("\n\n"));
+    (result, Some(raise))
 }
 
 fn finish_post_write_verification(
@@ -6543,13 +5051,7 @@ pub(crate) fn maybe_lsp_postcheck(
     if blocks.is_empty() {
         return result;
     }
-    let diagnostic = cap_post_edit_diagnostics(
-        format!(
-            "[post-edit LSP — fix these before continuing]\n{}",
-            blocks.join("\n\n")
-        ),
-        max_bytes,
-    );
+    let diagnostic = cap_post_edit_diagnostics(blocks.join("\n\n"), max_bytes);
     counters.output_bytes.set(
         counters
             .output_bytes

@@ -161,46 +161,40 @@ fn real_coding_eval_publishes_and_audits_exact_pair() {
 }
 
 #[test]
-fn original_peer_baseline_survives_change_and_replacement_is_rejected() {
+fn retired_competition_fields_stay_null_and_are_enforced() {
     // env-lock-exempt: fixture in this module holds crate::tests::env_lock for the entire closure.
     fixture(|root, workspace| {
-        let peer = root.join("peer.json");
-        std::fs::write(
-            &peer,
-            r#"{"geomean_us":100.0,"name":"original","shapes":{"32768x1":100.0}}"#,
-        )
-        .unwrap();
-        let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
-        let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
-        let evidence = evaluate(
-            workspace,
-            "printf '%s' 'shape=32768x1 score_us=50us\ntest result: ok. 3 passed; 0 failed;' ",
-        );
-        let scoring = score_coding_eval(&evidence).unwrap();
-        assert!((scoring.reward - 0.55).abs() < 1e-6);
+        let (_, request) = real_producer(root, workspace);
         let store = root.join("authority");
-        let published = publish(&store, TASK, ANSWER, &evidence, &scoring).unwrap();
-        let request = json!({"schema":REQUEST_SCHEMA,"decision_sha256":published.decision_sha256,
-            "task":TASK,"answer":ANSWER,"reward":published.reward,"competition":published.competition,
-            "evaluator_evidence_manifest_sha256":published.manifest_sha256});
-        std::fs::write(
-            &peer,
-            r#"{"geomean_us":40.0,"name":"changed-after-scoring","shapes":{"32768x1":40.0}}"#,
-        )
-        .unwrap();
-        assert!(score_coding_eval(&evidence).unwrap().reward < 0.05);
+        assert_eq!(request["competition"], Value::Null);
         let receipt = audit(&store, &serde_json::to_vec(&request).unwrap()).unwrap();
-        assert_eq!(receipt["baseline"]["baseline_us"], 100.0);
-        let mut changed = request.clone();
-        changed["competition"]["baseline_us"] = json!(40.0);
-        assert!(audit(&store, &serde_json::to_vec(&changed).unwrap()).is_err());
-        // Simulate corruption of the trusted object under its original ID; the
-        // auditor does not accept a replacement baseline even if arithmetic fits.
-        let path = store.join(format!("{}.decision.json", published.decision_sha256));
-        let mut decision: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        decision["baseline"]["baseline_us"] = json!(40.0);
-        std::fs::write(&path, serde_json::to_vec(&decision).unwrap()).unwrap();
-        assert!(audit(&store, &serde_json::to_vec(&request).unwrap()).is_err());
+        assert_eq!(receipt["baseline"], Value::Null);
+        assert_eq!(receipt["competition"], Value::Null);
+        // A stored decision that carries a baseline or a non-tests contract
+        // no longer has a scorer to replay it, so it fails closed even when it
+        // is filed under its own digest.
+        let path = store.join(format!(
+            "{}.decision.json",
+            request["decision_sha256"].as_str().unwrap()
+        ));
+        let original = std::fs::read(&path).unwrap();
+        for (key, value) in [
+            ("baseline", json!({"baseline_us": 100.0})),
+            ("reward_contract", json!("popcorn_peer")),
+        ] {
+            let mut decision: Value = serde_json::from_slice(&original).unwrap();
+            decision[key] = value;
+            let bytes = serde_json::to_vec(&decision).unwrap();
+            let digest = crate::knowledge::cut::sha256_hex(&bytes);
+            std::fs::write(store.join(format!("{digest}.decision.json")), bytes).unwrap();
+            let mut forged = request.clone();
+            forged["decision_sha256"] = json!(digest);
+            let error = audit(&store, &serde_json::to_vec(&forged).unwrap()).unwrap_err();
+            assert!(
+                error.contains("unsupported coding decision scoring contract"),
+                "a stored {key} must fail replay: {error}"
+            );
+        }
     });
 }
 
@@ -212,8 +206,7 @@ fn failed_verifier_and_missing_authority_never_mint_training_decision() {
             workspace,
             "printf '%s' 'test result: ok. 3 passed; 0 failed;'; exit 7",
         );
-        let scoring = CodingEvalScore::without_competition(1.0);
-        assert!(publish(&root.join("authority"), TASK, ANSWER, &evidence, &scoring).is_err());
+        assert!(publish(&root.join("authority"), TASK, ANSWER, &evidence, 1.0).is_err());
         assert!(!root.join("authority").exists());
         let mut registry = crate::agent::harness::ToolRegistry::new();
         registry.set_workspace(workspace.into());

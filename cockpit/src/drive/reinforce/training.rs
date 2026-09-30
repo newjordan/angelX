@@ -27,7 +27,9 @@ struct Decision {
     reward_owner: String,
     reward_contract: String,
     reward: f32,
-    baseline: Option<CodingEvalCompetition>,
+    /// Retired: always null. Kept so v1 decisions still parse.
+    baseline: Option<Value>,
+    /// Retired: always null. Kept so v1 decisions and requests still parse.
     competition: Option<Value>,
     lineage: Value,
 }
@@ -40,6 +42,7 @@ struct Request {
     task: String,
     answer: String,
     reward: f64,
+    /// Retired: always null. Kept so v1 requests still parse.
     competition: Value,
     evaluator_evidence_manifest_sha256: String,
 }
@@ -49,7 +52,6 @@ pub(crate) struct PublishedDecision {
     pub artifact_sha256: String,
     pub manifest_sha256: String,
     pub reward: f32,
-    pub competition: Option<Value>,
 }
 
 fn digest_ok(value: &str) -> bool {
@@ -189,32 +191,17 @@ fn publish_decision(root: &Path, bytes: &[u8]) -> Result<String, String> {
 fn replay(
     evidence: &EvaluatorEvidence,
     contract: &str,
-    baseline: &Option<CodingEvalCompetition>,
-) -> Result<CodingEvalScore, String> {
+    baseline: &Option<Value>,
+) -> Result<f32, String> {
     validate_coding_eval_evidence(evidence)?;
     let reward = match (contract, baseline) {
         ("tests", None) => TestReward.score(RewardInput::EvaluatorEvidence(evidence))?,
-        ("popcorn_peer", Some(baseline)) => {
-            if baseline.evidence_manifest_sha256 != evidence.manifest_sha256
-                || !baseline.baseline_us.is_finite()
-                || baseline.baseline_us <= 0.0
-                || !popcorn_competition_signal(evidence.output())
-            {
-                return Err("coding decision baseline does not bind this evidence".into());
-            }
-            PopcornPeerReward::new()
-                .with_baseline(baseline.baseline_us)
-                .score(RewardInput::CandidateOutput(evidence.output()))?
-        }
         _ => return Err("unsupported coding decision scoring contract".into()),
     };
     if !reward.is_finite() {
         return Err("non-finite coding decision reward".into());
     }
-    Ok(CodingEvalScore {
-        reward,
-        competition: baseline.clone(),
-    })
+    Ok(reward)
 }
 
 pub(super) fn publish(
@@ -222,19 +209,15 @@ pub(super) fn publish(
     task: &str,
     answer: &str,
     evidence: &EvaluatorEvidence,
-    scoring: &CodingEvalScore,
+    reward: f32,
 ) -> Result<PublishedDecision, String> {
     let subject_sha256 = crate::knowledge::cut::sha256_hex(subject(task, answer).as_bytes());
     if subject_sha256 != evidence.subject_sha256 {
         return Err("coding decision subject mismatch".into());
     }
-    let contract = if scoring.competition.is_some() {
-        "popcorn_peer"
-    } else {
-        "tests"
-    };
-    let reproduced = replay(evidence, contract, &scoring.competition)?;
-    if reproduced.reward.to_bits() != scoring.reward.to_bits() {
+    let contract = "tests";
+    let reproduced = replay(evidence, contract, &None)?;
+    if reproduced.to_bits() != reward.to_bits() {
         return Err("coding decision reward is not reproducible under retained contract".into());
     }
     // Publish actual evaluator-owned bytes before creating the authoritative
@@ -247,7 +230,6 @@ pub(super) fn publish(
         EVIDENCE_LIMIT,
     )?;
     let artifact_sha256 = crate::knowledge::cut::sha256_hex(&bytes);
-    let competition = coding_eval_competition_meta(evidence, scoring);
     let decision = Decision {
         schema: DECISION_SCHEMA.into(),
         data_class: "verified_coding_eval".into(),
@@ -258,9 +240,9 @@ pub(super) fn publish(
         answer_sha256: crate::knowledge::cut::sha256_hex(answer.as_bytes()),
         reward_owner: OWNER.into(),
         reward_contract: contract.into(),
-        reward: scoring.reward,
-        baseline: scoring.competition.clone(),
-        competition: competition.clone(),
+        reward,
+        baseline: None,
+        competition: None,
         lineage: lineage(evidence),
     };
     let decision_sha256 = publish_decision(
@@ -271,8 +253,7 @@ pub(super) fn publish(
         decision_sha256,
         artifact_sha256,
         manifest_sha256: evidence.manifest_sha256.clone(),
-        reward: scoring.reward,
-        competition,
+        reward,
     })
 }
 
@@ -280,16 +261,16 @@ pub(super) fn publish_if_configured(
     task: &str,
     answer: &str,
     evidence: &EvaluatorEvidence,
-    scoring: &CodingEvalScore,
+    reward: f32,
 ) -> Result<Option<PublishedDecision>, String> {
     let Some(root) = std::env::var_os("ANGEL_CODING_TRAINING_AUTHORITY_DIR") else {
         return Ok(None);
     };
-    publish(Path::new(&root), task, answer, evidence, scoring).map(Some)
+    publish(Path::new(&root), task, answer, evidence, reward).map(Some)
 }
 
-/// Pure read-only admission. Replays the stored decision, never the living peer,
-/// original verifier command, or a program named by an incoming row.
+/// Pure read-only admission. Replays the stored decision, never the original
+/// verifier command or a program named by an incoming row.
 pub(crate) fn audit(root: &Path, input: &[u8]) -> Result<Value, String> {
     if input.len() > JSON_LIMIT {
         return Err("coding audit request exceeds byte limit".into());
@@ -337,9 +318,7 @@ pub(crate) fn audit(root: &Path, input: &[u8]) -> Result<Value, String> {
         return Err("coding evaluator subject or lineage mismatch".into());
     }
     let reproduced = replay(&evidence, &decision.reward_contract, &decision.baseline)?;
-    if reproduced.reward.to_bits() != decision.reward.to_bits()
-        || coding_eval_competition_meta(&evidence, &reproduced) != decision.competition
-    {
+    if reproduced.to_bits() != decision.reward.to_bits() || decision.competition.is_some() {
         return Err("coding original reward or competition metadata failed replay".into());
     }
     Ok(json!({

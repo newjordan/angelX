@@ -86,7 +86,7 @@ fn unlabeled_trajectory_still_refreshes_last_root_hiq() {
         ),
         ChatMsg::assistant("ok"),
     ];
-    let rec = trajectory_record("turbo", &history, "ok", 2, false, None, 1);
+    let rec = trajectory_record("fixture-club", &history, "ok", 2, false, None, 1);
     assert!(rec.get("root_trajectory").is_none());
     let snap = last_root_hiq().expect("unlabeled turn still notes strip snapshot");
     assert_eq!(snap.handle_receipts, 1);
@@ -94,39 +94,27 @@ fn unlabeled_trajectory_still_refreshes_last_root_hiq() {
 }
 
 #[test]
-fn harness_treatment_stamps_living_peer_and_gpu_comp() {
+fn harness_treatment_stamps_only_an_explicit_rl_reward() {
     // Serialized: this test mutates process-global environment that other
     // tests also read or write. Without the lock they interleave and each
     // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
-    let peer = std::env::temp_dir().join(format!(
-        "angel-tx-peer-{}-{}.json",
-        std::process::id(),
-        now_ms()
-    ));
-    // Shapes required so open-lever rank stamps living_peer_primary_key (forge join).
-    std::fs::write(
-            &peer,
-            r#"{"geomean_us":867.91,"name":"c3_peer.txt","path":"/tmp/c3.txt","shapes":{"32768x1":38800.0,"512x640":1685.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
-        )
-        .unwrap();
-    let _state =
-        crate::agent::harness::tests::EnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
     let _lane = crate::agent::harness::tests::EnvGuard::set("ANGEL_LANE", "treebeard");
-    let _gpu = crate::agent::harness::tests::EnvGuard::set("ANGEL_GPU_COMP_LOCAL_MOA", "1");
+    let _reward = crate::agent::harness::tests::EnvGuard::unset("ANGEL_RL_REWARD");
     let t = harness_treatment_json();
-    let _ = std::fs::remove_file(&peer);
     assert_eq!(t["lane"], "treebeard");
-    assert_eq!(t["gpu_comp"], true);
-    assert_eq!(
-        t["rl_reward"], "popcorn_peer",
-        "gpu-comp trajectories stamp Phase-4 popcorn scorer"
+    assert!(t.get("rl_reward").is_none(), "unset scorer is not stamped");
+    assert!(t.get("gpu_comp").is_none());
+    let _reward = crate::agent::harness::tests::EnvGuard::set("ANGEL_RL_REWARD", "tests");
+    assert_eq!(harness_treatment_json()["rl_reward"], "tests");
+    assert!(
+        harness_treatment_json()
+            .get("rl_reward_requested")
+            .is_none()
     );
-    assert!((t["living_peer_us"].as_f64().unwrap() - 867.91).abs() < 0.01);
-    assert_eq!(t["living_peer_name"], "c3_peer.txt");
-    // Canonical forge primary keys + attack alias (Cut → Hi/Q join).
-    assert_eq!(t["living_peer_primary_key"], "32768x1");
-    assert_eq!(t["living_peer_primary_attack"], "32768x1");
-    assert!((t["living_peer_primary_us"].as_f64().unwrap() - 38800.0).abs() < 0.1);
-    assert!((t["living_peer_top_open_us"].as_f64().unwrap() - 38800.0).abs() < 0.1);
+    // A scorer no evaluator can feed is recorded as requested, not as used.
+    let _reward = crate::agent::harness::tests::EnvGuard::set("ANGEL_RL_REWARD", "lint");
+    let t = harness_treatment_json();
+    assert_eq!(t["rl_reward"], "tests");
+    assert_eq!(t["rl_reward_requested"], "lint");
 }

@@ -74,15 +74,15 @@ impl Tool for TodoTool {
             name: "todo".to_string(),
             description: "Your persistent task list for multi-step work. action=list (default) \
                           returns its canonical JSON state; add {text} appends; complete {id} \
-                          checks one off; set {items:[...]} replaces the whole list."
+                          checks one off; set {items:[...]} replaces the whole list. ⠯⠁"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": { "type": "string", "enum": ["list", "add", "complete", "set"], "description": "default 'list'" },
-                    "text": { "type": "string", "maxLength": TODO_TEXT_MAX_CHARS, "description": "for action=add" },
-                    "id": { "type": "integer", "description": "for action=complete" },
-                    "items": { "type": "array", "maxItems": TODO_MAX_ITEMS, "items": { "type": "string", "maxLength": TODO_TEXT_MAX_CHARS }, "description": "for action=set" },
+                    "action": { "type": "string", "enum": ["list", "add", "complete", "set"], "description": "⠯⠁⠁" },
+                    "text": { "type": "string", "maxLength": TODO_TEXT_MAX_CHARS, "description": "⠯⠁⠃" },
+                    "id": { "type": "integer", "description": "⠯⠁⠉" },
+                    "items": { "type": "array", "maxItems": TODO_MAX_ITEMS, "items": { "type": "string", "maxLength": TODO_TEXT_MAX_CHARS }, "description": "⠯⠁⠙" },
                 },
                 "required": [],
             }),
@@ -156,7 +156,8 @@ impl Tool for TodoTool {
                 ))
             }
             other => Err(format!(
-                "unknown action {other:?} (use list|add|complete|set)"
+                "unknown action {other:?}\n{}",
+                crate::agent::harness::book::d467_receipts::TODO_ACTIONS.cells()
             )),
         }
     }
@@ -185,7 +186,7 @@ const HANDOFF_SCHEMA: &str = "angel-handoff/v1";
 /// Age past which a loaded handoff carries a staleness banner. Fast-moving
 /// competition facts (board frontier, scores, in-flight slots, branch tips)
 /// rot in hours; a warm start must not present a days-old brief in the present
-/// tense. 2026-09-01 toymaker: a 12-day-old brief pinned the lower-track
+/// tense. 2026-09-01: a 12-day-old brief pinned the lower-track
 /// frontier at 53.13 while the live board stood at 67.67 — the loop spent the
 /// morning working to beat a frontier its own account had already passed.
 const HANDOFF_STALE_AFTER_SECS: u64 = 6 * 60 * 60;
@@ -211,10 +212,10 @@ fn stale_handoff_banner(written_unix: u64) -> Option<String> {
         .unwrap_or(0);
     let age = now.saturating_sub(written_unix);
     (age >= HANDOFF_STALE_AFTER_SECS).then(|| {
+        // `⠎⠚`: stale; the age is the data, the words are the ledger page.
         format!(
-            "[handoff is {} old — STALE: treat every live fact inside (board \
-             frontier, scores, in-flight slots, branch tips) as EXPIRED until \
-             re-verified against the live source]\n",
+            "{} {}\n",
+            crate::agent::harness::book::s_sources::HANDOFF_STALE.cells(),
             handoff_age_compact(age)
         )
     })
@@ -307,21 +308,17 @@ impl Tool for HandoffTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "handoff".to_string(),
-            description: "Your compaction-proof, session-proof handoff note. Write the state a \
-                          cold successor needs to resume this work: current goal, what is done \
-                          (with evidence), what is in flight, exact next steps in order, and \
-                          load-bearing facts (paths, hashes, commands, decisions with reasons). \
+            description: "Your compaction-proof, session-proof handoff note. \
                           The newest note replaces the previous one, is carried verbatim across \
                           context compaction, and persists on disk so a FRESH session's \
-                          action=show recovers it. Refresh it before long or risky stretches and \
-                          before ending a run. action=show (default when no note is given) \
-                          returns the current note; write {note} replaces it."
+                          action=show recovers it. action=show (default when no note is given) \
+                          returns the current note; write {note} replaces it. ⠡⠊"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": { "type": "string", "enum": ["show", "write"], "description": "default: 'write' when 'note' is present, else 'show'" },
-                    "note": { "type": "string", "minLength": HANDOFF_NOTE_MIN_CHARS, "maxLength": HANDOFF_NOTE_MAX_CHARS, "description": "for action=write — the complete replacement resume brief" },
+                    "action": { "type": "string", "enum": ["show", "write"], "description": "⠡⠊⠉" },
+                    "note": { "type": "string", "minLength": HANDOFF_NOTE_MIN_CHARS, "maxLength": HANDOFF_NOTE_MAX_CHARS, "description": "⠡⠊⠙" },
                 },
                 "required": [],
             }),
@@ -350,10 +347,10 @@ impl Tool for HandoffTool {
                         let banner = stale_handoff_banner(written_unix).unwrap_or_default();
                         Ok(format!("{HANDOFF_STATE_PREFIX}{banner}{note}"))
                     }
-                    None => Ok(
-                        "(no handoff note recorded yet — action=write {note} to set one)"
-                            .to_string(),
-                    ),
+                    None => Ok(format!(
+                        "(no handoff note recorded yet)\n{}",
+                        crate::agent::harness::book::d467_receipts::HANDOFF_WRITE.cells()
+                    )),
                 }
             }
             "write" => {
@@ -365,15 +362,17 @@ impl Tool for HandoffTool {
                 if chars < HANDOFF_NOTE_MIN_CHARS {
                     return Err(format!(
                         "handoff note is {chars} chars — below the {HANDOFF_NOTE_MIN_CHARS}-char \
-                         floor. A resume brief must name the goal, completed work with evidence, \
-                         in-flight state, ordered next steps, and load-bearing facts. Write the \
-                         full brief."
+                         floor.\n{}",
+                        crate::agent::harness::book::d46_recovery::run(&[
+                            crate::agent::harness::book::d467_receipts::BRIEF_NAMES,
+                            crate::agent::harness::book::d467_receipts::FULL_BRIEF,
+                        ])
                     ));
                 }
                 if chars > HANDOFF_NOTE_MAX_CHARS {
                     return Err(format!(
-                        "handoff note exceeds {HANDOFF_NOTE_MAX_CHARS} characters — keep it a \
-                         dense resume brief, not a transcript"
+                        "handoff note exceeds {HANDOFF_NOTE_MAX_CHARS} characters\n{}",
+                        crate::agent::harness::book::d467_receipts::DENSE_BRIEF.cells()
                     ));
                 }
                 // Disk is the cross-session contract: a failed persist is a
@@ -383,7 +382,10 @@ impl Tool for HandoffTool {
                 *state = Some(note.to_string());
                 Ok(format!("{HANDOFF_STATE_PREFIX}{note}"))
             }
-            other => Err(format!("unknown action {other:?} (use show|write)")),
+            other => Err(format!(
+                "unknown action {other:?}\n{}",
+                crate::agent::harness::book::d467_receipts::HANDOFF_ACTIONS.cells()
+            )),
         }
     }
 }
@@ -472,14 +474,13 @@ impl Tool for NotesTool {
             name: "notes".to_string(),
             description: "Your persistent project memory — survives restarts and is shared \
                           only across this repository's sessions. action=list \
-                          (default) reads it; add {text} appends a note; clear wipes it. Use \
-                          for durable findings and decisions."
+                          (default) reads it; add {text} appends a note; clear wipes it. ⠡⠓"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": { "type": "string", "enum": ["list", "add", "clear"], "description": "default 'list'" },
-                    "text": { "type": "string", "description": "for action=add" },
+                    "action": { "type": "string", "enum": ["list", "add", "clear"], "description": "⠡⠓⠃" },
+                    "text": { "type": "string", "description": "⠡⠓⠉" },
                 },
                 "required": [],
             }),
@@ -519,7 +520,10 @@ impl Tool for NotesTool {
                 }
                 Err(e) => Err(format!("clear notes: {e}")),
             },
-            other => Err(format!("unknown action {other:?} (use list|add|clear)")),
+            other => Err(format!(
+                "unknown action {other:?}\n{}",
+                crate::agent::harness::book::d467_receipts::NOTES_ACTIONS.cells()
+            )),
         }
     }
 }

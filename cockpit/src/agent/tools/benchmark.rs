@@ -79,7 +79,7 @@ fn compare(args: &Value) -> Result<Value, String> {
         "ratio_of_means_speedup":(direction == "minimize" && c > 0.0 && b > 0.0).then(|| b/c).filter(|v| v.is_finite()),
         "paired_wins":wins, "paired_ties":ties, "paired_losses":baseline.len()-wins-ties,
         "paired_win_percent":100.0 * wins as f64 / baseline.len() as f64,
-        "interpretation":"Deterministic arithmetic on supplied matched samples, not independently verified acceptance. Positive improvement is better. Zero baseline makes relative percentages undefined (null). Dataset labels are supplied by the caller; do not mix diagnostic, full-development and official results. No statistical significance or generalization claim."
+        "interpretation":crate::agent::harness::book::d56_replies::BENCHMARK.cells()
     }))
 }
 
@@ -90,10 +90,10 @@ impl Tool for BenchmarkCompareTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name:self.name().into(),
-            description:"Calculate measured benchmark percentages from paired baseline/candidate samples on one named dataset: mean/median/p95, sample standard deviation, signed improvement, ratio-of-means speedup, paired wins/ties/losses. Local deterministic arithmetic; no network, model estimates or acceptance authority. Samples must be nonnegative and matched in order; separate diagnostic, full-development and official cohorts.".into(),
+            description:"Calculate measured benchmark percentages from paired baseline/candidate samples on one named dataset: mean/median/p95, sample standard deviation, signed improvement, ratio-of-means speedup, paired wins/ties/losses. Local deterministic arithmetic; no network, model estimates or acceptance authority. Samples must be nonnegative and matched in order. ⠩⠚".into(),
             params:json!({"type":"object", "properties":{
                 "dataset":{"type":"string", "maxLength":256},
-                "metric":{"type":"string", "maxLength":256, "description":"Metric and unit, e.g. kernel latency (ms)."},
+                "metric":{"type":"string", "maxLength":256, "description":"⠩⠚⠃"},
                 "direction":{"type":"string", "enum":["minimize","maximize"]},
                 "baseline":{"type":"array", "minItems":1, "maxItems":256, "items":{"type":"number","minimum":0,"maximum":1e100}},
                 "candidate":{"type":"array", "minItems":1, "maxItems":256, "items":{"type":"number","minimum":0,"maximum":1e100}}

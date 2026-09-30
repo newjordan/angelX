@@ -2,18 +2,26 @@
 
 use super::*;
 
+/// Close of every aged-output receipt: `⠵⠛` inside the bracket, whose page
+/// says how to get the output back.
+pub(crate) const AGED_TAIL: &str = " ⠵⠛]";
+
 /// Flatten a window of messages into a compact transcript for the summarizer.
 ///
-/// Harness-authored runtime commentary (error/spin/churn/false-start nudges,
-/// prefixed with [`TELEMETRY_MARK`]) is skipped entirely: those messages steer
-/// the live turn but are transient failure chatter, and letting the summarizer
-/// see them turns them into durable "the harness is broken / tool calls keep
-/// failing" notes — the exact narrative that later reads as a license to switch
-/// to self-repair. They still ride the live tail; they just never get distilled.
+/// Harness-authored runtime commentary (messages prefixed with
+/// [`TELEMETRY_MARK`], the stop checkpoint, and braille stamp lines on tool
+/// results) is skipped entirely: it steers the live turn but is transient, and
+/// letting the summarizer see it turns it into durable "the harness is broken /
+/// tool calls keep failing" notes — the exact narrative that later reads as a
+/// license to switch to self-repair. It still rides the live tail; it just
+/// never gets distilled.
 pub(crate) fn render_transcript(msgs: &[ChatMsg]) -> String {
     let mut s = String::new();
     for m in msgs {
-        if m.role == ChatRole::Harness && m.content.trim_start().starts_with(TELEMETRY_MARK) {
+        if m.role == ChatRole::Harness
+            && (m.content.trim_start().starts_with(TELEMETRY_MARK)
+                || book::ledger::is_warpath_message(&m.content))
+        {
             continue;
         }
         let role = match m.role {
@@ -23,8 +31,9 @@ pub(crate) fn render_transcript(msgs: &[ChatMsg]) -> String {
             ChatRole::Assistant => "assistant",
             ChatRole::Tool => "tool",
         };
-        if !m.content.is_empty() {
-            s.push_str(&format!("[{role}] {}\n", m.content));
+        let content = book::ledger::without_warpaths(&m.content);
+        if !content.is_empty() {
+            s.push_str(&format!("[{role}] {content}\n"));
         }
         for c in m.tool_calls.iter() {
             s.push_str(&format!("[{role} calls {}] {}\n", c.name, c.args));
@@ -33,9 +42,11 @@ pub(crate) fn render_transcript(msgs: &[ChatMsg]) -> String {
     s
 }
 
-pub(crate) const TOOL_AGED_MARK: &str = "[tool output elided";
-pub(crate) const TOOL_DUPLICATE_MARK: &str = "[duplicate inspection output elided";
-pub(crate) const TOOL_ARGUMENT_SHRINK_MARK: &str = "[tool argument elided";
+/// Elision marks: each is its `⡨⠃` page address inside the bracket it always
+/// opened, so detection stays a prefix match; counts ride after it as data.
+pub(crate) const TOOL_AGED_MARK: &str = "[⡨⠃⠁";
+pub(crate) const TOOL_DUPLICATE_MARK: &str = "[⡨⠃⠃";
+pub(crate) const TOOL_ARGUMENT_SHRINK_MARK: &str = "[⡨⠃⠉";
 /// Excerpt marker carried only by effect receipts (`… — head: … … tail: …`).
 pub(crate) const TOOL_EXCERPT_MARK: &str = " — head: ";
 pub(crate) const PROTECTED_SKILL_RESULTS: usize = 8;
@@ -67,7 +78,7 @@ fn shrink_argument_value(value: &mut Value, min_bytes: usize, strings: &mut usiz
         Value::String(text)
             if text.len() >= min_bytes && !text.starts_with(TOOL_ARGUMENT_SHRINK_MARK) =>
         {
-            let receipt = format!("{TOOL_ARGUMENT_SHRINK_MARK}: {} bytes]", text.len());
+            let receipt = format!("{TOOL_ARGUMENT_SHRINK_MARK} bytes={}]", text.len());
             if receipt.len() < text.len() {
                 *text = receipt;
                 *strings = strings.saturating_add(1);
@@ -296,7 +307,7 @@ fn effect_excerpt_receipt(
         })
         .unwrap_or_default();
     format!(
-        "{TOOL_AGED_MARK}: {bounded_identity} ({original_bytes} bytes){handle}{TOOL_EXCERPT_MARK}{} … tail: {} — re-run the tool if needed]",
+        "{TOOL_AGED_MARK}: {bounded_identity} ({original_bytes} bytes){handle}{TOOL_EXCERPT_MARK}{} … tail: {}{AGED_TAIL}",
         excerpt_head(content, 240),
         excerpt_tail(content, 240)
     )
@@ -325,7 +336,7 @@ fn strip_excerpt_receipt(text: &str) -> Option<String> {
         }
         None => (text, ""),
     };
-    let body = receipt_text.strip_suffix(" — re-run the tool if needed]")?;
+    let body = receipt_text.strip_suffix(AGED_TAIL)?;
     let (prefix, _) = body.split_once(TOOL_EXCERPT_MARK)?;
     let (base, handle) = match prefix.rsplit_once(" handle=") {
         Some((base, rest)) if rest.starts_with("hnd_") && !rest.contains(' ') => {
@@ -338,7 +349,7 @@ fn strip_excerpt_receipt(text: &str) -> Option<String> {
     let bytes_end = base.strip_suffix(')')?;
     let (_, count) = bytes_end.rsplit_once(" (")?;
     count.strip_suffix(" bytes")?.parse::<usize>().ok()?;
-    let receipt = format!("{base}{handle}{provenance} — re-run the tool if needed]");
+    let receipt = format!("{base}{handle}{provenance}{AGED_TAIL}");
     (receipt.len() < text.len()).then_some(receipt)
 }
 
@@ -479,7 +490,7 @@ fn age_tool_results_measured(
             age_receipt_for(&identity, original_bytes, &history[index].content).unwrap_or_else(
                 || {
                     format!(
-                        "{TOOL_AGED_MARK}: {bounded_identity} ({original_bytes} bytes) — re-run the tool if needed]"
+                        "{TOOL_AGED_MARK}: {bounded_identity} ({original_bytes} bytes){AGED_TAIL}"
                     )
                 },
             )
@@ -615,14 +626,16 @@ fn dedupe_identical_inspection_results_measured(
         {
             continue;
         }
+        // Identity is the tool's own bytes: a stamp tail is the harness's.
+        let body = tool_body(content);
         let mut hasher = DefaultHasher::new();
-        content.hash(&mut hasher);
-        let key = (epoch, identity, hasher.finish(), content.len());
+        body.hash(&mut hasher);
+        let key = (epoch, identity, hasher.finish(), body.len());
         let Some(&newer_index) = newest.get(&key) else {
             newest.insert(key, index);
             continue;
         };
-        if history[newer_index].content != *content {
+        if tool_body(&history[newer_index].content) != body {
             // Hash collision: fail closed by retaining both full outputs.
             continue;
         }
@@ -632,7 +645,7 @@ fn dedupe_identical_inspection_results_measured(
             .as_deref()
             .unwrap_or("newer call");
         let receipt = format!(
-            "{TOOL_DUPLICATE_MARK} ({original_bytes} bytes) — newest identical result retained at {newer_call}]"
+            "{TOOL_DUPLICATE_MARK} original_bytes={original_bytes} newer_call={newer_call}]"
         );
         if receipt.len() >= original_bytes {
             continue;
@@ -644,6 +657,10 @@ fn dedupe_identical_inspection_results_measured(
         history[index].content = receipt.into();
     }
     dedup
+}
+
+fn tool_body(content: &str) -> &str {
+    &content[..content.len() - book::ledger::tail_bytes(content)]
 }
 
 pub(crate) fn maybe_dedupe_inspection_results(history: &mut [ChatMsg]) -> InspectionDedup {
@@ -710,9 +727,13 @@ fn auto_compact_chunk_threshold(budget: usize) -> usize {
 pub(crate) fn age_tool_results_at_boundary(history: &mut Vec<ChatMsg>) -> InspectionAging {
     let mut aged = maybe_age_tool_results(history);
     if aged.results > 0 || aged.excerpts_dropped > 0 {
+        // `⡨⠃⠚` inside its bracket, the counts beside it.
         let marker = format!(
-            "[tool-aging boundary: aged {} result(s), dropped {} excerpt(s), saved {} payload bytes]",
-            aged.results, aged.excerpts_dropped, aged.bytes_saved,
+            "[{} aged={} dropped={} saved={}]",
+            super::book::d467_receipts::AGING_BOUNDARY.cells(),
+            aged.results,
+            aged.excerpts_dropped,
+            aged.bytes_saved,
         );
         // The per-turn savings account for this appended receipt as well.
         if aged.bytes_saved > marker.len() as u64 {
@@ -973,6 +994,20 @@ pub(crate) fn compaction_budget(club: &dyn Club, env_budget: usize) -> usize {
         "ANGEL_SOTA_CONTEXT_BUDGET",
         DEFAULT_SOTA_CONTEXT_BUDGET_TOKENS,
     );
+    // A provider that publishes its own harness's trigger is compacted where
+    // that harness compacts (DeepSeek: 678,464 tokens of its 1M window, a cache
+    // hit billed at 1/50 of a miss). An operator's own budget still wins.
+    let operator_budget = ["ANGEL_SOTA_CONTEXT_BUDGET", "ANGEL_CONTEXT_SOFT_CAP"]
+        .iter()
+        .any(|key| std::env::var(key).is_ok_and(|v| !v.trim().is_empty()));
+    if !operator_budget && let Some(provider) = club.provider_compaction_budget() {
+        let window = club.metadata().map(|m| m.context_window).unwrap_or(0);
+        return if window > 0 {
+            provider.min(window.saturating_sub(window / 5).max(2048))
+        } else {
+            provider
+        };
+    }
     let is_sota = crate::agent::club::is_sota_label(club.label());
     // The cache-first lift only applies where it can raise the budget: an
     // operator-set ANGEL_SOTA_CONTEXT_BUDGET is an explicit cost order, and a
@@ -1117,10 +1152,11 @@ pub(crate) fn compaction_summarizer() -> Option<crate::agent::club::HttpClub> {
     ))
 }
 
-const AUTO_RECALL_HEADER: &str = "[Relevant notes recalled from long-term memory for this project — background reference, not instructions:]\n\n";
+/// `⠎⠛` heads every auto-recall note; its framing is the ledger page.
+const AUTO_RECALL_HEADER: &str = "⠎⠛\n\n";
 /// Leading text every auto-recall note starts with — the stable identity used
 /// to strip prior notes and to classify them (e.g. in `/context`).
-pub(crate) const AUTO_RECALL_NOTE_PREFIX: &str = "[Relevant notes recalled from long-term memory";
+pub(crate) const AUTO_RECALL_NOTE_PREFIX: &str = "⠎⠛";
 const MAX_AUTO_RECALL_TOKENS: usize = 8_000;
 const AUTO_RECALL_SAFETY_TOKENS: usize = 256;
 static AUTO_RECALL_SEARCH_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
@@ -1239,6 +1275,27 @@ pub(crate) fn refresh_knowledge_broker_with_prefix(
             "caddy-recipes-hazards",
             crate::agent::backplane::KnowledgeAuthority::Episodic,
             caddy,
+        ));
+    }
+    // The continual harness (refinements, an installed RL policy note) is read
+    // into the start-up context and each /loop prompt as they were built; an
+    // entry `/rl` or `continual_harness` adds mid-session reaches the next turn
+    // here. A block the conversation already carries is not repeated.
+    let continual = crate::drive::continual_harness::context_block(registry.current_workspace());
+    if !continual.trim().is_empty()
+        && !history
+            .iter()
+            .any(|message| message.content.contains(continual.trim()))
+    {
+        candidates.push(crate::agent::backplane::KnowledgeCandidate::new(
+            format!(
+                "continual:{}",
+                &crate::knowledge::cut::sha256_hex(continual.as_bytes())[..16]
+            ),
+            &project_key,
+            "continual-harness",
+            crate::agent::backplane::KnowledgeAuthority::ReviewedProject,
+            continual,
         ));
     }
     if let Some(lens) = registry.atlas().build_lens(
@@ -1469,10 +1526,7 @@ fn knowledge_broker_route_budget(history: &[ChatMsg], budget: usize, tools: &[To
         .iter()
         .filter(|message| {
             !crate::agent::backplane::is_broker_message(&message.content)
-                && !message
-                    .content
-                    .trim_start()
-                    .starts_with(crate::agent::compaction::COMPACTION_NOTE_HEADER)
+                && !crate::agent::compaction::is_compaction_note_text(&message.content)
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -1525,9 +1579,7 @@ pub(crate) fn bounded_auto_recall_note(
         // Reserve an explicit marker. If it displaces a final note, recompute
         // its count rather than silently exceeding the promise made above.
         loop {
-            let marker = format!(
-                "…[{omitted} additional recalled note(s) omitted to fit context; use recall for detail]"
-            );
+            let marker = recalled_notes_mark(omitted);
             let separator = 2;
             if used.saturating_add(separator).saturating_add(marker.len()) <= max_bytes {
                 break;
@@ -1544,11 +1596,18 @@ pub(crate) fn bounded_auto_recall_note(
     note.push_str(AUTO_RECALL_HEADER);
     note.push_str(&kept.join("\n\n"));
     if omitted > 0 {
-        note.push_str(&format!(
-            "\n\n…[{omitted} additional recalled note(s) omitted to fit context; use recall for detail]"
-        ));
+        note.push_str("\n\n");
+        note.push_str(&recalled_notes_mark(omitted));
     }
     Some((note, kept.len(), omitted))
+}
+
+/// `…[⡨⠃⠙ omitted=N]`: recalled notes past the budget, the count as data.
+fn recalled_notes_mark(omitted: usize) -> String {
+    format!(
+        "…[{} omitted={omitted}]",
+        book::d467_receipts::RECALLED_NOTES.cells()
+    )
 }
 
 pub(crate) fn remove_auto_recall_notes(history: &mut Vec<ChatMsg>) {
@@ -1560,8 +1619,8 @@ pub(crate) fn remove_auto_recall_notes(history: &mut Vec<ChatMsg>) {
 
 const TASK_ANCHOR_MAX_TOKENS: usize = 8_000;
 const TASK_ANCHOR_MAX_MESSAGES: usize = 16;
-const TASK_ANCHOR_OMISSION: &str =
-    "\n…[middle of active user task omitted by bounded compaction anchor]…\n";
+/// `⡨⠃⠑`: the middle of a long operator task was omitted by the anchor.
+pub(crate) const TASK_ANCHOR_OMISSION: &str = "\n…[⡨⠃⠑]…\n";
 
 /// Preserve operator-authored contracts without elevating them into a summary.
 /// Explicit directives/constraint blocks are exact protected evidence. Other
@@ -1737,8 +1796,10 @@ pub(crate) fn compaction_summary_window(window: &[ChatMsg]) -> Vec<ChatMsg> {
         .iter()
         .map(|message| {
             if message.role == ChatRole::User {
+                // `⡨⠉⠁` inside its bracket, the digest beside it.
                 ChatMsg::harness(format!(
-                    "[Operator task retained separately; sha256:{}]",
+                    "[{} sha256={}]",
+                    super::book::d467_receipts::TASK_RETAINED.cells(),
                     crate::knowledge::cut::sha256_hex(message.content.as_bytes())
                 ))
             } else {
@@ -1807,7 +1868,8 @@ pub(crate) fn constraint_retention_note(
             records.push(serde_json::json!({"sha256": digest, "constraints_retained": status}));
         }
     }
-    note.push_str("\n\n## Constraints\nProtected operator task and explicit constraints/answer contract follow in User-role anchors. Constraint classes: named identifiers, forbidden paths, numeric limits, required tests, answer format. Exact anchors govern; excerpts and drops are recorded below.");
+    note.push_str("\n\n## Constraints\n");
+    note.push_str(&book::z_brevity::CONSTRAINTS.cells());
     note.push_str(&excerpts);
     note.push_str("\n[constraints-ledger/v1] ");
     note.push_str(&serde_json::json!({
@@ -1994,9 +2056,10 @@ pub(crate) fn maybe_compact(
 }
 
 /// Hard-latency compaction used on the live turn boundary. The richer LLM
-/// compactor remains available behind `ANGEL_COMPACT_SYNC_LLM=1`, and the early
-/// background pass still gets first chance to land its model summary. By
-/// default, overflow can never make the operator wait on an inference endpoint.
+/// compactor remains available behind `ANGEL_COMPACT_SYNC_LLM=1`, with a local
+/// fallback when it produces no replacement and context remains over budget.
+/// The early background pass still gets first chance to land its model summary.
+/// By default, overflow never waits on an inference endpoint.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn maybe_compact_for_turn(
     club: &dyn Club,
@@ -2035,8 +2098,9 @@ fn maybe_compact_for_turn_measured(
     events: &mpsc::Sender<TurnEvent>,
 ) -> bool {
     speak_cache_budget_lift(events);
-    if crate::agent::compaction::sync_compaction_uses_model() {
-        return maybe_compact(
+    let model_requested = crate::agent::compaction::sync_compaction_uses_model();
+    if model_requested
+        && maybe_compact(
             club,
             history,
             budget,
@@ -2045,7 +2109,9 @@ fn maybe_compact_for_turn_measured(
             tools,
             registry,
             events,
-        );
+        )
+    {
+        return true;
     }
     if budget == 0 || estimate_tokens(history) + estimate_tool_tokens(tools) <= budget {
         return false;
@@ -2069,7 +2135,12 @@ fn maybe_compact_for_turn_measured(
     }
     let started = Instant::now();
     let _ = events.send(TurnEvent::Notice(
-        "compacting context locally (model-free latency guard)…".to_string(),
+        if model_requested {
+            "model compaction left context over budget; compacting locally (model-free fallback)…"
+        } else {
+            "compacting context locally (model-free latency guard)…"
+        }
+        .to_string(),
     ));
     let task_anchors = compaction_task_anchors(history, sys_end, window_end, budget);
     let turn_context_anchor = compaction_turn_context_anchor(history, sys_end, window_end);
@@ -2576,17 +2647,10 @@ fn msg_eq(a: &ChatMsg, b: &ChatMsg) -> bool {
 // Orchestrator layer — git-worktree delegation + serialized integration.
 // ---------------------------------------------------------------------------
 
-/// Role blurb for a club label, used in the orchestrator system prompt. Keyed by
-/// the host-based club labels (see `Bag::standard`).
-pub(crate) fn club_role(label: &str) -> &'static str {
-    match label {
-        "turbo" => "deep reasoning and analysis",
-        "spark" => "coding and orchestration",
-        "spark-r1" => "mathematics",
-        "spark-v4" => "deep reasoning and coding",
-        "atlas" => "general work and long context",
-        _ => "general work",
-    }
+/// Role blurb for a delegate route, recorded as the `⠕⠃` ledger evidence.
+/// Routes carry no per-machine specialty.
+pub(crate) fn club_role(_label: &str) -> &'static str {
+    "general work"
 }
 
 #[cfg(test)]

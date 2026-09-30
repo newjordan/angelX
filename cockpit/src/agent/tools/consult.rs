@@ -33,7 +33,7 @@ pub(crate) fn find_in_roster(roster: &[Arc<dyn Club>], wanted: &str) -> Option<A
         .map(Arc::clone)
 }
 
-/// Local fleet seats (turbo, spark, atlas, gemma, …) are optional. A turn must
+/// Local seats (the `local` box's modes) are optional. A turn must
 /// not depend on any of them being up; only use one while `Club::is_available`.
 pub(crate) fn is_optional_local_label(label: &str) -> bool {
     let label = label.trim();
@@ -59,8 +59,8 @@ pub(crate) fn skip_down_local_message(tool: &str, wanted: &str, live: &[String])
         live.join(", ")
     };
     format!(
-        "[{tool} skipped] {wanted} is not reachable right now. Live local seats: {live}. \
-         Do the work yourself; do not retry {wanted}."
+        "[{tool} skipped] {wanted} is not reachable right now. Live local seats: {live}.\n{}",
+        crate::agent::harness::book::o_orchestration::SEAT_SKIPPED.cells()
     )
 }
 
@@ -213,13 +213,11 @@ impl Tool for ConsultModelTool {
             name: "consult_model".to_string(),
             description: format!(
                 "Optional second opinion from another club mid-turn. {policy} \
-                 Default is self/auto (your own seat). Local fleet seats \
-                 (turbo/spark/atlas/…) are optional — only used while reachable; \
+                 Default is self/auto (your own seat). Local seats \
+                 are optional — only used while reachable; \
                  a down local is skipped or rerouted, never a failed turn. \
-                 method=deli optionally runs fresh-context Deli deliberation and returns its \
-                 findings to this turn; choose rounds when useful, then continue ordinary work. \
-                 Deli reasons over the supplied material; use normal tools or RL campaigns \
-                 to measure its proposals. Available: self, auto, {}.",
+                 method=deli optionally runs fresh-context Deli deliberation and returns its findings to this turn. \
+                 Deli reasons over the supplied material. Available: self, auto, {}. ⠹⠉",
                 labels.join(", ")
             ),
             params: serde_json::json!({
@@ -227,23 +225,23 @@ impl Tool for ConsultModelTool {
                 "properties": {
                     "club": {
                         "type": "string",
-                        "description": "club or model name (default auto=self). Prefer local fleet; paid SOTA needs operator allow."
+                        "description": "⠹⠉⠙⠹⠉⠉"
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "the task, code snippet, or question to consult on"
+                        "description": "⠹⠉⠑"
                     },
                     "system": {
                         "type": "string",
-                        "description": "optional role instructions for the consulted model"
+                        "description": "⠹⠉⠋"
                     },
                     "method": {
                         "type": "string", "enum": ["direct", "deli"],
-                        "description": "direct (default): one consultation; deli: iterative deliberation, then return to this task"
+                        "description": "⠹⠉⠛"
                     },
                     "rounds": {
                         "type": "integer", "minimum": 1,
-                        "description": "Deli rounds for this call; defaults to the operator's ANGEL_DELI_ROUNDS (6)"
+                        "description": "⠹⠉⠓"
                     }
                 },
                 "required": ["prompt"],
@@ -341,7 +339,8 @@ impl Tool for ConsultModelTool {
             None => format!("[consult_model club={label}]"),
         };
         if method == "deli" {
-            header.push_str(" [method=deli; proposals require actual checks]");
+            header.push_str(" [method=deli]\n");
+            header.push_str(&crate::agent::harness::book::o_orchestration::DELI_CONSULT.cells());
         }
         if let Some(receipt) = maybe_offload_root_body(
             &text,
@@ -395,7 +394,8 @@ impl CodeReviewTool {
             }
         }
         Err(format!(
-            "code_review: unknown club '{target_name}'. Use self or a listed local club."
+            "code_review: unknown club '{target_name}'.\n{}",
+            crate::agent::harness::book::d56_replies::LISTED_CLUB.cells()
         ))
     }
 }
@@ -417,24 +417,24 @@ impl Tool for CodeReviewTool {
             name: "code_review".to_string(),
             description: format!(
                 "Adversarial review of code/diffs/files (correctness, safety, performance). {policy} \
-                 Local fleet seats are optional and only used while reachable."
+                 Local seats are optional and only used while reachable. ⠯⠙"
             ),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "target": {
                         "type": "string",
-                        "description": "file path, git diff, or raw code snippet to review"
+                        "description": "⠯⠙⠁"
                     },
                     "focus": {
                         "type": "string",
                         "enum": ["correctness", "security", "performance", "logic", "general"],
                         "default": "general",
-                        "description": "review focus area"
+                        "description": "⠯⠙⠃"
                     },
                     "club": {
                         "type": "string",
-                        "description": "optional club (default: self / in-hand)"
+                        "description": "⠯⠙⠉"
                     }
                 },
                 "required": ["target"],
@@ -474,26 +474,25 @@ impl Tool for CodeReviewTool {
             target.to_string()
         };
 
-        let system_prompt = format!(
-            "You are an expert adversarial code reviewer focusing on {focus}.\n\
-             Review the provided code carefully and structure your response with:\n\
-             1. **Summary & Verdict**: Clean / Issues Found / Critical Bugs\n\
-             2. **Key Findings**: Specific lines, invariant breaks, logic bugs, or security flaws\n\
-             3. **Actionable Fixes**: Precise replacement snippets or refactor advice."
-        );
-
+        // `⠌⠙`: the reviewer's brief is the ledger pages; the focus and the
+        // code are the data. The reviewer is connected (the ledger reader only).
         let messages = vec![
-            ChatMsg::system(system_prompt),
-            ChatMsg::user(format!(
-                "Please review the following code ({focus} focus):\n\n{code_body}"
+            ChatMsg::system(format!(
+                "{} focus={focus}",
+                crate::agent::harness::book::st_connected::CODE_REVIEW.cells()
             )),
+            ChatMsg::user(code_body),
         ];
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let review = club
-            .chat_streaming(&messages, &[], &cancel, &mut |_| {})
-            .map_err(|e| format!("code_review: {e}"))?;
-        let text = reply_text(review);
+        let text = crate::agent::harness::book::connect::chat(
+            &*club,
+            std::path::Path::new("."),
+            &messages,
+            None,
+            &cancel,
+        )
+        .map_err(|e| format!("code_review: {e}"))?;
 
         let label = club.label();
         let header = match reroute {
@@ -512,104 +511,6 @@ impl Tool for CodeReviewTool {
             Ok(format!("{header}\n{text}"))
         }
     }
-}
-
-/// Leanstral is a send-to specialist, not a conversation seat: GLM/Sol/Grok
-/// (or any in-hand driver) ship a lemma, formula, or kernel-check snippet here
-/// instead of putting Leanstral on the MoA roster.
-pub(crate) struct LeanstralTool {
-    roster: Vec<Arc<dyn Club>>,
-}
-
-const LEANSTRAL_SYSTEM: &str = "You are Leanstral, a Lean/math specialist. \
-The caller is sending a snippet or a precise ask — not the conversation. \
-Check, complete, or kernel-style-reason about only what they sent. Be terse. \
-Do not try to reconstruct the broader task.";
-
-impl LeanstralTool {
-    pub(crate) fn new(roster: Vec<Arc<dyn Club>>) -> Self {
-        Self { roster }
-    }
-}
-
-impl Tool for LeanstralTool {
-    fn name(&self) -> &str {
-        "leanstral"
-    }
-
-    fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "leanstral".to_string(),
-            description: "Lean/math specialist on Spark. Send a lemma, tactic, formula, or \
-                          kernel-check question. Keep the payload small — a snippet or a precise \
-                          ask, not the full conversation. This is a tool, not a reader of the \
-                          thread. Skip it if you can do the work yourself; use it when you need \
-                          a Leanstral pass on concrete math/Lean."
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "prompt": {
-                        "type": "string",
-                        "description": "the lemma, formula, tactic, or precise math/Lean ask"
-                    }
-                },
-                "required": ["prompt"],
-            }),
-        }
-    }
-
-    fn call(&self, args: &Value) -> Result<String, String> {
-        let prompt = args["prompt"].as_str().ok_or("missing 'prompt'")?.trim();
-        if prompt.is_empty() {
-            return Err("'prompt' cannot be empty".to_string());
-        }
-        let Some(club) = find_in_roster(&self.roster, "leanstral") else {
-            return Ok(skip_down_local_message(
-                "leanstral",
-                "leanstral",
-                &live_optional_local_labels(&self.roster),
-            ));
-        };
-        // Do not substitute turbo/self when Leanstral is down — this is a
-        // specialist send-to, not a generic consult.
-        if !club.is_available() {
-            return Ok(skip_down_local_message(
-                "leanstral",
-                club.label(),
-                &live_optional_local_labels(&self.roster),
-            ));
-        }
-        let messages = vec![ChatMsg::system(LEANSTRAL_SYSTEM), ChatMsg::user(prompt)];
-        let cancel = std::sync::atomic::AtomicBool::new(false);
-        let reply = club
-            .chat_streaming(&messages, &[], &cancel, &mut |_| {})
-            .map_err(|e| format!("leanstral: {e}"))?;
-        let text = reply_text(reply);
-        let label = club.label();
-        let header = format!("[leanstral club={label}]");
-        if let Some(receipt) = maybe_offload_root_body(
-            &text,
-            HandleKind::Subcall,
-            "leanstral",
-            &format!("leanstral|{label}"),
-            4096,
-        ) {
-            Ok(format!("{header}\n{receipt}"))
-        } else {
-            Ok(format!("{header}\n{text}"))
-        }
-    }
-}
-
-pub(crate) fn maybe_register_leanstral(
-    r: &mut crate::agent::harness::ToolRegistry,
-    roster: &[Arc<dyn Club>],
-) {
-    if find_in_roster(roster, "leanstral").is_none() {
-        return;
-    }
-    r.register(Box::new(LeanstralTool::new(roster.to_vec())));
 }
 
 #[cfg(test)]

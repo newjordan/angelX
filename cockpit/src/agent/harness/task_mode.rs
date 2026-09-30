@@ -414,6 +414,34 @@ pub(crate) struct TaskPaceResolution {
     pub(crate) source: String,
 }
 
+/// The headless task's system prompt: its personality type (the full Driver,
+/// or the compact core with `ANGEL_TASK_COMPACT_PROMPT`), the resolved pace
+/// (`⠍⠁` / `⠍⠃`) and, with `ANGEL_TASK_CODING_DISCIPLINE`, the repair
+/// discipline (`⠽⠑`); then the workspace map as data.
+pub(crate) fn task_system_prompt(workspace: &Path, specialists: &[String]) -> String {
+    let pace = resolved_task_pace().map(|pace| match pace {
+        TaskPace::Rapid => super::book::m_method::RAPID,
+        TaskPace::Deep => super::book::m_method::DEEP,
+    });
+    let mut system = super::book::y_types::entry(
+        workspace,
+        &super::delegate_roles(specialists),
+        task_compact_prompt_enabled(),
+        pace,
+        super::env_flag("ANGEL_TASK_CODING_DISCIPLINE", false),
+    );
+    system.push_str(&task_system_contract(workspace));
+    system
+}
+
+/// The pace headless startup resolved, if this process is a task.
+pub(crate) fn resolved_task_pace() -> Option<TaskPace> {
+    std::env::var("ANGEL_TASK_PACE_RESOLVED")
+        .ok()
+        .as_deref()
+        .and_then(parse_task_pace)
+}
+
 fn parse_task_pace(value: &str) -> Option<TaskPace> {
     match value.trim().to_ascii_lowercase().as_str() {
         "rapid" => Some(TaskPace::Rapid),
@@ -565,18 +593,10 @@ pub(crate) fn apply_task_runtime_defaults(prompt: &str) -> TaskPaceResolution {
         // Run limits are off unless the operator supplies a positive override.
         ("ANGEL_MAX_HOPS", "0"),
         ("ANGEL_TURN_DEADLINE_SECS", "0"),
-        // Keep advisory settings; legacy stop knobs remain off.
-        ("ANGEL_MUTATION_THRASH_NUDGE", "3"),
-        ("ANGEL_MUTATION_THRASH_STOP", "0"),
-        // Four peripheral-only mutations without a core hit → layer nudge.
-        ("ANGEL_PERIPHERAL_MUTATION_NUDGE", "4"),
-        // Green verification does not truncate remaining requested work.
-        ("ANGEL_POST_GREEN_TOOL_BATCHES", "0"),
-        ("ANGEL_NO_EDIT_ANSWER_GUARD", "0"),
         // Free preturn map (repo_recon + symbol/lockfile packet) so paid hops
         // are not spent on first-pass reading (expensive reading fix).
         ("ANGEL_TASK_RECON", "repo"),
-        // Compact repair discipline block in the headless system prompt.
+        // The coding repair discipline (`⠽⠑`) on the headless entry warpath.
         ("ANGEL_TASK_CODING_DISCIPLINE", "1"),
         // Always inject workspace root + shallow file inventory so paid hops
         // are not spent on `find /` / `$HOME` thrash under YOLO.
@@ -620,24 +640,6 @@ pub(crate) fn apply_task_runtime_defaults(prompt: &str) -> TaskPaceResolution {
     unsafe { std::env::set_var("ANGEL_TASK_PACE_RESOLVED", pace.pace.as_str()) };
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_PACE_SOURCE", &pace.source) };
-    // Final-mile hints remain bounded-run defaults. First-write pressure is
-    // deliberately not inferred: live Yukon evidence audits legitimately need
-    // long read-only stretches, so only an explicit ANGEL_FIRST_WRITE_CALLS
-    // operator setting may arm that policy.
-    let unbounded = configured_max_hops().is_none();
-    let (final_mile, answer_window) = match pace.pace {
-        TaskPace::Rapid if !unbounded => ("6", "2"),
-        _ => ("4", "1"),
-    };
-    for (key, value) in [
-        ("ANGEL_FINAL_MILE_HOPS", final_mile),
-        ("ANGEL_FINAL_MILE_ANSWER_HOPS", answer_window),
-    ] {
-        if std::env::var_os(key).is_none() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var(key, value) };
-        }
-    }
     maybe_apply_task_treebeard_lane();
     pace
 }
@@ -749,8 +751,7 @@ fn parse_task_strict_exit(raw: Option<&str>) -> bool {
 /// Both halves render to an empty string when there is nothing confident to say,
 /// so a workspace angel has never seen pays exactly zero tokens.
 pub(crate) fn task_system_contract(workspace: &Path) -> String {
-    let mut block = task_pace_contract_block();
-    block.push_str(&task_coding_discipline_block());
+    let mut block = String::new();
     // The workspace map is harness-derived (an absolute root and file names,
     // no repository text), so it stays in the System contract: inside the
     // JSON workspace-context carrier Flash read the escaped map next to the
@@ -759,6 +760,13 @@ pub(crate) fn task_system_contract(workspace: &Path) -> String {
     // in the System prompt it navigated cleanly (arena r4, 2026-08-10 note).
     block.push_str(&task_workspace_map_block(workspace));
     block
+}
+
+/// Headless tasks use the compact core (`⠽⠉` / `⠽⠙`) and the skill referral
+/// unless explicitly disabled. Keep the bootstrap and standalone execution
+/// prepend on the same flag parser.
+pub(crate) fn task_compact_prompt_enabled() -> bool {
+    super::env_flag("ANGEL_TASK_COMPACT_PROMPT", true)
 }
 
 /// Repository-derived context is data; callers must use a non-System carrier.
@@ -796,34 +804,6 @@ pub(crate) fn task_warm_start(workspace: &Path) -> String {
     block
 }
 
-fn task_pace_contract_block() -> String {
-    match std::env::var("ANGEL_TASK_PACE_RESOLVED")
-        .ok()
-        .as_deref()
-        .and_then(parse_task_pace)
-    {
-        Some(TaskPace::Deep) => "\n## Task pace: deep\n\
-This is a slow-burn solve. Build and test an evidence chain before converging. Hop count alone is \
-never an instruction to submit — but a candidate that passes the local gate is submitted (receipt/ID) \
-and then improved. Submit immediately after the required protected gates pass, record the platform ID, \
-and follow official acceptance and promotion while deeper experiments continue independently. \
-A speculative larger gain never delays a validated win; only an already validated larger candidate \
-ready for the same immediate upload replaces it. Prepare attribution and submission notes during validation. \
-Continue through implementation and verification, but do not trade away necessary reasoning for artificial cadence.\n"
-            .to_string(),
-        Some(TaskPace::Rapid) => "\n## Task pace: rapid\n\
-This is a rapid-fire solve. Map the smallest relevant surface, make an evidence-backed change, \
-run the narrow verifier, and finish without broad reconnaissance. In a competition loop the loop \
-itself is the submission contract: after the required protected gates pass, immediately submit the current \
-best, record the platform ID, and follow official acceptance and promotion while improving the next. \
-Prepare attribution and notes during validation. Never delay a validated win for a speculative larger gain; \
-only an already validated larger candidate ready for the same immediate upload replaces it. \
-Never wait for a further go-ahead within the authorized submission scope.\n"
-            .to_string(),
-        None => String::new(),
-    }
-}
-
 /// Free preturn workspace orientation: absolute root + shallow file inventory.
 /// Measured 2026-08-10: without this, Flash under YOLO spent 14/16 hops on
 /// `find /` and `$HOME` scans before touching the fixture (js-duration-parser /
@@ -839,26 +819,20 @@ fn task_workspace_map_block(workspace: &Path) -> String {
     let max_bytes =
         super::env_usize("ANGEL_TASK_WORKSPACE_MAP_BYTES", 6 * 1024).clamp(512, 32 * 1024);
     let entries = collect_workspace_rel_paths(&root, max_entries);
-    let mut body = String::from("\n## Task workspace map\n");
-    body.push_str(&format!(
-        "Coding root (absolute): `{}`\n\
-         Stay inside this directory for reads, edits, and tests unless the task \
-         explicitly needs an external resource. Prefer `read_file`/`grep`/`ls` here \
-         over `find /` or scans of `$HOME`.\n",
+    // `⠍⠓` frames the map: its labels and its note (stay inside the root) are
+    // the ledger pages; the root and the inventory are the data.
+    let mut body = format!(
+        "\n{}\n`{}`\n",
+        super::book::m_method::MAP_NOTE.cells(),
         root.display()
-    ));
-    if entries.is_empty() {
-        body.push_str("Inventory: (empty workspace)\n");
-    } else {
-        body.push_str("Inventory (relative paths):\n");
-        for path in &entries {
-            body.push_str("- `");
-            body.push_str(path);
-            body.push_str("`\n");
-        }
-        if entries.len() >= max_entries {
-            body.push_str("… inventory truncated; use tools for the rest.\n");
-        }
+    );
+    for path in &entries {
+        body.push_str("- `");
+        body.push_str(path);
+        body.push_str("`\n");
+    }
+    if entries.len() >= max_entries {
+        body.push_str("…\n");
     }
     if body.len() > max_bytes {
         // Keep the header + root line even if the list is long.
@@ -867,7 +841,7 @@ fn task_workspace_map_block(workspace: &Path) -> String {
             end -= 1;
         }
         body.truncate(end);
-        body.push_str("\n… truncated.\n");
+        body.push_str("\n…\n");
     }
     body
 }
@@ -925,55 +899,6 @@ fn task_continual_harness_block(workspace: &Path) -> String {
         return String::new();
     }
     crate::drive::continual_harness::context_block(workspace)
-}
-
-/// Compact repository-repair discipline for headless coding. Kept short; the
-/// harness also enforces thrash/self-authored-test/peripheral-fanout guards.
-/// Off by default so interactive/hermetic warm-start tests stay empty; headless
-/// task mode turns it on via [`apply_task_runtime_defaults`].
-fn task_coding_discipline_block() -> String {
-    if !super::env_flag("ANGEL_TASK_CODING_DISCIPLINE", false) {
-        return String::new();
-    }
-    "\n## Coding repair discipline\n\
-     Action ladder (stay on it):\n\
-     1. **Map** — use the workspace map + preturn recon; open implementing files with \
-`read_file`/`grep` *inside the coding root*. Do not `find /`, `find $HOME`, or inventory unrelated repos.\n\
-     2. **Edit** — focused source change in implementing files. For new solutions, state machines, or multi-error type repairs, prefer `write_file` to rewrite the module cleanly rather than brittle line-by-line patching. Use `str_replace` for small, localized fixes.\n\
-     3. **Verify** — run a *pre-existing* project test/check that matches the bug; read its diagnostics.\n\
-     4. **Finish** — after green, complete any remaining requested work; after red, fix from diagnostics.\n\
-     Speed:\n\
-     - Batch independent reads/searches in parallel in a single tool hop (do not serialize one file at a time).\n\
-     - Prefer `code_mode` for multi-step local inspect/transform when it saves hops.\n\
-     - Skip re-reading files you just opened; act or name the blocker.\n\
-     Rules:\n\
-     - Prefer the implementing library over hand-editing every docs/testdata/example copy.\n\
-     - Unique `old` context: when a short snippet appears twice, include the enclosing function/block.\n\
-     - Do not invent new tests as completion proof; use existing suite entry points.\n\
-     - Multi-surface bugs (code + config/markdown/model): update every surface the behavior needs.\n\
-     - Dependency bugs: bump go.mod/package.json/Cargo.toml instead of vendoring a fork.\n\
-     - After a green project verifier, continue until every requested deliverable is complete.\n\
-     - Headless task exit stops remaining `proc_run` jobs, even after a successful answer. \
-Finish required builds/checks before answering; starting a background job is not verification. \
-Save a checkpoint before ending the task.\n\
-     - Read captured background output through `proc_status`; its retained host log may be \
-outside the workspace and unavailable to `read_file`.\n\
-     - If all remaining work depends on a running job, use `proc_wait` for a cancellable \
-wait of at most 30 seconds that returns early on exit; avoid shell sleep loops.\n\
-     - Never claim fixed without a workspace mutation (or a concrete blocker with residual risk).\n\
-     - Keep root strategy short; park bulk under handles/`code_mode` when the lane is Treebeard.\n\
-     - One failed identical patch → change approach (more context, different path, or measure first).\n\
-     - Working thought before every action: before invoking ANY tool (including `shell`, `read_file`, `write_file`, or `str_replace`), you MUST emit 1-2 concise sentences explaining your hypothesis, what you are checking or fixing, and what you expect the result to show. Interpret tool outputs and diagnostics in your next thought before acting.\n\
-     - Clean rewrite on compile cascades: if consecutive compiler errors occur, step back and replace the module cleanly with `write_file` instead of accumulating micro-patches.\n\
-     - No redundant verifiers: never re-run tests or build commands unless the workspace code has changed, \
-or the code depends on randomness, time or threads (then one pass can be luck: run it a few times).\n\
-     - Tests that came with the task are its contract: leave them as they are unless the task asks you to change them.\n\
-     - Treat tool results as evidence: keep the earliest actual prerequisite failure; confirm \
-usable input before dependent measurements; stay inside allowed scratch; discover optional \
-dependencies and authorized reference paths from real tool errors and permissions. Do not score \
-a failed or denied input as zero performance. Explicit read_only/write_paths restrictions stay \
-authoritative — ask for a user-visible scope change if needed, never omit or auto-remove them.\n"
-        .to_string()
 }
 
 /// The dossier warm-start block for headless task mode: the *same* renderer the
@@ -1043,6 +968,7 @@ impl TaskOutputBudget {
                 source: Some(match source {
                     OutputBudgetSource::PerClubEnv => "per-club-env",
                     OutputBudgetSource::GlobalEnv => "global-env",
+                    OutputBudgetSource::ModelCard => "model-card",
                 }),
                 provenance: metadata.output_budget_provenance.clone(),
             },

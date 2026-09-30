@@ -152,10 +152,8 @@ fn duration_probe_hung_tree_is_bounded_even_under_yolo() {
 #[test]
 fn text_only_heuristic_covers_the_local_v4_serve_and_pro() {
     for label in [
-        "dsflash",
         "deepseek-v4-flash-dspark",
         "deepseek-v4-flash",
-        "deepseek-flash-local",
         "deepseek-v4-pro",
         "deepseek-chat",
     ] {
@@ -375,23 +373,26 @@ fn should_not_apply_without_images() {
 
 #[test]
 fn rewrite_body_keeps_operator_question() {
-    // Pure composition check without network: build the same body shape.
-    let description = "A red button labeled Submit.";
-    let original = "what does the button say?";
-    let n = 1usize;
-    let backend = "vision";
-    let mut body = String::new();
-    body.push_str("[vision sidecar · ");
-    body.push_str(backend);
-    body.push_str(" · ");
-    body.push_str(&n.to_string());
-    body.push_str(" image(s)]\n");
-    body.push_str(description);
-    body.push_str("\n\nOperator question: ");
-    body.push_str(original);
+    // Pure composition check without network: the frame is `⠸⠙⠑`, the
+    // backend and the image count beside it.
+    use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::VISION};
+    let body = sidecar_body(
+        "vision",
+        1,
+        "A red button labeled Submit.",
+        "what does the button say?",
+    );
     assert!(body.contains("Submit"));
-    assert!(body.contains("what does the button say?"));
-    assert!(body.starts_with("[vision sidecar · vision · 1 image(s)]"));
+    // The operator's question is `⠸⠙⠛`, the question beside it.
+    assert!(body.contains("\n\n⠸⠙⠛ what does the button say?"), "{body}");
+    assert!(!body.contains("Operator question"), "{body}");
+    assert!(body.starts_with(&format!("{} vision · 1\n", pages(VISION, [5]))));
+    assert!(!body.contains("[vision sidecar"));
+    // The describe question is routes, the operator's question the data.
+    assert_eq!(sidecar_question(""), pages(VISION, [1, 2]));
+    let asked = sidecar_question("what is this");
+    assert!(asked.contains("\nwhat is this\n"), "{asked}");
+    assert!(!asked.contains("Describe"), "{asked}");
 }
 
 #[test]
@@ -654,7 +655,7 @@ fn launch_pending_turn_rewrites_images_on_agent_turn_before_hop_1() {
         .cloned()
         .unwrap_or_default();
     assert!(hop.contains("a red square"), "{hop}");
-    assert!(hop.contains("Operator question: what is this"), "{hop}");
+    assert!(hop.contains("⠸⠙⠛ what is this"), "{hop}");
 }
 
 #[test]
@@ -696,7 +697,10 @@ fn sidecar_failure_drops_images_for_text_only_clubs() {
     assert!(
         last_user
             .content
-            .contains("vision sidecar unavailable — image attachments dropped"),
+            .contains(&crate::agent::harness::book::d3_roles::pages(
+                crate::agent::harness::book::d456_knowledge::VISION,
+                [6]
+            )),
         "{}",
         last_user.content
     );

@@ -231,7 +231,6 @@ impl AuxiliaryTracker {
                 | "swarm_compile"
                 | "consult_model"
                 | "code_review"
-                | "leanstral"
                 | "llm_probe"
                 | "llm_bench"
                 | "vision_look"

@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::agent::club::{CacheUsage, EffortGateUsage, TruncationUsage};
+use crate::agent::harness::book::{d3_roles, d5_frames, st_connected};
 use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, atomic::AtomicUsize};
 
@@ -239,7 +240,7 @@ impl SwarmClub {
     /// `ANGEL_SWARM_MAX` turns the whole stack on;
     /// individual vars still override it (e.g. `ANGEL_SWARM_VERIFY=0` under MAX).
     ///
-    /// `resolve` maps a fleet label (e.g. "gemma","turbo","atlas") to a club so the
+    /// `resolve` maps a club label to a club so the
     /// `ANGEL_SWARM_{PROPOSE,JUDGE,VERIFY,AGG}_CLUB` env vars can route each role to
     /// a different model — a cross-model (symbiotic) mixture. Any role whose env var
     /// is unset or unresolvable falls back to `inner`, so the default is the old
@@ -361,62 +362,6 @@ impl SwarmClub {
                 self.name, labels[0], labels[1], labels[2], labels[3]
             );
         }
-    }
-
-    /// Dedicated Math God club: one Sol@ultra head proposes and synthesizes,
-    /// GLM-5.3 and DeepSeek v4 Pro are extra proposers, Grok weighs in at xhigh.
-    /// Leanstral is a tool, not a seat. The bag copy is **manual** so Tab/loop
-    /// cannot silently fan it out; `/moa math` engagement still amplifies
-    /// deliberate answers via [`Self::with_engaged_formation`] (short answers
-    /// stay coordinator-only). An explicit `ANGEL_DRIVER=mathgod` pin
-    /// is the other Always path.
-    pub fn mathgod(
-        head: Arc<dyn Club>,
-        judge: Arc<dyn Club>,
-        extra_proposers: Vec<SeatExtra>,
-    ) -> Self {
-        let aggregate = Arc::clone(&head);
-        let verify = Arc::clone(&head);
-        let mut club = Self::from_env_roles("mathgod", head, judge, verify, aggregate);
-        club.k = Self::mathgod_knobs();
-        club.clubs.propose_extra = extra_proposers;
-        club
-    }
-
-    fn mathgod_driver_pinned() -> bool {
-        std::env::var("ANGEL_DRIVER")
-            .ok()
-            .map(|s| s.trim().to_ascii_lowercase().replace(['_', ' '], "-"))
-            .is_some_and(|s| matches!(s.as_str(), "math" | "math-god" | "mathgod"))
-    }
-
-    fn mathgod_knobs() -> Knobs {
-        let mut k = Self::sota_knobs_from_env();
-        k.width = 3;
-        k.max_width = 3;
-        k.layers = 1;
-        k.samples = 1;
-        k.max_waves = 1;
-        let pinned = Self::mathgod_driver_pinned();
-        k.always = pinned;
-        k.mode = if pinned {
-            MoaMode::Always
-        } else {
-            MoaMode::Manual
-        };
-        k.judge = true;
-        k.judge_panel = 1;
-        k.verify = 0;
-        k.verify_guard = false;
-        k.reflect = false;
-        k.research = pinned;
-        k.seat_efforts = SeatEfforts {
-            propose: Some("ultra".into()),
-            judge: Some("xhigh".into()),
-            verify: None,
-            aggregate: Some("ultra".into()),
-        };
-        k
     }
 
     pub fn from_sota_env_roles(
@@ -633,6 +578,7 @@ impl SwarmClub {
         allow_buffered_raw_markup_retry: bool,
     ) -> Result<ClubReply, String> {
         let full = text_only_history(full);
+        let workspace = crate::agent::harness::book::connect::workspace();
         let emitted = std::cell::Cell::new(false);
         let mut attempt = |c: &dyn Club| {
             let mut tap = |d: StreamDelta<'_>| {
@@ -641,7 +587,13 @@ impl SwarmClub {
                 }
                 on_delta(d);
             };
-            guard_text_stage_reply(c.chat_streaming(&full, &[], cancel, &mut tap), c.label())
+            // Connected: the stage is offered the ledger reader alone.
+            let reply = crate::agent::harness::book::connect::converse(
+                &workspace,
+                &full,
+                |history, tools| c.chat_streaming(history, tools, cancel, &mut tap),
+            );
+            guard_text_stage_reply(reply, c.label())
         };
         let mut result = attempt(club);
         let mut tried = vec![club.label().to_string()];
@@ -796,9 +748,12 @@ impl SwarmClub {
                 let tx = tx.clone();
                 let budget = crate::agent::harness::formation_budget::current();
                 let role = crate::agent::harness::formation_budget::role();
+                // The seat reads its caller's ledger (`book::connect`).
+                let ledger = crate::agent::harness::book::connect::workspace();
                 std::thread::spawn(move || {
                     let _budget_scope = crate::agent::harness::formation_budget::enter(budget);
                     let _seat_role = crate::agent::harness::formation_budget::enter_role(&role);
+                    let _ledger = crate::agent::harness::book::connect::enter(&ledger);
                     let out =
                         stage_call_on(&name, &fallbacks, &*club, &system, &msgs, effort.as_deref());
                     // A landed result must imply capacity is already available to
@@ -1043,9 +998,8 @@ impl SwarmClub {
         let advised_messages = preflight_advice.map(|advice| {
             let mut with_advice = messages.to_vec();
             let advisory = ChatMsg::harness(format!(
-                "Formation preflight advisory (planning hypotheses only; no command, edit, \
-                 benchmark, or verification has run yet). Check every claim with tools before \
-                 acting:\n\n{advice}"
+                "{}\n\n{advice}",
+                crate::agent::harness::book::ing_drivers::PREFLIGHT.cells()
             ));
             // Keep the advisory immediately after the user request on every
             // hop. Appending it after a growing tool transcript would preserve
@@ -1500,7 +1454,7 @@ fn cap_tool_preflight_advice(text: &str) -> String {
         .take(TOOL_PREFLIGHT_ADVICE_CHARS)
         .collect::<String>();
     if chars.next().is_some() {
-        format!("{head}\n[formation advisory truncated]")
+        format!("{head}\n{}", d3_roles::pages(d5_frames::PREFLIGHT, [3]))
     } else {
         head
     }
@@ -1550,11 +1504,11 @@ fn tool_preflight_history(messages: &[ChatMsg]) -> Vec<ChatMsg> {
         .rev()
         .find(|message| message.role == ChatRole::User)
     {
+        // `⠐⠓⠁⠐⠓⠃`: the preflight's frame after the request.
         message.content = format!(
-            "{}\n\n[FORMATION PREFLIGHT: Produce an independent, concrete action plan and \
-             risk review for the coordinator. This is planning only: no tool is available, \
-             nothing has executed, and you must not claim edits, tests, or measurements.]",
-            message.content
+            "{}\n\n{}",
+            message.content,
+            d3_roles::pages(d5_frames::PREFLIGHT, [1, 2])
         )
         .into();
     }
@@ -1564,13 +1518,12 @@ fn tool_preflight_history(messages: &[ChatMsg]) -> Vec<ChatMsg> {
 const RAW_TOOL_MARKUP_TEXT_ERR: &str = "printed raw tool markup as text";
 const TOOL_CALL_TEXT_STAGE_ERR: &str = "requested a tool in a text-only stage";
 
-/// Sent back to a seat that answered a text-only stage with a tool call. Names
-/// the exact dialects seen live so the correction is unambiguous to the model
-/// that just used one.
-const TEXT_ONLY_CORRECTION: &str = "Your previous reply was a tool call. No tools are available in \
-this stage and nothing was executed — a tool call here is discarded. Answer now in plain prose, \
-from what you already know: no tool calls and no tool-call markup of any kind (`[TOOL_CALLS]`, \
-`<tool_call>`, `<function=…>`, `<SHELL>{…}`).";
+/// Sent back to a seat that answered a text-only stage with a tool call: the
+/// correction's pages on `⠌⠚`, which name the exact dialects seen live so the
+/// correction is unambiguous to the model that just used one.
+fn text_only_correction() -> String {
+    d3_roles::pages(st_connected::TEXT_ONLY, [4, 5, 6])
+}
 
 /// Remove the driver's tool-protocol instructions from a text-only stage's
 /// system prompt, and say plainly that no tools exist here.
@@ -1579,7 +1532,7 @@ from what you already know: no tool calls and no tool-call markup of any kind (`
 /// `skill(name)` for reusable playbooks" — correct for the driver, actively
 /// harmful for a proposer seat, which has no tools wired and whose reply is
 /// discarded if it emits a call. Seats that follow instructions closely obey the
-/// system prompt over a trailing stage instruction: Leanstral answered every
+/// system prompt over a trailing stage instruction: one seat answered every
 /// turn with `[TOOL_CALLS]skill[ARGS]{"name": "quantize-model"}` rather than
 /// analysis. Only whole paragraphs that are *about* calling tools are dropped;
 /// workspace identity, posture, and repo context all survive.
@@ -1604,11 +1557,8 @@ pub(crate) fn text_only_system(base_sys: &str) -> String {
     if !out.is_empty() {
         out.push_str("\n\n");
     }
-    out.push_str(
-        "This is an analysis-only stage. You have no tools here and no tool call will execute — \
-         a reply containing tool-call markup is discarded unread. Answer in prose from what you \
-         already know.",
-    );
+    // `⠌⠚⠁⠌⠚⠃⠌⠚⠉`: no workspace tools here.
+    out.push_str(&d3_roles::pages(st_connected::TEXT_ONLY, [1, 2, 3]));
     out
 }
 
@@ -1747,8 +1697,17 @@ pub(crate) fn stage_chat_with_failover(
     effort: Option<&str>,
 ) -> Result<ClubReply, String> {
     let full = text_only_history(full);
-    let mut result =
-        guard_text_stage_reply(club.chat_with_effort(&full, &[], effort), club.label());
+    // Connected: every stage is offered the ledger reader alone, so it can read
+    // its routes, and "no tools" still means no workspace access.
+    let workspace = crate::agent::harness::book::connect::workspace();
+    let connected = |club: &dyn Club, full: &[ChatMsg]| {
+        let reply =
+            crate::agent::harness::book::connect::converse(&workspace, full, |history, tools| {
+                club.chat_with_effort(history, tools, effort)
+            });
+        guard_text_stage_reply(reply, club.label())
+    };
+    let mut result = connected(club, &full);
     // A seat that answers a text-only stage with a tool call is usually not
     // incapable — it is imitating the tool protocol the driver's system prompt
     // documents (Mistral-family seats emit `[TOOL_CALLS]` especially readily).
@@ -1770,9 +1729,8 @@ pub(crate) fn stage_chat_with_failover(
         {
             system.content = text_only_system(&system.content).into();
         }
-        corrected.push(ChatMsg::user(TEXT_ONLY_CORRECTION));
-        let retry =
-            guard_text_stage_reply(club.chat_with_effort(&corrected, &[], effort), club.label());
+        corrected.push(ChatMsg::user(text_only_correction()));
+        let retry = connected(club, &corrected);
         if retry.is_ok() {
             eprintln!(
                 "[swarm] {} answered with tool markup in a text-only stage; recovered on correction",
@@ -1800,7 +1758,7 @@ pub(crate) fn stage_chat_with_failover(
             err,
         );
         tried.push(next.label().to_string());
-        result = guard_text_stage_reply(next.chat_with_effort(&full, &[], effort), next.label());
+        result = connected(&*next, &full);
     }
 }
 

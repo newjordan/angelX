@@ -9,6 +9,7 @@ use crate::drive::loop_ctl::{EscalationTier, LoopState, LoopStatus, cycle_elapse
 use dotmax::{
     BrailleGrid, Color as DotColor,
     primitives::{draw_circle_colored, draw_line_colored},
+    progress::{BarContext, ProgressStyle},
 };
 use ratatui::{
     style::{Color as TuiColor, Style},
@@ -202,11 +203,26 @@ pub(crate) fn title(st: &LoopState) -> String {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn render(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
     fleet: &YukonFleetState,
     time: f32,
+    width: u16,
+    height: u16,
+) -> Text<'static> {
+    render_with_flight(st, slot, fleet, time, None, width, height)
+}
+
+/// `render`, plus how long the submission slot has been in flight: an in-flight
+/// slot weaves its constellation bar against that clock.
+pub(crate) fn render_with_flight(
+    st: &LoopState,
+    slot: &SubmissionSlotTelemetry,
+    fleet: &YukonFleetState,
+    time: f32,
+    slot_flight_secs: Option<f32>,
     width: u16,
     height: u16,
 ) -> Text<'static> {
@@ -229,8 +245,15 @@ pub(crate) fn render(
     let dot_h = grid.dot_height();
     draw_trench_run(&mut grid, dot_w, dot_h, time, st.iteration, slot);
     let mut text = grid_to_text(&grid);
-    text.lines
-        .extend(hud_lines(st, slot, fleet, time, w, hud_rows));
+    text.lines.extend(hud_lines(
+        st,
+        slot,
+        slot_flight_secs,
+        fleet,
+        time,
+        w,
+        hud_rows,
+    ));
     text
 }
 
@@ -260,6 +283,7 @@ fn hud_row_count(width: usize, height: usize, competition: bool) -> usize {
 fn hud_lines(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
+    slot_flight_secs: Option<f32>,
     fleet: &YukonFleetState,
     time: f32,
     width: usize,
@@ -271,7 +295,7 @@ fn hud_lines(
     let mut lines = Vec::with_capacity(rows);
     let competition = slot.phase != SubmissionSlotPhase::Dormant;
     if competition {
-        lines.push(submission_slot_line(slot, width));
+        lines.push(slot_line(slot, slot_flight_secs, time, width));
         if rows >= 2 {
             lines.push(yukon_fleet_line(fleet, time, width));
         }
@@ -300,7 +324,7 @@ fn hud_lines(
             }
         }
         if rows >= 3 {
-            lines.push(submission_slot_line(slot, width));
+            lines.push(slot_line(slot, slot_flight_secs, time, width));
         }
     }
     lines
@@ -507,6 +531,100 @@ fn submission_slot_line(slot: &SubmissionSlotTelemetry, width: usize) -> Line<'s
             Style::new().fg(TUI_PHOSPHOR_HOT),
         ),
     ])
+}
+
+/// One Yukon validation, queue included, lands in about this long (pinning runs
+/// ~51 min on the Intel runners, subset ~20 min plus its queue). The
+/// constellation fills against it and holds just short of whole until the
+/// watcher reports a verdict.
+const SLOT_WINDOW_SECS: f32 = 50.0 * 60.0;
+const SLOT_WINDOW_HOLD: f32 = 0.97;
+const CONSTELLATION_MIN_CELLS: usize = 8;
+const CONSTELLATION_MAX_CELLS: usize = 28;
+
+thread_local! {
+    // Stateless catalog object, but the trait is not Send: resolve the one
+    // style once on the drawing thread instead of the whole catalog per frame.
+    static CONSTELLATION: Box<dyn ProgressStyle> = dotmax::progress::styles_for_theme("fable")
+        .into_iter()
+        .find(|style| style.name() == "constellation-weave")
+        .expect("bundled fable constellation-weave style");
+}
+
+/// The slot line: while a submission is in flight and there is room, the
+/// status is followed by a constellation woven star to star as the
+/// validation clock runs.
+fn slot_line(
+    slot: &SubmissionSlotTelemetry,
+    flight_secs: Option<f32>,
+    time: f32,
+    width: usize,
+) -> Line<'static> {
+    let mut line = submission_slot_line(slot, width);
+    let Some(secs) = flight_secs.filter(|_| slot.phase == SubmissionSlotPhase::InFlight) else {
+        return line;
+    };
+    let prefix_len = line.spans[0].content.chars().count();
+    let lamp_len = line.spans[1].content.chars().count();
+    let (_, status, _) = submission_slot_label(slot);
+    let status_len = status.chars().count();
+    let room = width.saturating_sub(prefix_len + lamp_len + status_len + 1);
+    let bar_w = room.min(CONSTELLATION_MAX_CELLS);
+    if bar_w < CONSTELLATION_MIN_CELLS {
+        return line;
+    }
+    let tail = width.saturating_sub(prefix_len + lamp_len + status_len + 1 + bar_w);
+    line.spans.truncate(2);
+    line.spans.push(Span::styled(
+        format!("{status} "),
+        Style::new().fg(TUI_PHOSPHOR_HOT),
+    ));
+    line.spans.extend(constellation_spans(secs, time, bar_w));
+    line.spans.push(Span::raw(" ".repeat(tail)));
+    line
+}
+
+/// `width` cells of the fable constellation-weave bar, its own moonlight and
+/// gold folded onto the trench's three phosphor tones by brightness.
+fn constellation_spans(flight_secs: f32, time: f32, width: usize) -> Vec<Span<'static>> {
+    let progress = (flight_secs.max(0.0) / SLOT_WINDOW_SECS).min(SLOT_WINDOW_HOLD);
+    let ctx = BarContext::new(progress, time, width, 1);
+    let Ok(mut grid) = BrailleGrid::new(width, 1) else {
+        return vec![Span::raw(" ".repeat(width))];
+    };
+    if CONSTELLATION
+        .with(|style| style.render(&mut grid, &ctx))
+        .is_err()
+    {
+        return vec![Span::raw(" ".repeat(width))];
+    }
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    let mut run = String::new();
+    let mut run_tone = TUI_PHOSPHOR_DIM;
+    for x in 0..width {
+        let tone = grid.get_color(x, 0).map_or(TUI_PHOSPHOR_DIM, |c| {
+            let luma = 0.2126 * f32::from(c.r) + 0.7152 * f32::from(c.g) + 0.0722 * f32::from(c.b);
+            if luma >= 170.0 {
+                TUI_PHOSPHOR_HOT
+            } else if luma >= 80.0 {
+                TUI_PHOSPHOR
+            } else {
+                TUI_PHOSPHOR_DIM
+            }
+        });
+        if tone != run_tone && !run.is_empty() {
+            spans.push(Span::styled(
+                std::mem::take(&mut run),
+                Style::new().fg(run_tone),
+            ));
+        }
+        run_tone = tone;
+        run.push(grid.get_char(x, 0));
+    }
+    if !run.is_empty() {
+        spans.push(Span::styled(run, Style::new().fg(run_tone)));
+    }
+    spans
 }
 
 fn submission_slot_label(slot: &SubmissionSlotTelemetry) -> (&'static str, String, TuiColor) {

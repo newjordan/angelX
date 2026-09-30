@@ -37,14 +37,15 @@ impl Club for ExcursionClub {
         cancel: &AtomicBool,
         _: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
-        if tools.is_empty() {
+        if crate::agent::harness::book::connect::is_ledger_only(tools) {
             let system = messages
                 .iter()
                 .filter(|m| m.role == ChatRole::System)
                 .map(|m| m.content.as_ref())
                 .collect::<Vec<_>>()
                 .join("\n");
-            if system.starts_with("You synthesize the accumulated findings") {
+            if system.starts_with(&crate::agent::harness::book::ing_drivers::DELI_SYNTHESIS.cells())
+            {
                 self.syntheses.fetch_add(1, Ordering::AcqRel);
                 assert!(messages.iter().any(|m| m.content.contains("amber")));
                 return Ok(ClubReply::Text(

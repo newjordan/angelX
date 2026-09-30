@@ -1,41 +1,30 @@
 //! Deterministic proposer angle roster.
 
 use super::*;
+use crate::agent::harness::book::{Route, d3_roles, d4_angles};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Angle {
     pub(crate) key: String,
+    /// The lens as routes: its persona, then any stance overlay's pages.
     pub(crate) sys: String,
 }
 
-pub(crate) const STANCES: &[(&str, &str)] = &[
-    (
-        "stet",
-        "Keep the base angle's natural emphasis. Do not add novelty for its own sake.",
-    ),
-    (
-        "minimal",
-        "Prefer the smallest sufficient answer. Strip optional complexity unless it clearly pays.",
-    ),
-    (
-        "expansive",
-        "Look for omitted branches, adjacent options, and second-path answers others may miss.",
-    ),
-    (
-        "risk",
-        "Prioritize failure modes, edge cases, reversibility, and what could make the answer unsafe.",
-    ),
-    (
-        "operational",
-        "Translate the angle into concrete implementation, sequencing, and verification constraints.",
-    ),
+/// Stances that overlay a lens: each is its pages on `⠈⠛`, after the overlay
+/// label (page 1).
+pub(crate) const STANCES: &[(&str, &[usize])] = &[
+    ("stet", &[2, 3]),
+    ("minimal", &[4, 5]),
+    ("expansive", &[6]),
+    ("risk", &[7]),
+    ("operational", &[8]),
 ];
 
 /// The active lens roster, filtered and ordered by `ANGEL_MOA_PERSONAS`.
 ///
 /// Read fresh on every call (no caching) so tests stay deterministic. Returns
 /// the full built-in `PERSONAS` roster when the knob is unset or empty.
-pub(crate) fn selected_personas() -> Vec<(&'static str, &'static str)> {
+pub(crate) fn selected_personas() -> Vec<(&'static str, Route)> {
     let raw = match std::env::var("ANGEL_MOA_PERSONAS") {
         Ok(v) => v,
         Err(_) => return PERSONAS.to_vec(),
@@ -46,7 +35,7 @@ pub(crate) fn selected_personas() -> Vec<(&'static str, &'static str)> {
     }
 
     let valid: Vec<&str> = PERSONAS.iter().map(|(k, _)| *k).collect();
-    let mut out: Vec<(&'static str, &'static str)> = Vec::new();
+    let mut out: Vec<(&'static str, Route)> = Vec::new();
     for piece in raw.split(',') {
         let want = piece.trim();
         if want.is_empty() {
@@ -57,8 +46,8 @@ pub(crate) fn selected_personas() -> Vec<(&'static str, &'static str)> {
             continue;
         }
         match PERSONAS.iter().find(|(k, _)| k.eq_ignore_ascii_case(want)) {
-            // Matched against a static const tuple of 'static strs.
-            Some(&(k, s)) => out.push((k, s)),
+            // Matched against a static const tuple of a 'static key and a route.
+            Some(&(k, route)) => out.push((k, route)),
             None => {
                 // Silent gating reads as nonexistence — the gate must speak.
                 eprintln!(
@@ -87,20 +76,25 @@ pub(crate) fn angle(i: usize) -> Angle {
     let personas = selected_personas();
     let base_count = personas.len();
     if i < base_count {
-        let (key, sys) = personas[i];
+        let (key, route) = personas[i];
         return Angle {
             key: key.to_string(),
-            sys: sys.to_string(),
+            sys: route.cells(),
         };
     }
     let idx = (i - base_count) % (base_count * STANCES.len());
     let round = idx / STANCES.len();
     let stance_idx = idx % STANCES.len();
     let base_idx = (round + stance_idx) % base_count;
-    let (base_key, base_sys) = personas[base_idx];
-    let (stance_key, stance_sys) = STANCES[stance_idx];
+    let (base_key, base_route) = personas[base_idx];
+    let (stance_key, stance_pages) = STANCES[stance_idx];
+    // The overlay label, then the stance's own pages.
+    let overlay = d3_roles::pages(
+        d4_angles::STANCES,
+        std::iter::once(1).chain(stance_pages.iter().copied()),
+    );
     Angle {
         key: format!("{base_key}+{stance_key}"),
-        sys: format!("{base_sys}\n\nStance overlay: {stance_sys}"),
+        sys: format!("{}\n\n{overlay}", base_route.cells()),
     }
 }

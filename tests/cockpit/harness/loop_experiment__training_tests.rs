@@ -262,7 +262,7 @@ fn export_owned_native_training_rows_for_consumer() {
     let _artifact = crate::tests::TestEnvGuard::unset("ANGEL_EVALUATOR_ARTIFACT_DIR");
     let _log = crate::tests::TestEnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
     let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "0");
-    for name in ["green", "popcorn", "failed"] {
+    for name in ["green", "failed"] {
         let case = root.join(name);
         std::fs::create_dir(&case).unwrap();
         let source = case.join("source");
@@ -286,25 +286,8 @@ fn export_owned_native_training_rows_for_consumer() {
             "ANGEL_TRAJECTORY_DIR",
             case.join("native-log").to_str().unwrap(),
         );
-        let _reward = crate::tests::TestEnvGuard::set(
-            "ANGEL_RL_REWARD",
-            if name == "popcorn" {
-                "popcorn_peer"
-            } else {
-                "tests"
-            },
-        );
-        let peer = case.join("peer.json");
-        std::fs::write(
-            &peer,
-            r#"{"name":"captured-original","geomean_us":100.0,"shapes":{"32768x1":100.0}}"#,
-        )
-        .unwrap();
-        let _peer = crate::tests::TestEnvGuard::set("POPCORN_PEER_STATE", peer.to_str().unwrap());
+        let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "tests");
         let command = match name {
-            "popcorn" => {
-                "printf x >> .angel-experiment-tmp/verifier-count; printf '%s' 'shape=32768x1 score_us=50us\ntest result: ok. 3 passed; 0 failed;'"
-            }
             "failed" => {
                 "printf x >> .angel-experiment-tmp/verifier-count; printf '%s' 'test result: ok. 3 passed; 0 failed;'; exit 7"
             }
@@ -339,13 +322,7 @@ fn export_owned_native_training_rows_for_consumer() {
                 "reward":emitted["reward"], "competition":emitted["competition"],
                 "evaluator_evidence_manifest_sha256":emitted["evaluator_evidence_manifest_sha256"]});
             let bytes = serde_json::to_vec(&request).unwrap();
-            if name == "popcorn" {
-                std::fs::write(&peer, r#"{"name":"changed-after-decision","geomean_us":40.0,"shapes":{"32768x1":40.0}}"#).unwrap();
-            }
             let receipt = crate::drive::reinforce::training::audit(&store, &bytes).unwrap();
-            if name == "popcorn" {
-                assert_eq!(receipt["baseline"]["baseline_us"], 100.0);
-            }
             std::fs::write(case.join("request.json"), bytes).unwrap();
             std::fs::write(
                 case.join("expected-receipt.json"),

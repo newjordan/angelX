@@ -1,0 +1,19 @@
+{
+  "name": "tokjs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@lenml/tokenizer-deepseek_v4": "^3.7.2",
+    "@lenml/tokenizer-gpt4o": "^3.7.2",
+    "@lenml/tokenizer-llama3_1": "^3.7.2",
+    "@lenml/tokenizer-qwen3": "^3.7.2",
+    "js-tiktoken": "^1.0.21"
+  }
+}

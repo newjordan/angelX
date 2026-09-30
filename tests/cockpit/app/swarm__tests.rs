@@ -1,5 +1,7 @@
 use super::*;
 use crate::agent::club::{CacheUsage, EffortGateUsage, ToolCall};
+use crate::agent::harness::book::d3_roles::{self, pages};
+use crate::agent::harness::book::{connect, d4_angles, d5_frames, st_connected};
 use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::sync::Mutex;
@@ -39,7 +41,7 @@ impl Drop for EnvGuard {
 
 /// Records how many chat calls it served and answers deterministically so we
 /// can assert the exact pipeline shape. The classifier prompt is recognized by
-/// its leading word so the gate can be steered per test.
+/// its route (`⠄⠉`) so the gate can be steered per test.
 struct CountingClub {
     calls: Mutex<usize>,
     classify_as: &'static str,
@@ -71,7 +73,7 @@ impl Club for CountingClub {
             .find(|m| m.role == ChatRole::System)
             .map(|m| m.content.as_ref())
             .unwrap_or("");
-        if sys.starts_with("Classify") {
+        if sys.starts_with(&d3_roles::CLASSIFIER.cells()) {
             return Ok(ClubReply::Text(self.classify_as.to_string()));
         }
         Ok(ClubReply::Text("draft".to_string()))
@@ -200,7 +202,8 @@ impl Club for PlanningThenAnswerClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        if tools.is_empty() {
+        // A text-only stage is connected: offered the ledger reader alone.
+        if connect::is_ledger_only(tools) {
             *self.text_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text(
                 "Inspect the contract, compare one bounded candidate, and verify the edit."
@@ -245,7 +248,8 @@ impl Club for PlanningToolClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        if tools.is_empty() {
+        // A text-only stage is connected: offered the ledger reader alone.
+        if connect::is_ledger_only(tools) {
             *self.text_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text(
                 "Inspect the benchmark contract, establish a baseline, then test one bounded hypothesis."
@@ -331,7 +335,10 @@ impl Club for TranscriptRecordingClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        assert!(tools.is_empty(), "swarm workers must be text-only");
+        assert!(
+            connect::is_ledger_only(tools),
+            "swarm workers are text-only: the ledger reader alone, no workspace tools"
+        );
         self.seen.lock().unwrap().push(messages.to_vec());
         Ok(ClubReply::Text("draft".to_string()))
     }
@@ -761,7 +768,7 @@ fn swarm_text_only_calls_strip_tool_protocol_history() {
     );
     assert!(
         seen.iter()
-            .filter(|message| message.content.starts_with("[tool result for "))
+            .filter(|message| message.content.starts_with(&pages(d5_frames::LABELS, [7])))
             .all(|message| message.role == ChatRole::Harness),
         "flattened tool evidence must retain Harness provenance"
     );
@@ -770,8 +777,12 @@ fn swarm_text_only_calls_strip_tool_protocol_history() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(joined.contains("Assistant requested tools:"), "{joined}");
-    assert!(joined.contains("[tool result for call_dup]"), "{joined}");
+    // `⠐⠛⠋`: the requested tools; `⠐⠛⠛`: a tool result, its id beside it.
+    assert!(joined.contains(&pages(d5_frames::LABELS, [6])), "{joined}");
+    assert!(
+        joined.contains(&format!("{} id=call_dup", pages(d5_frames::LABELS, [7]))),
+        "{joined}"
+    );
     assert!(joined.contains("first result"), "{joined}");
     assert!(joined.contains("duplicate result"), "{joined}");
 }
@@ -1485,10 +1496,7 @@ fn sealed_tool_preflight_runs_formation_once_before_coordinator_actions() {
     assert_eq!(*driver.tool_calls.lock().unwrap(), 1);
     let history = driver.tool_history.lock().unwrap();
     assert!(history.iter().any(|message| {
-        message.role == ChatRole::Harness
-            && message.content.contains("Formation preflight advisory")
-            && message.content.contains("no command")
-            && message.content.contains("has run yet")
+        message.role == ChatRole::Harness && message.content.contains("⠬⠉")
     }));
     drop(history);
 
@@ -1514,7 +1522,7 @@ fn sealed_tool_preflight_runs_formation_once_before_coordinator_actions() {
     let replayed = driver.tool_history.lock().unwrap();
     assert_eq!(replayed[0].role, ChatRole::User);
     assert_eq!(replayed[1].role, ChatRole::Harness);
-    assert!(replayed[1].content.contains("Formation preflight advisory"));
+    assert!(replayed[1].content.contains("⠬⠉"));
     assert_eq!(replayed[2].role, ChatRole::Assistant);
     assert_eq!(replayed[3].role, ChatRole::Tool);
 }
@@ -1655,8 +1663,7 @@ fn armed_formation_preflights_tool_work_by_default() {
         "the armed formation must run before repository tools"
     );
     assert!(driver.tool_history.lock().unwrap().iter().any(|message| {
-        message.role == ChatRole::Harness
-            && message.content.contains("Formation preflight advisory")
+        message.role == ChatRole::Harness && message.content.contains("⠬⠉")
     }));
 }
 
@@ -1898,12 +1905,13 @@ fn text_only_system_drops_tool_protocol_but_keeps_context() {
     assert!(out.contains("Default posture"), "{out}");
     assert!(!out.contains("Tool protocol"), "{out}");
     assert!(!out.contains("skill(name)"), "{out}");
-    assert!(out.contains("no tools here"), "{out}");
+    let analysis_only = pages(st_connected::TEXT_ONLY, [1, 2, 3]);
+    assert!(out.ends_with(&format!("\n\n{analysis_only}")), "{out}");
     // An empty driver prompt still gets the directive, never a stray blank line.
-    assert!(text_only_system("").starts_with("This is an analysis-only stage"));
+    assert_eq!(text_only_system(""), analysis_only);
 }
 
-/// The live failure this fixes: Leanstral answered every Tag Team turn with
+/// The live failure this fixes: the lead seat answered every Tag Team turn with
 /// `[TOOL_CALLS]quantize-model[TOOL_CALLS]{"model": "4bit"}` — 55 characters, no
 /// analysis — so its draft was discarded and the two-corner formation silently
 /// became one model. Correcting the seat in place recovers its angle.
@@ -1912,7 +1920,7 @@ fn swarm_worker_recovers_after_a_text_only_correction() {
     const CALL: &str = r#"[TOOL_CALLS]quantize-model[TOOL_CALLS]{"model": "4bit"}"#;
     const PROSE: &str = "- Router precision loss dominates: expert logits are close together, so \
         4-bit rounding reorders the top-k and traffic collapses onto a few experts.";
-    let worker = Arc::new(ScriptedClub::new("leanstral", vec![Ok(CALL), Ok(PROSE)]));
+    let worker = Arc::new(ScriptedClub::new("spark", vec![Ok(CALL), Ok(PROSE)]));
     let aggregate = Arc::new(CountingClub::new("OPEN"));
     let worker_club: Arc<dyn Club> = worker.clone();
     let aggregate_club: Arc<dyn Club> = aggregate.clone();
@@ -1952,7 +1960,7 @@ fn swarm_worker_salvages_analysis_written_before_tool_markup() {
         few robust experts, negating sparsity.\n- Memory is not the binding constraint: weights \
         shrink ~4x but activations and KV stay wide, so a bandwidth-bound decode barely moves.\n\n\
         <SHELL>{\"cmd\":\"nvidia-smi\"}";
-    let worker = Arc::new(ScriptedClub::new("leanstral", vec![Ok(RAW)]));
+    let worker = Arc::new(ScriptedClub::new("spark", vec![Ok(RAW)]));
     let aggregate = Arc::new(CountingClub::new("OPEN"));
     let worker_club: Arc<dyn Club> = worker.clone();
     let aggregate_club: Arc<dyn Club> = aggregate.clone();
@@ -2220,8 +2228,12 @@ fn grok_research_scout_adds_context_without_replacing_role_seats() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(joined.contains("Grok research scout"), "{joined}");
-    assert!(joined.contains("fresh finding from school"), "{joined}");
+    // The scout's findings ride under `⠐⠛⠓`, its heading's page.
+    assert!(
+        joined.contains("⠐⠛⠓\nfresh finding from school"),
+        "{joined}"
+    );
+    assert!(!joined.contains("Grok research scout"), "{joined}");
 }
 
 #[test]
@@ -2342,7 +2354,8 @@ fn sota_moa_grok_researcher_is_explicit_on_deliberate_turns() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(joined.contains("Grok research scout"), "{joined}");
+    // The scout's findings ride under `⠐⠛⠓`, its heading's page.
+    assert!(joined.contains("⠐⠛⠓\n"), "{joined}");
 }
 
 #[test]
@@ -2388,11 +2401,11 @@ fn moa_workers_receive_compaction_checkpoint_contract() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
+    // `⠄⠊`, the checkpoint cadence beside it.
     assert!(
-        joined.contains("compacted after every 3 loop(s)"),
+        joined.contains(&format!("{} every=3", d3_roles::CHECKPOINT.cells())),
         "{joined}"
     );
-    assert!(joined.contains("checkpoint-ready"), "{joined}");
 }
 
 #[test]
@@ -2640,13 +2653,14 @@ fn moa_draft_bounding_marks_omitted_text_without_splitting_chars() {
     let draft = format!("{}{}", "α".repeat(40), "tail");
     let bounded = bound_moa_draft(&draft, 24);
     assert!(bounded.starts_with('α'));
-    assert!(bounded.contains("MOA draft truncated before synthesis"));
+    let truncated = pages(d5_frames::LABELS, [4]);
+    assert!(bounded.contains(&truncated));
     assert!(!bounded.contains("tail"));
 
     let huge = "x".repeat(7000);
     let body = agg_task_with_cap(&[huge], false, 6000);
     assert!(body.contains("### Response 1"));
-    assert!(body.contains("MOA draft truncated before synthesis"));
+    assert!(body.contains(&truncated));
 }
 
 /// Each draft an aggregator receives is bounded by default: a 30k-char draft
@@ -2661,15 +2675,16 @@ fn moa_draft_cap_defaults_to_twelve_k_chars() {
     let _swarm = EnvGuard::unset("ANGEL_SWARM_DRAFT_MAX_CHARS");
     let tail = "UNIQUE_TAIL";
     let body = agg_task(&[format!("{}{tail}", "x".repeat(30_000))], false);
+    let truncated = pages(d5_frames::LABELS, [4]);
     assert!(
-        body.contains("MOA draft truncated before synthesis"),
+        body.contains(&truncated),
         "the default ceiling marks what it trimmed"
     );
     assert!(!body.contains(tail), "the tail past 12k is trimmed");
     let _off = EnvGuard::set("ANGEL_MOA_DRAFT_MAX_CHARS", "0");
     let body = agg_task(&[format!("{}{tail}", "x".repeat(30_000))], false);
     assert!(body.contains(tail), "explicit 0 = unbounded");
-    assert!(!body.contains("MOA draft truncated"));
+    assert!(!body.contains(&truncated));
 }
 
 #[test]
@@ -2685,9 +2700,14 @@ fn moa_defaults_preserve_panel_work_and_shape_only_the_final_answer() {
     let draft = format!("{}{tail}", "x".repeat(7000));
     let body = agg_task(&[draft], false);
     assert!(body.contains(tail));
-    assert!(!body.contains("MOA draft truncated before synthesis"));
-    assert!(!body.contains("Aim for at most"));
-    assert!(body.contains("Do not shorten merely to meet an unstated length"));
+    assert!(!body.contains(&pages(d5_frames::LABELS, [4])));
+    // No target: the whole synthesis route `⠐⠙`, whose untargeted guidance
+    // ends "Do not shorten merely to meet an unstated length", and no `⠐⠋`.
+    assert!(!body.contains(&d5_frames::GUIDANCE.cells()));
+    assert!(
+        body.starts_with(&format!("{}\n", d5_frames::SYNTHESIS.cells())),
+        "{body}"
+    );
     assert_eq!(aux_context_chars(), 24_000);
     assert_eq!(dedup_similarity(), 0.92);
 }
@@ -2714,11 +2734,22 @@ fn moa_quality_first_env_defaults_do_not_relax_or_compress_the_formation() {
 fn angle_roster_preserves_first_six_and_expands_deterministically() {
     let _guard = crate::tests::env_lock();
     assert_eq!(roster_len(), 36);
-    for (idx, (key, sys)) in PERSONAS.iter().enumerate() {
+    for (idx, (key, route)) in PERSONAS.iter().enumerate() {
         let a = angle(idx);
         assert_eq!(a.key, *key);
-        assert_eq!(a.sys, *sys);
+        assert_eq!(a.sys, route.cells());
     }
+    // Past the six lenses, a stance overlays one: its persona route, then the
+    // overlay label and the stance's pages on `⠈⠛` (first-principles + stet).
+    assert_eq!(angle(PERSONAS.len()).key, "first-principles+stet");
+    assert_eq!(
+        angle(PERSONAS.len()).sys,
+        format!(
+            "{}\n\n{}",
+            d4_angles::FIRST_PRINCIPLES.cells(),
+            pages(d4_angles::STANCES, [1, 2, 3])
+        )
+    );
     let mut pairs = std::collections::HashSet::new();
     let mut prev: Option<(String, String)> = None;
     for idx in PERSONAS.len()..roster_len() {
@@ -2938,7 +2969,7 @@ fn seed_pods_are_contiguous_and_caps_are_budgeted() {
 
 // --- JUDGE panel (peer-review median scoring) ---------------------------
 
-/// Returns a fixed score sheet for the judge prompt (recognized by `JUDGE_SYS`)
+/// Returns a fixed score sheet for the judge prompt (recognized by its route, `⠄⠑`)
 /// and a plain draft for everything else, counting every chat call.
 struct ScoringClub {
     calls: Mutex<usize>,
@@ -2959,7 +2990,7 @@ impl Club for ScoringClub {
         // the whole call for its marker so both shapes are recognized.
         if messages
             .iter()
-            .any(|m| m.content.contains("impartial, calibrated judge"))
+            .any(|m| m.content.contains(&d3_roles::JUDGE.cells()))
         {
             return Ok(ClubReply::Text(self.sheet.to_string()));
         }
@@ -3072,7 +3103,8 @@ impl Club for RecordingClub {
     }
 }
 
-const HEDGE_MARK: &str = "Calibrate every claim's strength to its evidence";
+/// The hedge ladder's route, `⠄⠓`.
+const HEDGE_MARK: &str = "⠄⠓";
 
 #[test]
 fn hedge_off_by_default() {
@@ -3284,7 +3316,7 @@ fn aux_context_bounds_a_giant_final_message() {
     assert!(out[0].content.chars().count() < 400);
     // The newest end of an over-long message is the part a scorer needs.
     assert!(
-        out[0].content.starts_with("[context trimmed:"),
+        out[0].content.starts_with(&pages(d5_frames::LABELS, [5])),
         "leading trim marker, got: {}",
         &*out[0].content
     );
@@ -3310,7 +3342,11 @@ fn aux_context_default_bounds_a_hundred_k_message() {
         "bounded tail + marker line only, got {len}"
     );
     assert!(out[0].content.contains(marker), "the newest ask survives");
-    assert!(out[0].content.contains("chars omitted]"));
+    assert!(
+        out[0]
+            .content
+            .starts_with(&format!("{} omitted=", pages(d5_frames::LABELS, [5])))
+    );
 }
 
 // --- JUDGE_DIMS (per-dimension / weighted "LQS" scoring) ----------------
@@ -3381,11 +3417,11 @@ impl Club for VerifyClub {
     fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
         // Stage instructions live in the system slot (legacy shape) or in the
         // trailing task message (cache-aligned shape) — scan the whole call.
-        let hit = |marker: &str| messages.iter().any(|m| m.content.contains(marker));
-        if hit("adversarial verifier") {
+        let hit = |marker: String| messages.iter().any(|m| m.content.contains(&marker));
+        if hit(d3_roles::VERIFIER.cells()) {
             return Ok(ClubReply::Text("Problem: be more precise.".to_string()));
         }
-        if hit("select the single best") {
+        if hit(d3_roles::CHOOSER.cells()) {
             *self.chooser_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text(self.pick.to_string()));
         }
@@ -3506,21 +3542,21 @@ fn cite_check_keeps_answer_on_empty_rewrite() {
     );
 }
 
-/// Live end-to-end run against the real gemma4 vLLM endpoint. Ignored by
-/// default (needs the DGX up); honors all ANGEL_SWARM_* knobs, so run e.g.:
+/// Live end-to-end run against a real local vLLM endpoint. Ignored by
+/// default (needs the server up); honors all ANGEL_SWARM_* knobs, so run e.g.:
 ///   ANGEL_SWARM_MAX=1 cargo test --bin angel swarm_live -- --ignored --nocapture
-/// Override the target via ANGEL_GEMMA_URL / ANGEL_GEMMA_MODEL.
+/// Point it at the local box via ANGEL_LOCAL_URL / ANGEL_LOCAL_MODEL.
 #[test]
-#[ignore = "hits the live gemma4 endpoint on the DGX Spark"]
-fn swarm_live_gemma() {
+#[ignore = "hits a live local model endpoint"]
+fn swarm_live_local() {
     use crate::agent::club::HttpClub;
-    let url = std::env::var("ANGEL_GEMMA_URL")
-        .expect("set ANGEL_GEMMA_URL to an explicitly trusted live endpoint");
-    let model = std::env::var("ANGEL_GEMMA_MODEL").unwrap_or_else(|_| "gemma4".to_string());
-    let inner = HttpClub::new("gemma", url.clone(), model, None);
+    let url = std::env::var("ANGEL_LOCAL_URL")
+        .expect("set ANGEL_LOCAL_URL to an explicitly trusted live endpoint");
+    let model = std::env::var("ANGEL_LOCAL_MODEL").unwrap_or_default();
+    let inner = HttpClub::new("local", url.clone(), model, None);
     assert!(
         inner.is_ready(),
-        "gemma is not reachable at {url}; the explicit live swarm contract did not run"
+        "the local model is not reachable at {url}; the explicit live swarm contract did not run"
     );
     let swarm = SwarmClub::from_env_with("swarm", Arc::new(inner), |_| None);
     let t = std::time::Instant::now();
@@ -3542,17 +3578,17 @@ fn swarm_live_gemma() {
 ///   ANGEL_SWARM_DELEGATE=1 ANGEL_SWARM_ALWAYS=1 ANGEL_SWARM_DEBUG=1 \
 ///     cargo test --bin angel swarm_live_delegate -- --ignored --nocapture
 #[test]
-#[ignore = "hits the live gemma4 endpoint + runs a sandboxed test"]
+#[ignore = "hits a live local model endpoint + runs a sandboxed test"]
 fn swarm_live_delegate() {
     let _guard = crate::tests::env_lock();
     use crate::agent::club::HttpClub;
-    let url = std::env::var("ANGEL_GEMMA_URL")
-        .expect("set ANGEL_GEMMA_URL to an explicitly trusted live endpoint");
-    let model = std::env::var("ANGEL_GEMMA_MODEL").unwrap_or_else(|_| "gemma4".to_string());
-    let inner = HttpClub::new("gemma", url.clone(), model, None);
+    let url = std::env::var("ANGEL_LOCAL_URL")
+        .expect("set ANGEL_LOCAL_URL to an explicitly trusted live endpoint");
+    let model = std::env::var("ANGEL_LOCAL_MODEL").unwrap_or_default();
+    let inner = HttpClub::new("local", url.clone(), model, None);
     assert!(
         inner.is_ready(),
-        "gemma is not reachable at {url}; the explicit live delegation contract did not run"
+        "the local model is not reachable at {url}; the explicit live delegation contract did not run"
     );
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SWARM_DELEGATE", "1") };
@@ -3759,15 +3795,15 @@ impl Club for DissentClub {
             .collect::<Vec<_>>()
             .join("\n");
         self.transcripts.lock().unwrap().push(joined.clone());
-        let hit = |marker: &str| joined.contains(marker);
-        if hit("adversarial verifier") {
+        let hit = |marker: String| joined.contains(&marker);
+        if hit(d3_roles::VERIFIER.cells()) {
             *self.verify_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text("OK".to_string()));
         }
-        if hit("impartial, calibrated judge") {
+        if hit(d3_roles::JUDGE.cells()) {
             return Ok(ClubReply::Text("1: 8\n2: 7".to_string()));
         }
-        if hit("Synthesize the single strongest answer") || hit("Merge the responses below") {
+        if hit(d5_frames::SYNTHESIS.cells()) || hit(d5_frames::MERGE.cells()) {
             return Ok(ClubReply::Text("the synthesized final answer".to_string()));
         }
         // A proposer. Agreeing drafts share every content word; diverging
@@ -3839,8 +3875,8 @@ fn agreeing_drafts_relax_the_configured_pipeline() {
     // polished answer rather than raw proposer bullets.
     assert_eq!(out, "the synthesized final answer");
     assert_eq!(inner.verify_count(), 0);
-    assert!(!inner.saw_marker("impartial, calibrated judge"));
-    assert!(!inner.saw_marker("rigorous critic"));
+    assert!(!inner.saw_marker(&d3_roles::JUDGE.cells()));
+    assert!(!inner.saw_marker(&d3_roles::CRITIC.cells()));
     // 2 proposers + 1 synthesis and nothing else.
     assert_eq!(inner.transcripts.lock().unwrap().len(), 3);
 }
@@ -4062,4 +4098,214 @@ fn role_effort_overrides_merge_over_env_seat_policy() {
         Some("high"),
         "Some wins over env"
     );
+}
+
+// --- the mixture speaks in routes ---------------------------------------
+
+/// Records what every stage call was told — its messages with the problem and
+/// every earlier reply (the data) cut out — and answers with a distinct draft
+/// that also parses as a score sheet and a choice.
+struct FrameRecordingClub {
+    frames: Mutex<Vec<String>>,
+    replies: Mutex<Vec<String>>,
+}
+
+const FRAME_PROBLEM: &str = "design a durable run loop for a coding agent that survives restarts";
+
+impl Club for FrameRecordingClub {
+    fn label(&self) -> &str {
+        "frames"
+    }
+    fn respond(&self, p: &str) -> Result<String, String> {
+        Ok(format!("echo:{p}"))
+    }
+    fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
+        assert!(connect::is_ledger_only(tools), "a stage is connected");
+        let mut frame = messages
+            .iter()
+            .map(|m| m.content.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        frame = frame.replace(FRAME_PROBLEM, "");
+        let mut replies = self.replies.lock().unwrap();
+        for reply in replies.iter() {
+            frame = frame.replace(reply.as_str(), "");
+        }
+        self.frames.lock().unwrap().push(frame);
+        let tag = "q".repeat(replies.len() + 1);
+        let reply = format!("1: 7 6 5 4\n2: 5 5 5 5\n3: 4 4 4 4\n{tag} path {tag} claim {tag}");
+        replies.push(reply.clone());
+        Ok(ClubReply::Text(reply))
+    }
+}
+
+/// Words a frame carries outside braille: a payload heading (`### Response 2`)
+/// and a value beside a route (`n=3`, `dims=correctness, insight, …`) are
+/// data; anything else is English the harness spoke.
+fn english_in(frame: &str) -> Vec<String> {
+    const KEYS: &[&str] = &[
+        "n", "total", "weight", "every", "target", "dims", "omitted", "id",
+    ];
+    let mut words = Vec::new();
+    for line in frame.lines() {
+        let mut in_dims = false;
+        for token in line.split_whitespace() {
+            let token: String = token
+                .chars()
+                .filter(|c| !('\u{2800}'..='\u{28FF}').contains(c))
+                .collect();
+            if token.is_empty() || token.chars().all(|c| !c.is_ascii_alphabetic()) {
+                continue;
+            }
+            if let Some((key, _)) = token.split_once('=')
+                && KEYS.contains(&key)
+            {
+                in_dims = key == "dims";
+                continue;
+            }
+            let bare = token.trim_end_matches(',');
+            if in_dims && JUDGE_DIMS.iter().any(|(dim, _)| *dim == bare) {
+                continue;
+            }
+            if matches!(token.as_str(), "###" | "Response" | "Draft" | "Candidate") {
+                continue;
+            }
+            words.push(token);
+        }
+    }
+    words
+}
+
+/// Every stage of a full-stack turn — proposers with stances, the critic,
+/// refine layers, the judge panel on dimensions, samples and the chooser,
+/// verify with its guard, the hedge ladder, checkpointing — then the
+/// classifier, the advisor, a targeted synthesis and the payload labels: the
+/// harness says nothing in English; the data is all that is not braille.
+#[test]
+fn a_mixture_turn_speaks_only_in_routes() {
+    let _guard = crate::tests::env_lock();
+    let _dedup = EnvGuard::set("ANGEL_MOA_DEDUP_SIM", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "1");
+    let _target = EnvGuard::unset("ANGEL_MOA_FINAL_TARGET_CHARS");
+    let club = Arc::new(FrameRecordingClub {
+        frames: Mutex::new(Vec::new()),
+        replies: Mutex::new(Vec::new()),
+    });
+    let k = Knobs {
+        width: 8,
+        max_width: 8,
+        max_waves: 1,
+        layers: 3,
+        refine_width: 8,
+        always: true,
+        reflect: true,
+        judge: true,
+        judge_panel: 2,
+        dims: true,
+        keep: 2,
+        samples: 2,
+        verify: 2,
+        verify_guard: true,
+        hedge: true,
+        search_url: "http://127.0.0.1:1/none".to_string(),
+        ..Knobs::default()
+    };
+    let swarm = SwarmClub::with_knobs("frames", club.clone(), k);
+    let answer = swarm
+        .chat(&[ChatMsg::user(FRAME_PROBLEM)], &[])
+        .map(|reply| match reply {
+            ClubReply::Text(text) => text,
+            ClubReply::Calls(_) => panic!("a text turn"),
+        })
+        .unwrap();
+    assert!(!answer.trim().is_empty());
+    let _ = swarm.classify(FRAME_PROBLEM);
+    {
+        let _target = EnvGuard::set("ANGEL_MOA_FINAL_TARGET_CHARS", "1200");
+        let _ = swarm.run(
+            &[ChatMsg::user(FRAME_PROBLEM)],
+            &AtomicBool::new(false),
+            &mut |_| {},
+            false,
+        );
+    }
+    let frames = club.frames.lock().unwrap().clone();
+    assert!(frames.len() > 20, "every stage ran: {}", frames.len());
+    for route in [
+        d3_roles::PROPOSER,
+        d3_roles::AGGREGATOR,
+        d3_roles::CLASSIFIER,
+        d3_roles::CRITIC,
+        d3_roles::JUDGE,
+        d3_roles::CHOOSER,
+        d3_roles::VERIFIER,
+        d3_roles::HEDGE,
+        d3_roles::CHECKPOINT,
+        d4_angles::STANCES,
+        d4_angles::REFINE,
+        d5_frames::SCORING,
+        d5_frames::REVISE,
+        d5_frames::SYNTHESIS,
+        d5_frames::MERGE,
+        d5_frames::GUIDANCE,
+        d5_frames::LABELS,
+        st_connected::ADVISOR,
+    ] {
+        assert!(
+            frames.iter().any(|frame| frame.contains(&route.cells())),
+            "{} was never sent",
+            route.name()
+        );
+    }
+    // The payload labels, on the transcript and the drafts.
+    let transcript = text_only_history(&[
+        ChatMsg::assistant_calls_with_reasoning(
+            vec![ToolCall {
+                id: "call_1".to_string(),
+                name: "shell".to_string(),
+                args: serde_json::json!({ "cmd": "date" }),
+            }],
+            None,
+        ),
+        ChatMsg::tool("call_1", ""),
+    ]);
+    let mut all = frames;
+    // The requested call's name and arguments are data.
+    all.extend(transcript.iter().map(|m| {
+        m.content
+            .replace("shell", "")
+            .replace(r#"args={"cmd":"date"}"#, "")
+    }));
+    all.extend(
+        aux_context_at(&[ChatMsg::user("x".repeat(500))], 100)
+            .iter()
+            .map(|m| m.content.replace(&"x".repeat(36), "")),
+    );
+    all.push(bound_moa_draft(&"y".repeat(400), 200).replace('y', ""));
+    for frame in &all {
+        let english = english_in(frame);
+        assert!(
+            english.is_empty(),
+            "English on the wire: {english:?}\n{frame}"
+        );
+    }
+}
+
+/// The roster is the book's: each lens is a `⠈` section with pages, and the
+/// stances use every page of `⠈⠛` after its overlay label exactly once.
+#[test]
+fn personas_and_stances_are_the_books_angles() {
+    for (key, route) in PERSONAS {
+        assert_eq!(route.primary, d4_angles::CELL, "{key}");
+        assert!(!route.sub().pages.is_empty(), "{key}");
+        assert_eq!(route.sub().name, *key, "a lens is named for its key");
+    }
+    let mut used = STANCES
+        .iter()
+        .flat_map(|(_, pages)| pages.iter().copied())
+        .collect::<Vec<_>>();
+    used.sort_unstable();
+    let stance_pages = d4_angles::STANCES.sub().pages.len();
+    assert_eq!(used, (2..=stance_pages).collect::<Vec<_>>());
+    assert_eq!(d4_angles::STANCES.sub().pages[0], "Stance overlay:");
 }

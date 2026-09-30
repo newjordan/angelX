@@ -607,6 +607,9 @@ pub(crate) struct App {
     /// Live competition submission-slot state projected by the harness watcher
     /// into the loop trench HUD. Display-only; never persisted or model-facing.
     pub(crate) submission_slot: crate::agent::harness::SubmissionSlotTelemetry,
+    /// When the current submission went in flight; drives the slot's
+    /// constellation bar. Cleared when the watcher reports a verdict.
+    pub(crate) submission_slot_since: Option<Instant>,
     /// Personal submission telemetry across Yukon's currently open
     /// competitions. Polling is one-shot, off-thread, and competition-only.
     pub(crate) yukon_fleet: crate::agent::harness::comp_packages::yukon::fleet::YukonFleetState,
@@ -831,11 +834,7 @@ pub(crate) struct App {
     pub(crate) pending_approval: Option<PendingApproval>,
     /// Inbox for approval requests emitted by worker threads, drained in `advance`.
     pub(crate) approval_rx: mpsc::Receiver<approval::Request>,
-    pub(crate) apollo_specialist_present: Cell<bool>,
-    pub(crate) specialist_message_scan_len: Cell<usize>,
-    pub(crate) specialist_media_scan_len: Cell<usize>,
     pub(crate) active_profile_label: String,
-    pub(crate) active_profile_specialist: bool,
     pub(crate) active_profile_cache: Option<AgentProfile>,
     /// One-shot context injected on the next turn after `/cd` changes the working
     /// directory — the new root's project docs (AGENTS.md), prepended to the
@@ -1196,6 +1195,7 @@ impl App {
             campaign_pending: None,
             loop_ctl: crate::drive::loop_ctl::LoopState::default(),
             submission_slot: crate::agent::harness::SubmissionSlotTelemetry::default(),
+            submission_slot_since: None,
             yukon_fleet:
                 crate::agent::harness::comp_packages::yukon::fleet::YukonFleetState::default(),
             yukon_fleet_rx: None,
@@ -1308,11 +1308,7 @@ impl App {
             started: Instant::now(),
             pending_approval: None,
             approval_rx,
-            apollo_specialist_present: Cell::new(false),
-            specialist_message_scan_len: Cell::new(0),
-            specialist_media_scan_len: Cell::new(0),
             active_profile_label: String::new(),
-            active_profile_specialist: false,
             active_profile_cache: None,
             reborn_rx: None,
             reborn_exec: None,
@@ -1611,12 +1607,6 @@ impl App {
     }
 
     pub(crate) fn active_profile(&mut self) -> AgentProfile {
-        // The Apollo specialist persona is a *transient* swarm-routing hint: it may
-        // recolour the swarm host's portrait only while a turn is actually in
-        // flight. When idle, the avatar is a pure function of the in-hand agent, so
-        // after any turn the portrait returns to the agent in hand instead of
-        // sticking on a persona (see `reset_specialist_persona`).
-        let specialist = self.thinking.is_some() && self.apollo_specialist_present();
         if let Some(thinking) = self.thinking.as_ref() {
             // A failover wrapper publishes the route that actually answered as
             // soon as it resolves. Before that point this is its requested
@@ -1630,7 +1620,6 @@ impl App {
                 .and_then(|club| club.resolved_route_if_known());
             let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
             if let Some(profile) = self.hit_active_profile_cache(
-                specialist,
                 thinking.club_label.as_str(),
                 route.driver.as_str(),
                 route.model.as_deref(),
@@ -1640,7 +1629,7 @@ impl App {
             let agent = thinking.club_label.clone();
             let driver = route.driver.clone();
             let model = route.model.clone();
-            return self.store_active_profile(specialist, &agent, &driver, model.as_deref());
+            return self.store_active_profile(&agent, &driver, model.as_deref());
         }
 
         if self.bg_job.is_none()
@@ -1661,7 +1650,6 @@ impl App {
             };
             if let Some(choice) = choice {
                 if let Some(profile) = self.hit_active_profile_cache(
-                    specialist,
                     &choice.agent,
                     &choice.driver,
                     Some(&choice.model),
@@ -1671,44 +1659,38 @@ impl App {
                 let agent = choice.agent.clone();
                 let driver = choice.driver.clone();
                 let model = choice.model.clone();
-                return self.store_active_profile(specialist, &agent, &driver, Some(&model));
+                return self.store_active_profile(&agent, &driver, Some(&model));
             }
         }
 
         let choices = self.bag.route_choices();
         if let Some(choice) = choices.iter().find(|choice| choice.selected) {
-            if let Some(profile) = self.hit_active_profile_cache(
-                specialist,
-                &choice.agent,
-                &choice.driver,
-                Some(&choice.model),
-            ) {
+            if let Some(profile) =
+                self.hit_active_profile_cache(&choice.agent, &choice.driver, Some(&choice.model))
+            {
                 return profile;
             }
             let agent = choice.agent.clone();
             let driver = choice.driver.clone();
             let model = choice.model.clone();
-            return self.store_active_profile(specialist, &agent, &driver, Some(&model));
+            return self.store_active_profile(&agent, &driver, Some(&model));
         }
         drop(choices);
         let label = self.bag.in_hand_label();
-        if let Some(profile) = self.hit_active_profile_cache(specialist, label, label, None) {
+        if let Some(profile) = self.hit_active_profile_cache(label, label, None) {
             return profile;
         }
         let label = label.to_string();
-        self.store_active_profile(specialist, &label, &label, None)
+        self.store_active_profile(&label, &label, None)
     }
 
     fn hit_active_profile_cache(
         &self,
-        specialist: bool,
         agent: &str,
         driver: &str,
         model: Option<&str>,
     ) -> Option<AgentProfile> {
-        if self.active_profile_specialist == specialist
-            && active_profile_cache_matches(&self.active_profile_label, agent, driver, model)
-        {
+        if active_profile_cache_matches(&self.active_profile_label, agent, driver, model) {
             self.active_profile_cache
         } else {
             None
@@ -1717,7 +1699,6 @@ impl App {
 
     fn store_active_profile(
         &mut self,
-        specialist: bool,
         agent: &str,
         driver: &str,
         model: Option<&str>,
@@ -1727,44 +1708,10 @@ impl App {
         } else {
             format!("{agent} ▸ {driver} ▸ {}", model.unwrap_or("native"))
         };
-        let profile = profile_for_route(agent, driver, model, specialist);
+        let profile = profile_for_route(agent, driver, model);
         self.active_profile_label = cache_label;
-        self.active_profile_specialist = specialist;
         self.active_profile_cache = Some(profile);
         profile
-    }
-
-    pub(crate) fn apollo_specialist_present(&self) -> bool {
-        if self.apollo_specialist_present.get() {
-            return true;
-        }
-
-        let message_start = scan_start(self.specialist_message_scan_len.get(), self.messages.len());
-        let media_start = scan_start(self.specialist_media_scan_len.get(), self.media.len());
-        let present = self.messages[message_start..]
-            .iter()
-            .any(|m| specialist_text(&m.text))
-            || self.media[media_start..]
-                .iter()
-                .any(|m| specialist_text(m.label()));
-        self.specialist_message_scan_len.set(self.messages.len());
-        self.specialist_media_scan_len.set(self.media.len());
-        if present {
-            self.apollo_specialist_present.set(true);
-        }
-        present
-    }
-
-    /// Clear the latched Apollo-specialist signal at a turn boundary so a fresh
-    /// turn never inherits the previous turn's persona. The scan cursors are
-    /// advanced to the current transcript end, so already-seen apollo/kernel
-    /// mentions can't immediately re-latch — only *new* specialist work in the
-    /// next turn re-activates the transient coloring. Without this the avatar
-    /// stuck on Apollo forever once any apollo-class word appeared.
-    pub(crate) fn reset_specialist_persona(&mut self) {
-        self.apollo_specialist_present.set(false);
-        self.specialist_message_scan_len.set(self.messages.len());
-        self.specialist_media_scan_len.set(self.media.len());
     }
 
     pub(crate) fn resize_shell_to_area(&mut self, area: Rect) {

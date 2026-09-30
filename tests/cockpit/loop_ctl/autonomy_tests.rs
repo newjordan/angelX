@@ -71,8 +71,8 @@ fn three_iteration_swift_receipt_gap_steers_without_claiming_no_execution() {
                 .unwrap()
                 .content
                 .to_string();
-            assert!(prompt.contains("[loop note — information, not an order]"));
-            assert!(prompt.contains("no measured candidate yet after"));
+            assert!(prompt.contains("⠳⠚"));
+            assert!(prompt.contains(crate::agent::harness::book::d45_iteration::NO_CANDIDATE));
             assert!(
                 !app.messages
                     .iter()
@@ -146,6 +146,7 @@ fn repeated_red_acceptance_preserves_failure_and_selected_route_until_real_budge
                     passed: false,
                     summary: "red".into(),
                     detail: "exact failing predicate".into(),
+                    receipt: None,
                 },
                 i > 1,
             );
@@ -169,6 +170,7 @@ fn repeated_red_acceptance_preserves_failure_and_selected_route_until_real_budge
                 passed: false,
                 summary: "red".into(),
                 detail: "exact failing predicate".into(),
+                receipt: None,
             },
             true,
         );
@@ -398,12 +400,9 @@ fn disconnected_verifier_retries_with_backoff_without_fabricating_acceptance() {
                 app.loop_ctl.last_error.as_deref(),
                 Some("verify worker died")
             );
-            assert!(
-                app.loop_ctl
-                    .last_setback
-                    .as_deref()
-                    .unwrap()
-                    .contains("without an acceptance result")
+            assert_eq!(
+                app.loop_ctl.last_setback.as_deref(),
+                Some(crate::agent::harness::book::d45_iteration::VERIFY_DIED)
             );
             if spent {
                 assert!(app.loop_ctl.wake_at.is_none());

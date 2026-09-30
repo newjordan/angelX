@@ -245,7 +245,7 @@ for (let index = 0; index < presentManifests.length; index++) {
   const lower = body.toLowerCase();
   for (const term of terms) {
     if (term.length >= 3 && lower.includes(term)) {
-      dep_hits.push({manifest:path, term, hint:'prefer version bump in this lockfile over vendoring'});
+      dep_hits.push({manifest:path, term, hint:'⠍⠊⠉'});
       note(path, 12, `dep-match:${term}`);
     }
   }
@@ -291,7 +291,22 @@ const outlines = ranked.length
 for (let index = 0; index < ranked.length; index++) {
   ranked[index].outline = clipped(text(outlines[index]), 1200);
 }
-const errors = first.concat(manifestBatch, defBatch, filenameResults, outlines)
+// The floor: a top candidate small enough to ride whole is read now, as
+// read_file shows it, so the first edit needs no read hop. Whole pages only
+// (a page that names a next offset is partial), within one fixed budget.
+const FLOOR_CHARS = 12000;
+const floorReads = ranked.length
+  ? batch(ranked.slice(0, 4).map(candidate => ({tool:'read_file', args:{path:candidate.path}})))
+  : [];
+const floor = [];
+let floorSpent = 0;
+for (const item of floorReads) {
+  const page = text(item);
+  if (!page || /next offset [0-9]+/.test(page) || floorSpent + page.length > FLOOR_CHARS) continue;
+  floor.push(page);
+  floorSpent += page.length;
+}
+const errors = first.concat(manifestBatch, defBatch, filenameResults, outlines, floorReads)
   .filter(item => item && !item.ok)
   .map(item => clipped(item.error || 'nested read failed', 240))
   .filter(msg => !/no such file|not found|does not exist/i.test(msg))
@@ -307,6 +322,7 @@ return {
   candidates:ranked,
   filename_fallback:filenameFallback,
   errors,
+  floor,
 };
 "#;
 
@@ -343,7 +359,11 @@ pub(crate) fn run_code_mode_tool(
     // exclusivity check the model kept retrying. Only neither-given still
     // errors: there is genuinely nothing to run.
     let script_recipe_notice = match (supplied_script, supplied_recipe) {
-        (Some(_), Some(_)) => Some("[code_mode: both script and recipe given; ran script]"),
+        // `⡨⠉⠑` inside its bracket.
+        (Some(_), Some(_)) => Some(format!(
+            "[{}]",
+            super::book::d467_receipts::SCRIPT_OVER_RECIPE.cells()
+        )),
         _ => None,
     };
     let effective_recipe = if supplied_script.is_some() {
@@ -409,20 +429,24 @@ pub(crate) fn run_code_mode_tool(
         && !crate::platform::yolo::code_effects_allowed()
         && !env_flag("ANGEL_CODE_MODE_EFFECTS", false)
     {
-        return "tool error: effectful code_mode is quarantined; operator must set \
-                ANGEL_CODE_MODE_EFFECTS=1 in addition to allow_effects=true \
-                (or enable /yolos / /yolo)"
-            .to_string();
+        return format!(
+            "tool error: effectful code_mode is quarantined\n{}",
+            crate::agent::harness::book::u_skills::CODE_MODE_EFFECTS.cells()
+        );
     }
-    // Generic scripts may orchestrate long build matrices. The trusted preturn
-    // recipe is latency-sensitive and gets a much smaller non-disableable cap.
+    // The V8 API requires a finite watchdog duration. One year is an
+    // effectively unbounded operator session while retaining a final
+    // process-safety escape for a permanently wedged isolate.
+    const UNBOUNDED_MS: u64 = 365 * 24 * 60 * 60 * 1_000;
+    // Generic scripts may orchestrate long build matrices. The preturn map has
+    // no clock of its own; the operator may set one.
     let timeout_ms = if recipe == "repo_recon" {
-        env_usize("ANGEL_TASK_RECON_TIMEOUT_MS", 15_000).clamp(100, 60_000) as u64
+        match env_usize("ANGEL_TASK_RECON_TIMEOUT_MS", 0) as u64 {
+            0 => UNBOUNDED_MS,
+            n => n,
+        }
     } else if crate::platform::yolo::enabled() {
-        // The V8 API requires a finite watchdog duration. One year is an
-        // effectively unbounded operator session while retaining a final
-        // process-safety escape for a permanently wedged isolate.
-        365 * 24 * 60 * 60 * 1_000
+        UNBOUNDED_MS
     } else {
         match env_usize("ANGEL_CODE_MODE_TIMEOUT_MS", 300_000) as u64 {
             0 => 86_400_000,
@@ -454,11 +478,11 @@ pub(crate) fn run_code_mode_tool(
     let generic_max_calls = env_usize("ANGEL_CODE_MODE_MAX_CALLS", 48).max(1);
     let generic_max_nested_output_bytes =
         env_usize("ANGEL_CODE_MODE_MAX_NESTED_OUTPUT_BYTES", 8 * 1024 * 1024).max(1);
-    // v2 recon batches manifests + defs + outlines; 24 nested calls is still
-    // far cheaper than a paid multi-hop grep loop (Roll 09 lesson).
+    // v2 recon batches manifests + defs + outlines + the floor's reads; 32
+    // nested calls is still far cheaper than a paid multi-hop read loop.
     let (max_calls, max_nested_output_bytes) = if recipe == "repo_recon" {
         (
-            generic_max_calls.min(env_usize("ANGEL_TASK_RECON_MAX_CALLS", 24).clamp(1, 32)),
+            generic_max_calls.min(env_usize("ANGEL_TASK_RECON_MAX_CALLS", 32).clamp(1, 32)),
             generic_max_nested_output_bytes.min(
                 env_usize("ANGEL_TASK_RECON_MAX_NESTED_OUTPUT_BYTES", 4 * 1024 * 1024)
                     .clamp(1, 4 * 1024 * 1024),
@@ -621,7 +645,13 @@ pub(crate) fn run_code_mode_tool(
             };
             // Large programmatic returns stay addressable under a handle so the
             // root sees the strategy-level code_mode receipt, not bulk evidence.
-            let min_offload = code_mode_offload_min_bytes();
+            // The recon map is never parked: it is bounded, and it exists to be
+            // read on the spot.
+            let min_offload = if recipe == "repo_recon" {
+                usize::MAX
+            } else {
+                code_mode_offload_min_bytes()
+            };
             let identity = format!("code_mode|{recipe}");
             if let Some(handle_receipt) = maybe_offload_root_body(
                 &result,
@@ -668,8 +698,7 @@ impl CodeModeTool {
              and filtering in ONE turn instead of many tool round-trips. Each \
              cockpit tool is a global function taking one object argument and \
              returning its text output (throwing on error); calls are synchronous \
-             (`await` is optional). `return` your final value (objects are \
-             JSON-stringified). `console.log(...)` is byte-capped. There is no \
+             (`await` is optional). `console.log(...)` is byte-capped. There is no \
              network or filesystem except through these tools, which keep their \
              usual sandboxing. Nested calls and their cumulative output are \
              hard-budgeted and reported in an orchestration receipt. Read-only \
@@ -684,11 +713,7 @@ impl CodeModeTool {
              ordered array of {{ok, output}} (per-item errors captured). \
              Handle intermediates with `handle_put(body, {{producer?, identity?}})` \
              → opaque `hnd_…` and `handle_get(id, {{offset?, max_bytes?}})` for a \
-             capped slice — keep bulk out of the script return value. \
-             Use `recipe:'repo_recon', query:'the task'` for the fixed, read-only \
-             task-conditioned repository map, or fan out custom inspection. Example: \
-             `const r = batch(files.map(f => ({{tool:'outline', args:{{path:f}}}}))); \
-             return r.filter(x => !x.ok).length + ' failing inspections';`"
+             capped slice. ⠹⠋"
         );
         Self { description }
     }
@@ -698,33 +723,9 @@ impl CodeModeTool {
 /// hops. The full isolate/API essay stays on the default interactive set.
 pub(crate) fn lean_code_mode_description() -> &'static str {
     "Run JavaScript in a sandboxed V8 isolate to batch tool calls in one hop. \
-     Bound tools such as read_file are globals (object in, text out). `return` the result. \
+     Bound tools such as read_file are globals (object in, text out). \
      `recipe:'repo_recon', query:'task'` maps the repo. Nested mutation needs \
-     allow_effects and ANGEL_CODE_MODE_EFFECTS=1. Use handle_put/handle_get for bulk."
-}
-
-/// Short advertised `code_mode` param blurbs for lean hops. Keys, enum, and
-/// default stay identical to the full schema; the never-executable /
-/// effects-gate essay does not.
-pub(crate) fn lean_code_mode_params() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "script": { "type": "string", "description": "JavaScript; call tools, return the result" },
-            "recipe": {
-                "type": "string",
-                "enum": ["repo_recon"],
-                "description": "built-in recipe; exclusive with script"
-            },
-            "query": { "type": "string", "description": "task text for repo_recon" },
-            "allow_effects": {
-                "type": "boolean",
-                "default": false,
-                "description": "request nested mutation"
-            }
-        },
-        "required": []
-    })
+     allow_effects and ANGEL_CODE_MODE_EFFECTS=1. ⠹⠋"
 }
 
 impl Tool for CodeModeTool {
@@ -740,22 +741,21 @@ impl Tool for CodeModeTool {
                 "properties": {
                     "script": {
                         "type": "string",
-                        "description": "JavaScript to execute. Call bound tools as \
-                            functions; `return` the final value."
+                        "description": "⠹⠋⠛⠹⠋⠓"
                     },
                     "recipe": {
                         "type": "string",
                         "enum": ["repo_recon"],
-                        "description": "Trusted built-in orchestration recipe. Mutually exclusive with `script`."
+                        "description": "⠹⠋⠊⠹⠋⠚"
                     },
                     "query": {
                         "type": "string",
-                        "description": "Task text used to condition `repo_recon`; encoded as data, never executable code."
+                        "description": "⠯⠛⠁"
                     },
                     "allow_effects": {
                         "type": "boolean",
                         "default": false,
-                        "description": "Request nested mutation or execution tools; also requires operator ANGEL_CODE_MODE_EFFECTS=1."
+                        "description": "⠯⠛⠃"
                     }
                 },
                 "required": []

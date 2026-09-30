@@ -870,7 +870,7 @@ fn sota_tuned_build_request_keeps_caveman_opt_in() {
         body["instructions"]
             .as_str()
             .unwrap_or_default()
-            .contains("angelX SOTA brevity mode"),
+            .contains("⠵⠁⠵⠉⠵⠋"),
         "{body}"
     );
     assert_eq!(body["input"][0]["role"], "user");
@@ -899,37 +899,6 @@ fn build_request_preserves_image_attachments_for_responses_api() {
     assert_eq!(content[0]["text"], "what is this");
     assert_eq!(content[1]["type"], "input_image");
     assert_eq!(content[1]["image_url"], "data:image/png;base64,AAAA");
-}
-
-#[test]
-fn final_mile_codex_retains_schemas_and_disables_calls() {
-    let _guard = crate::tests::env_lock();
-    let tools = [ToolDef {
-        name: "read_file".into(),
-        description: "Read".into(),
-        params: serde_json::json!({"type":"object", "properties":{}}),
-    }];
-    let mut messages = vec![ChatMsg::system("stable"), ChatMsg::user("work")];
-    let before = club().build_request(&messages, &tools);
-    messages.push(ChatMsg::harness(
-        crate::agent::club::FINAL_MILE_ANSWER_NUDGE,
-    ));
-    let after = club().build_request(&messages, &tools);
-    assert_eq!(before["tools"], after["tools"]);
-    assert_eq!(before["instructions"], after["instructions"]);
-    assert_eq!(after["tool_choice"], "none");
-    let old = before["input"].as_array().unwrap();
-    assert_eq!(
-        old.as_slice(),
-        &after["input"].as_array().unwrap()[..old.len()]
-    );
-    messages.push(ChatMsg::user("continue"));
-    assert!(
-        club()
-            .build_request(&messages, &tools)
-            .get("tool_choice")
-            .is_none()
-    );
 }
 
 #[test]
@@ -1446,4 +1415,535 @@ data: {\"type\":\"response.completed\",\"response\":{}}\n\n",
     assert_eq!(body["model"], "muse-spark-1.3");
     assert_eq!(body["reasoning"]["effort"], "low");
     assert_eq!(body["reasoning"]["summary"], "detailed");
+}
+
+#[test]
+fn responses_tool_commentary_survives_the_next_hop_without_replaying() {
+    use serde_json::json;
+    let _guard = env_lock();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let mut requests = Vec::new();
+        for (index, text) in [
+            Some("Setup passed. Checking the runner."),
+            None,
+            Some("Finished."),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let (mut sock, _) = listener.accept().unwrap();
+            requests.push(read_http_request(&mut sock));
+            sock.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
+            )
+            .unwrap();
+            if let Some(text) = text {
+                writeln!(
+                    sock,
+                    "data: {}\n",
+                    json!({
+                        "type": "response.output_text.delta", "delta": text
+                    })
+                )
+                .unwrap();
+            }
+            if index < 2 {
+                writeln!(
+                    sock,
+                    "data: {}\n",
+                    json!({
+                        "type": "response.output_item.done", "item": {
+                            "type": "function_call", "id": format!("item-{index}"),
+                            "call_id": format!("call-{index}"), "name": "inspect",
+                            "arguments": "{}"
+                        }
+                    })
+                )
+                .unwrap();
+            }
+            writeln!(
+                sock,
+                "data: {}\n",
+                json!({
+                    "type": "response.completed", "response": {}
+                })
+            )
+            .unwrap();
+        }
+        requests
+    });
+    let club = CodexClub::api_key_seat(
+        "fixture",
+        "fixture",
+        format!("http://{addr}/responses"),
+        "fixture-key",
+        None,
+        vec![],
+        crate::agent::club::RouteMetadata::default(),
+    );
+    let defs = vec![ToolDef {
+        name: "inspect".into(),
+        description: "Inspect fixture".into(),
+        params: json!({"type": "object", "properties": {}}),
+    }];
+    let mut history = vec![ChatMsg::user("Check the runner.")];
+    for hop in 0..3 {
+        crate::agent::club::set_pending_tool_content(Some("stale commentary".into()));
+        crate::agent::club::set_pending_tool_reasoning(Some("stale reasoning".into()));
+        let mut streamed = String::new();
+        let reply = club
+            .chat_streaming(&history, &defs, &AtomicBool::new(false), &mut |delta| {
+                if let StreamDelta::Content(text) = delta {
+                    streamed.push_str(text);
+                }
+            })
+            .unwrap();
+        let content = crate::agent::club::take_pending_tool_content();
+        assert!(crate::agent::club::take_pending_tool_reasoning().is_none());
+        if hop < 2 {
+            let ClubReply::Calls(calls) = reply else {
+                panic!("expected tool call")
+            };
+            assert_eq!(calls.len(), 1);
+            let expected = (hop == 0).then_some("Setup passed. Checking the runner.");
+            assert_eq!(content.as_deref(), expected);
+            assert_eq!(streamed, expected.unwrap_or_default());
+            let call_id = calls[0].id.clone();
+            history.push(ChatMsg::assistant_calls_full(calls, None, content));
+            history.push(ChatMsg::tool(call_id, "runner inspected"));
+        } else {
+            assert!(matches!(reply, ClubReply::Text(ref text) if text == "Finished."));
+            assert_eq!(streamed, "Finished.");
+            assert!(content.is_none());
+        }
+    }
+    let requests = server.join().unwrap();
+    for request in &requests[1..] {
+        let body: serde_json::Value =
+            serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+        let input = body["input"].as_array().unwrap();
+        assert_eq!(input[1]["role"], "assistant");
+        assert_eq!(
+            input[1]["content"][0]["text"],
+            "Setup passed. Checking the runner."
+        );
+        assert_eq!(input[2]["type"], "function_call");
+        assert_eq!(input[3]["type"], "function_call_output");
+        assert_eq!(input[2]["call_id"], input[3]["call_id"]);
+        assert_eq!(
+            input
+                .iter()
+                .filter(|item| item["role"] == "assistant")
+                .count(),
+            1
+        );
+    }
+}
+
+fn replay_fixture() -> (Vec<serde_json::Value>, Vec<ToolCall>, &'static str) {
+    use serde_json::json;
+    let items = vec![
+        json!({"type":"reasoning", "id":"rs-fixture", "summary":[], "encrypted_content":"opaque-fixture-state"}),
+        json!({"type":"message", "id":"msg-fixture", "role":"assistant", "phase":"commentary", "status":"completed", "content":[{"type":"output_text","text":"Inspecting."}]}),
+        json!({"type":"function_call", "id":"fc-fixture", "call_id":"call-fixture", "name":"inspect", "arguments":"{ \"path\" : \"src\" }", "status":"completed"}),
+    ];
+    let calls = vec![ToolCall {
+        id: "call-fixture".into(),
+        name: "inspect".into(),
+        args: json!({"path":"src"}),
+    }];
+    (items, calls, "Inspecting.")
+}
+
+#[test]
+fn responses_native_replay_preserves_wire_items_and_stays_private() {
+    let mut route = club();
+    route.replay_enabled = true;
+    let (items, calls, prose) = replay_fixture();
+    let mut history = vec![ChatMsg::system("stable"), ChatMsg::user("inspect")];
+    let replay =
+        ResponseReplay::new(&route.session_id, &history, &calls, prose, items.clone()).unwrap();
+    let mut assistant = ChatMsg::assistant_calls_full(calls, None, Some(prose.into()));
+    assistant.responses_replay = Some(replay);
+    let no_replay = crate::agent::harness::estimate_tokens(&[assistant.clone()]);
+    assert!(
+        no_replay > 20,
+        "opaque continuation contributes to the conservative budget"
+    );
+    let serialized = serde_json::to_string(&assistant).unwrap();
+    assert!(!serialized.contains("opaque-fixture-state"));
+    assert!(!format!("{assistant:?}").contains("opaque-fixture-state"));
+    let restored: ChatMsg = serde_json::from_str(&serialized).unwrap();
+    assert!(restored.responses_replay.is_none());
+    history.push(assistant);
+    history.push(ChatMsg::tool("call-fixture", "found"));
+    let body = route.build_request(&history, &[]);
+    assert_eq!(
+        body["include"],
+        serde_json::json!(["reasoning.encrypted_content"])
+    );
+    let input = body["input"].as_array().unwrap();
+    assert_eq!(&input[1..4], items.as_slice());
+    assert_eq!(input[4]["type"], "function_call_output");
+    assert_eq!(input[3]["call_id"], input[4]["call_id"]);
+    assert_eq!(input[2]["phase"], "commentary");
+    assert_eq!(input[3]["arguments"], "{ \"path\" : \"src\" }");
+    // Native output is never serialized into a generic provider's messages.
+    assert!(
+        !serde_json::to_string(&history)
+            .unwrap()
+            .contains("encrypted_content")
+    );
+    // Ordinary history append retains the same reusable native prefix.
+    history.push(ChatMsg::harness("continue"));
+    assert_eq!(
+        &route.build_request(&history, &[])["input"]
+            .as_array()
+            .unwrap()[..5],
+        &input[..5]
+    );
+    route.replay_enabled = false;
+    assert!(route.build_request(&history, &[]).get("include").is_none());
+    assert!(
+        !route
+            .build_request(&history, &[])
+            .to_string()
+            .contains("opaque-fixture-state")
+    );
+}
+
+#[test]
+fn responses_native_replay_invalidates_on_history_or_route_changes() {
+    let mut route = club();
+    route.replay_enabled = true;
+    let (items, calls, prose) = replay_fixture();
+    let mut history = vec![ChatMsg::system("stable"), ChatMsg::user("inspect")];
+    let mut assistant = ChatMsg::assistant_calls_full(calls.clone(), None, Some(prose.into()));
+    assistant.responses_replay =
+        ResponseReplay::new(&route.session_id, &history, &calls, prose, items);
+    history.push(assistant);
+    history.push(ChatMsg::tool("call-fixture", "found"));
+    let native = |history: &[ChatMsg]| {
+        route
+            .build_request(history, &[])
+            .to_string()
+            .contains("opaque-fixture-state")
+    };
+    assert!(
+        native(&history.clone()),
+        "Arc-backed live clones preserve the exact prefix"
+    );
+    let mut changed = history.clone();
+    changed[0] = ChatMsg::system("new compact summary");
+    assert!(!native(&changed));
+    let mut changed = history.clone();
+    changed.remove(0);
+    assert!(!native(&changed));
+    let mut changed = history.clone();
+    Arc::make_mut(&mut changed[2].tool_calls)[0].id = "repaired-call".into();
+    assert!(!native(&changed));
+    let mut changed = history.clone();
+    Arc::make_mut(&mut changed[2].tool_calls)[0].args = serde_json::json!({"path":"other"});
+    assert!(!native(&changed));
+    let mut changed = history.clone();
+    changed[1].content = "Inspect".into(); // same byte length
+    assert!(!native(&changed));
+    let mut changed = history.clone();
+    changed[1].attachments = vec![Media::Image {
+        mime: "image/png".into(),
+        b64: "changed-image".into(),
+    }]
+    .into();
+    assert!(!native(&changed));
+    let mut changed = history.clone();
+    changed[2].content = "changed commentary".into();
+    assert!(!native(&changed));
+    assert!(
+        !club()
+            .build_request(&history, &[])
+            .to_string()
+            .contains("opaque-fixture-state")
+    );
+    route.api_key = Some("other-provider-fixture".into());
+    assert!(
+        !route
+            .build_request(&history, &[])
+            .to_string()
+            .contains("opaque-fixture-state")
+    );
+}
+
+#[test]
+fn responses_native_replay_requires_complete_matching_output() {
+    use serde_json::json;
+    let route = club();
+    let prefix = vec![ChatMsg::user("inspect")];
+    let (items, calls, prose) = replay_fixture();
+    assert!(
+        ResponseReplay::new(
+            &route.session_id,
+            &prefix,
+            &calls,
+            "different",
+            items.clone()
+        )
+        .is_none()
+    );
+    assert!(
+        ResponseReplay::new(
+            &route.session_id,
+            &prefix,
+            &calls,
+            prose,
+            items[..2].to_vec()
+        )
+        .is_none()
+    );
+    let mut missing_encrypted = items.clone();
+    missing_encrypted[0]
+        .as_object_mut()
+        .unwrap()
+        .remove("encrypted_content");
+    assert!(
+        ResponseReplay::new(&route.session_id, &prefix, &calls, prose, missing_encrypted).is_none()
+    );
+    let mut collector = replay::ReplayItems::default();
+    for (index, item) in items.iter().enumerate().rev() {
+        collector.observe(&format!(
+            "data: {}",
+            json!({"type":"response.output_item.done", "output_index":index, "item":item})
+        ));
+    }
+    assert_eq!(
+        collector.finish(),
+        items,
+        "output indexes preserve native item order"
+    );
+    let mut collector = replay::ReplayItems::default();
+    collector.observe(&format!(
+        "data: {}",
+        json!({"type":"response.output_item.done", "output_index":0, "item":items[0]})
+    ));
+    collector.observe(&format!(
+        "data: {}",
+        json!({"type":"response.completed", "response":{"output":items}})
+    ));
+    assert_eq!(
+        collector.finish(),
+        items,
+        "terminal output replaces partial done events without duplication"
+    );
+    let mut collector = replay::ReplayItems::default();
+    collector.observe(&format!(
+        "data: {}",
+        json!({"type":"response.completed", "response":{"output":[{"type":"unsupported"}]}})
+    ));
+    assert!(collector.finish().is_empty());
+    for status in ["in_progress", "incomplete"] {
+        let mut partial = items.clone();
+        partial[2]["status"] = json!(status);
+        let mut collector = replay::ReplayItems::default();
+        collector.observe(&format!(
+            "data: {}",
+            json!({"type":"response.completed", "response":{"output":partial}})
+        ));
+        assert!(collector.finish().is_empty());
+    }
+}
+
+#[test]
+fn responses_native_replay_flows_from_stream_to_next_request() {
+    use serde_json::json;
+    let _guard = env_lock();
+    let (items, _, prose) = replay_fixture();
+    let expected = items.clone();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let mut requests = Vec::new();
+        for hop in 0..2 {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            requests.push(read_http_request(&mut socket));
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n").unwrap();
+            if hop == 0 {
+                writeln!(
+                    socket,
+                    "data: {}\n",
+                    json!({"type":"response.output_text.delta","delta":prose})
+                )
+                .unwrap();
+                for (index, item) in items.iter().enumerate() {
+                    writeln!(
+                        socket,
+                        "data: {}\n",
+                        json!({"type":"response.output_item.done","output_index":index,"item":item})
+                    )
+                    .unwrap();
+                }
+            }
+            writeln!(socket, "data: {}\n", json!({"type":"response.completed","response":{"output":if hop == 0 {items.clone()} else {vec![]}}})).unwrap();
+        }
+        requests
+    });
+    let mut route = club();
+    route.shared.auth.lock().unwrap().access_token = fake_jwt(json!({"exp":now_secs()+3600}));
+    route.responses_url_override = Some(format!("http://{addr}/responses"));
+    route.replay_enabled = true;
+    let mut history = vec![ChatMsg::user("inspect")];
+    let mut visible = String::new();
+    let reply = route
+        .chat_streaming(&history, &[], &AtomicBool::new(false), &mut |delta| {
+            if let StreamDelta::Content(text) | StreamDelta::Reasoning(text) = delta {
+                visible.push_str(text);
+            }
+        })
+        .unwrap();
+    assert_eq!(visible, prose);
+    let ClubReply::Calls(calls) = reply else {
+        panic!("expected calls")
+    };
+    let mut assistant =
+        ChatMsg::assistant_calls_full(calls, None, crate::agent::club::take_pending_tool_content());
+    assistant.responses_replay = crate::agent::club::take_pending_responses_replay();
+    assert!(assistant.responses_replay.is_some());
+    assert!(crate::agent::club::take_pending_responses_replay().is_none());
+    history.push(assistant);
+    history.push(ChatMsg::tool("call-fixture", "found"));
+    route.chat(&history, &[]).unwrap();
+    assert!(crate::agent::club::take_pending_responses_replay().is_none());
+    let requests = server.join().unwrap();
+    let second: serde_json::Value =
+        serde_json::from_str(requests[1].split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(
+        &second["input"].as_array().unwrap()[1..4],
+        expected.as_slice()
+    );
+}
+
+#[test]
+fn responses_native_replay_clears_stale_state_on_cancel_or_unsuccessful_streams() {
+    use serde_json::json;
+    let _guard = env_lock();
+    let (items, calls, prose) = replay_fixture();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        for end in [
+            "",
+            "response.failed",
+            "response.incomplete",
+            "response.completed",
+        ] {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            read_http_request(&mut socket);
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n").unwrap();
+            writeln!(
+                socket,
+                "data: {}\n",
+                json!({"type":"response.output_item.done","output_index":0,"item":items[0]})
+            )
+            .unwrap();
+            if !end.is_empty() {
+                let _ = writeln!(
+                    socket,
+                    "data: {}\n",
+                    json!({"type":end,"response":{"output":items}})
+                );
+            }
+        }
+    });
+    let mut route = club();
+    route.shared.auth.lock().unwrap().access_token = fake_jwt(json!({"exp":now_secs()+3600}));
+    route.responses_url_override = Some(format!("http://{addr}/responses"));
+    route.replay_enabled = true;
+    let history = vec![ChatMsg::user("inspect")];
+    for index in 0..4 {
+        let (items, _, _) = replay_fixture();
+        crate::agent::club::set_pending_responses_replay(ResponseReplay::new(
+            &route.session_id,
+            &history,
+            &calls,
+            prose,
+            items,
+        ));
+        let result = route.chat_streaming(&history, &[], &AtomicBool::new(index == 3), &mut |_| {});
+        if index < 3 {
+            assert!(result.is_err());
+        }
+        assert!(crate::agent::club::take_pending_responses_replay().is_none());
+    }
+    server.join().unwrap();
+}
+
+#[test]
+#[ignore = "request preparation timing diagnostic, not a latency assertion"]
+fn responses_native_replay_preparation_diagnostic() {
+    for bytes in [256usize, 2 * 1024 * 1024] {
+        let mut route = club();
+        let mut history = vec![ChatMsg::system("stable"), ChatMsg::user("x".repeat(bytes))];
+        let (items, calls, prose) = replay_fixture();
+        let mut assistant = ChatMsg::assistant_calls_full(calls.clone(), None, Some(prose.into()));
+        assistant.responses_replay =
+            ResponseReplay::new(&route.session_id, &history, &calls, prose, items);
+        history.push(assistant);
+        history.push(ChatMsg::tool("call-fixture", "found"));
+        let mut results = Vec::new();
+        for enabled in [false, true] {
+            route.replay_enabled = enabled;
+            let started = std::time::Instant::now();
+            for _ in 0..16 {
+                std::hint::black_box(route.build_request(&history, &[]));
+            }
+            results.push(started.elapsed().as_micros());
+        }
+        eprintln!(
+            "native replay preparation debug, 16 requests, user_bytes={bytes}: disabled={}us enabled={}us",
+            results[0], results[1]
+        );
+    }
+}
+
+/// The legend reaches a Responses seat (Codex, Muse) as it reaches Chat
+/// Completions: before, only the Chat wire carried it, so these seats only
+/// ever saw bare braille.
+#[test]
+fn the_legend_reaches_the_responses_wire() {
+    let _guard = crate::tests::env_lock();
+    let _unset = crate::tests::TestEnvGuard::unset("ANGEL_BOOK_INTRO");
+    let read_file = crate::agent::club::ToolDef {
+        name: "read_file".into(),
+        description: "read".into(),
+        params: serde_json::json!({"type": "object"}),
+    };
+    let call = vec![crate::agent::club::ToolCall {
+        id: "a".to_string(),
+        name: "run_tests".to_string(),
+        args: serde_json::json!({}),
+    }];
+    let history = vec![
+        ChatMsg::user("Fix the failing test."),
+        ChatMsg::assistant_calls(call),
+        ChatMsg::tool("a", "tests: 0 passed, 1 failed\n⠧⠉"),
+    ];
+    let body = club().build_request(&history, &[read_file]);
+    assert!(
+        body["input"]
+            .to_string()
+            .contains("fix the first diagnostic before the next edit"),
+        "{body}"
+    );
+    let bare = club().build_request(&history, &[]);
+    assert!(
+        !bare["input"]
+            .to_string()
+            .contains("fix the first diagnostic before the next edit")
+    );
 }

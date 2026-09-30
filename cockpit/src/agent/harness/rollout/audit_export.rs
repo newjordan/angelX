@@ -839,6 +839,7 @@ fn recorded_message_to_chat(
         // Private provider reasoning is intentionally absent from durable
         // rollout artifacts and cannot be reconstructed on export.
         private_reasoning: None,
+        responses_replay: None,
         tool_receipt: None,
         recovery_context: message.recovery_context.clone(),
     })

@@ -31,3 +31,42 @@ fn openai_codex_driver_preserves_resolved_slot_for_explicit_and_default_route() 
     assert_eq!(resolve_driver(&mut agents, "gpt-6-astra"), Some(0));
     assert_eq!(agents[0].active, 0);
 }
+
+#[cfg(test)]
+#[test]
+fn k3_driver_aliases_resolve_to_the_kimi_seat() {
+    // The Kimi Code plan calls the model `k3`; the sota-link alias is `kimi`.
+    // Every spelling an operator might pin must resolve to that seat — a miss
+    // here is the silent smartest-available fallback seen on rig B.
+    struct KimiSeat;
+    impl Club for KimiSeat {
+        fn label(&self) -> &str {
+            "kimi"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            Err("fixture only".into())
+        }
+        fn live_model_name(&self) -> Option<String> {
+            Some("kimi-k3".into())
+        }
+    }
+    let agents_fn = || {
+        vec![Agent {
+            name: "sota".into(),
+            slots: vec![Slot {
+                label: "kimi".into(),
+                club: Arc::new(KimiSeat),
+                available: Arc::new(AtomicBool::new(true)),
+            }],
+            active: 0,
+        }]
+    };
+    for pref in ["k3", "kimi-k3", "moonshot", "kimi-code", "kimi"] {
+        let mut agents = agents_fn();
+        assert_eq!(
+            resolve_driver(&mut agents, pref),
+            Some(0),
+            "ANGEL_DRIVER={pref} must resolve to the kimi seat"
+        );
+    }
+}

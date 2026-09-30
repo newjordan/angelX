@@ -62,11 +62,16 @@ pub(crate) use tool_parse::*;
 pub(crate) use types::*;
 
 thread_local! {
-    /// Private provider reasoning associated with the most recent tool-call
-    /// reply on this execution thread. The turn loop consumes it immediately
-    /// when it appends that exact assistant message, before another request can
-    /// run on the thread. It is never serialized or shared across sessions.
+    /// Private provider reasoning associated with the most recent reply on
+    /// this execution thread, a tool-call turn or a final answer. The turn loop
+    /// consumes it immediately when it appends that exact assistant message,
+    /// before another request can run on the thread. It is never serialized
+    /// or shared across sessions.
     static PENDING_TOOL_REASONING: std::cell::RefCell<Option<String>> = const {
+        std::cell::RefCell::new(None)
+    };
+    /// Opaque native Responses output, handed to this exact live tool turn.
+    static PENDING_RESPONSES_REPLAY: std::cell::RefCell<Option<Arc<crate::agent::openai_codex::ResponseReplay>>> = const {
         std::cell::RefCell::new(None)
     };
     /// Model-authored prose content associated with the most recent tool-call
@@ -83,6 +88,17 @@ pub(crate) fn set_pending_tool_reasoning(reasoning: Option<String>) {
 
 pub(crate) fn take_pending_tool_reasoning() -> Option<String> {
     PENDING_TOOL_REASONING.with(|slot| slot.borrow_mut().take())
+}
+
+pub(crate) fn set_pending_responses_replay(
+    replay: Option<Arc<crate::agent::openai_codex::ResponseReplay>>,
+) {
+    PENDING_RESPONSES_REPLAY.with(|slot| *slot.borrow_mut() = replay);
+}
+
+pub(crate) fn take_pending_responses_replay()
+-> Option<Arc<crate::agent::openai_codex::ResponseReplay>> {
+    PENDING_RESPONSES_REPLAY.with(|slot| slot.borrow_mut().take())
 }
 
 pub(crate) fn set_pending_tool_content(content: Option<String>) {
@@ -304,6 +320,13 @@ pub trait Club: Send + Sync {
     /// undetected backend keeps every historical behavior byte-identical.
     fn prompt_cache_capable(&self) -> bool {
         false
+    }
+
+    /// The context budget the provider's own harness compacts at, when it
+    /// publishes one (DeepSeek's harness: 678,464 tokens of its 1M window).
+    /// `None` keeps angelX's own budget.
+    fn provider_compaction_budget(&self) -> Option<usize> {
+        None
     }
 
     /// Cumulative unusable-output truncation recovery for causal benchmarking.
@@ -566,6 +589,10 @@ impl Club for EffortScopedClub {
         self.inner.prompt_cache_capable()
     }
 
+    fn provider_compaction_budget(&self) -> Option<usize> {
+        self.inner.provider_compaction_budget()
+    }
+
     fn truncation_usage(&self) -> TruncationUsage {
         self.inner.truncation_usage()
     }
@@ -651,21 +678,12 @@ pub(crate) fn scoped_reasoning_effort(
 }
 
 /// Logical wrappers that must not be auto-elected as a brain, loop seat, or
-/// Tab stop. `mathgod` is selected only by `/moa math` or `ANGEL_DRIVER=mathgod`.
+/// Tab stop.
 pub(crate) fn is_logical_wrapper_label(label: &str) -> bool {
     let label = label.trim();
     eq_ascii_ignore_case(label, "practice")
         || eq_ascii_ignore_case(label, "swarm")
         || contains_ascii_ignore_case(label, "moa")
-        || is_mathgod_label(label)
-        || starts_with_ascii_ignore_case(label, "gpu-comp")
-}
-
-pub(crate) fn is_mathgod_label(label: &str) -> bool {
-    let label = label.trim();
-    eq_ascii_ignore_case(label, "mathgod")
-        || eq_ascii_ignore_case(label, "math-god")
-        || eq_ascii_ignore_case(label, "math god")
 }
 
 fn contains_ascii_ignore_case(hay: &str, needle: &str) -> bool {
@@ -727,8 +745,6 @@ pub(crate) fn is_sota_label(label: &str) -> bool {
         || eq_ascii_ignore_case(label, "qwen3.7-plus")
         || contains_ascii_ignore_case(label, "longcat")
         || contains_ascii_ignore_case(label, "sota")
-        || eq_ascii_ignore_case(label, "mathgod")
-        || eq_ascii_ignore_case(label, "math-god")
 }
 
 /// The designated smart-escalation seat — what `smart`/`sota` means in
@@ -847,170 +863,6 @@ impl Club for PracticeClub {
     }
 }
 
-// ---------------------------------------------------------------------------
-// GpuCompLocalMoaClub — logical cockpit configuration
-// ---------------------------------------------------------------------------
-
-/// A permanent, always-available selector entry for the overnight GPU competition
-/// formation. It is a coordinator surface: visible in the cockpit as a stable
-/// logical agent, with Turbo doing the actual language-model work underneath.
-pub struct GpuCompLocalMoaClub {
-    driver: Arc<dyn Club>,
-}
-
-impl GpuCompLocalMoaClub {
-    pub fn new(driver: Arc<dyn Club>) -> Self {
-        Self { driver }
-    }
-
-    fn coordinator_prompt() -> &'static str {
-        "You are the GPU competition coordinator. Your primary objective is to improve kernel candidates through measured experiments. \
-This chat uses one configured Turbo coordinator. Use the native `/moa gpu` formation when the user engages a model team; inspect its configured seats before assigning work. \
-Do not claim that another model, tool, or verifier participated without its execution receipt. \
-Answer the user's actual prompt directly. Do not repeat setup instructions unless the user asks how to start or diagnose the configuration. \
-Check correctness before timing, use proxy hardware results only with their calibration limits, and distinguish local measurements from official submissions. \
-Use code_mode to batch independent inspection and retain large kernels and logs under handles. Jev supplies advisory analysis; benchmark_compare calculates measured changes from paired samples."
-    }
-
-    fn status_card() -> &'static str {
-        "GPU competition coordinator: one configured Turbo conversation. Use `/moa gpu` to engage the native GPU formation, `/moa` to inspect its seats, and `/graph` for declared agent workflows."
-    }
-
-    fn with_coordinator_prompt(messages: &[ChatMsg]) -> Vec<ChatMsg> {
-        let prompt = Self::coordinator_prompt();
-        match messages.split_first() {
-            Some((first, rest)) if first.role == ChatRole::System => {
-                let mut out = Vec::with_capacity(messages.len());
-                out.push(ChatMsg::system(format!(
-                    "{prompt}\n\nCockpit context:\n{}",
-                    first.content
-                )));
-                out.extend(rest.iter().cloned());
-                out
-            }
-            _ => {
-                let mut out = Vec::with_capacity(messages.len() + 1);
-                out.push(ChatMsg::system(prompt));
-                out.extend(messages.iter().cloned());
-                out
-            }
-        }
-    }
-
-    fn driver_error_text(error: &str) -> String {
-        format!(
-            "Turbo driver is not reachable from the GPU Comp Local MoA coordinator yet: {error}\n\n{}",
-            Self::status_card()
-        )
-    }
-}
-
-impl Club for GpuCompLocalMoaClub {
-    fn model_identity(&self) -> Option<String> {
-        self.driver.model_identity()
-    }
-
-    fn resolved_route_identity(&self) -> RouteIdentity {
-        self.driver.resolved_route_identity()
-    }
-
-    fn respond(&self, prompt: &str) -> Result<String, String> {
-        match self.chat(&[ChatMsg::user(prompt)], &[])? {
-            ClubReply::Text(text) => Ok(text),
-            ClubReply::Calls(_) => Ok(
-                "GPU Comp Local MoA needs the cockpit tool loop for that request; ask from the normal chat path so I can execute tools."
-                    .to_string(),
-            ),
-        }
-    }
-
-    fn label(&self) -> &str {
-        "gpu-comp-local-moa"
-    }
-
-    fn is_available(&self) -> bool {
-        self.driver.is_available()
-    }
-
-    fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        let messages = Self::with_coordinator_prompt(messages);
-        self.driver
-            .chat(&messages, tools)
-            .map_err(|error| Self::driver_error_text(&error))
-    }
-
-    fn chat_streaming(
-        &self,
-        messages: &[ChatMsg],
-        tools: &[ToolDef],
-        cancel: &AtomicBool,
-        on_delta: &mut dyn FnMut(StreamDelta),
-    ) -> Result<ClubReply, String> {
-        let messages = Self::with_coordinator_prompt(messages);
-        self.driver
-            .chat_streaming(&messages, tools, cancel, on_delta)
-            .map_err(|error| Self::driver_error_text(&error))
-    }
-
-    fn quota_cooldown(&self) -> Option<Duration> {
-        self.driver.quota_cooldown()
-    }
-
-    fn usage_report(&self) -> Option<String> {
-        self.driver.usage_report()
-    }
-
-    fn token_usage(&self) -> Option<TokenUsage> {
-        self.driver.token_usage()
-    }
-
-    fn usage_accounting(&self) -> AccountingView {
-        self.driver.usage_accounting()
-    }
-
-    fn cache_usage(&self) -> CacheUsage {
-        self.driver.cache_usage()
-    }
-
-    fn truncation_usage(&self) -> TruncationUsage {
-        self.driver.truncation_usage()
-    }
-
-    fn effort_gate_usage(&self) -> EffortGateUsage {
-        self.driver.effort_gate_usage()
-    }
-
-    fn metadata(&self) -> Option<Metadata> {
-        self.driver.metadata()
-    }
-
-    fn metadata_cached(&self) -> Option<Metadata> {
-        self.driver.metadata_cached()
-    }
-}
-
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/tests.rs"]
 mod tests;
-
-pub(crate) const FINAL_MILE_ANSWER_NUDGE: &str = "[harness-telemetry] FINAL RESPONSE WINDOW. Tool calls are now disabled for the \
-    last bounded policy calls. Return the final answer now; do not announce future work or print \
-    tool markup. State the retained change and verification evidence, or state that no candidate \
-    remains and name the concrete blocker or failed check.";
-
-/// Only a harness-owned final-window directive in the current user turn may
-/// disable calls. User/tool text cannot impersonate this transport policy, and
-/// a new operator turn resets it without rewriting the retained history.
-pub(crate) fn final_response_requested(messages: &[ChatMsg]) -> bool {
-    messages
-        .iter()
-        .rev()
-        .take_while(|m| m.role != ChatRole::User)
-        .any(|m| {
-            m.role == ChatRole::Harness
-                && matches!(
-                    m.content.as_ref(),
-                    FINAL_MILE_ANSWER_NUDGE | crate::agent::harness::research::COMPOSE
-                )
-        })
-}

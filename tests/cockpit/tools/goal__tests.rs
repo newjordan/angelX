@@ -39,6 +39,14 @@ fn goal_tool_set_show_clear_roundtrip() {
     let shown = tool.call(&serde_json::json!({"action": "show"})).unwrap();
     assert!(shown.contains("harden the harness"), "show: {shown}");
     assert!(shown.contains("cargo test"), "show: {shown}");
+    // Its labels are the goal block's pages, each value beside its address.
+    assert!(
+        shown.starts_with(
+            "⠗⠃⠊ status=Active harden the harness\n⠗⠃⠉\n- tests green\n⠗⠃⠙ cargo test"
+        ),
+        "show: {shown}"
+    );
+    assert!(!shown.contains("acceptance criteria"), "show: {shown}");
 
     // clear removes it from the store.
     let cleared = tool.call(&serde_json::json!({"action": "clear"})).unwrap();

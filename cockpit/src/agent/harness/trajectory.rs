@@ -64,7 +64,7 @@ pub(crate) fn summarize_result(result: &str) -> String {
 
 /// Tool-call hop budget for one agent turn. This is a *runaway guard*, not a
 /// reasoning limit: nex2-style extended-reasoning clubs loop through many tool
-/// calls by design, and agentic drivers (spark) are multi-step too — so the
+/// calls by design, and agentic drivers are multi-step too — so the
 /// default is generous. Override with `ANGEL_MAX_HOPS`; set it to `0` to run
 /// unbounded (loop until the club produces a text answer).
 pub fn default_max_hops() -> usize {
@@ -230,26 +230,18 @@ pub(crate) fn harness_treatment_json() -> Value {
         "tool_aging".into(),
         env_flag("ANGEL_TOOL_AGING", true).into(),
     );
-    map.insert(
-        "gpu_comp".into(),
-        env_flag("ANGEL_GPU_COMP_LOCAL_MOA", false).into(),
-    );
-    // Phase-4 RL scorer label (GpuComp pins popcorn_peer). Stamps Cut/Forge
-    // goldens so preference densify can join the same reward contract.
+    // Phase-4 RL scorer label. Stamps Cut/Forge goldens so preference
+    // densify can join the same reward contract: the scorer that actually
+    // runs, and the one requested when that differs.
+    if let Some(requested) = std::env::var("ANGEL_RL_REWARD")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
     {
-        let rl = std::env::var("ANGEL_RL_REWARD")
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| {
-                if env_flag("ANGEL_GPU_COMP_LOCAL_MOA", false) {
-                    "popcorn_peer".into()
-                } else {
-                    String::new()
-                }
-            });
-        if !rl.is_empty() {
-            map.insert("rl_reward".into(), Value::String(rl));
+        let live = crate::drive::reinforce::live_reward_label();
+        map.insert("rl_reward".into(), Value::String(live.into()));
+        if crate::drive::reinforce::reward_label_from_env() != live {
+            map.insert("rl_reward_requested".into(), Value::String(requested));
         }
     }
     map.insert(
@@ -262,137 +254,6 @@ pub(crate) fn harness_treatment_json() -> Value {
             "evictions": stats.evictions,
         }),
     );
-    // Living B200 peer frontier — stamps Cut/Forge goldens with the competition
-    // subject so curriculum can filter/join peer-relative rewards later.
-    if let Some((geo, name, path)) = load_living_peer_snapshot() {
-        map.insert(
-            "living_peer_us".into(),
-            serde_json::json!((geo * 100.0).round() / 100.0),
-        );
-        map.insert("living_peer_name".into(), Value::String(name));
-        if let Some(p) = path {
-            map.insert("living_peer_path".into(), Value::String(p));
-        }
-    }
-    if let Some(p1) = load_living_peer_p1_us() {
-        map.insert(
-            "living_peer_p1_us".into(),
-            serde_json::json!((p1 * 10.0).round() / 10.0),
-        );
-    }
-    let holds = load_living_peer_shape_holds(8);
-    if !holds.is_empty() {
-        map.insert(
-            "living_peer_shape_holds_n".into(),
-            serde_json::json!(holds.len()),
-        );
-        // Compact top keys for Hi/Q join without stuffing full shape tables.
-        let keys: Vec<String> = holds.iter().take(5).map(|h| h.key.clone()).collect();
-        map.insert(
-            "living_peer_shape_hold_keys".into(),
-            serde_json::json!(keys),
-        );
-    }
-    let open = load_living_peer_open_levers(5);
-    if !open.is_empty() {
-        map.insert(
-            "living_peer_open_levers_n".into(),
-            serde_json::json!(open.len()),
-        );
-        let keys: Vec<String> = open.iter().map(|l| l.key.clone()).collect();
-        map.insert(
-            "living_peer_open_lever_keys".into(),
-            serde_json::json!(keys),
-        );
-        // Top absolute board µs (primary geomean lever) for curriculum join.
-        if let Some(top) = open.first() {
-            let top_us = (top.board_us * 10.0).round() / 10.0;
-            map.insert("living_peer_top_open_us".into(), serde_json::json!(top_us));
-            map.insert(
-                "living_peer_top_open_key".into(),
-                Value::String(top.key.clone()),
-            );
-            // Primary attack = rank-1 board µs (usually huge 32k). Half-cut impact
-            // teaches equal-weight geomean: any shape 2× faster multiplies geo by 0.5^(1/n).
-            // Canonical forge names (`living_peer_primary_key` / `_us`) match
-            // strategy_student + free-train Hi/Q curriculum; keep `_attack` alias.
-            map.insert(
-                "living_peer_primary_key".into(),
-                Value::String(top.key.clone()),
-            );
-            map.insert("living_peer_primary_us".into(), serde_json::json!(top_us));
-            map.insert(
-                "living_peer_primary_attack".into(),
-                Value::String(top.key.clone()),
-            );
-            map.insert(
-                "living_peer_primary_geo_drop_half_pct".into(),
-                serde_json::json!((top.geo_drop_if_half_pct * 1000.0).round() / 1000.0),
-            );
-            if let Some(b) = top.best_us {
-                map.insert(
-                    "living_peer_primary_best_us".into(),
-                    serde_json::json!((b * 10.0).round() / 10.0),
-                );
-            }
-            if let Some(ref n) = top.best_name {
-                map.insert(
-                    "living_peer_primary_best_name".into(),
-                    Value::String(n.clone()),
-                );
-            }
-        }
-    }
-    if let Ok(peer_log) = std::env::var("POPCORN_PEER_LOG")
-        && !peer_log.is_empty()
-    {
-        map.insert("popcorn_peer_log".into(), Value::String(peer_log));
-    }
-    // Free-train / last LoRA cycle handoff — stamps Cut goldens so curriculum
-    // can join adapter version + gate without re-reading forge logs.
-    if let Some(snap) = load_forge_train_snap()
-        && snap.state == "done"
-    {
-        if let Some(ref ver) = snap.version {
-            map.insert("forge_adapter_version".into(), Value::String(ver.clone()));
-        }
-        if let Some(g) = snap.gate_pass {
-            map.insert("forge_gate_pass".into(), Value::Bool(g));
-        }
-        if snap.adapter_local {
-            map.insert("forge_adapter_local".into(), Value::Bool(true));
-        }
-        if let Some(p) = snap.promoted {
-            map.insert("forge_promoted".into(), Value::Bool(p));
-        }
-        if let Some(loss) = snap.train_loss
-            && loss.is_finite()
-            && loss > 0.0
-        {
-            map.insert(
-                "forge_train_loss".into(),
-                serde_json::json!((loss * 10000.0).round() / 10000.0),
-            );
-        }
-        if let Some(lo) = snap.train_loss_min
-            && lo.is_finite()
-            && lo > 0.0
-        {
-            map.insert(
-                "forge_train_loss_min".into(),
-                serde_json::json!((lo * 10000.0).round() / 10000.0),
-            );
-        }
-        if let Some(hi) = snap.train_loss_max
-            && hi.is_finite()
-            && hi > 0.0
-        {
-            map.insert(
-                "forge_train_loss_max".into(),
-                serde_json::json!((hi * 10000.0).round() / 10000.0),
-            );
-        }
-    }
     Value::Object(map)
 }
 
@@ -457,7 +318,7 @@ pub(crate) fn trajectory_dir() -> PathBuf {
     if cfg!(test) {
         // Cockpit test suites must never feed the live trainer inbox: a
         // practice-club rollout written to the real ~/.angelX/trajectories is
-        // rsynced to the Spark trainer within ten minutes. Unit-test binaries
+        // rsynced to the trainer within ten minutes. Unit-test binaries
         // default to a per-process temp directory instead.
         return std::env::temp_dir()
             .join(format!("angel-trajectories-test-{}", std::process::id()));
@@ -624,7 +485,6 @@ struct TurnLedger {
     tools: Vec<Value>,
     verifier: Vec<Value>,
     artifacts: Vec<Value>,
-    lease: Option<Value>,
     turn_id: Option<String>,
     session: Option<String>,
     stop_reason: Option<&'static str>,
@@ -634,6 +494,7 @@ struct TurnLedger {
     provider_samples: Vec<Value>,
     parking_events: Vec<Value>,
     timing: Option<Value>,
+    task_timing: Option<super::turn::TaskTimingTelemetry>,
     usage_before: Option<crate::agent::club::AccountingView>,
     signatures: std::collections::HashMap<String, usize>,
     read_paths: std::collections::HashSet<String>,
@@ -650,6 +511,10 @@ struct TurnLedger {
     first_verified_at_ms: Option<u64>,
     unproductive_streak: usize,
     unproductive_streak_max: usize,
+    hop_stamps: std::collections::VecDeque<char>,
+    hop_stamp_counts: std::collections::BTreeMap<char, usize>,
+    routes_raised: std::collections::BTreeMap<String, usize>,
+    ledger_reads: usize,
     hop_progress: bool,
     hop_pending: bool,
     escalations: Vec<Value>,
@@ -666,6 +531,7 @@ thread_local! {
 /// Open the ledger at turn start: clear the previous turn's entries and
 /// snapshot the driver's cumulative counters so usage lands as a delta.
 pub(crate) fn reset_turn_ledger(club: &dyn Club) {
+    super::run_identity::reset_turn_identity();
     LAST_TASK_TIMING.with(|cell| *cell.borrow_mut() = None);
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
@@ -798,6 +664,7 @@ pub(crate) fn note_timing_origin(origin: std::time::Instant) {
 }
 
 pub(crate) fn begin_model_request() {
+    super::run_identity::begin_request();
     TASK_LIFECYCLE.with(|cell| {
         let mut state = cell.borrow_mut();
         if state.first_request.is_none() {
@@ -815,8 +682,16 @@ pub(crate) fn end_model_request() {
     TURN_LEDGER.with(|cell| cell.borrow_mut().active_model_call = None);
 }
 
+pub(crate) fn model_request_active() -> bool {
+    TURN_LEDGER.with(|cell| cell.borrow().active_model_call.is_some())
+}
+
 /// Provider attempts nest inside harness calls; these samples never add to totals.
 pub(crate) fn begin_provider_attempt(source_id: u64) -> Option<usize> {
+    let identity = super::run_identity::request_identity().map(|identity| {
+        serde_json::json!({"model":identity.model,"effort":identity.effort,
+            "output_tokens":identity.budgets["output_tokens"]})
+    });
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
         let parent = ledger.active_model_call?;
@@ -830,7 +705,8 @@ pub(crate) fn begin_provider_attempt(source_id: u64) -> Option<usize> {
             .provider_samples
             .push(serde_json::json!({"id":id,"start":start,
             "end":null,"retry_of":retry_of,"model_call":parent,"source_id":source_id,
-            "usage":null,"request_bytes":null,"response_bytes":null}));
+            "identity":identity,"usage":null,"usage_accounting":null,
+            "request_bytes":null,"response_bytes":null}));
         Some(id)
     })
 }
@@ -857,6 +733,11 @@ pub(crate) fn end_provider_attempt(
         if let Some(sample) = id.and_then(|id| ledger.provider_samples.get_mut(id)) {
             sample["end"] = serde_json::json!(end);
             sample["usage"] = serde_json::json!(observation.map(|o| o.raw));
+            let mut snapshot = crate::agent::club::AccountingSnapshot::default();
+            snapshot.record(observation);
+            sample["usage_accounting"] = complete_ledger_usage(
+                &crate::agent::club::AccountingReport::from_snapshot(snapshot, false),
+            );
             // Publish each field on every attempt, including retries without a
             // response. Unknown provider counters must never masquerade as zero.
             let [input, output, _, cached, _] = observation.map(|o| o.raw).unwrap_or([None; 5]);
@@ -981,10 +862,6 @@ pub(crate) fn note_tool_outcome(
                 "kind":args.get("kind").and_then(Value::as_str), "path_digest":path.map(|p| crate::knowledge::cut::sha256_hex(p.as_bytes())),
                 "shown":null})); // successful dispatch does not prove terminal rendering
         }
-        if name == "machine_test" {
-            ledger.lease = Some(serde_json::json!({"kind":"fleet", "host":args.get("host").and_then(Value::as_str),
-                "seat":null,"lease_id":null}));
-        }
         if verify.is_some() {
             // A real verification obligation restores the coding contract.
             ledger.research_turn = false;
@@ -1019,6 +896,11 @@ pub(crate) fn note_tool_outcome(
             && let Some(path) = args.get("path").and_then(Value::as_str)
         {
             ledger.read_paths.insert(normalized_read_path(path));
+            if super::book::ledger::is_ledger_path(path) {
+                // Measurement only: did the model choose to open a stamp's
+                // ledger entry? Reading ideas is not workspace progress.
+                ledger.ledger_reads += 1;
+            }
         }
         // Execution credit is independent of green/completion credit. Repeating
         // the same verifier on unchanged bytes is not another experiment.
@@ -1183,6 +1065,13 @@ pub(crate) fn note_progress_hop(mutated: bool) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
         ledger.completed_hops += 1;
+        // A hop that ends with a live background job is intervening work, not
+        // an idle hop: the turn is waiting on real work it dispatched (rig or
+        // build). Accruing an unproductive streak across such waits is how a
+        // legitimate loop gets escalated/stopped mid-build (the BUG-0005
+        // failure class). Hold the streak instead of incrementing it; the
+        // streak can still fire on hops with no dispatched work at all.
+        let live_background_jobs = crate::agent::tools::proc::live_job_count();
         if mutated {
             ledger.research_turn = false;
             ledger.hop_progress = true;
@@ -1198,6 +1087,9 @@ pub(crate) fn note_progress_hop(mutated: bool) {
         ledger.hop_credit = None;
         ledger.unproductive_streak = if ledger.hop_progress {
             0
+        } else if live_background_jobs > 0 {
+            // Hold, do not accrue: this hop was a wait on dispatched work.
+            ledger.unproductive_streak
         } else {
             ledger.unproductive_streak + 1
         };
@@ -1212,12 +1104,44 @@ pub(crate) fn note_progress_hop(mutated: bool) {
     });
 }
 
+/// Tray strip: one braille cell per completed hop — the primary of the first
+/// route the hop raised, else `⠤` while background jobs run, else `⠿` pass.
+/// Local only; the model never pays for the strip.
+pub(crate) fn note_hop_stamps(raised: &[super::book::Route]) {
+    use super::book::{PASS_GLYPH, WAIT_GLYPH};
+    let glyph = match raised.first() {
+        Some(route) => route.primary,
+        None if crate::agent::tools::proc::live_job_count() > 0 => WAIT_GLYPH,
+        None => PASS_GLYPH,
+    };
+    TURN_LEDGER.with(|cell| {
+        let mut ledger = cell.borrow_mut();
+        for route in raised {
+            *ledger.routes_raised.entry(route.name()).or_default() += 1;
+        }
+        if ledger.hop_stamps.len() == 48
+            && let Some(old) = ledger.hop_stamps.pop_front()
+            && let Some(slot) = ledger.hop_stamp_counts.get_mut(&old)
+        {
+            *slot = slot.saturating_sub(1);
+        }
+        ledger.hop_stamps.push_back(glyph);
+        *ledger.hop_stamp_counts.entry(glyph).or_default() += 1;
+    });
+}
+
 /// Evaluate completed hops only; the turn loop calls this before another request.
 /// Progress and reset semantics are owned by the existing progress ledger.
+///
+/// Two advisories come back, both stamps of `⠇⠛` with their facts beside them:
+/// the notice at `escalate` consecutive unproductive hops (and every multiple
+/// of it while the streak lasts), and, at `redirect`, the redirect that 0.1.6
+/// gave before it stopped the turn. The stop is gone; the redirect stands, and
+/// the count starts again after it. `redirect` 0 gives none.
 pub(crate) fn unproductive_escalation(
     hop: usize,
     escalate: usize,
-    stop: usize,
+    redirect: usize,
 ) -> (Option<String>, Option<String>) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
@@ -1226,51 +1150,56 @@ pub(crate) fn unproductive_escalation(
         }
         ledger.last_streak_evaluation_hop = Some(hop);
         let streak = ledger.unproductive_streak;
-        let last = ledger.last_verifier.as_deref().unwrap_or("not_run").to_string();
+        let last = ledger
+            .last_verifier
+            .as_deref()
+            .unwrap_or("not_run")
+            .to_string();
         let already_escalated = ledger.streak_escalated;
-        let notice = if escalate > 0 && streak >= escalate && (!already_escalated || streak.is_multiple_of(escalate)) {
+        let notice = if escalate > 0
+            && streak >= escalate
+            && (!already_escalated || streak.is_multiple_of(escalate))
+        {
             let elapsed_ms = ledger.timing_origin.map(|t| t.elapsed().as_millis() as u64);
             ledger.escalations.push(serde_json::json!({
                 "kind": "unproductive_streak", "hop": hop, "streak": streak,
                 "last_verifier": last, "elapsed_ms": elapsed_ms,
             }));
             ledger.streak_escalated = true;
+            // The streak is `⠇⠛`: its page address, then the facts as data.
+            let streak_route = crate::agent::harness::book::l_loops::STREAK;
             if ledger.research_turn {
-                Some(format!("unproductive streak: {streak} consecutive actions added no new sources; deliver the answer with supporting citations or an explicit missing-evidence statement with NO citations"))
+                Some(format!("{}⠁ streak={streak}", streak_route.cells()))
             } else {
-            Some(format!("unproductive streak: {streak} consecutive actions changed nothing verifiable; the verifier's last outcome was {last}; produce a verified candidate, run the verifier with an explicit result, or report the blocker as your answer. Scratch files outside the repository (e.g. in /tmp) do not count as progress; edit the target source file directly."))
+                Some(format!(
+                    "{}⠃ streak={streak} last={last}",
+                    streak_route.cells()
+                ))
             }
         } else {
             None
         };
-        let diagnosis = if stop > 0 && streak >= stop && (already_escalated || ledger.streak_escalated || escalate == 0) {
-            let mut digests = Vec::new();
-            for tool in ledger.tools.iter().rev() {
-                if let Some(digest) = tool["args_digest"].as_str()
-                    && !digests.contains(&digest) {
-                    digests.push(digest);
-                    if digests.len() == 3 { break; }
-                }
-            }
-            if ledger.research_turn {
-                Some(format!("Escalated research turn: {streak} consecutive unproductive hops added no new sources; deliver the answer with supporting citations or an explicit missing-evidence statement with NO citations"))
-            } else {
-            Some(format!("Escalated unproductive turn: {streak} consecutive unproductive hops ({}–{hop}), with no progress since escalation; last verifier outcome: {last}; last credited progress: {}; last 3 distinct action digests (newest first): {}", hop.saturating_sub(streak) + 1, ledger.last_progress.as_ref().map(Value::to_string).unwrap_or_else(|| "none (hop 0)".into()), digests.join(", ")))
-            }
-        } else {
-            None
-        };
-        (notice, diagnosis)
+        let redirected = redirect > 0
+            && !ledger.research_turn
+            && streak >= redirect
+            && (already_escalated || ledger.streak_escalated);
+        let redirect_note = redirected.then(|| {
+            let streak_route = crate::agent::harness::book::l_loops::STREAK;
+            ledger.escalations.push(serde_json::json!({
+                "kind": "unproductive_redirect", "hop": hop, "streak": streak,
+                "last_verifier": last,
+            }));
+            format!("{}⠉ streak={streak} last={last}", streak_route.cells())
+        });
+        if redirected {
+            // The redirect is the last word for this stretch; a stretch that
+            // goes on unproductive earns the next notice, then the next redirect.
+            ledger.unproductive_streak = 0;
+            ledger.streak_escalated = false;
+            ledger.last_streak_evaluation_hop = Some(hop);
+        }
+        (notice, redirect_note)
     })
-}
-
-pub(crate) fn clear_unproductive_streak() {
-    TURN_LEDGER.with(|cell| {
-        let mut ledger = cell.borrow_mut();
-        ledger.unproductive_streak = 0;
-        ledger.streak_escalated = false;
-        ledger.last_streak_evaluation_hop = None;
-    });
 }
 
 pub(crate) fn note_escalation(hop: usize, kind: &str) {
@@ -1305,19 +1234,9 @@ pub(crate) fn last_route_switch() -> Option<crate::agent::club::RouteIdentity> {
     })
 }
 
-/// Keep the immutable first-request binding, but project the answering route
-/// into each terminal receipt. Unknown endpoint/wire controls stay unbound.
+/// Effective caller-local request with immutable first-request provenance.
 pub(crate) fn turn_identity() -> Option<super::run_identity::RunIdentity> {
-    let mut identity = super::run_identity::current()?.clone();
-    if let Some(route) = last_route_switch() {
-        identity.model.club = route.driver.clone();
-        identity.model.driver = route.driver;
-        identity.model.id = route.model.unwrap_or_else(|| "unbound".into());
-        identity.model.base_url = "unbound".into();
-        identity.effort = serde_json::json!("unbound");
-        identity.budgets["output_tokens"] = serde_json::json!("unbound");
-    }
-    Some(identity)
+    super::run_identity::current_for_turn()
 }
 
 pub(crate) fn progress_ledger_snapshot() -> Value {
@@ -1330,6 +1249,10 @@ pub(crate) fn progress_ledger_snapshot() -> Value {
             "first_verified_at_ms": ledger.first_verified_at_ms,
             "last_credited_progress": ledger.last_progress,
             "hop_stream_cuts": ledger.stream_cuts.iter().map(|(hop, count)| serde_json::json!({"hop":hop,"stream_cut":count})).collect::<Vec<_>>(),
+            "hop_stamps": ledger.hop_stamps.iter().collect::<String>(),
+            "hop_stamp_counts": ledger.hop_stamp_counts,
+            "routes_raised": ledger.routes_raised,
+            "ledger_reads": ledger.ledger_reads,
             "unproductive_streak_max": ledger.unproductive_streak_max.max(
                 if ledger.hop_pending && !ledger.hop_progress { ledger.unproductive_streak + 1 } else { 0 }
             ),
@@ -1363,10 +1286,26 @@ pub(crate) fn note_proc_kills(kills: &[(u64, crate::agent::sandbox::process_owne
 
 /// Latest timing split for the running turn (refreshed after every model wait
 /// and tool batch, so the record written at any exit seam is current).
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn note_timing<T: serde::Serialize>(timing: &T) {
     if let Ok(v) = serde_json::to_value(timing) {
-        TURN_LEDGER.with(|cell| cell.borrow_mut().timing = Some(v));
+        TURN_LEDGER.with(|cell| {
+            let mut ledger = cell.borrow_mut();
+            ledger.timing = Some(v);
+            ledger.task_timing = None;
+        });
     }
+}
+
+/// The running turn's own receipt, kept as it is and serialized only when a
+/// record is written: the turn refreshes it twice a hop, and its call samples
+/// grow with the turn.
+pub(crate) fn note_task_timing(timing: &super::turn::TaskTimingTelemetry) {
+    TURN_LEDGER.with(|cell| {
+        let mut ledger = cell.borrow_mut();
+        ledger.task_timing = Some(timing.clone());
+        ledger.timing = None;
+    });
 }
 
 /// `/ledger [N]` — the last N (default 12) recorded turns with their ledger,
@@ -1615,7 +1554,11 @@ fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
                 record["usage"] = complete_ledger_usage(&report);
             }
         }
-        if let Some(timing) = &ledger.timing {
+        if let Some(timing) = &ledger.task_timing {
+            if let Ok(timing) = serde_json::to_value(timing) {
+                record["timing"] = timing;
+            }
+        } else if let Some(timing) = &ledger.timing {
             record["timing"] = timing.clone();
         }
         if let Some(budget) = super::formation_budget::snapshot() {
@@ -1627,10 +1570,8 @@ fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
         record["tools"] = Value::Array(ledger.tools.clone());
         record["verifier"] = serde_json::json!(ledger.verifier);
         record["artifacts"] = serde_json::json!(ledger.artifacts);
-        record["lease"] = ledger.lease.clone().unwrap_or_else(|| {
-            serde_json::json!({
-            "kind":"local", "host":null,"seat":null,"lease_id":null})
-        });
+        record["lease"] =
+            serde_json::json!({"kind":"local", "host":null,"seat":null,"lease_id":null});
         record["turn"]["operator_turn_id"] = serde_json::json!(ledger.turn_id);
         record["turn"]["session"] = serde_json::json!(ledger.session);
         record["turn"]["stop_reason"] = serde_json::json!(ledger.stop_reason);
@@ -1641,9 +1582,10 @@ fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
     trace_schema::attach_start(&mut record["workspace_state"]);
     // Cost binds from the record's own usage totals against the list-price
     // table; the earlier explicit-null placeholder is always explained.
-    record["cost"] = cost::cost_for(
+    record["cost"] = cost::cost_for_attempts(
         record["identity"]["model"]["id"].as_str(),
         record["usage"].as_object().map(|_| &record["usage"]),
+        &provider_call_samples(),
     );
 }
 
@@ -1691,27 +1633,6 @@ pub fn log_eval_trajectory(
     reward: f32,
     evaluator_evidence_manifest_sha256: &str,
 ) {
-    log_eval_trajectory_ex(
-        club_label,
-        history,
-        answer,
-        reward,
-        evaluator_evidence_manifest_sha256,
-        None,
-    );
-}
-
-/// Like [`log_eval_trajectory`], with optional competition meta for GpuComp /
-/// popcorn coding seats (`score_us`, shape, reward contract). Forge Hi/Q
-/// curriculum + preference pairs join on these fields.
-pub fn log_eval_trajectory_ex(
-    club_label: &str,
-    history: &[ChatMsg],
-    answer: &str,
-    reward: f32,
-    evaluator_evidence_manifest_sha256: &str,
-    competition: Option<Value>,
-) {
     if std::env::var_os("ANGEL_TRAJECTORY_LOG").is_none() {
         return;
     }
@@ -1726,9 +1647,6 @@ pub fn log_eval_trajectory_ex(
         evaluator_evidence_manifest_sha256,
         now_ms(),
     );
-    if let Some(comp) = competition {
-        record["competition"] = comp;
-    }
     record["repo"] = repo;
     // The eval row is the reward-labeled training sample: it carries the same
     // turn ledger as the run_turn row (timing + per-call tool outcomes; usage
@@ -1760,7 +1678,8 @@ pub(crate) fn log_verified_coding_eval_trajectory(
     record["evaluator_task"] = serde_json::json!(task);
     record["evaluator_decision_sha256"] = serde_json::json!(decision.decision_sha256);
     record["evaluator_artifact_sha256"] = serde_json::json!(decision.artifact_sha256);
-    record["competition"] = serde_json::json!(decision.competition);
+    // Retired v1 field: always null, still echoed so consumer requests parse.
+    record["competition"] = Value::Null;
     record["repo"] = repo;
     write_trajectory(&record);
     Ok(record)

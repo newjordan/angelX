@@ -4,7 +4,11 @@ use super::*;
 fn detects_standalone_keywords() {
     let e = scan("please ultrathink about this, then orchestrate the fix");
     assert!(e.ultrathink && e.orchestrate && !e.workflowz);
-    assert!(e.steer_note().unwrap().contains("ultrathink"));
+    assert!(
+        e.steer_note()
+            .unwrap()
+            .contains(&crate::agent::harness::book::r_relentless::ULTRATHINK.cells())
+    );
 }
 
 #[test]
@@ -35,6 +39,7 @@ fn detects_handoff_rl_keyword() {
     let e = scan("run handoff-rl on candidate suite");
     assert!(e.handoff_rl);
     let note = e.steer_note().unwrap();
-    assert!(note.contains("handoff_rl"));
-    assert!(note.contains("hit it chewy"));
+    let route = crate::agent::harness::book::r_relentless::HANDOFF_RL;
+    assert_eq!(note, route.cells(), "the keyword rides as its route");
+    assert!(route.sub().pages.join(" ").contains("hit it chewy"));
 }

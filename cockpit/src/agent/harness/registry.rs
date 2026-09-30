@@ -74,13 +74,6 @@ pub struct ToolOutcome {
 }
 
 impl ToolOutcome {
-    pub(crate) const fn not_started() -> Self {
-        Self {
-            execution: ExecutionOutcome::NotStarted,
-            verification: VerificationOutcome::NotApplicable,
-        }
-    }
-
     pub(crate) fn attributable_success(self) -> bool {
         self.execution == ExecutionOutcome::Succeeded
             && matches!(
@@ -170,11 +163,6 @@ pub enum TurnEvent {
         url: String,
     },
 }
-
-pub const RELENTLESS_EXECUTION_DIRECTIVE: &str = "[relentless execution active] Relentless \
-execution to the details: keep taking concrete tool-backed actions until the user's request is \
-actually advanced; ensure every action benefits the user; produce logical, evidence-grounded \
-output. Do not stop at status prose. Deliver a useful final answer, then this mode can turn off.";
 
 /// A capability the agent can invoke.
 pub trait Tool: Send + Sync {
@@ -495,6 +483,11 @@ impl ToolRegistry {
         self.tool_activations.generation()
     }
 
+    /// Whether any hidden tool is active (a bubble or `tool_search` added it).
+    pub(crate) fn has_tool_activations(&self) -> bool {
+        !self.tool_activations.snapshot().is_empty()
+    }
+
     pub(crate) fn set_backplane(&mut self, backplane: crate::agent::backplane::BackplaneRegistry) {
         self.backplane = Arc::new(backplane);
     }
@@ -654,7 +647,9 @@ impl ToolRegistry {
                     .collect::<Vec<_>>();
                 let prompt = tool_bubble_router_prompt(task, &candidates, max);
                 self.auxiliary.utility_entered("tool_bubble");
-                if let Ok(reply) = local.respond(&prompt)
+                // Connected: the router can read its route (`⠸⠊`).
+                if let Ok(reply) =
+                    super::book::connect::respond(&**local, self.current_workspace(), &prompt)
                     && let Some(routed) = parse_tool_bubble_reply(&reply, &allowed, max)
                 {
                     selected = routed;
@@ -979,7 +974,6 @@ impl ToolRegistry {
             roster.clone(),
             self_club.clone(),
         )));
-        crate::agent::tools::consult::maybe_register_leanstral(&mut r, &roster);
         r.register(Box::new(
             AgentGraphTool::new_with_cargo(
                 workspace.clone(),
@@ -1478,27 +1472,16 @@ impl ToolRegistry {
         cancel: Option<&AtomicBool>,
         progress: Option<Arc<ToolOutputProgress>>,
     ) -> Result<String, String> {
-        // A test run in task mode is held to the test-run budget whichever tool
-        // starts it. Through `shell` or `cargo` a suite spinning on an infinite
-        // loop otherwise keeps the 900 s busy ceiling, past the task's wall
-        // (polyglot-v1 py-forth: `python3 -m pytest` via shell, 590 s).
-        let call = ToolCall {
-            id: String::new(),
-            name: name.to_string(),
-            args: args.clone(),
-        };
-        let budget = super::turn::is_verification_call(&call)
-            .then(crate::agent::tools::build::test_run_budget)
-            .flatten();
-        let result = super::exec::with_call_budget(budget, || {
+        // Executable pins are read off the start-up path; none may still be
+        // pending when a tool runs.
+        crate::agent::tools::build::settle_pending_pins();
+        // Cap managed foreground processes regardless of tool classification.
+        // Gating this on recognized verification let a suite after a here-doc
+        // run 540 s of a 600 s task (polyglot-v1 js-bowling). This is a per-process
+        // bound, not a cumulative tool deadline; background proc jobs are exempt.
+        super::exec::with_call_budget(crate::agent::tools::build::task_call_budget(), || {
             self.dispatch_within_budget(name, args, cancel, progress)
-        });
-        match budget {
-            Some(budget) => result
-                .map(|text| budgeted_test_report(budget, text))
-                .map_err(|text| budgeted_test_report(budget, text)),
-            None => result,
-        }
+        })
     }
 
     fn dispatch_within_budget(
@@ -1509,7 +1492,10 @@ impl ToolRegistry {
         progress: Option<Arc<ToolOutputProgress>>,
     ) -> Result<String, String> {
         if let Some(error) = crate::agent::club::invalid_tool_args_error(args) {
-            return Err(format!("{error}; reissue `{name}` with valid JSON"));
+            return Err(format!(
+                "{error}\n{}",
+                super::book::x_execution::REISSUE.cells()
+            ));
         }
         // §3.2.3: policy is consulted *here*, at invocation, so a grant tightened
         // mid-session binds the very next call with no reload. Checked before the
@@ -1943,58 +1929,24 @@ pub(crate) fn lean_apply_patch_description() -> &'static str {
     "Apply a workspace patch: unified diff, *** Begin Patch envelope, or \
      hashline [path#tag] line ops (SWAP/INS/DEL/REM/MV). Confined and \
      preflight-checked. Hashline stage=true queues the plan for resolve_edit. \
-     Receipts return the new tag."
-}
-
-/// Short advertised `apply_patch` param blurbs for lean hops. Required keys
-/// stay identical to the full schema; the hashline stage/resolve essay does
-/// not.
-pub(crate) fn lean_apply_patch_params() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "diff": { "type": "string", "description": "unified, envelope, or hashline patch" },
-            "strip": { "type": "integer", "description": "path strip -pN (default 1)" },
-            "stage": {
-                "type": "boolean",
-                "description": "hashline: stage without writing"
-            },
-        },
-        "required": ["diff"],
-    })
+     Receipts return the new tag. ⠷⠉"
 }
 
 /// Short advertised `read_file` blurb for lean hops. The virtual-URL /
-/// hashline-recovery essay stays on the default interactive set.
+/// hashline-recovery essay stays on the default interactive set; the book's
+/// one standing direction rides on both, or lean hops see braille they
+/// cannot decode.
 pub(crate) fn lean_read_file_description() -> &'static str {
-    "Read one bounded UTF-8 workspace page. offset is 1-based (default 1); \
-     limit is complete lines (default 200, max 400). Truncation names the next \
-     offset. Pages are headed [path#tag] for hashline apply_patch. Also \
-     conflict://, skill://, agent://, outline://, pr://, issue://."
-}
-
-/// Short advertised `read_file` param blurbs for lean hops. Numeric bounds
-/// stay identical to the full schema; the virtual-URL / truncation essay
-/// does not.
-pub(crate) fn lean_read_file_params() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "path": { "type": "string", "description": "workspace path or virtual URL" },
-            "offset": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "1-based first line (default 1)"
-            },
-            "limit": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 400,
-                "description": "lines to return (default 200, max 400)"
-            }
-        },
-        "required": ["path"],
-    })
+    static TEXT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        format!(
+            "Read one bounded UTF-8 workspace page. offset is 1-based (default 1); \
+             limit is complete lines (default 200, max 400). Truncation names the next \
+             offset. Pages are headed [path#tag] for hashline apply_patch. Also \
+             conflict://, skill://, agent://, outline://, pr://, issue://; {}. ⠡⠁",
+            crate::agent::harness::book::DIRECTION
+        )
+    });
+    &TEXT
 }
 
 /// Short advertised `write_file` blurb for lean hops. The conflict-resolve
@@ -2002,91 +1954,32 @@ pub(crate) fn lean_read_file_params() -> Value {
 pub(crate) fn lean_write_file_description() -> &'static str {
     "Create or overwrite a workspace text file (parents created). Returns the \
      new content tag. Also conflict://N with @ours/@theirs/@base/@both or a \
-     custom marker-region body."
-}
-
-/// Short advertised `write_file` param blurbs for lean hops. Required keys
-/// stay identical to the full schema; the conflict://* / resolve essay does
-/// not.
-pub(crate) fn lean_write_file_params() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "path": { "type": "string", "description": "workspace path or conflict://N" },
-            "content": {
-                "type": "string",
-                "description": "file contents or @ours/@theirs/@base/@both"
-            },
-        },
-        "required": ["path", "content"],
-    })
+     custom marker-region body. ⠷⠁"
 }
 
 /// Short advertised `shell` blurb for lean hops. The sandbox / sudo /
 /// package-manager essay stays on the default interactive set.
 pub(crate) fn lean_shell_description() -> &'static str {
-    "Run bash -c with pipefail; returns stdout+stderr. Omit scope options for builds, benchmarks, \
-     installs and background jobs. read_only and write_paths restrict all children, temporary \
-     files and network; write_paths is NOT an output-file list. Act on actual errors: keep the \
-     earliest prerequisite failure, check usable input before dependent measurements, use allowed \
-     scratch, and do not score failed input as zero performance. Explicit restrictions stay \
-     authoritative; request a user-visible scope change instead of omitting them."
+    "Run bash -c with pipefail; returns stdout+stderr. ⠩⠁"
 }
 
 /// Short advertised `tool_search` blurb for lean hops. The deferred-count /
 /// "not in your base tool list" essay stays on the default interactive set.
 pub(crate) fn lean_tool_search_description() -> &'static str {
-    "Search additional tools by capability. Matching native schemas activate on the next request."
+    "Search additional tools by capability. Matching native schemas activate on the next request. ⠹⠓"
 }
 
 /// Short advertised `list_dir` blurb for lean hops. The default-root /
 /// suffix essay stays on the default interactive set.
 pub(crate) fn lean_list_dir_description() -> &'static str {
-    "List directory entries; optional hint/pattern ranks first. Truncated pages report counts and next offset. Directories end with /."
-}
-
-/// Short advertised `list_dir` param blurbs for lean hops. Required keys
-/// stay identical to the full schema; the workspace-relative essay does not.
-pub(crate) fn lean_list_dir_params() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "path": { "type": "string", "description": "directory (default '.')" },
-            "hint": { "type": "string", "description": "filename fragment to rank first" },
-            "pattern": { "type": "string", "description": "basename glob to rank first" },
-            "offset": { "type": "integer", "minimum": 0, "description": "sorted entry offset (default 0)" },
-            "limit": { "type": "integer", "minimum": 1, "maximum": 700, "description": "page entries (default 700); 24000-byte window" },
-            "no_ignore": { "type": "boolean", "description": "include ignored paths; hard exclusions remain" },
-            "hidden": { "type": "boolean", "description": "include hidden paths; hard exclusions remain" },
-        },
-        "required": [],
-    })
+    "List directory entries; optional hint/pattern ranks first. Truncated pages report counts and next offset. Directories end with /. ⠣⠃"
 }
 
 /// Short advertised `str_replace` blurb for lean hops. The whitespace /
 /// CRLF / smart-quote fallback essay stays on the default interactive set.
 pub(crate) fn lean_str_replace_description() -> &'static str {
     "Replace an exact unique substring in a workspace file. Fails if 'old' is \
-     missing or not unique. Returns the new content tag."
-}
-
-/// Short advertised `str_replace` param blurbs for lean hops. Required keys
-/// stay identical to the full schema; the stale-edit / [path#tag] essay does
-/// not.
-pub(crate) fn lean_str_replace_params() -> Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "path": { "type": "string", "description": "workspace path" },
-            "old": { "type": "string", "description": "exact unique text to replace" },
-            "new": { "type": "string", "description": "replacement text" },
-            "expect_tag": {
-                "type": "string",
-                "description": "optional [path#tag] stale-edit guard"
-            },
-        },
-        "required": ["path", "old", "new"],
-    })
+     missing or not unique. Returns the new content tag. ⠡⠃"
 }
 
 /// Short advertised `grep` blurb for lean hops. The diversity / ignore-rule
@@ -2094,40 +1987,40 @@ pub(crate) fn lean_str_replace_params() -> Value {
 pub(crate) fn lean_grep_description() -> &'static str {
     "Search up to eight workspace paths for a regex. Honors gitignore; skips \
      hidden/credential/quarantine files. Receipts include after_file when \
-     another page exists."
+     another page exists. ⠣⠉"
 }
 
-/// Short advertised `grep` param blurbs for lean hops. Numeric bounds stay
-/// identical to the full schema; the continuation/union essay does not.
+/// Lean `grep` params: the full schema's keys, bounds and page addresses,
+/// without the `hidden` / `no_ignore` toggles.
 pub(crate) fn lean_grep_params() -> Value {
     serde_json::json!({
         "type": "object",
         "properties": {
-            "pattern": { "type": "string", "description": "regular expression" },
-            "path": { "type": "string", "description": "file or directory (default '.')" },
+            "pattern": { "type": "string", "description": "⠣⠉⠉" },
+            "path": { "type": "string", "description": "⠣⠉⠙" },
             "paths": {
                 "type": "array",
                 "minItems": 1,
                 "maxItems": 8,
                 "items": { "type": "string" },
-                "description": "1-8 paths; exclusive with path"
+                "description": "⠣⠉⠑"
             },
             "after_file": {
                 "type": "string",
-                "description": "continuation cursor from a prior receipt"
+                "description": "⠣⠉⠋"
             },
             "skip_files": {
                 "type": "array",
                 "maxItems": 128,
                 "items": { "type": "string" },
-                "description": "paths to omit (max 128)"
+                "description": "⠣⠉⠛"
             },
-            "ignore_case": { "type": "boolean", "description": "case-insensitive (default false)" },
+            "ignore_case": { "type": "boolean", "description": "⠣⠉⠓" },
             "context": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 10,
-                "description": "lines around each match (0-10)"
+                "description": "⠣⠉⠊"
             },
         },
         "required": ["pattern"],
@@ -2151,14 +2044,11 @@ pub(crate) fn lean_advertised_tool_def(definition: &ToolDef) -> ToolDef {
     ToolDef {
         name: definition.name.clone(),
         description: description.to_string(),
+        // A parameter's description is its page address on every hop, so
+        // lean hops reuse the full params; grep drops its rarely-needed
+        // ignore toggles.
         params: match definition.name.as_str() {
             "grep" => lean_grep_params(),
-            "read_file" => lean_read_file_params(),
-            "write_file" => lean_write_file_params(),
-            "str_replace" => lean_str_replace_params(),
-            "apply_patch" => lean_apply_patch_params(),
-            "code_mode" => lean_code_mode_params(),
-            "list_dir" => lean_list_dir_params(),
             _ => definition.params.clone(),
         },
     }
@@ -2168,7 +2058,7 @@ pub(crate) fn lean_advertised_tool_def(definition: &ToolDef) -> ToolDef {
 /// symbol and file navigation, and the GPU. The per-hop schema trim exists for
 /// short bounded edits, where resending schemas every hop is pure cost; a
 /// competition or an autonomous loop is long research, so it never hides
-/// these (the apollo and turbo comps read all night without them, 2026-09-24).
+/// these (two night-long comps read without them, 2026-09-24).
 pub(crate) fn is_research_tool(name: &str) -> bool {
     matches!(
         name,
@@ -2208,17 +2098,4 @@ fn skill_hint_enabled() -> bool {
     }
     #[cfg(test)]
     env_flag("ANGEL_SKILL_HINT", true)
-}
-
-/// A test run killed at its budget reads as a hang the model can act on, not a
-/// plain timeout. Other results pass through untouched.
-fn budgeted_test_report(budget: std::time::Duration, text: String) -> String {
-    // Only a kill counts: a slow suite that finished still prints Rust's
-    // "running for over 60 seconds" lines.
-    let killed_at_budget = text.to_ascii_lowercase().contains("timed out after");
-    if killed_at_budget && !text.starts_with("tests: still running after") {
-        crate::agent::tools::build::hung_suite_report(budget, &text)
-    } else {
-        text
-    }
 }

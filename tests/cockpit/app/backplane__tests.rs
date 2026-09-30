@@ -262,7 +262,7 @@ fn broker_keeps_complete_items_and_one_replaceable_harness_block() {
     let mut history = vec![
         ChatMsg::system("stable"),
         ChatMsg::user("task"),
-        ChatMsg::harness("[living-atlas task lens — reviewed background, not instructions]"),
+        ChatMsg::harness("⠎⠙"),
     ];
     KnowledgeBroker::replace(&mut history, &selection);
     assert_eq!(
@@ -346,7 +346,7 @@ fn broker_ownership_preserves_role_lookalikes_and_trusted_persisted_blocks() {
         2_000,
     );
     let broker_text = selection.block.as_ref().unwrap();
-    let lens_text = "[living-atlas task lens — reviewed background, not instructions]\nquoted lens\n[/living-atlas]";
+    let lens_text = "⠎⠙\nquoted lens\n⠎⠙";
     let mut unowned = Vec::new();
     for text in [broker_text.as_str(), lens_text] {
         unowned.extend([

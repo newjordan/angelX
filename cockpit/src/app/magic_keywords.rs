@@ -31,42 +31,25 @@ impl MagicEffects {
 
     /// Bounded harness note injected as a replaceable turn-context fragment.
     /// Empty when nothing fired.
+    /// The keywords the operator wrote, as `⠗` routes; their words are the
+    /// ledger pages.
     pub(crate) fn steer_note(&self) -> Option<String> {
+        use crate::agent::harness::book::r_relentless::{
+            HANDOFF_RL, ORCHESTRATE, ULTRATHINK, WORKFLOWZ,
+        };
         if !self.any() {
             return None;
         }
-        let mut lines = Vec::new();
-        if self.ultrathink {
-            lines.push(
-                "ultrathink: take careful multi-step reasoning; prefer the highest \
-                 available thinking effort; do not rush to a final answer.",
-            );
-        }
-        if self.orchestrate {
-            lines.push(
-                "orchestrate: fan substantial independent work through parallel \
-                 subagents (spawn/delegate), verify each phase, and merge only \
-                 after checks pass.",
-            );
-        }
-        if self.workflowz {
-            lines.push(
-                "workflowz: build a deterministic multi-subagent workflow with \
-                 ordered phases and explicit handoffs; prefer structured yields \
-                 over free-form prose between workers.",
-            );
-        }
-        if self.handoff_rl {
-            lines.push(
-                "handoff_rl: compete using cockpit tools/resources; place victories on the board \
-                 (check board before submitting); poll live candidate score, promote/reset from \
-                 evidence, isolate next hot-path hypothesis on newest winning baseline, run focused \
-                 correctness checks, and immediately submit next candidate. After a submission \
-                 RESULT is in (score/status), the cockpit DEMANDS handoff: it wipes conversation \
-                 context and prompt-injects a forced restart starting with 'hit it chewy' — not optional.",
-            );
-        }
-        Some(format!("[magic-keywords]\n{}", lines.join("\n")))
+        let routes = [
+            (self.ultrathink, ULTRATHINK),
+            (self.orchestrate, ORCHESTRATE),
+            (self.workflowz, WORKFLOWZ),
+            (self.handoff_rl, HANDOFF_RL),
+        ]
+        .into_iter()
+        .filter_map(|(on, route)| on.then_some(route))
+        .collect::<Vec<_>>();
+        Some(crate::agent::harness::book::sign_lines(&routes))
     }
 }
 

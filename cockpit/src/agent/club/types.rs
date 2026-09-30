@@ -40,6 +40,10 @@ pub enum OutputBudgetPolicy {
 pub enum OutputBudgetSource {
     PerClubEnv,
     GlobalEnv,
+    /// The provider's published recommendation for the model, sent when no
+    /// operator cap is set (DeepSeek: the API defaults to 64K in thinking
+    /// mode, the V4.1 card recommends at least 256K).
+    ModelCard,
 }
 
 impl OutputBudgetPolicy {
@@ -50,6 +54,7 @@ impl OutputBudgetPolicy {
                 let fallback = match source {
                     OutputBudgetSource::PerClubEnv => "per-club environment",
                     OutputBudgetSource::GlobalEnv => "ANGEL_CLUB_MAX_TOKENS",
+                    OutputBudgetSource::ModelCard => "model card",
                 };
                 format!("output: {tokens} · {}", provenance.unwrap_or(fallback))
             }
@@ -132,6 +137,10 @@ pub struct ChatMsg {
     /// provider history. Cloning a live message shares the immutable bytes.
     #[serde(skip, default)]
     pub(crate) private_reasoning: Option<Arc<str>>,
+    /// OpenAI native output for an exact live tool-turn continuation. Contains
+    /// opaque encrypted state; excluded from sessions, Debug and other routes.
+    #[serde(skip, default)]
+    pub(crate) responses_replay: Option<Arc<crate::agent::openai_codex::ResponseReplay>>,
     /// Execution-bound evidence is transient: provider text and imported
     /// transcripts cannot manufacture a successful tool receipt.
     #[serde(skip, default)]
@@ -187,12 +196,24 @@ impl ChatMsg {
             tool_calls: Vec::new().into(),
             tool_call_id: None,
             private_reasoning: None,
+            responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
         }
     }
     pub fn assistant(content: impl Into<Arc<str>>) -> Self {
         Self::plain(ChatRole::Assistant, content)
+    }
+    /// A final answer with the model's own reasoning, kept for a route that
+    /// replays it (DeepSeek's thinking mode wants every reasoned turn back).
+    pub(crate) fn assistant_with_reasoning(
+        content: impl Into<Arc<str>>,
+        private_reasoning: Option<String>,
+    ) -> Self {
+        Self {
+            private_reasoning: private_reasoning.map(Arc::<str>::from),
+            ..Self::assistant(content)
+        }
     }
     /// The assistant turn that requested tool calls (content is usually empty).
     #[cfg(test)]
@@ -217,6 +238,7 @@ impl ChatMsg {
             tool_calls: calls.into(),
             tool_call_id: None,
             private_reasoning: private_reasoning.map(Arc::<str>::from),
+            responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
         }
@@ -230,6 +252,7 @@ impl ChatMsg {
             tool_calls: Vec::new().into(),
             tool_call_id: Some(id.into()),
             private_reasoning: None,
+            responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
         }
@@ -295,6 +318,7 @@ impl ChatMsg {
             tool_calls: Vec::new().into(),
             tool_call_id: None,
             private_reasoning: None,
+            responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
         }

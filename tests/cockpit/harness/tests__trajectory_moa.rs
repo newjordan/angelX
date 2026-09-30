@@ -146,7 +146,9 @@ fn spawn_reviewer_persona_reaches_provider_and_plain_aliases_are_absence() {
         }))
         .unwrap_err();
     assert!(error.contains("unknown persona 'invented-lens'"), "{error}");
-    assert!(error.contains("omit `persona` for a plain seat"), "{error}");
+    let hint = crate::agent::harness::book::d56_replies::PERSONA_SEAT;
+    assert!(error.contains(&hint.cells()), "{error}");
+    assert!(hint.text().contains("omit `persona` for a plain seat"));
 }
 
 #[test]
@@ -157,10 +159,13 @@ fn spawn_names_the_sota_gate_for_withheld_clubs() {
     let err = tool
         .call(&serde_json::json!({"task":"x","club":"grok"}))
         .unwrap_err();
+    // The opt-out is the fact; how to restore it is the `⠰⠃` page.
+    let restore = crate::agent::harness::book::d56_replies::UNSET_PIN;
     assert!(
-        err.contains("ANGEL_ALLOW_SOTA_DELEGATE=0") && err.contains("ANGEL_ALLOW_SOTA_DELEGATE=1"),
+        err.contains("ANGEL_ALLOW_SOTA_DELEGATE=0") && err.contains(&restore.cells()),
         "an opted-out SOTA club must name the opt-out and how to restore, not read as nonexistent: {err}"
     );
+    assert!(restore.text().contains("ANGEL_ALLOW_SOTA_DELEGATE=1"));
     let err = tool
         .call(&serde_json::json!({"task":"x","club":"no-such-fleet-club"}))
         .unwrap_err();
@@ -347,18 +352,18 @@ fn read_only_seat_cannot_use_its_real_nested_spawn_to_request_code() {
 #[test]
 fn trajectory_record_captures_turn() {
     // Serialized: this reads env-gated behavior (`ANGEL_ROOT_TRAJECTORY`, the
-    // lane/gpu-comp markers) that sibling tests set and restore. Without the
+    // lane markers) that sibling tests set and restore. Without the
     // lock it observes their value mid-flight and the unlabeled-row assertions
     // fail intermittently.
     let _guard = crate::tests::env_lock();
     let history = vec![
         ChatMsg::user("reverse hello"),
-        ChatMsg::harness(FINAL_VERIFY_NUDGE),
+        ChatMsg::harness(NOPROGRESS_NUDGE),
         ChatMsg::assistant("olleh"),
     ];
     // Unlabeled: no reward field.
-    let rec = trajectory_record("turbo", &history, "olleh", 2, false, None, 123);
-    assert_eq!(rec["club"], "turbo");
+    let rec = trajectory_record("fixture-club", &history, "olleh", 2, false, None, 123);
+    assert_eq!(rec["club"], "fixture-club");
     assert_eq!(rec["hops"], 2);
     assert_eq!(rec["interrupted"], false);
     assert_eq!(rec["answer"], "olleh");
@@ -378,7 +383,7 @@ fn trajectory_record_captures_turn() {
     // Reward-labeled: training data — always carries Hi/Q root trajectory +
     // harness treatment so the forge / promotion layer can train on strategy
     // isomorphism and split Hi/Q vs baseline treatments.
-    let labeled = trajectory_record("turbo", &history, "olleh", 2, false, Some(0.75), 123);
+    let labeled = trajectory_record("fixture-club", &history, "olleh", 2, false, Some(0.75), 123);
     assert_eq!(labeled["reward"], 0.75);
     assert!(
         labeled.get("root_trajectory").is_some(),
@@ -401,7 +406,14 @@ fn trajectory_record_captures_turn() {
         "unlabeled log must omit root_trajectory by default"
     );
 
-    let eval = eval_trajectory_record("turbo", &history, "olleh", 1.0, "receipt-sha256", 124);
+    let eval = eval_trajectory_record(
+        "fixture-club",
+        &history,
+        "olleh",
+        1.0,
+        "receipt-sha256",
+        124,
+    );
     assert_eq!(eval["reward"], 1.0);
     assert_eq!(eval["evaluator_evidence_manifest_sha256"], "receipt-sha256");
     assert!(eval.get("root_trajectory").is_some());
@@ -426,7 +438,7 @@ fn unlabeled_root_trajectory_is_opt_in_for_analysis() {
 fn harness_message_origin_survives_session_serde_roundtrip() {
     let history = vec![
         ChatMsg::user("operator task"),
-        ChatMsg::harness(FINAL_MILE_NUDGE),
+        ChatMsg::harness(NOPROGRESS_NUDGE),
         ChatMsg::assistant("working"),
     ];
     let encoded = serde_json::to_vec(&history).unwrap();
@@ -480,6 +492,48 @@ fn ledger_status_text_tabulates_recent_turns() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// The turn's own receipt is kept as it is and serialized when a record is
+/// written: the row carries exactly the JSON the receipt serializes to, its
+/// model and provider call samples included.
+#[test]
+fn eval_rows_carry_the_task_timing_receipt_verbatim() {
+    let _guard = crate::tests::env_lock();
+    let dir = scratch("eval_task_timing");
+    let trajectory_log = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
+    let trajectory_dir = EnvGuard::set("ANGEL_TRAJECTORY_DIR", dir.to_string_lossy().as_ref());
+    let club = ScriptedClub {
+        hops: AtomicUsize::new(0),
+    };
+    crate::knowledge::experience::note_turn_workspace(&dir.join("workspace"));
+    reset_turn_ledger(&club);
+    let mut timing = crate::agent::harness::turn::TaskTimingAccumulator::default();
+    timing.note_model_wait(std::time::Duration::from_millis(40));
+    let receipt = timing.finish(120);
+    note_task_timing(&receipt);
+    let answer = "task-timing-marker";
+    let history = vec![ChatMsg::user("write code"), ChatMsg::assistant(answer)];
+    log_eval_trajectory("fixture-club", &history, answer, 1.0, "sha");
+    let log =
+        std::fs::read_to_string(dir.join(format!("session-{}.jsonl", std::process::id()))).unwrap();
+    let record: Value = log
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|r| r["answer"] == answer)
+        .expect("eval row written");
+    assert_eq!(record["timing"], serde_json::to_value(&receipt).unwrap());
+    assert!(
+        record["timing"]["calls"]["model_calls"].is_array(),
+        "{record}"
+    );
+    assert!(
+        record["timing"]["calls"]["provider_calls"].is_array(),
+        "{record}"
+    );
+    drop(trajectory_dir);
+    drop(trajectory_log);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// The eval row is the reward-labeled training sample, so it carries the same
 /// turn ledger (timing + per-call tool outcomes) as the run_turn row; usage
 /// needs the club and stays on the run_turn row.
@@ -522,7 +576,7 @@ fn eval_rows_carry_the_turn_ledger() {
     note_timing(&serde_json::json!({"schema": "angel-task-timing/v1", "tool_calls": 2}));
     let answer = "eval-ledger-marker";
     let history = vec![ChatMsg::user("write code"), ChatMsg::assistant(answer)];
-    log_eval_trajectory_ex("turbo", &history, answer, 1.0, "sha", None);
+    log_eval_trajectory("fixture-club", &history, answer, 1.0, "sha");
 
     let log =
         std::fs::read_to_string(dir.join(format!("session-{}.jsonl", std::process::id()))).unwrap();
@@ -1114,7 +1168,9 @@ fn moa_formation_uses_only_its_remaining_deadline_for_synthesis() {
         ) -> Result<ClubReply, String> {
             let folding = messages.iter().any(|message| {
                 message.role == ChatRole::System
-                    && message.content.contains("aggregator of a spawn formation")
+                    && message
+                        .content
+                        .contains(&crate::agent::harness::book::st_connected::AGGREGATOR.cells())
             });
             if folding {
                 self.fold_started.store(true, Ordering::Release);
@@ -1297,7 +1353,10 @@ fn yolo_never_allows_parallel_code_writers_in_one_workspace() {
             }))
             .unwrap_err();
         assert!(error.contains("tools=code needs n=1"), "{error}");
-        assert!(error.contains("git-worktree isolated"), "{error}");
+        // The way out (a git-worktree isolated delegate) is its `⠰⠉` page.
+        let advice = crate::agent::harness::book::d56_replies::SHARED_WORKSPACE;
+        assert!(error.contains(&advice.cells()), "{error}");
+        assert!(advice.text().contains("git-worktree isolated"));
         assert_eq!(
             calls.load(Ordering::Acquire),
             0,

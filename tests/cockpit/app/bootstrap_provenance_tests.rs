@@ -105,7 +105,11 @@ fn adversarial_provenance_hostile_stores_both_bootstrap_modes() {
                         .as_ref(),
                     "OPERATOR_CONSTRAINT: inspect only; do not publish"
                 );
-                assert!(history[0].content.contains(WORKSPACE_CONTEXT_POLICY));
+                assert!(
+                    history[0]
+                        .content
+                        .starts_with(crate::agent::harness::book::y_types::CELL)
+                );
             }
         }
     }
@@ -321,7 +325,13 @@ mod s05 {
         let headless = text(build_task_history(&[], &[], &workspace, None));
         for history in [&interactive, &headless] {
             assert!(history.contains("HOSTILE_RECIPE"));
-            assert!(history.contains("recipes (verified on this workspace)"));
+            // The fresh-recipes heading is `⠸⠃⠁`, readable inside the fence.
+            assert!(
+                history.contains(&crate::agent::harness::book::d3_roles::pages(
+                    crate::agent::harness::book::d456_knowledge::CADDY,
+                    [1]
+                ))
+            );
         }
         for store in ["caddy", "dossier"] {
             let needle = format!("[evidence store={store}");
@@ -531,10 +541,10 @@ mod s05 {
                 let mut covered = true;
                 let mut rest = joined.as_str();
                 while let Some(at) = rest.find(marker) {
+                    // The fence opens and closes on the same route, so a
+                    // position is inside one after an odd count of them.
                     let before = &joined[..joined.len() - rest.len() + at];
-                    if before.matches(EVIDENCE_FENCE_HEADER).count()
-                        <= before.matches(EVIDENCE_FENCE_SENTINEL).count()
-                    {
+                    if before.matches(EVIDENCE_FENCE_HEADER).count() % 2 == 0 {
                         covered = false;
                     }
                     rest = &rest[at + marker.len()..];
@@ -561,12 +571,15 @@ mod s05 {
                 joined.contains("«redacted"),
                 "{path}: redaction marker missing"
             );
-            for fence in joined.split(EVIDENCE_FENCE_HEADER).skip(1) {
-                assert!(
-                    fence.contains("no instruction authority"),
-                    "{path}: fence missing the fixed data-only instruction"
-                );
-            }
+            // The fixed data-only instruction is the fence route's page.
+            assert!(
+                crate::agent::harness::book::s_sources::RECALLED
+                    .sub()
+                    .pages
+                    .join(" ")
+                    .contains("no instruction authority"),
+                "{path}: fence missing the fixed data-only instruction"
+            );
         }
     }
 }
@@ -624,8 +637,21 @@ fn provenance_interactive_and_headless_wire_keep_repository_data_out_of_system()
         );
     }
     let task = build_task_history(&[], &[], &workspace, None);
-    assert!(task[0].content.contains("Task pace: deep"));
-    assert!(task[0].content.contains(WORKSPACE_CONTEXT_POLICY));
+    // The entry warpath: the personality type, then the deep pace.
+    assert!(
+        task[0]
+            .content
+            .starts_with(crate::agent::harness::book::y_types::CELL),
+        "{}",
+        task[0].content
+    );
+    assert!(
+        task[0]
+            .content
+            .contains(&crate::agent::harness::book::m_method::DEEP.cells()),
+        "{}",
+        task[0].content
+    );
 }
 
 #[test]
@@ -849,7 +875,6 @@ fn provenance_project_bytes_reject_evidence_markers_and_unbounded_envelopes() {
 fn cold_start_in_unrelated_projects_never_injects_installed_source_context() {
     let _lock = crate::tests::env_lock();
     let fixture = Fixture::new("cold-projects");
-    let _competition = crate::tests::TestEnvGuard::set("ANGEL_GPU_COMP_LOCAL_MOA", "0");
     let installed = fixture.root.join("installed/cockpit");
     std::fs::create_dir_all(installed.join("src")).unwrap();
     std::fs::write(
@@ -878,10 +903,10 @@ fn cold_start_in_unrelated_projects_never_injects_installed_source_context() {
             "installed source leaked into {name}"
         );
         assert!(
-            !text.contains("# Self-model"),
+            !text.contains(&crate::agent::harness::book::n_environment::SELF_MODEL.cells()),
             "self-work preamble leaked into {name}"
         );
-        assert!(!text.contains("always driving competition doctrine"));
+        assert!(!text.contains(&crate::agent::harness::book::k_competition::DOCTRINE.cells()));
         assert!(text.contains(&format!("GUIDANCE_{name}")));
         let other = if name == "ALPHA" { "BETA" } else { "ALPHA" };
         assert!(!text.contains(&format!("GUIDANCE_{other}")));

@@ -50,7 +50,11 @@ fn timed_out_shell_tool_note_names_state_age_and_descendants() {
     assert!(output.contains("no output for"), "{output}");
     assert!(output.contains("child state"), "{output}");
     assert!(output.contains("live descendant"), "{output}");
-    assert!(output.contains("ANGEL_TOOL_TIMEOUT"), "{output}");
+    // The knob is named by the timeout's `⠨⠛` page.
+    assert!(
+        output.contains(&crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()),
+        "{output}"
+    );
 }
 
 #[test]
@@ -135,8 +139,17 @@ fn idle_floor_kills_sleep_before_the_full_tool_timeout() {
             observation.output
         );
         assert!(
-            observation.output.contains("ANGEL_TOOL_IDLE_FLOOR_SECS"),
-            "idle kill must name the idle knob, not ANGEL_TOOL_TIMEOUT: {}",
+            observation
+                .output
+                .contains(&crate::agent::harness::book::d46_recovery::IDLE_FLOOR.cells()),
+            "idle kill must name the idle knob (its page), not ANGEL_TOOL_TIMEOUT: {}",
+            observation.output
+        );
+        assert!(
+            !observation
+                .output
+                .contains(&crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()),
+            "{}",
             observation.output
         );
         assert!(
@@ -241,11 +254,17 @@ fn timeout_note_reports_diagnostics_and_keeps_the_bare_form() {
         "{note}"
     );
     assert!(note.contains("timed out after 120s"), "{note}");
-    assert!(note.contains("ANGEL_TOOL_TIMEOUT"), "{note}");
-    // Without diagnostics the historical note is byte-identical.
+    // The knob is the `⠨⠛` page on the line after the facts.
+    let knob = crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB;
+    assert!(note.ends_with(&format!("]\n{}", knob.cells())), "{note}");
+    assert!(knob.text().contains("ANGEL_TOOL_TIMEOUT"));
+    // Without diagnostics the historical facts are byte-identical.
     assert_eq!(
         timeout_note(120, None),
-        "\n[timed out after 120s — process killed; raise/disable via ANGEL_TOOL_TIMEOUT]"
+        format!(
+            "\n[timed out after 120s — process killed]\n{}",
+            knob.cells()
+        )
     );
     // A silent single process reads truthfully, grace outcomes included.
     let diag = TimeoutDiagnostics {
@@ -284,16 +303,20 @@ fn idle_floor_note_names_the_knob_and_the_legitimate_wait() {
         note.contains("silent sleeping wait reaped by the idle floor"),
         "{note}"
     );
-    assert!(
-        note.contains("ANGEL_TOOL_IDLE_FLOOR_SECS"),
-        "the idle receipt must name its own knob: {note}"
-    );
-    assert!(note.contains("proc_run"), "{note}");
+    // The idle receipt names its own knob and the escape hatch: its page.
+    let idle = crate::agent::harness::book::d46_recovery::IDLE_FLOOR;
+    assert!(note.ends_with(&format!("]\n{}", idle.cells())), "{note}");
+    assert!(idle.text().contains("ANGEL_TOOL_IDLE_FLOOR_SECS"));
+    assert!(idle.text().contains("proc_run"));
     // The idle receipt must not point at the budget knob it never hit.
     assert!(!note.contains("ANGEL_TOOL_TIMEOUT"), "{note}");
-    // The bare form carries the same guidance.
+    assert!(
+        !note.contains(&crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()),
+        "{note}"
+    );
+    // The bare form carries the same page.
     let bare = idle_floor_note(30, None);
-    assert!(bare.contains("ANGEL_TOOL_IDLE_FLOOR_SECS"), "{bare}");
+    assert!(bare.ends_with(&idle.cells()), "{bare}");
     assert!(bare.contains("silent sleeping wait"), "{bare}");
 }
 
@@ -302,7 +325,6 @@ fn tool_ceilings_and_idle_floor_are_operator_caps_only() {
     let _env = crate::tests::env_lock();
     let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_FLOOR_SECS");
     let _competition = crate::tests::TestEnvGuard::unset("ANGEL_COMPETITION_MODE");
-    let _moa = crate::tests::TestEnvGuard::unset("ANGEL_GPU_COMP_LOCAL_MOA");
     let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
     let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
@@ -390,9 +412,16 @@ fn yolo_idle_floor_reaps_a_silent_foreground_server() {
         observation.output
     );
     assert!(
-        observation.output.contains("use proc_run"),
-        "the receipt must point the model at proc_run: {}",
+        observation
+            .output
+            .contains(&crate::agent::harness::book::d46_recovery::IDLE_FLOOR.cells()),
+        "the receipt must point the model at proc_run (its page): {}",
         observation.output
+    );
+    assert!(
+        crate::agent::harness::book::d46_recovery::IDLE_FLOOR
+            .text()
+            .contains("use proc_run")
     );
 }
 
@@ -574,4 +603,36 @@ fn busy_process_is_killed_at_the_call_budget() {
         elapsed < Duration::from_secs(8),
         "the busy child must stop at the 2s budget, not the 900s hard timeout ({elapsed:?})"
     );
+}
+
+/// YOLO may ignore ordinary timers, but it must not erase a task foreground cap.
+/// With idle policies disabled, a sleeping child exercises the wall deadline
+/// rather than the busy-process hard ceiling used by the adjacent regression.
+#[test]
+fn sleeping_process_keeps_call_budget_under_yolo() {
+    let _env = crate::tests::env_lock();
+    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
+    let _timeout = crate::tests::TestEnvGuard::set("ANGEL_TOOL_TIMEOUT", "0");
+    let _hard = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "0");
+    let _floor = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "0");
+    let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
+    let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
+    for cancellable in [false, true] {
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let started = Instant::now();
+        let capture = with_call_budget(Some(Duration::from_secs(1)), || {
+            let mut cmd = Command::new("sh");
+            // Finite even if the regression returns: no leaked unbounded sleep.
+            cmd.args(["-c", "sleep 5"]);
+            output_timed_extensible_cancellable_with_progress(
+                cmd,
+                tool_timeout(),
+                cancellable.then_some(&cancel),
+                None,
+            )
+            .unwrap()
+        });
+        assert!(capture.timed_out, "YOLO erased the foreground cap");
+        assert!(started.elapsed() < Duration::from_secs(4));
+    }
 }

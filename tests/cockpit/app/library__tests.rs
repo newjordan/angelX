@@ -162,14 +162,32 @@ fn catalog_shelf_opens_by_stable_id_without_network_or_model_state() {
 #[test]
 fn ask_tutor_handoff_is_editable_attributed_and_does_not_claim_source_access() {
     let lesson = local_lesson("Poisson distribution").unwrap();
+    // The handoff is `⠬⠛`; its words are the pages, the lesson's facts data.
+    use crate::agent::harness::book::ing_drivers::TUTOR_HANDOFF;
     let prompt = lesson.ask_tutor_prompt();
-    assert!(prompt.starts_with("Tutor me on “Poisson distribution”"));
+    assert!(
+        prompt.starts_with(&format!("{}\n", TUTOR_HANDOFF.cells())),
+        "{prompt}"
+    );
+    assert!(prompt.contains("topic: Poisson distribution"), "{prompt}");
     assert!(prompt.contains(lesson.tutor.name));
     assert!(prompt.contains(lesson.tutor.method));
     assert!(prompt.contains(lesson.source_label));
     assert!(prompt.contains(lesson.source_url));
-    assert!(prompt.contains("do not claim you have read its content"));
-    assert!(prompt.contains("wait for my answer before continuing"));
+    assert!(!prompt.contains("Tutor me on"), "{prompt}");
+    let pages = TUTOR_HANDOFF.sub().pages.join(" ");
+    assert!(pages.starts_with("Tutor me on “{topic}”"));
+    assert!(pages.contains("do not claim you have read its content"));
+    assert!(pages.contains("wait for my answer before continuing"));
+    // The steps ride as their addresses; the operator reads them recited.
+    for step in lesson_step_addresses(lesson.discipline) {
+        assert!(prompt.contains(&step), "{step} missing from {prompt}");
+    }
+    assert_eq!(
+        crate::agent::harness::book::connect::recite(&lesson_step_addresses(lesson.discipline)[0])
+            .replace("{topic}", &lesson.topic),
+        lesson.objective
+    );
 }
 
 #[test]
@@ -303,13 +321,26 @@ fn every_lesson_closes_with_deterministic_recall_practice() {
         // The Ask Tutor handoff inherits the SAME recall practice, so the
         // tutor checks the answers instead of re-reading the material.
         let handoff = lesson.ask_tutor_prompt();
+        use crate::agent::harness::book::ing_drivers::{TUTOR_HANDOFF, TUTOR_RECALL};
         assert!(
-            handoff.contains("End the lesson with retrieval practice"),
-            "handoff schedules the recall check: {handoff}"
+            TUTOR_HANDOFF
+                .sub()
+                .pages
+                .contains(&"End the lesson with retrieval practice — ask me to answer these before you confirm understanding:"),
+            "handoff schedules the recall check"
         );
         assert!(
-            handoff.contains(&lesson.recall_prompt()),
+            handoff.contains(&format!("recall: {}", TUTOR_RECALL.cells())),
             "handoff reuses the single-sourced recall prompts: {handoff}"
+        );
+        assert_eq!(
+            crate::agent::harness::book::connect::recite(&TUTOR_RECALL.cells())
+                .replace("{tutor}", lesson.tutor.name),
+            once.split('\n')
+                .map(str::trim)
+                .collect::<Vec<_>>()
+                .join(" "),
+            "the operator's recall is `⠬⠓` recited"
         );
     }
 }

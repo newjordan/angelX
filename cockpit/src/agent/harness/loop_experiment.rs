@@ -562,7 +562,7 @@ fn read_live_file(root: &Path, path: &Path) -> Result<Option<LiveEntry>, String>
 /// Read a final-component symlink's target through its directory descriptor
 /// and admit it when [`link_is_admissible`]. A build tree's `lib/libcrypto.so ->
 /// /usr/lib/.../libcrypto.so.3` made every deep experiment of a night-long loop
-/// fail at setup (apollo, 2026-09-24) while the snapshot refused all symlinks.
+/// fail at setup (2026-09-24) while the snapshot refused all symlinks.
 #[cfg(unix)]
 fn symlink_entry(
     directory: &std::fs::File,
@@ -934,18 +934,19 @@ pub(crate) fn run_loop_experiment(
             // hop cap and no timeout, and is bounded by cancellation (plus any
             // token budget) exactly like an ordinary interactive turn.
             let hop_cap = (request.max_hops > 0).then_some(request.max_hops);
-            let mut system = String::from(
-                "[LOOP RECOVERY EXPERIMENT] You are one owned leaf experiment on an isolated copy of the current active source. Test one falsifiable hypothesis with available local tools and retain negative results. Do not submit to competitions, publish, deploy, merge into the parent, launch other agents, or access off-limits paths. No public submission is authorized. Report the exact change, checks, result, and next useful action.",
-            );
+            // `⠜⠛`: the leaf's contract is the ledger pages (its Code grant
+            // carries `read_file`).
+            let mut system = super::book::ar_seats::EXPERIMENT.cells();
             if let Some(note) = request
                 .policy_note
                 .as_deref()
                 .map(str::trim)
                 .filter(|note| !note.is_empty())
             {
-                system.push_str(
-                    "\n\n[applied policy note — controller-supplied, applies to this attempt]\n",
-                );
+                system.push_str(&format!(
+                    "\n\n{}\n",
+                    super::book::ar_seats::POLICY_NOTE.cells()
+                ));
                 system.push_str(note);
             }
             let mut history = vec![ChatMsg::system(system), ChatMsg::user(request.task.clone())];

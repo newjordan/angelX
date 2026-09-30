@@ -23,10 +23,13 @@ use std::time::Duration;
 use crate::agent::club::ToolCall;
 use base64::Engine as _;
 
+mod api;
 mod attempts;
 mod events;
+mod replay;
 mod usage;
 pub(crate) use events::{ResponseEvent, ResponseToolCalls, parse_responses_event};
+pub(crate) use replay::ResponseReplay;
 pub(crate) use usage::{Usage, UsageStats, collect_rate_limits, format_usage};
 
 /// The public Codex CLI OAuth client (from the installed Codex binary).
@@ -283,7 +286,7 @@ fn model_catalog_from_str(raw: &str) -> Vec<CodexModelInfo> {
 }
 
 /// Private-test Codex surface that must never run competitions or default work.
-/// "Spark" here is OpenAI's product name (gpt-5.3-codex-spark), not the DGX box.
+/// "Spark" here is OpenAI's product name (gpt-5.3-codex-spark).
 pub(crate) fn is_private_test_codex_model(slug: &str) -> bool {
     let l = slug.trim().to_ascii_lowercase();
     l.contains("codex-spark")
@@ -620,6 +623,9 @@ pub struct CodexClub {
     /// `reasoning.summary` level: `auto` for the ChatGPT seat; an API-key seat
     /// can ask for `concise` or `detailed` summaries for the thinking panel.
     reasoning_summary: String,
+    /// Experimental native continuation; opt in only for measured evaluations.
+    replay_enabled: bool,
+    api_controls: Option<api::ApiControls>,
     /// Test-only endpoint override: points the Responses POST at a local
     /// server so the streaming loop's watchdogs can be exercised without the
     /// real ChatGPT backend. Always `None` in production.
@@ -795,11 +801,21 @@ impl CodexClub {
             keep_truncated: false,
             pxpipe_candidate: false,
             caveman_candidate: false,
-            session_id: synth_session_id(),
+            // Cache affinity: the backend keys prefix-cache locality partly on
+            // the session_id header. A run that pins `ANGEL_OPENAI_SESSION_ID`
+            // (e.g. a benchmark cohort) shares one stable id across tasks so
+            // hop 1 of task N can hit the prefix cached by task N-1; the
+            // default stays a fresh per-process correlation id.
+            session_id: std::env::var("ANGEL_OPENAI_SESSION_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(synth_session_id),
             stream_stall_secs,
             responses_url: RESPONSES_URL.to_string(),
             api_key: None,
             reasoning_summary: "auto".to_string(),
+            replay_enabled: std::env::var("ANGEL_OPENAI_REPLAY").as_deref() == Ok("1"),
+            api_controls: None,
             #[cfg(test)]
             responses_url_override: None,
         }
@@ -830,6 +846,26 @@ impl CodexClub {
         club.responses_url = responses_url.into();
         club.api_key = Some(api_key.into());
         club
+    }
+
+    /// Apply the explicit OpenAI API seat's independent environment namespace.
+    /// Invalid transport configuration remains a visible route and fails before
+    /// auth/network, rather than silently disappearing or choosing a fallback.
+    pub(crate) fn with_openai_api_controls(mut self, error: Option<String>) -> Self {
+        self.api_controls = Some(api::ApiControls { error });
+        self
+    }
+
+    fn output_budget_policy(&self) -> (crate::agent::club::OutputBudgetPolicy, Option<String>) {
+        self.api_controls.as_ref().map_or_else(
+            || {
+                (
+                    self.route_metadata.output_budget,
+                    self.route_metadata.output_budget_provenance.clone(),
+                )
+            },
+            api::ApiControls::output_budget,
+        )
     }
 
     /// Ask for `auto`, `concise` or `detailed` reasoning summaries.
@@ -1029,13 +1065,17 @@ impl CodexClub {
         effort: Option<&str>,
     ) -> serde_json::Value {
         use serde_json::json;
+        // The book's legend reaches a Responses seat as it reaches Chat
+        // Completions: each stamp's English the first time the model meets it.
+        let introduced = crate::agent::harness::book::introduction::introduced(messages, tools);
+        let messages: &[ChatMsg] = &introduced;
         let fallback_effort = effort.is_none().then(|| self.reasoning_effort()).flatten();
         let effort = effort.or(fallback_effort.as_deref());
         // Brevity instruction for the metered link: folded into `instructions`
         // right after the leading system block — the history is never cloned
         // to carry it (it used to be, every request).
         let caveman = if self.caveman_candidate {
-            crate::agent::club::sota_caveman_insert(messages)
+            crate::agent::club::sota_caveman_insert(messages, false)
         } else {
             None
         };
@@ -1054,8 +1094,27 @@ impl CodexClub {
             sys_parts.insert(lead, &caveman_text);
         }
         let instructions = sys_parts.join("\n\n");
+        let replay_prefixes = (self.api_key.is_none()
+            && self.replay_enabled
+            && messages
+                .iter()
+                .any(|message| message.responses_replay.is_some()))
+        .then(|| replay::prefix_digests(messages));
         let mut input: Vec<serde_json::Value> = Vec::new();
-        for m in messages.iter().filter(|m| m.role != ChatRole::System) {
+        for (index, m) in messages
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.role != ChatRole::System)
+        {
+            if self.api_key.is_none()
+                && self.replay_enabled
+                && let Some(replay) = &m.responses_replay
+                && let Some(prefixes) = &replay_prefixes
+                && let Some(items) = replay.items_for(&self.session_id, &prefixes[index + 1])
+            {
+                input.extend_from_slice(items);
+                continue;
+            }
             match m.role {
                 ChatRole::Assistant if !m.tool_calls.is_empty() => {
                     if !m.content.trim().is_empty() {
@@ -1098,11 +1157,13 @@ impl CodexClub {
             "stream": true,
             "store": false,
         });
+        if self.api_key.is_none() && self.replay_enabled {
+            // The ChatGPT backend still uses the Codex selector; the public
+            // API also accepts it as the legacy stateless-continuation option.
+            body["include"] = json!(["reasoning.encrypted_content"]);
+        }
         if !tools.is_empty() {
             body["tools"] = json!(responses_tool_defs(tools));
-            if crate::agent::club::final_response_requested(messages) {
-                body["tool_choice"] = json!("none");
-            }
         }
         // Request reasoning summaries alongside the operator-selected effort.
         // Hosted OpenAI models expose ONLY summaries — never the verbatim
@@ -1123,6 +1184,12 @@ impl CodexClub {
                 reasoning.insert("effort".into(), responses_wire_effort(effort).into());
             }
             obj.insert("reasoning".into(), reasoning.into());
+        }
+        if self.api_controls.is_some()
+            && let crate::agent::club::OutputBudgetPolicy::Explicit { tokens, .. } =
+                self.output_budget_policy().0
+        {
+            body["max_output_tokens"] = json!(tokens);
         }
         // NOTE: the ChatGPT-backed Codex Responses endpoint rejects
         // `max_output_tokens` ("HTTP 400: Unsupported parameter") — output length
@@ -1154,6 +1221,11 @@ impl CodexClub {
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
         use crate::agent::club::wire_log::{WireCall, WireWindows};
+        // These handoffs belong to one provider reply on this thread. Clear
+        // them before validation/auth can fail or another route can run.
+        crate::agent::club::set_pending_responses_replay(None);
+        crate::agent::club::set_pending_tool_content(None);
+        crate::agent::club::set_pending_tool_reasoning(None);
         let wire = WireCall::new(&self.name, &self.model, "responses");
         wire.arm(WireWindows {
             stall_secs: self.stream_stall_secs,
@@ -1182,10 +1254,30 @@ impl CodexClub {
         wire: &crate::agent::club::wire_log::WireCall,
     ) -> Result<ClubReply, String> {
         use std::sync::atomic::Ordering;
+        if let Some(error) = self
+            .api_controls
+            .as_ref()
+            .and_then(|controls| controls.error.as_ref())
+        {
+            return Err(error.clone());
+        }
+        if self.api_controls.is_some() && cancel.load(Ordering::Relaxed) {
+            return Err("cancelled".into());
+        }
+        if self.api_controls.is_some()
+            && crate::agent::harness::formation_budget::request_wall_remaining()
+                .is_some_and(|remaining| remaining.is_zero())
+        {
+            return Err("graph request deadline reached".into());
+        }
         if let Some(error) = self.selection.as_ref().and_then(|s| s.error.as_ref()) {
             return Err(error.clone());
         }
-        if let Some(requested) = effort
+        let api_effort = self
+            .api_controls
+            .as_ref()
+            .and_then(|_| self.reasoning_effort());
+        if let Some(requested) = effort.or(api_effort.as_deref())
             && !self
                 .reasoning_levels
                 .iter()
@@ -1201,6 +1293,40 @@ impl CodexClub {
         let (token, account) = self.token()?;
         wire.phase("request");
         let body = self.build_request_with_effort(messages, tools, effort);
+        let retained = messages
+            .iter()
+            .filter(|message| message.responses_replay.is_some())
+            .count();
+        if retained > 0 && self.api_key.is_none() && self.replay_enabled {
+            let emitted_native = body["input"].as_array().map_or(0, |input| {
+                input
+                    .iter()
+                    .filter(|item| item["type"] == "function_call" && item.get("id").is_some())
+                    .count()
+            });
+            wire.note(
+                "responses_replay_validation",
+                &format!("retained_turns={retained} native_calls={emitted_native}"),
+            );
+        }
+        if let Some(input) = body["input"].as_array() {
+            let (items, bytes) = input
+                .iter()
+                .filter_map(|item| {
+                    (item["type"] == "reasoning")
+                        .then(|| item["encrypted_content"].as_str())
+                        .flatten()
+                })
+                .fold((0usize, 0usize), |(items, bytes), encrypted| {
+                    (items + 1, bytes + encrypted.len())
+                });
+            if items > 0 {
+                wire.note(
+                    "responses_replay",
+                    &format!("{items} opaque reasoning item(s), {bytes} encrypted bytes"),
+                );
+            }
+        }
         let bytes = serde_json::to_vec(&body).map_err(|e| format!("encode request: {e}"))?;
         let bytes = if self.pxpipe_candidate {
             crate::agent::club::maybe_pxpipe_transform(
@@ -1212,7 +1338,28 @@ impl CodexClub {
         } else {
             bytes
         };
-        let mut attempt = attempts::Attempt::new(self, &bytes);
+        let (bytes, reservation) = if self.api_controls.is_some() {
+            api::fit_and_reserve(bytes, &self.name)?
+        } else {
+            (bytes, None)
+        };
+        let wire_output_cap = if self.api_controls.is_some() {
+            serde_json::from_slice::<serde_json::Value>(&bytes)
+                .ok()
+                .and_then(|body| body["max_output_tokens"].as_u64())
+        } else {
+            None
+        };
+        let wire_output_budget = wire_output_cap
+            .and_then(|tokens| u32::try_from(tokens).ok())
+            .map(|tokens| crate::agent::club::OutputBudgetPolicy::Explicit {
+                tokens,
+                source: match self.output_budget_policy().0 {
+                    crate::agent::club::OutputBudgetPolicy::Explicit { source, .. } => source,
+                    _ => crate::agent::club::OutputBudgetSource::PerClubEnv,
+                },
+            })
+            .unwrap_or_else(|| self.output_budget_policy().0);
         // Tests point the POST at a local TCP server; production always keeps
         // the real ChatGPT Responses endpoint.
         #[cfg(test)]
@@ -1225,9 +1372,7 @@ impl CodexClub {
         // Observation only: binding the run identity must never change the
         // request path (see HttpClub::send_with_retry). Failures leave the
         // identity unbound and are reported as such by the coverage report.
-        if crate::agent::harness::run_identity::current().is_none()
-            && let Ok(wire) = serde_json::from_slice::<serde_json::Value>(&bytes)
-        {
+        if let Ok(wire) = crate::agent::harness::run_identity::wire_identity_controls(&bytes) {
             let mut defaults = self.resolved_model_defaults();
             defaults["model"] = wire["model"].clone();
             defaults["reasoning_effort"] = wire["reasoning"]["effort"].clone();
@@ -1243,11 +1388,19 @@ impl CodexClub {
                     base_url: crate::agent::harness::run_identity::endpoint_identity(responses_url),
                 },
                 crate::agent::harness::run_identity::wire_effort(&wire),
-                wire.get("max_output_tokens")
-                    .cloned()
-                    .unwrap_or_else(|| serde_json::json!("endpoint-managed")),
+                wire.get("max_output_tokens").cloned().unwrap_or_else(|| {
+                    serde_json::json!(if self.api_controls.is_some() {
+                        "provider-native"
+                    } else {
+                        "endpoint-managed"
+                    })
+                }),
                 Some(self.stream_stall_secs),
             );
+        }
+        let mut attempt = attempts::Attempt::new(self, &bytes);
+        if let Some(reservation) = reservation {
+            attempt.reserve_formation(reservation);
         }
         let mut request = self
             .agent
@@ -1261,6 +1414,15 @@ impl CodexClub {
                 .set("OpenAI-Beta", "responses=experimental")
                 .set("originator", ORIGINATOR)
                 .set("session_id", &self.session_id);
+        }
+        if self.api_controls.is_some()
+            && let Some(remaining) =
+                crate::agent::harness::formation_budget::request_wall_remaining()
+        {
+            if remaining.is_zero() {
+                return Err("graph request deadline reached".into());
+            }
+            request = request.timeout(remaining);
         }
         let resp = request.send_bytes(&bytes).map_err(|e| {
             let detail = match e {
@@ -1291,6 +1453,7 @@ impl CodexClub {
         let reader = BufReader::new(attempt.response_reader(resp.into_reader()));
         let mut content = String::new();
         let mut tool_calls = ResponseToolCalls::default();
+        let mut replay_items = replay::ReplayItems::default();
         let mut saw_done = false;
         // Heartbeat-aware stall clock: the read deadline only catches a socket
         // that sends no bytes, but a Responses stream can keep sending
@@ -1330,6 +1493,9 @@ impl CodexClub {
                 }
             };
             wire.bytes(line.len() + 1);
+            if self.api_key.is_none() && self.replay_enabled {
+                replay_items.observe(&line);
+            }
             observe_responses_line(wire, &line);
             // A blocking read may yield a terminal usage frame just as cancel
             // flips. Account for the received frame before suppressing output.
@@ -1364,7 +1530,13 @@ impl CodexClub {
                 ResponseEvent::Failed(msg, _) => {
                     return Err(format!("{}: {msg}", self.provider_label()));
                 }
-                ResponseEvent::Incomplete(msg, _) => {
+                ResponseEvent::Incomplete(mut msg, _) => {
+                    if self.api_controls.is_some() && msg.contains("max_output_tokens") {
+                        msg = wire_output_cap.map_or_else(
+                            || self.output_budget_policy().0.incomplete_message(),
+                            |tokens| format!("response incomplete: request max_output_tokens was {tokens} tokens"),
+                        );
+                    }
                     // Cut off at the output cap. A SOTA-tuned link keeps the prose
                     // streamed so far (when no tool call is mid-flight — its args
                     // would be half-written) as usable MoA material, marked so it's
@@ -1372,7 +1544,7 @@ impl CodexClub {
                     if self.keep_truncated && !content.trim().is_empty() && !tool_calls.pending() {
                         return Ok(ClubReply::Text(mark_truncated(
                             &content,
-                            crate::agent::club::OutputBudgetPolicy::EndpointManaged,
+                            wire_output_budget,
                         )));
                     }
                     return Err(format!("{}: {msg}", self.provider_label()));
@@ -1415,6 +1587,36 @@ impl CodexClub {
             wire.note(kind, message);
         }
         if !calls.is_empty() {
+            if self.api_key.is_none() && self.replay_enabled {
+                let items = replay_items.finish();
+                let reasoning_items = items
+                    .iter()
+                    .filter(|item| item["type"] == "reasoning")
+                    .count();
+                let encrypted_items = items
+                    .iter()
+                    .filter(|item| {
+                        item["type"] == "reasoning"
+                            && item["encrypted_content"]
+                                .as_str()
+                                .is_some_and(|value| !value.is_empty())
+                    })
+                    .count();
+                let item_count = items.len();
+                let replay =
+                    ResponseReplay::new(&self.session_id, messages, &calls, &content, items);
+                wire.note("responses_capture", &format!(
+                    "items={item_count} reasoning={reasoning_items} encrypted={encrypted_items} accepted={} reason={}",
+                    replay.is_some(),
+                    if replay.is_some() { "complete" } else if reasoning_items > encrypted_items { "missing_encrypted_content" } else { "incomplete_or_mismatched_output" },
+                ));
+                crate::agent::club::set_pending_responses_replay(replay);
+            }
+            // The operator already saw this commentary stream. Keep it on the
+            // assistant call message so the next hop knows what was said.
+            crate::agent::club::set_pending_tool_content(
+                (!content.trim().is_empty()).then_some(content),
+            );
             Ok(ClubReply::Calls(calls))
         } else if tools.is_empty() {
             // Tool-less request (swarm/deli worker): nothing a "recovered" call
@@ -1445,7 +1647,7 @@ fn observe_responses_line(wire: &crate::agent::club::wire_log::WireCall, line: &
     let Ok(v) = serde_json::from_str::<serde_json::Value>(data) else {
         wire.note(
             "unparsed_event",
-            &format!("not JSON: {}", data.chars().take(160).collect::<String>()),
+            &format!("invalid JSON event ({} bytes)", data.len()),
         );
         return;
     };
@@ -1545,6 +1747,14 @@ fn responses_content_parts(m: &ChatMsg, text_kind: &str) -> Vec<serde_json::Valu
 }
 
 impl Club for CodexClub {
+    fn supports_formation_budget(&self) -> bool {
+        self.api_controls.is_some()
+    }
+
+    fn env_namespace(&self) -> Option<&str> {
+        self.api_controls.as_ref().map(|_| "OPENAI_API")
+    }
+
     fn bind_run_identity(&self, _effort: Option<&str>) -> Result<(), String> {
         Ok(())
     }
@@ -1570,6 +1780,11 @@ impl Club for CodexClub {
     }
 
     fn reasoning_effort(&self) -> Option<String> {
+        if self.route_state_revision.load(Ordering::Relaxed) == 0
+            && let Some(controls) = &self.api_controls
+        {
+            return controls.effort(&self.model);
+        }
         self.reasoning_effort
             .lock()
             .ok()
@@ -1577,6 +1792,29 @@ impl Club for CodexClub {
     }
 
     fn resolved_model_defaults(&self) -> serde_json::Value {
+        if let Some(controls) = &self.api_controls {
+            let mut defaults =
+                crate::agent::club::model_defaults::budgets(&self.model, "OPENAI_API");
+            defaults["model"] = serde_json::json!(self.model);
+            defaults["model_source"] = serde_json::json!("env");
+            defaults["stream_stall_secs"] = serde_json::json!(self.stream_stall_secs);
+            defaults["stream_stall_source"] =
+                serde_json::json!(if std::env::var_os(CODEX_STREAM_STALL_ENV).is_some() {
+                    "env"
+                } else {
+                    "default"
+                });
+            defaults["reasoning_effort"] = serde_json::json!(
+                self.reasoning_effort()
+                    .as_deref()
+                    .map(responses_wire_effort)
+            );
+            if self.route_state_revision.load(Ordering::Relaxed) > 0 {
+                defaults["reasoning_effort_source"] = serde_json::json!("env");
+            }
+            defaults["selection_error"] = serde_json::json!(controls.error);
+            return defaults;
+        }
         let mut defaults = crate::agent::club::model_defaults::budgets(&self.model, "ANGEL_OPENAI");
         let selection = self.selection.as_ref();
         defaults["model"] = serde_json::json!(self.model);
@@ -1602,7 +1840,9 @@ impl Club for CodexClub {
     }
 
     fn route_metadata(&self) -> crate::agent::club::RouteMetadata {
-        self.route_metadata.clone()
+        let mut metadata = self.route_metadata.clone();
+        (metadata.output_budget, metadata.output_budget_provenance) = self.output_budget_policy();
+        metadata
     }
 
     fn header_route_metadata(&self) -> crate::agent::club::RouteMetadata {
@@ -1639,7 +1879,9 @@ impl Club for CodexClub {
     /// Reachable iff a usable ChatGPT token is still on disk (catches `codex
     /// logout`). Cheap local read — no network probe to rate-limit against.
     fn is_available(&self) -> bool {
-        ChatGptAuth::load().is_some()
+        self.api_key
+            .as_ref()
+            .map_or_else(|| ChatGptAuth::load().is_some(), |key| !key.is_empty())
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {

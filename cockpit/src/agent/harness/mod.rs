@@ -60,6 +60,7 @@ pub(crate) const DEFAULT_AUTO_RECALL_K: usize = 12;
 mod action_capsule;
 mod agent_graph;
 mod auxiliary;
+pub(crate) mod book;
 mod code_mode;
 pub(crate) mod coeffect;
 pub(crate) mod comp_packages;

@@ -27,7 +27,7 @@ pub(crate) fn mutation_requires_verification(call: &ToolCall) -> bool {
 /// loop forever demanding green from a broken environment.
 pub(crate) fn is_verification_call(call: &ToolCall) -> bool {
     match call.name.as_str() {
-        "run_tests" | "check" | "lint" | "machine_test" => true,
+        "run_tests" | "check" | "lint" => true,
         "fmt" => call.args.get("check").and_then(Value::as_bool) == Some(true),
         "cargo" => {
             let first = call
@@ -472,13 +472,6 @@ pub(crate) fn verification_result_has_known_gap(result: &str) -> bool {
     header.split("; ").any(|part| part == "coverage=incomplete")
 }
 
-pub(crate) fn verification_result_covers_changes(result: &str) -> bool {
-    let header = result.lines().next().unwrap_or("");
-    !header
-        .split("; ")
-        .any(|part| part == "coverage=incomplete" || part == "coverage=unknown")
-}
-
 pub(crate) fn verification_is_completion_sufficient(call: &ToolCall) -> bool {
     match call.name.as_str() {
         // The dedicated tools are the harness's own curated gates and keep
@@ -513,119 +506,6 @@ pub(crate) fn verification_is_completion_sufficient(call: &ToolCall) -> bool {
         "shell" => false,
         _ => false,
     }
-}
-
-fn normalized_verifier_words(raw: &str) -> Option<String> {
-    let words = raw.split_whitespace().collect::<Vec<_>>();
-    (!words.is_empty()).then(|| words.join(" "))
-}
-
-fn cargo_verification_identity(raw: &str) -> Option<String> {
-    let normalized = normalized_verifier_words(raw)?;
-    let first = normalized.split_whitespace().next()?;
-    matches!(first, "test" | "check" | "clippy")
-        .then(|| format!("cargo|{normalized}"))
-        .or_else(|| {
-            (first == "fmt" && normalized.split_whitespace().any(|word| word == "--check"))
-                .then(|| format!("cargo|{normalized}"))
-        })
-}
-
-fn is_plain_shell_words(command: &str) -> bool {
-    command.chars().all(|ch| {
-        ch.is_ascii_alphanumeric()
-            || ch.is_ascii_whitespace()
-            || matches!(
-                ch,
-                '-' | '_' | '.' | '/' | ':' | '=' | '+' | ',' | '@' | '%'
-            )
-    })
-}
-
-/// Stable semantic identity for a verifier invocation. Tool-call IDs and
-/// harmless whitespace are excluded. Raw shell commands keep a separate
-/// identity from curated verifier tools: the same command text can resolve to
-/// a function or PATH shim, so cross-wrapper cache reuse would cross a trust
-/// boundary even when the visible argv looks identical.
-pub(crate) fn verification_identity(call: &ToolCall) -> Option<String> {
-    if !is_verification_call(call) {
-        return None;
-    }
-    let extra = || {
-        call.args
-            .get("args")
-            .and_then(Value::as_str)
-            .and_then(normalized_verifier_words)
-    };
-    match call.name.as_str() {
-        "run_tests" => Some(format!(
-            "cargo|test{}",
-            extra().map(|args| format!(" {args}")).unwrap_or_default()
-        )),
-        "check" => Some(format!(
-            "cargo|check{}",
-            extra().map(|args| format!(" {args}")).unwrap_or_default()
-        )),
-        "lint" => Some(format!(
-            "cargo|clippy{}",
-            extra().map(|args| format!(" {args}")).unwrap_or_default()
-        )),
-        "fmt" => Some("cargo|fmt --check".to_string()),
-        "cargo" => call
-            .args
-            .get("args")
-            .and_then(Value::as_str)
-            .and_then(cargo_verification_identity),
-        "shell" => {
-            let command = crate::agent::tools::shell::shell_command_arg(&call.args)?;
-            let command = if is_plain_shell_words(command) {
-                normalized_verifier_words(command)?
-            } else {
-                command.trim().to_string()
-            };
-            Some(format!("shell|{command}"))
-        }
-        _ => Some(format!("{}|{}", call.name, call.args)),
-    }
-}
-
-pub(super) fn cached_verification_result(call: &ToolCall, outcome: VerificationOutcome) -> String {
-    format!(
-        "[reused verifier result: {}] The semantically identical `{}` verifier already ran against this exact workspace state; it was not executed again. Edit the workspace, choose a different relevant verifier, or finish from the existing evidence.",
-        outcome.as_str(),
-        call.name
-    )
-}
-
-pub(super) fn sufficient_verification_result(call: &ToolCall) -> String {
-    format!(
-        "[skipped redundant verifier: passed] This exact `{}` invocation already passed against this unchanged workspace state; it was not executed again. Different tools or arguments require their own result.",
-        call.name
-    )
-}
-
-pub(crate) fn should_activate_final_mile(
-    max_hops: Option<usize>,
-    completed_hops: usize,
-    reserve_hops: usize,
-    mutation_seen: bool,
-    already_active: bool,
-) -> bool {
-    reserve_hops > 0
-        && mutation_seen
-        && !already_active
-        && max_hops.is_some_and(|max| max.saturating_sub(completed_hops) <= reserve_hops)
-}
-
-pub(crate) fn should_force_final_mile_answer(
-    max_hops: Option<usize>,
-    completed_hops: usize,
-    answer_hops: usize,
-    final_mile_active: bool,
-) -> bool {
-    answer_hops > 0
-        && final_mile_active
-        && max_hops.is_some_and(|max| max.saturating_sub(completed_hops) <= answer_hops)
 }
 
 /// Merge the operator interrupt with an absolute turn deadline for one
@@ -692,18 +572,6 @@ pub(crate) fn with_turn_deadline_cancel<R>(
             operation(&effective_cancel)
         })
     })
-}
-
-pub(crate) fn final_mile_rejects_inspection(
-    active: bool,
-    verification_outstanding: bool,
-    calls: &[ToolCall],
-) -> bool {
-    active
-        && verification_outstanding
-        && !calls
-            .iter()
-            .any(|call| is_mutation_call(call) || is_verification_call(call))
 }
 
 /// Outcome quality for a verifier result. This is intentionally distinct from
@@ -823,17 +691,6 @@ pub(crate) fn verification_outcome(call: &ToolCall, result: &str) -> Option<Veri
             // the executable identity (function/PATH/BASH_ENV shadowing).
             VerificationOutcome::Inconclusive
         }
-        "machine_test" => {
-            if ascii_contains_ignore_case(result, "\"event\": \"released\"")
-                && ascii_contains_ignore_case(result, "\"status\": \"done\"")
-            {
-                VerificationOutcome::Passed
-            } else if ascii_contains_ignore_case(result, "\"event\": \"released\"") {
-                VerificationOutcome::Failed
-            } else {
-                VerificationOutcome::Inconclusive
-            }
-        }
         "cargo" => {
             let args = call.args.get("args").and_then(Value::as_str).unwrap_or("");
             let first = args.split_whitespace().next();
@@ -918,7 +775,6 @@ pub(crate) fn turn_event_outcome(call: &ToolCall, result: &str, denied: bool) ->
             "code_mode cancelled",
             "process wait cancelled",
             "process launch cancelled",
-            "queued machine test cancelled by operator",
         ]
         .into_iter()
         .any(starts)
@@ -948,70 +804,6 @@ pub(crate) fn turn_event_outcome(call: &ToolCall, result: &str, denied: bool) ->
         execution,
         verification,
     }
-}
-
-pub(crate) fn should_nudge_final_verification(
-    policy_enabled: bool,
-    verification_needed: bool,
-    nudges: usize,
-    max_nudges: usize,
-) -> bool {
-    policy_enabled && verification_needed && nudges < max_nudges
-}
-
-/// Whether the verification gate is allowed to interrupt the operator at all.
-///
-/// Both YOLO profiles opted out of modals while keeping this gate (see `yolo`),
-/// so they take the silent hold rather than a prompt they turned off.
-pub(crate) fn verification_gate_prompts() -> bool {
-    matches!(
-        crate::platform::yolo::profile(),
-        crate::platform::yolo::Profile::Guarded
-    )
-}
-
-/// Ask the operator whether to let an unverified completion stand.
-///
-/// The gate retracts an answer the provider already streamed. That used to be
-/// announced by a routine strip murmur, which the pane folds into a `(N notes)`
-/// counter — so work stalled with no stated reason and no way for the operator
-/// to overrule it. Raising the first denial of a turn as a modal makes holding
-/// the answer a decision someone made.
-///
-/// Only the Guarded posture prompts: `yolo` documents that completion and
-/// verification gates survive both YOLO profiles, so an unrestricted run keeps
-/// today's behavior rather than gaining a modal it opted out of. A headless
-/// harness, a dropped UI, and an unanswered prompt all resolve to "hold", so
-/// silence can never release a completion claim.
-pub(super) fn operator_releases_unverified_completion(workspace: &Path) -> bool {
-    if !verification_gate_prompts() {
-        return false;
-    }
-    let decision = crate::agent::approval::ask(
-        crate::agent::approval::ApprovalScope::TurnGate("unverified completion".to_string()),
-        &format!(
-            "The agent edited {} and claimed completion without running a verifier since \
-             the last edit.\n\nApprove to accept the answer as it stands; deny to retract it \
-             and make the agent verify first.",
-            workspace.display()
-        ),
-    );
-    matches!(decision, crate::agent::approval::Decision::Approve)
-}
-
-pub(crate) fn accepted_unverified_completion(
-    policy_enabled: bool,
-    verification_outstanding: bool,
-    nudges: usize,
-    max_nudges: usize,
-) -> bool {
-    verification_outstanding
-        && !should_nudge_final_verification(
-            policy_enabled,
-            verification_outstanding,
-            nudges,
-            max_nudges,
-        )
 }
 
 #[cfg(test)]

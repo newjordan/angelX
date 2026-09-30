@@ -100,23 +100,18 @@ impl Mode {
         }
     }
 
-    /// The 1–3 line behavioral guidance injected into the system prompt for this
-    /// mode (empty for `Unset` — the agent is told to ask instead).
-    pub fn guidance(self) -> &'static str {
-        match self {
-            Mode::InternalDev => {
-                "Optimize for velocity and iteration — this is internal/local tooling. \
-                 Fewer public-exposure worries; move fast. (Still don't hardcode real \
-                 production secrets, but you're not writing for the world.)"
-            }
-            Mode::PublicFacing => {
-                "Extra care — this repo is public. NEVER commit secrets, keys, or \
-                 credentials. Be deliberate about what you push or expose; assume external \
-                 readers see every line and every commit. Stay quality-conscious with \
-                 professional commit hygiene."
-            }
-            Mode::Unset => "",
-        }
+    /// This mode's behavioral guidance as its page addresses: the guidance
+    /// sentences of its work-context route (`⠝⠑` pages 3–5, `⠝⠋` pages 3–6).
+    /// Empty for `Unset` — the agent is told to ask instead.
+    pub fn guidance(self) -> String {
+        use crate::agent::harness::book::d46_recovery::{Page, run};
+        use crate::agent::harness::book::n_environment::{WORK_INTERNAL, WORK_PUBLIC};
+        let (route, pages) = match self {
+            Mode::InternalDev => (WORK_INTERNAL, 3..=5),
+            Mode::PublicFacing => (WORK_PUBLIC, 3..=6),
+            Mode::Unset => return String::new(),
+        };
+        run(&pages.map(|n| Page::new(route, n)).collect::<Vec<_>>())
     }
 }
 
@@ -396,33 +391,28 @@ pub fn load_context(workspace: &Path) -> Option<WorkContext> {
 /// behavioral guidance; otherwise (no context, or unconfirmed) it yields the
 /// self-direct onboarding instruction.
 pub fn render_block(ctx: Option<&WorkContext>) -> String {
+    use crate::agent::harness::book::n_environment::{WORK_INTERNAL, WORK_PUBLIC, WORK_UNSET};
+    // The route carries the words (its ledger pages); the fields are the data.
     match ctx {
         Some(c) if c.confirmed && c.mode != Mode::Unset => format!(
-            "\n\n# Active work context\n\
-             folder={folder} · repo={repo} · visibility={vis} · mode={mode}\n\
-             {guidance}\n",
+            "\n\n{route}\nfolder={folder} · repo={repo} · visibility={vis} · mode={mode}\n",
+            route = if c.mode == Mode::PublicFacing {
+                WORK_PUBLIC.cells()
+            } else {
+                WORK_INTERNAL.cells()
+            },
             folder = c.folder,
             repo = c.repo_label(),
             vis = c.visibility.label(),
             mode = c.mode.label(),
-            guidance = c.mode.guidance(),
         ),
         other => {
-            let mut s = String::from(
-                "\n\n# Work context (not established)\n\
-                 Work context is not established for this workspace. Before substantive \
-                 work, call `work_landing` to detect the folder / GitHub repo / visibility, \
-                 then CONFIRM with the user — e.g. \"Working in X · GitHub Y · private? — \
-                 correct?\" — and record it by calling `work_landing` with confirm=true. \
-                 This sets your behavior mode: internal-dev (private/local → velocity) vs \
-                 public-facing-care (public repo → no secrets, mindful of exposure).\n",
-            );
+            let mut s = format!("\n\n{}\n", WORK_UNSET.cells());
             // If a snapshot exists but isn't confirmed, surface what was detected so
             // the agent can lead with it.
             if let Some(c) = other {
                 s.push_str(&format!(
-                    "Detected so far (unconfirmed): folder={folder} · repo={repo} · \
-                     visibility={vis} · proposed mode={mode}.\n",
+                    "folder={folder} · repo={repo} · visibility={vis} · proposed mode={mode}\n",
                     folder = c.folder,
                     repo = c.repo_label(),
                     vis = c.visibility.label(),
@@ -526,35 +516,52 @@ fn detect(workspace: &Path) -> Detection {
     }
 }
 
-/// One-line detection caveat for the human-facing summary.
-fn detection_note(d: &Detection) -> &'static str {
-    if d.ctx.repo.is_none() {
+/// One-line detection caveat: the fact, then what to ask as its page.
+fn detection_note(d: &Detection) -> String {
+    use crate::agent::harness::book::d56_replies as replies;
+    let (fact, ask) = if d.ctx.repo.is_none() {
         if d.is_git_repo {
-            "No `origin` remote — repo unknown. Ask the user for the GitHub repo (or confirm it's local-only)."
+            (
+                "No `origin` remote — repo unknown.",
+                replies::LANDING_ASK_REPO,
+            )
         } else {
-            "Not a git repo — folder-only context. Confirm with the user whether this work is internal-only."
+            (
+                "Not a git repo — folder-only context.",
+                replies::LANDING_ASK_INTERNAL,
+            )
         }
     } else if d.ctx.visibility == Visibility::Unknown {
-        "Couldn't determine visibility (gh missing/unauthed). Ask the user: is this repo private or public?"
+        (
+            "Couldn't determine visibility (gh missing/unauthed).",
+            replies::LANDING_ASK_VISIBILITY,
+        )
     } else {
-        "Visibility confirmed from GitHub via gh."
-    }
+        return "Visibility confirmed from GitHub via gh.".to_string();
+    };
+    format!("{fact} {}", ask.cells())
 }
 
 /// The structured summary the detect path returns so the agent can confirm + record.
 fn detect_summary(d: &Detection, saved: &Path) -> String {
+    use crate::agent::harness::book::d56_replies as replies;
+    // The detected fields are the data; the proposal frame and the next step
+    // are `⠰⠋` pages (the next step's placeholders are the fields above).
     format!(
-        "Work landing — detected context (a PROPOSAL; confirm with the user before relying on it).\n\n\
+        "{detected}\n\n\
          folder:     {folder}\n\
          repo:       {repo}\n\
          visibility: {vis}\n\
          mode:       {mode} (proposed)\n\
          already established: {est}\n\n\
          note: {note}\n\n\
-         Next: CONFIRM with the user — e.g. \"Working in {folder} · GitHub {repo} · {vis} — correct?\". \
-         Once they agree, call `work_landing` with confirm=true (and repo / visibility / mode overrides \
-         if they corrected anything) to record it; that sets internal-dev vs public-facing-care mode.\n\
+         {next}\n\
          Snapshot saved: {saved}",
+        detected = replies::LANDING_DETECTED.cells(),
+        next = crate::agent::harness::book::d46_recovery::run(&[
+            replies::LANDING_CONFIRM,
+            replies::LANDING_RECORD,
+        ]),
         folder = d.ctx.folder,
         repo = d.ctx.repo_label(),
         vis = d.ctx.visibility.label(),
@@ -571,19 +578,25 @@ fn detect_summary(d: &Detection, saved: &Path) -> String {
 
 /// The summary returned once the context is confirmed + recorded.
 fn confirm_summary(ctx: &WorkContext, saved: &Path) -> String {
+    use crate::agent::harness::book::d56_replies as replies;
     let guidance = if ctx.mode == Mode::Unset {
-        "Mode is still unset — visibility is unknown; ask the user to pin it (private→internal-dev, public→public-facing)."
+        format!(
+            "Mode is still unset — visibility is unknown\n{}",
+            replies::LANDING_PIN_MODE.cells()
+        )
     } else {
         ctx.mode.guidance()
     };
     format!(
-        "Work landing — context CONFIRMED and recorded.\n\n\
+        "{confirmed}\n\n\
          folder:     {folder}\n\
          repo:       {repo}\n\
          visibility: {vis}\n\
          mode:       {mode}\n\n\
          {guidance}\n\n\
-         Persisted to {saved}. This now drives your behavior mode for this workspace.",
+         Persisted to {saved}.\n{drives}",
+        confirmed = replies::LANDING_CONFIRMED.cells(),
+        drives = replies::LANDING_DRIVES.cells(),
         folder = ctx.folder,
         repo = ctx.repo_label(),
         vis = ctx.visibility.label(),
@@ -612,35 +625,31 @@ impl Tool for WorkLandingTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "work_landing".to_string(),
-            description: "Establish your WORK CONTEXT for this workspace at the start of a \
-                          conversation. No args: DETECT the folder, the GitHub repo (git \
+            description: "Establish your WORK CONTEXT for this workspace. No args: DETECT the folder, the GitHub repo (git \
                           remote origin), and visibility (private/public via gh) — gracefully, \
                           returning a proposed behavior mode (internal-dev for private/local, \
-                          public-facing-care for a public repo). Then ASK the user to confirm. \
-                          Call again with confirm=true (plus repo / visibility / mode overrides \
-                          if they corrected anything) to RECORD the confirmed context, which is \
-                          persisted and drives your behavior mode for this workspace."
+                          public-facing-care for a public repo). ⠫⠚"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "confirm": {
                         "type": "boolean",
-                        "description": "record the user's confirmation (sets the context as established)"
+                        "description": "⠫⠚⠙"
                     },
                     "repo": {
                         "type": "string",
-                        "description": "owner/repo override when confirming (if detection missed/misread it)"
+                        "description": "⠫⠚⠑"
                     },
                     "visibility": {
                         "type": "string",
                         "enum": ["public", "private", "unknown"],
-                        "description": "visibility override when confirming"
+                        "description": "⠫⠚⠋"
                     },
                     "mode": {
                         "type": "string",
                         "enum": ["internal-dev", "public-facing", "unset"],
-                        "description": "behavior-mode override when confirming (else inferred from visibility)"
+                        "description": "⠫⠚⠛"
                     }
                 }
             }),

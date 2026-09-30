@@ -196,7 +196,11 @@ fn resolve_with_missing_suffix(path: &Path) -> Result<PathBuf, String> {
 pub(crate) fn cap_lines(s: &str, max: usize) -> String {
     let lines: Vec<&str> = s.lines().collect();
     if lines.len() > max {
-        format!("{}\n…[truncated at {max} matches]", lines[..max].join("\n"))
+        format!(
+            "{}\n…[{} max={max}]",
+            lines[..max].join("\n"),
+            super::book::d467_receipts::MATCH_CAP.cells()
+        )
     } else {
         s.trim_end().to_string()
     }
@@ -296,8 +300,9 @@ pub(crate) fn cap_text(s: &str, max_bytes: usize, max_lines: usize) -> String {
             let tail = max_lines.saturating_sub(head).max(1);
             let dropped = lines.len() - head - tail;
             out = format!(
-                "{}\n…[{dropped} middle line(s) elided — {} of {} lines shown]\n{}",
+                "{}\n…[{} dropped={dropped} shown={} total={}]\n{}",
                 lines[..head].join("\n"),
+                super::book::d467_receipts::MIDDLE_LINES.cells(),
                 head + tail,
                 lines.len(),
                 lines[lines.len() - tail..].join("\n"),
@@ -320,8 +325,9 @@ pub(crate) fn cap_text(s: &str, max_bytes: usize, max_lines: usize) -> String {
         if tail_start > head_end {
             let dropped = tail_start - head_end;
             out = format!(
-                "{}\n…[{dropped} middle byte(s) elided — ~{} of {} bytes shown]\n{}",
+                "{}\n…[{} dropped={dropped} shown=~{} total={}]\n{}",
                 &out[..head_end],
+                super::book::d467_receipts::MIDDLE_BYTES.cells(),
                 head_end + (total - tail_start),
                 total,
                 &out[tail_start..],
@@ -346,8 +352,9 @@ pub(crate) fn cap_text_owned(s: String, max_bytes: usize, max_lines: usize) -> S
 /// otherwise exceed the active context budget. It is distinct from normal tool
 /// aging: this emergency path may trim the protected tail, but keeps the oldest
 /// evidence first and tells the model exactly how to recover it.
-pub(crate) const TOOL_CONTEXT_FIT_MARK: &str = "…[tool output elided for context fit";
-const TOOL_CONTEXT_FIT_MIN: &str = "[tool output elided; re-run]";
+/// `⡨⠃⠓` (elided for context fit); the minimum form is the aged-output mark.
+pub(crate) const TOOL_CONTEXT_FIT_MARK: &str = "…[⡨⠃⠓";
+pub(crate) const TOOL_CONTEXT_FIT_MIN: &str = "[⡨⠃⠁ ⠵⠛]";
 
 fn context_fit_already_elided(content: &str) -> bool {
     content.contains(TOOL_CONTEXT_FIT_MARK) || content == TOOL_CONTEXT_FIT_MIN
@@ -451,8 +458,9 @@ fn elide_tool_result_for_context(content: &str, max_bytes: usize) -> String {
         return TOOL_CONTEXT_FIT_MIN.to_string();
     }
     let marker = format!(
-        "{TOOL_CONTEXT_FIT_MARK} ({} bytes) — re-run the tool if needed]",
-        content.len()
+        "{TOOL_CONTEXT_FIT_MARK} ({} bytes){}",
+        content.len(),
+        super::compact::AGED_TAIL
     );
     if marker.len() >= max_bytes {
         return TOOL_CONTEXT_FIT_MIN.to_string();
@@ -556,6 +564,12 @@ fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) {
 /// a model hop. Counting the exact compact JSON bytes avoids cloning that whole
 /// payload onto the first-output critical path.
 pub(crate) fn json_serialized_len(value: &serde_json::Value) -> usize {
+    #[cfg(test)]
+    JSON_LENGTH_SCAN_PROBE.with(|probe| {
+        if let Some(scans) = probe.get() {
+            probe.set(Some(scans.saturating_add(1)));
+        }
+    });
     // Fast paths for the common tool-arg / schema shapes. Must match compact
     // serde_json output exactly (tests pin this).
     match value {
@@ -607,6 +621,11 @@ fn estimate_history_chars(history: &[ChatMsg]) -> usize {
     let mut chars = 0usize;
     for m in history {
         chars += m.content.len();
+        // DeepSeek replays this transient payload on assistant tool-call
+        // messages. It is intentionally absent from serialized history, but
+        // still consumes the live request's context. Count only its size;
+        // never render or persist it for budgeting or compaction.
+        chars += private_reasoning_bytes(m);
         for c in m.tool_calls.iter() {
             chars += c.name.len() + json_serialized_len(&c.args);
         }
@@ -615,11 +634,39 @@ fn estimate_history_chars(history: &[ChatMsg]) -> usize {
     chars
 }
 
+fn private_reasoning_bytes(message: &ChatMsg) -> usize {
+    if message.role == ChatRole::Assistant && !message.tool_calls.is_empty() {
+        message
+            .private_reasoning
+            .as_ref()
+            .map_or(0, |text| text.len())
+            + message
+                .responses_replay
+                .as_ref()
+                .map_or(0, |replay| replay.extra_bytes())
+    } else {
+        0
+    }
+}
+
 #[cfg(test)]
 std::thread_local! {
     static HISTORY_CHAR_SCAN_PROBE: std::cell::Cell<Option<usize>> = const {
         std::cell::Cell::new(None)
     };
+    static JSON_LENGTH_SCAN_PROBE: std::cell::Cell<Option<usize>> = const {
+        std::cell::Cell::new(None)
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn count_json_length_scans<T>(run: impl FnOnce() -> T) -> (T, usize) {
+    JSON_LENGTH_SCAN_PROBE.with(|probe| {
+        let prior = probe.replace(Some(0));
+        let result = run();
+        let scans = probe.replace(prior).unwrap_or(0);
+        (result, scans)
+    })
 }
 
 #[cfg(test)]
@@ -642,74 +689,70 @@ pub(crate) fn estimate_tokens(history: &[ChatMsg]) -> usize {
 /// compact, shrink, prune, context-fit).
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HistoryTokenRoll {
-    tokens: usize,
-    /// Per-message content+tool-shape hashes for the prefix already counted.
-    msg_hashes: Vec<u64>,
+    /// Keep fractional tokens across appends; divide only when reporting.
+    bytes: usize,
+    messages: Vec<MessageTokenStamp>,
 }
 
-fn message_token_hash(m: &ChatMsg) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    m.content.hash(&mut hasher);
-    m.tool_calls.len().hash(&mut hasher);
-    for call in m.tool_calls.iter() {
-        call.name.hash(&mut hasher);
-        // Args can be huge; length + a short prefix is enough to catch rewrites
-        // without re-serializing multi-megabyte payloads on every hop.
-        json_serialized_len(&call.args).hash(&mut hasher);
-        if let Some(s) = call.args.as_str() {
-            s.len().hash(&mut hasher);
-            s.as_bytes()
-                .get(..32.min(s.len()))
-                .unwrap_or_default()
-                .hash(&mut hasher);
+/// Text contributes only its byte length to the estimate. Retaining the
+/// immutable calls makes allocation identity sufficient for their JSON size:
+/// Arc::make_mut must detach before changing a counted slice, and the original
+/// allocation cannot be recycled while this stamp holds it.
+#[derive(Clone, Debug)]
+struct MessageTokenStamp {
+    content_bytes: usize,
+    private_reasoning_bytes: usize,
+    tool_calls: Arc<[ToolCall]>,
+}
+
+impl MessageTokenStamp {
+    fn new(message: &ChatMsg) -> Self {
+        Self {
+            content_bytes: message.content.len(),
+            private_reasoning_bytes: private_reasoning_bytes(message),
+            tool_calls: Arc::clone(&message.tool_calls),
         }
     }
-    hasher.finish()
+
+    fn matches(&self, message: &ChatMsg) -> bool {
+        self.content_bytes == message.content.len()
+            && self.private_reasoning_bytes == private_reasoning_bytes(message)
+            && Arc::ptr_eq(&self.tool_calls, &message.tool_calls)
+    }
 }
 
 impl HistoryTokenRoll {
     /// Full recompute — call after any rewrite of earlier messages.
     pub(crate) fn recompute(&mut self, history: &[ChatMsg]) -> usize {
-        self.tokens = estimate_tokens(history);
-        self.msg_hashes = history.iter().map(message_token_hash).collect();
-        self.tokens
+        self.bytes = estimate_history_chars(history);
+        self.messages = history.iter().map(MessageTokenStamp::new).collect();
+        self.bytes / 4
     }
 
-    /// Observe history that may have only grown. If the previous prefix hashes
-    /// still match, only the new tail is estimated and added — the common hop
-    /// path after tool results land.
+    /// Observe history that may have only grown. Unchanged prefix stamps avoid
+    /// reading text or serializing arguments; only the new tail is estimated.
     pub(crate) fn observe(&mut self, history: &[ChatMsg]) -> usize {
         let n = history.len();
         if n == 0 {
             *self = Self::default();
             return 0;
         }
-        let prefix = self.msg_hashes.len();
-        // Pure append: every previously counted message is still byte-identical
-        // by content hash.
-        if n > prefix
+        let prefix = self.messages.len();
+        if n >= prefix
             && prefix > 0
             && history[..prefix]
                 .iter()
-                .zip(self.msg_hashes.iter())
-                .all(|(m, h)| message_token_hash(m) == *h)
+                .zip(self.messages.iter())
+                .all(|(message, stamp)| stamp.matches(message))
         {
-            self.tokens = self
-                .tokens
-                .saturating_add(estimate_tokens(&history[prefix..]));
-            self.msg_hashes
-                .extend(history[prefix..].iter().map(message_token_hash));
-            return self.tokens;
-        }
-        // Unchanged snapshot.
-        if n == prefix
-            && history
-                .iter()
-                .zip(self.msg_hashes.iter())
-                .all(|(m, h)| message_token_hash(m) == *h)
-        {
-            return self.tokens;
+            if n > prefix {
+                self.bytes = self
+                    .bytes
+                    .saturating_add(estimate_history_chars(&history[prefix..]));
+                self.messages
+                    .extend(history[prefix..].iter().map(MessageTokenStamp::new));
+            }
+            return self.bytes / 4;
         }
         self.recompute(history)
     }
@@ -752,8 +795,7 @@ impl Tool for ContextTool {
         ToolDef {
             name: "get_context_remaining".to_string(),
             description: "Report the conversation's estimated token usage and how much of the \
-                          configured budget remains, so you can decide whether to wrap up or \
-                          keep going. Takes no arguments."
+                          configured budget remains. Takes no arguments. ⠯⠉"
                 .to_string(),
             params: serde_json::json!({ "type": "object", "properties": {} }),
         }
@@ -761,17 +803,18 @@ impl Tool for ContextTool {
     fn call(&self, _args: &Value) -> Result<String, String> {
         let used = self.gauge.used_tokens.load(Ordering::Relaxed);
         let budget = self.gauge.budget_tokens.load(Ordering::Relaxed);
+        // The counts are the reply; what the budget means is its `⠰⠙` page.
         if budget == 0 {
             Ok(format!(
-                "~{used} tokens used so far. No context budget is set \
-                 (ANGEL_CONTEXT_BUDGET_TOKENS=0), so there's no hard limit."
+                "~{used} tokens used so far.\n{}",
+                crate::agent::harness::book::d56_replies::NO_BUDGET.cells()
             ))
         } else {
             let remaining = budget.saturating_sub(used);
             let pct = (used as f64 / budget as f64 * 100.0).round() as u64;
             Ok(format!(
-                "~{used} of ~{budget} budget tokens used ({pct}%), ~{remaining} remaining. \
-                 Older turns auto-compact above the budget."
+                "~{used} of ~{budget} budget tokens used ({pct}%), ~{remaining} remaining.\n{}",
+                crate::agent::harness::book::d56_replies::AUTO_COMPACT.cells()
             ))
         }
     }
@@ -780,3 +823,7 @@ impl Tool for ContextTool {
 #[cfg(all(test, unix))]
 #[path = "../../../../tests/cockpit/harness/context__alias_tests.rs"]
 mod alias_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/harness/context__private_budget_tests.rs"]
+mod private_budget_tests;

@@ -93,7 +93,7 @@ impl ConcurrentEffortClub {
             .unwrap_or_default();
         ["low", "high"]
             .into_iter()
-            .find(|id| system.contains(&format!("node '{id}'")))
+            .find(|id| system.contains(&format!("node={id} ")))
             .unwrap_or("unknown")
             .to_string()
     }
@@ -201,7 +201,7 @@ impl Club for FailureCancellationClub {
             .first()
             .map(|m| m.content.as_ref())
             .unwrap_or_default();
-        if system.contains(&format!("node '{}'", self.fail_node)) {
+        if system.contains(&format!("node={} ", self.fail_node)) {
             // Exercise the adversarial ordering: the sibling must enter
             // the provider before the named node fails. Arrival order must
             // never decide which node owns the failure.
@@ -320,16 +320,16 @@ impl Club for RetryEpochClub {
             .map(|message| message.content.as_ref())
             .unwrap_or_default();
 
-        if system.contains("node 'a'") {
+        if system.contains("node=a ") {
             let attempt = self.a_calls.fetch_add(1, Ordering::SeqCst) + 1;
             return Ok(ClubReply::Text(format!("a-epoch-{attempt}")));
         }
-        if system.contains("node 'b'") {
+        if system.contains("node=b ") {
             self.b_calls.fetch_add(1, Ordering::SeqCst);
             let epoch = if prompt.contains("a-epoch-2") { 2 } else { 1 };
             return Ok(ClubReply::Text(format!("b-epoch-{epoch}")));
         }
-        if system.contains("node 'c'") {
+        if system.contains("node=c ") {
             let attempt = self.c_calls.fetch_add(1, Ordering::SeqCst);
             if attempt == 0 {
                 // Keep the first C generation in flight until A has been
@@ -342,7 +342,7 @@ impl Club for RetryEpochClub {
             }
             return Ok(ClubReply::Text("c-fresh-from-a2".to_string()));
         }
-        if system.contains("node 'review'") {
+        if system.contains("node=review ") {
             let attempt = self.review_calls.fetch_add(1, Ordering::SeqCst);
             if attempt == 0 {
                 Self::wait_for(&self.c_calls, 1, "sibling C to enter flight")?;
@@ -355,7 +355,7 @@ impl Club for RetryEpochClub {
             }
             return Ok(ClubReply::Text("VERDICT: PASS".to_string()));
         }
-        if system.contains("node 'sink'") {
+        if system.contains("node=sink ") {
             self.sink_calls.fetch_add(1, Ordering::SeqCst);
             *self.sink_prompt.lock().unwrap() = Some(prompt.to_string());
             return Ok(ClubReply::Text("sink-complete".to_string()));
@@ -933,14 +933,17 @@ fn agent_graph_shared_allocation_and_remaining_wall_reach_fanin() {
 fn node_prompt_batching_advisory_follows_the_grant() {
     let spec = node("worker", "do the thing", &[]);
     let tooled = node_system_prompt("g", &spec, "", Grant::ReadOnly);
-    assert!(tooled.contains(TOOL_BATCHING_HINT), "{tooled}");
+    assert!(tooled.contains("⠺⠉⠁"), "{tooled}");
     assert!(
         !tooled.contains("code_mode"),
         "node grants vary, so the advisory stays tool-agnostic:\n{tooled}"
     );
     let bare = node_system_prompt("g", &spec, "", Grant::None);
-    assert!(!bare.contains(TOOL_BATCHING_HINT), "{bare}");
-    assert!(bare.contains("no tools this run"), "{bare}");
+    assert!(!bare.contains("⠺⠉⠁"), "{bare}");
+    assert!(
+        bare.contains(&crate::agent::harness::book::st_connected::BARE_NODE.cells()),
+        "{bare}"
+    );
 }
 
 #[test]
@@ -1055,8 +1058,11 @@ fn validation_rejects_unordered_code_nodes_even_inside_a_diamond() {
     let error = validate_graph_spec(&graph).unwrap_err();
     assert!(error.contains("code nodes 'left-write' and 'right-write'"));
     assert!(error.contains("unordered"), "{error}");
-    assert!(error.contains("depends_on"), "{error}");
-    assert!(error.contains("worktree-isolated delegate"), "{error}");
+    // How to order them is the `⠰⠉` page beside the facts.
+    let serialize = crate::agent::harness::book::d56_replies::SERIALIZE_WRITERS;
+    assert!(error.contains(&serialize.cells()), "{error}");
+    assert!(serialize.text().contains("depends_on"));
+    assert!(serialize.text().contains("worktree-isolated delegate"));
 
     let club = StubClub::shared("must-not-run", &[]);
     let cancel = AtomicBool::new(false);

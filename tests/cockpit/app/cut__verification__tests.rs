@@ -210,7 +210,7 @@ fn manifest_first_hops_defer_until_complete_without_repeated_checks() {
                 panic!("known incomplete scaffold must defer")
             })
             .unwrap();
-        assert!(record.machine.inline_note().unwrap().contains("mandatory"));
+        assert!(record.machine.inline_note().unwrap().contains("deferred"));
         assert_eq!(record.to_json()["cmd"], "cargo check");
         assert_eq!(record.to_json()["dir"], "app");
         assert_eq!(record.to_json()["source"], "default");

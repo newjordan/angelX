@@ -12,6 +12,8 @@ use super::ink::{Img, hash};
 use super::kit::{self, Heraldry, House, Roof, Tool, Wall};
 use super::light::{DUSK, Light};
 use super::map::{Place, TILE, place_px};
+use super::outcomes::{self, Echo, Seal};
+use crate::ui::viz::lifecycle_viz::MotionMode;
 
 /// One tilt at the Lists: two model routes and their running scores.
 #[derive(Clone, Debug, PartialEq)]
@@ -162,6 +164,9 @@ pub(crate) struct Scene {
     pub(crate) record: Record,
     /// Ticks since the anvil was struck, while its sparks fly.
     pub(crate) sparks: Option<u32>,
+    /// Recent public tool receipts, one small lantern per place.
+    pub(crate) outcomes: Vec<Echo>,
+    pub(crate) outcome_motion: MotionMode,
     /// Research is out: the Observatory's glass sweeps the sky.
     pub(crate) stargazing: bool,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
@@ -220,6 +225,7 @@ impl Scene {
                 .hash(&mut h);
         }
         (&self.record, self.sparks, self.stargazing).hash(&mut h);
+        (&self.outcomes, self.outcome_motion as u8).hash(&mut h);
         if let Some(g) = &self.glass {
             (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
         }
@@ -257,6 +263,8 @@ impl Scene {
             wayfarers: Vec::new(),
             record: Record::default(),
             sparks: None,
+            outcomes: Vec::new(),
+            outcome_motion: MotionMode::Full,
             stargazing: false,
             ambient: DUSK,
             tick: 0,
@@ -343,7 +351,9 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
 
     // ── castle town ──
     let seated = &scene.council;
-    props.push(at_place(Place::RoundTable, kit::round_table(seated)));
+    let mut pavilion = at_place(Place::RoundTable, kit::round_table(seated));
+    pavilion.base += 7; // keep the open roof inside the original town screen
+    props.push(pavilion);
     if !seated.is_empty() {
         lights.push(fire(18 * TILE, 13 * TILE + 2, 30.0, 0.45 * flicker(5)));
     }
@@ -709,6 +719,106 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         }),
     ));
 
+    // ── the new southern precinct; the original village above is untouched ──
+    for (i, (tx, ty)) in [(17, 34), (20, 34), (25, 34), (28, 34)]
+        .into_iter()
+        .enumerate()
+    {
+        props.push(on(
+            tx,
+            ty,
+            2,
+            2,
+            kit::cottage(i as u32, scene.cottages[i % 3]),
+        ));
+    }
+    for (tx, trade, width) in [
+        (17, kit::Trade::Smith, 3),
+        (21, kit::Trade::Weaver, 2),
+        (24, kit::Trade::Cooper, 2),
+        (27, kit::Trade::Granary, 3),
+    ] {
+        props.push(on(tx, 40, width, 2, kit::workshop(trade, scene.forge_hot)));
+    }
+    for (i, tx) in [18, 20, 26, 28].into_iter().enumerate() {
+        props.push(on(tx, 37, 1, 1, kit::market_stall(i as u32)));
+    }
+    props.push(on(30, 36, 1, 1, kit::well()));
+    props.push(on(18, 39, 1, 1, kit::barrels()));
+    props.push(on(29, 39, 1, 1, kit::handcart()));
+    for tx in [17, 25] {
+        props.push(on(tx, 43, 5, 0, kit::garden_fence(65)));
+    }
+    // Ordinary residents are scenery in plain palette inks; model activity
+    // owns the signal colors, lamplight, travelers and outcome cues.
+    for (tx, ty, carrying) in [
+        (19, 36, false),
+        (27, 36, true),
+        (22, 39, false),
+        (26, 39, true),
+    ] {
+        props.push(on(tx, ty, 1, 1, kit::villager(0, carrying)));
+    }
+    if scene.forge_hot {
+        props.push(Prop {
+            x: 19 * TILE + 4,
+            base: 40 * TILE - 1,
+            img: kit::smoke(tick + 3),
+        });
+        lights.push(fire(18 * TILE + 10, 42 * TILE - 8, 38.0, 0.5 * flicker(60)));
+    }
+    for (i, tx) in [17, 20, 25, 28].into_iter().enumerate() {
+        if scene.cottages[i % 3] {
+            lights.push(fire(tx * TILE + 16, 36 * TILE - 12, 23.0, 0.3));
+        }
+    }
+
+    // ── colosseum and knights' tournament, added beyond the old south edge ──
+    let mut arena = kit::colosseum();
+    for (i, soldier) in scene.muster.iter().take(8).enumerate() {
+        // Occupants belong inside the arena sprite, above its sandy floor;
+        // independent depth-sorted props would be hidden by the front wall.
+        arena.stamp(
+            &kit::soldier(*soldier),
+            49 + (i % 4) as i32 * 17,
+            30 + (i / 4) as i32 * 13,
+        );
+    }
+    props.push(at_place(Place::Colosseum, arena));
+    let (tx, ty) = (50 * TILE, 34 * TILE);
+    let mut tilt = kit::lists_ground();
+    if let Some(joust) = &scene.joust {
+        let advance = (joust.charge.clamp(0.0, 1.0) * 95.0) as i32;
+        tilt.stamp(&kit::rider(Heraldry::Red), 23 + advance, 18);
+        tilt.stamp(&kit::rider(Heraldry::Blue).flip_h(), 148 - advance, 43);
+    }
+    props.push(Prop {
+        x: tx,
+        base: ty + 85,
+        img: tilt,
+    });
+    props.push(on(50, 34, 2, 2, kit::tent(Heraldry::Red)));
+    props.push(on(60, 34, 2, 2, kit::tent(Heraldry::Blue)));
+    props.push(on(60, 40, 2, 1, kit::garden_fence(31)));
+    props.push(on(58, 40, 1, 1, kit::quintain(scene.quest.is_some(), tick)));
+    for (place, label) in [
+        (Place::ArtisanQuarter, "ARTISANS"),
+        (Place::Colosseum, "COLOSSEUM"),
+        (Place::Tournament, "TOURNAMENT"),
+    ] {
+        let (tx, ty) = place.stand();
+        let plaque = kit::district_sign(label);
+        props.push(Prop {
+            x: tx * TILE + 8 - plaque.w / 2,
+            base: if place == Place::ArtisanQuarter {
+                ty * TILE + 14
+            } else {
+                (ty + 1) * TILE + 12
+            },
+            img: plaque,
+        });
+    }
+
     // ── the muster: a fan-out stage drawn up in ranks on the plaza ──
     let ranks = scene.muster.len().min(18);
     for (i, soldier) in scene.muster.iter().take(ranks).enumerate() {
@@ -839,6 +949,7 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
     // Everything above is written in the authored screens' coordinates:
     // move it to its place in the realm. The party and the knight below
     // already live in realm coordinates.
+    props.extend(super::clerks::stage(tick, scene.outcome_motion));
     for p in props.iter_mut().chain(cues_authored.iter_mut()) {
         let (ax, ay) = (p.x + p.img.w / 2, p.base - 1);
         let (rx, ry) = place_px(ax, ay);
@@ -856,6 +967,28 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         let (rx, ry) = place_px(ax, ay);
         b.0 += rx - ax;
         b.1 += ry - ay;
+    }
+
+    // ── receipt lanterns: actual outcomes settle at their place of work ──
+    // These are world coordinates, after the authored-place translation.
+    for echo in &scene.outcomes {
+        let (tx, ty) = echo.place.stand_world();
+        let (x, base) = (tx * TILE + TILE / 2 + 14, (ty + 1) * TILE - 2);
+        let img = outcomes::lantern(*echo, scene.outcome_motion);
+        cues.push(Prop {
+            x: x - img.w / 2,
+            base,
+            img,
+        });
+        if matches!(echo.seal, Seal::Completed | Seal::Verified) {
+            lights.push(Light {
+                x: x as f32,
+                y: (base - 15) as f32,
+                r: 18.0,
+                s: 0.22,
+                fire: echo.seal == Seal::Completed,
+            });
+        }
     }
 
     // ── the party trails the knight ──

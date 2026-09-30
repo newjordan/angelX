@@ -82,15 +82,15 @@ impl Tool for GitDiffTool {
                           worktree; staged=true shows the index. base compares the full current \
                           worktree against one verified branch, tag, or commit (and cannot combine \
                           with staged). stat=true returns a cheaper summary first. An optional path \
-                          confines the comparison. Review your own edits before committing."
+                          confines the comparison. ⠡⠉"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "staged": { "type": "boolean", "description": "diff the index (--cached) instead of the worktree" },
-                    "base": { "type": "string", "description": "compare the current worktree against one verified branch, tag, or commit" },
-                    "stat": { "type": "boolean", "description": "show a compact file/change summary instead of the full patch" },
-                    "path": { "type": "string", "description": "limit the diff to this in-workspace path (relative or absolute)" },
+                    "staged": { "type": "boolean", "description": "⠡⠉⠃" },
+                    "base": { "type": "string", "description": "⠡⠉⠉" },
+                    "stat": { "type": "boolean", "description": "⠡⠉⠙" },
+                    "path": { "type": "string", "description": "⠡⠉⠑" },
                 },
                 "required": [],
             }),
@@ -203,9 +203,7 @@ impl Tool for GitStatusTool {
         ToolDef {
             name: "git_status".to_string(),
             description: "Show the workspace's git status (read-only): current branch + \
-                          ahead/behind, and the staged / modified / untracked files. A compact \
-                          orientation before editing or committing; complements git_diff (which \
-                          shows the actual changes)."
+                          ahead/behind, and the staged / modified / untracked files. ⠣⠋"
                 .to_string(),
             params: serde_json::json!({ "type": "object", "properties": {} }),
         }
@@ -244,13 +242,13 @@ impl Tool for GitLogTool {
             name: "git_log".to_string(),
             description: "Show recent commits (read-only): one line each (short hash + subject). \
                           count defaults to 15 (max 100); an optional path scopes history to that \
-                          file/dir. Orient on what changed recently and why."
+                          file/dir. ⠡⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "count": { "type": "integer", "description": "how many commits (default 15, max 100)" },
-                    "path": { "type": "string", "description": "limit history to this in-workspace path (relative or absolute)" },
+                    "count": { "type": "integer", "description": "⠡⠙⠃" },
+                    "path": { "type": "string", "description": "⠡⠙⠉" },
                 },
                 "required": [],
             }),
@@ -294,30 +292,29 @@ impl Tool for GitCommitTool {
             description: "Plan or create atomic git commits from the dirty worktree. \
                           Default is plan-only (execute=false): classifies dirty paths \
                           into source → test → docs → config → other → lock units and \
-                          suggests subjects. Set execute=true to stage each unit and \
-                          commit in that order. split=true (default) makes one commit \
+                          suggests subjects. split=true (default) makes one commit \
                           per class; split=false packs everything into one commit. \
                           Optional message sets the subject (validated: ≤72 chars, \
-                          blank line before body). Never force-pushes; never amends."
+                          blank line before body). Never force-pushes; never amends. ⠷⠑"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "execute": {
                         "type": "boolean",
-                        "description": "false (default) = print plan only; true = stage+commit each unit"
+                        "description": "⠷⠑⠃"
                     },
                     "split": {
                         "type": "boolean",
-                        "description": "true (default) = one commit per file class; false = single commit"
+                        "description": "⠷⠑⠉"
                     },
                     "message": {
                         "type": "string",
-                        "description": "commit subject (and optional blank-line + body). Used for the first/only unit; further split units get class-scoped subjects"
+                        "description": "⠷⠑⠙⠷⠑⠑"
                     },
                     "include_untracked": {
                         "type": "boolean",
-                        "description": "include untracked files in the plan (default true)"
+                        "description": "⠷⠑⠋"
                     },
                 },
                 "required": [],

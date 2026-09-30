@@ -411,11 +411,14 @@ fn grok_harness_surface_denies_nested_agent_tools() {
             .any(|w| { w[0] == "--max-turns" && w[1] == GROK_HARNESS_MAX_TURNS.to_string() }),
         "harness needs a small nested budget (>1) so denied tools do not hard-fail: {args:?}"
     );
+    // The override is the host seat's route, `⠜⠚`, whose pages hold its words.
+    let host = crate::agent::harness::book::ar_seats::GROK_HOST;
     assert!(
         args.windows(2)
-            .any(|w| { w[0] == "--system-prompt-override" && w[1].contains("pure completion") }),
+            .any(|w| { w[0] == "--system-prompt-override" && w[1] == host.cells() }),
         "harness must override the CLI agent persona: {args:?}"
     );
+    assert!(host.sub().pages[0].contains("pure completion"));
     assert!(
         args.iter().any(|a| a == "--no-subagents"),
         "harness must not spawn nested agents: {args:?}"

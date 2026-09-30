@@ -138,18 +138,23 @@ fn task_workspace_map_lists_fixture_files_when_enabled() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_WORKSPACE_MAP", "1") };
 
+    let map = crate::agent::harness::book::m_method::MAP_NOTE.cells();
+    let root = workspace.canonicalize().unwrap();
     let block = task_system_contract(&workspace);
-    assert!(block.contains("## Task workspace map"), "{block}");
-    assert!(block.contains("Coding root (absolute):"), "{block}");
+    assert!(
+        block.contains(&format!("{map}\n`{}`\n", root.display())),
+        "{block}"
+    );
     assert!(block.contains("src/parse-duration.mjs"), "{block}");
     assert!(block.contains("test.mjs"), "{block}");
-    assert!(block.contains("Stay inside this directory"), "{block}");
+    // The map's labels are its pages, never prose on the wire.
+    assert!(!block.contains("Coding root"), "{block}");
     // The repository-derived carrier no longer duplicates the map.
-    assert!(!task_warm_start(&workspace).contains("Task workspace map"));
+    assert!(!task_warm_start(&workspace).contains(&map));
 
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_WORKSPACE_MAP", "0") };
-    assert!(!task_system_contract(&workspace).contains("Task workspace map"));
+    assert!(!task_system_contract(&workspace).contains(&map));
     clear_warm_start_env();
 }
 
@@ -218,12 +223,13 @@ fn task_warm_start_injects_the_confidence_gated_dossier() {
     );
     // The confident ritual and trap are asserted...
     assert!(block.contains("test: `cargo test --quiet`"), "{block}");
-    assert!(block.contains("trap: `npm test` fails here"), "{block}");
-    assert!(block.contains("last session here"), "{block}");
+    assert!(block.contains("\n⠸⠁⠙ `npm test` ("), "{block}");
+    assert!(block.contains("\n⠸⠁⠑ age="), "{block}");
     // ...and the 0.55-belief build ritual is withheld, not asserted.
     assert!(!block.contains("cargo build --release"), "{block}");
+    // The withheld count is `⠸⠁⠉`, readable inside the evidence fence.
     assert!(
-        block.contains("1 fact(s) below 0.70 belief withheld"),
+        block.contains("\n⠸⠁⠉ withheld=1 min_belief=0.70\n"),
         "{block}"
     );
 
@@ -244,10 +250,7 @@ fn task_warm_start_honors_the_belief_threshold() {
     let block = task_warm_start(&workspace);
     assert!(!block.contains("cargo test --quiet"), "{block}");
     assert!(!block.contains("npm test"), "{block}");
-    assert!(
-        block.contains("3 fact(s) below 0.95 belief withheld"),
-        "{block}"
-    );
+    assert!(block.contains("⠸⠁⠉ withheld=3 min_belief=0.95"), "{block}");
 
     clear_warm_start_env();
 }
@@ -299,9 +302,10 @@ fn task_warm_start_carries_only_a_confirmed_work_context() {
 
     seed_work_context(&work_dir, &workspace, true);
     let block = task_warm_start(&workspace);
-    assert!(block.contains("# Active work context"), "{block}");
+    let internal = crate::agent::harness::book::n_environment::WORK_INTERNAL;
+    assert!(block.contains(&internal.cells()), "{block}");
     assert!(block.contains("mode=internal-dev"), "{block}");
-    assert!(block.contains("Optimize for velocity"), "{block}");
+    assert!(!block.contains("Optimize for velocity"), "{block}");
     assert!(!block.contains("work_landing"), "{block}");
 
     // The existing kill switch covers it; no second knob.
@@ -586,10 +590,15 @@ fn yolo_preserves_task_hops_and_bounded_coding_defaults() {
     assert_eq!(std::env::var("ANGEL_TURN_DEADLINE_SECS").unwrap(), "0");
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_CALLS").is_none());
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_REJECTIONS").is_none());
-    assert_eq!(std::env::var("ANGEL_FINAL_MILE_HOPS").unwrap(), "4");
-    assert_eq!(std::env::var("ANGEL_FINAL_MILE_ANSWER_HOPS").unwrap(), "1");
-    assert_eq!(std::env::var("ANGEL_MUTATION_THRASH_NUDGE").unwrap(), "3");
-    assert_eq!(std::env::var("ANGEL_MUTATION_THRASH_STOP").unwrap(), "0");
+    // Gate knobs are gone: task mode arms no final-mile window or thrash nudge.
+    for removed in [
+        "ANGEL_FINAL_MILE_HOPS",
+        "ANGEL_FINAL_MILE_ANSWER_HOPS",
+        "ANGEL_MUTATION_THRASH_NUDGE",
+        "ANGEL_MUTATION_THRASH_STOP",
+    ] {
+        assert!(std::env::var_os(removed).is_none(), "{removed}");
+    }
     assert_eq!(std::env::var("ANGEL_TASK_RECON").unwrap(), "repo");
     assert_eq!(std::env::var("ANGEL_TASK_CODING_DISCIPLINE").unwrap(), "1");
     assert_eq!(std::env::var("ANGEL_RELENTLESS_EXECUTION").unwrap(), "1");
@@ -734,16 +743,18 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
     assert!(std::env::var_os("ANGEL_TOOL_IDLE_FLOOR_SECS").is_none());
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_CALLS").is_none());
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_REJECTIONS").is_none());
-    assert_eq!(std::env::var("ANGEL_FINAL_MILE_HOPS").unwrap(), "4");
-    assert_eq!(std::env::var("ANGEL_FINAL_MILE_ANSWER_HOPS").unwrap(), "1");
-    assert_eq!(std::env::var("ANGEL_MUTATION_THRASH_NUDGE").unwrap(), "3");
-    assert_eq!(std::env::var("ANGEL_MUTATION_THRASH_STOP").unwrap(), "0");
-    assert_eq!(
-        std::env::var("ANGEL_PERIPHERAL_MUTATION_NUDGE").unwrap(),
-        "4"
-    );
-    assert_eq!(std::env::var("ANGEL_POST_GREEN_TOOL_BATCHES").unwrap(), "0");
-    assert_eq!(std::env::var("ANGEL_NO_EDIT_ANSWER_GUARD").unwrap(), "0");
+    // Gate knobs are gone: task mode arms no final-mile window or thrash nudge.
+    for removed in [
+        "ANGEL_FINAL_MILE_HOPS",
+        "ANGEL_FINAL_MILE_ANSWER_HOPS",
+        "ANGEL_MUTATION_THRASH_NUDGE",
+        "ANGEL_MUTATION_THRASH_STOP",
+        "ANGEL_PERIPHERAL_MUTATION_NUDGE",
+        "ANGEL_POST_GREEN_TOOL_BATCHES",
+        "ANGEL_NO_EDIT_ANSWER_GUARD",
+    ] {
+        assert!(std::env::var_os(removed).is_none(), "{removed}");
+    }
     assert_eq!(std::env::var("ANGEL_TASK_RECON").unwrap(), "repo");
     assert_eq!(std::env::var("ANGEL_TASK_CODING_DISCIPLINE").unwrap(), "1");
     assert_eq!(std::env::var("ANGEL_RELENTLESS_EXECUTION").unwrap(), "1");
@@ -777,13 +788,10 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
 }
 
 #[test]
-fn coding_discipline_block_carries_action_ladder() {
-    let _guard = crate::tests::env_lock();
-    let prior = std::env::var_os("ANGEL_TASK_CODING_DISCIPLINE");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_TASK_CODING_DISCIPLINE", "1") };
-    let block = task_coding_discipline_block();
-    assert!(block.contains("Action ladder"));
+fn coding_discipline_block_keeps_repairs_focused_and_evidence_based() {
+    // The discipline is the `⠽⠑` type: its sections render verbatim.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let block = crate::agent::harness::book::ledger::read(root, "⠽⠑").unwrap();
     assert!(block.contains("Map"));
     assert!(block.contains("Verify"));
     assert!(block.contains("implementing library"));
@@ -793,17 +801,18 @@ fn coding_discipline_block_carries_action_ladder() {
     assert!(block.contains("earliest actual prerequisite"));
     assert!(block.contains("usable input"));
     assert!(block.contains("zero performance"));
-    assert!(block.contains("user-visible scope"));
-    assert!(block.contains("never omit or auto-remove"));
-    for word in ["budget", "deadline", "bounded horizon"] {
-        assert!(!block.to_lowercase().contains(word));
-        assert!(!task_pace_contract_block().to_lowercase().contains(word));
-    }
-    match prior {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("ANGEL_TASK_CODING_DISCIPLINE", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("ANGEL_TASK_CODING_DISCIPLINE") },
+    assert!(block.contains("Respect explicit operator restrictions"));
+    assert!(block.contains("Respect explicit verification"));
+    assert!(block.contains("new tests alone do not prove completion"));
+    assert!(block.contains("required background work"));
+    assert!(block.contains("you MUST write one caveman line"));
+    assert!(!block.contains("scope change"));
+    assert!(!block.contains("replace the module cleanly"));
+    for cells in ["⠽⠑", "⠍⠁", "⠍⠃"] {
+        let text = crate::agent::harness::book::ledger::read(root, cells).unwrap();
+        for word in ["budget", "deadline", "bounded horizon"] {
+            assert!(!text.to_lowercase().contains(word), "{cells} names {word}");
+        }
     }
 }
 
@@ -1533,7 +1542,7 @@ fn task_json_serializes_timing_block_keys() {
                 residual_ms: 100,
                 overlap_ms: 0,
                 spans: serde_json::json!({"turn_start":0,"turn_end":1000}),
-                calls: serde_json::json!({"model_calls":[]}),
+                calls: std::sync::Arc::new(serde_json::json!({"model_calls":[]})),
             }),
         },
         &[],

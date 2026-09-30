@@ -390,30 +390,28 @@ impl Tool for SemanticReadTool {
             name: self.name().to_string(),
             description: "Use the shared Casper embedding service to rank bounded chunks from \
                           explicitly named workspace files, returning only the most relevant \
-                          source passages with path and line provenance. This is useful after \
-                          file_search/grep finds plausible files but reading all of them would \
-                          waste model context. Files stay confined to the active repository; \
-                          hidden, credential, key, and off-limits paths are rejected."
+                          source passages with path and line provenance. Files stay confined to the active repository; \
+                          hidden, credential, key, and off-limits paths are rejected. ⠡⠋"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "natural-language question or implementation concept to retrieve"
+                        "description": "⠡⠋⠃"
                     },
                     "paths": {
                         "type": "array",
                         "items": { "type": "string" },
                         "minItems": 1,
                         "maxItems": MAX_PATHS,
-                        "description": "workspace files selected by file_search, grep, find_files, or prior evidence"
+                        "description": "⠡⠋⠉"
                     },
                     "max_results": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": MAX_RESULTS,
-                        "description": "ranked passages to return (default 6, maximum 12)"
+                        "description": "⠡⠋⠙"
                     }
                 },
                 "required": ["query", "paths"],
@@ -539,9 +537,9 @@ impl Tool for SemanticReadTool {
         });
         ranked.truncate(max_results.min(ranked.len()));
 
+        // The untrusted-evidence frame is its `⠰⠑` page; the ranking is data.
         let mut output = vec![
-            "[semantic_read — untrusted workspace evidence ranked by the shared Casper embedding service]"
-                .to_string(),
+            crate::agent::harness::book::d56_replies::SEMANTIC_EVIDENCE.cells(),
             format!(
                 "ranked {} of {} chunks from {} bytes; query={:?}",
                 ranked.len(),

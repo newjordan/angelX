@@ -2,6 +2,7 @@
 //! Subreapers retain double-forked/setsid descendants; only descendants of this
 //! process are signalled. No host-wide process-name matching is used.
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+#[cfg(target_os = "linux")]
 use std::time::{Duration, Instant};
 
 #[path = "process_owner/children.rs"]
@@ -76,6 +77,7 @@ impl Drop for GraphSignalGuard {
     }
 }
 
+#[cfg(target_os = "linux")]
 extern "C" fn on_signal(signal: i32) {
     SIGNAL.store(signal, Ordering::Release);
 }
@@ -106,7 +108,18 @@ fn install() -> std::io::Result<()> {
         if libc::prctl(libc::PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0 {
             return Err(std::io::Error::last_os_error());
         }
-        for signal in [libc::SIGINT, libc::SIGTERM] {
+        for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+            // A closed terminal (SIGHUP) takes the same orderly path as SIGTERM,
+            // so owned jobs are reaped instead of outliving the cockpit; a
+            // hangup the launcher chose to ignore (`nohup`) stays ignored.
+            if signal == libc::SIGHUP {
+                let mut current: libc::sigaction = std::mem::zeroed();
+                if libc::sigaction(signal, std::ptr::null(), &mut current) == 0
+                    && current.sa_sigaction == libc::SIG_IGN
+                {
+                    continue;
+                }
+            }
             let mut action: libc::sigaction = std::mem::zeroed();
             action.sa_sigaction = on_signal as *const () as usize;
             libc::sigemptyset(&mut action.sa_mask);
@@ -232,9 +245,6 @@ pub(crate) fn cleanup() {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn cleanup() {}
-
 /// Main-process installation, before any tool can spawn. atexit also covers
 /// explicit std::process::exit paths that skip Rust destructors.
 pub(crate) fn initialize() -> std::io::Result<()> {
@@ -279,6 +289,14 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
     {
         install()?;
+        // An attached helper belongs to the process that spawned it and waits
+        // on it. If that process dies without its own cleanup (SIGKILL, a
+        // crash), the helper is reparented; the wait loop below sees that and
+        // reaps its tree through the cancellation path. A detached helper is
+        // meant to outlive its launcher (the subreaping cockpit adopts it), so
+        // its reparenting is not a death. (PR_SET_PDEATHSIG would follow the
+        // spawning *thread*, which can end while the process lives on.)
+        let owner = (!detached).then(|| unsafe { libc::getppid() });
         let parent = unsafe { libc::getpid() };
         let child = unsafe { libc::fork() };
         if child < 0 {
@@ -325,6 +343,9 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
                         libc::_exit(125);
                     }
                 }
+            }
+            if owner.is_some_and(|owner| unsafe { libc::getppid() } != owner) {
+                SIGNAL.store(libc::SIGTERM, Ordering::Release);
             }
             if SIGNAL.load(Ordering::Acquire) != 0 {
                 break;
@@ -375,7 +396,23 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
     }
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = detached;
+        // Without the Linux fork there is no child to setsid, so an attached
+        // command would keep the cockpit's controlling terminal: a password,
+        // host-key or credential prompt would draw over the cockpit through
+        // /dev/tty and then stop on SIGTTIN until the tool timeout. TIOCNOTTY
+        // from a process that is not a session leader drops /dev/tty for it
+        // and its descendants, as setsid does on Linux.
+        if !detached {
+            // SAFETY: a private descriptor in the single-threaded helper; open
+            // and TIOCNOTTY do not read or write the terminal.
+            unsafe {
+                let fd = libc::open(c"/dev/tty".as_ptr(), libc::O_RDWR | libc::O_CLOEXEC);
+                if fd >= 0 {
+                    libc::ioctl(fd, libc::TIOCNOTTY as libc::c_ulong);
+                    libc::close(fd);
+                }
+            }
+        }
         Ok(())
     }
 }

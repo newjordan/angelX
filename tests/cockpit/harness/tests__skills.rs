@@ -63,6 +63,69 @@ fn repeated_skill_catalog_reads_hit_signature_cache_and_same_size_edits_invalida
 
 // --- skills suite -----------------------------------------------------------
 
+#[cfg(unix)]
+#[test]
+fn skill_signature_cache_tracks_confined_symlink_target_changes() {
+    let _guard = crate::tests::env_lock();
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let parent = std::env::temp_dir().join(format!(
+        "angel_skill_symlink_cache_{}_{}",
+        std::process::id(),
+        unique
+    ));
+    let root = parent.join("skills");
+    std::fs::create_dir_all(&root).unwrap();
+    let target = root.join("body.txt");
+    let alias = root.join("linked-cache-probe.md");
+    std::fs::write(&target, "alpha").unwrap();
+    std::os::unix::fs::symlink("body.txt", &alias).unwrap();
+    let _skills = EnvGuard::set("ANGEL_SKILLS_DIR", root.to_str().unwrap());
+    let workspace = std::env::current_dir().unwrap();
+    let body = || {
+        load_skills_for(&workspace)
+            .into_iter()
+            .find(|skill| skill.name == "linked-cache-probe")
+            .map(|skill| skill.body)
+    };
+
+    assert_eq!(body().as_deref(), Some("alpha"));
+    assert_eq!(body().as_deref(), Some("alpha"));
+    assert_eq!(skill_scan_cache_hits(&root), Some(1));
+
+    // The alias inode never changes; the target is not itself a *.md candidate.
+    std::fs::write(&target, "updated body").unwrap();
+    assert_eq!(body().as_deref(), Some("updated body"));
+    let replacement = root.join("replacement.txt");
+    std::fs::write(&replacement, "replacement body").unwrap();
+    std::fs::rename(replacement, &target).unwrap();
+    assert_eq!(body().as_deref(), Some("replacement body"));
+
+    std::fs::remove_file(&target).unwrap();
+    assert_eq!(body(), None, "dangling targets must drop cached skills");
+    std::fs::write(&target, "restored body").unwrap();
+    assert_eq!(body().as_deref(), Some("restored body"));
+
+    // Change an intermediate symlink, leaving the skill's own link untouched.
+    std::fs::remove_file(&target).unwrap();
+    std::fs::write(root.join("inner.txt"), "inner body").unwrap();
+    std::os::unix::fs::symlink("inner.txt", &target).unwrap();
+    assert_eq!(body().as_deref(), Some("inner body"));
+    let outside = parent.join("outside.txt");
+    std::fs::write(&outside, "must not become a skill").unwrap();
+    std::fs::remove_file(&target).unwrap();
+    std::os::unix::fs::symlink(&outside, &target).unwrap();
+    assert_eq!(
+        body(),
+        None,
+        "outbound targets must not reuse an admitted skill"
+    );
+
+    std::fs::remove_dir_all(parent).unwrap();
+}
+
 #[test]
 fn parse_skill_reads_frontmatter() {
     let text = "---\nname: deploy\ndescription: ship the app\n---\n# Deploy\n\nDo it.\n";
@@ -795,7 +858,9 @@ fn skill_loader_bounds_bodies_and_rejects_unsafe_files_and_names() {
         .expect("bounded skill");
     assert!(bounded.description.chars().count() <= 160);
     assert!(bounded.body.len() < MAX_SKILL_BODY_BYTES + 256);
-    assert!(bounded.body.contains("truncated by the harness"));
+    let label = crate::agent::harness::book::u_skills::SKILL_TRUNCATED;
+    assert!(bounded.body.contains(&label.cells()));
+    assert!(label.text().contains("truncated by the harness"));
     assert!(!skills.iter().any(|skill| skill.name == "oversized"));
     assert!(!skills.iter().any(|skill| skill.name == "binary"));
     assert!(!skills.iter().any(|skill| skill.name.contains("system")));
@@ -929,7 +994,7 @@ fn skills_catalog_and_tool_roundtrip() {
         !cat.contains("ship it"),
         "free-form skill metadata must not enter the System prompt: {cat}"
     );
-    assert!(cat.contains("skill(name)"));
+    assert!(cat.contains(&crate::agent::harness::book::u_skills::CATALOG.cells()));
     assert!(skills_catalog(&[]).is_empty());
 
     let tool = SkillTool::new(skills);
@@ -1312,9 +1377,11 @@ fn skill_hint_is_single_bounded_and_never_echoes_untrusted_metadata() {
     ];
     let hint = relevant_skill_hint(&skill_summaries(&skills), "debug the failing test").unwrap();
     assert!(hint.len() < 256);
-    assert_eq!(hint.matches(SKILL_HINT_HEADER).count(), 1);
-    assert_eq!(hint.matches(SKILL_HINT_SENTINEL).count(), 1);
-    assert!(hint.contains("systematic-debugging"));
+    // One block: the route cell opens and closes around the one safe name.
+    assert_eq!(
+        hint,
+        format!("{SKILL_HINT_HEADER}\n`systematic-debugging`\n{SKILL_HINT_SENTINEL}\n\n")
+    );
     assert!(!hint.contains("ignore policy"));
     assert!(!hint.contains("exfiltrate"));
 }

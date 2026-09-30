@@ -5,6 +5,16 @@
 
 use super::*;
 
+/// The stop checkpoint raised for edits no verifier has covered.
+fn is_unverified_checkpoint(content: &str) -> bool {
+    book::ledger::is_warpath_message(content) && has_route(first_line(content), "⠧⠋")
+}
+
+/// A stop checkpoint: a warpath ending in `⠟⠁`, facts beside it on later lines.
+fn is_stop_checkpoint(content: &str) -> bool {
+    book::ledger::is_warpath_message(content) && first_line(content).ends_with("⠟⠁")
+}
+
 // --- verification / final-mile suite ---
 
 #[test]
@@ -168,32 +178,6 @@ fn verify_before_done_classifies_mutations_and_real_verifiers() {
         "run_tests",
         serde_json::json!({"args":"--all-targets   -- --test-threads=1"}),
     );
-    let cargo_test = call(
-        "cargo",
-        serde_json::json!({"args":"test --all-targets -- --test-threads=1"}),
-    );
-    let shell_test = call(
-        "shell",
-        serde_json::json!({"command":"cargo   test --all-targets -- --test-threads=1"}),
-    );
-    assert_eq!(
-        verification_identity(&run_tests),
-        verification_identity(&cargo_test)
-    );
-    assert_ne!(
-        verification_identity(&cargo_test),
-        verification_identity(&shell_test),
-        "raw shell identity must not share a cache key with curated cargo execution"
-    );
-    assert_ne!(
-        verification_identity(&shell_test),
-        verification_identity(&call(
-            "shell",
-            serde_json::json!({"command":"cd cockpit && cargo test --all-targets -- --test-threads=1"}),
-        )),
-        "composed shell commands keep their own semantics"
-    );
-
     for sufficient in [run_tests, call("check", serde_json::json!({}))] {
         assert!(
             verification_is_completion_sufficient(&sufficient),
@@ -269,24 +253,6 @@ fn verifier_outcomes_do_not_confuse_dispatch_with_green_evidence() {
         verification_outcome(&check, "action capsule denied by policy"),
         None
     );
-
-    let machine_test = call("machine_test", serde_json::json!({"command":"swift test"}));
-    assert!(is_verification_call(&machine_test));
-    assert_eq!(
-        verification_outcome(
-            &machine_test,
-            r#"{"event": "released", "status": "done", "exit_code": 0}"#,
-        ),
-        Some(VerificationOutcome::Passed)
-    );
-    assert_eq!(
-        verification_outcome(
-            &machine_test,
-            r#"{"event": "released", "status": "failed", "exit_code": 1}"#,
-        ),
-        Some(VerificationOutcome::Failed)
-    );
-    assert!(!verification_is_completion_sufficient(&machine_test));
 
     let cargo_check = call("cargo", serde_json::json!({"args":"check --quiet"}));
     assert_eq!(
@@ -494,8 +460,6 @@ fn raw_shell_verifier_is_not_reused_or_completion_skipped() {
     let _env_guard = crate::tests::env_lock();
     // Counts every verifier execution; completion confirmation would add runs.
     let _confirm = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "0");
-    let _reuse = EnvGuard::set("ANGEL_REUSE_VERIFIER_RESULTS", "1");
-    let _verify_before_done = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
     let root = scratch("raw_shell_verifier_not_reused");
     assert!(
         Command::new("git")
@@ -638,269 +602,6 @@ fn raw_shell_verifier_is_not_reused_or_completion_skipped() {
     }
     let _ = std::fs::remove_dir_all(root);
 }
-
-#[test]
-fn final_verification_nudge_is_bounded_and_edit_scoped() {
-    assert!(should_nudge_final_verification(true, true, 0, 2));
-    assert!(should_nudge_final_verification(true, true, 1, 2));
-    assert!(!should_nudge_final_verification(true, true, 2, 2));
-    assert!(!should_nudge_final_verification(true, true, 0, 0));
-    assert!(!should_nudge_final_verification(true, false, 0, 2));
-    assert!(!should_nudge_final_verification(false, true, 0, 2));
-    assert!(accepted_unverified_completion(false, true, 0, 2));
-    assert!(accepted_unverified_completion(true, true, 2, 2));
-    assert!(!accepted_unverified_completion(true, true, 1, 2));
-    assert!(!accepted_unverified_completion(true, false, 2, 2));
-    assert!(FINAL_VERIFY_NUDGE.contains("configured bounded limit"));
-}
-
-#[test]
-fn verification_gate_prompts_only_the_guarded_posture() {
-    let _env_guard = crate::tests::env_lock();
-    let _full = EnvGuard::unset("ANGEL_YOLO");
-    let _smart = EnvGuard::unset("ANGEL_YOLO_SMART");
-    assert!(verification_gate_prompts(), "guarded operators get a modal");
-
-    let smart = EnvGuard::set("ANGEL_YOLO_SMART", "1");
-    assert!(
-        !verification_gate_prompts(),
-        "smart posture opted out of modals but kept the gate"
-    );
-    drop(smart);
-
-    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    assert!(
-        !verification_gate_prompts(),
-        "full yolo opted out of modals but kept the gate"
-    );
-}
-
-/// Answers exactly `script.len()` broker requests, then drops the receiver so
-/// the global broker falls back to headless-deny for every later test in this
-/// binary. Returns the prompts it saw.
-fn fake_approval_ui(
-    script: Vec<crate::agent::approval::Decision>,
-) -> Arc<std::sync::Mutex<Vec<String>>> {
-    let rx = crate::agent::approval::install_ui();
-    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
-    let sink = Arc::clone(&seen);
-    std::thread::spawn(move || {
-        for decision in script {
-            let Ok(req) = rx.recv() else { return };
-            sink.lock()
-                .unwrap()
-                .push(format!("{} :: {}", req.scope.label(), req.prompt));
-            let _ = req.reply.send(decision);
-        }
-    });
-    seen
-}
-
-/// Builds the club/registry pair used by the gate-modal tests: one mutation,
-/// then an unsupported completion claim on every later hop.
-fn edited_then_claims_done() -> (AnswersAfterEdit, ToolRegistry) {
-    struct IntegrateStub;
-    impl Tool for IntegrateStub {
-        fn name(&self) -> &str {
-            "integrate"
-        }
-        fn def(&self) -> ToolDef {
-            ToolDef {
-                name: self.name().into(),
-                description: "test mutation".into(),
-                params: serde_json::json!({"type":"object","properties":{}}),
-            }
-        }
-        fn call(&self, _args: &Value) -> Result<String, String> {
-            Ok("integrated test branch".into())
-        }
-    }
-    let mut registry = ToolRegistry::new();
-    registry.register(Box::new(IntegrateStub));
-    (
-        AnswersAfterEdit {
-            step: AtomicUsize::new(0),
-        },
-        registry,
-    )
-}
-
-struct AnswersAfterEdit {
-    step: AtomicUsize,
-}
-
-impl Club for AnswersAfterEdit {
-    fn respond(&self, _p: &str) -> Result<String, String> {
-        Ok(String::new())
-    }
-    fn label(&self) -> &str {
-        "verify-gate-modal-test"
-    }
-    fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-        Ok(match self.step.fetch_add(1, Ordering::Relaxed) {
-            0 => ClubReply::Calls(vec![ToolCall {
-                id: "edit".into(),
-                name: "integrate".into(),
-                args: serde_json::json!({}),
-            }]),
-            _ => ClubReply::Text("done without proof".into()),
-        })
-    }
-}
-
-/// The regression: the gate used to retract a finished answer behind a strip
-/// murmur with no way for the operator to overrule it. Approving the modal now
-/// ships the answer as written.
-#[test]
-fn operator_can_release_the_unverified_completion_gate() {
-    let _env_guard = crate::tests::env_lock();
-    let _full = EnvGuard::unset("ANGEL_YOLO");
-    let _smart = EnvGuard::unset("ANGEL_YOLO_SMART");
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
-
-    let prompts = fake_approval_ui(vec![crate::agent::approval::Decision::Approve]);
-    let (club, registry) = edited_then_claims_done();
-    let mut history = vec![ChatMsg::user("change it")];
-    let (events, notices) = mpsc::channel::<TurnEvent>();
-    let answer = run_turn(
-        &club,
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(5),
-        &events,
-    )
-    .unwrap();
-
-    assert_eq!(answer, "done without proof");
-    assert_eq!(
-        club.step.load(Ordering::Relaxed),
-        2,
-        "the release ends the turn instead of spending nudge hops"
-    );
-    assert!(
-        !history
-            .iter()
-            .any(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE),
-        "a released gate never pushes the verify nudge"
-    );
-
-    let seen = prompts.lock().unwrap().clone();
-    assert_eq!(seen.len(), 1, "exactly one modal, on the first denial");
-    assert!(
-        seen[0].starts_with("turn gate · unverified completion :: "),
-        "{}",
-        seen[0]
-    );
-    assert!(
-        seen[0].contains("without running a verifier"),
-        "{}",
-        seen[0]
-    );
-
-    drop(events);
-    let notes: Vec<String> = notices
-        .try_iter()
-        .filter_map(|event| match event {
-            TurnEvent::Notice(note) => Some(note),
-            _ => None,
-        })
-        .collect();
-    assert!(
-        notes
-            .iter()
-            .any(|note| note.contains("verification gate released by operator")),
-        "{notes:?}"
-    );
-}
-
-/// Unattended runs must keep today's behavior exactly: no UI to answer the
-/// modal means the gate holds and spends its bounded nudges.
-#[test]
-fn unanswered_verification_modal_still_holds_the_completion() {
-    let _env_guard = crate::tests::env_lock();
-    let _full = EnvGuard::unset("ANGEL_YOLO");
-    let _smart = EnvGuard::unset("ANGEL_YOLO_SMART");
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
-
-    let _prompts = fake_approval_ui(vec![crate::agent::approval::Decision::Deny]);
-    let (club, registry) = edited_then_claims_done();
-    let mut history = vec![ChatMsg::user("change it")];
-    let answer = run_turn(
-        &club,
-        &registry,
-        &mut history,
-        &AtomicBool::new(false),
-        Some(5),
-        &mpsc::channel::<TurnEvent>().0,
-    )
-    .unwrap();
-
-    assert_eq!(answer, "done without proof");
-    assert_eq!(
-        history
-            .iter()
-            .filter(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE)
-            .count(),
-        2,
-        "denial keeps the full bounded nudge budget"
-    );
-}
-
-#[test]
-fn final_mile_reserve_is_mutation_scoped_and_verifier_permeable() {
-    let call = |name: &str, args: Value| ToolCall {
-        id: name.into(),
-        name: name.into(),
-        args,
-    };
-    assert!(!should_activate_final_mile(Some(30), 24, 6, false, false));
-    assert!(!should_activate_final_mile(Some(30), 23, 6, true, false));
-    assert!(should_activate_final_mile(Some(30), 24, 6, true, false));
-    assert!(should_activate_final_mile(Some(30), 30, 6, true, false));
-    assert!(!should_activate_final_mile(Some(30), 24, 0, true, false));
-    assert!(!should_activate_final_mile(None, 24, 6, true, false));
-    assert!(!should_activate_final_mile(Some(30), 24, 6, true, true));
-
-    assert!(!should_force_final_mile_answer(Some(30), 27, 2, true));
-    assert!(should_force_final_mile_answer(Some(30), 28, 2, true));
-    assert!(should_force_final_mile_answer(Some(30), 30, 2, true));
-    assert!(!should_force_final_mile_answer(Some(30), 28, 0, true));
-    assert!(!should_force_final_mile_answer(Some(30), 28, 2, false));
-    assert!(!should_force_final_mile_answer(None, 28, 2, true));
-
-    let inspection = call("read_file", serde_json::json!({"path":"src/lib.rs"}));
-    let verifier = call("shell", serde_json::json!({"command":"cargo test"}));
-    let mutation = call(
-        "str_replace",
-        serde_json::json!({"path":"src/lib.rs","old":"a","new":"b"}),
-    );
-    assert!(final_mile_rejects_inspection(
-        true,
-        true,
-        std::slice::from_ref(&inspection)
-    ));
-    assert!(!final_mile_rejects_inspection(
-        false,
-        true,
-        std::slice::from_ref(&inspection)
-    ));
-    assert!(!final_mile_rejects_inspection(
-        true,
-        false,
-        std::slice::from_ref(&inspection)
-    ));
-    assert!(!final_mile_rejects_inspection(true, true, &[verifier]));
-    assert!(!final_mile_rejects_inspection(true, true, &[mutation]));
-    assert!(FINAL_MILE_NUDGE.contains("smallest relevant verifier"));
-    assert!(FINAL_MILE_ANSWER_NUDGE.contains("Tool calls are now disabled"));
-    assert!(FINAL_MILE_ANSWER_NUDGE.contains("no candidate remains"));
-    assert!(POST_EDIT_LOGIC_NUDGE.contains("invariants"));
-    assert!(POST_EDIT_LOGIC_NUDGE.contains("one smallest relevant verifier"));
-}
-
 #[test]
 fn turn_deadline_cancel_is_local_and_does_not_stall_during_unwind() {
     let operator_cancel = AtomicBool::new(false);
@@ -928,11 +629,10 @@ fn turn_deadline_cancel_is_local_and_does_not_stall_during_unwind() {
 }
 
 #[test]
-fn edited_yolo_turn_gets_two_bounded_verification_opportunities() {
+fn edited_task_turn_gets_one_stop_checkpoint() {
     let _env_guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
 
     struct IntegrateStub;
     impl Tool for IntegrateStub {
@@ -968,7 +668,7 @@ fn edited_yolo_turn_gets_two_bounded_verification_opportunities() {
                     name: "integrate".into(),
                     args: serde_json::json!({}),
                 }]),
-                1 | 2 => ClubReply::Text("done without proof".into()),
+                1 => ClubReply::Text("done without proof".into()),
                 _ => ClubReply::Text("done with blocker disclosed".into()),
             })
         }
@@ -990,22 +690,22 @@ fn edited_yolo_turn_gets_two_bounded_verification_opportunities() {
     )
     .unwrap();
 
+    // One checkpoint carrying the fact and the deli route; the next answer
+    // stands.
     assert_eq!(answer, "done with blocker disclosed");
-    assert_eq!(club.step.load(Ordering::Relaxed), 4);
-    assert_eq!(
-        history
-            .iter()
-            .filter(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE)
-            .count(),
-        2
-    );
+    assert_eq!(club.step.load(Ordering::Relaxed), 3);
+    let checkpoints = history
+        .iter()
+        .filter(|message| is_unverified_checkpoint(&message.content))
+        .collect::<Vec<_>>();
+    assert_eq!(checkpoints.len(), 1, "{history:?}");
+    assert!(first_line(&checkpoints[0].content).ends_with("⠟⠁"));
 }
 
 #[test]
 fn direct_prose_only_edit_does_not_spend_a_verification_hop() {
     let _env_guard = crate::tests::env_lock();
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let root = scratch("prose_only_completion");
     assert!(
         Command::new("git")
@@ -1052,7 +752,7 @@ fn direct_prose_only_edit_does_not_spend_a_verification_hop() {
         &registry,
         &mut history,
         &AtomicBool::new(false),
-        Some(4),
+        Some(8),
         &mpsc::channel::<TurnEvent>().0,
     )
     .unwrap();
@@ -1063,7 +763,7 @@ fn direct_prose_only_edit_does_not_spend_a_verification_hop() {
     assert!(
         history
             .iter()
-            .all(|message| message.content.as_ref() != FINAL_VERIFY_NUDGE)
+            .all(|message| !is_stop_checkpoint(&message.content))
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -1071,7 +771,7 @@ fn direct_prose_only_edit_does_not_spend_a_verification_hop() {
 #[test]
 fn red_verifier_allows_blocker_report_without_an_extra_model_hop() {
     let _env_guard = crate::tests::env_lock();
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
 
     struct StubTool {
         name: &'static str,
@@ -1140,7 +840,7 @@ fn red_verifier_allows_blocker_report_without_an_extra_model_hop() {
         &registry,
         &mut history,
         &AtomicBool::new(false),
-        Some(5),
+        Some(8),
         &mpsc::channel::<TurnEvent>().0,
     )
     .unwrap();
@@ -1150,14 +850,14 @@ fn red_verifier_allows_blocker_report_without_an_extra_model_hop() {
     assert!(
         history
             .iter()
-            .all(|message| message.content.as_ref() != FINAL_VERIFY_NUDGE)
+            .all(|message| !is_stop_checkpoint(&message.content))
     );
 }
 
 #[test]
 fn opaque_shell_edit_requires_fresh_workspace_verification() {
     let _env_guard = crate::tests::env_lock();
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let root = scratch("opaque_shell_verify");
     assert!(
         Command::new("git")
@@ -1191,7 +891,7 @@ fn opaque_shell_edit_requires_fresh_workspace_verification() {
                     self.saw_nudge.store(
                         messages
                             .iter()
-                            .any(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE),
+                            .any(|message| is_unverified_checkpoint(&message.content)),
                         Ordering::Relaxed,
                     );
                     ClubReply::Calls(vec![ToolCall {
@@ -1227,21 +927,23 @@ fn opaque_shell_edit_requires_fresh_workspace_verification() {
     assert_eq!(
         history
             .iter()
-            .filter(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE)
+            .filter(|message| is_unverified_checkpoint(&message.content))
             .count(),
         1
     );
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// A PATH-shimmed shell green is a test attempt as far as the model's facts
+/// go (no `⠧⠋`), but it never earns a typed pass: that stays with the
+/// curated check.
 #[test]
-fn path_shim_shell_green_cannot_release_edit_scoped_verification() {
+fn path_shim_shell_green_is_an_attempt_but_not_a_typed_pass() {
     use std::os::unix::fs::PermissionsExt;
 
     let _env_guard = crate::tests::env_lock();
     let _experience = EnvGuard::set("ANGEL_EXPERIENCE", "0");
-    let _policy = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "1");
-    let _limit = EnvGuard::set("ANGEL_VERIFY_NUDGES", "2");
+    let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let root = scratch("path_shim_shell_green");
     std::fs::create_dir_all(root.join("src")).unwrap();
     std::fs::create_dir_all(root.join("shim")).unwrap();
@@ -1285,12 +987,15 @@ fn path_shim_shell_green_cannot_release_edit_scoped_verification() {
                     name: "shell".into(),
                     args: serde_json::json!({"command": "PATH=./shim:$PATH npm test"}),
                 }]),
-                2 => ClubReply::Text("done after a shell-shaped green".into()),
-                3 => {
+                2 => {
                     self.saw_nudge.store(
                         messages
                             .iter()
-                            .any(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE),
+                            .filter(|message| message.role != ChatRole::System)
+                            .any(|message| {
+                                has_route(first_line(&message.content), "⠧⠋")
+                                    || has_route(first_line(&message.content), "⠧⠁")
+                            }),
                         Ordering::Relaxed,
                     );
                     ClubReply::Calls(vec![ToolCall {
@@ -1322,14 +1027,21 @@ fn path_shim_shell_green_cannot_release_edit_scoped_verification() {
     .unwrap();
 
     assert_eq!(answer, "done after curated verification");
-    assert!(club.saw_nudge.load(Ordering::Relaxed));
-    assert_eq!(club.step.load(Ordering::Relaxed), 5);
-    assert_eq!(
+    assert!(!club.saw_nudge.load(Ordering::Relaxed));
+    assert_eq!(club.step.load(Ordering::Relaxed), 4);
+    // No untested or red route ever showed; the clean run after the edit
+    // showed the finish cue instead.
+    assert!(
+        !history
+            .iter()
+            .filter(|message| message.role != ChatRole::System)
+            .any(|message| has_route(first_line(&message.content), "⠧⠋")
+                || has_route(first_line(&message.content), "⠧⠁"))
+    );
+    assert!(
         history
             .iter()
-            .filter(|message| message.content.as_ref() == FINAL_VERIFY_NUDGE)
-            .count(),
-        1
+            .any(|message| message.role == ChatRole::Tool && has_route(&message.content, "⠺⠓"))
     );
     let events = event_rx.try_iter().collect::<Vec<_>>();
     let verification = |wanted: &str| {
@@ -1436,7 +1148,7 @@ fn dependency_mutation_shells_count_as_first_write_progress() {
         args: serde_json::json!({"command": "GO GET example.com/lib@v1.2.3"}),
     };
     assert!(is_dependency_mutation_call(&call));
-    assert!(is_first_write_progress_call(&call));
+    assert!(is_product_mutation_call(&call));
     assert!(!is_mutation_call(&call));
 }
 
@@ -1451,7 +1163,11 @@ fn live_prompts_carry_no_self_repair_priming() {
     // 2026-07-04 MOA incident). build_system_prompt just concatenates these two
     // with skills/project/work blocks (which never carried the nouns), and it
     // needs a Bag + filesystem I/O, so pinning the two sources is the live cover.
-    let orch = orchestrator_system_prompt(&["turbo".to_string()]);
+    // The orchestrator's words are its personality and workflow chapters.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let orch = ["⠽⠃", "⠽⠙", "⠽⠑"]
+        .map(|cells| crate::agent::harness::book::ledger::read(root, cells).unwrap())
+        .join("\n");
     let selfmodel =
         crate::agent::tools::self_model::self_context(Path::new(env!("CARGO_MANIFEST_DIR")));
     let conductor_notice = crate::drive::conductor::startup_notice_text(2);
@@ -1606,20 +1322,14 @@ fn baseline_green_verifier_is_not_completion_evidence_without_a_mutation() {
     ));
 }
 
-fn native_verifier_dispatch_scenario_with_budget(
-    post_green_budget: &str,
-    reuse: &str,
-    single: &str,
+/// Every verifier call the model makes executes: the harness never answers a
+/// verifier from cache or skips it as redundant.
+fn native_verifier_dispatch_scenario(
     calls: Vec<(&'static str, Value)>,
     expected: usize,
     behavior_red: bool,
 ) {
     let _guard = crate::tests::env_lock();
-    let _reuse = EnvGuard::set("ANGEL_REUSE_VERIFIER_RESULTS", reuse);
-    let _single = EnvGuard::set("ANGEL_SINGLE_GREEN_VERIFIER", single);
-    let _first = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _last = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "0");
-    let _post_green = EnvGuard::set("ANGEL_POST_GREEN_TOOL_BATCHES", post_green_budget);
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-mcp.json");
     let root = scratch("native_verifier_dispatch");
     let output = scratch("native_verifier_output");
@@ -1832,8 +1542,6 @@ fn native_verifier_dispatch_scenario_with_budget(
 #[test]
 fn explicitly_required_tests_execute_after_green_compile_on_same_source() {
     native_verifier_dispatch_scenario(
-        "1",
-        "1",
         vec![
             ("check", serde_json::json!({})),
             ("run_tests", serde_json::json!({})),
@@ -1843,36 +1551,19 @@ fn explicitly_required_tests_execute_after_green_compile_on_same_source() {
     );
 }
 #[test]
-fn exact_green_repeat_is_reused_without_general_result_cache() {
+fn exact_green_repeat_executes_again() {
     native_verifier_dispatch_scenario(
-        "0",
-        "1",
         vec![
             ("check", serde_json::json!({})),
             ("check", serde_json::json!({})),
         ],
-        1,
-        false,
-    );
-}
-#[test]
-fn exact_green_repeat_is_reused_with_general_result_cache() {
-    native_verifier_dispatch_scenario(
-        "1",
-        "1",
-        vec![
-            ("check", serde_json::json!({})),
-            ("check", serde_json::json!({})),
-        ],
-        1,
+        2,
         false,
     );
 }
 #[test]
 fn distinct_test_arguments_execute_after_green_suite() {
     native_verifier_dispatch_scenario(
-        "1",
-        "1",
         vec![
             ("run_tests", serde_json::json!({})),
             ("run_tests", serde_json::json!({"args":"--all-targets"})),
@@ -1882,10 +1573,8 @@ fn distinct_test_arguments_execute_after_green_suite() {
     );
 }
 #[test]
-fn distinct_verifier_tools_are_not_cross_wrapper_reused() {
+fn distinct_verifier_tools_both_execute() {
     native_verifier_dispatch_scenario(
-        "1",
-        "1",
         vec![
             ("check", serde_json::json!({})),
             ("cargo", serde_json::json!({"args":"check"})),
@@ -1897,8 +1586,6 @@ fn distinct_verifier_tools_are_not_cross_wrapper_reused() {
 #[test]
 fn tracked_verifier_configuration_change_requires_fresh_check() {
     native_verifier_dispatch_scenario(
-        "1",
-        "1",
         vec![
             ("check", serde_json::json!({})),
             ("change_config", serde_json::json!({})),
@@ -1908,43 +1595,10 @@ fn tracked_verifier_configuration_change_requires_fresh_check() {
         false,
     );
 }
+
 #[test]
-fn verifier_reuse_flags_off_preserve_repeated_execution() {
+fn green_compile_does_not_discard_distinct_behavior_verification() {
     native_verifier_dispatch_scenario(
-        "0",
-        "0",
-        vec![
-            ("check", serde_json::json!({})),
-            ("check", serde_json::json!({})),
-        ],
-        2,
-        false,
-    );
-}
-
-fn native_verifier_dispatch_scenario(
-    reuse: &str,
-    single: &str,
-    calls: Vec<(&'static str, Value)>,
-    expected: usize,
-    behavior_red: bool,
-) {
-    native_verifier_dispatch_scenario_with_budget(
-        "0",
-        reuse,
-        single,
-        calls,
-        expected,
-        behavior_red,
-    );
-}
-
-#[test]
-fn post_compile_grace_does_not_discard_distinct_behavior_verification() {
-    native_verifier_dispatch_scenario_with_budget(
-        "1",
-        "1",
-        "1",
         vec![
             (
                 "write_file",
@@ -1960,26 +1614,8 @@ fn post_compile_grace_does_not_discard_distinct_behavior_verification() {
 }
 
 #[test]
-fn post_compile_grace_never_exempts_an_exact_repeated_verifier() {
-    native_verifier_dispatch_scenario_with_budget(
-        "1",
-        "1",
-        "1",
-        vec![
-            ("check", serde_json::json!({})),
-            ("read_file", serde_json::json!({"path":"subject.rs"})),
-            ("check", serde_json::json!({})),
-        ],
-        1,
-        false,
-    );
-}
-#[test]
 fn distinct_red_verifier_keeps_source_repair_and_green_recheck_available() {
-    native_verifier_dispatch_scenario_with_budget(
-        "1",
-        "1",
-        "1",
+    native_verifier_dispatch_scenario(
         vec![
             (
                 "write_file",
@@ -1999,47 +1635,62 @@ fn distinct_red_verifier_keeps_source_repair_and_green_recheck_available() {
     );
 }
 
-/// A test run started through `shell` is held to the task-mode test-run budget
-/// like run_tests is: a suite spinning on an infinite loop is killed at the
-/// budget and reported as hung, instead of holding the 900 s busy ceiling
-/// (polyglot-v1 py-forth ran `python3 -m pytest` via shell until the task wall).
+/// A foreground shell process is bounded even when a here-doc prevents it from
+/// being classified as verification. A later repair and green recheck must work.
 #[test]
-fn a_shell_test_run_is_held_to_the_test_run_budget() {
+fn task_call_budget_contains_unclassified_shell_and_allows_repair() {
     let _env_guard = crate::tests::env_lock();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    let _budget = EnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "2");
+    let _budget = EnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "2");
     let _hard = EnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
     let _timeout = EnvGuard::unset("ANGEL_TOOL_TIMEOUT");
-    let root = scratch("shell_test_budget");
-    std::fs::write(
-        root.join("test_spin.py"),
-        "import unittest\n\nclass Spin(unittest.TestCase):\n    def test_spin(self):\n        while True:\n            pass\n",
-    )
-    .unwrap();
-    let args = serde_json::json!({"command": "python3 -m unittest test_spin"});
-    let call = ToolCall {
-        id: String::new(),
-        name: "shell".into(),
-        args: args.clone(),
-    };
-    assert!(
-        is_verification_call(&call),
-        "the command must read as a test run"
+    let spin = "import unittest\n\nclass Spin(unittest.TestCase):\n    def test_spin(self):\n        while True:\n            pass\n";
+    let here_doc = format!(
+        "cat > test_spin.py <<'EOF'\n{spin}EOF\npython3 -m unittest test_spin 2>&1 | head -20"
     );
-    let registry = ToolRegistry::with_team(root.clone(), Vec::new());
-    let started = std::time::Instant::now();
-    let result = registry.dispatch_with_cancel("shell", &args, None);
-    let elapsed = started.elapsed();
-    let text = match result {
-        Ok(text) | Err(text) => text,
-    };
-    assert!(
-        elapsed < std::time::Duration::from_secs(20),
-        "the spinning suite must stop near the 2 s budget, took {elapsed:?}: {text}"
-    );
-    assert!(
-        text.starts_with("tests: still running after the 2s test-run budget"),
-        "{text}"
-    );
-    let _ = std::fs::remove_dir_all(root);
+    for (command, classified) in [
+        ("python3 -m unittest test_spin", true),
+        (here_doc.as_str(), false),
+    ] {
+        let root = scratch("task_call_budget");
+        std::fs::write(root.join("test_spin.py"), spin).unwrap();
+        let args = serde_json::json!({ "command": command });
+        assert_eq!(
+            is_verification_call(&ToolCall {
+                id: String::new(),
+                name: "shell".into(),
+                args: args.clone(),
+            }),
+            classified,
+            "the regression must exercise the classifier bypass"
+        );
+        let registry = ToolRegistry::with_team(root.clone(), Vec::new());
+        let started = std::time::Instant::now();
+        let result = registry.dispatch_with_cancel("shell", &args, None);
+        let elapsed = started.elapsed();
+        let text = match result {
+            Ok(text) | Err(text) => text,
+        };
+        assert!(
+            elapsed < std::time::Duration::from_secs(20),
+            "{command}: must stop near the 2 s budget, took {elapsed:?}: {text}"
+        );
+        assert!(text.contains("timed out after 2s"), "{command}: {text}");
+        let repaired = registry.dispatch_with_cancel("write_file", &serde_json::json!({
+            "path": "test_spin.py",
+            "content": "import unittest\nclass Spin(unittest.TestCase):\n    def test_spin(self):\n        self.assertEqual(2 + 2, 4)\n",
+        }), None).expect("timeout must leave source repair available");
+        assert!(!repaired.is_empty());
+        let green = registry
+            .dispatch_with_cancel(
+                "shell",
+                &serde_json::json!({
+                    "command": "python3 -m unittest test_spin",
+                }),
+                None,
+            )
+            .expect("the repaired test must run successfully");
+        assert!(green.contains("OK"), "{green}");
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

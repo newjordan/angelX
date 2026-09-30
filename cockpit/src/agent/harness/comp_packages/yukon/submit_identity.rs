@@ -4,7 +4,7 @@
 //! `--harness` and print them on the public leaderboard and in the public
 //! note. Models fill those flags by copying whatever they last read — a
 //! leader's note head, a template, an older submission — so 2026-09-10 the
-//! spark qwen38 loop published four submissions as "GPT 5.6 Sol / Codex" from
+//! a local qwen38 loop published four submissions as "GPT 5.6 Sol / Codex" from
 //! deepseek-v4-flash on angelX, and the operator reports this happens on every
 //! board ("it's always just copying whatever it pulled"). The harness knows
 //! its own identity; it stamps it and discards the model-supplied values.

@@ -93,38 +93,36 @@ fn ledger_times_parallel_calls_without_previews() {
 
 #[test]
 fn telemetry_marked_harness_messages_are_dropped_but_user_quotes_survive() {
-    // A harness-authored nudge (marked) rides the live tail but must never reach
-    // the summarizer: render_transcript drops it so it can't be distilled into a
-    // durable "the harness is broken" open-thread.
+    // Harness-authored commentary (marked) rides the live tail but must never
+    // reach the summarizer: render_transcript drops it so it can't be distilled
+    // into a durable "the harness is broken" open-thread.
+    let checkpoint = "⠧⠁⠟⠁".to_string();
     let history = vec![
         ChatMsg::user("real user ask: add a feature"),
         ChatMsg::assistant("on it"),
-        ChatMsg::harness(ERROR_NUDGE.to_string()),
         ChatMsg::harness(NOPROGRESS_NUDGE.to_string()),
-        ChatMsg::harness(spin_redirect(true).to_string()),
-        ChatMsg::harness(spin_redirect(false).to_string()),
+        ChatMsg::harness(MUTATION_THRASH_NUDGE.to_string()),
+        ChatMsg::harness(checkpoint.clone()),
+        ChatMsg::tool("t1", "test result: ok\n⠇⠁"),
     ];
     let rendered = render_transcript(&history);
     assert!(rendered.contains("real user ask"), "genuine content kept");
     assert!(rendered.contains("on it"), "genuine content kept");
-    assert!(
-        !rendered.contains("Every tool call in your last several turns failed"),
-        "ERROR_NUDGE must not reach the summarizer:\n{rendered}"
-    );
+    assert!(rendered.contains("test result: ok"), "tool evidence kept");
     assert!(
         !rendered.contains("re-reading files you already pulled into context"),
         "NOPROGRESS_NUDGE must not reach the summarizer:\n{rendered}"
     );
     assert!(
-        !rendered.contains("stuck in a loop"),
-        "spin perturbation must not reach the summarizer:\n{rendered}"
+        !rendered.contains("MUTATION THRASH"),
+        "thrash nudge must not reach the summarizer:\n{rendered}"
     );
     assert!(
-        !rendered.contains("Change your approach"),
-        "spin nudge must not reach the summarizer:\n{rendered}"
+        !rendered.contains('⠇') && !rendered.contains('⠟'),
+        "stamps must not reach the summarizer:\n{rendered}"
     );
     // Leading whitespace before the mark is still recognized (defensive trim).
-    let padded = vec![ChatMsg::harness(format!("  {ERROR_NUDGE}"))];
+    let padded = vec![ChatMsg::harness(format!("  {NOPROGRESS_NUDGE}"))];
     assert!(
         render_transcript(&padded).trim().is_empty(),
         "a whitespace-padded telemetry mark is still dropped"
@@ -132,10 +130,8 @@ fn telemetry_marked_harness_messages_are_dropped_but_user_quotes_survive() {
     // The same bytes quoted by an actual operator remain their conversation
     // content, including whitespace; only internal role plus marker is elided.
     for nudge in [
-        ERROR_NUDGE.to_string(),
         NOPROGRESS_NUDGE.to_string(),
-        spin_redirect(true).to_string(),
-        spin_redirect(false).to_string(),
+        MUTATION_THRASH_NUDGE.to_string(),
     ] {
         let quoted = format!("  {nudge}");
         assert_eq!(
@@ -149,31 +145,10 @@ fn telemetry_marked_harness_messages_are_dropped_but_user_quotes_survive() {
 fn every_harness_nudge_carries_the_telemetry_mark() {
     // Compile-time-ish pin: if a nudge string loses its mark, it would silently
     // start leaking into summaries again. Keep them all tagged.
-    assert!(ERROR_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(FIRST_WRITE_NUDGE.starts_with(TELEMETRY_MARK));
     assert!(NOPROGRESS_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(SPIN_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(SPIN_PERTURBATION.starts_with(TELEMETRY_MARK));
     assert!(MUTATION_THRASH_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(SELF_AUTHORED_VERIFY_NUDGE.starts_with(TELEMETRY_MARK));
     assert!(PERIPHERAL_FANOUT_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(GREEN_VERIFY_DONE_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(NO_EDIT_ANSWER_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(FINAL_MILE_NUDGE.starts_with(TELEMETRY_MARK));
-    assert!(POST_EDIT_LOGIC_NUDGE.starts_with(TELEMETRY_MARK));
     assert!(WATCHER_NOTIFY_MARK.starts_with(TELEMETRY_MARK));
-    assert!(
-        FIRST_WRITE_NUDGE.contains("dependency")
-            || FIRST_WRITE_NUDGE.contains("board wait")
-            || FIRST_WRITE_NUDGE.contains("hilbert")
-            || (FIRST_WRITE_NUDGE.contains("narrow validation")
-                && FIRST_WRITE_NUDGE.contains("concrete blocker")),
-        "first-write nudges must name legal escapes; generic pacing permits narrow validation and a blocker report"
-    );
-    assert!(spin_redirect(true).starts_with(TELEMETRY_MARK));
-    assert!(spin_redirect(false).starts_with(TELEMETRY_MARK));
-    // The standing relentless-execution directive is a real steer, NOT telemetry —
-    // it must remain summarizable (unmarked), so the split in the false-start
-    // correction path keeps only the correction tagged.
-    assert!(!RELENTLESS_EXECUTION_DIRECTIVE.starts_with(TELEMETRY_MARK));
+    // Stamps carry their own mark: the braille cell.
+    assert!(book::ledger::is_warpath_message("⠟⠁"));
 }

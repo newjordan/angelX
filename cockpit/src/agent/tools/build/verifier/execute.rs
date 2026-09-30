@@ -19,28 +19,10 @@ pub(super) fn run(
     let mut raw_tail = String::new();
     let mut actual_argvs = plan.argvs.clone();
     if plan.runtime == Runtime::Python {
-        // -B stops writes, but existing project .pyc files would still load.
-        // This absent path is beside the immutable interpreter; no directory
-        // is created, and task processes cannot populate it with stale code.
-        let cache = executable
-            .path
-            .parent()
-            .ok_or("Python runtime has no parent")?
-            .join(".angel-verifier-no-bytecode");
-        match std::fs::symlink_metadata(&cache) {
-            Ok(_) => return Err("isolated Python bytecode lookup path already exists; refusing stale-cache verification".into()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
-            Err(error) => return Err(format!("cannot establish an absent isolated Python bytecode lookup path: {error}")),
-        }
+        // -B stops writes. Reads are the bootstrap's: bytecode only from the
+        // interpreter's own library, every project module from its source.
         for argv in &mut actual_argvs {
-            argv.splice(
-                0..0,
-                [
-                    "-B".into(),
-                    "-X".into(),
-                    format!("pycache_prefix={}", cache.display()),
-                ],
-            );
+            argv.insert(0, "-B".into());
         }
     }
     for argv in &actual_argvs {
@@ -174,7 +156,7 @@ pub(super) fn run(
     };
     let attribution = serde_json::json!({
         "schema": "angel-native-verifier/v1", "runtime": plan.runtime.label(),
-        "executable": executable.path, "executable_sha256": executable.sha256.get(),
+        "executable": executable.path, "executable_sha256": executable.digest().ok().flatten(),
         "argv": actual_argvs, "scope": if plan.kind == Kind::Check { "syntax" } else { "tests" },
     });
     Ok(format!(

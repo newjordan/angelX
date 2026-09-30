@@ -87,8 +87,21 @@ fn extraction_folds_typed_entities_edges_and_provenance() {
     );
     // The extraction prompt carries the type vocabulary and the contract.
     let prompt = &club.prompts()[0];
-    assert!(prompt.contains("PERSON, ORGANIZATION, LOCATION, EVENT, ARTIFACT"));
-    assert!(prompt.contains("source id: apollo.md"));
+    // The brief is `⠸⠑`; the vocabulary, the reply shape and the source id
+    // ride beside their pages, inline.
+    use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::KG_EXTRACT};
+    assert!(
+        prompt.starts_with(&format!("{}\n", KG_EXTRACT.cells())),
+        "{prompt}"
+    );
+    assert!(prompt.contains(&format!(
+        "{} PERSON, ORGANIZATION, LOCATION, EVENT, ARTIFACT",
+        pages(KG_EXTRACT, [2])
+    )));
+    assert!(prompt.contains(&format!("{} {EXTRACTION_SHAPE}", pages(KG_EXTRACT, [7]))));
+    assert!(prompt.contains(&format!("{} apollo.md", pages(KG_EXTRACT, [8]))));
+    assert!(!prompt.contains(&pages(KG_EXTRACT, [9])), "not truncated");
+    assert!(!prompt.contains("You extract"), "{prompt}");
     let _ = std::fs::remove_file(&store);
 }
 
@@ -257,7 +270,10 @@ fn query_serializes_cited_triples_and_caps_speak() {
     assert!(answer.contains("commanded"), "{answer}");
     let query_prompt = &club.prompts()[1];
     assert!(query_prompt.contains("Neil Armstrong —commanded→ Apollo 11 [apollo.md]"));
-    assert!(query_prompt.contains("ONLY the knowledge-graph facts"));
+    assert!(
+        query_prompt.starts_with(&crate::agent::harness::book::d456_knowledge::KG_QUERY.cells())
+    );
+    assert!(!query_prompt.contains("ONLY the knowledge-graph facts"));
     assert!(
         query_prompt.contains("[PERSON]"),
         "entity typing serialized"
@@ -275,7 +291,9 @@ fn query_on_empty_store_speaks_instead_of_hallucinating() {
         .query(None, "anything?", &never)
         .expect_err("empty store");
     assert!(err.contains("empty"), "{err}");
-    assert!(err.contains("ingest"), "{err}");
+    let ingest = crate::agent::harness::book::d56_replies::KG_INGEST;
+    assert!(err.contains(&ingest.cells()), "{err}");
+    assert!(ingest.text().contains("ingest"));
 }
 
 #[test]
@@ -294,7 +312,10 @@ fn persistence_roundtrip_and_corrupt_store_is_loud() {
 
     std::fs::write(&store, "not json {{{").unwrap();
     let err = KnowledgeGraph::load_from(&store).expect_err("corrupt store is loud");
-    assert!(err.contains("fix or move it aside"), "{err}");
+    let fix = crate::agent::harness::book::d56_replies::KG_STORE;
+    assert!(err.contains(&fix.cells()), "{err}");
+    assert!(err.contains("parse "), "the parse error stays: {err}");
+    assert!(fix.text().contains("fix or move it aside"));
     let _ = std::fs::remove_file(&store);
 }
 

@@ -19,7 +19,7 @@ const BLEND_MS: u128 = 2_000;
 
 thread_local! {
     // Catalog objects are stateless but its trait is not Send. Resolve just
-    // these six styles once on the drawing thread, never all 644 per frame.
+    // these six styles once on the drawing thread, never the whole catalog per frame.
     static STYLES: Vec<Box<dyn ProgressStyle>> = PRESETS.iter().map(|(theme, name)| {
         dotmax::progress::styles_for_theme(theme).into_iter()
             .find(|style| style.name() == *name)

@@ -210,7 +210,7 @@ pub fn notice_strip_prefix(note: &str) -> &str {
 /// deliberately share one key: the transcript needs one visible receipt for
 /// the guard, while the live strip carries its latest exact state and count.
 pub fn notice_coalesce_key(note: &str) -> Option<&'static str> {
-    if note.starts_with("unproductive streak:") {
+    if note.starts_with(&crate::agent::harness::book::l_loops::STREAK.cells()) {
         Some("unproductive-streak")
     } else if note.starts_with("in-flight idle failure (") {
         Some("in-flight-idle")

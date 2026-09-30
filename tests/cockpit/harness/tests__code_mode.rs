@@ -531,10 +531,7 @@ fn code_mode_recipe_contract_rejects_ambiguous_or_effectful_calls() {
         "code_mode",
         &serde_json::json!({"script":"return 1", "recipe":"repo_recon", "query":"x"}),
     );
-    assert!(
-        both.starts_with("[code_mode: both script and recipe given; ran script]\n"),
-        "{both}"
-    );
+    assert!(both.starts_with("[⡨⠉⠑]\n"), "{both}");
     assert!(both.contains("recipe=script"), "{both}");
     let neither = dispatch_with_hooks(&reg, &hooks, "code_mode", &serde_json::json!({"query":"x"}));
     assert!(neither.contains("exactly one"), "{neither}");

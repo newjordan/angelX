@@ -1,25 +1,25 @@
 {
   "schema": "angel.usage-images/v1",
-  "captured_date_utc": "2026-09-22",
+  "captured_date_utc": "2026-09-25",
   "method": "Unedited window-region screenshots of the running cockpit in Kitty (captured with grim); files under ui/ are crops of those captures.",
   "terminal": "Kitty, 1576 x 893 window",
   "model_route": "glm-5.3, thinking low",
   "fixture": "trailpace: a small Rust crate with one planted bug (minutes multiplied by 3600). The fix, diff and answer are the model's own work in one live turn; each action was approved by hand.",
   "binary": {
-    "package_version": "0.1.4",
-    "source_commit": "e7df7f0",
-    "sha256": "4e0b59c756db98a393b0d67823d9ee853bca8d49b7fa7488689063d09ecc9b91"
+    "package_version": "0.1.7",
+    "source_commit": "6078cf8",
+    "sha256": "dead5f17de8a4452fa131a6c98dbc6134a788b5eb75b365bf9f12f17b349f2ae"
   },
   "images": [
     {
       "file": "intro.png",
-      "sha256": "36ced5f833e8573e8e8565a81c248115b32db3cad6ba55b510d1f06b7c4864ff",
+      "sha256": "7d3a66ea2ca2a04236eb55ede359699193d66c5cbfc4d9466762fee0bf47d762",
       "shows": "Fresh launch in the demo workspace; no prompt submitted."
     },
     {
       "file": "task.png",
-      "sha256": "490a64b8a4bdb56712f281c7478c691091eb623c2bf108ff35a76dfe92fa7347",
-      "shows": "Final frame of the live fix task.",
+      "sha256": "2dcc5bc34d8b8ca117990ca709058bcbe3b045ffe17dd487ca22d2ba9ef02a03",
+      "shows": "The live fix task mid-turn: GLM-5.3 reads src/lib.rs while the knight rides to the Scriptorium on the overworld map.",
       "actions": [
         "/model glm-5.3 (think low)",
         "/new",
@@ -29,16 +29,16 @@
     },
     {
       "file": "world.png",
-      "sha256": "ccc264b84416b2a6e5b531a8dff8c2244336ce3a150c04e4d5e3df0ed81c9e09",
-      "shows": "World view beside the diff.",
+      "sha256": "e651fbd79aaa0fdd00b223d7b5a135a00e35872d205bb97206ec9f3c409bdd37",
+      "shows": "The overworld map beside /diff.",
       "actions": [
-        "/diff",
-        "/world enter"
+        "/clear",
+        "/diff"
       ]
     },
     {
       "file": "ui/model-picker.png",
-      "sha256": "c5094849aedf7bbdfcaa99de99f7da07e8f829ee632cac622f17ee5cc842dd4c",
+      "sha256": "531086b375864deb20fb23fd1be9ac8ac08ace42fdb532e7ac68491e9a98c25b",
       "shows": "/model with glm-5.3 highlighted.",
       "actions": [
         "/model"
@@ -46,7 +46,7 @@
     },
     {
       "file": "ui/think-picker.png",
-      "sha256": "8e9aca9f1e9754826e8880c74cdb9eec664e29e35b5f4d4403a67a37a3b01980",
+      "sha256": "03b9313012dcce5e4d547b61e1ca09b6de47efd777611f671391bbbbf563607e",
       "shows": "/think for glm-5.3.",
       "actions": [
         "/think"
@@ -54,22 +54,22 @@
     },
     {
       "file": "ui/approval.png",
-      "sha256": "1dd830d3255933a36c78d4a402b9e1df0cad8c6b0263aee2a37a1b1e08b0c683",
+      "sha256": "922f477b894ba0cebacb01186ec45a38c99d5a13d74f5886182854c4b6ad0c80",
       "shows": "First action capsule of the live task."
     },
     {
       "file": "ui/edit-approval.png",
-      "sha256": "e3a0b1ef0eee2bda2cd8f16a4ee968ece0ff8148fbe8e2392a086773d9e85598",
+      "sha256": "c641e4d249965392ed8b6a043eab3a08c2096c3751807e07ec934d5a61ff8050",
       "shows": "Edit capsule of the live task."
     },
     {
       "file": "ui/receipts.png",
-      "sha256": "2df6c610cbf0b32da747a1f7c277bbe2f9dc10936c1ee38da40e72cce877e887",
-      "shows": "Receipts and final answer of the live task."
+      "sha256": "8b972247a322fe43363c51c7ac4417929b5a722ac8c741c53b67612bb17f46c5",
+      "shows": "Turn summary and final answer of the live task."
     },
     {
       "file": "ui/diff.png",
-      "sha256": "8afa48037a0b843fadd6342ecd55ec969bc212cfa1773e48518bee760738e96f",
+      "sha256": "4fee7ade2af4507f454bd8b1a7cf80a4627b5ddb91273c6a5095ab1c7dd945e0",
       "shows": "/diff after the live task.",
       "actions": [
         "/clear",
@@ -78,7 +78,7 @@
     },
     {
       "file": "ui/formation.png",
-      "sha256": "31cafb0c2326875f02a0edcdd1a67b55559ff5790eb08ac4d0a1e6d27144889a",
+      "sha256": "9257075de0372f5ffde0d3ff21e7ab7a278b8f97f01e4284a0046ecf778d1351",
       "shows": "Formation roster.",
       "actions": [
         "/moa"
@@ -86,7 +86,7 @@
     },
     {
       "file": "ui/context.png",
-      "sha256": "5c76011e0b632b2f66979b59cd2e2271752a365f97c5465a5a98389fabb0125d",
+      "sha256": "d232360ab7ab319f2315c7d06e0ad52cba305d625e16a9429eec672e34b46a5c",
       "shows": "Context occupancy.",
       "actions": [
         "/context"
@@ -94,7 +94,7 @@
     },
     {
       "file": "ui/goal.png",
-      "sha256": "fd86c02afad5748197b19f21c71530f109a1bed5d4501eed47df9a07c0ad09f1",
+      "sha256": "79763cd12a6c950a76126e83fc55cb453e59c7b2aab96204dc03c5b10864545a",
       "shows": "A goal with criteria and a check.",
       "actions": [
         "/goal <text>",
@@ -104,7 +104,7 @@
     },
     {
       "file": "ui/loop-workshop.png",
-      "sha256": "4e92c6e376bd5b619c7264d9d54877a71865a2404f847c1b5b966d1763e066bb",
+      "sha256": "c8be57fb5c488c7b6e91a21db71162f9f16f5f12c23237368f094efcb9031ef4",
       "shows": "Loop workshop for the active goal.",
       "actions": [
         "/loop"
@@ -112,7 +112,7 @@
     },
     {
       "file": "ui/command-picker.png",
-      "sha256": "b48cd758635c804b6f162c3e3e91b53c5b6ccd10d46ab50f8113ca3ab9cd185e",
+      "sha256": "3fb5855e5a57358baa3445bcdab352af9c81c1605a0630b55e3652a00dd4c2cf",
       "shows": "/help, then / and Tab.",
       "actions": [
         "/help",

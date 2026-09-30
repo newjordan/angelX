@@ -1,6 +1,6 @@
 //! Teacher-watch — graceful recovery for long local-model sessions.
 //!
-//! Local seats (turbo, spark, llama.cpp, vLLM) die after long calibration and
+//! Local seats (llama.cpp, vLLM, …) die after long calibration and
 //! proving runs: KV/context overflow, empty 200s, transport reset, 503 while
 //! reloading, or "model not available". The student turn must not crash the
 //! campaign. This module classifies those faults, rolls context deterministically,
@@ -18,14 +18,15 @@ use crate::agent::tools::consult::{find_in_roster, is_optional_local_label};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::time::Duration;
 
 /// Default teacher seat. Cheap access agent — never required to be up.
 pub(crate) const DEFAULT_TEACHER_CLUB: &str = "luna";
 
-const ASK_TIMEOUT: Duration = Duration::from_secs(6);
 const ERROR_SNIP: usize = 240;
 const TEACHER_PROMPT_CAP: usize = 1_200;
+/// The teacher's one-line reply shape, beside `⠟⠚⠉` (the page quotes it).
+const TEACHER_REPLY_SHAPE: &str =
+    "ROLL: <why> | RETRY: <why> | CATCH: <bug> | CONTINUE: <next action>";
 static TEACHER_ASK_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 
 struct TeacherAskLease;
@@ -137,7 +138,7 @@ pub(crate) fn pick_teacher(
     {
         return Some(club);
     }
-    let prefer = ["luna", "spark", "gemma", "atlas"];
+    let prefer = ["luna"];
     for name in prefer {
         if name.eq_ignore_ascii_case(student_label) {
             continue;
@@ -206,91 +207,84 @@ pub(crate) fn parse_teacher_line(reply: &str) -> Option<TeacherLine> {
     None
 }
 
+/// The deterministic recovery note for `fault` as a later prompt carries it:
+/// its page addresses on `⠟⠓` / `⠟⠊`, never the prose.
 pub(crate) fn deterministic_recovery_note(fault: SessionFault) -> String {
+    use super::book::{
+        d3_roles::pages,
+        q_stop::{TEACHER_NOTES, TEACHER_NOTES_MORE},
+    };
     match fault {
-        SessionFault::ContextOverflow => {
-            "teacher-watch: context overflow — rolled the tail into a ledger. \
-             Continue from the current workspace and the compact note. Do not \
-             re-read the whole transcript."
-                .to_string()
-        }
-        SessionFault::EmptyReply => {
-            "teacher-watch: local seat returned empty — context rolled. Answer \
-             or tool-call now; do not replay the same empty hop."
-                .to_string()
-        }
-        SessionFault::TransportDead => {
-            "teacher-watch: local seat went dark (transport). Context rolled. \
-             Do not retry the same dead endpoint this hop; continue from the \
-             ledger on the next iteration."
-                .to_string()
-        }
-        SessionFault::ModelUnavailable => {
-            "teacher-watch: named local is not reachable. Skipped. Continue \
-             yourself from the ledger; do not retry the dark seat."
-                .to_string()
-        }
-        SessionFault::Timeout => "teacher-watch: local seat timed out after a long generation. \
-             Context rolled. Continue with a smaller next action."
-            .to_string(),
+        SessionFault::ContextOverflow => pages(TEACHER_NOTES, [1, 2, 3]),
+        SessionFault::EmptyReply => pages(TEACHER_NOTES, [4, 5]),
+        SessionFault::TransportDead => pages(TEACHER_NOTES, [6, 7, 8]),
+        SessionFault::ModelUnavailable => pages(TEACHER_NOTES_MORE, [1, 2, 3]),
+        SessionFault::Timeout => pages(TEACHER_NOTES_MORE, [4, 5, 6]),
     }
 }
 
+/// `⠟⠚`: the teacher's brief is the route; the reply shape rides beside its
+/// page, the fault, the hop and the error below.
 pub(crate) fn teacher_ask_prompt(fault: SessionFault, error: &str, hop: usize) -> String {
+    use super::book::{d3_roles::pages, q_stop::TEACHER};
     let snip: String = error.chars().take(ERROR_SNIP).collect();
     let mut prompt = format!(
-        "You are a cheap teacher-monitor for a long local-model coding session. \
-         One fault just happened during a calibration/proving run. \
-         Reply with exactly one line:\n\
-         ROLL: <why> | RETRY: <why> | CATCH: <bug> | CONTINUE: <next action>\n\
+        "{}\n{} {TEACHER_REPLY_SHAPE}\n\
          Fault: {}\nHop: {hop}\nError: {snip}\n",
+        TEACHER.cells(),
+        pages(TEACHER, [3]),
         fault.as_str()
     );
     if prompt.len() > TEACHER_PROMPT_CAP {
-        prompt.truncate(TEACHER_PROMPT_CAP);
+        let mut end = TEACHER_PROMPT_CAP;
+        while !prompt.is_char_boundary(end) {
+            end -= 1;
+        }
+        prompt.truncate(end);
     }
     prompt
 }
 
-/// Bounded, fail-open teacher ask. A dark or slow teacher is skipped.
-pub(crate) fn ask_teacher(club: Arc<dyn Club>, prompt: String) -> Option<String> {
-    ask_teacher_with_timeout(club, prompt, ASK_TIMEOUT)
-}
-
-fn ask_teacher_with_timeout(
+/// Fail-open teacher ask with no clock on it: the teacher answers when it
+/// answers, and a dark one (an error or an empty reply) is skipped. The
+/// teacher is connected: offered the ledger reader alone, on `workspace`'s
+/// ledger, so it can read its route.
+pub(crate) fn ask_teacher(
     club: Arc<dyn Club>,
+    workspace: &std::path::Path,
     prompt: String,
-    timeout: Duration,
 ) -> Option<String> {
-    // Most Club implementations inherit an uninterruptible cancellation
-    // default. If one ignores the timeout signal, keep exactly that detached
-    // worker instead of spawning another stuck teacher on every later fault.
+    // One teacher at a time: a fault raised while one is still answering is
+    // not asked twice.
     if TEACHER_ASK_IN_FLIGHT
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .is_err()
     {
         return None;
     }
-    let cancel = Arc::new(AtomicBool::new(false));
-    let cancel_w = Arc::clone(&cancel);
+    let cancel = AtomicBool::new(false);
+    let workspace = workspace.to_path_buf();
     let (tx, rx) = mpsc::channel();
     if std::thread::Builder::new()
         .name("angel-teacher-watch".to_string())
         .spawn(move || {
             let _lease = TeacherAskLease;
-            let _ = tx.send(club.respond_cancellable(&prompt, &cancel_w));
+            let _ = tx.send(super::book::connect::chat(
+                &*club,
+                &workspace,
+                &[ChatMsg::user(prompt)],
+                None,
+                &cancel,
+            ));
         })
         .is_err()
     {
         TEACHER_ASK_IN_FLIGHT.store(false, Ordering::Release);
         return None;
     }
-    match rx.recv_timeout(timeout) {
+    match rx.recv() {
         Ok(Ok(text)) if !text.trim().is_empty() => Some(text),
-        _ => {
-            cancel.store(true, Ordering::Relaxed);
-            None
-        }
+        _ => None,
     }
 }
 
@@ -326,10 +320,11 @@ pub(crate) fn roll_session_history(
     compacted || fitted > 0 || after < before
 }
 
-/// Compose the operator/model-facing recovery note. Teacher text is an
-/// annotation; the deterministic floor is always present.
+/// Compose the recovery note the operator reads and the ledger keeps as the
+/// `⠭` session route's evidence: the deterministic floor's pages, recited,
+/// then the teacher's annotation. The model's wire carries the route alone.
 pub(crate) fn compose_recovery_note(fault: SessionFault, teacher: Option<&TeacherLine>) -> String {
-    let base = deterministic_recovery_note(fault);
+    let base = super::book::connect::recite(&deterministic_recovery_note(fault));
     match teacher {
         Some(TeacherLine::Catch(bug)) => format!("{base} Caught: {bug}"),
         Some(TeacherLine::Roll(why) | TeacherLine::Retry(why) | TeacherLine::Continue(why)) => {
@@ -377,8 +372,12 @@ pub(crate) fn recover_session(
                 fault.as_str()
             )));
             registry.auxiliary.utility_entered("teacher_watch");
-            ask_teacher(teacher, teacher_ask_prompt(fault, error, hop))
-                .and_then(|text| parse_teacher_line(&text))
+            ask_teacher(
+                teacher,
+                registry.current_workspace(),
+                teacher_ask_prompt(fault, error, hop),
+            )
+            .and_then(|text| parse_teacher_line(&text))
         })
     } else {
         None

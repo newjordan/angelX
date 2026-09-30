@@ -272,9 +272,10 @@ fn machine_json_and_inline_note_only_speak_on_failure() {
     };
     assert!(!fail.passed());
     let note = fail.inline_note().expect("a failure speaks up");
-    assert!(note.contains("post-write verify"));
+    assert!(note.contains("`cargo check` failed"), "{note}");
     assert!(note.contains("E0425"));
-    assert!(note.contains("fix this before continuing"));
+    // Data, not orders: the route (`⠧⠉`) carries what to do.
+    assert!(!note.contains("fix this"), "{note}");
     assert_eq!(fail.to_json()["exit"], 101);
 
     // A skip is recorded (so the tick can see why there is no verdict) but

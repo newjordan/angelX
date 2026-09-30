@@ -193,7 +193,11 @@ pub(crate) fn contention_summary(drafts: &[String]) -> String {
             .then_with(|| a.0.cmp(&b.0))
     });
     if ranked.is_empty() {
-        return "No clear lexical disagreement frontier yet.".to_string();
+        // `⠈⠓⠙`: no clear frontier yet.
+        return crate::agent::harness::book::d3_roles::pages(
+            crate::agent::harness::book::d4_angles::WAVE,
+            [4],
+        );
     }
     ranked
         .into_iter()

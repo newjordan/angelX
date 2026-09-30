@@ -6,6 +6,7 @@
 //! admissible, register costly/outcome actions, and evaluate the budgets that
 //! pause a loop. The parent re-exports the functions its `App` methods call.
 
+use crate::agent::harness::book::{d45_iteration, l_loops};
 use crate::agent::sandbox::process_owner::OwnedCommandExt;
 use crate::drive::iterate::{
     evidence_source, finding_claim, is_placeholder_evidence, normalize, parse_iteration_sections,
@@ -121,7 +122,17 @@ pub(crate) fn apply_reply_with_tools(
     // A new submission id (or timing noise) must not reset objective staleness.
     // Keep execution evidence/counters above; only a future authoritative
     // objective comparison can supply progress credit for ongoing competition.
-    let credited_progress = if st.podrace {
+    // A verbatim-restated plan is not progress (Sol restated the same
+    // "submit + delegate a moonshot" plan five turns running, overwatch
+    // 2026-09-25, while receipts/edits churned): when the reply body is
+    // effectively identical to the previous iteration's, this iteration may
+    // not reset staleness no matter what else changed. Novel receipts still
+    // count for their own clocks (measured/submitted logs above).
+    let reply_digest = normalize(reply);
+    let restated_same_plan =
+        !reply_digest.is_empty() && st.last_reply_digest.as_deref() == Some(reply_digest.as_str());
+    st.last_reply_digest = Some(reply_digest);
+    let credited_progress = if st.podrace || restated_same_plan {
         0
     } else {
         credited_fresh + novel_outcome_actions + usize::from(workspace_changed)
@@ -131,7 +142,11 @@ pub(crate) fn apply_reply_with_tools(
     } else {
         st.stale_count = 0;
     }
+    if restated_same_plan {
+        st.last_setback = Some(l_loops::SAME_PLAN.to_string());
+    }
     let direction = direction.trim();
+    st.iteration_direction = (!direction.is_empty()).then(|| direction.to_string());
     if !direction.is_empty() {
         // A model that repeats its DIRECTION line must not inflate the list —
         // it rides every future prompt (findings already dedup via `seen`).
@@ -150,10 +165,13 @@ pub(crate) fn apply_reply_with_tools(
         row.iteration = st.iteration;
     }
     st.observe_verifier_failure(tools);
-    st.tokens_spent += est_tokens(reply);
-    let out = est_tokens(reply) as u64;
-    st.tokens.output = st.tokens.output.saturating_add(out);
-    st.tokens.total = st.tokens.total.saturating_add(out);
+    if !st.iteration_spend_reported {
+        // No provider count for this turn: estimate the reply.
+        st.tokens_spent += est_tokens(reply);
+        let out = est_tokens(reply) as u64;
+        st.tokens.output = st.tokens.output.saturating_add(out);
+        st.tokens.total = st.tokens.total.saturating_add(out);
+    }
     let evidence_review = st.iteration.is_multiple_of(LOOP_EVIDENCE_REVIEW_INTERVAL);
     st.log.push(LoopIterLog {
         iteration: st.iteration,
@@ -173,33 +191,31 @@ pub(crate) fn apply_reply_with_tools(
         ts_ms: now_ms(),
     });
 
+    // The setback's words are the book's pages (`⠘` progress and receipts,
+    // `⠇⠑` repeats); the counts ride beside the address as data.
     if non_result {
         st.last_error = Some(reply.trim().chars().take(400).collect());
-        st.last_setback = Some(
-            "the previous coordinator reply was an error/status fallback, not a result; restore the driver before claiming progress"
-                .to_string(),
-        );
+        st.last_setback = Some(d45_iteration::FALLBACK.to_string());
     } else if unhealthy_tools {
         st.last_setback = Some(format!(
-            "the previous iteration had {} error/incomplete result(s) across {} tool call(s); its prose did not reset stall detection — resolve the failed evidence chain first",
+            "{} errors={} calls={}",
+            d45_iteration::TOOL_ERRORS,
             tools.errors.saturating_add(tools.incomplete),
             tools.calls
         ));
     } else if st.podrace && !tools.verified_outcome_actions.is_empty() {
-        st.last_setback = Some(
-            "measurement/submission execution recorded; a receipt is not comparable objective improvement. Compare the retained result with the fixed baseline using the available verifier. Repeated competitive submissions of unchanged candidates are banned; a new receipt ID, timestamp, or note does not authorize a redraw. Use the comparison to retire the hypothesis or choose the next concrete mechanism.".to_string(),
-        );
+        st.last_setback = Some(d45_iteration::RECEIPT.cells());
     } else if credited_progress == 0 && unverified > 0 {
         st.last_setback = Some(format!(
-            "the previous iteration reported {unverified} unverified claim(s); validate them with concrete file/artifact/command/test/URL evidence before treating them as findings"
+            "{} unverified={unverified}",
+            d45_iteration::UNVERIFIED
         ));
     } else if st.podrace && duplicate_costly_actions > 0 {
-        st.last_setback = Some(
-            "repeated competitive submissions of unchanged candidates are banned; inspect the existing result and change the candidate mechanism before another eligible submission".to_string(),
-        );
+        st.last_setback = Some(l_loops::UNCHANGED_SUBMISSION.to_string());
     } else if duplicate_costly_actions > 0 {
         st.last_setback = Some(format!(
-            "the previous iteration repeated {duplicate_costly_actions} costly action(s); justify the replication and compare its result with the earlier artifact before another retry"
+            "{} duplicate_costly_actions={duplicate_costly_actions}",
+            l_loops::COSTLY_REPEAT
         ));
     }
     credited_fresh

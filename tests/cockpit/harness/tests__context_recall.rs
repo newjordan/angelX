@@ -152,10 +152,12 @@ fn context_tool_reports_usage_and_budget() {
     // No budget set → usage-only message.
     gauge.used_tokens.store(1234, Ordering::Relaxed);
     let out = tool.call(&serde_json::json!({})).unwrap();
+    let no_budget = crate::agent::harness::book::d56_replies::NO_BUDGET;
     assert!(
-        out.contains("1234") && out.contains("No context budget"),
+        out.contains("1234") && out.contains(&no_budget.cells()),
         "got: {out}"
     );
+    assert!(no_budget.text().contains("No context budget"));
     // With a budget → reports remaining + percent.
     gauge.budget_tokens.store(2000, Ordering::Relaxed);
     let out = tool.call(&serde_json::json!({})).unwrap();
@@ -565,7 +567,7 @@ fn auto_recall_bounds_pinned_memory_before_the_first_model_hop() {
 
     let recall = history
         .iter()
-        .find(|message| message.content.starts_with("[Relevant notes recalled"))
+        .find(|message| message.content.starts_with(AUTO_RECALL_NOTE_PREFIX))
         .expect("a complete top-ranked recall block should fit");
     assert!(
         recall.content.contains("highest-ranked"),
@@ -573,7 +575,10 @@ fn auto_recall_bounds_pinned_memory_before_the_first_model_hop() {
         recall.content
     );
     assert!(
-        recall.content.contains("omitted to fit context"),
+        recall.content.contains(&format!(
+            "…[{} omitted=",
+            crate::agent::harness::book::d467_receipts::RECALLED_NOTES.cells()
+        )),
         "the oversized lower-ranked blocks need an explicit marker: {}",
         recall.content
     );

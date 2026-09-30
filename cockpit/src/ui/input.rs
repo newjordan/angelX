@@ -432,6 +432,7 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "model" => " [filter|exact@effort|auto]",
         "connect" => " [grok|openai|glm|deepseek|openrouter|local]",
         "think" | "thinking" | "effort" => " [filter]",
+        "world" => " [visit artisans|colosseum|tournament|follow|help]",
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
         "memories" => " [add <t>|forget <n>|clear]",
         "refine" => " [status|add …|del|rollback|seed-light]",
@@ -440,7 +441,7 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "rate" => " useful|miss",
         "graph" => " [list|run <name> <task>|status|stop]",
         "campaign" => " [status|new|start|advance|review|…]",
-        "moa" => " [cards|gpu|ledger|<message>]",
+        "moa" => " [cards|ledger|<message>]",
         "self" => " [<goal>|status|integrate|discard|reborn]",
         "solo" | "relentless" | "yolo" | "yolos" => " [on|off|status]",
         "help" | "?" => " · list commands",
@@ -648,9 +649,6 @@ pub fn parse(raw: &str) -> Result<ParsedInput, String> {
             ));
         }
     }
-    if looks_like_gpu_comp_moa_activation(trimmed) {
-        return Ok(ParsedInput::MoaDeck(Some("gpu comp".to_string())));
-    }
     if looks_like_moa_activation(trimmed) {
         return Ok(ParsedInput::MoaDeck(None));
     }
@@ -769,11 +767,6 @@ fn moa_deck_subcommand(arg: &str) -> bool {
             | "status"
             | "ledger"
             | "report"
-            | "gpu"
-            | "comp"
-            | "competition"
-            | "overnight"
-            | "sleep"
             | "solo"
             | "recon"
             | "duel"
@@ -795,36 +788,13 @@ fn moa_deck_subcommand(arg: &str) -> bool {
             | "tagteam"
             | "local"
             | "home"
-            // Math God / Lean-solver aliases (first word only, as above).
-            | "math"
-            | "mathgod"
-            | "proximity"
-            | "soundness"
-            | "lean"
     ) {
         return true;
     }
-    // Hyphenated canonical slugs (tag-team, grok-war, gpu-comp, ...) and the
+    // Hyphenated canonical slugs (tag-team, grok-war, ...) and the
     // newer aliases that are not listed above are resolved by the same table
     // that `open_moa_deck` uses, instead of being misread as `/moa <message>`.
     crate::agent::formations::formation_alias(arg).is_some()
-}
-
-fn looks_like_gpu_comp_moa_activation(trimmed: &str) -> bool {
-    let lower = trimmed.to_ascii_lowercase();
-    matches!(
-        lower.as_str(),
-        "activate gpu comp moa"
-            | "activate gpu competition moa"
-            | "activate the gpu comp moa"
-            | "activate the gpu competition moa"
-            | "open gpu comp moa"
-            | "open gpu competition moa"
-            | "gpu comp moa"
-            | "gpu competition moa"
-            | "overnight moa"
-            | "sleep moa"
-    )
 }
 
 fn looks_like_moa_activation(trimmed: &str) -> bool {
@@ -848,6 +818,22 @@ fn normalize_open_target(arg: &str) -> Option<String> {
         return Some(arg.to_string());
     }
     if arg.contains(char::is_whitespace) {
+        return None;
+    }
+    // Absolute or ~/ paths that exist on disk open as file:// targets so
+    // `/open /work/comps/qwen` reveals a real folder in the file manager.
+    if arg.starts_with('/') || arg.starts_with("~/") {
+        let expanded = if let Some(rest) = arg.strip_prefix("~/") {
+            std::env::var("HOME")
+                .ok()
+                .map(|home| format!("{home}/{rest}"))
+                .unwrap_or_else(|| arg.to_string())
+        } else {
+            arg.to_string()
+        };
+        if std::path::Path::new(&expanded).exists() {
+            return Some(format!("file://{expanded}"));
+        }
         return None;
     }
     if arg.starts_with("localhost:")

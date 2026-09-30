@@ -35,15 +35,14 @@ impl Tool for RecallTool {
             name: "recall".to_string(),
             description: "Search long-term memory (notes distilled from this and earlier \
                           sessions: decisions, files changed, durable facts, open threads) and \
-                          return the most relevant. Use it when prior context would help and \
-                          isn't in the current conversation. Args: `query` (string, required), \
-                          `limit` (int, optional, default 5)."
+                          return the most relevant. Args: `query` (string, required), \
+                          `limit` (int, optional, default 5). ⠡⠚"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "What to recall." },
-                    "limit": { "type": "integer", "description": "Max notes (default 5)." }
+                    "query": { "type": "string", "description": "⠡⠚⠃" },
+                    "limit": { "type": "integer", "description": "⠡⠚⠉" }
                 },
                 "required": ["query"]
             }),
@@ -167,13 +166,15 @@ pub(crate) fn count_bm25_index_token_visits<T>(run: impl FnOnce() -> T) -> (T, u
 }
 
 /// The searchable text for a tool: name (also de-underscored), description, and
-/// each parameter's name + description.
+/// each parameter's name + description, with the book pages their braille
+/// names read in full.
 pub(crate) fn tool_search_text(def: &ToolDef) -> String {
+    use crate::agent::harness::book::ledger::expand;
     let mut s = format!(
         "{} {} {}",
         def.name,
         def.name.replace('_', " "),
-        def.description
+        expand(&def.description)
     );
     if let Some(props) = def.params.get("properties").and_then(|p| p.as_object()) {
         for (k, v) in props {
@@ -181,7 +182,7 @@ pub(crate) fn tool_search_text(def: &ToolDef) -> String {
             s.push_str(k);
             if let Some(d) = v.get("description").and_then(|d| d.as_str()) {
                 s.push(' ');
-                s.push_str(d);
+                s.push_str(&expand(d));
             }
         }
     }
@@ -252,16 +253,21 @@ pub(crate) fn parse_tool_bubble_reply(
     (names.is_empty() || (named > 0 && !selected.is_empty())).then_some(selected)
 }
 
+/// The router's reply shape, beside `⠸⠊⠃` (the page quotes it).
+pub(crate) const TOOL_BUBBLE_SHAPE: &str = "{\"tools\":[\"tool_name\"]}";
+
 /// Compact prompt for a cheap local model to rerank a deterministic shortlist.
 /// Parameter schemas are intentionally absent: this classifier needs capability
-/// semantics, not the wire contract later sent to the root model.
+/// semantics, not the wire contract later sent to the root model. The brief is
+/// `⠸⠊`; the cap and the reply shape ride beside their pages.
 pub(crate) fn tool_bubble_router_prompt(task: &str, candidates: &[&ToolDef], max: usize) -> String {
+    use super::book::{d3_roles::pages, d456_knowledge::BUBBLE_ROUTER};
     let task = task.chars().take(8_000).collect::<String>();
     let mut prompt = format!(
-        "Select 0 to {max} tools that the coding agent is likely to need for the current task.\n\
-         Return ONLY JSON in this exact shape: {{\"tools\":[\"tool_name\"]}}.\n\
-         Use only names from the candidate list. Prefer fewer tools; the base read/edit/shell/search tools are already present.\n\n\
-         TASK:\n{task}\n\nCANDIDATES:\n"
+        "{}\n{} {max}\n{} {TOOL_BUBBLE_SHAPE}\n\nTASK:\n{task}\n\nCANDIDATES:\n",
+        BUBBLE_ROUTER.cells(),
+        pages(BUBBLE_ROUTER, [1]),
+        pages(BUBBLE_ROUTER, [2]),
     );
     for definition in candidates {
         prompt.push_str("- ");
@@ -495,15 +501,14 @@ impl Tool for ToolSearchTool {
             name: "tool_search".to_string(),
             description: format!(
                 "Search {} additional tools by capability (keywords). Returns matching tool \
-                 names + summaries; then call the tool directly by name. Use this when you \
-                 need a capability not in your base tool list.",
+                 names + summaries. ⠹⠓",
                 self.available_len()
             ),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "capability keywords" },
-                    "limit": { "type": "integer", "description": "max results (default 5)" }
+                    "query": { "type": "string", "description": "⠹⠓⠉" },
+                    "limit": { "type": "integer", "description": "⠹⠓⠙" }
                 },
                 "required": ["query"],
             }),
@@ -539,20 +544,18 @@ impl Tool for ToolSearchTool {
             format!(" (operator-set active cap {activation_max})")
         };
         let mut out = format!(
-            "{} matching tool(s); {} new schema(s) activated for the next request{}. \
-             Call a tool labelled active-next-request directly:\n",
+            "{} matching tool(s); {} new schema(s) activated for the next request{}.\n{}\n",
             hits.len(),
             activated,
             limit_note,
+            super::book::u_skills::TOOL_SEARCH.cells(),
         );
         if hits
             .iter()
             .any(|index| !active.contains(&self.entries[*index].name))
         {
-            out.push_str(
-                "The operator's ANGEL_TOOL_SEARCH_ACTIVE_MAX setting limits activation; \
-                 repeating the search cannot raise it.\n",
-            );
+            out.push_str(&crate::agent::harness::book::u_skills::ACTIVATION_CAP.cells());
+            out.push('\n');
         }
         for i in hits {
             let d = &self.entries[i];

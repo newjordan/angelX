@@ -1,6 +1,14 @@
 //! Actual pinned Cargo checks in a plain, owned split-target workspace.
 use super::*;
 
+/// A check receipt covers the changed files unless its header names a gap.
+fn verification_result_covers_changes(result: &str) -> bool {
+    let header = result.lines().next().unwrap_or("");
+    !header
+        .split("; ")
+        .any(|part| part == "coverage=incomplete" || part == "coverage=unknown")
+}
+
 struct TargetFixture {
     root: PathBuf,
     target: PathBuf,
@@ -212,11 +220,6 @@ fn verification_target_diagnostic_text_cannot_override_owned_coverage() {
 fn verification_target_scoped_green_is_not_reused_or_completion_guarded() {
     let _lock = crate::tests::env_lock();
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-target-mcp.json");
-    let _reuse = EnvGuard::set("ANGEL_REUSE_VERIFIER_RESULTS", "1");
-    let _single = EnvGuard::set("ANGEL_SINGLE_GREEN_VERIFIER", "1");
-    let _first = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
-    let _last = EnvGuard::set("ANGEL_FINAL_MILE_HOPS", "0");
-    let _post = EnvGuard::set("ANGEL_POST_GREEN_TOOL_BATCHES", "0");
     crate::agent::sandbox::prime_helper();
     let fixture = TargetFixture::new();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");

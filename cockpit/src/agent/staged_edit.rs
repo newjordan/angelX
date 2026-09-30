@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use crate::agent::harness::{
-    confined_create_new, confined_edit, confined_read, confined_remove_file, confined_write,
+    WorkspaceBoundary, confined_create_new, confined_edit, confined_read, confined_remove_file,
+    confined_write, workspace_relative,
 };
 use crate::agent::hashline::SectionPlan;
 
@@ -81,9 +82,14 @@ impl StagedBatch {
         for n in &self.notes {
             out.push_str(&format!("  note: {n}\n"));
         }
+        // How to accept or reject is the `⠨⠑` pages; the id rides beside them.
         out.push_str(&format!(
-            "Accept: resolve_edit id={} action=accept\nReject: resolve_edit id={} action=reject\n",
-            self.id, self.id
+            "{} id={}\n",
+            crate::agent::harness::book::d46_recovery::run(&[
+                crate::agent::harness::book::d46_recovery::STAGED_ACCEPT,
+                crate::agent::harness::book::d46_recovery::STAGED_REJECT
+            ]),
+            self.id
         ));
         out
     }
@@ -125,12 +131,19 @@ impl StageStore {
         batch
     }
 
-    fn take(&mut self, id: u32) -> Option<StagedBatch> {
+    fn take(&mut self, workspace: &Path, id: u32) -> Option<StagedBatch> {
+        if self.batches.get(&id)?.workspace != workspace {
+            return None;
+        }
         self.batches.remove(&id)
     }
 
-    fn list(&self) -> Vec<&StagedBatch> {
-        let mut v: Vec<_> = self.batches.values().collect();
+    fn list(&self, workspace: &Path) -> Vec<&StagedBatch> {
+        let mut v: Vec<_> = self
+            .batches
+            .values()
+            .filter(|b| b.workspace == workspace)
+            .collect();
         v.sort_by_key(|b| b.id);
         v
     }
@@ -188,21 +201,47 @@ pub(crate) fn actions_from_hashline_plans(
 /// Stage a batch; returns the agent-facing card.
 pub(crate) fn stage_batch(
     workspace: &Path,
-    actions: Vec<StagedAction>,
+    mut actions: Vec<StagedAction>,
     notes: Vec<String>,
 ) -> Result<String, String> {
     if actions.is_empty() {
         return Err("nothing to stage".into());
     }
-    let batch = store().stage(workspace.to_path_buf(), actions, notes);
+    // Retain paths relative to the proposal's original spelling before pinning
+    // its root. Absolute paths through a workspace alias must keep working when
+    // accepted through the canonical spelling, without following a retargeted
+    // alias at commit time.
+    let normalize = |path: &mut String| -> Result<(), String> {
+        *path = workspace_relative(workspace, Path::new(path))?
+            .to_string_lossy()
+            .into_owned();
+        Ok(())
+    };
+    for action in &mut actions {
+        match action {
+            StagedAction::Update { path, .. } | StagedAction::Remove { path, .. } => {
+                normalize(path)?;
+            }
+            StagedAction::Move { from, to, .. } => {
+                normalize(from)?;
+                normalize(to)?;
+            }
+        }
+    }
+    let workspace = WorkspaceBoundary::cached(workspace).canonical_root;
+    let batch = store().stage(workspace, actions, notes);
     Ok(batch.render_card())
 }
 
-pub(crate) fn list_staged() -> String {
+pub(crate) fn list_staged(workspace: &Path) -> String {
+    let workspace = WorkspaceBoundary::cached(workspace).canonical_root;
     let s = store();
-    let list = s.list();
+    let list = s.list(&workspace);
     if list.is_empty() {
-        return "no staged edits — apply_patch with stage=true to propose one\n".into();
+        return format!(
+            "no staged edits\n{}\n",
+            crate::agent::harness::book::d46_recovery::STAGE_ONE.cells()
+        );
     }
     let mut out = format!("{} staged edit(s):\n", list.len());
     for b in list {
@@ -212,10 +251,14 @@ pub(crate) fn list_staged() -> String {
     out
 }
 
-pub(crate) fn reject(id: u32, reason: Option<&str>) -> Result<String, String> {
-    let batch = store()
-        .take(id)
-        .ok_or_else(|| format!("unknown staged edit #{id}; resolve_edit action=list"))?;
+pub(crate) fn reject(workspace: &Path, id: u32, reason: Option<&str>) -> Result<String, String> {
+    let workspace = WorkspaceBoundary::cached(workspace).canonical_root;
+    let batch = store().take(&workspace, id).ok_or_else(|| {
+        format!(
+            "unknown staged edit #{id}\n{}",
+            crate::agent::harness::book::d46_recovery::STAGED_LIST.cells()
+        )
+    })?;
     Ok(format!(
         "rejected staged edit #{id} ({} op(s)){}\n",
         batch.actions.len(),
@@ -228,10 +271,14 @@ pub(crate) fn reject(id: u32, reason: Option<&str>) -> Result<String, String> {
 
 /// Accept a staged batch: apply all actions transactionally to `workspace`
 /// (must match the batch workspace root).
-pub(crate) fn accept(id: u32, reason: Option<&str>) -> Result<String, String> {
-    let batch = store()
-        .take(id)
-        .ok_or_else(|| format!("unknown staged edit #{id}; resolve_edit action=list"))?;
+pub(crate) fn accept(workspace: &Path, id: u32, reason: Option<&str>) -> Result<String, String> {
+    let workspace = WorkspaceBoundary::cached(workspace).canonical_root;
+    let batch = store().take(&workspace, id).ok_or_else(|| {
+        format!(
+            "unknown staged edit #{id}\n{}",
+            crate::agent::harness::book::d46_recovery::STAGED_LIST.cells()
+        )
+    })?;
     let root = &batch.workspace;
     commit_actions(root, batch.actions).map(|receipts| {
         format!(
@@ -287,7 +334,8 @@ pub(crate) fn commit_actions(
                 let result = confined_edit(root, Path::new(&path), move |bytes| {
                     if bytes != original_for_check {
                         return Err(format!(
-                            "staged {path_msg}: file changed since proposal; re-stage"
+                            "staged {path_msg}: file changed since proposal {}",
+                            crate::agent::harness::book::d46_recovery::RESTAGE.cells()
                         ));
                     }
                     Ok((updated, ()))
@@ -312,7 +360,8 @@ pub(crate) fn commit_actions(
                     Ok(_) => {
                         rollback(undo);
                         return Err(format!(
-                            "staged {path}: file changed since proposal; re-stage; earlier ops rolled back"
+                            "staged {path}: file changed since proposal {}; earlier ops rolled back",
+                            crate::agent::harness::book::d46_recovery::RESTAGE.cells()
                         ));
                     }
                     Err(e) => {
@@ -342,7 +391,8 @@ pub(crate) fn commit_actions(
                     Ok(_) => {
                         rollback(undo);
                         return Err(format!(
-                            "staged {from}: file changed since proposal; re-stage; earlier ops rolled back"
+                            "staged {from}: file changed since proposal {}; earlier ops rolled back",
+                            crate::agent::harness::book::d46_recovery::RESTAGE.cells()
                         ));
                     }
                     Err(e) => {

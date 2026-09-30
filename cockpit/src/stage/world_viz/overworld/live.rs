@@ -328,6 +328,46 @@ pub(crate) fn ambient_for(daylight: f32) -> f32 {
 }
 
 impl World {
+    /// Look at a district without redirecting the knight or changing work.
+    /// Resolve names only when the operator asks, never on the render path.
+    pub(crate) fn visit_overworld(&mut self, name: &str) -> Option<&'static str> {
+        let normalize = |text: &str| {
+            text.chars()
+                .filter(char::is_ascii_alphanumeric)
+                .map(|ch| ch.to_ascii_lowercase())
+                .collect::<String>()
+        };
+        let name = normalize(name);
+        let place = match name.as_str() {
+            "artisan" | "artisans" | "artisanquarter" => Place::ArtisanQuarter,
+            "colosseum" | "arena" => Place::Colosseum,
+            "tournament" | "knights" => Place::Tournament,
+            "fields" => Place::Fields,
+            "wards" => Place::Wards,
+            "forest" => Place::DarkForest,
+            "table" => Place::RoundTable,
+            _ => Place::ALL.into_iter().find(|place| {
+                normalize(place.label()) == name
+                    || normalize(place.label().trim_start_matches("THE ")) == name
+            })?,
+        };
+        let (x, y, w, h) = place.footprint_world();
+        self.overworld_view = Some((
+            (x as f32 + w as f32 / 2.0) * TILE as f32,
+            (y as f32 + h as f32 / 2.0) * TILE as f32,
+            place.label(),
+        ));
+        Some(place.label())
+    }
+
+    pub(crate) fn follow_overworld(&mut self) {
+        self.overworld_view = None;
+    }
+
+    pub(crate) fn overworld_view_label(&self) -> Option<&'static str> {
+        self.overworld_view.map(|(_, _, label)| label)
+    }
+
     /// The place the pixel knight walks to: the quest's region while an
     /// adventure is out, the quintain at the Lists between loop rounds,
     /// otherwise the landmark the work is happening in.
@@ -371,9 +411,13 @@ impl World {
         s.wayfarers = self.overworld_deeds.wayfarers();
         s.record = self.overworld_deeds.record().clone();
         s.sparks = self.overworld_deeds.sparks(self.tick);
+        s.outcomes = self.overworld_outcomes.shown(self.tick);
         s.stargazing = self.overworld_deeds.stargazing();
         s.knight = self.overworld.shown.knight;
-        s.camera = self.overworld.shown.cam;
+        s.camera = self
+            .overworld_view
+            .map(|(x, y, _)| (x, y))
+            .unwrap_or(self.overworld.shown.cam);
         let council = self
             .active_work()
             .filter(|w| w.landmark == Building::RoundTable)
@@ -588,3 +632,7 @@ pub(crate) fn soldier_state(state: &crate::ui::viz::agentviz::SeatState) -> Sold
         SeatState::Cut => SoldierState::Cut,
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/world_viz/overworld__navigation_tests.rs"]
+mod navigation_tests;

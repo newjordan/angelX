@@ -26,7 +26,7 @@ fn research_compose_disclosure_drops_background_and_keeps_supported_answers() {
 }
 
 #[test]
-fn research_origin_envelope_schema_and_preamble() {
+fn research_origin_envelope_schema_and_contract() {
     let _guard = crate::tests::env_lock();
     let _env =
         crate::tests::TestEnvGuard::set("ANGEL_SEARXNG_URL", "http://127.0.0.1:34251/search");
@@ -38,13 +38,19 @@ fn research_origin_envelope_schema_and_preamble() {
         crate::agent::tools::web::WebFetchTool.def(),
     ];
     describe_surface(&mut defs, configured.as_deref());
-    let envelope = serde_json::json!({"preamble":preamble(configured.as_deref()), "tools":defs.iter().map(|d| serde_json::json!({"name":d.name,"description":d.description,"parameters":d.params})).collect::<Vec<_>>()});
+    let contract = crate::agent::harness::book::s_sources::contract(configured.as_deref());
+    assert_eq!(
+        contract.route,
+        crate::agent::harness::book::s_sources::CONTRACT
+    );
     assert!(
-        envelope["preamble"]
-            .as_str()
+        contract
+            .evidence
+            .as_deref()
             .unwrap()
             .contains(configured.as_deref().unwrap())
     );
+    let envelope = serde_json::json!({"tools":defs.iter().map(|d| serde_json::json!({"name":d.name,"description":d.description,"parameters":d.params})).collect::<Vec<_>>()});
     for def in envelope["tools"].as_array().unwrap() {
         assert!(
             def["description"]
@@ -53,11 +59,16 @@ fn research_origin_envelope_schema_and_preamble() {
                 .contains(configured.as_deref().unwrap())
         );
     }
-    assert!(preamble(configured.as_deref()).contains("do not probe the host with shell"));
+    assert!(
+        crate::agent::harness::book::s_sources::PRIMARY.subs[0]
+            .ideas
+            .contains("do not probe the host with shell")
+    );
     drop(_env);
     let _env = crate::tests::TestEnvGuard::set("ANGEL_SEARXNG_URL", "");
     assert_eq!(origin(&history), None);
-    assert!(!preamble(None).contains("http"));
+    let undeclared = crate::agent::harness::book::s_sources::contract(None);
+    assert!(!undeclared.evidence.as_deref().unwrap().contains("http"));
     assert!(
         !crate::agent::tools::web::WebSearchTool
             .def()
@@ -68,6 +79,24 @@ fn research_origin_envelope_schema_and_preamble() {
         "Research question: use sources.\nCorpus origin: http://127.0.0.1:12345",
     )];
     assert_eq!(origin(&declared).as_deref(), Some("http://127.0.0.1:12345"));
+    // A declared origin rides after each tool's route as data, behind the
+    // page of its own section whose `{origin}` it fills.
+    let mut declared_defs = vec![
+        crate::agent::tools::web::WebSearchTool.def(),
+        crate::agent::tools::web::WebFetchTool.def(),
+    ];
+    describe_surface(&mut declared_defs, origin(&declared).as_deref());
+    for (def, page) in declared_defs.iter().zip(["⠱⠁⠙", "⠱⠃⠙"]) {
+        assert!(
+            def.description
+                .ends_with(&format!(" {page} http://127.0.0.1:12345")),
+            "{}",
+            def.description
+        );
+        let text =
+            crate::agent::harness::book::ledger::read(std::path::Path::new("."), page).unwrap();
+        assert!(text.contains("Research search origin: {origin}"), "{text}");
+    }
     assert!(
         crate::agent::tools::web::research_origin("https://user:secret@example.test").is_none()
     );
@@ -79,30 +108,6 @@ fn research_origin_envelope_schema_and_preamble() {
         crate::agent::tools::web::research_search_endpoint("https://example.test/custom/search"),
         "https://example.test/custom/search"
     );
-}
-
-#[test]
-fn research_repeated_search_resets_on_fetch_and_user_turn() {
-    let search = || {
-        ChatMsg::assistant_calls(vec![ToolCall {
-            id: "s".into(),
-            name: "web_search".into(),
-            args: serde_json::json!({"query":"clock"}),
-        }])
-    };
-    let mut history = vec![ChatMsg::user("research-answer"), search(), search()];
-    assert!(repeated_search(&history));
-    history.push(ChatMsg::assistant_calls(vec![ToolCall {
-        id: "f".into(),
-        name: "web_fetch".into(),
-        args: serde_json::json!({"url":"https://example.test/doc/1"}),
-    }]));
-    history.push(search());
-    assert!(!repeated_search(&history));
-    history.push(search());
-    assert!(repeated_search(&history));
-    history.push(ChatMsg::user("new task"));
-    assert!(!repeated_search(&history));
 }
 
 #[test]
@@ -126,12 +131,6 @@ fn research_off_surface_discovery_is_not_document_work() {
         "web_fetch",
         &serde_json::json!({"url":"http://127.0.0.1:12345/doc/1"})
     ));
-    assert!(!crate::agent::club::final_response_requested(&[
-        ChatMsg::user(COMPOSE)
-    ]));
-    assert!(crate::agent::club::final_response_requested(&[
-        ChatMsg::harness(COMPOSE)
-    ]));
 }
 
 #[test]

@@ -19,10 +19,6 @@ pub(crate) fn competition_mode_trigger(history: &[ChatMsg]) -> Option<&'static s
     if env_flag("ANGEL_COMPETITION_MODE", false) {
         return Some("ANGEL_COMPETITION_MODE");
     }
-    // GpuComp / popcorn peer reward is itself a competition contract.
-    if env_flag("ANGEL_GPU_COMP_LOCAL_MOA", false) {
-        return Some("ANGEL_GPU_COMP_LOCAL_MOA");
-    }
     // Only the current operator turn may arm this turn. Scanning a history
     // window made a paused competition session sticky: an ordinary follow-up
     // such as "hey, how goes?" inherited an old `competition-loop` marker and
@@ -77,7 +73,9 @@ pub(crate) fn competition_mode_trigger(history: &[ChatMsg]) -> Option<&'static s
         .rev()
         .find(|message| {
             message.role == ChatRole::Harness
-                && message.content.contains("[goal — standing objective")
+                && message
+                    .content
+                    .contains(crate::drive::goal::GOAL_BLOCK_HEADER)
         })
         .map(|message| message.content.as_ref())
         .unwrap_or_default();
@@ -633,20 +631,20 @@ pub(crate) fn is_competition_wait_or_progress_call(call: &ToolCall) -> bool {
         || is_competition_board_state_hay(name, &hay, is_shell)
 }
 
-/// Free-form recon that spends the pre-edit inspection budget.
-pub(crate) fn burns_first_write_budget(call: &ToolCall) -> bool {
-    !is_first_write_progress_call(call) && !is_competition_wait_or_progress_call(call)
+/// Free-form recon: inspection that is neither board wait nor progress.
+pub(crate) fn is_free_form_recon(call: &ToolCall) -> bool {
+    !is_product_mutation_call(call) && !is_competition_wait_or_progress_call(call)
 }
 
-/// Single-pass hop flags for first-write / competition budget (A7: avoid three
-/// separate `calls.iter().any(...)` walks that re-serialize args each time).
+/// Single-pass competition hop flags: mutation, outcome, board wait, free-form
+/// recon (A7: one walk instead of three that re-serialize args each time).
 pub(crate) fn hop_budget_flags(calls: &[ToolCall]) -> (bool, bool, bool, bool) {
     let mut mutation = false;
     let mut outcome = false;
     let mut wait = false;
     let mut burns = false;
     for call in calls {
-        let progress = is_first_write_progress_call(call);
+        let progress = is_product_mutation_call(call);
         mutation |= progress;
         let (name, hay, is_shell) = competition_call_text(call);
         let is_outcome = is_competition_outcome_hay(name, &hay, is_shell);
@@ -658,15 +656,11 @@ pub(crate) fn hop_budget_flags(calls: &[ToolCall]) -> (bool, bool, bool, bool) {
     (mutation, outcome, wait, burns)
 }
 
-/// True when the hop loop needs competition/first-write hay.
-/// Default cockpit (no competition, no first-write budget, no in-flight slot)
-/// must not serialize args to hunt board/submit markers.
-pub(crate) fn hop_budget_classify_applied(
-    competition: bool,
-    first_write_limit: usize,
-    hop_path_active: bool,
-) -> bool {
-    competition || first_write_limit > 0 || hop_path_active
+/// True when the hop loop needs competition hay.
+/// Default cockpit (no competition, no in-flight slot) must not serialize args
+/// to hunt board/submit markers.
+pub(crate) fn hop_budget_classify_applied(competition: bool, hop_path_active: bool) -> bool {
+    competition || hop_path_active
 }
 
 /// Hop-loop flags. When classify is off, every batch is spin-countable and

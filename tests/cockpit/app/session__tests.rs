@@ -621,7 +621,14 @@ fn resume_repairs_a_trailing_tool_intent_as_outcome_unknown() {
     assert_eq!(repaired[2].role, ChatRole::Tool);
     assert_eq!(repaired[2].tool_call_id.as_deref(), Some("effect-1"));
     assert!(repaired[2].content.contains("outcome unknown"));
-    assert!(repaired[2].content.contains("before retrying"));
+    // What to check before a retry is the `⠰⠙` page on the line after.
+    let check = crate::agent::harness::book::d56_replies::UNKNOWN_OUTCOME;
+    assert!(
+        repaired[2]
+            .content
+            .ends_with(&format!("\n{}", check.cells()))
+    );
+    assert!(check.text().contains("before retrying"));
 
     let unchanged = vec![ChatMsg::user("hello"), ChatMsg::assistant("done")];
     let retained = repair_interrupted_tool_batch(unchanged);

@@ -12,6 +12,45 @@ use std::ffi::OsString;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+/// Does a warpath carry `route` (two cells, primary then sub) as one of its
+/// aligned pairs?
+pub(super) fn has_route(cells: &str, route: &str) -> bool {
+    let cells = cells.trim().chars().collect::<Vec<_>>();
+    let route = route.chars().collect::<Vec<_>>();
+    cells.len() % 2 == 0 && cells.chunks(2).any(|pair| pair == route.as_slice())
+}
+
+/// The first line of a message: a warpath's stamps, with any facts beside them
+/// on the lines after.
+pub(super) fn first_line(content: &str) -> &str {
+    content.lines().next().unwrap_or_default()
+}
+
+// Legacy harness-telemetry messages, exactly as older persisted sessions carry
+// them. The harness no longer writes prose like this (it speaks in braille
+// warpaths, `harness/book/`), but resumed histories still hold it, and
+// summaries must keep dropping it.
+pub(crate) const NOPROGRESS_NUDGE: &str = "[harness-telemetry] You've spent several turns re-reading files you already pulled into \
+    context, without making an edit, running a command, or examining anything new. The information \
+    is already above — act on it: make the change, run the test/build, or give your answer. If \
+    you're missing something specific, search for that one thing rather than re-reading the whole \
+    file.";
+
+/// Fired when the same mutation signature is re-issued (including failed non-unique
+/// multi_edit of identical short snippets). Distinct from anti-spin, which requires
+/// the entire tool *batch* bytes to match.
+pub(crate) const MUTATION_THRASH_NUDGE: &str = "[harness-telemetry] MUTATION THRASH. You re-issued the same edit signature multiple times \
+    (same path and old/new payload, or the same non-unique short snippet). Stop replaying it. \
+    If the tool said 'old is not unique', include the enclosing function or more unique context \
+    in `old`. If the edit already applied, run a verifier or change approach. Do not spend the \
+    remaining horizon re-applying an identical patch.";
+
+/// Fired when many mutations land only under docs/testdata without core library hits.
+pub(crate) const PERIPHERAL_FANOUT_NUDGE: &str = "[harness-telemetry] PERIPHERAL FAN-OUT. Several edits landed under docs/, testdata/, fixtures, \
+    or generated examples without a corresponding change in the implementing library (src/, pkg/, \
+    lib/, core/). Find the code that *produces* those artifacts and fix it at the source instead of \
+    hand-patching every generated copy.";
+
 pub(crate) struct EnvGuard {
     key: &'static str,
     old: Option<OsString>,
@@ -68,7 +107,7 @@ impl Club for ScriptedClub {
                 .iter()
                 .rev()
                 .find(|m| m.role == ChatRole::Tool)
-                .map(|m| m.content.clone())
+                .map(|m| book::ledger::without_warpaths(&m.content).into_owned())
                 .unwrap_or_default();
             Ok(ClubReply::Text(format!("done: {last_tool}")))
         }

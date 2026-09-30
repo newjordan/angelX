@@ -213,7 +213,10 @@ impl<'a> Policy<'a> {
 
     pub(super) fn check_scope(&self, path: &Path) -> Result<(), String> {
         if !path.as_os_str().is_empty() && !self.allowed(path, true)? {
-            return Err("path is excluded by workspace search policy; use no_ignore/hidden for optional exclusions".into());
+            return Err(format!(
+                "path is excluded by workspace search policy\n{}",
+                crate::agent::harness::book::d56_replies::OPTIONAL_EXCLUSIONS.cells()
+            ));
         }
         Ok(())
     }
@@ -352,12 +355,20 @@ pub(super) fn list_window(
         if !output.is_empty() {
             output.push('\n');
         }
+        // The window's facts and the next offset stay; how to page is `⠰⠁`.
         let continuation = if end < total {
             format!(
-                "next: list_dir with offset={end}, limit={limit}; keep path, hint, pattern, no_ignore and hidden unchanged"
+                "{} offset={end}, limit={limit}",
+                crate::agent::harness::book::d46_recovery::run(&[
+                    crate::agent::harness::book::d56_replies::NEXT_WINDOW,
+                    crate::agent::harness::book::d56_replies::KEEP_FILTERS,
+                ])
             )
         } else {
-            "end of listing; use offset=0 to restart".to_string()
+            format!(
+                "end of listing {}",
+                crate::agent::harness::book::d56_replies::RESTART_LISTING.cells()
+            )
         };
         output.push_str(&format!(
             "[list_dir window: total={total}, shown={}, omitted_before={start}, omitted_after={}; entry_limit={limit}, byte_limit=24000; {continuation}]",

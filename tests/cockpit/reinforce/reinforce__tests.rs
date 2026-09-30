@@ -571,20 +571,16 @@ impl Club for DoneClub {
 
 #[test]
 fn coding_eval_drives_and_scores() {
-    // Serialized against every other env-mutating test: this one and the
-    // popcorn floor test below both drive `ANGEL_RL_REWARD`, and in a
-    // parallel run each would observe the other's value between its own
-    // set and restore.
+    // Serialized against every other env-mutating test that drives
+    // `ANGEL_RL_REWARD`: in a parallel run each would observe the other's
+    // value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let reg = crate::agent::harness::ToolRegistry::new();
     let club = DoneClub;
-    // Ensure default RLVR path (not leftover GpuComp popcorn pin).
+    // Ensure the default RLVR path.
     let prev_rl = std::env::var_os("ANGEL_RL_REWARD");
-    let prev_gpu = std::env::var_os("ANGEL_GPU_COMP_LOCAL_MOA");
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GPU_COMP_LOCAL_MOA") };
 
     // Passing verification → full reward.
     let rep = run_coding_eval(
@@ -611,109 +607,6 @@ fn coding_eval_drives_and_scores() {
     .unwrap();
     assert!((rep2.reward - 0.5).abs() < 1e-6, "reward {}", rep2.reward);
 
-    match prev_rl {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("ANGEL_RL_REWARD", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("ANGEL_RL_REWARD") },
-    }
-    match prev_gpu {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("ANGEL_GPU_COMP_LOCAL_MOA", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("ANGEL_GPU_COMP_LOCAL_MOA") },
-    }
-}
-
-#[test]
-fn score_coding_eval_reward_popcorn_vs_hold_floor() {
-    // See `coding_eval_drives_and_scores`: both tests own `ANGEL_RL_REWARD`
-    // for their duration, so they must not run concurrently. Without this
-    // the popcorn pin is cleared mid-test and `coding_eval_competition_meta`
-    // returns None — the intermittent "popcorn meta" failure.
-    let _guard = crate::tests::env_lock();
-    let peer = std::env::temp_dir().join(format!(
-        "angel-coding-eval-peer-{}-{}.json",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-    ));
-    std::fs::write(
-            &peer,
-            r#"{"geomean_us":867.91,"name":"c3","shapes":{"32768x1":38800.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
-        )
-        .unwrap();
-    let prev_state = std::env::var_os("POPCORN_PEER_STATE");
-    let prev_rl = std::env::var_os("ANGEL_RL_REWARD");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("POPCORN_PEER_STATE", &peer) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_RL_REWARD", "popcorn_peer") };
-    assert!(popcorn_reward_active());
-
-    // Verifier emits PRIMARY shape timing under HOLD → positive reward.
-    let under = EvaluatorEvidence::run_shell(
-        "popcorn-under-hold",
-        "printf '%s' 'shape=32768x1 score_us=38000.0 17/17 tests passed'",
-        Path::new("."),
-        TEST_VERIFIER_CONTRACT,
-        "cand-under",
-    )
-    .unwrap();
-    let under_r = score_coding_eval_reward("PRIMARY attack 32768x1", &under).unwrap();
-    let above = EvaluatorEvidence::run_shell(
-        "popcorn-above-hold",
-        "printf '%s' 'shape=32768x1 score_us=38600.0 still under board'",
-        Path::new("."),
-        TEST_VERIFIER_CONTRACT,
-        "cand-above",
-    )
-    .unwrap();
-    let above_r = score_coding_eval_reward("PRIMARY attack 32768x1", &above).unwrap();
-    assert!(
-        under_r > above_r,
-        "under HOLD {under_r} should beat above HOLD {above_r}"
-    );
-    assert!(under_r > 0.05);
-
-    // Pure libtest verify under popcorn still labels via TestReward fallback.
-    let tests = EvaluatorEvidence::run_shell(
-        "libtest-fallback",
-        "printf '%s' 'test result: ok. 2 passed; 0 failed; 0 ignored;'",
-        Path::new("."),
-        TEST_VERIFIER_CONTRACT,
-        "cand-tests",
-    )
-    .unwrap();
-    let test_r = score_coding_eval_reward("no timing in answer", &tests).unwrap();
-    assert_eq!(test_r, 1.0);
-
-    // Competition meta stamps score_us + shape for Forge join.
-    let under_scoring = score_coding_eval(&under).unwrap();
-    let meta = coding_eval_competition_meta(&under, &under_scoring).expect("popcorn meta");
-    assert_eq!(meta["reward_contract"], "popcorn_peer");
-    assert_eq!(meta["lesson"], "coding_eval");
-    assert_eq!(meta["scope"], "shape");
-    assert!((meta["score_us"].as_f64().unwrap() - 38000.0).abs() < 0.1);
-    assert_eq!(meta["shape_key"], "32768x1");
-    assert_eq!(meta["shape_n"], 32768);
-    assert_eq!(meta["primary_hold"], true);
-    assert_eq!(meta["beats_baseline"], true);
-    assert!((meta["baseline_us"].as_f64().unwrap() - 38300.0).abs() < 0.1);
-    assert!(
-        coding_eval_competition_meta(&tests, &score_coding_eval(&tests).unwrap()).is_none(),
-        "libtest-only verifies must not stamp competition"
-    );
-
-    let _ = std::fs::remove_file(&peer);
-    match prev_state {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("POPCORN_PEER_STATE", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("POPCORN_PEER_STATE") },
-    }
     match prev_rl {
         // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_RL_REWARD", v) },
@@ -1363,125 +1256,20 @@ fn reverse_reward_empty_expected_is_zero_and_control_label() {
 }
 
 #[test]
-fn popcorn_peer_parses_score_us_and_rewards_wins() {
-    assert_eq!(
-        PopcornPeerReward::parse_score_us("score_us=850.5 peer ok"),
-        Some(850.5)
-    );
-    assert_eq!(
-        PopcornPeerReward::parse_score_us("geomean_us: 867.9"),
-        Some(867.9)
-    );
-    assert!((PopcornPeerReward::parse_score_us("⏱ 61.2 ± 0.4 µs").unwrap() - 61.2).abs() < 1e-9);
-    let win = PopcornPeerReward::score_us_against_baseline(850.0, 868.0);
-    let lose = PopcornPeerReward::score_us_against_baseline(900.0, 868.0);
-    assert!(win > lose);
-    assert!(win > 0.05);
-    let r = PopcornPeerReward::new().with_baseline(868.0);
-    assert_eq!(r.label(), "popcorn_peer");
-    let s = r
-        .score(RewardInput::CandidateOutput("leaderboard score_us=850.0"))
-        .unwrap();
-    assert!((s - win).abs() < 1e-5);
-    assert!(
-        r.score(RewardInput::CandidateOutput("no timing here"))
-            .is_err()
-    );
-}
-
-#[test]
-fn popcorn_peer_parses_shape_key_forms() {
-    assert_eq!(
-        PopcornPeerReward::parse_shape_key("PRIMARY attack shape=32768x1 hold"),
-        Some("32768x1".into())
-    );
-    assert_eq!(
-        PopcornPeerReward::parse_shape_key("board 512x640 open lever"),
-        Some("512x640".into())
-    );
-    assert_eq!(
-        PopcornPeerReward::parse_shape_key("n=32768 batch=1 scored"),
-        Some("32768x1".into())
-    );
-}
-
-#[test]
-fn popcorn_peer_shape_baseline_uses_hold_floor() {
+fn reward_from_env_resolves_code_health_test_and_lint() {
     // Serialized: this test mutates process-global environment that other
     // tests also read or write. Without the lock they interleave and each
     // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
-    let peer = std::env::temp_dir().join(format!(
-        "angel-peer-reward-{}-{}.json",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-    ));
-    std::fs::write(
-            &peer,
-            r#"{"geomean_us":867.91,"name":"c3","shapes":{"32768x1":38800.0},"shape_bests":{"32768x1":{"us":38300.0,"name":"r7"}}}"#,
-        )
-        .unwrap();
-    let prev = std::env::var_os("POPCORN_PEER_STATE");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("POPCORN_PEER_STATE", &peer) };
-    let r = PopcornPeerReward::new();
-    // Under HOLD (38300) → win; between HOLD and board → soft loss vs HOLD.
-    let under_hold = r
-        .score(RewardInput::CandidateOutput(
-            "shape=32768x1 score_us=38000.0 PRIMARY",
-        ))
-        .unwrap();
-    let above_hold = r
-        .score(RewardInput::CandidateOutput(
-            "shape=32768x1 score_us=38500.0 still under board",
-        ))
-        .unwrap();
-    assert!(under_hold > above_hold, "{under_hold} vs {above_hold}");
-    assert!(under_hold > 0.05);
-    let _ = std::fs::remove_file(&peer);
-    match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("POPCORN_PEER_STATE", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("POPCORN_PEER_STATE") },
-    }
-}
-
-#[test]
-fn reward_from_env_resolves_popcorn_and_code_health() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
-    let _guard = crate::tests::env_lock();
-    let prev = std::env::var_os("ANGEL_RL_REWARD");
-    let prev_gpu = std::env::var_os("ANGEL_GPU_COMP_LOCAL_MOA");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_RL_REWARD", "popcorn_peer") };
-    assert_eq!(reward_from_env().label(), "popcorn_peer");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_RL_REWARD", "code_health") };
+    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "code_health");
     assert_eq!(reward_from_env().label(), "composite");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_GPU_COMP_LOCAL_MOA") };
+    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "tests");
+    assert_eq!(reward_from_env().label(), "tests");
+    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "lint");
+    assert_eq!(reward_from_env().label(), "lint");
+    // A retired or unknown key falls through to the default.
+    let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
     assert_eq!(reward_from_env().label(), "composite");
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_GPU_COMP_LOCAL_MOA", "1") };
-    assert_eq!(reward_from_env().label(), "popcorn_peer");
-    match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("ANGEL_RL_REWARD", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("ANGEL_RL_REWARD") },
-    }
-    match prev_gpu {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        Some(v) => unsafe { std::env::set_var("ANGEL_GPU_COMP_LOCAL_MOA", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        None => unsafe { std::env::remove_var("ANGEL_GPU_COMP_LOCAL_MOA") },
-    }
+    let _reward = crate::tests::TestEnvGuard::unset("ANGEL_RL_REWARD");
+    assert_eq!(reward_from_env().label(), "composite");
 }

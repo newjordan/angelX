@@ -19,9 +19,26 @@ pub(super) struct Plan {
     pub checked_files: usize,
 }
 
-const UNITTEST_BOOTSTRAP: &str = "import sys, unittest; assert sys.dont_write_bytecode and sys.pycache_prefix, 'isolated bytecode flags unavailable'; root=sys.argv.pop(1); sys.path.insert(0,root); unittest.main(module=None)";
+/// Bytecode is read only from the interpreter's own library: the entries on
+/// `sys.path` before the bootstrap inserts anything. Every other module, the
+/// project's first of all, compiles from its source, so a stale or planted
+/// project `.pyc` cannot stand in for it; `-B` keeps the run from writing any.
+/// The library itself keeps its install-time bytecode instead of recompiling
+/// unittest and its imports on every run (~150 ms of a ~190 ms run).
+macro_rules! source_only_prelude {
+    () => {
+        "import sys, importlib.machinery as m; assert sys.dont_write_bytecode, 'isolated bytecode flags unavailable'; std=tuple(p for p in sys.path if p)\n\
+         class S(m.SourceFileLoader):\n    def get_code(self, name): return compile(self.get_data(self.path), self.path, 'exec', dont_inherit=True)\n\
+         def h(p):\n    if any(p == s or p.startswith(s + '/') for s in std): raise ImportError\n    return m.FileFinder(p, (m.ExtensionFileLoader, m.EXTENSION_SUFFIXES), (S, m.SOURCE_SUFFIXES), (m.SourcelessFileLoader, m.BYTECODE_SUFFIXES))\n\
+         sys.path_hooks.insert(0, h); sys.path_importer_cache.clear()\n"
+    };
+}
+const UNITTEST_BOOTSTRAP: &str = concat!(
+    source_only_prelude!(),
+    "import unittest; root=sys.argv.pop(1); sys.path.insert(0,root); unittest.main(module=None)"
+);
 const SYNTAX_BOOTSTRAP: &str =
-    "import pathlib, sys; [compile(pathlib.Path(p).read_bytes(),p,'exec') for p in sys.argv[1:]]";
+    "import sys; [compile(open(p,'rb').read(),p,'exec') for p in sys.argv[1:]]";
 
 fn manifest(root: &Path, name: &str) -> Result<Option<String>, String> {
     let path = root.join(name);
@@ -648,7 +665,10 @@ fn python_pytest(root: &Path, extra: Vec<String>) -> Result<Vec<String>, String>
         index += 1;
     }
     discover_sources(root, root, Runtime::Python, true)?;
-    let bootstrap = "import sys; site=sys.argv.pop(1); root=sys.argv.pop(1); sys.path.insert(0,site); import pytest; sys.path.insert(0,root); sys.exit(pytest.main(sys.argv[1:]))";
+    let bootstrap = concat!(
+        source_only_prelude!(),
+        "site=sys.argv.pop(1); root=sys.argv.pop(1); sys.path.insert(0,site); import pytest; sys.path.insert(0,root); sys.exit(pytest.main(sys.argv[1:]))"
+    );
     let mut argv = vec![
         "-I".into(),
         "-S".into(),

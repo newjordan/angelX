@@ -41,7 +41,7 @@ fn local_deepseek_profile_exposes_verified_rungs_and_preserves_wire_model() {
 }
 
 #[test]
-fn local_deepseek_profile_does_not_enable_official_private_reasoning_replay() {
+fn local_serve_gets_its_own_reasoning_back_to_keep_the_live_prefix() {
     let club = configured();
     let calls = vec![ToolCall {
         id: "owned-call".into(),
@@ -57,10 +57,21 @@ fn local_deepseek_profile_does_not_enable_official_private_reasoning_replay() {
         .build_body_with_effort(&messages, &[], true, Some("max"))
         .unwrap();
     assert_eq!(body["model"], ALIAS);
-    assert_eq!(body["messages"][1]["content"], "");
-    assert_eq!(body["messages"][2]["tool_call_id"], "owned-call");
-    assert!(!body.to_string().contains("owned-private-reasoning"));
-    assert!(body["messages"][1].get("reasoning_content").is_none());
+    // Past the self-hosted brevity splice, the history is 1:1.
+    let wire = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|message| message["role"] != "system")
+        .collect::<Vec<_>>();
+    assert_eq!(wire[1]["content"], "");
+    assert_eq!(wire[2]["tool_call_id"], "owned-call");
+    // A self-hosted serve re-renders history into its live KV prefix: without
+    // the reasoning it generated, every hop re-prefills the whole context.
+    assert_eq!(
+        wire[1]["reasoning_content"].as_str(),
+        Some("owned-private-reasoning")
+    );
 }
 
 #[test]

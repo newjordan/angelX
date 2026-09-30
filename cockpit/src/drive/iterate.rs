@@ -14,28 +14,8 @@
 //! count as new); and once the loop stalls, a *structural* pivot is forced instead
 //! of tuning the same approach harder.
 
-/// System prompt for one iteration of a long-horizon loop: it sees only curated
-/// state, so it must break new ground rather than restate what's known.
-pub(crate) const WORKER_SYS: &str = "You are a single iteration of a long-horizon autonomous work \
-    loop. You see only curated state — the problem, the findings so far, and the directions \
-    already tried — not the full history, so treat the findings list as the complete record. \
-    Your one job this iteration is to BREAK NEW GROUND: open an angle the prior directions \
-    missed and produce concrete, verifiable findings. A claim is not progress merely because it \
-    is new: every factual finding must cite evidence you actually have, using one of the citation \
-    kinds the output contract below offers you and no others. If you cannot honestly cite a claim, \
-    label it a hypothesis — that is the correct move, not a failure. Never invent a citation to \
-    satisfy the format: an unsupported finding is worse than an admitted unknown. Be terse and \
-    specific; this is raw material a later step will synthesize, not a finished answer.";
-
-/// Folded into the iteration prompt once the loop has stalled: the option to
-/// change the frame rather than the parameters. It is offered, never ordered;
-/// the iteration decides whether its line is exhausted.
-pub(crate) const PIVOT_NOTE: &str = "PIVOT (your option) — the recent directions have stalled. If \
-    your evidence says the current approach is exhausted, change a STRUCTURAL constraint of it: a \
-    different mechanism, decomposition, or measurement — a genuinely different frame, not a \
-    parameter tweak. If the line in flight is still paying off, keep going deeper on it instead. \
-    Either way, record the measurement of the experiment already in flight first; the goal itself \
-    never changes.";
+// The worker's frame (`⠻⠁`) and the pivot option (`⠻⠙`) are ledger pages;
+// see `book::er_loop`. The curated state's labels are the pages of `⠘⠋`.
 
 /// Number a list `1. … 2. …` for a prompt.
 pub(crate) fn numbered(items: &[String]) -> String {
@@ -65,79 +45,74 @@ pub(crate) fn curated_prompt(
     regime: EvidenceRegime,
 ) -> String {
     let findings_txt = if findings.is_empty() {
-        "none yet".to_string()
+        none_yet()
     } else {
         numbered(findings)
     };
+    // Both workers read the ledger — the grounded one through `read_file`, the
+    // text-only one through the ledger reader — so both contracts are routes.
+    let contract = match regime {
+        EvidenceRegime::Grounded => crate::agent::harness::book::er_loop::CONTRACT,
+        EvidenceRegime::Reasoning => crate::agent::harness::book::st_connected::REASONING_CONTRACT,
+    };
+    routed_prompt(
+        problem,
+        &findings_txt,
+        findings.len(),
+        hypotheses,
+        directions,
+        pivot,
+        contract,
+    )
+}
+
+/// `⠘⠋⠑`: an empty findings or directions list.
+fn none_yet() -> String {
+    format!(
+        "{}⠑",
+        crate::agent::harness::book::d45_iteration::CURATED.cells()
+    )
+}
+
+/// An iteration's directions are routes (`⠻`): the ground to break, the open
+/// leads, the pivot and the regime's output contract are the ledger pages; the
+/// problem, findings, leads and directions ride as data, each after its label's
+/// page address (`⠘⠋`).
+fn routed_prompt(
+    problem: &str,
+    findings_txt: &str,
+    n: usize,
+    hypotheses: &[String],
+    directions: &[String],
+    pivot: bool,
+    contract: crate::agent::harness::book::Route,
+) -> String {
+    use crate::agent::harness::book::{d45_iteration, er_loop, sign_lines};
+    let curated = d45_iteration::CURATED.cells();
+    let tried = if directions.is_empty() {
+        none_yet()
+    } else {
+        numbered(directions)
+    };
+    let mut routes = vec![er_loop::GROUND];
     let open_leads = if hypotheses.is_empty() {
         String::new()
     } else {
+        routes.push(er_loop::OPEN_LEADS);
         format!(
-            "\n\nOpen leads ({n}) — raised but NOT yet evidenced. Treat these as unverified: \
-             confirming or killing one with concrete evidence counts as breaking new \
-             ground.\n{list}",
-            n = hypotheses.len(),
-            list = numbered(hypotheses)
+            "\n\n{curated}⠉ n={}\n{}",
+            hypotheses.len(),
+            numbered(hypotheses)
         )
     };
-    let tried = if directions.is_empty() {
-        "none yet".to_string()
-    } else {
-        directions
-            .iter()
-            .enumerate()
-            .map(|(i, d)| format!("{}. {d}", i + 1))
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-    let pivot_note = if pivot {
-        format!("\n\n{PIVOT_NOTE}")
-    } else {
-        String::new()
-    };
-    let contract = match regime {
-        EvidenceRegime::Grounded => {
-            "Output exactly this shape and nothing else:\n\
-             DIRECTION: <one short line naming the angle>\nFINDINGS:\n\
-             - <factual claim> [evidence: file:<path>:<line>]\n\
-             - <measured claim> [evidence: benchmark:<artifact path>]\n\
-             HYPOTHESES:\n- <untested idea, if any>\n\nOnly FINDINGS with a concrete, checkable \
-             evidence tag are admitted as progress. Cite only sources you actually opened, ran, or \
-             fetched this iteration, and never one that does not directly support the claim."
-        }
-        // A text-only worker has no repository and no benchmark harness. Asking
-        // it for `file:`/`benchmark:` citations reliably produces invented ones,
-        // so the contract offers only what it can honestly supply and names the
-        // fabrication failure mode explicitly rather than trusting it to infer
-        // the boundary.
-        EvidenceRegime::Reasoning => {
-            "You are reasoning only. You have NO repository, NO filesystem, NO shell, and NO \
-             network this iteration: you cannot open a file, run a command or benchmark, or fetch \
-             a URL. Therefore you must NOT emit file:, benchmark:, test:, command:, tool: or url: \
-             citations — a citation of that kind would be fabricated, and a fabricated citation is \
-             worse than no finding at all. It will be rejected and counted against progress.\n\n\
-             Any claim about specific code, concrete file contents, or a measured number is a \
-             HYPOTHESIS here, not a finding — no matter how confident you are.\n\n\
-             Output exactly this shape and nothing else:\n\
-             DIRECTION: <one short line naming the angle>\nFINDINGS:\n\
-             - <claim that follows from the problem statement as given> [evidence: premise:<the \
-             part of the problem it rests on>]\n\
-             - <claim that follows logically from a premise or an earlier finding> \
-             [evidence: derivation:<the step>]\n\
-             HYPOTHESES:\n\
-             - <anything needing code, measurement, or an external source to settle>\n\n\
-             Only FINDINGS carrying a premise: or derivation: tag are admitted as progress. \
-             Putting a real uncertainty under HYPOTHESES costs you nothing and is the correct \
-             move; dressing one up as a finding is the one thing that fails."
-        }
-    };
+    if pivot {
+        routes.push(er_loop::PIVOT);
+    }
+    routes.push(contract);
     format!(
-        "Problem:\n{problem}\n\nFindings so far ({n}):\n{findings_txt}{open_leads}\n\nDirections \
-         already tried:\n{tried}\n\nGo deeper on a direction that is still paying off, or take a new \
-         one, materially distinct from those already tried, when your evidence says it is spent. \
-         Surface concrete, verifiable findings the directions above missed. Do not restate known \
-         findings.{pivot_note}\n\n{contract}",
-        n = findings.len()
+        "{curated}⠁\n{problem}\n\n{curated}⠃ n={n}\n{findings_txt}{open_leads}\n\n{curated}⠙\n\
+         {tried}\n\n{}",
+        sign_lines(&routes)
     )
 }
 

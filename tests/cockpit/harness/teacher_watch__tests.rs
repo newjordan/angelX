@@ -1,5 +1,6 @@
 use super::*;
 use crate::agent::club::{ChatMsg, ClubReply};
+use std::time::Duration;
 
 struct MockClub {
     label: String,
@@ -159,59 +160,84 @@ fn transport_and_unavailable_do_not_retry_the_same_club() {
 }
 
 #[test]
-fn timed_out_uninterruptible_teacher_stays_single_flight_until_return() {
-    struct ReleaseOnDrop(Arc<AtomicBool>);
-    impl Drop for ReleaseOnDrop {
-        fn drop(&mut self) {
-            self.0.store(true, Ordering::Release);
-        }
-    }
-
+fn a_slow_teacher_is_waited_for_never_timed_out() {
     TEACHER_ASK_IN_FLIGHT.store(false, Ordering::Release);
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let release = Arc::new(AtomicBool::new(false));
-    let _release_on_drop = ReleaseOnDrop(Arc::clone(&release));
     let club: Arc<dyn Club> = Arc::new(BlockingClub {
         calls: Arc::clone(&calls),
         release: Arc::clone(&release),
     });
-
-    assert!(
-        ask_teacher_with_timeout(
-            Arc::clone(&club),
-            "first".to_string(),
-            Duration::from_millis(20)
-        )
-        .is_none()
-    );
-    let started_deadline = std::time::Instant::now() + Duration::from_secs(1);
-    while calls.load(Ordering::Acquire) == 0 && std::time::Instant::now() < started_deadline {
-        std::thread::sleep(Duration::from_millis(2));
-    }
+    // The teacher answers only after a pause; the ask waits for it instead
+    // of giving up on a clock.
+    let releaser = {
+        let release = Arc::clone(&release);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            release.store(true, Ordering::Release);
+        })
+    };
+    let answer = ask_teacher(club, std::path::Path::new("."), "first".to_string());
+    releaser.join().unwrap();
     assert_eq!(calls.load(Ordering::Acquire), 1);
-
-    assert!(
-        ask_teacher_with_timeout(
-            club,
-            "must not spawn".to_string(),
-            Duration::from_millis(20)
-        )
-        .is_none()
-    );
-    assert_eq!(calls.load(Ordering::Acquire), 1);
-
-    release.store(true, Ordering::Release);
-    let released_deadline = std::time::Instant::now() + Duration::from_secs(1);
-    while TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire)
-        && std::time::Instant::now() < released_deadline
-    {
-        std::thread::sleep(Duration::from_millis(2));
-    }
+    assert!(answer.is_some(), "a slow teacher's answer is kept");
     assert!(!TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire));
 
     let fast: Arc<dyn Club> = Arc::new(MockClub::up("luna", "CONTINUE: next"));
     assert_eq!(
-        ask_teacher_with_timeout(fast, "third".to_string(), Duration::from_millis(100)).as_deref(),
+        ask_teacher(fast, std::path::Path::new("."), "second".to_string()).as_deref(),
         Some("CONTINUE: next")
     );
+}
+
+/// The notes a later prompt carries are page addresses on `⠟⠓` / `⠟⠊`; the
+/// operator and the ledger read them recited, the teacher's annotation after.
+#[test]
+fn recovery_notes_are_routes_recited_for_the_operator() {
+    use crate::agent::harness::book::{connect::recite, ledger};
+    for (fault, original) in [
+        (
+            SessionFault::ContextOverflow,
+            "teacher-watch: context overflow — rolled the tail into a ledger. Continue from the current workspace and the compact note. Do not re-read the whole transcript.",
+        ),
+        (
+            SessionFault::EmptyReply,
+            "teacher-watch: local seat returned empty — context rolled. Answer or tool-call now; do not replay the same empty hop.",
+        ),
+        (
+            SessionFault::TransportDead,
+            "teacher-watch: local seat went dark (transport). Context rolled. Do not retry the same dead endpoint this hop; continue from the ledger on the next iteration.",
+        ),
+        (
+            SessionFault::ModelUnavailable,
+            "teacher-watch: named local is not reachable. Skipped. Continue yourself from the ledger; do not retry the dark seat.",
+        ),
+        (
+            SessionFault::Timeout,
+            "teacher-watch: local seat timed out after a long generation. Context rolled. Continue with a smaller next action.",
+        ),
+    ] {
+        let note = deterministic_recovery_note(fault);
+        assert!(ledger::is_warpath_line(&note), "{note}");
+        assert_eq!(recite(&note), original);
+        assert_eq!(compose_recovery_note(fault, None), original);
+    }
+}
+
+/// The teacher's brief is `⠟⠚`; the reply shape and the fault are inline.
+#[test]
+fn the_teacher_is_asked_in_routes() {
+    let prompt = teacher_ask_prompt(SessionFault::Timeout, "HTTP 408: request timed out", 7);
+    let teacher = crate::agent::harness::book::q_stop::TEACHER;
+    assert!(
+        prompt.starts_with(&format!("{}\n", teacher.cells())),
+        "{prompt}"
+    );
+    assert!(prompt.contains("ROLL: <why> | RETRY: <why> | CATCH: <bug> | CONTINUE: <next action>"));
+    assert!(
+        prompt.contains("Fault: timeout\nHop: 7\nError: HTTP 408"),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("teacher-monitor"), "{prompt}");
+    assert!(teacher.sub().pages[0].contains("teacher-monitor"));
 }

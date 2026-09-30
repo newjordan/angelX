@@ -1,4 +1,4 @@
-//! Bundled, offline original Sloptomizer algorithms. No Apollo checkout or pip.
+//! Bundled, offline original Sloptomizer algorithms. No external checkout or pip.
 
 use super::*;
 use serde_json::{Value, json};

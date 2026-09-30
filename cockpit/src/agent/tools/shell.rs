@@ -569,7 +569,8 @@ fn task_shell_editable_redirect(command: &str, cwd: Option<&Path>) -> Option<Str
         Ok(targets) => targets,
         Err(error) => {
             return Some(format!(
-                "shell command rejected: {error}. Use a literal editable workspace path or a literal /tmp/... path for scratch output."
+                "shell command rejected: {error}.\n{}",
+                crate::agent::harness::book::d46_recovery::LITERAL_PATH.cells()
             ));
         }
     };
@@ -582,7 +583,8 @@ fn task_shell_editable_redirect(command: &str, cwd: Option<&Path>) -> Option<Str
             Ok(relative) => relative,
             Err(_) => {
                 return Some(format!(
-                    "shell command rejected: sealed task rejected output redirection target {target:?} outside its workspace and bounded scratch roots; use a literal /tmp/... path for scratch output"
+                    "shell command rejected: sealed task rejected output redirection target {target:?} outside its workspace and bounded scratch roots\n{}",
+                    crate::agent::harness::book::d46_recovery::SCRATCH_PATH.cells()
                 ));
             }
         };
@@ -590,7 +592,8 @@ fn task_shell_editable_redirect(command: &str, cwd: Option<&Path>) -> Option<Str
             path.as_os_str().is_empty() || relative == *path || relative.starts_with(path)
         }) {
             return Some(format!(
-                "shell command rejected: sealed task rejected out-of-scope output redirection target {target:?}; editable paths are {configured:?}. Use a literal /tmp/... path for scratch output."
+                "shell command rejected: sealed task rejected out-of-scope output redirection target {target:?}; editable paths are {configured:?}.\n{}",
+                crate::agent::harness::book::d46_recovery::SCRATCH_OUTPUT.cells()
             ));
         }
     }
@@ -706,13 +709,10 @@ fn task_shell_git_redirect(command: &str) -> Option<String> {
             continue;
         }
         if git_subcommand(&words, at).is_some_and(|subcommand| !READ_ONLY.contains(&subcommand)) {
-            return Some(
-                "shell command rejected: this sealed task protects repository control state. \
-                 Git is inspection-only: use status/diff/log/show/grep/ls-files/rev-parse, and \
-                 edit source files directly. Do not stash, add, reset, restore, checkout, clean, \
-                 commit, switch, fetch, merge, rebase, or push."
-                    .to_string(),
-            );
+            return Some(format!(
+                "shell command rejected: this sealed task protects repository control state.\n{}",
+                crate::agent::harness::book::p_processes::GIT_GUARD.cells()
+            ));
         }
     }
     None
@@ -741,19 +741,16 @@ fn task_shell_poll_redirect(command: &str) -> Option<String> {
     let command_stripped = strip_unquoted_shell_comments(&command_stripped);
     if task_shell_no_detach_active() {
         if unquoted_shell_word(&command_stripped, "sleep") {
-            return Some(
-                "shell command rejected: this sealed task does not spend a tool hop sleeping or polling. \
-                 Run the foreground build/benchmark directly and let it own its wait, or do other useful \
-                 work before taking one later status snapshot."
-                    .to_string(),
-            );
+            return Some(format!(
+                "shell command rejected: this sealed task does not spend a tool hop sleeping or polling.\n{}",
+                crate::agent::harness::book::p_processes::SLEEP_GUARD.cells()
+            ));
         }
     } else if contains_excessive_sleep(&command_stripped, 10) {
-        return Some(
-            "shell command rejected: sleeping for more than 10s inside a synchronous tool call freezes the terminal UI. \
-             To check on a running background command or build, inspect its log or status directly without a long sleep."
-                .to_string(),
-        );
+        return Some(format!(
+            "shell command rejected: sleeping for more than 10s inside a synchronous tool call freezes the terminal UI.\n{}",
+            crate::agent::harness::book::p_processes::SLEEP_GUARD.cells()
+        ));
     }
     None
 }
@@ -816,14 +813,10 @@ fn task_shell_detach_redirect(command: &str) -> Option<String> {
     if !detached_program && !unmanaged_background {
         return None;
     }
-    Some(
-        "shell command rejected: this sealed task requires process ownership. Run builds and \
-         benchmarks in the foreground; do not use nohup/disown/setsid or leave an `&` job \
-         without `wait`. The runner supplies a long foreground tool deadline, so detached \
-         polling is unnecessary. \
-         (Opt out: ANGEL_TASK_SHELL_NO_DETACH=0.)"
-            .to_string(),
-    )
+    Some(format!(
+        "shell command rejected: this sealed task requires process ownership.\n{}",
+        crate::agent::harness::book::p_processes::DETACH_GUARD.cells()
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -1068,26 +1061,14 @@ fn looks_like_nested_sandbox_denial(output: &str) -> Option<&'static str> {
     nested_bwrap.then_some(SANDBOX_NESTED_BWRAP_HINT)
 }
 
-const SANDBOX_NESTED_SEATBELT_HINT: &str = "[sandbox: this command tried to start its own macOS \
-sandbox-exec inside Angel's confinement, which the kernel refuses (sandbox_apply: Operation not \
-permitted). Angel already confines writes, so run SwiftPM with `--disable-sandbox` (swift build/test \
---disable-sandbox …) or give the tool the equivalent flag; the code you changed did not cause this.]";
+// The sandbox hints are pages of `⠏⠚`: each result names its own page.
+const SANDBOX_NESTED_SEATBELT_HINT: &str = "⠏⠚⠁";
 
-const SANDBOX_NESTED_BWRAP_HINT: &str = "[sandbox: this command's own bubblewrap sandbox could not \
-start inside Angel's confinement. That is a harness/launch setting, not your change: the operator \
-must launch with ANGEL_SANDBOX_BACKEND=bwrap on a namespace-capable host. Do not retry the same \
-command or disable the project's sandbox; report the blocker.]";
+const SANDBOX_NESTED_BWRAP_HINT: &str = "⠏⠚⠃";
 
-const SANDBOX_INSTALL_HINT: &str = "[sandbox: privilege escalation is disabled (no_new_privs), \
-so sudo/system package managers cannot work here — this is not a missing password. Self-serve \
-user-level instead: pip/npm/cargo installs, or download a static binary into ~/.local/bin \
-(writable, on PATH). Network is available. The operator can lift confinement with \
-ANGEL_SANDBOX=0 or /yolo.]";
+const SANDBOX_INSTALL_HINT: &str = "⠏⠚⠉";
 
-const SANDBOX_USER_INSTALL_HINT: &str = "[sandbox: this bootstrap installer tried to write user \
-state/configuration outside the sanctioned install roots. Retrying, chmod, or copy workarounds \
-cannot widen Landlock. Use an already-installed binary, or ask the operator to run the installer \
-outside the cockpit / enable `/yolo on` for this explicit install.]";
+const SANDBOX_USER_INSTALL_HINT: &str = "⠏⠚⠙";
 
 /// Read the canonical shell argument, accepting `cmd` and `script` only as
 /// compatibility aliases for recovered/provider tool calls (and code_mode
@@ -1109,50 +1090,56 @@ impl Tool for ShellTool {
         // write: a pipeline whose early stage is *expected* to fail needs an
         // explicit `|| true`. Saying "bash" also licenses the bash-isms models
         // reach for anyway and that used to fail silently under dash.
-        let description = if crate::platform::yolo::enabled() {
+        // A YOLO mode's guidance runs past shell's first section, so its
+        // schema names the continued section too (a warpath of both routes).
+        let (description, route) = if crate::platform::yolo::enabled() {
             if task_shell_active() {
-                "Run a shell command (bash -c, with `pipefail` set). YOLO is active for this \
-                 headless coding task: writes/network are unrestricted, but default cwd is the \
-                 task workspace — start with local `ls`/`find .`/`tests` there. Do not inventory \
-                 `/`, `$HOME`, or unrelated repos; prefer `read_file`/`grep` inside the workspace. \
-                 Returns combined stdout+stderr."
+                (
+                    "Run a shell command (bash -c, with `pipefail` set). YOLO is active for this \
+                     headless coding task: writes/network are unrestricted, but default cwd is the \
+                     task workspace. Returns combined stdout+stderr.",
+                    "⠩⠁⠾⠑",
+                )
             } else {
-                "Run an unrestricted operator-approved shell command (bash -c, with `pipefail` set). \
-             YOLO is active: filesystem writes, network access, subprocesses, and command \
-             duration are not confined by the harness; returns combined stdout+stderr."
+                (
+                    "Run an unrestricted operator-approved shell command (bash -c, with `pipefail` set). \
+                     YOLO is active: filesystem writes, network access, subprocesses, and command \
+                     duration are not confined by the harness; returns combined stdout+stderr.",
+                    "⠩⠁",
+                )
             }
         } else if crate::platform::yolo::smart_enabled() {
-            "Run a shell command (bash -c, with `pipefail` set) for operator-approved powerful \
-             coding. YOLO SMART is active: workspace shell/write batches do not wait for \
-             interactive approval — act decisively with tools (edit, build, test, fix). Writes \
-             stay Landlock-confined to the workspace; tool timeouts and hooks still apply; \
-             returns combined stdout+stderr. Prefer concrete tool-backed code changes over \
-             status prose."
+            (
+                "Run a shell command (bash -c, with `pipefail` set) for operator-approved powerful \
+                 coding. YOLO SMART is active: workspace shell/write batches do not wait for \
+                 interactive approval. Writes stay Landlock-confined to the workspace; tool \
+                 timeouts and hooks still apply; returns combined stdout+stderr.",
+                "⠩⠁⠾⠑",
+            )
         } else {
-            "Run a shell command (bash -c, with `pipefail` set, so a pipeline reports a failing \
-             stage rather than its last stage) inside the sandbox. Writes are confined to the \
-             workspace; returns combined stdout+stderr. Network is available, but privilege \
-             escalation is disabled, so sudo and system package managers cannot install \
-             anything. Simple pip/npm/cargo or static-binary installs can use the sanctioned \
-             cache/bin roots; bootstrap scripts that also modify user config/state require \
-             explicit `/yolo on` or an operator-side install."
+            (
+                "Run a shell command (bash -c, with `pipefail` set, so a pipeline reports a failing \
+                 stage rather than its last stage) inside the sandbox. Writes are confined to the \
+                 workspace; returns combined stdout+stderr. Network is available, but privilege \
+                 escalation is disabled, so sudo and system package managers cannot install \
+                 anything. Simple pip/npm/cargo or static-binary installs can use the sanctioned \
+                 cache/bin roots; bootstrap scripts that also modify user config/state require \
+                 explicit `/yolo on` or an operator-side install.",
+                "⠩⠁",
+            )
         };
         ToolDef {
             name: "shell".to_string(),
             description: format!(
-                "{description} Act on actual tool evidence: preserve the earliest prerequisite failure, check usable input before dependent measurements, and discover optional dependencies from real errors. Do not score failed input as zero performance. {}{}Never use shell `sleep` to poll a job or submission; keep doing \
-                 useful work and use one later status snapshot. Competition submission status \
-                 arrives from the harness watcher.",
+                "{description} {}{}Competition submission status \
+                 arrives from the harness watcher. {route}",
                 if task_shell_no_detach_active() {
-                    "This sealed task requires foreground process ownership: run long builds \
-                     directly; nohup/disown/setsid and unmanaged `&` jobs are rejected. "
+                    "This sealed task requires foreground process ownership; nohup/disown/setsid and unmanaged `&` jobs are rejected. "
                 } else {
                     ""
                 },
                 if task_shell_protect_git_active() {
-                    "This sealed task permits read-only Git inspection only; edit files directly \
-                     and do not stash/add/reset/restore/checkout/clean/commit/switch/fetch/merge/\
-                     rebase/push. "
+                    "This sealed task permits read-only Git inspection only. "
                 } else {
                     ""
                 }
@@ -1160,7 +1147,7 @@ impl Tool for ShellTool {
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "command": { "type": "string", "description": "shell command. Judge from actual exit status and output; quoted text, a quiet success, and a valid `$url` are not empty-input or zero-frame evidence." }
+                    "command": { "type": "string", "description": "⠾⠑⠙⠩⠁⠛" }
                 },
                 "required": ["command"],
             }),
@@ -1183,12 +1170,16 @@ impl Tool for ShellTool {
         if let Some(redirect) = task_shell_git_redirect(command) {
             return Err(redirect);
         }
-        // A registry cancel token outranks the sleep guard. Rejecting here
-        // returns before the runner can observe a cancel that is already
-        // queued or arrives a moment later (`sleep 30 & wait`).
-        if cancel.is_none()
-            && let Some(redirect) = task_shell_poll_redirect(command)
-        {
+        // A registry cancel token outranks the sleep guard only once it has
+        // FIRED: the runner must observe an already-queued cancellation
+        // (`sleep 30 & wait`), so a fired token skips the guard. But the
+        // turn-driven path always passes a (not-yet-fired) token, and skipping
+        // the guard for it let `sleep 240` freeze the turn while a queued
+        // steer waited out every second (rig B, overwatch 2026-09-25). An
+        // unfired token still gets the upfront rejection.
+        let cancel_already_fired =
+            cancel.is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed));
+        if !cancel_already_fired && let Some(redirect) = task_shell_poll_redirect(command) {
             return Err(redirect);
         }
         if let Some(redirect) = task_shell_detach_redirect(command) {
@@ -1318,10 +1309,13 @@ impl Tool for ShellTool {
                     && looks_like_sandbox_write_denial(&obs.output)
                 {
                     let workspace = self.cwd.as_deref().unwrap_or_else(|| Path::new("."));
-                    message.push_str(&format!(
-                        "\n[workspace boundary: current workspace is {}. Creating a different home-level project or editing a symlink target outside the granted roots is not permitted by this session. Restart in the intended project or use an explicitly operator-approved scope change; retrying cp/chmod does not change the grant. No successful host change may be claimed without checking the actual destination.]",
-                        workspace.display()
-                    ));
+                    // `⠏⠚⠑`: the boundary's words are the page; the workspace is evidence.
+                    crate::agent::harness::book::ledger::record(
+                        workspace,
+                        crate::agent::harness::book::p_processes::SANDBOX,
+                        &format!("current workspace is {}", workspace.display()),
+                    );
+                    message.push_str("\n⠏⠚⠑");
                 }
                 Err(message)
             }

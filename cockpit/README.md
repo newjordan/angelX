@@ -12,6 +12,9 @@ substrate for software-dev tasks.
 ## Model routes
 
 The default club list uses ChatGPT/Grok OAuth and reachable local models.
+Every model you serve yourself is a mode of one expandable `local` box:
+`ANGEL_LOCAL_URL` is the first, `ANGEL_LOCAL_URLS` (`url` or `name=url`,
+comma-separated) adds more, and opt-in discovery folds found surfaces in too.
 Saved API keys do not enable additional providers. Muse and the separate
 OpenAI API-key seat are removed, and no free-model catalog is auto-added.
 An API-key subscription worker must explicitly enable its provider with
@@ -237,9 +240,9 @@ Verifiable rewards from ground truth, not just an LLM judge:
 ## Run
 
 ```sh
-ANGEL_BRAIN_KEY=<turbo key> cargo run        # authenticate fleet routes that require it
-cargo run                                    # practice floor, upgraded when a live route is reachable
-../bin/angelX --yolo                         # unrestricted operator profile
+ANGEL_LOCAL_URL=http://127.0.0.1:8080/v1 cargo run   # your own model server as the `local` box
+cargo run                                            # practice floor, upgraded when a live route is reachable
+../bin/angelX --yolo                                 # unrestricted operator profile
 ```
 
 `bin/angelX` builds and serves the cockpit and bundled world assets from the

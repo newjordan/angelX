@@ -206,35 +206,47 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
     assert_eq!(super::strip_launcher_stderr(helper_no_newline), "");
 }
 
-/// In task mode a test run gets a budget (180 s, at most a third of the task
-/// wall); interactively it keeps the ordinary tool bounds unless the knob is set.
+/// Foreground process caps default only in task mode; operator overrides also
+/// apply interactively and the new knob wins over the deprecated fallback.
 #[test]
-fn test_run_budget_follows_task_mode_and_the_task_wall() {
+fn task_call_budget_is_one_fixed_number_in_task_mode() {
     use std::time::Duration;
     let _env = crate::tests::env_lock();
-    let _knob = crate::tests::TestEnvGuard::unset("ANGEL_TEST_RUN_TIMEOUT_SECS");
-    let _wall = crate::tests::TestEnvGuard::unset("ANGEL_TASK_WALL_SECS");
+    let _knob = crate::tests::TestEnvGuard::unset("ANGEL_TASK_CALL_TIMEOUT_SECS");
+    let _legacy = crate::tests::TestEnvGuard::unset("ANGEL_TEST_RUN_TIMEOUT_SECS");
     {
         let _interactive = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
-        assert_eq!(super::test_run_budget(), None);
+        assert_eq!(super::task_call_budget(), None);
+        let _explicit = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "17");
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(17)));
     }
     let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    assert_eq!(super::test_run_budget(), Some(Duration::from_secs(180)));
+    assert_eq!(super::task_call_budget(), Some(Duration::from_secs(120)));
     {
         let _wall = crate::tests::TestEnvGuard::set("ANGEL_TASK_WALL_SECS", "300");
-        assert_eq!(super::test_run_budget(), Some(Duration::from_secs(100)));
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(120)));
     }
     {
-        let _wall = crate::tests::TestEnvGuard::set("ANGEL_TASK_WALL_SECS", "600");
-        assert_eq!(super::test_run_budget(), Some(Duration::from_secs(180)));
+        let _off = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "0");
+        assert_eq!(super::task_call_budget(), None);
     }
     {
-        let _off = crate::tests::TestEnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "0");
-        assert_eq!(super::test_run_budget(), None);
+        let _set = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "45");
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(45)));
     }
     {
-        let _set = crate::tests::TestEnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "45");
-        assert_eq!(super::test_run_budget(), Some(Duration::from_secs(45)));
+        let _legacy = crate::tests::TestEnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "37");
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(37)));
+        let _interactive = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(37)));
+        let _new = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "19");
+        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(19)));
+        let _off = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "0");
+        assert_eq!(super::task_call_budget(), None);
+    }
+    {
+        let _legacy = crate::tests::TestEnvGuard::set("ANGEL_TEST_RUN_TIMEOUT_SECS", "0");
+        assert_eq!(super::task_call_budget(), None);
     }
 }
 
@@ -247,24 +259,31 @@ fn hung_suite_report_names_the_tests_that_never_finished() {
                   test sub_borrow ... ok\n\
                   test add_id has been running for over 60 seconds\n\
                   test eq has been running for over 60 seconds\n";
-    let text = super::hung_suite_report(std::time::Duration::from_secs(180), report);
+    let text = super::hung_suite_report(report);
+    assert!(text.starts_with("tests: execution timed out"), "{text}");
     assert!(
-        text.starts_with("tests: still running after the 180s test-run budget"),
+        text.contains("2 test(s) were still running: add_id, eq."),
         "{text}"
     );
-    assert!(
-        text.contains("2 test(s) never finished: add_id, eq."),
-        "{text}"
-    );
-    assert!(text.contains("loops forever"), "{text}");
+    // Where to look is the `⠨⠓` page on its own line.
+    let hung = crate::agent::harness::book::d46_recovery::HUNG_SUITE;
+    assert!(text.lines().any(|line| line == hung.cells()), "{text}");
+    assert!(hung.text().contains("legitimate slow tests"));
     assert!(
         text.ends_with(report),
         "the original report follows: {text}"
     );
-    let silent = super::hung_suite_report(std::time::Duration::from_secs(60), "tests: timed out");
+    let silent = super::hung_suite_report("tests: timed out after 3s — process group killed");
+    assert!(silent.contains(&hung.cells()), "{silent}");
     assert!(
-        silent.contains("stuck in an infinite loop or waiting forever"),
-        "{silent}"
+        !silent.contains("infinite loop or a blocking wait"),
+        "the directive is the page: {silent}"
+    );
+    assert!(hung.text().contains("infinite loop or a blocking wait"));
+    assert!(silent.contains("timed out after 3s"), "{silent}");
+    assert!(
+        !silent.contains("120s"),
+        "must retain the actual timeout: {silent}"
     );
 }
 
@@ -338,4 +357,52 @@ fn run_tests_fails_a_cmake_build_whose_own_tests_fail() {
         "a failing self-testing build must not read as green: {text}"
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+/// A pin is read off the start-up path, but it is of the image captured: a
+/// path replaced before the read finishes pins the original bytes or fails
+/// closed, and the replacement always fails revalidation.
+#[cfg(unix)]
+#[test]
+fn a_deferred_pin_hashes_the_captured_image_and_rejects_its_replacement() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("angel-deferred-pin-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let tool = root.join("tool");
+    std::fs::write(&tool, "#!/bin/sh\nprintf 'original\\n'\n").unwrap();
+    std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let original = crate::knowledge::cut::sha256_hex(&std::fs::read(&tool).unwrap());
+    let pinned = super::capture_executable(tool.clone(), "deferred pin").unwrap();
+    // Replace the path (a new inode) while the digest may still be pending.
+    let replacement = root.join("replacement");
+    std::fs::write(&replacement, "#!/bin/sh\nprintf 'swapped!\\n'\n").unwrap();
+    std::fs::set_permissions(&replacement, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::rename(&replacement, &tool).unwrap();
+    // Either the read finished first and pinned the original bytes, or it saw
+    // the captured inode unlinked mid-pin and failed closed; never the swap.
+    match pinned.digest() {
+        Ok(digest) => assert_eq!(digest.map(String::as_str), Some(original.as_str())),
+        Err(error) => assert!(error.contains("changed while being pinned"), "{error}"),
+    }
+    assert!(super::revalidate_executable(&pinned, "deferred pin").is_err());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// No pin captured before a dispatch is still pending when the tool runs.
+#[test]
+fn a_dispatch_settles_every_pending_pin() {
+    let _lock = crate::tests::env_lock();
+    let workspace = std::env::temp_dir().join(format!("angel-pin-settle-{}", std::process::id()));
+    std::fs::create_dir_all(&workspace).unwrap();
+    let registry = crate::agent::harness::ToolRegistry::with_team(workspace.clone(), Vec::new());
+    let _ = registry.dispatch("word_count", &serde_json::json!({"text":"one two"}));
+    assert!(
+        super::PENDING_PINS
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_empty(),
+        "a tool ran with a pin still being read"
+    );
+    let _ = std::fs::remove_dir_all(workspace);
 }

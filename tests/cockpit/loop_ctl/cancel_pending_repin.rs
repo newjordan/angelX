@@ -46,6 +46,7 @@ fn acceptance_repin_retires_live_verifier_and_preserves_new_capture_intent() {
                 passed: true,
                 summary: "stale verifier green".into(),
                 detail: String::new(),
+                receipt: None,
             })
             .unwrap();
         app.loop_drain_pending();
@@ -86,6 +87,7 @@ fn self_gate_repin_is_rejected_without_changing_hardcoded_acceptance_or_owner() 
                 passed: true,
                 summary: "retired self gate green".into(),
                 detail: String::new(),
+                receipt: None,
             })
             .unwrap();
         app.loop_drain_pending();

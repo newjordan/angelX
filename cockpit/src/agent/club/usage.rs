@@ -139,6 +139,13 @@ pub(super) fn parse_http_usage(usage: &serde_json::Value) -> Option<ReportedUsag
             ],
         ),
     ];
+    // DeepSeek reports prompt = hit + miss and bills no cache write, so its
+    // miss field settles the write count at zero: uncached input is the miss.
+    if counts.cache_write.is_none() && first_count(usage, &["/prompt_cache_miss_tokens"]).is_some()
+    {
+        counts.cache_write = Some(0);
+        counts.paths[4] = Some("prompt_cache_miss_tokens");
+    }
     counts.any().then_some(counts)
 }
 

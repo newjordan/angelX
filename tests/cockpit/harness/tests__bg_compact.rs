@@ -12,8 +12,8 @@ use super::*;
 
 fn bg_test_turn_context(label: &str) -> String {
     format!(
-        "{}\n[operator-selected cockpit controls]\n- {label}\n\
-         [/operator-selected cockpit controls]\n\n[/harness turn context]",
+        "{}\n⠞⠚ {label}\n\n{}",
+        crate::app::control::TURN_CONTEXT_HEADER,
         crate::app::control::TURN_CONTEXT_HEADER
     )
 }
@@ -229,7 +229,7 @@ fn background_compaction_preserves_assistant_role_plan_snapshot() {
     }
     let plans = history
         .iter()
-        .filter(|message| message.content.starts_with("[current-plan/v1"))
+        .filter(|message| message.content.starts_with("⠵⠊ "))
         .collect::<Vec<_>>();
     assert_eq!(plans.len(), 1);
     assert_eq!(plans[0].role, ChatRole::Assistant);
@@ -296,7 +296,7 @@ fn background_compaction_keeps_task_anchor_when_only_harness_direction_arrives()
     maybe_start_bg_compact(&mut history, 60, 3, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
 
-    history.push(ChatMsg::harness(FINAL_MILE_NUDGE));
+    history.push(ChatMsg::harness(NOPROGRESS_NUDGE));
     let deadline = Instant::now() + Duration::from_secs(5);
     while bg_compact_inflight(&reg) {
         assert!(Instant::now() < deadline, "bg pass never landed");
@@ -312,7 +312,7 @@ fn background_compaction_keeps_task_anchor_when_only_harness_direction_arrives()
         "harness direction must not supersede the real operator objective"
     );
     assert!(history.iter().any(|message| {
-        message.role == ChatRole::Harness && message.content.as_ref() == FINAL_MILE_NUDGE
+        message.role == ChatRole::Harness && message.content.as_ref() == NOPROGRESS_NUDGE
     }));
 }
 

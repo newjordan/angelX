@@ -1,0 +1,582 @@
+<title>Four-Model Calibration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column of findings, each a short claim above a chart drawn to scale, with its numbers underneath. */
+:root {
+  color-scheme: dark;
+  --paper: #0c0c0f;
+  --panel: #111114;
+  --ink: #d8d8de;
+  --ink-2: #a2a2ac;
+  --ink-3: #74747e;
+  --rule: #2a2a31;
+  --grid: #1d1d23;
+  --m-glm: #3987e5;
+  --m-deepseek: #d95926;
+  --m-muse: #199e70;
+  --m-grok: #c98500;
+  --t-chat: #d55181;
+  --t-msgs: #9085e9;
+  --font-display: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --paper: #f5f5f2; --panel: #f5f5f2; --ink: #1d1d22; --ink-2: #4c4c55; --ink-3: #75757e;
+    --rule: #d6d6d0; --grid: #e6e6e1;
+    --m-glm: #2a78d6; --m-deepseek: #eb6834; --m-muse: #1baf7a; --m-grok: #eda100;
+    --t-chat: #e87ba4; --t-msgs: #4a3aa7;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --paper: #f5f5f2; --panel: #f5f5f2; --ink: #1d1d22; --ink-2: #4c4c55; --ink-3: #75757e;
+  --rule: #d6d6d0; --grid: #e6e6e1;
+  --m-glm: #2a78d6; --m-deepseek: #eb6834; --m-muse: #1baf7a; --m-grok: #eda100;
+  --t-chat: #e87ba4; --t-msgs: #4a3aa7;
+}
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 80px; display: grid; gap: 56px; }
+header { display: grid; gap: 14px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(28px, 5vw, 40px); letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 20px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin: 0; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+p strong { color: var(--ink); font-weight: 600; }
+.lede { font-size: 17px; color: var(--ink); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 24px; margin: 6px 0 0; padding: 16px 0 0; border-top: 1px solid var(--rule); }
+.facts div { display: grid; gap: 2px; min-width: 0; }
+.facts dt { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.facts dd { margin: 0; font-size: 14px; color: var(--ink); }
+section { display: grid; gap: 16px; }
+.figure { display: grid; gap: 10px; min-width: 0; }
+.panels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.panels.one { grid-template-columns: minmax(0, 420px); }
+.panels.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.panels.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 720px) { .panels, .panels.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .panels.two { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 8px 4px; min-width: 0; display: grid; gap: 4px; }
+.panel-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink); padding-inline: 4px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; font-family: var(--font-data); }
+.chart text { fill: var(--ink-2); font-size: 11px; }
+.chart .value { fill: var(--ink); font-weight: 500; }
+.chart .muted { fill: var(--ink-3); }
+.chart .axis-title { fill: var(--ink-3); font-family: var(--font-body); font-size: 11px; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .baseline { stroke: var(--rule); stroke-width: 1; }
+.chart .whisker { stroke: var(--ink-2); stroke-width: 1.5; }
+.chart [data-tip] { cursor: default; }
+.wide { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 10px 6px; min-width: 0; }
+.caption { font-size: 13px; color: var(--ink-3); max-width: 80ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); padding-inline: 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend .dash { width: 18px; height: 0; border-top: 2px dashed var(--ink-2); }
+details { font-size: 13px; color: var(--ink-2); min-width: 0; }
+summary { cursor: pointer; color: var(--ink-3); width: fit-content; }
+summary:focus-visible { outline: 2px solid var(--ink-2); outline-offset: 2px; }
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 100%; }
+th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-3); font-weight: 500; }
+td { color: var(--ink); }
+#decide-body { display: grid; gap: 28px; min-width: 0; }
+.pending { border: 1px dashed var(--rule); border-radius: 6px; padding: 18px; color: var(--ink-2); font-size: 14px; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: 4px; padding: 7px 9px; font-family: var(--font-data); font-size: 12px; line-height: 1.45; white-space: pre; box-shadow: 0 4px 16px rgb(0 0 0 / 0.25); }
+@media (prefers-reduced-motion: no-preference) { #tip { transition: opacity 80ms; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <h1>Four-Model Calibration</h1>
+    <p class="lede">How many tokens and how much time angelX spends to finish the same work on four models, what its reactive braille legend costs on an easy task, and what the harness and DeepSeek fixes buy. Whether a route changes what a model does next is measured at the end, by replaying the harness's own decision-point requests to each model.</p>
+    <dl class="facts" id="facts"></dl>
+  </header>
+
+  <section id="tokens">
+    <h2>Tokens per solved task</h2>
+    <p id="tokens-claim"></p>
+    <div class="figure">
+      <div class="panels" id="c-e1-fresh"></div>
+      <p class="caption">Uncached prompt tokens (prompt minus cache hits, as each provider reports them) for the two-bug task. Bar: median of the solved runs. Line: lowest to highest. Muse's legend arm is a rerun on the fixed build (sparky): its first run never received the legend, which then reached the Chat Completions wire only. Compare Muse's tokens across arms, not its wall time.</p>
+      <details><summary>Show the numbers</summary><div class="table-wrap" id="t-e1"></div></details>
+    </div>
+  </section>
+
+  <section id="speed">
+    <h2>Time per solved task</h2>
+    <p id="speed-claim"></p>
+    <div class="figure">
+      <div class="panels" id="c-e1-wall"></div>
+      <p class="caption">Wall-clock seconds from launch to the answer, same runs. Grok ran on sparky, the others on atlas, so compare arms within a model, not across hosts.</p>
+    </div>
+  </section>
+
+  <section id="long">
+    <h2>Long sessions</h2>
+    <p id="long-claim"></p>
+    <div class="figure">
+      <div class="panels two">
+        <div class="wide" id="c-e2-intro"></div>
+        <div class="wide" id="c-e2-bare"></div>
+      </div>
+      <div class="legend" id="l-e2"></div>
+      <p class="caption">Prompt tokens of the last request of a scripted session, counted by each provider, relative to the pre-book English prompt at the same length.</p>
+      <details><summary>Show the numbers</summary><div class="table-wrap" id="t-e2"></div></details>
+    </div>
+  </section>
+
+  <section id="harness">
+    <h2>Harness speed</h2>
+    <p id="harness-claim"></p>
+    <div class="figure">
+      <div class="panels two">
+        <div class="wide" id="c-stub"></div>
+        <div class="wide" id="c-ttfr"></div>
+      </div>
+      <p class="caption">A scripted model that answers instantly, so every millisecond is the harness: a 213-request session, and the time from launch to the first request (medians, atlas).</p>
+    </div>
+    <div class="figure">
+      <h3>Behind a real model</h3>
+      <div class="panels" id="c-e5-startup"></div>
+      <p class="caption">Time from launch to the first model request: the speed baseline (3295966) against the chapter's build (158b7a8), which predates the metadata-probe fix shown under DeepSeek. Median of five solved two-bug runs per model.</p>
+      <div class="panels" id="c-e5-harness"></div>
+      <p class="caption">The harness's own time per task after startup: tool overhead plus the time between hops. Everything else is the model and the tools.</p>
+      <details><summary>Show the numbers</summary><div class="table-wrap" id="t-e5"></div></details>
+    </div>
+  </section>
+
+  <section id="deepseek">
+    <h2>DeepSeek, as DeepSeek drives it</h2>
+    <p id="deepseek-claim"></p>
+    <div class="figure">
+      <div class="panels three" id="c-dsab"></div>
+      <p class="caption">Two-bug task on DeepSeek flash, five runs per arm, interleaved.</p>
+    </div>
+    <div class="figure">
+      <div class="wide" id="c-follow"></div>
+      <p class="caption">First request of a follow-up turn in the TUI: share of its prompt served from DeepSeek's cache.</p>
+    </div>
+    <div class="figure">
+      <div class="wide" id="c-loops"></div>
+      <div class="legend" id="l-loops"></div>
+      <p class="caption" id="loops-caption">Uncached prompt tokens paid so far in a live heesch /loop on DeepSeek flash, by request.</p>
+      <details><summary>Show the numbers</summary><div class="table-wrap" id="t-loops"></div></details>
+    </div>
+  </section>
+
+  <section id="vsenglish">
+    <h2>The legend against English every time</h2>
+    <p id="vsenglish-claim"></p>
+    <div class="panels two">
+      <div class="wide"><div id="c-vse-tokens"></div></div>
+      <div class="wide"><div id="c-vse-turn2-tokens"></div></div>
+    </div>
+    <div class="legend" id="l-vse"></div>
+    <div class="wide"><div id="c-vse-turns"></div></div>
+    <div class="figure">
+      <h3>⠺⠛ second sighting, turn 2: the next reads share one response</h3>
+      <div class="panels one" id="c-vse-turn2"></div>
+    </div>
+    <p class="caption" id="vsenglish-caption"></p>
+    <details><summary>Table</summary><div class="table-wrap" id="t-vse"></div></details>
+  </section>
+
+  <section id="decide">
+    <h2>Does a route change the next move?</h2>
+    <p id="decide-claim"></p>
+    <div id="decide-body"></div>
+    <p class="caption" id="decide-caption"></p>
+    <details><summary>Table</summary><div class="table-wrap" id="t-decide"></div></details>
+  </section>
+</main>
+<div id="tip" hidden></div>
+
+<script>
+const DATA = /*DATA*/;
+
+const NS = "http://www.w3.org/2000/svg";
+const MODEL_VAR = { "glm-flash": "--m-glm", "deepseek-flash": "--m-deepseek", "muse": "--m-muse", "grok": "--m-grok" };
+const modelName = id => (DATA.models.find(m => m.id === id) || { name: id }).name;
+const armName = id => ({ prebook: "English", bare: "Braille", intro: "Intro", nocue: "No cue", every: "Every", base: "Baseline", head: "158b7a8" }[id] || id);
+const pct = v => `${Math.round(100 * v)}%`;
+const fitWidth = id => Math.max(420, Math.min(880, document.getElementById(id).clientWidth || 880));
+const fmt = n => n == null ? "–" : Math.round(n).toLocaleString("en-US");
+const fmt1 = n => n == null ? "–" : (Math.round(n * 10) / 10).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+function el(tag, attrs = {}, parent) {
+  const node = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+function text(parent, x, y, content, attrs = {}) {
+  const t = el("text", { x, y, ...attrs }, parent);
+  t.textContent = content;
+  return t;
+}
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const exp = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const step of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (step * exp >= v) return step * exp;
+  return 10 * exp;
+}
+function ticks(max, count = 4) { return Array.from({ length: count + 1 }, (_, i) => max * i / count); }
+function shortNum(v) {
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + "M";
+  if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(v % 1e3 ? 1 : 0) + "k";
+  return String(Math.round(v * 10) / 10);
+}
+
+/* Small multiples: one panel per group, a median bar with a range whisker per
+   category, all panels on one y scale. */
+function panels(host, groups, opts) {
+  const all = groups.flatMap(g => g.bars.flatMap(b => b.stat ? [b.stat.max] : []));
+  const ymax = opts.ymax ?? niceMax(Math.max(...all) * 1.08);
+  const W = opts.width ?? 240, H = 214 + (opts.top ?? 22) - 22, L = 44, R = 8, T = opts.top ?? 22, B = 46;
+  for (const g of groups) {
+    const panel = document.createElement("div");
+    panel.className = "panel";
+    const title = document.createElement("div");
+    title.className = "panel-title";
+    title.innerHTML = `<span class="swatch" style="background:var(${g.color})"></span><span></span>`;
+    title.lastChild.textContent = g.name;
+    panel.appendChild(title);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img",
+      "aria-label": `${g.name}: ${opts.metric} by ${opts.categoryName}` }, panel);
+    const y = v => T + (H - T - B) * (1 - v / ymax);
+    for (const tick of ticks(ymax)) {
+      el("line", { x1: L, x2: W - R, y1: y(tick), y2: y(tick), class: tick === 0 ? "baseline" : "grid" }, svg);
+      text(svg, L - 6, y(tick) + 4, opts.tick(tick), { "text-anchor": "end", class: "muted" });
+    }
+    const n = g.bars.length, slot = (W - L - R) / n, bw = Math.min(34, slot * 0.46);
+    g.bars.forEach((b, i) => {
+      const cx = L + slot * (i + 0.5);
+      text(svg, cx, H - B + 16, (opts.catLabel || armName)(b.id), { "text-anchor": "middle" });
+      text(svg, cx, H - B + 31, b.solvedText, { "text-anchor": "middle", class: "muted" });
+      if (!b.stat) { text(svg, cx, y(0) - 6, b.note || "no runs", { "text-anchor": "middle", class: "muted" }); return; }
+      const top = y(b.stat.median), base = y(0);
+      const h = Math.max(base - top, 1), r = Math.min(4, h, bw / 2);
+      el("path", { d: `M${cx - bw / 2},${base} V${top + r} Q${cx - bw / 2},${top} ${cx - bw / 2 + r},${top} H${cx + bw / 2 - r} Q${cx + bw / 2},${top} ${cx + bw / 2},${top + r} V${base} Z`,
+        fill: `var(${g.color})`, "data-tip": b.tip }, svg);
+      el("line", { x1: cx, x2: cx, y1: y(b.stat.min), y2: y(b.stat.max), class: "whisker" }, svg);
+      el("line", { x1: cx - 5, x2: cx + 5, y1: y(b.stat.max), y2: y(b.stat.max), class: "whisker" }, svg);
+      el("line", { x1: cx - 5, x2: cx + 5, y1: y(b.stat.min), y2: y(b.stat.min), class: "whisker" }, svg);
+      text(svg, cx, Math.max(y(b.stat.max) - 6, 12), opts.value(b.stat.median), { "text-anchor": "middle", class: "value" });
+      el("rect", { x: cx - slot / 2, y: T, width: slot, height: H - T - B, fill: "transparent", "data-tip": b.tip }, svg);
+    });
+    text(svg, 4, 12, opts.axis, { class: "axis-title" });
+    host.appendChild(panel);
+  }
+}
+
+/* A line chart with direct end labels and a nearest-x readout on hover. */
+function lines(host, series, opts) {
+  const W = opts.width || 420, H = opts.height || 250, L = 52, R = 104, T = 18, B = 40;
+  const xs = series.flatMap(s => s.points.map(p => p.x)), ys = series.flatMap(s => s.points.map(p => p.y));
+  const xmin = opts.xmin ?? Math.min(...xs), xmax = opts.xmax ?? Math.max(...xs);
+  let ymin = Math.min(0, ...ys), ymax = Math.max(0, ...ys);
+  const raw = (ymax - ymin) / 4 || 1, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(f => f * mag).find(v => v >= raw);
+  ymin = Math.floor(ymin / step) * step; ymax = Math.ceil(ymax / step) * step;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img", "aria-label": opts.label }, host);
+  const x = v => L + (W - L - R) * (v - xmin) / (xmax - xmin || 1);
+  const y = v => T + (H - T - B) * (1 - (v - ymin) / (ymax - ymin || 1));
+  const yt = opts.yticks || Array.from({ length: Math.round((ymax - ymin) / step) + 1 }, (_, i) => ymin + step * i);
+  for (const t of yt) {
+    el("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), class: Math.abs(t) < 1e-9 ? "baseline" : "grid" }, svg);
+    text(svg, L - 6, y(t) + 4, opts.ytick(t), { "text-anchor": "end", class: "muted" });
+  }
+  for (const t of opts.xticks) text(svg, x(t), H - B + 16, opts.xtick ? opts.xtick(t) : shortNum(t), { "text-anchor": "middle", class: "muted" });
+  text(svg, (L + W - R) / 2, H - 6, opts.xLabel, { "text-anchor": "middle", class: "axis-title" });
+  text(svg, 4, 11, opts.yLabel, { class: "axis-title" });
+  const ends = [];
+  for (const s of series) {
+    const d = s.points.map((p, i) => `${i ? "L" : "M"}${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+    const halo = el("path", { d, fill: "none", stroke: "var(--panel)", "stroke-width": 5, "stroke-linejoin": "round" }, svg);
+    halo.setAttribute("stroke-linecap", "round");
+    el("path", { d, fill: "none", stroke: `var(${s.color})`, "stroke-width": 2, "stroke-linejoin": "round",
+      "stroke-linecap": "round", ...(s.dashed ? { "stroke-dasharray": "5 4" } : {}) }, svg);
+    if (s.markers) for (const p of s.points) el("circle", { cx: x(p.x), cy: y(p.y), r: 4, fill: `var(${s.color})`, stroke: "var(--panel)", "stroke-width": 2 }, svg);
+    const last = s.points[s.points.length - 1];
+    ends.push({ s, yy: y(last.y), x: x(last.x) });
+  }
+  ends.sort((a, b) => a.yy - b.yy);
+  for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 14) ends[i].yy = ends[i - 1].yy + 14;
+  for (const e of ends) text(svg, e.x + 8, e.yy + 4, e.s.endLabel || e.s.name, { class: "value" });
+  const guide = el("line", { x1: 0, x2: 0, y1: T, y2: H - B, class: "grid", visibility: "hidden" }, svg);
+  const hit = el("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" }, svg);
+  hit.addEventListener("pointermove", ev => {
+    const box = svg.getBoundingClientRect(), vx = (ev.clientX - box.left) * W / box.width;
+    const target = xmin + (vx - L) / (W - L - R) * (xmax - xmin);
+    const lines = [];
+    let px = null;
+    for (const s of series) {
+      const p = s.points.reduce((a, b) => Math.abs(b.x - target) < Math.abs(a.x - target) ? b : a);
+      px = p.x;
+      lines.push(`${s.name}: ${opts.ytip(p.y)}`);
+    }
+    guide.setAttribute("x1", x(px)); guide.setAttribute("x2", x(px)); guide.setAttribute("visibility", "visible");
+    showTip(ev, `${opts.xtipLabel(px)}\n${lines.join("\n")}`);
+  });
+  hit.addEventListener("pointerleave", () => { guide.setAttribute("visibility", "hidden"); hideTip(); });
+}
+
+/* Horizontal bars for a before/after pair or a short list, with direct labels. */
+function hbars(host, rows, opts) {
+  const W = opts.width || 420, rowH = 34, L = 104, R = 70, T = 24, B = 34, H = T + rows.length * rowH + B;
+  const max = niceMax(Math.max(...rows.map(r => r.value)) * 1.05);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img", "aria-label": opts.label }, host);
+  const x = v => L + (W - L - R) * v / max;
+  for (const t of ticks(max)) {
+    el("line", { x1: x(t), x2: x(t), y1: T - 4, y2: H - B, class: t === 0 ? "baseline" : "grid" }, svg);
+    text(svg, x(t), H - B + 15, opts.tick(t), { "text-anchor": "middle", class: "muted" });
+  }
+  text(svg, 4, 12, opts.title, { class: "axis-title" });
+  text(svg, (L + W - R) / 2, H - 4, opts.xLabel, { "text-anchor": "middle", class: "axis-title" });
+  rows.forEach((r, i) => {
+    const yy = T + i * rowH + 6, h = rowH - 14, w = Math.max(x(r.value) - x(0), 1), rr = Math.min(4, w, h / 2);
+    text(svg, L - 8, yy + h / 2 + 4, r.label, { "text-anchor": "end" });
+    el("path", { d: `M${x(0)},${yy} H${x(0) + w - rr} Q${x(0) + w},${yy} ${x(0) + w},${yy + rr} V${yy + h - rr} Q${x(0) + w},${yy + h} ${x(0) + w - rr},${yy + h} H${x(0)} Z`,
+      fill: `var(${r.color})`, ...(r.faint ? { "fill-opacity": 0.45 } : {}), "data-tip": r.tip }, svg);
+    text(svg, x(0) + w + 6, yy + h / 2 + 4, r.valueLabel, { class: "value" });
+  });
+}
+
+function table(host, head, rows) {
+  const t = document.createElement("table");
+  t.innerHTML = `<thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>`;
+  const body = document.createElement("tbody");
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    for (const c of r) { const td = document.createElement("td"); td.textContent = c; tr.appendChild(td); }
+    body.appendChild(tr);
+  }
+  t.appendChild(body);
+  host.appendChild(t);
+}
+
+const tip = document.getElementById("tip");
+function showTip(ev, content) {
+  tip.textContent = content;
+  tip.hidden = false;
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = ev.clientX + pad, top = ev.clientY + pad;
+  if (left + w > window.innerWidth - 8) left = ev.clientX - w - pad;
+  if (top + h > window.innerHeight - 8) top = ev.clientY - h - pad;
+  tip.style.left = `${Math.max(8, left)}px`;
+  tip.style.top = `${Math.max(8, top)}px`;
+}
+function hideTip() { tip.hidden = true; }
+document.addEventListener("pointerover", ev => { const t = ev.target.closest && ev.target.closest("[data-tip]"); if (t) showTip(ev, t.getAttribute("data-tip")); });
+document.addEventListener("pointermove", ev => { const t = ev.target.closest && ev.target.closest("[data-tip]"); if (t) showTip(ev, t.getAttribute("data-tip")); });
+document.addEventListener("pointerout", ev => { if (ev.target.closest && ev.target.closest("[data-tip]")) hideTip(); });
+
+/* ---- the report ---- */
+const facts = document.getElementById("facts");
+for (const [k, v] of DATA.facts) {
+  const d = document.createElement("div");
+  d.innerHTML = "<dt></dt><dd></dd>";
+  d.firstChild.textContent = k; d.lastChild.textContent = v;
+  facts.appendChild(d);
+}
+for (const [id, claim] of Object.entries(DATA.claims)) { const node = document.getElementById(id); if (node) node.innerHTML = claim; }
+
+const solvedText = s => `${s.solved}/${s.n}`;
+function e1Groups(metric, fmtv, unit) {
+  return DATA.models.filter(m => DATA.e1.some(r => r.model === m.id)).map(m => ({
+    name: m.name, color: MODEL_VAR[m.id],
+    bars: ["prebook", "bare", "intro"].map(arm => {
+      const r = DATA.e1.find(q => q.model === m.id && q.arm === arm);
+      if (!r) return { id: arm, stat: null, solvedText: "" };
+      if (r.delivered === false) return { id: arm, stat: null, solvedText: "", note: "not sent" };
+      const s = r[metric];
+      return { id: arm, stat: s, solvedText: solvedText(r),
+        tip: `${m.name}\n${{ prebook: "Pre-book English", bare: "Braille only", intro: "Braille + introduction" }[arm]}: ${solvedText(r)} solved\nmedian ${fmtv(s.median)} ${unit}\nrange ${fmtv(s.min)} to ${fmtv(s.max)}\nturns ${r.turns.median}` };
+    })
+  }));
+}
+panels(document.getElementById("c-e1-fresh"), e1Groups("fresh", fmt, "tokens"),
+  { metric: "uncached prompt tokens", categoryName: "wire", tick: shortNum, value: v => shortNum(v), axis: "uncached tokens" });
+panels(document.getElementById("c-e1-wall"), e1Groups("wall", fmt1, "s"),
+  { metric: "wall seconds", categoryName: "wire", tick: v => `${Math.round(v)}`, value: v => `${fmt1(v)} s`, axis: "seconds" });
+table(document.getElementById("t-e1"), ["model", "wire", "solved", "turns", "uncached tokens", "range", "all prompt tokens", "wall s", "host"],
+  DATA.e1.map(r => [modelName(r.model), armName(r.arm), `${r.solved}/${r.n}`, r.turns.median, fmt(r.fresh.median),
+    `${fmt(r.fresh.min)}–${fmt(r.fresh.max)}`, fmt(r.prompt.median), fmt1(r.wall.median), r.host]));
+
+/* E2: the introduction and the bare wire, relative to pre-book, by session length */
+const e2series = arm => DATA.e2.map(m => ({
+  name: modelName(m.model), color: MODEL_VAR[m.model], markers: true,
+  endLabel: modelName(m.model).split(" ")[0],
+  points: m.points.filter(p => p.prebook && p[arm]).map(p => ({ x: p.requests, y: 100 * (p[arm] - p.prebook) / p.prebook }))
+}));
+const e2opts = (label, ylabel) => ({ label, yLabel: ylabel, xLabel: "requests in the session", xticks: [9, 51, 102, 213],
+  ytick: v => `${v > 0 ? "+" : ""}${Math.round(v)}%`, ytip: v => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`, xtipLabel: v => `${v} requests`, xmin: 0, xmax: 213 });
+lines(document.getElementById("c-e2-intro"), e2series("intro"), e2opts("Braille plus introduction against pre-book", "braille + intro vs pre-book"));
+lines(document.getElementById("c-e2-bare"), e2series("bare"), e2opts("Braille only against pre-book", "braille only vs pre-book"));
+document.getElementById("l-e2").innerHTML = DATA.e2.map(m => `<span><span class="swatch" style="background:var(${MODEL_VAR[m.model]})"></span>${modelName(m.model)}</span>`).join("");
+table(document.getElementById("t-e2"), ["model", "requests", "pre-book", "braille", "braille + intro"],
+  DATA.e2.flatMap(m => m.points.map(p => [modelName(m.model), p.requests, fmt(p.prebook), fmt(p.bare), fmt(p.intro)])));
+
+/* Harness speed on the stub */
+const st = DATA.stub;
+hbars(document.getElementById("c-stub"), [
+  { label: "Baseline", value: st.base.wall_ms.median / 1000, color: "--ink-3", valueLabel: `${fmt1(st.base.wall_ms.median / 1000)} s`, tip: `Baseline 3295966\nmedian ${fmt1(st.base.wall_ms.median / 1000)} s (n=${st.base.wall_ms.n})` },
+  { label: "Current", value: st.head.wall_ms.median / 1000, color: "--ink", valueLabel: `${fmt1(st.head.wall_ms.median / 1000)} s`, tip: `Current build\nmedian ${fmt1(st.head.wall_ms.median / 1000)} s (n=${st.head.wall_ms.n})` },
+], { label: "213-request session wall time", title: "213-request scripted session", xLabel: "seconds", tick: v => `${Math.round(v)}` });
+hbars(document.getElementById("c-ttfr"), [
+  { label: "Baseline", value: st.base.startup_ms.median, color: "--ink-3", valueLabel: `${fmt(st.base.startup_ms.median)} ms`, tip: `Baseline\nmedian ${fmt(st.base.startup_ms.median)} ms (n=${st.base.startup_ms.n})` },
+  { label: "Current", value: st.head.startup_ms.median, color: "--ink", valueLabel: `${fmt(st.head.startup_ms.median)} ms`, tip: `Current\nmedian ${fmt(st.head.startup_ms.median)} ms (n=${st.head.startup_ms.n})` },
+], { label: "Time to first request", title: "Time to first request", xLabel: "milliseconds", tick: v => `${Math.round(v)}` });
+
+/* E5 behind a real model */
+function e5Groups(metric, fmtv, unit) {
+  return DATA.models.filter(m => DATA.e5.some(r => r.model === m.id)).map(m => ({
+    name: m.name, color: MODEL_VAR[m.id],
+    bars: ["base", "head"].map(build => {
+      const r = DATA.e5.find(q => q.model === m.id && q.build === build);
+      if (!r) return { id: build, stat: null, solvedText: "" };
+      const s = r[metric];
+      return { id: build, stat: s, solvedText: solvedText(r),
+        tip: `${m.name}\n${armName(build)}: ${solvedText(r)}\nmedian ${fmtv(s.median)} ${unit}\nrange ${fmtv(s.min)} to ${fmtv(s.max)}` };
+    })
+  }));
+}
+panels(document.getElementById("c-e5-startup"), e5Groups("startup_ms", fmt, "ms"),
+  { metric: "startup ms", categoryName: "build", tick: v => shortNum(v), value: v => `${fmt(v)}`, axis: "milliseconds" });
+panels(document.getElementById("c-e5-harness"), e5Groups("harness_ms", fmt, "ms"),
+  { metric: "harness ms per task", categoryName: "build", tick: v => shortNum(v), value: v => `${fmt(v)}`, axis: "milliseconds" });
+table(document.getElementById("t-e5"), ["model", "build", "solved", "wall ms", "model ms", "tools ms", "harness ms", "startup ms", "harness share"],
+  DATA.e5.map(r => [modelName(r.model), armName(r.build), `${r.solved}/${r.n}`, fmt(r.wall_ms.median), fmt(r.model_ms.median), fmt(r.tool_ms.median),
+    fmt(r.harness_ms.median), fmt(r.startup_ms.median), `${(100 * r.harness_ms.median / r.wall_ms.median).toFixed(2)}%`]));
+
+/* DeepSeek */
+const ds = DATA.dsab;
+const dsGroup = (metric, fmtv, unit) => [{
+  name: "DeepSeek flash", color: "--m-deepseek",
+  bars: ds.map(r => ({ id: r.arm, stat: r[metric], solvedText: solvedText(r),
+    tip: `${r.name}: ${solvedText(r)}\nmedian ${fmtv(r[metric].median)} ${unit}\nrange ${fmtv(r[metric].min)} to ${fmtv(r[metric].max)}` }))
+}];
+const dsHost = document.getElementById("c-dsab");
+const dsLabel = id => ({ base: "Before", chat: "Fixed", msgs: "Messages" }[id] || id);
+panels(dsHost, dsGroup("fresh", fmt, "tokens").map(g => ({ ...g, name: "Uncached tokens" })),
+  { metric: "uncached tokens", categoryName: "arm", tick: shortNum, value: v => shortNum(v), axis: "tokens", catLabel: dsLabel });
+panels(dsHost, dsGroup("wall", fmt1, "s").map(g => ({ ...g, name: "Wall time" })),
+  { metric: "wall seconds", categoryName: "arm", tick: v => `${Math.round(v)}`, value: v => `${fmt1(v)} s`, axis: "seconds", catLabel: dsLabel });
+panels(dsHost, dsGroup("startup_ms", fmt, "ms").map(g => ({ ...g, name: "Startup" })),
+  { metric: "startup ms", categoryName: "arm", tick: v => shortNum(v), value: v => `${fmt(v)}`, axis: "milliseconds", catLabel: dsLabel });
+const fu = DATA.followup;
+hbars(document.getElementById("c-follow"), fu.map(r => ({
+  label: r.name, value: 100 * r.cached / r.prompt, color: r.name === "After" ? "--m-deepseek" : "--ink-3",
+  valueLabel: `${Math.round(100 * r.cached / r.prompt)}%`,
+  tip: `${r.name}\n${fmt(r.cached)} of ${fmt(r.prompt)} prompt tokens from cache`
+})), { label: "Follow-up cache hit", title: "Follow-up request served from cache", xLabel: "percent of the prompt", tick: v => `${Math.round(v)}%`, width: 880 });
+
+const loopColor = { "Before the fixes (Chat)": "--ink-3", "Fixed (Chat)": "--t-chat", "Fixed (Messages API)": "--t-msgs" };
+const loops = DATA.loops.filter(l => l.series.length > 1);
+if (loops.length) {
+  const maxI = Math.min(...loops.map(l => l.series.length));
+  lines(document.getElementById("c-loops"), loops.map(l => ({
+    name: l.name, color: loopColor[l.name] || "--ink-2", dashed: l.name.startsWith("Before"),
+    endLabel: l.name.startsWith("Before") ? "Before" : l.name.includes("Messages") ? "Messages" : "Chat",
+    points: l.series.filter(p => p.i <= maxI).map(p => ({ x: p.i, y: p.uncached_cum }))
+  })), { label: "Cumulative uncached tokens in a DeepSeek heesch loop", yLabel: "uncached tokens so far", xLabel: "request",
+    xticks: [1, Math.round(maxI / 4), Math.round(maxI / 2), Math.round(3 * maxI / 4), maxI], xmin: 1, xmax: maxI, width: fitWidth("c-loops"), height: 300,
+    ytick: shortNum, ytip: v => `${fmt(v)} tokens`, xtipLabel: v => `request ${v}` });
+  document.getElementById("l-loops").innerHTML = loops.map(l => `<span>${l.name.startsWith("Before") ? '<span class="dash"></span>' : `<span class="swatch" style="background:var(${loopColor[l.name]})"></span>`}${l.name}</span>`).join("");
+  table(document.getElementById("t-loops"), ["loop", "host", "requests", "prompt tokens", "cache hits", "hit rate", "uncached"],
+    loops.map(l => [l.name, l.host, l.requests, fmt(l.prompt), fmt(l.cached), `${(100 * l.cached / l.prompt).toFixed(1)}%`, fmt(l.prompt - l.cached)]));
+}
+
+/* The legend against English at every sighting */
+const VSE = DATA.vsenglish;
+const VSE_WIRE = { intro: "Legend", every: "English every time", prebook: "Pre-book English", bare: "Braille only", nocue: "No cue" };
+const VSE_COLOR = { every: "--t-chat", prebook: "--ink-3", bare: "--t-msgs" };
+if (VSE && VSE.tokens.length) {
+  const legend = VSE.tokens.find(t => t.wire === "intro");
+  const at = n => legend.points.find(p => p.requests === n).prompt;
+  const others = VSE.tokens.filter(t => t.wire !== "intro");
+  lines(document.getElementById("c-vse-tokens"), others.map(t => ({
+    name: VSE_WIRE[t.wire], color: VSE_COLOR[t.wire], markers: true, dashed: t.wire === "prebook",
+    endLabel: { every: "Every time", prebook: "Pre-book", bare: "Braille" }[t.wire],
+    points: t.points.map(p => ({ x: p.requests, y: p.prompt - at(p.requests) }))
+  })), { label: "Prompt tokens against the legend through one turn", yLabel: "prompt tokens vs the legend",
+    xLabel: "requests in the turn", xticks: [9, 51, 102, 213], xmin: 0, xmax: 213,
+    ytick: v => `${v > 0 ? "+" : ""}${shortNum(v)}`, ytip: v => `${v > 0 ? "+" : ""}${fmt(v)} tokens`, xtipLabel: v => `request ${v}` });
+  const t2 = VSE.turn2;
+  const order = ["intro", "every", "prebook", "bare", "nocue"];
+  const t2rows = order.map(w => t2.find(c => c.arm === w)).filter(Boolean);
+  hbars(document.getElementById("c-vse-turn2-tokens"), t2rows.map(c => ({
+    label: { intro: "Legend", every: "Every time", prebook: "Pre-book", bare: "Braille", nocue: "No cue" }[c.arm], value: c.prompt,
+    color: c.arm === "intro" ? "--m-deepseek" : (VSE_COLOR[c.arm] || "--ink-3"), valueLabel: fmt(c.prompt),
+    tip: `${VSE_WIRE[c.arm]}\n${fmt(c.prompt)} prompt tokens at the turn-2 decision`
+  })), { label: "Prompt tokens at the second sighting", title: "Prompt tokens at turn 2's decision", xLabel: "prompt tokens", tick: shortNum });
+  document.getElementById("l-vse").innerHTML = others.map(t => `<span>${t.wire === "prebook" ? '<span class="dash"></span>' : `<span class="swatch" style="background:var(${VSE_COLOR[t.wire]})"></span>`}${VSE_WIRE[t.wire]}</span>`).join("");
+  panels(document.getElementById("c-vse-turn2"), [{
+    name: "DeepSeek flash", color: "--m-deepseek",
+    bars: order.map(w => {
+      const c = t2.find(q => q.arm === w);
+      if (!c) return { id: w, stat: null, solvedText: "" };
+      return { id: w, stat: { median: c.rate, min: c.lo, max: c.hi }, solvedText: `${c.match}/${c.n}`,
+        tip: `${VSE_WIRE[w]}: ${c.match} of ${c.n} batched\n95% interval ${pct(c.lo)} to ${pct(c.hi)}\nnext moves: ${c.moves.map(([k, v]) => `${k} ×${v}`).join(", ")}` };
+    })
+  }], { metric: "share batching the next reads", categoryName: "wire", ymax: 1, top: 36, width: 420, tick: pct, value: pct, axis: "took the action",
+        catLabel: id => ({ intro: "Legend", every: "Every", prebook: "English", bare: "Braille", nocue: "No cue" }[id]) });
+  const legendTurns = (VSE.turns || []).find(t => t.wire === "intro");
+  if (legendTurns) {
+    const base = k => legendTurns.points.find(p => p.turn === k).prompt;
+    lines(document.getElementById("c-vse-turns"), VSE.turns.filter(t => t.wire !== "intro").map(t => ({
+      name: VSE_WIRE[t.wire], color: VSE_COLOR[t.wire], markers: true,
+      endLabel: { every: "Every time", bare: "Braille" }[t.wire],
+      points: t.points.map(p => ({ x: p.turn, y: p.prompt - base(p.turn) }))
+    })), { label: "Prompt tokens against the legend, turn by turn", yLabel: "prompt tokens vs the legend, end of each turn",
+      xLabel: "turn", xticks: [1, 5, 10, 15, 20], xmin: 1, xmax: 20, width: fitWidth("c-vse-turns"), height: 280,
+      ytick: v => `${v > 0 ? "+" : ""}${shortNum(v)}`, ytip: v => `${v > 0 ? "+" : ""}${fmt(v)} tokens`, xtipLabel: v => `turn ${v}` });
+  }
+  document.getElementById("vsenglish-caption").textContent = VSE.caption;
+  table(document.getElementById("t-vse"), ["wire", ...legend.points.map(p => `request ${p.requests}`), "turn-2 decision tokens", "turn-2 batched"],
+    order.map(w => {
+      const t = VSE.tokens.find(q => q.wire === w), c = t2.find(q => q.arm === w);
+      return [VSE_WIRE[w], ...legend.points.map(p => t ? fmt(t.points.find(q => q.requests === p.requests).prompt) : "–"),
+        c ? fmt(c.prompt) : "–", c ? `${c.match}/${c.n}` : "–"];
+    }));
+}
+
+/* The decision test: the share of replies whose next move is the route's action */
+const decideHost = document.getElementById("decide-body");
+const WIRE = { prebook: "Pre-book English", nocue: "Braille, this cue removed", bare: "Braille only", intro: "Braille + introduction" };
+if (DATA.decide && DATA.decide.cells.length) {
+  for (const point of DATA.decide.points) {
+    const figure = document.createElement("div");
+    figure.className = "figure";
+    const head = document.createElement("h3");
+    head.textContent = `${point.route} ${point.name}: ${point.action}`;
+    figure.appendChild(head);
+    const host = document.createElement("div");
+    host.className = "panels two";
+    figure.appendChild(host);
+    decideHost.appendChild(figure);
+    const groups = DATA.models.filter(m => DATA.decide.cells.some(c => c.model === m.id)).map(m => ({
+      name: m.name, color: MODEL_VAR[m.id],
+      bars: ["prebook", "nocue", "bare", "intro"].map(arm => {
+        const c = DATA.decide.cells.find(q => q.scenario === point.id && q.model === m.id && q.arm === arm);
+        if (!c) return { id: arm, stat: null, solvedText: "", note: "none" };
+        return { id: arm, stat: { median: c.rate, min: c.lo, max: c.hi }, solvedText: `${c.match}/${c.n}`,
+          tip: `${m.name}\n${WIRE[arm]}: ${c.match} of ${c.n} took the action\n95% interval ${pct(c.lo)} to ${pct(c.hi)}\n` +
+               `next moves: ${c.moves.map(([k, v]) => `${k} ×${v}`).join(", ")}\nprompt ${fmt(c.prompt)} tokens, ${fmt1(c.secs)} s` };
+      })
+    }));
+    panels(host, groups, { metric: "share taking the route's action", categoryName: "wire", ymax: 1, top: 36, width: 400, tick: pct, value: pct, axis: "took the action" });
+  }
+  document.getElementById("decide-caption").textContent = DATA.decide.caption;
+  table(document.getElementById("t-decide"), ["point", "model", "wire", "took the action", "95% interval", "next moves", "prompt tokens", "output tokens", "seconds"],
+    DATA.decide.cells.map(c => [c.scenario, modelName(c.model), armName(c.arm), `${c.match}/${c.n}`, `${pct(c.lo)}–${pct(c.hi)}`,
+      c.moves.map(([k, v]) => `${k} ×${v}`).join(", "), fmt(c.prompt), fmt(c.completion), fmt1(c.secs)]));
+}
+</script>

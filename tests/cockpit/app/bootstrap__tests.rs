@@ -35,10 +35,16 @@ fn capabilities_block_names_gates_and_absences() {
             && block.contains("ANGEL_ALLOW_SOTA_DELEGATE=1"),
         "withheld SOTA clubs must name the opt-out and how to restore: {block}"
     );
+    // The header and the no-invented-capabilities rule are the `⠝⠁` pages.
+    let pages = crate::agent::harness::book::n_environment::CAPABILITIES
+        .sub()
+        .pages
+        .join(" ");
     assert!(
-        block.contains("no image-generation tool"),
-        "the no-invented-capabilities line must be present: {block}"
+        pages.contains("no image-generation tool"),
+        "the no-invented-capabilities line must be a page: {pages}"
     );
+    assert!(!block.contains("no image-generation tool"), "{block}");
 
     let block = capabilities_block(&[]);
     assert!(

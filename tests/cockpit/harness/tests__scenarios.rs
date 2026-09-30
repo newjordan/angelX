@@ -5,6 +5,7 @@
 //! shrink while preserving the full harness test inventory.
 
 use super::*;
+use crate::agent::harness::book::v_verification::run_task_accept;
 
 // --- realistic-scenario sweep (streak coverage) --------------------------
 
@@ -488,7 +489,10 @@ fn scenario_cap_tool_output_keeps_ends_and_marks_elision() {
     );
     assert!(capped.contains("line 0"), "keeps head");
     assert!(capped.contains("line 4999"), "keeps tail");
-    assert!(capped.contains("elided"), "marks the elision");
+    assert!(
+        capped.contains(&crate::agent::harness::book::d467_receipts::MIDDLE_LINES.cells()),
+        "marks the elision"
+    );
 }
 
 /// Scenario: list_dir + grep over the real source tree return real results.

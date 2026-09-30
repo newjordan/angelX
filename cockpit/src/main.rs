@@ -37,7 +37,7 @@ use ui::{
 };
 
 use agent_panel::profile::{
-    AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route, specialist_text,
+    AgentProfile, portrait_uses_high_effort, profile_for, profile_for_route,
 };
 use club::{Bag, ChatMsg, ChatRole};
 use hud::{
@@ -68,7 +68,6 @@ use ratatui::{
 use viz::lifecycle_viz::MotionMode;
 
 use std::borrow::Cow;
-use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
@@ -249,8 +248,8 @@ fn run(
     // Calibration has finished; establish the sole input reader before app
     // initialization so typed-ahead bursts are queued in order.
     let terminal_input = input::TerminalInput::start()?;
-    // Bag::standard() assembles the fleet (spark/turbo/atlas + the spark-r1/spark-v4
-    // ports) and falls back to the practice swing if none are up. Tab switches agents.
+    // Bag::standard() assembles the configured clubs and falls back to the
+    // practice swing if none are up. Tab switches agents.
     let mut app = App::new(Bag::standard(), viewer);
     // Cold DNS/TLS/metadata off the first Enter path — fire-and-forget so the
     // event loop opens immediately while the in-hand club warms in the back.
@@ -693,7 +692,6 @@ pub(crate) const BUILD_CAPABILITIES: &[&str] = &[
     "final-mile/v1",
     "yolo/v1",
     "jev-decisions/v1",
-    "repeated-poll-stop/v1",
     "benchmark-comparison/v1",
 ];
 
@@ -1129,7 +1127,7 @@ fn main() -> std::io::Result<()> {
             // (run_turn + ToolRegistry::with_team) so the agent actually reads,
             // edits, and runs inside a workspace. For coding/agentic benchmarks.
             // The in-hand club must be a tool-calling model — set ANGEL_DRIVER to a
-            // fleet label (spark/gemma/atlas); the text-only swarm won't call tools.
+            // tool-calling club label (e.g. `local`); the text-only swarm won't call tools.
             // Workspace: --workspace DIR, else ANGEL_WORKSPACE, else the default.
             // Bounded by the usual guardians (ANGEL_MAX_HOPS, ANGEL_TURN_DEADLINE_SECS).
             // `--task-json` is accepted as either the entrypoint or a modifier:
@@ -1368,6 +1366,16 @@ fn main() -> std::io::Result<()> {
                 "workspace_recon_ms",
                 recon_started.elapsed().as_millis(),
             );
+            // A per-task skill hint rides the prompt head, so it decides whether
+            // hop 1 can share a prefix across a cohort of tasks.
+            if harness::env_flag("ANGEL_DEBUG_SKILL_HINT", false) {
+                match skill_hint.as_deref() {
+                    Some(hint) => {
+                        eprintln!("[task][cache] skill hint prepended: {} bytes", hint.len())
+                    }
+                    None => eprintln!("[task][cache] no skill hint selected"),
+                }
+            }
             let prompt = match skill_hint {
                 Some(hint) => format!("{hint}{prompt}"),
                 None => prompt.to_string(),
@@ -1394,14 +1402,13 @@ fn main() -> std::io::Result<()> {
                 )));
             }
             history.push(ChatMsg::user(prompt));
-            if std::env::var("ANGEL_RELENTLESS_EXECUTION")
-                .map(|v| v != "0")
-                .unwrap_or(false)
+            // Relentless execution armed: the task opens with its route, `⠗⠁`.
+            if harness::env_flag("ANGEL_RELENTLESS_EXECUTION", false)
                 && let Some(user) = history.last_mut()
             {
                 user.content = format!(
                     "{}\n\n{}",
-                    harness::RELENTLESS_EXECUTION_DIRECTIVE,
+                    harness::book::r_relentless::ARMED.cells(),
                     user.content
                 )
                 .into();

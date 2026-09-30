@@ -43,8 +43,7 @@ impl CompetitionPackage {
     /// Whether `program operand` is this family's own local measurement, the
     /// board CLI's benchmark run. A loop counts it as a measured candidate like
     /// any `bench*` script; a night-long Yukon loop measured with `yukon run`
-    /// on every iteration and was told it had measured nothing (apollo,
-    /// 2026-09-24).
+    /// on every iteration and was told it had measured nothing (2026-09-24).
     pub(crate) fn measures(&self, program: &str, operand: Option<&str>) -> bool {
         match self.id {
             "yukon" => program == "yukon" && matches!(operand, Some("run" | "validate")),
@@ -80,8 +79,7 @@ pub(crate) fn active_package() -> &'static CompetitionPackage {
 }
 
 /// Set when [`active_package`] fell back because `ANGEL_COMP_PACKAGE` named an
-/// unknown family. Kept for the operator status surface that will surface it.
-#[allow(dead_code)]
+/// unknown family; the /loop start notice carries it.
 pub(crate) fn selection_error() -> Option<String> {
     let id = std::env::var("ANGEL_COMP_PACKAGE").ok()?;
     let id = id.trim();

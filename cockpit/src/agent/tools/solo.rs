@@ -10,13 +10,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// Process-wide latch so tools (which lack `App`) honor `/solo` without env races.
 static SOLO_LATCH: AtomicBool = AtomicBool::new(false);
 
-/// Standing steer injected into turn context while solo is on.
-pub const SOLO_MODE_DIRECTIVE: &str = "[solo mode active] You own this workload. Do the work \
-yourself with local tools. Do not consult_model, code_review, delegate, or spawn to openai, \
-codex, chatgpt, grok, sota-moa, sota-swarm, or any other paid/remote SOTA seat. \
-Self-test: mutate, run the smallest relevant verifier, read diagnostics, fix from evidence. \
-Outsourcing reasoning is a failure of this mode. If blocked, name the blocker — do not call Codex.";
-
 /// Arm/disarm solo from `/solo` (also mirrored into `ANGEL_SOLO` for child tools).
 pub fn set_solo_mode(on: bool) {
     SOLO_LATCH.store(on, Ordering::Relaxed);
@@ -79,15 +72,18 @@ pub fn deny_sota_if_blocked_except(label: &str, self_label: Option<&str>) -> Res
     }
     if solo_mode_active() {
         return Err(format!(
-            "solo mode: refusing paid/remote seat '{label}'. Do the work yourself with local tools \
-             (read/edit/test). /solo off only if the operator explicitly wants outsourcing."
+            "solo mode: refusing paid/remote seat '{label}'.\n{}",
+            crate::agent::harness::book::d46_recovery::run(&[
+                crate::agent::harness::book::d56_replies::LOCAL_TOOLS,
+                crate::agent::harness::book::d56_replies::SOLO_OFF,
+            ])
         ));
     }
     if !allow_sota_consult() {
         return Err(format!(
-            "paid/remote seat '{label}' is blocked for mid-turn consult/review \
-             (set ANGEL_ALLOW_SOTA_CONSULT=1 to permit, or pick a local fleet club). \
-             Current setting: ANGEL_ALLOW_SOTA_CONSULT disables remote consultation."
+            "paid/remote seat '{label}' is blocked for mid-turn consult/review. \
+             Current setting: ANGEL_ALLOW_SOTA_CONSULT disables remote consultation.\n{}",
+            crate::agent::harness::book::d56_replies::PERMIT_CONSULT.cells()
         ));
     }
     Ok(())

@@ -3,13 +3,14 @@
 //! Workflow:
 //! 1. `read_file` scans the page (or whole file when small) for well-formed
 //!    `<<<<<<<` / `=======` / `>>>>>>>` blocks (optional diff3 `|||||||` base).
-//! 2. Each completed block is registered in a process-wide history and gets a
-//!    stable numeric id.
+//! 2. Each completed block is registered for its canonical workspace and gets
+//!    a process-wide stable numeric id.
 //! 3. The agent resolves with `write_file path=conflict://N content=@theirs`
 //!    (or `@ours` / `@base` / custom body). The recorded region is spliced out
 //!    of the live file by content match, not brittle line numbers alone.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 const OURS_PREFIX: &str = "<<<<<<<";
@@ -40,6 +41,7 @@ pub(crate) struct ConflictBlock {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ConflictEntry {
     pub id: u32,
+    workspace: PathBuf,
     pub path: String,
     pub block: ConflictBlock,
 }
@@ -106,10 +108,10 @@ pub(crate) fn parse_conflict_uri(raw: &str) -> Result<ConflictUri, String> {
     };
     if id_part == "*" {
         if scope_part.is_some() {
-            return Err(
-                "conflict://* does not accept a scope segment; use conflict://N/ours|theirs|base"
-                    .into(),
-            );
+            return Err(format!(
+                "conflict://* does not accept a scope segment\n{}",
+                crate::agent::harness::book::d46_recovery::CONFLICT_SCOPE_ONE.cells()
+            ));
         }
         return Ok(ConflictUri::All);
     }
@@ -129,7 +131,8 @@ pub(crate) fn parse_conflict_uri(raw: &str) -> Result<ConflictUri, String> {
         Some("base") => Some(ConflictScope::Base),
         Some(other) => {
             return Err(format!(
-                "invalid conflict scope {other:?}; use ours, theirs, or base"
+                "invalid conflict scope {other:?}\n{}",
+                crate::agent::harness::book::d46_recovery::CONFLICT_SCOPES.cells()
             ));
         }
     };
@@ -292,13 +295,17 @@ struct ConflictHistory {
 }
 
 impl ConflictHistory {
-    fn register(&mut self, path: &str, block: ConflictBlock) -> ConflictEntry {
-        // Reuse id when the same path+start_line is re-read.
+    fn register(&mut self, workspace: &Path, path: &str, block: ConflictBlock) -> ConflictEntry {
+        // Reuse an id only inside the workspace where the conflict was read.
         for existing in self.by_id.values() {
-            if existing.path == path && existing.block.start_line == block.start_line {
+            if existing.workspace == workspace
+                && existing.path == path
+                && existing.block.start_line == block.start_line
+            {
                 let id = existing.id;
                 let entry = ConflictEntry {
                     id,
+                    workspace: workspace.to_path_buf(),
                     path: path.to_string(),
                     block,
                 };
@@ -313,6 +320,7 @@ impl ConflictHistory {
         self.next_id = self.next_id.saturating_add(1);
         let entry = ConflictEntry {
             id,
+            workspace: workspace.to_path_buf(),
             path: path.to_string(),
             block,
         };
@@ -320,22 +328,32 @@ impl ConflictHistory {
         entry
     }
 
-    fn get(&self, id: u32) -> Option<&ConflictEntry> {
-        self.by_id.get(&id)
+    fn get(&self, workspace: &Path, id: u32) -> Option<&ConflictEntry> {
+        self.by_id
+            .get(&id)
+            .filter(|entry| entry.workspace == workspace)
     }
 
-    fn entries(&self) -> Vec<ConflictEntry> {
-        let mut v: Vec<_> = self.by_id.values().cloned().collect();
+    fn entries(&self, workspace: &Path) -> Vec<ConflictEntry> {
+        let mut v: Vec<_> = self
+            .by_id
+            .values()
+            .filter(|entry| entry.workspace == workspace)
+            .cloned()
+            .collect();
         v.sort_by_key(|e| e.id);
         v
     }
 
-    fn invalidate(&mut self, id: u32) {
-        self.by_id.remove(&id);
+    fn invalidate(&mut self, workspace: &Path, id: u32) {
+        if self.get(workspace, id).is_some() {
+            self.by_id.remove(&id);
+        }
     }
 
-    fn invalidate_path(&mut self, path: &str) {
-        self.by_id.retain(|_, e| e.path != path);
+    fn invalidate_path(&mut self, workspace: &Path, path: &str) {
+        self.by_id
+            .retain(|_, e| e.workspace != workspace || e.path != path);
     }
 
     #[cfg(test)]
@@ -354,26 +372,40 @@ fn history() -> std::sync::MutexGuard<'static, ConflictHistory> {
     }
 }
 
+/// Use the same pinned canonical workspace identity as the file tools. Aliases
+/// of one workspace share conflicts; sibling worktrees keep separate entries.
+fn workspace_key(root: &Path) -> PathBuf {
+    crate::agent::harness::WorkspaceBoundary::cached(root).canonical_root
+}
+
 /// Register conflicts found on `path` and return the assigned entries.
-pub(crate) fn register_conflicts(path: &str, blocks: &[ConflictBlock]) -> Vec<ConflictEntry> {
+pub(crate) fn register_conflicts(
+    root: &Path,
+    path: &str,
+    blocks: &[ConflictBlock],
+) -> Vec<ConflictEntry> {
+    let workspace = workspace_key(root);
     let mut h = history();
-    blocks.iter().map(|b| h.register(path, b.clone())).collect()
+    blocks
+        .iter()
+        .map(|b| h.register(&workspace, path, b.clone()))
+        .collect()
 }
 
-pub(crate) fn get_conflict(id: u32) -> Option<ConflictEntry> {
-    history().get(id).cloned()
+pub(crate) fn get_conflict(root: &Path, id: u32) -> Option<ConflictEntry> {
+    history().get(&workspace_key(root), id).cloned()
 }
 
-pub(crate) fn list_conflicts() -> Vec<ConflictEntry> {
-    history().entries()
+pub(crate) fn list_conflicts(root: &Path) -> Vec<ConflictEntry> {
+    history().entries(&workspace_key(root))
 }
 
-pub(crate) fn invalidate_conflict(id: u32) {
-    history().invalidate(id);
+pub(crate) fn invalidate_conflict(root: &Path, id: u32) {
+    history().invalidate(&workspace_key(root), id);
 }
 
-pub(crate) fn invalidate_conflicts_for_path(path: &str) {
-    history().invalidate_path(path);
+pub(crate) fn invalidate_conflicts_for_path(root: &Path, path: &str) {
+    history().invalidate_path(&workspace_key(root), path);
 }
 
 #[cfg(test)]
@@ -440,8 +472,9 @@ pub(crate) fn splice_conflict(
     let span_len = expected.len();
     if span_len == 0 || n < span_len {
         return Err(format!(
-            "conflict://{}: recorded region no longer fits in the file; re-read",
-            entry.id
+            "conflict://{}: recorded region no longer fits in the file\n{}",
+            entry.id,
+            crate::agent::harness::book::d46_recovery::CONFLICT_REREAD.cells()
         ));
     }
 
@@ -471,16 +504,19 @@ pub(crate) fn splice_conflict(
             [one] => match_at = Some(*one),
             [] => {
                 return Err(format!(
-                    "conflict://{}: marker block for {} not found (already resolved or edited); re-read",
-                    entry.id, entry.path
+                    "conflict://{}: marker block for {} not found (already resolved or edited)\n{}",
+                    entry.id,
+                    entry.path,
+                    crate::agent::harness::book::d46_recovery::CONFLICT_REREAD.cells()
                 ));
             }
             _ => {
                 return Err(format!(
-                    "conflict://{}: marker block matched {} times in {}; re-read and resolve carefully",
+                    "conflict://{}: marker block matched {} times in {}\n{}",
                     entry.id,
                     hits.len(),
-                    entry.path
+                    entry.path,
+                    crate::agent::harness::book::d46_recovery::CONFLICT_REREAD_CAREFULLY.cells()
                 ));
             }
         }
@@ -542,9 +578,11 @@ pub(crate) fn format_conflict_footer(entries: &[ConflictEntry]) -> String {
     if entries.is_empty() {
         return String::new();
     }
+    // The count stays; how to resolve is the page beside it.
     let mut lines = vec![format!(
-        "⚠ {} merge conflict(s) — resolve with write_file path=conflict://N content=@ours|@theirs|@base|custom:",
-        entries.len()
+        "⚠ {} merge conflict(s) {}",
+        entries.len(),
+        crate::agent::harness::book::d46_recovery::CONFLICT_FOOTER.cells()
     )];
     for e in entries {
         let span = e.block.end_line.saturating_sub(e.block.start_line) + 1;
@@ -607,9 +645,9 @@ pub(crate) fn format_conflict_detail(
                 out.push_str(line);
                 out.push('\n');
             }
-            out.push_str("Resolve: write_file path=conflict://");
             out.push_str(&format!(
-                "{} content=@ours|@theirs|@base|@both|custom\n",
+                "{} id={}\n",
+                crate::agent::harness::book::d46_recovery::CONFLICT_RESOLVE.cells(),
                 entry.id
             ));
             out

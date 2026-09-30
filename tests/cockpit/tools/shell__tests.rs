@@ -270,7 +270,10 @@ fn shell_tool_honors_registry_cancel_authority() {
     let error = registry
         .dispatch_with_cancel(
             "shell",
-            &serde_json::json!({"command": "sleep 30 & wait"}),
+            // `sleep 2 & wait`: under the sleep guard's 10s bar, so the only
+            // thing that can stop it is the registry cancel token firing
+            // mid-run (the guard rejects longer sleeps outright now).
+            &serde_json::json!({"command": "sleep 2 & wait"}),
             Some(cancel.as_ref()),
         )
         .expect_err("operator cancellation must fail the active tool call");
@@ -453,7 +456,11 @@ fn lifecycle_signal_killed_shell_returns_failed_inconclusive_receipt() {
     let error = tool
         .call(&serde_json::json!({"command":"kill -KILL $$"}))
         .unwrap_err();
-    assert!(error.contains("signal 9"), "{error}");
+    // The kill is `⡨⠉⠃` inside its bracket, the signal beside it.
+    assert!(
+        error.contains("[⡨⠉⠃ reason=signal:SIGKILL signal=9]"),
+        "{error}"
+    );
     let call = crate::agent::club::ToolCall {
         id: "killed".into(),
         name: "shell".into(),
@@ -579,9 +586,9 @@ fn t06c_stdin_eof_and_signal_names() {
     for signal in ["TERM", "KILL", "SEGV"] {
         let args = serde_json::json!({"command":format!("ulimit -c 0; kill -{signal} $$")});
         let error = tool.call(&args).unwrap_err();
-        assert!(error.contains(&format!("killed by SIG{signal}")), "{error}");
+        // The kill is `⡨⠉⠃` inside its bracket, the signal beside it.
         assert!(
-            error.contains(&format!("reason=signal:SIG{signal}")),
+            error.contains(&format!("[⡨⠉⠃ reason=signal:SIG{signal} signal=")),
             "{error}"
         );
         let call = crate::agent::club::ToolCall {
@@ -610,21 +617,25 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     let dir = scratch("flow01-guidance");
     let tool = ShellTool::in_dir(dir.clone());
     let def = tool.def();
+    // The guidance is the pages of shell's section; the schema names it.
+    let pages = crate::agent::harness::book::sh_shell::PRIMARY.subs[0]
+        .pages
+        .join(" ");
     for needle in [
         "earliest prerequisite failure",
         "usable input before dependent measurements",
         "zero performance",
+        "valid `$url`",
+        "quiet success",
+        "quoted text",
     ] {
         assert!(
-            def.description.contains(needle),
-            "missing guidance {needle:?} in {}",
-            def.description
+            pages.contains(needle),
+            "missing guidance {needle:?} in {pages}"
         );
     }
-    let params = def.params.to_string();
-    assert!(params.contains("valid `$url`"));
-    assert!(params.contains("quiet success"));
-    assert!(params.contains("quoted text"));
+    assert!(def.description.ends_with("⠩⠁"), "{}", def.description);
+    assert!(def.params.to_string().contains("⠩⠁"));
 
     let quoted = tool
         .call(&serde_json::json!({
@@ -672,5 +683,46 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
         }
     }
 
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A turn-driven shell call always carries a cancel token, so the sleep guard
+/// used to be skipped entirely (`cancel.is_none()`) — `sleep 240` ran to
+/// completion and a queued steer waited out every second of it (rig B,
+/// overwatch 2026-09-25: "steer couldn't break a running sleep"). The guard
+/// must fire with an unfired token present; only an already-fired cancel
+/// outranks it, so the runner still observes the cancellation.
+#[test]
+fn turn_shell_with_unfired_cancel_still_rejects_excessive_sleep() {
+    use std::sync::atomic::AtomicBool;
+
+    let _guard = crate::tests::env_lock();
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
+
+    let dir = scratch("sleep-guard-cancel");
+    let tool = ShellTool::in_dir(dir.clone());
+    let unfired = AtomicBool::new(false);
+    let started = std::time::Instant::now();
+    let out = tool
+        .call_with_cancel(&serde_json::json!({"command": "sleep 240"}), Some(&unfired))
+        .unwrap_err();
+    assert!(
+        out.contains("sleep"),
+        "the receipt must name the sleep: {out}"
+    );
+    assert!(
+        started.elapsed().as_secs() < 30,
+        "the guard must reject before the sleep runs, took {:?}",
+        started.elapsed()
+    );
+    // An already-fired cancel outranks the guard: the runner observes the
+    // cancellation instead of a rejection receipt (`sleep 1`, not `sleep 240`,
+    // so a regression here cannot burn two minutes).
+    let fired = AtomicBool::new(true);
+    // A fired token returns the cancellation error before spawn: exactly the
+    // "runner observes the cancel" behavior the old comment promised.
+    let out2 = tool.call_with_cancel(&serde_json::json!({"command": "sleep 1"}), Some(&fired));
+    assert_eq!(out2.unwrap_err(), "execution cancelled before spawn");
     let _ = std::fs::remove_dir_all(&dir);
 }

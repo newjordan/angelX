@@ -276,6 +276,76 @@ fn lifecycle_sigint_exit_reaps_entire_binary_tree() {
     assert_no_orphans(root, &before);
 }
 
+/// A closed terminal (SIGHUP) takes the orderly SIGTERM path: the main process
+/// reaps every owned descendant before it exits. Before, SIGHUP's default
+/// action ended the cockpit and left its helpers' jobs running.
+#[test]
+fn lifecycle_sighup_exit_reaps_entire_binary_tree() {
+    let _lock = crate::tests::env_lock();
+    let mut command = Command::new(std::env::current_exe().unwrap());
+    command
+        .args(["--exact", "lifecycle_main_fixture", "--nocapture"])
+        .env("ANGEL_T_PROCESS_EXIT_FIXTURE", "1")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0);
+    let mut worker = Worker(command.spawn().unwrap());
+    let root = worker.0.id() as i32;
+    let before = wait_tree(&worker, 5);
+    unsafe {
+        libc::kill(root, libc::SIGHUP);
+    }
+    assert_eq!(settled(&mut worker).code(), Some(128 + libc::SIGHUP));
+    assert_no_orphans(root, &before);
+}
+
+/// The cockpit owns its attached helpers: when the cockpit process dies without
+/// its own cleanup (SIGKILL), an attached helper sees it was reparented and
+/// reaps its tree. Before, the helper and every job under it kept running.
+/// (A detached helper is meant to outlive its launcher; see the bwrap tests.)
+#[test]
+fn lifecycle_helper_reaps_its_tree_when_the_cockpit_dies() {
+    let _lock = crate::tests::env_lock();
+    let pid_file = std::env::temp_dir().join(format!("angel-cockpit-death-{}", std::process::id()));
+    let _ = std::fs::remove_file(&pid_file);
+    let script = format!(
+        "{} --sandbox-exec -- sh -c 'sleep 300 & wait' & echo $! > {}; wait",
+        env!("CARGO_BIN_EXE_angel-sandbox"),
+        pid_file.display()
+    );
+    let mut cockpit = Command::new("sh")
+        .args(["-c", &script])
+        .env(
+            "ANGEL_INTERNAL_SANDBOX_POLICY",
+            r#"{"writable_roots":[],"allow_network":false,"enforce":false}"#,
+        )
+        .env("ANGEL_INTERNAL_SANDBOX_BACKEND", "landlock")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .unwrap();
+    let helper = wait_pid_file(&pid_file);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let before = loop {
+        let table = snapshot();
+        if related(helper, &table).len() >= 3 {
+            break table;
+        }
+        assert!(Instant::now() < deadline, "helper tree never became ready");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    unsafe {
+        libc::kill(cockpit.id() as i32, libc::SIGKILL);
+    }
+    let _ = cockpit.wait();
+    assert_reaped_while_alive(helper, Duration::from_secs(5));
+    assert_no_orphans(helper, &before);
+    let _ = std::fs::remove_file(&pid_file);
+}
+
 fn wait_pid_file(path: &std::path::Path) -> i32 {
     let until = Instant::now() + Duration::from_secs(3);
     loop {

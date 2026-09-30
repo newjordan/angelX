@@ -150,3 +150,57 @@ fn disabled_yields_empty_block() {
     assert_eq!(context_block(&ws), "");
     cleanup(root);
 }
+
+/// An entry added mid-session reaches the next turn through the knowledge
+/// broker; a block the conversation already carries (the start-up context or
+/// a /loop prompt) is not repeated.
+#[test]
+fn a_mid_session_entry_reaches_the_next_turn_once() {
+    let _g = crate::tests::env_lock();
+    let (ws, root) = tmp_ws("broker");
+    let _broker = crate::tests::TestEnvGuard::set("ANGEL_BACKPLANE", "1");
+    let registry = crate::agent::harness::ToolRegistry::with_team(ws.clone(), Vec::new());
+    let started = context_block(&ws);
+    assert!(started.is_empty(), "{started}");
+    let mut history = vec![
+        crate::agent::club::ChatMsg::system("stable system"),
+        crate::agent::club::ChatMsg::user("keep going"),
+    ];
+    let edit = RefinementEdit {
+        action: "create".into(),
+        kind: EntryKind::Memory,
+        id: Some("policy".into()),
+        title: Some("Installed campaign policy".into()),
+        content: Some("Run the focused test before the full suite.".into()),
+        path: Some("general".into()),
+        reason: None,
+    };
+    apply_edits(
+        &ws,
+        Scope::Project,
+        "rl install",
+        "campaign",
+        "entry exists",
+        &[edit],
+    )
+    .unwrap();
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    let carried = |history: &[crate::agent::club::ChatMsg]| {
+        history
+            .iter()
+            .map(|m| m.content.matches("Installed campaign policy").count())
+            .sum::<usize>()
+    };
+    assert_eq!(carried(&history), 1, "{history:?}");
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
+    assert_eq!(carried(&history), 1, "{history:?}");
+
+    // Already in the start-up context: not added again.
+    let mut booted = vec![
+        crate::agent::club::ChatMsg::system(format!("stable system\n{}", context_block(&ws))),
+        crate::agent::club::ChatMsg::user("keep going"),
+    ];
+    crate::agent::harness::refresh_knowledge_broker(&registry, &mut booted, 120_000, &[], true);
+    assert_eq!(carried(&booted), 1, "{booted:?}");
+    cleanup(root);
+}

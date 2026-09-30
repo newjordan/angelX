@@ -130,7 +130,7 @@ impl Club for ObjectiveFixtureClub {
             .find(|message| message.role == ChatRole::System)
             .map(|message| message.content.clone())
             .unwrap_or_default();
-        if !system.contains("[LOOP RECOVERY EXPERIMENT]") {
+        if !system.contains("⠜⠛") {
             // Reflection: record the prompt (including the evidence the
             // reflector was given), then answer. A blocking fixture holds the
             // request open until the campaign is cancelled.
@@ -161,7 +161,7 @@ impl Club for ObjectiveFixtureClub {
         let index = self.attempt_index();
         let note = system
             .lines()
-            .skip_while(|line| !line.starts_with("[applied policy note"))
+            .skip_while(|line| !line.starts_with("⠜⠓"))
             .nth(1)
             .unwrap_or("")
             .to_string();
@@ -594,16 +594,15 @@ fn reflection_receives_the_attempt_work_and_the_physical_verdict() {
     // And the physical verdict the evaluator measured for each arm, so the
     // successful and failed work are distinguishable by evidence rather than by
     // the receipt alone.
+    // `⠠⠉`: the optimizer's words are the ledger pages, its labels page
+    // addresses (`⠠⠉⠓` physical verifier, `⠠⠉⠙` / `⠠⠉⠑` HIGH / LOW).
+    assert!(prompt.contains("⠠⠉⠓ verifier exit 0"), "{prompt}");
     assert!(
-        prompt.contains("physical verifier: verifier exit 0"),
-        "{prompt}"
-    );
-    assert!(
-        prompt.contains("physical verifier: verifier exit 1"),
+        prompt.contains("⠠⠉⠓ verifier exit 1"),
         "the failed attempt's verdict is visible too: {prompt}"
     );
     assert!(
-        prompt.contains("HIGH-scoring") && prompt.contains("LOW-scoring"),
+        prompt.contains("⠠⠉⠙\n") && prompt.contains("⠠⠉⠑\n"),
         "{prompt}"
     );
     let _ = std::fs::remove_dir_all(&env.root);

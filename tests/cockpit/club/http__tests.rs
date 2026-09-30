@@ -186,11 +186,12 @@ fn deepseek_v4_replays_reasoning_on_exact_live_messages_without_cross_matching()
     let restored: ChatMsg = serde_json::from_str(&saved).expect("restore message");
     assert!(restored.private_reasoning.is_none());
 
-    // The extra field is provider-specific; compatible gateways may reject
-    // it, and a URL containing the official host as userinfo is not trusted.
+    // The extra field is provider-specific; public compatible gateways may
+    // reject it, and a URL containing the official host as userinfo is not
+    // trusted.
     let generic = HttpClub::new(
         "deepseek-proxy",
-        "https://api.deepseek.com@127.0.0.1/v1",
+        "https://api.deepseek.com@gateway.example/v1",
         "deepseek-v4-pro",
         None,
     );
@@ -210,6 +211,65 @@ fn deepseek_v4_replays_reasoning_on_exact_live_messages_without_cross_matching()
             .get("reasoning_content")
             .is_none()
     );
+}
+
+/// DeepSeek's thinking mode: while `tools` ride the request, every earlier
+/// assistant turn passes its reasoning back, final answers included; a turn
+/// whose reasoning this process never held goes back empty, never invented.
+#[test]
+fn deepseek_passes_back_every_reasoned_turn_while_tools_ride_the_request() {
+    let club = HttpClub::new(
+        "deepseek-flash",
+        "https://api.deepseek.com/v1",
+        "deepseek-flash",
+        None,
+    );
+    let call = vec![ToolCall {
+        id: "call_1".to_string(),
+        name: "read_file".to_string(),
+        args: serde_json::json!({"path": "a.rs"}),
+    }];
+    let tool = crate::agent::club::ToolDef {
+        name: "read_file".into(),
+        description: "read".into(),
+        params: serde_json::json!({"type": "object"}),
+    };
+    let history = vec![
+        ChatMsg::user("fix it"),
+        ChatMsg::assistant_calls_with_reasoning(call.clone(), Some("read first".to_string())),
+        ChatMsg::tool("call_1", "source"),
+        ChatMsg::assistant_with_reasoning("fixed", Some("the answer's thought".to_string())),
+        ChatMsg::user("and the test?"),
+        // A resumed session holds no reasoning for its restored turns.
+        ChatMsg::assistant_calls(call.clone()),
+        ChatMsg::tool("call_1", "source again"),
+    ];
+    let body = club.build_body(&history, &[tool.clone()], true).unwrap();
+    let reasoning = |i: usize| body["messages"][i].get("reasoning_content").cloned();
+    assert_eq!(reasoning(1), Some(serde_json::json!("read first")));
+    assert_eq!(
+        reasoning(3),
+        Some(serde_json::json!("the answer's thought"))
+    );
+    assert_eq!(reasoning(5), Some(serde_json::json!("")));
+    // Without tools the provider ignores reasoning: held reasoning still rides
+    // (the prefix renders it), but nothing is filled in.
+    let bare = club.build_body(&history, &[], true).unwrap();
+    assert_eq!(
+        bare["messages"][3]["reasoning_content"],
+        "the answer's thought"
+    );
+    assert!(bare["messages"][5].get("reasoning_content").is_none());
+    // A gateway that only looks like DeepSeek gets neither.
+    let generic = HttpClub::new(
+        "deepseek-proxy",
+        "https://api.deepseek.com@gateway.example/v1",
+        "deepseek-flash",
+        None,
+    );
+    let body = generic.build_body(&history, &[tool], true).unwrap();
+    assert!(body["messages"][3].get("reasoning_content").is_none());
+    assert!(body["messages"][5].get("reasoning_content").is_none());
 }
 
 #[test]
@@ -770,7 +830,7 @@ fn local_tool_stream_keepalives_refresh_the_foreground_watchdog() {
 }
 
 #[test]
-fn non_qwen_local_tool_stream_keeps_the_fail_fast_timeout() {
+fn tool_free_local_stream_keeps_the_fail_fast_timeout() {
     let _guard = crate::tests::env_lock();
     {
         let _http_timeout = EnvGuard::set("ANGEL_HTTP_TIMEOUT", "1");
@@ -789,18 +849,13 @@ fn non_qwen_local_tool_stream_keeps_the_fail_fast_timeout() {
             "messages": [{"role": "user", "content": "answer"}],
             "stream": true,
         });
-        let tools = [ToolDef {
-            name: "write_file".to_string(),
-            description: "write a file".to_string(),
-            params: serde_json::json!({"type": "object"}),
-        }];
         let rules = crate::agent::stream_rules::StreamRules::from_json_for_test("[]");
         let cancel = AtomicBool::new(false);
         let mut heartbeats = 0usize;
         let error = club
             .stream_body_with_rules(
                 body,
-                &tools,
+                &[],
                 &cancel,
                 &mut |delta| {
                     if matches!(delta, StreamDelta::Heartbeat) {
@@ -809,7 +864,7 @@ fn non_qwen_local_tool_stream_keeps_the_fail_fast_timeout() {
                 },
                 &rules,
             )
-            .expect_err("non-Qwen routes must retain the ordinary socket timeout");
+            .expect_err("a tool-free stream retains the ordinary socket timeout");
         handle.join().unwrap();
 
         assert!(error.contains("stream read error"), "{error}");
@@ -819,13 +874,10 @@ fn non_qwen_local_tool_stream_keeps_the_fail_fast_timeout() {
 }
 
 #[test]
-fn local_tool_stream_grace_requires_private_qwen_started_tool_request() {
-    let eligible = local_qwen_tool_stream_eligible(
-        "http://127.0.0.1:8000/v1",
-        "qwen38",
-        Some("Qwen3.8-Flash-Next-NVFP4"),
-        true,
-    );
+fn local_tool_stream_grace_requires_a_private_started_tool_request() {
+    // A renamed serve (toymaker's Qwen answers as `toymaker`) still withholds
+    // large tool arguments, so the name never decides.
+    let eligible = local_tool_stream_eligible("http://100.99.101.114:8000/v1", true);
     assert!(eligible);
 
     let mut acc = StreamAccumulator::default();
@@ -840,23 +892,13 @@ fn local_tool_stream_grace_requires_private_qwen_started_tool_request() {
         "choices": [{"delta": {"reasoning_content": "working"}}]
     }));
     assert!(local_tool_stream_started(eligible, &acc, &[]));
-    assert!(!local_qwen_tool_stream_eligible(
+    assert!(!local_tool_stream_eligible(
         "https://api.example.com/v1",
-        "qwen38",
-        Some("qwen"),
-        true,
+        true
     ));
-    assert!(!local_qwen_tool_stream_eligible(
+    assert!(!local_tool_stream_eligible(
         "http://127.0.0.1:8000/v1",
-        "llama",
-        Some("Llama-4"),
-        true,
-    ));
-    assert!(!local_qwen_tool_stream_eligible(
-        "http://127.0.0.1:8000/v1",
-        "qwen38",
-        Some("qwen"),
-        false,
+        false
     ));
 }
 
@@ -1699,5 +1741,48 @@ fn usage_contract_scripted_frames_settle_one_shared_formation_budget() {
     assert_eq!(budget.snapshot()["exhaustion_reason"], "unknown_usage");
     println!(
         "G02c scripted shared budget: two routes, 1040 tokens, no double counting; missing usage remains unknown"
+    );
+}
+
+/// The legend reaches the model on the Chat Completions wire and, translated,
+/// on DeepSeek's Messages wire: the stamp's English at first sight.
+#[test]
+fn the_legend_reaches_the_chat_and_deepseek_messages_wires() {
+    let _guard = crate::tests::env_lock();
+    let _unset = crate::tests::TestEnvGuard::unset("ANGEL_BOOK_INTRO");
+    let read_file = crate::agent::club::ToolDef {
+        name: "read_file".into(),
+        description: "read".into(),
+        params: serde_json::json!({"type": "object"}),
+    };
+    let call = vec![ToolCall {
+        id: "a".to_string(),
+        name: "run_tests".to_string(),
+        args: serde_json::json!({}),
+    }];
+    let history = vec![
+        ChatMsg::user("Fix the failing test."),
+        ChatMsg::assistant_calls(call),
+        ChatMsg::tool("a", "tests: 0 passed, 1 failed\n⠧⠉"),
+    ];
+    let club = HttpClub::new(
+        "deepseek-flash",
+        "https://api.deepseek.com/v1",
+        "deepseek-flash",
+        None,
+    );
+    let chat = club.build_body(&history, &[read_file], true).unwrap();
+    assert!(
+        chat["messages"]
+            .to_string()
+            .contains("fix the first diagnostic before the next edit"),
+        "chat wire"
+    );
+    let messages = super::deepseek_messages::to_messages_body(&chat).unwrap();
+    assert!(
+        messages["messages"]
+            .to_string()
+            .contains("fix the first diagnostic before the next edit"),
+        "messages wire"
     );
 }

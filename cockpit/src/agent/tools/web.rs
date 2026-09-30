@@ -159,11 +159,12 @@ pub(crate) fn research_origin(raw: &str) -> Option<String> {
     .then(|| raw.trim().trim_end_matches('/').to_string())
 }
 
-fn research_description(description: &str) -> String {
+/// A configured research origin rides after the route as data: the page that
+/// names the origin (its `{origin}` placeholder), the origin, then the page
+/// that keeps shell off the host. Both pages sit in the tool's own section.
+fn research_description(description: &str, origin_page: &str, probe_page: &str) -> String {
     match configured_research_origin() {
-        Some(origin) => format!(
-            "{description} Research search origin: {origin}; fetch document URLs returned by web_search with web_fetch. Do not probe the host with shell."
-        ),
+        Some(origin) => format!("{description} {origin_page} {origin} {probe_page}"),
         None => description.to_string(),
     }
 }
@@ -229,14 +230,15 @@ impl Tool for WebSearchTool {
             name: "web_search".to_string(),
             description: research_description(
                 "Search the web via the local SearXNG. Returns ranked title / url / \
-                          snippet. Use for current information, documentation, error messages, \
-                          or anything outside the workspace.",
+                          snippet. ⠱⠁",
+                "⠱⠁⠃",
+                "⠱⠁⠉",
             ),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "search query" },
-                    "limit": { "type": "integer", "description": "max results (default 5)" },
+                    "query": { "type": "string", "description": "⠱⠁⠑" },
+                    "limit": { "type": "integer", "description": "⠱⠁⠋" },
                 },
                 "required": ["query"],
             }),
@@ -313,14 +315,17 @@ pub(crate) fn maybe_register_web_search(r: &mut ToolRegistry) {
 // ---------------------------------------------------------------------------
 
 /// Frame a bare query as a research-scout brief so the tool returns comparable,
-/// source-cited findings to the MoA grounding path. Pure — unit-testable.
+/// source-cited findings to the MoA grounding path. Pure — unit-testable. The
+/// scout is a CLI seat with no tool channel, so it cannot be offered the
+/// ledger reader: it hears `⡸⠑`'s pages recited, the request as data.
 pub(crate) fn grok_tool_prompt(query: &str) -> String {
+    use crate::agent::harness::book::{
+        connect::recite, d3_roles::pages, d4567_briefs::GROK_RESEARCH,
+    };
     format!(
-        "You are Grok with live web and X (twitter) search. Research the request below and \
-         report back concise, well-organized findings the caller can act on. Prefer current, \
-         latest, trending, or online facts; include dates when available, cite source URLs, and \
-         flag anything uncertain or contested. Do not refuse for recency — search.\n\n\
-         Request:\n{query}"
+        "{}\n\n{}\n{query}",
+        recite(&pages(GROK_RESEARCH, 1..=4)),
+        recite(&pages(GROK_RESEARCH, [5]))
     )
 }
 
@@ -344,16 +349,14 @@ impl Tool for GrokResearchTool {
         ToolDef {
             name: "grok_research".to_string(),
             description: "Live web + X (twitter) research via Grok (xAI). Returns fresh, dated, \
-                          source-cited findings. Prefer over web_search when recency, breaking \
-                          news, or social/X signal matters — it runs Grok's own agentic web + X \
-                          search and brings back cited context."
+                          source-cited findings. It runs Grok's own agentic web + X search and brings back cited context. ⠱⠑"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "what to research (a question or topic)"
+                        "description": "⠱⠑⠃"
                     },
                 },
                 "required": ["query"],
@@ -556,16 +559,17 @@ impl Tool for WebFetchTool {
             name: "web_fetch".to_string(),
             description: research_description(
                 "Fetch a URL over HTTP GET and return the body as text (HTML is \
-                          stripped to readable text). Use to read documentation, APIs, or \
-                          pages found via web_search.",
+                          stripped to readable text). ⠱⠃",
+                "⠱⠃⠃",
+                "⠱⠃⠉",
             ),
             params: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "url": { "type": "string", "description": "http(s) URL to fetch" },
+                    "url": { "type": "string", "description": "⠱⠃⠑" },
                     "max_bytes": {
                         "type": "integer",
-                        "description": "cap on returned text bytes (default 20000, max 200000)"
+                        "description": "⠱⠃⠋"
                     },
                 },
                 "required": ["url"],
@@ -652,10 +656,8 @@ impl Tool for HttpRequestTool {
         ToolDef {
             name: "http_request".to_string(),
             description: "Make an HTTP request with full control: method, headers, body. \
-                          Returns status + raw body text (no HTML stripping). Use for JSON \
-                          APIs — local inference servers, webhooks, REST services; use \
-                          web_fetch for reading pages. A body with no explicit Content-Type \
-                          is sent as application/json."
+                          Returns status + raw body text (no HTML stripping). A body with no explicit Content-Type \
+                          is sent as application/json. ⠱⠋"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -663,18 +665,18 @@ impl Tool for HttpRequestTool {
                     "method": {
                         "type": "string",
                         "enum": HTTP_METHODS,
-                        "description": "HTTP method (default GET)"
+                        "description": "⠱⠋⠃"
                     },
-                    "url": { "type": "string", "description": "http(s) URL" },
+                    "url": { "type": "string", "description": "⠱⠋⠉" },
                     "headers": {
                         "type": "object",
-                        "description": "header name → value",
+                        "description": "⠱⠋⠙",
                         "additionalProperties": { "type": "string" }
                     },
-                    "body": { "type": "string", "description": "request body (verbatim)" },
+                    "body": { "type": "string", "description": "⠱⠋⠑" },
                     "max_bytes": {
                         "type": "integer",
-                        "description": "cap on returned body bytes (default 20000, max 200000)"
+                        "description": "⠱⠋⠋"
                     },
                 },
                 "required": ["url"],

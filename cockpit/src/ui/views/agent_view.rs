@@ -172,8 +172,8 @@ pub(crate) fn compact_profile_lines_stateful<'a>(
         profile.name,
         Style::new().fg(HUD_TEXT).add_modifier(Modifier::BOLD),
     )];
-    // Skip machine slugs that only repeat the portrait name (`spark` next to
-    // Sparky, empty when the box has no extra mode).
+    // Skip box slugs that only repeat the portrait name (or are empty when
+    // the box has no extra mode).
     if !label.is_empty() && !label.eq_ignore_ascii_case(profile.name) {
         identity.push(Span::styled(" · ", Style::new().fg(HUD_DIM)));
         identity.push(Span::raw(label));

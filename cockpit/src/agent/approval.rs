@@ -42,10 +42,6 @@ pub enum ApprovalScope {
     Peer(String),
     PhoneModel(String),
     ActionBatch(String),
-    /// A turn gate is about to retract a finished answer. Unlike the other
-    /// scopes this asks permission to *stop*, not to act, so denying it is the
-    /// conservative outcome — see `harness::turn`.
-    TurnGate(String),
 }
 
 impl ApprovalScope {
@@ -61,7 +57,6 @@ impl ApprovalScope {
             Self::ActionBatch(batch) => {
                 format!("action batch · {}", safe_scope_fragment(batch))
             }
-            Self::TurnGate(gate) => format!("turn gate · {}", safe_scope_fragment(gate)),
         }
     }
 }

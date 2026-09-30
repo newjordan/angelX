@@ -34,26 +34,24 @@ pub(crate) enum NeedsProTier {
 pub(crate) const NEEDS_PRO_OPEN: &str = "<<<NEEDS_PRO";
 const NEEDS_PRO_CLOSE: &str = ">>>";
 
-/// Leading tag of the injected contract message. Used to find the fragment
-/// again so a second turn replaces it instead of stacking another copy, and so
-/// the tier swap is a replacement rather than an append.
-const CONTRACT_TAG: &str = "[tier contract]";
+/// The fast-tier contract, the `⠞⠛` route; its words are the ledger pages.
+/// Deliberately a `const` with no seat name, count, or timestamp in it: it
+/// rides the front of every request, so any dynamic content here would
+/// invalidate a byte-exact provider prefix cache on every turn.
+pub(crate) const FAST_TIER_CONTRACT: &str = "⠞⠛";
 
-/// The fast-tier contract. Deliberately a `const` with no seat name, count, or
-/// timestamp in it: it rides the front of every request, so any dynamic content
-/// here would invalidate a byte-exact provider prefix cache on every turn.
-pub(crate) const FAST_TIER_CONTRACT: &str = "[tier contract] You are serving this turn on a \
-fast tier. If THIS task clearly needs stronger reasoning than you can bring to it, make \
-`<<<NEEDS_PRO>>>` — or `<<<NEEDS_PRO: one-sentence reason>>>` — the very first line of your \
-reply and stop there; the turn will be re-run on a stronger seat. Otherwise do the work and \
-never mention the marker.";
+/// The escalation seat's replacement contract, `⠞⠓` — same stable-string
+/// rule. The marker is defused rather than left unmentioned so a model that
+/// learned the convention upstream cannot bounce a turn that has nowhere
+/// further to go.
+pub(crate) const PRO_TIER_CONTRACT: &str = "⠞⠓";
 
-/// The escalation seat's replacement contract — same stable-string rule. The
-/// marker is defused rather than left unmentioned so a model that learned the
-/// convention upstream cannot bounce a turn that has nowhere further to go.
-pub(crate) const PRO_TIER_CONTRACT: &str = "[tier contract] You are serving this turn on the \
-top tier available here. There is no stronger seat to hand it to, so the `<<<NEEDS_PRO>>>` \
-marker does nothing — never emit it. Answer the task yourself.";
+/// Is this message an installed contract? Found again so a second turn
+/// replaces it instead of stacking another copy, and so the tier swap is a
+/// replacement rather than an append.
+fn is_contract(content: &str) -> bool {
+    content == FAST_TIER_CONTRACT || content == PRO_TIER_CONTRACT
+}
 
 /// What a completed reply's first line means for the tier ladder.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -119,7 +117,7 @@ pub(crate) fn install_contract(history: &mut Vec<ChatMsg>, contract: &str) {
         .count();
     if let Some(existing) = history[..leading]
         .iter_mut()
-        .find(|message| message.content.starts_with(CONTRACT_TAG))
+        .find(|message| is_contract(&message.content))
     {
         if existing.content.as_ref() != contract {
             existing.content = Arc::from(contract);
@@ -132,9 +130,7 @@ pub(crate) fn install_contract(history: &mut Vec<ChatMsg>, contract: &str) {
 /// Drop a previously installed contract — the armed-but-unusable path, where
 /// promising the model an escalation that cannot happen would be a lie.
 pub(crate) fn remove_contract(history: &mut Vec<ChatMsg>) {
-    history.retain(|message| {
-        !(message.role == ChatRole::System && message.content.starts_with(CONTRACT_TAG))
-    });
+    history.retain(|message| !(message.role == ChatRole::System && is_contract(&message.content)));
 }
 
 fn speak_disarmed(events: &mpsc::Sender<TurnEvent>, why: &str) {
