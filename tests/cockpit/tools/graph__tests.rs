@@ -168,7 +168,9 @@ fn graph_schema_is_flat_so_every_provider_sees_its_fields() {
     // GLM on Z.ai sent `{}` for every call while the root was a bare `oneOf`.
     let params = GraphTool::default().def().params;
     assert!(params.get("oneOf").is_none());
-    let props = params["properties"].as_object().expect("top-level properties");
+    let props = params["properties"]
+        .as_object()
+        .expect("top-level properties");
     for key in ["op", "plot", "spec", "generation", "index", "point"] {
         assert!(props.contains_key(key), "{key}");
     }

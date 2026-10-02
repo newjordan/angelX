@@ -585,9 +585,15 @@ fn tests_are_given(task_lc: &str) -> bool {
 }
 
 fn self_source_intent(task_lc: &str) -> bool {
-    ["angelx", "cockpit", "self_map", "your own source", "your own code"]
-        .iter()
-        .any(|phrase| task_lc.contains(phrase))
+    [
+        "angelx",
+        "cockpit",
+        "self_map",
+        "your own source",
+        "your own code",
+    ]
+    .iter()
+    .any(|phrase| task_lc.contains(phrase))
 }
 
 pub(crate) fn relevant_skill_name<'a>(skills: &'a [SkillSummary], task: &str) -> Option<&'a str> {
