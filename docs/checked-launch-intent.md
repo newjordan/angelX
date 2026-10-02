@@ -50,9 +50,9 @@ Captured CLI effort takes precedence over ambient effort, saved THINK and
 ordinary preference restoration. A pin for another provider does not globally
 block saved preferences.
 
-With no explicit/ambient/configured effort, a model's nonblank catalog default is
-used when present; otherwise the native fallback is retained and checked against
-that model. No empty default is invented. Unsupported fallback still fails, rather
+For an explicit CLI subscription model with no explicit/ambient/configured effort,
+a nonblank catalog default is used when present; otherwise the native fallback is
+retained and checked against that model. No empty default is invented. Unsupported fallback still fails, rather
 than silently clamping to a different level. Explicit effort is never replaced by
 this defaulting rule.
 
