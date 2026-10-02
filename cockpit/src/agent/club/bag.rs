@@ -342,6 +342,7 @@ pub(crate) fn direct_sota_agent(
 }
 
 pub struct Bag {
+    pub(crate) codex_startup: Option<Arc<crate::agent::codex_startup::CodexStartup>>,
     /// Agents (boxes), each owning its modes. `Tab` cycles these.
     pub(crate) agents: Vec<Agent>,
     /// Index into `agents` — the box in hand.
@@ -479,6 +480,23 @@ impl Bag {
     /// per box/PC**, each owning the model endpoints that box serves. `Tab` cycles
     /// boxes; `←/→` cycles a box's modes.
     pub fn standard() -> Self {
+        let codex_startup = crate::agent::codex_startup::CodexStartup::load();
+        Self::standard_in_run(codex_startup)
+    }
+
+    pub(crate) fn standard_in_run(
+        codex_startup: Arc<crate::agent::codex_startup::CodexStartup>,
+    ) -> Self {
+        Self::standard_for_launch(
+            codex_startup,
+            &crate::interactive_launch::InteractiveLaunch::default(),
+        )
+    }
+
+    pub(crate) fn standard_for_launch(
+        codex_startup: Arc<crate::agent::codex_startup::CodexStartup>,
+        launch: &crate::interactive_launch::InteractiveLaunch,
+    ) -> Self {
         let boxes = Self::bootstrap_specs(|key| std::env::var(key).ok());
 
         // Optional bearer key from the env ONLY — never bake secrets into source.
@@ -492,8 +510,7 @@ impl Bag {
         // and finally to the smartest-available heuristic, so a stale default
         // can never pin the brain to a dead box. OpenRouter free seats are
         // selectable on the sota box; they are not auto-elected.
-        let openai_oauth_available = crate::agent::openai_codex::ChatGptAuth::load().is_some()
-            && crate::agent::openai_codex::CodexClub::default_model().is_some();
+        let openai_oauth_available = codex_startup.shared.is_some();
         let driver_pref = std::env::var("ANGEL_DRIVER")
             .ok()
             .map(|s| s.trim().to_string())
@@ -629,19 +646,19 @@ impl Bag {
         // ChatGPT-backed Responses API. Present only when a usable token is on
         // disk (so a signed-out machine never shows a dead tab); the prober keeps
         // it honest via the same cheap local-token check.
-        if let (Some(auth), Some(_model)) = (
-            crate::agent::openai_codex::ChatGptAuth::load(),
-            crate::agent::openai_codex::CodexClub::default_model(),
-        ) {
-            let shared = crate::agent::openai_codex::CodexClub::shared_state(auth);
+        if let Some(shared) = &codex_startup.shared {
+            let shared = Arc::clone(shared);
             let available = Arc::new(AtomicBool::new(true));
-            let selection = crate::agent::openai_codex::CodexClub::resolve_selection();
+            let selection = codex_startup.selection.clone();
             let model = selection.model.clone();
             let configured_effort = Some(selection.effort.clone());
             // Drop private-test Codex Spark surfaces so ←/→ cannot select them.
-            let mut catalog: Vec<_> = crate::agent::openai_codex::CodexClub::model_catalog()
-                .into_iter()
+            let mut catalog: Vec<_> = codex_startup
+                .catalog
+                .models()
+                .iter()
                 .filter(|c| !crate::agent::openai_codex::is_private_test_codex_model(&c.slug))
+                .cloned()
                 .collect();
             if !catalog.iter().any(|candidate| candidate.slug == model) {
                 catalog.insert(
@@ -700,11 +717,19 @@ impl Bag {
                     levels,
                     metadata,
                 );
-                let club = if candidate.slug == model {
-                    club.with_selection(selection.clone())
+                let route_selection = if candidate.slug == model {
+                    selection.clone()
                 } else {
-                    club
+                    crate::agent::club::codex_selection::Selection {
+                        model: candidate.slug.clone(),
+                        effort: club.reasoning_effort().unwrap_or_default(),
+                        model_source: "catalog",
+                        effort_source: "catalog",
+                        error: None,
+                    }
                 };
+                let club = club
+                    .with_catalog_selection(route_selection, Arc::clone(&codex_startup.catalog));
                 let club: Arc<dyn Club> = Arc::new(club.sota_tuned());
                 if candidate.slug == model {
                     active = slots.len();
@@ -740,7 +765,11 @@ impl Bag {
         // capped frontier link degrades to the *next smartest* model — never
         // straight to a free breadth-tier one.
         for link in [
-            optional_openai_api_http_club(),
+            if launch.driver.as_deref() == Some("openai-api") {
+                optional_openai_api_for_launch(launch.model.as_deref())
+            } else {
+                optional_openai_api_http_club()
+            },
             optional_sota_http_club(
                 "kimi",
                 "kimi-k3",
@@ -1009,6 +1038,7 @@ impl Bag {
             spawn_prober(probe_targets, probe_interval());
         }
         let bag = Self {
+            codex_startup: Some(codex_startup),
             agents,
             in_hand,
             discovery_rx,
@@ -1190,6 +1220,7 @@ impl Bag {
             latency: Duration::ZERO,
         });
         Self {
+            codex_startup: None,
             agents: vec![Agent {
                 name: "practice".to_string(),
                 slots: vec![Slot {
@@ -1941,6 +1972,53 @@ impl Bag {
         true
     }
 
+    /// CLI drivers are concrete route labels, never the fuzzy preference grammar.
+    /// Model IDs must match a constructed route exactly. No election or warming.
+    pub(crate) fn select_launch_route(
+        &mut self,
+        driver: &str,
+        model: Option<&str>,
+    ) -> Result<(), String> {
+        if driver != "practice" && is_logical_wrapper_label(driver) {
+            return Err("launch driver must be a concrete route, not an aggregate".into());
+        }
+        let mut targets: Vec<(usize, usize)> = Vec::new();
+        for (ai, agent) in self.agents.iter().enumerate() {
+            for (si, slot) in agent.slots.iter().enumerate() {
+                if slot.club.label() != driver {
+                    continue;
+                }
+                if model.is_some_and(|id| !slot.club.supports_exact_launch_model(id)) {
+                    continue;
+                }
+                // Without a model the subscription route retains its run selection.
+                if driver == "openai" && model.is_none() && si != agent.active {
+                    continue;
+                }
+                // Direct aliases share the same Club Arc; they are not ambiguity.
+                if !targets
+                    .iter()
+                    .any(|&(a, s)| Arc::ptr_eq(&self.agents[a].slots[s].club, &slot.club))
+                {
+                    targets.push((ai, si));
+                }
+            }
+        }
+        if targets.len() != 1 {
+            return Err("requested concrete route/model is unknown or ambiguous".into());
+        }
+        let (ai, si) = targets[0];
+        let slot = &self.agents[ai].slots[si];
+        if !slot.available.load(Ordering::Relaxed) || !slot.club.is_available() {
+            return Err("requested concrete route is unavailable".into());
+        }
+        self.in_hand = ai;
+        self.agents[ai].active = si;
+        self.pending_brain = false;
+        self.bump_generation();
+        Ok(())
+    }
+
     pub(crate) fn in_hand_club_ref(&self) -> &dyn Club {
         self.agents[self.in_hand].active_club_ref()
     }
@@ -2106,6 +2184,7 @@ impl Bag {
             a.settle_active();
         }
         Self {
+            codex_startup: None,
             agents,
             in_hand: 0,
             discovery_rx: None,
@@ -2147,6 +2226,7 @@ impl Bag {
             },
         });
         Self {
+            codex_startup: None,
             agents: vec![
                 Agent {
                     name: "openai".to_string(),
@@ -2226,6 +2306,7 @@ impl Bag {
             },
         });
         Self {
+            codex_startup: None,
             agents: vec![
                 Agent {
                     name: "openai".to_string(),
@@ -2266,6 +2347,7 @@ impl Bag {
             metadata: RouteMetadata::default(),
         });
         Self {
+            codex_startup: None,
             agents: vec![
                 Agent {
                     name: "remote".to_string(),

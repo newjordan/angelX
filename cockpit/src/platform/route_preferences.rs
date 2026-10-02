@@ -64,8 +64,14 @@ fn route_pin_is_concrete(value: &std::ffi::OsStr) -> bool {
     !value.is_empty() && !value.eq_ignore_ascii_case("sota-moa")
 }
 
-fn effort_pin_active() -> bool {
-    std::env::var_os("ANGEL_REASONING_EFFORT").is_some_and(|value| !value.is_empty())
+fn effort_pin_active(club: &dyn crate::agent::club::Club, pin: &impl Fn(&str) -> bool) -> bool {
+    if pin("ANGEL_REASONING_EFFORT") {
+        return true;
+    }
+    let namespace = club
+        .env_namespace()
+        .or_else(|| (club.label() == "openai").then_some("OPENAI"));
+    namespace.is_some_and(|namespace| pin(&format!("ANGEL_{namespace}_REASONING_EFFORT")))
 }
 
 fn same(a: &str, b: &str) -> bool {
@@ -73,7 +79,11 @@ fn same(a: &str, b: &str) -> bool {
 }
 
 fn matches(choice: &RouteChoice, preference: &RoutePreference) -> bool {
-    matches_with_backplane(choice, preference, crate::agent::backplane::active())
+    matches_with_backplane(
+        choice,
+        preference,
+        preference.route_id.is_some() && crate::agent::backplane::active(),
+    )
 }
 
 fn matches_with_backplane(
@@ -129,11 +139,21 @@ fn save_to(path: &Path, preference: &RoutePreference) -> std::io::Result<()> {
         .map_err(std::io::Error::other)
 }
 
+#[cfg(test)]
 fn apply(
     bag: &mut Bag,
     preference: &RoutePreference,
     route_pinned: bool,
     effort_pinned: bool,
+) -> RestoreResult {
+    apply_with_pin(bag, preference, route_pinned, |_| effort_pinned)
+}
+
+fn apply_with_pin(
+    bag: &mut Bag,
+    preference: &RoutePreference,
+    route_pinned: bool,
+    effort_pinned: impl Fn(&dyn crate::agent::club::Club) -> bool,
 ) -> RestoreResult {
     let mut restored = RestoreResult::default();
     if !route_pinned
@@ -154,7 +174,7 @@ fn apply(
         .find(|choice| choice.selected && choice.available)
         .is_some_and(|choice| matches(choice, preference));
     if current_matches
-        && !effort_pinned
+        && !effort_pinned(bag.in_hand_club_ref())
         && let Some(effort) = preference.reasoning_effort.as_deref()
     {
         restored.effort = bag.set_reasoning_effort(effort).is_some();
@@ -162,16 +182,45 @@ fn apply(
     restored
 }
 
+/// The common production restore path, with explicit file and pin inputs for
+/// credential-free fixtures. Provider pins are checked AFTER route restoration.
+pub(crate) fn restore_from(
+    bag: &mut Bag,
+    path: &Path,
+    route_pinned: bool,
+    effort_cli: bool,
+    pin: impl Fn(&str) -> bool,
+) -> RestoreResult {
+    let Some(preference) = load_from(path) else {
+        return RestoreResult::default();
+    };
+    apply_with_pin(bag, &preference, route_pinned, |club| {
+        effort_cli || effort_pin_active(club, &pin)
+    })
+}
+
 /// Restore the last explicit interactive choice. Test binaries never consult
-/// the real home directory; pure file/apply helpers below carry the coverage.
+/// the real home directory; fixtures call the same path with explicit inputs.
 pub(crate) fn restore(bag: &mut Bag) -> RestoreResult {
+    restore_for_launch(bag, false, false)
+}
+
+/// CLI and applicable native effort pins outrank saved THINK for this invocation.
+pub(crate) fn restore_for_launch(
+    bag: &mut Bag,
+    route_cli: bool,
+    effort_cli: bool,
+) -> RestoreResult {
     if cfg!(test) || !enabled() {
         return RestoreResult::default();
     }
-    let Some(preference) = load_from(&preference_path()) else {
-        return RestoreResult::default();
-    };
-    apply(bag, &preference, route_pin_active(), effort_pin_active())
+    restore_from(
+        bag,
+        &preference_path(),
+        route_cli || route_pin_active(),
+        effort_cli,
+        |key| std::env::var_os(key).is_some_and(|value| !value.is_empty()),
+    )
 }
 
 /// Best-effort atomic persistence after a successful operator route/effort

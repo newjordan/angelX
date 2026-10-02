@@ -136,6 +136,7 @@ impl App {
     /// Goals, memories, loops, steers, system instructions, and conversation
     /// history are project-bound and never cross this boundary.
     pub(crate) fn change_workspace(&mut self, arg: Option<&str>) -> String {
+        self.launch_interaction();
         let current = self.tools.current_workspace().to_path_buf();
         let Some(arg) = arg else {
             return format!("working directory: {}", current.display());
@@ -936,6 +937,19 @@ impl App {
 
     /// Run a remappable input action.
     pub(crate) fn do_action(&mut self, action: Action) {
+        if matches!(
+            action,
+            Action::NextBox
+                | Action::PrevMode
+                | Action::NextMode
+                | Action::OpenModel
+                | Action::OpenThinking
+        ) {
+            self.launch_interaction();
+        }
+        if matches!(action, Action::Interrupt) && self.cancel_launch(true) {
+            return;
+        }
         match action {
             Action::NextBox if self.thinking.is_none() && self.bg_job.is_none() => {
                 self.bag.cycle();

@@ -15,6 +15,7 @@ pub(crate) enum ExitRequest {
 
 pub(crate) mod bootstrap;
 pub(crate) mod codex_import;
+pub(crate) mod launch;
 // Bounded process bridge to the isolated surface-free WebGPU renderer. Visible
 // output is admitted only through the calibrated Kitty image adapter.
 pub(crate) mod control;
@@ -306,6 +307,7 @@ pub(crate) struct UndoneExchange {
 /// `retry_draft` is the composer text restored when launch aborts after the
 /// echo (stale formation) — Esc-while-parked still restores [`Self::raw`].
 pub(crate) struct PendingTurn {
+    pub(crate) launch: Option<launch::BoundRoute>,
     pub(crate) raw: Arc<str>,
     pub(crate) user_msg: ChatMsg,
     pub(crate) turn_evidence: Option<ChatMsg>,
@@ -470,6 +472,9 @@ pub(crate) struct App {
     /// heavy pre-flight follows on the next `advance`. Holds the flight slot —
     /// `submit`'s busy gate treats it exactly like `thinking`.
     pub(crate) pending_turn: Option<PendingTurn>,
+    pub(crate) launch_input: Option<launch::LaunchInput>,
+    pub(crate) launch_route: Option<launch::BoundRoute>,
+    pub(crate) launch_typed_ahead: Option<String>,
     /// Set by the interactive event loop. When false (tests, headless), submit
     /// launches its turn synchronously through the same pending-turn path.
     pub(crate) submit_deferral: bool,
@@ -880,14 +885,34 @@ pub(crate) struct QuestStage {
 }
 
 impl App {
-    pub(crate) fn new(mut bag: Bag, viewer: Viewer) -> Self {
+    /// Composer-only launch input: no command parser, trimming, user history,
+    /// pending turn or worker. Typed-ahead events arrive afterward.
+    pub(crate) fn install_launch_draft(&mut self, text: String) {
+        self.cursor = text.chars().count();
+        self.input = text;
+        self.composer_selection_anchor = None;
+    }
+
+    pub(crate) fn new(bag: Bag, viewer: Viewer) -> Self {
+        let workspace = crate::agent::harness::resolve_workspace(
+            None,
+            crate::agent::harness::current_dir_workspace,
+        );
+        Self::new_in_workspace(bag, viewer, workspace)
+    }
+
+    pub(crate) fn new_in_workspace(mut bag: Bag, viewer: Viewer, workspace: PathBuf) -> Self {
+        let _ = crate::platform::route_preferences::restore(&mut bag);
+        Self::new_selected_in_workspace(bag, viewer, workspace)
+    }
+
+    pub(crate) fn new_selected_in_workspace(bag: Bag, viewer: Viewer, workspace: PathBuf) -> Self {
         // Open the session first so its id can be stamped onto the tool registry
         // (drawer provenance) before any turn runs.
         let mut session = session::Session::new();
         // An explicit interactive choice survives restarts, but only when its
         // exact route is reachable and no environment pin claims precedence.
-        let _ = crate::platform::route_preferences::restore(&mut bag);
-        let startup = bootstrap::build(&bag, &session.id);
+        let startup = bootstrap::build_in_workspace(&bag, &session.id, workspace);
         session.bind(startup.tools.current_workspace());
         let approval_rx = approval::install_ui();
         let mut app = Self::from_parts(
@@ -1153,6 +1178,9 @@ impl App {
             shell_focused: false,
             thinking: None,
             pending_turn: None,
+            launch_input: None,
+            launch_route: None,
+            launch_typed_ahead: None,
             submit_deferral: false,
             world_ticked_at: Instant::now()
                 .checked_sub(Duration::from_secs(1))
