@@ -687,6 +687,36 @@ impl App {
     /// Hand the input to the in-hand club on a worker thread; show the user turn
     /// immediately. The reply arrives asynchronously (see [`App::advance`]).
     pub(crate) fn submit(&mut self) {
+        if self.launch_is_pending() {
+            let parsed = input::parse(self.input.trim());
+            match parsed {
+                Ok(ParsedInput::Exit | ParsedInput::ForceExit) => {
+                    self.cancel_launch(false);
+                }
+                Ok(ParsedInput::ModelInfo(_) | ParsedInput::Thinking(_)) => {
+                    let command = self.input.clone();
+                    self.launch_interaction();
+                    let draft = std::mem::replace(&mut self.input, command);
+                    self.submit_inner();
+                    self.install_launch_draft(draft);
+                    return;
+                }
+                Ok(ParsedInput::Cmd { ref name, .. }) if name == "cd" || name == "workspace" => {
+                    let command = self.input.clone();
+                    self.launch_interaction();
+                    let draft = std::mem::replace(&mut self.input, command);
+                    self.submit_inner();
+                    self.install_launch_draft(draft);
+                    return;
+                }
+                // Typed ahead is independent, not an initial-turn trigger/steer.
+                _ => return,
+            }
+        }
+        self.submit_inner();
+    }
+
+    fn submit_inner(&mut self) {
         // An attached screenshot makes an empty draft a complete send (the same
         // default question `/see` uses); an empty composer alone still does
         // nothing. A read still in flight is not "nothing yet": its Enter is
@@ -1483,6 +1513,7 @@ impl App {
             echo_drawn: false,
             retry_draft,
             clipboard_images,
+            launch: self.launch_route.take(),
         });
         if !self.submit_deferral {
             self.launch_pending_turn();
@@ -1501,6 +1532,7 @@ impl App {
     }
 
     fn request_graceful_exit(&mut self) {
+        self.cancel_launch(false);
         if self.exit_request.is_some() {
             self.force_exit();
             return;
@@ -1525,6 +1557,7 @@ impl App {
     }
 
     pub(crate) fn force_exit(&mut self) {
+        self.cancel_launch(false);
         if let Some(mut thinking) = self.thinking.take() {
             thinking
                 .cancel
@@ -1595,11 +1628,49 @@ impl App {
         if self.exit_request.is_some() || self.loop_pending.is_some() {
             return;
         }
-        let Some(pending) = self.pending_turn.take() else {
+        let Some(mut pending) = self.pending_turn.take() else {
             return;
         };
+        if pending
+            .launch
+            .as_ref()
+            .is_some_and(|binding| !binding.current(self) || !binding.club.is_available())
+        {
+            self.restore_unsent_turn_echo(pending);
+            self.system_msg(
+                "initial turn not dispatched: workspace or route binding changed".to_string(),
+            );
+            return;
+        }
+        if pending
+            .launch
+            .as_ref()
+            .is_some_and(|binding| !binding.cli_effort)
+        {
+            self.apply_ultrathink_effort(&pending.raw);
+            let mut club = self.bag.in_hand();
+            if let Some(effort) = self.bag.reasoning_effort() {
+                match crate::agent::club::launch_effort(
+                    Arc::clone(&club),
+                    &effort,
+                    "initial-capture",
+                ) {
+                    Ok(captured) => club = captured,
+                    Err(_) => {
+                        self.restore_unsent_turn_echo(pending);
+                        self.system_msg(
+                            "initial turn not dispatched: effort capture failed".to_string(),
+                        );
+                        return;
+                    }
+                }
+            }
+            let binding = pending.launch.as_mut().unwrap();
+            binding.club = club;
+            binding.route = binding.club.route_identity();
+        }
         self.refresh_goal_from_disk();
-        if !self.apply_armed_moa_to_turn() {
+        if pending.launch.is_none() && !self.apply_armed_moa_to_turn() {
             self.restore_unsent_turn_echo(pending);
             return;
         }
@@ -1611,19 +1682,23 @@ impl App {
             raw,
             user_msg,
             turn_evidence,
+            launch,
             ..
         } = pending;
         // Text-only drivers (DeepSeek Flash, …) cannot take image_url parts.
         // The no-image path is a cheap should_apply check on this tick. When a
         // rewrite is needed, stash the attachments and let the agent-turn
         // worker describe them before hop 1 — never block the UI on club.chat.
-        if crate::agent::tools::vision::should_apply_vision_sidecar(
+        if crate::agent::tools::vision::should_apply_vision_sidecar_in(
+            &self.tools.vision,
             self.bag.in_hand().as_ref(),
             &user_msg,
         ) {
             self.system_msg("vision sidecar: describing image(s)…".to_string());
         }
-        self.apply_ultrathink_effort(&raw);
+        if launch.is_none() {
+            self.apply_ultrathink_effort(&raw);
+        }
         let skill_query = user_msg.content.clone();
         let turn_context = self.turn_context_block(&raw, &skill_query);
         // Dedup: the memory and goal blocks are re-injected every turn, so without
@@ -1684,7 +1759,13 @@ impl App {
         }
         // Persist the user turn before we await a reply (off-thread). One
         // history Arc is shared with the worker so this tick clones Vec once.
-        self.persist_and_start_turn_worker();
+        if let Some(binding) = launch {
+            let snapshot: Arc<[ChatMsg]> = Arc::from(self.history.as_slice());
+            let _ = self.session.save_history(Arc::clone(&snapshot));
+            self.start_bound_turn_worker(snapshot, Some(binding));
+        } else {
+            self.persist_and_start_turn_worker();
+        }
     }
 
     /// Formation engage failed after the echo painted: drop the echoed User
@@ -1699,6 +1780,9 @@ impl App {
         {
             self.messages.remove(idx);
             self.invalidate_transcript_layout();
+        }
+        if pending.launch.is_some() && !self.input.is_empty() {
+            self.launch_typed_ahead = Some(std::mem::take(&mut self.input));
         }
         self.input = pending.retry_draft.to_string();
         self.cursor = self.input.chars().count();
@@ -1802,6 +1886,18 @@ impl App {
     /// in-hand club on a worker thread (the single flight slot). Shared by
     /// `submit` and the queued-steer flush ([`App::flush_queued_steers`]).
     fn start_turn_worker_from(&mut self, history: Arc<[ChatMsg]>) {
+        let binding = self
+            .launch_route
+            .take()
+            .filter(|binding| binding.current(self));
+        self.start_bound_turn_worker(history, binding);
+    }
+
+    fn start_bound_turn_worker(
+        &mut self,
+        history: Arc<[ChatMsg]>,
+        binding: Option<crate::app::launch::BoundRoute>,
+    ) {
         // A draft flushed during a previous turn must never be reused by this
         // turn's reply (a repeated greeting would otherwise rewrite old prose).
         self.flushed_partial_msg = None;
@@ -1823,10 +1919,16 @@ impl App {
         self.turn_first_output_ms = None;
         self.world.turn_started();
         let club_label = self.bag.in_hand_label().to_string();
-        let requested_route = self.bag.in_hand_route_identity();
+        // Both paths use an already captured identity: ordinary Enter clones
+        // cached chrome; a launch turn retains its immutable binding snapshot.
+        let requested_route = binding.as_ref().map_or_else(
+            || self.bag.in_hand_route_identity(),
+            |binding| binding.route.clone(),
+        );
+        let club = binding.map_or_else(|| self.bag.in_hand_with_fallback(), |binding| binding.club);
         self.thinking = Some(Thinking::spawn(
             club_label,
-            self.bag.in_hand_with_fallback(),
+            club,
             Arc::clone(&self.tools),
             history,
             Arc::clone(&self.steer_queue),
@@ -2767,6 +2869,7 @@ impl App {
                 self.system_msg(t)
             }
             "cd" | "workspace" => {
+                self.launch_interaction();
                 let t = self.change_workspace(arg);
                 self.system_msg(t);
             }

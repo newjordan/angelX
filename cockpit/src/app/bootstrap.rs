@@ -13,6 +13,14 @@ pub(crate) fn build(bag: &Bag, session_id: &str) -> StartupContext {
     // The interactive TUI operates on the directory it was launched in (like
     // Claude Code), overridable by `$ANGEL_WORKSPACE`. `/cd` swaps it later.
     let workspace = harness::resolve_workspace(None, harness::current_dir_workspace);
+    build_in_workspace(bag, session_id, workspace)
+}
+
+pub(crate) fn build_in_workspace(
+    bag: &Bag,
+    session_id: &str,
+    workspace: PathBuf,
+) -> StartupContext {
     let (history, mut registry) = build_history_and_registry(bag, session_id, workspace);
     crate::ui::ui_inspect::install(&mut registry, crate::ui::ui_inspect::interactive_broker());
     // This is the only registry that drives the live TUI. Delegates, worktrees,
@@ -45,9 +53,10 @@ pub(crate) fn build_system_prompt(bag: &Bag, workspace: &Path) -> String {
         &lanes,
     );
     // DeepSeek Flash (and other text-only drivers): eyes via ANGEL_VISION_* sidecar.
-    if let Some(sign) =
-        crate::agent::tools::vision::vision_sidecar_prompt_hint(bag.in_hand().as_ref())
-    {
+    if let Some(sign) = crate::agent::tools::vision::vision_sidecar_prompt_hint_in(
+        &crate::agent::tools::vision::VisionBackend::new(bag.codex_startup.as_deref()),
+        bag.in_hand().as_ref(),
+    ) {
         system.push('\n');
         system.push_str(&sign);
     }
@@ -283,7 +292,12 @@ fn build_registry_with_skills(
     skills: Vec<harness::Skill>,
 ) -> ToolRegistry {
     let roster = delegation_roster(bag);
-    let mut registry = ToolRegistry::with_team_self(workspace.clone(), roster, Some(bag.in_hand()));
+    let mut registry = ToolRegistry::with_team_self_in_run(
+        workspace.clone(),
+        roster,
+        Some(bag.in_hand()),
+        bag.codex_startup.as_deref(),
+    );
     registry.set_backplane(crate::agent::backplane::BackplaneRegistry::from_bag(bag));
     registry.set_skill_index(&skills);
     if !skills.is_empty() {

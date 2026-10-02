@@ -10,6 +10,7 @@
 mod agent;
 mod app;
 mod drive;
+mod interactive_launch;
 mod knowledge;
 mod platform;
 mod stage;
@@ -243,14 +244,31 @@ fn apply_terminal_input(
 fn run(
     terminal: &mut AngelTerminal,
     viewer: Viewer,
-    resume: Option<Option<String>>,
+    launch: interactive_launch::InteractiveLaunch,
+    workspace: PathBuf,
+    bag: Bag,
+    binding: crate::app::launch::BoundRoute,
 ) -> std::io::Result<Option<(std::path::PathBuf, String)>> {
     // Calibration has finished; establish the sole input reader before app
     // initialization so typed-ahead bursts are queued in order.
     let terminal_input = input::TerminalInput::start()?;
     // Bag::standard() assembles the configured clubs and falls back to the
     // practice swing if none are up. Tab switches agents.
-    let mut app = App::new(Bag::standard(), viewer);
+    let mut app = App::new_selected_in_workspace(bag, viewer, workspace);
+    if launch.driver.is_some() || launch.effort.is_some() {
+        app.launch_route = Some(binding.clone());
+    }
+    if let Some(prompt) = launch.prompt {
+        // Establish required session state before accepting the initial turn.
+        // This stores bootstrap history only, never a pending launch prompt.
+        app.session
+            .checkpoint(&app.history)
+            .map_err(|_| std::io::Error::other("initial turn startup session state unavailable"))?;
+        app.install_launch_prompt(prompt, binding);
+    }
+    if let Some(draft) = launch.draft {
+        app.install_launch_draft(draft);
+    }
     // Cold DNS/TLS/metadata off the first Enter path — fire-and-forget so the
     // event loop opens immediately while the in-hand club warms in the back.
     if let Some(notice) = interactive_practice_notice(app.bag.in_hand_label()) {
@@ -262,7 +280,7 @@ fn run(
     app.submit_deferral = true;
     // `--resume [id]` (the phoenix relight): reload a saved session before the
     // first frame so a restarted self continues the same conversation.
-    if let Some(id) = resume {
+    if let Some(id) = launch.resume {
         app.startup_resume(id);
     }
     eprintln!("RUN: entering event loop");
@@ -332,7 +350,11 @@ fn run(
                 app.tools.refresh_backplane(&app.bag);
                 backplane_refreshed_at = Instant::now();
             }
-            if app.thinking.is_none() && app.pending_turn.is_none() {
+            if app.thinking.is_none()
+                && app.pending_turn.is_none()
+                && !app.launch_is_pending()
+                && app.launch_route.is_none()
+            {
                 app.bag.settle_brain();
             }
             if app.take_redraw_request() {
@@ -457,6 +479,15 @@ USAGE
   angel --dump-rl-preview <branch|research|sankey> [PATH|-] [WxH]
   angel --dump-research-preview <story|ledger|flow> [PATH|-] [WxH]
 
+INTERACTIVE OPTIONS
+  --workspace DIR          Canonical project root (CLI > environment > original cwd)
+  --driver ROUTE           Exact concrete native route, no fallback
+  --model ID               Exact model ID; requires --driver
+  --effort LEVEL           Native effort, or pi:LEVEL with the checked Pi catalog
+  --prompt TEXT            One literal initial user-turn enqueue after readiness
+  --draft TEXT             Composer only; no initial turn
+  --resume [ID]            Resume without initial text
+
 TASK OPTIONS
   --sandbox-profile sealed Mandatory isolated Linux task sandbox (incompatible with YOLO)
   --workspace DIR          Confined task workspace
@@ -483,11 +514,14 @@ for automation: stdout is exactly one angel.task_result/v1 JSON object and
 diagnostics go to stderr. A completed policy answer is not itself a reward;
 score it only with an evaluator-owned verifier and an audited rollout.
 
-EXIT STATUS
+TASK EXIT STATUS
   0  Answer completed
   1  Provider/runtime/workspace failure
   2  Invalid invocation or empty prompt
   3  Guarded stop without an answer (strict task mode, the default)
+
+Interactive syntax/startup failures return nonzero (direct native: 1;
+source-launcher syntax preflight: 2).
 
 Run the source launcher as `bin/angelX ...` or `bin/AngelTurbo ...`; release installs expose `angel` and `AngelTurbo`.
 "#;
@@ -696,37 +730,59 @@ pub(crate) const BUILD_CAPABILITIES: &[&str] = &[
 ];
 
 fn main() -> std::io::Result<()> {
-    if std::env::args_os()
-        .nth(1)
-        .is_some_and(|arg| arg == "--atlas")
-    {
-        return atlas::cli(std::env::args_os().skip(2));
+    // Complete interactive syntax before process ownership, terminal, route,
+    // adapter/auth or warming effects. Existing machine grammars stay opaque.
+    let entry_args = std::env::args_os().skip(1).collect::<Vec<_>>();
+    let interactive = interactive_launch::parse(&entry_args)?;
+    let workspace = interactive
+        .as_ref()
+        .map(|launch| {
+            interactive_launch::workspace(
+                launch,
+                std::env::var_os("ANGEL_WORKSPACE"),
+                &std::env::current_dir()?,
+            )
+        })
+        .transpose()?;
+    if let Some(root) = &workspace {
+        std::env::set_current_dir(root)?;
+        // Before any threads: implicit native resolvers and child environments
+        // must see the same canonical root as tools/instructions/session state.
+        unsafe {
+            std::env::set_var("ANGEL_WORKSPACE", root);
+        }
     }
-    if std::env::args_os()
-        .nth(1)
-        .is_some_and(|arg| arg == "--look-image")
-    {
-        return tools::vision::image_cli(std::env::args_os().skip(2));
+    let mode_args = interactive_launch::ordinary_args(&entry_args);
+    for arg in &entry_args[..entry_args.len() - mode_args.len()] {
+        match arg.to_str() {
+            Some("--yolo") => yolo::set(true),
+            Some("--comp" | "--lean" | "--turbo" | "--angelturbo") => comp_mode::set(true),
+            _ => unreachable!("checked global option"),
+        }
     }
-    if std::env::args_os()
-        .nth(1)
-        .is_some_and(|arg| arg == "--tool-http-helper")
-    {
-        return tools::http_transport::helper_main();
+    match mode_args.first().and_then(|arg| arg.to_str()) {
+        Some("--atlas") => return atlas::cli(mode_args.iter().skip(1).cloned()),
+        Some("--look-image") => return tools::vision::image_cli(mode_args.iter().skip(1).cloned()),
+        Some("--tool-http-helper") => return tools::http_transport::helper_main(),
+        Some("--sandbox-exec") => return sandbox::exec_helper(mode_args.iter().skip(1).cloned()),
+        Some("--audit-coding-eval-training") => {
+            if mode_args.len() != 3 || mode_args[1] != "--store" {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "--audit-coding-eval-training requires exactly --store OPERATOR_ROOT",
+                ));
+            }
+            return reinforce::training::audit_cli(std::path::Path::new(&mode_args[2]));
+        }
+        _ => {}
     }
     let process_started = std::time::Instant::now();
     // `--yolo` is a global leading flag for both the TUI and every headless
     // entrypoint. The launcher consumes it too, but the binary supports direct
     // invocation so automation does not depend on the shell wrapper.
-    let raw_os_args = std::env::args_os().skip(1).collect::<Vec<_>>();
-    if raw_os_args
-        .first()
-        .is_some_and(|arg| arg == std::ffi::OsStr::new("--sandbox-exec"))
-    {
-        return sandbox::exec_helper(raw_os_args.into_iter().skip(1));
-    }
+    let raw_os_args = mode_args.to_vec();
     #[cfg(target_os = "linux")]
-    if raw_os_args.iter().any(|arg| arg == "--doctor") {
+    if interactive_launch::ordinary_args(&raw_os_args) == [std::ffi::OsString::from("--doctor")] {
         println!("{}", sandbox::compatibility::doctor());
         return Ok(());
     }
@@ -743,25 +799,21 @@ fn main() -> std::io::Result<()> {
     // first model request must never wait on it (E03 binds before launch,
     // P04 budgets the first request).
     harness::run_identity::prewarm();
-    if raw_os_args
-        .first()
-        .is_some_and(|arg| arg == "--audit-coding-eval-training")
-    {
-        if raw_os_args.len() != 3 || raw_os_args[1] != "--store" {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "--audit-coding-eval-training requires exactly --store OPERATOR_ROOT",
-            ));
-        }
-        return reinforce::training::audit_cli(std::path::Path::new(&raw_os_args[2]));
-    }
     // Pin the sandbox-helper path while /proc/self/exe is still clean: a
     // release rebuild under a live session renames the binary and would
     // otherwise turn every later tool spawn into ENOENT (os error 2).
     sandbox::prime_helper();
     #[cfg(target_os = "linux")]
     let _ = sandbox::compatibility::detect();
-    let mut raw_args = raw_os_args
+    // Interactive path arguments may be non-UTF-8 on Unix. Their complete
+    // typed preflight has already consumed them; only machine modes need the
+    // historical string conversion below.
+    let mode_args = if interactive.is_some() {
+        Vec::new()
+    } else {
+        raw_os_args
+    };
+    let mut raw_args = mode_args
         .into_iter()
         .map(|arg| {
             arg.into_string().map_err(|_| {
@@ -772,15 +824,27 @@ fn main() -> std::io::Result<()> {
             })
         })
         .collect::<std::io::Result<Vec<_>>>()?;
-    if raw_args.first().is_some_and(|arg| arg == "--yolo") {
-        yolo::set(true);
+    while let Some(arg) = raw_args.first() {
+        match arg.as_str() {
+            "--yolo" => yolo::set(true),
+            "--comp" | "--lean" | "--turbo" | "--angelturbo" => comp_mode::set(true),
+            _ => break,
+        }
         raw_args.remove(0);
     }
-    if raw_args.first().is_some_and(|arg| {
-        arg == "--comp" || arg == "--lean" || arg == "--turbo" || arg == "--angelturbo"
-    }) {
-        comp_mode::set(true);
-        raw_args.remove(0);
+    // Global options were consumed by the typed interactive parser but still
+    // configure the ordinary native posture after successful preflight.
+    if interactive.is_some() {
+        for arg in entry_args
+            .iter()
+            .take(entry_args.len() - interactive_launch::ordinary_args(&entry_args).len())
+        {
+            match arg.to_str() {
+                Some("--yolo") => yolo::set(true),
+                Some("--comp" | "--lean" | "--turbo" | "--angelturbo") => comp_mode::set(true),
+                _ => unreachable!("preflight admitted only leading globals"),
+            }
+        }
     }
     if raw_args.as_slice() == ["--help"] || raw_args.as_slice() == ["-h"] {
         print_cli_help();
@@ -797,7 +861,6 @@ fn main() -> std::io::Result<()> {
         eprintln!("[angel] {}", comp_mode::status_text());
     }
     let mut args = raw_args.into_iter();
-    let mut resume: Option<Option<String>> = None;
     if let Some(arg) = args.next() {
         if arg == "--build-info" {
             if args.next().as_deref() != Some("--json") || args.next().is_some() {
@@ -910,11 +973,6 @@ fn main() -> std::io::Result<()> {
             .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
             write_private_export(&output, &value)?;
             return Ok(());
-        }
-        // `--resume [id]`: start the TUI on a saved session (no id = latest).
-        // Written by the phoenix step so a reborn self continues its life.
-        if arg == "--resume" {
-            resume = Some(args.next().filter(|a| !a.starts_with('-')));
         }
         if arg == "--dump-preview" || arg == "--dump-preview-portrait" {
             let include_portrait = arg == "--dump-preview-portrait";
@@ -1325,8 +1383,10 @@ fn main() -> std::io::Result<()> {
             );
             let project_doc_started = std::time::Instant::now();
             let skills = harness::load_skills_for(&workspace);
-            let vision_hint =
-                crate::agent::tools::vision::vision_sidecar_prompt_hint(club.as_ref());
+            let vision_hint = crate::agent::tools::vision::vision_sidecar_prompt_hint_in(
+                &tools::vision::VisionBackend::new(bag.codex_startup.as_deref()),
+                club.as_ref(),
+            );
             let mut history = bootstrap::build_task_history(
                 &specialists,
                 &skills,
@@ -1338,10 +1398,11 @@ fn main() -> std::io::Result<()> {
                 project_doc_started.elapsed().as_millis(),
             );
             let registry_started = std::time::Instant::now();
-            let mut registry = harness::ToolRegistry::with_team_self(
+            let mut registry = harness::ToolRegistry::with_team_self_in_run(
                 workspace.clone(),
                 roster,
                 Some(Arc::clone(&club)),
+                bag.codex_startup.as_deref(),
             );
             tools::self_model::SelfMapTool::register_headless(&mut registry);
             registry.set_skill_index(&skills);
@@ -1616,9 +1677,17 @@ fn main() -> std::io::Result<()> {
     // Calibrate graphics after entering the alternate screen but before the
     // event loop reads input. This is the safe query window required by
     // ratatui-image and lets generic SSH sessions discover their real backend.
+    let launch = interactive.ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "machine mode did not complete",
+        )
+    })?;
+    let workspace = workspace.expect("interactive workspace was checked before startup");
+    let (bag, binding) = crate::app::launch::prepare(&launch, &workspace)?;
     let mut terminal = init_terminal()?;
     let viewer = Viewer::calibrated();
-    let result = run(&mut terminal, viewer, resume);
+    let result = run(&mut terminal, viewer, launch, workspace, bag, binding);
     restore_terminal();
     // The phoenix step: `/self reborn` staged a freshly-built binary — replace
     // this process with the new self, resuming the same session. Must happen

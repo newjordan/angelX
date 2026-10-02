@@ -203,6 +203,72 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
   assert.deepEqual(launch(['--build-info', '--json']), { grok: false, openai: false, marker: null })
 })
 
+test('launcher preflight preserves opaque values and fails before env/log effects', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-entry-launch-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const home = join(root, 'home')
+  const source = join(root, 'source')
+  const workspace = join(root, 'workspace')
+  for (const dir of ['bin', 'scripts/check', 'cockpit/target/release'])
+    mkdirSync(join(source, dir), { recursive: true })
+  mkdirSync(home)
+  mkdirSync(workspace)
+  copyFileSync(fileURLToPath(new URL('../../bin/angelX', import.meta.url)), join(source, 'bin/angelX'))
+  copyFileSync(policy, join(source, 'scripts/check/angel-club-policy.sh'))
+  const probe = join(source, 'cockpit/target/release/angel')
+  writeFileSync(probe, `#!/usr/bin/env python3
+import json, os, sys
+print(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'marker': os.environ.get('ENTRY_MARKER')}))
+`)
+  chmodSync(probe, 0o755)
+  writeFileSync(join(source, '.angel.env'), 'ENTRY_MARKER=interactive\ntouch "$HOME/env-effect"\n')
+  const launch = (args) => spawnSync('bash', [join(source, 'bin/angelX'), ...args], {
+    cwd: root, encoding: 'utf8', timeout: 15000,
+    env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '1',
+      ANGEL_VIDEO: '0', ANGEL_WEBGPU_PORTAL: '0', ANGEL_WORKSPACE: root },
+  })
+  for (const args of [
+    ['--unknown', 'private-fixture'], ['--draft'], ['--draft', '   '],
+    ['--draft', 'a', '--draft', 'b'], ['--draft', 'a', '--resume'],
+    ['--resume', 'id', 'private-fixture'], ['--doctor', 'private-fixture'],
+    ['--workspace', workspace, '--workspace', workspace],
+    ['--model', 'private-fixture'], ['--driver'], ['--effort'],
+    ['--prompt', 'a', '--draft', 'b'], ['--prompt', 'a', '--resume'],
+    ['--draft', '\u00a0\u2003\u3000'], ['--resume', '\u00a0\u2003\u3000'],
+    ['--driver', ' x '], ['--effort', '\u2003'],
+  ]) {
+    const result = launch(args)
+    assert.equal(result.status, 2, result.stderr)
+    assert.ok(!result.stderr.includes('private-fixture'))
+    assert.ok(!existsSync(join(home, 'env-effect')))
+    assert.ok(!existsSync(join(home, '.angelX')), 'preflight must precede launch logging')
+  }
+  // JS cannot represent invalid argv bytes; Python supplies them directly.
+  for (const flag of ['--draft', '--prompt', '--resume']) {
+    const result = spawnSync('python3', ['-c', `import subprocess,sys
+r=subprocess.run([b'bash',sys.argv[1].encode(),sys.argv[2].encode(),b'\\xff'],capture_output=True)
+sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr);sys.exit(r.returncode)`, join(source, 'bin/angelX'), flag], {
+      cwd: root, encoding: 'utf8', env: { HOME: home, PATH: '/usr/bin:/bin', LANG: 'C', ANGEL_NO_BUILD: '0' },
+    })
+    assert.equal(result.status, 2, result.stderr)
+    assert.ok(!existsSync(join(home, 'env-effect')))
+    assert.ok(!existsSync(join(home, '.angelX')))
+  }
+  for (const value of ['--doctor', '--task', '--help', '--workspace', '/quit', '  α\nβ  ']) {
+    const draft = launch(['--draft', value, '--workspace', workspace])
+    assert.equal(draft.status, 0, draft.stderr)
+    assert.deepEqual(JSON.parse(draft.stdout), { argv: ['--draft', value], cwd: workspace, marker: 'interactive' })
+    for (const mode of ['--ask', '--task', '--task-json']) {
+      const machine = launch([mode, value])
+      assert.equal(machine.status, 0, machine.stderr)
+      assert.deepEqual(JSON.parse(machine.stdout), { argv: [mode, value], cwd: root, marker: null })
+    }
+  }
+  const positional = launch([workspace, '--draft', '--resume'])
+  assert.equal(positional.status, 0, positional.stderr)
+  assert.deepEqual(JSON.parse(positional.stdout), { argv: ['--draft', '--resume'], cwd: workspace, marker: 'interactive' })
+})
+
 for (const replaced of [false, true]) {
   test(`selected launcher image ${replaced ? 'refuses replacement after source verification' : 'runs with its expected digest'}`, (t) => {
     const root = mkdtempSync(join(tmpdir(), 'angel-selected-launch-'))

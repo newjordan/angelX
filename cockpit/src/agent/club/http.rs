@@ -312,6 +312,7 @@ pub struct HttpClub {
     /// `None` means dynamic: resolve it before the first request instead of
     /// hardcoding a checkpoint in source.
     model: Mutex<Option<String>>,
+    cli_model: bool,
     api_key: Option<String>,
     /// First-class OAuth (or other rotating) credential. Wins over `api_key`
     /// when set so seats like Grok OAuth never bake a stale JWT into the club.
@@ -1667,6 +1668,7 @@ impl HttpClub {
             name,
             base_url,
             model: Mutex::new(model),
+            cli_model: false,
             api_key,
             token_provider: None,
             agent,
@@ -1699,6 +1701,11 @@ impl HttpClub {
     }
 
     /// Bind provider controls independently from the displayed catalog model.
+    pub(crate) fn with_cli_model(mut self) -> Self {
+        self.cli_model = true;
+        self
+    }
+
     /// Called during construction, before any effort or usage cache is read.
     pub(crate) fn with_env_namespace(mut self, namespace: &str) -> Self {
         let prefix = env_prefix_for(namespace, "");
@@ -2923,6 +2930,16 @@ impl HttpClub {
         cancel: Option<&AtomicBool>,
         abort: Option<&ureq::AbortHandle>,
     ) -> Result<(ureq::Response, super::AccountingAttempt<'_>), String> {
+        self.send_with_retry_origin(bytes, cancel, abort, None)
+    }
+
+    fn send_with_retry_origin(
+        &self,
+        bytes: &[u8],
+        cancel: Option<&AtomicBool>,
+        abort: Option<&ureq::AbortHandle>,
+        origin: Option<(&str, &'static str)>,
+    ) -> Result<(ureq::Response, super::AccountingAttempt<'_>), String> {
         let url = if self.deepseek_messages {
             deepseek_messages::messages_url(&self.base_url)
         } else {
@@ -3033,7 +3050,11 @@ impl HttpClub {
             // Observe every actual attempt after output fitting. Capture failure
             // never changes transport, and no prompt or credentials are retained.
             if let Ok(wire) = crate::agent::harness::run_identity::wire_identity_controls(bytes) {
-                let _ = self.bind_wire_identity(&wire);
+                let _ = if origin.is_some() {
+                    self.bind_wire_identity_origin(&wire, origin)
+                } else {
+                    self.bind_wire_identity(&wire)
+                };
             }
             let mut accounting = self.accounting.attempt();
             if let Some(reservation) = reservation {
@@ -3262,11 +3283,23 @@ impl Club for HttpClub {
         Some(&self.env_prefix)
     }
 
+    fn supports_exact_launch_model(&self, model: &str) -> bool {
+        !self.follow_backend
+            && self
+                .model
+                .lock()
+                .ok()
+                .is_some_and(|current| current.as_deref() == Some(model))
+    }
+
     fn resolved_model_defaults(&self) -> serde_json::Value {
         let mut budgets = model_defaults::budgets(
             &self.model_identity().unwrap_or_default(),
             self.env_prefix(),
         );
+        if self.cli_model {
+            budgets["model_source"] = serde_json::json!("cli");
+        }
         if let Some(effort) = self.effort_override.lock().ok().and_then(|g| g.clone()) {
             budgets["reasoning_effort"] = serde_json::json!(effort);
             budgets["reasoning_effort_source"] = serde_json::json!("env");
@@ -3651,6 +3684,18 @@ impl Club for HttpClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
+        self.chat_streaming_captured(messages, tools, effort, None, cancel, on_delta)
+    }
+
+    fn chat_streaming_captured(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        effort: Option<&str>,
+        origin: Option<(&str, &'static str)>,
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
         set_pending_tool_reasoning(None);
         set_pending_tool_content(None);
         if self.caveman_candidate
@@ -3661,6 +3706,11 @@ impl Club for HttpClub {
             *g = Some(d);
         }
         let (body, budget) = self.build_body_and_budget(messages, tools, true, effort)?;
+        if origin.is_some()
+            && crate::agent::harness::run_identity::wire_effort(&body) == serde_json::json!("none")
+        {
+            return Err("requested effort cannot be serialized for this route".into());
+        }
         let sent = body.get("max_tokens").and_then(|v| v.as_u64());
         let carried_reasoning = Self::body_carries_reasoning(&body);
         let carried_images = Self::body_carries_images(&body);
@@ -3675,7 +3725,7 @@ impl Club for HttpClub {
             }
             on_delta(d);
         };
-        let first = self.stream_body(body, tools, cancel, &mut wrapped);
+        let first = self.stream_body_origin(body, tools, cancel, &mut wrapped, origin);
         match &first {
             Err(e) if e.as_str() == TRUNCATED_OUTPUT_ERR && !emitted => {}
             Err(e) if e.as_str() == TRUNCATED_OUTPUT_ERR => {
@@ -3700,16 +3750,22 @@ impl Club for HttpClub {
                     self.name
                 );
                 let mut retry_wrapped = |delta: StreamDelta| on_delta(delta);
-                return self.stream_body(retry, tools, cancel, &mut retry_wrapped);
+                return self.stream_body_origin(retry, tools, cancel, &mut retry_wrapped, origin);
             }
             // A rejection arrives before any SSE byte, so `!emitted` holds and
             // a re-entry duplicates nothing. Learn once; the rebuilt body drops
             // the field, so the recursion is depth-one.
-            Err(e) if !emitted && self.learn_reasoning_rejection(e, carried_reasoning) => {
-                return self.chat_streaming_with_effort(messages, tools, effort, cancel, on_delta);
+            Err(e)
+                if origin.is_none()
+                    && !emitted
+                    && self.learn_reasoning_rejection(e, carried_reasoning) =>
+            {
+                return self
+                    .chat_streaming_captured(messages, tools, effort, origin, cancel, on_delta);
             }
             Err(e) if !emitted && self.learn_image_rejection(e, carried_images) => {
-                return self.chat_streaming_with_effort(messages, tools, effort, cancel, on_delta);
+                return self
+                    .chat_streaming_captured(messages, tools, effort, origin, cancel, on_delta);
             }
             _ => return first,
         }
@@ -3735,7 +3791,7 @@ impl Club for HttpClub {
                     }
                     on_delta(delta);
                 };
-                self.stream_body(retry, tools, cancel, &mut wrapped_retry)
+                self.stream_body_origin(retry, tools, cancel, &mut wrapped_retry, origin)
             };
             match retry_result {
                 Ok(reply) => {
@@ -3761,7 +3817,23 @@ impl HttpClub {
     /// One buffered chat round: POST an already-built body and decode the reply.
     /// Observe only the final serialized controls, never prompt or credential fields.
     pub(crate) fn bind_wire_identity(&self, body: &serde_json::Value) -> Result<(), String> {
-        crate::agent::harness::run_identity::prepare_model_defaults(self.resolved_model_defaults());
+        self.bind_wire_identity_origin(body, None)
+    }
+
+    fn bind_wire_identity_origin(
+        &self,
+        body: &serde_json::Value,
+        origin: Option<(&str, &'static str)>,
+    ) -> Result<(), String> {
+        let mut defaults = self.resolved_model_defaults();
+        if let Some((requested, source)) = origin {
+            defaults["requested_reasoning_effort"] = serde_json::json!(requested);
+            defaults["resolved_reasoning_effort"] =
+                crate::agent::harness::run_identity::wire_effort(body);
+            defaults["reasoning_effort"] = defaults["resolved_reasoning_effort"].clone();
+            defaults["reasoning_effort_source"] = serde_json::json!(source);
+        }
+        crate::agent::harness::run_identity::prepare_model_defaults(defaults);
         crate::agent::harness::run_identity::bind(
             crate::agent::harness::run_identity::Model {
                 club: self.label().into(),
@@ -3953,6 +4025,27 @@ impl HttpClub {
         )
     }
 
+    fn stream_body_origin(
+        &self,
+        body: serde_json::Value,
+        tools: &[ToolDef],
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+        origin: Option<(&str, &'static str)>,
+    ) -> Result<ClubReply, String> {
+        if origin.is_none() {
+            return self.stream_body(body, tools, cancel, on_delta);
+        }
+        self.stream_body_with_rules_origin(
+            body,
+            tools,
+            cancel,
+            on_delta,
+            crate::agent::stream_rules::StreamRules::global(),
+            origin,
+        )
+    }
+
     /// [`Self::stream_body`] with the TTSR rule set passed explicitly. Only the
     /// wrapper above and tests call this: the global set is a `OnceLock` seeded
     /// once from env/file at first touch, so a test arming a rule through it
@@ -3965,14 +4058,28 @@ impl HttpClub {
         on_delta: &mut dyn FnMut(StreamDelta),
         rules: &crate::agent::stream_rules::StreamRules,
     ) -> Result<ClubReply, String> {
+        self.stream_body_with_rules_origin(body, tools, cancel, on_delta, rules, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn stream_body_with_rules_origin(
+        &self,
+        body: serde_json::Value,
+        tools: &[ToolDef],
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+        rules: &crate::agent::stream_rules::StreamRules,
+        origin: Option<(&str, &'static str)>,
+    ) -> Result<ClubReply, String> {
         let model = body["model"].as_str().unwrap_or_default().to_string();
         let wire = super::wire_log::WireCall::new(&self.name, &model, "chat");
-        let result = self.stream_body_observed(body, tools, cancel, on_delta, rules, &wire);
+        let result = self.stream_body_observed(body, tools, cancel, on_delta, rules, &wire, origin);
         wire.finish(&result);
         result
     }
 
     /// The streaming round itself; `wire` observes it (see [`super::wire_log`]).
+    #[allow(clippy::too_many_arguments)]
     fn stream_body_observed(
         &self,
         body: serde_json::Value,
@@ -3981,6 +4088,7 @@ impl HttpClub {
         on_delta: &mut dyn FnMut(StreamDelta),
         rules: &crate::agent::stream_rules::StreamRules,
         wire: &super::wire_log::WireCall,
+        origin: Option<(&str, &'static str)>,
     ) -> Result<ClubReply, String> {
         std::thread::scope(|scope| {
             use std::io::Read as _;
@@ -4083,7 +4191,7 @@ impl HttpClub {
                 let _cancel_read = super::sse::CancelReadGuard::new(scope, cancel, abort.clone());
                 wire.phase("request");
                 let (resp, mut accounting) =
-                    self.send_with_retry(&bytes, Some(cancel), Some(&abort))?;
+                    self.send_with_retry_origin(&bytes, Some(cancel), Some(&abort), origin)?;
                 wire.phase("streaming");
                 let mut last_data = Instant::now();
                 let mut last_heartbeat = None;
@@ -4552,6 +4660,10 @@ fn inject_stream_reminder(body: &mut serde_json::Value, reminder: &str) {
         serde_json::json!({ "role": "system", "content": reminder }),
     );
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/club/http_launch__tests.rs"]
+mod launch_tests;
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/http__tests.rs"]

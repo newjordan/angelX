@@ -191,6 +191,7 @@ impl App {
     }
 
     pub(crate) fn open_agent_menu(&mut self, kind: AgentMenuKind) {
+        self.launch_interaction();
         if self.thinking.is_some() || self.bg_job.is_some() {
             return;
         }
@@ -253,6 +254,7 @@ impl App {
     }
 
     pub(crate) fn open_model_menu_command(&mut self, raw: &str) -> bool {
+        self.launch_interaction();
         let raw = raw.trim();
         let combined = raw.rsplit_once('@').and_then(|(model, effort)| {
             let (model, effort) = (model.trim(), effort.trim());
@@ -325,6 +327,7 @@ impl App {
     /// it owns, or delete it together with its tests.
     #[cfg(test)]
     fn cycle_thinking(&mut self, forward: bool) -> Option<String> {
+        self.launch_interaction();
         let levels = self.bag.reasoning_levels();
         if levels.is_empty() {
             return None;

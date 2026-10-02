@@ -79,6 +79,110 @@ LAUNCH_CWD="$(pwd -P)"
 # Only the invoking environment may intentionally override a bare launch.
 LAUNCH_WORKSPACE="${ANGEL_WORKSPACE:-}"
 
+# Credential-free syntax preflight. Only a mode-position token selects a machine
+# grammar; its remaining values are opaque. Do this before mise, logs or env files.
+_launch_invalid() { printf 'angelX: %s\n' "$1" >&2; exit 2; }
+# Python is used only for byte/Unicode admission, not model or account policy.
+# Match Rust str::trim's Unicode White_Space set (Python isspace also admits
+# U+001C..U+001F, which Rust deliberately does not).
+_launch_text() {
+  python3 - "$1" "$2" <<'PY'
+import os, sys
+try:
+    raw = os.fsencode(sys.argv[2])
+    text = raw.decode('utf-8', 'strict')
+    whitespace = '\u0009\u000a\u000b\u000c\u000d\u0020\u0085\u00a0\u1680' + ''.join(chr(n) for n in range(0x2000, 0x200b)) + '\u2028\u2029\u202f\u205f\u3000'
+    stripped = text.strip(whitespace)
+    limit = 262144 if sys.argv[1] == 'initial' else 1024
+    assert stripped and len(raw) <= limit
+    if sys.argv[1] == 'selector':
+        assert stripped == text
+except (UnicodeError, AssertionError):
+    sys.exit(2)
+PY
+}
+HEADLESS_MODE=0
+WORKSPACE_ARG=""
+LAUNCH_YOLO=0
+LAUNCH_COMP=0
+FORWARD_ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yolo)
+      [ "$LAUNCH_YOLO" = 0 ] || _launch_invalid 'duplicate global option'
+      LAUNCH_YOLO=1; shift ;;
+    --comp | --lean | --turbo | --angelturbo)
+      [ "$LAUNCH_COMP" = 0 ] || _launch_invalid 'duplicate global option'
+      LAUNCH_COMP=1; shift ;;
+    *) break ;;
+  esac
+done
+# Preserve the launcher's directory-only positional convenience. It is never
+# interpreted as prompt text, and may precede a machine mode.
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ]; then
+  WORKSPACE_ARG="$1"; shift
+elif [ "${1:-}" = --workspace ]; then
+  [ $# -ge 2 ] && [ -n "$2" ] || _launch_invalid '--workspace requires a directory'
+  WORKSPACE_ARG="$2"; shift 2
+fi
+case "${1:-}" in
+  --ask | --task | --task-json | --atlas | --build-info | --look-image | --jev-json | --yukon-status | \
+  --export-harness-rollout | --audit-harness-rollout | --bind-graph-reward | --watch-fixture | \
+  --tool-http-helper | --sandbox-exec | --audit-coding-eval-training | --board-sync | --loop | --rollout | \
+  --dump-preview | --dump-preview-portrait | --dump-research-preview | --dump-rl-preview | --dump-scryglass | --dump-visual)
+    HEADLESS_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
+  --help | -h | --version | -V | --doctor)
+    [ $# -eq 1 ] || _launch_invalid 'inspection options take no additional arguments'
+    HEADLESS_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
+  update | reset-terminal) FORWARD_ARGS=("$@"); set -- ;;
+esac
+DRAFT_SEEN=0
+RESUME_SEEN=0
+DRIVER_SEEN=0
+MODEL_SEEN=0
+EFFORT_SEEN=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --workspace)
+      [ -z "$WORKSPACE_ARG" ] || _launch_invalid 'duplicate --workspace'
+      [ $# -ge 2 ] && [ -n "$2" ] || _launch_invalid '--workspace requires a directory'
+      WORKSPACE_ARG="$2"; shift 2 ;;
+    --draft | --prompt)
+      [ "$DRAFT_SEEN" = 0 ] || _launch_invalid 'duplicate initial text'
+      [ $# -ge 2 ] || _launch_invalid 'initial input requires text'
+      _launch_text initial "$2" || _launch_invalid 'initial text must be nonblank UTF-8 within 256 KiB'
+      DRAFT_SEEN=1; FORWARD_ARGS+=("$1" "$2"); shift 2 ;;
+    --resume)
+      [ "$RESUME_SEEN" = 0 ] || _launch_invalid 'duplicate --resume'
+      RESUME_SEEN=1; FORWARD_ARGS+=("$1"); shift
+      if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+        _launch_text resume "$1" || _launch_invalid 'resume id must be nonblank UTF-8 within 1024 bytes'
+        FORWARD_ARGS+=("$1"); shift
+      fi ;;
+    --driver | --model | --effort)
+      case "$1" in
+        --driver) [ "$DRIVER_SEEN" = 0 ] || _launch_invalid 'duplicate launch selector'; DRIVER_SEEN=1 ;;
+        --model) [ "$MODEL_SEEN" = 0 ] || _launch_invalid 'duplicate launch selector'; MODEL_SEEN=1 ;;
+        --effort) [ "$EFFORT_SEEN" = 0 ] || _launch_invalid 'duplicate launch selector'; EFFORT_SEEN=1 ;;
+      esac
+      [ $# -ge 2 ] || _launch_invalid 'launch selector requires a value'
+      _launch_text selector "$2" || _launch_invalid 'launch selector requires nonblank UTF-8 within 1024 bytes, without surrounding whitespace'
+      FORWARD_ARGS+=("$1" "$2"); shift 2 ;;
+    *) _launch_invalid 'unknown or trailing interactive argument' ;;
+  esac
+done
+[ "$MODEL_SEEN$DRIVER_SEEN" != 10 ] || _launch_invalid '--model requires an explicit concrete --driver'
+[ "$DRAFT_SEEN$RESUME_SEEN" != 11 ] || _launch_invalid 'initial text cannot be combined with --resume'
+set -- "${FORWARD_ARGS[@]}"
+if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" != update ] && [ "${1:-}" != reset-terminal ]; then
+  # Bind interactive workspace before executable shell configuration can cd or
+  # switch it. Native startup receives this canonical root through the env.
+  selected_workspace="${WORKSPACE_ARG:-${LAUNCH_WORKSPACE:-$LAUNCH_CWD}}"
+  [[ "$selected_workspace" = /* ]] || selected_workspace="$LAUNCH_CWD/$selected_workspace"
+  [ -d "$selected_workspace" ] || _launch_invalid 'workspace must be an existing directory'
+  WORKSPACE_ARG="$(cd -- "$selected_workspace" && pwd -P)" || _launch_invalid 'workspace is inaccessible'
+fi
+
 # rustc/cargo live next to the toolchain, not behind ~/.cargo/bin/cargo.
 # That file is a rustup symlink whose fake proxy execs `$1` as a toolchain
 # binary (`cargo build` → .../bin/build → "No such file"). That failed every
@@ -184,18 +288,7 @@ fi
 # Determine whether this is a machine-facing command before loading any env
 # files. Runner processes inherit the caller's explicit environment, but must
 # not silently import unrelated secrets from broad home-directory shell files.
-HEADLESS_MODE=0
-for probe_arg in "$@"; do
-  case "$probe_arg" in
-    --ask | --task | --task-json | --atlas | --build-info | --look-image | --jev-json | --yukon-status | --export-harness-rollout | \
-      --audit-harness-rollout | \
-      --dump-preview | --dump-preview-portrait | --dump-scryglass | --dump-visual | \
-      --help | -h | --version | -V)
-      HEADLESS_MODE=1
-      break
-      ;;
-  esac
-done
+# HEADLESS_MODE was selected by syntactic position during preflight above.
 
 if [ "$HEADLESS_MODE" = "1" ]; then
   # Explicit opt-in only. This file is trusted shell configuration, so naming it
@@ -236,6 +329,10 @@ else
   fi
 fi
 
+# Explicit CLI authority wins trusted interactive/runner configuration.
+[ "$LAUNCH_YOLO" = 0 ] || export ANGEL_YOLO=1
+if [ "$LAUNCH_COMP" = 1 ]; then export ANGEL_COMP_MODE=1 ANGEL_TURBO=1; fi
+
 export ANGEL_TOOL_IDLE_FLOOR_SECS="${ANGEL_TOOL_IDLE_FLOOR_SECS:-120}"
 export ANGEL_TOOL_HARD_TIMEOUT="${ANGEL_TOOL_HARD_TIMEOUT:-600}"
 
@@ -244,52 +341,7 @@ export ANGEL_TOOL_HARD_TIMEOUT="${ANGEL_TOOL_HARD_TIMEOUT:-600}"
 # shellcheck source=../scripts/check/angel-club-policy.sh
 . "$ANGEL_DIR/scripts/check/angel-club-policy.sh"
 
-# Convenience global flags. Keep these before workspace parsing so
-# `angelX --yolo /path/to/project` and `angelX --comp ...` work.
-while [ $# -gt 0 ]; do
-  case "${1:-}" in
-    --yolo)
-      export ANGEL_YOLO=1
-      shift
-      ;;
-    --comp | --lean | --turbo | --angelturbo)
-      export ANGEL_COMP_MODE=1
-      export ANGEL_TURBO=1
-      shift
-      ;;
-    *)
-      break
-      ;;
-  esac
-done
-
-# Workspace selection: explicit launcher args win, then ANGEL_WORKSPACE from the
-# invoking environment (or explicit machine runner env), then the launch directory.
-WORKSPACE_ARG=""
-if [ "${1:-}" = "--workspace" ]; then
-  [ -n "${2:-}" ] || _die "--workspace requires a directory"
-  WORKSPACE_ARG="$2"
-  shift 2
-elif [[ "${1:-}" == --workspace=* ]]; then
-  _die "use --workspace DIR before cockpit arguments"
-elif [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
-  WORKSPACE_ARG="$1"
-  shift
-fi
-if [ -n "$WORKSPACE_ARG" ] && [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
-  _die "workspace selected more than once; pass one directory before cockpit arguments"
-fi
-# Reject misplaced TUI selectors instead of allowing the cockpit to ignore
-# them. Native machine commands own all following options and prompt tokens;
-# in particular, --task --workspace DIR and a literal "--workspace" prompt must
-# pass through unchanged. This guard never rearranges their arguments.
-for workspace_probe in "$@"; do
-  case "$workspace_probe" in
-    --task | --task-json | --ask | --atlas | --export-harness-rollout | --audit-harness-rollout | \
-      --bind-graph-reward | --look-image | --dump-*) break ;;
-    --workspace | --workspace=*) _die "pass one workspace directory before cockpit arguments" ;;
-  esac
-done
+# Workspace was parsed before env-file effects; machine argv remains opaque.
 WORKSPACE_DIR="${WORKSPACE_ARG:-${ANGEL_WORKSPACE:-$LAUNCH_CWD}}"
 # Env files may run shell statements; relative selection always belongs to the
 # directory from which the operator launched, regardless of later shell cwd.

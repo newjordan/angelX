@@ -5,6 +5,8 @@ pub(crate) mod approval;
 pub(crate) mod backplane;
 pub(crate) mod club;
 pub(crate) mod code_mode;
+pub(crate) mod codex_catalog;
+pub(crate) mod codex_startup;
 pub(crate) mod compaction;
 pub(crate) mod conflict;
 pub(crate) mod formations;
