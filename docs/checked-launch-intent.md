@@ -75,8 +75,13 @@ Ordinary approvals, verifier guards and tool capabilities are unchanged.
 
 ## Checked catalog ownership
 
-`ANGEL_OPENAI_CATALOG_SOURCE=pi-store:/absolute/path/models-store.json` selects the
-Pi format explicitly. The native loader checks a regular-file descriptor, size and
+The catalog source variable selects the Pi format explicitly:
+
+```sh
+ANGEL_OPENAI_CATALOG_SOURCE=pi-store:/absolute/path/models-store.json
+```
+
+The native loader checks a regular-file descriptor, size and
 record bounds, revision coherence and supported identity/capability fields. It
 projects only supported Codex records; imported endpoint/auth/instruction fields
 cannot redirect execution. Explicit missing/malformed/empty/all-filtered sources
