@@ -349,6 +349,17 @@ fn native_launch_unelected_practice_floor_is_not_operational_readiness() {
     let _driver = TestEnvGuard::unset("ANGEL_DRIVER");
     let _auth = TestEnvGuard::unset("ANGEL_OPENAI_AUTH_JSON");
     let _api = TestEnvGuard::set("ANGEL_API_CLUBS", "none");
+    // The operator's own Grok/Codex logins and LAN clubs are not this fixture.
+    let empty = std::env::temp_dir().join(format!("native-floor-{}", std::process::id()));
+    let _grok = TestEnvGuard::set(
+        "ANGEL_GROK_OAUTH_FILE",
+        empty.join("grok-auth.json").to_str().unwrap(),
+    );
+    let _codex = TestEnvGuard::set("CODEX_HOME", empty.join("codex").to_str().unwrap());
+    let _probe = TestEnvGuard::set("ANGEL_PROBE", "0");
+    let _bag_probe = TestEnvGuard::set("ANGEL_BAG_PROBE", "0");
+    let _hydra = TestEnvGuard::set("ANGEL_HYDRA_DISCOVER", "0");
+    let _tailnet = TestEnvGuard::set("ANGEL_TAILNET_RESOLVE", "0");
     let launch = InteractiveLaunch {
         prompt: Some("literal".into()),
         ..Default::default()

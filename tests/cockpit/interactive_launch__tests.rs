@@ -168,8 +168,7 @@ fn canonical_workspace_precedence_and_invalid_paths() {
 
 #[test]
 fn native_cli_rejects_before_terminal_and_does_not_scan_payload_for_doctor() {
-    let binary = std::env::var_os("CARGO_BIN_EXE_angel")
-        .expect("native gate supplies the private CLI image");
+    let binary = angel_binary();
     for args in [
         vec!["--draft", "--doctor", "--unknown"],
         vec!["--model", "private-fixture"],
@@ -188,25 +187,49 @@ fn native_cli_rejects_before_terminal_and_does_not_scan_payload_for_doctor() {
     }
 }
 
+// Cargo sets CARGO_BIN_EXE_angel for the gate's copied image; a plain
+// `cargo test` run falls back to the sibling `angel` next to deps/<test-exe>.
+fn angel_binary() -> std::ffi::OsString {
+    std::env::var_os("CARGO_BIN_EXE_angel")
+        .or_else(|| {
+            let target = std::env::current_exe()
+                .ok()?
+                .parent()?
+                .parent()?
+                .to_path_buf();
+            Some(target.join("angel").into_os_string())
+        })
+        .expect("locate the cockpit binary")
+}
+
 fn isolated_native(binary: &OsStr) -> std::process::Command {
     let mut cmd = std::process::Command::new(binary);
     cmd.env_clear();
-    for key in [
-        "PATH",
-        "HOME",
-        "CODEX_HOME",
-        "XDG_CONFIG_HOME",
-        "XDG_DATA_HOME",
-        "XDG_STATE_HOME",
-        "XDG_CACHE_HOME",
-        "CARGO_HOME",
-        "RUSTUP_HOME",
-        "TMPDIR",
+    // Never hand the operator's real HOME/Codex/XDG roots to the child: each
+    // spawn gets its own empty fixture home under the test's TMPDIR.
+    static SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let home = std::env::temp_dir().join(format!(
+        "angel-native-{}-{}",
+        std::process::id(),
+        SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    for (key, dir) in [
+        ("HOME", ""),
+        ("CODEX_HOME", ".codex"),
+        ("XDG_CONFIG_HOME", ".config"),
+        ("XDG_DATA_HOME", ".local/share"),
+        ("XDG_STATE_HOME", ".local/state"),
+        ("XDG_CACHE_HOME", ".cache"),
     ] {
-        cmd.env(
-            key,
-            std::env::var_os(key).expect("sanitized gate must supply every fixture root"),
-        );
+        let path = home.join(dir);
+        std::fs::create_dir_all(&path).unwrap();
+        cmd.env(key, path);
+    }
+    cmd.env("TMPDIR", std::env::temp_dir());
+    for key in ["PATH", "CARGO_HOME", "RUSTUP_HOME"] {
+        if let Some(value) = std::env::var_os(key) {
+            cmd.env(key, value);
+        }
     }
     cmd.env("USER", "fixture")
         .env("LOGNAME", "fixture")
@@ -223,7 +246,7 @@ fn isolated_native(binary: &OsStr) -> std::process::Command {
 
 #[test]
 fn native_helpers_use_the_parsed_mode_slice_with_leading_globals_and_opaque_values() {
-    let binary = std::env::var_os("CARGO_BIN_EXE_angel").unwrap();
+    let binary = angel_binary();
     for args in [
         vec!["--comp", "--atlas", "--unknown"],
         vec!["--comp", "--look-image", "--doctor"],
@@ -253,7 +276,7 @@ fn native_helpers_use_the_parsed_mode_slice_with_leading_globals_and_opaque_valu
 
 #[test]
 fn native_private_cli_practice_draft_and_literal_prompt_fixture() {
-    let binary = std::env::var_os("CARGO_BIN_EXE_angel").unwrap();
+    let binary = angel_binary();
     let mut cmd = isolated_native(OsStr::new("python3"));
     let output = cmd
         .arg("../scripts/check/native-entry-fixture.py")

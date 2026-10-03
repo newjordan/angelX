@@ -832,20 +832,6 @@ fn main() -> std::io::Result<()> {
         }
         raw_args.remove(0);
     }
-    // Global options were consumed by the typed interactive parser but still
-    // configure the ordinary native posture after successful preflight.
-    if interactive.is_some() {
-        for arg in entry_args
-            .iter()
-            .take(entry_args.len() - interactive_launch::ordinary_args(&entry_args).len())
-        {
-            match arg.to_str() {
-                Some("--yolo") => yolo::set(true),
-                Some("--comp" | "--lean" | "--turbo" | "--angelturbo") => comp_mode::set(true),
-                _ => unreachable!("preflight admitted only leading globals"),
-            }
-        }
-    }
     if raw_args.as_slice() == ["--help"] || raw_args.as_slice() == ["-h"] {
         print_cli_help();
         return Ok(());
@@ -1684,9 +1670,28 @@ fn main() -> std::io::Result<()> {
         )
     })?;
     let workspace = workspace.expect("interactive workspace was checked before startup");
-    let (bag, binding) = crate::app::launch::prepare(&launch, &workspace)?;
+    // An explicit route/text is checked before the screen opens so a bad
+    // selector fails cleanly. A plain launch opens the screen first, as
+    // before: the Bag can take a moment and the cockpit should be visible.
+    let pinned = launch.driver.is_some()
+        || launch.model.is_some()
+        || launch.effort.is_some()
+        || launch.prompt.is_some();
+    let early = if pinned {
+        Some(crate::app::launch::prepare(&launch, &workspace)?)
+    } else {
+        None
+    };
     let mut terminal = init_terminal()?;
     let viewer = Viewer::calibrated();
+    let (bag, binding) =
+        match early.map_or_else(|| crate::app::launch::prepare(&launch, &workspace), Ok) {
+            Ok(prepared) => prepared,
+            Err(e) => {
+                restore_terminal();
+                return Err(e);
+            }
+        };
     let result = run(&mut terminal, viewer, launch, workspace, bag, binding);
     restore_terminal();
     // The phoenix step: `/self reborn` staged a freshly-built binary — replace

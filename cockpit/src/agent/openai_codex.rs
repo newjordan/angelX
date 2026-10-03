@@ -311,14 +311,10 @@ fn checked_model_catalog_from_str(
     let Ok(mut cache) = serde_json::from_value::<CodexModelsCache>(root) else {
         return Ok(Vec::new());
     };
+    // A malformed window in Codex's own cache only loses that model's budget;
+    // it must not take every Codex route down with it.
     for (model, window) in cache.models.iter_mut().zip(windows) {
-        if let Some(window) = window.filter(|v| !v.is_null()) {
-            model.context_window = Some(
-                window
-                    .as_u64()
-                    .ok_or(crate::agent::codex_catalog::Diagnostic::Capacity)?,
-            );
-        }
+        model.context_window = window.and_then(|v| v.as_u64());
     }
     cache.models.retain(|model| {
         (model.visibility.is_empty() || model.visibility == "list")

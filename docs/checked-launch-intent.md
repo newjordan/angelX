@@ -109,9 +109,9 @@ research tools. Metadata projection is not publisher authentication.
 
 ## Regression checks
 
-Run with synthetic credentials and isolated HOME/CODEX/XDG/session roots; never
-supply real accounts for these fixtures. Follow CONTRIBUTING.md for the pinned
-Rust toolchain and the native runner's environment prerequisites.
+The fixtures build their own isolated HOME/CODEX/XDG roots and synthetic
+credentials; no real account is read. Follow CONTRIBUTING.md for the pinned
+Rust toolchain.
 
 ```sh
 bash scripts/check/check-cockpit-fast.sh gate1_ --test-threads=1
@@ -120,13 +120,7 @@ bash scripts/check/check-cockpit-fast.sh catalog_r --test-threads=1
 node --test tests/scripts/angel-club-policy.test.mjs tests/scripts/native-launch.test.mjs
 ```
 
-`check-catalog-r1-r4.sh` is an additional focused group requiring explicitly
-scrubbed fixture roots and offline cached Cargo. Local HTTP fixtures exercise
+Local HTTP fixtures exercise
 actual request/receipt agreement without live inference. Tests cover source and
 selector rejection, shared snapshot/auth identity, supported effort correction,
 context consumers, exact workspace, initial-turn cancellation and literal text.
-
-No-video tests do not qualify video playback, optimized release behavior,
-exhaustive model/tool/security behavior, entitlement or coding quality. External
-adapters, catalog refresh services, account credential mutation, public catalog
-feeds and release publication are outside this contribution.

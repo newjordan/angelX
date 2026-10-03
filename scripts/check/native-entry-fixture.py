@@ -74,7 +74,7 @@ def main():
             def env_for(name):
                 case = root / name
                 case.mkdir()
-                env = {key: os.environ[key] for key in ('PATH', 'CARGO_HOME', 'RUSTUP_HOME')}
+                env = {key: os.environ[key] for key in ('PATH', 'CARGO_HOME', 'RUSTUP_HOME') if key in os.environ}
                 for key, directory in [('HOME', 'home'), ('CODEX_HOME', 'codex'),
                     ('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data'),
                     ('XDG_STATE_HOME', 'state'), ('XDG_CACHE_HOME', 'cache'),

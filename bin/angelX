@@ -173,7 +173,8 @@ while [ $# -gt 0 ]; do
 done
 [ "$MODEL_SEEN$DRIVER_SEEN" != 10 ] || _launch_invalid '--model requires an explicit concrete --driver'
 [ "$DRAFT_SEEN$RESUME_SEEN" != 11 ] || _launch_invalid 'initial text cannot be combined with --resume'
-set -- "${FORWARD_ARGS[@]}"
+# bash 3.2 (stock macOS) treats an empty "${arr[@]}" as unbound under set -u.
+set -- ${FORWARD_ARGS[@]+"${FORWARD_ARGS[@]}"}
 if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" != update ] && [ "${1:-}" != reset-terminal ]; then
   # Bind interactive workspace before executable shell configuration can cd or
   # switch it. Native startup receives this canonical root through the env.
