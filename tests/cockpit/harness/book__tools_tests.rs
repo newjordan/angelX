@@ -1088,6 +1088,24 @@ fn every_schema(root: &std::path::Path) -> Vec<crate::agent::club::ToolDef> {
     // credentials or a cached image-capable model catalog. No request is made.
     let _vision_url = TestEnvGuard::set("ANGEL_VISION_URL", "http://127.0.0.1:9/v1");
     let _vision_model = TestEnvGuard::set("ANGEL_VISION_MODEL", "schema-fixture");
+    // Exercise the actual optional registration path without host credentials,
+    // ambient enable/model settings, or a tool call. Guards restore the caller.
+    let _jev_key = TestEnvGuard::set("TYPESAFE_API_KEY", "schema-fixture-key");
+    let _jev_enabled = TestEnvGuard::set("ANGEL_JEV", "1");
+    let _jev_model = TestEnvGuard::set("ANGEL_JEV_MODEL", "schema-fixture");
+    // Grok's registration checks local file existence, not a token exchange.
+    // The empty marker and missing catalog live only in the caller's scratch.
+    let schema_grok_auth = root.join("schema-grok-auth.json");
+    std::fs::write(&schema_grok_auth, "{}").unwrap();
+    let _grok_auth = TestEnvGuard::set("ANGEL_GROK_OAUTH_FILE", schema_grok_auth.to_str().unwrap());
+    let _grok_cache = TestEnvGuard::set(
+        "ANGEL_GROK_MODELS_CACHE",
+        root.join("schema-grok-models.json").to_str().unwrap(),
+    );
+    let _grok_cmd = TestEnvGuard::set("ANGEL_GROK_CMD", "/bin/false");
+    let _grok_tool = TestEnvGuard::set("ANGEL_GROK_TOOL", "1");
+    let _grok_research = TestEnvGuard::set("ANGEL_GROK_RESEARCH", "1");
+    let _grok_model = TestEnvGuard::set("ANGEL_GROK_MODEL", "grok-4.7");
     let bag = crate::agent::club::Bag::practice_for_test();
     let mut defs = Vec::new();
     let modes: [&[(&'static str, &str)]; 3] = [
@@ -1143,7 +1161,50 @@ fn every_schema(root: &std::path::Path) -> Vec<crate::agent::club::ToolDef> {
             .offline()
             .def(),
     );
+    std::fs::remove_file(schema_grok_auth).unwrap();
     defs
+}
+
+#[test]
+fn given_optional_tools_absent_when_enumerating_then_schemas_and_env_survive() {
+    use crate::tests::TestEnvGuard;
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!("angel-book-jev-schema-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    // Given no credential, disabled integration, or invalid ambient model,
+    // When enumerating schemas, Then real registration is covered using only
+    // synthetic fixture configuration and the original environment is restored.
+    for (key, enabled, model) in [
+        (None, "0", ""),
+        (Some("  "), "1", "invalid/model"),
+        (Some("synthetic-host-key"), "0", ""),
+    ] {
+        let _key = match key {
+            Some(key) => TestEnvGuard::set("TYPESAFE_API_KEY", key),
+            None => TestEnvGuard::unset("TYPESAFE_API_KEY"),
+        };
+        let _enabled = TestEnvGuard::set("ANGEL_JEV", enabled);
+        let _model = TestEnvGuard::set("ANGEL_JEV_MODEL", model);
+        let _grok_tool = TestEnvGuard::set("ANGEL_GROK_TOOL", "0");
+        let _grok_research = TestEnvGuard::set("ANGEL_GROK_RESEARCH", "0");
+        let missing = root.join("unconfigured-auth.json");
+        let _grok_auth = TestEnvGuard::set("ANGEL_GROK_OAUTH_FILE", missing.to_str().unwrap());
+        let defs = every_schema(&root);
+        for tool in ["jev_decide", "grok_research"] {
+            assert!(defs.iter().any(|def| def.name == tool), "{tool}");
+        }
+        assert_eq!(std::env::var("ANGEL_GROK_TOOL").unwrap(), "0");
+        assert_eq!(std::env::var("ANGEL_GROK_RESEARCH").unwrap(), "0");
+        assert_eq!(
+            std::env::var("ANGEL_GROK_OAUTH_FILE").unwrap(),
+            missing.to_str().unwrap()
+        );
+        assert!(!root.join("schema-grok-auth.json").exists());
+        assert_eq!(std::env::var("TYPESAFE_API_KEY").ok().as_deref(), key);
+        assert_eq!(std::env::var("ANGEL_JEV").unwrap(), enabled);
+        assert_eq!(std::env::var("ANGEL_JEV_MODEL").unwrap(), model);
+    }
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
