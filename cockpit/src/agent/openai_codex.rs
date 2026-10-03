@@ -25,6 +25,7 @@ use base64::Engine as _;
 
 mod api;
 mod attempts;
+mod catalog;
 mod events;
 mod replay;
 mod usage;
@@ -173,6 +174,8 @@ pub(crate) struct CodexModelInfo {
     pub(crate) visibility: String,
     #[serde(default)]
     pub(crate) priority: i64,
+    #[serde(skip)]
+    pub(crate) pi_thinking: std::collections::BTreeMap<String, Option<String>>,
 }
 
 impl CodexModelInfo {
@@ -266,23 +269,63 @@ fn config_from_str(raw: &str) -> Option<CodexConfig> {
     })
 }
 
-fn model_catalog_from_path(path: PathBuf) -> Vec<CodexModelInfo> {
+fn checked_model_catalog_from_path(
+    path: PathBuf,
+) -> Result<Vec<CodexModelInfo>, crate::agent::codex_catalog::Diagnostic> {
     let Ok(raw) = std::fs::read_to_string(path) else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
-    model_catalog_from_str(&raw)
+    checked_model_catalog_from_str(&raw)
 }
 
+#[cfg(test)]
 fn model_catalog_from_str(raw: &str) -> Vec<CodexModelInfo> {
-    let Ok(mut cache) = serde_json::from_str::<CodexModelsCache>(raw) else {
-        return Vec::new();
+    checked_model_catalog_from_str(raw).unwrap_or_default()
+}
+
+fn checked_model_catalog_from_str(
+    raw: &str,
+) -> Result<Vec<CodexModelInfo>, crate::agent::codex_catalog::Diagnostic> {
+    // Value preserves out-of-range/negative/fractional JSON numbers long enough
+    // to distinguish invalid declared capacity from the native malformed-cache
+    // fallback. Null retains the legacy Option<u64> behavior.
+    let Ok(mut root) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return Ok(Vec::new());
     };
+    let windows = root
+        .get_mut("models")
+        .and_then(serde_json::Value::as_array_mut)
+        .map(|models| {
+            models
+                .iter_mut()
+                .map(|model| {
+                    model
+                        .as_object_mut()
+                        .and_then(|record| record.remove("context_window"))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    // Check the native cache shape first: unrelated malformed fields still
+    // retain the documented fallback, rather than becoming capacity failures.
+    let Ok(mut cache) = serde_json::from_value::<CodexModelsCache>(root) else {
+        return Ok(Vec::new());
+    };
+    for (model, window) in cache.models.iter_mut().zip(windows) {
+        if let Some(window) = window.filter(|v| !v.is_null()) {
+            model.context_window = Some(
+                window
+                    .as_u64()
+                    .ok_or(crate::agent::codex_catalog::Diagnostic::Capacity)?,
+            );
+        }
+    }
     cache.models.retain(|model| {
         (model.visibility.is_empty() || model.visibility == "list")
             && !is_private_test_codex_model(&model.slug)
     });
     cache.models.sort_by_key(|model| model.priority);
-    cache.models
+    Ok(cache.models)
 }
 
 /// Private-test Codex surface that must never run competitions or default work.
@@ -585,7 +628,9 @@ pub struct CodexClub {
     /// Backend-owned session setting. Unlike the old process-env lookup this is
     /// stable for every hop of a turn and can be changed safely between turns.
     reasoning_effort: Mutex<Option<String>>,
-    selection: Option<crate::agent::club::codex_selection::Selection>,
+    // Provenance only: validity is derived from capabilities and captured intent.
+    selection_sources: Option<(&'static str, &'static str)>,
+    catalog: Option<Arc<crate::agent::codex_catalog::CatalogLoad>>,
     route_state_revision: AtomicU64,
     reasoning_levels: Vec<String>,
     route_metadata: crate::agent::club::RouteMetadata,
@@ -792,7 +837,8 @@ impl CodexClub {
             name: name.into(),
             model: model.into(),
             reasoning_effort: Mutex::new(reasoning_effort),
-            selection: None,
+            selection_sources: None,
+            catalog: None,
             route_state_revision: AtomicU64::new(0),
             reasoning_levels,
             route_metadata,
@@ -884,6 +930,7 @@ impl CodexClub {
         self
     }
 
+    #[cfg(test)]
     pub fn default_model() -> Option<String> {
         let raw = std::env::var("ANGEL_OPENAI_MODEL")
             .ok()
@@ -893,29 +940,13 @@ impl CodexClub {
         Some(raw.unwrap_or_else(|| OPENAI_LUNA_MODEL.into()))
     }
 
+    #[cfg(test)]
     pub(crate) fn resolve_selection() -> crate::agent::club::codex_selection::Selection {
-        let config = config_from_path(config_path()).unwrap_or_default();
-        let env = |key| std::env::var(key).ok().filter(|s| !s.trim().is_empty());
-        crate::agent::club::codex_selection::resolve(
-            env("ANGEL_OPENAI_MODEL"),
-            env("ANGEL_OPENAI_REASONING_EFFORT").or_else(|| env("ANGEL_REASONING_EFFORT")),
-            config.model,
-            config.model_reasoning_effort,
-            &Self::model_catalog(),
-        )
-    }
-
-    pub(crate) fn with_selection(
-        mut self,
-        selection: crate::agent::club::codex_selection::Selection,
-    ) -> Self {
-        self.model.clone_from(&selection.model);
-        *self.reasoning_effort.get_mut().expect("new route lock") = Some(selection.effort.clone());
-        if !self.reasoning_levels.contains(&selection.effort) && selection.error.is_none() {
-            self.reasoning_levels.push(selection.effort.clone());
-        }
-        self.selection = Some(selection);
-        self
+        let catalog = crate::agent::codex_catalog::CatalogLoad::load(
+            std::env::var("ANGEL_OPENAI_CATALOG_SOURCE").ok().as_deref(),
+            Self::model_catalog,
+        );
+        Self::resolve_selection_from(&catalog)
     }
 
     #[cfg(test)]
@@ -937,8 +968,14 @@ impl CodexClub {
         )
     }
 
+    pub(crate) fn checked_model_catalog()
+    -> Result<Vec<CodexModelInfo>, crate::agent::codex_catalog::Diagnostic> {
+        checked_model_catalog_from_path(models_cache_path())
+    }
+
+    #[cfg(test)]
     pub(crate) fn model_catalog() -> Vec<CodexModelInfo> {
-        model_catalog_from_path(models_cache_path())
+        Self::checked_model_catalog().unwrap_or_default()
     }
 
     /// Fold one turn's reported usage into the session running totals.
@@ -1055,7 +1092,17 @@ impl CodexClub {
     /// `instructions`, the rest become `input` message items.
     #[cfg(test)]
     fn build_request(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> serde_json::Value {
-        self.build_request_with_effort(messages, tools, None)
+        let effort = self.capture_selection(None).ok().and_then(|s| s.wire);
+        self.build_request_with_effort(messages, tools, effort.as_deref())
+    }
+
+    fn build_selected_request(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        selection: &crate::agent::codex_catalog::EffectiveSelection,
+    ) -> serde_json::Value {
+        self.build_request_with_effort(messages, tools, selection.wire.as_deref())
     }
 
     fn build_request_with_effort(
@@ -1069,8 +1116,7 @@ impl CodexClub {
         // Completions: each stamp's English the first time the model meets it.
         let introduced = crate::agent::harness::book::introduction::introduced(messages, tools);
         let messages: &[ChatMsg] = &introduced;
-        let fallback_effort = effort.is_none().then(|| self.reasoning_effort()).flatten();
-        let effort = effort.or(fallback_effort.as_deref());
+        // Dispatch supplies its already checked capture. No mutable preference read.
         // Brevity instruction for the metered link: folded into `instructions`
         // right after the leading system block — the history is never cloned
         // to carry it (it used to be, every request).
@@ -1220,6 +1266,19 @@ impl CodexClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
+        self.run_with_effort_source(messages, tools, effort, None, cancel, on_delta)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn run_with_effort_source(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        effort: Option<&str>,
+        source: Option<&'static str>,
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
         use crate::agent::club::wire_log::{WireCall, WireWindows};
         // These handoffs belong to one provider reply on this thread. Clear
         // them before validation/auth can fail or another route can run.
@@ -1238,17 +1297,19 @@ impl CodexClub {
             },
         });
         let result =
-            self.run_with_effort_observed(messages, tools, effort, cancel, on_delta, &wire);
+            self.run_with_effort_observed(messages, tools, effort, source, cancel, on_delta, &wire);
         wire.finish(&result);
         result
     }
 
     /// The Responses round itself; `wire` observes it (see `club::wire_log`).
+    #[allow(clippy::too_many_arguments)]
     fn run_with_effort_observed(
         &self,
         messages: &[ChatMsg],
         tools: &[ToolDef],
         effort: Option<&str>,
+        source: Option<&'static str>,
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
         wire: &crate::agent::club::wire_log::WireCall,
@@ -1270,29 +1331,14 @@ impl CodexClub {
         {
             return Err("graph request deadline reached".into());
         }
-        if let Some(error) = self.selection.as_ref().and_then(|s| s.error.as_ref()) {
-            return Err(error.clone());
-        }
-        let api_effort = self
-            .api_controls
-            .as_ref()
-            .and_then(|_| self.reasoning_effort());
-        if let Some(requested) = effort.or(api_effort.as_deref())
-            && !self
-                .reasoning_levels
-                .iter()
-                .any(|level| responses_wire_effort(level) == responses_wire_effort(requested))
-        {
-            return Err(format!(
-                "OpenAI effort {requested:?} is not supported for {}; supported efforts: [{}]",
-                self.model,
-                self.reasoning_levels.join(", ")
-            ));
+        let mut effective = self.capture_selection(effort)?;
+        if let Some(source) = source {
+            effective.effort_source = Some(source);
         }
         wire.phase("auth");
         let (token, account) = self.token()?;
         wire.phase("request");
-        let body = self.build_request_with_effort(messages, tools, effort);
+        let body = self.build_selected_request(messages, tools, &effective);
         let retained = messages
             .iter()
             .filter(|message| message.responses_replay.is_some())
@@ -1373,10 +1419,10 @@ impl CodexClub {
         // request path (see HttpClub::send_with_retry). Failures leave the
         // identity unbound and are reported as such by the coverage report.
         if let Ok(wire) = crate::agent::harness::run_identity::wire_identity_controls(&bytes) {
-            let mut defaults = self.resolved_model_defaults();
+            let mut defaults = self.defaults_for_selection(&effective);
             defaults["model"] = wire["model"].clone();
             defaults["reasoning_effort"] = wire["reasoning"]["effort"].clone();
-            if effort.is_some() {
+            if effort.is_some() && source.is_none() {
                 defaults["reasoning_effort_source"] = serde_json::json!("env");
             }
             crate::agent::harness::run_identity::prepare_model_defaults(defaults);
@@ -1779,60 +1825,57 @@ impl Club for CodexClub {
         Some(self.model.clone())
     }
 
+    fn supports_exact_launch_model(&self, model: &str) -> bool {
+        self.model == model
+    }
+
     fn reasoning_effort(&self) -> Option<String> {
-        if self.route_state_revision.load(Ordering::Relaxed) == 0
-            && let Some(controls) = &self.api_controls
-        {
-            return controls.effort(&self.model);
-        }
-        self.reasoning_effort
-            .lock()
-            .ok()
-            .and_then(|effort| effort.clone())
+        let requested = self.requested_effort();
+        self.resolve_captured(requested.clone())
+            .map(|selection| selection.wire)
+            .unwrap_or(requested)
     }
 
     fn resolved_model_defaults(&self) -> serde_json::Value {
-        if let Some(controls) = &self.api_controls {
-            let mut defaults =
-                crate::agent::club::model_defaults::budgets(&self.model, "OPENAI_API");
-            defaults["model"] = serde_json::json!(self.model);
-            defaults["model_source"] = serde_json::json!("env");
-            defaults["stream_stall_secs"] = serde_json::json!(self.stream_stall_secs);
-            defaults["stream_stall_source"] =
-                serde_json::json!(if std::env::var_os(CODEX_STREAM_STALL_ENV).is_some() {
-                    "env"
-                } else {
-                    "default"
-                });
-            defaults["reasoning_effort"] = serde_json::json!(
-                self.reasoning_effort()
-                    .as_deref()
-                    .map(responses_wire_effort)
-            );
-            if self.route_state_revision.load(Ordering::Relaxed) > 0 {
-                defaults["reasoning_effort_source"] = serde_json::json!("env");
+        let (requested, source) = match self.captured_inputs() {
+            Ok(inputs) => inputs,
+            Err(error) => {
+                let mut defaults = self.defaults_base();
+                defaults["selection_error"] = serde_json::json!(error);
+                return defaults;
             }
-            defaults["selection_error"] = serde_json::json!(controls.error);
-            return defaults;
+        };
+        match self.resolve_captured(requested.clone()) {
+            Ok(mut effective) => {
+                effective.effort_source = Some(source);
+                self.defaults_for_selection(&effective)
+            }
+            Err(error) => {
+                let mut defaults = self.defaults_base();
+                defaults["selection_error"] = serde_json::json!(error);
+                defaults["requested_reasoning_effort"] = serde_json::json!(requested);
+                defaults["reasoning_effort"] = serde_json::json!(requested);
+                defaults["resolved_reasoning_effort"] = serde_json::Value::Null;
+                defaults["reasoning_effort_source"] = serde_json::json!(source);
+                defaults
+            }
         }
-        let mut defaults = crate::agent::club::model_defaults::budgets(&self.model, "ANGEL_OPENAI");
-        let selection = self.selection.as_ref();
-        defaults["model"] = serde_json::json!(self.model);
-        defaults["model_source"] =
-            serde_json::json!(selection.map_or("fallback", |s| s.model_source));
-        defaults["reasoning_effort"] = serde_json::json!(
-            self.reasoning_effort()
-                .as_deref()
-                .map(responses_wire_effort)
-        );
-        defaults["reasoning_effort_source"] =
-            serde_json::json!(if self.route_state_revision.load(Ordering::Relaxed) > 0 {
-                "env"
-            } else {
-                selection.map_or("fallback", |s| s.effort_source)
-            });
-        defaults["selection_error"] = serde_json::json!(selection.and_then(|s| s.error.as_ref()));
-        defaults
+    }
+
+    fn metadata(&self) -> Option<crate::agent::club::Metadata> {
+        let context_window =
+            crate::agent::codex_catalog::checked_context(self.route_metadata.context_window?)
+                .ok()?;
+        Some(crate::agent::club::Metadata {
+            context_window,
+            supports_cache: true,
+            supports_reasoning: Some(true),
+            supports_tools: true,
+        })
+    }
+
+    fn metadata_cached(&self) -> Option<crate::agent::club::Metadata> {
+        self.metadata()
     }
 
     fn reasoning_levels(&self) -> &[String] {
@@ -1854,13 +1897,32 @@ impl Club for CodexClub {
         }
     }
 
+    fn checked_launch_effort(&self, requested: &str) -> Result<String, String> {
+        self.resolve_captured(Some(requested.into()))?
+            .wire
+            .ok_or_else(|| "route has no effort".into())
+    }
+
+    fn chat_streaming_with_effort_source(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        effort: Option<&str>,
+        source: &'static str,
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        self.run_with_effort_source(messages, tools, effort, Some(source), cancel, on_delta)
+    }
+
     fn set_reasoning_effort(&self, requested: &str) -> Option<String> {
         let selected = self
             .reasoning_levels
             .iter()
             .find(|level| level.eq_ignore_ascii_case(responses_wire_effort(requested.trim())))?
             .clone();
-        *self.reasoning_effort.lock().ok()? = Some(selected.clone());
+        let mut preference = self.reasoning_effort.lock().ok()?;
+        *preference = Some(selected.clone());
         self.route_state_revision.fetch_add(1, Ordering::Relaxed);
         Some(selected)
     }
@@ -2078,6 +2140,14 @@ fn describe_response_error(code: u16, body: &str) -> String {
         .unwrap_or_else(|| body.trim().chars().take(200).collect());
     crate::platform::secrets::redact_error(&format!("HTTP {code}: {detail}"))
 }
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/codex_catalog_routes__tests.rs"]
+mod catalog_routes_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/gate1_catalog_preferences__tests.rs"]
+mod gate1_catalog_preferences_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/openai_codex__tests.rs"]

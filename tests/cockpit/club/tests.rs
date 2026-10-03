@@ -2493,6 +2493,7 @@ fn solo(name: &str, available: bool) -> Agent {
 /// Build a bag from explicit agents, in hand on the first.
 fn bag_of(agents: Vec<Agent>) -> Bag {
     Bag {
+        codex_startup: None,
         agents,
         in_hand: 0,
         discovery_rx: None,

@@ -593,6 +593,7 @@ impl App {
     /// Poll the worker; when the reply (or error) lands, record it and clear.
     /// Also drains live tool-call events so the UI shows activity as it happens.
     pub(crate) fn advance(&mut self) {
+        self.advance_launch_input();
         self.drain_background_process_completions();
         self.flush_pending_atlas_harvest();
         self.poll_shell_status();
@@ -1992,6 +1993,16 @@ impl App {
                 self.messages.pop();
                 self.invalidate_transcript_layout();
             }
+            if pending.launch.is_some() {
+                if !self.input.is_empty() {
+                    self.launch_typed_ahead = Some(std::mem::take(&mut self.input));
+                }
+                if let Some(input) = self.launch_input.as_mut() {
+                    input.state = crate::app::launch::LaunchState::Cancelled;
+                }
+                self.launch_route = None;
+                self.composer_selection_anchor = None;
+            }
             self.input = pending.raw.to_string();
             self.cursor = self.input.chars().count();
             // The unsent turn's screenshots were folded in at submit: put them
@@ -2099,6 +2110,9 @@ impl App {
     /// Esc / ^C: interrupt a running turn. When idle it's a no-op — the cockpit is
     /// closed deliberately by typing `exit`/`quit`, never by a stray keystroke.
     pub(crate) fn interrupt_idle_safe(&mut self) {
+        if self.cancel_launch(true) {
+            return;
+        }
         self.interrupt();
     }
 
@@ -2679,6 +2693,21 @@ impl App {
     }
 
     pub(crate) fn on_key(&mut self, key: event::KeyEvent) {
+        if key.code == KeyCode::Esc {
+            if self.cancel_launch(true) {
+                return;
+            }
+            if self.thinking.is_none()
+                && self.pending_turn.is_none()
+                && self.bg_job.is_none()
+                && let Some(other) = self.launch_typed_ahead.take()
+            {
+                self.launch_typed_ahead = Some(std::mem::replace(&mut self.input, other));
+                self.cursor = self.input.chars().count();
+                self.composer_selection_anchor = None;
+                return;
+            }
+        }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         if !matches!(key.code, KeyCode::Tab) {
@@ -2843,6 +2872,7 @@ impl App {
                     && self.bg_job.is_none()
                     && self.pending_turn.is_none() =>
             {
+                self.launch_interaction();
                 self.bag.cycle();
                 self.remember_brain_route();
             }

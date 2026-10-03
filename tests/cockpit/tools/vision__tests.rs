@@ -579,6 +579,7 @@ fn park_turn(app: &mut crate::App, user_msg: ChatMsg) {
         echo_drawn: true,
         retry_draft: raw,
         clipboard_images: 0,
+        launch: None,
     });
 }
 

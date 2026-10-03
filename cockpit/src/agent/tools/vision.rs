@@ -24,53 +24,21 @@ use std::time::Duration;
 
 const MEDIA_DURATION_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Whether an explicit backend or a signed-in, image-capable Codex route exists.
-pub(crate) fn vision_backend_configured() -> bool {
-    let explicit =
-        std::env::var("ANGEL_VISION_URL").is_ok() && std::env::var("ANGEL_VISION_MODEL").is_ok();
-    let kimi = std::env::var("ANGEL_KIMI_URL").is_ok() && std::env::var("ANGEL_KIMI_KEY").is_ok();
-    explicit || kimi || codex_vision_config().is_ok()
-}
-
-fn codex_vision_config() -> Result<
-    (
-        crate::agent::openai_codex::ChatGptAuth,
-        crate::agent::club::codex_selection::Selection,
-        crate::agent::openai_codex::CodexModelInfo,
-    ),
-    String,
-> {
-    use crate::agent::openai_codex::{ChatGptAuth, CodexClub};
-    let auth = ChatGptAuth::load().ok_or("no signed-in Codex account")?;
-    let selection = CodexClub::resolve_selection();
-    if let Some(error) = &selection.error {
-        return Err(error.clone());
+/// Run/registry-owned backend. Creation never rereads catalog or auth.
+#[derive(Clone)]
+pub(crate) struct VisionBackend(pub Result<Arc<dyn Club>, String>);
+impl VisionBackend {
+    pub(crate) fn new(run: Option<&crate::agent::codex_startup::CodexStartup>) -> Self {
+        Self(resolve_vision_club_in(run))
     }
-    let spec = CodexClub::model_catalog()
-        .into_iter()
-        .find(|candidate| candidate.slug == selection.model)
-        .filter(|candidate| {
-            candidate
-                .input_modalities
-                .iter()
-                .any(|m| m.eq_ignore_ascii_case("image"))
-        })
-        .ok_or_else(|| {
-            format!(
-                "Codex model {} has no cached image capability",
-                selection.model
-            )
-        })?;
-    Ok((auth, selection, spec))
+    pub(crate) fn configured(&self) -> bool {
+        self.0.is_ok()
+    }
 }
 
-/// OpenAI-compatible vision club used by `vision_look`, `video_look`, and the
-/// auto `/see` sidecar. Resolution order:
-///   1. `ANGEL_VISION_URL` + `ANGEL_VISION_MODEL` (+ optional `ANGEL_VISION_KEY`)
-///   2. Kimi (`ANGEL_KIMI_URL` + `ANGEL_KIMI_KEY` + optional model)
-///   3. Signed-in Codex, preserving its configured model and reasoning effort,
-///      only when the model catalog explicitly advertises image input.
-pub(crate) fn resolve_vision_club() -> Result<Arc<dyn Club>, String> {
+fn resolve_vision_club_in(
+    run: Option<&crate::agent::codex_startup::CodexStartup>,
+) -> Result<Arc<dyn Club>, String> {
     if let (Some(url), Some(model)) = (
         std::env::var("ANGEL_VISION_URL").ok(),
         std::env::var("ANGEL_VISION_MODEL").ok(),
@@ -90,34 +58,15 @@ pub(crate) fn resolve_vision_club() -> Result<Arc<dyn Club>, String> {
             Some(key),
         )));
     }
-    let (auth, selection, spec) = codex_vision_config().map_err(|error| {
-        format!(
-            "no vision backend configured — set ANGEL_VISION_URL + ANGEL_VISION_MODEL \
-         (+ ANGEL_VISION_KEY), or ANGEL_KIMI_URL + ANGEL_KIMI_KEY, or sign in to \
-         Codex with an image-capable model ({error})"
-        )
-    })?;
-    let levels = spec
-        .supported_reasoning_levels
-        .iter()
-        .map(|level| level.effort.clone())
-        .collect();
-    let club = crate::agent::openai_codex::CodexClub::new_with_route_metadata_shared(
-        format!("codex-vision/{}", selection.model),
-        selection.model.clone(),
-        crate::agent::openai_codex::CodexClub::shared_state(auth),
-        Some(selection.effort.clone()),
-        levels,
-        spec.route_metadata(),
-    )
-    .with_selection(selection);
-    Ok(Arc::new(club))
+    run.ok_or("no vision backend configured: no run Codex context")?
+        .vision_club()
+        .map_err(|e| format!("no vision backend configured ({e})"))
 }
 
 /// Sidecar arming: default on when a vision backend is configured.
 /// `ANGEL_VISION_SIDECAR=0` disables auto `/see` rewrite (tools stay available).
-pub(crate) fn vision_sidecar_enabled() -> bool {
-    env_flag("ANGEL_VISION_SIDECAR", true) && vision_backend_configured()
+fn vision_sidecar_enabled_in(backend: &VisionBackend) -> bool {
+    env_flag("ANGEL_VISION_SIDECAR", true) && backend.configured()
 }
 
 /// True when the in-hand club cannot take image parts natively.
@@ -220,11 +169,15 @@ pub(crate) fn vision_sidecar_forced() -> bool {
 }
 
 /// Should we rewrite this user message's image attachments into text?
-pub(crate) fn should_apply_vision_sidecar(club: &dyn Club, msg: &ChatMsg) -> bool {
-    if !vision_sidecar_enabled() && !vision_sidecar_forced() {
+pub(crate) fn should_apply_vision_sidecar_in(
+    backend: &VisionBackend,
+    club: &dyn Club,
+    msg: &ChatMsg,
+) -> bool {
+    if !vision_sidecar_enabled_in(backend) && !vision_sidecar_forced() {
         return false;
     }
-    if !vision_backend_configured() {
+    if !backend.configured() {
         return false;
     }
     let has_image = msg
@@ -242,7 +195,8 @@ pub(crate) fn should_apply_vision_sidecar(club: &dyn Club, msg: &ChatMsg) -> boo
 
 /// Ask the vision club about pre-encoded media. Pure network side-effect.
 /// Callers must not run this on the UI/draw thread — `club.chat` blocks.
-pub(crate) fn describe_media(
+pub(crate) fn describe_media_in(
+    backend: &VisionBackend,
     media: Vec<Media>,
     question: &str,
 ) -> Result<(String, String), String> {
@@ -255,7 +209,7 @@ pub(crate) fn describe_media(
     if question.is_empty() {
         return Err("question cannot be empty".to_string());
     }
-    let club = vision_describe_club()?;
+    let club = vision_describe_club(backend)?;
     let msg = ChatMsg::user_with_media(question, media);
     // Connected: the describer is offered the ledger reader alone, so a
     // question sent as routes (the sidecar's `⠸⠙`) reads like any seat's.
@@ -274,7 +228,7 @@ pub(crate) fn describe_media(
     Ok((club.label().to_string(), text.trim().to_string()))
 }
 
-fn vision_describe_club() -> Result<Arc<dyn Club>, String> {
+fn vision_describe_club(backend: &VisionBackend) -> Result<Arc<dyn Club>, String> {
     #[cfg(test)]
     {
         if let Some(club) = test_vision_club_slot()
@@ -285,7 +239,7 @@ fn vision_describe_club() -> Result<Arc<dyn Club>, String> {
             return Ok(club);
         }
     }
-    resolve_vision_club()
+    backend.0.clone()
 }
 
 /// One image request, without starting a cockpit session or an agent tool loop.
@@ -304,8 +258,12 @@ pub(crate) fn image_cli(mut args: impl Iterator<Item = std::ffi::OsString>) -> s
     }
     let media = Media::image_from_path(Path::new(&path))
         .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
-    let (backend, description) =
-        describe_media(vec![media], &question).map_err(std::io::Error::other)?;
+    let (backend, description) = describe_media_in(
+        &VisionBackend::new(Some(&crate::agent::codex_startup::CodexStartup::load())),
+        vec![media],
+        &question,
+    )
+    .map_err(std::io::Error::other)?;
     println!("[vision_look via {backend} · 1 image]\n{description}");
     Ok(())
 }
@@ -342,11 +300,12 @@ pub(crate) fn sidecar_body(backend: &str, n: usize, description: &str, operator:
 ///
 /// On failure leaves `msg` unchanged and returns `Err` so the caller can surface
 /// the backend problem instead of silently sending bare base64 to DeepSeek.
-pub(crate) fn apply_vision_sidecar(
+fn apply_vision_sidecar_in(
+    backend: &VisionBackend,
     club: &dyn Club,
     msg: &mut ChatMsg,
 ) -> Result<Option<String>, String> {
-    if !should_apply_vision_sidecar(club, msg) {
+    if !should_apply_vision_sidecar_in(backend, club, msg) {
         return Ok(None);
     }
     let images: Vec<Media> = msg
@@ -360,7 +319,7 @@ pub(crate) fn apply_vision_sidecar(
     }
     let n = images.len();
     let question = sidecar_question(msg.content.trim());
-    let (backend, description) = describe_media(images, &question)?;
+    let (backend, description) = describe_media_in(backend, images, &question)?;
     let body = sidecar_body(&backend, n, &description, msg.content.trim());
     // Drop image parts so a text-only endpoint never sees image_url (400).
     // Keep non-image attachments (audio) if any.
@@ -420,7 +379,8 @@ pub(crate) fn drop_images_if_text_only(club: &dyn Club, msg: &mut ChatMsg) {
 /// Rewrite image-bearing user turns in `convo` before hop 1. Cheap no-op when
 /// `should_apply_vision_sidecar` is false (no images / sidecar off / no backend).
 /// Must run on the agent-turn worker so the UI thread never blocks on `club.chat`.
-pub(crate) fn fold_vision_sidecar_into_convo(
+pub(crate) fn fold_vision_sidecar_into_convo_in(
+    backend: &VisionBackend,
     club: &dyn Club,
     convo: &mut [ChatMsg],
 ) -> Vec<String> {
@@ -429,7 +389,7 @@ pub(crate) fn fold_vision_sidecar_into_convo(
         if msg.role != ChatRole::User {
             continue;
         }
-        match apply_vision_sidecar(club, msg) {
+        match apply_vision_sidecar_in(backend, club, msg) {
             Ok(Some(notice)) => notices.push(notice),
             Ok(None) => {}
             Err(error) => {
@@ -442,8 +402,11 @@ pub(crate) fn fold_vision_sidecar_into_convo(
 }
 
 /// Compact system/tool hint when the sidecar is armed for a text-only driver.
-pub(crate) fn vision_sidecar_prompt_hint(club: &dyn Club) -> Option<String> {
-    if !vision_backend_configured() {
+pub(crate) fn vision_sidecar_prompt_hint_in(
+    backend: &VisionBackend,
+    club: &dyn Club,
+) -> Option<String> {
+    if !backend.configured() {
         return None;
     }
     if !club_is_text_only_for_vision(club) && !vision_sidecar_forced() {
@@ -538,15 +501,20 @@ fn probe_duration_command_with_timeout(
 /// Agent-facing eyes for text-only clubs: look at a workspace image (or sample
 /// frames from a video) via the vision sidecar backend.
 pub(crate) struct VisionLookTool {
+    backend: VisionBackend,
     workspace: PathBuf,
     policy: SandboxPolicy,
 }
 
 impl VisionLookTool {
-    pub(crate) fn new(workspace: PathBuf) -> Self {
+    fn in_run(workspace: PathBuf, backend: VisionBackend) -> Self {
         let mut policy = SandboxPolicy::permissive();
         policy.writable_roots.push(workspace.clone());
-        Self { workspace, policy }
+        Self {
+            workspace,
+            policy,
+            backend,
+        }
     }
 }
 
@@ -664,7 +632,7 @@ impl Tool for VisionLookTool {
         }
 
         let n = media.len();
-        let (backend, text) = describe_media(media, question)?;
+        let (backend, text) = describe_media_in(&self.backend, media, question)?;
         Ok(format!(
             "[vision_look via {backend} · {n} frame(s)]\n{text}"
         ))
@@ -682,11 +650,20 @@ pub(crate) fn maybe_register_vision_tools(
     if !env_flag("ANGEL_VISION_TOOLS", true) {
         return;
     }
-    if !vision_backend_configured() {
+    if !r.vision.configured() {
         return;
     }
-    r.register(Box::new(VisionLookTool::new(workspace)));
+    r.register(Box::new(VisionLookTool::in_run(
+        workspace,
+        r.vision.clone(),
+    )));
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/tools/vision_catalog_compat.rs"]
+mod catalog_compat;
+#[cfg(test)]
+use catalog_compat::*;
 
 #[cfg(test)]
 static DESCRIBE_MEDIA_CALLS: std::sync::atomic::AtomicUsize =

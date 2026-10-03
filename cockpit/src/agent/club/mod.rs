@@ -168,6 +168,12 @@ pub trait Club: Send + Sync {
         self.live_model_name()
     }
 
+    /// Exact CLI IDs require a transport with immutable request-model binding.
+    /// Dynamic/aggregate routes opt out rather than treating a display ID as a pin.
+    fn supports_exact_launch_model(&self, _model: &str) -> bool {
+        false
+    }
+
     fn resolved_model_defaults(&self) -> serde_json::Value {
         model_defaults::budgets(
             &self.model_identity().unwrap_or_default(),
@@ -254,6 +260,46 @@ pub trait Club: Send + Sync {
     /// them model-native rather than pretending a global knob controls them.
     fn reasoning_effort(&self) -> Option<String> {
         None
+    }
+
+    fn checked_launch_effort(&self, requested: &str) -> Result<String, String> {
+        self.reasoning_levels()
+            .iter()
+            .find(|level| level.as_str() == requested)
+            .cloned()
+            .ok_or_else(|| "requested effort is unsupported by this route".into())
+    }
+
+    /// Per-call provenance accompanies the immutable effort, not process env.
+    fn chat_streaming_with_effort_source(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        effort: Option<&str>,
+        _source: &'static str,
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        self.chat_streaming_captured(
+            messages,
+            tools,
+            effort,
+            effort.map(|requested| (requested, _source)),
+            cancel,
+            on_delta,
+        )
+    }
+
+    fn chat_streaming_captured(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        effort: Option<&str>,
+        _origin: Option<(&str, &'static str)>,
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        self.chat_streaming_with_effort(messages, tools, effort, cancel, on_delta)
     }
 
     /// Effort values accepted by this exact model, in increasing order.
@@ -455,12 +501,45 @@ pub trait Club: Send + Sync {
 struct EffortScopedClub {
     inner: Arc<dyn Club>,
     effort: String,
+    launch: Option<(String, &'static str)>,
 }
 
 impl EffortScopedClub {
     fn route_with_effort(&self, mut route: RouteIdentity) -> RouteIdentity {
-        route.reasoning_effort = Some(self.effort.clone());
+        route.reasoning_effort = Some(
+            self.launch
+                .as_ref()
+                .map_or(&self.effort, |(wire, _)| wire)
+                .clone(),
+        );
         route
+    }
+
+    fn call(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if let Some((_, source)) = self.launch {
+            self.inner.chat_streaming_with_effort_source(
+                messages,
+                tools,
+                Some(&self.effort),
+                source,
+                cancel,
+                on_delta,
+            )
+        } else {
+            self.inner.chat_streaming_with_effort(
+                messages,
+                tools,
+                Some(&self.effort),
+                cancel,
+                on_delta,
+            )
+        }
     }
 
     fn effective_effort(&self, _requested: Option<&str>) -> Option<&str> {
@@ -480,13 +559,7 @@ impl Club for EffortScopedClub {
     }
 
     fn respond_cancellable(&self, prompt: &str, cancel: &AtomicBool) -> Result<String, String> {
-        match self.inner.chat_streaming_with_effort(
-            &[ChatMsg::user(prompt)],
-            &[],
-            Some(&self.effort),
-            cancel,
-            &mut |_| {},
-        )? {
+        match self.call(&[ChatMsg::user(prompt)], &[], cancel, &mut |_| {})? {
             ClubReply::Text(text) => Ok(text),
             ClubReply::Calls(_) => Err("club requested a tool with no tools offered".to_string()),
         }
@@ -510,6 +583,10 @@ impl Club for EffortScopedClub {
 
     fn model_identity(&self) -> Option<String> {
         self.inner.model_identity()
+    }
+
+    fn supports_exact_launch_model(&self, model: &str) -> bool {
+        self.inner.supports_exact_launch_model(model)
     }
 
     fn bind_run_identity(&self, _effort: Option<&str>) -> Result<(), String> {
@@ -547,7 +624,28 @@ impl Club for EffortScopedClub {
     }
 
     fn reasoning_effort(&self) -> Option<String> {
-        Some(self.effort.clone())
+        Some(
+            self.launch
+                .as_ref()
+                .map_or(&self.effort, |(wire, _)| wire)
+                .clone(),
+        )
+    }
+
+    fn resolved_model_defaults(&self) -> serde_json::Value {
+        if self.launch.is_none() {
+            return model_defaults::budgets(
+                &self.model_identity().unwrap_or_default(),
+                self.env_namespace().unwrap_or(self.label()),
+            );
+        }
+        let mut defaults = self.inner.resolved_model_defaults();
+        if let Some((wire, source)) = &self.launch {
+            defaults["requested_reasoning_effort"] = serde_json::json!(self.effort);
+            defaults["resolved_reasoning_effort"] = serde_json::json!(wire);
+            defaults["reasoning_effort_source"] = serde_json::json!(source);
+        }
+        defaults
     }
 
     fn reasoning_levels(&self) -> &[String] {
@@ -610,8 +708,12 @@ impl Club for EffortScopedClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        self.inner
-            .chat_with_effort(messages, tools, Some(&self.effort))
+        if self.launch.is_none() {
+            return self
+                .inner
+                .chat_with_effort(messages, tools, Some(&self.effort));
+        }
+        self.call(messages, tools, &AtomicBool::new(false), &mut |_| {})
     }
 
     fn chat_with_effort(
@@ -620,8 +722,12 @@ impl Club for EffortScopedClub {
         tools: &[ToolDef],
         effort: Option<&str>,
     ) -> Result<ClubReply, String> {
-        self.inner
-            .chat_with_effort(messages, tools, self.effective_effort(effort))
+        if self.launch.is_none() {
+            return self
+                .inner
+                .chat_with_effort(messages, tools, self.effective_effort(effort));
+        }
+        self.call(messages, tools, &AtomicBool::new(false), &mut |_| {})
     }
 
     fn chat_streaming(
@@ -631,8 +737,7 @@ impl Club for EffortScopedClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
-        self.inner
-            .chat_streaming_with_effort(messages, tools, Some(&self.effort), cancel, on_delta)
+        self.call(messages, tools, cancel, on_delta)
     }
 
     fn chat_streaming_with_effort(
@@ -643,14 +748,24 @@ impl Club for EffortScopedClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
-        self.inner.chat_streaming_with_effort(
-            messages,
-            tools,
-            self.effective_effort(effort),
-            cancel,
-            on_delta,
-        )
+        let _ = self.effective_effort(effort);
+        self.call(messages, tools, cancel, on_delta)
     }
+}
+
+/// A CLI capture retains requested spelling (including Pi tags), resolved wire
+/// effort and provenance for the eventual per-call effective decision.
+pub(crate) fn launch_effort(
+    club: Arc<dyn Club>,
+    requested: &str,
+    source: &'static str,
+) -> Result<Arc<dyn Club>, String> {
+    let wire = club.checked_launch_effort(requested)?;
+    Ok(Arc::new(EffortScopedClub {
+        inner: club,
+        effort: requested.into(),
+        launch: Some((wire, source)),
+    }))
 }
 
 /// Resolve and pin one supported reasoning effort without mutating `club`.
@@ -670,6 +785,7 @@ pub(crate) fn scoped_reasoning_effort(
             Arc::new(EffortScopedClub {
                 inner: club,
                 effort: effort.clone(),
+                launch: None,
             }),
             Some(effort),
         ),

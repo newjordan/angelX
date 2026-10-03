@@ -9,7 +9,7 @@
 //! ad-hoc: beats land on exact timestamps, cuts snap to the grid, and the
 //! human director reviews contact sheets instead of watching raw footage.
 
-use crate::agent::club::{ChatMsg, Club, ClubReply, Media, ToolDef};
+use crate::agent::club::{ChatMsg, ClubReply, Media, ToolDef};
 use crate::agent::harness::{Tool, run_sandboxed};
 use crate::agent::sandbox::SandboxPolicy;
 use serde_json::Value;
@@ -590,7 +590,7 @@ pub(crate) fn maybe_register_video_tools(
         r.register(Box::new(VideoBeatsTool::in_dir(workspace.clone())));
         r.register(Box::new(VideoCutTool::in_dir(workspace.clone())));
         r.register(Box::new(VideoContactSheetTool::in_dir(workspace.clone())));
-        r.register(Box::new(VideoLookTool::new(workspace)));
+        r.register(Box::new(VideoLookTool::in_run(workspace, r.vision.clone())));
     }
 }
 
@@ -627,19 +627,20 @@ fn even_frame_times(dur: f64, n: usize) -> Option<Vec<f64>> {
 ///   3. Signed-in Codex with a configured model advertising image input.
 ///   4. Hard error naming the available configuration options.
 pub(crate) struct VideoLookTool {
+    backend: crate::agent::tools::vision::VisionBackend,
     workspace: PathBuf,
     policy: SandboxPolicy,
 }
 
 impl VideoLookTool {
-    fn new(workspace: PathBuf) -> Self {
+    fn in_run(workspace: PathBuf, backend: crate::agent::tools::vision::VisionBackend) -> Self {
         let mut policy = SandboxPolicy::permissive();
         policy.writable_roots.push(workspace.clone());
-        Self { workspace, policy }
-    }
-
-    fn vision_club() -> Result<std::sync::Arc<dyn Club>, String> {
-        crate::agent::tools::vision::resolve_vision_club().map_err(|e| format!("video_look: {e}"))
+        Self {
+            workspace,
+            policy,
+            backend,
+        }
     }
 }
 
@@ -753,7 +754,11 @@ impl Tool for VideoLookTool {
             }
         }
 
-        let club = Self::vision_club()?;
+        let club = self
+            .backend
+            .0
+            .clone()
+            .map_err(|e| format!("video_look: {e}"))?;
         let n = media.len();
         let msg = ChatMsg::user_with_media(question, media);
         let reply = club

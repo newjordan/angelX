@@ -267,6 +267,7 @@ pub(crate) struct PreturnCodeModeMetrics {
 
 /// The set of tools available this turn.
 pub struct ToolRegistry {
+    pub(crate) vision: crate::agent::tools::vision::VisionBackend,
     pub(crate) tools: Vec<Box<dyn Tool>>,
     /// Parallel to `tools`: a deferred tool stays dispatchable but is hidden from
     /// `defs()` (the advertised set) until `tool_search` surfaces it — keeps the
@@ -443,6 +444,7 @@ impl ToolRegistry {
         let atlas = crate::knowledge::atlas::AtlasService::open(&workspace);
         let clerk = crate::knowledge::atlas_clerk::AtlasClerkWorker::shared(Arc::clone(&atlas));
         Self {
+            vision: crate::agent::tools::vision::VisionBackend::new(None),
             routed_verifications: Default::default(),
             seat_grants: Default::default(),
             policy_denials: Default::default(),
@@ -905,10 +907,20 @@ impl ToolRegistry {
 
     /// `with_team` plus the caller's own club pinned so the `spawn` tool can
     /// resolve `club:"self"` to true copies of the in-hand model.
+    #[cfg(test)]
     pub fn with_team_self(
         workspace: PathBuf,
         roster: Vec<Arc<dyn Club>>,
         self_club: Option<Arc<dyn Club>>,
+    ) -> Self {
+        Self::with_team_self_in_run(workspace, roster, self_club, None)
+    }
+
+    pub(crate) fn with_team_self_in_run(
+        workspace: PathBuf,
+        roster: Vec<Arc<dyn Club>>,
+        self_club: Option<Arc<dyn Club>>,
+        run: Option<&crate::agent::codex_startup::CodexStartup>,
     ) -> Self {
         // Pin once before constructing any task-facing tools. Delegates and
         // the root verifier lane cannot drift to different PATH resolutions.
@@ -916,6 +928,7 @@ impl ToolRegistry {
         let mut r = Self::new();
         r.set_workspace(workspace.clone());
         r.register_rl_campaign();
+        r.vision = crate::agent::tools::vision::VisionBackend::new(run);
         r.roster = roster.clone();
         r.register(Box::new(ReverseTool));
         r.register(Box::new(WordCountTool));
@@ -1415,7 +1428,7 @@ impl ToolRegistry {
         }
         if let Some(w) = window
             && w > 0
-            && full_tokens > w * 2 / 5
+            && full_tokens > (w / 5) * 2 + (w % 5) * 2 / 5
         {
             return self.lean_defs(full.as_ref(), false);
         }
