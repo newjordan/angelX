@@ -195,106 +195,112 @@ impl Thinking {
         let (event_tx, event_rx) = mpsc::channel::<TurnEvent>();
         let worker_tx = tx.clone();
         let worker_route = requested_route.clone();
-        let spawn_result = std::thread::Builder::new()
-            .name("agent-turn".to_string())
-            .spawn(move || {
-                // Ownership travels with this launch, never a global registry
-                // pointer that a failed spawn could leave for a later turn.
-                let _owner = crate::agent::harness::run_identity::LiveTurnScope::enter(loop_owner);
-                // One Vec clone of message headers; content bytes stay shared.
-                // Taken here so Enter-after-echo does not pay a second snapshot.
-                let _phase = crate::agent::turn::phase::Scope::enter();
-                crate::agent::turn::phase::mark("worker_snapshot");
-                let mut convo = convo.to_vec();
-                // Hop cap is launch config. Read it here, not on the UI spawn
-                // path, so a getenv cannot hitch Enter-after-echo.
-                let max_hops = crate::agent::harness::configured_max_hops();
-                // Mutex snapshots of cumulative club meters. Folded at drain
-                // (`App::fold_turn_cache`); live UI meters read `thinking.club`.
-                // Taken here — before lease, vision sidecar, or hops — so
-                // Enter-after-echo never waits on those locks.
-                let _ = worker_spawn_usage.set(SpawnUsageSnapshot {
-                    usage_before: club.token_usage(),
-                    cache_before: club.cache_usage(),
-                });
-                // Foreground turns are unbounded unless the operator explicitly set
-                // a positive ANGEL_MAX_HOPS. Semantic anti-spin/error watchdogs still
-                // catch dead behavior without mistaking productive tool volume for a
-                // completion metric. The steer queue is drained at hop boundaries so
-                // the user can redirect long work without killing it.
-                // Foreground lease wait stays off the UI thread so a contended
-                // registry cannot hitch Enter-after-echo.
-                crate::agent::turn::phase::mark("foreground_lease");
-                let foreground_lease = if crate::agent::backplane::mode()
-                    == crate::agent::backplane::BackplaneMode::Legacy
-                {
-                    Ok(None)
-                } else {
-                    let backplane = tools.backplane();
-                    backplane
-                        .resource_group_for_identity(&worker_route)
-                        .map(|(route_id, resource_group)| {
-                            backplane.acquire_scoped(
-                                &resource_group,
-                                crate::agent::backplane::LeaseMode::Serve,
-                                crate::agent::backplane::WorkloadRole::Foreground,
-                                Some(route_id),
-                                false,
+        let spawn_result =
+            std::thread::Builder::new()
+                .name("agent-turn".to_string())
+                .spawn(move || {
+                    // Ownership travels with this launch, never a global registry
+                    // pointer that a failed spawn could leave for a later turn.
+                    let _owner =
+                        crate::agent::harness::run_identity::LiveTurnScope::enter(loop_owner);
+                    // One Vec clone of message headers; content bytes stay shared.
+                    // Taken here so Enter-after-echo does not pay a second snapshot.
+                    let _phase = crate::agent::turn::phase::Scope::enter();
+                    crate::agent::turn::phase::mark("worker_snapshot");
+                    let mut convo = convo.to_vec();
+                    // Hop cap is launch config. Read it here, not on the UI spawn
+                    // path, so a getenv cannot hitch Enter-after-echo.
+                    let max_hops = crate::agent::harness::configured_max_hops();
+                    // Mutex snapshots of cumulative club meters. Folded at drain
+                    // (`App::fold_turn_cache`); live UI meters read `thinking.club`.
+                    // Taken here — before lease, vision sidecar, or hops — so
+                    // Enter-after-echo never waits on those locks.
+                    let _ = worker_spawn_usage.set(SpawnUsageSnapshot {
+                        usage_before: club.token_usage(),
+                        cache_before: club.cache_usage(),
+                    });
+                    // Foreground turns are unbounded unless the operator explicitly set
+                    // a positive ANGEL_MAX_HOPS. Semantic anti-spin/error watchdogs still
+                    // catch dead behavior without mistaking productive tool volume for a
+                    // completion metric. The steer queue is drained at hop boundaries so
+                    // the user can redirect long work without killing it.
+                    // Foreground lease wait stays off the UI thread so a contended
+                    // registry cannot hitch Enter-after-echo.
+                    crate::agent::turn::phase::mark("foreground_lease");
+                    let foreground_lease = if crate::agent::backplane::mode()
+                        == crate::agent::backplane::BackplaneMode::Legacy
+                    {
+                        Ok(None)
+                    } else {
+                        let backplane = tools.backplane();
+                        backplane
+                            .resource_group_for_identity(&worker_route)
+                            .map(|(route_id, resource_group)| {
+                                backplane.acquire_scoped(
+                                    &resource_group,
+                                    crate::agent::backplane::LeaseMode::Serve,
+                                    crate::agent::backplane::WorkloadRole::Foreground,
+                                    Some(route_id),
+                                    false,
+                                )
+                            })
+                            .transpose()
+                    };
+                    let result = match foreground_lease {
+                        Err(error) => Err(format!("foreground route resource conflict: {error}")),
+                        Ok(_lease) => run_worker_guarded(|| {
+                            // Vision sidecar rewrite is network-bound. Fold it here
+                            // on agent-turn before hop 1 so Enter-after-echo never
+                            // waits on the VLM, and the text-only driver never sees
+                            // bare image_url parts.
+                            crate::agent::turn::phase::mark("vision_preflight");
+                            for notice in
+                                crate::agent::tools::vision::fold_vision_sidecar_into_convo_in(
+                                    &tools.vision,
+                                    &*club,
+                                    &mut convo,
+                                )
+                            {
+                                let _ = event_tx.send(TurnEvent::Notice(notice));
+                            }
+                            // The harness invokes this immediately before every
+                            // provider attempt and tool dispatch, after any steer,
+                            // compaction, retry nudge, or tool result changed the
+                            // exact model-facing thread. Persistence remains off
+                            // the draw thread.
+                            let checkpoint = |prefix: &[ChatMsg]| {
+                                session
+                                    .checkpoint(prefix)
+                                    .map_err(|error| error.to_string())
+                            };
+                            run_turn_steered_checkpointed_observed(
+                                &*club,
+                                &tools,
+                                &mut convo,
+                                &worker_cancel,
+                                max_hops,
+                                &event_tx,
+                                Some(&steers),
+                                &checkpoint,
                             )
-                        })
-                        .transpose()
-                };
-                let result = match foreground_lease {
-                    Err(error) => Err(format!("foreground route resource conflict: {error}")),
-                    Ok(_lease) => run_worker_guarded(|| {
-                        // Vision sidecar rewrite is network-bound. Fold it here
-                        // on agent-turn before hop 1 so Enter-after-echo never
-                        // waits on the VLM, and the text-only driver never sees
-                        // bare image_url parts.
-                        crate::agent::turn::phase::mark("vision_preflight");
-                        for notice in crate::agent::tools::vision::fold_vision_sidecar_into_convo(
-                            &*club, &mut convo,
-                        ) {
-                            let _ = event_tx.send(TurnEvent::Notice(notice));
-                        }
-                        // The harness invokes this immediately before every
-                        // provider attempt and tool dispatch, after any steer,
-                        // compaction, retry nudge, or tool result changed the
-                        // exact model-facing thread. Persistence remains off
-                        // the draw thread.
-                        let checkpoint = |prefix: &[ChatMsg]| {
-                            session
-                                .checkpoint(prefix)
-                                .map_err(|error| error.to_string())
-                        };
-                        run_turn_steered_checkpointed_observed(
-                            &*club,
-                            &tools,
-                            &mut convo,
-                            &worker_cancel,
-                            max_hops,
-                            &event_tx,
-                            Some(&steers),
-                            &checkpoint,
-                        )
-                        .map_err(|failure| failure.message)
-                        .map(|outcome| {
-                            // Fold the turn's verified recipes and failure
-                            // hazards into the caddy card the next turn and the
-                            // next /loop iteration read, as headless tasks do.
-                            // Idempotent per (command, day); off the UI thread.
-                            crate::knowledge::caddy::write_back_from_history(
-                                tools.current_workspace(),
-                                &convo,
-                            );
-                            let route = club.resolved_route_identity();
-                            (convo, outcome.answer, route, outcome.stop_reason)
-                        })
-                    }),
-                };
-                crate::agent::turn::phase::mark("worker_result");
-                let _ = worker_tx.send(result);
-            });
+                            .map_err(|failure| failure.message)
+                            .map(|outcome| {
+                                // Fold the turn's verified recipes and failure
+                                // hazards into the caddy card the next turn and the
+                                // next /loop iteration read, as headless tasks do.
+                                // Idempotent per (command, day); off the UI thread.
+                                crate::knowledge::caddy::write_back_from_history(
+                                    tools.current_workspace(),
+                                    &convo,
+                                );
+                                let route = club.resolved_route_identity();
+                                (convo, outcome.answer, route, outcome.stop_reason)
+                            })
+                        }),
+                    };
+                    crate::agent::turn::phase::mark("worker_result");
+                    let _ = worker_tx.send(result);
+                });
         if let Err(error) = spawn_result {
             let _ = tx.send(Err(format!("could not start agent worker: {error}")));
         }

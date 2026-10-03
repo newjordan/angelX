@@ -520,19 +520,36 @@ pub(crate) fn openai_api_uses_responses(
 /// routes need Responses for reasoning with tools; custom gateways stay chat
 /// unless the operator selects a transport.
 pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    optional_openai_api_for_launch(None)
+}
+
+pub(crate) fn optional_openai_api_for_launch(
+    model: Option<&str>,
+) -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     if !api_club_enabled("openai-api") {
         return None;
     }
     let key = env_first(&["ANGEL_OPENAI_KEY", "OPENAI_API_KEY"])?;
-    let model = env_first(&["ANGEL_OPENAI_API_MODEL", "OPENAI_MODEL"])?;
+    let model_cli = model.is_some();
+    let model = model
+        .map(str::to_owned)
+        .or_else(|| env_first(&["ANGEL_OPENAI_API_MODEL", "OPENAI_MODEL"]))?;
     let base = env_first(&["ANGEL_OPENAI_API_URL", "OPENAI_BASE_URL"])
         .unwrap_or_else(|| "https://api.openai.com/v1".into());
     let transport = env_first(&["ANGEL_OPENAI_API_TRANSPORT"]);
     let selection = openai_api_uses_responses(&base, &model, transport.as_deref());
     if selection == Ok(false) {
-        let club: Arc<dyn Club> =
-            Arc::new(HttpClub::new("openai-api", base, model, Some(key)).sota_tuned());
-        return Some(("openai-api".into(), club, Arc::new(AtomicBool::new(true))));
+        let club = HttpClub::new("openai-api", base, model, Some(key)).sota_tuned();
+        let club = if model_cli {
+            club.with_cli_model()
+        } else {
+            club
+        };
+        return Some((
+            "openai-api".into(),
+            Arc::new(club),
+            Arc::new(AtomicBool::new(true)),
+        ));
     }
     let levels = if openai_gpt6_family(&model) == Some("gpt-6-astra") {
         vec!["low", "medium", "high", "xhigh", "max"]
@@ -550,6 +567,11 @@ pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, 
     )
     .with_openai_api_controls(selection.err())
     .sota_tuned();
+    let club = if model_cli {
+        club.with_cli_model()
+    } else {
+        club
+    };
     Some((
         "openai-api".into(),
         Arc::new(club),

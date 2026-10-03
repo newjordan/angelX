@@ -9,6 +9,7 @@ impl App {
     }
 
     pub(crate) fn open_moa_deck(&mut self, arg: Option<&str>) {
+        self.launch_interaction();
         match arg.map(str::trim).filter(|s| !s.is_empty()) {
             Some(a) if a.eq_ignore_ascii_case("clear") || a.eq_ignore_ascii_case("off") => {
                 self.clear_moa_arm();
@@ -332,6 +333,7 @@ impl App {
     /// route that declares none gets the explicit n/a line, never an invented
     /// ladder — and every refusal to open says why.
     pub(crate) fn open_moa_effort_picker(&mut self) {
+        self.launch_interaction();
         let Some(deck) = self.moa_deck.as_ref() else {
             return;
         };

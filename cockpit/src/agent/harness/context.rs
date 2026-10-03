@@ -280,7 +280,7 @@ fn tool_output_limits(window: Option<usize>) -> (usize, usize) {
     if let Some(w) = window
         && w > 0
     {
-        max_bytes = max_bytes.min(((w / 3) * 4).max(2048));
+        max_bytes = max_bytes.min((w / 3).saturating_mul(4).max(2048));
     }
     (max_bytes, max_lines)
 }
