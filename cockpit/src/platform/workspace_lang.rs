@@ -590,6 +590,47 @@ fn num_after(tokens: &[&str], idx: usize) -> Option<usize> {
     tokens.get(idx + 1).and_then(|t| t.parse().ok())
 }
 
+// Complete CTest summaries are authoritative over a nested binary's counts.
+// Never default a malformed number to zero: that could turn failure into success.
+fn ctest_counts(tokens: &[&str]) -> Option<RunnerCounts> {
+    let unsigned = |text: &str| {
+        (!text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| text.parse::<usize>().ok())
+            .flatten()
+    };
+    let (percent, failed, total) = match tokens {
+        [percent, "tests", "passed", "out", "of", total] => (*percent, 0, unsigned(total)?),
+        [
+            percent,
+            "tests",
+            "passed,",
+            failed,
+            "tests",
+            "failed",
+            "out",
+            "of",
+            total,
+        ] => (*percent, unsigned(failed)?, unsigned(total)?),
+        _ => return None,
+    };
+    let percent = unsigned(percent.strip_suffix('%')?)?;
+    if percent > 100 || failed > total {
+        return None;
+    }
+    if total == 0 {
+        return (percent == 0 || percent == 100).then_some(RunnerCounts::default());
+    }
+    let passed = total - failed;
+    // CTest rounds its integer percentage; widened arithmetic cannot overflow
+    // even for representable counts near usize::MAX.
+    let expected = ((passed as u128) * 100 + (total as u128) / 2) / (total as u128);
+    (percent as u128 == expected).then_some(RunnerCounts {
+        passed,
+        failed,
+        skipped: 0,
+    })
+}
+
 pub fn parse_runner_output(lang: Lang, stdout: &str, stderr: &str) -> RunnerCounts {
     let mut c = RunnerCounts::default();
     let text = format!("{stdout}\n{stderr}");
@@ -787,20 +828,27 @@ pub fn parse_runner_output(lang: Lang, stdout: &str, stderr: &str) -> RunnerCoun
             // binary's summary: Catch2 "All tests passed (N assertions in M test
             // cases)" / "test cases: 5 | 4 passed | 1 failed", GoogleTest
             // "[  PASSED  ] 3 tests." / "[  FAILED  ] 1 test, listed below:".
+            let mut registered = None;
             for line in text.lines() {
-                let t = line.trim();
-                if let Some(rest) = t.split_once("tests passed, ").map(|(_, rest)| rest)
-                    && t.contains("% tests passed")
-                {
-                    let toks: Vec<&str> = rest.split_whitespace().collect();
-                    let failed = toks.first().and_then(|n| n.parse().ok()).unwrap_or(0);
-                    let total = toks.last().and_then(|n| n.parse().ok()).unwrap_or(0);
-                    return RunnerCounts {
-                        passed: usize::saturating_sub(total, failed),
-                        failed,
-                        skipped: 0,
+                let tokens: Vec<&str> = line.split_whitespace().collect();
+                if tokens.windows(3).any(|words| {
+                    words[0].ends_with('%')
+                        && words[1] == "tests"
+                        && matches!(words[2], "passed" | "passed,")
+                }) {
+                    let Some(counts) = ctest_counts(&tokens) else {
+                        return RunnerCounts::default();
                     };
+                    // stdout/stderr concatenation does not establish chronology.
+                    // Conflicting authoritative summaries cannot imply success.
+                    if registered.is_some_and(|previous| previous != counts) {
+                        return RunnerCounts::default();
+                    }
+                    registered = Some(counts);
                 }
+            }
+            if let Some(counts) = registered {
+                return counts;
             }
             for line in text.lines() {
                 let t = line.trim();
