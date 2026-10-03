@@ -1237,7 +1237,10 @@ fn skill_hint_keeps_self_modify_to_angelx_source() {
         );
     }
     assert_eq!(
-        relevant_skill_name(&summaries, "Use self-modify to change how the cockpit renders tools"),
+        relevant_skill_name(
+            &summaries,
+            "Use self-modify to change how the cockpit renders tools"
+        ),
         Some("self-modify")
     );
 }
