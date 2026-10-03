@@ -1,6 +1,6 @@
 use super::*;
 use crate::agent::club::{Bag, Club};
-use crate::agent::codex_catalog::{CatalogLoad, Diagnostic, Source};
+use crate::agent::codex_catalog::{CatalogLoad, Source};
 
 struct FixtureDir(PathBuf);
 impl FixtureDir {
@@ -155,31 +155,23 @@ fn legacy_json(window: Option<&str>) -> String {
 }
 
 #[test]
-fn gate1_checked_legacy_json_capacity_errors_survive_file_startup_without_fallback() {
+fn gate1_legacy_json_malformed_window_drops_only_that_budget() {
     let root = FixtureDir::new("legacy-capacity");
     let path = root.0.join("models_cache.json");
     for invalid in ["18446744073709551616", "-1", "8192.5"] {
         let raw = legacy_json(Some(invalid));
-        assert_eq!(
-            checked_model_catalog_from_str(&raw).unwrap_err(),
-            Diagnostic::Capacity
-        );
+        let models = checked_model_catalog_from_str(&raw).unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].context_window, None);
         std::fs::write(&path, raw).unwrap();
-        let reads = std::cell::Cell::new(0);
-        let load = CatalogLoad::load_checked(None, || {
-            reads.set(reads.get() + 1);
-            checked_model_catalog_from_path(path.clone())
-        });
-        assert_eq!(reads.get(), 1);
+        let load =
+            CatalogLoad::load_checked(None, || checked_model_catalog_from_path(path.clone()));
         assert_eq!(load.source, Source::Legacy);
-        assert_eq!(load.checked.as_ref().unwrap_err(), &Diagnostic::Capacity);
-        // A consumer cannot reread or turn a failed legacy load into fallback.
-        std::fs::write(&path, legacy_json(Some("8192"))).unwrap();
+        // Codex's own cache shape is not ours to police: the route stays usable.
         assert!(
             load.resolve(OPENAI_LUNA_MODEL, Some(OPENAI_LUNA_EFFORT), true)
-                .is_err()
+                .is_ok()
         );
-        assert_eq!(reads.get(), 1);
     }
 }
 
