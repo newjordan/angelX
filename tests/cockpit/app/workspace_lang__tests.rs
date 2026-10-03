@@ -381,3 +381,108 @@ fn cpp_runner_output_reads_catch2_ctest_and_googletest() {
         }
     );
 }
+
+#[test]
+fn given_ctest_all_pass_when_parsed_then_registered_totals_win() {
+    // Given a nested binary and either supported CTest all-pass summary,
+    // When counts are parsed, Then registered tests (not assertions) win.
+    for summary in [
+        "100% tests passed out of 1",
+        "100% tests passed, 0 tests failed out of 1",
+    ] {
+        let output = format!("All tests passed (9 assertions in 3 test cases)\n{summary}\n");
+        assert_eq!(
+            parse_runner_output(Lang::Cpp, &output, ""),
+            RunnerCounts {
+                passed: 1,
+                failed: 0,
+                skipped: 0
+            },
+            "{summary}"
+        );
+    }
+}
+
+#[test]
+fn given_ctest_malformed_when_parsed_then_nested_success_is_not_substituted() {
+    // Given recognizable but malformed authoritative CTest output,
+    // When it follows a successful nested binary, Then no success is inferred.
+    for summary in [
+        "0% tests passed, garbage tests failed out of 3",
+        "100% tests passed out of garbage",
+        "100% tests passed out of +1",
+        "100% tests passed out of 184467440737095516160",
+        "100% tests passed, 4 tests failed out of 3",
+        "100% tests passed, 1 tests failed out of 3",
+        "101% tests passed out of 1",
+        "-1% tests passed out of 1",
+        "100% tests passed, 0 invented words out of 3",
+        "prefix 100% tests passed out of 1",
+        "100% tests passed out of 1 trailing",
+    ] {
+        let output = format!("All tests passed (9 assertions in 3 test cases)\n{summary}\n");
+        assert_eq!(
+            parse_runner_output(Lang::Cpp, &output, ""),
+            RunnerCounts::default(),
+            "{summary}"
+        );
+    }
+}
+
+#[test]
+fn given_ctest_conflicting_streams_when_parsed_then_no_all_pass_is_reported() {
+    // Given summaries disagree across streams with no reliable chronology,
+    // When parsed, Then neither a first-success nor a last-success rule applies.
+    let passed = "100% tests passed out of 3";
+    let failed = "67% tests passed, 1 tests failed out of 3";
+    for (stdout, stderr) in [(passed, failed), (failed, passed)] {
+        assert_eq!(
+            parse_runner_output(Lang::Cpp, stdout, stderr),
+            RunnerCounts::default()
+        );
+    }
+    assert_eq!(
+        parse_runner_output(Lang::Cpp, passed, passed),
+        RunnerCounts {
+            passed: 3,
+            failed: 0,
+            skipped: 0
+        }
+    );
+}
+
+#[test]
+fn given_ctest_zero_registered_when_parsed_then_no_nested_tests_are_counted() {
+    // Given an explicit empty registered suite, When parsed, Then zero is not
+    // replaced by a nested binary's positive count.
+    for summary in [
+        "0% tests passed, 0 tests failed out of 0",
+        "100% tests passed out of 0",
+    ] {
+        let output = format!("All tests passed (9 assertions in 3 test cases)\n{summary}\n");
+        assert_eq!(
+            parse_runner_output(Lang::Cpp, &output, ""),
+            RunnerCounts::default()
+        );
+    }
+}
+
+#[test]
+fn given_ctest_failed_suite_when_parsed_then_failure_and_rounded_totals_survive() {
+    // Given complete valid failure summaries, When parsed, Then failures never
+    // disappear and ordinary rounded CTest percentages remain compatible.
+    for (summary, passed, failed) in [
+        ("0% tests passed, 1 tests failed out of 1", 0, 1),
+        ("33% tests passed, 2 tests failed out of 3", 1, 2),
+        ("67% tests passed, 1 tests failed out of 3", 2, 1),
+    ] {
+        assert_eq!(
+            parse_runner_output(Lang::Cpp, "", summary),
+            RunnerCounts {
+                passed,
+                failed,
+                skipped: 0
+            }
+        );
+    }
+}
