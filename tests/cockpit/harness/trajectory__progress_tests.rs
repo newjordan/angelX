@@ -388,16 +388,49 @@ fn accepted_graph_points_are_progress_and_a_repeat_is_not() {
     }
     calls.push(json!({"op":"finish","plot":"bushels","generation":1}));
     for (hop, args) in calls.iter().enumerate() {
-        note_tool_outcome(hop + 1, "graph", args, "{}", "ok", false, None, None, None, 2);
+        note_tool_outcome(
+            hop + 1,
+            "graph",
+            args,
+            "{}",
+            "ok",
+            false,
+            None,
+            None,
+            None,
+            2,
+        );
         note_progress_hop(false);
     }
-    assert_eq!(TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak), 0);
+    assert_eq!(
+        TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
+        0
+    );
     // The same finish again changes nothing.
-    note_tool_outcome(9, "graph", &calls[7], "{}", "ok", false, None, None, None, 2);
+    note_tool_outcome(
+        9, "graph", &calls[7], "{}", "ok", false, None, None, None, 2,
+    );
     note_progress_hop(false);
-    assert_eq!(TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak), 1);
+    assert_eq!(
+        TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
+        1
+    );
     // A rejected call is not progress either.
-    note_tool_outcome(10, "graph", &json!({"op":"point"}), "invalid graph request", "error", true, None, None, None, 2);
+    note_tool_outcome(
+        10,
+        "graph",
+        &json!({"op":"point"}),
+        "invalid graph request",
+        "error",
+        true,
+        None,
+        None,
+        None,
+        2,
+    );
     note_progress_hop(false);
-    assert_eq!(TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak), 2);
+    assert_eq!(
+        TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
+        2
+    );
 }
