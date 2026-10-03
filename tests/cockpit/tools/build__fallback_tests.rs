@@ -396,12 +396,15 @@ fn a_dispatch_settles_every_pending_pin() {
     let workspace = std::env::temp_dir().join(format!("angel-pin-settle-{}", std::process::id()));
     std::fs::create_dir_all(&workspace).unwrap();
     let registry = crate::agent::harness::ToolRegistry::with_team(workspace.clone(), Vec::new());
+    // PENDING_PINS is process-global and parallel tests keep capturing pins,
+    // so judge only the digests that existed before this dispatch.
+    let captured: Vec<_> = super::PENDING_PINS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
     let _ = registry.dispatch("word_count", &serde_json::json!({"text":"one two"}));
     assert!(
-        super::PENDING_PINS
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .is_empty(),
+        captured.iter().all(|pin| pin.settled.get().is_some()),
         "a tool ran with a pin still being read"
     );
     let _ = std::fs::remove_dir_all(workspace);
