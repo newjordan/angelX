@@ -1,0 +1,16 @@
+# Spoils: carried home and banked in the realm's treasury when you get out alive.
+name   Bone
+kind   take
+text   Old bone from the Crypt. Builders of shrines want it.
+where  crypt
+drop   10
+chest  0
+bone   1
+art
+.hH......Hh.
+hiiH....Hiih
+.hiHHHHHHih.
+..JhhhhhhJ..
+.hiHJJJJHih.
+hiiH....Hiih
+.hJ......Jh.

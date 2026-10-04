@@ -209,6 +209,9 @@ impl ParsedInput {
             // (`/compact`, `/fork`, `/archive`, `/delete`, `/import`, `/btw`),
             // or re-root the tool sandbox under a running turn (`/cd`).
             ParsedInput::Cmd { name, arg } => match name.as_str() {
+                "together" => arg
+                    .as_deref()
+                    .is_some_and(|value| value.split_whitespace().next() == Some("build")),
                 "skills" => arg.as_deref().is_some_and(|value| {
                     let value = value.trim();
                     value != "check" && value != "search" && !value.starts_with("search ")
@@ -300,6 +303,9 @@ const CODEX_CMDS: &[&str] = &[
     "feedback",
     "test-approval",
     "world",
+    "together",
+    "dungeon",
+    "dungeon_host",
     "research",
     "village",
     "quest",
@@ -433,6 +439,9 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "connect" => " [grok|openai|glm|deepseek|openrouter|local]",
         "think" | "thinking" | "effort" => " [filter]",
         "world" => " [visit artisans|colosseum|tournament|follow|help]",
+        "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
+        "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
+        "dungeon_host" => " --N  (N friends, up to 3: one invite line each)",
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
         "memories" => " [add <t>|forget <n>|clear]",
         "refine" => " [status|add …|del|rollback|seed-light]",

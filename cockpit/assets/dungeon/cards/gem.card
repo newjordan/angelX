@@ -1,0 +1,17 @@
+name   Gem
+kind   take
+rarity rare
+text   A cold stone that holds light. The Mines give few.
+where  mines
+drop   3
+chest  1
+gem    1
+art
+...2222...
+..233332..
+.23w3332..
+2333333222
+.2333322..
+..22222...
+...222....
+....2.....

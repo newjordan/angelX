@@ -24,8 +24,8 @@ thread_local! {
 
 thread_local! {
     /// A tighter wall bound for the tool call running on this thread, such as
-    /// a test suite's budget. `tool_timeout` and `tool_hard_timeout` never
-    /// exceed it, so every process the call starts is held to it, busy or not.
+    /// a test suite's budget. `tool_timeout` never exceeds it, so every
+    /// process the call starts is held to it when a budget is in force.
     static CALL_BUDGET: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
 }
 
@@ -215,8 +215,6 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
         ));
     }
     if timed_out && !capture.tool_idle {
-        // Idle-floor kills happen well before ANGEL_TOOL_TIMEOUT; report the
-        // wall time that actually fired, not the unused 120s budget.
         let elapsed_secs = started.elapsed().as_secs();
         let budget_secs = tool_timeout().map(|d| d.as_secs()).unwrap_or(elapsed_secs);
         let note_secs = if budget_secs > 0 && elapsed_secs.saturating_add(1) < budget_secs {
@@ -226,11 +224,7 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
         } else {
             elapsed_secs.max(1)
         };
-        if capture.killed_by_idle_floor {
-            combined.push_str(&idle_floor_note(note_secs, capture.timeout_diag.as_ref()));
-        } else {
-            combined.push_str(&timeout_note(note_secs, capture.timeout_diag.as_ref()));
-        }
+        combined.push_str(&timeout_note(note_secs, capture.timeout_diag.as_ref()));
     }
     if capture.deadline_extended {
         combined.push_str(
@@ -257,7 +251,7 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
                 signal,
                 if cancelled {
                     "cancelled"
-                } else if capture.tool_idle || capture.killed_by_idle_floor {
+                } else if capture.tool_idle {
                     "tool_idle"
                 } else if timed_out {
                     "deadline"
@@ -379,8 +373,7 @@ pub(crate) fn truncate_to_char_boundary(s: &mut String, max_bytes: usize) {
 /// operator asked for (CUDA builds, benchmark runs, remote validation), and
 /// the old 120 s default killed every real one of those the fleet ran
 /// (2026-09-05 Yukon verifiers; 2026-09-10 the qwen38 loop had to hide its
-/// 104 s builds and 95 s scored runs behind keepalive ticks). A hung tool is
-/// the idle floor's job, not a deadline's.
+/// 104 s builds and 95 s scored runs behind keepalive ticks).
 pub(crate) fn tool_timeout() -> Option<Duration> {
     if crate::platform::yolo::enabled() {
         // A call budget is containment for one tool call, not an approval.
@@ -395,40 +388,6 @@ pub(crate) fn tool_timeout() -> Option<Duration> {
             Some(n) => Some(Duration::from_secs(n)),
         },
     )
-}
-
-/// Wall-clock ceiling while a process group is *busy* (runnable or burning
-/// CPU): `ANGEL_TOOL_HARD_TIMEOUT`, operator cap only. Idle groups never
-/// consult this. `0` = unlimited while busy (a busy process is work).
-/// Defaults to 900s (15 min) to prevent runaway busy loops from blocking the session forever.
-/// YOLO does not disable this: it governs approvals, not process-group containment.
-pub(crate) fn tool_hard_timeout() -> Option<Duration> {
-    within_call_budget(
-        match std::env::var("ANGEL_TOOL_HARD_TIMEOUT")
-            .ok()
-            .and_then(|s| s.trim().parse::<u64>().ok())
-        {
-            Some(0) => None,
-            Some(n) => Some(Duration::from_secs(n)),
-            None => Some(Duration::from_secs(900)),
-        },
-    )
-}
-
-/// Silent, non-runnable process group hang floor. Reaps sleeping processes
-/// that produce no stdout/stderr chunks past the floor.
-/// Defaults to 120s (2 minutes) to protect the interactive cockpit TUI from deadlocks;
-/// explicit `0` opts out for long silent background jobs.
-/// YOLO does not disable this: a silent process group is containment, not consent.
-pub(crate) fn tool_idle_floor() -> Option<Duration> {
-    match std::env::var("ANGEL_TOOL_IDLE_FLOOR_SECS")
-        .ok()
-        .and_then(|s| s.trim().parse::<u64>().ok())
-    {
-        Some(0) => None,
-        Some(n) => Some(Duration::from_secs(n)),
-        None => Some(Duration::from_secs(120)),
-    }
 }
 
 #[cfg(target_os = "linux")]
@@ -502,63 +461,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
     owned
 }
 
-#[cfg(target_os = "linux")]
-fn process_group_is_runnable(leader: u32) -> bool {
-    let supervised = sandbox_helper_process(leader);
-    owned_process_activity(leader)
-        .iter()
-        .any(|(pid, row)| !(supervised && *pid == leader) && matches!(row.state, 'R' | 'D'))
-}
-
-#[cfg(target_os = "macos")]
-fn process_group_is_runnable(leader: u32) -> bool {
-    const PROC_PGRP_ONLY: u32 = 2;
-    let mut pids = [0i32; 1024];
-    let buf_size = (pids.len() * std::mem::size_of::<i32>()) as i32;
-    let bytes = unsafe {
-        libc::proc_listpids(
-            PROC_PGRP_ONLY,
-            leader,
-            pids.as_mut_ptr() as *mut libc::c_void,
-            buf_size,
-        )
-    };
-    if bytes > 0 {
-        let count = (bytes as usize) / std::mem::size_of::<i32>();
-        for &pid in &pids[..count] {
-            if pid > 0 {
-                if let Some(state) = proc_stat_state(pid as u32) {
-                    if state == 'R' {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    if let Some(state) = proc_stat_state(leader) {
-        if state == 'R' {
-            return true;
-        }
-    }
-    false
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn process_group_is_runnable(_leader: u32) -> bool {
-    false
-}
-
-/// Which idle-sampling deadline a kill just crossed. The kill note names a
-/// different knob per reason, so the receipt points at the control the
-/// operator actually wants to raise.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum IdleKillReason {
-    /// Silent, non-busy group past `ANGEL_TOOL_IDLE_FLOOR_SECS`.
-    IdleFloor,
-    /// Busy group past `ANGEL_TOOL_HARD_TIMEOUT`.
-    HardTimeout,
-}
-
 /// Helper setup is distinct from payload progress. Allow at most 60 seconds
 /// for the helper to apply confinement and exec before starting idle sampling.
 fn sandbox_helper_process(pid: u32) -> bool {
@@ -586,48 +488,6 @@ fn sandbox_helper_still_setting_up(pid: u32) -> bool {
         .split_whitespace()
         .filter_map(|pid| pid.parse::<u32>().ok())
         .any(|child| !sandbox_helper_process(child))
-}
-
-fn idle_kill_reason(
-    pid: u32,
-    wall_started: Instant,
-    output_epoch: Instant,
-    last_output_ms: &AtomicU64,
-) -> Option<IdleKillReason> {
-    let floor = tool_idle_floor()?;
-    // Quiet compiles still show R (runnable) or D (uninterruptible I/O). Those
-    // follow ANGEL_TOOL_TIMEOUT / ANGEL_TOOL_HARD_TIMEOUT, not this floor.
-    // Isolation in the group scan keeps the cargo-test / cockpit thread from
-    // looking like the child.
-    // Helper setup (Landlock / bwrap / exec) is silent and can sit in R or S
-    // for seconds under load. Do not charge that time to the payload idle floor
-    // or hard timeout — otherwise `echo warmup` dies before it runs.
-    if sandbox_helper_still_setting_up(pid) {
-        // Slow Landlock/bwrap under load is not a silent payload, but a wedged
-        // helper must not own the turn forever.
-        if output_epoch.elapsed() < Duration::from_secs(60) {
-            return None;
-        }
-    }
-    if process_group_is_runnable(pid) {
-        return match tool_hard_timeout() {
-            Some(hard) if wall_started.elapsed() >= hard => Some(IdleKillReason::HardTimeout),
-            _ => None,
-        };
-    }
-    let stamp = last_output_ms.load(Ordering::Acquire);
-    let silent = if stamp == u64::MAX {
-        wall_started.elapsed()
-    } else {
-        let silent_ms = (output_epoch.elapsed().as_millis() as u64).saturating_sub(stamp);
-        Duration::from_millis(silent_ms)
-    };
-    (silent >= floor).then_some(IdleKillReason::IdleFloor)
-}
-
-/// Next time an idle-floor sample is due. `None` means idle kill is off.
-fn idle_check_at(from: Instant) -> Option<Instant> {
-    tool_idle_floor().map(|floor| from + floor)
 }
 
 /// Best-effort `SIGKILL` to the whole process group led by `pid` (the child is
@@ -734,23 +594,6 @@ pub(crate) fn timeout_note(timeout_secs: u64, diag: Option<&TimeoutDiagnostics>)
             diag.summary()
         ),
         None => format!("\n[timed out after {timeout_secs}s — process killed]\n{page}"),
-    }
-}
-
-/// Idle-floor kill receipt: the same evidence format as [`timeout_note`], but
-/// its page names `ANGEL_TOOL_IDLE_FLOOR_SECS` — the group was reaped for
-/// sleeping silently past the floor, not for outliving `ANGEL_TOOL_TIMEOUT` —
-/// and the legitimate silent waits the floor can mistake for a hang, with
-/// `proc_run` as the escape hatch for a deliberate long background wait.
-fn idle_floor_note(floor_secs: u64, diag: Option<&TimeoutDiagnostics>) -> String {
-    const IDLE_SUFFIX: &str = "; process killed; silent sleeping wait reaped by the idle floor";
-    let page = crate::agent::harness::book::d46_recovery::IDLE_FLOOR.cells();
-    match diag {
-        Some(diag) => format!(
-            "\n[timed out after {floor_secs}s — {}{IDLE_SUFFIX}]\n{page}",
-            diag.summary()
-        ),
-        None => format!("\n[timed out after {floor_secs}s{IDLE_SUFFIX}]\n{page}"),
     }
 }
 
@@ -939,10 +782,6 @@ pub(crate) struct TimedCapture {
     /// was doing (state, descendants, output silence) at the moment the
     /// deadline killed it.
     pub timeout_diag: Option<TimeoutDiagnostics>,
-    /// True when the kill was the idle floor reaping a silent, non-busy group
-    /// (rather than `ANGEL_TOOL_TIMEOUT` / `ANGEL_TOOL_HARD_TIMEOUT`) — the
-    /// receipt then names `ANGEL_TOOL_IDLE_FLOOR_SECS` instead.
-    pub killed_by_idle_floor: bool,
     pub tool_idle: bool,
     pub grandchild_holds_stdout: bool,
     pub grandchild_holds_stderr: bool,
@@ -1257,34 +1096,19 @@ fn output_timed_inner(
     });
     let mut timed_out = false;
     let mut cancelled = false;
-    let mut killed_by_idle_floor = false;
     let mut timeout_diag = None;
     let mut deadline_extended = false;
     // Mutable budget: at the kill decision the live `tool_timeout()` is
     // re-read, and a strictly-larger budget (or `0` = unlimited) defers the
     // kill — the operator can extend a safe long job mid-flight by raising
-    // `ANGEL_TOOL_TIMEOUT` instead of losing it to the historical hard kill.
+    // `ANGEL_TOOL_TIMEOUT`.
     let mut deadline = timeout;
     let spawn_started = Instant::now();
     let mut wall_started = None;
-    let mut next_idle_check = None;
     let wait_status =
         |rx: &std::sync::mpsc::Receiver<std::io::Result<std::process::ExitStatus>>,
          cap: Duration|
          -> Option<std::io::Result<std::process::ExitStatus>> { rx.recv_timeout(cap).ok() };
-    let idle_due = |next: &mut Option<Instant>, wall: Instant| -> Option<IdleKillReason> {
-        let at = (*next)?;
-        if Instant::now() < at {
-            return None;
-        }
-        match idle_kill_reason(pid, wall, output_epoch, &last_output_ms) {
-            Some(reason) => Some(reason),
-            None => {
-                *next = idle_check_at(Instant::now());
-                None
-            }
-        }
-    };
     let mut tool_idle = false;
     let idle_limit = tool_idle_timeout();
     let mut wait_started = fixed_started.unwrap_or_else(Instant::now);
@@ -1315,9 +1139,7 @@ fn output_timed_inner(
             && spawn_started.elapsed() < Duration::from_secs(60)
             && sandbox_helper_still_setting_up(pid);
         if wall_started.is_none() && !setting_up {
-            let now = Instant::now();
-            wall_started = Some(now);
-            next_idle_check = idle_check_at(now);
+            wall_started = Some(Instant::now());
         }
         let stamp = last_output_ms.load(Ordering::Acquire);
         let silent = if stamp == u64::MAX {
@@ -1329,16 +1151,8 @@ fn output_timed_inner(
         };
         let activity_age = activity
             .observe((stamp != u64::MAX).then(|| output_epoch + Duration::from_millis(stamp)));
-        let activity_limit = match (idle_limit, tool_idle_floor()) {
-            (Some(idle), Some(floor)) => Some(idle.min(floor)),
-            (idle, floor) => idle.or(floor),
-        };
-        let active =
-            activity_age.is_some_and(|age| activity_limit.is_some_and(|limit| age < limit));
+        let active = activity_age.is_some_and(|age| idle_limit.is_some_and(|limit| age < limit));
         tool_idle = idle_limit.is_some_and(|limit| silent >= limit) && !active && !setting_up;
-        let idle_reason = wall_started
-            .and_then(|wall| idle_due(&mut next_idle_check, wall))
-            .filter(|reason| *reason != IdleKillReason::IdleFloor || !active);
         let mut deadline_due = deadline.is_some_and(|budget| wait_started.elapsed() >= budget);
         if deadline_due
             && let Some(adopted) = extension_decision(deadline, extensible.then(tool_timeout))
@@ -1348,16 +1162,15 @@ fn output_timed_inner(
             wait_started = Instant::now();
             deadline_due = false;
         }
-        if tool_idle || idle_reason.is_some() || deadline_due {
+        if tool_idle || deadline_due {
             // A tool-idle escalation is recoverable by the model; it never
             // cancels the enclosing run. Preserve trusted metadata for the turn.
-            if tool_idle || idle_reason == Some(IdleKillReason::IdleFloor) {
+            if tool_idle {
                 TOOL_IDLE_ESCALATED.with(|flag| flag.set(true));
             }
             let (reaped, diag) =
                 kill_group_on_timeout(pid, &rx_status, output_epoch, &last_output_ms, supervised);
             timed_out = true;
-            killed_by_idle_floor = idle_reason == Some(IdleKillReason::IdleFloor);
             timeout_diag = Some(diag);
             break reaped
                 .ok_or_else(|| "child did not reap after group kill".to_string())?
@@ -1426,7 +1239,6 @@ fn output_timed_inner(
         timed_out,
         cancelled,
         timeout_diag,
-        killed_by_idle_floor,
         tool_idle,
         grandchild_holds_stdout,
         grandchild_holds_stderr,

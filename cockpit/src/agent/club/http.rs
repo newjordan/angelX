@@ -106,7 +106,11 @@ const DEFAULT_STREAM_STALL_SECS: u64 = 45;
 /// Before the model's first output a quiet stream is usually a model thinking
 /// (reasoning that is not streamed) or a queued request, not a dead one.
 const DEFAULT_STREAM_FIRST_TOKEN_SECS: u64 = 300;
-const DEFAULT_STREAM_HARD_SECS: u64 = 900;
+/// No wall clock on a live model stream unless the operator sets
+/// `ANGEL_STREAM_HARD_SECS`: the stall and first-token windows already catch a
+/// dead connection, and a 900 s default cut a GLM-5.3 high-effort think off
+/// mid-reasoning while it was still streaming (Yukon night, 2026-10-01).
+const DEFAULT_STREAM_HARD_SECS: u64 = 0;
 const DEFAULT_STREAM_TOOL_SILENCE_SECS: u64 = 900;
 const STREAM_HEARTBEAT_MIN_INTERVAL_SECS: u64 = 15;
 const DEFAULT_STREAM_MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
@@ -571,6 +575,12 @@ const DEEPSEEK_HARNESS_COMPACTION_BUDGET: usize = 678_464;
 /// DeepSeek's output cap when no operator cap is set: its own harness's
 /// default, within the V4.1 card's "at least 256K" and the API's 393,216.
 const DEEPSEEK_MODEL_CARD_MAX_TOKENS: u32 = 256_000;
+
+/// GLM-5.3's output cap when no operator cap is set: the API's own ceiling
+/// (z.ai answers `[1,131072]` for glm-5.3 and glm-5.3-flash). Left unset, the
+/// provider default cut a 15-minute high-effort think off mid-reasoning with
+/// no answer and no call (`finish_reason=length`, Yukon night 2026-10-01).
+const GLM_MODEL_CARD_MAX_TOKENS: u32 = 131_072;
 
 pub(crate) fn is_deepseek_v4_model(model_l: &str) -> bool {
     is_deepseek_v4_pro(model_l) || is_deepseek_v4_flash(model_l)
@@ -1607,6 +1617,15 @@ impl HttpClub {
                 Some("DeepSeek model card".to_string()),
             );
         }
+        if glm_thinking_locked_on(&model_l) && self.official_glm_host() {
+            return (
+                OutputBudgetPolicy::Explicit {
+                    tokens: GLM_MODEL_CARD_MAX_TOKENS,
+                    source: OutputBudgetSource::ModelCard,
+                },
+                Some("GLM model card".to_string()),
+            );
+        }
         (OutputBudgetPolicy::ProviderNative, None)
     }
 
@@ -2224,6 +2243,16 @@ impl HttpClub {
         url::Url::parse(&self.base_url).ok().is_some_and(|url| {
             url.host_str()
                 .is_some_and(|host| host.eq_ignore_ascii_case("api.deepseek.com"))
+        })
+    }
+
+    /// z.ai's or BigModel's own API host, parsed like the DeepSeek check.
+    fn official_glm_host(&self) -> bool {
+        url::Url::parse(&self.base_url).ok().is_some_and(|url| {
+            url.host_str().is_some_and(|host| {
+                host.eq_ignore_ascii_case("api.z.ai")
+                    || host.eq_ignore_ascii_case("open.bigmodel.cn")
+            })
         })
     }
 

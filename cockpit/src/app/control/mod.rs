@@ -22,9 +22,22 @@ mod artifact;
 mod campaign;
 pub(crate) use campaign::CampaignPending;
 mod commands;
+mod dungeon;
+mod dungeon_gear;
+mod dungeon_intro;
+mod dungeon_join;
+mod dungeon_reforge;
+pub(crate) use dungeon_reforge::Forge;
+#[cfg(test)]
+pub(crate) use dungeon_reforge::ReforgeDraft;
+pub(crate) use dungeon_reforge::known_wishes;
+mod dungeon_realm;
+mod dungeon_session;
+mod dungeon_shooter;
 pub(crate) use commands::is_turn_context_message;
 #[cfg(test)]
 pub(crate) use commands::{TURN_CONTEXT_HEADER, retry_last_request, undo_last_exchange};
+pub(crate) use dungeon::DungeonView;
 mod moa;
 mod modules;
 mod rating;

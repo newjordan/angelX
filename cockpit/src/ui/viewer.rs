@@ -353,6 +353,14 @@ pub struct Viewer {
     dot_failure: Option<DotFrameKey>,
     dot_base_id: u32,
     dot_upload: Option<String>,
+    /// A friend's delve as PNGs Kitty scales itself: the frame on screen
+    /// (sequence, cells, image id) and its upload for this draw.
+    game_png: Option<(u64, u16, u16, u32)>,
+    game_upload: Option<String>,
+    /// The overworld map on Kitty: a PNG the resident worker encodes, and
+    /// the one encoding now.
+    map_png_ready: Option<(PortalCacheKey, Arc<Vec<u8>>, u32, u32)>,
+    map_png_pending: Option<(PortalCacheKey, mpsc::Receiver<Option<(Vec<u8>, u32, u32)>>)>,
 }
 
 /// Readiness is not ownership: a supported pending sprite must not trigger a
@@ -458,7 +466,13 @@ impl Viewer {
             // font-size estimate; only the halfblock fallback wants the
             // cell-honest 2×4 density.
             protocol if protocol != ProtocolType::Halfblocks => {
-                let mut picker = Picker::halfblocks();
+                // The terminal's real cell size where it says, else the
+                // crate's estimate (a Retina Kitty's cells are twice it).
+                #[allow(deprecated)]
+                let mut picker = match real_cell_size() {
+                    Some((w, h)) => Picker::from_fontsize(ratatui_image::FontSize::new(w, h)),
+                    None => Picker::halfblocks(),
+                };
                 picker.set_protocol_type(protocol);
                 picker
             }
@@ -538,6 +552,10 @@ impl Viewer {
             dot_failure: None,
             dot_base_id: dot_image_id(),
             dot_upload: None,
+            game_png: None,
+            game_upload: None,
+            map_png_ready: None,
+            map_png_pending: None,
         }
     }
 
@@ -1298,8 +1316,10 @@ impl Viewer {
     /// Flush at the end of the composed frame. A dancer, approval overlay, or
     /// pane border cannot erase the one-time image upload by replacing a cell.
     pub(crate) fn flush_dot_upload(&mut self, frame: &mut Frame) {
-        let Some(upload) = self.dot_upload.take() else {
-            return;
+        let upload = match (self.dot_upload.take(), self.game_upload.take()) {
+            (None, None) => return,
+            (Some(dots), Some(game)) => format!("{dots}{game}"),
+            (Some(one), None) | (None, Some(one)) => one,
         };
         let area = frame.area();
         if let Some(cell) = frame.buffer_mut().cell_mut((area.x, area.y)) {
@@ -1345,7 +1365,23 @@ impl Viewer {
         P: AsRef<[u8]> + Send + 'static,
         F: FnOnce() -> (P, u32, u32),
     {
-        self.render_world_pixels_inner(frame, area, sequence, false, true, compose)
+        self.render_world_pixels_inner(frame, area, sequence, false, true, true, compose)
+    }
+
+    /// A bounded game raster fills its viewport while retaining the preceding
+    /// frame during encoding; unlike map tiles it is not pre-scaled to cells.
+    pub(crate) fn render_game_pixels<P, F>(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        compose: F,
+    ) -> WorldPixelsState
+    where
+        P: AsRef<[u8]> + Send + 'static,
+        F: FnOnce() -> (P, u32, u32),
+    {
+        self.render_world_pixels_inner(frame, area, sequence, false, true, false, compose)
     }
 
     /// Terminal cell size in physical pixels, as the map's image path sees it.
@@ -1358,6 +1394,200 @@ impl Viewer {
     /// when asked for); other terminals paint the map in half blocks.
     pub(crate) fn map_pixels_native(&self) -> bool {
         self.map_enabled
+    }
+
+    /// Kitty: game frames go out as the terminal's own pictures.
+    pub(crate) fn kitty(&self) -> bool {
+        self.portal_picker.protocol_type() == ProtocolType::Kitty
+    }
+
+    /// A friend's delve frame on Kitty: the host's PNG as it came over the
+    /// network, placed `fw`x`fh`-shaped in the middle of `area` and scaled
+    /// by the terminal. A new frame uploads into the image slot not on
+    /// screen, then its placeholders replace the old ones in the same draw.
+    /// Returns false where the terminal is not Kitty.
+    pub(crate) fn render_game_png(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        png: &[u8],
+        size: (u32, u32),
+    ) -> bool {
+        self.place_game(frame, area, sequence, size, |_, _| Some(png.to_vec()))
+    }
+
+    /// A game frame drawn here (`compose` is called only for a new frame):
+    /// scaled to exactly the pixels the terminal will show it at, nearest
+    /// pixel, so the terminal places it one to one and pixel art stays
+    /// hard-edged (Kitty smooths what it scales).
+    pub(crate) fn render_game_img(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        size: (u32, u32),
+        compose: impl FnOnce() -> crate::stage::world_viz::overworld::Img,
+    ) -> bool {
+        self.place_game(frame, area, sequence, size, |cols, rows| {
+            let img = compose();
+            let (cw, ch) = cell_shape();
+            // The smallest whole multiple at or past the size it shows (up
+            // to three): the terminal then only shrinks it a little, which
+            // keeps pixel edges hard, while the picture stays small enough
+            // to send sixty times a second.
+            let (tw, th) = (f32::from(cols) * cw, f32::from(rows) * ch);
+            let k = (tw / img.w.max(1) as f32)
+                .max(th / img.h.max(1) as f32)
+                .ceil()
+                .clamp(1.0, 3.0) as u32;
+            Some(nearest_png(
+                &img,
+                img.w.max(1) as u32 * k,
+                img.h.max(1) as u32 * k,
+            ))
+        })
+    }
+
+    /// The overworld map on Kitty: composed and encoded as a PNG by the
+    /// resident worker, placed one to one (it arrives already scaled to the
+    /// pane's pixels). A raw picture of that size was megabytes a frame;
+    /// the last frame stays up while the next encodes.
+    fn render_map_png<P, F>(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        compose: F,
+    ) -> WorldPixelsState
+    where
+        P: AsRef<[u8]> + Send + 'static,
+        F: FnOnce() -> (P, u32, u32),
+    {
+        let key = PortalCacheKey {
+            sequence,
+            width: area.width,
+            height: area.height,
+        };
+        if let Some((pending, rx)) = self.map_png_pending.as_ref() {
+            match rx.try_recv() {
+                Ok(Some((png, w, h))) => {
+                    self.map_png_ready = Some((pending.clone(), Arc::new(png), w, h));
+                    self.map_png_pending = None;
+                }
+                Ok(None) | Err(mpsc::TryRecvError::Disconnected) => self.map_png_pending = None,
+                Err(mpsc::TryRecvError::Empty) => {}
+            }
+        }
+        let fresh = self.map_png_ready.as_ref().is_some_and(|r| r.0 == key);
+        if !fresh && self.map_png_pending.is_none() {
+            let (pixels, w, h) = compose();
+            let (tx, rx) = mpsc::channel();
+            let job: MapEncodeJob = Box::new(move || {
+                use image::ImageEncoder;
+                let mut png = Vec::with_capacity(256 * 1024);
+                // Off the draw thread at a few frames a second: the full
+                // deflate is worth it (a frame's PNG is a few tens of KB).
+                let ok = image::codecs::png::PngEncoder::new_with_quality(
+                    &mut png,
+                    image::codecs::png::CompressionType::Default,
+                    image::codecs::png::FilterType::Up,
+                )
+                .write_image(pixels.as_ref(), w, h, image::ExtendedColorType::Rgba8)
+                .is_ok();
+                let _ = tx.send(ok.then_some((png, w, h)));
+            });
+            if self.send_map_job(job).is_ok() {
+                self.map_png_pending = Some((key, rx));
+            }
+        }
+        match self.map_png_ready.clone() {
+            Some((ready, png, w, h))
+                if ready.width == area.width && ready.height == area.height =>
+            {
+                // Map frames are numbered apart from game frames.
+                let seq = ready.sequence | (1 << 63);
+                if self.place_game(frame, area, seq, (w, h), |_, _| Some(png.to_vec())) {
+                    self.map_area = Some(area);
+                    WorldPixelsState::Ready
+                } else {
+                    WorldPixelsState::Unavailable
+                }
+            }
+            _ => WorldPixelsState::Pending,
+        }
+    }
+
+    fn place_game(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        (fw, fh): (u32, u32),
+        encode: impl FnOnce(u16, u16) -> Option<Vec<u8>>,
+    ) -> bool {
+        if self.portal_picker.protocol_type() != ProtocolType::Kitty
+            || area.width == 0
+            || area.height == 0
+            || fw == 0
+            || fh == 0
+        {
+            return false;
+        }
+        // The cells the frame fills, keeping its shape: a cell is about
+        // half as wide as it is tall, whatever the screen's density.
+        let (cw, ch) = cell_shape();
+        let (aw, ah) = (f32::from(area.width) * cw, f32::from(area.height) * ch);
+        let k = (aw / fw as f32).min(ah / fh as f32);
+        let cols = ((fw as f32 * k / cw).round() as u16).clamp(1, area.width.min(256));
+        let rows = ((fh as f32 * k / ch).round() as u16).clamp(1, area.height.min(256));
+        let placed = Rect::new(
+            area.x + (area.width - cols) / 2,
+            area.y + (area.height - rows) / 2,
+            cols,
+            rows,
+        );
+        let buffer = frame.buffer_mut();
+        for y in area.y..area.bottom() {
+            for x in area.x..area.right() {
+                if let Some(cell) = buffer.cell_mut((x, y)) {
+                    cell.set_symbol(" ")
+                        .set_bg(ratatui::style::Color::Rgb(0, 0, 0));
+                }
+            }
+        }
+        let base = (self.dot_base_id & 0x00ff_fffc).max(4);
+        let id = match self.game_png {
+            Some((seq, c, r, id)) if (seq, c, r) == (sequence, cols, rows) => id,
+            current => {
+                let next = if current.is_some_and(|(_, _, _, id)| id == base) {
+                    base + 1
+                } else {
+                    base
+                };
+                let size = ratatui::layout::Size::new(cols, rows);
+                let upload = encode(cols, rows)
+                    .and_then(|png| crate::ui::dots::protocol::png_upload(&png, size, next));
+                match upload {
+                    Some(upload) => {
+                        self.game_upload = Some(upload);
+                        self.game_png = Some((sequence, cols, rows, next));
+                        next
+                    }
+                    None => match current {
+                        Some((_, c, r, id)) if (c, r) == (cols, rows) => id,
+                        _ => return false,
+                    },
+                }
+            }
+        };
+        crate::ui::dots::protocol::placeholders(
+            id,
+            ratatui::layout::Size::new(cols, rows),
+            placed,
+            frame.buffer_mut(),
+        );
+        true
     }
 
     #[cfg(test)]
@@ -1373,7 +1603,7 @@ impl Viewer {
         P: AsRef<[u8]> + Send + 'static,
         F: FnOnce() -> (P, u32, u32),
     {
-        self.render_world_pixels_inner(frame, area, sequence, ambient, false, compose)
+        self.render_world_pixels_inner(frame, area, sequence, ambient, false, false, compose)
     }
 
     fn render_world_pixels_inner<P, F>(
@@ -1383,6 +1613,7 @@ impl Viewer {
         sequence: u64,
         ambient: bool,
         retain: bool,
+        pre_scaled: bool,
         compose: F,
     ) -> WorldPixelsState
     where
@@ -1390,6 +1621,9 @@ impl Viewer {
         F: FnOnce() -> (P, u32, u32),
     {
         self.map_area = None;
+        if pre_scaled && self.kitty() && self.map_enabled {
+            return self.render_map_png(frame, area, sequence, compose);
+        }
         let picker = self.world_pixel_picker();
         let font = (picker.font_size().width, picker.font_size().height);
         if font != self.world_font_size {
@@ -1472,7 +1706,7 @@ impl Viewer {
                             //
                             // Nearest keeps the pixel art crisp; a smooth
                             // filter turns 8px tiles into mush.
-                            if retain {
+                            if pre_scaled {
                                 // The map arrives pre-scaled with whole
                                 // pixels: place it at natural size.
                                 Resize::Fit(Some(image::imageops::FilterType::Nearest))
@@ -1512,6 +1746,14 @@ impl Viewer {
         } else {
             WorldPixelsState::Unavailable
         }
+    }
+
+    /// A viewer as on a Kitty terminal, for draw tests.
+    #[cfg(test)]
+    pub(crate) fn kitty_for_test() -> Self {
+        let mut picker = Picker::halfblocks();
+        picker.set_protocol_type(ProtocolType::Kitty);
+        Self::with_picker(picker)
     }
 
     #[cfg(test)]
@@ -1900,6 +2142,66 @@ fn bottom_right_protocol_area(proto: &Protocol, available: Rect) -> Rect {
         y: available.y + available.height.saturating_sub(height),
         width,
         height,
+    }
+}
+
+/// `img` scaled to `w`x`h` by nearest pixel, as a PNG made for speed (it
+/// only crosses to the terminal on this machine).
+fn nearest_png(img: &crate::stage::world_viz::overworld::Img, w: u32, h: u32) -> Vec<u8> {
+    use image::ImageEncoder;
+    let (sw, sh) = (img.w.max(1) as u32, img.h.max(1) as u32);
+    let src = img.rgb_bytes();
+    let mut out = vec![0u8; (w * h * 3) as usize];
+    let cols: Vec<usize> = (0..w)
+        .map(|x| ((x * sw / w).min(sw - 1) * 3) as usize)
+        .collect();
+    for y in 0..h {
+        let sy = (y * sh / h).min(sh - 1) as usize;
+        let row = &src[sy * sw as usize * 3..(sy + 1) * sw as usize * 3];
+        let dst = &mut out[(y * w * 3) as usize..((y + 1) * w * 3) as usize];
+        for (x, &sx) in cols.iter().enumerate() {
+            dst[x * 3..x * 3 + 3].copy_from_slice(&row[sx..sx + 3]);
+        }
+    }
+    let mut png = Vec::with_capacity(256 * 1024);
+    // Measured (release, 3x a delve frame): the Up filter halves the
+    // bytes of nearest-scaled pixel art for the same fast encode (0.55 ms,
+    // 228 KB against 0.96 ms, 694 KB).
+    let _ = image::codecs::png::PngEncoder::new_with_quality(
+        &mut png,
+        image::codecs::png::CompressionType::Fast,
+        image::codecs::png::FilterType::Up,
+    )
+    .write_image(&out, w, h, image::ExtendedColorType::Rgb8);
+    png
+}
+
+/// A cell's width and height in pixels, as the terminal reports them, or a
+/// typical 1:2 cell where it does not.
+fn cell_shape() -> (f32, f32) {
+    static SHAPE: std::sync::OnceLock<(f32, f32)> = std::sync::OnceLock::new();
+    *SHAPE.get_or_init(|| {
+        real_cell_size().map_or((10.0, 20.0), |(w, h)| (f32::from(w), f32::from(h)))
+    })
+}
+
+/// The terminal's own cell size in pixels: on a high-density screen it is
+/// twice the usual, and an image sized for the usual cell covers only a
+/// quarter of its place.
+fn real_cell_size() -> Option<(u16, u16)> {
+    #[cfg(test)]
+    {
+        None
+    }
+    #[cfg(not(test))]
+    {
+        let size = ratatui::crossterm::terminal::window_size().ok()?;
+        (size.columns > 0 && size.rows > 0 && size.width > 0 && size.height > 0).then(|| {
+            (
+                (size.width / size.columns).max(1),
+                (size.height / size.rows).max(1),
+            )
+        })
     }
 }
 

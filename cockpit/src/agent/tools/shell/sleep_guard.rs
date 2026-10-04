@@ -1,12 +1,15 @@
 //! Recognize literal synchronous sleep commands without treating quoted data as
 //! executable shell syntax. Dynamic shell programs remain bounded by the runner.
 
+#[cfg(test)]
 use std::path::Path;
 
+#[cfg(test)]
 pub(super) fn contains_excessive_sleep(command: &str, max_secs: u64) -> bool {
     excessive_sleep(command, max_secs as f64, 0)
 }
 
+#[cfg(test)]
 fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
     // Shell -c payloads can themselves invoke a shell. Keep static inspection
     // bounded even for an adversarially nested literal command.
@@ -222,6 +225,7 @@ fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
     })
 }
 
+#[cfg(test)]
 fn assignment(word: &str) -> bool {
     let Some((name, _)) = word.split_once('=') else {
         return false;
@@ -233,6 +237,7 @@ fn assignment(word: &str) -> bool {
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
+#[cfg(test)]
 fn duration_seconds(operand: &str) -> Option<f64> {
     let (number, multiplier) = match operand.as_bytes().last()? {
         b's' => (&operand[..operand.len() - 1], 1.0),
@@ -248,6 +253,7 @@ fn duration_seconds(operand: &str) -> Option<f64> {
 /// Split only at unquoted shell control operators, retaining quoted/escaped
 /// words and discarding redirection targets. This is a literal-command scanner,
 /// not an interpreter: no substitutions or shell expansion are performed.
+#[cfg(test)]
 fn commands(command: &str) -> Vec<Vec<String>> {
     let mut commands = Vec::new();
     let mut words = Vec::new();

@@ -130,8 +130,65 @@ def next_action(body):
     return script[step]
 
 
+def responses_messages(body):
+    """A Responses request as Chat Completions messages, for the same script."""
+    out = []
+    if body.get("instructions"):
+        out.append({"role": "system", "content": body["instructions"]})
+    for item in body.get("input") or []:
+        kind = item.get("type")
+        if kind == "message":
+            parts = item.get("content")
+            text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)) if isinstance(parts, list) else (parts or "")
+            out.append({"role": item.get("role", "user"), "content": text})
+        elif kind == "function_call":
+            out.append({"role": "assistant", "content": None, "tool_calls": [
+                {"id": item.get("call_id"), "type": "function",
+                 "function": {"name": item.get("name"), "arguments": item.get("arguments", "")}}]})
+        elif kind == "function_call_output":
+            out.append({"role": "tool", "tool_call_id": item.get("call_id"), "content": item.get("output", "")})
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+
+    def _event(self, kind, payload):
+        payload = {"type": kind, **payload}
+        self.wfile.write(f"event: {kind}\ndata: {json.dumps(payload)}\n\n".encode())
+        self.wfile.flush()
+
+    def _responses(self, body, raw):
+        """The Responses API (Muse's and the Codex seats' wire), streamed."""
+        arrived = time.time()
+        action = next_action({"messages": responses_messages(body)})
+        state["calls"] += 1
+        with open(LOG, "a") as f:
+            f.write(json.dumps({"t": arrived, "bytes": len(raw), "body": body, "action": action, "api": "responses"}) + "\n")
+        rid = f"resp_{state['calls']}"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self._event("response.created", {"response": {"id": rid, "status": "in_progress"}})
+        if action is None:
+            item = {"type": "message", "id": f"msg_{state['calls']}", "role": "assistant", "status": "completed",
+                    "content": [{"type": "output_text", "text": FINAL}]}
+            self._event("response.output_item.added", {"output_index": 0, "item": {**item, "content": []}})
+            self._event("response.output_text.delta", {"output_index": 0, "content_index": 0, "delta": FINAL})
+        else:
+            name, args = action
+            item = {"type": "function_call", "id": f"fc_{state['calls']}", "call_id": f"call_{state['calls']}",
+                    "name": name, "arguments": json.dumps(args), "status": "completed"}
+            self._event("response.output_item.added", {"output_index": 0, "item": {**item, "arguments": ""}})
+            self._event("response.function_call_arguments.delta", {"output_index": 0, "item_id": item["id"], "delta": item["arguments"]})
+            self._event("response.function_call_arguments.done", {"output_index": 0, "item_id": item["id"], "arguments": item["arguments"]})
+        self._event("response.output_item.done", {"output_index": 0, "item": item})
+        self._event("response.completed", {"response": {"id": rid, "status": "completed", "output": [item],
+            "usage": {"input_tokens": len(raw) // 4, "output_tokens": 20,
+                      "input_tokens_details": {"cached_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}}}})
+        self.close_connection = True
 
     def log_message(self, *args):
         pass
@@ -157,6 +214,9 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
         with open(LOG + ".paths", "a") as f:
             f.write(f"POST {self.path}\n")
+        if self.path.rstrip("/").endswith("/responses"):
+            self._responses(json.loads(raw), raw)
+            return
         if not self.path.rstrip("/").endswith("/chat/completions"):
             self._send_json(404, {"error": "not found"})
             return

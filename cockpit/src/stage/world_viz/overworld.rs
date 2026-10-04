@@ -16,6 +16,7 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
+pub(crate) mod arena;
 mod clerks;
 mod deeds;
 pub(crate) mod garden;
@@ -28,8 +29,10 @@ mod live;
 mod map;
 mod outcomes;
 mod scene;
+pub(crate) mod school;
 mod sky;
 mod wild;
+pub(crate) mod wishes;
 
 // The overworld tests read these through `use super::*`; live.rs imports glass directly.
 pub(crate) use deeds::Deeds;
@@ -122,6 +125,31 @@ fn rock_kind(tx: i32, ty: i32) -> RockKind {
     }
 }
 
+/// One screen of the realm around the newest wish the party raised, or
+/// around the Keep while none stands yet — what a guest page shows.
+pub(crate) fn wish_view(scene: &Scene) -> Img {
+    let lots = wishes::lots(&scene.wishes);
+    let (cx, cy) = lots
+        .iter()
+        .rev()
+        .flatten()
+        .next()
+        .map(|lot| {
+            (
+                ((lot.tx * 2 + lot.tw) * TILE / 2) as f32,
+                ((lot.ty * 2 + lot.th) * TILE / 2) as f32,
+            )
+        })
+        .unwrap_or_else(|| {
+            let (tx, ty) = map::Place::Keep.stand_world();
+            ((tx * TILE) as f32, (ty * TILE) as f32)
+        });
+    render_view(
+        scene,
+        View::around(cx, cy, SCREEN_W * TILE, SCREEN_H * TILE),
+    )
+}
+
 /// Render a rectangle of the lit realm.
 pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
     let realm = Realm::get();
@@ -145,9 +173,14 @@ pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
         view.y.div_euclid(TILE).max(0),
     );
     let tx1 = (view.x + view.w).div_euclid(TILE).min(MAP_W - 1);
+    // Lots cleared for wishes the party paid for show bare ground.
+    let lots = wishes::lots(&scene.wishes);
     let ty1 = (view.y + view.h).div_euclid(TILE).min(MAP_H - 1);
     for ty in ty0..=ty1 {
         for tx in tx0..=tx1 {
+            if wishes::cleared(&lots, tx, ty) {
+                continue;
+            }
             let v = ink::hash(tx, ty, 31);
             let sprite = match realm.at(tx, ty) {
                 b'T' => tiles.tree(v),
@@ -225,6 +258,16 @@ fn lava_glow(lights: &mut Vec<light::Light>, view: View, tick: u32) {
 /// A frame: one view of the map, rim vignetted, with any glass laid over.
 /// Nothing else: every pixel in the frame is the world.
 pub(crate) fn frame_at(scene: &Scene, view: View) -> Img {
+    if let Some(room) = scene.school_room {
+        return school::render_room(
+            room,
+            scene.school,
+            scene.tick,
+            scene.outcome_motion,
+            view.w,
+            view.h,
+        );
+    }
     let mut f = render_view(scene, view);
     light::vignette(&mut f, 0);
     if let Some(g) = &scene.glass {

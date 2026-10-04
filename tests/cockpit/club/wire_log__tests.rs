@@ -42,9 +42,9 @@ fn heartbeat_cadence_is_calibrated_per_model() {
     }
 }
 
-/// One record per call carries the calibrated windows, the wire counters and
-/// every dispatched call with its arguments as the model sent them; arguments
-/// that were not JSON are noted.
+/// One record per call carries the calibrated windows, the wire counters, the
+/// reasoning summary and every dispatched call with its arguments as the model
+/// sent them; arguments that were not JSON are noted.
 #[test]
 fn a_call_record_keeps_windows_counters_and_raw_arguments() {
     let _guard = env_lock();
@@ -61,6 +61,8 @@ fn a_call_record_keeps_windows_counters_and_raw_arguments() {
     wire.keepalive();
     wire.event("chunk");
     wire.reasoning(7);
+    wire.reasoning_summary("Weighing");
+    wire.reasoning_summary(" the fix");
     wire.text(5);
     wire.set_finish_reason(Some("tool_calls"));
     wire.finish(&Ok(ClubReply::Calls(vec![ToolCall {
@@ -80,7 +82,8 @@ fn a_call_record_keeps_windows_counters_and_raw_arguments() {
     assert_eq!(record["keepalives"], 1);
     assert_eq!(record["event_types"]["chunk"], 1);
     assert_eq!(record["text_chars"], 5);
-    assert_eq!(record["reasoning_chars"], 7);
+    assert_eq!(record["reasoning_chars"], 23);
+    assert_eq!(record["reasoning_summary"], "Weighing the fix");
     assert!(record["first_token_ms"].is_u64());
     assert_eq!(record["finish_reason"], "tool_calls");
     assert_eq!(record["calls"][0]["name"], "cargo");

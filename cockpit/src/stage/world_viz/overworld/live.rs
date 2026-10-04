@@ -48,12 +48,19 @@ pub(crate) fn follow(cam: (f32, f32), focus: (f32, f32)) -> (f32, f32) {
 const TRAIL: usize = 64;
 const FOLLOW_GAP: usize = 9;
 
+/// Where the knight is headed: a place, or a spot of his own (a delve's gate).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Goal {
+    Place(Place),
+    Spot((i32, i32)),
+}
+
 /// The knight's walk across the realm.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Walker {
     x: f32,
     y: f32,
-    goal: Place,
+    goal: Goal,
     path: VecDeque<(i32, i32)>,
     /// Where he has just been, newest first — the party walks in his steps.
     trail: VecDeque<(f32, f32)>,
@@ -80,7 +87,7 @@ impl Default for Walker {
         Walker {
             x: home.x,
             y: home.y,
-            goal: Place::Keep,
+            goal: Goal::Place(Place::Keep),
             path: VecDeque::new(),
             trail: VecDeque::new(),
             cam: (home.x, home.y - FOCUS_LIFT),
@@ -100,13 +107,32 @@ fn feet((tx, ty): (i32, i32)) -> (f32, f32) {
 
 impl Walker {
     pub(crate) fn travelling_to(&self, goal: Place) -> bool {
-        self.goal != goal || !self.path.is_empty() || self.shown.knight.walking
+        self.goal != Goal::Place(goal) || !self.path.is_empty() || self.shown.knight.walking
     }
+
+    /// He stands at `spot`, done walking.
+    pub(crate) fn standing_at(&self, spot: (i32, i32)) -> bool {
+        self.goal == Goal::Spot(spot) && self.path.is_empty() && !self.shown.knight.walking
+    }
+
     /// One world tick toward `goal`; a new goal reroutes from where he stands.
     pub(crate) fn toward(&mut self, goal: Place) {
+        self.toward_goal(Goal::Place(goal));
+    }
+
+    /// One world tick toward a spot that is not a place.
+    pub(crate) fn toward_spot(&mut self, spot: (i32, i32)) {
+        self.toward_goal(Goal::Spot(spot));
+    }
+
+    fn toward_goal(&mut self, goal: Goal) {
         if goal != self.goal {
             self.goal = goal;
-            self.path = route(self.tile(), goal.stand_world()).into();
+            let tile = match goal {
+                Goal::Place(place) => place.stand_world(),
+                Goal::Spot(spot) => spot,
+            };
+            self.path = route(self.tile(), tile).into();
             // Long journeys ride faster: no trip takes much over four seconds.
             self.stride = (self.path.len() as f32 * TILE as f32 / 160.0).max(PACE);
         }
@@ -344,9 +370,21 @@ impl World {
                 .collect::<String>()
         };
         let name = normalize(name);
+        if let Some(room) = super::school::Room::parse(&name) {
+            let (x, y, w, h) = Place::School.footprint_world();
+            self.overworld_view = Some((
+                (x as f32 + w as f32 / 2.0) * TILE as f32,
+                (y as f32 + h as f32 / 2.0) * TILE as f32,
+                room.label(),
+            ));
+            self.interior = None;
+            self.school_room = Some(room);
+            return Some(room.label());
+        }
         if matches!(name.as_str(), "garden" | "graphgarden" | "crops") {
             let (x, y) = super::garden::centre();
             self.overworld_view = Some((x, y, "GRAPH GARDEN"));
+            self.school_room = None;
             return Some("GRAPH GARDEN");
         }
         let place = match name.as_str() {
@@ -357,6 +395,7 @@ impl World {
             "wards" => Place::Wards,
             "forest" => Place::DarkForest,
             "table" => Place::RoundTable,
+            "school" | "magic" | "sloptomizer" | "magicschool" => Place::School,
             _ => Place::ALL.into_iter().find(|place| {
                 normalize(place.label()) == name
                     || normalize(place.label().trim_start_matches("THE ")) == name
@@ -368,15 +407,48 @@ impl World {
             (y as f32 + h as f32 / 2.0) * TILE as f32,
             place.label(),
         ));
+        self.school_room = None;
+        if place == Place::School {
+            self.interior = None;
+        }
         Some(place.label())
+    }
+
+    /// Toggle the current expedition's map without changing its destination.
+    /// Other visits and entered rooms retain their explicit operator choice.
+    pub(crate) fn toggle_adventure_map(&mut self) -> bool {
+        let Some(place) = region_place(self.quest().region()) else {
+            return false;
+        };
+        if self.inside_interior() || self.graph_visiting() {
+            return false;
+        }
+        match self.overworld_view_label() {
+            None => self.visit_overworld(place.label()).is_some(),
+            Some(label) if label == place.label() => {
+                self.follow_overworld();
+                true
+            }
+            _ => false,
+        }
     }
 
     pub(crate) fn follow_overworld(&mut self) {
         self.overworld_view = None;
+        self.school_room = None;
+    }
+
+    /// Mirror actual evidence counts. Rendering never fetches, trains or acts.
+    pub(crate) fn note_school(&mut self, snapshot: super::school::SchoolSnapshot) {
+        self.school = snapshot;
     }
 
     pub(crate) fn overworld_view_label(&self) -> Option<&'static str> {
         self.overworld_view.map(|(_, _, label)| label)
+    }
+
+    pub(crate) fn visiting_school(&self) -> bool {
+        self.school_room.is_some() || self.overworld_view_label() == Some(Place::School.label())
     }
 
     /// The place the pixel knight walks to: the quest's region while an
@@ -401,11 +473,21 @@ impl World {
         Place::of_building(self.target)
     }
 
+    /// Called to the Delve, the knight has reached its gate and waits there.
+    pub(crate) fn at_delve_gate(&self) -> bool {
+        self.delve_called && self.overworld.standing_at(super::wishes::delve_stand())
+    }
+
     /// Advance the pixel knight one world tick.
     pub(crate) fn tick_overworld(&mut self) {
         self.overworld_deeds.step(self.tick);
-        let goal = self.overworld_goal();
-        self.overworld.toward(goal);
+        if self.delve_called {
+            // Called to the Delve: he walks to its gate and waits there.
+            self.overworld.toward_spot(super::wishes::delve_stand());
+        } else {
+            let goal = self.overworld_goal();
+            self.overworld.toward(goal);
+        }
         if self.tick.is_multiple_of(2) {
             self.overworld.publish();
         }
@@ -428,6 +510,11 @@ impl World {
         s.outcomes = self.overworld_outcomes.shown(self.tick);
         s.stargazing = self.overworld_deeds.stargazing();
         s.garden = self.graph_garden.frame(self.tick);
+        s.school = self.school;
+        s.school_room = self.school_room;
+        s.wishes = crate::drive::together_realm::standing_wishes();
+        s.delve_lit = self.delve_lit || self.delve_called;
+        s.delve_boons = if s.delve_lit { self.delve_boons } else { 0 };
         if self.graph_garden.working() {
             s.active = Some(Place::Fields);
             s.tool = Some(Tool::Quill);

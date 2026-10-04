@@ -170,6 +170,15 @@ pub(crate) struct Scene {
     /// Research is out: the Observatory's glass sweeps the sky.
     pub(crate) stargazing: bool,
     pub(crate) garden: super::garden::GardenFrame,
+    pub(crate) school: super::school::SchoolSnapshot,
+    pub(crate) school_room: Option<super::school::Room>,
+    /// Wishes the party paid for with delve spoils, in the order raised;
+    /// they stand in the wild.
+    pub(crate) wishes: std::sync::Arc<Vec<crate::drive::together_realm::Wish>>,
+    /// The Delve's gate is lit: the knight was called, or a delve is on.
+    pub(crate) delve_lit: bool,
+    /// The party's wishes, as standards by the gate.
+    pub(crate) delve_boons: u8,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
     pub(crate) tick: u32,
@@ -181,7 +190,14 @@ impl Scene {
     pub(crate) fn key(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        (self.tier, self.active, self.tool).hash(&mut h);
+        (
+            self.tier,
+            self.active,
+            self.tool,
+            self.delve_lit,
+            self.delve_boons,
+        )
+            .hash(&mut h);
         (
             self.knight.x.to_bits(),
             self.knight.y.to_bits(),
@@ -227,6 +243,10 @@ impl Scene {
         }
         (&self.record, self.sparks, self.stargazing).hash(&mut h);
         (&self.outcomes, self.outcome_motion as u8).hash(&mut h);
+        (self.school, self.school_room).hash(&mut h);
+        for w in self.wishes.iter() {
+            (&w.id, w.raised, &w.name, &w.near, &w.art).hash(&mut h);
+        }
         (
             self.garden.epoch,
             self.garden.tick,
@@ -274,6 +294,11 @@ impl Scene {
             outcome_motion: MotionMode::Full,
             stargazing: false,
             garden: super::garden::GardenFrame::default(),
+            school: super::school::SchoolSnapshot::default(),
+            school_room: None,
+            wishes: std::sync::Arc::default(),
+            delve_lit: false,
+            delve_boons: 0,
             ambient: DUSK,
             tick: 0,
         }
@@ -958,6 +983,13 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
     // move it to its place in the realm. The party and the knight below
     // already live in realm coordinates.
     props.extend(super::clerks::stage(tick, scene.outcome_motion));
+    super::school::stage(
+        scene.school,
+        tick,
+        scene.outcome_motion,
+        &mut props,
+        &mut lights,
+    );
     for p in props.iter_mut().chain(cues_authored.iter_mut()) {
         let (ax, ay) = (p.x + p.img.w / 2, p.base - 1);
         let (rx, ry) = place_px(ax, ay);
@@ -976,6 +1008,16 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         b.0 += rx - ax;
         b.1 += ry - ay;
     }
+
+    // ── wishes the party paid for, standing in the wild (realm coordinates) ──
+    super::wishes::stage_gate(
+        scene.delve_lit,
+        scene.delve_boons,
+        &mut props,
+        &mut lights,
+        tick,
+    );
+    super::wishes::stage(&scene.wishes, &mut props, &mut lights, tick);
 
     // ── receipt lanterns: actual outcomes settle at their place of work ──
     // These are world coordinates, after the authored-place translation.

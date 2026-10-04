@@ -29,7 +29,7 @@ pub(crate) struct Light {
 /// just over half.
 pub(crate) const DUSK: f32 = 0.58;
 /// How many bank steps separate full light from darkness.
-const STEPS: f32 = 4.0;
+pub(crate) const STEPS: f32 = 4.0;
 const CHAIN: usize = 7;
 
 fn lum(c: Rgb) -> f32 {

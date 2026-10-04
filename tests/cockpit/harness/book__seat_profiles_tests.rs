@@ -1,7 +1,7 @@
 //! Volume IX, the seat profiles: Codex's `gpt-6.1-sol` profile in its own words.
 //! Every heading's block of the vendor's text is rebuilt, byte for byte, from
 //! its section's pages; the seat's knobs are read back off the catalog; and the
-//! chapter stays a library.
+//! chapter stays a library but for the one page an OpenAI seat stands on.
 use super::*;
 use crate::agent::club::ChatMsg;
 use crate::agent::harness::book::{self, DIGITS, TOC, connect, introduction, ledger};
@@ -412,10 +412,18 @@ fn the_seat_profile_is_the_catalog_entry() {
 }
 
 #[test]
-fn nothing_of_the_profile_rides_a_seat_by_default() {
-    // A library: no detector throws these routes and no preamble names them, so
-    // the wire a seat reads is what it was.
+fn only_the_standing_page_rides_a_seat() {
+    // A library but for one page: no detector throws these routes and no
+    // preamble names them. An OpenAI seat stands on the autonomy page Codex
+    // answers sol's own token budgeting with.
     for route in all_routes() {
         assert!(!book::VOICED.iter().any(|(voiced, _)| *voiced == route));
     }
+    let (route, page) = STANDING;
+    assert_eq!(route, AUTONOMY);
+    assert_eq!(
+        route.sub().pages[page],
+        "Do not settle for a partial or \"helpful enough\" solution that does not fully satisfy the user's task to save time, effort or tokens."
+    );
+    assert_eq!(book::Raise::page(route, page, None).cells(), "⡞⠙⠓");
 }

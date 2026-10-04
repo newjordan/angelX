@@ -149,6 +149,10 @@ pub struct ChatMsg {
     /// grant complete coverage, but must survive session restore/compaction.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) recovery_context: Vec<RecoveryContextRef>,
+    /// Local session metadata. Provider serializers consume content/tool calls,
+    /// never this inventory; ordinary hops therefore pay no legend tokens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) book_memory: Option<Arc<crate::agent::harness::book::continuity::Memory>>,
 }
 
 #[derive(Clone, Debug)]
@@ -199,6 +203,7 @@ impl ChatMsg {
             responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
+            book_memory: None,
         }
     }
     pub fn assistant(content: impl Into<Arc<str>>) -> Self {
@@ -241,6 +246,7 @@ impl ChatMsg {
             responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
+            book_memory: None,
         }
     }
     /// A tool result answering the call `id`.
@@ -255,6 +261,7 @@ impl ChatMsg {
             responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
+            book_memory: None,
         }
     }
     pub(crate) fn with_tool_receipt(
@@ -321,6 +328,7 @@ impl ChatMsg {
             responses_replay: None,
             tool_receipt: None,
             recovery_context: Vec::new(),
+            book_memory: None,
         }
     }
 }

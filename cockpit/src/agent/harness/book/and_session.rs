@@ -51,7 +51,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             action: "",
             ideas: "",
             pages: &[
-                "Report the conversation's estimated token usage and how much of the configured budget remains, so you can decide whether to wrap up or keep going.",
+                "Report how many tokens the conversation holds against its compaction threshold; older turns compact automatically there, so the threshold never ends the work.",
             ],
         },
         Sub {

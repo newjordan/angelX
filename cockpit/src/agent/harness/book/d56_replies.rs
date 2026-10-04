@@ -157,7 +157,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "No context budget is set (ANGEL_CONTEXT_BUDGET_TOKENS=0), so there's no hard limit.",
-                "Older turns auto-compact above the budget.",
+                "Older turns compact automatically at the threshold, and the work goes on.",
                 "[angel-hook-blocked/v1]",
                 "inspect external and workspace state before retrying",
                 "set ANGEL_SELF_SRC to the crate root",

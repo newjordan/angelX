@@ -14556,3 +14556,130 @@ fn contains_dotmax(text: &str) -> bool {
     text.chars()
         .any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch))
 }
+
+#[test]
+fn stage_copy_right_click_exports_location_without_changing_zoom_or_draft() {
+    use ratatui::crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+    let _guard = env_lock();
+    let home = std::env::temp_dir().join(format!("angel-stage-copy-mouse-{}", std::process::id()));
+    std::fs::create_dir_all(&home).unwrap();
+    let _home = TestEnvGuard::set("HOME", home.to_str().unwrap());
+    let mut app = seed_preview_app();
+    app.input = "preserve my draft λ".into();
+    app.cursor = app.input.len();
+    let path = home.join("shape with spaces.png");
+    app.media.push(crate::ui::media::Media::Image {
+        label: "shape".into(),
+        path: path.display().to_string(),
+    });
+    app.scryglass.reveal_media(0, true);
+    app.scryglass.surface = crate::ui::scryglass::StageSurface::Still(0);
+    let rect = ratatui::layout::Rect::new(40, 3, 30, 15);
+    app.panes.push(crate::ui::mouse::PaneId::Artifacts, rect);
+    app.viewer
+        .inspector
+        .action(crate::ui::still_inspector::Action::ZoomIn);
+    let view = app.viewer.inspector.view;
+    let request = app.scryglass.media_request_id();
+    let turn_count = app.history.len();
+    app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
+    let fallback = home.join(".angelX/stage-location.txt");
+    assert_eq!(
+        std::fs::read_to_string(&fallback).unwrap(),
+        path.display().to_string()
+    );
+    assert_eq!(app.viewer.inspector.view, view);
+    assert_eq!(app.input, "preserve my draft λ");
+    assert_eq!(app.history.len(), turn_count);
+    assert_eq!(app.scryglass.media_request_id(), request);
+    // Other panes and unrelated overlays may not export stale Stage media.
+    std::fs::remove_file(&fallback).unwrap();
+    app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 1, 1));
+    assert!(!fallback.exists());
+    app.scryglass.controller.clear_overlay();
+    app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
+    assert!(!fallback.exists());
+    // A modal approval owns the pointer before Stage copying.
+    app.scryglass.reveal_media(0, true);
+    app.loop_dialog = Some(crate::drive::loop_dialog::LoopLaunchDialog::new(
+        "copy regression",
+        0,
+        false,
+    ));
+    app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
+    assert!(!fallback.exists());
+    // Shift on a visual is an honest text-unavailable error, not a location copy.
+    app.loop_dialog = None;
+    let mut shift = mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8);
+    shift.modifiers = KeyModifiers::SHIFT;
+    app.on_mouse(shift);
+    assert!(!fallback.exists());
+    assert!(
+        app.messages
+            .last()
+            .unwrap()
+            .text
+            .contains("no document text")
+    );
+    std::fs::remove_dir_all(home).unwrap();
+}
+
+#[test]
+fn stage_copy_shift_right_click_exports_loaded_report_and_link_right_click_copies_url() {
+    use ratatui::crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+    let _guard = env_lock();
+    let home = std::env::temp_dir().join(format!(
+        "angel-stage-copy-report-mouse-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&home).unwrap();
+    let _home = TestEnvGuard::set("HOME", home.to_str().unwrap());
+    let path = home.join("report.md");
+    let text = "# Checked work\nTwo complete coronas.\n";
+    std::fs::write(&path, text).unwrap();
+    let mut app = seed_preview_app();
+    app.media.push(crate::ui::media::Media::Resource {
+        label: "report".into(),
+        url: path.display().to_string(),
+    });
+    app.scryglass.reveal_media(0, true);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while app
+        .scryglass
+        .document_frame(&app.media[0])
+        .unwrap()
+        .is_none()
+    {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    app.scryglass.surface = crate::ui::scryglass::StageSurface::Document(0);
+    app.panes.push(
+        crate::ui::mouse::PaneId::Artifacts,
+        ratatui::layout::Rect::new(40, 3, 30, 15),
+    );
+    app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
+    assert_eq!(
+        std::fs::read_to_string(home.join(".angelX/stage-location.txt")).unwrap(),
+        path.display().to_string()
+    );
+    let mut shift = mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8);
+    shift.modifiers = KeyModifiers::SHIFT;
+    app.on_mouse(shift);
+    assert_eq!(
+        std::fs::read_to_string(home.join(".angelX/stage-document.txt")).unwrap(),
+        text
+    );
+    let url = "https://example.invalid/shape?phase=2";
+    app.media.push(crate::ui::media::Media::Link {
+        label: "URL".into(),
+        url: url.into(),
+    });
+    app.scryglass.reveal_media(1, true);
+    app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
+    assert_eq!(
+        std::fs::read_to_string(home.join(".angelX/stage-location.txt")).unwrap(),
+        url
+    );
+    std::fs::remove_dir_all(home).unwrap();
+}

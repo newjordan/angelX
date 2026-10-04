@@ -1,0 +1,17 @@
+name   Heart Vessel
+kind   take
+rarity rare
+text   A second heart beats with yours.
+drop   4
+chest  3
+max_hp 20
+heal   20
+art
+.77...77.
+7667.7777
+766777778
+777777778
+.7777778.
+..77778..
+...778...
+....8....

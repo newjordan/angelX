@@ -87,7 +87,6 @@ child.wait()
         assert!(Instant::now() < deadline, "sleeping sibling never settled");
         std::thread::sleep(Duration::from_millis(10));
     }
-    assert!(!process_group_is_runnable(sleeping.parent.id()));
     assert_eq!(live_group_descendants(sleeping.parent.id()), 0);
     assert!(
         cpu_ticks(sleeping.parent.id())
@@ -146,7 +145,6 @@ fn run_turn_helper_setup_grace_expires_without_progress_credit() {
 #[test]
 fn stale_cpu_credit_expires_at_shorter_turn_idle_timeout() {
     let _guard = crate::tests::env_lock();
-    let _floor = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "30");
     let _turn = crate::tests::TestEnvGuard::set("ANGEL_TURN_IDLE_TIMEOUT_SECS", "1");
     let _tool = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
     let cancel = AtomicBool::new(false);
@@ -162,7 +160,8 @@ fn stale_cpu_credit_expires_at_shorter_turn_idle_timeout() {
 #[test]
 fn run_turn_child_activity_is_owned_recent_and_released() {
     let _guard = crate::tests::env_lock();
-    let _floor = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "2");
+    let _turn = crate::tests::TestEnvGuard::set("ANGEL_TURN_IDLE_TIMEOUT_SECS", "2");
+    let _tool = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
     let parent = AtomicBool::new(false);
     let nested = AtomicBool::new(false);
     let foreign = AtomicBool::new(false);

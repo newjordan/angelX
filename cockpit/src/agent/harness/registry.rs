@@ -115,6 +115,9 @@ impl SubmissionSlotTelemetry {
 /// as it happens — not just the final answer seconds/minutes later.
 #[derive(Clone, Debug)]
 pub enum TurnEvent {
+    /// Literal Sloptomizer evidence counts for the world; no model text enters
+    /// the UI's research counters as a claimed reward.
+    ResearchEvidence(crate::drive::rl_ctl::research_live::EvidenceStats),
     /// A streamed assistant text delta (token chunk) as it arrives — so the UI
     /// can show the reply forming live instead of all at once at the end.
     Token(String),
@@ -1495,10 +1498,6 @@ impl ToolRegistry {
         // Executable pins are read off the start-up path; none may still be
         // pending when a tool runs.
         crate::agent::tools::build::settle_pending_pins();
-        // Cap managed foreground processes regardless of tool classification.
-        // Gating this on recognized verification let a suite after a here-doc
-        // run 540 s of a 600 s task (polyglot-v1 js-bowling). This is a per-process
-        // bound, not a cumulative tool deadline; background proc jobs are exempt.
         super::exec::with_call_budget(crate::agent::tools::build::task_call_budget(), || {
             self.dispatch_within_budget(name, args, cancel, progress)
         })

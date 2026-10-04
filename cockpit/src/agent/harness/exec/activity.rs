@@ -202,7 +202,6 @@ pub(crate) fn owned_child_active(owner: usize) -> bool {
     let owner = root_owner(owner);
     let floor = [
         tool_idle_timeout(),
-        tool_idle_floor(),
         crate::agent::turn::configured_turn_idle_timeout_secs().map(Duration::from_secs),
     ]
     .into_iter()

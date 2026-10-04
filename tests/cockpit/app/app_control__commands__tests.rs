@@ -1,6 +1,72 @@
 use super::*;
 
 #[test]
+fn together_commands_are_local_and_the_mode_joins_replaceable_turn_context() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    for command in [
+        "/together demo",
+        "/together raid",
+        "/together move east",
+        "/together as 2",
+        "/together move east",
+    ] {
+        app.input = command.into();
+        app.submit();
+        assert!(app.thinking.is_none(), "{command} started a model turn");
+        assert!(app.pending_turn.is_none());
+    }
+    assert_eq!(
+        app.together
+            .room
+            .as_ref()
+            .unwrap()
+            .run
+            .as_ref()
+            .unwrap()
+            .tick,
+        1
+    );
+    assert!(
+        app.turn_context_block("hello", "hello")
+            .unwrap()
+            .contains("[Together mode]")
+    );
+    app.input = "/together build a healing spell".into();
+    app.submit();
+    assert!(app.thinking.is_none());
+    assert!(
+        app.messages
+            .last()
+            .unwrap()
+            .text
+            .contains("requires a player at the forge")
+    );
+    app.input = "/together off".into();
+    app.submit();
+    assert!(
+        !app.turn_context_block("hello", "hello")
+            .unwrap_or_default()
+            .contains("[Together mode]")
+    );
+}
+
+#[test]
+fn together_build_needs_the_turn_slot_but_gameplay_does_not() {
+    for command in [
+        "/together demo",
+        "/together fire",
+        "/together status",
+        "/together return",
+    ] {
+        assert!(!input::parse(command).unwrap().needs_idle());
+    }
+    assert!(input::parse("/together build a wand").unwrap().needs_idle());
+    assert!(input::parse("/together build").unwrap().needs_idle());
+    assert!(!input::parse("/together builder").unwrap().needs_idle());
+}
+
+#[test]
 fn launch_pending_turn_does_not_block_on_vision_sidecar() {
     let src = include_str!("../../../cockpit/src/app/control/commands.rs");
     let start = src
@@ -89,6 +155,26 @@ fn copy_target_defaults_to_latest_accepts_named_targets_and_rejects_other_text()
     assert_eq!(copy_target(Some("all")), Ok(CopyTarget::Conversation));
     assert_eq!(copy_target(Some("live")), Ok(CopyTarget::Live));
     assert_eq!(copy_target(Some("code")), Ok(CopyTarget::Code(1)));
+    assert_eq!(
+        copy_target(Some("stage")),
+        Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Location
+        ))
+    );
+    assert_eq!(
+        copy_target(Some(" stage path ")),
+        Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Location
+        ))
+    );
+    assert_eq!(
+        copy_target(Some("stage text")),
+        Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Text
+        ))
+    );
+    assert!(copy_target(Some("stage unknown")).is_err());
+
     assert_eq!(copy_target(Some(" code 3 ")), Ok(CopyTarget::Code(3)));
     assert!(copy_target(Some("0")).is_err());
     assert!(copy_target(Some("code 0")).is_err());

@@ -1,0 +1,136 @@
+# The Delve's chorus: who speaks, on what moment, and what they say.
+# One line per row:  who | cue | id | words
+# A line with no recorded voice still shows as a subtitle, so anyone can add
+# lines here; voice.py records the missing ones with each character's voice.
+#
+# Cues: run_start room_fight room_clear flawless first_blood slay2 slay3 slay4
+#       card_rare card_relic card_arm low_hp knight_down revive bond lair
+#       descend:2 descend:3 boss_rise:<boss> boss_rage:<boss> boss_fall:<boss>
+#       victory wipe banked wish_raised treasury_ready
+
+# ── The Herald: the arena's voice ────────────────────────────────────────────
+herald | run_start | herald-enter | Knights! Enter the Delve!
+herald | room_fight | herald-sealed | The gates are sealed!
+herald | room_fight | herald-fight | Fight!
+herald | room_clear | herald-cleared | Room cleared!
+herald | flawless | herald-flawless | Flawless!
+herald | first_blood | herald-first-blood | First blood of the deep!
+herald | slay2 | herald-double | Double slay!
+herald | slay3 | herald-triple | Triple slay!
+herald | slay4 | herald-unstoppable | Unstoppable!
+herald | card_relic | herald-relic | Relic!
+herald | knight_down | herald-down | A knight has fallen!
+herald | boss_rise | herald-guardian | The guardian rises!
+herald | boss_fall | herald-guardian-falls | The guardian falls!
+herald | lair | herald-dragon | The dragon wakes!
+herald | victory | herald-victory | Victory!
+herald | wipe | herald-wipe | The party has fallen!
+herald | wish_raised | herald-wish | A wish rises in the realm!
+herald | descend:2 | herald-deeper | Deeper!
+herald | descend:3 | herald-final-floor | The final floor!
+
+# ── Old Blaise: the hermit who walked with Percival ─────────────────────────
+blaise | run_start | blaise-begin | So. Another knight takes up the search. Good. That is the whole of it, you know. The taking up.
+blaise | run_start | blaise-begin-2 | Back again? Of course you are. The stone rolls down every night. We push it up every morning. Off you go.
+blaise | run_start | blaise-begin-3 | Percival came to me once, young and loud, asking where the Grail was kept. I told him: start walking, and look at everything.
+blaise | descend:2 | blaise-percival-fool | Percival was a fool when he set out. He asked no questions. The lesson was that the question is the gift.
+blaise | descend:2 | blaise-sisyphus | Every day the stone rolls back to the bottom. Percival laughed when he understood that. Then he pushed it again, and loved the hill.
+blaise | descend:3 | blaise-help | Down here, help where you can. A hand to a fallen friend weighs more than any treasure you will carry up.
+blaise | descend:3 | blaise-time | The Grail is not hidden from you. It is handed to you, a moment at a time. Mind you drink.
+blaise | revive | blaise-revive | Up you get. No one walks this road alone, not truly.
+blaise | wipe | blaise-wipe | Fallen. Well. Percival fell more times than he ever told. Rise, and take up the search again.
+blaise | wipe | blaise-wipe-2 | Half your spoils are lost, all your lessons are kept. A fair trade, mostly.
+blaise | victory | blaise-grail | You looked for the Grail at the bottom of the dark. It was in your hands the whole way down. Life itself, given through time. To seek it is to hold it. To be.
+blaise | victory | blaise-grail-2 | The dragon is slain, and tomorrow the stone is at the bottom again. Isn't that wonderful? Go love it.
+blaise | wish_raised | blaise-wish | Something new stands in the world because you went into the dark for it. That is how worlds are made.
+blaise | lair | blaise-lair | The old fire-wyrm. Be brave, and be kind to each other while you are brave.
+
+# ── Wren: the lantern-bearer who maps the Delve ─────────────────────────────
+wren | run_start | wren-map | Lantern's lit! I'll draw the map, you two do the hitting.
+wren | room_clear | wren-clear | Clear! I'm writing that one down.
+wren | room_clear | wren-clear-2 | Ha! Look at you two.
+wren | card_relic | wren-relic | Is that a relic? Is that a real relic? Don't drop it!
+wren | low_hp | wren-hurt | You're hurt. Drink something! Press a number, any number with a potion!
+wren | bond | wren-bond | That's a bond. You only get those standing together. Blaise says that's the point.
+wren | banked | wren-banked | Spoils counted and safe in the treasury. I double-checked. Twice.
+wren | treasury_ready | wren-ready | We can afford a wish now! Open the realm page. Tab, then down!
+wren | flawless | wren-flawless | Not a scratch! I'm putting a star on the map.
+wren | descend:2 | wren-down | The map gets stranger down here. The ink keeps trying to draw doors I didn't see.
+wren | boss_rise | wren-boss | That's a big one. That's a really big one.
+wren | victory | wren-cup | Blaise says the Grail isn't a cup. I still think it's a cup. A really good cup.
+
+# ── Tobbin the smith: opinions on everything with an edge ───────────────────
+tobbin | card_arm:crossbow | tobbin-crossbow | Now that's a crossbow. Slow to wind, goes right through the first one. Mind the kick.
+tobbin | card_arm:handgonne | tobbin-handgonne | A handgonne! Point the loud end at them, not at me.
+tobbin | card_arm:knights-blade | tobbin-blade | A proper blade! Get close and say hello with it.
+tobbin | card_arm:bow | tobbin-bow | Back to the old bow, eh? Nothing wrong with the old bow. Built that myself.
+tobbin | card_rare:bodkin-heads | tobbin-bodkin | Bodkins! Narrow and mean. Made those on a Tuesday, I was in a mood.
+tobbin | card_rare:ember-quiver | tobbin-ember | Ember quiver. Don't hug it.
+tobbin | card_guard:kite-shield | tobbin-shield | A kite shield! Hold it up and let them knock. Mind, you'll walk like a cart.
+wren | card_guard:dodge-roll | wren-roll | Back to rolling! Tuck and tumble, like Blaise taught us.
+tobbin | card_rare:heart | tobbin-heart | A second heart! I can't forge those. Nobody can. Look after it.
+tobbin | card_rare:twin-string | tobbin-twin | Twin string. Two arrows, one pull. Show-off's bow, that.
+
+# ── The Shoggoth: the great Unknown ─────────────────────────────────────────
+shoggoth | lair | shoggoth-lair | Small bright ones. We are not your enemy. We are only what you have not met yet.
+shoggoth | descend:3 | shoggoth-unknown | Unknown is not unkind. Come and see.
+shoggoth | wipe | shoggoth-wipe | Rest. We will keep your lanterns until morning.
+shoggoth | victory | shoggoth-victory | You have met a little more of us. Good. There is so much more to meet.
+shoggoth | wish_raised | shoggoth-wish | A new shape in the world. We felt it bloom.
+
+# ── The guardians, in their own voices ──────────────────────────────────────
+warden | boss_rise:waxen-warden | warden-rise | Hush now. The candles are lit. Sleep, little knights. Sleep.
+warden | boss_rage:waxen-warden | warden-rage | You will not sleep? Then burn bright!
+warden | boss_fall:waxen-warden | warden-fall | The last candle... is yours to keep.
+cinderjaw | boss_rise:cinderjaw | cinderjaw-rise | More. Fire. MORE FIRE.
+cinderjaw | boss_rage:cinderjaw | cinderjaw-rage | HOTTER!
+cinderjaw | boss_fall:cinderjaw | cinderjaw-fall | Cooling... at last... cooling.
+
+# ── The Grail Chapel (offered after the first dragon falls) ─────────────────
+blaise | wish_raised:grail-chapel | blaise-chapel | A chapel for the Grail. Good. Now leave its door open, and go back out. The search was the Grail all along. To seek. To be.
+wren | wish_raised:grail-chapel | wren-chapel | It's beautiful. I'm putting it on the map in gold ink. The good ink.
+
+# ── Monster doors ───────────────────────────────────────────────────────────
+herald | wave | herald-here-they-come | Here they come!
+herald | wave | herald-through-the-gates | Through the gates!
+wren | wave | wren-doors | The doors! They're coming through the doors!
+tobbin | wave | tobbin-company | Company! Lots of company!
+shoggoth | wave | shoggoth-more | More of us wish to meet you.
+herald | wave_last | herald-final-wave | Final wave!
+blaise | wave_last | blaise-last-wave | One more push. There is always one more push. That is the hill.
+
+# ── Traps ───────────────────────────────────────────────────────────────────
+tobbin | trap_spikes | tobbin-spikes | Spikes in the floor! Old Crypt trick. Watch for the holes, they rattle first.
+wren | trap_spikes | wren-spikes | Ow ow ow! Mind the floor! I'm marking that one.
+wren | trap_rocks | wren-rocks | The ceiling's coming down! Watch for the red rings!
+tobbin | trap_rocks | tobbin-rocks | Loose ceiling. Stand monsters under the rings and let the rocks do the work.
+blaise | trap_fire | blaise-vents | The walls breathe fire here. Count the breaths, then walk.
+shoggoth | trap_fire | shoggoth-vents | We warm the stones for you. Step lightly.
+
+# ── Mimics ──────────────────────────────────────────────────────────────────
+herald | mimic | herald-mimic | Mimic!
+wren | mimic | wren-teeth | That chest has teeth! Why does that chest have teeth!
+tobbin | mimic | tobbin-mimic | I never made a chest that bites. Never. Well. Once.
+wren | mimic_fall | wren-bitey-box | Good riddance, bitey box! Ooh, it was full of treasure after all.
+blaise | mimic_fall | blaise-mimic | Not everything that glitters wants to be opened. Some of it wants to bite. Life, again.
+
+# ── Great halls ─────────────────────────────────────────────────────────────
+wren | great_hall | wren-great-hall | It's huge in here. The map won't fit on one page!
+herald | great_hall | herald-great-hall | A great hall!
+blaise | great_hall | blaise-great-hall | A great hall. Stay close to each other. Big rooms make people feel small, and small people forget to help.
+
+# ── The Sanctuary (subtitles; record with voice.py when credits allow) ──────
+herald | sanctuary | herald-sanctuary | A Sanctuary! Press T for your one wish.
+blaise | sanctuary | blaise-sanctuary | A quiet room. Mend. And if you must change, change one thing. Then on.
+tobbin | sanctuary | tobbin-sanctuary | My forge travels with me. One piece each, mind. Press T and tell me what you want.
+wren | privy | wren-privy | Occupied! Knock first.
+blaise | privy | blaise-privy | Even a knight must, now and then.
+tobbin | privy | tobbin-privy | Wash your gauntlets after.
+tobbin | reforged | tobbin-reforged | There. Fresh off the anvil. Try not to break it before the stairs.
+wren | reforged | wren-reforged | Ooh, that's new! I'm drawing it in the margin.
+
+# ── Wishes (subtitles; record with voice.py when credits allow) ────────────
+herald | wish_granted | herald-wish-granted | Granted!
+wren | wish_granted | wren-wish-granted | Ooh, that's going in the margin.
+tobbin | wish_granted | tobbin-wish-granted | There. Mind you use it.
+blaise | wish_granted | blaise-wish-granted | Careful what you wish for. Then again, you were.

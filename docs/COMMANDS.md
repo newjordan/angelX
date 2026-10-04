@@ -43,7 +43,7 @@ the refusal is not a successful check.
 | `/archive`, `/delete` | Archive or delete the current session. |
 | `/history [1-50]`, `/retry`, `/undo`, `/redo` | Inspect or revise conversation history. |
 | `/compact` | Compact retained conversation context. |
-| `/copy [number\|all\|live\|code [number]]` | Copy a response or code block. |
+| `/copy [number\|all\|live\|code [number]\|stage [path\|text]]` | Copy a response/code block, or the displayed Stage artifact location (`stage`, `stage path`) or loaded document preview (`stage text`). |
 | `/raw` | Export visible user/assistant conversation to a local file. |
 | `/memories [add <text>\|forget <n>\|clear]`, `/recall [query]` | Manage or retrieve project memory. |
 | `/dossier`, `/ledger [N]`, `/turns [N]` | Inspect memory state or recorded turn evidence. |
@@ -95,6 +95,8 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/open <n\|url\|module>`, `/media` | Open a media card, URL or module; browse media. |
 | `/modules`, `/close <module>`, `/layout save\|load <name>` | Inspect modules or save/restore pane layout. |
 | `/world [ride\|enter\|leave\|weather\|zoom]`, `/world help` | Navigate the overworld map, Dotmax scenery and room views. |
+| `/world visit school`, `/world visit school-study`, `/world visit school-vault` | Visit the School of Magic, its study, or its underground evidence archive. |
+| `/world follow` | Return from an explicit visit to the working knight; active quests use the 3D adventure view. |
 | `/raytrace`, `/cube` | Display the debug cube. |
 | `/tourney calibrate <scene>` | Display a calibration animation; it does not indicate a won run. |
 | `/trace`, `/rollout` | Toggle the tool transcript; `/rollout` shows the current session file path. |
@@ -115,3 +117,12 @@ Compatibility names with limited behavior: `/setup-default-sandbox` and
 Sources: [parser and completion](../cockpit/src/ui/input.rs),
 [command dispatch](../cockpit/src/app/control/commands.rs),
 [built-in help](../cockpit/src/app/local_command.rs).
+
+### Copying work shown in Stage
+
+- **Right-click the Stage artifact** (or `/copy stage`, `/copy stage path`) copies the displayed artifact's absolute local path or remote URL. It does not upload the file or copy image pixels.
+- **Shift+right-click a local report** (or `/copy stage text`) copies the loaded local document preview, with the same control-character escaping and truncation markers as Stage. It does not fetch remote pages. Wait for a document to load before using it.
+- These commands reuse OSC-52 clipboard delivery and always write recoverable fallbacks: `~/.angelX/stage-location.txt` and `~/.angelX/stage-document.txt`. The receipt distinguishes a clipboard request from confirmed delivery.
+- With no media overlay displayed (world, lessons, catalog, or an empty Stage), copying Stage fails explicitly rather than copying an agent reply or a previously displayed artifact.
+- Image inspection keeps its **Fit** button and **Ctrl+right-click** reset gesture. Plain right-click copying leaves the image zoom, composer draft, and active model turn unchanged.
+- Right-clicks in other panes, modal dialogs, or PTY-owned mouse regions retain their existing behavior. Some terminal configurations reserve Shift+mouse gestures; `/copy stage text` remains available there.

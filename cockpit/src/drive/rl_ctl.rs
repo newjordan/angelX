@@ -52,6 +52,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 mod loop_campaign;
 mod research;
 mod research_bridge;
+pub(crate) mod research_live;
 pub(crate) use loop_campaign::LoopCampaignContext;
 
 /// Learned-policy entry in the workspace's continual-harness store. Later

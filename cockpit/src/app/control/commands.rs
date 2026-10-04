@@ -1799,6 +1799,7 @@ impl App {
     /// distinction through persistence, compaction, and broker selection.
     fn turn_context_block(&self, raw: &str, skill_query: &str) -> Option<String> {
         let mut body = String::new();
+        body.push_str(&self.together.context_block());
 
         // The active goal rides on task turns so the model steers toward it.
         // Casual check-ins stay casual; otherwise a stale goal can hijack
@@ -3143,6 +3144,52 @@ impl App {
                 let text = self.open_research(arg);
                 self.system_msg(text);
             }
+            "dungeon" => {
+                let message = self.dungeon_command(arg);
+                self.system_msg(message);
+            }
+            // `/dungeon_host --3`: three invitations, one line per friend.
+            "dungeon_host" => {
+                let tail = format!("host {}", arg.unwrap_or(""));
+                let message = self.dungeon_command(Some(tail.trim()));
+                self.system_msg(message);
+            }
+            "together" => {
+                let raw = arg.unwrap_or("").trim();
+                if raw.split_whitespace().next() == Some("build") {
+                    if !self.together.can_build() {
+                        self.system_msg("Together building requires a player at the forge; use /together on or return");
+                        return None;
+                    }
+                    match crate::drive::together::build_prompt(
+                        raw.strip_prefix("build").unwrap_or("").trim(),
+                    ) {
+                        Ok(prompt) => return Some(ChatMsg::user(prompt)),
+                        Err(error) => self.system_msg(error),
+                    }
+                } else {
+                    match self.together.command(
+                        arg,
+                        self.world.realm_seed(),
+                        self.world.town_name(),
+                        self.tools.current_workspace(),
+                    ) {
+                        Ok(result) => {
+                            if !self.together.enabled() && self.dungeon.shooter.is_none() {
+                                self.dungeon = Default::default();
+                            }
+                            if self.together.enabled() {
+                                self.scryglass_enabled = true;
+                                self.scryglass.return_to_world();
+                                self.focus_module("artifacts");
+                            }
+                            self.request_redraw("Together mode changed");
+                            self.system_msg(result.message);
+                        }
+                        Err(error) => self.system_msg(format!("Together: {error}")),
+                    }
+                }
+            }
             "world" => match arg {
                 Some(a) if a == "crops" || a.starts_with("crops ") => {
                     let selected = a
@@ -3856,15 +3903,23 @@ impl App {
         )
     }
 
-    /// `/copy [number|all|live|code [number]]`: copy one indexed response, the
+    /// `/copy [number|all|live|code [number]|stage [text]]`: copy one indexed response, the
     /// current sanitized live process tail, its latest complete fenced code
     /// block, or a role-filtered operator/Angel conversation to OSC-52 plus a
     /// recoverable file.
-    fn copy_response(&self, arg: Option<&str>) -> String {
+    pub(super) fn copy_response(&mut self, arg: Option<&str>) -> String {
         let target = match copy_target(arg) {
             Ok(target) => target,
             Err(usage) => return usage.to_string(),
         };
+        if let CopyTarget::Stage(stage_target) = target {
+            let payload = match self.scryglass.copy_payload(&self.media, stage_target) {
+                Ok(payload) => payload,
+                Err(error) => return error,
+            };
+            let receipt = deliver_to_clipboard(&payload.text, payload.fallback_file);
+            return format!("{} · {receipt}", payload.description);
+        }
         if matches!(target, CopyTarget::Conversation) {
             let Some(markdown) = conversation_markdown(&self.history) else {
                 return "no operator/agent conversation yet to copy".to_string();
@@ -3890,6 +3945,7 @@ impl App {
             CopyTarget::Code(ordinal) => (ordinal, true),
             CopyTarget::Conversation => unreachable!(),
             CopyTarget::Live => unreachable!(),
+            CopyTarget::Stage(_) => unreachable!(),
         };
         let Some(text) = nth_agent_response(&self.messages, ordinal) else {
             let available = self
@@ -3942,6 +3998,7 @@ enum CopyTarget {
     Conversation,
     Live,
     Code(usize),
+    Stage(crate::ui::scryglass::StageCopyTarget),
 }
 
 fn copy_target(arg: Option<&str>) -> Result<CopyTarget, &'static str> {
@@ -3949,6 +4006,12 @@ fn copy_target(arg: Option<&str>) -> Result<CopyTarget, &'static str> {
         None => Ok(CopyTarget::Response(1)),
         Some("all") => Ok(CopyTarget::Conversation),
         Some("live") => Ok(CopyTarget::Live),
+        Some("stage") | Some("stage path") => Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Location,
+        )),
+        Some("stage text") => Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Text,
+        )),
         Some("code") => Ok(CopyTarget::Code(1)),
         Some(raw) if raw.starts_with("code ") => raw[5..]
             .trim()
@@ -3956,10 +4019,10 @@ fn copy_target(arg: Option<&str>) -> Result<CopyTarget, &'static str> {
             .ok()
             .filter(|number| *number > 0)
             .map(CopyTarget::Code)
-            .ok_or("usage: /copy [number|all|live|code [number]] (1 = latest agent response)"),
+            .ok_or("usage: /copy [number|all|live|code [number]|stage [path|text]] (1 = latest agent response)"),
         Some(raw) => match raw.parse::<usize>() {
             Ok(number) if number > 0 => Ok(CopyTarget::Response(number)),
-            _ => Err("usage: /copy [number|all|live|code [number]] (1 = latest agent response)"),
+            _ => Err("usage: /copy [number|all|live|code [number]|stage [path|text]] (1 = latest agent response)"),
         },
     }
 }

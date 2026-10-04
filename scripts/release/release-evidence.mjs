@@ -30,6 +30,7 @@ export const SUPPORTED_CARGO_TARGET = 'x86_64-unknown-linux-gnu'
 export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   // Offline Sloptomizer options are embedded; no experimental checkout dependency.
   'cockpit/research/sloptomizer/runner.py',
+  'cockpit/research/sloptomizer/relations.py',
   'cockpit/research/sloptomizer/UPSTREAM.json',
   'cockpit/research/sloptomizer/autoresearch/__init__.py',
   'cockpit/research/sloptomizer/autoresearch/gepa/__init__.py',
@@ -103,6 +104,45 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/realm/inhabitants/archivist.png',
   'cockpit/assets/realm/inhabitants/courier.png',
   'cockpit/assets/realm/palette.json',
+  // The Delve's built-in cards, bosses, phrasebook, chorus and realm wishes.
+  'cockpit/assets/dungeon/bosses/cinderjaw.boss',
+  'cockpit/assets/dungeon/bosses/waxen-warden.boss',
+  'cockpit/assets/dungeon/cards/bodkin-heads.card',
+  'cockpit/assets/dungeon/cards/bomb.card',
+  'cockpit/assets/dungeon/cards/bone.card',
+  'cockpit/assets/dungeon/cards/bow.card',
+  'cockpit/assets/dungeon/cards/crossbow.card',
+  'cockpit/assets/dungeon/cards/dodge-roll.card',
+  'cockpit/assets/dungeon/cards/ember-quiver.card',
+  'cockpit/assets/dungeon/cards/ember.card',
+  'cockpit/assets/dungeon/cards/gem.card',
+  'cockpit/assets/dungeon/cards/gold.card',
+  'cockpit/assets/dungeon/cards/handgonne.card',
+  'cockpit/assets/dungeon/cards/heart.card',
+  'cockpit/assets/dungeon/cards/holy-water.card',
+  'cockpit/assets/dungeon/cards/kite-shield.card',
+  'cockpit/assets/dungeon/cards/knights-blade.card',
+  'cockpit/assets/dungeon/cards/leech-fang.card',
+  'cockpit/assets/dungeon/cards/mail.card',
+  'cockpit/assets/dungeon/cards/ore.card',
+  'cockpit/assets/dungeon/cards/potion.card',
+  'cockpit/assets/dungeon/cards/quick-draw.card',
+  'cockpit/assets/dungeon/cards/scale.card',
+  'cockpit/assets/dungeon/cards/swift-spurs.card',
+  'cockpit/assets/dungeon/cards/thunder-scroll.card',
+  'cockpit/assets/dungeon/cards/twin-string.card',
+  'cockpit/assets/dungeon/cards/wax.card',
+  'cockpit/assets/dungeon/phrasebook.txt',
+  'cockpit/assets/dungeon/voices/chorus.txt',
+  'cockpit/assets/realm/wishes/beacon-tower.wish',
+  'cockpit/assets/realm/wishes/fellowship-stone.wish',
+  'cockpit/assets/realm/wishes/grail-chapel.wish',
+  'cockpit/assets/realm/wishes/hall-of-the-dragonslayers.wish',
+  'cockpit/assets/realm/wishes/miners-lodge.wish',
+  'cockpit/assets/realm/wishes/tavern.wish',
+  'cockpit/assets/realm/wishes/wayside-shrine.wish',
+  'cockpit/assets/together/ember-spell.json',
+  'cockpit/assets/together/spark-wand.json',
   // Telemetry tables the cockpit compiles in for cost/calibration/store caps.
   'docs/telemetry/model-calibration.toml',
   'docs/telemetry/prices.toml',
@@ -138,7 +178,12 @@ export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
 
 const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/FEATURES.md',
+  'docs/RELEASE_0.1.9.md',
+  'docs/world-adventure.md',
+  'docs/world-school.md',
   'docs/GRAPH_GARDEN.md',
+  'docs/DELVE.md',
+  'docs/DELVE-LORE.md',
   'docs/images/graph-garden-growing.png',
   'docs/images/graph-garden-live.png',
   'docs/images/graph-garden-planted.png',
@@ -233,6 +278,7 @@ export const RELEASE_PATHS = Object.freeze([
   'scripts/check/check-cockpit-quality.sh',
   'scripts/check/check-active-connections.py',
   'tests/python/test_active_connections.py',
+  'tests/python/test_sloptomizer_relations.py',
   'scripts/runtime/trajectory-redact.py',
   'scripts/runtime/private_store_io.py',
   'vendor/dotmax/Cargo.toml',
@@ -304,6 +350,7 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'scripts/check/check-cockpit-quality.sh',
   'scripts/check/check-active-connections.py',
   'tests/python/test_active_connections.py',
+  'tests/python/test_sloptomizer_relations.py',
   'scripts/runtime/trajectory-redact.py',
   'scripts/runtime/private_store_io.py',
   'vendor/dotmax/Cargo.toml',
@@ -635,6 +682,10 @@ export function assertDocumentedSourcePaths(repoRoot, entries) {
       .join('/')
   for (const path of paths) {
     if (!path.endsWith('.md') || /^(vendor|third-party)\//u.test(path)) continue
+    // The book embeds Markdown as model instructions. Its examples describe
+    // files in a future user workspace, not dependencies of the source archive.
+    // Keep these bytes in the inventory and public-content checks above.
+    if (path.startsWith('cockpit/src/agent/harness/book/')) continue
     const source = readFileSync(join(repoRoot, path), 'utf8')
     for (const match of source.matchAll(/\]\(([^\s)]+)(?:\s+"[^"]*")?\)/gu)) {
       const target = match[1].replace(/^<|>$/gu, '')

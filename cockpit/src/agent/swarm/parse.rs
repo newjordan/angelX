@@ -179,6 +179,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
             responses_replay: None,
             tool_receipt: None,
             recovery_context: m.recovery_context.clone(),
+            book_memory: m.book_memory.clone(),
         },
         ChatRole::Harness => ChatMsg {
             role: ChatRole::Harness,
@@ -190,6 +191,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
             responses_replay: None,
             tool_receipt: None,
             recovery_context: m.recovery_context.clone(),
+            book_memory: m.book_memory.clone(),
         },
         ChatRole::Assistant => {
             let mut parts = Vec::new();

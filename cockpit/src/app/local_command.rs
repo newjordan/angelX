@@ -148,6 +148,9 @@ fn help_full_text() -> String {
      /learn [topic] (/tutor, /library) · open the physical Librarium; a topic\n\
      begins a local-first lesson; optional reference enrichment never blocks it · /ask opens an editable tutor question; /ask <question> asks directly; Esc restores your work draft; Ctrl-Alt-E explains selected text · /practice re-shows its recall prompts for spaced practice\n\
      /world [visit <place>|follow|ride|enter|leave|weather|zoom] · open/control the Realm\n\
+     /dungeon · walk to the Delve's gate; click the mini-viz (or F4) for its menu · /dungeon start skips the walk; Esc composer, F6 resume\n\
+     /dungeon_host --N · host for N friends (up to 3): one invite line each · a friend pastes `/dungeon join <line>` into their angelX; /dungeon leave goes home\n\
+     /together [demo|forge|build|ready|raid|move|fire|cast|return|help] · local dungeon mode; simulated friends, bounded gear and spells\n\
      · /world visit artisans|colosseum|tournament · inspect the southern precinct; follow returns to the working knight\n\
      stage (the agent's real tool traffic drives attributable landmark activity)\n\
      · /world zoom · cycle auto→wide→close camera framing\n\

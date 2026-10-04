@@ -206,10 +206,10 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
     assert_eq!(super::strip_launcher_stderr(helper_no_newline), "");
 }
 
-/// Foreground process caps default only in task mode; operator overrides also
-/// apply interactively and the new knob wins over the deprecated fallback.
+/// A foreground process cap exists only when the operator sets one. Task mode
+/// does not install a default, and the new knob wins over the deprecated fallback.
 #[test]
-fn task_call_budget_is_one_fixed_number_in_task_mode() {
+fn task_call_budget_is_an_operator_cap_only() {
     use std::time::Duration;
     let _env = crate::tests::env_lock();
     let _knob = crate::tests::TestEnvGuard::unset("ANGEL_TASK_CALL_TIMEOUT_SECS");
@@ -221,10 +221,10 @@ fn task_call_budget_is_one_fixed_number_in_task_mode() {
         assert_eq!(super::task_call_budget(), Some(Duration::from_secs(17)));
     }
     let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    assert_eq!(super::task_call_budget(), Some(Duration::from_secs(120)));
+    assert_eq!(super::task_call_budget(), None);
     {
         let _wall = crate::tests::TestEnvGuard::set("ANGEL_TASK_WALL_SECS", "300");
-        assert_eq!(super::task_call_budget(), Some(Duration::from_secs(120)));
+        assert_eq!(super::task_call_budget(), None);
     }
     {
         let _off = crate::tests::TestEnvGuard::set("ANGEL_TASK_CALL_TIMEOUT_SECS", "0");

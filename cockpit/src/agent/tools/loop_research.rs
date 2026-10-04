@@ -23,9 +23,9 @@ impl Tool for LoopResearchTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name:self.name().into(),
-            description:"Optional Sloptomizer/AngelX research during a loop. suggest returns original Pareto, UCB bandit and MicroLearner memory advice without a model call. run tests your chosen idea asynchronously in an isolated source copy on the current model/effort; verifier receipts update future advice. compare=true adds a baseline attempt for a real paired delta. Advice never forces a choice or installs a policy. Native rl_campaign handles audited policy promotion; consult_model(method=deli) and spawn(formation=moa) remain separate optional paths. ⠩⠓".into(),
+            description:"Sloptomizer research. context(task) recalls live evidence relationships across models, including outside /loop. During a loop: suggest ranks ideas with Pareto, UCB and MicroLearner without a model call; run tests your chosen idea asynchronously in an isolated copy on the current model/effort; compare=true measures a paired baseline. Completion arrives in the running turn automatically. Advice never forces a choice. rl_campaign handles measured policy promotion. ⠩⠓".into(),
             params:json!({"type":"object","properties":{
-                "action":{"type":"string","enum":["options","suggest","run","status","results","stop"]},
+                "action":{"type":"string","enum":["options","context","suggest","run","status","results","stop"]},
                 "task":{"type":"string","description":"⠩⠓⠉"},
                 "verify":{"type":["string","null"],"description":"⠩⠓⠙"},
                 "methods":{"type":"array","items":{"type":"string","enum":["pareto","bandit","memory"]},"description":"⠩⠓⠑"},

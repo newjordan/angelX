@@ -1070,3 +1070,91 @@ fn a_tmux_client_on_a_kitty_graphics_terminal_gets_pixel_graphics() {
         assert_eq!(super::protocol_for_client_termname(name), None, "{name}");
     }
 }
+
+#[test]
+fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
+    let _guard = crate::tests::env_lock();
+    let _backed = crate::tests::TestEnvGuard::set("ANGEL_BACKED_MAP", "1");
+    let mut picker = Picker::halfblocks();
+    picker.set_protocol_type(ProtocolType::Kitty);
+    let mut viewer = Viewer::with_picker(picker);
+    let run = crate::drive::together_shooter::Run::new(17, 1, None);
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
+    terminal
+        .draw(|frame| {
+            crate::ui::viz::shooter_viz::render_native_room(
+                frame,
+                &mut viewer,
+                &run,
+                frame.area(),
+                true,
+                None,
+                7,
+            );
+        })
+        .unwrap();
+    // The native frame goes out at once, as one PNG Kitty scales.
+    let upload = viewer
+        .game_upload
+        .take()
+        .expect("the frame is uploaded with the draw");
+    assert!(upload.contains("f=100"));
+    let buffer = terminal.backend().buffer();
+    let mut placed = Vec::new();
+    for y in 0..40 {
+        for x in 0..120 {
+            if buffer[(x, y)].symbol().starts_with('\u{10eeee}') {
+                placed.push((x, y));
+            }
+        }
+    }
+    assert!(!placed.is_empty());
+    assert!(
+        placed
+            .iter()
+            .all(|&(x, y)| (1..94).contains(&x) && (3..34).contains(&y)),
+        "image must not cover HUD or controls"
+    );
+}
+
+#[test]
+fn a_friends_delve_frame_goes_to_kitty_as_its_png_and_keeps_its_shape() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let mut picker = Picker::halfblocks();
+    picker.set_protocol_type(ProtocolType::Kitty);
+    let mut viewer = Viewer::with_picker(picker);
+    let png = vec![0x89u8, b'P', b'N', b'G', 1, 2, 3];
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    let area = Rect::new(0, 0, 100, 30);
+    let mut uploads = Vec::new();
+    for seq in [1, 1, 2] {
+        terminal
+            .draw(|frame| {
+                assert!(viewer.render_game_png(frame, area, seq, &png, (768, 448)));
+            })
+            .unwrap();
+        uploads.push(viewer.game_upload.take());
+    }
+    assert!(uploads[0].as_ref().unwrap().contains("f=100"));
+    assert!(uploads[1].is_none(), "the same frame is not sent twice");
+    let (first, second) = (uploads[0].as_ref().unwrap(), uploads[2].as_ref().unwrap());
+    let id = |u: &str| {
+        u.split("i=")
+            .nth(1)
+            .unwrap()
+            .split(',')
+            .next()
+            .unwrap()
+            .to_string()
+    };
+    assert_ne!(id(first), id(second), "a new frame fills the other slot");
+    // 768x448 into 100x30 cells of 1:2 (1000x600): width-bound, 29 rows.
+    let (_, cols, rows, _) = viewer.game_png.unwrap();
+    assert_eq!((cols, rows), (100, 29));
+
+    let mut plain = Viewer::with_picker(Picker::halfblocks());
+    terminal
+        .draw(|frame| assert!(!plain.render_game_png(frame, area, 1, &png, (768, 448))))
+        .unwrap();
+}

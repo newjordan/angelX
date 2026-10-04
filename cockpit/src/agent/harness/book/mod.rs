@@ -27,7 +27,8 @@
 //! - **Volume IX, the seat profiles ⡞ ⢞ ⣞ ⡯:** what a model's own vendor
 //!   harness tells it, in its words. Every 6-dot cell is taken, so the volume
 //!   lives on 8-dot shelves: ⡞ ⢞ ⣞ (dots 7, 8 and 7+8 on ⠞) and ⡯ (dot 7 on ⠯).
-//!   A library: nothing in it is sent to a seat until a driver is wired to it.
+//!   A library: nothing in it is sent to a seat until a driver is wired to it,
+//!   and one page is: an OpenAI seat stands on ⡞⠙⠓.
 //!
 //! Volume I:
 //!
@@ -139,7 +140,8 @@
 //! section a heading's block of the vendor's prompt, ported whole (sentences as
 //! pages, a bullet one page, a block past ten pages continued in a
 //! `<name>, continued` section); the seat's knobs are data, not pages. Read
-//! through the ledger, never sent by default:
+//! through the ledger; the one page sent is ⡞⠙⠓, which an OpenAI seat stands
+//! on after its system block:
 //!
 //! | cell     | chapter              | surface                                                   |
 //! |----------|----------------------|-----------------------------------------------------------|
@@ -180,6 +182,8 @@ pub(crate) mod and_session;
 pub(crate) mod ar_seats;
 pub(crate) mod ch_edits;
 pub(crate) mod connect;
+pub(crate) mod continuity;
+pub(crate) mod d12467_sloptomizer;
 pub(crate) mod d23457_codex_sol;
 pub(crate) mod d2467_research;
 pub(crate) mod d3456_advisories;
@@ -293,7 +297,7 @@ pub(crate) struct Sub {
 }
 
 /// The first layer, in table-of-contents order.
-pub(crate) const TOC: [&Primary; 49] = [
+pub(crate) const TOC: [&Primary; 50] = [
     &k_competition::PRIMARY,
     &l_loops::PRIMARY,
     &m_method::PRIMARY,
@@ -341,6 +345,7 @@ pub(crate) const TOC: [&Primary; 49] = [
     &d467_receipts::PRIMARY,
     // The loop ledgers' overflow shelf: research.
     &d2467_research::PRIMARY,
+    &d12467_sloptomizer::PRIMARY,
     // Volume VII: the seats and the preamble.
     &d456_knowledge::PRIMARY,
     &d4567_briefs::PRIMARY,

@@ -1253,6 +1253,21 @@ fn run_turn_tiered(
         env_flag("ANGEL_POST_EDIT_DIAGNOSTICS", true) && registry.has_tool("lsp_diagnostics");
     let mut hop: usize = 0;
     let mut last_answer_route = club.route_identity();
+    let mut book_continuity = book::continuity::Continuity::new(history);
+    let task = history
+        .iter()
+        .rev()
+        .find(|message| message.role == ChatRole::User)
+        .map(|message| message.content.as_ref())
+        .unwrap_or_default();
+    let (research_task, research_verify) = registry.rl().research_objective(task);
+    let mut live_research = crate::drive::rl_ctl::research_live::LiveResearch::new(
+        registry.current_workspace(),
+        &research_task,
+        research_verify.as_deref(),
+        &registry.session_id,
+        events.clone(),
+    );
     let task_active = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value == "1");
     // The book's detectors for this turn (`harness/book/`).
     let mut loops = book::l_loops::Loops::from_env();
@@ -2269,6 +2284,7 @@ fn run_turn_tiered(
         if aging.results > 0 {
             hop_breakers.push("result aging");
         }
+        book_continuity.observe(history);
         let history_len_before_prune = history.len();
         prune_history(history, history_cap);
         if history.len() < history_len_before_prune {
@@ -2552,6 +2568,23 @@ fn run_turn_tiered(
             // retries. Provider counters are preferred after a call (and can
             // expose internal fan-out); the local request estimate is the
             // conservative fallback when a backend reports no usage.
+            // Add reactive evidence and any real legend handoff before fitting
+            // and checkpointing the exact provider request. Quiet turns only
+            // update local metadata; they gain no message or prompt tokens.
+            let before_advice = history.len();
+            let handoff = book_continuity.prepare(history, &club.resolved_route_identity());
+            live_research.poll(registry.current_workspace(), history, handoff);
+            if let Some(notice) = registry
+                .rl()
+                .take_research_notice(registry.current_workspace())
+            {
+                history.push(ChatMsg::harness(notice));
+            }
+            if history.len() != before_advice {
+                fit_tool_results_to_budget(history, effective_budget, &defs);
+                hist_tokens.recompute(history);
+            }
+            let hist_tok = hist_tokens.observe(history);
             crate::agent::turn::phase::mark("history_checkpoint");
             if let Some(checkpoint) = history_checkpoint
                 && let Err(error) = checkpoint(history)
@@ -4354,6 +4387,15 @@ fn run_turn_tiered(
                     let routing = registry
                         .routed_execution(call, &result)
                         .map(|entry| entry.receipt);
+                    if tool_outcome.verification != VerificationOutcome::NotApplicable {
+                        live_research.observe(
+                            call,
+                            tool_outcome,
+                            &result,
+                            &history[call_history_index].content,
+                            &club.resolved_route_identity(),
+                        );
+                    }
                     let produced_bytes = result.len() as u64;
                     if succeeded && is_mutation_call(call) && confirm_green_on_chance {
                         crate::knowledge::cut::for_each_mutation_target_path(
@@ -4419,6 +4461,7 @@ fn run_turn_tiered(
                             .is_some_and(|after| before != after)
                     });
                 crate::agent::harness::trajectory::note_progress_hop(progress_mutated);
+                live_research.flush();
                 loops.after_hop(
                     &loop_batch,
                     cycle_observation,

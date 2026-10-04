@@ -10,20 +10,14 @@
 //! Pure functions of `(stage, seed, danger, treasures)`: no clock, no ambient
 //! randomness, no map iteration. Same arguments ⇒ byte-identical triangles.
 //!
-//! # Why every stage is open to the sky
-//! The world vista law's floors (`docs/plans/world-vista-law.md`, measured by
-//! `raster::composition_mix`) want ≥ 20 % sky in every frame, and "sky" is
-//! literally "the ray hit nothing". A sealed cave and a roofed great hall
-//! score zero sky and can never pass. So the Mines are an **open-cast working**
-//! — rock galleries cut down from the surface, roofless — and the Dragon Keep
-//! is a **ruined** hall whose roof is long gone. Both read better at braille
-//! scale anyway: a night sky behind a rock wall is what makes the rock wall a
-//! silhouette instead of a grey field.
+//! Mines are roofed galleries with a crystal working and a descending side
+//! shaft. They and the Dragon Keep use the interior composition checks;
+//! forest, swamp and homecoming use the outdoor vista checks.
 //!
 //! # Triangle budgets (measured; `region::tests` asserts the 8k ceiling)
 //! | stage | tris | footprint (tiles) |
 //! |---|---|---|
-//! | [`mines`] | ~1.1k | 52 × 52, 3 × 3 chambers on a 15-tile pitch |
+//! | [`mines`] | ~1.6k | 40 × 14, gallery with a working and lower shaft |
 //! | [`dark_forest`] | ~3.0k | 52 × 52, clearing r = 13 |
 //! | [`swamp`] | ~2.0k | 52 × 52, water pan r = 16 |
 //! | [`dragon_keep`] | ~1.7k | 30 × 18 hall |
@@ -455,15 +449,18 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         let z0 = MINE_SPRING + r.jitter(0.12);
         let z1 = MINE_SPRING + r.jitter(0.12);
         let roof = MINE_ROOF + r.jitter(0.10);
-        // Wall foot to springing.
-        prim::quad(
-            m,
-            v3(x0, y0, 0.0),
-            v3(x1, y1, 0.0),
-            v3(x1, y1, z1),
-            v3(x0, y0, z0),
-            mat::STONE_DARK,
-        );
+        // Openings are real holes into side workings, not painted doors.
+        let opening = y0 < 0.0 && ((x0 >= -12.0 && x1 <= -8.0) || (x0 >= 2.0 && x1 <= 8.0));
+        if !opening {
+            prim::quad(
+                m,
+                v3(x0, y0, 0.0),
+                v3(x1, y1, 0.0),
+                v3(x1, y1, z1),
+                v3(x0, y0, z0),
+                mat::ROCK,
+            );
+        }
         // Haunch canting in to the crown.
         prim::quad(
             m,
@@ -471,7 +468,7 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             v3(x1, y1, z1),
             v3(x1, y1 * 0.42, roof),
             v3(x0, y0 * 0.42, roof),
-            mat::STONE_DARK,
+            mat::ROCK,
         );
         (y0 * 0.42, y1 * 0.42, roof)
     }
@@ -489,7 +486,7 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             v3(x1, cl1, roof_l),
             v3(x1, cr1, roof_r),
             v3(x0, cr0, roof_r),
-            mat::STONE_DARK,
+            mat::ROCK,
         );
     }
     // Caps, so neither end of the gallery is a hole into the void.
@@ -500,7 +497,7 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             v3(x, MINE_HALF_W + 0.4, 0.0),
             v3(x, MINE_HALF_W + 0.4, MINE_ROOF),
             v3(x, -MINE_HALF_W - 0.4, MINE_ROOF),
-            mat::STONE_DARK,
+            mat::ROCK,
         );
     }
 
@@ -578,7 +575,7 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             0.20,
             5,
             FRAC_PI_2,
-            mat::STONE_DARK,
+            mat::ROCK,
         );
     }
 
@@ -614,11 +611,14 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             &mut m,
             stage,
             seed,
-            torch(true),
+            torch(true).translated(v3(0.0, 0.0, 1.52)),
             x,
             y,
             if side < 0.0 { 0.0 } else { PI },
         );
+        // The light pool is authored geometry. It stays bounded and avoids
+        // introducing a per-fragment light search to this tiny rasterizer.
+        prim::disc(&mut m, x, y * 0.70, 0.022, 1.65, 8, 0.0, mat::TORCH_POOL);
     }
 
     // ---- rubble at the feet ------------------------------------------------
@@ -631,13 +631,141 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             &mut m,
             v3(x - s, y - s * 0.7, 0.0),
             v3(x + s, y + s * 0.7, s * r.range(0.5, 1.0)),
-            mat::STONE_DARK,
+            mat::ROCK,
             F_SIDES_TOP,
         );
     }
 
+    mine_working(&mut m, -12.0, -8.0, false);
+    mine_working(&mut m, 2.0, 8.0, true);
     stand_chests(&mut m, stage, seed, chests);
     m
+}
+
+/// A shallow crystal working, and a wider stairwell down to a lower seam.
+/// The floor really descends below the main gallery; side walls and the far
+/// blue face remain visible through an opening in its rock shell.
+fn mine_working(m: &mut Mesh, x0: f32, x1: f32, descending: bool) {
+    let mouth = -MINE_HALF_W;
+    let back = if descending { -10.0 } else { -7.8 };
+    let bottom = if descending { -2.6 } else { 0.0 };
+    for x in [x0, x1] {
+        prim::quad(
+            m,
+            v3(x, mouth, 0.0),
+            v3(x, back, bottom),
+            v3(x, back, 2.45),
+            v3(x, mouth, MINE_SPRING),
+            mat::ROCK,
+        );
+    }
+    prim::quad(
+        m,
+        v3(x0, back, bottom),
+        v3(x1, back, bottom),
+        v3(x1, back, 2.45),
+        v3(x0, back, 2.45),
+        mat::ROCK,
+    );
+    prim::quad(
+        m,
+        v3(x0, mouth, MINE_SPRING),
+        v3(x1, mouth, MINE_SPRING),
+        v3(x1, back, 2.45),
+        v3(x0, back, 2.45),
+        mat::ROCK,
+    );
+    if descending {
+        for step in 0..8 {
+            let front = mouth - step as f32 * 0.64;
+            let rear = front - 0.64;
+            let top = -(step as f32) * 0.325;
+            prim::boxed(
+                m,
+                v3(x0 + 0.24, rear, top - 0.325),
+                v3(x1 - 0.24, front, top),
+                mat::STONE,
+                prim::F_PY | prim::F_PZ,
+            );
+        }
+        prim::quad(
+            m,
+            v3(x0, back, bottom),
+            v3(x1, back, bottom),
+            v3(x1, mouth - 5.12, bottom),
+            v3(x0, mouth - 5.12, bottom),
+            mat::FLOOR,
+        );
+        // A hanging winch and chain give the lower level a useful purpose.
+        prim::boxed(
+            m,
+            v3(x0 + 0.1, mouth - 0.25, 1.84),
+            v3(x1 - 0.1, mouth + 0.12, 2.20),
+            mat::WOOD,
+            F_SIDES_TOP,
+        );
+        prim::boxed(
+            m,
+            v3(x1 - 0.85, mouth - 0.30, -1.25),
+            v3(x1 - 0.80, mouth - 0.25, 1.9),
+            mat::BRASS,
+            F_SIDES,
+        );
+    } else {
+        prim::quad(
+            m,
+            v3(x0, back, 0.0),
+            v3(x1, back, 0.0),
+            v3(x1, mouth, 0.0),
+            v3(x0, mouth, 0.0),
+            mat::FLOOR,
+        );
+    }
+    // Facets against rock read as crystalline ore even at 96 by 72 dots.
+    for i in 0..5 {
+        let x = x0 + 0.65 + (x1 - x0 - 1.3) * i as f32 / 4.0;
+        let y = back + 0.65 + (i % 2) as f32 * 0.5;
+        let height = 0.65 + (i % 3) as f32 * 0.43;
+        prim::prism(
+            m,
+            x,
+            y,
+            bottom,
+            bottom + height * 0.64,
+            0.26,
+            0.33,
+            5,
+            i as f32,
+            mat::MOONLIGHT,
+        );
+        prim::cone(
+            m,
+            x,
+            y,
+            bottom + height * 0.64,
+            bottom + height,
+            0.33,
+            5,
+            i as f32,
+            mat::MOONLIGHT,
+        );
+    }
+    for x in [x0 + 0.14, x1 - 0.14] {
+        prim::boxed(
+            m,
+            v3(x - 0.14, mouth - 0.22, 0.0),
+            v3(x + 0.14, mouth + 0.15, MINE_CAP),
+            mat::WOOD,
+            F_SIDES,
+        );
+    }
+    prim::boxed(
+        m,
+        v3(x0, mouth - 0.22, MINE_CAP),
+        v3(x1, mouth + 0.15, MINE_CAP + 0.30),
+        mat::WOOD,
+        F_SIDES | F_NZ,
+    );
 }
 
 // ── The Dark Forest ───────────────────────────────────────────────────────

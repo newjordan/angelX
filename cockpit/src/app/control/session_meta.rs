@@ -231,6 +231,11 @@ impl App {
         // A screenshot staged before /cd belongs to the thread being detached.
         self.clipboard_paste.clear();
         self.world = crate::stage::world_viz::World::for_workspace(&target);
+        self.together = crate::drive::together::Together::default();
+        self.dungeon = Default::default();
+        if let Err(error) = self.dungeon.restore(&target) {
+            self.dungeon.notice = format!("Could not restore delve: {error}");
+        }
         self.scryglass = crate::ui::scryglass::Scryglass::for_session(self.world.destination());
         self.world
             .enable_districts(crate::app::scan_workspace_districts(&target));
@@ -812,6 +817,8 @@ impl App {
                     };
                     let mut note = ChatMsg::harness(result.inline_note);
                     note.recovery_context = crate::agent::club::recovery_context_refs(&window);
+                    note.book_memory =
+                        crate::agent::harness::book::continuity::compaction_memory(&window);
                     BgOutcome::Compact {
                         range: sys_end..window_end,
                         note: Box::new(note),

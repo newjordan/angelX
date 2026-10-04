@@ -37,11 +37,27 @@ fn terminal_setup_enters_alt_screen_then_enables_mouse_capture() {
     assert!(s.contains("?1006h"), "SGR mouse capture enabled: {s:?}");
     assert!(s.contains("?2004h"), "bracketed paste enabled: {s:?}");
     assert!(s.contains("?1004h"), "focus reporting enabled: {s:?}");
+    assert!(
+        s.contains(">3u"),
+        "key release/repeat reporting requested: {s:?}"
+    );
     // Alt screen must be entered before mouse capture is turned on.
     assert!(
         s.find("?1049h").unwrap() < s.find("?1000h").unwrap(),
         "alt screen before mouse capture: {s:?}"
     );
+}
+
+#[test]
+fn terminal_all_key_reporting_is_scoped_to_game_and_restores_native_composer_text() {
+    let mut enter = Vec::new();
+    write_enter_sequences(&mut enter, false).unwrap();
+    let enter = String::from_utf8(enter).unwrap();
+    assert!(!enter.contains(">11u") && !enter.contains(">15u"));
+    let mut switches = Vec::new();
+    crate::ui::term::write_game_keyboard_mode(&mut switches, true).unwrap();
+    crate::ui::term::write_game_keyboard_mode(&mut switches, false).unwrap();
+    assert_eq!(switches, b"\x1b[<1u\x1b[>15u\x1b[<1u\x1b[>3u");
 }
 
 #[test]
@@ -78,6 +94,7 @@ fn terminal_teardown_disables_mouse_capture_before_leaving_alt_screen() {
     assert!(s.contains("?1000l"), "normal mouse capture disabled: {s:?}");
     assert!(s.contains("?1006l"), "SGR mouse capture disabled: {s:?}");
     assert!(s.contains("?1049l"), "alt screen left: {s:?}");
+    assert!(s.contains("<1u"), "enhanced keyboard mode restored: {s:?}");
     assert!(
         s.find("?2004l").unwrap() < s.find("?1049l").unwrap(),
         "paste disabled before leaving alt screen: {s:?}"

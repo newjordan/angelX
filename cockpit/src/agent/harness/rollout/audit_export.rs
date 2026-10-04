@@ -842,6 +842,7 @@ fn recorded_message_to_chat(
         responses_replay: None,
         tool_receipt: None,
         recovery_context: message.recovery_context.clone(),
+        book_memory: None,
     })
 }
 

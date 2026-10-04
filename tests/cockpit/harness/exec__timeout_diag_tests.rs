@@ -84,142 +84,11 @@ fn extension_decision_pins_the_kill_decision_contract() {
 }
 
 #[test]
-fn idle_floor_kills_sleep_before_the_full_tool_timeout() {
-    let _env = crate::tests::env_lock();
-    let _timeout = crate::tests::TestEnvGuard::set("ANGEL_TOOL_TIMEOUT", "120");
-    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
-    let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
-    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
-    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(1)));
-    assert_eq!(tool_timeout(), Some(Duration::from_secs(120)));
-    let policy = SandboxPolicy::permissive();
-    // Tests spawn `--bin angel --sandbox-exec`. That first call runs
-    // `cargo build` inside OnceLock; do not count it as idle-wait.
-    let warmup =
-        run_sandboxed_observed("sh", &["-c", "echo warmup"], None, &policy).expect("warmup");
-    assert!(
-        warmup.output.contains("warmup"),
-        "sandbox helper warmup failed: {}",
-        warmup.output
-    );
-    let never = std::sync::atomic::AtomicBool::new(false);
-    // The live shell tool always passes a cancel flag. Both wait loops
-    // have to idle-kill; the 120s sleep hang was the cancellable path.
-    for cancel in [None, Some(&never)] {
-        let started = Instant::now();
-        let observation = run_sandboxed_observed_cancellable(
-            "sh",
-            &["-c", "sleep 30; echo never"],
-            None,
-            &policy,
-            cancel,
-        )
-        .expect("sandboxed run");
-        let elapsed = started.elapsed();
-        eprintln!(
-            "idle-floor probe cancel={} timed_out={} elapsed={elapsed:?} out={:?}",
-            cancel.is_some(),
-            observation.timed_out,
-            observation.output
-        );
-        assert!(observation.timed_out, "{}", observation.output);
-        assert!(
-            elapsed < Duration::from_secs(8),
-            "idle sleep must not sit out the 120s tool timeout ({elapsed:?}) out={}",
-            observation.output
-        );
-        assert!(
-            !observation.output.contains("never"),
-            "sleep must be killed before it finishes: {}",
-            observation.output
-        );
-        assert!(
-            !observation.output.contains("timed out after 120s"),
-            "idle kill must report elapsed time, not the unused budget: {}",
-            observation.output
-        );
-        assert!(
-            observation
-                .output
-                .contains(&crate::agent::harness::book::d46_recovery::IDLE_FLOOR.cells()),
-            "idle kill must name the idle knob (its page), not ANGEL_TOOL_TIMEOUT: {}",
-            observation.output
-        );
-        assert!(
-            !observation
-                .output
-                .contains(&crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()),
-            "{}",
-            observation.output
-        );
-        assert!(
-            observation
-                .output
-                .contains("silent sleeping wait reaped by the idle floor"),
-            "idle kill must name the legitimate-wait case: {}",
-            observation.output
-        );
-    }
-}
-
-#[test]
 fn turn_idle_does_not_create_a_tool_idle_kill_policy() {
     let _env = crate::tests::env_lock();
     let _turn = crate::tests::TestEnvGuard::set("ANGEL_TURN_IDLE_TIMEOUT_SECS", "1");
     let _tool = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
     assert_eq!(tool_idle_timeout(), None);
-}
-
-#[test]
-fn busy_process_survives_idle_floor_and_follows_hard_timeout() {
-    let _env = crate::tests::env_lock();
-    let _timeout = crate::tests::TestEnvGuard::set("ANGEL_TOOL_TIMEOUT", "0");
-    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
-    let _hard = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "3");
-    let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
-    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
-    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(1)));
-    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(3)));
-    assert_eq!(tool_timeout(), None);
-    let policy = SandboxPolicy::permissive();
-    let warmup =
-        run_sandboxed_observed("sh", &["-c", "echo warmup"], None, &policy).expect("warmup");
-    assert!(
-        warmup.output.contains("warmup"),
-        "sandbox helper warmup failed: {}",
-        warmup.output
-    );
-    for i in 0..50 {
-        let again = run_sandboxed_observed("sh", &["-c", "echo warmup"], None, &policy)
-            .unwrap_or_else(|e| panic!("warmup loop {i}: {e}"));
-        assert!(
-            again.output.contains("warmup"),
-            "warmup loop {i} dropped helper output: {}",
-            again.output
-        );
-    }
-    let started = Instant::now();
-    // `exec yes` keeps the sandbox child itself in R; a sleeping `sh`
-    // waiting on a grandchild would look idle and die at the floor.
-    let observation = run_sandboxed_observed("sh", &["-c", "exec yes >/dev/null"], None, &policy)
-        .expect("sandboxed run");
-    let elapsed = started.elapsed();
-    assert!(observation.timed_out, "{}", observation.output);
-    assert!(
-        elapsed >= Duration::from_millis(2500),
-        "busy child must survive the 1s idle floor ({elapsed:?}) out={}",
-        observation.output
-    );
-    assert!(
-        elapsed < Duration::from_secs(8),
-        "busy child must follow the 3s hard timeout ({elapsed:?}) out={}",
-        observation.output
-    );
-    assert!(
-        !observation.output.contains("timed out after 120s"),
-        "hard-timeout kill must not report the unused default budget: {}",
-        observation.output
-    );
 }
 
 #[test]
@@ -285,144 +154,23 @@ fn timeout_note_reports_diagnostics_and_keeps_the_bare_form() {
 }
 
 #[test]
-fn idle_floor_note_names_the_knob_and_the_legitimate_wait() {
-    let diag = TimeoutDiagnostics {
-        child_state: Some('S'),
-        live_descendants: 3,
-        last_output_age_secs: None,
-        grace_ms: 0,
-        exited_in_grace: false,
-    };
-    let note = idle_floor_note(30, Some(&diag));
-    assert!(note.contains("timed out after 30s"), "{note}");
-    assert!(
-        note.contains("no output ever, child state S, 3 live descendants"),
-        "{note}"
-    );
-    assert!(
-        note.contains("silent sleeping wait reaped by the idle floor"),
-        "{note}"
-    );
-    // The idle receipt names its own knob and the escape hatch: its page.
-    let idle = crate::agent::harness::book::d46_recovery::IDLE_FLOOR;
-    assert!(note.ends_with(&format!("]\n{}", idle.cells())), "{note}");
-    assert!(idle.text().contains("ANGEL_TOOL_IDLE_FLOOR_SECS"));
-    assert!(idle.text().contains("proc_run"));
-    // The idle receipt must not point at the budget knob it never hit.
-    assert!(!note.contains("ANGEL_TOOL_TIMEOUT"), "{note}");
-    assert!(
-        !note.contains(&crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells()),
-        "{note}"
-    );
-    // The bare form carries the same page.
-    let bare = idle_floor_note(30, None);
-    assert!(bare.ends_with(&idle.cells()), "{bare}");
-    assert!(bare.contains("silent sleeping wait"), "{bare}");
-}
-
-#[test]
-fn tool_ceilings_and_idle_floor_are_operator_caps_only() {
+fn tool_timeout_is_an_operator_cap_only() {
     let _env = crate::tests::env_lock();
-    let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_FLOOR_SECS");
     let _competition = crate::tests::TestEnvGuard::unset("ANGEL_COMPETITION_MODE");
     let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
-    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
+    let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
-    // Safe defaults prevent silent deadlocks and runaway busy loops from freezing the cockpit TUI.
     assert_eq!(tool_timeout(), None);
-    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
     assert_eq!(tool_idle_timeout(), None);
-    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(120)));
     let _armed = crate::tests::TestEnvGuard::set("ANGEL_COMPETITION_MODE", "1");
-    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(120)));
+    assert_eq!(tool_timeout(), None);
     drop(_armed);
-    // Explicit operator caps are honoured verbatim; `0` keeps them off.
-    let _explicit = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "45");
-    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(45)));
-    let _idle_zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "0");
-    assert_eq!(tool_idle_floor(), None);
     let _tool_idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_SECS", "75");
     assert_eq!(tool_idle_timeout(), Some(Duration::from_secs(75)));
     let _cap = crate::tests::TestEnvGuard::set("ANGEL_TOOL_TIMEOUT", "600");
     assert_eq!(tool_timeout(), Some(Duration::from_secs(600)));
-    let _zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "0");
-    assert_eq!(tool_hard_timeout(), None);
-}
-
-#[test]
-fn yolo_does_not_disable_containment_ceilings() {
-    let _env = crate::tests::env_lock();
-    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
-    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
-    let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_FLOOR_SECS");
-    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
-    assert_eq!(tool_idle_floor(), Some(Duration::from_secs(120)));
-    let _hard_zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "0");
-    assert_eq!(tool_hard_timeout(), None);
-    let _idle_zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "0");
-    assert_eq!(tool_idle_floor(), None);
-}
-
-/// The 2026-09-21 live hang, end to end: a `/yolo on` session ran
-/// `python3 -m http.server` through the shell tool and the turn sat on it
-/// until the operator noticed. Yolo strips `ANGEL_TOOL_TIMEOUT`, so the idle
-/// floor is the only thing standing between a silent foreground server and a
-/// wedged turn. The accessor test above cannot see a bypass reintroduced
-/// inside the wait loop; this one can.
-#[test]
-fn yolo_idle_floor_reaps_a_silent_foreground_server() {
-    let _env = crate::tests::env_lock();
-    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
-    let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
-    let _tool_idle = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_IDLE_SECS");
-    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
-    let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
+    let _zero = crate::tests::TestEnvGuard::set("ANGEL_TOOL_TIMEOUT", "0");
     assert_eq!(tool_timeout(), None);
-    let policy = SandboxPolicy::permissive();
-    // See `idle_floor_kills_sleep_before_the_full_tool_timeout`: the first
-    // helper spawn may build, which is not idle-wait.
-    let warmup =
-        run_sandboxed_observed("sh", &["-c", "echo warmup"], None, &policy).expect("warmup");
-    assert!(
-        warmup.output.contains("warmup"),
-        "sandbox helper warmup failed: {}",
-        warmup.output
-    );
-    // The live shell tool always passes a cancel flag nobody sets.
-    let never = std::sync::atomic::AtomicBool::new(false);
-    let started = Instant::now();
-    let observation = run_sandboxed_observed_cancellable(
-        "sh",
-        &["-c", "sleep 30; echo never"],
-        None,
-        &policy,
-        Some(&never),
-    )
-    .expect("sandboxed run");
-    let elapsed = started.elapsed();
-    assert!(observation.timed_out, "{}", observation.output);
-    assert!(
-        elapsed < Duration::from_secs(8),
-        "yolo must not let a silent server own the turn ({elapsed:?}) out={}",
-        observation.output
-    );
-    assert!(
-        !observation.output.contains("never"),
-        "{}",
-        observation.output
-    );
-    assert!(
-        observation
-            .output
-            .contains(&crate::agent::harness::book::d46_recovery::IDLE_FLOOR.cells()),
-        "the receipt must point the model at proc_run (its page): {}",
-        observation.output
-    );
-    assert!(
-        crate::agent::harness::book::d46_recovery::IDLE_FLOOR
-            .text()
-            .contains("use proc_run")
-    );
 }
 
 #[test]
@@ -543,49 +291,41 @@ fn cancellable_timeout_path_also_captures_diagnostics() {
     assert!(capture.timeout_diag.is_some());
 }
 
-/// A call budget caps both tool bounds for the calls made inside it, and only
-/// there: the previous bounds come back when it ends.
+/// An explicit call budget caps `tool_timeout` for the calls made inside it,
+/// and only there: the previous bound comes back when it ends.
 #[test]
 fn call_budget_caps_tool_bounds_and_restores_them() {
     let _env = crate::tests::env_lock();
     let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
-    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
-    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
     assert_eq!(tool_timeout(), None);
     with_call_budget(Some(Duration::from_secs(180)), || {
-        assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(180)));
         assert_eq!(tool_timeout(), Some(Duration::from_secs(180)));
         with_call_budget(Some(Duration::from_secs(30)), || {
-            assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(30)));
+            assert_eq!(tool_timeout(), Some(Duration::from_secs(30)));
         });
-        assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(180)));
+        assert_eq!(tool_timeout(), Some(Duration::from_secs(180)));
     });
-    assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
     assert_eq!(tool_timeout(), None);
     with_call_budget(None, || {
-        assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(900)));
+        assert_eq!(tool_timeout(), None);
     });
     // Nesting keeps the tighter budget; None leaves the outer one in force.
     with_call_budget(Some(Duration::from_secs(30)), || {
         with_call_budget(None, || {
-            assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(30)));
+            assert_eq!(tool_timeout(), Some(Duration::from_secs(30)));
         });
         with_call_budget(Some(Duration::from_secs(180)), || {
-            assert_eq!(tool_hard_timeout(), Some(Duration::from_secs(30)));
+            assert_eq!(tool_timeout(), Some(Duration::from_secs(30)));
         });
     });
 }
 
-/// A busy process (an infinite loop in code under test) never trips the idle
-/// floor and would run to the 900 s hard timeout; inside a call budget it is
-/// killed at the budget instead.
+/// A busy process inside an explicit call budget is killed at that budget.
 #[test]
 fn busy_process_is_killed_at_the_call_budget() {
     let _env = crate::tests::env_lock();
     let _timeout = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_TIMEOUT");
-    let _hard = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_HARD_TIMEOUT");
-    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
     let _grace = crate::tests::TestEnvGuard::unset("ANGEL_TOOL_KILL_GRACE_MS");
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
     let policy = SandboxPolicy::permissive();
@@ -601,7 +341,7 @@ fn busy_process_is_killed_at_the_call_budget() {
     assert!(observation.timed_out, "{}", observation.output);
     assert!(
         elapsed < Duration::from_secs(8),
-        "the busy child must stop at the 2s budget, not the 900s hard timeout ({elapsed:?})"
+        "the busy child must stop at the 2s budget ({elapsed:?})"
     );
 }
 

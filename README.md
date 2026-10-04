@@ -86,6 +86,9 @@ cd angelX
 - **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
 - **Graph garden · 0.1.9** — Farmers and sprites turn actual `graph` calls into bar, line, and scatter crops on the fields. Visit with `/world visit garden`, inspect with `/world crops`, and begin again to regrow the bed. [Guide and preview](docs/GRAPH_GARDEN.md).
 - **Calibrated seats · 0.1.9** — Muse Spark runs at minimal effort and Grok 4.7 at low, each picked on its hardest benchmark tasks, and playbook hints no longer send a model after a procedure its task rules out.
+- **Live research memory · 0.1.9 line** — Sloptomizer connects ordinary checks and measured experiments through compact `⚠` braille advice. Used legends return when the model changes or context is compacted. Ships in 0.1.92; [ship notes](docs/RELEASE_0.1.9.md).
+- **A working adventure · 0.1.9 line** — The knight follows real loop work through a [3D mine journey](docs/world-adventure.md), with a [School of Magic](docs/world-school.md), study, and underground archive reflecting actual research evidence.
+- **The Delve · 0.1.92** — `/dungeon` walks your knight to the Delve's gate: a co-op knights-vs-monsters dungeon drawn in the realm's own pixel art. Friends join from their own angelX with `/dungeon join`, and cards, spells and wishes load while you play. [Guide](docs/DELVE.md).
 
 ## Benchmarks
 

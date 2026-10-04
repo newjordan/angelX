@@ -190,3 +190,44 @@ fn graph_calls_ignore_the_null_fields_a_flat_schema_invites() {
         "point":{"label":"Day 1","x":1,"y":7},"spec":null});
     assert!(tool.call(&point).is_ok());
 }
+
+/// Every tool property names its type. Kimi (Moonshot) rejects a schema whose
+/// property has none ("type is not defined") with HTTP 400 on hop 1, which
+/// failed two polyglot tasks outright when the graph tool's `op` and
+/// `spec.kind` were bare enums.
+#[test]
+fn every_default_tool_property_names_its_type() {
+    fn walk(path: &str, schema: &Value, bad: &mut Vec<String>) {
+        if let Some(props) = schema.get("properties").and_then(Value::as_object) {
+            for (name, prop) in props {
+                let here = format!("{path}.{name}");
+                let typed = ["type", "anyOf", "oneOf", "allOf", "$ref"]
+                    .iter()
+                    .any(|key| prop.get(*key).is_some());
+                if !typed {
+                    bad.push(here.clone());
+                }
+                walk(&here, prop, bad);
+            }
+        }
+        if let Some(items) = schema.get("items") {
+            walk(&format!("{path}[]"), items, bad);
+        }
+        for key in ["anyOf", "oneOf", "allOf"] {
+            for (i, branch) in schema
+                .get(key)
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                walk(&format!("{path}.{key}[{i}]"), branch, bad);
+            }
+        }
+    }
+    let mut bad = Vec::new();
+    for def in crate::agent::harness::ToolRegistry::with_defaults().defs() {
+        walk(&def.name, &def.params, &mut bad);
+    }
+    assert!(bad.is_empty(), "properties without a type: {bad:?}");
+}

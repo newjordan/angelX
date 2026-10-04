@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "spark-wand",
+  "title": "Spark Wand",
+  "slot": "weapon",
+  "power": 5,
+  "speed": 3,
+  "range": 8,
+  "pattern": "bolt",
+  "effect": "none"
+}

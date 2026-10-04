@@ -40,9 +40,11 @@ const RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
 const ORIGINATOR: &str = "codex_cli_rs";
 const AUTH_JSON_ENV: &str = "ANGEL_OPENAI_AUTH_JSON";
 /// Responses-route stream stall bound: give up on a stream that has sent no
-/// events for this many seconds (`ANGEL_CODEX_STREAM_STALL_SECS`, default 120;
-/// `0` disables the stall bound and keeps the plain socket read timeout below).
-const DEFAULT_CODEX_STREAM_STALL_SECS: u64 = 120;
+/// events for this many seconds (`ANGEL_CODEX_STREAM_STALL_SECS`). Default `0`:
+/// no clock on a live stream unless the operator sets one. A dead connection
+/// still hits the plain socket read timeout below; the old 120 s default cut
+/// gpt-6.1-sol xhigh hops that were thinking past 115 s behind keep-alives.
+const DEFAULT_CODEX_STREAM_STALL_SECS: u64 = 0;
 /// The plain per-read socket deadline used when the stall bound is off — the
 /// historical fixed value this route always shipped.
 const CODEX_PLAIN_READ_TIMEOUT_SECS: u64 = 300;
@@ -666,6 +668,9 @@ pub struct CodexClub {
     reasoning_summary: String,
     /// Experimental native continuation; opt in only for measured evaluations.
     replay_enabled: bool,
+    /// Send `prompt_cache_key` (this club's session id): Meta's Responses API
+    /// caches only requests that carry one.
+    prompt_cache_key: bool,
     api_controls: Option<api::ApiControls>,
     /// Test-only endpoint override: points the Responses POST at a local
     /// server so the streaming loop's watchdogs can be exercised without the
@@ -857,6 +862,7 @@ impl CodexClub {
             api_key: None,
             reasoning_summary: "auto".to_string(),
             replay_enabled: std::env::var("ANGEL_OPENAI_REPLAY").as_deref() == Ok("1"),
+            prompt_cache_key: false,
             api_controls: None,
             #[cfg(test)]
             responses_url_override: None,
@@ -908,6 +914,36 @@ impl CodexClub {
             },
             api::ApiControls::output_budget,
         )
+    }
+
+    /// The stamp an OpenAI seat stands on after its system block: Codex's own
+    /// autonomy page (`⡞⠙⠓`), so sol meets its vendor's answer to budgeting its
+    /// own tokens. Only where the model holds the ledger reader, and not for
+    /// Muse, which shares this seat. `ANGEL_SEAT_PROFILE=0` sends none.
+    fn seat_profile(&self, tools: &[ToolDef]) -> Option<String> {
+        use crate::agent::harness::book::{Raise, d23457_codex_sol::STANDING};
+        (self.model.starts_with("gpt-")
+            && tools.iter().any(|tool| tool.name == "read_file")
+            && crate::agent::harness::env_flag("ANGEL_SEAT_PROFILE", true))
+        .then(|| Raise::page(STANDING.0, STANDING.1, None).cells())
+    }
+
+    /// Send the model's own reasoning back each hop: the encrypted reasoning
+    /// items it returned ride ahead of the turn they belong to, so a reasoning
+    /// model keeps its train of thought and the provider's cached prefix holds.
+    pub(crate) fn with_reasoning_replay(mut self, on: bool) -> Self {
+        self.replay_enabled = on;
+        self
+    }
+
+    /// Key the prompt cache by this club's session, so every hop after the
+    /// first reads its prefix from the provider's cache. Meta's API caches
+    /// nothing without a key: two identical ~4.9k-token requests read 0 cached
+    /// tokens, and 4,849 with one (probed 2026-10-01). Meta's own Muse Code
+    /// sends one.
+    pub(crate) fn with_prompt_cache_key(mut self) -> Self {
+        self.prompt_cache_key = true;
+        self
     }
 
     /// Ask for `auto`, `concise` or `detailed` reasoning summaries.
@@ -1110,7 +1146,17 @@ impl CodexClub {
         use serde_json::json;
         // The book's legend reaches a Responses seat as it reaches Chat
         // Completions: each stamp's English the first time the model meets it.
-        let introduced = crate::agent::harness::book::introduction::introduced(messages, tools);
+        // An OpenAI seat also stands on its vendor's profile page, which the
+        // legend introduces the same way.
+        // Native replay is keyed on the history the turn loop holds; the
+        // legend's introductions ride the outbound copy only, so the digests
+        // come from the history or a capture never matches again.
+        let history = messages;
+        let (introduced, standing) = crate::agent::harness::book::introduction::introduced_standing(
+            messages,
+            tools,
+            self.seat_profile(tools).as_deref(),
+        );
         let messages: &[ChatMsg] = &introduced;
         // Dispatch supplies its already checked capture. No mutable preference read.
         // Brevity instruction for the metered link: folded into `instructions`
@@ -1126,30 +1172,31 @@ impl CodexClub {
             .filter(|m| m.role == ChatRole::System)
             .map(|m| m.content.as_ref())
             .collect();
+        let lead = messages
+            .iter()
+            .take_while(|m| m.role == ChatRole::System)
+            .count();
         let caveman_text;
         if let Some((_, text)) = caveman {
-            let lead = messages
-                .iter()
-                .take_while(|m| m.role == ChatRole::System)
-                .count();
             caveman_text = text;
             sys_parts.insert(lead, &caveman_text);
         }
+        if let Some(standing) = &standing {
+            sys_parts.insert(lead, standing);
+        }
         let instructions = sys_parts.join("\n\n");
-        let replay_prefixes = (self.api_key.is_none()
-            && self.replay_enabled
-            && messages
+        let replay_prefixes = (self.replay_enabled
+            && history
                 .iter()
                 .any(|message| message.responses_replay.is_some()))
-        .then(|| replay::prefix_digests(messages));
+        .then(|| replay::prefix_digests(history));
         let mut input: Vec<serde_json::Value> = Vec::new();
         for (index, m) in messages
             .iter()
             .enumerate()
             .filter(|(_, m)| m.role != ChatRole::System)
         {
-            if self.api_key.is_none()
-                && self.replay_enabled
+            if self.replay_enabled
                 && let Some(replay) = &m.responses_replay
                 && let Some(prefixes) = &replay_prefixes
                 && let Some(items) = replay.items_for(&self.session_id, &prefixes[index + 1])
@@ -1199,9 +1246,12 @@ impl CodexClub {
             "stream": true,
             "store": false,
         });
-        if self.api_key.is_none() && self.replay_enabled {
+        if self.prompt_cache_key {
+            body["prompt_cache_key"] = json!(self.session_id);
+        }
+        if self.replay_enabled {
             // The ChatGPT backend still uses the Codex selector; the public
-            // API also accepts it as the legacy stateless-continuation option.
+            // APIs (OpenAI's, Meta's) accept it for stateless continuation.
             body["include"] = json!(["reasoning.encrypted_content"]);
         }
         if !tools.is_empty() {
@@ -1339,7 +1389,7 @@ impl CodexClub {
             .iter()
             .filter(|message| message.responses_replay.is_some())
             .count();
-        if retained > 0 && self.api_key.is_none() && self.replay_enabled {
+        if retained > 0 && self.replay_enabled {
             let emitted_native = body["input"].as_array().map_or(0, |input| {
                 input
                     .iter()
@@ -1531,11 +1581,17 @@ impl CodexClub {
                     if self.stream_stall_secs > 0 && stream_read_timed_out(&e) {
                         return Err(self.stall_error(&mut attempt, "no Responses events"));
                     }
-                    return Err(format!("stream read error: {e}"));
+                    // A socket or decode failure mid-stream is a stream that
+                    // died without a terminal event, as on the Chat route: the
+                    // pending tool call never ran, so the hop may replay.
+                    return Err(format!(
+                        "{}: stream read error: {e}",
+                        crate::agent::club::INCOMPLETE_STREAM_ERR
+                    ));
                 }
             };
             wire.bytes(line.len() + 1);
-            if self.api_key.is_none() && self.replay_enabled {
+            if self.replay_enabled {
                 replay_items.observe(&line);
             }
             observe_responses_line(wire, &line);
@@ -1629,7 +1685,7 @@ impl CodexClub {
             wire.note(kind, message);
         }
         if !calls.is_empty() {
-            if self.api_key.is_none() && self.replay_enabled {
+            if self.replay_enabled {
                 let items = replay_items.finish();
                 let reasoning_items = items
                     .iter()
@@ -1727,7 +1783,8 @@ fn observe_responses_event(wire: &crate::agent::club::wire_log::WireCall, event:
     };
     match event {
         ResponseEvent::Text(text) => wire.text(text.len()),
-        ResponseEvent::Reasoning(r) | ResponseEvent::ReasoningSummary(r) => wire.reasoning(r.len()),
+        ResponseEvent::Reasoning(r) => wire.reasoning(r.len()),
+        ResponseEvent::ReasoningSummary(r) => wire.reasoning_summary(r),
         ResponseEvent::ToolCallStart { .. }
         | ResponseEvent::ToolArgumentsDelta { .. }
         | ResponseEvent::ToolArgumentsDone { .. }

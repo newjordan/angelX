@@ -34,7 +34,7 @@ const ARCHIVE_DIR = 'experimental/sloptomizer/upstream'
 const ARCHIVE_RECEIPT_PATH = `${ARCHIVE_DIR}/source-receipt.json`
 // Non-receipted files the runtime still needs. `files[]` in UPSTREAM.json covers
 // only the modules copied byte-for-byte from upstream.
-const EMBED_EXTRAS = ['runner.py', 'UPSTREAM.json']
+const EMBED_EXTRAS = ['runner.py', 'relations.py', 'UPSTREAM.json']
 // UPSTREAM.json's `adaptation` field: "Package initializers restrict imports to
 // the selected stdlib algorithms." Those initializers are therefore rewritten,
 // not copied, and carry no upstream hash.

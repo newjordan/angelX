@@ -1,0 +1,38 @@
+# A wish from the realm's own catalog. Spoils from the delve pay for it.
+name   Beacon Tower
+words  a dark tower whose fire watches over Dragon Keep
+near   dragon keep
+price  ember 8, ore 10, gold 200
+art
+.....5.6
+....@@6@5@
+....@@5@@@
+....7@@@@7
+...jjjjjjjj
+...jjjjjjjj
+kkkjjjjjjjjkkk
+kSSSSSSSSSSSSk
+kxxxxxxxxxxxxk
+kxxxxxxxxxxxxk
+kSSSSSsxxxxxsk
+kxxxxxsxxxxxsk
+kxxxxxsxxxxxsk
+kssssssssssssk
+kSSsxxxxxsSSSk
+kxxsxxxxxsxxsk
+kxxsxxxxxsxxsk
+kssssssssssssk
+kxxxxxsxxxxxsk
+kxxxxxsxxxxxsk
+kxxxxxsxxxxxsk
+kssssssssssssk
+kxxsxxxxxsSSSk
+kxxsxxxxxsxxsk
+kxxsxxxxxsxxsk
+kssssssssssssk
+kxxxxxsxxxxxsk
+kxxxxxsxxxxxsk
+kxxxxxsxxxxxsk
+kssssssssssssk
+kxxsxxxxxsSSSk
+kkkkkkkkkkkkkk

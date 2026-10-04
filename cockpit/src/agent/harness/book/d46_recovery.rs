@@ -103,8 +103,7 @@ pub(crate) const SCRATCH_OUTPUT: Page = Page::new(SHELL_SCOPE, 3);
 
 // ⠨⠛ a stopped or unstartable process
 pub(crate) const TIMEOUT_KNOB: Page = Page::new(STOPPED, 1);
-pub(crate) const IDLE_FLOOR: Page = Page::new(STOPPED, 2);
-pub(crate) const LIVE_DIRECTORY: Page = Page::new(STOPPED, 3);
+pub(crate) const LIVE_DIRECTORY: Page = Page::new(STOPPED, 2);
 
 // ⠨⠓ the pinned toolchain and the runners
 pub(crate) const REPIN: Page = Page::new(TOOLCHAIN, 1);
@@ -235,7 +234,6 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "raise/disable via ANGEL_TOOL_TIMEOUT",
-                "if this was a legitimate wait (remote validation, polling, downloads) raise ANGEL_TOOL_IDLE_FLOOR_SECS or use proc_run",
                 "cd to a live directory and retry",
             ],
         },

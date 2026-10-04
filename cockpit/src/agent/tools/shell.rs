@@ -719,23 +719,20 @@ fn task_shell_git_redirect(command: &str) -> Option<String> {
     None
 }
 
+#[cfg(test)]
 fn contains_excessive_sleep(command: &str, max_secs: u64) -> bool {
     sleep_guard::contains_excessive_sleep(command, max_secs)
 }
 
 fn task_shell_poll_redirect(command: &str) -> Option<String> {
+    if !task_shell_no_detach_active() {
+        return None;
+    }
     let command_stripped = strip_shell_heredoc_bodies(command);
     let command_stripped = strip_unquoted_shell_comments(&command_stripped);
-    if task_shell_no_detach_active() {
-        if unquoted_shell_word(&command_stripped, "sleep") {
-            return Some(format!(
-                "shell command rejected: this sealed task does not spend a tool hop sleeping or polling.\n{}",
-                crate::agent::harness::book::p_processes::SLEEP_GUARD.cells()
-            ));
-        }
-    } else if contains_excessive_sleep(&command_stripped, 10) {
+    if unquoted_shell_word(&command_stripped, "sleep") {
         return Some(format!(
-            "shell command rejected: sleeping for more than 10s inside a synchronous tool call freezes the terminal UI.\n{}",
+            "shell command rejected: this sealed task does not spend a tool hop sleeping or polling.\n{}",
             crate::agent::harness::book::p_processes::SLEEP_GUARD.cells()
         ));
     }
@@ -1157,13 +1154,9 @@ impl Tool for ShellTool {
         if let Some(redirect) = task_shell_git_redirect(command) {
             return Err(redirect);
         }
-        // A registry cancel token outranks the sleep guard only once it has
-        // FIRED: the runner must observe an already-queued cancellation
-        // (`sleep 30 & wait`), so a fired token skips the guard. But the
-        // turn-driven path always passes a (not-yet-fired) token, and skipping
-        // the guard for it let `sleep 240` freeze the turn while a queued
-        // steer waited out every second (rig B, overwatch 2026-09-25). An
-        // unfired token still gets the upfront rejection.
+        // A sealed task rejects `sleep` before spawn. A cancel token that has
+        // already fired outranks that rejection so the runner observes the
+        // cancellation.
         let cancel_already_fired =
             cancel.is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed));
         if !cancel_already_fired && let Some(redirect) = task_shell_poll_redirect(command) {

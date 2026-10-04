@@ -15,6 +15,7 @@
 #![allow(dead_code)]
 
 pub(crate) mod arch;
+pub(crate) mod expedition;
 pub(crate) mod instruments;
 pub(crate) mod interior;
 pub(crate) mod math;

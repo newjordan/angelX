@@ -76,3 +76,66 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
         );
     }
 }
+
+/// Exercise the default route, including the real stage dispatcher and dot
+/// bridge: an active mine journey must move without opting into Explore.
+#[test]
+fn default_realm_animates_the_expedition_and_map_visits_still_win() {
+    let _guard = crate::tests::env_lock();
+    let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    use crate::stage::world_viz::{AdventureEvent, Building, LoopKind, World};
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.world = World::new(42);
+    app.world.settle_at_for_test(Building::Keep);
+    app.world.note_adventure(AdventureEvent::LoopStarted {
+        kind: LoopKind::Coding,
+        task: "presentation fixture".into(),
+    });
+    app.world.note_adventure(AdventureEvent::Iteration { n: 1 });
+    app.scryglass = crate::ui::scryglass::Scryglass::default();
+    app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(48, 18)).unwrap();
+    terminal
+        .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+        .unwrap();
+    let first = terminal.backend().buffer().clone();
+    assert_eq!(
+        app.scryglass.surface,
+        crate::ui::scryglass::StageSurface::WorldMap
+    );
+    assert!(
+        first
+            .content
+            .iter()
+            .filter(|cell| cell
+                .symbol()
+                .chars()
+                .any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch)))
+            .count()
+            > 40
+    );
+    for _ in 0..80 {
+        app.world.tick();
+    }
+    terminal
+        .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+        .unwrap();
+    assert_ne!(
+        &first,
+        terminal.backend().buffer(),
+        "real Realm camera must travel"
+    );
+    assert!(app.world.toggle_adventure_map());
+    terminal
+        .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+        .unwrap();
+    assert!(!app.world.live_adventure_view());
+    assert!(terminal.backend().buffer().content.iter().any(|cell| {
+        cell.symbol()
+            .chars()
+            .any(|ch| matches!(ch, '▀' | '▄' | '█'))
+    }));
+    assert!(app.world.toggle_adventure_map());
+    assert!(app.world.live_adventure_view());
+}

@@ -1,0 +1,36 @@
+# A wish from the realm's own catalog. Spoils from the delve pay for it.
+name   The Tavern
+words  a thatched tavern with a tankard sign and barrels by the door
+near   village
+price  gold 950, wax 15, bone 10
+art
+.................kkkk
+.................kUUk
+.................kUuk
+.................kuUk
+.................kUUk
+.................kUuk
+kkkkkkkkkkkkkkkkkUuUUkkkkk
+kOOoOOOoOOOOOrorruUUurrBrk
+kOOroOorooooororrUUuUrrBBk
+kOOoOOOoOOOOOrorrUuUUrrBrk
+kOOrooorooooororrorrorrBrk
+koororrBroorororBrBBorBBBk
+kOOrooorooooororrorrorrBrk
+kOOrooorooooororrorrorrBrk
+kOoroooBoroooBoBBoBrrrBBBkBBBBBB
+kOOrooorooooororrorrorrBrk.B
+kOOrooorooooororrorrorrBrk.bbbbb
+kooBrrrrorrrorrrrrrrrBrBBk.bTTrb
+kBBBBBBBBBBBBBBBBBBBBBBBBk.bTTTb
+.kbbbbbbbbbbbbbbbbbbbbbbOOOOOOrb
+.kBtotottottBBtttttttttOOOOOOOOr
+.kbbbbtttottBBttttttbbbOOOOOOOOr
+.kbssbttttbbbbbbotttbssbOOOOOO.r
+.kbssbtttbbnnnnbbtttbssrrrBrrrrr
+.kbbbbtttbnKKKKKbtttbbbrUUBUUUr
+.kBttttttbnKKKKKbttttttrrrBrrrr
+.kBtottttbnKKKKKbttttotrrrBrrrr
+.kBtttttobnKKKKKbttttttBrrBrrr
+.kBtottttbnKKKKKbttotttBSSBSSS
+.kBttttttbnKKKKKbtottotBkrrrr

@@ -175,6 +175,9 @@ struct Detail {
     finish_reason: Option<String>,
     usage: Option<Value>,
     retry_streak: u32,
+    /// The reasoning summary a Responses seat streamed, as the provider
+    /// exposed it.
+    reasoning_summary: String,
 }
 
 type Heartbeat = (mpsc::Sender<()>, std::thread::JoinHandle<()>);
@@ -314,6 +317,12 @@ impl WireCall {
             .fetch_add(chars as u64, Ordering::Relaxed);
     }
 
+    /// A reasoning summary delta: counted as reasoning, and kept for the record.
+    pub(crate) fn reasoning_summary(&self, text: &str) {
+        self.reasoning(text.len());
+        self.detail().reasoning_summary.push_str(text);
+    }
+
     pub(crate) fn tool_frame(&self) {
         self.first_token();
         self.shared
@@ -443,6 +452,8 @@ impl WireCall {
             "keepalives": c.keepalives.load(Ordering::Relaxed),
             "text_chars": c.text_chars.load(Ordering::Relaxed),
             "reasoning_chars": c.reasoning_chars.load(Ordering::Relaxed),
+            "reasoning_summary": (!detail.reasoning_summary.is_empty())
+                .then_some(&detail.reasoning_summary),
             "tool_frames": c.tool_frames.load(Ordering::Relaxed),
             "event_types": detail.event_types,
             "finish_reason": detail.finish_reason,

@@ -379,7 +379,7 @@ fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdent
         json!(crate::agent::turn::configured_turn_idle_timeout_secs().unwrap_or(0));
     budgets["stream_stall_secs"] = json!(crate::agent::club::identity_stream_stall_secs());
     budgets["codex_stream_stall_secs"] =
-        json!(crate::agent::club::env_secs("ANGEL_CODEX_STREAM_STALL_SECS", 120).as_secs());
+        json!(crate::agent::club::env_secs("ANGEL_CODEX_STREAM_STALL_SECS", 0).as_secs());
     let defaults = MODEL_DEFAULTS
         .with(|slot| slot.borrow_mut().take())
         .unwrap_or_else(|| crate::agent::club::model_defaults::budgets(&model.id, &model.club));
