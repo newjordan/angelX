@@ -93,6 +93,7 @@ pub(crate) enum SubmissionSlotPhase {
     InFlight,
     Accepted,
     Rejected,
+    TimedOut,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -886,6 +887,12 @@ impl ToolRegistry {
         maybe_register_grok_research(&mut r);
         maybe_register_http_request(&mut r);
         maybe_register_proc_tools(&mut r, Some(workspace.clone()));
+        for tool in crate::agent::harness::cartridges::active()
+            .map(|cartridge| cartridge.hooks().tools(&workspace))
+            .unwrap_or_default()
+        {
+            r.register(tool);
+        }
         maybe_register_video_tools(&mut r, workspace.clone());
         maybe_register_vision_tools(&mut r, workspace.clone());
         maybe_register_fleet_tools(&mut r);
@@ -1024,6 +1031,12 @@ impl ToolRegistry {
         maybe_register_grok_research(&mut r);
         maybe_register_http_request(&mut r);
         maybe_register_proc_tools(&mut r, Some(workspace.clone()));
+        for tool in crate::agent::harness::cartridges::active()
+            .map(|cartridge| cartridge.hooks().tools(&workspace))
+            .unwrap_or_default()
+        {
+            r.register(tool);
+        }
         maybe_register_video_tools(&mut r, workspace.clone());
         maybe_register_vision_tools(&mut r, workspace.clone());
         maybe_register_fleet_tools(&mut r);
@@ -2089,7 +2102,8 @@ pub(crate) fn is_research_tool(name: &str) -> bool {
             | "find_files"
             | "outline"
             | "gpu_stat"
-    )
+    ) || crate::agent::harness::cartridges::active()
+        .is_some_and(|cartridge| cartridge.hooks().research_tools().contains(&name))
 }
 
 pub(crate) fn is_coding_hot_path_tool(name: &str) -> bool {

@@ -89,6 +89,10 @@ pub enum ObservatoryCommand {
 #[derive(Debug)]
 pub enum ParsedInput {
     Show(String),
+    /// Browse presented images, videos, graphs, and documents at the Scryglass.
+    Assets,
+    /// Visit the wizard tower that houses the Scryglass asset collection.
+    Tower,
     Hide,
     Open(usize),
     OpenTarget(String),
@@ -328,6 +332,7 @@ const CODEX_CMDS: &[&str] = &[
 
 const DEDICATED_CMDS: &[&str] = &[
     "?",
+    "assets",
     "clear",
     "close",
     "cube",
@@ -369,6 +374,7 @@ const DEDICATED_CMDS: &[&str] = &[
     "think",
     "thinking",
     "tools",
+    "tower",
     "tourney",
     "tutor",
     "undo",
@@ -446,7 +452,11 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "memories" => " [add <t>|forget <n>|clear]",
         "refine" => " [status|add …|del|rollback|seed-light]",
         "cd" | "workspace" => " <path>",
-        "show" | "see" | "hear" => " <path>",
+        "show" => " [path] · browse assets or show a local file",
+        "assets" => " · browse the Scryglass collection",
+        "tower" => " · visit the wizard tower",
+        "copy" => " [stage [path|text|image|frame]|number|all|live|code]",
+        "see" | "hear" => " <path>",
         "rate" => " useful|miss",
         "graph" => " [list|run <name> <task>|status|stop]",
         "campaign" => " [status|new|start|advance|review|…]",
@@ -527,10 +537,16 @@ pub(crate) fn slash_inline_hint(input: &str, cursor: usize) -> Option<SlashInlin
 /// `/see <path> [question]` and `/hear <path> [question]` attach media for
 /// multimodal clubs. Local UI commands are parsed here but executed by `App`.
 pub fn parse(raw: &str) -> Result<ParsedInput, String> {
+    let trimmed = raw.trim();
+    if matches!(trimmed, "/assets" | "/show") {
+        return Ok(ParsedInput::Assets);
+    }
+    if trimmed == "/tower" {
+        return Ok(ParsedInput::Tower);
+    }
     if let Some(path) = raw.strip_prefix("/show ") {
         return Ok(ParsedInput::Show(path.trim().to_string()));
     }
-    let trimmed = raw.trim();
     // Close the cockpit on a typed `exit`/`quit` (bare or slash-prefixed), so the
     // app is closed deliberately rather than with a stray Ctrl+C.
     let lower = trimmed.to_ascii_lowercase();

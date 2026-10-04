@@ -443,6 +443,7 @@ fn log_pump_drains_after_log_write_failure() {
         log,
         Arc::clone(&warning),
         "stdout",
+        None,
     );
 
     assert_eq!(consumed.load(Ordering::Relaxed), total);
@@ -666,13 +667,13 @@ fn lifecycle_proc_turn_cancel_receipt() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn proc_setup_cancel_fixture() {
     use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
     use std::sync::atomic::AtomicBool;
 
-    let Some(root) = std::env::var_os("ANGEL_T_PROC_SETUP_CANCEL") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_PROC_SETUP_CANCEL")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let fixture = TestProcStore::new();
     let helper = Path::new(&root).join("finite-helper.py");
@@ -1215,4 +1216,98 @@ fn proc_stop_stops_an_adopted_daemon_by_pgid() {
     // The simulated restart dropped Child, but this test remains its real
     // parent and must reap the stopped shell before leaving the fixture.
     unsafe { libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), 0) };
+}
+
+#[test]
+fn background_submission_journal_follows_the_command_cwd() {
+    background_submission_journal_case(true, false, false);
+}
+
+#[test]
+fn background_submission_receipt_survives_a_verbose_postlude() {
+    background_submission_journal_case(false, true, false);
+}
+
+#[test]
+fn background_submission_journal_follows_a_leading_cd() {
+    background_submission_journal_case(true, false, true);
+}
+
+fn background_submission_journal_case(separate_cwd: bool, verbose: bool, leading_cd: bool) {
+    use crate::agent::harness::run_identity::{LiveModelScope, LiveTurnScope};
+    let fixture = TestProcStore::new();
+    let _home = crate::tests::TestEnvGuard::set("HOME", fixture.root.0.to_str().unwrap());
+    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "0");
+    let _task = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "0");
+    let _log_limit = crate::tests::TestEnvGuard::set("ANGEL_PROC_LOG_MAX_BYTES", "32768");
+    let _model = LiveModelScope::enter(Some("fixture-model".into()));
+    let _owner = LiveTurnScope::enter(Some("fixture-submit-owner".into()));
+    let cwd = if separate_cwd {
+        fixture.root.0.join("candidate")
+    } else {
+        fixture.root.0.clone()
+    };
+    std::fs::create_dir_all(&cwd).unwrap();
+    let id = "11111111-2222-4333-8444-555555555555";
+    let queued = serde_json::json!({"submission":{"id":id,"status":"queued","submissionCommitSha":"a".repeat(40)}});
+    let script = format!(
+        "#!/bin/sh\nprintf '%s\\n' '{}'\n{}",
+        queued,
+        if verbose {
+            "python3 -c 'print(\"log-postlude\" * 20000)'\n"
+        } else {
+            ""
+        }
+    );
+    let program = cwd.join("board");
+    std::fs::write(&program, script).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::write(cwd.join("note.md"), "fixture submission note").unwrap();
+    let result = fixture
+        .runner()
+        .call(&serde_json::json!({
+            "command": if leading_cd {
+                "cd candidate && ./board submit --json --note-file note.md"
+            } else {
+                "./board submit --json --note-file note.md"
+            },
+            "cwd": if leading_cd { &fixture.root.0 } else { &cwd },
+        }))
+        .unwrap();
+    let _handle = parse_handle(&result);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let rows = loop {
+        let rows = crate::agent::tools::submit_identity::drain_workspace_journal(
+            Some(&cwd),
+            "fixture-submit-owner",
+        );
+        if !rows.is_empty() {
+            break rows;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "dispatch was not journaled in the command's workspace"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(rows.len(), 1, "dispatch belongs to the command's workspace");
+    assert_eq!(
+        rows[0].outcome, "dispatched",
+        "receipt must survive unrelated output"
+    );
+    assert_eq!(
+        rows[0].note_file_sha256.len(),
+        64,
+        "note attribution uses the same cwd"
+    );
+    if separate_cwd {
+        assert!(
+            crate::agent::tools::submit_identity::drain_workspace_journal(
+                Some(&fixture.root.0),
+                "fixture-submit-owner",
+            )
+            .is_empty(),
+            "dispatch must not be attributed to the outer workspace"
+        );
+    }
 }

@@ -14,7 +14,7 @@ use super::*;
 
 /// Every material id the shader knows about. A tri tagged with anything else
 /// would land in the palette's default bucket and quietly render wrong.
-const ALL_MATS: [u8; 22] = [
+const ALL_MATS: [u8; 23] = [
     mat::MOONLIGHT,
     mat::EMBER,
     mat::FIRE,
@@ -37,6 +37,7 @@ const ALL_MATS: [u8; 22] = [
     mat::ROCK,
     mat::ARMOR,
     mat::TORCH_POOL,
+    mat::CRYSTAL,
 ];
 
 /// Exact byte image of a triangle stream — the determinism probe.

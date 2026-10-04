@@ -16,7 +16,8 @@ pub(crate) const CONTRACT: Route = Route::new(CELL, '⠑');
 pub(crate) const BRIEF: Route = Route::new(CELL, '⠋');
 pub(crate) const TIER_SWARM: Route = Route::new(CELL, '⠛');
 pub(crate) const TIER_SOTA: Route = Route::new(CELL, '⠓');
-pub(crate) const YUKON: Route = Route::new(CELL, '⠊');
+/// The active cartridge's loop worker; a cartridge plays it in its own words.
+pub(crate) const COMPETITION_WORKER: Route = Route::new(CELL, '⠊');
 pub(crate) const PODRACE: Route = Route::new(CELL, '⠚');
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -120,13 +121,13 @@ pub(crate) const PRIMARY: Primary = Primary {
             ],
         },
         Sub {
-            route: YUKON,
-            name: "yukon",
-            signal: "the yukon package's loop worker",
+            route: COMPETITION_WORKER,
+            name: "competition-worker",
+            signal: "the active cartridge's loop worker",
             action: "",
             ideas: "",
             pages: &[
-                "You are a competition loop worker on the yukon benchmark family.",
+                "You are a competition loop worker.",
                 "Work the repo: read, edit, build, run the benchmark, submit through the board CLI exactly as the loop task directs.",
                 "Every harness tool is yours: run long benchmarks as background jobs with proc_run and keep working while they finish.",
             ],

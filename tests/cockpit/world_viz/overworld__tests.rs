@@ -671,6 +671,21 @@ fn a_glass_frames_its_place_and_tethers_to_it() {
 }
 
 #[test]
+fn scrying_tower_glass_uses_the_native_room_and_observatory_anchor() {
+    use crate::stage::world_viz::{Building, ambient};
+    let world = World::new(7);
+    let glass = world.overworld_plate_glass(Building::Observatory);
+    assert_eq!(glass.anchor, Place::Observatory);
+    assert_eq!(glass.title, ambient::SCRYING_TOWER_LABEL);
+    assert!(!glass.live);
+    let native = ambient::frame(Building::Observatory, Default::default());
+    let expected = picture_from_rgba(native.as_raw(), native.width(), native.height());
+    assert_eq!(glass.picture.rgba_bytes(), expected.rgba_bytes());
+    let reused = world.overworld_plate_glass(Building::Observatory);
+    assert!(std::sync::Arc::ptr_eq(&glass.picture, &reused.picture));
+}
+
+#[test]
 fn the_ride_glass_shows_the_dotmax_saddle_view() {
     // The ride and the plates read assets through env-dependent runtime paths.
     let _env = crate::tests::env_lock();

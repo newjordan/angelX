@@ -14,7 +14,7 @@
 //! scout, an out-of-process peer) cannot be offered the reader; it hears the
 //! pages themselves ([`recite`]), still read from the book.
 
-use super::{DIGITS, DIRECTION, Route, ledger, primary};
+use super::{DIGITS, DIRECTION, Route, ledger};
 use crate::agent::club::{ChatMsg, Club, ClubReply, ToolDef};
 use crate::agent::harness::Tool;
 use serde_json::Value;
@@ -186,9 +186,7 @@ pub(crate) fn recite(cells: &str) -> String {
             continue;
         };
         let route = Route::new(address.primary, section);
-        let Some(sub) = primary(address.primary)
-            .and_then(|primary| primary.subs.iter().find(|sub| sub.route == route))
-        else {
+        let Some(sub) = super::find(route) else {
             continue;
         };
         match address.page {

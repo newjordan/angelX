@@ -170,7 +170,7 @@ fn observe_turn_requires_submit_then_result() {
     assert!(st.pending_submit);
 
     let d3 = st.observe_turn(
-        &["outcome:shell:hilbert submissions --all".into()],
+        &["outcome:shell:board submissions --all".into()],
         "polled board",
     );
     assert!(d3.is_some());
@@ -185,8 +185,8 @@ fn observe_turn_same_turn_submit_and_result() {
     st.start(None);
     let d = st.observe_turn(
         &[
-            "shell:hilbert submit".into(),
-            "outcome:shell:hilbert status abc123".into(),
+            "shell:board submit".into(),
+            "outcome:shell:board status abc123".into(),
         ],
         "done",
     );
@@ -198,7 +198,7 @@ fn observe_turn_result_without_prior_submit_is_silent() {
     let mut st = HandoffRlState::new();
     st.start(None);
     let d = st.observe_turn(
-        &["outcome:shell:hilbert submissions --all".into()],
+        &["outcome:shell:board submissions --all".into()],
         "just checking board",
     );
     assert!(d.is_none());
@@ -243,12 +243,12 @@ fn forced_injection_starts_with_hit_it_chewy_and_wipes_pending() {
 #[test]
 fn classify_submit_vs_result_actions() {
     assert!(is_submit_action("shell:popcorn submit --mode benchmark"));
-    assert!(is_submit_action("shell:hilbert submit"));
+    assert!(is_submit_action("shell:board submit"));
     assert!(!is_result_action("shell:popcorn submit --mode benchmark"));
-    assert!(is_result_action("outcome:shell:hilbert submissions --all"));
+    assert!(is_result_action("outcome:shell:board submissions --all"));
     assert!(is_result_action("outcome:shell:popcorn status"));
     assert!(is_result_action("shell:leaderboard check"));
-    assert!(!is_submit_action("outcome:shell:hilbert status"));
+    assert!(!is_submit_action("outcome:shell:board status"));
 }
 
 /// The operator loop: force inject → (work) → submit → result → force inject…
@@ -276,7 +276,7 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
 
         // Work happens; submit alone does not demand.
         assert!(
-            st.observe_turn(&["shell:hilbert submit cand".into()], "submitted")
+            st.observe_turn(&["shell:board submit cand".into()], "submitted")
                 .is_none()
         );
         assert!(st.pending_submit);
@@ -284,7 +284,7 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
         // Result lands → demand.
         let demand = st
             .observe_turn(
-                &["outcome:shell:hilbert status abc".into()],
+                &["outcome:shell:board status abc".into()],
                 "terminal score 1.0",
             )
             .expect("result after submit must demand handoff");

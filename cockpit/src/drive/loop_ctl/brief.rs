@@ -388,7 +388,7 @@ fn benchmark(workspace: &Path, walk: &Walk, now: u64) -> String {
     out.join("\n")
 }
 
-/// One `benchmark.json` (the Yukon/Hilbert benchmark spec) as prompt lines;
+/// One `benchmark.json` (a board's benchmark spec) as prompt lines;
 /// `copies` are the workspace paths holding this same spec, shallowest first.
 fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String> {
     let Some(rel) = copies.first() else {

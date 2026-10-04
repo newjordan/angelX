@@ -3,7 +3,7 @@
 //! The cockpit already owns the terminal and ratatui frame, so this module uses
 //! dotmax as a pure braille framebuffer and returns `Text` for normal composition.
 
-use crate::agent::harness::comp_packages::yukon::fleet::{YukonFleetState, YukonSubmissionPhase};
+use crate::agent::harness::cartridges::fleet::{FleetState, SubmissionPhase};
 use crate::agent::harness::{SubmissionSlotPhase, SubmissionSlotTelemetry};
 use crate::drive::loop_ctl::{EscalationTier, LoopState, LoopStatus, cycle_elapsed_secs};
 use dotmax::{
@@ -207,7 +207,7 @@ pub(crate) fn title(st: &LoopState) -> String {
 pub(crate) fn render(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
-    fleet: &YukonFleetState,
+    fleet: &FleetState,
     time: f32,
     width: u16,
     height: u16,
@@ -220,7 +220,7 @@ pub(crate) fn render(
 pub(crate) fn render_with_flight(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
-    fleet: &YukonFleetState,
+    fleet: &FleetState,
     time: f32,
     slot_flight_secs: Option<f32>,
     width: u16,
@@ -284,7 +284,7 @@ fn hud_lines(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
     slot_flight_secs: Option<f32>,
-    fleet: &YukonFleetState,
+    fleet: &FleetState,
     time: f32,
     width: usize,
     rows: usize,
@@ -297,7 +297,7 @@ fn hud_lines(
     if competition {
         lines.push(slot_line(slot, slot_flight_secs, time, width));
         if rows >= 2 {
-            lines.push(yukon_fleet_line(fleet, time, width));
+            lines.push(fleet_line(fleet, time, width));
         }
         if rows >= 3 {
             if width >= 38 {
@@ -398,8 +398,13 @@ fn telemetry_rail(st: &LoopState, width: usize) -> Line<'static> {
     Line::from(spans)
 }
 
-fn yukon_fleet_line(fleet: &YukonFleetState, time: f32, width: usize) -> Line<'static> {
-    let prefix = "YUKON ";
+fn fleet_line(fleet: &FleetState, time: f32, width: usize) -> Line<'static> {
+    let prefix = format!(
+        "{} ",
+        crate::agent::harness::cartridges::active()
+            .map_or("FLEET", |cartridge| cartridge.label())
+            .to_uppercase()
+    );
     let mut spans = vec![Span::styled(
         prefix.chars().take(width).collect::<String>(),
         Style::new().fg(TUI_PHOSPHOR),
@@ -445,12 +450,13 @@ fn yukon_fleet_line(fleet: &YukonFleetState, time: f32, width: usize) -> Line<'s
 
     let counts = fleet_counts(fleet);
     let summary = format!(
-        " B{} Q{} V{} H{} X{}",
+        " B{} Q{} V{} H{} X{} T{}",
         fleet.benchmark_count(),
         counts.0,
         counts.1,
         counts.2,
-        counts.3
+        counts.3,
+        counts.4
     );
     let summary_width = summary.chars().count().min(width.saturating_sub(used));
     let dot_capacity = width.saturating_sub(used).saturating_sub(summary_width);
@@ -479,27 +485,29 @@ fn yukon_fleet_line(fleet: &YukonFleetState, time: f32, width: usize) -> Line<'s
     Line::from(spans)
 }
 
-fn fleet_counts(fleet: &YukonFleetState) -> (usize, usize, usize, usize) {
+fn fleet_counts(fleet: &FleetState) -> (usize, usize, usize, usize, usize) {
     fleet.entries().iter().fold(
-        (0, 0, 0, 0),
-        |(queued, running, accepted, rejected), entry| match entry.phase {
-            YukonSubmissionPhase::Queued => (queued + 1, running, accepted, rejected),
-            YukonSubmissionPhase::Running => (queued, running + 1, accepted, rejected),
-            YukonSubmissionPhase::Accepted => (queued, running, accepted + 1, rejected),
-            YukonSubmissionPhase::Rejected => (queued, running, accepted, rejected + 1),
-            YukonSubmissionPhase::Unknown => (queued, running, accepted, rejected),
+        (0, 0, 0, 0, 0),
+        |(queued, running, accepted, rejected, timed_out), entry| match entry.phase {
+            SubmissionPhase::Queued => (queued + 1, running, accepted, rejected, timed_out),
+            SubmissionPhase::Running => (queued, running + 1, accepted, rejected, timed_out),
+            SubmissionPhase::Accepted => (queued, running, accepted + 1, rejected, timed_out),
+            SubmissionPhase::Rejected => (queued, running, accepted, rejected + 1, timed_out),
+            SubmissionPhase::TimedOut => (queued, running, accepted, rejected, timed_out + 1),
+            SubmissionPhase::Unknown => (queued, running, accepted, rejected, timed_out),
         },
     )
 }
 
-fn fleet_glyph(phase: YukonSubmissionPhase, time: f32) -> (&'static str, TuiColor) {
+fn fleet_glyph(phase: SubmissionPhase, time: f32) -> (&'static str, TuiColor) {
     match phase {
-        YukonSubmissionPhase::Queued | YukonSubmissionPhase::Running => {
+        SubmissionPhase::Queued | SubmissionPhase::Running => {
             (if pulse_on(time) { "●" } else { "·" }, TUI_WARNING_AMBER)
         }
-        YukonSubmissionPhase::Accepted => ("●", TUI_PHOSPHOR_HOT),
-        YukonSubmissionPhase::Rejected => ("×", TUI_ALERT_RED),
-        YukonSubmissionPhase::Unknown => ("○", TUI_PHOSPHOR_DIM),
+        SubmissionPhase::Accepted => ("●", TUI_PHOSPHOR_HOT),
+        SubmissionPhase::Rejected => ("×", TUI_ALERT_RED),
+        SubmissionPhase::TimedOut => ("!", TUI_WARNING_AMBER),
+        SubmissionPhase::Unknown => ("○", TUI_PHOSPHOR_DIM),
     }
 }
 
@@ -533,8 +541,8 @@ fn submission_slot_line(slot: &SubmissionSlotTelemetry, width: usize) -> Line<'s
     ])
 }
 
-/// One Yukon validation, queue included, lands in about this long (pinning runs
-/// ~51 min on the Intel runners, subset ~20 min plus its queue). The
+/// One board validation, queue included, lands in about this long (the
+/// longest runs ~51 min, short ones ~20 min plus their queue). The
 /// constellation fills against it and holds just short of whole until the
 /// watcher reports a verdict.
 const SLOT_WINDOW_SECS: f32 = 50.0 * 60.0;
@@ -644,6 +652,9 @@ fn submission_slot_label(slot: &SubmissionSlotTelemetry) -> (&'static str, Strin
             ("[+] ", format!("ACCEPTED{score}"), TUI_PHOSPHOR_HOT)
         }
         SubmissionSlotPhase::Rejected => ("[X] ", "REJECTED".to_string(), TUI_ALERT_RED),
+        SubmissionSlotPhase::TimedOut => {
+            ("[~] ", "TIMED OUT · UNVERIFIED".to_string(), TUI_WARNING_AMBER)
+        }
     }
 }
 
@@ -1149,6 +1160,10 @@ fn draw_submission_target(
                 let _ = draw_line_colored(grid, x, y, x + dx, y + dy, ink, Some(1));
             }
         }
+        SubmissionSlotPhase::TimedOut => {
+            let radius = outer_radius as i32;
+            let _ = draw_circle_colored(grid, x, y, radius as u32, WARNING_AMBER, false);
+        }
         SubmissionSlotPhase::Rejected => {
             let reject = outer_radius as i32;
             let _ = draw_line_colored(
@@ -1209,6 +1224,7 @@ fn submission_target_color(slot: &SubmissionSlotTelemetry) -> DotColor {
         SubmissionSlotPhase::InFlight => WARNING_AMBER,
         SubmissionSlotPhase::Accepted => PHOSPHOR_HOT,
         SubmissionSlotPhase::Rejected => ALERT_RED,
+        SubmissionSlotPhase::TimedOut => WARNING_AMBER,
     }
 }
 

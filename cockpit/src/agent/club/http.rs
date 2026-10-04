@@ -109,7 +109,7 @@ const DEFAULT_STREAM_FIRST_TOKEN_SECS: u64 = 300;
 /// No wall clock on a live model stream unless the operator sets
 /// `ANGEL_STREAM_HARD_SECS`: the stall and first-token windows already catch a
 /// dead connection, and a 900 s default cut a GLM-5.3 high-effort think off
-/// mid-reasoning while it was still streaming (Yukon night, 2026-10-01).
+/// mid-reasoning while it was still streaming (a competition night, 2026-10-01).
 const DEFAULT_STREAM_HARD_SECS: u64 = 0;
 const DEFAULT_STREAM_TOOL_SILENCE_SECS: u64 = 900;
 const STREAM_HEARTBEAT_MIN_INTERVAL_SECS: u64 = 15;
@@ -579,7 +579,7 @@ const DEEPSEEK_MODEL_CARD_MAX_TOKENS: u32 = 256_000;
 /// GLM-5.3's output cap when no operator cap is set: the API's own ceiling
 /// (z.ai answers `[1,131072]` for glm-5.3 and glm-5.3-flash). Left unset, the
 /// provider default cut a 15-minute high-effort think off mid-reasoning with
-/// no answer and no call (`finish_reason=length`, Yukon night 2026-10-01).
+/// no answer and no call (`finish_reason=length`, a competition night 2026-10-01).
 const GLM_MODEL_CARD_MAX_TOKENS: u32 = 131_072;
 
 pub(crate) fn is_deepseek_v4_model(model_l: &str) -> bool {

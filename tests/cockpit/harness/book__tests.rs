@@ -241,6 +241,7 @@ fn the_competition_loop_engages_as_a_double_encoded_warpath() {
         score: Some("948.94M".into()),
         rejection_reason: None,
         source_note: None,
+        receipt: None,
     };
     assert_eq!(warpath(&root, &k_competition::watcher(&notify)), "⠅⠉⠅⠙");
     let decoded = ledger::read(&root, "⠅⠉").unwrap();
@@ -761,7 +762,7 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ),
     (
         "⠅⠛",
-        "\n[always driving competition doctrine] ALWAYS BE IMPROVING. The competition loop is a revolving door of constant output: the current BEST goes up to bat immediately, and the next best is prepped while that slot is in flight. Sitting, polling, or waiting on a prepped submission is a failure. Once a submission is in play, immediately branch the winning baseline, formulate the next hypothesis, run local preflights, and push the frontier. The harness watcher owns in-flight status — do not poll-wait.\n",
+        "\n[always driving competition doctrine] ALWAYS BE IMPROVING. The competition loop is a revolving door of constant output: the current BEST goes up to bat immediately, and the next best is prepped while that slot is in flight. Submit a verified competitive candidate promptly; inspect pending results when useful. Once a submission is in play, immediately branch the winning baseline, formulate the next hypothesis, run local preflights, and push the frontier. The agent owns result follow-through. Inspect the exact ID with the platform CLI.\n",
     ),
     (
         "⠞⠛",
@@ -974,7 +975,7 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ),
     (
         "⠻⠊",
-        "You are a competition loop worker on the yukon benchmark family. Work the repo: read, edit, build, run the benchmark, submit through the board CLI exactly as the loop task directs. Every harness tool is yours: run long benchmarks as background jobs with proc_run and keep working while they finish.",
+        "You are a competition loop worker. Work the repo: read, edit, build, run the benchmark, submit through the board CLI exactly as the loop task directs. Every harness tool is yours: run long benchmarks as background jobs with proc_run and keep working while they finish.",
     ),
     (
         "⠻⠚",
@@ -1097,11 +1098,11 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ),
     (
         "⠘⠉",
-        "no comparable objective improvement recorded yet; progress remains unknown. Inspect existing evidence against the fixed baseline. Preserve an unfinished discriminating experiment until its result is available; do not abandon a sustained deep-cut hypothesis merely because this review is due. Retire only a disproved hypothesis, then choose the next concrete mechanism and smallest available check. Repeated competitive submissions of unchanged candidates are banned; do not redraw to obtain a new receipt.",
+        "no comparable objective improvement recorded yet; progress remains unknown. Inspect existing evidence against the current promoted leader source and score. Preserve an unfinished discriminating experiment until its result is available; do not abandon a sustained deep-cut hypothesis merely because this review is due. Retire only a disproved hypothesis, then choose the next concrete mechanism and smallest available check. Repeated competitive submissions of unchanged candidates are banned; do not redraw to obtain a new receipt.",
     ),
     (
         "⠘⠙",
-        "measurement/submission execution recorded; a receipt is not comparable objective improvement. Compare the retained result with the fixed baseline using the available verifier. Repeated competitive submissions of unchanged candidates are banned; a new receipt ID, timestamp, or note does not authorize a redraw. Use the comparison to retire the hypothesis or choose the next concrete mechanism.",
+        "measurement/submission execution recorded; a receipt is not comparable objective improvement. Compare the retained result with the current promoted leader using the available verifier. Repeated competitive submissions of unchanged candidates are banned; a new receipt ID, timestamp, or note does not authorize a redraw. Use the comparison to retire the hypothesis or choose the next concrete mechanism.",
     ),
     (
         "⠘⠑",
@@ -1285,7 +1286,7 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ),
     (
         "⠠⠋",
-        "[forced sequence directive]\nI want you to compete for me using this cockpit and its agentic tools/resources at your disposal. I want you to place victories on the board, remember to check the board before submitting. - ALWAYS BE IMPROVING: the revolving door never stops. The current BEST goes up to bat now. Sitting, polling, or waiting on a prepped submission is a failure. - Once a submission is in play, immediately improve the next best on the newest winning baseline: isolate the next hot-path hypothesis, price the phase, cross-compile locally for register/spill checks, assert zero-fallback correctness, and submit that bat. The harness watcher owns in-flight status.\n[/forced sequence directive]",
+        "[forced sequence directive]\nI want you to compete for me using this cockpit and its agentic tools/resources at your disposal. I want you to place victories on the board, remember to check the board before submitting. - ALWAYS BE IMPROVING: the revolving door never stops. The current BEST goes up to bat now. Submit a verified competitive candidate promptly; inspect pending results when useful. - Once a submission is in play, immediately improve the next best on the newest winning baseline: isolate the next hot-path hypothesis, price the phase, cross-compile locally for register/spill checks, assert zero-fallback correctness, and submit that bat. Check the exact submission result explicitly; automatic tracking is not connected to ordinary submissions.\n[/forced sequence directive]",
     ),
     (
         "⠠⠙⠑⠠⠙⠋⠠⠙⠛⠠⠙⠓",

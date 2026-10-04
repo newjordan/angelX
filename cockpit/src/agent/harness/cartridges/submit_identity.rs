@@ -1,6 +1,6 @@
 //! Truthful attribution on competition submissions.
 //!
-//! Board CLIs (`yukon`, installed as `hilbert`) require `--model` and
+//! Board CLIs (each cartridge's `boards`) require `--model` and
 //! `--harness` and print them on the public leaderboard and in the public
 //! note. Models fill those flags by copying whatever they last read — a
 //! leader's note head, a template, an older submission — so 2026-09-10 the
@@ -76,21 +76,79 @@ fn redact_excerpt(text: &str) -> String {
     s
 }
 
+fn dispatched_json(output: &str) -> Option<serde_json::Value> {
+    // Handles pretty or compact --json output with CLI notices preceding it.
+    // Run only after the existing literal-command recognizer found a submit.
+    for (at, _) in output.match_indices('{').take(64) {
+        let mut stream =
+            serde_json::Deserializer::from_str(&output[at..]).into_iter::<serde_json::Value>();
+        if let Some(Ok(body)) = stream.next()
+            && let Some(id) = body["submission"]["id"].as_str()
+            && super::records::valid_uuid(id)
+        {
+            return Some(body);
+        }
+    }
+    None
+}
+
+fn dispatched_id(output: &str) -> Option<String> {
+    dispatched_json(output)
+        .and_then(|body| body["submission"]["id"].as_str().map(str::to_owned))
+        .or_else(|| crate::agent::harness::extract_submission_id(output))
+}
+
+/// Retain the small dispatch receipt independently of rotating process logs.
+/// Streams stay separate so stderr cannot split stdout's JSON. Only stamped
+/// submit processes allocate this bounded capture; after finding a receipt the
+/// normal log pumps do no more parsing.
+#[derive(Default)]
+pub(crate) struct DispatchCapture {
+    streams: [Vec<u8>; 2],
+    receipt: Option<String>,
+}
+
+impl DispatchCapture {
+    pub(crate) fn observe(&mut self, stream: &str, bytes: &[u8]) {
+        if self.receipt.is_some() {
+            return;
+        }
+        const WINDOW: usize = 64 * 1024;
+        let buffer = &mut self.streams[usize::from(stream == "stderr")];
+        buffer.extend_from_slice(bytes);
+        if buffer.len() > WINDOW {
+            buffer.drain(..buffer.len() - WINDOW);
+        }
+        let output = String::from_utf8_lossy(buffer);
+        self.receipt = dispatched_json(&output)
+            .map(|body| body.to_string())
+            .or_else(|| {
+                output
+                    .lines()
+                    .filter(|line| crate::agent::harness::text_may_carry_slot(line))
+                    .find_map(crate::agent::harness::extract_submission_id)
+                    .map(|id| format!("Submission queued {id}"))
+            });
+        if self.receipt.is_some() {
+            self.streams = Default::default();
+        }
+    }
+
+    pub(crate) fn receipt(&self) -> Option<&str> {
+        self.receipt.as_deref()
+    }
+}
+
 fn classify_outcome(exit: i32, output: &str) -> String {
+    if dispatched_id(output).is_some() {
+        return "dispatched".into();
+    }
     let lower = output.to_ascii_lowercase();
     if exit != 0 || lower.contains("refuse") {
         return "refused".into();
     }
     if lower.contains("rejected") || lower.contains("byte-gate") || lower.contains("byte gate") {
         return "rejected".into();
-    }
-    // Shell output is not an authoritative status channel. Enqueue is not acceptance.
-    if output
-        .lines()
-        .any(|line| line.trim().eq_ignore_ascii_case("submission queued"))
-        && crate::agent::harness::extract_submission_id(output).is_some()
-    {
-        return "dispatched".into();
     }
     "unknown".into()
 }
@@ -102,19 +160,23 @@ pub(crate) fn journal_execution(
     workspace: Option<&Path>,
     exit: Option<i32>,
     output: &str,
-) {
+) -> Option<String> {
     if matches!(submission_words(command), Ok(words) if words.is_empty()) {
-        return;
+        return None;
     }
     let exit_code = exit.unwrap_or(-1);
     let model = model_label();
     let words = submission_words(command)
         .ok()
         .and_then(|mut batches| (batches.len() == 1).then(|| batches.remove(0)));
+    let command_workspace = words
+        .as_ref()
+        .and_then(|words| leading_cd_anchor(command, words, workspace));
+    let workspace = command_workspace.as_deref().or(workspace);
     let note_sha = words
         .as_ref()
         .and_then(|words| {
-            if !command[..words[0].start].trim().is_empty() {
+            if !command[..words[0].start].trim().is_empty() && command_workspace.is_none() {
                 return None;
             }
             note_file_path(&command[words[0].start..words.last()?.end], workspace)
@@ -122,6 +184,44 @@ pub(crate) fn journal_execution(
         .and_then(|path| std::fs::read(path).ok())
         .map(|bytes| crate::knowledge::cut::sha256_hex(&bytes))
         .unwrap_or_default();
+    let outcome = if model.is_err() {
+        "refused".to_owned()
+    } else {
+        classify_outcome(exit_code, output)
+    };
+    let submission_id = (outcome == "dispatched")
+        .then(|| dispatched_id(output))
+        .flatten();
+    let persistence_error = if let (Some(id), Some(workspace)) = (submission_id.as_ref(), workspace)
+    {
+        // Use the CLI's submitted commit, not a post-submit scan of a workspace
+        // that may already contain the next candidate. No extra tree hashing.
+        let git_commit_id = dispatched_json(output).and_then(|body| {
+            body["submission"]["submissionCommitSha"]
+                .as_str()
+                .filter(|s| matches!(s.len(), 40 | 64) && s.bytes().all(|b| b.is_ascii_hexdigit()))
+                .map(str::to_owned)
+        });
+        let identity = super::records::CandidateIdentity {
+            git_commit_id,
+            ..Default::default()
+        };
+        super::active()
+            .map_or(Ok(()), |cartridge| {
+                cartridge.hooks().record_dispatch(
+                    workspace,
+                    id,
+                    identity.clone(),
+                    tool,
+                    (!note_sha.is_empty()).then_some(note_sha.as_str()),
+                    model.as_deref().ok(),
+                    Some(HARNESS_LABEL),
+                )
+            })
+            .err()
+    } else {
+        None
+    };
     let entry = SubmitJournalEntry {
         workspace: workspace.and_then(|p| p.canonicalize().ok()),
         turn: crate::agent::harness::run_identity::live_turn(),
@@ -136,15 +236,14 @@ pub(crate) fn journal_execution(
         harness: HARNESS_LABEL.to_string(),
         exit_code,
         platform_response_excerpt: redact_excerpt(output),
-        outcome: if model.is_err() {
-            "refused".into()
-        } else {
-            classify_outcome(exit_code, output)
-        },
+        outcome,
     };
     if let Ok(mut g) = journal().lock() {
         g.push(entry);
+    } else {
+        return Some("submission journal lock poisoned".into());
     }
+    persistence_error
 }
 
 /// The rewritten command plus the notice the tool result carries.
@@ -153,9 +252,20 @@ pub(crate) struct Stamped {
     pub notice: String,
 }
 
+fn is_board(name: &str) -> bool {
+    super::boards().any(|board| board == name)
+}
+
 fn submit_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\b(yukon|hilbert)(\s+)submit\b").expect("submit regex"))
+    RE.get_or_init(|| {
+        let boards: Vec<String> = super::boards().map(regex::escape).collect();
+        if boards.is_empty() {
+            // No board is plugged in: nothing is a submit.
+            return Regex::new(r"[^\s\S]").expect("empty submit regex");
+        }
+        Regex::new(&format!(r"\b({})(\s+)submit\b", boards.join("|"))).expect("submit regex")
+    })
 }
 
 #[derive(Debug)]
@@ -362,7 +472,7 @@ fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
         if matches!(name, "sudo" | "timeout" | "nice" | "nohup" | "xargs")
             && words
                 .iter()
-                .any(|w| matches!(w.value.as_str(), "yukon" | "hilbert"))
+                .any(|w| is_board(&w.value))
             && words.iter().any(|w| w.value == "submit")
         {
             return Err(
@@ -370,7 +480,7 @@ fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
                     .into(),
             );
         }
-        if !matches!(name, "yukon" | "hilbert") {
+        if !is_board(name) {
             if words.iter().any(|word| {
                 word.dynamic
                     && (word.value.contains("$(") || word.value.contains('`'))
@@ -525,7 +635,7 @@ pub(crate) fn stamp(command: &str, workspace: Option<&Path>) -> Result<Option<St
     let model = match model_label() {
         Ok(model) => model,
         Err(error) => {
-            journal_execution("identity_guard", command, workspace, None, &error);
+            let _ = journal_execution("identity_guard", command, workspace, None, &error);
             return Err(error);
         }
     };
@@ -590,18 +700,7 @@ pub(crate) fn stamp(command: &str, workspace: Option<&Path>) -> Result<Option<St
     for words in &submissions {
         let segment = &command[words[0].start..words.last().unwrap().end];
         let prefix = command[..words[0].start].trim();
-        let anchor = prefix
-            .strip_suffix("&&")
-            .and_then(|prefix| crate::agent::tools::build::parse_direct_argv(prefix.trim()).ok())
-            .filter(|argv| argv.len() == 2 && argv[0] == "cd")
-            .map(|argv| expand_home(&argv[1]))
-            .and_then(|dir| {
-                if dir.is_absolute() {
-                    Some(dir)
-                } else {
-                    workspace.map(|w| w.join(dir))
-                }
-            });
+        let anchor = leading_cd_anchor(command, words, workspace);
         // More complex directory transitions cannot authenticate a note path.
         if !prefix.is_empty() && anchor.is_none() {
             continue;
@@ -624,6 +723,25 @@ pub(crate) fn stamp(command: &str, workspace: Option<&Path>) -> Result<Option<St
         command: stamped,
         notice,
     }))
+}
+
+/// Use the same statically known directory for note correction and the eventual
+/// receipt. A shell/proc tool's initial cwd may precede `cd candidate && submit`.
+/// More complex directory transitions retain the existing conservative handling.
+fn leading_cd_anchor(command: &str, words: &[Word], workspace: Option<&Path>) -> Option<PathBuf> {
+    command[..words.first()?.start]
+        .trim()
+        .strip_suffix("&&")
+        .and_then(|prefix| crate::agent::tools::build::parse_direct_argv(prefix.trim()).ok())
+        .filter(|argv| argv.len() == 2 && argv[0] == "cd")
+        .map(|argv| expand_home(&argv[1]))
+        .and_then(|dir| {
+            if dir.is_absolute() {
+                Some(dir)
+            } else {
+                workspace.map(|w| w.join(dir))
+            }
+        })
 }
 
 fn expand_home(path: &str) -> PathBuf {
@@ -710,5 +828,5 @@ fn correct_note_file(path: &Path, model: &str) -> std::io::Result<usize> {
 }
 
 #[cfg(test)]
-#[path = "../../../../../../tests/cockpit/tools/submit_identity__tests.rs"]
+#[path = "../../../../../tests/cockpit/tools/submit_identity__tests.rs"]
 mod tests;

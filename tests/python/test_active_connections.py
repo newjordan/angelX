@@ -10,6 +10,24 @@ spec.loader.exec_module(module)
 
 
 class ActiveConnectionsTest(unittest.TestCase):
+    def test_orphaned_unit_tests_and_missing_integration_targets_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'cockpit/src').mkdir(parents=True)
+            (root / 'tests/cockpit').mkdir(parents=True)
+            (root / 'cockpit/Cargo.toml').write_text(
+                '[[bin]]\nname="fixture"\npath="src/main.rs"\n'
+                '[[test]]\nname="integration"\npath="../tests/cockpit/integration.rs"\n')
+            (root / 'cockpit/src/main.rs').write_text('fn main() {}')
+            (root / 'tests/cockpit/disconnected.rs').write_text('#[test]\nfn never_runs() {}')
+            report = module.audit(root)
+            self.assertEqual(report['rust_files_without_anchor'], ['tests/cockpit/disconnected.rs'])
+            self.assertEqual(report['missing_literal_targets'], [
+                {'source': 'cockpit/Cargo.toml', 'target': '../tests/cockpit/integration.rs'}])
+            (root / 'tests/cockpit/integration.rs').write_text(
+                '#[path="disconnected.rs"]\nmod unit;\n')
+            self.assertTrue(module.audit(root)['ok'])
+
     def test_live_module_and_include_anchors_with_missing_route(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -37,6 +55,16 @@ class ActiveConnectionsTest(unittest.TestCase):
             report = module.audit(root)
             self.assertEqual(report['source_files_checked'], 1)
             self.assertEqual(len(report['missing_literal_targets']), 2)
+
+    def test_targets_source_directory_is_not_a_build_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'cockpit/src/targets').mkdir(parents=True)
+            (root / 'cockpit/src/targets/mod.rs').write_text('include!("missing.rs");')
+            report = module.audit(root)
+            self.assertEqual(report['source_files_checked'], 1)
+            self.assertEqual(report['missing_literal_targets'], [
+                {'source': 'cockpit/src/targets/mod.rs', 'target': 'missing.rs'}])
 
     def test_symlinked_source_ancestor_is_not_even_enumerated(self):
         with tempfile.TemporaryDirectory() as tmp:

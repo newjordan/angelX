@@ -44,7 +44,7 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
                 | "--build-info"
                 | "--bind-graph-reward"
                 | "--jev-json"
-                | "--yukon-status"
+                | "--comp-status"
                 | "--watch-fixture"
                 | "--export-harness-rollout"
                 | "--audit-harness-rollout"

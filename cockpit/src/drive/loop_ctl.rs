@@ -73,6 +73,8 @@ use std::time::{Duration, Instant};
 
 mod brief;
 mod evidence;
+#[cfg(test)]
+pub(crate) use evidence::{apply_reply, reconcile_submission_results};
 mod recovery;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/loop_ctl/recovery_tests.rs"]
@@ -283,7 +285,7 @@ pub(crate) struct BriefJob {
     started: Instant,
 }
 
-/// One `hilbert|yukon submit` journaled by submit_identity after the tool ran.
+/// One `<board> submit` journaled by submit_identity after the tool ran.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SubmissionLogRow {
     #[serde(default)]
@@ -391,9 +393,12 @@ pub struct LoopState {
     /// Novel verified submission receipts this run.
     #[serde(default)]
     pub submissions: usize,
-    /// Every stamped `hilbert|yukon submit --model grok-4.6 --harness angelX` (accepted, refused, or rejected).
+    /// Every stamped `<board> submit --model grok-4.6 --harness angelX` (accepted, refused, or rejected).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub submissions_log: Vec<SubmissionLogRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) submission_results:
+        Vec<crate::agent::harness::cartridges::records::TerminalEvidence>,
     /// angelX binary identity at loop start / last change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binary: Option<LoopBinaryIdentity>,
@@ -1483,9 +1488,9 @@ impl crate::App {
             self.loop_ctl.pivot,
             self.loop_ctl.interval_secs
         );
-        // A mistyped ANGEL_COMP_PACKAGE falls back to the default worker
-        // profile; say so where the operator is looking.
-        if let Some(error) = crate::agent::harness::comp_packages::selection_error() {
+        // A mistyped ANGEL_CARTRIDGE falls back to the default cartridge;
+        // say so where the operator is looking.
+        if let Some(error) = crate::agent::harness::cartridges::selection_error() {
             started.push_str(&format!("\n  {error}"));
         }
         started
@@ -1779,12 +1784,11 @@ impl crate::App {
         // competition package's worker profile + the worker route `⠻⠁` + the goal: no
         // skill/secret surface hands off into an autonomous loop.
         let mut system = String::new();
-        if self.loop_active() {
-            system.push_str(
-                crate::agent::harness::comp_packages::active_package()
-                    .worker_profile()
-                    .system_prompt,
-            );
+        if self.loop_active()
+            && let Some(cartridge) = crate::agent::harness::cartridges::active()
+            && !cartridge.worker().is_empty()
+        {
+            system.push_str(cartridge.worker());
             system.push_str("\n\n");
         }
         // The worker's frame is `⠻⠁`; its words are the ledger pages.
@@ -2234,8 +2238,12 @@ impl crate::App {
         // benchmark/verify/submit action still blocks the verification path.
         register_verified_outcome_actions(&mut self.loop_ctl, &tools.verified_outcome_actions);
         attach_measurement_results(&mut self.loop_ctl, &tools);
+        evidence::drain_submission_journal(&mut self.loop_ctl);
+        let official_progress = evidence::reconcile_submission_results(&mut self.loop_ctl);
         self.loop_ctl.observe_verifier_failure(&tools);
-        if provider_blocked || session_fault.is_some() {
+        if official_progress > 0 {
+            self.loop_ctl.stale_count = 0;
+        } else if provider_blocked || session_fault.is_some() {
             // Provider configuration and local-session death are not research
             // stalls. The former waits; the latter opens a fresh context.
         } else if self.loop_ctl.podrace || (novel_outcome_actions == 0 && !workspace_changed) {

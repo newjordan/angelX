@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 mod journal;
-mod measurement;
+pub(crate) mod measurement;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/research_workspace__tests.rs"]
 mod tests;

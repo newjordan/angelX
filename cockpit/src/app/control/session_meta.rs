@@ -230,6 +230,8 @@ impl App {
         self.media_scroll = 0;
         // A screenshot staged before /cd belongs to the thread being detached.
         self.clipboard_paste.clear();
+        self.pending_stage_copy = None;
+        self.clipboard_image_copy = None;
         self.world = crate::stage::world_viz::World::for_workspace(&target);
         self.together = crate::drive::together::Together::default();
         self.dungeon = Default::default();

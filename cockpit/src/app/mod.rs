@@ -217,6 +217,11 @@ pub(crate) enum WorldButton {
     ScryglassWorld,
     ScryglassLibrary,
     ScryglassVault,
+    Assets,
+    Tower,
+    AssetSelect(usize),
+    AssetCopy(crate::ui::scryglass::StageCopyTarget),
+    AssetOpenExternal,
     #[allow(dead_code)]
     ScryglassPrev,
     #[allow(dead_code)]
@@ -615,15 +620,13 @@ pub(crate) struct App {
     /// When the current submission went in flight; drives the slot's
     /// constellation bar. Cleared when the watcher reports a verdict.
     pub(crate) submission_slot_since: Option<Instant>,
-    /// Personal submission telemetry across Yukon's currently open
+    /// Personal submission telemetry across the active cartridge's open
     /// competitions. Polling is one-shot, off-thread, and competition-only.
-    pub(crate) yukon_fleet: crate::agent::harness::comp_packages::yukon::fleet::YukonFleetState,
-    pub(crate) yukon_fleet_rx: Option<
-        mpsc::Receiver<
-            Result<crate::agent::harness::comp_packages::yukon::fleet::YukonFleetSnapshot, String>,
-        >,
+    pub(crate) comp_fleet: crate::agent::harness::cartridges::fleet::FleetState,
+    pub(crate) comp_fleet_rx: Option<
+        mpsc::Receiver<Result<crate::agent::harness::cartridges::fleet::FleetSnapshot, String>>,
     >,
-    pub(crate) yukon_fleet_polled_at: Instant,
+    pub(crate) comp_fleet_polled_at: Instant,
     /// Off-thread work the loop is awaiting (acceptance command / SOTA approval).
     pub(crate) loop_pending: Option<crate::drive::loop_ctl::LoopPending>,
     /// The loop's project brief, gathering off-thread.
@@ -820,6 +823,8 @@ pub(crate) struct App {
     /// Text extracted from a finished selection, awaiting the clipboard write in
     /// the run loop (kept out of `ui()` so the stdout write never races a draw).
     pub(crate) pending_clipboard: Option<String>,
+    pub(crate) pending_stage_copy: Option<crate::ui::scryglass::StageCopyPayload>,
+    pub(crate) clipboard_image_copy: Option<crate::ui::clipboard::ClipboardImageCopy>,
     /// One-shot full backend invalidation requested by `/redraw` or Ctrl-L.
     /// The run loop consumes it immediately before the next draw.
     pub(crate) redraw_requested: bool,
@@ -1238,11 +1243,10 @@ impl App {
             loop_ctl: crate::drive::loop_ctl::LoopState::default(),
             submission_slot: crate::agent::harness::SubmissionSlotTelemetry::default(),
             submission_slot_since: None,
-            yukon_fleet:
-                crate::agent::harness::comp_packages::yukon::fleet::YukonFleetState::default(),
-            yukon_fleet_rx: None,
-            yukon_fleet_polled_at: Instant::now()
-                .checked_sub(crate::agent::harness::comp_packages::yukon::fleet::POLL_INTERVAL)
+            comp_fleet: crate::agent::harness::cartridges::fleet::FleetState::default(),
+            comp_fleet_rx: None,
+            comp_fleet_polled_at: Instant::now()
+                .checked_sub(crate::agent::harness::cartridges::fleet::POLL_INTERVAL)
                 .unwrap_or_else(Instant::now),
             loop_pending: None,
             loop_brief_job: None,
@@ -1308,6 +1312,8 @@ impl App {
             scryglass_drag: None,
             copy_requested: false,
             pending_clipboard: None,
+            pending_stage_copy: None,
+            clipboard_image_copy: None,
             redraw_requested: false,
             pending_quick_lookup: None,
             terminal_focused: true,
@@ -1562,6 +1568,8 @@ impl App {
             // A clipboard read is sub-second in practice; polling it on the fast
             // lane keeps the staged chip from waiting on the 200 ms idle tick.
             || self.clipboard_paste.loading()
+            || self.pending_stage_copy.is_some()
+            || self.clipboard_image_copy.is_some()
             || (self.terminal_focused
                 && Self::side_column_visuals_allowed()
                 && self

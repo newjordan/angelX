@@ -313,6 +313,40 @@ fn rooms_render_byte_identically_and_differ_from_each_other() {
     }
 }
 
+#[test]
+fn scrying_glass_is_visible_in_the_production_room_at_mini_and_native_sizes() {
+    let room = super::super::scene::interior_scene(7);
+    let without_glass = Mesh {
+        tris: room
+            .tris
+            .iter()
+            .filter(|tri| tri.mat != mat::CRYSTAL)
+            .copied()
+            .collect(),
+    };
+    for (width, height) in [(80, 64), (256, 224), (768, 672)] {
+        let camera = staged_view(7, &interior_view(0.0, 0.0), width, height);
+        let with = raster::render_scene(&room, &camera, width, height);
+        let without = raster::render_scene(&without_glass, &camera, width, height);
+        let changed = with
+            .pixels()
+            .zip(without.pixels())
+            .filter(|(a, b)| a != b)
+            .count();
+        assert!(
+            changed > width * height / 100,
+            "the glass must occupy visible pixels, not hide behind scenery: {changed} at {width}x{height}"
+        );
+        // The ringed orb belongs in the centre third, not off an edge where
+        // a high-resolution review would conceal a miniature-pane failure.
+        let centre = with.get_pixel((width as f32 * 0.41) as u32, (height as f32 * 0.53) as u32);
+        assert!(
+            centre[2] > centre[0] + 20 && centre[1] > centre[0] + 20,
+            "glass centre is occluded: {centre:?}"
+        );
+    }
+}
+
 // ── the fire breathes ─────────────────────────────────────────────────
 
 /// The eight civic landmarks in `building_index` order, so these rails can

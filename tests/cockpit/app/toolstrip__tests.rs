@@ -147,11 +147,11 @@ fn snapshot_retains_error_counts_and_dedupes_costly_command_shape() {
     );
 
     let mut changed_status = ToolStrip::default();
-    changed_status.call("shell", "hilbert status candidate-1");
+    changed_status.call("shell", "board status candidate-1");
     changed_status.result("shell", "score=1.2");
     let first_status = changed_status.snapshot().outcome_actions;
     let mut changed_status = ToolStrip::default();
-    changed_status.call("shell", "hilbert status candidate-1");
+    changed_status.call("shell", "board status candidate-1");
     changed_status.result("shell", "score=1.3");
     assert_ne!(
         first_status,
@@ -167,7 +167,7 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
     let mut churn = ToolStrip::default();
     churn.call("shell", "git status --short");
     churn.result("shell", "M src/kernel.cu");
-    churn.call("shell", "yukon submissions --all");
+    churn.call("shell", "board submissions --all");
     churn.result("shell", "829: scored, 827: rejected");
     churn.call("shell", "./benchmark.sh --local-iterate");
     churn.result(
@@ -233,8 +233,8 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
     reads.result("shell", "{\"score\": 0.8651}");
     reads.call("shell", "grep -n score recon/benchmark.log | tail -3");
     reads.result("shell", "score=0.83");
-    reads.call("shell", "hilbert submit --help > recon/submit-help.txt");
-    reads.result("shell", "usage: hilbert submit [--note-file] …");
+    reads.call("shell", "board submit --help > recon/submit-help.txt");
+    reads.result("shell", "usage: board submit [--note-file] …");
     reads.call(
         "code_mode",
         "allow_effects=false, query=plan: search benchmark contract",
@@ -273,12 +273,12 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
 
     // A real submit is a submission receipt.
     let mut submit = ToolStrip::default();
-    submit.call("shell", "yukon submit cand.py --note 'v2 kernel'");
+    submit.call("shell", "board submit cand.py --note 'v2 kernel'");
     submit.result("shell", "submission 829 accepted");
     let snap = submit.snapshot();
     assert_eq!(snap.verified_outcome_actions.len(), 1);
     assert!(
-        snap.verified_outcome_actions[0].starts_with("submitted:shell:yukon submit"),
+        snap.verified_outcome_actions[0].starts_with("submitted:shell:board submit"),
         "{}",
         snap.verified_outcome_actions[0]
     );
@@ -855,9 +855,9 @@ py
         "cd /home/user/comps/qwen/qwen38-125b-a6b-cuda-v1 && tools/local-baseline.sh",
         "CUDA_ENGINE_EXECUTABLE=/x/cuda-engine ./tools/qwen38-125b-a6b-measure-and-score.sh",
         "timeout 900 bash tools/benchmark.sh --local-iterate",
-        // The Yukon board CLI's own local run (apollo's bitcoin loop).
-        "cd qsb-frontier && yukon run --track pinning",
-        "yukon validate --track subset",
+        // The Board board CLI's own local run (apollo's bitcoin loop).
+        "cd qsb-frontier && board run --track pinning",
+        "board validate --track subset",
     ] {
         let fp = measured_submission_fingerprint("shell", cmd);
         assert!(
@@ -865,7 +865,7 @@ py
             "{cmd} should be a measurement: {fp:?}"
         );
     }
-    for read in ["yukon benchmark list", "yukon run --help", "yukon status"] {
+    for read in ["board benchmark list", "board run --help", "board status"] {
         assert!(
             measured_submission_fingerprint("shell", read).is_none(),
             "{read} is not a measurement"
@@ -881,7 +881,7 @@ py
         "reads of submission paths are not submissions"
     );
     assert!(
-        measured_submission_fingerprint("shell", "hilbert submit --note-file note.md")
+        measured_submission_fingerprint("shell", "board submit --note-file note.md")
             .is_some_and(|(_, sub)| sub)
     );
     let segs = command_segments(r#"a | b 'x|y' && c "d;e" ; f"#);
@@ -894,10 +894,10 @@ py
 #[test]
 fn measured_receipt_names_the_segment_that_qualified() {
     // Heesch loop finding 2026-09-25: this line was recorded as
-    // `measured:shell:yukon --help` — the label came from the first segment
+    // `measured:shell:board --help` — the label came from the first segment
     // while the qualification scanned all of them. The segment that measured
     // was the `heesch_verify` one.
-    let line = "yukon --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify submission/best.heesch 2>&1 | tail -40";
+    let line = "board --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify submission/best.heesch 2>&1 | tail -40";
     assert_eq!(
         measured_submission_fingerprint("shell", line),
         Some((
@@ -912,9 +912,9 @@ fn measured_receipt_names_the_segment_that_qualified() {
     assert_eq!(
         measured_submission_fingerprint(
             "shell",
-            "yukon --help; ./benchmark.sh; hilbert submit cand.py"
+            "board --help; ./benchmark.sh; board submit cand.py"
         ),
-        Some(("shell:hilbert submit cand.py".to_string(), true))
+        Some(("shell:board submit cand.py".to_string(), true))
     );
     // A single-segment measurement keeps the fingerprint it had before.
     assert_eq!(
@@ -972,7 +972,7 @@ fn remote_and_locked_measurements_count() {
             false
         ))
     );
-    let remote_submit = format!("{ssh} 'cd /workspace/qsb && yukon submit --note-file n.md'");
+    let remote_submit = format!("{ssh} 'cd /workspace/qsb && board submit --note-file n.md'");
     assert_eq!(
         measured_submission_fingerprint("shell", &remote_submit).map(|(_, submit)| submit),
         Some(true)
@@ -1061,7 +1061,7 @@ fn echoed_nonzero_verifier_exit_is_not_hidden_by_successful_shell() {
 fn detached_starts_do_not_advance_loop_progress_or_measurement_clocks() {
     for (tool, command) in [
         ("proc_run", "./benchmark.sh"),
-        ("proc_run", "yukon submit candidate"),
+        ("proc_run", "board submit candidate"),
         ("shell", "nohup ./benchmark.sh > run.log 2>&1 &"),
         (
             "shell",

@@ -342,13 +342,13 @@ fn an_evidence_block_marks_a_missing_claim_with_its_page() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn incomplete_swarm_evidence_fixture() {
     use crate::agent::service_process::tests::{
         FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
     };
-    let Some(root) = std::env::var_os("ANGEL_T_SWARM_EVIDENCE_EOF") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_SWARM_EVIDENCE_EOF")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let root = std::path::Path::new(&root);
     let request = TestRequest {

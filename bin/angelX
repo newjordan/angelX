@@ -126,7 +126,7 @@ elif [ "${1:-}" = --workspace ]; then
   WORKSPACE_ARG="$2"; shift 2
 fi
 case "${1:-}" in
-  --ask | --task | --task-json | --atlas | --build-info | --look-image | --jev-json | --yukon-status | \
+  --ask | --task | --task-json | --atlas | --build-info | --look-image | --jev-json | --comp-status | \
   --export-harness-rollout | --audit-harness-rollout | --bind-graph-reward | --watch-fixture | \
   --tool-http-helper | --sandbox-exec | --audit-coding-eval-training | --board-sync | --loop | --rollout | \
   --dump-preview | --dump-preview-portrait | --dump-research-preview | --dump-rl-preview | --dump-scryglass | --dump-visual)

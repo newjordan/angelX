@@ -116,9 +116,9 @@ pub(crate) const PRIMARY: Primary = Primary {
                 "I want you to place victories on the board, remember to check the board before submitting.",
                 "- ALWAYS BE IMPROVING: the revolving door never stops.",
                 "The current BEST goes up to bat now.",
-                "Sitting, polling, or waiting on a prepped submission is a failure.",
+                "Submit a verified competitive candidate promptly; inspect pending results when useful.",
                 "- Once a submission is in play, immediately improve the next best on the newest winning baseline: isolate the next hot-path hypothesis, price the phase, cross-compile locally for register/spill checks, assert zero-fallback correctness, and submit that bat.",
-                "The harness watcher owns in-flight status.\n[/forced sequence directive]",
+                "Check the exact submission result explicitly; automatic tracking is not connected to ordinary submissions.\n[/forced sequence directive]",
             ],
         },
         Sub {

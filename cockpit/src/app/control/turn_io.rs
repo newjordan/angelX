@@ -489,7 +489,7 @@ impl App {
             root,
         };
         self.media.push(card);
-        self.scryglass.reveal_media(self.media.len() - 1, true);
+        let revealed = self.scryglass.receive_media(self.media.len() - 1);
         let _ = self
             .module_host
             .activate(&crate::platform::runtime::ModuleId::new("artifacts"));
@@ -499,7 +499,11 @@ impl App {
                 "{}\nSource: {}",
                 crate::ui::views::turn_event_view::media_delivery_text(
                     label,
-                    Ok("requested in Stage · stays open until dismissed".into())
+                    Ok(if revealed {
+                        "opened in Scryglass · /assets keeps every arrival".into()
+                    } else {
+                        "saved in Assets · current preview kept open".into()
+                    })
                 ),
                 url.escape_debug()
             )
@@ -523,12 +527,12 @@ impl App {
                     }),
                     root: self.tools.workspace_boundary().canonical_root.clone(),
                 });
-                self.scryglass.reveal_media(self.media.len() - 1, true);
+                self.scryglass.receive_media(self.media.len() - 1);
                 let _ = self
                     .module_host
                     .activate(&crate::platform::runtime::ModuleId::new("artifacts"));
                 let mut note = format!(
-                    "artifact captured · {label}\nfile: {}\n(full generated document is in the artifacts panel, not chat)",
+                    "artifact captured · {label}\nfile: {}\nOpen /assets to view and copy the full document.",
                     path.display()
                 );
                 if let Some(context) = candidate.context_note() {
@@ -770,7 +774,7 @@ impl App {
         // Village pulses fold in whether or not the pane is showing — the
         // persisted hamlet state must track the fleet either way.
         self.drain_village_pulses();
-        self.advance_yukon_fleet();
+        self.advance_comp_fleet();
         // Surface a pending approval (e.g. the swarm wanting to phone a SOTA) as a
         // modal. One at a time — the worker blocks until this one is answered.
         if self.pending_approval.is_none()
@@ -1275,12 +1279,47 @@ impl App {
                 }
                 TurnEvent::SubmissionSlot(slot) => {
                     use crate::agent::harness::SubmissionSlotPhase;
+                    let new_flight = self.submission_slot.phase != SubmissionSlotPhase::InFlight
+                        || self.submission_slot.id != slot.id;
                     let same_flight = self.submission_slot.phase == SubmissionSlotPhase::InFlight
                         && self.submission_slot.id == slot.id;
                     if slot.phase != SubmissionSlotPhase::InFlight {
                         self.submission_slot_since = None;
                     } else if !same_flight || self.submission_slot_since.is_none() {
                         self.submission_slot_since = Some(std::time::Instant::now());
+                    }
+                    if slot.id.is_some() {
+                        let id = slot.id.as_deref().unwrap_or("unknown");
+                        let board = crate::agent::harness::cartridges::active()
+                            .map_or("Board", |cartridge| cartridge.label());
+                        let label = format!("{board} submission {}", &id[..id.len().min(8)]);
+                        match slot.phase {
+                            SubmissionSlotPhase::InFlight if new_flight => {
+                                self.world.competition_test_started(&label);
+                            }
+                            SubmissionSlotPhase::InFlight => {
+                                self.world.competition_test_pending(&label);
+                            }
+                            SubmissionSlotPhase::Accepted => {
+                                if let Some(score) = slot.score.as_deref() {
+                                    self.world.competition_test_reported_score(&label, score);
+                                } else {
+                                    self.world.competition_test_complete(&format!(
+                                        "{label} · accepted; score not reported"
+                                    ));
+                                }
+                            }
+                            SubmissionSlotPhase::Rejected => {
+                                self.world.competition_test_error(
+                                    &label,
+                                    &format!("{board} rejected the submission"),
+                                );
+                            }
+                            SubmissionSlotPhase::TimedOut => {
+                                self.world.competition_test_timeout(&label);
+                            }
+                            SubmissionSlotPhase::Empty | SubmissionSlotPhase::Dormant => {}
+                        }
                     }
                     self.submission_slot = slot;
                 }
@@ -1696,26 +1735,85 @@ impl App {
         seats.clamp(1, 8) as u8
     }
 
-    /// Keep the competition fleet fresh without ever running Yukon on the UI
-    /// thread. A worker must settle before the cadence can arm another;
+    /// Keep the competition fleet fresh without ever running a board CLI on
+    /// the UI thread. A worker must settle before the cadence can arm another;
     /// hidden, ordinary, and test loops never start network work.
-    fn advance_yukon_fleet(&mut self) {
+    fn advance_comp_fleet(&mut self) {
+        let cartridge = crate::agent::harness::cartridges::active();
+        let label = cartridge.map_or("Fleet", |cartridge| cartridge.label());
         let mut settled = None;
-        if let Some(rx) = self.yukon_fleet_rx.as_ref() {
+        if let Some(rx) = self.comp_fleet_rx.as_ref() {
             match rx.try_recv() {
                 Ok(result) => settled = Some(result),
                 Err(mpsc::TryRecvError::Empty) => {}
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    settled = Some(Err("Yukon fleet watcher disconnected".to_string()));
+                    settled = Some(Err(format!("{label} fleet watcher disconnected")));
                 }
             }
         }
         if let Some(result) = settled {
-            self.yukon_fleet_rx = None;
-            self.yukon_fleet_polled_at = std::time::Instant::now();
+            self.comp_fleet_rx = None;
+            self.comp_fleet_polled_at = std::time::Instant::now();
             match result {
-                Ok(snapshot) => self.yukon_fleet.apply(snapshot),
-                Err(error) => self.yukon_fleet.fail(error),
+                Ok(snapshot) => {
+                    if snapshot.failed_benchmarks > 0 {
+                        self.world.competition_test_error(
+                            &format!("{label} status poll"),
+                            &format!("{} benchmark queries failed", snapshot.failed_benchmarks),
+                        );
+                    } else if let Some(entry) = snapshot.entries.iter().find(|entry| {
+                        matches!(
+                            entry.phase,
+                            crate::agent::harness::cartridges::fleet::SubmissionPhase::Running
+                                | crate::agent::harness::cartridges::fleet::SubmissionPhase::Queued
+                                | crate::agent::harness::cartridges::fleet::SubmissionPhase::Unknown
+                        )
+                    }) {
+                        self.world.competition_test_pending(&format!(
+                            "{} · {} · no score yet",
+                            entry.benchmark, entry.status
+                        ));
+                    } else if let Some(entry) = snapshot.entries.iter().find(|entry| {
+                        entry.phase
+                            == crate::agent::harness::cartridges::fleet::SubmissionPhase::TimedOut
+                    }) {
+                        self.world.competition_test_timeout(&format!(
+                            "{} · {}",
+                            entry.benchmark, entry.status
+                        ));
+                    } else if let Some(entry) = snapshot.entries.iter().find(|entry| {
+                        matches!(
+                            entry.phase,
+                            crate::agent::harness::cartridges::fleet::SubmissionPhase::Accepted
+                                | crate::agent::harness::cartridges::fleet::SubmissionPhase::Rejected
+                        )
+                    }) {
+                        if entry.phase
+                            == crate::agent::harness::cartridges::fleet::SubmissionPhase::Rejected
+                        {
+                            self.world.competition_test_error(
+                                &entry.benchmark,
+                                &format!("{label} status {}", entry.status),
+                            );
+                        } else if let Some(score) = entry.score.as_deref() {
+                            self.world.competition_test_reported_score(
+                                &entry.benchmark,
+                                score,
+                            );
+                        } else {
+                            self.world.competition_test_complete(&format!(
+                                "{} · {} · score not reported",
+                                entry.benchmark, entry.status
+                            ));
+                        }
+                    }
+                    self.comp_fleet.apply(snapshot);
+                }
+                Err(error) => {
+                    self.world
+                        .competition_test_error(&format!("{label} status poll"), &error);
+                    self.comp_fleet.fail(error);
+                }
             }
         }
 
@@ -1723,13 +1821,12 @@ impl App {
             && self.submission_slot.phase != crate::agent::harness::SubmissionSlotPhase::Dormant;
         if !cfg!(test)
             && competition_loop
-            && self.yukon_fleet_rx.is_none()
-            && self.yukon_fleet_polled_at.elapsed()
-                >= crate::agent::harness::comp_packages::yukon::fleet::POLL_INTERVAL
+            && self.comp_fleet_rx.is_none()
+            && let Some(cartridge) = cartridge.filter(|cartridge| cartridge.has_fleet())
+            && self.comp_fleet_polled_at.elapsed() >= cartridge.fleet_interval()
         {
-            self.yukon_fleet.begin_scan();
-            self.yukon_fleet_rx =
-                Some(crate::agent::harness::comp_packages::yukon::fleet::spawn_poll());
+            self.comp_fleet.begin_scan();
+            self.comp_fleet_rx = Some(crate::agent::harness::cartridges::fleet::spawn_poll(cartridge));
         }
     }
 
@@ -2242,6 +2339,70 @@ impl App {
         if matches!(code, KeyCode::Esc) && (self.thinking.is_some() || self.bg_job.is_some()) {
             return false;
         }
+        // Asset shortcuts belong to the focused viewer only while no draft is
+        // being composed. Keep them ahead of the image pan/zoom handler.
+        if self.input.is_empty() && modifiers == KeyModifiers::NONE {
+            let shelf = self.scryglass.surface == crate::ui::scryglass::StageSurface::Assets;
+            if shelf || self.scryglass.active_media().is_some() {
+                let button = match code {
+                    KeyCode::Char('a') => Some(WorldButton::Assets),
+                    KeyCode::Char('t') => Some(WorldButton::Tower),
+                    KeyCode::Char('p') => Some(WorldButton::AssetCopy(
+                        crate::ui::scryglass::StageCopyTarget::Location,
+                    )),
+                    KeyCode::Char('o') => Some(WorldButton::AssetOpenExternal),
+                    KeyCode::Char('c') => self.scryglass.selected_media(&self.media).map(|index| {
+                        let card = &self.media[index];
+                        WorldButton::AssetCopy(if shelf && card.is_video() {
+                            crate::ui::scryglass::StageCopyTarget::Location
+                        } else if card.is_visual() && card.source().is_some() {
+                            crate::ui::scryglass::StageCopyTarget::Image
+                        } else if card.source().is_some() {
+                            crate::ui::scryglass::StageCopyTarget::Text
+                        } else {
+                            crate::ui::scryglass::StageCopyTarget::Location
+                        })
+                    }),
+                    KeyCode::Char('[') => Some(WorldButton::ScryglassPrev),
+                    KeyCode::Char(']') => Some(WorldButton::ScryglassNext),
+                    _ => None,
+                };
+                if let Some(button) = button {
+                    self.apply_world_button(button);
+                    return true;
+                }
+            }
+            if shelf {
+                let delta = match code {
+                    KeyCode::Up => Some(-1),
+                    KeyCode::Down => Some(1),
+                    KeyCode::PageUp => Some(-8),
+                    KeyCode::PageDown => Some(8),
+                    KeyCode::Home => {
+                        Some(-(self.scryglass.selected_media(&self.media).unwrap_or(0) as isize))
+                    }
+                    KeyCode::End => Some(
+                        self.media.len().saturating_sub(1) as isize
+                            - self.scryglass.selected_media(&self.media).unwrap_or(0) as isize,
+                    ),
+                    _ => None,
+                };
+                if let Some(delta) = delta {
+                    self.scryglass.move_asset_selection(delta, &self.media);
+                    return true;
+                }
+                if code == KeyCode::Enter {
+                    if let Some(index) = self.scryglass.selected_media(&self.media) {
+                        self.apply_world_button(WorldButton::AssetSelect(index));
+                    }
+                    return true;
+                }
+                if code == KeyCode::Esc {
+                    self.back_from_visual_surface();
+                    return true;
+                }
+            }
+        }
         if matches!(
             self.scryglass.surface,
             crate::ui::scryglass::StageSurface::Still(_)
@@ -2537,6 +2698,13 @@ impl App {
                 || adventure_camera
             {
                 if self.world.interior_building()
+                    == Some(crate::stage::world_viz::Building::Observatory)
+                    && matches!(code, KeyCode::Enter | KeyCode::Char('a'))
+                {
+                    self.apply_world_button(WorldButton::Assets);
+                    return true;
+                }
+                if self.world.interior_building()
                     == Some(crate::stage::world_viz::Building::Scriptorium)
                     && matches!(code, KeyCode::Enter | KeyCode::Char('c'))
                 {
@@ -2633,6 +2801,12 @@ impl App {
             self.lifecycle_ceremony = None;
             return;
         }
+        if self.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Assets {
+            if !self.scryglass.controller.back() {
+                self.scryglass.return_to_world();
+            }
+            return;
+        }
         if self.world.inside_interior() {
             if self.world.leave_interior() {
                 self.reset_world_yaw();
@@ -2662,6 +2836,7 @@ impl App {
             crate::ui::scryglass::StageSurface::Quest => {}
             crate::ui::scryglass::StageSurface::Lesson => {}
             crate::ui::scryglass::StageSurface::Catalog => {}
+            crate::ui::scryglass::StageSurface::Assets => {}
             crate::ui::scryglass::StageSurface::WorldMap => {}
             crate::ui::scryglass::StageSurface::Arrival(_)
             | crate::ui::scryglass::StageSurface::Still(_)
@@ -3773,8 +3948,43 @@ impl App {
     /// A formation-board control was clicked. Editing or arming only changes the
     /// staged next/session roster; an in-flight turn owns its existing wrapper
     /// until completion.
-    fn apply_world_button(&mut self, btn: WorldButton) {
+    pub(crate) fn apply_world_button(&mut self, btn: WorldButton) {
         match btn {
+            WorldButton::Assets => {
+                self.scryglass.open_assets();
+                self.focus_module("artifacts");
+            }
+            WorldButton::Tower => {
+                while self.scryglass.back_overlay() {}
+                self.world.visit_scrying_tower();
+                self.scryglass
+                    .navigate(crate::ui::scryglass::StageRoute::Explore(
+                        crate::stage::world_viz::Building::Observatory,
+                    ));
+                self.focus_module("artifacts");
+            }
+            WorldButton::AssetSelect(index) => {
+                if index < self.media.len() {
+                    self.scryglass.reveal_media(index, true);
+                    self.focus_module("artifacts");
+                }
+            }
+            WorldButton::AssetCopy(target) => {
+                let command = match target {
+                    crate::ui::scryglass::StageCopyTarget::Location => "stage",
+                    crate::ui::scryglass::StageCopyTarget::Text => "stage text",
+                    crate::ui::scryglass::StageCopyTarget::Image => "stage image",
+                };
+                let receipt = self.copy_response(Some(command));
+                self.system_msg(receipt);
+            }
+            WorldButton::AssetOpenExternal => {
+                if let Some(index) = self.scryglass.selected_media(&self.media) {
+                    let receipt =
+                        crate::app::local_command::open_target_command(&self.media[index].target());
+                    self.system_msg(receipt);
+                }
+            }
             WorldButton::Research(action) => self.research_action(action),
             WorldButton::FormationDeck => self.open_moa_deck(None),
             WorldButton::SelectFormation(id) => self.select_or_arm_moa_card(id),
@@ -3845,7 +4055,10 @@ impl App {
             WorldButton::ScryglassAskTutor => self.draft_current_lesson_for_tutor(),
             WorldButton::ScryglassCopySource => self.copy_current_lesson_source(),
             WorldButton::ScryglassFollow => {
-                if self.world.live_adventure_view() {
+                if self.world.visiting_scrying_tower() {
+                    self.world.follow_overworld();
+                    self.scryglass.return_to_world();
+                } else if self.world.live_adventure_view() {
                     self.reset_world_yaw();
                     self.scryglass.follow();
                 } else if self.scryglass.controller.route()
@@ -3876,9 +4089,33 @@ impl App {
     /// in the run loop *between* draws so the OSC-52 stdout write never races the
     /// ratatui backend.
     pub(crate) fn flush_clipboard(&mut self) {
+        if let Some(payload) = self.pending_stage_copy.take() {
+            self.clipboard_image_copy = None;
+            if let Some(source) = payload.image {
+                match crate::ui::clipboard::ClipboardImageCopy::start(source) {
+                    Ok(copy) => self.clipboard_image_copy = Some(copy),
+                    Err(error) => self.system_msg(error),
+                }
+            } else {
+                let receipt = deliver_to_clipboard(&payload.text, payload.fallback_file);
+                self.system_msg(format!("{} · {receipt}", payload.description));
+            }
+        }
+        if let Some(result) = self
+            .clipboard_image_copy
+            .as_mut()
+            .and_then(|copy| copy.poll())
+        {
+            self.clipboard_image_copy = None;
+            self.system_msg(match result {
+                Ok(receipt) => receipt,
+                Err(error) => format!("Image copy failed: {error}"),
+            });
+        }
         if let Some(text) = self.pending_clipboard.take()
             && !text.is_empty()
         {
+            self.clipboard_image_copy = None;
             let status = deliver_to_clipboard(&text, "last-selection.txt");
             self.system_msg(status);
         }

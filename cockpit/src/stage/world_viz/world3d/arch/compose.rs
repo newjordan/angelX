@@ -41,7 +41,8 @@ pub(crate) fn court_ground_z(seed: u64, x: f32, y: f32) -> f32 {
 /// over the river.
 ///
 /// **Footprint 56 × 56 tiles**, centred on the origin, ground plane at z ≈ 0.
-/// 4787 triangles, including district roads, posterns and stable yard.
+/// Under 5,000 triangles, including district roads, posterns, stable yard,
+/// bridge lanterns and the observatory's survey dial.
 /// The whole-scene budget is 5k.
 ///
 /// # Landmark anchors, for camera staging
@@ -177,6 +178,23 @@ pub(crate) fn court_scene(seed: u64) -> Mesh {
         0.72 + r.jitter(0.06),
     );
     place(&mut m, bridge(9.0), 0.0, -22.0, std::f32::consts::FRAC_PI_2);
+
+    // The observatory's low brass dial sits in the foreground of its staged
+    // view, clear of the tower entrance and the camera's route.
+    let mut dial = Mesh::new();
+    super::super::instruments::survey_dial(&mut dial);
+    place(&mut m, dial, 22.0, -12.4, 0.0);
+
+    // Two steady lanterns on the northern bridge parapets lead the eye into
+    // the default travel/gatehouse vista. Match the bridge's own deck curve
+    // and shared ground origin, rather than planting posts in the river.
+    let bridge_z = court_ground_z(seed, 0.0, -22.0) - 0.12;
+    let deck_z = 1.30 + 0.50 * (1.0 - (3.0_f32 / 4.5).powi(2));
+    for x in [-1.16, 1.16] {
+        let mut lamp = Mesh::new();
+        super::super::instruments::bridge_lantern(&mut lamp);
+        m.merge(lamp.translated(v3(x, -19.0, bridge_z + deck_z + 0.58)));
+    }
 
     // The hamlet stands well off the road: the travel sweep runs the east
     // verge and needs its standoff (see the doc comment).

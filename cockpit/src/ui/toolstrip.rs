@@ -1612,10 +1612,10 @@ fn qualifying_segment(
 /// The segment of this shell line that *executes* a measurement — a benchmark /
 /// measure / verify / validate program or script, or an A/B driver, in program
 /// position (also inside a line carried by `ssh`, `flock` or `bash -c`), or a
-/// competition family's own measurement subcommand (`yukon run`), and not a
+/// competition family's own measurement subcommand (`<board> run`), and not a
 /// help call. The receipt must name this segment: a heesch loop recorded
-/// `yukon --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify …`
-/// as `measured:shell:yukon --help` because the label came from the first
+/// `<board> --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify …`
+/// as `measured:shell:<board> --help` because the label came from the first
 /// segment while the qualification scanned all of them (2026-09-25).
 fn shell_measurement_segment(args_key: &str) -> Option<String> {
     qualifying_segment(args_key, CARRY_DEPTH, &|segment| {
@@ -1643,9 +1643,9 @@ fn shell_measurement_segment(args_key: &str) -> Option<String> {
                 || (!segment
                     .split_whitespace()
                     .any(|token| matches!(token, "--help" | "-h" | "help"))
-                    && crate::agent::harness::comp_packages::PACKAGES
+                    && crate::agent::harness::cartridges::all()
                         .iter()
-                        .any(|package| package.measures(&program, operand.as_deref())))
+                        .any(|cartridge| cartridge.measures(&program, operand.as_deref())))
         })
     })
 }
@@ -1674,7 +1674,7 @@ fn echoed_exit_failed(args: &str, summary: &str) -> bool {
 }
 
 /// The segment of this shell line that *executes* a submission — `submit` as
-/// the program or its subcommand (`hilbert submit`, `yukon submit`,
+/// the program or its subcommand (`<board> submit`,
 /// `./submit.sh`), and not a help / dry-run invocation.
 fn shell_submission_segment(args_key: &str) -> Option<String> {
     qualifying_segment(args_key, CARRY_DEPTH, &|segment| {

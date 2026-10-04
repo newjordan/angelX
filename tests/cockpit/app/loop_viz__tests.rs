@@ -58,6 +58,14 @@ fn submission_slot_line_reports_receipts_without_readiness_or_win_claims() {
             "REJECTED",
             TUI_ALERT_RED,
         ),
+        (
+            SubmissionSlotTelemetry {
+                phase: SubmissionSlotPhase::TimedOut,
+                ..Default::default()
+            },
+            "TIMED OUT · UNVERIFIED",
+            TUI_WARNING_AMBER,
+        ),
     ];
 
     for (slot, expected, lamp_color) in cases {
@@ -91,7 +99,7 @@ fn render_preserves_requested_dimensions() {
         phase: SubmissionSlotPhase::Empty,
         ..Default::default()
     };
-    let text = render(&st, &slot, &YukonFleetState::default(), 1.25, 24, 8);
+    let text = render(&st, &slot, &FleetState::default(), 1.25, 24, 8);
     assert_eq!(text.lines.len(), 8);
     assert!(text.lines.iter().all(|line| line_width(line) == 24));
     assert!(flatten(&text).chars().any(|ch| ch != '\u{2800}'));
@@ -127,30 +135,30 @@ fn loop_gallery() {
             ..Default::default()
         },
     ];
-    let mut fleet = YukonFleetState::default();
+    let mut fleet = FleetState::default();
     fleet.apply(
-        crate::agent::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
+        crate::agent::harness::cartridges::fleet::FleetSnapshot {
             entries: vec![
-                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                crate::agent::harness::cartridges::fleet::FleetSubmission {
                     benchmark: "bench/flock".into(),
                     id: "3347e70".into(),
                     status: "validating".into(),
                     score: None,
-                    phase: YukonSubmissionPhase::Running,
+                    phase: SubmissionPhase::Running,
                 },
-                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                crate::agent::harness::cartridges::fleet::FleetSubmission {
                     benchmark: "bench/qwen".into(),
                     id: "7871bd4".into(),
                     status: "promoted".into(),
                     score: Some("519469.35".into()),
-                    phase: YukonSubmissionPhase::Accepted,
+                    phase: SubmissionPhase::Accepted,
                 },
-                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                crate::agent::harness::cartridges::fleet::FleetSubmission {
                     benchmark: "bench/ssi".into(),
                     id: "ddddddd".into(),
                     status: "rejected".into(),
                     score: None,
-                    phase: YukonSubmissionPhase::Rejected,
+                    phase: SubmissionPhase::Rejected,
                 },
             ],
             benchmark_count: 3,
@@ -171,7 +179,7 @@ fn loop_gallery() {
 #[test]
 fn zero_area_is_empty() {
     let slot = SubmissionSlotTelemetry::default();
-    let fleet = YukonFleetState::default();
+    let fleet = FleetState::default();
     assert!(
         render(&LoopState::default(), &slot, &fleet, 0.0, 0, 8)
             .lines
@@ -323,7 +331,7 @@ fn frame_changes_with_iteration_and_status() {
         flatten(&render(
             &a,
             &SubmissionSlotTelemetry::default(),
-            &YukonFleetState::default(),
+            &FleetState::default(),
             2.0,
             32,
             10
@@ -331,7 +339,7 @@ fn frame_changes_with_iteration_and_status() {
         flatten(&render(
             &b,
             &SubmissionSlotTelemetry::default(),
-            &YukonFleetState::default(),
+            &FleetState::default(),
             2.0,
             32,
             10
@@ -354,7 +362,7 @@ fn render_surfaces_loop_budget_health_bars() {
     let flat = flatten(&render(
         &st,
         &SubmissionSlotTelemetry::default(),
-        &YukonFleetState::default(),
+        &FleetState::default(),
         1.0,
         44,
         12,
@@ -422,20 +430,20 @@ fn target_brightens_only_after_an_accepted_receipt() {
 }
 
 #[test]
-fn yukon_fleet_line_pulses_live_rows_and_counts_every_status() {
-    let mut fleet = YukonFleetState::default();
+fn fleet_line_pulses_live_rows_and_counts_every_status() {
+    let mut fleet = FleetState::default();
     fleet.apply(
-        crate::agent::harness::comp_packages::yukon::fleet::YukonFleetSnapshot {
+        crate::agent::harness::cartridges::fleet::FleetSnapshot {
             entries: [
-                YukonSubmissionPhase::Queued,
-                YukonSubmissionPhase::Running,
-                YukonSubmissionPhase::Accepted,
-                YukonSubmissionPhase::Rejected,
+                SubmissionPhase::Queued,
+                SubmissionPhase::Running,
+                SubmissionPhase::Accepted,
+                SubmissionPhase::Rejected,
             ]
             .into_iter()
             .enumerate()
             .map(|(index, phase)| {
-                crate::agent::harness::comp_packages::yukon::fleet::YukonSubmission {
+                crate::agent::harness::cartridges::fleet::FleetSubmission {
                     benchmark: format!("bench/{index}"),
                     id: format!("aaaaaa{index}"),
                     status: format!("{phase:?}"),
@@ -448,8 +456,8 @@ fn yukon_fleet_line_pulses_live_rows_and_counts_every_status() {
             failed_benchmarks: 0,
         },
     );
-    let lit = yukon_fleet_line(&fleet, 0.0, 48);
-    let dim = yukon_fleet_line(&fleet, 0.6, 48);
+    let lit = fleet_line(&fleet, 0.0, 48);
+    let dim = fleet_line(&fleet, 0.6, 48);
     assert_eq!(line_width(&lit), 48);
     assert_eq!(line_width(&dim), 48);
     assert!(flatten_line(&lit).contains("B4 Q1 V1 H1 X1"));

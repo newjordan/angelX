@@ -25,15 +25,15 @@ impl Drop for TestDir {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn nonregular_open_fixture() {
     use std::os::unix::ffi::OsStrExt;
     use std::os::unix::fs::{FileTypeExt, OpenOptionsExt};
     use std::sync::mpsc;
     use std::time::Duration;
 
-    let Some(root) = std::env::var_os("ANGEL_T_COMPETITION_FIFO") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_COMPETITION_FIFO")
+        .expect("subprocess fixture requires its parent test");
     let root = std::path::PathBuf::from(root);
     for (label, kind) in [
         ("read", OpenKind::Read),

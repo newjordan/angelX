@@ -370,6 +370,13 @@ impl World {
                 .collect::<String>()
         };
         let name = normalize(name);
+        if matches!(
+            name.as_str(),
+            "tower" | "scryingtower" | "wizardstower" | "wizardtower"
+        ) {
+            self.visit_scrying_tower();
+            return Some(super::super::ambient::SCRYING_TOWER_LABEL);
+        }
         if let Some(room) = super::school::Room::parse(&name) {
             let (x, y, w, h) = Place::School.footprint_world();
             self.overworld_view = Some((
@@ -383,6 +390,9 @@ impl World {
         }
         if matches!(name.as_str(), "garden" | "graphgarden" | "crops") {
             let (x, y) = super::garden::centre();
+            if self.visiting_scrying_tower() {
+                self.interior = None;
+            }
             self.overworld_view = Some((x, y, "GRAPH GARDEN"));
             self.school_room = None;
             return Some("GRAPH GARDEN");
@@ -402,6 +412,9 @@ impl World {
             })?,
         };
         let (x, y, w, h) = place.footprint_world();
+        if self.visiting_scrying_tower() {
+            self.interior = None;
+        }
         self.overworld_view = Some((
             (x as f32 + w as f32 / 2.0) * TILE as f32,
             (y as f32 + h as f32 / 2.0) * TILE as f32,
@@ -434,6 +447,9 @@ impl World {
     }
 
     pub(crate) fn follow_overworld(&mut self) {
+        if self.visiting_scrying_tower() {
+            self.interior = None;
+        }
         self.overworld_view = None;
         self.school_room = None;
     }
@@ -636,12 +652,21 @@ impl World {
         let place = Place::of_building(building);
         let sequence = 0x9_1a7e ^ building as u64;
         let picture = self.glass_picture(sequence, || {
-            let plate = super::super::ambient::plate(building);
-            picture_from_rgba(plate.as_raw(), plate.width(), plate.height())
+            if building == Building::Observatory {
+                let frame = super::super::ambient::frame(building, Default::default());
+                picture_from_rgba(frame.as_raw(), frame.width(), frame.height())
+            } else {
+                let plate = super::super::ambient::plate(building);
+                picture_from_rgba(plate.as_raw(), plate.width(), plate.height())
+            }
         });
         Glass {
             anchor: place,
-            title: place.label().to_string(),
+            title: if building == Building::Observatory {
+                super::super::ambient::SCRYING_TOWER_LABEL.to_string()
+            } else {
+                place.label().to_string()
+            },
             live: false,
             picture,
             sequence,

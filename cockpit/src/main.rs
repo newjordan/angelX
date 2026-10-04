@@ -526,7 +526,7 @@ USAGE
   angel --atlas --workspace DIR JSON
   angel --look-image IMAGE QUESTION
   angel --watch-fixture [PATH]
-  angel --yukon-status BENCHMARK_UUID SUBMISSION_UUID
+  angel --comp-status ARGS…        The active cartridge's status check
   angel --jev-json                 Read jev_decide JSON from stdin
   angel --dump-rl-preview <branch|research|sankey> [PATH|-] [WxH]
   angel --dump-research-preview <story|ledger|flow> [PATH|-] [WxH]
@@ -917,6 +917,10 @@ fn main() -> std::io::Result<()> {
                     "toolchain": build.toolchain,
                     "package_version": env!("CARGO_PKG_VERSION"),
                     "cockpit_source_sha256": build.cockpit_source_sha256,
+                    "cartridges": crate::agent::harness::cartridges::all()
+                        .iter()
+                        .map(|cartridge| cartridge.id())
+                        .collect::<Vec<_>>(),
                     "resources": runtime_paths::status(),
                     "capabilities": BUILD_CAPABILITIES,
                     "video_decode": cfg!(feature = "scryglass-video"),
@@ -935,15 +939,11 @@ fn main() -> std::io::Result<()> {
             }
             return tools::jev::run_cli().map_err(std::io::Error::other);
         }
-        if arg == "--yukon-status" {
-            let benchmark = args.next().unwrap_or_default();
-            let submission = args.next().unwrap_or_default();
-            if args.next().is_some() {
-                return Err(std::io::Error::other(
-                    "--yukon-status requires exactly two UUIDs",
-                ));
-            }
-            return crate::agent::harness::comp_packages::yukon::run_cli(&benchmark, &submission)
+        if arg == "--comp-status" {
+            let rest: Vec<String> = args.by_ref().collect();
+            return crate::agent::harness::cartridges::active()
+                .and_then(|cartridge| cartridge.hooks().status_cli(&rest))
+                .unwrap_or_else(|| Err("no plugged-in cartridge has a status check".into()))
                 .map_err(std::io::Error::other);
         }
         if arg == "--watch-fixture" {

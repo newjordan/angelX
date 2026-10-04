@@ -3,16 +3,16 @@ use super::*;
 #[test]
 fn non_submissions_pass_untouched() {
     let _env = crate::tests::env_lock();
-    assert!(stamp("hilbert submissions --all", None).unwrap().is_none());
+    assert!(stamp("board submissions --all", None).unwrap().is_none());
     assert!(stamp("cargo build --release", None).unwrap().is_none());
     for command in [
-        "echo 'yukon submit'",
-        "rg 'hilbert submit' README.md",
-        "cat <<'EOF'\nyukon submit\nEOF",
+        "echo 'board submit'",
+        "rg 'board submit' README.md",
+        "cat <<'EOF'\nboard submit\nEOF",
     ] {
         assert!(stamp(command, None).unwrap().is_none(), "{command}");
     }
-    assert!(stamp("yukon submit", None).is_err());
+    assert!(stamp("board submit", None).is_err());
 }
 
 #[test]
@@ -23,15 +23,15 @@ fn quoted_nested_heredocs_are_literal_data_with_stable_attribution_offsets() {
     for (header, body, delimiter) in [
         (
             "cat <<'MSG'",
-            "fixture\nLiteral: yukon submit --model copied\nMSG_prefix\n",
+            "fixture\nLiteral: board submit --model copied\nMSG_prefix\n",
             "MSG",
         ),
-        ("cat <<\"MSG\"", "$(yukon submit) `hilbert submit`\n", "MSG"),
-        ("cat <<-'MSG'", "\tfixture\n\tyukon submit\n", "\tMSG"),
+        ("cat <<\"MSG\"", "$(board submit) `board submit`\n", "MSG"),
+        ("cat <<-'MSG'", "\tfixture\n\tboard submit\n", "\tMSG"),
     ] {
         let command = format!("git commit -m \"$({header}\n{body}{delimiter}\n)\"");
         assert!(stamp(&command, None).unwrap().is_none(), "{command}");
-        let combined = format!("{command}; yukon submit --model copied --harness other");
+        let combined = format!("{command}; board submit --model copied --harness other");
         let stamped = stamp(&combined, None).unwrap().unwrap();
         assert!(
             stamped.command.starts_with(&command),
@@ -50,12 +50,12 @@ fn nested_executable_submissions_and_unsupported_heredocs_fail_closed() {
     let _env = crate::tests::env_lock();
     let _model = crate::agent::harness::run_identity::LiveModelScope::enter(None);
     for command in [
-        "echo \"$(yukon submit --model copied)\"",
-        "echo \"`hilbert submit`\"",
-        "git commit -m \"$(cat <<'MSG'\ntext\nMSG\nyukon submit\n)\"",
-        "git commit -m \"$(cat <<'MSG' | yukon submit\ntext\nMSG\n)\"",
-        "git commit -m \"$(cat <<MSG\n$(yukon submit)\nMSG\n)\"",
-        "cat <<MSG\n$(yukon submit)\nMSG\n",
+        "echo \"$(board submit --model copied)\"",
+        "echo \"`board submit`\"",
+        "git commit -m \"$(cat <<'MSG'\ntext\nMSG\nboard submit\n)\"",
+        "git commit -m \"$(cat <<'MSG' | board submit\ntext\nMSG\n)\"",
+        "git commit -m \"$(cat <<MSG\n$(board submit)\nMSG\n)\"",
+        "cat <<MSG\n$(board submit)\nMSG\n",
         "git commit -m \"$(cat <<'MSG' <<'NEXT'\ntext\nMSG\nNEXT\n)\"",
         "git commit -m \"$(cat <<'MSG\ntext\nMSG\n)\"",
         "git commit -m \"$(cat <<'MSG'\ntext\nMSG_prefix\n)\"",
@@ -66,13 +66,13 @@ fn nested_executable_submissions_and_unsupported_heredocs_fail_closed() {
         );
     }
     // Data in either quote style remains data, not an executable scan hit.
-    assert!(stamp("echo '$(yukon submit)'", None).unwrap().is_none());
+    assert!(stamp("echo '$(board submit)'", None).unwrap().is_none());
     assert!(
-        stamp("cat <<'MSG'\n$(yukon submit)\nMSG\n", None)
+        stamp("cat <<'MSG'\n$(board submit)\nMSG\n", None)
             .unwrap()
             .is_none()
     );
-    let outside = "git commit -m \"$(cat <<'MSG'\nliteral\nMSG\n)\"; yukon submit";
+    let outside = "git commit -m \"$(cat <<'MSG'\nliteral\nMSG\n)\"; board submit";
     assert!(
         stamp(outside, None).is_err(),
         "a later submit still needs live identity"
@@ -110,7 +110,7 @@ fn local_git_commit_accepts_a_quoted_heredoc_message_without_execution() {
             .unwrap()
     };
     assert!(run("git", &["init", "--quiet"]).status.success());
-    let command = "git -c user.name=Fixture -c user.email=fixture@example.invalid -c core.hooksPath=/dev/null -c commit.gpgsign=false commit --quiet --allow-empty -m \"$(cat <<'MSG'\nfixture change\n\nLiteral: yukon submit --model copied\n$(touch must-not-exist)\nMSG\n)\"";
+    let command = "git -c user.name=Fixture -c user.email=fixture@example.invalid -c core.hooksPath=/dev/null -c commit.gpgsign=false commit --quiet --allow-empty -m \"$(cat <<'MSG'\nfixture change\n\nLiteral: board submit --model copied\n$(touch must-not-exist)\nMSG\n)\"";
     assert!(stamp(command, Some(&dir)).unwrap().is_none());
     let output = run(
         "bash",
@@ -126,7 +126,7 @@ fn local_git_commit_accepts_a_quoted_heredoc_message_without_execution() {
     assert!(message.status.success());
     assert_eq!(
         String::from_utf8(message.stdout).unwrap().trim_end(),
-        "fixture change\n\nLiteral: yukon submit --model copied\n$(touch must-not-exist)"
+        "fixture change\n\nLiteral: board submit --model copied\n$(touch must-not-exist)"
     );
 }
 
@@ -136,7 +136,7 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
     let _model = crate::agent::harness::run_identity::LiveModelScope::enter(Some(
         "deepseek-v4-flash".into(),
     ));
-    let cmd = r#"cd /w && hilbert submit --note-file prof/out/note.md --model "GPT 5.6 Sol" --harness "Codex" && echo done"#;
+    let cmd = r#"cd /w && board submit --note-file prof/out/note.md --model "GPT 5.6 Sol" --harness "Codex" && echo done"#;
     let stamped = stamp(cmd, None).unwrap().expect("submission");
     assert!(
         !stamped.command.contains("GPT 5.6 Sol"),
@@ -144,7 +144,7 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
         stamped.command
     );
     assert!(!stamped.command.contains("Codex"), "{}", stamped.command);
-    let expected_flags = "hilbert submit --model 'deepseek-v4-flash' --harness 'angelX'";
+    let expected_flags = "board submit --model 'deepseek-v4-flash' --harness 'angelX'";
     assert!(
         stamped.command.contains(expected_flags),
         "{}",
@@ -161,17 +161,17 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
         stamped.notice
     );
     // Flags absent entirely: added, since the CLI requires them.
-    let bare = stamp("yukon submit --note 'v2'", None)
+    let bare = stamp("board submit --note 'v2'", None)
         .unwrap()
         .expect("submission");
     assert!(
-        bare.command.starts_with("yukon submit --model "),
+        bare.command.starts_with("board submit --model "),
         "{}",
         bare.command
     );
     // `--flag=value` spelling and repeated flags are all removed.
     let eq = stamp(
-        "hilbert submit --model=Claude --harness='Other Harness' --model x",
+        "board submit --model=Claude --harness='Other Harness' --model x",
         None,
     )
     .unwrap()
@@ -179,7 +179,7 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
     assert_eq!(eq.command.matches("--model").count(), 1, "{}", eq.command);
     assert_eq!(eq.command.matches("--harness").count(), 1, "{}", eq.command);
     let compound = stamp(
-        "echo --model keep && yukon submit --model copied; echo --harness keep",
+        "echo --model keep && board submit --model copied; echo --harness keep",
         None,
     )
     .unwrap()
@@ -187,11 +187,11 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
     assert!(
         compound
             .command
-            .starts_with("echo --model keep && yukon submit --model 'deepseek-v4-flash'")
+            .starts_with("echo --model keep && board submit --model 'deepseek-v4-flash'")
     );
     assert!(compound.command.ends_with("; echo --harness keep"));
-    assert!(stamp("yukon submit --model $MODEL", None).is_err());
-    assert!(stamp("bash -c 'yukon submit'", None).is_err());
+    assert!(stamp("board submit --model $MODEL", None).is_err());
+    assert!(stamp("bash -c 'board submit'", None).is_err());
 }
 
 #[test]
@@ -209,7 +209,7 @@ fn note_file_model_and_harness_lines_are_corrected() {
     )
     .unwrap();
     let cmd = format!(
-        "cd {} && hilbert submit --note-file prof/note.md",
+        "cd {} && board submit --note-file prof/note.md",
         dir.display()
     );
     let stamped = stamp(&cmd, None).unwrap().expect("submission");
@@ -238,7 +238,7 @@ fn journal_execution_records_refused_submit_without_network() {
     let _ = drain_journal();
     journal_execution(
         "shell",
-        "yukon submit --model grok-4.6 --harness angelX --note-file /tmp/nope.md",
+        "board submit --model grok-4.6 --harness angelX --note-file /tmp/nope.md",
         None,
         Some(2),
         "rejected: byte-gate refused this payload",
@@ -262,7 +262,7 @@ fn model_switches_and_concurrent_seats_restore_identity() {
     for model in ["gpt-6-astra", "deepseek-v4-flash"] {
         let _seat = LiveModelScope::enter(Some(model.into()));
         assert!(
-            stamp("yukon submit", None)
+            stamp("board submit", None)
                 .unwrap()
                 .unwrap()
                 .command
@@ -279,7 +279,7 @@ fn model_switches_and_concurrent_seats_restore_identity() {
         });
         {
             let _unknown = LiveModelScope::enter(None);
-            assert!(stamp("yukon submit", None).is_err());
+            assert!(stamp("board submit", None).is_err());
         }
         assert_eq!(model_label().unwrap(), model);
     }
@@ -306,13 +306,28 @@ fn output_prose_and_enqueue_are_not_terminal_acceptance() {
     // Even a status table in arbitrary shell output cannot certify acceptance.
     let table = "7871bd4 newjordan accepted 519469.35 {} +1% 380b04d yesterday";
     assert_eq!(classify_outcome(0, table), "unknown");
-    // The established Yukon status contract retains the terminal distinction.
-    let rows = crate::agent::harness::comp_packages::yukon::fleet::parse_submission_table(
-        "test/board",
-        table,
+}
+
+#[test]
+fn dispatch_capture_keeps_complete_json_across_chunks_and_separate_streams() {
+    let mut capture = DispatchCapture::default();
+    let id = "11111111-2222-4333-8444-555555555555";
+    capture.observe(
+        "stdout",
+        format!("notice before JSON\n{{\"submission\":{{\"id\":\"{id}\",").as_bytes(),
     );
-    assert_eq!(
-        rows[0].phase,
-        crate::agent::harness::comp_packages::yukon::fleet::YukonSubmissionPhase::Accepted
+    assert!(
+        capture.receipt().is_none(),
+        "partial JSON must not lose later commit attribution"
     );
+    capture.observe("stderr", b"unrelated diagnostic\n");
+    capture.observe(
+        "stdout",
+        format!("\"submissionCommitSha\":\"{}\"}}}}\n", "a".repeat(40)).as_bytes(),
+    );
+    capture.observe("stdout", &vec![b'x'; 200_000]);
+    let body: serde_json::Value = serde_json::from_str(capture.receipt().unwrap()).unwrap();
+    assert_eq!(body["submission"]["id"], id);
+    assert_eq!(body["submission"]["submissionCommitSha"], "a".repeat(40));
+    assert!(capture.streams.iter().all(Vec::is_empty));
 }

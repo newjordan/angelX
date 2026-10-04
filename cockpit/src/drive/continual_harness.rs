@@ -944,7 +944,7 @@ constraint eval, or proof post-process) with a narrow file set; parent integrate
             "no_telemetry_creds",
             EntryKind::Prompt,
             "Telemetry caution",
-            "This challenge may upload agent transcripts via yukon hooks. Do not read or paste \
+            "This challenge may upload agent transcripts via the platform's hooks. Do not read or paste \
 secrets, home env files, or unrelated private repos into the session.",
         ),
     ];

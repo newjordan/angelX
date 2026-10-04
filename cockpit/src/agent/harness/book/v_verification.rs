@@ -483,7 +483,7 @@ pub(crate) fn is_test_path(path: &str) -> bool {
 /// The paths a task declares as its editable surface, when it declares one:
 /// the sealed-task allowlist `ANGEL_TASK_EDITABLE_PATHS_JSON` (whose file-tool
 /// edits are already refused outside it, so this catches shell edits), else a
-/// Yukon `benchmark.json` in the workspace (`editablePaths` and
+/// A board's `benchmark.json` in the workspace (`editablePaths` and
 /// `optionalEditablePaths`, and every track's for a schema-v2 manifest). Edits
 /// elsewhere are not evaluated.
 pub(crate) fn task_edit_scope(workspace: &Path) -> Option<Vec<String>> {

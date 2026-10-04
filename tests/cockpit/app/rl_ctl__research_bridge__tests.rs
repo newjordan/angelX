@@ -2,13 +2,13 @@ use super::*;
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn sloptomizer_nonregular_store_fixture() {
     use std::os::unix::ffi::OsStrExt as _;
     use std::os::unix::fs::FileTypeExt as _;
 
-    let Some(root) = std::env::var_os("ANGEL_T_RESEARCH_FIFO") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_RESEARCH_FIFO")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = crate::agent::process_test_support::FixtureCleanup::new();
     let root = PathBuf::from(root);
     let state = root.join("state.json");

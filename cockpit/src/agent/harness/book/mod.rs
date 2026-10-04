@@ -264,9 +264,13 @@ impl Route {
     }
 
     /// The subcategory this route resolves to on its primary.
+    /// The active cartridge's page wins over the book's own.
     pub(crate) fn sub(self) -> &'static Sub {
-        primary(self.primary)
-            .and_then(|primary| primary.subs.iter().find(|sub| sub.route == self))
+        crate::agent::harness::cartridges::page(self)
+            .or_else(|| {
+                primary(self.primary)
+                    .and_then(|primary| primary.subs.iter().find(|sub| sub.route == self))
+            })
             .expect("every route is attached to a primary surface")
     }
 
@@ -361,6 +365,27 @@ pub(crate) const TOC: [&Primary; 50] = [
 
 pub(crate) fn primary(cell: char) -> Option<&'static Primary> {
     TOC.into_iter().find(|primary| primary.cell == cell)
+}
+
+/// The page for `route`, the active cartridge's first; `None` off the book.
+pub(crate) fn find(route: Route) -> Option<&'static Sub> {
+    crate::agent::harness::cartridges::page(route).or_else(|| {
+        primary(route.primary)?
+            .subs
+            .iter()
+            .find(|sub| sub.route == route)
+    })
+}
+
+/// A primary's subcategories as the active cartridge plays them: its pages
+/// replace the book's by route, and its new routes follow the book's own.
+pub(crate) fn subs(primary: &'static Primary) -> Vec<&'static Sub> {
+    let mut subs: Vec<&'static Sub> = primary.subs.iter().map(|sub| sub.route.sub()).collect();
+    subs.extend(
+        crate::agent::harness::cartridges::pages_on(primary.cell)
+            .filter(|page| !primary.subs.iter().any(|sub| sub.route == page.route)),
+    );
+    subs
 }
 
 /// A route a detector threw, with the evidence the ledger should hold for it.

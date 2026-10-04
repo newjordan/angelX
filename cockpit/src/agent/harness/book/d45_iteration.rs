@@ -113,7 +113,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "no comparable objective improvement recorded yet; progress remains unknown.",
-                "Inspect existing evidence against the fixed baseline.",
+                "Inspect existing evidence against the current promoted leader source and score.",
                 "Preserve an unfinished discriminating experiment until its result is available; do not abandon a sustained deep-cut hypothesis merely because this review is due.",
                 "Retire only a disproved hypothesis, then choose the next concrete mechanism and smallest available check.",
                 "Repeated competitive submissions of unchanged candidates are banned; do not redraw to obtain a new receipt.",
@@ -127,7 +127,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "measurement/submission execution recorded; a receipt is not comparable objective improvement.",
-                "Compare the retained result with the fixed baseline using the available verifier.",
+                "Compare the retained result with the current promoted leader using the available verifier.",
                 "Repeated competitive submissions of unchanged candidates are banned; a new receipt ID, timestamp, or note does not authorize a redraw.",
                 "Use the comparison to retire the hypothesis or choose the next concrete mechanism.",
             ],

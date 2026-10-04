@@ -23,7 +23,7 @@ fn receipt(command: &str, result: &str) -> ToolStripSnapshot {
 
 fn submit(id: usize) -> ToolStripSnapshot {
     receipt(
-        "yukon submit candidate.c --note-file submission.md",
+        "board submit candidate.c --note-file submission.md",
         &format!("submission {id} accepted"),
     )
 }
@@ -198,7 +198,7 @@ fn failed_turn_status_poll_is_activity_without_candidate_progress() {
     with_loop(|app, _| {
         harvest(app, submit(829));
         app.loop_ctl.stale_count = 2;
-        let tools = receipt("yukon status 829", "submission 829 still queued");
+        let tools = receipt("board status 829", "submission 829 still queued");
         assert!(tools.verified_outcome_actions.is_empty());
         app.loop_harvest_error_with_tools("owned synthetic end-of-turn failure".into(), tools);
         assert_eq!(app.loop_ctl.submissions, 1);
@@ -230,7 +230,7 @@ fn ordinary_loop_retains_non_competition_outcome_accounting() {
         app.loop_ctl.stale_count = 2;
         app.loop_harvest_error_with_tools(
             "owned synthetic end-of-turn failure".into(),
-            receipt("yukon status 829", "submission 829 still queued"),
+            receipt("board status 829", "submission 829 still queued"),
         );
         assert_eq!(app.loop_ctl.stale_count, 0);
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);

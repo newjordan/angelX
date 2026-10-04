@@ -24,7 +24,7 @@
 
 use crate::agent::club::{ChatMsg, MAX_IMAGE_ATTACHMENT_BYTES, Media};
 use crate::agent::sandbox::process_owner::{Child, OwnedCommandExt};
-use std::io::Read as _;
+use std::io::{Read as _, Write as _};
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::process::CommandExt as _;
 use std::process::{ChildStdout, Command, Stdio};
@@ -36,6 +36,272 @@ use std::time::{Duration, Instant};
 /// Default question when a screenshot is sent with an empty draft — the same
 /// wording `/see` uses for a bare image, so the two paths behave alike.
 pub(crate) const IMAGE_QUESTION: &str = "Describe this image.";
+
+/// A copy request owns the exact local source or decoded video generation that
+/// was selected. Nothing is decoded, fetched, or written on the UI thread.
+pub(crate) enum ClipboardImageSource {
+    File(crate::ui::media::MediaSource),
+    #[cfg(feature = "scryglass-video")]
+    Frame(Arc<crate::ui::scryglass::VideoPixels>),
+}
+
+/// One asynchronous native PNG copy. Binary images cannot be sent through
+/// OSC-52, so an unavailable desktop clipboard remains an explicit failure.
+pub(crate) struct ClipboardImageCopy {
+    rx: Receiver<Result<String, String>>,
+    control: Arc<ReadControl>,
+}
+
+static IMAGE_COPY_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+struct ImageCopyLease;
+
+impl Drop for ImageCopyLease {
+    fn drop(&mut self) {
+        IMAGE_COPY_IN_FLIGHT.store(false, Ordering::Release);
+    }
+}
+
+impl ClipboardImageCopy {
+    pub(crate) fn start(source: ClipboardImageSource) -> Result<Self, String> {
+        let backend = image_write_backend()?;
+        // The decoder cannot be interrupted inside a codec. Canceling and
+        // recopying must not accumulate parallel 32-megapixel decodes.
+        IMAGE_COPY_IN_FLIGHT
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| {
+                "the previous image copy is still finishing; retry in a moment".to_string()
+            })?;
+        let lease = ImageCopyLease;
+        let (tx, rx) = mpsc::channel();
+        let control = Arc::new(ReadControl::default());
+        let worker_control = Arc::clone(&control);
+        std::thread::Builder::new()
+            .name("clipboard-image-copy".into())
+            .spawn(move || {
+                let _lease = lease;
+                if worker_control.cancel.load(Ordering::Acquire) {
+                    let _ = tx.send(Err("image copy was canceled".into()));
+                    return;
+                }
+                let outcome = encode_clipboard_png(source).and_then(|(png, width, height)| {
+                    write_image_tool(
+                        &worker_control,
+                        Instant::now() + FETCH_DEADLINE,
+                        backend.write_program(),
+                        backend.image_write_args(),
+                        &png,
+                    )?;
+                    Ok(format!(
+                        "image/png · {width}×{height} · {} bytes · copied via {}",
+                        png.len(),
+                        backend.write_program()
+                    ))
+                });
+                let _ = tx.send(outcome);
+            })
+            .map_err(|error| format!("could not start image copy: {error}"))?;
+        Ok(Self { rx, control })
+    }
+
+    pub(crate) fn poll(&mut self) -> Option<Result<String, String>> {
+        match self.rx.try_recv() {
+            Ok(result) => Some(result),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => Some(Err(
+                "image copy stopped before answering; retry Copy image".into(),
+            )),
+        }
+    }
+}
+
+impl Drop for ClipboardImageCopy {
+    fn drop(&mut self) {
+        self.control.cancel.store(true, Ordering::Release);
+    }
+}
+
+const MAX_COPY_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_COPY_RASTER_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_COPY_PIXELS: u64 = 32 * 1024 * 1024;
+
+/// Preserve original image dimensions. The clipboard gets PNG bytes, never a
+/// terminal screenshot, thumbnail, path string, or opaque source encoding.
+fn encode_clipboard_png(source: ClipboardImageSource) -> Result<(Vec<u8>, u32, u32), String> {
+    let raster = match source {
+        ClipboardImageSource::File(source) => {
+            let file = source.open()?;
+            let metadata = file.metadata().map_err(|error| error.to_string())?;
+            if !metadata.is_file() {
+                return Err("image copy needs a regular local file; use Copy path".into());
+            }
+            if metadata.len() > MAX_COPY_SOURCE_BYTES {
+                return Err("image copy exceeds the 64 MiB source limit; use Copy path".into());
+            }
+            let mut reader = image::ImageReader::new(std::io::BufReader::new(file))
+                .with_guessed_format()
+                .map_err(|error| format!("cannot identify image to copy: {error}"))?;
+            let mut limits = image::Limits::default();
+            limits.max_alloc = Some(MAX_COPY_RASTER_BYTES);
+            reader.limits(limits);
+            let image = reader.decode().map_err(|error| {
+                format!("cannot decode image to copy: {error}; use Copy path or a PNG export")
+            })?;
+            validate_copy_dimensions(image.width(), image.height())?;
+            image.into_rgba8()
+        }
+        #[cfg(feature = "scryglass-video")]
+        ClipboardImageSource::Frame(frame) => {
+            validate_copy_dimensions(frame.rgba.width(), frame.rgba.height())?;
+            frame.rgba.clone()
+        }
+    };
+    let width = raster.width();
+    let height = raster.height();
+    let mut png = BoundedPng(Vec::new());
+    image::ImageEncoder::write_image(
+        image::codecs::png::PngEncoder::new(&mut png),
+        raster.as_raw(),
+        width,
+        height,
+        image::ExtendedColorType::Rgba8,
+    )
+    .map_err(|error| format!("could not encode clipboard PNG: {error}; use Copy path"))?;
+    Ok((png.0, width, height))
+}
+
+fn validate_copy_dimensions(width: u32, height: u32) -> Result<(), String> {
+    if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_COPY_PIXELS {
+        return Err(
+            "image copy needs a nonempty raster of at most 32 megapixels; use Copy path".into(),
+        );
+    }
+    Ok(())
+}
+
+struct BoundedPng(Vec<u8>);
+
+impl std::io::Write for BoundedPng {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() > (MAX_COPY_SOURCE_BYTES as usize).saturating_sub(self.0.len()) {
+            return Err(std::io::Error::other("clipboard PNG exceeds 64 MiB"));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Write a typed payload without blocking on a clipboard server that stopped
+/// reading. Successful native commands leave their deliberate selection-serving
+/// child alive; errors and cancellation end the entire private process group.
+fn write_image_tool(
+    control: &ReadControl,
+    deadline: Instant,
+    program: &str,
+    args: &[&str],
+    png: &[u8],
+) -> Result<(), String> {
+    if control.cancel.load(Ordering::Acquire) {
+        return Err("image copy was canceled".into());
+    }
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    command.process_group(0);
+    let mut child = command
+        .spawn_owned()
+        .map_err(|error| format!("could not start {program}: {error}; use Copy path"))?;
+    let pid = child.id();
+    control.pid.store(pid, Ordering::Release);
+    let result = (|| {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or("clipboard tool offered no input pipe")?;
+        set_nonblocking(stdin.as_raw_fd())
+            .map_err(|error| format!("clipboard input could not be made nonblocking: {error}"))?;
+        let mut written = 0;
+        while written < png.len() {
+            check_image_write(control, deadline)?;
+            if let Some(exit) = child.try_wait().map_err(|error| error.to_string())? {
+                return Err(format!(
+                    "{program} exited with {exit} before receiving the image"
+                ));
+            }
+            match stdin.write(&png[written..]) {
+                Ok(0) => return Err("clipboard tool stopped accepting image bytes".into()),
+                Ok(count) => written += count,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    let mut descriptor = libc::pollfd {
+                        fd: stdin.as_raw_fd(),
+                        events: libc::POLLOUT,
+                        revents: 0,
+                    };
+                    // SAFETY: a single initialized descriptor for our owned pipe.
+                    unsafe { libc::poll(&mut descriptor, 1, READ_POLL.as_millis() as i32) };
+                }
+                Err(error) => return Err(format!("could not write clipboard image: {error}")),
+            }
+        }
+        drop(stdin);
+        loop {
+            check_image_write(control, deadline)?;
+            match child.try_wait().map_err(|error| error.to_string())? {
+                Some(exit) if exit.success() => return Ok(()),
+                Some(exit) => {
+                    return Err(format!(
+                        "{program} rejected the clipboard image ({exit}); use Copy path"
+                    ));
+                }
+                None => std::thread::sleep(READ_POLL),
+            }
+        }
+    })();
+    if result.is_err() {
+        end_tool(&mut child, pid);
+    }
+    control.pid.store(0, Ordering::Release);
+    result
+}
+
+fn check_image_write(control: &ReadControl, deadline: Instant) -> Result<(), String> {
+    if control.cancel.load(Ordering::Acquire) {
+        Err("image copy was canceled".into())
+    } else if Instant::now() >= deadline {
+        Err("native clipboard did not accept the image within 5s; use Copy path or retry".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn image_write_backend() -> Result<Backend, String> {
+    let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some_and(|value| !value.is_empty());
+    let x11 = std::env::var_os("DISPLAY").is_some_and(|value| !value.is_empty());
+    select_image_write_backend(wayland, x11, on_path("wl-copy"), on_path("xclip"))
+}
+
+fn select_image_write_backend(
+    wayland: bool,
+    x11: bool,
+    wl_copy: bool,
+    xclip: bool,
+) -> Result<Backend, String> {
+    if wayland && wl_copy {
+        Ok(Backend::Wayland)
+    } else if x11 && xclip {
+        Ok(Backend::X11)
+    } else {
+        Err("Copy image needs a native desktop clipboard (wl-copy on Wayland or xclip on X11); use Copy path in this terminal".into())
+    }
+}
 
 /// How long one clipboard read may take before it is ended and reported as
 /// failed. Clipboard tools answer in milliseconds; a wedged clipboard owner must
@@ -343,6 +609,27 @@ enum Backend {
 }
 
 impl Backend {
+    fn write_program(self) -> &'static str {
+        match self {
+            Self::Wayland => "wl-copy",
+            Self::X11 => "xclip",
+        }
+    }
+
+    fn image_write_args(self) -> &'static [&'static str] {
+        match self {
+            Self::Wayland => &["--type", "image/png"],
+            Self::X11 => &[
+                "-selection",
+                "clipboard",
+                "-t",
+                "image/png",
+                "-i",
+                "-silent",
+            ],
+        }
+    }
+
     fn program(self) -> &'static str {
         match self {
             Self::Wayland => "wl-paste",

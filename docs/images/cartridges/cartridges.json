@@ -1,0 +1,241 @@
+{
+  "about": "Data for docs/CARTRIDGES.md's figures. Line totals are measured by scripts/render_cartridge_figures.py --measure from this checkout and the private Yukon cartridge, which never ships; the lean-kernel column is the example in docs/examples/cartridges/lean-kernel.",
+  "measured_utc": "2026-10-04",
+  "cartridges": [
+    {
+      "id": "yukon",
+      "kind": "source cartridge, private",
+      "uses": {
+        "boards": "toml",
+        "measures": "toml",
+        "worker": "toml",
+        "pages": "rust",
+        "status_check": "toml",
+        "fleet": "rust",
+        "tools": "rust",
+        "configured_watch": "rust",
+        "seat_entry_focus": "rust",
+        "record_*": "rust",
+        "status_cli": "rust"
+      }
+    },
+    {
+      "id": "lean-kernel",
+      "kind": "config cartridge, example",
+      "uses": {
+        "worker": "toml",
+        "pages": "toml",
+        "status_check": "toml",
+        "fleet": "toml"
+      }
+    }
+  ],
+  "plug_points": [
+    {
+      "label": "board CLI",
+      "field": "boards"
+    },
+    {
+      "label": "local measurements",
+      "field": "measures"
+    },
+    {
+      "label": "the loop worker",
+      "field": "worker"
+    },
+    {
+      "label": "book pages",
+      "field": "pages"
+    },
+    {
+      "label": "reading a result",
+      "field": "status_check"
+    },
+    {
+      "label": "the fleet line",
+      "field": "fleet"
+    },
+    {
+      "label": "session tools",
+      "field": "tools"
+    },
+    {
+      "label": "submission watch",
+      "field": "configured_watch"
+    },
+    {
+      "label": "seat brief",
+      "field": "seat_entry_focus"
+    },
+    {
+      "label": "experiment ledger",
+      "field": "record_*"
+    },
+    {
+      "label": "angel --comp-status",
+      "field": "status_cli"
+    }
+  ],
+  "turn": [
+    {
+      "step": "engage",
+      "hook": "seat_entry_focus",
+      "yukon": "strategy brief",
+      "lean": "—"
+    },
+    {
+      "step": "the worker",
+      "hook": "worker, pages",
+      "yukon": "Yukon's own pages",
+      "lean": "pages in its toml"
+    },
+    {
+      "step": "measure",
+      "hook": "measures",
+      "yukon": "yukon run, validate",
+      "lean": "./bench.sh <id>"
+    },
+    {
+      "step": "submit",
+      "hook": "boards, record_dispatch",
+      "yukon": "stamped submit",
+      "lean": "SAIR web upload"
+    },
+    {
+      "step": "result",
+      "hook": "tools, configured_watch",
+      "yukon": "yukon_status, watch",
+      "lean": "local replay"
+    },
+    {
+      "step": "reconcile",
+      "hook": "record_terminal, terminal_results",
+      "yukon": "experiment ledger",
+      "lean": "—"
+    },
+    {
+      "step": "fleet line",
+      "hook": "fleet",
+      "yukon": "open benchmarks",
+      "lean": "last run per problem"
+    }
+  ],
+  "lines": {
+    "unit": 25,
+    "groups": [
+      {
+        "title": "ships with angelX",
+        "ships": true,
+        "rows": [
+          {
+            "name": "submit attribution",
+            "files": [
+              "repo:cockpit/src/agent/harness/cartridges/submit_identity.rs"
+            ],
+            "lines": 832
+          },
+          {
+            "name": "registry and hooks",
+            "files": [
+              "repo:cockpit/src/agent/harness/cartridges/mod.rs"
+            ],
+            "lines": 316
+          },
+          {
+            "name": "the fleet line",
+            "files": [
+              "repo:cockpit/src/agent/harness/cartridges/fleet.rs"
+            ],
+            "lines": 183
+          },
+          {
+            "name": "toml and folders",
+            "files": [
+              "repo:cockpit/src/agent/harness/cartridges/config.rs"
+            ],
+            "lines": 116
+          },
+          {
+            "name": "shared records",
+            "files": [
+              "repo:cockpit/src/agent/harness/cartridges/records.rs"
+            ],
+            "lines": 90
+          },
+          {
+            "name": "build.rs",
+            "files": [
+              "repo:cockpit/build.rs"
+            ],
+            "lines": 101
+          },
+          {
+            "name": "tests",
+            "files": [
+              "repo:tests/cockpit/harness/cartridges__tests.rs",
+              "repo:tests/cockpit/tools/submit_identity__tests.rs"
+            ],
+            "lines": 506
+          }
+        ]
+      },
+      {
+        "title": "stays in the yukon cartridge",
+        "ships": false,
+        "rows": [
+          {
+            "name": "strategy and ledger",
+            "files": [
+              "cartridge:src/strategy.rs"
+            ],
+            "lines": 1569
+          },
+          {
+            "name": "status API and tool",
+            "files": [
+              "cartridge:src/status.rs"
+            ],
+            "lines": 500
+          },
+          {
+            "name": "fleet sweep",
+            "files": [
+              "cartridge:src/fleet.rs"
+            ],
+            "lines": 345
+          },
+          {
+            "name": "watch and hooks",
+            "files": [
+              "cartridge:src/watch.rs",
+              "cartridge:src/mod.rs"
+            ],
+            "lines": 198
+          },
+          {
+            "name": "book pages",
+            "files": [
+              "cartridge:src/pages.rs"
+            ],
+            "lines": 82
+          },
+          {
+            "name": "Angel Y launcher",
+            "files": [
+              "cartridge:bin/angely",
+              "cartridge:bin/angely.cmd"
+            ],
+            "lines": 64
+          },
+          {
+            "name": "tests",
+            "files": [
+              "cartridge:tests/*.rs"
+            ],
+            "lines": 577
+          }
+        ]
+      }
+    ]
+  }
+}

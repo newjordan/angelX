@@ -1,0 +1,28 @@
+# The Lean Kernel Challenge (Lean FRO and the SAIR Foundation) as a
+# config-only cartridge. An example written from the challenge's public rules
+# and starter repository; it has not been run on the live challenge. Copy this
+# folder to ~/.angelX/cartridges/lean-kernel and run angelX from a clone of
+# github.com/SAIRcompetition/lean-kernel-challenge.
+id = "lean-kernel"
+label = "Lean Kernel"
+# Submissions go through the SAIR web platform: no board CLI to stamp.
+boards = []
+measures = []
+# The loop worker's brief is the page below.
+worker = "⠻⠊"
+status_check = "./bench.sh or the SAIR leaderboard"
+# The fleet line: each problem's latest local evaluation.
+fleet_command = "\"$ANGEL_CARTRIDGE_DIR/fleet.sh\""
+fleet_interval_secs = 60
+
+[[pages]]
+route = "⠻⠊"
+name = "lean-kernel"
+signal = "the Lean Kernel Challenge's loop worker"
+pages = [
+  "You are a competition loop worker on the Lean Kernel Challenge.",
+  "Each problem is one Submission.lean: impl, and impl_correct proving that impl n = spec n for every n; Spec.lean and the environment files stay unchanged.",
+  "lake build in problems/<id> proves a candidate; ./bench.sh <id> proves it and replays it in the kernel.",
+  "The rank is the sum of per-case median kernel instruction counts over three replays, lowest first; a local replay reports wall time, never an official score.",
+  "Submissions go through the SAIR web platform.",
+]

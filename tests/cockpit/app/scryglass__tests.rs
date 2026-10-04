@@ -24,6 +24,104 @@ fn automatic_reveals_queue_and_manual_reveal_supersedes() {
     assert!(stage.active_pinned());
 }
 
+fn asset_cards() -> Vec<Media> {
+    ["chart", "image", "video"]
+        .into_iter()
+        .map(|label| Media::Resource {
+            label: label.into(),
+            url: format!("/tmp/{label}.txt"),
+        })
+        .collect()
+}
+
+#[test]
+fn queued_delivery_preserves_inspection_and_browses_from_the_displayed_asset() {
+    let cards = asset_cards();
+    let mut stage = Scryglass::default();
+    stage.reveal_media(0, true);
+    stage.document.scroll = 11;
+    let request = stage.media_request_id();
+    stage.reveal_media(2, false);
+    assert_eq!(stage.active_media(), Some(0));
+    assert_eq!(stage.selected_media(&cards), Some(0));
+    assert_eq!(stage.selected, 0);
+    assert_eq!(stage.document.scroll, 11);
+    assert_eq!(stage.media_request_id(), request);
+    assert_eq!(stage.pending_count(), 1);
+    assert_eq!(stage.browse(1, &cards), Some(1));
+    assert_eq!(stage.active_media(), Some(1));
+    assert_eq!(stage.document.scroll, 0);
+    assert_eq!(stage.pending_count(), 0);
+}
+
+#[test]
+fn a_queued_reveal_updates_selection_only_when_it_actually_starts() {
+    let cards = asset_cards();
+    let mut stage = Scryglass::default();
+    stage.reveal_media(0, false);
+    stage.note_media_painted();
+    stage.document.scroll = 11;
+    stage.reveal_media(2, false);
+    let start = Instant::now();
+    stage.set_stage_visibility(true, true);
+    stage.tick_visible(start, false, false);
+    stage.tick_visible(start + STILL_REVEAL, false, false);
+    assert_eq!(stage.active_media(), Some(2));
+    assert_eq!(stage.selected, 2);
+    assert_eq!(stage.document.scroll, 0);
+    assert_eq!(stage.browse(-1, &cards), Some(1));
+}
+
+#[test]
+fn received_assets_wait_on_the_shelf_without_displacing_inspected_work() {
+    let cards = asset_cards();
+    let mut stage = Scryglass::default();
+    assert!(stage.receive_media(0));
+    assert!(stage.active_pinned());
+    let request = stage.media_request_id();
+    assert!(!stage.receive_media(1));
+    assert_eq!(stage.active_media(), Some(0));
+    assert_eq!(stage.media_request_id(), request);
+    assert_eq!(stage.selected_media(&cards), Some(0));
+    stage.open_assets();
+    assert!(!stage.receive_media(2));
+    assert!(stage.active_media().is_none());
+    assert_eq!(stage.selected_media(&cards), Some(0));
+    assert_eq!(stage.move_asset_selection(-1, &cards), Some(2));
+    assert_eq!(stage.move_asset_selection(1, &cards), Some(0));
+    assert!(
+        stage.active_media().is_none(),
+        "shelf navigation never autoplays"
+    );
+    assert_eq!(stage.move_asset_selection(1, &[]), None);
+}
+
+#[test]
+fn asset_shelf_and_preview_return_to_the_room_the_operator_came_from() {
+    let mut stage = Scryglass::default();
+    stage.navigate(StageRoute::Explore(Building::Observatory));
+    stage.reveal_media(2, true);
+    stage.open_assets();
+    assert_eq!(stage.selected, 2);
+    assert_eq!(stage.controller.route(), StageRoute::Assets);
+    assert_eq!(
+        stage.controller.resolved_scene(false, false, false),
+        StageSurface::Assets
+    );
+    stage.reveal_media(1, true);
+    assert_eq!(stage.controller.overlay_owner(), Some(StageRoute::Assets));
+    assert!(stage.back_overlay());
+    assert_eq!(stage.controller.route(), StageRoute::Assets);
+    assert!(stage.controller.back());
+    assert_eq!(
+        stage.controller.route(),
+        StageRoute::Explore(Building::Observatory)
+    );
+    stage.return_to_world();
+    assert_eq!(stage.controller.route(), StageRoute::Realm);
+    assert!(!stage.controller.back());
+}
+
 #[test]
 fn camera_is_bounded_and_follow_resets_it() {
     let mut stage = Scryglass::default();

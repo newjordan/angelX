@@ -76,6 +76,151 @@ fn every_read_names_its_mime_family() {
 }
 
 #[test]
+fn native_image_copy_has_typed_backends_and_never_claims_an_osc52_image() {
+    assert_eq!(
+        select_image_write_backend(true, true, true, true),
+        Ok(Backend::Wayland)
+    );
+    assert_eq!(
+        select_image_write_backend(true, true, false, true),
+        Ok(Backend::X11)
+    );
+    assert!(
+        select_image_write_backend(false, false, true, true)
+            .unwrap_err()
+            .contains("Copy path")
+    );
+    assert!(select_image_write_backend(true, false, false, true).is_err());
+    for backend in [Backend::Wayland, Backend::X11] {
+        assert!(backend.image_write_args().contains(&"image/png"));
+        assert!(!backend.image_write_args().contains(&"text/plain"));
+    }
+}
+
+#[test]
+fn native_image_copy_encodes_original_pixels_and_preserves_confined_reads() {
+    let base = std::env::temp_dir().join(format!("angel-native-copy-{}", std::process::id()));
+    std::fs::create_dir_all(&base).unwrap();
+    let path = base.join("figure.bmp");
+    let raster = image::RgbaImage::from_fn(5, 3, |x, y| {
+        image::Rgba([x as u8 * 40, y as u8 * 60, 127, 255])
+    });
+    raster.save(&path).unwrap();
+    let source = crate::ui::media::MediaSource {
+        path: path.clone(),
+        root: Some(base.clone()),
+    };
+    let (png, width, height) = encode_clipboard_png(ClipboardImageSource::File(source)).unwrap();
+    assert_eq!((width, height), (5, 3));
+    assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+    assert_eq!(image::load_from_memory(&png).unwrap().to_rgba8(), raster);
+    let outside = base.with_extension("outside.png");
+    raster.save(&outside).unwrap();
+    let alias = base.join("alias.png");
+    std::os::unix::fs::symlink(&outside, &alias).unwrap();
+    let error = encode_clipboard_png(ClipboardImageSource::File(crate::ui::media::MediaSource {
+        path: alias,
+        root: Some(base.clone()),
+    }))
+    .unwrap_err();
+    assert!(
+        error.contains("symlink") || error.contains("Cannot read"),
+        "{error}"
+    );
+    std::fs::remove_dir_all(base).unwrap();
+    std::fs::remove_file(outside).unwrap();
+}
+
+#[test]
+fn native_image_writer_delivers_binary_bytes_to_a_local_fake_only() {
+    let path = std::env::temp_dir().join(format!("angel-copy-sink-{}", std::process::id()));
+    let control = ReadControl::default();
+    let bytes = b"\x89PNG\x00\x01\xff\n";
+    write_image_tool(
+        &control,
+        Instant::now() + Duration::from_secs(5),
+        "/bin/sh",
+        &[
+            "-c",
+            "cat > \"$1\"",
+            "clipboard-fixture",
+            path.to_str().unwrap(),
+        ],
+        bytes,
+    )
+    .unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    assert_eq!(control.pid.load(Ordering::Acquire), 0);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn native_image_writer_rejects_tool_failure_and_bounds_a_stalled_input() {
+    let control = ReadControl::default();
+    let error = write_image_tool(
+        &control,
+        Instant::now() + Duration::from_secs(5),
+        "/bin/sh",
+        &["-c", "cat >/dev/null; exit 3"],
+        b"image bytes",
+    )
+    .unwrap_err();
+    assert!(error.contains("rejected"), "{error}");
+    let started = Instant::now();
+    let error = write_image_tool(
+        &control,
+        started + Duration::from_millis(100),
+        "/bin/sh",
+        &["-c", "exec sleep 30"],
+        &vec![0; 1024 * 1024],
+    )
+    .unwrap_err();
+    assert!(error.contains("within"), "{error}");
+    assert!(started.elapsed() < Duration::from_secs(5));
+    assert_eq!(control.pid.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn canceled_native_image_copy_does_not_start_a_clipboard_command() {
+    let control = ReadControl::default();
+    control.cancel.store(true, Ordering::Release);
+    let error = write_image_tool(
+        &control,
+        Instant::now() + Duration::from_secs(5),
+        "/nonexistent/must-not-run",
+        &[],
+        b"image",
+    )
+    .unwrap_err();
+    assert!(error.contains("canceled"));
+    assert_eq!(control.pid.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn canceling_a_pending_native_image_write_reaps_its_tool() {
+    let control = Arc::new(ReadControl::default());
+    let worker_control = Arc::clone(&control);
+    let worker = std::thread::spawn(move || {
+        write_image_tool(
+            &worker_control,
+            Instant::now() + Duration::from_secs(30),
+            "/bin/sh",
+            &["-c", "exec sleep 30"],
+            &vec![0; 1024 * 1024],
+        )
+    });
+    let pid = wait_for_pid(&control);
+    control.cancel.store(true, Ordering::Release);
+    let error = worker.join().unwrap().unwrap_err();
+    assert!(error.contains("canceled"), "{error}");
+    assert!(
+        !process_is_running(pid),
+        "the canceled writer must be reaped"
+    );
+    assert_eq!(control.pid.load(Ordering::Acquire), 0);
+}
+
+#[test]
 fn decoded_size_ignores_base64_padding() {
     let image = |b64: &str| Media::Image {
         mime: "image/png".into(),

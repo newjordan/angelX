@@ -63,7 +63,7 @@ mod auxiliary;
 pub(crate) mod book;
 mod code_mode;
 pub(crate) mod coeffect;
-pub(crate) mod comp_packages;
+pub(crate) mod cartridges;
 mod comp_watch;
 mod compact;
 mod confined_fs;

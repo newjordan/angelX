@@ -372,7 +372,7 @@ pub(crate) fn truncate_to_char_boundary(s: &mut String, max_bytes: usize) {
 /// that is still producing output or burning CPU is doing the work the
 /// operator asked for (CUDA builds, benchmark runs, remote validation), and
 /// the old 120 s default killed every real one of those the fleet ran
-/// (2026-09-05 Yukon verifiers; 2026-09-10 the qwen38 loop had to hide its
+/// (2026-09-05 board verifiers; 2026-09-10 the qwen38 loop had to hide its
 /// 104 s builds and 95 s scored runs behind keepalive ticks).
 pub(crate) fn tool_timeout() -> Option<Duration> {
     if crate::platform::yolo::enabled() {

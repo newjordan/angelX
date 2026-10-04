@@ -31,7 +31,7 @@ pub mod science;
 pub mod self_model;
 pub mod shell;
 pub mod solo;
-pub(crate) use crate::agent::harness::comp_packages::yukon::submit_identity;
+pub(crate) use crate::agent::harness::cartridges::submit_identity;
 pub mod utilities;
 pub mod video;
 pub mod vision;

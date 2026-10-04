@@ -2,7 +2,7 @@
 """Static connection checks for explicitly active source roots; never traverse archives.
 
 This detects missing literal JS imports/URL targets, declared Rust source targets,
-and Rust files with no module/include/bin anchor. It is not a runtime reachability
+and Rust files with no module/include/bin/test anchor. It is not a runtime reachability
 proof: dynamic imports, same-named modules, cfg and runtime behavior need tests.
 """
 import argparse
@@ -43,7 +43,7 @@ def audit(root):
         if not safe_file(root, directory, allow_directory=True):
             continue
         for parent, dirs, files in os.walk(directory, followlinks=False):
-            dirs[:] = sorted(d for d in dirs if d not in SKIP and not d.startswith(('.', 'target'))
+            dirs[:] = sorted(d for d in dirs if d not in SKIP and not d.startswith('.')
                              and not (Path(parent) / d).is_symlink())
             for name in sorted(files):
                 path = Path(parent) / name
@@ -67,14 +67,14 @@ def audit(root):
                 refs.add(resolved.relative_to(root).as_posix())
     manifest = root / 'cockpit/Cargo.toml'
     if safe_file(root, manifest):
-        bins = tomllib.loads(manifest.read_text()).get('bin', [])
-        for item in bins:
-            target = manifest.parent / item.get('path', 'src/main.rs')
+        config = tomllib.loads(manifest.read_text())
+        for item in config.get('bin', []) + config.get('test', []):
+            target = Path(os.path.abspath(manifest.parent / item.get('path', 'src/main.rs')))
             if safe_file(root, target):
                 refs.add(target.relative_to(root).as_posix())
             else:
                 missing.append({'source': 'cockpit/Cargo.toml', 'target': item.get('path')})
-    unanchored = sorted(name for name in sources if name.startswith('cockpit/src/')
+    unanchored = sorted(name for name in sources if name.startswith(('cockpit/src/', 'tests/cockpit/'))
                         and name.endswith('.rs') and Path(name).name != 'mod.rs'
                         and Path(name).stem not in modules and name not in refs)
     return {'schema': 'angel.active-connections/v1',

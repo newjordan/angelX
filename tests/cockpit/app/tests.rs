@@ -5558,7 +5558,7 @@ fn podrace_hop_horizon_rolls_forward_and_preserves_completed_outcome_actions() {
         "tool loop hit the 17-hop runaway guard without answering".into(),
         toolstrip::ToolStripSnapshot {
             calls: 1,
-            outcome_actions: vec!["shell:hilbert submit".into()],
+            outcome_actions: vec!["shell:board submit".into()],
             ..Default::default()
         },
     );
@@ -14027,13 +14027,13 @@ fn handoff_rl_force_clear_inject_and_result_reforce() {
     // submit alone: no demand
     assert!(
         app.handoff_rl
-            .observe_turn(&["shell:hilbert submit cand-1".into()], "submitted")
+            .observe_turn(&["shell:board submit cand-1".into()], "submitted")
             .is_none()
     );
     // result → demand → force again
     let demand = app
         .handoff_rl
-        .observe_turn(&["outcome:shell:hilbert status cand-1".into()], "score ok")
+        .observe_turn(&["outcome:shell:board status cand-1".into()], "score ok")
         .expect("result after submit demands handoff");
     app.force_handoff_rl_restart(Some(&demand.summary))
         .expect("second force must succeed");
@@ -14584,21 +14584,27 @@ fn stage_copy_right_click_exports_location_without_changing_zoom_or_draft() {
     let turn_count = app.history.len();
     app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
     let fallback = home.join(".angelX/stage-location.txt");
-    assert_eq!(
-        std::fs::read_to_string(&fallback).unwrap(),
-        path.display().to_string()
+    let copy = app
+        .pending_stage_copy
+        .take()
+        .expect("location copy queued between draws");
+    assert_eq!(copy.text, path.display().to_string());
+    assert_eq!(copy.fallback_file, "stage-location.txt");
+    assert!(copy.image.is_none());
+    assert!(
+        !fallback.exists(),
+        "queueing must not touch the clipboard or fallback file"
     );
     assert_eq!(app.viewer.inspector.view, view);
     assert_eq!(app.input, "preserve my draft λ");
     assert_eq!(app.history.len(), turn_count);
     assert_eq!(app.scryglass.media_request_id(), request);
     // Other panes and unrelated overlays may not export stale Stage media.
-    std::fs::remove_file(&fallback).unwrap();
     app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 1, 1));
-    assert!(!fallback.exists());
+    assert!(app.pending_stage_copy.is_none());
     app.scryglass.controller.clear_overlay();
     app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
-    assert!(!fallback.exists());
+    assert!(app.pending_stage_copy.is_none());
     // A modal approval owns the pointer before Stage copying.
     app.scryglass.reveal_media(0, true);
     app.loop_dialog = Some(crate::drive::loop_dialog::LoopLaunchDialog::new(
@@ -14607,12 +14613,13 @@ fn stage_copy_right_click_exports_location_without_changing_zoom_or_draft() {
         false,
     ));
     app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
-    assert!(!fallback.exists());
+    assert!(app.pending_stage_copy.is_none());
     // Shift on a visual is an honest text-unavailable error, not a location copy.
     app.loop_dialog = None;
     let mut shift = mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8);
     shift.modifiers = KeyModifiers::SHIFT;
     app.on_mouse(shift);
+    assert!(app.pending_stage_copy.is_none());
     assert!(!fallback.exists());
     assert!(
         app.messages
@@ -14659,27 +14666,39 @@ fn stage_copy_shift_right_click_exports_loaded_report_and_link_right_click_copie
         ratatui::layout::Rect::new(40, 3, 30, 15),
     );
     app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
-    assert_eq!(
-        std::fs::read_to_string(home.join(".angelX/stage-location.txt")).unwrap(),
-        path.display().to_string()
-    );
+    let copy = app
+        .pending_stage_copy
+        .take()
+        .expect("report path copy queued");
+    assert_eq!(copy.text, path.display().to_string());
+    assert_eq!(copy.fallback_file, "stage-location.txt");
+    assert!(copy.image.is_none());
+    let request = app.scryglass.media_request_id();
     let mut shift = mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8);
     shift.modifiers = KeyModifiers::SHIFT;
     app.on_mouse(shift);
-    assert_eq!(
-        std::fs::read_to_string(home.join(".angelX/stage-document.txt")).unwrap(),
-        text
-    );
+    let copy = app
+        .pending_stage_copy
+        .take()
+        .expect("report text copy queued");
+    assert_eq!(copy.text, text);
+    assert_eq!(copy.fallback_file, "stage-document.txt");
+    assert!(copy.image.is_none());
+    assert!(copy.description.contains("SHA256"));
+    assert_eq!(app.scryglass.media_request_id(), request);
     let url = "https://example.invalid/shape?phase=2";
     app.media.push(crate::ui::media::Media::Link {
         label: "URL".into(),
         url: url.into(),
     });
     app.scryglass.reveal_media(1, true);
+    let request = app.scryglass.media_request_id();
     app.on_mouse(mouse_ev(MouseEventKind::Down(MouseButton::Right), 45, 8));
-    assert_eq!(
-        std::fs::read_to_string(home.join(".angelX/stage-location.txt")).unwrap(),
-        url
-    );
+    let copy = app.pending_stage_copy.take().expect("link copy queued");
+    assert_eq!(copy.text, url);
+    assert!(copy.image.is_none());
+    assert_eq!(app.scryglass.media_request_id(), request);
+    assert!(!home.join(".angelX/stage-location.txt").exists());
+    assert!(!home.join(".angelX/stage-document.txt").exists());
     std::fs::remove_dir_all(home).unwrap();
 }

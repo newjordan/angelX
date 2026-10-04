@@ -52,8 +52,9 @@ pub(crate) const PRIMARY: Primary = Primary {
             pages: &[
                 "COMPETITION CHALLENGE PACE — RAPID. ALWAYS BE IMPROVING.",
                 "Revolving door: mutate → local preflight → the current BEST goes up to bat (SUBMIT, receipt/ID) → immediately improve the next best.",
-                "Once a submission is in play the harness watcher owns that slot.",
-                "A WATCHER NOTIFY arrives with id + status + score/reason; do not poll-wait.",
+                "Start from the current promoted leader source, preserving useful local work in a separate branch or checkout. Compare optimized baseline and candidate builds on the same hardware and evaluator protocol; retain the source identities and measured results.",
+                "Keep the exact submission ID and check its official result; automatic tracking is not connected to ordinary submissions.",
+                "Use the platform CLI for status, score, rejection reason and metrics. A configured watcher is supplementary; a missing notification is not evidence that a job is pending.",
                 "Sitting on a prepped submission is a competition failure.",
                 "Constant output: one bat in flight, the next best being prepped.",
                 "After notify, one receipt check is optional; then submit-next (best to bat) or improve-candidate.",
@@ -78,19 +79,23 @@ pub(crate) const PRIMARY: Primary = Primary {
             ],
         },
         Sub {
-            pages: &[],
+            pages: &[
+                "Read officialMetrics and rejectionReason as well as officialScore. Compare verified work with self-reported work when both exist. A discrepancy needs investigation; self-reported peak throughput is not proof of tested candidates or lost hits.",
+                "Historical briefs and handoffs are evidence, not new restrictions. Recheck inherited prohibitions against current user instructions and actual tool capabilities. Inspect the leader source before deciding to keep an older local lineage.",
+                "Use the optimized build and only the validation needed for the changed candidate. Reuse a valid receipt for unchanged bytes and inputs; do not delay an eligible winner with broad repeated checks.",
+            ],
             route: WATCHER,
-            name: "watcher",
-            signal: "the watcher saw a submission reach a terminal state (id, status, score below)",
-            action: "one receipt check is optional; then submit the next best or improve",
-            ideas: "- Once a submission is in play the watcher owns that slot: do not poll-wait.",
+            name: "submission-status",
+            signal: "inspect the official submission result or current frontier",
+            action: "correlate the exact terminal UUID with its dispatched candidate and durable receipt; queued is pending, rejection or failure feeds rerooting at the latest frontier, and only a promoted source plus a verified score/frontier is a win; then improve or submit-next",
+            ideas: "- Inspect the exact submission result when it can change your next decision; continue useful work while it runs.",
         },
         Sub {
             pages: &[],
             route: SUBMIT,
             name: "submit",
             signal: "technique: the current best goes up to bat",
-            action: "submit the best candidate that passed the local gate and keep its receipt/ID",
+            action: "when authorized, submit only after correctness/preflight checks and preserve the preflight receipt; record the exact candidate commit, source/archive and evaluated-binary SHA256 when available, predecessor, protocol, and terminal receipt/ID. Deduplicate the same in-flight job, but allow controlled rule-compliant repeated measurements with a stated reason",
             ideas: "",
         },
         Sub {
@@ -98,7 +103,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             route: IMPROVE,
             name: "improve",
             signal: "technique: improve the next best while one is in flight",
-            action: "take the next measured step on the next candidate",
+            action: "form one measurable hypothesis, reroot any rejected mechanism at the latest frontier, make the smallest distinct patch, preserve passing bytes and receipt before edits, compare same-binary A/B against a fresh baseline, credit the original author, and record correctness/noise/protocol identity in the durable measurement ledger (`⠪⠃`)",
             ideas: "",
         },
         Sub {
@@ -120,9 +125,9 @@ pub(crate) const PRIMARY: Primary = Primary {
             pages: &[
                 "[always driving competition doctrine] ALWAYS BE IMPROVING.",
                 "The competition loop is a revolving door of constant output: the current BEST goes up to bat immediately, and the next best is prepped while that slot is in flight.",
-                "Sitting, polling, or waiting on a prepped submission is a failure.",
+                "Submit a verified competitive candidate promptly; inspect pending results when useful.",
                 "Once a submission is in play, immediately branch the winning baseline, formulate the next hypothesis, run local preflights, and push the frontier.",
-                "The harness watcher owns in-flight status — do not poll-wait.",
+                "The agent owns result follow-through. Inspect the exact ID with the platform CLI.",
             ],
         },
         Sub {
@@ -144,16 +149,33 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The warpath that engages the competition loop at `pace`.
+/// The route order for the competition loop at `pace`.
 pub(crate) fn engage(pace: TaskPace) -> Vec<Raise> {
+    engage_routes(pace, None)
+}
+
+/// Competition entry plus the persisted brief, carried inline so the model
+/// receives evidence rather than only recording it in a ledger.
+pub(crate) fn engage_for_workspace(pace: TaskPace, workspace: &std::path::Path) -> Vec<Raise> {
+    engage_routes(pace, Some(workspace))
+}
+
+fn engage_routes(pace: TaskPace, workspace: Option<&std::path::Path>) -> Vec<Raise> {
     let routes = match pace {
         TaskPace::Rapid => [RAPID, SUBMIT, IMPROVE],
         TaskPace::Deep => [DEEP, IMPROVE, SUBMIT],
     };
-    routes
+    let mut raises = routes
         .into_iter()
         .map(|route| Raise::new(route, None))
-        .collect()
+        .collect::<Vec<_>>();
+    if let (Some(raise), Some(workspace)) = (raises.first_mut(), workspace)
+        && let Some(brief) = crate::agent::harness::cartridges::active()
+            .and_then(|cartridge| cartridge.hooks().seat_entry_focus(workspace))
+    {
+        *raise = Raise::inline(raise.route, brief);
+    }
+    raises
 }
 
 /// The turn a finished slot arrives as: the warpath, then its receipt (id,
@@ -165,7 +187,14 @@ pub(crate) fn watcher_turn(workspace: &std::path::Path, notify: &WatchNotify) ->
         .first()
         .and_then(|raise| raise.evidence.clone())
         .unwrap_or_default();
-    format!("{}\n{receipt}", super::warpath(workspace, &raises))
+    let persistence = crate::agent::harness::cartridges::active()
+        .and_then(|cartridge| cartridge.hooks().record_terminal(workspace, notify).err())
+        .map(|error| format!("\nTerminal evidence persistence unavailable: {error}"))
+        .unwrap_or_default();
+    format!(
+        "{}\n{receipt}{persistence}",
+        super::warpath(workspace, &raises)
+    )
 }
 
 /// The warpath for a slot the watcher saw finish, with its receipt.
@@ -197,9 +226,9 @@ pub(crate) const SHELF: Primary = Primary {
             ideas: "",
             pages: &[
                 "COMPETITION CANDIDATE VERIFIED. A local check passed on this candidate.",
-                "Preserve the passing candidate and its evidence before speculative edits.",
-                "If the operator has authorized submission and all required checks pass, submit through the agreed workflow and record the receipt.",
-                "A local pass is not proof of a leaderboard win; complete remaining requested checks first.",
+                "Preserve the passing candidate and its existing preflight receipt before further edits.",
+                "Check eligibility against the current promoted leader and submit promptly within the operator's instructions. Additional checks need a specific unresolved concern; do not repeat passing checks on unchanged bytes and inputs.",
+                "A local pass is not proof of a leaderboard win; read the official submission result.",
             ],
         },
         Sub {
@@ -210,7 +239,7 @@ pub(crate) const SHELF: Primary = Primary {
             ideas: "",
             pages: &[
                 "VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check.",
-                "Preserve the prior candidate if available and verify the new bytes before claiming success.",
+                "Check whether candidate code, inputs, or the evaluator changed. Reuse the existing receipt when only notes or unrelated files changed; rerun only the affected required check.",
                 "Follow the operator-authorized submission plan; a local pass alone does not prove a competitive win.",
             ],
         },

@@ -192,7 +192,17 @@ const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/MODELS.md',
   'docs/WORKERS.md',
   'docs/COMMANDS.md',
-  'docs/yukon-field-results.md',
+  'docs/CARTRIDGES.md',
+  'docs/images/cartridges/slot-dark.png',
+  'docs/images/cartridges/slot-light.png',
+  'docs/images/cartridges/turn-dark.png',
+  'docs/images/cartridges/turn-light.png',
+  'docs/images/cartridges/lines-dark.png',
+  'docs/images/cartridges/lines-light.png',
+  'docs/images/cartridges/cartridges.json',
+  'docs/examples/cartridges/lean-kernel/cartridge.toml',
+  'docs/examples/cartridges/lean-kernel/bench.sh',
+  'docs/examples/cartridges/lean-kernel/fleet.sh',
   'docs/images/task.png',
   'docs/images/ui/model-picker.png',
   'docs/images/ui/approval.png',
@@ -255,6 +265,7 @@ export const RELEASE_PATHS = Object.freeze([
   'scripts/check/angel-club-policy.sh',
   'tests/scripts/angel-club-policy.test.mjs',
   'cockpit/Cargo.toml',
+  'cockpit/build.rs',
   'cockpit/README.md',
   'cockpit/Cargo.lock',
   'cockpit/src',
@@ -428,6 +439,7 @@ export function isCockpitSourceIdentityInput(path) {
   return (
     path === 'cockpit/Cargo.toml' ||
     path === 'cockpit/Cargo.lock' ||
+    path === 'cockpit/build.rs' ||
     path.startsWith('cockpit/src/') ||
     path.startsWith('tests/cockpit/') ||
     path === 'vendor/dotmax/Cargo.toml' ||

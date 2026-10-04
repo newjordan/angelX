@@ -77,12 +77,16 @@ fn help_text_lists_the_core_slash_commands() {
         "/resume",
         "/learn [topic]",
         "/show",
+        "/assets",
+        "/tower",
         "/theme",
         "/import",
     ] {
         assert!(h.contains(cmd), "help missing {cmd}");
     }
     assert!(h.starts_with("commands"));
+    assert!(h.contains("stage [path|text|image|frame]"));
+    assert!(help_text(None).contains("/assets"));
     assert!(h.contains("/model [filter|exact@effort|auto]"));
     assert!(h.contains("/think [filter]"));
     assert!(h.contains("(/tutor, /library)"));

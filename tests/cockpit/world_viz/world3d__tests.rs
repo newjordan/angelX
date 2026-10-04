@@ -1,6 +1,58 @@
 use super::*;
 
 #[test]
+fn bridge_lanterns_and_survey_dial_are_visible_in_small_live_vistas() {
+    let scene = scene::scene_for(scene::SceneKey::COURT);
+    for (name, index) in [("bridge-lanterns", 1), ("observatory-dial", 7)] {
+        let mut bare = (*scene).clone();
+        bare.tris.retain(|tri| {
+            let decoration = if index == 1 {
+                matches!(
+                    tri.mat,
+                    mesh::mat::WOOD | mesh::mat::WINDOW | mesh::mat::BRASS
+                ) && tri
+                    .v
+                    .iter()
+                    .all(|v| v.x.abs() < 1.5 && (v.y + 19.0).abs() < 0.31)
+            } else {
+                tri.v
+                    .iter()
+                    .all(|v| (v.x - 22.0).abs() < 1.0 && (v.y + 12.4).abs() < 1.0)
+            };
+            !decoration
+        });
+        assert!(
+            bare.tris.len() < scene.tris.len(),
+            "{name}: decoration missing"
+        );
+        // This is the same camera solve used by the live ride, at 72×26
+        // terminal cells. A mesh hidden behind a wall must fail this proof.
+        let camera = settled_camera(&VANTAGES[index], 144, 104);
+        let before = raster::render_scene(&bare, &camera, 144, 104);
+        let after = raster::render_scene(&scene, &camera, 144, 104);
+        let changed = before
+            .pixels()
+            .zip(after.pixels())
+            .filter(|(a, b)| a != b)
+            .count();
+        // Optional review artifacts; assertions run whether or not a preview
+        // destination was supplied. No live session or model is involved.
+        if let Some(directory) = std::env::var_os("ANGEL_WORLD_DRESSING_PREVIEW") {
+            let directory = std::path::PathBuf::from(directory);
+            std::fs::create_dir_all(&directory).unwrap();
+            before
+                .save(directory.join(format!("{name}-before.png")))
+                .unwrap();
+            after
+                .save(directory.join(format!("{name}-after.png")))
+                .unwrap();
+        }
+        assert!(changed >= 8, "{name}: only {changed} visible dots");
+        assert_eq!(after, raster::render_scene(&scene, &camera, 144, 104));
+    }
+}
+
+#[test]
 fn retired_view_commands_and_launch_flags_cannot_select_other_outdoors() {
     let _env = crate::tests::env_lock();
     for word in [

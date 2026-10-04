@@ -605,6 +605,11 @@ impl Surface {
         if self.mat == mat::ARMOR {
             light = light.max(0.70);
         }
+        if self.mat == mat::CRYSTAL {
+            // A held sky reflection reveals the curved facets even when the
+            // glass faces away from the moon. This is material, not animation.
+            light = 0.26 + self.ambient * 1.5 + moon_plane * 0.35;
+        }
         let lit = mix_rgb(scale_rgb(base, light.min(2.6)), MOON_SILVER, self.rim);
         // The rim resists the haze so a distant skyline keeps its edge.
         let resistance = fog_resistance * (1.0 - 0.62 * self.rim.min(1.0));
@@ -696,6 +701,7 @@ fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
         mat::FLOOR => (course_tint([92, 88, 84], u, v, 0.84), 1.0, false),
         mat::BRASS => ([190, 145, 75], 0.85, false),
         mat::PARCHMENT => ([226, 203, 139], 1.0, false),
+        mat::CRYSTAL => ([100, 180, 210], 0.35, false),
         mat::ROCK => (
             speckle([65, 81, 105], [42, 55, 79], u, v * 0.35, 1.5),
             1.0,

@@ -1,5 +1,6 @@
 //! Turn submission and the ported Codex slash commands.
 use super::*;
+use crate::app::WorldButton;
 use std::borrow::Cow;
 
 /// Replace the last model exchange with the exact request prefix that preceded
@@ -837,6 +838,14 @@ impl App {
         let mut turn_evidence = None;
         let user_msg = match parsed {
             // Local viewer commands (display only, not sent to a club).
+            ParsedInput::Assets => {
+                self.apply_world_button(WorldButton::Assets);
+                return;
+            }
+            ParsedInput::Tower => {
+                self.apply_world_button(WorldButton::Tower);
+                return;
+            }
             ParsedInput::Show(path) => {
                 self.observatory.clear_viewport();
                 let text = match crate::ui::media::artifact_from_path_in(
@@ -1445,6 +1454,8 @@ impl App {
                 // A staged screenshot belonged to the thread being replaced; the
                 // fresh session must not inherit it.
                 self.clipboard_paste.clear();
+                self.pending_stage_copy = None;
+                self.clipboard_image_copy = None;
                 self.messages.clear();
                 self.invalidate_transcript_layout();
                 self.reasoning.clear();
@@ -3903,7 +3914,7 @@ impl App {
         )
     }
 
-    /// `/copy [number|all|live|code [number]|stage [text]]`: copy one indexed response, the
+    /// `/copy [number|all|live|code [number]|stage [path|text|image|frame]]`: copy one indexed response, the
     /// current sanitized live process tail, its latest complete fenced code
     /// block, or a role-filtered operator/Angel conversation to OSC-52 plus a
     /// recoverable file.
@@ -3912,13 +3923,18 @@ impl App {
             Ok(target) => target,
             Err(usage) => return usage.to_string(),
         };
+        // A newer copy intent supersedes a queued artifact or slow decoder,
+        // including when this request copies ordinary conversation text.
+        self.pending_stage_copy = None;
+        self.clipboard_image_copy = None;
         if let CopyTarget::Stage(stage_target) = target {
             let payload = match self.scryglass.copy_payload(&self.media, stage_target) {
                 Ok(payload) => payload,
                 Err(error) => return error,
             };
-            let receipt = deliver_to_clipboard(&payload.text, payload.fallback_file);
-            return format!("{} · {receipt}", payload.description);
+            let receipt = format!("Copying {}…", payload.description);
+            self.pending_stage_copy = Some(payload);
+            return receipt;
         }
         if matches!(target, CopyTarget::Conversation) {
             let Some(markdown) = conversation_markdown(&self.history) else {
@@ -4006,11 +4022,14 @@ fn copy_target(arg: Option<&str>) -> Result<CopyTarget, &'static str> {
         None => Ok(CopyTarget::Response(1)),
         Some("all") => Ok(CopyTarget::Conversation),
         Some("live") => Ok(CopyTarget::Live),
-        Some("stage") | Some("stage path") => Ok(CopyTarget::Stage(
+        Some("stage") | Some("stage path") | Some("stage link") => Ok(CopyTarget::Stage(
             crate::ui::scryglass::StageCopyTarget::Location,
         )),
         Some("stage text") => Ok(CopyTarget::Stage(
             crate::ui::scryglass::StageCopyTarget::Text,
+        )),
+        Some("stage image") | Some("stage frame") => Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Image,
         )),
         Some("code") => Ok(CopyTarget::Code(1)),
         Some(raw) if raw.starts_with("code ") => raw[5..]
@@ -4019,10 +4038,10 @@ fn copy_target(arg: Option<&str>) -> Result<CopyTarget, &'static str> {
             .ok()
             .filter(|number| *number > 0)
             .map(CopyTarget::Code)
-            .ok_or("usage: /copy [number|all|live|code [number]|stage [path|text]] (1 = latest agent response)"),
+            .ok_or("usage: /copy [number|all|live|code [number]|stage [path|text|image|frame]] (1 = latest agent response)"),
         Some(raw) => match raw.parse::<usize>() {
             Ok(number) if number > 0 => Ok(CopyTarget::Response(number)),
-            _ => Err("usage: /copy [number|all|live|code [number]|stage [path|text]] (1 = latest agent response)"),
+            _ => Err("usage: /copy [number|all|live|code [number]|stage [path|text|image|frame]] (1 = latest agent response)"),
         },
     }
 }

@@ -695,8 +695,11 @@ fn t06c_stdin_eof_and_signal_names() {
             started.elapsed().as_millis()
         );
     }
-    for signal in ["TERM", "KILL", "SEGV"] {
-        let args = serde_json::json!({"command":format!("ulimit -c 0; kill -{signal} $$")});
+    // Only signals that never dump core: the sandbox re-raises its child's
+    // signal, so a SEGV here lands in systemd-coredump as a desktop crash
+    // report. The SIGSEGV name has its own test in exec.
+    for signal in ["TERM", "KILL", "PIPE"] {
+        let args = serde_json::json!({"command":format!("kill -{signal} $$")});
         let error = tool.call(&args).unwrap_err();
         // The kill is `⡨⠉⠃` inside its bracket, the signal beside it.
         assert!(

@@ -61,13 +61,13 @@ fn persistent_roundtrip_hang_is_killed_at_the_request_deadline() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn oneshot_inherited_output_fixture() {
     use crate::agent::process_test_support::FixtureCleanup;
     use crate::agent::process_test_support::capture_evidence_fixture::EvidenceFixture;
 
-    let Some(root) = std::env::var_os("ANGEL_T_PXPIPE_EOF") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_PXPIPE_EOF")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let _guard = crate::tests::env_lock();
     let _enabled = crate::tests::TestEnvGuard::set("ANGEL_PXPIPE", "1");
@@ -131,13 +131,13 @@ fn oneshot_inherited_output_uses_one_deadline_and_preserves_fallback() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn oneshot_blocked_stdin_fixture() {
     use crate::agent::process_test_support::FixtureCleanup;
     use crate::agent::process_test_support::capture_evidence_fixture::EvidenceFixture;
 
-    let Some(root) = std::env::var_os("ANGEL_T_PXPIPE_STDIN") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_PXPIPE_STDIN")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     // The escaped holder inherits stdin but never reads it. A request larger
     // than the pipe capacity must time out while writing, even after exit0 of
@@ -172,12 +172,12 @@ fn oneshot_blocked_stdin_shares_the_request_deadline() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn oneshot_complete_output_fixture() {
     use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
 
-    let Some(root) = std::env::var_os("ANGEL_T_PXPIPE_COMPLETE") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_PXPIPE_COMPLETE")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let mut command = Command::new("/usr/bin/python3");
     command.args([

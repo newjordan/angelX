@@ -67,7 +67,7 @@ fn me_scored_rows(track: &str, me: &str) -> usize {
 fn opens_x86_fixture_with_expected_identity() {
     let mut adapter = FlywheelAdapterV1::open(&fixture("x86")).unwrap();
     let identity = adapter.identify_competition().unwrap();
-    assert_eq!(identity.competition.platform_id, "yukon");
+    assert_eq!(identity.competition.platform_id, "board");
     assert_eq!(
         identity.competition.competition_id,
         "eigenlabs/flock-challenge-multi/x86"
