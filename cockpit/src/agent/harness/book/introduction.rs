@@ -463,10 +463,7 @@ fn ledger_read(call: &crate::agent::club::ToolCall) -> Option<&str> {
 
 fn sub_of(address: &ledger::Address) -> Option<&'static Sub> {
     let route = super::Route::new(address.primary, address.section?);
-    super::primary(address.primary)?
-        .subs
-        .iter()
-        .find(|sub| sub.route == route)
+    super::find(route)
 }
 
 fn page_exists(sub: &Sub, address: &ledger::Address) -> bool {

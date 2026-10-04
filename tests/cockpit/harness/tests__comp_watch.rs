@@ -1,7 +1,4 @@
-//! Watcher, no-idle cadence, simple-tool-vs-runner, and mined-fixture tests.
-//!
-//! These drive the shipped functions on redacted fixtures — not a
-//! re-implementation and not whole-trace transcripts.
+//! Status parsing, exact submission identity, live turn routing, and activity classification.
 
 use super::*;
 
@@ -27,15 +24,11 @@ fn write_src() -> ToolCall {
 }
 
 fn poll_status() -> ToolCall {
-    shell("hilbert submissions 8806afb8-8dfa")
+    shell("board submissions 8806afb8-8dfa")
 }
 
 fn local_nvcc() -> ToolCall {
     shell("nvcc -arch=sm_100a -O3 -cubin -Xptxas -v -o /dev/null candidate.cu")
-}
-
-fn submit() -> ToolCall {
-    shell("hilbert submit --note x")
 }
 
 #[test]
@@ -53,16 +46,6 @@ fn watcher_fixture_inflight_then_terminal_injects_id_status_score() {
     assert!(text.contains("1844075.40"), "{text}");
     assert!(text.starts_with(WATCHER_NOTIFY_MARK), "{text}");
     assert!(text.starts_with(TELEMETRY_MARK), "{text}");
-}
-
-#[test]
-fn watcher_fixture_entry_is_deterministic_across_two_runs() {
-    let mut a = FixtureStatusSource::from_json(BUILTIN_WATCH_FIXTURE_JSON).unwrap();
-    let mut b = FixtureStatusSource::from_json(BUILTIN_WATCH_FIXTURE_JSON).unwrap();
-    let n1 = run_fixture_watch(&mut a).unwrap();
-    let n2 = run_fixture_watch(&mut b).unwrap();
-    assert_eq!(n1, n2);
-    assert_eq!(n1.injection_text(), n2.injection_text());
 }
 
 #[test]
@@ -99,6 +82,7 @@ fn watcher_exposes_truthful_submission_slot_telemetry() {
         status: "accepted".into(),
         score: Some("1844075.40".into()),
         rejection_reason: None,
+        receipt: None,
     });
     let accepted = watcher.telemetry(true);
     assert_eq!(accepted.phase, SubmissionSlotPhase::Accepted);
@@ -110,8 +94,25 @@ fn watcher_exposes_truthful_submission_slot_telemetry() {
         status: "rejected".into(),
         score: None,
         rejection_reason: Some("below-crown".into()),
+        receipt: None,
     });
     assert_eq!(watcher.telemetry(true).phase, SubmissionSlotPhase::Rejected);
+
+    watcher.adopt("cccccccc-cccc-4ccc-8ddd-eeeeeeeeeeee");
+    watcher.observe_snapshot(SlotSnapshot {
+        id: "cccccccc-cccc-4ccc-8ddd-eeeeeeeeeeee".into(),
+        status: "timed_out".into(),
+        score: None,
+        rejection_reason: None,
+        receipt: None,
+    });
+    assert_eq!(watcher.phase(), SlotPhase::Terminal);
+    let timed_out = watcher.telemetry(true);
+    assert_eq!(timed_out.phase, SubmissionSlotPhase::TimedOut);
+    assert!(
+        timed_out.score.is_none(),
+        "timeout must never carry a score"
+    );
 }
 
 #[test]
@@ -130,6 +131,7 @@ fn watcher_poll_rejects_other_submission_without_poisoning_current_slot() {
         status: "accepted".into(),
         score: Some("1".into()),
         rejection_reason: None,
+        receipt: None,
     });
     assert!(watcher.poll(Some(&mut source)).is_none());
     assert_eq!(watcher.telemetry(true), before);
@@ -178,6 +180,7 @@ fn watcher_unknown_status_never_becomes_an_accepted_receipt() {
             status: status.into(),
             score: Some("1".into()),
             rejection_reason: None,
+            receipt: None,
         };
         assert!(snapshot.is_in_flight(), "{status:?}");
         watcher.observe_snapshot(snapshot);
@@ -189,6 +192,7 @@ fn watcher_unknown_status_never_becomes_an_accepted_receipt() {
             status: " accepted ".into(),
             score: Some("2".into()),
             rejection_reason: None,
+            receipt: None,
         });
         assert_eq!(watcher.telemetry(true).phase, SubmissionSlotPhase::Accepted);
         assert!(watcher.pending_notify().is_some());
@@ -226,78 +230,6 @@ aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee
         extract_submission_id(text).as_deref(),
         Some("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")
     );
-}
-
-#[test]
-fn watcher_tool_text_cannot_adopt_or_terminalize() {
-    let mut watcher = SubmissionWatcher::new();
-    observe_tool_result_for_watch(
-        &mut watcher,
-        "shell",
-        "Submission queued aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
-        true,
-    );
-    assert!(watcher.slot_id().is_none());
-    watcher.adopt(GOLD_ID);
-    assert_eq!(watcher.phase(), SlotPhase::InFlight);
-    observe_tool_result_for_watch(
-        &mut watcher,
-        "shell",
-        &format!("VERDICT: {GOLD_ID} accepted score=1844075.40"),
-        true,
-    );
-    assert_eq!(watcher.phase(), SlotPhase::InFlight);
-    assert!(watcher.pending_notify().is_none());
-}
-
-/// In-flight hops must not allocate a full-text lowercase copy to read a
-/// terminal row. Mixed-case verdicts still parse; validating stays in-flight.
-#[test]
-fn watcher_rejects_live_handoff_and_escaped_history_as_remote_evidence() {
-    let id = "a391d01d-6a4f-4121-9e46-cb47ab960e08";
-    let sentence = "Actual Yukon corrected-source submission a391d01d-6a4f-4121-9e46-cb47ab960e08 still validating/no score at06:19:57 UTC. a203658 and7518d413 CANCELLED, despite misleading watcher notifications accepted/failed.";
-    let escaped = serde_json::json!([
-        {"path":"status.md", "text":format!("Submission queued {id}\nstill validating")},
-        {"path":"local.log", "text":"Comparator accepted; unrelated submission accepted score=532138"}
-    ]).to_string();
-    for tool in [
-        "handoff",
-        "read_file",
-        "handle_read",
-        "shell",
-        "proc_run",
-        "proc_status",
-    ] {
-        let mut watcher = SubmissionWatcher::new();
-        for text in [sentence, escaped.as_str()] {
-            observe_tool_result_for_watch(&mut watcher, tool, text, true);
-            assert!(
-                watcher.slot_id().is_none(),
-                "{tool} created a slot from prose"
-            );
-        }
-        watcher.adopt(id);
-        let before = watcher.telemetry(true);
-        for text in [sentence, escaped.as_str()] {
-            observe_tool_result_for_watch(&mut watcher, tool, text, true);
-            assert_eq!(
-                watcher.telemetry(true),
-                before,
-                "{tool} changed typed evidence"
-            );
-            assert!(watcher.pending_notify().is_none());
-        }
-        watcher.observe_snapshot(SlotSnapshot {
-            id: id.into(),
-            status: "accepted".into(),
-            score: Some("532138".into()),
-            rejection_reason: None,
-        });
-        assert_eq!(
-            watcher.pending_notify().unwrap().score.as_deref(),
-            Some("532138")
-        );
-    }
 }
 
 #[test]
@@ -339,17 +271,17 @@ fn snapshot_and_extract_do_not_bleed_opponent_submissions_on_board() {
     let our_id = "22222222-3333-4444-5555-666666666666";
     let mut watcher = SubmissionWatcher::new();
     watcher.adopt(our_id);
-    observe_tool_result_for_watch(&mut watcher, "shell", board_table, true);
+
     assert_eq!(watcher.phase(), SlotPhase::InFlight);
     assert!(watcher.pending_notify().is_none());
 }
 
 /// Submit-next after a terminal notify must retarget the same watcher.
-/// Slot A is driven to WATCHER NOTIFY, then a real submit receipt for B is
-/// observed, then B's fixture is polled to terminal — the injection must
+/// Unit coverage for explicit operator configuration: slot B is adopted
+/// after A, then B's fixture is polled to terminal — the injection must
 /// name B, not stay latched on A.
 #[test]
-fn watcher_submit_next_after_notify_retargets_and_injects_new_id() {
+fn configured_watcher_can_be_explicitly_retargeted_after_terminal() {
     const SLOT_A: &str = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
     const SLOT_B: &str = "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa";
     let fixture_a = r#"{
@@ -415,81 +347,6 @@ fn watcher_submit_next_after_notify_retargets_and_injects_new_id() {
         "{text_b}"
     );
     assert_ne!(text_a, text_b);
-}
-
-#[test]
-fn edits_and_preflight_intent_do_not_certify_readiness_or_require_submission() {
-    let mut watcher = SubmissionWatcher::new();
-    let mutate = classify_inflight_hop(&[write_src()]);
-    assert_eq!(mutate, InFlightHopKind::MutateCandidate);
-    assert_eq!(
-        evaluate_inflight_hop(mutate, SlotPhase::Empty, false),
-        CadenceVerdict::Accept
-    );
-    // Actual result text may describe failure, denial, an incomplete launch,
-    // a completed edit, or a local test pass. None is a submission receipt or
-    // a byte-bound universal proof. Do not create a ready state from any of it.
-    let empty = watcher.telemetry(true);
-    for result in [
-        "ERROR: str_replace old text not found",
-        "DENIED: write outside workspace",
-        "Started process 42: local preflight is running",
-        "Successfully replaced 1 occurrence in src/lib.rs",
-        "Local preflight passed: 44 vectors OK; score=532432",
-    ] {
-        observe_tool_result_for_watch(&mut watcher, "shell", result, true);
-        assert_eq!(watcher.telemetry(true), empty, "{result}");
-        assert_eq!(
-            next_required_action(watcher.phase(), false),
-            NextRequiredAction::ImproveCandidate,
-            "{result}"
-        );
-    }
-    let poll = classify_inflight_hop(&[poll_status()]);
-    assert_eq!(poll, InFlightHopKind::PollStatus);
-    assert_eq!(
-        evaluate_inflight_hop(poll, SlotPhase::Empty, false),
-        CadenceVerdict::Accept
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::Idle, SlotPhase::Empty, false),
-        CadenceVerdict::Accept
-    );
-    let submit = classify_inflight_hop(&[submit()]);
-    assert_eq!(
-        evaluate_inflight_hop(submit, SlotPhase::Empty, false),
-        CadenceVerdict::Accept
-    );
-    watcher.adopt(GOLD_ID);
-    assert_eq!(watcher.phase(), SlotPhase::InFlight);
-    let improve = classify_inflight_hop(&[write_src()]);
-    assert_eq!(
-        evaluate_inflight_hop(improve, SlotPhase::InFlight, false),
-        CadenceVerdict::Accept,
-        "revolving door: improve the next best while the current bat is in flight"
-    );
-
-    for id in [
-        "gold-always-be-improving-best-to-bat",
-        "gold-revolving-door-improve-while-inflight",
-        "regression-preflight-intent-is-not-readiness",
-        "regression-edit-intent-is-not-readiness",
-    ] {
-        let fix = MINED_CADENCE_FIXTURES
-            .iter()
-            .find(|f| f.id == id)
-            .unwrap_or_else(|| panic!("missing fixture {id}"));
-        assert_eq!(fix.kind, CadenceKind::AlwaysBeImproving);
-        let verdicts = evaluate_mined_fixture(fix);
-        assert_eq!(verdicts.len(), fix.hops.len(), "{id}");
-        for (spec, got) in fix.hops.iter().zip(verdicts.iter()) {
-            assert_eq!(
-                *got, spec.expected,
-                "{id} hop {} {}",
-                spec.tool, spec.args_hint
-            );
-        }
-    }
 }
 
 #[test]
@@ -606,214 +463,6 @@ fn live_turn_failed_or_successful_tools_never_emit_submission_readiness() {
 }
 
 #[test]
-fn mutate_plus_local_preflight_while_inflight_is_accepted() {
-    let mut watcher = SubmissionWatcher::new();
-    watcher.adopt(GOLD_ID);
-    assert_eq!(watcher.phase(), SlotPhase::InFlight);
-    let hops = [
-        vec![write_src()],
-        vec![local_nvcc()],
-        vec![write_src(), local_nvcc()],
-    ];
-    for calls in hops {
-        let kind = classify_inflight_hop(&calls);
-        let verdict = evaluate_inflight_hop(kind, watcher.phase(), false);
-        assert_eq!(verdict, CadenceVerdict::Accept, "kind={kind:?}");
-        assert!(!verdict.is_fail());
-    }
-}
-
-#[test]
-fn poll_only_or_idle_while_inflight_fails() {
-    let mut watcher = SubmissionWatcher::new();
-    watcher.adopt(GOLD_ID);
-    let poll = classify_inflight_hop(&[poll_status()]);
-    assert_eq!(poll, InFlightHopKind::PollStatus);
-    assert_eq!(
-        evaluate_inflight_hop(poll, SlotPhase::InFlight, false),
-        CadenceVerdict::FailPollOnly
-    );
-    let idle = classify_inflight_hop(&[]);
-    assert_eq!(idle, InFlightHopKind::Idle);
-    assert_eq!(
-        evaluate_inflight_hop(idle, SlotPhase::InFlight, false),
-        CadenceVerdict::FailIdle
-    );
-}
-
-#[test]
-fn after_watcher_notify_receipt_check_is_accepted_then_improve_or_submit() {
-    let mut watcher = SubmissionWatcher::new();
-    watcher.adopt(GOLD_ID);
-    watcher.observe_snapshot(SlotSnapshot {
-        id: GOLD_ID.into(),
-        status: "accepted".into(),
-        score: Some("1844075.40".into()),
-        rejection_reason: None,
-    });
-    assert_eq!(watcher.phase(), SlotPhase::Terminal);
-    let just = watcher.take_just_notified();
-    assert!(just);
-    let receipt = classify_inflight_hop(&[poll_status()]);
-    assert_eq!(
-        evaluate_inflight_hop(receipt, SlotPhase::Terminal, just),
-        CadenceVerdict::AcceptReceipt
-    );
-    assert_eq!(
-        next_required_action(SlotPhase::Terminal, just),
-        NextRequiredAction::ReceiptCheck
-    );
-    assert_eq!(
-        next_required_action(SlotPhase::Terminal, false),
-        NextRequiredAction::ImproveCandidate
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::MutateCandidate, SlotPhase::Terminal, false),
-        CadenceVerdict::Accept
-    );
-}
-
-#[test]
-fn idle_on_submit_and_recon_thrash_are_competition_failures() {
-    let idle_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-idle-on-submit")
-        .unwrap();
-    let verdicts = evaluate_mined_fixture(idle_fix);
-    assert_eq!(verdicts[0], CadenceVerdict::Accept);
-    assert_eq!(verdicts[1], CadenceVerdict::FailPollOnly);
-
-    let recon_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-recon-thrash-as-progress")
-        .unwrap();
-    let verdicts = evaluate_mined_fixture(recon_fix);
-    assert_eq!(verdicts[0], CadenceVerdict::Accept);
-    assert_eq!(verdicts[1], CadenceVerdict::FailReconThrash);
-
-    let recon = classify_inflight_hop(&[call("grep", serde_json::json!({"pattern": "TODO"}))]);
-    assert_eq!(recon, InFlightHopKind::Recon);
-    assert_eq!(
-        evaluate_inflight_hop(recon, SlotPhase::InFlight, false),
-        CadenceVerdict::FailReconThrash
-    );
-}
-
-#[test]
-fn simple_tool_preflight_is_required_before_runner() {
-    let preflight = local_nvcc();
-    let runner = submit();
-    let yukon_runner = shell("yukon submit --note-file submission.md --model 'GPT 5.6 Sol'");
-    assert_eq!(classify_tool_lane(&preflight), ToolLane::SimpleLocal);
-    assert_eq!(classify_tool_lane(&runner), ToolLane::RunnerDispatch);
-    assert_eq!(classify_tool_lane(&yukon_runner), ToolLane::RunnerDispatch);
-    let sneaky = call(
-        "write_file",
-        serde_json::json!({
-            "path": "src/lib.rs",
-            "content": "hilbert submit --note x\npopcorn submit\n".repeat(200)
-        }),
-    );
-    assert_eq!(
-        classify_tool_lane(&sneaky),
-        ToolLane::SimpleLocal,
-        "write payload must not launder as runner dispatch"
-    );
-    assert!(is_local_preflight_call(&preflight));
-    assert!(!runner_escalation_allowed(false, &runner));
-    assert!(runner_escalation_allowed(true, &runner));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-local-preflight-before-runner")
-        .unwrap();
-    let (saw_preflight, allowed) = fixture_runner_gate(gold);
-    assert!(saw_preflight, "gold fixture must preflight before submit");
-    assert!(allowed, "runner after preflight must be allowed");
-
-    let waste = CadenceFixture {
-        id: "waste",
-        kind: CadenceKind::LocalPreflightBeforeRunner,
-        hops: &[HopSpec {
-            tool: "shell",
-            args_hint: "hilbert submit --note x",
-            expected: CadenceVerdict::Accept,
-        }],
-    };
-    let (saw_preflight, allowed) = fixture_runner_gate(&waste);
-    assert!(!saw_preflight);
-    assert!(!allowed, "bare submit without preflight is runner waste");
-}
-
-#[test]
-fn mined_notify_cadence_accepts_receipt_then_submit_next() {
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-receipt-then-submit-next")
-        .expect("gold notify fixture");
-    assert_eq!(gold.kind, CadenceKind::ReceiptThenSubmitNext);
-    let seeded = watcher_after_terminal_notify(GOLD_ID);
-    assert_eq!(seeded.phase(), SlotPhase::Terminal);
-    assert!(seeded.pending_notify().is_some());
-    let verdicts = evaluate_notify_fixture(gold);
-    assert_eq!(verdicts.len(), gold.hops.len());
-    for (spec, got) in gold.hops.iter().zip(verdicts.iter()) {
-        assert_eq!(
-            *got, spec.expected,
-            "gold hop {} {}",
-            spec.tool, spec.args_hint
-        );
-    }
-    assert_eq!(
-        next_required_action(SlotPhase::Terminal, true),
-        NextRequiredAction::ReceiptCheck
-    );
-    assert_eq!(
-        next_required_action(SlotPhase::Terminal, false),
-        NextRequiredAction::ImproveCandidate
-    );
-
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-re-poll-after-receipt")
-        .expect("re-poll fixture");
-    let waste_verdicts = evaluate_notify_fixture(waste);
-    assert_eq!(
-        waste_verdicts,
-        vec![CadenceVerdict::AcceptReceipt, CadenceVerdict::FailPollOnly]
-    );
-}
-
-#[test]
-fn mined_gold_cadences_accept_mutate_preflight_and_submit() {
-    for id in [
-        "gold-no-idle-while-inflight",
-        "gold-local-preflight-before-runner",
-        "gold-outcome-only-progress",
-    ] {
-        let fix = MINED_CADENCE_FIXTURES
-            .iter()
-            .find(|f| f.id == id)
-            .unwrap_or_else(|| panic!("missing fixture {id}"));
-        assert!(matches!(
-            fix.kind,
-            CadenceKind::NoIdleWhileInFlight
-                | CadenceKind::LocalPreflightBeforeRunner
-                | CadenceKind::OutcomeOnlyProgress
-        ));
-        let verdicts = evaluate_mined_fixture(fix);
-        assert_eq!(verdicts.len(), fix.hops.len(), "{id}");
-        for (spec, got) in fix.hops.iter().zip(verdicts.iter()) {
-            assert_eq!(
-                *got, spec.expected,
-                "{id} hop {} {}",
-                spec.tool, spec.args_hint
-            );
-        }
-    }
-}
-
-#[test]
 fn board_outline_is_recon_not_preflight() {
     let outline = call("outline", serde_json::json!({"path": "LIVING_HANDOFF.md"}));
     let defs = call(
@@ -834,31 +483,6 @@ fn board_outline_is_recon_not_preflight() {
         "product outline must remain preflight"
     );
     assert!(is_free_form_recon(&outline));
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&outline)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        evaluate_inflight_hop(
-            classify_inflight_hop(std::slice::from_ref(&outline)),
-            SlotPhase::InFlight,
-            false
-        ),
-        CadenceVerdict::FailReconThrash
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&outline), &submit()),
-        "board outline must not launder runner escalation"
-    );
-
-    let fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-outline-as-recon")
-        .expect("board-outline fixture");
-    assert_eq!(
-        evaluate_mined_fixture(fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 #[test]
@@ -876,27 +500,6 @@ fn pathless_defs_is_recon_not_preflight() {
         "path-scoped product defs stay preflight"
     );
     assert!(is_free_form_recon(&symbol));
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&symbol)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::Recon, SlotPhase::InFlight, false),
-        CadenceVerdict::FailReconThrash
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&symbol), &submit()),
-        "path-less defs must not launder runner escalation"
-    );
-
-    let fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-pathless-defs-as-preflight")
-        .expect("pathless-defs fixture");
-    assert_eq!(
-        evaluate_mined_fixture(fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// Native grep of a product file is candidate inspect (same class as
@@ -924,47 +527,6 @@ fn path_scoped_product_grep_is_preflight() {
         !is_local_preflight_call(&board),
         "grep of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::LocalPreflight, SlotPhase::InFlight, false),
-        CadenceVerdict::Accept
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product grep may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "workspace grep must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-path-grep-while-inflight")
-        .expect("path-grep gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-grep-as-preflight")
-        .expect("board-grep fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// Path-scoped list_dir of a product directory is candidate inspect.
@@ -985,43 +547,6 @@ fn path_scoped_list_dir_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "list_dir of a board path must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product list_dir may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "workspace list_dir must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-list-dir-while-inflight")
-        .expect("list-dir gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-list-dir-as-preflight")
-        .expect("board-list-dir fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -1066,51 +591,6 @@ fn path_scoped_find_files_is_preflight() {
         !is_local_preflight_call(&board),
         "find_files of a board name must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product find_files may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "workspace find_files must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-find-files-while-inflight")
-        .expect("find-files gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-find-files-as-preflight")
-        .expect("workspace-find-files fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-find-files-as-preflight")
-        .expect("board-find-files fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// Path-scoped file_search of a product fragment is candidate inspect.
@@ -1139,51 +619,6 @@ fn path_scoped_file_search_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "file_search of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product file_search may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "workspace file_search must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-file-search-while-inflight")
-        .expect("file-search gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-file-search-as-preflight")
-        .expect("workspace-file-search fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-file-search-as-preflight")
-        .expect("board-file-search fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -1219,52 +654,6 @@ fn path_scoped_shell_cat_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "cat of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board cat stays legal wait/poll, not preflight"
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product cat may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "workspace cat must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-cat-while-inflight")
-        .expect("shell-cat gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-cat-as-preflight")
-        .expect("workspace-shell-cat fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-cat-as-preflight")
-        .expect("board-shell-cat fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -1311,65 +700,6 @@ fn path_scoped_shell_sed_is_preflight() {
         !is_local_preflight_call(&board),
         "sed of a board name must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&inplace)),
-        InFlightHopKind::Recon,
-        "in-place sed is recon, not mutate-via-shell"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board sed stays legal wait/poll, not preflight"
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product sed -n may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&inplace), &submit()),
-        "sed -i must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-sed-while-inflight")
-        .expect("shell-sed gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-sed-as-preflight")
-        .expect("workspace-shell-sed fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let inplace_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-inplace-shell-sed-as-preflight")
-        .expect("inplace-shell-sed fixture");
-    assert_eq!(
-        evaluate_mined_fixture(inplace_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-sed-as-preflight")
-        .expect("board-shell-sed fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `stat`/`file` of a product path is the same class as path-scoped cat.
@@ -1404,52 +734,6 @@ fn path_scoped_shell_stat_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "stat of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board stat stays legal wait/poll, not preflight"
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product stat may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "workspace stat must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-stat-while-inflight")
-        .expect("shell-stat gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-stat-as-preflight")
-        .expect("workspace-shell-stat fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-stat-as-preflight")
-        .expect("board-shell-stat fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -1487,52 +771,6 @@ fn path_scoped_shell_xxd_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "md5sum of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board checksum stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-xxd-while-inflight")
-        .expect("shell-xxd gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-xxd-as-preflight")
-        .expect("workspace-shell-xxd fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-md5sum-as-preflight")
-        .expect("board-shell-md5sum fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -1573,52 +811,6 @@ fn path_scoped_shell_objdump_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "nm of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board nm stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-objdump-while-inflight")
-        .expect("shell-objdump gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-objdump-as-preflight")
-        .expect("workspace-shell-objdump fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-nm-as-preflight")
-        .expect("board-shell-nm fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -1663,52 +855,6 @@ fn path_scoped_shell_llvm_objdump_is_preflight() {
         !is_local_preflight_call(&board),
         "llvm-nm of a board name must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board llvm-nm stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-llvm-objdump-while-inflight")
-        .expect("shell-llvm-objdump gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-llvm-objdump-as-preflight")
-        .expect("workspace-shell-llvm-objdump fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-llvm-nm-as-preflight")
-        .expect("board-shell-llvm-nm fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `addr2line`/`eu-nm`/`eu-readelf`/`eu-objdump`/`llvm-dwarfdump` of a
@@ -1751,52 +897,6 @@ fn path_scoped_shell_addr2line_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "eu-nm of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board eu-nm stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-addr2line-while-inflight")
-        .expect("shell-addr2line gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-addr2line-as-preflight")
-        .expect("workspace-shell-addr2line fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-eu-nm-as-preflight")
-        .expect("board-shell-eu-nm fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -1849,52 +949,6 @@ fn path_scoped_shell_llvm_addr2line_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "eu-addr2line of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board eu-addr2line stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-llvm-addr2line-while-inflight")
-        .expect("shell-llvm-addr2line gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-llvm-addr2line-as-preflight")
-        .expect("workspace-shell-llvm-addr2line fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-eu-addr2line-as-preflight")
-        .expect("board-shell-eu-addr2line fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -1960,52 +1014,6 @@ fn path_scoped_shell_llvm_symbolizer_is_preflight() {
         !is_local_preflight_call(&board),
         "board --obj= must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board llvm-symbolizer stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-llvm-symbolizer-while-inflight")
-        .expect("shell-llvm-symbolizer gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-llvm-symbolizer-as-preflight")
-        .expect("workspace-shell-llvm-symbolizer fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-llvm-symbolizer-as-preflight")
-        .expect("board-shell-llvm-symbolizer fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `diff`/`cmp`/`strings` of a product path is the same class as path-scoped
@@ -2047,52 +1055,6 @@ fn path_scoped_shell_diff_is_preflight() {
         !is_local_preflight_call(&board),
         "diff of a board name must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board diff stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-diff-while-inflight")
-        .expect("shell-diff gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-diff-as-preflight")
-        .expect("workspace-shell-diff fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-diff-as-preflight")
-        .expect("board-shell-diff fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `ls src` is the same class as path-scoped list_dir. Bare `ls` stays
@@ -2130,52 +1092,6 @@ fn path_scoped_shell_ls_is_preflight() {
     assert!(
         !is_local_preflight_call(&board),
         "ls of a board name must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board ls stays legal wait/poll, not preflight"
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product ls may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "bare ls must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-ls-while-inflight")
-        .expect("shell-ls gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-ls-as-preflight")
-        .expect("workspace-shell-ls fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-ls-as-preflight")
-        .expect("board-shell-ls fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -2216,51 +1132,6 @@ fn path_scoped_shell_grep_is_preflight() {
         !is_local_preflight_call(&board),
         "grep of a board name must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product grep may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "pathless grep must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-grep-while-inflight")
-        .expect("shell-grep gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-grep-as-preflight")
-        .expect("workspace-shell-grep fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-grep-as-preflight")
-        .expect("board-shell-grep fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// Working-tree git_diff is candidate inspect (submit then review the patch).
@@ -2281,43 +1152,6 @@ fn git_diff_is_local_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&board),
         "git_diff of a board path must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&tree)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::LocalPreflight, SlotPhase::InFlight, false),
-        CadenceVerdict::Accept
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&tree), &submit()),
-        "working-tree git_diff may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&board), &submit()),
-        "board git_diff must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-git-diff-while-inflight")
-        .expect("git-diff gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-git-diff-as-preflight")
-        .expect("board-git-diff fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -2342,43 +1176,6 @@ fn git_status_is_local_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&board),
         "git_status of a board path must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&tree)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::LocalPreflight, SlotPhase::InFlight, false),
-        CadenceVerdict::Accept
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&tree), &submit()),
-        "working-tree git_status may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&board), &submit()),
-        "board git_status must not launder runner escalation"
-    );
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-git-status-while-inflight")
-        .expect("git-status gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-git-status-as-preflight")
-        .expect("board-git-status fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -2413,39 +1210,6 @@ fn shell_git_diff_is_local_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&tool),
         "git difftool is not working-tree inspect"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&tree)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&tree),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-diff-while-inflight")
-        .expect("shell-git-diff gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-diff-as-preflight")
-        .expect("board-shell-git-diff fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -2482,39 +1246,6 @@ fn shell_git_status_is_local_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&stash),
         "git stash is not working-tree inspect"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&tree)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&tree),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-status-while-inflight")
-        .expect("shell-git-status gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-status-as-preflight")
-        .expect("board-shell-git-status fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -2579,79 +1310,6 @@ fn path_scoped_git_log_is_preflight_while_inflight() {
         !is_local_preflight_call(&shell_board),
         "shell git log of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::Recon
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&product), &submit()),
-        "product git_log may arm submit-next"
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&workspace), &submit()),
-        "pathless git_log must not launder runner escalation"
-    );
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-git-log-while-inflight")
-        .expect("git-log gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let gold_shell = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-log-while-inflight")
-        .expect("shell-git-log gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold_shell),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-git-log-as-preflight")
-        .expect("workspace-git-log fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-git-log-as-preflight")
-        .expect("board-git-log fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let shell_waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-log-as-preflight")
-        .expect("workspace-shell-git-log fixture");
-    assert_eq!(
-        evaluate_mined_fixture(shell_waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let shell_board = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-log-as-preflight")
-        .expect("board-shell-git-log fixture");
-    assert_eq!(
-        evaluate_mined_fixture(shell_board),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// `git ls-files -- src/kernel.cu` is candidate inspect (submit then check
@@ -2691,51 +1349,6 @@ fn path_scoped_git_ls_files_is_preflight_while_inflight() {
         !is_local_preflight_call(&board),
         "git ls-files of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-ls-files-while-inflight")
-        .expect("shell-git-ls-files gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-ls-files-as-preflight")
-        .expect("workspace-shell-git-ls-files fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-ls-files-as-preflight")
-        .expect("board-shell-git-ls-files fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// `git ls-tree HEAD src/kernel.cu` is candidate inspect (submit then list
@@ -2774,51 +1387,6 @@ fn path_scoped_git_ls_tree_is_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&board),
         "git ls-tree of a board path must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-ls-tree-while-inflight")
-        .expect("shell-git-ls-tree gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-ls-tree-as-preflight")
-        .expect("workspace-shell-git-ls-tree fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-ls-tree-as-preflight")
-        .expect("board-shell-git-ls-tree fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -2872,51 +1440,6 @@ fn path_scoped_git_rev_list_is_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&board),
         "git rev-list of a board path must not launder as preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-rev-list-while-inflight")
-        .expect("shell-git-rev-list gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-rev-list-as-preflight")
-        .expect("workspace-shell-git-rev-list fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-rev-list-as-preflight")
-        .expect("board-shell-git-rev-list fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
     );
 }
 
@@ -2983,51 +1506,6 @@ fn path_scoped_git_hash_object_is_preflight_while_inflight() {
         !is_local_preflight_call(&board),
         "git hash-object of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-hash-object-while-inflight")
-        .expect("shell-git-hash-object gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-hash-object-as-preflight")
-        .expect("workspace-shell-git-hash-object fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-hash-object-as-preflight")
-        .expect("board-shell-git-hash-object fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `git annotate src/kernel.cu` / `git diff-index HEAD -- src/kernel.cu` /
@@ -3086,56 +1564,6 @@ fn path_scoped_git_annotate_is_preflight_while_inflight() {
         !is_local_preflight_call(&board),
         "git annotate of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board annotate stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-annotate-while-inflight")
-        .expect("shell-git-annotate gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-annotate-as-preflight")
-        .expect("workspace-shell-git-annotate fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-annotate-as-preflight")
-        .expect("board-shell-git-annotate fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `git name-rev HEAD -- src/kernel.cu` / `git check-ignore src/kernel.cu`
@@ -3187,56 +1615,6 @@ fn path_scoped_git_name_rev_is_preflight_while_inflight() {
         !is_local_preflight_call(&board),
         "git check-ignore of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus,
-        "board check-ignore stays legal wait/poll, not preflight"
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-name-rev-while-inflight")
-        .expect("shell-git-name-rev gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-name-rev-as-preflight")
-        .expect("workspace-shell-git-name-rev fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-check-ignore-as-preflight")
-        .expect("board-shell-git-check-ignore fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 /// `git grep stream -- src/kernel.cu` is candidate inspect (submit then search
@@ -3287,51 +1665,6 @@ fn path_scoped_git_grep_is_preflight_while_inflight() {
         !is_local_preflight_call(&board),
         "git grep of a board path must not launder as preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-grep-while-inflight")
-        .expect("shell-git-grep gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-grep-as-preflight")
-        .expect("workspace-shell-git-grep fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-grep-as-preflight")
-        .expect("board-shell-git-grep fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
 }
 
 /// `git show HEAD:src/kernel.cu` is candidate inspect (submit then review the
@@ -3380,67 +1713,6 @@ fn path_scoped_git_show_is_preflight_while_inflight() {
     assert!(
         !is_local_preflight_call(&board),
         "board blob must stay wait/poll, not preflight"
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&inventory)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-show-while-inflight")
-        .expect("shell-git-show gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-show-as-preflight")
-        .expect("workspace-shell-git-show fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let inventory_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-inventory-shell-git-show-as-preflight")
-        .expect("inventory-shell-git-show fixture");
-    assert_eq!(
-        evaluate_mined_fixture(inventory_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-show-as-preflight")
-        .expect("board-shell-git-show fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
     );
 }
 
@@ -3492,67 +1764,6 @@ fn path_scoped_git_cat_file_is_preflight_while_inflight() {
         !is_local_preflight_call(&board),
         "board blob must stay wait/poll, not preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&product)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&workspace)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&batch)),
-        InFlightHopKind::Recon
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&product),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&workspace),
-        &submit()
-    ));
-    assert!(!runner_escalation_allowed(
-        is_local_preflight_call(&board),
-        &submit()
-    ));
-
-    let gold = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-shell-git-cat-file-while-inflight")
-        .expect("shell-git-cat-file gold fixture");
-    assert_eq!(
-        evaluate_mined_fixture(gold),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
-    let waste = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-workspace-shell-git-cat-file-as-preflight")
-        .expect("workspace-shell-git-cat-file fixture");
-    assert_eq!(
-        evaluate_mined_fixture(waste),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let batch_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-batch-shell-git-cat-file-as-preflight")
-        .expect("batch-shell-git-cat-file fixture");
-    assert_eq!(
-        evaluate_mined_fixture(batch_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let board_fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-shell-git-cat-file-as-preflight")
-        .expect("board-shell-git-cat-file fixture");
-    assert_eq!(
-        evaluate_mined_fixture(board_fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 #[test]
@@ -3568,48 +1779,10 @@ fn board_read_is_not_preflight_while_watcher_owns_inflight() {
         !is_local_preflight_call(&board),
         "board digest must not count as candidate preflight"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&board)),
-        InFlightHopKind::PollStatus
-    );
-    assert_eq!(
-        evaluate_inflight_hop(
-            classify_inflight_hop(std::slice::from_ref(&board)),
-            SlotPhase::InFlight,
-            false
-        ),
-        CadenceVerdict::FailPollOnly
-    );
-    assert_eq!(
-        evaluate_inflight_hop(
-            classify_inflight_hop(std::slice::from_ref(&board)),
-            SlotPhase::Terminal,
-            false
-        ),
-        CadenceVerdict::FailPollOnly
-    );
-    assert!(
-        !runner_escalation_allowed(is_local_preflight_call(&board), &submit()),
-        "board read must not launder runner escalation"
-    );
 
     let candidate = call("read_file", serde_json::json!({"path": "candidate.cu"}));
     assert!(is_local_preflight_call(&candidate));
     assert!(is_free_form_recon(&candidate));
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&candidate)),
-        InFlightHopKind::LocalPreflight
-    );
-
-    let fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-read-as-poll")
-        .expect("board-read fixture");
-    let verdicts = evaluate_mined_fixture(fix);
-    assert_eq!(
-        verdicts,
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailPollOnly]
-    );
 }
 
 #[test]
@@ -3634,27 +1807,6 @@ fn local_benchmark_shell_is_preflight_not_recon_while_inflight() {
         !is_local_benchmark_call(&random),
         "arbitrary python is still recon"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&bench)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&random)),
-        InFlightHopKind::Recon
-    );
-    assert!(runner_escalation_allowed(
-        is_local_preflight_call(&bench),
-        &submit()
-    ));
-
-    let fix = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-local-bench-while-inflight")
-        .expect("local-bench inflight fixture");
-    assert_eq!(
-        evaluate_mined_fixture(fix),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
 }
 
 #[test]
@@ -3672,37 +1824,6 @@ fn board_write_is_not_wait_or_poll_while_inflight() {
         "meta writes stay bookkeeping (do not burn first-write)"
     );
     assert!(!is_product_mutation_call(&handoff));
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&handoff)),
-        InFlightHopKind::Recon,
-        "watcher must not treat a board rewrite as PollStatus/receipt"
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::Recon, SlotPhase::InFlight, false),
-        CadenceVerdict::FailReconThrash
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::Recon, SlotPhase::Terminal, true),
-        CadenceVerdict::FailReconThrash,
-        "just_notified receipt is not a board rewrite"
-    );
-
-    let inflight = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-write-as-poll")
-        .expect("board-write inflight fixture");
-    assert_eq!(
-        evaluate_mined_fixture(inflight),
-        vec![CadenceVerdict::Accept, CadenceVerdict::FailReconThrash]
-    );
-    let fake_receipt = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "adversarial-board-write-as-receipt")
-        .expect("board-write receipt fixture");
-    assert_eq!(
-        evaluate_notify_fixture(fake_receipt),
-        vec![CadenceVerdict::FailReconThrash]
-    );
 }
 
 #[test]
@@ -3721,61 +1842,14 @@ fn native_verifier_is_local_benchmark_not_recon_while_inflight() {
         !is_local_preflight_call(&recon),
         "workspace grep stays recon thrash"
     );
-    assert_eq!(
-        classify_inflight_hop(std::slice::from_ref(&check)),
-        InFlightHopKind::LocalPreflight
-    );
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::LocalPreflight, SlotPhase::InFlight, false),
-        CadenceVerdict::Accept
-    );
-    assert!(
-        runner_escalation_allowed(is_local_preflight_call(&check), &submit()),
-        "native check may arm submit-next"
-    );
-
-    let inflight = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-native-benchmark-while-inflight")
-        .expect("native-benchmark inflight fixture");
-    assert_eq!(
-        evaluate_mined_fixture(inflight),
-        vec![
-            CadenceVerdict::Accept,
-            CadenceVerdict::Accept,
-            CadenceVerdict::Accept
-        ]
-    );
-
-    let after_notify = MINED_CADENCE_FIXTURES
-        .iter()
-        .find(|f| f.id == "gold-notify-then-native-benchmark")
-        .expect("notify then native-benchmark fixture");
-    assert_eq!(
-        evaluate_notify_fixture(after_notify),
-        vec![CadenceVerdict::Accept, CadenceVerdict::Accept]
-    );
 }
 
 #[test]
-fn first_write_guard_stays_soft_when_watcher_owns_inflight_poll() {
+fn status_poll_does_not_burn_first_write_budget() {
     // Wait/poll still does not burn first-write budget (optional receipt).
-    // The new in-flight policy is a separate detector.
     let status = poll_status();
     assert!(is_competition_wait_or_progress_call(&status));
     assert!(!is_free_form_recon(&status));
-    assert_eq!(
-        evaluate_inflight_hop(classify_inflight_hop(&[status]), SlotPhase::InFlight, false),
-        CadenceVerdict::FailPollOnly
-    );
-    assert_eq!(
-        evaluate_inflight_hop(
-            classify_inflight_hop(&[poll_status()]),
-            SlotPhase::Terminal,
-            true
-        ),
-        CadenceVerdict::AcceptReceipt
-    );
 }
 
 #[test]
@@ -3850,34 +1924,87 @@ fn ordinary_non_comp_hop_does_not_arm_watcher_path() {
     let mut armed = SubmissionWatcher::new();
     armed.adopt(GOLD_ID);
     assert!(armed.hop_path_active(false));
-    assert_eq!(
-        evaluate_inflight_hop(InFlightHopKind::Idle, SlotPhase::Empty, false),
-        CadenceVerdict::Accept
-    );
 }
 
 #[test]
-fn observe_tool_result_skips_ordinary_logs_until_receipt() {
-    let mut watcher = SubmissionWatcher::new();
-    observe_tool_result_for_watch(
-        &mut watcher,
-        "shell",
-        "test result: ok. 3 passed; 0 failed",
-        false,
-    );
-    assert!(watcher.slot_id().is_none());
-    assert!(!watcher.hop_path_active(false));
-    observe_tool_result_for_watch(
-        &mut watcher,
-        "shell",
-        "Submission queued aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
-        false,
-    );
-    assert!(watcher.slot_id().is_none());
-    assert!(!watcher.hop_path_active(false));
-}
-
-#[test]
-fn watcher_nudges_carry_telemetry_mark() {
-    assert!(WATCHER_NOTIFY_MARK.starts_with(TELEMETRY_MARK));
+fn configured_inflight_watcher_allows_reads_polls_and_dispatch_without_cadence_judgments() {
+    let _guard = crate::tests::env_lock();
+    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
+    let _competition = EnvGuard::set("ANGEL_COMPETITION_MODE", "1");
+    // The fixture board's configured watch never answers: no live requests.
+    let _submission = EnvGuard::set("ANGEL_WATCH_BOARD_SUBMISSION", GOLD_ID);
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let root = scratch("watcher_legitimate_research");
+    struct Probe(Arc<AtomicUsize>);
+    impl Tool for Probe {
+        fn name(&self) -> &str {
+            "shell"
+        }
+        fn def(&self) -> ToolDef {
+            ToolDef {
+                name: "shell".into(),
+                description: "routing fixture".into(),
+                params: serde_json::json!({"type":"object"}),
+            }
+        }
+        fn call(&self, _: &Value) -> Result<String, String> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok("routing fixture completed".into())
+        }
+    }
+    struct Research(AtomicUsize);
+    impl Club for Research {
+        fn label(&self) -> &str {
+            "watcher-routing-fixture"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            unreachable!()
+        }
+        fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
+            let hop = self.0.fetch_add(1, Ordering::SeqCst);
+            let Some(command) = [
+                "board submissions",
+                "cat README.md",
+                "board submit --note candidate",
+            ]
+            .get(hop) else {
+                return Ok(ClubReply::Text("routing checked".into()));
+            };
+            let mut call = shell(command);
+            call.id = format!("research-{hop}");
+            Ok(ClubReply::Calls(vec![call]))
+        }
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    registry.register(Box::new(Probe(Arc::clone(&calls))));
+    let (events, received) = mpsc::channel();
+    let answer = run_turn(
+        &Research(AtomicUsize::new(0)),
+        &registry,
+        &mut vec![ChatMsg::user(
+            "Inspect competition results and source, then submit the candidate.",
+        )],
+        &AtomicBool::new(false),
+        Some(6),
+        &events,
+    )
+    .unwrap();
+    assert_eq!(answer, "routing checked");
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
+    let events: Vec<_> = received.try_iter().collect();
+    assert!(events.iter().any(|event| matches!(event, TurnEvent::SubmissionSlot(slot) if slot.phase == SubmissionSlotPhase::InFlight)));
+    for event in events {
+        if let TurnEvent::Notice(note) = event {
+            assert!(
+                !note.contains("cadence failure")
+                    && !note.contains("runner waste")
+                    && !note.contains("next required action"),
+                "{note}"
+            );
+        }
+    }
+    std::fs::remove_dir_all(root).unwrap();
 }

@@ -2,12 +2,12 @@ use super::*;
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn mcp_wrapper_retirement_fixture() {
     use crate::agent::service_process::tests::{FixtureCleanup, ServiceFixture};
 
-    let Some(root) = std::env::var_os("ANGEL_T_MCP_RETIREMENT") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_MCP_RETIREMENT")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     for mode in ["live", "exit", "retired"] {
         let fixture = ServiceFixture::new(std::path::Path::new(&root), mode);

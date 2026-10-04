@@ -48,6 +48,9 @@ pub(crate) mod mat {
     pub(crate) const ARMOR: u8 = 21;
     /// Baked torch pool on stone; local radial UVs carry its soft falloff.
     pub(crate) const TORCH_POOL: u8 = 22;
+    /// Steady blue scrying glass. Reflected fill keeps its facets visible;
+    /// it never changes with tool activity or the room's candle flicker.
+    pub(crate) const CRYSTAL: u8 = 23;
 }
 
 #[derive(Clone, Copy, Debug)]

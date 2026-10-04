@@ -1382,35 +1382,36 @@ fn run_turn_tiered(
         // submission cadence are separate contracts; deep work must never
         // inherit the latter merely because the standing goal mentions a
         // leaderboard.
-        let engage = book::warpath(
-            registry.current_workspace(),
-            &book::k_competition::engage(task_pace),
-        );
-        let already = history
-            .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.as_ref() == engage);
-        if !already {
-            history.push(ChatMsg::harness(engage));
-            let policy = match task_pace {
-                TaskPace::Rapid => {
-                    "mutate + local preflight → explicit submission contract → improve next candidate"
-                }
-                TaskPace::Deep => {
-                    "research + targeted experiments → evidence-ready candidate; submit when the local gate passes"
-                }
-            };
-            let _ = events.send(TurnEvent::Notice(format!(
-                "competition {} pace armed (trigger: {trigger}) — {policy}",
-                task_pace.as_str()
-            )));
-        }
+        let raises =
+            book::k_competition::engage_for_workspace(task_pace, registry.current_workspace());
+        // The persisted evidence is inline data beside the route stamps. A
+        // warpath-only message would record it in the process-local ledger but
+        // never expose the brief to the model. Re-emit once per competition turn
+        // so a new receipt/frontier cache is not hidden by an older same-route
+        // history entry.
+        let entry = book::advice_turn(registry.current_workspace(), &raises, false);
+        history.push(ChatMsg::harness(entry));
+        let policy = match task_pace {
+            TaskPace::Rapid => {
+                "mutate + local preflight → authorized submission with candidate identity/receipt → improve next candidate"
+            }
+            TaskPace::Deep => {
+                "research + targeted experiments → evidence-ready candidate; submit when authorized and the local gate passes"
+            }
+        };
+        let _ = events.send(TurnEvent::Notice(format!(
+            "competition {} pace armed (trigger: {trigger}) — {policy}",
+            task_pace.as_str()
+        )));
     }
     let mut slot_watcher = SubmissionWatcher::new();
     let mut watch_source: Option<ConfiguredWatchSource> = None;
-    match crate::agent::harness::comp_packages::active_package().configured_watch() {
+    match crate::agent::harness::cartridges::active()
+        .map_or(Ok(None), |cartridge| cartridge.hooks().configured_watch())
+    {
         Ok(Some((id, source))) => {
             slot_watcher.adopt(&id);
-            watch_source = Some(source);
+            watch_source = Some(ConfiguredWatchSource::Cartridge(source));
         }
         Ok(None) => {}
         Err(error) => {
@@ -1424,7 +1425,6 @@ fn run_turn_tiered(
         competition,
         &mut published_slot_telemetry,
     );
-    let mut preflight_seen_this_turn = false;
     let time_to_first_mutation_ms = std::cell::Cell::new(None::<u64>);
     let time_to_green_ms = std::cell::Cell::new(None::<u64>);
     // Hops where every call errored at dispatch (`⠭⠁` on the third).
@@ -1528,7 +1528,7 @@ fn run_turn_tiered(
     } else {
         Vec::new()
     };
-    // A task that declares its editable surface (a Yukon benchmark.json, or
+    // A task that declares its editable surface (a board's benchmark.json, or
     // ANGEL_TASK_EDITABLE_PATHS_JSON) gets `⠧⠓` on edits outside it: those
     // changes are not part of what is evaluated.
     let edit_scope = book::v_verification::task_edit_scope(registry.current_workspace());
@@ -3621,44 +3621,15 @@ fn run_turn_tiered(
                     hop_budget_classify_applied(competition, hop_path_active),
                     &calls,
                 );
-                let mut cadence_verdict = None;
                 if hop_path_active {
-                    let inflight_kind = classify_inflight_hop(&calls);
-                    if calls.iter().any(is_local_preflight_call) {
-                        preflight_seen_this_turn = true;
-                    }
-                    let just_notified = slot_watcher.take_just_notified();
-                    let inflight_verdict =
-                        evaluate_inflight_hop(inflight_kind, slot_watcher.phase(), just_notified);
-                    cadence_verdict = Some(inflight_verdict);
+                    slot_watcher.take_just_notified();
                     publish_slot_telemetry(
                         events,
                         &slot_watcher,
                         competition,
                         &mut published_slot_telemetry,
                     );
-                    if inflight_verdict.is_fail() {
-                        let phase = slot_watcher.phase();
-                        let next = next_required_action(phase, false);
-                        let _ = events.send(TurnEvent::Notice(format!(
-                            "submission cadence failure ({inflight_verdict:?}); slot={phase:?}; next required action: {next:?}"
-                        )));
-                    } else if just_notified {
-                        let next = next_required_action(slot_watcher.phase(), false);
-                        let _ = events.send(TurnEvent::Notice(format!(
-                            "watcher terminal consumed; next required action: {next:?}"
-                        )));
-                    }
-                    if calls
-                        .iter()
-                        .any(|c| !runner_escalation_allowed(preflight_seen_this_turn, c))
-                    {
-                        let _ = events.send(TurnEvent::Notice(
-                            "runner waste: local preflight required before runner dispatch".into(),
-                        ));
-                    }
                 }
-                let _ = cadence_verdict;
                 if calls.iter().any(|c| c.id.starts_with("prose_")) {
                     let _ = events.send(TurnEvent::SuppressPartial);
                 }
@@ -4058,12 +4029,6 @@ fn run_turn_tiered(
                     if execution_blocked.is_none() {
                         execution_blocked = execution_blocker(&call.name, &result);
                     }
-                    observe_tool_result_for_watch(
-                        &mut slot_watcher,
-                        &call.name,
-                        &result,
-                        competition,
-                    );
                     publish_slot_telemetry(
                         events,
                         &slot_watcher,

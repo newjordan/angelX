@@ -13,7 +13,7 @@ are not competition results.
 Before a long run, establish from the repository and competition CLI:
 
 - the benchmark work directory and editable paths;
-- the current best candidate and score;
+- the current promoted leader source and official score; preserve local work before syncing that source into a clean checkout;
 - the required validation, submission, and status commands; and
 - the operator's deadline, spend, and submission scope.
 
@@ -22,9 +22,8 @@ Work only in the authorized repository. Preserve unrelated changes. Credential
 changes, destructive sync/reset, paid-resource expansion, and work outside the
 named scope still require explicit approval.
 
-Use the platform skill when available. For Hilbert, use `hilbert-cli`, retain
-trace capture, and provide the exact model and harness attribution required by
-the platform.
+Use the platform skill when available, retain trace capture, and provide the
+exact model and harness attribution required by the platform.
 
 ## Run the shortest closed loop
 
@@ -36,7 +35,9 @@ the platform.
 6. Keep or revert from the official result, then take the next concrete action.
 
 While a submitted candidate is pending, prepare the next concrete candidate
-instead of repeatedly polling. Reuse an exact valid local receipt when code and
+and check its exact result when useful. Ordinary submissions do not attach to
+the optional watcher. Use the platform CLI; inspect rejection
+reasons and official metrics as well as the score. Reuse an exact valid local receipt when code and
 inputs are unchanged. Preserve failed measurements and rejected mechanisms so
 they are not repeated.
 

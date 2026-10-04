@@ -149,6 +149,15 @@ impl MoaModelRef {
 pub(crate) struct MoaModelChoice {
     pub(crate) route: MoaModelRef,
     pub(crate) available: bool,
+    /// The model the operator has in hand: with self seats it fills them all.
+    pub(crate) in_hand: bool,
+}
+
+/// Self seats: every formation seat starts as the model in hand, so a mixture
+/// never reaches a provider the operator didn't pick. `ANGEL_MOA_SEATS=mixed`
+/// restores the intelligence-order picks. Seats stay reassignable in the deck.
+pub(crate) fn self_seats() -> bool {
+    !std::env::var("ANGEL_MOA_SEATS").is_ok_and(|v| v.trim().eq_ignore_ascii_case("mixed"))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -733,6 +742,12 @@ fn recommended_model(
     // quietly bill a frontier model the operator never chose.
     if formation == FormationId::TagTeam {
         return None;
+    }
+
+    if self_seats()
+        && let Some(own) = models.iter().find(|choice| choice.in_hand && choice.available)
+    {
+        return Some(own.route.clone());
     }
 
     if formation == FormationId::AutoMoa {

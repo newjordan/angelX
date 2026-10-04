@@ -23,12 +23,12 @@ fn publish_after(
 }
 
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn fixed_spawn_budget_fixture() {
     use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
 
-    let Some(root) = std::env::var_os("ANGEL_T_FIXED_SPAWN") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_FIXED_SPAWN")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let _guard = crate::tests::env_lock();
     let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "0");

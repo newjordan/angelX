@@ -703,7 +703,20 @@ fn semantic_state(app: &App) -> Value {
             "memory_health": format!("{:?}", app.world.memory_health()).to_ascii_lowercase()
         },
         "formation": formation,
-        "media": { "total": app.media.len(), "scroll": app.media_scroll },
+        "media": {
+            "total": app.media.len(),
+            "scroll": app.media_scroll,
+            "shelf_open": stage_route == crate::ui::scryglass::StageRoute::Assets,
+            "selected": app.scryglass.selected_media(&app.media).map(|index| {
+                let media = &app.media[index];
+                json!({
+                    "index": index + 1,
+                    "kind": media.kind_label(),
+                    "label": media.label(),
+                    "target": media.target()
+                })
+            })
+        },
         "observatory": app.observatory.semantic_state(
             stage_route == crate::ui::scryglass::StageRoute::Observatory,
         ),

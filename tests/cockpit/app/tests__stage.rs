@@ -24,6 +24,163 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend, style::Modifier};
 use std::time::{Duration, Instant};
 
+#[test]
+fn asset_copy_shortcuts_queue_the_selected_file_without_taking_a_composer_draft() {
+    let _lock = env_lock();
+    let _backdrop = crate::tests::TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    let mut app = seed_preview_app();
+    for index in 0..3 {
+        app.media.push(crate::ui::media::Media::Image {
+            label: format!("queued image {index}"),
+            path: format!("/tmp/angel-asset-shortcut-{index}.png"),
+        });
+    }
+    app.input = "/assets".into();
+    app.submit();
+    render_app_text(&mut app, 144, 48);
+    assert_eq!(app.scryglass.surface, scryglass::StageSurface::Assets);
+    app.scryglass.selected = 1;
+    app.on_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+    let path = app.pending_stage_copy.take().expect("path copy queued");
+    assert_eq!(path.text, "/tmp/angel-asset-shortcut-1.png");
+    assert!(path.image.is_none());
+    app.on_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+    let image = app.pending_stage_copy.take().expect("image copy queued");
+    let Some(crate::ui::clipboard::ClipboardImageSource::File(source)) = image.image else {
+        panic!("image shortcut must prepare actual image bytes");
+    };
+    assert_eq!(
+        source.path,
+        std::path::Path::new("/tmp/angel-asset-shortcut-1.png")
+    );
+    assert!(
+        app.clipboard_image_copy.is_none(),
+        "tests queue only; they never touch the desktop clipboard"
+    );
+    assert!(
+        app.scryglass.active_media().is_none(),
+        "copying must leave the shelf open"
+    );
+
+    app.input = "draft ".into();
+    app.cursor = app.input.len();
+    for key in ['c', 'p', 'a', 't'] {
+        app.on_key(KeyEvent::new(KeyCode::Char(key), KeyModifiers::NONE));
+    }
+    assert_eq!(app.input, "draft cpat");
+    assert!(app.pending_stage_copy.is_none());
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Assets
+    );
+
+    app.input.clear();
+    app.cursor = 0;
+    app.on_key(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE));
+    assert_eq!(app.scryglass.selected_media(&app.media), Some(0));
+    app.on_key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+    assert_eq!(app.scryglass.selected_media(&app.media), Some(2));
+    app.media.push(crate::ui::media::Media::Video {
+        label: "unopened video".into(),
+        path: "/tmp/angel-shelf-video.mp4".into(),
+    });
+    app.on_key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+    render_app_text(&mut app, 144, 48);
+    app.on_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+    let video = app
+        .pending_stage_copy
+        .take()
+        .expect("unopened video copies its usable path");
+    assert_eq!(video.text, "/tmp/angel-shelf-video.mp4");
+    assert!(video.image.is_none());
+    assert!(!app.world_buttons.iter().any(|(_, button)| *button == WorldButton::AssetCopy(scryglass::StageCopyTarget::Image)), "shelf cannot offer a frame before playback");
+    app.on_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+    assert!(app.pending_stage_copy.is_some());
+    // This fixture has no process output, so the newer request stops before
+    // transport while still proving that an earlier queued copy is superseded.
+    assert!(app.last_background_output.is_none());
+    app.input = "/copy live".into();
+    app.submit();
+    assert!(app.pending_stage_copy.is_none());
+    assert!(app.clipboard_image_copy.is_none());
+}
+
+#[test]
+fn asset_shelf_preview_back_returns_to_the_same_tower_room() {
+    let _lock = env_lock();
+    let _backdrop = crate::tests::TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    let mut app = seed_preview_app();
+    app.media.push(crate::ui::media::Media::Link {
+        label: "saved result link".into(),
+        url: "https://example.invalid/measured-result".into(),
+    });
+    app.scryglass.open_catalog();
+    assert!(app.scryglass.begin_selected_lesson());
+    app.input = "/tower".into();
+    app.submit();
+    render_app_text(&mut app, 144, 48);
+    assert!(app.world.visiting_scrying_tower());
+    assert!(
+        app.scryglass.controller.overlay().is_none(),
+        "Tower must leave both lesson and its catalog overlay"
+    );
+    let tower_route = app.scryglass.controller.route();
+    app.input = "/assets".into();
+    app.submit();
+    render_app_text(&mut app, 144, 48);
+    assert_eq!(app.scryglass.surface, scryglass::StageSurface::Assets);
+    app.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    render_app_text(&mut app, 144, 48);
+    assert_eq!(app.scryglass.active_media(), Some(0));
+    app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    render_app_text(&mut app, 144, 48);
+    assert!(app.scryglass.active_media().is_none());
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Assets
+    );
+    app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    render_app_text(&mut app, 144, 48);
+    assert_eq!(app.scryglass.controller.route(), tower_route);
+    assert!(
+        app.world.visiting_scrying_tower(),
+        "Back from the shelf must not eject the operator from the tower"
+    );
+}
+
+#[test]
+fn asset_and_tower_commands_stay_local_while_a_model_turn_is_pending() {
+    let _lock = env_lock();
+    let mut app = super::seed_thinking_app("an existing turn is still running");
+    let history_before = app.history.len();
+    for (command, route) in [
+        ("/assets", scryglass::StageRoute::Assets),
+        (
+            "/tower",
+            scryglass::StageRoute::Explore(world_viz::Building::Observatory),
+        ),
+        ("/show", scryglass::StageRoute::Assets),
+    ] {
+        app.input = command.into();
+        app.submit();
+        assert_eq!(app.scryglass.controller.route(), route);
+        assert!(
+            app.thinking
+                .as_ref()
+                .is_some_and(|turn| !turn.is_draining())
+        );
+        assert!(app.pending_turn.is_none());
+        assert!(app.input.is_empty());
+        assert_eq!(app.history.len(), history_before);
+    }
+}
+
 fn show_work_wait(app: &mut App, width: u16, height: u16) -> String {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
@@ -143,6 +300,13 @@ fn show_work_missing_and_unsupported_artifacts_keep_the_requested_identity() {
         "Upstream evidence",
         "https://example.test/actual-report",
     );
+    assert_eq!(app.scryglass.active_media(), Some(1));
+    assert_eq!(
+        app.media.len(),
+        3,
+        "the new source remains available on the shelf"
+    );
+    app.apply_world_button(WorldButton::AssetSelect(2));
     let remote = show_work_wait(&mut app, 120, 40);
     assert!(
         remote.contains("no page contents fetched") && remote.contains("actual-report"),
@@ -151,6 +315,45 @@ fn show_work_missing_and_unsupported_artifacts_keep_the_requested_identity() {
     std::fs::remove_dir_all(root).unwrap();
     drop(_comp);
     crate::drive::comp_mode::invalidate_cache();
+}
+
+#[test]
+fn new_presentations_preserve_the_inspected_asset_and_shelf_copy_uses_its_selection() {
+    let _lock = env_lock();
+    let mut app = seed_preview_app();
+    app.present_media("link", "First graph", "https://example.invalid/first");
+    let request = app.scryglass.media_request_id();
+    app.present_media("link", "Second graph", "https://example.invalid/second");
+    assert_eq!(app.media.len(), 2);
+    assert_eq!(app.scryglass.active_media(), Some(0));
+    assert_eq!(app.scryglass.media_request_id(), request);
+    assert!(app.scryglass.active_pinned());
+
+    app.apply_world_button(WorldButton::Assets);
+    app.scryglass.move_asset_selection(1, &app.media);
+    app.present_media("link", "Third graph", "https://example.invalid/third");
+    assert_eq!(app.media.len(), 3);
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Assets
+    );
+    assert!(app.scryglass.active_media().is_none());
+    assert_eq!(app.scryglass.selected_media(&app.media), Some(1));
+    app.apply_world_button(WorldButton::AssetCopy(scryglass::StageCopyTarget::Location));
+    let payload = app
+        .pending_stage_copy
+        .as_ref()
+        .expect("copy request queued for UI delivery");
+    assert_eq!(payload.text, "https://example.invalid/second");
+    assert!(payload.image.is_none());
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Assets
+    );
+    assert!(
+        app.scryglass.active_media().is_none(),
+        "copying a shelf location should not autoplay it"
+    );
 }
 
 #[test]
@@ -1930,5 +2133,39 @@ fn the_realm_route_paints_the_overworld_map_by_default() {
         take_ride_compose_count(),
         0,
         "the map replaces the Dotmax ride on the Realm route"
+    );
+}
+
+#[test]
+fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
+    let _lock = env_lock();
+    let _backdrop = crate::tests::TestEnvGuard::set("ANGEL_BACKDROP", "in_process");
+    let _comp = crate::tests::TestEnvGuard::set("ANGEL_COMP_MODE", "1");
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    crate::drive::comp_mode::invalidate_cache();
+    let mut app = seed_preview_app();
+    app.input = "/tower".into();
+    app.submit();
+    let rendered = render_app_text(&mut app, 144, 48);
+    assert!(rendered.contains("[Assets]"), "{rendered}");
+    assert!(app.world.visiting_scrying_tower());
+    assert!(!crate::drive::comp_mode::ambient_stage_sim_allowed());
+    assert!(
+        app.world_buttons
+            .iter()
+            .any(|(rect, button)| *button == WorldButton::Assets && rect.height > 1),
+        "the orb itself opens the shelf"
+    );
+    app.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    render_app_text(&mut app, 144, 48);
+    assert_eq!(app.scryglass.surface, scryglass::StageSurface::Assets);
+    app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    render_app_text(&mut app, 144, 48);
+    assert!(app.world.visiting_scrying_tower());
+    app.apply_world_button(WorldButton::ScryglassFollow);
+    assert!(!app.world.visiting_scrying_tower());
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Realm
     );
 }

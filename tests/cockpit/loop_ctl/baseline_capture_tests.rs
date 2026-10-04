@@ -3,13 +3,13 @@ use super::*;
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn baseline_incomplete_pipe_fixture() {
     use crate::agent::process_test_support::{
         FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
     };
-    let Some(root) = std::env::var_os("ANGEL_T_BASELINE_EOF") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_BASELINE_EOF")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let root = Path::new(&root);
     for stream in ["stdout", "stderr"] {

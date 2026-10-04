@@ -94,6 +94,7 @@ fn help_first_screen() -> String {
      /help {b} /status {b} /usage {b} /context [all] {b} /connect [provider] {b} /goal [text|clear] {b} /model [filter|exact@effort|auto] {b} /think [filter] {b} /rate useful|miss {b} /mcp (/tools)\n\
      /goal [<text>|go|tick|rounds <N|unset>|blocked <reason>|pause|resume|criteria <c>|cmd <check>|note <n>|done|clear] {b} durable, steers\n\
      /sessions (/resume [id]) {b} pick up where you left off {b} /observatory {b} evidence {b} /ledger [N] {b} last turns {b} /world help {b} every Realm verb\n\
+     /assets {b} browse presented work {b} /tower {b} visit the Scryglass {b} /copy stage {b} copy its path or link\n\
      more: /help all {b} topics: goal loop world session tools keymap PageDown"
     )
 }
@@ -134,9 +135,11 @@ fn help_full_text() -> String {
      model's next step while the work continues (Esc still interrupts)\n\
      /sandbox · /setup-default-sandbox · /sandbox-add-read-dir · /approvals [on|off|probe|selftest] · /approve <id> · /test-approval · /yolos [on|off|status] · /yolo [on|off|status|smart|full] · /experimental · /hooks · /debug-config · /rollout\n\
      /cd <path> (/workspace) · hard project boundary + fresh model thread\n\
-     /copy [number|all|live|code [number]] · /redraw (Ctrl-L) · /mention <file> · /rename <name> · /fork · /archive · /delete\n\
+     /copy [number|all|live|code [number]|stage [path|text|image|frame]] · displayed asset path/link, loaded text, native PNG image, or decoded video frame; image copying needs a desktop clipboard\n\
+     /redraw (Ctrl-L) · /mention <file> · /rename <name> · /fork · /archive · /delete\n\
      /plan · /personality <style> · /ps · /stop · /logout\n\
-     /sessions · /resume [id] · current-project sessions only · /show <image|video|report> in Scryglass · /hide · /see <img> · /hear <audio>\n\
+     /sessions · /resume [id] · current-project sessions only · /show [image|video|report] in Scryglass · /hide · /see <img> · /hear <audio>\n\
+     /assets (or bare /show) · browse your presented images, videos, graphs, and documents · /tower · visit their Scryglass home; select an asset to view or copy\n\
      /observatory [campaign <id>|open <report-id>] · native campaign/report evidence ledger; empty composer: arrows navigate, Enter opens\n\
      /modules · /open <module> · /close <module> · /layout save|load <name>\n\
      /open <n|url> · /media · /raytrace (/cube) · spin a debug cube · exit (/quit)\n\

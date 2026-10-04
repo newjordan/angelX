@@ -28,7 +28,7 @@ fn submission_journal_preserves_attempts_without_counting_receipts_twice() {
     ] {
         crate::agent::tools::submit_identity::journal_execution(
             "shell",
-            "yukon submit",
+            "board submit",
             Some(&workspace),
             Some(exit),
             output,
@@ -230,7 +230,7 @@ fn podrace_receipts_record_execution_without_objective_progress() {
     let submitted = ToolStripSnapshot {
         calls: 1,
         verified_outcome_actions: vec![
-            "submitted:shell:hilbert submit cand.py:result=deadbeef".into(),
+            "submitted:shell:board submit cand.py:result=deadbeef".into(),
         ],
         ..Default::default()
     };
@@ -574,7 +574,7 @@ fn a_repeated_reply_does_not_reset_staleness_even_with_churn() {
     };
     tools3
         .outcome_actions
-        .push("status: yukon submissions".into());
+        .push("status: board submissions".into());
     apply_reply_with_tools(&mut st, plan, &tools3);
     assert!(
         st.stale_count >= 2,

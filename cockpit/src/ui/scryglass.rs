@@ -29,7 +29,7 @@ use std::time::{Duration, Instant};
 
 mod copy;
 mod document;
-pub(crate) use copy::StageCopyTarget;
+pub(crate) use copy::{StageCopyPayload, StageCopyTarget};
 
 const STILL_REVEAL: Duration = Duration::from_secs(8);
 const ARRIVAL_REVEAL: Duration = Duration::from_millis(1_250);
@@ -87,6 +87,7 @@ pub(crate) enum StageSurface {
     Still(usize),
     Document(usize),
     Video(usize),
+    Assets,
     Vault,
     Fault,
 }
@@ -99,6 +100,7 @@ pub(crate) enum StageRoute {
     Formation,
     Observatory,
     Quest,
+    Assets,
     Vault,
     Workshop,
     Loop,
@@ -338,6 +340,7 @@ impl StageController {
             StageRoute::Formation => StageSurface::Moa,
             StageRoute::Observatory => StageSurface::Observatory,
             StageRoute::Quest => StageSurface::Quest,
+            StageRoute::Assets => StageSurface::Assets,
             StageRoute::Vault => StageSurface::Vault,
             StageRoute::Workshop => StageSurface::Workshop,
             StageRoute::Loop => StageSurface::Loop,
@@ -1395,19 +1398,33 @@ impl Scryglass {
         }
     }
 
-    pub(crate) fn reveal_media(&mut self, index: usize, pinned: bool) {
+    fn start_reveal(&mut self, index: usize, pinned: bool) {
         self.document.clear();
         self.lesson = None;
         self.lesson_scroll = 0;
         self.lesson_returns_to_catalog = false;
         self.catalog_scroll = 0;
         self.selected = index;
+        self.reveal = Some(Reveal::new(index, pinned));
+        self.arrival = None;
+        self.video.stop();
+        self.controller.show_overlay(StageOverlay::Media { index });
+    }
+
+    /// Deliveries remain on the asset shelf while the operator inspects another
+    /// asset or browses the shelf. Opening the first delivery stays immediate.
+    pub(crate) fn receive_media(&mut self, index: usize) -> bool {
+        if self.active_media().is_some() || self.controller.route() == StageRoute::Assets {
+            return false;
+        }
+        self.reveal_media(index, true);
+        true
+    }
+
+    pub(crate) fn reveal_media(&mut self, index: usize, pinned: bool) {
         if pinned {
             self.queue.clear();
-            self.reveal = Some(Reveal::new(index, true));
-            self.arrival = None;
-            self.video.stop();
-            self.controller.show_overlay(StageOverlay::Media { index });
+            self.start_reveal(index, true);
             return;
         }
         if self.reveal.as_ref().is_some_and(|r| r.media_index == index)
@@ -1416,9 +1433,7 @@ impl Scryglass {
             return;
         }
         if self.reveal.is_none() {
-            self.reveal = Some(Reveal::new(index, false));
-            self.video.stop();
-            self.controller.show_overlay(StageOverlay::Media { index });
+            self.start_reveal(index, false);
         } else {
             if self.queue.len() >= MAX_PENDING_REVEALS {
                 self.queue.pop_front();
@@ -1442,9 +1457,22 @@ impl Scryglass {
 
     fn start_next(&mut self) {
         if let Some(index) = self.queue.pop_front() {
-            self.reveal = Some(Reveal::new(index, false));
-            self.controller.show_overlay(StageOverlay::Media { index });
+            self.start_reveal(index, false);
         }
+    }
+
+    /// Keep the selected asset and the route history, but retire its preview.
+    /// Back from the shelf then returns to the room the operator came from.
+    pub(crate) fn open_assets(&mut self) {
+        self.document.clear();
+        self.queue.clear();
+        self.reveal = None;
+        self.arrival = None;
+        self.video.stop();
+        self.clear_lesson();
+        self.catalog_scroll = 0;
+        self.controller.clear_overlay();
+        self.navigate(StageRoute::Assets);
     }
 
     pub(crate) fn navigate(&mut self, route: StageRoute) {
@@ -2072,12 +2100,24 @@ impl Scryglass {
     }
 
     pub(crate) fn browse(&mut self, delta: isize, media: &[Media]) -> Option<usize> {
-        if media.is_empty() {
-            return None;
-        }
-        let position = self.selected.min(media.len() - 1);
-        let index = (position as isize + delta).rem_euclid(media.len() as isize) as usize;
+        let index = self.move_asset_selection(delta, media)?;
         self.reveal_media(index, true);
+        Some(index)
+    }
+
+    pub(crate) fn selected_media(&self, media: &[Media]) -> Option<usize> {
+        (!media.is_empty()).then(|| {
+            self.active_media()
+                .unwrap_or(self.selected)
+                .min(media.len() - 1)
+        })
+    }
+
+    /// Shelf selection is independent of opening a preview or starting video.
+    pub(crate) fn move_asset_selection(&mut self, delta: isize, media: &[Media]) -> Option<usize> {
+        let position = self.selected_media(media)?;
+        let index = (position as i128 + delta as i128).rem_euclid(media.len() as i128) as usize;
+        self.selected = index;
         Some(index)
     }
 

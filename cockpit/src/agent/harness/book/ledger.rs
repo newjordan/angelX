@@ -105,7 +105,7 @@ fn decode(workspace: &Path, address: &Address, depth: usize) -> Option<String> {
         return Some(chapter(primary));
     };
     let route = Route::new(address.primary, section);
-    let sub = primary.subs.iter().find(|sub| sub.route == route)?;
+    let sub = super::find(route)?;
     match address.page {
         Some(page) => {
             let index = DIGITS.iter().position(|digit| *digit == page)?;
@@ -151,12 +151,12 @@ fn table_of_contents() -> String {
     out
 }
 
-fn chapter(primary: &Primary) -> String {
+fn chapter(primary: &'static Primary) -> String {
     let mut out = format!(
         "{}  {} — {}\n\n",
         primary.cell, primary.name, primary.surface
     );
-    for sub in primary.subs {
+    for sub in super::subs(primary) {
         out.push_str(&format!("{}  {}", sub.route.cells(), sub.signal));
         if !sub.action.is_empty() {
             out.push_str(&format!(" → {}", sub.action));
@@ -224,10 +224,7 @@ pub(crate) fn expand(text: &str) -> String {
                 .iter()
                 .filter_map(|address| {
                     let route = Route::new(address.primary, address.section?);
-                    let sub = primary(address.primary)?
-                        .subs
-                        .iter()
-                        .find(|sub| sub.route == route)?;
+                    let sub = super::find(route)?;
                     match address.page {
                         Some(page) => {
                             let index = DIGITS.iter().position(|digit| *digit == page)?;

@@ -84,6 +84,34 @@ fn media_targets_resolve_for_images_and_graphs() {
 }
 
 #[test]
+fn asset_shelf_metadata_keeps_the_source_location_readable_without_opening_it() {
+    let image = Media::Confined {
+        card: Box::new(Media::Image {
+            label: "Experiment chart".into(),
+            path: "/work/project/plots/score curve.png".into(),
+        }),
+        root: PathBuf::from("/work/project"),
+    };
+    assert_eq!(image.kind_label(), "Image");
+    assert_eq!(image.location_label(), "Workspace · plots/score curve.png");
+    assert_eq!(image.target(), "/work/project/plots/score curve.png");
+
+    let video = Media::Video {
+        label: "Motion".into(),
+        path: "file:///tmp/motion.mp4".into(),
+    };
+    assert_eq!(video.kind_label(), "Video");
+    assert_eq!(video.location_label(), "/tmp/motion.mp4");
+
+    let graph = Media::Graph {
+        label: "Interactive graph".into(),
+        url: "https://example.invalid/graph?run=7#score".into(),
+    };
+    assert_eq!(graph.kind_label(), "Graph");
+    assert_eq!(graph.location_label(), graph.target());
+}
+
+#[test]
 fn byte_formatting_is_compact() {
     assert_eq!(format_bytes(32), "32 B");
     assert_eq!(format_bytes(1536), "1.5 KB");

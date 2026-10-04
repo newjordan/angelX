@@ -151,13 +151,13 @@ fn duration_probe_hung_tree_is_bounded_even_under_yolo() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn duration_incomplete_pipe_fixture() {
     use crate::agent::service_process::tests::{
         FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
     };
-    let Some(root) = std::env::var_os("ANGEL_T_DURATION_EOF") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_DURATION_EOF")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     for stream in ["stdout", "stderr"] {
         let mut fixture = EvidenceFixture::new(Path::new(&root), "duration", stream, "123.5\n");

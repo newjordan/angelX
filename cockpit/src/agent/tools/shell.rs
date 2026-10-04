@@ -1115,8 +1115,7 @@ impl Tool for ShellTool {
         ToolDef {
             name: "shell".to_string(),
             description: format!(
-                "{description} {}{}Competition submission status \
-                 arrives from the harness watcher. {route}",
+                "{description} {}{}Competition submission results require an explicit status check with {}. {route}",
                 if task_shell_no_detach_active() {
                     "This sealed task requires foreground process ownership; nohup/disown/setsid and unmanaged `&` jobs are rejected. "
                 } else {
@@ -1126,7 +1125,8 @@ impl Tool for ShellTool {
                     "This sealed task permits read-only Git inspection only. "
                 } else {
                     ""
-                }
+                },
+                crate::agent::harness::cartridges::status_check()
             ),
             params: serde_json::json!({
                 "type": "object",
@@ -1170,14 +1170,17 @@ impl Tool for ShellTool {
         let stamped = crate::agent::tools::submit_identity::stamp(command, self.cwd.as_deref())?;
         let command = stamped.as_ref().map_or(command, |s| s.command.as_str());
         let (mut obs, shell) = self.observe_with_cancel(command, cancel, &scope)?;
-        if stamped.is_some() {
-            crate::agent::tools::submit_identity::journal_execution(
+        if stamped.is_some()
+            && let Some(error) = crate::agent::tools::submit_identity::journal_execution(
                 "shell",
                 command,
                 self.cwd.as_deref(),
                 obs.exit,
                 &obs.output,
-            );
+            )
+        {
+            obs.output
+                .push_str(&format!("\nSubmission journal error: {error}"));
         }
         if let Some(stamped) = &stamped {
             obs.output = format!("{}\n{}", stamped.notice, obs.output);

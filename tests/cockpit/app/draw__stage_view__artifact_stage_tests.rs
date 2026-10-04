@@ -1,5 +1,166 @@
 use super::*;
 
+#[test]
+fn asset_shelf_keeps_selected_source_and_copy_actions_visible_at_compact_widths() {
+    use crate::ui::scryglass::StageCopyTarget;
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    for index in 0..15 {
+        app.media.push(Media::Image {
+            label: format!("Plot {index}"),
+            path: format!("/tmp/plot-{index}.png"),
+        });
+    }
+    app.scryglass.open_assets();
+    app.scryglass.selected = 14;
+    for width in [24, 36, 72] {
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, 14)).unwrap();
+        terminal
+            .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+            .unwrap();
+        let text = test_backend_text(terminal.backend());
+        assert!(
+            text.contains("Plot 14") && text.contains("plot-14.png"),
+            "{width}: {text}"
+        );
+        for button in [
+            WorldButton::AssetSelect(14),
+            WorldButton::AssetCopy(StageCopyTarget::Image),
+            WorldButton::AssetCopy(StageCopyTarget::Location),
+            WorldButton::Tower,
+            WorldButton::Back,
+        ] {
+            let (rect, _) = app
+                .world_buttons
+                .iter()
+                .find(|(_, candidate)| *candidate == button)
+                .unwrap_or_else(|| panic!("{button:?} missing at {width}: {text}"));
+            assert!(rect.width > 0 && rect.height > 0);
+            assert!(rect.right() <= width && rect.bottom() <= 14);
+        }
+        assert!(
+            app.scryglass.active_media().is_none(),
+            "shelf must not start a preview"
+        );
+        assert!(app.scryglass.visible);
+    }
+}
+
+#[test]
+fn empty_asset_shelf_has_a_local_file_onramp_and_a_route_back_to_the_world() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.scryglass.open_assets();
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(72, 18)).unwrap();
+    terminal
+        .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+        .unwrap();
+    let text = test_backend_text(terminal.backend());
+    assert!(
+        text.contains("palantir is quiet") && text.contains("/show <path>"),
+        "{text}"
+    );
+    for button in [WorldButton::Tower, WorldButton::Back] {
+        assert!(
+            app.world_buttons
+                .iter()
+                .any(|(_, candidate)| *candidate == button),
+            "{text}"
+        );
+    }
+    assert!(
+        !app.world_buttons
+            .iter()
+            .any(|(_, button)| matches!(button, WorldButton::AssetCopy(_)))
+    );
+    assert_eq!(
+        app.scryglass.surface,
+        crate::ui::scryglass::StageSurface::Assets
+    );
+}
+
+#[test]
+fn active_asset_rail_exposes_copy_path_and_shelf_without_document_zoom_controls() {
+    use crate::ui::scryglass::StageCopyTarget;
+    let _guard = crate::tests::env_lock();
+    let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
+    crate::drive::comp_mode::invalidate_cache();
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.media.push(Media::Image {
+        label: "Evidence image".into(),
+        path: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets/agents/apollo-neutral.png")
+            .display()
+            .to_string(),
+    });
+    app.media.push(Media::Link {
+        label: "Graph source".into(),
+        url: "https://example.invalid/graph".into(),
+    });
+    app.media.push(Media::Graph {
+        label: "Raster chart".into(),
+        url: app.media[0].target(),
+    });
+    for (index, copy_target) in [
+        (0, StageCopyTarget::Image),
+        (1, StageCopyTarget::Location),
+        (2, StageCopyTarget::Image),
+    ] {
+        app.scryglass.reveal_media(index, true);
+        for width in [36, 72] {
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, 20)).unwrap();
+            terminal
+                .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+                .unwrap();
+            let text = test_backend_text(terminal.backend());
+            for label in ["[Path]", "[Assets]", "[Copy"] {
+                assert!(text.contains(label), "{label} missing at {width}: {text}");
+            }
+            for button in [
+                WorldButton::AssetCopy(copy_target),
+                WorldButton::AssetCopy(StageCopyTarget::Location),
+                WorldButton::Assets,
+            ] {
+                assert!(
+                    app.world_buttons
+                        .iter()
+                        .any(|(_, candidate)| *candidate == button),
+                    "{button:?} missing at {width}: {text}"
+                );
+            }
+            if index != 1 {
+                for action in [
+                    crate::ui::still_inspector::Action::ZoomOut,
+                    crate::ui::still_inspector::Action::ZoomIn,
+                    crate::ui::still_inspector::Action::Fit,
+                ] {
+                    assert!(
+                        app.world_buttons
+                            .iter()
+                            .any(|(_, button)| *button == WorldButton::Still(action)),
+                        "image zoom control missing at {width}: {text}"
+                    );
+                }
+            } else {
+                assert_eq!(
+                    app.scryglass.surface,
+                    crate::ui::scryglass::StageSurface::Document(1)
+                );
+                assert!(
+                    !app.world_buttons
+                        .iter()
+                        .any(|(_, button)| matches!(button, WorldButton::Still(_))),
+                    "documents cannot offer image zoom: {text}"
+                );
+            }
+        }
+    }
+}
+
 #[cfg(feature = "scryglass-video")]
 #[test]
 fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
@@ -72,6 +233,51 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
         app.scryglass.video_status().2,
         "motion-off is one frame, then paused"
     );
+    let payload = app
+        .scryglass
+        .copy_payload(&app.media, crate::ui::scryglass::StageCopyTarget::Image)
+        .expect("paused decoded frame is copyable");
+    assert!(
+        payload.text.is_empty(),
+        "frame copy must not substitute a path"
+    );
+    let Some(crate::ui::clipboard::ClipboardImageSource::Frame(frame)) = payload.image else {
+        panic!("video copy must own a decoded frame");
+    };
+    assert_eq!(frame.identity.source, app.media[0].source().unwrap());
+    assert_eq!(frame.identity.request_id, app.scryglass.media_request_id());
+    assert!(frame.identity.generation > 0);
+    assert!(frame.rgba.width() > 0 && frame.rgba.height() > 0);
+    if supplied.is_none() {
+        let pixel = frame.rgba.get_pixel(0, 0);
+        assert!(
+            pixel[1] > 180 && pixel[0] < 70,
+            "copy holds the fixture's decoded green pixels, not a placeholder: {pixel:?}"
+        );
+    }
+    let again = app
+        .scryglass
+        .copy_payload(&app.media, crate::ui::scryglass::StageCopyTarget::Image)
+        .unwrap();
+    let Some(crate::ui::clipboard::ClipboardImageSource::Frame(again)) = again.image else {
+        panic!("paused frame should remain available");
+    };
+    assert!(std::sync::Arc::ptr_eq(&frame, &again));
+    assert_eq!(frame.identity.generation, again.identity.generation);
+    // A card switch cannot borrow the previous decoder's frame before a draw.
+    let original = std::mem::replace(
+        &mut app.media[0],
+        Media::Video {
+            label: "different video".into(),
+            path: path.with_extension("different.mp4").display().to_string(),
+        },
+    );
+    assert!(
+        app.scryglass
+            .copy_payload(&app.media, crate::ui::scryglass::StageCopyTarget::Image)
+            .is_err()
+    );
+    app.media[0] = original;
     let buffer = terminal.backend().buffer();
     let native_png = if protocol == "iterm2" {
         use base64::Engine as _;
@@ -455,8 +661,26 @@ fn native_artifact_stage_keeps_identity_draft_and_motion_off_ownership() {
         .map(|cell| cell.symbol())
         .collect();
     assert!(text.contains("Requested evidence"), "{text}");
-    assert!(text.contains("Source:"), "{text}");
     assert!(text.contains("apollo-neutral.png"), "{text}");
+    for (label, button) in [
+        (
+            "[Copy image]",
+            WorldButton::AssetCopy(crate::ui::scryglass::StageCopyTarget::Image),
+        ),
+        (
+            "[Path]",
+            WorldButton::AssetCopy(crate::ui::scryglass::StageCopyTarget::Location),
+        ),
+        ("[Assets]", WorldButton::Assets),
+    ] {
+        assert!(text.contains(label), "{label} must be visible: {text}");
+        assert!(
+            app.world_buttons
+                .iter()
+                .any(|(_, candidate)| *candidate == button),
+            "{label} must be clickable"
+        );
+    }
     assert!(!text.contains("Loading"), "{text}");
     let request = app.scryglass.media_request_id();
     app.scryglass.reveal_media(0, true);

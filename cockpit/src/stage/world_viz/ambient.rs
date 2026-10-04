@@ -1,11 +1,11 @@
 //! Living paintings follow real tool destinations. Only authored material
 //! regions animate; the camera, architecture and activity state remain fixed.
 //! Each trusted, embedded 256×224 plate is decoded once. The eight-entry cache
-//! retains at most 1.75 MiB of RGBA pixels. The resident image worker prepares
-//! graphics or ordinary-terminal half blocks; memoized braille stays visible
-//! for the current destination while its image is being prepared.
-//! Native graphics additionally cache the eight original paintings at 768×672
-//! (15.75 MiB). Their motion uses the same admitted material masks and clock.
+//! retains at most 1.75 MiB of RGBA pixels. Entered locations pass through the
+//! ordinary terminal's memoized braille path.
+//! Native graphics additionally cache the original paintings at 768×672.
+//! The Observatory uses the native Scrying Tower room: four cached candle
+//! phases at each resolution, driven by the same motion preference and clock.
 use std::sync::OnceLock;
 
 use image::RgbaImage;
@@ -15,6 +15,7 @@ use crate::ui::viz::lifecycle_viz::MotionMode;
 
 const WIDTH: u32 = 256;
 const HEIGHT: u32 = 224;
+pub(super) const SCRYING_TOWER_LABEL: &str = "SCRYING TOWER";
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) const DETAIL_WIDTH: u32 = WIDTH * 3;
 #[cfg_attr(not(test), allow(dead_code))]
@@ -111,6 +112,9 @@ const WATER: [[u8; 3]; 5] = [
 ];
 
 pub(super) fn frame(building: Building, pose: Pose) -> RgbaImage {
+    if building == Building::Observatory {
+        return scrying_frame(pose, false).clone();
+    }
     let mut image = plate(building).clone();
     let location = &matrix().locations[super::cinematics::building_index(building) as usize];
     animate(&mut image, &location.effects, pose);
@@ -123,6 +127,9 @@ pub(super) fn frame(building: Building, pose: Pose) -> RgbaImage {
 /// placement, phase, reduced-motion behavior and architecture exclusions.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn detail_frame(building: Building, pose: Pose) -> RgbaImage {
+    if building == Building::Observatory {
+        return scrying_frame(pose, true).clone();
+    }
     let mut image = detail_plate(building).clone();
     if pose.mode == 0 {
         return image;
@@ -145,6 +152,45 @@ pub(super) fn detail_frame(building: Building, pose: Pose) -> RgbaImage {
         }
     }
     image
+}
+
+/// The Observatory's physical home for presented assets. Four held candle
+/// phases share one cached mesh; the crystal itself is steady. The detail
+/// frame supports native art review, and a hidden world requests no frames.
+fn scrying_frame(pose: Pose, detail: bool) -> &'static RgbaImage {
+    static SMALL: [OnceLock<RgbaImage>; 4] = [const { OnceLock::new() }; 4];
+    static LARGE: [OnceLock<RgbaImage>; 4] = [const { OnceLock::new() }; 4];
+    let phase = usize::from(scrying_phase(pose));
+    let (frames, width, height) = if detail {
+        (&LARGE, DETAIL_WIDTH, DETAIL_HEIGHT)
+    } else {
+        (&SMALL, WIDTH, HEIGHT)
+    };
+    frames[phase].get_or_init(|| {
+        super::world3d::interior::render_interior_frame(
+            Building::Observatory,
+            &super::raycast::RayView {
+                x: 0.0,
+                y: 0.0,
+                heading_rad: -std::f32::consts::FRAC_PI_2,
+                look_yaw: 0.0,
+                fov_rad: 1.05,
+                bob: 0.0,
+                eye_h: 0.0,
+            },
+            width,
+            height,
+            phase as u64 * super::world3d::interior::BUCKETS_PER_STEP,
+        )
+    })
+}
+
+fn scrying_phase(pose: Pose) -> u8 {
+    match pose.mode {
+        0 => 0,
+        1 => pose.phase / 2,
+        _ => pose.phase / 4,
+    }
 }
 
 pub(super) fn animate(image: &mut RgbaImage, effects: &[Effect], pose: Pose) {
@@ -260,6 +306,21 @@ pub(super) fn plate(building: Building) -> &'static RgbaImage {
 }
 
 impl World {
+    /// Open the assets' room immediately, even when scenery ticks are paused.
+    /// Like the school visit, this moves the view, not the working knight.
+    pub(crate) fn visit_scrying_tower(&mut self) {
+        self.visit_overworld("observatory");
+        if let Some((_, _, label)) = self.overworld_view.as_mut() {
+            *label = SCRYING_TOWER_LABEL;
+        }
+        self.interior = Some(Building::Observatory);
+    }
+
+    pub(crate) fn visiting_scrying_tower(&self) -> bool {
+        self.interior == Some(Building::Observatory)
+            && self.overworld_view_label() == Some(SCRYING_TOWER_LABEL)
+    }
+
     pub(crate) fn ambient_interior_visible(&self) -> bool {
         self.interior.is_some()
     }
@@ -277,9 +338,14 @@ impl World {
     /// The high bits keep the ambient key distinct from other scene domains.
     pub(crate) fn ambient_scene_sequence(&self, motion: MotionMode) -> u64 {
         let pose = self.ambient_pose(motion);
+        let phase = if self.ambient_building() == Building::Observatory {
+            scrying_phase(pose)
+        } else {
+            pose.phase
+        };
         0xAAB1_E170_0000_0000
             | u64::from(super::cinematics::building_index(self.ambient_building()))
-            | (u64::from(pose.phase) << 8)
+            | (u64::from(phase) << 8)
             | (u64::from(pose.mode) << 16)
     }
 }

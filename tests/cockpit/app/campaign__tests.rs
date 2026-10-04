@@ -697,15 +697,15 @@ fn store_lease_is_nonblocking_and_exclusive() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn nonregular_campaign_store_fixture() {
     use std::os::unix::ffi::OsStrExt;
     use std::os::unix::fs::{FileTypeExt, OpenOptionsExt};
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
-    let Some(base) = std::env::var_os("ANGEL_T_CAMPAIGN_FIFO") else {
-        return;
-    };
+    let base = std::env::var_os("ANGEL_T_CAMPAIGN_FIFO")
+        .expect("subprocess fixture requires its parent test");
     let base = PathBuf::from(base);
     let workspace = base.join("workspace");
     std::fs::create_dir(&workspace).unwrap();

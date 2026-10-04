@@ -33,13 +33,13 @@ fn verifier_evidence_rejects_either_streams_capture_byte_limit() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn verifier_incomplete_pipe_fixture() {
     use crate::agent::service_process::tests::{
         FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
     };
-    let Some(root) = std::env::var_os("ANGEL_T_VERIFIER_EOF") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_VERIFIER_EOF")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     for stream in ["stdout", "stderr"] {
         let mut fixture = EvidenceFixture::new(

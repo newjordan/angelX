@@ -839,23 +839,22 @@ fn reinforce_promotes_a_real_change_once_not_repeated_noops() {
 }
 
 /// LIVE end-to-end: one reinforce round with spark as generator + judge +
-/// reflector. Opt-in (ANGEL_LIVE_REINFORCE=1); skips if the fleet is down.
+/// reflector. Explicitly opt in with --ignored and ANGEL_LIVE_REINFORCE=1.
 #[test]
+#[ignore = "live model request; requires ANGEL_LIVE_REINFORCE=1 and ANGEL_SPARK_URL"]
 fn live_reinforce_one_round() {
     use crate::agent::club::HttpClub;
-    if std::env::var("ANGEL_LIVE_REINFORCE").is_err() {
-        eprintln!("set ANGEL_LIVE_REINFORCE=1 to run the live reinforce test; skipping");
-        return;
-    }
-    let Ok(url) = std::env::var("ANGEL_SPARK_URL") else {
-        eprintln!("set ANGEL_SPARK_URL to an explicitly trusted endpoint; skipping");
-        return;
-    };
+    assert_eq!(
+        std::env::var("ANGEL_LIVE_REINFORCE").as_deref(),
+        Ok("1"),
+        "explicit live model opt-in required"
+    );
+    let url = std::env::var("ANGEL_SPARK_URL").expect("explicitly trusted model endpoint required");
     let q = HttpClub::new("spark", url, "qwopus-coder", None);
-    if !q.is_ready() {
-        eprintln!("spark down; skipping");
-        return;
-    }
+    assert!(
+        q.is_ready(),
+        "configured live model endpoint is unavailable"
+    );
     let club: Arc<dyn Club> = Arc::new(q);
     let task = "Write a single punchy one-line tagline for a terminal AI cockpit named Angel.";
     let r#gen = ClubGenerator {

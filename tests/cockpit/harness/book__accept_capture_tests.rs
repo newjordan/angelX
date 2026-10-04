@@ -23,13 +23,13 @@ fn task_accept_rejects_green_prefix_when_stdout_or_stderr_exceeds_capture_limit(
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn task_accept_incomplete_output_fixture() {
     use crate::agent::service_process::tests::{
         FixtureCleanup, capture_evidence_fixture::EvidenceFixture,
     };
-    let Some(root) = std::env::var_os("ANGEL_T_ACCEPT_INCOMPLETE_OUTPUT") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_ACCEPT_INCOMPLETE_OUTPUT")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let _env = crate::tests::env_lock();
     let _repeats = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACCEPT_REPEATS", "3");

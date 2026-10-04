@@ -1,5 +1,4 @@
-//! The 0.1.6 advisories in the book: each is its own words as pages, spoken in
-//! full by the legend, given under the condition it had, and never a stop.
+//! Advisory routing, rendering, deduplication, and live detector behavior.
 use crate::agent::club::{ChatMsg, ToolCall};
 use crate::agent::harness::book::{
     self, DIGITS, Raise, Route, introduction, k_competition, l_loops, q_stop, v_verification,
@@ -7,149 +6,6 @@ use crate::agent::harness::book::{
 };
 use crate::agent::harness::{TaskPace, book::ledger};
 
-/// The 0.1.6 advisories as they stood at 9d73e92 (`nudges.rs`, the turn loop,
-/// the reply notes), the `[harness-telemetry]` tag aside, each with the
-/// address whose pages must rebuild it verbatim, except the ⠧⠋ verification
-/// command examples: that route now names `shell`, available in task mode.
-/// A page dropped, merged or paraphrased fails here. Adaptations are named beside it.
-const ORIGINAL_ADVISORIES: &[(&str, &str)] = &[
-    (
-        "⠇⠁",
-        r##"You've repeated the same tool call several times with no new result — you're stuck in a loop, not converging. Break the pattern deliberately: (1) state the key assumption your current approach depends on, then test the OPPOSITE hypothesis; (2) if that doesn't fit, reframe the problem by analogy to a different domain and see what that suggests; (3) or attack it with a different tool entirely. Do not repeat the previous tool call. If you genuinely cannot make progress, give your best final answer and flag what's unresolved."##,
-    ),
-    (
-        "⠭⠁",
-        r##"Every tool call in your last several turns failed. Stop and read the actual error messages — they usually name the cause (wrong path, missing file, bad arguments, wrong state). Verify the precondition first (does the file/dir exist? `list_dir`/`find_files` before reading; check the working state) and then retry differently. Repeating failing calls won't help."##,
-    ),
-    (
-        "⠭⠉",
-        r##"Your last reply was cut off at the output token limit before it finished, so nothing in it ran. Usually one tool call carried too much text. Split the work: write a large file in parts (create it with the first part, then add the rest with further edits), keep each tool call well under the limit, and do not restate large content."##,
-    ),
-    (
-        "⠭⠙",
-        r##"Your last reply spent its whole output limit on private reasoning and was cut off before it said or did anything, so nothing ran. Do not work the problem out in your head: take the next concrete step now with one tool call (run the tests, read the failing case, or make one small edit) and keep your reasoning short."##,
-    ),
-    (
-        "⠭⠑",
-        r##"Your previous reply arrived empty — no text and no tool calls were received. Respond now with either structured tool calls or answer text."##,
-    ),
-    (
-        "⠭⠃",
-        r##"Your previous message printed raw tool markup as plain text — no tool was executed, and any results it described were invented. Re-issue the action through the structured tool-call interface now (no tool markup in chat text), then answer from the real output."##,
-    ),
-    (
-        "⠧⠁",
-        r##"Your last test run on this exact code failed, so the task is not finished, and there is budget left to fix it. Read the failure below, change the code, and run the tests again. If something outside the code blocks you, such as a missing tool or a broken environment, say what it is and answer again."##,
-    ),
-    // the stop clause is gone with the stop
-    (
-        "⠧⠃",
-        r##"The task's operator-pinned acceptance command is still RED. This is a hard completion contract, not an advisory verifier: fix the reported failure before claiming completion. Do not redefine, bypass, mask, or replace the command. If the contract cannot be satisfied, report the concrete blocker."##,
-    ),
-    (
-        "⠧⠙",
-        r##"VERIFICATION RECOVERY: 3 consecutive verification failures detected. Pause speculative edits and inspect the first failing diagnostic. If errors span multiple functions, types, or borrow lifetimes, stop micro-patching with str_replace and use write_file to rewrite the module cleanly. Do not re-run tests without changing code. Report infrastructure failures honestly; never discard unrelated changes or assume a clean baseline exists."##,
-    ),
-    (
-        "⠧⠑",
-        r##"Your last passing test run did not hold: angelX re-ran it on the same code and it failed. The solution passes by luck; something depends on randomness, timing, iteration order or state shared between tests or runs. Find that and fix it so the tests pass every run. Re-running until green is not a fix."##,
-    ),
-    // the denial threat is gone with the denial; use the loaded shell tool
-    (
-        "⠧⠋",
-        r##"You edited the workspace but have not run a verifier since the latest edit. Before claiming completion, use `shell` to run the smallest relevant repository test, check, lint, or formatting command. One relevant green verifier is sufficient; do not follow it with broader or overlapping checks unless the task explicitly requires them. If verification cannot run, state the concrete blocker and the unverified risk in your final answer. A real verifier attempt, even when red or unavailable, is sufficient evidence for an honest blocker report."##,
-    ),
-    (
-        "⠧⠛",
-        r##"You changed test files that came with the task. Those tests are the task's contract: leave them as they were. Restore them (for example `git checkout -- <file>`) and keep your fix in the source. To run tests that are skipped, run a copy or restore the file afterwards. If the task asked you to change these tests, say so and answer again."##,
-    ),
-    (
-        "⠼⠁",
-        r##"Review the edit logically before testing: trace the state transitions, invariants, cleanup/empty cases, and error paths implied by the task. Prefer the code that *implements or emits* the behavior (library/pkg/src machinery) over generated testdata, docs, or example trees. If the bug names multiple surfaces (code + config/markdown/model file), check whether each still needs a change. Respect explicit no-build and externally delegated verification instructions; in those cases finish with the candidate and a truthful pending-verification note. Otherwise, if the edit already covers them, run one smallest relevant verifier from a *pre-existing* project test entry point and finish. Do not invent new tests as proof, stack broader checks without a concrete diagnostic, or thrash the same edit."##,
-    ),
-    (
-        "⠼⠃",
-        r##"GREEN VERIFIER. A full project verifier just passed on this workspace. Use this result as evidence. Complete every remaining requested deliverable, including additional edits or distinct checks when needed, then give the final answer summarizing the work."##,
-    ),
-    (
-        "⠼⠉",
-        r##"FINAL-MILE BUDGET ACTIVE. The workspace has changed and the bounded turn is near its horizon. Stop broad inspection. Follow the operator's verification arrangement: if local builds/checks are prohibited or verification is delegated to another host or evaluator, preserve the candidate and report local verification as pending; do not create build manifests or run setup to bypass that arrangement. Otherwise run the smallest relevant verifier now; if it fails, make only the concrete fix supported by its diagnostics, verify again, then return an honest final answer. Do not spend the remaining calls re-reading known context."##,
-    ),
-    (
-        "⠼⠙",
-        r##"ACTIONABLE CANDIDATE PROGRESS. Inspection has not yet produced candidate progress. The next tool must mutate the candidate, run the narrow validation implied by current evidence, or report the concrete blocker. Do not wrap another source read in a build/check. Submission is never implied by this hop guard."##,
-    ),
-    (
-        "⠼⠑",
-        r##"NO WORKSPACE MUTATION. You claimed progress or completion but no source file was changed this turn. If the bug is real, make the smallest edit (or a dependency bump in go.mod / package.json / Cargo.toml when the fix is an upstream library version). If you truly cannot edit, name the concrete blocker. A bare claim that it is already fixed is not enough."##,
-    ),
-    (
-        "⠼⠋",
-        r##"WEAK VERIFICATION. The green check only ran tests or files you created or heavily rewrote this turn. That is not evidence the task's real acceptance tests pass. Prefer pre-existing project test entry points (package test suites, named cases already in the tree). Keep verifying against those, or disclose the residual risk honestly."##,
-    ),
-    (
-        "⠼⠛",
-        r##"MUTATION THRASH. You re-issued the same edit signature multiple times (same path and old/new payload, or the same non-unique short snippet). Stop replaying it. If the tool said 'old is not unique', include the enclosing function or more unique context in `old`. If the edit already applied, run a verifier or change approach. Do not spend the remaining horizon re-applying an identical patch."##,
-    ),
-    (
-        "⠼⠓",
-        r##"PERIPHERAL FAN-OUT. Several edits landed under docs/, testdata/, fixtures, or generated examples without a corresponding change in the implementing library (src/, pkg/, lib/, core/). Find the code that *produces* those artifacts and fix it at the source instead of hand-patching every generated copy."##,
-    ),
-    (
-        "⡅⠁",
-        r##"COMPETITION CANDIDATE VERIFIED. A local check passed on this candidate. Preserve the passing candidate and its evidence before speculative edits. If the operator has authorized submission and all required checks pass, submit through the agreed workflow and record the receipt. A local pass is not proof of a leaderboard win; complete remaining requested checks first."##,
-    ),
-    (
-        "⡅⠉",
-        r##"RAPID COMPETITION CANDIDATE PROGRESS. Inspection has not yet produced candidate progress. The next tool must mutate the candidate or follow the explicitly armed submission contract; a board receipt remains legal. Do not wrap another source read in a build/check. If no defensible edit exists, report the concrete blocker."##,
-    ),
-    (
-        "⠅⠁",
-        r##"COMPETITION CHALLENGE PACE — RAPID. ALWAYS BE IMPROVING. Revolving door: mutate → local preflight → the current BEST goes up to bat (SUBMIT, receipt/ID) → immediately improve the next best. Once a submission is in play the harness watcher owns that slot. A WATCHER NOTIFY arrives with id + status + score/reason; do not poll-wait. Sitting on a prepped submission is a competition failure. Constant output: one bat in flight, the next best being prepped. After notify, one receipt check is optional; then submit-next (best to bat) or improve-candidate. Long monologues or passive waiting do not count. Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling and reports long tools live; a self-imposed timeout that kills a load mid-flight is the most common cause of "no verifier result"."##,
-    ),
-    (
-        "⠅⠃",
-        r##"COMPETITION CHALLENGE PACE — DEEP. This is a slow-burn solve: build a coherent evidence chain, test distinct hypotheses, and converge only when the candidate is defensible. Hop count, first-write pressure, and watcher state are never instructions to submit — but a candidate that passes the local gate IS submitted (receipt/ID) and then improved; depth is a reason to measure more, never a reason to withhold a measured candidate. Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling, long tools are reported live, and a self-imposed timeout that kills a load mid-flight is the most common cause of "no verifier result"."##,
-    ),
-    // {error_stop} is 6, the 0.1.6 task error limit
-    (
-        "⠼⠊",
-        r##"ERROR CASCADE REDIRECTION: Every tool call in the last 6 hops failed. Stop repeating failing commands. Read the compiler diagnostics above and rewrite the file cleanly using `write_file` instead of accumulating micro-patches."##,
-    ),
-    (
-        "⡅⠃",
-        r##"VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check. Preserve the prior candidate if available and verify the new bytes before claiming success. Follow the operator-authorized submission plan; a local pass alone does not prove a competitive win."##,
-    ),
-    (
-        "⠇⠓⠁",
-        r##"MANDATORY REDIRECTION: You have repeated the same tool call multiple times without making progress. You are caught in a deterministic loop. Break this loop immediately: you MUST NOT repeat this call or run another inspection. Step back and use `write_file` to rewrite the implementing file cleanly from first principles, or use `str_replace` to apply a completely different fix. State your new hypothesis and edit the code now."##,
-    ),
-    // the escalation diagnosis's progress json and action digests stay in the trajectory
-    (
-        "⠇⠛⠉",
-        r##"MANDATORY PROGRESS REDIRECTION: escalated unproductive turn: {streak} consecutive unproductive hops with no progress since escalation; last verifier outcome: {last}. You must stop inspecting and stop running unchanged commands. You MUST edit the target source code using `write_file` or `str_replace` before executing any more tools. State your concrete fix and modify the file now."##,
-    ),
-    (
-        "⠏⠁",
-        r##"Your final answer was deferred because this task still owned running background work. Inspect proc_status and finish from its actual outcome. If a job is no longer needed, explicitly stop it with proc_stop before answering. Do not report an in-flight build as complete; task exit stops remaining jobs."##,
-    ),
-    // The job's id, name and state (`background process [id] name state`) ride
-    // beside the stamp as data.
-    (
-        "⠏⠃",
-        r##"Inspect proc_status id={id} for captured output. Process exit is not benchmark acceptance or a verified solve."##,
-    ),
-    (
-        "⠏⠉⠁⠏⠉⠃⠏⠉⠉⠏⠉⠙",
-        r##"Inspect proc_status id={id} for captured output. Process exit is not benchmark acceptance or a verified solve. Background work finished while your answer was being generated. Inspect its proc_status outcome and incorporate it before finishing."##,
-    ),
-    (
-        "⠗⠁",
-        r##"[relentless execution active] Relentless execution to the details: keep taking concrete tool-backed actions until the user's request is actually advanced; ensure every action benefits the user; produce logical, evidence-grounded output. Do not stop at status prose. Deliver a useful final answer, then this mode can turn off."##,
-    ),
-];
-
-/// Every page of an address, joined, as the legend and the ledger read it.
 fn pages_of(cells: &str) -> String {
     let mut out = Vec::new();
     for address in ledger::addresses(cells).expect(cells) {
@@ -183,39 +39,12 @@ fn legend_of(messages: &[ChatMsg]) -> Vec<String> {
 }
 
 #[test]
-fn every_ported_advisory_rebuilds_its_0_1_6_text_from_its_pages() {
-    for (cells, original) in ORIGINAL_ADVISORIES {
-        assert_eq!(
-            words(&pages_of(cells)),
-            words(original),
-            "{cells} lost or changed text"
-        );
-    }
-}
-
-#[test]
-fn the_storm_advice_keeps_its_instruction_and_drops_only_the_suppression() {
-    // 0.1.6: "tool error: [duplicate call suppressed: {count}×] You have issued
-    // this exact `{name}` call {count} times with identical arguments in the
-    // observation window; it was not executed again. No fresh result was read
-    // because workspace files have not changed. Do not repeat this call. You
-    // must edit the code using write_file or str_replace to fix the issue, or
-    // run a different command." The call runs now, so what says it did not is gone.
-    assert_eq!(
-        words(&pages_of("⠇⠃")),
-        "You have issued this exact call several times with identical arguments in the \
-         observation window. Do not repeat this call. You must edit the code using write_file \
-         or str_replace to fix the issue, or run a different command."
-    );
-}
-
-#[test]
 fn the_poll_advice_keeps_the_passive_wait_instruction_and_drops_the_suppression() {
     let poll = words(&pages_of("⠇⠉"));
     for sentence in [
         "Status snapshots and shell sleeps are observations, not candidate progress.",
-        "If a submission is in flight, the harness watcher already owns its status and will inject WATCHER NOTIFY.",
-        "Mutate the candidate, run a local preflight/benchmark, submit the current best, or report a concrete blocker before requesting another status snapshot.",
+        "A submission without a terminal receipt still needs an explicit result check; never assume a watcher will deliver it.",
+        "Use the next status check when it can inform a decision; avoid tight repeated polls with no intervening work.",
     ] {
         assert!(poll.contains(sentence), "{sentence}");
     }
@@ -517,6 +346,7 @@ fn a_finished_slot_arrives_with_its_receipt_beside_the_stamps() {
         score: Some("0.91".into()),
         rejection_reason: None,
         source_note: None,
+        receipt: None,
     };
     let turn = k_competition::watcher_turn(&std::env::temp_dir(), &notify);
     let mut lines = turn.lines();
@@ -540,7 +370,7 @@ fn the_posture_speaks_in_full_and_the_world_card_stays_gone() {
     let rapid = words(&pages_of("⠅⠁"));
     assert!(
         rapid.contains(
-            "A WATCHER NOTIFY arrives with id + status + score/reason; do not poll-wait."
+            "Use the platform CLI for status, score, rejection reason and metrics. A configured watcher is supplementary; a missing notification is not evidence that a job is pending."
         )
     );
     assert!(rapid.contains("Sitting on a prepped submission is a competition failure."));

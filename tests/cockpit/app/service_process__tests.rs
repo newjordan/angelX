@@ -15,11 +15,31 @@ pub(crate) mod capture_evidence_fixture;
 /// handler in the parallel Rust suite would take ownership of other fixtures.
 #[cfg(target_os = "linux")]
 pub(crate) fn isolated_fixture(filter: &str, env_name: &str) {
+    let listing = Command::new("/proc/self/exe")
+        .args(["--exact", filter, "--ignored", "--list"])
+        .output()
+        .expect("list isolated subprocess fixture");
+    assert!(listing.status.success());
+    let listing = String::from_utf8(listing.stdout).unwrap();
+    assert_eq!(
+        listing
+            .lines()
+            .filter(|line| line.ends_with(": test"))
+            .collect::<Vec<_>>(),
+        [format!("{filter}: test")],
+        "fixture filter must select exactly one ignored test"
+    );
     let root =
         std::env::temp_dir().join(format!("angel-service-{env_name}-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
     let mut child = Command::new("/proc/self/exe")
-        .args(["--exact", filter, "--nocapture", "--test-threads=1"])
+        .args([
+            "--exact",
+            filter,
+            "--ignored",
+            "--nocapture",
+            "--test-threads=1",
+        ])
         .env(env_name, &root)
         .stdin(Stdio::null())
         .spawn_owned()
@@ -152,10 +172,10 @@ impl Drop for FixtureCleanup {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn service_child_retirement_fixture() {
-    let Some(root) = std::env::var_os("ANGEL_T_SERVICE_CHILD") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_SERVICE_CHILD")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let fixture = ServiceFixture::new(Path::new(&root), "owned-child");
     let mut command = Command::new("python3");
@@ -215,10 +235,12 @@ fn service_child_preserves_wait_ownership_and_retires_wrapper_descendants() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn global_cleanup_retirement_fixture() {
-    if std::env::var_os("ANGEL_T_SERVICE_GLOBAL_CLEANUP").is_none() {
-        return;
-    }
+    assert!(
+        std::env::var_os("ANGEL_T_SERVICE_GLOBAL_CLEANUP").is_some(),
+        "subprocess fixture requires its parent test"
+    );
     let _cleanup = FixtureCleanup::new();
     let mut command = Command::new("sleep");
     command

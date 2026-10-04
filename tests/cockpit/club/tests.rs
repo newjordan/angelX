@@ -1605,7 +1605,7 @@ fn attribution_wrappers_run_turn_dispatch_actual_answering_seat() {
                 Some("fixture-loop-owner")
             );
             let stamped =
-                crate::agent::tools::submit_identity::stamp("yukon submit --model copied", None)?
+                crate::agent::tools::submit_identity::stamp("board submit --model copied", None)?
                     .unwrap();
             self.0.lock().unwrap().push(stamped.command);
             Ok("offline attribution observed; no process or network launched".into())
@@ -1689,7 +1689,7 @@ fn attribution_shared_fallback_keeps_concurrent_callers_separate() {
                     club.resolved_route_identity().model,
                 );
                 assert!(
-                    crate::agent::tools::submit_identity::stamp("yukon submit", None)
+                    crate::agent::tools::submit_identity::stamp("board submit", None)
                         .unwrap()
                         .unwrap()
                         .command

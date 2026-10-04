@@ -5,8 +5,7 @@ models you choose, asks before it runs a command or edits a file, checks its
 work before it reports done, and keeps what it learns about your project.
 
 Field proven in kernel and cryptography work:
-[GPU MODE Cholesky · 2nd](https://www.gpumode.com/leaderboard/776?tab=rankings) ·
-[100+ records on Yukon](docs/yukon-field-results.md)
+[GPU MODE Cholesky · 2nd](https://www.gpumode.com/leaderboard/776?tab=rankings)
 
 ![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
@@ -89,6 +88,7 @@ cd angelX
 - **Live research memory · 0.1.9 line** — Sloptomizer connects ordinary checks and measured experiments through compact `⚠` braille advice. Used legends return when the model changes or context is compacted. Ships in 0.1.92; [ship notes](docs/RELEASE_0.1.9.md).
 - **A working adventure · 0.1.9 line** — The knight follows real loop work through a [3D mine journey](docs/world-adventure.md), with a [School of Magic](docs/world-school.md), study, and underground archive reflecting actual research evidence.
 - **The Delve · 0.1.92** — `/dungeon` walks your knight to the Delve's gate: a co-op knights-vs-monsters dungeon drawn in the realm's own pixel art. Friends join from their own angelX with `/dungeon join`, and cards, spells and wishes load while you play. [Guide](docs/DELVE.md).
+- **Cartridges · 0.1.93** — Plug a competition into the loop as a folder: a `cartridge.toml`, and Rust when it needs more. Yours stay outside the tree. [Guide and figures](docs/CARTRIDGES.md).
 
 ## Benchmarks
 
@@ -200,9 +200,5 @@ retained licenses; research inspiration and incorporated code are identified sep
 Field proven: 100+ records on public research leaderboards, with first-place
 results in kernel optimization, LLM inference and cryptography research, and
 2nd place on the [GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
-leaderboard. [Yukon field results](docs/yukon-field-results.md)
+leaderboard.
 
-## Special thanks
-
-[Yukon](https://www.yukon.org), the platform for open frontier research, where
-angelX set its leaderboard records.

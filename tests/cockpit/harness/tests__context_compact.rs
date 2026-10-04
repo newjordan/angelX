@@ -2999,3 +2999,4 @@ fn context_compact_constraint_ledger_reports_excerpt_and_drop() {
     .unwrap();
     assert_eq!(ledger["boundary"], 2);
 }
+

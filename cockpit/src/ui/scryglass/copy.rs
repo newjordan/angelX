@@ -1,18 +1,21 @@
 //! Copy actual displayed work, never an unrelated response or stale reveal.
 
-use super::{Scryglass, StageOverlay};
+use super::{Scryglass, StageOverlay, StageRoute};
+use crate::ui::clipboard::ClipboardImageSource;
 use crate::ui::media::Media;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum StageCopyTarget {
     Location,
     Text,
+    Image,
 }
 
 pub(crate) struct StageCopyPayload {
     pub(crate) text: String,
     pub(crate) fallback_file: &'static str,
     pub(crate) description: String,
+    pub(crate) image: Option<ClipboardImageSource>,
 }
 
 impl Scryglass {
@@ -21,10 +24,14 @@ impl Scryglass {
         media: &[Media],
         target: StageCopyTarget,
     ) -> Result<StageCopyPayload, String> {
-        let Some(StageOverlay::Media { index }) = self.controller.overlay() else {
-            return Err("no Stage artifact is displayed; show a file or link first".into());
+        let index = match self.controller.overlay() {
+            Some(StageOverlay::Media { index }) => *index,
+            None if self.controller.route() == StageRoute::Assets => self
+                .selected_media(media)
+                .ok_or_else(|| "no Stage assets yet; use /show <path> to add one".to_string())?,
+            _ => return Err("no Stage artifact is displayed; show a file or link first".into()),
         };
-        let card = media.get(*index).ok_or_else(|| {
+        let card = media.get(index).ok_or_else(|| {
             "the displayed Stage artifact is unavailable; reopen it to copy".to_string()
         })?;
         match target {
@@ -50,10 +57,14 @@ impl Scryglass {
                     }
                     url
                 };
+                if !crate::ui::media::presentation_text_valid(&text, 8192) {
+                    return Err("Stage artifact location contains unsafe control characters or is too long to copy exactly".into());
+                }
                 Ok(StageCopyPayload {
                     text,
                     fallback_file: "stage-location.txt",
                     description: "Stage artifact location".into(),
+                    image: None,
                 })
             }
             StageCopyTarget::Text => {
@@ -77,6 +88,42 @@ impl Scryglass {
                     text: document.text.clone(),
                     fallback_file: "stage-document.txt",
                     description: format!("Stage document preview · {}", document.receipt),
+                    image: None,
+                })
+            }
+            StageCopyTarget::Image => {
+                let source = card.source().ok_or_else(|| {
+                    "remote image bytes are not loaded; use Copy path for the URL".to_string()
+                })?;
+                let (image, description) = if card.is_video() {
+                    #[cfg(feature = "scryglass-video")]
+                    {
+                        let snapshot = self.video.snapshot();
+                        let frame = snapshot.frame.filter(|frame| {
+                            frame.identity.source == source
+                                && frame.identity.request_id == self.media_request_id()
+                                && frame.identity.generation == snapshot.generation
+                        }).ok_or_else(|| "no current video frame is ready to copy; wait for playback or use Copy path".to_string())?;
+                        (
+                            ClipboardImageSource::Frame(frame),
+                            "Stage video preview frame",
+                        )
+                    }
+                    #[cfg(not(feature = "scryglass-video"))]
+                    {
+                        return Err(
+                            "video frame copying is unavailable in this build; use Copy path"
+                                .into(),
+                        );
+                    }
+                } else {
+                    (ClipboardImageSource::File(source), "Stage image")
+                };
+                Ok(StageCopyPayload {
+                    text: String::new(),
+                    fallback_file: "stage-image.png",
+                    description: description.into(),
+                    image: Some(image),
                 })
             }
         }

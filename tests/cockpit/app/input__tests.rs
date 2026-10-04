@@ -8,6 +8,18 @@ fn parses_local_commands() {
         ParsedInput::Show(path) if path == "/tmp/a.png"
     ));
     assert!(matches!(parse("/hide").unwrap(), ParsedInput::Hide));
+    for command in ["/show", "/show ", " /show  ", "/assets"] {
+        assert!(
+            matches!(parse(command).unwrap(), ParsedInput::Assets),
+            "{command}"
+        );
+        assert!(!parse(command).unwrap().needs_idle());
+    }
+    assert!(matches!(parse("/tower").unwrap(), ParsedInput::Tower));
+    assert!(!parse("/tower").unwrap().needs_idle());
+    assert_eq!(slash_command_matches("/asset"), ["assets"]);
+    assert_eq!(slash_command_matches("/tower"), ["tower"]);
+    assert!(slash_inline_hint("/copy", 5).is_some());
     assert!(matches!(parse("/media").unwrap(), ParsedInput::MediaPage));
     assert!(matches!(
         parse("/observatory").unwrap(),

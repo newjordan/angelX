@@ -1006,6 +1006,46 @@ impl World {
         self.graph_garden.report()
     }
 
+    /// Competition test lifecycle adapter. The producer passes only typed
+    /// measurements from the verifier; incomplete states never create scores.
+    pub(crate) fn competition_test_started(&mut self, label: &str) {
+        self.graph_destination = true;
+        self.graph_garden.competition_status(format!("{label}: started · awaiting result"));
+    }
+    pub(crate) fn competition_test_pending(&mut self, label: &str) {
+        self.graph_destination = true;
+        self.graph_garden.competition_status(format!("{label}: pending · no score yet"));
+    }
+    pub(crate) fn competition_test_measurement(
+        &mut self,
+        label: &str,
+        measurement: &crate::drive::research_workspace::measurement::Measurement,
+    ) -> Result<(), String> {
+        self.graph_destination = true;
+        self.graph_garden.competition_measurement(label, measurement, self.tick)
+    }
+    /// Show a status watcher score without plotting it when the objective
+    /// direction and baseline are absent. This keeps a real score visible
+    /// without implying that it is comparable or a verified measurement.
+    pub(crate) fn competition_test_reported_score(&mut self, label: &str, score: &str) {
+        self.graph_destination = true;
+        self.graph_garden.competition_status(format!(
+            "{label}: score {score} reported · objective/baseline unavailable · not plotted"
+        ));
+    }
+    pub(crate) fn competition_test_error(&mut self, label: &str, reason: &str) {
+        self.graph_destination = true;
+        self.graph_garden.competition_status(format!("{label}: error · {reason}"));
+    }
+    pub(crate) fn competition_test_timeout(&mut self, label: &str) {
+        self.graph_destination = true;
+        self.graph_garden.competition_status(format!("{label}: timed out · unverified · no score"));
+    }
+    pub(crate) fn competition_test_complete(&mut self, label: &str) {
+        self.graph_destination = true;
+        self.graph_garden.competition_status(format!("{label}: complete · latest measured history retained"));
+    }
+
     /// Mirror the currently visible completion ceremony. Callers derive this
     /// from the overlay's own timed lifecycle; World never extends it.
     pub(crate) fn set_completion_ceremony_active(&mut self, active: bool) {
@@ -2080,8 +2120,11 @@ impl World {
             self.plate_from = self.target;
             self.travel_ticks = 0;
         } else {
-            // A new target (or still walking) pulls the camera straight out.
-            self.interior = None;
+            // Work travel leaves ordinary arrivals, but an explicit tower
+            // visit is a fixed operator view, just like the teaching rooms.
+            if !self.visiting_scrying_tower() {
+                self.interior = None;
+            }
             self.settle_ticks = 0;
             self.travel_ticks = self.travel_ticks.saturating_add(1);
         }

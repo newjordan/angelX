@@ -1356,6 +1356,7 @@ impl Bag {
                                 metered,
                             },
                             available: slot.available.load(Ordering::Relaxed),
+                            in_hand: agent_index == self.in_hand && slot_index == agent.active,
                         }
                     })
             })

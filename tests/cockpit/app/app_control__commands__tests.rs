@@ -174,6 +174,20 @@ fn copy_target_defaults_to_latest_accepts_named_targets_and_rejects_other_text()
         ))
     );
     assert!(copy_target(Some("stage unknown")).is_err());
+    for command in ["stage image", "stage frame"] {
+        assert_eq!(
+            copy_target(Some(command)),
+            Ok(CopyTarget::Stage(
+                crate::ui::scryglass::StageCopyTarget::Image
+            ))
+        );
+    }
+    assert_eq!(
+        copy_target(Some("stage link")),
+        Ok(CopyTarget::Stage(
+            crate::ui::scryglass::StageCopyTarget::Location
+        ))
+    );
 
     assert_eq!(copy_target(Some(" code 3 ")), Ok(CopyTarget::Code(3)));
     assert!(copy_target(Some("0")).is_err());

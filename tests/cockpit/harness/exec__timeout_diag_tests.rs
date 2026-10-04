@@ -376,3 +376,13 @@ fn sleeping_process_keeps_call_budget_under_yolo() {
         assert!(started.elapsed() < Duration::from_secs(4));
     }
 }
+
+#[test]
+fn crash_signals_keep_their_names_without_crashing_a_process() {
+    // Named here rather than raised: a real SIGSEGV in a test reaches
+    // systemd-coredump and the desktop reports it as a crash.
+    assert_eq!(signal_name(libc::SIGSEGV), "SIGSEGV");
+    assert_eq!(signal_name(libc::SIGPIPE), "SIGPIPE");
+    assert_eq!(signal_name(libc::SIGTERM), "SIGTERM");
+    assert_eq!(signal_name(libc::SIGABRT), format!("signal-{}", libc::SIGABRT));
+}

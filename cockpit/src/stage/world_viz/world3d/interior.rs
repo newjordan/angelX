@@ -46,7 +46,7 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use super::arch;
 use super::arch::prim::{self, F_ALL, F_NX, F_NY, F_NZ, F_PX, F_PY, F_PZ, F_SIDES, F_SIDES_TOP};
 use super::arch::rng::{Rng, sub_seed};
-use super::instruments::{self, tube};
+use super::instruments;
 use super::math::{V3, v3};
 use super::mesh::{Mesh, mat};
 use super::raster::{self, View3};
@@ -291,8 +291,8 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.96,
         hero: "the lit ring on the round table and its empty seats",
     },
-    // Observatory — the star slit: the wall opens on the night from sill to
-    // ridge and the telescope leans up into it.
+    // Observatory — the wizard's scrying room. The star slit is the backdrop
+    // to the ringed glass, with the chart desk and warm lamp beside it.
     Chamber {
         hx: 5.0,
         hy: 4.0,
@@ -305,11 +305,11 @@ const CHAMBERS: [Chamber; 8] = [
         yaw: MOON_AZIMUTH + 1.15,
         eye: (-3.2, 1.35),
         eye_h: 1.58,
-        anchor: (2.30, -0.36, 2.33),
+        anchor: (1.55, -0.45, 1.92),
         frame_x: 0.41,
         frame_y: 0.53,
         lens: 0.94,
-        hero: "the telescope leaning into the star slit",
+        hero: "the scrying glass in brass rings beneath the star slit",
     },
 ];
 
@@ -320,8 +320,8 @@ pub(crate) fn hero(index: u8) -> &'static str {
 
 // ── the ride seam ─────────────────────────────────────────────────────────
 
-/// Retained interior geometry renderer for scene fixtures and review dumps.
-/// Ordinary room entry displays the approved room/location plate instead.
+/// Native interior geometry renderer. The Observatory uses it for the
+/// Scrying Tower; the other rooms retain their authored location paintings.
 ///
 /// Reads only the building, the
 /// `RayView` the ride already built — whose heading carries the settled sway
@@ -1408,8 +1408,7 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
     }
 }
 
-/// Observatory — the star slit open from sill to ridge with the telescope
-/// leaning up into it.
+/// Observatory — a wizard's room with the scrying glass framed by the star slit.
 fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
     let (x, hy) = (chamber.hx, chamber.hy);
     let slit = 1.40_f32;
@@ -1472,37 +1471,9 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
         );
     }
 
-    // The telescope: a tapered tube on a yoke, leaning up the slit, with the
-    // eyepiece drawn back over the observer's stool.
-    let base = v3(0.55, -0.60, 1.00);
-    let muzzle = v3(4.05, -0.12, 3.65);
-    instruments::telescope(mesh, base, muzzle);
-    // Yoke and tripod.
-    for &sy in &[-1.0_f32, 1.0] {
-        prim::boxed(
-            mesh,
-            v3(1.62, sy * 0.52 - 0.08, 0.0),
-            v3(1.78, sy * 0.52 + 0.08, 1.72),
-            mat::WOOD,
-            F_SIDES,
-        );
-        tube(
-            mesh,
-            v3(1.70, sy * 0.52, 1.30),
-            v3(0.62, sy * 1.02, 0.0),
-            0.08,
-            0.06,
-            5,
-            mat::WOOD,
-        );
-    }
-    prim::boxed(
-        mesh,
-        v3(1.42, -0.78, 0.0),
-        v3(1.98, 0.78, 0.20),
-        mat::WOOD,
-        F_SIDES_TOP,
-    );
+    // The glass occupies the old observing instrument's mark, so its full
+    // pedestal and broad brass rings read from the doorway at mini-pane size.
+    instruments::scrying_globe(mesh, v3(1.55, -0.45, 1.92));
 
     // Chart stand with its lamp, and the star globe on its post.
     prim::boxed(

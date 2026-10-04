@@ -122,6 +122,7 @@ and a world TUI where the work is drawn as it happens.";
         let mut deck = MoaDeckState::new(vec![MoaModelChoice {
             route,
             available: true,
+            in_hand: false,
         }]);
         deck.select(FormationId::Council);
         app.moa_deck = Some(deck);

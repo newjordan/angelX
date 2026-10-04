@@ -20,7 +20,7 @@ use super::{
 };
 
 #[cfg(test)]
-fn apply_reply(st: &mut LoopState, reply: &str) -> usize {
+pub(crate) fn apply_reply(st: &mut LoopState, reply: &str) -> usize {
     apply_reply_with_tools(st, reply, &ToolStripSnapshot::default())
 }
 
@@ -103,6 +103,7 @@ pub(crate) fn apply_reply_with_tools(
     register_verified_outcome_actions(st, &tools.verified_outcome_actions);
     attach_measurement_results(st, tools);
     drain_submission_journal(st);
+    let official_progress = reconcile_submission_results(st);
     // Blocker-first (podrace): a failed benchmark/verify/validate/submit
     // action or a `VERIFY/DECISION … blocked` checkpoint arms the diagnostic;
     // only a verified receipt clears it — research novelty never does.
@@ -120,8 +121,8 @@ pub(crate) fn apply_reply_with_tools(
     // The current tool receipt binds a command and opaque result digest, not
     // candidate bytes, objective, comparable baseline, or an improvement.
     // A new submission id (or timing noise) must not reset objective staleness.
-    // Keep execution evidence/counters above; only a future authoritative
-    // objective comparison can supply progress credit for ongoing competition.
+    // Keep execution evidence/counters above; authenticated promoted improvements
+    // from this loop's dispatched candidates supply objective progress.
     // A verbatim-restated plan is not progress (Sol restated the same
     // "submit + delegate a moonshot" plan five turns running, overwatch
     // 2026-09-25, while receipts/edits churned): when the reply body is
@@ -133,9 +134,9 @@ pub(crate) fn apply_reply_with_tools(
         !reply_digest.is_empty() && st.last_reply_digest.as_deref() == Some(reply_digest.as_str());
     st.last_reply_digest = Some(reply_digest);
     let credited_progress = if st.podrace || restated_same_plan {
-        0
+        official_progress
     } else {
-        credited_fresh + novel_outcome_actions + usize::from(workspace_changed)
+        official_progress + credited_fresh + novel_outcome_actions + usize::from(workspace_changed)
     };
     if credited_progress == 0 {
         st.stale_count += 1;
@@ -487,6 +488,49 @@ pub(crate) fn drain_submission_journal(st: &mut LoopState) {
         // Attempts are diagnostics, not verified receipts. The existing
         // register_verified_outcome_actions path owns deduplicated counting.
     }
+}
+
+/// Reconcile persisted API results without another watcher, network request,
+/// or model-text parser. An observed ID must belong to this loop's dispatch.
+pub(crate) fn reconcile_submission_results(st: &mut LoopState) -> usize {
+    let Some(workspace) = st.workspace.as_deref() else {
+        return 0;
+    };
+    let results = match crate::agent::harness::cartridges::active()
+        .map_or(Ok(Vec::new()), |cartridge| cartridge.hooks().terminal_results(workspace))
+    {
+            Ok(results) => results,
+            Err(error) => {
+                st.verifier_blocked = Some(error);
+                return 0;
+            }
+        };
+    let mut improvements = 0;
+    for row in results {
+        if row.dispatch_owner.as_deref() != Some(st.id.as_str()) {
+            continue;
+        }
+        let Some(official) = &row.official else {
+            continue;
+        };
+        let previous = st
+            .submission_results
+            .iter()
+            .position(|r| r.submission_id == row.submission_id);
+        let was_improved = previous
+            .and_then(|i| st.submission_results[i].official.as_ref())
+            .is_some_and(|r| r.promoted_improvement());
+        improvements += usize::from(official.promoted_improvement() && !was_improved);
+        if previous.is_none() {
+            register_verified_outcome_actions(st, &[format!("submitted:{}", row.submission_id)]);
+        }
+        if let Some(i) = previous {
+            st.submission_results[i] = row;
+        } else {
+            st.submission_results.push(row);
+        }
+    }
+    improvements
 }
 
 /// The reply's checkpoint declared a blocked verification path — a line

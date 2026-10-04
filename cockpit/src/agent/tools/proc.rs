@@ -43,6 +43,9 @@ struct ProcEntry {
     exit: Option<String>,
     exit_code: Option<i32>,
     completion_reported: bool,
+    // Submission attribution belongs to the launching turn, not the reaper thread.
+    submit_context: Option<SubmissionContext>,
+    log_pumps: Vec<std::thread::JoinHandle<()>>,
     pending_completion: Option<ProcCompletion>,
     notification_workspace: PathBuf,
     /// First log-pump failure, retained so status never presents a partial log
@@ -54,6 +57,13 @@ struct ProcEntry {
     /// observes completion; not removed merely because a model asked status.
     receipt: Option<PathBuf>,
     confinement: String,
+}
+
+struct SubmissionContext {
+    workspace: PathBuf,
+    model: Option<String>,
+    turn: Option<String>,
+    output: Arc<Mutex<crate::agent::tools::submit_identity::DispatchCapture>>,
 }
 
 impl ProcEntry {
@@ -235,6 +245,7 @@ fn enqueue_completion_into(
 fn reap_completion_batch(cursor: &mut u64) {
     use std::ops::Bound::{Excluded, Unbounded};
     let mut finished = Vec::new();
+    let mut submissions = Vec::new();
     {
         let Ok(mut procs) = table().try_lock() else {
             return;
@@ -252,6 +263,27 @@ fn reap_completion_batch(cursor: &mut u64) {
             *cursor = id;
             let entry = procs.get_mut(&id).expect("selected live table entry");
             entry.state();
+            if entry.exit.is_some()
+                && (entry.log_pumps.iter().all(|pump| pump.is_finished())
+                    || entry.submit_context.as_ref().is_some_and(|context| {
+                        context
+                            .output
+                            .lock()
+                            .is_ok_and(|output| output.receipt().is_some())
+                    }))
+                && let Some(context) = entry.submit_context.take()
+            {
+                submissions.push((
+                    entry.command.clone(),
+                    context.workspace,
+                    entry.exit_code,
+                    entry.log.clone(),
+                    context.model,
+                    context.turn,
+                    context.output,
+                    Arc::clone(&entry.log_warning),
+                ));
+            }
             if let Some(completion) = entry.pending_completion.take() {
                 if !enqueue_completion(&entry.notification_workspace, &completion) {
                     entry.pending_completion = Some(completion);
@@ -298,6 +330,26 @@ fn reap_completion_batch(cursor: &mut u64) {
                 receipt,
                 body,
             ));
+        }
+    }
+    // An exact captured receipt remains usable when a descendant holds a pipe
+    // open. Otherwise await EOF before classifying the process's final output.
+    for (command, workspace, exit, log, model, turn, capture, warning) in submissions {
+        let _model = crate::agent::harness::run_identity::LiveModelScope::enter(model);
+        let _turn = crate::agent::harness::run_identity::LiveTurnScope::enter(turn);
+        let output = capture
+            .lock()
+            .ok()
+            .and_then(|capture| capture.receipt().map(str::to_owned))
+            .unwrap_or_else(|| read_log_tail(&log, usize::MAX));
+        if let Some(error) = crate::agent::tools::submit_identity::journal_execution(
+            "proc_run",
+            &command,
+            Some(&workspace),
+            exit,
+            &output,
+        ) {
+            record_log_warning(&warning, format!("submission journal error: {error}"));
         }
     }
     // Filesystem work never holds the process table or notice queue lock.
@@ -447,7 +499,7 @@ pub(crate) fn live_job_count() -> usize {
 
 fn next_id(cancel: Option<&std::sync::atomic::AtomicBool>) -> Result<u64, String> {
     // Separate native sessions share receipt/log storage. A per-process
-    // AtomicU64 gave two real concurrent Yukon jobs handle215 in the same
+    // AtomicU64 gave two real concurrent board jobs handle215 in the same
     // repository. Reserve durably under an inter-process lock before spawn.
     let directory = proc_dir();
     std::fs::create_dir_all(&directory).map_err(|e| format!("process ID directory: {e}"))?;
@@ -843,10 +895,12 @@ fn spawn_log_pump(
     log: Arc<Mutex<RotatingLog>>,
     log_warning: Arc<Mutex<Option<String>>>,
     stream: &'static str,
-) {
-    let _ = std::thread::Builder::new()
+    submission: Option<Arc<Mutex<crate::agent::tools::submit_identity::DispatchCapture>>>,
+) -> Option<std::thread::JoinHandle<()>> {
+    std::thread::Builder::new()
         .name("angel-proc-log".to_string())
-        .spawn(move || pump_log(reader, log, log_warning, stream));
+        .spawn(move || pump_log(reader, log, log_warning, stream, submission))
+        .ok()
 }
 
 fn record_log_warning(log_warning: &Mutex<Option<String>>, warning: String) {
@@ -860,34 +914,40 @@ fn pump_log(
     log: Arc<Mutex<RotatingLog>>,
     log_warning: Arc<Mutex<Option<String>>>,
     stream: &str,
+    submission: Option<Arc<Mutex<crate::agent::tools::submit_identity::DispatchCapture>>>,
 ) {
     let mut chunk = [0u8; 16 * 1024];
     let mut logging = true;
     loop {
         match reader.read(&mut chunk) {
             Ok(0) => break,
-            Ok(read) if logging => match log.lock() {
-                Ok(mut log) => {
-                    if let Err(error) = log.append(&chunk[..read]) {
+            Ok(read) => {
+                if let Some(capture) = &submission
+                    && let Ok(mut capture) = capture.lock()
+                {
+                    capture.observe(stream, &chunk[..read]);
+                }
+                if !logging {
+                    continue; // Keep draining and capturing after a log write failure.
+                }
+                match log.lock() {
+                    Ok(mut log) => {
+                        if let Err(error) = log.append(&chunk[..read]) {
+                            record_log_warning(
+                                &log_warning,
+                                format!("{stream} log write failed: {error}"),
+                            );
+                            logging = false;
+                        }
+                    }
+                    Err(_) => {
                         record_log_warning(
                             &log_warning,
-                            format!("{stream} log write failed: {error}"),
+                            format!("{stream} log writer lock was poisoned"),
                         );
                         logging = false;
                     }
                 }
-                Err(_) => {
-                    record_log_warning(
-                        &log_warning,
-                        format!("{stream} log writer lock was poisoned"),
-                    );
-                    logging = false;
-                }
-            },
-            Ok(_) => {
-                // Logging is degraded, but the pipe must still be drained.
-                // Stopping here can block a verbose child forever or deliver
-                // SIGPIPE, turning a recoverable disk error into job failure.
             }
             Err(error) => {
                 record_log_warning(&log_warning, format!("{stream} pipe read failed: {error}"));
@@ -1267,6 +1327,11 @@ impl Tool for ProcRunTool {
             proc_log_max_bytes(),
         )?));
         let log_warning = Arc::new(Mutex::new(None));
+        let submission_output = stamped.as_ref().map(|_| {
+            Arc::new(Mutex::new(
+                crate::agent::tools::submit_identity::DispatchCapture::default(),
+            ))
+        });
 
         let mut policy = SandboxPolicy::permissive();
         policy.writable_roots.push(self.workspace.clone());
@@ -1290,13 +1355,20 @@ impl Tool for ProcRunTool {
             .map_err(|e| format!("spawn failed: {e}"))?;
         let stdout: ChildStdout = child.stdout.take().ok_or("stdout pipe unavailable")?;
         let stderr: ChildStderr = child.stderr.take().ok_or("stderr pipe unavailable")?;
-        spawn_log_pump(
+        let stdout_pump = spawn_log_pump(
             stdout,
             Arc::clone(&log_pump),
             Arc::clone(&log_warning),
             "stdout",
+            submission_output.clone(),
         );
-        spawn_log_pump(stderr, log_pump, Arc::clone(&log_warning), "stderr");
+        let stderr_pump = spawn_log_pump(
+            stderr,
+            log_pump,
+            Arc::clone(&log_warning),
+            "stderr",
+            submission_output.clone(),
+        );
         // Wait only for helper setup, never for the background command. A
         // dedicated channel distinguishes setup errors from nested bwrap output.
         #[cfg(target_os = "linux")]
@@ -1379,6 +1451,13 @@ impl Tool for ProcRunTool {
                 exit: None,
                 exit_code: None,
                 completion_reported: false,
+                submit_context: submission_output.map(|output| SubmissionContext {
+                    workspace: std::fs::canonicalize(&cwd).unwrap_or(cwd),
+                    model: crate::agent::harness::run_identity::live_model(),
+                    turn: crate::agent::harness::run_identity::live_turn(),
+                    output,
+                }),
+                log_pumps: [stdout_pump, stderr_pump].into_iter().flatten().collect(),
                 pending_completion: None,
                 notification_workspace: std::fs::canonicalize(&self.workspace)
                     .unwrap_or_else(|_| self.workspace.clone()),

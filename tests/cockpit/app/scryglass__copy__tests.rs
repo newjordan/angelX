@@ -88,6 +88,87 @@ fn stage_copy_remote_url_is_exact_and_text_never_fetches_a_page() {
             .unwrap()
             .contains("not loaded")
     );
+    assert!(
+        stage
+            .copy_payload(&cards, StageCopyTarget::Image)
+            .err()
+            .unwrap()
+            .contains("not loaded")
+    );
+}
+
+#[test]
+fn stage_copy_image_preserves_the_selected_source_and_defers_file_reads() {
+    let base = root("native-image");
+    let path = base.join("not-created.png");
+    let cards = vec![Media::Confined {
+        card: Box::new(Media::Image {
+            label: "figure".into(),
+            path: path.to_str().unwrap().into(),
+        }),
+        root: base.clone(),
+    }];
+    let mut stage = Scryglass::default();
+    assert!(stage.copy_payload(&cards, StageCopyTarget::Image).is_err());
+    stage.reveal_media(0, true);
+    let payload = stage.copy_payload(&cards, StageCopyTarget::Image).unwrap();
+    let Some(ClipboardImageSource::File(source)) = payload.image else {
+        panic!("expected exact local source");
+    };
+    assert_eq!(source.path, path);
+    assert_eq!(source.root, Some(base.clone()));
+    assert!(
+        payload.text.is_empty(),
+        "image copy must never disguise a path as image bytes"
+    );
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[test]
+fn stage_copy_location_rejects_control_bytes_without_rewriting_the_identity() {
+    let mut stage = Scryglass::default();
+    for card in [
+        Media::Image {
+            label: "image".into(),
+            path: "/tmp/figure\ncommand.png".into(),
+        },
+        Media::Link {
+            label: "link".into(),
+            url: "https://example.invalid/\u{202e}figure".into(),
+        },
+    ] {
+        stage.reveal_media(0, true);
+        let error = stage
+            .copy_payload(&[card], StageCopyTarget::Location)
+            .err()
+            .unwrap();
+        assert!(error.contains("control"), "{error}");
+    }
+}
+
+#[cfg(not(feature = "scryglass-video"))]
+#[test]
+fn stage_copy_video_frame_reports_missing_decoder_and_path_remains_available() {
+    let cards = vec![Media::Video {
+        label: "clip".into(),
+        path: "/tmp/demo.mp4".into(),
+    }];
+    let mut stage = Scryglass::default();
+    stage.reveal_media(0, true);
+    assert!(
+        stage
+            .copy_payload(&cards, StageCopyTarget::Image)
+            .err()
+            .unwrap()
+            .contains("unavailable")
+    );
+    assert_eq!(
+        stage
+            .copy_payload(&cards, StageCopyTarget::Location)
+            .unwrap()
+            .text,
+        "/tmp/demo.mp4"
+    );
 }
 
 #[test]
@@ -129,6 +210,31 @@ fn stage_copy_requires_current_media_overlay_not_a_stale_reveal_or_selection() {
             .unwrap()
             .contains("unavailable")
     );
+}
+
+#[test]
+fn stage_copy_from_the_asset_shelf_preserves_the_shelf_and_selected_identity() {
+    let base = root("shelf");
+    let first = base.join("first.md");
+    let selected = base.join("selected.md");
+    std::fs::write(&first, "other document").unwrap();
+    std::fs::write(&selected, "selected document snapshot").unwrap();
+    let cards = vec![resource(&first), resource(&selected)];
+    let mut stage = Scryglass::default();
+    stage.navigate(StageRoute::Assets);
+    stage.selected = 1;
+    let location = stage
+        .copy_payload(&cards, StageCopyTarget::Location)
+        .unwrap();
+    assert_eq!(location.text, selected.to_str().unwrap());
+    assert_eq!(
+        text_ready(&mut stage, &cards).text,
+        "selected document snapshot"
+    );
+    assert_eq!(stage.controller.route(), StageRoute::Assets);
+    assert!(stage.controller.overlay().is_none());
+    assert!(stage.active_media().is_none());
+    std::fs::remove_dir_all(base).unwrap();
 }
 
 #[test]

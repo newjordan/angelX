@@ -27,13 +27,13 @@ fn fleet_overwatch_hung_tree_returns_within_its_probe_deadline() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn fleet_overwatch_complete_output_fixture() {
     use crate::agent::process_test_support::FixtureCleanup;
     use crate::agent::process_test_support::capture_evidence_fixture::EvidenceFixture;
 
-    let Some(root) = std::env::var_os("ANGEL_T_OVERWATCH_EOF") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_OVERWATCH_EOF")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     for stream in ["stdout", "stderr"] {
         let mut fixture = EvidenceFixture::new(

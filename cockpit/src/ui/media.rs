@@ -64,6 +64,31 @@ impl Media {
         }
     }
 
+    pub fn kind_label(&self) -> &'static str {
+        match self {
+            Media::Image { .. } => "Image",
+            Media::Video { .. } => "Video",
+            Media::Link { .. } => "Link",
+            Media::Graph { .. } => "Graph",
+            Media::Resource { .. } => "Resource",
+            Media::Confined { card, .. } => card.kind_label(),
+        }
+    }
+
+    /// A readable location for shelf and preview chrome. No metadata reads or
+    /// source loading: exact absolute identities remain available through Copy.
+    pub fn location_label(&self) -> String {
+        if let Some(source) = self.source() {
+            if let Some(root) = source.root
+                && let Ok(relative) = source.path.strip_prefix(root)
+            {
+                return format!("Workspace · {}", relative.display());
+            }
+            return source.path.display().to_string();
+        }
+        self.target()
+    }
+
     pub fn target(&self) -> String {
         match self {
             Media::Link { url, .. } | Media::Resource { url, .. } => url.clone(),
@@ -93,6 +118,28 @@ impl Media {
     pub fn is_image(&self) -> bool {
         match self {
             Media::Confined { card, .. } => card.is_image(),
+            Media::Graph { .. } => self
+                .local_path()
+                .and_then(|path| {
+                    path.extension()
+                        .map(|extension| extension.to_string_lossy().to_ascii_lowercase())
+                })
+                .is_some_and(|extension| {
+                    matches!(
+                        extension.as_str(),
+                        "png"
+                            | "jpg"
+                            | "jpeg"
+                            | "gif"
+                            | "webp"
+                            | "bmp"
+                            | "tiff"
+                            | "tif"
+                            | "ico"
+                            | "pnm"
+                            | "qoi"
+                    )
+                }),
             _ => matches!(self, Media::Image { .. }),
         }
     }

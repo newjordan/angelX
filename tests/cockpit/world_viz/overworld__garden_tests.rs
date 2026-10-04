@@ -35,6 +35,32 @@ fn ok() -> ToolOutcome {
         verification: VerificationOutcome::NotApplicable,
     }
 }
+
+#[test]
+fn competition_garden_keeps_only_sequential_typed_measurements() {
+    let mut garden = Garden::default();
+    garden.competition_status("test 1: pending · no score yet");
+    assert!(garden.frame(1).bed.is_none());
+    for i in 0..5 {
+        let measurement: crate::drive::research_workspace::measurement::Measurement =
+            serde_json::from_value(serde_json::json!({
+                "value": format!("{}", 10 + i), "baseline": "10",
+                "dataset": "diagnostic", "lower_is_better": true,
+                "receipt_sha256": "a".repeat(64)
+            })).unwrap();
+        garden.competition_measurement(&format!("test-{i}"), &measurement, i as u64 + 2).unwrap();
+    }
+    let frame = garden.frame(7);
+    let chart = frame.bed.unwrap().chart.unwrap();
+    assert_eq!(chart.points.len(), 5);
+    assert_eq!(chart.points.keys().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3, 4]);
+    assert_eq!(chart.points.get(&4).unwrap().y, 14.0);
+    assert!(chart.spec.y_label.contains("lower better"));
+    assert!(garden.report().contains("baseline 10"));
+    let before = garden.competition_points;
+    garden.competition_status("test-6: timed out · unverified · no score");
+    assert_eq!(garden.competition_points, before);
+}
 fn apply(
     store: &mut GraphStore,
     garden: &mut Garden,

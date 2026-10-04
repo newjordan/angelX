@@ -55,6 +55,7 @@ pub(super) fn render_artifacts(frame: &mut Frame, app: &mut App, area: Rect) {
             render_agent_graph_stage(frame, app, area)
         }
         crate::ui::scryglass::StageSurface::Quest => render_quest_stage(frame, app, area),
+        crate::ui::scryglass::StageSurface::Assets => render_assets_stage(frame, app, area),
         crate::ui::scryglass::StageSurface::Vault => render_vault_stage(frame, app, area),
         crate::ui::scryglass::StageSurface::WorldFirstPerson
         | crate::ui::scryglass::StageSurface::WorldMap
@@ -699,16 +700,31 @@ fn render_dotmax_interior(frame: &mut Frame, app: &mut App, area: Rect) -> bool 
         return false;
     }
     let (width, height) = world_sample_size(app, area);
-    maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldFirstPerson, || {
-        let Some(image) = app
-            .world
-            .ambient_braille_frame(width, height, app.visual_motion)
-        else {
+    let explicit_still = app.world.visiting_scrying_tower() && crate::drive::comp_mode::enabled();
+    let paint = || {
+        let Some(image) = app.world.ambient_braille_frame(
+            width,
+            height,
+            if explicit_still {
+                crate::ui::viz::lifecycle_viz::MotionMode::Off
+            } else {
+                app.visual_motion
+            },
+        ) else {
             return false;
         };
         paint_world_frame(frame, app, area, &image);
         true
-    })
+    };
+    // An operator-opened tower is a cached still in competition mode. It does
+    // not restart ambient simulation or its fast tick.
+    maybe_run_expensive_world_compose(
+        explicit_still
+            || miniviz_expensive_compose_allowed(
+                crate::ui::scryglass::StageSurface::WorldFirstPerson,
+            ),
+        paint,
+    )
     .unwrap_or(false)
 }
 
@@ -899,7 +915,7 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         let scene = crate::ui::viz::loop_viz::render_with_flight(
             &app.loop_ctl,
             &app.submission_slot,
-            &app.yukon_fleet,
+            &app.comp_fleet,
             trench_time,
             app.submission_slot_since
                 .map(|since| since.elapsed().as_secs_f32()),
@@ -1159,6 +1175,155 @@ fn render_quest_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(Paragraph::new(content).style(panel_style()), body);
     if let Some(footer) = footer {
         render_panel_back(frame, app, footer);
+    }
+}
+
+fn render_assets_stage(frame: &mut Frame, app: &mut App, area: Rect) {
+    use crate::ui::hud::{HUD_DIM, HUD_GOLD, HUD_TEXT};
+    use crate::ui::scryglass::StageCopyTarget;
+
+    app.world_buttons.clear();
+    let selected = app.scryglass.selected_media(&app.media);
+    let title = match selected {
+        Some(index) => format!(
+            " Wizard's Tower · Assets {}/{} ",
+            index + 1,
+            app.media.len()
+        ),
+        None => " Wizard's Tower · Assets ".into(),
+    };
+    let title = truncate_control_value(&title, area.width.saturating_sub(2) as usize);
+    let block = hud_block(title.as_str());
+    let inner = block.inner(area);
+    let (body, footer) = visual_panel_body(inner);
+    frame.render_widget(block, area);
+    app.scryglass
+        .set_stage_visibility(true, body.width > 0 && body.height > 0);
+
+    if let Some(footer) = footer {
+        render_scene_caption(
+            frame,
+            app,
+            footer,
+            Line::from(Span::styled(
+                "↑↓ select · Enter view",
+                Style::new().fg(HUD_DIM),
+            )),
+            &[("Tower", WorldButton::Tower), ("Back", WorldButton::Back)],
+        );
+    }
+    if body.width == 0 || body.height == 0 {
+        return;
+    }
+    let Some(selected) = selected else {
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from(Span::styled(
+                    "◉ The palantir is quiet.",
+                    Style::new().fg(HUD_GOLD),
+                )),
+                Line::from(""),
+                Line::from("Images, graphs, videos and reports gather here."),
+                Line::from("Open an asset to inspect, copy or share it."),
+                Line::from(""),
+                Line::from("Use /show <path> to add a local file."),
+            ])
+            .style(dim_panel_style())
+            .wrap(Wrap { trim: false }),
+            body,
+        );
+        return;
+    };
+
+    let header_height = u16::from(body.height >= 4);
+    let action_height = u16::from(body.height >= 2);
+    let regions = Layout::vertical([
+        Constraint::Length(header_height),
+        Constraint::Min(1),
+        Constraint::Length(action_height),
+    ])
+    .split(body);
+    if header_height > 0 {
+        frame.render_widget(
+            Paragraph::new("◉ PALANTIR · choose a vision to bring into focus")
+                .style(Style::new().fg(HUD_GOLD)),
+            regions[0],
+        );
+    }
+    let list = regions[1];
+    let row_height = if list.height >= 4 { 2 } else { 1 };
+    let visible = (list.height / row_height).max(1) as usize;
+    let start = selected
+        .saturating_sub(visible / 2)
+        .min(app.media.len().saturating_sub(visible));
+    for (offset, card) in app.media.iter().skip(start).take(visible).enumerate() {
+        let index = start + offset;
+        let row = Rect::new(
+            list.x,
+            list.y + offset as u16 * row_height,
+            list.width,
+            row_height.min(list.height.saturating_sub(offset as u16 * row_height)),
+        );
+        let is_selected = index == selected;
+        let style = if is_selected {
+            Style::new().fg(HUD_GOLD).add_modifier(Modifier::BOLD)
+        } else {
+            Style::new().fg(HUD_TEXT)
+        };
+        let label = format!(
+            "{} {} · {}",
+            if is_selected { "▸" } else { " " },
+            card.kind_label(),
+            card.label()
+        );
+        let mut lines = vec![Line::from(Span::styled(
+            truncate_control_value(&label, row.width as usize),
+            style,
+        ))];
+        if row.height > 1 {
+            lines.push(Line::from(Span::styled(
+                truncate_control_value(&format!("  {}", card.location_label()), row.width as usize),
+                Style::new().fg(HUD_DIM),
+            )));
+        }
+        frame.render_widget(Paragraph::new(lines), row);
+        app.world_buttons
+            .push((row, WorldButton::AssetSelect(index)));
+    }
+    if action_height > 0 {
+        let card = &app.media[selected];
+        let (copy_label, target) = if card.is_image() && card.source().is_some() {
+            ("Copy image", StageCopyTarget::Image)
+        } else if card.is_video() {
+            ("Copy path", StageCopyTarget::Location)
+        } else if card.local_path().is_some() {
+            ("Copy text", StageCopyTarget::Text)
+        } else {
+            ("Copy URL", StageCopyTarget::Location)
+        };
+        let copy_label =
+            if unicode_width::UnicodeWidthStr::width(copy_label) + 4 > regions[2].width as usize {
+                "Copy"
+            } else {
+                copy_label
+            };
+        let actions = [
+            (copy_label, WorldButton::AssetCopy(target)),
+            ("Path", WorldButton::AssetCopy(StageCopyTarget::Location)),
+            ("Open", WorldButton::AssetOpenExternal),
+        ];
+        // Retain the primary copy action in narrow panes instead of allowing
+        // the generic all-or-back caption fit to hide every asset action.
+        let mut used = 1usize;
+        let shown = actions
+            .into_iter()
+            .filter(|(label, _)| *label != "Path" || target != StageCopyTarget::Location)
+            .take_while(|(label, _)| {
+                used += unicode_width::UnicodeWidthStr::width(*label) + 3;
+                used <= regions[2].width as usize
+            })
+            .collect::<Vec<_>>();
+        render_scene_caption(frame, app, regions[2], Line::from(""), &shown);
     }
 }
 
@@ -1473,13 +1638,7 @@ fn render_scryglass(
             .and_then(|index| {
                 app.media.get(index).map(|media| {
                     (
-                        if media.is_video() {
-                            "REEL"
-                        } else if media.is_visual() {
-                            "RELIC"
-                        } else {
-                            "DOCUMENT"
-                        },
+                        media.kind_label(),
                         Some(media.label().to_string()),
                         media.is_video(),
                     )
@@ -1514,6 +1673,16 @@ fn render_scryglass(
         format!(" {term} ")
     } else if matches!(resolved, crate::ui::scryglass::StageSurface::Catalog) {
         String::new()
+    } else if let Some(index) = active_index {
+        format!(
+            " Scryglass · {} {}/{} · {} ",
+            kind,
+            index + 1,
+            app.media.len(),
+            media_label.as_deref().unwrap_or("Asset").escape_debug()
+        )
+    } else if app.world.visiting_scrying_tower() {
+        " Wizard’s Tower · Scryglass ".to_string()
     } else {
         scryglass_route_title(kind, None, &queued)
     };
@@ -1589,37 +1758,49 @@ fn render_scryglass(
     let scene_h = inner.height.saturating_sub(formation_h + footer_h);
     let mut scene_rect = Rect::new(inner.x, inner.y, inner.width, scene_h);
     if let Some(media) = active_index.and_then(|index| app.media.get(index)) {
+        use crate::ui::scryglass::StageCopyTarget;
+        let source = media.location_label().escape_debug().to_string();
+        let (copy_label, copy_target) = if media.is_video() && media.source().is_some() {
+            ("Copy frame", StageCopyTarget::Image)
+        } else if media.is_visual() && media.source().is_some() {
+            ("Copy image", StageCopyTarget::Image)
+        } else if media.source().is_some() {
+            ("Copy text", StageCopyTarget::Text)
+        } else {
+            ("Copy link", StageCopyTarget::Location)
+        };
         let identity_height = scene_rect.height.min(2);
-        let identity_rect = Rect::new(
-            scene_rect.x,
-            scene_rect.y,
-            scene_rect.width,
-            identity_height,
-        );
-        let source = media.target();
-        let identity = vec![
-            Line::from(format!(
-                "Right-click: copy path · /copy stage{} · {} · {}",
-                if !media.is_visual() && media.source().is_some() {
-                    " · Shift+right-click: text"
-                } else {
-                    ""
-                },
-                media.sigil(),
-                media.label().escape_debug()
-            )),
-            Line::from(format!(
-                "Source: {}",
-                truncate_control_value(
-                    &source.escape_debug().to_string(),
-                    scene_rect.width.saturating_sub(8) as usize
-                )
-            )),
-        ];
-        frame.render_widget(
-            Paragraph::new(identity).style(Style::new().fg(crate::ui::hud::HUD_TEXT)),
-            identity_rect,
-        );
+        if identity_height > 0 {
+            frame.render_widget(
+                Paragraph::new(truncate_control_value(&source, scene_rect.width as usize))
+                    .style(Style::new().fg(crate::ui::hud::HUD_DIM)),
+                Rect::new(scene_rect.x, scene_rect.y, scene_rect.width, 1),
+            );
+        }
+        if identity_height > 1 {
+            let mut controls = vec![
+                (copy_label, WorldButton::AssetCopy(copy_target)),
+                ("Path", WorldButton::AssetCopy(StageCopyTarget::Location)),
+                ("Open", WorldButton::AssetOpenExternal),
+                ("Assets", WorldButton::Assets),
+            ];
+            if fitted_scene_verbs(scene_rect.width, &controls).0.len() != controls.len() {
+                controls.remove(2);
+            }
+            if fitted_scene_verbs(scene_rect.width, &controls).0.len() != controls.len() {
+                controls[0].0 = "Copy";
+            }
+            if fitted_scene_verbs(scene_rect.width, &controls).0.len() != controls.len() {
+                controls.remove(1);
+            }
+            render_scene_caption(
+                frame,
+                app,
+                Rect::new(scene_rect.x, scene_rect.y + 1, scene_rect.width, 1),
+                Line::from("c copy · p path"),
+                &controls,
+            );
+        }
         scene_rect.y += identity_height;
         scene_rect.height = scene_rect.height.saturating_sub(identity_height);
     }
@@ -1647,7 +1828,10 @@ fn render_scryglass(
                 .style(dim_panel_style()),
             scene_rect,
         );
-    } else if !scryglass_scene_body_allowed() && active_index.is_none() {
+    } else if !scryglass_scene_body_allowed()
+        && active_index.is_none()
+        && !app.world.visiting_scrying_tower()
+    {
         // Comp / lean: keep the route chrome, skip lesson wrap, catalog
         // listing, and still/video decode. World map/ride already share
         // maybe_paint_world_scene; this gate avoids entering those bodies.
@@ -2015,6 +2199,17 @@ fn render_scryglass(
         {
             paint_world_frame(frame, app, scene_rect, &world);
         }
+        if app.world.interior_building() == Some(crate::stage::world_viz::Building::Observatory) {
+            app.world_buttons.push((
+                Rect::new(
+                    scene_rect.x + scene_rect.width / 3,
+                    scene_rect.y + scene_rect.height / 4,
+                    scene_rect.width / 3,
+                    scene_rect.height / 2,
+                ),
+                WorldButton::Assets,
+            ));
+        }
     } else if let crate::ui::scryglass::StageSurface::Arrival(building) = resolved {
         app.scryglass.surface = crate::ui::scryglass::StageSurface::Arrival(building);
         if !render_dotmax_interior(frame, app, scene_rect) {
@@ -2077,8 +2272,12 @@ fn render_scryglass(
         }
     }
 
-    if footer_h > 0 && (scryglass_scene_accessories_allowed() || active_index.is_some()) {
-        let (caption, controls): (Line<'static>, Vec<(&'static str, WorldButton)>) =
+    if footer_h > 0
+        && (scryglass_scene_accessories_allowed()
+            || active_index.is_some()
+            || app.world.visiting_scrying_tower())
+    {
+        let (caption, mut controls): (Line<'static>, Vec<(&'static str, WorldButton)>) =
             if world_pane && app.together.enabled() && active_index.is_none() {
                 (
                     Line::from("Together · /together help · /together off returns to realm"),
@@ -2177,8 +2376,16 @@ fn render_scryglass(
                         ("World", WorldButton::ScryglassWorld),
                         ("Back", WorldButton::Back),
                     ]
+                } else if matches!(resolved, crate::ui::scryglass::StageSurface::Document(_)) {
+                    vec![
+                        ("Prev", WorldButton::ScryglassPrev),
+                        ("Next", WorldButton::ScryglassNext),
+                        ("Back", WorldButton::Back),
+                    ]
                 } else {
                     vec![
+                        ("Prev", WorldButton::ScryglassPrev),
+                        ("Next", WorldButton::ScryglassNext),
                         (
                             "-",
                             WorldButton::Still(crate::ui::still_inspector::Action::ZoomOut),
@@ -2201,6 +2408,11 @@ fn render_scryglass(
                     == Some(crate::stage::world_viz::Building::Scriptorium)
                 {
                     controls.push(("Catalog", WorldButton::ScryglassCatalog));
+                }
+                if app.world.interior_building()
+                    == Some(crate::stage::world_viz::Building::Observatory)
+                {
+                    controls.push(("Assets", WorldButton::Assets));
                 }
                 controls.extend([
                     ("Leave", WorldButton::ScryglassLeave),
@@ -2232,6 +2444,8 @@ fn render_scryglass(
                     controls.push((view, WorldButton::ScryglassMap));
                 }
                 controls.extend([
+                    ("Tower", WorldButton::Tower),
+                    ("Assets", WorldButton::Assets),
                     ("Library", WorldButton::ScryglassLibrary),
                     ("Vault", WorldButton::ScryglassVault),
                     ("Back", WorldButton::Back),
@@ -2260,15 +2474,34 @@ fn render_scryglass(
                             button,
                             WorldButton::ScryglassEnter
                                 | WorldButton::ScryglassMap
-                                | WorldButton::ScryglassLibrary
+                                | WorldButton::Assets
+                                | WorldButton::Tower
                                 | WorldButton::ScryglassFollow
                                 | WorldButton::Research(_)
                                 | WorldButton::Back
                         )
                     });
                 }
+                if fitted_scene_verbs(footer_rect.width, &controls).0.len() != controls.len() {
+                    controls.retain(|(_, button)| {
+                        matches!(
+                            button,
+                            WorldButton::Assets | WorldButton::Tower | WorldButton::Back
+                        )
+                    });
+                }
                 (Line::from(""), controls)
             };
+        if active_index.is_some()
+            && fitted_scene_verbs(footer_rect.width, &controls).0.len() != controls.len()
+        {
+            controls.retain(|(_, button)| {
+                !matches!(
+                    button,
+                    WorldButton::ScryglassPrev | WorldButton::ScryglassNext
+                )
+            });
+        }
         render_scene_caption(frame, app, footer_rect, caption, &controls);
     }
     if let Some(formation_rect) = formation_rect

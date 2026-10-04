@@ -212,14 +212,14 @@ fn renderer_error_receipt_cannot_smuggle_a_frame() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn renderer_deadline_fixture() {
     use crate::agent::process_test_support::capture_evidence_fixture::EvidenceFixture;
     use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
     use std::os::unix::fs::PermissionsExt as _;
 
-    let Some(root) = std::env::var_os("ANGEL_T_PORTAL_DEADLINE") else {
-        return;
-    };
+    let root = std::env::var_os("ANGEL_T_PORTAL_DEADLINE")
+        .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
     let root = Path::new(&root);
     let packet = fixture("empty");
@@ -334,13 +334,15 @@ fn renderer_frame_and_inherited_stdout_share_one_deadline() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "subprocess fixture invoked by its parent test"]
 fn renderer_blocked_input_fixture() {
     use crate::agent::process_test_support::{FixtureCleanup, ServiceFixture};
     use std::os::fd::AsRawFd as _;
 
-    if std::env::var_os("ANGEL_T_PORTAL_INPUT").is_none() {
-        return;
-    }
+    assert!(
+        std::env::var_os("ANGEL_T_PORTAL_INPUT").is_some(),
+        "subprocess fixture requires its parent test"
+    );
     let _cleanup = FixtureCleanup::new();
     let mut command = Command::new("/usr/bin/python3");
     command

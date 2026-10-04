@@ -33,9 +33,9 @@ pub(crate) const UNSTUCK: Route = Route::new(CELL, '⠓');
 /// redirect (the anti-spin's second stage, at the fourth identical batch, once
 /// its stop was taken away); the rest are the ways out measured on DeepSeek.
 const UNSTUCK_PAGES: &[&str] = &[
-    "MANDATORY REDIRECTION: You have repeated the same tool call multiple times without making progress. You are caught in a deterministic loop. Break this loop immediately: you MUST NOT repeat this call or run another inspection. Step back and use `write_file` to rewrite the implementing file cleanly from first principles, or use `str_replace` to apply a completely different fix. State your new hypothesis and edit the code now.",
-    "the call's answer will not change; name the assumption behind it and test the opposite",
-    "what would make this output correct? change the code, not the probe",
+    "Recent calls returned the same outcome. Review that evidence and choose the next useful step: inspect missing context, test a different hypothesis, wait for an external change, or edit when the evidence supports it.",
+    "name the assumption behind the repeated call and check what could change its answer",
+    "check whether the problem is in the implementation, the probe, or an external dependency before changing anything",
     "take a different tool, or a file the loop has not touched",
     "if no way forward remains, give your best answer and name what is unresolved",
 ];
@@ -60,7 +60,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             pages: &[
                 "You've repeated the same tool call several times with no new result — you're stuck in a loop, not converging.",
                 "Break the pattern deliberately: (1) state the key assumption your current approach depends on, then test the OPPOSITE hypothesis; (2) if that doesn't fit, reframe the problem by analogy to a different domain and see what that suggests; (3) or attack it with a different tool entirely.",
-                "Do not repeat the previous tool call.",
+                "Repeat a call when a relevant input or external condition has changed, or when another observation can inform the next decision.",
                 "If you genuinely cannot make progress, give your best final answer and flag what's unresolved.",
             ],
         },
@@ -72,8 +72,8 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "You have issued this exact call several times with identical arguments in the observation window.",
-                "Do not repeat this call.",
-                "You must edit the code using write_file or str_replace to fix the issue, or run a different command.",
+                "Check whether the repeated call is still useful before issuing it again.",
+                "Choose the next read, experiment, edit, or wait from the evidence; a repeated observation alone does not justify rewriting code.",
             ],
         },
         Sub {
@@ -85,8 +85,8 @@ pub(crate) const PRIMARY: Primary = Primary {
             pages: &[
                 "`proc_wait` blocks until a job ends; otherwise take the next real step.",
                 "Status snapshots and shell sleeps are observations, not candidate progress.",
-                "If a submission is in flight, the harness watcher already owns its status and will inject WATCHER NOTIFY.",
-                "Mutate the candidate, run a local preflight/benchmark, submit the current best, or report a concrete blocker before requesting another status snapshot.",
+                "A submission without a terminal receipt still needs an explicit result check; never assume a watcher will deliver it.",
+                "Use the next status check when it can inform a decision; avoid tight repeated polls with no intervening work.",
             ],
         },
         Sub {
@@ -131,7 +131,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             pages: &[
                 "unproductive streak: {streak} consecutive actions added no new sources; deliver the answer with supporting citations or an explicit missing-evidence statement with NO citations",
                 "unproductive streak: {streak} consecutive actions changed nothing verifiable; the verifier's last outcome was {last}; produce a verified candidate, run the verifier with an explicit result, or report the blocker as your answer. Scratch files outside the repository (e.g. in /tmp) do not count as progress; edit the target source file directly.",
-                "MANDATORY PROGRESS REDIRECTION: escalated unproductive turn: {streak} consecutive unproductive hops with no progress since escalation; last verifier outcome: {last}. You must stop inspecting and stop running unchanged commands. You MUST edit the target source code using `write_file` or `str_replace` before executing any more tools. State your concrete fix and modify the file now.",
+                "Recent activity has not produced a new verified outcome after escalation: {streak} hops; last verifier outcome: {last}. Reassess the evidence and choose a useful inspection, experiment, edit, or wait. If an external prerequisite blocks progress, report it clearly.",
             ],
         },
         // A loop that outlasts its warning meets a new page each time: a

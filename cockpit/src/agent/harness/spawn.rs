@@ -446,6 +446,14 @@ impl Grant {
                 maybe_register_repos(&mut r);
             }
         }
+        if self != Self::None {
+            for tool in super::cartridges::active()
+                .map(|cartridge| cartridge.hooks().tools(workspace))
+                .unwrap_or_default()
+            {
+                r.register(tool);
+            }
+        }
         if let Some(parent) = nested_spawn {
             // Child formation: same workspace/roster, bounded to this seat's
             // exact capability set. The root tool is unrestricted; only this

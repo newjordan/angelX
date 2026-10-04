@@ -55,7 +55,9 @@ impl FlywheelAdapterV1 {
             .or(files.card.me.clone())
             .or_else(|| self_me_from_rows(&files));
         let competition = CompetitionKeyV1 {
-            platform_id: "yukon".into(),
+            platform_id: crate::agent::harness::cartridges::active()
+                .map_or("flywheel", |cartridge| cartridge.id())
+                .into(),
             competition_id: files.card.benchmark.clone(),
             field_id: "official".into(),
             benchmark_id: files.card.benchmark_id.clone(),

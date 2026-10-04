@@ -25,8 +25,8 @@ fn dotmax_arrival_requires_entry_and_leaving_restores_the_world() {
         let frame = world.ambient_frame(MotionMode::Off);
         assert_eq!(
             frame.pixels.as_ref(),
-            plate(building).as_raw(),
-            "interior is the approved painting without a placed knight"
+            super::frame(building, Pose::default()).as_raw(),
+            "entry uses the room's production frame without a placed knight"
         );
         let entered = world
             .scryglass_frame_paced(40, 16, true, 0.0, 0.0, 1.05)
@@ -81,8 +81,123 @@ const BUILDINGS: [Building; 8] = [
 ];
 
 #[test]
+fn scrying_tower_uses_native_geometry_and_holds_its_motion_cache() {
+    let mut world = World::new(71);
+    world.settle_at_for_test(Building::Observatory);
+    assert!(world.enter_interior());
+    let still = frame(Building::Observatory, Pose::default());
+    assert_ne!(still, *plate(Building::Observatory));
+    assert_eq!(still.dimensions(), (WIDTH, HEIGHT));
+    assert_eq!(
+        detail_frame(Building::Observatory, Pose::default()).dimensions(),
+        (DETAIL_WIDTH, DETAIL_HEIGHT)
+    );
+    let key = world.ambient_scene_sequence(MotionMode::Full);
+    let first = world
+        .ambient_braille_frame(40, 16, MotionMode::Full)
+        .unwrap();
+    for tick in [1, 10, 20, 39] {
+        world.tick = tick;
+        assert_eq!(key, world.ambient_scene_sequence(MotionMode::Full));
+        assert!(std::sync::Arc::ptr_eq(
+            &first,
+            &world
+                .ambient_braille_frame(40, 16, MotionMode::Full)
+                .unwrap()
+        ));
+    }
+    world.tick = 40;
+    assert_ne!(key, world.ambient_scene_sequence(MotionMode::Full));
+    assert_ne!(
+        still,
+        frame(Building::Observatory, Pose::at(40, MotionMode::Full))
+    );
+    for tick in [40, 80, 600, 10_000] {
+        assert_eq!(
+            still,
+            frame(Building::Observatory, Pose::at(tick, MotionMode::Off))
+        );
+    }
+    assert!(std::ptr::eq(
+        scrying_frame(Pose::at(0, MotionMode::Reduced), false),
+        scrying_frame(Pose::at(159, MotionMode::Reduced), false)
+    ));
+}
+
+#[test]
+fn explicit_tower_visit_is_immediate_and_does_not_redirect_real_work() {
+    let mut world = World::new(71);
+    world.note_tool_call_event(
+        crate::agent::harness::ToolEventId("tower-work".into()),
+        "write_file",
+        "src/main.rs",
+    );
+    let destination = world.destination();
+    let knight = world.overworld_scene().knight;
+    let renown = world.renown();
+    let work = world.active_work().count();
+    let diagnostics = world.event_diagnostics();
+    assert_eq!(
+        world.visit_overworld("wizard's tower"),
+        Some(SCRYING_TOWER_LABEL)
+    );
+    assert!(world.visiting_scrying_tower());
+    assert_eq!(world.ambient_building(), Building::Observatory);
+    assert_eq!(world.destination(), destination);
+    assert_eq!(world.overworld_scene().knight, knight);
+    assert_eq!(world.renown(), renown);
+    assert_eq!(world.active_work().count(), work);
+    assert_eq!(world.event_diagnostics(), diagnostics);
+    for _ in 0..32 {
+        world.tick();
+    }
+    assert!(
+        world.visiting_scrying_tower(),
+        "work may travel behind an explicit room visit"
+    );
+    assert_eq!(world.destination(), destination);
+    assert_eq!(world.visit_overworld("missing-place"), None);
+    assert!(world.visiting_scrying_tower());
+    assert!(world.visit_overworld("fields").is_some());
+    assert!(
+        !world.inside_interior(),
+        "another valid map visit leaves the tower"
+    );
+    world.visit_scrying_tower();
+    assert!(world.leave_interior());
+    assert!(!world.visiting_scrying_tower());
+    assert_eq!(world.overworld_view_label(), Some(SCRYING_TOWER_LABEL));
+    world.follow_overworld();
+    assert_eq!(world.overworld_view_label(), None);
+    world.visit_scrying_tower();
+    world.follow_overworld();
+    assert!(
+        !world.inside_interior(),
+        "follow leaves the explicit tower view immediately"
+    );
+}
+
+#[test]
+#[ignore = "manual native tower review: set ANGEL_SCRYING_REVIEW_DIR"]
+fn dump_scrying_tower_for_review() {
+    let out = std::path::PathBuf::from(
+        std::env::var("ANGEL_SCRYING_REVIEW_DIR").expect("set ANGEL_SCRYING_REVIEW_DIR"),
+    );
+    std::fs::create_dir_all(&out).unwrap();
+    frame(Building::Observatory, Pose::default())
+        .save(out.join("scrying-tower-mini.png"))
+        .unwrap();
+    detail_frame(Building::Observatory, Pose::default())
+        .save(out.join("scrying-tower-native.png"))
+        .unwrap();
+}
+
+#[test]
 fn living_paintings_keep_architecture_fixed_and_use_material_colors() {
-    for building in BUILDINGS {
+    for building in BUILDINGS
+        .into_iter()
+        .filter(|b| *b != Building::Observatory)
+    {
         let base = plate(building);
         let location =
             &matrix().locations[super::super::cinematics::building_index(building) as usize];
@@ -117,7 +232,10 @@ fn living_paintings_keep_architecture_fixed_and_use_material_colors() {
 
 #[test]
 fn native_paintings_preserve_source_detail_and_localized_motion_masks() {
-    for building in BUILDINGS {
+    for building in BUILDINGS
+        .into_iter()
+        .filter(|b| *b != Building::Observatory)
+    {
         let source = detail_plate(building);
         assert_eq!(source.dimensions(), (DETAIL_WIDTH, DETAIL_HEIGHT));
         assert!(
@@ -175,7 +293,7 @@ fn native_ambient_frame_keeps_room_identity_and_declared_pixel_dimensions() {
         assert_eq!((frame.width, frame.height), (DETAIL_WIDTH, DETAIL_HEIGHT));
         let pixels = frame.pixels.as_ref();
         assert_eq!(pixels.len(), (frame.width * frame.height * 4) as usize);
-        assert_eq!(pixels, detail_plate(building).as_raw());
+        assert_eq!(pixels, detail_frame(building, Pose::default()).as_raw());
         assert!(std::ptr::eq(pixels, frame.pixels.as_ref()));
     }
 }

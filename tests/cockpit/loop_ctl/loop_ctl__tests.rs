@@ -434,7 +434,7 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
         "DIRECTION: submit".into(),
         ToolStripSnapshot {
             calls: 1,
-            verified_outcome_actions: vec!["submitted:shell:hilbert submit cand:result=cd".into()],
+            verified_outcome_actions: vec!["submitted:shell:board submit cand:result=cd".into()],
             ..Default::default()
         },
     );
@@ -1674,7 +1674,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         "DIRECTION: submit the best candidate".into(),
         ToolStripSnapshot {
             calls: 1,
-            verified_outcome_actions: vec!["submitted:shell:hilbert submit cand:result=2".into()],
+            verified_outcome_actions: vec!["submitted:shell:board submit cand:result=2".into()],
             ..Default::default()
         },
     );
@@ -2142,15 +2142,15 @@ fn provider_spend_replaces_the_iteration_estimates() {
 /// A mistyped ANGEL_COMP_PACKAGE still falls back to the default worker
 /// profile; the loop start notice names the fallback.
 #[test]
-fn an_unknown_competition_package_is_named_at_loop_start() {
+fn an_unknown_cartridge_is_named_at_loop_start() {
     let _guard = crate::tests::env_lock();
     let tmp = std::env::temp_dir().join(format!("angel_loop_pkg_{}.json", std::process::id()));
     let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", tmp.to_str().unwrap());
-    let _pkg = crate::tests::TestEnvGuard::set("ANGEL_COMP_PACKAGE", "no-such-family");
+    let _pkg = crate::tests::TestEnvGuard::set("ANGEL_CARTRIDGE", "no-such-family");
     let mut app = crate::seed_preview_app();
     let started = app.loop_start_immediate("probe the package".into(), 0, false, false);
     assert!(
-        started.contains("unknown competition package `no-such-family`"),
+        started.contains("unknown cartridge `no-such-family`; using `board`"),
         "{started}"
     );
     app.loop_command(Some("stop".into()));

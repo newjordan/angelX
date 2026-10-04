@@ -13,7 +13,7 @@ fn board_sync_report_matches_the_fixture_board_and_binds_official_results() {
     let report: serde_json::Value =
         serde_json::from_str(&run(&fixture("x86")).unwrap()).expect("one JSON object");
     assert_eq!(report["schema"], "angel.board-sync/v1");
-    assert_eq!(report["identity"]["competition"]["platform_id"], "yukon");
+    assert_eq!(report["identity"]["competition"]["platform_id"], "board");
     assert_eq!(
         report["identity"]["competition"]["competition_id"],
         "eigenlabs/flock-challenge-multi/x86"

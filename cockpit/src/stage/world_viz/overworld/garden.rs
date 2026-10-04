@@ -6,7 +6,7 @@ use super::{
     map::{TILE, place_px},
 };
 use crate::agent::harness::{ToolEventId, ToolOutcome};
-use crate::knowledge::graph_crop::{Chart, ChartKind, GraphEvent, GraphRequest, MAX_PLOTS};
+use crate::knowledge::graph_crop::{Chart, ChartKind, ChartSpec, DataPoint, GraphEvent, GraphRequest, MAX_PLOTS};
 use crate::ui::viz::lifecycle_viz::MotionMode;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -14,6 +14,7 @@ const GROW: u64 = 48;
 const DELIVERY: u64 = 28;
 const HOLD: u64 = 90;
 const MAX_JOBS: usize = 128;
+const COMPETITION_PLOT: &str = "competition";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Bed {
@@ -58,8 +59,77 @@ pub(crate) struct Garden {
     order: VecDeque<ToolEventId>,
     selected: Option<String>,
     epoch: u64,
+    competition_status: Option<String>,
+    competition_points: u8,
 }
 impl Garden {
+    /// Record a real, validated harness measurement in the competition plot.
+    /// Pending/error/timeout states are recorded separately and never add a point.
+    pub(crate) fn competition_measurement(
+        &mut self,
+        label: &str,
+        measurement: &crate::drive::research_workspace::measurement::Measurement,
+        tick: u64,
+    ) -> Result<(), String> {
+        measurement.validate().map_err(str::to_owned)?;
+        let score = measurement.value.as_str().parse::<f64>()
+            .ok().filter(|v| v.is_finite() && v.abs() <= 1e12)
+            .ok_or_else(|| "competition score is outside graph plot range".to_string())?;
+        let baseline = measurement.baseline.as_ref().map(|v| v.as_str().to_string());
+        let baseline_num = baseline.as_deref().and_then(|v| v.parse::<f64>().ok());
+        let idx = self.competition_points;
+        if idx >= crate::knowledge::graph_crop::MAX_POINTS {
+            return Err("competition graph reached its 32-measurement history limit".into());
+        }
+        let direction = if measurement.lower_is_better { "lower better" } else { "higher better" };
+        let dataset = measurement.dataset_label();
+        let spec_title = format!("Competition · {dataset} · {direction}");
+        let (mut ymin, mut ymax) = (score, score);
+        if let Some(b) = baseline_num { ymin = ymin.min(b); ymax = ymax.max(b); }
+        if let Some(chart) = self.beds.get(COMPETITION_PLOT).and_then(|b| b.chart.as_ref()) {
+            for p in chart.points.values() { ymin = ymin.min(p.y); ymax = ymax.max(p.y); }
+        }
+        let margin = ((ymax - ymin).abs() * 0.08).max(0.01);
+        ymin = (ymin - margin).max(-1e12);
+        ymax = (ymax + margin).min(1e12);
+        if ymin == ymax { ymin = (ymin - 0.01).max(-1e12); ymax = (ymax + 0.01).min(1e12); }
+        let generation = self.beds.get(COMPETITION_PLOT).and_then(|b| b.chart.as_ref()).map_or(1, |c| c.generation);
+        let spec = ChartSpec {
+            title: spec_title,
+            kind: ChartKind::Line,
+            x_label: "sequential test".into(),
+            y_label: format!("score · {direction}"),
+            x_min: 1.0, x_max: f64::from(crate::knowledge::graph_crop::MAX_POINTS),
+            y_min: ymin, y_max: ymax,
+            expected_points: crate::knowledge::graph_crop::MAX_POINTS,
+        };
+        let mut chart = self.beds.get(COMPETITION_PLOT).and_then(|b| b.chart.clone()).unwrap_or(Chart {
+            generation, spec: spec.clone(), points: BTreeMap::new(), finished: false,
+        });
+        chart.spec = spec;
+        let point = DataPoint {
+            label: format!("{} #{}", label.chars().take(20).collect::<String>(), idx + 1),
+            x: f64::from(idx + 1), y: score,
+        };
+        chart.points.insert(idx, point.clone());
+        let request = GraphRequest::Point { plot: COMPETITION_PLOT.into(), generation, index: idx, point };
+        let id = ToolEventId(format!("competition-measurement-{generation}-{idx}"));
+        self.note(&id, &GraphEvent::Requested(request.clone()), tick);
+        self.note(&id, &GraphEvent::Returned(crate::knowledge::graph_crop::GraphReceipt { revision: u64::from(idx) + 1, request, chart: Some(chart) }), tick);
+        self.competition_points += 1;
+        let baseline_status = baseline.as_deref().map(|v| format!("baseline {v}")).unwrap_or_else(|| "baseline unreported".into());
+        self.competition_status = Some(format!(
+            "measured {} · {direction} · {} · {baseline_status} · {} · receipt {}",
+            score, measurement.comparison(), dataset, &measurement.receipt_sha256[..12]
+        ));
+        self.selected = Some(COMPETITION_PLOT.into());
+        Ok(())
+    }
+
+    pub(crate) fn competition_status(&mut self, status: impl Into<String>) {
+        self.competition_status = Some(status.into().chars().take(160).collect());
+        self.epoch = self.epoch.saturating_add(1);
+    }
     pub(crate) fn note(&mut self, id: &ToolEventId, event: &GraphEvent, tick: u64) {
         self.prune(tick);
         match event {
@@ -273,6 +343,9 @@ impl Garden {
             self.beds.keys().cloned().collect::<Vec<_>>().join(", "),
             bed.id
         );
+        if let Some(status) = &self.competition_status {
+            out.push_str(&format!("competition · {status}\n"));
+        }
         let Some(chart) = &bed.chart else {
             out.push_str("Bare dirt · waiting for a new graph generation.");
             return out;

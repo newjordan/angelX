@@ -3003,7 +3003,7 @@ fn anti_spin_batch_fingerprint_skips_storm_string_join() {
         "key order must not change the hop-loop fingerprint"
     );
 
-    let body_a = "fn main() { /* leaderboard hilbert submit */ }\n".repeat(4_000);
+    let body_a = "fn main() { /* leaderboard board submit */ }\n".repeat(4_000);
     let body_b = "fn main() { /* other */ }\n".repeat(4_000);
     assert!(body_a.len() > 100_000);
     let write_a = ToolCall {
@@ -3042,7 +3042,7 @@ fn anti_spin_batch_fingerprint_skips_storm_string_join() {
 /// Distinct payloads still fingerprint differently.
 #[test]
 fn toolcall_storm_signature_hashes_mutation_payloads() {
-    let body_a = "fn main() { /* leaderboard hilbert submit */ }\n".repeat(4_000);
+    let body_a = "fn main() { /* leaderboard board submit */ }\n".repeat(4_000);
     let body_b = "fn main() { /* other */ }\n".repeat(4_000);
     assert!(body_a.len() > 100_000);
     let write_a = ToolCall {
@@ -3128,7 +3128,7 @@ fn payload_fingerprint_skips_key_sort_for_tiny_objects() {
 /// JSON string (quotes + escapes) is the leftover megabyte hop-loop tax.
 #[test]
 fn payload_fingerprint_hashes_string_bodies_in_place() {
-    let body = "fn main() { /* leaderboard hilbert submit */ }\n".repeat(4_000);
+    let body = "fn main() { /* leaderboard board submit */ }\n".repeat(4_000);
     assert!(body.len() > 100_000);
     let value = serde_json::Value::String(body.clone());
     let fp = payload_fingerprint(&value);
@@ -3268,7 +3268,7 @@ fn anti_spin_does_not_count_pure_competition_board_wait() {
     let submit = ToolCall {
         id: "2".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "hilbert submit --note cand"}),
+        args: serde_json::json!({"command": "board submit --note cand"}),
     };
     let (mutation, outcome, wait, burns) = hop_budget_flags(std::slice::from_ref(&submit));
     assert!(outcome && wait && !burns && !mutation);
@@ -3700,12 +3700,12 @@ fn competition_tool_prose_does_not_claim_watcher_ownership_or_suppress_status() 
                 0 => ToolCall {
                     id: "submit".into(),
                     name: "shell".into(),
-                    args: serde_json::json!({"command":"yukon submit --note candidate"}),
+                    args: serde_json::json!({"command":"board submit --note candidate"}),
                 },
                 1 => ToolCall {
                     id: "poll".into(),
                     name: "shell".into(),
-                    args: serde_json::json!({"command":"yukon submissions"}),
+                    args: serde_json::json!({"command":"board submissions"}),
                 },
                 2 => ToolCall {
                     id: "next-edit".into(),
@@ -4008,20 +4008,20 @@ fn competition_outcome_call_detects_submit_shell() {
     let submit = ToolCall {
         id: "1".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "hilbert submit --note 'cand'"}),
+        args: serde_json::json!({"command": "board submit --note 'cand'"}),
     };
     let read = ToolCall {
         id: "2".into(),
         name: "read_file".into(),
         args: serde_json::json!({"path": "src/main.rs"}),
     };
-    let yukon = ToolCall {
+    let board = ToolCall {
         id: "3".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "yukon submissions eigenlabs/flock-challenge"}),
+        args: serde_json::json!({"command": "board submissions eigenlabs/flock-challenge"}),
     };
     assert!(is_competition_outcome_call(&submit));
-    assert!(is_competition_outcome_call(&yukon));
+    assert!(is_competition_outcome_call(&board));
     assert!(!is_competition_outcome_call(&read));
 }
 
@@ -4216,7 +4216,7 @@ fn competition_wait_and_board_state_do_not_burn_first_write_budget() {
     let status = ToolCall {
         id: "1".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "hilbert submissions 8806afb8-8dfa"}),
+        args: serde_json::json!({"command": "board submissions 8806afb8-8dfa"}),
     };
     let handoff = ToolCall {
         id: "2".into(),
@@ -4288,7 +4288,7 @@ fn hop_budget_flags_match_per_call_predicates() {
         ToolCall {
             id: "4".into(),
             name: "shell".into(),
-            args: serde_json::json!({"command": "hilbert submit --note x"}),
+            args: serde_json::json!({"command": "board submit --note x"}),
         },
     ];
     let (mutation, outcome, wait, burns) = hop_budget_flags(&calls);
@@ -4328,7 +4328,7 @@ fn hop_budget_flags_for_loop_skips_hay_on_ordinary_hops() {
         "ordinary hops count every batch as spin — no board-wait immunity without a slot"
     );
 
-    let body = "fn main() {\n    // leaderboard submissions hilbert submit living_handoff.md\n}\n"
+    let body = "fn main() {\n    // leaderboard submissions board submit living_handoff.md\n}\n"
         .repeat(4_000);
     assert!(body.len() > 100_000);
     let write = ToolCall {
@@ -4361,7 +4361,7 @@ fn hop_budget_flags_skip_mutation_payload_scan() {
     assert!(!is_competition_payload_key("write_file", "path"));
     assert!(!is_competition_payload_key("shell", "command"));
 
-    let body = "fn main() {\n    // leaderboard submissions hilbert submit living_handoff.md handoff.md\n}\n"
+    let body = "fn main() {\n    // leaderboard submissions board submit living_handoff.md handoff.md\n}\n"
         .repeat(4_000);
     assert!(
         body.len() > 100_000,
@@ -4449,7 +4449,7 @@ fn competition_call_text_borrows_single_path() {
         "product read still burns first-write"
     );
 
-    let body = "fn main() { /* leaderboard submissions hilbert submit */ }\n".repeat(4_000);
+    let body = "fn main() { /* leaderboard submissions board submit */ }\n".repeat(4_000);
     assert!(body.len() > 100_000);
     let write = ToolCall {
         id: "2".into(),
@@ -4499,7 +4499,7 @@ fn competition_call_text_borrows_single_path() {
 /// Multi-file patches still build a hay; hunk bodies stay out.
 #[test]
 fn competition_call_text_borrows_apply_patch_path() {
-    let hunk = "fn main() { /* leaderboard submissions hilbert submit */ }\n".repeat(4_000);
+    let hunk = "fn main() { /* leaderboard submissions board submit */ }\n".repeat(4_000);
     assert!(hunk.len() > 100_000);
     let diff = format!(
         "*** Begin Patch\n*** Update File: src/kernel.cu\n@@\n-{}\n+{hunk}\n*** End Patch\n",
@@ -4564,16 +4564,16 @@ fn competition_call_text_borrows_apply_patch_path() {
 /// program words still fold so `SUBMIT` counts as outcome.
 #[test]
 fn competition_call_text_borrows_lowercase_shell() {
-    assert!(!classify_shell_hay_needs_lower("hilbert submit --note x"));
+    assert!(!classify_shell_hay_needs_lower("board submit --note x"));
     assert!(!classify_shell_hay_needs_lower("cat LIVING_HANDOFF.md"));
     assert!(!classify_shell_hay_needs_lower("addr2line -e src/kernel.o"));
-    assert!(classify_shell_hay_needs_lower("hilbert SUBMIT --note x"));
+    assert!(classify_shell_hay_needs_lower("board SUBMIT --note x"));
     assert!(classify_shell_hay_needs_lower("GIT DIFF src/kernel.cu"));
 
     let lower = ToolCall {
         id: "1".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "hilbert submit --note x"}),
+        args: serde_json::json!({"command": "board submit --note x"}),
     };
     let (_, hay, is_shell) = competition_call_text(&lower);
     assert!(is_shell);
@@ -4599,11 +4599,11 @@ fn competition_call_text_borrows_lowercase_shell() {
     let mixed = ToolCall {
         id: "3".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "hilbert SUBMIT --note x"}),
+        args: serde_json::json!({"command": "board SUBMIT --note x"}),
     };
     let (_, mixed_hay, _) = competition_call_text(&mixed);
     assert!(matches!(mixed_hay, std::borrow::Cow::Owned(_)));
-    assert!(mixed_hay.contains("hilbert submit"));
+    assert!(mixed_hay.contains("board submit"));
     assert!(
         is_competition_outcome_call(&mixed),
         "mixed-case SUBMIT still counts as submit"
@@ -4617,7 +4617,7 @@ fn competition_call_text_borrows_tool_name() {
     let call = ToolCall {
         id: "1".into(),
         name: "SHELL".into(),
-        args: serde_json::json!({"command": "hilbert submit --note x"}),
+        args: serde_json::json!({"command": "board submit --note x"}),
     };
     let (name, hay, is_shell) = competition_call_text(&call);
     assert!(
@@ -4626,7 +4626,7 @@ fn competition_call_text_borrows_tool_name() {
     );
     assert_eq!(name, "SHELL");
     assert!(is_shell);
-    assert!(hay.contains("hilbert submit"));
+    assert!(hay.contains("board submit"));
     assert!(
         is_competition_outcome_call(&call),
         "mixed-case SHELL still counts as submit"
@@ -4756,7 +4756,7 @@ fn apply_patch_meta_note_only_is_not_first_write_progress() {
 /// hunk must not be copied into mutation_targets or competition hay.
 #[test]
 fn apply_patch_classify_skips_hunk_bodies() {
-    let hunk = "fn main() { /* leaderboard submissions hilbert submit living_handoff.md */ }\n"
+    let hunk = "fn main() { /* leaderboard submissions board submit living_handoff.md */ }\n"
         .repeat(4_000);
     assert!(
         hunk.len() > 100_000,
@@ -5249,7 +5249,7 @@ fn competition_outcome_ignores_score_path_and_validating_prose() {
     let real_submit = ToolCall {
         id: "5".into(),
         name: "shell".into(),
-        args: serde_json::json!({"command": "hilbert submit --note cand"}),
+        args: serde_json::json!({"command": "board submit --note cand"}),
     };
     let real_score = ToolCall {
         id: "6".into(),
@@ -5287,7 +5287,7 @@ fn competition_outcome_ignores_score_path_and_validating_prose() {
 
 #[test]
 fn shell_argv_has_token_matches_in_place() {
-    assert!(shell_argv_has_token("hilbert SUBMIT --note cand", "submit"));
+    assert!(shell_argv_has_token("board SUBMIT --note cand", "submit"));
     assert!(shell_argv_has_token("GIT BLAME src/kernel.cu", "blame"));
     assert!(shell_argv_has_token("score --JSON", "score"));
     assert!(
@@ -9452,7 +9452,7 @@ fn output_cap_cut_offs_stop_once_the_notes_are_spent() {
     );
 }
 
-/// A Yukon benchmark.json declares the editable surface (both schemas), and the
+/// A Board benchmark.json declares the editable surface (both schemas), and the
 /// operator can set it directly.
 #[test]
 fn task_edit_scope_reads_the_env_then_benchmark_json() {
@@ -10524,6 +10524,10 @@ fn a_competition_banks_its_green_and_warns_when_the_candidate_changes() {
     assert!(
         english
             .contains("VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check."),
+        "{english}"
+    );
+    assert!(
+        english.contains("Check whether candidate code, inputs, or the evaluator changed. Reuse the existing receipt when only notes or unrelated files changed; rerun only the affected required check."),
         "{english}"
     );
     // The engage warpath speaks in the 0.1.6 posture's own words.

@@ -62,6 +62,7 @@ fn grok_war_rosters_trio_under_grok_command() {
             metered: true,
         },
         available: true,
+        in_hand: false,
     };
     let models = vec![
         model("glm", "glm-5.2"),
@@ -112,6 +113,7 @@ fn tag_team_is_two_seats_the_operator_fills() {
     .map(|route| MoaModelChoice {
         route,
         available: true,
+        in_hand: false,
     })
     .collect();
     let slots = formation(FormationId::TagTeam).slots();
@@ -255,6 +257,7 @@ fn tag_team_never_fills_a_seat_with_a_frontier_model_on_its_own() {
             metered: true,
         },
         available: true,
+        in_hand: false,
     };
     let roster = FormationRoster::new(FormationId::TagTeam, &[frontier]);
     let assigned: Vec<_> = roster
@@ -302,6 +305,7 @@ fn roster_requires_every_slot_and_assigns_per_slot() {
             metered: false,
         },
         available: true,
+        in_hand: false,
     };
     let roster = FormationRoster::new(FormationId::Council, &[model]);
     assert!(roster.is_ready());
@@ -326,6 +330,7 @@ fn think_picker_stages_and_clears_the_focused_seats_role_effort() {
             metered: false,
         },
         available: true,
+        in_hand: false,
     };
     let mut deck = MoaDeckState::new(vec![
         model(0, "alpha", "model-a"),
@@ -436,6 +441,7 @@ fn think_picker_without_a_ladder_offers_only_the_env_default_row() {
             metered: false,
         },
         available: true,
+        in_hand: false,
     };
     let mut deck = MoaDeckState::new(vec![model]);
     deck.select(FormationId::Duel);
@@ -475,6 +481,7 @@ fn deck_assignment_changes_only_the_focused_slot() {
             metered: false,
         },
         available: true,
+        in_hand: false,
     };
     let mut deck = MoaDeckState::new(vec![
         model(0, "alpha", "model-a"),
@@ -495,4 +502,46 @@ fn deck_assignment_changes_only_the_focused_slot() {
             .map(|route| route.model.as_str()),
         Some("model-a")
     );
+}
+
+#[test]
+fn self_seats_fill_every_formation_with_the_model_in_hand() {
+    let _env = crate::tests::env_lock();
+    let model = |agent: &str, model: &str, in_hand: bool| MoaModelChoice {
+        route: MoaModelRef {
+            agent_index: 0,
+            slot_index: 0,
+            agent: agent.into(),
+            driver: model.into(),
+            model: model.into(),
+            route_id: crate::agent::backplane::RouteId::chat(agent, model, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(model),
+            metered: true,
+        },
+        available: true,
+        in_hand,
+    };
+    let models = vec![
+        model("glm", "glm-5.2", false),
+        model("deepseek", "deepseek-v4-pro", false),
+        model("openai", "gpt-6.1-sol", true),
+        model("grok", "grok-4.5", false),
+    ];
+    let seated = |formation| {
+        FormationRoster::new(formation, &models)
+            .assignments()
+            .iter()
+            .map(|a| a.as_ref().map_or("?".to_string(), |r| r.model.clone()))
+            .collect::<Vec<_>>()
+    };
+    for formation in [FormationId::GrokWar, FormationId::Council, FormationId::AutoMoa] {
+        let seats = seated(formation);
+        assert!(!seats.is_empty());
+        assert!(seats.iter().all(|m| m == "gpt-6.1-sol"), "{formation:?}: {seats:?}");
+    }
+    // Tag Team still waits for the operator's two picks.
+    assert!(seated(FormationId::TagTeam).iter().all(|m| m == "?"));
+    // `mixed` brings back the intelligence-order picks.
+    let _mixed = crate::tests::TestEnvGuard::set("ANGEL_MOA_SEATS", "mixed");
+    assert_eq!(seated(FormationId::GrokWar)[1], "glm-5.2");
 }

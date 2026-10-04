@@ -497,12 +497,6 @@ fn is_competition_outcome_hay(name: &str, hay: &str, is_shell: bool) -> bool {
     const STRONG: &[&str] = &[
         "leaderboard",
         "submissions",
-        "hilbert status",
-        "hilbert submissions",
-        "hilbert list",
-        "hilbert submit",
-        "yukon submissions",
-        "yukon submit",
         "popcorn status",
         "popcorn-cli status",
         "popcorn submit",
@@ -510,6 +504,14 @@ fn is_competition_outcome_hay(name: &str, hay: &str, is_shell: bool) -> bool {
         "--mode leaderboard",
     ];
     if STRONG.iter().any(|needle| hay.contains(needle)) {
+        return true;
+    }
+    // Each plugged-in board CLI's own status, listing and submit commands.
+    if crate::agent::harness::cartridges::boards().any(|board| {
+        ["status", "submissions", "list", "submit"]
+            .iter()
+            .any(|verb| hay.contains(&format!("{board} {verb}")))
+    }) {
         return true;
     }
 
