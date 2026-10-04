@@ -637,7 +637,7 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ),
     (
         "⠥⠃",
-        "\n\nPlaybooks: {count} available. Call `skill(name)` to load a relevant procedure when needed; if `skill` is not among your tools, `tool_search` finds it.\n",
+        "\n\nPlaybooks: {count} available. Use `tool_search` to discover the `skill` tool and its available names, then `skill(name)` to load a relevant procedure when needed.\n",
     ),
     (
         "⠥⠉",
@@ -1720,11 +1720,7 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
     ("⠨⠋⠃", "use a literal /tmp/... path for scratch output"),
     ("⠨⠋⠉", "Use a literal /tmp/... path for scratch output."),
     ("⠨⠛⠁", "raise/disable via ANGEL_TOOL_TIMEOUT"),
-    (
-        "⠨⠛⠃",
-        "if this was a legitimate wait (remote validation, polling, downloads) raise ANGEL_TOOL_IDLE_FLOOR_SECS or use proc_run",
-    ),
-    ("⠨⠛⠉", "cd to a live directory and retry"),
+    ("⠨⠛⠃", "cd to a live directory and retry"),
     ("⠨⠓⠁", "restart Angel to re-pin the toolchain"),
     (
         "⠨⠓⠃",
@@ -1821,7 +1817,10 @@ const ORIGINAL_HINTS: &[(&str, &str)] = &[
         "⠰⠙⠁",
         "No context budget is set (ANGEL_CONTEXT_BUDGET_TOKENS=0), so there's no hard limit.",
     ),
-    ("⠰⠙⠃", "Older turns auto-compact above the budget."),
+    (
+        "⠰⠙⠃",
+        "Older turns compact automatically at the threshold, and the work goes on.",
+    ),
     ("⠰⠙⠉", "[angel-hook-blocked/v1] "),
     (
         "⠰⠙⠙",
@@ -2609,7 +2608,6 @@ fn the_replies_pages_resolve_and_their_marks_are_their_addresses() {
         r::SCRATCH_PATH,
         r::SCRATCH_OUTPUT,
         r::TIMEOUT_KNOB,
-        r::IDLE_FLOOR,
         r::LIVE_DIRECTORY,
         r::REPIN,
         r::CARGO_FALLBACK,

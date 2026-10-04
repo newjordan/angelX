@@ -10,6 +10,10 @@ use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 // Literal paths keep the release closure mechanically checkable.
 const FILES: &[(&str, &[u8])] = &[
     (
+        "relations.py",
+        include_bytes!("../../../research/sloptomizer/relations.py"),
+    ),
+    (
         "runner.py",
         include_bytes!("../../../research/sloptomizer/runner.py"),
     ),

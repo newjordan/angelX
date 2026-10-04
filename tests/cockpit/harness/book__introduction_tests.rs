@@ -124,6 +124,57 @@ fn a_stamp_the_model_decoded_needs_no_introduction() {
 }
 
 #[test]
+fn a_failed_ledger_read_never_counts_as_learning_the_legend() {
+    let messages = vec![
+        call("r", "read_file", serde_json::json!({"path":"ledger://⡫⠃"})),
+        tool("r", "error: interrupted before reading"),
+        ChatMsg::harness("⚠⡫⠃"),
+    ];
+    let intros = introductions(&messages, None);
+    assert_eq!(intros.last().unwrap().0, 2);
+    assert!(intros.last().unwrap().1.contains("intentional replication"));
+}
+
+#[test]
+fn reading_one_page_does_not_teach_the_whole_route() {
+    let messages = vec![
+        call("r", "read_file", serde_json::json!({"path":"ledger://⠵⠋⠁"})),
+        tool("r", "⠵⠋⠁  Reason the same way."),
+        ChatMsg::harness("⠵⠋⠉"),
+    ];
+    let intros = introductions(&messages, None);
+    assert_eq!(intros.last().unwrap().0, 2);
+    assert!(intros.last().unwrap().1.contains("Keep code blocks"));
+}
+
+/// A reading the harness has since elided no longer carries the words: the
+/// stamp is introduced again at its next sight, as it must be for a model
+/// swapped in mid-run that never saw the answer.
+#[test]
+fn a_stamp_whose_reading_was_elided_is_introduced_again() {
+    let aged = format!(
+        "{}: read_file|ledger://⠧⠉ (812 bytes){}",
+        crate::agent::harness::compact::TOOL_AGED_MARK,
+        crate::agent::harness::compact::AGED_TAIL
+    );
+    let messages = vec![
+        ChatMsg::system("⠽⠙".to_string()),
+        ChatMsg::user("task".to_string()),
+        call("r", "read_file", serde_json::json!({"path": "ledger://⠧⠉"})),
+        tool("r", &aged),
+        call("a", "run_tests", serde_json::json!({})),
+        tool("a", "tests: 0 passed, 1 failed\n⠧⠉"),
+    ];
+    let intros = introductions(&messages, None);
+    assert_eq!(
+        intros.last().map(|(index, _)| *index),
+        Some(5),
+        "{intros:?}"
+    );
+    assert!(intros.last().unwrap().1.contains("⠧⠉ "), "{intros:?}");
+}
+
+#[test]
 fn braille_quoted_mid_line_is_text_not_a_stamp() {
     let messages = vec![tool(
         "a",

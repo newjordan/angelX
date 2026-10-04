@@ -1,0 +1,102 @@
+# The phrasebook: wishes the Delve knows by heart.
+#
+# A known wish lands at once, in the game as it runs. Granted again, it
+# climbs its ladder: the first grant is modest, the last is the full gift.
+# Anyone can add one; the card checker bounds every effect line.
+#
+#   wish <id> | <Name>
+#   say  <a way a player puts it> | <another> ...
+#   tier <card effect lines, ; between> :: <what the scroll says>
+#
+# Effects are the card words (see /dungeon cards new): volley, bounce,
+# homing, chain, mend, pierce, shots, damage, rate, speed, armor, vamp,
+# max_hp.
+
+wish volley | Triple Volley
+say triple wide fire my shots | triple shot | fire three | three wide | spread my shots | spread shot | shotgun | wide shots | triple fire
+tier volley 5 :: Every 5th shot flies three wide.
+tier volley 3 :: Every 3rd shot flies three wide.
+tier volley 1 :: Every shot flies three wide.
+
+wish ricochet | Ricochet
+say bounce my shots | shots bounce | bouncing shots | ricochet | bank shots | bounce off walls
+tier bounce 1 :: Shots bounce off a wall once.
+tier bounce 2 :: Shots bounce off walls twice.
+tier bounce 3 :: Shots bounce off walls three times.
+
+wish seeker | Seeker Fletching
+say homing shots | seeking arrows | shots that follow | heat seeking | my shots find them | curve my shots | aim for me | homing
+tier homing 1 :: Shots curve gently toward monsters.
+tier homing 2 :: Shots curve hard toward monsters.
+tier homing 3 :: Shots hunt the nearest monster.
+
+wish chain | Chain Spark
+say chain lightning | lightning shots | shots chain | spark between them | arc lightning | electric shots
+tier chain 1 :: A hit sparks on to one more monster.
+tier chain 2 :: A hit sparks on to two more monsters.
+tier chain 3 :: A hit sparks on to three more monsters.
+
+wish mend | Mending Strike
+say heal my friend when i hit | heal on hit | heal my team | healing shots | mend my friends | support | medic
+tier mend 1 :: Each hit mends the most hurt friend by 1.
+tier mend 2 :: Each hit mends the most hurt friend by 2.
+tier mend 4 :: Each hit mends the most hurt friend by 4.
+
+wish pierce | Bodkin Heads
+say pierce | piercing shots | shots go through | through them all | penetrate | armor piercing
+tier pierce 1 :: Shots pass through one more monster.
+tier pierce 2 :: Shots pass through two more monsters.
+tier pierce 2; damage 15 :: Through two more, and harder.
+
+wish twin | Twin Fletch
+say more shots | extra arrow | double shot | two arrows | twin shot | fire two
+tier shots 1 :: One more shot, every shot.
+tier shots 2 :: Two more shots, every shot.
+
+wish quick | Quick Hands
+say fire faster | shoot faster | faster attacks | rapid fire | attack speed | machine gun | quicker
+tier rate 10 :: Shoot and swing 10% faster.
+tier rate 20 :: Shoot and swing 20% faster.
+tier rate 35 :: Shoot and swing 35% faster.
+
+wish heavy | Heavy Heads
+say hit harder | more damage | stronger shots | big hits | damage up | power
+tier damage 15 :: Shots and swings hit 15% harder.
+tier damage 30 :: Shots and swings hit 30% harder.
+tier damage 45 :: Shots and swings hit 45% harder.
+
+wish fleet | Fleet Foot
+say move faster | run faster | speed up | faster | quick feet | zoom
+tier speed 10 :: Walk 10% faster.
+tier speed 20 :: Walk 20% faster.
+tier speed 30 :: Walk 30% faster.
+
+wish stout | Stout Heart
+say more health | more hp | tougher | bigger health | live longer | more life
+tier max_hp 15 :: 15 more health, for good.
+tier max_hp 25 :: 25 more health, for good.
+tier max_hp 40 :: 40 more health, for good.
+
+wish iron | Iron Skin
+say armor | armour | take less damage | iron skin | thick skin | defense up
+tier armor 1 :: Each hit stings 3 less.
+tier armor 2 :: Each hit stings 6 less.
+tier armor 2; max_hp 10 :: Each hit stings 6 less, and 10 more health.
+
+wish leech | Blood Drinker
+say lifesteal | life steal | vampire | heal when i kill | drain | leech
+tier vamp 3 :: Mend 3 for each monster slain.
+tier vamp 6 :: Mend 6 for each monster slain.
+tier vamp 10 :: Mend 10 for each monster slain.
+
+wish morningstar | Morningstar
+say morningstar | orbiting morningstar | spinning flail | flail around me | spin around me | orbit | blades around me | spinning ball | hammers around me
+tier orbit 1 :: A morningstar spins close round you.
+tier orbit 2 :: Two morningstars spin close round you.
+tier orbit 3 :: Three morningstars spin close round you.
+
+wish powder | Blasting Powder
+say explosive shots | exploding arrows | shots explode | explosive | blast them | boom | splash damage | area damage
+tier burst 20 :: Shots burst where they hit, a fifth of their sting around.
+tier burst 35 :: Shots burst where they hit, a third of their sting around.
+tier burst 50 :: Shots burst where they hit, half their sting around.

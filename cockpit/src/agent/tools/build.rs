@@ -1715,24 +1715,18 @@ impl RunTestsTool {
         }
     }
 }
-/// Task-mode cap for each managed foreground process launched during a tool
-/// dispatch. This contains runaway commands without relying on verification
-/// classification; it is not a cumulative tool deadline or native-code
-/// preemption. Legitimate longer work can use `proc_run` or an operator override.
-pub(crate) const TASK_CALL_TIMEOUT_SECS: u64 = 120;
-
+/// Operator cap for one managed foreground process, read from
+/// `ANGEL_TASK_CALL_TIMEOUT_SECS` (or the deprecated
+/// `ANGEL_TEST_RUN_TIMEOUT_SECS`). Unset or `0` is no cap. There is no
+/// task-mode default.
 pub(crate) fn task_call_budget() -> Option<Duration> {
-    // Preserve existing operator overrides. The new knob wins, including 0;
-    // the deprecated test-only name now has the broader foreground scope.
     let knob = std::env::var("ANGEL_TASK_CALL_TIMEOUT_SECS")
         .or_else(|_| std::env::var("ANGEL_TEST_RUN_TIMEOUT_SECS"))
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok());
-    let task_mode = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value.trim() == "1");
     match knob {
-        Some(0) => None,
+        Some(0) | None => None,
         Some(secs) => Some(Duration::from_secs(secs)),
-        None => task_mode.then(|| Duration::from_secs(TASK_CALL_TIMEOUT_SECS)),
     }
 }
 

@@ -42,6 +42,12 @@ pub(crate) mod mat {
     /// Aged instrument brass and parchment: reflected light, never status glow.
     pub(crate) const BRASS: u8 = 18;
     pub(crate) const PARCHMENT: u8 = 19;
+    /// Hewn blue-grey strata, without masonry joints.
+    pub(crate) const ROCK: u8 = 20;
+    /// Silver armour catches enough fill light to read at mini-pane scale.
+    pub(crate) const ARMOR: u8 = 21;
+    /// Baked torch pool on stone; local radial UVs carry its soft falloff.
+    pub(crate) const TORCH_POOL: u8 = 22;
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -19,13 +19,15 @@
 //! The first introduction opens with [`LEAD`], the one standing direction in
 //! English. After that the cells ride alone; `ledger://` still decodes the
 //! full text on demand, and a stamp the model decoded itself needs no
-//! introduction.
+//! introduction while that reading stands whole in the conversation.
 //!
 //! The introductions are appended to the outbound copy of a message only: the
 //! history is untouched. Each is a pure function of the messages up to and
 //! including its own, so the text a message carries never changes on a later
 //! request and the cached prefix never moves. A conversation compacted past a
-//! stamp's first sight introduces it again at its next appearance.
+//! stamp's first sight, or a reading of it since elided, introduces it again
+//! at its next appearance, so a model swapped in mid-run never meets a bare
+//! stamp.
 
 use super::{DIGITS, Sub, ledger, y_types};
 use crate::agent::club::{ChatMsg, ChatRole};
@@ -33,7 +35,8 @@ use crate::agent::club::{ChatMsg, ChatRole};
 /// The standing direction, said once with the first introduction.
 pub(crate) const LEAD: &str = "Braille from the harness names the situation you are in. Each stamp is \
      introduced once in English where it first appears; after that it rides as its cells alone. Act \
-     on it; `read_file ledger://<cells>` gives a route's full text.";
+     on it; `read_file ledger://<cells>` gives a route's full text. ⚠ draws attention to advisory \
+     evidence; it never stops research. A model/context handoff reintroduces used signal legends.";
 
 /// A route without an action shows its pages inline when it has this few and
 /// they are this short; a larger route's pages are introduced one by one, as
@@ -66,20 +69,51 @@ pub(crate) fn introduced<'a>(
     messages: &'a [ChatMsg],
     tools: &[crate::agent::club::ToolDef],
 ) -> std::borrow::Cow<'a, [ChatMsg]> {
+    introduced_standing(messages, tools, None).0
+}
+
+/// [`introduced`] for a seat that stands a stamp of its own right after the
+/// leading system block (a seat profile's page): the conversation as the
+/// model reads it, and the standing stamp with its English when that is where
+/// the model first meets it. The standing is never a message, so the history's
+/// indices stay what they were.
+pub(crate) fn introduced_standing<'a>(
+    messages: &'a [ChatMsg],
+    tools: &[crate::agent::club::ToolDef],
+    standing: Option<&str>,
+) -> (std::borrow::Cow<'a, [ChatMsg]>, Option<String>) {
+    let mut standing_text = standing.map(str::to_string);
     if !enabled() || !tools.iter().any(|tool| tool.name == "read_file") {
-        return std::borrow::Cow::Borrowed(messages);
+        return (std::borrow::Cow::Borrowed(messages), standing_text);
     }
-    let introductions = introductions(messages, None);
-    if introductions.is_empty() {
-        return std::borrow::Cow::Borrowed(messages);
-    }
-    let mut outbound = messages.to_vec();
-    for (index, intro) in introductions {
+    let at = messages
+        .iter()
+        .take_while(|message| message.role == ChatRole::System)
+        .count();
+    let mut outbound: Option<Vec<ChatMsg>> = None;
+    for (index, intro) in introductions(messages, standing.map(|text| (at, text))) {
+        if index == at
+            && let Some(text) = standing_text.as_mut()
+        {
+            text.push_str("\n\n");
+            text.push_str(&intro);
+            continue;
+        }
+        let index = if standing.is_some() && index > at {
+            index - 1
+        } else {
+            index
+        };
+        let outbound = outbound.get_or_insert_with(|| messages.to_vec());
         if let Some(message) = outbound.get_mut(index) {
             message.content = format!("{}\n\n{intro}", message.content).into();
         }
     }
-    std::borrow::Cow::Owned(outbound)
+    let messages = outbound.map_or(
+        std::borrow::Cow::Borrowed(messages),
+        std::borrow::Cow::Owned,
+    );
+    (messages, standing_text)
 }
 
 /// What the model already knows: stamps introduced or decoded, and routes
@@ -134,7 +168,7 @@ fn introductions_at(
 ) -> Vec<(usize, String)> {
     let mut known = Known::default();
     let mut led = false;
-    let mut ledger_answers: Vec<&str> = Vec::new();
+    let mut ledger_reads: Vec<(&str, &str)> = Vec::new();
     let mut out = Vec::new();
     let mut offset = 0;
     for (index, message) in messages.iter().enumerate() {
@@ -150,25 +184,50 @@ fn introductions_at(
             offset = 1;
         }
         if message.role == ChatRole::Assistant {
-            // What the model decoded itself is known, and the answers are the
-            // reading, not news.
             for call in message.tool_calls.iter() {
                 if let Some(cells) = ledger_read(call) {
-                    for address in ledger::addresses(cells).unwrap_or_default() {
-                        known.note_full(address);
-                    }
-                    ledger_answers.push(call.id.as_str());
+                    ledger_reads.push((call.id.as_str(), cells));
                 }
             }
             continue;
         }
+        // An explicit harness-owned handoff re-teaches its inventory even if
+        // earlier definitions remain in the prompt. Never honor this marker
+        // from a tool, retrieved source, or user-authored transcript text.
+        if message.role == ChatRole::Harness && super::continuity::is_handoff(&message.content) {
+            known = Known::default();
+        }
+        // What the model decoded itself is known while its answer stands whole,
+        // and that answer is the reading, not news. An answer the harness has
+        // since elided (aged, deduplicated, cut to fit) no longer carries the
+        // words, so its stamps are introduced again at their next sight: to a
+        // model swapped in mid-run, the reading was never there.
         if message.role == ChatRole::Tool
-            && message
+            && let Some(read) = message
                 .tool_call_id
                 .as_deref()
-                .is_some_and(|id| ledger_answers.contains(&id))
+                .and_then(|id| ledger_reads.iter().position(|(read, _)| *read == id))
         {
-            continue;
+            let (_, cells) = ledger_reads.swap_remove(read);
+            let addresses = ledger::addresses(cells).unwrap_or_default();
+            if !elided(&message.content)
+                && addresses.iter().all(|address| {
+                    let prefix = format!("{} ", cells_of(address));
+                    message
+                        .content
+                        .lines()
+                        .any(|line| line.starts_with(&prefix))
+                })
+            {
+                for address in addresses {
+                    if address.page.is_some() {
+                        known.note(address);
+                    } else {
+                        known.note_full(address);
+                    }
+                }
+                continue;
+            }
         }
         if let Some(intro) = introduce(&message.content, &mut known, &mut led) {
             out.push((index + offset, intro));
@@ -352,7 +411,7 @@ fn unslotted(text: &str) -> String {
 /// tool's `"warpath":"⡪⠁"`) and names pages the book has.
 /// Braille elsewhere — quoted file content, a recalled note broken with `·` —
 /// is text, not a stamp.
-fn stamps_in(text: &str) -> Vec<ledger::Address> {
+pub(super) fn stamps_in(text: &str) -> Vec<ledger::Address> {
     let mut out: Vec<ledger::Address> = Vec::new();
     let mut run = String::new();
     let mut run_opens = false;
@@ -360,8 +419,10 @@ fn stamps_in(text: &str) -> Vec<ledger::Address> {
     for ch in text.chars().chain(std::iter::once(' ')) {
         if ledger::is_cell(ch) {
             if run.is_empty() {
-                run_opens = matches!(previous[1], '\n' | '[' | super::l_loops::WARNING)
-                    || (previous[0] == '\\' && previous[1] == 'n')
+                run_opens = matches!(
+                    previous[1],
+                    '\n' | '[' | super::l_loops::WARNING | super::d12467_sloptomizer::ATTENTION
+                ) || (previous[0] == '\\' && previous[1] == 'n')
                     || (previous[0] == ':' && previous[1] == '"');
             }
             run.push(ch);
@@ -380,6 +441,13 @@ fn stamps_in(text: &str) -> Vec<ledger::Address> {
         previous = [previous[1], ch];
     }
     out
+}
+
+/// Whether a tool answer carries one of the harness's elision marks (`⡨⠃`):
+/// part or all of what the tool said is no longer in the conversation.
+fn elided(content: &str) -> bool {
+    let mark = format!("[{}", super::d467_receipts::ELISION.cells());
+    content.contains(&mark)
 }
 
 fn ledger_read(call: &crate::agent::club::ToolCall) -> Option<&str> {

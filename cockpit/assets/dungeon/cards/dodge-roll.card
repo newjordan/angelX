@@ -1,0 +1,18 @@
+# Guard cards put a defence on the space key. Every knight starts with this one.
+name   Dodge Roll
+kind   guard
+text   Tuck, tumble, and nothing touches you. Every knight's first lesson.
+drop   0
+chest  0
+guard  roll
+art
+..........
+....hH....
+...hiiH...
+..hi44iH..
+..h4774h..
+..h4774h..
+..hi44ih..
+...hiih...
+.J..hh..J.
+J.J....J.J

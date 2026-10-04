@@ -482,39 +482,3 @@ fn self_gate_drains_noisy_build_before_running_tests() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
-
-#[cfg(unix)]
-#[test]
-fn self_gate_reaps_a_hung_build_tree_and_returns_red() {
-    let _guard = crate::tests::env_lock();
-    let (root, path) = fake_cargo_workspace(
-        "hung",
-        "#!/bin/sh\n\
-             if [ \"$1\" = build ]; then\n\
-               sleep 30 &\n\
-               wait\n\
-             fi\n",
-    );
-    let _path = crate::tests::TestEnvGuard::set("PATH", &path);
-    let _idle = crate::tests::TestEnvGuard::set("ANGEL_TOOL_IDLE_FLOOR_SECS", "1");
-    let _hard = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HARD_TIMEOUT", "3");
-    let started = std::time::Instant::now();
-
-    let (verdict, detail) = run_self_gate_with_baseline(&root.join("workspace"), None);
-    assert!(!verdict.passed, "hung build must not pass");
-    assert!(
-        verdict.summary.contains("does not build"),
-        "{}",
-        verdict.summary
-    );
-    assert!(
-        detail.contains("execution deadline"),
-        "timeout should be actionable: {detail:?}"
-    );
-    assert!(
-        started.elapsed() < std::time::Duration::from_secs(5),
-        "hung verifier was not bounded: {:?}",
-        started.elapsed()
-    );
-    let _ = std::fs::remove_dir_all(root);
-}

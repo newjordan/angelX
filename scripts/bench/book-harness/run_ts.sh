@@ -67,6 +67,7 @@ python3 "$HERE/exec_session.py" env -i PATH="$PATH" HOME="$HOMEDIR" TMPDIR="$RUN
   ANGEL_DRIVER=local ANGEL_LOCAL_URL="http://127.0.0.1:$PORT/v1" ANGEL_LOCAL_MODEL=stub \
   ANGEL_SOTA_CAVEMAN=0 ANGEL_TASK_RECON=0 ANGEL_YOLO=0 ANGEL_T_SANDBOX_HELPER="$HELPER" \
   ANGEL_BOOK_INTRO=${ANGEL_BOOK_INTRO:-1} \
+  ANGEL_SLOPTOMIZER_LIVE=${ANGEL_SLOPTOMIZER_LIVE:-1} \
   "$BIN" --task-json --workspace "$WORK" --task-id bench-calc --max-hops ${MAX_HOPS:-40} \
   "The unittest suite in this repository fails. Fix the code so it passes." \
   > "$OUT/$LABEL.result.json" 2> "$RUN_TMP/stderr.fifo" &

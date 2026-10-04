@@ -774,7 +774,7 @@ const ORIGINAL_TOOL_NOTES: &[(&str, &str, &[&str])] = &[
         "⠯⠉",
         "get_context_remaining",
         &[
-            "Report the conversation's estimated token usage and how much of the configured budget remains, so you can decide whether to wrap up or keep going.",
+            "Report how many tokens the conversation holds against its compaction threshold; older turns compact automatically there, so the threshold never ends the work.",
         ],
     ),
     (

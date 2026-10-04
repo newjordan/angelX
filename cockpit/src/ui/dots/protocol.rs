@@ -133,25 +133,75 @@ impl DotProtocol {
     }
 
     pub(crate) fn render(&self, area: Rect, buffer: &mut Buffer) {
-        let color = Color::Rgb((self.id >> 16) as u8, (self.id >> 8) as u8, self.id as u8);
-        let width = area.width.min(self.size.width);
-        let height = area.height.min(self.size.height);
-        for y in 0..height {
-            for x in 0..width {
-                if let Some(cell) = buffer.cell_mut((area.x + x, area.y + y)) {
-                    // Each cell carries explicit row/column coordinates. Overlays
-                    // may replace any cell without a hidden row write erasing them.
-                    cell.set_symbol(&format!(
-                        "\u{10eeee}{}{}",
-                        DOT_DIACRITICS[usize::from(y)],
-                        DOT_DIACRITICS[usize::from(x)]
-                    ))
-                    .set_fg(color)
-                    .set_diff_option(CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap()));
-                }
+        placeholders(self.id, self.size, area, buffer);
+    }
+}
+
+/// Unicode placeholder cells showing image `id` (placed `size` cells big)
+/// over `area`.
+pub(crate) fn placeholders(id: u32, size: Size, area: Rect, buffer: &mut Buffer) {
+    let color = Color::Rgb((id >> 16) as u8, (id >> 8) as u8, id as u8);
+    let width = area.width.min(size.width);
+    let height = area.height.min(size.height);
+    for y in 0..height {
+        for x in 0..width {
+            if let Some(cell) = buffer.cell_mut((area.x + x, area.y + y)) {
+                // Each cell carries explicit row/column coordinates. Overlays
+                // may replace any cell without a hidden row write erasing them.
+                cell.set_symbol(&format!(
+                    "\u{10eeee}{}{}",
+                    DOT_DIACRITICS[usize::from(y)],
+                    DOT_DIACRITICS[usize::from(x)]
+                ))
+                .set_fg(color)
+                .set_diff_option(CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap()));
             }
         }
     }
+}
+
+/// A PNG the terminal places itself, scaled into `size` cells: the upload
+/// for Kitty (chunked, wrapped for tmux when needed). The terminal does the
+/// scaling, so a small frame goes out whatever the screen's pixel density.
+pub(crate) fn png_upload(png: &[u8], size: Size, id: u32) -> Option<String> {
+    if size.width == 0
+        || size.height == 0
+        || size.width > 256
+        || size.height > 256
+        || id == 0
+        || id > 0x00ff_ffff
+        || png.len() > 3 * 1024 * 1024
+    {
+        return None;
+    }
+    let payload = base64::engine::general_purpose::STANDARD.encode(png);
+    let (start, escape, end) = if tmux_passthrough() {
+        ("\x1bPtmux;", "\x1b\x1b", "\x1b\\")
+    } else {
+        ("", "\x1b", "")
+    };
+    let mut upload = String::with_capacity(payload.len() + payload.len() / 64 + 64);
+    let chunks = payload.as_bytes().chunks(4096);
+    let count = chunks.len();
+    for (index, chunk) in chunks.enumerate() {
+        let more = u8::from(index + 1 < count);
+        upload.push_str(start);
+        if index == 0 {
+            write!(
+                upload,
+                "{escape}_Gq=2,a=T,U=1,f=100,C=1,i={id},c={},r={},m={more};",
+                size.width, size.height
+            )
+            .unwrap();
+        } else {
+            write!(upload, "{escape}_Gq=2,m={more};").unwrap();
+        }
+        upload.push_str(std::str::from_utf8(chunk).expect("base64 is ASCII"));
+        upload.push_str(escape);
+        upload.push('\\');
+        upload.push_str(end);
+    }
+    Some(upload)
 }
 
 /// Whether graphics commands must be wrapped for tmux (read once; tests

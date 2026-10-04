@@ -192,7 +192,7 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
 }
 
 #[test]
-fn still_inspector_input_scope_pin_footer_and_cleanup() {
+fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     use ratatui::crossterm::event::{
         KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
     };
@@ -366,11 +366,10 @@ fn still_inspector_input_scope_pin_footer_and_cleanup() {
     app.set_terminal_focused(true);
     app.on_key(key(KeyCode::Char('+')));
     ready(&mut app, &mut terminal);
-    app.on_mouse(mouse(
-        MouseEventKind::Down(MouseButton::Right),
-        center.0,
-        center.1,
-    ));
+    let mut fit_click = mouse(MouseEventKind::Down(MouseButton::Right), center.0, center.1);
+    // Plain right-click now copies the artifact location. Ctrl retains Fit.
+    fit_click.modifiers = KeyModifiers::CONTROL;
+    app.on_mouse(fit_click);
     assert_eq!(app.viewer.inspector.percent(), 100);
     app.viewer.inspector.drag = Some(center);
     app.viewer.invalidate_still_layout();
@@ -462,4 +461,34 @@ fn native_artifact_stage_keeps_identity_draft_and_motion_off_ownership() {
     let request = app.scryglass.media_request_id();
     app.scryglass.reveal_media(0, true);
     assert_ne!(app.scryglass.media_request_id(), request);
+}
+
+#[test]
+fn dungeon_miniviz_stays_the_realm_while_a_delve_is_on() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.dungeon_command(Some("start"));
+    app.collapse_dungeon();
+    app.input = "Tune my sword".into();
+    app.cursor = 5;
+    let raid = app.dungeon.shooter.as_ref().unwrap().raid_id;
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(64, 24)).unwrap();
+    terminal
+        .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
+        .unwrap();
+    let text: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|c| c.symbol())
+        .collect();
+    assert!(
+        !text.contains("DELVE · F4"),
+        "the mini-viz is the realm, not the room: {text}"
+    );
+    assert_eq!(app.input, "Tune my sword");
+    assert!(!app.dungeon.expanded);
+    assert!(app.dungeon.guest.is_none());
+    assert_eq!(app.dungeon.shooter.as_ref().unwrap().raid_id, raid);
 }

@@ -146,6 +146,25 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
     assert_eq!(advice["advice"]["pareto"]["idea"], NOTE);
     assert!(advice["advice"]["memory"].to_string().contains(NOTE));
     let ranking = advice["advice"]["memory_ranking"].as_array().unwrap();
+    assert_eq!(
+        advice["advice"]["relations"]["relation_count"], 2,
+        "paired experiments also feed cross-model relationship memory"
+    );
+    let notice = registry
+        .rl()
+        .take_research_notice(workspace.path())
+        .unwrap();
+    assert!(
+        notice.starts_with("⚠⡪"),
+        "settlement reaches a live turn: {notice}"
+    );
+    assert!(
+        registry
+            .rl()
+            .take_research_notice(workspace.path())
+            .is_none(),
+        "a settled experiment never creates a polling loop"
+    );
     let scored = ranking.iter().find(|r| r["idea"] == NOTE).unwrap();
     assert!(
         scored["slow_score"] != cold["advice"]["memory_ranking"][0]["slow_score"],

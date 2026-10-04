@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "ember-spell",
+  "title": "Ember Fan",
+  "slot": "spell",
+  "power": 4,
+  "speed": 3,
+  "range": 8,
+  "pattern": "spread",
+  "effect": "none"
+}

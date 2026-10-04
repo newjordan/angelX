@@ -340,6 +340,30 @@ test('release documentation cannot depend on private helpers present only in the
   )
 })
 
+test('embedded book instructions keep workspace link examples without weakening guide checks', (t) => {
+  const root = fixture(t)
+  const prompt = 'cockpit/src/agent/harness/book/response-format.md'
+  const example = '[app.py](/abs/path/app.py:12)\n'
+  write(join(root, prompt), example)
+  write(join(root, 'README.md'), `[Instructions](${prompt})\n`)
+  const entries = [{ path: 'README.md' }, { path: prompt }]
+  assert.doesNotThrow(() => assertDocumentedSourcePaths(root, entries))
+  assert.doesNotThrow(() => assertPublicReleaseEntries(root, entries))
+
+  write(join(root, 'README.md'), example)
+  assert.throws(() => assertDocumentedSourcePaths(root, entries), /documentation target absent/u)
+  write(join(root, 'README.md'), `[Instructions](${prompt})\n`)
+  assert.throws(
+    () => assertDocumentedSourcePaths(root, [{ path: 'README.md' }]),
+    /documentation target absent/u,
+  )
+  write(
+    join(root, prompt),
+    `[Private](${['', 'home', 'fixture-private', 'example.py'].join('/')})\n`,
+  )
+  assert.throws(() => assertPublicReleaseEntries(root, entries), /absolute home path/u)
+})
+
 test('runtime imports and dispatched helpers must exist in the archive inventory', (t) => {
   const root = fixture(t)
   write(

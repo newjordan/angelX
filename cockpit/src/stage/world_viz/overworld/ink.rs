@@ -250,6 +250,15 @@ impl Img {
         }
     }
 
+    /// Every pixel back to transparent.
+    pub(crate) fn clear_all(&mut self) {
+        for y in 0..self.h {
+            for x in 0..self.w {
+                self.clear(x, y);
+            }
+        }
+    }
+
     pub(crate) fn clear(&mut self, x: i32, y: i32) {
         if self.inside(x, y) {
             let w = self.w;

@@ -1,0 +1,19 @@
+name   Kite Shield
+kind   guard
+rarity rare
+text   Hold space to raise it: shots from the front glance off. Slow going.
+drop   3
+chest  3
+guard  shield
+art
+..hHHHHHHh..
+.hHiiiiiiHh.
+.Hi445544iH.
+.Hi4755574H.
+.Hi4755574H.
+.Hi4455444H.
+..Hi4554iH..
+..Hii44iiH..
+...HiiiiH...
+....HiiH....
+.....HH.....

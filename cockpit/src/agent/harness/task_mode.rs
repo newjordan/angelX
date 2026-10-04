@@ -620,22 +620,6 @@ pub(crate) fn apply_task_runtime_defaults(prompt: &str) -> TaskPaceResolution {
         }
     }
     let pace = resolve_task_pace(prompt);
-    // A headless task already has a wall-clock ceiling. Its verifier (a
-    // sandboxed build plus a benchmark) is one tool call that may legitimately
-    // run for most of that ceiling, and the interactive 120 s default killed
-    // every real Yukon verifier the fleet ran on 2026-09-05 (matrices ~3-4 min,
-    // Gemma build 284 s + benchmark 585 s) — twice each, until the worker
-    // stopped with a blocker. Derive both tool ceilings from the deadline when
-    // the operator has not pinned them.
-    let deadline_secs = super::configured_turn_deadline_secs();
-    if deadline_secs > 0 {
-        for key in ["ANGEL_TOOL_TIMEOUT", "ANGEL_TOOL_HARD_TIMEOUT"] {
-            if std::env::var_os(key).is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var(key, deadline_secs.to_string()) };
-            }
-        }
-    }
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_PACE_RESOLVED", pace.pace.as_str()) };
     // TODO: Audit that the environment access only happens in single-threaded code.

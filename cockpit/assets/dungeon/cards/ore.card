@@ -1,0 +1,16 @@
+name   Ore
+kind   take
+text   Raw iron ore from the Mines.
+where  mines
+drop   10
+chest  0
+ore    1
+art
+...GGJ....
+..GjJhJG..
+.GjjGJhJG.
+.jgjrjJhG.
+GjgjjjGJjG
+GgjrjjgjjG
+.ggjjgjgj.
+..gggggg..

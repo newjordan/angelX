@@ -574,6 +574,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.world_pane_visible = false;
     app.scryglass.begin_frame();
     app.panes.clear();
+    app.dungeon.controls_visible = false;
     if root.width == 0 || root.height == 0 {
         app.scryglass_drag = None;
         app.scryglass.finish_frame();
@@ -596,6 +597,139 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.world_buttons.clear();
     app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
+    if app.dungeon_view_active() {
+        // The host's delve as it stands between its last two ticks.
+        let host_view = app.dungeon_view_run(Instant::now());
+        let deck = app
+            .dungeon
+            .forge
+            .draft
+            .as_ref()
+            .map(|d| app.wish_deck(d.player))
+            .unwrap_or_default();
+        let known = crate::app::control::known_wishes(&deck);
+        // The room goes out as the terminal's own picture this frame: its
+        // cells under it need not be drawn.
+        let native = app.viewer.kitty()
+            && app.viewer.map_pixels_native()
+            && !app.dungeon_controls_blocked()
+            && app.dungeon.intro.is_none()
+            && app.dungeon.forge.draft.is_none()
+            && !app.dungeon.cards_open;
+        app.image_occluders.push(root);
+        app.viewer.clear_still();
+        app.dungeon.controls_visible = if let Some(intro) = &app.dungeon.intro {
+            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.dungeon.realm.as_ref());
+            true
+        } else if let Some(joined) = &app.dungeon.joined {
+            crate::ui::viz::joined_viz::render(
+                frame,
+                joined,
+                root,
+                &app.dungeon.notice,
+                app.dungeon.chorus.subtitle(std::time::Instant::now()),
+                app.dungeon
+                    .forge
+                    .draft
+                    .as_ref()
+                    .map(|d| crate::ui::viz::shooter_viz::Wish {
+                        part: d.part.word(),
+                        words: d.words.as_str(),
+                        confirm: d.confirm,
+                        known: known.clone(),
+                        pick: d.pick.clone(),
+                        resolved: d.known.as_ref().and_then(|i| {
+                            known
+                                .iter()
+                                .find(|k| &k.0 == i)
+                                .map(|k| (k.1.clone(), k.2.clone()))
+                        }),
+                        sanctuary: d.sanctuary,
+                    }),
+                app.dungeon
+                    .cards_open
+                    .then_some((app.dungeon.cards_page, app.dungeon.cards_sel)),
+                native,
+            )
+        } else if let Some((run, _)) = &host_view {
+            crate::ui::viz::shooter_viz::render(
+                frame,
+                run,
+                root,
+                &app.dungeon.notice,
+                app.dungeon.key_releases,
+                !app.terminal_focused || app.dungeon_controls_blocked(),
+                app.dungeon.guest.is_some(),
+                &app.dungeon_harness_status(),
+                app.dungeon
+                    .cards_open
+                    .then_some((app.dungeon.cards_page, app.dungeon.cards_sel)),
+                app.dungeon.realm.as_ref(),
+                app.dungeon.chorus.subtitle(std::time::Instant::now()),
+                app.dungeon
+                    .forge
+                    .draft
+                    .as_ref()
+                    .map(|d| crate::ui::viz::shooter_viz::Wish {
+                        part: d.part.word(),
+                        words: d.words.as_str(),
+                        confirm: d.confirm,
+                        known: known.clone(),
+                        pick: d.pick.clone(),
+                        resolved: d.known.as_ref().and_then(|i| {
+                            known
+                                .iter()
+                                .find(|k| &k.0 == i)
+                                .map(|k| (k.1.clone(), k.2.clone()))
+                        }),
+                        sanctuary: d.sanctuary,
+                    }),
+                native,
+            )
+        } else {
+            crate::ui::viz::together_viz::render_game(
+                frame,
+                &app.together,
+                root,
+                &app.dungeon.notice,
+            )
+        } && !app.dungeon_controls_blocked();
+        // Text overlays must stay above the game: fall back to cells while a
+        // dialog owns input instead of placing an image over its buttons.
+        if !app.dungeon_controls_blocked()
+            && app.dungeon.intro.is_none()
+            && app.dungeon.forge.draft.is_none()
+            && !app.dungeon.cards_open
+            && let Some(joined) = &app.dungeon.joined
+        {
+            crate::ui::viz::joined_viz::render_native(frame, &mut app.viewer, joined, root);
+        }
+        if !app.dungeon_controls_blocked()
+            && !app.dungeon.cards_open
+            && app.dungeon.intro.is_none()
+            && app.dungeon.forge.draft.is_none()
+            && let Some((run, step)) = &host_view
+        {
+            let focus = app.dungeon.guest.is_some().then_some(1);
+            crate::ui::viz::shooter_viz::render_native_room(
+                frame,
+                &mut app.viewer,
+                run,
+                root,
+                true,
+                focus,
+                *step,
+            );
+        }
+        render_selection_and_approval_overlays(frame, app);
+        if let Some(pending) = app.pending_turn.as_mut() {
+            pending.echo_drawn = true;
+        }
+        app.scryglass.finish_frame();
+        // A friend's delve frame goes out to Kitty with this draw.
+        app.viewer.flush_dot_upload(frame);
+        return;
+    }
     // One route-control snapshot serves every rail this frame (header strip,
     // header rail, agent bay) instead of re-taking club locks per rail.
     let chrome = FrameChrome::compute(&app.bag);

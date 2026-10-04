@@ -383,7 +383,7 @@ pub(crate) fn walkable(t: u8) -> bool {
 
 /// Every tile a structure stands on; the knight walks around them. Road
 /// tiles inside a footprint (the gatehouse arch) stay open.
-pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 43] = [
+pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 44] = [
     (22, 12, 3, 3), // keep
     (21, 12, 1, 3), // keep turrets
     (25, 12, 1, 3),
@@ -427,6 +427,7 @@ pub(crate) const STRUCTURES: [(i32, i32, i32, i32); 43] = [
     (50, 34, 2, 2),  // tournament pavilions
     (60, 34, 2, 2),
     (60, 40, 2, 1), // tournament stable
+    (9, 34, 5, 4),  // Sloptomizer School of Magic, beside the market gardens
 ];
 
 /// Every place on the default realm.
@@ -458,10 +459,11 @@ pub(crate) enum Place {
     ArtisanQuarter,
     Colosseum,
     Tournament,
+    School,
 }
 
 impl Place {
-    pub(crate) const ALL: [Place; 19] = [
+    pub(crate) const ALL: [Place; 20] = [
         Place::Keep,
         Place::Gatehouse,
         Place::Rookery,
@@ -481,6 +483,7 @@ impl Place {
         Place::ArtisanQuarter,
         Place::Colosseum,
         Place::Tournament,
+        Place::School,
     ];
 
     pub(crate) fn of_building(b: Building) -> Place {
@@ -518,6 +521,7 @@ impl Place {
             Place::ArtisanQuarter => "ARTISAN QUARTER",
             Place::Colosseum => "COLOSSEUM",
             Place::Tournament => "KNIGHTS TOURNAMENT",
+            Place::School => "SLOPTOMIZER SCHOOL",
         }
     }
 
@@ -541,6 +545,7 @@ impl Place {
             Place::ArtisanQuarter => (17, 34, 13, 8),
             Place::Colosseum => (35, 34, 10, 6),
             Place::Tournament => (50, 34, 12, 7),
+            Place::School => (9, 34, 5, 4),
             Place::DarkForest | Place::Swamp | Place::Fields => {
                 let (x, y) = self.stand();
                 (x, y, 1, 1)
@@ -571,6 +576,7 @@ impl Place {
             Place::ArtisanQuarter => (23, 38),
             Place::Colosseum => (40, 41),
             Place::Tournament => (55, 41),
+            Place::School => (11, 38),
         }
     }
 

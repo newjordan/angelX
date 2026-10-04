@@ -1205,3 +1205,308 @@ fn write_deed_shots() {
         save(&format!("film_{f:03}.ppm"), &frame_sized(&s, 256, 160));
     }
 }
+
+/// Every catalog wish, granted from a full treasury, in catalog order.
+fn catalog_built() -> std::sync::Arc<Vec<crate::drive::together_realm::Wish>> {
+    use crate::drive::together_realm::{Realm, Spoil, Spoils};
+    let mut realm = Realm::default();
+    realm.offer_catalog();
+    let mut plenty = Spoils::default();
+    for spoil in Spoil::ALL {
+        plenty.add(spoil, 10_000);
+    }
+    realm.bank("Jordan", &plenty);
+    let ids: Vec<String> = realm.wishes.iter().map(|w| w.id.clone()).collect();
+    for id in ids {
+        realm.grant(&id).unwrap();
+    }
+    std::sync::Arc::new(realm.built())
+}
+
+#[test]
+fn catalog_wishes_pass_their_checker_without_price_notes() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/realm/wishes");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
+    files.sort();
+    assert_eq!(
+        files.len(),
+        7,
+        "six from the start, the Grail Chapel after a victory"
+    );
+    for path in &files {
+        let id = path.file_stem().unwrap().to_str().unwrap();
+        let raw = std::fs::read_to_string(path).unwrap();
+        let (draft, notes) = crate::drive::together_realm::check(id, &raw).unwrap();
+        assert!(notes.is_empty(), "{id}: {notes:?}");
+        assert!(!draft.near.is_empty() && !draft.words.is_empty(), "{id}");
+    }
+    assert_eq!(catalog_built().len(), 6);
+}
+
+#[test]
+fn wish_lots_stand_in_the_wild_apart_and_never_move() {
+    use super::map::{MAP_H, MAP_W, Realm, SCREEN_H, SCREEN_W};
+    let built = catalog_built();
+    let lots = wishes::lots(&built);
+    let realm = Realm::get();
+    let lots: Vec<_> = lots
+        .iter()
+        .map(|l| l.expect("every catalog wish finds a lot"))
+        .collect();
+    for (i, lot) in lots.iter().enumerate() {
+        for y in lot.ty..lot.ty + lot.th {
+            for x in lot.tx..lot.tx + lot.tw {
+                assert!(x >= 0 && y >= 0 && x < MAP_W && y < MAP_H);
+                let (sx, sy) = (x / SCREEN_W, y / SCREEN_H);
+                assert!(
+                    sx % 2 == 1 || sy % 2 == 1,
+                    "{} sits on an authored screen",
+                    built[i].name
+                );
+                assert!(
+                    !matches!(realm.at(x, y), b'=' | b':' | b'~' | b'H' | b's' | b'%'),
+                    "{} covers a road or water",
+                    built[i].name
+                );
+            }
+        }
+        for other in &lots[i + 1..] {
+            let apart = lot.tx + lot.tw <= other.tx
+                || other.tx + other.tw <= lot.tx
+                || lot.ty + lot.th <= other.ty
+                || other.ty + other.th <= lot.ty;
+            assert!(apart, "{lot:?} overlaps {other:?}");
+        }
+    }
+    // A newly raised wish never moves the ones already standing.
+    for k in 1..built.len() {
+        let prefix = wishes::lots(&built[..k]);
+        assert_eq!(prefix.as_slice(), &wishes::lots(&built)[..k]);
+    }
+    // Landmarks stand near the place they were wished beside.
+    for (wish, lot) in built.iter().zip(&lots) {
+        let (gx, gy) = wishes::place_of(&wish.near).stand_world();
+        let d = (lot.tx - gx).abs() + (lot.ty - gy).abs();
+        assert!(
+            d <= 2 * SCREEN_W,
+            "{} is {d} tiles from its place",
+            wish.name
+        );
+    }
+}
+
+#[test]
+fn a_built_wish_appears_and_changes_the_scene_key() {
+    let mut s = Scene::resting();
+    let bare = s.key();
+    s.wishes = catalog_built();
+    assert_ne!(s.key(), bare, "a newly granted wish redraws the map");
+    let staged = scene::stage(&s);
+    let lots = wishes::lots(&s.wishes);
+    let lot = lots[0].unwrap();
+    assert!(
+        staged.props.iter().any(|p| p.x >= lot.tx * TILE
+            && p.x < (lot.tx + lot.tw) * TILE
+            && p.base > lot.ty * TILE
+            && p.base <= (lot.ty + lot.th) * TILE),
+        "the first wish is staged on its lot"
+    );
+    assert_eq!(wishes::plaque_word("Hall of the Dragonslayers"), "HALL");
+    assert_eq!(wishes::plaque_word("Miners' Lodge"), "LODGE");
+    assert_eq!(wishes::plaque_word("The Tavern"), "TAVERN");
+}
+
+/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_wish_shots -- --ignored`:
+/// the realm with every catalog wish built, and each wish's own screen.
+#[test]
+#[ignore]
+fn write_wish_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_OVERWORLD_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img| {
+        let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+        out.extend(img.rgb_bytes());
+        std::fs::write(dir.join(name), out).unwrap();
+    };
+    let mut s = busy(8);
+    s.wishes = catalog_built();
+    save("wishes_realm.ppm", &render_view(&s, View::realm()));
+    let lots = wishes::lots(&s.wishes);
+    for (wish, lot) in s.wishes.iter().zip(lots.iter()) {
+        let lot = lot.unwrap();
+        let view = View::around(
+            ((lot.tx * 2 + lot.tw) * TILE / 2) as f32,
+            ((lot.ty * 2 + lot.th) * TILE / 2) as f32,
+            256,
+            176,
+        );
+        save(&format!("wish_{}.ppm", wish.id), &frame_at(&s, view));
+    }
+    save("guest_wish_view.ppm", &wish_view(&s));
+}
+
+#[test]
+fn the_guest_wish_view_is_one_screen_around_the_newest_wish() {
+    let mut s = busy(8);
+    let empty = wish_view(&s);
+    assert_eq!((empty.w, empty.h), (SCREEN_W * TILE, SCREEN_H * TILE));
+    s.wishes = catalog_built();
+    let newest = wishes::lots(&s.wishes)
+        .iter()
+        .rev()
+        .flatten()
+        .next()
+        .copied()
+        .unwrap();
+    let view = View::around(
+        ((newest.tx * 2 + newest.tw) * TILE / 2) as f32,
+        ((newest.ty * 2 + newest.th) * TILE / 2) as f32,
+        SCREEN_W * TILE,
+        SCREEN_H * TILE,
+    );
+    assert_eq!(wish_view(&s).rgb_bytes(), render_view(&s, view).rgb_bytes());
+}
+
+/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_delve_gate_shot -- --ignored`
+#[test]
+#[ignore]
+fn write_delve_gate_shot() {
+    let Some(dir) = std::env::var_os("ANGEL_OVERWORLD_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut s = busy(8);
+    s.delve_lit = true;
+    s.delve_boons = 5;
+    let gate = wishes::delve_gate();
+    let view = View::around(
+        ((gate.tx * 2 + gate.tw) * TILE / 2) as f32,
+        ((gate.ty * 2 + gate.th) * TILE / 2) as f32,
+        256,
+        176,
+    );
+    let img = frame_at(&s, view);
+    let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+    out.extend(img.rgb_bytes());
+    std::fs::write(dir.join("delve_gate.ppm"), out).unwrap();
+}
+
+/// Film plates: `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_grow_film -- --ignored`.
+/// Three sequences of the realm's own pixels, one tick a frame: the realm
+/// growing from bare to built, the knight walking from the Keep to the lit
+/// Delve gate, and the gate's standards rising one by one.
+#[test]
+#[ignore]
+fn write_grow_film() {
+    let Some(dir) = std::env::var_os("ANGEL_OVERWORLD_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    for sub in ["grow", "walk", "gate"] {
+        std::fs::create_dir_all(dir.join(sub)).unwrap();
+    }
+    let save = |name: String, img: &Img| {
+        let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+        out.extend(img.rgb_bytes());
+        std::fs::write(dir.join(name), out).unwrap();
+    };
+    let built = catalog_built();
+    let all: Vec<_> = built.iter().cloned().collect();
+
+    // The realm grows: bare at first, then tier by tier, wish by wish.
+    let frames = 240u32;
+    for f in 0..frames {
+        let t = f as f32 / (frames - 1) as f32;
+        let mut s = Scene::resting();
+        s.tick = f;
+        s.tier = (t * 9.0).floor().min(8.0) as u32;
+        s.chapel_lit = t > 0.3;
+        s.cottages = [t > 0.2, t > 0.45, t > 0.7];
+        s.forge_hot = t > 0.35;
+        s.delve_lit = t > 0.55;
+        s.delve_boons = ((t - 0.6).max(0.0) / 0.4 * 6.0).floor() as u8;
+        let n = ((t - 0.15).max(0.0) / 0.8 * all.len() as f32).round() as usize;
+        s.wishes = std::sync::Arc::new(all[..n.min(all.len())].to_vec());
+        save(format!("grow/{f:04}.ppm"), &frame_at(&s, View::realm()));
+    }
+
+    // The knight walks to the gate.
+    let start = Place::Keep.stand_world();
+    let goal = wishes::delve_stand();
+    let mut path = vec![start];
+    path.extend(live::route(start, goal));
+    let px = |(tx, ty): (i32, i32)| ((tx * TILE + TILE / 2) as f32, ((ty + 1) * TILE - 2) as f32);
+    let step = 2.0f32;
+    let mut points = Vec::new();
+    for pair in path.windows(2) {
+        let (a, b) = (px(pair[0]), px(pair[1]));
+        let n = ((b.0 - a.0).abs().max((b.1 - a.1).abs()) / step).ceil().max(1.0) as usize;
+        for i in 0..n {
+            let k = i as f32 / n as f32;
+            points.push((a.0 + (b.0 - a.0) * k, a.1 + (b.1 - a.1) * k));
+        }
+    }
+    points.push(px(goal));
+    let mut cam = points[0];
+    for (f, &(x, y)) in points.iter().enumerate() {
+        let mut s = busy(f as u32);
+        s.delve_lit = true;
+        s.delve_boons = 2;
+        s.knight = Knight { x, y, walking: f + 1 < points.len() };
+        cam.0 += (x - cam.0) * 0.12;
+        cam.1 += (y - cam.1) * 0.12;
+        save(format!("walk/{f:04}.ppm"), &frame_at(&s, View::around(cam.0, cam.1, 256, 176)));
+    }
+
+    // The town sprouts, tier by tier.
+    std::fs::create_dir_all(dir.join("town")).unwrap();
+    for f in 0..300u32 {
+        let mut s = busy(f);
+        s.active = None;
+        s.tool = None;
+        s.muster.clear();
+        s.tier = (f / 30).min(8);
+        s.cottages = [f > 60, f > 120, f > 180];
+        s.chapel_lit = f > 90;
+        save(format!("town/{f:04}.ppm"), &frame_at(&s, screen_of(Place::Keep)));
+    }
+    // The knight at work: reading at the Scriptorium, hammering at the Smithy.
+    for (sub, place, tool) in [
+        ("reading", Place::Scriptorium, Tool::Book),
+        ("smithy", Place::Smithy, Tool::Hammer),
+    ] {
+        std::fs::create_dir_all(dir.join(sub)).unwrap();
+        for f in 0..150u32 {
+            let mut s = busy(f);
+            s.tier = 4;
+            s.active = Some(place);
+            s.tool = Some(tool);
+            s.knight = Knight::at_place(place);
+            s.muster.clear();
+            save(format!("{sub}/{f:04}.ppm"), &frame_at(&s, screen_of(place)));
+        }
+    }
+
+    // The standards rise at the gate.
+    let gate = wishes::delve_gate();
+    let view = View::around(
+        ((gate.tx * 2 + gate.tw) * TILE / 2) as f32,
+        ((gate.ty * 2 + gate.th) * TILE / 2) as f32,
+        256,
+        176,
+    );
+    for f in 0..210u32 {
+        let mut s = busy(f);
+        s.delve_lit = true;
+        s.delve_boons = (f / 30).min(6) as u8;
+        s.knight = Knight { x: px(goal).0, y: px(goal).1, walking: false };
+        save(format!("gate/{f:04}.ppm"), &frame_at(&s, view));
+    }
+}

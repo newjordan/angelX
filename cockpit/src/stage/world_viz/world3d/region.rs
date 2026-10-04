@@ -487,7 +487,7 @@ pub(crate) fn wisp_phase(stage: Stage, bucket: u64) -> u8 {
 /// sweep taken out — there is no approach to a region, the hero is simply
 /// there. Framing is expressed in screen fractions and solved per aspect, so
 /// one table holds up from a 96 × 72 ride pane to a 200 × 304 vista plate.
-fn staged_view(
+pub(super) fn staged_view(
     stage: Stage,
     waypoint: usize,
     _map: &super::super::raycast::RayMap,

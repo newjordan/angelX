@@ -1,0 +1,38 @@
+# A wish from the realm's own catalog. Spoils from the delve pay for it.
+name   Hall of the Dragonslayers
+words  a great stone hall with the dragon's skull over its door
+near   keep
+price  scale 1, bond 6, gold 700
+art
+..4..........................4
+..h777777..............777777h
+..h77447................74477h
+..h777777..............777777h
+..h777777..............777777h
+..h..........................h
+kkhkkkkkkkkkkkkkkkkkkkkkkkkkkhkk
+kuhuSuuuSuuuSuuuxSSSxSSSxSSSxhxk
+kuhSSSSSSSSSSSSSxxxxxxxxxxxxxhsk
+kuhuuuSuuuSuuuSuSSxSSSxSSSxSShsk
+kuhSSSxSSSxSSSxSSSxSSSxSSSxSShsk
+kShxxxxxxxxxxxxxxxxxxxxxxxxxxhsk
+kuuSxSSSxSSSxSSSxSSSxSSSxSSSxxxk
+kuuSxSSSxSSSxSSSxSSSxSSSxSSSxxxk
+kSSxxxxxxxxhxxxxxxxxhxxxxxxxxssk
+kuSSSSxSSSxSHSxSSSxHSSxSSSxSSxsk
+kuSSSSxSSSxSSiiiiiiSSSxSSSxSSxsk
+kSSxxxxxxxxxxikiikixxxxxxxxxxssk
+kssssssssssssiiiiiissssssssssssk
+.kSSSSSxSSSSSxhhhhSxSSSSSxSSSxk
+.kuuuuuSuuuuuShhhhuSuuuuuSuuuSk
+.kSSSbbbbSSSSSSSSSSSSSSbbbbSSSk
+.kUUSbssbuSUUbbbbbbUUUSbssbuSuk
+.kuuSbssbuSubbnnnnbbuuSbssbuSSk
+.kuuSbbbbuSubnKKKKKbuuSbbbbuSSk
+.kSSSSSSSSSSbnKKKKKbSSSSSSSSSSk
+.kuuuuuSuuuubnKKKKKbuuuuuSUUUuk
+.kuuuuuSuuuubnKKKKKbuuuuuSuuuSk
+.kuuuuuSuuuubnKKKKKbuuuuuSuuuSk
+.kSSSSSSSSSSbnKKKKKbSSSSSSSSSSk
+.kuuSuuuuuSUbnKKKKKbUUSUUUUUSuk
+.kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk

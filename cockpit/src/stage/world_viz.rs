@@ -43,6 +43,7 @@ pub(crate) use adventure::{AdventureEvent, LoopMirror, Quest, ToolMix};
 pub(crate) use adventure::{LoopKind, Region};
 use camera::{Camera, CameraMode, SETTLE_TICKS, Z_CLOSE, Z_WIDE};
 pub(crate) use cinematics::warm_assets as warm_cinematic_assets;
+pub(crate) use overworld::school::SchoolSnapshot;
 
 use std::cell::RefCell;
 use std::cmp::Reverse;
@@ -321,8 +322,20 @@ pub(crate) struct World {
     /// Short-lived, bounded lantern seals from correlated tool receipts.
     overworld_outcomes: overworld::Outcomes,
     graph_garden: overworld::garden::Garden,
+    /// Read-only Sloptomizer evidence, delivered by the turn event path.
+    school: SchoolSnapshot,
+    /// The operator's selected location, independent of the working knight.
+    school_room: Option<overworld::school::Room>,
     graph_destination: bool,
     lists_tally: BTreeMap<String, u32>,
+    /// `/dungeon` called the knight to the Delve's gate: he walks there and
+    /// waits for the party to enter.
+    pub(crate) delve_called: bool,
+    /// The Delve's gate burns: called, or a delve under way.
+    pub(crate) delve_lit: bool,
+    /// Wishes the party holds in the delve under way: each raises a
+    /// standard beside the gate.
+    pub(crate) delve_boons: u8,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -456,6 +469,9 @@ impl World {
             gain_note: String::new(),
             gain_until: 0,
             rewards_path: None,
+            delve_called: false,
+            delve_lit: false,
+            delve_boons: 0,
             hearth: crate::stage::hearth::HearthState::default(),
             hearth_pending_wins: 0,
             outcome_err_streak: 0,
@@ -475,6 +491,8 @@ impl World {
             overworld_deeds: overworld::Deeds::default(),
             overworld_outcomes: overworld::Outcomes::default(),
             graph_garden: overworld::garden::Garden::default(),
+            school: SchoolSnapshot::default(),
+            school_room: None,
             graph_destination: false,
             lists_tally: BTreeMap::new(),
         };
@@ -529,6 +547,11 @@ impl World {
             e if e < 0.58 => Biome::Hill,
             _ => Biome::Peak,
         }
+    }
+
+    /// Where this island's rewards are saved, when it has a file at all.
+    pub(crate) fn rewards_path(&self) -> Option<&std::path::Path> {
+        self.rewards_path.as_deref()
     }
 
     /// Seed a world from the workspace path so each project keeps its island —
@@ -763,6 +786,10 @@ impl World {
         &self.town_name
     }
 
+    pub(crate) fn realm_seed(&self) -> u64 {
+        self.seed
+    }
+
     /// Name repo districts without consulting the filesystem. Names are
     /// sorted; overflow is represented by one eighth "Outlands" district.
     pub(crate) fn enable_districts(&mut self, mut names: Vec<String>) {
@@ -818,11 +845,13 @@ impl World {
     }
 
     pub(crate) fn has_authored_interior(&self) -> bool {
-        interiors::supports(self.target)
+        self.visiting_school()
+            || (world3d::region::stage_for(self.quest().region()).is_none()
+                && interiors::supports(self.target))
     }
 
     pub(crate) fn inside_interior(&self) -> bool {
-        self.interior.is_some()
+        self.interior.is_some() || self.school_room.is_some()
     }
 
     pub(crate) fn interior_building(&self) -> Option<Building> {
@@ -830,6 +859,12 @@ impl World {
     }
 
     pub(crate) fn enter_interior(&mut self) -> bool {
+        if self.visiting_school() {
+            return self.visit_overworld("school-study").is_some();
+        }
+        if world3d::region::stage_for(self.quest().region()).is_some() {
+            return false;
+        }
         if self.avatar == self.dest()
             && self.avatar_vis_settled()
             && interiors::supports(self.target)
@@ -842,6 +877,9 @@ impl World {
     }
 
     pub(crate) fn leave_interior(&mut self) -> bool {
+        if self.school_room.is_some() {
+            return self.visit_overworld("school").is_some();
+        }
         self.interior.take().is_some()
     }
 

@@ -158,11 +158,13 @@ fn context_tool_reports_usage_and_budget() {
         "got: {out}"
     );
     assert!(no_budget.text().contains("No context budget"));
-    // With a budget → reports remaining + percent.
+    // With a threshold → usage against it and the percent, never a countdown:
+    // a shrinking "remaining" read as a hard budget and models rationed work.
     gauge.budget_tokens.store(2000, Ordering::Relaxed);
     let out = tool.call(&serde_json::json!({})).unwrap();
-    assert!(out.contains("766 remaining"), "got: {out}"); // 2000-1234
-    assert!(out.contains("62%"), "got: {out}"); // 1234/2000
+    assert!(out.contains("~1234 tokens in context"), "got: {out}");
+    assert!(out.contains("compact at ~2000 (62%)"), "got: {out}"); // 1234/2000
+    assert!(!out.contains("remaining"), "got: {out}");
 }
 
 struct MetaClub {

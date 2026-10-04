@@ -3,6 +3,9 @@
 //! the panic hook that restores the host terminal. Split out of main.rs.
 
 use crate::*;
+use ratatui::crossterm::event::{
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
 
 thread_local! {
     /// A panic inside a deliberately caught background boundary must not tear
@@ -60,16 +63,45 @@ pub(crate) fn write_enter_sequences<W: std::io::Write>(
             EnterAlternateScreen,
             EnableMouseCapture,
             EnableBracketedPaste,
-            EnableFocusChange
+            EnableFocusChange,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
         )
     } else {
         execute!(
             w,
             EnterAlternateScreen,
             EnableBracketedPaste,
-            EnableFocusChange
+            EnableFocusChange,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
         )
     }
+}
+
+/// Replace our one keyboard-stack entry when the game acquires/releases input.
+/// Ordinary composer text keeps the terminal's native layout/IME processing.
+/// Alternate keycodes preserve shifted text buffered across Esc and give the
+/// game uppercase WASD when crossterm consumes the Shift modifier.
+pub(crate) fn write_game_keyboard_mode<W: std::io::Write>(
+    w: &mut W,
+    active: bool,
+) -> std::io::Result<()> {
+    let mut flags = KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        | KeyboardEnhancementFlags::REPORT_EVENT_TYPES;
+    if active {
+        flags |= KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+            | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS;
+    }
+    execute!(
+        w,
+        PopKeyboardEnhancementFlags,
+        PushKeyboardEnhancementFlags(flags)
+    )
 }
 
 /// Disable focus, paste, and mouse reporting *then* leave the alt-screen — the
@@ -77,6 +109,7 @@ pub(crate) fn write_enter_sequences<W: std::io::Write>(
 pub(crate) fn write_restore_sequences<W: std::io::Write>(w: &mut W) -> std::io::Result<()> {
     execute!(
         w,
+        PopKeyboardEnhancementFlags,
         DisableFocusChange,
         DisableBracketedPaste,
         DisableMouseCapture,

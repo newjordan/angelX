@@ -1297,6 +1297,10 @@ fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
             Duration::from_secs(DEFAULT_STREAM_FIRST_TOKEN_SECS)
         );
         assert_eq!(hard, Duration::from_secs(DEFAULT_STREAM_HARD_SECS));
+        assert!(
+            hard.is_zero(),
+            "a live model stream has no wall clock unless the operator sets one"
+        );
         assert_eq!(
             tool_silence,
             Duration::from_secs(DEFAULT_STREAM_TOOL_SILENCE_SECS)

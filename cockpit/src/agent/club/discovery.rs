@@ -593,7 +593,10 @@ pub(crate) const META_REASONING_LEVELS: &[&str] = &["minimal", "low", "medium", 
 /// `ANGEL_META_REASONING_EFFORT` picks the effort (unset, the calibrated one) and
 /// `ANGEL_META_REASONING_SUMMARY` the summary level (`detailed` by default, so
 /// the panel shows more than one sentence); `ANGEL_META_API=chat` keeps the
-/// Chat Completions route.
+/// Chat Completions route. Muse gets its own encrypted reasoning back every hop
+/// (`ANGEL_META_REPLAY=0` stops it): without it each hop thinks from scratch
+/// and the cached prefix breaks where the reasoning was. Every request carries a
+/// `prompt_cache_key`, which Meta needs before it caches anything.
 pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     if std::env::var("ANGEL_META_API").is_ok_and(|api| api.trim().eq_ignore_ascii_case("chat")) {
         return optional_sota_http_club(
@@ -639,6 +642,8 @@ pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<At
             .filter(|level| ["auto", "concise", "detailed"].contains(&level.as_str()))
             .unwrap_or_else(|| "detailed".to_string()),
     )
+    .with_reasoning_replay(crate::agent::harness::env_flag("ANGEL_META_REPLAY", true))
+    .with_prompt_cache_key()
     .sota_tuned();
     Some((
         "meta".to_string(),

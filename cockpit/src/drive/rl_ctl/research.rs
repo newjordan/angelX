@@ -11,6 +11,7 @@ pub(super) struct ResearchState {
     active: Option<ResearchRun>,
     /// Loop verdicts folded into the Sloptomizer (see `observe_loop_verdict`).
     loop_observations: Arc<Mutex<LoopObservations>>,
+    notified_run: Option<String>,
 }
 
 #[derive(Default)]
@@ -135,12 +136,50 @@ pub(super) fn observe_campaign_round(
         "receipt_sha256": crate::knowledge::cut::sha256_hex(receipts.as_bytes()),
         "evidence_sha256": report.candidate_prompt_sha256});
     let scope = learning_scope(workspace, route, &case.task, Some(case.verify.as_str()));
-    bridge::transform(
+    teach(
         &scope,
-        json!({"action":"observe","task":case.task,"observation":observation}),
+        &super::research_live::scope(workspace, &case.task, Some(&case.verify)),
+        &json!(route),
+        observation,
         cancel,
     )
     .map(|_| ())
+}
+
+/// One measured result updates existing fitness learning and the shared
+/// relationship memory. Context failure is reported without erasing a reward
+/// already learned or withholding the experiment's result.
+fn teach(
+    scope: &Path,
+    relationships: &Path,
+    route: &Value,
+    observation: Value,
+    cancel: &AtomicBool,
+) -> Result<Value, String> {
+    let task = observation["task"].as_str().unwrap_or_default();
+    let event = json!({
+        "id": format!("experiment:{}", observation["id"].as_str().unwrap_or_default()),
+        "check": crate::knowledge::cut::sha256_hex(json!(["objective-verifier", task]).to_string().as_bytes()),
+        "receipt": observation["receipt_sha256"], "source_sha256": observation["source_sha256"],
+        "tool": observation["approach"], "route": route.to_string(),
+        "hypothesis": observation["idea"].as_str().unwrap_or_default().chars().take(240).collect::<String>(),
+        "verdict": if observation["passed"] == true { "passed" } else { "failed" },
+        "basis": "measured-experiment", "paired_delta": observation["paired_delta"],
+    });
+    let mut response = bridge::transform(
+        scope,
+        json!({"action":"observe","task":task,"observation":observation}),
+        cancel,
+    )?;
+    match bridge::transform(
+        relationships,
+        json!({"action":"relate","events":[event]}),
+        cancel,
+    ) {
+        Ok(result) => response["relations_updated"] = result["updated"].clone(),
+        Err(error) => response["relations_error"] = json!(error),
+    }
+    Ok(response)
 }
 
 fn text_arg<'a>(args: &'a Value, key: &str, fallback: &'a str) -> Result<&'a str, String> {
@@ -197,6 +236,43 @@ fn persist(dir: &Path, record: &Value) -> Result<(), String> {
 }
 
 impl RlState {
+    /// Deliver a settled experiment to the current turn once. Polling this
+    /// reads in-memory scalars; the model need not burn tool calls waiting.
+    pub(crate) fn take_research_notice(&mut self, workspace: &Path) -> Option<String> {
+        let run = self.research.active.as_ref()?;
+        if !run.done.load(Ordering::Acquire) {
+            return None;
+        }
+        let record = run.record.lock().unwrap_or_else(|e| e.into_inner());
+        let id = record["run_id"].as_str()?;
+        if self.research.notified_run.as_deref() == Some(id) {
+            return None;
+        }
+        self.research.notified_run = Some(id.to_string());
+        let routes = d2467_research::research(&record);
+        if routes.is_empty() {
+            return None;
+        }
+        let evidence = json!({"run":id,"status":record["status"],
+            "measurements":record["measurements"],"learning_error":record["learning_error"]})
+        .to_string();
+        let raises = routes
+            .into_iter()
+            .map(|route| book::Raise::new(route, Some(evidence.clone())))
+            .collect::<Vec<_>>();
+        Some(format!(
+            "⚠{}\n{}",
+            book::warpath(workspace, &raises),
+            evidence
+        ))
+    }
+    /// The live observer and explicit experiments use one objective context.
+    pub(crate) fn research_objective(&self, fallback: &str) -> (String, Option<String>) {
+        self.loop_context.as_ref().map_or_else(
+            || (fallback.to_string(), None),
+            |context| (context.task.clone(), context.verify.clone()),
+        )
+    }
     /// A loop_research run is in flight.
     /// A verified /loop iteration is an observation for the Sloptomizer: the
     /// direction it named, the acceptance verdict, and the evidence digests,
@@ -228,12 +304,20 @@ impl RlState {
             "paired_delta": null, "source_sha256": receipt.workspace_sha256,
             "receipt_sha256": receipt.manifest_sha256, "evidence_sha256": receipt.manifest_sha256,
             "loop_id": context.loop_id});
-        let request = json!({"action":"observe","task":context.task,"observation":observation});
+        let relationships =
+            super::research_live::scope(workspace, &context.task, context.verify.as_deref());
+        let route = json!(context.club.route_identity());
         let tally = Arc::clone(&self.research.loop_observations);
         std::thread::Builder::new()
             .name("angel-loop-observe".into())
             .spawn(move || {
-                let outcome = bridge::transform(&scope, request, &AtomicBool::new(false));
+                let outcome = teach(
+                    &scope,
+                    &relationships,
+                    &route,
+                    observation,
+                    &AtomicBool::new(false),
+                );
                 let mut tally = tally.lock().unwrap_or_else(|e| e.into_inner());
                 match outcome {
                     Ok(_) => tally.admitted += 1,
@@ -263,13 +347,27 @@ impl RlState {
             "options" => Ok(json!({
                 "available":self.loop_enabled(), "engine":"sloptomizer", "experimental":true,
                 "methods":["pareto","bandit","memory"],
-                "actions":["options","suggest","run","status","results","stop"],
+                "actions":["options","context","suggest","run","status","results","stop"],
                 // The notes are `⠪⠚` pages; the facts around them are data.
                 "execution":ow_ledgers::RESEARCH_EXECUTION,
                 "learning":ow_ledgers::RESEARCH_LEARNING,
                 "runtime":ow_ledgers::RESEARCH_RUNTIME,
                 "related":["rl_campaign","consult_model(method=deli, club=self)","spawn(formation=moa)","continual_harness"]
             }).to_string()),
+            "context" => {
+                let fallback = self.loop_context.as_ref().map(|c| c.task.as_str()).unwrap_or("");
+                let task = text_arg(args, "task", fallback)?;
+                if task.is_empty() { return Err("context needs task outside an active loop".into()); }
+                let verify = match args.get("verify") {
+                    None => self.loop_context.as_ref().and_then(|c| c.verify.as_deref()),
+                    Some(Value::Null) => None,
+                    Some(value) => Some(value.as_str().filter(|s| !s.trim().is_empty())
+                        .ok_or("verify must be a nonempty command or null")?),
+                };
+                let advice = super::research_live::context(workspace, task, verify, cancel)?;
+                let cue = book::d12467_sloptomizer::context_turn(workspace, &advice);
+                Ok(json!({"advice":book::d12467_sloptomizer::data_value(&advice),"context":cue}).to_string())
+            }
             "status" => Ok(routed(workspace, self.research.status()).to_string()),
             "stop" => Ok(json!({"stop_requested":self.research.stop(),"research":routed(workspace, self.research.status())}).to_string()),
             "results" => {
@@ -300,7 +398,14 @@ impl RlState {
                             text_arg(row,"approach","direct")?;
                         }
                     }
-                    return Ok(routed_advice(bridge::transform(&scope, request, cancel)?).to_string());
+                    let mut result = bridge::transform(&scope, request, cancel)?;
+                    // Cross-model relationships are contextual evidence, kept
+                    // distinct from the route's measured fitness statistics.
+                    match super::research_live::context(workspace, &task, verify.as_deref(), cancel) {
+                        Ok(relations) => result["advice"]["relations"] = book::d12467_sloptomizer::data_value(&relations),
+                        Err(error) => result["advice"]["relations_error"] = json!(error),
+                    }
+                    return Ok(routed_advice(result).to_string());
                 }
                 let idea = text_arg(args,"idea", "")?.to_owned();
                 if idea.trim().is_empty() { return Err(d45_iteration::RUN_NEEDS_IDEA.into()); }
@@ -587,9 +692,11 @@ fn run(
                     "idea":idea,"approach":approach,"task":task,"passed":passed,"paired_delta":paired_delta,
                     "source_sha256":source_sha,"receipt_sha256":result.result_sha256,
                     "evidence_sha256":result.evidence.as_ref().unwrap().manifest_sha256(),"loop_id":launch["loop_id"]});
-                updates.push(bridge::transform(
+                updates.push(teach(
                     scope,
-                    json!({"action":"observe","task":task,"observation":observation}),
+                    &super::research_live::scope(workspace, task, launch["verify"].as_str()),
+                    &launch["route"],
+                    observation,
                     cancel,
                 )?);
             }

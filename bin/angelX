@@ -334,9 +334,6 @@ fi
 [ "$LAUNCH_YOLO" = 0 ] || export ANGEL_YOLO=1
 if [ "$LAUNCH_COMP" = 1 ]; then export ANGEL_COMP_MODE=1 ANGEL_TURBO=1; fi
 
-export ANGEL_TOOL_IDLE_FLOOR_SECS="${ANGEL_TOOL_IDLE_FLOOR_SECS:-120}"
-export ANGEL_TOOL_HARD_TIMEOUT="${ANGEL_TOOL_HARD_TIMEOUT:-600}"
-
 # Apply the user's optional provider allowlist before any binary is launched, even
 # when ANGEL_NO_BUILD selects an older image without the Rust registration gate.
 # shellcheck source=../scripts/check/angel-club-policy.sh

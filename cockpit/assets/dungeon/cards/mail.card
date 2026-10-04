@@ -1,0 +1,18 @@
+name   Chain Mail
+kind   hold
+rarity common
+text   Rings of iron. Each piece turns aside part of every hit.
+drop   8
+chest  3
+armor  1
+art
+..hh....hh..
+.hiih..hiih.
+.hJhJhhJhJh.
+.JhJhJhJhJh.
+..hJhJhJhJ..
+..JhJhJhJh..
+..hJhJhJhJ..
+..JhJhJhJh..
+..hJhJhJhJ..
+..JJJJJJJJ..

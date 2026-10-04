@@ -95,6 +95,10 @@ fn expired_when_exp_past_or_unreadable() {
 }
 
 pub(super) fn club() -> CodexClub {
+    club_for("test-openai-model")
+}
+
+fn club_for(model: &str) -> CodexClub {
     let auth = ChatGptAuth {
         access_token: "AT".into(),
         refresh_token: "RT".into(),
@@ -102,7 +106,7 @@ pub(super) fn club() -> CodexClub {
         path: PathBuf::from("/x"),
         disk_snapshot: None,
     };
-    CodexClub::new("openai", "test-openai-model", auth)
+    CodexClub::new("openai", model, auth)
 }
 
 #[test]
@@ -677,7 +681,7 @@ fn codex_stream_stall_knob_defaults_disables_and_falls_back() {
     let _guard = env_lock();
     {
         let _unset = crate::tests::TestEnvGuard::unset(CODEX_STREAM_STALL_ENV);
-        assert_eq!(codex_stream_stall_secs(), 120);
+        assert_eq!(codex_stream_stall_secs(), 0);
     }
     {
         let _off = crate::tests::TestEnvGuard::set(CODEX_STREAM_STALL_ENV, "0");
@@ -685,7 +689,7 @@ fn codex_stream_stall_knob_defaults_disables_and_falls_back() {
     }
     {
         let _invalid = crate::tests::TestEnvGuard::set(CODEX_STREAM_STALL_ENV, "not-secs");
-        assert_eq!(codex_stream_stall_secs(), 120);
+        assert_eq!(codex_stream_stall_secs(), 0);
     }
 }
 
@@ -754,6 +758,57 @@ fn codex_stream_stall_bound_fires_on_a_silent_responses_stream() {
         );
         drop(handle.join());
     }
+}
+
+/// A stream that breaks mid-reply, with commentary streamed and a tool call
+/// open, is an incomplete stream the turn may replay, as on the Chat route.
+/// Labelled a bare "stream read error", it once cost a sol task outright.
+#[test]
+fn a_responses_stream_severed_mid_tool_call_is_a_recoverable_incomplete_stream() {
+    let _guard = env_lock();
+    use std::io::Write;
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let handle = std::thread::spawn(move || {
+        let Ok((mut sock, _)) = listener.accept() else {
+            return;
+        };
+        let _ = read_http_request(&mut sock);
+        let _ = sock.write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n",
+        );
+        let body = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Reading the header.\"}\n\n\
+                    data: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"read_file\"}}\n\n";
+        let _ = write!(sock, "{:x}\r\n{body}\r\n", body.len());
+        // A chunk header that is not hex: the client fails decoding the body.
+        let _ = sock.write_all(b"zz\r\ngarbage\r\n");
+        let _ = sock.flush();
+    });
+    let auth = ChatGptAuth {
+        access_token: fake_jwt(serde_json::json!({ "exp": now_secs() + 3600 })),
+        refresh_token: "RT".into(),
+        account_id: "acct".into(),
+        path: PathBuf::from("/x"),
+        disk_snapshot: None,
+    };
+    let mut club = CodexClub::new("openai", "test-openai-model", auth);
+    club.responses_url_override = Some(format!("http://{addr}"));
+    let err = club
+        .chat_streaming(
+            &[ChatMsg::user("hi")],
+            &[],
+            &AtomicBool::new(false),
+            &mut |_| {},
+        )
+        .expect_err("a severed stream with a tool call open must fail");
+    // The turn loop replays exactly this class (`is_recoverable_stream_error`).
+    assert!(
+        err.starts_with(crate::agent::club::INCOMPLETE_STREAM_ERR),
+        "{err}"
+    );
+    assert!(err.contains("stream read error"), "{err}");
+    drop(handle.join());
 }
 
 /// A stream that keeps sending keep-alive comments and bookkeeping frames
@@ -1614,6 +1669,71 @@ fn responses_native_replay_preserves_wire_items_and_stays_private() {
     );
 }
 
+/// An API-key seat (Muse on Meta's Responses API) gets its own encrypted
+/// reasoning back, and the legend's introductions don't break the match: the
+/// capture is keyed on the history the turn loop holds, not the outbound copy
+/// the legend writes into. Before, the system prompt's introduced ⠽ stamp made
+/// every captured turn miss.
+#[test]
+fn an_api_key_seat_replays_its_reasoning_with_the_legend_on() {
+    use crate::tests::TestEnvGuard;
+    let _guard = env_lock();
+    let _intro = TestEnvGuard::unset("ANGEL_BOOK_INTRO");
+    let route = CodexClub::api_key_seat(
+        "muse-spark-1.3-contributor",
+        "muse-spark-1.3-contributor",
+        "http://127.0.0.1:9/v1/responses",
+        "key",
+        Some("low".into()),
+        vec!["minimal".into(), "low".into()],
+        crate::agent::club::RouteMetadata::default(),
+    )
+    .with_reasoning_replay(true);
+    let read_file = ToolDef {
+        name: "read_file".into(),
+        description: "read".into(),
+        params: serde_json::json!({"type": "object"}),
+    };
+    let (items, calls, prose) = replay_fixture();
+    let mut history = vec![ChatMsg::system("⠽⠙"), ChatMsg::user("inspect")];
+    let replay =
+        ResponseReplay::new(&route.session_id, &history, &calls, prose, items.clone()).unwrap();
+    let mut assistant = ChatMsg::assistant_calls_full(calls, None, Some(prose.into()));
+    assistant.responses_replay = Some(replay);
+    history.push(assistant);
+    history.push(ChatMsg::tool("call-fixture", "found"));
+    let body = route.build_request(&history, std::slice::from_ref(&read_file));
+    assert!(
+        body["instructions"]
+            .as_str()
+            .unwrap()
+            .contains(crate::agent::harness::book::introduction::LEAD),
+        "the legend is on: {body}"
+    );
+    assert_eq!(
+        body["include"],
+        serde_json::json!(["reasoning.encrypted_content"])
+    );
+    let input = body["input"].as_array().unwrap();
+    assert_eq!(&input[1..4], items.as_slice(), "{body}");
+    assert_eq!(input[4]["type"], "function_call_output");
+    // No cache key unless the seat asks for one; Meta's does.
+    assert!(body.get("prompt_cache_key").is_none());
+    let keyed = route.with_prompt_cache_key();
+    let first = keyed.build_request(&history, std::slice::from_ref(&read_file));
+    history.push(ChatMsg::harness("continue"));
+    let next = keyed.build_request(&history, std::slice::from_ref(&read_file));
+    assert!(
+        first["prompt_cache_key"]
+            .as_str()
+            .is_some_and(|key| !key.is_empty())
+    );
+    assert_eq!(
+        first["prompt_cache_key"], next["prompt_cache_key"],
+        "one key per session"
+    );
+}
+
 #[test]
 fn responses_native_replay_invalidates_on_history_or_route_changes() {
     let mut route = club();
@@ -1666,9 +1786,20 @@ fn responses_native_replay_invalidates_on_history_or_route_changes() {
             .to_string()
             .contains("opaque-fixture-state")
     );
-    route.api_key = Some("other-provider-fixture".into());
+    // Another provider's seat never replays this one's capture, even with its
+    // own replay on: a capture is keyed to the seat that made it.
+    let other = CodexClub::api_key_seat(
+        "other-provider",
+        "other-model",
+        "http://127.0.0.1:9/v1/responses",
+        "other-provider-fixture",
+        None,
+        vec!["low".into()],
+        crate::agent::club::RouteMetadata::default(),
+    )
+    .with_reasoning_replay(true);
     assert!(
-        !route
+        !other
             .build_request(&history, &[])
             .to_string()
             .contains("opaque-fixture-state")
@@ -1945,5 +2076,63 @@ fn the_legend_reaches_the_responses_wire() {
         !bare["input"]
             .to_string()
             .contains("fix the first diagnostic before the next edit")
+    );
+}
+
+/// An OpenAI seat stands on Codex's autonomy page (`⡞⠙⠓`) right after its
+/// system block, met once in English; the prefix holds from hop to hop. Muse
+/// (the same seat), a seat without the ledger reader and the control arm send
+/// none.
+#[test]
+fn an_openai_seat_stands_on_its_vendor_autonomy_page() {
+    use crate::agent::harness::book::introduction::LEAD;
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _intro = TestEnvGuard::unset("ANGEL_BOOK_INTRO");
+    let _profile = TestEnvGuard::unset("ANGEL_SEAT_PROFILE");
+    let read_file = crate::agent::club::ToolDef {
+        name: "read_file".into(),
+        description: "read".into(),
+        params: serde_json::json!({"type": "object"}),
+    };
+    let tools = std::slice::from_ref(&read_file);
+    let call = vec![crate::agent::club::ToolCall {
+        id: "a".to_string(),
+        name: "run_tests".to_string(),
+        args: serde_json::json!({}),
+    }];
+    let hop1 = vec![ChatMsg::system("You are angel."), ChatMsg::user("Fix it.")];
+    let mut hop2 = hop1.clone();
+    hop2.push(ChatMsg::assistant_calls(call));
+    hop2.push(ChatMsg::tool("a", "tests: 0 passed, 1 failed\n⠧⠉"));
+
+    let sol = club_for("gpt-6.1-sol");
+    let body = sol.build_request(&hop1, tools);
+    let instructions = body["instructions"].as_str().unwrap();
+    assert_eq!(
+        instructions,
+        format!(
+            "You are angel.\n\n⡞⠙⠓\n\n{LEAD}\n⡞⠙⠓ Do not settle for a partial or \"helpful enough\" solution that does not fully satisfy the user's task to save time, effort or tokens."
+        )
+    );
+    let later = sol.build_request(&hop2, tools);
+    assert_eq!(later["instructions"], body["instructions"]);
+    let input = later["input"].to_string();
+    assert!(input.contains("fix the first diagnostic"), "{input}");
+    assert!(!input.contains(LEAD), "the lead is said once: {input}");
+
+    for (club, tools) in [
+        (club_for("muse-spark-1.3"), tools),
+        (club_for("gpt-6.1-sol"), &[][..]),
+    ] {
+        assert_eq!(
+            club.build_request(&hop1, tools)["instructions"],
+            "You are angel."
+        );
+    }
+    let _off = TestEnvGuard::set("ANGEL_SEAT_PROFILE", "0");
+    assert_eq!(
+        sol.build_request(&hop1, tools)["instructions"],
+        "You are angel."
     );
 }

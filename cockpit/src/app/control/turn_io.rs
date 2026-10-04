@@ -313,6 +313,7 @@ fn stream_event_payload_bytes(event: &TurnEvent) -> usize {
         | TurnEvent::RolloutCaptureError(text) => text.len(),
         TurnEvent::Heartbeat | TurnEvent::SuppressPartial | TurnEvent::SpendMilestone { .. } => 0,
         TurnEvent::SubmissionSlot(slot) => slot.payload_bytes(),
+        TurnEvent::ResearchEvidence(_) => 0,
         TurnEvent::GraphCrop { id, event } => {
             id.0.len()
                 + match event.as_ref() {
@@ -356,7 +357,7 @@ fn stream_event_is_operator_visible(event: &TurnEvent) -> bool {
         | TurnEvent::Reasoning(text)
         | TurnEvent::Notice(text)
         | TurnEvent::RolloutCaptureError(text) => !text.is_empty(),
-        TurnEvent::Heartbeat | TurnEvent::SuppressPartial => false,
+        TurnEvent::Heartbeat | TurnEvent::SuppressPartial | TurnEvent::ResearchEvidence(_) => false,
         TurnEvent::ToolCall { .. }
         | TurnEvent::ToolResult { .. }
         | TurnEvent::GraphCrop { .. }
@@ -594,6 +595,11 @@ impl App {
     /// Also drains live tool-call events so the UI shows activity as it happens.
     pub(crate) fn advance(&mut self) {
         self.advance_launch_input();
+        self.advance_dungeon_guest();
+        self.watch_delve_gate();
+        self.tune_audio();
+        self.watch_reforge();
+        self.advance_joined();
         self.drain_background_process_completions();
         self.flush_pending_atlas_harvest();
         self.poll_shell_status();
@@ -1257,6 +1263,16 @@ impl App {
                         crate::ui::viz::spend_viz::format_input_tokens(input_tokens)
                     ));
                 }
+                TurnEvent::ResearchEvidence(evidence) => {
+                    self.world
+                        .note_school(crate::stage::world_viz::SchoolSnapshot {
+                            active: evidence.active,
+                            observations: evidence.observations,
+                            checks: evidence.checks,
+                            contrasts: evidence.contrasts,
+                            inconclusive: evidence.inconclusive,
+                        });
+                }
                 TurnEvent::SubmissionSlot(slot) => {
                     use crate::agent::harness::SubmissionSlotPhase;
                     let same_flight = self.submission_slot.phase == SubmissionSlotPhase::InFlight
@@ -1616,6 +1632,7 @@ impl App {
     pub(crate) fn set_terminal_focused(&mut self, focused: bool) {
         self.terminal_focused = focused;
         if !focused {
+            self.clear_dungeon_controls();
             self.scryglass_drag = None;
             self.viewer.inspector.drag = None;
         }
@@ -2211,6 +2228,16 @@ impl App {
         {
             return false;
         }
+        // Realm follows an active expedition in 3D without changing the
+        // operator's route. Its camera gets the same controls as Explore.
+        let adventure_camera = self.scryglass.surface
+            == crate::ui::scryglass::StageSurface::WorldMap
+            && self.world.live_adventure_view();
+        let camera_active = adventure_camera
+            || matches!(
+                self.scryglass.controller.route(),
+                crate::ui::scryglass::StageRoute::Explore(_)
+            );
         // The global stop contract wins over stage navigation.
         if matches!(code, KeyCode::Esc) && (self.thinking.is_some() || self.bg_job.is_some()) {
             return false;
@@ -2506,7 +2533,9 @@ impl App {
                 self.enter_world_interior();
                 return true;
             }
-            if self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldFirstPerson {
+            if self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldFirstPerson
+                || adventure_camera
+            {
                 if self.world.interior_building()
                     == Some(crate::stage::world_viz::Building::Scriptorium)
                     && matches!(code, KeyCode::Enter | KeyCode::Char('c'))
@@ -2532,6 +2561,7 @@ impl App {
         }
         if self.input.is_empty()
             && self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldMap
+            && !adventure_camera
         {
             match code {
                 KeyCode::Left | KeyCode::Char('h') => {
@@ -2543,8 +2573,7 @@ impl App {
                     return true;
                 }
                 KeyCode::Enter => {
-                    self.reset_world_yaw();
-                    self.scryglass.toggle_world_route(self.world.destination());
+                    self.toggle_world_camera();
                     return true;
                 }
                 _ => {}
@@ -2561,10 +2590,7 @@ impl App {
                 self.scryglass
                     .navigate(crate::ui::scryglass::StageRoute::Vault);
             }
-            KeyCode::Char('m') => {
-                self.reset_world_yaw();
-                self.scryglass.toggle_world_route(self.world.destination());
-            }
+            KeyCode::Char('m') => self.toggle_world_camera(),
             KeyCode::Char('[') => {
                 self.scryglass.browse(-1, &self.media);
             }
@@ -2576,62 +2602,23 @@ impl App {
             KeyCode::Char('r') if video_active => self.scryglass.restart_video(),
             KeyCode::Left if video_active => self.scryglass.seek_video(-5),
             KeyCode::Right if video_active => self.scryglass.seek_video(5),
-            KeyCode::Char('0') | KeyCode::Char('r')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
-                self.scryglass.follow()
-            }
-            KeyCode::Left | KeyCode::Char('h')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
+            KeyCode::Char('0') | KeyCode::Char('r') if camera_active => self.scryglass.follow(),
+            KeyCode::Left | KeyCode::Char('h') if camera_active => {
                 self.scryglass.adjust_look(-0.17, 0.0)
             }
-            KeyCode::Right | KeyCode::Char('l')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
+            KeyCode::Right | KeyCode::Char('l') if camera_active => {
                 self.scryglass.adjust_look(0.17, 0.0)
             }
-            KeyCode::Up | KeyCode::Char('k')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
+            KeyCode::Up | KeyCode::Char('k') if camera_active => {
                 self.scryglass.adjust_look(0.0, -0.05)
             }
-            KeyCode::Down | KeyCode::Char('j')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
+            KeyCode::Down | KeyCode::Char('j') if camera_active => {
                 self.scryglass.adjust_look(0.0, 0.05)
             }
-            KeyCode::Char('+') | KeyCode::Char('=')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
+            KeyCode::Char('+') | KeyCode::Char('=') if camera_active => {
                 self.scryglass.adjust_fov(-0.05)
             }
-            KeyCode::Char('-')
-                if matches!(
-                    self.scryglass.controller.route(),
-                    crate::ui::scryglass::StageRoute::Explore(_)
-                ) =>
-            {
-                self.scryglass.adjust_fov(0.05)
-            }
+            KeyCode::Char('-') if camera_active => self.scryglass.adjust_fov(0.05),
             _ => return false,
         }
         true
@@ -2745,6 +2732,9 @@ impl App {
             return;
         }
         if self.moa_deck.is_some() && self.moa_deck_key(key.code, key.modifiers) {
+            return;
+        }
+        if self.dungeon_key(key) {
             return;
         }
         if key.code == KeyCode::Esc && self.cancel_tutor_question() {
@@ -3005,6 +2995,9 @@ impl App {
                 sh.send(text.as_bytes());
             }
             return;
+        }
+        if self.dungeon_view_active() {
+            self.collapse_dungeon();
         }
         self.insert_pasted_text(text);
     }
@@ -3319,6 +3312,10 @@ impl App {
             return;
         }
 
+        if self.dungeon_view_active() && !self.dungeon_controls_blocked() {
+            return;
+        }
+
         // The floating Brain Route deck owns the pointer while open. A click
         // outside closes it; wheel motion navigates without changing panes.
         if self.agent_menu.is_some() {
@@ -3368,6 +3365,32 @@ impl App {
             }
             // Not tracking → fall through; `PaneId::Shell` is registered
             // so the selection logic below picks it up.
+        }
+
+        // Stage copying owns a plain/Shift right click before the still
+        // inspector can interpret it as Fit. Ctrl/Alt gestures retain their
+        // previous inspector behavior, and PTY/modal ownership stays above us.
+        if matches!(ev.kind, MouseEventKind::Down(MouseButton::Right))
+            && !ev
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            && matches!(
+                self.scryglass.controller.overlay(),
+                Some(crate::ui::scryglass::StageOverlay::Media { .. })
+            )
+            && self
+                .panes
+                .rect_of(mouse::PaneId::Artifacts)
+                .is_some_and(|rect| mouse::point_in(rect, x, y))
+        {
+            let target = if ev.modifiers.contains(KeyModifiers::SHIFT) {
+                "stage text"
+            } else {
+                "stage"
+            };
+            let receipt = self.copy_response(Some(target));
+            self.system_msg(receipt);
+            return;
         }
 
         if self.still_mouse(ev) {
@@ -3479,6 +3502,25 @@ impl App {
                     .is_some_and(|rect| mouse::point_in(rect, x, y))
                 {
                     self.tool_strip.toggle_ledger();
+                    return;
+                }
+                // Called to the Delve, a click on the mini-viz goes through its gate.
+                if self.world.delve_called
+                    && self.dungeon.intro.is_none()
+                    && !self.dungeon_view_active()
+                    && self
+                        .panes
+                        .rect_of(mouse::PaneId::Artifacts)
+                        .is_some_and(|rect| mouse::point_in(rect, x, y))
+                {
+                    if self.dungeon.shooter.is_some() || self.delve_at_gate() {
+                        self.open_intro();
+                    } else {
+                        self.messages.push(Message {
+                            role: Role::System,
+                            text: "Your knight is still on the road to the Delve.".into(),
+                        });
+                    }
                     return;
                 }
                 // Scryglass and Formation-deck controls swallow the click before
@@ -3604,10 +3646,21 @@ impl App {
 
     fn scryglass_map_hit(&self, x: u16, y: u16) -> bool {
         self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldMap
+            && !self.world.live_adventure_view()
             && self
                 .panes
                 .rect_of(crate::ui::mouse::PaneId::Artifacts)
                 .is_some_and(|rect| crate::ui::mouse::point_in(rect, x, y))
+    }
+
+    fn toggle_world_camera(&mut self) {
+        self.reset_world_yaw();
+        if self.world.toggle_adventure_map() {
+            self.scryglass.return_to_world();
+            self.scryglass.follow();
+        } else if !self.world.visiting_school() && !self.world.inside_interior() {
+            self.scryglass.toggle_world_route(self.world.destination());
+        }
     }
 
     fn enter_world_interior(&mut self) {
@@ -3772,10 +3825,7 @@ impl App {
             WorldButton::Still(action) => {
                 self.inspect_still(action);
             }
-            WorldButton::ScryglassMap => {
-                self.reset_world_yaw();
-                self.scryglass.toggle_world_route(self.world.destination());
-            }
+            WorldButton::ScryglassMap => self.toggle_world_camera(),
             WorldButton::ScryglassEnter => {
                 self.enter_world_interior();
             }
@@ -3795,7 +3845,12 @@ impl App {
             WorldButton::ScryglassAskTutor => self.draft_current_lesson_for_tutor(),
             WorldButton::ScryglassCopySource => self.copy_current_lesson_source(),
             WorldButton::ScryglassFollow => {
-                if self.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Realm {
+                if self.world.live_adventure_view() {
+                    self.reset_world_yaw();
+                    self.scryglass.follow();
+                } else if self.scryglass.controller.route()
+                    == crate::ui::scryglass::StageRoute::Realm
+                {
                     if self.world.overworld_view_label().is_some() {
                         self.world.follow_overworld();
                     } else {

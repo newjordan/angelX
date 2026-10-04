@@ -25,6 +25,7 @@ from autoresearch.gepa.select import select_next
 from orchestrator.micro_llm.core import Feedback, MicroLearner, RolloutExample
 from orchestrator.self_improvement.bandits import ucb1_scores
 from orchestrator.self_improvement.stats import SourceStats
+import relations
 
 SCHEMA = "angel.sloptomizer-options/v1"
 
@@ -39,6 +40,12 @@ def execute(request):
     })
     if not isinstance(state, dict) or state.get("schema") != SCHEMA:
         raise ValueError("unsupported research state; original state was preserved")
+    # The live path never constructs/trains the MicroLearner or changes fitness.
+    # It shares Sloptomizer storage and advice, with provenance retained across
+    # model changes. Only measured experiment observations below train rewards.
+    if request.get("action") in ("relate", "context"):
+        changed, signals = relations.apply(state, request.get("events", []))
+        return {"state": state, "advice": relations.advice(state, signals), "changed": changed}
     population = Population(Path("unused-stateless-population"))
     # Population.load silently skips broken JSONL. Rust supplies one validated
     # JSON state instead. Keep original fitness/selection without re-adding the

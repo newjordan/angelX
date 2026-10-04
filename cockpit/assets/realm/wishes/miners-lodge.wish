@@ -1,0 +1,36 @@
+# A wish from the realm's own catalog. Spoils from the delve pay for it.
+name   Miners' Lodge
+words  a timber lodge by the mines with an ore cart at the door
+near   mines
+price  ore 30, gem 6, gold 450
+art
+...................kkkk
+...................kuUk
+...................kUUk
+...................kUuk
+...................kuUk
+...................kUUk
+kkkkkkkkkkkkkkkkkkkUUuUkkkkk
+kRRRrRRRrRRRrRrrprrUuUUrpppk
+kRRrrrrrrrrrrrpppppuUUuppIIk
+kRRRRRrRRRrRRRprrrpUUuUrrpIk
+kRrrrrprrrprrrprrrprrrprrpIk
+krrppppppppppppppppppppppIIk
+kRRrprrrprrrprrrprrrprrrpppk
+kRRrprrrprrrprrrprrrprrrpppk
+krrppppppphhpppphhpppppppIIk
+kRrrrrprrrprhhhhrrprrrprrpIk
+kRrrrrprrrprhhhhrrprrrprrpIk
+kIIIIIIIIIhhIIIIhhIIIIIIIIIk
+.kbIZBIIZBIIZBIIZBIIZBIbZBk
+.kBpbrppbrppbrppbrppbrpBbrk
+.kpbbbbpbrpbbbbbbrppbrppbrk
+.kpbssbpbrbbnnnnbbppbrppbrUu
+.kpbssbpbrbnKKKKKbppbrppuUuzUu
+.kBbbbbpbrbnKKKKKbpBbrprrrrrrrr
+.kBpbrppbrbnKKKKKbpBbrpBBBBBBBB
+.kBpbrppbrbnKKKKKbpBbrpBBBBBBBB
+.kppbrppbrbnKKKKKbppbrBBBBBBBBB
+.kppbrppbrbnKKKKKbppbrBpggk.gg
+.kppbrppbrbnKKKKKbppbrBpggk.gg
+.kkkkkkkkkkkkkkkkkkkkkkkkkk

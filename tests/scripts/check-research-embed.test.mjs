@@ -34,6 +34,7 @@ function embedFixture({
   fixtureRoots.add(root)
   write(root, `cockpit/research/sloptomizer/${REL}`, body)
   write(root, 'cockpit/research/sloptomizer/runner.py', 'runner\n')
+  write(root, 'cockpit/research/sloptomizer/relations.py', 'relations\n')
   write(
     root,
     'cockpit/research/sloptomizer/UPSTREAM.json',
@@ -50,6 +51,7 @@ function embedFixture({
       [
         'const FILES: &[(&str, &[u8])] = &[',
         '    ("runner.py", include_bytes!("../../research/sloptomizer/runner.py")),',
+        '    ("relations.py", include_bytes!("../../research/sloptomizer/relations.py")),',
         '    ("UPSTREAM.json", include_bytes!("../../research/sloptomizer/UPSTREAM.json")),',
         `    ("${REL}", include_bytes!("../../research/sloptomizer/${REL}")),`,
         '];',

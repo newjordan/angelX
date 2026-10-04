@@ -211,9 +211,8 @@ pub(crate) fn git_timeout() -> Option<Duration> {
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
     {
-        Some(0) => None,
+        Some(0) | None => None,
         Some(secs) => Some(Duration::from_secs(secs)),
-        None => Some(Duration::from_secs(120)),
     }
 }
 

@@ -203,7 +203,10 @@ pub(crate) fn is_cell(ch: char) -> bool {
 /// leads with the warning sign.
 pub(crate) fn is_warpath_line(line: &str) -> bool {
     let line = line.trim();
-    let line = line.strip_prefix(super::l_loops::WARNING).unwrap_or(line);
+    let line = line
+        .strip_prefix(super::l_loops::WARNING)
+        .or_else(|| line.strip_prefix(super::d12467_sloptomizer::ATTENTION))
+        .unwrap_or(line);
     !line.is_empty() && line.chars().all(is_cell)
 }
 

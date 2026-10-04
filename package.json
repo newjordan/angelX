@@ -1,6 +1,6 @@
 {
   "name": "angelX",
-  "version": "0.1.9",
+  "version": "0.1.92",
   "description": "Terminal-first research and coding cockpit with verifiable agent workflows.",
   "private": true,
   "type": "module",

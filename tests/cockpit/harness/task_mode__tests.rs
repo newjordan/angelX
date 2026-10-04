@@ -736,8 +736,6 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
     apply_task_runtime_defaults("");
     assert_eq!(std::env::var("ANGEL_MAX_HOPS").unwrap(), "0");
     assert_eq!(std::env::var("ANGEL_TURN_DEADLINE_SECS").unwrap(), "0");
-    // Tool ceilings follow the turn deadline: a benchmark-length verifier
-    // must not die to the interactive 120 s default.
     assert!(std::env::var_os("ANGEL_TOOL_TIMEOUT").is_none());
     assert!(std::env::var_os("ANGEL_TOOL_HARD_TIMEOUT").is_none());
     assert!(std::env::var_os("ANGEL_TOOL_IDLE_FLOOR_SECS").is_none());
@@ -778,13 +776,8 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
     unsafe { std::env::set_var("ANGEL_TOOL_TIMEOUT", "300") };
     apply_task_runtime_defaults("");
     assert_eq!(std::env::var("ANGEL_TOOL_TIMEOUT").unwrap(), "300");
-    assert_eq!(std::env::var("ANGEL_TOOL_HARD_TIMEOUT").unwrap(), "3600");
+    assert!(std::env::var_os("ANGEL_TOOL_HARD_TIMEOUT").is_none());
     assert!(std::env::var_os("ANGEL_TOOL_IDLE_FLOOR_SECS").is_none());
-    // An explicit operator floor remains opt-in and is preserved.
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_TOOL_IDLE_FLOOR_SECS", "45") };
-    apply_task_runtime_defaults("");
-    assert_eq!(std::env::var("ANGEL_TOOL_IDLE_FLOOR_SECS").unwrap(), "45");
 }
 
 #[test]

@@ -110,8 +110,17 @@ still need an execution surface that can remain active for the full run.
 
 ## BUG-0002 — the new hang guards are inert under `ANGEL_YOLO=1`
 
-Status: fixed in the working tree on 2026-09-21, not committed. The mixed dirty
-package (grok, website, intro) is still the other seat's; do not push it as-is.
+Status: historical. On 2026-09-21 the working tree stopped YOLO from bypassing
+the hang ceilings. On 2026-10-01 the operator removed those ceilings: the busy
+hard timeout, the idle-floor kill, the task-mode 120s call budget, the
+interactive `sleep` > 10s rejection, and the launcher exports. A runnable or
+silent research process is not killed unless the operator sets a positive
+`ANGEL_TOOL_TIMEOUT`, `ANGEL_TOOL_IDLE_SECS`, `ANGEL_TASK_CALL_TIMEOUT_SECS`,
+or `ANGEL_GIT_TIMEOUT`. The record below is what the 2026-09-21 change did.
+It is not an instruction to put the kills back.
+
+The mixed dirty package (grok, website, intro) is still the other seat's; do
+not push it as-is.
 
 The package that sat uncommitted on top of `36adc72` changes `tool_hard_timeout()`
 (default 900 s) and `tool_idle_floor()` (default 120 s) in

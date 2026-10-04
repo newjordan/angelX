@@ -107,6 +107,7 @@ impl World {
     /// until `RELAXED_REFRESH_TICKS` world ticks have passed. The ride keeps
     /// moving at a low cadence while the agent lane keeps the cycles, and
     /// catches up to full motion the moment the turn ends.
+    #[cfg(test)]
     pub(crate) fn scryglass_frame_paced(
         &self,
         cells_w: usize,
@@ -123,7 +124,7 @@ impl World {
             yaw_offset,
             pitch,
             fov,
-            crate::ui::viz::lifecycle_viz::MotionMode::Off,
+            crate::ui::viz::lifecycle_viz::MotionMode::Full,
         )
     }
 
@@ -137,7 +138,7 @@ impl World {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn scryglass_frame_with_motion(
+    pub(crate) fn scryglass_frame_with_motion(
         &self,
         cells_w: usize,
         cells_h: usize,
@@ -157,8 +158,12 @@ impl World {
         let pitch = pitch.clamp(-0.30, 0.30);
         let fov = fov.clamp(0.70, 1.40);
         let ambient = self.ambient_interior_visible();
+        let expedition = self.expedition_playback(motion);
+        let region_stage = world3d::region::stage_for(self.quest().region());
         let world_key = if ambient {
             self.ambient_scene_sequence(motion)
+        } else if region_stage.is_some() {
+            world3d::expedition::frame_key(self.quest(), expedition)
         } else {
             self.cinematic_key()
         };
@@ -172,10 +177,17 @@ impl World {
         if let Some(cached) = self.ride_cache.borrow().as_ref() {
             let same_view = cached.view_key == view_key;
             let fresh = cached.world_key == world_key && same_view;
+            let hold = if region_stage.is_some() {
+                // Five rendered frames per second while the agent works;
+                // smooth camera travel without turning the toy into a busy loop.
+                world3d::expedition::FRAME_TICKS * 2
+            } else {
+                RELAXED_REFRESH_TICKS
+            };
             let good_enough = !ambient
                 && relaxed
                 && same_view
-                && self.tick.saturating_sub(cached.rendered_at) < RELAXED_REFRESH_TICKS;
+                && self.tick.saturating_sub(cached.rendered_at) < hold;
             if fresh || good_enough {
                 return Some(std::sync::Arc::clone(&cached.image));
             }
@@ -192,35 +204,35 @@ impl World {
                 dot_h,
                 image::imageops::FilterType::Nearest,
             )
+        } else if let Some(stage) = region_stage {
+            world3d::expedition::render_controls(
+                stage,
+                self.quest(),
+                yaw_offset,
+                pitch,
+                fov,
+                expedition,
+                (dot_w, dot_h),
+            )
         } else {
             let (map, mut view) = self.travel_scene();
             view.heading_rad += yaw_offset;
             view.look_yaw = yaw_offset;
             view.fov_rad = fov;
-            // `bob` is the renderer's intentional horizon offset. Reuse it for the
-            // human camera pitch; a settled world has no canter motion.
             view.bob = if self.riding() { view.bob } else { 0.0 } + pitch / 0.03;
-            world3d::render_region_frame(
-                self.quest(),
-                &map,
-                &view,
-                yaw_offset,
-                self.tick / world3d::region::WISP_TICKS,
-                dot_w,
-                dot_h,
-            )
+            world3d::render_ride_frame(&map, &view, dot_w, dot_h)
         };
         // Outdoor first-person: stamp the current mounted animation frame at
         // the bottom of the plate. Interiors stay on foot — no saddle overlay
         // — while Dotmax retains its established mounted overlay.
-        if self.interior.is_none() && !ambient {
+        if self.interior.is_none() && !ambient && region_stage.is_none() {
             composite_rider_overlay(&mut frame, cinematics::rider_frame_key(self));
         }
         let image = std::sync::Arc::new(frame_to_braille_graded(
             &frame,
             cells_w,
             cells_h,
-            ambient || self.settled_vista_grade(),
+            ambient || region_stage.is_some() || self.settled_vista_grade(),
         ));
         *self.ride_cache.borrow_mut() = Some(RideCacheEntry {
             world_key,

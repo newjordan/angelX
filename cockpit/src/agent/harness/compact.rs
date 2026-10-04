@@ -1888,9 +1888,11 @@ fn compaction_replacement(
     handoff_snapshot: Option<String>,
     turn_context_anchor: Option<ChatMsg>,
     recovery_context: Vec<crate::agent::club::RecoveryContextRef>,
+    book_memory: Option<Arc<book::continuity::Memory>>,
 ) -> Vec<ChatMsg> {
     let mut summary = ChatMsg::harness(note);
     summary.recovery_context = recovery_context;
+    summary.book_memory = book_memory;
     let mut replacement = vec![summary];
     if let Some(plan) = plan_snapshot {
         replacement.push(ChatMsg::assistant(plan));
@@ -2016,6 +2018,7 @@ pub(crate) fn maybe_compact(
     // (deposits are best-effort durability, not continuity).
     let n = result.drawers.len();
     let recovery_context = crate::agent::club::recovery_context_refs(&history[sys_end..window_end]);
+    let book_memory = book::continuity::compaction_memory(&history[sys_end..window_end]);
     let Ok(note) = park_compaction_window(&history[sys_end..window_end], &result.inline_note)
     else {
         return false;
@@ -2035,6 +2038,7 @@ pub(crate) fn maybe_compact(
             result.handoff_snapshot,
             turn_context_anchor,
             recovery_context,
+            book_memory,
         ),
     );
     let done = if live && n > 0 {
@@ -2158,6 +2162,7 @@ fn maybe_compact_for_turn_measured(
     };
     let n = result.drawers.len();
     let recovery_context = crate::agent::club::recovery_context_refs(&history[sys_end..window_end]);
+    let book_memory = book::continuity::compaction_memory(&history[sys_end..window_end]);
     let Ok(note) = park_compaction_window(&history[sys_end..window_end], &result.inline_note)
     else {
         return false;
@@ -2177,6 +2182,7 @@ fn maybe_compact_for_turn_measured(
             result.handoff_snapshot,
             turn_context_anchor,
             recovery_context,
+            book_memory,
         ),
     );
     let elapsed_ms = started.elapsed().as_millis();
@@ -2583,6 +2589,7 @@ fn try_splice_bg_compact_measured(
     // A retained worker can have originated before this turn began.
     registry.auxiliary.utility_entered("background_compaction");
     let recovery_context = crate::agent::club::recovery_context_refs(&bg.window);
+    let book_memory = book::continuity::compaction_memory(&bg.window);
     let Ok(note) = park_compaction_window(&bg.window, &result.inline_note) else {
         return;
     };
@@ -2601,6 +2608,7 @@ fn try_splice_bg_compact_measured(
             result.handoff_snapshot,
             turn_context_anchor,
             recovery_context,
+            book_memory,
         ),
     );
     let done = if registry.store.is_live() && n > 0 {

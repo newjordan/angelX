@@ -730,6 +730,9 @@ pub(crate) struct App {
     /// generated island town driven by the agent's real tool traffic
     /// (see `world_viz`). Display-only.
     pub(crate) world: world_viz::World,
+    /// Opt-in local prototype of cooperative world gameplay and game authoring.
+    pub(crate) together: crate::drive::together::Together,
+    pub(crate) dungeon: crate::app::control::DungeonView,
     /// Stamped by each draw pass: the miniworld actually rendered this frame.
     /// An animating world in a hidden pane (artifacts closed, narrow terminal,
     /// a fullscreen overlay) must not hold the event loop on the fast tick —
@@ -924,6 +927,11 @@ impl App {
             session,
             Overwatch::new(),
         );
+        let dungeon_workspace = app.tools.current_workspace();
+        if let Err(error) = app.dungeon.restore(&dungeon_workspace) {
+            app.dungeon.notice = format!("Could not restore delve: {error}");
+            tracing::warn!(%error, "could not restore dungeon");
+        }
         // Open on the overworld map (or the ride, when the map is off).
         app.scryglass = crate::ui::scryglass::Scryglass::for_session(app.world.destination());
         // Recall only this project's persisted instruction-bearing state. A
@@ -1309,6 +1317,8 @@ impl App {
             agent_control_chips: None,
             overwatch,
             world,
+            together: crate::drive::together::Together::default(),
+            dungeon: crate::app::control::DungeonView::default(),
             // Earned only when Stage paint runs this frame (draw resets to false).
             // Starting true charged headless / ANGEL_BACKDROP=off sessions for
             // invisible scenery on every advance.
@@ -1545,7 +1555,10 @@ impl App {
     }
 
     pub(crate) fn needs_fast_tick(&self) -> bool {
-        self.thinking.is_some()
+        self.dungeon_wants_fast_tick()
+            // In a friend's delve: keys go out and frames come in every tick.
+            || (self.dungeon.joined.is_some() && self.dungeon_view_active())
+            || self.thinking.is_some()
             // A clipboard read is sub-second in practice; polling it on the fast
             // lane keeps the staged chip from waiting on the 200 ms idle tick.
             || self.clipboard_paste.loading()

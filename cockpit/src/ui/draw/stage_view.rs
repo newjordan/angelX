@@ -438,6 +438,32 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 /// Both sway/bob a couple of cells so they read as dancing *around*, not glued
 /// to a single corner. World overlays stay on subdued dots, not native portraits.
 fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
+    // A running quest leaves the town map for the actual region mesh. A
+    // deliberate /world visit (including the school) keeps its chosen place.
+    if app.world.live_adventure_view() {
+        let (width, height) = world_sample_size(app, area);
+        let yaw = if app.scryglass.follow_agent {
+            app.world_yaw_offset
+        } else {
+            app.scryglass.look_yaw + app.world_yaw_offset
+        };
+        if let Some(Some(world)) =
+            maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldMap, || {
+                app.world.scryglass_frame_with_motion(
+                    width,
+                    height,
+                    app.scenery_relaxed(),
+                    yaw,
+                    app.scryglass.look_pitch,
+                    app.scryglass.fov,
+                    app.visual_motion,
+                )
+            })
+        {
+            paint_world_frame(frame, app, area, &world);
+        }
+        return;
+    }
     if !render_dotmax_interior(frame, app, area)
         && crate::stage::world_viz::overworld::map_enabled()
     {
@@ -451,13 +477,14 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
         };
         if let Some(Some(world)) =
             maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldMap, || {
-                app.world.scryglass_frame_paced(
+                app.world.scryglass_frame_with_motion(
                     width,
                     height,
                     app.scenery_relaxed(),
                     yaw,
                     app.scryglass.look_pitch,
                     app.scryglass.fov,
+                    app.visual_motion,
                 )
             })
         {
@@ -1410,6 +1437,8 @@ fn render_scryglass(
     area: Rect,
     resolved: crate::ui::scryglass::StageSurface,
 ) {
+    // The mini-viz stays the realm while a delve is on: the knight waits at
+    // the Delve's gate, and a click there opens the Delve's menu.
     let active_index = app.scryglass.active_media();
     let live_title = scryglass_live_world_title_allowed();
 
@@ -1570,7 +1599,12 @@ fn render_scryglass(
         let source = media.target();
         let identity = vec![
             Line::from(format!(
-                "{} · {}",
+                "Right-click: copy path · /copy stage{} · {} · {}",
+                if !media.is_visual() && media.source().is_some() {
+                    " · Shift+right-click: text"
+                } else {
+                    ""
+                },
                 media.sigil(),
                 media.label().escape_debug()
             )),
@@ -1617,6 +1651,10 @@ fn render_scryglass(
         // Comp / lean: keep the route chrome, skip lesson wrap, catalog
         // listing, and still/video decode. World map/ride already share
         // maybe_paint_world_scene; this gate avoids entering those bodies.
+    } else if world_pane && app.together.enabled() && active_index.is_none() {
+        app.viewer.clear_still();
+        app.world_pane_visible = false;
+        crate::ui::viz::together_viz::render(frame, &app.together, scene_rect);
     } else if world_pane
         && !app.world.inside_interior()
         && !app.world.quest_owns_pane()
@@ -1987,13 +2025,14 @@ fn render_scryglass(
                 app.scryglass.look_yaw + app.world_yaw_offset
             };
             if let Some(world) = maybe_paint_world_scene(resolved, || {
-                app.world.scryglass_frame_paced(
+                app.world.scryglass_frame_with_motion(
                     width,
                     height,
                     app.scenery_relaxed(),
                     yaw,
                     app.scryglass.look_pitch,
                     app.scryglass.fov,
+                    app.visual_motion,
                 )
             })
             .flatten()
@@ -2019,13 +2058,14 @@ fn render_scryglass(
                     app.scryglass.look_yaw + app.world_yaw_offset
                 };
                 if let Some(world) = maybe_paint_world_scene(resolved, || {
-                    app.world.scryglass_frame_paced(
+                    app.world.scryglass_frame_with_motion(
                         width,
                         height,
                         app.scenery_relaxed(),
                         yaw,
                         app.scryglass.look_pitch,
                         app.scryglass.fov,
+                        app.visual_motion,
                     )
                 })
                 .flatten()
@@ -2039,7 +2079,12 @@ fn render_scryglass(
 
     if footer_h > 0 && (scryglass_scene_accessories_allowed() || active_index.is_some()) {
         let (caption, controls): (Line<'static>, Vec<(&'static str, WorldButton)>) =
-            if matches!(resolved, crate::ui::scryglass::StageSurface::Lesson) {
+            if world_pane && app.together.enabled() && active_index.is_none() {
+                (
+                    Line::from("Together · /together help · /together off returns to realm"),
+                    Vec::new(),
+                )
+            } else if matches!(resolved, crate::ui::scryglass::StageSurface::Lesson) {
                 let lesson_status = if lesson_scroll_max > 0 {
                     "↕ scroll · not model reasoning"
                 } else {
@@ -2173,17 +2218,20 @@ fn render_scryglass(
                 ]);
                 (Line::from(""), controls)
             } else {
-                let exploring = matches!(
-                    resolved,
-                    crate::ui::scryglass::StageSurface::WorldFirstPerson
-                );
+                let exploring = app.world.live_adventure_view()
+                    || matches!(
+                        resolved,
+                        crate::ui::scryglass::StageSurface::WorldFirstPerson
+                    );
                 let view = if exploring { "Map" } else { "Explore" };
                 let mut controls = Vec::new();
                 if !app.world.riding() && app.world.has_authored_interior() {
                     controls.push(("Enter", WorldButton::ScryglassEnter));
                 }
+                if !app.world.visiting_school() {
+                    controls.push((view, WorldButton::ScryglassMap));
+                }
                 controls.extend([
-                    (view, WorldButton::ScryglassMap),
                     ("Library", WorldButton::ScryglassLibrary),
                     ("Vault", WorldButton::ScryglassVault),
                     ("Back", WorldButton::Back),

@@ -22,12 +22,13 @@ impl Tool for GraphTool {
             // Flat on purpose: a root `oneOf` without `properties` reaches some
             // providers (GLM on Z.ai) as a function with no parameters, and
             // the model's arguments arrive as `{}`. The op's own fields are
-            // checked when the request is parsed.
+            // checked when the request is parsed. Every property names its
+            // type: Moonshot's schema check rejects an enum without one.
             params: json!({"type":"object","properties":{
-                "op":{"enum":["begin","point","finish","clear"]},
+                "op":{"type":"string","enum":["begin","point","finish","clear"]},
                 "plot":{"type":"string"},
                 "spec":{"type":"object","properties":{
-                    "title":{"type":"string"},"kind":{"enum":["bar","line","scatter"]},"x_label":{"type":"string"},"y_label":{"type":"string"},"x_min":{"type":"number"},"x_max":{"type":"number"},"y_min":{"type":"number"},"y_max":{"type":"number"},"expected_points":{"type":"integer","minimum":1,"maximum":32}
+                    "title":{"type":"string"},"kind":{"type":"string","enum":["bar","line","scatter"]},"x_label":{"type":"string"},"y_label":{"type":"string"},"x_min":{"type":"number"},"x_max":{"type":"number"},"y_min":{"type":"number"},"y_max":{"type":"number"},"expected_points":{"type":"integer","minimum":1,"maximum":32}
                 },"required":["title","kind","x_label","y_label","x_min","x_max","y_min","y_max","expected_points"],"additionalProperties":false},
                 "generation":{"type":"integer"},
                 "index":{"type":"integer","minimum":0,"maximum":31},

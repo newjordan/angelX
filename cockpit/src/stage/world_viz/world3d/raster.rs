@@ -43,7 +43,8 @@ pub(crate) struct View3 {
 /// How hard the live flame in a scene is burning *this frame*.
 ///
 /// The one piece of per-frame lighting state the renderer takes, and it reaches
-/// exactly one material family: [`mat::FIRE`] and [`mat::EMBER`]. Windows,
+/// exactly one material family: [`mat::FIRE`], [`mat::EMBER`], and their
+/// authored [`mat::TORCH_POOL`] on the floor. Windows,
 /// moonlight and every lit surface outdoors are untouched by construction — a
 /// pane of glass does not gutter and the moon does not blink.
 ///
@@ -74,7 +75,7 @@ impl Firelight {
 
 /// Which emissives are *fire* — the only surfaces [`Firelight`] touches.
 fn flickers(material: u8) -> bool {
-    matches!(material, mat::FIRE | mat::EMBER)
+    matches!(material, mat::FIRE | mat::EMBER | mat::TORCH_POOL)
 }
 
 /// Nothing closer than this survives the clip; small enough that the camera can
@@ -418,7 +419,7 @@ pub(crate) fn composition_mix(
             sky += 1;
         } else if matches!(
             pass.surface[index].mat,
-            mat::GRASS | mat::PATH | mat::WATER | mat::FLOOR
+            mat::GRASS | mat::PATH | mat::WATER | mat::FLOOR | mat::TORCH_POOL
         ) {
             ground += 1;
         } else {
@@ -601,6 +602,9 @@ impl Surface {
         if lantern_lit(self.mat) {
             light *= 1.0 + LANTERN_GAIN * (1.0 - (depth / LANTERN_REACH).clamp(0.0, 1.0)).powi(2);
         }
+        if self.mat == mat::ARMOR {
+            light = light.max(0.70);
+        }
         let lit = mix_rgb(scale_rgb(base, light.min(2.6)), MOON_SILVER, self.rim);
         // The rim resists the haze so a distant skyline keeps its edge.
         let resistance = fog_resistance * (1.0 - 0.62 * self.rim.min(1.0));
@@ -692,6 +696,21 @@ fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
         mat::FLOOR => (course_tint([92, 88, 84], u, v, 0.84), 1.0, false),
         mat::BRASS => ([190, 145, 75], 0.85, false),
         mat::PARCHMENT => ([226, 203, 139], 1.0, false),
+        mat::ROCK => (
+            speckle([65, 81, 105], [42, 55, 79], u, v * 0.35, 1.5),
+            1.0,
+            false,
+        ),
+        mat::ARMOR => ([157, 174, 195], 0.85, false),
+        mat::TORCH_POOL => {
+            let falloff = (1.0 - (u * u + v * v).sqrt() / 1.65).clamp(0.0, 1.0);
+            let stone = course_tint([62, 54, 44], u, v, 0.90);
+            (
+                mix_rgb(stone, [153, 102, 43], falloff * falloff),
+                0.90,
+                true,
+            )
+        }
         _ => ([96, 100, 110], 1.0, false),
     }
 }

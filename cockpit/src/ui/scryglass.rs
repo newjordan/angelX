@@ -27,7 +27,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+mod copy;
 mod document;
+pub(crate) use copy::StageCopyTarget;
 
 const STILL_REVEAL: Duration = Duration::from_secs(8);
 const ARRIVAL_REVEAL: Duration = Duration::from_millis(1_250);

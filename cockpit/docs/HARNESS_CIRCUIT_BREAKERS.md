@@ -43,7 +43,7 @@ export ANGEL_TASK_RECON_MAX_CALLS=24          # Bounded pre-flight exploration c
 | `--max-hops` / `ANGEL_MAX_HOPS` | `0` (unbounded) | **`30`** | Hard ceiling on turns. Real tasks pass in 4–8 turns; 30 gives ample leeway without runaway cost. | `1000` (allows 10-minute spin traps) |
 | `ANGEL_TASK_TREEBEARD` | `1` (on) | **`1`** | Compresses historical tool outputs. Disabling it bloats context and reinforces repetition attractors. | `0` (causes context bloat and loops) |
 | `ANGEL_TOOL_IDLE_SECS` | `0` (off) | **`20`** | Kills commands (like hung test suites or interactive prompts) that stop emitting output. | `0` (waits for full `TOOL_TIMEOUT`) |
-| `ANGEL_TOOL_TIMEOUT` | `120` | **`120`** | Hard wall time per tool invocation (e.g. `cmake --build`). | `0` (unbounded tool hangs) |
+| `ANGEL_TOOL_TIMEOUT` | unset (`0` = unlimited) | **`120`** | Optional wall time per tool invocation (e.g. `cmake --build`). Interactive sessions do not install a default. | |
 | `ANGEL_POST_GREEN_TOOL_BATCHES` | `0` | **`1`** | Immediately finishes the episode once the verifier passes instead of continuing to probe. | `0` (continues burning tokens after solve) |
 
 ---

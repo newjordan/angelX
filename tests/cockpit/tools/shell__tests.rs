@@ -551,14 +551,14 @@ fn the_resolved_shell_reports_whether_it_can_be_trusted() {
 }
 
 #[test]
-fn interactive_shell_rejects_excessive_sleep() {
+fn interactive_shell_allows_long_sleep() {
     let _guard = crate::tests::env_lock();
     let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
     let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
 
-    assert!(task_shell_poll_redirect("sleep 240").is_some());
-    assert!(task_shell_poll_redirect("sleep 240; echo done").is_some());
-    assert!(task_shell_poll_redirect("sleep 15").is_some());
+    assert!(task_shell_poll_redirect("sleep 240").is_none());
+    assert!(task_shell_poll_redirect("sleep 240; echo done").is_none());
+    assert!(task_shell_poll_redirect("sleep 15").is_none());
     assert!(task_shell_poll_redirect("sleep 1").is_none());
     assert!(task_shell_poll_redirect("sleep 2; cargo check").is_none());
 }
@@ -660,28 +660,13 @@ fn interactive_sleep_guard_allows_short_waits_and_literal_data() {
 }
 
 #[test]
-fn interactive_sleep_guard_rejects_before_spawn_and_allows_quoted_output() {
+fn interactive_sleep_guard_allows_long_sleep_and_quoted_output() {
     let _guard = crate::tests::env_lock();
     let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
     let _no_detach = crate::tests::TestEnvGuard::unset("ANGEL_TASK_SHELL_NO_DETACH");
     let dir = scratch("sleep-literal-boundary");
     let tool = ShellTool::in_dir(dir.clone());
-    // A regression must fail promptly, rather than actually sleeping a minute.
-    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let trigger = std::sync::Arc::clone(&cancel);
-    let setter = std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        trigger.store(true, std::sync::atomic::Ordering::Release);
-    });
-    let error = tool
-        .call_with_cancel(
-            &serde_json::json!({"command": "printf spawned > guard-started; sleep 1m"}),
-            Some(cancel.as_ref()),
-        )
-        .unwrap_err();
-    setter.join().unwrap();
-    assert!(error.starts_with("shell command rejected:"), "{error}");
-    assert!(!dir.join("guard-started").exists());
+    assert!(task_shell_poll_redirect("printf spawned > guard-started; sleep 1m").is_none());
 
     let output = tool
         .call(&serde_json::json!({"command": "printf '%s' 'sleep 30'"}))
@@ -813,14 +798,9 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A turn-driven shell call always carries a cancel token, so the sleep guard
-/// used to be skipped entirely (`cancel.is_none()`) — `sleep 240` ran to
-/// completion and a queued steer waited out every second of it (rig B,
-/// overwatch 2026-09-25: "steer couldn't break a running sleep"). The guard
-/// must fire with an unfired token present; only an already-fired cancel
-/// outranks it, so the runner still observes the cancellation.
+/// An already-fired cancel is reported before the command is spawned.
 #[test]
-fn turn_shell_with_unfired_cancel_still_rejects_excessive_sleep() {
+fn turn_shell_fired_cancel_returns_before_spawn() {
     use std::sync::atomic::AtomicBool;
 
     let _guard = crate::tests::env_lock();
@@ -829,23 +809,6 @@ fn turn_shell_with_unfired_cancel_still_rejects_excessive_sleep() {
 
     let dir = scratch("sleep-guard-cancel");
     let tool = ShellTool::in_dir(dir.clone());
-    let unfired = AtomicBool::new(false);
-    let started = std::time::Instant::now();
-    let out = tool
-        .call_with_cancel(&serde_json::json!({"command": "sleep 240"}), Some(&unfired))
-        .unwrap_err();
-    assert!(
-        out.contains("sleep"),
-        "the receipt must name the sleep: {out}"
-    );
-    assert!(
-        started.elapsed().as_secs() < 30,
-        "the guard must reject before the sleep runs, took {:?}",
-        started.elapsed()
-    );
-    // An already-fired cancel outranks the guard: the runner observes the
-    // cancellation instead of a rejection receipt (`sleep 1`, not `sleep 240`,
-    // so a regression here cannot burn two minutes).
     let fired = AtomicBool::new(true);
     // A fired token returns the cancellation error before spawn: exactly the
     // "runner observes the cancel" behavior the old comment promised.

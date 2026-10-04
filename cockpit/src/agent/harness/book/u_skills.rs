@@ -58,7 +58,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "",
             pages: &[
                 "Playbooks: {count} available.",
-                "Call `skill(name)` to load a relevant procedure when needed; if `skill` is not among your tools, `tool_search` finds it.",
+                "Use `tool_search` to discover the `skill` tool and its available names, then `skill(name)` to load a relevant procedure when needed.",
             ],
         },
         Sub {

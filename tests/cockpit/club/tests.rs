@@ -5390,6 +5390,63 @@ fn max_tokens_env_override_beats_sota_default() {
     );
 }
 
+/// GLM-5.3 on z.ai/BigModel sends the API's own output ceiling when no
+/// operator cap is set; a self-hosted GLM stays provider-native and the
+/// per-club knob still wins.
+#[test]
+fn glm_official_route_sends_model_card_output_budget() {
+    let _guard = env_lock();
+    let _global = ScopedEnv::unset("ANGEL_CLUB_MAX_TOKENS");
+    let _per_club = ScopedEnv::unset("ANGEL_GLM_PROBE_MAX_TOKENS");
+    resync_max_tokens_env_from_env();
+    for (base, model) in [
+        ("https://api.z.ai/api/coding/paas/v4", "glm-5.3"),
+        ("https://api.z.ai/api/paas/v4", "glm-5.3-flash"),
+        ("https://open.bigmodel.cn/api/paas/v4", "GLM-5.3"),
+    ] {
+        let club = HttpClub::new("glm-probe", base, model, None).sota_tuned();
+        let body = club
+            .build_body(&[ChatMsg::user("hi")], &[], false)
+            .expect("GLM body");
+        assert_eq!(
+            body["max_tokens"],
+            serde_json::json!(131_072),
+            "{base} {model}"
+        );
+        assert_eq!(
+            club.route_metadata().output_budget,
+            OutputBudgetPolicy::Explicit {
+                tokens: 131_072,
+                source: OutputBudgetSource::ModelCard,
+            },
+            "{base} {model}"
+        );
+    }
+    let local = HttpClub::new("glm-probe", "http://127.0.0.1:9/v1", "glm-5.3", None).sota_tuned();
+    let body = local
+        .build_body(&[ChatMsg::user("hi")], &[], false)
+        .expect("local GLM body");
+    assert!(body.get("max_tokens").is_none(), "self-hosted GLM: {body}");
+    let spoof = HttpClub::new("glm-probe", "https://api.z.ai.example/v1", "glm-5.3", None);
+    let body = spoof
+        .build_body(&[ChatMsg::user("hi")], &[], false)
+        .expect("lookalike host body");
+    assert!(body.get("max_tokens").is_none(), "lookalike host: {body}");
+
+    let _pin = ScopedEnv::set("ANGEL_GLM_PROBE_MAX_TOKENS", "4096");
+    resync_max_tokens_env_from_env();
+    let pinned = HttpClub::new(
+        "glm-probe",
+        "https://api.z.ai/api/coding/paas/v4",
+        "glm-5.3",
+        None,
+    );
+    let body = pinned
+        .build_body(&[ChatMsg::user("hi")], &[], false)
+        .expect("pinned GLM body");
+    assert_eq!(body["max_tokens"], serde_json::json!(4096));
+}
+
 #[test]
 fn longcat_uses_its_exact_output_budget_prefix() {
     let _guard = env_lock();

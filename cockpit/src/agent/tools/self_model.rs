@@ -989,9 +989,9 @@ fn run_self_gate_commands(
 ) -> (GateVerdict, String) {
     // `/self` verification runs off-thread, but a raw `Command::output` can
     // still wedge that worker forever: a noisy Cargo fills one pipe while the
-    // parent waits, and a hung descendant keeps `verify_inflight` set. Keep
-    // the ordinary verifier budget unlimited while inheriting the harness's
-    // concurrent drains, idle-hang ceiling, and process-group cleanup.
+    // parent waits, and a hung descendant keeps `verify_inflight` set. The
+    // verifier budget stays unlimited. The capture still drains both pipes
+    // and reaps the group when the child exits.
     let build = match crate::agent::harness::output_timed_captured(build_cmd, None) {
         Ok(capture) => capture,
         Err(error) => return (evaluate_gate(false, &TestOutcome::default()), error),

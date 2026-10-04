@@ -23,11 +23,14 @@
 //! sizes) are not voice and are not pages; they are [`SEAT`], a plain constant
 //! a driver can read.
 //!
-//! This is a library. No seat is sent these routes, no preamble carries them,
-//! no detector throws them; none is voiced (`book::VOICED`), so the legend
-//! introduces a stamp of them by its signal, and a page by its sentence, when
-//! a seat meets one. The ledger reader decodes them like any chapter. What
-//! rides where is decided later, with a measured A/B.
+//! This is a library, but for one page. An OpenAI seat stands on [`STANDING`],
+//! the autonomy page Codex counters sol's own token budgeting with, right after
+//! its system block (`openai_codex`, `ANGEL_SEAT_PROFILE`). No other seat is
+//! sent these routes, no preamble carries them, no detector throws them; none
+//! is voiced (`book::VOICED`), so the legend introduces a stamp of them by its
+//! signal, and a page by its sentence, when a seat meets one. The ledger reader
+//! decodes them like any chapter. What else rides where is decided later, with
+//! a measured A/B.
 //!
 //! | route | block | pages |
 //! |-------|-------|-------|
@@ -105,6 +108,13 @@ pub(crate) const CONTEXT_REMINDER: Route = Route::new(CONTEXT_CELL, '⠁');
 pub(crate) const CONTEXT_GUIDANCE: Route = Route::new(CONTEXT_CELL, '⠃');
 pub(crate) const CONTEXT_GUIDANCE_MORE: Route = Route::new(CONTEXT_CELL, '⠉');
 pub(crate) const CONTEXT_FALLBACK: Route = Route::new(CONTEXT_CELL, '⠙');
+
+/// The page an OpenAI seat stands on, by its index in ⡞⠙ (`⡞⠙⠓`): "Do not
+/// settle for a partial or "helpful enough" solution that does not fully
+/// satisfy the user's task to save time, effort or tokens." Sol's reasoning
+/// keeps a token budget of its own and wraps up to it; this is the sentence
+/// Codex answers that habit with.
+pub(crate) const STANDING: (Route, usize) = (AUTONOMY, 7);
 
 /// What the Codex catalog fixes about a seat, as plain data. These are knobs,
 /// not voice: no page carries them, and a driver reads them to shape a seat.

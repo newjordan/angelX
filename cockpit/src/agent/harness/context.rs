@@ -794,8 +794,8 @@ impl Tool for ContextTool {
     fn def(&self) -> ToolDef {
         ToolDef {
             name: "get_context_remaining".to_string(),
-            description: "Report the conversation's estimated token usage and how much of the \
-                          configured budget remains. Takes no arguments. ⠯⠉"
+            description: "Report how many tokens the conversation holds against its \
+                          compaction threshold. Takes no arguments. ⠯⠉"
                 .to_string(),
             params: serde_json::json!({ "type": "object", "properties": {} }),
         }
@@ -810,10 +810,13 @@ impl Tool for ContextTool {
                 crate::agent::harness::book::d56_replies::NO_BUDGET.cells()
             ))
         } else {
-            let remaining = budget.saturating_sub(used);
+            // No countdown: a shrinking "remaining" read as a hard budget, and
+            // gpt-6.1-sol at xhigh started rationing its work around it
+            // ("20k tokens left… prioritize a meaningful submission") though
+            // compaction frees the room on its own.
             let pct = (used as f64 / budget as f64 * 100.0).round() as u64;
             Ok(format!(
-                "~{used} of ~{budget} budget tokens used ({pct}%), ~{remaining} remaining.\n{}",
+                "~{used} tokens in context; older turns compact at ~{budget} ({pct}%).\n{}",
                 crate::agent::harness::book::d56_replies::AUTO_COMPACT.cells()
             ))
         }

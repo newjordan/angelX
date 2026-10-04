@@ -202,7 +202,9 @@ impl World {
         // Outdoor first-person always carries the bottom rider overlay. Its
         // observed activity and clamped frame must re-key the frame
         // whether travelling or settled.
-        if self.interior.is_none() {
+        if self.interior.is_none()
+            && super::world3d::region::stage_for(self.quest().region()).is_none()
+        {
             crate::stage::knight_cast::available().hash(&mut hash);
             rider_frame_key(self).hash(&mut hash);
         }

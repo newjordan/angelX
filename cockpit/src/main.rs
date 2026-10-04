@@ -86,6 +86,8 @@ const IDLE_POLL: Duration = Duration::from_millis(200);
 
 /// Frame interval while the loading bar is on screen (~30fps).
 const TICK: Duration = Duration::from_millis(33);
+/// Frame pacing while a delve is on screen.
+const GAME_TICK: Duration = Duration::from_micros(16_667);
 /// The miniworld is ambient scenery, not a reason to repaint the entire
 /// terminal at video cadence. Twelve frames per second keeps travel legible
 /// while leaving input and agent output the priority lane.
@@ -202,6 +204,7 @@ fn apply_terminal_input(
         let mut budget = 256;
         let mut saw_priority = false;
         loop {
+            let game_owned_input = app.dungeon_keyboard_active();
             let priority = matches!(
                 &event,
                 Event::Key(key)
@@ -215,19 +218,29 @@ fn apply_terminal_input(
                             || matches!(key.code, KeyCode::Enter))
             );
             match event {
-                Event::Key(key) if key.kind == KeyEventKind::Press => app.on_key(key),
+                Event::Key(key) if key.kind != KeyEventKind::Release => app.on_key(key),
+                Event::Key(key) => {
+                    app.dungeon_key(key);
+                }
                 Event::Paste(text) => app.on_paste(&text),
                 Event::Mouse(m) => app.on_mouse(m),
                 Event::FocusGained => app.set_terminal_focused(true),
                 Event::FocusLost => app.set_terminal_focused(false),
-                Event::Resize(_, _) => app.viewer.invalidate_still_layout(),
-                _ => {}
+                Event::Resize(_, _) => {
+                    app.viewer.invalidate_still_layout();
+                    app.dungeon.controls_visible = false;
+                    app.clear_dungeon_controls();
+                }
             }
             if priority {
                 saw_priority = true;
             }
             budget -= 1;
-            if app.should_quit || budget == 0 || saw_priority {
+            if app.should_quit
+                || budget == 0
+                || saw_priority
+                || game_owned_input != app.dungeon_keyboard_active()
+            {
                 break;
             }
             let Some(next) = input.next(std::time::Duration::ZERO)? else {
@@ -235,6 +248,15 @@ fn apply_terminal_input(
             };
             event = next;
         }
+    }
+    Ok(())
+}
+
+fn sync_game_keyboard(app: &App, active: &mut bool) -> std::io::Result<()> {
+    let next = app.dungeon_keyboard_active();
+    if *active != next {
+        crate::ui::term::write_game_keyboard_mode(&mut std::io::stdout(), next)?;
+        *active = next;
     }
     Ok(())
 }
@@ -285,6 +307,7 @@ fn run(
     }
     eprintln!("RUN: entering event loop");
     let mut applied_title: Option<String> = None;
+    let mut game_keyboard_active = false;
     let mut frame_timing = frame_timing::FrameTiming::from_env();
     let mut post_draw_us = 0;
     let mut post_draw_finished = frame_timing.as_ref().map(|_| Instant::now());
@@ -296,8 +319,10 @@ fn run(
     let mut backplane_refreshed_at = Instant::now()
         .checked_sub(BACKPLANE_REFRESH)
         .unwrap_or_else(Instant::now);
+    let mut next_frame = Instant::now();
     let loop_result = (|| -> std::io::Result<()> {
         while !app.should_quit {
+            sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let pre_poll_started = post_draw_finished;
             // Keep the PTY sized to the actual pane rect observed on the previous
             // draw. The next draw corrects it again after any terminal resize.
@@ -319,6 +344,11 @@ fn run(
             // Input before paint so cancel/steer never wait on a flood redraw.
             let wait = if !painted_once {
                 std::time::Duration::ZERO
+            } else if app.needs_fast_tick() && app.dungeon_view_active() {
+                // A delve on screen draws at 60: motion is blended between
+                // its 30 ticks a second. Frames are paced to a deadline, so
+                // the time spent drawing comes out of the wait, not on top.
+                next_frame.saturating_duration_since(Instant::now())
             } else if app.needs_fast_tick() {
                 TICK
             } else if app.needs_responsive_tick() {
@@ -334,12 +364,14 @@ fn run(
             let poll_us = poll_started.map_or(0, |start| start.elapsed().as_micros());
             let input_started = frame_timing.as_ref().map(|_| Instant::now());
             apply_terminal_input(&mut app, &terminal_input, next_event)?;
+            sync_game_keyboard(&app, &mut game_keyboard_active)?;
             if app.should_quit {
                 break;
             }
             let input_us = input_started.map_or(0, |start| start.elapsed().as_micros());
             let advance_started = frame_timing.as_ref().map(|_| Instant::now());
             app.advance();
+            sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let advance_us = advance_started.map_or(0, |start| start.elapsed().as_micros());
             let settle_started = frame_timing.as_ref().map(|_| Instant::now());
             if app.take_attention_request() {
@@ -362,20 +394,40 @@ fn run(
             }
             let settle_us = settle_started.map_or(0, |start| start.elapsed().as_micros());
             let draw_started = frame_timing.as_ref().map(|_| Instant::now());
-            terminal.draw(|frame| {
-                let ui_broker = std::sync::Arc::clone(&app.ui_broker);
-                let prepared =
-                    crate::ui::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
-                ui(frame, &mut app);
-                if let Some(prepared) = prepared {
-                    crate::ui::ui_inspect::capture_after_draw(
-                        &app,
-                        frame,
-                        ui_broker.as_ref(),
-                        prepared,
-                    );
+            // The next frame is due one tick after this one was; a loop
+            // that fell a whole frame behind starts again from now rather
+            // than racing to catch up.
+            let now = Instant::now();
+            // A delve on screen draws at its pace, not once per wake-up:
+            // a key applies now, and the next paced frame (a few ms off)
+            // shows it.
+            let paced_wait = painted_once
+                && app.needs_fast_tick()
+                && app.dungeon_view_active()
+                && now < next_frame;
+            if now >= next_frame {
+                next_frame += GAME_TICK;
+                if next_frame <= now {
+                    next_frame = now + GAME_TICK;
                 }
-            })?;
+            }
+            if !paced_wait {
+                terminal.draw(|frame| {
+                    let ui_broker = std::sync::Arc::clone(&app.ui_broker);
+                    let prepared =
+                        crate::ui::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
+                    ui(frame, &mut app);
+                    if let Some(prepared) = prepared {
+                        crate::ui::ui_inspect::capture_after_draw(
+                            &app,
+                            frame,
+                            ui_broker.as_ref(),
+                            prepared,
+                        );
+                    }
+                })?;
+            }
+            sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let post_draw_started =
                 if let (Some(timing), Some(start)) = (&mut frame_timing, draw_started) {
                     Some(timing.completed_with_boundaries(
