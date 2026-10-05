@@ -197,8 +197,8 @@ retained licenses; research inspiration and incorporated code are identified sep
 
 ## Field results
 
-Field proven: 100+ records on public research leaderboards, with first-place
+Field proven: 100+ records on Yukon public research leaderboards, with first-place
 results in kernel optimization, LLM inference and cryptography research, and
 2nd place on the [GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
-leaderboard.
+leaderboard.  https://www.yukon.org/
 
