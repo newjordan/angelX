@@ -6,6 +6,7 @@ work before it reports done, and keeps what it learns about your project.
 
 Field proven in kernel and cryptography work:
 [GPU MODE Cholesky · 2nd](https://www.gpumode.com/leaderboard/776?tab=rankings)
+https://www.yukon.org/
 
 ![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
