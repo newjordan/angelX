@@ -1231,7 +1231,7 @@ fn chunk_transcripts(window: &[ChatMsg], chunk_tokens: usize) -> Vec<String> {
 /// tokens ÷ ceiling), so without a cap a huge window would spawn dozens of threads
 /// and simultaneous HTTP requests at the backend. Mirrors the swarm's bounded
 /// width. Override with `ANGEL_COMPACT_FANOUT`.
-fn fanout_width() -> usize {
+pub(crate) fn fanout_width() -> usize {
     std::env::var("ANGEL_COMPACT_FANOUT")
         .ok()
         .and_then(|s| s.trim().parse::<usize>().ok())

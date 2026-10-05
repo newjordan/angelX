@@ -8,9 +8,20 @@ work before it reports done, and keeps what it learns about your project.
 ![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
 ```sh
-# Requires Linux x86_64 or macOS on Apple silicon, Rust/Cargo, C/C++ tools,
-# Bash, Node.js and Python 3. The first launch builds from source.
-# macOS: xcode-select --install, then Rust from https://rustup.rs
+curl -fsSL https://raw.githubusercontent.com/newjordan/angelX/main/install.sh | sh
+cd your-project && angelX
+```
+
+For Linux x86_64 and arm64 (glibc 2.31 or newer) and macOS on Apple silicon.
+The first launch finds the models you already have and connects one: Ollama,
+LM Studio, llama.cpp or vLLM on this machine, an API key, or a ChatGPT or Grok
+plan login. `angelX setup` changes it later, and `angelX update` installs the
+latest release.
+
+To build from source instead, you need Rust/Cargo, C/C++ tools, Bash, Node.js
+and Python 3 (on macOS: `xcode-select --install`, then Rust from https://rustup.rs):
+
+```sh
 git clone https://github.com/newjordan/angelX.git
 cd angelX
 ./bin/angelX

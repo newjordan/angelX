@@ -55,11 +55,10 @@ pub(crate) fn env_f64(key: &str, default: f64) -> f64 {
 }
 
 /// Transport policy for an [`HttpClub`] — timeouts + retry/backoff, read from the
-/// environment once at construction. The defaults are liveness-bounded: a short
-/// connect timeout fails fast on a host that's actually down, a one-minute read
-/// timeout allows ordinary non-streamed generations, and one bounded retry rides
-/// out a transient reset/503 without turning a silent provider into a many-minute
-/// foreground hang.
+/// environment once at construction. A short connect timeout fails fast on a
+/// host that's actually down, and one bounded retry rides out a transient
+/// reset/503. A streamed model call has no read deadline (operator cancel aborts
+/// it); only a buffered call, which has no cancel channel, keeps the read bound.
 ///
 /// Knobs (all optional): `ANGEL_HTTP_CONNECT_TIMEOUT`, `ANGEL_HTTP_TIMEOUT`
 /// (read), `ANGEL_HTTP_WRITE_TIMEOUT` — seconds; `ANGEL_HTTP_RETRIES` — count;
@@ -73,9 +72,8 @@ pub(crate) fn env_f64(key: &str, default: f64) -> f64 {
 pub(crate) struct HttpPolicy {
     /// TCP connect deadline — fail fast on a dead/unreachable host.
     pub(crate) connect_timeout: Duration,
-    /// Socket read deadline. A buffered call must finish within it; on an SSE
-    /// call it bounds one blocking read. The stream layer may retry timed-out
-    /// reads only for its narrow, bounded local-tool parser recovery window.
+    /// Whole-request bound for a buffered (non-streamed) call, which has no
+    /// cancel channel. Streamed calls never use it. `0` = none.
     pub(crate) read_timeout: Duration,
     /// Write deadline — large multimodal bodies (base64 images) over a slow LAN.
     pub(crate) write_timeout: Duration,
@@ -86,8 +84,8 @@ pub(crate) struct HttpPolicy {
     /// Upper bound on any single backoff / honored `Retry-After`.
     pub(crate) backoff_cap: Duration,
     /// Extra attempts after a transient HTTP 429. Kept separate from transport
-    /// and 5xx retries so a silent socket remains bounded to two read windows
-    /// while a short provider request window can drain without dropping seats.
+    /// and 5xx retries so a short provider request window can drain without
+    /// dropping seats.
     pub(crate) rate_limit_retries: u32,
     /// Base/cap for transient-429 backoff. A wider jittered ladder prevents a
     /// whole swarm from waking in lockstep and immediately colliding again.

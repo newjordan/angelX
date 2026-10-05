@@ -676,88 +676,69 @@ fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     String::from_utf8_lossy(&req).into_owned()
 }
 
+/// A Responses stream that answers HTTP 200, emits one event and then goes
+/// silent is a model thinking: nothing ends it but the operator. Cancel aborts
+/// the blocked read at once (there is no read deadline to wait out).
 #[test]
-fn codex_stream_stall_knob_defaults_disables_and_falls_back() {
+fn a_silent_responses_stream_runs_until_the_operator_cancels() {
     let _guard = env_lock();
-    {
-        let _unset = crate::tests::TestEnvGuard::unset(CODEX_STREAM_STALL_ENV);
-        assert_eq!(codex_stream_stall_secs(), 0);
-    }
-    {
-        let _off = crate::tests::TestEnvGuard::set(CODEX_STREAM_STALL_ENV, "0");
-        assert_eq!(codex_stream_stall_secs(), 0);
-    }
-    {
-        let _invalid = crate::tests::TestEnvGuard::set(CODEX_STREAM_STALL_ENV, "not-secs");
-        assert_eq!(codex_stream_stall_secs(), 0);
-    }
-}
-
-/// A Responses stream that answers HTTP 200, emits one `response.created`
-/// event, and then goes silent must fail at the stall bound instead of
-/// holding the turn until the plain 300 s socket timeout (observed live:
-/// `openai/gpt-6-astra@high` silent for 8+ minutes while steers queued).
-#[test]
-fn codex_stream_stall_bound_fires_on_a_silent_responses_stream() {
-    let _guard = env_lock();
-    {
-        // Must be set before construction: the knob is resolved where the
-        // ureq agent (and its read deadline) is built.
-        let _stall = crate::tests::TestEnvGuard::set(CODEX_STREAM_STALL_ENV, "1");
-        use std::io::Write;
-        use std::net::TcpListener;
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let handle = std::thread::spawn(move || {
-            let Ok((mut sock, _)) = listener.accept() else {
-                return;
-            };
-            let _ = read_http_request(&mut sock);
-            let _ = sock.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            );
-            // One real event, then silence: the 1 s stall bound must fire
-            // long before the plain 300 s read timeout.
-            let _ = sock.write_all(
-                b"event: response.created\n\
-                       data: {\"type\":\"response.created\",\"response\":{}}\n\n",
-            );
-            let _ = sock.flush();
-            std::thread::sleep(std::time::Duration::from_secs(3));
-        });
-        let auth = ChatGptAuth {
-            access_token: fake_jwt(serde_json::json!({ "exp": now_secs() + 3600 })),
-            refresh_token: "RT".into(),
-            account_id: "acct".into(),
-            path: PathBuf::from("/x"),
-            disk_snapshot: None,
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let handle = std::thread::spawn(move || {
+        let Ok((mut sock, _)) = listener.accept() else {
+            return;
         };
-        let mut club = CodexClub::new("openai", "test-openai-model", auth);
-        club.responses_url_override = Some(format!("http://{addr}"));
-        let started = std::time::Instant::now();
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |_| {},
-            )
-            .expect_err("a silent Responses stream must fail, not hang");
-        assert!(err.contains("stream stalled"), "{err}");
-        assert!(err.contains(CODEX_STREAM_STALL_ENV), "{err}");
-        assert!(err.contains("test-openai-model"), "{err}");
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(3),
-            "the stall bound must fire well before the 300 s plain timeout ({:?})",
-            started.elapsed()
+        let _ = read_http_request(&mut sock);
+        let _ = sock.write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
         );
-        let stats = club.shared.usage.lock().unwrap();
-        assert_eq!(
-            stats.recent_attempts.back().expect("one receipt").outcome,
-            "stalled"
+        let _ = sock.write_all(
+            b"event: response.created\n\
+                   data: {\"type\":\"response.created\",\"response\":{}}\n\n",
         );
-        drop(handle.join());
-    }
+        let _ = sock.flush();
+        // Silent until the client goes away.
+        let mut buf = [0u8; 64];
+        while matches!(sock.read(&mut buf), Ok(n) if n > 0) {}
+    });
+    let auth = ChatGptAuth {
+        access_token: fake_jwt(serde_json::json!({ "exp": now_secs() + 3600 })),
+        refresh_token: "RT".into(),
+        account_id: "acct".into(),
+        path: PathBuf::from("/x"),
+        disk_snapshot: None,
+    };
+    let mut club = CodexClub::new("openai", "test-openai-model", auth);
+    club.responses_url_override = Some(format!("http://{addr}"));
+    let cancel = std::sync::Arc::new(AtomicBool::new(false));
+    let flip = std::sync::Arc::clone(&cancel);
+    let canceller = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        flip.store(true, std::sync::atomic::Ordering::Relaxed);
+    });
+    let started = std::time::Instant::now();
+    let reply = club
+        .chat_streaming(&[ChatMsg::user("hi")], &[], &cancel, &mut |_| {})
+        .expect("an operator cancel keeps what streamed so far");
+    let elapsed = started.elapsed();
+    assert!(matches!(reply, crate::agent::club::ClubReply::Text(ref t) if t.is_empty()));
+    assert!(
+        elapsed >= std::time::Duration::from_millis(1400),
+        "nothing may end a silent stream before the operator does ({elapsed:?})"
+    );
+    assert!(
+        elapsed < std::time::Duration::from_secs(5),
+        "cancel must abort the blocked read promptly ({elapsed:?})"
+    );
+    let stats = club.shared.usage.lock().unwrap();
+    assert_eq!(
+        stats.recent_attempts.back().expect("one receipt").outcome,
+        "cancelled"
+    );
+    drop(canceller.join());
+    drop(handle.join());
 }
 
 /// A stream that breaks mid-reply, with commentary streamed and a tool call
@@ -811,75 +792,57 @@ fn a_responses_stream_severed_mid_tool_call_is_a_recoverable_incomplete_stream()
     drop(handle.join());
 }
 
-/// A stream that keeps sending keep-alive comments and bookkeeping frames
-/// but never produces output must also stall out: bytes are not progress.
+/// A stream that sends only keep-alives and bookkeeping frames for a while is
+/// a model thinking: it is never cut, and its answer lands when it comes.
 #[test]
-fn codex_stream_stall_bound_fires_on_a_heartbeat_only_responses_stream() {
+fn a_keep_alive_only_responses_stream_is_never_cut() {
     let _guard = env_lock();
-    {
-        let _stall = crate::tests::TestEnvGuard::set(CODEX_STREAM_STALL_ENV, "1");
-        use std::io::Write;
-        use std::net::TcpListener;
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let handle = std::thread::spawn(move || {
-            let Ok((mut sock, _)) = listener.accept() else {
-                return;
-            };
-            let _ = read_http_request(&mut sock);
-            let _ = sock.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            );
-            let _ = sock.write_all(b"data: {\"type\":\"response.created\",\"response\":{}}\n\n");
-            let _ = sock.flush();
-            // Keep-alives every 200 ms for 4 s: the socket never times out,
-            // yet nothing meaningful arrives.
-            for _ in 0..20 {
-                if sock
-                    .write_all(
-                        b": ping\n\ndata: {\"type\":\"response.in_progress\",\"response\":{}}\n\n",
-                    )
-                    .is_err()
-                {
-                    break;
-                }
-                let _ = sock.flush();
-                std::thread::sleep(std::time::Duration::from_millis(200));
-            }
-        });
-        let auth = ChatGptAuth {
-            access_token: fake_jwt(serde_json::json!({ "exp": now_secs() + 3600 })),
-            refresh_token: "RT".into(),
-            account_id: "acct".into(),
-            path: PathBuf::from("/x"),
-            disk_snapshot: None,
+    use std::io::Write;
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let handle = std::thread::spawn(move || {
+        let Ok((mut sock, _)) = listener.accept() else {
+            return;
         };
-        let mut club = CodexClub::new("openai", "test-openai-model", auth);
-        club.responses_url_override = Some(format!("http://{addr}"));
-        let started = std::time::Instant::now();
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |_| {},
-            )
-            .expect_err("a heartbeat-only Responses stream must fail, not hang");
-        assert!(err.contains("stream stalled"), "{err}");
-        assert!(err.contains("keep-alives"), "{err}");
-        assert!(err.contains(CODEX_STREAM_STALL_ENV), "{err}");
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(3),
-            "heartbeats must not defeat the stall bound ({:?})",
-            started.elapsed()
+        let _ = read_http_request(&mut sock);
+        let _ = sock.write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
         );
-        let stats = club.shared.usage.lock().unwrap();
-        assert_eq!(
-            stats.recent_attempts.back().expect("one receipt").outcome,
-            "stalled"
+        let _ = sock.write_all(b"data: {\"type\":\"response.created\",\"response\":{}}\n\n");
+        let _ = sock.flush();
+        for _ in 0..12 {
+            let _ = sock.write_all(
+                b": ping\n\ndata: {\"type\":\"response.in_progress\",\"response\":{}}\n\n",
+            );
+            let _ = sock.flush();
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        let _ = sock.write_all(
+            b"data: {\"type\":\"response.output_text.delta\",\"delta\":\"done\"}\n\n\
+              data: {\"type\":\"response.completed\",\"response\":{}}\n\n",
         );
-        drop(handle.join());
-    }
+        let _ = sock.flush();
+    });
+    let auth = ChatGptAuth {
+        access_token: fake_jwt(serde_json::json!({ "exp": now_secs() + 3600 })),
+        refresh_token: "RT".into(),
+        account_id: "acct".into(),
+        path: PathBuf::from("/x"),
+        disk_snapshot: None,
+    };
+    let mut club = CodexClub::new("openai", "test-openai-model", auth);
+    club.responses_url_override = Some(format!("http://{addr}"));
+    let reply = club
+        .chat_streaming(
+            &[ChatMsg::user("hi")],
+            &[],
+            &AtomicBool::new(false),
+            &mut |_| {},
+        )
+        .expect("a thinking model's answer lands");
+    assert!(matches!(reply, crate::agent::club::ClubReply::Text(ref t) if t == "done"));
+    drop(handle.join());
 }
 
 #[test]
@@ -1964,12 +1927,8 @@ fn responses_native_replay_clears_stale_state_on_cancel_or_unsuccessful_streams(
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
-        for end in [
-            "",
-            "response.failed",
-            "response.incomplete",
-            "response.completed",
-        ] {
+        // The fourth call is cancelled before it starts and never connects.
+        for end in ["", "response.failed", "response.incomplete"] {
             let (mut socket, _) = listener.accept().unwrap();
             socket
                 .set_read_timeout(Some(Duration::from_secs(5)))

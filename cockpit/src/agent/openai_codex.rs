@@ -39,50 +39,6 @@ const TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
 const RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
 const ORIGINATOR: &str = "codex_cli_rs";
 const AUTH_JSON_ENV: &str = "ANGEL_OPENAI_AUTH_JSON";
-/// Responses-route stream stall bound: give up on a stream that has sent no
-/// events for this many seconds (`ANGEL_CODEX_STREAM_STALL_SECS`). Default `0`:
-/// no clock on a live stream unless the operator sets one. A dead connection
-/// still hits the plain socket read timeout below; the old 120 s default cut
-/// gpt-6.1-sol xhigh hops that were thinking past 115 s behind keep-alives.
-const DEFAULT_CODEX_STREAM_STALL_SECS: u64 = 0;
-/// The plain per-read socket deadline used when the stall bound is off — the
-/// historical fixed value this route always shipped.
-const CODEX_PLAIN_READ_TIMEOUT_SECS: u64 = 300;
-const CODEX_STREAM_STALL_ENV: &str = "ANGEL_CODEX_STREAM_STALL_SECS";
-
-impl CodexClub {
-    /// Responses-route stall: stamp the receipt, say it on stderr the way the
-    /// chat route does, and return the error whose `stream stalled` substring
-    /// the turn loop already classifies as transient.
-    fn stall_error(&self, attempt: &mut attempts::Attempt<'_>, what: &str) -> String {
-        attempt.outcome("stalled");
-        let n = self.stream_stall_secs;
-        eprintln!(
-            "[club:{}] stream stalled — {what} for {n}s, giving up (ANGEL_CODEX_STREAM_STALL_SECS)",
-            self.name
-        );
-        format!(
-            "stream stalled: {what} for {n}s on {} (bound: ANGEL_CODEX_STREAM_STALL_SECS)",
-            self.model
-        )
-    }
-}
-
-/// Resolve the Responses-route stall window once (same pattern as the chat
-/// route's `env_secs` knobs in `club/http.rs`). Returns seconds; `0` = off.
-fn codex_stream_stall_secs() -> u64 {
-    crate::agent::club::env_secs(CODEX_STREAM_STALL_ENV, DEFAULT_CODEX_STREAM_STALL_SECS).as_secs()
-}
-
-/// Mirror of the chat route's `stream_read_timed_out` (`club/http.rs`): a
-/// per-read socket deadline fires as `TimedOut`, or `WouldBlock` on platforms
-/// whose SO_RCVTIMEO surfaces as EAGAIN.
-fn stream_read_timed_out(error: &std::io::Error) -> bool {
-    matches!(
-        error.kind(),
-        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-    )
-}
 
 // ---------------------------------------------------------------------------
 // auth — read & refresh the Codex ChatGPT tokens
@@ -653,10 +609,6 @@ pub struct CodexClub {
     /// re-processed at full cost every call. One id per club matches how the
     /// Codex CLI pins a conversation.
     session_id: String,
-    /// The resolved `ANGEL_CODEX_STREAM_STALL_SECS` window (seconds; `0` =
-    /// off). Snapshotted where the ureq agent is built so the read deadline
-    /// and the stall error message always agree.
-    stream_stall_secs: u64,
     /// The Responses endpoint: the ChatGPT Codex backend, or a provider's own
     /// `/v1/responses` for an API-key seat.
     responses_url: String,
@@ -814,23 +766,13 @@ impl CodexClub {
             .collect();
         route_metadata.output_budget = crate::agent::club::OutputBudgetPolicy::EndpointManaged;
         route_metadata.output_budget_provenance = Some("provider plan".to_string());
-        // Resolve the stall bound here so the agent's per-read deadline carries
-        // it: with the knob on, a silent Responses stream surfaces as a read
-        // timeout after `stall` seconds instead of the plain 300 s one. Silence
-        // is otherwise mistaken for thinking until the socket deadline, and the
-        // generic error path never names the stall or the knob.
-        let stream_stall_secs = codex_stream_stall_secs();
-        let read_timeout = if stream_stall_secs > 0 {
-            Duration::from_secs(stream_stall_secs)
-        } else {
-            Duration::from_secs(CODEX_PLAIN_READ_TIMEOUT_SECS)
-        };
+        // No read deadline: a model thinking behind a quiet socket is never cut.
+        // Operator cancel aborts the request's socket (see the stream below).
         let agent = ureq::AgentBuilder::new()
             // OAuth/account headers are endpoint-bound. Refuse redirects so a
             // compromised endpoint cannot forward them to another origin.
             .redirects(0)
             .timeout_connect(Duration::from_secs(10))
-            .timeout_read(read_timeout)
             .timeout_write(Duration::from_secs(60))
             .user_agent(concat!("angelX-cockpit/", env!("CARGO_PKG_VERSION")))
             .build();
@@ -857,7 +799,6 @@ impl CodexClub {
                 .ok()
                 .filter(|value| !value.trim().is_empty())
                 .unwrap_or_else(synth_session_id),
-            stream_stall_secs,
             responses_url: RESPONSES_URL.to_string(),
             api_key: None,
             reasoning_summary: "auto".to_string(),
@@ -871,7 +812,7 @@ impl CodexClub {
 
     /// A Responses-API seat on a provider API key (Meta's Muse Spark on
     /// `https://api.meta.ai/v1/responses`), sharing this client's request
-    /// building, event decoding and stall handling. The provider's Chat
+    /// building and event decoding. The provider's Chat
     /// Completions endpoint redacts the model's reasoning; the Responses API
     /// streams reasoning summaries, which reach the thinking panel.
     pub(crate) fn api_key_seat(
@@ -1325,23 +1266,14 @@ impl CodexClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
-        use crate::agent::club::wire_log::{WireCall, WireWindows};
+        use crate::agent::club::wire_log::WireCall;
         // These handoffs belong to one provider reply on this thread. Clear
         // them before validation/auth can fail or another route can run.
         crate::agent::club::set_pending_responses_replay(None);
         crate::agent::club::set_pending_tool_content(None);
         crate::agent::club::set_pending_tool_reasoning(None);
         let wire = WireCall::new(&self.name, &self.model, "responses");
-        wire.arm(WireWindows {
-            stall_secs: self.stream_stall_secs,
-            first_token_secs: self.stream_stall_secs,
-            hard_secs: 0,
-            stall_source: if std::env::var_os(CODEX_STREAM_STALL_ENV).is_some() {
-                "env".to_string()
-            } else {
-                "default".to_string()
-            },
-        });
+        wire.arm();
         let result =
             self.run_with_effort_observed(messages, tools, effort, source, cancel, on_delta, &wire);
         wire.finish(&result);
@@ -1487,247 +1419,241 @@ impl CodexClub {
                         "endpoint-managed"
                     })
                 }),
-                Some(self.stream_stall_secs),
             );
         }
         let mut attempt = attempts::Attempt::new(self, &bytes);
         if let Some(reservation) = reservation {
             attempt.reserve_formation(reservation);
         }
-        let mut request = self
-            .agent
-            .post(responses_url)
-            .set("Content-Type", "application/json")
-            .set("Accept", "text/event-stream")
-            .set("Authorization", &format!("Bearer {token}"));
-        if self.api_key.is_none() {
-            request = request
-                .set("ChatGPT-Account-Id", &account)
-                .set("OpenAI-Beta", "responses=experimental")
-                .set("originator", ORIGINATOR)
-                .set("session_id", &self.session_id);
+        // A call cancelled before it starts never reaches the provider.
+        if cancel.load(Ordering::Relaxed) {
+            attempt.outcome("cancelled");
+            return Ok(ClubReply::Text(String::new()));
         }
-        if self.api_controls.is_some()
-            && let Some(remaining) =
-                crate::agent::harness::formation_budget::request_wall_remaining()
-        {
-            if remaining.is_zero() {
-                return Err("graph request deadline reached".into());
+        // Operator cancel aborts this request's socket at once, whatever the
+        // stream is doing; nothing else ends a live Responses stream.
+        std::thread::scope(|scope| {
+            let abort = ureq::AbortHandle::default();
+            let _cancel_read =
+                crate::agent::club::CancelReadGuard::new(scope, cancel, abort.clone());
+            let mut request = self
+                .agent
+                .post(responses_url)
+                .with_abort_handle(abort.clone())
+                .set("Content-Type", "application/json")
+                .set("Accept", "text/event-stream")
+                .set("Authorization", &format!("Bearer {token}"));
+            if self.api_key.is_none() {
+                request = request
+                    .set("ChatGPT-Account-Id", &account)
+                    .set("OpenAI-Beta", "responses=experimental")
+                    .set("originator", ORIGINATOR)
+                    .set("session_id", &self.session_id);
             }
-            request = request.timeout(remaining);
-        }
-        let resp = request.send_bytes(&bytes).map_err(|e| {
-            let detail = match e {
-                ureq::Error::Status(code, response) => {
-                    let mut body = String::new();
-                    let _ = std::io::Read::read_to_string(
-                        &mut attempt.response_reader(response.into_reader()),
-                        &mut body,
-                    );
-                    describe_response_error(code, &body)
+            if self.api_controls.is_some()
+                && let Some(remaining) =
+                    crate::agent::harness::formation_budget::request_wall_remaining()
+            {
+                if remaining.is_zero() {
+                    return Err("graph request deadline reached".into());
                 }
-                other => describe_err(other),
-            };
-            format!("{} responses: {detail}", self.provider_label())
-        })?;
-
-        // Plan rate-limits ride on the response headers; capture them before the
-        // body is consumed. Best-effort — absent on endpoints that don't send them.
-        let rate = collect_rate_limits(&resp);
-        if !rate.is_empty()
-            && let Ok(mut s) = self.shared.usage.lock()
-        {
-            s.rate_limits = rate;
-        }
-
-        wire.phase("streaming");
-        attempt.outcome("interrupted");
-        let reader = BufReader::new(attempt.response_reader(resp.into_reader()));
-        let mut content = String::new();
-        let mut tool_calls = ResponseToolCalls::default();
-        let mut replay_items = replay::ReplayItems::default();
-        let mut saw_done = false;
-        // Heartbeat-aware stall clock: the read deadline only catches a socket
-        // that sends no bytes, but a Responses stream can keep sending
-        // `response.in_progress` / comment lines while producing nothing for
-        // minutes. Like the chat route's "keep-alives but no data" rule, time
-        // the last MEANINGFUL event (text, reasoning, tool-call, terminal).
-        let mut last_meaningful = std::time::Instant::now();
-        let stall_window = Duration::from_secs(self.stream_stall_secs);
-        for line in reader.lines() {
-            let cancelled = cancel.load(Ordering::Relaxed);
-            let line = match line {
-                Ok(l) => l,
-                Err(_) if cancelled => {
-                    attempt.outcome("cancelled");
-                    return Ok(ClubReply::Text(content));
-                }
-                Err(e) => {
-                    // A severed stream keeps already-streamed prose (when no
-                    // tool call is mid-flight — its args would be half-written)
-                    // as an interrupted partial, including a stall-bound
-                    // timeout.
-                    if !content.is_empty() && !tool_calls.pending() {
-                        on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
-                        return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
-                    }
-                    // Responses-route stall bound: the ureq read deadline
-                    // carries `ANGEL_CODEX_STREAM_STALL_SECS`, so a
-                    // TimedOut/WouldBlock read with no streamed answer names
-                    // the stall and the knob. The "stream stalled" substring
-                    // matches the chat route's stall message, so the turn
-                    // loop's provider-retry classification treats the two
-                    // routes alike (it stays transient — replay can help).
-                    if self.stream_stall_secs > 0 && stream_read_timed_out(&e) {
-                        return Err(self.stall_error(&mut attempt, "no Responses events"));
-                    }
-                    // A socket or decode failure mid-stream is a stream that
-                    // died without a terminal event, as on the Chat route: the
-                    // pending tool call never ran, so the hop may replay.
-                    return Err(format!(
-                        "{}: stream read error: {e}",
-                        crate::agent::club::INCOMPLETE_STREAM_ERR
-                    ));
-                }
-            };
-            wire.bytes(line.len() + 1);
-            if self.replay_enabled {
-                replay_items.observe(&line);
+                request = request.timeout(remaining);
             }
-            observe_responses_line(wire, &line);
-            // A blocking read may yield a terminal usage frame just as cancel
-            // flips. Account for the received frame before suppressing output.
-            let event = attempt.receive(&line, cancelled);
-            observe_responses_event(wire, &event);
-            if cancelled {
-                return Ok(ClubReply::Text(content));
+            let sent = request.send_bytes(&bytes);
+            if sent.is_err() && cancel.load(Ordering::Relaxed) {
+                attempt.outcome("cancelled");
+                return Ok(ClubReply::Text(String::new()));
             }
-            match event {
-                ResponseEvent::Text(d) => {
-                    content.push_str(&d);
-                    on_delta(StreamDelta::Content(&d));
-                }
-                ResponseEvent::Reasoning(r) => on_delta(StreamDelta::Reasoning(&r)),
-                // Hosted models never expose verbatim reasoning; the summary
-                // stream is the only thinking the provider will ever show us.
-                // Forward it — an always-empty thinking panel reads as the
-                // feature not existing.
-                ResponseEvent::ReasoningSummary(r) => on_delta(StreamDelta::Reasoning(&r)),
-                ResponseEvent::ToolCallStart { key, call_id, name } => {
-                    tool_calls.start(key, call_id, name);
-                }
-                ResponseEvent::ToolArgumentsDelta { key, delta } => {
-                    tool_calls.push_args(&key, &delta);
-                }
-                ResponseEvent::ToolArgumentsDone { key, arguments } => {
-                    tool_calls.set_args(&key, arguments);
-                }
-                ResponseEvent::ToolCallDone { key, call } => {
-                    tool_calls.done(key, call);
-                }
-                ResponseEvent::Failed(msg, _) => {
-                    return Err(format!("{}: {msg}", self.provider_label()));
-                }
-                ResponseEvent::Incomplete(mut msg, _) => {
-                    if self.api_controls.is_some() && msg.contains("max_output_tokens") {
-                        msg = wire_output_cap.map_or_else(
-                            || self.output_budget_policy().0.incomplete_message(),
-                            |tokens| format!("response incomplete: request max_output_tokens was {tokens} tokens"),
+            let resp = sent.map_err(|e| {
+                let detail = match e {
+                    ureq::Error::Status(code, response) => {
+                        let mut body = String::new();
+                        let _ = std::io::Read::read_to_string(
+                            &mut attempt.response_reader(response.into_reader()),
+                            &mut body,
                         );
+                        describe_response_error(code, &body)
                     }
-                    // Cut off at the output cap. A SOTA-tuned link keeps the prose
-                    // streamed so far (when no tool call is mid-flight — its args
-                    // would be half-written) as usable MoA material, marked so it's
-                    // never mistaken for a complete answer. Otherwise fail closed.
-                    if self.keep_truncated && !content.trim().is_empty() && !tool_calls.pending() {
-                        return Ok(ClubReply::Text(mark_truncated(
-                            &content,
-                            wire_output_budget,
-                        )));
+                    other => describe_err(other),
+                };
+                format!("{} responses: {detail}", self.provider_label())
+            })?;
+
+            // Plan rate-limits ride on the response headers; capture them before the
+            // body is consumed. Best-effort — absent on endpoints that don't send them.
+            let rate = collect_rate_limits(&resp);
+            if !rate.is_empty()
+                && let Ok(mut s) = self.shared.usage.lock()
+            {
+                s.rate_limits = rate;
+            }
+
+            wire.phase("streaming");
+            attempt.outcome("interrupted");
+            let reader = BufReader::new(attempt.response_reader(resp.into_reader()));
+            let mut content = String::new();
+            let mut tool_calls = ResponseToolCalls::default();
+            let mut replay_items = replay::ReplayItems::default();
+            let mut saw_done = false;
+            for line in reader.lines() {
+                let cancelled = cancel.load(Ordering::Relaxed);
+                let line = match line {
+                    Ok(l) => l,
+                    Err(_) if cancelled => {
+                        attempt.outcome("cancelled");
+                        return Ok(ClubReply::Text(content));
                     }
-                    return Err(format!("{}: {msg}", self.provider_label()));
-                }
-                ResponseEvent::Done(_) => {
-                    saw_done = true;
-                    break;
-                }
-                ResponseEvent::Ignore | ResponseEvent::Usage(_) => {
-                    // Keep-alive / bookkeeping frames do not count as progress.
-                    if self.stream_stall_secs > 0 && last_meaningful.elapsed() >= stall_window {
+                    Err(e) => {
+                        // A severed stream keeps already-streamed prose (when no
+                        // tool call is mid-flight — its args would be half-written)
+                        // as an interrupted partial.
                         if !content.is_empty() && !tool_calls.pending() {
                             on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
                             return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
                         }
-                        return Err(
-                            self.stall_error(&mut attempt, "keep-alives but no Responses output")
-                        );
+                        // A socket or decode failure mid-stream is a stream that
+                        // died without a terminal event, as on the Chat route: the
+                        // pending tool call never ran, so the hop may replay.
+                        return Err(format!(
+                            "{}: stream read error: {e}",
+                            crate::agent::club::INCOMPLETE_STREAM_ERR
+                        ));
                     }
-                    continue;
+                };
+                wire.bytes(line.len() + 1);
+                if self.replay_enabled {
+                    replay_items.observe(&line);
+                }
+                observe_responses_line(wire, &line);
+                // A blocking read may yield a terminal usage frame just as cancel
+                // flips. Account for the received frame before suppressing output.
+                let event = attempt.receive(&line, cancelled);
+                observe_responses_event(wire, &event);
+                if cancelled {
+                    return Ok(ClubReply::Text(content));
+                }
+                match event {
+                    ResponseEvent::Text(d) => {
+                        content.push_str(&d);
+                        on_delta(StreamDelta::Content(&d));
+                    }
+                    ResponseEvent::Reasoning(r) => on_delta(StreamDelta::Reasoning(&r)),
+                    // Hosted models never expose verbatim reasoning; the summary
+                    // stream is the only thinking the provider will ever show us.
+                    // Forward it — an always-empty thinking panel reads as the
+                    // feature not existing.
+                    ResponseEvent::ReasoningSummary(r) => on_delta(StreamDelta::Reasoning(&r)),
+                    ResponseEvent::ToolCallStart { key, call_id, name } => {
+                        tool_calls.start(key, call_id, name);
+                    }
+                    ResponseEvent::ToolArgumentsDelta { key, delta } => {
+                        tool_calls.push_args(&key, &delta);
+                    }
+                    ResponseEvent::ToolArgumentsDone { key, arguments } => {
+                        tool_calls.set_args(&key, arguments);
+                    }
+                    ResponseEvent::ToolCallDone { key, call } => {
+                        tool_calls.done(key, call);
+                    }
+                    ResponseEvent::Failed(msg, _) => {
+                        return Err(format!("{}: {msg}", self.provider_label()));
+                    }
+                    ResponseEvent::Incomplete(mut msg, _) => {
+                        if self.api_controls.is_some() && msg.contains("max_output_tokens") {
+                            msg = wire_output_cap.map_or_else(
+                            || self.output_budget_policy().0.incomplete_message(),
+                            |tokens| format!("response incomplete: request max_output_tokens was {tokens} tokens"),
+                        );
+                        }
+                        // Cut off at the output cap. A SOTA-tuned link keeps the prose
+                        // streamed so far (when no tool call is mid-flight — its args
+                        // would be half-written) as usable MoA material, marked so it's
+                        // never mistaken for a complete answer. Otherwise fail closed.
+                        if self.keep_truncated
+                            && !content.trim().is_empty()
+                            && !tool_calls.pending()
+                        {
+                            return Ok(ClubReply::Text(mark_truncated(
+                                &content,
+                                wire_output_budget,
+                            )));
+                        }
+                        return Err(format!("{}: {msg}", self.provider_label()));
+                    }
+                    ResponseEvent::Done(_) => {
+                        saw_done = true;
+                        break;
+                    }
+                    ResponseEvent::Ignore | ResponseEvent::Usage(_) => continue,
                 }
             }
-            last_meaningful = std::time::Instant::now();
-        }
-        if !saw_done {
-            if tool_calls.pending() {
-                return Err(
+            // An operator cancel aborts the socket; the read ends as EOF.
+            if cancel.load(Ordering::Relaxed) {
+                attempt.outcome("cancelled");
+                return Ok(ClubReply::Text(content));
+            }
+            if !saw_done {
+                if tool_calls.pending() {
+                    return Err(
                     "openai stream ended before response.completed; incomplete tool call discarded"
                         .to_string(),
                 );
+                }
+                if content.is_empty() {
+                    return Err("openai stream ended before response.completed".to_string());
+                }
+                on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
+                return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
             }
-            if content.is_empty() {
-                return Err("openai stream ended before response.completed".to_string());
+            let (calls, notes) = tool_calls.into_calls_with_notes();
+            for (kind, message) in &notes {
+                wire.note(kind, message);
             }
-            on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
-            return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
-        }
-        let (calls, notes) = tool_calls.into_calls_with_notes();
-        for (kind, message) in &notes {
-            wire.note(kind, message);
-        }
-        if !calls.is_empty() {
-            if self.replay_enabled {
-                let items = replay_items.finish();
-                let reasoning_items = items
-                    .iter()
-                    .filter(|item| item["type"] == "reasoning")
-                    .count();
-                let encrypted_items = items
-                    .iter()
-                    .filter(|item| {
-                        item["type"] == "reasoning"
-                            && item["encrypted_content"]
-                                .as_str()
-                                .is_some_and(|value| !value.is_empty())
-                    })
-                    .count();
-                let item_count = items.len();
-                let replay =
-                    ResponseReplay::new(&self.session_id, messages, &calls, &content, items);
-                wire.note("responses_capture", &format!(
+            if !calls.is_empty() {
+                if self.replay_enabled {
+                    let items = replay_items.finish();
+                    let reasoning_items = items
+                        .iter()
+                        .filter(|item| item["type"] == "reasoning")
+                        .count();
+                    let encrypted_items = items
+                        .iter()
+                        .filter(|item| {
+                            item["type"] == "reasoning"
+                                && item["encrypted_content"]
+                                    .as_str()
+                                    .is_some_and(|value| !value.is_empty())
+                        })
+                        .count();
+                    let item_count = items.len();
+                    let replay =
+                        ResponseReplay::new(&self.session_id, messages, &calls, &content, items);
+                    wire.note("responses_capture", &format!(
                     "items={item_count} reasoning={reasoning_items} encrypted={encrypted_items} accepted={} reason={}",
                     replay.is_some(),
                     if replay.is_some() { "complete" } else if reasoning_items > encrypted_items { "missing_encrypted_content" } else { "incomplete_or_mismatched_output" },
                 ));
-                crate::agent::club::set_pending_responses_replay(replay);
-            }
-            // The operator already saw this commentary stream. Keep it on the
-            // assistant call message so the next hop knows what was said.
-            crate::agent::club::set_pending_tool_content(
-                (!content.trim().is_empty()).then_some(content),
-            );
-            Ok(ClubReply::Calls(calls))
-        } else if tools.is_empty() {
-            // Tool-less request (swarm/deli worker): nothing a "recovered" call
-            // could execute, so wrapper-looking text stays a prose answer.
-            Ok(ClubReply::Text(content))
-        } else {
-            let recovered = crate::agent::club::extract_prose_tool_calls(&content);
-            if recovered.is_empty() {
+                    crate::agent::club::set_pending_responses_replay(replay);
+                }
+                // The operator already saw this commentary stream. Keep it on the
+                // assistant call message so the next hop knows what was said.
+                crate::agent::club::set_pending_tool_content(
+                    (!content.trim().is_empty()).then_some(content),
+                );
+                Ok(ClubReply::Calls(calls))
+            } else if tools.is_empty() {
+                // Tool-less request (swarm/deli worker): nothing a "recovered" call
+                // could execute, so wrapper-looking text stays a prose answer.
                 Ok(ClubReply::Text(content))
             } else {
-                Ok(ClubReply::Calls(recovered))
+                let recovered = crate::agent::club::extract_prose_tool_calls(&content);
+                if recovered.is_empty() {
+                    Ok(ClubReply::Text(content))
+                } else {
+                    Ok(ClubReply::Calls(recovered))
+                }
             }
-        }
+        })
     }
 }
 

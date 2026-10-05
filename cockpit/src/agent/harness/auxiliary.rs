@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, Weak};
 
 const SAFE_COUNT: u64 = (1u64 << 53) - 1;
-const SOURCES: [&str; 8] = [
+const SOURCES: [&str; 9] = [
     "model_tool",
     "loop_recovery_context",
     "advisor",
@@ -14,6 +14,7 @@ const SOURCES: [&str; 8] = [
     "tool_bubble",
     "sync_compaction",
     "background_compaction",
+    "treebeard_digest",
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

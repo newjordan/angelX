@@ -8,11 +8,9 @@
 //! `~/.angelX/wire`). Anything the parser ignored or repaired is noted on stderr
 //! as it happens and kept in the record.
 //!
-//! The heartbeat cadence follows the model's own calibrated stall window, a
-//! quarter of it clamped to 15–60 s, so a slow thinker is reported less often
-//! than a fast model. `ANGEL_WIRE_HEARTBEAT_SECS` overrides it; `0` turns
-//! heartbeats off. Observation only: nothing here changes a request, a
-//! deadline or a reply.
+//! The heartbeat prints every 60 s; `ANGEL_WIRE_HEARTBEAT_SECS` overrides it
+//! and `0` turns heartbeats off. Observation only: nothing here changes a
+//! request or a reply.
 
 use super::{ClubReply, ToolCall};
 use serde_json::{Value, json};
@@ -28,25 +26,13 @@ const ARGS_RECORD_LIMIT: usize = 2_000;
 const ARGS_NOTE_LIMIT: usize = 300;
 const ERROR_RECORD_LIMIT: usize = 500;
 
-/// The deadlines in force for one call, and where the stall bound came from.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct WireWindows {
-    pub stall_secs: u64,
-    pub first_token_secs: u64,
-    pub hard_secs: u64,
-    pub stall_source: String,
-}
-
-/// Heartbeat cadence for a model whose calibrated stall window is `stall_secs`.
-pub(crate) fn heartbeat_every(stall_secs: u64) -> Duration {
+/// How often a live call prints its status line to stderr
+/// (`ANGEL_WIRE_HEARTBEAT_SECS`, default 60; `0` is silent). Observation only.
+pub(crate) fn heartbeat_every() -> Duration {
     let configured = std::env::var("ANGEL_WIRE_HEARTBEAT_SECS")
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok());
-    match configured {
-        Some(secs) => Duration::from_secs(secs),
-        None if stall_secs == 0 => Duration::from_secs(60),
-        None => Duration::from_secs((stall_secs / 4).clamp(15, 60)),
-    }
+    Duration::from_secs(configured.unwrap_or(60))
 }
 
 fn log_dir() -> Option<PathBuf> {
@@ -106,7 +92,6 @@ struct Shared {
     started: Instant,
     counters: Counters,
     phase: Mutex<&'static str>,
-    windows: Mutex<WireWindows>,
 }
 
 impl Shared {
@@ -125,21 +110,11 @@ impl Shared {
         let c = &self.counters;
         let elapsed = self.started.elapsed().as_secs_f64();
         let phase = *self.phase.lock().unwrap_or_else(|e| e.into_inner());
-        let windows = self
-            .windows
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone();
         let phase_text = match (phase, self.first_token()) {
-            ("streaming", Some(first)) => format!(
-                "streaming, first token at {:.1}s (gap bound {}s)",
-                first.as_secs_f64(),
-                windows.stall_secs
-            ),
-            ("streaming", None) => format!(
-                "waiting for first token (bound {}s)",
-                windows.first_token_secs
-            ),
+            ("streaming", Some(first)) => {
+                format!("streaming, first token at {:.1}s", first.as_secs_f64())
+            }
+            ("streaming", None) => "waiting for first token".to_string(),
             ("auth", _) => "refreshing credentials".to_string(),
             ("request", _) => "waiting for response headers".to_string(),
             (other, _) => other.to_string(),
@@ -174,7 +149,6 @@ struct Detail {
     notes: Vec<String>,
     finish_reason: Option<String>,
     usage: Option<Value>,
-    retry_streak: u32,
     /// The reasoning summary a Responses seat streamed, as the provider
     /// exposed it.
     reasoning_summary: String,
@@ -206,7 +180,6 @@ impl WireCall {
                 started: Instant::now(),
                 counters: Counters::default(),
                 phase: Mutex::new("request"),
-                windows: Mutex::new(WireWindows::default()),
             }),
             detail: Mutex::new(Detail::default()),
             heartbeat_every: Mutex::new(Duration::ZERO),
@@ -214,16 +187,10 @@ impl WireCall {
         }
     }
 
-    /// Record the call's deadlines and start the heartbeat at the cadence they
-    /// imply. Only the first call starts a heartbeat; later calls (a retry
-    /// widening its windows) just update what the heartbeat reports.
-    pub(crate) fn arm(&self, windows: WireWindows) {
-        let every = heartbeat_every(windows.stall_secs);
-        *self
-            .shared
-            .windows
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = windows;
+    /// Start the status heartbeat. Only the first call starts one; a later
+    /// attempt on the same call keeps it.
+    pub(crate) fn arm(&self) {
+        let every = heartbeat_every();
         let mut heartbeat = self.heartbeat.lock().unwrap_or_else(|e| e.into_inner());
         if heartbeat.is_some() || every.is_zero() {
             return;
@@ -260,10 +227,6 @@ impl WireCall {
 
     pub(crate) fn phase(&self, phase: &'static str) {
         *self.shared.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
-    }
-
-    pub(crate) fn set_retry_streak(&self, streak: u32) {
-        self.detail().retry_streak = streak;
     }
 
     pub(crate) fn bytes(&self, n: usize) {
@@ -363,8 +326,6 @@ impl WireCall {
         let outcome = match result {
             Ok(ClubReply::Text(_)) => "text",
             Ok(ClubReply::Calls(_)) => "calls",
-            Err(e) if e.contains("stream stalled") => "stalled",
-            Err(e) if e.contains("hard deadline") => "hard_deadline",
             Err(e) if e.starts_with(super::INCOMPLETE_STREAM_ERR) => "incomplete",
             Err(_) => "error",
         };
@@ -375,17 +336,8 @@ impl WireCall {
             _ => Vec::new(),
         };
         let detail = std::mem::take(&mut *self.detail());
-        let windows = self
-            .shared
-            .windows
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone();
         let first_token = self.shared.first_token();
-        let failed = matches!(
-            outcome,
-            "stalled" | "hard_deadline" | "incomplete" | "error"
-        );
+        let failed = matches!(outcome, "incomplete" | "error");
         let every = *self
             .heartbeat_every
             .lock()
@@ -436,13 +388,6 @@ impl WireCall {
             "club": self.club,
             "model": self.model,
             "dialect": self.dialect,
-            "windows": {
-                "stall_secs": windows.stall_secs,
-                "first_token_secs": windows.first_token_secs,
-                "hard_secs": windows.hard_secs,
-                "stall_source": windows.stall_source,
-            },
-            "retry_streak": detail.retry_streak,
             "outcome": outcome,
             "error": result.as_ref().err().map(|e| truncate(e, ERROR_RECORD_LIMIT)),
             "duration_ms": duration.as_millis() as u64,

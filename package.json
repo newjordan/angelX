@@ -1,6 +1,6 @@
 {
   "name": "angelX",
-  "version": "0.1.93",
+  "version": "0.1.94",
   "description": "Terminal-first research and coding cockpit with verifiable agent workflows.",
   "private": true,
   "type": "module",
@@ -23,7 +23,7 @@
     "release:verify:container": "node scripts/release/verify-release-container.mjs",
     "release:verify:advisories": "node scripts/release/verify-release-advisories.mjs",
     "release:verify:install": "node scripts/release/verify-release-install.mjs",
-    "test:release": "node --test --test-concurrency=1 tests/scripts/release-evidence.test.mjs tests/scripts/verify-release-evidence.test.mjs tests/scripts/verify-release-container.test.mjs tests/scripts/verify-release-advisories.test.mjs tests/scripts/verify-release-install.test.mjs tests/scripts/verify-runner-smoke.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/angel-club-policy.test.mjs",
+    "test:release": "node --test --test-concurrency=1 tests/scripts/release-evidence.test.mjs tests/scripts/verify-release-evidence.test.mjs tests/scripts/verify-release-container.test.mjs tests/scripts/verify-release-advisories.test.mjs tests/scripts/verify-release-install.test.mjs tests/scripts/verify-runner-smoke.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/angel-club-policy.test.mjs tests/scripts/install.test.mjs",
       "test": "npm run test:release && npm run test:workers && npm run test:connections && npm run test:polyglot && npm run check:licenses && npm run test:hygiene && npm run test:media",
     "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs",
     "test:media": "node --test --test-concurrency=1 tests/scripts/pan-pace.test.mjs",

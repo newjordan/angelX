@@ -1556,14 +1556,11 @@ fn run_turn_default_retries_ride_out_more_cuts_than_the_old_implicit_one() {
     );
 }
 
-/// The live report in one test: the transport's bare stall string arrives after
-/// the model already streamed partial prose. That error used to be treated as
-/// non-retryable the moment any text had been emitted, so the hop died on its
-/// first stall and the receipt blamed a retry limit that never ran. It is the
-/// same incomplete stream as any other missing terminal event and must retry
-/// once even under an explicit budget of one.
+/// A stream severed after the model already streamed partial prose is an
+/// incomplete stream like any other missing terminal event: it must retry once
+/// even under an explicit budget of one, and the retracted partial never lands.
 #[test]
-fn run_turn_retries_a_bare_transport_stall_after_partial_prose() {
+fn run_turn_retries_a_severed_stream_after_partial_prose() {
     let _guard = crate::tests::env_lock();
     let _retries = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "1");
     let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
@@ -1598,11 +1595,10 @@ fn run_turn_retries_a_bare_transport_stall_after_partial_prose() {
                 on_delta(crate::agent::club::StreamDelta::Content(
                     "stalled partial prose",
                 ));
-                return Err(
-                    "stream stalled: server kept the connection alive but sent no data \
-                     for 60s (bound: ANGEL_STREAM_STALL_SECS)"
-                        .to_string(),
-                );
+                return Err(format!(
+                    "{}: stream read error: connection reset by peer",
+                    crate::agent::club::INCOMPLETE_STREAM_ERR
+                ));
             }
             on_delta(crate::agent::club::StreamDelta::Content("recovered"));
             Ok(ClubReply::Text("recovered".to_string()))
@@ -1622,7 +1618,7 @@ fn run_turn_retries_a_bare_transport_stall_after_partial_prose() {
         Some(4),
         &event_tx,
     )
-    .expect("a stall after partial prose must retry, not kill the turn");
+    .expect("a severed stream after partial prose must retry, not kill the turn");
     assert_eq!(answer, "recovered");
     assert_eq!(club.calls.load(Ordering::SeqCst), 2);
     let notices: Vec<String> = event_rx
@@ -1636,7 +1632,7 @@ fn run_turn_retries_a_bare_transport_stall_after_partial_prose() {
         notices
             .iter()
             .any(|text| text.contains("provider stream incomplete; retrying")),
-        "the stall must be announced as an incomplete stream: {notices:?}"
+        "the cut must be announced as an incomplete stream: {notices:?}"
     );
     assert!(
         !history
@@ -1828,7 +1824,7 @@ fn run_turn_permanent_error_with_stall_context_is_not_retried() {
 
     const MIXED: &str = "HTTP 401 Unauthorized: invalid api key; upstream reported \
                          stream stalled: server kept the connection alive but sent no data \
-                         for 60s (bound: ANGEL_STREAM_STALL_SECS)";
+                         for 60s";
     // The disposition itself: recoverable text must not launder a permanent error.
     assert!(
         !retryable_provider_failure(MIXED, false, true),
@@ -5639,6 +5635,8 @@ fn loop_detectors_stamp_tool_results_and_offer_deli_at_the_stop() {
     let _env = [
         EnvGuard::set("ANGEL_SKILL_HINT", "0"),
         EnvGuard::set("ANGEL_ADVISOR", "0"),
+        // The operator's own Caddy store would add its recipes as a source page.
+        EnvGuard::set("ANGEL_CADDY", "0"),
     ];
     struct Repeated {
         failures: bool,
@@ -5907,6 +5905,8 @@ fn tool_batch_cycle_observation_reuses_anti_spin_fingerprint() {
 fn yolo_turn_stamps_consecutive_tool_errors_and_keeps_going() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
+    // The operator's own Caddy store would add its recipes as a source page.
+    let _caddy = EnvGuard::set("ANGEL_CADDY", "0");
     // A club that calls read_file on a fresh missing path each hop: every call
     // errors at dispatch and the args change, so anti-spin never fires — only
     // the error detector sees it, and it never stops the turn.

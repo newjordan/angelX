@@ -94,7 +94,7 @@ START=$(date +%s)
 python3 "$HERE/exec_session.py" env -i PATH="$PATH" HOME="$HOMEDIR" TMPDIR="$RUN_TMP" TERM=dumb LANG=C.UTF-8 GIT_CONFIG_GLOBAL=/dev/null \
   ANGEL_DRIVER=local ANGEL_LOCAL_URL="http://127.0.0.1:$PORT/v1" ANGEL_LOCAL_MODEL=relay \
   ANGEL_SOTA_CAVEMAN=0 ANGEL_TASK_RECON=0 ANGEL_YOLO=0 ANGEL_T_SANDBOX_HELPER="$HELPER" \
-  ANGEL_HTTP_TIMEOUT=3600 ANGEL_STREAM_STALL_SECS=3600 ANGEL_TURN_IDLE_TIMEOUT_SECS=3600 \
+  ANGEL_HTTP_TIMEOUT=3600 ANGEL_TURN_IDLE_TIMEOUT_SECS=3600 \
   "$BIN" --task-json --workspace "$WORK" --task-id relay-calc --max-hops 30 \
   "The unittest suite in this repository fails. Fix the code (not the tests) so it passes." \
   > "$RUN/result.json" 2> "$RUN/stderr" &

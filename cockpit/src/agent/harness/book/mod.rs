@@ -301,7 +301,7 @@ pub(crate) struct Sub {
 }
 
 /// The first layer, in table-of-contents order.
-pub(crate) const TOC: [&Primary; 50] = [
+pub(crate) const TOC: [&Primary; 51] = [
     &k_competition::PRIMARY,
     &l_loops::PRIMARY,
     &m_method::PRIMARY,
@@ -336,6 +336,8 @@ pub(crate) const TOC: [&Primary; 50] = [
     &ar_seats::PRIMARY,
     &ing_drivers::PRIMARY,
     &st_connected::PRIMARY,
+    // The connected seats' overflow shelf: the Treebeard compactor.
+    &st_connected::SHELF,
     // Volume IV: the mixture.
     &d3_roles::PRIMARY,
     &d4_angles::PRIMARY,

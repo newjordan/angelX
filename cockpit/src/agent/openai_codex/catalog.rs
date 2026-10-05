@@ -162,13 +162,6 @@ impl CodexClub {
             } else {
                 sources.1
             });
-        defaults["stream_stall_secs"] = serde_json::json!(self.stream_stall_secs);
-        defaults["stream_stall_source"] =
-            serde_json::json!(if std::env::var_os(CODEX_STREAM_STALL_ENV).is_some() {
-                "env"
-            } else {
-                "default"
-            });
         if let Some(catalog) = &self.catalog {
             defaults["catalog"] = catalog.status();
         }

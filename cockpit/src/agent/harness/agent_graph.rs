@@ -2253,7 +2253,6 @@ impl AgentGraphEngine {
                                     // chat, no harness tool-loop — its coding guards
                                     // (no-edit denial, verification nudges) would tax a
                                     // reasoning-only seat with re-hops it can't satisfy.
-                                    let stall_window = crate::agent::club::identity_stream_stall_secs();
                                     let provider_retries = provider_retry_budget();
                                     let backoff_ms = env_usize("ANGEL_PROVIDER_RETRY_BACKOFF_MS", 500);
                                     let mut node_retries = 0usize;
@@ -2316,7 +2315,7 @@ impl AgentGraphEngine {
                                                             && !thread_cancel.load(Ordering::Relaxed) =>
                                                     {
                                                         eprintln!(
-                                                            "[graph] node {budget_role} stream stalled after {stall_window} s (attempt {attempt}) → retry"
+                                                            "[graph] node {budget_role} stream ended early (attempt {attempt}) → retry: {error}"
                                                         );
                                                         wait_graph_backoff(
                                                             &thread_cancel,
@@ -3058,10 +3057,7 @@ fn graph_incomplete_reason_label(reason: &str, cancelled: bool) -> String {
     if cancelled || reason.contains("cancelled") {
         return "cancelled".to_string();
     }
-    // A recoverable stream death spells itself two ways now (a bare
-    // `stream stalled` when nothing was produced, the incomplete-stream class
-    // once partial output exists); both are the same provider stall in a
-    // receipt.
+    // A recoverable stream death is the incomplete-stream class.
     if is_recoverable_stream_error(reason) {
         if let Some(node) = reason
             .split("node '")

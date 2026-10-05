@@ -1,15 +1,23 @@
 # Model setup
 
-Use `/connect` for provider setup, `/model` to choose a route, and `/think` to
-choose a supported reasoning level. `/status` shows the current session.
-Provider adapters live in `cockpit/src/agent/club`; your credentials and preferences
-belong in your environment or account login files.
+Run `angelX setup` to connect a model. It lists what this machine already has
+(a model server on localhost such as Ollama, LM Studio, llama.cpp or vLLM, an
+API key in your environment, a ChatGPT or Grok login), lets you paste a key or
+type a server address, and saves the choice to `~/.angelX/angel.env`. With
+nothing configured anywhere, the first interactive launch runs it by itself;
+`ANGEL_SETUP=0` turns that off.
 
-For interactive launches, put settings in the checkout's ignored `.angel.env`,
-then restart Angel. The launcher also reads `~/.config/host_env/*`, `~/.env` and
-`~/.openrouter.env`, but only when `ANGEL_HOST_ENV=1` is exported or set in
-`.angel.env`. For headless runs, export
-settings in the caller or set `ANGEL_RUNNER_ENV_FILE=/path/to/your.env`.
+In the cockpit, use `/connect` for provider setup, `/model` to choose a route,
+and `/think` to choose a supported reasoning level. `/status` shows the current
+session. Provider adapters live in `cockpit/src/agent/club`; your credentials
+and preferences belong in your environment or account login files.
+
+For interactive launches, settings load from `~/.angelX/angel.env`, then from
+the checkout's ignored `.angel.auto.env` and `.angel.env` (the checkout wins);
+restart Angel after a change. The launcher also reads `~/.config/host_env/*`,
+`~/.env` and `~/.openrouter.env`, but only when `ANGEL_HOST_ENV=1` is exported
+or set in one of those files. For headless runs, export settings in the caller
+or set `ANGEL_RUNNER_ENV_FILE=/path/to/your.env`.
 
 | Connection | Setup | Route |
 |---|---|---|
@@ -44,6 +52,42 @@ remote consultation; `ANGEL_ALLOW_SOTA_CONSULT=0` or
 prefer the selected model; `ANGEL_LOOP_SOTA_CLUB` pins an escalation route and
 `ANGEL_LOOP_SOTA=0` disables that escalation. Configure budgets and run limits
 for your workload in the [environment reference](../cockpit/docs/ENV.md).
+
+## Treebeard compactor
+
+In the Treebeard lane (the default), a local model can work beside a paid
+driver as its rolling compactor. When the lane parks a large tool result under
+a handle, the compactor reads it and writes the driver a short digest in the
+receipt, so the details stay local. It also writes the background compaction
+summaries. Without one, receipts stay bare and compaction stays in-hand.
+
+Recommended model:
+[unsloth/Qwen3.6-35B-A3B-GGUF](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF),
+file `Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf` (26.6 GB, Apache-2.0). It is a
+mixture-of-experts model with about 3B active parameters, fast enough to digest
+inside a hop. Serve it with llama.cpp b9743 or newer; older builds lack its
+`qwen35moe` architecture.
+
+```sh
+hf download unsloth/Qwen3.6-35B-A3B-GGUF Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf --local-dir ~/models/treebeard
+llama-server -m ~/models/treebeard/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf \
+  --host 127.0.0.1 --port 8001 -ngl 99 -c 131072 -np 4 --kv-unified \
+  -fa on --jinja --reasoning-budget 0 -a treebeard
+```
+
+Then, in `.angel.env`:
+
+```sh
+ANGEL_COMPACT_URL=http://127.0.0.1:8001/v1
+ANGEL_COMPACT_MODEL=treebeard
+ANGEL_COMPACT_REASONING_DIALECT=qwen
+ANGEL_COMPACT_REASONING_EFFORT=none
+ANGEL_COMPACT_BG_TIMEOUT_SECS=120
+```
+
+`ANGEL_TREEBEARD_DIGEST=0` turns the digests off; see the
+[environment reference](../cockpit/docs/ENV.md). Nothing cuts a digest off: the
+hop waits for every one it started.
 
 Other providers, endpoint aliases, fleet discovery, timeouts and model-specific
 controls are listed in the [environment reference](../cockpit/docs/ENV.md).

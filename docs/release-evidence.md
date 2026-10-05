@@ -212,6 +212,43 @@ residual risk, not evidence that an advisory is absent, and without a retained
 advisory receipt this list is the accepted exception scope, not proof of the
 current OSV result.
 
+## Prebuilt packages
+
+`install.sh` installs angelX without Rust or a compiler. Each GitHub release
+carries one package per platform (`angelX-linux-x86_64.tar.gz`,
+`angelX-linux-arm64.tar.gz`, `angelX-macos-arm64.tar.gz`), a copy of
+`install.sh`, and `SHA256SUMS`. A package is the source release above,
+unpacked, with `angel` and `angel-sandbox` in `cockpit/target/release/` and a
+`PREBUILT.json` that names the source archive, its manifest and the binary
+digests. `bin/angelX` sees `PREBUILT.json` and runs the shipped binaries.
+
+The binaries are built from the release commit and carry the manifest's source
+and resource identities, so `angel --build-info --json` names the source
+release they came from:
+
+```bash
+npm run release:evidence -- --out /path/rel
+M=/path/rel/angelX-source-<version>-<commit>.manifest.json
+# Linux x86_64 host with zig and cargo-zigbuild on PATH (links against glibc 2.31):
+RUSTY_V8_ARCHIVE=/path/librusty_v8_release_x86_64-unknown-linux-gnu.a \
+  scripts/release/build-prebuilt.sh "$M" linux-x86_64 /path/rel/bin/linux-x86_64
+RUSTY_V8_ARCHIVE=/path/librusty_v8_release_aarch64-unknown-linux-gnu.a \
+  scripts/release/build-prebuilt.sh "$M" linux-arm64 /path/rel/bin/linux-arm64
+# Apple-silicon Mac with the same commit checked out:
+scripts/release/build-prebuilt.sh "$M" macos-arm64 /path/rel/bin/macos-arm64
+# Back on Linux, once per target:
+scripts/release/package-prebuilt.sh "$M" /path/rel/bin/<target> /path/rel/dist
+gh release upload v<version> /path/rel/dist/* --repo newjordan/angelX
+```
+
+`build-prebuilt.sh` refuses a checkout that is not the manifest's tree or has
+dirty build inputs, and binaries that need a glibc newer than 2.31. `build.rs`
+compiles every source cartridge under `~/.angelX/cartridges` into the binary,
+so the script points `ANGEL_CARTRIDGES` at an empty folder and refuses a binary
+that still carries the builder's cartridge path. `package-prebuilt.sh` checks
+the manifest and archive sidecars and every binary digest before it writes.
+Packages are checksummed, not signed: `SHA256SUMS` comes from the same release.
+
 ## Supported evidence host
 
 Linux x86_64 with Node 20.19+, 22.13+, or 24+, Rust 1.95.0 with the pinned

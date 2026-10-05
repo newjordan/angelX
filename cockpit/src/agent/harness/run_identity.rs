@@ -377,9 +377,6 @@ fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdent
         });
     budgets["turn_idle_timeout_secs"] =
         json!(crate::agent::turn::configured_turn_idle_timeout_secs().unwrap_or(0));
-    budgets["stream_stall_secs"] = json!(crate::agent::club::identity_stream_stall_secs());
-    budgets["codex_stream_stall_secs"] =
-        json!(crate::agent::club::env_secs("ANGEL_CODEX_STREAM_STALL_SECS", 0).as_secs());
     let defaults = MODEL_DEFAULTS
         .with(|slot| slot.borrow_mut().take())
         .unwrap_or_else(|| crate::agent::club::model_defaults::budgets(&model.id, &model.club));
@@ -417,16 +414,8 @@ fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdent
     })
 }
 
-pub(crate) fn bind(
-    model: Model,
-    effort: Value,
-    output_tokens: Value,
-    codex_stall_secs: Option<u64>,
-) -> Result<(), String> {
-    let mut identity = capture(model, effort, output_tokens)?;
-    if let Some(seconds) = codex_stall_secs {
-        identity.budgets["codex_stream_stall_secs"] = json!(seconds);
-    }
+pub(crate) fn bind(model: Model, effort: Value, output_tokens: Value) -> Result<(), String> {
+    let identity = capture(model, effort, output_tokens)?;
     IDENTITY
         .get_or_init(|| Ok(identity.clone()))
         .as_ref()

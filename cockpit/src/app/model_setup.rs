@@ -82,7 +82,10 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
             Configure ANGEL_LOCAL_URL and ANGEL_LOCAL_MODEL; ANGEL_LOCAL_URLS adds more\n\
             endpoints (url or name=url) as modes of the same local box. ANGEL_SCAN=1\n\
             enables opt-in discovery; local endpoints may not require credentials.\n\
-            Use /model to select a discovered route after it is configured."
+            Use /model to select a discovered route after it is configured.\n\
+            Treebeard compactor (a local helper beside a paid driver): serve\n\
+            https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF and point ANGEL_COMPACT_URL\n\
+            at it; docs/MODELS.md has the recipe."
         }
         _ => return format!("unknown provider {provider:?}\n{USAGE}"),
     };

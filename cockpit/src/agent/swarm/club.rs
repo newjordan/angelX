@@ -648,15 +648,8 @@ impl SwarmClub {
     /// simultaneous requests. Workers run *detached* (owned payloads, results
     /// over a channel) instead of scope-joined, so the barrier stops waiting at
     /// the first of:
-    ///   - all `n` workers returned (the common case — nothing changes),
-    ///   - the wave deadline (`ANGEL_SWARM_WAVE_DEADLINE`, default 240s — one
-    ///     wedged endpoint used to hold a wave through its full 3×180s retry
-    ///     budget while N−1 finished results sat waiting),
-    ///   - quorum + grace: once `ANGEL_SWARM_QUORUM` (default 0.75) of the wave
-    ///     has landed, stragglers get `ANGEL_SWARM_GRACE_SECS` (default 20s)
-    ///     and are then cut — the mixture already provides redundancy. A
-    ///     strict-width SOTA-MoA run disables this early cut and waits for all
-    ///     requested seats, still bounded by the wave deadline,
+    ///   - all `n` workers returned — every seat thinks as long as it needs;
+    ///     no clock or quorum cuts a seat that is still answering,
     ///   - `cancel` (user interrupt) — the wave stops consuming immediately.
     ///
     /// SOTA-MoA additionally admits at most `ANGEL_SOTA_MOA_MAX_PARALLEL`
@@ -704,25 +697,15 @@ impl SwarmClub {
     where
         F: Fn(usize) -> (String, Vec<ChatMsg>),
     {
-        use std::time::{Duration, Instant};
+        use std::time::Duration;
         let n = clubs.len();
         if n == 0 {
             return Vec::new();
         }
-        let deadline = Duration::from_secs(env_usize("ANGEL_SWARM_WAVE_DEADLINE", 0) as u64);
-        let quorum_frac = env_f64("ANGEL_SWARM_QUORUM", 0.75).clamp(0.0, 1.0);
-        let require_full_width = self.name.eq_ignore_ascii_case("sota-moa")
-            && env_flag_or("ANGEL_SOTA_MOA_REQUIRE_FULL_WIDTH", false);
-        let quorum = if require_full_width {
-            n
-        } else {
-            (((n as f64) * quorum_frac).ceil() as usize).clamp(1, n)
-        };
-        let grace = Duration::from_secs(env_usize("ANGEL_SWARM_GRACE_SECS", 20) as u64);
-        // Cut provider calls can ignore the wave deadline and continue in a
-        // detached thread. Admit one complete wave atomically, then retain its
-        // permits until the actual calls exit so repeated cut waves cannot grow
-        // the process without bound.
+        // A cancelled wave's provider calls continue in a detached thread.
+        // Admit one complete wave atomically, then retain its permits until the
+        // actual calls exit so repeated cancelled waves cannot grow the process
+        // without bound.
         let permits = match reserve_swarm_workers(inflight, n, inflight_limit.max(n)) {
             Ok(permits) => permits,
             Err(error) => return (0..n).map(|_| Err(error.clone())).collect(),
@@ -776,17 +759,13 @@ impl SwarmClub {
         if launched == n {
             drop(tx.take());
         }
-        let started = Instant::now();
         let mut slots: Vec<Option<Result<String, String>>> = (0..n).map(|_| None).collect();
         let mut returned = 0usize;
-        let mut quorum_at: Option<Instant> = None;
         while returned < n {
-            if (!deadline.is_zero() && started.elapsed() >= deadline)
-                || quorum_at.is_some_and(|q| q.elapsed() >= grace)
-                || cancel.is_some_and(|c| c.load(Ordering::Relaxed))
-            {
+            if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
                 break;
             }
+            // A cancel poll, not a deadline: an empty wait just checks again.
             let wait = Duration::from_millis(250);
             match rx.recv_timeout(wait) {
                 Ok((i, r)) => {
@@ -805,15 +784,10 @@ impl SwarmClub {
                         );
                     }
                     slots[i] = Some(r);
-                    if returned >= quorum && quorum < n && quorum_at.is_none() {
-                        quorum_at = Some(Instant::now());
-                    }
                     // A landed worker released its global permit before sending
                     // this result. Fill that request slot with the next queued
                     // seat while the wave is still live.
-                    let barrier_open = (deadline.is_zero() || started.elapsed() < deadline)
-                        && quorum_at.is_none_or(|q| q.elapsed() < grace)
-                        && !cancel.is_some_and(|c| c.load(Ordering::Relaxed));
+                    let barrier_open = !cancel.is_some_and(|c| c.load(Ordering::Relaxed));
                     if launched < n && barrier_open {
                         launch(
                             launched,
@@ -833,10 +807,10 @@ impl SwarmClub {
             }
         }
         // Closing the root sender ensures queued seats can never be launched by
-        // later cleanup after the deadline/cancel barrier has returned.
+        // later cleanup after the cancel barrier has returned.
         drop(tx.take());
-        // Anything still pending was cut at the deadline/quorum/cancel
-        // barrier — say so on the seat telemetry too, not just in the Err.
+        // Anything still pending was cancelled by the operator — say so on the
+        // seat telemetry too, not just in the Err.
         for (i, slot) in slots.iter().enumerate() {
             if slot.is_none() {
                 crate::ui::viz::agentviz::stage_seat_update(
@@ -848,12 +822,7 @@ impl SwarmClub {
         slots
             .into_iter()
             .map(|r| {
-                r.unwrap_or_else(|| {
-                    Err(
-                        "cut at wave deadline/quorum (straggler abandoned to background)"
-                            .to_string(),
-                    )
-                })
+                r.unwrap_or_else(|| Err("cancelled (seat abandoned to background)".to_string()))
             })
             .collect()
     }

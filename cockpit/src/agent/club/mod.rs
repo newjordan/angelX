@@ -202,7 +202,6 @@ pub trait Club: Send + Sync {
                 "none"
             }),
             serde_json::json!("unbound"),
-            None,
         )
     }
 

@@ -5,6 +5,10 @@
 //! contract, the compaction summarizer, the final-answer advisor, and a
 //! mixture stage that answered with a tool call. The task, drafts, code and
 //! excerpts ride beside the routes as data.
+//!
+//! ⡌ (dots 3-4-7) is this chapter's overflow shelf: the Treebeard compactor, a
+//! local seat that digests the bulk the lane parks under a handle, and the
+//! frame its digest rides under in the root's receipt.
 
 use super::{Primary, Route, Sub};
 
@@ -19,6 +23,10 @@ pub(crate) const SUMMARY_SECTIONS: Route = Route::new(CELL, '⠛');
 pub(crate) const MAP_NOTES: Route = Route::new(CELL, '⠓');
 pub(crate) const ADVISOR: Route = Route::new(CELL, '⠊');
 pub(crate) const TEXT_ONLY: Route = Route::new(CELL, '⠚');
+
+pub(crate) const SHELF_CELL: char = '⡌';
+pub(crate) const COMPACTOR: Route = Route::new(SHELF_CELL, '⠁');
+pub(crate) const COMPACTOR_DIGEST: Route = Route::new(SHELF_CELL, '⠃');
 
 pub(crate) const PRIMARY: Primary = Primary {
     cell: CELL,
@@ -157,6 +165,35 @@ pub(crate) const PRIMARY: Primary = Primary {
                 "No tools are available in this stage and nothing was executed — a tool call here is discarded.",
                 "Answer now in plain prose, from what you already know: no tool calls and no tool-call markup of any kind (`[TOOL_CALLS]`, `<tool_call>`, `<function=…>`, `<SHELL>{…}`).",
             ],
+        },
+    ],
+};
+
+pub(crate) const SHELF: Primary = Primary {
+    cell: SHELF_CELL,
+    name: "compactor",
+    surface: "the Treebeard compactor: a local seat that digests parked bulk so the root carries only what it needs",
+    subs: &[
+        Sub {
+            route: COMPACTOR,
+            name: "compactor",
+            signal: "digest the parked tool output below for the root (its call beside the route)",
+            action: "",
+            ideas: "",
+            pages: &[
+                "The root model sees a handle to the tool output below, not the output itself.",
+                "Write the digest it needs to act without opening the handle: what the output is, and the paths, line numbers, names, values and errors that matter.",
+                "Quote a line exactly only when its exact text matters.",
+                "Terse bullet points, no preamble.",
+            ],
+        },
+        Sub {
+            route: COMPACTOR_DIGEST,
+            name: "compactor-digest",
+            signal: "the local compactor's digest of the parked output above; its handle keeps the full body",
+            action: "",
+            ideas: "",
+            pages: &["read the exact bytes with handle_read when the digest is not enough"],
         },
     ],
 };
