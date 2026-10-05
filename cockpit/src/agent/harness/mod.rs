@@ -66,6 +66,7 @@ pub(crate) mod coeffect;
 pub(crate) mod cartridges;
 mod comp_watch;
 mod compact;
+mod compactor;
 mod confined_fs;
 mod context;
 mod delegated_lineage;

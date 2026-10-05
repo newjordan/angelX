@@ -5,13 +5,13 @@ use super::*;
 /// Wake a blocking provider read on operator cancellation. The scoped worker is
 /// joined before the attempt scope ends, including retries and errors.
 /// Polling observes a flag; it imposes no deadline on the provider or the run.
-pub(super) struct CancelReadGuard<'scope> {
+pub(crate) struct CancelReadGuard<'scope> {
     stop: std::sync::mpsc::Sender<()>,
     worker: Option<std::thread::ScopedJoinHandle<'scope, ()>>,
 }
 
 impl<'scope> CancelReadGuard<'scope> {
-    pub(super) fn new<'env>(
+    pub(crate) fn new<'env>(
         scope: &'scope std::thread::Scope<'scope, 'env>,
         cancel: &'env AtomicBool,
         abort: ureq::AbortHandle,
@@ -451,26 +451,6 @@ fn push_delta(slot: &mut Option<String>, add: &str) {
 }
 
 impl StreamAccumulator {
-    /// Whether this stream has demonstrably begun producing model output. This
-    /// deliberately includes private reasoning and a partial tool-call envelope:
-    /// local Qwen/SGLang parsers can emit either, then buffer a large string
-    /// argument until its closing delimiter before another SSE chunk appears.
-    pub(crate) fn has_model_output(&self) -> bool {
-        !self.content.is_empty() || !self.reasoning.is_empty() || !self.tool_calls.is_empty()
-    }
-
-    /// Whether any partial tool call carries real content (an id, a name, or
-    /// argument bytes). A blank envelope (`[{}]`, `[{"index":0}]`) reserves a
-    /// slot but holds nothing, so it must not be reported as a severed call —
-    /// and, unlike one, it never stands between kept prose and the surface. The
-    /// reply builder already drops unnamed slots, so this matches what dispatch
-    /// would have done with them.
-    pub(crate) fn has_usable_tool_call(&self) -> bool {
-        self.tool_calls
-            .iter()
-            .any(|call| !call.id.is_empty() || !call.name.is_empty() || !call.args.is_empty())
-    }
-
     fn marker_gate(&mut self) -> bool {
         *self.markers_on.get_or_insert_with(marker_splitting_enabled)
     }

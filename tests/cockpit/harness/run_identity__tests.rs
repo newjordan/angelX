@@ -17,7 +17,6 @@ fn run_identity_auxiliary_request_keeps_last_answer_receipt() {
             },
             json!({"reasoning_effort":"low"}),
             json!(123),
-            None,
         )
         .unwrap();
     };
@@ -254,7 +253,6 @@ fn run_identity_preserves_running_image_after_path_replacement() {
 fn model_defaults_identity_capture() {
     let _env = crate::tests::env_lock();
     let _idle = crate::tests::TestEnvGuard::unset("ANGEL_TURN_IDLE_TIMEOUT_SECS");
-    let _stall = crate::tests::TestEnvGuard::unset("ANGEL_STREAM_STALL_SECS");
     let _effort = crate::tests::TestEnvGuard::unset("ANGEL_REASONING_EFFORT");
     let _grok = crate::tests::TestEnvGuard::unset("ANGEL_GROK_REASONING_EFFORT");
     let identity = capture(
@@ -273,7 +271,8 @@ fn model_defaults_identity_capture() {
         identity.budgets["reasoning_effort_source"],
         "table 2026-09-09"
     );
-    assert_eq!(identity.budgets["stream_stall_secs"], 240);
+    assert!(identity.budgets.get("stream_stall_secs").is_none());
+    assert!(identity.budgets.get("codex_stream_stall_secs").is_none());
     assert_eq!(identity.budgets["turn_idle_timeout_secs"], 0);
 }
 

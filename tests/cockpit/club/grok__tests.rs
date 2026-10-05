@@ -213,7 +213,6 @@ fn grok_effort_ladder_is_selectable_and_canonical() {
         mode: GrokMode::AcpOAuth {
             command: "/bin/true".to_string(),
             model: Some("grok-4.5".to_string()),
-            timeout: Duration::from_secs(5),
         },
         usage: UsageCell::default(),
         accounting: super::AccountingCell::default(),
@@ -259,7 +258,6 @@ fn grok_effort_env_seeds_once_and_resyncs_under_env_lock() {
         mode: GrokMode::AcpOAuth {
             command: "/bin/true".to_string(),
             model: Some("grok-4.5".to_string()),
-            timeout: Duration::from_secs(5),
         },
         usage: UsageCell::default(),
         accounting: super::AccountingCell::default(),
@@ -301,7 +299,6 @@ fn grok_effort_snapshot_invalidates_on_env_resync() {
         mode: GrokMode::AcpOAuth {
             command: "/bin/true".to_string(),
             model: Some("grok-4.6".to_string()),
-            timeout: Duration::from_secs(5),
         },
         usage: UsageCell::default(),
         accounting: super::AccountingCell::default(),
@@ -1013,7 +1010,6 @@ fn live_grok_acp_reuses_process_and_runs_its_own_research_tool() {
     let _lock = env_lock();
     let _enabled = EnvGuard::set("ANGEL_GROK_RESEARCH", "1");
     let _effort = EnvGuard::set("ANGEL_GROK_REASONING_EFFORT", "low");
-    let _timeout = EnvGuard::set("ANGEL_GROK_TIMEOUT_SECS", "120");
     let club = GrokResearchClub::from_env().expect("live account-OAuth Grok ACP club");
 
     let first = club

@@ -6,17 +6,24 @@
 # full PTY shell pane, ^T for a braille chart, `/show` images, `/sessions` +
 # `/resume` for crash-safe session history.
 #
+# `angelX setup` connects a model (a local server, an API key or a plan login)
+# and saves it to ~/.angelX/angel.env. With nothing configured anywhere, the
+# first interactive launch runs it by itself.
+#
 # `angelX update` refreshes the local CLI alias that points at this launcher;
-# full checkouts also refresh their optional desktop entry.
+# full checkouts also refresh their optional desktop entry. A prebuilt install
+# (install.sh) updates to the latest release instead.
 #
 # This IS the customized TUI shell. It lives in cockpit/ — edit the Rust there and
 # the next launch rebuilds automatically (cargo is ~instant when nothing changed).
 #
 # Knobs (all optional):
-#   ANGEL_BRAIN_KEY   turbo/fleet key for live agents. Without it the cockpit falls
-#                     back to the offline practice agent. Put it in $ANGEL_DIR/.angel.env
-#                     (gitignored) so it's sourced automatically. Host-level keys
-#                     in ~/.config/host_env/api_keys.sh are sourced automatically.
+#   ANGEL_BRAIN_KEY   bearer key for a self-hosted model server that wants one.
+#                     Keys and settings load from ~/.angelX/angel.env, then from
+#                     this checkout's gitignored .angel.auto.env and .angel.env.
+#                     Host-level files (~/.config/host_env/api_keys.sh and the
+#                     like) load only with ANGEL_HOST_ENV=1.
+#   ANGEL_SETUP=0     never start `angelX setup` by itself
 #   ANGEL_WORKSPACE   workspace directory to open. Defaults to the launch cwd.
 #   ANGEL_NO_BUILD=1  skip the rebuild and run the last-built binary as-is
 #   ANGEL_BIND_SOURCE=0
@@ -75,6 +82,16 @@ PY
 ANGEL_DIR="$(cd "$(dirname "$(_angel_realpath "${BASH_SOURCE[0]}")")/.." && pwd)"
 COCKPIT_DIR="$ANGEL_DIR/cockpit"
 export ANGEL_RESOURCE_DIR="${ANGEL_RESOURCE_DIR:-$ANGEL_DIR}"
+# A prebuilt install (install.sh) carries its binaries and PREBUILT.json and
+# runs them as shipped. ANGEL_NO_BUILD=0 rebuilds from the included source.
+ANGEL_PREBUILT=0
+if [ -f "$ANGEL_DIR/PREBUILT.json" ]; then
+  ANGEL_PREBUILT=1
+  export ANGEL_NO_BUILD="${ANGEL_NO_BUILD:-1}"
+  if [ -z "${ANGEL_SANDBOX_HELPER:-}" ] && [ -x "$COCKPIT_DIR/target/release/angel-sandbox" ]; then
+    export ANGEL_SANDBOX_HELPER="$COCKPIT_DIR/target/release/angel-sandbox"
+  fi
+fi
 LAUNCH_CWD="$(pwd -P)"
 # Only the invoking environment may intentionally override a bare launch.
 LAUNCH_WORKSPACE="${ANGEL_WORKSPACE:-}"
@@ -119,7 +136,7 @@ while [ $# -gt 0 ]; do
 done
 # Preserve the launcher's directory-only positional convenience. It is never
 # interpreted as prompt text, and may precede a machine mode.
-if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ]; then
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ]; then
   WORKSPACE_ARG="$1"; shift
 elif [ "${1:-}" = --workspace ]; then
   [ $# -ge 2 ] && [ -n "$2" ] || _launch_invalid '--workspace requires a directory'
@@ -134,7 +151,7 @@ case "${1:-}" in
   --help | -h | --version | -V | --doctor)
     [ $# -eq 1 ] || _launch_invalid 'inspection options take no additional arguments'
     HEADLESS_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
-  update | reset-terminal) FORWARD_ARGS=("$@"); set -- ;;
+  update | reset-terminal | setup) FORWARD_ARGS=("$@"); set -- ;;
 esac
 DRAFT_SEEN=0
 RESUME_SEEN=0
@@ -175,7 +192,7 @@ done
 [ "$DRAFT_SEEN$RESUME_SEEN" != 11 ] || _launch_invalid 'initial text cannot be combined with --resume'
 # bash 3.2 (stock macOS) treats an empty "${arr[@]}" as unbound under set -u.
 set -- ${FORWARD_ARGS[@]+"${FORWARD_ARGS[@]}"}
-if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" != update ] && [ "${1:-}" != reset-terminal ]; then
+if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" != update ] && [ "${1:-}" != reset-terminal ] && [ "${1:-}" != setup ]; then
   # Bind interactive workspace before executable shell configuration can cd or
   # switch it. Native startup receives this canonical root through the env.
   selected_workspace="${WORKSPACE_ARG:-${LAUNCH_WORKSPACE:-$LAUNCH_CWD}}"
@@ -246,6 +263,12 @@ _update() {
 
   [ "$#" -eq 0 ] || _die "usage: angelX update"
 
+  # A prebuilt install updates by installing the latest release beside this
+  # one (install.sh keeps the previous release until the next update).
+  if [ "$ANGEL_PREBUILT" = 1 ]; then
+    ANGELX_HOME="$(cd "$ANGEL_DIR/../.." && pwd)" exec sh "$ANGEL_DIR/install.sh"
+  fi
+
   mkdir -p "$HOME/.local/bin"
   ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angelX"
   ln -sfn "$ANGEL_DIR/bin/angelX" "$HOME/.local/bin/angel"
@@ -300,23 +323,49 @@ if [ "$HEADLESS_MODE" = "1" ]; then
     set -a; . "$ANGEL_RUNNER_ENV_FILE"; set +a
   fi
 else
-  # Interactive convenience: the checkout's own ignored env files always load.
-  # Generic home env files are other tools' shell code and load only when
-  # ANGEL_HOST_ENV=1 (exported, or set in .angel.env); repo files are then
-  # re-read so they still override the broad host defaults.
+  # Interactive convenience: angelX's own settings (`angelX setup` writes
+  # ~/.angelX/angel.env) and the checkout's ignored env files always load, the
+  # checkout's last so it wins. Generic home env files are other tools' shell
+  # code and load only when ANGEL_HOST_ENV=1 (exported, or set in .angel.env);
+  # angelX's files are then re-read so they still override the broad host
+  # defaults.
   _angel_source_env() {
     # shellcheck disable=SC1090
     [ -f "$1" ] && { set -a; . "$1"; set +a; }
     return 0
   }
-  for envf in "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env"; do
+  ANGEL_ENV_FILES=("$HOME/.angelX/angel.env" "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env")
+  for envf in "${ANGEL_ENV_FILES[@]}"; do
     _angel_source_env "$envf"
   done
   if [ "${ANGEL_HOST_ENV:-0}" = "1" ]; then
     for envf in "$HOME/.config/host_env/system.env" "$HOME/.config/host_env/api_keys.sh" "$HOME/.env" "$HOME/.openrouter.env"; do
       _angel_source_env "$envf"
     done
-    for envf in "$ANGEL_DIR/.angel.auto.env" "$ANGEL_DIR/.angel.env"; do
+    for envf in "${ANGEL_ENV_FILES[@]}"; do
+      _angel_source_env "$envf"
+    done
+  fi
+
+  # `angelX setup`, and the first launch on a machine where nothing names a
+  # model: no settings file, no remembered route, no provider key, no local
+  # server address and no ChatGPT or Grok login. It runs before the provider
+  # defaults below, so it sees only what the operator configured.
+  _angel_needs_setup() {
+    [ "${ANGEL_SETUP:-1}" != 0 ] && [ -t 0 ] && [ -t 1 ] || return 1
+    [ ! -e "$HOME/.angelX/angel.env" ] && [ ! -e "$HOME/.angelX/brain-route.json" ] || return 1
+    [ -z "${ANGEL_DRIVER:-}${ANGEL_LOCAL_URL:-}${ANGEL_LOCAL_URLS:-}${ANGEL_OPENAI_AUTH_JSON:-}" ] || return 1
+    [ ! -f "${CODEX_HOME:-$HOME/.codex}/auth.json" ] && [ ! -f "${GROK_HOME:-$HOME/.grok}/auth.json" ] || return 1
+    # Key names the cockpit reads (agent/club/bag.rs and discovery.rs).
+    ! compgen -v | grep -qE '^(ANGEL_[A-Z0-9_]+_KEY|(OPENAI|DEEPSEEK|XAI|GROK|GLM|ZAI|ZHIPU|BIGMODEL|KIMI|MOONSHOT|OPENROUTER|CEREBRAS|META|QWEN|DASHSCOPE|LONGCAT)_API_KEY)$'
+  }
+  if [ "${1:-}" = setup ]; then
+    [ "$#" -eq 1 ] || _die "usage: angelX setup"
+    exec bash "$ANGEL_DIR/scripts/runtime/angel-setup.sh"
+  fi
+  if _angel_needs_setup; then
+    bash "$ANGEL_DIR/scripts/runtime/angel-setup.sh" --first-run || exit $?
+    for envf in "${ANGEL_ENV_FILES[@]}"; do
       _angel_source_env "$envf"
     done
   fi

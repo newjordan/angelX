@@ -3981,6 +3981,10 @@ fn run_turn_tiered(
                 let mut cycle_state_changed_this_hop = false;
                 let mut execution_blocked = None;
                 post_write_verification.begin_batch();
+                // The Treebeard compactor, resolved at the hop's first parked
+                // result; its digests run beside the rest of the batch.
+                let mut compactor: Option<Option<Arc<dyn Club>>> = None;
+                let mut digesting = Vec::new();
                 for (call_index, (result, dispatch_elapsed, tool_outcome)) in
                     results.into_iter().enumerate()
                 {
@@ -4385,6 +4389,17 @@ fn run_turn_tiered(
                     }
                     let capped = cap_tool_output_owned(result, ctx_window);
                     let identity = inspection_identity_for_offload(call, &capped);
+                    let digest_body = (digesting.len() < super::compactor::per_hop()
+                        && eager_offload_can_park(&call.name, &capped)
+                        && compactor
+                            .get_or_insert_with(|| {
+                                super::compactor::compactor(club, &registry.aux_clubs)
+                            })
+                            .is_some())
+                    .then(|| {
+                        let named = identity.clone().unwrap_or_else(|| call.name.clone());
+                        (named, capped.clone())
+                    });
                     let off = eager_offload_tool_result(&call.name, capped, identity.as_deref());
                     if off.offloaded {
                         eager_offload_results.set(eager_offload_results.get().saturating_add(1));
@@ -4404,6 +4419,40 @@ fn run_turn_tiered(
                                 history[call_history_index].tool_calls.len() == 1,
                             ),
                     );
+                    if off.offloaded
+                        && let (Some((named, body)), Some(Some(helper))) = (digest_body, &compactor)
+                    {
+                        registry.auxiliary.utility_entered("treebeard_digest");
+                        digesting.push(super::compactor::start(
+                            helper,
+                            registry.current_workspace().to_path_buf(),
+                            history.len() - 1,
+                            &named,
+                            &body,
+                        ));
+                    }
+                }
+                if !digesting.is_empty() {
+                    let label = compactor
+                        .as_ref()
+                        .and_then(Option::as_ref)
+                        .map(|helper| helper.label().to_string())
+                        .unwrap_or_default();
+                    let landed = super::compactor::finish(history, std::mem::take(&mut digesting));
+                    eager_offload_bytes_saved.set(
+                        eager_offload_bytes_saved
+                            .get()
+                            .saturating_sub(landed.bytes as u64),
+                    );
+                    let _ = events.send(TurnEvent::Notice(format!(
+                        "treebeard: {label} digested {} parked output(s){}",
+                        landed.landed,
+                        if landed.missed > 0 {
+                            format!(", {} failed", landed.missed)
+                        } else {
+                            String::new()
+                        }
+                    )));
                 }
                 // The hop's stamps ride the tail of its last tool result.
                 let last_tool_index = history.len() - 1;

@@ -259,13 +259,11 @@ fn repeated_cut_waves_fail_fast_until_actual_workers_return() {
     assert_eq!(TEST_WAVE_INFLIGHT.load(Ordering::Acquire), 0);
 }
 
+/// No quorum, grace or wave clock: a wave waits for every seat that is still
+/// answering, however many have already landed.
 #[test]
-fn strict_width_waits_past_the_partial_quorum_grace_cut() {
+fn a_wave_waits_for_every_seat_still_answering() {
     let _guard = crate::tests::env_lock();
-    let _strict = crate::tests::TestEnvGuard::set("ANGEL_SOTA_MOA_REQUIRE_FULL_WIDTH", "1");
-    let _quorum = crate::tests::TestEnvGuard::set("ANGEL_SWARM_QUORUM", "0.75");
-    let _grace = crate::tests::TestEnvGuard::set("ANGEL_SWARM_GRACE_SECS", "0");
-    let _deadline = crate::tests::TestEnvGuard::set("ANGEL_SWARM_WAVE_DEADLINE", "10");
     TEST_WAVE_INFLIGHT.store(0, Ordering::Release);
 
     let immediate: Arc<dyn Club> = Arc::new(ImmediateClub);

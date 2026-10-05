@@ -477,7 +477,6 @@ fn agent_graph_live_shaped_final_usage_without_limits() {
 fn agent_graph_stalled_stream_retries_and_sums_usage() {
     use std::io::{Read, Write};
     let _lock = crate::tests::env_lock();
-    let _stall = crate::tests::TestEnvGuard::set("ANGEL_STREAM_STALL_SECS", "1");
     let _backoff = crate::tests::TestEnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "1");
     let _deadline = crate::tests::TestEnvGuard::unset("ANGEL_GRAPH_DEADLINE_SECS");
     let _tokens = crate::tests::TestEnvGuard::unset("ANGEL_FORMATION_TOKEN_BUDGET");
@@ -688,7 +687,6 @@ fn graph_fault_server(
 #[test]
 fn agent_graph_tool_bearing_node_spends_the_explicit_retry_budget_once() {
     let _lock = crate::tests::env_lock();
-    let _stall = crate::tests::TestEnvGuard::set("ANGEL_STREAM_STALL_SECS", "1");
     let _retries = crate::tests::TestEnvGuard::set("ANGEL_PROVIDER_RETRIES", "1");
     let _backoff = crate::tests::TestEnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
     let _deadline = crate::tests::TestEnvGuard::unset("ANGEL_GRAPH_DEADLINE_SECS");

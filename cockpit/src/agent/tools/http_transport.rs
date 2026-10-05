@@ -15,6 +15,9 @@ use std::time::{Duration, Instant};
 
 const TICK: Duration = Duration::from_millis(25);
 const PREVIEW_BYTES: usize = 4096;
+/// Body idle bound for tool HTTP fetches (web pages, APIs). Tool transport only:
+/// model streams have no such bound.
+const TOOL_BODY_STALL: Duration = Duration::from_secs(45);
 
 #[derive(Clone)]
 pub(crate) struct Context {
@@ -26,7 +29,7 @@ impl Default for Context {
     fn default() -> Self {
         Self {
             deadline: None,
-            stall: Duration::from_secs(crate::agent::club::identity_stream_stall_secs()),
+            stall: TOOL_BODY_STALL,
             cancelled: Arc::new(AtomicBool::new(false)),
         }
     }

@@ -664,9 +664,8 @@ fn serve_delayed_stream(
     (format!("http://{addr}"), handle)
 }
 
-/// Keep sending SSE comments during the parser gap. This prevents the
-/// socket deadline from firing and exercises the independent data-stall /
-/// foreground-watchdog path.
+/// Keep sending SSE comments during a quiet gap: the keep-alive path that
+/// refreshes the foreground watchdog.
 fn serve_keepalive_stream(
     first_event: &'static str,
     ping_delay: Duration,
@@ -697,13 +696,14 @@ fn serve_keepalive_stream(
     (format!("http://{addr}"), handle)
 }
 
+/// A streamed call has no read deadline: a tool parser that holds its first
+/// giant `data:` line back past `ANGEL_HTTP_TIMEOUT` (the buffered-call bound)
+/// still lands its call.
 #[test]
-fn local_tool_stream_survives_parser_silence_past_socket_timeout() {
+fn a_stream_survives_silence_past_the_buffered_read_bound() {
     let _guard = crate::tests::env_lock();
     {
         let _http_timeout = EnvGuard::set("ANGEL_HTTP_TIMEOUT", "1");
-        let _tool_silence = EnvGuard::set("ANGEL_STREAM_TOOL_SILENCE_SECS", "4");
-        let _stall = EnvGuard::set("ANGEL_STREAM_STALL_SECS", "1");
         resync_stream_knobs_from_env();
 
         // A tool-only response can cross the socket deadline inside its
@@ -744,13 +744,10 @@ fn local_tool_stream_survives_parser_silence_past_socket_timeout() {
                 },
                 &rules,
             )
-            .expect("a bounded local parser gap must not sever the tool call");
+            .expect("a quiet stream is never severed");
         handle.join().unwrap();
 
-        assert!(
-            heartbeats >= 1,
-            "the watchdog must learn about the bounded wait"
-        );
+        assert_eq!(heartbeats, 0, "silence carries no keep-alive");
         match reply {
             ClubReply::Calls(calls) => {
                 assert_eq!(calls.len(), 1);
@@ -766,12 +763,9 @@ fn local_tool_stream_survives_parser_silence_past_socket_timeout() {
 }
 
 #[test]
-fn local_tool_stream_keepalives_refresh_the_foreground_watchdog() {
+fn keepalives_refresh_the_foreground_watchdog_without_flooding_it() {
     let _guard = crate::tests::env_lock();
     {
-        let _http_timeout = EnvGuard::set("ANGEL_HTTP_TIMEOUT", "3");
-        let _tool_silence = EnvGuard::set("ANGEL_STREAM_TOOL_SILENCE_SECS", "4");
-        let _stall = EnvGuard::set("ANGEL_STREAM_STALL_SECS", "1");
         resync_stream_knobs_from_env();
 
         let first = concat!(
@@ -812,7 +806,7 @@ fn local_tool_stream_keepalives_refresh_the_foreground_watchdog() {
                 },
                 &rules,
             )
-            .expect("keep-alives must not defeat local parser-gap recovery");
+            .expect("a keep-alive stream is a live model");
         handle.join().unwrap();
 
         assert_eq!(
@@ -831,20 +825,28 @@ fn local_tool_stream_keepalives_refresh_the_foreground_watchdog() {
     resync_stream_knobs_from_env();
 }
 
+/// A model thinking quietly past the buffered-call read bound is never cut
+/// on a stream, with or without tools offered.
 #[test]
-fn tool_free_local_stream_keeps_the_fail_fast_timeout() {
+fn a_tool_free_stream_is_never_cut_by_the_read_bound() {
     let _guard = crate::tests::env_lock();
     {
         let _http_timeout = EnvGuard::set("ANGEL_HTTP_TIMEOUT", "1");
-        let _tool_silence = EnvGuard::set("ANGEL_STREAM_TOOL_SILENCE_SECS", "4");
         resync_stream_knobs_from_env();
 
         let first = concat!(
             "data: {\"choices\":[{\"delta\":{\"reasoning_content\":",
             "\"still working\"}}]}\n\n",
         );
-        let (base, handle) =
-            serve_delayed_stream(first, Duration::from_millis(1_500), "data: [DONE]\n\n");
+        let (base, handle) = serve_delayed_stream(
+            first,
+            Duration::from_millis(1_500),
+            concat!(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"answer\"},",
+                "\"finish_reason\":\"stop\"}]}\n\n",
+                "data: [DONE]\n\n",
+            ),
+        );
         let club = HttpClub::new("llama-local", base, "llama-4", None);
         let body = serde_json::json!({
             "model": "llama-4",
@@ -854,7 +856,7 @@ fn tool_free_local_stream_keeps_the_fail_fast_timeout() {
         let rules = crate::agent::stream_rules::StreamRules::from_json_for_test("[]");
         let cancel = AtomicBool::new(false);
         let mut heartbeats = 0usize;
-        let error = club
+        let reply = club
             .stream_body_with_rules(
                 body,
                 &[],
@@ -866,42 +868,16 @@ fn tool_free_local_stream_keeps_the_fail_fast_timeout() {
                 },
                 &rules,
             )
-            .expect_err("a tool-free stream retains the ordinary socket timeout");
+            .expect("a quiet thinking model is never cut");
         handle.join().unwrap();
 
-        assert!(error.contains("stream read error"), "{error}");
+        assert!(
+            matches!(reply, ClubReply::Text(ref t) if t == "answer"),
+            "{reply:?}"
+        );
         assert_eq!(heartbeats, 0);
     }
     resync_stream_knobs_from_env();
-}
-
-#[test]
-fn local_tool_stream_grace_requires_a_private_started_tool_request() {
-    // A renamed serve (toymaker's Qwen answers as `toymaker`) still withholds
-    // large tool arguments, so the name never decides.
-    let eligible = local_tool_stream_eligible("http://100.99.101.114:8000/v1", true);
-    assert!(eligible);
-
-    let mut acc = StreamAccumulator::default();
-    assert!(!local_tool_stream_started(eligible, &acc, &[]));
-    assert!(local_tool_stream_started(
-        eligible,
-        &acc,
-        b"data: {\"choices\":[{\"delta\":{\"tool_calls\":["
-    ));
-
-    acc.apply_chunk(&serde_json::json!({
-        "choices": [{"delta": {"reasoning_content": "working"}}]
-    }));
-    assert!(local_tool_stream_started(eligible, &acc, &[]));
-    assert!(!local_tool_stream_eligible(
-        "https://api.example.com/v1",
-        true
-    ));
-    assert!(!local_tool_stream_eligible(
-        "http://127.0.0.1:8000/v1",
-        false
-    ));
 }
 
 #[test]
@@ -1278,99 +1254,34 @@ fn stream_rule_gate_exhausted_encodes_by_move_single_attempt() {
 }
 
 /// Seed-once cache: EnvGuard overrides are invisible until resync, then
-/// visible, then restored after the guard drops. Covers all six knobs.
+/// visible, then restored after the guard drops. No knob is a clock.
 #[test]
 fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
     let _guard = crate::tests::env_lock();
     {
-        let _stall_clear = EnvGuard::unset("ANGEL_STREAM_STALL_SECS");
-        let _first_clear = EnvGuard::unset("ANGEL_STREAM_FIRST_TOKEN_SECS");
-        let _hard_clear = EnvGuard::unset("ANGEL_STREAM_HARD_SECS");
-        let _tool_clear = EnvGuard::unset("ANGEL_STREAM_TOOL_SILENCE_SECS");
         let _line_clear = EnvGuard::unset("ANGEL_STREAM_MAX_LINE_BYTES");
         let _retries_clear = EnvGuard::unset("ANGEL_STREAM_RULE_RETRIES");
         resync_stream_knobs_from_env();
-        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
-        assert_eq!(stall, Duration::from_secs(DEFAULT_STREAM_STALL_SECS));
-        assert_eq!(
-            first_token,
-            Duration::from_secs(DEFAULT_STREAM_FIRST_TOKEN_SECS)
-        );
-        assert_eq!(hard, Duration::from_secs(DEFAULT_STREAM_HARD_SECS));
-        assert!(
-            hard.is_zero(),
-            "a live model stream has no wall clock unless the operator sets one"
-        );
-        assert_eq!(
-            tool_silence,
-            Duration::from_secs(DEFAULT_STREAM_TOOL_SILENCE_SECS)
-        );
+        let (max_line, retries) = stream_hop_knobs();
         assert_eq!(max_line, DEFAULT_STREAM_MAX_LINE_BYTES);
         assert_eq!(retries, DEFAULT_STREAM_RULE_RETRIES);
 
-        let _stall = EnvGuard::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _first = EnvGuard::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "5");
-        let _hard = EnvGuard::set("ANGEL_STREAM_HARD_SECS", "2");
-        let _tool = EnvGuard::set("ANGEL_STREAM_TOOL_SILENCE_SECS", "3");
         let _line = EnvGuard::set("ANGEL_STREAM_MAX_LINE_BYTES", "4096");
         let _retries = EnvGuard::set("ANGEL_STREAM_RULE_RETRIES", "0");
-        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
+        let (max_line, retries) = stream_hop_knobs();
         assert_eq!(
-            stall,
-            Duration::from_secs(DEFAULT_STREAM_STALL_SECS),
+            max_line, DEFAULT_STREAM_MAX_LINE_BYTES,
             "cache must not re-read env until seed reset"
         );
-        assert_eq!(
-            first_token,
-            Duration::from_secs(DEFAULT_STREAM_FIRST_TOKEN_SECS),
-            "cache must not re-read env until seed reset"
-        );
-        assert_eq!(
-            hard,
-            Duration::from_secs(DEFAULT_STREAM_HARD_SECS),
-            "cache must not re-read env until seed reset"
-        );
-        assert_eq!(
-            tool_silence,
-            Duration::from_secs(DEFAULT_STREAM_TOOL_SILENCE_SECS),
-            "cache must not re-read env until seed reset"
-        );
-        assert_eq!(max_line, DEFAULT_STREAM_MAX_LINE_BYTES);
         assert_eq!(retries, DEFAULT_STREAM_RULE_RETRIES);
 
         resync_stream_knobs_from_env();
-        let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
-        assert_eq!(stall, Duration::from_secs(1));
-        assert_eq!(first_token, Duration::from_secs(5));
-        assert_eq!(hard, Duration::from_secs(2));
-        assert_eq!(tool_silence, Duration::from_secs(3));
+        let (max_line, retries) = stream_hop_knobs();
         assert_eq!(max_line, 4096);
         assert_eq!(retries, 0);
     }
     resync_stream_knobs_from_env();
-    let (stall, first_token, hard, tool_silence, max_line, retries) = stream_hop_knobs();
-    assert_eq!(
-        stall,
-        env_secs("ANGEL_STREAM_STALL_SECS", DEFAULT_STREAM_STALL_SECS)
-    );
-    assert_eq!(
-        first_token,
-        env_secs(
-            "ANGEL_STREAM_FIRST_TOKEN_SECS",
-            DEFAULT_STREAM_FIRST_TOKEN_SECS
-        )
-    );
-    assert_eq!(
-        hard,
-        env_secs("ANGEL_STREAM_HARD_SECS", DEFAULT_STREAM_HARD_SECS)
-    );
-    assert_eq!(
-        tool_silence,
-        env_secs(
-            "ANGEL_STREAM_TOOL_SILENCE_SECS",
-            DEFAULT_STREAM_TOOL_SILENCE_SECS
-        )
-    );
+    let (max_line, retries) = stream_hop_knobs();
     assert_eq!(
         max_line,
         env_usize("ANGEL_STREAM_MAX_LINE_BYTES", DEFAULT_STREAM_MAX_LINE_BYTES)

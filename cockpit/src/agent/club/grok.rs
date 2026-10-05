@@ -68,14 +68,9 @@ const GROK_46_EFFORT_LEVELS: &[&str] = &["low", "medium", "high", "xhigh"];
 const GROK_DEFAULT_MODEL: &str = "grok-4.7";
 const GROK_46_CONTEXT_WINDOW: u64 = 500_000;
 
-/// Default wall clock for one ACP prompt. This bounds one failed provider
-/// attempt, not the persistent agent lifetime. A research scout sits in front
-/// of the real turn and must fail fast when its provider wedges. Override with
-/// `ANGEL_GROK_TIMEOUT_SECS`.
-const GROK_DEFAULT_TIMEOUT_SECS: u64 = 60;
-
-/// Startup/auth should never consume the whole prompt budget. The CLI refreshes
-/// its cached OAuth token during this handshake when necessary.
+/// Bound on the ACP process handshake (initialize, authenticate, session/new).
+/// The CLI refreshes its cached OAuth token during it when necessary. A
+/// prompt — the model thinking — has no clock; Esc cancels it.
 const GROK_ACP_STARTUP_TIMEOUT_SECS: u64 = 30;
 
 /// Response waits block on ACP events. This is only the maximum Esc-observation
@@ -162,7 +157,6 @@ enum GrokMode {
     AcpOAuth {
         command: String,
         model: Option<String>,
-        timeout: Duration,
     },
 }
 
@@ -184,7 +178,6 @@ impl GrokResearchClub {
             mode: GrokMode::AcpOAuth {
                 command: grok_command(),
                 model: Some(model),
-                timeout: env_secs("ANGEL_GROK_TIMEOUT_SECS", GROK_DEFAULT_TIMEOUT_SECS),
             },
             usage: UsageCell::default(),
             accounting: super::AccountingCell::default(),
@@ -254,7 +247,6 @@ impl GrokResearchClub {
         &self,
         command: &str,
         model: Option<&str>,
-        timeout: Duration,
         prompt: &str,
         cancel: &AtomicBool,
         effort: Option<&str>,
@@ -263,7 +255,6 @@ impl GrokResearchClub {
         self.respond_acp_surface(
             command,
             model,
-            timeout,
             prompt,
             cancel,
             effort,
@@ -276,7 +267,6 @@ impl GrokResearchClub {
         &self,
         command: &str,
         model: Option<&str>,
-        timeout: Duration,
         prompt: &str,
         cancel: &AtomicBool,
         effort: Option<&str>,
@@ -297,12 +287,12 @@ impl GrokResearchClub {
         // prompt reaches Grok. We never retry timeout/cancel/protocol errors,
         // which could duplicate completed tool side effects.
         for attempt in 0..2 {
-            let connection = match self.acp_connection(&key, timeout) {
+            let connection = match self.acp_connection(&key) {
                 Ok(connection) => connection,
                 Err(err) if attempt == 0 && err.restartable() => continue,
                 Err(err) => return Err(err.operator_message()),
             };
-            match connection.prompt(prompt, timeout, cancel, &self.accounting) {
+            match connection.prompt(prompt, cancel, &self.accounting) {
                 Ok(reply) => {
                     if let Some(usage) = reply.usage {
                         self.usage.record_turn(
@@ -325,11 +315,7 @@ impl GrokResearchClub {
         Err("grok ACP transport failed after one clean restart".to_string())
     }
 
-    fn acp_connection(
-        &self,
-        key: &GrokAcpKey,
-        timeout: Duration,
-    ) -> Result<Arc<GrokAcpConnection>, GrokAcpError> {
+    fn acp_connection(&self, key: &GrokAcpKey) -> Result<Arc<GrokAcpConnection>, GrokAcpError> {
         let mut slot = self
             .acp
             .lock()
@@ -340,7 +326,7 @@ impl GrokResearchClub {
         {
             return Ok(Arc::clone(&current.connection));
         }
-        let startup_timeout = timeout.min(Duration::from_secs(GROK_ACP_STARTUP_TIMEOUT_SECS));
+        let startup_timeout = Duration::from_secs(GROK_ACP_STARTUP_TIMEOUT_SECS);
         let connection = GrokAcpConnection::spawn(key, startup_timeout)?;
         *slot = Some(GrokAcpSlot {
             key: key.clone(),
@@ -444,16 +430,11 @@ impl GrokResearchClub {
             transcript
         };
         let text = match &self.mode {
-            GrokMode::AcpOAuth {
-                command,
-                model,
-                timeout,
-            } => {
+            GrokMode::AcpOAuth { command, model } => {
                 let resolved = self.resolved_effort(effort);
                 self.respond_acp_surface(
                     command,
                     model.as_deref(),
-                    *timeout,
                     &prompt,
                     cancel,
                     resolved.as_deref(),
@@ -634,7 +615,7 @@ impl GrokAcpConnection {
                     "version": env!("CARGO_PKG_VERSION")
                 }
             }),
-            startup_timeout,
+            Some(startup_timeout),
             &never_cancel,
         )?;
         let cached_token = init
@@ -654,7 +635,7 @@ impl GrokAcpConnection {
         connection.request(
             "authenticate",
             serde_json::json!({"methodId": "cached_token", "_meta": {"headless": true}}),
-            startup_timeout,
+            Some(startup_timeout),
             &never_cancel,
         )?;
         Ok(connection)
@@ -663,7 +644,6 @@ impl GrokAcpConnection {
     fn prompt(
         &self,
         prompt: &str,
-        timeout: Duration,
         cancel: &AtomicBool,
         accounting: &super::AccountingCell,
     ) -> Result<GrokAcpReply, GrokAcpError> {
@@ -676,7 +656,7 @@ impl GrokAcpConnection {
         let session = self.request(
             "session/new",
             serde_json::json!({"cwd": cwd.to_string_lossy(), "mcpServers": []}),
-            timeout,
+            Some(Duration::from_secs(GROK_ACP_STARTUP_TIMEOUT_SECS)),
             cancel,
         )?;
         let session_id = session
@@ -698,7 +678,7 @@ impl GrokAcpConnection {
                 "sessionId": session_id,
                 "prompt": [{"type": "text", "text": prompt}]
             }),
-            timeout,
+            None,
             cancel,
         );
         accounting.observe(
@@ -759,7 +739,7 @@ impl GrokAcpConnection {
         &self,
         method: &str,
         params: serde_json::Value,
-        timeout: Duration,
+        timeout: Option<Duration>,
         cancel: &AtomicBool,
     ) -> Result<serde_json::Value, GrokAcpError> {
         if self.poisoned.load(Ordering::Acquire) {
@@ -801,17 +781,20 @@ impl GrokAcpConnection {
                 return Err(GrokAcpError::Cancelled);
             }
             let elapsed = started.elapsed();
-            if elapsed >= timeout {
-                self.pending
-                    .lock()
-                    .ok()
-                    .and_then(|mut pending| pending.remove(&id));
-                return Err(GrokAcpError::TimedOut {
-                    operation: method.to_string(),
-                    seconds: timeout.as_secs(),
-                });
+            let mut wait = GROK_ACP_CANCEL_GRANULARITY;
+            if let Some(timeout) = timeout {
+                if elapsed >= timeout {
+                    self.pending
+                        .lock()
+                        .ok()
+                        .and_then(|mut pending| pending.remove(&id));
+                    return Err(GrokAcpError::TimedOut {
+                        operation: method.to_string(),
+                        seconds: timeout.as_secs(),
+                    });
+                }
+                wait = (timeout - elapsed).min(wait);
             }
-            let wait = (timeout - elapsed).min(GROK_ACP_CANCEL_GRANULARITY);
             match rx.recv_timeout(wait) {
                 Ok(result) => return result,
                 Err(mpsc::RecvTimeoutError::Timeout) => continue,
@@ -1406,20 +1389,9 @@ impl Club for GrokResearchClub {
 
     fn respond_cancellable(&self, prompt: &str, cancel: &AtomicBool) -> Result<String, String> {
         match &self.mode {
-            GrokMode::AcpOAuth {
-                command,
-                model,
-                timeout,
-            } => {
+            GrokMode::AcpOAuth { command, model } => {
                 let effort = self.resolved_effort(None);
-                self.respond_acp(
-                    command,
-                    model.as_deref(),
-                    *timeout,
-                    prompt,
-                    cancel,
-                    effort.as_deref(),
-                )
+                self.respond_acp(command, model.as_deref(), prompt, cancel, effort.as_deref())
             }
         }
     }

@@ -57,7 +57,6 @@ u02_qualified = true
 [[models]]
 route = "grok"
 model = "grok-4.6"
-stream_stall_secs = 240
 turn_idle_secs = 900
 liveness_receipt = "docs/audits/evidence/2026-09-08-straight-a/P2/root-authority.md"
 default_effort = "low"
@@ -72,7 +71,6 @@ route = "grok"
 model = "grok-4.7"
 date = "2026-09-30"
 default_effort = "low"
-stream_stall_secs = 240
 reason = "Effort: 12 polyglot-v1 tasks (every past miss plus the slowest), low vs medium side by side on one build: both 12/12; low 4.6 min and 0.71 M input tokens, medium 7.6 min and 0.89 M. Stall budget (2026-09-23, polyglot-v1 seed0 at low, sealed/grok-4.7-low-seed0-20260922T220254Z): under the 45 s default, 21 calls sent no data for 45 s and were cut; cpp-grade-school retried into the 600 s wall. omp, OpenCode, Hermes and Prime bash on grok-4.7 completed calls of up to 80 s."
 receipt = "angel_tests/angelX-bench/polyglot-20260921/night-sol/grok-night-med/grok/angelx"
 
@@ -80,7 +78,6 @@ receipt = "angel_tests/angelX-bench/polyglot-20260921/night-sol/grok-night-med/g
 route = "grok"
 model = "grok-4.5"
 default_effort = "low"
-stream_stall_secs = 240
 reason = "Root calibration and live-arm policy recorded in lane P2 specification"
 receipt = "docs/audits/evidence/2026-09-08-straight-a/P2/root-authority.md"
 

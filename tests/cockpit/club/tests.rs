@@ -5897,309 +5897,6 @@ fn truncation_retry_escalation_decision() {
     assert!(truncation_retry_schedule(Some(70000), true, 65536, 4).is_empty());
 }
 
-/// A provider that holds the SSE stream open with keep-alive comments or empty
-/// JSON metadata frames while
-/// queueing forever (observed live: z.ai under load — one socket, 35 minutes,
-/// zero data) must fail the call at the data deadline, not hang the turn: the
-/// pings keep resetting the per-read timeout, so only the stall watchdog can
-/// end this.
-#[test]
-fn stream_stall_watchdog_fails_loudly_on_transport_only_streams() {
-    let _guard = env_lock();
-    {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "1");
-        resync_stream_knobs_from_env();
-        use std::io::Write;
-        use std::net::TcpListener;
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let handle = std::thread::spawn(move || {
-            let Ok((mut sock, _)) = listener.accept() else {
-                return;
-            };
-            let _ = read_http_request(&mut sock);
-            let _ = sock.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            );
-            // ~3s of pings and empty data frames outlives the 1s stall window;
-            // neither is model output, so the client must abort early.
-            for _ in 0..30 {
-                if sock
-                    .write_all(b": ping\n\ndata: {\"choices\":[]}\n\n")
-                    .is_err()
-                {
-                    return; // client hung up — the watchdog fired
-                }
-                let _ = sock.flush();
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-        });
-        let club = HttpClub::new("t-stall-probe", format!("http://{addr}"), "m", None);
-        let started = std::time::Instant::now();
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |_| {},
-            )
-            .expect_err("a keep-alive-only stream must fail, not hang");
-        assert!(err.contains("stream stalled"), "{err}");
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(3),
-            "the stall bound must fire well before the pings end ({:?})",
-            started.elapsed()
-        );
-        handle.join().unwrap();
-    }
-    resync_stream_knobs_from_env();
-}
-
-/// Real content deltas must not let a provider stretch one generation without
-/// bound. This is distinct from the stall watchdog above: every frame here is
-/// valid model output, so only the wall-clock stream deadline can terminate it.
-#[test]
-fn stream_hard_deadline_bounds_a_provider_that_dribbles_real_data() {
-    let _guard = env_lock();
-    {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "5");
-        let _hard = ScopedEnv::set("ANGEL_STREAM_HARD_SECS", "1");
-        resync_stream_knobs_from_env();
-        use std::io::Write;
-        use std::net::TcpListener;
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let handle = std::thread::spawn(move || {
-            let Ok((mut sock, _)) = listener.accept() else {
-                return;
-            };
-            let _ = read_http_request(&mut sock);
-            let _ = sock.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            );
-            for _ in 0..30 {
-                if sock
-                    .write_all(b"data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n")
-                    .is_err()
-                {
-                    return;
-                }
-                let _ = sock.flush();
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-        });
-        let club = HttpClub::new("t-hard-stream-probe", format!("http://{addr}"), "m", None);
-        let started = std::time::Instant::now();
-        let mut visible = String::new();
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |delta| {
-                    if let StreamDelta::Content(text) = delta {
-                        visible.push_str(text);
-                    }
-                },
-            )
-            .expect_err("a data-dribbling stream must hit the wall-clock deadline");
-        assert!(err.contains("stream hard deadline exceeded"), "{err}");
-        assert!(
-            !visible.is_empty(),
-            "the fixture must send real model deltas"
-        );
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(3),
-            "the hard bound must fire while data is still arriving ({:?})",
-            started.elapsed()
-        );
-        handle.join().unwrap();
-    }
-    resync_stream_knobs_from_env();
-}
-
-/// Serve one SSE response, then hold the socket open and silent. Detection is
-/// the client's job; the helper returns early once the client hangs up so the
-/// test does not pay for the whole hold.
-fn serve_one_frame_then_silence(frame: &'static str, hold_ms: u64) -> std::net::SocketAddr {
-    use std::io::{Read as _, Write};
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let addr = listener.local_addr().unwrap();
-    std::thread::spawn(move || {
-        let Ok((mut sock, _)) = listener.accept() else {
-            return;
-        };
-        let _ = read_http_request(&mut sock);
-        let _ = sock.write_all(
-            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-        );
-        let _ = sock.write_all(frame.as_bytes());
-        let _ = sock.flush();
-        let _ = sock.set_read_timeout(Some(std::time::Duration::from_millis(100)));
-        let mut probe = [0u8; 64];
-        let mut waited = 0u64;
-        while waited < hold_ms {
-            match sock.read(&mut probe) {
-                Ok(0) => return,
-                Ok(_) => {}
-                Err(_) => std::thread::sleep(std::time::Duration::from_millis(100)),
-            }
-            waited += 100;
-        }
-    });
-    addr
-}
-
-/// A stall that lands *after* the model already streamed prose is the same
-/// incomplete stream as any other missing terminal event: the partial is kept
-/// but marked interrupted, and the error carries the class the turn loop uses to
-/// decide the hop may be replayed. The read-timeout branch used to return a bare
-/// `stream stalled` string here, which read as "not retryable" once text had
-/// been emitted — while the identical fault behind keep-alives recovered.
-#[test]
-fn stream_stall_after_partial_prose_is_an_interrupted_incomplete_stream() {
-    let _guard = env_lock();
-    {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _read = ScopedEnv::set("ANGEL_HTTP_TIMEOUT", "2");
-        let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
-        resync_stream_knobs_from_env();
-        let addr = serve_one_frame_then_silence(
-            "data: {\"choices\":[{\"delta\":{\"content\":\"partial prose\"}}]}\n\n",
-            2_500,
-        );
-        let club = HttpClub::new("t-stall-partial", format!("http://{addr}"), "m", None);
-        let mut visible = String::new();
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |delta| {
-                    if let StreamDelta::Content(text) = delta {
-                        visible.push_str(text);
-                    }
-                },
-            )
-            .expect_err("a stalled stream must never return a reply");
-        assert!(
-            err.starts_with(INCOMPLETE_STREAM_ERR),
-            "the turn loop classifies recovery on this prefix: {err}"
-        );
-        assert!(visible.contains("partial prose"), "{visible}");
-        assert!(
-            visible.contains(STREAM_INTERRUPTED_SUFFIX),
-            "the retained partial must be marked interrupted: {visible}"
-        );
-    }
-    resync_stream_knobs_from_env();
-}
-
-/// A stall that arrives with a half-assembled tool call must fail as an
-/// incomplete stream that names the discarded call: nothing may be dispatched
-/// from severed arguments, and the turn must still be allowed to replay the hop.
-#[test]
-fn stream_stall_discards_a_partial_tool_call() {
-    let _guard = env_lock();
-    {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _read = ScopedEnv::set("ANGEL_HTTP_TIMEOUT", "2");
-        let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
-        resync_stream_knobs_from_env();
-        let addr = serve_one_frame_then_silence(
-            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"cut\",\
-             \"type\":\"function\",\"function\":{\"name\":\"read_file\",\
-             \"arguments\":\"{\\\"path\\\":\\\"half\"}}]}}]}\n\n",
-            2_500,
-        );
-        let club = HttpClub::new("t-stall-tool", format!("http://{addr}"), "m", None);
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |_| {},
-            )
-            .expect_err("a severed tool call must never become a dispatched reply");
-        assert!(
-            err.starts_with(INCOMPLETE_STREAM_ERR),
-            "the discarded call must stay in the recoverable class: {err}"
-        );
-        assert!(err.contains("incomplete tool call discarded"), "{err}");
-    }
-    resync_stream_knobs_from_env();
-}
-
-/// Blank frames are not progress: a frame that carries no id, name, or
-/// arguments must not reset the data deadline, or a server can park a hop at the
-/// wall-clock ceiling by pinging with empty tool-call envelopes. Only a real
-/// chunk, reasoning delta, completion, or call fragment counts.
-#[test]
-fn blank_tool_call_frames_do_not_hold_a_stream_open() {
-    let _guard = env_lock();
-    {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "1");
-        let _read = ScopedEnv::set("ANGEL_HTTP_TIMEOUT", "1");
-        let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
-        resync_stream_knobs_from_env();
-        use std::io::Write;
-        use std::net::TcpListener;
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let handle = std::thread::spawn(move || {
-            let Ok((mut sock, _)) = listener.accept() else {
-                return;
-            };
-            let _ = read_http_request(&mut sock);
-            let _ = sock.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
-            );
-            // Five seconds of frames that carry no new call information: blank
-            // envelopes alternating with a repeated id/name and no argument
-            // bytes, and no ping line in sight. None of it may reset the data
-            // deadline.
-            let blank: &[u8] = b"data: {\"choices\":[{\"delta\":{\"tool_calls\":[{}]}}]}\n\n";
-            let repeated: &[u8] = b"data: {\"choices\":[{\"delta\":{\"tool_calls\":[\
-                {\"index\":0,\"id\":\"same\",\"function\":{\"name\":\"read_file\"}}]}}]}\n\n";
-            for n in 0..50 {
-                if sock
-                    .write_all(if n % 2 == 0 { blank } else { repeated })
-                    .is_err()
-                {
-                    return;
-                }
-                let _ = sock.flush();
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-        });
-        let club = HttpClub::new("t-blank-frames", format!("http://{addr}"), "m", None);
-        let started = std::time::Instant::now();
-        let err = club
-            .chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |_| {},
-            )
-            .expect_err("blank frames alone must not hold a stream open");
-        // The envelopes did open a call ("same"/read_file) and then produced no
-        // argument bytes, so the honest class is the recoverable incomplete
-        // stream that discards the unfinished call — never a reply, and never a
-        // bare stall that the turn would refuse to replay.
-        assert!(err.starts_with(INCOMPLETE_STREAM_ERR), "{err}");
-        assert!(err.contains("incomplete tool call discarded"), "{err}");
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(3),
-            "the data deadline must fire while blank frames are still arriving ({:?})",
-            started.elapsed()
-        );
-        handle.join().unwrap();
-    }
-    resync_stream_knobs_from_env();
-}
-
 /// Serve `requests` SSE responses in turn; each pings for `ping_ms` before the
 /// model's first token, then answers "ok" and ends the stream.
 fn serve_pings_then_answer(ping_ms: u64, requests: usize) -> std::net::SocketAddr {
@@ -6237,17 +5934,13 @@ fn serve_pings_then_answer(ping_ms: u64, requests: usize) -> std::net::SocketAdd
 }
 
 /// A model that is still thinking before its first token (reasoning that is not
-/// streamed, or a queued request) must not be cut at the between-chunk stall
-/// bound: keep-alives before the first token are held to the longer
-/// first-token window. Observed live: grok-4.7 through a buffering proxy sent
-/// only keep-alives for over 45 s, and the old bound cut and re-sent the same
-/// request until the task's wall clock ran out.
+/// streamed, or a queued request) is never cut. Observed live: grok-4.7 through
+/// a buffering proxy sent only keep-alives for over 45 s, and the old stall
+/// bound cut and re-sent the same request until the task's wall clock ran out.
 #[test]
-fn keep_alives_before_the_first_token_get_the_first_token_window() {
+fn keep_alives_before_the_first_token_never_cut_the_call() {
     let _guard = env_lock();
     {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "5");
         let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
         resync_stream_knobs_from_env();
         let addr = serve_pings_then_answer(2_000, 1);
@@ -6266,60 +5959,6 @@ fn keep_alives_before_the_first_token_get_the_first_token_window() {
         );
     }
     resync_stream_knobs_from_env();
-}
-
-/// A retry after a stall must not re-send the request under the deadline that
-/// just cut it: each stall doubles the club's data deadlines for the next
-/// attempt, and a completed stream resets them.
-#[test]
-fn a_stall_widens_the_next_attempt_and_success_resets_it() {
-    let _guard = env_lock();
-    {
-        let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-        let _first = ScopedEnv::set("ANGEL_STREAM_FIRST_TOKEN_SECS", "1");
-        let _retry = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
-        resync_stream_knobs_from_env();
-        let addr = serve_pings_then_answer(1_600, 2);
-        let club = HttpClub::new("t-stall-widen", format!("http://{addr}"), "m", None);
-        let ask = || {
-            club.chat_streaming(
-                &[ChatMsg::user("hi")],
-                &[],
-                &AtomicBool::new(false),
-                &mut |_| {},
-            )
-        };
-        let err = ask().expect_err("1.6 s of pings outlives 1 s");
-        assert!(err.contains("stream stalled"), "{err}");
-        assert_eq!(club.stream_stall_streak_for_test(), 1);
-        // The same 1.6 s wait now fits the widened 2 s window.
-        let reply = ask().expect("the retry waits longer");
-        assert!(
-            matches!(reply, ClubReply::Text(ref text) if text == "ok"),
-            "{reply:?}"
-        );
-        assert_eq!(club.stream_stall_streak_for_test(), 0);
-    }
-    resync_stream_knobs_from_env();
-}
-
-#[test]
-fn widened_stream_window_doubles_per_stall_up_to_the_hard_window() {
-    let s = std::time::Duration::from_secs;
-    assert_eq!(widened_stream_window(s(45), 0, s(900)), s(45));
-    assert_eq!(widened_stream_window(s(45), 1, s(900)), s(90));
-    assert_eq!(widened_stream_window(s(45), 3, s(900)), s(360));
-    assert_eq!(widened_stream_window(s(45), 9, s(900)), s(900));
-    assert_eq!(
-        widened_stream_window(s(300), 2, s(0)),
-        s(1200),
-        "no hard window, no cap"
-    );
-    assert_eq!(
-        widened_stream_window(s(0), 4, s(900)),
-        s(0),
-        "disabled stays disabled"
-    );
 }
 
 /// Multiple unusable tool-call truncations progressively get more output room;
@@ -8131,8 +7770,6 @@ impl Drop for ProviderRecoveryKnobs {
 fn provider_recovery_glm_keepalive_partial_prose_is_marked_interrupted() {
     let _lock = env_lock();
     let _restore = ProviderRecoveryKnobs;
-    let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-    let _hard = ScopedEnv::set("ANGEL_STREAM_HARD_SECS", "5");
     let _retries = ScopedEnv::set("ANGEL_HTTP_RETRIES", "0");
     resync_stream_knobs_from_env();
     let body = concat!(
@@ -8284,8 +7921,6 @@ fn provider_recovery_glm_server_failure_exhaustion_keeps_usage_unknown() {
 fn provider_recovery_explicit_finish_before_keepalives_commits_text_and_tools() {
     let _lock = env_lock();
     let _restore = ProviderRecoveryKnobs;
-    let _stall = ScopedEnv::set("ANGEL_STREAM_STALL_SECS", "1");
-    let _hard = ScopedEnv::set("ANGEL_STREAM_HARD_SECS", "5");
     resync_stream_knobs_from_env();
     for tool in [false, true] {
         let frame = if tool {

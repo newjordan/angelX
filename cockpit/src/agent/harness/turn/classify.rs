@@ -88,14 +88,13 @@ pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
     status.is_some_and(|status| (400..=499).contains(&status) && !matches!(status, 408 | 425 | 429))
 }
 
-/// A stream that died without a terminal event: the server stalled behind
-/// keep-alives, a mid-stream read timed out, or the body ended early. Nothing
-/// was committed — no tool call ran and any streamed text is speculative — so
+/// A stream that died without a terminal event: the connection broke or the
+/// body ended early. Nothing was committed — no tool call ran and any streamed text is speculative — so
 /// the same bytes may be replayed after retracting the display. One predicate
 /// covers the turn loop and the agent-graph seat so neither can call the same
 /// physical fault fatal from one branch and recoverable from another.
 pub(crate) fn is_recoverable_stream_error(error: &str) -> bool {
-    error.starts_with(crate::agent::club::INCOMPLETE_STREAM_ERR) || error.contains("stream stalled")
+    error.starts_with(crate::agent::club::INCOMPLETE_STREAM_ERR)
 }
 
 /// Per-hop provider retry budget. An absent or unparsable
@@ -117,9 +116,9 @@ pub(crate) fn retry_budget_allows(budget: Option<usize>, attempt: usize) -> bool
 
 /// Whether an in-hand provider failure may replay the same hop. A permanent
 /// account/configuration failure always outranks the stream classification: an
-/// error that carries both a rejected credential and stall context ("HTTP 401
-/// Unauthorized … stream stalled") is actionable, never a retry loop, and the
-/// recoverable spelling must not launder it. Text already streamed is only
+/// error that carries both a rejected credential and incomplete-stream context
+/// is actionable, never a retry loop, and the recoverable spelling must not
+/// launder it. Text already streamed is only
 /// recoverable inside the incomplete-stream class, where the display is
 /// retracted before the replay.
 pub(crate) fn retryable_provider_failure(

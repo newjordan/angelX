@@ -25,9 +25,11 @@ fn model_defaults_precedence_and_unknown() {
         .unwrap()
         .into_iter()
         .find(|e| e.model == "grok-4.7")
-        .expect("grok-4.7 carries a measured stall budget and effort");
-    assert_eq!(grok47.stream_stall_secs, Some(240));
+        .expect("grok-4.7 carries a measured effort");
     assert_eq!(grok47.default_effort.as_deref(), Some("low"));
+    // No calibration installs a clock on a live stream.
+    let b = budgets("grok-4.7", "ANGEL_GROK");
+    assert!(b.get("stream_stall_secs").is_none(), "{b}");
 }
 #[test]
 fn model_defaults_toml_override() {
@@ -80,12 +82,9 @@ fn model_defaults_http_wire_and_explicit_precedence() {
 #[test]
 fn model_defaults_budget_recording() {
     let _guard = crate::tests::env_lock();
-    let _stall = crate::tests::TestEnvGuard::set("ANGEL_STREAM_STALL_SECS", "0");
     let _global = crate::tests::TestEnvGuard::set("ANGEL_REASONING_EFFORT", "high");
     let _driver = crate::tests::TestEnvGuard::set("ANGEL_GROK_REASONING_EFFORT", "max");
     let b = budgets("grok-4.6", "ANGEL_GROK");
-    assert_eq!(b["stream_stall_secs"], 0);
-    assert_eq!(b["stream_stall_source"], "env");
     assert_eq!(b["reasoning_effort"], "max");
     assert_eq!(b["reasoning_effort_source"], "env");
 }
