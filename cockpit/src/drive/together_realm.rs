@@ -139,7 +139,7 @@ impl Spoils {
         price.0.iter().all(|(&s, &n)| self.get(s) >= n)
     }
 
-    fn take(&mut self, price: &Spoils) {
+    pub(crate) fn take(&mut self, price: &Spoils) {
         for (&s, &n) in &price.0 {
             if let Some(slot) = self.0.get_mut(&s) {
                 *slot = slot.saturating_sub(n);
@@ -237,6 +237,16 @@ pub(crate) struct Realm {
     pub(crate) reclaimed: BTreeMap<String, u32>,
     #[serde(default)]
     pub(crate) raids_won: u32,
+    /// Delves that reached the bottom of the Unknown and found the Grail.
+    #[serde(default)]
+    pub(crate) grails: u32,
+    /// The Undercroft as the party has built it out.
+    #[serde(default)]
+    pub(crate) home: crate::drive::together_shooter::home::Home,
+    /// Host-local practice game; malformed practice data must never discard the
+    /// surrounding realm's treasury, home or progression during load/save.
+    #[serde(default, deserialize_with = "crate::drive::chivalry::deserialize_saved")]
+    pub(crate) chivalry: crate::drive::chivalry::Chivalry,
     #[serde(skip)]
     path: Option<PathBuf>,
 }
@@ -250,6 +260,7 @@ impl Realm {
             .and_then(|p| std::fs::read(p).ok())
             .and_then(|bytes| serde_json::from_slice::<Realm>(&bytes).ok())
             .unwrap_or_default();
+        realm.chivalry.normalize();
         realm.path = path;
         realm.offer_catalog();
         realm.publish();

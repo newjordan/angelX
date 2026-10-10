@@ -205,6 +205,113 @@ fn campaign_execution_honors_operator_cancellation_before_spending_a_stage() {
     let _ = std::fs::remove_dir_all(store);
 }
 
+struct MidStageCancellationClub {
+    started: std::sync::mpsc::Sender<()>,
+    observed: std::sync::mpsc::Sender<bool>,
+    release: Arc<AtomicBool>,
+}
+
+impl Club for MidStageCancellationClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Err("unexpected non-streaming delegate call".into())
+    }
+
+    fn label(&self) -> &str {
+        "mid-stage-cancel"
+    }
+
+    fn chat_streaming(
+        &self,
+        _messages: &[ChatMsg],
+        _tools: &[ToolDef],
+        cancel: &AtomicBool,
+        _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+    ) -> Result<ClubReply, String> {
+        let _ = self.started.send(());
+        while !cancel.load(std::sync::atomic::Ordering::Acquire)
+            && !self.release.load(std::sync::atomic::Ordering::Acquire)
+        {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let cancelled = cancel.load(std::sync::atomic::Ordering::Acquire);
+        let _ = self.observed.send(cancelled);
+        Err(if cancelled {
+            "cancelled by operator".into()
+        } else {
+            "test fixture released after cancellation was not forwarded".into()
+        })
+    }
+}
+
+#[test]
+fn campaign_execution_forwards_cancellation_to_an_in_flight_delegate_stage() {
+    let _guard = crate::tests::env_lock();
+    let repo = scratch("campaign_mid_stage_cancel_repo");
+    let store = scratch("campaign_mid_stage_cancel_store");
+    init_repo(&repo);
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (observed_tx, observed_rx) = std::sync::mpsc::channel();
+    let release = Arc::new(AtomicBool::new(false));
+    let club: Arc<dyn Club> = Arc::new(MidStageCancellationClub {
+        started: started_tx,
+        observed: observed_tx,
+        release: Arc::clone(&release),
+    });
+    let tool = SwarmCompilerTool::with_store(repo.clone(), vec![club], store.clone());
+    let base = tool.engine.inspect_campaign_base().unwrap();
+    let authorization = AuthorizedCampaignBase {
+        campaign_id: "cmp-mid-stage-cancel".into(),
+        campaign_revision: 1,
+        round: 1,
+        contract_digest: "d1".repeat(32),
+        base,
+    };
+    let prepared = tool.engine.campaign_prepare(
+        CampaignCompileRequest {
+            goal: "stop the active delegate stage".into(),
+            task_type: "campaign".into(),
+            targeted_test_cmd: "sh baseline.sh".into(),
+            accept_cmd: "sh baseline.sh".into(),
+            quality_cmds: Vec::new(),
+            test_scope: vec!["baseline.sh".into()],
+            default_route: "mid-stage-cancel".into(),
+            role_routes: BTreeMap::new(),
+        },
+        authorization.clone(),
+    ).unwrap();
+    let engine = Arc::clone(&tool.engine);
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let worker_cancelled = Arc::clone(&cancelled);
+    let worker = std::thread::spawn(move || {
+        engine.campaign_execute(prepared.run_id, authorization, &worker_cancelled)
+    });
+
+    started_rx.recv_timeout(std::time::Duration::from_secs(10))
+        .expect("campaign reaches its first delegate stage");
+    cancelled.store(true, std::sync::atomic::Ordering::Release);
+    let observed = match observed_rx.recv_timeout(std::time::Duration::from_secs(2)) {
+        Ok(observed) => observed,
+        Err(error) => {
+            release.store(true, std::sync::atomic::Ordering::Release);
+            let _ = worker.join();
+            panic!("delegate did not settle after cancellation: {error}");
+        }
+    };
+    let receipt = worker.join().unwrap().unwrap();
+    assert!(observed, "the delegate must receive the campaign cancellation token");
+    assert_eq!(receipt.outcome, crate::agent::harness::SwarmRunOutcome::Paused);
+    assert!(
+        receipt.error.as_deref().is_some_and(|error| {
+            error.starts_with("specialist did not complete: Interrupt;")
+        }),
+        "unexpected cancellation receipt: {:?}",
+        receipt.error
+    );
+    let _ = std::fs::remove_dir_all(tool.engine.delegate.worktree_base());
+    let _ = std::fs::remove_dir_all(repo);
+    let _ = std::fs::remove_dir_all(store);
+}
+
 #[test]
 fn legacy_swarm_run_without_campaign_ownership_still_deserializes() {
     let mut value = serde_json::to_value(super::schema::SwarmRun::new(

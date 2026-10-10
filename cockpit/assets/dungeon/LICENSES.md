@@ -17,5 +17,8 @@ MP3, trimmed and loudness-matched (`pack.py`, `level.py`).
 
 ## Sound effects (`sfx/`)
 
-All 27 sound effects were generated for angelX with the ElevenLabs
+The first 27 sound effects were generated for angelX with the ElevenLabs
 sound-effects API (`sound.py`), then trimmed and levelled (`level.py`).
+`wheel_spin` and `wheel_land` are synthesized from scratch by `synth.py`
+(numpy: pegged clicks timed to the wheel's own ease-out, and an inharmonic
+bell), levelled the same way; they are part of angelX and carry its licence.

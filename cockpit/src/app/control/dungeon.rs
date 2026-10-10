@@ -38,6 +38,13 @@ pub(crate) struct DungeonView {
     pub(super) last_saved: Option<std::time::Instant>,
     /// The card screen (Tab) is open over the room.
     pub(crate) cards_open: bool,
+    /// Host-only side stage; never saved or sent through the guest protocol.
+    pub(crate) chivalry_visit: Option<crate::drive::chivalry::Visit>,
+    /// Private practice text is never reused as the broadcast notice/HUD.
+    pub(crate) chivalry_notice: String,
+    /// Never reused as notice/HUD/chorus: those surfaces are sent to guests.
+    pub(crate) exhibit_text: Option<String>,
+    pub(crate) exhibit_scroll: u16,
     /// Card screen page (0 = your cards, then the book) and selection.
     pub(crate) cards_page: usize,
     pub(crate) cards_sel: usize,
@@ -62,6 +69,8 @@ pub(crate) struct DungeonView {
     pub(crate) gate_said: bool,
     /// Playing in a friend's delve: the connection to their host.
     pub(crate) joined: Option<crate::drive::together_join::Joined>,
+    /// Bounty progress not yet saved: it is, between fights.
+    pub(crate) bounties_unsaved: bool,
 }
 
 impl App {
@@ -97,6 +106,10 @@ impl App {
     }
 
     pub(crate) fn dungeon_controls_blocked(&self) -> bool {
+        self.dungeon.exhibit_text.is_some() || self.dungeon_dialog_controls_blocked()
+    }
+
+    pub(super) fn dungeon_dialog_controls_blocked(&self) -> bool {
         self.pending_approval.is_some()
             || self.loop_dialog.is_some()
             || self.agent_menu.is_some()
@@ -126,6 +139,10 @@ impl App {
     }
 
     pub(crate) fn collapse_dungeon(&mut self) {
+        self.dungeon.chivalry_visit = None;
+        self.dungeon.chivalry_notice.clear();
+        self.world.clear_chivalry_frame_cache();
+        self.dungeon.exhibit_text = None;
         if let Some((draft, cursor)) = self.dungeon.composer_draft.take() {
             self.input = draft;
             self.cursor = cursor;

@@ -1,0 +1,131 @@
+{
+  "sprites": [
+    {
+      "name": "hand_sword_idle",
+      "size": [
+        40,
+        48
+      ],
+      "opaque_pixels": 337,
+      "inks": ".GIJKXbghijn",
+      "signal_pixels": 0,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "hand_sword_raise",
+      "size": [
+        40,
+        48
+      ],
+      "opaque_pixels": 415,
+      "inks": ".GIJKXbghij",
+      "signal_pixels": 0,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "hand_sword_swing",
+      "size": [
+        40,
+        48
+      ],
+      "opaque_pixels": 379,
+      "inks": ".GJKXbghijn",
+      "signal_pixels": 0,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "hand_torch_a",
+      "size": [
+        24,
+        40
+      ],
+      "opaque_pixels": 311,
+      "inks": ".45678BGIJKPXabghijknr",
+      "signal_pixels": 102,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "hand_torch_b",
+      "size": [
+        24,
+        40
+      ],
+      "opaque_pixels": 307,
+      "inks": ".45678@BGIJKPXabghijknr",
+      "signal_pixels": 98,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "campfire_a",
+      "size": [
+        24,
+        20
+      ],
+      "opaque_pixels": 208,
+      "inks": ".45678@BGJKPXabgjkr",
+      "signal_pixels": 74,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "campfire_b",
+      "size": [
+        24,
+        20
+      ],
+      "opaque_pixels": 207,
+      "inks": ".45678@BGJKPXabgjkr",
+      "signal_pixels": 72,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "boulder",
+      "size": [
+        24,
+        18
+      ],
+      "opaque_pixels": 249,
+      "inks": ".GJKXghj",
+      "signal_pixels": 0,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "lectern",
+      "size": [
+        24,
+        30
+      ],
+      "opaque_pixels": 355,
+      "inks": ".457BGIKOPRTXabgjnort",
+      "signal_pixels": 5,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "chest",
+      "size": [
+        20,
+        16
+      ],
+      "opaque_pixels": 226,
+      "inks": ".BGIJKPRXbghjnor",
+      "signal_pixels": 0,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    }
+  ],
+  "sword_bottom_four_cuff_rows_identical": true,
+  "flicker_substrates_identical": true,
+  "context_native_size": [
+    288,
+    160
+  ],
+  "sheet_scale": 6
+}

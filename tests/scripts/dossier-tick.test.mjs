@@ -15,14 +15,16 @@ import {
   ingestRepoFacts,
   dossierFacts,
   factBelief,
-} from '../../scripts/runtime/repo-dossier.mjs'
+} from '../../lib/dossier/core.mjs'
+import { killed } from '../../scripts/runtime/dossier-tick.mjs'
+import * as probeCore from '../../lib/dossier/probes.mjs'
+import * as probeWorker from '../../scripts/runtime/dossier-tick.mjs'
 import {
-  killed,
   commandToken,
   p0Verdict,
   p1Verdict,
   applyProbe,
-} from '../../scripts/runtime/dossier-tick.mjs'
+} from '../../lib/dossier/probes.mjs'
 
 const NOW = '2026-07-06T00:00:00.000Z'
 const KEY = 'home-u-proj-0011223344556677'
@@ -60,6 +62,9 @@ test('kill switch reads ANGEL_DOSSIER=0 only', () => {
 })
 
 test('commandToken skips env assignments and finds the executable', () => {
+  for (const [name, value] of Object.entries(probeCore)) {
+    assert.strictEqual(probeWorker[name], value, `worker must re-export the probe rule ${name}`)
+  }
   assert.equal(commandToken('cargo test -p cockpit'), 'cargo')
   assert.equal(commandToken('RUST_LOG=debug cargo test'), 'cargo')
   assert.equal(commandToken('A=1 B=2 npm run dev'), 'npm')
@@ -158,7 +163,7 @@ test('forced tick turns fresh v3 ledger passes into a compiled dossier fact', ()
       event: 'cmd',
       repo: { key: KEY, root: repoRoot, slug: 'local/probe' },
       cmd: {
-        text: `cd ${repoRoot} && cargo check 2>&1 | tail -20`,
+        text: `cd "${repoRoot}" && cargo check 2>&1 | tail -20`,
         exit: 0,
         verdict: 'pass',
         verdict_reason: null,

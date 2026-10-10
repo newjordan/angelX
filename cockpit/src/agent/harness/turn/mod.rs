@@ -470,6 +470,20 @@ impl TaskTimingTelemetry {
     }
 }
 
+/// The provider's words for a kept cut-off reply (`mark_truncated` closes the
+/// text with `[response incomplete: …]`), so the output-cap note quotes them.
+fn cut_off_reason(text: &str) -> String {
+    text.trim_end()
+        .strip_suffix(']')
+        .and_then(|text| text.rsplit_once("\n\n["))
+        .map(|(_, reason)| reason)
+        .filter(|reason| reason.starts_with("response incomplete:"))
+        .map_or_else(
+            || crate::agent::club::TRUNCATED_OUTPUT_ERR.to_string(),
+            str::to_string,
+        )
+}
+
 /// Wall attribution for concurrent tools, preserving raw durations separately.
 /// Cumulative integer apportionment avoids per-member rounding drift.
 fn tool_wall_shares(durations: &[u128], batch_ms: u128) -> Vec<u128> {
@@ -1039,6 +1053,50 @@ fn publish_slot_telemetry(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Treebeard digests rolling through one turn (see
+/// [`super::compactor::drain_late`]). The driver's turn picks up the previous
+/// turn's leftovers and leaves its own in the registry, whichever way it ends;
+/// a bounded delegate seat shares the registry but never touches the stash,
+/// and its leftovers simply go unread.
+struct RollingDigests<'a> {
+    registry: &'a ToolRegistry,
+    owner: bool,
+    pending: Vec<super::compactor::Digesting>,
+}
+
+impl<'a> RollingDigests<'a> {
+    fn enter(registry: &'a ToolRegistry, owner: bool) -> Self {
+        let pending = if owner {
+            std::mem::take(
+                &mut *registry
+                    .rolling_digests
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()),
+            )
+        } else {
+            Vec::new()
+        };
+        Self {
+            registry,
+            owner,
+            pending,
+        }
+    }
+}
+
+impl Drop for RollingDigests<'_> {
+    fn drop(&mut self) {
+        if self.owner && !self.pending.is_empty() {
+            self.registry
+                .rolling_digests
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .append(&mut self.pending);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn run_turn_tiered(
     club: &dyn Club,
     registry: &ToolRegistry,
@@ -1261,6 +1319,24 @@ fn run_turn_tiered(
         .map(|message| message.content.as_ref())
         .unwrap_or_default();
     let (research_task, research_verify) = registry.rl().research_objective(task);
+    // Append scoped research data behind the conversation's stable system
+    // prefix. Fresh /loop and Deli prompts already carry the same map cue.
+    let map_context = if registry.has_tool("labyrinth") {
+        crate::drive::labyrinth::context(registry.current_workspace(), &research_task)
+    } else {
+        String::new()
+    };
+    let turn_start = history
+        .iter()
+        .rposition(|message| message.role == ChatRole::User)
+        .unwrap_or(0);
+    if !map_context.is_empty()
+        && !history[turn_start..].iter().any(|message| {
+            message.content.contains(crate::drive::labyrinth::CONTEXT_MARK)
+        })
+    {
+        history.push(ChatMsg::harness(map_context));
+    }
     let mut live_research = crate::drive::rl_ctl::research_live::LiveResearch::new(
         registry.current_workspace(),
         &research_task,
@@ -2019,6 +2095,7 @@ fn run_turn_tiered(
             }
         }};
     }
+    let mut rolling_digests = RollingDigests::enter(registry, max_hops.is_none());
     'turn: loop {
         // Soft interrupt takes priority: bail at the hop boundary with the
         // conversation preserved. Never a cap — the user is in control.
@@ -2194,6 +2271,29 @@ fn run_turn_tiered(
                     crate::agent::steer::snippet(&msg.content)
                 )));
                 history.push(msg);
+            }
+        }
+        // Treebeard digests that landed after their receipts were sent join
+        // the tail here, beside any steer: after the previous hop's tool
+        // results, never between a call batch and its results.
+        if !rolling_digests.pending.is_empty() {
+            let late = super::compactor::drain_late(history, &mut rolling_digests.pending);
+            if late.landed > 0 {
+                hop_breakers.push("treebeard digest");
+                eager_offload_bytes_saved.set(
+                    eager_offload_bytes_saved
+                        .get()
+                        .saturating_sub(late.bytes as u64),
+                );
+                let _ = events.send(TurnEvent::Notice(format!(
+                    "treebeard: {} digest(s) landed after their receipts{}",
+                    late.landed,
+                    if late.rolling > 0 {
+                        format!(", {} still rolling", late.rolling)
+                    } else {
+                        String::new()
+                    }
+                )));
             }
         }
         // `tool_search` can surface hidden schemas during the previous hop.
@@ -2703,6 +2803,7 @@ fn run_turn_tiered(
             // A connected seat inside this call (a mixture stage) reads this
             // workspace's ledger.
             let _ledger = book::connect::enter(registry.current_workspace());
+            let retained_before = club.truncation_usage().retained_partials;
             let result = with_turn_deadline_cancel(cancel, turn_deadline, |effective_cancel| {
                 crate::agent::turn::phase::mark("bind_run_identity");
                 club.bind_run_identity(effective_effort.as_deref())?;
@@ -2805,6 +2906,16 @@ fn run_turn_tiered(
             }
             // Providers outside the HTTP adapter must obey the same answer
             // contract. Cancellation is handled at the owned turn boundary.
+            //
+            // A cut-off reply is not an answer: the provider stopped the model,
+            // the model did not stop. Links that keep cut-off prose hand it back
+            // as text, and without a tool call it ended the turn (DeepSeek
+            // repeating its system prompt to the output cap twice, polyglot-v1
+            // js-transpose: 2 of 60 hops). It takes the output-cap path the
+            // other links take: retracted, noted as `⠭⠉`, sent again. Once
+            // those notes are spent the cut-off prose stands, as it did.
+            let cut_off = club.truncation_usage().retained_partials > retained_before
+                && output_cap_notes.get() < book::x_execution::OUTPUT_CAP_LIMIT;
             let result = result.and_then(|reply| match reply {
                 crate::agent::club::ClubReply::Text(ref text)
                     if text.trim().is_empty() && !cancel.load(Ordering::Relaxed) =>
@@ -2814,6 +2925,15 @@ fn run_turn_tiered(
                         emitted_answer = false;
                     }
                     Err("club returned an empty reply (no text and no tool calls)".to_string())
+                }
+                crate::agent::club::ClubReply::Text(ref text)
+                    if cut_off && !cancel.load(Ordering::Relaxed) =>
+                {
+                    if emitted_answer {
+                        let _ = events.send(TurnEvent::SuppressPartial);
+                        emitted_answer = false;
+                    }
+                    Err(cut_off_reason(text))
                 }
                 _ => Ok(reply),
             });
@@ -3011,6 +3131,7 @@ fn run_turn_tiered(
                             compact_keep_tokens,
                             &defs,
                             events,
+                            cancel,
                         )
                     {
                         session_recoveries += 1;
@@ -3810,6 +3931,7 @@ fn run_turn_tiered(
                         let outer_id = ToolEventId(call.id.clone());
                         let call_started = Instant::now();
                         super::exec::take_tool_idle_escalation();
+                        super::exec::take_watchdog_release();
                         let mut result = dispatch_with_hooks_events_cancel(
                             registry,
                             hooks,
@@ -3828,6 +3950,27 @@ fn run_turn_tiered(
                                 "tool error: tool_idle: silence limit reached; child tree termination requested\n{result}\n{}",
                                 super::book::p_processes::TOOL_IDLE.cells()
                             );
+                        }
+                        match super::exec::take_watchdog_release() {
+                            Some(super::exec::Release::Stop) => {
+                                trajectory::note_escalation(hop, "loop_watchdog");
+                                let _ = events.send(TurnEvent::Notice(
+                                    "loop watchdog: the call the turn was wedged on was stopped; turn continues"
+                                        .into(),
+                                ));
+                                result = format!(
+                                    "tool error: loop watchdog: the harness saw no progress on this call and stopped it\n{result}\n{}",
+                                    super::book::st_connected::WATCHDOG_STOP.cells()
+                                );
+                            }
+                            Some(super::exec::Release::HandOff) => {
+                                trajectory::note_escalation(hop, "loop_watchdog");
+                                let _ = events.send(TurnEvent::Notice(
+                                    "loop watchdog: the call the turn was wedged on was handed to the background; turn continues"
+                                        .into(),
+                                ));
+                            }
+                            None => {}
                         }
                         let elapsed = call_started.elapsed();
                         timing.note_tool_call(&call.name, elapsed);
@@ -3982,8 +4125,10 @@ fn run_turn_tiered(
                 let mut execution_blocked = None;
                 post_write_verification.begin_batch();
                 // The Treebeard compactor, resolved at the hop's first parked
-                // result; its digests run beside the rest of the batch.
+                // result; its digests run beside the rest of the batch. The
+                // overseer (the same helper, any lane) reads a handed-off job.
                 let mut compactor: Option<Option<Arc<dyn Club>>> = None;
+                let mut overseer: Option<Option<Arc<dyn Club>>> = None;
                 let mut digesting = Vec::new();
                 for (call_index, (result, dispatch_elapsed, tool_outcome)) in
                     results.into_iter().enumerate()
@@ -4354,7 +4499,7 @@ fn run_turn_tiered(
                     // is capped. Treebeard/HiQ then eagerly parks large eligible
                     // inspection bulk under a handle so root history stays LID.
                     let routing = registry
-                        .routed_execution(call, &result)
+                        .take_routed_execution(call, &result)
                         .map(|entry| entry.receipt);
                     if tool_outcome.verification != VerificationOutcome::NotApplicable {
                         live_research.observe(
@@ -4410,6 +4555,12 @@ fn run_turn_tiered(
                         );
                     }
                     background::produced(&call_id, produced_bytes, off.content.len() as u64);
+                    let digest_label = off
+                        .offloaded
+                        .then(|| crate::agent::harness::handle_store::receipt_handle(&off.content))
+                        .flatten();
+                    let handoff = super::compactor::handoff_job(&off.content)
+                        .map(|job| (job, off.content.clone(), call.name.clone()));
                     history.push(
                         ChatMsg::tool(call_id, off.content)
                             .with_tool_receipt(call, tool_outcome)
@@ -4427,26 +4578,62 @@ fn run_turn_tiered(
                             helper,
                             registry.current_workspace().to_path_buf(),
                             history.len() - 1,
+                            digest_label.as_deref().unwrap_or(&named),
                             &named,
                             &body,
                         ));
+                    }
+                    if let Some((job, facts, tool)) = handoff {
+                        let helper = overseer
+                            .get_or_insert_with(|| {
+                                super::compactor::overseer(club, &registry.aux_clubs)
+                            })
+                            .clone();
+                        let _ = events.send(TurnEvent::Notice(format!(
+                            "tool hand-off: {tool} ran past its limit and now runs as background {job} (nothing stopped){}",
+                            if helper.is_some() {
+                                "; the local helper is reading it"
+                            } else {
+                                ""
+                            }
+                        )));
+                        if let Some(helper) = helper {
+                            registry.auxiliary.utility_entered("treebeard_overseer");
+                            digesting.push(super::compactor::start_handoff(
+                                &helper,
+                                registry.current_workspace().to_path_buf(),
+                                history.len() - 1,
+                                &job,
+                                &facts,
+                            ));
+                        }
                     }
                 }
                 if !digesting.is_empty() {
                     let label = compactor
                         .as_ref()
                         .and_then(Option::as_ref)
+                        .or(overseer.as_ref().and_then(Option::as_ref))
                         .map(|helper| helper.label().to_string())
                         .unwrap_or_default();
-                    let landed = super::compactor::finish(history, std::mem::take(&mut digesting));
+                    // Never wait: what has landed rides its receipt now; the
+                    // rest rolls and joins the tail when it lands.
+                    let (landed, rolling) =
+                        super::compactor::attach_ready(history, std::mem::take(&mut digesting));
+                    rolling_digests.pending.extend(rolling);
                     eager_offload_bytes_saved.set(
                         eager_offload_bytes_saved
                             .get()
                             .saturating_sub(landed.bytes as u64),
                     );
                     let _ = events.send(TurnEvent::Notice(format!(
-                        "treebeard: {label} digested {} parked output(s){}",
+                        "treebeard: {label} digested {} output(s){}{}",
                         landed.landed,
+                        if landed.rolling > 0 {
+                            format!(", {} rolling", landed.rolling)
+                        } else {
+                            String::new()
+                        },
                         if landed.missed > 0 {
                             format!(", {} failed", landed.missed)
                         } else {

@@ -95,6 +95,122 @@ child.wait()
     );
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn owned_cpu_crosses_sessions_without_crediting_siblings() {
+    let _guard = crate::tests::env_lock();
+    struct BusyProbe {
+        parent: crate::agent::sandbox::process_owner::Child,
+        stop: std::path::PathBuf,
+    }
+    impl Drop for BusyProbe {
+        fn drop(&mut self) {
+            // The fixture parent terminates and reaps its detached payload.
+            // Keep cleanup tied to the claimed parent handle; do not signal a
+            // PID that could have been reused after its identity check.
+            let _ = std::fs::write(&self.stop, "stop");
+            let _ = self.parent.wait();
+        }
+    }
+    struct SleepingProbe(crate::agent::sandbox::process_owner::Child);
+    impl Drop for SleepingProbe {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    let dir = crate::tests::TestGitWorkspace::new("owned-cpu-macos");
+    let ready = dir.path().join("payload.json");
+    let stop = dir.path().join("stop");
+    let script = r#"
+import json, os, subprocess, sys, time
+ready, stop = sys.argv[1:]
+child = subprocess.Popen([sys.executable, '-c',
+    'import time; end=time.monotonic()+15\nwhile time.monotonic()<end: pass'],
+    start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+with open(ready, 'w') as f:
+    json.dump({'pid': child.pid, 'parent': os.getpid()}, f)
+while not os.path.exists(stop):
+    time.sleep(0.01)
+child.terminate()
+child.wait()
+"#;
+    let busy = BusyProbe {
+        parent: Command::new("python3")
+            .args(["-c", script])
+            .arg(&ready)
+            .arg(&stop)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn_owned()
+            .unwrap(),
+        stop,
+    };
+    let sleeping = SleepingProbe(
+        Command::new("sleep")
+            .arg("10")
+            .spawn_owned()
+            .unwrap(),
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let (payload_pid, parent_pid) = loop {
+        if let Ok(raw) = std::fs::read_to_string(&ready)
+            && let Ok(info) = serde_json::from_str::<serde_json::Value>(&raw)
+            && let (Some(pid), Some(parent)) =
+                (info["pid"].as_u64(), info["parent"].as_u64())
+        {
+            break (pid as u32, parent as u32);
+        }
+        assert!(Instant::now() < deadline, "owned payload did not become ready");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+
+    let identity = proc_identity(payload_pid).expect("Darwin payload identity is available");
+    assert_eq!(identity.parent, parent_pid);
+    assert_eq!(parent_pid, busy.parent.id());
+    assert_eq!(
+        proc_identity(payload_pid)
+            .expect("payload remains alive")
+            .started,
+        identity.started,
+        "payload birth identity stays pinned while observed"
+    );
+    assert_ne!(
+        unsafe { libc::getsid(payload_pid as i32) },
+        unsafe { libc::getsid(busy.parent.id() as i32) },
+        "payload must leave the fixture parent's session"
+    );
+
+    let payload_key = (payload_pid, identity.started);
+    let initial = cpu_ticks(busy.parent.id());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let current = cpu_ticks(busy.parent.id());
+        if current.get(&payload_key).is_some_and(|cpu| {
+            *cpu > initial.get(&payload_key).copied().unwrap_or(0)
+        }) {
+            assert!(
+                current.keys().all(|(pid, _)| *pid != sleeping.0.id()),
+                "an unrelated sleeping process must not enter the busy owner's tree"
+            );
+            break;
+        }
+        assert!(Instant::now() < deadline, "owned silent payload CPU was invisible");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while proc_activity(sleeping.0.id()).is_none_or(|row| row.state != 'S') {
+        assert!(Instant::now() < deadline, "unrelated sleep process never settled");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let sleeping_tree = cpu_ticks(sleeping.0.id());
+    assert!(sleeping_tree.keys().all(|(pid, _)| *pid == sleeping.0.id()));
+    assert!(!sleeping_tree.contains_key(&payload_key));
+}
+
 #[test]
 fn child_activity_snapshot_keeps_cpu_output_and_owner_distinct() {
     let _guard = crate::tests::env_lock();

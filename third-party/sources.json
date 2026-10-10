@@ -40,6 +40,11 @@
       "file": "openscience-NOTICE.txt",
       "source": "https://raw.githubusercontent.com/synthetic-sciences/openscience/28e42b3a770590271647ec5dbcd07a7fe473d411/NOTICE",
       "sha256": "4a9ba27b3074ef8fa58025a068f94b4b9e7d96c8ea4e0409e300a13582ae7058"
+    },
+    {
+      "file": "labyrinth-exploration-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/nasqret/labyrinth-exploration/019a93da59313e697dc6f28bcfe1588a376c7565/LICENSE",
+      "sha256": "602458a6e05605d07b67c553087ea8d4bf21e3824b531d986f6be7fdc18b6dda"
     }
   ]
 }

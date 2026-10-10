@@ -101,7 +101,7 @@ fn fight(ticks: u32) -> Run {
 }
 
 #[test]
-fn guest_http_requires_the_token_and_serves_no_harness_routes() {
+fn together_shooter_guest_http_requires_the_token_and_serves_no_harness_routes() {
     let server = GuestServer::start("").unwrap();
     assert_eq!(request(&server, "GET", "/state", "", true).status, 503);
     server.publish(&Run::new(91, 7, Some("Guest <script>")), false, "");
@@ -114,9 +114,31 @@ fn guest_http_requires_the_token_and_serves_no_harness_routes() {
     );
     let page = request(&server, "GET", "/", "", false);
     assert_eq!(page.status, 200);
+    assert!(page.head.contains("Content-Type: text/plain; charset=utf-8"));
     let hint = page.text();
-    assert!(hint.contains("/dungeon join"), "the link says to paste it into angelX");
+    assert!(
+        hint.contains("/dungeon join"),
+        "the link says to paste it into angelX"
+    );
     assert!(!hint.contains(&server.tokens[0]));
+    let hud = request(&server, "GET", "/state", "", true).json();
+    assert!(hud["floor"].as_u64().is_some());
+    assert_eq!(hud["floors"].as_u64(), Some(6));
+    assert!(hud["boss_support"].as_str().is_some());
+    // The read-only browser view is opt-in; with it on, the same link serves it.
+    server.set_browser_view(true);
+    let view = request(&server, "GET", "/", "", false);
+    assert_eq!(view.status, 200);
+    assert!(view.head.contains("Content-Type: text/html; charset=utf-8"));
+    assert!(
+        view.head.contains("img-src 'self' blob:"),
+        "bounded object-URL PNGs are visible, not blocked by CSP"
+    );
+    let shown = view.text();
+    assert!(shown.contains("/dungeon join"), "the view still says how to play");
+    assert!(!shown.contains(&server.tokens[0]));
+    assert!(shown.contains("state.floor+'/'+state.floors"));
+    server.set_browser_view(false);
     for (method, path) in [
         ("GET", "/state"),
         ("GET", "/frame.png"),
@@ -147,6 +169,18 @@ fn guest_http_requires_the_token_and_serves_no_harness_routes() {
 }
 
 #[test]
+fn guest_state_counts_the_deep_and_calls_home_floor_zero() {
+    let server = GuestServer::start("").unwrap();
+    let run = Run::at_home(91, 7, Some("Guest"), Default::default(), Default::default());
+    server.publish(&run, false, "");
+    let state = request(&server, "GET", "/state", "", true).json();
+    assert_eq!(
+        (state["floor"].clone(), state["floors"].clone()),
+        (0.into(), DEEPEST.into())
+    );
+}
+
+#[test]
 fn guest_state_is_a_compact_hud_without_the_run_inside() {
     let server = GuestServer::start("").unwrap();
     let run = Run::new(91, 7, Some("Guest <script>"));
@@ -164,6 +198,9 @@ fn guest_state_is_a_compact_hud_without_the_run_inside() {
         [
             "actor",
             "book_cards",
+            "boss_gates",
+            "boss_names",
+            "boss_support",
             "floor",
             "floors",
             "frame",
@@ -186,6 +223,7 @@ fn guest_state_is_a_compact_hud_without_the_run_inside() {
             "side_on",
             "sounds",
             "version",
+            "viewers",
             "voice",
         ]
     );
@@ -202,10 +240,29 @@ fn guest_state_is_a_compact_hud_without_the_run_inside() {
     assert_eq!(state["phase"], "fighting");
     assert_eq!(
         (state["floor"].clone(), state["floors"].clone()),
-        (1.into(), 3.into())
+        (1.into(), DEEPEST.into())
     );
     assert_eq!(state["pack"], run.dungeon.pack.name());
-    assert_eq!(state["notice"], "Clear a roomto unbar its doors");
+    assert_eq!(state["notice"], run.boss_gate_line().unwrap());
+    assert_eq!(
+        state["boss_gates"],
+        serde_json::to_value(run.boss_gate_state()).unwrap()
+    );
+    assert_eq!(
+        state["boss_support"],
+        serde_json::to_value(run.boss_support_line()).unwrap()
+    );
+    assert_eq!(
+        state["boss_names"],
+        serde_json::to_value(
+            run.bosses
+                .iter()
+                .take(64)
+                .map(|boss| boss.name.clone())
+                .collect::<Vec<_>>()
+        )
+        .unwrap()
+    );
     assert_eq!(state["sanctuary"], false);
     assert_eq!(state["book_cards"], run.book.cards.len());
     let players = state["players"].as_array().unwrap();
@@ -225,9 +282,27 @@ fn guest_state_is_a_compact_hud_without_the_run_inside() {
             "spell_cooldowns": [0, 0, 0],
         })
     );
+    // The original HUD budget excludes the added floor-politics projection.
+    let mut base_hud = state.clone();
+    for key in ["boss_gates", "boss_support", "boss_names"] {
+        base_hud.as_object_mut().unwrap().remove(key);
+    }
     assert!(
-        state.to_string().len() < 1280,
-        "the HUD stays small: {state}"
+        base_hud.to_string().len() < 1280,
+        "the base HUD stays small: {base_hud}"
+    );
+
+    let home = Run::at_home(
+        91,
+        7,
+        Some("Guest <script>"),
+        Default::default(),
+        Default::default(),
+    );
+    server.publish(&home, false, "Clear a room\nto unbar its doors");
+    assert_eq!(
+        request(&server, "GET", "/state", "", true).json()["notice"],
+        "Clear a roomto unbar its doors"
     );
 
     server.publish(&run, true, "");
@@ -241,6 +316,44 @@ fn guest_state_is_a_compact_hud_without_the_run_inside() {
         request(&server, "GET", "/state", "", true).json()["host"],
         false
     );
+}
+
+#[test]
+fn chivalry_guest_painter_uses_sanitized_owner_projection_not_just_serde_skip() {
+    let _guard = crate::tests::env_lock();
+    let server = GuestServer::start("127.0.0.1:0").unwrap();
+    let mut private = Run::at_home(11, 7, None, Default::default(), Default::default());
+    private.chivalry = Some(Default::default());
+    let practice = private.chivalry.as_mut().unwrap();
+    practice
+        .select(crate::drive::chivalry::Mount::Cinder)
+        .unwrap();
+    practice.tend().unwrap();
+    practice.start().unwrap();
+    practice
+        .choose(1, crate::drive::chivalry::Choice::Guard)
+        .unwrap();
+    let mut clean = private.clone();
+    clean.chivalry = None;
+    assert_ne!(
+        arena::frame(&private, FRAME_W as i32, FRAME_H as i32).rgb_bytes(),
+        arena::frame(&clean, FRAME_W as i32, FRAME_H as i32).rgb_bytes()
+    );
+    server.publish(&private, true, "");
+    wait_frame(&server, 1);
+    let reply = request(&server, "GET", "/frame.png?seq=1", "", true);
+    assert_eq!(reply.status, 200);
+    let pixels = image::load_from_memory_with_format(&reply.body, image::ImageFormat::Png)
+        .unwrap()
+        .to_rgb8();
+    assert_eq!(
+        pixels.as_raw(),
+        &arena::frame(&clean, FRAME_W as i32, FRAME_H as i32).rgb_bytes()
+    );
+    let state = request(&server, "GET", "/state", "", true).text();
+    assert!(!state.contains("Cinder") && !state.contains("chivalry") && !state.contains("tended"));
+    let mirror = request(&server, "GET", "/shooter", "", true).text();
+    assert!(!mirror.contains("Cinder") && !mirror.contains("chivalry"));
 }
 
 #[test]

@@ -311,6 +311,7 @@ const CODEX_CMDS: &[&str] = &[
     "dungeon",
     "dungeon_host",
     "research",
+    "labyrinth",
     "village",
     "quest",
     "moa",
@@ -332,7 +333,9 @@ const CODEX_CMDS: &[&str] = &[
 
 const DEDICATED_CMDS: &[&str] = &[
     "?",
+    "ask",
     "assets",
+    "campaign",
     "clear",
     "close",
     "cube",
@@ -345,6 +348,7 @@ const DEDICATED_CMDS: &[&str] = &[
     "help",
     "hide",
     "init",
+    "kg",
     "layout",
     "learn",
     "library",
@@ -441,13 +445,14 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "goal" => " [<text>|go|criteria|cmd|note|done|clear]",
         "learn" => " [topic] · open Librarium or begin a local lesson",
         "library" | "tutor" => " [topic] · alias for /learn",
+        "ask" => " opens an editable tutor question; /ask <question> asks directly",
         "model" => " [filter|exact@effort|auto]",
         "connect" => " [grok|openai|glm|deepseek|openrouter|local]",
         "think" | "thinking" | "effort" => " [filter]",
         "world" => " [visit artisans|colosseum|tournament|follow|help]",
         "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
         "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
-        "dungeon_host" => " --N  (N friends, up to 3: one invite line each)",
+        "dungeon_host" => " --N [--view]  (N friends, up to 3: one invite line each; --view: read-only browser view)",
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
         "memories" => " [add <t>|forget <n>|clear]",
         "refine" => " [status|add …|del|rollback|seed-light]",
@@ -460,6 +465,7 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "rate" => " useful|miss",
         "graph" => " [list|run <name> <task>|status|stop]",
         "campaign" => " [status|new|start|advance|review|…]",
+        "kg" => " [stats] · typed knowledge-graph store",
         "moa" => " [cards|ledger|<message>]",
         "self" => " [<goal>|status|integrate|discard|reborn]",
         "solo" | "relentless" | "yolo" | "yolos" => " [on|off|status]",
@@ -898,15 +904,29 @@ fn parse_user_message(raw: &str) -> Result<ChatMsg, String> {
 }
 
 fn split_path_and_question(rest: &str, default_q: &str) -> (String, String) {
-    let mut it = rest.trim().splitn(2, char::is_whitespace);
-    let path = it.next().unwrap_or("").trim().to_string();
-    let q = it
+    let rest = rest.trim();
+    let unquoted = || {
+        let mut it = rest.splitn(2, char::is_whitespace);
+        (it.next().unwrap_or("").trim(), it.next().unwrap_or(""))
+    };
+    let quoted = rest
+        .chars()
         .next()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(default_q)
-        .to_string();
-    (path, q)
+        .filter(|quote| matches!(*quote, '\'' | '"'))
+        .and_then(|quote| {
+            let after_open = &rest[quote.len_utf8()..];
+            let end = after_open.find(quote)?;
+            let question = &after_open[end + quote.len_utf8()..];
+            (question.is_empty() || question.starts_with(char::is_whitespace))
+                .then_some((&after_open[..end], question))
+        });
+    let (path, question) = quoted.unwrap_or_else(unquoted);
+    let q = if question.trim().is_empty() {
+        default_q.to_string()
+    } else {
+        question.trim().to_string()
+    };
+    (path.to_string(), q)
 }
 
 #[cfg(test)]

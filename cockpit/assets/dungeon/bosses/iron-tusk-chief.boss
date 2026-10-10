@@ -1,0 +1,14 @@
+name IRON TUSK CHIEF
+text An orc claim-chief: ore pays the spear line, not the Foreman.
+by angelX
+where mines
+hp 580
+size 1.4
+move chase speed=1.3
+attack aimed shots=3 speed=7 every=65 damage=12 shot=bone
+rage 30%
+drops ore 4, gold 120
+art
+.A77A.
+.A11A.
+..AA..

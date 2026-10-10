@@ -1,6 +1,58 @@
 # Live mini-world adventures
 
-The default Realm pane follows an active quest into a native 3D scene. The
+## The crawl (the default)
+
+While a `/loop` runs, the Realm pane is a first-person dungeon crawl through
+a floor of the [Delve](DELVE.md), in the old way (Eye of the Beholder,
+Dungeon Master): a step at a time, quarter turns at the corners, a torch in
+the left hand, a sword in the right, and the dark. Two lines under the
+picture say what's happening. When the knight steps up to the quintain and
+the pane follows into the loop's own view, that view is the crawl too, with
+the loop's numbers (iterations, time, tokens) kept under it.
+
+- **Where:** the loop decides. A coding or competition loop is down the
+  Mines, research is in the Fungal Deep, a stalled loop wades the Drowned
+  Archive, and a submission being judged stands in Dragon Keep. Floors are
+  the Delve's own layouts, each room set in rock with corridors cut between.
+- **The walk:** each turn of the loop walks the party on to the next hall,
+  and after the stairs hall, down a stair to a new floor.
+- **In a hall,** what the agent's tools are doing is what the party does:
+
+  | Tools | The party |
+  | --- | --- |
+  | Editing, building | Fights the hall's monsters (the guardian at the stairs) |
+  | Reading, research | Studies at a lectern, a tome open on one of the floor's monsters |
+  | Asking, planning | Has a word with one of the realm's folk (Tobbin, Merlin, Maud, Sir Kay and others) |
+  | Dispatching | Scouts the dark |
+  | Nothing in flight | Rests by a campfire that lights the hall |
+
+- **Guardian fights:** a competition submission settling brings the floor's
+  guardian out of the stone, and the crawl stops for it. The fight goes back
+  and forth like the old games: the guardian's health runs down a bar across
+  the top, it rallies and its wounds close, the party gives ground a cell at
+  a time with the knights' own health bars dipping in the corner, then
+  presses again.
+  - **A promotion** (accepted as an improvement: a record beaten) is a fight
+    the party wins. The guardian rages, staggers and sinks, and the party
+    stands in gold light. Three minutes, to sit back and enjoy.
+  - **A submission that settles without one** (rejected, timed out, or no
+    record) is a retreat. The guardian comes back whole and the party backs
+    away down the hall, shields up. Two minutes.
+  - A result still waiting on its promotion brings nothing yet, and one
+    already there when the session starts is history, not news.
+  - The fight keeps the pane for its length even if the loop is home by
+    then.
+
+Like the expedition before it, the crawl is presentation only: time creates
+no iterations, measurements or rewards, and a frame is a pure function of
+the loop's state and its clock. `ANGEL_LOOP_VIEW=expedition` brings back the
+expedition walk described below, and the quintain's trench run. The wall, door, floor and vault textures,
+the hands and the props were painted from a brief; the notes and
+rebuild tools are in `cockpit/assets/crawl/`.
+
+## The expedition
+
+With `ANGEL_LOOP_VIEW=expedition`, the Realm pane follows an active quest into a native 3D scene. The
 Mines use a roofed timber gallery with rails, torch pools, crystal workings,
 and a side stairwell reaching 2.6 world units below the main floor. Camera
 panning reveals that depth; the side rooms are scenery, not independent

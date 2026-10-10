@@ -86,6 +86,10 @@ pub(crate) const PRIMARY: Primary = Primary {
             pages: &[
                 "results: exact retained run within this workspace",
                 "results: retained run count; default 5",
+                "campaign: start, run, status, cancel, check, recover or recheck the native Labyrinth workflow; its role policies are registered at ⡬⠊.",
+                "campaign: durable Labyrinth campaign identifier.",
+                "campaign: complete specification with explicit doors, source files, independent checks and shared compute limits.",
+                "campaign check: workspace-relative path to a complete frozen integration bundle; validate exact source and check receipts without a model call, canonical publication or another recheck.",
             ],
         },
         Sub {

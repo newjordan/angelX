@@ -137,6 +137,7 @@ pub(super) fn observe_campaign_round(
         "evidence_sha256": report.candidate_prompt_sha256});
     let scope = learning_scope(workspace, route, &case.task, Some(case.verify.as_str()));
     teach(
+        workspace,
         &scope,
         &super::research_live::scope(workspace, &case.task, Some(&case.verify)),
         &json!(route),
@@ -150,6 +151,7 @@ pub(super) fn observe_campaign_round(
 /// relationship memory. Context failure is reported without erasing a reward
 /// already learned or withholding the experiment's result.
 fn teach(
+    workspace: &Path,
     scope: &Path,
     relationships: &Path,
     route: &Value,
@@ -166,11 +168,16 @@ fn teach(
         "verdict": if observation["passed"] == true { "passed" } else { "failed" },
         "basis": "measured-experiment", "paired_delta": observation["paired_delta"],
     });
+    let labyrinth_error =
+        crate::drive::labyrinth::observe_measurement(workspace, &observation, route).err();
     let mut response = bridge::transform(
         scope,
-        json!({"action":"observe","task":task,"observation":observation}),
+        json!({"action":"observe","task":task,"observation":observation.clone()}),
         cancel,
     )?;
+    if let Some(error) = labyrinth_error {
+        response["labyrinth_error"] = json!(error);
+    }
     match bridge::transform(
         relationships,
         json!({"action":"relate","events":[event]}),
@@ -199,6 +206,10 @@ fn flag(args: &Value, key: &str, fallback: bool) -> Result<bool, String> {
 /// A run's record with the `⡪` routes its state raises (live, a verdict, a
 /// red baseline, a learning error), their evidence in the workspace ledger.
 fn routed(workspace: &Path, mut record: Value) -> Value {
+    if record["kind"] == "labyrinth-campaign" {
+        record["warpath"] = json!(book::labyrinth_campaign::COORDINATOR.cells());
+        return record;
+    }
     let routes = d2467_research::research(&record);
     if !routes.is_empty() {
         let evidence = json!({"research_run":record["run_id"],"status":record["status"],
@@ -212,6 +223,25 @@ fn routed(workspace: &Path, mut record: Value) -> Value {
         record["warpath"] = json!(book::warpath(workspace, &raises));
     }
     record
+}
+
+fn campaign_outcome_status(value: &Value) -> &str {
+    match value["status"].as_str() {
+        Some("completed")
+            if value["integrations"]
+                .as_array()
+                .is_some_and(|receipts| !receipts.is_empty()) =>
+        {
+            "completed"
+        }
+        Some("completed") => "unintegrated",
+        Some("cancelled") => "stopped",
+        Some("saturated") => "saturated",
+        Some("budget_exhausted") => "budget_exhausted",
+        Some("deadline") => "deadline",
+        Some("execution_blocked") => "execution_blocked",
+        _ => "failed",
+    }
 }
 
 /// Advice with its evidence note as its `⡪⠓` pages, and the cold-start page
@@ -249,12 +279,16 @@ impl RlState {
             return None;
         }
         self.research.notified_run = Some(id.to_string());
-        let routes = d2467_research::research(&record);
+        let routes = if record["kind"] == "labyrinth-campaign" {
+            vec![book::labyrinth_campaign::COORDINATOR]
+        } else {
+            d2467_research::research(&record)
+        };
         if routes.is_empty() {
             return None;
         }
         let evidence = json!({"run":id,"status":record["status"],
-            "measurements":record["measurements"],"learning_error":record["learning_error"]})
+            "measurements":record["measurements"],"learning_error":record["learning_error"],"campaign":record["campaign"],"error":record["error"]})
         .to_string();
         let raises = routes
             .into_iter()
@@ -307,11 +341,13 @@ impl RlState {
         let relationships =
             super::research_live::scope(workspace, &context.task, context.verify.as_deref());
         let route = json!(context.club.route_identity());
+        let workspace = workspace.to_path_buf();
         let tally = Arc::clone(&self.research.loop_observations);
         std::thread::Builder::new()
             .name("angel-loop-observe".into())
             .spawn(move || {
                 let outcome = teach(
+                    &workspace,
                     &scope,
                     &relationships,
                     &route,
@@ -344,15 +380,62 @@ impl RlState {
             return Err("loop research cancelled before dispatch".into());
         }
         match args["action"].as_str().unwrap_or("options") {
+            "campaign" => {
+                let action=args["campaign_action"].as_str().unwrap_or("status");
+                let request=json!({"action":action,"id":args["campaign_id"],"spec":args["campaign_spec"],"bundle":args["campaign_bundle"]});
+                if action!="run" {
+                    return crate::drive::labyrinth::entry::dispatch(workspace,&request,None,cancel).map(|value|value.to_string());
+                }
+                let context=self.loop_context.clone().ok_or(d45_iteration::RESEARCH_NEEDS_LOOP)?;
+                if self.research_running(){return Err(ow_ledgers::RESEARCH_ACTIVE.into());}
+                let campaign_id=args["campaign_id"].as_str().ok_or("campaign run needs campaign_id")?.to_owned();
+                crate::drive::labyrinth::campaign::status(workspace,Some(&campaign_id))?;
+                let id=new_run_id();
+                let dir=runs_root(workspace).join(&id);
+                bridge::ensure_dir(&dir)?;
+                let record=json!({"schema":"angel.loop-research/v1","run_id":id,"kind":"labyrinth-campaign",
+                    "campaign_id":campaign_id,"loop_id":context.loop_id,"task":context.task,
+                    "route":context.club.route_identity(),"status":"running","artifacts":dir,
+                    "warpath":book::labyrinth_campaign::COORDINATOR.cells()});
+                persist(&dir,&record)?;
+                let shared=Arc::new(Mutex::new(record));
+                let done=Arc::new(AtomicBool::new(false));
+                let worker_cancel=Arc::new(AtomicBool::new(false));
+                let (club,budget)=loop_campaign::campaign_club(Arc::clone(&context.club),Some(&context),Arc::clone(&self.loop_tokens),&worker_cancel);
+                let source=workspace.to_path_buf();
+                let worker_record=Arc::clone(&shared);
+                let worker_done=Arc::clone(&done);
+                let worker_flag=Arc::clone(&worker_cancel);
+                let launched=dir.clone();
+                let _descendant_scope=crate::agent::harness::DescendantBudgetScope::enter_root();
+                let descendant_budget=crate::agent::harness::current_descendant_budget()?;
+                std::thread::Builder::new().name("angel-labyrinth-research".into()).spawn(move || {
+                    let _inherited=crate::agent::harness::DescendantBudgetScope::inherit(descendant_budget);
+                    let started=Instant::now();
+                    let outcome=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let result=crate::drive::labyrinth::campaign::run(&source,&campaign_id,crate::drive::labyrinth::entry::runtime(club),&worker_flag);
+                        budget.finish(result)
+                    })).unwrap_or_else(|_|Err(d45_iteration::RESEARCH_PANICKED.into()));
+                    let mut record=worker_record.lock().unwrap_or_else(|error|error.into_inner());
+                    record["timings_ms"]["worker_total"]=json!(started.elapsed().as_millis());
+                    record["status"]=json!(if worker_flag.load(Ordering::Acquire){"stopped"}else{match &outcome{Ok(value)=>campaign_outcome_status(value),Err(_)=>"failed"}});
+                    match outcome {Ok(value)=>record["campaign"]=value,Err(error)=>record["error"]=json!(error)}
+                    if let Err(error)=persist(&dir,&record){record["retention_error"]=json!(error);}
+                    worker_done.store(true,Ordering::Release);
+                }).map_err(|error|format!("{} {error}",d45_iteration::RESEARCH_UNSTARTED))?;
+                self.research.active=Some(ResearchRun{cancel:worker_cancel,done,record:shared});
+                Ok(json!({"run_id":id,"campaign_id":args["campaign_id"],"artifacts":launched,"status":"running",
+                    "warpath":book::labyrinth_campaign::COORDINATOR.cells()}).to_string())
+            }
             "options" => Ok(json!({
                 "available":self.loop_enabled(), "engine":"sloptomizer", "experimental":true,
                 "methods":["pareto","bandit","memory"],
-                "actions":["options","context","suggest","run","status","results","stop"],
+                "actions":["options","context","suggest","run","campaign","status","results","stop"],
                 // The notes are `⠪⠚` pages; the facts around them are data.
                 "execution":ow_ledgers::RESEARCH_EXECUTION,
                 "learning":ow_ledgers::RESEARCH_LEARNING,
                 "runtime":ow_ledgers::RESEARCH_RUNTIME,
-                "related":["rl_campaign","consult_model(method=deli, club=self)","spawn(formation=moa)","continual_harness"]
+                "related":["labyrinth","labyrinth_campaign","rl_campaign","consult_model(method=deli, club=self)","spawn(formation=moa)","continual_harness"]
             }).to_string()),
             "context" => {
                 let fallback = self.loop_context.as_ref().map(|c| c.task.as_str()).unwrap_or("");
@@ -366,7 +449,8 @@ impl RlState {
                 };
                 let advice = super::research_live::context(workspace, task, verify, cancel)?;
                 let cue = book::d12467_sloptomizer::context_turn(workspace, &advice);
-                Ok(json!({"advice":book::d12467_sloptomizer::data_value(&advice),"context":cue}).to_string())
+                Ok(json!({"advice":book::d12467_sloptomizer::data_value(&advice),"context":cue,
+                    "labyrinth":crate::drive::labyrinth::context(workspace,task)}).to_string())
             }
             "status" => Ok(routed(workspace, self.research.status()).to_string()),
             "stop" => Ok(json!({"stop_requested":self.research.stop(),"research":routed(workspace, self.research.status())}).to_string()),
@@ -399,6 +483,7 @@ impl RlState {
                         }
                     }
                     let mut result = bridge::transform(&scope, request, cancel)?;
+                    result["labyrinth"] = json!(crate::drive::labyrinth::context(workspace,&task));
                     // Cross-model relationships are contextual evidence, kept
                     // distinct from the route's measured fitness statistics.
                     match super::research_live::context(workspace, &task, verify.as_deref(), cancel) {
@@ -546,6 +631,10 @@ impl RlState {
     }
 }
 
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/labyrinth/rl__tests.rs"]
+mod labyrinth_rl_tests;
+
 /// Only a completed, persisted physical verifier contributes a learning event.
 /// Cancelled/unverified/model-error attempts still retain their artifacts.
 fn measured(result: &LoopExperimentResult) -> Option<bool> {
@@ -631,13 +720,14 @@ fn run(
         return Err("research cancelled after baseline".into());
     }
     // The attempt reads its labels off `⠘⠊`; the idea and memory are data.
-    let candidate_task = format!(
+    let mut candidate_task = format!(
         "{task}\n\n{}\n{}\n\n{}\n{}",
         d45_iteration::RESEARCH_APPROACH,
         launch["idea"].as_str().unwrap_or_default(),
         d45_iteration::RESEARCH_SNIPPETS,
         launch["memory"]
     );
+    candidate_task.push_str(&crate::drive::labyrinth::context(workspace, task));
     let candidate_started = Instant::now();
     let candidate = attempt(
         &source,
@@ -693,6 +783,7 @@ fn run(
                     "source_sha256":source_sha,"receipt_sha256":result.result_sha256,
                     "evidence_sha256":result.evidence.as_ref().unwrap().manifest_sha256(),"loop_id":launch["loop_id"]});
                 updates.push(teach(
+                    workspace,
                     scope,
                     &super::research_live::scope(workspace, task, launch["verify"].as_str()),
                     &launch["route"],

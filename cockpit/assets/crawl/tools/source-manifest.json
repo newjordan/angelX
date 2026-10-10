@@ -1,0 +1,57 @@
+{
+  "wall_stone": {
+    "generated_file": "exec-d0b95aee-9619-45d9-a4b4-7549996ee57d.png",
+    "source": "sources/wall_stone.png",
+    "sha256": "3e09a6ff21746a769e5ecf4729e1383ad8aa2f7704d52bd67fa125006c64aa47"
+  },
+  "wall_crypt": {
+    "generated_file": "exec-2e976279-9dd7-4a08-b90a-5d22cdb7e7e7.png",
+    "source": "sources/wall_crypt.png",
+    "sha256": "0f4f498abaa94aade79e3113bdaa9d9f3847a07f79360c49f28b45f74e127cb8"
+  },
+  "wall_mine": {
+    "generated_file": "exec-ecae8638-6027-46ec-a065-e0c3715cb209.png",
+    "source": "sources/wall_mine.png",
+    "sha256": "ca2a29ea1e55e0f582f376c11b54ff8aee216c657602f1a81ec9b3bf373d3f57"
+  },
+  "wall_keep": {
+    "generated_file": "exec-04ad4fca-f9bb-4b2f-a17b-41f950982f8c.png",
+    "source": "sources/wall_keep.png",
+    "sha256": "139436661d701db6dd3eb3996c36350aa0e38595e591023df9e80a34ce238fa6"
+  },
+  "wall_archive": {
+    "generated_file": "exec-e8375185-2846-46a5-a2fb-ff7f8e288c53.png",
+    "source": "sources/wall_archive.png",
+    "sha256": "4f154288ffe45f174ebc0e250508588d3eb3d283a27f0dca20413b923cfd6984"
+  },
+  "wall_fungal": {
+    "generated_file": "exec-7831b038-2cd1-4dd6-afd6-846cb440e04f.png",
+    "source": "sources/wall_fungal.png",
+    "sha256": "51449c44baaf9318eb8d74fc86a3834505ec3add634ec71a904797ceb37ef94e"
+  },
+  "wall_unknown": {
+    "generated_file": "exec-82329781-16e8-41cb-8e5c-10994e1ee33f.png",
+    "source": "sources/wall_unknown.png",
+    "sha256": "77af8be16bbefbc7540ea7665a593e495a0507ef4bec64cd6d4a3ec22f98868d"
+  },
+  "door": {
+    "generated_file": "exec-7cc771ea-85c7-4505-9a7e-3807b1045097.png",
+    "source": "sources/door.png",
+    "sha256": "2f27cfe588c93a0ed79f1e13d32adbfc5f61bdc0a704ed923e6d17f452dd8b57"
+  },
+  "stairs": {
+    "generated_file": "exec-ebc6bd8e-b19d-4fa5-b863-1a9d03842b1f.png",
+    "source": "sources/stairs.png",
+    "sha256": "31070f50a8a86f0204215727ecea7b1f60881b7b1485e1ca36de98797a16e47d"
+  },
+  "floor_flags": {
+    "generated_file": "exec-19c83333-d0b4-4fb0-bbdc-d21e5219b610.png",
+    "source": "sources/floor_flags.png",
+    "sha256": "5bc7e72b22466349cc7667d1790f380e1349130ce73ec4123de3fe35cebcb8b8"
+  },
+  "ceiling": {
+    "generated_file": "exec-f560272e-ac1d-4fac-a062-33eb9a9c082f.png",
+    "source": "sources/ceiling.png",
+    "sha256": "3db786cfe6c7071ff81398ac4e930af4d26b94390f62bc25ee514761436d3d10"
+  }
+}

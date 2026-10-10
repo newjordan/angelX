@@ -109,6 +109,67 @@ pub(crate) struct Hero {
     pub(crate) loosed: u32,
     #[serde(default)]
     pub(super) relieved: Option<(u32, usize)>,
+    /// The hearth's health already added to `max_hp` by home cards.
+    #[serde(default)]
+    pub(crate) home_hp: u32,
+    /// Second winds left: at zero health, the knight rises again.
+    #[serde(default)]
+    pub(crate) winds: u8,
+    /// The Talisman from the Pit: falling, this knight rises at once, whole.
+    #[serde(default)]
+    pub(crate) talisman: bool,
+    /// Ticks F has been held on an Undercroft plate; a purchase must be let
+    /// go of before the next.
+    #[serde(default)]
+    pub(crate) buying: u32,
+    #[serde(default)]
+    pub(super) buy_spent: bool,
+    /// Glass Jaw: this knight hits, and is hit, twice as hard.
+    #[serde(default)]
+    pub(crate) glass: bool,
+    /// The ultimate's charge (full at `ults::ULT_FULL`), and its key as
+    /// last seen.
+    #[serde(default)]
+    pub(crate) ult_charge: u32,
+    #[serde(default)]
+    pub(super) ult_key: bool,
+    /// Lady's Veil's wings, ticks left.
+    #[serde(default)]
+    pub(crate) angel: u32,
+    /// Bladewind: cuts left, and ticks to the next.
+    #[serde(default)]
+    pub(crate) slashes: u8,
+    #[serde(default)]
+    pub(super) slash_wait: u32,
+    /// Assassinate: the monster aimed at, and ticks until the shot.
+    #[serde(default)]
+    pub(crate) aiming: Option<(u32, u32)>,
+    /// A power rune this knight carries, and its ticks left.
+    #[serde(default)]
+    pub(crate) rune: Option<super::runes::Held>,
+    /// All Random: the stranger's ultimate this knight carries this delve.
+    #[serde(default)]
+    pub(crate) ult: Option<super::ults::Ult>,
+    /// Hexed: ticks left as a frog, then warded from the next hex.
+    #[serde(default)]
+    pub(crate) hexed: u32,
+    /// Chilled by the Lich's frost: ticks left at a slow walk.
+    #[serde(default)]
+    pub(crate) chilled: u32,
+    /// A Fae Dagger's steps, waiting for the next move; the Pendragon
+    /// Sceptre's ticks left; a Censer's mending, waiting to go out.
+    #[serde(default)]
+    pub(crate) blink: u32,
+    #[serde(default)]
+    pub(crate) immune: u32,
+    #[serde(default)]
+    pub(crate) censer: u32,
+    /// Hears Sir Dinadan's song this tick.
+    #[serde(default)]
+    pub(crate) singing: bool,
+    /// Thrown by a Ravage: ticks left in the air, helpless.
+    #[serde(default)]
+    pub(crate) tossed: u32,
     pub(super) fire_cooldown: u32,
     pub(super) dash_ticks: u32,
     pub(super) dash_x: f32,
@@ -166,6 +227,27 @@ impl Hero {
             privy: 0,
             loosed: 0,
             relieved: None,
+            home_hp: 0,
+            winds: 0,
+            talisman: false,
+            buying: 0,
+            buy_spent: false,
+            glass: false,
+            ult_charge: 0,
+            ult_key: false,
+            angel: 0,
+            slashes: 0,
+            slash_wait: 0,
+            aiming: None,
+            rune: None,
+            ult: None,
+            hexed: 0,
+            chilled: 0,
+            blink: 0,
+            immune: 0,
+            censer: 0,
+            singing: false,
+            tossed: 0,
             fire_cooldown: 0,
             dash_ticks: 0,
             dash_x: 0.0,
@@ -184,10 +266,15 @@ impl Hero {
                 .as_ref()
                 .is_some_and(|w| w.bolt.is_none() && w.melee.is_some());
             let damage = if close { damage * 2 / 3 } else { damage };
+            let damage = if self.glass { damage * 2 } else { damage };
             self.hp = self
                 .hp
                 .saturating_sub(damage.saturating_sub(3 * self.armor).max(4));
             self.invulnerable = 24;
+            // A hit breaks Regeneration's mending.
+            if self.has_rune(super::runes::RuneKind::Regeneration) {
+                self.rune = None;
+            }
         }
     }
 }
@@ -268,6 +355,9 @@ impl Hero {
                 }
                 Effect::Nova(v) => *nova += v,
                 Effect::Ward(v) => self.invulnerable = self.invulnerable.max(v * HZ),
+                Effect::Blink(v) => self.blink = v,
+                Effect::Immune(v) => self.immune = self.immune.max(v * HZ),
+                Effect::Censer(v) => self.censer += v,
                 _ => {}
             }
         }
@@ -277,7 +367,7 @@ impl Hero {
     /// wide, by the tightest cadence held).
     pub(super) fn volley(&mut self) -> bool {
         self.loosed = self.loosed.wrapping_add(1);
-        self.bonus.volley > 0 && self.loosed % self.bonus.volley == 0
+        self.bonus.volley > 0 && self.loosed.is_multiple_of(self.bonus.volley)
     }
 
     /// Recount the held cards' bonus after the deck changed.
@@ -309,7 +399,19 @@ impl Hero {
     }
 
     pub(super) fn scaled(&self, damage: u32) -> u32 {
-        damage * (100 + self.bonus.damage) / 100
+        let damage = damage * (100 + self.bonus.damage) / 100;
+        let damage = if self.has_rune(super::runes::RuneKind::DoubleDamage) {
+            damage * 2
+        } else {
+            damage
+        };
+        if self.glass { damage * 2 } else { damage }
+    }
+
+    /// The ultimate this knight casts: their own, or All Random's.
+    pub(crate) fn ult(&self) -> super::ults::Ult {
+        self.ult
+            .unwrap_or_else(|| super::ults::Ult::of(self.knight.as_deref()))
     }
 
     pub(super) fn cooldown(&self, ticks: u32) -> u32 {

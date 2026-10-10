@@ -21,6 +21,7 @@ impl App {
             Ok(joined) => {
                 let host = joined.host.clone();
                 self.dungeon.joined = Some(joined);
+                self.sync_chivalry_projection();
                 self.expand_dungeon();
                 format!(
                     "Joined the delve at {host} as {name}. WASD move · arrows aim and fire · Space roll/shield · Q sword · G vigil when you step away · T reforge in a Sanctuary · Esc back to your composer · /dungeon leave to go home."
@@ -36,6 +37,7 @@ impl App {
         }
         self.collapse_dungeon();
         self.dungeon.audio.stop();
+        self.sync_chivalry_projection();
         "You left your friend's delve.".into()
     }
 
@@ -131,7 +133,8 @@ impl App {
         if matches!(
             code,
             KeyCode::Char(
-                'w' | 'a' | 's' | 'd' | 'f' | ' ' | 'e' | 'q' | 'g' | '1' | '2' | '3' | '4'
+                'w' | 'a' | 's' | 'd' | 'f' | ' ' | 'e' | 'q' | 'g' | 'r' | '1' | '2' | '3'
+                    | '4'
             ) | KeyCode::Up
                 | KeyCode::Down
                 | KeyCode::Left

@@ -92,11 +92,26 @@ fn matches_with_backplane(
     use_stable_id: bool,
 ) -> bool {
     if use_stable_id && let Some(expected) = preference.route_id.as_ref() {
-        return crate::agent::backplane::RouteId::chat(
+        let actual = crate::agent::backplane::RouteId::chat(
             &choice.agent,
             &choice.driver,
+            &choice.model,
             preference.reasoning_effort.as_deref(),
-        ) == *expected;
+        );
+        if actual == *expected {
+            return same(&choice.agent, &preference.agent)
+                && same(&choice.driver, &preference.driver)
+                && same(&choice.model, &preference.model);
+        }
+        let legacy = crate::agent::backplane::RouteId::legacy_chat(
+            &preference.agent,
+            &preference.driver,
+            preference.reasoning_effort.as_deref(),
+        );
+        return legacy == *expected
+            && same(&choice.agent, &preference.agent)
+            && same(&choice.driver, &preference.driver)
+            && same(&choice.model, &preference.model);
     }
     same(&choice.agent, &preference.agent)
         && same(&choice.driver, &preference.driver)
@@ -114,6 +129,7 @@ fn snapshot(bag: &Bag) -> Option<RoutePreference> {
         route_id: Some(crate::agent::backplane::RouteId::chat(
             &choice.agent,
             &choice.driver,
+            &choice.model,
             choice.reasoning_effort.as_deref(),
         )),
         agent: choice.agent,

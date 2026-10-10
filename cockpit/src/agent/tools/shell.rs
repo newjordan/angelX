@@ -1169,7 +1169,26 @@ impl Tool for ShellTool {
         // model's copy of someone else's (`submit_identity`).
         let stamped = crate::agent::tools::submit_identity::stamp(command, self.cwd.as_deref())?;
         let command = stamped.as_ref().map_or(command, |s| s.command.as_str());
-        let (mut obs, shell) = self.observe_with_cancel(command, cancel, &scope)?;
+        // A call still running past the hand-off limit moves to the
+        // background-job table instead of holding the turn; nothing is
+        // stopped. Sealed tasks keep foreground ownership.
+        let handoff = crate::agent::harness::exec::tool_handoff_after()
+            .filter(|_| !task_shell_active())
+            .map(|after| crate::agent::harness::exec::Handoff {
+                after,
+                workspace: self
+                    .cwd
+                    .clone()
+                    .unwrap_or_else(crate::agent::harness::current_dir_workspace),
+                command: command.to_string(),
+            });
+        let (mut obs, shell) = crate::agent::harness::exec::with_handoff(handoff, || {
+            self.observe_with_cancel(command, cancel, &scope)
+        })?;
+        if obs.handed_off.is_some() {
+            // The job's own completion receipt carries its outcome later.
+            return Ok(obs.output);
+        }
         if stamped.is_some()
             && let Some(error) = crate::agent::tools::submit_identity::journal_execution(
                 "shell",

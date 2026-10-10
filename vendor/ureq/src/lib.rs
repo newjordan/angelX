@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![warn(clippy::all)]
 // new is just more readable than ..Default::default().
 #![allow(clippy::new_without_default)]

@@ -2,6 +2,114 @@ use super::*;
 
 include!("atlas_adversarial_tests.rs");
 
+fn rank_fixture_item(id: &str, content: &str, updated_ms: u64) -> AtlasItem {
+    AtlasItem {
+        id: id.into(),
+        scope: AtlasScope::Project,
+        kind: AtlasKind::Note,
+        lifecycle: AtlasLifecycle::Active,
+        epistemic: EpistemicState::Asserted,
+        contested: false,
+        stale: false,
+        authority: AtlasAuthority::Operator,
+        confidence: Some(1.0),
+        created_ms: 1,
+        updated_ms,
+        content: content.into(),
+        content_digest: String::new(),
+        sources: Vec::new(),
+        links: Vec::new(),
+        injection: InjectionPolicy::TaskLens,
+    }
+}
+
+#[test]
+fn rank_scope_cached_document_frequency_preserves_golden_scores_and_order() {
+    // With four one-token docs, alpha appears twice and beta once. The exact
+    // BM25 IDFs are ln(2) and ln(10/3); gamma has no match and is filtered.
+    let owned = [
+        rank_fixture_item("z-alpha", "alpha", 7),
+        rank_fixture_item("a-alpha", "alpha", 7),
+        rank_fixture_item("beta", "beta", 5),
+        rank_fixture_item("gamma", "gamma", 6),
+    ];
+    let items = owned.iter().collect::<Vec<_>>();
+    let query = vec!["alpha".into(), "beta".into()];
+    let actual = rank_scope(&query, &items)
+        .into_iter()
+        .map(|row| (row.item.id.clone(), row.score.to_bits(), row.matched))
+        .collect::<Vec<_>>();
+    let alpha_score = 2.0f32.ln();
+    let beta_score = (10.0f32 / 3.0).ln();
+    let expected = vec![
+        ("beta".to_string(), beta_score.to_bits(), vec!["beta".to_string()]),
+        ("a-alpha".to_string(), alpha_score.to_bits(), vec!["alpha".to_string()]),
+        ("z-alpha".to_string(), alpha_score.to_bits(), vec!["alpha".to_string()]),
+    ];
+    assert_eq!(actual, expected, "document frequency affects IDF; exact scores, filtering, and tie order stay stable");
+}
+
+fn stable_rank_signature(rows: &[RankedItem<'_>]) -> u64 {
+    // Small FNV-1a receipt is stable across baseline/current builds on the same
+    // toolchain, without depending on HashMap iteration order or an extra crate.
+    let mut hash = 0xcbf29ce484222325u64;
+    let mut feed = |bytes: &[u8]| {
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+        hash ^= 0xff;
+        hash = hash.wrapping_mul(0x100000001b3);
+    };
+    for row in rows {
+        feed(row.item.id.as_bytes());
+        feed(&row.score.to_bits().to_le_bytes());
+        for term in &row.matched {
+            feed(term.as_bytes());
+        }
+    }
+    hash
+}
+
+#[test]
+#[ignore = "paired baseline/current F23 ranking measurement; run only in release qualification"]
+fn rank_scope_document_frequency_paired_benchmark() {
+    use std::time::Instant;
+
+    let query_hit = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]
+        .map(str::to_string);
+    let query_miss = ["absent_a", "absent_b", "absent_c", "absent_d", "absent_e", "absent_f", "absent_g", "absent_h"]
+        .map(str::to_string);
+    let query_mixed = ["alpha", "beta", "gamma", "delta", "absent_e", "absent_f", "absent_g", "absent_h"]
+        .map(str::to_string);
+
+    for count in [100usize, 500, 1_500] {
+        let content = "alpha beta gamma delta epsilon zeta eta theta";
+        let owned = (0..count)
+            .map(|index| rank_fixture_item(&format!("doc-{index:05}"), content, index as u64))
+            .collect::<Vec<_>>();
+        let items = owned.iter().collect::<Vec<_>>();
+        for (workload, query) in [
+            ("all-hit", query_hit.as_slice()),
+            ("all-miss", query_miss.as_slice()),
+            ("mixed", query_mixed.as_slice()),
+        ] {
+            let expected = stable_rank_signature(&rank_scope(query, &items));
+            let mut samples = Vec::with_capacity(7);
+            for _ in 0..7 {
+                let started = Instant::now();
+                let ranked = rank_scope(query, &items);
+                samples.push(started.elapsed().as_nanos());
+                assert_eq!(stable_rank_signature(&ranked), expected,
+                           "rank output changed during benchmark workload={workload} docs={count}");
+            }
+            samples.sort_unstable();
+            eprintln!("F23_BENCH workload={workload} docs={count} samples=7 median_ns={} p95_ns={} signature={expected:016x}",
+                      samples[3], samples[6]);
+        }
+    }
+}
+
 #[test]
 fn test_bounded_unicode() {
     let text = "mechanism real, recursive lane confirmed live → grind-dispatch worker next.";

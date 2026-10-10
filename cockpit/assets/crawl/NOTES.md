@@ -1,0 +1,11 @@
+- `wall_stone`: Four staggered courses of chipped charcoal masonry; horizontal joins checked in three repeats; no remaining concern.
+- `wall_crypt`: A black burial niche, two gray skulls with dark sockets, and a stone shelf; skull faces were repainted after downsampling and are deliberately schematic at 32px.
+- `wall_mine`: Dark fractured rock behind brown timber props and a crossbeam with dull iron fasteners; props were strengthened by hand; no remaining concern.
+- `wall_keep`: Soot-dark brick with two sparse red ember cracks and tiny gold hot spots; crack pixels were restored by hand; no remaining concern.
+- `wall_archive`: Two shelves of muted brown, slate, and green book spines with damp lower stains; the tiny tile omits lettering and page detail intentionally.
+- `wall_fungal`: Mossy masonry and three dim teal mushrooms with one brighter underside pixel; caps were repainted to survive reduction; no remaining concern.
+- `wall_unknown`: An irregular pale charcoal lattice over near-black with one faint teal eye; the eye was restored by hand and intentionally remains subtle.
+- `door`: A closed plank door in a stone jamb, two riveted iron bands, and a ring latch; plank divisions and hardware were simplified by hand; no remaining concern.
+- `stairs`: A squared stone opening with five step edges fading upward into black; descending depth is represented by width and value rather than corridor perspective.
+- `floor_flags`: Broad chipped gray flagstones with dark staggered joints; inspected in a two-by-two repeat and matched in both directions; no remaining concern.
+- `ceiling`: Low-contrast diagonal vault ribs over nearly black stone recesses; inspected in a two-by-two repeat and matched in both directions; intentionally darker than the walls.

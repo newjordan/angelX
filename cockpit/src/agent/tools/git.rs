@@ -386,8 +386,11 @@ impl Tool for GitCommitTool {
                     receipts.join("; ")
                 )
             })?;
-            // Skip empty index (e.g. path vanished between plan and execute).
-            let cached = run_git(&self.workspace, &["diff", "--cached", "--name-only"])?;
+            // Skip an empty unit (e.g. its paths vanished between plan and
+            // execute); unrelated pre-staged paths belong to their own unit.
+            let mut cached_args: Vec<&str> = vec!["diff", "--cached", "--name-only", "--"];
+            cached_args.extend(path_refs.iter().copied());
+            let cached = run_git(&self.workspace, &cached_args)?;
             if cached.trim().is_empty() {
                 receipts.push(format!(
                     "[{}] class={} skipped (nothing staged)",
@@ -396,11 +399,12 @@ impl Tool for GitCommitTool {
                 ));
                 continue;
             }
-            run_git(
-                &self.workspace,
-                &["commit", "-q", "-m", &unit.subject],
-            )
-            .map_err(|e| {
+            // `--only` with pathspecs commits only this unit's paths, leaving
+            // any other staged units in the index for their own commits.
+            let mut commit_args: Vec<&str> =
+                vec!["commit", "--only", "-q", "-m", &unit.subject, "--"];
+            commit_args.extend(path_refs.iter().copied());
+            run_git(&self.workspace, &commit_args).map_err(|e| {
                 format!(
                     "git_commit: failed committing unit {} ({}): {e}; earlier commits (if any) kept: {}",
                     i + 1,

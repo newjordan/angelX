@@ -61,6 +61,66 @@ const APOLLO_EXTRACTION: &str = r#"{
         ]
     }"#;
 
+struct BarrierClub {
+    barrier: Arc<std::sync::Barrier>,
+    reply: &'static str,
+}
+
+impl Club for BarrierClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        self.barrier.wait();
+        Ok(self.reply.to_string())
+    }
+
+    fn label(&self) -> &str {
+        "barrier"
+    }
+}
+
+#[test]
+fn concurrent_ingests_reload_under_store_lock_and_keep_both_documents() {
+    const FIRST: &str = r#"{"entities":[{"name":"Graph One","type":"ARTIFACT","description":"first concurrent record"}],"relations":[]}"#;
+    const SECOND: &str = r#"{"entities":[{"name":"Graph Two","type":"ARTIFACT","description":"second concurrent record"}],"relations":[]}"#;
+
+    let store = scratch_store("concurrent-ingest");
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let make_engine = |reply| {
+        let club: Arc<dyn Club> = Arc::new(BarrierClub {
+            barrier: Arc::clone(&barrier),
+            reply,
+        });
+        KnowledgeGraphEngine::new(
+            PathBuf::from("/tmp/kg-test-ws"),
+            Some(club),
+            Vec::new(),
+        )
+        .with_store(store.clone())
+    };
+    let first_engine = make_engine(FIRST);
+    let second_engine = make_engine(SECOND);
+    let first = std::thread::spawn(move || {
+        first_engine.ingest(None, "first document", "first.md", &AtomicBool::new(false))
+    });
+    let second = std::thread::spawn(move || {
+        second_engine.ingest(None, "second document", "second.md", &AtomicBool::new(false))
+    });
+
+    first.join().unwrap().unwrap();
+    second.join().unwrap().unwrap();
+    let graph = KnowledgeGraph::load_from(&store).unwrap();
+    assert!(graph.nodes.contains_key("Graph One"));
+    assert!(graph.nodes.contains_key("Graph Two"));
+    assert!(graph.nodes["Graph One"].source_docs.contains("first.md"));
+    assert!(graph.nodes["Graph Two"].source_docs.contains("second.md"));
+
+    let lock = store.with_file_name(format!(
+        "{}.lock",
+        store.file_name().unwrap().to_string_lossy()
+    ));
+    let _ = std::fs::remove_file(&store);
+    let _ = std::fs::remove_file(lock);
+}
+
 #[test]
 fn extraction_folds_typed_entities_edges_and_provenance() {
     let store = scratch_store("extract");

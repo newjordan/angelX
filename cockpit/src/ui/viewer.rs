@@ -1164,6 +1164,87 @@ impl Viewer {
         false
     }
 
+    /// The Round Table panel's painted table through Kitty: `compose` builds
+    /// the picture (off the draw thread, only for a new `picture`), scaled to
+    /// the cells' real pixels with hard edges. While a new picture encodes,
+    /// the last one at the same size stays up, so a seat coming back never
+    /// blanks the panel. Shares the portal's slot: one table at a time.
+    pub fn render_council_table<F>(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        picture: u64,
+        compose: F,
+    ) -> bool
+    where
+        F: FnOnce() -> image::RgbaImage + Send + 'static,
+    {
+        if !self.portal_enabled || area.width == 0 || area.height == 0 {
+            return false;
+        }
+        self.promote_pending_portal();
+        // Painted pictures are numbered apart from WebGPU frame sequences.
+        let painted = |sequence: u64| sequence & (1 << 63) != 0;
+        let key = PortalCacheKey {
+            sequence: picture | (1 << 63),
+            width: area.width,
+            height: area.height,
+        };
+        let shown = |entry: &PortalCacheEntry, frame: &mut Frame| {
+            frame.render_widget(
+                Image::new(&entry.protocol),
+                fixed_protocol_area(&entry.protocol, area),
+            );
+        };
+        if let Some(current) = self.portal_current.as_ref().filter(|e| e.key == key) {
+            shown(current, frame);
+            return true;
+        }
+        if self.portal_failure.as_ref() != Some(&key) && self.portal_pending.is_none() {
+            let picker = self.world_pixel_picker();
+            let font = picker.font_size();
+            let target = (
+                u32::from(area.width) * u32::from(font.width),
+                u32::from(area.height) * u32::from(font.height),
+            );
+            let size = Rect::new(0, 0, area.width, area.height);
+            let (tx, rx) = mpsc::channel();
+            let spawn = std::thread::Builder::new()
+                .name("angel-council-table-kitty".to_string())
+                .spawn(move || {
+                    let table = crate::ui::viz::council_table::fit(&compose(), target);
+                    let result = picker
+                        .new_protocol(
+                            image::DynamicImage::ImageRgba8(table),
+                            size.into(),
+                            Resize::Fit(Some(image::imageops::FilterType::Nearest)),
+                        )
+                        .map_err(|error| format!("prepare Kitty council table: {error}"));
+                    let _ = tx.send(result);
+                });
+            match spawn {
+                Ok(_) => {
+                    self.portal_pending = Some(PendingPortal {
+                        key: key.clone(),
+                        rx,
+                    })
+                }
+                Err(_) => self.portal_failure = Some(key.clone()),
+            }
+        }
+        match self.portal_current.as_ref() {
+            Some(previous)
+                if painted(previous.key.sequence)
+                    && previous.key.width == area.width
+                    && previous.key.height == area.height =>
+            {
+                shown(previous, frame);
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Exercise native room-image encoding without halfblock admission.
     #[cfg(test)]
     pub fn render_native_location<P, F>(
@@ -1606,6 +1687,8 @@ impl Viewer {
         self.render_world_pixels_inner(frame, area, sequence, ambient, false, false, compose)
     }
 
+    // Preserve the explicit pixel-render flags and one-shot composer boundary.
+    #[allow(clippy::too_many_arguments)]
     fn render_world_pixels_inner<P, F>(
         &mut self,
         frame: &mut Frame,
@@ -1754,6 +1837,13 @@ impl Viewer {
         let mut picker = Picker::halfblocks();
         picker.set_protocol_type(ProtocolType::Kitty);
         Self::with_picker(picker)
+    }
+
+    /// A Kitty viewer whose cells are `cell` pixels, for renders that must
+    /// match a real terminal's geometry.
+    #[cfg(test)]
+    pub(crate) fn kitty_cells_for_test(cell: (u16, u16)) -> Self {
+        Self::with_picker(cell_picker(ProtocolType::Kitty, cell))
     }
 
     #[cfg(test)]

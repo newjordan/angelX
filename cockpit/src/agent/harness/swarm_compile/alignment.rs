@@ -109,11 +109,12 @@ impl SwarmCompilerEngine {
         let selected = self.select_alignment_route(&implementer.club, &implementer_route)?;
         ensure_not_cancelled(cancelled)?;
         let prompt = alignment_prompt(&request);
-        let delegate_result = self.delegate.run_from(
+        let delegate_result = self.delegate.run_from_with_cancel(
             &selected,
             &prompt,
             DelegateMode::ReadOnly,
             &request.candidate_oid,
+            Some(cancelled),
         );
         let after = self.inspect_campaign_base();
         let outcome = match delegate_result {

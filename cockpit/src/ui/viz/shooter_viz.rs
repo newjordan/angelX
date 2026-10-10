@@ -2,7 +2,7 @@
 //! with the party, the floor map and the controls in text around it.
 use crate::drive::together_realm::{Realm, Status};
 use crate::drive::together_shooter::{
-    BOMB_REARM, Card, EnemyKind, FLOORS, HZ, MAX_BOMBS, Phase, RoomKind, Run,
+    BOMB_REARM, Card, EnemyKind, HZ, MAX_BOMBS, Phase, RoomKind, Run,
     cards::{Kind, Rarity},
 };
 use crate::stage::world_viz::overworld::{Img, arena};
@@ -99,10 +99,21 @@ pub(crate) fn paint_pixels(frame: &mut Frame, area: Rect, img: &Img) {
     }
 }
 
+/// Small fixed-cost wrapping for the narrow status panel; no renderer layout expansion.
+fn status_chunks(text: &str, width: u16) -> Vec<String> {
+    let chars: Vec<_> = text.chars().collect();
+    chars
+        .chunks(usize::from(width.max(1)))
+        .take(5)
+        .map(|c| c.iter().collect())
+        .collect()
+}
+
 /// The floor's rooms as far as the party knows them: walked rooms, the
 /// doors seen from them, the stairs or lair once found.
-fn floor_map(run: &Run) -> Vec<String> {
+pub(super) fn floor_map(run: &Run) -> Vec<String> {
     let rooms = &run.dungeon.rooms;
+    let leaders: Vec<usize> = run.boss_leader_rooms().collect();
     let known = |cell: (i32, i32)| {
         rooms.iter().any(|r| {
             r.visited
@@ -125,12 +136,20 @@ fn floor_map(run: &Run) -> Vec<String> {
                     let here = rooms[run.at].cell == (x, y);
                     match rooms.iter().find(|r| r.cell == (x, y)) {
                         _ if here => '◆',
+                        Some(r)
+                            if !r.cleared
+                                && (r.visited || known(r.cell))
+                                && leaders.iter().any(|&i| rooms[i].cell == r.cell) =>
+                        {
+                            'C'
+                        }
                         Some(r) if r.visited => match r.kind {
                             RoomKind::Stairs => '▼',
                             RoomKind::Lair => '♦',
                             RoomKind::Hall => '+',
                             RoomKind::Sanctuary => '*',
                             RoomKind::Ledge => '≡',
+                            RoomKind::Pit if !r.cleared => '☠',
                             _ if r.cleared => '■',
                             _ => '▣',
                         },
@@ -186,6 +205,24 @@ pub(crate) fn render(
         "PAUSED"
     } else {
         match run.phase {
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Fortune => {
+                "HOME · hold F at the lever to spin, once a delve"
+            }
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Yard => {
+                "HOME · the Training Yard: strike the quintains, try your ultimate"
+            }
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Trophies => {
+                "HOME · the Trophy Hall: what the realm has felled, kept by Sir Kay"
+            }
+            Phase::Exploring if run.at_home_now() => {
+                "HOME · stand on a plate, hold F to build · the Winding Stair goes down"
+            }
+            Phase::Exploring if run.boss_gate_line().is_some_and(|s| s.contains(": sealed")) => {
+                "SEALED · resource leaders hold the route; doors allow retreat"
+            }
+            Phase::Exploring if run.light.is_some() => {
+                "THE DRAGON IS SLAIN · the stairs go deeper, the light goes home"
+            }
             Phase::Fighting if run.side_on() => "SIDE-ON · FIGHT · W jumps, and again in the air",
             Phase::Fighting => "FIGHT · the doors are barred",
             Phase::Exploring if run.side_on() => "SIDE-ON · CLEAR · the west door leads back",
@@ -199,20 +236,52 @@ pub(crate) fn render(
                 "CLEAR · take the stairs down"
             }
             Phase::Exploring => "CLEAR · the doors stand open",
-            Phase::Won => "VICTORY · the dragon is slain · R to delve again",
-            Phase::Wiped => "FALLEN · R to delve again",
+            Phase::Won => "VICTORY · R: home to the Undercroft",
+            Phase::Wiped => "FALLEN · R: home to the Undercroft",
         }
+    };
+    use crate::drive::together_shooter::audience::viewers;
+    use crate::drive::together_shooter::fortune::Mode;
+    let mode = if run.mode == Mode::LongWayDown {
+        String::new()
+    } else {
+        format!("  ·  {}", run.mode.name().to_uppercase())
+    };
+    let collapse = run.collapse_in().map_or(String::new(), |secs| {
+        if secs == 0 {
+            "  ·  THE FLOOR IS COLLAPSING".to_string()
+        } else {
+            format!("  ·  collapses in {}:{:02}", secs / 60, secs % 60)
+        }
+    });
+    let header = if run.at_home_now() {
+        let place = match run.room().kind {
+            RoomKind::Fortune => "Dame Fortune's hall",
+            RoomKind::Yard => "The Training Yard",
+            RoomKind::Trophies => "The Trophy Hall",
+            RoomKind::Tavern => "The Siege Perilous",
+            _ => "The Undercroft",
+        };
+        let best = if run.home.best_show > 0 {
+            format!("    Best show {}", viewers(run.home.best_show))
+        } else {
+            String::new()
+        };
+        format!("{place}{mode}{best}    {state}")
+    } else {
+        format!(
+            "Floor {}/{}  {}{mode}{collapse}    Score {}    Viewers {}    {state}",
+            run.floor(),
+            crate::drive::together_shooter::DEEPEST,
+            run.dungeon.pack.name(),
+            run.score,
+            viewers(run.audience),
+        )
     };
     line(
         frame,
         Rect::new(inner.x, inner.y, inner.width, 1),
-        &format!(
-            "Floor {}/{}  {}    Score {}    {state}",
-            run.floor(),
-            FLOORS,
-            run.dungeon.pack.name(),
-            run.score,
-        ),
+        &header,
         GOLD,
     );
     line(
@@ -227,6 +296,8 @@ pub(crate) fn render(
     if let Some((page, selected)) = cards {
         if page == REALM_PAGE {
             realm_screen(frame, run, realm, room, selected);
+        } else if page == bestiary_page(run) {
+            bestiary_screen(frame, run, room);
         } else {
             card_screen(frame, run, room, page, selected);
         }
@@ -339,6 +410,41 @@ pub(crate) fn render(
                 },
             ));
         }
+        // The ultimate: its name, and the charge or READY.
+        {
+            use crate::drive::together_shooter::ults::ULT_FULL;
+            let ult = hero.ult();
+            let key = if id == 2 && run.players.len() == 2 {
+                "Y"
+            } else {
+                "R"
+            };
+            let ready = hero.ult_charge >= ULT_FULL;
+            let state = if ready {
+                " READY".to_string()
+            } else {
+                format!(" {}%", hero.ult_charge * 100 / ULT_FULL)
+            };
+            let name = fit_text(
+                ult.name(),
+                side.width.saturating_sub(4 + state.chars().count() as u16),
+            );
+            rows.push((
+                format!("[{key}] {name}{state}"),
+                if ready { GOLD } else { DIM },
+            ));
+        }
+        // A power rune carried, and how long it has left.
+        if let Some(held) = hero.rune {
+            rows.push((
+                format!(
+                    "Rune: {} · {}s",
+                    held.kind.name(),
+                    held.left.div_ceil(crate::drive::together_shooter::HZ)
+                ),
+                GOLD,
+            ));
+        }
         if compact {
             rows.push((String::new(), DIM));
             continue;
@@ -408,13 +514,204 @@ pub(crate) fn render(
         }
     } else if let Some(boss) = run.enemies.iter().find(|e| e.kind == EnemyKind::Dragon) {
         rows.push((format!("DRAGON {}/{}", boss.hp, boss.max_hp), EMBER));
-    } else if !run.enemies.is_empty() {
-        rows.push((format!("{} monsters remain", run.enemies.len()), EMBER));
+    } else if run.foes_left() {
+        let left = run
+            .enemies
+            .iter()
+            .filter(|e| e.kind != EnemyKind::Dummy)
+            .count();
+        rows.push((format!("{left} monsters remain"), EMBER));
     }
     rows.push((String::new(), DIM));
-    rows.push((run.dungeon.pack.name().to_string(), PARCHMENT));
-    for map_row in floor_map(run) {
-        rows.push((map_row, STONE));
+    if run.at_home_now() {
+        // The ledger of the plate a knight stands on, in the HUD's own
+        // crisp hand.
+        let reading = run.players.values().filter(|h| h.hp > 0).find_map(|h| {
+            crate::drive::together_shooter::home::plate_at(run.room().kind, h.x, h.y)
+                .map(|s| (s, h.buying))
+        });
+        if let Some((station, buying)) = reading {
+            use crate::drive::together_shooter::home::{BUY_HOLD, numeral};
+            let ladder = station.ladder();
+            match run.home.next(station) {
+                Some((level, rung)) => {
+                    rows.push((
+                        format!("{} {}", ladder.name, numeral(level)).to_uppercase(),
+                        GOLD,
+                    ));
+                    rows.push((rung.says.to_string(), TEXT));
+                    // Each spoil it costs, red where the treasury is short.
+                    let mut short = false;
+                    for &(spoil, n) in rung.price {
+                        let have = run.treasury.get(spoil);
+                        short |= have < n;
+                        rows.push((
+                            format!("  {n} {} ({have})", spoil.word()),
+                            if have >= n { PARCHMENT } else { EMBER },
+                        ));
+                    }
+                    if run.home.deepest < rung.needs {
+                        rows.push((format!("Reach floor {} first", rung.needs), EMBER));
+                    } else if short {
+                        rows.push(("Carry more spoils up".to_string(), EMBER));
+                    } else {
+                        let filled = (buying.min(BUY_HOLD) * 10 / BUY_HOLD) as usize;
+                        rows.push((
+                            format!("Hold F [{}{}]", "#".repeat(filled), ".".repeat(10 - filled)),
+                            GOLD,
+                        ));
+                    }
+                }
+                None => {
+                    rows.push((
+                        format!("{} {}", ladder.name, numeral(run.home.level(station)))
+                            .to_uppercase(),
+                        GOLD,
+                    ));
+                    rows.push(("Built in full".to_string(), TEXT));
+                }
+            }
+            rows.push((String::new(), DIM));
+        }
+        // Home: what the realm can spend, and where the stair goes.
+        rows.push(("THE TREASURY".to_string(), PARCHMENT));
+        for spoil in crate::drive::together_realm::Spoil::ALL {
+            let n = run.treasury.get(spoil);
+            if n > 0 {
+                rows.push((format!("  {n} {}", spoil.word()), GOLD));
+            }
+        }
+        if run.treasury.is_empty() {
+            rows.push(("  empty: carry spoils up".to_string(), DIM));
+        }
+        rows.push((
+            format!(
+                "Feats {}/{}",
+                run.home.feats.len(),
+                crate::drive::together_shooter::feats::FEATS.len()
+            ),
+            PARCHMENT,
+        ));
+        if !run.home.boxes.is_empty() {
+            rows.push((
+                format!("{} box(es) in the coffer", run.home.boxes.len()),
+                GOLD,
+            ));
+        }
+        rows.push((String::new(), DIM));
+        rows.push((
+            format!("Stair: down to floor {}", run.home.landing()),
+            STONE,
+        ));
+        rows.push((format!("Then: {}", run.dungeon.pack.name()), STONE));
+        rows.push((
+            match run.spin {
+                Some(spin) if spin.done(run.tick) => format!("Delve: {}", run.mode.name()),
+                Some(_) => "Fortune's wheel is turning".to_string(),
+                None => "Fortune's wheel: east door".to_string(),
+            },
+            if run.spin.is_some() { GOLD } else { STONE },
+        ));
+        // Maud's round, poured and waiting for the stair.
+        if let Some(drink) = run
+            .home
+            .round
+            .as_deref()
+            .and_then(crate::drive::together_shooter::tavern::drink)
+        {
+            rows.push((format!("Round: {}", drink.name), GOLD));
+        }
+        // Sir Dinadan's song, asked for and waiting for the stair.
+        if let Some(song) = run
+            .home
+            .song
+            .as_deref()
+            .and_then(crate::drive::together_shooter::tavern::song)
+        {
+            rows.push((format!("Song: {}", song.name), GOLD));
+        }
+        // Beaumains, hired and waiting at the stair.
+        if run.home.hire.is_some() {
+            rows.push(("Hired: Beaumains".to_string(), GOLD));
+        }
+        // Sir Ector's word on each knight: their level, and lessons waiting.
+        for hero in run.players.values() {
+            use crate::drive::together_shooter::talents::knight_key;
+            let prowess = run.home.prowess(&knight_key(hero));
+            let waiting = prowess.waiting();
+            rows.push((
+                if waiting > 0 {
+                    format!(
+                        "{}: level {}, {waiting} lesson(s) with Sir Ector",
+                        hero.name,
+                        prowess.level()
+                    )
+                } else {
+                    format!("{}: level {}", hero.name, prowess.level())
+                },
+                if waiting > 0 { GOLD } else { STONE },
+            ));
+        }
+        if !run.home.bounties.is_empty() {
+            use crate::drive::together_shooter::bounties;
+            rows.push((String::new(), DIM));
+            rows.push(("WREN'S BOUNTIES".to_string(), PARCHMENT));
+            for pinned in &run.home.bounties {
+                if let Some(bounty) = bounties::bounty(&pinned.id) {
+                    rows.push((
+                        format!(
+                            "  {}  {}",
+                            bounty.title,
+                            bounties::progress(bounty, pinned.have)
+                        ),
+                        STONE,
+                    ));
+                }
+            }
+        }
+    } else {
+        if let Some(dare) = &run.dare {
+            rows.push(("FORTUNE'S DARE".to_string(), PARCHMENT));
+            rows.push((format!("  {}", dare.kind.name()), STONE));
+            rows.push((
+                format!("  {}", dare.standing(run.tick, run.audience)),
+                if dare.kept {
+                    GOLD
+                } else if dare.broken {
+                    DIM
+                } else {
+                    STONE
+                },
+            ));
+            rows.push((String::new(), DIM));
+        }
+        // Beaumains, fighting beside the party, or sitting this one out.
+        if let Some(hire) = &run.hireling {
+            rows.push((
+                if hire.down() {
+                    "Beaumains: sitting this one out".to_string()
+                } else {
+                    format!("Beaumains: {}/{}", hire.hp, hire.max_hp)
+                },
+                if hire.down() { DIM } else { STONE },
+            ));
+            rows.push((String::new(), DIM));
+        }
+        rows.push((run.dungeon.pack.name().to_string(), PARCHMENT));
+        if let Some(progress) = run.boss_gate_line() {
+            for chunk in status_chunks(&progress, side.width) {
+                rows.push((chunk, GOLD));
+            }
+            if let Some(support) = run.boss_support_line() {
+                for chunk in status_chunks(&support, side.width) {
+                    rows.push((chunk, STONE));
+                }
+            }
+            rows.push(("C: faction chief (not always required)".to_string(), STONE));
+        }
+        for map_row in floor_map(run) {
+            rows.push((map_row, STONE));
+        }
     }
     for (y, (text, color)) in (side.y..side.bottom()).zip(rows) {
         line(frame, Rect::new(side.x, y, side.width, 1), &text, color);
@@ -423,6 +720,7 @@ pub(crate) fn render(
     if let Some(wish) = reforge {
         reforge_box(frame, room, &wish);
     }
+    let gate_line = run.boss_gate_line();
     let found = run.found_line();
     let footer = inner.bottom() - 5;
     let spoken = said.map(|line| {
@@ -435,13 +733,17 @@ pub(crate) fn render(
             voice_color(&line.who),
         )
     });
-    let (first, first_color) =
-        spoken.unwrap_or_else(|| (found.unwrap_or_else(|| notice.to_string()), GOLD));
+    let (first, first_color) = gate_line.map(|line| (line, GOLD)).unwrap_or_else(|| {
+        spoken.unwrap_or_else(|| (found.unwrap_or_else(|| notice.to_string()), GOLD))
+    });
+    let support = run.boss_support_line();
     for (index, (text, color)) in [
         (first.as_str(), first_color),
         (
             if run.side_on() {
                 "P1 A/D run · W jump (twice) · S drop through planks · arrows aim/fire · F fire · Space roll · Q sword · E bomb · 1–4 play · Z/B/N spells"
+            } else if run.at_home_now() && run.settlement_site.is_some() {
+                "P1 WASD move · E beside LOCAL RESEARCH inspects source locally · ↑/↓ scroll · E/Esc closes · Tab cards · Esc coding"
             } else {
                 "P1 WASD move · arrows aim/fire · F fire · Space roll/shield · Q sword · E bomb · 1–4 play · Z/B/N spells · Tab cards · V voices"
             },
@@ -458,7 +760,8 @@ pub(crate) fn render(
             BLUE,
         ),
         (
-            if key_releases {
+            if let Some(support) = support.as_deref() { support }
+            else if key_releases {
                 "Held-key controls · release stops · X clears all held inputs"
             } else {
                 "Legacy keys: tap to step, hold to walk · X stops · release support auto-detected"
@@ -467,9 +770,9 @@ pub(crate) fn render(
         ),
         (
             if hosted {
-                "Esc: stone + composer · G: vigil · F4/F6: rejoin · R: replay after win/loss"
+                "Esc: stone + composer · G: vigil · F4/F6: rejoin · R: home after win/loss"
             } else {
-                "Esc: composer + pause · G: vigil · F4/F6: game · R: replay after win/loss"
+                "Esc: composer + pause · G: vigil · F4/F6: game · R: home after win/loss"
             },
             TEXT,
         ),
@@ -516,7 +819,7 @@ pub(super) fn reforge_box(frame: &mut Frame, room: Rect, wish: &Wish) {
     let list = wish
         .known
         .len()
-        .min(usize::from(room.height.saturating_sub(13)) / 1)
+        .min(usize::from(room.height.saturating_sub(13)))
         .min(8) as u16;
     let h = (11 + list + u16::from(list > 0)).min(room.height);
     let scroll = Rect::new(
@@ -761,9 +1064,15 @@ const CARD_H: u16 = 13;
 /// The card screen's second page: the treasury and the wishing stone.
 pub(crate) const REALM_PAGE: usize = 1;
 
-/// Pages of the card screen: your cards, the realm, then the book.
+/// Pages of the card screen: your cards, the realm, the book, and last the
+/// Herald's Bestiary.
 pub(crate) fn card_pages(run: &Run) -> usize {
-    2 + book_pages(&run.book)
+    3 + book_pages(&run.book)
+}
+
+/// The Bestiary's page: the last.
+pub(crate) fn bestiary_page(run: &Run) -> usize {
+    card_pages(run) - 1
 }
 
 fn rarity_color(rarity: Rarity) -> Color {
@@ -1002,6 +1311,47 @@ pub(crate) fn cards_of(
 
 /// The realm page: what the party carries, what the treasury holds, and the
 /// wishes it can pay for — the reason to go back down.
+/// The Herald's Bestiary: every kind the realm has felled, how many, and
+/// the Herald's note; the kinds not yet met, as rumours.
+fn bestiary_screen(frame: &mut Frame, run: &Run, area: Rect) {
+    use crate::drive::together_shooter::bestiary::{ENTRIES, key};
+    frame.render_widget(Clear, area);
+    let mut y = area.y;
+    let mut put = |frame: &mut Frame, text: &str, color: Color| {
+        if y < area.bottom() {
+            line(frame, Rect::new(area.x, y, area.width, 1), text, color);
+        }
+        y += 1;
+    };
+    let met = ENTRIES
+        .iter()
+        .filter(|e| run.home.bestiary.get(&key(e.kind)).is_some_and(|&n| n > 0))
+        .count();
+    put(
+        frame,
+        &format!(
+            "THE HERALD'S BESTIARY · {met} of {} kinds felled · ↑ back to the book",
+            ENTRIES.len()
+        ),
+        PARCHMENT,
+    );
+    put(frame, "", DIM);
+    for entry in &ENTRIES {
+        match run.home.bestiary.get(&key(entry.kind)).copied() {
+            Some(n) if n > 0 => put(
+                frame,
+                &format!("{:<14}{:>6}   {}", entry.name, n, entry.says),
+                GOLD,
+            ),
+            _ => put(
+                frame,
+                &format!("{:<14}{:>6}   The Herald has heard rumours.", "???", "-"),
+                DIM,
+            ),
+        }
+    }
+}
+
 fn realm_screen(frame: &mut Frame, run: &Run, realm: Option<&Realm>, area: Rect, selected: usize) {
     frame.render_widget(Clear, area);
     let empty = Realm::default();
@@ -1157,9 +1507,13 @@ pub(crate) fn render_native_room(
     };
     // Kitty: the room drawn at the size it shows, placed one to one.
     let size = (arena::NATIVE_W as u32, arena::NATIVE_H as u32);
-    if viewer.render_game_img(frame, room, step, size, || {
-        arena::frame_for(run, arena::NATIVE_W, arena::NATIVE_H, focus)
-    }) {
+    if viewer.render_game_img(
+        frame,
+        room,
+        native_frame_key(run, step, focus),
+        size,
+        || arena::frame_for(run, arena::NATIVE_W, arena::NATIVE_H, focus),
+    ) {
         return;
     }
     let (cw, ch) = viewer.map_cell_pixels();
@@ -1174,12 +1528,31 @@ pub(crate) fn render_native_room(
         w,
         h,
         expanded,
+        focus,
+        run.chivalry.as_ref(),
     )
         .hash(&mut key);
     let sequence = key.finish();
     viewer.render_game_pixels(frame, room, sequence, || {
         (arena::LazyFrame::new(run.clone(), w, h, focus), w, h)
     });
+}
+
+/// Owner-local projection changes can arrive between combat ticks. Native
+/// transports must not reuse a same-tick image after selecting or tending.
+fn native_frame_key(run: &Run, step: u64, focus: Option<u32>) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut key = std::collections::hash_map::DefaultHasher::new();
+    (
+        "native-delve-projection-v1",
+        run.raid_id,
+        run.at,
+        step,
+        focus,
+        run.chivalry.as_ref(),
+    )
+        .hash(&mut key);
+    key.finish()
 }
 
 fn room_viewport(area: Rect, expanded: bool) -> Option<Rect> {
@@ -1216,6 +1589,34 @@ fn raster_size(area: Rect, cell: (u16, u16)) -> (u32, u32) {
 #[cfg(test)]
 mod native_tests {
     use super::*;
+    #[test]
+    fn chivalry_native_cache_changes_on_same_tick_owner_projection_and_focus() {
+        let mut run = Run::new(11, 7, None);
+        run.chivalry = Some(Default::default());
+        let initial = native_frame_key(&run, 4, None);
+        assert_eq!(initial, native_frame_key(&run, 4, None));
+        assert_ne!(initial, native_frame_key(&run, 4, Some(1)));
+        run.chivalry
+            .as_mut()
+            .unwrap()
+            .select(crate::drive::chivalry::Mount::Mist)
+            .unwrap();
+        let selected = native_frame_key(&run, 4, None);
+        assert_ne!(initial, selected);
+        run.chivalry.as_mut().unwrap().tend().unwrap();
+        assert_ne!(selected, native_frame_key(&run, 4, None));
+        let tended = native_frame_key(&run, 4, None);
+        run.chivalry.as_mut().unwrap().start().unwrap();
+        assert_ne!(tended, native_frame_key(&run, 4, None));
+        let running = native_frame_key(&run, 4, None);
+        run.chivalry
+            .as_mut()
+            .unwrap()
+            .choose(1, crate::drive::chivalry::Choice::Aim)
+            .unwrap();
+        assert_ne!(running, native_frame_key(&run, 4, None));
+    }
+
     #[test]
     fn dungeon_native_raster_is_sharper_bounded_and_respects_chrome() {
         let room = room_viewport(Rect::new(0, 0, 160, 48), true).unwrap();

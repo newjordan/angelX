@@ -1,0 +1,16 @@
+name THE MEMORY WARDEN
+text The Unknown remembers the first seal.
+by angelX
+where unknown
+hp 620
+size 1.4
+move hover speed=1.2
+attack spiral shots=3 speed=5 every=85 damage=10 shot=orb
+rage 35%
+drops gold 110, gem 1
+art
+..77..
+.7HH7.
+.H11H.
+..HH..
+..77..

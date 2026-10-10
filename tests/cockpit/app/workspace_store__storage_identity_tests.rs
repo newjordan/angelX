@@ -233,6 +233,16 @@ fn valid_utf8_workspace_keys_keep_their_pre_migration_goldens() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn non_utf8_workspace_keys_hash_raw_bytes_without_filesystem_io() {
+    use std::os::unix::ffi::OsStringExt as _;
+    let left = PathBuf::from(std::ffi::OsString::from_vec(b"workspace-\xff".to_vec()));
+    let right = PathBuf::from(std::ffi::OsString::from_vec(b"workspace-\xfe".to_vec()));
+    assert_eq!(left.to_string_lossy(), right.to_string_lossy());
+    assert_ne!(workspace_key(&left), workspace_key(&right));
+}
+
 #[test]
 fn nul_worktree_parser_preserves_whitespace_and_rejects_incomplete_records() {
     let raw = b"worktree /tmp/ leading\ntrailing \0HEAD abc\0\0worktree /tmp/second\0";
@@ -258,6 +268,28 @@ fn nul_worktree_parser_rejects_non_utf8_without_guessing() {
 }
 
 #[cfg(unix)]
+#[test]
+fn real_git_roots_with_trailing_space_and_newline_keep_distinct_identity() {
+    let _lock = crate::tests::env_lock();
+    let fixture = Fixture::new();
+    let _env = identity_env(&fixture);
+    let names = ["trailing ", "with\nnewline"];
+    let mut identities = Vec::new();
+    for name in names {
+        let path = fixture.0.join(name);
+        init_repo(&path);
+        let identity = repo_identity(&path);
+        assert_eq!(canonical_repo_root(&path), path);
+        assert_eq!(identity.root, path);
+        assert_eq!(identity.key, workspace_key(&path));
+        assert!(matches_project(&path, &path, &identity.key));
+        identities.push(identity);
+    }
+    assert_ne!(identities[0].key, identities[1].key);
+}
+
+// APFS rejects raw-byte path components before Git can create these roots.
+#[cfg(target_os = "linux")]
 #[test]
 fn real_git_roots_keep_raw_names_distinct_and_do_not_alias_legacy_lossy_keys() {
     use std::os::unix::ffi::OsStringExt as _;

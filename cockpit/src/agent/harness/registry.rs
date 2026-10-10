@@ -340,6 +340,11 @@ pub struct ToolRegistry {
     /// only the unbounded driver turn arms it, so delegate seats sharing this
     /// registry never contend for it.
     pub(crate) bg_compact: std::sync::Mutex<super::compact::BgCompactState>,
+    /// Treebeard digests still in flight when the driver's turn ended (see
+    /// [`super::compactor::drain_late`]). Registry-homed, like `bg_compact`, so
+    /// they land at the next turn's first request; only the unbounded driver
+    /// turn stashes or drains them.
+    pub(crate) rolling_digests: std::sync::Mutex<Vec<super::compactor::Digesting>>,
     /// Name/description-only index for deterministic per-turn skill hints.
     skill_index: Vec<SkillSummary>,
     /// Per-turn hidden tools surfaced by `tool_search` for the next request.
@@ -468,6 +473,7 @@ impl ToolRegistry {
             aux_clubs: Vec::new(),
             roster: Vec::new(),
             bg_compact: std::sync::Mutex::new(super::compact::BgCompactState::default()),
+            rolling_digests: std::sync::Mutex::new(Vec::new()),
             skill_index: Vec::new(),
             tool_activations: Arc::new(ToolActivations::default()),
             auxiliary: super::auxiliary::AuxiliaryTracker::default(),
@@ -722,7 +728,16 @@ impl ToolRegistry {
         self.rl.lock().unwrap_or_else(|error| error.into_inner())
     }
 
-    fn register_rl_campaign(&mut self) {
+    fn register_rl_campaign(&mut self, club: Option<Arc<dyn Club>>) {
+        self.register_deferred(Box::new(
+            crate::agent::tools::labyrinth::LabyrinthTool::new(self.workspace.clone()),
+        ));
+        self.register_deferred(Box::new(
+            crate::agent::tools::labyrinth_campaign::LabyrinthCampaignTool::new(
+                self.workspace.clone(),
+                club,
+            ),
+        ));
         self.register_deferred(Box::new(
             crate::agent::tools::loop_research::LoopResearchTool::new(
                 self.workspace.clone(),
@@ -838,7 +853,7 @@ impl ToolRegistry {
         let (cargo, native) = crate::agent::tools::build::capture_verifier_runtimes(&workspace);
         let mut r = Self::new();
         r.set_workspace(workspace.clone());
-        r.register_rl_campaign();
+        r.register_rl_campaign(None);
         r.register(Box::new(ReverseTool));
         r.register(Box::new(WordCountTool));
         r.register(Box::new(
@@ -937,7 +952,7 @@ impl ToolRegistry {
         let (cargo, native) = crate::agent::tools::build::capture_verifier_runtimes(&workspace);
         let mut r = Self::new();
         r.set_workspace(workspace.clone());
-        r.register_rl_campaign();
+        r.register_rl_campaign(self_club.clone().or_else(|| roster.first().cloned()));
         r.vision = crate::agent::tools::vision::VisionBackend::new(run);
         r.roster = roster.clone();
         r.register(Box::new(ReverseTool));
@@ -1474,14 +1489,20 @@ impl ToolRegistry {
     }
 
     fn lean_defs(&self, full: &[ToolDef], coding_hot_path: bool) -> Vec<ToolDef> {
+        // A scoped literature registry has no shell/discovery fallback. Its
+        // explicitly registered read-only research capabilities stay visible.
+        let campaign_literature = full
+            .iter()
+            .any(|definition| definition.name == "campaign_lead");
         self.with_activated_tools(
             full.iter()
                 .filter(|definition| {
-                    if coding_hot_path {
+                    (if coding_hot_path {
                         is_coding_hot_path_tool(&definition.name)
                     } else {
                         is_essential_tool(&definition.name)
-                    }
+                    }) || (campaign_literature
+                        && matches!(definition.name.as_str(), "web_search" | "web_fetch"))
                 })
                 .map(lean_advertised_tool_def)
                 .collect(),
@@ -1929,6 +1950,9 @@ pub(crate) fn is_essential_tool(name: &str) -> bool {
     matches!(
         name,
         "read_file"
+            | "campaign_file"
+            | "campaign_exec"
+            | "campaign_lead"
             | "write_file"
             | "str_replace"
             | "multi_edit"
@@ -2102,6 +2126,8 @@ pub(crate) fn is_research_tool(name: &str) -> bool {
             | "find_files"
             | "outline"
             | "gpu_stat"
+            | "labyrinth"
+            | "labyrinth_campaign"
     ) || crate::agent::harness::cartridges::active()
         .is_some_and(|cartridge| cartridge.hooks().research_tools().contains(&name))
 }

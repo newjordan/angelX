@@ -1,0 +1,132 @@
+[
+  {
+    "name": "hand_sword_idle",
+    "source": "sprites/sources/hand_sword_idle.png",
+    "sha256": "ecbeffd9c4f2851580e1a27b3753a8ee05aafbef0e2697b868874b42e624ed49",
+    "source_size": [
+      1145,
+      1374
+    ],
+    "prompt_sha256": "bcdddc1b04c765a4341bf02ed88731e0daaeae946732641b60e465adfaf1a5dd",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": null,
+    "original_visually_inspected": true
+  },
+  {
+    "name": "hand_sword_raise",
+    "source": "sprites/sources/hand_sword_raise.png",
+    "sha256": "86ac287073965409d450247b1af3cb393de586664ab349f83d6c39ac1630ac83",
+    "source_size": [
+      1145,
+      1374
+    ],
+    "prompt_sha256": "78bfe6c40963f2f4f66c5e81ae9ceeb35f2096812478861387fac7c72534d766",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": "hand_sword_idle",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "hand_sword_swing",
+    "source": "sprites/sources/hand_sword_swing.png",
+    "sha256": "bba6d3a21dafb5c713e263ea887217d35b03a92fdd6a83da7f31dbdb855fc164",
+    "source_size": [
+      1145,
+      1374
+    ],
+    "prompt_sha256": "930e323bd1c6025bdeb663ca0211ce8ccbc299c81b64ae68a7413e01d17bebe1",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": "hand_sword_idle",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "hand_torch_a",
+    "source": "sprites/sources/hand_torch_a.png",
+    "sha256": "399adfe4a07b1242d53dc86767e906651b6b56bc04d7c0a7c3fde3b2e0f62471",
+    "source_size": [
+      971,
+      1619
+    ],
+    "prompt_sha256": "2b2d9e59535082d9b1f764fe42c84233508bb064fbedf085e913315852e3dec4",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": null,
+    "original_visually_inspected": true
+  },
+  {
+    "name": "hand_torch_b",
+    "source": "sprites/sources/hand_torch_b.png",
+    "sha256": "f18464194a0a520944535477e642655949362ea3acf65d5773f3eecfb0f9265b",
+    "source_size": [
+      971,
+      1619
+    ],
+    "prompt_sha256": "0a94e3c4b3e4515cec4d947c1a9af283f7a590d7bbf1130052f9f77f5f473ac9",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": "hand_torch_a",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "campfire_a",
+    "source": "sprites/sources/campfire_a.png",
+    "sha256": "bd00e7598b259d3a3d7cb64746319a7424685fcf053dc6ed3095d859fb23963b",
+    "source_size": [
+      1374,
+      1145
+    ],
+    "prompt_sha256": "f67cff031472f5c966521f491d94b638220499cdbf45ecec49e9d03e018b33bb",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": null,
+    "original_visually_inspected": true
+  },
+  {
+    "name": "campfire_b",
+    "source": "sprites/sources/campfire_b.png",
+    "sha256": "c860b9cedf72b37ac990bf3244a4b73d5b7470e0265e7a4927b6f16f7915b780",
+    "source_size": [
+      1374,
+      1145
+    ],
+    "prompt_sha256": "ed50cc0981297dfd3e1e2fd69aa8c6e66ff2092055b24bbe3d689fdbbf55a0ba",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": "campfire_a",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "boulder",
+    "source": "sprites/sources/boulder.png",
+    "sha256": "11773f40e0ee44e68de2325e21d116efcd469994f9b410068fad61313f505ee5",
+    "source_size": [
+      1448,
+      1086
+    ],
+    "prompt_sha256": "1b0e7a750868941a07c194755b0498ef65d58cc98b40a1ada5a4ab880b89bdb1",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": null,
+    "original_visually_inspected": true
+  },
+  {
+    "name": "lectern",
+    "source": "sprites/sources/lectern.png",
+    "sha256": "fbacaa377d7c419caf1172da9af126e93ebce7ae75942c94226b953933ebbe42",
+    "source_size": [
+      1122,
+      1402
+    ],
+    "prompt_sha256": "f04a895e080579a07b1b078787214355c13b3ec6296f169c122577cefaf08d22",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": null,
+    "original_visually_inspected": true
+  },
+  {
+    "name": "chest",
+    "source": "sprites/sources/chest.png",
+    "sha256": "5e478396ae38177efe597cdf4bd64fde023be7d96bd8247e8b4fc3c52bc854c8",
+    "source_size": [
+      1402,
+      1122
+    ],
+    "prompt_sha256": "18acf0c7c3769c3caaf95a9dbff68a63681c6749329cef18ae58fa771f898bc1",
+    "generation": "built-in image_gen; transparent_background=true",
+    "reference": null,
+    "original_visually_inspected": true
+  }
+]

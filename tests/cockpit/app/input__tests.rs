@@ -155,6 +155,29 @@ fn slash_catalog_is_unique_and_help_documented() {
 }
 
 #[test]
+fn live_commands_are_completable_and_have_topic_help() {
+    for (prefix, expected) in [
+        ("/as", "ask"),
+        ("/campa", "campaign"),
+        ("/k", "kg"),
+    ] {
+        assert!(
+            slash_command_matches(prefix).contains(&expected),
+            "completion for {prefix} is missing /{expected}"
+        );
+    }
+    assert!(slash_inline_hint("/ask", 4).is_some());
+    assert!(slash_inline_hint("/campaign", 9).is_some());
+    assert!(slash_inline_hint("/kg", 3).is_some());
+
+    for topic in ["graph", "kg"] {
+        let help = crate::app::local_command::help_text(Some(topic));
+        assert!(help.starts_with(&format!("commands · {topic}")));
+        assert!(help.contains(&format!("/{topic}")));
+    }
+}
+
+#[test]
 fn parses_practice_command() {
     assert!(matches!(parse("/practice").unwrap(), ParsedInput::Practice));
     assert!(matches!(
@@ -667,7 +690,9 @@ fn parses_long_plain_and_moa_messages_without_truncating() {
 fn see_command_attaches_image_with_default_question() {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets/agents/sparky-neutral.png");
-    let ParsedInput::Message(msg) = parse(&format!("/see {}", path.display())).unwrap() else {
+    let ParsedInput::Message(msg) =
+        parse(&format!("/see \"{}\"", path.display())).unwrap()
+    else {
         panic!("expected multimodal message");
     };
     assert_eq!(msg.role, ChatRole::User);
@@ -679,10 +704,14 @@ fn see_command_attaches_image_with_default_question() {
 fn see_command_accepts_custom_question() {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets/agents/sparky-neutral.png");
-    let ParsedInput::Message(msg) =
-        parse(&format!("/see {} who is this?", path.display())).unwrap()
-    else {
-        panic!("expected multimodal message");
-    };
-    assert_eq!(&*msg.content, "who is this?");
+    let question = "who is  this?  Describe the portrait.";
+    for quote in ['"', '\''] {
+        let ParsedInput::Message(msg) =
+            parse(&format!("/see {quote}{}{quote} {question}", path.display())).unwrap()
+        else {
+            panic!("expected multimodal message with {quote}-quoted path");
+        };
+        assert_eq!(&*msg.content, question);
+        assert_eq!(msg.attachments.len(), 1);
+    }
 }

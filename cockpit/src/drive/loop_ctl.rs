@@ -65,7 +65,7 @@ use crate::ui::toolstrip::ToolStripSnapshot;
 use crate::ui::transcript::{Message, Role};
 use ratatui::{crossterm::event::KeyCode, layout::Rect};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError};
@@ -73,8 +73,6 @@ use std::time::{Duration, Instant};
 
 mod brief;
 mod evidence;
-#[cfg(test)]
-pub(crate) use evidence::{apply_reply, reconcile_submission_results};
 mod recovery;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/loop_ctl/recovery_tests.rs"]
@@ -84,7 +82,15 @@ use evidence::{
     observe_workspace_change, register_costly_actions, register_outcome_actions,
     register_verified_outcome_actions, says_done, stall_limit_reached,
 };
+
+// Source cartridges' roundtrip checks use the stable loop accounting surface.
+#[cfg(test)]
+#[allow(unused_imports)]
+pub(crate) use evidence::{apply_reply, reconcile_submission_results};
 pub(crate) use recovery::ExperimentPending;
+mod watchdog;
+pub(crate) use watchdog::LoopWatch;
+pub use watchdog::WatchdogRecord;
 
 const DEFAULT_LOOP_MAX_ITERS: usize = 0;
 const DEFAULT_LOOP_DEADLINE_SECS: u64 = 0;
@@ -422,6 +428,10 @@ pub struct LoopState {
     /// Durable loop-level ledger; the harness turn ledger lives on another thread.
     #[serde(default)]
     pub escalations: Vec<serde_json::Value>,
+    /// The loop watchdog's steps: soft checks, reviews and their verdicts,
+    /// escalations, and the harness moving again (most recent last).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub watchdog: Vec<WatchdogRecord>,
 
     // --- verifiable done-detection (pinned at start; reward-hack resistant) ---
     /// The goal's acceptance command, snapshotted at loop start so it can't change
@@ -486,6 +496,12 @@ pub struct LoopState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub iteration_direction: Option<String>,
     pub log: Vec<LoopIterLog>,
+    /// Immutable frontier snapshots captured only as a new iteration finishes.
+    /// The committed checkpoint projects these into settlement receipts;
+    /// reading a newer map cannot relabel historical excavation work.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) settlement_plans:
+        BTreeMap<usize, crate::drive::together_settlement::planning::Input>,
     #[serde(default)]
     pub tool_calls_total: usize,
     #[serde(default)]
@@ -565,6 +581,9 @@ pub struct LoopState {
     pub persisted_findings: std::cell::Cell<usize>,
     #[serde(skip)]
     pub persisted_log: std::cell::Cell<usize>,
+    /// Runtime-only confirmation; deserialization alone is not save authority.
+    #[serde(skip)]
+    pub(crate) settlement_checkpoint: std::cell::RefCell<Option<DurableLoopEvents>>,
     #[serde(skip)]
     pub wake_at: Option<Instant>,
     /// The last iteration did nothing (at most `LOOP_IDLE_CALLS` tool calls
@@ -938,20 +957,27 @@ impl crate::App {
             "status" => self.loop_status_text(),
             "stop" => {
                 self.loop_cancel_inflight();
-                self.loop_finish(LoopStatus::Stopped, "stopped by user");
-                "loop stopped".to_string()
+                match self.loop_finish_with_checkpoint(LoopStatus::Stopped, "stopped by user") {
+                    Ok(()) => "loop stopped".to_string(),
+                    Err(error) => format!("loop stopped in memory; checkpoint failed: {error}"),
+                }
             }
             "pause" => {
                 self.loop_cancel_inflight();
                 self.loop_ctl.status = LoopStatus::Paused;
                 self.loop_ctl.wake_at = None;
                 self.loop_ctl.cycle_started_ms = None;
-                save(&self.loop_ctl);
+                let checkpoint = save_checkpoint(&self.loop_ctl);
                 self.start_lifecycle_ceremony(
                     crate::ui::viz::lifecycle_viz::CeremonyKind::LoopPaused,
                     self.loop_task_text(),
                 );
-                "loop paused — /loop resume to continue".to_string()
+                match checkpoint {
+                    Ok(()) => "loop paused — /loop resume to continue".to_string(),
+                    Err(error) => format!(
+                        "loop paused in memory; checkpoint failed: {error}"
+                    ),
+                }
             }
             "resume" | "continue" => self.loop_resume(),
             "restart" | "again" => self.loop_restart_dialog(rest, false),
@@ -1807,6 +1833,22 @@ impl crate::App {
             system.push_str(brief.trim_end());
         }
 
+        // Deliberate worker deposition, not arbitrary file discovery or model
+        // success prose. Publication waits for the canonical iteration save;
+        // the host explicitly admits the manifest with /dungeon deposit.
+        if let Ok(Some(site)) = self.world.settlement_site()
+            && site.associated()
+            && !self.loop_ctl.id.is_empty()
+        {
+            system.push_str(
+                &crate::drive::together_settlement::exhibits::worker_contract(
+                    &site.id,
+                    &self.loop_ctl.id,
+                    self.loop_ctl.iteration.saturating_add(1),
+                ),
+            );
+        }
+
         let task = self.loop_task_text();
         // A structural pivot is asked for every `pivot` stale iterations — not on every
         // iteration after the first stall. In podrace mode `stale_count` is never reset, so the
@@ -1847,6 +1889,7 @@ impl crate::App {
             pivot,
             EvidenceRegime::Grounded,
         );
+        prompt.push_str(&crate::drive::labyrinth::context(self.tools.current_workspace(), &task));
         prompt.push_str(&format!(
             "\n\niteration {} · {}",
             self.loop_ctl.iteration,
@@ -2275,6 +2318,7 @@ impl crate::App {
             stale_count: self.loop_ctl.stale_count,
             ts_ms: now_ms(),
         });
+        self.loop_ctl.snapshot_settlement_plan();
         if self.loop_escalate_blocked_verifier() {
             return;
         }
@@ -2809,6 +2853,14 @@ impl crate::App {
     }
 
     pub(crate) fn loop_finish(&mut self, status: LoopStatus, reason: &str) {
+        let _ = self.loop_finish_with_checkpoint(status, reason);
+    }
+
+    fn loop_finish_with_checkpoint(
+        &mut self,
+        status: LoopStatus,
+        reason: &str,
+    ) -> Result<(), String> {
         self.tools.rl().end_loop();
         self.loop_account_rl();
         self.loop_ctl.status = status;
@@ -2818,7 +2870,7 @@ impl crate::App {
         self.loop_ctl.updated_ms = now_ms();
         self.loop_retire_pending();
         self.loop_ctl.pending_acceptance = None;
-        save(&self.loop_ctl);
+        let checkpoint = save_checkpoint(&self.loop_ctl);
         let label = match status {
             LoopStatus::Done => "done",
             LoopStatus::Paused => "paused",
@@ -2839,6 +2891,7 @@ impl crate::App {
             _ => crate::ui::viz::lifecycle_viz::CeremonyKind::LoopStopped,
         };
         self.start_lifecycle_ceremony(kind, self.loop_task_text());
+        checkpoint
     }
 
     fn loop_pause_for_budget(&mut self, why: &str) {
@@ -3935,16 +3988,103 @@ fn explicit_loop_file() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-/// Persist the loop atomically. No-op for an `Idle` loop (avoids stub files).
-/// Also mirrors a deli-style `state/` directory for an external watchdog when
-/// `ANGEL_LOOP_STATE_DIR` is set — the seam a future sidecar tails for liveness.
-pub fn save(st: &LoopState) {
+/// Settlement credits are a projection of the canonical restart checkpoint,
+/// never the in-memory log or the optional watchdog JSONL cursor.
+#[derive(Clone, Debug)]
+pub(crate) struct DurableLoopEvents {
+    pub(crate) loop_id: String,
+    pub(crate) workspace: PathBuf,
+    pub(crate) rows: Vec<(usize, bool)>,
+    pub(crate) plans: BTreeMap<usize, crate::drive::together_settlement::planning::Input>,
+}
+
+impl LoopState {
+    /// Called only by the two harvest paths after they append a new log row.
+    /// Save, heartbeat and load deliberately never derive research provenance.
+    pub(crate) fn snapshot_settlement_plan(&mut self) {
+        let iterations: BTreeSet<_> = self.log.iter().map(|row| row.iteration).collect();
+        let mut kept = 0;
+        self.settlement_plans.retain(|iteration, input| {
+            let keep =
+                *iteration > 0 && iterations.contains(iteration) && input.valid() && kept < 4096;
+            kept += usize::from(keep);
+            keep
+        });
+        if self.iteration == 0
+            || self.log.len() > 4096
+            || self.settlement_plans.len() >= 4096
+            || self.settlement_plans.contains_key(&self.iteration)
+            || self
+                .log
+                .last()
+                .is_none_or(|row| row.iteration != self.iteration)
+        {
+            return;
+        }
+        let Some(workspace) = self.workspace.as_deref() else {
+            return;
+        };
+        match crate::drive::together_settlement::planning::input(workspace, &self.task) {
+            Ok(Some(input)) => {
+                self.settlement_plans.insert(self.iteration, input);
+            }
+            Ok(None) => {}
+            Err(error) => eprintln!("[labyrinth] settlement planning unavailable: {error}"),
+        }
+    }
+
+    fn confirm_settlement_checkpoint(&self) {
+        let iterations: BTreeSet<_> = self.log.iter().map(|row| row.iteration).collect();
+        let events = self
+            .workspace
+            .as_ref()
+            .filter(|_| !self.id.is_empty() && self.id.len() <= 256 && self.log.len() <= 4096)
+            .map(|workspace| DurableLoopEvents {
+                loop_id: self.id.clone(),
+                workspace: workspace.clone(),
+                rows: self
+                    .log
+                    .iter()
+                    .map(|r| (r.iteration, r.workspace_changed))
+                    .collect(),
+                plans: self
+                    .settlement_plans
+                    .iter()
+                    .filter(|(iteration, input)| {
+                        **iteration > 0 && iterations.contains(*iteration) && input.valid()
+                    })
+                    .take(self.log.len().min(4096))
+                    .map(|(&iteration, input)| (iteration, input.clone()))
+                    .collect(),
+            });
+        *self.settlement_checkpoint.borrow_mut() = events;
+    }
+
+    pub(crate) fn durable_settlement_events(&self) -> Option<DurableLoopEvents> {
+        self.settlement_checkpoint
+            .borrow()
+            .as_ref()
+            .filter(|events| {
+                events.loop_id == self.id && self.workspace.as_ref() == Some(&events.workspace)
+            })
+            .cloned()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn confirm_settlement_checkpoint_for_test(&self) {
+        self.confirm_settlement_checkpoint();
+    }
+}
+
+/// Persist the loop atomically. Idle/unscoped loops publish no checkpoint;
+/// failed writes return the publication error without advancing confirmation.
+fn save_checkpoint(st: &LoopState) -> Result<(), String> {
     if st.status == LoopStatus::Idle {
-        return;
+        return Ok(());
     }
     let path = store_path_for_session(st.workspace.as_deref(), st.owner_session_id.as_deref());
     let Some(workspace) = st.workspace.as_deref() else {
-        return;
+        return Ok(());
     };
     if path.exists() {
         let existing_matches = std::fs::read_to_string(&path)
@@ -3960,18 +4100,37 @@ pub fn save(st: &LoopState) {
                 )
             });
         if !existing_matches {
-            return;
+            return Err(format!(
+                "existing checkpoint {} does not belong to this project",
+                path.display()
+            ));
         }
     }
-    let Ok(json) = serde_json::to_string_pretty(st) else {
-        return;
-    };
-    if crate::platform::workspace_store::write_private_atomic(&path, json.as_bytes()).is_err() {
-        return;
+    let json = serde_json::to_string_pretty(st)
+        .map_err(|error| format!("serialize loop checkpoint {}: {error}", path.display()))?;
+    crate::platform::workspace_store::write_private_atomic(&path, json.as_bytes())
+        .map_err(|error| format!("publish loop checkpoint {}: {error}", path.display()))?;
+    // Read the actual committed (secret-redacted) restart checkpoint, not a
+    // separately re-redacted in-memory serialization. Concurrent replacement
+    // can only confirm rows present in that same loop/workspace checkpoint.
+    if let Ok(recorded) = std::fs::read(&path)
+        && let Ok(recorded) = serde_json::from_slice::<LoopState>(&recorded)
+        && recorded.id == st.id
+        && recorded.workspace == st.workspace
+    {
+        recorded.confirm_settlement_checkpoint();
+        *st.settlement_checkpoint.borrow_mut() = recorded.settlement_checkpoint.into_inner();
     }
     // The canonical restart checkpoint owns publication. Never advance the
     // watchdog projection when that checkpoint did not commit.
     persist_state_dir(st);
+    Ok(())
+}
+
+/// Preserve best-effort checkpointing for routine loop updates. Stop and pause
+/// surface the same failure through their command result.
+pub fn save(st: &LoopState) {
+    let _ = save_checkpoint(st);
 }
 
 /// Best-effort mirror of the run's state to `ANGEL_LOOP_STATE_DIR/state/` (deli's
@@ -4212,6 +4371,7 @@ fn load_from_path(path: PathBuf) -> Option<LoopState> {
         st.status = LoopStatus::Paused;
         st.cycle_started_ms = None;
     }
+    st.confirm_settlement_checkpoint();
     Some(st)
 }
 
@@ -4321,3 +4481,7 @@ mod private_io_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/loop_ctl/baseline_capture_tests.rs"]
 mod baseline_capture_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/loop_ctl/settlement_planning_tests.rs"]
+mod settlement_planning_tests;

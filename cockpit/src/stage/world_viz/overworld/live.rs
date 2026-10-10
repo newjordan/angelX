@@ -363,6 +363,10 @@ impl World {
     /// Look at a district without redirecting the knight or changing work.
     /// Resolve names only when the operator asks, never on the render path.
     pub(crate) fn visit_overworld(&mut self, name: &str) -> Option<&'static str> {
+        if let Some(place) = crate::drive::chivalry::Place::parse(name.trim()) {
+            self.open_chivalry(place, false);
+            return Some(place.label());
+        }
         let normalize = |text: &str| {
             text.chars()
                 .filter(char::is_ascii_alphanumeric)
@@ -378,6 +382,7 @@ impl World {
             return Some(super::super::ambient::SCRYING_TOWER_LABEL);
         }
         if let Some(room) = super::school::Room::parse(&name) {
+            self.close_chivalry();
             let (x, y, w, h) = Place::School.footprint_world();
             self.overworld_view = Some((
                 (x as f32 + w as f32 / 2.0) * TILE as f32,
@@ -389,6 +394,7 @@ impl World {
             return Some(room.label());
         }
         if matches!(name.as_str(), "garden" | "graphgarden" | "crops") {
+            self.close_chivalry();
             let (x, y) = super::garden::centre();
             if self.visiting_scrying_tower() {
                 self.interior = None;
@@ -411,6 +417,7 @@ impl World {
                     || normalize(place.label().trim_start_matches("THE ")) == name
             })?,
         };
+        self.close_chivalry();
         let (x, y, w, h) = place.footprint_world();
         if self.visiting_scrying_tower() {
             self.interior = None;
@@ -447,6 +454,7 @@ impl World {
     }
 
     pub(crate) fn follow_overworld(&mut self) {
+        self.close_chivalry();
         if self.visiting_scrying_tower() {
             self.interior = None;
         }
@@ -460,7 +468,7 @@ impl World {
     }
 
     pub(crate) fn overworld_view_label(&self) -> Option<&'static str> {
-        self.overworld_view.map(|(_, _, label)| label)
+        self.chivalry_visit.map(|v| v.place.label()).or_else(|| self.overworld_view.map(|(_, _, label)| label))
     }
 
     pub(crate) fn visiting_school(&self) -> bool {

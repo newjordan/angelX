@@ -1,0 +1,39 @@
+name THE LATE-FEE LEVIATHAN
+text Everything borrowed from the Archive comes back. Ravage collects the interest.
+by angelX
+where archive
+hp 860
+size 1.7
+move chase speed=1.1
+attack ravage shots=5 arc=50 speed=8 every=210 damage=16
+attack aimed shots=2 speed=7 every=45 damage=12 shot=orb
+attack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=bone
+rage 35%
+drops gem 4, bone 4, gold 260
+art
+............qQQq................
+..........qQQzzQQq..............
+......DDDDqQQQQQQqDDDD..........
+....DDeeeeeeeeeeeeeeeeDD........
+...DeeVeeCeeeeeeeeCeeVeeD.......
+..DeeeC55CeeeeeeeeC55CeeeD......
+..DeeeeCCeeeeeeeeeeCCeeeeD......
+..DeekkkkkkkkkkkkkkkkkkkeD......
+..DeekHkHkkkkkkkkkkkHkHkeD......
+..DeekkkkkkkkkkkkkkkkkkkeD...hh.
+..DeeHkHkHkHkHkHkHkHkHkHeD..h..h
+.DDeeeeeeeeeeeeeeeeeeeeeeDD.h..h
+DeeeCeeeUUUUUUUUUUUeeeCeeeD..hh.
+DeeCeeeUUvvvvvvvvvUUeeeCeeDJJJJJ
+DeCeeDeUvvVvvvvvVvvvUeDeeCeeJh..
+DeeeDDeUvvvvvvvvvvvvUeDDeCCCJh..
+DeeDf.DUvvvvVvvvvvvvUD.DeCCCJh..
+DeCD..DeUvvvvvvvvvVUeD..DeeeJh..
+DCCeD.DeeUUvvvvvvUUeeD...DD.Jh..
+DCCCD..DeeeUUUUUUeeeD.......Jh..
+.DDD...DeeeeeeeeeeeeD...J...Jh.J
+.......DeeeD..DeeeeD....J..JJh.J
+......DeeeeD..DeeeeeD....J.Jh.J.
+...qQ.DDDDD.qQ.DDDDDQq....JJhJJ.
+..qQzQq...qQzQq..qQzQq.....JJJ..
+.qQ..Qzq.qQ..QqqQq..Qzq.........

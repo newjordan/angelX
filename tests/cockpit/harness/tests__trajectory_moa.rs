@@ -1364,3 +1364,153 @@ fn yolo_never_allows_parallel_code_writers_in_one_workspace() {
         );
     }
 }
+
+#[test]
+fn solo_spawn_defaults_to_one_seat() {
+    let _serial = SPAWN_SEAT_TESTS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = crate::tests::env_lock();
+    let _retries_off = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
+    let calls = Arc::new(AtomicUsize::new(0));
+
+    struct CountingClub(Arc<AtomicUsize>);
+    impl Club for CountingClub {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("unused".to_string())
+        }
+        fn label(&self) -> &str {
+            "solo-seat-counter"
+        }
+        fn chat_streaming(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            self.0.fetch_add(1, Ordering::AcqRel);
+            Ok(ClubReply::Text("landed".to_string()))
+        }
+    }
+
+    let club: Arc<dyn Club> = Arc::new(CountingClub(Arc::clone(&calls)));
+    let tool = SpawnTool::new(std::env::temp_dir(), Some(club), Vec::new());
+    let digest = tool
+        .call(&serde_json::json!({
+            "task": "one consultation",
+            "formation": "solo",
+            "tools": "none",
+            "club": "self"
+        }))
+        .unwrap();
+    assert!(digest.contains("seats=1/1"), "{digest}");
+    assert_eq!(calls.load(Ordering::Acquire), 1, "{digest}");
+}
+
+#[test]
+fn spawn_seat_clock_starts_at_its_first_response() {
+    let _serial = SPAWN_SEAT_TESTS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = crate::tests::env_lock();
+    let _retries_off = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
+
+    // Queued for 250 ms before its first token, then 300 ms of work: it lands
+    // at ~550 ms, past one 400 ms window from spawn but inside 400 ms from its
+    // first response.
+    struct SlowStarter;
+    impl Club for SlowStarter {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("unused".to_string())
+        }
+        fn label(&self) -> &str {
+            "slow-starter"
+        }
+        fn chat_streaming(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            std::thread::sleep(Duration::from_millis(250));
+            on_delta(crate::agent::club::StreamDelta::Content("working "));
+            std::thread::sleep(Duration::from_millis(300));
+            on_delta(crate::agent::club::StreamDelta::Content("done"));
+            Ok(ClubReply::Text("working done".to_string()))
+        }
+    }
+
+    let club: Arc<dyn Club> = Arc::new(SlowStarter);
+    let tool = SpawnTool::new(std::env::temp_dir(), Some(club), Vec::new());
+    let digest = tool
+        .run_moa_for_test(&["slow start".to_string()], Duration::from_millis(400))
+        .unwrap();
+    assert!(digest.contains("working done"), "{digest}");
+}
+
+#[test]
+fn timed_out_spawn_seat_reports_its_work_instead_of_an_empty_error() {
+    let _serial = SPAWN_SEAT_TESTS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = crate::tests::env_lock();
+    let _retries_off = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
+
+    struct StartsThenBlocks {
+        release: Arc<AtomicBool>,
+        exited: Arc<AtomicBool>,
+    }
+    impl Club for StartsThenBlocks {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("unused".to_string())
+        }
+        fn label(&self) -> &str {
+            "starts-then-blocks"
+        }
+        fn chat_streaming(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            on_delta(crate::agent::club::StreamDelta::Content(
+                "reading the finish kernel",
+            ));
+            while !self.release.load(Ordering::Acquire) {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            self.exited.store(true, Ordering::Release);
+            Ok(ClubReply::Text("late".to_string()))
+        }
+    }
+
+    let release = Arc::new(AtomicBool::new(false));
+    let exited = Arc::new(AtomicBool::new(false));
+    let club: Arc<dyn Club> = Arc::new(StartsThenBlocks {
+        release: Arc::clone(&release),
+        exited: Arc::clone(&exited),
+    });
+    let tool = SpawnTool::new(std::env::temp_dir(), Some(club), Vec::new());
+    let error = tool
+        .run_moa_for_test(&["dig".to_string()], Duration::from_millis(150))
+        .unwrap_err();
+    release.store(true, Ordering::Release);
+    assert!(
+        error.contains("formation timed out with no answers"),
+        "{error}"
+    );
+    assert!(error.contains("still working"), "{error}");
+    assert!(
+        error.contains("partial notes: reading the finish kernel"),
+        "{error}"
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !exited.load(Ordering::Acquire) {
+        assert!(Instant::now() < deadline, "blocked seat never exited");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}

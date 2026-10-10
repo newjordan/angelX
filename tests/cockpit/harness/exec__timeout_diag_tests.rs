@@ -207,10 +207,10 @@ fn detached_pipe_holder_cannot_strand_output_reader_threads() {
     ));
     let _ = std::fs::remove_file(&pid_path);
     let mut cmd = Command::new("sh");
-    cmd.arg("-c").arg(format!(
-            "setsid sh -c 'echo $$ > {0}; sleep 30' & while [ ! -s {0} ]; do sleep 0.01; done; echo shell-done",
-            pid_path.display()
-        ));
+    cmd.arg("-c")
+        .arg(r#"python3 -c 'import os, sys; pidfile = sys.argv[1]; os.setsid(); stream = open(pidfile, "w"); stream.write(str(os.getpid())); stream.close(); os.execvp("sleep", ["sleep", "30"])' "$1" & while [ ! -s "$1" ]; do sleep 0.01; done; echo shell-done"#)
+        .arg("detached-pipe-holder")
+        .arg(&pid_path);
     let started = Instant::now();
     let capture = output_timed_captured(cmd, Some(Duration::from_secs(5))).unwrap();
     assert!(

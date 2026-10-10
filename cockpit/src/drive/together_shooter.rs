@@ -9,22 +9,54 @@
 //! single shots — a bow to start, crossbow and handgonne as loot — so every
 //! shot is a decision; monsters answer with slow patterns worth reading.
 
+pub(crate) mod audience;
+pub(crate) mod bestiary;
+mod boss_ecology;
+mod boss_gates;
+mod boss_population;
 pub(crate) mod bosses;
+pub(crate) mod bounties;
 pub(crate) mod cards;
+pub(crate) mod cat;
+pub(crate) mod chivalry;
+pub(crate) mod dares;
+mod encounter_catalog;
+pub(crate) mod feats;
+pub(crate) mod foes;
+pub(crate) mod fortune;
 pub(crate) mod hazards;
 mod hero;
+pub(crate) mod hexer;
+pub(crate) mod hireling;
+pub(crate) mod hollow;
+pub(crate) mod home;
+pub(crate) mod hunters;
+pub(crate) mod items;
 pub(crate) mod knights;
-mod layout;
+pub(crate) mod layout;
 pub(crate) mod ledge;
+pub(crate) mod lich;
 mod loot;
+pub(crate) mod merlin;
 pub(crate) mod mirror;
 mod monsters;
 pub(crate) mod overclass;
 pub(crate) mod phrasebook;
+pub(crate) mod pit;
+pub(crate) mod rescues;
+pub(crate) mod runes;
 pub(crate) mod script;
+pub(crate) mod secrets;
 mod spells;
+pub(crate) mod talents;
+pub(crate) mod tavern;
+pub(crate) mod tide;
+pub(crate) mod trophies;
+pub(crate) mod ults;
+pub(crate) mod yard;
 
 use crate::drive::together_realm::{Haul, Spoil, Spoils};
+pub(crate) use boss_gates::Gates as BossGateState;
 pub(crate) use bosses::Boss;
 pub(crate) use cards::{Book, Card};
 pub(crate) use hazards::{Rock, Trap, Waves};
@@ -39,7 +71,10 @@ use std::collections::BTreeMap;
 pub(crate) const WIDTH: f32 = 48.0;
 pub(crate) const HEIGHT: f32 = 28.0;
 pub(crate) const HZ: u32 = 30;
+/// Dragon Keep's floor: the dragon, and the old delve's end.
 pub(crate) const FLOORS: u32 = 3;
+/// The bottom of the deep below it: the Unknown.
+pub(crate) const DEEPEST: u32 = 6;
 pub(crate) const MAX_PROJECTILES: usize = 384;
 pub(crate) const MAX_BOMBS: u32 = 5;
 pub(crate) const MAX_ARMOR: u32 = 3;
@@ -131,6 +166,9 @@ pub(crate) struct Input {
     /// it. Left out when unpressed, so an older host reads the rest.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub(crate) vigil: bool,
+    /// The ultimate's key (R): its press casts a full charge.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) ult: bool,
 }
 
 impl Input {
@@ -166,6 +204,14 @@ pub(crate) enum Shot {
     Bone,
     Orb,
     Ember,
+    /// Pilgrim's Arrow and Assassinate: one great shot.
+    Sacred,
+    /// The Hexer's bolt: it hurts nobody, and makes a frog of a knight.
+    Hex,
+    /// The Lich's frost: it chills, and Rimeleap leaps knight to knight.
+    Frost,
+    /// A heat-seeking missile.
+    Missile,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -210,6 +256,9 @@ pub(crate) struct ShotTraits {
     /// Bursts where it hits: this percent of its damage to all around.
     #[serde(default)]
     pub(crate) burst: u8,
+    /// Stuns what it hits for this many ticks.
+    #[serde(default)]
+    pub(crate) stun: u8,
 }
 
 impl ShotTraits {
@@ -235,6 +284,9 @@ pub(crate) struct Spark {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Run {
+    /// Owner-local rendering projection only: skipped by saves and guest wire.
+    #[serde(skip)]
+    pub(crate) chivalry: Option<crate::drive::chivalry::Chivalry>,
     pub(crate) raid_id: u64,
     pub(crate) tick: u64,
     pub(crate) phase: Phase,
@@ -243,6 +295,15 @@ pub(crate) struct Run {
     pub(crate) projectiles: Vec<Projectile>,
     pub(crate) score: u32,
     pub(crate) dungeon: Floor,
+    /// None preserves the current floor of a legacy save; new floors get a graph.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    boss_gates: Option<boss_gates::Gates>,
+    /// Snapshot of the durable loop site admitted at the start of this Delve.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) settlement_site: Option<String>,
+    /// Public, generic stand geometry only. Private provenance lives in Site.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) settlement_exhibits: Vec<super::together_settlement::exhibits::Marker>,
     /// Index of the room the party stands in.
     pub(crate) at: usize,
     /// Spoils banked by this run and not yet handed to the realm.
@@ -251,6 +312,130 @@ pub(crate) struct Run {
     /// Delve packs whose floor this run cleared, not yet handed to the realm.
     #[serde(default)]
     pub(crate) reclaimed: Vec<Pack>,
+    /// The Undercroft as the realm has built it, and the treasury it can
+    /// spend: the cockpit's word, refreshed whenever either changes.
+    #[serde(default)]
+    pub(crate) home: home::Home,
+    #[serde(default)]
+    pub(crate) treasury: Spoils,
+    /// Purchases asked for at the Undercroft's plates, for the cockpit.
+    #[serde(skip)]
+    pub(crate) orders: Vec<home::Order>,
+    /// Which keepers had a knight beside them last tick (one bit each).
+    #[serde(skip)]
+    greeted: u8,
+    /// How this delve goes, as Fortune's wheel decided it.
+    #[serde(default)]
+    pub(crate) mode: fortune::Mode,
+    /// The wheel's spin this delve, if it was pulled.
+    #[serde(default)]
+    pub(crate) spin: Option<fortune::Spin>,
+    /// The spin whose result has been announced.
+    #[serde(default)]
+    mode_said: Option<u64>,
+    /// The Collapse: the tick this floor falls in.
+    #[serde(default)]
+    pub(crate) collapse_at: Option<u64>,
+    /// Ultimates playing out: Trebuchet's shells, Stillhours, phantoms.
+    #[serde(default)]
+    pub(crate) strikes: Vec<ults::Strike>,
+    #[serde(default)]
+    pub(crate) spheres: Vec<ults::Sphere>,
+    #[serde(default)]
+    pub(crate) phantoms: Vec<ults::Phantom>,
+    /// The pack of the delve's first floor, for the floors below it.
+    #[serde(default)]
+    pub(crate) first: Pack,
+    /// The light home, once the dragon is slain: step into it to go home
+    /// with everything.
+    #[serde(default)]
+    pub(crate) light: Option<(f32, f32)>,
+    /// A great end reached this tick, for the realm: a dragon, or the Grail.
+    #[serde(skip)]
+    pub(crate) triumph: Option<Triumph>,
+    /// Achievements the game noticed this tick, for the realm to keep.
+    #[serde(skip)]
+    pub(crate) feats: Vec<&'static str>,
+    /// A new achievement's banner: when, and which.
+    #[serde(default)]
+    pub(crate) banner: Option<(u64, String)>,
+    /// A box just opened at the coffer: when, its grade, what was in it.
+    #[serde(default)]
+    pub(crate) unboxed: Option<(u64, feats::Tier, String)>,
+    /// Slimes slain in this room, for a family pruned.
+    #[serde(skip)]
+    slimes_slain: u32,
+    /// Grubbins' wares this delve (an empty id: sold).
+    #[serde(default)]
+    pub(crate) stall: Vec<String>,
+    /// Ticks a knight has stood on the Winding Stair at home.
+    #[serde(default)]
+    pub(crate) descending: u32,
+    /// Fortune's audience this delve, in thousands of viewers; the fan
+    /// boxes it has thrown, and those still floating down.
+    #[serde(default)]
+    pub(crate) audience: u32,
+    #[serde(default)]
+    pub(crate) fans: u32,
+    #[serde(default)]
+    pub(crate) fan_boxes: Vec<audience::FanBox>,
+    /// Whoever waits in a cage on this floor.
+    #[serde(default)]
+    pub(crate) captive: Option<rescues::Captive>,
+    /// Which of the people at home a knight is standing by (each speaks
+    /// once per approach).
+    #[serde(skip)]
+    met: u8,
+    /// Lady Tallow, Blaise's cat, when she has come along.
+    #[serde(default)]
+    pub(crate) cat: Option<cat::Cat>,
+    /// Fortune's dare on this floor, and how many the party has kept this
+    /// delve.
+    #[serde(default)]
+    pub(crate) dare: Option<dares::Dare>,
+    #[serde(default)]
+    pub(crate) dares_kept: u32,
+    /// A power rune in this room (welling up a few seconds into a fight),
+    /// and how many the party has taken this delve.
+    #[serde(default)]
+    pub(crate) rune: Option<runes::Rune>,
+    #[serde(default)]
+    pub(crate) runes_taken: u32,
+    /// Knights hexed into frogs this delve.
+    #[serde(default)]
+    pub(crate) hexes: u32,
+    /// Maud's round, drunk at the top of the stair for this delve.
+    #[serde(default)]
+    pub(crate) round: Option<String>,
+    /// Sir Dinadan's song for this delve.
+    #[serde(default)]
+    pub(crate) song: Option<String>,
+    /// Kills and moments since the cockpit last looked, for Wren's
+    /// bounties.
+    #[serde(skip)]
+    pub(crate) marks: BTreeMap<String, u32>,
+    /// Sappers' kegs burning down, and hobs' bombs in the air.
+    #[serde(default)]
+    pub(crate) kegs: Vec<foes::Keg>,
+    #[serde(default)]
+    pub(crate) lobs: Vec<foes::Lob>,
+    /// The Flesher's hooks in the air, and the Silkmother's webs.
+    #[serde(default)]
+    pub(crate) hooks: Vec<hunters::Hook>,
+    #[serde(default)]
+    pub(crate) webs: Vec<hunters::Web>,
+    /// The Pit Tyrant's slams, gathering.
+    #[serde(default)]
+    pub(crate) slams: Vec<pit::Slam>,
+    /// A guardian's Ravages, rippling and bursting.
+    #[serde(default)]
+    pub(crate) ravages: Vec<tide::Ravage>,
+    /// Beaumains, hired for this delve.
+    #[serde(default)]
+    pub(crate) hireling: Option<hireling::Hireling>,
+    /// The Hollow Ones' Black Holes, warning and pulling.
+    #[serde(default)]
+    pub(crate) holes: Vec<hollow::Hole>,
     /// The floors' guardians; its own copy, so a save replays.
     #[serde(default = "bosses::builtin")]
     pub(crate) bosses: Vec<Boss>,
@@ -317,6 +502,15 @@ pub(crate) struct Run {
     seed: u64,
 }
 
+/// A great end a delve reached, for the realm's tally.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Triumph {
+    /// The dragon slain.
+    Dragon,
+    /// The Unknown met, and the Grail found.
+    Grail,
+}
+
 fn unit(x: f32, y: f32) -> (f32, f32) {
     let length = x.hypot(y);
     if length > 0.0 {
@@ -346,6 +540,12 @@ fn hit_segment(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32, radius: f32) 
         0.0
     };
     (x - ax - t * dx).hypot(y - ay - t * dy) <= radius
+}
+
+/// A floor of the Delve for another view to walk (the loop's crawl in the
+/// realm's 3D pane): floor `depth` of `pack`, laid out from `seed`.
+pub(crate) fn crawl_floor(depth: u32, pack: Pack, seed: u64) -> Floor {
+    layout::floor(depth, pack, &mut Rng::new(seed))
 }
 
 fn mix(mut h: u64) -> u64 {
@@ -422,12 +622,33 @@ impl Grid<'_> {
 }
 
 impl Run {
+    #[cfg(test)]
+    pub(crate) fn settlement_walkable_for_test(&self, x: f32, y: f32) -> bool {
+        Grid {
+            room: self.room(),
+            barred: self.barred(),
+        }
+        .clear(x, y, HERO_RADIUS, Mover::Hero)
+    }
+
     pub(crate) fn valid_snapshot(&self) -> bool {
-        (1..=FLOORS).contains(&self.dungeon.depth)
+        (0..=DEEPEST).contains(&self.dungeon.depth)
             && !self.dungeon.rooms.is_empty()
             && self.dungeon.rooms.len() <= 64
             && self.at < self.dungeon.rooms.len()
+            && self.settlement_exhibits.len() <= 32
+            && (self.settlement_exhibits.is_empty() || self.settlement_site.is_some())
             && self.dungeon.rooms.iter().all(Room::valid_snapshot)
+            && self.dungeon.valid_secret()
+            && self
+                .light
+                .is_none_or(|(x, y)| x.is_finite() && y.is_finite())
+            && self.settlement_exhibits.iter().enumerate().all(|(i, m)| {
+                m.valid(&self.dungeon)
+                    && !self.settlement_exhibits[..i]
+                        .iter()
+                        .any(|prior| (prior.room, prior.col, prior.row) == (m.room, m.col, m.row))
+            })
             && self.players.contains_key(&1)
             && self.players.len() <= MAX_PLAYERS as usize
             && self
@@ -436,6 +657,13 @@ impl Run {
                 .all(|(id, h)| (1..=MAX_PLAYERS).contains(id) && h.x.is_finite() && h.y.is_finite())
             && self.enemies.len() <= 128
             && self.projectiles.len() <= MAX_PROJECTILES
+            && self.bosses.len() <= 64
+            && self.enemies.iter().enumerate().all(|(i, e)| {
+                e.boss
+                    .is_none_or(|b| usize::from(b) < self.bosses.len() && e.kind == EnemyKind::Boss)
+                    && !self.enemies[..i].iter().any(|a| a.id == e.id)
+            })
+            && self.valid_boss_gates()
     }
 
     pub(crate) fn new(seed: u64, raid_id: u64, guest: Option<&str>) -> Self {
@@ -456,6 +684,7 @@ impl Run {
             players.insert(id, Hero::new(name, x, HEIGHT - 6.0));
         }
         let mut run = Self {
+            chivalry: None,
             raid_id,
             tick: 0,
             phase: Phase::Exploring,
@@ -464,9 +693,54 @@ impl Run {
             projectiles: Vec::new(),
             score: 0,
             dungeon,
+            boss_gates: None,
+            settlement_site: None,
+            settlement_exhibits: Vec::new(),
             at: 0,
             bank: Vec::new(),
             reclaimed: Vec::new(),
+            home: home::Home::default(),
+            treasury: Spoils::default(),
+            orders: Vec::new(),
+            greeted: 0,
+            mode: fortune::Mode::default(),
+            spin: None,
+            mode_said: None,
+            collapse_at: None,
+            strikes: Vec::new(),
+            spheres: Vec::new(),
+            phantoms: Vec::new(),
+            kegs: Vec::new(),
+            lobs: Vec::new(),
+            hooks: Vec::new(),
+            webs: Vec::new(),
+            slams: Vec::new(),
+            ravages: Vec::new(),
+            hireling: None,
+            holes: Vec::new(),
+            first: pack,
+            light: None,
+            triumph: None,
+            feats: Vec::new(),
+            banner: None,
+            unboxed: None,
+            slimes_slain: 0,
+            stall: Vec::new(),
+            descending: 0,
+            audience: 0,
+            fans: 0,
+            fan_boxes: Vec::new(),
+            captive: None,
+            met: 0,
+            cat: None,
+            dare: None,
+            dares_kept: 0,
+            rune: None,
+            runes_taken: 0,
+            hexes: 0,
+            round: None,
+            song: None,
+            marks: BTreeMap::new(),
             bosses: bosses::builtin(),
             book: Book::builtin(),
             found: None,
@@ -491,6 +765,7 @@ impl Run {
             rng,
             seed,
         };
+        run.populate_boss_gates();
         run.enter(0, None);
         run
     }
@@ -509,12 +784,18 @@ impl Run {
 
     /// Doors stay barred while anything in the room still lives.
     pub(crate) fn barred(&self) -> bool {
-        !self.enemies.is_empty() || (self.phase == Phase::Fighting && self.waves.pending())
+        self.foes_left() || (self.phase == Phase::Fighting && self.waves.pending())
     }
 
-    /// The party still stands in the first floor's entrance room.
+    /// Something in the room still fights (the yard's quintains never do).
+    pub(crate) fn foes_left(&self) -> bool {
+        self.enemies.iter().any(|e| e.kind != EnemyKind::Dummy)
+    }
+
+    /// The party still stands in the Undercroft or the first floor's
+    /// entrance room.
     pub(crate) fn at_entrance(&self) -> bool {
-        self.dungeon.depth == 1 && self.at == 0
+        self.dungeon.depth == 0 || (self.dungeon.depth == 1 && self.at == 0)
     }
 
     /// The last pickup, for a few seconds after it was taken.
@@ -532,9 +813,11 @@ impl Run {
     /// Hand every knight's carried spoils to the bank: all of them, or half
     /// when the party fell or turned back.
     fn bank_all(&mut self, whole: bool, why: &str) {
+        let pay = self.mode.spoils();
         for (&id, hero) in &mut self.players {
             let carried = std::mem::take(&mut hero.carried);
             let spoils = if whole { carried } else { carried.half() };
+            let spoils = spoils.scaled(pay);
             if !spoils.is_empty() {
                 self.bank.push(Haul {
                     hero: id,
@@ -618,6 +901,13 @@ impl Run {
             .unwrap_or((x, y));
         self.players.insert(id, Hero::new(name, x, y));
         self.rescale(self.players.len() as u32 - 1);
+        self.deal_home(id);
+        if !self.at_home_now() {
+            self.harden();
+        }
+        if self.players.len() >= 4 {
+            self.notice("party_of_four");
+        }
     }
 
     /// A knight leaves the party; what they dropped is free to take again.
@@ -656,9 +946,30 @@ impl Run {
     /// Walk the party into room `index` through its door `from` (the side
     /// they enter on), or onto a new floor's entrance with `None`.
     fn enter(&mut self, index: usize, from: Option<usize>) {
+        // Leaving/recreating a room discards its extra bodies, never refunds
+        // provision. Active serialized bodies instead keep their journal IDs.
+        if let Some(g) = &mut self.boss_gates {
+            for e in &self.enemies {
+                g.economy.retire(e.id);
+            }
+        }
         self.at = index;
         self.projectiles.clear();
         self.enemies.clear();
+        self.strikes.clear();
+        self.spheres.clear();
+        self.phantoms.clear();
+        self.kegs.clear();
+        self.lobs.clear();
+        self.hooks.clear();
+        self.webs.clear();
+        self.slams.clear();
+        self.ravages.clear();
+        self.holes.clear();
+        self.slimes_slain = 0;
+        if self.dungeon.rooms[index].kind != RoomKind::Lair {
+            self.light = None;
+        }
         let living: Vec<u32> = self.players.keys().copied().collect();
         let count = living.len() as f32;
         let (w, h) = (
@@ -672,6 +983,9 @@ impl Run {
                 Some(1) => (w - 3.3, h / 2.0 + offset),
                 Some(2) => (w / 2.0 + offset, h - 3.3),
                 Some(_) => (3.3, h / 2.0 + offset),
+                // Home: on the rug below the Winding Stair's mouth.
+                // Home: at the foot of the rug, a walk from the stair.
+                None if self.dungeon.depth == 0 => (w / 2.0 + offset * 1.4, h - 4.5),
                 None => (w / 2.0 + offset * 2.0, h - 6.0),
             };
             let hero = self.players.get_mut(&id).expect("listed hero");
@@ -683,13 +997,74 @@ impl Run {
         if self.dungeon.rooms[index].kind == RoomKind::Ledge {
             self.arrive_side_on();
         }
+        self.follow_fan_boxes();
+        self.tallow_follows();
+        self.hireling_follows();
+        let sealed = self.guardian_locked();
+        let first_visit = !self.dungeon.rooms[index].visited;
         let room = &mut self.dungeon.rooms[index];
         room.visited = true;
-        if !room.cleared {
+        if !room.cleared && !sealed {
             let roster = room.roster.clone();
             let guarded = room.kind == RoomKind::Stairs;
+            let kind = room.kind;
             let pack = self.dungeon.pack;
-            if guarded && let Some(boss) = self.bosses.iter().position(|b| b.only_in == pack) {
+            // A delve meets one of its pack's guardians, the same one for
+            // the whole delve.
+            let guardians: Vec<usize> = (0..self.bosses.len())
+                .filter(|&i| self.bosses[i].only_in == pack)
+                .collect();
+            let pick = (mix(self.seed ^ self.raid_id.rotate_left(17))
+                % guardians.len().max(1) as u64) as usize;
+            if self
+                .boss_gates
+                .as_ref()
+                .is_some_and(|g| g.economy.camp(index).is_some())
+            {
+                let (leader, apex, defeated, gate) = {
+                    let g = self.boss_gates.as_ref().unwrap();
+                    (
+                        g.leader(index).filter(|l| !l.defeated).map(|l| l.boss),
+                        g.guardian_boss,
+                        g.guardian_defeated,
+                        g.guardian == index,
+                    )
+                };
+                let troops = self
+                    .boss_gates
+                    .as_mut()
+                    .unwrap()
+                    .economy
+                    .deploy(index)
+                    .unwrap();
+                let faction = self
+                    .boss_gates
+                    .as_ref()
+                    .unwrap()
+                    .economy
+                    .camp(index)
+                    .unwrap()
+                    .faction;
+                for (slot, kind, troop_faction) in troops {
+                    self.spawn(kind);
+                    if let Some(e) = self.enemies.last_mut() {
+                        e.camp_slot = Some(slot);
+                        e.faction = Some(troop_faction);
+                    }
+                }
+                if let Some(boss) = leader {
+                    self.spawn_boss(usize::from(boss));
+                    self.enemies.last_mut().unwrap().faction = Some(faction);
+                } else if gate && !defeated {
+                    if kind == RoomKind::Lair {
+                        self.spawn(EnemyKind::Dragon);
+                        self.enemies.last_mut().unwrap().faction = Some(faction);
+                    } else if let Some(boss) = apex {
+                        self.spawn_boss(usize::from(boss));
+                        self.enemies.last_mut().unwrap().faction = Some(faction);
+                    }
+                }
+            } else if guarded && let Some(&boss) = guardians.get(pick) {
                 self.spawn_boss(boss);
                 // A guardian keeps a lighter escort.
                 for kind in roster.into_iter().take(2) {
@@ -697,14 +1072,47 @@ impl Run {
                 }
             } else {
                 for kind in roster {
-                    self.spawn(kind);
+                    if kind == EnemyKind::PitTyrant
+                        && self
+                            .boss_gates
+                            .as_ref()
+                            .is_some_and(|g| g.optional_pit == Some(index) && g.pit_defeated)
+                    {
+                        continue;
+                    }
+                    if kind != EnemyKind::Dragon
+                        || !self
+                            .boss_gates
+                            .as_ref()
+                            .is_some_and(|g| g.guardian == index && g.guardian_defeated)
+                    {
+                        self.spawn(kind);
+                    }
                 }
             }
         }
-        self.phase = if self.enemies.is_empty() {
-            Phase::Exploring
-        } else {
+        if !self.enemies.is_empty() && (self.boss_gates.is_none() || first_visit) {
+            self.maybe_goblin();
+        }
+        if let Some(caged) = self
+            .captive
+            .as_ref()
+            .filter(|c| c.room == index && c.freed.is_none())
+        {
+            self.cues.push(format!("caged:{}", caged.who));
+        }
+        if self.dungeon.rooms[index].kind == RoomKind::Yard {
+            self.raise_quintains();
+        }
+        self.phase = if self.foes_left()
+            || (!sealed
+                && !self.room().cleared
+                && self.boss_gates.as_ref().is_some_and(|g| {
+                    g.economy.camp(index).is_some() || g.optional_pit == Some(index)
+                })) {
             Phase::Fighting
+        } else {
+            Phase::Exploring
         };
         self.room_hurt = false;
         if self.phase == Phase::Fighting {
@@ -718,12 +1126,27 @@ impl Run {
             self.sounds.push("boss_rise");
         } else if self.enemies.iter().any(|e| e.kind == EnemyKind::Dragon) {
             self.cues.push("lair".into());
+        } else if self.enemies.iter().any(|e| e.kind == EnemyKind::PitTyrant) {
+            self.cues.push("pit_rise".into());
+            self.sounds.push("boss_rise");
         } else if self.phase == Phase::Fighting && self.room().great() {
             self.cues.push("great_hall".into());
         } else if self.phase == Phase::Fighting {
             self.cues.push("room_fight".into());
         }
-        self.arm_room();
+        if sealed {
+            self.rune = None;
+            self.window = None;
+            self.waves = Waves::default();
+            self.traps.clear();
+            self.rocks.clear();
+            self.light = None;
+            self.show_boss_lock();
+        } else {
+            self.place_rune();
+            self.arm_room();
+        }
+        self.notice_crack(first_visit);
         if self.room().kind == RoomKind::Sanctuary {
             self.hallow();
         }
@@ -861,7 +1284,15 @@ impl Run {
     fn spawn(&mut self, kind: EnemyKind) {
         if self.side_on() {
             let (x, y) = self.perch(kind.flies());
-            self.spawn_at(kind, x, y);
+            if self.boss_gates.as_ref().is_some_and(|g| {
+                g.economy.camp(self.at).is_none() && !g.encounter(self.at, kind, None)
+            }) {
+                // Non-camp initial rosters (entrance/ledge/etc.) also use durable
+                // provision, not a raw reentry path around finite accounting.
+                self.spawn_at(kind, x, y);
+            } else {
+                self.spawn_body(kind, x, y);
+            }
             return;
         }
         let room = &self.dungeon.rooms[self.at];
@@ -891,14 +1322,43 @@ impl Run {
             }
             spot
         };
-        self.spawn_at(kind, x, y);
+        if self
+            .boss_gates
+            .as_ref()
+            .is_some_and(|g| g.economy.camp(self.at).is_none() && !g.encounter(self.at, kind, None))
+        {
+            // Non-camp initial rosters (entrance/ledge/etc.) also use durable
+            // provision, not a raw reentry path around finite accounting.
+            self.spawn_at(kind, x, y);
+        } else {
+            self.spawn_body(kind, x, y);
+        }
     }
 
     /// A monster at a chosen spot, sized to the party.
-    fn spawn_at(&mut self, kind: EnemyKind, x: f32, y: f32) {
-        let hp = kind.hp() * self.players.len().max(1) as u32;
-        self.next_id += 1;
+    fn spawn_at(&mut self, kind: EnemyKind, x: f32, y: f32) -> Option<u32> {
+        if self.boss_gates.is_some() {
+            self.spawn_staged(kind, x, y, 0)
+        } else {
+            self.spawn_body(kind, x, y)
+        }
+    }
+
+    /// Raw body insertion, for admitted roster/encounter bodies or a provisioned
+    /// emission. Callers account only the returned successful insertion.
+    fn spawn_body(&mut self, kind: EnemyKind, x: f32, y: f32) -> Option<u32> {
+        if self.boss_gates.is_some() && self.enemies.len() >= boss_ecology::ENTITY_CAP {
+            return None;
+        }
+        // Giant's Feast: every ordinary monster a giant.
+        let giant = self.mode == fortune::Mode::GiantsFeast
+            && !matches!(kind, EnemyKind::Dragon | EnemyKind::Boss);
+        let base = if giant { kind.hp() * 9 / 5 } else { kind.hp() };
+        let hp = base * self.players.len().max(1) as u32;
+        self.next_id = self.next_id.checked_add(1)?;
         self.enemies.push(Enemy {
+            faction: None,
+            camp_slot: None,
             x,
             y,
             hp,
@@ -909,19 +1369,45 @@ impl Run {
             origin_x: x,
             origin_y: y,
             boss: None,
-            size: None,
-            base_hp: None,
+            size: giant.then(|| kind.radius() * 1.4),
+            base_hp: giant.then_some(base),
             raged: false,
+            frozen: 0,
+            stage: 0,
+            timer: 0,
+            dir: (0.0, 0.0),
         });
+        Some(self.next_id)
     }
 
     /// The floor's guardian takes the top of the stairs room.
     fn spawn_boss(&mut self, index: usize) {
+        if self.boss_gates.is_some() && self.enemies.len() >= boss_ecology::ENTITY_CAP {
+            return;
+        }
         let boss = &self.bosses[index];
         let hp = boss.hp * self.players.len().max(1) as u32;
-        let (x, y) = (self.room().width() / 2.0, 7.0);
+        let room = self.room();
+        let (mut x, mut y) = (room.width() / 2.0, 7.0);
+        // Threshold scenery and chamber pillars must not bury an anchor boss.
+        let col = (x / TILE_UNITS) as i32;
+        let row = (y / TILE_UNITS) as i32;
+        let open = |c: i32, r: i32| {
+            (-1..=1).all(|dc| (-1..=1).all(|dr| room.tile(c + dc, r + dr) == Tile::Floor))
+        };
+        if !open(col, row)
+            && let Some((c, r)) = (3..room.rows as i32 - 1)
+                .flat_map(|r| (1..room.cols as i32 - 1).map(move |c| (c, r)))
+                .filter(|&(c, r)| open(c, r))
+                .min_by_key(|&(c, r)| (c - col).abs() + (r - row).abs())
+        {
+            x = (c as f32 + 0.5) * TILE_UNITS;
+            y = (r as f32 + 0.5) * TILE_UNITS;
+        }
         self.next_id += 1;
         self.enemies.push(Enemy {
+            faction: None,
+            camp_slot: None,
             x,
             y,
             hp,
@@ -935,19 +1421,89 @@ impl Run {
             size: Some(boss.radius),
             base_hp: Some(boss.hp),
             raged: false,
+            frozen: 0,
+            stage: 0,
+            timer: 0,
+            dir: (0.0, 0.0),
         });
     }
 
     fn descend(&mut self) {
-        self.reclaimed.push(self.dungeon.pack);
-        self.bank_all(true, &format!("floor {} cleared", self.dungeon.depth));
-        let depth = self.dungeon.depth + 1;
-        let pack = match (depth, self.dungeon.pack) {
-            (d, _) if d >= FLOORS => Pack::Hellforge,
-            (_, Pack::Crypt) => Pack::Cavern,
-            _ => Pack::Crypt,
+        let from_home = self.dungeon.depth == 0;
+        // Guard the transition itself, not just the stair tile/UI.
+        if !from_home
+            && self
+                .boss_gates
+                .as_ref()
+                .is_some_and(|g| !g.unlocked() || !self.dungeon.rooms[g.guardian].cleared)
+        {
+            if self.guardian_locked() {
+                self.show_boss_lock();
+            }
+            return;
+        }
+        if !from_home && self.dungeon.depth >= DEEPEST {
+            return;
+        }
+        let (depth, pack) = if from_home {
+            // Down the Winding Stair: to the landing chosen, in the delve
+            // chosen for the top.
+            let depth = self.home.landing().clamp(1, DEEPEST - 1);
+            self.first = self.dungeon.pack;
+            (depth, Pack::at(depth, self.first))
+        } else {
+            self.settle_dare();
+            if self.dungeon.depth != FLOORS {
+                // A dragon's floor was reclaimed and banked when it fell.
+                self.reclaimed.push(self.dungeon.pack);
+                self.bank_all(true, &format!("floor {} cleared", self.dungeon.depth));
+            }
+            let depth = self.dungeon.depth + 1;
+            let first = if self.dungeon.depth == 1 {
+                self.dungeon.pack
+            } else {
+                self.first
+            };
+            self.first = first;
+            (depth, Pack::at(depth, first))
         };
-        self.dungeon = layout::floor(depth, pack, &mut self.rng);
+        if from_home {
+            self.notice("first_delve");
+        } else {
+            if self.mode == fortune::Mode::GlassJaw {
+                self.notice("fragile");
+            }
+            if self.collapse_at.is_some_and(|at| self.tick >= at) {
+                self.notice("out_of_time");
+            }
+        }
+        if depth == FLOORS + 1 {
+            self.notice("below_the_bottom");
+        }
+        self.settlement_site = None;
+        self.settlement_exhibits.clear();
+        self.dungeon = layout::floor_for(self.mode, depth, pack, &mut self.rng);
+        self.populate_boss_gates();
+        self.cage_someone();
+        self.pips_map();
+        if from_home {
+            self.kit_out();
+            self.harden();
+            self.deal_ults();
+            self.bring_tallow();
+            self.residents_help();
+            self.runes_taken = 0;
+            self.hexes = 0;
+            self.drink_round();
+            self.sing_song();
+            self.hire();
+            self.iron();
+            self.cues.push("run_start".into());
+        } else {
+            self.refill_winds();
+        }
+        self.collapse_at = (self.mode == fortune::Mode::Collapse)
+            .then(|| self.tick + u64::from(fortune::Mode::collapse_secs(depth) * HZ));
         self.cues.push(format!("descend:{depth}"));
         self.sounds.push("descend");
         if self.players.values().any(|h| h.hp == 0) {
@@ -961,12 +1517,29 @@ impl Run {
                 (hero.hp + 20).min(hero.max_hp)
             };
         }
+        self.half_charge();
         self.enter(0, None);
+        self.call_dare();
     }
 
+    /// One fixed step of the run, and of the show watching it.
     /// Deterministic simulation: no clock, ambient randomness, network or
     /// model calls.
     pub(crate) fn step(&mut self, inputs: &BTreeMap<u32, Input>) {
+        let (live, heard, sounded) = (self.active(), self.cues.len(), self.sounds.len());
+        self.advance(inputs);
+        if self.turbo() {
+            self.advance(inputs);
+        }
+        if live {
+            self.watch_dare(heard, sounded);
+            self.mark_moments(heard);
+            self.mark_trophies(heard);
+            self.tick_audience(heard);
+        }
+    }
+
+    fn advance(&mut self, inputs: &BTreeMap<u32, Input>) {
         if !self.active() {
             return;
         }
@@ -976,6 +1549,10 @@ impl Run {
         let mut shots = Vec::with_capacity(32);
         let mut bombs = 0;
         let mut nova = 0;
+        // Damage each knight dealt this tick, for their ultimate's charge,
+        // and the ultimates cast.
+        let mut credits: Vec<(u32, u32)> = Vec::new();
+        let mut casts: Vec<u32> = Vec::new();
         let side = self.side_on();
         let grid = Grid {
             room: &self.dungeon.rooms[self.at],
@@ -1007,6 +1584,19 @@ impl Run {
             if hero.hp == 0 || hero.stone {
                 continue;
             }
+            // Hexed: a frog hops about, and does nothing else (aiming is
+            // shooting, so not even that). Thrown by a Ravage: not even that.
+            let input = if hero.tossed > 0 {
+                Input::default()
+            } else if hero.frog() {
+                Input {
+                    move_x: input.move_x,
+                    move_y: input.move_y,
+                    ..Input::default()
+                }
+            } else {
+                input
+            };
             if hero.privy > 0 {
                 // Behind the privy's door: out of the world until done.
                 hero.privy -= 1;
@@ -1016,6 +1606,19 @@ impl Run {
                     hero.relieved = Some((depth, here));
                     self.sounds.push("door_open");
                 }
+                continue;
+            }
+            let pressed = input.ult && !hero.ult_key;
+            hero.ult_key = input.ult;
+            if pressed
+                && hero.ult_charge >= ults::ULT_FULL
+                && hero.slashes == 0
+                && hero.aiming.is_none()
+            {
+                casts.push(*id);
+            }
+            if hero.slashes > 0 {
+                // Mid-Bladewind: the blade does the moving.
                 continue;
             }
             hero.invulnerable = hero.invulnerable.saturating_sub(1);
@@ -1082,7 +1685,38 @@ impl Run {
                     hero.mana = (hero.mana + MANA_FLOW * DT).min(MAX_MANA);
                 }
             }
+            // A Fae Dagger played last tick: there, now.
+            if hero.blink > 0 {
+                items::blink(hero, &grid);
+                self.sounds.push("roll");
+            }
             let pace = HERO_SPEED * (100 + hero.bonus.speed) as f32 / 100.0;
+            let pace = if hero.immune == 0 && Run::webbed(&self.webs, hero.x, hero.y) {
+                pace * hunters::WEB_PACE
+            } else {
+                pace
+            };
+            let pace = if hero.has_rune(runes::RuneKind::Haste) {
+                pace * runes::HASTE
+            } else {
+                pace
+            };
+            let pace = if hero.frog() {
+                pace * hexer::FROG_PACE
+            } else {
+                pace
+            };
+            let pace = if hero.chilled > 0 {
+                pace * lich::CHILL_PACE
+            } else {
+                pace
+            };
+            // Sir Dinadan's Lay of Haste, to a knight who hears it.
+            let pace = if hero.singing && self.song.as_deref() == Some("haste") {
+                pace * tavern::SONG_HASTE
+            } else {
+                pace
+            };
             let (dx, dy, speed) = if hero.dash_ticks > 0 {
                 hero.dash_ticks -= 1;
                 // Fast out of the tuck, slowing as the knight comes up.
@@ -1114,27 +1748,24 @@ impl Run {
             if let Some(slot) = usize::from(input.cast)
                 .checked_sub(1)
                 .filter(|s| *s < cards::SPELL_SLOTS)
+                && hero.spell_cooldowns[slot] == 0
+                && let Some(card) = hero.spells[slot]
+                    .as_deref()
+                    .and_then(|id| self.book.get(id))
+                    .filter(|c| c.kind == cards::Kind::Spell)
             {
-                if hero.spell_cooldowns[slot] == 0 {
-                    if let Some(card) = hero.spells[slot]
-                        .as_deref()
-                        .and_then(|id| self.book.get(id))
-                        .filter(|c| c.kind == cards::Kind::Spell)
-                    {
-                        hero.spell_cooldowns[slot] = card
-                            .cooldown
-                            .clamp(cards::SPELL_COOLDOWN.0, cards::SPELL_COOLDOWN.1)
-                            * HZ;
-                        hero.spend(card, &mut self.score, &mut nova);
-                        for effect in &card.effects {
-                            if let cards::Effect::Cast(shape) = effect {
-                                hero.spell_shots(*shape, *id, &mut shots);
-                            }
-                        }
-                        self.found = Some((self.tick, *id, format!("cast {}", card.name)));
-                        self.sounds.push("play_card");
+                hero.spell_cooldowns[slot] = card
+                    .cooldown
+                    .clamp(cards::SPELL_COOLDOWN.0, cards::SPELL_COOLDOWN.1)
+                    * HZ;
+                hero.spend(card, &mut self.score, &mut nova);
+                for effect in &card.effects {
+                    if let cards::Effect::Cast(shape) = effect {
+                        hero.spell_shots(*shape, *id, &mut shots);
                     }
                 }
+                self.found = Some((self.tick, *id, format!("cast {}", card.name)));
+                self.sounds.push("play_card");
             }
             hero.play_cooldown = hero.play_cooldown.saturating_sub(1);
             let slot = usize::from(input.play);
@@ -1145,6 +1776,14 @@ impl Run {
                     hero.spend(card, &mut self.score, &mut nova);
                     self.found = Some((self.tick, *id, format!("played {}", card.name)));
                     self.sounds.push("play_card");
+                    // The Herald calls the items by name.
+                    for effect in &card.effects {
+                        match effect {
+                            cards::Effect::Blink(_) => self.cues.push("blink".into()),
+                            cards::Effect::Immune(_) => self.cues.push("sceptre".into()),
+                            _ => {}
+                        }
+                    }
                 }
             }
             if input.bomb && hero.bombs > 0 && hero.bomb_cooldown == 0 {
@@ -1175,6 +1814,7 @@ impl Run {
                     let (dx, dy) = (enemy.x - hero.x, enemy.y - hero.y);
                     if within(dx, dy, SWORD_REACH + enemy.radius()) {
                         enemy.hp = enemy.hp.saturating_sub(damage);
+                        credits.push((*id, damage));
                         self.sounds.push("hit");
                     }
                 }
@@ -1226,6 +1866,7 @@ impl Run {
                                 )
                             {
                                 enemy.hp = enemy.hp.saturating_sub(damage);
+                                credits.push((*id, damage));
                             }
                         }
                         // The blade parries: shots in its sweep are cut down.
@@ -1276,7 +1917,10 @@ impl Run {
                         hero.loosed = hero.loosed.wrapping_add(1);
                         let volley = hero.bonus.volley > 0 && hero.loosed % hero.bonus.volley == 0;
                         let count = weapon.shots() + hero.bonus.shots + if volley { 2 } else { 0 };
-                        let traits = ShotTraits::of(&hero.bonus);
+                        let traits = ShotTraits {
+                            owner: *id as u8,
+                            ..ShotTraits::of(&hero.bonus)
+                        };
                         let arc = weapon
                             .spread
                             .map_or(0.0, |spread| spread.arc.to_radians())
@@ -1317,7 +1961,10 @@ impl Run {
                     let volley = hero.volley();
                     let count = 1 + hero.bonus.shots + if volley { 2 } else { 0 };
                     let fan = if volley { VOLLEY_FAN } else { FAN };
-                    let traits = ShotTraits::of(&hero.bonus);
+                    let traits = ShotTraits {
+                        owner: *id as u8,
+                        ..ShotTraits::of(&hero.bonus)
+                    };
                     let angle = hero.aim_y.atan2(hero.aim_x);
                     for i in 0..count {
                         let theta = angle + fan * (i as f32 - (count - 1) as f32 / 2.0);
@@ -1354,14 +2001,32 @@ impl Run {
                 enemy.hp = enemy.hp.saturating_sub(blast);
             }
         }
+        ults::phantom_shots(&self.phantoms, &self.players, &mut shots);
+        let mut deeds = foes::Deeds::default();
+        // Monsters see knights (not one under an Invisibility rune), and the
+        // images Phantasm made of them.
         let living: Vec<(f32, f32)> = self
             .players
             .values()
-            .filter(|hero| hero.hp > 0 && !hero.stone)
+            .filter(|hero| {
+                hero.hp > 0 && !hero.stone && !hero.has_rune(runes::RuneKind::Invisibility)
+            })
             .map(|hero| (hero.x, hero.y))
+            .chain(self.phantoms.iter().map(|p| (p.x, p.y)))
+            .chain(
+                self.hireling
+                    .iter()
+                    .filter(|h| !h.down())
+                    .map(|h| (h.x, h.y)),
+            )
             .collect();
         for enemy in &mut self.enemies {
             if enemy.hp == 0 {
+                continue;
+            }
+            if enemy.frozen > 0 {
+                // Stunned, or held in a Stillhour: nothing moves.
+                enemy.frozen -= 1;
                 continue;
             }
             enemy.age += 1;
@@ -1369,7 +2034,15 @@ impl Run {
                 continue;
             }
             let rest = enemy.y;
-            monsters::act(enemy, &living, &grid, self.seed, &self.bosses, &mut shots);
+            monsters::act(
+                enemy,
+                &living,
+                &grid,
+                self.seed,
+                &self.bosses,
+                &mut shots,
+                &mut deeds,
+            );
             if side && !enemy.kind.flies() {
                 // Side-on, walkers walk; the ground decides their height.
                 enemy.y = rest;
@@ -1391,13 +2064,32 @@ impl Run {
         let mut chains: Vec<(u32, f32, f32, u32, u8)> = Vec::new();
         let mut bursts: Vec<(u32, f32, f32, u32)> = Vec::new();
         let mut mends: u32 = 0;
+        let mut hexed: Vec<u32> = Vec::new();
+        // Who Rimeleap can leap to: the knights standing.
+        let standing: Vec<(u32, f32, f32)> = self
+            .players
+            .iter()
+            .filter(|(_, h)| h.hp > 0 && !h.stone)
+            .map(|(&id, h)| (id, h.x, h.y))
+            .collect();
+        let mut leaps = 0u32;
         let hands: Vec<(u32, f32, f32)> = self
             .players
             .iter()
             .filter(|(_, h)| h.hp > 0)
             .map(|(&id, h)| (id, h.x, h.y))
             .collect();
+        let spheres = self.spheres.clone();
+        let mut overkill = false;
         for bullet in &mut self.projectiles {
+            // Time stands still in a Stillhour for the monsters' shots.
+            if bullet.hostile
+                && spheres
+                    .iter()
+                    .any(|s| (bullet.x - s.x).hypot(bullet.y - s.y) < s.r)
+            {
+                continue;
+            }
             let old_x = bullet.x;
             let old_y = bullet.y;
             // A thrown blade: out for its range, then home to the hand.
@@ -1458,12 +2150,26 @@ impl Run {
                     bullet.damage = bullet.damage * (100 + empower) / 100;
                 }
             }
+            if bullet.hostile
+                && let Some(phantom) = self.phantoms.iter_mut().find(|p| {
+                    p.left > 0 && hit_segment(old_x, old_y, bullet.x, bullet.y, p.x, p.y, 0.6)
+                })
+            {
+                // An image takes the shot meant for its knight, and is gone.
+                phantom.left = 0;
+                bullet.ttl = 0;
+                continue;
+            }
             if bullet.hostile {
-                for hero in self
+                for (&id, hero) in self
                     .players
-                    .values_mut()
-                    .filter(|hero| hero.hp > 0 && !hero.stone)
+                    .iter_mut()
+                    .filter(|(_, hero)| hero.hp > 0 && !hero.stone)
                 {
+                    // Rimeleap never strikes the knight it just left.
+                    if bullet.kind == Shot::Frost && bullet.last_hit == Some(id) {
+                        continue;
+                    }
                     if hit_segment(
                         old_x,
                         old_y,
@@ -1479,6 +2185,31 @@ impl Run {
                         let facing = -(bullet.vx * hero.aim_x + bullet.vy * hero.aim_y) / speed;
                         if hero.shielding && facing >= SHIELD_ARC.to_radians().cos() {
                             self.sounds.push("shield_block");
+                        } else if hero.invulnerable == 0 && bullet.kind == Shot::Hex {
+                            hexed.push(id);
+                        } else if bullet.kind == Shot::Frost {
+                            if hero.invulnerable == 0 {
+                                hero.hurt(bullet.damage);
+                                self.sounds.push("hero_hurt");
+                            }
+                            if hero.immune == 0 {
+                                hero.chilled = lich::CHILL;
+                            }
+                            // Rimeleap leaps on to the nearest other knight.
+                            if bullet.pierce > 0
+                                && let Some((next, nx, ny)) =
+                                    lich::next_link(&standing, id, (hero.x, hero.y))
+                            {
+                                let speed = bullet.vx.hypot(bullet.vy).max(1.0);
+                                let (ux, uy) = unit(nx - hero.x, ny - hero.y);
+                                (bullet.x, bullet.y) = (hero.x, hero.y);
+                                (bullet.vx, bullet.vy) = (ux * speed, uy * speed);
+                                bullet.pierce -= 1;
+                                bullet.last_hit = Some(id);
+                                bullet.ttl = 4 * HZ;
+                                let _ = next;
+                                leaps += 1;
+                            }
                         } else if hero.invulnerable == 0 {
                             hero.hurt(bullet.damage);
                             self.sounds.push("hero_hurt");
@@ -1501,6 +2232,15 @@ impl Run {
                     {
                         enemy.hp = enemy.hp.saturating_sub(bullet.damage);
                         bullet.last_hit = Some(enemy.id);
+                        if bullet.traits.owner > 0 {
+                            credits.push((u32::from(bullet.traits.owner), bullet.damage));
+                        }
+                        if bullet.damage >= 300 {
+                            overkill = true;
+                        }
+                        if bullet.traits.stun > 0 {
+                            enemy.frozen = enemy.frozen.max(u32::from(bullet.traits.stun));
+                        }
                         self.sounds.push("hit");
                         if bullet.kind == Shot::Ball {
                             // A handgonne ball bursts: half to all around.
@@ -1556,6 +2296,26 @@ impl Run {
             }
         }
         self.projectiles.retain(|p| p.ttl > 0);
+        if overkill {
+            self.notice("overkill");
+        }
+        self.phantoms.retain(|p| p.left > 0);
+        self.cast_ults(casts);
+        self.tick_ults();
+        self.charge_ults(&credits);
+        self.apply_deeds(deeds);
+        self.shoot_kegs();
+        self.tick_kegs_and_lobs();
+        self.tick_hunters();
+        self.tick_tallow();
+        self.tick_cage(inputs);
+        self.tick_runes();
+        self.tick_hexes();
+        self.tick_chill();
+        self.tick_items();
+        self.tick_song();
+        self.tick_hireling();
+        self.tick_snibbet();
         self.spark(chains);
         for (hit, x, y, damage) in bursts {
             for enemy in self.enemies.iter_mut().filter(|e| e.hp > 0 && e.id != hit) {
@@ -1575,6 +2335,16 @@ impl Run {
         let now = self.tick;
         self.boons
             .retain(|b| now.saturating_sub(b.1) < u64::from(HZ));
+        for id in hexed {
+            self.hex(id);
+        }
+        if leaps > 0 {
+            self.cues.push("frost_leap".into());
+        }
+        if bombs > 0 {
+            // A knight's bomb fills the room: a cracked wall comes down.
+            self.blast_wall(None);
+        }
         if mends > 0 {
             // The most hurt knight standing is mended.
             if let Some(hero) = self
@@ -1593,11 +2363,17 @@ impl Run {
         self.swing_orbits();
         self.projectiles.retain(|p| p.ttl > 0);
         self.visit_privy();
+        if self.dungeon.depth == 0 {
+            self.tick_home(inputs);
+        }
         self.tick_traps();
+        self.tick_collapse();
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
             if self.enemies.iter().any(|e| {
                 e.hp > 0
                     && e.age >= TELEGRAPH
+                    && e.frozen == 0
+                    && e.kind != EnemyKind::Dummy
                     && (hero.x - e.x).hypot(hero.y - e.y) < e.radius() + 0.5
             }) {
                 hero.hurt(12);
@@ -1623,6 +2399,7 @@ impl Run {
                 }
             }
         }
+        self.second_winds();
         for ((was, max), hero) in before.into_iter().zip(self.players.values()) {
             if hero.hp < was {
                 self.room_hurt = true;
@@ -1656,10 +2433,17 @@ impl Run {
             self.bank_all(false, "the party fell");
             return;
         }
-        if self.enemies.is_empty() && self.phase == Phase::Fighting && !self.waves.pending() {
+        if !self.foes_left()
+            && self.phase == Phase::Fighting
+            && !self.waves.pending()
+            && self.boss_room_can_clear()
+        {
             self.projectiles.clear();
             self.rocks.clear();
+            self.ravages.clear();
+            self.holes.clear();
             self.dungeon.rooms[self.at].cleared = true;
+            self.fair_chest();
             // Two knights standing together earn the realm a bond each.
             let standing = self
                 .players
@@ -1671,6 +2455,10 @@ impl Run {
                     hero.carried.add(Spoil::Bond, 1);
                 }
                 self.cues.push("bond".into());
+                self.notice("bonded");
+            }
+            if !self.room_hurt {
+                self.notice("flawless");
             }
             self.cues.push(
                 if self.room_hurt {
@@ -1689,8 +2477,8 @@ impl Run {
                 self.hallow();
             }
             if self.room().kind == RoomKind::Lair {
-                self.phase = Phase::Won;
-                // The scale is picked up off the dragon by the party's first knight.
+                // The dragon is slain: its floor reclaimed and banked, and
+                // the way splits — the stairs into the deep, or the light home.
                 if let Some(hero) = self.players.values_mut().find(|h| h.hp > 0 && !h.stone) {
                     hero.carried.add(Spoil::Scale, 1);
                 }
@@ -1699,6 +2487,28 @@ impl Run {
                 self.shake = self.shake.max(36);
                 self.sounds.push("boss_fall");
                 self.bank_all(true, "the dragon is slain");
+                self.triumph = Some(Triumph::Dragon);
+                self.notice("dragonslayer");
+                let room = &mut self.dungeon.rooms[self.at];
+                room.open_stairs();
+                self.light = Some((room.width() / 2.0, room.height() / 2.0 - 4.0));
+                self.stairs_held = true;
+                self.cues.push("the_deep".into());
+            }
+            if self.room().kind == RoomKind::Threshold {
+                // The Unknown met: the Grail, and home.
+                self.phase = Phase::Won;
+                for hero in self.players.values_mut().filter(|h| h.hp > 0) {
+                    hero.carried.add(Spoil::Gem, 3);
+                    hero.carried.add(Spoil::Scale, 1);
+                }
+                self.reclaimed.push(self.dungeon.pack);
+                self.cues.push("grail".into());
+                self.shake = self.shake.max(24);
+                self.sounds.push("wheel_land");
+                self.bank_all(true, "the Grail");
+                self.triumph = Some(Triumph::Grail);
+                self.notice("the_grail");
                 return;
             }
             self.phase = Phase::Exploring;
@@ -1710,21 +2520,109 @@ impl Run {
     }
 
     fn settle_kills(&mut self) {
-        let mut fallen = Vec::new();
-        let mut guardians = Vec::new();
+        let mut camp_deaths = Vec::new();
+        let mut emission_deaths = Vec::new();
+        let mut fallen: Vec<(EnemyKind, f32, f32)> = Vec::new();
+        let mut guardians: Vec<(usize, f32, f32)> = Vec::new();
         let mut mimics = Vec::new();
+        let mut foes_fallen = Vec::new();
         self.enemies.retain(|e| {
-            if e.hp == 0 && e.kind == EnemyKind::Mimic {
+            let camp_duplicate = e.camp_slot.is_some_and(|slot| {
+                camp_deaths.contains(&slot)
+                    || self
+                        .boss_gates
+                        .as_ref()
+                        .is_none_or(|g| !g.economy.alive_slot(self.at, slot, e.kind))
+            });
+            if e.hp == 0
+                && !camp_duplicate
+                && let Some(slot) = e.camp_slot
+            {
+                camp_deaths.push(slot);
+            }
+            let emission_duplicate = self.boss_gates.as_ref().is_some_and(|g| {
+                e.camp_slot.is_none()
+                    && !g.encounter(self.at, e.kind, e.boss)
+                    && (emission_deaths.contains(&e.id)
+                        || !g.economy.alive_emission(self.at, e.id, e.kind, e.stage))
+            });
+            if e.hp == 0
+                && !emission_duplicate
+                && e.camp_slot.is_none()
+                && self
+                    .boss_gates
+                    .as_ref()
+                    .is_some_and(|g| g.economy.emission(e.id).is_some())
+            {
+                emission_deaths.push(e.id);
+            }
+            let duplicate = camp_duplicate
+                || emission_duplicate
+                || self
+                    .boss_gates
+                    .as_ref()
+                    .is_some_and(|g| g.encounter(self.at, e.kind, e.boss))
+                    && (e
+                        .boss
+                        .is_some_and(|b| guardians.iter().any(|&(i, _, _)| i == usize::from(b)))
+                        || (matches!(e.kind, EnemyKind::Dragon | EnemyKind::PitTyrant)
+                            && fallen.iter().any(|&(k, _, _)| k == e.kind)));
+            if e.hp == 0 && !duplicate && e.kind == EnemyKind::Mimic {
                 mimics.push((e.x, e.y));
             }
-            if e.hp == 0 {
+            if e.hp == 0 && !duplicate && matches!(e.kind, EnemyKind::Slime | EnemyKind::Goblin) {
+                foes_fallen.push((e.kind, e.x, e.y, e.stage));
+            }
+            if e.hp == 0
+                && !duplicate
+                && !self
+                    .boss_gates
+                    .as_ref()
+                    .is_some_and(|g| g.already_defeated(self.at, e.kind, e.boss))
+            {
                 fallen.push((e.kind, e.x, e.y));
-                if let Some(boss) = e.boss {
+                if e.kind == EnemyKind::Boss
+                    && let Some(boss) = e.boss
+                {
                     guardians.push((usize::from(boss), e.x, e.y));
                 }
             }
             e.hp > 0
         });
+        if let Some(g) = &mut self.boss_gates {
+            for slot in camp_deaths {
+                g.economy.casualty(self.at, slot);
+            }
+            for id in emission_deaths {
+                g.economy.retire(id);
+            }
+        }
+        // Actual corpse settlement is the only source of leader-loss evidence.
+        let was_open = self
+            .boss_gates
+            .as_ref()
+            .is_some_and(boss_gates::Gates::unlocked);
+        if let Some(g) = &mut self.boss_gates {
+            for &(boss, _, _) in &guardians {
+                let leader = g.leader(self.at).is_some();
+                if g.record(self.at, EnemyKind::Boss, Some(boss as u8)) && leader {
+                    self.cues
+                        .push(format!("leader_fall:{}", self.bosses[boss].name));
+                }
+            }
+            if fallen.iter().any(|&(kind, _, _)| kind == EnemyKind::Dragon) {
+                g.record(self.at, EnemyKind::Dragon, None);
+            }
+            if fallen
+                .iter()
+                .any(|&(kind, _, _)| kind == EnemyKind::PitTyrant)
+            {
+                g.record(self.at, EnemyKind::PitTyrant, None);
+            }
+            if !was_open && g.unlocked() {
+                self.cues.push("boss_unsealed".into());
+            }
+        }
         // A mimic coughs up the treasure it was pretending to be.
         for (x, y) in mimics {
             let pack = self.dungeon.pack;
@@ -1776,6 +2674,7 @@ impl Run {
                 self.drop_item(card, cx.clamp(3.0, w - 3.0), cy, None);
             }
             self.found = Some((self.tick, 0, format!("{} falls", boss.name)));
+            self.notice("bigger_they_are");
             self.shake = self.shake.max(24);
             self.sounds.push("boss_fall");
             self.cues.push(format!("boss_fall:{}", boss.id));
@@ -1802,13 +2701,52 @@ impl Run {
                 _ => {}
             }
         }
+        let red = self.song.as_deref() == Some("red");
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
-            hero.hp = (hero.hp + hero.bonus.vamp * slain).min(hero.max_hp);
+            // The Red Ballad mends a knight who hears it, kill by kill.
+            let vamp = hero.bonus.vamp
+                + if red && hero.singing {
+                    tavern::SONG_VAMP
+                } else {
+                    0
+                };
+            hero.hp = (hero.hp + vamp * slain).min(hero.max_hp);
         }
         let pack = self.dungeon.pack;
+        self.slimes_slain += foes_fallen
+            .iter()
+            .filter(|f| f.0 == EnemyKind::Slime)
+            .count() as u32
+            + fallen.iter().filter(|f| f.0 == EnemyKind::Slime).count() as u32
+                * u32::from(foes_fallen.is_empty());
+        if self.slimes_slain >= 7 {
+            self.notice("splitting_headache");
+        }
+        self.fallen_foes(&foes_fallen);
+        // The audience counts the fallen too: a little each, more for the
+        // dangerous ones.
+        let watched: u32 = fallen
+            .iter()
+            .map(|(kind, ..)| if kind.elite() { 8 } else { 2 })
+            .sum();
+        self.thrill(watched);
+        for &(kind, ..) in &fallen {
+            self.mark_kill(kind);
+        }
+        let kinds: Vec<EnemyKind> = fallen.iter().map(|&(kind, ..)| kind).collect();
+        self.mark_experience(&kinds);
+        self.pit_fallen(&fallen);
+        let generous = if self.mode == fortune::Mode::GiantsFeast {
+            2
+        } else {
+            1
+        };
         for (kind, x, y) in fallen {
-            self.score += kind.bounty();
-            if self.rng.chance(loot::drop_chance(kind)) {
+            self.score += kind.bounty() * generous;
+            if self
+                .rng
+                .chance((loot::drop_chance(kind) * generous).min(100))
+            {
                 let card = if kind == EnemyKind::Dragon && self.book.get("heart").is_some() {
                     Some("heart".to_string())
                 } else {
@@ -1818,7 +2756,9 @@ impl Run {
                     self.drop_item(card, x, y, None);
                 }
             }
-            if self.rng.chance(loot::spoil_chance(kind))
+            if self
+                .rng
+                .chance((loot::spoil_chance(kind) * generous).min(100))
                 && let Some(card) = self.book.roll_spoil(&mut self.rng, pack)
             {
                 self.drop_item(card, x + 0.9, y + 0.5, None);
@@ -1904,7 +2844,13 @@ impl Run {
                 continue;
             };
             match card.kind {
-                cards::Kind::Take => hero.spend(card, &mut self.score, &mut nova),
+                cards::Kind::Take => {
+                    hero.spend(card, &mut self.score, &mut nova);
+                    if card.id == "talisman" {
+                        hero.talisman = true;
+                        self.cues.push("talisman".into());
+                    }
+                }
                 cards::Kind::Play => hero.hand.push(card.id.clone()),
                 cards::Kind::Hold => {
                     hero.deck.push(card.id.clone());
@@ -1967,8 +2913,23 @@ impl Run {
         }
     }
 
-    /// Through an open doorway into the next room, or down the stairs.
+    /// Through an open doorway into the next room, down the stairs, or
+    /// into the light home.
     fn travel(&mut self) {
+        if let Some((lx, ly)) = self.light
+            && self
+                .players
+                .values()
+                .any(|h| h.hp > 0 && !h.stone && (h.x - lx).hypot(h.y - ly) < 1.6)
+        {
+            // Keep the finite, validated exit marker as victory evidence for
+            // saves and sequential mirrors. Won no longer runs travel.
+            self.phase = Phase::Won;
+            self.cues.push("homeward".into());
+            self.sounds.push("descend");
+            self.bank_all(true, "home with the dragon's hoard");
+            return;
+        }
         let mut exit = None;
         let mut stairs = false;
         let room = self.room();
@@ -1993,10 +2954,27 @@ impl Run {
         }
         if !stairs {
             self.stairs_held = false;
+            self.descending = 0;
         }
         // Out of a side-on hall, any way out is its one doorway back.
         let exit = exit.map(|dir| self.room().way_back().unwrap_or(dir));
-        if stairs && !self.stairs_held {
+        // At home the Winding Stair is taken on purpose: a knight stands on
+        // it a moment (its ring fills) rather than brushing past it.
+        let deliberate = if self.at_home_now() && stairs && !self.stairs_held {
+            self.descending += 1;
+            self.descending >= home::DESCEND_HOLD
+        } else {
+            true
+        };
+        if stairs && self.guardian_locked() {
+            // Do not let a stair attempt swallow a simultaneous retreat.
+            if self.tick.is_multiple_of(u64::from(HZ)) {
+                self.show_boss_lock();
+            }
+            stairs = false;
+        }
+        if stairs && !self.stairs_held && deliberate {
+            self.descending = 0;
             self.descend();
         } else if let Some(dir) = exit
             && let Some(next) = self.dungeon.neighbour(self.at, dir)
@@ -2009,18 +2987,57 @@ impl Run {
 #[cfg(test)]
 impl Run {
     pub(crate) fn enter_for_test(&mut self, index: usize) {
+        // Unrelated combat/wave/art fixtures explicitly exercise the retained
+        // legacy encounter path. Policy tests call production `enter` instead.
+        self.boss_gates = None;
+        let builtin = bosses::builtin();
+        self.bosses
+            .retain(|b| builtin.iter().any(|n| n.id == b.id) || encounter_catalog::custom(b));
         self.enter(index, Some(2));
     }
-
     pub(crate) fn spawn_at_for_test(&mut self, kind: EnemyKind, x: f32, y: f32) {
+        // Unrelated combat/card/song fixtures explicitly use legacy actors,
+        // just like enter_for_test. Ecology regressions call production paths.
+        self.boss_gates = None;
         self.spawn_at(kind, x, y);
         if let Some(enemy) = self.enemies.last_mut() {
             enemy.age = TELEGRAPH;
         }
     }
 
+    pub(crate) fn clear_prerequisites_for_test(&mut self) {
+        if let Some(g) = &mut self.boss_gates {
+            for i in 0..g.leaders.len() {
+                let room = g.leaders[i].room;
+                for (slot, _, _) in g.economy.deploy(room).unwrap() {
+                    g.economy.casualty(room, slot);
+                }
+                let w = &mut g.leaders[i];
+                w.defeated = true;
+                self.dungeon.rooms[w.room].visited = true;
+                self.dungeon.rooms[w.room].cleared = true;
+                g.economy.lose(i as u8);
+            }
+        }
+    }
+
     pub(crate) fn descend_for_test(&mut self) {
+        // Floor-setup helper, not a test of the production travel guard.
+        self.clear_prerequisites_for_test();
+        if let Some(g) = &mut self.boss_gates {
+            g.guardian_defeated = true;
+            self.dungeon.rooms[g.guardian].visited = true;
+            self.dungeon.rooms[g.guardian].cleared = true;
+        }
         self.descend();
+    }
+
+    pub(crate) fn thrill_for_test(&mut self, thousands: u32) {
+        self.thrill(thousands);
+    }
+
+    pub(crate) fn kit_out_for_test(&mut self) {
+        self.kit_out();
     }
 
     /// No more waves, traps or falling rocks in this room.
@@ -2040,7 +3057,7 @@ impl Run {
 
     pub(crate) fn lair_for_test(&mut self) {
         while self.dungeon.depth < FLOORS {
-            self.descend();
+            self.descend_for_test();
         }
         let lair = self
             .dungeon
@@ -2048,6 +3065,7 @@ impl Run {
             .iter()
             .position(|r| r.kind == RoomKind::Lair)
             .expect("the last floor has a lair");
+        self.clear_prerequisites_for_test();
         self.enter(lair, Some(2));
     }
 }
@@ -2063,3 +3081,11 @@ mod ledge_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_balance__tests.rs"]
 mod balance_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_deep__tests.rs"]
+mod deep_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_boss_gates__tests.rs"]
+mod boss_gate_tests;

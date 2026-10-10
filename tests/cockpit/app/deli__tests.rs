@@ -12,6 +12,56 @@ fn knobs_have_protocol_defaults() {
     assert!(k.state_dir.is_empty());
 }
 
+#[test]
+fn deli_labyrinth_keeps_reasoned_claims_unproved_and_reloads_the_frontier() {
+    // A worker owns its thread-local workspace; this test cannot leak it into
+    // another Deli invocation on the test harness's reused worker thread.
+    std::thread::spawn(|| {
+        let root =
+            std::env::temp_dir().join(format!("angel-deli-labyrinth-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        crate::drive::labyrinth::initialize(&root).unwrap();
+        let curated = std::fs::read(root.join("labyrinth/knowledge.json")).unwrap();
+        crate::knowledge::experience::note_turn_workspace(&root);
+        let inner = ScriptClub::new(&[
+            &block_ev("first angle", &["reasoned lead one"]),
+            &block_ev("second angle", &["reasoned lead two"]),
+        ]);
+        let deli = DeliClub::with_knobs(
+            "deli",
+            inner.clone(),
+            Knobs {
+                rounds: 2,
+                ..Knobs::default()
+            },
+        );
+        let state = deli.iterate("testable objective", "", &AtomicBool::new(false));
+        assert_eq!(state.findings.len(), 2);
+        let prompts = inner.prompts.lock().unwrap();
+        assert!(prompts[1].contains(&crate::agent::harness::book::labyrinth_campaign::MAP.cells()));
+        assert!(prompts[1].contains("reasoned lead one"));
+        let map = crate::drive::labyrinth::load(&root).unwrap().unwrap();
+        assert_eq!(map.status()["nodes"], 3);
+        let frontier = map.frontier(Some("testable objective"), 12);
+        assert_eq!(
+            frontier
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|node| node["tier"] == "T5")
+                .count(),
+            2
+        );
+        assert_eq!(
+            std::fs::read(root.join("labyrinth/knowledge.json")).unwrap(),
+            curated
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    })
+    .join()
+    .unwrap();
+}
+
 /// Returns the next scripted worker output per iteration (repeating the last
 /// when the script runs dry, to simulate a stall), and a fixed synthesis. Also
 /// records every iteration prompt so tests can assert on the injected state.

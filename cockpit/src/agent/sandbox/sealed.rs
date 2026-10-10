@@ -38,8 +38,14 @@ const HOST_READ_ROOTS: [&str; 8] = [
 /// identity digest and the qualification cohort agree on the contract.
 const HOME_DENY: [&str; 5] = [".ssh", ".angelX", ".config", ".gnupg", ".mozilla"];
 
-/// `$HOME` subtrees granted read-only for the pinned toolchains.
-const HOME_TOOLCHAIN_ALLOW: [&str; 3] = [".cargo", ".rustup", ".nvm"];
+/// `$HOME` payload directories granted read-only for the pinned toolchains.
+const HOME_TOOLCHAIN_ALLOW: [&str; 5] = [
+    ".cargo/bin",
+    ".cargo/registry",
+    ".cargo/git",
+    ".rustup",
+    ".nvm",
+];
 
 static ACTIVE: OnceLock<SealedProfile> = OnceLock::new();
 
@@ -53,7 +59,7 @@ fn resolve_on_path(name: &str) -> Option<PathBuf> {
 }
 
 /// The pinned toolchains' own directories, resolved the way the verifier
-/// registry resolves them: `$HOME/.cargo`, `$HOME/.rustup`, `$HOME/.nvm`
+/// registry resolves them: Cargo binaries/caches, `$HOME/.rustup`, `$HOME/.nvm`
 /// read-only, plus the directory of each resolved toolchain binary.
 fn toolchain_read_roots(home: &Path) -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = HOME_TOOLCHAIN_ALLOW
@@ -106,7 +112,12 @@ pub fn build(workspace: &Path, home: Option<&Path>) -> SealedProfile {
     }
     for key in ["CARGO_HOME", "RUSTUP_HOME", "NVM_DIR"] {
         if let Some(root) = std::env::var_os(key) {
-            read_roots.push(PathBuf::from(root));
+            let root = PathBuf::from(root);
+            if key == "CARGO_HOME" {
+                read_roots.extend(["bin", "registry", "git"].map(|dir| root.join(dir)));
+            } else {
+                read_roots.push(root);
+            }
         }
     }
     read_roots.retain(|path| path.exists());
@@ -114,7 +125,7 @@ pub fn build(workspace: &Path, home: Option<&Path>) -> SealedProfile {
     read_roots.sort();
     read_roots.dedup();
 
-    let deny_roots: Vec<PathBuf> = home
+    let mut deny_roots: Vec<PathBuf> = home
         .iter()
         .flat_map(|home| {
             HOME_DENY
@@ -124,6 +135,13 @@ pub fn build(workspace: &Path, home: Option<&Path>) -> SealedProfile {
         })
         .chain([PathBuf::from("/etc/gshadow"), PathBuf::from("/etc/shadow")])
         .collect();
+    for cargo_home in home
+        .iter()
+        .map(|home| home.join(".cargo"))
+        .chain(std::env::var_os("CARGO_HOME").map(PathBuf::from))
+    {
+        deny_roots.extend(["credentials", "credentials.toml"].map(|name| cargo_home.join(name)));
+    }
 
     let mut writable_roots = vec![workspace.clone()];
     writable_roots.extend(SandboxPolicy::git_worktree_roots(&workspace));

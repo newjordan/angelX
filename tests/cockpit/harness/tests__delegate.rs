@@ -491,6 +491,94 @@ fn concurrent_integrations_are_serialized_and_both_land() {
 }
 
 #[test]
+fn integrate_lock_waits_observe_cancellation_without_releasing_the_held_lock() {
+    let _guard = crate::tests::env_lock();
+    let process_guard = acquire_integrate_process_lock_for_test(None).unwrap();
+    let process_cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worker_cancel = Arc::clone(&process_cancel);
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (process_result_tx, process_result_rx) = std::sync::mpsc::channel();
+    let process_waiter = std::thread::spawn(move || {
+        let _ = started_tx.send(());
+        let result = acquire_integrate_process_lock_for_test(Some(&worker_cancel));
+        let _ = process_result_tx.send(result.err());
+    });
+    started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    std::thread::sleep(Duration::from_millis(30));
+    process_cancel.store(true, std::sync::atomic::Ordering::Release);
+    let process_error = match process_result_rx.recv_timeout(Duration::from_secs(1)) {
+        Ok(error) => error,
+        Err(_) => {
+            drop(process_guard);
+            process_result_rx.recv_timeout(Duration::from_secs(1)).unwrap()
+        }
+    };
+    let process_deadline = std::time::Instant::now() + Duration::from_secs(1);
+    while !process_waiter.is_finished() && std::time::Instant::now() < process_deadline {
+        std::thread::yield_now();
+    }
+    let process_finished = process_waiter.is_finished();
+    if process_finished {
+        process_waiter.join().unwrap();
+    } else {
+        drop(process_waiter);
+    }
+    assert!(process_finished, "process lock waiter must settle");
+    assert!(
+        process_error.as_ref().is_some_and(|error| error.contains("integrate cancelled")),
+        "{process_error:?}"
+    );
+
+    let ws = std::env::temp_dir().join(format!(
+        "angel_integrate_cancel_flock_{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&ws);
+    let repo = ensure_git_workspace(&ws).unwrap();
+    let repo_guard = acquire_repo_integrate_lock_for_test(&repo, Duration::from_secs(2)).unwrap();
+    let repo_cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worker_cancel = Arc::clone(&repo_cancel);
+    let repo_path = repo.clone();
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (repo_result_tx, repo_result_rx) = std::sync::mpsc::channel();
+    let repo_waiter = std::thread::spawn(move || {
+        let _ = started_tx.send(());
+        let result = acquire_repo_integrate_lock_for_test_with_cancel(
+            &repo_path,
+            None,
+            Some(&worker_cancel),
+        );
+        let _ = repo_result_tx.send(result.err());
+    });
+    started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    std::thread::sleep(Duration::from_millis(30));
+    repo_cancel.store(true, std::sync::atomic::Ordering::Release);
+    let repo_error = match repo_result_rx.recv_timeout(Duration::from_secs(1)) {
+        Ok(error) => error,
+        Err(_) => {
+            drop(repo_guard);
+            repo_result_rx.recv_timeout(Duration::from_secs(1)).unwrap()
+        }
+    };
+    let repo_deadline = std::time::Instant::now() + Duration::from_secs(1);
+    while !repo_waiter.is_finished() && std::time::Instant::now() < repo_deadline {
+        std::thread::yield_now();
+    }
+    let repo_finished = repo_waiter.is_finished();
+    if repo_finished {
+        repo_waiter.join().unwrap();
+    } else {
+        drop(repo_waiter);
+    }
+    assert!(repo_finished, "repository lock waiter must settle");
+    assert!(
+        repo_error.as_ref().is_some_and(|error| error.contains("integrate cancelled")),
+        "{repo_error:?}"
+    );
+    let _ = std::fs::remove_dir_all(ws);
+}
+
+#[test]
 fn repo_integration_flock_blocks_a_second_file_description() {
     let ws = std::env::temp_dir().join(format!("angel_integrate_flock_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&ws);
@@ -548,7 +636,7 @@ fn interrupted_write_delegate_preserves_work_and_checkpoint_without_integrating(
         return;
     }
     let ws = scratch("interrupted-delegate-work");
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let delegate = DelegateTool::new(
         ws.clone(),
         vec![Arc::new(InterruptedScribe {

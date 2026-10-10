@@ -257,6 +257,32 @@ pub(crate) fn render_with_flight(
     text
 }
 
+/// The rows `render_with_flight` keeps under its picture, alone: the loop's
+/// numbers under another picture of the loop (the Delve's crawl).
+pub(crate) fn hud_with_flight(
+    st: &LoopState,
+    slot: &SubmissionSlotTelemetry,
+    fleet: &FleetState,
+    time: f32,
+    slot_flight_secs: Option<f32>,
+    width: u16,
+    height: u16,
+) -> Vec<Line<'static>> {
+    let w = width.min(MAX_CELLS) as usize;
+    let h = height.min(MAX_CELLS) as usize;
+    let competition = slot.phase != SubmissionSlotPhase::Dormant;
+    let time = if time.is_finite() { time } else { 0.0 };
+    hud_lines(
+        st,
+        slot,
+        slot_flight_secs,
+        fleet,
+        time,
+        w,
+        hud_row_count(w, h, competition),
+    )
+}
+
 fn hud_row_count(width: usize, height: usize, competition: bool) -> usize {
     if width < 16 || height < 3 {
         0

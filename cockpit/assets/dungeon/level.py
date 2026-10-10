@@ -12,7 +12,7 @@ import pathlib, re, subprocess, sys, tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 SFX_RMS_DB = -20.0
 PEAK = 0.79  # -2 dBFS
-SEAMLESS = {'boss'}
+SEAMLESS = {'boss', 'crypt'}
 
 
 def rms_db(path):

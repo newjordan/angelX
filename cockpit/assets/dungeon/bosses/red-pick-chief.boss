@@ -1,0 +1,14 @@
+name RED PICK CHIEF
+text An orc pit captain whose powder gangs contest Iron Tusk seams.
+by angelX
+where mines
+hp 580
+size 1.4
+move drift speed=1.4
+attack ring shots=6 speed=5 every=95 damage=11 shot=ember
+rage 30%
+drops ore 3, gold 100
+art
+.A55A.
+.A77A.
+..AA..

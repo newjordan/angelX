@@ -412,6 +412,11 @@ impl Grant {
         // process cwd, so finalization fingerprints and Atlas state could
         // inspect a different repository from the seat's actual tools.
         r.set_workspace(workspace.to_path_buf());
+        if self != Self::None {
+            r.register(Box::new(crate::agent::tools::labyrinth::LabyrinthTool::new(
+                workspace.to_path_buf(),
+            )));
+        }
         match self {
             // No workspace tools — only the ledger reader, so the seat reads its
             // routes like every other seat (`book::connect`).
@@ -487,6 +492,107 @@ struct SeatResult {
     club: String,
     elapsed_ms: u128,
     answer: Result<String, String>,
+}
+
+const SEAT_SALVAGE_TOOLS: usize = 4;
+const SEAT_SALVAGE_CHARS: usize = 1_500;
+
+/// What the collector has seen one seat do, from its live turn events. The
+/// first model output starts that seat's working clock, and a seat cut by the
+/// clock reports this instead of discarding its work.
+#[derive(Default)]
+struct SeatProgress {
+    first_response: Option<Instant>,
+    tool_calls: usize,
+    recent_tools: Vec<(ToolEventId, String)>,
+    text: String,
+    notes: String,
+}
+
+impl SeatProgress {
+    fn observe(&mut self, event: TurnEvent) {
+        if self.first_response.is_none()
+            && matches!(
+                event,
+                TurnEvent::Token(_) | TurnEvent::Reasoning(_) | TurnEvent::ToolCall { .. }
+            )
+        {
+            self.first_response = Some(Instant::now());
+        }
+        match event {
+            TurnEvent::Token(chunk) => self.text.push_str(&chunk),
+            TurnEvent::SuppressPartial => self.text.clear(),
+            TurnEvent::ToolCall {
+                id,
+                name,
+                args_summary,
+            } => {
+                self.keep_text();
+                self.tool_calls += 1;
+                if self.recent_tools.len() == SEAT_SALVAGE_TOOLS {
+                    self.recent_tools.remove(0);
+                }
+                self.recent_tools
+                    .push((id, format!("{name}({args_summary})")));
+            }
+            TurnEvent::ToolResult { id, summary, .. } => {
+                if let Some((_, call)) = self.recent_tools.iter_mut().find(|(seen, _)| *seen == id)
+                {
+                    call.push_str(" → ");
+                    call.push_str(&tail_chars(summary.trim(), 160));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Text streamed before a tool call is the seat's latest note to itself.
+    fn keep_text(&mut self) {
+        if !self.text.trim().is_empty() {
+            self.notes = std::mem::take(&mut self.text);
+        }
+        self.text.clear();
+    }
+
+    /// `limit` to produce a first response, then a fresh `limit` of work from
+    /// it: a queued or slow-to-start provider never eats the seat's work time,
+    /// and a provider that never answers is still cut.
+    fn expires_at(&self, started: Instant, limit: Duration) -> Instant {
+        self.first_response.unwrap_or(started) + limit
+    }
+
+    fn cut_reason(&mut self, started: Instant, limit: Duration, club: &str) -> String {
+        let Some(first) = self.first_response else {
+            return format!("timed out: no first response from {club} within {limit:?}");
+        };
+        self.keep_text();
+        let mut reason = format!(
+            "timed out: still working {limit:?} after its first response ({:.1}s in); {} tool calls",
+            first.duration_since(started).as_secs_f64(),
+            self.tool_calls,
+        );
+        if !self.recent_tools.is_empty() {
+            let calls: Vec<&str> = self.recent_tools.iter().map(|(_, c)| c.as_str()).collect();
+            reason.push_str(&format!("; last: {}", calls.join("; ")));
+        }
+        if !self.notes.trim().is_empty() {
+            reason.push_str(&format!(
+                "; partial notes: {}",
+                tail_chars(self.notes.trim(), SEAT_SALVAGE_CHARS)
+            ));
+        }
+        reason
+    }
+}
+
+/// The last `cap` characters, marked when anything was dropped.
+fn tail_chars(s: &str, cap: usize) -> String {
+    let count = s.chars().count();
+    if count <= cap {
+        return s.to_string();
+    }
+    let tail: String = s.chars().skip(count - cap).collect();
+    format!("…{tail}")
 }
 
 /// The `spawn` tool: formation fan-out over self-copies or fleet peers.
@@ -709,6 +815,7 @@ impl SpawnTool {
         club_spec: &str,
         timeout: Duration,
         quorum_k: usize,
+        parent_cancel: Option<&AtomicBool>,
     ) -> Result<String, String> {
         // Direct test/tool invocations get a root allowance here; ordinary
         // turn dispatch already installed one, and nested seats inherit it.
@@ -758,6 +865,7 @@ impl SpawnTool {
             .iter()
             .map(|(name, _)| name.clone())
             .collect::<Vec<_>>();
+        let mut seat_events = Vec::with_capacity(n);
         for (i, ((persona_name, persona_body), permit)) in
             seat_personas.into_iter().zip(permits).enumerate()
         {
@@ -771,6 +879,10 @@ impl SpawnTool {
             let failed_tx = tx.clone();
             let failed_persona = persona_name.clone();
             let thread_budget = descendant_budget.clone();
+            // Seat events feed the collector: the first model output starts
+            // the seat's clock, and a cut seat reports its latest work.
+            let (evt_tx, evt_rx) = mpsc::channel::<TurnEvent>();
+            seat_events.push(evt_rx);
             if let Err(err) = std::thread::Builder::new()
                 .name(format!("spawn-seat-{}", i + 1))
                 .spawn(move || {
@@ -782,8 +894,6 @@ impl SpawnTool {
                         ChatMsg::system(system.as_str()),
                         ChatMsg::user(task.as_str()),
                     ];
-                    // Seat traces have no UI consumer yet (same as delegate).
-                    let (evt_tx, _) = mpsc::channel::<TurnEvent>();
                     let answer = run_turn(
                         &*club,
                         &registry,
@@ -814,35 +924,57 @@ impl SpawnTool {
             }
         }
         drop(tx);
-        crate::ui::viz::agentviz::stage(format!("spawn {}", formation.label()), seat_labels);
+        crate::ui::viz::agentviz::stage(
+            format!("spawn {}", formation.label()),
+            seat_labels.clone(),
+        );
 
         // Collect until: all seats, a successful quorum, a quorum that can no
-        // longer be reached, or the deadline. Failed seats still land, but do
-        // not satisfy quorum and therefore cannot cut slower healthy seats.
-        // Cut seats get the formation cancel flag flipped and wind down at
-        // their next hop boundary in the background.
+        // longer be reached, or every unlanded seat's clock has run out. Each
+        // seat gets `limit` to produce a first response and then a fresh
+        // `limit` of work from it. Failed seats still land, but do not satisfy
+        // quorum and therefore cannot cut slower healthy seats. Cut seats get
+        // the formation cancel flag flipped and wind down at their next hop
+        // boundary in the background.
         let mut results: Vec<Option<SeatResult>> = (0..n).map(|_| None).collect();
+        let mut progress: Vec<SeatProgress> = (0..n).map(|_| SeatProgress::default()).collect();
+        let drain_events = |progress: &mut Vec<SeatProgress>| {
+            for (seat, events) in progress.iter_mut().zip(&seat_events) {
+                for event in events.try_iter() {
+                    seat.observe(event);
+                }
+            }
+        };
         let mut landed = 0usize;
         let mut successful = 0usize;
+        let mut timed_out = false;
+        let mut parent_cancelled = false;
         while landed < n {
             if formation == Formation::Quorum
                 && (successful >= quorum_k || successful + (n - landed) < quorum_k)
             {
                 break;
             }
-            let received = if let Some(limit) = deadline {
-                let Some(remaining) = limit.checked_sub(started.elapsed()) else {
+            if parent_cancel.is_some_and(|signal| signal.load(Ordering::Acquire)) {
+                parent_cancelled = true;
+                break;
+            }
+            drain_events(&mut progress);
+            let mut wait = Duration::from_millis(200);
+            if let Some(limit) = deadline {
+                let last_cut = (0..n)
+                    .filter(|&i| results[i].is_none())
+                    .map(|i| progress[i].expires_at(started, limit))
+                    .max()
+                    .unwrap_or(started);
+                let remaining = last_cut.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    timed_out = true;
                     break;
-                };
-                match rx.recv_timeout(remaining.min(Duration::from_millis(200))) {
-                    Ok(result) => Ok(result),
-                    Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                    Err(mpsc::RecvTimeoutError::Disconnected) => Err(()),
                 }
-            } else {
-                rx.recv().map_err(|_| ())
-            };
-            match received {
+                wait = wait.min(remaining);
+            }
+            match rx.recv_timeout(wait) {
                 Ok(r) => {
                     let idx = r.seat;
                     if results[idx].is_none() {
@@ -851,10 +983,32 @@ impl SpawnTool {
                     }
                     results[idx] = Some(r);
                 }
-                Err(()) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
         cancel.store(true, Ordering::Relaxed);
+        if parent_cancelled {
+            return Err("spawn formation cancelled by parent turn".to_string());
+        }
+
+        // A seat the clock cut lands as a failure that carries its salvage
+        // (first-response timing, latest tool calls, partial notes), so the
+        // caller sees what the seat was doing instead of an empty error.
+        if let (true, Some(limit)) = (timed_out, deadline) {
+            drain_events(&mut progress);
+            let cut: Vec<usize> = (0..n).filter(|&i| results[i].is_none()).collect();
+            for i in cut {
+                let club = clubs[i].label().to_string();
+                results[i] = Some(SeatResult {
+                    seat: i,
+                    persona: seat_labels[i].clone(),
+                    answer: Err(progress[i].cut_reason(started, limit, &club)),
+                    club,
+                    elapsed_ms: started.elapsed().as_millis(),
+                });
+            }
+        }
 
         let seats: Vec<SeatResult> = results.into_iter().flatten().collect();
         if formation == Formation::Quorum && successful < quorum_k {
@@ -888,14 +1042,29 @@ impl SpawnTool {
                     )
                 })
                 .collect();
+            let verdict = if timed_out {
+                "formation timed out with no answers; seats were still working — raise timeout_secs or narrow the task"
+            } else {
+                "formation returned no answers"
+            };
             return Err(format!(
-                "formation returned no answers ({landed}/{n} seats landed): {}; {}",
+                "{verdict} ({landed}/{n} seats landed): {}; {}",
                 errs.join("; "),
                 descendant_budget_status(&descendant_budget)?.status_fields()
             ));
         }
         let elapsed = started.elapsed();
-        let synthesis_budget = deadline.map(|limit| limit.saturating_sub(elapsed));
+        // Synthesis gets only what is left of the formation's clock, which
+        // runs to the latest seat expiry now that seat clocks start at their
+        // first response.
+        let synthesis_budget = deadline.map(|limit| {
+            progress
+                .iter()
+                .map(|seat| seat.expires_at(started, limit))
+                .max()
+                .unwrap_or(started + limit)
+                .saturating_duration_since(Instant::now())
+        });
         self.digest(
             formation,
             tasks,
@@ -917,7 +1086,16 @@ impl SpawnTool {
         tasks: &[String],
         timeout: Duration,
     ) -> Result<String, String> {
-        self.run_formation(Formation::Moa, tasks, &[], Grant::None, "self", timeout, 1)
+        self.run_formation(
+            Formation::Moa,
+            tasks,
+            &[],
+            Grant::None,
+            "self",
+            timeout,
+            1,
+            None,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1032,6 +1210,116 @@ impl SpawnTool {
             }
         }
     }
+
+    fn call_with_parent_cancel(
+        &self,
+        args: &Value,
+        parent_cancel: Option<&AtomicBool>,
+    ) -> Result<String, String> {
+        if !spawn_nesting_allowed() {
+            return Err(format!(
+                "spawn nesting depth {} reached max {} (ANGEL_TREEBEARD_MAX_DEPTH)",
+                subcall_depth(),
+                treebeard_max_depth()
+            ));
+        }
+        let n_cap = env_usize("ANGEL_SPAWN_MAX", SPAWN_MAX_DEFAULT).max(1);
+        let mut tasks: Vec<String> = match args.get("tasks").and_then(|t| t.as_array()) {
+            Some(arr) => arr
+                .iter()
+                .filter_map(|v| v.as_str())
+                .map(str::to_string)
+                .filter(|s| !s.trim().is_empty())
+                .collect(),
+            None => Vec::new(),
+        };
+        let n = if !tasks.is_empty() {
+            tasks.len().min(n_cap)
+        } else {
+            let task = args
+                .get("task")
+                .and_then(|t| t.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or("missing 'task' (or 'tasks')")?;
+            // Solo is one seat; only the multi-seat formations default to three.
+            let solo = args
+                .get("formation")
+                .and_then(|v| v.as_str())
+                .is_some_and(|f| f.trim().eq_ignore_ascii_case("solo"));
+            let n = args
+                .get("n")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize)
+                .unwrap_or(if solo { 1 } else { 3 })
+                .clamp(1, n_cap);
+            tasks = vec![task.to_string(); n];
+            n
+        };
+        tasks.truncate(n);
+        let formation = Formation::parse(args.get("formation").and_then(|v| v.as_str()), n)?;
+        let personas = requested_personas(args.get("persona"))?;
+        let grant = match args.get("tools").and_then(|v| v.as_str()) {
+            Some(requested) => Grant::parse(Some(requested))?,
+            None => self.default_grant(),
+        };
+        self.enforce_grant_ceiling(grant)?;
+        // §3.1.1 / Thm 43-45 (ledger T5): the schedule is *derived* from what each
+        // seat claims, not hardcoded on the grant. A `tools=code` seat writes in the
+        // one shared workspace, so two of them overlap there and are serialized; a
+        // seat that declares a checkout of its own commutes and is admitted at n>1.
+        // The refusal names the resource, so a caller can see why.
+        let seats: Vec<ChildFootprint> = (1..=n)
+            .map(|index| {
+                let seat = format!("{}-{index}", grant.label());
+                if grant == Grant::Code {
+                    ChildFootprint::workspace_writer(seat, self.workspace.clone())
+                } else {
+                    ChildFootprint::new(seat)
+                }
+            })
+            .collect();
+        if let Some(receipt) = independence::refusal(&seats) {
+            return Err(format!("tools={} needs n=1 — {receipt}", grant.label()));
+        }
+        let club_spec = args
+            .get("club")
+            .and_then(|v| v.as_str())
+            .unwrap_or("self")
+            .to_string();
+        let timeout = configured_formation_timeout(args);
+        let quorum_k = args
+            .get("quorum")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+            .unwrap_or_else(|| n.div_ceil(2))
+            .clamp(1, n);
+        let result = self.run_formation(
+            formation,
+            &tasks,
+            &personas,
+            grant,
+            &club_spec,
+            timeout,
+            quorum_k,
+            parent_cancel,
+        );
+        if timeout.is_zero() {
+            return result;
+        }
+        let source = if args.get("timeout_secs").is_some() {
+            "your clock spawn.timeout_secs"
+        } else {
+            "operator cap ANGEL_SPAWN_TIMEOUT"
+        };
+        let note = format!(
+            "{source}={}s per seat, counted from its first response",
+            timeout.as_secs()
+        );
+        result
+            .map(|text| format!("{text}\n{note}"))
+            .map_err(|error| format!("{error}; {note}"))
+    }
 }
 
 /// Keep the formation strategy line(s) root-visible; offload bulk seat digests
@@ -1145,6 +1433,7 @@ impl Tool for SpawnTool {
                  escalation seat (club=smart), or an explicit fleet spread (club=fleet, opt-in). \
                  Formations: solo (one seat), \
                  panel (all answers back, labeled), moa (drafts folded into one answer), quorum (first K win). \
+                 timeout_secs bounds each seat (default 900 s); its clock starts at the seat's first response and a cut seat returns its partial work. \
                  Each seat can wear one exact installed persona \
                  and gets a tool grant. Installed personas: {}. Clubs: self, auto, {}.{} ⠹⠑",
                 if personas.is_empty() {
@@ -1184,102 +1473,30 @@ impl Tool for SpawnTool {
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {
-        if !spawn_nesting_allowed() {
-            return Err(format!(
-                "spawn nesting depth {} reached max {} (ANGEL_TREEBEARD_MAX_DEPTH)",
-                subcall_depth(),
-                treebeard_max_depth()
-            ));
+        self.call_with_parent_cancel(args, None)
+    }
+
+    fn call_with_cancel(
+        &self,
+        args: &Value,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<String, String> {
+        if cancel.is_some_and(|signal| signal.load(Ordering::Acquire)) {
+            return Err("tool cancelled before dispatch".to_string());
         }
-        let n_cap = env_usize("ANGEL_SPAWN_MAX", SPAWN_MAX_DEFAULT).max(1);
-        let mut tasks: Vec<String> = match args.get("tasks").and_then(|t| t.as_array()) {
-            Some(arr) => arr
-                .iter()
-                .filter_map(|v| v.as_str())
-                .map(str::to_string)
-                .filter(|s| !s.trim().is_empty())
-                .collect(),
-            None => Vec::new(),
-        };
-        let n = if !tasks.is_empty() {
-            tasks.len().min(n_cap)
-        } else {
-            let task = args
-                .get("task")
-                .and_then(|t| t.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .ok_or("missing 'task' (or 'tasks')")?;
-            let n = args
-                .get("n")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize)
-                .unwrap_or(3)
-                .clamp(1, n_cap);
-            tasks = vec![task.to_string(); n];
-            n
-        };
-        tasks.truncate(n);
-        let formation = Formation::parse(args.get("formation").and_then(|v| v.as_str()), n)?;
-        let personas = requested_personas(args.get("persona"))?;
-        let grant = match args.get("tools").and_then(|v| v.as_str()) {
-            Some(requested) => Grant::parse(Some(requested))?,
-            None => self.default_grant(),
-        };
-        self.enforce_grant_ceiling(grant)?;
-        // §3.1.1 / Thm 43-45 (ledger T5): the schedule is *derived* from what each
-        // seat claims, not hardcoded on the grant. A `tools=code` seat writes in the
-        // one shared workspace, so two of them overlap there and are serialized; a
-        // seat that declares a checkout of its own commutes and is admitted at n>1.
-        // The refusal names the resource, so a caller can see why.
-        let seats: Vec<ChildFootprint> = (1..=n)
-            .map(|index| {
-                let seat = format!("{}-{index}", grant.label());
-                if grant == Grant::Code {
-                    ChildFootprint::workspace_writer(seat, self.workspace.clone())
-                } else {
-                    ChildFootprint::new(seat)
-                }
-            })
-            .collect();
-        if let Some(receipt) = independence::refusal(&seats) {
-            return Err(format!("tools={} needs n=1 — {receipt}", grant.label()));
-        }
-        let club_spec = args
-            .get("club")
-            .and_then(|v| v.as_str())
-            .unwrap_or("self")
-            .to_string();
-        let timeout = configured_formation_timeout(args);
-        let quorum_k = args
-            .get("quorum")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as usize)
-            .unwrap_or_else(|| n.div_ceil(2))
-            .clamp(1, n);
-        let result = self.run_formation(
-            formation, &tasks, &personas, grant, &club_spec, timeout, quorum_k,
-        );
-        if timeout.is_zero() {
-            return result;
-        }
-        let source = if args.get("timeout_secs").is_some() {
-            "spawn.timeout_secs"
-        } else {
-            "ANGEL_SPAWN_TIMEOUT"
-        };
-        let note = format!("operator cap {source}={}", timeout.as_secs());
-        result
-            .map(|text| format!("{text}\n{note}"))
-            .map_err(|error| format!("{error}; {note}"))
+        self.call_with_parent_cancel(args, cancel)
     }
 }
+
+/// Default per-seat clock. Without one, a panel whose seat keeps retrying a
+/// stalled stream blocks its parent turn indefinitely.
+const DEFAULT_SPAWN_TIMEOUT_SECS: usize = 900;
 
 fn configured_formation_timeout(args: &Value) -> Duration {
     Duration::from_secs(
         args.get("timeout_secs")
             .and_then(Value::as_u64)
-            .unwrap_or_else(|| env_usize("ANGEL_SPAWN_TIMEOUT", 0) as u64),
+            .unwrap_or_else(|| env_usize("ANGEL_SPAWN_TIMEOUT", DEFAULT_SPAWN_TIMEOUT_SECS) as u64),
     )
 }
 

@@ -24,7 +24,7 @@ print(json.dumps({'argv':sys.argv[1:],'yolo':os.environ.get('ANGEL_YOLO'),'comp'
   writeFileSync(join(source, '.angel.env'), config)
   const runner = join(root, 'runner.env')
   writeFileSync(runner, config)
-  for (const args of [[], ['--ask', '--doctor']]) {
+  for (const args of [[], ['--ask', '--doctor'], ['--labyrinth', '--workspace', root, 'plan']]) {
     for (const alias of ['--comp', '--lean', '--turbo', '--angelturbo']) {
       const result = spawnSync('bash', [join(source, 'bin/angelX'), '--yolo', alias, ...args], {
         cwd: root, encoding: 'utf8', timeout: 15000,

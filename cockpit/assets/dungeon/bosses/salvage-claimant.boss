@@ -1,0 +1,14 @@
+name SALVAGE CLAIMANT
+text A drowned stack-chief: recovered brass hires independent dredger camps.
+by angelX
+where archive
+hp 580
+size 1.4
+move hover speed=1.1
+attack fan shots=4 arc=60 speed=6 every=80 damage=10 shot=bone
+rage 30%
+drops gold 100, gem 1
+art
+..88..
+.8778.
+..88..

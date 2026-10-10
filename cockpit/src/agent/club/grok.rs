@@ -2280,43 +2280,40 @@ fn urlencoding_encode(s: &str) -> String {
 pub(crate) fn grok_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     let mut links = Vec::new();
     if let Some(auth) = GrokOauthAuth::load() {
-        // Failure here must not suppress a separately configured API-key seat.
+        // Refresh is lazy: registration is local-only, and the first HTTP
+        // request calls the shared bearer provider if this token has expired.
         let shared = GrokOauthShared::new(auth);
-        if let Err(err) = shared.bearer() {
-            grok_diagnostic(format_args!("[grok] OAuth seat not ready: {err}"));
-        } else {
-            let configured = grok_model_from_env();
-            let mut models = vec![configured];
-            for candidate in
-                std::iter::once(GROK_DEFAULT_MODEL.to_string()).chain(grok_cli_model_ids())
-            {
-                if GROK_SOTA_MODEL_OPTIONS
+        let configured = grok_model_from_env();
+        let mut models = vec![configured];
+        for candidate in
+            std::iter::once(GROK_DEFAULT_MODEL.to_string()).chain(grok_cli_model_ids())
+        {
+            if GROK_SOTA_MODEL_OPTIONS
+                .iter()
+                .any(|known| known.eq_ignore_ascii_case(&candidate))
+                && !models
                     .iter()
-                    .any(|known| known.eq_ignore_ascii_case(&candidate))
-                    && !models
-                        .iter()
-                        .any(|model| model.eq_ignore_ascii_case(&candidate))
-                {
-                    models.push(candidate);
-                }
+                    .any(|model| model.eq_ignore_ascii_case(&candidate))
+            {
+                models.push(candidate);
             }
-            let available = Arc::new(AtomicBool::new(true));
-            links.extend(models.into_iter().enumerate().map(|(index, model)| {
-                let alias = if index == 0 {
-                    "grok".to_string()
-                } else {
-                    model.clone()
-                };
-                let label = alias.clone();
-                let shared_for_provider = Arc::clone(&shared);
-                let club: Arc<dyn Club> = Arc::new(
-                    crate::agent::club::HttpClub::new(label, GROK_DEFAULT_API_BASE, model, None)
-                        .with_token_provider(Arc::new(move || shared_for_provider.bearer()))
-                        .sota_tuned(),
-                );
-                (alias, club, Arc::clone(&available))
-            }));
         }
+        let available = Arc::new(AtomicBool::new(true));
+        links.extend(models.into_iter().enumerate().map(|(index, model)| {
+            let alias = if index == 0 {
+                "grok".to_string()
+            } else {
+                model.clone()
+            };
+            let label = alias.clone();
+            let shared_for_provider = Arc::clone(&shared);
+            let club: Arc<dyn Club> = Arc::new(
+                crate::agent::club::HttpClub::new(label, GROK_DEFAULT_API_BASE, model, None)
+                    .with_token_provider(Arc::new(move || shared_for_provider.bearer()))
+                    .sota_tuned(),
+            );
+            (alias, club, Arc::clone(&available))
+        }));
     }
 
     if super::api_club_enabled("grok-api")

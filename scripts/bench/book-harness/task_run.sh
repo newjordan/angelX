@@ -61,6 +61,9 @@ if wait "$TASK"; then VERIFY_RC=0; else VERIFY_RC=$?; fi
 stop_task
 if [[ "$VERIFY_RC" == 0 ]]; then SOLVED=yes; else SOLVED=no; fi
 REQUESTS=unknown
-if [[ -f "$LOG" ]]; then REQUESTS=$(wc -l < "$LOG"); fi
+if [[ -f "$LOG" ]]; then
+  REQUESTS=$(wc -l < "$LOG")
+  REQUESTS=$((REQUESTS))
+fi
 echo "$LABEL rc=$RC solved=$SOLVED wall=$(awk "BEGIN{print $END - $START}") requests=$REQUESTS verification_rc=$VERIFY_RC" | tee "$OUT/$LABEL.run"
 exit "$RC"

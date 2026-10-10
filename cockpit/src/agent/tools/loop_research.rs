@@ -21,11 +21,17 @@ impl Tool for LoopResearchTool {
         "loop_research"
     }
     fn def(&self) -> ToolDef {
+        let mut campaign_spec = crate::drive::labyrinth::entry::spec_schema();
+        campaign_spec["description"] = json!("⠾⠋⠑");
         ToolDef {
             name:self.name().into(),
             description:"Sloptomizer research. context(task) recalls live evidence relationships across models, including outside /loop. During a loop: suggest ranks ideas with Pareto, UCB and MicroLearner without a model call; run tests your chosen idea asynchronously in an isolated copy on the current model/effort; compare=true measures a paired baseline. Completion arrives in the running turn automatically. Advice never forces a choice. rl_campaign handles measured policy promotion. ⠩⠓".into(),
             params:json!({"type":"object","properties":{
-                "action":{"type":"string","enum":["options","context","suggest","run","status","results","stop"]},
+                "action":{"type":"string","enum":["options","context","suggest","run","campaign","status","results","stop"]},
+                "campaign_action":{"type":"string","enum":["start","run","status","cancel","check","recover","recheck"],"description":"⠾⠋⠉"},
+                "campaign_id":{"type":"string","maxLength":80,"description":"⠾⠋⠙"},
+                "campaign_spec":campaign_spec,
+                "campaign_bundle":{"type":"string","maxLength":512,"description":"⠾⠋⠋"},
                 "task":{"type":"string","description":"⠩⠓⠉"},
                 "verify":{"type":["string","null"],"description":"⠩⠓⠙"},
                 "methods":{"type":"array","items":{"type":"string","enum":["pareto","bandit","memory"]},"description":"⠩⠓⠑"},
@@ -42,6 +48,11 @@ impl Tool for LoopResearchTool {
     }
     fn workspace_write_scope_is_opaque(&self, args: &Value) -> bool {
         args["action"] == "run"
+            || (args["action"] == "campaign"
+                && matches!(
+                    args["campaign_action"].as_str(),
+                    Some("start" | "run" | "cancel" | "recover" | "recheck")
+                ))
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_cancel(args, None)

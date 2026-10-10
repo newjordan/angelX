@@ -104,14 +104,28 @@ impl Run {
         self.waves = Waves::default();
         self.spiked = false;
         let room = &self.dungeon.rooms[self.at];
-        if room.cleared {
+        if room.cleared || self.guardian_locked() {
             return;
         }
         let (kind, depth, pack) = (room.kind, self.dungeon.depth, self.dungeon.pack);
-        let waves = match kind {
-            RoomKind::Fight => depth.min(3),
-            RoomKind::Stairs => 1,
-            _ => 0,
+        let horde = self.mode == super::fortune::Mode::HoldTheStair;
+        let ecological = self
+            .boss_gates
+            .as_ref()
+            .is_some_and(|g| g.economy.camp(self.at).is_some());
+        let waves = if ecological {
+            0
+        } else {
+            match kind {
+                // Hold the Stair: the hall's waves are the floor.
+                RoomKind::Fight if horde => 3 + 2 * depth,
+                RoomKind::Lair if horde => 3,
+                RoomKind::Fight => depth.min(3),
+                RoomKind::Stairs => 1,
+                // The Unknown sends everything it has met up to meet you.
+                RoomKind::Threshold => 4,
+                _ => 0,
+            }
         };
         if waves > 0 {
             self.waves = Waves {
@@ -125,7 +139,7 @@ impl Run {
         let trapped = match kind {
             RoomKind::Fight => self.rng.chance(65),
             RoomKind::Hall => self.rng.chance(45),
-            RoomKind::Stairs | RoomKind::Lair => true,
+            RoomKind::Stairs | RoomKind::Lair | RoomKind::Threshold => true,
             _ => false,
         };
         if !trapped {
@@ -149,7 +163,7 @@ impl Run {
             self.traps.push(Trap::Spikes { col, row, phase });
             return;
         }
-        match pack {
+        match pack.kin() {
             Pack::Crypt => {
                 let area = self.room().cols * self.room().rows / (COLS * ROWS);
                 let plates = 1 + self.rng.below(2) + area;
@@ -180,6 +194,7 @@ impl Run {
                 self.place_spikes(1);
                 self.cues.push("trap_fire".into());
             }
+            _ => {}
         }
     }
 
@@ -282,12 +297,27 @@ impl Run {
 
     /// One wave through doorway `side`, in two files walking in.
     fn pour(&mut self, side: usize) {
-        let count = (2 + self.dungeon.depth as usize + self.players.len() - 1).min(6);
+        let depth = self.dungeon.depth.min(FLOORS) as usize;
+        let count = (2 + depth + self.players.len() - 1).min(6);
         let ((x0, y0), (ix, iy)) = doorway(&self.dungeon.rooms[self.at], side);
         let (lx, ly) = (iy, ix);
-        let roster = self.dungeon.pack.roster();
+        let roster = self.dungeon.pack.roster_at(self.dungeon.depth);
         for i in 0..count {
             let kind = self.rng.pick(roster);
+            // A wave never brings a second of a dangerous kind, nor one
+            // more kind than the room holds.
+            let mut dangers: Vec<EnemyKind> = Vec::new();
+            for enemy in self.enemies.iter().filter(|e| e.hp > 0 && e.kind.elite()) {
+                if !dangers.contains(&enemy.kind) {
+                    dangers.push(enemy.kind);
+                }
+            }
+            let crowded = dangers.len() >= Pack::dangers_at(self.dungeon.depth);
+            let kind = if kind.elite() && (dangers.contains(&kind) || crowded) {
+                self.dungeon.pack.plain_at(self.dungeon.depth)
+            } else {
+                kind
+            };
             let deep = 1.0 + (i / 2) as f32 * 1.8;
             let side_step = if i % 2 == 0 { -1.2 } else { 1.2 };
             let (x, y) = (
@@ -411,6 +441,7 @@ impl Run {
             }
         }
         let mut landed = 0;
+        let mut roadkill = false;
         for rock in &mut self.rocks {
             if rock.fall > 0 {
                 rock.fall -= 1;
@@ -423,8 +454,12 @@ impl Run {
                         }
                     }
                     for enemy in &mut self.enemies {
-                        if (enemy.x - rock.x).hypot(enemy.y - rock.y) < 1.4 + enemy.radius() * 0.5 {
+                        if enemy.hp > 0
+                            && (enemy.x - rock.x).hypot(enemy.y - rock.y)
+                                < 1.4 + enemy.radius() * 0.5
+                        {
                             enemy.hp = enemy.hp.saturating_sub(40);
+                            roadkill |= enemy.hp == 0;
                         }
                     }
                 }
@@ -436,6 +471,9 @@ impl Run {
             self.sounds.push("rock_land");
             self.shake = self.shake.max(4);
         }
+        if roadkill {
+            self.notice("roadkill");
+        }
         self.rocks.retain(|r| r.fall > 0 || r.dust > 0);
     }
 
@@ -444,15 +482,23 @@ impl Run {
         let Some(chest) = self.dungeon.rooms[self.at].chest.filter(|c| !c.open) else {
             return false;
         };
-        if !self.rng.chance(25) {
+        let odds = if self.mode == super::fortune::Mode::MimicFair {
+            50
+        } else {
+            25
+        };
+        if !self.rng.chance(odds) {
             return false;
+        }
+        if self.spawn_at(EnemyKind::Mimic, chest.x, chest.y).is_none() {
+            return false; // exhausted provision leaves the genuine chest usable
         }
         self.dungeon.rooms[self.at].chest = None;
         self.dungeon.rooms[self.at].cleared = false;
-        self.spawn_at(EnemyKind::Mimic, chest.x, chest.y);
         self.phase = Phase::Fighting;
         self.cues.push("mimic".into());
         self.sounds.push("mimic");
+        self.notice("it_was_a_chest");
         true
     }
 }

@@ -1,6 +1,6 @@
 # Harness speed — lab notebook (2026-09-29)
 
-Branch `claude/dreamy-carson-7d17h8`. Operator's brief: make the harness faster
+Operator's brief: make the harness faster
 and more efficient; remove no system, connect systems where they should be
 connected, and add nothing that blocks or governs work.
 
@@ -374,5 +374,4 @@ grok-4.7 at `low`, base against head, n = 5 each, all solved:
 - **Startup:** about half a second on both builds. The `grok-api` seat behind
   the local logging proxy counts as a private host, so it still probes
   `/props`. On xAI's own host, X6 skips those probes.
-- **The chart report** (every chart and table, regenerated from `out/`):
-  https://claude.ai/artifact/S1RkLVpyrTvFgpYeB2YPws
+- **The chart report:** every chart and table, regenerated from `out/`.

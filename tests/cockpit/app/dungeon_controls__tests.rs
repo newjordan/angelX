@@ -1,12 +1,73 @@
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
 
+/// A delve begun, and the party down the Winding Stair onto floor one.
 fn game() -> App {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     app.input = "/dungeon start Test Guest".into();
     app.submit();
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
+    assert!(
+        run(&app).at_home_now(),
+        "every delve begins in the Undercroft"
+    );
+    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
     app
+}
+
+struct RealmSaveFixture {
+    root: std::path::PathBuf,
+    home: std::path::PathBuf,
+    workspace: std::path::PathBuf,
+}
+
+impl RealmSaveFixture {
+    fn new() -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "angel-realm-save-error-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let home = root.join("home");
+        let workspace = root.join("workspace");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(home.join(".angelX"), b"not a directory").unwrap();
+        Self {
+            root,
+            home,
+            workspace,
+        }
+    }
+
+    fn bind(&self, app: &mut App) {
+        app.tools = Arc::new(crate::agent::harness::ToolRegistry::with_team(
+            self.workspace.clone(),
+            Vec::new(),
+        ));
+        app.world = crate::stage::world_viz::World::for_workspace(&self.workspace);
+        app.dungeon.realm = None;
+    }
+
+    fn allow_saves(&self) {
+        std::fs::remove_file(self.home.join(".angelX")).unwrap();
+        std::fs::create_dir_all(self.home.join(".angelX/world-rewards")).unwrap();
+    }
+}
+
+impl Drop for RealmSaveFixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+fn with_blocked_realm_save() -> (RealmSaveFixture, crate::tests::TestEnvGuard) {
+    let fixture = RealmSaveFixture::new();
+    let home = crate::tests::TestEnvGuard::set("HOME", fixture.home.to_str().unwrap());
+    (fixture, home)
 }
 
 fn paint(app: &mut App, width: u16, height: u16) -> String {
@@ -53,7 +114,7 @@ fn dungeon_starts_a_realtime_arena_with_visible_controls_without_a_model_turn() 
         let text = paint(&mut app, width, height);
         for label in [
             "DUNGEON DELVE",
-            "Floor 1/3",
+            "Floor 1/6",
             "P1",
             "P2",
             "HP 100",
@@ -267,12 +328,13 @@ fn dungeon_restart_requires_finished_run_and_retains_players_with_new_generation
     paint(&mut app, 80, 24);
     let raid = run(&app).raid_id;
     press(&mut app, KeyCode::Char('r'));
-    assert_eq!(run(&app).raid_id, raid);
-    assert!(app.dungeon.notice.contains("still active"));
+    assert_eq!(run(&app).raid_id, raid, "R is the ultimate while the delve runs");
+    assert!(app.dungeon.notice.contains("charging"), "{}", app.dungeon.notice);
     app.dungeon.shooter.as_mut().unwrap().phase = Phase::Wiped;
     press(&mut app, KeyCode::Char('r'));
     assert!(run(&app).raid_id > raid);
-    assert_eq!(run(&app).phase, Phase::Fighting);
+    assert!(run(&app).at_home_now(), "home to the Undercroft");
+    assert_eq!(run(&app).phase, Phase::Exploring);
     assert_eq!(run(&app).players[&2].name, "Test Guest");
     assert_eq!(run(&app).players[&1].hp, 100);
 }
@@ -505,6 +567,7 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
 
     // Past the entrance, hosting starts a fresh delve with the guest.
     let shooter = app.dungeon.shooter.as_mut().unwrap();
+    shooter.descend_for_test();
     shooter.enter_for_test(1);
     assert!(!shooter.at_entrance());
     app.dungeon_command(Some("host Cleo 127.0.0.1:0"));
@@ -971,6 +1034,110 @@ fn dungeon_banked_spoils_reach_the_treasury_and_pay_for_a_wish() {
     );
     assert!(app.realm().treasury.is_empty());
     assert_eq!(app.realm().built().len(), 1);
+}
+
+#[test]
+fn failed_realm_save_keeps_run_rewards_and_blocks_restart_or_close_until_retry() {
+    use crate::drive::together_realm::{Realm, Spoil};
+    use crate::drive::together_shooter::Phase;
+    let _guard = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    let mut app = game();
+    fixture.bind(&mut app);
+    let raid = run(&app).raid_id;
+    {
+        let run = app.dungeon.shooter.as_mut().unwrap();
+        let mut haul = crate::drive::together_realm::Spoils::default();
+        haul.add(Spoil::Gold, 19);
+        run.bank.push(crate::drive::together_realm::Haul {
+            hero: 1,
+            spoils: haul,
+            why: "fixture haul".into(),
+        });
+        run.reclaimed.push(run.dungeon.pack);
+        run.triumph = Some(crate::drive::together_shooter::Triumph::Dragon);
+        run.phase = Phase::Wiped;
+    }
+
+    assert!(!app.settle_realm());
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 0);
+    assert_eq!(app.realm().reclaimed.values().sum::<u32>(), 0);
+    assert_eq!(app.realm().raids_won, 0);
+    assert_eq!(run(&app).bank.len(), 1);
+    assert_eq!(run(&app).reclaimed.len(), 1);
+    assert_eq!(
+        run(&app).triumph,
+        Some(crate::drive::together_shooter::Triumph::Dragon)
+    );
+
+    press(&mut app, KeyCode::Char('r'));
+    assert_eq!(run(&app).raid_id, raid, "a failed bank cannot be discarded by restart");
+    let close = app.dungeon_command(Some("off"));
+    assert!(close.contains("Could not save the realm"), "{close}");
+    assert_eq!(run(&app).raid_id, raid, "a failed bank cannot be discarded by close");
+
+    fixture.allow_saves();
+    assert!(app.settle_realm());
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 19);
+    assert_eq!(app.realm().reclaimed.values().sum::<u32>(), 1);
+    assert_eq!(app.realm().raids_won, 1);
+    assert!(run(&app).bank.is_empty());
+    assert!(run(&app).reclaimed.is_empty());
+    assert!(run(&app).triumph.is_none());
+    let persisted = Realm::beside(app.world.rewards_path());
+    assert_eq!(persisted.treasury.get(Spoil::Gold), 19);
+    assert_eq!(persisted.raids_won, 1);
+}
+
+#[test]
+fn failed_home_realm_save_keeps_orders_marks_and_feats_for_retry() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::home::{Order, Station};
+    let _guard = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    let mut app = game();
+    fixture.bind(&mut app);
+    app.realm().treasury.add(Spoil::Gold, 200);
+    app.realm().treasury.add(Spoil::Ore, 4);
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::Forge,
+    });
+    app.dungeon
+        .shooter
+        .as_mut()
+        .unwrap()
+        .marks
+        .insert("trophy:cinderjaw".into(), 1);
+    app.dungeon.shooter.as_mut().unwrap().feats.push("roadkill");
+    let pending_feats = run(&app).feats.clone();
+
+    assert!(!app.settle_home());
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 200);
+    assert_eq!(app.realm().treasury.get(Spoil::Ore), 4);
+    assert_eq!(app.realm().home.level(Station::Forge), 0);
+    assert!(!app.realm().home.trophies.contains_key("cinderjaw"));
+    assert!(!app.realm().home.feats.contains("roadkill"));
+    assert_eq!(
+        run(&app).orders,
+        vec![Order {
+            knight: 1,
+            station: Station::Forge
+        }]
+    );
+    assert_eq!(run(&app).marks.get("trophy:cinderjaw"), Some(&1));
+    assert_eq!(run(&app).feats, pending_feats);
+
+    fixture.allow_saves();
+    assert!(app.settle_home());
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 50);
+    assert_eq!(app.realm().treasury.get(Spoil::Ore), 0);
+    assert_eq!(app.realm().home.level(Station::Forge), 1);
+    assert_eq!(app.realm().home.trophies.get("cinderjaw"), Some(&1));
+    assert!(app.realm().home.feats.contains("roadkill"));
+    assert!(run(&app).orders.is_empty());
+    assert!(run(&app).marks.is_empty());
+    assert!(run(&app).feats.is_empty());
 }
 
 #[test]
@@ -1664,6 +1831,7 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
     app.terminal_focused = true;
     paint(&mut app, 160, 48);
     let shooter = app.dungeon.shooter.as_mut().unwrap();
+    shooter.descend_for_test();
     shooter.calm_for_test();
     shooter.clear_for_test();
     press(&mut app, KeyCode::Char('t'));
@@ -2119,4 +2287,604 @@ fn a_friends_g_reaches_the_host_and_their_knight_keeps_vigil_after_esc() {
     }
     let knight = &run(&host).players[&2];
     assert!(knight.vigil && knight.stone);
+}
+
+#[test]
+fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::home::{Order, Station};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    assert!(run(&app).at_home_now());
+    {
+        let realm = app.realm();
+        realm.treasury.add(Spoil::Gold, 200);
+        realm.treasury.add(Spoil::Ore, 4);
+    }
+    app.settle_home();
+    assert_eq!(
+        run(&app).treasury.get(Spoil::Gold),
+        200,
+        "the run sees the treasury"
+    );
+    let order = Order {
+        knight: 1,
+        station: Station::Forge,
+    };
+    app.dungeon.shooter.as_mut().unwrap().orders.push(order);
+    app.settle_home();
+    assert_eq!(app.realm().home.level(Station::Forge), 1);
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 50);
+    assert_eq!(app.realm().treasury.get(Spoil::Ore), 0);
+    assert_eq!(run(&app).home.level(Station::Forge), 1);
+    assert_eq!(
+        run(&app).players[&1].bonus.damage,
+        8,
+        "the edge is dealt at once"
+    );
+    assert!(
+        app.dungeon.notice.contains("Tobbin's Edge I"),
+        "{}",
+        app.dungeon.notice
+    );
+    // Too poor for the next rung: nothing is paid, and the ledger says why.
+    app.dungeon.shooter.as_mut().unwrap().orders.push(order);
+    app.settle_home();
+    assert_eq!(app.realm().home.level(Station::Forge), 1);
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 50);
+    assert!(
+        app.dungeon.notice.contains("need"),
+        "{}",
+        app.dungeon.notice
+    );
+    // A new delve begins in the cellar as built.
+    app.dungeon.shooter.as_mut().unwrap().phase = crate::drive::together_shooter::Phase::Wiped;
+    app.dungeon_view_active();
+    app.start_shooter(None);
+    assert_eq!(run(&app).home.level(Station::Forge), 1);
+    assert_eq!(run(&app).players[&1].bonus.damage, 8);
+    // The deepest floor reached is remembered for the ladders that need it.
+    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.settle_home();
+    assert_eq!(app.realm().home.deepest, 2);
+}
+
+/// The Undercroft's whole screen for review, beside `dungeon_write_delve_screens`.
+#[test]
+#[ignore]
+fn dungeon_write_home_screen() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::home::Station;
+    let Some(dir) = std::env::var_os("ANGEL_DELVE_SCREEN") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let _guard = crate::tests::env_lock();
+    let _backdrop = crate::tests::TestEnvGuard::set("ANGEL_BACKDROP", "in-process");
+    let hex = |c: ratatui::style::Color| match c {
+        ratatui::style::Color::Rgb(r, g, b) => format!("#{r:02x}{g:02x}{b:02x}"),
+        _ => String::new(),
+    };
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    {
+        let realm = app.realm();
+        for (s, n) in [
+            (Spoil::Gold, 2200),
+            (Spoil::Bone, 44),
+            (Spoil::Wax, 30),
+            (Spoil::Ore, 35),
+            (Spoil::Gem, 12),
+            (Spoil::Ember, 28),
+            (Spoil::Scale, 1),
+            (Spoil::Bond, 30),
+        ] {
+            realm.treasury.add(s, n);
+        }
+        realm.home.levels.insert(Station::Forge, 1);
+        realm.home.levels.insert(Station::Rack, 1);
+        realm.home.deepest = 3;
+    }
+    app.input = "/dungeon start Test Guest".into();
+    app.submit();
+    app.terminal_focused = true;
+    let run = app.dungeon.shooter.as_mut().unwrap();
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (8.0, 7.0);
+    hero.buying = 12;
+    for _ in 0..8 {
+        run.step(&std::collections::BTreeMap::new());
+    }
+    let (width, height) = (160u16, 48u16);
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let mut out = format!("{width} {height}\n");
+    for y in 0..height {
+        for x in 0..width {
+            let cell = &buffer[(x, y)];
+            out.push_str(
+                &serde_json::to_string(&(cell.symbol(), hex(cell.fg), hex(cell.bg))).unwrap(),
+            );
+            out.push('\n');
+        }
+    }
+    std::fs::write(dir.join("delve_home.jsonl"), out).unwrap();
+    // Fortune's hall, the wheel just stopped.
+    let run = app.dungeon.shooter.as_mut().unwrap();
+    run.enter_for_test(1);
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (24.0, 17.0);
+    let fire = std::collections::BTreeMap::from([(
+        1,
+        crate::drive::together_shooter::Input {
+            fire: true,
+            ..Default::default()
+        },
+    )]);
+    for _ in 0..30 {
+        run.step(&fire);
+    }
+    for _ in 0..crate::drive::together_shooter::fortune::SPIN_TICKS {
+        run.step(&std::collections::BTreeMap::new());
+    }
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let mut out = format!("{width} {height}\n");
+    for y in 0..height {
+        for x in 0..width {
+            let cell = &buffer[(x, y)];
+            out.push_str(&serde_json::to_string(&(cell.symbol(), hex(cell.fg), hex(cell.bg))).unwrap());
+            out.push('\n');
+        }
+    }
+    std::fs::write(dir.join("delve_fortune.jsonl"), out).unwrap();
+}
+
+#[test]
+fn achievements_are_kept_once_and_their_boxes_open_into_the_treasury() {
+    use crate::drive::together_shooter::home::{Order, Station};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    let gold = app.realm().treasury.get(crate::drive::together_realm::Spoil::Gold);
+    app.dungeon.shooter.as_mut().unwrap().feats.push("roadkill");
+    app.settle_home();
+    assert!(app.realm().home.feats.contains("roadkill"));
+    assert_eq!(app.realm().home.boxes.len(), 1);
+    assert!(app.dungeon.notice.contains("Roadkill"), "{}", app.dungeon.notice);
+    assert!(run(&app).banner_now().is_some(), "the banner is up");
+    // Noticed again: nothing more.
+    app.dungeon.shooter.as_mut().unwrap().feats.push("roadkill");
+    app.settle_home();
+    assert_eq!(app.realm().home.boxes.len(), 1);
+    // Opened at the coffer: into the treasury, and the run shows it.
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::Coffer,
+    });
+    app.settle_home();
+    assert!(app.realm().home.boxes.is_empty());
+    assert_eq!(app.realm().home.opened, 1);
+    assert!(app.realm().treasury.get(crate::drive::together_realm::Spoil::Gold) > gold);
+    assert!(run(&app).unboxed.is_some());
+    assert!(app.dungeon.notice.contains("Silver Box held"), "{}", app.dungeon.notice);
+}
+
+#[test]
+fn the_realm_keeps_its_best_show() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    let best = app.realm().home.best_show;
+    // A small rise waits; a tenth of a million more, or the show's end,
+    // is kept.
+    app.dungeon.shooter.as_mut().unwrap().audience = best + 40;
+    app.settle_home();
+    assert_eq!(app.realm().home.best_show, best);
+    app.dungeon.shooter.as_mut().unwrap().audience = best + 140;
+    app.settle_home();
+    assert_eq!(app.realm().home.best_show, best + 140);
+    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    run_now.audience = best + 150;
+    run_now.phase = crate::drive::together_shooter::Phase::Wiped;
+    app.settle_home();
+    assert_eq!(app.realm().home.best_show, best + 150);
+    assert_eq!(
+        run(&app).home.best_show,
+        best + 150,
+        "the run's home shows it"
+    );
+}
+
+#[test]
+fn wren_pays_a_finished_bounty_and_pins_the_next() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::bounties::{self, Pinned, slay_mark};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.settle_home();
+    assert_eq!(
+        app.realm().home.bounties.len(),
+        bounties::PINNED,
+        "pinned on arrival"
+    );
+    app.realm().home.bounties[0] = Pinned {
+        id: "bones".into(),
+        have: 24,
+    };
+    let gold = app.realm().treasury.get(Spoil::Gold);
+    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    run_now.marks.insert(
+        slay_mark(crate::drive::together_shooter::EnemyKind::Skeleton),
+        1,
+    );
+    app.settle_home();
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold + 120);
+    assert!(
+        app.dungeon.notice.contains("Bone Collector"),
+        "{}",
+        app.dungeon.notice
+    );
+    assert_eq!(app.realm().home.bounties.len(), bounties::PINNED);
+    assert!(app.realm().home.bounties.iter().all(|p| p.id != "bones"));
+    assert_eq!(
+        run(&app).treasury.get(Spoil::Gold),
+        gold + 120,
+        "the run shows it"
+    );
+}
+
+#[test]
+fn bounty_progress_is_saved_between_fights() {
+    use crate::drive::together_shooter::bounties::{Pinned, slay_mark};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.settle_home();
+    app.realm().home.bounties[0] = Pinned {
+        id: "bones".into(),
+        have: 0,
+    };
+    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    run_now.phase = crate::drive::together_shooter::Phase::Fighting;
+    run_now.marks.insert(
+        slay_mark(crate::drive::together_shooter::EnemyKind::Skeleton),
+        2,
+    );
+    app.settle_home();
+    assert_eq!(app.realm().home.bounties[0].have, 2);
+    assert!(app.dungeon.bounties_unsaved, "not saved mid-fight");
+    app.dungeon.shooter.as_mut().unwrap().phase = crate::drive::together_shooter::Phase::Exploring;
+    app.settle_home();
+    assert!(
+        !app.dungeon.bounties_unsaved,
+        "saved once the fight is over"
+    );
+}
+
+#[test]
+fn the_realm_keeps_its_trophies_and_a_full_hall_is_a_feat() {
+    use crate::drive::together_shooter::trophies::PLINTHS;
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.settle_home();
+    app.realm().home.trophies.clear();
+    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    run_now.marks.insert("trophy:cinderjaw".into(), 1);
+    app.settle_home();
+    assert_eq!(app.realm().home.trophies.get("cinderjaw"), Some(&1));
+    assert!(
+        app.dungeon.notice.contains("Cinderjaw"),
+        "{}",
+        app.dungeon.notice
+    );
+    assert_eq!(run(&app).home.trophies.get("cinderjaw"), Some(&1));
+    for plinth in &PLINTHS {
+        let run_now = app.dungeon.shooter.as_mut().unwrap();
+        run_now.marks.insert(format!("trophy:{}", plinth.id), 1);
+        app.settle_home();
+    }
+    assert_eq!(app.realm().home.trophies.get("cinderjaw"), Some(&2));
+    assert!(app.realm().home.feats.contains("full_hall"));
+}
+
+#[test]
+fn experience_reaches_a_level_and_sir_ector_teaches_its_lesson() {
+    use crate::drive::together_shooter::home::{Order, Station};
+    use crate::drive::together_shooter::talents::{LESSONS, LEVELS, knight_key};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.settle_home();
+    let key = knight_key(&run(&app).players[&1]);
+    app.realm().home.knights.remove(&key);
+    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    run_now.marks.insert("xp".into(), LEVELS[0]);
+    app.settle_home();
+    assert_eq!(app.realm().home.prowess(&key).level(), 2);
+    assert!(
+        app.dungeon.notice.contains("Sir Ector"),
+        "{}",
+        app.dungeon.notice
+    );
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::LessonB,
+    });
+    app.settle_home();
+    assert_eq!(app.realm().home.prowess(&key).learned, [1]);
+    assert!(app.realm().home.feats.contains("first_lesson"));
+    assert!(
+        app.dungeon.notice.contains(LESSONS[0][1].name),
+        "{}",
+        app.dungeon.notice
+    );
+    assert!(
+        run(&app).players[&1]
+            .deck
+            .iter()
+            .any(|c| c == "home-talent-1")
+    );
+}
+
+#[test]
+fn a_rescue_comes_home_to_stay_and_all_four_are_a_full_house() {
+    use crate::drive::together_shooter::rescues::RESIDENTS;
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.settle_home();
+    app.realm().home.residents.clear();
+    app.dungeon
+        .shooter
+        .as_mut()
+        .unwrap()
+        .marks
+        .insert("rescue:mabel".into(), 1);
+    app.settle_home();
+    assert!(app.realm().home.residents.contains("mabel"));
+    assert!(
+        app.dungeon.notice.contains("Mabel"),
+        "{}",
+        app.dungeon.notice
+    );
+    assert!(run(&app).players[&1].deck.iter().any(|c| c == "home-stew"));
+    for resident in &RESIDENTS {
+        app.dungeon
+            .shooter
+            .as_mut()
+            .unwrap()
+            .marks
+            .insert(format!("rescue:{}", resident.id), 1);
+        app.settle_home();
+    }
+    assert!(app.realm().home.feats.contains("full_house"));
+}
+
+#[test]
+fn the_herald_counts_every_kill_into_the_bestiary() {
+    use crate::drive::together_shooter::EnemyKind;
+    use crate::drive::together_shooter::bounties::slay_mark;
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.settle_home();
+    app.realm().home.bestiary.clear();
+    let marks = &mut app.dungeon.shooter.as_mut().unwrap().marks;
+    marks.insert(slay_mark(EnemyKind::Skeleton), 3);
+    marks.insert(slay_mark(EnemyKind::PitTyrant), 1);
+    app.settle_home();
+    let bestiary = &app.realm().home.bestiary;
+    assert_eq!(bestiary.get("Skeleton"), Some(&3));
+    assert_eq!(bestiary.get("PitTyrant"), Some(&1));
+}
+
+/// The Herald's Bestiary page of the card screen, for review.
+#[test]
+#[ignore]
+fn dungeon_write_bestiary_screen() {
+    let Some(dir) = std::env::var_os("ANGEL_DELVE_SCREEN") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let _guard = crate::tests::env_lock();
+    let _backdrop = crate::tests::TestEnvGuard::set("ANGEL_BACKDROP", "in-process");
+    let hex = |c: ratatui::style::Color| match c {
+        ratatui::style::Color::Rgb(r, g, b) => format!("#{r:02x}{g:02x}{b:02x}"),
+        _ => String::new(),
+    };
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    {
+        let realm = app.realm();
+        for (kind, n) in [
+            ("Bat", 412),
+            ("Skeleton", 377),
+            ("Slime", 158),
+            ("Wraith", 96),
+            ("Imp", 141),
+            ("Sapper", 33),
+            ("Necromancer", 12),
+            ("Mimic", 3),
+            ("Demon", 22),
+            ("Dragon", 2),
+            ("Goblin", 4),
+        ] {
+            realm.home.bestiary.insert(kind.into(), n);
+        }
+    }
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.terminal_focused = true;
+    app.settle_home();
+    let pages = crate::ui::viz::shooter_viz::card_pages(app.dungeon.shooter.as_ref().unwrap());
+    app.dungeon.cards_open = true;
+    app.dungeon.cards_page = pages - 1;
+    let (width, height) = (160u16, 48u16);
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| crate::ui::draw::ui(frame, &mut app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let mut out = format!("{width} {height}\n");
+    for y in 0..height {
+        for x in 0..width {
+            let cell = &buffer[(x, y)];
+            out.push_str(
+                &serde_json::to_string(&(cell.symbol(), hex(cell.fg), hex(cell.bg))).unwrap(),
+            );
+            out.push('\n');
+        }
+    }
+    std::fs::write(dir.join("delve_bestiary.jsonl"), out).unwrap();
+}
+
+#[test]
+fn maud_pours_a_round_from_the_treasury_one_at_a_time() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::home::{Order, Station};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    let gold = {
+        let realm = app.realm();
+        realm.treasury.add(Spoil::Gold, 200);
+        realm.home.residents.insert("maud".into());
+        realm.home.round = None;
+        realm.treasury.get(Spoil::Gold)
+    };
+    let pour = Order {
+        knight: 1,
+        station: Station::TapB,
+    };
+    app.dungeon.shooter.as_mut().unwrap().orders.push(pour);
+    app.settle_home();
+    assert_eq!(app.realm().home.round.as_deref(), Some("stout"));
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - 80);
+    assert_eq!(
+        run(&app).home.round.as_deref(),
+        Some("stout"),
+        "the run sees it"
+    );
+    assert!(
+        app.dungeon.notice.contains("Dragon's Breath"),
+        "{}",
+        app.dungeon.notice
+    );
+    // One round at a time.
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::TapA,
+    });
+    app.settle_home();
+    assert_eq!(app.realm().home.round.as_deref(), Some("stout"));
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - 80);
+    assert!(
+        app.dungeon.notice.contains("waiting already"),
+        "{}",
+        app.dungeon.notice
+    );
+    // Drunk at the top of the stair: the tab is clear.
+    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.settle_home();
+    assert_eq!(app.realm().home.round, None);
+    assert_eq!(run(&app).round.as_deref(), Some("stout"));
+}
+
+#[test]
+fn dinadan_sings_for_gold_one_song_at_a_time() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::home::{Order, Station};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    let gold = {
+        let realm = app.realm();
+        realm.treasury.add(Spoil::Gold, 200);
+        realm.home.song = None;
+        realm.treasury.get(Spoil::Gold)
+    };
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::SongC,
+    });
+    app.settle_home();
+    assert_eq!(app.realm().home.song.as_deref(), Some("red"));
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - 90);
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::SongA,
+    });
+    app.settle_home();
+    assert_eq!(
+        app.realm().home.song.as_deref(),
+        Some("red"),
+        "one at a time"
+    );
+    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.settle_home();
+    assert_eq!(app.realm().home.song, None, "sung, the tab is clear");
+}
+
+#[test]
+fn beaumains_takes_a_wage_once_and_goes_down_with_the_party() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::hireling::WAGE;
+    use crate::drive::together_shooter::home::{Order, Station};
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    let gold = {
+        let realm = app.realm();
+        realm.treasury.add(Spoil::Gold, 200);
+        realm.home.hire = None;
+        realm.treasury.get(Spoil::Gold)
+    };
+    let hire = Order {
+        knight: 1,
+        station: Station::Hire,
+    };
+    app.dungeon.shooter.as_mut().unwrap().orders.push(hire);
+    app.settle_home();
+    assert_eq!(app.realm().home.hire.as_deref(), Some("beaumains"));
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - WAGE);
+    assert!(
+        app.dungeon.notice.contains("Beaumains"),
+        "{}",
+        app.dungeon.notice
+    );
+    // Hired once is hired: a second wage is refused.
+    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+        knight: 1,
+        station: Station::Hire,
+    });
+    app.settle_home();
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - WAGE);
+    // Down the stair he goes, and the realm's tab is clear.
+    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.settle_home();
+    assert_eq!(app.realm().home.hire, None);
+    assert!(run(&app).hireling.is_some());
 }

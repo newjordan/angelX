@@ -8,7 +8,12 @@
 //!
 //! ⡌ (dots 3-4-7) is this chapter's overflow shelf: the Treebeard compactor, a
 //! local seat that digests the bulk the lane parks under a handle, and the
-//! frame its digest rides under in the root's receipt.
+//! frame its digest rides under in the root's receipt (or, when it lands after
+//! that receipt was sent, under its handle at the tail). The same seat reads a
+//! foreground call the harness handed to the background after it ran past its
+//! limit, and that read rides the hand-off receipt the same way. The loop
+//! watchdog's seat shelves here too: it reads a wedged iteration's facts and
+//! names how to free the harness, never how to do the loop's task.
 
 use super::{Primary, Route, Sub};
 
@@ -27,6 +32,12 @@ pub(crate) const TEXT_ONLY: Route = Route::new(CELL, '⠚');
 pub(crate) const SHELF_CELL: char = '⡌';
 pub(crate) const COMPACTOR: Route = Route::new(SHELF_CELL, '⠁');
 pub(crate) const COMPACTOR_DIGEST: Route = Route::new(SHELF_CELL, '⠃');
+pub(crate) const COMPACTOR_LATE: Route = Route::new(SHELF_CELL, '⠉');
+pub(crate) const HANDOFF: Route = Route::new(SHELF_CELL, '⠙');
+pub(crate) const OVERSEER: Route = Route::new(SHELF_CELL, '⠑');
+pub(crate) const OVERSEER_READ: Route = Route::new(SHELF_CELL, '⠋');
+pub(crate) const WATCHDOG: Route = Route::new(SHELF_CELL, '⠛');
+pub(crate) const WATCHDOG_STOP: Route = Route::new(SHELF_CELL, '⠓');
 
 pub(crate) const PRIMARY: Primary = Primary {
     cell: CELL,
@@ -194,6 +205,66 @@ pub(crate) const SHELF: Primary = Primary {
             action: "",
             ideas: "",
             pages: &["read the exact bytes with handle_read when the digest is not enough"],
+        },
+        Sub {
+            route: COMPACTOR_LATE,
+            name: "compactor-late",
+            signal: "the local compactor's digest of an earlier parked output, named by the handle beside the route",
+            action: "",
+            ideas: "",
+            pages: &["read the exact bytes with handle_read when the digest is not enough"],
+        },
+        Sub {
+            route: HANDOFF,
+            name: "handoff",
+            signal: "a foreground call ran past its limit and now runs as the background job named above; nothing was stopped",
+            action: "",
+            ideas: "",
+            pages: &["The job keeps running; its output so far and its process tree are above."],
+        },
+        Sub {
+            route: OVERSEER,
+            name: "overseer",
+            signal: "read the handed-off job below for the root (its facts beside the route)",
+            action: "",
+            ideas: "",
+            pages: &[
+                "A foreground tool call ran past its limit and was moved to the background, still running.",
+                "From its command, process tree, CPU, state and output, say what it is doing and whether it looks like progress or a stall.",
+                "Terse bullet points, no preamble.",
+            ],
+        },
+        Sub {
+            route: OVERSEER_READ,
+            name: "overseer-read",
+            signal: "the local compactor's read of a handed-off job: the receipt above, or the job named beside the route",
+            action: "",
+            ideas: "",
+            pages: &["check the job with proc_status before relying on this read"],
+        },
+        Sub {
+            route: WATCHDOG,
+            name: "watchdog",
+            signal: "a loop iteration has made no harness progress for a long time; say whether the harness is wedged and how to free it (its facts below the route)",
+            action: "",
+            ideas: "",
+            pages: &[
+                "You are the loop watchdog: your only job is to keep the harness moving, not to judge or advance the loop's task.",
+                "The facts below say what the iteration is blocked on: the tool call in flight, its process activity, and how long since the model last streamed.",
+                "Choose wait when the blocked work is visibly advancing (fresh output, a delegate still making calls), handoff to move a running process to the background so the turn continues, stop_call when the call itself is hung, or restart_turn when the turn is stuck outside any call.",
+                "Earlier watchdog actions in this stretch are listed; when one already failed to free the turn, escalate.",
+                "Answer with one short reason line, then a last line of exactly `verdict: wait`, `verdict: handoff`, `verdict: stop_call` or `verdict: restart_turn`.",
+            ],
+        },
+        Sub {
+            route: WATCHDOG_STOP,
+            name: "watchdog-stop",
+            signal: "the loop watchdog saw no harness progress on this call for a long time and stopped it; the turn continues",
+            action: "",
+            ideas: "",
+            pages: &[
+                "For long work, start it with proc_run and check it with proc_status instead of holding the turn on it.",
+            ],
         },
     ],
 };

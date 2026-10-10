@@ -1,5 +1,6 @@
 """Offline failure receipts for the benchmark's loopback provider proxy."""
 
+import errno
 import importlib.util
 import json
 import os
@@ -65,17 +66,27 @@ class ProxyTests(unittest.TestCase):
         self.fail(f"proxy did not retain {count} receipt(s)")
 
     def test_refused_upstream_retains_post_and_probe_failures(self):
-        # Holding a bound, non-listening port prevents another test from
-        # acquiring it while still producing a real refused connection.
+        # Reserve the upstream address so another test cannot acquire it.
+        # Inject refusal at connect, independently of OS refusal backoff.
         refused = socket.socket()
         self.addCleanup(refused.close)
         refused.bind(("127.0.0.1", 0))
         self.proxy.UPSTREAM = f"http://127.0.0.1:{refused.getsockname()[1]}/v1"
-        for request in (self.request(), self.url.replace("chat/completions", "models")):
-            with self.assertRaises(urllib.error.HTTPError) as failure:
-                urllib.request.urlopen(request, timeout=2)
-            self.assertEqual(failure.exception.code, 502)
-            failure.exception.close()
+        refused_address = ("127.0.0.1", refused.getsockname()[1])
+        create_connection = socket.create_connection
+
+        def refuse_reserved_upstream(address, *args, **kwargs):
+            if address == refused_address:
+                raise ConnectionRefusedError(errno.ECONNREFUSED, "Connection refused")
+            return create_connection(address, *args, **kwargs)
+
+        # The client-to-proxy socket, handler, and receipt writer stay live.
+        with mock.patch("socket.create_connection", side_effect=refuse_reserved_upstream):
+            for request in (self.request(), self.url.replace("chat/completions", "models")):
+                with self.assertRaises(urllib.error.HTTPError) as failure:
+                    urllib.request.urlopen(request, timeout=2)
+                self.assertEqual(failure.exception.code, 502)
+                failure.exception.close()
         post = self.receipts()[0]
         self.assertEqual(post["body"], {"model": "fixture", "messages": []})
         self.assertIsNone(post["status"])

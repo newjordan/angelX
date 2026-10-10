@@ -165,10 +165,12 @@ fn semantic_read_ranks_relevant_chunks_and_sends_auth() {
     assert!(frame.text().contains("untrusted workspace evidence"));
     server.join().unwrap();
 
-    let outside = root.parent().unwrap().join("outside.rs");
+    // Named after this root: the temp directory is shared with other suites.
+    let name = format!("{}-outside.rs", root.file_name().unwrap().to_string_lossy());
+    let outside = root.parent().unwrap().join(&name);
     std::fs::write(&outside, "secret").unwrap();
     let error = tool
-        .call(&serde_json::json!({"query":"secret", "paths":["../outside.rs"]}))
+        .call(&serde_json::json!({"query":"secret", "paths":[format!("../{name}")]}))
         .unwrap_err();
     assert!(
         error.contains("escapes workspace") || error.contains("outside"),

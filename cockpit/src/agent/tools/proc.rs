@@ -38,7 +38,7 @@ struct ProcEntry {
     pid: u32,
     log: PathBuf,
     started: Instant,
-    child: Child,
+    child: JobChild,
     /// Captured exit description once reaped ("exit 0", "signal-killed").
     exit: Option<String>,
     exit_code: Option<i32>,
@@ -57,6 +57,61 @@ struct ProcEntry {
     /// observes completion; not removed merely because a model asked status.
     receipt: Option<PathBuf>,
     confinement: String,
+}
+
+/// How a job's process is owned: spawned by `proc_run`, or handed over by a
+/// foreground shell call that ran past its limit, whose waiter thread still
+/// owns the child and reports its exit here ([`hand_off`]).
+enum JobChild {
+    Spawned(Child),
+    HandedOff {
+        exit: std::sync::mpsc::Receiver<std::io::Result<std::process::ExitStatus>>,
+        status: Option<std::process::ExitStatus>,
+    },
+}
+
+impl JobChild {
+    fn try_wait(&mut self) -> std::io::Result<Option<std::process::ExitStatus>> {
+        match self {
+            Self::Spawned(child) => child.try_wait(),
+            Self::HandedOff { exit, status } => {
+                if status.is_none() {
+                    match exit.try_recv() {
+                        Ok(result) => *status = Some(result?),
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {}
+                        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                            return Err(std::io::Error::other("hand-off waiter is gone"));
+                        }
+                    }
+                }
+                Ok(*status)
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn kill(&mut self) -> std::io::Result<()> {
+        match self {
+            Self::Spawned(child) => child.kill(),
+            Self::HandedOff { .. } => Ok(()),
+        }
+    }
+
+    fn wait(&mut self) -> std::io::Result<std::process::ExitStatus> {
+        match self {
+            Self::Spawned(child) => child.wait(),
+            Self::HandedOff { exit, status } => {
+                if let Some(status) = status {
+                    return Ok(*status);
+                }
+                let result = exit
+                    .recv()
+                    .map_err(|_| std::io::Error::other("hand-off waiter is gone"))??;
+                *status = Some(result);
+                Ok(result)
+            }
+        }
+    }
 }
 
 struct SubmissionContext {
@@ -1447,7 +1502,7 @@ impl Tool for ProcRunTool {
                 pid,
                 log: log.clone(),
                 started: Instant::now(),
-                child,
+                child: JobChild::Spawned(child),
                 exit: None,
                 exit_code: None,
                 completion_reported: false,
@@ -1485,6 +1540,95 @@ impl Tool for ProcRunTool {
             + &stamped.map_or(String::new(), |s| format!("\n{}", s.notice))
             + &monitor_note)
     }
+}
+
+/// A foreground call handed to the job table.
+pub(crate) struct HandOff {
+    pub(crate) id: u64,
+    pub(crate) log: PathBuf,
+    /// Appends the call's further output to the job's log.
+    pub(crate) sink: Arc<dyn Fn(&[u8]) + Send + Sync>,
+}
+
+/// File a still-running foreground shell call as a background job, so the
+/// usual `proc_status`/`proc_wait`/`proc_stop` and the completion receipt
+/// (`⠏⠃`/`⠏⠉`) apply to it. `exit` is the call's waiter channel (the waiter
+/// keeps the child and reaps it); `already` is the output so far, written
+/// first to the log. On failure the channel comes back so the call can keep
+/// waiting as before. Nothing is signalled here.
+pub(crate) fn hand_off(
+    workspace: &Path,
+    command: &str,
+    pid: u32,
+    exit: std::sync::mpsc::Receiver<std::io::Result<std::process::ExitStatus>>,
+    owner: usize,
+    already: &[u8],
+) -> Result<
+    HandOff,
+    (
+        String,
+        std::sync::mpsc::Receiver<std::io::Result<std::process::ExitStatus>>,
+    ),
+> {
+    let identity = crate::platform::workspace_store::repo_identity(workspace);
+    let name = sanitize_name(command.split_whitespace().next().unwrap_or("shell"));
+    let id = match next_id(None) {
+        Ok(id) => id,
+        Err(error) => return Err((error, exit)),
+    };
+    let log = proc_dir()
+        .join(&identity.key)
+        .join(format!("{id}-{name}.log"));
+    let mut writer = match RotatingLog::new(log.clone(), proc_log_max_bytes()) {
+        Ok(writer) => writer,
+        Err(error) => return Err((error, exit)),
+    };
+    let log_warning = Arc::new(Mutex::new(None));
+    if let Err(error) = writer.append(already) {
+        record_log_warning(&log_warning, format!("log write failed: {error}"));
+    }
+    let writer = Arc::new(Mutex::new(writer));
+    let receipt = receipts_enabled()
+        .then(|| write_receipt(id, pid, &name, command, &log, &identity).ok())
+        .flatten();
+    table().lock().unwrap().insert(
+        id,
+        ProcEntry {
+            owner,
+            cancelled: false,
+            kill: None,
+            project_root: identity.root,
+            project_key: identity.key,
+            name,
+            command: command.to_string(),
+            pid,
+            log: log.clone(),
+            started: Instant::now(),
+            child: JobChild::HandedOff { exit, status: None },
+            exit: None,
+            exit_code: None,
+            completion_reported: false,
+            submit_context: None,
+            log_pumps: Vec::new(),
+            pending_completion: None,
+            notification_workspace: std::fs::canonicalize(workspace)
+                .unwrap_or_else(|_| workspace.to_path_buf()),
+            log_warning: Arc::clone(&log_warning),
+            receipt,
+            confinement: proc_confinement_label(),
+        },
+    );
+    let _ = ensure_completion_reaper();
+    let sink: Arc<dyn Fn(&[u8]) + Send + Sync> =
+        Arc::new(move |bytes: &[u8]| match writer.lock() {
+            Ok(mut writer) => {
+                if let Err(error) = writer.append(bytes) {
+                    record_log_warning(&log_warning, format!("log write failed: {error}"));
+                }
+            }
+            Err(_) => record_log_warning(&log_warning, "log writer lock was poisoned".into()),
+        });
+    Ok(HandOff { id, log, sink })
 }
 
 // ---------------------------------------------------------------------------

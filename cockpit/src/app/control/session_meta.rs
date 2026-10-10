@@ -845,7 +845,12 @@ impl App {
     pub(crate) fn fork_session(&mut self) -> String {
         let mut forked = session::Session::new();
         forked.bind(self.tools.current_workspace());
-        let _ = forked.save(&self.history);
+        if let Err(error) = forked.save(&self.history) {
+            return format!(
+                "/fork: save failed; continuing in session {}: {error}",
+                self.session.id
+            );
+        }
         let id = forked.id.clone();
         self.session = forked;
         format!("forked → session {id} (original left intact; now writing to the fork)")
@@ -1324,6 +1329,10 @@ impl App {
                 let store = self.tools.memory_store();
                 if !store.is_live() {
                     return "long-term memory is not configured (set ANGEL_MEMPALACE_CMD)"
+                        .to_string();
+                }
+                if self.bg_job.is_some() {
+                    return "a background task is already running — try again in a moment"
                         .to_string();
                 }
                 let (tx, job) =

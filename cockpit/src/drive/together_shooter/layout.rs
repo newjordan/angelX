@@ -1,5 +1,7 @@
 //! Dungeon generation: every floor is a fresh Zelda-1 dungeon of flip-screen
-//! rooms, grown by a random walk from the entrance. The farthest room holds
+//! rooms. The first two floors retain their approach passages; below those,
+//! a bounded labyrinth frontier grows gallery, warren and karst variants.
+//! The farthest room holds
 //! the stairs (or, on the last floor, the lair), a dead end holds the
 //! treasure, and every other room is a fight.
 //!
@@ -9,7 +11,7 @@
 //! quadrant of a room's interior, mirrored into all four, so rooms are fair
 //! from every door.
 
-use super::{EnemyKind, FLOORS, Rng};
+use super::{DEEPEST, EnemyKind, FLOORS, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -57,17 +59,57 @@ pub(crate) enum RoomKind {
     /// and pits. Its one doorway is low in its west wall, whichever way
     /// the room it hangs off lies.
     Ledge,
+    /// The Undercroft: the company's home, where the Winding Stair begins.
+    Home,
+    /// Dame Fortune's hall beside it, where the wheel picks the delve.
+    Fortune,
+    /// The bottom of the Unknown: the Shoggoth's threshold, and the Grail.
+    Threshold,
+    /// The Training Yard north of the Undercroft: quintains, and a stall.
+    Yard,
+    /// The Trophy Hall south of the Undercroft: what the realm has slain.
+    Trophies,
+    /// The Pit, a dead end on the floors below the first: the Pit Tyrant's.
+    Pit,
+    /// A vault behind a cracked wall, off no map until a bomb finds it.
+    Secret,
+    /// Maud's tavern, the Siege Perilous, dug out west of the Trophy Hall.
+    Tavern,
+    /// Loop miners' stores and furnished workshops in the connected home wing.
+    Stockpile,
+    Workshop,
+    Quarters,
+}
+
+impl RoomKind {
+    /// Shared labels for the connected loop wing in both Delve views.
+    pub(crate) fn settlement_label(self) -> &'static str {
+        match self {
+            Self::Home => "PLAYER HALL",
+            Self::Stockpile => "STOCKPILE",
+            Self::Workshop => "WORKSHOP",
+            Self::Quarters => "QUARTERS",
+            _ => "EXCAVATION",
+        }
+    }
 }
 
 /// North, east, south, west.
 pub(crate) const DIRS: [(i32, i32); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Pack {
+    #[default]
     Crypt,
     Cavern,
     Hellforge,
+    /// Floor four, below Dragon Keep: a library the water got into.
+    Archive,
+    /// Floor five: a forest of mushrooms grown in the dark.
+    Fungal,
+    /// Floor six: the Unknown, where the Shoggoth waits.
+    Unknown,
 }
 
 impl Pack {
@@ -76,27 +118,124 @@ impl Pack {
             Pack::Crypt => "The Crypt",
             Pack::Cavern => "The Mines",
             Pack::Hellforge => "Dragon Keep",
+            Pack::Archive => "The Drowned Archive",
+            Pack::Fungal => "The Fungal Deep",
+            Pack::Unknown => "The Unknown",
         }
     }
 
-    pub(crate) fn roster(self) -> &'static [(EnemyKind, u32)] {
+    /// The pack of floor `depth` of a delve whose first floor is `first`:
+    /// the Crypt and the Mines, Dragon Keep, then the deep.
+    pub(crate) fn at(depth: u32, first: Pack) -> Pack {
+        let other = if first == Pack::Crypt {
+            Pack::Cavern
+        } else {
+            Pack::Crypt
+        };
+        match depth {
+            0 | 1 => first,
+            2 => other,
+            3 => Pack::Hellforge,
+            4 => Pack::Archive,
+            5 => Pack::Fungal,
+            _ => Pack::Unknown,
+        }
+    }
+
+    /// The old delve a deep one shares its materials and music with.
+    pub(crate) fn kin(self) -> Pack {
         match self {
-            Pack::Crypt => &[
-                (EnemyKind::Skeleton, 4),
-                (EnemyKind::Wraith, 3),
-                (EnemyKind::Bat, 2),
+            Pack::Archive => Pack::Crypt,
+            Pack::Fungal => Pack::Cavern,
+            Pack::Unknown => Pack::Hellforge,
+            pack => pack,
+        }
+    }
+
+    /// Who lives on a floor of this pack. The second company comes in by
+    /// depth: the first floor meets only its gentlest, so it can teach.
+    pub(crate) fn roster_at(self, depth: u32) -> &'static [(EnemyKind, u32)] {
+        use EnemyKind::*;
+        match (self, depth) {
+            (Pack::Crypt, 0 | 1) => &[(Skeleton, 4), (Wraith, 3), (Bat, 2), (Slime, 1)],
+            (Pack::Crypt, _) => &[
+                (Skeleton, 4),
+                (Wraith, 3),
+                (Bat, 2),
+                (Slime, 2),
+                (Necromancer, 1),
+                (Hexer, 1),
             ],
-            Pack::Cavern => &[
-                (EnemyKind::Bat, 4),
-                (EnemyKind::Imp, 3),
-                (EnemyKind::Skeleton, 2),
+            (Pack::Cavern, 0 | 1) => &[(Bat, 4), (Imp, 3), (Skeleton, 2), (Sapper, 1)],
+            (Pack::Cavern, _) => &[
+                (Bat, 3),
+                (Imp, 2),
+                (Skeleton, 2),
+                (Sapper, 2),
+                (Hob, 2),
+                (Warboar, 1),
             ],
-            Pack::Hellforge => &[
-                (EnemyKind::Imp, 4),
-                (EnemyKind::Demon, 2),
-                (EnemyKind::Wraith, 2),
+            (Pack::Hellforge, _) => &[
+                (Imp, 3),
+                (Demon, 2),
+                (Wraith, 2),
+                (Warboar, 2),
+                (Shaman, 1),
+                (Hob, 1),
+            ],
+            // The Archive's stacks have spiders in them.
+            (Pack::Archive, _) => &[
+                (Wraith, 3),
+                (Skeleton, 2),
+                (Slime, 2),
+                (Bat, 2),
+                (Sapper, 1),
+                (Necromancer, 1),
+                (Silkmother, 1),
+                (Lich, 1),
+            ],
+            (Pack::Fungal, _) => &[
+                (Slime, 3),
+                (Bat, 3),
+                (Hob, 1),
+                (Warboar, 2),
+                (Imp, 1),
+                (Shaman, 1),
+                (Silkmother, 1),
+                (Flesher, 1),
+                (Hexer, 1),
+            ],
+            // The Unknown: echoes of everything met on the way down.
+            (Pack::Unknown, _) => &[
+                (Wraith, 2),
+                (Imp, 2),
+                (Demon, 2),
+                (Slime, 2),
+                (Warboar, 1),
+                (Necromancer, 1),
+                (Shaman, 1),
+                (Flesher, 1),
+                (Hexer, 1),
+                (Lich, 1),
+                (Hollow, 1),
             ],
         }
+    }
+
+    /// How many dangerous kinds a room holds at once: two, three in the
+    /// deep.
+    pub(crate) fn dangers_at(depth: u32) -> usize {
+        if depth > FLOORS { 3 } else { 2 }
+    }
+
+    /// What a room or a wave brings instead of a second of a dangerous
+    /// kind: the floor's first plain monster.
+    pub(crate) fn plain_at(self, depth: u32) -> EnemyKind {
+        self.roster_at(depth)
+            .iter()
+            .map(|&(kind, _)| kind)
+            .find(|kind| !kind.elite())
+            .unwrap_or(EnemyKind::Bat)
     }
 
     fn templates(self) -> &'static [Template] {
@@ -104,13 +243,16 @@ impl Pack {
             Pack::Crypt => &[PILLARS, TOMBS, COLONNADE, CROSS, POOLS],
             Pack::Cavern => &[EMPTY, PILLARS, POOLS, CROSS, COLONNADE],
             Pack::Hellforge => &[LAVA_RIVER, PILLARS, POOLS, CROSS, TOMBS],
+            Pack::Archive => &[STACKS, COLONNADE, POOLS, STACKS, CROSS],
+            Pack::Fungal => &[EMPTY, POOLS, PILLARS, LAVA_RIVER, COLONNADE],
+            Pack::Unknown => &[EMPTY, PILLARS, CROSS, POOLS, LAVA_RIVER],
         }
     }
 
     /// Caverns grow loose boulders on top of their template.
     fn scatter(self) -> usize {
         match self {
-            Pack::Cavern => 4,
+            Pack::Cavern | Pack::Fungal => 4,
             _ => 0,
         }
     }
@@ -178,6 +320,15 @@ const LAVA_RIVER: Template = [
     "...........",
     "...........",
 ];
+/// The Archive's rows of shelves, with gaps to slip between.
+const STACKS: Template = [
+    "...........",
+    ".####.####.",
+    "...........",
+    ".####.####.",
+    "...........",
+    "...........",
+];
 const SHRINE: Template = [
     "...........",
     "...........",
@@ -224,6 +375,24 @@ pub(crate) struct Room {
 }
 
 impl Room {
+    /// Undug room-sized rock for a connected home extension. Excavation uses
+    /// the ordinary map setters and doors, just like playable floors.
+    pub(crate) fn solid_rock(cell: (i32, i32)) -> Self {
+        Self {
+            cell,
+            kind: RoomKind::Hall,
+            doors: [false; 4],
+            cols: COLS,
+            rows: ROWS,
+            tiles: vec![Tile::Wall; COLS * ROWS],
+            visited: true,
+            cleared: true,
+            roster: Vec::new(),
+            items: Vec::new(),
+            chest: None,
+        }
+    }
+
     /// What the room is built of, for a drawing kept between frames.
     pub(crate) fn fingerprint(&self) -> u64 {
         use std::hash::{Hash, Hasher};
@@ -269,12 +438,17 @@ impl Room {
         self.tiles[row as usize * self.cols + col as usize]
     }
 
-    fn set(&mut self, col: usize, row: usize, tile: Tile) {
+    pub(crate) fn set(&mut self, col: usize, row: usize, tile: Tile) {
         self.tiles[row * self.cols + col] = tile;
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_for_test(&mut self, col: usize, row: usize, tile: Tile) {
+        self.set(col, row, tile);
+    }
+
     /// Open a doorway in side `dir`, where the floor's grid had none.
-    fn open_door(&mut self, dir: usize) {
+    pub(crate) fn open_door(&mut self, dir: usize) {
         self.doors[dir] = true;
         let (cols, rows) = (self.cols, self.rows);
         let lane: [(usize, usize); 2] = match dir {
@@ -285,6 +459,14 @@ impl Room {
         };
         for (col, row) in lane {
             self.set(col, row, Tile::Door);
+        }
+    }
+
+    /// Stairs down in the middle of the room (a slain dragon's lair).
+    pub(crate) fn open_stairs(&mut self) {
+        let (c, r) = (self.cols / 2 - 1, self.rows / 2 - 1);
+        for (dc, dr) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+            self.set(c + dc, r + 2 + dr, Tile::Stairs);
         }
     }
 
@@ -342,9 +524,138 @@ pub(crate) struct Floor {
     pub(crate) depth: u32,
     pub(crate) pack: Pack,
     pub(crate) rooms: Vec<Room>,
+    /// The floor's secret room, if it has one.
+    #[serde(default)]
+    pub(crate) secret: Option<Secret>,
+}
+
+/// A vault hung off a fight room behind a cracked wall: the room that hides
+/// it and the side its crack is on, the vault's own index, and whether the
+/// wall has been blown.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Secret {
+    pub(crate) host: usize,
+    pub(crate) side: usize,
+    pub(crate) vault: usize,
+    pub(crate) found: bool,
+    /// Some vaults keep Snibbet instead of a chest: a retired loot goblin
+    /// who pays the party to forget him, once.
+    #[serde(default)]
+    pub(crate) snibbet: bool,
+    #[serde(default)]
+    pub(crate) paid: bool,
 }
 
 impl Floor {
+    /// A secret is one declared vault adjacent to a fight-room wall. Check both
+    /// endpoints and dimensions before anyone can index/open its doorway.
+    pub(super) fn valid_secret(&self) -> bool {
+        let Some(secret) = self.secret else {
+            return !self.rooms.iter().any(|r| r.kind == RoomKind::Secret);
+        };
+        let Some(host) = self.rooms.get(secret.host) else {
+            return false;
+        };
+        let Some(vault) = self.rooms.get(secret.vault) else {
+            return false;
+        };
+        if secret.side >= 4
+            || secret.host == secret.vault
+            || !host.valid_snapshot()
+            || !vault.valid_snapshot()
+            || host.kind != RoomKind::Fight
+            || vault.kind != RoomKind::Secret
+            || self
+                .rooms
+                .iter()
+                .any(|r| !(-16..=16).contains(&r.cell.0) || !(-16..=16).contains(&r.cell.1))
+            || self
+                .rooms
+                .iter()
+                .filter(|r| r.kind == RoomKind::Secret)
+                .count()
+                != 1
+            || (secret.paid && (!secret.found || !secret.snibbet))
+        {
+            return false;
+        }
+        // The immutable vault flavor was chosen from pre-vault geography,
+        // not mutable found/paid/chest state. Recompute without cloning rooms.
+        let shape = self
+            .rooms
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != secret.vault)
+            .fold(u64::from(self.depth) ^ 0x5ec2e7, |h, (_, r)| {
+                h.wrapping_mul(37)
+                    .wrapping_add((r.cell.0 * 19 + r.cell.1) as u64)
+            });
+        if secret.snibbet != (super::mix(shape ^ 0x5a1bbe7).is_multiple_of(3)) {
+            return false;
+        }
+        let (dx, dy) = DIRS[secret.side];
+        host.cell.0.checked_add(dx).zip(host.cell.1.checked_add(dy)) == Some(vault.cell)
+            && host.doors[secret.side] == secret.found
+            && vault
+                .doors
+                .iter()
+                .enumerate()
+                .all(|(side, &open)| open == (side == (secret.side + 2) % 4))
+    }
+    /// Deltas can advance discovery/payment, never substitute a wall's identity.
+    /// Validate stored state too: a previously poisoned view must not be opened.
+    pub(super) fn permits_secret(&self, next: Option<Secret>) -> bool {
+        if !self.valid_secret() {
+            return false;
+        }
+        match (self.secret, next) {
+            (None, None) => true,
+            (Some(mine), Some(theirs)) => {
+                mine.host == theirs.host
+                    && mine.side == theirs.side
+                    && mine.vault == theirs.vault
+                    && mine.snibbet == theirs.snibbet
+                    && (!mine.found || theirs.found)
+                    && (!mine.paid || theirs.paid)
+                    && (!theirs.paid || (theirs.found && theirs.snibbet))
+            }
+            _ => false,
+        }
+    }
+
+    /// The crack, while it stands: its room, and the middle of the doorway
+    /// it hides (arena units).
+    pub(crate) fn crack(&self) -> Option<(usize, f32, f32)> {
+        if !self.valid_secret() {
+            return None;
+        }
+        let secret = self.secret.filter(|s| !s.found)?;
+        let room = &self.rooms[secret.host];
+        let (w, h) = (room.width(), room.height());
+        let (x, y) = match secret.side {
+            0 => (w / 2.0, TILE_UNITS / 2.0),
+            1 => (w - TILE_UNITS / 2.0, h / 2.0),
+            2 => (w / 2.0, h - TILE_UNITS / 2.0),
+            _ => (TILE_UNITS / 2.0, h / 2.0),
+        };
+        Some((secret.host, x, y))
+    }
+
+    /// Blow the cracked wall: its doorway opens on the vault. False if
+    /// there was nothing to blow.
+    pub(crate) fn open_secret(&mut self) -> bool {
+        if !self.valid_secret() {
+            return false;
+        }
+        let Some(secret) = self.secret.as_mut().filter(|s| !s.found) else {
+            return false;
+        };
+        secret.found = true;
+        let (host, side) = (secret.host, secret.side);
+        self.rooms[host].open_door(side);
+        true
+    }
+
     /// The room through door `dir` of room `from`: none where that side
     /// has no doorway (a side-on hall may sit beside rooms it never opens
     /// into).
@@ -361,16 +672,17 @@ impl Floor {
 /// Lay out floor `depth` of the given pack.
 pub(crate) fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
     // Chambers, and the passages that join them.
-    let want = 5 + depth as usize + 3;
-    let mut cells = vec![(GRID / 2, GRID / 2)];
-    while cells.len() < want {
-        let (x, y) = cells[rng.below(cells.len())];
-        let (dx, dy) = DIRS[rng.below(4)];
-        let next = (x + dx, y + dy);
-        if (0..GRID).contains(&next.0) && (0..GRID).contains(&next.1) && !cells.contains(&next) {
-            cells.push(next);
-        }
-    }
+    let want = 8usize.saturating_add(depth as usize);
+    let cells = if depth >= 3 {
+        crate::drive::labyrinth::routing::tunnel_cells(
+            crate::drive::labyrinth::routing::TunnelVariant::for_depth(depth),
+            rng.next(),
+            GRID,
+            want,
+        )
+    } else {
+        approach_cells(want, rng)
+    };
     let links = |&(x, y): &(i32, i32)| DIRS.map(|(dx, dy)| cells.contains(&(x + dx, y + dy)));
     // Breadth-first distance from the entrance picks the far rooms.
     let mut dist = vec![usize::MAX; cells.len()];
@@ -409,7 +721,9 @@ pub(crate) fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
             } else if i == 0 {
                 RoomKind::Start
             } else if i == far {
-                if depth >= FLOORS {
+                if depth >= DEEPEST {
+                    RoomKind::Threshold
+                } else if depth == FLOORS {
                     RoomKind::Lair
                 } else {
                     RoomKind::Stairs
@@ -424,11 +738,182 @@ pub(crate) fn floor(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
             room(*cell, kind, links(cell), depth, pack, rng)
         })
         .collect();
-    let mut floor = Floor { depth, pack, rooms };
+    let mut floor = Floor {
+        depth,
+        pack,
+        rooms,
+        secret: None,
+    };
     if depth == 1 {
         add_ledge(&mut floor, &dist, far, treasure, &halls);
+    } else if depth < DEEPEST {
+        add_pit(&mut floor, &dist, far, treasure, &halls);
+    }
+    if depth < DEEPEST {
+        add_secret(&mut floor, &dist, far, treasure, &halls);
     }
     floor
+}
+
+/// Keep the approach floors' established seed stream for room furnishings and
+/// encounters. A finite rejection budget falls back to connected expansion.
+fn approach_cells(requested: usize, rng: &mut Rng) -> Vec<(i32, i32)> {
+    let want = requested.min((GRID * GRID) as usize);
+    let mut cells = vec![(GRID / 2, GRID / 2)];
+    for _ in 0..4096 {
+        if cells.len() >= want {
+            return cells;
+        }
+        let (x, y) = cells[rng.below(cells.len())];
+        let (dx, dy) = DIRS[rng.below(4)];
+        let next = (x + dx, y + dy);
+        if (0..GRID).contains(&next.0) && (0..GRID).contains(&next.1) && !cells.contains(&next) {
+            cells.push(next);
+        }
+    }
+    for _ in cells.len()..want {
+        let next = cells.iter().find_map(|&(x, y)| {
+            DIRS.into_iter().map(|(dx, dy)| (x + dx, y + dy)).find(|next| {
+                (0..GRID).contains(&next.0)
+                    && (0..GRID).contains(&next.1)
+                    && !cells.contains(next)
+            })
+        });
+        let Some(next) = next else { break };
+        cells.push(next);
+    }
+    cells
+}
+
+/// Now and then, a vault behind a cracked wall: hung off a fight room the
+/// way the Pit is, but the wall is left standing for a bomb to find. Like
+/// the Pit, whether a floor has one is down to the floor's shape.
+fn add_secret(
+    floor: &mut Floor,
+    dist: &[usize],
+    far: usize,
+    treasure: Option<usize>,
+    halls: &[usize],
+) {
+    let shape = secret_shape(floor);
+    if super::mix(shape) % 100 >= SECRET_CHANCE {
+        return;
+    }
+    // The nearest fight rooms first: a secret is for passing by.
+    let mut hosts: Vec<usize> = (1..floor.rooms.len())
+        .filter(|&i| i != far && Some(i) != treasure && !halls.contains(&i))
+        .filter(|&i| floor.rooms[i].kind == RoomKind::Fight)
+        .collect();
+    hosts.sort_by_key(|&i| (dist.get(i).copied().unwrap_or(usize::MAX), i));
+    hang_vault(floor, &hosts, shape);
+}
+
+/// Hollow Walls: a vault on this floor, whatever its shape says (none on
+/// the Unknown's last, nor where no fight room has a free side).
+pub(crate) fn force_secret(floor: &mut Floor) {
+    if floor.secret.is_some() || floor.depth >= DEEPEST {
+        return;
+    }
+    let shape = secret_shape(floor);
+    let hosts: Vec<usize> = (1..floor.rooms.len())
+        .filter(|&i| floor.rooms[i].kind == RoomKind::Fight)
+        .collect();
+    hang_vault(floor, &hosts, shape);
+}
+
+/// What decides a floor's vault: its shape, not its dice.
+fn secret_shape(floor: &Floor) -> u64 {
+    floor
+        .rooms
+        .iter()
+        .fold(u64::from(floor.depth) ^ 0x5ec2e7, |h, r| {
+            h.wrapping_mul(37)
+                .wrapping_add((r.cell.0 * 19 + r.cell.1) as u64)
+        })
+}
+
+/// Hang a vault behind a wall of the first of `hosts` with a free side the
+/// room can open without cutting itself off.
+fn hang_vault(floor: &mut Floor, hosts: &[usize], shape: u64) {
+    let taken = |c: (i32, i32)| floor.rooms.iter().any(|r| r.cell == c);
+    let near = |v: i32| (-1..=GRID).contains(&v);
+    for &i in hosts {
+        let (x, y) = floor.rooms[i].cell;
+        for (side, (dx, dy)) in DIRS.into_iter().enumerate() {
+            let cell = (x + dx, y + dy);
+            if floor.rooms[i].doors[side] || !near(cell.0) || !near(cell.1) || taken(cell) {
+                continue;
+            }
+            let mut opened = floor.rooms[i].clone();
+            opened.open_door(side);
+            if !connected(&opened) {
+                continue;
+            }
+            let snibbet = super::mix(shape ^ 0x5a1bbe7).is_multiple_of(3);
+            floor.rooms.push(vault(cell, (side + 2) % 4, snibbet));
+            floor.secret = Some(Secret {
+                host: i,
+                side,
+                vault: floor.rooms.len() - 1,
+                found: false,
+                snibbet,
+                paid: false,
+            });
+            return;
+        }
+    }
+}
+
+/// The chance in a hundred that a floor hides a vault.
+const SECRET_CHANCE: u64 = 45;
+
+/// The vault at `cell`, its one doorway on `door`: a small treasure room,
+/// pillars at its corners, and a chest in its middle with gold heaped round
+/// it, or (`snibbet`) only Snibbet, sitting on his sack.
+fn vault(cell: (i32, i32), door: usize, snibbet: bool) -> Room {
+    let mut room = Room {
+        cell,
+        kind: RoomKind::Secret,
+        doors: [false; 4],
+        cols: COLS,
+        rows: ROWS,
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        visited: false,
+        cleared: true,
+        roster: Vec::new(),
+        items: Vec::new(),
+        chest: None,
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                room.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    for (col, row) in [(4, 3), (COLS - 5, 3), (4, ROWS - 4), (COLS - 5, ROWS - 4)] {
+        room.set(col, row, Tile::Block);
+    }
+    room.open_door(door);
+    if snibbet {
+        return room;
+    }
+    let (cx, cy) = (room.width() / 2.0, room.height() / 2.0);
+    room.chest = Some(Chest {
+        x: cx,
+        y: cy,
+        open: false,
+    });
+    for k in 0..8 {
+        let a = k as f32 / 8.0 * std::f32::consts::TAU;
+        room.items.push(super::Item {
+            card: "gold".into(),
+            x: cx + a.cos() * 6.0,
+            y: cy + a.sin() * 4.0,
+            held_off: None,
+        });
+    }
+    room
 }
 
 /// The side-on hall: hung off the deepest fight room that has a free cell
@@ -441,6 +926,40 @@ fn add_ledge(
     far: usize,
     treasure: Option<usize>,
     halls: &[usize],
+) {
+    hang(floor, dist, far, treasure, halls, ledge);
+}
+
+/// The Pit: on floors two to five, about half of them,
+/// a dead end hung off a fight room as the ledge is, the Pit Tyrant asleep in
+/// it. Whether a floor has one is down to the floor's own shape, not its
+/// dice.
+fn add_pit(
+    floor: &mut Floor,
+    dist: &[usize],
+    far: usize,
+    treasure: Option<usize>,
+    halls: &[usize],
+) {
+    let shape = floor.rooms.iter().fold(u64::from(floor.depth), |h, r| {
+        h.wrapping_mul(31)
+            .wrapping_add((r.cell.0 * 17 + r.cell.1) as u64)
+    });
+    if super::mix(shape).is_multiple_of(2) {
+        hang(floor, dist, far, treasure, halls, pit);
+    }
+}
+
+/// Hang a room off the deepest fight room with a free cell beside it,
+/// touching nothing else if it can: a dead end off the path. `build` makes
+/// the room at a cell, its one doorway on the given side.
+fn hang(
+    floor: &mut Floor,
+    dist: &[usize],
+    far: usize,
+    treasure: Option<usize>,
+    halls: &[usize],
+    build: fn((i32, i32), usize) -> Room,
 ) {
     let taken = |c: (i32, i32)| floor.rooms.iter().any(|r| r.cell == c);
     let mut parents: Vec<usize> = (1..floor.rooms.len())
@@ -477,7 +996,7 @@ fn add_ledge(
             continue;
         }
         floor.rooms[i] = parent;
-        floor.rooms.push(ledge(cell, (d + 2) % 4));
+        floor.rooms.push(build(cell, (d + 2) % 4));
         return;
     }
 }
@@ -541,6 +1060,36 @@ fn ledge(cell: (i32, i32), door: usize) -> Room {
     room
 }
 
+/// The Pit at `cell`, its one doorway on `door`: a plain chamber, bones
+/// piled at its four corners, the Pit Tyrant in the middle.
+fn pit(cell: (i32, i32), door: usize) -> Room {
+    let mut room = Room {
+        cell,
+        kind: RoomKind::Pit,
+        doors: [false; 4],
+        cols: COLS,
+        rows: ROWS,
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        visited: false,
+        cleared: false,
+        roster: vec![EnemyKind::PitTyrant],
+        items: Vec::new(),
+        chest: None,
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                room.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    for (col, row) in [(3, 2), (COLS - 4, 2), (3, ROWS - 3), (COLS - 4, ROWS - 3)] {
+        room.set(col, row, Tile::Block);
+    }
+    room.open_door(door);
+    room
+}
+
 fn room(
     cell: (i32, i32),
     kind: RoomKind,
@@ -550,7 +1099,21 @@ fn room(
     rng: &mut Rng,
 ) -> Room {
     let template = match kind {
-        RoomKind::Start | RoomKind::Hall | RoomKind::Sanctuary | RoomKind::Ledge => EMPTY,
+        RoomKind::Start
+        | RoomKind::Hall
+        | RoomKind::Sanctuary
+        | RoomKind::Ledge
+        | RoomKind::Home
+        | RoomKind::Fortune
+        | RoomKind::Yard
+        | RoomKind::Trophies
+        | RoomKind::Pit
+        | RoomKind::Secret
+        | RoomKind::Tavern
+        | RoomKind::Stockpile
+        | RoomKind::Workshop
+        | RoomKind::Quarters => EMPTY,
+        RoomKind::Threshold => EMPTY,
         RoomKind::Treasure => SHRINE,
         RoomKind::Lair => LAIR,
         RoomKind::Fight | RoomKind::Stairs => {
@@ -562,6 +1125,7 @@ fn room(
     let (cols, rows) = match kind {
         RoomKind::Stairs => (36, 20),
         RoomKind::Lair => (40, 24),
+        RoomKind::Threshold => (MAX_COLS, MAX_ROWS),
         RoomKind::Fight if depth >= 2 && rng.chance(12) => (MAX_COLS, MAX_ROWS),
         RoomKind::Fight if rng.chance(30) => (32, 20),
         _ => (COLS, ROWS),
@@ -651,6 +1215,18 @@ fn room(
                 }
             }
         }
+        RoomKind::Threshold => {
+            // The Shoggoth fills the north of its hall: stone to feet and
+            // shots alike, but for a doorway's lane.
+            for row in 1..=3 {
+                for col in 1..cols - 1 {
+                    let lane = doors[0] && (col == cols / 2 - 1 || col == cols / 2);
+                    if !lane {
+                        room.set(col, row, Tile::Block);
+                    }
+                }
+            }
+        }
         RoomKind::Treasure => {
             room.chest = Some(Chest {
                 x: room.width() / 2.0,
@@ -660,20 +1236,335 @@ fn room(
         }
         _ => {}
     }
-    let foes = (2 + depth as usize + rng.below(2)).min(6);
+    // The deep brings worse company, not more of it: Dragon Keep's numbers.
+    let foes = (2 + depth.min(FLOORS) as usize + rng.below(2)).min(6);
     room.roster = match kind {
         RoomKind::Start => vec![EnemyKind::Skeleton, EnemyKind::Skeleton],
-        RoomKind::Treasure | RoomKind::Sanctuary | RoomKind::Ledge => Vec::new(),
+        RoomKind::Treasure
+        | RoomKind::Sanctuary
+        | RoomKind::Ledge
+        | RoomKind::Home
+        | RoomKind::Fortune
+        | RoomKind::Yard
+        | RoomKind::Trophies
+        | RoomKind::Secret
+        | RoomKind::Tavern
+        | RoomKind::Stockpile
+        | RoomKind::Workshop
+        | RoomKind::Quarters => Vec::new(),
+        RoomKind::Pit => vec![EnemyKind::PitTyrant],
         // A passage may hold a straggler or two that fly.
         RoomKind::Hall => (0..rng.below(3)).map(|_| EnemyKind::Bat).collect(),
         RoomKind::Lair => vec![EnemyKind::Dragon, EnemyKind::Imp, EnemyKind::Imp],
+        RoomKind::Threshold => vec![EnemyKind::Wraith, EnemyKind::Wraith, EnemyKind::Slime],
         // A great hall holds a bigger company.
         RoomKind::Fight => (0..foes + (cols * rows) / (COLS * ROWS * 2))
-            .map(|_| rng.pick(pack.roster()))
+            .map(|_| rng.pick(pack.roster_at(depth)))
             .collect(),
-        RoomKind::Stairs => (0..foes + 1).map(|_| rng.pick(pack.roster())).collect(),
+        RoomKind::Stairs => (0..foes + 1)
+            .map(|_| rng.pick(pack.roster_at(depth)))
+            .collect(),
     };
+    // One of each dangerous kind a room, and only so many kinds.
+    let plain = pack.plain_at(depth);
+    let mut seen: Vec<EnemyKind> = Vec::new();
+    for kind in &mut room.roster {
+        if kind.elite() {
+            if seen.contains(kind) || seen.len() >= Pack::dangers_at(depth) {
+                *kind = plain;
+            } else {
+                seen.push(*kind);
+            }
+        }
+    }
     room
+}
+
+/// The Undercroft: one screen of cellar, the Winding Stair in its middle
+/// behind a parapet open to the south, the stations' furniture along its
+/// walls. Depth 0: the stair below it goes to the first floor of `pack`.
+pub(crate) fn undercroft(pack: Pack) -> Floor {
+    use super::home::{BOUNTY_BOARD, SPOTS, STAIR_MOUTH, STAIRWELL};
+    let mut room = Room {
+        cell: (GRID / 2, GRID / 2),
+        kind: RoomKind::Home,
+        doors: [false; 4],
+        cols: COLS,
+        rows: ROWS,
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        visited: true,
+        cleared: true,
+        roster: Vec::new(),
+        items: Vec::new(),
+        chest: None,
+    };
+    let fill = |room: &mut Room, (col, row, w, h): (i32, i32, i32, i32), tile: Tile| {
+        for r in row..row + h {
+            for c in col..col + w {
+                room.set(c as usize, r as usize, tile);
+            }
+        }
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                room.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    for spot in &SPOTS {
+        fill(&mut room, spot.furniture, Tile::Block);
+    }
+    fill(&mut room, BOUNTY_BOARD, Tile::Block);
+    fill(&mut room, STAIRWELL, Tile::Block);
+    let (c, r, w, h) = STAIRWELL;
+    fill(&mut room, (c + 1, r + 1, w - 2, h - 2), Tile::Stairs);
+    fill(&mut room, STAIR_MOUTH, Tile::Floor);
+    room.open_door(1);
+    room.open_door(0);
+    room.open_door(2);
+    // Dame Fortune's hall, east through the door: the wheel on its stand
+    // against the north wall, the audience's benches across the south.
+    let mut hall = Room {
+        cell: (GRID / 2 + 1, GRID / 2),
+        kind: RoomKind::Fortune,
+        doors: [false; 4],
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        ..room.clone()
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                hall.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    fill(&mut hall, super::fortune::WHEEL_STAND, Tile::Block);
+    fill(&mut hall, super::fortune::COFFER, Tile::Block);
+    for bench in super::fortune::BENCHES {
+        fill(&mut hall, bench, Tile::Block);
+    }
+    hall.open_door(3);
+    // The Training Yard, north through the door: quintains, and the stall
+    // a goblin will one day keep.
+    let mut yard = Room {
+        cell: (GRID / 2, GRID / 2 - 1),
+        kind: RoomKind::Yard,
+        doors: [false; 4],
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        ..hall.clone()
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                yard.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    fill(&mut yard, super::yard::STALL, Tile::Block);
+    yard.open_door(2);
+    // The Trophy Hall, south down the runner: plinths along its walls, the
+    // dragon's in the middle, the Grail's dais at the far end.
+    let mut trophies = Room {
+        cell: (GRID / 2, GRID / 2 + 1),
+        kind: RoomKind::Trophies,
+        doors: [false; 4],
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        ..yard.clone()
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                trophies.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    for plinth in &super::trophies::PLINTHS {
+        fill(&mut trophies, plinth.at, Tile::Block);
+    }
+    trophies.open_door(0);
+    Floor {
+        depth: 0,
+        pack,
+        rooms: vec![room, hall, yard, trophies],
+        secret: None,
+    }
+}
+
+/// Tobbin's crew digs out the west wing: the Trophy Hall's west wall
+/// opens on Maud's tavern, the Siege Perilous. False if there is no Trophy
+/// Hall here, or the tavern is already dug.
+pub(crate) fn dig_tavern(floor: &mut Floor) -> bool {
+    use super::tavern::{BAR, BOARD, STAGE, TABLES};
+    if floor.depth != 0 || floor.rooms.iter().any(|r| r.kind == RoomKind::Tavern) {
+        return false;
+    }
+    let Some(hall) = floor
+        .rooms
+        .iter()
+        .position(|r| r.kind == RoomKind::Trophies)
+    else {
+        return false;
+    };
+    floor.rooms[hall].open_door(3);
+    let (x, y) = floor.rooms[hall].cell;
+    let mut room = Room {
+        cell: (x - 1, y),
+        kind: RoomKind::Tavern,
+        doors: [false; 4],
+        cols: COLS,
+        rows: ROWS,
+        tiles: vec![Tile::Floor; COLS * ROWS],
+        visited: true,
+        cleared: true,
+        roster: Vec::new(),
+        items: Vec::new(),
+        chest: None,
+    };
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == ROWS - 1 || col == COLS - 1 {
+                room.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    let mut fill = |(col, row, w, h): (i32, i32, i32, i32)| {
+        for r in row..row + h {
+            for c in col..col + w {
+                room.set(c as usize, r as usize, Tile::Block);
+            }
+        }
+    };
+    fill(BAR);
+    fill(BOARD);
+    fill(STAGE);
+    for table in TABLES {
+        fill(table);
+    }
+    room.open_door(1);
+    floor.rooms.push(room);
+    true
+}
+
+/// Floor `depth` as the wheel's mode lays it out: a horde's great hall, a
+/// gauntlet of guardians, or the delve as it always was.
+pub(crate) fn floor_for(
+    mode: super::fortune::Mode,
+    depth: u32,
+    pack: Pack,
+    rng: &mut Rng,
+) -> Floor {
+    use super::fortune::Mode;
+    match mode {
+        Mode::HoldTheStair => horde(depth, pack, rng),
+        Mode::Gauntlet => gauntlet(depth, pack, rng),
+        Mode::HollowWalls => {
+            let mut hollow = floor(depth, pack, rng);
+            force_secret(&mut hollow);
+            hollow
+        }
+        _ => floor(depth, pack, rng),
+    }
+}
+
+/// Hold the Stair: a landing, and north of it one great hall with the
+/// stairs in its middle (the lair, on the last floor). The hall's waves
+/// are the floor.
+fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
+    let mid = GRID / 2;
+    let first = if depth >= 2 {
+        RoomKind::Sanctuary
+    } else {
+        RoomKind::Start
+    };
+    let mut start = room(
+        (mid, mid + 1),
+        first,
+        [true, false, false, false],
+        depth,
+        pack,
+        rng,
+    );
+    start.roster.clear();
+    start.cleared = true;
+    let hall = if depth >= FLOORS {
+        room(
+            (mid, mid),
+            RoomKind::Lair,
+            [false, false, true, false],
+            depth,
+            pack,
+            rng,
+        )
+    } else {
+        // The guardian's great hall, its stairs in the middle, held as a
+        // fight: the horde comes in waves, the guardian stays below.
+        let mut hall = room(
+            (mid, mid),
+            RoomKind::Stairs,
+            [false, false, true, false],
+            depth,
+            pack,
+            rng,
+        );
+        hall.kind = RoomKind::Fight;
+        hall.roster.truncate(3);
+        hall
+    };
+    Floor {
+        depth,
+        pack,
+        rooms: vec![start, hall],
+        secret: None,
+    }
+}
+
+/// Gauntlet of Guardians: the entrance, one passage, then the guardian's
+/// stairs (the dragon's lair on the last floor), straight north.
+fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
+    let mid = GRID / 2;
+    let first = if depth >= 2 {
+        RoomKind::Sanctuary
+    } else {
+        RoomKind::Start
+    };
+    let end = if depth >= FLOORS {
+        RoomKind::Lair
+    } else {
+        RoomKind::Stairs
+    };
+    let mut start = room(
+        (mid, mid + 1),
+        first,
+        [true, false, false, false],
+        depth,
+        pack,
+        rng,
+    );
+    start.roster.clear();
+    start.cleared = true;
+    let hall = room(
+        (mid, mid),
+        RoomKind::Hall,
+        [true, false, true, false],
+        depth,
+        pack,
+        rng,
+    );
+    let guardian = room(
+        (mid, mid - 1),
+        end,
+        [false, false, true, false],
+        depth,
+        pack,
+        rng,
+    );
+    Floor {
+        depth,
+        pack,
+        rooms: vec![start, hall, guardian],
+        secret: None,
+    }
 }
 
 /// Every doorway and the centre reachable on foot.

@@ -77,6 +77,7 @@ the refusal is not a successful check.
 | `/relentless [on\|off\|status]` | Enable execution nudges for stalled turns. |
 | `/research [keep\|table\|smithy\|observatory\|library]` | Navigate the research workspace. |
 | `/observatory [campaign <id>\|open <report-id>]` | Inspect campaign/report evidence. |
+| `/labyrinth [init\|status\|check\|frontier\|plan\|route <from> <to> [established]]` | Start or read the workspace's research map of questions, evidence, proofs and refutations. [Guide](LABYRINTH.md). |
 | `/science [query]`, `/repos [query]` | Start literature or GitHub repository searches. |
 | `/learn [topic]`, `/library [topic]`, `/tutor [topic]` | Open the Librarium or start a lesson. |
 | `/ask [question]`, `/practice` | Ask the tutor or revisit recall prompts. |
@@ -96,6 +97,12 @@ slash commands. See [environment settings](../cockpit/docs/ENV.md).
 | `/modules`, `/close <module>`, `/layout save\|load <name>` | Inspect modules or save/restore pane layout. |
 | `/world [ride\|enter\|leave\|weather\|zoom]`, `/world help` | Navigate the overworld map, Dotmax scenery and room views. |
 | `/world visit school`, `/world visit school-study`, `/world visit school-vault` | Visit the School of Magic, its study, or its underground evidence archive. |
+| `/dungeon [start]` | Walk to the Delve's gate (`start` skips the walk). F4 expands the game; Esc returns to the composer. [The Delve](DELVE.md). |
+| `/dungeon_host --N [--view]`, `/dungeon join <link>`, `/dungeon leave` | Host up to three friends, join a friend's Delve from your own angelX, or go home. `--view` lets an invitation open a read-only view of the floor in a browser. |
+| `/dungeon settlement`, `/dungeon deposit <name>`, `/dungeon inspect` | Visit the hall your loops built, place a worker's research report there as an exhibit, or read the one beside you. [Release notes](RELEASE_0.2.0.md#loops-leave-a-settlement). |
+| `/world visit stables`, `/world visit tournament` | Focus the shared 3D stable/list district; `/world enter` opens its staged interior. |
+| `/dungeon stable [enter\|status\|select Bramble\|Cinder\|Mist\|tend\|leave]` | Select and prepare a named mount in host-local practice. |
+| `/dungeon tournament [enter\|status\|start\|round <1..3> guard\|aim\|charge\|leave]` | Play three deterministic passes for an actual practice result; no rewards, distinct from `/tourney`. [Controls](RELEASE_0.2.0.md#the-stables-and-the-lists). |
 | `/world follow` | Return from an explicit visit to the working knight; active quests use the 3D adventure view. |
 | `/raytrace`, `/cube` | Display the debug cube. |
 | `/tourney calibrate <scene>` | Display a calibration animation; it does not indicate a won run. |

@@ -442,30 +442,11 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
     // A running quest leaves the town map for the actual region mesh. A
     // deliberate /world visit (including the school) keeps its chosen place.
     if app.world.live_adventure_view() {
-        let (width, height) = world_sample_size(app, area);
-        let yaw = if app.scryglass.follow_agent {
-            app.world_yaw_offset
-        } else {
-            app.scryglass.look_yaw + app.world_yaw_offset
-        };
-        if let Some(Some(world)) =
-            maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldMap, || {
-                app.world.scryglass_frame_with_motion(
-                    width,
-                    height,
-                    app.scenery_relaxed(),
-                    yaw,
-                    app.scryglass.look_pitch,
-                    app.scryglass.fov,
-                    app.visual_motion,
-                )
-            })
-        {
-            paint_world_frame(frame, app, area, &world);
-        }
+        render_live_adventure(frame, app, area);
         return;
     }
     if !render_dotmax_interior(frame, app, area)
+        && app.world.chivalry_visit.is_none()
         && crate::stage::world_viz::overworld::map_enabled()
     {
         render_overworld(frame, app, area);
@@ -493,6 +474,67 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
         }
     }
     render_hammertime_mascot(frame, app, area);
+}
+
+/// A running quest's picture: the region it's out in, walked as the Delve's
+/// crawl (with two lines under its picture for what the party is doing) or
+/// as the older expedition.
+fn render_live_adventure(frame: &mut Frame, app: &mut App, area: Rect) {
+    let crawl = crate::stage::world_viz::crawl::enabled() && area.height >= 10;
+    let (area, log) = if crawl {
+        (
+            Rect {
+                height: area.height - 2,
+                ..area
+            },
+            Some(Rect {
+                y: area.bottom() - 2,
+                height: 2,
+                ..area
+            }),
+        )
+    } else {
+        (area, None)
+    };
+    let (width, height) = world_sample_size(app, area);
+    let yaw = if app.scryglass.follow_agent {
+        app.world_yaw_offset
+    } else {
+        app.scryglass.look_yaw + app.world_yaw_offset
+    };
+    if let Some(Some(world)) =
+        maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldMap, || {
+            app.world.scryglass_frame_with_motion(
+                width,
+                height,
+                app.scenery_relaxed(),
+                yaw,
+                app.scryglass.look_pitch,
+                app.scryglass.fov,
+                app.visual_motion,
+            )
+        })
+    {
+        paint_world_frame(frame, app, area, &world);
+    }
+    if let Some(log) = log {
+        let said = app.world.crawl_log(app.visual_motion);
+        let back = Style::default().bg(ratatui::style::Color::Rgb(5, 8, 12));
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from(Span::styled(
+                    format!(" {}", said[0]),
+                    Style::default().fg(ratatui::style::Color::Rgb(196, 178, 140)),
+                )),
+                Line::from(Span::styled(
+                    format!(" {}", said[1]),
+                    Style::default().fg(ratatui::style::Color::Rgb(122, 124, 114)),
+                )),
+            ])
+            .style(back),
+            log,
+        );
+    }
 }
 
 /// The Realm route's base layer: the pixel overworld. The camera's scale is
@@ -912,6 +954,40 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             crate::ui::viz::lifecycle_viz::MotionMode::Reduced => elapsed * 0.28,
             crate::ui::viz::lifecycle_viz::MotionMode::Off => 0.0,
         };
+        // Out in a region, the loop is the Delve's crawl, with the loop's
+        // numbers kept under it.
+        if app.world.loop_crawl_on() {
+            let hud = crate::ui::viz::loop_viz::hud_with_flight(
+                &app.loop_ctl,
+                &app.submission_slot,
+                &app.comp_fleet,
+                trench_time,
+                app.submission_slot_since
+                    .map(|since| since.elapsed().as_secs_f32()),
+                scene_area.width,
+                scene_area.height,
+            );
+            let rows = (hud.len() as u16).min(scene_area.height);
+            let picture = Rect {
+                height: scene_area.height - rows,
+                ..scene_area
+            };
+            if picture.height > 0 {
+                render_live_adventure(frame, app, picture);
+            }
+            frame.render_widget(
+                Paragraph::new(hud),
+                Rect {
+                    y: picture.bottom(),
+                    height: rows,
+                    ..scene_area
+                },
+            );
+            if let Some(footer_area) = footer_area {
+                render_panel_back(frame, app, footer_area);
+            }
+            return;
+        }
         let scene = crate::ui::viz::loop_viz::render_with_flight(
             &app.loop_ctl,
             &app.submission_slot,
@@ -1835,11 +1911,12 @@ fn render_scryglass(
         // Comp / lean: keep the route chrome, skip lesson wrap, catalog
         // listing, and still/video decode. World map/ride already share
         // maybe_paint_world_scene; this gate avoids entering those bodies.
-    } else if world_pane && app.together.enabled() && active_index.is_none() {
+    } else if world_pane && app.together.enabled() && active_index.is_none() && app.world.chivalry_visit.is_none() {
         app.viewer.clear_still();
         app.world_pane_visible = false;
         crate::ui::viz::together_viz::render(frame, &app.together, scene_rect);
     } else if world_pane
+        && app.world.chivalry_visit.is_none()
         && !app.world.inside_interior()
         && !app.world.quest_owns_pane()
         && app.world.latest_active_work().is_none()
@@ -2402,6 +2479,15 @@ fn render_scryglass(
                     ]
                 };
                 (Line::from(spans), controls)
+            } else if let Some(visit) = app.world.chivalry_visit {
+                let hint = if visit.inside {
+                    if visit.place == crate::drive::chivalry::Place::Stables {
+                        "/dungeon stable select|tend · arrows aisle"
+                    } else { "/dungeon tournament start|round|status · arrows aisle" }
+                } else { "Enter practice · /dungeon stable|tournament" };
+                let controls = if visit.inside { vec![("Leave", WorldButton::ScryglassLeave), ("Back", WorldButton::Back)] }
+                    else { vec![("Enter", WorldButton::ScryglassEnter), ("Back", WorldButton::Back)] };
+                (Line::from(hint), controls)
             } else if app.world.inside_interior() {
                 let mut controls = Vec::new();
                 if app.world.interior_building()

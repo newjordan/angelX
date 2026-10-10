@@ -50,7 +50,12 @@ fn panicking_teacher_releases_lease_and_recovers_scheduler_state() {
         true,
         || {
             Some(ClerkRoute {
-                route_id: RouteId::chat("teacher", "panicking-teacher", None),
+                route_id: RouteId::chat(
+                    "teacher",
+                    "panicking-teacher",
+                    "panicking-teacher",
+                    None,
+                ),
                 model_revision: ModelRevision::chat("panicking-teacher"),
                 resource_group: "teacher-test".to_string(),
                 club: Arc::new(PanickingTeacher),

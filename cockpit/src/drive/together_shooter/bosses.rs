@@ -39,6 +39,10 @@ pub(crate) enum Pattern {
     Ring,
     /// Rotating arms that fire constantly.
     Spiral,
+    /// Tentacles burst up through the floor in
+    /// widening rings round the boss, one lane left clear (`shots` rings,
+    /// `arc` the lane's width, `speed` how fast they spread). No shots.
+    Ravage,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,7 +57,7 @@ pub(crate) enum Bolt {
 pub(crate) struct Attack {
     pub(crate) pattern: Pattern,
     pub(crate) shots: u32,
-    /// Fan width in degrees (fan only).
+    /// Fan width in degrees (fan), or a ravage's clear lane.
     pub(crate) arc: f32,
     pub(crate) speed: f32,
     /// Ticks between volleys (30 ticks = one second).
@@ -64,6 +68,10 @@ pub(crate) struct Attack {
 
 impl Attack {
     fn per_second(&self) -> f32 {
+        if self.pattern == Pattern::Ravage {
+            // Tentacles, not shots: the budget is for what flies.
+            return 0.0;
+        }
         self.shots as f32 * 30.0 / self.every.max(1) as f32
     }
 }
@@ -158,7 +166,11 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected
             "where" => match rest.to_ascii_lowercase().as_str() {
                 "crypt" | "the crypt" => only_in = Some(Pack::Crypt),
                 "mines" | "the mines" => only_in = Some(Pack::Cavern),
-                other => errors.push(format!("line {n}: where `{other}` — crypt or mines (Dragon Keep keeps its dragon)")),
+                "archive" | "the archive" | "the drowned archive" => only_in = Some(Pack::Archive),
+                "fungal" | "the fungal deep" | "fungal deep" => only_in = Some(Pack::Fungal),
+                "hellforge" | "dragon keep" => only_in = Some(Pack::Hellforge),
+                "unknown" | "the unknown" => only_in = Some(Pack::Unknown),
+                other => errors.push(format!("line {n}: where `{other}` — crypt, mines, archive, fungal, hellforge or unknown")),
             },
             "hp" => match number(rest) {
                 Some(v) => {
@@ -199,8 +211,9 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected
                     Some("fan") => Pattern::Fan,
                     Some("ring") => Pattern::Ring,
                     Some("spiral") => Pattern::Spiral,
+                    Some("ravage") => Pattern::Ravage,
                     other => {
-                        errors.push(format!("line {n}: attack `{}` — aimed, fan, ring or spiral", other.unwrap_or("")));
+                        errors.push(format!("line {n}: attack `{}` — aimed, fan, ring, spiral or ravage", other.unwrap_or("")));
                         continue;
                     }
                 };
@@ -218,12 +231,18 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected
                     Pattern::Fan => ((3.0, 9.0, 5.0), (30.0, 150.0, 60.0)),
                     Pattern::Ring => ((6.0, 20.0, 12.0), (45.0, 240.0, 120.0)),
                     Pattern::Spiral => ((2.0, 4.0, 3.0), (6.0, 30.0, 10.0)),
+                    Pattern::Ravage => ((3.0, 6.0, 4.0), (150.0, 360.0, 240.0)),
+                };
+                let arc = if pattern == Pattern::Ravage {
+                    (30.0, 90.0, 50.0)
+                } else {
+                    (10.0, 120.0, 40.0)
                 };
                 let what = format!("attack {}", words[0]);
                 attacks.push(Attack {
                     pattern,
                     shots: arg(&kv, "shots", shots, &what, &mut notes) as u32,
-                    arc: arg(&kv, "arc", (10.0, 120.0, 40.0), &what, &mut notes),
+                    arc: arg(&kv, "arc", arc, &what, &mut notes),
                     speed: arg(&kv, "speed", (3.0, 10.0, 6.0), &what, &mut notes),
                     every: arg(&kv, "every", every, &what, &mut notes) as u32,
                     damage: arg(&kv, "damage", (8.0, 20.0, 14.0), &what, &mut notes) as u32,
@@ -253,7 +272,7 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected
         errors.push("the boss needs a `name`".into());
     }
     let Some(only_in) = only_in else {
-        errors.push("the boss needs `where crypt` or `where mines`".into());
+        errors.push("the boss needs `where`: crypt, mines, archive, fungal, hellforge or unknown".into());
         return Err(Rejected { errors });
     };
     if attacks.is_empty() {
@@ -313,6 +332,26 @@ pub(crate) const BUILTIN: &[(&str, &str)] = &[
     (
         "cinderjaw",
         include_str!("../../../assets/dungeon/bosses/cinderjaw.boss"),
+    ),
+    (
+        "the-index",
+        include_str!("../../../assets/dungeon/bosses/the-index.boss"),
+    ),
+    (
+        "mother-of-spores",
+        include_str!("../../../assets/dungeon/bosses/mother-of-spores.boss"),
+    ),
+    (
+        "the-bone-choir",
+        include_str!("../../../assets/dungeon/bosses/the-bone-choir.boss"),
+    ),
+    (
+        "the-foreman",
+        include_str!("../../../assets/dungeon/bosses/the-foreman.boss"),
+    ),
+    (
+        "late-fee-leviathan",
+        include_str!("../../../assets/dungeon/bosses/late-fee-leviathan.boss"),
     ),
 ];
 
@@ -379,7 +418,7 @@ pub(crate) fn rules() -> String {
 name   <up to 28 chars>\n\
 text   <one line of lore, up to 80 chars>\n\
 by     <who made it>\n\
-where  crypt | mines\n\
+where  crypt | mines | archive | fungal | hellforge | unknown\n\
 hp     300–900 (for one knight; it grows with the party)\n\
 size   0.8–2.0 (hit radius in arena units; a knight is 0.42, the room is 48 by 28)\n\
 move   chase | drift | hover | anchor  speed=0–5\n\
@@ -388,6 +427,7 @@ attack <pattern> shots=N speed=3–10 every=T damage=8–20 shot=bone|orb|ember 
   fan    shots 3–9, arc=10–120 degrees, every 30–150 — centred on the nearest knight\n\
   ring   shots 6–20, every 45–240 — a full turning ring\n\
   spiral shots 2–4 (arms), every 6–30 — constant rotating streams\n\
+  ravage shots 3–6 (rings), arc=30–90 (the lane left clear), every 150–360 — tentacles burst up in widening rings round the boss, speed=how fast they spread; no shot\n\
 All attacks together may fire at most {BULLET_BUDGET} shots a second; faster designs are slowed.\n\
 rage   0–60% — below this share of health it attacks half again as often\n\
 drops  spoils, e.g. `bone 4, wax 2, gold 150` (gold ≤300, others ≤6 each; no scales or bonds)\n\

@@ -1,9 +1,14 @@
 import copy
 import importlib.util
+import math
 from pathlib import Path
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "cockpit/research/sloptomizer"))
+from orchestrator.micro_llm.core import SlowTokenModel
+
 spec = importlib.util.spec_from_file_location("slop_runner", ROOT / "cockpit/research/sloptomizer/runner.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
@@ -109,6 +114,25 @@ class LiveRelations(unittest.TestCase):
         row = result["advice"]["checks"][0]
         self.assertEqual((row["failed"], row["passed"]), ("red", "green"))
         self.assertEqual(result["advice"]["inconclusive_count"], 1)
+
+
+class SlowTokenBackoff(unittest.TestCase):
+    def test_unseen_prompt_transition_uses_unigram_but_seen_bigram_stays_authoritative(self):
+        model = SlowTokenModel(smoothing=0.5)
+        model.unigrams = {"common": 10.0, "rare": 1.0}
+
+        unseen_common = model.score("newcontext", "common")
+        unseen_rare = model.score("newcontext", "rare")
+        self.assertGreater(unseen_common, unseen_rare)
+        self.assertAlmostEqual(unseen_common, math.log(10.5 / 12.0))
+        self.assertAlmostEqual(unseen_rare, math.log(1.5 / 12.0))
+
+        model.bigrams["knowncontext"] = {"common": 1.0, "rare": 9.0}
+        seen_common = model.score("knowncontext", "common")
+        seen_rare = model.score("knowncontext", "rare")
+        self.assertLess(seen_common, seen_rare)
+        self.assertAlmostEqual(seen_common, math.log(1.5 / 11.0))
+        self.assertAlmostEqual(seen_rare, math.log(9.5 / 11.0))
 
 
 if __name__ == "__main__":

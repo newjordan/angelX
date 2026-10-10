@@ -106,6 +106,23 @@ fn overwatch_cmd_derives_from_launch_inputs_without_a_literal_home() {
 }
 
 #[test]
+fn bare_overwatch_command_is_found_on_path_without_a_cwd_relative_file() {
+    let _guard = crate::tests::env_lock();
+    let dir = std::env::temp_dir().join(format!("angel-overwatch-path-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let name = "angel-overwatch-path-fixture";
+    let executable = dir.join(name);
+    std::fs::write(&executable, b"fixture").unwrap();
+    let _path = crate::tests::TestEnvGuard::set("PATH", dir.to_str().unwrap());
+    let cmd = overwatch_cmd_from(Some(name.to_string()), None);
+    assert!(!Path::new(&cmd).exists());
+    assert!(overwatch_cmd_available(&cmd));
+    assert!(overwatch_cmd_available(executable.to_str().unwrap()));
+    assert!(!overwatch_cmd_available("angel-overwatch-missing-fixture"));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn gpu_polling_is_opt_in_for_fast_terminal_refresh() {
     let _guard = crate::tests::env_lock();
     // TODO: Audit that the environment access only happens in single-threaded code.

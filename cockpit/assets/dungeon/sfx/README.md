@@ -20,6 +20,7 @@ never stacks into noise, and only a few sounds play at once.
 | boss_rise / boss_fall | a guardian appears / falls |
 | descend | the party takes the stairs |
 | wall_up / mana_empty | a held wall rises / mana runs dry |
+| wheel_spin / wheel_land | Fortune's wheel clicks down to a stop / its bell rings the delve's mode |
 
 Music tracks: `crypt`, `mines`, `keep`, `boss`, `sanctuary`, `menu`.
 Sources and licences are in `../LICENSES.md`.

@@ -19,6 +19,7 @@ import {
   RELEASE_PATHS,
   REQUIRED_RELEASE_FILES,
   REQUIRED_COCKPIT_EMBEDDED_FILES,
+  REQUIRED_RUNTIME_HELPERS,
   ReleaseGateError,
   assertPublicReleaseEntries,
   assertDocumentedSourcePaths,
@@ -469,6 +470,22 @@ test('cockpit source identity binds every compile-time embedded asset', (t) => {
   assert.equal(cockpitSourceSha256(root, entries), baseline)
 })
 
+const NON_LITERAL_INCLUDE = /include_(?:str|bytes)!\s*\((?!\s*(?:concat!|"))/u
+
+test('embedded include admission accepts multiline literals and rejects dynamic paths', () => {
+  for (const source of [
+    'include_str!("asset.ink")',
+    'include_str!(\n    "asset.ink"\n)',
+    'include_bytes!(\n    "asset.png"\n)',
+    'include_str!(\n    concat!(env!("CARGO_MANIFEST_DIR"), "/asset.ink")\n)',
+  ]) {
+    assert.doesNotMatch(source, NON_LITERAL_INCLUDE)
+  }
+  for (const source of ['include_str!(path)', 'include_bytes!(\n    path\n)']) {
+    assert.match(source, NON_LITERAL_INCLUDE)
+  }
+})
+
 test('embedded allowlist equals every compile-time include target of the packaged crates', () => {
   const included = new Map()
   const crates = ['cockpit/src', 'tests/cockpit', 'vendor/dotmax/src', 'vendor/ureq/src']
@@ -508,7 +525,7 @@ test('embedded allowlist equals every compile-time include target of the package
     }
     assert.doesNotMatch(
       text,
-      /include_(?:str|bytes)!\s*\(\s*(?!concat!|")/u,
+      NON_LITERAL_INCLUDE,
       `${source} must use a literal include path so the release allowlist stays derivable`,
     )
   }
@@ -720,4 +737,9 @@ test('vendored dotmax keeps the unused imageproc branch out of the active graph'
   ]) {
     assert.doesNotMatch(tree, new RegExp(`^${packageName} v`, 'mu'))
   }
+})
+
+
+test('Darwin process lease bridge is declared as a packaged runtime helper', () => {
+  assert.ok(REQUIRED_RUNTIME_HELPERS.includes('scripts/runtime/process-start-token.py'))
 })

@@ -343,6 +343,62 @@ pub(crate) fn connect_https(unit: &Unit, hostname: &str) -> Result<Stream, Error
     Ok(Stream::new(https_stream, remote_addr, pool_returner))
 }
 
+/// Seconds a connection sits silent before the kernel asks the peer whether it
+/// still exists, the gap between asks, and the unanswered asks that end it:
+/// a vanished host fails the read about 90 s after its last byte.
+const PROBE_IDLE_SECS: CInt = 30;
+const PROBE_INTERVAL_SECS: CInt = 10;
+const PROBE_COUNT: CInt = 6;
+
+#[cfg(unix)]
+type CInt = libc::c_int;
+#[cfg(not(unix))]
+type CInt = i32;
+
+/// TCP keepalive on every connection. This is a question to the machine, not a
+/// clock on the model: a live server's kernel answers each probe while its
+/// model thinks for as long as it likes. Only a host that is gone (powered
+/// off, crashed, dropped off the network) leaves the probes unanswered, and
+/// without them a read on its socket blocks forever.
+#[cfg(unix)]
+#[allow(unsafe_code)]
+fn probe_dead_peer(stream: &TcpStream) {
+    use std::os::unix::io::AsRawFd;
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    const IDLE: CInt = libc::TCP_KEEPALIVE;
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    const IDLE: CInt = libc::TCP_KEEPIDLE;
+    let fd = stream.as_raw_fd();
+    let set = |level: CInt, name: CInt, value: CInt| {
+        // SAFETY: `fd` is a live socket owned by `stream`; the option value is
+        // a c_int on the stack with its exact size passed alongside it.
+        let rc = unsafe {
+            libc::setsockopt(
+                fd,
+                level,
+                name,
+                &value as *const CInt as *const libc::c_void,
+                std::mem::size_of::<CInt>() as libc::socklen_t,
+            )
+        };
+        if rc != 0 {
+            debug!(
+                "setsockopt({level}, {name}) failed: {}",
+                io::Error::last_os_error()
+            );
+        }
+    };
+    set(libc::SOL_SOCKET, libc::SO_KEEPALIVE, 1);
+    set(libc::IPPROTO_TCP, IDLE, PROBE_IDLE_SECS);
+    set(libc::IPPROTO_TCP, libc::TCP_KEEPINTVL, PROBE_INTERVAL_SECS);
+    set(libc::IPPROTO_TCP, libc::TCP_KEEPCNT, PROBE_COUNT);
+}
+
+#[cfg(not(unix))]
+fn probe_dead_peer(_stream: &TcpStream) {
+    let _ = (PROBE_IDLE_SECS, PROBE_INTERVAL_SECS, PROBE_COUNT);
+}
+
 /// If successful, returns a `TcpStream` and the remote address it is connected to.
 pub(crate) fn connect_host(
     unit: &Unit,
@@ -432,6 +488,7 @@ pub(crate) fn connect_host(
         handle.attach(&stream)?;
     }
     stream.set_nodelay(unit.agent.config.no_delay)?;
+    probe_dead_peer(&stream);
 
     if let Some(deadline) = unit.deadline {
         stream.set_read_timeout(Some(time_until_deadline(deadline)?))?;

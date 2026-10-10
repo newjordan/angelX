@@ -75,6 +75,14 @@ export function matchesAny(path, globs) {
 //   min_members    group has at least this many members
 export const DEFAULT_RULES = [
   {
+    id: 'labyrinth-complete-upstream-bundle',
+    reason:
+      'The complete pinned MIT upstream workflow is retained verbatim under cockpit/research/labyrinth/upstream/. Its dashboard/schema/license also have runtime and notice locations; UPSTREAM.json records every exact source hash.',
+    all_match: ['cockpit/research/labyrinth/**', 'third-party/labyrinth-exploration-LICENSE.txt'],
+    some_match: ['cockpit/research/labyrinth/upstream/**'],
+    min_members: 2,
+  },
+  {
     id: 'python-package-markers',
     reason:
       'Empty or one-line `__init__.py` package markers. Identical by Python convention, not by copy.',

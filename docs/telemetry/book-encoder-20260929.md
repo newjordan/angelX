@@ -1,6 +1,6 @@
 # The book as a routing encoder — lab notebook (2026-09-29)
 
-Branch `claude/dreamy-carson-7d17h8`. Every claim below names the run that
+Every claim below names the run that
 supports it; numbers without a run are labelled estimates.
 
 ## Goal

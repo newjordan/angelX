@@ -30,6 +30,21 @@ pub(crate) fn knight_in(colours: &[(char, char)]) -> Img {
 }
 
 /// A fallen knight: the helm on its side, the plume in the dust.
+/// A hexed knight: a frog in a tiny helmet, hopping.
+pub(super) fn frog(tick: u32) -> Img {
+    let hop = (tick / 6).is_multiple_of(2);
+    rows(&[
+        "....iHi.....",
+        ".ww.hKh.ww..",
+        "wKwlhhhlwKw.",
+        "lCCCCCCCCCl.",
+        "lCCCCCCCCCCl",
+        ".lCYYYYYYCl.",
+        if hop { "..lCYYYYCl.." } else { "llCYYYYYYCll" },
+        if hop { "..ll....ll.." } else { "l.lll..lll.l" },
+    ])
+}
+
 pub(super) fn fallen() -> Img {
     rows(&[
         "...77.......",
@@ -63,6 +78,91 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
     let flap = (tick / 4).is_multiple_of(2);
     match kind {
         EnemyKind::Mimic => mimic(tick),
+        EnemyKind::PitTyrant => {
+            let im = rows(&[
+                "TT.........................TT",
+                "TOT.......................TOT",
+                ".TOT.....................TOT.",
+                "..TOT.....XXXXXXXXX.....TOT..",
+                "...TTXXXXXjjjjjjjjjXXXXXTT...",
+                "....XjjjjjjGGGGGGGjjjjjjX....",
+                "...XjjGGGGGGjjjjjGGGGGGjjX...",
+                "..XjGGjj77jjjjjjjjj77jjGGjX..",
+                "..XjGjjj777jjjjjjj777jjjGjX..",
+                ".XjGjjjjjjjjjjjjjjjjjjjjjGjX.",
+                ".XjGjjjj@66666@66666@jjjjGjX.",
+                ".XjGjjjjj@@@@@@@@@@@jjjjjGjX.",
+                "XXjGGjjjjjjjjjjjjjjjjjjjGGjXX",
+                "XjjjGGGjjjjgjjjjjgjjjjGGGjjjX",
+                "XjGGjjGGGGGGGGGGGGGGGGGjjGGjX",
+                "XjGjjjjXXXXXXXXXXXXXXXjjjjGjX",
+                "HjGj.....XjjGGjGGjjX.....jGjH",
+                "HHj......XjGjjXjjGjX......jHH",
+                ".H.......XXHHXXXHHXX.......H.",
+            ]);
+            // Its breath flickers in its maw.
+            if flap {
+                im.recolor(&[('6', '@'), ('@', '6')])
+            } else {
+                im
+            }
+        }
+        EnemyKind::Flesher => rows(&[
+            "........llll........",
+            ".......lMMMAl.......",
+            ".......lM6A6l.......",
+            ".......lAkkAl.......",
+            ".....llmAAAAmll.....",
+            "..JhlMMAAAAAAMMl..WW",
+            ".J.lMAA9999AAAAMlWWh",
+            ".H.lMA99979999AAMWWh",
+            "HH.lMA99999979AAMBh.",
+            ".HlMAA97999999AAMl..",
+            "..lMA999999999AAml..",
+            "..lmA99999799AAAml..",
+            "...lmAA99999AAAml...",
+            "...lmAAbbbbbAAml....",
+            "....lmmAAAAAmml.....",
+            if flap {
+                ".....lmm...mml......"
+            } else {
+                "....lmm....lmm......"
+            },
+            if flap {
+                ".....ll.....ll......"
+            } else {
+                "....ll.....ll......."
+            },
+        ]),
+        EnemyKind::Silkmother => rows(&[
+            if flap {
+                "J....J.......J....J"
+            } else {
+                ".J...J.......J...J."
+            },
+            ".J....J.....J....J.",
+            "..J...JXXXXXJ...J..",
+            "...JJXjjjjjjjXJJ...",
+            "JJ..XjjjjjjjjjX..JJ",
+            "..JJXjjj777jjjXJJ..",
+            "....Xjjjj7jjjjX....",
+            "..JJXjjj777jjjXJJ..",
+            "JJ..XXjjjjjjjXX..JJ",
+            "...JJ.XXjjjXX.JJ...",
+            "..J..J.X666X.J..J..",
+            if flap {
+                ".J...J..XXX..J...J."
+            } else {
+                "J....J..XXX..J....J"
+            },
+        ]),
+        EnemyKind::Spiderling => rows(&[
+            if flap { "J..J.J..J" } else { ".J.J.J.J." },
+            ".J.XjX.J.",
+            "..JX6XJ..",
+            ".J.XXX.J.",
+            if flap { "J.......J" } else { ".J.....J." },
+        ]),
         EnemyKind::Bat if flap => rows(&[
             "r...........r",
             "Rr.........rR",
@@ -133,6 +233,204 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
             "..pp...pp..",
         ]),
         EnemyKind::Demon => demon(flap),
+        EnemyKind::Sapper => rows(&[
+            "...pRp.....",
+            "..pRRRp....",
+            "mMMMMMMm...",
+            ".MK7MK7M...",
+            "..MMMMM.bBb",
+            "..MyyyM.BIB",
+            ".mMMMMMmbBb",
+            "m.MMMMM.m..",
+            if flap { "..MM.MM...." } else { "..M..MM...." },
+            if flap { ".mM...Mm..." } else { ".mm...M...." },
+        ]),
+        EnemyKind::Necromancer => {
+            let flame = if (tick / 3).is_multiple_of(2) { '3' } else { '2' };
+            let mut im = rows(&[
+                "..2...XXX....",
+                ".232.XgggX...",
+                "..H.XggggX...",
+                ".HiHXK2K2X...",
+                "..b.XgggXX...",
+                "..b.XXgXXX...",
+                "..bXXjXXjXX..",
+                "..bXjXXXXjXX.",
+                "..bXXXjXXXXX.",
+                "..bXXjXXXjXX.",
+                "..bXXXXjXXXX.",
+                "..bXXjXXXjXX.",
+                "..bXjXXXXXjX.",
+                "..XXXXXXXXXXX",
+                ".XjXXXjXXjXXX",
+            ]);
+            im.put(2, 0, flame);
+            im
+        }
+        EnemyKind::Warboar => rows(&[
+            "......bbb.........",
+            "....bbBBBbb.......",
+            "..bbBBpppBBb......",
+            ".bBBppppppBBbb.HH.",
+            "bBpppppppppBB7BH..",
+            "bBpprppprpppBBBB..",
+            "bBpppppppppppBnnb.",
+            ".bBpppppppppBBnn..",
+            "..bBBppppBBBb.....",
+            if flap { "...bb.bb..bb.bb..." } else { "..bb..bb...bb.bb.." },
+            if flap { "...nb.nb..nb.nb..." } else { "..nb...nb.nb..nb." },
+        ]),
+        EnemyKind::Slime if flap => rows(&[
+            "....EEEE....",
+            "..EElllmEE..",
+            ".ElllYYlllE.",
+            "ElllYYllllmE",
+            "ElKllllKlllE",
+            "EllllllllllE",
+            "EmlllllllmmE",
+            ".EmmmmmmmmE.",
+            "..EEEEEEEE..",
+        ]),
+        EnemyKind::Slime => rows(&[
+            "............",
+            "...EEEEEE...",
+            ".EElllYYlmE.",
+            "ElllYYllllmE",
+            "ElKllllKlllE",
+            "EmlllllllmmE",
+            "EEmmmmmmmmEE",
+            ".EEEEEEEEEE.",
+            "............",
+        ]),
+        EnemyKind::Goblin => rows(&[
+            if flap { "......tTTt..." } else { ".......tTTt.." },
+            if flap { ".....tTTTTt.." } else { "......tTTTTt." },
+            "....tTO5OTTt.",
+            "mMMmtTTTTTTt.",
+            ".MK7tTTTOTTt.",
+            ".MMMMtTTTTt..",
+            "..yy.ottttO..",
+            ".mMMMm.......",
+            "m.MMM.m......",
+            if flap { "..M.M........" } else { "..MM..M......" },
+            if flap { ".mm.mm......." } else { ".m...mm......" },
+        ]),
+        EnemyKind::Hob => {
+            let spark = if (tick / 2).is_multiple_of(2) { '6' } else { '5' };
+            let mut im = rows(&[
+                "..NNN......6.",
+                ".NLLLN....65.",
+                "NLKLKLN...K..",
+                ".LLLLL...KKK.",
+                "..NLN...KKKKK",
+                ".NLLLNmLKKKK.",
+                "N.LLL.N.KKK..",
+                "..L.L........",
+                ".NN.NN.......",
+            ]);
+            im.put(11, 0, spark);
+            im
+        }
+        EnemyKind::Shaman => rows(&[
+            ".7.H...H.7...",
+            "..7HHHHH7....",
+            "...HKHKH.....",
+            "...HHHHH...O.",
+            "....hHh....b.",
+            "..rRRRRRr..b.",
+            ".rRRoRoRRr.b.",
+            "rRRRRRRRRRrb.",
+            ".rRRoRoRRr.b.",
+            "..rRRRRRr..b.",
+            "..rR...Rr..b.",
+            "..nn...nn....",
+        ]),
+        // The Lich: an ice-crowned skull, eyes lit teal, frost in both
+        // hands, a slate robe.
+        EnemyKind::Lich => rows(&[
+            "....W.W.W....",
+            "....WWWWW....",
+            "...VWWWWWV...",
+            if flap {
+                "...V3WWW3V..."
+            } else {
+                "...VwWWWwV..."
+            },
+            "...VWKKKWV...",
+            "....VWKWV....",
+            "..uuSVVVSuu..",
+            ".uuSSVWVSSuu.",
+            "3uSSSVWVSSSu3",
+            "wzSSSVWVSSSzw",
+            "3.uSSSVSSSu.3",
+            "...uSSSSSu...",
+            "..uuSSSSSuu..",
+            ".uuuSuuuSuuu.",
+        ]),
+        // The Hollow One: stones floating round a void, a cold light at
+        // its heart; its crown of stones turns with `flap`.
+        EnemyKind::Hollow => rows(&[
+            if flap {
+                ".......gjj......."
+            } else {
+                "........jjg......"
+            },
+            "......gJhJg......",
+            if flap {
+                ".jg...gjjjg...gj."
+            } else {
+                "..gj..gjjjg..jg.."
+            },
+            "gJhj.........jhJg",
+            ".jg....001....gj.",
+            "......01110......",
+            ".....0123210.....",
+            "..gg.0123210.gg..",
+            ".gJhg.01110.gJhg.",
+            "..gg...000...gg..",
+            "......gjjjg......",
+            ".....gJhhhJg.....",
+            "......gjjjg......",
+            "...gj.......jg...",
+            "..gJhj.....jhJg..",
+            "...gj.......jg...",
+        ]),
+        // The Hexer: a hooded witch, eyes lit in the hood's dark, her
+        // staff's frog-green orb flaring now and then.
+        EnemyKind::Hexer => {
+            let top = if (tick / 16).is_multiple_of(3) {
+                ["........YCY..", ".........CwC.", "...XXX..YCY.."]
+            } else {
+                ["..........C..", ".........CYC.", "...XXX....C.."]
+            };
+            rows(&[
+                top[0],
+                top[1],
+                top[2],
+                "..XeeeX...b..",
+                ".XekkkeX..b..",
+                ".XkYkYkX..b..",
+                "..XkkkX..Ob..",
+                ".EeeeeeEOOb..",
+                "EeeEeEeeE.b..",
+                ".EeeeeeeE.b..",
+                "..EeeeeE..b..",
+                "..nn..nn.....",
+            ])
+        }
+        EnemyKind::Ward => rows(&[
+            "..EE..",
+            if flap { ".E7E7." } else { ".E8E8." },
+            ".EEEE.",
+            "..lE..",
+            ".lEl..",
+            "..El..",
+            ".lEl..",
+            "..El..",
+            ".bbbb.",
+            "bBBBBb",
+        ]),
+        EnemyKind::Dummy => kit::quintain(true, tick / 3),
         EnemyKind::Dragon => kit::dragon((tick / 30) % 4 == 3, tick),
         // Bosses draw their own art (arena.rs); this is never reached.
         EnemyKind::Boss => Img::new(1, 1),
@@ -198,6 +496,79 @@ pub(super) fn tomb(v: u32) -> Img {
     im.line(8, 4, 8, 10, 'x');
     im.line(6, 6, 10, 6, 'x');
     im.line(2, 15, 13, 15, 'S');
+    im
+}
+
+/// A bookcase in the Drowned Archive: a timber frame, three shelves of
+/// spines in the realm's muted inks, each case shelved its own way.
+pub(super) fn shelf(v: u32) -> Img {
+    const SPINES: [char; 8] = ['r', 'B', 'q', 'E', 'o', 'p', 'R', 'u'];
+    let mut im = Img::new(16, 16);
+    im.rect(0, 0, 16, 15, 'b');
+    im.line(1, 1, 14, 1, 'P');
+    for shelf in 0..3 {
+        let y0 = 2 + shelf * 4;
+        for x in 1..15 {
+            let spine = SPINES[(hash(x, shelf + v as i32, 61) % SPINES.len() as u32) as usize];
+            let short = hash(x, shelf, 62 + v).is_multiple_of(5);
+            for y in y0 + i32::from(short)..y0 + 3 {
+                im.put(x, y, spine);
+            }
+        }
+        im.line(1, y0 + 3, 14, y0 + 3, 'I');
+    }
+    im.line(0, 15, 15, 15, 'n');
+    im
+}
+
+/// A mushroom of the Fungal Deep, grown tall as a knight: a spotted cap
+/// over a pale stem. Each one its own colour.
+pub(super) fn mushroom(v: u32) -> Img {
+    let (cap, rim, spot) = match v % 3 {
+        0 => ('p', 'B', 'T'),
+        1 => ('u', 'S', 'v'),
+        _ => ('o', 'r', 't'),
+    };
+    let mut im = Img::new(16, 16);
+    im.rect(6, 8, 4, 7, 'T');
+    im.line(6, 8, 6, 14, 't');
+    im.line(5, 15, 10, 15, 'O');
+    for y in 0..9 {
+        for x in 0..16 {
+            let (dx, dy) = ((x as f32 - 7.5) / 7.5, (y as f32 - 8.0) / 7.0);
+            if dx * dx + dy * dy > 1.0 || y > 7 {
+                continue;
+            }
+            let edge = dx * dx + dy * dy > 0.7;
+            let dotted = hash(x / 2, y / 2, 63 + v).is_multiple_of(4) && !edge;
+            im.put(x, y, if dotted { spot } else if edge { rim } else { cap });
+        }
+    }
+    im.line(1, 8, 14, 8, 't');
+    im
+}
+
+/// A pillar of the Unknown: dark stone with one eye in it, that looks,
+/// and now and then blinks.
+pub(super) fn eye_pillar(v: u32, frame: u32) -> Img {
+    let mut im = Img::new(16, 16);
+    im.rect(2, 0, 12, 16, 'X');
+    im.line(2, 0, 2, 15, 'g');
+    im.line(13, 0, 13, 15, 'K');
+    for y in (2..16).step_by(5) {
+        im.line(3, y, 12, y, 'K');
+    }
+    let blink = hash(v as i32, frame as i32, 64).is_multiple_of(9);
+    if blink {
+        im.line(5, 8, 10, 8, 'g');
+    } else {
+        im.rect(5, 6, 6, 4, 'h');
+        im.rect(7, 6, 2, 4, '2');
+        im.put(7, 7, 'K');
+        im.put(8, 8, 'K');
+        im.put(5, 6, 'X');
+        im.put(10, 9, 'X');
+    }
     im
 }
 
@@ -270,6 +641,136 @@ pub(super) fn brazier(blazing: bool, tick: u32, seed: u32) -> Img {
     im
 }
 
+/// A sapper's keg on the floor: its fuse sparks, faster and red once it
+/// is armed.
+pub(super) fn keg(fuse: u32, armed: bool, tick: u32) -> Img {
+    let mut im = rows(&[
+        "...6...",
+        "...o...",
+        ".bBBBb.",
+        "bBIBIBb",
+        "bBBBBBb",
+        "bBIBIBb",
+        ".bBBBb.",
+    ]);
+    let quick = if armed { 2 } else { 5 };
+    let lit = (tick / quick).is_multiple_of(2);
+    im.put(3, 0, if armed && lit { '7' } else if lit { '6' } else { '5' });
+    if fuse < 12 && lit {
+        im.put(2, 0, '6');
+        im.put(4, 0, '6');
+    }
+    im
+}
+
+/// A fan's box floating down on a little parachute in Fortune's red and
+/// cream, its stripes fluttering.
+pub(super) fn fan_box(tick: u32) -> Img {
+    let flutter = (tick / 6).is_multiple_of(2);
+    let (a, b) = if flutter { ('7', '9') } else { ('9', '7') };
+    let canopy = |row: &str| -> String {
+        row.chars()
+            .enumerate()
+            .map(|(i, c)| match c {
+                '*' if i % 2 == 0 => a,
+                '*' => b,
+                c => c,
+            })
+            .collect()
+    };
+    let inked: Vec<String> = [
+        "....*****....",
+        "..*********..",
+        ".***********.",
+        "*************",
+        "8.8.......8.8",
+        ".h.........h.",
+        "..h.......h..",
+        "...h.....h...",
+        "....h...h....",
+        "....OO5OO....",
+        "....Oo5oO....",
+        "....55555....",
+        "....Oo5oO....",
+        "....II5II....",
+    ]
+    .iter()
+    .map(|row| canopy(row))
+    .collect();
+    rows(&inked.iter().map(String::as_str).collect::<Vec<_>>())
+}
+
+/// Lady Tallow: sitting, trotting (two steps), or hissing; a coin in her
+/// mouth when she's fetching one home. Drawn facing right.
+pub(super) fn tallow(moving: bool, hissing: bool, carrying: bool, tick: u32) -> Img {
+    let mut im = if hissing {
+        rows(&[
+            ".......5.5.",
+            ".......555.",
+            "h..iii.iHi.",
+            "hhiHHHiHHkH",
+            ".iHHHHHHH77",
+            "..iHHHHHHi.",
+            "..i.i..i.i.",
+        ])
+    } else if moving && (tick / 5).is_multiple_of(2) {
+        rows(&[
+            ".......5.5.",
+            ".......555.",
+            "h......iHi.",
+            "hh....iHHkH",
+            ".hi..iHHHHi",
+            "..iHHHHHHi.",
+            "..iHHHHHHi.",
+            "..i.i..i.i.",
+        ])
+    } else if moving {
+        rows(&[
+            ".......5.5.",
+            ".......555.",
+            ".h.....iHi.",
+            ".hh...iHHkH",
+            "..hi.iHHHHi",
+            "..iHHHHHHi.",
+            "..iHHHHHHi.",
+            "...i.ii.i..",
+        ])
+    } else {
+        rows(&[
+            "......5.5.",
+            "......555.",
+            "......iHi.",
+            ".....iHHHi",
+            ".....HkHkH",
+            "h....iHHHi",
+            "hh..iHHHi.",
+            ".h.iHHHHHi",
+            ".hiHHHHHHi",
+            "..iiHHiiHi",
+        ])
+    };
+    if carrying && !hissing {
+        let x = im.w - 1;
+        im.put(x, 4, '5');
+        im.put(x, 5, '6');
+    }
+    im
+}
+
+/// The Flesher's hook, its barb red.
+pub(super) fn hook() -> Img {
+    rows(&["..WW.", ".W..W", "....W", "7..W.", "7WW.."])
+}
+
+/// A hob's bomb in flight.
+pub(super) fn bomb(tick: u32) -> Img {
+    let mut im = rows(&["..6.", ".KK.", "KKKK", ".KK."]);
+    if (tick / 2).is_multiple_of(2) {
+        im.put(2, 0, '5');
+    }
+    im
+}
+
 /// A shot drawn along its flight in native pixels: the head at `(x, y)`.
 pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind: Shot) {
     let length = vx.hypot(vy).max(1e-3);
@@ -330,7 +831,40 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             cv.put(x, y, 'H');
         }
         Shot::Orb => blot(cv, 'w', '2'),
+        // The Lich's frost: a pale star of ice.
+        Shot::Frost => {
+            blot(cv, 'w', 'W');
+            for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2)] {
+                cv.put(x + dx, y + dy, 'z');
+            }
+        }
+        // The Hexer's bolt: a frog-green glow.
+        Shot::Hex => {
+            blot(cv, 'w', 'Y');
+            for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                cv.put(x + dx, y + dy, 'C');
+            }
+        }
         Shot::Ember => blot(cv, '6', '7'),
+        // Pilgrim's Arrow: a long shaft of light, its head ablaze.
+        Shot::Sacred => {
+            along(cv, &['w', '6', '6', '5', '5', '4', '4', '@', 'a']);
+            let (px, py) = (-uy, ux);
+            for k in [-1.0f32, 1.0] {
+                cv.put(
+                    x - (ux * 1.0 - px * k).round() as i32,
+                    y - (uy * 1.0 - py * k).round() as i32,
+                    '6',
+                );
+                cv.put(
+                    x - (ux * 6.0 - px * k * 1.5).round() as i32,
+                    y - (uy * 6.0 - py * k * 1.5).round() as i32,
+                    '5',
+                );
+            }
+        }
+        // A heat-seeker: a steel nose, a red band, smoke behind.
+        Shot::Missile => along(cv, &['H', 'J', '7', 'J', 'G', 'g', 'g']),
     }
 }
 

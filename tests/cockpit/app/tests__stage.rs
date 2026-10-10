@@ -2169,3 +2169,72 @@ fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
         scryglass::StageRoute::Realm
     );
 }
+
+/// The loop's crawl: the Realm pane walks the Delve while a loop runs, and
+/// two lines under the picture say what the party is doing.
+#[test]
+fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
+    let _lock = env_lock();
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
+    let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
+    let _view = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_VIEW");
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    let mut app = seed_preview_app();
+    app.focus_module("artifacts");
+    app.scryglass.navigate(scryglass::StageRoute::Realm);
+    app.world
+        .note_adventure(world_viz::AdventureEvent::LoopStarted {
+            kind: world_viz::LoopKind::Coding,
+            task: "an actual coding loop".to_string(),
+        });
+    app.world
+        .note_adventure(world_viz::AdventureEvent::Iteration { n: 1 });
+    let screen = render_app_text(&mut app, 144, 48);
+    if let Some(dir) = std::env::var_os("ANGEL_CRAWL_SHOTS") {
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(std::path::Path::new(&dir).join("app-screen.txt"), &screen).unwrap();
+    }
+    assert!(
+        screen.contains("PLAYER HALL · waiting for completed loop receipts"),
+        "the settlement caption under its picture\n{screen}"
+    );
+}
+
+/// A loop steps up to the quintain and the pane follows it to the Loop
+/// view: out in a region, that view is the crawl too, and the loop's numbers
+/// stay under it.
+#[test]
+fn the_quintain_shows_the_loops_crawl_with_its_numbers() {
+    use crate::drive::loop_ctl::LoopStatus;
+    let _lock = env_lock();
+    let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
+    let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
+    let _backdrop = crate::tests::TestEnvGuard::unset("ANGEL_BACKDROP");
+    let _view = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_VIEW");
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    let mut app = seed_preview_app();
+    app.focus_module("artifacts");
+    app.loop_ctl.status = LoopStatus::Running;
+    app.loop_ctl.iteration = 1;
+    app.scryglass.navigate(scryglass::StageRoute::Loop);
+    app.world
+        .note_adventure(world_viz::AdventureEvent::LoopStarted {
+            kind: world_viz::LoopKind::Coding,
+            task: "an actual coding loop".to_string(),
+        });
+    app.world
+        .note_adventure(world_viz::AdventureEvent::Iteration { n: 1 });
+    let screen = render_app_text(&mut app, 144, 48);
+    assert!(screen.contains("Quintain"), "the Loop view\n{screen}");
+    assert!(
+        screen.contains("PLAYER HALL · waiting for completed loop receipts"),
+        "the settlement caption under the crawl\n{screen}"
+    );
+    assert!(
+        screen.contains("ITER 1"),
+        "the loop's numbers under the crawl\n{screen}"
+    );
+}

@@ -4077,6 +4077,8 @@ impl HttpClub {
                         return Ok(ClubReply::Text(acc.content));
                     }
                     raw.clear();
+                    // Keep this read scope and its enclosing stream-labelled exit unchanged.
+                    #[allow(clippy::never_loop)]
                     let reached_eof = loop {
                         if cancel.load(Ordering::Relaxed) {
                             emit_pending_stream_deltas(&mut pending_deltas, on_delta);
@@ -4385,3 +4387,7 @@ mod trajectory_byte_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/http__glm_image_recovery_tests.rs"]
 mod glm_image_recovery_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/club/http__dead_peer_tests.rs"]
+mod dead_peer_tests;

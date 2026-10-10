@@ -1,0 +1,14 @@
+name SLAG FREE CAPTAIN
+text An optional forge captain outside the castellan's gate pact.
+by angelX
+where hellforge
+hp 580
+size 1.4
+move chase speed=1.4
+attack aimed shots=2 speed=7 every=60 damage=12 shot=ember
+rage 30%
+drops gold 100, ore 2
+art
+..77..
+.7557.
+..77..

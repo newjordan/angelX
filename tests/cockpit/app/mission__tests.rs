@@ -83,6 +83,9 @@ fn latest_picks_the_newest_and_skips_garbage() {
     )
     .unwrap();
     std::fs::write(dir.join("garbage.json"), "{ not json").unwrap();
+    let mut foreign = mission_json("active", "2026-07-09T00:00:00Z");
+    foreign["schema"] = serde_json::json!("other/v1");
+    std::fs::write(dir.join("foreign.json"), foreign.to_string()).unwrap();
     std::fs::write(dir.join("old.jsonl"), "ledger row, never read\n").unwrap();
     std::fs::write(dir.join("new.json.tmp-42"), "transient, never read").unwrap();
     assert_eq!(

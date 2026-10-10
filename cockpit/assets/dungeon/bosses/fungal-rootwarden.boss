@@ -1,0 +1,16 @@
+name THE ROOTWARDEN
+text Old roots close the way until their keeper falls.
+by angelX
+where fungal
+hp 620
+size 1.4
+move chase speed=1.1
+attack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=orb
+rage 35%
+drops gold 110, gem 1
+art
+..77..
+.7HH7.
+.H11H.
+..HH..
+..77..

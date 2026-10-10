@@ -477,6 +477,8 @@ pub(crate) struct App {
     /// heavy pre-flight follows on the next `advance`. Holds the flight slot —
     /// `submit`'s busy gate treats it exactly like `thinking`.
     pub(crate) pending_turn: Option<PendingTurn>,
+    /// A handoff restart requested while a foreground worker still owns the slot.
+    pub(crate) pending_handoff_rl_restart: Option<Option<String>>,
     pub(crate) launch_input: Option<launch::LaunchInput>,
     pub(crate) launch_route: Option<launch::BoundRoute>,
     pub(crate) launch_typed_ahead: Option<String>,
@@ -633,6 +635,8 @@ pub(crate) struct App {
     pub(crate) loop_brief_job: Option<crate::drive::loop_ctl::BriefJob>,
     /// Independent deep experiment; its receiver owns cancellation settlement.
     pub(crate) loop_experiment: Option<crate::drive::loop_ctl::ExperimentPending>,
+    /// The loop watchdog's watch over the in-flight iteration.
+    pub(crate) loop_watch: crate::drive::loop_ctl::LoopWatch,
     /// Last-seen loop facts diffed each frame into `AdventureEvent`s for the
     /// world quest (`adventure.rs`). Drains whether or not the world pane is
     /// visible — quest state must track the loop like the village pulses.
@@ -933,7 +937,7 @@ impl App {
             Overwatch::new(),
         );
         let dungeon_workspace = app.tools.current_workspace();
-        if let Err(error) = app.dungeon.restore(&dungeon_workspace) {
+        if let Err(error) = app.dungeon.restore(dungeon_workspace) {
             app.dungeon.notice = format!("Could not restore delve: {error}");
             tracing::warn!(%error, "could not restore dungeon");
         }
@@ -1191,6 +1195,7 @@ impl App {
             shell_focused: false,
             thinking: None,
             pending_turn: None,
+            pending_handoff_rl_restart: None,
             launch_input: None,
             launch_route: None,
             launch_typed_ahead: None,
@@ -1251,6 +1256,7 @@ impl App {
             loop_pending: None,
             loop_brief_job: None,
             loop_experiment: None,
+            loop_watch: crate::drive::loop_ctl::LoopWatch::default(),
             loop_mirror: world_viz::LoopMirror::default(),
             loop_dialog: None,
             loop_dialog_hits: Vec::new(),

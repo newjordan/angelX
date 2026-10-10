@@ -116,6 +116,8 @@ fn help_full_text() -> String {
      /goal [<text>|go|tick|rounds <N|unset>|blocked <reason>|pause|resume|criteria <c>|cmd <check>|note <n>|done|clear] · durable, steers\n\
      every turn; /goal rounds bounds /goal go + the loop driver, blocked flips only after 3 identical rounds (resume re-arms), and a real tick clears it · cmd re-pins a live run's check\n\
      /campaign [status|new <objective>|import-goal|criterion ...|start|advance|review|pause|resume|abandon] · project-bound proof contract; advance parks one technical-proof round, review runs its independent read-only alignment gate, and neither merges\n\
+     /graph [list|run <name> <task>|status|stop] · Round Table agent-graph stage and run launchers\n\
+     /kg [stats] · inspect the typed knowledge-graph store; ingest/resolve/query run through the agent's knowledge_graph tool (each costs a model call)\n\
      /loop [[iterations=25] <task>|podrace <task>|endless [<task>]|start [<ival>]|deli|restart|status|pause|resume|stop|sota|clear] · open loop workshop / drive autonomous run\n\
      /handoff-rl [[iterations=N] <task>|podrace <task>|endless [<task>]|start [<ival>]|status|stop|demand|victory <cand> <score> [hyp]|max N|budget N|deadline 1h|clear] · forced clear/inject competition loop (same time/rolls/budget workshop as /loop)\n\
      /self [<goal>|status|integrate|discard|reborn] · self-modification: the loop edits\n\
@@ -144,6 +146,7 @@ fn help_full_text() -> String {
      /modules · /open <module> · /close <module> · /layout save|load <name>\n\
      /open <n|url> · /media · /raytrace (/cube) · spin a debug cube · exit (/quit)\n\
      /research [keep|table|smithy|observatory|library] · navigable research workspace\n\
+     /labyrinth [init|status|check|frontier|plan|route <from> <to> [established]] · local research map shared with Deli and measured RL\n\
      /rl [run [flags]|status|stop] · Realm/Reinforce measured learning campaign\n\
      run uses /goal plus /goal cmd, or --task/--verify; --audit adds an\n\
      independent objective. Released policies feed later work; /rl run --help for options\n\
@@ -152,7 +155,7 @@ fn help_full_text() -> String {
      begins a local-first lesson; optional reference enrichment never blocks it · /ask opens an editable tutor question; /ask <question> asks directly; Esc restores your work draft; Ctrl-Alt-E explains selected text · /practice re-shows its recall prompts for spaced practice\n\
      /world [visit <place>|follow|ride|enter|leave|weather|zoom] · open/control the Realm\n\
      /dungeon · walk to the Delve's gate; click the mini-viz (or F4) for its menu · /dungeon start skips the walk; Esc composer, F6 resume\n\
-     /dungeon_host --N · host for N friends (up to 3): one invite line each · a friend pastes `/dungeon join <line>` into their angelX; /dungeon leave goes home\n\
+     /dungeon_host --N [--view] · host for N friends (up to 3): one invite line each; --view lets a link open a read-only browser view · a friend pastes `/dungeon join <line>` into their angelX; /dungeon leave goes home\n\
      /together [demo|forge|build|ready|raid|move|fire|cast|return|help] · local dungeon mode; simulated friends, bounded gear and spells\n\
      · /world visit artisans|colosseum|tournament · inspect the southern precinct; follow returns to the working knight\n\
      stage (the agent's real tool traffic drives attributable landmark activity)\n\

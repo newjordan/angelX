@@ -118,7 +118,7 @@ pub(crate) fn classify_tool_activity(name: &str, args_summary: &str) -> Classifi
         || leaf.contains("definition")
         || matches!(
             leaf.as_str(),
-            "list_dir" | "outline" | "defs" | "self_map" | "hover" | "references"
+            "list_dir" | "outline" | "defs" | "self_map" | "hover" | "references" | "labyrinth"
         )
     {
         return classified(Building::Scriptorium, RealmActivity::Study);

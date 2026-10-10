@@ -354,6 +354,9 @@ impl Tool for VideoCutTool {
             let tout = seconds(&c["out"], "out")?;
             clips.push((path.to_str().ok_or("non-utf8 path")?.to_string(), tin, tout));
         }
+        if clips.is_empty() {
+            return Err("timeline needs at least one clip".to_string());
+        }
         let out_raw = args["output"].as_str().ok_or("missing 'output'")?;
         let output = confined_path(&self.workspace, out_raw)?;
         if let Some(parent) = output.parent() {

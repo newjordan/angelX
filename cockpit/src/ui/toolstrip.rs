@@ -299,6 +299,21 @@ impl ToolStrip {
         self.entries.iter().any(|entry| !entry.done)
     }
 
+    /// The longest-running unfinished call: its name, args and age.
+    pub(crate) fn oldest_running(&self) -> Option<(&str, &str, Duration)> {
+        self.entries
+            .iter()
+            .filter(|entry| !entry.done)
+            .min_by_key(|entry| entry.started)
+            .map(|entry| {
+                (
+                    entry.name.as_str(),
+                    entry.args.as_str(),
+                    entry.started.elapsed(),
+                )
+            })
+    }
+
     pub(crate) fn is_waiting_on_agents(&self) -> bool {
         self.current()
             .is_some_and(|entry| !entry.done && is_agent_wait_tool(&entry.name))

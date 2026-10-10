@@ -366,7 +366,7 @@ impl App {
         }
         self.dungeon.forge.looked = Some(Instant::now());
         let workspace = self.tools.current_workspace();
-        crate::drive::together_shooter::phrasebook::refresh(&workspace);
+        crate::drive::together_shooter::phrasebook::refresh(workspace);
         // The workspace's cards hot-load too: a card file written or
         // changed while the game runs joins the run's book.
         let cards = self.cards_dir();
@@ -432,8 +432,6 @@ impl App {
             self.teach_next();
         }
     }
-
-    /// Queue a reforge; the first one in line is handed to angelX.
 
     /// Queue a reforge; the first one in line is handed to angelX.
     pub(crate) fn request_reforge(&mut self, player: u32, part: Part, words: String) {

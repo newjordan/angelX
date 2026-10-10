@@ -1,0 +1,123 @@
+[
+  {
+    "name": "wall_stone",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "GKXgjk",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "wall_crypt",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "GKXgjk",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "wall_mine",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "BIKPXbgjkn",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "wall_keep",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "478BIKXZbgk",
+    "signal_pixels": 19,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "wall_archive",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "BDFIKPXbegjksx",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "wall_fungal",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "012DEFKXegjkl",
+    "signal_pixels": 32,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "wall_unknown",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "0KXgjk",
+    "signal_pixels": 9,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "door",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "BGIKXbgjkn",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "stairs",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "GJKXgjk",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": false
+  },
+  {
+    "name": "floor_flags",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "GKXgj",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": true
+  },
+  {
+    "name": "ceiling",
+    "size": [
+      32,
+      32
+    ],
+    "inks": "KXg",
+    "signal_pixels": 0,
+    "horizontal_edges_match": true,
+    "vertical_edges_match": true
+  }
+]

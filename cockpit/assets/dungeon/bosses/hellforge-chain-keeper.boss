@@ -1,0 +1,16 @@
+name THE CHAIN KEEPER
+text Its chain keeps the upper seal of Dragon Keep.
+by angelX
+where hellforge
+hp 620
+size 1.4
+move chase speed=1.2
+attack aimed shots=3 speed=6 every=80 damage=10 shot=ember
+rage 35%
+drops gold 110, gem 1
+art
+..77..
+.7HH7.
+.H11H.
+..HH..
+..77..

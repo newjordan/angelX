@@ -713,3 +713,114 @@ fn start_turn_worker_reuses_cached_in_hand_route_identity() {
         "Enter spawn must clone the cached chrome identity:\n{body}"
     );
 }
+
+struct CountingPalaceStatus(std::sync::atomic::AtomicUsize);
+
+impl crate::knowledge::memory::store::MemoryStore for CountingPalaceStatus {
+    fn deposit(
+        &self,
+        _drawer: &crate::knowledge::memory::store::Drawer,
+    ) -> Result<String, String> {
+        Ok(String::new())
+    }
+
+    fn search(
+        &self,
+        _query: &str,
+        _limit: usize,
+        _wing: Option<&str>,
+    ) -> Result<Vec<String>, String> {
+        Ok(Vec::new())
+    }
+
+    fn status(&self) -> Result<String, String> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Ok("status".to_string())
+    }
+
+    fn is_live(&self) -> bool {
+        true
+    }
+}
+
+#[test]
+fn memories_palace_keeps_the_existing_background_job() {
+    let store = Arc::new(CountingPalaceStatus(std::sync::atomic::AtomicUsize::new(0)));
+    let mut tools = crate::agent::harness::ToolRegistry::new();
+    tools.set_memory_store(store.clone());
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.tools = Arc::new(tools);
+    let (_reply, existing) = BackgroundJob::channel("existing job", "Retry existing job");
+    app.bg_job = Some(existing);
+
+    let response = app.run_memories(Some("palace"));
+
+    assert_eq!(
+        response,
+        "a background task is already running — try again in a moment"
+    );
+    assert_eq!(app.bg_job.as_ref().unwrap().operation(), "existing job");
+    assert_eq!(store.0.load(std::sync::atomic::Ordering::Relaxed), 0);
+}
+
+struct ForkSessionFixture(std::path::PathBuf);
+
+impl ForkSessionFixture {
+    fn new() -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "angel-fork-session-error-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        Self(root)
+    }
+}
+
+impl Drop for ForkSessionFixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn fork_save_failure_keeps_the_active_session_and_history() {
+    let _env_lock = crate::tests::env_lock();
+    let fixture = ForkSessionFixture::new();
+    let workspace = fixture.0.join("workspace");
+    let original_dir = fixture.0.join("original-sessions");
+    std::fs::create_dir(&workspace).unwrap();
+    std::fs::create_dir(&original_dir).unwrap();
+    let blocked_parent = fixture.0.join("not-a-directory");
+    std::fs::write(&blocked_parent, b"file").unwrap();
+    let _session_dir = crate::tests::TestEnvGuard::set(
+        "ANGEL_SESSION_DIR",
+        blocked_parent.join("sessions").to_str().unwrap(),
+    );
+
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.tools = Arc::new(crate::agent::harness::ToolRegistry::with_team(
+        workspace.clone(),
+        Vec::new(),
+    ));
+    app.history = vec![ChatMsg::user("retain this conversation")];
+    let original = session::Session::at_for(original_dir, "active-session".to_string(), &workspace);
+    original.save(&app.history).unwrap();
+    app.session = original;
+    let original_path = app.session.path().to_path_buf();
+    let original_history = app.history.clone();
+
+    let response = app.fork_session();
+
+    assert!(response.contains("save failed"), "{response}");
+    assert!(response.contains("continuing in session active-session"), "{response}");
+    assert_eq!(app.session.id, "active-session");
+    assert_eq!(app.session.path(), original_path);
+    assert_eq!(
+        serde_json::to_value(&app.history).unwrap(),
+        serde_json::to_value(&original_history).unwrap()
+    );
+}

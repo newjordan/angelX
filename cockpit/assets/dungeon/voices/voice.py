@@ -22,6 +22,24 @@ CAST = {
     'warden': [('pFZP5JQG7iQjIQuC4Bku', {'stability': 0.6, 'similarity_boost': 0.8, 'speed': 0.82})],
     'cinderjaw': [('SOYHLrjzK2X1ezoPC6cr', {'stability': 0.35, 'similarity_boost': 0.8, 'speed': 0.9})],
 }
+# The rest of the chorus reuses these calibrated voices. Keep the aliases
+# pointed at the original presets so settings stay in one place.
+CAST.update({
+    'anselm': CAST['blaise'],
+    'ector': CAST['blaise'],
+    'kay': CAST['blaise'],
+    'merlin': CAST['blaise'],
+    'fortune': CAST['wren'],
+    'mabel': CAST['wren'],
+    'maud': CAST['wren'],
+    'pip': CAST['wren'],
+    'dinadan': CAST['wren'],
+    'tallow': CAST['wren'],
+    'beaumains': CAST['tobbin'],
+    'grubbins': CAST['tobbin'],
+    'snibbet': CAST['tobbin'],
+    'leviathan': CAST['warden'],
+})
 # ffmpeg filters per character (after the raw takes).
 TREAT = {
     # One clear lead (Ava, a little lower) with the deep voice and a high

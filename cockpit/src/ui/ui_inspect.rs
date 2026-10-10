@@ -438,7 +438,7 @@ fn render_snapshot(
         .and_then(Value::as_str)
         .unwrap_or(default_scope);
     let format = args.get("format").and_then(Value::as_str).unwrap_or("text");
-    let row_offset = args.get("row_offset").and_then(Value::as_u64).unwrap_or(0) as u16;
+    let row_offset = args.get("row_offset").and_then(Value::as_u64).unwrap_or(0);
     let row_count = args
         .get("row_count")
         .and_then(Value::as_u64)
@@ -454,7 +454,7 @@ fn render_snapshot(
             .map(|(_, rect)| *rect)
             .ok_or_else(|| format!("scope {scope:?} is not visible in this frame"))?
     };
-    let start = row_offset.min(rect.height);
+    let start = row_offset.min(u64::from(rect.height)) as u16;
     let count = row_count.min(rect.height.saturating_sub(start));
     let selected = Rect::new(rect.x, rect.y + start, rect.width, count);
     let requested_cells = selected.width as usize * selected.height as usize;

@@ -115,6 +115,7 @@ fn reply_text(result: Result<ureq::Response, ureq::Error>) -> Result<String, Str
 impl Joined {
     /// Check the invitation with the host, say who is joining, and start
     /// talking in the background.
+    #[allow(clippy::result_large_err)]
     pub(crate) fn connect(link: &str, name: &str) -> Result<Joined, String> {
         let (base, token) = parse_link(link)?;
         let agent = agent();
@@ -123,7 +124,7 @@ impl Joined {
             .get(&format!("{base}/state"))
             .set("Authorization", &bearer)
             .call();
-        reply_text(state.map(|r| r).and_then(|r| {
+        reply_text(state.and_then(|r| {
             if r.status() == 200 {
                 Ok(r)
             } else {
@@ -223,12 +224,12 @@ impl Joined {
 
     /// Send something to the host (a wish, a card, a reforged card).
     pub(crate) fn post(&self, path: &str, content_type: &'static str, body: Vec<u8>) {
-        if let Ok(mut shared) = self.shared.lock() {
-            if shared.outbox.len() < 8 {
-                shared
-                    .outbox
-                    .push_back((path.to_string(), content_type, body));
-            }
+        if let Ok(mut shared) = self.shared.lock()
+            && shared.outbox.len() < 8
+        {
+            shared
+                .outbox
+                .push_back((path.to_string(), content_type, body));
         }
     }
 
@@ -322,17 +323,17 @@ fn talk(base: &str, bearer: &str, shared: &Mutex<Shared>, stop: &AtomicBool) {
             .get("phrasebook")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
-        if words_version != 0 && words_version != book_words {
-            if let Some(text) = agent
+        if words_version != 0
+            && words_version != book_words
+            && let Some(text) = agent
                 .get(&format!("{base}/phrasebook"))
                 .set("Authorization", bearer)
                 .call()
                 .ok()
                 .and_then(|r| r.into_string().ok())
-            {
-                super::together_shooter::phrasebook::take(&text, words_version);
-                book_words = words_version;
-            }
+        {
+            super::together_shooter::phrasebook::take(&text, words_version);
+            book_words = words_version;
         }
         // The book only when it changed: a new raid, or a card added.
         let wanted = (
@@ -490,6 +491,9 @@ fn take_line(line: &[u8], shared: &Mutex<Shared>) {
     };
     match news {
         News::Whole(run) => {
+            if !run.valid_snapshot() {
+                return;
+            }
             s.before = run.pose();
             s.mirror = Some(*run);
             s.ticked = Some(Instant::now());

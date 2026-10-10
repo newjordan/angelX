@@ -26,17 +26,17 @@ impl SwarmCompilerEngine {
             return Ok(());
         }
         ensure_not_cancelled(cancelled)?;
-        self.ensure_investigator(run)?;
+        self.ensure_investigator(run, cancelled)?;
         ensure_not_cancelled(cancelled)?;
-        if !self.ensure_test_author(run, &repo, &verifier)? {
+        if !self.ensure_test_author(run, &repo, &verifier, cancelled)? {
             return Ok(());
         }
         ensure_not_cancelled(cancelled)?;
-        if !self.ensure_implementer(run, &repo)? {
+        if !self.ensure_implementer(run, &repo, cancelled)? {
             return Ok(());
         }
         ensure_not_cancelled(cancelled)?;
-        self.ensure_reviewer(run, &repo)?;
+        self.ensure_reviewer(run, &repo, cancelled)?;
         ensure_not_cancelled(cancelled)?;
         if run.state.terminal() {
             return Ok(());
@@ -77,7 +77,11 @@ impl SwarmCompilerEngine {
         Ok(passed)
     }
 
-    fn ensure_investigator(&self, run: &mut SwarmRun) -> Result<(), String> {
+    fn ensure_investigator(
+        &self,
+        run: &mut SwarmRun,
+        cancelled: Option<&AtomicBool>,
+    ) -> Result<(), String> {
         if run.contribution("investigator").is_some() {
             return Ok(());
         }
@@ -88,6 +92,7 @@ impl SwarmCompilerEngine {
             DelegateMode::ReadOnly,
             &base,
             prompts::investigator(&run.goal, &run.targeted_test_cmd, &run.accept_cmd),
+            cancelled,
         )?;
         let ephemeral = outcome.branch.clone();
         self.record_contribution(run, "investigator", &outcome, None, Vec::new(), None)?;
@@ -100,6 +105,7 @@ impl SwarmCompilerEngine {
         run: &mut SwarmRun,
         repo: &std::path::Path,
         verifier: &RefVerifier,
+        cancelled: Option<&AtomicBool>,
     ) -> Result<bool, String> {
         if run.contribution("test_author").is_none() {
             let findings = run
@@ -119,6 +125,7 @@ impl SwarmCompilerEngine {
                     &run.targeted_test_cmd,
                     &run.red_marker,
                 ),
+                cancelled,
             )?;
             let branch = outcome.branch.clone();
             let paths = changed_paths(repo, &run.base_oid, &branch)?;
@@ -179,6 +186,7 @@ impl SwarmCompilerEngine {
         &self,
         run: &mut SwarmRun,
         repo: &std::path::Path,
+        cancelled: Option<&AtomicBool>,
     ) -> Result<bool, String> {
         if run.contribution("implementer").is_some() {
             return Ok(true);
@@ -204,6 +212,7 @@ impl SwarmCompilerEngine {
                 &run.targeted_test_cmd,
                 &run.accept_cmd,
             ),
+            cancelled,
         )?;
         let branch = outcome.branch.clone();
         let impl_paths = changed_paths(repo, &test_branch, &branch)?;
@@ -227,7 +236,12 @@ impl SwarmCompilerEngine {
         Ok(immutable)
     }
 
-    fn ensure_reviewer(&self, run: &mut SwarmRun, repo: &std::path::Path) -> Result<(), String> {
+    fn ensure_reviewer(
+        &self,
+        run: &mut SwarmRun,
+        repo: &std::path::Path,
+        cancelled: Option<&AtomicBool>,
+    ) -> Result<(), String> {
         if run.contribution("reviewer").is_some() {
             return Ok(());
         }
@@ -248,6 +262,7 @@ impl SwarmCompilerEngine {
                 &run.targeted_test_cmd,
                 &run.accept_cmd,
             ),
+            cancelled,
         )?;
         let verdict = review_verdict(&outcome.answer);
         let ephemeral = outcome.branch.clone();

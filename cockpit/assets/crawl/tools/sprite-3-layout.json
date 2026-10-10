@@ -1,0 +1,28 @@
+{
+  "chest_open": {
+    "size": [20, 16],
+    "inks": "kKXgjGJhiHnbIBPrRo",
+    "pieces": [
+      {"source_box": [306, 154, 1096, 530], "box": [2, 0, 18, 5]},
+      {"source_box": [306, 530, 1096, 705], "box": [2, 5, 18, 8]}
+    ]
+  },
+  "sconce_a": {
+    "size": [12, 20],
+    "inks": "kKXgjGJhinbIBPr",
+    "source_box": [255, 68, 724, 1494],
+    "box": [2, 1, 11, 19]
+  },
+  "sconce_b": {
+    "size": [12, 20],
+    "inks": "kKXgjGJhinbIBPr",
+    "source_box": [255, 68, 724, 1494],
+    "box": [2, 1, 11, 19]
+  },
+  "banner": {
+    "size": [12, 24],
+    "inks": "kKXgjGJhibIBpR",
+    "source_box": [93, 96, 795, 1694],
+    "box": [1, 1, 11, 23]
+  }
+}

@@ -153,6 +153,9 @@ version = "2.5.0"
 version = "0.26"
 optional = true
 
+[target.'cfg(unix)'.dependencies.libc]
+version = "0.2"
+
 [dev-dependencies.env_logger]
 version = "<=0.9"
 features = ["humantime"]

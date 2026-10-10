@@ -1,5 +1,6 @@
 //! Unsupported project path bytes remain inert and preserve existing snapshots.
-#![cfg(unix)]
+// APFS rejects invalid UTF-8 components before these filesystem assertions run.
+#![cfg(target_os = "linux")]
 use super::*;
 use std::os::unix::ffi::OsStringExt as _;
 

@@ -6,13 +6,29 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+  symlinkSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import {
+  RELEASE_PATHS,
+  assertRuntimeHelperClosure,
+} from '../../scripts/release/release-evidence.mjs'
 
 import CausalGraph, { NODE_TYPE, EDGE_TYPE } from '../../lib/research/CausalGraph.js'
+import * as core from '../../lib/dossier/core.mjs'
+import * as worker from '../../scripts/runtime/repo-dossier.mjs'
 import {
   classifyCommand,
   normalizeCommand,
@@ -21,15 +37,17 @@ import {
   dossierFacts,
   factBelief,
   compileDossier,
-  boundedDossierText,
-  DOSSIER_STORE_BYTES,
-  DOSSIER_STORE_FACTS,
   proposeDossierProbe,
   cutSample,
   DOSSIER_PROJECT,
   RITUAL_MIN_RUNS,
   TRAP_MIN_FAILS,
+} from '../../lib/dossier/core.mjs'
+import {
   dossierPaths,
+  boundedDossierText,
+  DOSSIER_STORE_BYTES,
+  DOSSIER_STORE_FACTS,
 } from '../../scripts/runtime/repo-dossier.mjs'
 
 test('dossier paths use the native cockpit stores and respect explicit overrides', () => {
@@ -55,9 +73,29 @@ test('dossier paths use the native cockpit stores and respect explicit overrides
   assert.equal(explicit.cutDir, '/tmp/cut')
 })
 
-test('refresh publishes ledger facts in one invocation without a browser data tree', (t) => {
+test('bundled workers refresh dossier facts and habit drafts without a browser data tree', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'angel-dossier-refresh-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
+  // Exercise the installed resource boundary, not a checkout that can hide
+  // missing package entries. No source-tree fallback exists inside this bundle.
+  const bundle = join(root, 'bundle')
+  const resources = RELEASE_PATHS.filter(
+    (path) =>
+      path.startsWith('scripts/runtime/') ||
+      path.startsWith('lib/') ||
+      path === 'package.json' ||
+      path === 'docs/telemetry/store-caps.toml',
+  ).map((path) => ({ path }))
+  for (const { path } of resources) {
+    const target = join(bundle, path)
+    mkdirSync(dirname(target), { recursive: true })
+    copyFileSync(new URL(`../../${path}`, import.meta.url), target)
+  }
+  assertRuntimeHelperClosure(bundle, resources)
+  // Node canonicalizes the entry module URL while preserving argv[1]. This
+  // alias reproduces macOS /var → /private/var temp paths on every platform.
+  const bundleAlias = join(root, 'bundle-alias')
+  symlinkSync(bundle, bundleAlias, 'dir')
   const ledger = join(root, 'ledger.jsonl')
   const out = join(root, 'dossier')
   const cut = join(root, 'cut')
@@ -65,14 +103,18 @@ test('refresh publishes ledger facts in one invocation without a browser data tr
   const now = Math.floor(Date.now() / 1000)
   writeFileSync(
     ledger,
-    [1, 2, 3]
-      .map((session) => JSON.stringify(cmdV3('cargo check', 'pass', { session, ts: now })))
+    [1, 2, 3, 4, 5, 6]
+      .flatMap((session) => [
+        cmdV3('cargo check', 'pass', { session, ts: now }),
+        { ...cmdV3('cargo test', 'pass', { session, ts: now }), seq: 1 },
+      ])
+      .map((row) => JSON.stringify(row))
       .join('\n') + '\n',
   )
   const result = spawnSync(
     process.execPath,
     [
-      fileURLToPath(new URL('../../scripts/runtime/repo-dossier.mjs', import.meta.url)),
+      join(bundleAlias, 'scripts/runtime/repo-dossier.mjs'),
       '--refresh',
       '--ledger',
       ledger,
@@ -87,6 +129,45 @@ test('refresh publishes ledger facts in one invocation without a browser data tr
   assert.ok(existsSync(join(out, 'graph.json')))
   const artifact = JSON.parse(readFileSync(join(out, `${KEY}.json`), 'utf8'))
   assert.ok(artifact.facts.some((fact) => fact.text === 'cargo check'))
+
+  const proposed = join(root, 'proposed')
+  const state = join(root, 'habits-state')
+  const habitWorker = join(bundleAlias, 'scripts/runtime/habitsmith.mjs')
+  const habitRun = (args) =>
+    spawnSync(
+      process.execPath,
+      [habitWorker, '--graph', join(out, 'graph.json'), ...args, '--ledger', ledger],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: {
+          ...process.env,
+          ANGEL_HABIT_MIN_BELIEF: '0.75',
+          ANGEL_HABIT_MAX_PROPOSALS_PER_DAY: '2',
+          ANGEL_SKILLS_DIR: join(root, 'installed-skills'),
+          ANGEL_BUNDLED_SKILLS_DIR: join(root, 'bundled-skills'),
+        },
+      },
+    )
+  const listed = habitRun(['--list'])
+  assert.equal(listed.status, 0, listed.stderr)
+  assert.match(listed.stdout, /build → test/)
+  const refreshed = habitRun([
+    '--refresh',
+    '--proposed-dir',
+    proposed,
+    '--state-dir',
+    state,
+  ])
+  assert.equal(refreshed.status, 0, refreshed.stderr)
+  const drafts = readdirSync(proposed)
+  assert.equal(drafts.length, 1)
+  const draft = readFileSync(join(proposed, drafts[0], 'SKILL.md'), 'utf8')
+  assert.match(draft, /1\. `cargo check`/)
+  assert.match(draft, /2\. `cargo test`/)
+  assert.equal(JSON.parse(readFileSync(join(state, 'proposals.json'), 'utf8')).runs, 1)
+  assert.equal(existsSync(join(root, 'installed-skills')), false, 'drafts are not installed')
   assert.equal(existsSync(join(root, 'public')), false)
 })
 
@@ -197,6 +278,9 @@ const ROWS = [
 ]
 
 test('classifyCommand buckets by leading tokens', () => {
+  for (const [name, value] of Object.entries(core)) {
+    assert.strictEqual(worker[name], value, `worker must re-export the core's ${name}`)
+  }
   assert.equal(classifyCommand('cargo test -p cockpit'), 'test')
   assert.equal(classifyCommand('npm run test -- --watch'), 'test')
   assert.equal(classifyCommand('cargo build --release'), 'build')
@@ -262,6 +346,24 @@ test("a chdir into ANOTHER repo is that repo's evidence, never this one's", () =
     normalizeCommand('cd /tmp/cut-forge/item-3/cockpit && cargo check', wt).command,
     'cargo check',
   )
+})
+
+test('relative chdirs resolve from the stamped cwd and cannot hide repository escapes', () => {
+  const repo = { root: '/home/user/project', cwd: '/home/user/project/cockpit' }
+  assert.equal(normalizeCommand('cd ../../other && cargo check', repo), null)
+  assert.deepEqual(normalizeCommand('cd ../src && cargo test', repo), {
+    command: 'cargo test',
+    attributable: true,
+  })
+})
+
+test('chained relative chdirs carry the effective cwd between prefixes', () => {
+  const repo = { root: '/home/user/project' }
+  assert.deepEqual(normalizeCommand('cd cockpit; cd ../src && npm test', repo), {
+    command: 'npm test',
+    attributable: true,
+  })
+  assert.equal(normalizeCommand('cd cockpit; cd ../../../other && cargo check', repo), null)
 })
 
 test('unverifiable runs prove recurrence but never move belief', () => {

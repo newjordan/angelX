@@ -5,7 +5,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/newjordan/angelX/main/install.sh | sh
 #
 # Settings (environment, all optional):
-#   ANGELX_VERSION=v0.1.94   install that release instead of the latest
+#   ANGELX_VERSION=v0.2.0   install that release instead of the latest
 #   ANGELX_HOME=~/.angelX    where releases are unpacked
 #   ANGELX_BIN_DIR=~/.local/bin
 #                            where the angelX command is linked

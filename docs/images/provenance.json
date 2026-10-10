@@ -138,6 +138,69 @@
       "actions": [
         "/world crops"
       ]
+    },
+    {
+      "file": "delve/undercroft.png",
+      "sha256": "48eaf7fe27abcc24cc14b81a9bc46161213f0fa82752417b3610fbef119a3e87",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the cockpit's own Delve renderer through its shot-writer tests (tests/cockpit/world_viz/overworld__arena_tests.rs), one game pixel to 3x3 image pixels; a staged scene, unedited.",
+      "shows": "The Undercroft, built out: two knights at home, one on Tobbin's forge plate reading its fourth rung."
+    },
+    {
+      "file": "delve/fortune-wheel.png",
+      "sha256": "ebac66b5bf1fe0185255bc05aef6220d3da4fb4e4a5a01d7981e9b9ab797d86d",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the cockpit's own Delve renderer through its shot-writer tests (tests/cockpit/world_viz/overworld__arena_tests.rs), one game pixel to 3x3 image pixels; a staged scene, unedited.",
+      "shows": "Dame Fortune's hall: her wheel mid-spin, a knight at the lever, the audience on the benches."
+    },
+    {
+      "file": "delve/fungal-deep.png",
+      "sha256": "2618dc7c763512df5de584df5a78d39039efe8f393a12c2b72ea720f2f0ef1df",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the cockpit's own Delve renderer through its shot-writer tests (tests/cockpit/world_viz/overworld__arena_tests.rs), one game pixel to 3x3 image pixels; a staged scene, unedited.",
+      "shows": "Two knights in a sanctuary of the Fungal Deep, the fifth floor."
+    },
+    {
+      "file": "delve/tavern.png",
+      "sha256": "29479c60a99b25e58458a4921814f677d8d6b439d5dbcd6dd8ccadb702ec612d",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the cockpit's own Delve renderer through its shot-writer tests (tests/cockpit/world_viz/overworld__arena_tests.rs), one game pixel to 3x3 image pixels; a staged scene, unedited.",
+      "shows": "Maud's tavern, the Siege Perilous: the bar, the rumour board, Sir Dinadan's stage and the chair."
+    },
+    {
+      "file": "delve/trophy-hall.png",
+      "sha256": "eed49e4bbacf3b9b3b78403d9f1feb40aa12a5ac0bde281bd76722b1fddc86dd",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the cockpit's own Delve renderer through its shot-writer tests (tests/cockpit/world_viz/overworld__arena_tests.rs), one game pixel to 3x3 image pixels; a staged scene, unedited.",
+      "shows": "The Trophy Hall: statuettes on their plinths and the Waxen Warden's plaque, felled 12 times and gilded."
+    },
+    {
+      "file": "delve/bounties.png",
+      "sha256": "8cd59f85c6e0ed41ec07ea6a11fb54c03fcd5139867935e933594cb457009d38",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the cockpit's own Delve renderer through its shot-writer tests (tests/cockpit/world_viz/overworld__arena_tests.rs), one game pixel to 3x3 image pixels; a staged scene, unedited.",
+      "shows": "Wren's bounty board read at home: three jobs, their progress and their pay."
+    },
+    {
+      "file": "crawl/fight.png",
+      "sha256": "30598f568e89a9283addf05e02294bee3557d0b8510385a1edcd05b549c21795",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the loop crawl's renderer through its shot-writer tests (tests/cockpit/world_viz/crawl__tests.rs); the terminal draws the same frame in Dotmax dots. Unedited.",
+      "shows": "The crawl down the Mines: a skeleton archer in the hall while the loop's tools edit."
+    },
+    {
+      "file": "crawl/chest.png",
+      "sha256": "7b8a350c9fff80c013f53b3f80b21c31b7b4e5f266f3cae20aeef6931fa403c2",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the loop crawl's renderer through its shot-writer tests (tests/cockpit/world_viz/crawl__tests.rs); the terminal draws the same frame in Dotmax dots. Unedited.",
+      "shows": "The crawl: a measurement's chest found and opened."
+    },
+    {
+      "file": "crawl/guardian.png",
+      "sha256": "e26d334aadf23fa0f094e5b21b8fc580d5adc1d654145c19aa54d5f66bcd639e",
+      "captured_date_utc": "2026-10-05",
+      "method": "Frame written by the loop crawl's renderer through its shot-writer tests (tests/cockpit/world_viz/crawl__tests.rs); the terminal draws the same frame in Dotmax dots. Unedited.",
+      "shows": "The crawl in Dragon Keep: the hall's guardian at the stairs while the loop's tools build."
     }
   ]
 }

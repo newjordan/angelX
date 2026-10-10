@@ -37,6 +37,7 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
         arg.to_str(),
         Some(
             "--atlas"
+                | "--labyrinth"
                 | "--look-image"
                 | "--tool-http-helper"
                 | "--sandbox-exec"
