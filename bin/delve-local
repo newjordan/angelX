@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# delve-local — one browser link on this machine, at the local frame rate.
+#
+#   delve-local [workspace]
+#
+# Starts a private loopback Delve (nothing is opened beyond this machine),
+# hosts one seat, and prints a single URL. Open that URL. Nothing to install.
+#
+# The workspace defaults to a throwaway one, ${TMPDIR:-/tmp}/delve-local-<port>,
+# which this script marks as its own and clears of its last run. A workspace
+# you name is refused when it is your home directory or already holds a saved
+# Delve (.angel/dungeon/session.json), unless DELVE_LOCAL_FORCE=1; even then
+# that save is resumed, never removed.
+#
+# Knobs: DELVE_PORT (default 8768), DELVE_LOCAL_FORCE=1, and
+# ANGEL_DUNGEON_FRAME_TIMING=<file> to log the painter's timing.
+set -euo pipefail
+
+port="${DELVE_PORT:-8768}"
+case "$port" in
+  ''|*[!0-9]*) echo "delve-local: DELVE_PORT must be a number" >&2; exit 1 ;;
+esac
+if [ "$port" -lt 1024 ] || [ "$port" -gt 65535 ]; then
+  echo "delve-local: DELVE_PORT must be between 1024 and 65535" >&2
+  exit 1
+fi
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/.." && pwd)"
+angel="$root/cockpit/target/release/angel"
+if [ ! -x "$angel" ]; then
+  echo "delve-local: build angelX first (cargo build --release -p angel in cockpit/)" >&2
+  exit 1
+fi
+
+workspace="${1:-${TMPDIR:-/tmp}/delve-local-$port}"
+mkdir -p "$workspace"
+workspace="$(cd "$workspace" && pwd -P)"
+home="$(cd "$HOME" && pwd -P)"
+save="$workspace/.angel/dungeon/session.json"
+# A workspace this script made. Its save is the script's own last run.
+marker="$workspace/.delve-local"
+if [ -f "$marker" ]; then
+  rm -f "$save"
+elif [ -z "$(ls -A "$workspace")" ]; then
+  : > "$marker"
+elif [ "${DELVE_LOCAL_FORCE:-}" != "1" ]; then
+  if [ "$workspace" = "$home" ]; then
+    echo "delve-local: $workspace is your home directory; name another workspace, or set DELVE_LOCAL_FORCE=1" >&2
+    exit 1
+  fi
+  if [ -e "$save" ]; then
+    echo "delve-local: $workspace already holds a saved Delve; name another workspace, or set DELVE_LOCAL_FORCE=1 to resume it" >&2
+    exit 1
+  fi
+fi
+mkdir -p "$workspace/.angel/dungeon"
+
+session="delve-local-$$"
+cleanup() {
+  # Killing the session hangs up only the pane's first process; angelX runs
+  # below it and would keep going with no terminal. The whole pane's process
+  # group gets the hangup, so the host exits in order.
+  local pane
+  pane="$(tmux list-panes -t "$session" -F '#{pane_pid}' 2>/dev/null | head -n 1 || true)"
+  if [ -n "$pane" ]; then
+    kill -HUP -- "-$pane" 2>/dev/null || true
+  fi
+  tmux kill-session -t "$session" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+trap 'cleanup; exit 129' HUP
+
+# A throwaway session. The composer pauses the delve, so the script leaves it.
+env_line="ANGEL_NO_BUILD=1 ANGEL_SETUP=0 ANGEL_DUNGEON_BROWSER_VIEW=1 ANGEL_DUNGEON_FAST_FRAMES=1 ANGEL_DUNGEON_LISTEN=127.0.0.1:$port"
+if [ -n "${ANGEL_DUNGEON_FRAME_TIMING:-}" ]; then
+  env_line="$env_line ANGEL_DUNGEON_FRAME_TIMING=$(printf '%q' "$ANGEL_DUNGEON_FRAME_TIMING")"
+fi
+tmux new-session -d -s "$session" -x 220 -y 60 \
+  "cd $(printf '%q' "$workspace") && $env_line $(printf '%q' "$here/angelX")"
+
+ready=0
+for _ in $(seq 1 80); do
+  if tmux capture-pane -p -t "$session" -S -200 | grep -q "Write a message"; then
+    ready=1
+    break
+  fi
+  sleep 0.25
+done
+if [ "$ready" -ne 1 ]; then
+  echo "delve-local: angelX did not reach a composer" >&2
+  tmux capture-pane -p -t "$session" -S -40 >&2 || true
+  exit 1
+fi
+
+# The saved invitation is the link. The hosted menu covers the notice, so the
+# pane is not a reliable place to read it.
+tmux send-keys -t "$session" "/dungeon_host --1 --view 127.0.0.1:$port" Enter
+
+link=""
+for _ in $(seq 1 40); do
+  if [ -f "$save" ]; then
+    link="$(python3 -I - "$save" "$port" << 'PY' || true
+import json, sys
+from pathlib import Path
+file, port = Path(sys.argv[1]), sys.argv[2]
+try:
+    data = json.loads(file.read_text())
+except (OSError, json.JSONDecodeError):
+    sys.exit(0)
+inv = data.get("invitation")
+if not isinstance(inv, list) or len(inv) < 2:
+    sys.exit(0)
+bind = inv[0]
+token = str(inv[1]).split(",")[0]
+if bind == f"127.0.0.1:{port}" and len(token) == 32 and all(c in "0123456789abcdef" for c in token):
+    print(f"http://{bind}/#{token}")
+PY
+)"
+  fi
+  if [ -n "$link" ]; then
+    break
+  fi
+  sleep 0.25
+done
+if [ -z "$link" ]; then
+  echo "delve-local: no browser link was printed" >&2
+  tmux capture-pane -p -t "$session" -S -120 >&2 || true
+  exit 1
+fi
+# Enter continues into the entrance room. F6 leaves the composer so the
+# delve runs; it pauses while the composer is open.
+sleep 0.3
+tmux send-keys -t "$session" Enter
+sleep 0.2
+tmux send-keys -t "$session" F6
+
+printf '%s\n' "$link"
+echo "delve-local: open that link. This process keeps the seat up; Ctrl-C closes it." >&2
+# Stay alive so the host does. A signal interrupts the wait at once, and the
+# traps close the session.
+while tmux has-session -t "$session" 2>/dev/null; do
+  sleep 2 &
+  wait $! || true
+done

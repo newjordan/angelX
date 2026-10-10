@@ -103,9 +103,11 @@ fn footprint(wish: &Wish) -> (i32, i32) {
     (tw.max(1), th.max(2))
 }
 
+/// A wilderness screen of the heartland. The March to the south belongs to
+/// the houses, and wishes never move: lots stay where they always stood.
 fn wild(tx: i32, ty: i32) -> bool {
     let (sx, sy) = (tx.div_euclid(SCREEN_W), ty.div_euclid(SCREEN_H));
-    sx % 2 == 1 || sy % 2 == 1
+    sy < super::map::HEARTLAND_Y * 2 - 1 && (sx % 2 == 1 || sy % 2 == 1)
 }
 
 /// Ground a lot may be cleared on: meadow, ash, and trees or rocks to clear.

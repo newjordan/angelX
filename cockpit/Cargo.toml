@@ -1,6 +1,6 @@
 [package]
 name = "angelX-cockpit"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
@@ -67,6 +67,8 @@ serde = { version = "1", features = ["derive", "rc"] }
 # dependencies.
 ratatui-image = { version = "11.0.6", default-features = false, features = ["crossterm", "image-defaults"] }
 image = "0.25.10"
+# Palette frames for browser seats (the version image already uses).
+png = "0.18"
 # Runtime module/layout profiles and local Codex configuration parsing.
 toml = "0.8"
 tui-term = "=0.3.4"

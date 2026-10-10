@@ -17,11 +17,13 @@
 //! Contract: pure and deterministic — the same run and size paint the same
 //! pixels.
 
+mod barony;
 mod bounties;
 mod cards;
 mod fortune;
 mod hireling;
 mod home;
+mod joust;
 mod lessons;
 mod rescues;
 mod runes;
@@ -33,8 +35,8 @@ mod tide;
 mod trophies;
 mod ults;
 mod void;
+mod world;
 mod yard;
-mod chivalry;
 
 pub(crate) use cards::card_art;
 
@@ -148,6 +150,18 @@ impl Field {
     fn blit(&self, scenery: &Img, figures: &Img, out: &mut Img) {
         if self.den == 1 {
             let k = self.num;
+            // The guest frame is native size: one tight pass, no bounds checks.
+            if k == 1
+                && self.ox == 0
+                && self.oy == 0
+                && out.w == scenery.w
+                && out.h == scenery.h
+                && figures.w == scenery.w
+                && figures.h == scenery.h
+            {
+                Img::compose_1x(figures, scenery, out);
+                return;
+            }
             for y in 0..scenery.h * k {
                 for x in 0..scenery.w * k {
                     if let Some(c) = figures.get(x / k, y / k).or(scenery.get(x / k, y / k)) {
@@ -451,6 +465,157 @@ fn room_px(room: &Room) -> (i32, i32) {
 /// (dusk light per pixel, over a whole great hall) every tick was what made
 /// frames skip, so one drawing is kept and reused until one of those moves.
 fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
+    if live_frame() {
+        return scenery_live(run);
+    }
+    scenery_cached_exact(run)
+}
+
+/// A live seat's frame. Same pixels as `frame_for`, except a torch flicker
+/// may show the previous step until its bake lands off the paint thread.
+/// A snapshot still uses `frame_for`, which stays exact.
+pub(crate) fn frame_for_live(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
+    struct Arm;
+    impl Drop for Arm {
+        fn drop(&mut self) {
+            LIVE_FRAME.with(|flag| flag.set(false));
+        }
+    }
+    LIVE_FRAME.with(|flag| flag.set(true));
+    let _arm = Arm;
+    frame_for(run, w, h, focus)
+}
+
+std::thread_local! {
+    static LIVE_FRAME: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
+
+fn live_frame() -> bool {
+    LIVE_FRAME.with(|flag| flag.get())
+}
+
+/// Everything in the scenery key except the torch step.
+type SteadyKey = (
+    u64,
+    u32,
+    usize,
+    u64,
+    bool,
+    bool,
+    Option<bool>,
+    usize,
+    bool,
+    u64,
+);
+
+fn steady_key(run: &Run) -> SteadyKey {
+    (
+        run.raid_id,
+        run.dungeon.depth,
+        run.at,
+        run.room().fingerprint() ^ run.dungeon.pack as u64,
+        run.barred(),
+        run.phase == Phase::Fighting,
+        run.room().chest.map(|c| c.open),
+        run.traps.len(),
+        run.wishing,
+        home_print(run),
+    )
+}
+
+struct LiveScenery {
+    generation: u64,
+    steady: SteadyKey,
+    flicker: u64,
+    img: std::sync::Arc<Img>,
+    baking: Option<u64>,
+}
+
+static LIVE_SCENERY: OnceLock<std::sync::Mutex<Option<LiveScenery>>> = OnceLock::new();
+static SCENERY_DRAW: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
+static BAKE_TX: OnceLock<std::sync::mpsc::Sender<(u64, SteadyKey, u64, Run)>> = OnceLock::new();
+
+fn scenery_draw_lock() -> std::sync::MutexGuard<'static, ()> {
+    SCENERY_DRAW
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|err| err.into_inner())
+}
+
+fn bake_sender() -> &'static std::sync::mpsc::Sender<(u64, SteadyKey, u64, Run)> {
+    BAKE_TX.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<(u64, SteadyKey, u64, Run)>();
+        std::thread::Builder::new()
+            .name("delve-scenery".into())
+            .spawn(move || {
+                while let Ok((generation, steady, flicker, run)) = rx.recv() {
+                    let img = std::sync::Arc::new(scenery(&run));
+                    let Some(slot) = LIVE_SCENERY.get() else {
+                        continue;
+                    };
+                    let Ok(mut guard) = slot.lock() else {
+                        continue;
+                    };
+                    let Some(live) = guard.as_mut() else {
+                        continue;
+                    };
+                    if live.generation == generation && live.steady == steady {
+                        live.img = img;
+                        live.flicker = flicker;
+                        if live.baking == Some(generation) {
+                            live.baking = None;
+                        }
+                    }
+                }
+            })
+            .expect("delve scenery baker");
+        tx
+    })
+}
+
+/// Live frames keep the last lit room when only the torch step moved, and
+/// bake the new step beside the painter. A room change is still drawn now.
+fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
+    let steady = steady_key(run);
+    let flicker = run.tick / 6;
+    let slot = LIVE_SCENERY.get_or_init(|| std::sync::Mutex::new(None));
+    let sync_generation = {
+        let mut guard = slot.lock().unwrap_or_else(|err| err.into_inner());
+        match guard.as_mut() {
+            Some(live) if live.steady == steady && live.flicker == flicker => {
+                return std::sync::Arc::clone(&live.img);
+            }
+            Some(live) if live.steady == steady => {
+                let stale = std::sync::Arc::clone(&live.img);
+                if live.baking != Some(live.generation) {
+                    live.baking = Some(live.generation);
+                    let job = (live.generation, steady, flicker, run.clone());
+                    let _ = bake_sender().send(job);
+                }
+                return stale;
+            }
+            Some(live) => {
+                live.generation = live.generation.wrapping_add(1);
+                live.baking = None;
+                live.generation
+            }
+            None => 1,
+        }
+    };
+    let img = std::sync::Arc::new(scenery(run));
+    if let Ok(mut guard) = slot.lock() {
+        *guard = Some(LiveScenery {
+            generation: sync_generation,
+            steady,
+            flicker,
+            img: std::sync::Arc::clone(&img),
+            baking: None,
+        });
+    }
+    img
+}
+
+fn scenery_cached_exact(run: &Run) -> std::sync::Arc<Img> {
     type Key = (
         u64,
         u32,
@@ -502,6 +667,8 @@ fn home_print(run: &Run) -> u64 {
     }
     // Grubbins' stall opens once a goblin has come back.
     (run.home.goblins > 0).hash(&mut h);
+    // The barony: the King's court, the works as built, the forges lit.
+    crate::drive::together_shooter::barony::print(&run.home.barony).hash(&mut h);
     run.home.trophies.hash(&mut h);
     // The tavern's bar is kept once Maud is home.
     run.home.residents.hash(&mut h);
@@ -510,6 +677,7 @@ fn home_print(run: &Run) -> u64 {
 
 /// Paint the room's scenery and light it for dusk.
 fn scenery(run: &Run) -> Img {
+    let _draw = scenery_draw_lock();
     if run.side_on() {
         return side::scenery(run);
     }
@@ -522,6 +690,7 @@ fn scenery(run: &Run) -> Img {
             RoomKind::Hall | RoomKind::Stockpile | RoomKind::Workshop | RoomKind::Quarters => {
                 home::settlement_scenery(run)
             }
+            kind if kind.in_world() => world::scenery(run),
             _ => home::scenery(run),
         };
         home::research_exhibits(&mut image, run);
@@ -564,6 +733,8 @@ fn scenery(run: &Run) -> Img {
                     lights.push(fire(x + TILE / 2, y + 4, r, s));
                 }
                 Tile::Wall => cv.stamp(tiles.rock(st.rock, v), x, y),
+                // A forge-hall's furnace and anvils are drawn whole below.
+                Tile::Block if room.kind == RoomKind::Forge => {}
                 Tile::Block if pack == Pack::Crypt => cv.stamp(&sprites::tomb(v), x, y),
                 Tile::Block if pack == Pack::Archive => cv.stamp(&sprites::shelf(v), x, y),
                 Tile::Block if pack == Pack::Fungal => cv.stamp(&sprites::mushroom(v), x, y),
@@ -647,6 +818,9 @@ fn scenery(run: &Run) -> Img {
     }
     if room.kind == RoomKind::Threshold {
         shoggoth(&mut cv, room, tick, &mut lights);
+    }
+    if room.kind == RoomKind::Forge {
+        barony::forge(&mut cv, run, &mut lights, tick);
     }
     if let Some(c) = room.chest {
         let im = chest(!c.open);
@@ -814,6 +988,27 @@ fn dusk(cv: &mut Img, lights: &[Light], (cool, lit): (char, char)) {
 /// Stamp `im` with its feet at native `(x, y)`.
 fn stand(cv: &mut Img, im: &Img, x: i32, y: i32) {
     cv.stamp(im, x - im.w / 2, y - im.h + 1);
+}
+
+/// Feet at a world point. A live frame keeps the fractional pixel as
+/// ordered dither (`stamp_sub`), so a step smaller than one pixel still
+/// changes the picture. A snapshot stays on the integer cell.
+fn stand_at(cv: &mut Img, im: &Img, ux: f32, uy: f32, dy: i32) {
+    // Same integer anchor as `stand` (`w / 2` truncates). The fractional
+    // pixel is added after that, so an odd-width foe does not slide half
+    // a pixel off the snapshot, and a whole pixel still matches `stamp`.
+    let px = ux * UNIT;
+    let py = uy * UNIT;
+    let (x, y) = (px.floor() as i32, py.floor() as i32);
+    if live_frame() {
+        cv.stamp_sub(
+            im,
+            (x - im.w / 2) as f32 + (px - px.floor()),
+            (y - im.h + 1 + dy) as f32 + (py - py.floor()),
+        );
+    } else {
+        stand(cv, im, x, y + dy);
+    }
 }
 
 /// A vent grille's top-left on its wall.
@@ -994,7 +1189,11 @@ fn figures(cv: &mut Img, run: &Run) {
                 );
             }
         }
-        stand(cv, &im, x, y);
+        if live_frame() && !run.side_on() {
+            stand_at(cv, &im, enemy.x, enemy.y, 0);
+        } else {
+            stand(cv, &im, x, y);
+        }
     }
     // The light home, in a slain dragon's lair.
     if let Some((lx, ly)) = run.light {
@@ -1029,7 +1228,13 @@ fn figures(cv: &mut Img, run: &Run) {
         let (x, y) = at(px, py);
         cv.stamp(&sign, x - sign.w / 2, y - 28 - sign.h);
     }
-    for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp > 0 && h.privy == 0) {
+    // A knight in the saddle at the lists is drawn with their horse.
+    let riding = run.joust.as_ref().map(|j| j.knight);
+    for (&id, hero) in run
+        .players
+        .iter()
+        .filter(|(id, h)| h.hp > 0 && h.privy == 0 && Some(**id) != riding)
+    {
         let (x, y) = at(hero.x, hero.y + feet);
         let mut im = if let Some(avatar) = &hero.avatar {
             let mut im = Img::new(16, 16);
@@ -1089,7 +1294,7 @@ fn figures(cv: &mut Img, run: &Run) {
             for _ in 0..quarter {
                 turned = sprites::quarter_turn(&turned);
             }
-            stand(cv, &turned, x, y + 2);
+            stand_at(cv, &turned, hero.x, hero.y + feet, 2);
             let (rx, ry) = hero.roll_dir();
             let puff = sprites::dust(left.min(12));
             cv.stamp(
@@ -1108,13 +1313,13 @@ fn figures(cv: &mut Img, run: &Run) {
             for _ in 0..(hero.tossed / 3) % 4 {
                 turned = sprites::quarter_turn(&turned);
             }
-            stand(cv, &turned, x, y - lift);
+            stand_at(cv, &turned, hero.x, hero.y + feet, -lift);
             continue;
         }
         // Blink while a hit's grace lasts.
         let blink = hero.invulnerable > 0 && hero.invulnerable < 24 && (tick / 2).is_multiple_of(2);
         if !blink {
-            stand(cv, &im, x, y);
+            stand_at(cv, &im, hero.x, hero.y + feet, 0);
         }
         if hero.walling
             && let Some(((x1, y1), (x2, y2))) = hero.wall_span()
@@ -1419,17 +1624,30 @@ pub(crate) fn camera(run: &Run, focus: Option<u32>) -> (i32, i32) {
     )
 }
 
+/// Where this seat's knight is stamped in its own frame. The page slides
+/// that sprite on a delayed route so the key is on screen before the next
+/// picture can return. `follows` means the camera tracks the knight, so the
+/// page scrolls the view instead of walking the sprite through a fixed room.
+pub(crate) fn focus_stamp_box(run: &Run, id: u32) -> Option<(i32, i32, i32, i32, bool)> {
+    let hero = run.players.get(&id).filter(|h| h.hp > 0 && h.privy == 0)?;
+    if run.side_on() {
+        return None;
+    }
+    let (ox, oy) = camera(run, Some(id));
+    let (pw, ph) = room_px(run.room());
+    let follows = pw > NATIVE_W || ph > NATIVE_H;
+    let px = hero.x * UNIT;
+    let py = hero.y * UNIT;
+    // The kit knight is 16×16, feet on the same anchor `stand_at` uses.
+    let (w, h) = (16, 16);
+    let x = px.floor() as i32 - w / 2 - ox;
+    let y = py.floor() as i32 - h + 1 - oy;
+    Some((x, y, w, h, follows))
+}
+
 /// One view of `full` from `(ox, oy)`.
 fn crop(full: &Img, (ox, oy): (i32, i32)) -> Img {
-    let mut view = Img::new(NATIVE_W, NATIVE_H);
-    for y in 0..NATIVE_H {
-        for x in 0..NATIVE_W {
-            if let Some(c) = full.get(ox + x, oy + y) {
-                view.set(x, y, c);
-            }
-        }
-    }
-    view
+    Img::from_view(full, ox, oy, NATIVE_W, NATIVE_H)
 }
 
 /// What the view cannot show: a mark on its edge toward each monster (red)
@@ -1493,8 +1711,20 @@ fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
             rescues::residents(&mut over, run);
             hireling::at_the_stair(&mut over, run);
         }
+        match run.room().kind {
+            RoomKind::Stables => joust::stables(&mut over, run),
+            RoomKind::Lists => joust::lists(&mut over, run, legible),
+            _ => {}
+        }
+        world::entrance_ring(&mut over, run);
     }
-    if run.at_home_now() { chivalry::projection(&mut over,run,legible); }
+    if matches!(
+        run.room().kind,
+        RoomKind::MineHead | RoomKind::KingsHall | RoomKind::Gate | RoomKind::Forge
+    ) {
+        barony::plates(&mut over, run);
+        barony::folk(&mut over, run);
+    }
     ults::under(&mut over, run);
     foes_hazards(&mut over, run);
     tide::ravages(&mut over, run);
@@ -1522,6 +1752,22 @@ fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
         } else if run.room().kind == RoomKind::Home {
             home::boards(&mut over, run);
         }
+        if run.room().kind.in_world() || run.room().kind == RoomKind::Home {
+            world::boards(&mut over, run);
+        }
+        match run.room().kind {
+            RoomKind::Stables => joust::stables_boards(&mut over, run),
+            RoomKind::Lists => joust::lists_boards(&mut over, run),
+            _ => {}
+        }
+    }
+    if legible
+        && matches!(
+            run.room().kind,
+            RoomKind::MineHead | RoomKind::KingsHall | RoomKind::Forge
+        )
+    {
+        barony::boards(&mut over, run);
     }
     let banner = legible.then(|| run.banner_now()).flatten();
     let origin = camera(run, focus);

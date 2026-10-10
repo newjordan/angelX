@@ -16,12 +16,24 @@ pub(crate) struct TerminalInput {
 
 impl TerminalInput {
     pub(crate) fn start() -> std::io::Result<Self> {
-        Self::spawn(|wait| {
+        // A closed terminal window hangs up the tty without signalling this
+        // process (only the session leader hears SIGHUP). crossterm then
+        // reports no event at once, forever, and the reader spins. Asked
+        // while stdin is still a tty, because a hung-up tty stops being one.
+        #[cfg(unix)]
+        let watch_stdin = unsafe { libc::isatty(libc::STDIN_FILENO) } == 1;
+        Self::spawn(move |wait| {
             if event::poll(wait)? {
-                event::read().map(Some)
-            } else {
-                Ok(None)
+                return event::read().map(Some);
             }
+            #[cfg(unix)]
+            if watch_stdin && hung_up(libc::STDIN_FILENO) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "the terminal hung up",
+                ));
+            }
+            Ok(None)
         })
     }
 
@@ -62,6 +74,18 @@ impl TerminalInput {
             }
         }
     }
+}
+
+/// Whether the tty behind `fd` has hung up (its terminal is gone).
+#[cfg(unix)]
+pub(crate) fn hung_up(fd: libc::c_int) -> bool {
+    let mut probe = libc::pollfd {
+        fd,
+        events: 0,
+        revents: 0,
+    };
+    let ready = unsafe { libc::poll(&mut probe, 1, 0) };
+    ready > 0 && probe.revents & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0
 }
 
 impl Drop for TerminalInput {

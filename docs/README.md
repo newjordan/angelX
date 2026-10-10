@@ -48,6 +48,7 @@ its link dependencies is an intentional release change.
 ## Shipping and attribution
 
 - [Release evidence and verification](release-evidence.md).
+- [0.2.1 release notes](RELEASE_0.2.1.md) — what 0.2.1 adds.
 - [0.2.0 release notes](RELEASE_0.2.0.md) — what 0.2.0 adds, with commands.
 - [0.1.9 release line](RELEASE_0.1.9.md) — version-specific, not a rolling specification.
 - [Security](../SECURITY.md), [third-party notices](../THIRD_PARTY_NOTICES.md),
@@ -60,8 +61,12 @@ its link dependencies is an intentional release change.
 - [Speed-loop handoff](SPEED_LOOP.md): campaign context and evidence.
 - [Telemetry](telemetry/): dated experiments, measurements and handoffs. Their
   reported results apply to their recorded source/settings, not every checkout.
-- [Stables and knights tournament](architecture/stables-tournament.md): playable
-  owner-local practice, actual 3D routes, controls and privacy/render limits.
+- [Stables and the lists](architecture/stables-tournament.md): the joust, played
+  in rooms of the world beside the Delve's gate.
+- [The Barony](BARONY.md): the world above the Delve, its folk, King Brannoc
+  and the forges of Caer Dwfn; the design and the phase plan.
+- [Model castles](CASTLES.md): the March's castles, one per model family, and
+  how each model named its house.
 - [Source-layer reorganization handoff](handoff-refactor-src-layers.md): explicitly
   superseded; useful history, not the current migration plan.
 

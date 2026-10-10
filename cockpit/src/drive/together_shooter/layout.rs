@@ -79,6 +79,17 @@ pub(crate) enum RoomKind {
     Stockpile,
     Workshop,
     Quarters,
+    /// The world above the Delve (see `world`): the Delve's gate courtyard,
+    /// the stables, the lists, and the Mines' mouth.
+    Gate,
+    Stables,
+    Lists,
+    MineHead,
+    /// King Brannoc's hall, inside: reached by its great door at the
+    /// mine-head once it is rebuilt.
+    KingsHall,
+    /// A forge-hall of Caer Dwfn, off the first hall of a reclaimed floor.
+    Forge,
 }
 
 impl RoomKind {
@@ -580,12 +591,13 @@ impl Floor {
             return false;
         }
         // The immutable vault flavor was chosen from pre-vault geography,
-        // not mutable found/paid/chest state. Recompute without cloning rooms.
+        // not mutable found/paid/chest state. Recompute without cloning rooms
+        // (a reclaimed floor's forge-hall came after it, too).
         let shape = self
             .rooms
             .iter()
             .enumerate()
-            .filter(|(i, _)| *i != secret.vault)
+            .filter(|(i, r)| *i != secret.vault && r.kind != RoomKind::Forge)
             .fold(u64::from(self.depth) ^ 0x5ec2e7, |h, (_, r)| {
                 h.wrapping_mul(37)
                     .wrapping_add((r.cell.0 * 19 + r.cell.1) as u64)
@@ -1112,7 +1124,13 @@ fn room(
         | RoomKind::Tavern
         | RoomKind::Stockpile
         | RoomKind::Workshop
-        | RoomKind::Quarters => EMPTY,
+        | RoomKind::Quarters
+        | RoomKind::Gate
+        | RoomKind::Stables
+        | RoomKind::Lists
+        | RoomKind::MineHead
+        | RoomKind::KingsHall
+        | RoomKind::Forge => EMPTY,
         RoomKind::Threshold => EMPTY,
         RoomKind::Treasure => SHRINE,
         RoomKind::Lair => LAIR,
@@ -1251,7 +1269,13 @@ fn room(
         | RoomKind::Tavern
         | RoomKind::Stockpile
         | RoomKind::Workshop
-        | RoomKind::Quarters => Vec::new(),
+        | RoomKind::Quarters
+        | RoomKind::Gate
+        | RoomKind::Stables
+        | RoomKind::Lists
+        | RoomKind::MineHead
+        | RoomKind::KingsHall
+        | RoomKind::Forge => Vec::new(),
         RoomKind::Pit => vec![EnemyKind::PitTyrant],
         // A passage may hold a straggler or two that fly.
         RoomKind::Hall => (0..rng.below(3)).map(|_| EnemyKind::Bat).collect(),

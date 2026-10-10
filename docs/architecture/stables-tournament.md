@@ -1,120 +1,57 @@
-# Stables and knights' practice tournament
+# Stables and the lists
 
-[Architecture index](README.md) · [Commands](../COMMANDS.md)
+[Architecture index](README.md) · [Commands](../COMMANDS.md) · [The Barony](../BARONY.md)
 
-This is a **local playable practice game**, shared by the owner's mini-world and
-Delve home. It is not the `/tourney` benchmark/calibration system, and has no
-model calls, paid resources, loot, trophies, research authority or verifier hooks.
+The stables and the lists are **rooms of the world** beside the Delve's gate
+(`drive/together_shooter/world.rs`), walked with the Delve's keys and
+mirrored to friends like any home room. The joust is simulated in the run
+(`drive/together_shooter/joust.rs`) and drawn by
+`stage/world_viz/overworld/arena/joust.rs`. The realm keeps the stable in its
+home (`Home::stable`: the saddled mount, the tending, bouts, wins,
+unhorsings), decoded on its own so a bad subtree never costs the realm. It is
+not the `/tourney` benchmark system and has no model calls.
 
-## Controls
+The earlier 3D side stage (a practice overlay with three guard, aim or charge
+picks) was removed: its dot render was unreadable at 1:1, a pass had no
+charge or hit, and its key presses cleared the screen.
+
+## Commands
 
 | Command | Effect |
 |---|---|
-| `/world visit stables` (also `stable`) | Focus the actual 3D stable district, including when the optional realm map is enabled. |
-| `/world visit tournament` (also `knights`) | Focus the same district from the fenced lists. |
-| `/world enter`, `/world leave`, `/world follow` | Enter the staged aisle/lists, leave to their exterior, return to the working knight. In the focused world pane, Enter enters and arrows move between four connected aisle/promenade stations. |
-| `/dungeon stable [enter\|status]` | Open a 3D stable side stage if a solo Delve exists; otherwise open it in the mini-world. `status` does not open a stage. |
-| `/dungeon stable select Bramble\|Cinder\|Mist` | Select a named mount. Bramble specializes in guard, Cinder in charge, Mist in aim. Selection is locked during an underway tournament. |
-| `/dungeon stable tend` | Brush, water and check tack. Preparation does not stack; starting consumes it for one first-pass point. |
-| `/dungeon tournament [enter\|status\|start]` | Open/check/start a three-pass local match. A second start during a match is rejected. |
-| `/dungeon tournament round <1..3> guard\|aim\|charge` | Resolve exactly the next numbered pass. Repeats, skipped passes, invalid numbers/choices do nothing. |
-| `/dungeon stable leave`, `/dungeon tournament leave` | Close practice; tournament leave marks an underway match left, without refunding preparation. Stable leave only closes the stable. Finished results remain until another start. |
+| `/dungeon stable`, `/world visit stables` | Open the Delve (a new delve begins at the gate) and walk the party into the stables. |
+| `/dungeon stable select Bramble\|Cinder\|Mist`, `/dungeon stable tend` | The same marks a stall's plate and the trough's leave; settled by the cockpit into the realm. |
+| `/dungeon tournament`, `/world visit lists` | Walk the party onto the lists' mount plate. (`/world visit tournament` is still a camera visit on the map.) |
+| `/dungeon stable status`, `/dungeon tournament status` | The stable and the next rival, as text. |
 
-In the **Delve practice overlay**: `1/2/3` select mounts, `E` tends, Enter starts a
-match, `G/A/C` choose the current pass, arrows move the viewpoint, Esc leaves.
-OS key-repeat cannot consume another pass. Slash commands are always available.
-The home and yard have two walkable `E ENTER` approaches, with horse/stall and
-lists/pennant projections reflecting the same owner state.
+## The joust
 
-The rival announces charge, guard, aim on passes 1, 2, 3 respectively. Guard beats
-charge; charge beats aim; aim beats guard. A win earns 3 practice points, a tie 1,
-a loss 0, with +1 for a mount's specialty and the optional first-pass tending
-point. The opponent's announced par is 2 points/pass (6 total). After three
-choices the actual score produces WIN/DRAW/LOSS. This deliberately small,
-deterministic game can be replayed; it is not a combat simulation or a benchmark.
+Hold F on the mount plate to mount (`Run::mount_up`): the knight rides the
+saddled mount against the next rival (Sir Kay, Sir Palamedes, Sir Lancelot,
+then Lancelot again). While mounted the knight's keys go only to the joust
+(`joust::reins`).
 
-## Actual runtime paths and ownership
+- A course: F spurs; the riders accelerate down either side of the tilt and
+  meet in the middle at `Steed::charge` ticks. W or S aims high (the helm) or
+  low (the shield) until the meeting; F strikes, Space braces. A press counts
+  inside its window around the meeting (`Steed::strike`, `Steed::brace`); the
+  riders hold at the clash until the latest window closes, then the lances
+  are resolved (`Run::meet`).
+- The rival guards high or low each course (from the seed, the bout and the
+  course: no dice). Striking his shield is a point (two if the lance breaks
+  at the very moment); striking where it isn't is two (three at the very
+  moment, plus the mount's weight in knocks). His lance follows a pattern
+  that moves along from bout to bout; a brace in time takes it a grade
+  lighter.
+- Knocks come off each rider's balance (the mount's, one more if tended; the
+  rival's own). At none, the rider goes over his horse's tail and the bout is
+  over. Otherwise three courses are counted.
+- Holding Space at the end withdraws. The verdict stands four seconds, then
+  the knight dismounts at the plate. The run marks `joust:start`,
+  `joust:<rival>:<won|lost|drawn>` and `joust:unhorsed`; the cockpit settles
+  them (`joust::settle_stable`).
 
-```text
-/dungeon stable|tournament       /world visit stables|tournament
-        │                                   │
- app/control/dungeon_chivalry.rs  ← realm load/projection → commands.rs
-        │                                   │
- drive/together_realm::Realm.chivalry         World.chivalry + Visit
-        │ same-owner realm.json              │
-        ├─ Run.chivalry (serde skipped)       ├─ ride::scryglass_frame_with_motion
-        │   → overworld/arena/chivalry.rs     │   → world_viz/chivalry.rs
-        │   → normal home/yard native +      │   → world3d/chivalry.rs meshes
-        │     half-block Delve frames        │   → deterministic raster → Dotmax
-        │                                    │
-        └─ DungeonView.chivalry_visit ────────┘
-            → ui::draw → chivalry_viz (ordinary Delve overlay)
-```
-
-`drive/chivalry.rs` owns only mount preparation and three fixed pass slots.
-`Realm.chivalry` defaults when missing from old saves, and uses the existing
-same-owner rewards/realm path. Valid changes compute a cloned game candidate, then use
-that writer before installing its projection; save failure restores the old game.
-No general-purpose writer or cross-owner import was added. The practice visit,
-viewpoint and notice are ephemeral, not part of the run checkpoint.
-
-A side visit clears held combat controls and elapsed-step debt, pauses **solo**
-play and preserves the current floor/players. Closing/collapsing, restarting,
-world travel and shutdown clear visit ownership/cache. It never generates or
-replaces a Delve floor. Checkpoint restore rebuilds the private projection from
-the realm on the next normal advance, without reopening a side stage.
-
-## Rendering and privacy limits
-
-- Three stall bays: modeled four-legged horses with neck/muzzle/ears, saddle,
-  reins, hay racks, trough water, tack and amber lanterns. Entering cuts the roof
-  away for the staged aisle, rather than replacing any of the eight existing
-  Building paintings.
-- Fenced lists: two mounted knights, lances, spectators, a herald, colored
-  pennants and pass/score lamps; choices move competitors and results raise the
-  result standard. Both places share a warm exterior lane with cottages/well.
-  The existing ordinary court receives only additive lanterns, benches/hay and
-  village bunting. The old road sweep stays clear.
-- Four bounded camera stations per interior. They are discrete inspection
-  positions along connected clear geometry, **not** an unbounded free-roaming
-  stable collision world. Game choices are turn-based, not animated jousting.
-- One cached Dotmax picture, keyed by full practice state, place, inside/outside,
-  station, dimensions, quantized finite camera inputs and motion mode. Maximum
-  256×80 terminal cells / 512×320 sampled pixels. No idle prop animation. Off and
-  Reduced are deterministic; hidden surfaces don't compose. Zero and tiny sizes
-  are bounded, with text/chrome taking precedence in very small Delve overlays.
-- Home/yard practice props are on the live figure layer, not static scenery.
-  Native transport keys include the owner projection, so same-tick selection or
-  tending cannot reuse a stale image. Delve practice uses braille on all
-  terminals and never queues a Kitty/other native image worker under its UI.
-- Host-only. Commands/world practice visits are explicitly refused while joined
-  to a remote Delve or while a host invitation is open. The guest protocol does
-  not implement shared practice. `Run.chivalry` is not serialized, and the guest
-  painter receives a **sanitized clone** as well (serialization alone would not
-  protect PNGs). Practice notices never enter broadcast notice/HUD/chorus.
-
-## Verification and captures
-
-Feature tests live in `tests/cockpit/drive/chivalry__tests.rs`,
-`tests/cockpit/app/dungeon_chivalry__tests.rs` and
-`tests/cockpit/world_viz/chivalry__tests.rs`, plus targeted existing guest and
-native cache test modules. They cover progression, invalid/repeated actions,
-old-save defaults, owner/save-failure boundaries, no rewards, floor/control
-preservation, guest JSON **and painter** isolation, connected geometry,
-motion/cache transitions, zero/tiny sizes and live surface routing.
-
-`ANGEL_CHIVALRY_REVIEW=<directory>` makes the ordinary tests retain deterministic
-normal-world Dotmax raw/braille pictures, real `ui::draw` mini-world and Delve
-cell dumps, and native home/yard before/after frames. These do **not** depend on
-opt-in illustration fixture modes. PNGs/cell dumps use explicit deterministic
-states and Motion Off; they are render evidence, not proof of a physical terminal
-image-protocol session. The village before image removes only the additive
-mesh dressing from the same ordinary court scene, keeping the camera identical.
-
-### Malformed practice saves
-
-The optional practice subtree is decoded independently. Missing or malformed
-practice data resets only the stable/tournament state; treasury, home, wishes and
-Delve progression remain intact when the realm is next saved. This is not a
-repair mechanism for syntactically invalid JSON or corruption elsewhere in a
-realm save.
+Tests: `tests/cockpit/app/together_joust__tests.rs`,
+`tests/cockpit/drive/chivalry__tests.rs`,
+`tests/cockpit/app/dungeon_chivalry__tests.rs`. Renders:
+`write_joust_shots` in `tests/cockpit/world_viz/overworld__arena_tests.rs`.

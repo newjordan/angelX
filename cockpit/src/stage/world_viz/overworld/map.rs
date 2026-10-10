@@ -1,5 +1,6 @@
-//! The default realm: twelve authored Zelda screens spread across a wider
-//! grid with grown wilderness between them, and where every place stands.
+//! The default realm: authored Zelda screens spread across a wider grid with
+//! grown wilderness between them, and where every place stands. The southern
+//! March (the last two authored rows) holds the model houses' castles.
 //!
 //! Authored screens sit at even grid coordinates; every other screen is
 //! wilderness (`wild.rs`) that carries the authored roads through. Place
@@ -28,7 +29,10 @@ pub(crate) const SCREEN_W: i32 = 16;
 pub(crate) const SCREEN_H: i32 = 11;
 /// The authored screens' own grid.
 pub(crate) const AUTHORED_X: i32 = 4;
-pub(crate) const AUTHORED_Y: i32 = 4;
+pub(crate) const AUTHORED_Y: i32 = 6;
+/// The authored rows before the March: the realm as it stood, whose wild
+/// screens hold the party's wishes.
+pub(crate) const HEARTLAND_Y: i32 = 4;
 /// The realm's grid: an authored screen at every even coordinate,
 /// wilderness between.
 pub(crate) const SCREENS_X: i32 = AUTHORED_X * 2 - 1;
@@ -233,8 +237,8 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.cccc=........T",
         "T.cccc=..cccc..T",
         "T.....=..cccc..T",
-        "TT............TT",
-        "TTTTTTTTTTTTTTTT",
+        "TT....=.......TT",
+        "TTTTTT=TTTTTTTTT", // south gate to the March
     ],
     // (1,3) Artisan quarter — workshops around a public market street
     [
@@ -248,7 +252,7 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T......=.......T",
         "T......=.......T",
         "T.cccc.=.cccc..T",
-        "TTTTTTTTTTTTTTTT",
+        "TTTTTTT=TTTTTTTT", // south gate to the March
     ],
     // (2,3) Colosseum: clear approach along both sides to the south gate
     [
@@ -261,8 +265,8 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.=..........=.T",
         "T.=..........=.T",
         "T.============.T",
-        "T..............T",
-        "TTTTTTTTTTTTTTTT",
+        "T...........=..T",
+        "TTTTTTTTTTTT=TTT", // south gate to the March, clear of the sign
     ],
     // (3,3) Knights' tournament: the training tilt and the competitors' camp
     [
@@ -275,7 +279,122 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.=............T",
         "T.=............T",
         "T.============.T",
+        "T..=...........T",
+        "TTT=TTTTTTTTTTTT", // south gate to the March, clear of the sign
+    ],
+    // The March: the model houses' castles, two to a screen, each gate on a
+    // path down to the March road. Castles stand on the meadow above the
+    // road (`super::castles`); each name is carved below it.
+    // (0,4) West March
+    [
+        "T.....T=T.....TT",
+        "TT.....=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "T===============",
+        "T......=.......T",
+        "T.TT...=..cccc.T",
+        "TTTT...=..cccc.T",
+        "TT.....=......TT",
+        "TTTTTTT=TTTTTTTT",
+    ],
+    // (1,4)
+    [
+        "T.....T=T.....TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "================",
+        "T......=.......T",
+        "T..ss..=.......T",
+        "T.s~~s.=...TT..T",
+        "T..ss..=..TTT..T",
+        "TTTTTTT=TTTTTTTT",
+    ],
+    // (2,4)
+    [
+        "T.....T=T.....TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "================",
+        "T......=.......T",
+        "T.cccc.=.^^....T",
+        "T.cccc.=.^^^...T",
+        "T......=.......T",
+        "TTTTTTT=TTTTTTTT",
+    ],
+    // (3,4) East March
+    [
+        "T.....T=T.....TT",
+        "T......=......TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "===============T",
+        "T......=.......T",
+        "T..TT..=.......T",
+        "T.TTTT.=..ccc..T",
+        "T......=..ccc.TT",
+        "TTTTTTT=TTTTTTTT",
+    ],
+    // (0,5) Far March
+    [
+        "T.....T=T.....TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "T===============",
         "T..............T",
+        "T..TTT....cccc.T",
+        "T.TTTTT...cccc.T",
+        "TTTTTTTT.....TTT",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (1,5)
+    [
+        "T.....T=T.....TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "================",
+        "T..............T",
+        "T...sss....TT..T",
+        "T..s~~~s..TTT..T",
+        "TT..sss.......TT",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (2,5)
+    [
+        "T.....T=T.....TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "================",
+        "T..............T",
+        "T.^^.....cccc..T",
+        "T^^^^....cccc..T",
+        "TT^^..........TT",
+        "TTTTTTTTTTTTTTTT",
+    ],
+    // (3,5)
+    [
+        "T.....T=T.....TT",
+        "T......=......TT",
+        "T......=.......T",
+        "T......=.......T",
+        "T..=...=...=...T",
+        "===============T",
+        "T..............T",
+        "T..cccc...TTT..T",
+        "T..cccc..TTTTT.T",
+        "TT..........TTTT",
         "TTTTTTTTTTTTTTTT",
     ],
 ];
@@ -373,6 +492,9 @@ fn lean_of(sx: i32, sy: i32) -> super::wild::Lean {
         (5, 0) | (4, 1) | (5, 1) => Lean::Ash,
         (0, 3) | (1, 3) | (1, 4) => Lean::Marsh,
         (0, 1) | (1, 0) | (1, 1) | (5, 2) | (5, 3) => Lean::Forest,
+        // Between the precinct and the March, and between the March rows.
+        (1, 7) | (5, 7) | (3, 9) | (0, 9) => Lean::Forest,
+        (3, 7) | (6, 9) => Lean::Hills,
         _ => Lean::Meadow,
     }
 }

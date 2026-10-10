@@ -1,7 +1,14 @@
 //! The knights a player may take into the Delve: who they are, what they
 //! carry in, and the colours they wear. Chosen on the Delve's intro.
+//!
+//! Each entry is a kit — weapon, guard, hand, ultimate, colours — and the
+//! knight who wears it comes from a model house's castle
+//! (`crate::stage::houses`): the house serving the party's seat names him,
+//! in its own words. With no house serving (the stub route), the Keep's own
+//! household takes the field under the kits' old names.
 
 use super::{Card, Hero, Pack, Run};
+use crate::stage::houses::{self, HouseId};
 
 /// One knight of the company.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -148,6 +155,61 @@ pub(crate) fn knight(id: &str) -> Option<&'static Knight> {
     COMPANY.iter().find(|k| k.id == id)
 }
 
+impl Knight {
+    /// Which of a house's knights wears this kit.
+    pub(crate) fn slot(&self) -> usize {
+        COMPANY.iter().position(|k| k.id == self.id).unwrap_or(0)
+    }
+
+    /// The kit as a calling, for a house knight who wears it.
+    pub(crate) fn class(&self) -> &'static str {
+        if self.name.starts_with("the ") {
+            self.name
+        } else {
+            self.title
+        }
+    }
+
+    /// The house knight who wears this kit, named by the house's model.
+    pub(crate) fn of_house(&self, house: Option<HouseId>) -> Option<&'static houses::Knight> {
+        houses::get(house?).knight(self.slot())
+    }
+
+    /// The wearer's name: the house's knight, or the Keep's own.
+    pub(crate) fn name_for(&self, house: Option<HouseId>) -> String {
+        self.of_house(house)
+            .map_or_else(|| self.name.to_string(), |k| k.name.clone())
+    }
+
+    /// The wearer's name with his castle: "Ardent of Lanternmere".
+    pub(crate) fn full_name(&self, house: Option<HouseId>) -> String {
+        match (self.of_house(house), house) {
+            (Some(k), Some(id)) => {
+                let castle = &houses::get(id).castle;
+                let castle = castle
+                    .strip_prefix("The ")
+                    .map_or_else(|| castle.clone(), |rest| format!("the {rest}"));
+                format!("{} of {castle}", k.name)
+            }
+            _ => self.name.to_string(),
+        }
+    }
+
+    /// Name and calling for the intro: "Ardent of Lanternmere, the Seeker".
+    pub(crate) fn styled(&self, house: Option<HouseId>) -> String {
+        if self.of_house(house).is_some() {
+            format!("{}, {}", self.full_name(house), self.class())
+        } else {
+            format!("{}, {}", self.name, self.title)
+        }
+    }
+}
+
+/// The house a seat's knight would ride for, if dressed now.
+pub(crate) fn house_for_seat(seat: u32) -> Option<HouseId> {
+    houses::for_seat(&houses::serving(), seat)
+}
+
 impl Run {
     /// Dress knight `id` as `who`: their weapon, guard, hand, bombs and colours.
     pub(crate) fn outfit(&mut self, id: u32, who: &Knight) {
@@ -169,6 +231,9 @@ impl Run {
         hero.max_hp = who.max_hp + hero.home_hp;
         hero.hp = hero.max_hp;
         hero.knight = Some(who.id.to_string());
+        // The seat's house names the knight: the serving house for the host,
+        // the formation's other houses and then the March for friends.
+        hero.house = house_for_seat(id).map(|h| houses::get(h).key.to_string());
     }
 
     /// Begin the delve in `pack` instead of the one the dice chose.
@@ -289,6 +354,17 @@ impl Run {
 }
 
 impl Hero {
+    /// The house this knight rides for.
+    pub(crate) fn house_id(&self) -> Option<HouseId> {
+        self.house.as_deref().and_then(houses::by_key)
+    }
+
+    /// The knight's own name, from their house (or the Keep's household).
+    pub(crate) fn knight_name(&self) -> Option<String> {
+        let kit = self.knight.as_deref().and_then(knight)?;
+        Some(kit.name_for(self.house_id()))
+    }
+
     /// The colours this knight wears over the realm's red.
     pub(crate) fn colours(&self) -> &'static [(char, char)] {
         self.knight

@@ -85,6 +85,10 @@ pub(crate) struct Hero {
     /// Which knight of the company this is, chosen on the Delve's intro.
     #[serde(default)]
     pub(crate) knight: Option<String>,
+    /// The model house this knight rides for (`crate::stage::houses` key),
+    /// set when the knight is dressed: the house names the knight.
+    #[serde(default)]
+    pub(crate) house: Option<String>,
     /// Side-on rooms: fall speed, standing on something, the jump left in
     /// the air, the jump key as last seen (a jump is a press, not a hold),
     /// ticks of dropping through a plank, and the last firm footing.
@@ -218,6 +222,7 @@ impl Hero {
             mana_rest: 0,
             reforged_on: None,
             knight: None,
+            house: None,
             vy: 0.0,
             grounded: false,
             air_jumps: 0,

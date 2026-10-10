@@ -10,6 +10,7 @@
 //! shot is a decision; monsters answer with slow patterns worth reading.
 
 pub(crate) mod audience;
+pub(crate) mod barony;
 pub(crate) mod bestiary;
 mod boss_ecology;
 mod boss_gates;
@@ -18,11 +19,11 @@ pub(crate) mod bosses;
 pub(crate) mod bounties;
 pub(crate) mod cards;
 pub(crate) mod cat;
-pub(crate) mod chivalry;
 pub(crate) mod dares;
 mod encounter_catalog;
 pub(crate) mod feats;
 pub(crate) mod foes;
+pub(crate) mod folk;
 pub(crate) mod fortune;
 pub(crate) mod hazards;
 mod hero;
@@ -32,6 +33,7 @@ pub(crate) mod hollow;
 pub(crate) mod home;
 pub(crate) mod hunters;
 pub(crate) mod items;
+pub(crate) mod joust;
 pub(crate) mod knights;
 pub(crate) mod layout;
 pub(crate) mod ledge;
@@ -53,6 +55,7 @@ pub(crate) mod tavern;
 pub(crate) mod tide;
 pub(crate) mod trophies;
 pub(crate) mod ults;
+pub(crate) mod world;
 pub(crate) mod yard;
 
 use crate::drive::together_realm::{Haul, Spoil, Spoils};
@@ -284,9 +287,6 @@ pub(crate) struct Spark {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Run {
-    /// Owner-local rendering projection only: skipped by saves and guest wire.
-    #[serde(skip)]
-    pub(crate) chivalry: Option<crate::drive::chivalry::Chivalry>,
     pub(crate) raid_id: u64,
     pub(crate) tick: u64,
     pub(crate) phase: Phase,
@@ -414,6 +414,12 @@ pub(crate) struct Run {
     /// bounties.
     #[serde(skip)]
     pub(crate) marks: BTreeMap<String, u32>,
+    /// The small secrets already lifted (`cup:{depth}`), and those
+    /// the Herald has already hinted at: each happens once, saves included.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) lifted: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) hinted: Vec<String>,
     /// Sappers' kegs burning down, and hobs' bombs in the air.
     #[serde(default)]
     pub(crate) kegs: Vec<foes::Keg>,
@@ -433,6 +439,15 @@ pub(crate) struct Run {
     /// Beaumains, hired for this delve.
     #[serde(default)]
     pub(crate) hireling: Option<hireling::Hireling>,
+    /// A bout at the lists, while one is ridden.
+    #[serde(default)]
+    pub(crate) joust: Option<joust::Joust>,
+    /// A knight stood by the groom last tick (he speaks once per approach).
+    #[serde(skip)]
+    groom_near: bool,
+    /// A knight stood by King Brannoc last tick.
+    #[serde(skip)]
+    king_near: bool,
     /// The Hollow Ones' Black Holes, warning and pulling.
     #[serde(default)]
     pub(crate) holes: Vec<hollow::Hole>,
@@ -684,7 +699,6 @@ impl Run {
             players.insert(id, Hero::new(name, x, HEIGHT - 6.0));
         }
         let mut run = Self {
-            chivalry: None,
             raid_id,
             tick: 0,
             phase: Phase::Exploring,
@@ -717,6 +731,9 @@ impl Run {
             slams: Vec::new(),
             ravages: Vec::new(),
             hireling: None,
+            joust: None,
+            groom_near: false,
+            king_near: false,
             holes: Vec::new(),
             first: pack,
             light: None,
@@ -741,6 +758,8 @@ impl Run {
             round: None,
             song: None,
             marks: BTreeMap::new(),
+            lifted: Vec::new(),
+            hinted: Vec::new(),
             bosses: bosses::builtin(),
             book: Book::builtin(),
             found: None,
@@ -1483,6 +1502,8 @@ impl Run {
         self.settlement_site = None;
         self.settlement_exhibits.clear();
         self.dungeon = layout::floor_for(self.mode, depth, pack, &mut self.rng);
+        // A delve the King holds has its forge-hall off its first hall.
+        barony::add_forge_hall(&mut self.dungeon, &self.home.barony);
         self.populate_boss_gates();
         self.cage_someone();
         self.pips_map();
@@ -1543,12 +1564,31 @@ impl Run {
         if !self.active() {
             return;
         }
+        // At the lists: the mount plate, and a bout's keys. A knight in the
+        // saddle rides with them and nothing else this tick.
+        let reined;
+        let inputs = if self.at_home_now() && self.room().kind == RoomKind::Lists {
+            self.tick_lists(inputs);
+            match self.joust.as_ref().map(|j| j.knight) {
+                Some(rider) => {
+                    reined = joust::reins(inputs, rider);
+                    &reined
+                }
+                None => inputs,
+            }
+        } else {
+            inputs
+        };
         self.tick += 1;
         self.shake = self.shake.saturating_sub(1);
         let before: Vec<(u32, u32)> = self.players.values().map(|h| (h.hp, h.max_hp)).collect();
         let mut shots = Vec::with_capacity(32);
         let mut bombs = 0;
         let mut nova = 0;
+        // Where knights' bombs went off and draughts were drunk this tick,
+        // for the small secrets that answer them.
+        let mut booms: Vec<(f32, f32)> = Vec::new();
+        let mut draughts: Vec<(f32, f32)> = Vec::new();
         // Damage each knight dealt this tick, for their ultimate's charge,
         // and the ultimates cast.
         let mut credits: Vec<(u32, u32)> = Vec::new();
@@ -1771,17 +1811,45 @@ impl Run {
             let slot = usize::from(input.play);
             if slot >= 1 && slot <= hero.hand.len() && hero.play_cooldown == 0 {
                 hero.play_cooldown = PLAY_REARM;
-                let id_card = hero.hand.remove(slot - 1);
-                if let Some(card) = self.book.get(&id_card) {
-                    hero.spend(card, &mut self.score, &mut nova);
-                    self.found = Some((self.tick, *id, format!("played {}", card.name)));
-                    self.sounds.push("play_card");
-                    // The Herald calls the items by name.
-                    for effect in &card.effects {
-                        match effect {
-                            cards::Effect::Blink(_) => self.cues.push("blink".into()),
-                            cards::Effect::Immune(_) => self.cues.push("sceptre".into()),
-                            _ => {}
+                let summon = self.book.get(&hero.hand[slot - 1]).and_then(Card::summon);
+                // A minion takes the ally slot from another minion, never
+                // from Beaumains: the card stays in hand.
+                let beaumains = self
+                    .hireling
+                    .as_ref()
+                    .is_some_and(|h| h.kind == hireling::AllyKind::Beaumains);
+                if summon.is_some() && beaumains {
+                    self.found = Some((
+                        self.tick,
+                        *id,
+                        "Beaumains will not share the road with it".into(),
+                    ));
+                } else {
+                    let id_card = hero.hand.remove(slot - 1);
+                    if let Some(card) = self.book.get(&id_card) {
+                        hero.spend(card, &mut self.score, &mut nova);
+                        if let Some((kind, power)) = summon {
+                            let at = hireling::beside(&grid, (hero.x, hero.y));
+                            self.hireling =
+                                Some(hireling::Hireling::minion(kind, power, depth, at, *id));
+                            self.cues.push(format!("summoned:{}", kind.word()));
+                        }
+                        if card
+                            .effects
+                            .iter()
+                            .any(|e| matches!(e, cards::Effect::Heal(_)))
+                        {
+                            draughts.push((hero.x, hero.y));
+                        }
+                        self.found = Some((self.tick, *id, format!("played {}", card.name)));
+                        self.sounds.push("play_card");
+                        // The Herald calls the items by name.
+                        for effect in &card.effects {
+                            match effect {
+                                cards::Effect::Blink(_) => self.cues.push("blink".into()),
+                                cards::Effect::Immune(_) => self.cues.push("sceptre".into()),
+                                _ => {}
+                            }
                         }
                     }
                 }
@@ -1791,6 +1859,7 @@ impl Run {
                 hero.bomb_cooldown = BOMB_REARM;
                 hero.invulnerable = hero.invulnerable.max(HZ / 2);
                 bombs += 1;
+                booms.push((hero.x, hero.y));
                 self.shake = self.shake.max(8);
                 self.sounds.push("bomb");
             }
@@ -2316,6 +2385,7 @@ impl Run {
         self.tick_song();
         self.tick_hireling();
         self.tick_snibbet();
+        self.small_secrets(&booms, &draughts);
         self.spark(chains);
         for (hit, x, y, damage) in bursts {
             for enemy in self.enemies.iter_mut().filter(|e| e.hp > 0 && e.id != hit) {
@@ -2366,6 +2436,7 @@ impl Run {
         if self.dungeon.depth == 0 {
             self.tick_home(inputs);
         }
+        self.tick_barony(inputs);
         self.tick_traps();
         self.tick_collapse();
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
@@ -2443,6 +2514,13 @@ impl Run {
             self.ravages.clear();
             self.holes.clear();
             self.dungeon.rooms[self.at].cleared = true;
+            // For King Brannoc's missions: a hall of a delve freed.
+            if self.dungeon.depth > 0 {
+                *self
+                    .marks
+                    .entry(barony::clear_mark(self.dungeon.pack))
+                    .or_default() += 1;
+            }
             self.fair_chest();
             // Two knights standing together earn the realm a bond each.
             let standing = self
@@ -2819,6 +2897,10 @@ impl Run {
         }
         let mut dropped = Vec::new();
         let mut nova = 0;
+        let beaumains = self
+            .hireling
+            .as_ref()
+            .is_some_and(|h| h.kind == hireling::AllyKind::Beaumains);
         for (&id, hero) in self
             .players
             .iter_mut()
@@ -2832,10 +2914,14 @@ impl Run {
                 }
             }
             let book = &self.book;
+            // While Beaumains walks with the party a summoning card would
+            // only clog a hand: it stays where it lies.
             let Some(index) = room.items.iter().position(|item| {
                 item.held_off.is_none()
                     && (hero.x - item.x).hypot(hero.y - item.y) < PICKUP_REACH
-                    && book.get(&item.card).is_some_and(|card| hero.takes(card))
+                    && book.get(&item.card).is_some_and(|card| {
+                        hero.takes(card) && !(beaumains && card.summon().is_some())
+                    })
             }) else {
                 continue;
             };
@@ -2932,6 +3018,10 @@ impl Run {
         }
         let mut exit = None;
         let mut stairs = false;
+        // At home, stairs that belong to an entrance go where it goes; only
+        // the Undercroft's Winding Stair goes down into the delve.
+        let mut entrance: Option<&'static world::Entrance> = None;
+        let home = self.at_home_now();
         let room = self.room();
         for hero in self.players.values().filter(|h| h.hp > 0 && !h.stone) {
             let dir = if hero.y < 0.6 {
@@ -2950,7 +3040,21 @@ impl Run {
             }
             let col = (hero.x / TILE_UNITS) as i32;
             let row = (hero.y / TILE_UNITS) as i32;
-            stairs |= room.tile(col, row) == Tile::Stairs;
+            if room.tile(col, row) == Tile::Stairs {
+                let gate = home
+                    .then(|| world::entrance_at(room.kind, col, row))
+                    .flatten();
+                // A door the realm has not built yet is only a wall.
+                if gate.is_some_and(|e| !world::open(e, &self.home)) {
+                    continue;
+                }
+                // Home stairs that are no entrance are the Winding Stair's
+                // only in the Undercroft itself.
+                if gate.is_some() || !home || room.kind == RoomKind::Home {
+                    stairs = true;
+                    entrance = entrance.or(gate);
+                }
+            }
         }
         if !stairs {
             self.stairs_held = false;
@@ -2975,7 +3079,10 @@ impl Run {
         }
         if stairs && !self.stairs_held && deliberate {
             self.descending = 0;
-            self.descend();
+            match entrance {
+                Some(e) => self.take_entrance(e),
+                None => self.descend(),
+            }
         } else if let Some(dir) = exit
             && let Some(next) = self.dungeon.neighbour(self.at, dir)
         {

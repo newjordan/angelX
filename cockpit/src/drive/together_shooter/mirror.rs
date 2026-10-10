@@ -76,6 +76,9 @@ pub(crate) struct Live {
     pub(crate) ravages: Vec<tide::Ravage>,
     #[serde(default)]
     pub(crate) hireling: Option<hireling::Hireling>,
+    /// A bout at the lists, while one is ridden.
+    #[serde(default)]
+    pub(crate) joust: Option<joust::Joust>,
     #[serde(default)]
     pub(crate) holes: Vec<hollow::Hole>,
     #[serde(default)]
@@ -180,6 +183,7 @@ impl Run {
             slams: self.slams.clone(),
             ravages: self.ravages.clone(),
             hireling: self.hireling.clone(),
+            joust: self.joust.clone(),
             holes: self.holes.clone(),
             banner: self.banner.clone(),
             unboxed: self.unboxed.clone(),
@@ -365,6 +369,7 @@ impl Run {
         self.slams = live.slams;
         self.ravages = live.ravages;
         self.hireling = live.hireling;
+        self.joust = live.joust;
         self.holes = live.holes;
         self.banner = live.banner;
         self.unboxed = live.unboxed;
@@ -479,12 +484,25 @@ impl Run {
         } else {
             pace
         };
-        let ticks = (seconds.clamp(0.0, 0.25) / DT).round() as u32;
+        // A whole tick is 33 ms. A browser frame is 8 ms, so the remainder
+        // has to move too, or a local key never shows up before the next step.
+        let seconds = seconds.clamp(0.0, 0.25);
+        let steps = seconds / DT;
+        let whole = steps.floor() as u32;
+        let frac = steps - whole as f32;
         let mut at = (hero.x, hero.y);
-        for _ in 0..ticks {
+        for _ in 0..whole {
             at = grid.slide(
                 at,
                 (mx * pace * DT, my * pace * DT),
+                HERO_RADIUS,
+                Mover::Hero,
+            );
+        }
+        if frac > 0.001 {
+            at = grid.slide(
+                at,
+                (mx * pace * DT * frac, my * pace * DT * frac),
                 HERO_RADIUS,
                 Mover::Hero,
             );

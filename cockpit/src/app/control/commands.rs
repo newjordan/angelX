@@ -3233,7 +3233,6 @@ handoff restart queued until the foreground worker drains"),
                 }
 
                 Some(a) if a.eq_ignore_ascii_case("follow") => {
-                    if self.dungeon.chivalry_visit.is_some() { self.collapse_dungeon(); }
                     self.world.follow_overworld();
                     self.scryglass.return_to_world();
                     self.request_redraw("world follow resumed");
@@ -3247,12 +3246,15 @@ handoff restart queued until the foreground worker drains"),
                     let name = a
                         .split_once(char::is_whitespace)
                         .map_or("", |(_, name)| name.trim());
-                    if crate::drive::chivalry::Place::parse(name).is_some() {
-                        if self.dungeon.joined.is_some() || self.dungeon.guest.is_some() {
-                            self.system_msg("Practice district is host-only; leave the shared Delve first. Guest game projection is not supported.");
-                            return None;
-                        }
-                        self.sync_chivalry_projection();
+                    // The stables and the lists are rooms of the world:
+                    // walked in the Delve, not looked at from the map. (The
+                    // map's tournament screen is still a camera visit.)
+                    if let Some(place) = crate::drive::chivalry::Place::parse(name).filter(|_| {
+                        !matches!(name.to_ascii_lowercase().as_str(), "tournament" | "knights")
+                    }) {
+                        let said = self.visit_horsemanship(place);
+                        self.system_msg(said);
+                        return None;
                     }
                     if let Some(label) = self.world.visit_overworld(name) {
                         if self.dungeon.expanded { self.collapse_dungeon(); }
@@ -3264,7 +3266,7 @@ handoff restart queued until the foreground worker drains"),
                             "Viewing {label} · /world follow returns to the working knight."
                         ));
                     } else {
-                        self.system_msg("Visit a realm landmark: /world visit stables|tournament|artisans|colosseum|village|round-table|keep. /world follow resumes the live camera.".to_string());
+                        self.system_msg("Visit a realm landmark: /world visit stables|lists|tournament|artisans|colosseum|village|round-table|keep, or a model house's castle (/world visit kimi). /world follow resumes the live camera.".to_string());
                     }
                 }
                 Some(a) if a.eq_ignore_ascii_case("zoom") => {
@@ -3321,8 +3323,6 @@ handoff restart queued until the foreground worker drains"),
                 Some(a)
                     if matches!(a.to_ascii_lowercase().as_str(), "off" | "disable" | "table") =>
                 {
-                    self.world.close_chivalry();
-                    if self.dungeon.chivalry_visit.is_some() { self.collapse_dungeon(); }
                     self.scryglass_enabled = false;
                     self.focus_module("core");
                     self.request_redraw("world backdrop disabled");

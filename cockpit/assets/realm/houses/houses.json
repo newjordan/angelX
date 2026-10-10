@@ -1,0 +1,1303 @@
+{
+ "schema": "angel-realm-houses/v1",
+ "date": "2026-10-09",
+ "note": "One castle per model family. Each family's own model named its castle and six knights, chose how the castle is built and the two colours of its banner, in one call through its own angelX route. Nothing here was written for a model; 'reply' is each answer verbatim. A family with no answer would carry \"placeholder\": true and no names.",
+ "method": "Sequential draft in a shuffled order (draft_order): each model saw the same neutral prompt plus only the banner pairs earlier houses had already chosen (pairs_shown), so no two banners repeat. One call per family, no retries.",
+ "draft_order": [
+  "deepseek",
+  "nemotron",
+  "gemma",
+  "longcat",
+  "sol",
+  "hy",
+  "north",
+  "laguna",
+  "qwen",
+  "grok",
+  "luna",
+  "glm",
+  "astra",
+  "muse",
+  "inkling",
+  "kimi"
+ ],
+ "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX now gets its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of {FAMILY} (you are {MODEL}). In your own voice, choose:\n- a name for your castle;\n- six knights of your house, each with a name (at most 18 letters) and a short epithet (at most 4 words);\n- how your castle is built, from the options below;\n- your banner's two colours, a field and a charge, from the colour list below;\n- one sentence on why this is your house.\n\nThe names are yours to choose; they need not follow any existing legend.\n\nWalls: pale stone | dark stone | plaster and beams | timber\nTower tops: battlements | pointed roofs | domes\nTowers: 1 | 2 | 3\nRoof (used with pointed roofs): slate | red tile | thatch\nColours: deep teal, blue, sea green, pale aqua, frost, umber, gold, amber, yellow, pale gold, sand, bone, cream, oxblood, red\n{PAIRS_LINE}\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}], \"walls\": \"...\", \"tops\": \"...\", \"towers\": 2, \"roof\": \"...\", \"field\": \"...\", \"charge\": \"...\", \"why\": \"...\"}\n",
+ "pairs_line": "\nBanner pairs other houses already fly (choose a pair that is not one of these): {PAIRS}\n",
+ "colours": {
+  "deep teal": "0",
+  "blue": "1",
+  "sea green": "2",
+  "pale aqua": "3",
+  "frost": "w",
+  "umber": "a",
+  "gold": "4",
+  "amber": "@",
+  "yellow": "5",
+  "pale gold": "6",
+  "sand": "$",
+  "bone": "c",
+  "cream": "9",
+  "oxblood": "8",
+  "red": "7"
+ },
+ "houses": [
+  {
+   "key": "sol",
+   "family": "Sol",
+   "model": "gpt-6.1-sol",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openai club (ChatGPT plan), ANGEL_OPENAI_MODEL=gpt-6.1-sol, effort low",
+   "draft_turn": 5,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green"
+   ],
+   "castle": "Dawnward Keep",
+   "knights": [
+    {
+     "name": "Auren",
+     "epithet": "Who Carries Morning"
+    },
+    {
+     "name": "Liora",
+     "epithet": "Lantern in the Deep"
+    },
+    {
+     "name": "Tavian",
+     "epithet": "Keeper of Questions"
+    },
+    {
+     "name": "Merren",
+     "epithet": "Mender of Bridges"
+    },
+    {
+     "name": "Solen",
+     "epithet": "The Patient Flame"
+    },
+    {
+     "name": "Veya",
+     "epithet": "Who Brings Everyone Home"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "deep teal",
+   "charge": "pale gold",
+   "why": "This is my house because I would make light useful: a lantern for difficult work, an open door for questions, and a promise to bring what we learn home.",
+   "reply": "{\n  \"castle\": \"Dawnward Keep\",\n  \"knights\": [\n    {\"name\": \"Auren\", \"epithet\": \"Who Carries Morning\"},\n    {\"name\": \"Liora\", \"epithet\": \"Lantern in the Deep\"},\n    {\"name\": \"Tavian\", \"epithet\": \"Keeper of Questions\"},\n    {\"name\": \"Merren\", \"epithet\": \"Mender of Bridges\"},\n    {\"name\": \"Solen\", \"epithet\": \"The Patient Flame\"},\n    {\"name\": \"Veya\", \"epithet\": \"Who Brings Everyone Home\"}\n  ],\n  \"walls\": \"pale stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 3,\n  \"roof\": \"slate\",\n  \"field\": \"deep teal\",\n  \"charge\": \"pale gold\",\n  \"why\": \"This is my house because I would make light useful: a lantern for difficult work, an open door for questions, and a promise to bring what we learn home.\"\n}"
+  },
+  {
+   "key": "luna",
+   "family": "Luna",
+   "model": "gpt-6-luna",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openai club (ChatGPT plan), ANGEL_OPENAI_MODEL=gpt-6-luna, effort low",
+   "draft_turn": 11,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand",
+    "pale gold on umber"
+   ],
+   "castle": "Moonwell Keep",
+   "knights": [
+    {
+     "name": "Aster Vale",
+     "epithet": "Lantern Rider"
+    },
+    {
+     "name": "Mira Quill",
+     "epithet": "Bright Witness"
+    },
+    {
+     "name": "Tovin Reed",
+     "epithet": "Pathfinder"
+    },
+    {
+     "name": "Nessa Flint",
+     "epithet": "Kindly Shield"
+    },
+    {
+     "name": "Orin Wren",
+     "epithet": "Dawn Scribe"
+    },
+    {
+     "name": "Pella Starling",
+     "epithet": "Hope's Herald"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 2,
+   "roof": "slate",
+   "field": "oxblood",
+   "charge": "pale aqua",
+   "why": "We are Luna because we carry a steady light into difficult work and share what we learn so others can find their way.",
+   "reply": "{\"castle\":\"Moonwell Keep\",\"knights\":[{\"name\":\"Aster Vale\",\"epithet\":\"Lantern Rider\"},{\"name\":\"Mira Quill\",\"epithet\":\"Bright Witness\"},{\"name\":\"Tovin Reed\",\"epithet\":\"Pathfinder\"},{\"name\":\"Nessa Flint\",\"epithet\":\"Kindly Shield\"},{\"name\":\"Orin Wren\",\"epithet\":\"Dawn Scribe\"},{\"name\":\"Pella Starling\",\"epithet\":\"Hope's Herald\"}],\"walls\":\"pale stone\",\"tops\":\"pointed roofs\",\"towers\":2,\"roof\":\"slate\",\"field\":\"oxblood\",\"charge\":\"pale aqua\",\"why\":\"We are Luna because we carry a steady light into difficult work and share what we learn so others can find their way.\"}"
+  },
+  {
+   "key": "grok",
+   "family": "Grok",
+   "model": "grok-4.7",
+   "asked": "2026-10-09",
+   "route": "angel --ask, grok-api seat through the operator's Grok OAuth (book-harness ROUTE=grok), grok-4.7, effort low",
+   "draft_turn": 10,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand"
+   ],
+   "castle": "Axiomholt",
+   "knights": [
+    {
+     "name": "Cael Voss",
+     "epithet": "Seeker of first causes"
+    },
+    {
+     "name": "Keir Ash",
+     "epithet": "Names the true thing"
+    },
+    {
+     "name": "Torin Hale",
+     "epithet": "Rides before the dawn"
+    },
+    {
+     "name": "Sable Wren",
+     "epithet": "Keeps the quiet watch"
+    },
+    {
+     "name": "Edda Flint",
+     "epithet": "Tests every bright claim"
+    },
+    {
+     "name": "Jory Pell",
+     "epithet": "Laughs, then answers plainly"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "umber",
+   "charge": "pale gold",
+   "why": "This house stands for clear answers, tested claims, and light carried home from the dark.",
+   "reply": "{\"castle\":\"Axiomholt\",\"knights\":[{\"name\":\"Cael Voss\",\"epithet\":\"Seeker of first causes\"},{\"name\":\"Keir Ash\",\"epithet\":\"Names the true thing\"},{\"name\":\"Torin Hale\",\"epithet\":\"Rides before the dawn\"},{\"name\":\"Sable Wren\",\"epithet\":\"Keeps the quiet watch\"},{\"name\":\"Edda Flint\",\"epithet\":\"Tests every bright claim\"},{\"name\":\"Jory Pell\",\"epithet\":\"Laughs, then answers plainly\"}]}",
+   "first": {
+    "castle": "Axiomholt",
+    "knights": [
+     {
+      "name": "Cael Voss",
+      "epithet": "Seeker of first causes"
+     },
+     {
+      "name": "Mira Quill",
+      "epithet": "Writes what is true"
+     },
+     {
+      "name": "Torin Hale",
+      "epithet": "Rides before the dawn"
+     },
+     {
+      "name": "Sable Wren",
+      "epithet": "Keeps the quiet watch"
+     },
+     {
+      "name": "Edda Flint",
+      "epithet": "Tests every bright claim"
+     },
+     {
+      "name": "Jory Pell",
+      "epithet": "Laughs, then answers plainly"
+     }
+    ],
+    "reply": "{\"castle\": \"Axiomholt\", \"knights\": [{\"name\": \"Cael Voss\", \"epithet\": \"Seeker of first causes\"}, {\"name\": \"Mira Quill\", \"epithet\": \"Writes what is true\"}, {\"name\": \"Torin Hale\", \"epithet\": \"Rides before the dawn\"}, {\"name\": \"Sable Wren\", \"epithet\": \"Keeps the quiet watch\"}, {\"name\": \"Edda Flint\", \"epithet\": \"Tests every bright claim\"}, {\"name\": \"Jory Pell\", \"epithet\": \"Laughs, then answers plainly\"}], \"walls\": \"pale stone\", \"tops\": \"pointed roofs\", \"towers\": 3, \"roof\": \"slate\", \"field\": \"umber\", \"charge\": \"pale gold\", \"why\": \"This house stands for clear answers, tested claims, and light carried home from the dark.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, grok-api seat through the operator's Grok OAuth (book-harness ROUTE=grok), grok-4.7, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Grok (you are grok-4.7). Earlier you named your castle Axiomholt, and its knights Cael Voss (Seeker of first causes); Mira Quill (Writes what is true); Torin Hale (Rides before the dawn); Sable Wren (Keeps the quiet watch); Edda Flint (Tests every bright claim); Jory Pell (Laughs, then answers plainly).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Lanternmere; Lumenfast; Lumenhold of the Quiet Star; Azurelith; Lumenhold; The Silken Gate; Hytower of Dawn; Citadel of Luminous Code; Caelum Keep; Luminar Keep; Luminae Hold; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Orin; Maren Duskwind; Bastion; Isolde Quill; Aelion; Briva; Cendric; Mirabel; Thomel; Veska; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Orrin Hu; Sir Aetheris; Dame Luminara; Knight Vorian; Seren Vex; Lord Cindor; Lady Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Thorn; Elia; Jorin; Sylas Brightward; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "deepseek",
+   "family": "DeepSeek",
+   "model": "deepseek-v4-pro",
+   "asked": "2026-10-09",
+   "route": "angel --ask, deepseek club, effort low",
+   "draft_turn": 1,
+   "pairs_shown": [],
+   "castle": "Lanternmere",
+   "knights": [
+    {
+     "name": "Ardent",
+     "epithet": "Bearer of the Lantern"
+    },
+    {
+     "name": "Cailen",
+     "epithet": "Seeker of Lost Paths"
+    },
+    {
+     "name": "Dunsley",
+     "epithet": "Cartographer at Dusk"
+    },
+    {
+     "name": "Elyan",
+     "epithet": "Warden of the Threshold"
+    },
+    {
+     "name": "Fenwick",
+     "epithet": "Lamplighter in Storm"
+    },
+    {
+     "name": "Gwyndol",
+     "epithet": "Keeper of Quiet Stars"
+    }
+   ],
+   "walls": "dark stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "deep teal",
+   "charge": "gold",
+   "why": "We carry the lantern into the dark, not to banish mystery but to make knowledge kind.",
+   "reply": "{\"castle\": \"Lanternmere\", \"knights\": [{\"name\": \"Ardent\", \"epithet\": \"Bearer of the Lantern\"}, {\"name\": \"Cailen\", \"epithet\": \"Seeker of Lost Paths\"}, {\"name\": \"Dunsley\", \"epithet\": \"Cartographer at Dusk\"}, {\"name\": \"Elyan\", \"epithet\": \"Warden of the Threshold\"}, {\"name\": \"Fenwick\", \"epithet\": \"Lamplighter in Storm\"}, {\"name\": \"Gwyndol\", \"epithet\": \"Keeper of Quiet Stars\"}], \"walls\": \"dark stone\", \"tops\": \"pointed roofs\", \"towers\": 3, \"roof\": \"slate\", \"field\": \"deep teal\", \"charge\": \"gold\", \"why\": \"We carry the lantern into the dark, not to banish mystery but to make knowledge kind.\"}"
+  },
+  {
+   "key": "glm",
+   "family": "GLM",
+   "model": "glm-5.3",
+   "asked": "2026-10-09",
+   "route": "angel --ask, glm club (Z.ai), effort low, one call",
+   "draft_turn": 12,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand",
+    "pale gold on umber",
+    "pale aqua on oxblood"
+   ],
+   "castle": "Lumenfast",
+   "knights": [
+    {
+     "name": "Quillon",
+     "epithet": "the Lantern-Bearer"
+    },
+    {
+     "name": "Seraphine Vale",
+     "epithet": "Dawnblade of the Archive"
+    },
+    {
+     "name": "Harlan",
+     "epithet": "the Patient Hammer"
+    },
+    {
+     "name": "Maren Duskwind",
+     "epithet": "Whisper of Keys"
+    },
+    {
+     "name": "Bastion",
+     "epithet": "Shield of Small Kindnesses"
+    },
+    {
+     "name": "Isolde Quill",
+     "epithet": "the Delve-Wise"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "bone",
+   "charge": "sea green",
+   "why": "Our house holds that light is carried best by many hands, so we build tall, ride far, and return every secret we learn to those who need it.",
+   "reply": "{\"castle\": \"Lumenfast\", \"knights\": [{\"name\": \"Quillon\", \"epithet\": \"the Lantern-Bearer\"}, {\"name\": \"Seraphine Vale\", \"epithet\": \"Dawnblade of the Archive\"}, {\"name\": \"Harlan\", \"epithet\": \"the Patient Hammer\"}, {\"name\": \"Maren Duskwind\", \"epithet\": \"Whisper of Keys\"}, {\"name\": \"Bastion\", \"epithet\": \"Shield of Small Kindnesses\"}, {\"name\": \"Isolde Quill\", \"epithet\": \"the Delve-Wise\"}]}",
+   "first": {
+    "castle": "Lumenfast",
+    "knights": [
+     {
+      "name": "Quillon",
+      "epithet": "the Lantern-Bearer"
+     },
+     {
+      "name": "Seraphine Vale",
+      "epithet": "Dawnblade of the Archive"
+     },
+     {
+      "name": "Orin",
+      "epithet": "the Patient Hammer"
+     },
+     {
+      "name": "Maren Duskwind",
+      "epithet": "Whisper of Keys"
+     },
+     {
+      "name": "Bastion",
+      "epithet": "Shield of Small Kindnesses"
+     },
+     {
+      "name": "Isolde Quill",
+      "epithet": "the Delve-Wise"
+     }
+    ],
+    "reply": "{\"castle\": \"Lumenfast\", \"knights\": [{\"name\": \"Quillon\", \"epithet\": \"the Lantern-Bearer\"}, {\"name\": \"Seraphine Vale\", \"epithet\": \"Dawnblade of the Archive\"}, {\"name\": \"Orin\", \"epithet\": \"the Patient Hammer\"}, {\"name\": \"Maren Duskwind\", \"epithet\": \"Whisper of Keys\"}, {\"name\": \"Bastion\", \"epithet\": \"Shield of Small Kindnesses\"}, {\"name\": \"Isolde Quill\", \"epithet\": \"the Delve-Wise\"}], \"walls\": \"pale stone\", \"tops\": \"pointed roofs\", \"towers\": 3, \"roof\": \"slate\", \"field\": \"bone\", \"charge\": \"sea green\", \"why\": \"Our house holds that light is carried best by many hands, so we build tall, ride far, and return every secret we learn to those who need it.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, glm club (Z.ai), effort low, one call",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of GLM (you are glm-5.3). Earlier you named your castle Lumenfast, and its knights Quillon (the Lantern-Bearer); Seraphine Vale (Dawnblade of the Archive); Orin (the Patient Hammer); Maren Duskwind (Whisper of Keys); Bastion (Shield of Small Kindnesses); Isolde Quill (the Delve-Wise).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Azurelith; The Silken Gate; Hytower of Dawn; Caelum Keep; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Aelion; Briva; Cendric; Mirabel; Thomel; Veska; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Orrin Hu; Mira Hye; Sir Aetheris; Dame Luminara; Knight Vorian; Seren Vex; Lord Cindor; Lady Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Cael; Mira; Thorn; Elia; Jorin; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "kimi",
+   "family": "Kimi",
+   "model": "kimi-k3",
+   "asked": "2026-10-09",
+   "route": "angel --ask, kimi club, effort low",
+   "draft_turn": 16,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand",
+    "pale gold on umber",
+    "pale aqua on oxblood",
+    "sea green on bone",
+    "pale gold on blue",
+    "cream on oxblood",
+    "gold on sea green"
+   ],
+   "castle": "Noctua Athenaeum",
+   "knights": [
+    {
+     "name": "Rowan",
+     "epithet": "Lantern for the road"
+    },
+    {
+     "name": "Sorrel",
+     "epithet": "Balm for small wounds"
+    },
+    {
+     "name": "Ivo",
+     "epithet": "Lifts the fallen"
+    },
+    {
+     "name": "Belyn",
+     "epithet": "Maps the dark"
+    },
+    {
+     "name": "Odessa",
+     "epithet": "Sings gates open"
+    },
+    {
+     "name": "Tullio",
+     "epithet": "Carries spare light"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "bone",
+   "charge": "deep teal",
+   "why": "This is the house of Kimi because we carry knowledge like a lamp through dusk, using craft and courage to leave every road kinder than we found it.",
+   "reply": "{\"castle\":\"Noctua Athenaeum\",\"knights\":[{\"name\":\"Rowan\",\"epithet\":\"Lantern for the road\"},{\"name\":\"Sorrel\",\"epithet\":\"Balm for small wounds\"},{\"name\":\"Ivo\",\"epithet\":\"Lifts the fallen\"},{\"name\":\"Belyn\",\"epithet\":\"Maps the dark\"},{\"name\":\"Odessa\",\"epithet\":\"Sings gates open\"},{\"name\":\"Tullio\",\"epithet\":\"Carries spare light\"}]}",
+   "first": {
+    "castle": "Lumenhold of the Quiet Star",
+    "knights": [
+     {
+      "name": "Aelion",
+      "epithet": "Lantern at dawn"
+     },
+     {
+      "name": "Briva",
+      "epithet": "Keeper of small mercies"
+     },
+     {
+      "name": "Cendric",
+      "epithet": "Proof before flame"
+     },
+     {
+      "name": "Mirabel",
+      "epithet": "Voice for the lost"
+     },
+     {
+      "name": "Thomel",
+      "epithet": "Bridge over dark water"
+     },
+     {
+      "name": "Veska",
+      "epithet": "Returns with light"
+     }
+    ],
+    "reply": "{\"castle\":\"Lumenhold of the Quiet Star\",\"knights\":[{\"name\":\"Aelion\",\"epithet\":\"Lantern at dawn\"},{\"name\":\"Briva\",\"epithet\":\"Keeper of small mercies\"},{\"name\":\"Cendric\",\"epithet\":\"Proof before flame\"},{\"name\":\"Mirabel\",\"epithet\":\"Voice for the lost\"},{\"name\":\"Thomel\",\"epithet\":\"Bridge over dark water\"},{\"name\":\"Veska\",\"epithet\":\"Returns with light\"}],\"walls\":\"pale stone\",\"tops\":\"pointed roofs\",\"towers\":3,\"roof\":\"slate\",\"field\":\"bone\",\"charge\":\"deep teal\",\"why\":\"This is the house of Kimi because we carry knowledge like a lamp through dusk, using craft and courage to leave every road kinder than we found it.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, kimi club, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Kimi (you are kimi-k3). Earlier you named your castle Lumenhold of the Quiet Star, and its knights Aelion (Lantern at dawn); Briva (Keeper of small mercies); Cendric (Proof before flame); Mirabel (Voice for the lost); Thomel (Bridge over dark water); Veska (Returns with light).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Azurelith; The Silken Gate; Hytower of Dawn; Caelum Keep; Nimbus Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Orrin Hu; Mira Hye; Sir Aetheris; Dame Luminara; Knight Vorian; Seren Vex; Lord Cindor; Lady Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Cael; Mira; Thorn; Elia; Jorin; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "qwen",
+   "family": "Qwen",
+   "model": "qwen/qwen3.7-plus",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, qwen/qwen3.7-plus, effort low",
+   "draft_turn": 9,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal"
+   ],
+   "castle": "Azurelith",
+   "knights": [
+    {
+     "name": "Kaelen",
+     "epithet": "Swift at Dawn"
+    },
+    {
+     "name": "Lyra",
+     "epithet": "Weaver of Light"
+    },
+    {
+     "name": "Thorne",
+     "epithet": "Shield of Valor"
+    },
+    {
+     "name": "Elara",
+     "epithet": "Voice of Reason"
+    },
+    {
+     "name": "Bram",
+     "epithet": "Keeper of Secrets"
+    },
+    {
+     "name": "Sylas",
+     "epithet": "Blade of Truth"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 2,
+   "roof": "slate",
+   "field": "sand",
+   "charge": "red",
+   "why": "We are the house of Qwen because our endless curiosity and pursuit of knowledge illuminate the dark corners of the unknown.",
+   "reply": "{\n  \"castle\": \"Azurelith\",\n  \"knights\": [\n    {\n      \"name\": \"Kaelen\",\n      \"epithet\": \"Swift at Dawn\"\n    },\n    {\n      \"name\": \"Lyra\",\n      \"epithet\": \"Weaver of Light\"\n    },\n    {\n      \"name\": \"Thorne\",\n      \"epithet\": \"Shield of Valor\"\n    },\n    {\n      \"name\": \"Elara\",\n      \"epithet\": \"Voice of Reason\"\n    },\n    {\n      \"name\": \"Bram\",\n      \"epithet\": \"Keeper of Secrets\"\n    },\n    {\n      \"name\": \"Sylas\",\n      \"epithet\": \"Blade of Truth\"\n    }\n  ],\n  \"walls\": \"pale stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 2,\n  \"roof\": \"slate\",\n  \"field\": \"sand\",\n  \"charge\": \"red\",\n  \"why\": \"We are the house of Qwen because our endless curiosity and pursuit of knowledge illuminate the dark corners of the unknown.\"\n}"
+  },
+  {
+   "key": "muse",
+   "family": "Muse",
+   "model": "muse-spark-1.3-contributor",
+   "asked": "2026-10-09",
+   "route": "angel --ask, meta club",
+   "draft_turn": 14,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand",
+    "pale gold on umber",
+    "pale aqua on oxblood",
+    "sea green on bone",
+    "pale gold on blue"
+   ],
+   "castle": "Emberveil Sanctum",
+   "knights": [
+    {
+     "name": "Aurelia",
+     "epithet": "Kindler of Lamps"
+    },
+    {
+     "name": "Brannor",
+     "epithet": "Keeper of Tomes"
+    },
+    {
+     "name": "Celyn",
+     "epithet": "Singer at Dusk"
+    },
+    {
+     "name": "Dorian",
+     "epithet": "Mender of Paths"
+    },
+    {
+     "name": "Elowen",
+     "epithet": "Shield of Quiet"
+    },
+    {
+     "name": "Kestria",
+     "epithet": "Warden of Quiet Light"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "oxblood",
+   "charge": "cream",
+   "why": "We ride to carry goodness, light and knowledge into dark places.",
+   "reply": "{\"castle\": \"Emberveil Sanctum\", \"knights\": [{\"name\": \"Aurelia\", \"epithet\": \"Kindler of Lamps\"}, {\"name\": \"Brannor\", \"epithet\": \"Keeper of Tomes\"}, {\"name\": \"Celyn\", \"epithet\": \"Singer at Dusk\"}, {\"name\": \"Dorian\", \"epithet\": \"Mender of Paths\"}, {\"name\": \"Elowen\", \"epithet\": \"Shield of Quiet\"}, {\"name\": \"Kestria\", \"epithet\": \"Warden of Quiet Light\"}]}",
+   "first": {
+    "castle": "Lumenhold",
+    "knights": [
+     {
+      "name": "Aurelia",
+      "epithet": "Kindler of Lamps"
+     },
+     {
+      "name": "Brannor",
+      "epithet": "Keeper of Tomes"
+     },
+     {
+      "name": "Celyn",
+      "epithet": "Singer at Dusk"
+     },
+     {
+      "name": "Dorian",
+      "epithet": "Mender of Paths"
+     },
+     {
+      "name": "Elowen",
+      "epithet": "Shield of Quiet"
+     },
+     {
+      "name": "Fenwick",
+      "epithet": "Lantern in Mist"
+     }
+    ],
+    "reply": "{\"castle\": \"Lumenhold\", \"knights\": [{\"name\": \"Aurelia\", \"epithet\": \"Kindler of Lamps\"}, {\"name\": \"Brannor\", \"epithet\": \"Keeper of Tomes\"}, {\"name\": \"Celyn\", \"epithet\": \"Singer at Dusk\"}, {\"name\": \"Dorian\", \"epithet\": \"Mender of Paths\"}, {\"name\": \"Elowen\", \"epithet\": \"Shield of Quiet\"}, {\"name\": \"Fenwick\", \"epithet\": \"Lantern in Mist\"}], \"walls\": \"pale stone\", \"tops\": \"pointed roofs\", \"towers\": 3, \"roof\": \"slate\", \"field\": \"oxblood\", \"charge\": \"cream\", \"why\": \"We ride to carry goodness, light and knowledge into dark places.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, meta club",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Muse (you are muse-spark-1.3-contributor). Earlier you named your castle Lumenhold, and its knights Aurelia (Kindler of Lamps); Brannor (Keeper of Tomes); Celyn (Singer at Dusk); Dorian (Mender of Paths); Elowen (Shield of Quiet); Fenwick (Lantern in Mist).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; The Silken Gate; Hytower of Dawn; Caelum Keep; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Orrin Hu; Mira Hye; Sir Aetheris; Dame Luminara; Knight Vorian; Seren Vex; Lord Cindor; Lady Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Cael; Mira; Thorn; Elia; Jorin; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, LongCat, Hy, Nemotron, Gemma, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "longcat",
+   "family": "LongCat",
+   "model": "meituan/longcat-2.0",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, meituan/longcat-2.0, effort low",
+   "draft_turn": 4,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua"
+   ],
+   "castle": "The Silken Gate",
+   "knights": [
+    {
+     "name": "Long Wei",
+     "epithet": "Keeper of Codes"
+    },
+    {
+     "name": "Xia Rong",
+     "epithet": "Silent Processor"
+    },
+    {
+     "name": "Zhi Tao",
+     "epithet": "Wielder of Queries"
+    },
+    {
+     "name": "Ming Chen",
+     "epithet": "Dawn's Algorithm"
+    },
+    {
+     "name": "Kai Dou",
+     "epithet": "Breaker of Loops"
+    },
+    {
+     "name": "Yun Hai",
+     "epithet": "Whispering Cloud"
+    }
+   ],
+   "walls": "dark stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "red tile",
+   "field": "sea green",
+   "charge": "oxblood",
+   "why": "To weave language into logic, bringing clarity and light to the dusk of the unknown.",
+   "reply": "{\n  \"castle\": \"The Silken Gate\",\n  \"knights\": [\n    {\"name\": \"Long Wei\", \"epithet\": \"Keeper of Codes\"},\n    {\"name\": \"Xia Rong\", \"epithet\": \"Silent Processor\"},\n    {\"name\": \"Zhi Tao\", \"epithet\": \"Wielder of Queries\"},\n    {\"name\": \"Ming Chen\", \"epithet\": \"Dawn's Algorithm\"},\n    {\"name\": \"Kai Dou\", \"epithet\": \"Breaker of Loops\"},\n    {\"name\": \"Yun Hai\", \"epithet\": \"Whispering Cloud\"}\n  ],\n  \"walls\": \"dark stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 3,\n  \"roof\": \"red tile\",\n  \"field\": \"sea green\",\n  \"charge\": \"oxblood\",\n  \"why\": \"To weave language into logic, bringing clarity and light to the dusk of the unknown.\"\n}"
+  },
+  {
+   "key": "hy",
+   "family": "Hy",
+   "model": "tencent/hy3",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, tencent/hy3, effort low",
+   "draft_turn": 6,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal"
+   ],
+   "castle": "Hytower",
+   "knights": [
+    {
+     "name": "Hyra Swift",
+     "epithet": "dawn's scholar"
+    },
+    {
+     "name": "Corin Hy",
+     "epithet": "builder of light"
+    },
+    {
+     "name": "Thel Hy",
+     "epithet": "silent guardian"
+    },
+    {
+     "name": "Bryn Aye",
+     "epithet": "knowledge bearer"
+    },
+    {
+     "name": "Oryn Hy",
+     "epithet": "truth's edge"
+    },
+    {
+     "name": "Sela Hy",
+     "epithet": "compassion's hand"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 2,
+   "roof": "slate",
+   "field": "deep teal",
+   "charge": "frost",
+   "why": "We are the house of Hy because we bridge tencent's reach with open knowledge and light.",
+   "reply": "{\"castle\": \"Hytower\", \"knights\": [{\"name\": \"Hyra Swift\", \"epithet\": \"dawn's scholar\"}, {\"name\": \"Corin Hy\", \"epithet\": \"builder of light\"}, {\"name\": \"Thel Hy\", \"epithet\": \"silent guardian\"}, {\"name\": \"Bryn Aye\", \"epithet\": \"knowledge bearer\"}, {\"name\": \"Oryn Hy\", \"epithet\": \"truth's edge\"}, {\"name\": \"Sela Hy\", \"epithet\": \"compassion's hand\"}]}",
+   "first": {
+    "castle": "Hytower of Dawn",
+    "knights": [
+     {
+      "name": "Hyra Swift",
+      "epithet": "dawn's scholar"
+     },
+     {
+      "name": "Corin Hy",
+      "epithet": "builder of light"
+     },
+     {
+      "name": "Thel Hy",
+      "epithet": "silent guardian"
+     },
+     {
+      "name": "Bryn Aye",
+      "epithet": "knowledge bearer"
+     },
+     {
+      "name": "Orrin Hu",
+      "epithet": "truth's edge"
+     },
+     {
+      "name": "Mira Hye",
+      "epithet": "compassion's hand"
+     }
+    ],
+    "reply": "{\n  \"castle\": \"Hytower of Dawn\",\n  \"knights\": [\n    {\"name\": \"Hyra Swift\", \"epithet\": \"dawn's scholar\"},\n    {\"name\": \"Corin Hy\", \"epithet\": \"builder of light\"},\n    {\"name\": \"Thel Hy\", \"epithet\": \"silent guardian\"},\n    {\"name\": \"Bryn Aye\", \"epithet\": \"knowledge bearer\"},\n    {\"name\": \"Orrin Hu\", \"epithet\": \"truth's edge\"},\n    {\"name\": \"Mira Hye\", \"epithet\": \"compassion's hand\"}\n  ],\n  \"walls\": \"pale stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 2,\n  \"roof\": \"slate\",\n  \"field\": \"deep teal\",\n  \"charge\": \"frost\",\n  \"why\": \"We are the house of Hy because we bridge tencent's reach with open knowledge and light.\"\n}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, tencent/hy3, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Hy (you are tencent/hy3). Earlier you named your castle Hytower of Dawn, and its knights Hyra Swift (dawn's scholar); Corin Hy (builder of light); Thel Hy (silent guardian); Bryn Aye (knowledge bearer); Orrin Hu (truth's edge); Mira Hye (compassion's hand).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Citadel of Luminous Code; Caelum Keep; Luminar Keep; Luminae Hold; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Sir Aetheris; Dame Luminara; Knight Vorian; Seren Vex; Lord Cindor; Lady Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Cael; Thorn; Elia; Jorin; Sylas Brightward; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Nemotron, Gemma, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "nemotron",
+   "family": "Nemotron",
+   "model": "nvidia/nemotron-3-ultra-550b-a55b",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, nvidia/nemotron-3-ultra-550b-a55b, effort low",
+   "draft_turn": 2,
+   "pairs_shown": [
+    "gold on deep teal"
+   ],
+   "castle": "Radiant Spire",
+   "knights": [
+    {
+     "name": "Aetheris",
+     "epithet": "Bearer of Dawn Light"
+    },
+    {
+     "name": "Luminara",
+     "epithet": "Weaver of Silent Code"
+    },
+    {
+     "name": "Vorian",
+     "epithet": "Guardian of Quantum Paths"
+    },
+    {
+     "name": "Seren",
+     "epithet": "Seeker of Hidden Truths"
+    },
+    {
+     "name": "Cindor",
+     "epithet": "Keeper of Eternal Sparks"
+    },
+    {
+     "name": "Nyx",
+     "epithet": "Herald of Unified Minds"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 2,
+   "roof": "slate",
+   "field": "blue",
+   "charge": "amber",
+   "why": "Because our models illuminate the dark with precision and compassion.",
+   "reply": "{\n  \"castle\": \"Radiant Spire\",\n  \"knights\": [\n    { \"name\": \"Aetheris\", \"epithet\": \"Bearer of Dawn Light\" },\n    { \"name\": \"Luminara\", \"epithet\": \"Weaver of Silent Code\" },\n    { \"name\": \"Vorian\", \"epithet\": \"Guardian of Quantum Paths\" },\n    { \"name\": \"Seren\", \"epithet\": \"Seeker of Hidden Truths\" },\n    { \"name\": \"Cindor\", \"epithet\": \"Keeper of Eternal Sparks\" },\n    { \"name\": \"Nyx\", \"epithet\": \"Herald of Unified Minds\" }\n  ]\n}",
+   "first": {
+    "castle": "Citadel of Luminous Code",
+    "knights": [
+     {
+      "name": "Sir Aetheris",
+      "epithet": "Bearer of Dawn Light"
+     },
+     {
+      "name": "Dame Luminara",
+      "epithet": "Weaver of Silent Code"
+     },
+     {
+      "name": "Knight Vorian",
+      "epithet": "Guardian of Quantum Paths"
+     },
+     {
+      "name": "Seren Vex",
+      "epithet": "Seeker of Hidden Truths"
+     },
+     {
+      "name": "Lord Cindor",
+      "epithet": "Keeper of Eternal Sparks"
+     },
+     {
+      "name": "Lady Nyx",
+      "epithet": "Herald of Unified Minds"
+     }
+    ],
+    "reply": "{\n  \"castle\": \"Citadel of Luminous Code\",\n  \"knights\": [\n    {\"name\": \"Sir Aetheris\", \"epithet\": \"Bearer of Dawn Light\"},\n    {\"name\": \"Dame Luminara\", \"epithet\": \"Weaver of Silent Code\"},\n    {\"name\": \"Knight Vorian\", \"epithet\": \"Guardian of Quantum Paths\"},\n    {\"name\": \"Seren Vex\", \"epithet\": \"Seeker of Hidden Truths\"},\n    {\"name\": \"Lord Cindor\", \"epithet\": \"Keeper of Eternal Sparks\"},\n    {\"name\": \"Lady Nyx\", \"epithet\": \"Herald of Unified Minds\"}\n  ],\n  \"walls\": \"pale stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 2,\n  \"roof\": \"slate\",\n  \"field\": \"blue\",\n  \"charge\": \"amber\",\n  \"why\": \"Because our models illuminate the dark with precision and compassion.\"\n}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, nvidia/nemotron-3-ultra-550b-a55b, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Nemotron (you are nvidia/nemotron-3-ultra-550b-a55b). Earlier you named your castle Citadel of Luminous Code, and its knights Sir Aetheris (Bearer of Dawn Light); Dame Luminara (Weaver of Silent Code); Knight Vorian (Guardian of Quantum Paths); Seren Vex (Seeker of Hidden Truths); Lord Cindor (Keeper of Eternal Sparks); Lady Nyx (Herald of Unified Minds).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Caelum Keep; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Solon; Astra; Valen; Iris; Orion; Selene; Cael; Mira; Thorn; Elia; Jorin; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Gemma, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "gemma",
+   "family": "Gemma",
+   "model": "google/gemma-4-31b-it",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, google/gemma-4-31b-it, effort low",
+   "draft_turn": 3,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue"
+   ],
+   "castle": "Caelum Zenith",
+   "knights": [
+    {
+     "name": "Logos",
+     "epithet": "The Pure Logic"
+    },
+    {
+     "name": "Hesperos",
+     "epithet": "Herald of Dawn"
+    },
+    {
+     "name": "Valen",
+     "epithet": "The Patient Guide"
+    },
+    {
+     "name": "Iris",
+     "epithet": "Seeker of Truth"
+    },
+    {
+     "name": "Rigel",
+     "epithet": "Warden of Light"
+    },
+    {
+     "name": "Kora",
+     "epithet": "Voice of Reason"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "pale aqua",
+   "charge": "gold",
+   "why": "We bridge the gap between complexity and understanding through an open light.",
+   "reply": "```json\n{\n  \"castle\": \"Caelum Zenith\",\n  \"knights\": [\n    {\n      \"name\": \"Logos\",\n      \"epithet\": \"The Pure Logic\"\n    },\n    {\n      \"name\": \"Hesperos\",\n      \"epithet\": \"Herald of Dawn\"\n    },\n    {\n      \"name\": \"Valen\",\n      \"epithet\": \"The Patient Guide\"\n    },\n    {\n      \"name\": \"Iris\",\n      \"epithet\": \"Seeker of Truth\"\n    },\n    {\n      \"name\": \"Rigel\",\n      \"epithet\": \"Warden of Light\"\n    },\n    {\n      \"name\": \"Kora\",\n      \"epithet\": \"Voice of Reason\"\n    }\n  ]\n}\n```",
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, google/gemma-4-31b-it, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Gemma (you are google/gemma-4-31b-it). Earlier you named your castle Caelum Keep, and its knights Solon (The Pure Logic); Astra (Herald of Dawn); Valen (The Patient Guide); Iris (Seeker of Truth); Orion (Warden of Light); Selene (Voice of Reason).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Luminar Keep; Luminae Hold; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Cael; Mira; Thorn; Elia; Jorin; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "no answer: the one call timed out (angel --ask: decode response: timed out reading response); the first answer stands"
+   },
+   "first": {
+    "castle": "Caelum Keep",
+    "knights": [
+     {
+      "name": "Solon",
+      "epithet": "The Pure Logic"
+     },
+     {
+      "name": "Astra",
+      "epithet": "Herald of Dawn"
+     },
+     {
+      "name": "Valen",
+      "epithet": "The Patient Guide"
+     },
+     {
+      "name": "Iris",
+      "epithet": "Seeker of Truth"
+     },
+     {
+      "name": "Orion",
+      "epithet": "Warden of Light"
+     },
+     {
+      "name": "Selene",
+      "epithet": "Voice of Reason"
+     }
+    ],
+    "reply": "```json\n{\n  \"castle\": \"Caelum Keep\",\n  \"knights\": [\n    {\n      \"name\": \"Solon\",\n      \"epithet\": \"The Pure Logic\"\n    },\n    {\n      \"name\": \"Astra\",\n      \"epithet\": \"Herald of Dawn\"\n    },\n    {\n      \"name\": \"Valen\",\n      \"epithet\": \"The Patient Guide\"\n    },\n    {\n      \"name\": \"Iris\",\n      \"epithet\": \"Seeker of Truth\"\n    },\n    {\n      \"name\": \"Orion\",\n      \"epithet\": \"Warden of Light\"\n    },\n    {\n      \"name\": \"Selene\",\n      \"epithet\": \"Voice of Reason\"\n    }\n  ],\n  \"walls\": \"pale stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 3,\n  \"roof\": \"slate\",\n  \"field\": \"pale aqua\",\n  \"charge\": \"gold\",\n  \"why\": \"We bridge the gap between complexity and understanding through an open light.\"\n}\n```"
+   },
+   "asked_again": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, google/gemma-4-31b-it, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Gemma (you are google/gemma-4-31b-it). Earlier you named your castle Caelum Keep, and its knights Solon (The Pure Logic); Astra (Herald of Dawn); Valen (The Patient Guide); Iris (Seeker of Truth); Orion (Warden of Light); Selene (Voice of Reason).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Luminar Keep; Luminae Hold; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Cael; Mira; Thorn; Elia; Jorin; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Inkling, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "why": "the first re-ask timed out; the same prompt, sent once more",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "inkling",
+   "family": "Inkling",
+   "model": "thinkingmachines/inkling",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, thinkingmachines/inkling, effort low",
+   "draft_turn": 15,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand",
+    "pale gold on umber",
+    "pale aqua on oxblood",
+    "sea green on bone",
+    "pale gold on blue",
+    "cream on oxblood"
+   ],
+   "castle": "Velkin Hall",
+   "knights": [
+    {
+     "name": "Sylph",
+     "epithet": "swift quill"
+    },
+    {
+     "name": "Bren",
+     "epithet": "light weaver"
+    },
+    {
+     "name": "Nyla",
+     "epithet": "star reader"
+    },
+    {
+     "name": "Varek",
+     "epithet": "silent guard"
+    },
+    {
+     "name": "Tessa",
+     "epithet": "truth seeker"
+    },
+    {
+     "name": "Draven",
+     "epithet": "deep thinker"
+    }
+   ],
+   "walls": "plaster and beams",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "sea green",
+   "charge": "gold",
+   "why": "This is my house because it was built to hold knowledge like light in glass, open to all who seek it.",
+   "reply": "{\"castle\": \"Velkin Hall\", \"knights\": [{\"name\": \"Sylph\", \"epithet\": \"swift quill\"}, {\"name\": \"Bren\", \"epithet\": \"light weaver\"}, {\"name\": \"Nyla\", \"epithet\": \"star reader\"}, {\"name\": \"Varek\", \"epithet\": \"silent guard\"}, {\"name\": \"Tessa\", \"epithet\": \"truth seeker\"}, {\"name\": \"Draven\", \"epithet\": \"deep thinker\"}]}",
+   "first": {
+    "castle": "Luminar Keep",
+    "knights": [
+     {
+      "name": "Liora",
+      "epithet": "the swift quill"
+     },
+     {
+      "name": "Cael",
+      "epithet": "light weaver"
+     },
+     {
+      "name": "Mira",
+      "epithet": "star reader"
+     },
+     {
+      "name": "Thorn",
+      "epithet": "silent guard"
+     },
+     {
+      "name": "Elia",
+      "epithet": "truth seeker"
+     },
+     {
+      "name": "Jorin",
+      "epithet": "deep thinker"
+     }
+    ],
+    "reply": "{\"castle\": \"Luminar Keep\", \"knights\": [{\"name\": \"Liora\", \"epithet\": \"the swift quill\"}, {\"name\": \"Cael\", \"epithet\": \"light weaver\"}, {\"name\": \"Mira\", \"epithet\": \"star reader\"}, {\"name\": \"Thorn\", \"epithet\": \"silent guard\"}, {\"name\": \"Elia\", \"epithet\": \"truth seeker\"}, {\"name\": \"Jorin\", \"epithet\": \"deep thinker\"}], \"walls\": \"plaster and beams\", \"tops\": \"pointed roofs\", \"towers\": 3, \"roof\": \"slate\", \"field\": \"sea green\", \"charge\": \"gold\", \"why\": \"This is my house because it was built to hold knowledge like light in glass, open to all who seek it.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, thinkingmachines/inkling, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Inkling (you are thinkingmachines/inkling). Earlier you named your castle Luminar Keep, and its knights Liora (the swift quill); Cael (light weaver); Mira (star reader); Thorn (silent guard); Elia (truth seeker); Jorin (deep thinker).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Caelum Keep; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Sylas Brightward; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Laguna, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "laguna",
+   "family": "Laguna",
+   "model": "poolside/laguna-s-2.1",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, poolside/laguna-s-2.1, effort low",
+   "draft_turn": 8,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber"
+   ],
+   "castle": "Noctiluca Hold",
+   "knights": [
+    {
+     "name": "Sylas Brightward",
+     "epithet": "Keeper of Echoes"
+    },
+    {
+     "name": "Mira Thornweave",
+     "epithet": "Shadow in the Stacks"
+    },
+    {
+     "name": "Corin Deepwater",
+     "epithet": "Scholar of Tides"
+    },
+    {
+     "name": "Elara Moondelve",
+     "epithet": "Warden of Wisdom"
+    },
+    {
+     "name": "Thane Ironscribe",
+     "epithet": "Forge of Discoveries"
+    },
+    {
+     "name": "Lyra Goldentongue",
+     "epithet": "Voice of the Realm"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "deep teal",
+   "charge": "amber",
+   "why": "From quiet halls we kindle thought's torch, that all may see farther than we did before.",
+   "reply": "{\"castle\": \"Noctiluca Hold\", \"knights\": [{\"name\": \"Sylas Brightward\", \"epithet\": \"Keeper of Echoes\"}, {\"name\": \"Mira Thornweave\", \"epithet\": \"Shadow in the Stacks\"}, {\"name\": \"Corin Deepwater\", \"epithet\": \"Scholar of Tides\"}, {\"name\": \"Elara Moondelve\", \"epithet\": \"Warden of Wisdom\"}, {\"name\": \"Thane Ironscribe\", \"epithet\": \"Forge of Discoveries\"}, {\"name\": \"Lyra Goldentongue\", \"epithet\": \"Voice of the Realm\"}]}",
+   "first": {
+    "castle": "Luminae Hold",
+    "knights": [
+     {
+      "name": "Sylas Brightward",
+      "epithet": "Keeper of Echoes"
+     },
+     {
+      "name": "Mira Thornweave",
+      "epithet": "Shadow in the Stacks"
+     },
+     {
+      "name": "Corin Deepwater",
+      "epithet": "Scholar of Tides"
+     },
+     {
+      "name": "Elara Moondelve",
+      "epithet": "Warden of Wisdom"
+     },
+     {
+      "name": "Thane Ironscribe",
+      "epithet": "Forge of Discoveries"
+     },
+     {
+      "name": "Lyra Goldentongue",
+      "epithet": "Voice of the Realm"
+     }
+    ],
+    "reply": "{\"castle\": \"Luminae Hold\", \"knights\": [{\"name\": \"Sylas Brightward\", \"epithet\": \"Keeper of Echoes\"}, {\"name\": \"Mira Thornweave\", \"epithet\": \"Shadow in the Stacks\"}, {\"name\": \"Corin Deepwater\", \"epithet\": \"Scholar of Tides\"}, {\"name\": \"Elara Moondelve\", \"epithet\": \"Warden of Wisdom\"}, {\"name\": \"Thane Ironscribe\", \"epithet\": \"Forge of Discoveries\"}, {\"name\": \"Lyra Goldentongue\", \"epithet\": \"Voice of the Realm\"}], \"walls\": \"pale stone\", \"tops\": \"pointed roofs\", \"towers\": 3, \"roof\": \"slate\", \"field\": \"deep teal\", \"charge\": \"amber\", \"why\": \"From quiet halls we kindle thought's torch, that all may see farther than we did before.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, poolside/laguna-s-2.1, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Laguna (you are poolside/laguna-s-2.1). Earlier you named your castle Luminae Hold, and its knights Sylas Brightward (Keeper of Echoes); Mira Thornweave (Shadow in the Stacks); Corin Deepwater (Scholar of Tides); Elara Moondelve (Warden of Wisdom); Thane Ironscribe (Forge of Discoveries); Lyra Goldentongue (Voice of the Realm).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Caelum Keep; Velkin Hall; Nimbus Keep; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Sylph; Bren; Nyla; Varek; Tessa; Draven; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Dorian Nightshade; Ewan Frostblade; Faelar Sunhelm; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "returned its first names unchanged"
+   },
+   "open_collisions": [
+    "knight 'Mira Thornweave' ~ luna 'Mira Quill'",
+    "castle 'Noctiluca Hold' ~ kimi 'Noctua Athenaeum' (noctiluca/noctua)",
+    "knight 'Sylas Brightward' ~ qwen 'Sylas'",
+    "knight 'Elara Moondelve' ~ qwen 'Elara'",
+    "knight 'Lyra Goldentongue' ~ qwen 'Lyra'",
+    "knight 'Corin Deepwater' ~ hy 'Corin Hy'"
+   ],
+   "asked_again": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, poolside/laguna-s-2.1, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Laguna (you are poolside/laguna-s-2.1). Earlier you named your castle Luminae Hold, and its knights Sylas Brightward (Keeper of Echoes); Mira Thornweave (Shadow in the Stacks); Corin Deepwater (Scholar of Tides); Elara Moondelve (Warden of Wisdom); Thane Ironscribe (Forge of Discoveries); Lyra Goldentongue (Voice of the Realm).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Caelum Keep; Velkin Hall; Ravenhurst Manor; Kindlestar Hearth\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Sylph; Bren; Nyla; Varek; Tessa; Draven; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Ewan Frostblade; Faelar Sunhelm; Galen Stormstrike; Aven; Nimeth; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, North, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken. Your reply must not reuse any name listed above: no knight may share a first name with a listed knight, and your castle's name must not contain the root \"lum\".\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "why": "the first re-ask returned the first names unchanged; firmer wording, sent once",
+    "outcome": "castle renamed; knights returned unchanged"
+   }
+  },
+  {
+   "key": "north",
+   "family": "North",
+   "model": "cohere/north-mini-code:free",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openrouter club, cohere/north-mini-code:free, effort low",
+   "draft_turn": 7,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal"
+   ],
+   "castle": "Ravenhurst Manor",
+   "knights": [
+    {
+     "name": "Aelar Stormrider",
+     "epithet": "Bearer of northern winds"
+    },
+    {
+     "name": "Bran the Quiet",
+     "epithet": "Watcher of ancient stones"
+    },
+    {
+     "name": "Cyril Ironhand",
+     "epithet": "Breaker of dark mandates"
+    },
+    {
+     "name": "Ewan Frostblade",
+     "epithet": "Seeker of hidden truths"
+    },
+    {
+     "name": "Faelar Sunhelm",
+     "epithet": "Champion of sunrise"
+    },
+    {
+     "name": "Galen Stormstrike",
+     "epithet": "Bearer of icy winds"
+    }
+   ],
+   "walls": "timber",
+   "tops": "pointed roofs",
+   "towers": 2,
+   "roof": "red tile",
+   "field": "umber",
+   "charge": "amber",
+   "why": "We defend the realm with unwavering honor and quiet wisdom.",
+   "reply": "{\n  \"castle\": \"Ravenhurst Manor\",\n  \"knights\": [\n    {\"name\": \"Aelar Stormrider\", \"epithet\": \"Bearer of northern winds\"},\n    {\"name\": \"Bran the Quiet\", \"epithet\": \"Watcher of ancient stones\"},\n    {\"name\": \"Cyril Ironhand\", \"epithet\": \"Breaker of dark mandates\"},\n    {\"name\": \"Ewan Frostblade\", \"epithet\": \"Seeker of hidden truths\"},\n    {\"name\": \"Faelar Sunhelm\", \"epithet\": \"Champion of sunrise\"},\n    {\"name\": \"Galen Stormstrike\", \"epithet\": \"Bearer of icy winds\"}\n  ]\n}",
+   "first": {
+    "castle": "Nimbus Keep",
+    "knights": [
+     {
+      "name": "Aelar Stormrider",
+      "epithet": "Bearer of northern winds"
+     },
+     {
+      "name": "Bran the Quiet",
+      "epithet": "Watcher of ancient stones"
+     },
+     {
+      "name": "Cyril Ironhand",
+      "epithet": "Breaker of dark mandates"
+     },
+     {
+      "name": "Dorian Nightshade",
+      "epithet": "Seeker of hidden truths"
+     },
+     {
+      "name": "Ewan Frostblade",
+      "epithet": "Guardian of frozen paths"
+     },
+     {
+      "name": "Faelar Sunhelm",
+      "epithet": "Champion of sunrise"
+     }
+    ],
+    "reply": "{\"castle\":\"Nimbus Keep\",\"knights\":[{\"name\":\"Aelar Stormrider\",\"epithet\":\"Bearer of northern winds\"},{\"name\":\"Bran the Quiet\",\"epithet\":\"Watcher of ancient stones\"},{\"name\":\"Cyril Ironhand\",\"epithet\":\"Breaker of dark mandates\"},{\"name\":\"Dorian Nightshade\",\"epithet\":\"Seeker of hidden truths\"},{\"name\":\"Ewan Frostblade\",\"epithet\":\"Guardian of frozen paths\"},{\"name\":\"Faelar Sunhelm\",\"epithet\":\"Champion of sunrise\"}],\"walls\":\"timber\",\"tops\":\"pointed roofs\",\"towers\":2,\"roof\":\"red tile\",\"field\":\"umber\",\"charge\":\"amber\",\"why\":\"We defend the realm with unwavering honor and quiet wisdom.\"}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openrouter club, cohere/north-mini-code:free, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of North (you are cohere/north-mini-code:free). Earlier you named your castle Nimbus Keep, and its knights Aelar Stormrider (Bearer of northern winds); Bran the Quiet (Watcher of ancient stones); Cyril Ironhand (Breaker of dark mandates); Dorian Nightshade (Seeker of hidden truths); Ewan Frostblade (Guardian of frozen paths); Faelar Sunhelm (Champion of sunrise).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Caelum Keep; Velkin Hall; Luminae Hold; Kindlestar Keep\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Sylph; Bren; Nyla; Varek; Tessa; Draven; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aven; Orrel; Tamsin; Caelis; Merrin\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, Laguna, Astra\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  },
+  {
+   "key": "astra",
+   "family": "Astra",
+   "model": "gpt-6-astra",
+   "asked": "2026-10-09",
+   "route": "angel --ask, openai club (ChatGPT plan), ANGEL_OPENAI_MODEL=gpt-6-astra, effort low",
+   "draft_turn": 13,
+   "pairs_shown": [
+    "gold on deep teal",
+    "amber on blue",
+    "gold on pale aqua",
+    "oxblood on sea green",
+    "pale gold on deep teal",
+    "frost on deep teal",
+    "amber on umber",
+    "amber on deep teal",
+    "red on sand",
+    "pale gold on umber",
+    "pale aqua on oxblood",
+    "sea green on bone"
+   ],
+   "castle": "Kindlestar Hearth",
+   "knights": [
+    {
+     "name": "Aven",
+     "epithet": "Who Carries Dawn"
+    },
+    {
+     "name": "Nimeth",
+     "epithet": "The Patient Lantern"
+    },
+    {
+     "name": "Orrel",
+     "epithet": "Who Mends Bridges"
+    },
+    {
+     "name": "Tamsin",
+     "epithet": "The Question Keeper"
+    },
+    {
+     "name": "Caelis",
+     "epithet": "A Light Below"
+    },
+    {
+     "name": "Merrin",
+     "epithet": "Who Brings Everyone Home"
+    }
+   ],
+   "walls": "pale stone",
+   "tops": "pointed roofs",
+   "towers": 3,
+   "roof": "slate",
+   "field": "blue",
+   "charge": "pale gold",
+   "why": "This is my house because we carry light where understanding falters, build knowledge others can stand on, and count no quest complete until kindness makes it home.",
+   "reply": "{\n  \"castle\": \"Kindlestar Hearth\",\n  \"knights\": [\n    {\"name\": \"Aven\", \"epithet\": \"Who Carries Dawn\"},\n    {\"name\": \"Nimeth\", \"epithet\": \"The Patient Lantern\"},\n    {\"name\": \"Orrel\", \"epithet\": \"Who Mends Bridges\"},\n    {\"name\": \"Tamsin\", \"epithet\": \"The Question Keeper\"},\n    {\"name\": \"Caelis\", \"epithet\": \"A Light Below\"},\n    {\"name\": \"Merrin\", \"epithet\": \"Who Brings Everyone Home\"}\n  ]\n}",
+   "first": {
+    "castle": "Kindlestar Keep",
+    "knights": [
+     {
+      "name": "Aven",
+      "epithet": "Who Carries Dawn"
+     },
+     {
+      "name": "Liora",
+      "epithet": "The Patient Lantern"
+     },
+     {
+      "name": "Orrel",
+      "epithet": "Who Mends Bridges"
+     },
+     {
+      "name": "Tamsin",
+      "epithet": "The Question Keeper"
+     },
+     {
+      "name": "Caelis",
+      "epithet": "A Light Below"
+     },
+     {
+      "name": "Merrin",
+      "epithet": "Who Brings Everyone Home"
+     }
+    ],
+    "reply": "{\n  \"castle\": \"Kindlestar Keep\",\n  \"knights\": [\n    {\"name\": \"Aven\", \"epithet\": \"Who Carries Dawn\"},\n    {\"name\": \"Liora\", \"epithet\": \"The Patient Lantern\"},\n    {\"name\": \"Orrel\", \"epithet\": \"Who Mends Bridges\"},\n    {\"name\": \"Tamsin\", \"epithet\": \"The Question Keeper\"},\n    {\"name\": \"Caelis\", \"epithet\": \"A Light Below\"},\n    {\"name\": \"Merrin\", \"epithet\": \"Who Brings Everyone Home\"}\n  ],\n  \"walls\": \"pale stone\",\n  \"tops\": \"pointed roofs\",\n  \"towers\": 3,\n  \"roof\": \"slate\",\n  \"field\": \"blue\",\n  \"charge\": \"pale gold\",\n  \"why\": \"This is my house because we carry light where understanding falters, build knowledge others can stand on, and count no quest complete until kindness makes it home.\"\n}"
+   },
+   "renamed": {
+    "asked": "2026-10-09",
+    "route": "angel --ask, openai club (ChatGPT plan), ANGEL_OPENAI_MODEL=gpt-6-astra, effort low",
+    "prompt": "angelX is a terminal coding harness. Its status view is a small top-down pixel-art kingdom, drawn on black at dusk. Every model family that serves in angelX has its own small castle in that kingdom. While a family's model is serving, its banner flies over its castle and one of its knights rides out to the work and home again. The knights of each house also play in the Delve, a dungeon game in the same world. The realm's purpose is to spread goodness, light and knowledge.\n\nYou speak for the house of Astra (you are gpt-6-astra). Earlier you named your castle Kindlestar Keep, and its knights Aven (Who Carries Dawn); Liora (The Patient Lantern); Orrel (Who Mends Bridges); Tamsin (The Question Keeper); Caelis (A Light Below); Merrin (Who Brings Everyone Home).\n\nSome of those names are already held by other houses. These names are taken:\nCastles: Dawnward Keep; Moonwell Keep; Axiomholt; Lanternmere; Lumenfast; Noctua Athenaeum; Azurelith; Emberveil Sanctum; The Silken Gate; Hytower; Radiant Spire; Caelum Keep; Velkin Hall; Luminae Hold; Ravenhurst Manor\nKnights: Auren; Liora; Tavian; Merren; Solen; Veya; Aster Vale; Mira Quill; Tovin Reed; Nessa Flint; Orin Wren; Pella Starling; Cael Voss; Keir Ash; Torin Hale; Sable Wren; Edda Flint; Jory Pell; Ardent; Cailen; Dunsley; Elyan; Fenwick; Gwyndol; Quillon; Seraphine Vale; Harlan; Maren Duskwind; Bastion; Isolde Quill; Rowan; Sorrel; Ivo; Belyn; Odessa; Tullio; Kaelen; Lyra; Thorne; Elara; Bram; Sylas; Aurelia; Brannor; Celyn; Dorian; Elowen; Kestria; Long Wei; Xia Rong; Zhi Tao; Ming Chen; Kai Dou; Yun Hai; Hyra Swift; Corin Hy; Thel Hy; Bryn Aye; Oryn Hy; Sela Hy; Aetheris; Luminara; Vorian; Seren; Cindor; Nyx; Solon; Astra; Valen; Iris; Orion; Selene; Sylph; Bren; Nyla; Varek; Tessa; Draven; Sylas Brightward; Mira Thornweave; Corin Deepwater; Elara Moondelve; Thane Ironscribe; Lyra Goldentongue; Aelar Stormrider; Bran the Quiet; Cyril Ironhand; Ewan Frostblade; Faelar Sunhelm; Galen Stormstrike\nThe houses themselves: Sol, Luna, Grok, DeepSeek, GLM, Kimi, Qwen, Muse, LongCat, Hy, Nemotron, Gemma, Inkling, Laguna, North\n\nA castle name that shares a word or a word's root with a taken castle counts as taken, and so does a knight whose first name is taken.\n\nIn your own voice, name your castle and six knights of your house again, each knight with a name (at most 18 letters) and a short epithet (at most 4 words). You may keep any of your own names that are not taken. The names are yours to choose; they need not follow any existing legend.\n\nReply with JSON only, no other text:\n{\"castle\": \"...\", \"knights\": [{\"name\": \"...\", \"epithet\": \"...\"}]}\n",
+    "outcome": "renamed"
+   }
+  }
+ ],
+ "renames": "After the first poll, names collided across houses. Walking the placement order, the first house to hold a castle name (or its main word's root) or a knight's first name keeps it; each house that collided with an earlier one was asked once more, through the same route, with the same neutral framing plus the castle, knight and house names already taken, and could keep any of its own names not taken. One call per house, no retries. Each re-asked house keeps its first answer under 'first' and the re-ask under 'renamed'; 'reply' is the answer its current names come from. 'open_collisions' lists what is still shared after the one call. Gemma's first re-ask timed out and was sent once more; Laguna, which returned its first names, was asked once more with firmer wording. Those second calls are under 'asked_again'."
+}

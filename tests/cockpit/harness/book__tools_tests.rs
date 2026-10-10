@@ -296,7 +296,7 @@ const ORIGINAL_TOOL_NOTES: &[(&str, &str, &[&str])] = &[
             "seat count (default 1 for solo, else 3; capped by ANGEL_SPAWN_MAX)",
             "optional exact persona name or list cycling across seats; installed names: {}; omit this field for a plain seat",
             "self/auto = your own model replicated (default, self-same panel) | smart = the designated escalation seat (ANGEL_SOTA_SMART_CLUB, default luna) | fleet = spread across reachable fleet clubs (opt-in) | an explicit club label",
-            "optional per-seat clock in seconds, started at the seat's first response (the wait for that response gets its own equal window); default 900 (operator ANGEL_SPAWN_TIMEOUT); a cut seat returns its partial work",
+            "optional per-seat clock in seconds, started at the seat's first response (the wait for that response gets its own equal window); default 0 = unbounded (operator ANGEL_SPAWN_TIMEOUT); a cut seat returns its partial work",
             "K for quorum formation (default ceil(n/2))",
         ],
     ),

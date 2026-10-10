@@ -260,7 +260,13 @@ impl Realm {
             .and_then(|p| std::fs::read(p).ok())
             .and_then(|bytes| serde_json::from_slice::<Realm>(&bytes).ok())
             .unwrap_or_default();
-        realm.chivalry.normalize();
+        // The old practice game's mount and tending move into the realm's
+        // stable, once.
+        if realm.home.stable == Default::default() && realm.chivalry != Default::default() {
+            realm.home.stable.selected = realm.chivalry.selected;
+            realm.home.stable.tended = realm.chivalry.tended;
+        }
+        realm.chivalry = Default::default();
         realm.path = path;
         realm.offer_catalog();
         realm.publish();

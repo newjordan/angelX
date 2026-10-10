@@ -214,6 +214,24 @@ pub(crate) fn render(
             Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Trophies => {
                 "HOME · the Trophy Hall: what the realm has felled, kept by Sir Kay"
             }
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Gate => {
+                "THE WORLD · the gate's stair goes down to the Undercroft"
+            }
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::MineHead => {
+                "THE WORLD · the shaft goes down into the Mines"
+            }
+            Phase::Exploring if run.at_home_now() && run.joust.is_some() => {
+                "THE LISTS · F spurs and strikes · W/S aims high or low · Space braces"
+            }
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Lists => {
+                "THE LISTS · hold F at the plate by the red pavilion to mount"
+            }
+            Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Stables => {
+                "THE STABLES · hold F at a stall to saddle, at the trough to tend"
+            }
+            Phase::Exploring if run.at_home_now() && run.room().kind.in_world() => {
+                "THE WORLD · walk on through the open ways"
+            }
             Phase::Exploring if run.at_home_now() => {
                 "HOME · stand on a plate, hold F to build · the Winding Stair goes down"
             }
@@ -260,6 +278,10 @@ pub(crate) fn render(
             RoomKind::Yard => "The Training Yard",
             RoomKind::Trophies => "The Trophy Hall",
             RoomKind::Tavern => "The Siege Perilous",
+            RoomKind::Gate => "The Delve's Gate",
+            RoomKind::Stables => "The Stables",
+            RoomKind::Lists => "The Lists",
+            RoomKind::MineHead => "The Mine-Head",
             _ => "The Undercroft",
         };
         let best = if run.home.best_show > 0 {
@@ -316,11 +338,8 @@ pub(crate) fn render(
     for (&id, hero) in &run.players {
         let color = hero_color(id);
         // Who this is: their knight of the company, or their own name.
-        let who = hero
-            .knight
-            .as_deref()
-            .and_then(crate::drive::together_shooter::knights::knight)
-            .map_or(hero.name.as_str(), |k| k.name);
+        let named = hero.knight_name();
+        let who = named.as_deref().unwrap_or(hero.name.as_str());
         let card_name =
             |id: Option<&str>| id.and_then(|id| run.book.get(id)).map(|c| c.name.clone());
         let weapon = hero
@@ -573,6 +592,101 @@ pub(crate) fn render(
             }
             rows.push((String::new(), DIM));
         }
+        // The stables and the lists: the saddled mount and the record.
+        if matches!(run.room().kind, RoomKind::Stables | RoomKind::Lists) {
+            use crate::drive::together_shooter::joust;
+            let stable = &run.home.stable;
+            rows.push(("THE STABLE".to_string(), PARCHMENT));
+            rows.push((
+                format!(
+                    "  {}{}",
+                    stable.selected.name(),
+                    if stable.is_tended(stable.selected) {
+                        ", tended"
+                    } else {
+                        ""
+                    }
+                ),
+                GOLD,
+            ));
+            rows.push((format!("  {}", stable.selected.says()), STONE));
+            rows.push((
+                format!("  Next: {}", joust::RIVALS[joust::next_rival(stable)].name),
+                STONE,
+            ));
+            rows.push((
+                format!("  {} bouts · {} unhorsed", stable.bouts, stable.unhorsed),
+                STONE,
+            ));
+            // A bout being ridden: the course, the score, the balance and
+            // what the lances last did, for a view too small for its board.
+            if let Some(j) = &run.joust {
+                let rival = j.rival();
+                rows.push((format!("BOUT · course {}/3", j.course + 1), PARCHMENT));
+                rows.push((
+                    format!("  You {} : {} {}", j.score.0, j.score.1, rival.name),
+                    GOLD,
+                ));
+                rows.push((
+                    format!(
+                        "  Balance {} / {}",
+                        "#".repeat(j.balance.0 as usize),
+                        "#".repeat(j.balance.1 as usize)
+                    ),
+                    STONE,
+                ));
+                if let Some((mine, theirs)) = j.hits {
+                    rows.push((format!("  You: {}", mine.word().to_lowercase()), GOLD));
+                    rows.push((
+                        format!("  {}: {}", rival.name, theirs.word().to_lowercase()),
+                        STONE,
+                    ));
+                }
+                if let Some(v) = j.verdict {
+                    use crate::drive::together_shooter::joust::Verdict;
+                    rows.push((
+                        match v {
+                            Verdict::Won => "  Yours!".to_string(),
+                            Verdict::Lost => format!("  {} has the day", rival.name),
+                            Verdict::Drawn => "  A draw".to_string(),
+                        },
+                        GOLD,
+                    ));
+                }
+            }
+            rows.push((String::new(), DIM));
+        }
+        // King Brannoc's barony: where he is, his mission, the work going up.
+        let b = &run.home.barony;
+        if b.here() {
+            use crate::drive::together_shooter::barony::{self, Court};
+            rows.push(("KING BRANNOC".to_string(), PARCHMENT));
+            rows.push((
+                match b.court {
+                    Court::Camped => "  camped at the mine-head".to_string(),
+                    Court::Met => "  at the mine-head".to_string(),
+                    _ => "  baron, in his hall".to_string(),
+                },
+                STONE,
+            ));
+            if let Some((pinned, m)) = b
+                .mission
+                .as_ref()
+                .and_then(|p| barony::mission(&p.id).map(|m| (p, m)))
+            {
+                rows.push((format!("  {} {}/{}", m.title, pinned.have, m.need), GOLD));
+            }
+            if let Some(def) = b.building() {
+                rows.push((
+                    format!("  {}: {}%", def.name, b.progress(def.id).unwrap_or(0) / 10),
+                    STONE,
+                ));
+            }
+            if !b.lit.is_empty() {
+                rows.push((format!("  forges burning: {}", b.lit.len()), GOLD));
+            }
+            rows.push((String::new(), DIM));
+        }
         // Home: what the realm can spend, and where the stair goes.
         rows.push(("THE TREASURY".to_string(), PARCHMENT));
         for spoil in crate::drive::together_realm::Spoil::ALL {
@@ -685,13 +799,15 @@ pub(crate) fn render(
             ));
             rows.push((String::new(), DIM));
         }
-        // Beaumains, fighting beside the party, or sitting this one out.
+        // Beaumains or a minion, fighting beside the party, or sitting this
+        // one out.
         if let Some(hire) = &run.hireling {
+            let name = hire.kind.name();
             rows.push((
                 if hire.down() {
-                    "Beaumains: sitting this one out".to_string()
+                    format!("{name}: sitting this one out")
                 } else {
-                    format!("Beaumains: {}/{}", hire.hp, hire.max_hp)
+                    format!("{name}: {}/{}", hire.hp, hire.max_hp)
                 },
                 if hire.down() { DIM } else { STONE },
             ));
@@ -1529,7 +1645,7 @@ pub(crate) fn render_native_room(
         h,
         expanded,
         focus,
-        run.chivalry.as_ref(),
+        &run.home.stable,
     )
         .hash(&mut key);
     let sequence = key.finish();
@@ -1549,7 +1665,7 @@ fn native_frame_key(run: &Run, step: u64, focus: Option<u32>) -> u64 {
         run.at,
         step,
         focus,
-        run.chivalry.as_ref(),
+        &run.home.stable,
     )
         .hash(&mut key);
     key.finish()
@@ -1590,31 +1706,18 @@ fn raster_size(area: Rect, cell: (u16, u16)) -> (u32, u32) {
 mod native_tests {
     use super::*;
     #[test]
-    fn chivalry_native_cache_changes_on_same_tick_owner_projection_and_focus() {
+    fn native_cache_changes_on_the_same_tick_with_the_stable_and_focus() {
         let mut run = Run::new(11, 7, None);
-        run.chivalry = Some(Default::default());
         let initial = native_frame_key(&run, 4, None);
         assert_eq!(initial, native_frame_key(&run, 4, None));
         assert_ne!(initial, native_frame_key(&run, 4, Some(1)));
-        run.chivalry
-            .as_mut()
-            .unwrap()
-            .select(crate::drive::chivalry::Mount::Mist)
-            .unwrap();
+        // A mount saddled or tended between ticks (a command while paused)
+        // is a new picture, not the cached one.
+        run.home.stable.selected = crate::drive::chivalry::Mount::Mist;
         let selected = native_frame_key(&run, 4, None);
         assert_ne!(initial, selected);
-        run.chivalry.as_mut().unwrap().tend().unwrap();
+        run.home.stable.tended[2] = true;
         assert_ne!(selected, native_frame_key(&run, 4, None));
-        let tended = native_frame_key(&run, 4, None);
-        run.chivalry.as_mut().unwrap().start().unwrap();
-        assert_ne!(tended, native_frame_key(&run, 4, None));
-        let running = native_frame_key(&run, 4, None);
-        run.chivalry
-            .as_mut()
-            .unwrap()
-            .choose(1, crate::drive::chivalry::Choice::Aim)
-            .unwrap();
-        assert_ne!(running, native_frame_key(&run, 4, None));
     }
 
     #[test]

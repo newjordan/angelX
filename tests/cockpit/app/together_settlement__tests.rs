@@ -280,13 +280,18 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
     assert_eq!(run.settlement_site.as_deref(), Some(saved.site.id.as_str()));
     assert_eq!(run.players[&1].name, "Miner");
     assert_eq!(
-        serde_json::to_value(&run.dungeon).unwrap(),
+        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+            &run.dungeon
+        ))
+        .unwrap(),
         value(&saved.site)["floor"]
     );
     assert_eq!(run.at, 0);
     assert!(run.valid_snapshot());
     let passive = Dungeon::of(&saved.site.floor);
-    let playable = Dungeon::of(&run.dungeon);
+    let playable = Dungeon::of(&crate::drive::together_shooter::world::below_the_world(
+        &run.dungeon,
+    ));
     assert_eq!(
         (passive.grid.w, passive.grid.h),
         (playable.grid.w, playable.grid.h)
@@ -300,7 +305,9 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
         .sync(&facts("A", &(1..=20).collect::<Vec<_>>()), true)
         .unwrap();
     assert_eq!(
-        run.dungeon.rooms.len(),
+        crate::drive::together_shooter::world::below_the_world(&run.dungeon)
+            .rooms
+            .len(),
         saved.site.floor.rooms.len(),
         "live map is not updated by loop work"
     );
@@ -312,7 +319,10 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
     let resumed: Run = serde_json::from_slice(&checkpoint).unwrap();
     assert_eq!(resumed.settlement_site, run.settlement_site);
     assert_eq!(
-        serde_json::to_value(&resumed.dungeon).unwrap(),
+        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+            &resumed.dungeon
+        ))
+        .unwrap(),
         value(&saved.site)["floor"]
     );
     for i in 4..run.dungeon.rooms.len() {
@@ -378,7 +388,10 @@ fn settlement_entry_route_uses_host_identity_and_does_not_replace_a_live_run() {
     let run = app.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(site.id.as_str()));
     assert_eq!(
-        serde_json::to_value(&run.dungeon).unwrap(),
+        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+            &run.dungeon
+        ))
+        .unwrap(),
         value(&site)["floor"]
     );
     let before = serde_json::to_value(run).unwrap();
@@ -571,7 +584,10 @@ fn settlement_saved_site_can_be_admitted_with_no_active_loop() {
     let run = app.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(store.site.id.as_str()));
     assert_eq!(
-        serde_json::to_value(&run.dungeon).unwrap(),
+        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+            &run.dungeon
+        ))
+        .unwrap(),
         value(&store.site)["floor"]
     );
     assert_eq!(run.players[&1].name, player);

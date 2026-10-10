@@ -65,6 +65,14 @@ impl App {
         for pack in &reclaimed {
             *realm.reclaimed.entry(pack.name().to_string()).or_default() += 1;
         }
+        // King Brannoc's tribute: his miners follow the knights down and dig
+        // what every cleared floor frees.
+        let tribute =
+            shooter::barony::pay_tribute(&mut realm.home, &mut realm.treasury, reclaimed.len());
+        if let Some(paid) = &tribute {
+            lines.push(format!("King Brannoc's tribute: {}", paid.label()));
+        }
+        let tribute_paid = tribute.is_some();
         match triumph {
             Some(shooter::Triumph::Dragon) => {
                 realm.raids_won += 1;
@@ -95,6 +103,9 @@ impl App {
         let now = std::time::Instant::now();
         if !hauls.is_empty() {
             self.dungeon.chorus.cue("banked", now);
+        }
+        if tribute_paid {
+            self.dungeon.chorus.cue("tribute", now);
         }
         if affordable.len() > self.dungeon.ready_heard {
             self.dungeon.chorus.cue("treasury_ready", now);
@@ -312,6 +323,35 @@ impl App {
         if marks.contains_key("hired") && realm.home.hire.take().is_some() {
             changed = true;
         }
+        // King Brannoc's barony: his coming, the works, the forges relit, his
+        // missions.
+        let mines = realm
+            .reclaimed
+            .get(shooter::Pack::Cavern.name())
+            .copied()
+            .unwrap_or(0);
+        let who = |id: u32| match names.get(&id).map(String::as_str) {
+            Some("You") | None if id == 1 => host.clone(),
+            Some(name) => name.to_string(),
+            None => format!("Knight {id}"),
+        };
+        let mut treasury = realm.treasury.clone();
+        let barony = shooter::barony::settle(&mut realm.home, &mut treasury, mines, &marks, &who);
+        realm.treasury = treasury;
+        if barony.changed {
+            changed = true;
+        }
+        said.extend(barony.said);
+        earned.extend(barony.earned);
+        // The stables and the lists: the saddled mount, the tending, bouts.
+        let stable_said = shooter::joust::settle_stable(&mut realm.home.stable, &marks);
+        if marks
+            .keys()
+            .any(|m| m.starts_with("joust:") || m.starts_with("stable:"))
+        {
+            changed = true;
+        }
+        said.extend(stable_said);
         // Experience: every knight in the party learns from what fell. A
         // new level is a lesson waiting with Sir Ector.
         let xp = marks.get("xp").copied().unwrap_or(0);

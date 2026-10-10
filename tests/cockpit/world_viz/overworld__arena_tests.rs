@@ -2076,3 +2076,488 @@ fn write_hollow_shots() {
     }
     save("hollow-hole.png", &native(&run));
 }
+
+/// A sheet of the overworld kit's world pieces, for building world rooms
+/// in the realm's own hand: `ANGEL_ARENA_SHOTS=<dir> ... write_world_kit_sheet`.
+#[test]
+#[ignore]
+fn write_world_kit_sheet() {
+    use super::super::kit::{self, Heraldry, House, Roof, Trade, Wall};
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let tiles = kit::Tiles::get();
+    let pieces: Vec<Img> = vec![
+        kit::lists_ground(),
+        kit::tent(Heraldry::Red),
+        kit::tent(Heraldry::Blue),
+        kit::rider(Heraldry::Red),
+        kit::rider(Heraldry::Blue),
+        kit::mine_mouth(),
+        kit::gatehouse(),
+        kit::workshop(Trade::Smith, true),
+        kit::cottage(1, true),
+        kit::chapel(true),
+        kit::market_stall(1),
+        kit::well(),
+        kit::lantern(true),
+        kit::quintain(false, 0),
+        kit::villager(0, true),
+        kit::squire('B'),
+        kit::keep(1),
+        kit::house(&House {
+            w: 48,
+            h: 40,
+            roof_h: 18,
+            wall: Wall::Timber,
+            roof: Roof::Thatch,
+            door_glow: false,
+            windows: 2,
+            lit: true,
+            chimney: true,
+        }),
+        tiles.tree(1).clone(),
+        tiles.tree(2).clone(),
+        kit::barrels(),
+        kit::handcart(),
+        kit::sacks(3),
+        kit::wagon(true, 0, None),
+    ];
+    let (w, mut x, mut y, mut row_h) = (520, 4, 4, 0);
+    let mut sheet = Img::black(w, 400);
+    for p in &pieces {
+        if x + p.w > w {
+            x = 4;
+            y += row_h + 6;
+            row_h = 0;
+        }
+        sheet.stamp(p, x, y);
+        x += p.w + 6;
+        row_h = row_h.max(p.h);
+    }
+    let k = 3u32;
+    image::RgbaImage::from_raw(sheet.w as u32 * k, sheet.h as u32 * k, sheet.rgba_scaled(k))
+        .unwrap()
+        .save(dir.join("world-kit.png"))
+        .unwrap();
+}
+
+/// The world above the Delve, room by room, and the Undercroft's stair up:
+/// `ANGEL_ARENA_SHOTS=<dir> ... write_world_shots`.
+#[test]
+#[ignore]
+fn write_world_shots() {
+    use crate::drive::together_shooter::home::Home;
+    use crate::drive::together_shooter::world;
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img| {
+        let k = 3u32;
+        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k))
+            .unwrap()
+            .save(dir.join(name))
+            .unwrap();
+    };
+    let mut run = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
+    run.come_to_the_gate();
+    for _ in 0..7 {
+        run.tick += 1;
+    }
+    save("world-gate.png", &native(&run));
+    // A knight at the gate's stair, its board up and its ring half full.
+    let mut stair = run.clone();
+    let (gx, gy) = world::entrance_centre(&world::ENTRANCES[0]);
+    let hero = stair.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (gx, gy);
+    stair.descending = 15;
+    save("world-gate-stair.png", &native(&stair));
+    for (kind, name) in [
+        (RoomKind::Stables, "world-stables.png"),
+        (RoomKind::Lists, "world-lists.png"),
+        (RoomKind::MineHead, "world-mine-head.png"),
+    ] {
+        let mut r = run.clone();
+        let i = world::room_of(&r.dungeon, kind).unwrap();
+        r.arrive(i, (12.0, 9.5));
+        save(name, &native(&r));
+    }
+    // The Undercroft with its stair up to the gate, a knight before it.
+    let mut cellar = run.clone();
+    let e = &world::ENTRANCES[0];
+    cellar.take_entrance(e);
+    save("world-undercroft-stair-up.png", &native(&cellar));
+}
+
+/// The stables and a bout at the lists, played through real keys:
+/// `ANGEL_ARENA_SHOTS=<dir> ... write_joust_shots`.
+#[test]
+#[ignore]
+fn write_joust_shots() {
+    use crate::drive::chivalry::{Mount, Stable};
+    use crate::drive::together_shooter::home::{BUY_HOLD, Home};
+    use crate::drive::together_shooter::joust::{Aim, Stage};
+    use crate::drive::together_shooter::world;
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img| {
+        let k = 3u32;
+        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k))
+            .unwrap()
+            .save(dir.join(name))
+            .unwrap();
+    };
+    let keys = |fire: bool, dash: bool, move_y: i8| {
+        BTreeMap::from([(
+            1,
+            Input {
+                fire,
+                dash,
+                move_y,
+                ..Input::default()
+            },
+        )])
+    };
+    // The stables: Cinder saddled and tended in the yard, a knight reading
+    // Mist's stall, a friend by the groom.
+    let home = Home {
+        stable: Stable {
+            selected: Mount::Cinder,
+            tended: [false, true, false],
+            ..Stable::default()
+        },
+        ..Home::default()
+    };
+    let mut run = Run::at_home(17, 1, Some("Friend"), home, Default::default());
+    let stables = world::room_of(&run.dungeon, RoomKind::Stables).unwrap();
+    run.arrive(stables, (12.0, 9.0));
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (18.0 * 2.0, 4.5 * 2.0);
+    hero.buying = 12;
+    let friend = run.players.get_mut(&2).unwrap();
+    (friend.x, friend.y) = (8.5 * 2.0, 9.5 * 2.0);
+    for _ in 0..9 {
+        run.tick += 1;
+    }
+    save("joust-stables.png", &native(&run));
+    // The lists at rest, a knight on the mount plate.
+    let mut run = Run::at_home(17, 1, None, Home::default(), Default::default());
+    let lists = world::room_of(&run.dungeon, RoomKind::Lists).unwrap();
+    run.arrive(lists, (1.9, 8.5));
+    run.step(&BTreeMap::new());
+    run.players.get_mut(&1).unwrap().buying = 14;
+    save("joust-lists-plate.png", &native(&run));
+    run.players.get_mut(&1).unwrap().buying = 0;
+    for _ in 0..BUY_HOLD + 1 {
+        run.step(&keys(true, false, 0));
+    }
+    run.step(&keys(false, false, 0));
+    save("joust-ready.png", &native(&run));
+    // The first course: spur, aim at the open target, strike at the moment.
+    run.step(&keys(true, false, 0));
+    let m = run.joust.as_ref().unwrap().meeting();
+    let guard = run.joust.as_ref().unwrap().guard;
+    let aim = if guard == Aim::High {
+        Aim::Low
+    } else {
+        Aim::High
+    };
+    let dy = if aim == Aim::High { -1 } else { 1 };
+    let mut shots = vec![(m / 2, "joust-charge.png"), (m - 4, "joust-closing.png")];
+    let window = Mount::Bramble
+        .steed()
+        .strike
+        .max(Mount::Bramble.steed().brace);
+    shots.push((m + 6, "joust-clash.png"));
+    shots.push((m + window + 3, "joust-impact.png"));
+    shots.push((m + window + 16, "joust-after.png"));
+    for _ in 0..400 {
+        let j = run.joust.as_ref().unwrap();
+        if j.stage != Stage::Charge {
+            break;
+        }
+        let next = j.t + 1;
+        run.step(&keys(next == m, false, dy));
+        let t = run.joust.as_ref().map_or(0, |j| j.t);
+        if let Some((_, name)) = shots.iter().find(|(at, _)| *at == t) {
+            save(name, &native(&run));
+        }
+    }
+    // The second course, the same way: Sir Kay goes over.
+    run.step(&keys(true, false, 0));
+    let guard = run.joust.as_ref().unwrap().guard;
+    let aim = if guard == Aim::High {
+        Aim::Low
+    } else {
+        Aim::High
+    };
+    let dy = if aim == Aim::High { -1 } else { 1 };
+    for _ in 0..400 {
+        let Some(j) = run.joust.as_ref() else { break };
+        if j.stage != Stage::Charge {
+            break;
+        }
+        let next = j.t + 1;
+        run.step(&keys(next == m, false, dy));
+        let t = run.joust.as_ref().map_or(0, |j| j.t);
+        if t == m + window + 9 {
+            save("joust-unhorse.png", &native(&run));
+        }
+        if t == m + window + 30 {
+            save("joust-on-the-sand.png", &native(&run));
+        }
+    }
+    for _ in 0..20 {
+        run.step(&BTreeMap::new());
+    }
+    save("joust-verdict.png", &native(&run));
+}
+
+/// King Brannoc's barony, stage by stage: his camp at the mine-head, his
+/// mission, the gate-hall rising, his hall inside, and a forge-hall below
+/// from ruin to burning: `ANGEL_ARENA_SHOTS=<dir> ... write_barony_shots`.
+#[test]
+#[ignore]
+fn write_barony_shots() {
+    use crate::drive::together_realm::{Spoil, Spoils};
+    use crate::drive::together_shooter::barony::{self, Court, Work};
+    use crate::drive::together_shooter::home::Home;
+    use crate::drive::together_shooter::{Pack, world};
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img| {
+        let k = 3u32;
+        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k))
+            .unwrap()
+            .save(dir.join(name))
+            .unwrap();
+    };
+    let mut treasury = Spoils::default();
+    for (s, n) in [
+        (Spoil::Gold, 2400),
+        (Spoil::Ore, 52),
+        (Spoil::Bone, 12),
+        (Spoil::Gem, 9),
+        (Spoil::Ember, 5),
+    ] {
+        treasury.add(s, n);
+    }
+    let in_room = |home: Home, kind: RoomKind, at: (f32, f32), tick: u64| {
+        let mut run = Run::at_home(17, 1, None, home, treasury.clone());
+        let i = world::room_of(&run.dungeon, kind).unwrap();
+        run.arrive(i, at);
+        run.tick = tick;
+        run
+    };
+    let mut b = barony::Barony::default();
+    b.court = Court::Camped;
+    let home = |b: &barony::Barony| Home {
+        barony: b.clone(),
+        deepest: 3,
+        ..Home::default()
+    };
+    // His camp, the night he came up the shaft.
+    let run = in_room(home(&b), RoomKind::MineHead, (12.0, 11.5), 40);
+    save("barony-camp.png", &native(&run));
+    // Met: his mission at the plate before him.
+    b.court = barony::Court::Met;
+    b.mission = Some(crate::drive::together_shooter::bounties::Pinned {
+        id: "workings".into(),
+        have: 5,
+    });
+    let run = in_room(home(&b), RoomKind::MineHead, (8.0, 10.5), 41);
+    save("barony-mission.png", &native(&run));
+    // The Upper Workings his: miners going down, porters coming up; a
+    // knight reading the ruin's price.
+    b.mission = None;
+    b.done.push("workings".into());
+    let mut run = in_room(home(&b), RoomKind::MineHead, (6.0, 7.5), 300);
+    run.players.get_mut(&1).unwrap().buying = 9;
+    save("barony-hall-plate.png", &native(&run));
+    // The gate-hall going up: rubble, walls, roof, front, and done.
+    for (p, tick) in [(10u32, 130u64), (40, 260), (65, 400), (90, 520)] {
+        let mut bb = b.clone();
+        let labour = barony::work("hall").unwrap().labour * p / 100;
+        bb.works = vec![Work {
+            id: "hall".into(),
+            labour,
+        }];
+        let run = in_room(home(&bb), RoomKind::MineHead, (15.0, 11.0), tick);
+        save(&format!("barony-hall-{p}.png"), &native(&run));
+    }
+    let mut sworn = b.clone();
+    sworn.works = vec![Work {
+        id: "hall".into(),
+        labour: barony::work("hall").unwrap().labour,
+    }];
+    sworn.court = Court::Sworn;
+    let run = in_room(home(&sworn), RoomKind::MineHead, (15.0, 11.0), 300);
+    save("barony-hall-done.png", &native(&run));
+    // Inside: the King on his seat; the war table; the ledger.
+    let mut inside = sworn.clone();
+    let mut paid = Spoils::default();
+    paid.add(Spoil::Gold, 3000);
+    paid.add(Spoil::Ore, 40);
+    inside.ledger.paid_in = paid.clone();
+    inside.ledger.lines.push(barony::Entry {
+        what: "Jordan paid for The King's Hall".into(),
+        spoils: paid,
+        paid_in: true,
+    });
+    let mut back = Spoils::default();
+    back.add(Spoil::Gold, 330);
+    back.add(Spoil::Ore, 31);
+    inside.ledger.paid_back = back.clone();
+    inside.ledger.lines.push(barony::Entry {
+        what: "Tribute: 3 floors cleared".into(),
+        spoils: back,
+        paid_in: false,
+    });
+    inside.works.push(Work {
+        id: "ore-forge".into(),
+        labour: 1800,
+    });
+    let run = in_room(home(&inside), RoomKind::KingsHall, (12.0, 5.0), 60);
+    save("barony-throne.png", &native(&run));
+    let run = in_room(home(&inside), RoomKind::KingsHall, (6.0, 10.6), 61);
+    save("barony-war-table.png", &native(&run));
+    let run = in_room(home(&inside), RoomKind::KingsHall, (3.5, 4.6), 62);
+    save("barony-ledger.png", &native(&run));
+    // A forge-hall below: in ruin, rising, rebuilt and cold, burning.
+    let forge_shot = |bb: &barony::Barony, name: &str, at: (f32, f32), tick: u64| {
+        let mut run = Run::at_home(17, 1, None, home(bb), treasury.clone());
+        run.dungeon.pack = Pack::Cavern;
+        run.descend_for_test();
+        let i = run
+            .dungeon
+            .rooms
+            .iter()
+            .position(|r| r.kind == RoomKind::Forge)
+            .unwrap();
+        run.enter_for_test(i);
+        // Fortune's dare board would cover the chimney: a shot of the room.
+        run.dare = None;
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.x, hero.y) = (at.0 * 2.0, at.1 * 2.0);
+        run.tick = tick;
+        save(name, &native(&run));
+    };
+    forge_shot(&b, "forge-ruin.png", (12.0, 8.5), 20);
+    let mut building = b.clone();
+    building.works = vec![
+        sworn.works[0].clone(),
+        Work {
+            id: "ore-forge".into(),
+            labour: barony::work("ore-forge").unwrap().labour / 2,
+        },
+    ];
+    forge_shot(&building, "forge-building.png", (12.0, 11.0), 33);
+    let mut cold = building.clone();
+    cold.works[1].labour = barony::work("ore-forge").unwrap().labour;
+    forge_shot(&cold, "forge-cold.png", (12.0, 8.5), 21);
+    let mut lit = cold.clone();
+    lit.lit.push("ore-forge".into());
+    forge_shot(&lit, "forge-lit.png", (12.0, 11.5), 44);
+    // The realm's share of the ore, out through the gate courtyard.
+    let mut market = lit.clone();
+    market.court = Court::Sworn;
+    for tick in (0..3000u64).step_by(5) {
+        let figs = crate::drive::together_shooter::folk::figures(
+            &home(&market),
+            RoomKind::Gate,
+            Pack::Cavern,
+            tick,
+        );
+        if figs.iter().any(|f| f.loaded && f.y > 12.0 && f.y < 14.0) {
+            let run = in_room(home(&market), RoomKind::Gate, (9.0, 10.0), tick);
+            save("barony-carter.png", &native(&run));
+            break;
+        }
+    }
+}
+
+/// Frame time of the world's rooms at their busiest, against the
+/// Undercroft's: `cargo test --release frame_time_of_the_world -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn frame_time_of_the_world() {
+    use crate::drive::together_shooter::barony::{self, Court, Work};
+    use crate::drive::together_shooter::home::Home;
+    use crate::drive::together_shooter::world;
+    let mut b = barony::Barony::default();
+    b.court = Court::Met;
+    b.done.push("workings".into());
+    b.lit.push("ore-forge".into());
+    b.works.push(Work {
+        id: "hall".into(),
+        labour: barony::work("hall").unwrap().labour / 2,
+    });
+    let home = Home {
+        barony: b,
+        ..Home::default()
+    };
+    let time = |label: &str, mut run: Run| {
+        let n = 600;
+        let start = std::time::Instant::now();
+        for _ in 0..n {
+            run.tick += 1;
+            std::hint::black_box(frame(&run, NATIVE_W, NATIVE_H));
+        }
+        let us = start.elapsed().as_micros() as f64 / n as f64;
+        eprintln!("FRAME {label:<28} {us:>8.1} us");
+    };
+    let mut base = Run::at_home(17, 1, Some("Friend"), home.clone(), Default::default());
+    base.arrive(0, (12.0, 10.0));
+    time("undercroft (before)", base);
+    for kind in [
+        RoomKind::Gate,
+        RoomKind::MineHead,
+        RoomKind::KingsHall,
+        RoomKind::Stables,
+    ] {
+        let mut run = Run::at_home(17, 1, Some("Friend"), home.clone(), Default::default());
+        let i = world::room_of(&run.dungeon, kind).unwrap();
+        run.arrive(i, (12.0, 10.0));
+        time(&format!("{kind:?}"), run);
+    }
+    let mut lists = Run::at_home(17, 1, Some("Friend"), home.clone(), Default::default());
+    let i = world::room_of(&lists.dungeon, RoomKind::Lists).unwrap();
+    lists.arrive(i, (2.0, 8.5));
+    lists.mount_up(1);
+    lists.step(&BTreeMap::new());
+    lists.step(&BTreeMap::from([(
+        1,
+        Input {
+            fire: true,
+            ..Input::default()
+        },
+    )]));
+    for _ in 0..40 {
+        lists.step(&BTreeMap::new());
+    }
+    time("Lists, a bout", lists);
+    // And the simulation step at the mine-head with every folk route live.
+    let mut run = Run::at_home(17, 1, None, home, Default::default());
+    let i = world::room_of(&run.dungeon, RoomKind::MineHead).unwrap();
+    run.arrive(i, (12.0, 10.0));
+    let n = 3000;
+    let start = std::time::Instant::now();
+    for _ in 0..n {
+        run.step(&BTreeMap::new());
+    }
+    eprintln!(
+        "STEP {:<29} {:>8.1} us",
+        "mine-head",
+        start.elapsed().as_micros() as f64 / n as f64
+    );
+}

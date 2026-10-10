@@ -412,6 +412,28 @@ snibbet | snibbet | snibbet-secret | It's a secret to everybody. Here. Take it. 
 snibbet | snibbet | snibbet-secret-2 | Retired. Don't look at me like that. Gold's on the floor. It's a secret to everybody.
 herald | snibbet | herald-snibbet | The Herald saw that. The Herald sees everything. The Herald will be writing to someone.
 
+# The small secrets: a card under something, lifted by a deed done there.
+# Cues: secret_hint:<name> (once, a knight near) and secret_found:<name>,
+#       for cup glass seal salt coal lantern reed wick sill
+herald | secret_hint:cup | herald-hint-cup | An empty cup on the altar. Someone ought to keep vigil by it.
+herald | secret_found:cup | herald-found-cup | A bell, under the cup! Ring it and something small comes running.
+herald | secret_hint:glass | herald-hint-glass | There's glass under that altar stone. It wants to see a shield.
+herald | secret_found:glass | herald-found-glass | A needle of glass, under the altar. The Herald has cut himself on it already.
+herald | secret_hint:seal | herald-hint-seal | That chest's seal was never broken. Raise a shield to it before you raise the lid.
+herald | secret_found:seal | herald-found-seal | The seal held, and a whistle rolled out. The Herald calls that manners.
+herald | secret_hint:salt | herald-hint-salt | Salt, packed hard in this floor. Nothing a bomb couldn't loosen.
+herald | secret_found:salt | herald-found-salt | A thread, salted through. Spirits hate it. So does the Herald.
+blaise | secret_hint:coal | blaise-hint-coal | The beast banked its coals under this floor. A bomb would wake them.
+blaise | secret_found:coal | blaise-found-coal | A wick out of the dragon's coals. Light it, and something answers.
+herald | secret_hint:lantern | herald-hint-lantern | A dry lantern by the stair. It looks thirsty. Drink to it.
+herald | secret_found:lantern | herald-found-lantern | The lantern drank, and gave up a mote of light.
+herald | secret_hint:reed | herald-hint-reed | A reed, sunk at the pit's lip. Raise a draught to it.
+herald | secret_found:reed | herald-found-reed | A flute, up from the pit. Play it and something small and wet will come.
+wren | secret_hint:wick | wren-hint-wick | A wick, burnt low in the stone. Bring it wax, and sit with it a while.
+wren | secret_found:wick | wren-found-wick | The wick took the wax. There was a crumb under it. Birds like those.
+wren | secret_hint:sill | wren-hint-sill | That stone's wet, and something on it smells iron. Sit by it with ore.
+wren | secret_found:sill | wren-found-sill | A sip off the sill. Don't drink it yourself. Well. Do, but mind what comes.
+
 # ── Merlin, the realm's guide ───────────────────────────────────────────────
 # Cues: merlin:<build|wheel|coffer|lessons|cages|walls|runes|pit|frogs|wisdom>
 merlin | merlin:build | merlin-build | Spend something. The Undercroft looks like a cellar. It is a cellar, but it needn't look like one. Stand on a plate, hold F.
@@ -501,3 +523,78 @@ herald | black_hole | herald-black-hole-2 | The Hollow One opens a hole in the f
 wren | black_hole | wren-black-hole | It's pulling! Everything's pulling! Hit the stones!
 herald | channel_broken | herald-channel-broken | The hole falls shut! Somebody hit the Hollow One very hard indeed.
 fortune | channel_broken | fortune-channel-broken | Ooh, they broke it! The audience LOVES a broken channel, darlings!
+
+# ── The world above the Delve: the gate, its stair, the Mines' shaft ───────
+# Cues: the_gate entrance:gate entrance:cellar entrance:shaft
+herald | the_gate | herald-the-gate | The Delve's gate! The stair goes down to the Undercroft, and from there, all the way down.
+wren | the_gate | wren-the-gate | Stables to the west, the lists to the east, the Mines up north. I've drawn it. You're welcome.
+herald | entrance:shaft | herald-shaft | Down the shaft and into the Mines! Mind your heads. The Mines won't.
+wren | entrance:cellar | wren-cellar | Up to the gate. Fresh air. Well. Air.
+
+# ── The stables, and Wat the groom ─────────────────────────────────────────
+# Cues: npc:groom stable_select:<mount> stable_tend
+groom | npc:groom | groom-npc | Wat, groom. Bramble's steady, Cinder's quick, Mist's clever. Pick the one that suits your nerve.
+groom | npc:groom | groom-npc-2 | Brush her before a bout and she'll carry you a knock longer. Horses remember who brushed them.
+groom | npc:groom | groom-npc-3 | Cinder bit Sir Kay once. We don't talk about it. Cinder does.
+groom | stable_select:bramble | groom-bramble | Bramble. She's never thrown anybody she liked. Be likeable.
+groom | stable_select:cinder | groom-cinder | Cinder. Hold on with both knees and all your prayers.
+groom | stable_select:mist | groom-mist | Mist. She sees the other fellow's shield before you do. Trust her.
+groom | stable_tend | groom-tend | There. Brushed, watered, girth checked. She'll stand one more knock for you.
+
+# ── The lists: the joust ────────────────────────────────────────────────────
+# Cues: joust_start:<rival> joust_spur joust_smite joust_broke joust_clean
+#       joust_shield joust_miss joust_unhorse joust_fell joust_won:<rival>
+#       joust_lost:<rival> joust_drawn:<rival>
+herald | joust_start:kay | herald-joust-kay | In the lists: Sir Kay! He has opinions about jousting. Most of them about you.
+kay | joust_start:kay | kay-joust | Sir Kay, seneschal, at your service and, shortly, at your expense.
+herald | joust_start:palamedes | herald-joust-palamedes | Sir Palamedes rides! He has chased the Questing Beast through three kingdoms, and caught nothing yet.
+palamedes | joust_start:palamedes | palamedes-joust | Sir Palamedes. I have chased worse than you. Usually further.
+herald | joust_start:lancelot | herald-joust-lancelot | Sir Lancelot du Lac, the realm's champion! The crowd is on its feet. Some of them on each other's.
+lancelot | joust_start:lancelot | lancelot-joust | It is an honour. Ride well, and I shall ride better.
+herald | joust_spur | herald-spur | Spurs in! They're off!
+fortune | joust_spur | fortune-spur | And they CHARGE, darlings!
+herald | joust_smite | herald-smite | A mighty hit! Right where the shield wasn't!
+herald | joust_broke | herald-broke | The lance breaks! Splinters for the front row!
+herald | joust_clean | herald-clean | Clean! Past the shield and onto the steel!
+herald | joust_shield | herald-shield | On the shield! A point, and a ringing in his ears.
+herald | joust_miss | herald-joust-miss | A miss! The air has never been so thoroughly jousted.
+herald | joust_unhorse | herald-unhorse | UNHORSED! Over the tail and onto the sand!
+fortune | joust_unhorse | fortune-unhorse | Down he goes! The audience LOVES a knight on his back, darlings!
+herald | joust_fell | herald-fell | Our knight is on the sand! Somebody catch that horse!
+kay | joust_won:kay | kay-beaten | I slipped. The sand is uneven. I shall be writing to someone.
+palamedes | joust_won:palamedes | palamedes-beaten | Well ridden. I shall go and chase something I can catch.
+herald | joust_won:lancelot | herald-champion | The champion is beaten! The lists have a new name to shout!
+lancelot | joust_won:lancelot | lancelot-beaten | Well struck. There's no shame in it, except mine, and mine is considerable.
+kay | joust_lost:kay | kay-wins | As I expected. As I have always expected. Do try again; it's restful for me.
+palamedes | joust_lost:palamedes | palamedes-wins | A good lance. Not yet a great one. Come back.
+lancelot | joust_lost:lancelot | lancelot-wins | Your seat is good. Your timing will come. Mine took years.
+herald | joust_drawn | herald-joust-draw | A draw! Both knights are very pleased and very sore.
+
+# ── King Brannoc of Caer Dwfn, and the forges ──────────────────────────────
+# Cues: brannoc_arrives npc:brannoc_meet npc:brannoc npc:brannoc_hall
+#       mission:<id> mission_done:<id> commissioned:<work> work_stage:<work>
+#       work_done:<work> brannoc_sworn forge_relit:<forge> tribute merlin:barony
+herald | brannoc_arrives | herald-brannoc | Up the shaft comes a dwarf king! One horn, a great deal of beard, and an axe with history.
+brannoc | brannoc_arrives | brannoc-arrives | Brannoc. King under Caer Dwfn, when there was a Caer Dwfn. Ye've been knocking on me ceiling.
+brannoc | npc:brannoc_meet | brannoc-meet | Ye're the ones clearing me halls? Good. Sit. No, stand: the goblins ate the chairs. I'm Brannoc, and I want me home back.
+brannoc | npc:brannoc | brannoc-npc | The forges went cold one by one. I counted every one. I'll count 'em back.
+brannoc | npc:brannoc | brannoc-npc-2 | That ruin was me grandsire's gate-hall. He'd weep to see it. Then he'd hit something. Then he'd rebuild it.
+brannoc | npc:brannoc | brannoc-npc-3 | Ye fight like a dwarf. Badly dressed, but like a dwarf.
+brannoc | npc:brannoc_hall | brannoc-hall | Not on that, that's the throne. Well, it's a chair. It's MY chair.
+brannoc | npc:brannoc_hall | brannoc-hall-2 | The Great Forge waits for the first fire. A hundred years it's waited. It can wait a little more. I can't.
+brannoc | npc:brannoc_hall | brannoc-hall-3 | Gold in, ore out: that's how a baron pays his crown. Read the ledger if ye don't trust me. Then trust me.
+brannoc | mission:workings | brannoc-workings | Clear me the upper workings, eight halls of 'em, and me miners go back to the ore. They've been sharpening picks for a hundred years.
+brannoc | mission_done:workings | brannoc-workings-done | The workings are ours! And off the first hall me lads found the Ore-Forge. Cold as a tax collector's heart. We'll rebuild it.
+brannoc | commissioned:hall | brannoc-paid-hall | Ye paid that? All of it? By me grandsire's beard. Lads! Stone up from below! We've a hall to raise!
+brannoc | commissioned:ore-forge | brannoc-paid-forge | The Ore-Forge, rebuilt! Down ye go, lads, and mind the bellows.
+herald | work_stage:hall | herald-hall-stage | The King's Hall rises at the mine-head! Stone by stone, and nobody has dropped one on a foot. Yet.
+brannoc | work_stage:ore-forge | brannoc-forge-stage | Course by course. A forge is built like a beard: slowly, and with pride.
+brannoc | brannoc_sworn | brannoc-sworn | There. A hall. Me hall. I'll kneel once, so mark it: Caer Dwfn is the crown's, and the crown has a baron.
+herald | brannoc_sworn | herald-sworn | King Brannoc kneels in his hall! The realm has a baron, and the baron has opinions!
+brannoc | work_done:ore-forge | brannoc-forge-done | The Ore-Forge stands. Cold, mind. It wants fire, and not any fire: fire from the dragon's own keep. Eight embers.
+herald | forge_relit:ore-forge | herald-relit | The Ore-Forge burns! The hammers ring in Caer Dwfn!
+brannoc | forge_relit:ore-forge | brannoc-relit | Hear that? HEAR it? A hammer on an anvil under the mountain. A hundred years I've waited to hear that.
+brannoc | mission:first-fire | brannoc-first-fire | Cinderjaw. That furnace-brute's been chewing me grandsire's fire for a hundred years. Fell him, and bring it home.
+brannoc | mission_done:first-fire | brannoc-first-fire-done | The first fire! Gently, it's older than all of us. By the Great Forge with it. When the halls are ours, we light the crown.
+brannoc | tribute | brannoc-tribute | Me miners followed ye down. Here's the crown's share, counted twice.
+merlin | merlin:barony | merlin-barony | A dwarf king camps at the mine-head, north of the gate. He has waited a hundred years. Don't make him wait for you too.

@@ -20,7 +20,6 @@ mod activity;
 mod adventure;
 mod ambient;
 mod camera;
-mod chivalry;
 pub(crate) mod cinematics;
 pub(crate) mod crawl;
 mod hud;
@@ -319,9 +318,6 @@ pub(crate) struct World {
     overworld: overworld::Walker,
     /// Operator-selected camera centre and label; automatic work keeps moving.
     overworld_view: Option<(f32, f32, &'static str)>,
-    pub(crate) chivalry: crate::drive::chivalry::Chivalry,
-    pub(crate) chivalry_visit: Option<crate::drive::chivalry::Visit>,
-    chivalry_cache: RefCell<Option<chivalry::FrameCache>>,
     /// The last glass picture the map showed, keyed on its source frame.
     overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
     /// A two-seat fan-out stage fought at the Lists, and the session tally.
@@ -406,7 +402,6 @@ impl World {
     }
 
     pub(crate) fn select_landmark(&mut self, building: Building) {
-        self.close_chivalry();
         self.target = building;
         self.carrying_mail = false;
         self.interior = None;
@@ -499,9 +494,6 @@ impl World {
             growth_announced: 0,
             overworld: overworld::Walker::default(),
             overworld_view: None,
-            chivalry: Default::default(),
-            chivalry_visit: None,
-            chivalry_cache: RefCell::new(None),
             overworld_glass: RefCell::new(None),
             overworld_duel: None,
             overworld_deeds: overworld::Deeds::default(),
@@ -861,13 +853,13 @@ impl World {
     }
 
     pub(crate) fn has_authored_interior(&self) -> bool {
-        self.chivalry_visit.is_some() || self.visiting_school()
+        self.visiting_school()
             || (world3d::region::stage_for(self.quest().region()).is_none()
                 && interiors::supports(self.target))
     }
 
     pub(crate) fn inside_interior(&self) -> bool {
-        self.chivalry_visit.is_some_and(|v| v.inside) || self.interior.is_some() || self.school_room.is_some()
+        self.interior.is_some() || self.school_room.is_some()
     }
 
     pub(crate) fn interior_building(&self) -> Option<Building> {
@@ -875,7 +867,6 @@ impl World {
     }
 
     pub(crate) fn enter_interior(&mut self) -> bool {
-        if let Some(v) = self.chivalry_visit.as_mut() { v.inside = true; v.station = 0; return true; }
         if self.visiting_school() {
             return self.visit_overworld("school-study").is_some();
         }
@@ -894,11 +885,6 @@ impl World {
     }
 
     pub(crate) fn leave_interior(&mut self) -> bool {
-        if let Some(v) = self.chivalry_visit.as_mut() && v.inside {
-            v.inside = false;
-            v.station = 0;
-            return true;
-        }
         if self.school_room.is_some() {
             return self.visit_overworld("school").is_some();
         }

@@ -19,12 +19,17 @@ that build the world. The world, the cast and the Grail are in
      - Dame Lynette, the Shieldmaiden: crossbow, kite shield;
      - Sir Gareth, the Kitchen Knight: handgonne, extra bombs;
      - Sir Galahad, the Pure: blade, more health.
+
+     These are the Keep's own household. While a model house serves, the
+     knight who wears each kit is one of that house's knights, named by its
+     model ("Ardent of Lanternmere, the Seeker"); see
+     [CASTLES.md](CASTLES.md).
    - **where to begin**: the Crypt or the Mines;
    - **who comes along**: alone, a friend on this keyboard, or friends on
      their own angelX (see *Playing with friends*);
    - **voices**: on or off.
 
-   Enter begins the run, and the game expands.
+   Enter begins the run at the Delve's gate, and the game expands.
 
 `/dungeon start` skips the walk and the intro.
 
@@ -40,12 +45,110 @@ The host plays **inside the expanded cockpit mini-viz**. No browser is needed.
   run, checked gear, and invite across orderly exits/rebuilds. Checkpoints are
   also written every three seconds. `/dungeon off` removes the checkpoint.
 
+## The world above the Delve
+
+Every delve begins in the world, at **the Delve's gate**: a courtyard on the
+road from the realm, the gate's arch over a stair going down. Its rooms are
+walked with the same keys as the Delve, and friends walk them too.
+
+| Room | Where | What is there |
+|---|---|---|
+| The Delve's gate | the courtyard | the gate's stair **down to the Undercroft**; a well; a signpost; whoever is waiting about |
+| The stables | west | the realm's three mounts, Wat the groom (see below) |
+| The lists | east | the tilt, the stands and their crowd, and the joust (see below) |
+| The mine-head | north | the Mines' adit, its shaft **straight down into the Mines**; the fallen gate-hall of Caer Dwfn |
+| The King's Hall | through its great door at the mine-head, once rebuilt | King Brannoc's seat, his ledger, the war table of the forges, the Great Forge |
+
+A stair or a door you stand on for a moment takes you through it, as the
+Winding Stair does: a ring fills round it, and its board says where it goes.
+The Undercroft has a stair of its own back up to the gate, in its north wall
+beside the Training Yard's door. `/dungeon settlement` still opens in the
+PLAYER HALL below.
+
+## The stables and the lists
+
+**The stables** keep the realm's three mounts, each over its half-door, the
+saddled one out in the yard. Stand on a stall's plate and **hold F** to
+saddle that mount; at the trough's plate, to tend it (brushed, watered, the
+tack checked: it carries its rider a knock longer, for one bout). Wat the
+groom has opinions about all three.
+
+| Mount | Rides |
+|---|---|
+| Bramble | Steady: the most balance and the widest brace |
+| Cinder | Fast and heavy: the soonest meeting and the hardest hit, the narrowest strike |
+| Mist | Light and true: the widest strike, and the rival's guard is read early |
+
+**The lists:** stand on the plate by the red pavilion and **hold F** to
+mount. Then a course at a time:
+
+- **F** spurs. The horses run at each other down either side of the tilt,
+  faster all the way.
+- **W** aims high, at the helm; **S** aims low, at the shield. The rival's own
+  shield shows where he guards a moment before you meet: strike where it
+  isn't.
+- **F** strikes as the lances meet. A ring closes over the tilt where you
+  will meet, and burns gold while a strike would land.
+- **Space** braces as his lance comes in, and takes it a grade lighter.
+
+On his shield is a point (two if your lance breaks on it at the very moment);
+where his shield isn't is two (three at the very moment). Every hit knocks
+the rider struck; a rider out of balance goes over his horse's tail and onto
+the sand, and the bout is over. Otherwise three courses are counted. Hold
+Space at the end to withdraw. Your rivals, in order: **Sir Kay** (who has
+opinions about it), **Sir Palamedes**, and **Sir Lancelot**, the realm's
+champion. The sidebar keeps the score.
+
+## King Brannoc and the forges of Caer Dwfn
+
+Under the realm lie the halls of Caer Dwfn, a dwarf-kingdom the goblin clans
+took a hundred years ago. Every hall had a forge, and every forge went cold.
+Once the party has cleared a floor of the Mines, **King Brannoc Onehorn**,
+the last of its kings, comes up the Mines' shaft and camps at the mine-head,
+by the ruin of his gate-hall. Walk up to him.
+
+- **His missions** come one at a time, read at the plate before him: first
+  **The Upper Workings** (clear eight halls of the Mines: 150 gold, 10 ore),
+  then, once the Ore-Forge burns, **The First Fire** (fell Cinderjaw, who has
+  been chewing it for a century: 4 gems).
+- **His works** the realm pays for, and pays a great deal for, and his
+  dwarves build them while you play, at home or below (the sidebar counts
+  them up):
+
+  | Work | Where | Price | Takes |
+  |---|---|---|---|
+  | The King's Hall | the ruin's plate at the mine-head | 3,000 gold, 40 ore, 20 bone, 6 gems | three dwarves about half an hour |
+  | The Ore-Forge | its plate in the Mines (below) | 2,000 gold, 30 ore, 4 gems | three dwarves about twenty minutes |
+
+  More missions done means more dwarves home, and faster work. The hall
+  rises out of its ruin a quarter at a time: the rubble carried off, the
+  walls, the roof, the great door. When it stands, the King kneels in it and
+  swears Caer Dwfn to the crown (**A Baron Sworn**), and its door opens.
+- **The forges.** Once the Upper Workings are his, every floor of the Mines
+  has a forge-hall off its first room: the Ore-Forge, in ruin. Pay at its
+  plate to rebuild it; once it stands, relight it there with **8 embers**
+  from Dragon Keep (**The Hammers Ring**). A burning forge has smiths at its
+  anvils, adds to the tribute, and makes **dwarf-forged mail** for every
+  knight (one piece of armor). The war table in his hall shows every forge
+  of Caer Dwfn and how it stands; the Great Forge, the crown of them all,
+  waits cold at the end of his hall for the first fire.
+- **Tribute:** his miners follow you down. Every floor the party clears pays
+  3 ore and 30 gold once the Upper Workings are his, and 1 gem and 60 gold
+  more for every forge burning. The **ledger** on the lectern in his hall
+  keeps what the realm has paid in and what he has paid back.
+
+His people are about: his guards, his miners going down the shaft with their
+picks and coming up with sacks of ore, his builders hauling stone, a carter
+taking the realm's share to market through the gate courtyard, and his man
+waiting by the signpost there. The design and what comes next are in
+[The Barony](BARONY.md).
+
 ## The Undercroft: home
 
-Every delve begins at home, in the Undercroft: the company's cellar under the
+The Undercroft is down the gate's stair: the company's cellar under the
 Delve's gate. The **Winding Stair** in its middle goes down to the first
 floor (or to a landing further down; see Wren's map). A finished delve
-(**R** after a victory or a fall) comes home again.
+(**R** after a victory or a fall) begins again at the gate.
 
 The Undercroft is built out with the spoils the party carries up. Each
 station has an engraved plate in front of it: stand on it to read its
@@ -251,7 +354,8 @@ Collapse it counts down the floor's time.
 The Herald notices things. A whole slime family pruned, a keg that takes
 three monsters with it, a goblin caught (or let go), a guardian down, the
 dragon, the floor below the dragon, the Grail, a lesson learned, a cage
-opened, a full Trophy Hall: thirty-eight moments in all,
+opened, a full Trophy Hall, a baron sworn, a forge relit, a champion
+unhorsed: forty-two moments in all,
 each earned once per realm. A new one drops a banner across the view
 (**NEW ACHIEVEMENT!**, its name, the Herald's line about it, and its reward)
 and puts a box in the **Herald's coffer**, on its pedestal in Dame Fortune's
@@ -609,10 +713,9 @@ show Hive / Rival clans / Tribute stronghold, **ANY** or **ALL**, route progress
 checked encounter names and faction claims. A separate support line identifies
 the resource, remaining local support/reserve and how many factions lost
 control. Home's rumour board forecasts the supported chiefs. Native guests
-receive the same mirror/state; an invitation opened in a browser now has an
-**authenticated read-only** PNG and faction/resource table. Browser play still
-requires `/dungeon join <link>` in angelX. No client can submit a political
-transition or defeat assertion.
+receive the same mirror/state; a browser seat gets the same picture as its
+own camera and the same table. No client can submit a political transition or
+defeat assertion.
 
 A camp provisions **once**. Its base budgets are 8–20 lesser troops for a hive,
 3–9 for clans, and 3–6 for a stronghold, plus at most two reserve troops on
@@ -874,7 +977,10 @@ says so on the status line.
   your angelX.
 - `/dungeon invite` shows the lines again; `/dungeon kick` ends them all.
 - Opened in a browser, a line only says to paste it into angelX. With
-  `/dungeon_host --3 --view` (or `ANGEL_DUNGEON_BROWSER_VIEW=1`) it opens a
-  read-only view instead: the host's current room, the floor and its chiefs.
-  Playing still takes angelX.
+  `/dungeon_host --3 --view` (or `ANGEL_DUNGEON_BROWSER_VIEW=1`) the link opens
+  a playable seat instead, with nothing to install: the host paints that
+  knight's own camera and streams it over one connection, sending only the
+  tiles that changed. WASD moves, the arrows aim, F fires, Space rolls, Q is
+  the sword, E a bomb, 1–4 play cards, T opens the wish scroll, and a gamepad
+  works. The page shows its frame rate and ping in the footer.
 - Codes survive a host restart: the checkpoint keeps them.

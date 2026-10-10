@@ -614,7 +614,6 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             && app.viewer.map_pixels_native()
             && !app.dungeon_controls_blocked()
             && app.dungeon.intro.is_none()
-            && app.dungeon.chivalry_visit.is_none()
             && app.dungeon.forge.draft.is_none()
             && !app.dungeon.cards_open
             && app.dungeon.exhibit_text.is_none();
@@ -622,9 +621,6 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         app.viewer.clear_still();
         app.dungeon.controls_visible = if let Some(intro) = &app.dungeon.intro {
             crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.dungeon.realm.as_ref());
-            true
-        } else if let Some(visit) = app.dungeon.chivalry_visit {
-            crate::ui::viz::chivalry_viz::render(frame, &app.world, visit, root, &app.dungeon.chivalry_notice, app.visual_motion);
             true
         } else if let Some(text) = &app.dungeon.exhibit_text {
             frame.render_widget(ratatui::widgets::Clear, root);
@@ -716,7 +712,6 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         // dialog owns input instead of placing an image over its buttons.
         if !app.dungeon_controls_blocked()
             && app.dungeon.intro.is_none()
-            && app.dungeon.chivalry_visit.is_none()
             && app.dungeon.forge.draft.is_none()
             && !app.dungeon.cards_open
             && let Some(joined) = &app.dungeon.joined
@@ -726,7 +721,6 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         if !app.dungeon_controls_blocked()
             && !app.dungeon.cards_open
             && app.dungeon.intro.is_none()
-            && app.dungeon.chivalry_visit.is_none()
             && app.dungeon.forge.draft.is_none()
             && let Some((run, step)) = &host_view
         {

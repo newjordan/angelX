@@ -88,6 +88,12 @@ const IDLE_POLL: Duration = Duration::from_millis(200);
 const TICK: Duration = Duration::from_millis(33);
 /// Frame pacing while a delve is on screen.
 const GAME_TICK: Duration = Duration::from_micros(16_667);
+/// While friends play the delve in a browser, the pane redraws at most this
+/// often...
+const SHARED_PANE_TICK: Duration = Duration::from_millis(33);
+/// ...and goes no longer than this without one, even when a redraw costs
+/// more than the time left before the delve's next step.
+const SHARED_PANE_STALE: Duration = Duration::from_millis(133);
 /// The miniworld is ambient scenery, not a reason to repaint the entire
 /// terminal at video cadence. Twelve frames per second keeps travel legible
 /// while leaving input and agent output the priority lane.
@@ -261,6 +267,44 @@ fn sync_game_keyboard(app: &App, active: &mut bool) -> std::io::Result<()> {
     Ok(())
 }
 
+/// When the pane may redraw while friends play the delve in a browser. A
+/// redraw blocks on the terminal's write (a slow PTY reader can hold it for
+/// most of a step), and the delve's next step must not wait behind it: the
+/// friends' pictures are painted from that step. So the pane redraws at most
+/// every `SHARED_PANE_TICK`, where its recent cost fits before the next step,
+/// and right after a step once it has gone `SHARED_PANE_STALE` without one.
+struct SharedPane {
+    last: Option<Instant>,
+    /// Recent redraw wall time: rises at once, eases down by an eighth.
+    cost: Duration,
+}
+
+impl SharedPane {
+    fn due(&self, now: Instant, step_due: Option<Instant>) -> bool {
+        let since = self
+            .last
+            .map_or(Duration::MAX, |last| now.saturating_duration_since(last));
+        if since < SHARED_PANE_TICK {
+            return false;
+        }
+        let Some(step) = step_due else {
+            return true;
+        };
+        let room = step.saturating_duration_since(now);
+        room >= self.cost || (since >= SHARED_PANE_STALE && room >= SHARED_PANE_TICK * 3 / 4)
+    }
+
+    fn drew(&mut self, started: Instant, finished: Instant) {
+        let took = finished.saturating_duration_since(started);
+        self.last = Some(started);
+        self.cost = if took >= self.cost {
+            took
+        } else {
+            self.cost - (self.cost - took) / 8
+        };
+    }
+}
+
 /// Drive the TUI until quit. Returns the staged phoenix exec (new binary +
 /// session id) when `/self reborn` ended the loop, `None` on a normal quit.
 fn run(
@@ -320,6 +364,12 @@ fn run(
         .checked_sub(BACKPLANE_REFRESH)
         .unwrap_or_else(Instant::now);
     let mut next_frame = Instant::now();
+    let mut shared_pane = SharedPane {
+        last: None,
+        cost: Duration::ZERO,
+    };
+    // When the delve's next step is due while friends play in it.
+    let mut step_due: Option<Instant> = None;
     let loop_result = (|| -> std::io::Result<()> {
         while !app.should_quit {
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
@@ -356,6 +406,11 @@ fn run(
             } else {
                 IDLE_POLL
             };
+            // With friends in the delve the loop also wakes when its next
+            // step is due, so the step and their next picture are on time.
+            let wait = step_due.map_or(wait, |due| {
+                wait.min(due.saturating_duration_since(Instant::now()))
+            });
             let poll_started = frame_timing.as_ref().map(|_| Instant::now());
             let pre_poll_us = pre_poll_started
                 .zip(poll_started)
@@ -389,9 +444,21 @@ fn run(
             {
                 app.bag.settle_brain();
             }
-            if app.take_redraw_request() {
-                terminal.clear()?;
-            }
+            let friends_seated = app.dungeon_friends_seated();
+            step_due = if friends_seated {
+                app.dungeon_step_due()
+            } else {
+                None
+            };
+            // Friends playing in a browser see pictures painted from the
+            // delve's steps, so the pane redraws only where it cannot hold a
+            // step back (see `SharedPane`).
+            let friend_on_browser = friends_seated
+                && app
+                    .dungeon
+                    .guest
+                    .as_ref()
+                    .is_some_and(|guest| guest.browser_view());
             let settle_us = settle_started.map_or(0, |start| start.elapsed().as_micros());
             let draw_started = frame_timing.as_ref().map(|_| Instant::now());
             // The next frame is due one tick after this one was; a loop
@@ -411,7 +478,16 @@ fn run(
                     next_frame = now + GAME_TICK;
                 }
             }
-            if !paced_wait {
+            let draw = if friend_on_browser {
+                shared_pane.due(now, step_due)
+            } else {
+                !paced_wait
+            };
+            if draw {
+                let started = Instant::now();
+                if app.take_redraw_request() {
+                    terminal.clear()?;
+                }
                 terminal.draw(|frame| {
                     let ui_broker = std::sync::Arc::clone(&app.ui_broker);
                     let prepared =
@@ -426,6 +502,7 @@ fn run(
                         );
                     }
                 })?;
+                shared_pane.drew(started, Instant::now());
             }
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let post_draw_started =
@@ -511,6 +588,10 @@ fn write_private_export(path: &str, value: &serde_json::Value) -> std::io::Resul
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/main__rollout_export_output_tests.rs"]
 mod rollout_export_output_tests;
+
+#[cfg(test)]
+#[path = "../../tests/cockpit/app/main__shared_pane_tests.rs"]
+mod shared_pane_tests;
 
 const CLI_HELP: &str = r#"angelX — terminal cockpit and competition/RL task runner
 

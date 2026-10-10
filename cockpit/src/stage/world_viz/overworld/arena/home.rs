@@ -80,6 +80,7 @@ pub(super) fn scenery(run: &Run) -> Img {
         plate(&mut cv, spot.plate, false, spot.station);
     }
     stair(&mut cv);
+    cellar_stair(&mut cv, run, &mut lights, tick);
     dusk(&mut cv, &lights, ('x', 'I'));
     cv
 }
@@ -132,6 +133,49 @@ pub(super) fn research_exhibits(cv: &mut Img, run: &Run) {
         let sign = district_sign("LOCAL RESEARCH · E");
         cv.stamp(&sign, x + (TILE - sign.w) / 2, y - sign.h);
     }
+}
+
+/// The stair up to the Delve's gate, in the north wall east of the
+/// Training Yard's door: steps rising into an arch, daylight's dusk at the
+/// top, a torch beside it. Drawn only where the world has risen.
+fn cellar_stair(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
+    use crate::drive::together_shooter::world::CELLAR_STAIR;
+    let (c, r, w, h) = CELLAR_STAIR;
+    if run.room().tile(c, r) != Tile::Stairs {
+        return;
+    }
+    let (x0, x1) = (c * TILE + 2, (c + w) * TILE - 2);
+    // The opening in the wall above: an arch onto the dark of the stair.
+    for y in 2..TILE + 2 {
+        for x in x0..x1 {
+            let (dx, dy) = ((x - (x0 + x1) / 2) as f32 / 13.0, (y - 12) as f32 / 10.0);
+            if y >= 12 || dx * dx + dy * dy <= 1.0 {
+                cv.put(x, y, 'k');
+            }
+        }
+    }
+    for k in 0..24 {
+        let a = std::f32::consts::PI * (k as f32 / 23.0);
+        let (x, y) = (
+            (x0 + x1) as f32 / 2.0 - a.cos() * 14.0,
+            12.0 - a.sin() * 11.0,
+        );
+        cv.put(x as i32, y as i32, 'J');
+    }
+    // The steps, lightest at the top, where the gate is.
+    for (i, y) in (TILE + 2..(r + h) * TILE).step_by(3).enumerate() {
+        let ink = ['h', 'J', 'G', 'j', 'g'][i.min(4)];
+        cv.line(x0, y, x1 - 1, y, ink);
+        cv.line(x0, y + 1, x1 - 1, y + 1, 'g');
+    }
+    let im = kit::brazier(tick / 4, 77);
+    cv.stamp(&im, x1 + 2, (r + h) * TILE - im.h);
+    lights.push(fire(
+        x1 + 2 + im.w / 2,
+        (r + h) * TILE - im.h + 3,
+        40.0,
+        0.3,
+    ));
 }
 
 /// The runner from the foot of the room up to the stair's mouth.
@@ -426,7 +470,17 @@ fn chapel(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
 
 /// A station's engraved plate: a dark slab with a bronze edge and the
 /// station's mark, bright while a knight stands on it.
-pub(super) fn plate(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, station: Station) {
+pub(super) fn plate(cv: &mut Img, rect: (i32, i32, i32, i32), lit: bool, station: Station) {
+    plate_marked(cv, rect, lit, &mark(station));
+}
+
+/// An engraved plate with its own mark (ink `O`, lit to `6`).
+pub(super) fn plate_marked(
+    cv: &mut Img,
+    (c, r, w, h): (i32, i32, i32, i32),
+    lit: bool,
+    mark: &Img,
+) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
     cv.rect(x, y, pw, ph, 'X');
     cv.frame(x, y, pw, ph, if lit { '5' } else { 'o' });
@@ -438,7 +492,6 @@ pub(super) fn plate(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool,
     ] {
         cv.put(cx, cy, if lit { '6' } else { 'O' });
     }
-    let mark = mark(station);
     let ink = if lit { '6' } else { 'O' };
     let mark = mark.recolor(&[('O', ink)]);
     cv.stamp(&mark, x + (pw - mark.w) / 2, y + (ph - mark.h) / 2);
@@ -569,8 +622,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         let im = super::sprites::tallow(false, false, false, tick);
         cv.stamp(&im, x - im.w / 2, y - im.h + 2);
     }
-    // The stair's ring fills while a knight stands on it.
-    if run.descending > 0 {
+    // The stair's ring fills while a knight stands on it (the stair up to
+    // the gate wears its own).
+    if run.descending > 0 && crate::drive::together_shooter::world::entrance_under(run).is_none() {
         let (cx, cy) = stair_centre();
         let k = run.descending as f32 / home::DESCEND_HOLD as f32;
         let n = 64;

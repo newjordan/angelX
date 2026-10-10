@@ -497,7 +497,7 @@ pub(crate) fn tower(w: i32, h: i32, top_h: i32, top: Top, wall: Wall) -> Img {
     im
 }
 
-fn arch(im: &mut Img, x: i32, y: i32, w: i32, h: i32, portcullis: bool) {
+pub(crate) fn arch(im: &mut Img, x: i32, y: i32, w: i32, h: i32, portcullis: bool) {
     for yy in y..y + h {
         for xx in x..x + w {
             let corner = yy == y && (xx < x + 2 || xx >= x + w - 2)

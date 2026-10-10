@@ -129,6 +129,28 @@ fn a_friends_own_knight_is_drawn_where_their_keys_take_it() {
 }
 
 #[test]
+fn a_frame_of_lead_still_moves_the_knight() {
+    let mut run = Run::new(3, 9, Some("Matt"));
+    run.calm_for_test();
+    let before = run.pose();
+    let start = run.players[&2].x;
+    let right = Input {
+        move_x: 1,
+        ..Default::default()
+    };
+    // Less than one 30 Hz tick. Rounding the lead away would leave the knight still.
+    let drawn = run.drawn_ahead(&before, 1.0, Some((2, right, 1.0 / 120.0)), |view| {
+        view.players[&2].x
+    });
+    let step = drawn - start;
+    assert!(
+        step > 0.05 && step < 0.2,
+        "one frame of lead should be a short step, was {step}"
+    );
+    assert_eq!(run.players[&2].x, start, "the run itself is untouched");
+}
+
+#[test]
 fn spell_slots_timers_and_card_edits_cross_the_mirror() {
     let mut host = Run::new(19, 1, Some("friend"));
     let raw = "name Spark\nkind spell\ncooldown 3\ncast bolt\n";
@@ -245,4 +267,50 @@ fn beaumains_fights_on_a_friends_screen_too() {
     host.step(&BTreeMap::new());
     assert!(friend.apply_live(host.live()));
     assert_eq!(friend.hireling, host.hireling);
+}
+
+#[test]
+fn two_frames_of_lead_move_further_and_a_wall_still_stops_the_knight() {
+    let mut run = Run::new(3, 9, Some("Matt"));
+    run.calm_for_test();
+    let before = run.pose();
+    let start = run.players[&2].x;
+    let right = Input {
+        move_x: 1,
+        ..Default::default()
+    };
+    let one = run.drawn_ahead(&before, 1.0, Some((2, right, 1.0 / 120.0)), |view| {
+        view.players[&2].x
+    });
+    let two = run.drawn_ahead(&before, 1.0, Some((2, right, 2.0 / 120.0)), |view| {
+        view.players[&2].x
+    });
+    assert!(
+        two > one + 0.02,
+        "a second frame of lead is another step: {one} then {two}"
+    );
+    assert_eq!(run.players[&2].x, start, "the run itself is untouched");
+
+    // Pressed against the west wall, two frames of lead go nowhere.
+    let mut boxed = Run::new(3, 9, Some("Matt"));
+    boxed.calm_for_test();
+    let before = boxed.pose();
+    boxed.players.get_mut(&2).unwrap().x = 3.0;
+    let left = Input {
+        move_x: -1,
+        ..Default::default()
+    };
+    let wall = boxed.drawn_ahead(&before, 1.0, Some((2, left, 0.25)), |view| {
+        view.players[&2].x
+    });
+    assert!(wall < 2.9, "a quarter second walks up to the wall: {wall}");
+    boxed.players.get_mut(&2).unwrap().x = wall;
+    let before = boxed.pose();
+    let drawn = boxed.drawn_ahead(&before, 1.0, Some((2, left, 2.0 / 120.0)), |view| {
+        view.players[&2].x
+    });
+    assert!(
+        (drawn - wall).abs() < 1e-4,
+        "two frames of lead do not pass the wall: {wall} then {drawn}"
+    );
 }

@@ -40,6 +40,10 @@ one more wish: **The Grail Chapel**, its door left open.
 | **Merlin** | The realm's guide by the Winding Stair: he has seen every delve there ever was, was a toad once for a fortnight, and has opinions about witches | A knight walking up: the one thing most worth doing next that the realm hasn't done |
 | **Maud** | The alewife the mushrooms grew round, rescued from the Fungal Deep; she keeps the bar in the west wing's tavern, the Siege Perilous | Walking up to her bar; her taps are dry until she's home |
 | **Sir Dinadan** | The Round Table's jester-knight, who in Malory wrote a mocking song about King Mark. He keeps a stage in the tavern and sings auras for the next delve, for gold | Walking up to his stage; asked for a song; the top of the stair |
+| **King Brannoc Onehorn** | The last king of Caer Dwfn, the dwarf-kingdom under the realm: a red beard braided to his belt, one bone horn on his helm (the other snapped off at Caer Dwfn's fall), a notched axe, a foaming tankard on his shield. Gruff, fiercely loyal, homesick for his halls. He came up the Mines' shaft once the knights began clearing them, and rules what they win back as a baron of the realm | Walking up to him; his missions; the works he builds; a forge relit; the tribute |
+| **Wat the groom** | Keeps the realm's three mounts at the stables, and has a view on each | Walking up to him; a mount saddled or tended |
+| **Sir Palamedes** | Rides at the lists: he has chased the Questing Beast through three kingdoms and caught nothing yet | A bout against him, won or lost |
+| **Sir Lancelot** | The realm's champion at the lists, gracious about everything, exhaustingly | A bout against him, won or lost |
 | **Beaumains** | The kitchen knight who waits by the tavern's west table. Sir Kay named him for his soft kitchen hands; Malory says he was Sir Gareth all along, and he has told nobody. He throws a carving knife better than anyone in the realm and won't say where he learned | Walking up to his table; hired; felled, and up again after the fight |
 
 ## Below the dragon
@@ -63,6 +67,23 @@ everywhere a knight would rather they weren't. Some delves, the Index is not
 at home on the Archive's stair. The flood brought something else up with
 it: the Late-Fee Leviathan, which has come for everything the Archive ever
 lent, with interest, and has decided that knights were borrowed too.
+
+## Caer Dwfn
+
+Under the realm were the halls of Caer Dwfn, a dwarf-kingdom: a gate-hall at
+the mine-head, and below it the Mines and every hall further down, each with
+a forge. A hundred years ago the goblin clans came up from below; their
+heirs are the Mines' rival chiefs. Cinderjaw, a furnace golem, took the first
+fire and is still chewing it; the forges went cold one by one, and the
+gate-hall fell in.
+
+King Brannoc wants his home back, and the realm needs what his forges made.
+The knights clear his halls; the realm pays for his works; his dwarves
+rebuild, a stone at a time; the forges are relit with fire carried up from
+the dragon's keep; and he pays the crown back from what his miners dig. The
+Great Forge, his grandsire's, stands cold at the end of his hall, the crown
+of all the others, waiting for the first fire. When it burns, the
+underground is the kingdom's.
 
 ## Home: the Undercroft
 
