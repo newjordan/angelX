@@ -868,3 +868,165 @@ fn same_tick_round_trip_does_not_override_explicit_iteration_or_cross_tick_entry
     );
     assert_eq!(q.walk_half_ticks(52), 4);
 }
+
+/// A submission's official result as the board returns it: accepted, and
+/// whether it improved and was promoted.
+fn official_result(
+    id: &str,
+    promoted: bool,
+) -> crate::agent::harness::cartridges::records::TerminalEvidence {
+    serde_json::from_value(serde_json::json!({
+        "official": {
+            "id": id,
+            "benchmark_id": "kernel",
+            "status": "accepted",
+            "promotion_status": if promoted { "promoted" } else { "held" },
+            "promoted_source_ref": "refs/heads/candidate",
+            "official_score": "948.94M",
+            "improved": promoted,
+            "fetched_at_ms": 1
+        },
+        "benchmark_id": "kernel",
+        "submission_id": id,
+        "status": "accepted",
+        "frontier_win_verified": promoted,
+        "source_id": "test"
+    }))
+    .unwrap()
+}
+
+/// A promoted record brings the guardian's fight; one already promoted
+/// when the mirror first looks is history; a result that wasn't promoted
+/// brings nothing.
+#[test]
+fn a_promoted_record_brings_the_guardian_and_only_news_does() {
+    let mix = ToolMix::default();
+    let mut mirror = LoopMirror::default();
+    let mut st = LoopState {
+        status: LoopStatus::Running,
+        ..LoopState::default()
+    };
+    st.submission_results.push(official_result("old", true));
+    let first = mirror.drain(&st, &mix, 1);
+    assert!(
+        !first
+            .iter()
+            .any(|e| matches!(e, AdventureEvent::RecordPromoted { .. })),
+        "an old record isn't news"
+    );
+    st.submission_results.push(official_result("held", false));
+    assert!(
+        !mirror
+            .drain(&st, &mix, 1)
+            .iter()
+            .any(|e| matches!(e, AdventureEvent::RecordPromoted { .. }))
+    );
+    st.submission_results.push(official_result("new", true));
+    let events = mirror.drain(&st, &mix, 1);
+    assert_eq!(
+        events
+            .iter()
+            .filter(|e| matches!(e, AdventureEvent::RecordPromoted { .. }))
+            .count(),
+        1
+    );
+    assert!(events.contains(&AdventureEvent::RecordPromoted {
+        score: Some("948.94M".into())
+    }));
+}
+
+/// The quest keeps the guardian's fight for three minutes from the record.
+#[test]
+fn the_guardians_fight_lasts_three_minutes_from_the_record() {
+    let mut q = Quest::idle();
+    assert_eq!(q.record_fight(10), None);
+    q.apply(
+        AdventureEvent::RecordPromoted {
+            score: Some("1.2s".into()),
+        },
+        100,
+    );
+    assert_eq!(q.record_fight(100), Some((0, true)));
+    assert_eq!(
+        q.record_fight(100 + RECORD_FIGHT - 1),
+        Some((RECORD_FIGHT as u32 - 1, true))
+    );
+    assert_eq!(q.record_fight(100 + RECORD_FIGHT), None);
+    assert_eq!((q.records(), q.record_score()), (1, Some("1.2s")));
+    // A promotion that didn't come: a shorter fight, and a retreat.
+    q.apply(AdventureEvent::PromotionFailed { score: None }, 10_000);
+    assert_eq!(
+        q.record_fight(10_000 + RETREAT_FIGHT - 1).map(|f| f.1),
+        Some(false)
+    );
+    assert_eq!(q.record_fight(10_000 + RETREAT_FIGHT), None);
+    assert_eq!(q.bouts(), 2);
+}
+
+/// A submission's official result that settled without a promotion, or
+/// hasn't settled yet.
+fn settled_result(
+    id: &str,
+    status: &str,
+    promotion: Option<&str>,
+    improved: Option<bool>,
+) -> crate::agent::harness::cartridges::records::TerminalEvidence {
+    serde_json::from_value(serde_json::json!({
+        "official": {
+            "id": id,
+            "benchmark_id": "kernel",
+            "status": status,
+            "promotion_status": promotion,
+            "official_score": "951.02M",
+            "improved": improved,
+            "fetched_at_ms": 1
+        },
+        "benchmark_id": "kernel",
+        "submission_id": id,
+        "status": status,
+        "frontier_win_verified": false,
+        "source_id": "test"
+    }))
+    .unwrap()
+}
+
+/// A submission settled without a promotion is a retreat; one still
+/// waiting on its promotion is nothing yet.
+#[test]
+fn a_promotion_that_didnt_come_is_a_retreat_and_a_pending_one_is_nothing() {
+    let mix = ToolMix::default();
+    let mut mirror = LoopMirror::default();
+    let mut st = LoopState {
+        status: LoopStatus::Running,
+        ..LoopState::default()
+    };
+    mirror.drain(&st, &mix, 1);
+    let failed = |events: &[AdventureEvent]| {
+        events
+            .iter()
+            .filter(|e| matches!(e, AdventureEvent::PromotionFailed { .. }))
+            .count()
+    };
+    st.submission_results
+        .push(settled_result("waiting", "pending", None, None));
+    st.submission_results.push(settled_result(
+        "deciding",
+        "accepted",
+        Some("unavailable"),
+        None,
+    ));
+    assert_eq!(failed(&mirror.drain(&st, &mix, 1)), 0, "not settled yet");
+    st.submission_results
+        .push(settled_result("no", "rejected", None, None));
+    assert_eq!(failed(&mirror.drain(&st, &mix, 1)), 1);
+    st.submission_results.push(settled_result(
+        "held",
+        "accepted",
+        Some("held"),
+        Some(false),
+    ));
+    let events = mirror.drain(&st, &mix, 1);
+    assert!(events.contains(&AdventureEvent::PromotionFailed {
+        score: Some("951.02M".into())
+    }));
+}

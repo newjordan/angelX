@@ -652,3 +652,207 @@ fn the_avatar_block_is_a_quarter_of_the_bay_wide_and_as_tall_as_its_portrait() {
     );
     assert_eq!((block.right(), block.bottom()), (width - 1, height - 1));
 }
+
+/// Draw the bay until the painted table's encode lands (a worker thread
+/// prepares the Kitty picture), returning every frame's buffer in order.
+#[cfg(test)]
+fn draw_council_until_painted(
+    app: &mut crate::app::App,
+    width: u16,
+    height: u16,
+) -> Vec<ratatui::buffer::Buffer> {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).expect("test terminal");
+    let mut frames = Vec::new();
+    for _ in 0..400 {
+        terminal
+            .draw(|frame| render_agent_bay(frame, app, frame.area()))
+            .expect("render agent bay");
+        let buffer = terminal.backend().buffer().clone();
+        let placed = buffer
+            .content()
+            .iter()
+            .any(|cell| cell.symbol().contains('\u{10EEEE}'));
+        frames.push(buffer);
+        if placed {
+            return frames;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    frames
+}
+
+#[test]
+fn round_table_paints_the_station_table_with_the_council_on_kitty() {
+    use crate::app::App;
+    use crate::tests::{TestEnvGuard, env_lock};
+    use crate::ui::viewer::Viewer;
+    use crate::ui::viz::agentviz::SeatState;
+
+    let _lock = env_lock();
+    let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
+    let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
+    let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    let mut app = App::preview(Viewer::kitty_for_test());
+    app.agentviz_portal = crate::ui::viz::agentviz_portal::PortalRuntime::council_for_test(
+        "judge",
+        &[SeatState::Running, SeatState::Returned, SeatState::Failed],
+    );
+    let shown = app
+        .agentviz_portal
+        .presentation()
+        .expect("council presents");
+    assert!(shown.painted, "the painted table is the default picture");
+    assert_eq!(shown.deed, crate::ui::viz::council_table::Deed::Judge);
+
+    let frames = draw_council_until_painted(&mut app, 48, 16);
+    let last = frames.last().expect("drew");
+    let text = |buffer: &ratatui::buffer::Buffer| {
+        buffer
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>()
+    };
+    let rendered = text(last);
+    assert!(
+        rendered.contains('\u{10EEEE}'),
+        "the station table is placed through Kitty: {rendered}"
+    );
+    // The first placed frame carries the picture itself.
+    assert!(
+        frames.iter().any(|f| text(f).contains("\x1b_G")),
+        "the table picture is transmitted"
+    );
+    assert!(rendered.contains("Round Table · judge"), "{rendered}");
+    // The roll beside the table names each seat with its state.
+    for mark in ["● seat 1", "✓ seat 2", "✗ seat 3"] {
+        assert!(rendered.contains(mark), "{mark} missing: {rendered}");
+    }
+    assert!(!rendered.contains("the council gathers"));
+
+    // A seat coming back changes the picture; the old one stays up while
+    // the new one encodes, so the panel never blanks to the gathering line.
+    app.agentviz_portal = crate::ui::viz::agentviz_portal::PortalRuntime::council_for_test(
+        "judge",
+        &[SeatState::Returned, SeatState::Returned, SeatState::Failed],
+    );
+    let mut terminal =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(48, 16)).expect("terminal");
+    terminal
+        .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
+        .expect("redraw");
+    let next = text(terminal.backend().buffer());
+    assert!(
+        next.contains('\u{10EEEE}') && next.contains("✓ seat 1"),
+        "{next}"
+    );
+}
+
+#[derive(Clone, Default)]
+struct Sink(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Sink {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// `ANGEL_COUNCIL_SHOTS=<dir>`: the Round Table card as Kitty receives it
+/// (`panel-<w>x<h>.ans`, replay with `cat` in a Kitty window) at a few
+/// real bay widths.
+#[test]
+fn write_council_panel_shots() {
+    use crate::app::App;
+    use crate::tests::{TestEnvGuard, env_lock};
+    use crate::ui::viewer::Viewer;
+    use crate::ui::viz::agentviz::SeatState;
+    let Some(dir) = std::env::var_os("ANGEL_COUNCIL_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let _lock = env_lock();
+    let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
+    let _turbo = TestEnvGuard::unset("ANGEL_TURBO");
+    let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
+    crate::drive::comp_mode::invalidate_cache();
+    crate::ui::surfaces::invalidate_backdrop_cache();
+    use SeatState::{Cut, Failed, Returned, Running};
+    let scenes: [(&str, &str, Vec<SeatState>); 3] = [
+        (
+            "judge",
+            "judge",
+            vec![Running, Returned, Failed, Running, Returned],
+        ),
+        ("wave", "proposer wave 2", vec![Running, Running, Returned]),
+        (
+            "synthesis",
+            "synthesis",
+            vec![
+                Returned, Returned, Returned, Cut, Returned, Returned, Running, Returned, Returned,
+                Running,
+            ],
+        ),
+    ];
+    for (name, stage, states) in scenes {
+        // Cells as the operator's Kitty draws them (Berkeley Mono 15 at
+        // scale 1), and a common 10x20.
+        for ((width, height), cell) in [
+            ((34u16, 14u16), (12u16, 25u16)),
+            ((48, 14), (12, 25)),
+            ((60, 14), (12, 25)),
+            ((48, 14), (10, 20)),
+        ] {
+            let mut app = App::preview(Viewer::kitty_cells_for_test(cell));
+            app.agentviz_portal =
+                crate::ui::viz::agentviz_portal::PortalRuntime::council_for_test(stage, &states);
+            // The real terminal path: ratatui's own diff and flush, as
+            // Kitty receives a live session's bytes.
+            let sink = Sink::default();
+            let mut terminal = ratatui::Terminal::with_options(
+                ratatui::backend::CrosstermBackend::new(sink.clone()),
+                ratatui::TerminalOptions {
+                    viewport: ratatui::Viewport::Fixed(ratatui::layout::Rect::new(
+                        0, 0, width, height,
+                    )),
+                },
+            )
+            .unwrap();
+            for _ in 0..400 {
+                let done = terminal
+                    .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
+                    .unwrap()
+                    .buffer
+                    .content()
+                    .iter()
+                    .any(|cell| cell.symbol().contains('\u{10EEEE}'));
+                if done {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            // A second frame after placement, as the live loop draws on.
+            terminal
+                .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
+                .unwrap();
+            terminal.set_cursor_position((0, height)).unwrap();
+            drop(terminal);
+            std::fs::write(
+                dir.join(format!(
+                    "panel-{name}-{width}x{height}-cell{}x{}.ans",
+                    cell.0, cell.1
+                )),
+                sink.0.lock().unwrap().as_slice(),
+            )
+            .unwrap();
+        }
+    }
+}

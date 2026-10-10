@@ -22,7 +22,7 @@ mod deeds;
 pub(crate) mod garden;
 mod glass;
 mod ground;
-mod ink;
+pub(crate) mod ink;
 mod kit;
 mod light;
 mod live;

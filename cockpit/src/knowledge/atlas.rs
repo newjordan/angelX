@@ -1842,6 +1842,7 @@ fn rank_scope<'a>(query_terms: &[String], items: &[&'a AtlasItem]) -> Vec<Ranked
         .map(|item| tokens(&item.content))
         .collect::<Vec<_>>();
     let avg_len = docs.iter().map(Vec::len).sum::<usize>().max(1) as f32 / docs.len() as f32;
+    let mut document_frequencies = HashMap::<&str, f32>::with_capacity(query_terms.len());
     let mut ranked = Vec::new();
     for (index, item) in items.iter().enumerate() {
         let doc = &docs[index];
@@ -1853,10 +1854,11 @@ fn rank_scope<'a>(query_terms: &[String], items: &[&'a AtlasItem]) -> Vec<Ranked
                 continue;
             }
             matched.push(term.clone());
-            let df = docs
-                .iter()
-                .filter(|other| other.iter().any(|token| token == term))
-                .count() as f32;
+            let df = *document_frequencies.entry(term.as_str()).or_insert_with(|| {
+                docs.iter()
+                    .filter(|other| other.iter().any(|token| token == term))
+                    .count() as f32
+            });
             let idf = (((docs.len() as f32 - df + 0.5) / (df + 0.5)) + 1.0).ln();
             let k1 = 1.2;
             let b = 0.75;

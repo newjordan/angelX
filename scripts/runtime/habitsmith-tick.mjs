@@ -28,9 +28,11 @@ import {
   attachSkillUsage,
   foldVerdicts,
   compileHabitsStatus,
-  proposeToDisk,
-} from './habitsmith.mjs'
+} from '../../lib/habits/core.mjs'
+import { proposeToDisk } from './habitsmith.mjs'
 import { isIdle, makeHeartbeat, angelTtyRunning } from './idle.mjs'
+import { existsSync, realpathSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 
 /** Kill switch: ANGEL_HABITS=0 disables the whole loop. */
 export function killed(env = {}) {
@@ -246,7 +248,9 @@ async function cli(argv) {
 }
 
 const isCli =
-  process.argv[1] && (await import('node:url')).fileURLToPath(import.meta.url) === process.argv[1]
+  process.argv[1] &&
+  existsSync(process.argv[1]) &&
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
 if (isCli) {
   runGraphCli(cli, process.argv.slice(2)).then((code) => process.exit(code ?? 0))
 }

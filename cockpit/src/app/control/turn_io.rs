@@ -610,11 +610,10 @@ impl App {
         // Hidden / backdrop-off never paint artifacts, so expired ceremonies
         // would otherwise keep overlay + completion fireworks latched.
         self.clear_expired_lifecycle_ceremony();
-        // A7: no portal renderer → skip the process-global activity mutex and
-        // packet projection every UI tick (common for ordinary terminal runs).
-        if Self::side_column_visuals_allowed() && self.agentviz_portal.has_renderer() {
-            self.agentviz_portal
-                .advance(&crate::ui::viz::agentviz::activity());
+        // A7: no Kitty → skip the process-global activity mutex every UI
+        // tick (ordinary terminal runs); the stage is cloned only on a move.
+        if Self::side_column_visuals_allowed() && self.agentviz_portal.is_live() {
+            self.agentviz_portal.tick();
         }
         // Detached work has already released the flight slot. Drain a bounded
         // number of completion notices per frame so success and failure remain
@@ -974,6 +973,11 @@ impl App {
                     });
                     self.scroll = 0;
                     self.request_terminal_attention();
+                    if let Some(candidate_summary) = self.pending_handoff_rl_restart.take()
+                        && let Err(error) = self.force_handoff_rl_restart(candidate_summary.as_deref())
+                    {
+                        self.system_msg(format!("handoff restart could not resume after drain: {error}"));
+                    }
                 }
                 Err(mpsc::TryRecvError::Empty) => {
                     self.thinking = Some(thinking);
@@ -1340,6 +1344,31 @@ impl App {
             // especially important for fast local routes, whose full answer can
             // otherwise arrive and be committed between two draws.
             self.thinking = Some(thinking);
+            return;
+        }
+
+        // ── Loop watchdog ────────────────────────────────────────────────
+        // A loop iteration with no harness event for half an hour gets a soft
+        // check; at an hour a reviewer names a harness remedy (wait, hand the
+        // call off, stop it, or restart the turn). It runs after this frame's
+        // events are drained, so a result that just landed is never mistaken
+        // for silence. Only a restart retires the turn here, the way the idle
+        // timeout above does for a loop.
+        if let Some(reason) = self.loop_watchdog(&thinking) {
+            thinking.begin_draining();
+            if let Some(pending) = self.pending_approval.take() {
+                let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
+            }
+            self.turn_first_output_ms = None;
+            self.route_evidence_loaded_at = None;
+            self.finish_world_turn(false);
+            self.restore_moa_after_turn();
+            let loop_tools = self.tool_strip.snapshot();
+            self.flush_tool_summary();
+            self.request_terminal_attention();
+            self.thinking = Some(thinking);
+            self.loop_harvest_error_with_tools(reason, loop_tools);
+            self.scroll = 0;
             return;
         }
 
@@ -1712,6 +1741,17 @@ impl App {
     /// visibility — the quest is session state, like the village pulses —
     /// and before `note_loop` so the world sees the events first.
     pub(crate) fn adventure_mirror_drain(&mut self) {
+        // The loop log is persisted by loop_ctl. Iteration boundaries alone
+        // are not receipts (resume may first observe iteration 200).
+        if !self.loop_ctl.id.is_empty() {
+            let player = self.host_name();
+            let tavern = self
+                .realm()
+                .home
+                .level(crate::drive::together_shooter::home::Station::Wing)
+                >= 1;
+            self.world.sync_settlement(&self.loop_ctl, &player, tavern);
+        }
         let party = self.adventure_party_size();
         let events = self
             .loop_mirror
@@ -2693,6 +2733,20 @@ impl App {
             {
                 self.enter_world_interior();
                 return true;
+            }
+            if self.world.chivalry_visit.is_some()
+                && matches!(self.scryglass.controller.route(), crate::ui::scryglass::StageRoute::Realm | crate::ui::scryglass::StageRoute::Explore(_))
+            {
+                if matches!(code, KeyCode::Left | KeyCode::Down | KeyCode::Right | KeyCode::Up) && self.world.inside_interior() {
+                    self.world.chivalry_step(if matches!(code,KeyCode::Left|KeyCode::Down) {-1} else {1});
+                    self.request_redraw("practice station moved");
+                    return true;
+                }
+                if code == KeyCode::Enter {
+                    self.world.enter_interior();
+                    self.request_redraw("practice interior entered");
+                    return true;
+                }
             }
             if self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldFirstPerson
                 || adventure_camera

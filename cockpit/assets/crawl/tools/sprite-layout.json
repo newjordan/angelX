@@ -1,0 +1,12 @@
+{
+  "hand_sword_idle": {"size": [40, 48], "box": [12, 0, 40, 48], "inks": "kKXgjGJhiHnbIBPr"},
+  "hand_sword_raise": {"size": [40, 48], "box": [19, 0, 40, 40], "inks": "kKXgjGJhiHnbIBPr"},
+  "hand_sword_swing": {"size": [40, 48], "box": [0, 21, 40, 48], "inks": "kKXgjGJhiHnbIBPr"},
+  "hand_torch_a": {"size": [24, 40], "box": [0, 1, 19, 40], "inks": "kKXgjGJhiHnbIBPr"},
+  "hand_torch_b": {"size": [24, 40], "box": [0, 1, 19, 40], "inks": "kKXgjGJhiHnbIBPr"},
+  "campfire_a": {"size": [24, 20], "box": [1, 1, 23, 19], "inks": "kKXgjGJnbIBPr"},
+  "campfire_b": {"size": [24, 20], "box": [1, 1, 23, 19], "inks": "kKXgjGJnbIBPr"},
+  "boulder": {"size": [24, 18], "box": [1, 1, 23, 17], "inks": "kKXgjGJhi"},
+  "lectern": {"size": [24, 30], "box": [1, 1, 23, 29], "inks": "kKXgjGJnbIBPrRoOtT"},
+  "chest": {"size": [20, 16], "box": [1, 1, 19, 15], "inks": "kKXgjGJhiHnbIBPrRo"}
+}

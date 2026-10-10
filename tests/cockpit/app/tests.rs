@@ -8983,7 +8983,7 @@ fn rejected_generated_turns_restore_literal_commands_and_attachments() {
         "/review".to_string(),
         "/mention note.txt".to_string(),
         "/skills retry-skill do the thing".to_string(),
-        format!("/see {} inspect this portrait", image.display()),
+        format!("/see \"{}\" inspect this portrait", image.display()),
     ];
     for command in commands {
         app.input = command.clone();
@@ -12201,6 +12201,68 @@ fn turn_idle_watchdog_preserves_loop_error_path() {
     let _ = std::fs::remove_file(loop_path);
 }
 
+/// A loop turn wedged with no harness event for an hour and nobody to review
+/// it: the watchdog's soft check, then its restart, retires the turn through
+/// the loop's error path (the loop retries; it is not paused).
+#[test]
+fn loop_watchdog_restarts_a_wedged_turn_through_the_loop_error_path() {
+    let _env = env_lock();
+    let loop_path =
+        std::env::temp_dir().join(format!("angel_loop_watchdog_{}.json", std::process::id()));
+    let _loop_file = TestEnvGuard::set("ANGEL_LOOP_FILE", loop_path.to_string_lossy().as_ref());
+    let _review = TestEnvGuard::unset("ANGEL_LOOP_WATCHDOG_REVIEW_SECS");
+    let _check = TestEnvGuard::unset("ANGEL_LOOP_WATCHDOG_CHECK_SECS");
+    let (mut app, tx) = seed_live_streaming_app(Vec::new());
+    app.loop_ctl = loop_ctl::LoopState {
+        status: loop_ctl::LoopStatus::Running,
+        task: "keep working".to_string(),
+        awaiting_turn: true,
+        ..Default::default()
+    };
+    let thinking = app.thinking.as_mut().unwrap();
+    thinking.started = Instant::now() - Duration::from_secs(61 * 60 + 30);
+    thinking.last_stream_at = Instant::now() - Duration::from_secs(61 * 60);
+    thinking.idle_timeout_secs = None;
+    let cancel = Arc::clone(&thinking.cancel);
+
+    app.advance();
+    assert!(
+        app.thinking
+            .as_ref()
+            .is_some_and(|turn| !turn.is_draining()),
+        "the soft check leaves the turn alone"
+    );
+    assert_eq!(app.loop_ctl.watchdog.len(), 1);
+    assert_eq!(app.loop_ctl.watchdog[0].kind, "check");
+
+    app.advance();
+    assert!(app.thinking.as_ref().is_some_and(Thinking::is_draining));
+    assert!(cancel.load(std::sync::atomic::Ordering::Acquire));
+    assert!(!app.loop_ctl.awaiting_turn);
+    assert_eq!(app.loop_ctl.status, loop_ctl::LoopStatus::Running);
+    let error = app.loop_ctl.last_error.clone().unwrap_or_default();
+    assert!(
+        error.starts_with("loop watchdog: no harness progress for 1h01m"),
+        "{error}"
+    );
+    assert!(
+        error.contains("turn restarted (fixed rule: no reviewer seat)"),
+        "{error}"
+    );
+    let review = app.loop_ctl.watchdog.last().unwrap();
+    assert_eq!(review.verdict.as_deref(), Some("restart_turn"));
+    assert!(app.messages.iter().any(|message| {
+        message
+            .text
+            .contains("loop · iteration error (counts as a stall)")
+            && message.text.contains("loop watchdog")
+    }));
+    drop(tx);
+    app.advance();
+    assert!(app.thinking.is_none());
+    let _ = std::fs::remove_file(loop_path);
+}
+
 #[test]
 fn turn_idle_watchdog_preserves_a_running_tool_call() {
     let _env = env_lock();
@@ -14701,4 +14763,73 @@ fn stage_copy_shift_right_click_exports_loaded_report_and_link_right_click_copie
     assert!(!home.join(".angelX/stage-location.txt").exists());
     assert!(!home.join(".angelX/stage-document.txt").exists());
     std::fs::remove_dir_all(home).unwrap();
+}
+
+#[test]
+fn handoff_restart_waits_for_foreground_owner_without_wiping_request_or_history() {
+    let _guard = env_lock();
+    let (mut app, result_tx) = seed_live_streaming_app(Vec::new());
+    let _ = app.handoff_rl.start(Some("sandbox compete"));
+    // Model a campaign already on its first roll without launching a real
+    // provider worker; this test owns the foreground result channel below.
+    app.handoff_rl.handoff_count = 1;
+    app.history = vec![ChatMsg::system("bootstrap"), ChatMsg::user("still-owned history")];
+
+    app.force_handoff_rl_restart(Some("submitted candidate summary"))
+        .expect("restart request should park behind active worker");
+
+    assert!(app.thinking.as_ref().is_some_and(Thinking::is_draining));
+    assert!(app.history.iter().any(|m| m.content.as_ref() == "still-owned history"), "history must survive until drain");
+    assert_eq!(app.pending_handoff_rl_restart.as_ref().map(|summary| summary.as_deref()), Some(Some("submitted candidate summary")));
+    assert_eq!(app.handoff_rl.handoff_count, 1, "the next roll is not counted before restart");
+
+    // A live owner with no result must keep the request parked across frames.
+    app.advance();
+    assert!(app.thinking.as_ref().is_some_and(Thinking::is_draining));
+    assert!(app.pending_handoff_rl_restart.is_some());
+    assert_eq!(app.handoff_rl.handoff_count, 1);
+    assert!(app.history.iter().any(|m| m.content.as_ref() == "still-owned history"));
+
+    // The late result belongs to the retired worker and must be discarded at
+    // the terminal boundary rather than replacing the history being handed off.
+    result_tx
+        .send(Ok((
+            vec![
+                ChatMsg::system("stale worker system"),
+                ChatMsg::user("stale worker history"),
+                ChatMsg::assistant("stale worker answer"),
+            ],
+            "stale worker answer".into(),
+            crate::agent::club::RouteIdentity {
+                driver: "practice".into(),
+                model: None,
+                reasoning_effort: None,
+            },
+            harness::TurnStopReason::Answer,
+        )))
+        .unwrap();
+    app.advance();
+
+    assert!(app.pending_handoff_rl_restart.is_none(), "drain consumes the queued request");
+    assert_eq!(app.handoff_rl.handoff_count, 2, "the queued restart is counted exactly once");
+    assert!(app.thinking.as_ref().is_some_and(|thinking| !thinking.is_draining()), "restart owns a fresh foreground worker");
+    assert_eq!(
+        app.history
+            .iter()
+            .filter(|m| m.content.starts_with("hit it chewy") && m.content.contains("submitted candidate summary"))
+            .count(),
+        1,
+        "the queued summary is injected exactly once"
+    );
+    assert!(!app.history.iter().any(|m| m.content.contains("stale worker")), "retired result must not overwrite the restart history");
+    assert_eq!(
+        app.messages.iter().filter(|m| m.text.contains("HANDOFF DEMANDED · roll #2")).count(),
+        1,
+        "the restart banner is emitted once"
+    );
+
+    // The new worker is not part of this regression; stop it before returning.
+    if let Some(thinking) = app.thinking.take() {
+        thinking.cancel.store(true, std::sync::atomic::Ordering::Release);
+    }
 }

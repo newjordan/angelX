@@ -1,0 +1,345 @@
+{
+  "wall_crypt": [
+    {
+      "x": 9,
+      "y": 10,
+      "rows": [
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk"
+      ]
+    },
+    {
+      "x": 9,
+      "y": 14,
+      "rows": [
+        ".jGGj.",
+        "jGGGGj",
+        "GkGGkG",
+        "GgkkgG",
+        ".gGGg.",
+        "..jgj."
+      ]
+    },
+    {
+      "x": 17,
+      "y": 14,
+      "rows": [
+        ".jGGj.",
+        "jGGGGj",
+        "GkGGkG",
+        "GgkkgG",
+        ".gGGg.",
+        "..jgj."
+      ]
+    }
+  ],
+  "wall_mine": [
+    {
+      "x": 2,
+      "y": 6,
+      "rows": [
+        "bIPb",
+        "bIIb",
+        "bIBb",
+        "bIPb",
+        "bIIb",
+        "bIBb",
+        "bIbb",
+        "bIBb",
+        "bIPb",
+        "bIIb",
+        "bIbb",
+        "bIBb",
+        "bIIb",
+        "bIBb",
+        "bIPb",
+        "bIIb",
+        "bIbb",
+        "bIBb",
+        "bIIb",
+        "bIPb",
+        "bIIb",
+        "bIbb",
+        "bIBb",
+        "bIIb",
+        "bIBb",
+        "bIPb"
+      ]
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "rows": [
+        "j"
+      ]
+    },
+    {
+      "x": 26,
+      "y": 6,
+      "rows": [
+        "bIPb",
+        "bIIb",
+        "bIBb",
+        "bIPb",
+        "bIIb",
+        "bIBb",
+        "bIbb",
+        "bIBb",
+        "bIPb",
+        "bIIb",
+        "bIbb",
+        "bIBb",
+        "bIIb",
+        "bIBb",
+        "bIPb",
+        "bIIb",
+        "bIbb",
+        "bIBb",
+        "bIIb",
+        "bIPb",
+        "bIIb",
+        "bIbb",
+        "bIBb",
+        "bIIb",
+        "bIBb",
+        "bIPb"
+      ]
+    },
+    {
+      "x": 27,
+      "y": 3,
+      "rows": [
+        "j"
+      ]
+    }
+  ],
+  "wall_keep": [
+    {
+      "x": 10,
+      "y": 9,
+      "rows": [
+        "8..",
+        "7..",
+        ".7.",
+        ".4.",
+        ".7.",
+        "..7",
+        "..8"
+      ]
+    },
+    {
+      "x": 18,
+      "y": 17,
+      "rows": [
+        "..8..",
+        "..7..",
+        "...7.",
+        "...47",
+        "...7.",
+        "..7..",
+        "..8.."
+      ]
+    }
+  ],
+  "wall_fungal": [
+    {
+      "x": 8,
+      "y": 21,
+      "rows": [
+        "..0..",
+        ".011.",
+        "00000",
+        "..e..",
+        "..e.."
+      ]
+    },
+    {
+      "x": 14,
+      "y": 18,
+      "rows": [
+        "..00..",
+        ".0110.",
+        "000000",
+        "..2e..",
+        "..ee.."
+      ]
+    },
+    {
+      "x": 21,
+      "y": 21,
+      "rows": [
+        "..0..",
+        ".010.",
+        "00000",
+        "..e..",
+        "..e.."
+      ]
+    }
+  ],
+  "wall_unknown": [
+    {
+      "x": 13,
+      "y": 14,
+      "rows": [
+        ".XXgXX.",
+        "X00000X",
+        ".00k00.",
+        "..XXX.."
+      ]
+    }
+  ],
+  "door": [
+    {
+      "x": 9,
+      "y": 4,
+      "rows": [
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn",
+        "nIBnIBnIBnIBIn"
+      ]
+    },
+    {
+      "x": 9,
+      "y": 9,
+      "rows": [
+        "jggggggggggggj",
+        "XXXXXXXXXXXXXX"
+      ]
+    },
+    {
+      "x": 10,
+      "y": 9,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 13,
+      "y": 9,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 17,
+      "y": 9,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 20,
+      "y": 9,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 9,
+      "y": 22,
+      "rows": [
+        "jggggggggggggj",
+        "XXXXXXXXXXXXXX"
+      ]
+    },
+    {
+      "x": 10,
+      "y": 22,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 13,
+      "y": 22,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 17,
+      "y": 22,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 20,
+      "y": 22,
+      "rows": [
+        "G"
+      ]
+    },
+    {
+      "x": 18,
+      "y": 15,
+      "rows": [
+        "..g..",
+        "..X..",
+        ".jjj.",
+        "jkbkj",
+        "jkbkj",
+        ".jjj."
+      ]
+    }
+  ],
+  "stairs": [
+    {
+      "x": 9,
+      "y": 8,
+      "rows": [
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkkkkkkkkkkkk",
+        "kkkXXXXXXXXkkk",
+        "kkkKKKKKKKKkkk",
+        "kkggggggggggkk",
+        "kkXXXXXXXXXXkk",
+        "kkKKKKKKKKKKkk",
+        "kjjjjjjjjjjjjk",
+        "kXXXXXXXXXXXXk",
+        "kKKKKKKKKKKKKk",
+        "jjjjjjjjjjjjjj",
+        "gggggggggggggg",
+        "GGGGGGGGGGGGGG",
+        "XXXXXXXXXXXXXX"
+      ]
+    }
+  ]
+}

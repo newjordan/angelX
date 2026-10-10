@@ -48,7 +48,7 @@ pub(crate) fn mission_line(v: &Value) -> Option<String> {
 /// Read-only and best-effort.
 pub(crate) fn latest_mission_line() -> Option<String> {
     let dir = mission_dir();
-    let mut best: Option<(String, Value)> = None;
+    let mut best: Option<(String, String)> = None;
     for entry in std::fs::read_dir(&dir).ok()?.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         // Pointers only; skip the append-only ledgers and transient temp files.
@@ -61,6 +61,9 @@ pub(crate) fn latest_mission_line() -> Option<String> {
         let Ok(v) = serde_json::from_str::<Value>(&raw) else {
             continue;
         };
+        let Some(line) = mission_line(&v) else {
+            continue;
+        };
         let Some(updated) = v
             .get("updatedAt")
             .and_then(|u| u.as_str())
@@ -69,11 +72,10 @@ pub(crate) fn latest_mission_line() -> Option<String> {
             continue;
         };
         if best.as_ref().is_none_or(|(ts, _)| updated > *ts) {
-            best = Some((updated, v));
+            best = Some((updated, line));
         }
     }
-    let (_, v) = best?;
-    mission_line(&v)
+    best.map(|(_, line)| line)
 }
 
 fn mission_dir() -> PathBuf {

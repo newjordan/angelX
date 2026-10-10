@@ -2182,3 +2182,49 @@ fn each_harvest_records_the_direction_its_verdict_observes() {
     assert!(app.loop_ctl.iteration_direction.is_none());
     let _ = std::fs::remove_file(tmp);
 }
+
+#[test]
+fn stop_and_pause_report_checkpoint_publication_failures() {
+    let _lock = crate::tests::env_lock();
+    let root = std::env::temp_dir().join(format!("angel-loop-checkpoint-failure-{}", std::process::id()));
+    let workspace = root.join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let stop_parent = root.join("blocked-stop-parent");
+    std::fs::write(&stop_parent, "not a directory").unwrap();
+    let stop_file = stop_parent.join("loop.json");
+    let _stop_path = crate::tests::TestEnvGuard::set(
+        "ANGEL_LOOP_FILE",
+        stop_file.to_str().unwrap(),
+    );
+    let mut stop_app = crate::seed_preview_app();
+    stop_app.loop_ctl = LoopState {
+        status: LoopStatus::Running,
+        task: "stop fixture".into(),
+        workspace: Some(workspace.clone()),
+        ..Default::default()
+    };
+    let stop_message = stop_app.loop_command(Some("stop".into()));
+    assert!(stop_message.contains("checkpoint failed"), "{stop_message}");
+    assert_eq!(stop_app.loop_ctl.status, LoopStatus::Stopped);
+    drop(_stop_path);
+
+    let pause_parent = root.join("blocked-pause-parent");
+    std::fs::write(&pause_parent, "not a directory").unwrap();
+    let pause_file = pause_parent.join("loop.json");
+    let _pause_path = crate::tests::TestEnvGuard::set(
+        "ANGEL_LOOP_FILE",
+        pause_file.to_str().unwrap(),
+    );
+    let mut pause_app = crate::seed_preview_app();
+    pause_app.loop_ctl = LoopState {
+        status: LoopStatus::Running,
+        task: "pause fixture".into(),
+        workspace: Some(workspace),
+        ..Default::default()
+    };
+    let pause_message = pause_app.loop_command(Some("pause".into()));
+    assert!(pause_message.contains("checkpoint failed"), "{pause_message}");
+    assert_eq!(pause_app.loop_ctl.status, LoopStatus::Paused);
+    let _ = std::fs::remove_dir_all(root);
+}

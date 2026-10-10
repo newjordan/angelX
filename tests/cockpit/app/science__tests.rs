@@ -25,6 +25,7 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
                         Err(error) => panic!("science fixture accept failed: {error}"),
                     }
                 };
+                socket.set_nonblocking(false).unwrap();
                 scope.spawn(move || {
                     socket
                         .set_read_timeout(Some(Duration::from_secs(5)))
@@ -37,7 +38,12 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
                     }
                     socket.write_all(b"HTTP/1.1 200 OK\r\n\r\nseed").unwrap();
                     let mut byte = [0];
-                    assert_eq!(socket.read(&mut byte).unwrap(), 0);
+                    match socket.read(&mut byte) {
+                        Ok(0) => {}
+                        Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => {}
+                        Ok(read) => panic!("science fixture received unexpected byte count {read}"),
+                        Err(error) => panic!("science fixture teardown failed: {error}"),
+                    }
                 });
             }
         });

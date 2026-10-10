@@ -26,6 +26,16 @@ fn route_profiles_distinguish_provider_models_on_one_logical_agent() {
         profile_for_route("sota", "openai", Some("GPT-5.6-SOL")).key,
         AgentKey::Codex
     );
+    assert_eq!(
+        profile_for_route("sota", "openai-api", Some("deepseek-v4-pro")).key,
+        AgentKey::DeepSeek,
+        "the served model family wins over a generic OpenAI-compatible driver"
+    );
+    assert_eq!(
+        profile_for_route("sota", "openai-api", Some("openai/gpt-5.6-luna")).key,
+        AgentKey::Luna,
+        "an explicitly provider-qualified model keeps its authored family"
+    );
     assert_ne!(openai.asset(false), deepseek.asset(false));
     assert_ne!(deepseek.asset(false), grok.asset(false));
     let src = include_str!("../../../cockpit/src/ui/agent_panel/profile.rs");
@@ -47,6 +57,8 @@ fn every_model_family_wears_its_own_knight() {
     let route = |driver: &str, model: &str| profile_for_route("sota", driver, Some(model)).key;
     assert_eq!(route("openai", "gpt-5.6-luna"), AgentKey::Luna);
     assert_eq!(route("openai", "gpt-6-astra"), AgentKey::Astra);
+    assert_eq!(route("openai-api", "openai/gpt-5.6-luna"), AgentKey::Luna);
+    assert_eq!(route("openai-api", "openai/gpt-6-astra"), AgentKey::Astra);
     assert_eq!(route("openai", "gpt-5.6-sol"), AgentKey::Codex);
     assert_eq!(route("xai", "grok-4.7"), AgentKey::Grok);
     assert_eq!(route("deepseek", "deepseek-v4-pro"), AgentKey::DeepSeek);
@@ -141,6 +153,11 @@ fn the_served_model_wins_over_the_machine_that_serves_it() {
     assert_eq!(
         profile_for_route("apollo", "xai", Some("grok-4.6")).key,
         AgentKey::Grok
+    );
+    assert_eq!(
+        profile_for_route("sota", "openai-api", Some("mystery-model")).key,
+        AgentKey::Codex,
+        "an unknown model retains the original OpenAI-compatible driver fallback"
     );
     // A machine serving a model with no family shows no machine persona.
     for machine in ["turbo", "atlas", "spark", "apollo"] {

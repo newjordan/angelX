@@ -88,7 +88,7 @@ says so.
 ## What this session established
 
 In `docs/telemetry/book-encoder-20260929.md`, log section, plus the report
-at https://claude.ai/artifact/S1RkLVpyrTvFgpYeB2YPws (rebuild with
+(rebuild with
 `scripts/bench/book-harness/report/build_report.py`):
 
 - **Legend delivery:** the legend reaches every wire (`95c85d2`), and it is

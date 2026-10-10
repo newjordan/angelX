@@ -1,4 +1,9 @@
-//! Bounded Cockpit-owned contract and process lifecycle for the Kitty WebGPU portal.
+//! The Round Table panel's live council, and the bounded contract and process
+//! lifecycle for the optional Kitty WebGPU portal.
+//!
+//! On Kitty the panel shows the painted station table
+//! ([`crate::ui::viz::council_table`]), composed in Rust from the live
+//! council. The WebGPU portal is opt-in (`ANGEL_WEBGPU_PORTAL=1`).
 //!
 //! The Cockpit never acquires a GPU device itself. This module projects the
 //! read-only [`crate::ui::viz::agentviz`] activity signal into a versioned packet,
@@ -11,6 +16,7 @@ use crate::agent::service_process::ServiceChild;
 #[cfg(unix)]
 use crate::platform::workspace_store::DeadlinePipe;
 use crate::ui::viz::agentviz::{ActivitySnapshot, SeatState};
+use crate::ui::viz::council_table::Deed;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::io::{self, Read, Write};
@@ -317,6 +323,19 @@ pub struct PortalPresentation {
     /// Seats beyond the sixteen the table can show.
     pub omitted_seats: usize,
     pub frame: Option<PortalFrame>,
+    /// The seats at the table, in slot order (sixteen at most).
+    pub seats: Vec<CouncilSeat>,
+    /// What the centre of the table shows for this stage.
+    pub deed: Deed,
+    /// The painted station table draws this council; false while the
+    /// WebGPU renderer owns the picture.
+    pub painted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CouncilSeat {
+    pub label: String,
+    pub state: SeatState,
 }
 
 /// The stage the portal is currently presenting, folded from the activity
@@ -328,6 +347,7 @@ struct ActiveStage {
     stage: String,
     active_seats: usize,
     omitted_seats: usize,
+    seats: Vec<CouncilSeat>,
 }
 
 struct PendingRender {
@@ -342,6 +362,8 @@ struct PendingRender {
 /// the newest sequence. Failed frames disappear back to the terminal-native
 /// visualization instead of leaving a stale portal on screen.
 pub struct PortalRuntime {
+    /// Kitty-capable: the panel follows the council (painted table or portal).
+    live: bool,
     renderer: Option<PathBuf>,
     started: Instant,
     latest: LatestStateSlot,
@@ -354,22 +376,33 @@ pub struct PortalRuntime {
 
 impl PortalRuntime {
     pub fn discover(kitty_capable: bool) -> Self {
-        if cfg!(test) {
+        if cfg!(test) || !kitty_capable {
             return Self::with_renderer(None);
         }
-        let renderer = if kitty_capable && portal_enabled_from_env() {
+        // The painted table is the default; the shader portal only when the
+        // operator asks for it and its renderer is built.
+        let renderer = if portal_enabled_from_env() {
             discover_renderer()
         } else {
             None
         };
         if let Some(path) = renderer.as_ref() {
             eprintln!("PORTAL: renderer={}", path.display());
+            return Self::with_renderer(renderer);
         }
-        Self::with_renderer(renderer)
+        Self::painted()
+    }
+
+    /// The painted station table follows the council; no renderer process.
+    pub fn painted() -> Self {
+        let mut runtime = Self::with_renderer(None);
+        runtime.live = true;
+        runtime
     }
 
     fn with_renderer(renderer: Option<PathBuf>) -> Self {
         Self {
+            live: renderer.is_some(),
             renderer,
             started: Instant::now(),
             latest: LatestStateSlot::default(),
@@ -381,19 +414,28 @@ impl PortalRuntime {
         }
     }
 
-    /// A7: when no isolated renderer is installed, the portal is inert — skip
-    /// activity locks and packet projection on the UI advance hot path.
-    pub fn has_renderer(&self) -> bool {
-        self.renderer.is_some()
+    /// A7: without Kitty the panel is inert — skip activity locks and
+    /// packet projection on the UI advance hot path.
+    pub fn is_live(&self) -> bool {
+        self.live
     }
 
-    pub fn advance(&mut self, activity: &ActivitySnapshot) {
-        if self.renderer.is_none() {
+    /// One UI tick: settle a renderer frame, follow the council when the
+    /// activity moved (the stage is cloned only then), start the next frame.
+    pub fn tick(&mut self) {
+        if !self.live {
             return;
         }
-        self.poll_pending();
-        self.note_activity(activity);
-        self.start_latest();
+        let moved = self.observed_sequence != Some(crate::ui::viz::agentviz::activity_sequence());
+        if self.renderer.is_some() {
+            self.poll_pending();
+        }
+        if moved {
+            self.note_activity(&crate::ui::viz::agentviz::activity());
+        }
+        if self.renderer.is_some() {
+            self.start_latest();
+        }
     }
 
     /// Fold a new activity revision into the runtime: refresh the presented
@@ -415,6 +457,16 @@ impl PortalRuntime {
                 stage: truncate_utf8(&stage.name, MAX_STAGE_BYTES),
                 active_seats,
                 omitted_seats: stage.agents.len().saturating_sub(active_seats),
+                seats: stage
+                    .agents
+                    .iter()
+                    .take(MAX_SEATS)
+                    .enumerate()
+                    .map(|(slot, label)| CouncilSeat {
+                        label: truncate_utf8(label, MAX_SEAT_LABEL_BYTES),
+                        state: stage.seat_states.get(slot).copied().unwrap_or_default(),
+                    })
+                    .collect(),
             }
         });
         if let (Some(prev), Some(next)) = (previous.as_ref(), self.active_stage.as_ref())
@@ -427,6 +479,10 @@ impl PortalRuntime {
             frame.sequence = next.sequence;
         }
         self.failed_sequence = None;
+        if self.renderer.is_none() {
+            // The painted table reads the stage directly; no packet to send.
+            return;
+        }
         let health = if activity.stage.is_some() {
             AngelVizHealthV2::Nominal
         } else {
@@ -458,6 +514,9 @@ impl PortalRuntime {
             stage: active.stage.clone(),
             omitted_seats: active.omitted_seats,
             frame,
+            seats: active.seats.clone(),
+            deed: Deed::of_stage(&active.stage),
+            painted: self.renderer.is_none(),
         })
     }
 
@@ -473,13 +532,29 @@ impl PortalRuntime {
 
     #[cfg(test)]
     pub fn presentation_for_test(stage: &str, active_seats: usize) -> Self {
-        let mut runtime = Self::with_renderer(None);
+        let states = vec![SeatState::Running; active_seats];
+        Self::council_for_test(stage, &states)
+    }
+
+    /// A painted-table runtime seated with `states`, labelled `seat 1`….
+    #[cfg(test)]
+    pub fn council_for_test(stage: &str, states: &[SeatState]) -> Self {
+        let mut runtime = Self::painted();
         runtime.observed_sequence = Some(1);
         runtime.active_stage = Some(ActiveStage {
             sequence: 1,
             stage: truncate_utf8(stage, MAX_STAGE_BYTES),
-            active_seats: active_seats.min(MAX_SEATS),
-            omitted_seats: active_seats.saturating_sub(MAX_SEATS),
+            active_seats: states.len().min(MAX_SEATS),
+            omitted_seats: states.len().saturating_sub(MAX_SEATS),
+            seats: states
+                .iter()
+                .take(MAX_SEATS)
+                .enumerate()
+                .map(|(slot, state)| CouncilSeat {
+                    label: format!("seat {}", slot + 1),
+                    state: *state,
+                })
+                .collect(),
         });
         runtime
     }
@@ -568,15 +643,14 @@ struct RendererError {
     message: String,
 }
 
+/// The WebGPU portal replaces the painted table only on request.
 fn portal_enabled_from_env() -> bool {
-    std::env::var("ANGEL_WEBGPU_PORTAL")
-        .map(|value| {
-            !matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "" | "0" | "off" | "false" | "no"
-            )
-        })
-        .unwrap_or(true)
+    std::env::var("ANGEL_WEBGPU_PORTAL").is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "on" | "true" | "yes"
+        )
+    })
 }
 
 fn discover_renderer() -> Option<PathBuf> {

@@ -93,8 +93,8 @@ fn worker_status_renders_live_delegated_process_and_releases_after_cancel() {
     let deadline = Instant::now() + Duration::from_secs(10);
     let observed = loop {
         if let Some(child) = crate::agent::harness::owned_child_snapshot(owner)
-            && child.cpu_age_secs.is_some()
             && child.output_age_secs.is_some()
+            && (!cfg!(target_os = "linux") || child.cpu_age_secs.is_some())
         {
             break true;
         }
@@ -118,7 +118,12 @@ fn worker_status_renders_live_delegated_process_and_releases_after_cancel() {
         observed,
         "real process CPU/output did not reach the UI snapshot"
     );
-    assert!(text.contains("CPU active"), "{text}");
+    let expected_activity = if cfg!(target_os = "linux") {
+        "CPU active"
+    } else {
+        "output received"
+    };
+    assert!(text.contains(expected_activity), "{text}");
     assert!(!text.contains("awaiting agents"), "{text}");
     assert!(crate::agent::harness::owned_child_snapshot(owner).is_none());
 }

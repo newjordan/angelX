@@ -1,0 +1,69 @@
+{
+  "sprites": [
+    {
+      "name": "chest_open",
+      "size": [
+        20,
+        16
+      ],
+      "opaque_pixels": 232,
+      "inks": "$.2456@GIJKPXbghjnr",
+      "signal_pixels": 19,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "sconce_a",
+      "size": [
+        12,
+        20
+      ],
+      "opaque_pixels": 77,
+      "inks": ".4567@GIJKPXaghjnr",
+      "signal_pixels": 26,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "sconce_b",
+      "size": [
+        12,
+        20
+      ],
+      "opaque_pixels": 76,
+      "inks": ".4567@GIJKPXaghjnr",
+      "signal_pixels": 25,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    },
+    {
+      "name": "banner",
+      "size": [
+        12,
+        24
+      ],
+      "opaque_pixels": 146,
+      "inks": ".BGIJKRXbghip",
+      "signal_pixels": 0,
+      "exact_palette_and_png_match": true,
+      "binary_transparency": true
+    }
+  ],
+  "chest_base_rows_8_through_15_identical": true,
+  "chest_strap_columns_4_5_14_15_rows_1_through_14_identical": true,
+  "sconce_nonflame_rows_8_through_19_identical": true,
+  "sconce_changed_pixels": 17,
+  "sconce_changes_only_flame": true,
+  "banner_nonemissive": true,
+  "prior_files_preserved_except_authorized_notes": 86,
+  "sheet_scale": 6,
+  "sheet_size": [
+    1152,
+    816
+  ],
+  "context_native_size": [
+    176,
+    56
+  ],
+  "context_texture": "wall_stone"
+}

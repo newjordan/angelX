@@ -165,17 +165,26 @@ impl Run {
         }
         hero.hand = who.hand.iter().map(|c| c.to_string()).collect();
         hero.bombs = who.bombs;
-        hero.max_hp = who.max_hp;
-        hero.hp = who.max_hp;
+        // The hearth's warmth comes on top of the knight's own health.
+        hero.max_hp = who.max_hp + hero.home_hp;
+        hero.hp = hero.max_hp;
         hero.knight = Some(who.id.to_string());
     }
 
     /// Begin the delve in `pack` instead of the one the dice chose.
     pub(crate) fn begin_in(&mut self, pack: Pack) {
+        if self.dungeon.depth == 0 {
+            // In the Undercroft, the stair will go down into it.
+            self.dungeon.pack = pack;
+            return;
+        }
         if self.dungeon.pack == pack || self.dungeon.depth != 1 {
             return;
         }
+        self.settlement_site = None;
+        self.settlement_exhibits.clear();
         self.dungeon = super::layout::floor(1, pack, &mut self.rng);
+        self.populate_boss_gates();
         self.cues.retain(|c| c != "run_start");
         self.enter(0, None);
         self.cues.insert(0, "run_start".into());
@@ -189,7 +198,7 @@ impl Run {
         if !self.active() {
             return None;
         }
-        Some(if self.room().kind == super::RoomKind::Sanctuary {
+        Some(if self.room().kind == super::RoomKind::Sanctuary || self.at_home_now() {
             "sanctuary"
         } else if self
             .enemies
@@ -198,10 +207,10 @@ impl Run {
         {
             "boss"
         } else {
-            match self.dungeon.pack {
+            match self.dungeon.pack.kin() {
                 Pack::Crypt => "crypt",
                 Pack::Cavern => "mines",
-                Pack::Hellforge => "keep",
+                _ => "keep",
             }
         })
     }

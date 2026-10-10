@@ -30,6 +30,8 @@ fn room_rect(area: Rect) -> Option<Rect> {
 }
 
 /// The view in cells. Returns whether the controls are live.
+// Keep joined-screen inputs explicit at the existing UI composition boundary.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render(
     frame: &mut Frame,
     joined: &Joined,
@@ -79,16 +81,25 @@ pub(crate) fn render(
         "wiped" => "FALLEN · the host may delve again",
         _ => "",
     };
-    line(
-        frame,
-        Rect::new(inner.x, inner.y, inner.width, 1),
-        &format!(
-            "Floor {}/{}  {}    Score {}    {phase}",
+    let header = if state["floor"].as_u64() == Some(0) {
+        // Home: the host's Undercroft (or its halls).
+        format!("The Undercroft    {phase}")
+    } else {
+        format!(
+            "Floor {}/{}  {}    Score {}    Viewers {}    {phase}",
             state["floor"].as_u64().unwrap_or(1),
             state["floors"].as_u64().unwrap_or(1),
             state["pack"].as_str().unwrap_or(""),
             state["score"].as_u64().unwrap_or(0),
-        ),
+            crate::drive::together_shooter::audience::viewers(
+                state["viewers"].as_u64().unwrap_or(0) as u32
+            ),
+        )
+    };
+    line(
+        frame,
+        Rect::new(inner.x, inner.y, inner.width, 1),
+        &header,
         GOLD,
     );
     let (status, status_color) = match joined.error() {
@@ -221,6 +232,13 @@ pub(crate) fn render(
         }
         rows.push((String::new(), DIM));
     }
+    if state.get("boss_gates").is_some_and(|g| !g.is_null()) {
+        rows.push((state["notice"].as_str().unwrap_or("").to_string(), GOLD));
+        rows.push(("C: faction chief; route may be ANY/ALL".to_string(), TEXT));
+        if let Some(map) = joined.with_view(|run, _| super::shooter_viz::floor_map(run)) {
+            rows.extend(map.into_iter().map(|row| (row, TEXT)));
+        }
+    }
     for (y, (text, color)) in (side.y..side.bottom()).zip(rows) {
         line(frame, Rect::new(side.x, y, side.width, 1), &text, color);
     }
@@ -230,14 +248,26 @@ pub(crate) fn render(
     }
     let footer = inner.bottom() - 5;
     let host_notice = state["notice"].as_str().unwrap_or("");
-    let (first, first_color) = match said {
-        Some(said) => (
-            format!("{}: {}", together_chorus::name(&said.who), said.words),
-            voice_color(&said.who),
-        ),
-        None if !notice.is_empty() => (notice.to_string(), GOLD),
-        None => (host_notice.to_string(), GOLD),
+    let (first, first_color) = if state.get("boss_gates").is_some_and(|g| !g.is_null()) {
+        (host_notice.to_string(), GOLD)
+    } else {
+        match said {
+            Some(said) => (
+                format!("{}: {}", together_chorus::name(&said.who), said.words),
+                voice_color(&said.who),
+            ),
+            None if !notice.is_empty() => (notice.to_string(), GOLD),
+            None => (host_notice.to_string(), GOLD),
+        }
     };
+    if let Some(support) = state["boss_support"].as_str() {
+        line(
+            frame,
+            Rect::new(inner.x, footer + 4, inner.width, 1),
+            support,
+            TEXT,
+        );
+    }
     for (index, (text, color)) in [
         (first.as_str(), first_color),
         (

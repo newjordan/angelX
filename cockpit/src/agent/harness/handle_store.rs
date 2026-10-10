@@ -18,6 +18,15 @@ use std::sync::{Mutex, OnceLock};
 /// [`TOOL_AGED_MARK`] so consumers can detect re-fetchable offload.
 pub(crate) const HANDLE_RECEIPT_MARK: &str = "[handle receipt";
 
+/// The handle a receipt names (`hnd_3` in `[handle receipt: hnd_3 kind=…]`).
+pub(crate) fn receipt_handle(content: &str) -> Option<String> {
+    let rest = content
+        .trim_start()
+        .strip_prefix(HANDLE_RECEIPT_MARK)?
+        .strip_prefix(':')?;
+    rest.split_whitespace().next().map(str::to_string)
+}
+
 /// Opaque handle identity. Format: `hnd_<base36>`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct HandleId(pub(crate) String);
@@ -368,14 +377,20 @@ impl HandleStore {
                 content: String::new(),
             });
         }
+        // Byte offsets may land inside a UTF-8 character. Snap the start back
+        // to the nearest boundary so the requested byte range remains readable.
+        let mut start = offset;
+        while start > 0 && !entry.body.is_char_boundary(start) {
+            start -= 1;
+        }
         let budget = max_bytes.min(limits.max_disclose_bytes).max(1);
-        let end = (offset + budget).min(total);
+        let end = (start + budget).min(total);
         // Snap to char boundary.
         let mut end = end;
-        while end > offset && !entry.body.is_char_boundary(end) {
+        while end > start && !entry.body.is_char_boundary(end) {
             end -= 1;
         }
-        let content = entry.body[offset..end].to_string();
+        let content = entry.body[start..end].to_string();
         let truncated = end < total;
         self.discloses = self.discloses.saturating_add(1);
         // Refresh LRU: move id to back.
@@ -386,7 +401,7 @@ impl HandleStore {
         }
         Ok(DiscloseSlice {
             handle: HandleId(id.to_string()),
-            offset,
+            offset: start,
             bytes: content.len(),
             total_bytes: total,
             truncated,

@@ -35,6 +35,23 @@ fn case_insensitive_whole_word() {
 }
 
 #[test]
+fn handoff_aliases_match_whole_case_insensitive_prose_tokens() {
+    let positive = scan("Please use HANDOFF_RL\nthen switch to HaNdOfF-Rl!");
+    assert!(positive.handoff_rl, "underscore and hyphen aliases remain recognized across prose/newline");
+
+    for prose in [
+        "myhandoff_rl_mode is only an identifier",
+        "nohandoff-rlneeded is only an identifier",
+        "handoff-rl-extension is a compound token",
+        "`handoff_rl` is code, not prose",
+        "see path/to/handoff-rl.md",
+    ] {
+        assert!(!scan(prose).handoff_rl, "unexpected trigger for {prose:?}");
+    }
+    assert!(scan("hrl").handoff_rl, "the existing short alias is unchanged");
+}
+
+#[test]
 fn detects_handoff_rl_keyword() {
     let e = scan("run handoff-rl on candidate suite");
     assert!(e.handoff_rl);

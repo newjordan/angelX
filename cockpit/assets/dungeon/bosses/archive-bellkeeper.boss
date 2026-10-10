@@ -1,0 +1,16 @@
+name THE BELLKEEPER
+text The drowned bell calls the wardens to account.
+by angelX
+where archive
+hp 620
+size 1.4
+move anchor
+attack ring shots=8 speed=4 every=100 damage=10 shot=bone
+rage 35%
+drops gold 110, gem 1
+art
+..77..
+.7HH7.
+.H11H.
+..HH..
+..77..

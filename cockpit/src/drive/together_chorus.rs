@@ -33,8 +33,22 @@ pub(crate) fn name(who: &str) -> &str {
         "wren" => "Wren",
         "tobbin" => "Tobbin",
         "shoggoth" => "The Shoggoth",
+        "fortune" => "Dame Fortune",
+        "grubbins" => "Grubbins",
+        "snibbet" => "Snibbet",
+        "dinadan" => "Sir Dinadan",
+        "merlin" => "Merlin",
+        "kay" => "Sir Kay",
+        "ector" => "Sir Ector",
+        "mabel" => "Mabel",
+        "anselm" => "Brother Anselm",
+        "pip" => "Pip",
+        "maud" => "Maud",
+        "tallow" => "Lady Tallow",
         "warden" => "The Waxen Warden",
         "cinderjaw" => "Cinderjaw",
+        "leviathan" => "The Late-Fee Leviathan",
+        "beaumains" => "Beaumains",
         other => other,
     }
 }
@@ -63,7 +77,8 @@ fn base(cue: &str) -> &str {
 /// How much a moment matters: a higher one may cut a lower one short.
 fn priority(cue: &str) -> u8 {
     match base(cue) {
-        "victory" | "wipe" => 9,
+        "victory" | "wipe" | "grail" => 9,
+        "the_deep" | "homeward" => 8,
         "boss_rise" | "boss_fall" | "lair" | "mimic" | "sanctuary" => 8,
         "wave_last" | "mimic_fall" => 7,
         "wave" => 6,
@@ -74,6 +89,67 @@ fn priority(cue: &str) -> u8 {
         "slay2" | "first_blood" | "flawless" | "revive" | "run_start" => 5,
         "card_arm" | "card_rare" | "low_hp" | "treasury_ready" => 4,
         "wish_granted" => 6,
+        "second_wind" => 7,
+        "wheel" => 8,
+        "ult" => 7,
+        "goblin" | "goblin_escaped" | "goblin_caught" => 6,
+        "achievement" => 6,
+        "grubbins_sold" => 5,
+        "box_opened" => 6,
+        "fan_box" => 6,
+        "bounty_paid" => 6,
+        "hooked" => 7,
+        "trophy_new" => 6,
+        "dare" => 6,
+        "dare_kept" => 7,
+        "dare_broken" => 5,
+        "pit_rise" | "pit_fall" | "talisman_used" => 8,
+        "talisman" => 7,
+        "tallow" => 5,
+        "caged" | "rescued" => 6,
+        "rune" => 6,
+        "rune_up" => 5,
+        "all_random" => 6,
+        "hexed" => 6,
+        "secret_found" => 8,
+        "crack_seen" => 5,
+        "snibbet" => 7,
+        "merlin" => 3,
+        "dug" => 7,
+        "bar" => 4,
+        "tavern_dry" => 4,
+        "siege_worthy" => 8,
+        "siege_wanting" => 6,
+        "round_poured" => 6,
+        "round_drunk" => 5,
+        "rimeleap" => 6,
+        "frost_leap" => 4,
+        "ravage" => 6,
+        "ravaged" => 5,
+        "hire_asked" | "hired" => 6,
+        "black_hole" => 7,
+        "channel_broken" => 6,
+        "beaumains_down" => 5,
+        "beaumains_up" => 4,
+        "blink" | "sceptre" | "censer" => 5,
+        "song" => 5,
+        "song_asked" => 6,
+        "rescue_home" => 6,
+        "tallow_hiss" | "tallow_fetch" => 3,
+        "pit_slam" => 4,
+        "level_up" | "lesson_learned" => 6,
+        "brood_hatch" | "hook_thrown" => 4,
+        "audience_million" | "audience_prime" => 7,
+        "fan_box_open" => 4,
+        "necro_raise" | "shaman_wards" | "boar_dazed" => 4,
+        "collapse" => 8,
+        "collapse_warn" => 7,
+        "wheel_spin" => 6,
+        "wheel_again" => 3,
+        "built" => 6,
+        "home" => 5,
+        "cant_afford" => 4,
+        "npc" => 3,
         "bond" | "banked" | "room_clear" => 3,
         _ => 2,
     }
@@ -91,6 +167,26 @@ fn cooldown(cue: &str) -> Duration {
         "great_hall" => 60,
         "trap_spikes" | "trap_rocks" | "trap_fire" => 150,
         "slay2" => 6,
+        "npc" => 12,
+        "wheel_again" => 8,
+        "necro_raise" | "shaman_wards" | "boar_dazed" => 25,
+        "cant_afford" => 6,
+        "fan_box_open" => 20,
+        "brood_hatch" => 25,
+        "hook_thrown" => 30,
+        "pit_slam" => 30,
+        "tallow_hiss" => 20,
+        "tallow_fetch" => 30,
+        "rune_up" => 20,
+        "hexed" => 12,
+        "crack_seen" => 60,
+        "rimeleap" => 15,
+        "frost_leap" => 20,
+        "ravage" => 15,
+        "ravaged" => 20,
+        "beaumains_down" | "beaumains_up" => 30,
+        "black_hole" | "channel_broken" => 15,
+        "blink" | "censer" => 10,
         _ => 0,
     })
 }
@@ -109,6 +205,17 @@ fn duet(cue: &str) -> bool {
             | "wish_raised"
             | "mimic"
             | "sanctuary"
+            | "home"
+            | "built"
+            | "wheel"
+            | "the_deep"
+            | "homeward"
+            | "grail"
+            | "audience_million"
+            | "audience_prime"
+            | "pit_rise"
+            | "pit_fall"
+            | "secret_found"
     )
 }
 

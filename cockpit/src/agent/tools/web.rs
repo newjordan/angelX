@@ -600,10 +600,12 @@ impl Tool for WebFetchTool {
         use std::io::Read;
         // Read a generous multiple of the cap: HTML shrinks a lot when
         // stripped, so a tight pre-cap would under-fill the text budget.
+        let raw_prefix_limit = 4 * max;
         resp.into_reader()
-            .take(4 * max as u64)
+            .take(raw_prefix_limit as u64)
             .read_to_end(&mut raw)
             .map_err(|e| format!("web_fetch: read failed for {url}: {e}"))?;
+        let raw_prefix_limited = raw.len() == raw_prefix_limit;
         let is_html = ctype.contains("html");
         let (text, decode_note) = decode_body(&raw, charset.as_deref(), is_html);
         let body = if is_html { html_to_text(&text) } else { text };
@@ -615,6 +617,11 @@ impl Tool for WebFetchTool {
         }
         if let Some(note) = &decode_note {
             flags.push_str(&format!(" [{note}]"));
+        }
+        if raw_prefix_limited {
+            flags.push_str(&format!(
+                " [raw body prefix capped at {raw_prefix_limit} bytes; response may be incomplete]"
+            ));
         }
         let mut out = format!("[{status} {ctype}]{flags} {url}\n\n{body}");
         if out.len() > max {

@@ -331,6 +331,21 @@ impl ToolRegistry {
             .cloned()
     }
 
+    /// Consume a routed receipt only after the turn has completed all typed reads.
+    pub(crate) fn take_routed_execution(
+        &self,
+        call: &ToolCall,
+        result: &str,
+    ) -> Option<RoutedExecution> {
+        let key = serde_json::to_string(&(call.name.as_str(), &call.args)).ok()?;
+        let mut entries = self.routed_verifications.lock().ok()?;
+        if entries.get(&key).is_some_and(|entry| entry.text == result) {
+            entries.remove(&key)
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn executed_outcome(
         &self,
         call: &ToolCall,

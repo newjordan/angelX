@@ -14,7 +14,7 @@ use super::*;
 
 /// Every material id the shader knows about. A tri tagged with anything else
 /// would land in the palette's default bucket and quietly render wrong.
-const ALL_MATS: [u8; 23] = [
+const ALL_MATS: [u8; 34] = [
     mat::MOONLIGHT,
     mat::EMBER,
     mat::FIRE,
@@ -30,6 +30,17 @@ const ALL_MATS: [u8; 23] = [
     mat::FOLIAGE,
     mat::TRUNK,
     mat::BANNER,
+    mat::HORSE_BAY,
+    mat::HORSE_CHESTNUT,
+    mat::HORSE_GREY,
+    mat::HAY,
+    mat::CLOTH_GOLD,
+    mat::CLOTH_BLUE,
+    mat::STABLE_TIMBER,
+    mat::STABLE_ROOF,
+    mat::STABLE_WALL,
+    mat::STABLE_FLOOR,
+    mat::TACK_LEATHER,
     mat::BOOKS,
     mat::FLOOR,
     mat::BRASS,

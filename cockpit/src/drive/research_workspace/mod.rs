@@ -239,6 +239,7 @@ pub(crate) enum Action {
 #[derive(Default)]
 pub(crate) struct Workspace {
     pub(crate) journal: journal::Journal,
+    pub(crate) labyrinth: crate::drive::labyrinth::Projection,
     pub(crate) place: Place,
     pub(crate) lens: Lens,
     pub(crate) expanded: bool,

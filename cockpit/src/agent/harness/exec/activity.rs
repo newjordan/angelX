@@ -234,7 +234,7 @@ pub(crate) fn owned_child_setting_up(owner: usize) -> bool {
         })
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn cpu_ticks(leader: u32) -> HashMap<(u32, u64), u64> {
     let mut ticks = HashMap::new();
     let supervised = sandbox_helper_process(leader);
@@ -247,7 +247,7 @@ fn cpu_ticks(leader: u32) -> HashMap<(u32, u64), u64> {
     ticks
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn cpu_ticks(_leader: u32) -> HashMap<(u32, u64), u64> {
     HashMap::new()
 }

@@ -2239,6 +2239,9 @@ impl App {
                 } else {
                     Some(rest.as_str())
                 }) {
+                    Ok(()) if self.pending_handoff_rl_restart.is_some() =>
+                        "handoff DEMANDED · restart queued until the foreground worker drains"
+                            .to_string(),
                     Ok(()) => "handoff DEMANDED · context wiped · forced restart with starter 'hit it chewy'"
                         .to_string(),
                     Err(msg) => msg,
@@ -2255,6 +2258,9 @@ impl App {
                 let msg = self.handoff_rl.record_victory(cand, score_val, &hyp);
                 let summary = format!("victory {cand} @ {score_val:.4}");
                 match self.force_handoff_rl_restart(Some(&summary)) {
+                    Ok(()) if self.pending_handoff_rl_restart.is_some() =>
+                        format!("{msg}
+handoff restart queued until the foreground worker drains"),
                     Ok(()) => msg,
                     Err(budget) => format!("{msg}\n{budget}"),
                 }
@@ -2444,14 +2450,19 @@ impl App {
             return Err(note);
         }
 
-        // Hard-stop any in-flight turn so we never double-book the flight slot
-        // or inject into a history the dying worker will overwrite.
-        if let Some(thinking) = self.thinking.take() {
+        // Retain the single-flight owner until its existing drain path proves
+        // quiescence. Keep this exact restart request for that boundary so its
+        // handoff injection and history wipe cannot be lost or overwritten.
+        if let Some(thinking) = self.thinking.as_mut() {
             thinking
                 .cancel
                 .store(true, std::sync::atomic::Ordering::Relaxed);
+            thinking.begin_draining();
+            self.pending_handoff_rl_restart = Some(candidate_summary.map(str::to_owned));
+            self.pending_turn = None;
             self.restore_moa_after_turn();
             self.flush_tool_summary();
+            return Ok(());
         }
         self.pending_turn = None;
 
@@ -3155,6 +3166,11 @@ impl App {
                 let text = self.open_research(arg);
                 self.system_msg(text);
             }
+            "labyrinth" => {
+                let text = crate::drive::labyrinth::command(self.tools.current_workspace(), arg)
+                    .unwrap_or_else(|error| format!("labyrinth · {error}"));
+                self.system_msg(text);
+            }
             "dungeon" => {
                 let message = self.dungeon_command(arg);
                 self.system_msg(message);
@@ -3217,6 +3233,7 @@ impl App {
                 }
 
                 Some(a) if a.eq_ignore_ascii_case("follow") => {
+                    if self.dungeon.chivalry_visit.is_some() { self.collapse_dungeon(); }
                     self.world.follow_overworld();
                     self.scryglass.return_to_world();
                     self.request_redraw("world follow resumed");
@@ -3230,7 +3247,15 @@ impl App {
                     let name = a
                         .split_once(char::is_whitespace)
                         .map_or("", |(_, name)| name.trim());
+                    if crate::drive::chivalry::Place::parse(name).is_some() {
+                        if self.dungeon.joined.is_some() || self.dungeon.guest.is_some() {
+                            self.system_msg("Practice district is host-only; leave the shared Delve first. Guest game projection is not supported.");
+                            return None;
+                        }
+                        self.sync_chivalry_projection();
+                    }
                     if let Some(label) = self.world.visit_overworld(name) {
+                        if self.dungeon.expanded { self.collapse_dungeon(); }
                         self.scryglass_enabled = true;
                         self.scryglass.return_to_world();
                         self.focus_module("artifacts");
@@ -3239,7 +3264,7 @@ impl App {
                             "Viewing {label} · /world follow returns to the working knight."
                         ));
                     } else {
-                        self.system_msg("Visit a realm landmark: /world visit artisans|colosseum|tournament|village|round-table|keep. /world follow resumes the live camera.".to_string());
+                        self.system_msg("Visit a realm landmark: /world visit stables|tournament|artisans|colosseum|village|round-table|keep. /world follow resumes the live camera.".to_string());
                     }
                 }
                 Some(a) if a.eq_ignore_ascii_case("zoom") => {
@@ -3296,6 +3321,8 @@ impl App {
                 Some(a)
                     if matches!(a.to_ascii_lowercase().as_str(), "off" | "disable" | "table") =>
                 {
+                    self.world.close_chivalry();
+                    if self.dungeon.chivalry_visit.is_some() { self.collapse_dungeon(); }
                     self.scryglass_enabled = false;
                     self.focus_module("core");
                     self.request_redraw("world backdrop disabled");

@@ -521,11 +521,11 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
     std::fs::write(&audio_path, b"RIFF\x24\x00\x00\x00WAVEfmt ").unwrap();
     assert_parse_under_50ms(
         "parse-see-agent-image",
-        &format!("/see {} Describe this.", agent_image.display()),
+        &format!("/see \"{}\" Describe this.", agent_image.display()),
     );
     assert_parse_under_50ms(
         "parse-hear-small-audio",
-        &format!("/hear {} Transcribe this.", audio_path.display()),
+        &format!("/hear \"{}\" Transcribe this.", audio_path.display()),
     );
     // Turn-starting submit: fresh App per sample (the composer is filled off the
     // clock), so every sample times a real turn spawn and not the steer path.

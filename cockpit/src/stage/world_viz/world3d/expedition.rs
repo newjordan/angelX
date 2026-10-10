@@ -63,7 +63,9 @@ pub(crate) fn frame_key(quest: &Quest, playback: Playback) -> u64 {
 impl World {
     /// Operator visits and entered rooms take precedence over automatic travel.
     pub(crate) fn live_adventure_view(&self) -> bool {
-        region::stage_for(self.quest().region()).is_some()
+        // A promoted record's guardian keeps the pane until it falls, even
+        // if the loop is home by then.
+        (region::stage_for(self.quest().region()).is_some() || self.record_fight_on())
             && self.overworld_view_label().is_none()
             && !self.inside_interior()
             && !self.graph_visiting()

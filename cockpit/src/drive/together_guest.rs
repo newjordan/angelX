@@ -2,9 +2,10 @@
 //! players 2 to 4. The terminal event loop owns the run; this listener serves
 //! the host's own rendering of it as a PNG (each seat's camera on its own
 //! knight), a compact HUD, and queues each seat's held controls. A friend's
-//! own angelX (`/dungeon join`) draws nothing itself and knows no game rules.
+//! own angelX (`/dungeon join`) draws an admitted host mirror. The browser is
+//! a read-only authenticated pixel/status view; neither client awards defeats.
 
-use super::together_shooter::{FLOORS, HEIGHT, Input, Phase, Run, WIDTH};
+use super::together_shooter::{DEEPEST, HEIGHT, Input, Phase, Run, WIDTH};
 use crate::stage::world_viz::overworld::arena;
 use ring::rand::{SecureRandom, SystemRandom};
 use serde::{Deserialize, Serialize};
@@ -15,8 +16,12 @@ use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-/// What an invitation link shows when opened anywhere but angelX.
+/// The invitation link opened in a browser says where it goes: friends join
+/// from their own angelX.
 const CLIENT: &str = "This is an angelX Delve invitation.\nPaste the whole line into your angelX composer: /dungeon join <link>\n";
+/// With the browser view on, the same link opens a read-only view of the
+/// host's floor instead. Controls still come through the native client.
+const BROWSER_VIEW: &str = include_str!("../../assets/dungeon/guest.html");
 const MAX_HEADER: usize = 4096;
 const MAX_BODY: usize = 512;
 const MAX_CONNECTIONS: usize = 4;
@@ -98,6 +103,8 @@ struct Hud {
     floors: u32,
     pack: &'static str,
     score: u32,
+    /// Fortune's audience, in thousands of viewers.
+    viewers: u32,
     players: Vec<Knight>,
     /// The party stands in a Sanctuary.
     sanctuary: bool,
@@ -109,6 +116,9 @@ struct Hud {
     /// this or the raid changes.
     book_cards: usize,
     notice: String,
+    boss_gates: Option<super::together_shooter::BossGateState>,
+    boss_support: Option<String>,
+    boss_names: Vec<String>,
     /// The track the host's moment wants.
     music: Option<&'static str>,
 }
@@ -120,9 +130,10 @@ impl Hud {
             paused,
             phase: run.phase,
             floor: run.floor(),
-            floors: FLOORS,
+            floors: DEEPEST,
             pack: run.dungeon.pack.name(),
             score: run.score,
+            viewers: run.audience,
             players: run
                 .players
                 .iter()
@@ -187,7 +198,13 @@ impl Hud {
             side_on: run.side_on(),
             phrasebook: super::together_shooter::phrasebook::version(),
             music: run.music(),
-            notice: notice
+            boss_gates: run.boss_gate_state(),
+            boss_support: run.boss_support_line(),
+            boss_names: run.bosses.iter().take(64).map(|b| b.name.clone()).collect(),
+            notice: run
+                .boss_gate_line()
+                .as_deref()
+                .unwrap_or(notice)
                 .chars()
                 .filter(|c| !c.is_control())
                 .take(160)
@@ -308,6 +325,8 @@ struct Published {
     requests: u32,
     frames: u32,
     shooter_inputs: u32,
+    /// The invitation link opens the read-only browser view (off by default).
+    browser_view: bool,
 }
 
 impl Default for Published {
@@ -338,6 +357,7 @@ impl Default for Published {
             requests: 0,
             frames: 0,
             shooter_inputs: 0,
+            browser_view: false,
         }
     }
 }
@@ -361,8 +381,12 @@ impl Published {
                 "floors": hud.floors,
                 "pack": hud.pack,
                 "score": hud.score,
+                "viewers": hud.viewers,
                 "players": hud.players,
                 "notice": hud.notice,
+                "boss_gates": hud.boss_gates,
+                "boss_support": hud.boss_support,
+                "boss_names": hud.boss_names,
                 "realm": self.realm,
                 "realm_seq": self.realm_seq,
                 "voice": self.voice,
@@ -551,6 +575,7 @@ impl GuestServer {
         let (shooter_outgoing, shooter_incoming) = mpsc::sync_channel(16);
         let published = Arc::new(Mutex::new(Published {
             seats: (0..tokens.len() as u32).map(|i| i + 2).collect(),
+            browser_view: std::env::var("ANGEL_DUNGEON_BROWSER_VIEW").is_ok_and(|v| v == "1"),
             ..Published::default()
         }));
         let easel = Arc::new((Mutex::new(Easel::default()), Condvar::new()));
@@ -651,6 +676,17 @@ impl GuestServer {
         self.invitation_urls().remove(0)
     }
 
+    /// Whether the invitation link opens the read-only browser view.
+    pub(crate) fn set_browser_view(&self, on: bool) {
+        if let Ok(mut state) = self.published.lock() {
+            state.browser_view = on;
+        }
+    }
+
+    pub(crate) fn browser_view(&self) -> bool {
+        self.published.lock().is_ok_and(|state| state.browser_view)
+    }
+
     /// One link per seat. Fragments never reach HTTP logs or Referer headers.
     pub(crate) fn invitation_urls(&self) -> Vec<String> {
         let base = self
@@ -671,6 +707,20 @@ impl GuestServer {
     /// most every `FRAME_TICKS` ticks and only when the run moved on, and the
     /// drawing and PNG encoding happen on the painter thread.
     pub(crate) fn publish(&self, run: &Run, paused: bool, notice: &str) {
+        // Projection is owner-local even before a friend takes a seat. The
+        // guest painter clones this sanitized run; serde(skip) alone would
+        // not protect a pixel frame.
+        let private_free;
+        let run = if run.chivalry.is_some() {
+            private_free = {
+                let mut r = run.clone();
+                r.chivalry = None;
+                r
+            };
+            &private_free
+        } else {
+            run
+        };
         let hud = Hud::of(run, paused, notice);
         if let Ok(mut state) = self.published.lock() {
             state.host_seen = Instant::now();
@@ -742,6 +792,13 @@ impl Drop for GuestServer {
             let _ = handle.join();
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn settlement_snapshot_for_test(run: &Run, notice: &str) -> Vec<u8> {
+    let defaults = Published::default();
+    let hud = Some(Hud::of(run, false, notice));
+    Published { hud, ..defaults }.snapshot(2).unwrap()
 }
 
 /// The room as the guest sees it: the host's own pixels, PNG-encoded.
@@ -899,7 +956,10 @@ pub(crate) fn tailnet_address() -> Option<IpAddr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     // Tailscale's own resolver, the same quad-100 address on every tailnet.
     socket
-        .connect(SocketAddr::new(IpAddr::V4(std::net::Ipv4Addr::new(100, 100, 100, 100)), 53))
+        .connect(SocketAddr::new(
+            IpAddr::V4(std::net::Ipv4Addr::new(100, 100, 100, 100)),
+            53,
+        ))
         .ok()?;
     let ip = socket.local_addr().ok()?.ip();
     matches!(ip, IpAddr::V4(v4) if v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]))
@@ -1102,10 +1162,15 @@ fn handle_request(
         return Response::json(429, "please slow down");
     }
     if request.method == "GET" && request.path == "/" {
+        let (content_type, page) = if state.browser_view {
+            ("text/html; charset=utf-8", BROWSER_VIEW)
+        } else {
+            ("text/plain; charset=utf-8", CLIENT)
+        };
         return Response {
             status: 200,
-            content_type: "text/plain; charset=utf-8",
-            body: CLIENT.as_bytes().to_vec(),
+            content_type,
+            body: page.as_bytes().to_vec(),
             frame_seq: None,
             stream: None,
         };
@@ -1530,7 +1595,7 @@ fn write_response(stream: &mut TcpStream, response: Response) -> std::io::Result
     };
     write!(
         stream,
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\n{length}{frame}Connection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\n{length}{frame}Connection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n\r\n",
         response.status, reason, response.content_type,
     )?;
     stream.write_all(&response.body)

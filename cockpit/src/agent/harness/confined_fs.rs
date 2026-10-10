@@ -123,6 +123,386 @@ pub(crate) fn confined_create_new_no_symlinks(
     }
 }
 
+/// Atomically publish a new artifact without following aliases. Interrupted
+/// writes leave only a hidden temp sibling, never a partial final artifact.
+pub(crate) fn confined_publish_new_no_symlinks(
+    root: &Path,
+    rel: &Path,
+    bytes: &[u8],
+) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::ffi::CString;
+        use std::os::fd::{AsRawFd, FromRawFd};
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        let (parent, name) = strict_parent_directory(root, rel, true)?;
+        let temp = CString::new(format!(
+            ".lab-publish-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ))
+        .unwrap();
+        let flags =
+            libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_CLOEXEC | libc::O_NOFOLLOW;
+        // SAFETY: parent owns its descriptor; all names are NUL terminated.
+        let fd = unsafe { libc::openat(parent.as_raw_fd(), temp.as_ptr(), flags, 0o600) };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        // SAFETY: openat returned a new descriptor owned by this file.
+        let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+        let outcome = (|| {
+            file.write_all(bytes).map_err(|error| error.to_string())?;
+            file.sync_all().map_err(|error| error.to_string())?;
+            // SAFETY: descriptors remain owned; names are NUL terminated.
+            if unsafe {
+                libc::linkat(
+                    parent.as_raw_fd(),
+                    temp.as_ptr(),
+                    parent.as_raw_fd(),
+                    name.as_ptr(),
+                    0,
+                )
+            } < 0
+            {
+                return Err(std::io::Error::last_os_error().to_string());
+            }
+            parent.sync_all().map_err(|error| error.to_string())
+        })();
+        // SAFETY: parent and the temporary sibling name remain valid.
+        unsafe {
+            libc::unlinkat(parent.as_raw_fd(), temp.as_ptr(), 0);
+        }
+        outcome
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (root, rel, bytes);
+        Err("strict artifact publication is unsupported on this platform".into())
+    }
+}
+
+/// Strict read/write handle for cooperating artifact locks and journals.
+pub(crate) fn confined_open_rw_no_symlinks(
+    root: &Path,
+    rel: &Path,
+    create: bool,
+) -> Result<std::fs::File, String> {
+    #[cfg(unix)]
+    {
+        use std::os::fd::{AsRawFd, FromRawFd};
+        use std::os::unix::fs::MetadataExt;
+        let (parent, name) = strict_parent_directory(root, rel, create)?;
+        let flags = libc::O_RDWR
+            | libc::O_CLOEXEC
+            | libc::O_NOFOLLOW
+            | libc::O_NONBLOCK
+            | if create { libc::O_CREAT } else { 0 };
+        let fd = unsafe { libc::openat(parent.as_raw_fd(), name.as_ptr(), flags, 0o600) };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        let file = unsafe { std::fs::File::from_raw_fd(fd) };
+        let metadata = file.metadata().map_err(|error| error.to_string())?;
+        if !metadata.is_file() {
+            return Err("artifact must be a regular file".into());
+        }
+        if metadata.nlink() != 1 {
+            return Err("mutable artifact must not have hard-link aliases".into());
+        }
+        Ok(file)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (root, rel, create);
+        Err("strict artifact handles are unsupported on this platform".into())
+    }
+}
+
+/// Bounded journal append. Contending writers fail explicitly instead of
+/// blocking the model turn indefinitely; a coordinator may retry after reload.
+pub(crate) fn confined_append_no_symlinks(
+    root: &Path,
+    rel: &Path,
+    bytes: &[u8],
+    max_total: usize,
+) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        let mut file = confined_open_rw_no_symlinks(root, rel, true)?;
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } < 0 {
+            return Err("artifact journal is locked by another writer".into());
+        }
+        let old_len = file.metadata().map_err(|error| error.to_string())?.len();
+        if old_len.saturating_add(bytes.len() as u64) > max_total as u64 {
+            return Err("artifact journal byte budget exceeded".into());
+        }
+        file.seek(std::io::SeekFrom::End(0))
+            .map_err(|error| error.to_string())?;
+        if let Err(error) = file.write_all(bytes).and_then(|_| file.sync_all()) {
+            let rollback = file.set_len(old_len).and_then(|_| file.sync_all());
+            return Err(format!(
+                "journal append failed: {error}; rollback: {rollback:?}"
+            ));
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (root, rel, bytes, max_total);
+        Err("strict journal append is unsupported on this platform".into())
+    }
+}
+
+/// Stage a coordinator's exact-byte replacements before publishing any file.
+/// Callers serialize cooperating coordinators and keep a durable recovery
+/// journal: a filesystem cannot atomically rename a set of unrelated files.
+pub(crate) fn confined_compare_replace_batch_no_symlinks(
+    root: &Path,
+    changes: &[(PathBuf, Option<Vec<u8>>, Option<Vec<u8>>)],
+) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::ffi::{CStr, CString};
+        use std::os::fd::{AsRawFd, FromRawFd};
+        use std::os::unix::fs::MetadataExt;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        if changes.is_empty() || changes.len() > 64 {
+            return Err("coordinator transaction needs 1..64 files".into());
+        }
+        let total = changes
+            .iter()
+            .try_fold(0usize, |n, (_, old, new)| {
+                n.checked_add(old.as_ref().map_or(0, Vec::len))?
+                    .checked_add(new.as_ref().map_or(0, Vec::len))
+            })
+            .ok_or("coordinator transaction size overflow")?;
+        if total > 16 * 1024 * 1024 {
+            return Err("coordinator transaction byte budget exceeded".into());
+        }
+        struct Staged {
+            parent: std::fs::File,
+            name: CString,
+            forward: Option<CString>,
+            backup: Option<CString>,
+        }
+        impl Drop for Staged {
+            fn drop(&mut self) {
+                unsafe {
+                    if let Some(forward) = &self.forward {
+                        libc::unlinkat(self.parent.as_raw_fd(), forward.as_ptr(), 0);
+                    }
+                    if let Some(backup) = &self.backup {
+                        libc::unlinkat(self.parent.as_raw_fd(), backup.as_ptr(), 0);
+                    }
+                }
+            }
+        }
+        fn current(
+            parent: &std::fs::File,
+            name: &CStr,
+            max: usize,
+        ) -> Result<Option<Vec<u8>>, String> {
+            let fd = unsafe {
+                libc::openat(
+                    parent.as_raw_fd(),
+                    name.as_ptr(),
+                    libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK,
+                )
+            };
+            if fd < 0 {
+                let error = std::io::Error::last_os_error();
+                return if error.kind() == std::io::ErrorKind::NotFound {
+                    Ok(None)
+                } else {
+                    Err(error.to_string())
+                };
+            }
+            let file = unsafe { std::fs::File::from_raw_fd(fd) };
+            let meta = file.metadata().map_err(|error| error.to_string())?;
+            if !meta.is_file() {
+                return Err("transaction target must be a regular file".into());
+            }
+            let bytes = read_limited_file(file, max)?.ok_or("transaction source changed size")?;
+            Ok(Some(bytes))
+        }
+        fn stage(parent: &std::fs::File, bytes: &[u8], mode: u32) -> Result<CString, String> {
+            let name = CString::new(format!(
+                ".lab-transaction-{}-{}",
+                std::process::id(),
+                SEQUENCE.fetch_add(1, Ordering::Relaxed)
+            ))
+            .unwrap();
+            let fd = unsafe {
+                libc::openat(
+                    parent.as_raw_fd(),
+                    name.as_ptr(),
+                    libc::O_WRONLY
+                        | libc::O_CREAT
+                        | libc::O_EXCL
+                        | libc::O_CLOEXEC
+                        | libc::O_NOFOLLOW,
+                    0o600,
+                )
+            };
+            if fd < 0 {
+                return Err(std::io::Error::last_os_error().to_string());
+            }
+            let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+            let result = (|| {
+                if unsafe { libc::fchmod(file.as_raw_fd(), mode as libc::mode_t) } < 0 {
+                    return Err(std::io::Error::last_os_error().to_string());
+                }
+                file.write_all(bytes)
+                    .and_then(|_| file.sync_all())
+                    .map_err(|error| error.to_string())
+            })();
+            if let Err(error) = result {
+                unsafe {
+                    libc::unlinkat(parent.as_raw_fd(), name.as_ptr(), 0);
+                }
+                return Err(error);
+            }
+            Ok(name)
+        }
+        let mut names = std::collections::BTreeSet::new();
+        let mut staged = Vec::new();
+        for (path, expected, replacement) in changes {
+            if expected.is_none() && replacement.is_none() {
+                return Err("transaction must create, replace or delete a file".into());
+            }
+            let relative = super::workspace_relative(root, path)?;
+            if !names.insert(relative.clone()) {
+                return Err("duplicate transaction target".into());
+            }
+            let (parent, name) = strict_parent_directory(root, &relative, true)?;
+            if current(&parent, &name, expected.as_ref().map_or(0, Vec::len))? != *expected {
+                return Err(format!(
+                    "source conflict before staging {}",
+                    relative.display()
+                ));
+            }
+            let mode = if expected.is_some() {
+                confined_open_read_no_symlinks(root, &relative)?
+                    .metadata()
+                    .map_err(|error| error.to_string())?
+                    .mode()
+                    & 0o777
+            } else {
+                0o600
+            };
+            let forward = replacement
+                .as_ref()
+                .map(|bytes| stage(&parent, bytes, mode))
+                .transpose()?;
+            let mut entry = Staged {
+                parent,
+                name,
+                forward,
+                backup: None,
+            };
+            if let Some(expected) = expected {
+                entry.backup = Some(stage(&entry.parent, expected, mode)?);
+            }
+            staged.push(entry);
+        }
+        for (entry, (_, expected, _)) in staged.iter().zip(changes) {
+            if current(
+                &entry.parent,
+                &entry.name,
+                expected.as_ref().map_or(0, Vec::len),
+            )? != *expected
+            {
+                return Err("source conflict before transaction publish".into());
+            }
+        }
+        let mut applied = 0usize;
+        let result: Result<(), String> = (|| {
+            for (entry, (_, expected, _)) in staged.iter().zip(changes) {
+                if current(
+                    &entry.parent,
+                    &entry.name,
+                    expected.as_ref().map_or(0, Vec::len),
+                )? != *expected
+                {
+                    return Err("source conflict during transaction publish".into());
+                }
+                let rc = unsafe {
+                    if entry.forward.is_none() {
+                        libc::unlinkat(entry.parent.as_raw_fd(), entry.name.as_ptr(), 0)
+                    } else if expected.is_none() {
+                        libc::linkat(
+                            entry.parent.as_raw_fd(),
+                            entry.forward.as_ref().unwrap().as_ptr(),
+                            entry.parent.as_raw_fd(),
+                            entry.name.as_ptr(),
+                            0,
+                        )
+                    } else {
+                        libc::renameat(
+                            entry.parent.as_raw_fd(),
+                            entry.forward.as_ref().unwrap().as_ptr(),
+                            entry.parent.as_raw_fd(),
+                            entry.name.as_ptr(),
+                        )
+                    }
+                };
+                if rc < 0 {
+                    return Err(std::io::Error::last_os_error().to_string());
+                }
+                applied += 1;
+                entry.parent.sync_all().map_err(|error| error.to_string())?;
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let mut rollback_errors = Vec::new();
+            for i in (0..applied).rev() {
+                let entry = &staged[i];
+                match current(
+                    &entry.parent,
+                    &entry.name,
+                    changes[i].2.as_ref().map_or(0, Vec::len),
+                ) {
+                    Ok(bytes) if bytes == changes[i].2 => {}
+                    _ => {
+                        rollback_errors
+                            .push(format!("{} changed after publish", changes[i].0.display()));
+                        continue;
+                    }
+                }
+                let rc = unsafe {
+                    if let Some(backup) = &entry.backup {
+                        libc::renameat(
+                            entry.parent.as_raw_fd(),
+                            backup.as_ptr(),
+                            entry.parent.as_raw_fd(),
+                            entry.name.as_ptr(),
+                        )
+                    } else {
+                        libc::unlinkat(entry.parent.as_raw_fd(), entry.name.as_ptr(), 0)
+                    }
+                };
+                if rc < 0 || entry.parent.sync_all().is_err() {
+                    rollback_errors.push(changes[i].0.display().to_string());
+                }
+            }
+            return Err(format!(
+                "coordinator transaction failed: {error}; rollback failures: {rollback_errors:?}"
+            ));
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (root, changes);
+        Err("strict coordinator transactions are unsupported on this platform".into())
+    }
+}
+
 #[cfg(unix)]
 fn strict_parent_directory(
     root: &Path,

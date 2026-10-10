@@ -969,7 +969,7 @@ fn cancel_restores_only_the_pasted_screenshot_not_the_see_attachment() {
     app.submit_deferral = true;
 
     stage_one(&mut app, "stage the screenshot");
-    let command = format!("/see {} describe it", see_png.path.display());
+    let command = format!("/see \"{}\" describe it", see_png.path.display());
     app.input = command.clone();
     app.cursor = command.chars().count();
     press(&mut app, KeyCode::Enter);

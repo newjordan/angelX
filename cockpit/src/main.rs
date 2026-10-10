@@ -524,6 +524,10 @@ USAGE
                             --source SRC --contract CTR
   angel --build-info --json
   angel --atlas --workspace DIR JSON
+  angel --labyrinth [--workspace DIR] <init|status|check|frontier|plan|route…>
+  angel --labyrinth [--workspace DIR] run --task TASK --idea IDEA --score-file PATH
+  angel --labyrinth [--workspace DIR] campaign <start SPEC.json|run ID|status|cancel ID|check|recover>
+                            [--direction lower|higher] -- PROGRAM [ARGS]
   angel --look-image IMAGE QUESTION
   angel --watch-fixture [PATH]
   angel --comp-status ARGS…        The active cartridge's status check
@@ -814,6 +818,7 @@ fn main() -> std::io::Result<()> {
     }
     match mode_args.first().and_then(|arg| arg.to_str()) {
         Some("--atlas") => return atlas::cli(mode_args.iter().skip(1).cloned()),
+        Some("--labyrinth") => return drive::labyrinth::cli(mode_args.iter().skip(1).cloned()),
         Some("--look-image") => return tools::vision::image_cli(mode_args.iter().skip(1).cloned()),
         Some("--tool-http-helper") => return tools::http_transport::helper_main(),
         Some("--sandbox-exec") => return sandbox::exec_helper(mode_args.iter().skip(1).cloned()),

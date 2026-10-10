@@ -57,10 +57,10 @@ impl Run {
     pub(super) fn spell_flourish(&mut self, id: u32, name: &str) {
         self.found = Some((self.tick, id, format!("learned {name}")));
         self.sounds.push("card_pickup");
-        if let Some(hero) = self.players.get(&id) {
-            if self.blasts.len() < 16 {
-                self.blasts.push((hero.x, hero.y, BLAST_TICKS));
-            }
+        if let Some(hero) = self.players.get(&id)
+            && self.blasts.len() < 16
+        {
+            self.blasts.push((hero.x, hero.y, BLAST_TICKS));
         }
     }
 

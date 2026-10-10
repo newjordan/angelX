@@ -1,0 +1,16 @@
+name SLAG SOVEREIGN
+text Fuel and tribute seal the forge throne until its supply officers are actually slain.
+by angelX
+where hellforge
+hp 820
+size 1.7
+move hover speed=1.0
+attack ring shots=6 speed=5 every=85 damage=12 shot=ember
+attack aimed shots=2 speed=7 every=60 damage=10 shot=ember
+rage 30%
+drops gold 180, gem 2
+art
+..JJ..
+.J77J.
+.JHHJ.
+..JJ..

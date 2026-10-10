@@ -1,0 +1,16 @@
+name THE ASH CASTELLAN
+text The dragon entrusted the lower seal to living iron.
+by angelX
+where hellforge
+hp 620
+size 1.4
+move anchor
+attack ring shots=8 speed=5 every=95 damage=10 shot=ember
+rage 35%
+drops gold 110, gem 1
+art
+..77..
+.7HH7.
+.H11H.
+..HH..
+..77..

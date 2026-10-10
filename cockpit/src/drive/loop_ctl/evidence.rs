@@ -45,6 +45,8 @@ pub(crate) fn apply_reply_with_tools(
     }
 
     let reported_count = reported.len();
+    let findings_before = st.findings.len();
+    let hypotheses_before = st.hypotheses.len();
     let mut fresh_verified = 0;
     let mut unverified = 0;
     if !non_result {
@@ -191,6 +193,16 @@ pub(crate) fn apply_reply_with_tools(
         stale_count: st.stale_count,
         ts_ms: now_ms(),
     });
+
+    if let Some(workspace) = st.workspace.as_deref()
+        && let Err(error) = crate::drive::labyrinth::observe_iteration(
+            workspace, "loop", &st.task, &st.findings[findings_before..],
+            &st.hypotheses[hypotheses_before..],
+        )
+    {
+        eprintln!("[labyrinth] loop observations unavailable: {error}");
+    }
+    st.snapshot_settlement_plan();
 
     // The setback's words are the book's pages (`⠘` progress and receipts,
     // `⠇⠑` repeats); the counts ride beside the address as data.

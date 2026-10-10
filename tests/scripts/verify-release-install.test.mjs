@@ -136,6 +136,10 @@ test('installed probe is networkless, checkout-free, and limited to lifecycle st
 
 import { runRollbackVerification } from '../../scripts/release/verify-release-rollback.mjs'
 
+const rollbackHostSkip = process.platform === 'linux' && process.arch === 'x64'
+  ? false
+  : 'rollback verification supports Linux x86_64 only'
+
 function rollbackFixture(t) {
   const { root } = fixture(t)
   const previous = join(root, 'N'),
@@ -157,38 +161,41 @@ function rollbackFixture(t) {
   }
 }
 
-test('host prefix installs N, upgrades to distinct N+1, rolls back to N and removes prefix', (t) => {
-  const options = rollbackFixture(t)
-  const receipt = runRollbackVerification(options)
-  assert.equal(receipt.status, 'pass', receipt.error)
-  const steps = receipt.steps.filter((s) => s.phase === 'verified')
-  assert.deepEqual(
-    steps.map((s) => s.sha256),
-    [options.previousSha256, options.nextSha256, options.previousSha256],
-  )
-  assert.deepEqual(
-    steps.map((s) => s.replaced),
-    [false, true, true],
-  )
-  assert.equal(receipt.cleanup.removed, true)
-  assert.deepEqual(JSON.parse(readFileSync(options.receiptPath)), receipt)
-})
+test('host prefix installs N, upgrades to distinct N+1, rolls back to N and removes prefix',
+  { skip: rollbackHostSkip }, (t) => {
+    const options = rollbackFixture(t)
+    const receipt = runRollbackVerification(options)
+    assert.equal(receipt.status, 'pass', receipt.error)
+    const steps = receipt.steps.filter((s) => s.phase === 'verified')
+    assert.deepEqual(
+      steps.map((s) => s.sha256),
+      [options.previousSha256, options.nextSha256, options.previousSha256],
+    )
+    assert.deepEqual(
+      steps.map((s) => s.replaced),
+      [false, true, true],
+    )
+    assert.equal(receipt.cleanup.removed, true)
+    assert.deepEqual(JSON.parse(readFileSync(options.receiptPath)), receipt)
+  })
 
-test('rollback rejects a candidate not matching its reviewed digest and writes failure receipt', (t) => {
-  const options = rollbackFixture(t)
-  options.nextSha256 = 'c'.repeat(64)
-  const receipt = runRollbackVerification(options)
-  assert.equal(receipt.status, 'fail')
-  assert.match(receipt.error, /reviewed sha256/)
-  assert.equal(receipt.cleanup.prefix_created, false)
-})
+test('rollback rejects a candidate not matching its reviewed digest and writes failure receipt',
+  { skip: rollbackHostSkip }, (t) => {
+    const options = rollbackFixture(t)
+    options.nextSha256 = 'c'.repeat(64)
+    const receipt = runRollbackVerification(options)
+    assert.equal(receipt.status, 'fail')
+    assert.match(receipt.error, /reviewed sha256/)
+    assert.equal(receipt.cleanup.prefix_created, false)
+  })
 
-test('rollback records probe failure and removes temporary prefix', (t) => {
-  const options = rollbackFixture(t)
-  writeFileSync(options.next, '#!/bin/sh\nexit 7\n')
-  options.nextSha256 = sha256File(options.next)
-  const receipt = runRollbackVerification(options)
-  assert.equal(receipt.status, 'fail')
-  assert.match(receipt.error, /exit 7/)
-  assert.equal(receipt.cleanup.removed, true)
-})
+test('rollback records probe failure and removes temporary prefix',
+  { skip: rollbackHostSkip }, (t) => {
+    const options = rollbackFixture(t)
+    writeFileSync(options.next, '#!/bin/sh\nexit 7\n')
+    options.nextSha256 = sha256File(options.next)
+    const receipt = runRollbackVerification(options)
+    assert.equal(receipt.status, 'fail')
+    assert.match(receipt.error, /exit 7/)
+    assert.equal(receipt.cleanup.removed, true)
+  })

@@ -1,0 +1,16 @@
+name SPORE CROWN
+text A rare brood apex, provisioned only by rich beds. Slaying the core brood opens its chamber even when the hive starves.
+by angelX
+where fungal
+hp 820
+size 1.7
+move hover speed=1.0
+attack ring shots=6 speed=5 every=85 damage=12 shot=orb
+attack aimed shots=2 speed=7 every=60 damage=10 shot=orb
+rage 30%
+drops gold 180, gem 2
+art
+..JJ..
+.J77J.
+.JHHJ.
+..JJ..

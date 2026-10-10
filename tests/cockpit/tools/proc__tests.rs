@@ -1311,3 +1311,155 @@ fn background_submission_journal_case(separate_cwd: bool, verbose: bool, leading
         );
     }
 }
+
+/// A foreground shell call still running past the hand-off limit becomes a
+/// background job: the call returns its receipt, the process keeps running
+/// and keeps writing into the job's log, and its exit arrives as the usual
+/// completion receipt. Nothing is stopped.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_shell_call_past_the_handoff_limit_becomes_a_running_job() {
+    // env-lock-exempt: TestProcStore owns env_lock through all restoration guards.
+    let fixture = TestProcStore::new();
+    let _limit = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HANDOFF_SECS", "1");
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let shell = crate::agent::tools::shell::ShellTool::in_dir(fixture.root.0.clone());
+    let receipt = crate::agent::harness::Tool::call(
+        &shell,
+        &serde_json::json!({
+            "command": "echo line1; sleep 4; echo line2; sleep 1; echo finished"
+        }),
+    )
+    .expect("a handed-off call is not an error");
+    assert!(receipt.starts_with("[handoff: job "), "{receipt}");
+    assert!(receipt.contains(" ran 1s"), "{receipt}");
+    assert!(
+        receipt.contains("line1"),
+        "output so far rides the receipt: {receipt}"
+    );
+    assert!(receipt.ends_with("⡌⠙⠏⠙"), "{receipt}");
+    let id: u64 = receipt["[handoff: job ".len()..]
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let log = {
+        let mut procs = table().lock().unwrap();
+        let entry = procs.get_mut(&id).expect("the hand-off filed a job");
+        assert_eq!(entry.state(), "running", "nothing was stopped");
+        entry.log.clone()
+    };
+    // The job runs to its own end and reports it like any background job.
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let completion = loop {
+        if let Some(notice) = take_completions(&fixture.root.0, 8)
+            .into_iter()
+            .find(|notice| notice.id == id)
+        {
+            break notice;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the handed-off job never completed"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_eq!(completion.exit_code, Some(0));
+    // Output kept draining into the job's log across the hand-off, in order.
+    let text = std::fs::read_to_string(&log).unwrap();
+    let at = |needle: &str| {
+        text.find(needle)
+            .unwrap_or_else(|| panic!("{needle}: {text}"))
+    };
+    assert!(
+        at("line1") < at("line2") && at("line2") < at("finished"),
+        "{text}"
+    );
+    assert_eq!(text.matches("line1").count(), 1, "{text}");
+}
+
+/// `ANGEL_TOOL_HANDOFF_SECS=0` turns hand-off off: the call waits for its
+/// process exactly as before.
+#[cfg(target_os = "linux")]
+#[test]
+fn the_handoff_limit_zero_is_off() {
+    // env-lock-exempt: TestProcStore owns env_lock through all restoration guards.
+    let fixture = TestProcStore::new();
+    let _limit = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HANDOFF_SECS", "0");
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let shell = crate::agent::tools::shell::ShellTool::in_dir(fixture.root.0.clone());
+    let output = crate::agent::harness::Tool::call(
+        &shell,
+        &serde_json::json!({"command": "sleep 2; echo waited"}),
+    )
+    .unwrap();
+    assert_eq!(output.trim(), "waited");
+    assert!(
+        !table()
+            .lock()
+            .unwrap()
+            .values()
+            .any(|entry| entry.project_root == fixture.root.0),
+        "no job was filed"
+    );
+}
+
+/// A loop-watchdog hand-off moves a wedged shell call to the job table at
+/// once, long before its own hand-off limit; the process keeps running.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_watchdog_handoff_moves_a_wedged_shell_call_to_the_job_table_now() {
+    // env-lock-exempt: TestProcStore owns env_lock through all restoration guards.
+    let fixture = TestProcStore::new();
+    let _limit = crate::tests::TestEnvGuard::set("ANGEL_TOOL_HANDOFF_SECS", "3600");
+    let _task = crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACTIVE");
+    let shell = crate::agent::tools::shell::ShellTool::in_dir(fixture.root.0.clone());
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let owner = &cancel as *const _ as usize;
+    // The watchdog only acts on a call whose process is running (sandbox
+    // setup comes first); a request older than the process is not its.
+    let requester = std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while crate::agent::harness::owned_child_snapshot(owner)
+            .is_none_or(|child| child.setting_up)
+        {
+            assert!(Instant::now() < deadline, "the payload never started");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        std::thread::sleep(Duration::from_millis(300));
+        crate::agent::harness::request_release(owner, crate::agent::harness::Release::HandOff);
+    });
+    crate::agent::harness::take_watchdog_release();
+    let started = Instant::now();
+    let receipt = crate::agent::harness::Tool::call_with_cancel(
+        &shell,
+        &serde_json::json!({"command": "echo wedged; sleep 30"}),
+        Some(&cancel),
+    )
+    .expect("a handed-off call is not an error");
+    requester.join().unwrap();
+    assert!(
+        started.elapsed() < Duration::from_secs(15),
+        "{:?}",
+        started.elapsed()
+    );
+    assert!(receipt.starts_with("[handoff: job "), "{receipt}");
+    assert!(receipt.contains("wedged"), "{receipt}");
+    assert_eq!(
+        crate::agent::harness::take_watchdog_release(),
+        Some(crate::agent::harness::Release::HandOff)
+    );
+    let id: u64 = receipt["[handoff: job ".len()..]
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    {
+        let mut procs = table().lock().unwrap();
+        let entry = procs.get_mut(&id).expect("the hand-off filed a job");
+        assert_eq!(entry.state(), "running", "nothing was stopped");
+    }
+    stop_owned_for(owner, "test cleanup");
+}

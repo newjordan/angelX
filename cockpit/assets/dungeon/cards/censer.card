@@ -1,0 +1,19 @@
+name   Censer
+kind   play
+rarity rare
+text   A green pulse: every knight near you is mended.
+drop   3
+chest  2
+censer    40
+art
+...C.C.C...
+..CCCCCCC..
+.CCYYYYYCC.
+..CYwwwYC..
+.CCYwYwYCC.
+..CYwwwYC..
+.CCYYYYYCC.
+..CCCCCCC..
+...C.C.C...
+...........
+...........

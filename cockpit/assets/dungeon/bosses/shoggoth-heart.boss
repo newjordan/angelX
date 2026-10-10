@@ -1,0 +1,17 @@
+name THE SHOGGOTH HEART
+text The threshold has a heart; only the wardens can expose it.
+by angelX
+where unknown
+hp 620
+size 1.4
+move anchor
+attack ring shots=10 speed=4 every=100 damage=12 shot=orb
+attack aimed shots=2 speed=6 every=80 damage=10 shot=orb
+rage 35%
+drops gold 110, gem 1
+art
+..77..
+.7HH7.
+.H11H.
+..HH..
+..77..

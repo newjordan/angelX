@@ -1,0 +1,16 @@
+....................
+....jGgn....njGj....
+..IrhGIRoooRrgJhrI..
+..BBJGIrPPrrPIGJIB..
+.bPIGjIPBPBBBIjGIPb.
+.bIXGjnnnnnnnnjGXIb.
+.bIXGjIBBIIIBbjGXBb.
+.nbXGjnbXJJXnnjGXbn.
+.ggXGjggJGhJggjGXgg.
+.KKKGjnKJGgJKnjGKKK.
+..IbGjbbJKKJbbjGbI..
+..IbGjbIXjjXbbjGbI..
+..bnGjbbbbbbbbjGnb..
+..bbGjbIIIIIIbjGbb..
+...nXXnnnnnnnnXXn...
+....................

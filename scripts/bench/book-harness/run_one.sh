@@ -73,6 +73,9 @@ END=$(date +%s.%N)
 stop_task
 finish_logger
 REQUESTS=unknown
-if [[ -f "$LOG" ]]; then REQUESTS=$(wc -l < "$LOG"); fi
+if [[ -f "$LOG" ]]; then
+  REQUESTS=$(wc -l < "$LOG")
+  REQUESTS=$((REQUESTS))
+fi
 echo "$LABEL rc=$RC wall=$(awk "BEGIN{print $END - $START}") requests=$REQUESTS"
 exit "$RC"

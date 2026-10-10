@@ -155,6 +155,9 @@ fn command(
     if sealed {
         super::sealed::validate_policy(policy).map_err(io::Error::other)?;
         command.args(["--tmpfs", "/"]);
+        // Mount scratch first so explicit read and write grants beneath /tmp
+        // remain visible when their bind mounts are installed below.
+        command.args(["--perms", "01777", "--tmpfs", "/tmp"]);
         for root in &policy.sealed_reads {
             let source = pin_source(root)?;
             let fd = source.as_raw_fd();
@@ -170,19 +173,17 @@ fn command(
                 command.arg("--symlink").arg(target).arg(alias);
             }
         }
-        // The sealed root is a bare tmpfs, so /tmp does not exist at all.
-        // Without it toolchains fall back to the cwd for temp files
+        // Without the private /tmp above, toolchains fall back to the cwd for temp files
         // (libiberty's `choose_tmpdir`), and a read-only cwd turns an ordinary
         // link into SIGABRT rather than a clean error: gcc expands
         // `-plugin-opt=-fresolution=%u.res` on every link, and
         // `make_temp_file_with_prefix` aborts when `mkstemps` fails. This is
-        // scratch, never host state. Mounted before the policy's writable
-        // roots so an explicit /tmp grant still binds over it; `--remount-ro /`
+        // scratch, never host state. Mounted before the policy's read/write
+        // roots so explicit grants still bind over it; `--remount-ro /`
         // is not recursive, so /tmp stays writable while the root is sealed.
         //
         // Sealed only: `--ro-bind / /` promises read-all, and a private /tmp
         // there would hide the host's from the payload.
-        command.args(["--perms", "01777", "--tmpfs", "/tmp"]);
     } else {
         command.args(["--ro-bind", "/", "/"]);
     }

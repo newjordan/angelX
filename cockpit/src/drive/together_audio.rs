@@ -52,6 +52,8 @@ pub(crate) const SFX: &[&str] = &[
     "play_card",
     "wall_up",
     "mana_empty",
+    "wheel_spin",
+    "wheel_land",
 ];
 
 /// Every music track.
@@ -65,6 +67,7 @@ fn gap(name: &str) -> Duration {
         "kill" => 90,
         "swing" | "roll" | "shield_block" | "spike" | "vent_fire" => 150,
         "boss_rise" | "boss_fall" | "descend" | "door_seal" | "door_open" => 800,
+        "wheel_spin" | "wheel_land" => 1500,
         _ => 200,
     })
 }

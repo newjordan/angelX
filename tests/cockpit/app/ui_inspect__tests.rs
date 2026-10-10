@@ -337,6 +337,25 @@ fn typed_control_operation_cells_and_semantics_share_one_cached_frame() {
     )
     .unwrap();
 
+    for offset in [65_536u64, u64::MAX] {
+        let beyond: Value = serde_json::from_str(
+            &inspect
+                .call(&json!({
+                    "snapshot_id": snapshot_id,
+                    "scope": "screen",
+                    "format": "cells",
+                    "row_offset": offset,
+                    "row_count": 17
+                }))
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(beyond["snapshot_id"], snapshot_id);
+        assert_eq!(beyond["page"]["row_offset"], 40);
+        assert_eq!(beyond["page"]["row_count"], 0);
+        assert!(beyond["frame"].as_array().unwrap().is_empty());
+    }
+
     assert!(
         !broker.has_pending(),
         "cached paging must not request a draw"

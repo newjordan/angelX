@@ -1,0 +1,14 @@
+name FUEL REEVE
+text The stronghold's fuel officer: slag basins feed the future apex escort.
+by angelX
+where hellforge
+hp 580
+size 1.4
+move drift speed=1.1
+attack fan shots=4 arc=60 speed=6 every=80 damage=12 shot=ember
+rage 30%
+drops gold 110, ore 3
+art
+..77..
+.7HH7.
+..77..

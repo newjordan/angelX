@@ -2,6 +2,8 @@ use super::*;
 use crate::tests::TestEnvGuard as EnvGuard;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 
 fn input() -> Value {
@@ -33,17 +35,35 @@ fn tool(endpoint: String) -> JevTool {
     }
 }
 fn server(status: u16, body: String) -> (String, thread::JoinHandle<Value>) {
-    delayed_server(status, body, Duration::ZERO)
+    delayed_server(status, body, Duration::ZERO, None)
 }
 fn delayed_server(
     status: u16,
     body: String,
     delay: Duration,
+    accept_cancel: Option<Arc<AtomicBool>>,
 ) -> (String, thread::JoinHandle<Value>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}/v1/systemone", listener.local_addr().unwrap());
     let handle = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
+        let (mut stream, _) = if let Some(cancel) = accept_cancel {
+            listener.set_nonblocking(true).unwrap();
+            loop {
+                if cancel.load(Ordering::Acquire) {
+                    return Value::Null;
+                }
+                match listener.accept() {
+                    Ok(connection) => break connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("fixture accept failed: {error}"),
+                }
+            }
+        } else {
+            listener.accept().unwrap()
+        };
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .unwrap();
@@ -165,13 +185,22 @@ fn response_bytes_and_slow_headers_have_hard_bounds() {
     let (url, server) = server(200, "x".repeat(MAX_RESPONSE + 1));
     assert!(tool(url).call(&input()).unwrap_err().contains("exceeds"));
     server.join().unwrap();
-    let (url, server) = delayed_server(200, response().to_string(), Duration::from_millis(500));
+    let cancel_accept = Arc::new(AtomicBool::new(false));
+    let (url, server) = delayed_server(
+        200,
+        response().to_string(),
+        Duration::from_millis(500),
+        Some(Arc::clone(&cancel_accept)),
+    );
     let mut t = tool(url);
     t.timeout = Duration::from_millis(100);
     let start = Instant::now();
-    assert!(t.call(&input()).unwrap_err().contains("timed out"));
-    assert!(start.elapsed() < Duration::from_secs(2));
-    server.join().unwrap();
+    let result = t.call(&input());
+    let elapsed = start.elapsed();
+    cancel_accept.store(true, Ordering::Release);
+    let _ = server.join().unwrap();
+    assert!(result.unwrap_err().contains("timed out"));
+    assert!(elapsed < Duration::from_secs(2));
 }
 #[test]
 fn tool_is_deferred_discoverable_and_has_an_off_control() {

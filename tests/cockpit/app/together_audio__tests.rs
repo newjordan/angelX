@@ -7,8 +7,10 @@ fn every_named_sound_and_track_has_a_file() {
         let file = dir.join("sfx").join(format!("{name}.mp3"));
         let size = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
         assert!(size > 1_000, "{name}: {size} bytes");
+        // The wheel's clicks last as long as its spin; everything else is short.
+        let most = if name == &"wheel_spin" { 4.6 } else { 1.6 };
         assert!(
-            (size as f32) / SFX_BYTES_PER_SECOND < 1.6,
+            (size as f32) / SFX_BYTES_PER_SECOND < most,
             "{name} is short"
         );
     }

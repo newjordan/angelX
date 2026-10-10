@@ -212,6 +212,8 @@ pub(crate) fn court_scene(seed: u64) -> Mesh {
         } + r.jitter(0.20);
         place(&mut m, cottage(sub_seed(seed, 40 + i as u64)), x, y, yaw);
     }
+    m.merge(super::super::chivalry::village_dressing());
+
     // The smithy, outboard of the hamlet, mouth turned down the river bank.
     place(&mut m, forge(sub_seed(seed, 44)), 10.8, -16.4, 0.66);
 

@@ -1,0 +1,54 @@
+[
+  {
+    "name": "chest_open",
+    "source": "sprites/sources/chest_open.png",
+    "source_size": [
+      1402,
+      1122
+    ],
+    "sha256": "dd5409da357c501e1e247d820e6dd15f1ab86e87a9253f79ddbdaaf2b0c5630e",
+    "prompt_sha256": "43e2d60a769de5c8cbe68e8646bf2eb454f488379433fe9d8b69f2159c77940c",
+    "reference": "sprites/png/chest.png",
+    "generation": "built-in image_gen; transparent_background=true",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "sconce_a",
+    "source": "sprites/sources/sconce_a.png",
+    "source_size": [
+      971,
+      1619
+    ],
+    "sha256": "ea74d545e7f19075a591bb022cc1bf2d09acb2ef53935c5a63349f8240df1c12",
+    "prompt_sha256": "ccd84e5537a057a0eab521735defc3101de2de64fba3510191e1558e449cbeeb",
+    "reference": null,
+    "generation": "built-in image_gen; transparent_background=true",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "sconce_b",
+    "source": "sprites/sources/sconce_b.png",
+    "source_size": [
+      971,
+      1620
+    ],
+    "sha256": "7c96c46029470957c2e0038111ca7ff8e0f2549ddff24550f4201d89a7da2f79",
+    "prompt_sha256": "408129cbbf5f0825ebffd782a0576056ecbdf5cd09a73acabe331a4ba9106ea2",
+    "reference": "sprites/sources/sconce_a.png",
+    "generation": "built-in image_gen; transparent_background=true",
+    "original_visually_inspected": true
+  },
+  {
+    "name": "banner",
+    "source": "sprites/sources/banner.png",
+    "source_size": [
+      887,
+      1774
+    ],
+    "sha256": "06a7304b864c875fe005120ca8b3d48921caeefc3c3f7239fb4f7abb45e6e92d",
+    "prompt_sha256": "f83821954558baaa9a1d24ca5b0e9e786b30d9461a1b0db47bc0042c1a4bc76f",
+    "reference": null,
+    "generation": "built-in image_gen; transparent_background=true",
+    "original_visually_inspected": true
+  }
+]

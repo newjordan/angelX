@@ -167,3 +167,30 @@ fn t04b_make_single_recipe_only() {
     }
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn routed_receipt_survives_typed_reads_then_is_consumed_attribution() {
+    let _guard = crate::tests::env_lock();
+    let mut registry = ToolRegistry::new();
+    registry.register(Box::new(Fake {
+        name: "run_tests",
+        text: "tests: 1 passed, 0 failed\nraw",
+    }));
+    registry.register(Box::new(Fake {
+        name: "shell",
+        text: "tests: 1 passed, 0 failed\nraw",
+    }));
+    let call = ToolCall {
+        id: "receipt-lifecycle".into(),
+        name: "shell".into(),
+        args: json!({"command":"npm test | tail -1"}),
+    };
+    let text = registry.dispatch(&call.name, &call.args).unwrap();
+
+    assert!(registry.take_routed_execution(&call, "different output").is_none());
+    assert!(registry.routed_execution(&call, &text).is_some(), "typed verification read must not consume receipt");
+    let attributed = registry.take_routed_execution(&call, &text).expect("final attribution consumes receipt");
+    assert_eq!(attributed.receipt.routed_call.unwrap().name, "run_tests");
+    assert!(registry.routed_execution(&call, &text).is_none(), "completed call must release retained output");
+    assert!(registry.take_routed_execution(&call, &text).is_none());
+}

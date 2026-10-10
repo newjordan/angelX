@@ -17,11 +17,65 @@
 //! Contract: pure and deterministic — the same run and size paint the same
 //! pixels.
 
+mod bounties;
 mod cards;
+mod fortune;
+mod hireling;
+mod home;
+mod lessons;
+mod rescues;
+mod runes;
+mod secrets;
 mod side;
 pub(crate) mod sprites;
+mod tavern;
+mod tide;
+mod trophies;
+mod ults;
+mod void;
+mod yard;
+mod chivalry;
 
 pub(crate) use cards::card_art;
+
+/// The Delve's folk, for the loop's crawl to meet in its halls.
+pub(crate) fn crawl_figure(who: &str) -> Option<Img> {
+    let rows: &[&str] = match who {
+        "merlin" => &home::MERLIN,
+        "tobbin" => &home::TOBBIN,
+        "blaise" => &home::BLAISE,
+        "wren" => &home::WREN,
+        "kay" => &trophies::KAY,
+        "ector" => &lessons::ECTOR,
+        "dinadan" => &tavern::DINADAN,
+        "beaumains" => &hireling::BEAUMAINS,
+        "maud" | "mabel" | "anselm" | "pip" => return Some(rescues::sprite_of(who)),
+        _ => return None,
+    };
+    Some(Img::from_rows(rows))
+}
+
+/// A monster of the Delve, for the crawl.
+pub(crate) fn crawl_enemy(kind: crate::drive::together_shooter::EnemyKind, tick: u32) -> Img {
+    sprites::enemy(kind, tick)
+}
+
+/// A standing thing of the Delve's halls, for the crawl: a tomb, a rock, a
+/// mushroom, an eye-pillar, a fire.
+pub(crate) fn crawl_prop(what: &str, tick: u32) -> Img {
+    match what {
+        "tomb" => sprites::tomb(1),
+        "rock" => sprites::rock(),
+        "mushroom" => sprites::mushroom(tick / 40),
+        "eye_pillar" => sprites::eye_pillar(1, tick / 3),
+        _ => sprites::brazier(true, tick, 7),
+    }
+}
+/// The crawl uses the same compact room signs as the playable arena.
+pub(crate) fn crawl_sign(label: &str) -> Img {
+    super::kit::district_sign(label)
+}
+
 pub(crate) use sprites::knight_in;
 
 use std::collections::HashMap;
@@ -168,6 +222,18 @@ fn style(pack: Pack) -> Style {
             rock: RockKind::Char,
             pool: ('X', 'p'),
         },
+        Pack::Archive => Style {
+            rock: RockKind::Slate,
+            pool: ('q', 'I'),
+        },
+        Pack::Fungal => Style {
+            rock: RockKind::Ore,
+            pool: ('e', 'N'),
+        },
+        Pack::Unknown => Style {
+            rock: RockKind::Char,
+            pool: ('0', 'q'),
+        },
     }
 }
 
@@ -216,11 +282,48 @@ fn ash(x: i32, y: i32) -> Option<char> {
     }
 }
 
+/// The Archive's floor: worn flags, and pages that drifted off the shelves.
+fn pages(x: i32, y: i32) -> Option<char> {
+    let h = hash(x / 3, y / 2, 91);
+    if h.is_multiple_of(97) && (x % 3 != 2) {
+        return Some(if (y / 2) % 2 == 0 { 'T' } else { 't' });
+    }
+    flags(x, y).filter(|_| hash(x, y, 92).is_multiple_of(2))
+}
+
+/// The Fungal Deep's floor: moss in tufts, and spores that glow.
+fn moss(x: i32, y: i32) -> Option<char> {
+    if !hash(x / 5, y / 4, 93).is_multiple_of(3) {
+        return None;
+    }
+    match hash(x, y, 94) % 48 {
+        0..=3 => Some('l'),
+        4 | 5 => Some('m'),
+        6 => Some('E'),
+        7 if hash(x / 7, y / 7, 95).is_multiple_of(4) => Some('Y'),
+        _ => None,
+    }
+}
+
+/// The Unknown's floor: hardly a floor at all — a lattice of faint light,
+/// as if the world were still being worked out.
+fn lattice(x: i32, y: i32) -> Option<char> {
+    let on = (x.rem_euclid(TILE) == 0 && y.rem_euclid(4) == 0)
+        || (y.rem_euclid(TILE) == 0 && x.rem_euclid(4) == 0);
+    if on && hash(x / TILE, y / TILE, 96).is_multiple_of(3) {
+        return Some('0');
+    }
+    (hash(x, y, 97).is_multiple_of(400)).then_some('2')
+}
+
 fn floor_mark(pack: Pack, x: i32, y: i32) -> Option<char> {
     match pack {
         Pack::Crypt => flags(x, y),
         Pack::Cavern => pebbles(x, y),
         Pack::Hellforge => ash(x, y),
+        Pack::Archive => pages(x, y),
+        Pack::Fungal => moss(x, y),
+        Pack::Unknown => lattice(x, y),
     }
 }
 
@@ -251,6 +354,41 @@ fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Option<char> 
         },
         // Still water: a pale shore and wave dashes drifting east.
         Pack::Cavern => {
+            match shore.saturating_sub((hash(x / 3, y / 3, 5) % 2) as i32) {
+                i32::MIN..=1 => return Some('Q'),
+                2 => return ((x + y) % 2 == 0).then_some('q'),
+                _ => {}
+            }
+            let dx = x - t / 2;
+            let h = hash(dx.div_euclid(9), y.div_euclid(6), 9);
+            let (ox, oy) = (((h >> 4) % 5) as i32, ((h >> 8) % 5) as i32);
+            let (lx, ly) = (dx.rem_euclid(9), y.rem_euclid(6));
+            (h.is_multiple_of(2) && ly == oy && lx >= ox && lx < ox + 4)
+                .then_some(if lx == ox + 1 { 'Q' } else { 'q' })
+        }
+        // Spore pools: a glowing green shimmer that drifts.
+        Pack::Fungal => {
+            if shore == 1 {
+                return Some('E');
+            }
+            let glow = vnoise((x + t / 3) as f32 / 5.0, y as f32 / 4.0, 452);
+            (glow > 0.45).then_some(if glow > 0.7 {
+                'Y'
+            } else if glow > 0.58 {
+                'y'
+            } else {
+                'l'
+            })
+        }
+        // The void: nothing below, now and then a far light.
+        Pack::Unknown => {
+            if shore == 1 {
+                return (!hash(x, y, 98).is_multiple_of(3)).then_some('0');
+            }
+            (hash(x, y + t / 8, 99).is_multiple_of(300)).then_some('3')
+        }
+        // The Archive's flood, as the Mines' water.
+        Pack::Archive => {
             match shore.saturating_sub((hash(x / 3, y / 3, 5) % 2) as i32) {
                 i32::MIN..=1 => return Some('Q'),
                 2 => return ((x + y) % 2 == 0).then_some('q'),
@@ -324,6 +462,7 @@ fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
         Option<bool>,
         usize,
         bool,
+        u64,
     );
     static CACHE: OnceLock<std::sync::Mutex<Option<(Key, std::sync::Arc<Img>)>>> = OnceLock::new();
     let key: Key = (
@@ -337,6 +476,7 @@ fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
         run.room().chest.map(|c| c.open),
         run.traps.len(),
         run.wishing,
+        home_print(run),
     );
     let cache = CACHE.get_or_init(Default::default);
     if let Ok(slot) = cache.lock()
@@ -352,10 +492,40 @@ fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
     img
 }
 
+/// What the Undercroft has built, for the kept drawing.
+fn home_print(run: &Run) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    run.home.levels.hash(&mut h);
+    for m in &run.settlement_exhibits {
+        (m.room, m.col, m.row).hash(&mut h);
+    }
+    // Grubbins' stall opens once a goblin has come back.
+    (run.home.goblins > 0).hash(&mut h);
+    run.home.trophies.hash(&mut h);
+    // The tavern's bar is kept once Maud is home.
+    run.home.residents.hash(&mut h);
+    h.finish()
+}
+
 /// Paint the room's scenery and light it for dusk.
 fn scenery(run: &Run) -> Img {
     if run.side_on() {
         return side::scenery(run);
+    }
+    if run.at_home_now() {
+        let mut image = match run.room().kind {
+            RoomKind::Fortune => fortune::scenery(run),
+            RoomKind::Yard => yard::scenery(run),
+            RoomKind::Trophies => trophies::scenery(run),
+            RoomKind::Tavern => tavern::scenery(run),
+            RoomKind::Hall | RoomKind::Stockpile | RoomKind::Workshop | RoomKind::Quarters => {
+                home::settlement_scenery(run)
+            }
+            _ => home::scenery(run),
+        };
+        home::research_exhibits(&mut image, run);
+        return image;
     }
     let room = run.room();
     let pack = run.dungeon.pack;
@@ -395,6 +565,13 @@ fn scenery(run: &Run) -> Img {
                 }
                 Tile::Wall => cv.stamp(tiles.rock(st.rock, v), x, y),
                 Tile::Block if pack == Pack::Crypt => cv.stamp(&sprites::tomb(v), x, y),
+                Tile::Block if pack == Pack::Archive => cv.stamp(&sprites::shelf(v), x, y),
+                Tile::Block if pack == Pack::Fungal => cv.stamp(&sprites::mushroom(v), x, y),
+                // The Shoggoth's body fills its threshold's north: drawn whole below.
+                Tile::Block if room.kind == RoomKind::Threshold && row <= 3 => {}
+                Tile::Block if pack == Pack::Unknown => {
+                    cv.stamp(&sprites::eye_pillar(v, tick / 6), x, y)
+                }
                 Tile::Block => cv.stamp(tiles.rock(st.rock, v), x, y),
                 Tile::Hazard if pack == Pack::Hellforge && (col + row) % 2 == 0 => {
                     lights.push(fire(x + TILE / 2, y + TILE / 2, 26.0, 0.14));
@@ -468,6 +645,9 @@ fn scenery(run: &Run) -> Img {
         cv.stamp(&altar, x - altar.w / 2, y - altar.h / 2);
         lights.push(fire(x, y - 6, if run.wishing { 84.0 } else { 64.0 }, 0.55));
     }
+    if room.kind == RoomKind::Threshold {
+        shoggoth(&mut cv, room, tick, &mut lights);
+    }
     if let Some(c) = room.chest {
         let im = chest(!c.open);
         let (x, y) = at(c.x, c.y);
@@ -486,8 +666,93 @@ fn scenery(run: &Run) -> Img {
             Trap::Rockfall => {}
         }
     }
+    if let Some((host, cx, cy)) = run.dungeon.crack()
+        && host == run.at
+    {
+        let side = run.dungeon.secret.map_or(0, |s| s.side);
+        secrets::crack(&mut cv, (cx, cy), side);
+    }
+    if room.kind == RoomKind::Secret {
+        // The vault's gold catches what light there is.
+        let (x, y) = at(room.width() / 2.0, room.height() / 2.0);
+        lights.push(fire(x, y, 70.0, 0.45));
+    }
     dusk(&mut cv, &lights, st.pool);
     cv
+}
+
+/// The Shoggoth at its threshold: the great Unknown, not an enemy — only
+/// what the party has not met yet. A mass along the north wall, heaving,
+/// tendrils trailing, and everywhere eyes: curious, teal, now and then
+/// blinking.
+fn shoggoth(cv: &mut Img, room: &Room, tick: u32, lights: &mut Vec<Light>) {
+    let pw = room.cols as i32 * TILE;
+    let heave = (tick as f32 * 0.05).sin();
+    for x in 0..pw {
+        let edge = 4.0 * TILE as f32
+            + (x as f32 * 0.045).sin() * 6.0
+            + (x as f32 * 0.11 + heave).sin() * 3.0;
+        for y in 0..edge as i32 {
+            let n = vnoise(x as f32 / 9.0, y as f32 / 7.0 + heave * 0.2, 501);
+            let ink = if n > 0.66 {
+                'g'
+            } else if n > 0.45 {
+                'X'
+            } else if n > 0.3 {
+                'K'
+            } else {
+                'k'
+            };
+            cv.set(x, y, super::ink::ink(ink).unwrap_or(BLACK));
+        }
+        // Tendrils, here and there, trailing onto the floor.
+        if hash(x / 7, 1, 502).is_multiple_of(5) && x % 7 == 3 {
+            let len = 8 + (hash(x, 2, 503) % 14) as i32;
+            for k in 0..len {
+                let sway = ((k as f32 * 0.4 + x as f32 + heave * 3.0).sin() * 1.5) as i32;
+                cv.put(
+                    x + sway,
+                    edge as i32 + k,
+                    if k % 3 == 0 { 'g' } else { 'X' },
+                );
+            }
+        }
+    }
+    // Its eyes: many, of every size, curious.
+    for i in 0..30 {
+        let ex = (hash(i, 7, 504) % pw.max(1) as u32) as i32;
+        let ey = 10 + (hash(i, 8, 505) % 40) as i32;
+        let r = 1 + (hash(i, 9, 506) % 4) as i32;
+        let closed = hash(i, (tick / 6) as i32, 507).is_multiple_of(11);
+        if closed {
+            cv.line(ex - r, ey, ex + r, ey, 'g');
+            continue;
+        }
+        for dy in -r..=r {
+            for dx in -r - 1..=r + 1 {
+                if dx * dx * 2 / 3 + dy * dy > r * r {
+                    continue;
+                }
+                let ink = if dx * dx + dy * dy <= (r / 2).max(0) * (r / 2).max(0) {
+                    'K'
+                } else if dx * dx + dy * dy <= r * r * 2 / 3 {
+                    if r > 2 { '3' } else { '2' }
+                } else {
+                    'h'
+                };
+                cv.put(ex + dx, ey + dy, ink);
+            }
+        }
+        if r >= 3 {
+            lights.push(Light {
+                x: ex as f32,
+                y: ey as f32,
+                r: 18.0,
+                s: 0.12,
+                fire: false,
+            });
+        }
+    }
 }
 
 fn fire(x: i32, y: i32, r: f32, s: f32) -> Light {
@@ -648,15 +913,46 @@ fn figures(cv: &mut Img, run: &Run) {
         let im = cards::floor_card(run.book.get(&item.card), tick);
         cv.stamp(&im, x - im.w / 2, y - im.h / 2);
     }
+    runes::floor(cv, run);
+    secrets::draught(cv, run);
+    secrets::snibbet(cv, run);
     for hero in run.players.values().filter(|h| h.hp == 0) {
         let (x, y) = at(hero.x, hero.y + feet);
         stand(cv, &sprites::fallen(), x, y);
     }
+    hireling::delve(cv, run);
     for enemy in &run.enemies {
         let mut im = match enemy.boss.and_then(|i| run.bosses.get(usize::from(i))) {
             Some(boss) => Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>()),
+            // A slime's size is its stage; a giant is drawn as big as it is.
+            None if enemy.kind == EnemyKind::Slime => {
+                enlarge(&sprites::enemy(enemy.kind, tick), enemy.radius() / 0.75)
+            }
+            None if enemy.radius() > enemy.kind.radius() * 1.1 => enlarge(
+                &sprites::enemy(enemy.kind, tick),
+                enemy.radius() / enemy.kind.radius(),
+            ),
             None => sprites::enemy(enemy.kind, tick),
         };
+        if enemy.frozen > 0 {
+            im = ults::iced(&im);
+        }
+        if enemy.kind == EnemyKind::Warboar {
+            // It faces where it means to go.
+            let way = if enemy.stage >= 1 {
+                enemy.dir.0
+            } else {
+                run.players
+                    .values()
+                    .filter(|h| h.hp > 0)
+                    .map(|h| h.x - enemy.x)
+                    .fold(0.0, |a: f32, b| if a.abs() > 0.0 { a } else { b })
+            };
+            if way < 0.0 {
+                im = im.flip_h();
+            }
+            foes_marks(cv, run, enemy, tick);
+        }
         let (x, y) = if !run.side_on() {
             at(enemy.x, enemy.y)
         } else if enemy.kind.flies() {
@@ -700,6 +996,31 @@ fn figures(cv: &mut Img, run: &Run) {
         }
         stand(cv, &im, x, y);
     }
+    // The light home, in a slain dragon's lair.
+    if let Some((lx, ly)) = run.light {
+        let (cx, cy) = at(lx, ly);
+        for y in -14..=6 {
+            for x in -12..=12 {
+                let (fx, fy) = (x as f32 / 12.0, y as f32 / 14.0);
+                let d = fx.hypot(fy);
+                if d > 1.0 {
+                    continue;
+                }
+                let k = 1.0 - d;
+                if k > 0.7 {
+                    cv.put(cx + x, cy + y, 'w');
+                } else if bayer(cx + x, cy + y) < k * 1.3 {
+                    cv.put(cx + x, cy + y, if k > 0.4 { '6' } else { '5' });
+                }
+            }
+        }
+        for m in 0..5 {
+            let rise = ((tick + m * 11) % 40) as i32;
+            cv.put(cx - 8 + (hash(m as i32, 3, 41) % 17) as i32, cy - rise, '6');
+        }
+        let sign = district_sign("THE WAY HOME");
+        cv.stamp(&sign, cx - sign.w / 2, cy - 30);
+    }
     // A shut privy says so; whoever is inside is out of sight.
     if let Some((px, py)) = room.privy()
         && run.players.values().any(|h| h.privy > 0)
@@ -727,8 +1048,20 @@ fn figures(cv: &mut Img, run: &Run) {
         } else {
             sprites::knight(id)
         };
+        if hero.frog() {
+            // Hexed: a frog, for now.
+            im = sprites::frog(tick);
+        }
+        if hero.chilled > 0 {
+            // Chilled by the Lich: rimed over, like a frozen monster.
+            im = ults::iced(&im);
+        }
         if hero.aim_x < -0.3 {
             im = im.flip_h();
+        }
+        if hero.has_rune(crate::drive::together_shooter::runes::RuneKind::Invisibility) {
+            // Under Invisibility: only half there.
+            im = runes::veiled(&im);
         }
         if hero.stone {
             if hero.vigil {
@@ -764,6 +1097,18 @@ fn figures(cv: &mut Img, run: &Run) {
                 x - puff.w / 2 - (rx * 10.0) as i32,
                 y - puff.h / 2 - (ry * 6.0) as i32,
             );
+            continue;
+        }
+        if hero.tossed > 0 {
+            // Thrown by a Ravage: up on an arc, tumbling, and back down.
+            use crate::drive::together_shooter::tide::TOSSED;
+            let flight = (TOSSED - hero.tossed.min(TOSSED)) as f32 / TOSSED as f32;
+            let lift = ((flight * std::f32::consts::PI).sin() * 10.0) as i32;
+            let mut turned = im.clone();
+            for _ in 0..(hero.tossed / 3) % 4 {
+                turned = sprites::quarter_turn(&turned);
+            }
+            stand(cv, &turned, x, y - lift);
             continue;
         }
         // Blink while a hit's grace lasts.
@@ -857,6 +1202,7 @@ fn figures(cv: &mut Img, run: &Run) {
             }
         }
     }
+    runes::auras(cv, run);
     // Shots are drawn at twice their sprite size: a hairline reads as noise
     // at speed, a two-pixel stroke reads as an arrow.
     let mut mark = Img::new(25, 25);
@@ -912,7 +1258,7 @@ fn flourishes(cv: &mut Img, run: &Run) {
                 1 => '@',
                 _ => '7',
             };
-            if (hash(i, left as i32, 31) % 3) != 0 {
+            if !hash(i, left as i32, 31).is_multiple_of(3) {
                 let ink = if k > 0.6 { '8' } else { ink };
                 for dr in [0.0, 1.0] {
                     cv.put(
@@ -1018,8 +1364,11 @@ fn verdict(cv: &mut Img, run: &Run) {
 fn sanctuary_sign(cv: &mut Img, run: &Run) {
     let hz = u64::from(crate::drive::together_shooter::HZ);
     // A room won opens a wish window: a short sign says so.
+    let in_sanctuary = run.room().kind == crate::drive::together_shooter::RoomKind::Sanctuary;
     let (at, title, hint, last) = match (run.hallowed, run.window.as_ref()) {
-        (Some(at), _) if run.tick.saturating_sub(at) < 4 * hz => {
+        // Only in the Sanctuary itself: a knight who walks straight out
+        // leaves its sign behind.
+        (Some(at), _) if in_sanctuary && run.tick.saturating_sub(at) < 4 * hz => {
             (at, "SANCTUARY", "T: ONE WISH", 4)
         }
         (_, Some(w)) if run.room().kind != crate::drive::together_shooter::RoomKind::Sanctuary => {
@@ -1114,7 +1463,9 @@ fn beyond(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
 
 /// One view of the room, 16 pixels to a tile: lit scenery, and the figures
 /// over it on a layer of their own.
-fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
+/// `legible`: the frame is drawn at native size or larger, so the 5x7 hand
+/// of in-world boards can be read (a reduced frame leaves them to the HUD).
+fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     debug_assert_eq!(
         (NATIVE_W, NATIVE_H),
         at(WIDTH, HEIGHT),
@@ -1123,10 +1474,56 @@ fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let (pw, ph) = room_px(run.room());
     let mut over = Img::new(pw, ph);
     hazards(&mut over, run);
+    let fortune_hall = run.room().kind == RoomKind::Fortune;
+    let in_yard = run.room().kind == RoomKind::Yard;
+    let in_hall = run.room().kind == RoomKind::Trophies;
+    let in_tavern = run.room().kind == RoomKind::Tavern;
+    if run.at_home_now() {
+        if fortune_hall {
+            fortune::figures(&mut over, run);
+        } else if in_yard {
+            yard::figures(&mut over, run);
+            lessons::figures(&mut over, run);
+        } else if in_hall {
+            trophies::figures(&mut over, run);
+        } else if in_tavern {
+            tavern::figures(&mut over, run);
+        } else if run.room().kind == RoomKind::Home {
+            home::figures(&mut over, run);
+            rescues::residents(&mut over, run);
+            hireling::at_the_stair(&mut over, run);
+        }
+    }
+    if run.at_home_now() { chivalry::projection(&mut over,run,legible); }
+    ults::under(&mut over, run);
+    foes_hazards(&mut over, run);
+    tide::ravages(&mut over, run);
+    void::holes(&mut over, run);
+    rescues::cage(&mut over, run);
     figures(&mut over, run);
+    tallow(&mut over, run);
+    hooks(&mut over, run);
+    fan_boxes(&mut over, run);
     sparks(&mut over, run);
     orbits(&mut over, run);
     flourishes(&mut over, run);
+    ults::over(&mut over, run);
+    if run.at_home_now() && legible {
+        if fortune_hall {
+            fortune::boards(&mut over, run);
+        } else if in_yard {
+            yard::boards(&mut over, run);
+            lessons::boards(&mut over, run);
+        } else if in_hall {
+            trophies::boards(&mut over, run);
+            tavern::wing_ledger(&mut over, run);
+        } else if in_tavern {
+            tavern::boards(&mut over, run);
+        } else if run.room().kind == RoomKind::Home {
+            home::boards(&mut over, run);
+        }
+    }
+    let banner = legible.then(|| run.banner_now()).flatten();
     let origin = camera(run, focus);
     // A guardian's fall, a bomb: the view jolts, settling as it fades.
     let origin = if run.shake > 0 {
@@ -1140,15 +1537,391 @@ fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
         origin
     };
     let mut over = crop(&over, origin);
+    let mut scenery = crop(&scenery_cached(run), origin);
+    if run.mode == crate::drive::together_shooter::fortune::Mode::LightsOut && !run.at_home_now() {
+        lights_out(&mut scenery, &mut over, run, origin);
+    }
     beyond(&mut over, run, origin);
     verdict(&mut over, run);
-    (crop(&scenery_cached(run), origin), over)
+    if let Some(feat) = banner {
+        achievement_banner(&mut over, run, feat);
+    } else if legible {
+        dare_board(&mut over, run);
+    }
+    (scenery, over)
+}
+
+/// A warboar's tells: the line it marks before a charge, and the stars
+/// over its head while it stands dazed.
+fn foes_marks(cv: &mut Img, run: &Run, enemy: &crate::drive::together_shooter::Enemy, tick: u32) {
+    let (x, y) = at(enemy.x, enemy.y);
+    match enemy.stage {
+        1 => {
+            let (dx, dy) = enemy.dir;
+            let (px, py) = (-dy, dx);
+            for k in 4..40 {
+                if (k + tick as i32 / 2) % 5 < 2 {
+                    continue;
+                }
+                let s = k as f32 * 2.2;
+                for w in [-1.0f32, 0.0, 1.0] {
+                    cv.put(
+                        x + (dx * s + px * w) as i32,
+                        y + (dy * s + py * w) as i32,
+                        if w == 0.0 { '7' } else { '8' },
+                    );
+                }
+            }
+        }
+        3 => {
+            for k in 0..3 {
+                let a = tick as f32 * 0.3 + k as f32 * 2.1;
+                cv.put(
+                    x + (a.cos() * 6.0) as i32,
+                    y - 12 + (a.sin() * 2.0) as i32,
+                    '6',
+                );
+            }
+        }
+        _ => {}
+    }
+    let _ = run;
+}
+
+/// Kegs on the floor and bombs in the air, with the ring where each will go.
+fn foes_hazards(cv: &mut Img, run: &Run) {
+    use crate::drive::together_shooter::foes::{KEG_ARMED, LOB_FALL};
+    use crate::drive::together_shooter::hunters::{HOOK_RANGE, WEB_REACH};
+    let tick = run.tick as u32;
+    // Webs: spokes and rings of silk, thinning as they fade.
+    for web in &run.webs {
+        let (x, y) = at(web.x, web.y);
+        let r = WEB_REACH * 8.0;
+        let thin = if web.left < 30 { 2 } else { 1 };
+        for spoke in 0..8 {
+            let a = spoke as f32 * std::f32::consts::FRAC_PI_4 + 0.2;
+            for k in (2..r as i32).step_by(2 * thin) {
+                let k = k as f32;
+                cv.put(
+                    x + (a.cos() * k) as i32,
+                    y + (a.sin() * k * 0.6) as i32,
+                    'J',
+                );
+            }
+        }
+        for ring in [0.35f32, 0.65, 0.95] {
+            let rr = r * ring;
+            let n = (rr * 2.0) as i32;
+            for i in (0..n).step_by(2 * thin) {
+                let a = i as f32 / n as f32 * std::f32::consts::TAU;
+                cv.put(
+                    x + (a.cos() * rr) as i32,
+                    y + (a.sin() * rr * 0.6) as i32,
+                    'h',
+                );
+            }
+        }
+    }
+    // The Pit Tyrant's slam gathering: a red ring, filling in as it comes.
+    for slam in &run.slams {
+        use crate::drive::together_shooter::pit::{SLAM_REACH, SLAM_WINDUP};
+        let (x, y) = at(slam.x, slam.y);
+        let k = 1.0 - slam.left as f32 / SLAM_WINDUP as f32;
+        let r = SLAM_REACH * 8.0;
+        let n = 72;
+        let step = if k > 0.66 {
+            1
+        } else if k > 0.33 {
+            2
+        } else {
+            3
+        };
+        for i in (0..n).step_by(step) {
+            let a = i as f32 / n as f32 * std::f32::consts::TAU;
+            for rr in [r, r - 1.0] {
+                cv.put(
+                    x + (a.cos() * rr) as i32,
+                    y + (a.sin() * rr * 0.6) as i32,
+                    '7',
+                );
+            }
+        }
+    }
+    // The Flesher's stare: his hook's line, red on the floor.
+    for flesher in run
+        .enemies
+        .iter()
+        .filter(|e| e.kind == EnemyKind::Flesher && e.stage == 1 && e.hp > 0)
+    {
+        let (x, y) = at(flesher.x, flesher.y);
+        let reach = HOOK_RANGE * 8.0;
+        // Two rows of marching dashes, either side of the hook's path.
+        let (nx, ny) = (-flesher.dir.1, flesher.dir.0);
+        for k in 10..reach as i32 {
+            if (k as u32 + tick).rem_euclid(5) > 2 {
+                continue;
+            }
+            let k = k as f32;
+            for side in [-1.5f32, 1.5] {
+                cv.put(
+                    x + (flesher.dir.0 * k + nx * side) as i32,
+                    y + (flesher.dir.1 * k + ny * side) as i32,
+                    '7',
+                );
+            }
+        }
+    }
+    for keg in &run.kegs {
+        let (x, y) = at(keg.x, keg.y);
+        let im = sprites::keg(keg.fuse, keg.fuse < KEG_ARMED, tick);
+        cv.stamp(&im, x - im.w / 2, y - im.h / 2);
+        if keg.fuse < KEG_ARMED {
+            let r = 22.0;
+            let n = 60;
+            for i in (0..n).step_by(3) {
+                let a = i as f32 / n as f32 * std::f32::consts::TAU;
+                cv.put(
+                    x + (a.cos() * r) as i32,
+                    y + (a.sin() * r * 0.6) as i32,
+                    '8',
+                );
+            }
+        }
+    }
+    for lob in &run.lobs {
+        let (tx, ty) = at(lob.x, lob.y);
+        let k = 1.0 - lob.fall as f32 / LOB_FALL as f32;
+        let r = 19.0;
+        let n = 56;
+        for i in (0..n).step_by(2) {
+            let a = i as f32 / n as f32 * std::f32::consts::TAU;
+            cv.put(
+                tx + (a.cos() * r) as i32,
+                ty + (a.sin() * r * 0.6) as i32,
+                '7',
+            );
+        }
+        let (fx, fy) = at(lob.from.0, lob.from.1);
+        let arc = (k * std::f32::consts::PI).sin() * 26.0;
+        let (bx, by) = (
+            fx + ((tx - fx) as f32 * k) as i32,
+            fy + ((ty - fy) as f32 * k) as i32 - arc as i32,
+        );
+        let im = sprites::bomb(tick);
+        cv.stamp(&im, bx - im.w / 2, by - im.h / 2);
+    }
+}
+
+/// Lady Tallow at her knight's heel, about her business.
+fn tallow(cv: &mut Img, run: &Run) {
+    let Some(cat) = &run.cat else {
+        return;
+    };
+    let tick = run.tick as u32;
+    let hissing = run.tick.saturating_sub(cat.hissed) < 20 && cat.hissed > 0;
+    let im = sprites::tallow(cat.moving, hissing, cat.carrying.is_some(), tick);
+    let im = if cat.left { im.flip_h() } else { im };
+    let (x, y) = at(cat.x, cat.y);
+    cv.stamp(&im, x - im.w / 2, y - im.h + 2);
+}
+
+/// The Flesher's hooks in the air: the chain back to his hand, and the
+/// hook at its end (with whoever it caught).
+fn hooks(cv: &mut Img, run: &Run) {
+    for hook in &run.hooks {
+        let Some(flesher) = run.enemies.iter().find(|e| e.id == hook.by) else {
+            continue;
+        };
+        let (bx, by) = at(flesher.x, flesher.y);
+        let (hx, hy) = at(hook.x, hook.y);
+        let (dx, dy) = ((hx - bx) as f32, (hy - by) as f32);
+        let length = dx.hypot(dy).max(1.0);
+        for k in (6..length as i32).step_by(2) {
+            let t = k as f32 / length;
+            let ink = if (k / 2) % 2 == 0 { 'h' } else { 'J' };
+            cv.put(bx + (dx * t) as i32, by + (dy * t) as i32, ink);
+        }
+        let im = sprites::hook();
+        cv.stamp(&im, hx - im.w / 2, hy - im.h / 2);
+    }
+}
+
+/// Fan boxes floating down: a gold ring that tightens where each will
+/// land, and the box swaying down on its parachute.
+fn fan_boxes(cv: &mut Img, run: &Run) {
+    use crate::drive::together_shooter::audience::BOX_FALL;
+    let tick = run.tick as u32;
+    for parcel in &run.fan_boxes {
+        let (x, y) = at(parcel.x, parcel.y);
+        // 1 at the top of the fall, 0 on the ground.
+        let k = parcel.fall as f32 / BOX_FALL as f32;
+        let r = 5.0 + 10.0 * k;
+        let n = 28;
+        for i in (0..n).step_by(2) {
+            let a = i as f32 / n as f32 * std::f32::consts::TAU;
+            cv.put(
+                x + (a.cos() * r) as i32,
+                y + (a.sin() * r * 0.55) as i32,
+                '5',
+            );
+        }
+        let sway = (parcel.fall as f32 * 0.18).sin() * 3.0 * k;
+        let im = sprites::fan_box(tick);
+        let (bx, by) = (x + sway as i32, y - (k * 72.0) as i32);
+        cv.stamp(&im, bx - im.w / 2, by - im.h + 2);
+    }
+}
+
+/// A new achievement, the way the Herald announces them: a board across
+/// the top of the view, the name, the Herald's line, and the box.
+fn achievement_banner(cv: &mut Img, run: &Run, feat: &crate::drive::together_shooter::feats::Feat) {
+    use super::ink::text_width;
+    // The Herald's line, wrapped to the board.
+    let mut lines: Vec<String> = Vec::new();
+    let mut line = String::new();
+    for word in feat.says.to_uppercase().split_whitespace() {
+        if !line.is_empty() && text_width(&format!("{line} {word}")) > 300 {
+            lines.push(std::mem::take(&mut line));
+        }
+        if !line.is_empty() {
+            line.push(' ');
+        }
+        line.push_str(word);
+    }
+    lines.push(line);
+    let rows: Vec<(String, char)> = std::iter::once(("NEW ACHIEVEMENT!".to_string(), '6'))
+        .chain(std::iter::once((feat.name.to_uppercase(), '9')))
+        .chain(lines.into_iter().map(|l| (l, 'h')))
+        .chain(std::iter::once((
+            format!("REWARD: {}", feat.tier.name().to_uppercase()),
+            '5',
+        )))
+        .collect();
+    let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
+    let h = rows.len() as i32 * 9 + 7;
+    let mut board = Img::new(w, h);
+    board.rect(0, 0, w, h, 'K');
+    board.frame(0, 0, w, h, '4');
+    board.frame(1, 1, w - 2, h - 2, 'a');
+    for (i, (text, ink)) in rows.iter().enumerate() {
+        board.text((w - text_width(text)) / 2, 4 + i as i32 * 9, text, *ink);
+    }
+    // It drops in from the top and settles.
+    let (at, _) = run.banner.as_ref().expect("a banner is up");
+    let age = run.tick.saturating_sub(*at) as i32;
+    let y = (age * 3 - h).min(4);
+    cv.stamp(&board, (NATIVE_W - w) / 2, y);
+}
+
+/// Fortune's dare as the party arrives on a floor: her red board drops in
+/// from the top, the dare on it, and settles.
+fn dare_board(cv: &mut Img, run: &Run) {
+    use super::ink::text_width;
+    use crate::drive::together_shooter::dares::CALLED;
+    let Some(dare) = run
+        .dare
+        .as_ref()
+        .filter(|d| run.tick.saturating_sub(d.since) < CALLED)
+    else {
+        return;
+    };
+    let rows = [
+        ("FORTUNE DARES YOU".to_string(), '6'),
+        (dare.kind.name().to_uppercase(), '9'),
+        (dare.kind.says().to_uppercase(), 'h'),
+        ("HER PURSE: GOLD AND A GEM EACH".to_string(), '5'),
+    ];
+    let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
+    let h = rows.len() as i32 * 9 + 7;
+    let mut board = Img::new(w, h);
+    board.rect(0, 0, w, h, 'K');
+    board.frame(0, 0, w, h, '7');
+    board.frame(1, 1, w - 2, h - 2, '9');
+    for (i, (text, ink)) in rows.iter().enumerate() {
+        board.text((w - text_width(text)) / 2, 4 + i as i32 * 9, text, *ink);
+    }
+    let age = run.tick.saturating_sub(dare.since) as i32;
+    let y = (age * 3 - h).min(4);
+    cv.stamp(&board, (NATIVE_W - w) / 2, y);
+}
+
+/// Lights Out: beyond each knight's lantern and the room's fires the
+/// delve is dark. Scenery sinks to black paper; figures sink to faint
+/// silhouettes. Signal inks — eyes, embers, flames, shots — still glow.
+fn lights_out(scenery: &mut Img, over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
+    const LANTERN: f32 = 58.0;
+    let mut lamps: Vec<(f32, f32, f32)> = run
+        .players
+        .values()
+        .filter(|h| h.hp > 0)
+        .map(|h| {
+            let (x, y) = at(h.x, h.y);
+            ((x - ox) as f32, (y - oy - 6) as f32, LANTERN)
+        })
+        .collect();
+    let room = run.room();
+    for (side, &(col, row)) in doors(room).iter().enumerate() {
+        if room.doors[side] {
+            lamps.push((
+                (col * TILE + TILE - ox) as f32,
+                (row * TILE + TILE - oy) as f32,
+                26.0,
+            ));
+        }
+    }
+    let (pw, ph) = room_px(room);
+    for (cx, cy) in [(8, 8), (pw - 8, 8), (8, ph - 8), (pw - 8, ph - 8)] {
+        lamps.push(((cx - ox) as f32, (cy - oy) as f32, 30.0));
+    }
+    for y in 0..scenery.h {
+        for x in 0..scenery.w {
+            let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+            let lit = lamps
+                .iter()
+                .map(|&(lx, ly, r)| 1.0 - (px - lx).hypot(py - ly) / r)
+                .fold(0.0f32, f32::max);
+            if lit > 0.35 {
+                continue;
+            }
+            // A dithered edge where the lantern's light gives out.
+            let dark = ((0.35 - lit) * 16.0 + bayer(x, y) * 2.0) as usize;
+            if let Some(c) = scenery.get(x, y)
+                && c != BLACK
+                && !is_signal(c)
+            {
+                scenery.set(x, y, step_down(c, dark.min(7)));
+            }
+            if let Some(c) = over.get(x, y)
+                && c != BLACK
+                && !is_signal(c)
+            {
+                over.set(x, y, step_down(c, dark.min(4)));
+            }
+        }
+    }
+}
+
+/// A sprite drawn `k` times its size, nearest-neighbour: a giant.
+fn enlarge(im: &Img, k: f32) -> Img {
+    let (w, h) = (
+        (im.w as f32 * k).round() as i32,
+        (im.h as f32 * k).round() as i32,
+    );
+    let mut out = Img::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            if let Some(c) = im.get((x as f32 / k) as i32, (y as f32 / k) as i32) {
+                out.set(x, y, c);
+            }
+        }
+    }
+    out
 }
 
 /// One view composed at native size.
 #[cfg_attr(not(test), allow(dead_code))]
 fn native(run: &Run) -> Img {
-    let (mut cv, over) = layers(run, None);
+    let (mut cv, over) = layers(run, None, true);
     cv.stamp(&over, 0, 0);
     cv
 }
@@ -1164,7 +1937,8 @@ pub(crate) fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     if w < 12 || h < 8 {
         return out;
     }
-    let (scenery, over) = layers(run, focus);
+    let legible = w >= NATIVE_W && h >= NATIVE_H;
+    let (scenery, over) = layers(run, focus, legible);
     Field::fit(w, h).blit(&scenery, &over, &mut out);
     out
 }

@@ -122,6 +122,7 @@ impl App {
             return self.research.context.clone();
         }
         let mut extra = Vec::new();
+        extra.extend(self.research.labyrinth.refresh(self.tools.current_workspace()));
         extra.extend(
             self.research
                 .journal

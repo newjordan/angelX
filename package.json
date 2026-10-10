@@ -1,6 +1,6 @@
 {
   "name": "angelX",
-  "version": "0.1.94",
+  "version": "0.2.0",
   "description": "Terminal-first research and coding cockpit with verifiable agent workflows.",
   "private": true,
   "type": "module",
@@ -24,7 +24,7 @@
     "release:verify:advisories": "node scripts/release/verify-release-advisories.mjs",
     "release:verify:install": "node scripts/release/verify-release-install.mjs",
     "test:release": "node --test --test-concurrency=1 tests/scripts/release-evidence.test.mjs tests/scripts/verify-release-evidence.test.mjs tests/scripts/verify-release-container.test.mjs tests/scripts/verify-release-advisories.test.mjs tests/scripts/verify-release-install.test.mjs tests/scripts/verify-runner-smoke.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/angel-club-policy.test.mjs tests/scripts/install.test.mjs",
-      "test": "npm run test:release && npm run test:workers && npm run test:connections && npm run test:polyglot && npm run check:licenses && npm run test:hygiene && npm run test:media",
+      "test": "npm run test:release && npm run test:workers && npm run test:connections && npm run test:polyglot && npm run check:licenses && npm run test:hygiene && npm run test:media && npm run test:labyrinth",
     "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs",
     "test:media": "node --test --test-concurrency=1 tests/scripts/pan-pace.test.mjs",
       "check:cockpit-quality": "bash scripts/check/check-cockpit-quality.sh",
@@ -34,11 +34,13 @@
       "check:licenses": "node scripts/check/check-licenses.mjs",
     "test:polyglot": "python3 -m unittest discover -s tests/python -p 'test_polyglot_*.py'",
     "test:connections": "python3 -m unittest discover -s tests/python -p test_active_connections.py",
+    "test:labyrinth": "python3 -m unittest discover -s tests/python -p test_labyrinth_engine.py && npm run test:labyrinth:upstream",
+    "test:labyrinth:upstream": "python3 -m unittest discover -s cockpit/research/labyrinth/upstream/tests",
     "test:cockpit-pty": "ANGEL_PTY_SMOKE_STRICT=1 cargo test --manifest-path cockpit/Cargo.toml --test interactive_terminal_smoke",
     "format": "prettier --write 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs'",
     "format:check": "prettier --check 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs'",
     "test:cockpit": "bash scripts/check/check-cockpit-fast.sh --test-threads=1",
-    "test:workers": "node --test --test-concurrency=1 tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs"
+    "test:workers": "node --test --test-concurrency=1 tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs tests/scripts/settlement-exhibits.test.mjs"
   },
   "dependencies": {
     "pxpipe-proxy": "^0.8.0"

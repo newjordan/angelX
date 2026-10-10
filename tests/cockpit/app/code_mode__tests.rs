@@ -78,6 +78,20 @@ fn await_is_optional_and_harmless() {
 }
 
 #[test]
+fn pending_async_promise_returns_an_incomplete_execution_error() {
+    let err = run(
+        "return new Promise(() => {});",
+        &[],
+        &mock,
+        &parallel_all,
+        Duration::from_secs(5),
+        128,
+    )
+    .unwrap_err();
+    assert!(err.contains("did not settle"), "got: {err}");
+}
+
+#[test]
 fn loops_and_batches_across_calls() {
     // Sum double(1..=4) = 2+4+6+8 = 20, in ONE run (would be 4 round-trips).
     let out = run_ok(

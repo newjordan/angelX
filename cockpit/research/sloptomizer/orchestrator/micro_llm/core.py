@@ -2459,7 +2459,7 @@ class SlowTokenModel:
         for tok in candidate_tokens:
             next_counts = self.bigrams.get(prev, {})
             denom = sum(next_counts.values()) + self.smoothing * vocab
-            if tok in next_counts or denom > 0.0:
+            if next_counts:
                 prob = (next_counts.get(tok, 0.0) + self.smoothing) / denom
             else:
                 prob = (self.unigrams.get(tok, 0.0) + self.smoothing) / (

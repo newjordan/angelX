@@ -19,6 +19,8 @@ pub(crate) mod graph;
 pub(crate) mod http_transport;
 pub(crate) mod jev;
 pub mod llm;
+pub(crate) mod labyrinth;
+pub(crate) mod labyrinth_campaign;
 pub(crate) mod loop_research;
 pub mod nav;
 pub mod plan;

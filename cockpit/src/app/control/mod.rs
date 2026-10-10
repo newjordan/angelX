@@ -23,6 +23,7 @@ mod campaign;
 pub(crate) use campaign::CampaignPending;
 mod commands;
 mod dungeon;
+mod dungeon_chivalry;
 mod dungeon_gear;
 mod dungeon_intro;
 mod dungeon_join;

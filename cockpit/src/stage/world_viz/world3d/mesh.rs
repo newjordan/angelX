@@ -51,6 +51,18 @@ pub(crate) mod mat {
     /// Steady blue scrying glass. Reflected fill keeps its facets visible;
     /// it never changes with tool activity or the room's candle flicker.
     pub(crate) const CRYSTAL: u8 = 23;
+    pub(crate) const HORSE_BAY: u8 = 24;
+    pub(crate) const HORSE_CHESTNUT: u8 = 25;
+    pub(crate) const HORSE_GREY: u8 = 26;
+    pub(crate) const HAY: u8 = 27;
+    pub(crate) const CLOTH_GOLD: u8 = 28;
+    pub(crate) const CLOTH_BLUE: u8 = 29;
+    // Local practice-scene surfaces; ordinary village/castle lighting stays intact.
+    pub(crate) const STABLE_TIMBER: u8 = 30;
+    pub(crate) const STABLE_ROOF: u8 = 31;
+    pub(crate) const STABLE_WALL: u8 = 32;
+    pub(crate) const STABLE_FLOOR: u8 = 33;
+    pub(crate) const TACK_LEATHER: u8 = 34;
 }
 
 #[derive(Clone, Copy, Debug)]

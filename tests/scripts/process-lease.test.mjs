@@ -402,3 +402,54 @@ test('renew and release fail closed while reclamation is serialized', async () =
     fs.rmSync(paths.root, { recursive: true, force: true })
   }
 })
+
+
+test('Darwin native birth token is module-resolved and fails closed for unavailable PIDs', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  const first = processStartToken(process.pid)
+  assert.match(first, /^[1-9][0-9]*$/u)
+  assert.equal(processStartToken(process.pid), first)
+  assert.equal(processStartToken(2_147_483_648), null)
+})
+
+test('Darwin lease incarnation checks fail closed when either identity is absent', {
+  skip: process.platform !== 'darwin',
+}, () => {
+  const nowMs = 10_000
+  const base = {
+    schema: PROCESS_LEASE_SCHEMA,
+    token: 'darwin-owner',
+    pid: process.pid,
+    host: os.hostname(),
+    process_start: '100',
+    acquired_at_ms: 1,
+    heartbeat_at_ms: 1,
+    stale_after_ms: 1,
+    critical_section: false,
+    ts: 1,
+  }
+  const classify = (owner, readStartToken) =>
+    classifyProcessLeaseOwner(owner, {
+      nowMs,
+      localHost: os.hostname(),
+      isAlive: () => true,
+      readStartToken,
+    })
+
+  assert.equal(classify({ ...base, heartbeat_at_ms: nowMs }, () => '100').held, true)
+  assert.equal(classify(base, () => '100').reclaimable, true)
+  assert.equal(classify(base, () => '101').reclaimable, true)
+  assert.equal(classify({ ...base, process_start: null }, () => '100').held, true)
+  assert.equal(classify(base, () => null).held, true)
+
+  const paths = fixturePaths()
+  try {
+    const refused = acquireProcessLease({ ...paths, startToken: null })
+    assert.equal(refused.acquired, false)
+    assert.equal(fs.existsSync(paths.leaseDir), false)
+    assert.equal(fs.existsSync(paths.compatibilityPath), false)
+  } finally {
+    fs.rmSync(paths.root, { recursive: true, force: true })
+  }
+})

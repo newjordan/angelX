@@ -19,6 +19,30 @@ fn timeline_rejects_bad_geometry() {
 }
 
 #[test]
+fn video_cut_rejects_empty_timeline_with_omitted_or_explicit_dimensions() {
+    let tool = VideoCutTool::in_dir(PathBuf::from("/tmp"));
+    let cases = [
+        serde_json::json!({
+            "clips": [],
+            "output": "video-cut-empty-output.mp4",
+        }),
+        serde_json::json!({
+            "clips": [],
+            "output": "video-cut-empty-output.mp4",
+            "width": 640,
+            "height": 360,
+        }),
+    ];
+
+    for args in cases {
+        assert_eq!(
+            tool.call(&args).unwrap_err(),
+            "timeline needs at least one clip",
+        );
+    }
+}
+
+#[test]
 fn hard_cut_concat_chain() {
     let clips = vec![
         ("a.mp4".to_string(), 0.0, 2.0),

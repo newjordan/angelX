@@ -4971,7 +4971,7 @@ fn stream_absorbs_non_streaming_message_shape() {
 /// external network. This covers the integration the pure tests above can't.
 #[test]
 fn http_club_streams_text_over_a_real_socket() {
-    use std::io::{Read, Write};
+    use std::io::Write;
     use std::net::TcpListener;
 
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -4980,8 +4980,7 @@ fn http_club_streams_text_over_a_real_socket() {
     let server = std::thread::spawn(move || {
         let (mut sock, _) = listener.accept().unwrap();
         // Drain the request so the client's write completes, then stream.
-        let mut buf = [0u8; 2048];
-        let _ = sock.read(&mut buf);
+        let _request = read_http_request(&mut sock);
         let body = concat!(
             "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n",
             ": keep-alive comment line\n\n",
@@ -4995,7 +4994,8 @@ fn http_club_streams_text_over_a_real_socket() {
         let resp = format!(
             "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}"
         );
-        let _ = sock.write_all(resp.as_bytes());
+        sock.write_all(resp.as_bytes())
+            .expect("write canned SSE response");
     });
 
     let club = HttpClub::new("test", format!("http://{addr}"), "m", None);
@@ -5006,9 +5006,9 @@ fn http_club_streams_text_over_a_real_socket() {
             if let StreamDelta::Content(t) = d {
                 deltas.push(t.to_string())
             }
-        })
-        .unwrap();
+        });
     server.join().unwrap();
+    let reply = reply.unwrap();
 
     // Deltas were forwarded live, in order (the keep-alive comment skipped).
     assert_eq!(deltas, vec!["Hello".to_string(), ", world".to_string()]);

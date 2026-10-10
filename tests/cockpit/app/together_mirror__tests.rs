@@ -162,3 +162,87 @@ fn spell_slots_timers_and_card_edits_cross_the_mirror() {
     assert_eq!(old.players[&1].spells, [None, None, None]);
     assert_eq!(old.players[&1].spell_cooldowns, [0, 0, 0]);
 }
+
+#[test]
+fn a_friend_digs_the_west_wing_with_the_host() {
+    use crate::drive::together_realm::Spoils;
+    use crate::drive::together_shooter::home::{Home, Station};
+    let mut host = Run::at_home(3, 9, Some("Matt"), Home::default(), Spoils::default());
+    let mut friend: Run = serde_json::from_slice(&serde_json::to_vec(&host).unwrap()).unwrap();
+    let mut home = Home {
+        deepest: 1,
+        ..Home::default()
+    };
+    home.levels.insert(Station::Wing, 1);
+    host.rebuild_home(home, Spoils::default());
+    let tavern = host
+        .dungeon
+        .rooms
+        .iter()
+        .position(|r| r.kind == RoomKind::Tavern)
+        .unwrap();
+    host.enter_for_test(tavern);
+    host.step(&BTreeMap::new());
+    assert!(
+        friend.apply_live(host.live()),
+        "the friend follows the host in"
+    );
+    assert_eq!(friend.room().kind, RoomKind::Tavern);
+}
+
+#[test]
+fn a_cracked_wall_the_host_blew_comes_down_for_friends() {
+    let mut host = (0..200u64)
+        .map(|seed| {
+            let mut run = Run::new(seed, 9, Some("Matt"));
+            run.begin_in(Pack::Crypt);
+            run
+        })
+        .find(|run| run.dungeon.secret.is_some())
+        .unwrap();
+    let secret = host.dungeon.secret.unwrap();
+    host.enter_for_test(secret.host);
+    let mut friend: Run = serde_json::from_slice(&serde_json::to_vec(&host).unwrap()).unwrap();
+    host.step(&BTreeMap::from([(
+        1,
+        Input {
+            bomb: true,
+            ..Default::default()
+        },
+    )]));
+    assert!(host.dungeon.secret.unwrap().found);
+    assert!(friend.apply_live(host.live()));
+    assert!(friend.dungeon.secret.unwrap().found);
+    assert_eq!(
+        friend.dungeon.neighbour(secret.host, secret.side),
+        Some(secret.vault),
+        "the doorway is open on the friend's screen too"
+    );
+}
+
+#[test]
+fn a_ravage_ripples_and_throws_on_a_friends_screen_too() {
+    let mut host = Run::new(4, 9, Some("Matt"));
+    host.begin_in(Pack::Crypt);
+    let mut friend: Run = serde_json::from_slice(&serde_json::to_vec(&host).unwrap()).unwrap();
+    let (x, y) = (host.players[&2].x + tide::RING_GAP, host.players[&2].y);
+    host.ravages
+        .push(tide::Ravage::cast((x, y), 3, 50.0, 8.0, 16, 5));
+    host.players.get_mut(&2).unwrap().tossed = tide::TOSSED;
+    host.step(&BTreeMap::new());
+    assert!(friend.apply_live(host.live()));
+    assert_eq!(friend.ravages, host.ravages, "the rings, rippling");
+    assert!(friend.players[&2].tossed > 0, "and the friend in the air");
+}
+
+#[test]
+fn beaumains_fights_on_a_friends_screen_too() {
+    let mut host = Run::new(4, 9, Some("Matt"));
+    host.begin_in(Pack::Crypt);
+    let mut friend: Run = serde_json::from_slice(&serde_json::to_vec(&host).unwrap()).unwrap();
+    let at = (host.players[&1].x, host.players[&1].y);
+    host.hireling = Some(hireling::Hireling::new(1, at));
+    host.step(&BTreeMap::new());
+    assert!(friend.apply_live(host.live()));
+    assert_eq!(friend.hireling, host.hireling);
+}

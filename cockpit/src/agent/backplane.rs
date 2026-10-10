@@ -91,7 +91,32 @@ impl SurfaceId {
 }
 
 impl RouteId {
-    pub(crate) fn chat(agent: &str, driver: &str, reasoning_effort: Option<&str>) -> Self {
+    pub(crate) fn chat(
+        agent: &str,
+        driver: &str,
+        model: &str,
+        reasoning_effort: Option<&str>,
+    ) -> Self {
+        let surface = SurfaceId::new(SurfaceProtocol::Chat, agent);
+        Self(stable_id(
+            "route",
+            &[
+                &surface.0,
+                driver,
+                model,
+                reasoning_effort.unwrap_or("model-native"),
+            ],
+        ))
+    }
+
+    /// ID shape written by route-preference schema v2 before model identity was
+    /// included. Kept only to restore those preferences when their saved tuple
+    /// still matches; new routes must use [`Self::chat`].
+    pub(crate) fn legacy_chat(
+        agent: &str,
+        driver: &str,
+        reasoning_effort: Option<&str>,
+    ) -> Self {
         let surface = SurfaceId::new(SurfaceProtocol::Chat, agent);
         Self(stable_id(
             "route",
@@ -295,6 +320,7 @@ impl BackplaneRegistry {
             let route_id = RouteId::chat(
                 &choice.agent,
                 &choice.driver,
+                &choice.model,
                 choice.reasoning_effort.as_deref(),
             );
             let mut roles = BTreeSet::from([WorkloadRole::Foreground, WorkloadRole::MoaSeat]);

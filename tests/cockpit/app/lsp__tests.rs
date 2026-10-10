@@ -695,7 +695,7 @@ while IFS= read -r line; do
     Content-Length:*) len=${line#Content-Length: } ;;
     "")
       [ "$len" -gt 0 ] || continue
-      body=$(head -c "$len"); len=0
+      body=$(dd bs=1 count="$len" 2>/dev/null); len=0
       id=$(printf '%s' "$body" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
       case "$body" in
         *'"method":"initialize"'*) emit "{\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"capabilities\":{\"diagnosticProvider\":{}}}}" ;;

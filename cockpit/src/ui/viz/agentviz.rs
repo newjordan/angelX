@@ -164,6 +164,12 @@ pub(crate) fn current_seat_pips() -> Option<String> {
     ))
 }
 
+/// The activity revision alone, so a per-tick reader can skip cloning the
+/// stage when nothing moved.
+pub fn activity_sequence() -> u64 {
+    STAGE.lock().map(|g| g.sequence).unwrap_or_default()
+}
+
 /// Read the current activity and its revision under one lock. Unlike
 /// [`current`], this preserves the sequence of an empty/disbanded state.
 pub fn activity() -> ActivitySnapshot {

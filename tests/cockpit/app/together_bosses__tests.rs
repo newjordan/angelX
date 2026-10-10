@@ -3,13 +3,21 @@ use crate::drive::together_shooter::{EnemyKind, Phase, RoomKind, Run};
 use std::collections::BTreeMap;
 
 #[test]
-fn muse_bosses_pass_the_checker_one_per_delve() {
+fn the_guardians_pass_the_checker_and_most_floors_have_two() {
     let bosses = builtin();
-    assert_eq!(bosses.len(), 2);
-    assert!(
-        bosses.iter().any(|b| b.only_in == Pack::Crypt)
-            && bosses.iter().any(|b| b.only_in == Pack::Cavern)
-    );
+    assert_eq!(bosses.len(), 7);
+    for (pack, guardians) in [
+        (Pack::Crypt, 2),
+        (Pack::Cavern, 2),
+        (Pack::Archive, 2),
+        (Pack::Fungal, 1),
+    ] {
+        assert_eq!(
+            bosses.iter().filter(|b| b.only_in == pack).count(),
+            guardians,
+            "{pack:?}"
+        );
+    }
     for boss in &bosses {
         let width = boss.art[0].chars().count();
         assert!(
@@ -118,4 +126,40 @@ fn write_boss_shots() {
         )
         .unwrap();
     }
+}
+
+#[test]
+fn a_delve_meets_one_of_its_packs_guardians_and_keeps_to_it() {
+    let mut met = std::collections::BTreeSet::new();
+    for raid in 0..16 {
+        let mut run = Run::new(3, raid, None);
+        run.begin_in(Pack::Crypt);
+        let stairs = run
+            .dungeon
+            .rooms
+            .iter()
+            .position(|r| r.kind == RoomKind::Stairs)
+            .unwrap();
+        run.enter_for_test(stairs);
+        let boss = run
+            .enemies
+            .iter()
+            .find_map(|e| e.boss)
+            .map(|i| run.bosses[usize::from(i)].id.clone())
+            .expect("a guardian in the stairs room");
+        // The same delve meets the same one again.
+        let mut again = run.clone();
+        again.enter_for_test(stairs);
+        let twice = again
+            .enemies
+            .iter()
+            .find_map(|e| e.boss)
+            .map(|i| again.bosses[usize::from(i)].id.clone());
+        assert_eq!(twice.as_deref(), Some(boss.as_str()));
+        met.insert(boss);
+    }
+    assert_eq!(
+        met.into_iter().collect::<Vec<_>>(),
+        ["the-bone-choir", "waxen-warden"]
+    );
 }

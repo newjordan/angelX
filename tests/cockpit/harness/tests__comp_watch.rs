@@ -116,6 +116,30 @@ fn watcher_exposes_truthful_submission_slot_telemetry() {
 }
 
 #[test]
+fn watcher_superseded_terminal_is_not_reported_as_accepted() {
+    let snapshot = SlotSnapshot {
+        id: GOLD_ID.into(),
+        status: "superseded".into(),
+        score: None,
+        rejection_reason: None,
+        receipt: None,
+    };
+    assert!(snapshot.is_terminal());
+
+    let mut watcher = SubmissionWatcher::new();
+    watcher.adopt(GOLD_ID);
+    watcher.observe_snapshot(snapshot);
+
+    assert_eq!(watcher.phase(), SlotPhase::Terminal);
+    assert_eq!(watcher.telemetry(true).phase, SubmissionSlotPhase::Rejected);
+    assert_eq!(
+        watcher.pending_notify().unwrap().status,
+        "superseded",
+        "the raw terminal status remains available to the notice"
+    );
+}
+
+#[test]
 fn watcher_poll_rejects_other_submission_without_poisoning_current_slot() {
     struct FixedSource(SlotSnapshot);
     impl StatusSource for FixedSource {

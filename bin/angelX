@@ -35,8 +35,9 @@
 #                     Empty or none: OAuth and local models only.
 #   ANGEL_DEV=1       run an unoptimized debug build instead of release (faster
 #                     compile, slower runtime — handy mid-edit)
-#   ANGEL_WEBGPU_PORTAL=0
-#                     disable the Kitty-only live WebGPU activity portal
+#   ANGEL_WEBGPU_PORTAL=1
+#                     build and use the WebGPU activity portal in place of the
+#                     painted Round Table (Kitty only)
 #   ANGEL_YOLO=1      unrestricted operator profile: no approvals, sandbox,
 #                     subprocess/HTTP/formation deadlines, descendant cleanup,
 #                     credential scrubbing, or automatic agent-loop stops
@@ -143,7 +144,7 @@ elif [ "${1:-}" = --workspace ]; then
   WORKSPACE_ARG="$2"; shift 2
 fi
 case "${1:-}" in
-  --ask | --task | --task-json | --atlas | --build-info | --look-image | --jev-json | --comp-status | \
+  --ask | --task | --task-json | --atlas | --labyrinth | --build-info | --look-image | --jev-json | --comp-status | \
   --export-harness-rollout | --audit-harness-rollout | --bind-graph-reward | --watch-fixture | \
   --tool-http-helper | --sandbox-exec | --audit-coding-eval-training | --board-sync | --loop | --rollout | \
   --dump-preview | --dump-preview-portrait | --dump-research-preview | --dump-rl-preview | --dump-scryglass | --dump-visual)
@@ -442,13 +443,9 @@ if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
 fi
 PORTAL_MANIFEST="$COCKPIT_DIR/portal-renderer/Cargo.toml"
 PORTAL_BIN="$COCKPIT_DIR/target/$PROFILE/angel-portal-renderer"
-# The portal crate's wgpu features are vulkan/gles. On Darwin that compile is
-# a long no-op that also trips rustup component downloads and can fail the
-# launch. Keep the terminal-native viz unless the operator opts in.
-PORTAL_BUILD=1
-if [ "$(uname -s)" = "Darwin" ]; then
-  PORTAL_BUILD=0
-fi
+# The Round Table panel paints its station table in the cockpit itself; the
+# WebGPU portal renderer is built only when the operator asks for it.
+PORTAL_BUILD=0
 case "${ANGEL_WEBGPU_PORTAL:-}" in
   0 | off | OFF | false | FALSE | no | NO) PORTAL_BUILD=0 ;;
   1 | on | ON | true | TRUE | yes | YES) PORTAL_BUILD=1 ;;

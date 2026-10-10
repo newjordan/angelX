@@ -1,4 +1,53 @@
 use super::*;
+use std::io::{Read, Write};
+use std::net::TcpListener;
+
+fn html_fixture(body: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/fixture", listener.local_addr().unwrap());
+    let worker = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        let mut request = Vec::new();
+        while !request.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            request.push(byte[0]);
+        }
+        let headers = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        stream.write_all(headers.as_bytes()).unwrap();
+        stream.write_all(&body).unwrap();
+    });
+    (url, worker)
+}
+
+#[test]
+fn web_fetch_flags_raw_prefix_limit_after_html_stripping() {
+    use crate::agent::harness::Tool;
+
+    let mut body = String::from("<html><body>visible");
+    for _ in 0..300 {
+        body.push_str("<script>hidden payload</script>");
+    }
+    body.push_str("</body></html>");
+    let (url, server) = html_fixture(body.into_bytes());
+    let response = WebFetchTool
+        .call(&serde_json::json!({ "url": url, "max_bytes": 1000 }))
+        .unwrap();
+    server.join().unwrap();
+
+    assert!(response.contains("visible"), "{response}");
+    assert!(
+        response.contains("[raw body prefix capped at 4000 bytes; response may be incomplete]"),
+        "{response}"
+    );
+    assert!(!response.contains("…[truncated — raise max_bytes for more]"));
+}
 
 #[test]
 fn http_error_bodies_yield_to_deadline_for_all_web_tools() {

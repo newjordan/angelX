@@ -18,7 +18,7 @@ fn index_of(run: &Run, kind: RoomKind) -> usize {
 /// Walk the party into the first fight room from its south side.
 fn fight(run: &mut Run) {
     let room = index_of(run, RoomKind::Fight);
-    run.enter(room, Some(2));
+    run.enter_for_test(room); // combat fixture uses legacy roster/waves; ecology tested via production enter
     assert_eq!(run.phase, Phase::Fighting);
 }
 
@@ -76,9 +76,13 @@ fn every_raid_generates_a_new_well_formed_dungeon() {
             let floor = &run.dungeon;
             assert_eq!(floor.depth, 1);
             assert_eq!(
-                floor.rooms.len(),
+                floor
+                    .rooms
+                    .iter()
+                    .filter(|r| r.kind != RoomKind::Secret)
+                    .count(),
                 10,
-                "six chambers, up to three passages and a side-on hall"
+                "six chambers, up to three passages and a side-on hall (and a vault, some floors)"
             );
             assert_eq!(floor.rooms[0].kind, RoomKind::Start);
             for kind in [RoomKind::Stairs, RoomKind::Treasure] {
@@ -89,7 +93,15 @@ fn every_raid_generates_a_new_well_formed_dungeon() {
                     let next = floor.neighbour(i, dir);
                     assert_eq!(door, next.is_some(), "doors lead to rooms");
                     if let Some(next) = next {
-                        assert!(floor.rooms[next].doors[(dir + 2) % 4], "doors pair up");
+                        // A vault's door waits on a cracked wall until a
+                        // bomb finds it.
+                        let crack = floor
+                            .secret
+                            .is_some_and(|s| s.vault == i && !s.found && s.host == next);
+                        assert!(
+                            crack || floor.rooms[next].doors[(dir + 2) % 4],
+                            "doors pair up"
+                        );
                     }
                 }
                 if room.kind == RoomKind::Hall {
@@ -100,7 +112,11 @@ fn every_raid_generates_a_new_well_formed_dungeon() {
                 }
                 let fights = matches!(
                     room.kind,
-                    RoomKind::Start | RoomKind::Fight | RoomKind::Stairs | RoomKind::Ledge
+                    RoomKind::Start
+                        | RoomKind::Fight
+                        | RoomKind::Stairs
+                        | RoomKind::Ledge
+                        | RoomKind::Pit
                 );
                 assert_eq!(!room.roster.is_empty(), fights);
                 assert_eq!(room.cleared, !fights);
@@ -408,7 +424,7 @@ fn treasure_chests_open_into_a_prize_and_two_rolls() {
 fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     let mut run = Run::new(0, 1, Some("Friend"));
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter(stairs, Some(2));
+    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
     slay_all(&mut run);
     run.players.get_mut(&2).unwrap().hp = 0;
     let middle = (run.room().width() / 2.0, run.room().height() / 2.0);
@@ -419,18 +435,36 @@ fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     assert_eq!(run.floor(), 2);
     assert_ne!(run.dungeon.pack, first);
     assert_eq!(run.at, 0);
-    assert_eq!(run.dungeon.rooms.len(), 10);
+    // Ten rooms, and a Pit and a vault hung off them on some floors.
+    assert_eq!(
+        run.dungeon
+            .rooms
+            .iter()
+            .filter(|r| r.kind != RoomKind::Pit && r.kind != RoomKind::Secret)
+            .count(),
+        10
+    );
     assert!(
         run.players[&2].hp >= 50,
         "revived on the stairs, mended in the Sanctuary"
     );
-    run.descend();
+    run.descend_for_test();
     assert_eq!(run.dungeon.pack, Pack::Hellforge);
     let lair = index_of(&run, RoomKind::Lair);
     assert!(run.dungeon.rooms.iter().all(|r| r.kind != RoomKind::Stairs));
+    run.clear_prerequisites_for_test();
     run.enter(lair, Some(2));
     assert!(run.enemies.iter().any(|e| e.kind == EnemyKind::Dragon));
     slay_all(&mut run);
+    assert_eq!(
+        run.phase,
+        Phase::Exploring,
+        "the deep below, or the light home"
+    );
+    let (lx, ly) = run.light.unwrap();
+    let hero = run.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (lx, ly);
+    run.step(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Won);
     let tick = run.tick;
     run.step(&inputs(Input {
@@ -458,9 +492,10 @@ fn delve_wipe_stops_simulation_but_one_living_knight_continues() {
 #[test]
 fn delve_entity_work_stays_bounded_during_a_long_lair_fight() {
     let mut run = Run::new(0, 1, None);
-    run.descend();
-    run.descend();
+    run.descend_for_test();
+    run.descend_for_test();
     let lair = index_of(&run, RoomKind::Lair);
+    run.clear_prerequisites_for_test();
     run.enter(lair, Some(2));
     for _ in 0..18_000 {
         run.players.get_mut(&1).unwrap().invulnerable = 999;
@@ -685,7 +720,7 @@ fn spoils_bank_at_the_stairs_bonds_need_two_knights_and_a_wipe_keeps_half() {
         );
     }
     run.players.get_mut(&1).unwrap().carried.add(Spoil::Ore, 4);
-    run.descend();
+    run.descend_for_test();
     assert!(run.players.values().all(|h| h.carried.is_empty()));
     let host = run.bank.iter().find(|h| h.hero == 1).unwrap();
     assert_eq!(
@@ -719,7 +754,10 @@ fn solo_rooms_earn_no_bonds_and_the_dragon_gives_a_scale() {
     assert_eq!(run.players[&1].carried.get(Spoil::Bond), 0);
     run.lair_for_test();
     slay_all(&mut run);
-    assert_eq!(run.phase, Phase::Won);
+    assert!(
+        run.light.is_some(),
+        "the way home opens beside the way down"
+    );
     let haul = run.bank.last().unwrap();
     assert_eq!(haul.spoils.get(Spoil::Scale), 1);
     assert!(haul.why.contains("dragon"));
@@ -728,13 +766,19 @@ fn solo_rooms_earn_no_bonds_and_the_dragon_gives_a_scale() {
 #[test]
 fn monster_doors_glow_then_pour_and_the_room_holds_until_the_last_wave() {
     let mut run = Run::new(0, 1, None);
-    run.descend();
+    run.descend_for_test();
     fight(&mut run);
     assert_eq!(run.waves.total, 2, "one wave a floor deep");
-    for enemy in &mut run.enemies {
-        enemy.hp = 0;
+    // Slimes split as they fall: finish the halves too.
+    for _ in 0..4 {
+        if run.enemies.is_empty() {
+            break;
+        }
+        for enemy in &mut run.enemies {
+            enemy.hp = 0;
+        }
+        run.step(&BTreeMap::new());
     }
-    run.step(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Fighting, "waves are still to come");
     assert!(run.barred());
     let mut glowed = false;
@@ -757,7 +801,7 @@ fn monster_doors_glow_then_pour_and_the_room_holds_until_the_last_wave() {
         run.enemies.iter().all(near_a_door),
         "they enter by a doorway"
     );
-    for _ in 0..4 {
+    for _ in 0..12 {
         for enemy in &mut run.enemies {
             enemy.hp = 0;
         }
@@ -1265,7 +1309,7 @@ fn every_knight_swings_a_sword_that_cuts_shots_from_the_air() {
 fn a_guardians_fall_shakes_the_view() {
     let mut run = Run::new(0, 1, None);
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter(stairs, Some(2));
+    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
     run.calm_for_test();
     for enemy in &mut run.enemies {
         enemy.hp = 0;
@@ -1343,7 +1387,7 @@ fn a_held_wall_stops_monster_shots_and_empowers_a_friends() {
 fn the_sanctuary_mends_and_allows_one_reforge_a_floor() {
     let mut run = Run::new(0, 1, None);
     run.players.get_mut(&1).unwrap().hp = 40;
-    run.descend();
+    run.descend_for_test();
     assert_eq!(run.room().kind, RoomKind::Sanctuary);
     assert!(run.room().cleared && run.enemies.is_empty());
     assert!(run.players[&1].hp > 40, "a quiet room mends");
@@ -1409,7 +1453,7 @@ fn write_wall_shot() {
 fn the_first_floors_guardian_leaves_a_sanctuary_before_the_stairs() {
     let mut run = Run::new(0, 1, None);
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter(stairs, Some(2));
+    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
     run.calm_for_test();
     // The guardian falls with the knight standing on the stairs.
     let middle = (run.room().width() / 2.0, run.room().height() / 2.0);
@@ -1456,9 +1500,9 @@ fn the_first_floors_guardian_leaves_a_sanctuary_before_the_stairs() {
 #[test]
 fn deeper_stairs_rooms_stay_stairs() {
     let mut run = Run::new(0, 1, None);
-    run.descend();
+    run.descend_for_test();
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter(stairs, Some(2));
+    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
     slay_all(&mut run);
     assert_eq!(run.room().kind, RoomKind::Stairs);
 }
@@ -1474,7 +1518,7 @@ fn write_sanctuary_shots() {
     std::fs::create_dir_all(&dir).unwrap();
     let mut run = Run::new(0, 1, Some("Matt"));
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter(stairs, Some(2));
+    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
     run.calm_for_test();
     for enemy in &mut run.enemies {
         enemy.hp = 0;
@@ -1560,7 +1604,7 @@ fn write_privy_shots() {
     // Floor 1's Sanctuary, a great hall.
     let mut run = Run::new(0, 1, None);
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter(stairs, Some(2));
+    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
     slay_all(&mut run);
     for _ in 0..5 * HZ {
         run.step(&BTreeMap::new());

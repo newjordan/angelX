@@ -1030,10 +1030,13 @@ fn render_agentviz_portal_card(frame: &mut Frame, app: &mut App, area: Rect) -> 
     let inner = block.inner(portal_area);
     frame.render_widget(block, portal_area);
 
-    let painted = presentation.frame.as_ref().is_some_and(|portal_frame| {
-        app.viewer
-            .render_agentviz_portal(frame, inner, portal_frame)
-    });
+    let painted = match presentation.frame.as_ref() {
+        Some(portal_frame) => app
+            .viewer
+            .render_agentviz_portal(frame, inner, portal_frame),
+        None if presentation.painted => render_painted_council(frame, app, inner, &presentation),
+        None => false,
+    };
     if !painted {
         frame.render_widget(
             Paragraph::new("the council gathers…")
@@ -1043,6 +1046,109 @@ fn render_agentviz_portal_card(frame: &mut Frame, app: &mut App, area: Rect) -> 
         );
     }
     remainder
+}
+
+/// The painted station table, lit by the council, with the seats named
+/// beside it when the card has the room. False until the first picture is
+/// on screen, so the card keeps its gathering line meanwhile.
+fn render_painted_council(
+    frame: &mut Frame,
+    app: &mut App,
+    inner: Rect,
+    presentation: &crate::ui::viz::agentviz_portal::PortalPresentation,
+) -> bool {
+    use crate::ui::viz::agentviz::SeatState;
+    use crate::ui::viz::council_table;
+    if inner.width == 0 || inner.height == 0 {
+        return false;
+    }
+    let cols =
+        council_table::columns_for(inner.height, app.viewer.map_cell_pixels()).min(inner.width);
+    // The roll beside the table: room for a mark, a space and a short name.
+    let roll_width = inner.width.saturating_sub(cols + 2);
+    let table_area = if roll_width >= 8 {
+        Rect::new(inner.x + 1, inner.y, cols, inner.height)
+    } else {
+        Rect::new(
+            inner.x + (inner.width - cols) / 2,
+            inner.y,
+            cols,
+            inner.height,
+        )
+    };
+    let states: Vec<SeatState> = presentation.seats.iter().map(|seat| seat.state).collect();
+    let deed = presentation.deed;
+    let picture = council_table::picture_key(&states, deed);
+    let shown = app
+        .viewer
+        .render_council_table(frame, table_area, picture, move || {
+            council_table::compose(&states, deed)
+        });
+    if !shown {
+        return false;
+    }
+    if roll_width >= 8 {
+        let roll_area = Rect::new(
+            table_area.right() + 2,
+            inner.y,
+            inner.right().saturating_sub(table_area.right() + 2),
+            inner.height,
+        );
+        frame.render_widget(
+            Paragraph::new(council_roll(presentation, roll_area)).style(panel_style()),
+            roll_area,
+        );
+    }
+    true
+}
+
+/// One line per seat: a lit candle for a sitting seat, a mark for an
+/// answer, a cross for a failure, a dim dot for a cut seat.
+fn council_roll(
+    presentation: &crate::ui::viz::agentviz_portal::PortalPresentation,
+    area: Rect,
+) -> Vec<Line<'static>> {
+    use crate::ui::viz::agentviz::SeatState;
+    let rows = area.height as usize;
+    let seats = &presentation.seats;
+    let shown = if seats.len() > rows {
+        rows.saturating_sub(1)
+    } else {
+        seats.len()
+    };
+    let name_cells = area.width.saturating_sub(2) as usize;
+    let mut lines: Vec<Line<'static>> = seats
+        .iter()
+        .take(shown)
+        .map(|seat| {
+            let (mark, ink) = match seat.state {
+                SeatState::Running => ("●", ratatui::style::Color::Rgb(0xec, 0xb6, 0x4a)),
+                SeatState::Returned => ("✓", ratatui::style::Color::Rgb(0xe3, 0xd2, 0xc3)),
+                SeatState::Failed => ("✗", ratatui::style::Color::Rgb(0xd8, 0x5a, 0x44)),
+                SeatState::Cut => ("·", HUD_DIM),
+            };
+            let name_ink = if seat.state == SeatState::Cut {
+                HUD_DIM
+            } else {
+                ratatui::style::Color::Rgb(0xb0, 0xb2, 0xa8)
+            };
+            Line::from(vec![
+                Span::styled(format!("{mark} "), Style::new().fg(ink)),
+                Span::styled(
+                    truncate_control_value(&seat.label, name_cells),
+                    Style::new().fg(name_ink),
+                ),
+            ])
+        })
+        .collect();
+    let rest = seats.len() - shown + presentation.omitted_seats;
+    if rest > 0 {
+        lines.push(Line::styled(
+            format!("+{rest} more"),
+            Style::new().fg(HUD_DIM),
+        ));
+    }
+    lines
 }
 
 /// Test-frozen entry — see [`render_agent_controls`] for the wrapper rule.

@@ -78,7 +78,13 @@ fn option_looking_values_remain_literal_drafts_and_machine_payloads() {
                 .as_deref(),
             Some(value)
         );
-        for mode in ["--ask", "--task", "--task-json", "--look-image"] {
+        for mode in [
+            "--ask",
+            "--task",
+            "--task-json",
+            "--look-image",
+            "--labyrinth",
+        ] {
             assert!(parse(&argv(&[mode, value])).unwrap().is_none());
         }
     }
@@ -274,6 +280,8 @@ fn native_helpers_use_the_parsed_mode_slice_with_leading_globals_and_opaque_valu
     }
 }
 
+// The Python native-entry fixture inspects `/proc/<pid>/cwd`.
+#[cfg(target_os = "linux")]
 #[test]
 fn native_private_cli_practice_draft_and_literal_prompt_fixture() {
     let binary = angel_binary();

@@ -88,6 +88,9 @@ changed card rules through the host mirror. Cards remain checked data, not code.
 | Effect | Range | Cards | What it does |
 |---|---|---|---|
 | `heal` | 5–100 | take, play, spell | Restores health. |
+| `blink` | 4–14 | take, play | Moves the knight N steps along its aim at once; walls stop it (the Fae Dagger). |
+| `immune` | 2–8 | take, play | N seconds in which no hex, chill, web or hook takes (the Pendragon Sceptre). |
+| `censer` | 10–80 | take, play | Mends every knight within eight steps by N (the Censer). |
 | `gold` | 10–500 | take, play | Adds to the score. |
 | `bombs` | 1–3 | take, play, spell | Adds bomb charges. |
 | `max_hp` | 5–40 | any | Adds maximum health for good. |

@@ -75,29 +75,33 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
     let model = model.unwrap_or_default();
     let fields = [driver, model];
 
-    // Provider-family precedence is deterministic. A provider-qualified model
-    // (for example `openai/gpt-*`) retains its authored family rather than
-    // falling through to the generic SOTA portrait. Matching must not allocate:
-    // Brain Route cursoring calls this on the UI thread.
+    // An explicit OpenAI/Codex model ID keeps its authored family before the
+    // served-model check below.
+    if contains_ascii_case(model, b"openai")
+        || contains_ascii_case(model, b"codex")
+        || contains_ascii_case(model, b"gpt-")
+    {
+        return Some(codex_profile(&fields));
+    }
+
+    // A known served-model family outranks a generic OpenAI-compatible driver.
+    // Keep the model-only check scoped to that transport; every other driver
+    // retains the original precedence below.
+    let driver = driver.trim();
+    if contains_ascii_case(driver, b"openai")
+        && !driver.eq_ignore_ascii_case("openai")
+        && let Some(profile) = model_profile(model)
+    {
+        return Some(profile);
+    }
+
     if fields.iter().any(|field| {
         let field = field.trim();
         contains_ascii_case(field, b"openai")
             || contains_ascii_case(field, b"codex")
             || contains_ascii_case(field, b"gpt-")
     }) {
-        if fields
-            .iter()
-            .any(|field| contains_ascii_case(field, b"luna"))
-        {
-            return Some(LUNA_PROFILE);
-        }
-        if fields
-            .iter()
-            .any(|field| contains_ascii_case(field, b"astra"))
-        {
-            return Some(ASTRA_PROFILE);
-        }
-        return Some(base_profile_for("codex"));
+        return Some(codex_profile(&fields));
     }
     if fields.iter().any(|field| {
         let field = field.trim();
@@ -113,10 +117,40 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
     }) {
         return Some(GROK_PROFILE);
     }
-    if let Some(knight) = family_profile_for(driver.trim(), &fields) {
+    if let Some(knight) = family_profile_for(driver, &fields) {
         return Some(knight);
     }
     None
+}
+
+fn codex_profile(fields: &[&str; 2]) -> AgentProfile {
+    if fields
+        .iter()
+        .any(|field| contains_ascii_case(field, b"luna"))
+    {
+        return LUNA_PROFILE;
+    }
+    if fields
+        .iter()
+        .any(|field| contains_ascii_case(field, b"astra"))
+    {
+        return ASTRA_PROFILE;
+    }
+    base_profile_for("codex")
+}
+
+fn model_profile(model: &str) -> Option<AgentProfile> {
+    let model_fields = [model, model];
+    if contains_ascii_case(model, b"deepseek") {
+        return Some(DEEPSEEK_PROFILE);
+    }
+    if contains_ascii_case(model, b"grok")
+        || contains_ascii_case(model, b"xai")
+        || contains_ascii_case(model, b"x.ai")
+    {
+        return Some(GROK_PROFILE);
+    }
+    family_profile_for(model, &model_fields)
 }
 
 /// Every other model family wears its own knight, whichever machine or

@@ -82,6 +82,50 @@ fn disclose_is_capped_and_offsetable() {
 }
 
 #[test]
+fn disclose_snaps_a_byte_offset_inside_utf8_back_to_the_character_boundary() {
+    let mut store = HandleStore::new();
+    let body = "aéxyz";
+    let receipt = store
+        .put(
+            body,
+            PutMeta {
+                kind: HandleKind::Manual,
+                producer: "test",
+                identity: None,
+                paths: &[],
+                include_preview: false,
+            },
+            limits(),
+            1,
+        )
+        .unwrap();
+
+    // Byte 2 is the continuation byte of `é`; disclosure must include the
+    // complete character and report the actual byte offset of that slice.
+    let first = store
+        .disclose(receipt.handle.as_str(), 2, 2, limits(), 2)
+        .unwrap();
+    assert_eq!(first.offset, 1);
+    assert_eq!(first.content, "é");
+    assert_eq!(first.bytes, 2);
+    assert!(first.truncated);
+
+    let rest = store
+        .disclose(
+            receipt.handle.as_str(),
+            first.offset + first.bytes,
+            64,
+            limits(),
+            3,
+        )
+        .unwrap();
+    assert_eq!(rest.offset, 3);
+    assert_eq!(rest.content, "xyz");
+    assert_eq!(rest.bytes, 3);
+    assert!(!rest.truncated);
+}
+
+#[test]
 fn eviction_respects_entry_and_byte_caps() {
     let mut store = HandleStore::new();
     let lim = HandleStoreLimits {

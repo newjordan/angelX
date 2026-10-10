@@ -499,7 +499,7 @@ fn evaluator_execution_rejects_timeout_truncation_and_source_mutation() {
 
     let timed_out = EvaluatorEvidence::run_shell_with_timeout(
         "timeout-control",
-        "printf '%s' 'test result: ok. 1 passed; 0 failed;'; /usr/bin/sleep 5",
+        "printf '%s' 'test result: ok. 1 passed; 0 failed;'; /bin/sleep 5",
         &root,
         TEST_VERIFIER_CONTRACT,
         "timeout-subject",

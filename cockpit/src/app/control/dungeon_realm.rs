@@ -30,22 +30,23 @@ impl App {
     }
 
     /// Move what the run banked into the treasury, under each knight's name.
-    pub(crate) fn settle_realm(&mut self) {
+    pub(crate) fn settle_realm(&mut self) -> bool {
         let Some(run) = self.dungeon.shooter.as_mut() else {
-            return;
+            return true;
         };
-        if run.bank.is_empty() && run.reclaimed.is_empty() {
-            return;
+        if run.bank.is_empty() && run.reclaimed.is_empty() && run.triumph.is_none() {
+            return true;
         }
         let hauls = std::mem::take(&mut run.bank);
         let reclaimed = std::mem::take(&mut run.reclaimed);
-        let won = run.phase == shooter::Phase::Won;
+        let triumph = run.triumph.take();
         let names: std::collections::BTreeMap<u32, String> = run
             .players
             .iter()
             .map(|(&id, h)| (id, h.name.clone()))
             .collect();
         let host = self.host_name();
+        let realm_before = self.realm().clone();
         let mut lines = Vec::new();
         let realm = self.realm();
         for haul in &hauls {
@@ -61,12 +62,16 @@ impl App {
                 haul.why
             ));
         }
-        for pack in reclaimed {
+        for pack in &reclaimed {
             *realm.reclaimed.entry(pack.name().to_string()).or_default() += 1;
         }
-        if won {
-            realm.raids_won += 1;
-            realm.offer_catalog();
+        match triumph {
+            Some(shooter::Triumph::Dragon) => {
+                realm.raids_won += 1;
+                realm.offer_catalog();
+            }
+            Some(shooter::Triumph::Grail) => realm.grails += 1,
+            None => {}
         }
         let affordable: Vec<String> = realm
             .wishes
@@ -75,6 +80,18 @@ impl App {
             .map(|w| w.name.clone())
             .collect();
         let saved = realm.save();
+        if let Err(error) = saved {
+            self.dungeon.realm = Some(realm_before);
+            if let Some(run) = self.dungeon.shooter.as_mut() {
+                run.bank = hauls;
+                run.reclaimed = reclaimed;
+                run.triumph = triumph;
+            }
+            self.dungeon.notice = format!("Could not save the realm: {error}");
+            let _ = self.dungeon.checkpoint(std::time::Instant::now(), true);
+            self.publish_realm();
+            return false;
+        }
         let now = std::time::Instant::now();
         if !hauls.is_empty() {
             self.dungeon.chorus.cue("banked", now);
@@ -93,12 +110,553 @@ impl App {
             }
             self.dungeon.notice = notice;
         }
-        if let Err(error) = saved {
-            self.dungeon.notice = format!("Could not save the realm: {error}");
-        }
         // The run's bank is empty now; checkpoint so a crash cannot bank twice.
         let _ = self.dungeon.checkpoint(std::time::Instant::now(), true);
         self.publish_realm();
+        true
+    }
+
+    /// Pay for what the party asked for at the Undercroft's plates out of
+    /// the treasury, remember the deepest floor reached and the landing
+    /// chosen, and tell the run what now stands and what it can spend.
+    pub(crate) fn settle_home(&mut self) -> bool {
+        let Some(run) = self.dungeon.shooter.as_mut() else {
+            return true;
+        };
+        let orders = std::mem::take(&mut run.orders);
+        let noticed = std::mem::take(&mut run.feats);
+        let stall = run.stall.clone();
+        let stall_prices: Vec<u32> = stall
+            .iter()
+            .map(|id| run.book.get(id).map_or(0, shooter::yard::stall_price))
+            .collect();
+        let stall_names: Vec<String> = stall
+            .iter()
+            .map(|id| run.book.get(id).map_or(id.clone(), |c| c.name.clone()))
+            .collect();
+        let depth = run.dungeon.depth;
+        let landing = run.home.landing;
+        let audience = run.audience;
+        let show_over = matches!(run.phase, shooter::Phase::Won | shooter::Phase::Wiped);
+        let marks = std::mem::take(&mut run.marks);
+        let fighting = run.phase == shooter::Phase::Fighting;
+        let names: std::collections::BTreeMap<u32, String> = run
+            .players
+            .iter()
+            .map(|(&id, h)| (id, h.name.clone()))
+            .collect();
+        // Which knight of the company each player is, for Sir Ector.
+        let keys: std::collections::BTreeMap<u32, String> = run
+            .players
+            .iter()
+            .map(|(&id, h)| (id, shooter::talents::knight_key(h)))
+            .collect();
+        let host = self.host_name();
+        let unsaved = self.dungeon.bounties_unsaved;
+        let realm_before = {
+            let realm = self.realm();
+            let bounty_may_change = realm.home.bounties.iter().any(|pinned| {
+                let Some(bounty) = shooter::bounties::bounty(&pinned.id) else {
+                    return true;
+                };
+                if pinned.have >= bounty.need {
+                    return true;
+                }
+                match bounty.goal {
+                    shooter::bounties::Goal::Reach(floor) => {
+                        pinned.have != u32::from(depth >= floor)
+                    }
+                    shooter::bounties::Goal::Show(_) => audience > pinned.have,
+                    _ => false,
+                }
+            });
+            let bounty_can_be_pinned = realm.home.bounties.len() < shooter::bounties::PINNED
+                && shooter::bounties::BOUNTIES.iter().any(|bounty| {
+                    bounty.from <= depth.max(realm.home.deepest)
+                        && !realm.home.bounties.iter().any(|pinned| pinned.id == bounty.id)
+            });
+            let collection_achievement_can_be_earned =
+                (!realm.home.feats.contains("full_hall")
+                    && shooter::trophies::PLINTHS
+                        .iter()
+                        .all(|plinth| realm.home.trophies.contains_key(plinth.id)))
+                    || (!realm.home.feats.contains("full_house")
+                        && shooter::rescues::RESIDENTS
+                            .iter()
+                            .all(|resident| realm.home.residents.contains(resident.id)));
+            let may_change = !orders.is_empty()
+                || !noticed.is_empty()
+                || !marks.is_empty()
+                || depth > realm.home.deepest
+                || (depth == 0 && landing != realm.home.landing)
+                || (audience > realm.home.best_show
+                    && (show_over || audience >= realm.home.best_show + 100))
+                || (unsaved && !fighting);
+            (may_change
+                || bounty_may_change
+                || bounty_can_be_pinned
+                || collection_achievement_can_be_earned)
+            .then(|| realm.clone())
+        };
+        let realm = self.realm();
+        let mut changed = false;
+        if depth > realm.home.deepest {
+            realm.home.deepest = depth;
+            changed = true;
+        }
+        if depth == 0 && landing != realm.home.landing {
+            realm.home.landing = landing;
+            changed = true;
+        }
+        // The best show, kept as it grows (a tenth of a million at a time)
+        // and when the show is over.
+        if audience > realm.home.best_show && (show_over || audience >= realm.home.best_show + 100)
+        {
+            realm.home.best_show = audience;
+            changed = true;
+        }
+        let mut said: Vec<(String, String)> = Vec::new();
+        let mut earned: Vec<&'static str> = Vec::new();
+        // Wren's bounties: what the delve just did. A finished one is paid
+        // on the spot, and Wren pins the next. Progress is saved between
+        // fights, not on every kill.
+        let board = realm.home.bounties.clone();
+        let finished = realm.home.work_bounties(&marks, depth, audience);
+        let mut paid = Vec::new();
+        for bounty in &finished {
+            let reward = bounty.reward();
+            realm.treasury.merge(&reward);
+            changed = true;
+            paid.push(format!("{}, for {}", bounty.title, reward.label()));
+        }
+        let pinned = realm.home.pin_bounties();
+        if !pinned.is_empty() {
+            changed = true;
+        }
+        if !paid.is_empty() {
+            let next = pinned.last().map_or(String::new(), |b| {
+                format!(" Next on her board: {}.", b.title)
+            });
+            said.push((
+                "bounty_paid".into(),
+                format!("Wren's bounty done: {}.{next}", paid.join("; ")),
+            ));
+        } else if let Some(bounty) = pinned.last() {
+            said.push((
+                "bounty_pinned".into(),
+                format!("Wren pins a bounty: {}. \"{}\"", bounty.title, bounty.says),
+            ));
+        }
+        // The Trophy Hall: what fell, kept by the realm. Sir Kay says so the
+        // first time a piece comes in.
+        for (mark, &n) in &marks {
+            let Some(id) = mark.strip_prefix("trophy:") else {
+                continue;
+            };
+            let count = realm.home.trophies.entry(id.to_string()).or_default();
+            let first = *count == 0;
+            *count += n;
+            changed = true;
+            if first && let Some(plinth) = shooter::trophies::PLINTHS.iter().find(|p| p.id == id) {
+                said.push((
+                    "trophy_new".into(),
+                    format!(
+                        "Sir Kay has a new piece for the Trophy Hall: {}",
+                        plinth.name
+                    ),
+                ));
+            }
+        }
+        if shooter::trophies::PLINTHS
+            .iter()
+            .all(|p| realm.home.trophies.contains_key(p.id))
+        {
+            earned.push("full_hall");
+        }
+        // Rescues: whoever was let out of a cage goes home up the stair, and
+        // stays.
+        for mark in marks.keys() {
+            let Some(who) = mark
+                .strip_prefix("rescue:")
+                .and_then(shooter::rescues::resident)
+            else {
+                continue;
+            };
+            if realm.home.residents.insert(who.id.to_string()) {
+                changed = true;
+                said.push((
+                    "rescue_home".into(),
+                    format!(
+                        "{} is going home to the Undercroft, with {}",
+                        who.name, who.gives
+                    ),
+                ));
+            }
+        }
+        if shooter::rescues::RESIDENTS
+            .iter()
+            .all(|r| realm.home.residents.contains(r.id))
+        {
+            earned.push("full_house");
+        }
+        // Maud's round was drunk at the top of the stair: the realm's tab
+        // is clear for the next.
+        if marks.contains_key("round_drunk") && realm.home.round.take().is_some() {
+            changed = true;
+        }
+        // And Sir Dinadan's song went down with them.
+        if marks.contains_key("song_sung") && realm.home.song.take().is_some() {
+            changed = true;
+        }
+        // And Beaumains, with his wage in his pocket.
+        if marks.contains_key("hired") && realm.home.hire.take().is_some() {
+            changed = true;
+        }
+        // Experience: every knight in the party learns from what fell. A
+        // new level is a lesson waiting with Sir Ector.
+        let xp = marks.get("xp").copied().unwrap_or(0);
+        if xp > 0 {
+            for (id, key) in &keys {
+                let prowess = realm.home.knights.entry(key.clone()).or_default();
+                let before = prowess.level();
+                prowess.xp += xp;
+                if prowess.level() > before {
+                    let who = names.get(id).cloned().unwrap_or_else(|| key.clone());
+                    said.push((
+                        "level_up".into(),
+                        format!(
+                            "{who} reached level {}: Sir Ector has a lesson waiting in the Training Yard",
+                            prowess.level()
+                        ),
+                    ));
+                }
+            }
+        }
+        // The Herald's Bestiary counts every kill.
+        let mut counted = false;
+        for (mark, &n) in &marks {
+            if let Some(kind) = mark.strip_prefix("slay:") {
+                *realm.home.bestiary.entry(kind.to_string()).or_default() += n;
+                counted = true;
+            }
+        }
+        let unsaved = unsaved || realm.home.bounties != board || xp > 0 || counted;
+        if unsaved && !fighting {
+            changed = true;
+        }
+        // Every goblin that got away; the first brings Grubbins home.
+        let escapes = noticed.iter().filter(|f| **f == "sticky_fingers").count() as u32;
+        if escapes > 0 {
+            realm.home.goblins += escapes;
+            changed = true;
+        }
+        let mut sales: Vec<(usize, u32)> = Vec::new();
+        let mut unboxed: Option<(shooter::feats::Tier, crate::drive::together_realm::Spoils)> =
+            None;
+        for order in &orders {
+            use shooter::home::Station;
+            if let Some(item) = match order.station {
+                Station::StallA => Some(0),
+                Station::StallB => Some(1),
+                Station::StallC => Some(2),
+                _ => None,
+            } {
+                // Grubbins sells for gold, and only gold.
+                if stall.get(item).is_none_or(|c| c.is_empty()) {
+                    continue;
+                }
+                let price = stall_prices[item];
+                let mut cost = crate::drive::together_realm::Spoils::default();
+                cost.add(crate::drive::together_realm::Spoil::Gold, price);
+                if !realm.treasury.covers(&cost) {
+                    said.push((
+                        "cant_afford".into(),
+                        format!(
+                            "Grubbins: that's {price} gold, friend. You've got {}.",
+                            realm.treasury.get(crate::drive::together_realm::Spoil::Gold)
+                        ),
+                    ));
+                    continue;
+                }
+                realm.treasury.take(&cost);
+                changed = true;
+                sales.push((item, order.knight));
+                said.push((
+                    "grubbins_sold".into(),
+                    format!("Grubbins sold you {} for {price} gold", stall_names[item]),
+                ));
+                continue;
+            }
+            if let Some(side) = match order.station {
+                shooter::home::Station::LessonA => Some(0u8),
+                shooter::home::Station::LessonB => Some(1),
+                _ => None,
+            } {
+                // Sir Ector teaches the knight standing at his lectern.
+                let Some(key) = keys.get(&order.knight) else {
+                    continue;
+                };
+                match realm.home.learn(key, side) {
+                    Ok(talent) => {
+                        changed = true;
+                        earned.push("first_lesson");
+                        if realm.home.prowess(key).learned.len() == shooter::talents::LESSONS.len()
+                        {
+                            earned.push("master_of_arms");
+                        }
+                        let who = names
+                            .get(&order.knight)
+                            .cloned()
+                            .unwrap_or_else(|| key.clone());
+                        said.push((
+                            "lesson_learned".into(),
+                            format!(
+                                "{who} learned {} from Sir Ector ({}): \"{}\"",
+                                talent.name, talent.does, talent.says
+                            ),
+                        ));
+                    }
+                    Err(why) => said.push(("cant_afford".into(), why)),
+                }
+                continue;
+            }
+            if let Some(tap) = match order.station {
+                shooter::home::Station::TapA => Some(0),
+                shooter::home::Station::TapB => Some(1),
+                shooter::home::Station::TapC => Some(2),
+                _ => None,
+            } {
+                // Maud pours a round for the next delve: gold from the
+                // treasury, one round at a time.
+                let drink = &shooter::tavern::DRINKS[tap];
+                if let Some(waiting) = realm.home.round.as_deref().and_then(shooter::tavern::drink)
+                {
+                    said.push((
+                        "cant_afford".into(),
+                        format!(
+                            "Maud: you've a {} waiting already, love. Drink that first.",
+                            waiting.name
+                        ),
+                    ));
+                    continue;
+                }
+                let mut cost = crate::drive::together_realm::Spoils::default();
+                cost.add(crate::drive::together_realm::Spoil::Gold, drink.price);
+                if !realm.treasury.covers(&cost) {
+                    said.push((
+                        "cant_afford".into(),
+                        format!("Maud: that's {} gold, love. The tab's closed.", drink.price),
+                    ));
+                    continue;
+                }
+                realm.treasury.take(&cost);
+                realm.home.round = Some(drink.id.to_string());
+                changed = true;
+                said.push((
+                    format!("round_poured:{}", drink.id),
+                    format!(
+                        "Maud poured {} for the next delve ({} gold): {}",
+                        drink.name, drink.price, drink.does
+                    ),
+                ));
+                continue;
+            }
+            if let Some(plate) = match order.station {
+                shooter::home::Station::SongA => Some(0),
+                shooter::home::Station::SongB => Some(1),
+                shooter::home::Station::SongC => Some(2),
+                _ => None,
+            } {
+                // Sir Dinadan sings for the next delve: gold from the
+                // treasury, one song at a time.
+                let song = &shooter::tavern::SONGS[plate];
+                if let Some(waiting) = realm.home.song.as_deref().and_then(shooter::tavern::song) {
+                    said.push((
+                        "cant_afford".into(),
+                        format!(
+                            "Sir Dinadan: I've {} rehearsed already. One song at a time, friend.",
+                            waiting.name
+                        ),
+                    ));
+                    continue;
+                }
+                let mut cost = crate::drive::together_realm::Spoils::default();
+                cost.add(crate::drive::together_realm::Spoil::Gold, song.price);
+                if !realm.treasury.covers(&cost) {
+                    said.push((
+                        "cant_afford".into(),
+                        format!(
+                            "Sir Dinadan: {} gold, friend. Art isn't free. Mostly.",
+                            song.price
+                        ),
+                    ));
+                    continue;
+                }
+                realm.treasury.take(&cost);
+                realm.home.song = Some(song.id.to_string());
+                changed = true;
+                said.push((
+                    format!("song_asked:{}", song.id),
+                    format!(
+                        "Sir Dinadan will sing {} for the next delve ({} gold): {}",
+                        song.name, song.price, song.does
+                    ),
+                ));
+                continue;
+            }
+            if order.station == shooter::home::Station::Hire {
+                // Beaumains takes a wage for the next delve: gold from the
+                // treasury, once.
+                if realm.home.hire.is_some() {
+                    said.push((
+                        "cant_afford".into(),
+                        "Beaumains: I'm yours for the next one already, my lord. I'll be at the stair."
+                            .into(),
+                    ));
+                    continue;
+                }
+                let wage = shooter::hireling::WAGE;
+                let mut cost = crate::drive::together_realm::Spoils::default();
+                cost.add(crate::drive::together_realm::Spoil::Gold, wage);
+                if !realm.treasury.covers(&cost) {
+                    said.push((
+                        "cant_afford".into(),
+                        format!(
+                            "Beaumains: {wage} gold, my lord, and a hot meal. I'll throw in the meal."
+                        ),
+                    ));
+                    continue;
+                }
+                realm.treasury.take(&cost);
+                realm.home.hire = Some("beaumains".into());
+                changed = true;
+                said.push((
+                    "hire_asked:beaumains".into(),
+                    format!(
+                        "Beaumains will go down with you for the next delve ({wage} gold): he throws knives and keeps his distance"
+                    ),
+                ));
+                continue;
+            }
+            if order.station == shooter::home::Station::Coffer {
+                // A box opened before Fortune's audience.
+                if realm.home.boxes.is_empty() {
+                    said.push((
+                        "cant_afford".into(),
+                        "The coffer is empty: achievements fill it.".into(),
+                    ));
+                    continue;
+                }
+                let tier = realm.home.boxes.remove(0);
+                let spoils = tier.contents(realm.home.opened);
+                realm.home.opened += 1;
+                realm.treasury.merge(&spoils);
+                changed = true;
+                said.push((
+                    format!("box_opened:{}", shooter::feats::tier_word(tier)),
+                    format!("The {} held {}", tier.name(), spoils.label()),
+                ));
+                unboxed = Some((tier, spoils));
+                continue;
+            }
+            let ladder = order.station.ladder();
+            let who = match names.get(&order.knight).map(String::as_str) {
+                Some("You") | None if order.knight == 1 => host.clone(),
+                Some(name) => name.to_string(),
+                None => format!("Knight {}", order.knight),
+            };
+            let mut treasury = realm.treasury.clone();
+            match realm.home.buy(order.station, &mut treasury) {
+                Ok(level) => {
+                    realm.treasury = treasury;
+                    changed = true;
+                    earned.push("home_improvement");
+                    said.push((
+                        format!("built:{}", order.station.word()),
+                        format!(
+                            "{who} built {} {}: {}",
+                            ladder.name,
+                            shooter::home::numeral(level),
+                            ladder.rungs[usize::from(level) - 1].says
+                        ),
+                    ));
+                }
+                Err(why) => said.push(("cant_afford".into(), why)),
+            }
+        }
+        // Achievements: each kept once, each with its box.
+        let mut announced = Vec::new();
+        for id in noticed.iter().copied().chain(earned.iter().copied()) {
+            if let Some(feat) = shooter::feats::feat(id)
+                && realm.home.feats.insert(id.to_string())
+            {
+                realm.home.boxes.push(feat.tier);
+                changed = true;
+                announced.push(feat);
+            }
+        }
+        let saved = if changed { realm.save() } else { Ok(()) };
+        if let Err(error) = saved {
+            if let Some(realm_before) = realm_before {
+                self.dungeon.realm = Some(realm_before);
+            }
+            self.dungeon.bounties_unsaved = unsaved;
+            if let Some(run) = self.dungeon.shooter.as_mut() {
+                run.orders = orders;
+                run.feats = noticed;
+                run.marks = marks;
+            }
+            self.dungeon.notice = format!("Could not save the realm: {error}");
+            self.publish_realm();
+            return false;
+        }
+        let (home, treasury) = (realm.home.clone(), realm.treasury.clone());
+        self.dungeon.bounties_unsaved = unsaved && !changed;
+        if let Some(run) = self.dungeon.shooter.as_mut()
+            && (changed
+                || run.treasury != treasury
+                || run.home.levels != home.levels
+                || (!fighting && run.home.knights != home.knights))
+        {
+            run.rebuild_home(home, treasury);
+        }
+        if let Some(run) = self.dungeon.shooter.as_mut() {
+            for &(item, knight) in &sales {
+                run.sell(item, knight);
+            }
+            for feat in &announced {
+                run.announce(feat.id);
+            }
+            if let Some((tier, spoils)) = &unboxed {
+                run.unbox(*tier, spoils);
+            }
+        }
+        let now = std::time::Instant::now();
+        let built_or_opened = !said.is_empty();
+        for (cue, notice) in said {
+            self.dungeon.chorus.cue(&cue, now);
+            self.dungeon.notice = notice;
+        }
+        if let Some(feat) = announced.last() {
+            // After what was just built or opened, if anything was; whole,
+            // with the Herald's line, if not.
+            self.dungeon.notice = if built_or_opened {
+                format!(
+                    "{} · Achievement: {} ({})",
+                    self.dungeon.notice,
+                    feat.name,
+                    feat.tier.name()
+                )
+            } else {
+                format!(
+                    "NEW ACHIEVEMENT: {}. {} ({} in the Herald's coffer, Fortune's hall)",
+                    feat.name,
+                    feat.says,
+                    feat.tier.name()
+                )
+            };
+        }
+        true
     }
 
     /// When angelX's drafting turn ends, read its draft in — no command needed.

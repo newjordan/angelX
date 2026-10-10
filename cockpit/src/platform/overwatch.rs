@@ -165,7 +165,7 @@ impl Overwatch {
             return;
         }
         let cmd = overwatch_cmd();
-        if !Path::new(cmd).exists() {
+        if !overwatch_cmd_available(cmd) {
             self.fleet_missing = true;
             return;
         }
@@ -180,6 +180,10 @@ impl Overwatch {
             let _ = tx.send(sample);
         });
     }
+}
+
+fn overwatch_cmd_available(cmd: &str) -> bool {
+    crate::platform::workspace_lang::resolve_on_path(cmd).is_some()
 }
 
 /// A7: `refresh` / `read_gpu_pct` used to re-read `ANGEL_OVERWATCH_GPU` on every

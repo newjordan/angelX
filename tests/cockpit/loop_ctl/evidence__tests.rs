@@ -105,6 +105,38 @@ fn unsupported_novelty_is_a_hypothesis_not_progress() {
 }
 
 #[test]
+fn loop_labyrinth_keeps_unsupported_findings_as_hunches_without_progress_credit() {
+    let root = std::env::temp_dir().join(format!("angel-loop-labyrinth-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    crate::drive::labyrinth::initialize(&root).unwrap();
+    let mut st = LoopState {
+        task: "testable objective".into(),
+        workspace: Some(root.clone()),
+        ..LoopState::default()
+    };
+    let reply = "DIRECTION: explore\nFINDINGS:\n- maybe this corridor reaches the goal";
+    assert_eq!(apply_reply(&mut st, reply), 0);
+    assert_eq!(st.stale_count, 1);
+    let map = crate::drive::labyrinth::load(&root).unwrap().unwrap();
+    let frontier = map.frontier(Some(&st.task), 12);
+    assert!(
+        frontier
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["tier"] == "T6")
+    );
+    assert!(
+        !frontier
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["tier"] == "T4")
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn file_evidence_must_exist_and_prefix_matching_is_case_insensitive() {
     let mut st = LoopState::default();
     assert_eq!(

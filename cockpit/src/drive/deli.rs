@@ -241,7 +241,7 @@ impl DeliClub {
                 break;
             }
             let pivot = st.stale_count >= self.k.pivot;
-            let prompt = curated_prompt(
+            let mut prompt = curated_prompt(
                 problem,
                 &st.findings,
                 &st.hypotheses,
@@ -249,6 +249,10 @@ impl DeliClub {
                 pivot,
                 DELI_REGIME,
             );
+            let workspace = crate::knowledge::experience::current_turn_workspace();
+            if let Some(workspace) = &workspace {
+                prompt.push_str(&crate::drive::labyrinth::context(workspace, problem));
+            }
             let mut round_error = None;
             let (direction, reported, mut leads) =
                 match self.call_cancellable(&system, &[ChatMsg::user(prompt)], cancel) {
@@ -277,13 +281,26 @@ impl DeliClub {
                     fresh.push(f);
                 }
             }
+            let mut fresh_leads = Vec::new();
             for lead in leads {
                 let key = normalize(finding_claim(&lead));
                 if !key.is_empty() && !seen.contains(&key) && seen_hypotheses.insert(key) {
+                    fresh_leads.push(lead.clone());
                     st.hypotheses.push(lead);
                 }
             }
             let new_findings = fresh.len();
+            if let Some(workspace) = &workspace
+                && let Err(error) = crate::drive::labyrinth::observe_iteration(
+                    workspace,
+                    "deli",
+                    problem,
+                    &fresh,
+                    &fresh_leads,
+                )
+            {
+                eprintln!("[labyrinth] Deli observations unavailable: {error}");
+            }
             if new_findings == 0 {
                 st.stale_count += 1;
             } else {

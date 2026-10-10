@@ -150,6 +150,11 @@
 //! | ⣞ d234578 | `d23457_codex_sol.rs` | using skills, when and how to use a skill, apps, plugins, how to use plugins |
 //! | ⡯ d123467 | `d23457_codex_sol.rs` | the context window messages: the reminder, the notes guidance, the fallback |
 //!
+//! Native Labyrinth research uses ⡬ (`labyrinth_campaign.rs`) for navigation,
+//! coordination, literature, attacks, refereeing, writing, integration and
+//! escalation, with the ⣬ tool shelf for isolated files, checks and live leads.
+//! These chapters precede the final vendor seat-profile volume in the TOC.
+//!
 //! Addresses nest: `⠞` a chapter, `⠞⠉` a section (a route), `⠞⠉⠃` a page. A
 //! page is one sentence of the prompt it came from, verbatim; a section's pages
 //! rebuild that block exactly. Nothing is paraphrased, merged or dropped.
@@ -204,6 +209,7 @@ pub(crate) mod ing_drivers;
 pub(crate) mod introduction;
 pub(crate) mod k_competition;
 pub(crate) mod l_loops;
+pub(crate) mod labyrinth_campaign;
 pub(crate) mod ledger;
 pub(crate) mod m_method;
 pub(crate) mod n_environment;
@@ -301,7 +307,7 @@ pub(crate) struct Sub {
 }
 
 /// The first layer, in table-of-contents order.
-pub(crate) const TOC: [&Primary; 51] = [
+pub(crate) const TOC: [&Primary; 53] = [
     &k_competition::PRIMARY,
     &l_loops::PRIMARY,
     &m_method::PRIMARY,
@@ -358,6 +364,9 @@ pub(crate) const TOC: [&Primary; 51] = [
     // Volume VIII: the hop advisories, and the competition's shelf.
     &d3456_advisories::PRIMARY,
     &k_competition::SHELF,
+    // Native research roles and their tool shelf precede vendor seat profiles.
+    &labyrinth_campaign::PRIMARY,
+    &labyrinth_campaign::SHELF,
     // Volume IX: the seat profiles, Codex gpt-6.1-sol.
     &d23457_codex_sol::PRIMARY,
     &d23457_codex_sol::SHELF_II,

@@ -159,8 +159,111 @@ fn transport_and_unavailable_do_not_retry_the_same_club() {
     assert!(SessionFault::EmptyReply.retries_same_club());
 }
 
+struct CancelAwareTeacher {
+    started: std::sync::mpsc::Sender<()>,
+    finished: std::sync::mpsc::Sender<bool>,
+    release: Arc<AtomicBool>,
+}
+
+impl Club for CancelAwareTeacher {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        unreachable!("the streaming cancellation path is exercised")
+    }
+
+    fn label(&self) -> &str {
+        "cancel-aware-teacher"
+    }
+
+    fn chat_streaming(
+        &self,
+        _messages: &[ChatMsg],
+        _tools: &[ToolDef],
+        cancel: &AtomicBool,
+        _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+    ) -> Result<ClubReply, String> {
+        let _ = self.started.send(());
+        while !cancel.load(Ordering::Acquire) && !self.release.load(Ordering::Acquire) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let observed_cancel = cancel.load(Ordering::Acquire);
+        let _ = self.finished.send(observed_cancel);
+        Err("teacher request cancelled".into())
+    }
+}
+
+#[test]
+fn a_cancelled_turn_interrupts_the_teacher_wait_without_a_timeout() {
+    let _guard = crate::tests::env_lock();
+    TEACHER_ASK_IN_FLIGHT.store(false, Ordering::Release);
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let (finished_tx, finished_rx) = std::sync::mpsc::channel();
+    let (answer_tx, answer_rx) = std::sync::mpsc::channel();
+    let release = Arc::new(AtomicBool::new(false));
+    let club: Arc<dyn Club> = Arc::new(CancelAwareTeacher {
+        started: started_tx,
+        finished: finished_tx,
+        release: Arc::clone(&release),
+    });
+    let cancel = Arc::new(AtomicBool::new(false));
+    let ask_cancel = Arc::clone(&cancel);
+    let ask = std::thread::spawn(move || {
+        let answer = ask_teacher(
+            club,
+            std::path::Path::new("."),
+            "cancel me".to_string(),
+            &ask_cancel,
+        );
+        let _ = answer_tx.send(answer);
+    });
+
+    let started = started_rx.recv_timeout(Duration::from_secs(5)).is_ok();
+    cancel.store(true, Ordering::Release);
+    let observed_cancel = match finished_rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(observed) => Some(observed),
+        Err(_) => {
+            // Prevent a failed forwarding regression from leaving the mock
+            // worker or its global in-flight lease behind after this test.
+            release.store(true, Ordering::Release);
+            finished_rx.recv_timeout(Duration::from_secs(2)).ok()
+        }
+    };
+    let answer = match answer_rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(answer) => Some(answer),
+        Err(_) => {
+            release.store(true, Ordering::Release);
+            answer_rx.recv_timeout(Duration::from_secs(2)).ok()
+        }
+    };
+    let ask_deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while !ask.is_finished() && std::time::Instant::now() < ask_deadline {
+        std::thread::yield_now();
+    }
+    let ask_finished = ask.is_finished();
+    if ask_finished {
+        ask.join().unwrap();
+    } else {
+        drop(ask); // A broken wait implementation must not hang the test process.
+    }
+    let lease_deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire)
+        && std::time::Instant::now() < lease_deadline
+    {
+        std::thread::yield_now();
+    }
+
+    assert!(started, "teacher request did not enter its mock API");
+    assert_eq!(observed_cancel, Some(true), "worker must see turn cancellation");
+    assert_eq!(answer, Some(None), "cancelled teacher answer is discarded");
+    assert!(ask_finished, "cancelled teacher wait must terminate promptly");
+    assert!(
+        !TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire),
+        "teacher worker lease must clear before releasing the test lock"
+    );
+}
+
 #[test]
 fn a_slow_teacher_is_waited_for_never_timed_out() {
+    let _guard = crate::tests::env_lock();
     TEACHER_ASK_IN_FLIGHT.store(false, Ordering::Release);
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let release = Arc::new(AtomicBool::new(false));
@@ -177,7 +280,12 @@ fn a_slow_teacher_is_waited_for_never_timed_out() {
             release.store(true, Ordering::Release);
         })
     };
-    let answer = ask_teacher(club, std::path::Path::new("."), "first".to_string());
+    let answer = ask_teacher(
+        club,
+        std::path::Path::new("."),
+        "first".to_string(),
+        &AtomicBool::new(false),
+    );
     releaser.join().unwrap();
     assert_eq!(calls.load(Ordering::Acquire), 1);
     assert!(answer.is_some(), "a slow teacher's answer is kept");
@@ -185,7 +293,13 @@ fn a_slow_teacher_is_waited_for_never_timed_out() {
 
     let fast: Arc<dyn Club> = Arc::new(MockClub::up("luna", "CONTINUE: next"));
     assert_eq!(
-        ask_teacher(fast, std::path::Path::new("."), "second".to_string()).as_deref(),
+        ask_teacher(
+            fast,
+            std::path::Path::new("."),
+            "second".to_string(),
+            &AtomicBool::new(false),
+        )
+        .as_deref(),
         Some("CONTINUE: next")
     );
 }

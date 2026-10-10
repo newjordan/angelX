@@ -583,7 +583,7 @@ fn drain(scope: &mut v8::PinScope, context: v8::Local<v8::Context>) -> Result<()
             return Ok(());
         }
     }
-    Ok(()) // fall through — read_result reports whatever settled
+    Err("code_mode: async script did not settle before microtask drain limit".to_string())
 }
 
 /// Resolve the run's outcome from the harness globals: `__angel_error` (if set)

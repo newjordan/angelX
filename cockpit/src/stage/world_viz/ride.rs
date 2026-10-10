@@ -157,11 +157,20 @@ impl World {
         }
         let pitch = pitch.clamp(-0.30, 0.30);
         let fov = fov.clamp(0.70, 1.40);
+        if self.chivalry_visit.is_some() {
+            let (w,h) = (cells_w.min(256),cells_h.min(80));
+            return Some(self.chivalry_braille_frame(w,h,0.0,yaw_offset,pitch,fov,motion));
+        }
         let ambient = self.ambient_interior_visible();
         let expedition = self.expedition_playback(motion);
         let region_stage = world3d::region::stage_for(self.quest().region());
+        // A loop's region is walked as the Delve's crawl, unless the older
+        // expedition walk is asked for.
+        let crawl = self.loop_crawl_on().then(|| self.crawl_clock(motion));
         let world_key = if ambient {
             self.ambient_scene_sequence(motion)
+        } else if let Some(clock) = &crawl {
+            clock.key()
         } else if region_stage.is_some() {
             world3d::expedition::frame_key(self.quest(), expedition)
         } else {
@@ -204,6 +213,8 @@ impl World {
                 dot_h,
                 image::imageops::FilterType::Nearest,
             )
+        } else if let Some(clock) = &crawl {
+            self.crawl_frame(clock, (dot_w, dot_h))
         } else if let Some(stage) = region_stage {
             world3d::expedition::render_controls(
                 stage,
@@ -225,14 +236,14 @@ impl World {
         // Outdoor first-person: stamp the current mounted animation frame at
         // the bottom of the plate. Interiors stay on foot — no saddle overlay
         // — while Dotmax retains its established mounted overlay.
-        if self.interior.is_none() && !ambient && region_stage.is_none() {
+        if self.interior.is_none() && !ambient && region_stage.is_none() && crawl.is_none() {
             composite_rider_overlay(&mut frame, cinematics::rider_frame_key(self));
         }
         let image = std::sync::Arc::new(frame_to_braille_graded(
             &frame,
             cells_w,
             cells_h,
-            ambient || region_stage.is_some() || self.settled_vista_grade(),
+            ambient || region_stage.is_some() || crawl.is_some() || self.settled_vista_grade(),
         ));
         *self.ride_cache.borrow_mut() = Some(RideCacheEntry {
             world_key,
@@ -253,7 +264,7 @@ pub(super) fn composite_rider_overlay(
     crate::stage::knight_cast::composite(frame, key);
 }
 
-fn frame_to_braille_graded(
+pub(super) fn frame_to_braille_graded(
     frame: &image::RgbaImage,
     cells_w: usize,
     cells_h: usize,

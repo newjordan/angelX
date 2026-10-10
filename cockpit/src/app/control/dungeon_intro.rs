@@ -80,7 +80,7 @@ impl App {
                 format!(
                     "{who} · floor {} of {} · {} · score {}",
                     run.floor(),
-                    crate::drive::together_shooter::FLOORS,
+                    crate::drive::together_shooter::DEEPEST,
                     run.dungeon.pack.name(),
                     run.score
                 )

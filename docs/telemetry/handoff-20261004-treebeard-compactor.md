@@ -36,11 +36,17 @@ nothing already sent is rewritten and the provider's prefix cache never moves.
 - **Which model digests:** `ANGEL_COMPACT_URL` when set. Otherwise a reachable
   local utility club, but only when the in-hand driver is a paid link or a
   fan-out. The in-hand driver never digests for itself.
-- **Parallel, no deadline:** the hop's digests run in parallel and the hop
-  waits for every one it started. Nothing cuts a digest off. (The first cut
-  had a 30 s shared deadline; the operator had it removed the same day with
-  every other clock on a model's thought, see "nothing cancels a model's train
-  of thought" on `dev`.)
+- **Rolling, never waiting (2026-10-06):** the hop's digests run in parallel
+  and the hop never waits for one. A digest that has landed by the time the
+  hop's own tools finish rides its receipt under `⡌⠃`, attached before that
+  message is sent. One still in flight rolls forward and, when it lands, joins
+  the tail of a later request as a Harness note `⡌⠉ <handle>` (append-only, so
+  the prefix cache never moves). Digests still out when the driver's turn ends
+  wait in the registry (`ToolRegistry::rolling_digests`) and land at the next
+  turn's first request; a bounded delegate seat never touches that stash.
+  Nothing cuts a digest off. (The first cut had a 30 s deadline, removed the
+  same day; the 2026-10-06 cut before this one waited for every digest, which
+  let one slow or queued digest hold every session's step.)
 - **Misses:** a digest that fails or comes back empty is a miss; its receipt
   stays bare, as before this change.
 - **Per-hop cap:** at most `ANGEL_COMPACT_FANOUT` digests per hop (default 8).
@@ -50,8 +56,8 @@ nothing already sent is rewritten and the provider's prefix cache never moves.
 - **Digest cap:** 2 KiB on the receipt, with braille runs broken by `·`.
 - **Off switch:** `ANGEL_TREEBEARD_DIGEST=0`.
 
-**The book pages are new English written by Claude.** The operator may want to
-reword them. Per the no-rewording rule, they have not been tuned since.
+**The book pages are new English.** The operator may want to reword them.
+Per the no-rewording rule, they have not been tuned since.
 
 - `⡌⠁`:
   - "The root model sees a handle to the tool output below, not the output
@@ -77,7 +83,7 @@ file `Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf`.
 - Script: `~/models/serve-treebeard.sh`. It runs llama.cpp
   `~/llama.cpp-qwen36` with `-np 4 --kv-unified -c 131072 --reasoning-budget 0`
   and alias `treebeard`, on `:8001`.
-- It answers at `http://100.124.153.1:8001/v1`.
+- It answers at `http://<helper-host>:8001/v1`.
 - Log: `~/models/treebeard-serve-20261004.log`.
 - It was started with `setsid nohup`, so it does not survive a reboot.
 - The GGUF sits on the external HDD, so a cold load takes about 12 minutes.
@@ -94,7 +100,7 @@ file `Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf`.
 **Operator wiring (atlas, `~/angelX/.angel.env`, gitignored):**
 
 ```sh
-ANGEL_COMPACT_URL=http://100.124.153.1:8001/v1
+ANGEL_COMPACT_URL=http://<helper-host>:8001/v1
 ANGEL_COMPACT_MODEL=treebeard
 ANGEL_COMPACT_REASONING_DIALECT=qwen     # served name has no "qwen3"
 ANGEL_COMPACT_REASONING_EFFORT=none
@@ -118,7 +124,7 @@ ANGEL_COMPACT_BG_TIMEOUT_SECS=120
   `a_parked_result_reaches_the_paid_root_with_the_local_digest`. In that test a
   scripted paid driver calls a 48 KB tool, and its next request carries the
   receipt and the `⡌⠃` digest, not the bulk.
-- **Live test:** `ANGEL_TREEBEARD_LIVE_URL=http://100.124.153.1:8001/v1
+- **Live test:** `ANGEL_TREEBEARD_LIVE_URL=http://<helper-host>:8001/v1
   ANGEL_COMPACT_REASONING_DIALECT=qwen cargo test --bin angel live_compactor --
   --ignored --nocapture`.
 - **Wire check:** an `angel --ask` through a logging proxy showed
@@ -132,6 +138,21 @@ ANGEL_COMPACT_BG_TIMEOUT_SECS=120
   and `run_turn::yolo_turn_stamps_consecutive_tool_errors_and_keeps_going` fail
   on bare `origin/dev` (`fa72791`) and on `multi` without this change. They are
   not caused by it; they are worth a look on their own.
+
+## Tool hand-off (2026-10-06)
+
+A foreground shell call still running after `ANGEL_TOOL_HANDOFF_SECS` (default
+600) is handed to the background-job table instead of holding the turn — the
+2026-10-06 hash session sat 12h42m on one `kissat` solve. Nothing is stopped:
+the call's waiter thread keeps the child and its exit channel moves to the job
+(`proc::JobChild::HandedOff`); the output readers switch from a recent-output
+ring to the job's rotating log under one lock (`exec/handoff.rs::Tap`). The
+model gets a receipt `[handoff: job N pid P ran Ss, no output Ts]` with the
+command, process tree (state, lifetime CPU%) and output tail, then `⡌⠙⠏⠙`.
+The helper (any lane, same as the compactor) reads it from `⡌⠑` and its read
+rolls like a digest (`⡌⠋` on the receipt or `⡌⠋ job N` at the tail). Off in
+sealed tasks. The four `⡌` pages added for this (`⡌⠉`, `⡌⠙`, `⡌⠑`, `⡌⠋`) are
+new English awaiting the operator's wording.
 
 ## Open
 

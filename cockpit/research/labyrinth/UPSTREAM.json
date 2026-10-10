@@ -1,0 +1,365 @@
+{
+  "source": "https://github.com/nasqret/labyrinth-exploration",
+  "fork": "https://github.com/newjordan/labyrinth-exploration",
+  "source_head": "019a93da59313e697dc6f28bcfe1588a376c7565",
+  "license": "MIT",
+  "author": "Bartosz Naskręcki",
+  "adaptations": [
+    "lab.py merges immutable Angel Deli/loop/RL observation fragments with curated precedence.",
+    "lab.py escapes research text in embedded dashboard JSON.",
+    "Complete pinned upstream skill, references, briefs, examples, assets and tests retained under upstream/; native encoded Legend role orchestration and isolated checked integration added.",
+    "Python engine reads native private live events and cooperates with the native integration lock and hash-bound pending transaction journal."
+  ],
+  "files": [
+    {
+      "path": "cockpit/research/labyrinth/lab.py",
+      "upstream_path": "templates/lab.py",
+      "upstream_sha256": "91d1d5d9ba403379f0e4cdb907fadd1dbca52370623b3576122ede3b56d82515",
+      "sha256": "4cdb7d723e345f192a8733086ea8d6d92e58c78b38dd67b78b562589d85fb71b",
+      "adapted": true
+    },
+    {
+      "path": "cockpit/research/labyrinth/dashboard.html",
+      "upstream_path": "templates/dashboard.html",
+      "upstream_sha256": "28dca60559dd5b54259e2625e8afe25c680ec99fd2c62e5b63d6d50eae5fa02f",
+      "sha256": "28dca60559dd5b54259e2625e8afe25c680ec99fd2c62e5b63d6d50eae5fa02f",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/schema.md",
+      "upstream_path": "references/schema.md",
+      "upstream_sha256": "b7dd03df0ef3de8e7d7e050fe616d7ebf6ba4f4fb6a6e6102b5ceb9e270edf32",
+      "sha256": "b7dd03df0ef3de8e7d7e050fe616d7ebf6ba4f4fb6a6e6102b5ceb9e270edf32",
+      "adapted": false
+    },
+    {
+      "path": "third-party/labyrinth-exploration-LICENSE.txt",
+      "upstream_path": "LICENSE",
+      "upstream_sha256": "602458a6e05605d07b67c553087ea8d4bf21e3824b531d986f6be7fdc18b6dda",
+      "sha256": "602458a6e05605d07b67c553087ea8d4bf21e3824b531d986f6be7fdc18b6dda",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/.github/workflows/tests.yml",
+      "upstream_path": ".github/workflows/tests.yml",
+      "upstream_sha256": "6aaf8df5ced9da795ca63653d375520110312b9b683c2ae27aa47563ec3a377d",
+      "sha256": "6aaf8df5ced9da795ca63653d375520110312b9b683c2ae27aa47563ec3a377d",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/.gitignore",
+      "upstream_path": ".gitignore",
+      "upstream_sha256": "fb8e654bc5baf851f730f772642243522a8f7174caf2da9dbdbdfbf762ed23e6",
+      "sha256": "fb8e654bc5baf851f730f772642243522a8f7174caf2da9dbdbdfbf762ed23e6",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/CHANGELOG.md",
+      "upstream_path": "CHANGELOG.md",
+      "upstream_sha256": "cd2c6300b4e40ad7e064182fc28c50f75d9ca9dbf95b429930746fbe1dbcf9ef",
+      "sha256": "cd2c6300b4e40ad7e064182fc28c50f75d9ca9dbf95b429930746fbe1dbcf9ef",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/LICENSE",
+      "upstream_path": "LICENSE",
+      "upstream_sha256": "602458a6e05605d07b67c553087ea8d4bf21e3824b531d986f6be7fdc18b6dda",
+      "sha256": "602458a6e05605d07b67c553087ea8d4bf21e3824b531d986f6be7fdc18b6dda",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/MAINTAINING.md",
+      "upstream_path": "MAINTAINING.md",
+      "upstream_sha256": "99cc3d6b20c50217b01b9fdaa25f0b05bd51ebe2433718ff4efafbcd11dfd3de",
+      "sha256": "99cc3d6b20c50217b01b9fdaa25f0b05bd51ebe2433718ff4efafbcd11dfd3de",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/README.md",
+      "upstream_path": "README.md",
+      "upstream_sha256": "0c45ee0d1e9fa52842822b826324b2e497786a505da013581bb57a30b8098147",
+      "sha256": "0c45ee0d1e9fa52842822b826324b2e497786a505da013581bb57a30b8098147",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/SKILL.md",
+      "upstream_path": "SKILL.md",
+      "upstream_sha256": "787d8c8a26b9dacbc4121d8cdd68c70eb5d597dd4905edb79925000d7567bf56",
+      "sha256": "787d8c8a26b9dacbc4121d8cdd68c70eb5d597dd4905edb79925000d7567bf56",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/agents/openai.yaml",
+      "upstream_path": "agents/openai.yaml",
+      "upstream_sha256": "53aac9c1614dbc4e60c2e005863714b00885ca3d09ae7043cf6b0e60600f8253",
+      "sha256": "53aac9c1614dbc4e60c2e005863714b00885ca3d09ae7043cf6b0e60600f8253",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/campaign.svg",
+      "upstream_path": "assets/campaign.svg",
+      "upstream_sha256": "1d4a995a755b76c08d65f4985d6276760b8f6b69fa9ad8b9e3ae673c9972db2c",
+      "sha256": "1d4a995a755b76c08d65f4985d6276760b8f6b69fa9ad8b9e3ae673c9972db2c",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/dashboard-board.png",
+      "upstream_path": "assets/dashboard-board.png",
+      "upstream_sha256": "5fa42b49ee803a5006b4e8eaa158ab07b541d8e3538840b0e73ce7ac869aea63",
+      "sha256": "5fa42b49ee803a5006b4e8eaa158ab07b541d8e3538840b0e73ce7ac869aea63",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/dashboard-frontier.png",
+      "upstream_path": "assets/dashboard-frontier.png",
+      "upstream_sha256": "97785334cfe99006649edfae3a071daadf89591603adf604a2114b805903407e",
+      "sha256": "97785334cfe99006649edfae3a071daadf89591603adf604a2114b805903407e",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/dashboard-graph.png",
+      "upstream_path": "assets/dashboard-graph.png",
+      "upstream_sha256": "040a667697ee5d303dc85ecdead76889cbb0fab34f535d6e09c541afe850df8d",
+      "sha256": "040a667697ee5d303dc85ecdead76889cbb0fab34f535d6e09c541afe850df8d",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/dashboard-map.png",
+      "upstream_path": "assets/dashboard-map.png",
+      "upstream_sha256": "01f34eb75868a7d561b682a84aab8381474d486bb45a60bcfdccc56bc1833f1c",
+      "sha256": "01f34eb75868a7d561b682a84aab8381474d486bb45a60bcfdccc56bc1833f1c",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/dashboard-sota.png",
+      "upstream_path": "assets/dashboard-sota.png",
+      "upstream_sha256": "45f2c8447fac777348356aff6f4395889cfbc6d55b6178960b180201a7e3811f",
+      "sha256": "45f2c8447fac777348356aff6f4395889cfbc6d55b6178960b180201a7e3811f",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/hero.svg",
+      "upstream_path": "assets/hero.svg",
+      "upstream_sha256": "bb208420e938abcf212aea8f7b240f502f2146271e1b01cf397ca1adc2bc8c5f",
+      "sha256": "bb208420e938abcf212aea8f7b240f502f2146271e1b01cf397ca1adc2bc8c5f",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/loop.svg",
+      "upstream_path": "assets/loop.svg",
+      "upstream_sha256": "409b82857ea5bd7aa00d58840637880d2347523e5f9ec665ceb375e0c0a1de0e",
+      "sha256": "409b82857ea5bd7aa00d58840637880d2347523e5f9ec665ceb375e0c0a1de0e",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/social-preview.png",
+      "upstream_path": "assets/social-preview.png",
+      "upstream_sha256": "a450eec6aad10fb6067d38906bf9f9634294cebe5a72045f56f86405d1b2aad5",
+      "sha256": "a450eec6aad10fb6067d38906bf9f9634294cebe5a72045f56f86405d1b2aad5",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/assets/tiers.svg",
+      "upstream_path": "assets/tiers.svg",
+      "upstream_sha256": "f9b86ab29e6291faeda42b48ec9eaa4501bd939890d99aa879b2c7b37e77ea37",
+      "sha256": "f9b86ab29e6291faeda42b48ec9eaa4501bd939890d99aa879b2c7b37e77ea37",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/docs/codex-testing.md",
+      "upstream_path": "docs/codex-testing.md",
+      "upstream_sha256": "16dfa5ca5f03fc3b21c0552b36b20e06e4214d68fb02f396207fdf2e69f46f0b",
+      "sha256": "16dfa5ca5f03fc3b21c0552b36b20e06e4214d68fb02f396207fdf2e69f46f0b",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/docs/tutorial.md",
+      "upstream_path": "docs/tutorial.md",
+      "upstream_sha256": "4cff7267d45a75aa3ed5fc50fc24e7f9fc2a4b5959021a12d1ada42891049672",
+      "sha256": "4cff7267d45a75aa3ed5fc50fc24e7f9fc2a4b5959021a12d1ada42891049672",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/README.md",
+      "upstream_path": "examples/README.md",
+      "upstream_sha256": "70daff337aff4fcf6b87f1e72675a577a416d5d78c87af0ee67dafe3afef03da",
+      "sha256": "70daff337aff4fcf6b87f1e72675a577a416d5d78c87af0ee67dafe3afef03da",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/prompts.md",
+      "upstream_path": "examples/prompts.md",
+      "upstream_sha256": "57f35cda0c25b596d61e1592bd35062a9e4baa7302f46ee9e88293ba2d4f387e",
+      "sha256": "57f35cda0c25b596d61e1592bd35062a9e4baa7302f46ee9e88293ba2d4f387e",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/triangle-counts/README.md",
+      "upstream_path": "examples/triangle-counts/README.md",
+      "upstream_sha256": "f4d7b343905673b494b2c499dd113edd74956796b14cf008dbf699b2d730d496",
+      "sha256": "f4d7b343905673b494b2c499dd113edd74956796b14cf008dbf699b2d730d496",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/triangle-counts/events.jsonl",
+      "upstream_path": "examples/triangle-counts/events.jsonl",
+      "upstream_sha256": "d91117732c3c02138b5aaa515b830a93cd3052931a74b3a36163dedd17af3e79",
+      "sha256": "d91117732c3c02138b5aaa515b830a93cd3052931a74b3a36163dedd17af3e79",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/triangle-counts/exhaustive_n8.py",
+      "upstream_path": "examples/triangle-counts/exhaustive_n8.py",
+      "upstream_sha256": "3df8b777bcfaada354e73a1de1f2f9c98d1ce8b224c34c67b64d3282b373913f",
+      "sha256": "3df8b777bcfaada354e73a1de1f2f9c98d1ce8b224c34c67b64d3282b373913f",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/triangle-counts/knowledge.json",
+      "upstream_path": "examples/triangle-counts/knowledge.json",
+      "upstream_sha256": "a8e0b7764823a456b405dabb4f13129a3a2c68a4dc0f6a5fcb4ba7bcc98249ae",
+      "sha256": "a8e0b7764823a456b405dabb4f13129a3a2c68a4dc0f6a5fcb4ba7bcc98249ae",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/triangle-counts/make_example.py",
+      "upstream_path": "examples/triangle-counts/make_example.py",
+      "upstream_sha256": "20aa40c88135cd20b31be3c57a2c05a780999a6c5793f202c0800e952221ff21",
+      "sha256": "20aa40c88135cd20b31be3c57a2c05a780999a6c5793f202c0800e952221ff21",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/examples/triangle-counts/sota.json",
+      "upstream_path": "examples/triangle-counts/sota.json",
+      "upstream_sha256": "4c1aa8062a758a5ec7414b0d98f921f709e987e27c4e5cc805c2d62c6a411787",
+      "sha256": "4c1aa8062a758a5ec7414b0d98f921f709e987e27c4e5cc805c2d62c6a411787",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/campaigns.md",
+      "upstream_path": "references/campaigns.md",
+      "upstream_sha256": "8a662b9abafc73bee998a6474179a974d737f2d38b8fc95d4320d60279e4d9aa",
+      "sha256": "8a662b9abafc73bee998a6474179a974d737f2d38b8fc95d4320d60279e4d9aa",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/codex.md",
+      "upstream_path": "references/codex.md",
+      "upstream_sha256": "8f8fbc86799b5e468e2f7a03600564f7eec95eb3a0e41129f1b24784b391199a",
+      "sha256": "8f8fbc86799b5e468e2f7a03600564f7eec95eb3a0e41129f1b24784b391199a",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/compute.md",
+      "upstream_path": "references/compute.md",
+      "upstream_sha256": "ebca96a8aa66d9dd3080517fe8639ebdd40627aa6e1094ef9370a6902d3e7cb5",
+      "sha256": "ebca96a8aa66d9dd3080517fe8639ebdd40627aa6e1094ef9370a6902d3e7cb5",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/lessons.md",
+      "upstream_path": "references/lessons.md",
+      "upstream_sha256": "535421ba8f222f7964dde05095a8a499895183da81915a87908e21f789ad896c",
+      "sha256": "535421ba8f222f7964dde05095a8a499895183da81915a87908e21f789ad896c",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/loop.md",
+      "upstream_path": "references/loop.md",
+      "upstream_sha256": "1bcea957fe593a7ca3e817a74889e28500f667b01b32488697c541d6aef140ac",
+      "sha256": "1bcea957fe593a7ca3e817a74889e28500f667b01b32488697c541d6aef140ac",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/saturation.md",
+      "upstream_path": "references/saturation.md",
+      "upstream_sha256": "1c710eb1a4c97b896aec25eb8335925ed80e5c4c222f810548002489df596643",
+      "sha256": "1c710eb1a4c97b896aec25eb8335925ed80e5c4c222f810548002489df596643",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/references/schema.md",
+      "upstream_path": "references/schema.md",
+      "upstream_sha256": "b7dd03df0ef3de8e7d7e050fe616d7ebf6ba4f4fb6a6e6102b5ceb9e270edf32",
+      "sha256": "b7dd03df0ef3de8e7d7e050fe616d7ebf6ba4f4fb6a6e6102b5ceb9e270edf32",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/templates/briefs/attack.md",
+      "upstream_path": "templates/briefs/attack.md",
+      "upstream_sha256": "b2e99535e82e588efc3b789fba447282c21e46ab99c52a21ed4836270a3fbc6c",
+      "sha256": "b2e99535e82e588efc3b789fba447282c21e46ab99c52a21ed4836270a3fbc6c",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/templates/briefs/referee.md",
+      "upstream_path": "templates/briefs/referee.md",
+      "upstream_sha256": "9e60bd28218b8449b57cf8b16d211f72dd363d6a58b0fea69ceda60d96483456",
+      "sha256": "9e60bd28218b8449b57cf8b16d211f72dd363d6a58b0fea69ceda60d96483456",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/templates/briefs/writer.md",
+      "upstream_path": "templates/briefs/writer.md",
+      "upstream_sha256": "150c4c5c219bb4a58018bd13afd889043b5f3a3f8628c656fe44b9637fbdbe0f",
+      "sha256": "150c4c5c219bb4a58018bd13afd889043b5f3a3f8628c656fe44b9637fbdbe0f",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/templates/dashboard.html",
+      "upstream_path": "templates/dashboard.html",
+      "upstream_sha256": "28dca60559dd5b54259e2625e8afe25c680ec99fd2c62e5b63d6d50eae5fa02f",
+      "sha256": "28dca60559dd5b54259e2625e8afe25c680ec99fd2c62e5b63d6d50eae5fa02f",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/templates/lab.py",
+      "upstream_path": "templates/lab.py",
+      "upstream_sha256": "91d1d5d9ba403379f0e4cdb907fadd1dbca52370623b3576122ede3b56d82515",
+      "sha256": "91d1d5d9ba403379f0e4cdb907fadd1dbca52370623b3576122ede3b56d82515",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/tests/test_codex.py",
+      "upstream_path": "tests/test_codex.py",
+      "upstream_sha256": "9aa8cb15f11f32335f2861dc63b0450444f83f562f28edf6ea0f0b1d2ed7592d",
+      "sha256": "9aa8cb15f11f32335f2861dc63b0450444f83f562f28edf6ea0f0b1d2ed7592d",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/tests/test_lab.py",
+      "upstream_path": "tests/test_lab.py",
+      "upstream_sha256": "b2acfa35d067f1d1e192b836865df454568ea5d61cb33a468f511e01c7912b49",
+      "sha256": "b2acfa35d067f1d1e192b836865df454568ea5d61cb33a468f511e01c7912b49",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/tests/test_skill.py",
+      "upstream_path": "tests/test_skill.py",
+      "upstream_sha256": "9b35ff5764f3b32b9e4db9f6ea970dac0953458e0775d8d78f84a76aa6d93e84",
+      "sha256": "9b35ff5764f3b32b9e4db9f6ea970dac0953458e0775d8d78f84a76aa6d93e84",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/tools/codex_smoke.py",
+      "upstream_path": "tools/codex_smoke.py",
+      "upstream_sha256": "89de5fef8ba416706ee4bfbc2f47fbf9bf6614a045503ecc20787b2944acde74",
+      "sha256": "89de5fef8ba416706ee4bfbc2f47fbf9bf6614a045503ecc20787b2944acde74",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/tools/make_graphics.py",
+      "upstream_path": "tools/make_graphics.py",
+      "upstream_sha256": "21c93bcb3c120b1103600bd9c4fee11eeca19cafb8ed3daaa47d24be55a2f01e",
+      "sha256": "21c93bcb3c120b1103600bd9c4fee11eeca19cafb8ed3daaa47d24be55a2f01e",
+      "adapted": false
+    },
+    {
+      "path": "cockpit/research/labyrinth/upstream/tools/screenshots.py",
+      "upstream_path": "tools/screenshots.py",
+      "upstream_sha256": "2aea89bcdf52d2a61edce8563dd5ab0c11599b6530c2def3cd91bc4e1aa5e388",
+      "sha256": "2aea89bcdf52d2a61edce8563dd5ab0c11599b6530c2def3cd91bc4e1aa5e388",
+      "adapted": false
+    }
+  ]
+}

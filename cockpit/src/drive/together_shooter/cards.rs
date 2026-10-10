@@ -159,6 +159,12 @@ pub(crate) enum Effect {
     Gem(u32),
     Ember(u32),
     Scale(u32),
+    /// Blink N steps along the aim (the Fae Dagger).
+    Blink(u32),
+    /// N seconds untouched by hex, chill, web and hook (the Pendragon Sceptre).
+    Immune(u32),
+    /// Mend every knight near by N (the Censer).
+    Censer(u32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -203,6 +209,36 @@ const CAST_SPEC: Spec = Spec {
 };
 
 const SPECS: &[Spec] = &[
+    Spec {
+        word: "blink",
+        low: 4,
+        high: 14,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Blink,
+        says: "blink N steps along your aim",
+    },
+    Spec {
+        word: "immune",
+        low: 2,
+        high: 8,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Immune,
+        says: "N seconds untouched by hex, chill, web and hook",
+    },
+    Spec {
+        word: "censer",
+        low: 10,
+        high: 80,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Censer,
+        says: "mend every knight near you by N",
+    },
     Spec {
         word: "heal",
         low: 5,
@@ -508,7 +544,10 @@ impl Effect {
             | Effect::Ore(v)
             | Effect::Gem(v)
             | Effect::Ember(v)
-            | Effect::Scale(v) => v,
+            | Effect::Scale(v)
+            | Effect::Blink(v)
+            | Effect::Immune(v)
+            | Effect::Censer(v) => v,
         };
         let word = SPECS
             .iter()
@@ -579,7 +618,8 @@ impl Card {
     }
 
     fn drops_in(&self, pack: Pack) -> bool {
-        self.only_in.is_none_or(|p| p == pack)
+        // A deep delve sheds the materials of its kin.
+        self.only_in.is_none_or(|p| p == pack || p == pack.kin())
     }
 
     /// The card's art rows, or its kind's glyph when it drew none.
@@ -1210,6 +1250,18 @@ pub(crate) const BUILTIN: &[(&str, &str)] = &[
     (
         "kite-shield",
         include_str!("../../../assets/dungeon/cards/kite-shield.card"),
+    ),
+    (
+        "fae-dagger",
+        include_str!("../../../assets/dungeon/cards/fae-dagger.card"),
+    ),
+    (
+        "pendragon-sceptre",
+        include_str!("../../../assets/dungeon/cards/pendragon-sceptre.card"),
+    ),
+    (
+        "censer",
+        include_str!("../../../assets/dungeon/cards/censer.card"),
     ),
 ];
 

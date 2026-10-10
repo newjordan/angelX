@@ -12,14 +12,61 @@ fn candidate(
 
 #[test]
 fn ids_are_stable_but_surface_specific_and_revision_sensitive() {
-    let a = RouteId::chat("turbo", "chat", Some("high"));
-    let again = RouteId::chat("turbo", "chat", Some("high"));
-    let other_surface = RouteId::chat("spark", "chat", Some("high"));
+    let a = RouteId::chat("turbo", "chat", "model-a", Some("high"));
+    let again = RouteId::chat("turbo", "chat", "model-a", Some("high"));
+    let other_model = RouteId::chat("turbo", "chat", "model-b", Some("high"));
+    let other_surface = RouteId::chat("spark", "chat", "model-a", Some("high"));
     assert_eq!(a, again);
+    assert_ne!(a, other_model);
     assert_ne!(a, other_surface);
     assert_ne!(
         ModelRevision::chat("model-a"),
         ModelRevision::chat("model-b")
+    );
+}
+
+#[test]
+fn same_surface_driver_and_effort_keep_model_descriptors_and_attribution_distinct() {
+    let bag = Bag::for_render_test(&[(
+        "alpha",
+        &[("model-a", true), ("model-b", true)],
+    )]);
+    let registry = BackplaneRegistry::from_bag(&bag);
+    let model_a_id = RouteId::chat("alpha", "practice", "model-a", None);
+    let model_b_id = RouteId::chat("alpha", "practice", "model-b", None);
+
+    assert_ne!(model_a_id, model_b_id);
+    assert_eq!(registry.route(&model_a_id).unwrap().model, "model-a");
+    assert_eq!(registry.route(&model_b_id).unwrap().model, "model-b");
+    assert_eq!(
+        registry
+            .routes()
+            .iter()
+            .filter(|route| route.invocation_profile.starts_with("chat:"))
+            .count(),
+        2
+    );
+    assert_eq!(
+        registry
+            .resolve_identity(&RouteIdentity {
+                driver: "practice".to_string(),
+                model: Some("model-a".to_string()),
+                reasoning_effort: None,
+            })
+            .unwrap()
+            .route_id,
+        model_a_id
+    );
+    assert_eq!(
+        registry
+            .resolve_identity(&RouteIdentity {
+                driver: "practice".to_string(),
+                model: Some("model-b".to_string()),
+                reasoning_effort: None,
+            })
+            .unwrap()
+            .route_id,
+        model_b_id
     );
 }
 
@@ -95,7 +142,7 @@ fn availability_changes_publish_exactly_once_then_coalesce() {
 }
 
 #[test]
-fn discovery_refresh_preserves_route_identity_but_updates_model_revision() {
+fn discovery_refresh_updates_route_identity_and_model_revision() {
     let first = Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
     let registry = BackplaneRegistry::from_bag(&first);
     let before = registry
@@ -110,7 +157,9 @@ fn discovery_refresh_preserves_route_identity_but_updates_model_revision() {
         .into_iter()
         .find(|route| route.roles.contains(&WorkloadRole::Foreground))
         .unwrap();
-    assert_eq!(before.route_id, after.route_id);
+    assert_eq!(before.model, "model-a");
+    assert_eq!(after.model, "model-b");
+    assert_ne!(before.route_id, after.route_id);
     assert_ne!(before.model_revision, after.model_revision);
 }
 

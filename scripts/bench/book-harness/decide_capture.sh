@@ -59,6 +59,9 @@ TASK=$!
 if wait "$TASK"; then RC=0; else RC=$?; fi
 stop_task
 REQUESTS=unknown
-if [[ -f "$LOG" ]]; then REQUESTS=$(wc -l < "$LOG"); fi
+if [[ -f "$LOG" ]]; then
+  REQUESTS=$(wc -l < "$LOG")
+  REQUESTS=$((REQUESTS))
+fi
 echo "$LABEL rc=$RC requests=$REQUESTS"
 exit "$RC"

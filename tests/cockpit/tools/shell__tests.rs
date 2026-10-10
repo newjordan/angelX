@@ -250,6 +250,7 @@ fn scratch(name: &str) -> PathBuf {
 
 #[test]
 fn shell_tool_honors_registry_cancel_authority() {
+    let _env = crate::tests::env_lock();
     let dir = scratch("cancel");
     let mut registry = crate::agent::harness::ToolRegistry::new();
     registry.register(Box::new(ShellTool::in_dir(dir.clone())));
@@ -360,6 +361,7 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
 /// being masked by whatever happened to run last.
 #[test]
 fn a_failing_stage_is_not_masked_by_a_succeeding_one() {
+    let _env = crate::tests::env_lock();
     let dir = scratch("pipefail");
     // The canonical shape: the thing under judgement fails, the plumbing
     // after it succeeds. Under plain `sh` every one of these recorded a 0.
@@ -380,6 +382,7 @@ fn a_failing_stage_is_not_masked_by_a_succeeding_one() {
 
 #[test]
 fn a_definite_nonzero_exit_is_a_tool_error_not_ordinary_output() {
+    let _env = crate::tests::env_lock();
     let dir = scratch("call-failure-visible");
     let tool = ShellTool::in_dir(dir.clone());
     let err = tool
@@ -410,6 +413,7 @@ fn runtime_missing_shell_error_has_the_shared_onboarding_hint() {
 
 #[test]
 fn a_command_not_found_names_the_missing_program_and_its_sibling() {
+    let _env = crate::tests::env_lock();
     let dir = scratch("call-127-hint");
     let tool = ShellTool::in_dir(dir.clone());
     let err = tool
@@ -500,6 +504,7 @@ fn lifecycle_signal_killed_shell_returns_failed_inconclusive_receipt() {
 
 #[test]
 fn a_no_verdict_exit_is_labelled_without_becoming_a_false_failure() {
+    let _env = crate::tests::env_lock();
     let dir = scratch("call-no-verdict-visible");
     let tool = ShellTool::in_dir(dir.clone());
     let out = tool
@@ -519,6 +524,9 @@ fn a_no_verdict_exit_is_labelled_without_becoming_a_false_failure() {
 /// and inventing a build failure out of `head(1)` would be the same sin.
 #[test]
 fn a_stage_killed_by_sigpipe_yields_no_verdict_not_a_failure() {
+    // Other tests point PATH and HOME at fixtures under this lock; a shell
+    // spawned meanwhile would not find bash.
+    let _env = crate::tests::env_lock();
     let dir = scratch("sigpipe");
     for cmd in ["yes | head -1", "seq 1 200000 | head -2"] {
         let (exit, verdict, reason) = row(&dir, cmd);
@@ -537,6 +545,7 @@ fn a_stage_killed_by_sigpipe_yields_no_verdict_not_a_failure() {
 /// silently degrades to a POSIX `sh`, the ledger says so instead of lying.
 #[test]
 fn the_resolved_shell_reports_whether_it_can_be_trusted() {
+    let _env = crate::tests::env_lock();
     let shell = shell_invocation();
     assert!(
         shell.pipefail,

@@ -317,10 +317,12 @@ impl SwarmCompilerEngine {
         mode: DelegateMode,
         base_ref: &str,
         prompt: String,
+        cancelled: Option<&AtomicBool>,
     ) -> Result<DelegateOutcome, String> {
         self.begin_node(run, role)?;
         let route = self.route(run, role)?;
-        self.delegate.run_from(&route, &prompt, mode, base_ref)
+        self.delegate
+            .run_from_with_cancel(&route, &prompt, mode, base_ref, cancelled)
     }
 
     pub(super) fn record_contribution(

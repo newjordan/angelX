@@ -33,3 +33,6 @@ artifacts/
 .vercelignore
 website/
 HANDOFF.md
+
+# Research-map state that `/labyrinth init` writes into this checkout.
+/labyrinth/

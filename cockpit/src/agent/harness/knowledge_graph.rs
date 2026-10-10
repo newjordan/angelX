@@ -456,6 +456,42 @@ pub(crate) fn knowledge_store_path(workspace: &Path) -> PathBuf {
         ))
 }
 
+/// One stable companion lock serializes every graph read-modify-write across
+/// processes. Hold the directory handle as well as the lock descriptor so the
+/// checked lock file stays anchored for the transaction's lifetime.
+struct KnowledgeGraphStoreLock {
+    file: std::fs::File,
+    _directory: crate::platform::workspace_store::private_io::PrivateDirectory,
+}
+
+impl KnowledgeGraphStoreLock {
+    fn acquire(path: &Path) -> Result<Self, String> {
+        let (directory, _) = crate::platform::workspace_store::private_io::parent(path)
+            .map_err(|error| format!("open knowledge graph lock directory: {error}"))?;
+        let name = path
+            .file_name()
+            .ok_or_else(|| "knowledge graph store has no file name".to_string())?;
+        let lock_name = std::ffi::OsString::from(format!("{}.lock", name.to_string_lossy()));
+        let file = directory
+            .lock_file(lock_name.as_os_str())
+            .map_err(|error| format!("open knowledge graph lock: {error}"))?;
+        crate::platform::workspace_store::lock_store(&file, "knowledge_graph_store")
+            .map_err(|error| format!("lock knowledge graph store: {error}"))?;
+        Ok(Self {
+            file,
+            _directory: directory,
+        })
+    }
+}
+
+impl Drop for KnowledgeGraphStoreLock {
+    fn drop(&mut self) {
+        use std::os::fd::AsRawFd;
+        // SAFETY: the descriptor remains owned by this guard through Drop.
+        let _ = unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The pipeline engine (extract / resolve / query — one club call each)
 // ---------------------------------------------------------------------------
@@ -503,6 +539,13 @@ impl KnowledgeGraphEngine {
             Some(path) => graph.save_to(path),
             None => Ok(()),
         }
+    }
+
+    fn lock_store(&self) -> Result<Option<KnowledgeGraphStoreLock>, String> {
+        self.store_path
+            .as_deref()
+            .map(KnowledgeGraphStoreLock::acquire)
+            .transpose()
     }
 
     /// Same contract as agent-graph seats: `self`/`auto` = the in-hand driver,
@@ -580,7 +623,6 @@ impl KnowledgeGraphEngine {
         cancel: &AtomicBool,
     ) -> Result<String, String> {
         let club = self.resolve_club(club_spec)?;
-        let mut graph = self.load()?;
         let cap = env_usize("ANGEL_KG_DOC_CAP", KG_DOC_CAP_DEFAULT).max(1_000);
         let truncated = text.chars().count() > cap;
         let body: String = text.chars().take(cap).collect();
@@ -596,9 +638,12 @@ impl KnowledgeGraphEngine {
                     .join(", ")
             )
         })?;
+        let _lock = self.lock_store()?;
+        let mut graph = self.load()?;
         let mut report = graph.fold(&extracted, source_doc);
         report.doc_truncated = truncated;
         self.save(&graph)?;
+        drop(_lock);
         let mut line = format!(
             "[kg ingest {source_doc}] entities +{} (seen {}), edges +{} (dup {}, skipped {}); store: {}",
             report.entities_new,
@@ -629,13 +674,10 @@ impl KnowledgeGraphEngine {
         cancel: &AtomicBool,
     ) -> Result<String, String> {
         let club = self.resolve_club(club_spec)?;
-        let mut graph = self.load()?;
-        let mut merged_clusters = 0usize;
-        let mut merged_nodes = 0usize;
-        let mut dropped_self_loops = 0usize;
-        let mut rejected: Vec<String> = Vec::new();
+        let snapshot = self.load()?;
+        let mut resolutions: Vec<(EntityType, Vec<Cluster>, usize)> = Vec::new();
         for entity_type in EntityType::ALL {
-            let members: Vec<(String, String)> = graph
+            let members: Vec<(String, String)> = snapshot
                 .nodes
                 .values()
                 .filter(|n| n.entity_type == entity_type)
@@ -644,13 +686,22 @@ impl KnowledgeGraphEngine {
             if members.len() < 2 {
                 continue;
             }
-            let over_cap = members.len() > KG_RESOLVE_GROUP_CAP;
             let listed = &members[..members.len().min(KG_RESOLVE_GROUP_CAP)];
             let prompt = resolution_prompt(entity_type, listed);
             let reply = self.ask(&*club, &prompt, cancel)?;
             let clusters: ResolvedClusters = parse_reply_json(&reply)
                 .map_err(|e| format!("{} resolution reply: {e}", entity_type.label()))?;
-            for cluster in clusters.clusters {
+            resolutions.push((entity_type, clusters.clusters, members.len()));
+        }
+
+        let _lock = self.lock_store()?;
+        let mut graph = self.load()?;
+        let mut merged_clusters = 0usize;
+        let mut merged_nodes = 0usize;
+        let mut dropped_self_loops = 0usize;
+        let mut rejected: Vec<String> = Vec::new();
+        for (entity_type, clusters, member_count) in resolutions {
+            for cluster in clusters {
                 let mut names = vec![cluster.canonical.clone()];
                 names.extend(cluster.aliases.iter().cloned());
                 let mut resolved: Vec<String> = Vec::new();
@@ -690,16 +741,17 @@ impl KnowledgeGraphEngine {
                 dropped_self_loops += graph.merge_cluster(&canonical, &resolved);
                 merged_clusters += 1;
             }
-            if over_cap {
+            if member_count > KG_RESOLVE_GROUP_CAP {
                 rejected.push(format!(
                     "{}: {} entities over the {KG_RESOLVE_GROUP_CAP}-per-call cap were not \
                      offered for clustering this pass",
                     entity_type.label(),
-                    members.len() - KG_RESOLVE_GROUP_CAP
+                    member_count - KG_RESOLVE_GROUP_CAP
                 ));
             }
         }
         self.save(&graph)?;
+        drop(_lock);
         let mut line = format!(
             "[kg resolve] {merged_clusters} clusters folded ({merged_nodes} nodes merged, \
              {dropped_self_loops} merge self-loops dropped); store: {}",
@@ -721,11 +773,11 @@ impl KnowledgeGraphEngine {
         cancel: &AtomicBool,
     ) -> Result<String, String> {
         let club = self.resolve_club(club_spec)?;
-        let mut graph = self.load()?;
+        let snapshot = self.load()?;
         let min_degree = env_usize("ANGEL_KG_HUB_DEGREE", KG_HUB_MIN_DEGREE_DEFAULT).max(1);
         let cap = env_usize("ANGEL_KG_SUMMARIZE_CAP", KG_SUMMARIZE_CAP_DEFAULT).max(1);
-        let degrees = graph.degrees();
-        let mut candidates: Vec<(String, usize)> = graph
+        let degrees = snapshot.degrees();
+        let mut candidates: Vec<(String, usize)> = snapshot
             .nodes
             .values()
             .filter_map(|node| {
@@ -742,17 +794,33 @@ impl KnowledgeGraphEngine {
             .collect();
         candidates.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         let waiting = candidates.len().saturating_sub(cap);
-        let mut written = 0usize;
-        let mut refreshed = 0usize;
+        let mut profiles: Vec<(String, EntityProfile)> = Vec::new();
         for (name, degree) in candidates.into_iter().take(cap) {
-            let context = serialize_entity_context(&graph, &name);
-            let node = &graph.nodes[&name];
+            let context = serialize_entity_context(&snapshot, &name);
+            let node = &snapshot.nodes[&name];
             let prompt = profile_prompt(node, &context);
             let reply = self.ask(&*club, &prompt, cancel)?;
             let mut profile: EntityProfile =
                 parse_reply_json(&reply).map_err(|e| format!("profile reply for '{name}': {e}"))?;
             profile.at_degree = degree;
-            let node = graph.nodes.get_mut(&name).expect("candidate exists");
+            profiles.push((name, profile));
+        }
+
+        let _lock = self.lock_store()?;
+        let mut graph = self.load()?;
+        let mut written = 0usize;
+        let mut refreshed = 0usize;
+        for (name, profile) in profiles {
+            let Some(node) = graph.nodes.get_mut(&name) else {
+                // A concurrent resolve may have removed this surface form.
+                continue;
+            };
+            if matches!(
+                node.profile.as_ref(),
+                Some(current) if current.at_degree >= profile.at_degree
+            ) {
+                continue;
+            }
             if node.profile.is_some() {
                 refreshed += 1;
             } else {
@@ -761,6 +829,7 @@ impl KnowledgeGraphEngine {
             node.profile = Some(profile);
         }
         self.save(&graph)?;
+        drop(_lock);
         let mut line = format!(
             "[kg summarize] {written} profiles written, {refreshed} refreshed \
              (hub = degree ≥ {min_degree}); store: {}",

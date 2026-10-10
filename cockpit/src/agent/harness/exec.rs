@@ -5,12 +5,18 @@ use crate::agent::sandbox::process_owner::OwnedCommandExt;
 
 mod activity;
 mod delegate_activity;
+mod handoff;
+mod release;
 pub(crate) use activity::{
     ChildSnapshot, link_child_owner, owned_child_active, owned_child_setting_up,
     owned_child_snapshot,
 };
 pub(crate) use delegate_activity::{
     DelegateSnapshot, observe_delegate_turn, owned_delegate_snapshot,
+};
+pub(crate) use handoff::{Handoff, tool_handoff_after, with_handoff};
+pub(crate) use release::{
+    Release, clear_release, release_pending, request_release, take_watchdog_release,
 };
 
 thread_local! {
@@ -113,6 +119,9 @@ pub(crate) struct ExecObservation {
     pub(crate) cancelled: bool,
     pub(crate) dur_ms: u128,
     pub(crate) kill: Option<crate::agent::sandbox::process_owner::KillReceipt>,
+    /// The background job this call was handed to after running past the
+    /// hand-off limit; `output` is then its receipt and nothing was stopped.
+    pub(crate) handed_off: Option<u64>,
 }
 
 /// Run `program args…` (optionally in `cwd`) through the single-threaded
@@ -164,10 +173,22 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     strip_secret_env(&mut cmd);
     let status_channel = sandbox::status::attach(&mut cmd)
         .map_err(|error| format!("sandbox status channel: {error}"))?;
-    let capture =
-        output_timed_extensible_cancellable_with_progress(cmd, tool_timeout(), cancel, progress)?;
+    let capture = handoff::armed(handoff::take_pending(), || {
+        output_timed_extensible_cancellable_with_progress(cmd, tool_timeout(), cancel, progress)
+    })?;
     let receipt = status_channel.receive();
     set_sandbox_receipt(receipt);
+    if let Some(handed) = capture.handed_off {
+        return Ok(ExecObservation {
+            output: handed.receipt(),
+            exit: None,
+            timed_out: false,
+            cancelled: false,
+            dur_ms: started.elapsed().as_millis(),
+            kill: None,
+            handed_off: Some(handed.id),
+        });
+    }
     let out = capture.output;
     let timed_out = capture.timed_out;
     let cancelled = capture.cancelled;
@@ -265,6 +286,7 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
                 },
             )
         }),
+        handed_off: None,
     })
 }
 
@@ -390,7 +412,7 @@ pub(crate) fn tool_timeout() -> Option<Duration> {
     )
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 struct ProcessActivity {
     parent: u32,
     state: char,
@@ -459,6 +481,170 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
         owned.push((pid, row));
     }
     owned
+}
+
+
+/// Process birth identity and parent relationship from the native macOS API.
+#[cfg(target_os = "macos")]
+fn proc_identity(pid: u32) -> Option<ProcessActivity> {
+    use std::mem::MaybeUninit;
+
+    let pid_arg = i32::try_from(pid).ok()?;
+    let mut bsd = MaybeUninit::<libc::proc_bsdinfo>::uninit();
+    let bsd_size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    // SAFETY: proc_pidinfo writes no more than the aligned structure size.
+    let written = unsafe {
+        libc::proc_pidinfo(
+            pid_arg,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            bsd.as_mut_ptr().cast::<libc::c_void>(),
+            bsd_size,
+        )
+    };
+    if written != bsd_size {
+        return None;
+    }
+    let bsd = unsafe { bsd.assume_init() };
+    if bsd.pbi_pid != pid || bsd.pbi_start_tvusec >= 1_000_000 {
+        return None;
+    }
+    let started = bsd
+        .pbi_start_tvsec
+        .checked_mul(1_000_000)?
+        .checked_add(bsd.pbi_start_tvusec)?;
+    let state = match bsd.pbi_status {
+        libc::SSTOP => 'T',
+        libc::SZOMB => 'Z',
+        _ => 'S',
+    };
+    Some(ProcessActivity {
+        parent: bsd.pbi_ppid,
+        state,
+        cpu: 0,
+        started,
+    })
+}
+
+/// Add cumulative task CPU for an already identified process, rejecting PID
+/// reuse between the identity and task-info reads.
+#[cfg(target_os = "macos")]
+fn proc_activity(pid: u32) -> Option<ProcessActivity> {
+    use std::mem::MaybeUninit;
+
+    let mut activity = proc_identity(pid)?;
+    let pid_arg = i32::try_from(pid).ok()?;
+    let mut task = MaybeUninit::<libc::proc_taskinfo>::uninit();
+    let task_size = std::mem::size_of::<libc::proc_taskinfo>() as i32;
+    // SAFETY: proc_pidinfo writes no more than the aligned structure size.
+    let written = unsafe {
+        libc::proc_pidinfo(
+            pid_arg,
+            libc::PROC_PIDTASKINFO,
+            0,
+            task.as_mut_ptr().cast::<libc::c_void>(),
+            task_size,
+        )
+    };
+    if written != task_size {
+        return None;
+    }
+    let task = unsafe { task.assume_init() };
+    let current = proc_identity(pid)?;
+    if current.started != activity.started || current.parent != activity.parent {
+        return None;
+    }
+    if activity.state != 'T' && activity.state != 'Z' && task.pti_numrunning > 0 {
+        activity.state = 'R';
+    }
+    activity.cpu = task.pti_total_user.saturating_add(task.pti_total_system);
+    Some(activity)
+}
+
+/// Observe this tool's descendants on macOS using libproc birth identities and
+/// cumulative task CPU. Like the Linux snapshot, this is liveness observation,
+/// never authority to signal a process.
+#[cfg(target_os = "macos")]
+fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
+    use std::collections::HashMap;
+
+    let Some(root) = proc_identity(leader) else {
+        return Vec::new();
+    };
+
+    // proc_listpids(PROC_ALL_PIDS) returns bytes copied. Grow until the entire
+    // live PID list fits so the snapshot does not impose an arbitrary process cap.
+    const PROC_ALL_PIDS: u32 = 1;
+    let mut pids = vec![0i32; 1024];
+    let count = loop {
+        let Some(buffer_bytes) = pids
+            .len()
+            .checked_mul(std::mem::size_of::<i32>())
+            .and_then(|bytes| i32::try_from(bytes).ok())
+        else {
+            return Vec::new();
+        };
+        // SAFETY: pids is writable for exactly buffer_bytes bytes.
+        let copied = unsafe {
+            libc::proc_listpids(
+                PROC_ALL_PIDS,
+                0,
+                pids.as_mut_ptr().cast::<libc::c_void>(),
+                buffer_bytes,
+            )
+        };
+        if copied <= 0 {
+            return Vec::new();
+        }
+        if copied < buffer_bytes {
+            break (copied as usize) / std::mem::size_of::<i32>();
+        }
+        let Some(next_len) = pids.len().checked_mul(2) else {
+            return Vec::new();
+        };
+        pids.resize(next_len, 0);
+    };
+
+    let mut children: HashMap<u32, Vec<(u32, ProcessActivity)>> = HashMap::new();
+    for raw_pid in pids.into_iter().take(count) {
+        let Ok(pid) = u32::try_from(raw_pid) else {
+            continue;
+        };
+        if pid != 0
+            && let Some(row) = proc_identity(pid)
+        {
+            children.entry(row.parent).or_default().push((pid, row));
+        }
+    }
+
+    // Do not lend a reaped/reused leader's identity to a different process tree.
+    if proc_identity(leader).is_none_or(|now| now.started != root.started) {
+        return Vec::new();
+    }
+    let mut pending = vec![(leader, root)];
+    let mut owned = Vec::new();
+    while let Some((pid, row)) = pending.pop() {
+        if let Some(descendants) = children.remove(&pid) {
+            pending.extend(
+                descendants
+                    .into_iter()
+                    .filter(|(_, child)| child.started >= row.started),
+            );
+        }
+        owned.push((pid, row));
+    }
+
+    // Query cumulative task CPU only for this process tree, not every process
+    // on the host; one birth identity read per system PID was needed to follow
+    // descendants that can leave the leader's process group.
+    owned
+        .into_iter()
+        .filter_map(|(pid, row)| {
+            proc_activity(pid)
+                .filter(|current| current.started == row.started)
+                .map(|current| (pid, current))
+        })
+        .collect()
 }
 
 /// Helper setup is distinct from payload progress. Allow at most 60 seconds
@@ -790,6 +976,9 @@ pub(crate) struct TimedCapture {
     /// safe long job mid-flight instead of letting the original deadline
     /// kill it.
     pub deadline_extended: bool,
+    /// The job this process was handed to (still running) when an armed
+    /// hand-off limit passed; `output` is then empty and not an exit.
+    pub handed_off: Option<handoff::HandedOff>,
 }
 
 impl TimedCapture {
@@ -863,6 +1052,8 @@ fn output_timed_inner(
     // Internal fixed probes include spawn/retry in their original allowance.
     // Ordinary and operator-extensible tools retain their setup/relink grace.
     let fixed_started = fixed_timeout.then(Instant::now);
+    // Consumed here whichever way this returns: the spec is for this process.
+    let mut handoff_spec = handoff::take_armed();
     use std::io::Read;
     use std::os::unix::process::CommandExt;
     use std::process::Stdio;
@@ -968,6 +1159,7 @@ fn output_timed_inner(
     const OUTPUT_KEEP_BYTES: usize = 1 << 20;
     const OUTPUT_HEAD_BYTES: usize = 64 * 1024;
     const OUTPUT_TAIL_BYTES: usize = OUTPUT_KEEP_BYTES - OUTPUT_HEAD_BYTES;
+    #[allow(clippy::too_many_arguments)]
     fn read_capped(
         mut r: impl Read + std::os::fd::AsRawFd,
         cap: usize,
@@ -976,6 +1168,7 @@ fn output_timed_inner(
         output_epoch: Instant,
         last_output_ms: Arc<AtomicU64>,
         stop: Arc<AtomicBool>,
+        tap: Option<Arc<handoff::Tap>>,
     ) -> (Vec<u8>, u64) {
         use std::collections::VecDeque;
 
@@ -1021,6 +1214,9 @@ fn output_timed_inner(
                     if let Some(progress) = progress.as_ref() {
                         progress(stream, &chunk[..n]);
                     }
+                    if let Some(tap) = tap.as_ref() {
+                        tap.feed(&chunk[..n]);
+                    }
                     // Stamp "ms since epoch" on every chunk (both streams share
                     // the stamp) so a timeout kill can truthfully report how
                     // long the child had been silent.
@@ -1058,6 +1254,11 @@ fn output_timed_inner(
     let output_epoch = Instant::now();
     let last_output_ms = Arc::new(AtomicU64::new(u64::MAX));
     let stop_readers = Arc::new(AtomicBool::new(false));
+    let tap = handoff_spec
+        .as_ref()
+        .map(|_| Arc::new(handoff::Tap::default()));
+    let stdout_tap = tap.clone();
+    let stderr_tap = tap.clone();
     let stdout_progress = progress.clone();
     let stdout_stamp = Arc::clone(&last_output_ms);
     let stdout_stop = Arc::clone(&stop_readers);
@@ -1070,6 +1271,7 @@ fn output_timed_inner(
             output_epoch,
             stdout_stamp,
             stdout_stop,
+            stdout_tap,
         ));
     });
     let stderr_stamp = Arc::clone(&last_output_ms);
@@ -1083,6 +1285,7 @@ fn output_timed_inner(
             output_epoch,
             stderr_stamp,
             stderr_stop,
+            stderr_tap,
         ));
     });
     // Exit detection: a blocking `wait` on a helper thread signalling a channel
@@ -1090,7 +1293,7 @@ fn output_timed_inner(
     // old 50ms try_wait poll added up to 50ms of pure latency to every shell,
     // cargo, and hook invocation. The waiter owns the child; on timeout the
     // group kill reaches the leader, so the waiter unblocks right after.
-    let (tx_status, rx_status) = channel();
+    let (tx_status, mut rx_status) = channel();
     std::thread::spawn(move || {
         let _ = tx_status.send(child.wait());
     });
@@ -1162,10 +1365,94 @@ fn output_timed_inner(
             wait_started = Instant::now();
             deadline_due = false;
         }
-        if tool_idle || deadline_due {
+        // A watchdog release: the loop watchdog found the turn wedged on this
+        // call. A hand-off goes through the armed hand-off below at once; with
+        // none armed (or one that cannot file the job) the call is stopped.
+        let release =
+            cancel.and_then(|c| release::take_release(c as *const _ as usize, spawn_started));
+        let force_handoff = release == Some(release::Release::HandOff)
+            && handoff_spec.is_some()
+            && tap.is_some()
+            && wall_started.is_some();
+        let mut watchdog_stop = release.is_some() && !force_handoff;
+        // The armed hand-off limit: the process moves to the background-job
+        // table, still running — its exit channel goes to the job and the
+        // readers switch to the job's log. A hand-off that cannot file the
+        // job leaves the call waiting exactly as before.
+        if let (Some(spec), Some(tap), Some(wall)) =
+            (handoff_spec.as_ref(), tap.as_ref(), wall_started)
+            && (wall.elapsed() >= spec.after || force_handoff)
+        {
+            let owner = cancel.map_or(0, |c| c as *const _ as usize);
+            let stamp = last_output_ms.load(Ordering::Acquire);
+            let silent = (stamp != u64::MAX).then(|| {
+                output_epoch
+                    .elapsed()
+                    .saturating_sub(Duration::from_millis(stamp))
+            });
+            let mut status_back = None;
+            let filed = tap.hand_off(|recent| {
+                crate::agent::tools::proc::hand_off(
+                    &spec.workspace,
+                    &spec.command,
+                    pid,
+                    rx_status,
+                    owner,
+                    recent,
+                )
+                .map(|job| ((job.id, job.log), job.sink))
+                .map_err(|(error, rx)| {
+                    status_back = Some(rx);
+                    error
+                })
+            });
+            match filed {
+                Ok(((id, _log), recent)) => {
+                    if force_handoff {
+                        release::note_released(release::Release::HandOff);
+                    }
+                    let handed = handoff::HandedOff::new(
+                        id,
+                        pid,
+                        &spec.command,
+                        wall.elapsed(),
+                        silent,
+                        &recent,
+                    );
+                    return Ok(TimedCapture {
+                        output: std::process::Output {
+                            status: std::os::unix::process::ExitStatusExt::from_raw(0),
+                            stdout: Vec::new(),
+                            stderr: Vec::new(),
+                        },
+                        timed_out: false,
+                        cancelled: false,
+                        stdout_total_bytes: 0,
+                        stderr_total_bytes: 0,
+                        stdout_truncated: false,
+                        stderr_truncated: false,
+                        timeout_diag: None,
+                        tool_idle: false,
+                        grandchild_holds_stdout: false,
+                        grandchild_holds_stderr: false,
+                        deadline_extended,
+                        handed_off: Some(handed),
+                    });
+                }
+                Err(_) => {
+                    rx_status = status_back.expect("a failed hand-off returns the exit channel");
+                    handoff_spec = None;
+                    watchdog_stop |= force_handoff;
+                }
+            }
+        }
+        if tool_idle || deadline_due || watchdog_stop {
             // A tool-idle escalation is recoverable by the model; it never
             // cancels the enclosing run. Preserve trusted metadata for the turn.
-            if tool_idle {
+            // So is a watchdog stop.
+            if watchdog_stop {
+                release::note_released(release::Release::Stop);
+            } else if tool_idle {
                 TOOL_IDLE_ESCALATED.with(|flag| flag.set(true));
             }
             let (reaped, diag) =
@@ -1243,6 +1530,7 @@ fn output_timed_inner(
         grandchild_holds_stdout,
         grandchild_holds_stderr,
         deadline_extended,
+        handed_off: None,
     })
 }
 

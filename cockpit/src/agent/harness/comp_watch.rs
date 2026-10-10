@@ -433,7 +433,8 @@ impl SubmissionWatcher {
                     .unwrap_or_default();
                 match status.as_str() {
                     "timeout" | "timed_out" | "timed-out" => SubmissionSlotPhase::TimedOut,
-                    "rejected" | "failed" | "error" | "cancelled" | "canceled" => {
+                    "rejected" | "failed" | "error" | "cancelled" | "canceled"
+                    | "superseded" => {
                         SubmissionSlotPhase::Rejected
                     }
                     _ => SubmissionSlotPhase::Accepted,

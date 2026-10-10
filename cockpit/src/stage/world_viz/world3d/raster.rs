@@ -558,7 +558,21 @@ impl Surface {
         let grazing = 1.0 - normal.dot(to_eye).abs().clamp(0.0, 1.0);
         // Ground planes are grazing everywhere — rim them and the whole floor
         // turns silver. The catch belongs to built masses.
-        let rim = if lantern_lit(mat) {
+        let rim = if lantern_lit(mat)
+            || matches!(
+                mat,
+                mat::HORSE_BAY
+                    | mat::HORSE_CHESTNUT
+                    | mat::HORSE_GREY
+                    | mat::HAY
+                    | mat::CLOTH_GOLD
+                    | mat::CLOTH_BLUE
+                    | mat::STABLE_TIMBER
+                    | mat::STABLE_ROOF
+                    | mat::STABLE_WALL
+                    | mat::STABLE_FLOOR
+                    | mat::TACK_LEATHER
+            ) {
             0.0
         } else {
             grazing.powi(6) * (0.22 + 0.18 * key)
@@ -601,6 +615,31 @@ impl Surface {
         };
         if lantern_lit(self.mat) {
             light *= 1.0 + LANTERN_GAIN * (1.0 - (depth / LANTERN_REACH).clamp(0.0, 1.0)).powi(2);
+        }
+        if matches!(
+            self.mat,
+            mat::HORSE_BAY
+                | mat::HORSE_CHESTNUT
+                | mat::HORSE_GREY
+                | mat::HAY
+                | mat::CLOTH_GOLD
+                | mat::CLOTH_BLUE
+                | mat::STABLE_TIMBER
+                | mat::STABLE_ROOF
+                | mat::STABLE_WALL
+                | mat::STABLE_FLOOR
+                | mat::TACK_LEATHER
+        ) {
+            // Authored practice props have held lantern bounce on their focal
+            // planes. This is local material lighting, not a global grade or
+            // dither bypass; ordinary WOOD/ROOF/STONE retain black-paper shade.
+            let bounce = match self.mat {
+                mat::STABLE_ROOF => 0.64,
+                mat::STABLE_WALL | mat::STABLE_FLOOR => 0.60,
+                mat::TACK_LEATHER => 0.85,
+                _ => 0.88,
+            };
+            light = light.max(bounce + self.key * 0.24);
         }
         if self.mat == mat::ARMOR {
             light = light.max(0.70);
@@ -696,6 +735,33 @@ fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
         mat::WATER => (speckle([26, 42, 66], [18, 30, 52], u, v, 1.1), 1.0, false),
         mat::FOLIAGE => (speckle([40, 62, 44], [24, 42, 32], u, v, 3.1), 1.0, false),
         mat::TRUNK => (grain_tint([62, 48, 36], u, v), 1.0, false),
+        mat::HORSE_BAY => (
+            speckle([176, 108, 57], [151, 85, 42], u, v, 4.0),
+            0.55,
+            false,
+        ),
+        mat::HORSE_CHESTNUT => (
+            speckle([217, 132, 66], [183, 99, 43], u, v, 4.0),
+            0.55,
+            false,
+        ),
+        mat::HORSE_GREY => (
+            speckle([207, 220, 228], [169, 187, 204], u, v, 4.0),
+            0.55,
+            false,
+        ),
+        mat::HAY => (
+            speckle([244, 192, 67], [214, 163, 46], u, v, 6.0),
+            0.5,
+            false,
+        ),
+        mat::CLOTH_GOLD => ([211, 165, 69], 0.55, false),
+        mat::CLOTH_BLUE => ([66, 142, 212], 0.55, false),
+        mat::STABLE_TIMBER => (grain_tint([185, 127, 69], u, v), 0.55, false),
+        mat::STABLE_ROOF => (shingle_tint([168, 94, 65], u, v), 0.6, false),
+        mat::STABLE_WALL => (course_tint([151, 130, 100], u, v, 0.88), 0.6, false),
+        mat::STABLE_FLOOR => (speckle([121, 96, 61], [105, 78, 47], u, v, 3.0), 0.6, false),
+        mat::TACK_LEATHER => (grain_tint([91, 43, 26], u, v), 0.5, false),
         mat::BANNER => (speckle([146, 62, 58], [116, 46, 46], u, v, 2.0), 0.7, false),
         mat::BOOKS => (speckle([112, 78, 52], [72, 50, 36], u, v, 4.0), 0.6, false),
         mat::FLOOR => (course_tint([92, 88, 84], u, v, 0.84), 1.0, false),
@@ -950,3 +1016,10 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../../../tests/cockpit/world_viz/frames__world_tests.rs"]
 mod frames_world_tests;
+
+/// Test-only coverage of the same depth pass used by the production raster.
+#[cfg(test)]
+pub(crate) fn visible_materials(scene: &Mesh, view: &View3, w: usize, h: usize) -> Vec<u8> {
+    let pass = depth_pass(scene, &Camera::new(view, w, h), w, h);
+    pass.surface.iter().map(|s| s.mat).collect()
+}

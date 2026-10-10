@@ -1,5 +1,7 @@
 use super::*;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+#[cfg(target_os = "linux")]
+use std::time::Instant;
 
 #[test]
 fn complete_verifier_captures_preserve_green_and_red_process_evidence() {

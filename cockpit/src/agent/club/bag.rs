@@ -1335,6 +1335,12 @@ impl Bag {
                         let route = slot.club.route_identity();
                         let driver = route.driver;
                         let model = route.model.unwrap_or_else(|| slot.model_identity());
+                        let route_id = crate::agent::backplane::RouteId::chat(
+                            &agent.name,
+                            &driver,
+                            &model,
+                            route.reasoning_effort.as_deref(),
+                        );
                         let metered = [&agent.name, &driver, &model]
                             .iter()
                             .any(|label| is_sota_label(label));
@@ -1344,11 +1350,7 @@ impl Bag {
                                 slot_index,
                                 agent: agent.name.clone(),
                                 driver,
-                                route_id: crate::agent::backplane::RouteId::chat(
-                                    &agent.name,
-                                    &slot.club.route_identity().driver,
-                                    slot.club.reasoning_effort().as_deref(),
-                                ),
+                                route_id,
                                 expected_revision: crate::agent::backplane::ModelRevision::chat(
                                     &model,
                                 ),
@@ -1386,6 +1388,7 @@ impl Bag {
                     route_id: crate::agent::backplane::RouteId::chat(
                         &agent.name,
                         &route.driver,
+                        &model,
                         route.reasoning_effort.as_deref(),
                     ),
                     model_revision: crate::agent::backplane::ModelRevision::chat(&model),
@@ -1459,6 +1462,7 @@ impl Bag {
             let live_route = crate::agent::backplane::RouteId::chat(
                 &agent.name,
                 &slot.club.route_identity().driver,
+                &live,
                 slot.club.reasoning_effort().as_deref(),
             );
             let live_revision = crate::agent::backplane::ModelRevision::chat(&live);

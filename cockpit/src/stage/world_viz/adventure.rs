@@ -145,7 +145,22 @@ pub(crate) enum AdventureEvent {
     Party {
         size: u8,
     },
+    /// A record beaten: a submission the board accepted as an improvement
+    /// and promoted. Its official score, if the board gave one.
+    RecordPromoted {
+        score: Option<String>,
+    },
+    /// A submission settled without a promotion (rejected, timed out, or
+    /// accepted but no record): the guardian holds, and the party falls back.
+    PromotionFailed {
+        score: Option<String>,
+    },
 }
+
+/// How long the guardian's fight lasts: three minutes for a record beaten,
+/// to sit back and enjoy; two for a retreat.
+pub(crate) const RECORD_FIGHT: u64 = 40 * 180;
+pub(crate) const RETREAT_FIGHT: u64 = 40 * 120;
 
 /// The quest: everything the renderer needs about the current adventure.
 ///
@@ -184,6 +199,15 @@ pub(crate) struct Quest {
     /// Region folds within one world tick are a batch. Retain just the original
     /// epoch so an unpainted round trip can restore it (not a per-region cache).
     region_rollback: Option<RegionRollback>,
+    /// Records promoted and promotions failed this session; the tick the
+    /// last guardian rose, whether that bout is won, and its score.
+    records: u32,
+    retreats: u32,
+    record_at: Option<u64>,
+    record_won: bool,
+    record_score: Option<String>,
+    /// The tick the last measurement came in.
+    measured_at: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -228,6 +252,12 @@ impl Quest {
             party_since: 0,
             walk_clock: Vec::new(),
             region_rollback: None,
+            records: 0,
+            retreats: 0,
+            record_at: None,
+            record_won: true,
+            record_score: None,
+            measured_at: None,
         }
     }
 
@@ -269,6 +299,7 @@ impl Quest {
             }
             AdventureEvent::MeasurementObserved => {
                 self.measurements_observed = self.measurements_observed.saturating_add(1);
+                self.measured_at = Some(tick);
                 self.flash("measurement recorded", tick);
                 self.settle();
             }
@@ -328,6 +359,20 @@ impl Quest {
                     self.party_since = tick;
                 }
                 self.party = size;
+            }
+            AdventureEvent::RecordPromoted { score } => {
+                // A guardian rises for the party to beat.
+                self.records += 1;
+                self.record_at = Some(tick);
+                self.record_won = true;
+                self.record_score = score;
+            }
+            AdventureEvent::PromotionFailed { score } => {
+                // A guardian rises, and holds the hall.
+                self.retreats += 1;
+                self.record_at = Some(tick);
+                self.record_won = false;
+                self.record_score = score;
             }
         }
         if reset_walk {
@@ -545,6 +590,41 @@ impl Quest {
         self.kind
     }
 
+    /// How far into the guardian's fight a settled submission brought (in
+    /// world ticks), while it lasts, and whether it's a record (won) or a
+    /// retreat.
+    pub(crate) fn record_fight(&self, tick: u64) -> Option<(u32, bool)> {
+        let into = tick.checked_sub(self.record_at?)?;
+        let lasts = if self.record_won {
+            RECORD_FIGHT
+        } else {
+            RETREAT_FIGHT
+        };
+        (into < lasts).then_some((into as u32, self.record_won))
+    }
+
+    /// The last promoted record's score, and how many have been promoted.
+    pub(crate) fn record_score(&self) -> Option<&str> {
+        self.record_score.as_deref()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn records(&self) -> u32 {
+        self.records
+    }
+
+    /// How long since the last measurement came in (world ticks), while it's
+    /// news: ten seconds.
+    pub(crate) fn fresh_measurement(&self, tick: u64) -> Option<u32> {
+        let since = tick.checked_sub(self.measured_at?)?;
+        (since < 400).then_some(since as u32)
+    }
+
+    /// Guardians risen this session, won or not.
+    pub(crate) fn bouts(&self) -> u32 {
+        self.records + self.retreats
+    }
+
     /// HUD-ready banner text: the homecoming banner carries the loot count.
     pub(crate) fn banner_text(&self) -> Option<String> {
         match self.banner()? {
@@ -716,6 +796,11 @@ pub(crate) struct LoopMirror {
     submissions: usize,
     tier: EscalationTier,
     party: u8,
+    /// Promoted records and failed promotions seen, and whether the first
+    /// look (which only counts what's already there) has happened.
+    records: usize,
+    failures: usize,
+    primed: bool,
 }
 
 impl Default for LoopMirror {
@@ -728,6 +813,9 @@ impl Default for LoopMirror {
             submissions: 0,
             tier: EscalationTier::Local,
             party: 1,
+            records: 0,
+            failures: 0,
+            primed: false,
         }
     }
 }
@@ -838,6 +926,31 @@ impl LoopMirror {
         if party != self.party {
             events.push(AdventureEvent::Party { size: party });
         }
+        // A record beaten and promoted: the guardian's fight, won. A
+        // submission settled without one: the guardian holds, and the party
+        // falls back. What's already there at the first look is history.
+        let settled: Vec<_> = st
+            .submission_results
+            .iter()
+            .filter_map(|r| r.official.as_ref())
+            .collect();
+        let promoted: Vec<_> = settled
+            .iter()
+            .filter(|o| o.promoted_improvement())
+            .collect();
+        let failed: Vec<_> = settled.iter().filter(|o| promotion_failed(o)).collect();
+        if self.primed && promoted.len() > self.records {
+            events.push(AdventureEvent::RecordPromoted {
+                score: promoted.last().and_then(|o| o.official_score.clone()),
+            });
+        } else if self.primed && failed.len() > self.failures {
+            events.push(AdventureEvent::PromotionFailed {
+                score: failed.last().and_then(|o| o.official_score.clone()),
+            });
+        }
+        self.records = promoted.len();
+        self.failures = failed.len();
+        self.primed = true;
 
         self.status = st.status;
         self.iteration = st.iteration;
@@ -847,6 +960,24 @@ impl LoopMirror {
         self.tier = st.tier;
         self.party = party;
         events
+    }
+}
+
+/// Whether a settled submission is a promotion that didn't happen: rejected
+/// or timed out, or accepted and plainly no record. A result still waiting
+/// on its promotion isn't one.
+fn promotion_failed(o: &crate::agent::harness::cartridges::records::SubmissionStatus) -> bool {
+    use crate::agent::harness::cartridges::fleet::SubmissionPhase;
+    match SubmissionPhase::from_status(&o.status) {
+        SubmissionPhase::Rejected | SubmissionPhase::TimedOut => true,
+        SubmissionPhase::Accepted => {
+            !o.promoted_improvement()
+                && (o.improved == Some(false)
+                    || o.promotion_status
+                        .as_deref()
+                        .is_some_and(|s| s != "promoted" && s != "unavailable"))
+        }
+        _ => false,
     }
 }
 

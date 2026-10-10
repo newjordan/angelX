@@ -18,6 +18,7 @@ use crate::agent::tools::consult::{find_in_roster, is_optional_local_label};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
+use std::time::Duration;
 
 /// Default teacher seat. Cheap access agent — never required to be up.
 pub(crate) const DEFAULT_TEACHER_CLUB: &str = "luna";
@@ -253,7 +254,11 @@ pub(crate) fn ask_teacher(
     club: Arc<dyn Club>,
     workspace: &std::path::Path,
     prompt: String,
+    turn_cancel: &AtomicBool,
 ) -> Option<String> {
+    if turn_cancel.load(Ordering::Acquire) {
+        return None;
+    }
     // One teacher at a time: a fault raised while one is still answering is
     // not asked twice.
     if TEACHER_ASK_IN_FLIGHT
@@ -262,7 +267,8 @@ pub(crate) fn ask_teacher(
     {
         return None;
     }
-    let cancel = AtomicBool::new(false);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let worker_cancel = Arc::clone(&cancel);
     let workspace = workspace.to_path_buf();
     let (tx, rx) = mpsc::channel();
     if std::thread::Builder::new()
@@ -274,7 +280,7 @@ pub(crate) fn ask_teacher(
                 &workspace,
                 &[ChatMsg::user(prompt)],
                 None,
-                &cancel,
+                &worker_cancel,
             ));
         })
         .is_err()
@@ -282,9 +288,17 @@ pub(crate) fn ask_teacher(
         TEACHER_ASK_IN_FLIGHT.store(false, Ordering::Release);
         return None;
     }
-    match rx.recv() {
-        Ok(Ok(text)) if !text.trim().is_empty() => Some(text),
-        _ => None,
+    loop {
+        if turn_cancel.load(Ordering::Acquire) {
+            cancel.store(true, Ordering::Release);
+            return None;
+        }
+        match rx.recv_timeout(Duration::from_millis(25)) {
+            Ok(Ok(text)) if !text.trim().is_empty() => return Some(text),
+            Ok(Err(_)) | Err(mpsc::RecvTimeoutError::Disconnected) => return None,
+            Ok(Ok(_)) => return None,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
     }
 }
 
@@ -349,6 +363,7 @@ pub(crate) fn recover_session(
     keep_recent_tokens: usize,
     tools: &[ToolDef],
     events: &mpsc::Sender<TurnEvent>,
+    turn_cancel: &AtomicBool,
 ) -> Option<(SessionFault, String)> {
     if !teacher_watch_applies(club) {
         return None;
@@ -376,6 +391,7 @@ pub(crate) fn recover_session(
                 teacher,
                 registry.current_workspace(),
                 teacher_ask_prompt(fault, error, hop),
+                turn_cancel,
             )
             .and_then(|text| parse_teacher_line(&text))
         })

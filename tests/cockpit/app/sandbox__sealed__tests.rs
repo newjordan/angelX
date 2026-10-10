@@ -96,6 +96,53 @@ fn sealed_bind_plan_grants_toolchains_and_denies_home_secrets() {
 }
 
 #[test]
+fn sealed_cargo_payload_grants_exclude_default_and_custom_home_credentials() {
+    struct RestoreCargoHome(Option<std::ffi::OsString>);
+    impl Drop for RestoreCargoHome {
+        fn drop(&mut self) {
+            // This fixture holds the crate's environment lock until restore.
+            unsafe {
+                match &self.0 {
+                    Some(value) => std::env::set_var("CARGO_HOME", value),
+                    None => std::env::remove_var("CARGO_HOME"),
+                }
+            }
+        }
+    }
+    let _guard = crate::tests::env_lock();
+    let home = fake_home("cargo-credentials").canonicalize().unwrap();
+    let ws = fake_workspace("cargo-credentials").canonicalize().unwrap();
+    let cargo_home = fake_workspace("custom-cargo-home").canonicalize().unwrap();
+    for dir in ["bin", "registry", "git"] {
+        std::fs::create_dir_all(cargo_home.join(dir)).unwrap();
+    }
+    let _cargo_home = RestoreCargoHome(std::env::var_os("CARGO_HOME"));
+    // Serialized by the environment lock; the helper test target shares this fixture.
+    unsafe { std::env::set_var("CARGO_HOME", &cargo_home) };
+    let mut credentials = Vec::new();
+    for root in [home.join(".cargo"), cargo_home.clone()] {
+        for name in ["credentials", "credentials.toml"] {
+            let path = root.join(name);
+            std::fs::write(&path, b"sealed fixture credential").unwrap();
+            credentials.push(path);
+        }
+    }
+
+    let profile = build(&ws, Some(&home));
+    assert!(validate_policy(&profile.policy).is_ok());
+    for root in [home.join(".cargo"), cargo_home] {
+        for dir in ["bin", "registry", "git"] {
+            assert!(profile.read_roots.contains(&root.join(dir)));
+        }
+        assert!(!profile.read_roots.contains(&root));
+    }
+    for credential in credentials {
+        assert!(profile.deny_roots.contains(&credential));
+        assert!(profile.read_roots.iter().all(|root| !credential.starts_with(root)));
+    }
+}
+
+#[test]
 fn sealed_digest_is_stable_and_bind_plan_sensitive() {
     let _guard = crate::tests::env_lock();
     let home = fake_home("digest");
@@ -131,19 +178,27 @@ fn sealed_digest_is_stable_and_bind_plan_sensitive() {
 #[test]
 fn sealed_activation_refuses_yolo() {
     let _guard = crate::tests::env_lock();
-    let old = std::env::var_os("ANGEL_YOLO");
+    struct RestoreYolo(Option<std::ffi::OsString>);
+    impl Drop for RestoreYolo {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.0 {
+                    Some(value) => std::env::set_var("ANGEL_YOLO", value),
+                    None => std::env::remove_var("ANGEL_YOLO"),
+                }
+            }
+        }
+    }
+    let _yolo = RestoreYolo(std::env::var_os("ANGEL_YOLO"));
     unsafe { std::env::set_var("ANGEL_YOLO", "1") };
     let err = activate(build(&fake_workspace("yolo"), None)).expect_err("must refuse YOLO");
+    #[cfg(target_os = "linux")]
     assert!(
         err.contains("YOLO cannot widen a sealed sandbox profile"),
         "{err}"
     );
-    unsafe {
-        match old {
-            Some(value) => std::env::set_var("ANGEL_YOLO", value),
-            None => std::env::remove_var("ANGEL_YOLO"),
-        }
-    };
+    #[cfg(not(target_os = "linux"))]
+    assert!(err.contains("requires Linux"), "{err}");
     // A refused activation must not install its own profile. OnceLock
     // cannot be unset, so if some earlier test activated one, the digest
     // must differ from this refused attempt's.
@@ -253,3 +308,209 @@ fn sealed_read_roots_never_include_deny_list_even_when_nested() {
         );
     }
 }
+
+#[test]
+#[cfg(target_os = "linux")]
+fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
+    struct TestEnvGuard {
+        key: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+    impl TestEnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var_os(key);
+            // This exact child holds env_lock; restoration also runs on unwind.
+            unsafe { std::env::set_var(key, value) };
+            Self { key, previous }
+        }
+    }
+    impl Drop for TestEnvGuard {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.previous {
+                    Some(value) => std::env::set_var(self.key, value),
+                    None => std::env::remove_var(self.key),
+                }
+            }
+        }
+    }
+
+    let _guard = crate::tests::env_lock();
+    const CHILD: &str = "ANGEL_T_SEALED_RUNTIME_CHILD";
+    if std::env::var(CHILD).as_deref() != Ok("1") {
+        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        command.args([
+            "--exact",
+            self_test_filter!("sealed_runtime_activation_allows_toolchain_and_denies_credentials")
+                .as_str(),
+            "--nocapture",
+        ]);
+        command.env(CHILD, "1");
+        let output = command.output().expect("spawn isolated sealed runtime test");
+        assert!(
+            output.status.success(),
+            "sealed runtime child failed\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+
+    // ACTIVE is process-sticky. This exact child starts with an empty OnceLock.
+    assert!(identity().is_none(), "runtime child must start unactivated");
+    // The helper this run executes: a qualified runner pins it with
+    // ANGEL_T_SANDBOX_HELPER, and a plain `cargo test` gets the one the sandbox
+    // builds itself. Resolve it before the fixture swaps HOME and CARGO_HOME.
+    let helper = super::super::helper_executable().expect("sandbox helper for this run");
+    let home = fake_home("runtime").canonicalize().unwrap();
+    let workspace = fake_workspace("runtime").canonicalize().unwrap();
+    let cargo_home = fake_workspace("runtime-cargo-home").canonicalize().unwrap();
+    let path = std::env::var_os("PATH").expect("qualified PATH");
+    let path_string = path.to_string_lossy().into_owned();
+    for dir in ["bin", "registry", "git"] {
+        std::fs::create_dir_all(cargo_home.join(dir)).unwrap();
+    }
+
+    let _home = TestEnvGuard::set("HOME", home.to_str().unwrap());
+    let _cargo = TestEnvGuard::set("CARGO_HOME", cargo_home.to_str().unwrap());
+    let _path = TestEnvGuard::set("PATH", &path_string);
+    let _yolo = TestEnvGuard::set("ANGEL_YOLO", "0");
+    let _smart = TestEnvGuard::set("ANGEL_YOLO_SMART", "0");
+    let _sandbox = TestEnvGuard::set("ANGEL_SANDBOX", "1");
+
+    let mut marker_paths = Vec::new();
+    for (label, root) in [
+        ("default", home.join(".cargo")),
+        ("custom", cargo_home.clone()),
+    ] {
+        for dir in ["bin", "registry", "git"] {
+            let value = format!("f01-{label}-{dir}-marker-v1");
+            let marker = root.join(dir).join("sealed-runtime-marker");
+            std::fs::write(&marker, value.as_bytes()).unwrap();
+            marker_paths.push(marker);
+        }
+    }
+    let mut credentials = Vec::new();
+    for (label, root) in [
+        ("default", home.join(".cargo")),
+        ("custom", cargo_home.clone()),
+    ] {
+        for name in ["credentials", "credentials.toml"] {
+            let credential = root.join(name);
+            std::fs::write(
+                &credential,
+                format!("synthetic-f01-{label}-{name}-must-not-be-readable"),
+            )
+            .unwrap();
+            credentials.push(credential);
+        }
+    }
+    let hashes_before: Vec<_> = marker_paths
+        .iter()
+        .chain(&credentials)
+        .map(|path| super::super::sha256_hex(&std::fs::read(path).unwrap()))
+        .collect();
+
+    let helper = std::fs::canonicalize(helper).expect("sandbox helper path");
+    assert!(std::fs::metadata(&helper).unwrap().is_file());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_ne!(std::fs::metadata(&helper).unwrap().permissions().mode() & 0o111, 0);
+    }
+
+    // Exercise the public HOME/CARGO_HOME discovery branch used by startup.
+    activate(build(&workspace, None)).expect("activate public sealed profile");
+
+    // Start with the ordinary caller posture. The public command constructor
+    // must replace it with ACTIVE's mandatory, netless allow-list policy.
+    let mut ordinary = super::super::SandboxPolicy::permissive();
+    ordinary.writable_roots.push(workspace.clone());
+    assert!(ordinary.enforce);
+    assert!(!ordinary.mandatory);
+    assert!(ordinary.allow_network);
+    assert!(ordinary.sealed_reads.is_empty());
+    let mut command = super::super::command(
+        "python3",
+        std::iter::once("-c".to_owned())
+            .chain(std::iter::once(SEALED_RUNTIME_PAYLOAD.to_owned()))
+            .chain(marker_paths.iter().map(|path| path.to_string_lossy().into_owned()))
+            .chain(credentials.iter().map(|path| path.to_string_lossy().into_owned())),
+        &ordinary,
+    )
+    .expect("construct production sandbox command");
+
+    // Keep synthetic fixture paths, locale-independent tool lookup, and the
+    // test flags, while removing every ambient credential-bearing variable.
+    command.env_clear();
+    command
+        .env("HOME", &home)
+        .env("CARGO_HOME", &cargo_home)
+        .env("PATH", &path)
+        .env("ANGEL_YOLO", "0")
+        .env("ANGEL_YOLO_SMART", "0");
+    super::super::set_helper_policy(&mut command, &ordinary)
+        .expect("apply active sealed override after clearing child env");
+
+    let encoded = command
+        .get_envs()
+        .find_map(|(key, value)| {
+            (key == super::super::HELPER_POLICY_ENV)
+                .then(|| value.unwrap().to_string_lossy())
+        })
+        .expect("serialized helper policy");
+    let effective: super::super::SandboxPolicy = serde_json::from_str(&encoded).unwrap();
+    assert!(!effective.allow_network);
+    assert!(effective.enforce && effective.mandatory);
+    assert!(!effective.sealed_reads.is_empty());
+    for credential in &credentials {
+        assert!(effective.deny_reads.contains(credential));
+    }
+
+    let output = command.output().expect("run qualified bwrap payload");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    for secret in [
+        "synthetic-f01-default-credentials-must-not-be-readable",
+        "synthetic-f01-default-credentials.toml-must-not-be-readable",
+        "synthetic-f01-custom-credentials-must-not-be-readable",
+        "synthetic-f01-custom-credentials.toml-must-not-be-readable",
+    ] {
+        assert!(!stdout.contains(secret));
+        assert!(!stderr.contains(secret));
+    }
+    assert!(
+        output.status.success(),
+        "sandboxed runtime probe failed\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert_eq!(stdout.trim(), "sealed-runtime-allow-deny-ok");
+    let hashes_after: Vec<_> = marker_paths
+        .iter()
+        .chain(&credentials)
+        .map(|path| super::super::sha256_hex(&std::fs::read(path).unwrap()))
+        .collect();
+    assert_eq!(hashes_after, hashes_before, "sandbox probe modified fixtures");
+}
+
+#[cfg(target_os = "linux")]
+const SEALED_RUNTIME_PAYLOAD: &str = r#"
+import sys
+expected = [
+    b"f01-default-bin-marker-v1",
+    b"f01-default-registry-marker-v1",
+    b"f01-default-git-marker-v1",
+    b"f01-custom-bin-marker-v1",
+    b"f01-custom-registry-marker-v1",
+    b"f01-custom-git-marker-v1",
+]
+for path, value in zip(sys.argv[1:7], expected, strict=True):
+    with open(path, "rb") as marker:
+        assert marker.read() == value
+for path in sys.argv[7:11]:
+    try:
+        with open(path, "rb"):
+            raise AssertionError("credential unexpectedly readable")
+    except OSError:
+        pass
+print("sealed-runtime-allow-deny-ok")
+"#;

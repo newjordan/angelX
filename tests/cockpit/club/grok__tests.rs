@@ -7,6 +7,40 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::tests::env_lock()
 }
 
+fn read_grok_fixture_request(stream: &mut std::net::TcpStream) -> String {
+    use std::io::Read;
+
+    let mut request = Vec::new();
+    let mut byte = [0_u8; 1];
+    while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+        stream.read_exact(&mut byte).unwrap();
+        request.push(byte[0]);
+    }
+    let header_text = String::from_utf8_lossy(&request);
+    let content_length = header_text
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length").then_some(value)
+        })
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+    let mut body = vec![0_u8; content_length];
+    stream.read_exact(&mut body).unwrap();
+    request.extend(body);
+    String::from_utf8(request).unwrap()
+}
+
+fn write_grok_fixture_response(stream: &mut std::net::TcpStream, body: &str) {
+    use std::io::Write;
+
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    stream.write_all(response.as_bytes()).unwrap();
+}
+
 struct EnvGuard {
     key: &'static str,
     old: Option<OsString>,
@@ -768,6 +802,80 @@ fn grok_oauth_http_catalog_lists_47_and_keeps_45() {
     assert_eq!(current[2].1.model_identity().as_deref(), Some("grok-4.5"));
     assert_eq!(current[3].0, "grok-api");
     assert_eq!(current[3].1.model_identity().as_deref(), Some("grok-4.7"));
+}
+
+#[test]
+fn grok_http_registration_defers_refresh_until_first_request() {
+    use std::net::TcpListener;
+
+    let _lock = env_lock();
+    let dir = std::env::temp_dir().join(format!(
+        "angelX-grok-lazy-refresh-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let auth_path = dir.join("auth.json");
+    let models_path = dir.join("models_cache.json");
+    std::fs::write(&models_path, r#"{"models":{}}"#).unwrap();
+
+    let token_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let issuer = format!("http://{}", token_listener.local_addr().unwrap());
+    let (token_seen_tx, token_seen_rx) = std::sync::mpsc::channel();
+    let token_server = std::thread::spawn(move || {
+        let (mut stream, _) = token_listener.accept().unwrap();
+        token_seen_tx.send(()).unwrap();
+        let request = read_grok_fixture_request(&mut stream);
+        write_grok_fixture_response(
+            &mut stream,
+            r#"{"access_token":"fresh-access-token","refresh_token":"rotated-refresh-token","expires_in":3600}"#,
+        );
+        request
+    });
+
+    std::fs::write(
+        &auth_path,
+        format!(
+            r#"{{"https://auth.x.ai::acct":{{"key":"expired-access-token","refresh_token":"refresh-fixture","expires_at":"2020-01-01T00:00:00Z","oidc_client_id":"client-fixture","oidc_issuer":"{issuer}"}}}}"#
+        ),
+    )
+    .unwrap();
+    let _file = EnvGuard::set("ANGEL_GROK_OAUTH_FILE", auth_path.to_str().unwrap());
+    let _models = EnvGuard::set("ANGEL_GROK_MODELS_CACHE", models_path.to_str().unwrap());
+    let _model = EnvGuard::set("ANGEL_GROK_MODEL", "grok-4.7");
+    let _allow = EnvGuard::set("ANGEL_API_CLUBS", "none");
+
+    let links = grok_http_clubs();
+    assert!(links.iter().any(|(alias, _, _)| alias == "grok"));
+    assert!(
+        matches!(token_seen_rx.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
+        "registering Grok routes must not contact the token endpoint"
+    );
+
+    let api_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let api_url = format!("http://{}/v1", api_listener.local_addr().unwrap());
+    let api_server = std::thread::spawn(move || {
+        let (mut stream, _) = api_listener.accept().unwrap();
+        let request = read_grok_fixture_request(&mut stream);
+        write_grok_fixture_response(
+            &mut stream,
+            r#"{"choices":[{"message":{"role":"assistant","content":"fixture answer"},"finish_reason":"stop"}]}"#,
+        );
+        request
+    });
+
+    let shared = GrokOauthShared::new(GrokOauthAuth::load().expect("load expired OAuth fixture"));
+    let club = HttpClub::new("grok-fixture", api_url, "grok-4.7", None)
+        .with_token_provider(Arc::new(move || shared.bearer()));
+    let reply = club.chat(&[ChatMsg::user("hello")], &[]).unwrap();
+    assert!(matches!(reply, ClubReply::Text(text) if text == "fixture answer"));
+
+    let token_request = token_server.join().unwrap();
+    assert!(token_request.starts_with("POST /oauth2/token "), "{token_request}");
+    assert!(token_request.contains("refresh_token=refresh-fixture"), "{token_request}");
+    let api_request = api_server.join().unwrap();
+    assert!(api_request.starts_with("POST /v1/chat/completions "), "{api_request}");
+    assert!(api_request.contains("Authorization: Bearer fresh-access-token"), "{api_request}");
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]

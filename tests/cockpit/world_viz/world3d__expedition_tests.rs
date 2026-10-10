@@ -313,10 +313,10 @@ fn expedition_cache_ignores_town_assets_and_holds_each_animation_sample() {
         "read_file",
         "src/main.rs",
     );
-    assert_ne!(
-        quiet,
-        frame(&world, MotionMode::Off),
-        "actual work still rekeys the scene"
+    let working = frame(&world, MotionMode::Off);
+    assert!(
+        !std::sync::Arc::ptr_eq(&quiet, &working),
+        "a changed work key must recompose the cached scene, even if its pixels match"
     );
 }
 

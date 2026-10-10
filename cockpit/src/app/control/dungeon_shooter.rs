@@ -9,8 +9,11 @@ const DUNGEON_HELP: &str = "\
 The Delve — knights against monsters, for spoils that build the realm.
 /dungeon                send your knight to the Delve's gate on the map; click the mini-viz there (or F4) to choose a knight and enter
 /dungeon start [name]   skip the walk and begin at once (a name adds a second knight on this keyboard)
-/dungeon_host --N       host for N friends (up to 3): one invite line each, to paste into their own angelX · /dungeon invite|kick
+/dungeon_host --N [--view]  host for N friends (up to 3): one invite line each, to paste into their own angelX; --view lets a link open a read-only browser view · /dungeon invite|kick
+/dungeon stable       host-local stalls · select/tend a mount · tournament: three practice passes
 /dungeon join <line>    play in a friend's delve from your angelX · /dungeon leave goes home
+/dungeon settlement     visit the saved loop site (new run only); west from the PLAYER HALL
+/dungeon deposit [name] host-only admission after a saved loop receipt: .angelX/settlement-exhibits/<name>.json; no name reads legacy .angelX/settlement-exhibits.json
 /dungeon resume|pause|status|off      F4/F6 expands, Esc returns to coding (a hosted friend plays on); off ends the run, keeping half of what you carried
 /dungeon wishes [reload] · wish <words> · grant <n>   the treasury and the wishes it pays for
 /dungeon cards [new <name>|reload] · card <file> · bosses   make your own cards and guardians
@@ -81,6 +84,7 @@ impl DungeonView {
                 .find(|&n| down(KeyCode::Char(char::from(b'0' + n))) != 0)
                 .unwrap_or(0),
             vigil: down(KeyCode::Char('g')) != 0,
+            ult: down(KeyCode::Char('r')) != 0,
         };
         let mut p2 = ShooterInput {
             move_x: down(KeyCode::Char('l')) - down(KeyCode::Char('j')),
@@ -92,6 +96,7 @@ impl DungeonView {
             cast: (5..=7)
                 .find(|n| down(KeyCode::Char(char::from(b'0' + n))) != 0)
                 .map_or(0, |n| n - 4),
+            ult: down(KeyCode::Char('y')) != 0,
             ..Default::default()
         };
         if p2.fire {
@@ -129,6 +134,7 @@ impl App {
             .shooter
             .as_ref()
             .is_some_and(shooter::Run::active)
+            && self.dungeon.chivalry_visit.is_none()
             && (self.dungeon_keyboard_active() || self.dungeon_friends_seated())
     }
 
@@ -148,6 +154,7 @@ impl App {
             && self.dungeon_view_active()
             && self.dungeon.controls_visible
             && !self.dungeon.cards_open
+            && self.dungeon.chivalry_visit.is_none()
             && !self.dungeon_controls_blocked()
             && self.terminal_focused
     }
@@ -170,11 +177,21 @@ impl App {
         if let Some(run) = self.dungeon.shooter.as_mut() {
             run.retreat();
         }
-        self.settle_realm();
+        if !self.settle_realm() || !self.settle_home() {
+            return;
+        }
         // The knight waits at the Delve's lit gate while the party is below.
         self.world.delve_called = true;
         self.world.delve_lit = true;
+        self.dungeon.chivalry_visit = None;
+        self.dungeon.chivalry_notice.clear();
+        self.world.close_chivalry();
+        self.sync_chivalry_projection();
         self.realm();
+        let player = self.host_name();
+        self.world.load_settlement(&player);
+        let tavern = self.realm().home.level(shooter::home::Station::Wing) >= 1;
+        self.world.sync_settlement(&self.loop_ctl, &player, tavern);
         let gear: Vec<_> = self
             .dungeon
             .shooter
@@ -205,11 +222,19 @@ impl App {
                 Vec::new()
             };
         self.dungeon.raid_serial = self.dungeon.raid_serial.wrapping_add(1);
-        self.dungeon.shooter = Some(shooter::Run::new(
+        // Every delve begins in the Undercroft, as the realm has built it.
+        let (home, treasury) = {
+            let realm = self.realm();
+            (realm.home.clone(), realm.treasury.clone())
+        };
+        self.dungeon.shooter = Some(shooter::Run::at_home(
             self.world.realm_seed(),
             self.dungeon.raid_serial,
             guest,
+            home,
+            treasury,
         ));
+        self.sync_chivalry_projection();
         if let Some(run) = self.dungeon.shooter.as_mut() {
             for (id, name, knight) in friends {
                 run.join_seat(id, &name);
@@ -226,6 +251,15 @@ impl App {
                     hero.avatar = avatar;
                 }
             }
+        }
+        // At admission only, read the identical durable site the passive camera
+        // sees. Neither loop frames nor receipts mutate a running Delve.
+        if let Ok(Some(site)) = self.world.settlement_site()
+            && site.associated()
+            && let Some(run) = self.dungeon.shooter.as_mut()
+            && let Err(error) = run.enter_settlement(site)
+        {
+            tracing::warn!(%error, "settlement admission failed");
         }
         let boss_dir = self.tools.current_workspace().join(".angel/dungeon/bosses");
         let bosses = self
@@ -244,8 +278,11 @@ impl App {
             self.expand_dungeon();
             return;
         }
-        self.dungeon.notice =
-            "Clear a room to unbar its doors · loot what falls · find the stairs down".into();
+        self.dungeon.notice = match self.world.settlement_site() {
+            Err(error) => format!("Settlement unavailable ({error}); standard Undercroft opened, saved site untouched."),
+            Ok(Some(site)) if site.associated() => format!("{}'s PLAYER HALL · settlement west · the Winding Stair goes down", site.player),
+            _ => "The Undercroft · stand on a plate and hold F to build · the Winding Stair goes down".into(),
+        };
         self.expand_dungeon();
     }
 
@@ -277,11 +314,14 @@ impl App {
             return format!("Dungeon already hosted. Invitations:\n{lines}");
         }
         // `--3` (or `-3`) opens three seats; a lone name keeps the old form.
+        // `--view` also lets the links open a read-only view in a browser.
         let mut seats = 1usize;
+        let mut view = false;
         let mut rest = Vec::new();
         for word in tail.split_whitespace() {
             match word.trim_start_matches('-').parse::<usize>() {
                 Ok(n) if word.starts_with('-') => seats = n.clamp(1, guest::MAX_SEATS),
+                _ if word == "--view" => view = true,
                 _ => rest.push(word),
             }
         }
@@ -301,6 +341,14 @@ impl App {
         let server = match GuestServer::start_seats(bind, seats) {
             Ok(server) => server,
             Err(error) => return format!("Dungeon host: {error}"),
+        };
+        if view {
+            server.set_browser_view(true);
+        }
+        let viewing = if server.browser_view() {
+            "\nOpened in a browser, a link shows a read-only view of the floor; playing still takes angelX."
+        } else {
+            ""
         };
         // Friends join a delve still in its entrance room; otherwise hosting
         // begins a fresh one.
@@ -337,9 +385,13 @@ impl App {
             "Listening on your local network: friends on it can join; nothing is opened to the internet.".to_string()
         };
         self.dungeon.guest = Some(server);
+        self.dungeon.chivalry_visit = None;
+        self.dungeon.chivalry_notice.clear();
+        self.world.close_chivalry();
+        self.sync_chivalry_projection();
         self.publish_to_guest(self.dungeon_wants_fast_tick());
         format!(
-            "Delve hosted with {seats} seat{}. Send each friend their own line — they paste it into their angelX composer:\n{lines}\n{reach}\nUntil a friend arrives, Esc pauses; once they play, Esc turns your knight to stone while they play on. F6 rejoins. /dungeon invite shows these again; /dungeon kick ends the invitations.",
+            "Delve hosted with {seats} seat{}. Send each friend their own line — they paste it into their angelX composer:\n{lines}\n{reach}{viewing}\nUntil a friend arrives, Esc pauses; once they play, Esc turns your knight to stone while they play on. F6 rejoins. /dungeon invite shows these again; /dungeon kick ends the invitations.",
             if seats == 1 { "" } else { "s" }
         )
     }
@@ -360,6 +412,7 @@ impl App {
                 .collect();
             (!names.is_empty()).then(|| names.join(", "))
         });
+        self.sync_chivalry_projection();
         let _ = self.dungeon.checkpoint(Instant::now(), true);
         self.redraw_requested = true;
         format!(
@@ -381,6 +434,30 @@ impl App {
         }
     }
 
+    fn inspect_settlement_exhibit(&mut self) {
+        let result = (|| {
+            if self.dungeon.joined.is_some() {
+                return Err("research sources are host-local only".into());
+            }
+            let site = self
+                .world
+                .settlement_site()
+                .map_err(str::to_owned)?
+                .ok_or("no saved settlement")?;
+            let run = self
+                .dungeon
+                .shooter
+                .as_ref()
+                .ok_or("start the settlement Delve first")?;
+            site.inspect(run, self.tools.current_workspace())
+        })();
+        self.clear_dungeon_controls();
+        self.dungeon.exhibit_scroll = 0;
+        self.dungeon.exhibit_text =
+            Some(result.unwrap_or_else(|error| format!("LOCAL RESEARCH — {error}\nE/Esc closes")));
+        self.redraw_requested = true;
+    }
+
     pub(crate) fn dungeon_command(&mut self, argument: Option<&str>) -> String {
         let argument = argument.unwrap_or("").trim();
         let (verb, tail) = argument
@@ -388,6 +465,41 @@ impl App {
             .unwrap_or((argument, ""));
         let tail = tail.trim();
         match verb {
+            "stable" | "stables" => self.chivalry_command(crate::drive::chivalry::Place::Stables, tail),
+            "tournament" | "knights" => self.chivalry_command(crate::drive::chivalry::Place::Tournament, tail),
+            "deposit" => {
+                if self.dungeon.joined.is_some() {
+                    return "Local deposition is host-only; leave your friend's Delve first.".into();
+                }
+                // Normalize command-edge whitespace like other commands, then validate
+                // the entire remaining name before settlement sync or file reads.
+                let name = if tail.is_empty() { None } else { Some(tail) };
+                let manifest =
+                    match crate::drive::together_settlement::exhibits::manifest_path(name) {
+                        Ok(path) => path,
+                        Err(error) => return format!("Local deposition not committed: {error}. Use /dungeon deposit <name>, or /dungeon deposit for the legacy manifest."),
+                    };
+                let player = self.host_name();
+                let tavern = self.realm().home.level(shooter::home::Station::Wing) >= 1;
+                self.world.sync_settlement(&self.loop_ctl, &player, tavern);
+                match self.world.deposit_settlement_exhibits(
+                    &self.loop_ctl,
+                    self.tools.current_workspace(),
+                    name,
+                ) {
+                    Ok(n) => {
+                        self.redraw_requested = true;
+                        format!("Deposited {n} real local research exhibit(s). New Delves use this saved layout; existing runs stay unchanged. No rewards granted.")
+                    },
+                    Err(e) => format!("Local deposition not committed: {e}. Contract: {manifest} (angel.settlement-exhibits/v1); requires this site's saved loop receipt."),
+                }
+            }
+            "inspect" if tail.is_empty() && self.dungeon.joined.is_none() => {
+                if self.dungeon.shooter.is_none() { return "Start the settlement Delve, walk beside a LOCAL RESEARCH stand, then press E.".into(); }
+                self.expand_dungeon();
+                self.inspect_settlement_exhibit();
+                "Local inspection open; research contents are never sent to guests.".into()
+            }
             "forge" | "avatar" => self.dungeon_gear(verb, tail),
             "join" => self.join_delve(tail),
             "leave" | "off" if tail.is_empty() && self.dungeon.joined.is_some() => self.leave_delve(),
@@ -438,13 +550,36 @@ impl App {
                 },
             ),
             "kick" if tail.is_empty() => self.kick_guest(),
+            "settlement" if tail.is_empty() => {
+                if self.dungeon.joined.is_some() || self.dungeon.shooter.is_some() {
+                    return "A Delve is already open; its map is unchanged. /dungeon off first, then /dungeon settlement.".into();
+                }
+                let player = self.host_name();
+                self.world.load_settlement(&player);
+                let tavern = self.realm().home.level(shooter::home::Station::Wing) >= 1;
+                self.world.sync_settlement(&self.loop_ctl, &player, tavern);
+                match self.world.settlement_site() {
+                    Err(error) => return format!("Settlement not opened: {error}"),
+                    Ok(None) => return "Start a loop first to associate a settlement site.".into(),
+                    Ok(Some(site)) if !site.associated() => return "Start a loop first to associate a settlement site.".into(),
+                    Ok(Some(_)) => {}
+                }
+                self.start_shooter(None);
+                if self.dungeon.shooter.as_ref().is_some_and(|run| run.settlement_site.is_some()) {
+                    let site = self.world.settlement_site().ok().flatten().expect("admitted site");
+                    format!("PLAYER HALL · loop settlement west; Winding Stair leads to the Delve.\nSite id: {} · {} LOCAL RESEARCH exhibits. Host /dungeon deposit <name> admits only .angelX/settlement-exhibits/<name>.json after a saved loop receipt; no-arg deposit keeps .angelX/settlement-exhibits.json compatibility. E beside a stand inspects its source locally.", site.id, site.exhibits.len())
+                } else {
+                    // A disk failure during the entry refresh is not success.
+                    self.dungeon.notice.clone()
+                }
+            }
             "start" => {
                 if self.dungeon.shooter.is_some() {
                     self.expand_dungeon();
                     return "Dungeon already open. R restarts a finished run; /dungeon off closes it.".into();
                 }
                 self.start_shooter((!tail.is_empty()).then_some(tail));
-                "Dungeon delve started. WASD move; arrows aim and fire (F fires too); Space rolls (or raises a shield); E throws a bomb. Esc returns to coding; F4/F6 resumes.".into()
+                "Dungeon delve started. WASD move; arrows aim and fire (F fires too); Space rolls (or raises a shield); E inspects LOCAL RESEARCH in the settlement (throws a bomb in combat). Esc returns to coding; F4/F6 resumes.".into()
             }
             "" if tail.is_empty() && self.dungeon.shooter.is_none() => self.call_delve(),
             "" if tail.is_empty() => {
@@ -460,7 +595,9 @@ impl App {
             }
             "off" if tail.is_empty() => {
                 if let Some(run) = self.dungeon.shooter.as_mut() { run.retreat(); }
-                self.settle_realm();
+                if !self.settle_realm() || !self.settle_home() {
+                    return self.dungeon.notice.clone();
+                }
                 self.dungeon.audio.stop();
                 // Restore the composer before dropping its saved draft with the run.
                 self.collapse_dungeon();
@@ -471,6 +608,7 @@ impl App {
                 let realm = self.dungeon.realm.take();
                 self.dungeon = DungeonView::default();
                 self.dungeon.realm = realm;
+                self.world.close_chivalry();
                 self.world.delve_called = false;
                 self.world.delve_lit = false;
                 self.dungeon.raid_serial = serial;
@@ -489,6 +627,18 @@ impl App {
     /// Pauses discard controls and elapsed time; at most four fixed steps run
     /// per frame, even after a stalled terminal or a delayed model callback.
     pub(crate) fn advance_shooter_at(&mut self, now: Instant) {
+        self.refresh_chivalry_projection_if_needed();
+        if self.dungeon.guest.is_some() && let Some(run) = self.dungeon.shooter.as_mut() {
+            run.chivalry = None;
+        }
+        if self.dungeon.chivalry_visit.is_some() {
+            if self.dungeon.guest.is_some() || self.dungeon.joined.is_some() {
+                self.dungeon.chivalry_visit = None;
+            } else {
+                self.clear_dungeon_controls();
+                return;
+            }
+        }
         // Wall-clock polling also runs while solo play is paused for editing.
         if self.dungeon.joined.is_none()
             && self
@@ -498,10 +648,10 @@ impl App {
         {
             self.dungeon.spell_scan = Some(now);
             let dir = self.cards_dir();
-            if let Some(run) = self.dungeon.shooter.as_mut() {
-                if run.hot_load_spells(&dir) > 0 {
-                    self.redraw_requested = true;
-                }
+            if let Some(run) = self.dungeon.shooter.as_mut()
+                && run.hot_load_spells(&dir) > 0
+            {
+                self.redraw_requested = true;
             }
         }
         let keyboard = self.dungeon_keyboard_active();
@@ -700,7 +850,9 @@ impl App {
                 self.dungeon.chorus.cue(&cue, now);
             }
         }
-        self.settle_realm();
+        if self.settle_realm() {
+            self.settle_home();
+        }
         if let Some(run) = self.dungeon.shooter.as_mut() {
             let sounds = std::mem::take(&mut run.sounds);
             if let Some(server) = &self.dungeon.guest {
@@ -710,10 +862,10 @@ impl App {
                 self.dungeon.audio.sfx(sound, now);
             }
         }
-        if let Some(said) = self.dungeon.chorus.tick(now) {
-            if let Some(server) = &self.dungeon.guest {
-                server.set_voice(&said);
-            }
+        if let Some(said) = self.dungeon.chorus.tick(now)
+            && let Some(server) = &self.dungeon.guest
+        {
+            server.set_voice(&said);
         }
         self.publish_to_guest(active);
         if let Err(error) = self.dungeon.checkpoint(now, false) {
@@ -732,7 +884,7 @@ impl App {
             self.dungeon.held.remove(&code);
             return self.dungeon_view_active();
         }
-        if self.dungeon_controls_blocked() {
+        if self.dungeon_dialog_controls_blocked() {
             self.clear_dungeon_controls();
             return false;
         }
@@ -752,10 +904,37 @@ impl App {
         if !self.dungeon_view_active() {
             return false;
         }
+        if self.dungeon.exhibit_text.is_some() {
+            match code {
+                KeyCode::Esc | KeyCode::Char('e') => {
+                    self.dungeon.exhibit_text = None;
+                }
+                KeyCode::Up => {
+                    self.dungeon.exhibit_scroll = self.dungeon.exhibit_scroll.saturating_sub(1);
+                }
+                KeyCode::Down => {
+                    self.dungeon.exhibit_scroll =
+                        self.dungeon.exhibit_scroll.saturating_add(1).min(5600);
+                }
+                KeyCode::PageUp => {
+                    self.dungeon.exhibit_scroll = self.dungeon.exhibit_scroll.saturating_sub(10);
+                }
+                KeyCode::PageDown => {
+                    self.dungeon.exhibit_scroll =
+                        self.dungeon.exhibit_scroll.saturating_add(10).min(5600);
+                }
+                _ => {}
+            }
+            self.redraw_requested = true;
+            return true;
+        }
         if code == KeyCode::Esc && self.dungeon.cards_open {
             self.dungeon.cards_open = false;
             self.redraw_requested = true;
             return true;
+        }
+        if code == KeyCode::Esc && self.dungeon.chivalry_visit.is_some() {
+            return self.chivalry_side_key(code);
         }
         if matches!(code, KeyCode::Esc | KeyCode::F(2)) {
             self.collapse_dungeon();
@@ -777,6 +956,34 @@ impl App {
             return false;
         }
         if command_modifier || !self.dungeon.controls_visible || !self.terminal_focused {
+            return true;
+        }
+        if self.dungeon.chivalry_visit.is_some() {
+            if key.kind == event::KeyEventKind::Repeat
+                && !matches!(code, KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down)
+            {
+                return true;
+            }
+            return self.chivalry_side_key(code);
+        }
+        if code == KeyCode::Char('e') && !self.dungeon.cards_open && self.dungeon.joined.is_none()
+            && let Some(place) = self.dungeon.shooter.as_ref()
+                .and_then(|run| crate::drive::together_shooter::chivalry::near_portal(run, 1))
+        {
+            let message = self.chivalry_command(place, "enter");
+            if self.dungeon.guest.is_none() { self.dungeon.chivalry_notice = message; }
+            return true;
+        }
+        if code == KeyCode::Char('e')
+            && !self.dungeon.cards_open
+            && self.dungeon.joined.is_none()
+            && self
+                .dungeon
+                .shooter
+                .as_ref()
+                .is_some_and(|run| run.at_home_now() && run.settlement_site.is_some())
+        {
+            self.inspect_settlement_exhibit();
             return true;
         }
         if code == KeyCode::Char('x') {
@@ -857,8 +1064,23 @@ impl App {
                 .as_ref()
                 .is_some_and(shooter::Run::active)
             {
-                self.dungeon.notice =
-                    "Run still active. Esc pauses; /dungeon off deliberately closes it.".into();
+                // While the delve runs, R is the ultimate's key.
+                self.dungeon.hold(code, false);
+                if let Some(hero) = self
+                    .dungeon
+                    .shooter
+                    .as_ref()
+                    .and_then(|r| r.players.get(&1))
+                {
+                    use crate::drive::together_shooter::ults::ULT_FULL;
+                    if hero.ult_charge < ULT_FULL {
+                        self.dungeon.notice = format!(
+                            "{} is charging ({}%): fight to fill it.",
+                            hero.ult().name(),
+                            hero.ult_charge * 100 / ULT_FULL
+                        );
+                    }
+                }
             } else {
                 // A couch friend comes along by name; hosted friends by seat.
                 let guest = self
@@ -900,6 +1122,7 @@ impl App {
                     | 'z'
                     | 'b'
                     | 'n'
+                    | 'y'
             ) | KeyCode::Up
                 | KeyCode::Down
                 | KeyCode::Left

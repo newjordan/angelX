@@ -1,0 +1,14 @@
+name RELIC TAX KEEPER
+text An independent reliquary lord, sometimes outside the stair court's tribute pact.
+by angelX
+where crypt
+hp 580
+size 1.4
+move hover speed=1.0
+attack ring shots=6 speed=5 every=95 damage=10 shot=bone
+rage 30%
+drops gold 90, gem 1
+art
+..JJ..
+.J55J.
+..JJ..

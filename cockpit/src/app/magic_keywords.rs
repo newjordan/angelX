@@ -59,7 +59,9 @@ pub(crate) fn scan(text: &str) -> MagicEffects {
     let prose = strip_non_prose(text);
     let mut effects = MagicEffects::default();
     let lower_prose = prose.to_ascii_lowercase();
-    if lower_prose.contains("handoff_rl") || lower_prose.contains("handoff-rl") {
+    if contains_whole_alias(&lower_prose, "handoff_rl")
+        || contains_whole_alias(&lower_prose, "handoff-rl")
+    {
         effects.handoff_rl = true;
     }
     for token in prose.split(|c: char| !c.is_ascii_alphanumeric() && c != '_') {
@@ -73,6 +75,17 @@ pub(crate) fn scan(text: &str) -> MagicEffects {
         }
     }
     effects
+}
+
+fn contains_whole_alias(text: &str, alias: &str) -> bool {
+    text.match_indices(alias).any(|(start, matched)| {
+        let end = start + matched.len();
+        let is_word = |character: char| {
+            character.is_ascii_alphanumeric() || character == '_' || character == '-'
+        };
+        !text[..start].chars().next_back().is_some_and(is_word)
+            && !text[end..].chars().next().is_some_and(is_word)
+    })
 }
 
 /// Drop fenced blocks (``` … ```), inline `code`, and contiguous path/URL

@@ -182,6 +182,10 @@ fn engage_routes(pace: TaskPace, workspace: Option<&std::path::Path>) -> Vec<Rai
 /// status, score or reason) as data, which is what the 0.1.6 watcher notice
 /// carried.
 pub(crate) fn watcher_turn(workspace: &std::path::Path, notify: &WatchNotify) -> String {
+    let map_issue = crate::drive::labyrinth::observe_submission(workspace, notify)
+        .err()
+        .map(|error| format!("\nLabyrinth receipt unavailable: {error}"))
+        .unwrap_or_default();
     let raises = watcher(notify);
     let receipt = raises
         .first()
@@ -192,7 +196,7 @@ pub(crate) fn watcher_turn(workspace: &std::path::Path, notify: &WatchNotify) ->
         .map(|error| format!("\nTerminal evidence persistence unavailable: {error}"))
         .unwrap_or_default();
     format!(
-        "{}\n{receipt}{persistence}",
+        "{}\n{receipt}{persistence}{map_issue}",
         super::warpath(workspace, &raises)
     )
 }

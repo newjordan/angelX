@@ -23,6 +23,43 @@ pub(crate) enum EnemyKind {
     Boss,
     /// A treasure chest with teeth: hops, bites, spits coins.
     Mimic,
+    /// A goblin with a keg: plants it near the knights, then runs.
+    Sapper,
+    /// Keeps its distance and raises the dead.
+    Necromancer,
+    /// Paws the ground, marks a line, charges down it.
+    Warboar,
+    /// Hops; splits when it falls, twice.
+    Slime,
+    /// Runs with a sack of gold; slips away if not caught.
+    Goblin,
+    /// Lobs bombs at where a knight stands.
+    Hob,
+    /// Boxes a knight in with serpent wards.
+    Shaman,
+    /// A shaman's serpent ward: stands, spits, crumbles.
+    Ward,
+    /// A quintain in the Training Yard: takes every blow, falls to none.
+    Dummy,
+    /// Rots whoever stands close; throws a meat hook down a marked line
+    /// and reels in what it catches.
+    Flesher,
+    /// Keeps her distance, spins webs under the knights, hatches
+    /// spiderlings.
+    Silkmother,
+    /// Small, quick, many.
+    Spiderling,
+    /// The beast in the Pit: slow, huge, breathing embers, slamming the
+    /// ground round itself.
+    PitTyrant,
+    /// Keeps her distance, spits, and turns knights into frogs.
+    Hexer,
+    /// Keeps his distance and throws Rimeleap, which leaps knight to
+    /// knight.
+    Lich,
+    /// Stones floating round a void: opens Black Holes that drag knights
+    /// in, and holds still while it keeps one open.
+    Hollow,
 }
 
 impl EnemyKind {
@@ -35,6 +72,22 @@ impl EnemyKind {
             EnemyKind::Dragon => 1.8,
             EnemyKind::Boss => 1.4,
             EnemyKind::Mimic => 0.9,
+            EnemyKind::Sapper => 0.6,
+            EnemyKind::Necromancer => 0.75,
+            EnemyKind::Warboar => 0.95,
+            EnemyKind::Slime => 1.1,
+            EnemyKind::Goblin => 0.7,
+            EnemyKind::Hob => 0.65,
+            EnemyKind::Shaman => 0.8,
+            EnemyKind::Ward => 0.5,
+            EnemyKind::Dummy => 0.9,
+            EnemyKind::Flesher => 1.15,
+            EnemyKind::Silkmother => 1.0,
+            EnemyKind::Spiderling => 0.45,
+            EnemyKind::PitTyrant => 1.9,
+            EnemyKind::Hexer => 0.75,
+            EnemyKind::Lich => 0.8,
+            EnemyKind::Hollow => 0.85,
         }
     }
 
@@ -48,11 +101,47 @@ impl EnemyKind {
             EnemyKind::Dragon => 1100,
             EnemyKind::Boss => 600,
             EnemyKind::Mimic => 220,
+            EnemyKind::Sapper => 45,
+            EnemyKind::Necromancer => 140,
+            EnemyKind::Warboar => 180,
+            EnemyKind::Slime => 80,
+            EnemyKind::Goblin => 120,
+            EnemyKind::Hob => 60,
+            EnemyKind::Shaman => 150,
+            EnemyKind::Ward => 25,
+            EnemyKind::Dummy => 9999,
+            EnemyKind::Flesher => 320,
+            EnemyKind::Silkmother => 200,
+            EnemyKind::Spiderling => 14,
+            EnemyKind::PitTyrant => 2200,
+            EnemyKind::Hexer => 110,
+            EnemyKind::Lich => 160,
+            EnemyKind::Hollow => 190,
         }
     }
 
+    /// The ones a room keeps to one of: the dangerous casters and chargers,
+    /// and the slime, whose one family is seven bodies.
+    pub(crate) fn elite(self) -> bool {
+        matches!(
+            self,
+            EnemyKind::Necromancer
+                | EnemyKind::Shaman
+                | EnemyKind::Warboar
+                | EnemyKind::Slime
+                | EnemyKind::Flesher
+                | EnemyKind::Silkmother
+                | EnemyKind::Hexer
+                | EnemyKind::Lich
+                | EnemyKind::Hollow
+        )
+    }
+
     pub(crate) fn flies(self) -> bool {
-        matches!(self, EnemyKind::Bat | EnemyKind::Wraith | EnemyKind::Dragon)
+        matches!(
+            self,
+            EnemyKind::Bat | EnemyKind::Wraith | EnemyKind::Dragon | EnemyKind::Hollow
+        )
     }
 
     pub(super) fn bounty(self) -> u32 {
@@ -64,19 +153,38 @@ impl EnemyKind {
             EnemyKind::Dragon => 2000,
             EnemyKind::Boss => 800,
             EnemyKind::Mimic => 250,
+            EnemyKind::Sapper | EnemyKind::Hob => 120,
+            EnemyKind::Necromancer | EnemyKind::Shaman => 250,
+            EnemyKind::Warboar => 220,
+            EnemyKind::Slime => 60,
+            EnemyKind::Goblin => 600,
+            EnemyKind::Ward => 10,
+            EnemyKind::Dummy => 0,
+            EnemyKind::Flesher => 450,
+            EnemyKind::Silkmother => 320,
+            EnemyKind::Spiderling => 15,
+            EnemyKind::PitTyrant => 1200,
+            EnemyKind::Hexer => 260,
+            EnemyKind::Lich => 320,
+            EnemyKind::Hollow => 340,
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Enemy {
+    /// Floor-local faction and finite camp slot (absent in legacy and special modes).
+    #[serde(default)]
+    pub(crate) faction: Option<u8>,
+    #[serde(default)]
+    pub(crate) camp_slot: Option<u8>,
     pub(crate) x: f32,
     pub(crate) y: f32,
     pub(crate) hp: u32,
     pub(crate) max_hp: u32,
     pub(crate) kind: EnemyKind,
     pub(crate) age: u32,
-    pub(super) id: u32,
+    pub(crate) id: u32,
     pub(super) origin_x: f32,
     pub(super) origin_y: f32,
     /// A boss's index in the run's `bosses`.
@@ -89,6 +197,17 @@ pub(crate) struct Enemy {
     /// A guardian past its rage threshold.
     #[serde(default)]
     pub(super) raged: bool,
+    /// Ticks it stands stunned or held in time.
+    #[serde(default)]
+    pub(crate) frozen: u32,
+    /// Its own state: what it is doing (a slime's size, a boar's charge),
+    /// ticks at it, and which way.
+    #[serde(default)]
+    pub(crate) stage: u8,
+    #[serde(default)]
+    pub(crate) timer: u32,
+    #[serde(default)]
+    pub(crate) dir: (f32, f32),
 }
 
 impl Enemy {
@@ -109,9 +228,28 @@ pub(super) fn act(
     seed: u64,
     bosses: &[Boss],
     shots: &mut Vec<Projectile>,
+    deeds: &mut foes::Deeds,
 ) {
     if let Some(boss) = enemy.boss.and_then(|i| bosses.get(usize::from(i))) {
-        act_boss(enemy, boss, heroes, grid, seed, shots);
+        act_boss(enemy, boss, heroes, grid, seed, shots, deeds);
+        return;
+    }
+    if foes::act(enemy, heroes, grid, seed, shots, deeds) {
+        return;
+    }
+    if hunters::act(enemy, heroes, grid, deeds) {
+        return;
+    }
+    if pit::act(enemy, heroes, grid, shots, deeds) {
+        return;
+    }
+    if hexer::act(enemy, heroes, grid, shots) {
+        return;
+    }
+    if hollow::act(enemy, heroes, grid, shots, deeds) {
+        return;
+    }
+    if lich::act(enemy, heroes, grid, shots, deeds) {
         return;
     }
     let target = heroes.iter().copied().min_by(|a, b| {
@@ -121,6 +259,9 @@ pub(super) fn act(
     });
     let (tx, ty) = target.unwrap_or((enemy.x, enemy.y));
     let aim = (ty - enemy.y).atan2(tx - enemy.x);
+    // Nobody in sight (all fallen, stone, or under Invisibility): nothing
+    // to aim at, so no aimed shots; the rings and the wandering go on.
+    let seen = target.is_some();
     let (cx, cy) = unit(tx - enemy.x, ty - enemy.y);
     let age = enemy.age + enemy.id * 13;
     let spin = age as f32 * 0.021 + (seed % 31) as f32 * 0.1;
@@ -150,7 +291,23 @@ pub(super) fn act(
             let gy = enemy.origin_y + (age as f32 * 0.014).sin() * 2.0;
             (gx - enemy.x, gy - enemy.y)
         }
-        EnemyKind::Boss => (0.0, 0.0),
+        EnemyKind::Boss
+        | EnemyKind::Sapper
+        | EnemyKind::Necromancer
+        | EnemyKind::Warboar
+        | EnemyKind::Slime
+        | EnemyKind::Goblin
+        | EnemyKind::Hob
+        | EnemyKind::Shaman
+        | EnemyKind::Ward
+        | EnemyKind::Dummy
+        | EnemyKind::Flesher
+        | EnemyKind::Silkmother
+        | EnemyKind::Spiderling
+        | EnemyKind::PitTyrant
+        | EnemyKind::Hexer
+        | EnemyKind::Lich
+        | EnemyKind::Hollow => (0.0, 0.0),
         // Hops: a lunge, then a pause to chew.
         EnemyKind::Mimic if age % 36 < 14 => step(7.5, (cx, cy)),
         EnemyKind::Mimic => (0.0, 0.0),
@@ -175,7 +332,7 @@ pub(super) fn act(
     };
     match enemy.kind {
         EnemyKind::Bat => {}
-        EnemyKind::Skeleton if age.is_multiple_of(55) => fire(aim, 9.0, Shot::Bone, 12),
+        EnemyKind::Skeleton if seen && age.is_multiple_of(55) => fire(aim, 9.0, Shot::Bone, 12),
         EnemyKind::Wraith if age.is_multiple_of(80) => {
             for i in 0..10 {
                 fire(
@@ -186,13 +343,13 @@ pub(super) fn act(
                 );
             }
         }
-        EnemyKind::Imp if age.is_multiple_of(70) => {
+        EnemyKind::Imp if seen && age.is_multiple_of(70) => {
             for i in -1..=1 {
                 fire(aim + i as f32 * 0.22, 7.0, Shot::Ember, 12);
             }
         }
         EnemyKind::Demon => {
-            if age.is_multiple_of(60) {
+            if seen && age.is_multiple_of(60) {
                 for i in -2..=2 {
                     fire(aim + i as f32 * 0.16, 7.0, Shot::Ember, 16);
                 }
@@ -208,7 +365,7 @@ pub(super) fn act(
                 }
             }
         }
-        EnemyKind::Mimic if age.is_multiple_of(80) => {
+        EnemyKind::Mimic if seen && age.is_multiple_of(80) => {
             // It spits the coins it was hiding.
             for i in -2..=2 {
                 fire(aim + i as f32 * 0.2, 7.0, Shot::Ball, 10);
@@ -225,7 +382,7 @@ pub(super) fn act(
                     );
                 }
             }
-            if age.is_multiple_of(75) {
+            if seen && age.is_multiple_of(75) {
                 for i in -3..=3 {
                     fire(aim + i as f32 * 0.13, 8.0, Shot::Ember, 16);
                 }
@@ -244,6 +401,7 @@ fn act_boss(
     grid: &Grid,
     seed: u64,
     shots: &mut Vec<Projectile>,
+    deeds: &mut foes::Deeds,
 ) {
     use bosses::{Bolt, Move, Pattern};
     let target = heroes.iter().copied().min_by(|a, b| {
@@ -292,6 +450,21 @@ fn act_boss(
         if !(age + index as u32 * 11).is_multiple_of(every) {
             continue;
         }
+        if attack.pattern == Pattern::Ravage {
+            // The floor itself, round where it stands; only at someone.
+            if target.is_some() {
+                deeds.ravages.push(tide::Ravage::cast(
+                    (enemy.x, enemy.y),
+                    attack.shots,
+                    attack.arc,
+                    attack.speed,
+                    attack.damage,
+                    seed ^ u64::from(age) << 12 ^ u64::from(enemy.id),
+                ));
+                deeds.cues.push("ravage");
+            }
+            continue;
+        }
         let kind = match attack.bolt {
             Bolt::Bone => Shot::Bone,
             Bolt::Orb => Shot::Orb,
@@ -314,6 +487,7 @@ fn act_boss(
             Pattern::Spiral => (0..n)
                 .map(|i| spin * 3.0 + i as f32 * std::f32::consts::TAU / n as f32)
                 .collect(),
+            Pattern::Ravage => Vec::new(),
         };
         for angle in angles {
             shots.push(Projectile {

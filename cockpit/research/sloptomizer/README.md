@@ -80,9 +80,10 @@ embedded in the cockpit binary. `ANGEL_RESEARCH_PYTHON` selects the interpreter.
 
 ## Provenance and the duplicated copy
 
-Ten of these modules are copied byte-for-byte from the original Sloptomizer
-source; [UPSTREAM.json](UPSTREAM.json) records the sha256 of each one and the
-commit they came from. Where a development checkout also carries the full import
+Nine of these modules are copied byte-for-byte from the original Sloptomizer
+source; `micro_llm/core.py` includes the F20 unigram fallback repair.
+[UPSTREAM.json](UPSTREAM.json) records each bundled sha256, the source commit,
+and the repaired module's original upstream sha256. Where a development checkout also carries the full import
 archive, those same ten files exist there under
 `experimental/sloptomizer/upstream/`, so the same bytes appear twice. That is
 deliberate: this directory is compiled into the binary by `include_bytes!`

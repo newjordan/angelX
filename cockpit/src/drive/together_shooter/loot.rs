@@ -114,7 +114,21 @@ pub(crate) fn drop_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Bat => 20,
         EnemyKind::Skeleton | EnemyKind::Wraith | EnemyKind::Imp => 35,
         EnemyKind::Demon | EnemyKind::Dragon => 100,
-        EnemyKind::Boss | EnemyKind::Mimic => 0,
+        EnemyKind::Boss
+        | EnemyKind::Mimic
+        | EnemyKind::Goblin
+        | EnemyKind::Ward
+        | EnemyKind::Dummy => 0,
+        EnemyKind::Sapper | EnemyKind::Hob => 30,
+        EnemyKind::Necromancer | EnemyKind::Shaman => 60,
+        EnemyKind::Warboar => 50,
+        EnemyKind::Slime => 15,
+        EnemyKind::Flesher | EnemyKind::Silkmother => 80,
+        EnemyKind::Hexer => 60,
+        EnemyKind::Lich | EnemyKind::Hollow => 70,
+        EnemyKind::Spiderling => 4,
+        // The Pit Tyrant leaves its own: the Talisman, gold, a prize.
+        EnemyKind::PitTyrant => 0,
     }
 }
 
@@ -124,8 +138,21 @@ pub(crate) fn spoil_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Bat => 25,
         EnemyKind::Skeleton | EnemyKind::Wraith | EnemyKind::Imp => 50,
         EnemyKind::Demon => 100,
-        EnemyKind::Dragon | EnemyKind::Boss => 0,
-        EnemyKind::Mimic => 100,
+        EnemyKind::Dragon
+        | EnemyKind::Boss
+        | EnemyKind::Goblin
+        | EnemyKind::Ward
+        | EnemyKind::Dummy => 0,
+        EnemyKind::Mimic | EnemyKind::Necromancer | EnemyKind::Shaman => 100,
+        EnemyKind::Sapper | EnemyKind::Hob => 40,
+        EnemyKind::Warboar => 80,
+        EnemyKind::Slime => 20,
+        EnemyKind::Flesher
+        | EnemyKind::Silkmother
+        | EnemyKind::Hexer
+        | EnemyKind::Lich
+        | EnemyKind::Hollow => 100,
+        EnemyKind::Spiderling | EnemyKind::PitTyrant => 0,
     }
 }
 

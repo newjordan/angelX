@@ -293,10 +293,10 @@ const ORIGINAL_TOOL_NOTES: &[(&str, &str, &[&str])] = &[
             "the task every seat works (or use tasks[])",
             "one task per seat (sets n)",
             "default: panel when n>1, else solo",
-            "seat count (default 3, capped by ANGEL_SPAWN_MAX)",
+            "seat count (default 1 for solo, else 3; capped by ANGEL_SPAWN_MAX)",
             "optional exact persona name or list cycling across seats; installed names: {}; omit this field for a plain seat",
             "self/auto = your own model replicated (default, self-same panel) | smart = the designated escalation seat (ANGEL_SOTA_SMART_CLUB, default luna) | fleet = spread across reachable fleet clubs (opt-in) | an explicit club label",
-            "optional formation deadline in seconds; default 0 (unbounded)",
+            "optional per-seat clock in seconds, started at the seat's first response (the wait for that response gets its own equal window); default 900 (operator ANGEL_SPAWN_TIMEOUT); a cut seat returns its partial work",
             "K for quorum formation (default ceil(n/2))",
         ],
     ),
@@ -742,6 +742,10 @@ const ORIGINAL_TOOL_NOTES: &[(&str, &str, &[&str])] = &[
         &[
             "results: exact retained run within this workspace",
             "results: retained run count; default 5",
+            "campaign: start, run, status, cancel, check, recover or recheck the native Labyrinth workflow; its role policies are registered at ⡬⠊.",
+            "campaign: durable Labyrinth campaign identifier.",
+            "campaign: complete specification with explicit doors, source files, independent checks and shared compute limits.",
+            "campaign check: workspace-relative path to a complete frozen integration bundle; validate exact source and check receipts without a model call, canonical publication or another recheck.",
         ],
     ),
     (
@@ -895,7 +899,11 @@ fn tool_of(sub: &Sub) -> &'static str {
 fn sections_of(tool: &str) -> Vec<Route> {
     let mut subs: Vec<&Sub> = TOC
         .iter()
-        .filter(|primary| VOLUME_TWO.contains(primary.cell))
+        .filter(|primary| {
+            VOLUME_TWO.contains(primary.cell)
+                || primary.cell == super::super::labyrinth_campaign::CELL
+                || primary.cell == super::super::labyrinth_campaign::SHELF.cell
+        })
         .flat_map(|primary| primary.subs.iter())
         .filter(|sub| tool_of(sub) == tool)
         .collect();

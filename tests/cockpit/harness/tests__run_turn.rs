@@ -10,6 +10,104 @@ use crate::agent::harness::book::q_stop::task_budget_left;
 use crate::agent::harness::book::v_verification::*;
 use serde_json::json;
 
+#[test]
+fn run_turn_labyrinth_context_is_scoped_once_and_preserves_system_history() {
+    let _guard = crate::tests::env_lock();
+    let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let root = scratch("labyrinth_context");
+    let task = "Compare retained research ideas";
+    crate::drive::labyrinth::initialize(&root).unwrap();
+    crate::drive::labyrinth::observe_iteration(
+        &root,
+        "deli",
+        task,
+        &["current task lead".into()],
+        &[],
+    )
+    .unwrap();
+    crate::drive::labyrinth::observe_iteration(
+        &root,
+        "deli",
+        "another task",
+        &["unrelated task lead".into()],
+        &[],
+    )
+    .unwrap();
+    struct ContextClub(bool);
+    impl Club for ContextClub {
+        fn label(&self) -> &str {
+            "labyrinth-context-fixture"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            Ok("unused".into())
+        }
+        fn chat(&self, messages: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
+            let body = messages
+                .iter()
+                .map(|message| message.content.as_ref())
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert_eq!(
+                body.matches(crate::drive::labyrinth::CONTEXT_MARK).count(),
+                usize::from(self.0)
+            );
+            assert_eq!(body.contains("current task lead"), self.0);
+            assert!(!body.contains("unrelated task lead"));
+            Ok(ClubReply::Text(
+                "The retained ideas can be compared by their independent tests.".into(),
+            ))
+        }
+    }
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    let (events, _) = mpsc::channel();
+    let mut restricted_history = vec![ChatMsg::user(task)];
+    run_turn(
+        &ContextClub(false),
+        &registry,
+        &mut restricted_history,
+        &AtomicBool::new(false),
+        Some(1),
+        &events,
+    )
+    .unwrap();
+    registry.register_deferred(Box::new(crate::agent::tools::labyrinth::LabyrinthTool::new(
+        root.clone(),
+    )));
+    for already_in_prompt in [false, true] {
+        let mut prompt = task.to_string();
+        if already_in_prompt {
+            prompt.push_str(&crate::drive::labyrinth::context(&root, task));
+        }
+        let mut history = vec![
+            ChatMsg::system("stable fixture prefix"),
+            ChatMsg::user(prompt),
+        ];
+        run_turn(
+            &ContextClub(true),
+            &registry,
+            &mut history,
+            &AtomicBool::new(false),
+            Some(1),
+            &events,
+        )
+        .unwrap();
+        assert_eq!(history[0].content.as_ref(), "stable fixture prefix");
+        assert_eq!(
+            history
+                .iter()
+                .map(|message| message
+                    .content
+                    .matches(crate::drive::labyrinth::CONTEXT_MARK)
+                    .count())
+                .sum::<usize>(),
+            1
+        );
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[cfg(unix)]
 #[test]
 fn run_turn_r04e_blocked_identity_probe_still_requests_with_partial_notice() {
@@ -101,6 +199,8 @@ impl Club for BlockedSandboxClub {
     }
 }
 
+// This subprocess status-channel fixture depends on the Linux memfd backend.
+#[cfg(target_os = "linux")]
 #[test]
 fn failed_native_sandbox_stops_before_next_request_despite_successful_batch_peer() {
     let _guard = crate::tests::env_lock();
@@ -204,7 +304,10 @@ fn nested_bwrap_failure_continues_to_next_request() {
                     .iter()
                     .find(|m| m.role == ChatRole::Tool && m.content.contains("uid map"))
                     .unwrap();
-                assert_eq!(result.content.matches("[doctor hint:").count(), 1);
+                assert_eq!(
+                    result.content.matches("[doctor hint:").count(),
+                    usize::from(cfg!(target_os = "linux"))
+                );
                 Ok(ClubReply::Text("The candidate's nested sandbox failed; host repair is needed for that command.".into()))
             }
         }
@@ -9452,6 +9555,134 @@ fn output_cap_cut_offs_stop_once_the_notes_are_spent() {
     );
 }
 
+/// A link that keeps cut-off prose (`keep_truncated`): the first `cut_offs`
+/// replies stream the system prompt's opening again and again until the output
+/// cap, come back as kept text and count as retained partials, as the HTTP club
+/// does; then the model acts and answers.
+struct EchoCappedClub {
+    calls: AtomicUsize,
+    cut_offs: usize,
+}
+
+const ECHO: &str = "⠽⠃⠍⠁⠽⠑\n⠍⠓\n`ws/transpose`\n- `transpose.js`\n\n";
+
+impl Club for EchoCappedClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("unused".into())
+    }
+    fn label(&self) -> &str {
+        "echo-capped"
+    }
+    fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+        Ok(ClubReply::Text("transposed the rows".into()))
+    }
+    fn chat_streaming(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        _cancel: &AtomicBool,
+        on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) < self.cut_offs {
+            let echo = ECHO.repeat(40);
+            on_delta(crate::agent::club::StreamDelta::Content(&echo));
+            return Ok(ClubReply::Text(crate::agent::club::mark_truncated(
+                &echo,
+                crate::agent::club::OutputBudgetPolicy::Explicit {
+                    tokens: 8192,
+                    source: crate::agent::club::OutputBudgetSource::ModelCard,
+                },
+            )));
+        }
+        self.chat(messages, tools)
+    }
+    fn truncation_usage(&self) -> crate::agent::club::TruncationUsage {
+        let cut = self.calls.load(Ordering::SeqCst).min(self.cut_offs) as u64;
+        crate::agent::club::TruncationUsage {
+            episodes: cut,
+            retained_partials: cut,
+            ..Default::default()
+        }
+    }
+}
+
+fn run_echo_capped(cut_offs: usize) -> (usize, TurnOutcome, Vec<ChatMsg>) {
+    let registry = ToolRegistry::new();
+    let club = EchoCappedClub {
+        calls: AtomicUsize::new(0),
+        cut_offs,
+    };
+    let mut history = vec![ChatMsg::user("transpose the input text")];
+    let outcome = run_turn_observed(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(8),
+        &mpsc::channel::<TurnEvent>().0,
+    )
+    .expect("the turn answers");
+    (club.calls.load(Ordering::SeqCst), outcome, history)
+}
+
+/// A kept cut-off reply is not the answer: it takes the output-cap path, so the
+/// model is asked again without its cut-off text in the history (DeepSeek
+/// polyglot-v1 js-transpose: two echoes of the system prompt to the output cap
+/// stood as the answer, 2 of 60 hops).
+#[test]
+fn a_kept_cut_off_reply_is_asked_again() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let (calls, outcome, history) = run_echo_capped(2);
+    assert_eq!(calls, 3, "two cut-offs, then the answer");
+    assert_eq!(outcome.answer, "transposed the rows");
+    assert_eq!(
+        history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.starts_with("⠭⠉"))
+            .count(),
+        2,
+        "one ⠭⠉ per cut-off"
+    );
+    assert!(
+        history
+            .iter()
+            .filter(|m| m.role == ChatRole::Harness && m.content.starts_with("⠭⠉"))
+            .all(|m| m.content.contains("configured request cap was 8192 tokens")),
+        "the note quotes the provider's words"
+    );
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.role == ChatRole::Assistant && m.content.contains("⠽⠃⠍⠁⠽⠑")),
+        "the cut-off text never enters the history"
+    );
+}
+
+/// Once the output-cap notes are spent, a kept cut-off reply stands as it did
+/// before: the link keeps cut-off prose rather than fail the turn.
+#[test]
+fn a_kept_cut_off_reply_stands_once_the_notes_are_spent() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _no_edit = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let (calls, outcome, _history) = run_echo_capped(usize::MAX);
+    let limit = book::x_execution::OUTPUT_CAP_LIMIT;
+    assert_eq!(calls, limit + 1, "the first reply plus one retry per note");
+    assert!(
+        outcome.answer.contains("response incomplete: configured request cap was 8192 tokens"),
+        "{}",
+        outcome.answer
+    );
+}
+
 /// A Board benchmark.json declares the editable surface (both schemas), and the
 /// operator can set it directly.
 #[test]
@@ -10217,7 +10448,7 @@ fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let (script, history) = run_spec_turn(
         &root,
         vec![
-            shell("sed -i 's/xit(/it(/' grep.spec.js"),
+            shell("sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js"),
             Move::Say("All tests pass."),
             shell("git checkout -- grep.spec.js"),
             Move::Say("Restored the spec; the fix is in grep.js."),
@@ -10259,7 +10490,7 @@ fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let (script, history) = run_spec_turn(
         &root,
         vec![
-            shell("sed -i 's/xit(/it(/' grep.spec.js"),
+            shell("sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js"),
             Move::Say("Done."),
             Move::Say("The task asked me to enable every test."),
         ],
@@ -10279,7 +10510,7 @@ fn test_edits_are_only_questioned_in_task_mode_and_for_the_models_own_changes() 
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let shell = |command: &str| Move::Call(tc("shell", json!({ "command": command })));
-    let unskip = || shell("sed -i 's/xit(/it(/' grep.spec.js");
+    let unskip = || shell("sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js");
 
     let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
     let root = spec_fixture("test_edit_interactive");

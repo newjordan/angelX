@@ -122,17 +122,44 @@ fn snapshot_contains_only_selected_route_metadata() {
     expected.route_id = Some(crate::agent::backplane::RouteId::chat(
         "openai",
         "gpt-5.6-sol",
+        "gpt-5.6-sol",
         Some("high"),
     ));
     assert_eq!(snapshot(&bag), Some(expected));
 }
 
 #[test]
-fn active_restore_uses_stable_route_id_while_legacy_keeps_model_strings() {
+fn active_restore_requires_the_model_specific_id_while_legacy_keeps_model_strings() {
     let original = Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
     let preference = snapshot(&original).unwrap();
     let refreshed = Bag::for_render_test(&[("alpha", &[("model-b", true)])]);
     let choice = refreshed.route_choices().iter().next().cloned().unwrap();
-    assert!(matches_with_backplane(&choice, &preference, true));
+    assert!(!matches_with_backplane(&choice, &preference, true));
     assert!(!matches_with_backplane(&choice, &preference, false));
+
+    let same_model = Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
+    let same_choice = same_model.route_choices().iter().next().cloned().unwrap();
+    assert!(matches_with_backplane(&same_choice, &preference, true));
+}
+
+#[test]
+fn v2_legacy_route_id_restores_only_its_saved_model_tuple() {
+    let original = Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
+    let choice = original.route_choices().iter().next().cloned().unwrap();
+    let mut saved = preference("alpha", "practice", "model-a", None);
+    saved.route_id = Some(crate::agent::backplane::RouteId::legacy_chat(
+        "alpha", "practice", None,
+    ));
+    let path = temp_path("legacy-route-id");
+    save_to(&path, &saved).unwrap();
+    let mut restored = load_from(&path).expect("existing v2 preference loads");
+    assert_eq!(restored.v, 2);
+    assert!(matches_with_backplane(&choice, &restored, true));
+
+    restored.model = "model-b".to_string();
+    assert!(
+        !matches_with_backplane(&choice, &restored, true),
+        "a stale ID cannot restore a different saved model"
+    );
+    let _ = std::fs::remove_file(path);
 }

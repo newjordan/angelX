@@ -1,0 +1,16 @@
+name RELIC LIEGE
+text Relic tribute binds the court. The gate houses, not every free captain, seal this throne.
+by angelX
+where crypt
+hp 820
+size 1.7
+move hover speed=1.0
+attack ring shots=6 speed=5 every=85 damage=12 shot=bone
+attack aimed shots=2 speed=7 every=60 damage=10 shot=bone
+rage 30%
+drops gold 180, gem 2
+art
+..JJ..
+.J77J.
+.JHHJ.
+..JJ..

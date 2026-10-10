@@ -6,6 +6,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
+import * as habitsCore from '../../lib/habits/core.mjs'
+import * as habitsWorker from '../../scripts/runtime/habitsmith.mjs'
+
 import CausalGraph, { NODE_TYPE, EDGE_TYPE } from '../../lib/research/CausalGraph.js'
 import {
   sessionStepSeqs,
@@ -26,21 +29,21 @@ import {
   MAX_GAP,
   RISKY_RE,
   DEFAULT_MIN_BELIEF,
-} from '../../scripts/runtime/habitsmith.mjs'
+} from '../../lib/habits/core.mjs'
 import {
   mineSkillUsage,
   attachSkillUsage,
   foldVerdicts,
   compileHabitsStatus,
   DRIFT_BELIEF,
-} from '../../scripts/runtime/habitsmith.mjs'
+} from '../../lib/habits/core.mjs'
 import { killed, factMapFrom } from '../../scripts/runtime/habitsmith-tick.mjs'
 import {
   dossierFacts,
   ingestRepoFacts,
   mineRepoFacts,
   proposeDossierProbe,
-} from '../../scripts/runtime/repo-dossier.mjs'
+} from '../../lib/dossier/core.mjs'
 
 const NOW = '2026-07-06T00:00:00.000Z'
 const NOW_TS = Math.floor(Date.parse(NOW) / 1000)
@@ -103,6 +106,9 @@ test('matchPattern: occurrences are leftmost-greedy and non-overlapping', () => 
 })
 
 test('mining finds the habit across sessions, with per-step pass rates and clean-run count', () => {
+  for (const [name, value] of Object.entries(habitsCore)) {
+    assert.strictEqual(habitsWorker[name], value, `worker must re-export the core's ${name}`)
+  }
   const rows = [
     ...habitSession(1),
     ...habitSession(2, { noise: 2 }), // gap-tolerant occurrence

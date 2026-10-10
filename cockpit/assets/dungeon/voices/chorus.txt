@@ -134,3 +134,370 @@ herald | wish_granted | herald-wish-granted | Granted!
 wren | wish_granted | wren-wish-granted | Ooh, that's going in the margin.
 tobbin | wish_granted | tobbin-wish-granted | There. Mind you use it.
 blaise | wish_granted | blaise-wish-granted | Careful what you wish for. Then again, you were.
+
+# ── The Undercroft: home, its keepers, and what the party builds ────────────
+# Cues: home npc:<keeper> built built:<station> cant_afford second_wind
+herald | home | herald-home | Welcome home to the Undercroft. Mind the stair. It goes all the way down, and it is very proud of that.
+herald | home | herald-home-2 | The Undercroft! Population: one smith, one hermit, one mapmaker, and you. Spend wisely. Or don't. The Herald enjoys both.
+herald | home | herald-home-3 | Back in the Undercroft. Spoils counted, wounds dressed, and the stair is, as ever, right there.
+blaise | home | blaise-home | Come in, come in. Sit by the fire a moment before you go down again. The stone will wait. It always does.
+wren | home | wren-home | You're back! I added three new smudges to the map while you were gone. One of them might be a door.
+tobbin | home | tobbin-home | Oh, it's you. Leave the blades on the bench. I'll pretend not to look at what you did to them.
+tobbin | npc:tobbin | tobbin-npc-1 | Mind the anvil. It's older than your grandmother and has stronger opinions.
+tobbin | npc:tobbin | tobbin-npc-2 | You hit things with that? With that? Give it here. Ore first.
+tobbin | npc:tobbin | tobbin-npc-3 | Every blade I make comes back chipped. That's how I know it's working.
+tobbin | npc:tobbin | tobbin-npc-4 | A good edge is mostly patience and partly yelling. I supply both.
+blaise | npc:blaise | blaise-npc-1 | Sit. The stair will still be there. That is rather the point of stairs.
+blaise | npc:blaise | blaise-npc-2 | Merlin said the deep remembers everyone who goes down it. I think it remembers the ones who come back up a little more fondly.
+blaise | npc:blaise | blaise-npc-3 | Percival came home hurt more often than he came home proud. He came home, though. That was the part that mattered.
+blaise | npc:blaise | blaise-npc-4 | The chapel keeps your bonds. Two knights who fought side by side can lift each other up from almost anywhere.
+wren | npc:wren | wren-npc-1 | I've inked the first landing! The second one is mostly a smudge and a lot of hope.
+wren | npc:wren | wren-npc-2 | If you find a cup down there, any cup at all, bring it back. For science.
+wren | npc:wren | wren-npc-3 | Every floor you reach, I can draw a landing to it. Then the stair lets you off there next time!
+wren | npc:wren | wren-npc-4 | The map keeps changing when I'm not looking. So I've started looking very hard.
+herald | built | herald-built | Construction complete! The Undercroft grows. Somewhere, a stonemason weeps with pride.
+herald | built | herald-built-2 | Upgrade purchased! Your spoils have been converted into something considerably more useful.
+tobbin | built:forge | tobbin-built-forge | There. Now it cuts the way it ought to. Don't thank me. Hit harder.
+tobbin | built:forge | tobbin-built-forge-2 | Hear that ring? That's the sound of a monster's very bad day.
+blaise | built:hearth | blaise-built-hearth | Warmer already. A fire is only patience you can see.
+tobbin | built:rack | tobbin-built-rack | Potions on the left, bombs on the right. Do not mix those up. I mean it.
+blaise | built:chapel | blaise-built-chapel | The bond holds now. When one of you falls, the others will lift them. Once, at least. Faith is not a bottomless purse.
+wren | built:map | wren-built-map | New landing! I drew a little flag on it. Do you like the flag? I like the flag.
+herald | cant_afford | herald-cant-afford | Insufficient spoils. The Herald suggests hitting more things, harder, and then carrying the things home.
+tobbin | cant_afford | tobbin-cant-afford | That's not enough ore to shoe a mouse.
+herald | second_wind | herald-second-wind | Second wind! The chapel's bond holds!
+blaise | second_wind | blaise-second-wind | Up. Not yet, child. Not yet.
+
+# ── Dame Fortune's hall: the wheel and the delve it picks ───────────────────
+# Cues: npc:fortune wheel_spin wheel:<mode> wheel_again collapse_warn collapse
+fortune | npc:fortune | fortune-npc-1 | Round and round, little knight! Everybody's a winner. Mostly.
+fortune | npc:fortune | fortune-npc-2 | I am blindfolded, darling, not blind. I see you have not spun yet.
+fortune | npc:fortune | fortune-npc-3 | Arthur dreamt of my wheel once. He did not enjoy the part at the bottom. Nobody does.
+fortune | npc:fortune | fortune-npc-4 | The audience is restless. Give them a spin. Give them a show.
+fortune | wheel_spin | fortune-spin | Round she goes! And where she stops, nobody knows! Well. I know. I always know.
+fortune | wheel_spin | fortune-spin-2 | Spin, spin, spin! Feel that? That's destiny, and a slightly loose axle.
+herald | wheel_spin | herald-spin | The wheel is spinning! Viewers, place your bets!
+fortune | wheel_again | fortune-again | One spin a delve, my sweet. Fortune is generous, not stupid.
+herald | wheel:long_way_down | herald-long-way | The Long Way Down! A classic. The Herald approves of classics.
+fortune | wheel:long_way_down | fortune-long-way | The old road, the plain stair. Sometimes the wheel likes you just as you are.
+herald | wheel:lights_out | herald-lights-out | Lights Out! The Herald has turned off the lights. Bring a lantern. Bring two.
+wren | wheel:lights_out | wren-lights-out | Oh no. Oh no no no. I'll hold the lantern higher. Stay close!
+herald | wheel:collapse | herald-collapse | The Collapse! Every floor is falling down. Do try to keep up.
+blaise | wheel:collapse | blaise-collapse | The stone rolls down tonight a little faster than usual. Well. Push faster.
+herald | wheel:giants_feast | herald-giants | Giant's Feast! Everything is bigger tonight. Everything.
+tobbin | wheel:giants_feast | tobbin-giants | Bigger monsters, bigger loot. And bigger dents in my armour. Bring it back in one piece.
+herald | wheel:hold_the_stair | herald-horde | Hold the Stair! They are coming up the stairwell. All of them.
+blaise | wheel:hold_the_stair | blaise-horde | Stand together. A wall of two is twice a wall.
+herald | wheel:mimic_fair | herald-mimic-fair | Mimic Fair! Every chest has an opinion, and half of them have teeth.
+tobbin | wheel:mimic_fair | tobbin-mimic-fair | Open them with your boot. Never with your hand. Trust me on that.
+herald | wheel:glass_jaw | herald-glass-jaw | Glass Jaw! Everyone hits twice as hard. Everyone. Yes, you too.
+wren | wheel:glass_jaw | wren-glass-jaw | Twice as hard both ways? Let's just... not get hit. Good plan. Great plan.
+herald | wheel:gauntlet | herald-gauntlet | Gauntlet of Guardians! No small talk. Straight to the big ones.
+fortune | wheel:gauntlet | fortune-gauntlet | The guardians asked to see you personally. I said you were very busy. They insisted.
+herald | wheel:turbo | herald-turbo | Turbo! Everything a third faster. The monsters, the floors, you. The Herald will speak quickly.
+fortune | wheel:turbo | fortune-turbo | Turbo, darlings! Double the spoils, half the blinking! Go go go!
+herald | wheel:rune_rush | herald-rune-rush | Rune Rush! A rune in every fight, and more while it lasts. Do try to share.
+fortune | wheel:rune_rush | fortune-rune-rush | Runes everywhere! The audience loves a scramble. Elbows are permitted. Encouraged, really.
+herald | wheel:all_random | herald-all-random | All Random! Nobody carries their own ultimate this time. The Herald finds this very funny.
+fortune | wheel:all_random | fortune-all-random | Everybody swap! Oh, I do love a mix-up. Read the sidebar, darlings, it's all different now.
+herald | all_random | herald-all-random-dealt | The ultimates are dealt. Look at the sidebar before you press anything. Please.
+herald | wheel:ironman | herald-ironman | Ironman! No second winds. None. Fall, and stay fallen. The spoils are tripled, for the brave and the soon-to-be-buried.
+fortune | wheel:ironman | fortune-ironman | Oh, the audience LOVES an Ironman. Mostly for the ending. Good luck, darlings!
+herald | wheel:hollow_walls | herald-hollow-walls | Hollow Walls! Every floor hides a vault tonight. Bring bombs. Bring more bombs.
+fortune | wheel:hollow_walls | fortune-hollow-walls | Secrets on every floor! Knock on everything, darlings. Knock hard. With explosives.
+herald | wheel:sponsors | herald-sponsors | Sponsors' Night! The audience counts double. The Herald has been asked to read the sponsors' messages. The Herald will not.
+fortune | wheel:sponsors | fortune-sponsors | Sponsors' Night! Every viewer brought a friend, and every friend brought a box! Look up, darlings!
+herald | collapse_warn | herald-collapse-warn | Thirty seconds until this floor collapses! The Herald recommends stairs.
+herald | collapse | herald-collapse-now | The floor is collapsing! Find the stairs! Run!
+
+# ── Ultimates: the Herald calls each one, like the arena announcers of old ──
+# Cue: ult:<ultimate>
+herald | ult:pilgrims_arrow | herald-ult-pilgrims-arrow | Pilgrim's Arrow!
+herald | ult:ladys_veil | herald-ult-ladys-veil | Lady's Veil! Nothing touches the party!
+herald | ult:trebuchet | herald-ult-trebuchet | Trebuchet! Gareth has ordered from the kitchen, and it is on fire!
+herald | ult:bladewind | herald-ult-bladewind | Bladewind!
+herald | ult:grand_chord | herald-ult-grand-chord | Grand Chord! Everybody in! Everybody stays!
+herald | ult:sealed_writs | herald-ult-sealed-writs | Sealed writs! Delivery guaranteed, receipt on impact!
+herald | ult:stillhour | herald-ult-stillhour | Stillhour! Time has stopped. The Herald is still talking, somehow.
+herald | ult:midas_touch | herald-ult-midas | Midas Touch! Cha-ching!
+herald | ult:assassinate | herald-ult-assassinate | Assassinate! Top of the leaderboard, meet the leaderboard.
+herald | ult:phantasm | herald-ult-phantasm | Phantasm! Which one is real? Yes.
+
+# ── The second company: sappers, necromancers, warboars, slimes, goblins ───
+# Cues: goblin goblin_escaped goblin_caught necro_raise boar_dazed shaman_wards
+herald | goblin | herald-goblin | A loot goblin! Viewers, this is not a drill! Get him!
+wren | goblin | wren-goblin | That one's carrying a whole sack! After him!
+herald | goblin_escaped | herald-goblin-escaped | And he's gone. Along with your money. Well, his money. Well. Somebody's money.
+tobbin | goblin_escaped | tobbin-goblin-escaped | Slippery little sack of thieving. Next time, lead with your boot.
+herald | goblin_caught | herald-goblin-caught | Goblin down! Ka-ching! The Herald loves a happy ending.
+blaise | necro_raise | blaise-necro | The dead get up again. Rude. Find the one with the staff.
+wren | necro_raise | wren-necro | The bones are getting up! Why are the bones getting up?
+herald | boar_dazed | herald-boar-dazed | The warboar hits the wall! Now! Now is good!
+tobbin | boar_dazed | tobbin-boar-dazed | Ha! Stuck its tusks in the stonework. Go on, while it's thinking about its choices.
+wren | shaman_wards | wren-wards | Snakes! Wooden snakes! Spitting wooden snakes! Move!
+blaise | shaman_wards | blaise-wards | A box of wards. Step out of it, or break a wall of it.
+
+# ── The deep: below Dragon Keep, down to the Unknown ────────────────────────
+# Cues: the_deep homeward descend:4 descend:5 descend:6 grail
+#       boss_rise:the-index boss_fall:the-index boss_rise:mother-of-spores ...
+herald | the_deep | herald-the-deep | The dragon is slain! And look: the stairs keep going. The Herald did not know that. Nobody told the Herald.
+shoggoth | the_deep | shoggoth-the-deep | Further down, small bright ones. Or home. Both are brave.
+blaise | the_deep | blaise-the-deep | Go home, and no one will think less of you. Go down, and you will think more of yourself. Both are true.
+herald | homeward | herald-homeward | The party walks into the light! Everything carried comes home whole!
+wren | homeward | wren-homeward | We're going home with a dragon's hoard! I'm going to need a bigger map table.
+herald | descend:4 | herald-archive | The Drowned Archive! Mind the shelves. Mind the water. Mind the books, they bite.
+wren | descend:4 | wren-archive | There's water in the library. That's a crime. Somebody should be arrested.
+herald | descend:5 | herald-fungal | The Fungal Deep! Do not lick anything. The Herald cannot stress this enough.
+blaise | descend:5 | blaise-fungal | Everything down here grew in the dark and turned toward the light anyway. Learn from the mushrooms.
+herald | descend:6 | herald-unknown | The Unknown! The bottom of the stair. The Herald has nothing prepared for this.
+shoggoth | descend:6 | shoggoth-unknown-arrive | You came all the way down. Nobody comes all the way down. Come closer. Let us see you.
+herald | boss_rise:the-index | herald-the-index | The Index! It has catalogued every knight who came before you. Your card is filed under "brief".
+wren | boss_rise:the-index | wren-the-index | A librarian! A huge, wet, angry librarian! I knew it!
+herald | boss_fall:the-index | herald-the-index-falls | The Index falls! Overdue, and returned.
+herald | boss_rise:mother-of-spores | herald-mother | The Mother of Spores! She was here first. She would like you to know that.
+blaise | boss_rise:mother-of-spores | blaise-mother | Be polite. She is older than the stair.
+herald | boss_fall:mother-of-spores | herald-mother-falls | The Mother of Spores rests! Something will grow where she sat. Something always does.
+shoggoth | grail | shoggoth-grail | You looked for a cup at the bottom of everything. Here is the bottom. Here is what we have. Your life, given to you through time. You held it the whole way down.
+herald | grail | herald-grail | The Grail! The Herald is not crying. The Herald has something in its eye. A Grail. In its eye.
+blaise | grail | blaise-grail-found | Percival laughed when he found it. Then he went home and pushed the stone again. Go and do the same.
+wren | grail | wren-grail | It's not a cup. It's not a cup! It's... oh. Oh, it's everything.
+
+# ── Achievements and the Herald's coffer ────────────────────────────────────
+# Cues: achievement box_opened:<bronze|silver|gold|legendary>
+herald | achievement | herald-achievement | New achievement! The Herald has written it down. In ink. Forever.
+herald | achievement | herald-achievement-2 | Achievement unlocked! A box has been placed in the coffer. You're welcome.
+herald | achievement | herald-achievement-3 | Ding! That's an achievement. The audience would like you to know they saw it.
+fortune | box_opened | fortune-box | Let's see what's inside! Drumroll, darlings! Somebody bring a drum!
+fortune | box_opened:legendary | fortune-box-legendary | Oh! Oh my! Look at it glow! I'm blindfolded and I can see it glow!
+herald | box_opened:bronze | herald-box-bronze | A Bronze Box! Modest, sturdy, mostly gold-adjacent.
+herald | box_opened:silver | herald-box-silver | A Silver Box! The Herald approves of its shine.
+herald | box_opened:gold | herald-box-gold | A Gold Box! The audience goes wild. The audience always goes wild, but this time they mean it.
+
+# ── The Training Yard, and Grubbins ─────────────────────────────────────────
+# Cues: npc:grubbins grubbins_sold
+grubbins | npc:grubbins | grubbins-npc-1 | Oi! Remember me? You let me go. Very generous. I've brought your gold back. Well. Things you can buy with your gold.
+grubbins | npc:grubbins | grubbins-npc-2 | Everything here is legitimately acquired. From you. Mostly from you.
+grubbins | npc:grubbins | grubbins-npc-3 | No refunds, no questions. No, that's not your sword. Why would it be your sword.
+grubbins | npc:grubbins | grubbins-npc-4 | Prices are firm. Prices are fair. Prices are mine.
+grubbins | grubbins_sold | grubbins-sold | Pleasure doing business! Come back when you've got more of my gold. Your gold.
+grubbins | grubbins_sold | grubbins-sold-2 | Sold! To the knight with the nice boots. Are those my boots?
+tobbin | grubbins_sold | tobbin-grubbins | You bought that off a goblin? In my yard? I'm not even angry. I'm impressed.
+
+# ── Fortune's audience ──────────────────────────────────────────────────────
+# Cues: fan_box fan_box_open audience_million audience_prime
+herald | fan_box | herald-fan-box | Incoming! A fan has sent you a box. The Herald is contractually obliged to say it is from a fan.
+herald | fan_box | herald-fan-box-2 | Fan mail! Somebody out there likes you. Probably.
+fortune | fan_box | fortune-fan-box | Look up, darlings! The gallery adores you, and they've thrown you something!
+fortune | fan_box | fortune-fan-box-2 | A gift from the audience! Don't ask what they want in return. They want more of this.
+herald | fan_box_open | herald-fan-box-open | A card, and gold! The audience has excellent taste, in the Herald's professional opinion.
+herald | audience_million | herald-million | One million viewers! The Herald would like to remind them all that the Herald is also here.
+fortune | audience_million | fortune-million | A MILLION! Oh, I could kiss every one of you. I won't. But I could.
+herald | audience_prime | herald-prime | Ten million viewers. Dame Fortune has fainted. The show goes on. The Herald insists.
+fortune | audience_prime | fortune-prime | I'm up! I'm up! Ten million, darlings! Somebody fan me! Not with a sword!
+
+# ── Wren's bounties ─────────────────────────────────────────────────────────
+# Cues: bounty_paid
+wren | bounty_paid | wren-bounty | Done! The money's in the treasury, and there's a tick on the board. I do love a tick.
+wren | bounty_paid | wren-bounty-2 | That's one off the board. I've already pinned another. You're welcome. Sort of.
+herald | bounty_paid | herald-bounty | Bounty complete! Wren pays promptly. The Herald notes that this is rare in the Delve.
+
+# ── The deep's hunters ──────────────────────────────────────────────────────
+# Cues: hooked hook_thrown brood_hatch
+herald | hooked | herald-hooked | Fresh meat! The Flesher has a table reserved, and you're the special.
+herald | hooked | herald-hooked-2 | Hooked! The Herald would like to remind everyone that rolling is free.
+fortune | hooked | fortune-hooked | Oh, the HOOK! The audience lives for the hook! Well. Most of them.
+herald | hook_thrown | herald-hook-thrown | Mind the line! The Flesher has a hook and very little else to do.
+herald | brood_hatch | herald-brood | Spiderlings! Lots of them. The Herald is standing on a chair.
+wren | brood_hatch | wren-brood | Spiders. Of course it's spiders. Every archive I've ever loved had spiders.
+
+# ── Sir Kay, the seneschal ──────────────────────────────────────────────────
+# Cues: npc:kay npc:kay_empty trophy_new
+kay | npc:kay_empty | kay-empty | Sir Kay, seneschal. This is the Trophy Hall. It is empty. I find that restful. Please don't change it.
+kay | npc:kay_empty | kay-empty-2 | Plinths, polished. Trophies, none. I've been told this is aspirational.
+kay | npc:kay | kay-npc | Touch nothing. Breathe on nothing. Admire from a respectful distance, the way I admire your fighting.
+kay | npc:kay | kay-npc-2 | I said the dragon couldn't be done. I say that about everything. It's a policy, and it's usually right.
+kay | npc:kay | kay-npc-3 | Arthur made me seneschal. I keep the keys, the hall, and a list of everyone who has tracked mud in. You're on it.
+kay | trophy_new | kay-trophy | Another statuette. I'll need a bigger hall. And a raise. Mostly the raise.
+kay | trophy_new | kay-trophy-2 | A new piece for the hall. I'll polish it myself. Grudgingly. Thoroughly.
+
+# ── Sir Ector, master of arms ───────────────────────────────────────────────
+# Cues: npc:ector npc:ector_lesson lesson_learned level_up
+ector | npc:ector | ector-npc | Sir Ector. I taught Arthur to hold a sword. He held it wrong for a year. You'll do better. Probably.
+ector | npc:ector | ector-npc-2 | Come back when you've fought something. Experience can't be bought, not even from Grubbins.
+ector | npc:ector_lesson | ector-lesson | You've earned a lesson. Two lecterns, two ways. Choose one, and I'll teach it to you.
+ector | npc:ector_lesson | ector-lesson-2 | Ah, you've been fighting. It shows. Stand at a lectern and let's see what you're ready for.
+ector | lesson_learned | ector-learned | Good. Again tomorrow. And the day after. That's how it works.
+ector | lesson_learned | ector-learned-2 | That's the lesson. The rest is practice, and the practice is down the stair.
+herald | level_up | herald-level-up | Level up! Sir Ector would like a word in the Training Yard. He always would.
+
+# ── Fortune's dares ─────────────────────────────────────────────────────────
+# Cues: dare:<untouched|stand_firm|clock|show_off|quick|unstoppable> dare_kept dare_broken
+fortune | dare:untouched | fortune-dare-untouched | A dare! Two rooms without a scratch, darlings. Pretty knights stay pretty!
+fortune | dare:stand_firm | fortune-dare-stand-firm | A dare! No rolling, the whole floor. Stand there and take it like a statue. The audience adores statues.
+fortune | dare:clock | fortune-dare-clock | A dare! Four minutes to the stairs. Tick tock, tick tock!
+fortune | dare:show_off | fortune-dare-show-off | A dare! Three hundred thousand more viewers on this floor. Give them a show!
+fortune | dare:quick | fortune-dare-quick | A dare! The guardian, felled in forty-five seconds. Quick, before it gets comfortable!
+fortune | dare:unstoppable | fortune-dare-unstoppable | A dare! Four in a breath, twice. The audience wants carnage. Tasteful carnage.
+fortune | dare_kept | fortune-dare-kept | DARE KEPT! My purse is open! Gold for everyone, and a gem! Don't spend it all at Grubbins'.
+herald | dare_kept | herald-dare-kept | Dare kept! The Herald notes that Fortune's purse is lighter. The Herald is delighted.
+fortune | dare_broken | fortune-dare-broken | Oh! Oh no. Dare broken. The audience is devastated. Well, some of them. The rest are cheering.
+
+# ── The Pit ─────────────────────────────────────────────────────────────────
+# Cues: pit_rise pit_slam pit_fall talisman talisman_used
+herald | pit_rise | herald-pit-rise | The Pit Tyrant wakes! The Herald would like to point out that the door you came in by is still right there.
+fortune | pit_rise | fortune-pit-rise | Oh, they went in! They actually went in! Somebody tell the audience to sit down!
+herald | pit_slam | herald-pit-slam | Out of the ring! Out of the ring!
+herald | pit_fall | herald-pit-fall | The Pit Tyrant falls! Somebody pick up that shiny thing. Yes. That one.
+fortune | pit_fall | fortune-pit-fall | THE PIT TYRANT! Ten million people just spilled their drinks!
+herald | talisman | herald-talisman | The Talisman! Fall while you carry it, and you'll rise again, whole. Once. Don't waste it.
+herald | talisman_used | herald-talisman-used | The Talisman holds! Back on your feet, every inch of you. That was the once.
+fortune | talisman_used | fortune-talisman-used | They're UP! The audience is screaming! I'm screaming!
+
+# ── Lady Tallow, Blaise's cat ───────────────────────────────────────────────
+# Cues: tallow tallow_hiss tallow_fetch
+blaise | tallow | blaise-tallow | Tallow's coming with you. Don't argue. I tried that for eleven years.
+herald | tallow | herald-tallow | The cat is coming. The Herald was not consulted.
+tallow | tallow_hiss | tallow-hiss | Hhhhssss!
+tallow | tallow_hiss | tallow-hiss-2 | Mrrrow. HSSSS.
+herald | tallow_hiss | herald-tallow-hiss | The cat has opinions about that monster. The monster is reconsidering.
+tallow | tallow_fetch | tallow-fetch | Mrrp.
+fortune | tallow_fetch | fortune-tallow-fetch | She brought it back! Who's a good kitty? The audience is losing its mind!
+herald | tallow_fetch | herald-tallow-fetch | The cat is doing more work than you are. The Herald has noted this in your file.
+
+# ── Rescues: who's in the cages, and who lives at home now ─────────────────
+# Cues: caged:<who> rescued:<who> rescue_home npc:<mabel|anselm|pip|maud>
+mabel | caged:mabel | mabel-caged | Oh thank goodness. The goblins wanted soup. I'm a cook, not an ingredient!
+mabel | rescued:mabel | mabel-rescued | Free! I'll go on ahead and get the stew on. You'll eat it. I'll know if you don't.
+mabel | npc:mabel | mabel-npc | Sit, sit. There's stew. There's always stew. That's the rule now.
+anselm | caged:anselm | anselm-caged | Ah, rescuers. I was praying for you. I'd like to complain about the wait.
+anselm | rescued:anselm | anselm-rescued | Bless you. Literally. I'll do it properly at home, there's a form.
+anselm | npc:anselm | anselm-npc | Go down blessed. Come back up. That second part is very important.
+pip | caged:pip | pip-caged | Hello! I've read every book in here. Twice. Most of them were about you. Could you let me out?
+pip | rescued:pip | pip-rescued | I'll draw you maps! Proper ones! With the stairs marked! Nobody ever marks the stairs!
+pip | npc:pip | pip-npc | Every floor, drawn before you get there. I sneak down at night. Don't tell Wren.
+maud | caged:maud | maud-caged | The mushrooms grew round the cage. And through it. And a little bit into me. Get me out?
+maud | rescued:maud | maud-rescued | You're a love. Mushroom ale for everyone! It's good for you. Mostly.
+maud | npc:maud | maud-npc | One for the road, love. Not that one. That one's still growing.
+herald | rescue_home | herald-rescue-home | The Undercroft has a new resident. The Herald will adjust the seating plan.
+
+# ── Power runes ─────────────────────────────────────────────────────────────
+# Cues: rune_up rune:<haste|double_damage|regeneration|arcane|invisibility|illusion|bounty|wisdom>
+herald | rune_up | herald-rune-up | A rune! On the floor, glowing. Yes, you're allowed to have it. Whoever gets there first.
+fortune | rune_up | fortune-rune-up | Ooh, a rune! First one there keeps it, darlings. Race!
+herald | rune:haste | herald-rune-haste | HASTE! Mind the walls. They don't move for you.
+herald | rune:double_damage | herald-rune-double-damage | DOUBLE DAMAGE! Everything you hit, you hit twice. That's the arithmetic.
+fortune | rune:double_damage | fortune-rune-double-damage | Double damage! Oh, I can't watch. I'm watching.
+herald | rune:regeneration | herald-rune-regeneration | REGENERATION! It stops when you're hit, so don't be.
+herald | rune:arcane | herald-rune-arcane | ARCANE! Your ultimate comes round faster. Try to look surprised.
+herald | rune:invisibility | herald-rune-invisibility | INVISIBILITY! The monsters can't see you. The Herald can. The Herald always can.
+herald | rune:illusion | herald-rune-illusion | ILLUSION! Two more of you. The Herald had hoped for fewer.
+herald | rune:bounty | herald-rune-bounty | BOUNTY! Gold for everybody standing. Lying down doesn't count.
+fortune | rune:bounty | fortune-rune-bounty | Bounty! Gold for the whole company! Isn't this a lovely show?
+herald | rune:wisdom | herald-rune-wisdom | WISDOM! Sir Ector will be thrilled. He'll want to talk about it. At length.
+
+# ── The Hexer ───────────────────────────────────────────────────────────────
+# Cues: hexed
+herald | hexed | herald-hexed | You've been hexed. You are a frog. The Herald has always suspected.
+fortune | hexed | fortune-hexed | A frog! A frog in a tiny helmet! Oh, the audience needs a moment. I need a moment.
+herald | hexed | herald-hexed-2 | Ribbit. That's the Herald translating. It'll wear off. Probably.
+wren | hexed | wren-hexed | Is that... are you a frog? Don't let Tallow see you.
+
+# ── Secret rooms ────────────────────────────────────────────────────────────
+# Cues: crack_seen secret_found
+herald | crack_seen | herald-crack-seen | That wall is cracked. The Herald is sure it's nothing. Nothing a bomb couldn't fix, anyway.
+wren | crack_seen | wren-crack-seen | There's a draught coming through that wall. Walls shouldn't have draughts. I'm writing it down.
+herald | secret_found | herald-secret-found | A secret room! The Herald did not know this was here. The Herald has checked the plans. There are no plans.
+fortune | secret_found | fortune-secret-found | Behind the WALL! Oh, the audience loves a secret, darlings. Keep it between us and nine million people.
+snibbet | snibbet | snibbet-secret | It's a secret to everybody. Here. Take it. You didn't see me. I didn't see you.
+snibbet | snibbet | snibbet-secret-2 | Retired. Don't look at me like that. Gold's on the floor. It's a secret to everybody.
+herald | snibbet | herald-snibbet | The Herald saw that. The Herald sees everything. The Herald will be writing to someone.
+
+# ── Merlin, the realm's guide ───────────────────────────────────────────────
+# Cues: merlin:<build|wheel|coffer|lessons|cages|walls|runes|pit|frogs|wisdom>
+merlin | merlin:build | merlin-build | Spend something. The Undercroft looks like a cellar. It is a cellar, but it needn't look like one. Stand on a plate, hold F.
+merlin | merlin:wheel | merlin-wheel | East, through that door: Dame Fortune and her wheel. Pull the lever. She'll pick how you go down. That's rather the point of her.
+merlin | merlin:coffer | merlin-coffer | The Herald's coffer has a box in it with your name on. He labels everything. East hall, by the door. Hold F.
+merlin | merlin:lessons | merlin-lessons | Sir Ector's waiting in the yard, north. You've earned a lesson. He's been practising his speech.
+merlin | merlin:cages | merlin-cages | There are people in cages down there. Treasure rooms. Hold F at the lock. They'll move in. They always move in.
+merlin | merlin:walls | merlin-walls | Some walls down there breathe. Walls shouldn't breathe. Bomb them. E. Trust an old man.
+merlin | merlin:runes | merlin-runes | Glowing orbs on the floor are runes. Run at them. Everyone else will.
+merlin | merlin:pit | merlin-pit | That skull on your map is the Pit. You don't have to go in. You'll go in. Bring friends.
+merlin | merlin:frogs | merlin-frogs | If a witch in green points a staff at you, roll. Take it from someone who spent a fortnight as a toad.
+merlin | merlin:wisdom | merlin-wisdom | I've seen a thousand delves. Yours is in my top ten. Don't tell the Herald. He keeps a list.
+merlin | merlin:wisdom | merlin-wisdom-2 | The stair goes further down than anyone has been. Further than the Herald has been. He hates that.
+merlin | merlin:wisdom | merlin-wisdom-3 | Stew, ale and a blessing. You've built a home. Now go and ruin your knees on that stair again.
+
+# ── The west wing: Maud's tavern, the Siege Perilous ───────────────────────
+# Cues: dug bar:maud tavern_dry siege_worthy siege_wanting merlin:wing
+herald | dug | herald-dug | The west wing is open. The Herald has added it to the plans. There were no plans. There are now.
+tobbin | dug | tobbin-dug | Dug it out myself. Well, the crew did. I pointed. Pointing is a skill.
+maud | bar:maud | maud-bar | My own bar! Pull up a stool, love. Mind the chair in the corner. Everybody minds the chair.
+maud | bar:maud | maud-bar-2 | Mushroom ale's on tap. It's good for you. Mostly. Don't sit in that chair.
+herald | tavern_dry | herald-tavern-dry | The tap is dry. A tavern needs an alewife. There's one in a cage in the Fungal Deep. Just saying.
+herald | siege_worthy | herald-siege-worthy | The Siege Perilous accepts you. The Herald is... the Herald is going to need a minute.
+fortune | siege_worthy | fortune-siege-worthy | WORTHY! Oh, darling! Nobody's sat in that chair since Galahad! The audience is weeping!
+herald | siege_wanting | herald-siege-wanting | Found wanting. The chair has spoken. The chair speaks in lightning.
+herald | siege_wanting | herald-siege-wanting-2 | The Siege Perilous is for the worthiest knight in the realm. That isn't you. Yet. Get up.
+merlin | merlin:wing | merlin-wing | There's a draught behind the Trophy Hall's west wall. Tobbin could dig it out. Maud would like a bar. So would I.
+maud | round_poured:ale | maud-poured-ale | Mushroom ale for the company! It's good for you. It's good for your second wind, mostly.
+maud | round_poured:stout | maud-poured-stout | Dragon's Breath. My strongest. Don't light a candle near it, love.
+maud | round_poured:reserve | maud-poured-reserve | The Herald's Reserve. He doesn't know I have it. Fortune's audience will love you for it.
+herald | round_drunk:ale | herald-drunk-ale | The company has had Maud's ale. The Herald notes a certain unsteadiness on the stair.
+herald | round_drunk:stout | herald-drunk-stout | The stout is kicking in. The Herald can smell it from here. So can the monsters.
+herald | round_drunk:reserve | herald-drunk-reserve | That is the Herald's Reserve. The Herald's. The Herald will be speaking to Maud.
+fortune | round_drunk:reserve | fortune-drunk-reserve | Oh, they're in a GOOD mood tonight! The audience can tell, darlings!
+
+# ── The Lich ────────────────────────────────────────────────────────────────
+# Cues: rimeleap frost_leap
+herald | rimeleap | herald-rimeleap | Rimeleap! Spread out, unless you like each other very much.
+herald | rimeleap | herald-rimeleap-2 | The Lich throws the cold. It goes from knight to knight. Like gossip, but colder.
+fortune | frost_leap | fortune-frost-leap | Ooh, it jumped! It's going round the whole company, darlings!
+wren | frost_leap | wren-frost-leap | It's coming back! Why is it coming back? Spread out!
+
+# ── The items, as cards ─────────────────────────────────────────────────────
+# Cues: blink sceptre censer
+herald | blink | herald-blink | Blink! Where did they... oh. There.
+herald | sceptre | herald-sceptre | Pendragon Sceptre! No hex, no chill, no hook. The Herald calls that cheating. The rules call it allowed.
+herald | censer | herald-censer | Censer! Everybody feels better. The Herald feels exactly the same.
+
+# ── Sir Dinadan's songs ─────────────────────────────────────────────────────
+# Cues: npc:dinadan song_asked:<haste|iron|red> song:<haste|iron|red>
+dinadan | npc:dinadan | dinadan-npc | Sir Dinadan, at your service. I mostly sing about King Mark. He hates it. That's the point.
+dinadan | npc:dinadan | dinadan-npc-2 | A song for the road? I know three. Two of them are about Mark.
+dinadan | song_asked:haste | dinadan-asked-haste | The Lay of Haste! I'll sing it faster than it was written.
+dinadan | song_asked:iron | dinadan-asked-iron | The Iron Hymn. Solemn, sturdy, and nobody has ever danced to it.
+dinadan | song_asked:red | dinadan-asked-red | The Red Ballad. It's about a knight who wins every fight and then feels better. Short song.
+herald | song | herald-song | Sir Dinadan is singing. The Herald would like it noted that the Herald did not ask for this.
+dinadan | song:haste | dinadan-song-haste | Run, my lords, run! Stay close enough to hear me, though, or it's just running.
+dinadan | song:iron | dinadan-song-iron | Stand together and the hymn holds you. Stand apart and it's just a man with a lute.
+dinadan | song:red | dinadan-song-red | Every foe you fell, a little better you feel! Stay in earshot, it rhymes better.
+
+# ── The Late-Fee Leviathan ──────────────────────────────────────────────────
+# Cues: boss_rise:late-fee-leviathan boss_fall:late-fee-leviathan ravage ravaged
+leviathan | boss_rise:late-fee-leviathan | leviathan-rise | You borrowed the light. You borrowed the stair. Everything is due.
+herald | boss_rise:late-fee-leviathan | herald-leviathan | The Late-Fee Leviathan! It came up with the flood to collect, and you are all overdue.
+wren | boss_rise:late-fee-leviathan | wren-leviathan | That's not a librarian. That's what eats librarians.
+herald | boss_fall:late-fee-leviathan | herald-leviathan-falls | The Leviathan falls! All fines forgiven. This once.
+leviathan | boss_fall:late-fee-leviathan | leviathan-fall | Keep it... keep it all... I never wanted it back...
+herald | ravage | herald-ravage | Ravage! Find the lane, or find out!
+herald | ravage | herald-ravage-2 | The floor is coming up to meet you! Look for the still water!
+fortune | ravaged | fortune-ravaged | Up they go! The audience LOVES a knight in the air, darlings!
+wren | ravaged | wren-ravaged | Where the water's still! Stand where the water's still!
+
+# ── Beaumains, the kitchen knight ───────────────────────────────────────────
+# Cues: npc:beaumains hire_asked:beaumains hired:beaumains beaumains_down beaumains_up
+beaumains | npc:beaumains | beaumains-npc | Beaumains, my lord. Kitchen boy. I can fight, though. Ask the pots.
+beaumains | npc:beaumains | beaumains-npc-2 | Sir Kay calls me Fair Hands. He means it unkindly. I take it as a compliment.
+beaumains | hire_asked:beaumains | beaumains-hired | For a wage and a hot meal, I'm yours to the bottom of the stair.
+kay | hire_asked:beaumains | kay-beaumains | The kitchen boy? You're paying the KITCHEN BOY? Well. It's your gold.
+herald | hired:beaumains | herald-beaumains | And with the company, Beaumains, the kitchen knight! Nobody knows where he learned to throw like that. Nobody's asked.
+beaumains | beaumains_down | beaumains-down | Just... a moment. I'll be up after this one.
+beaumains | beaumains_up | beaumains-up | Told you. I've had worse off a hot stove.
+
+# ── The Hollow One ──────────────────────────────────────────────────────────
+# Cues: black_hole channel_broken
+herald | black_hole | herald-black-hole | Black Hole! Walk out of it! WALK OUT OF IT!
+herald | black_hole | herald-black-hole-2 | The Hollow One opens a hole in the floor. The floor was using that.
+wren | black_hole | wren-black-hole | It's pulling! Everything's pulling! Hit the stones!
+herald | channel_broken | herald-channel-broken | The hole falls shut! Somebody hit the Hollow One very hard indeed.
+fortune | channel_broken | fortune-channel-broken | Ooh, they broke it! The audience LOVES a broken channel, darlings!

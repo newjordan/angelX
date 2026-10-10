@@ -30,6 +30,56 @@ cd angelX
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
 
+## New in 0.2.0
+
+The Delve grew into a realm worth coming home to. Your loops walk it now, and
+the harness underneath got a full repair pass.
+[Release notes](docs/RELEASE_0.2.0.md).
+
+<table>
+  <tr>
+    <td width="50%"><img alt="The Undercroft: Tobbin's forge offers Tobbin's Edge IV, 32% more damage for every knight, for 800 gold, 8 ore and 6 gems" src="docs/images/delve/undercroft.png"><br><b>The Undercroft</b> · every delve starts at home. Spoils carried up the Winding Stair build the forge, the hearth, the chapel and Wren's map table, and what is built stays built.</td>
+    <td width="50%"><img alt="Dame Fortune's wheel mid-spin, her audience on the benches" src="docs/images/delve/fortune-wheel.png"><br><b>Dame Fortune's Wheel</b> · one spin a delve picks how it goes: Lights Out, Giant's Feast, the Collapse, Ironman and ten more ways down.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Two knights in a sanctuary of the Fungal Deep, among the mushrooms" src="docs/images/delve/fungal-deep.png"><br><b>The deep</b> · the dragon is no longer the bottom. Below it: the Drowned Archive, the Fungal Deep, and the Unknown, where the Grail is.</td>
+    <td width="50%"><img alt="Maud's tavern: the bar, the rumour board, Sir Dinadan's stage and the Siege Perilous" src="docs/images/delve/tavern.png"><br><b>The Siege Perilous</b> · dig out the west wing for Maud's tavern: rounds and songs for the next delve, a knight for hire, rumours, and a chair only the worthy may sit in.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="The Trophy Hall: bronze statuettes on their plinths; the Waxen Warden, felled 12 times, is gilded" src="docs/images/delve/trophy-hall.png"><br><b>The Trophy Hall</b> · every guardian the realm fells stands on its plinth. Fell one ten times and it is gilded.</td>
+    <td width="50%"><img alt="Wren's bounty board: Bone Collector 17 of 25, Ratings 640K of 1.5M, Here Be Dragons 0 of 1" src="docs/images/delve/bounties.png"><br><b>Wren's bounties</b> · three jobs on a board by the stair, paid on the nail.</td>
+  </tr>
+</table>
+
+**Your loop walks the crawl.** While `/loop` runs, the Realm pane walks the
+Delve first-person, floor by floor, with the loop's numbers under it. A
+measurement is a chest found, a stall a guttering torch, and a judged
+submission brings the floor's guardian out of the stone: a beaten record wins
+the fight, anything else is a retreat.
+
+<p>
+  <img alt="The crawl: a skeleton archer in the Mines" src="docs/images/crawl/fight.png" width="32%">
+  <img alt="The crawl: a measurement's chest opens, gold rising" src="docs/images/crawl/chest.png" width="32%">
+  <img alt="The crawl: the floor's guardian blocks the corridor" src="docs/images/crawl/guardian.png" width="32%">
+</p>
+
+**More in the realm**
+
+- **Knights that grow.** Sir Ector teaches a talent at every level, and every knight carries an ultimate on R.
+- **More to find.** Power runes, cracked walls with vaults behind them, cages to open, and the Pit, where the Pit Tyrant keeps the Talisman.
+- **More to fight.** A second company of monsters, the deep's hunters, and floor chiefs whose strength comes from the resources of their floor.
+- **A realm that keeps score.** The Herald's achievements and coffer, Fortune's dares and audience, the Bestiary, and Merlin, who tells you what is worth doing next.
+- **The stables and the lists.** Pick Bramble, Cinder or Mist, tend your mount, and ride three passes against the rival knight: `/dungeon tournament`, or `/world visit stables` in the mini-world.
+- **Loops leave a settlement.** Long loops dig out and furnish new rooms off your hall, and a worker's research report can stand there as an exhibit you walk up to and read: `/dungeon settlement`, `/dungeon deposit <name>`.
+
+**Under the hood**
+
+- **A repair pass across the harness.** 34 reviewed fixes in cancellation, persistence, sandbox boundaries, platform identity, tools and the interface, qualified on macOS and Linux.
+- **A cut-off reply is asked again.** A reply stopped at the output cap goes back to the model instead of standing as the answer.
+- **The compaction helper keeps the turn moving.** With a Treebeard helper model set up, its digests roll in without holding the step, and a helper host that disappears no longer freezes the turn.
+- **A watch on long loops.** A wedged iteration gets a soft check at 30 minutes and a harness-only review at 60.
+- **The research labyrinth.** `/labyrinth` keeps questions, evidence, proofs and refutations on one map that Deli, `/loop`, Sloptomizer and RL campaigns write to. A campaign runs the whole method natively: literature, then attack, then an independent referee who re-runs the checks, then a writer whose edits are checked before they land. The map also picks which rooms your loops dig out next. [Guide](docs/LABYRINTH.md).
+
 ## How it works
 
 ![GLM-5.3 reads a small Rust crate to find a unit bug while the knight rides to the Scriptorium on the overworld map](docs/images/task.png)
@@ -89,6 +139,7 @@ cd angelX
 - **Headless runs** — Record task settings, source identity, tool activity, and acceptance evidence.
 - **Measured campaigns** — Evaluate isolated attempts with verifiers and independent review.
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
+- **Research labyrinth · 0.2.0** — Native Legend literature, attack, independent referee and checked writer campaigns share research with Deli, measured RL and saved mining plans; gallery, warren and karst variants use the lower tunnels' bounded router. [Guide](docs/LABYRINTH.md).
 - **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
 - **Book of behaviors** — The harness steers the model with compact braille stamps; each stamp's English is taught the first time it appears.
 - **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
@@ -98,6 +149,10 @@ cd angelX
 - **A working adventure · 0.1.9 line** — The knight follows real loop work through a [3D mine journey](docs/world-adventure.md), with a [School of Magic](docs/world-school.md), study, and underground archive reflecting actual research evidence.
 - **The Delve · 0.1.92** — `/dungeon` walks your knight to the Delve's gate: a co-op knights-vs-monsters dungeon drawn in the realm's own pixel art. Friends join from their own angelX with `/dungeon join`, and cards, spells and wishes load while you play. [Guide](docs/DELVE.md).
 - **Cartridges · 0.1.93** — Plug a competition into the loop as a folder: a `cartridge.toml`, and Rust when it needs more. Yours stay outside the tree. [Guide and figures](docs/CARTRIDGES.md).
+- **The realm under the Delve · 0.2.0** — The Undercroft, Fortune's wheel, the deep and the Grail, Maud's tavern, Sir Ector's lessons, ultimates, runes, the Pit and floor chiefs. [Guide](docs/DELVE.md).
+- **The loop's crawl · 0.2.0** — `/loop` walks the Delve first-person in the Realm pane: measurements are chests, stalls are guttering torches, and a judged submission brings out the floor's guardian. [How it walks](docs/world-adventure.md).
+- **Connected settlement · 0.2.0** — Loops excavate and furnish rooms off your hall; workers' research reports stand there as exhibits. [Release notes](docs/RELEASE_0.2.0.md#loops-leave-a-settlement).
+- **Stables and the lists · 0.2.0** — Three mounts and a three-pass practice joust, in the mini-world and the Delve's home. [Release notes](docs/RELEASE_0.2.0.md#the-stables-and-the-lists).
 
 ## Benchmarks
 
@@ -185,6 +240,7 @@ Research and public work that informed Angel:
 - [Geoffrey Huntley's Ralph loop](https://ghuntley.com/ralph/) — an agent put on a loop with a simple prime directive: read the issues, pick one, write the patch, run the tests, repeat. The measured campaign and autonomous loop work here is a direct descendant of that idea.
 - [RL Systems Mind the Gap: Matching Trainer and Generator Throughput](https://newsletter.semianalysis.com/p/rl-systems-mind-the-gap-matching) — Kimbo Chen, Cheang Kang Wen and Dylan Patel / SemiAnalysis (2026); rollout staleness, pruning and reward-variance guards.
 - [Deli_AutoResearch](https://victorchen96.github.io/auto_research/framework.html) — Deli Chen; retained findings, fresh-context deliberation and stall recovery.
+- [Labyrinth Exploration](https://github.com/nasqret/labyrinth-exploration) — Bartosz Naskręcki; research as a map, with established results as corridors, refutations as walls and open questions as doors.
 - [OpenScience](https://github.com/synthetic-sciences/openscience) — Synthetic Sciences; literature-search design. Search metadata comes from [OpenAlex](https://openalex.org), [Crossref](https://www.crossref.org), [Semantic Scholar](https://www.semanticscholar.org) and [Europe PMC](https://europepmc.org).
 
 Code and tooling credits include [OpenAI Codex](https://github.com/openai/codex),

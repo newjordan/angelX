@@ -21,6 +21,32 @@ pub(crate) fn delegate_roles(specialists: &[String]) -> Vec<(String, String)> {
 
 pub(crate) static DELEGATE_SEQ: AtomicU64 = AtomicU64::new(0);
 static INTEGRATE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn acquire_integrate_process_lock(
+    cancel: Option<&AtomicBool>,
+) -> Result<std::sync::MutexGuard<'static, ()>, String> {
+    loop {
+        if cancel.is_some_and(|signal| signal.load(std::sync::atomic::Ordering::Acquire)) {
+            return Err("integrate cancelled while waiting for serialization lock".to_string());
+        }
+        match INTEGRATE_LOCK.try_lock() {
+            Ok(guard) => return Ok(guard),
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => {
+                return Ok(poisoned.into_inner());
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {
+                std::thread::sleep(Duration::from_millis(25));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn acquire_integrate_process_lock_for_test(
+    cancel: Option<&AtomicBool>,
+) -> Result<std::sync::MutexGuard<'static, ()>, String> {
+    acquire_integrate_process_lock(cancel)
+}
 pub(crate) const DELEGATE_INLINE_MAX_CHARS: usize = 3_000;
 pub(crate) const DELEGATE_PREVIEW_MAX_BYTES: usize = 1_600;
 pub(crate) const DELEGATE_PREVIEW_MAX_LINES: usize = 80;
@@ -162,7 +188,7 @@ impl DelegateTool {
         self.run_from_with_cancel(club_name, task, mode, base_ref, None)
     }
 
-    fn run_from_with_cancel(
+    pub(super) fn run_from_with_cancel(
         &self,
         club_name: &str,
         task: &str,
@@ -873,6 +899,14 @@ fn acquire_repo_integrate_lock_with_timeout(
     repo: &Path,
     timeout: Option<Duration>,
 ) -> Result<RepoIntegrateLock, String> {
+    acquire_repo_integrate_lock_with_timeout_and_cancel(repo, timeout, None)
+}
+
+fn acquire_repo_integrate_lock_with_timeout_and_cancel(
+    repo: &Path,
+    timeout: Option<Duration>,
+    cancel: Option<&AtomicBool>,
+) -> Result<RepoIntegrateLock, String> {
     use std::os::fd::AsRawFd;
 
     let common = run_git(repo, &["rev-parse", "--git-common-dir"])?;
@@ -892,6 +926,9 @@ fn acquire_repo_integrate_lock_with_timeout(
         .map_err(|e| format!("open integration lock {}: {e}", path.display()))?;
     let started = Instant::now();
     loop {
+        if cancel.is_some_and(|signal| signal.load(std::sync::atomic::Ordering::Acquire)) {
+            return Err("integrate cancelled while waiting for serialization lock".to_string());
+        }
         // SAFETY: `file` owns a live descriptor for the duration of this loop.
         let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
         if rc == 0 {
@@ -926,6 +963,15 @@ pub(crate) fn acquire_repo_integrate_lock_for_test(
     acquire_repo_integrate_lock_with_timeout(repo, Some(timeout))
 }
 
+#[cfg(test)]
+pub(crate) fn acquire_repo_integrate_lock_for_test_with_cancel(
+    repo: &Path,
+    timeout: Option<Duration>,
+    cancel: Option<&AtomicBool>,
+) -> Result<RepoIntegrateLock, String> {
+    acquire_repo_integrate_lock_with_timeout_and_cancel(repo, timeout, cancel)
+}
+
 /// Reasoning is a breakdown of output tokens, not extra generated tokens.
 fn delegate_token_delta(
     before: crate::agent::club::TokenUsage,
@@ -955,15 +1001,17 @@ impl IntegrateTool {
         cancel: Option<&AtomicBool>,
         context: &super::delegated_lineage::NativeToolContext,
     ) -> Result<super::delegated_lineage::NativeToolResult, String> {
-        let _process_guard = INTEGRATE_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _process_guard = acquire_integrate_process_lock(cancel)?;
         let branch = branch.trim();
         if branch.is_empty() || branch.starts_with('-') {
             return Err("invalid branch name".to_string());
         }
         let repo = ensure_git_workspace(&self.workspace)?;
-        let _repo_guard = acquire_repo_integrate_lock(&repo)?;
+        let _repo_guard = acquire_repo_integrate_lock_with_timeout_and_cancel(
+            &repo,
+            git_timeout(),
+            cancel,
+        )?;
         run_git(&repo, &["check-ref-format", "--branch", branch])?;
         let selected = delegate_git(
             &repo,

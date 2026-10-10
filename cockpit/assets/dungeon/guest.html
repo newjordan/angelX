@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Delve · floor politics</title>
+<style>
+body{background:#14110e;color:#eee0bd;font:16px system-ui;max-width:1000px;margin:1em auto;padding:0 1em}
+img{width:100%;image-rendering:pixelated}table{width:100%;border-collapse:collapse}td,th{padding:.4em;border-bottom:1px solid #75684e;text-align:left}
+</style>
+<h1>Delve · live floor</h1>
+<p>Read-only browser view. To play, paste the complete invitation into your angelX composer: <code>/dungeon join &lt;link&gt;</code>.</p>
+<p id="access">Open the complete invitation with its #token to view.</p><p id="support"></p>
+<img id="room" alt="Host's current room"><h2>Faction leaders &amp; dependencies</h2>
+<table><thead><tr><th>Faction</th><th>Resource site / boss definition</th><th>Route</th><th>Control &amp; reserve</th></tr></thead><tbody id="leaders"></tbody></table>
+<p id="limit">Classic six-floor delve. Rival composition and finite aftermath, not simulated NPC warfare.</p>
+<script>
+'use strict';
+const token=location.hash.slice(1), access=document.getElementById('access'), support=document.getElementById('support');
+let stopped=false, frame=-1, picture;
+addEventListener('pagehide',()=>{stopped=true;if(picture)URL.revokeObjectURL(picture)});
+async function poll(){
+  if(stopped||!/^[a-fA-F0-9]{32}$/.test(token))return;
+  try{
+    const headers={Authorization:'Bearer '+token};
+    const response=await fetch('/state',{headers,cache:'no-store'});
+    if(!response.ok)throw new Error('Host not ready ('+response.status+')');
+    const state=await response.json();
+    access.textContent='Floor '+state.floor+'/'+state.floors+' · '+(state.notice||'');
+    support.textContent=state.boss_support||'Legacy or special-mode floor: no political profile.';
+    const graph=state.boss_gates, body=document.getElementById('leaders');
+    body.replaceChildren();
+    if(graph){
+      // All text is data, never HTML. At most four checked leadership encounters.
+      for(const leader of graph.leaders.slice(0,4)){
+        const faction=graph.economy.factions[leader.faction], row=document.createElement('tr');
+        for(const value of [faction.name, 'Room '+leader.room+' · '+((state.boss_names||[])[leader.boss]||('boss #'+leader.boss)),
+          leader.prerequisite?graph.access.toUpperCase()+' route chief':'optional chief',
+          (leader.defeated?'control lost; future support cut':'controlled')+' · reserve '+faction.reserve]){
+          const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);
+        }
+        body.appendChild(row);
+      }
+    }
+    if(state.frame_seq!==frame){
+      const image=await fetch('/frame.png?seq='+state.frame_seq,{headers,cache:'no-store'});
+      if(image.ok){const next=URL.createObjectURL(await image.blob());document.getElementById('room').src=next;if(picture)URL.revokeObjectURL(picture);picture=next;frame=state.frame_seq;}
+    }
+  }catch(error){access.textContent=String(error.message||error);}
+  // One request chain, fixed 2 Hz maximum; no overlapping polls or growing DOM.
+  if(!stopped)setTimeout(poll,500);
+}
+poll();
+</script></html>

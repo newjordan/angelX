@@ -210,7 +210,7 @@ fn note_file_model_and_harness_lines_are_corrected() {
     .unwrap();
     let cmd = format!(
         "cd {} && board submit --note-file prof/note.md",
-        dir.display()
+        shell_quote(&dir.to_string_lossy())
     );
     let stamped = stamp(&cmd, None).unwrap().expect("submission");
     let text = std::fs::read_to_string(&note).unwrap();
