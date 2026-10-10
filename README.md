@@ -30,6 +30,28 @@ cd angelX
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
 
+## New in 0.2.1
+
+The realm grew outward: a castle for every model that serves, rooms of the
+world above the Delve with a dwarf king under it, and a friend can join from a
+browser with nothing installed. [Release notes](docs/RELEASE_0.2.1.md).
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Five castles of the March, a knight at the gate of the serving house" src="docs/images/realm/castles.png"><br><b>The March</b> · sixteen castles, one for each model family. Each model named its castle and six knights, and the knight who serves rides out of the serving model's gate.</td>
+    <td width="50%"><img alt="The Delve's gate: the stair down, the signpost to the mines, the stables and the lists" src="docs/images/realm/gate.png"><br><b>The world above the Delve</b> · every delve starts at the gate. Walk to the stables, the lists and the mine-head, and down.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="King Brannoc on his throne in the King's Hall, the war table of the forges and the Great Forge" src="docs/images/realm/kings-hall.png"><br><b>King Brannoc Onehorn</b> · the last dwarf king of Caer Dwfn gives missions, and the realm pays to rebuild his hall and relight his forges.</td>
+    <td width="50%"><img alt="Two knights charging at each other down the tilt, lances levelled" src="docs/images/realm/joust.png"><br><b>The joust plays</b> · spur, aim high or low, strike as the lances meet, and unhorse Sir Kay, Sir Palamedes and Sir Lancelot.</td>
+  </tr>
+</table>
+
+**A browser link plays.** `/dungeon_host --N --view` gives each friend a link
+that opens a playable seat in a browser: their knight's own view, streamed over
+one connection, keyboard or gamepad. And nine small finds wait in the Delve,
+each calling a companion to walk with you.
+
 ## New in 0.2.0
 
 The Delve grew into a realm worth coming home to. Your loops walk it now, and
@@ -152,7 +174,9 @@ the fight, anything else is a retreat.
 - **The realm under the Delve · 0.2.0** — The Undercroft, Fortune's wheel, the deep and the Grail, Maud's tavern, Sir Ector's lessons, ultimates, runes, the Pit and floor chiefs. [Guide](docs/DELVE.md).
 - **The loop's crawl · 0.2.0** — `/loop` walks the Delve first-person in the Realm pane: measurements are chests, stalls are guttering torches, and a judged submission brings out the floor's guardian. [How it walks](docs/world-adventure.md).
 - **Connected settlement · 0.2.0** — Loops excavate and furnish rooms off your hall; workers' research reports stand there as exhibits. [Release notes](docs/RELEASE_0.2.0.md#loops-leave-a-settlement).
-- **Stables and the lists · 0.2.0** — Three mounts and a three-pass practice joust, in the mini-world and the Delve's home. [Release notes](docs/RELEASE_0.2.0.md#the-stables-and-the-lists).
+- **The March · 0.2.1** — One castle for each model family, named with its knights by the model itself; the serving model's knight rides out of its gate. [Model castles](docs/CASTLES.md).
+- **The world above the Delve · 0.2.1** — The gate, the stables, the lists and the mine-head are rooms of the world; King Brannoc's missions, hall and forges; a joust that plays. [Guide](docs/DELVE.md#the-world-above-the-delve).
+- **Browser seats · 0.2.1** — With `/dungeon_host --N --view`, an invitation link plays in a browser with nothing installed. [Guide](docs/DELVE.md).
 
 ## Benchmarks
 

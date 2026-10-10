@@ -174,8 +174,10 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
         "“Another knight takes up the search. Good. That is the whole of it, you know. The taking up.” — Old Blaise",
         PARCHMENT,
     );
-    // The chosen knight, large, in their own colours.
+    // The chosen knight, large, in their own colours; the serving house
+    // names whoever wears the kit.
     let knight = intro.chosen();
+    let house = crate::drive::together_shooter::knights::house_for_seat(1);
     let sprite: Img = arena::knight_in(knight.colours);
     let scale = ((inner.height.saturating_sub(10) * 2) / 16).clamp(2, 4) as i32;
     let mut big = Img::new(sprite.w * scale, sprite.h * scale);
@@ -192,7 +194,15 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
     text(
         frame,
         Rect::new(inner.x + 2, art.bottom() + 1, art_w + 4, 2),
-        &format!("{}, {}", knight.name, knight.title),
+        // Under the figure: the house knight in their own words, or the
+        // Keep's own knight and calling.
+        &knight
+            .of_house(house)
+            .filter(|k| !k.epithet.is_empty())
+            .map_or_else(
+                || knight.styled(house),
+                |k| format!("{}, {}", k.name, k.epithet),
+            ),
         GOLD,
     );
     // The choices.
@@ -240,7 +250,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
     let rows: [(&str, String, String); 4] = [
         (
             "KNIGHT",
-            format!("{}, {}", knight.name, knight.title),
+            knight.styled(house),
             format!(
                 "{}  Carries: {carries} · {} bomb{}",
                 knight.about,

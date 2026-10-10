@@ -341,6 +341,16 @@ pub(crate) struct Home {
     /// Who is hired for the next delve: Beaumains, or nobody.
     #[serde(default)]
     pub(crate) hire: Option<String>,
+    /// The stables and the lists: the saddled mount, which are tended, the
+    /// record of bouts. Decoded on its own, so a bad subtree never costs
+    /// the realm.
+    #[serde(default, deserialize_with = "crate::drive::chivalry::lenient")]
+    pub(crate) stable: crate::drive::chivalry::Stable,
+    /// King Brannoc's barony: his court, the works paid for, his missions,
+    /// the forges relit and the ledger. Decoded on its own, like the
+    /// stable.
+    #[serde(default, deserialize_with = "crate::drive::chivalry::lenient")]
+    pub(crate) barony: super::barony::Barony,
 }
 
 /// A price as spoils.
@@ -549,6 +559,7 @@ impl Run {
         if run.home.level(Station::Wing) >= 1 {
             layout::dig_tavern(&mut run.dungeon);
         }
+        super::world::raise_world(&mut run.dungeon);
         run.cues = vec!["home".into()];
         run.stock_stall();
         run.enter(0, None);
@@ -569,6 +580,7 @@ impl Run {
             return Err("settlement admission requires a new run in the PLAYER HALL".into());
         }
         self.dungeon = site.floor.clone();
+        super::world::raise_world(&mut self.dungeon);
         self.boss_gates = None;
         self.settlement_site = Some(site.id.clone());
         self.settlement_exhibits = site.exhibit_markers();
@@ -586,7 +598,9 @@ impl Run {
     /// banked): every knight's home cards follow.
     pub(crate) fn rebuild_home(&mut self, home: Home, treasury: Spoils) {
         let landing = self.home.landing;
+        let barony = std::mem::take(&mut self.home.barony);
         self.home = home;
+        self.barony_news(&barony);
         // The stair keeps the landing chosen in this run.
         self.home.landing = landing;
         self.treasury = treasury;
@@ -598,6 +612,10 @@ impl Run {
             self.cues.push("dug".into());
             self.shake = self.shake.max(10);
             self.sounds.push("rock_land");
+        }
+        // A checkpoint from before the world: it rises around the party.
+        if self.at_home_now() {
+            super::world::raise_world(&mut self.dungeon);
         }
         if self.stall.is_empty() && self.home.goblins > 0 && self.at_home_now() {
             self.stock_stall();
@@ -647,6 +665,16 @@ impl Run {
                 "You'll eat it. It's good for you. She'll know if you don't.",
                 &format!("max_hp {stew}"),
                 STEW_ART,
+            ));
+        }
+        // The Ore-Forge's work: dwarf-forged mail for every knight.
+        if self.home.barony.is_lit("ore-forge") {
+            cards.push(home_card(
+                "home-mail",
+                "Dwarf-Forged Mail",
+                "Out of the Ore-Forge, relit. King Brannoc says it'll turn a troll. He has not tried.",
+                &format!("armor {}", super::barony::FORGED_MAIL),
+                MAIL_ART,
             ));
         }
         // Maud's stout, drunk at the top of the stair: this delve's.
@@ -800,6 +828,7 @@ impl Run {
             RoomKind::Hall | RoomKind::Stockpile | RoomKind::Workshop | RoomKind::Quarters => {
                 return;
             }
+            kind if kind.in_world() => return self.tick_world(inputs),
             _ => {}
         }
         let landings = self.home.landings();
@@ -888,6 +917,19 @@ fn home_card(id: &str, name: &str, text: &str, effect: &str, art: &str) -> Card 
         .expect("home cards pass their own checker")
         .card
 }
+
+/// A mail shirt, its rings bright at the collar.
+const MAIL_ART: &str = "\
+...hhhhhh...
+..hiHiiHih..
+.hiiiiiiiih.
+.hjhjhjhjhh.
+.hjhjhjhjhh.
+.hhjhjhjhjh.
+..hjhjhjhh..
+..hhjhjhjh..
+..jjjjjjjj..
+............";
 
 /// Mabel's stew: what it adds to every knight's health.
 const STEW: u32 = 15;

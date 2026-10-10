@@ -1,6 +1,7 @@
 //! The miniworld and its ceremonies — the gamified systems view.
 
 pub(crate) mod hearth;
+pub(crate) mod houses;
 pub(crate) mod identity;
 pub(crate) mod knight_cast;
 pub(crate) mod knight_journey;

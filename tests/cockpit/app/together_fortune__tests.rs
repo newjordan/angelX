@@ -46,7 +46,11 @@ fn pull(run: &mut Run) {
 fn fortunes_hall_is_east_of_the_undercroft() {
     let mut run = Run::at_home(3, 1, None, Home::default(), Spoils::default());
     assert_eq!(
-        run.dungeon.rooms.len(),
+        run.dungeon
+            .rooms
+            .iter()
+            .filter(|r| !r.kind.in_world())
+            .count(),
         4,
         "the Undercroft, Fortune's hall, the yard, the Trophy Hall"
     );

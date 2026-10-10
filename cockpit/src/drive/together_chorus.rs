@@ -49,6 +49,10 @@ pub(crate) fn name(who: &str) -> &str {
         "cinderjaw" => "Cinderjaw",
         "leviathan" => "The Late-Fee Leviathan",
         "beaumains" => "Beaumains",
+        "groom" => "Wat the groom",
+        "palamedes" => "Sir Palamedes",
+        "lancelot" => "Sir Lancelot",
+        "brannoc" => "King Brannoc",
         other => other,
     }
 }
@@ -76,6 +80,10 @@ fn base(cue: &str) -> &str {
 
 /// How much a moment matters: a higher one may cut a lower one short.
 fn priority(cue: &str) -> u8 {
+    // A small secret's card is a find, not a vault in the wall.
+    if cue.starts_with("secret_found:") {
+        return 6;
+    }
     match base(cue) {
         "victory" | "wipe" | "grail" => 9,
         "the_deep" | "homeward" => 8,
@@ -112,7 +120,7 @@ fn priority(cue: &str) -> u8 {
         "all_random" => 6,
         "hexed" => 6,
         "secret_found" => 8,
-        "crack_seen" => 5,
+        "crack_seen" | "secret_hint" => 5,
         "snibbet" => 7,
         "merlin" => 3,
         "dug" => 7,
@@ -148,6 +156,16 @@ fn priority(cue: &str) -> u8 {
         "wheel_again" => 3,
         "built" => 6,
         "home" => 5,
+        "joust_unhorse" | "joust_fell" => 8,
+        "joust_start" | "joust_won" | "joust_lost" | "joust_drawn" => 7,
+        "joust_smite" | "joust_broke" | "joust_clean" | "joust_shield" | "joust_miss" => 6,
+        "joust_spur" | "stable_select" | "stable_tend" | "the_gate" => 5,
+        "entrance" => 4,
+        "brannoc_arrives" | "brannoc_sworn" | "forge_relit" => 8,
+        "mission_done" | "work_done" => 7,
+        "mission" | "commissioned" => 6,
+        "work_stage" => 5,
+        "tribute" => 4,
         "cant_afford" => 4,
         "npc" => 3,
         "bond" | "banked" | "room_clear" => 3,
@@ -192,7 +210,11 @@ fn cooldown(cue: &str) -> Duration {
 }
 
 /// Moments big enough for the Herald to call and another voice to answer.
+/// A vault is one; a small secret's card (`secret_found:cup`) is not.
 fn duet(cue: &str) -> bool {
+    if cue.starts_with("secret_found:") {
+        return false;
+    }
     matches!(
         base(cue),
         "run_start"
@@ -216,6 +238,12 @@ fn duet(cue: &str) -> bool {
             | "pit_rise"
             | "pit_fall"
             | "secret_found"
+            | "joust_start"
+            | "joust_unhorse"
+            | "joust_won"
+            | "brannoc_arrives"
+            | "brannoc_sworn"
+            | "forge_relit"
     )
 }
 

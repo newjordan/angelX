@@ -74,9 +74,8 @@ impl App {
                 let who = run
                     .players
                     .get(&1)
-                    .and_then(|h| h.knight.as_deref())
-                    .and_then(knights::knight)
-                    .map_or("your knight", |k| k.name);
+                    .and_then(|h| h.knight_name())
+                    .unwrap_or_else(|| "your knight".into());
                 format!(
                     "{who} · floor {} of {} · {} · score {}",
                     run.floor(),

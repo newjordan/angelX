@@ -69,7 +69,7 @@ pub(crate) fn pool_ink(realm: &Realm, wx: i32, wy: i32, fire: bool) -> char {
     }
 }
 
-fn meadow(wx: i32, wy: i32) -> Option<char> {
+pub(crate) fn meadow(wx: i32, wy: i32) -> Option<char> {
     let (cx, cy) = (wx.div_euclid(7), wy.div_euclid(6));
     let (lx, ly) = (wx.rem_euclid(7), wy.rem_euclid(6));
     let h = hash(cx, cy, 21);
@@ -126,7 +126,7 @@ fn road(
     }
 }
 
-fn cobble(wx: i32, wy: i32) -> Option<char> {
+pub(crate) fn cobble(wx: i32, wy: i32) -> Option<char> {
     let row = wy.div_euclid(5);
     let off = if row % 2 == 1 { 3 } else { 0 };
     let (lx, ly) = ((wx + off).rem_euclid(6), wy.rem_euclid(5));
@@ -175,7 +175,7 @@ fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
     None
 }
 
-fn sand(wx: i32, wy: i32) -> Option<char> {
+pub(crate) fn sand(wx: i32, wy: i32) -> Option<char> {
     match hash(wx, wy, 23) % 9 {
         0 => Some('P'),
         1 => Some('I'),
@@ -221,7 +221,7 @@ fn ash(wx: i32, wy: i32) -> Option<char> {
     }
 }
 
-fn planks(wx: i32, wy: i32) -> char {
+pub(crate) fn planks(wx: i32, wy: i32) -> char {
     if wy.rem_euclid(4) == 3 {
         'b'
     } else if hash(wx / 5, wy / 4, 3).is_multiple_of(4) {

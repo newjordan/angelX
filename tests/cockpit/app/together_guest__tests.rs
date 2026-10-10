@@ -125,7 +125,7 @@ fn together_shooter_guest_http_requires_the_token_and_serves_no_harness_routes()
     assert!(hud["floor"].as_u64().is_some());
     assert_eq!(hud["floors"].as_u64(), Some(6));
     assert!(hud["boss_support"].as_str().is_some());
-    // The read-only browser view is opt-in; with it on, the same link serves it.
+    // The playable browser page is opt-in; with it on, the same link serves it.
     server.set_browser_view(true);
     let view = request(&server, "GET", "/", "", false);
     assert_eq!(view.status, 200);
@@ -135,9 +135,10 @@ fn together_shooter_guest_http_requires_the_token_and_serves_no_harness_routes()
         "bounded object-URL PNGs are visible, not blocked by CSP"
     );
     let shown = view.text();
-    assert!(shown.contains("/dungeon join"), "the view still says how to play");
     assert!(!shown.contains(&server.tokens[0]));
-    assert!(shown.contains("state.floor+'/'+state.floors"));
+    assert!(shown.contains("fetch('/hello'"), "the page takes its seat");
+    assert!(shown.contains("fetch('/shooter/input'"), "the page sends held controls");
+    assert!(shown.contains("location.hash"), "the seat code stays in the fragment");
     server.set_browser_view(false);
     for (method, path) in [
         ("GET", "/state"),
@@ -319,44 +320,6 @@ fn guest_state_is_a_compact_hud_without_the_run_inside() {
 }
 
 #[test]
-fn chivalry_guest_painter_uses_sanitized_owner_projection_not_just_serde_skip() {
-    let _guard = crate::tests::env_lock();
-    let server = GuestServer::start("127.0.0.1:0").unwrap();
-    let mut private = Run::at_home(11, 7, None, Default::default(), Default::default());
-    private.chivalry = Some(Default::default());
-    let practice = private.chivalry.as_mut().unwrap();
-    practice
-        .select(crate::drive::chivalry::Mount::Cinder)
-        .unwrap();
-    practice.tend().unwrap();
-    practice.start().unwrap();
-    practice
-        .choose(1, crate::drive::chivalry::Choice::Guard)
-        .unwrap();
-    let mut clean = private.clone();
-    clean.chivalry = None;
-    assert_ne!(
-        arena::frame(&private, FRAME_W as i32, FRAME_H as i32).rgb_bytes(),
-        arena::frame(&clean, FRAME_W as i32, FRAME_H as i32).rgb_bytes()
-    );
-    server.publish(&private, true, "");
-    wait_frame(&server, 1);
-    let reply = request(&server, "GET", "/frame.png?seq=1", "", true);
-    assert_eq!(reply.status, 200);
-    let pixels = image::load_from_memory_with_format(&reply.body, image::ImageFormat::Png)
-        .unwrap()
-        .to_rgb8();
-    assert_eq!(
-        pixels.as_raw(),
-        &arena::frame(&clean, FRAME_W as i32, FRAME_H as i32).rgb_bytes()
-    );
-    let state = request(&server, "GET", "/state", "", true).text();
-    assert!(!state.contains("Cinder") && !state.contains("chivalry") && !state.contains("tended"));
-    let mirror = request(&server, "GET", "/shooter", "", true).text();
-    assert!(!mirror.contains("Cinder") && !mirror.contains("chivalry"));
-}
-
-#[test]
 fn frame_png_is_the_hosts_own_rendering_at_the_chosen_size() {
     assert_eq!((FRAME_W, FRAME_H), (384, 224));
     let server = GuestServer::start("").unwrap();
@@ -383,17 +346,19 @@ fn frame_png_is_the_hosts_own_rendering_at_the_chosen_size() {
         1
     );
 
-    // At most every other tick, and only when the run moved on.
+    // Every tick, and only when the run moved on.
     let tick = run.tick;
     server.publish(&run, false, "");
     assert_eq!(drawn(&server), Some((7, tick)));
-    run.step(&BTreeMap::new());
     server.publish(&run, false, "");
     assert_eq!(
         drawn(&server),
         Some((7, tick)),
-        "one tick is not yet a frame"
+        "an unchanged tick is not a new frame"
     );
+    run.step(&BTreeMap::new());
+    server.publish(&run, false, "");
+    assert_eq!(drawn(&server), Some((7, tick + 1)));
     run.step(&BTreeMap::new());
     server.publish(&run, false, "");
     assert_eq!(drawn(&server), Some((7, tick + 2)));
@@ -655,6 +620,8 @@ fn write_guest_frame() {
         return;
     };
     let server = GuestServer::start("").unwrap();
+    // The painter draws only for a seat someone is looking at.
+    request(&server, "GET", "/state", "", true);
     server.publish(&fight(100), false, "");
     wait_frame(&server, 1);
     let reply = request(&server, "GET", "/frame.png", "", true);
@@ -846,4 +813,542 @@ fn guest_reforge_requests_reach_the_host_with_their_part() {
     assert!(
         matches!(&gear[..], [(_, 2, Gear::Reforge(crate::drive::together_shooter::knights::Part::Offense, w))] if w == "triple shot that fans out")
     );
+}
+
+#[test]
+fn socket_handshake_answers_the_rfc_example_key() {
+    // RFC 6455 section 1.3: the sample nonce and its accept value.
+    assert_eq!(
+        socket_accept("dGhlIHNhbXBsZSBub25jZQ=="),
+        "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+    );
+}
+
+#[test]
+fn fast_and_packed_room_pngs_carry_the_same_pixels() {
+    let run = fight(12);
+    let view = arena::frame_for(&run, FRAME_W as i32, FRAME_H as i32, Some(2));
+    let rgb = view.rgb_bytes();
+    let fast = encode_rgb(&rgb, true);
+    let packed = encode_rgb(&rgb, false);
+    for png in [&fast, &packed] {
+        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+        let pixels = image::load_from_memory_with_format(png, image::ImageFormat::Png)
+            .unwrap()
+            .to_rgb8();
+        assert_eq!(pixels.dimensions(), (FRAME_W, FRAME_H));
+        assert_eq!(pixels.as_raw(), &rgb);
+    }
+    assert!(
+        fast.len() > packed.len(),
+        "local png {} bytes should be larger than packed {}",
+        fast.len(),
+        packed.len()
+    );
+    // The painter skips a picture by its hash: the same run hashes the same,
+    // and one changed pixel does not.
+    let again = arena::frame_for(&run, FRAME_W as i32, FRAME_H as i32, Some(2));
+    assert_eq!(view.content_hash(), again.content_hash());
+    let mut moved = view.clone();
+    let [r, g, b] = view.get(10, 10).unwrap_or([0, 0, 0]);
+    moved.set(10, 10, [r ^ 1, g, b]);
+    assert_ne!(view.content_hash(), moved.content_hash());
+}
+
+fn room_rgb() -> Vec<u8> {
+    arena::frame_for(&fight(12), FRAME_W as i32, FRAME_H as i32, Some(2)).rgb_bytes()
+}
+
+fn blank() -> Vec<u8> {
+    vec![0u8; FRAME_W as usize * FRAME_H as usize * 3]
+}
+
+fn dab(rgb: &mut [u8], x: usize, y: usize, colour: [u8; 3]) {
+    let at = (y * FRAME_W as usize + x) * 3;
+    rgb[at..at + 3].copy_from_slice(&colour);
+}
+
+fn picture(seq: u64, rgb: &[u8], fast: bool) -> Picture {
+    Picture {
+        seq,
+        painted_ms: 0,
+        stamp: [0; 8],
+        rgb: Arc::new(rgb.to_vec()),
+        png: None,
+        fast,
+    }
+}
+
+/// A patch body (after the socket header) laid over `prev`, as the page
+/// lays it over its picture.
+fn apply_patch(prev: &[u8], body: &[u8]) -> Vec<u8> {
+    let count = u16::from_be_bytes([body[0], body[1]]) as usize;
+    let colours = u16::from_be_bytes([body[2], body[3]]) as usize;
+    let palette = &body[4..4 + colours * 3];
+    let mut at = 4 + colours * 3;
+    let mut out = prev.to_vec();
+    for _ in 0..count {
+        let (col, row) = (body[at] as usize, body[at + 1] as usize);
+        at += 2;
+        for p in 0..256 {
+            let c = body[at + p] as usize * 3;
+            let pixel = ((row * 16 + p / 16) * FRAME_W as usize + col * 16 + p % 16) * 3;
+            out[pixel..pixel + 3].copy_from_slice(&palette[c..c + 3]);
+        }
+        at += 256;
+    }
+    assert_eq!(at, body.len(), "a patch is its tiles and nothing more");
+    out
+}
+
+#[test]
+fn a_patch_carries_only_the_changed_tiles_and_rebuilds_the_picture() {
+    let prev = room_rgb();
+    let mut next = prev.clone();
+    dab(&mut next, 3, 3, [9, 9, 9]);
+    dab(&mut next, 200, 100, [250, 1, 2]);
+    let Tiles::Changed(body) = tile_patch(&prev, &next, LOCAL_PATCH_TILES) else {
+        panic!("two pixels are two tiles");
+    };
+    assert_eq!(u16::from_be_bytes([body[0], body[1]]), 2);
+    assert!(body.len() < 2 * 300, "{}", body.len());
+    assert_eq!(apply_patch(&prev, &body), next);
+    assert!(matches!(
+        tile_patch(&prev, &prev, LOCAL_PATCH_TILES),
+        Tiles::Same
+    ));
+    // A full repaint is a whole picture.
+    assert!(matches!(
+        tile_patch(&blank(), &vec![1u8; blank().len()], LOCAL_PATCH_TILES),
+        Tiles::Wide
+    ));
+    // So is changed ink of more than 256 colours, even in a few tiles.
+    let mut inky = blank();
+    for i in 0..300 {
+        dab(&mut inky, i, 0, [i as u8, (i >> 8) as u8, 7]);
+    }
+    assert!(matches!(
+        tile_patch(&blank(), &inky, LOCAL_PATCH_TILES),
+        Tiles::Wide
+    ));
+}
+
+#[test]
+fn no_patch_carries_more_tiles_than_the_page_takes() {
+    assert_eq!(far_tile_cap(usize::MAX), MAX_PATCH_TILES);
+    assert_eq!(far_tile_cap(0), 0);
+    assert!(
+        far_tile_cap(10_393) >= 8,
+        "a packed room leaves room for tiles"
+    );
+    assert!(LOCAL_PATCH_TILES <= MAX_PATCH_TILES);
+    let cols = FRAME_W as usize / 16;
+    let tiles = |n: usize| {
+        let mut rgb = blank();
+        for t in 0..n {
+            dab(&mut rgb, (t % cols) * 16, (t / cols) * 16, [5, 5, 5]);
+        }
+        rgb
+    };
+    let Tiles::Changed(body) = tile_patch(&blank(), &tiles(MAX_PATCH_TILES), usize::MAX) else {
+        panic!("the page's limit fits");
+    };
+    assert_eq!(
+        u16::from_be_bytes([body[0], body[1]]) as usize,
+        MAX_PATCH_TILES
+    );
+    assert!(
+        matches!(
+            tile_patch(&blank(), &tiles(MAX_PATCH_TILES + 1), usize::MAX),
+            Tiles::Wide
+        ),
+        "a budget past the page's limit is held to it"
+    );
+    assert!(
+        BROWSER_VIEW.contains(&format!("MAX_TILES={MAX_PATCH_TILES}")),
+        "the page and the host share the limit"
+    );
+}
+
+#[test]
+fn a_socket_patches_only_against_the_picture_its_page_holds() {
+    let first = room_rgb();
+    assert_eq!(
+        socket_wire(&picture(1, &first, true), None, 0, 0),
+        Wire::Whole,
+        "a session starts with a whole picture"
+    );
+    let mut second = first.clone();
+    dab(&mut second, 20, 20, [200, 10, 10]);
+    let mut third = second.clone();
+    dab(&mut third, 300, 150, [10, 200, 10]);
+    // Picture 2 never went out (the window was shut). Picture 3 is built on
+    // picture 1, the one the page holds, and rebuilds the newest from it.
+    let held = (1, Arc::new(first.clone()));
+    let Wire::Patch(wire) = socket_wire(&picture(3, &third, true), Some(&held), 30_000, 0) else {
+        panic!("a small change is a patch");
+    };
+    assert_eq!(wire[0], SOCKET_PATCH);
+    assert_eq!(u64::from_be_bytes(wire[1..9].try_into().unwrap()), 3);
+    assert_eq!(u64::from_be_bytes(wire[25..33].try_into().unwrap()), 1);
+    assert_eq!(apply_patch(&first, &wire[33..]), third);
+    assert_eq!(
+        socket_wire(&picture(4, &first, true), Some(&held), 30_000, 0),
+        Wire::Same,
+        "the page already shows these pixels"
+    );
+    assert_eq!(
+        socket_wire(&picture(3, &third, true), Some(&held), 30_000, HEAL_AFTER),
+        Wire::Whole,
+        "a long run of patches heals with a whole picture"
+    );
+    // A far patch must beat the last whole PNG.
+    let packed = encode_rgb(&first, false).len();
+    assert!(matches!(
+        socket_wire(&picture(3, &third, false), Some(&held), packed, 0),
+        Wire::Patch(_)
+    ));
+    assert_eq!(
+        socket_wire(&picture(3, &third, false), Some(&held), 300, 0),
+        Wire::Whole
+    );
+}
+
+/// The page's end of `/play`, as a browser speaks it.
+struct TestSocket(TcpStream);
+
+impl TestSocket {
+    fn open(server: &GuestServer) -> Self {
+        let mut stream = TcpStream::connect(server.address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(30)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /play HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: delve.v1, {}\r\n\r\n",
+            server.tokens[0]
+        )
+        .unwrap();
+        let mut head = Vec::new();
+        let mut byte = [0u8];
+        while !head.ends_with(b"\r\n\r\n") {
+            stream.read_exact(&mut byte).unwrap();
+            head.push(byte[0]);
+        }
+        assert!(
+            head.starts_with(b"HTTP/1.1 101"),
+            "{}",
+            String::from_utf8_lossy(&head)
+        );
+        TestSocket(stream)
+    }
+
+    /// The next picture (kind 1 or 4), past state and notes.
+    fn picture(&mut self) -> Vec<u8> {
+        loop {
+            let mut head = [0u8; 2];
+            self.0.read_exact(&mut head).unwrap();
+            let length = match head[1] & 0x7f {
+                126 => {
+                    let mut n = [0u8; 2];
+                    self.0.read_exact(&mut n).unwrap();
+                    u16::from_be_bytes(n) as usize
+                }
+                127 => {
+                    let mut n = [0u8; 8];
+                    self.0.read_exact(&mut n).unwrap();
+                    u64::from_be_bytes(n) as usize
+                }
+                n => n as usize,
+            };
+            let mut payload = vec![0u8; length];
+            self.0.read_exact(&mut payload).unwrap();
+            if head[0] & 0x0f == 0x2 && matches!(payload.first(), Some(1 | 4)) {
+                return payload;
+            }
+        }
+    }
+
+    fn send(&mut self, text: &str) {
+        let mask = [1u8, 2, 3, 4];
+        let mut frame = vec![0x81, 0x80 | text.len() as u8];
+        frame.extend_from_slice(&mask);
+        frame.extend(text.bytes().enumerate().map(|(i, b)| b ^ mask[i % 4]));
+        self.0.write_all(&frame).unwrap();
+    }
+}
+
+fn seq_of(picture: &[u8]) -> u64 {
+    u64::from_be_bytes(picture[1..9].try_into().unwrap())
+}
+
+#[test]
+fn a_socket_starts_whole_and_answers_a_lost_picture_with_a_whole_one() {
+    let server = GuestServer::start("").unwrap();
+    let mut run = fight(40);
+    let mut socket = TestSocket::open(&server);
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !server
+        .published
+        .lock()
+        .unwrap()
+        .frame_streams
+        .contains_key(&2)
+    {
+        assert!(Instant::now() < deadline, "the session never opened");
+        thread::sleep(Duration::from_millis(5));
+    }
+    server.publish(&run, false, "");
+    let first = socket.picture();
+    assert_eq!(
+        first[0], SOCKET_FRAME,
+        "a new session starts with a whole picture"
+    );
+    let seq = seq_of(&first);
+    // The page lost it and asks: the same picture comes again, whole.
+    socket.send(r#"{"keyframe":1}"#);
+    let again = socket.picture();
+    assert_eq!((again[0], seq_of(&again)), (SOCKET_FRAME, seq));
+    socket.send(&format!(r#"{{"ack":{seq}}}"#));
+    // A later picture is built on the one the page holds.
+    run.step(&BTreeMap::new());
+    run.players.get_mut(&2).unwrap().x += 2.0;
+    server.publish(&run, false, "");
+    let next = socket.picture();
+    assert!(seq_of(&next) > seq);
+    if next[0] == SOCKET_PATCH {
+        assert_eq!(u64::from_be_bytes(next[25..33].try_into().unwrap()), seq);
+    }
+    // A second socket for the seat takes over, and starts whole too.
+    let mut other = TestSocket::open(&server);
+    assert_eq!(other.picture()[0], SOCKET_FRAME);
+}
+
+#[test]
+fn nobody_watching_paints_nothing_and_a_new_viewer_gets_the_paused_picture() {
+    let server = GuestServer::start("").unwrap();
+    let run = fight(40);
+    server.publish(&run, true, "");
+    thread::sleep(Duration::from_millis(300));
+    assert_eq!(server.published.lock().unwrap().frame_seq, 0);
+    assert_eq!(
+        drawn(&server),
+        None,
+        "nobody watches, so the painter has nothing"
+    );
+    // A poll makes the seat watched; the paused delve is drawn without a tick.
+    assert_eq!(request(&server, "GET", "/frame.png", "", true).status, 503);
+    server.publish(&run, true, "");
+    wait_frame(&server, 1);
+    let reply = request(&server, "GET", "/frame.png", "", true);
+    assert_eq!(reply.status, 200);
+    assert!(reply.head.contains("X-Frame-Seq: 1"));
+    // The PNG is encoded once for the picture, however many polls ask.
+    let kept = server.published.lock().unwrap().pictures[&2]
+        .png
+        .clone()
+        .expect("the first poll keeps its PNG");
+    assert_eq!(reply.body, *kept);
+    assert_eq!(request(&server, "GET", "/frame.png", "", true).body, *kept);
+    assert!(Arc::ptr_eq(
+        &kept,
+        server.published.lock().unwrap().pictures[&2]
+            .png
+            .as_ref()
+            .unwrap()
+    ));
+}
+
+#[test]
+fn lead_state_ends_with_the_seat_session_and_with_stale_keys() {
+    let right = Input {
+        move_x: 1,
+        ..Default::default()
+    };
+    let mut state = Published::default();
+    let serial = state.open_frame_stream(2);
+    state.held.insert(2, (right, Instant::now()));
+    note_seat_rtt(&mut state, 2, 40);
+    let published = std::sync::Mutex::new(state);
+    assert_eq!(seat_leads(&published, &[2], true, 0.0).len(), 1);
+    published.lock().unwrap().close_frame_stream(2, serial);
+    assert!(
+        seat_leads(&published, &[2], true, 0.0).is_empty(),
+        "a closed session leads nothing"
+    );
+    assert!(!published.lock().unwrap().seat_rtt_ms.contains_key(&2));
+    // An older session closing leaves the newer one's keys alone.
+    {
+        let mut state = published.lock().unwrap();
+        let old = state.open_frame_stream(2);
+        state.open_frame_stream(2);
+        state.held.insert(2, (right, Instant::now()));
+        state.close_frame_stream(2, old);
+    }
+    assert_eq!(seat_leads(&published, &[2], true, 0.0).len(), 1);
+    // Keys older than the host's lease lead nothing either.
+    published
+        .lock()
+        .unwrap()
+        .held
+        .insert(2, (right, Instant::now() - GUEST_LEASE));
+    assert!(seat_leads(&published, &[2], true, 0.0).is_empty());
+}
+
+#[test]
+fn a_browser_seat_is_painted_one_way_plus_a_frame_ahead() {
+    let local = paint_lead(None, true);
+    assert!((local - 1.0 / 120.0).abs() < 1e-6, "{local}");
+    let far = paint_lead(Some(160), false);
+    assert!((far - 0.080 - 1.0 / 60.0).abs() < 1e-4, "{far}");
+    assert!((paint_lead(Some(9_000), true) - 0.25).abs() < 1e-6);
+    let mut state = Published::default();
+    note_seat_rtt(&mut state, 2, 160);
+    state.held.insert(
+        2,
+        (
+            Input {
+                move_x: 1,
+                ..Default::default()
+            },
+            Instant::now(),
+        ),
+    );
+    note_seat_rtt(&mut state, 3, 9_000);
+    assert_eq!(state.seat_rtt_ms[&2], 160);
+    assert_eq!(state.seat_rtt_ms[&3], 500, "a wild trip is capped");
+    let published = std::sync::Mutex::new(state);
+    let leads = seat_leads(&published, &[2, 4], true, 0.0);
+    assert_eq!(leads.len(), 1, "a seat with no held direction is not led");
+    assert_eq!(leads[0].0, 2);
+    assert!(
+        (leads[0].2 - (0.080 + 1.0 / 120.0)).abs() < 1e-4,
+        "{}",
+        leads[0].2
+    );
+    let further = seat_leads(&published, &[2], true, 1.0 / 120.0);
+    assert!(
+        (further[0].2 - (0.080 + 2.0 / 120.0)).abs() < 1e-4,
+        "a late tick adds a frame of lead, was {}",
+        further[0].2
+    );
+    let capped = seat_leads(&published, &[2], true, 1.0);
+    assert!(
+        (capped[0].2 - 0.25).abs() < 1e-6,
+        "lead stays within a quarter second"
+    );
+}
+
+/// The page's wire and slide code, run as it is in V8.
+fn run_page(script: &str) -> serde_json::Value {
+    let start = BROWSER_VIEW
+        .find("// Wire decoding and the slide")
+        .expect("the page marks its tested block");
+    let end = BROWSER_VIEW
+        .find("// ---- end of the block the tests run")
+        .expect("and where it ends");
+    let source = format!("{}\n{script}", &BROWSER_VIEW[start..end]);
+    let outcome = crate::agent::code_mode::run(
+        &source,
+        &[],
+        &|_, _| Err("no tools".into()),
+        &|calls| vec![0..calls.len()],
+        Duration::from_secs(20),
+        64,
+    )
+    .unwrap();
+    serde_json::from_str(&outcome.result).unwrap()
+}
+
+#[test]
+fn the_page_reads_the_hosts_patches_and_refuses_a_broken_one() {
+    let first = room_rgb();
+    let mut next = first.clone();
+    dab(&mut next, 20, 20, [200, 10, 10]);
+    dab(&mut next, 300, 150, [10, 200, 10]);
+    let held = (1, Arc::new(first));
+    let Wire::Patch(wire) = socket_wire(&picture(2, &next, true), Some(&held), 30_000, 0) else {
+        panic!("a small change is a patch");
+    };
+    let bytes = |wire: &[u8]| wire.iter().map(u8::to_string).collect::<Vec<_>>().join(",");
+    let body = 33 + 4 + u16::from_be_bytes([wire[35], wire[36]]) as usize * 3;
+    let mut too_many = wire.clone();
+    too_many[33..35].copy_from_slice(&(MAX_PATCH_TILES as u16 + 1).to_be_bytes());
+    let mut off_edge = wire.clone();
+    off_edge[body] = (FRAME_W / 16) as u8;
+    let mut bad_ink = wire.clone();
+    bad_ink[body + 2] = wire[36];
+    let short = &wire[..wire.len() - 1];
+    let read = run_page(&format!(
+        "const read=bytes=>readPatch(new Uint8Array(bytes),{FRAME_W},{FRAME_H});
+         const tiles=read([{}]);
+         return JSON.stringify({{
+           tiles:tiles&&tiles.map(t=>[t.col,t.row,Array.from(t.rgba)]),
+           refused:[read([{}]),read([{}]),read([{}]),read([{}]),read([1,2,3])].map(t=>t===null),
+         }});",
+        bytes(&wire),
+        bytes(&too_many),
+        bytes(&off_edge),
+        bytes(&bad_ink),
+        bytes(short),
+    ));
+    assert_eq!(
+        read["refused"],
+        serde_json::json!([true, true, true, true, true])
+    );
+    let tiles = read["tiles"].as_array().expect("the host's patch reads");
+    assert_eq!(tiles.len(), 2);
+    for tile in tiles {
+        let (col, row) = (
+            tile[0].as_u64().unwrap() as usize,
+            tile[1].as_u64().unwrap() as usize,
+        );
+        let rgba: Vec<u8> = tile[2]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_u64().unwrap() as u8)
+            .collect();
+        for p in 0..256 {
+            let at = ((row * 16 + p / 16) * FRAME_W as usize + col * 16 + p % 16) * 3;
+            assert_eq!(
+                rgba[p * 4..p * 4 + 3],
+                next[at..at + 3],
+                "tile {col},{row} pixel {p}"
+            );
+            assert_eq!(rgba[p * 4 + 3], 255);
+        }
+    }
+    // What the page cannot read, it does not draw: it asks for a whole one.
+    assert!(BROWSER_VIEW.contains("if(!tiles){askWhole();return}"));
+    assert!(BROWSER_VIEW.contains(r#"ws.send('{"keyframe":1}')"#));
+}
+
+#[test]
+fn a_delayed_key_is_on_screen_within_one_frame() {
+    // A 60 ms route cannot return a picture inside one frame. The page slides
+    // the knight by at least one frame of walk in the key handler, so the
+    // wait is not the round trip.
+    let shift = run_page(
+        "return JSON.stringify({start:photonShift(0,60,1,0),done:photonShift(60,60,1,0),
+           local:photonShift(0,1,1,0),held:photonShift(30,60,1,0),diag:photonShift(0,60,1,1)});",
+    );
+    let pair = |key: &str| {
+        let v = shift[key].as_array().unwrap();
+        (v[0].as_f64().unwrap(), v[1].as_f64().unwrap())
+    };
+    let frame_px = 104.0 / 60.0;
+    let (dx, dy) = pair("start");
+    assert!(dx + 1e-4 >= frame_px, "{dx} < one frame ({frame_px})");
+    assert!(dy.abs() < 1e-6);
+    assert!(dx > 1.0, "the slide is visible before any picture returns");
+    assert_eq!(
+        pair("done").0,
+        0.0,
+        "the slide stops once the host picture can include the key"
+    );
+    assert_eq!(pair("local").0, 0.0, "a local trip is not slid");
+    assert!((pair("held").0 - 104.0 * 0.030).abs() < 0.02);
+    let (diag, down) = pair("diag");
+    assert!((diag.hypot(down) - frame_px).abs() < 0.02, "{diag},{down}");
 }

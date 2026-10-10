@@ -1,223 +1,129 @@
-//! Host-local command + side-room ownership. Realm serialization is the only
-//! writer. A side-room never replaces Run.map, checkpoints a visit or broadcasts
-//! its private state. Invalid commands do not enter, mutate, save or pause.
+//! The stables and the lists from the composer: a way into those rooms of
+//! the world, and text forms of what their plates do. Every change goes
+//! through the same marks the plates leave, settled by `settle_home`.
 use super::super::App;
-use crate::drive::chivalry::{Choice, Mount, Phase, Place, Visit};
-const HELP: &str = "/dungeon stable [enter|status|select Bramble|Cinder|Mist|tend|leave] · /dungeon tournament [enter|status|start|round <1..3> guard|aim|charge|leave] · /world visit stables|tournament · host-local, no rewards";
+use crate::drive::chivalry::{Mount, Place};
+use crate::drive::together_shooter::{self as shooter, RoomKind};
+
+const HELP: &str = "/dungeon stable [select Bramble|Cinder|Mist|tend|status] · /dungeon tournament [status] · /world visit stables|lists · walk in from the Delve's gate";
+
 impl App {
-    pub(crate) fn sync_chivalry_projection(&mut self) {
-        // Never load or expose the owner's private state inside a remote Delve.
+    /// Open the Delve at the stables or the lists: start a delve if none is
+    /// open (it begins at the gate, next door) and walk the party in.
+    pub(crate) fn visit_horsemanship(&mut self, place: Place) -> String {
         if self.dungeon.joined.is_some() {
-            self.world.chivalry = Default::default();
-            self.world.close_chivalry();
-            self.dungeon.chivalry_visit = None;
-            self.dungeon.chivalry_notice.clear();
-            if let Some(run) = self.dungeon.shooter.as_mut() {
-                run.chivalry = None;
-            }
-            return;
+            return format!(
+                "You are in a friend's delve: {} is a walk from its gate.",
+                place.label().to_lowercase()
+            );
         }
-        let state = self.realm().chivalry.clone();
-        self.world.chivalry = state.clone();
-        let visible = self.dungeon.guest.is_none();
-        if let Some(run) = self.dungeon.shooter.as_mut() {
-            run.chivalry = visible.then_some(state);
+        if self.dungeon.shooter.is_none() {
+            self.start_shooter(None);
+        }
+        let kind = match place {
+            Place::Stables => RoomKind::Stables,
+            Place::Tournament => RoomKind::Lists,
+        };
+        let Some(run) = self.dungeon.shooter.as_mut() else {
+            return self.dungeon.notice.clone();
+        };
+        if !run.at_home_now() {
+            return format!(
+                "The party is down in the Delve; {} waits at the gate for the next delve.",
+                place.label().to_lowercase()
+            );
+        }
+        if run.joust.is_some() {
+            self.expand_dungeon();
+            return "A bout is being ridden at the lists.".into();
+        }
+        if let Some(index) = shooter::world::room_of(&run.dungeon, kind) {
+            let at = match place {
+                Place::Stables => (18.0, 6.6),
+                // On the mount plate itself: its board says who and how.
+                Place::Tournament => (2.0, 8.5),
+            };
+            run.arrive(index, at);
+        }
+        self.expand_dungeon();
+        match place {
+            Place::Stables => self.realm_stable_status(),
+            Place::Tournament => self.realm_lists_status(),
         }
     }
-    pub(crate) fn chivalry_command(&mut self, place: Place, tail: &str) -> String {
-        if self.dungeon.forge.draft.is_some() || self.dungeon.forge.forging.is_some() {
-            return "Close the reforge dialog before local practice.".into();
-        }
-        if self.dungeon.joined.is_some() {
-            return "Stables and practice tournaments are host-only; the guest protocol has no shared game support. Leave your friend's Delve first.".into();
-        }
-        // A side visit pauses the host run. Never freeze a seated friend's game.
-        if self.dungeon.guest.is_some() {
-            return "Host-local practice is unavailable while an invitation is open. Close the shared session first; guests cannot play or view this private game.".into();
-        }
-        let args: Vec<_> = tail.split_whitespace().collect();
-        let mut next = self.realm().chivalry.clone();
-        let mut enter = false;
-        let mut close = false;
-        let mut changed = false;
-        let action = match (place, args.as_slice()) {
-            (Place::Stables, [] | ["enter"]) => {
-                enter = true;
-                Ok(next.stable_status())
-            }
-            (Place::Tournament, [] | ["enter"]) => {
-                enter = true;
-                Ok(next.tournament.status())
-            }
-            (Place::Stables, ["status"]) => Ok(next.stable_status()),
-            (Place::Tournament, ["status"]) => Ok(next.tournament.status()),
-            (Place::Stables, ["select", name]) => Mount::parse(name)
-                .ok_or_else(|| format!("Unknown mount. {HELP}"))
-                .and_then(|m| {
-                    changed = true;
-                    next.select(m)
-                }),
-            (Place::Stables, ["tend"]) => {
-                changed = true;
-                next.tend()
-            }
-            (Place::Tournament, ["start"]) => {
-                changed = true;
-                enter = true;
-                next.start()
-            }
-            (Place::Tournament, ["round", number, choice]) => {
-                match (number.parse::<usize>(), Choice::parse(choice)) {
-                    (Ok(n), Some(c)) => {
-                        changed = true;
-                        next.choose(n, c)
-                    }
-                    _ => Err(format!("Invalid pass or choice. {HELP}")),
-                }
-            }
-            (Place::Stables, ["leave"]) => {
-                close = true;
-                Ok("Stable visit closed; current Delve floor unchanged.".into())
-            }
-            (Place::Tournament, ["leave"]) => {
-                close = true;
-                if next.tournament.phase == Phase::Running {
-                    changed = true;
-                    next.leave()
-                } else {
-                    Ok(
-                        "Lists visit closed; result retained; current Delve floor unchanged."
-                            .into(),
-                    )
-                }
-            }
-            _ => Err(format!("Unknown practice action. {HELP}")),
-        };
-        let message = match action {
-            Ok(m) => m,
-            Err(e) => return e,
-        };
-        if changed {
-            // Save-before-publish: an I/O failure rolls back the in-memory game.
-            // Keep the existing realm path, owner and unrelated economy intact.
-            let realm = self.realm();
-            let old = std::mem::replace(&mut realm.chivalry, next);
-            if let Err(e) = realm.save() {
-                realm.chivalry = old;
-                return format!(
-                    "Practice action not committed: could not save this owner's realm: {e}"
-                );
-            }
-        }
-        self.sync_chivalry_projection();
-        if changed
-            && !enter
-            && !close
-            && self.dungeon.shooter.is_none()
-            && self.world.chivalry_visit.is_none()
-        {
-            self.world.open_chivalry(place, true);
-            self.scryglass_enabled = true;
-            self.scryglass.return_to_world();
-            self.focus_module("artifacts");
-        }
-        if enter {
-            self.dungeon.intro = None;
-            self.dungeon.exhibit_text = None;
-            if self.dungeon.shooter.is_some() {
-                self.dungeon.chivalry_visit = Some(Visit {
-                    place,
-                    inside: true,
-                    station: 0,
-                });
-                self.dungeon.cards_open = false;
-                self.clear_dungeon_controls();
-                self.expand_dungeon();
+
+    fn realm_stable_status(&mut self) -> String {
+        let stable = &self.realm().home.stable;
+        let stalls = Mount::ALL
+            .map(|m| {
+                format!(
+                    "{}{} ({})",
+                    m.name(),
+                    if stable.is_tended(m) { ", tended" } else { "" },
+                    m.says()
+                )
+            })
+            .join(" · ");
+        format!(
+            "The stables · saddled: {} · {stalls}. Hold F at a stall's plate to saddle that mount; at the trough to tend it (a knock more of balance for one bout).",
+            stable.selected.name()
+        )
+    }
+
+    fn realm_lists_status(&mut self) -> String {
+        let stable = self.realm().home.stable.clone();
+        let next = shooter::joust::RIVALS[shooter::joust::next_rival(&stable)].name;
+        format!(
+            "The lists · next rival: {next} · on {}{} · {} bouts, {} rivals unhorsed. Hold F at the plate by the red pavilion to mount; F spurs, W/S aims high or low, F strikes as the lances meet, Space braces.",
+            stable.selected.name(),
+            if stable.is_tended(stable.selected) {
+                ", tended"
             } else {
-                self.world.open_chivalry(place, true);
-                self.focus_module("artifacts");
-                self.scryglass_enabled = true;
-                self.scryglass.return_to_world();
-            }
-        }
-        if close {
-            self.dungeon.chivalry_visit = None;
-            self.dungeon.chivalry_notice.clear();
-            self.world.close_chivalry();
-            self.clear_dungeon_controls();
-        }
-        // Do not route owner-local practice text through the guest HUD.
-        if self.dungeon.guest.is_none() {
-            self.dungeon.chivalry_notice = message.clone();
-        }
-        self.redraw_requested = true;
-        format!("{message}\n{HELP}")
+                ""
+            },
+            stable.bouts,
+            stable.unhorsed,
+        )
     }
-    pub(crate) fn refresh_chivalry_projection_if_needed(&mut self) {
-        if self.dungeon.guest.is_none()
-            && self.dungeon.joined.is_none()
-            && self
-                .dungeon
-                .shooter
-                .as_ref()
-                .is_some_and(|r| r.chivalry.is_none())
-        {
-            self.sync_chivalry_projection();
-        }
-    }
-    /// Side-stage input stays away from the fighting run and never enters the
-    /// network command queue. Explicit slash commands remain the accessible UI.
-    pub(crate) fn chivalry_side_key(&mut self, code: ratatui::crossterm::event::KeyCode) -> bool {
-        use ratatui::crossterm::event::KeyCode;
-        let Some(visit) = self.dungeon.chivalry_visit else {
-            return false;
+
+    /// `/dungeon stable …` and `/dungeon tournament …`.
+    pub(crate) fn chivalry_command(&mut self, place: Place, tail: &str) -> String {
+        let args: Vec<_> = tail.split_whitespace().collect();
+        let mark = match (place, args.as_slice()) {
+            (_, [] | ["enter"]) => return self.visit_horsemanship(place),
+            (Place::Stables, ["status"]) => return self.realm_stable_status(),
+            (Place::Tournament, ["status"]) => return self.realm_lists_status(),
+            (Place::Stables, ["select", name]) => match Mount::parse(name) {
+                Some(m) => format!("stable:select:{}", m.name().to_lowercase()),
+                None => return format!("No mount called {name}. {HELP}"),
+            },
+            (Place::Stables, ["tend"]) => "stable:tend".to_string(),
+            _ => return format!("Unknown. {HELP}"),
         };
-        let command = match code {
-            KeyCode::Esc => Some("leave".to_string()),
-            KeyCode::Char('e') if visit.place == Place::Stables => Some("tend".into()),
-            KeyCode::Char('1' | '2' | '3') if visit.place == Place::Stables => {
-                let KeyCode::Char(c) = code else {
-                    unreachable!()
-                };
-                Some(format!(
-                    "select {}",
-                    Mount::ALL[c as usize - '1' as usize].name()
-                ))
-            }
-            KeyCode::Enter if visit.place == Place::Tournament => Some("start".into()),
-            KeyCode::Char('g' | 'a' | 'c') if visit.place == Place::Tournament => {
-                let choice = match code {
-                    KeyCode::Char('g') => "guard",
-                    KeyCode::Char('a') => "aim",
-                    _ => "charge",
-                };
-                Some(format!(
-                    "round {} {choice}",
-                    self.world.chivalry.tournament.played() + 1
-                ))
-            }
-            KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
-                let delta = if matches!(code, KeyCode::Left | KeyCode::Down) {
-                    -1
-                } else {
-                    1
-                };
-                self.dungeon.chivalry_visit.as_mut().unwrap().station =
-                    (i16::from(visit.station) + delta).clamp(0, 3) as u8;
-                self.redraw_requested = true;
-                None
-            }
-            _ => None,
-        };
-        if let Some(command) = command {
-            let message = self.chivalry_command(visit.place, &command);
-            if self.dungeon.guest.is_none() {
-                self.dungeon.chivalry_notice = message;
-            }
+        if self.dungeon.joined.is_some() {
+            return "The host's stable is theirs to keep: walk to it in their delve.".into();
         }
-        true
+        // The same mark a plate leaves, settled the same way.
+        let marks = std::collections::BTreeMap::from([(mark, 1u32)]);
+        let mut stable = self.realm().home.stable.clone();
+        let said = shooter::joust::settle_stable(&mut stable, &marks);
+        let realm = self.realm();
+        let before = std::mem::replace(&mut realm.home.stable, stable);
+        if let Err(error) = realm.save() {
+            realm.home.stable = before;
+            return format!("Not saved: {error}");
+        }
+        let (home, treasury) = (realm.home.clone(), realm.treasury.clone());
+        if let Some(run) = self.dungeon.shooter.as_mut() {
+            run.rebuild_home(home, treasury);
+        }
+        said.into_iter()
+            .map(|(_, line)| line)
+            .collect::<Vec<_>>()
+            .join(" · ")
     }
 }
+
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/dungeon_chivalry__tests.rs"]
 mod tests;

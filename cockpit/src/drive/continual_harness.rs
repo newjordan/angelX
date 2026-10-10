@@ -219,6 +219,14 @@ fn root_dir() -> PathBuf {
     {
         return PathBuf::from(p);
     }
+    // A test never reads the real store: memories a live session saved there
+    // would ride into the prompts the tests check.
+    if cfg!(test) {
+        return std::env::temp_dir().join(format!(
+            "angel-continual-harness-test-{}",
+            std::process::id()
+        ));
+    }
     crate::platform::workspace_store::angel_subdir("continual-harness")
 }
 

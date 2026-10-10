@@ -721,8 +721,9 @@ fn settlement_exhibits_reachable_and_collision_identical_with_visible_props() {
             crate::stage::world_viz::crawl::dungeon::Prop::Crate
                 | crate::stage::world_viz::crawl::dungeon::Prop::Workbench
         )));
-        // Follow the shared path inside each room via the actual playable collision.
-        for (room, r) in run.dungeon.rooms.iter().enumerate() {
+        // Follow the shared path inside each room via the actual playable
+        // collision (the settlement's rooms; the world above has its own).
+        for (room, r) in run.dungeon.rooms.iter().enumerate().take(d.halls.len()) {
             let origin = d.halls[room].min;
             for &(x, y) in &path {
                 let (c, row) = (x - origin.0 + 1, y - origin.1 + 1);

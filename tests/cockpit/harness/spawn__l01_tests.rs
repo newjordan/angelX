@@ -1,10 +1,10 @@
 use super::*;
 #[test]
-fn spawn_default_is_a_bounded_900_second_clock_and_explicit_seconds_are_exact() {
+fn spawn_default_is_unbounded_and_explicit_seconds_are_exact() {
     let _guard = crate::tests::env_lock();
     let _unset = crate::tests::TestEnvGuard::unset("ANGEL_SPAWN_TIMEOUT");
     let default = configured_formation_timeout(&serde_json::json!({}));
-    assert_eq!(default.as_secs(), 900);
+    assert!(default.is_zero(), "no clock cancels a seat unless one is set");
     let _cap = crate::tests::TestEnvGuard::set("ANGEL_SPAWN_TIMEOUT", "7200");
     assert_eq!(
         configured_formation_timeout(&serde_json::json!({})).as_secs(),

@@ -17,6 +17,7 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
 pub(crate) mod arena;
+pub(crate) mod castles;
 mod clerks;
 mod deeds;
 pub(crate) mod garden;

@@ -26,6 +26,8 @@ impl Run {
             .any(|h| home.prowess(&knight_key(h)).waiting() > 0);
         if home.levels.is_empty() {
             "build"
+        } else if home.barony.court == super::barony::Court::Camped {
+            "barony"
         } else if !home.feats.contains("spin") {
             "wheel"
         } else if !home.boxes.is_empty() {

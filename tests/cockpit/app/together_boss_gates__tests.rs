@@ -1182,19 +1182,35 @@ fn boss_ecology_rarity_and_all_supported_pack_routes_across_both_starting_packs(
 }
 
 #[test]
-fn boss_ecology_browser_guest_has_bounded_read_only_resource_and_politics_projection() {
+fn boss_ecology_browser_guest_sends_only_controls_and_shows_text_as_data() {
     let page = include_str!("../../../cockpit/assets/dungeon/guest.html");
-    assert!(page.contains("boss_support"));
-    assert!(page.contains("graph.leaders.slice(0,4)"));
-    assert!(page.contains("control lost; future support cut"));
-    assert!(page.contains("body.replaceChildren()"));
-    assert!(page.contains("cell.textContent=value"));
-    assert!(page.contains("URL.revokeObjectURL"));
+    // The playable page posts a name, held controls and the scroll's wishes
+    // (a known one, one to learn, or a reforge); the host decides every
+    // political and resource outcome.
+    let posts: Vec<&str> = page
+        .match_indices("method:'POST'")
+        .map(|(at, _)| &page[page[..at].rfind("fetch(").unwrap()..at])
+        .collect();
+    assert_eq!(posts.len(), 4, "{posts:?}");
+    for route in [
+        "fetch('/hello'",
+        "fetch('/shooter/input'",
+        "fetch('/frames/ack'",
+        "fetch(route",
+    ] {
+        assert!(posts.iter().any(|post| post.starts_with(route)), "{route}");
+    }
+    for route in ["route='/boon'", "route='/learn'", "route='/reforge'"] {
+        assert!(page.contains(route), "{route}");
+    }
+    assert!(!page.contains("'/wish'"), "the realm's wishing stone is not the Delve's scroll");
+    assert!(!page.contains("boss_gates"), "no client political claims");
+    // All text from the host is data, never HTML.
     assert!(!page.contains("innerHTML"));
-    assert!(
-        !page.contains("/shooter/input"),
-        "browser status viewer never submits client political claims"
-    );
+    assert!(page.contains("textContent"));
+    // Decoded frames are released and the waiting queue is bounded.
+    assert!(page.contains("bmp.close()"));
+    assert!(page.contains("queue.length>6"));
 }
 
 #[test]

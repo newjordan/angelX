@@ -82,3 +82,29 @@ fn specific_lines_win_and_general_ones_cover_the_rest() {
     chorus.cue("card_guard:kite-shield", later);
     assert_eq!(chorus.tick(later).unwrap().line.id, "tobbin-shield");
 }
+
+#[test]
+fn a_small_secret_speaks_its_own_line_alone_and_hints_once_each() {
+    let mut chorus = Chorus {
+        muted: true,
+        ..Chorus::default()
+    };
+    let now = Instant::now();
+    chorus.cue("secret_found:cup", now);
+    let said = chorus.tick(now).unwrap();
+    assert_eq!(said.line.id, "herald-found-cup", "not the vault's line");
+    assert!(
+        chorus.tick(said.until).is_none(),
+        "no second voice for a small find"
+    );
+    for name in [
+        "cup", "glass", "seal", "salt", "coal", "lantern", "reed", "wick", "sill",
+    ] {
+        for cue in [
+            format!("secret_hint:{name}"),
+            format!("secret_found:{name}"),
+        ] {
+            assert!(script().iter().any(|l| l.cue == cue), "{cue} has a line");
+        }
+    }
+}

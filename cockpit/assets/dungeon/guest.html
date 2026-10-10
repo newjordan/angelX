@@ -1,51 +1,581 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Delve · floor politics</title>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Delve</title>
 <style>
-body{background:#14110e;color:#eee0bd;font:16px system-ui;max-width:1000px;margin:1em auto;padding:0 1em}
-img{width:100%;image-rendering:pixelated}table{width:100%;border-collapse:collapse}td,th{padding:.4em;border-bottom:1px solid #75684e;text-align:left}
+:root{--bg:#0d0b09;--ink:#eee0bd;--dim:#a8977a;--line:#3a3226;--hot:#f0b84a;--bad:#e2604a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.35 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+#app{display:grid;grid-template-rows:auto 1fr auto;height:100%}
+header,footer{display:flex;gap:1.2em;flex-wrap:wrap;align-items:center;padding:.35em .8em;border-bottom:1px solid var(--line)}
+footer{border-bottom:0;border-top:1px solid var(--line);color:var(--dim);font-size:12px}
+#stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:0}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;max-width:100%;max-height:100%}
+.k{color:var(--hot)}.bad{color:var(--bad)}.dim{color:var(--dim)}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72)}
+#overlay form{background:#1b1712;border:1px solid var(--line);padding:1.4em 1.6em;max-width:28em}
+#overlay h1{margin:0 0 .4em;font-size:20px;color:var(--hot)}
+input{font:inherit;background:#000;color:var(--ink);border:1px solid var(--line);padding:.4em .5em}
+button{font:inherit;background:var(--hot);color:#000;border:0;padding:.45em 1em;cursor:pointer}
+#wish{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;flex-direction:column;gap:.5em;background:#1b1712;border:1px solid var(--hot);padding:.8em 1em;width:min(40em,94vw);max-height:86%;overflow:auto}
+#wish .row{display:flex;gap:.4em}#wish .row input{flex:1}
+#known{display:grid;grid-template-columns:repeat(auto-fill,minmax(15em,1fr));gap:.3em}
+#known button{background:#000;color:var(--ink);border:1px solid var(--line);text-align:left;padding:.35em .5em;font-size:12px}
+#known button.on{border-color:var(--hot);color:var(--hot)}
+#party span{margin-right:1em}
 </style>
-<h1>Delve · live floor</h1>
-<p>Read-only browser view. To play, paste the complete invitation into your angelX composer: <code>/dungeon join &lt;link&gt;</code>.</p>
-<p id="access">Open the complete invitation with its #token to view.</p><p id="support"></p>
-<img id="room" alt="Host's current room"><h2>Faction leaders &amp; dependencies</h2>
-<table><thead><tr><th>Faction</th><th>Resource site / boss definition</th><th>Route</th><th>Control &amp; reserve</th></tr></thead><tbody id="leaders"></tbody></table>
-<p id="limit">Classic six-floor delve. Rival composition and finite aftermath, not simulated NPC warfare.</p>
+<div id="app">
+<header><b class="k">Delve</b><span id="floor">connecting…</span><span id="me"></span><span id="hand" class="dim"></span><span id="status" class="dim"></span></header>
+<div id="stage"><canvas id="room" width="384" height="224"></canvas>
+<div id="overlay" style="display:none"><form id="join"><h1>Delve</h1><p id="joinerr" class="bad"></p></form></div>
+<form id="wish"><b class="k">The scroll</b><span id="wishhead" class="dim"></span><div id="known"></div>
+<div class="row"><input id="wishtext" maxlength="200" placeholder="…or say it in your own words"><select id="part"><option value="offense">weapon</option><option value="defense">guard</option></select><button>Seal</button></div>
+<span class="dim">Enter seals · Esc closes</span></form>
+</div>
+<footer><form id="rename"><input id="name" maxlength="32" size="12" placeholder="your name" autocomplete="nickname"></form><span id="party"></span><span class="dim">WASD move · arrows aim · F fire · Space roll · Q sword · E bomb · 1–4 cards · Z B N spells · R ult · G vigil · T wish · gamepad works</span><span id="net"></span></footer>
+</div>
 <script>
 'use strict';
-const token=location.hash.slice(1), access=document.getElementById('access'), support=document.getElementById('support');
-let stopped=false, frame=-1, picture;
-addEventListener('pagehide',()=>{stopped=true;if(picture)URL.revokeObjectURL(picture)});
-async function poll(){
-  if(stopped||!/^[a-fA-F0-9]{32}$/.test(token))return;
-  try{
-    const headers={Authorization:'Bearer '+token};
-    const response=await fetch('/state',{headers,cache:'no-store'});
-    if(!response.ok)throw new Error('Host not ready ('+response.status+')');
-    const state=await response.json();
-    access.textContent='Floor '+state.floor+'/'+state.floors+' · '+(state.notice||'');
-    support.textContent=state.boss_support||'Legacy or special-mode floor: no political profile.';
-    const graph=state.boss_gates, body=document.getElementById('leaders');
-    body.replaceChildren();
-    if(graph){
-      // All text is data, never HTML. At most four checked leadership encounters.
-      for(const leader of graph.leaders.slice(0,4)){
-        const faction=graph.economy.factions[leader.faction], row=document.createElement('tr');
-        for(const value of [faction.name, 'Room '+leader.room+' · '+((state.boss_names||[])[leader.boss]||('boss #'+leader.boss)),
-          leader.prerequisite?graph.access.toUpperCase()+' route chief':'optional chief',
-          (leader.defeated?'control lost; future support cut':'controlled')+' · reserve '+faction.reserve]){
-          const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);
-        }
-        body.appendChild(row);
-      }
-    }
-    if(state.frame_seq!==frame){
-      const image=await fetch('/frame.png?seq='+state.frame_seq,{headers,cache:'no-store'});
-      if(image.ok){const next=URL.createObjectURL(await image.blob());document.getElementById('room').src=next;if(picture)URL.revokeObjectURL(picture);picture=next;frame=state.frame_seq;}
-    }
-  }catch(error){access.textContent=String(error.message||error);}
-  // One request chain, fixed 2 Hz maximum; no overlapping polls or growing DOM.
-  if(!stopped)setTimeout(poll,500);
+const token=location.hash.slice(1);
+const $=id=>document.getElementById(id);
+const auth={Authorization:'Bearer '+token};
+const canvas=$('room'), ctx=canvas.getContext('2d');
+let state=null, joined=false, stopped=false;
+let sequence=1, inFlight=0, lastSent=null, lastSentAt=0;
+let bytes=0, frames=0, rtt=0, netAt=performance.now();
+const held=new Set();
+addEventListener('pagehide',()=>{stopped=true});
+
+if(!/^[a-fA-F0-9]{32}$/.test(token)){
+  $('overlay').style.display='';
+  $('joinerr').textContent='This link is missing its seat code. Open the complete link your host sent.';
 }
-poll();
+try{$('name').value=localStorage.getItem('delve-name')||''}catch(e){}
+
+// One click: the link takes the seat as soon as the host has a delve open.
+let joining=false;
+async function join(){
+  if(joined||joining)return;
+  joining=true;
+  const name=$('name').value.trim().slice(0,32);
+  try{
+    const r=await fetch('/hello',{method:'POST',headers:{...auth,'Content-Type':'text/plain'},body:name});
+    const msg=await r.json().catch(()=>({}));
+    if(r.ok){joined=true;$('status').textContent=msg.message||''}
+    else if(r.status===401)refused();
+  }catch(e){}
+  joining=false;
+}
+$('rename').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  try{localStorage.setItem('delve-name',$('name').value.trim().slice(0,32))}catch(e){}
+  joined=false;join();$('name').blur();
+});
+
+// ---- the socket (/play): frames, state and answers down; held controls,
+// frame receipts and pings up, all on one connection. The token rides as a
+// subprotocol. A host without it (or a path that drops sockets) falls back
+// to the HTTP routes below.
+let ws=null, socketEver=false, age=0;
+function connect(){
+  let sock, opened=false;
+  try{sock=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/play',['delve.v1',token])}
+  catch(e){httpFallback();return}
+  sock.binaryType='arraybuffer';
+  sock.onopen=()=>{opened=true;socketEver=true;ws=sock;lastSent=null;fresh()};
+  sock.onmessage=ev=>{
+    const data=new Uint8Array(ev.data), kind=data[0];
+    if(kind===1||kind===4){
+      if(data.length<HEAD)return;
+      bytes+=data.length;
+      const view=new DataView(ev.data), seq=Number(view.getBigUint64(1)), painted=Number(view.getBigUint64(9));
+      sock.send('{"ack":'+seq+'}');
+      age=age?(age*7+(Date.now()-painted))/8:Date.now()-painted;
+      if(kind===4)takePatch(seq,data,view);
+      else takeWhole(seq,data,view);
+      return;
+    }
+    let msg;try{msg=JSON.parse(new TextDecoder().decode(data.subarray(1)))}catch(e){return}
+    if(kind===2)takeState(msg);
+    else if(msg.pong!==undefined){const trip=performance.now()-msg.pong;rtt=rtt?(rtt*7+trip)/8:trip}
+    else if(msg.input_error){lastSent=null;sequence=Math.max(sequence,msg.next_sequence||1)}
+  };
+  sock.onclose=()=>{
+    if(ws===sock)ws=null;
+    if(stopped)return;
+    if(!opened&&!socketEver){httpFallback();return}
+    setTimeout(connect,500);
+  };
+}
+setInterval(()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({ping:performance.now(),rtt:Math.round(rtt)}))},500);
+let fellBack=false;
+function httpFallback(){if(fellBack)return;fellBack=true;frameStream();stateLoop()}
+function takeState(s){
+  if(state&&state.raid_id!==s.raid_id)lastSent=null;
+  sequence=Math.max(sequence,s.next_sequence||1);
+  state=s;hud();join();
+}
+
+// Wire decoding and the slide, with no page state: together_guest's tests
+// run this block in V8 against the host's own patches.
+// Header of a picture message: kind, frame number, paint clock (Unix ms),
+// then the knight's box (x, y, w, h, follow), as stamp_header writes it.
+const STAMP=8, HEAD=1+8+8+STAMP, TILE=16, MAX_TILES=96;
+// A patch's tiles, after its header and the 8-byte frame it changes: u16
+// count, u16 colours, the RGB palette, then per tile its column, row and
+// 256 palette indices. Null for anything else, and for a tile outside a
+// w×h picture: the page asks for a whole picture rather than draw part of one.
+function readPatch(data,w,h){
+  const at=HEAD+8;
+  if(data.length<at+4)return null;
+  const view=new DataView(data.buffer,data.byteOffset,data.length);
+  const count=view.getUint16(at), colors=view.getUint16(at+2);
+  if(!count||count>MAX_TILES||!colors||colors>256)return null;
+  let o=at+4;
+  if(data.length!==o+colors*3+count*(2+TILE*TILE))return null;
+  const pal=data.subarray(o,o+colors*3);o+=colors*3;
+  const tiles=[];
+  for(let i=0;i<count;i++){
+    const col=data[o], row=data[o+1];o+=2;
+    if((col+1)*TILE>w||(row+1)*TILE>h)return null;
+    const rgba=new Uint8Array(TILE*TILE*4);
+    for(let p=0;p<TILE*TILE;p++){
+      const c=data[o+p];
+      if(c>=colors)return null;
+      rgba[p*4]=pal[c*3];rgba[p*4+1]=pal[c*3+1];rgba[p*4+2]=pal[c*3+2];rgba[p*4+3]=255;
+    }
+    o+=TILE*TILE;
+    tiles.push({col,row,rgba});
+  }
+  return tiles;
+}
+// Pixels to slide the seat's own knight so a delayed route still answers
+// the key within one frame. The host picture cannot arrive before the round
+// trip; this slide covers only that gap, then stops, so a held key is not
+// drawn twice. 104 px/s is the knight's pace (13 units × 8 px).
+function photonShift(since,trip,mx,my){
+  if(trip<20||(!mx&&!my)||since>=trip)return [0,0];
+  const shown=Math.min(trip,Math.max(since,1000/60));
+  const len=Math.hypot(mx,my)||1;
+  const s=104*shown/1000/len;
+  return [mx*s,my*s];
+}
+// ---- end of the block the tests run
+
+// ---- pictures. On the socket each patch names the picture it changes (its
+// base): the one the host sent just before it. A patch on any other base
+// means a picture went missing here, so the page asks for a whole one. Over
+// HTTP the host pushes each frame down one long response (/frames): a 4-byte
+// length, the 8-byte frame number, then the PNG. Decoded far frames wait in
+// a short queue and are shown on animation frames, which smooths out the
+// network's bunching. An older host without /frames is polled instead.
+let frameSeq=-1;
+const queue=[];
+let lastDraw=0;
+const localPlay=location.hostname==='localhost'||location.hostname==='127.0.0.1'||location.hostname==='[::1]';
+let photonStamp=null, photonMx=0, photonMy=0, photonKeyAt=0, slid=false;
+// The host's picture as last received, and its frame. The slide is drawn
+// only on the canvas, never into this.
+let backing=null, backingSeq=-1;
+// The newest picture received on this socket (decoded or not), -1 once one
+// went missing; and whether a whole picture is already asked for.
+let chainSeq=-1, keyAsked=false;
+let decodeGen=0;
+const patchWait=[];
+const scratch=document.createElement('canvas');
+function readStamp(view){
+  const w=view.getUint8(21), h=view.getUint8(22);
+  if(!w||!h||w>48||h>48) return null;
+  return {x:view.getInt16(17), y:view.getInt16(19), w, h, follow:view.getUint8(23)};
+}
+// A new socket is a new run of pictures, perhaps from a restarted host.
+function fresh(){
+  chainSeq=-1;keyAsked=false;frameSeq=-1;backingSeq=-1;patchWait.length=0;decodeGen++;
+  while(queue.length)queue.shift().bmp.close();
+}
+function askWhole(){
+  chainSeq=-1;patchWait.length=0;
+  if(keyAsked||!ws||ws.readyState!==1)return;
+  keyAsked=true;ws.send('{"keyframe":1}');
+}
+function takeWhole(seq,data,view){
+  keyAsked=false;frameSeq=seq;
+  // A hidden tab decodes nothing; it asks for a whole picture when shown.
+  if(document.hidden){chainSeq=-1;return}
+  chainSeq=seq;
+  const stamp=readStamp(view), gen=++decodeGen;
+  createImageBitmap(new Blob([data.subarray(HEAD)],{type:'image/png'})).then(bmp=>{
+    if(seq<backingSeq){bmp.close();return}
+    // A local seat draws the whole picture now, so a patch cannot land on a
+    // bitmap the present loop later throws away.
+    if(localPlay){showWhole(bmp,seq,stamp);return}
+    if(gen!==decodeGen){bmp.close();return}
+    queue.push({seq,bmp,stamp});
+    if(queue.length>1&&queue[queue.length-2].seq>seq)queue.sort((a,b)=>a.seq-b.seq);
+    while(queue.length>6)queue.shift().bmp.close();
+  },()=>{if(chainSeq===seq)askWhole()});
+}
+function takePatch(seq,data,view){
+  frameSeq=seq;
+  if(document.hidden){chainSeq=-1;return}
+  const base=Number(view.getBigUint64(HEAD));
+  const tiles=base===chainSeq?readPatch(data,canvas.width,canvas.height):null;
+  if(!tiles){askWhole();return}
+  chainSeq=seq;
+  const stamp=readStamp(view);
+  if(applyTiles(seq,base,tiles,stamp))return;
+  patchWait.push({seq,base,tiles,stamp});
+  // Patches waiting on a picture that never came.
+  if(patchWait.length>8)askWhole();
+}
+function showWhole(bmp,seq,stamp){
+  if(canvas.width!==bmp.width||canvas.height!==bmp.height){canvas.width=bmp.width;canvas.height=bmp.height;fit()}
+  ctx.drawImage(bmp,0,0);bmp.close&&bmp.close();frames++;
+  slid=false;
+  try{backing=ctx.getImageData(0,0,canvas.width,canvas.height)}catch(e){backing=null}
+  backingSeq=seq;
+  if(stamp)photonStamp=stamp;
+  flushPatches();
+  paintPhoton();
+}
+function applyTiles(seq,base,tiles,stamp){
+  if(!backing||backingSeq!==base)return false;
+  const d=backing.data, w=backing.width;
+  let dx0=w, dy0=backing.height, dx1=0, dy1=0;
+  for(const t of tiles){
+    const x=t.col*TILE, y=t.row*TILE;
+    for(let row=0;row<TILE;row++)d.set(t.rgba.subarray(row*TILE*4,(row+1)*TILE*4),((y+row)*w+x)*4);
+    dx0=Math.min(dx0,x);dy0=Math.min(dy0,y);dx1=Math.max(dx1,x+TILE);dy1=Math.max(dy1,y+TILE);
+  }
+  backingSeq=seq;frames++;
+  if(stamp)photonStamp=stamp;
+  // The tiles land on the host's picture. While the knight is slid, the
+  // whole picture goes back and the slide is drawn over it; otherwise one
+  // dirty rectangle is redrawn, not the whole picture.
+  const [nx,ny]=photonOffset();
+  if(slid||nx||ny)paintPhoton();
+  else ctx.putImageData(backing,0,0,dx0,dy0,dx1-dx0,dy1-dy0);
+  return true;
+}
+function flushPatches(){
+  patchWait.sort((a,b)=>a.seq-b.seq);
+  while(patchWait.length){
+    const p=patchWait[0];
+    if(p.seq<=backingSeq){patchWait.shift();continue}
+    if(!applyTiles(p.seq,p.base,p.tiles,p.stamp))break;
+    patchWait.shift();
+  }
+  if(patchWait.length>8)askWhole();
+}
+function notePhoton(input){
+  const mx=input.move_x|0, my=input.move_y|0;
+  if(mx!==photonMx||my!==photonMy){photonMx=mx;photonMy=my;photonKeyAt=performance.now()}
+}
+function photonOffset(){
+  if(!photonStamp)return [0,0];
+  const [dx,dy]=photonShift(performance.now()-photonKeyAt,rtt||0,photonMx,photonMy);
+  return [Math.round(dx),Math.round(dy)];
+}
+function paintPhoton(){
+  if(!backing)return;
+  const [nx,ny]=photonOffset();
+  if(!nx&&!ny){if(slid){ctx.putImageData(backing,0,0);slid=false}return}
+  ctx.putImageData(backing,0,0);
+  slid=true;
+  if(photonStamp.follow){
+    scratch.width=backing.width;scratch.height=backing.height;
+    scratch.getContext('2d').putImageData(backing,0,0);
+    ctx.fillStyle='#000';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(scratch,-nx,-ny);
+    return;
+  }
+  const {x,y,w,h}=photonStamp;
+  if(x<0||y<0||x+w>canvas.width||y+h>canvas.height)return;
+  const sprite=ctx.getImageData(x,y,w,h);
+  const fill=ctx.getImageData(Math.max(0,x-2),y,1,1).data;
+  ctx.fillStyle='rgb('+fill[0]+','+fill[1]+','+fill[2]+')';
+  ctx.fillRect(x,y,w,h);
+  scratch.width=w;scratch.height=h;
+  scratch.getContext('2d').putImageData(sprite,0,0);
+  ctx.drawImage(scratch,x+nx,y+ny);
+}
+function present(t){
+  // Local: the newest frame every refresh, nothing queued behind it.
+  // A far link keeps one frame of slack so a jittery route stays smooth,
+  // and still lands 60 frames a second on a 60 Hz screen.
+  if(localPlay){
+    while(queue.length>1)queue.shift().bmp.close();
+    if(queue.length){const f=queue.shift();showWhole(f.bmp,f.seq,f.stamp);lastDraw=t}
+  }else{
+    while(queue.length>2)queue.shift().bmp.close();
+    if(queue.length&&(t-lastDraw>=12||queue.length>1)){const f=queue.shift();showWhole(f.bmp,f.seq,f.stamp);lastDraw=t}
+  }
+  requestAnimationFrame(present);
+}
+requestAnimationFrame(present);
+// Each frame received is acknowledged at once; the host sends no more than a
+// few ahead of the receipts, so a slow link drops frames instead of piling
+// seconds of them up in its buffers.
+// One receipt on the way at a time, always for the newest frame: over
+// HTTP/1.1 (a plain-http tunnel) every request is its own connection, and a
+// receipt per frame queued up behind the browser's six.
+let receipt=0, receiptSent=0, receiptBusy=false;
+async function acknowledge(){
+  if(receiptBusy||receipt<=receiptSent)return;
+  receiptBusy=true;receiptSent=receipt;
+  try{await fetch('/frames/ack',{method:'POST',headers:{...auth,'Content-Type':'text/plain'},body:String(receiptSent)})}catch(e){}
+  receiptBusy=false;
+  acknowledge();
+}
+async function frameStream(){
+  while(!stopped){
+    try{
+      const r=await fetch('/frames',{headers:auth,cache:'no-store'});
+      if(r.status===404){for(const at of [0,33,66,100])frameLoop(at);return}
+      if(r.status===401){refused();await sleep(3000);continue}
+      if(!r.ok||!r.body){await sleep(1000);continue}
+      // A new stream may be a restarted host counting from zero.
+      receipt=0;receiptSent=0;
+      const reader=r.body.getReader();
+      let buf=new Uint8Array(0);
+      for(;;){
+        const {value,done}=await reader.read();
+        if(done)break;
+        bytes+=value.length;
+        const next=new Uint8Array(buf.length+value.length);next.set(buf);next.set(value,buf.length);buf=next;
+        while(buf.length>=12){
+          const view=new DataView(buf.buffer,buf.byteOffset,buf.length);
+          const length=view.getUint32(0), seq=Number(view.getBigUint64(4));
+          if(buf.length<12+length)break;
+          const png=buf.slice(12,12+length);buf=buf.slice(12+length);
+          receipt=Math.max(receipt,seq);
+          if(seq<=frameSeq&&seq+100>frameSeq)continue;
+          frameSeq=seq;
+          // A hidden tab runs no animation frames: decode nothing, keep nothing.
+          if(document.hidden)continue;
+          createImageBitmap(new Blob([png],{type:'image/png'})).then(bmp=>{
+            queue.push({seq,bmp});
+            if(queue.length>1&&queue[queue.length-2].seq>seq)queue.sort((a,b)=>a.seq-b.seq);
+            while(queue.length>6)queue.shift().bmp.close();
+          },()=>{});
+        }
+        acknowledge();
+      }
+    }catch(e){}
+    await sleep(500);
+  }
+}
+async function frameLoop(offset){
+  await sleep(offset);
+  while(!stopped){
+    const t0=performance.now();
+    try{
+      const r=await fetch('/frame.png?seq='+(frameSeq+1),{headers:auth,cache:'no-store'});
+      if(r.ok){
+        const seq=Number(r.headers.get('X-Frame-Seq')||0);
+        const blob=await r.blob();
+        bytes+=blob.size;
+        if(seq>frameSeq||seq+100<frameSeq){
+          frameSeq=seq;showWhole(await createImageBitmap(blob),seq,null);
+        }
+      }else if(r.status===401){refused();await sleep(3000)}
+      else await sleep(300);
+    }catch(e){await sleep(500)}
+    const wait=133-(performance.now()-t0);
+    if(wait>0)await sleep(wait);
+  }
+}
+
+// ---- state: HUD, raid id, next sequence. ~4 Hz.
+async function stateLoop(){
+  while(!stopped){
+    try{
+      const r=await fetch('/state',{headers:auth,cache:'no-store'});
+      if(r.ok){
+        takeState(await r.json());
+      }else{
+        const m=await r.json().catch(()=>({}));
+        $('floor').textContent=m.message||('Host not ready ('+r.status+')');
+      }
+    }catch(e){$('floor').textContent='Cannot reach the host'}
+    await sleep(250);
+  }
+}
+
+function hud(){
+  const s=state, me=(s.players||[]).find(p=>p.id===s.actor);
+  $('floor').className='';
+  $('floor').textContent='Floor '+s.floor+'/'+s.floors+(s.paused?' · paused':'')+(s.host?'':' · host quiet')+(s.notice?' · '+s.notice:'');
+  $('me').textContent=me?(me.name+' ♥'+me.hp+'/'+me.max_hp+' · '+me.weapon+' · bombs '+me.bombs+(me.alive?'':' · fallen')+(me.stone?' · stone':'')):'';
+  $('hand').textContent=me?me.hand.map((c,i)=>(i+1)+':'+c).join('  ')+(me.spells.some(x=>x)?'   '+me.spells.map((c,i)=>c?'ZBN'[i]+':'+c+(me.spell_cooldowns[i]?' ('+me.spell_cooldowns[i]+')':''):'').filter(Boolean).join('  '):''):'';
+  $('party').textContent='';
+  for(const p of s.players||[]){const el=document.createElement('span');el.textContent=p.name+' ♥'+p.hp+'/'+p.max_hp+(p.alive?'':' ✝');if(p.id===s.actor)el.className='k';$('party').appendChild(el)}
+  if(me&&(me.can_wish||me.can_reforge)&&!wishOpen)$('status').textContent=me.can_wish?'An Overclass window is open: press T to wish':'Sanctuary: press T to reforge';
+}
+function myKnight(){return state&&(state.players||[]).find(p=>p.id===state.actor)}
+
+// ---- input: held keys and gamepad to the host's Input, sent on change and renewed every 80 ms.
+const GAME_KEYS=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyF','Space','KeyE','KeyQ','KeyZ','KeyB','KeyN','Digit1','Digit2','Digit3','Digit4','KeyG','KeyR','ShiftLeft','ShiftRight']);
+let wishOpen=false;
+addEventListener('keydown',ev=>{
+  if(!joined||wishOpen||(ev.target&&ev.target.tagName==='INPUT'))return;
+  if(ev.code==='Enter'||ev.code==='KeyT'){ev.preventDefault();openWish();return}
+  if(GAME_KEYS.has(ev.code)){ev.preventDefault();if(!held.has(ev.code)){held.add(ev.code);pump()}}
+});
+addEventListener('keyup',ev=>{if(held.delete(ev.code)){ev.preventDefault();pump()}});
+addEventListener('blur',()=>{held.clear();pump()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){held.clear();pump()}else if(chainSeq===-1)askWhole()});
+
+function axis(neg,pos){return (held.has(pos)?1:0)-(held.has(neg)?1:0)}
+function pad(){
+  const pads=navigator.getGamepads?navigator.getGamepads():[];
+  for(const g of pads){if(g&&g.connected)return g}
+  return null;
+}
+function dz(v){return v>0.45?1:v<-0.45?-1:0}
+function currentInput(){
+  const shift=held.has('ShiftLeft')||held.has('ShiftRight');
+  const inp={
+    move_x:axis('KeyA','KeyD'), move_y:axis('KeyW','KeyS'),
+    aim_x:axis('ArrowLeft','ArrowRight'), aim_y:axis('ArrowUp','ArrowDown'),
+    fire:held.has('KeyF'),
+    dash:held.has('Space')||(shift&&['KeyW','KeyA','KeyS','KeyD'].some(k=>held.has(k))),
+    bomb:held.has('KeyE'), swing:held.has('KeyQ'),
+    play:[1,2,3,4].find(n=>held.has('Digit'+n))||0,
+    cast:(['KeyZ','KeyB','KeyN'].findIndex(k=>held.has(k))+1),
+    vigil:held.has('KeyG'), ult:held.has('KeyR'),
+  };
+  const g=joined&&!wishOpen?pad():null;
+  if(g){
+    const b=i=>!!(g.buttons[i]&&g.buttons[i].pressed);
+    const mx=dz(g.axes[0]||0)||(b(15)?1:b(14)?-1:0), my=dz(g.axes[1]||0)||(b(13)?1:b(12)?-1:0);
+    const ax=dz(g.axes[2]||0), ay=dz(g.axes[3]||0);
+    if(mx)inp.move_x=mx; if(my)inp.move_y=my;
+    if(ax||ay){inp.aim_x=ax;inp.aim_y=ay;inp.fire=true}
+    if(b(7)||b(5))inp.fire=true;
+    if(b(0))inp.dash=true; if(b(1))inp.swing=true; if(b(2))inp.bomb=true;
+    if(b(3))inp.vigil=true; if(b(4))inp.ult=true;
+    if(b(6))inp.cast=1;
+  }
+  if(!inp.vigil)delete inp.vigil;
+  if(!inp.ult)delete inp.ult;
+  return inp;
+}
+const same=(a,b)=>a&&b&&JSON.stringify(a)===JSON.stringify(b);
+let pending=null;
+async function pump(){
+  if(!joined||!state)return;
+  let input=currentInput();
+  if(!state.playable)input={move_x:0,move_y:0,aim_x:0,aim_y:0,fire:false,dash:false,bomb:false,swing:false,play:0,cast:0};
+  notePhoton(input);
+  const now=performance.now();
+  if(ws&&ws.readyState===1){
+    // On the socket a change goes out at once and a hold renews every 80 ms.
+    if(same(input,lastSent)&&now-lastSentAt<80){paintPhoton();return}
+    ws.send(JSON.stringify({sequence,raid_id:state.raid_id,input}));
+    sequence++;lastSent=input;lastSentAt=now;
+    paintPhoton();
+    return;
+  }
+  // A change goes out at once, beside at most one renewal still in flight.
+  const changed=!same(input,pending||lastSent);
+  if(!changed&&(inFlight||now-lastSentAt<80))return;
+  if(inFlight>1)return;
+  inFlight++;pending=input;
+  const t0=performance.now();
+  try{
+    const r=await fetch('/shooter/input',{method:'POST',headers:{...auth,'Content-Type':'application/json'},
+      body:JSON.stringify({sequence,raid_id:state.raid_id,input})});
+    sequence++;
+    if(r.ok){lastSent=input;lastSentAt=performance.now();rtt=rtt?(rtt*7+(lastSentAt-t0))/8:lastSentAt-t0}
+    else if(r.status===409){lastSent=null}
+    else await sleep(150);
+  }catch(e){await sleep(200)}
+  if(pending===input)pending=null;
+  inFlight--;
+}
+setInterval(pump,20);
+
+// ---- wishes, as angelX's own scroll (T): in an Overclass window a wish the
+// phrasebook knows is granted at once (/boon) and any other is learned while
+// you play (/learn); in a Sanctuary your words reforge a part (/reforge).
+let book=null, bookVersion=-1, picked=null;
+const SMALL=new Set(['a','an','the','my','me','i','to','of','and','when','them','it','please','make','give','want','can','be']);
+function words(text){
+  return text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w=>w&&!SMALL.has(w))
+    .map(w=>w.length>3&&w.endsWith('s')&&!w.endsWith('ss')?w.slice(0,-1):w);
+}
+function readBook(text){
+  const out=[];let wish=null;
+  for(const raw of text.split('\n')){
+    const line=raw.trim();
+    if(line.startsWith('wish ')){const [id,name]=line.slice(5).split('|').map(x=>x.trim());wish={id,name:name||id,says:[],tier:''};out.push(wish)}
+    else if(wish&&line.startsWith('say '))wish.says=line.slice(4).split('|').map(words).filter(p=>p.length);
+    else if(wish&&line.startsWith('tier ')&&!wish.tier)wish.tier=(line.split('::')[1]||'').trim();
+  }
+  return out;
+}
+// The known wish the words mean: the phrase they cover most fully.
+function find(said){
+  const have=new Set(words(said));let best=null,size=0;
+  for(const wish of book||[])for(const phrase of wish.says)if(phrase.every(w=>have.has(w))&&phrase.length>size){best=wish;size=phrase.length}
+  return best;
+}
+async function openWish(){
+  const me=myKnight();
+  if(!me||!(me.can_wish||me.can_reforge)){$('status').textContent='Wishes open in a Sanctuary (once a floor) or when an Overclass window opens.';return}
+  wishOpen=true;held.clear();pump();picked=null;
+  $('wishhead').textContent=me.can_wish?'An Overclass window is open: pick a wish, or write a new one and the scroll learns it while you play.':'Sanctuary: say how to reforge your weapon or guard.';
+  $('part').style.display=me.can_wish?'none':'';
+  $('wish').style.display='flex';$('wishtext').value='';$('wishtext').focus();
+  const list=$('known');list.replaceChildren();
+  if(!me.can_wish)return;
+  try{
+    if(!book||bookVersion!==state.phrasebook){const r=await fetch('/phrasebook',{headers:auth,cache:'no-store'});book=readBook(await r.text());bookVersion=state.phrasebook}
+    for(const wish of book){
+      const b=document.createElement('button');b.type='button';
+      b.textContent=wish.name+(wish.tier?' — '+wish.tier:'');
+      b.addEventListener('click',()=>{picked=wish.id;$('wishtext').value='';for(const o of list.children)o.classList.toggle('on',o===b);$('wishtext').focus()});
+      list.appendChild(b);
+    }
+  }catch(e){}
+}
+function closeWish(){wishOpen=false;$('wish').style.display='none';canvas.focus()}
+$('wish').addEventListener('keydown',ev=>{if(ev.key==='Escape'){ev.preventDefault();closeWish()}});
+$('wish').addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  const me=myKnight(), said=$('wishtext').value.trim();
+  const known=said?find(said):(book||[]).find(w=>w.id===picked);
+  let route, body;
+  if(me&&me.can_wish&&known){route='/boon';body={wish:known.id}}
+  else if(me&&me.can_wish){route='/learn';body={words:said}}
+  else if(me&&me.can_reforge){route='/reforge';body={part:$('part').value,words:said}}
+  else{closeWish();$('status').textContent='The window has closed.';return}
+  if(body.words!==undefined&&words(body.words).join('').length<3){$('wishhead').textContent='Pick a wish, or say it in a few words.';return}
+  closeWish();
+  try{
+    const r=await fetch(route,{method:'POST',headers:{...auth,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const m=await r.json().catch(()=>({}));
+    $('status').textContent=r.ok?(known&&route==='/boon'?'Wished for '+known.name+'…':(m.message||'Sent.')):(m.message||('Host said '+r.status));
+  }catch(e){$('status').textContent='Wish not sent: '+e.message}
+});
+
+// Scale the frame by whole steps where it fits, so pixels stay square.
+function fit(){
+  const st=$('stage'), w=st.clientWidth, h=st.clientHeight;
+  let k=Math.min(w/canvas.width,h/canvas.height);
+  if(k>=1)k=Math.max(1,Math.floor(k*4)/4);
+  canvas.style.width=Math.floor(canvas.width*k)+'px';canvas.style.height=Math.floor(canvas.height*k)+'px';
+}
+addEventListener('resize',fit);fit();
+
+setInterval(()=>{
+  const now=performance.now(), dt=(now-netAt)/1000;
+  $('net').textContent=Math.round(frames/dt)+' fps · '+Math.round(bytes/dt/1024)+' KB/s · '+(ws?'ping ':'input ')+Math.round(rtt)+' ms'+(ws&&age?' · frame age '+Math.round(age)+' ms':'');
+  bytes=0;frames=0;netAt=now;
+},2000);
+
+function refused(){const el=$('floor');el.textContent='This seat code was not accepted. Ask your host for a fresh link.';el.className='bad'}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+if(/^[a-fA-F0-9]{32}$/.test(token))connect()
 </script></html>

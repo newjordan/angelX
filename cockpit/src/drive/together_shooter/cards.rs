@@ -14,6 +14,7 @@
 //! book, so a saved delve and a guest's frame never depend on files that
 //! changed later.
 
+use super::hireling::AllyKind;
 use super::loot::Rng;
 use super::{Pack, Weapon};
 use crate::drive::together_forge as forge;
@@ -165,6 +166,26 @@ pub(crate) enum Effect {
     Immune(u32),
     /// Mend every knight near by N (the Censer).
     Censer(u32),
+    /// Summons, on play cards only: a minion answers and takes the ally
+    /// slot from any minion already in it (never from Beaumains). The
+    /// hearth bell's brownie catches a shot.
+    Brownie(u32),
+    /// The rime whistle's moth freezes a foe for N ticks.
+    Moth(u32),
+    /// The salted thread's wisp shoves a foe back.
+    Wisp(u32),
+    /// The glass needle's mite turns a shot around.
+    Mite(u32),
+    /// The cinder wick's ash sprite pulls a foe in.
+    AshSprite(u32),
+    /// The lantern mote snuffs a hostile shot.
+    Mote(u32),
+    /// The reed flute's newt pins a foe for a beat.
+    Newt(u32),
+    /// The choir crumb's linnet mends a wounded knight.
+    Linnet(u32),
+    /// The marrow sip's leech sips a foe and mends the knight who called it.
+    Leech(u32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -238,6 +259,96 @@ const SPECS: &[Spec] = &[
         spend: true,
         make: Effect::Censer,
         says: "mend every knight near you by N",
+    },
+    Spec {
+        word: "brownie",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Brownie,
+        says: "a hearth brownie answers and catches a shot for you",
+    },
+    Spec {
+        word: "moth",
+        low: 30,
+        high: 90,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Moth,
+        says: "a rime moth answers and freezes one foe for N ticks",
+    },
+    Spec {
+        word: "wisp",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Wisp,
+        says: "a salt wisp answers and shoves one foe back",
+    },
+    Spec {
+        word: "mite",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Mite,
+        says: "a glass mite answers and turns one shot around",
+    },
+    Spec {
+        word: "sprite",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::AshSprite,
+        says: "an ash sprite answers and pulls one foe in",
+    },
+    Spec {
+        word: "newt",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Newt,
+        says: "a reed newt answers and pins one foe for a beat",
+    },
+    Spec {
+        word: "linnet",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Linnet,
+        says: "a linnet answers and mends the nearest wounded knight",
+    },
+    Spec {
+        word: "leech",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Leech,
+        says: "a leech answers and sips the nearest foe to mend you",
+    },
+    Spec {
+        word: "mote",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Mote,
+        says: "a lantern mote answers and snuffs one hostile shot",
     },
     Spec {
         word: "heal",
@@ -516,6 +627,22 @@ impl Effect {
         })
     }
 
+    /// The minion this effect calls, if it is a summons.
+    pub(crate) fn summon(self) -> Option<AllyKind> {
+        Some(match self {
+            Effect::Brownie(_) => AllyKind::Brownie,
+            Effect::Moth(_) => AllyKind::Moth,
+            Effect::Wisp(_) => AllyKind::Wisp,
+            Effect::Mite(_) => AllyKind::Mite,
+            Effect::AshSprite(_) => AllyKind::AshSprite,
+            Effect::Mote(_) => AllyKind::Mote,
+            Effect::Newt(_) => AllyKind::Newt,
+            Effect::Linnet(_) => AllyKind::Linnet,
+            Effect::Leech(_) => AllyKind::Leech,
+            _ => return None,
+        })
+    }
+
     fn parts(self) -> (&'static str, u32) {
         let value = match self {
             Effect::Cast(_) => return ("cast", 0),
@@ -547,7 +674,16 @@ impl Effect {
             | Effect::Scale(v)
             | Effect::Blink(v)
             | Effect::Immune(v)
-            | Effect::Censer(v) => v,
+            | Effect::Censer(v)
+            | Effect::Brownie(v)
+            | Effect::Moth(v)
+            | Effect::Wisp(v)
+            | Effect::Mite(v)
+            | Effect::AshSprite(v)
+            | Effect::Mote(v)
+            | Effect::Newt(v)
+            | Effect::Linnet(v)
+            | Effect::Leech(v) => v,
         };
         let word = SPECS
             .iter()
@@ -620,6 +756,16 @@ impl Card {
     fn drops_in(&self, pack: Pack) -> bool {
         // A deep delve sheds the materials of its kin.
         self.only_in.is_none_or(|p| p == pack || p == pack.kin())
+    }
+
+    /// The minion a play card calls, and the card's number for it.
+    pub(crate) fn summon(&self) -> Option<(AllyKind, u32)> {
+        if self.kind != Kind::Play {
+            return None;
+        }
+        self.effects
+            .iter()
+            .find_map(|e| e.summon().map(|kind| (kind, e.parts().1)))
     }
 
     /// The card's art rows, or its kind's glyph when it drew none.
@@ -1009,6 +1155,9 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 )
             } else if kind == Kind::Hold {
                 spec.hold
+            } else if effect.summon().is_some() {
+                // A minion answers a played card, not one walked over.
+                kind == Kind::Play
             } else {
                 spec.spend
             };
@@ -1020,6 +1169,8 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                         "spell"
                     } else if spec.hold {
                         "hold"
+                    } else if effect.summon().is_some() {
+                        "play"
                     } else {
                         "take or play"
                     },
@@ -1136,11 +1287,39 @@ impl Bonus {
 
 /// The cards a run can find, sorted by id so every roll replays.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(from = "SavedBook")]
 pub(crate) struct Book {
     /// Content changes, including replacement, require a whole mirror update.
     #[serde(default)]
     pub(crate) revision: usize,
     pub(crate) cards: Vec<Card>,
+}
+
+/// A book as a save kept it. Its own cards stay as they were; the delve's
+/// built-in cards it never knew are added, so a card a newer delve lays
+/// out (a secret's) is never one an older save cannot pick up.
+#[derive(Deserialize)]
+struct SavedBook {
+    #[serde(default)]
+    revision: usize,
+    cards: Vec<Card>,
+}
+
+impl From<SavedBook> for Book {
+    fn from(saved: SavedBook) -> Book {
+        let mut book = Book {
+            revision: saved.revision,
+            cards: saved.cards,
+        };
+        for (id, raw) in BUILTIN {
+            if book.get(id).is_none()
+                && let Ok(checked) = check(id, raw)
+            {
+                book.insert(checked.card);
+            }
+        }
+        book
+    }
 }
 
 impl Default for Book {
@@ -1262,6 +1441,42 @@ pub(crate) const BUILTIN: &[(&str, &str)] = &[
     (
         "censer",
         include_str!("../../../assets/dungeon/cards/censer.card"),
+    ),
+    (
+        "hearth-bell",
+        include_str!("../../../assets/dungeon/cards/hearth-bell.card"),
+    ),
+    (
+        "rime-whistle",
+        include_str!("../../../assets/dungeon/cards/rime-whistle.card"),
+    ),
+    (
+        "salt-thread",
+        include_str!("../../../assets/dungeon/cards/salt-thread.card"),
+    ),
+    (
+        "glass-needle",
+        include_str!("../../../assets/dungeon/cards/glass-needle.card"),
+    ),
+    (
+        "cinder-wick",
+        include_str!("../../../assets/dungeon/cards/cinder-wick.card"),
+    ),
+    (
+        "lantern-mote",
+        include_str!("../../../assets/dungeon/cards/lantern-mote.card"),
+    ),
+    (
+        "reed-flute",
+        include_str!("../../../assets/dungeon/cards/reed-flute.card"),
+    ),
+    (
+        "choir-crumb",
+        include_str!("../../../assets/dungeon/cards/choir-crumb.card"),
+    ),
+    (
+        "marrow-sip",
+        include_str!("../../../assets/dungeon/cards/marrow-sip.card"),
     ),
 ];
 
@@ -1415,6 +1630,7 @@ pub(crate) fn rules() -> String {
                 match (s.hold, s.spend) {
                     (true, true) => "any card",
                     (true, false) => "hold",
+                    _ if (s.make)(s.low).summon().is_some() => "play",
                     _ => "take/play",
                 },
                 if s.cap > 0 {

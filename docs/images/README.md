@@ -22,6 +22,20 @@ was approved by hand. Files under `ui/` are crops of those captures.
 | [Commands](ui/command-picker.png) | `/help`, then `/` and `Tab`. |
 | [World view](world.png) | The overworld map beside `/diff`. |
 
+## The March and the world above the Delve (0.2.1)
+
+Frames written by the cockpit's own renderers through their shot-writer tests
+(`write_castle_shots`, `write_world_shots`, `write_barony_shots`,
+`write_joust_shots`): staged scenes, unedited. The castles strip is five castle
+frames side by side, scaled 3× with nearest-neighbour.
+
+| Image | Shown behavior |
+|---|---|
+| [The March](realm/castles.png) | Five castles of the March; the serving house's knight at its gate. |
+| [The Delve's gate](realm/gate.png) | The gate courtyard: the stair down, the signpost, two knights. |
+| [The King's Hall](realm/kings-hall.png) | King Brannoc on his throne, the war table and the Great Forge. |
+| [The lists](realm/joust.png) | A course against Sir Kay as the lances meet. |
+
 ## The Delve and the loop's crawl (0.2.0)
 
 Frames written by the cockpit's own renderers through their shot-writer tests:

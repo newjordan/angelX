@@ -385,6 +385,31 @@ fn write_overworld_shots() {
         &frame_at(&reading, screen_of(Place::Scriptorium)),
     );
     save("pane_wide.ppm", &frame_sized(&busy(6), 420, 200));
+    // The March: the model houses' castles, the serving houses' banners up.
+    let mut march = busy(6);
+    let up: Vec<_> = ["deepseek", "kimi", "grok"]
+        .into_iter()
+        .filter_map(crate::stage::houses::by_key)
+        .collect();
+    march.march = castles::March {
+        lead: up.first().copied(),
+        raised: up,
+        riders: Vec::new(),
+    };
+    for (name, row) in [("march_near", 8), ("march_far", 10)] {
+        save(
+            &format!("{name}.ppm"),
+            &render_view(
+                &march,
+                View {
+                    x: 0,
+                    y: row * SCREEN_H * TILE,
+                    w: MAP_W * TILE,
+                    h: SCREEN_H * TILE,
+                },
+            ),
+        );
+    }
 }
 
 #[test]

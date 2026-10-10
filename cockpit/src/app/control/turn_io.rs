@@ -597,6 +597,49 @@ impl App {
 
     /// Poll the worker; when the reply (or error) lands, record it and clear.
     /// Also drains live tool-call events so the UI shows activity as it happens.
+    /// The houses serving now: the lead is the route answering the running
+    /// turn, else the route in hand; a formation in hand or armed seats its
+    /// models' houses beside it. Each route maps to its model family's house,
+    /// whichever machine or provider serves it.
+    pub(crate) fn serving_houses(&self) -> crate::stage::houses::Serving {
+        use crate::stage::houses;
+        let lead = match self.thinking.as_ref() {
+            Some(thinking) => {
+                let resolved = thinking
+                    .club
+                    .as_ref()
+                    .and_then(|club| club.resolved_route_if_known());
+                let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
+                houses::of_route(&thinking.club_label, &route.driver, route.model.as_deref())
+            }
+            None => {
+                let chrome = self.bag.in_hand_chrome();
+                houses::of_route(
+                    self.bag.in_hand_label(),
+                    &chrome.route.driver,
+                    chrome.route.model.as_deref(),
+                )
+            }
+        };
+        let mut seats: Vec<houses::HouseId> = Vec::new();
+        if let Some(engagement) = self.moa_one_shot.as_ref().or(self.moa_session.as_ref()) {
+            for seat in engagement.roster.assignments().iter().flatten() {
+                if let Some(house) = houses::of_route(&seat.agent, &seat.driver, Some(&seat.model))
+                    && !seats.contains(&house)
+                {
+                    seats.push(house);
+                }
+            }
+        }
+        let lead = lead.or_else(|| seats.first().copied());
+        seats.retain(|&house| Some(house) != lead);
+        houses::Serving {
+            lead,
+            seated: seats,
+            turn: self.thinking.is_some(),
+        }
+    }
+
     pub(crate) fn advance(&mut self) {
         self.advance_launch_input();
         self.advance_dungeon_guest();
@@ -677,6 +720,11 @@ impl App {
                 ),
             );
         }
+        // Who is serving: the overworld's knight rides from that house's
+        // castle, and the Delve names its party from those houses.
+        let serving = self.serving_houses();
+        crate::stage::houses::note_serving(&serving);
+        self.world.note_serving(&serving);
         match self.session.save_status() {
             crate::knowledge::session::SessionSaveStatus::Failed(error) => {
                 if !self.session_warning_notified {
@@ -2733,20 +2781,6 @@ impl App {
             {
                 self.enter_world_interior();
                 return true;
-            }
-            if self.world.chivalry_visit.is_some()
-                && matches!(self.scryglass.controller.route(), crate::ui::scryglass::StageRoute::Realm | crate::ui::scryglass::StageRoute::Explore(_))
-            {
-                if matches!(code, KeyCode::Left | KeyCode::Down | KeyCode::Right | KeyCode::Up) && self.world.inside_interior() {
-                    self.world.chivalry_step(if matches!(code,KeyCode::Left|KeyCode::Down) {-1} else {1});
-                    self.request_redraw("practice station moved");
-                    return true;
-                }
-                if code == KeyCode::Enter {
-                    self.world.enter_interior();
-                    self.request_redraw("practice interior entered");
-                    return true;
-                }
             }
             if self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldFirstPerson
                 || adventure_camera

@@ -2368,3 +2368,138 @@ fn hireling_probe() {
         }
     }
 }
+
+/// What a delve brings home, by bot: one knight (then two) with a well-built
+/// Undercroft fights every fight room and the guardian of floors one to
+/// three, opens the chests and walks over everything dropped, and takes the
+/// stairs. The barony's prices are picked from these numbers.
+/// `cargo test haul_probe -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn haul_probe() {
+    use crate::drive::together_realm::{Spoil, Spoils};
+    let mut built = home::Home::default();
+    for (station, level) in [
+        (home::Station::Forge, 3),
+        (home::Station::Hearth, 3),
+        (home::Station::Rack, 2),
+        (home::Station::Chapel, 1),
+    ] {
+        built.levels.insert(station, level);
+    }
+    // Walk every knight over what lies in the room, and into its chest.
+    fn gather(run: &mut Run) {
+        for _ in 0..60 {
+            let room = run.room();
+            let spot = room
+                .chest
+                .filter(|c| !c.open)
+                .map(|c| (c.x, c.y))
+                .or_else(|| room.items.first().map(|i| (i.x, i.y)));
+            let Some((x, y)) = spot else {
+                break;
+            };
+            for hero in run.players.values_mut() {
+                (hero.x, hero.y) = (x, y);
+            }
+            run.step(&BTreeMap::new());
+            if run.phase == Phase::Fighting {
+                break;
+            }
+            // Something that cannot be taken (a full hand) stays put.
+            let still = run
+                .room()
+                .items
+                .first()
+                .is_some_and(|i| (i.x, i.y) == (x, y));
+            if still {
+                run.dungeon.rooms[run.at].items.remove(0);
+            }
+        }
+    }
+    for party in [1u32, 2] {
+        let mut total: [Spoils; 4] = Default::default();
+        let mut ticks = [0u64; 4];
+        for seed in 0..8 {
+            let mut run = Run::new(seed, 1, (party == 2).then_some("Friend"));
+            run.rebuild_home(built.clone(), Default::default());
+            run.outfit(1, knights::knight("percival").unwrap());
+            if party == 2 {
+                run.outfit(2, knights::knight("lynette").unwrap());
+            }
+            for depth in 1..=3u32 {
+                let start_tick = run.tick;
+                let rooms: Vec<usize> = (0..run.dungeon.rooms.len())
+                    .filter(|&i| {
+                        matches!(
+                            run.dungeon.rooms[i].kind,
+                            RoomKind::Fight
+                                | RoomKind::Treasure
+                                | RoomKind::Stairs
+                                | RoomKind::Lair
+                        )
+                    })
+                    .collect();
+                for room in rooms {
+                    for hero in run.players.values_mut() {
+                        hero.hp = hero.max_hp;
+                        hero.winds = 1;
+                    }
+                    run.phase = Phase::Exploring;
+                    run.enter_for_test(room);
+                    let start = run.tick;
+                    loop {
+                        while run.phase == Phase::Fighting && run.tick - start < u64::from(180 * HZ)
+                        {
+                            let mut inputs = BTreeMap::new();
+                            for &id in run.players.keys() {
+                                let (reach, ranged) = style(&run, id);
+                                let mut input = bot_as(&run, id, reach, ranged);
+                                input.ult = run.players[&id].ult_charge >= ults::ULT_FULL
+                                    && run.tick.is_multiple_of(2);
+                                inputs.insert(id, input);
+                            }
+                            run.step(&inputs);
+                        }
+                        if run.phase == Phase::Wiped {
+                            run.phase = Phase::Exploring;
+                            break;
+                        }
+                        gather(&mut run);
+                        if run.phase != Phase::Fighting || run.tick - start >= u64::from(180 * HZ) {
+                            break;
+                        }
+                    }
+                }
+                ticks[depth as usize] += run.tick - start_tick;
+                // What the knights carry up the stairs (or out of the lair).
+                let mut floor = Spoils::default();
+                for haul in std::mem::take(&mut run.bank) {
+                    floor.merge(&haul.spoils);
+                }
+                for hero in run.players.values_mut() {
+                    floor.merge(&std::mem::take(&mut hero.carried));
+                }
+                total[depth as usize].merge(&floor);
+                if depth < 3 {
+                    run.descend_for_test();
+                }
+            }
+        }
+        for depth in 1..=3usize {
+            let per = |s: Spoil| total[depth].get(s) as f32 / 8.0;
+            println!(
+                "HAUL party {party} floor {depth}: {:.0} gold, {:.1} bone, {:.1} wax, {:.1} ore, {:.1} gem, {:.1} ember, {:.1} scale, {:.1} bond per delve; {:.1} min of fighting",
+                per(Spoil::Gold),
+                per(Spoil::Bone),
+                per(Spoil::Wax),
+                per(Spoil::Ore),
+                per(Spoil::Gem),
+                per(Spoil::Ember),
+                per(Spoil::Scale),
+                per(Spoil::Bond),
+                ticks[depth] as f32 / 8.0 / HZ as f32 / 60.0,
+            );
+        }
+    }
+}

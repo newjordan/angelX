@@ -2,9 +2,11 @@
 //! players 2 to 4. The terminal event loop owns the run; this listener serves
 //! the host's own rendering of it as a PNG (each seat's camera on its own
 //! knight), a compact HUD, and queues each seat's held controls. A friend's
-//! own angelX (`/dungeon join`) draws an admitted host mirror. The browser is
-//! a read-only authenticated pixel/status view; neither client awards defeats.
+//! own angelX (`/dungeon join`) draws an admitted host mirror. The browser page
+//! shows the seat's frames and sends its held controls; neither client awards
+//! defeats.
 
+use super::together_shooter::mirror::Pose;
 use super::together_shooter::{DEEPEST, HEIGHT, Input, Phase, Run, WIDTH};
 use crate::stage::world_viz::overworld::arena;
 use ring::rand::{SecureRandom, SystemRandom};
@@ -19,8 +21,8 @@ use std::time::{Duration, Instant};
 /// The invitation link opened in a browser says where it goes: friends join
 /// from their own angelX.
 const CLIENT: &str = "This is an angelX Delve invitation.\nPaste the whole line into your angelX composer: /dungeon join <link>\n";
-/// With the browser view on, the same link opens a read-only view of the
-/// host's floor instead. Controls still come through the native client.
+/// With the browser view on, the same link opens a playable page instead: the
+/// seat's frames, its HUD, and held controls sent back as `/shooter/input`.
 const BROWSER_VIEW: &str = include_str!("../../assets/dungeon/guest.html");
 const MAX_HEADER: usize = 4096;
 const MAX_BODY: usize = 512;
@@ -33,12 +35,40 @@ pub(crate) const MAX_SEATS: usize = 3;
 pub(crate) const FRAME_SCALE: u32 = 8;
 pub(crate) const FRAME_W: u32 = WIDTH as u32 * FRAME_SCALE;
 pub(crate) const FRAME_H: u32 = HEIGHT as u32 * FRAME_SCALE;
-/// Simulation ticks between frames: 15 frames a second at 30 Hz.
-pub(crate) const FRAME_TICKS: u64 = 2;
+/// Simulation ticks between frames: every tick, 30 frames a second at 30 Hz,
+/// so a browser seat moves as smoothly as the host's own screen.
+pub(crate) const FRAME_TICKS: u64 = 1;
 /// The host publishes on every terminal tick, idle ones (200 ms) included.
 const HOST_SILENCE: Duration = Duration::from_secs(2);
 /// Frame fetches have their own budget beside the 48 other requests a second.
-const FRAMES_PER_SECOND: u32 = 20;
+const FRAMES_PER_SECOND: u32 = 70;
+/// Half a 30 Hz tick: the painter draws each tick and the halfway point
+/// before it, 60 frames a second.
+const HALF_TICK: Duration = Duration::from_micros(16_667);
+/// Local play samples the motion three times between ticks: 120 frames a
+/// second, paced across the 30 Hz tick. A far link stays at the halfway frame.
+const LOCAL_STEP: Duration = Duration::from_micros(8_333);
+const LOCAL_ALPHAS: [f32; 3] = [0.25, 0.5, 0.75];
+/// The most tiles one patch carries. The page refuses a patch with more and
+/// asks for a whole picture, so no budget here may pass it.
+pub(crate) const MAX_PATCH_TILES: usize = 96;
+/// A local seat's patch budget: a wider change goes as a whole fast PNG.
+const LOCAL_PATCH_TILES: usize = 24;
+/// A whole picture after this many patches in a row, in case a page lost
+/// its picture without saying so. The page asks for one when it notices.
+const HEAL_AFTER: u32 = 48;
+/// A seat counts as watched this long after its last request. The page's
+/// HTTP fallback polls state four times a second, a joined angelX faster.
+const SEAT_PRESENCE: Duration = Duration::from_secs(2);
+/// The host's lease on a seat's held controls. The painter leads a knight
+/// only while its keys are this fresh, as the host only steps them so long.
+pub(crate) const GUEST_LEASE: Duration = Duration::from_millis(500);
+
+/// Set by the local one-link host. Loopback has bandwidth to spare, so the
+/// painter spends its time on more frames instead of a smaller picture.
+fn fast_frames() -> bool {
+    std::env::var("ANGEL_DUNGEON_FAST_FRAMES").is_ok_and(|value| value == "1")
+}
 
 /// Held controls belong only to their seat's knight. The host must also check
 /// the raid and expire this input shortly after received_at, including time
@@ -147,11 +177,7 @@ impl Hud {
                     },
                     hp: hero.hp,
                     max_hp: hero.max_hp,
-                    knight: hero
-                        .knight
-                        .as_deref()
-                        .and_then(super::together_shooter::knights::knight)
-                        .map_or_else(String::new, |k| k.name.to_string()),
+                    knight: hero.knight_name().unwrap_or_default(),
                     weapon: hero
                         .forged
                         .as_ref()
@@ -290,6 +316,27 @@ impl RealmHud {
     }
 }
 
+/// One seat's newest picture as the painter left it. Readers turn it into
+/// what they send: a socket a patch against the picture its page holds, or
+/// a whole PNG; an HTTP route always a whole PNG.
+#[derive(Clone)]
+struct Picture {
+    /// The frame it was painted for. A still picture keeps its number, so
+    /// nobody sends it twice.
+    seq: u64,
+    /// When it was painted (Unix ms), for the page to tell how old it is.
+    painted_ms: u64,
+    /// Knight box in this picture (see `stamp_header`).
+    stamp: [u8; 8],
+    /// Row-major RGB.
+    rgb: Arc<Vec<u8>>,
+    /// The picture as a PNG, kept once a reader needed it.
+    png: Option<Arc<Vec<u8>>>,
+    /// The local fast path: a light PNG and a fixed tile budget. A far
+    /// link packs its PNG and sends tiles only when they are smaller.
+    fast: bool,
+}
+
 struct Published {
     /// Seats in play: player ids 2.. one per invitation.
     seats: Vec<u32>,
@@ -314,13 +361,29 @@ struct Published {
     live: Option<(u64, Arc<Vec<u8>>)>,
     live_from: Option<(u64, u64, bool)>,
     streams: std::collections::BTreeMap<u32, u64>,
+    /// Browser seats' pushed frame streams and sockets: each seat's newest
+    /// one wins.
+    frame_streams: std::collections::BTreeMap<u32, u64>,
+    /// The newest frame each browser seat says it has received.
+    frame_acks: std::collections::BTreeMap<u32, u64>,
     stream_serial: u64,
     playable: std::collections::BTreeMap<u32, bool>,
     host_seen: Instant,
     frame_seq: u64,
-    /// Each seat's view of the room, its camera on its own knight.
-    views: std::collections::BTreeMap<u32, Arc<Vec<u8>>>,
+    /// Each seat's newest picture, its camera on its own knight.
+    pictures: std::collections::BTreeMap<u32, Picture>,
+    /// When each seat last made a request: a polling page or a joined
+    /// angelX is painted for `SEAT_PRESENCE` after.
+    seat_seen: std::collections::BTreeMap<u32, Instant>,
+    /// A seat began watching: the next host publish hands the painter its
+    /// run even if the tick has not moved, so a paused delve is drawn too.
+    repaint: bool,
     last_shooter_submission: std::collections::BTreeMap<u32, ShooterSubmission>,
+    /// Held controls and when they came, so a seat's own knight can be
+    /// painted ahead of the tick while its keys are fresh.
+    held: std::collections::BTreeMap<u32, (Input, Instant)>,
+    /// Round trip in milliseconds, as that seat's page measured it.
+    seat_rtt_ms: std::collections::BTreeMap<u32, u32>,
     rate_start: Instant,
     requests: u32,
     frames: u32,
@@ -347,12 +410,18 @@ impl Default for Published {
             live: None,
             live_from: None,
             streams: Default::default(),
+            frame_streams: Default::default(),
+            frame_acks: Default::default(),
             stream_serial: 0,
             playable: Default::default(),
             host_seen: Instant::now(),
             frame_seq: 0,
-            views: Default::default(),
+            pictures: Default::default(),
+            seat_seen: Default::default(),
+            repaint: false,
             last_shooter_submission: Default::default(),
+            held: Default::default(),
+            seat_rtt_ms: Default::default(),
             rate_start: Instant::now(),
             requests: 0,
             frames: 0,
@@ -421,6 +490,53 @@ impl Published {
         self.roll_window();
         self.frames += 1;
         self.frames <= FRAMES_PER_SECOND * self.seats.len().max(1) as u32
+    }
+
+    /// Someone will look at this seat's pictures: a socket or frame stream
+    /// is open, or the seat made a request a moment ago.
+    fn watched(&self, seat: u32, now: Instant) -> bool {
+        self.frame_streams.contains_key(&seat)
+            || self
+                .seat_seen
+                .get(&seat)
+                .is_some_and(|at| now.saturating_duration_since(*at) < SEAT_PRESENCE)
+    }
+
+    /// The seats the painter draws: watched, and not drawing for themselves
+    /// from a mirror stream.
+    fn picture_seats(&self, now: Instant) -> Vec<u32> {
+        self.seats
+            .iter()
+            .copied()
+            .filter(|seat| !self.streams.contains_key(seat) && self.watched(*seat, now))
+            .collect()
+    }
+
+    /// A request from `seat`. A seat nobody was watching gets a fresh
+    /// picture on the next host publish.
+    fn saw_seat(&mut self, seat: u32, now: Instant) {
+        if !self.watched(seat, now) {
+            self.repaint = true;
+        }
+        self.seat_seen.insert(seat, now);
+    }
+
+    /// A socket or frame stream opened for `seat`; returns its serial.
+    fn open_frame_stream(&mut self, seat: u32) -> u64 {
+        self.stream_serial += 1;
+        self.frame_streams.insert(seat, self.stream_serial);
+        self.repaint = true;
+        self.stream_serial
+    }
+
+    /// The seat's stream `serial` ended. If it was still the seat's newest,
+    /// nothing leads that knight any more.
+    fn close_frame_stream(&mut self, seat: u32, serial: u64) {
+        if self.frame_streams.get(&seat) == Some(&serial) {
+            self.frame_streams.remove(&seat);
+            self.held.remove(&seat);
+            self.seat_rtt_ms.remove(&seat);
+        }
     }
 }
 
@@ -613,14 +729,28 @@ impl GuestServer {
                                         &shooter_sender,
                                         &stop,
                                     );
-                                    let mirror = response.stream;
+                                    let kind = response.stream.clone();
                                     if write_response(&mut stream, response).is_ok()
-                                        && let Some(seat) = mirror
+                                        && let Some(kind) = kind
                                     {
                                         // A stream is not a request: it never
                                         // holds one of the request permits.
                                         drop(held);
-                                        stream_mirror(&mut stream, seat, &state, &stop);
+                                        match kind {
+                                            Stream::Mirror(seat) => {
+                                                stream_mirror(&mut stream, seat, &state, &stop)
+                                            }
+                                            Stream::Frames(seat) => {
+                                                stream_frames(&mut stream, seat, &state, &stop)
+                                            }
+                                            Stream::Socket(seat, _) => socket_session(
+                                                stream,
+                                                seat,
+                                                &state,
+                                                &shooter_sender,
+                                                &stop,
+                                            ),
+                                        }
                                     }
                                 },
                             );
@@ -704,26 +834,18 @@ impl GuestServer {
     }
 
     /// Called on every host tick. The HUD is small; the room is redrawn at
-    /// most every `FRAME_TICKS` ticks and only when the run moved on, and the
-    /// drawing and PNG encoding happen on the painter thread.
+    /// most every `FRAME_TICKS` ticks, only when the run moved on (or a seat
+    /// just began watching), and only while someone watches a seat's
+    /// pictures. The drawing happens on the painter thread.
     pub(crate) fn publish(&self, run: &Run, paused: bool, notice: &str) {
-        // Projection is owner-local even before a friend takes a seat. The
-        // guest painter clones this sanitized run; serde(skip) alone would
-        // not protect a pixel frame.
-        let private_free;
-        let run = if run.chivalry.is_some() {
-            private_free = {
-                let mut r = run.clone();
-                r.chivalry = None;
-                r
-            };
-            &private_free
-        } else {
-            run
-        };
         let hud = Hud::of(run, paused, notice);
+        let mut watched = false;
+        let mut repaint = false;
         if let Ok(mut state) = self.published.lock() {
-            state.host_seen = Instant::now();
+            let now = Instant::now();
+            state.host_seen = now;
+            watched = !state.picture_seats(now).is_empty();
+            repaint = std::mem::take(&mut state.repaint);
             for seat in state.seats.clone() {
                 let hero = run.players.get(&seat);
                 let runes = hero
@@ -758,13 +880,20 @@ impl GuestServer {
                 state.book = Some((key.0, key.1, Arc::new(json)));
             }
         }
+        // Nobody is looking: the painter sleeps, and `drawn` stays behind, so
+        // the first publish after someone looks again hands the run over.
+        if !watched {
+            return;
+        }
         let Ok(mut drawn) = self.drawn.lock() else {
             return;
         };
-        let due = (*drawn).is_none_or(|(raid, tick)| {
-            raid != run.raid_id
-                || (tick != run.tick && (run.tick >= tick + FRAME_TICKS || paused || !run.active()))
-        });
+        let due = repaint
+            || (*drawn).is_none_or(|(raid, tick)| {
+                raid != run.raid_id
+                    || (tick != run.tick
+                        && (run.tick >= tick + FRAME_TICKS || paused || !run.active()))
+            });
         if !due {
             return;
         }
@@ -802,26 +931,277 @@ pub(crate) fn settlement_snapshot_for_test(run: &Run, notice: &str) -> Vec<u8> {
 }
 
 /// The room as the guest sees it: the host's own pixels, PNG-encoded.
+#[cfg(test)]
 pub(crate) fn frame_png(run: &Run, seat: u32) -> Vec<u8> {
-    use image::ImageEncoder;
-    // Each seat's camera follows its own knight.
     let rgb = arena::frame_for(run, FRAME_W as i32, FRAME_H as i32, Some(seat)).rgb_bytes();
+    encode_rgb(&rgb, fast_frames())
+}
+
+/// Palette PNG of a room. `fast` is the local path: little compression, so
+/// the encode finishes inside a frame. A far link asks for `false` and gets
+/// the smaller picture.
+pub(crate) fn encode_rgb(rgb: &[u8], fast: bool) -> Vec<u8> {
+    use image::ImageEncoder;
+    if let Some(png) = indexed_png(rgb, fast) {
+        return png;
+    }
     let mut png = Vec::with_capacity(48 * 1024);
-    // Encoding a correctly sized buffer into memory cannot fail.
-    let _ = image::codecs::png::PngEncoder::new(&mut png).write_image(
-        &rgb,
-        FRAME_W,
-        FRAME_H,
-        image::ExtendedColorType::Rgb8,
-    );
+    let (compression, filter) = if fast {
+        (
+            image::codecs::png::CompressionType::Fast,
+            image::codecs::png::FilterType::NoFilter,
+        )
+    } else {
+        (
+            image::codecs::png::CompressionType::Best,
+            image::codecs::png::FilterType::Adaptive,
+        )
+    };
+    // Encoding a correctly sized buffer into memory cannot fail. A room has
+    // a few dozen colours; the high setting packs it about seven times
+    // smaller than the fast default, which matters on a friend's home link.
+    let _ = image::codecs::png::PngEncoder::new_with_quality(&mut png, compression, filter)
+        .write_image(rgb, FRAME_W, FRAME_H, image::ExtendedColorType::Rgb8);
     png
 }
 
-/// Paint whatever run is newest; frames the host outpaces are skipped.
-fn paint_frames(easel: &(Mutex<Easel>, Condvar), published: &Mutex<Published>) {
-    let (slot, wake) = easel;
+/// A room is drawn from a few dozen colours, so a palette PNG carries it in
+/// about a third of the bytes of the RGB one. None when it has more than 256.
+fn indexed_png(rgb: &[u8], fast: bool) -> Option<Vec<u8>> {
+    let mut palette: Vec<[u8; 3]> = Vec::new();
+    let mut lookup = std::collections::HashMap::<[u8; 3], u8>::new();
+    let mut indices = Vec::with_capacity(rgb.len() / 3);
+    for pixel in rgb.chunks_exact(3) {
+        let colour = [pixel[0], pixel[1], pixel[2]];
+        let index = match lookup.get(&colour) {
+            Some(&index) => index,
+            None => {
+                let index = u8::try_from(palette.len()).ok()?;
+                palette.push(colour);
+                lookup.insert(colour, index);
+                index
+            }
+        };
+        indices.push(index);
+    }
+    let mut png = Vec::with_capacity(16 * 1024);
+    let mut encoder = png::Encoder::new(&mut png, FRAME_W, FRAME_H);
+    encoder.set_color(png::ColorType::Indexed);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_palette(palette.concat());
+    encoder.set_compression(if fast {
+        png::Compression::Fast
+    } else {
+        png::Compression::High
+    });
+    encoder.set_filter(png::Filter::NoFilter);
+    let mut writer = encoder.write_header().ok()?;
+    writer.write_image_data(&indices).ok()?;
+    writer.finish().ok()?;
+    Some(png)
+}
+
+/// When a burst of samples began, on the clock its sleeps count from. Linux
+/// sleeps to an absolute monotonic deadline (TIMER_ABSTIME), so one wake-up's
+/// overshoot does not push the next 8.333 ms slot back. Elsewhere the time
+/// left to the deadline is slept.
+struct Burst {
+    #[cfg(target_os = "linux")]
+    clock: libc::timespec,
+    #[cfg(not(target_os = "linux"))]
+    start: Instant,
+}
+
+impl Burst {
+    fn start() -> Self {
+        #[cfg(target_os = "linux")]
+        {
+            let mut clock = libc::timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            };
+            // CLOCK_MONOTONIC with a valid pointer does not fail.
+            unsafe {
+                libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut clock);
+            }
+            Self { clock }
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Self {
+                start: Instant::now(),
+            }
+        }
+    }
+
+    /// Sleep until `due` after the burst began.
+    fn sleep_until(&self, due: Duration) {
+        #[cfg(target_os = "linux")]
+        {
+            let nanos = self.clock.tv_nsec as i128 + due.as_nanos() as i128;
+            let deadline = libc::timespec {
+                tv_sec: self.clock.tv_sec + nanos.div_euclid(1_000_000_000) as libc::time_t,
+                tv_nsec: nanos.rem_euclid(1_000_000_000) as libc::c_long,
+            };
+            // A signal ends the sleep early; sleep again to the same deadline.
+            while unsafe {
+                libc::clock_nanosleep(
+                    libc::CLOCK_MONOTONIC,
+                    libc::TIMER_ABSTIME,
+                    &deadline,
+                    std::ptr::null_mut(),
+                )
+            } == libc::EINTR
+            {}
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let left = (self.start + due).saturating_duration_since(Instant::now());
+            if !left.is_zero() {
+                thread::sleep(left);
+            }
+        }
+    }
+}
+
+/// `ANGEL_DUNGEON_FRAME_TIMING=<file>`: every 120 watched host ticks, one
+/// line on how long samples took to paint, how many pictures were published
+/// or matched the last one, how evenly the ticks arrived, and how many ticks
+/// the painter never saw (a late host loop folds two steps into one publish).
+struct PaintLog {
+    file: std::fs::File,
+    paints_us: Vec<u64>,
+    gaps_us: Vec<u64>,
+    published: u64,
+    same: u64,
+    folded: u64,
+    last: Option<(Instant, u64, u64)>,
+}
+
+impl PaintLog {
+    fn from_env() -> Option<Self> {
+        let path = std::env::var_os("ANGEL_DUNGEON_FRAME_TIMING").filter(|p| !p.is_empty())?;
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()?;
+        Some(Self {
+            file,
+            paints_us: Vec::new(),
+            gaps_us: Vec::new(),
+            published: 0,
+            same: 0,
+            folded: 0,
+            last: None,
+        })
+    }
+
+    fn arrived(&mut self, run: &Run) {
+        let now = Instant::now();
+        if let Some((at, raid, tick)) = self.last
+            && raid == run.raid_id
+            && run.tick > tick
+        {
+            self.gaps_us.push(micros(now.saturating_duration_since(at)));
+            self.folded += run.tick - tick - 1;
+        }
+        self.last = Some((now, run.raid_id, run.tick));
+        if self.gaps_us.len() >= 120 {
+            self.flush();
+        }
+    }
+
+    fn painted(&mut self, took: Duration, seats: usize, published: usize) {
+        self.paints_us.push(micros(took));
+        self.published += published as u64;
+        self.same += seats.saturating_sub(published) as u64;
+    }
+
+    fn flush(&mut self) {
+        let pct = |v: &mut Vec<u64>, p: f64| {
+            v.sort_unstable();
+            v.get(((v.len() as f64 * p) as usize).min(v.len().saturating_sub(1)))
+                .copied()
+                .unwrap_or(0)
+        };
+        let (paint_p50, paint_max) = (pct(&mut self.paints_us, 0.5), pct(&mut self.paints_us, 1.0));
+        let (gap_p50, gap_p99, gap_max) = (
+            pct(&mut self.gaps_us, 0.5),
+            pct(&mut self.gaps_us, 0.99),
+            pct(&mut self.gaps_us, 1.0),
+        );
+        let _ = writeln!(
+            self.file,
+            "paint n={} p50_us={paint_p50} max_us={paint_max} published={} same={} tick_gap_us p50={gap_p50} p99={gap_p99} max={gap_max} folded={}",
+            self.paints_us.len(),
+            self.published,
+            self.same,
+            self.folded,
+        );
+        self.paints_us.clear();
+        self.gaps_us.clear();
+        self.published = 0;
+        self.same = 0;
+        self.folded = 0;
+    }
+}
+
+fn micros(d: Duration) -> u64 {
+    u64::try_from(d.as_micros()).unwrap_or(u64::MAX)
+}
+
+/// The easel while the painter waits out one sample slot for a late tick.
+enum Wait {
+    Stop,
+    Tick(Run),
+    Late,
+}
+
+fn wait_for_tick(easel: &(Mutex<Easel>, Condvar), slot: Duration) -> Wait {
+    let (easel, wake) = easel;
+    let deadline = Instant::now() + slot;
+    let Ok(mut easel) = easel.lock() else {
+        return Wait::Stop;
+    };
     loop {
-        let run = {
+        if easel.stop {
+            return Wait::Stop;
+        }
+        if let Some(next) = easel.run.take() {
+            return Wait::Tick(next);
+        }
+        let rest = deadline.saturating_duration_since(Instant::now());
+        if rest.is_zero() {
+            return Wait::Late;
+        }
+        easel = match wake.wait_timeout(easel, rest) {
+            Ok((guard, _)) => guard,
+            Err(_) => return Wait::Stop,
+        };
+    }
+}
+
+/// Paint whatever run is newest; frames the host outpaces are skipped. Only
+/// watched seats are drawn, so with nobody looking the painter just waits.
+fn paint_frames(easel: &(Mutex<Easel>, Condvar), published: &Mutex<Published>) {
+    // The default 50 µs timer slack turns an 8.333 ms sleep into a 9–16 ms
+    // one and drops a 120 Hz sample. This thread only paints.
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::prctl(libc::PR_SET_TIMERSLACK, 1, 0, 0, 0);
+    }
+    let (slot, wake) = easel;
+    let mut before: Option<Pose> = None;
+    let mut seen: std::collections::HashMap<u32, u64> = std::collections::HashMap::new();
+    let fast = fast_frames();
+    let mut log = PaintLog::from_env();
+    // A tick that arrived while the late samples below were waiting.
+    let mut pending: Option<Run> = None;
+    loop {
+        let mut run = if let Some(run) = pending.take() {
+            run
+        } else {
             let Ok(mut easel) = slot.lock() else {
                 return;
             };
@@ -838,27 +1218,412 @@ fn paint_frames(easel: &(Mutex<Easel>, Condvar), published: &Mutex<Published>) {
                 };
             }
         };
-        // A friend's own angelX draws from its mirror: pictures are only
-        // for seats without a stream (one still connecting, or on pictures).
-        let seats: Vec<u32> = match published.lock() {
-            Ok(state) => state
-                .seats
-                .iter()
-                .copied()
-                .filter(|seat| !state.streams.contains_key(seat))
-                .collect(),
+        let seats = match published.lock() {
+            Ok(state) => state.picture_seats(Instant::now()),
             Err(_) => return,
         };
-        let frames: Vec<(u32, Arc<Vec<u8>>)> = seats
-            .into_iter()
-            .map(|seat| (seat, Arc::new(frame_png(&run, seat))))
-            .collect();
-        let Ok(mut state) = published.lock() else {
-            return;
+        if seats.is_empty() {
+            before = Some(run.pose());
+            if let Some(log) = log.as_mut() {
+                log.last = None;
+            }
+            continue;
+        }
+        if let Some(log) = log.as_mut() {
+            log.arrived(&run);
+        }
+        let mut sample = |run: &mut Run, pose: Option<&Pose>, alpha: f32, extra: f32| {
+            let started = Instant::now();
+            let Some(count) = paint_led(run, pose, alpha, extra, &seats, published, &mut seen)
+            else {
+                return false;
+            };
+            if let Some(log) = log.as_mut() {
+                log.painted(started.elapsed(), seats.len(), count);
+            }
+            true
         };
-        state.frame_seq += 1;
-        state.views.extend(frames);
+        // Samples between the previous pose and this tick, then the tick.
+        // A far link draws the halfway point (60 Hz). Local play draws three
+        // samples (120 Hz). A picture whose pixels did not change is not
+        // published.
+        if let Some(pose) = &before {
+            let steps: &[f32] = if fast { &LOCAL_ALPHAS } else { &[0.5] };
+            let span = if fast { LOCAL_STEP } else { HALF_TICK };
+            let burst = Burst::start();
+            for (index, alpha) in steps.iter().enumerate() {
+                // Blended in place: a copy of the delve per sample does not
+                // fit an 8.3 ms frame.
+                if !sample(&mut run, Some(pose), *alpha, 0.0) {
+                    return;
+                }
+                burst.sleep_until(span.saturating_mul(u32::try_from(index + 1).unwrap_or(1)));
+            }
+        }
+        if !sample(&mut run, before.as_ref(), 1.0, 0.0) {
+            return;
+        }
+        before = Some(run.pose());
+        if !fast {
+            continue;
+        }
+        // The burst fills 25 ms of the 33 ms tick. While the next tick is
+        // late, one more sample every 8.333 ms draws the same pose a frame
+        // further along each seat's held keys. A wall stops that lead, so a
+        // knight pressed against one gives an identical picture, which is
+        // not published.
+        for n in 1u32..=3 {
+            match wait_for_tick(easel, LOCAL_STEP) {
+                Wait::Stop => return,
+                Wait::Tick(next) => {
+                    pending = Some(next);
+                    break;
+                }
+                Wait::Late => {}
+            }
+            if !sample(&mut run, before.as_ref(), 1.0, n as f32 / 120.0) {
+                return;
+            }
+        }
     }
+}
+
+/// One-way delay plus one frame, never more than a quarter second.
+/// No measured trip still leads by one frame, so a local key is in the
+/// picture before the next 30 Hz tick.
+fn paint_lead(rtt_ms: Option<u32>, fast: bool) -> f32 {
+    let one_way = rtt_ms.unwrap_or(0) as f32 / 2000.0;
+    let frame = if fast { 1.0 / 120.0 } else { 1.0 / 60.0 };
+    (one_way + frame).clamp(0.0, 0.25)
+}
+
+/// Eight bytes after the paint clock: sprite x, y, w, h, and whether the
+/// camera follows. A zero size means the page should not slide.
+fn stamp_header(run: &Run, seat: u32) -> [u8; 8] {
+    let Some((x, y, w, h, follows)) = arena::focus_stamp_box(run, seat) else {
+        return [0; 8];
+    };
+    let mut out = [0u8; 8];
+    out[0..2].copy_from_slice(&(x.clamp(i16::MIN as i32, i16::MAX as i32) as i16).to_be_bytes());
+    out[2..4].copy_from_slice(&(y.clamp(i16::MIN as i32, i16::MAX as i32) as i16).to_be_bytes());
+    out[4] = w.clamp(0, 255) as u8;
+    out[5] = h.clamp(0, 255) as u8;
+    out[6] = u8::from(follows);
+    out
+}
+
+fn note_seat_rtt(state: &mut Published, seat: u32, rtt_ms: u64) {
+    let ms = u32::try_from(rtt_ms).unwrap_or(u32::MAX).min(500);
+    state.seat_rtt_ms.insert(seat, ms);
+}
+
+/// Each picture seat whose fresh held keys move its knight, with how far
+/// ahead to draw it. Keys older than the host's lease lead nothing.
+fn seat_leads(
+    published: &Mutex<Published>,
+    seats: &[u32],
+    fast: bool,
+    extra: f32,
+) -> Vec<(u32, Input, f32)> {
+    let Ok(state) = published.lock() else {
+        return Vec::new();
+    };
+    let now = Instant::now();
+    seats
+        .iter()
+        .filter_map(|&seat| {
+            let (input, at) = *state.held.get(&seat)?;
+            if now.saturating_duration_since(at) >= GUEST_LEASE
+                || (input.move_x == 0 && input.move_y == 0)
+            {
+                return None;
+            }
+            let rtt = state.seat_rtt_ms.get(&seat).copied();
+            Some((
+                seat,
+                input,
+                (paint_lead(rtt, fast) + extra).clamp(0.0, 0.25),
+            ))
+        })
+        .collect()
+}
+
+/// One sample of every picture seat. A seat holding a direction is drawn
+/// where those keys will have taken it, then the run is put back. A still
+/// hold (no direction) is not predicted, so an identical picture stays
+/// identical and is not published again. Returns how many pictures were
+/// published, or None when the publish lock is gone.
+fn paint_led(
+    run: &mut Run,
+    before: Option<&Pose>,
+    alpha: f32,
+    extra: f32,
+    seats: &[u32],
+    published: &Mutex<Published>,
+    seen: &mut std::collections::HashMap<u32, u64>,
+) -> Option<usize> {
+    let fast = fast_frames();
+    let leads = seat_leads(published, seats, fast, extra);
+    let mut frames = Vec::with_capacity(seats.len());
+    if leads.is_empty() {
+        let mut paint = |sample: &Run| {
+            for &seat in seats {
+                if let Some(painted) = paint_seat(sample, seat, fast, seen) {
+                    frames.push((seat, painted));
+                }
+            }
+        };
+        match before.filter(|_| alpha < 1.0) {
+            Some(pose) => run.drawn_between(pose, alpha, paint),
+            None => paint(run),
+        }
+    } else {
+        for &seat in seats {
+            let own = leads.iter().find(|lead| lead.0 == seat).copied();
+            let painted = match before {
+                Some(pose) => run.drawn_ahead(pose, alpha, own, |sample| {
+                    paint_seat(sample, seat, fast, seen)
+                }),
+                None => paint_seat(run, seat, fast, seen),
+            };
+            if let Some(painted) = painted {
+                frames.push((seat, painted));
+            }
+        }
+    }
+    publish_pictures(published, frames)
+}
+
+struct Painted {
+    rgb: Arc<Vec<u8>>,
+    stamp: [u8; 8],
+    fast: bool,
+}
+
+/// One seat's picture of `run`, or None when its pixels match the picture
+/// last published for that seat. Local frames keep the fractional pixel as
+/// dither, so a step smaller than a pixel still changes the picture; a far
+/// link draws the crisp integer picture.
+fn paint_seat(
+    run: &Run,
+    seat: u32,
+    fast: bool,
+    seen: &mut std::collections::HashMap<u32, u64>,
+) -> Option<Painted> {
+    let img = if fast {
+        arena::frame_for_live(run, FRAME_W as i32, FRAME_H as i32, Some(seat))
+    } else {
+        arena::frame_for(run, FRAME_W as i32, FRAME_H as i32, Some(seat))
+    };
+    let hash = img.content_hash();
+    if seen.get(&seat) == Some(&hash) {
+        return None;
+    }
+    seen.insert(seat, hash);
+    Some(Painted {
+        rgb: Arc::new(img.rgb_bytes()),
+        stamp: stamp_header(run, seat),
+        fast,
+    })
+}
+
+/// Swap the newest pictures in under one short lock. Nothing is encoded or
+/// compared while it is held; the pictures they replace are freed after.
+fn publish_pictures(published: &Mutex<Published>, frames: Vec<(u32, Painted)>) -> Option<usize> {
+    if frames.is_empty() {
+        return Some(0);
+    }
+    let painted_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64);
+    let count = frames.len();
+    let mut replaced = Vec::with_capacity(count);
+    {
+        let mut state = published.lock().ok()?;
+        state.frame_seq += 1;
+        let seq = state.frame_seq;
+        for (seat, painted) in frames {
+            let picture = Picture {
+                seq,
+                painted_ms,
+                stamp: painted.stamp,
+                rgb: painted.rgb,
+                png: None,
+                fast: painted.fast,
+            };
+            replaced.push(state.pictures.insert(seat, picture));
+        }
+    }
+    drop(replaced);
+    Some(count)
+}
+
+/// The picture as a whole PNG: the one a reader already encoded, or encoded
+/// now outside the lock and kept for the next reader of the same picture.
+fn whole_png(published: &Mutex<Published>, seat: u32, picture: &Picture) -> Arc<Vec<u8>> {
+    if let Some(png) = &picture.png {
+        return Arc::clone(png);
+    }
+    let png = Arc::new(encode_rgb(&picture.rgb, picture.fast));
+    if let Ok(mut state) = published.lock()
+        && let Some(newest) = state.pictures.get_mut(&seat)
+        && newest.seq == picture.seq
+    {
+        newest.png = Some(Arc::clone(&png));
+    }
+    png
+}
+
+/// What a socket sends for its seat's newest picture.
+#[derive(Debug, PartialEq)]
+enum Wire {
+    /// The page's picture already has these pixels: nothing to send.
+    Same,
+    /// The changed tiles, as a whole socket message against the page's picture.
+    Patch(Vec<u8>),
+    /// A whole PNG.
+    Whole,
+}
+
+/// A patch only against the picture the page holds (`held`: its frame and
+/// pixels), never against one it may not have. A new session, a page that
+/// asked for a whole picture, a change too wide for tiles, and a run of
+/// `HEAL_AFTER` patches go whole. A far patch must also beat the last whole
+/// PNG (`whole_len`) by its header.
+fn socket_wire(
+    picture: &Picture,
+    held: Option<&(u64, Arc<Vec<u8>>)>,
+    whole_len: usize,
+    patches: u32,
+) -> Wire {
+    let Some((base, prev)) = held else {
+        return Wire::Whole;
+    };
+    if patches >= HEAL_AFTER {
+        return Wire::Whole;
+    }
+    let budget = if picture.fast {
+        LOCAL_PATCH_TILES
+    } else {
+        far_tile_cap(whole_len)
+    };
+    match tile_patch(prev, &picture.rgb, budget) {
+        Tiles::Same => Wire::Same,
+        Tiles::Changed(tiles) if picture.fast || tiles.len() + 32 < whole_len => {
+            let mut wire = Vec::with_capacity(33 + tiles.len());
+            wire.push(SOCKET_PATCH);
+            wire.extend_from_slice(&picture.seq.to_be_bytes());
+            wire.extend_from_slice(&picture.painted_ms.to_be_bytes());
+            wire.extend_from_slice(&picture.stamp);
+            wire.extend_from_slice(&base.to_be_bytes());
+            wire.extend_from_slice(&tiles);
+            Wire::Patch(wire)
+        }
+        Tiles::Changed(_) | Tiles::Wide => Wire::Whole,
+    }
+}
+
+/// The socket message for a whole picture.
+fn whole_wire(picture: &Picture, png: &[u8]) -> Vec<u8> {
+    let mut wire = Vec::with_capacity(25 + png.len());
+    wire.push(SOCKET_FRAME);
+    wire.extend_from_slice(&picture.seq.to_be_bytes());
+    wire.extend_from_slice(&picture.painted_ms.to_be_bytes());
+    wire.extend_from_slice(&picture.stamp);
+    wire.extend_from_slice(png);
+    wire
+}
+
+/// How many changed tiles a far link may send: what fits in the last packed
+/// picture at a few hundred bytes an indexed tile, and never more than the
+/// page takes. The byte check in `socket_wire` still refuses a patch that
+/// grew past that picture.
+fn far_tile_cap(last_png: usize) -> usize {
+    // count + palette-count, a 4-colour palette, one tile header, indices.
+    const TILE_BYTES: usize = 4 + 4 * 3 + 2 + 16 * 16;
+    (last_png.saturating_sub(32) / TILE_BYTES).min(MAX_PATCH_TILES)
+}
+
+const TILE: usize = 16;
+// A tile's column and row each travel as one byte.
+const _: () = assert!(FRAME_W as usize / TILE <= 256 && FRAME_H as usize / TILE <= 256);
+
+enum Tiles {
+    /// No tile changed.
+    Same,
+    /// The patch body (see `tile_patch`).
+    Changed(Vec<u8>),
+    /// More tiles changed than the budget, the changed ink needs more than
+    /// 256 colours, or the buffers are not two frames.
+    Wide,
+}
+
+/// Changed 16×16 tiles of `next` against `prev`, indexed against one palette.
+/// At most `max_tiles`, and never more than `MAX_PATCH_TILES`.
+///
+/// Body, after the socket header: `u16` count, `u16` colours, the RGB
+/// palette, then each tile as `col`, `row` and 256 indices. A 4-colour tile
+/// is 274 bytes. The page expands the indices back to RGBA.
+fn tile_patch(prev: &[u8], next: &[u8], max_tiles: usize) -> Tiles {
+    let w = FRAME_W as usize;
+    let h = FRAME_H as usize;
+    let max_tiles = max_tiles.min(MAX_PATCH_TILES);
+    if prev.len() != w * h * 3 || next.len() != prev.len() || w % TILE != 0 || h % TILE != 0 {
+        return Tiles::Wide;
+    }
+    let mut dirty = Vec::new();
+    for row in 0..(h / TILE) {
+        for col in 0..(w / TILE) {
+            let changed = (0..TILE).any(|y| {
+                let start = ((row * TILE + y) * w + col * TILE) * 3;
+                prev[start..start + TILE * 3] != next[start..start + TILE * 3]
+            });
+            if changed {
+                dirty.push((col, row));
+                if dirty.len() > max_tiles {
+                    return Tiles::Wide;
+                }
+            }
+        }
+    }
+    if dirty.is_empty() {
+        return Tiles::Same;
+    }
+    let mut lookup = std::collections::HashMap::<[u8; 3], u8>::new();
+    let mut palette = Vec::<[u8; 3]>::new();
+    let mut indices = Vec::with_capacity(dirty.len() * TILE * TILE);
+    for &(col, row) in &dirty {
+        for y in 0..TILE {
+            let start = ((row * TILE + y) * w + col * TILE) * 3;
+            for pixel in next[start..start + TILE * 3].chunks_exact(3) {
+                let colour = [pixel[0], pixel[1], pixel[2]];
+                let index = match lookup.get(&colour) {
+                    Some(&index) => index,
+                    None => {
+                        let Ok(index) = u8::try_from(palette.len()) else {
+                            return Tiles::Wide;
+                        };
+                        lookup.insert(colour, index);
+                        palette.push(colour);
+                        index
+                    }
+                };
+                indices.push(index);
+            }
+        }
+    }
+    let mut out = Vec::with_capacity(4 + palette.len() * 3 + dirty.len() * (2 + TILE * TILE));
+    out.extend_from_slice(&(dirty.len() as u16).to_be_bytes());
+    out.extend_from_slice(&(palette.len() as u16).to_be_bytes());
+    for colour in &palette {
+        out.extend_from_slice(colour);
+    }
+    for (&(col, row), tile) in dirty.iter().zip(indices.chunks_exact(TILE * TILE)) {
+        out.push(col as u8);
+        out.push(row as u8);
+        out.extend_from_slice(tile);
+    }
+    Tiles::Changed(out)
 }
 
 /// One seat's mirror of the delve, for as long as the friend stays: the
@@ -928,6 +1693,162 @@ fn stream_mirror(
         && state.streams.get(&seat) == Some(&serial)
     {
         state.streams.remove(&seat);
+    }
+}
+
+/// Frames a browser seat may have on the way before it says it got them:
+/// enough to cover the round trip at the host's frame rate, fewer when the
+/// receipts slow down (frames queueing on a thin link).
+const FRAME_WINDOW_MIN: usize = 3;
+const FRAME_WINDOW_MAX: usize = 16;
+const FRAME_INTERVAL: Duration = Duration::from_millis(16);
+
+/// The frames a browser seat has on the way, and how many it may have.
+/// The window follows the receipts' round trip: its floor (the path's own
+/// delay, refreshed every ten seconds) sets how many frames cover it, and
+/// a smoothed trip of twice the floor and more means frames are queueing,
+/// so the window shrinks. Receipts through a tunnel come back unevenly, so
+/// only a clear rise counts.
+struct FrameWindow {
+    on_the_way: std::collections::VecDeque<(u64, Instant)>,
+    stalled: Instant,
+    window: usize,
+    floor: Option<(Duration, Instant)>,
+    smoothed: Option<Duration>,
+    adjusted: Instant,
+}
+
+impl FrameWindow {
+    fn new() -> Self {
+        Self {
+            on_the_way: Default::default(),
+            stalled: Instant::now(),
+            window: 4,
+            floor: None,
+            smoothed: None,
+            adjusted: Instant::now(),
+        }
+    }
+
+    /// The seat has every frame up to `acked`.
+    fn acked(&mut self, acked: u64) {
+        let mut trip = None;
+        while self.on_the_way.front().is_some_and(|&(seq, _)| seq <= acked) {
+            trip = self.on_the_way.pop_front().map(|(_, at)| at.elapsed());
+            self.stalled = Instant::now();
+        }
+        let Some(trip) = trip else {
+            return;
+        };
+        if self
+            .floor
+            .is_none_or(|(least, at)| trip < least || at.elapsed() > Duration::from_secs(10))
+        {
+            self.floor = Some((trip, Instant::now()));
+        }
+        self.smoothed = Some(self.smoothed.map_or(trip, |s| (s * 7 + trip) / 8));
+        if self.adjusted.elapsed() > Duration::from_millis(250)
+            && let (Some((least, _)), Some(smooth)) = (self.floor, self.smoothed)
+        {
+            self.adjusted = Instant::now();
+            let wanted = (least.as_millis() / FRAME_INTERVAL.as_millis()) as usize + 2;
+            let queueing = smooth > least * 2 + Duration::from_millis(100);
+            self.window = if queueing {
+                self.window.saturating_sub(1)
+            } else if self.window < wanted {
+                self.window + 1
+            } else if self.window > wanted {
+                self.window - 1
+            } else {
+                self.window
+            }
+            .clamp(FRAME_WINDOW_MIN, FRAME_WINDOW_MAX);
+        }
+    }
+
+    /// Room for another frame. Receipts lost for two seconds start the
+    /// window over.
+    fn open(&mut self) -> bool {
+        if self.on_the_way.len() >= self.window && self.stalled.elapsed() > Duration::from_secs(2)
+        {
+            self.on_the_way.clear();
+        }
+        self.on_the_way.len() < self.window
+    }
+
+    fn sent(&mut self, seq: u64) {
+        if self.on_the_way.is_empty() {
+            self.stalled = Instant::now();
+        }
+        self.on_the_way.push_back((seq, Instant::now()));
+    }
+}
+
+/// A browser seat's frames, pushed as the painter finishes each one: per
+/// frame a 4-byte length, the 8-byte frame number (both big-endian), then
+/// the PNG. Polling costs a round trip a frame, which a gateway far away
+/// turns into uneven, skipped frames; a push keeps the host's cadence. The
+/// page acknowledges each frame (`POST /frames/ack`), and only a window of
+/// them goes unacknowledged: an unbounded push fills the buffers along a
+/// slow link and the friend watches seconds-old frames.
+fn stream_frames(
+    stream: &mut TcpStream,
+    seat: u32,
+    published: &Mutex<Published>,
+    stop: &AtomicBool,
+) {
+    let _ = stream.set_nodelay(true);
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+    let serial = {
+        let Ok(mut state) = published.lock() else {
+            return;
+        };
+        state.open_frame_stream(seat)
+    };
+    let mut sent = None;
+    let mut window = FrameWindow::new();
+    let mut out = Vec::with_capacity(16 * 1024);
+    while !stop.load(Ordering::Relaxed) {
+        let picture = {
+            let Ok(state) = published.lock() else {
+                break;
+            };
+            if state.frame_streams.get(&seat) != Some(&serial) {
+                return;
+            }
+            window.acked(state.frame_acks.get(&seat).copied().unwrap_or(0));
+            if window.open() {
+                state
+                    .pictures
+                    .get(&seat)
+                    .filter(|picture| sent != Some(picture.seq))
+                    .cloned()
+            } else {
+                None
+            }
+        };
+        let Some(picture) = picture else {
+            thread::sleep(Duration::from_millis(3));
+            continue;
+        };
+        // An HTTP page takes no tiles: every frame is a whole, current PNG.
+        let png = whole_png(published, seat, &picture);
+        out.clear();
+        out.extend_from_slice(&(png.len() as u32).to_be_bytes());
+        out.extend_from_slice(&picture.seq.to_be_bytes());
+        out.extend_from_slice(&png);
+        if stream
+            .write_all(&out)
+            .and_then(|()| stream.flush())
+            .is_err()
+        {
+            break;
+        }
+        sent = Some(picture.seq);
+        window.sent(picture.seq);
+    }
+    if let Ok(mut state) = published.lock() {
+        state.close_frame_stream(seat, serial);
     }
 }
 
@@ -1006,6 +1927,11 @@ struct Request {
     authorization: String,
     content_type: String,
     body: Vec<u8>,
+    /// `Sec-WebSocket-Key` of an `Upgrade: websocket` request.
+    socket_key: Option<String>,
+    /// `Sec-WebSocket-Protocol`: a browser can't set a socket's
+    /// Authorization header, so the page offers its token as a subprotocol.
+    protocols: String,
 }
 
 struct Response {
@@ -1014,9 +1940,18 @@ struct Response {
     body: Vec<u8>,
     /// Which frame a PNG is, so the page never fetches the same one twice.
     frame_seq: Option<u64>,
-    /// `GET /stream`: after the headers the connection stays open and
-    /// carries this seat's mirror of the delve (see `stream_mirror`).
-    stream: Option<u32>,
+    /// After the headers the connection stays open and carries this seat's
+    /// mirror (`GET /stream`, see `stream_mirror`) or its frames (`GET
+    /// /frames`, see `stream_frames`).
+    stream: Option<Stream>,
+}
+
+#[derive(Clone)]
+enum Stream {
+    Mirror(u32),
+    Frames(u32),
+    /// `GET /play` upgraded to a WebSocket, with its accept key.
+    Socket(u32, String),
 }
 
 impl Response {
@@ -1068,6 +2003,9 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
     let mut authorization = None;
     let mut content_type = None;
     let mut length = None;
+    let mut upgrade = false;
+    let mut socket_key = None;
+    let mut protocols = String::new();
     for line in lines.filter(|line| !line.is_empty()) {
         let (name, value) = line
             .split_once(':')
@@ -1085,6 +2023,18 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
             && content_type.replace(value.to_owned()).is_some()
         {
             return Err(Response::json(400, "duplicate content type"));
+        }
+        if name.eq_ignore_ascii_case("upgrade") {
+            upgrade = value.eq_ignore_ascii_case("websocket");
+        }
+        if name.eq_ignore_ascii_case("sec-websocket-key") {
+            socket_key = Some(value.to_owned());
+        }
+        if name.eq_ignore_ascii_case("sec-websocket-protocol") {
+            if !protocols.is_empty() {
+                protocols.push(',');
+            }
+            protocols.push_str(value);
         }
         if name.eq_ignore_ascii_case("content-length") {
             if length.is_some() {
@@ -1128,6 +2078,8 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
         authorization: authorization.unwrap_or_default(),
         content_type: content_type.unwrap_or_default(),
         body: bytes[header_end..header_end + length].to_vec(),
+        socket_key: socket_key.filter(|_| upgrade),
+        protocols,
     })
 }
 
@@ -1150,7 +2102,9 @@ fn handle_request(
         .path
         .split_once('?')
         .map_or(request.path.as_str(), |(path, _)| path);
-    let frame = request.method == "GET" && route == "/frame.png";
+    // Frames and their receipts share the frame budget.
+    let frame = (request.method == "GET" && route == "/frame.png")
+        || (request.method == "POST" && route == "/frames/ack");
     let Ok(mut state) = published.lock() else {
         return Response::json(503, "host unavailable");
     };
@@ -1175,7 +2129,19 @@ fn handle_request(
             stream: None,
         };
     }
-    let supplied = request.authorization.strip_prefix("Bearer ").unwrap_or("");
+    // A socket's token rides in its subprotocols, beside `delve.v1`.
+    let offered = request
+        .protocols
+        .split(',')
+        .map(str::trim)
+        .find(|p| p.len() == 32 && p.bytes().all(|b| b.is_ascii_hexdigit()))
+        .filter(|_| request.socket_key.is_some())
+        .unwrap_or("");
+    let supplied = request
+        .authorization
+        .strip_prefix("Bearer ")
+        .filter(|token| !token.is_empty())
+        .unwrap_or(offered);
     let equal = |token: &str| {
         supplied.len() == token.len()
             && supplied
@@ -1194,6 +2160,7 @@ fn handle_request(
     let Some(seat) = seat else {
         return Response::json(401, "open the complete invitation link from your host");
     };
+    state.saw_seat(seat, Instant::now());
     match (request.method.as_str(), route) {
         ("GET", "/forge/rules") => Response {
             status: 200,
@@ -1211,7 +2178,25 @@ fn handle_request(
             content_type: "application/x-ndjson",
             body: Vec::new(),
             frame_seq: None,
-            stream: Some(seat),
+            stream: Some(Stream::Mirror(seat)),
+        },
+        ("POST", "/frames/ack") => {
+            let Some(seq) = std::str::from_utf8(&request.body)
+                .ok()
+                .and_then(|text| text.trim().parse::<u64>().ok())
+            else {
+                return Response::json(400, "send the frame number");
+            };
+            let acked = state.frame_acks.entry(seat).or_insert(0);
+            *acked = (*acked).max(seq);
+            Response::json(202, "ok")
+        }
+        ("GET", "/frames") => Response {
+            status: 200,
+            content_type: "application/octet-stream",
+            body: Vec::new(),
+            frame_seq: None,
+            stream: Some(Stream::Frames(seat)),
         },
         ("GET", "/book") => match &state.book {
             Some((_, _, json)) => Response {
@@ -1501,16 +2486,18 @@ fn handle_request(
             None => Response::json(503, "the host has not drawn the realm yet"),
         },
         ("GET", "/frame.png") => {
-            let Some(png) = state.views.get(&seat).cloned() else {
+            // The newest picture, encoded at most once however many polls
+            // ask for it, and never while the lock is held.
+            let Some(picture) = state.pictures.get(&seat).cloned() else {
                 return Response::json(503, "the host has not drawn the room yet");
             };
-            let frame_seq = state.frame_seq;
             drop(state);
+            let png = whole_png(published, seat, &picture);
             Response {
                 status: 200,
                 content_type: "image/png",
                 body: Vec::clone(&png),
-                frame_seq: Some(frame_seq),
+                frame_seq: Some(picture.seq),
                 stream: None,
             }
         }
@@ -1522,53 +2509,373 @@ fn handle_request(
                 Ok(value) => value,
                 Err(_) => return Response::json(400, "invalid shooter controls"),
             };
-            let input = submission.input;
-            if !input.valid() {
-                return Response::json(400, "control axes must be -1, 0, or 1");
-            }
-            let Some(raid_id) = state.hud.as_ref().map(|hud| hud.raid_id) else {
-                return Response::json(409, "the host has not opened the dungeon yet");
-            };
-            if submission.raid_id != raid_id {
-                return Response::json(409, "the delve changed; refresh your controls");
-            }
-            if state.last_shooter_submission.get(&seat) == Some(&submission) {
-                return Response::json(202, "controls already received");
-            }
-            if submission.sequence == 0
-                || submission.sequence >= (1_u64 << 53)
-                || state
-                    .last_shooter_submission
-                    .get(&seat)
-                    .is_some_and(|last| submission.sequence <= last.sequence)
-            {
-                return Response::json(409, "reconnect to synchronize your controls");
-            }
-            // A release remains valid while paused, fallen, or ending a delve.
-            if !state.playable.get(&seat).copied().unwrap_or(false) && input != Input::default() {
-                return Response::json(409, "wait for the host to resume the delve");
-            }
-            if state.shooter_inputs >= 24 * state.seats.len() as u32 {
-                return Response::json(429, "please slow down");
-            }
-            let intent = GuestShooterIntent {
-                player: seat,
-                raid_id: submission.raid_id,
-                input,
-                received_at: Instant::now(),
-            };
-            if shooter_outgoing.try_send(intent).is_err() {
-                return Response::json(503, "the host control queue is busy");
-            }
-            state.shooter_inputs += 1;
-            state.last_shooter_submission.insert(seat, submission);
-            Response::json(202, "controls sent to host")
+            let (status, message) = submit_controls(&mut state, seat, submission, shooter_outgoing);
+            Response::json(status, message)
         }
+        ("GET", "/play") => match &request.socket_key {
+            Some(key) => Response {
+                status: 101,
+                content_type: "",
+                body: Vec::new(),
+                frame_seq: None,
+                stream: Some(Stream::Socket(seat, socket_accept(key))),
+            },
+            None => Response::json(400, "open /play as a WebSocket"),
+        },
         _ => Response::json(404, "game route not found"),
     }
 }
 
+/// A seat's held controls, from `POST /shooter/input` or its socket: the
+/// status and message the friend gets back.
+fn submit_controls(
+    state: &mut Published,
+    seat: u32,
+    submission: ShooterSubmission,
+    shooter_outgoing: &mpsc::SyncSender<GuestShooterIntent>,
+) -> (u16, &'static str) {
+    state.roll_window();
+    let input = submission.input;
+    if !input.valid() {
+        return (400, "control axes must be -1, 0, or 1");
+    }
+    let Some(raid_id) = state.hud.as_ref().map(|hud| hud.raid_id) else {
+        return (409, "the host has not opened the dungeon yet");
+    };
+    if submission.raid_id != raid_id {
+        return (409, "the delve changed; refresh your controls");
+    }
+    if state.last_shooter_submission.get(&seat) == Some(&submission) {
+        return (202, "controls already received");
+    }
+    if submission.sequence == 0
+        || submission.sequence >= (1_u64 << 53)
+        || state
+            .last_shooter_submission
+            .get(&seat)
+            .is_some_and(|last| submission.sequence <= last.sequence)
+    {
+        return (409, "reconnect to synchronize your controls");
+    }
+    // A release remains valid while paused, fallen, or ending a delve.
+    if !state.playable.get(&seat).copied().unwrap_or(false) && input != Input::default() {
+        return (409, "wait for the host to resume the delve");
+    }
+    if state.shooter_inputs >= 24 * state.seats.len() as u32 {
+        return (429, "please slow down");
+    }
+    let intent_at = Instant::now();
+    let intent = GuestShooterIntent {
+        player: seat,
+        raid_id: submission.raid_id,
+        input,
+        received_at: intent_at,
+    };
+    if shooter_outgoing.try_send(intent).is_err() {
+        return (503, "the host control queue is busy");
+    }
+    state.shooter_inputs += 1;
+    state.held.insert(seat, (input, intent_at));
+    state.last_shooter_submission.insert(seat, submission);
+    (202, "controls sent to host")
+}
+
+/// `Sec-WebSocket-Accept` for a client's key (RFC 6455).
+fn socket_accept(key: &str) -> String {
+    use base64::Engine;
+    let digest = ring::digest::digest(
+        &ring::digest::SHA1_FOR_LEGACY_USE_ONLY,
+        format!("{}258EAFA5-E914-47DA-95CA-C5AB0DC85B11", key.trim()).as_bytes(),
+    );
+    base64::engine::general_purpose::STANDARD.encode(digest.as_ref())
+}
+
+/// What a socket carries to the page: one byte saying which, then the rest.
+const SOCKET_FRAME: u8 = 1;
+const SOCKET_STATE: u8 = 2;
+const SOCKET_NOTE: u8 = 3;
+/// Changed 16×16 tiles against the picture the page holds (see `tile_patch`).
+const SOCKET_PATCH: u8 = 4;
+/// The largest message a page sends (controls, receipts, pings).
+const SOCKET_MAX_IN: usize = 4096;
+
+fn socket_write(stream: &mut TcpStream, opcode: u8, payload: &[u8]) -> std::io::Result<()> {
+    let mut out = Vec::with_capacity(payload.len() + 10);
+    out.push(0x80 | opcode);
+    match payload.len() {
+        n if n < 126 => out.push(n as u8),
+        n if n < 65536 => {
+            out.push(126);
+            out.extend_from_slice(&(n as u16).to_be_bytes());
+        }
+        n => {
+            out.push(127);
+            out.extend_from_slice(&(n as u64).to_be_bytes());
+        }
+    }
+    out.extend_from_slice(payload);
+    stream.write_all(&out)
+}
+
+/// One whole message from the page (masked, as RFC 6455 has clients send).
+fn socket_read(stream: &mut TcpStream) -> std::io::Result<(u8, Vec<u8>)> {
+    let bad = |why: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string());
+    let mut message = Vec::new();
+    let mut kind = None;
+    loop {
+        let mut head = [0u8; 2];
+        stream.read_exact(&mut head)?;
+        let (fin, opcode) = (head[0] & 0x80 != 0, head[0] & 0x0f);
+        if head[1] & 0x80 == 0 {
+            return Err(bad("unmasked client frame"));
+        }
+        let length = match head[1] & 0x7f {
+            126 => {
+                let mut n = [0u8; 2];
+                stream.read_exact(&mut n)?;
+                u16::from_be_bytes(n) as usize
+            }
+            127 => return Err(bad("message too large")),
+            n => n as usize,
+        };
+        if message.len() + length > SOCKET_MAX_IN {
+            return Err(bad("message too large"));
+        }
+        let mut mask = [0u8; 4];
+        stream.read_exact(&mut mask)?;
+        let mut payload = vec![0u8; length];
+        stream.read_exact(&mut payload)?;
+        for (i, byte) in payload.iter_mut().enumerate() {
+            *byte ^= mask[i % 4];
+        }
+        // Control frames may arrive between a message's parts.
+        if opcode >= 0x8 {
+            return Ok((opcode, payload));
+        }
+        if opcode != 0 {
+            kind = Some(opcode);
+        }
+        message.extend_from_slice(&payload);
+        if fin {
+            return Ok((kind.unwrap_or(0x1), message));
+        }
+    }
+}
+
+/// A browser seat's one connection, for as long as the friend stays: the
+/// host sends frames (under the frame window), the seat's state ten times
+/// a second, and answers; the page sends held controls, frame receipts and
+/// pings. Nothing waits on a request of its own, so a far or tunnelled
+/// friend pays the path's delay once, not a connection's setup per key.
+fn socket_session(
+    mut stream: TcpStream,
+    seat: u32,
+    published: &Arc<Mutex<Published>>,
+    shooter_outgoing: &mpsc::SyncSender<GuestShooterIntent>,
+    stop: &Arc<AtomicBool>,
+) {
+    let _ = stream.set_nodelay(true);
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+    let Ok(mut reader) = stream.try_clone() else {
+        return;
+    };
+    // The page pings twice a second; a minute of silence is a lost friend.
+    let _ = reader.set_read_timeout(Some(Duration::from_secs(60)));
+    let serial = {
+        let Ok(mut state) = published.lock() else {
+            return;
+        };
+        state.open_frame_stream(seat)
+    };
+    let closed = Arc::new(AtomicBool::new(false));
+    // The page lost its picture (a hidden tab, a failed decode, a patch it
+    // could not place) and asked for a whole one.
+    let rekey = Arc::new(AtomicBool::new(false));
+    let (notes, outbox) = mpsc::channel::<(u8, Vec<u8>)>();
+    let incoming = {
+        let published = Arc::clone(published);
+        let closed = Arc::clone(&closed);
+        let rekey = Arc::clone(&rekey);
+        let outgoing = shooter_outgoing.clone();
+        thread::Builder::new()
+            .name("together-socket".into())
+            .spawn(move || {
+                let mut budget = (Instant::now(), 0u32);
+                while let Ok((opcode, payload)) = socket_read(&mut reader) {
+                    match opcode {
+                        0x8 => break,
+                        0x9 => {
+                            let _ = notes.send((0xA, payload));
+                            continue;
+                        }
+                        0x1 | 0x2 => {}
+                        _ => continue,
+                    }
+                    if budget.0.elapsed() >= Duration::from_secs(1) {
+                        budget = (Instant::now(), 0);
+                    }
+                    budget.1 += 1;
+                    if budget.1 > 400 {
+                        break;
+                    }
+                    let Ok(message) = serde_json::from_slice::<serde_json::Value>(&payload) else {
+                        continue;
+                    };
+                    if let Some(seq) = message.get("ack").and_then(serde_json::Value::as_u64) {
+                        if let Ok(mut state) = published.lock() {
+                            let acked = state.frame_acks.entry(seat).or_insert(0);
+                            *acked = (*acked).max(seq);
+                        }
+                    } else if message.get("keyframe").is_some() {
+                        rekey.store(true, Ordering::Relaxed);
+                    } else if let Some(ping) = message.get("ping") {
+                        if let Some(rtt) = message.get("rtt").and_then(serde_json::Value::as_u64) {
+                            if let Ok(mut state) = published.lock() {
+                                note_seat_rtt(&mut state, seat, rtt);
+                            }
+                        }
+                        let pong = serde_json::json!({ "pong": ping });
+                        let mut note = vec![SOCKET_NOTE];
+                        note.extend_from_slice(pong.to_string().as_bytes());
+                        let _ = notes.send((0x2, note));
+                    } else if message.get("input").is_some() {
+                        let Ok(submission) = serde_json::from_value::<ShooterSubmission>(message)
+                        else {
+                            continue;
+                        };
+                        let Ok(mut state) = published.lock() else {
+                            break;
+                        };
+                        let (status, why) =
+                            submit_controls(&mut state, seat, submission, &outgoing);
+                        if status >= 400 {
+                            let next = state
+                                .last_shooter_submission
+                                .get(&seat)
+                                .map_or(1, |s| s.sequence + 1);
+                            let note = serde_json::json!({
+                                "input_error": why, "status": status, "next_sequence": next,
+                            });
+                            let mut bytes = vec![SOCKET_NOTE];
+                            bytes.extend_from_slice(note.to_string().as_bytes());
+                            let _ = notes.send((0x2, bytes));
+                        }
+                    }
+                }
+                closed.store(true, Ordering::Relaxed);
+            })
+    };
+    if incoming.is_err() {
+        return;
+    }
+    let mut window = FrameWindow::new();
+    let mut sent = None;
+    // The picture the page holds, its frame and pixels. Patches are built
+    // against it and nothing else, so a frame the window skipped, or one
+    // the page dropped and said so, never leaves it without a base.
+    let mut held: Option<(u64, Arc<Vec<u8>>)> = None;
+    // The last whole picture's size, which a far patch must beat, and the
+    // patches sent since it.
+    let mut whole_len = 0usize;
+    let mut patches = 0u32;
+    let mut told: Option<Instant> = None;
+    let mut out = Vec::with_capacity(16 * 1024);
+    'session: while !stop.load(Ordering::Relaxed) && !closed.load(Ordering::Relaxed) {
+        while let Ok((opcode, payload)) = outbox.try_recv() {
+            if socket_write(&mut stream, opcode, &payload).is_err() {
+                break 'session;
+            }
+        }
+        if rekey.swap(false, Ordering::Relaxed) {
+            sent = None;
+            held = None;
+        }
+        let (picture, snapshot) = {
+            let Ok(state) = published.lock() else {
+                break;
+            };
+            if state.frame_streams.get(&seat) != Some(&serial) {
+                break;
+            }
+            window.acked(state.frame_acks.get(&seat).copied().unwrap_or(0));
+            let picture = if window.open() {
+                state
+                    .pictures
+                    .get(&seat)
+                    .filter(|picture| sent != Some(picture.seq))
+                    .cloned()
+            } else {
+                None
+            };
+            let snapshot = if told.is_none_or(|at| at.elapsed() >= Duration::from_millis(100)) {
+                state.snapshot(seat)
+            } else {
+                None
+            };
+            (picture, snapshot)
+        };
+        // The picture goes out before the state note. A full TCP window
+        // should stall on the frame the friend is waiting for, not on a
+        // 2 KB snapshot written ahead of it.
+        let mut wrote = false;
+        if let Some(picture) = picture {
+            let wire = match socket_wire(&picture, held.as_ref(), whole_len, patches) {
+                Wire::Same => None,
+                Wire::Patch(wire) => {
+                    patches += 1;
+                    Some(wire)
+                }
+                Wire::Whole => {
+                    let png = whole_png(published, seat, &picture);
+                    whole_len = png.len();
+                    patches = 0;
+                    Some(whole_wire(&picture, &png))
+                }
+            };
+            sent = Some(picture.seq);
+            if let Some(wire) = wire {
+                if socket_write(&mut stream, 0x2, &wire).is_err() {
+                    break;
+                }
+                held = Some((picture.seq, picture.rgb));
+                window.sent(picture.seq);
+                wrote = true;
+            }
+        }
+        if let Some(json) = snapshot {
+            told = Some(Instant::now());
+            out.clear();
+            out.push(SOCKET_STATE);
+            out.extend_from_slice(&json);
+            if socket_write(&mut stream, 0x2, &out).is_err() {
+                break;
+            }
+        }
+        if !wrote {
+            // A far link's frames are 16 ms apart, so a 2 ms poll is enough.
+            // Local frames are 8 ms apart; a 2 ms poll can miss one and the
+            // next publish overwrites it, which shows up as a long gap.
+            thread::sleep(if fast_frames() {
+                Duration::from_micros(200)
+            } else {
+                Duration::from_millis(2)
+            });
+        }
+    }
+    let _ = socket_write(&mut stream, 0x8, &[]);
+    let _ = stream.shutdown(std::net::Shutdown::Both);
+    if let Ok(mut state) = published.lock() {
+        state.close_frame_stream(seat, serial);
+    }
+}
+
 fn write_response(stream: &mut TcpStream, response: Response) -> std::io::Result<()> {
+    if let Some(Stream::Socket(_, accept)) = &response.stream {
+        return write!(
+            stream,
+            "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Protocol: delve.v1\r\n\r\n"
+        );
+    }
     let reason = match response.status {
         200 => "OK",
         202 => "Accepted",

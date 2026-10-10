@@ -296,6 +296,30 @@ pub(crate) const FEATS: &[Feat] = &[
         tier: Tier::Gold,
     },
     Feat {
+        id: "fealty",
+        name: "A Baron Sworn",
+        says: "A dwarf king knelt in his own hall and swore it to the crown. He grumbled the whole way down, and the whole way up.",
+        tier: Tier::Silver,
+    },
+    Feat {
+        id: "hammers_ring",
+        name: "The Hammers Ring",
+        says: "A forge of Caer Dwfn burns again. A hundred years cold, and the first thing it made was a racket.",
+        tier: Tier::Gold,
+    },
+    Feat {
+        id: "unhorsed",
+        name: "Over the Tail",
+        says: "A champion of the realm went over his horse's tail and onto the sand. The horse looked relieved.",
+        tier: Tier::Silver,
+    },
+    Feat {
+        id: "champion",
+        name: "Champion of the Lists",
+        says: "Sir Lancelot, beaten at the lists. He was gracious about it. He is gracious about everything. It's exhausting.",
+        tier: Tier::Gold,
+    },
+    Feat {
         id: "the_grail",
         name: "The Search Is the Grail",
         says: "You went to the bottom of everything and met what was there. It was you, mostly. Well done.",

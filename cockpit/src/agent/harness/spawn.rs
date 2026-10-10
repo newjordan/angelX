@@ -1433,7 +1433,7 @@ impl Tool for SpawnTool {
                  escalation seat (club=smart), or an explicit fleet spread (club=fleet, opt-in). \
                  Formations: solo (one seat), \
                  panel (all answers back, labeled), moa (drafts folded into one answer), quorum (first K win). \
-                 timeout_secs bounds each seat (default 900 s); its clock starts at the seat's first response and a cut seat returns its partial work. \
+                 timeout_secs bounds each seat (default unbounded); its clock starts at the seat's first response and a cut seat returns its partial work. \
                  Each seat can wear one exact installed persona \
                  and gets a tool grant. Installed personas: {}. Clubs: self, auto, {}.{} ⠹⠑",
                 if personas.is_empty() {
@@ -1488,9 +1488,10 @@ impl Tool for SpawnTool {
     }
 }
 
-/// Default per-seat clock. Without one, a panel whose seat keeps retrying a
-/// stalled stream blocks its parent turn indefinitely.
-const DEFAULT_SPAWN_TIMEOUT_SECS: usize = 900;
+/// No default per-seat clock: a seat thinks as long as it needs. Nothing
+/// cancels a model's train of thought on time alone; an explicit
+/// `timeout_secs` or `ANGEL_SPAWN_TIMEOUT` still sets one.
+const DEFAULT_SPAWN_TIMEOUT_SECS: usize = 0;
 
 fn configured_formation_timeout(args: &Value) -> Duration {
     Duration::from_secs(

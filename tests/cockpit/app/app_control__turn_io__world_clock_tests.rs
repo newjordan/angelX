@@ -39,3 +39,29 @@ fn world_tick_budget_drops_pathological_backlog() {
         (8, true)
     );
 }
+
+#[test]
+fn the_route_in_hand_serves_from_its_model_familys_castle() {
+    use crate::stage::houses;
+    let mut app = App::new(
+        crate::agent::club::Bag::for_render_test(&[
+            ("local", &[("Qwen3.6-35B-A3B", true)]),
+            ("kimi", &[("kimi-k3", true)]),
+        ]),
+        crate::ui::viewer::Viewer::new(),
+    );
+    app.bag.select_route(0, 0);
+    // A self-hosted Qwen is a mode of `local`: the Qwen castle serves.
+    assert_eq!(app.serving_houses().lead, houses::by_key("qwen"));
+    app.bag.select_route(1, 0);
+    let serving = app.serving_houses();
+    assert_eq!(serving.lead, houses::by_key("kimi"));
+    assert!(serving.seated.is_empty() && !serving.turn);
+    app.advance();
+    assert_eq!(
+        app.world.overworld_scene().march.lead,
+        houses::by_key("kimi")
+    );
+    assert_eq!(houses::serving().lead, houses::by_key("kimi"));
+    houses::note_serving(&houses::Serving::default());
+}

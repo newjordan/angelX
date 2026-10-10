@@ -446,7 +446,6 @@ fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
         return;
     }
     if !render_dotmax_interior(frame, app, area)
-        && app.world.chivalry_visit.is_none()
         && crate::stage::world_viz::overworld::map_enabled()
     {
         render_overworld(frame, app, area);
@@ -605,7 +604,13 @@ fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
         && !app.world.graph_visiting()
     {
         use crate::ui::scryglass::StageOverlay;
+        // A serving knight rides home to his own castle, not the Keep: the
+        // Keep's ride and arrival glass would say otherwise.
+        let home = app.world.overworld_home().is_some();
         scene.glass = match app.scryglass.controller.overlay() {
+            Some(
+                StageOverlay::Arrival { destination } | StageOverlay::Journey { destination, .. },
+            ) if home && *destination == crate::stage::world_viz::Building::Keep => None,
             Some(StageOverlay::Arrival { destination }) => {
                 Some(app.world.overworld_plate_glass(*destination))
             }
@@ -1911,12 +1916,11 @@ fn render_scryglass(
         // Comp / lean: keep the route chrome, skip lesson wrap, catalog
         // listing, and still/video decode. World map/ride already share
         // maybe_paint_world_scene; this gate avoids entering those bodies.
-    } else if world_pane && app.together.enabled() && active_index.is_none() && app.world.chivalry_visit.is_none() {
+    } else if world_pane && app.together.enabled() && active_index.is_none() {
         app.viewer.clear_still();
         app.world_pane_visible = false;
         crate::ui::viz::together_viz::render(frame, &app.together, scene_rect);
     } else if world_pane
-        && app.world.chivalry_visit.is_none()
         && !app.world.inside_interior()
         && !app.world.quest_owns_pane()
         && app.world.latest_active_work().is_none()
@@ -2479,15 +2483,6 @@ fn render_scryglass(
                     ]
                 };
                 (Line::from(spans), controls)
-            } else if let Some(visit) = app.world.chivalry_visit {
-                let hint = if visit.inside {
-                    if visit.place == crate::drive::chivalry::Place::Stables {
-                        "/dungeon stable select|tend · arrows aisle"
-                    } else { "/dungeon tournament start|round|status · arrows aisle" }
-                } else { "Enter practice · /dungeon stable|tournament" };
-                let controls = if visit.inside { vec![("Leave", WorldButton::ScryglassLeave), ("Back", WorldButton::Back)] }
-                    else { vec![("Enter", WorldButton::ScryglassEnter), ("Back", WorldButton::Back)] };
-                (Line::from(hint), controls)
             } else if app.world.inside_interior() {
                 let mut controls = Vec::new();
                 if app.world.interior_building()

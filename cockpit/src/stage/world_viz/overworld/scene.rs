@@ -179,6 +179,8 @@ pub(crate) struct Scene {
     pub(crate) delve_lit: bool,
     /// The party's wishes, as standards by the gate.
     pub(crate) delve_boons: u8,
+    /// The March: which houses serve, and their knights on the roads.
+    pub(crate) march: super::castles::March,
     /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub(crate) ambient: f32,
     pub(crate) tick: u32,
@@ -256,6 +258,7 @@ impl Scene {
         if let Some(g) = &self.glass {
             (g.anchor, &g.title, g.live, g.sequence).hash(&mut h);
         }
+        self.march.hash(&mut h);
         (self.ambient.to_bits(), self.tick).hash(&mut h);
         h.finish()
     }
@@ -299,6 +302,7 @@ impl Scene {
             wishes: std::sync::Arc::default(),
             delve_lit: false,
             delve_boons: 0,
+            march: super::castles::March::default(),
             ambient: DUSK,
             tick: 0,
         }
@@ -1019,6 +1023,9 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
     );
     super::wishes::stage(&scene.wishes, &mut props, &mut lights, tick);
 
+    // ── the March: the model houses' castles and their knights abroad ──
+    super::castles::stage(&scene.march, &mut props, &mut lights, tick);
+
     // ── receipt lanterns: actual outcomes settle at their place of work ──
     // These are world coordinates, after the authored-place translation.
     for echo in &scene.outcomes {
@@ -1122,11 +1129,15 @@ pub(crate) fn stage(scene: &Scene) -> Stage {
         0
     };
     let reading = scene.tool == Some(Tool::Book) && !k.walking;
-    let kimg = if reading {
-        kit::reader()
-    } else {
-        kit::knight()
-    };
+    // He wears his house's colours: the castle he serves from.
+    let kimg = super::castles::dress(
+        &if reading {
+            kit::reader()
+        } else {
+            kit::knight()
+        },
+        scene.march.lead,
+    );
     let (kx, kbase) = (k.x as i32 - 8, k.y as i32 + 2 - bob);
     props.push(Prop {
         x: kx,

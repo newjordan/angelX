@@ -1,8 +1,17 @@
-//! Local horsemanship and a three-pass practice tournament. No economy, model,
-//! benchmark, research or guest-protocol authority. The realm owns this state.
-use serde::{Deserialize, Serialize};
+//! Horsemanship: the realm's three mounts, the stable that keeps them, and
+//! what a bout at the lists has made of the realm's knights.
+//!
+//! The stables and the lists are rooms of the world (see
+//! `together_shooter::world`); the joust itself is played in the run
+//! (`together_shooter::joust`). This module holds only what the realm keeps:
+//! which mount is saddled, which are tended, and the record of bouts.
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Mount {
     #[default]
@@ -10,6 +19,24 @@ pub(crate) enum Mount {
     Cinder,
     Mist,
 }
+
+/// How a mount rides at the lists. Ticks are the Delve's (30 a second).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Steed {
+    /// Ticks from the spur to the meeting at the middle of the tilt.
+    pub(crate) charge: u32,
+    /// How many knocks the rider takes before falling.
+    pub(crate) balance: u32,
+    /// How far either side of the meeting a strike still lands, in ticks.
+    pub(crate) strike: u32,
+    /// How far either side of the meeting a brace still holds, in ticks.
+    pub(crate) brace: u32,
+    /// How long before the meeting the rival's guard can be read, in ticks.
+    pub(crate) tell: u32,
+    /// Extra knocks a clean hit deals.
+    pub(crate) weight: u32,
+}
+
 impl Mount {
     pub(crate) const ALL: [Self; 3] = [Self::Bramble, Self::Cinder, Self::Mist];
     pub(crate) fn index(self) -> usize {
@@ -22,11 +49,42 @@ impl Mount {
             Self::Mist => "Mist",
         }
     }
-    pub(crate) fn specialty(self) -> Choice {
+    /// What the mount is like under a rider, in a few words.
+    pub(crate) fn says(self) -> &'static str {
         match self {
-            Self::Bramble => Choice::Guard,
-            Self::Cinder => Choice::Charge,
-            Self::Mist => Choice::Aim,
+            Self::Bramble => "steady: hard to unhorse, a wide brace",
+            Self::Cinder => "fast and heavy: hits harder, less time",
+            Self::Mist => "light and true: a wide strike, an early read",
+        }
+    }
+    /// The numbers behind `says`: a mount changes the joust's timing, not a
+    /// score on a menu.
+    pub(crate) fn steed(self) -> Steed {
+        match self {
+            Self::Bramble => Steed {
+                charge: 84,
+                balance: 5,
+                strike: 7,
+                brace: 12,
+                tell: 36,
+                weight: 0,
+            },
+            Self::Cinder => Steed {
+                charge: 63,
+                balance: 4,
+                strike: 6,
+                brace: 8,
+                tell: 30,
+                weight: 1,
+            },
+            Self::Mist => Steed {
+                charge: 75,
+                balance: 4,
+                strike: 10,
+                brace: 8,
+                tell: 54,
+                weight: 0,
+            },
         }
     }
     pub(crate) fn parse(s: &str) -> Option<Self> {
@@ -35,264 +93,87 @@ impl Mount {
             .find(|m| m.name().eq_ignore_ascii_case(s))
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum Choice {
-    Guard,
-    Aim,
-    Charge,
-}
-impl Choice {
-    pub(crate) fn word(self) -> &'static str {
-        match self {
-            Self::Guard => "guard",
-            Self::Aim => "aim",
-            Self::Charge => "charge",
-        }
-    }
-    pub(crate) fn parse(s: &str) -> Option<Self> {
-        match s {
-            "guard" => Some(Self::Guard),
-            "aim" => Some(Self::Aim),
-            "charge" => Some(Self::Charge),
-            _ => None,
-        }
-    }
-    fn beats(self, other: Self) -> bool {
-        matches!(
-            (self, other),
-            (Self::Guard, Self::Charge) | (Self::Charge, Self::Aim) | (Self::Aim, Self::Guard)
-        )
-    }
-}
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum Phase {
-    #[default]
-    Ready,
-    Running,
-    Finished,
-    Left,
-}
+
+/// A tended mount carries its rider one knock longer.
+pub(crate) const TENDED_BALANCE: u32 = 1;
+
+/// The stable as the realm keeps it: the mount saddled for the lists, which
+/// are tended (brushed, watered, tack checked: one bout's worth), and what
+/// the realm's knights have done at the lists.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(default)]
-pub(crate) struct Tournament {
-    pub(crate) phase: Phase,
-    pub(crate) mount: Mount,
-    pub(crate) prepared: bool,
-    pub(crate) passes: [Option<Choice>; 3],
-}
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(default)]
-pub(crate) struct Chivalry {
+pub(crate) struct Stable {
+    #[serde(default)]
     pub(crate) selected: Mount,
+    #[serde(default)]
     pub(crate) tended: [bool; 3],
-    pub(crate) tournament: Tournament,
+    /// Bouts won, by rival id.
+    #[serde(default)]
+    pub(crate) wins: BTreeMap<String, u32>,
+    #[serde(default)]
+    pub(crate) bouts: u32,
+    /// Rivals put on the sand.
+    #[serde(default)]
+    pub(crate) unhorsed: u32,
 }
+
+impl Stable {
+    pub(crate) fn is_tended(&self, mount: Mount) -> bool {
+        self.tended[mount.index()]
+    }
+}
+
+/// The two places of horsemanship in the world, by the names commands use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Place {
     Stables,
     Tournament,
 }
+
 impl Place {
     pub(crate) fn parse(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
             "stable" | "stables" => Some(Self::Stables),
-            "tournament" | "knights" => Some(Self::Tournament),
+            "tournament" | "knights" | "lists" | "joust" => Some(Self::Tournament),
             _ => None,
         }
     }
     pub(crate) fn label(self) -> &'static str {
         match self {
-            Self::Stables => "STABLES",
-            Self::Tournament => "KNIGHTS TOURNAMENT",
+            Self::Stables => "THE STABLES",
+            Self::Tournament => "THE LISTS",
         }
     }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct Visit {
-    pub(crate) place: Place,
-    pub(crate) inside: bool,
-    pub(crate) station: u8,
 }
 
-impl Tournament {
-    pub(crate) fn played(&self) -> usize {
-        self.passes.iter().take_while(|p| p.is_some()).count()
-    }
-    pub(crate) fn rival(round: usize) -> Choice {
-        [Choice::Charge, Choice::Guard, Choice::Aim][round.min(2)]
-    }
-    pub(crate) fn score(&self) -> u8 {
-        self.passes
-            .iter()
-            .enumerate()
-            .filter_map(|(i, c)| {
-                c.map(|c| {
-                    let rival = Self::rival(i);
-                    let base = if c.beats(rival) {
-                        3
-                    } else if c == rival {
-                        1
-                    } else {
-                        0
-                    };
-                    base + u8::from(c == self.mount.specialty()) + u8::from(i == 0 && self.prepared)
-                })
-            })
-            .sum()
-    }
-    pub(crate) fn result(&self) -> &'static str {
-        match self.score().cmp(&6) {
-            std::cmp::Ordering::Greater => "WIN",
-            std::cmp::Ordering::Equal => "DRAW",
-            _ => "LOSS",
-        }
-    }
-    pub(crate) fn status(&self) -> String {
-        match self.phase {
-            Phase::Ready => "Practice lists ready · three passes · no prizes or rewards".into(),
-            Phase::Running => format!(
-                "{} · pass {}/3 · rival {} · score {}:{}. Choose guard|aim|charge with the pass number.",
-                self.mount.name(),
-                self.played() + 1,
-                Self::rival(self.played()).word(),
-                self.score(),
-                self.played() * 2
-            ),
-            Phase::Finished => format!(
-                "RESULT · {} on {} · {}:6 · three passes · no rewards",
-                self.result(),
-                self.mount.name(),
-                self.score()
-            ),
-            Phase::Left => format!(
-                "LEFT · {} · {}/3 passes · score {}:{} · no rewards",
-                self.mount.name(),
-                self.played(),
-                self.score(),
-                self.played() * 2
-            ),
-        }
-    }
+/// The practice game's old save: only the mount and the tending are kept,
+/// and they move into the realm's stable once (`Realm::beside`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct Chivalry {
+    pub(crate) selected: Mount,
+    pub(crate) tended: [bool; 3],
 }
-/// Decode the optional practice subtree independently from the realm. A valid
-/// JSON realm may contain a malformed/newer practice schema; resetting that
-/// subtree must not trigger Realm::beside's whole-save fallback.
+
+/// Decode a saved subtree on its own: a malformed or newer one resets to
+/// its default instead of failing the whole realm (`Realm::beside` would
+/// otherwise start the realm over).
+pub(crate) fn lenient<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::de::DeserializeOwned + Default,
+{
+    let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+    Ok(serde_json::from_value::<T>(value).unwrap_or_default())
+}
+
+/// The old practice subtree, decoded leniently.
 pub(crate) fn deserialize_saved<'de, D>(deserializer: D) -> Result<Chivalry, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
-    let mut state = serde_json::from_value::<Chivalry>(value).unwrap_or_default();
-    state.normalize();
-    Ok(state)
+    lenient(deserializer)
 }
 
-impl Chivalry {
-    /// Reject malformed saved progress without changing the treasury or the floor.
-    pub(crate) fn normalize(&mut self) {
-        let t = &mut self.tournament;
-        let n = t.played();
-        if t.passes[n..].iter().any(Option::is_some)
-            || (t.phase == Phase::Running && n == 3)
-            || (t.phase == Phase::Finished && n != 3)
-            || (t.phase == Phase::Ready && n != 0)
-        {
-            *t = Tournament::default();
-        }
-    }
-    pub(crate) fn stable_status(&self) -> String {
-        let stalls = Mount::ALL
-            .map(|m| {
-                format!(
-                    "{} · {}{}",
-                    m.name(),
-                    m.specialty().word(),
-                    if self.tended[m.index()] {
-                        " · tended"
-                    } else {
-                        ""
-                    }
-                )
-            })
-            .join("; ");
-        format!(
-            "Stables · selected {} · {stalls}. Select <name>; tend brushes, waters and checks tack, preparing one first-pass point. Mount specialty +1; guard beats charge, charge beats aim, aim beats guard.",
-            self.selected.name()
-        )
-    }
-    pub(crate) fn select(&mut self, mount: Mount) -> Result<String, String> {
-        if self.tournament.phase == Phase::Running {
-            return Err("Mount locked during a tournament; finish or leave first.".into());
-        }
-        if self.selected == mount {
-            return Err(format!("{} is already selected.", mount.name()));
-        }
-        self.selected = mount;
-        Ok(format!(
-            "{} selected · specialty {}.",
-            mount.name(),
-            mount.specialty().word()
-        ))
-    }
-    pub(crate) fn tend(&mut self) -> Result<String, String> {
-        if self.tournament.phase == Phase::Running {
-            return Err("Tending waits until the tournament ends or you leave.".into());
-        }
-        let ready = &mut self.tended[self.selected.index()];
-        if *ready {
-            return Err(format!(
-                "{} is already tended; preparation cannot stack.",
-                self.selected.name()
-            ));
-        }
-        *ready = true;
-        Ok(format!(
-            "{} brushed, watered and tack checked · prepared for the next start.",
-            self.selected.name()
-        ))
-    }
-    pub(crate) fn start(&mut self) -> Result<String, String> {
-        if self.tournament.phase == Phase::Running {
-            return Err(
-                "Tournament already underway; choose the current numbered pass or leave.".into(),
-            );
-        }
-        let prepared = std::mem::take(&mut self.tended[self.selected.index()]);
-        self.tournament = Tournament {
-            phase: Phase::Running,
-            mount: self.selected,
-            prepared,
-            passes: [None; 3],
-        };
-        Ok(self.tournament.status())
-    }
-    pub(crate) fn choose(&mut self, round: usize, choice: Choice) -> Result<String, String> {
-        let t = &mut self.tournament;
-        if t.phase != Phase::Running {
-            return Err("No tournament underway; start one first.".into());
-        }
-        if round != t.played() + 1 {
-            return Err(format!(
-                "Expected pass {}; repeated or out-of-order passes do nothing.",
-                t.played() + 1
-            ));
-        }
-        t.passes[round - 1] = Some(choice);
-        if t.played() == 3 {
-            t.phase = Phase::Finished;
-        }
-        Ok(t.status())
-    }
-    pub(crate) fn leave(&mut self) -> Result<String, String> {
-        if self.tournament.phase != Phase::Running {
-            return Err("No underway tournament to leave.".into());
-        }
-        self.tournament.phase = Phase::Left;
-        Ok(self.tournament.status())
-    }
-}
 #[cfg(test)]
 #[path = "../../../tests/cockpit/drive/chivalry__tests.rs"]
 mod tests;

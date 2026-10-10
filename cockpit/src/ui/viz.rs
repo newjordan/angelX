@@ -3,7 +3,6 @@
 pub(crate) mod agentviz;
 pub(crate) mod agentviz_portal;
 pub(crate) mod council_table;
-pub(crate) mod chivalry_viz;
 pub(crate) mod delve_intro_viz;
 pub(crate) mod graph_viz;
 pub(crate) mod joined_viz;

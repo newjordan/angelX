@@ -334,6 +334,46 @@ impl Img {
         }
     }
 
+    /// Stamp `o` at a fractional pixel. Every opaque pixel lands on its
+    /// integer cell, exactly as `stamp` puts it; the fraction adds a sliver
+    /// past the sprite's right and bottom edges, ordered-dithered in the
+    /// sprite's own inks. A move of less than one pixel changes the picture,
+    /// a thin line never wears away, and the palette does not grow. An axis
+    /// two pixels thick or less gets no sliver, so a dot stays one dot.
+    /// `fx == 0` and `fy == 0` match `stamp`.
+    pub(crate) fn stamp_sub(&mut self, o: &Img, x: f32, y: f32) {
+        let x0 = x.floor() as i32;
+        let y0 = y.floor() as i32;
+        let fx = if o.w > 2 {
+            (x - x0 as f32).clamp(0.0, 0.999)
+        } else {
+            0.0
+        };
+        let fy = if o.h > 2 {
+            (y - y0 as f32).clamp(0.0, 0.999)
+        } else {
+            0.0
+        };
+        for yy in 0..o.h {
+            for xx in 0..o.w {
+                let Some(c) = o.get(xx, yy) else {
+                    continue;
+                };
+                let dx = x0 + xx;
+                let dy = y0 + yy;
+                self.set(dx, dy, c);
+                // A sliver only where the sprite is clear, so it never
+                // covers one of the sprite's own pixels.
+                if fx > 0.0 && o.get(xx + 1, yy).is_none() && bayer(dx + 1, dy) < fx {
+                    self.set(dx + 1, dy, c);
+                }
+                if fy > 0.0 && o.get(xx, yy + 1).is_none() && bayer(dx, dy + 1) < fy {
+                    self.set(dx, dy + 1, c);
+                }
+            }
+        }
+    }
+
     pub(crate) fn solid(&self, x: i32, y: i32) -> bool {
         self.get(x, y).is_some()
     }
@@ -417,6 +457,61 @@ impl Img {
             cx += GLYPH_ADVANCE;
         }
         cx
+    }
+
+    /// A view of `src` at `(ox, oy)`. Same pixels as get/set, but a row copy
+    /// when the rectangle sits inside the source.
+    pub(crate) fn from_view(src: &Img, ox: i32, oy: i32, w: i32, h: i32) -> Img {
+        let w = w.max(0);
+        let h = h.max(0);
+        if w == 0 || h == 0 {
+            return Img::new(w, h);
+        }
+        if ox >= 0 && oy >= 0 && ox + w <= src.w && oy + h <= src.h {
+            let mut px = Vec::with_capacity((w * h) as usize);
+            let sw = src.w as usize;
+            let ww = w as usize;
+            let ox = ox as usize;
+            let oy = oy as usize;
+            for y in 0..h as usize {
+                let s = (oy + y) * sw + ox;
+                px.extend_from_slice(&src.px[s..s + ww]);
+            }
+            return Img { w, h, px };
+        }
+        let mut view = Img::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                if let Some(c) = src.get(ox + x, oy + y) {
+                    view.set(x, y, c);
+                }
+            }
+        }
+        view
+    }
+
+    /// Same bytes `rgb_bytes` would hash, without the intermediate buffer.
+    pub(crate) fn content_hash(&self) -> u64 {
+        let mut hash = 0xcbf29ce484222325u64;
+        for pixel in &self.px {
+            let [r, g, b] = pixel.unwrap_or(BLACK);
+            for byte in [r, g, b] {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x100000001b3);
+            }
+        }
+        hash
+    }
+
+    /// Figure over scenery, 1:1, into `out`. Transparent stays black paper.
+    /// Same pixels as a per-pixel get/set when the three images match.
+    pub(crate) fn compose_1x(figures: &Img, scenery: &Img, out: &mut Img) {
+        debug_assert_eq!((figures.w, figures.h), (scenery.w, scenery.h));
+        debug_assert_eq!((out.w, out.h), (figures.w, figures.h));
+        let n = figures.px.len().min(scenery.px.len()).min(out.px.len());
+        for i in 0..n {
+            out.px[i] = Some(figures.px[i].or(scenery.px[i]).unwrap_or(BLACK));
+        }
     }
 
     /// Row-major RGB bytes; transparent pixels are black paper.
@@ -529,5 +624,106 @@ fn glyph(c: char) -> [u8; 7] {
         '#' => [0x0a, 0x0a, 0x1f, 0x0a, 0x1f, 0x0a, 0x0a],
         '×' => [0x00, 0x00, 0x11, 0x0a, 0x04, 0x0a, 0x11],
         _ => [0; 7],
+    }
+}
+
+#[cfg(test)]
+mod subpixel_tests {
+    use super::*;
+
+    fn sprite() -> Img {
+        let mut im = Img::new(5, 7);
+        for y in 1..6 {
+            for x in 1..4 {
+                im.set(x, y, [0xa8, 0x34, 0x1f]);
+            }
+        }
+        im.set(2, 0, [0xe4, 0xff, 0xf8]);
+        im
+    }
+
+    #[test]
+    fn quarter_pixel_changes_the_edge() {
+        let sprite = sprite();
+        let mut still = Img::new(16, 16);
+        let mut moved = Img::new(16, 16);
+        still.stamp_sub(&sprite, 4.0, 4.0);
+        moved.stamp_sub(&sprite, 4.4, 4.0);
+        assert_ne!(still.rgb_bytes(), moved.rgb_bytes());
+        // Integer placement matches a plain stamp, so snapshots stay put.
+        let mut plain = Img::new(16, 16);
+        plain.stamp(&sprite, 4, 4);
+        assert_eq!(still.rgb_bytes(), plain.rgb_bytes());
+        // No colour outside the sprite's own inks.
+        let allowed = [[0xa8, 0x34, 0x1f], [0xe4, 0xff, 0xf8]];
+        for px in moved.px.iter().flatten() {
+            assert!(allowed.contains(px), "{px:?}");
+        }
+    }
+
+    /// Every fractional position, at every phase of the dither pattern.
+    fn sweep(sprite: &Img, check: impl Fn(&Img, f32, f32)) {
+        for cell in 0..4 {
+            for sx in 0..32 {
+                for sy in 0..32 {
+                    let x = 6.0 + cell as f32 + sx as f32 / 32.0;
+                    let y = 5.0 + cell as f32 + sy as f32 / 32.0;
+                    let mut cv = Img::new(24, 24);
+                    cv.stamp_sub(sprite, x, y);
+                    check(&cv, x, y);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_pixel_of_a_sprite_is_drawn_at_every_fraction() {
+        let ink = [0xe4, 0xff, 0xf8];
+        let mut dot = Img::new(1, 1);
+        dot.set(0, 0, ink);
+        sweep(&dot, |cv, x, y| {
+            let drawn: Vec<(i32, i32)> = (0..cv.h)
+                .flat_map(|py| (0..cv.w).map(move |px| (px, py)))
+                .filter(|&(px, py)| cv.get(px, py).is_some())
+                .collect();
+            assert_eq!(
+                drawn,
+                vec![(x.floor() as i32, y.floor() as i32)],
+                "a dot is one pixel on its cell at ({x}, {y})"
+            );
+        });
+        let mut post = Img::new(1, 6);
+        let mut rail = Img::new(6, 1);
+        for i in 0..6 {
+            post.set(0, i, ink);
+            rail.set(i, 0, ink);
+        }
+        for (line, sprite) in [("post", &post), ("rail", &rail), ("sprite", &sprite())] {
+            sweep(sprite, |cv, x, y| {
+                let (x0, y0) = (x.floor() as i32, y.floor() as i32);
+                for yy in 0..sprite.h {
+                    for xx in 0..sprite.w {
+                        if let Some(c) = sprite.get(xx, yy) {
+                            assert_eq!(
+                                cv.get(x0 + xx, y0 + yy),
+                                Some(c),
+                                "{line} pixel ({xx}, {yy}) at ({x}, {y})"
+                            );
+                        }
+                    }
+                }
+                for py in 0..cv.h {
+                    for px in 0..cv.w {
+                        if cv.get(px, py).is_some() {
+                            assert!(
+                                (x0..=x0 + sprite.w).contains(&px)
+                                    && (y0..=y0 + sprite.h).contains(&py),
+                                "{line} drew ({px}, {py}) past its sliver at ({x}, {y})"
+                            );
+                        }
+                    }
+                }
+            });
+        }
     }
 }

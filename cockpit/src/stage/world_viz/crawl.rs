@@ -839,12 +839,18 @@ fn company(names: &[&str]) -> String {
     }
 }
 
-/// The party's names, as many as walk.
+/// The party's names, as many as walk: each seat's knight from the house
+/// serving it, or the Keep's own household when no house serves.
 fn party_names(n: u8) -> Vec<&'static str> {
+    let serving = crate::stage::houses::serving();
     knights::COMPANY
         .iter()
         .take(usize::from(n.clamp(1, 4)))
-        .map(|k| k.name)
+        .enumerate()
+        .map(|(i, k)| {
+            let house = crate::stage::houses::for_seat(&serving, i as u32 + 1);
+            k.of_house(house).map_or(k.name, |h| h.name.as_str())
+        })
         .collect()
 }
 

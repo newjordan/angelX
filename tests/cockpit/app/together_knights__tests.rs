@@ -48,3 +48,59 @@ fn outfitting_dresses_the_knight_and_begin_in_picks_the_first_delve() {
         "the blade is a forged melee arm"
     );
 }
+
+#[test]
+fn a_kit_is_worn_by_a_knight_of_the_serving_house() {
+    use crate::stage::houses;
+    let percival = knight("percival").unwrap();
+    // Nothing serving (the stub route): the Keep's own household.
+    houses::note_serving(&houses::Serving::default());
+    assert_eq!(
+        percival.styled(house_for_seat(1)),
+        "Sir Percival, the Seeker"
+    );
+    let mut run = Run::new(3, 2, Some("Friend"));
+    run.outfit(1, percival);
+    assert_eq!(run.players[&1].house, None);
+    assert_eq!(
+        run.players[&1].knight_name().as_deref(),
+        Some("Sir Percival")
+    );
+
+    // DeepSeek serves, Kimi sits beside it in a formation.
+    let (deepseek, kimi) = (houses::by_key("deepseek"), houses::by_key("kimi"));
+    houses::note_serving(&houses::Serving {
+        lead: deepseek,
+        seated: kimi.into_iter().collect(),
+        turn: false,
+    });
+    let ds = houses::get(deepseek.unwrap());
+    let first = &ds.knights[percival.slot()];
+    assert_eq!(
+        percival.styled(house_for_seat(1)),
+        format!("{} of {}, the Seeker", first.name, ds.castle)
+    );
+    run.outfit(1, percival);
+    let lynette = knight("lynette").unwrap();
+    run.outfit(2, lynette);
+    assert_eq!(run.players[&1].house.as_deref(), Some("deepseek"));
+    assert_eq!(run.players[&1].knight_name(), Some(first.name.clone()));
+    let km = houses::get(kimi.unwrap());
+    assert_eq!(run.players[&2].house.as_deref(), Some("kimi"));
+    assert_eq!(
+        run.players[&2].knight_name(),
+        Some(km.knights[lynette.slot()].name.clone())
+    );
+    // The kit is unchanged: same arms, same ultimate, same saved id.
+    assert_eq!(run.players[&2].knight.as_deref(), Some("lynette"));
+    assert_eq!(run.players[&2].colours(), lynette.colours);
+
+    // A save from before the houses has no `house`: it loads, and the
+    // Keep's household names the knight.
+    let mut saved = serde_json::to_value(&run.players[&1]).unwrap();
+    saved.as_object_mut().unwrap().remove("house");
+    let old: crate::drive::together_shooter::Hero = serde_json::from_value(saved).unwrap();
+    assert_eq!(old.house, None);
+    assert_eq!(old.knight_name().as_deref(), Some("Sir Percival"));
+    houses::note_serving(&houses::Serving::default());
+}

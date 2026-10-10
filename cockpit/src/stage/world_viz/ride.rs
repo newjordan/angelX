@@ -157,10 +157,6 @@ impl World {
         }
         let pitch = pitch.clamp(-0.30, 0.30);
         let fov = fov.clamp(0.70, 1.40);
-        if self.chivalry_visit.is_some() {
-            let (w,h) = (cells_w.min(256),cells_h.min(80));
-            return Some(self.chivalry_braille_frame(w,h,0.0,yaw_offset,pitch,fov,motion));
-        }
         let ambient = self.ambient_interior_visible();
         let expedition = self.expedition_playback(motion);
         let region_stage = world3d::region::stage_for(self.quest().region());
