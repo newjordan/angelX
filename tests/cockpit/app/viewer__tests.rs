@@ -1158,3 +1158,40 @@ fn a_friends_delve_frame_goes_to_kitty_as_its_png_and_keeps_its_shape() {
         .draw(|frame| assert!(!plain.render_game_png(frame, area, 1, &png, (768, 448))))
         .unwrap();
 }
+
+/// Streaming surfaces reuse one Kitty image id, so each new frame replaces
+/// the terminal's copy instead of accumulating every frame ever sent.
+#[test]
+fn streamed_kitty_frames_reuse_their_surface_image_id() {
+    let mut picker = Picker::halfblocks();
+    picker.set_protocol_type(ProtocolType::Kitty);
+    let transmit = |shade: u8| {
+        let image = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            32,
+            32,
+            image::Rgba([shade, 0, 0, 255]),
+        ));
+        let protocol = super::new_protocol_with_kitty_id(
+            &picker,
+            image,
+            ratatui::layout::Size::new(8, 4),
+            Resize::Scale(Some(image::imageops::FilterType::Nearest)),
+            super::KITTY_ID_WORLD_MAP,
+        )
+        .unwrap();
+        let area = Rect::new(0, 0, 8, 4);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+        ratatui::widgets::Widget::render(Image::new(&protocol), area, &mut buf);
+        buf.content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>()
+    };
+    let id = format!("i={},a=T", super::KITTY_ID_WORLD_MAP);
+    for frame in [transmit(10), transmit(200)] {
+        assert!(
+            frame.contains(&id),
+            "frame must transmit under the fixed id"
+        );
+    }
+}

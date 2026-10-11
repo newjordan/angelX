@@ -917,13 +917,14 @@ impl Viewer {
                 {
                     Err("video preview exceeds the pixel budget".into())
                 } else {
-                    picker
-                        .new_protocol(
-                            image::DynamicImage::ImageRgba8(pixels.rgba.clone()),
-                            target.into(),
-                            Resize::Scale(Some(image::imageops::FilterType::Triangle)),
-                        )
-                        .map_err(|error| format!("prepare video frame: {error}"))
+                    new_protocol_with_kitty_id(
+                        &picker,
+                        image::DynamicImage::ImageRgba8(pixels.rgba.clone()),
+                        target.into(),
+                        Resize::Scale(Some(image::imageops::FilterType::Triangle)),
+                        KITTY_ID_VIDEO,
+                    )
+                    .map_err(|error| format!("prepare video frame: {error}"))
                 };
                 let _ = tx.send(result);
             }))
@@ -1140,13 +1141,14 @@ impl Viewer {
                 )
                 .ok_or_else(|| "portal frame length did not match RGBA dimensions".to_string())
                 .and_then(|rgba| {
-                    picker
-                        .new_protocol(
-                            image::DynamicImage::ImageRgba8(rgba),
-                            size.into(),
-                            Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
-                        )
-                        .map_err(|error| format!("prepare Kitty portal: {error}"))
+                    new_protocol_with_kitty_id(
+                        &picker,
+                        image::DynamicImage::ImageRgba8(rgba),
+                        size.into(),
+                        Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
+                        KITTY_ID_PORTAL,
+                    )
+                    .map_err(|error| format!("prepare Kitty portal: {error}"))
                 });
                 let _ = tx.send(result);
             });
@@ -1775,29 +1777,30 @@ impl Viewer {
             let result = image::RgbaImage::from_raw(width, height, bytes)
                 .ok_or_else(|| "map frame length did not match RGBA dimensions".to_string())
                 .and_then(|rgba| {
-                    picker
-                        .new_protocol(
-                            image::DynamicImage::ImageRgba8(rgba),
-                            size.into(),
-                            // Scale, not Fit. Fit returns early when the
-                            // image already fits the area in cells and
-                            // renders it at natural size — a 152x208 map
-                            // is ~13x8 cells, so in a 43x30 pane it sat as
-                            // a stamp in the middle and never enlarged.
-                            // Scale is excluded from that early-return and
-                            // always fills the pane.
-                            //
-                            // Nearest keeps the pixel art crisp; a smooth
-                            // filter turns 8px tiles into mush.
-                            if pre_scaled {
-                                // The map arrives pre-scaled with whole
-                                // pixels: place it at natural size.
-                                Resize::Fit(Some(image::imageops::FilterType::Nearest))
-                            } else {
-                                Resize::Scale(Some(image::imageops::FilterType::Nearest))
-                            },
-                        )
-                        .map_err(|error| format!("prepare world image: {error}"))
+                    new_protocol_with_kitty_id(
+                        &picker,
+                        image::DynamicImage::ImageRgba8(rgba),
+                        size.into(),
+                        // Scale, not Fit. Fit returns early when the
+                        // image already fits the area in cells and
+                        // renders it at natural size — a 152x208 map
+                        // is ~13x8 cells, so in a 43x30 pane it sat as
+                        // a stamp in the middle and never enlarged.
+                        // Scale is excluded from that early-return and
+                        // always fills the pane.
+                        //
+                        // Nearest keeps the pixel art crisp; a smooth
+                        // filter turns 8px tiles into mush.
+                        if pre_scaled {
+                            // The map arrives pre-scaled with whole
+                            // pixels: place it at natural size.
+                            Resize::Fit(Some(image::imageops::FilterType::Nearest))
+                        } else {
+                            Resize::Scale(Some(image::imageops::FilterType::Nearest))
+                        },
+                        KITTY_ID_WORLD_MAP,
+                    )
+                    .map_err(|error| format!("prepare world image: {error}"))
                 });
             #[cfg(test)]
             eprintln!(
@@ -2509,6 +2512,49 @@ fn bounded_preview(img: image::DynamicImage) -> image::DynamicImage {
     // This runs off the draw thread and lands in PREVIEW_CACHE, so the
     // one-time cost of a quality downscale is worth crisp cells forever after.
     img.resize(width, height, image::imageops::FilterType::Lanczos3)
+}
+
+/// Fixed Kitty image ids for surfaces that stream frames. `Picker::new_protocol`
+/// gives every frame a fresh random id and nothing ever deletes the old ones,
+/// so an animated surface left the terminal holding every frame it was sent
+/// (~2.4 MB per 780px map frame, several a second): kitty/Ghostty evict at
+/// their quota, but other terminals grew until the host ran out of memory.
+/// Re-sending under one id replaces the terminal's copy in place.
+const KITTY_ID_WORLD_MAP: u32 = 0x00A1_0001;
+const KITTY_ID_PORTAL: u32 = 0x00A1_0002;
+const KITTY_ID_VIDEO: u32 = 0x00A1_0003;
+
+/// `Picker::new_protocol`, except a Kitty image is transmitted under
+/// `kitty_id`. Other protocols carry no image ids and are unchanged.
+fn new_protocol_with_kitty_id(
+    picker: &Picker,
+    image: image::DynamicImage,
+    size: ratatui::layout::Size,
+    resize: Resize,
+    kitty_id: u32,
+) -> Result<Protocol, ratatui_image::errors::Errors> {
+    if picker.protocol_type() != ProtocolType::Kitty {
+        return picker.new_protocol(image, size, resize);
+    }
+    let font = picker.font_size();
+    let natural = Resize::natural_size(&image, font);
+    let exact = !matches!(resize, Resize::Scale(_))
+        && natural.width <= size.width
+        && natural.height <= size.height
+        && (image.width() == u32::from(natural.width) * u32::from(font.width)
+            || image.height() == u32::from(natural.height) * u32::from(font.height));
+    let (image, area) = if exact {
+        (image, natural)
+    } else {
+        let area = resize.size_for(&image, font, size);
+        (resize.resize(&image, font, area, None), area)
+    };
+    Ok(Protocol::Kitty(ratatui_image::protocol::kitty::Kitty::new(
+        image,
+        area,
+        kitty_id,
+        std::env::var_os("TMUX").is_some(),
+    )?))
 }
 
 fn inside_terminal_multiplexer() -> bool {
