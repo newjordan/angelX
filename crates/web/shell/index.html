@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@@TITLE@@</title>
+<link rel="stylesheet" href="{{asset:shell.css}}">
+<link rel="preload" href="{{asset:@@GAME@@.wasm}}" as="fetch" type="application/wasm" crossorigin>
+</head>
+<body data-wasm="{{asset:@@GAME@@.wasm}}">
+<div id="stage"><canvas id="screen"></canvas></div>
+<form id="join" autocomplete="off">
+  <h1>@@TITLE@@</h1>
+  <label for="name">Your name</label>
+  <input id="name" maxlength="24" autocomplete="nickname" spellcheck="false" autocapitalize="words">
+  <button id="play" type="submit" disabled>Loading</button>
+</form>
+<div id="status"></div>
+<div id="toast"></div>
+<button id="full" type="button" title="Full screen" hidden>Full screen</button>
+<pre id="stats" hidden></pre>
+<noscript>This game needs JavaScript.</noscript>
+<script type="application/json" id="sounds">@@SOUNDS@@</script>
+<script src="{{asset:present.js}}" defer></script>
+<script src="{{asset:input.js}}" defer></script>
+<script src="{{asset:sound.js}}" defer></script>
+<script src="{{asset:loopback.js}}" defer></script>
+<script src="{{asset:panel.js}}" defer></script>
+<script src="{{asset:boot.js}}" defer></script>
+</body>
+</html>

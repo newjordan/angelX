@@ -7,6 +7,9 @@ use crate::drive::together_shooter::knights::Part;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+// Painting a sheet can take several minutes before the entry is written.
+const LEARN_TIME: Duration = Duration::from_secs(600);
+
 /// The prompt being typed in the game.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ReforgeDraft {
@@ -67,6 +70,12 @@ pub(crate) struct Lesson {
     pub(crate) words: String,
     pub(crate) asked: Instant,
     pub(crate) taught: bool,
+    /// The phrasebook's wishes when its lesson began: an entry not among
+    /// them is the one the lesson wrote.
+    pub(crate) before: Option<Vec<String>>,
+    /// What the checker said of the entry the first lesson wrote, when a
+    /// second lesson is mending it.
+    pub(crate) mending: Option<Vec<String>>,
 }
 
 /// A reforge angelX is drafting: for whom, which part, its file, and whether
@@ -191,7 +200,7 @@ impl App {
                 let known = if words.is_empty() {
                     draft.pick.clone()
                 } else {
-                    crate::drive::together_shooter::phrasebook::find(words).map(|w| w.id)
+                    crate::drive::together_shooter::phrasebook::find_for(words, &deck).map(|w| w.id)
                 }
                 .filter(|id| {
                     crate::drive::together_shooter::phrasebook::get(id)
@@ -248,7 +257,7 @@ impl App {
         {
             if let Some(joined) = &self.dungeon.joined {
                 let body = serde_json::json!({ "wish": wish.id }).to_string();
-                joined.post("/boon", "application/json", body.into_bytes());
+                joined.send(crate::drive::together_gear::BOON, body.as_bytes());
                 self.dungeon.notice = format!("Wished for {}…", wish.name);
                 return;
             }
@@ -256,7 +265,7 @@ impl App {
                 .dungeon
                 .shooter
                 .as_mut()
-                .map(|run| run.grant(draft.player, &wish));
+                .map(|mut run| run.grant(draft.player, &wish));
             self.dungeon.notice = match granted {
                 Some(Ok(name)) => format!("Granted: {name}."),
                 Some(Err(why)) => why,
@@ -269,7 +278,7 @@ impl App {
             let words = draft.words.trim().to_string();
             if let Some(joined) = &self.dungeon.joined {
                 let body = serde_json::json!({ "words": words }).to_string();
-                joined.post("/learn", "application/json", body.into_bytes());
+                joined.send(crate::drive::together_gear::LEARN, body.as_bytes());
                 self.dungeon.notice = format!("The scroll is learning “{words}”…");
             } else {
                 self.learn_wish(draft.player, words);
@@ -291,7 +300,7 @@ impl App {
             self.dungeon.notice = "The scroll is busy learning; try again shortly.".into();
             return;
         }
-        if let Some(run) = self.dungeon.shooter.as_mut()
+        if let Some(mut run) = self.dungeon.shooter.as_mut()
             && let Some(window) = run.window.as_mut()
         {
             window.wished.push(player);
@@ -302,6 +311,8 @@ impl App {
             words,
             asked: Instant::now(),
             taught: false,
+            before: None,
+            mending: None,
         });
         self.teach_next();
     }
@@ -319,7 +330,14 @@ impl App {
             return;
         };
         lesson.taught = true;
-        let (player, words) = (lesson.player, lesson.words.clone());
+        lesson.before = Some(
+            crate::drive::together_shooter::phrasebook::book()
+                .iter()
+                .map(|w| w.id.clone())
+                .collect(),
+        );
+        let (player, words, mending) =
+            (lesson.player, lesson.words.clone(), lesson.mending.clone());
         let name = self
             .dungeon
             .shooter
@@ -345,7 +363,11 @@ impl App {
         self.dungeon.forge.teaching = true;
         // The game stays on screen: the turn runs behind it.
         let draft = std::mem::take(&mut self.input);
-        self.input = learn_brief(&name, &words, &path);
+        let sheets = crate::drive::together_sheets::dir(self.tools.current_workspace());
+        self.input = match mending {
+            Some(errors) => mend_brief(&name, &words, &path, &errors),
+            None => learn_brief(&name, &words, &path, &sheets),
+        };
         self.cursor = self.input.len();
         self.submit();
         self.input = draft;
@@ -366,7 +388,7 @@ impl App {
         }
         self.dungeon.forge.looked = Some(Instant::now());
         let workspace = self.tools.current_workspace();
-        crate::drive::together_shooter::phrasebook::refresh(workspace);
+        crate::drive::together_files::refresh_phrasebook(workspace);
         // The workspace's cards hot-load too: a card file written or
         // changed while the game runs joins the run's book.
         let cards = self.cards_dir();
@@ -406,23 +428,69 @@ impl App {
             self.dungeon.forge.teaching = false;
         }
         let mut still = Vec::new();
-        for lesson in std::mem::take(&mut self.dungeon.forge.learning) {
-            let found = crate::drive::together_shooter::phrasebook::find(&lesson.words);
+        let book = crate::drive::together_shooter::phrasebook::book();
+        for mut lesson in std::mem::take(&mut self.dungeon.forge.learning) {
+            let deck = self.wish_deck(lesson.player);
+            // The entry this lesson wrote: one the book did not have when
+            // it began, the one whose phrases cover the words best. Else
+            // whatever known wish the words now find.
+            let learned = lesson.before.as_ref().and_then(|before| {
+                let added: Vec<_> = book
+                    .iter()
+                    .filter(|w| !before.contains(&w.id) && w.next_tier(&deck).is_some())
+                    .cloned()
+                    .collect();
+                crate::drive::together_shooter::phrasebook::find_in(&added, &lesson.words, &deck)
+                    .or_else(|| (added.len() == 1).then(|| added[0].clone()))
+            });
+            let found = learned.or_else(|| {
+                crate::drive::together_shooter::phrasebook::find_for(&lesson.words, &deck)
+            });
             let granted = found.as_ref().and_then(|wish| {
                 self.dungeon
                     .shooter
                     .as_mut()
-                    .map(|run| run.grant(lesson.player, wish))
+                    .map(|mut run| run.grant(lesson.player, wish))
             });
+            let over = (lesson.taught && lesson_over) || lesson.asked.elapsed() > LEARN_TIME;
             match granted {
                 Some(Ok(name)) => {
                     self.dungeon.notice =
                         format!("The scroll learned “{}”: {name} is granted.", lesson.words);
                 }
-                _ if (lesson.taught && lesson_over)
-                    || lesson.asked.elapsed() > Duration::from_secs(180) =>
-                {
-                    self.dungeon.notice = format!("The scroll couldn't learn “{}”.", lesson.words);
+                Some(Err(why)) if over => {
+                    self.dungeon.notice =
+                        format!("The scroll learned “{}”, but: {why}", lesson.words);
+                }
+                _ if over => {
+                    // The entry was turned away: one more lesson, told why,
+                    // mends it in place.
+                    let errors = crate::drive::together_shooter::phrasebook::errors();
+                    if lesson.mending.is_none()
+                        && !errors.is_empty()
+                        && lesson.asked.elapsed()
+                            < LEARN_TIME.saturating_sub(Duration::from_secs(30))
+                    {
+                        self.dungeon.notice = format!(
+                            "The scroll stumbled over “{}”; angelX is mending it…",
+                            lesson.words
+                        );
+                        lesson.mending = Some(errors);
+                        lesson.taught = false;
+                        still.push(lesson);
+                        continue;
+                    }
+                    let why = if errors.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" ({})", errors.join("; "))
+                    };
+                    let line = format!("The scroll couldn't learn “{}”{why}.", lesson.words);
+                    self.messages.push(Message {
+                        role: Role::System,
+                        text: line.clone().into(),
+                    });
+                    self.dungeon.notice = line;
                 }
                 _ => still.push(lesson),
             }
@@ -476,7 +544,8 @@ impl App {
         let dir = self.reforged_dir();
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join(format!("{id}.card"));
-        let brief = brief(&name, part, &words, &path);
+        let sheets = crate::drive::together_sheets::dir(self.tools.current_workspace());
+        let brief = brief(&name, part, &words, &path, &sheets);
         self.dungeon.forge.forging = Some(Forging {
             player,
             part,
@@ -497,6 +566,17 @@ impl App {
         self.cursor = self.input.len();
     }
 
+    /// A forged card file as the game checks it: its `sheet` pictures cut
+    /// into sprite rows, so the card that is equipped (or sent to a host)
+    /// carries its looks as text.
+    fn read_forged(&self, path: &std::path::Path) -> Result<String, String> {
+        let raw = std::fs::read_to_string(path)
+            .map_err(|_| format!("angelX's turn ended without {}", path.display()))?;
+        let sheets = crate::drive::together_sheets::dir(self.tools.current_workspace());
+        crate::drive::together_sheets::inline(&raw, &sheets, cards::ART as u32)
+            .map_err(|errors| errors.join("; "))
+    }
+
     /// When angelX's reforging turn ends, read the card in and equip it.
     pub(crate) fn watch_reforge(&mut self) {
         let Some(forging) = self.dungeon.forge.forging.clone() else {
@@ -515,14 +595,13 @@ impl App {
         self.dungeon.forge.forging = None;
         let path = self.reforged_dir().join(format!("{}.card", forging.id));
         if let Some(joined) = &self.dungeon.joined {
-            let line = match std::fs::read_to_string(&path) {
+            let line = match self.read_forged(&path) {
                 Ok(raw) => match cards::check(&forging.id, &raw) {
                     Ok(checked) => {
                         let body = serde_json::json!({ "part": forging.part.word(), "card": raw });
-                        joined.post(
-                            "/reforge-card",
-                            "application/json",
-                            body.to_string().into_bytes(),
+                        joined.send(
+                            crate::drive::together_gear::REFORGE_CARD,
+                            body.to_string().as_bytes(),
                         );
                         format!(
                             "Your angelX forged {}; sending it to your host.",
@@ -534,7 +613,7 @@ impl App {
                         rejected.errors.join("; ")
                     ),
                 },
-                Err(_) => format!("angelX's turn ended without {}", path.display()),
+                Err(why) => why,
             };
             self.messages.push(Message {
                 role: Role::System,
@@ -545,12 +624,12 @@ impl App {
             self.next_reforge();
             return;
         }
-        let result = std::fs::read_to_string(&path)
-            .map_err(|_| format!("angelX's turn ended without {}", path.display()))
+        let result = self
+            .read_forged(&path)
             .and_then(|raw| cards::check(&forging.id, &raw).map_err(|r| r.errors.join("; ")))
             .and_then(|checked| {
                 let notes = checked.notes.join("; ");
-                let run = self.dungeon.shooter.as_mut().ok_or("the delve has ended")?;
+                let mut run = self.dungeon.shooter.as_mut().ok_or("the delve has ended")?;
                 run.reforge(forging.player, forging.part, checked.card)
                     .map(|name| (name, notes))
             });
@@ -573,34 +652,108 @@ impl App {
     }
 }
 
-/// What angelX is asked to make.
-/// What angelX is asked to teach the phrasebook.
-fn learn_brief(name: &str, words: &str, path: &std::path::Path) -> String {
-    let example = "wish volley | Triple Volley\n\
-say triple wide fire my shots | triple shot | fire three | spread my shots\n\
-tier volley 5 :: Every 5th shot flies three wide.\n\
-tier volley 3 :: Every 3rd shot flies three wide.\n\
-tier volley 1 :: Every shot flies three wide.";
+/// Inks, each group dark→light, as every brief lists them.
+const INKS: &str = "greys k K Z X g j G J h i H · greens f D F E e l N m L A M y C Y · wood n b I B p P r R o O t T · stone s x S u U v V W q Q z · signal (glows: the one accent, fire, gold, magic) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7";
+
+/// How a brief tells angelX it may paint a sprite sheet instead of rows.
+fn sheet_note(sheets: &std::path::Path, name: &str) -> String {
     format!(
-        "Teach the angelX Delve's phrasebook one new wish, as data. Append ONE entry to {path} (create it if missing). No code changes; no other files.\n\n\
-{name} is playing and wished, in their own words: “{words}”\n\n\
-An entry, a line each:\n\
-wish <id: lowercase-with-dashes> | <Name, up to 18 characters>\n\
-say <their words> | <three to six other ways a player might put it>\n\
-tier <effect lines, ; between> :: <one line the scroll shows>\n\
-(three tiers: a modest first grant, stronger, then the full gift)\n\
-art\n\
-<its card icon: 12 to 14 rows of up to 14 characters, `.` is black paper; one silhouette, one accent; end with a blank line>\n\n\
-Inks, each group dark→light: greys k K Z X g j G J h i H · greens f D F E e l N m L A M y C Y · wood n b I B p P r R o O t T · stone s x S u U v V W q Q z · signal (glows; use only for the one accent) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7.\n\n\
-Example:\n{example}\n\n\
-Effect lines use only these words, numbers in their ranges:\n{effects}\n\n\
-Make it the closest thing these effects allow to what they asked. The game reads the file the moment it changes, checks every tier, and grants the first to {name} while they play. Say in one line what you added.",
-        path = path.display(),
-        effects = crate::drive::together_shooter::cards::hold_effects(),
+        "A picture instead of rows: you may make a sprite sheet with your image tool. One horizontal strip of 1 to 4 frames of the same small game sprite, side by side and evenly spaced, on one flat background colour; crisp pixel art with a bold silhouette in the realm's dark style (moody blacks, muted iron and timber, one glowing accent); no text, frame, ground or shadow. Save it as {dir}/{name}-<slot>.png (at most 2 MiB) and write `sheet <slot> {name}-<slot>.png [frames=N] [size=N] [at=<place>]` in place of that sprite's rows: size= sets the normalized frame size (shots draw at twice size), at= puts a worn piece on the knight ({places}). The game cuts it into frames and realm inks when it reads the file.",
+        dir = sheets.display(),
+        places = crate::drive::together_shooter::looks::PLACES,
     )
 }
 
-fn brief(name: &str, part: Part, words: &str, path: &std::path::Path) -> String {
+/// What angelX is asked to teach the phrasebook.
+fn learn_brief(
+    name: &str,
+    words: &str,
+    path: &std::path::Path,
+    sheets: &std::path::Path,
+) -> String {
+    let example = "wish spiked-pavise | Spiked Pavise\n\
+say a bigger spiked shield | bigger shield | spiked shield | tower shield | heavier shield\n\
+tier armor 1 :: A spiked pavise: mail turns aside 6 in the hundred of every hit.\n\
+tier armor 2 :: A heavier pavise: 11 in the hundred.\n\
+tier armor 2; max_hp 15 :: The full pavise: 11 in the hundred, and 15 more health.\n\
+draw worn at=left\n\
+..W..W..W..\n\
+..H..H..H..\n\
+.jJJJJJJJj.\n\
+jJiiiiihhJj\n\
+WJiihhhhhJW\n\
+jJih4@4hhJj\n\
+HJih@6@hhJH\n\
+WJih4@4hhJW\n\
+jJihhhhhhJj\n\
+.jJihhhhJj.\n\
+.jJhhhhhJj.\n\
+..jJhhhJj..\n\
+...jJhJj...\n\
+\n\
+wish golden-devils | Golden Devils\n\
+kind spell\n\
+say tiny golden devils that explode | golden imps | exploding devils | a devil swarm\n\
+tier summon 2 swarm; cooldown 8 :: Two golden devils hunt and burst.\n\
+tier summon 3 swarm; cooldown 12 :: Three golden devils hunt and burst.\n\
+tier summon 4 swarm; cooldown 16 :: Four golden devils hunt and burst.\n\
+sheet summon golden-devils-summon.png frames=2";
+    format!(
+        "Teach the angelX Delve's phrasebook one new wish, as data. Append ONE entry to {path} (create it if missing). No code changes; no other files but its sprite sheet, if you paint one.\n\n\
+{name} is playing and wished, in their own words: “{words}”\n\n\
+Make it a new thing that looks like what they asked, not the nearest stock card. An entry, a line each:\n\
+wish <id: lowercase-with-dashes, up to 24 characters> | <Name, up to 18 characters>\n\
+kind <hold | spell | guard>   (hold, the default: a gift that lasts the run · spell: cast on 1/2/3/4, every tier with `cooldown <seconds>` · guard: what the guard key does)\n\
+say <their words, exactly> | <three to six other ways a player might put it>\n\
+tier <card lines, ; between> :: <one line the scroll shows>\n\
+(three tiers: a modest first grant, stronger, then the full gift)\n\
+draw <slot> [at=<place>] [from tier]\n\
+<its look on the field: rows of inks, `.` is clear; 1 to 4 frames side by side with | between them on every row; end with a blank line>\n\
+art\n\
+<its card icon: 12 to 14 rows of up to 14 characters, `.` is black paper; one silhouette, one accent; end with a blank line>\n\n\
+Looks: give every wish the look it asks for; it is how the wish shows in play.\n{slots}\n\
+Armour, shields, helms and other gear are `draw worn`: a bigger shield, spiked pauldrons, a new helm drawn on the knight (on their 16x16 figure, or a smaller piece with at=<place>: {places}), with armor or max_hp tiers. Never use orbit or a morningstar to stand in for gear; `orbit` is only for something that spins round them. A tier may grow the look: `draw worn at=left 3` replaces the worn sprite from tier 3 up.\n\
+Creatures that fight for them (\"tiny golden devils that explode\") are a spell whose tiers carry `summon N swarm|guard|turret`, with a `draw summon` look: swarm hunts the nearest monster and bursts (up to 6) · guard circles the knight and each catches one shot (up to 4) · turret stands and looses bolts (up to 2). The game raises a cooldown that is too short for that many.\n\n\
+{sheet}\n\n\
+Inks, each group dark→light: {inks}.\n\n\
+Examples:\n{example}\n\n\
+Held cards' lines use only these words, numbers in their ranges:\n{effects}\n\
+Spell tiers: `cooldown <seconds>` with cast bolt|ring|meteor, heal 5-100, ward 1-5, nova 10-120, summon N <swarm|guard|turret>.\n\
+Guard tiers: guard roll | shield | spin | wall width=2-8 drain=10-50 empower=0-40.\n\
+Shots that draw no `draw shot` may take `look <colour> <shape>` ({colours}; {shapes}).\n\n\
+The game reads the file the moment it changes, checks every tier, and grants the first to {name} while they play; if the checker turns the entry away, you will be told why. Say in one line what you added.",
+        path = path.display(),
+        slots = crate::drive::together_shooter::looks::slots(),
+        places = crate::drive::together_shooter::looks::PLACES,
+        sheet = sheet_note(sheets, "<id>"),
+        inks = INKS,
+        effects = crate::drive::together_shooter::cards::hold_effects(),
+        colours = crate::drive::together_forge::COLOURS.join(" "),
+        shapes = crate::drive::together_forge::SHAPES.join(" "),
+    )
+}
+
+/// What angelX is asked when the entry it wrote was turned away.
+fn mend_brief(name: &str, words: &str, path: &std::path::Path, errors: &[String]) -> String {
+    format!(
+        "The phrasebook entry you wrote in {path} for {name}'s wish “{words}” was turned away by the game's checker:\n{errors}\n\n\
+Fix that entry in place (keep its id unless the checker rejected the id) and its own sprite sheet if needed, so every tier checks; change nothing else. Say in one line what you fixed.",
+        path = path.display(),
+        errors = errors
+            .iter()
+            .map(|e| format!("- {e}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
+fn brief(
+    name: &str,
+    part: Part,
+    words: &str,
+    path: &std::path::Path,
+    sheets: &std::path::Path,
+) -> String {
     let what = match part {
         Part::Offense => format!(
             "kind   arm\nthen Forge rune lines for the weapon (the game checks them against tier-I caps):\n{}",
@@ -615,19 +768,44 @@ fn brief(name: &str, part: Part, words: &str, path: &std::path::Path) -> String 
         the game raises the drain for wide, strong walls)."
             .to_string(),
     };
+    let looks = match part {
+        Part::Offense => {
+            "draw shot\n<how its shots look in flight: up to 12x12 inks, drawn at twice size, facing right; 1 to 4 frames side by side with | between>\n\
+draw worn at=right\n<optional: the weapon in the knight's hand, up to 16x16>"
+        }
+        Part::Defense => {
+            "draw worn at=left\n<how it looks on the knight: a bigger shield, spikes, a helm (at=head), pauldrons (at=shoulders); up to 16x16 inks, 1 to 4 frames side by side with | between>"
+        }
+    };
     format!(
-        "Reforge one piece of a knight's kit in our angelX Delve, as a data file. Write ONLY the file {path} — no code changes.\n\n\
+        "Reforge one piece of a knight's kit in our angelX Delve, as a data file. Write ONLY the file {path} (and its sprite sheet, if you paint one) — no code changes.\n\n\
 {name} stands in the Sanctuary and asks, in their own words, for their {part}: “{words}”\n\n\
 The file is a delve card, one field per line:\n\
 name   <a name for it, up to 22 chars>\n\
 {what}\n\
 text   <one line saying what it does, in game terms>\n\
 by     {name}\n\
+{looks}\n\
 art\n\
-<12 to 16 rows of up to 16 characters: realm inks, `.` is black paper>\n\n\
-Inks, each group dark→light: greys k K Z X g j G J h i H · greens f D F E e l N m L A M y C Y · wood n b I B p P r R o O t T · stone s x S u U v V W q Q z · signal (glows, use for fire/light/magic) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7.\n\n\
+<its card icon: 12 to 16 rows of up to 16 characters: realm inks, `.` is black paper>\n\n\
+Its look on the field matters as much as its numbers: draw what they asked for, so the knight looks changed in play.\n\
+Armour, shields, helms and other gear must use `draw worn`; never use `orbit` as a stand-in for gear. `draw aura` may add a ground glow.\n\
+Other T scroll wishes can use all five slots (worn, shot, orbit, summon/foe, aura), and `summon N swarm|guard|turret` on a spell/play card: swarm hunts and bursts (up to 6), guard circles and catches shots (up to 4), turret stands and shoots (up to 2). Keep this kit reforge's kind as shown above; a summoned-creature skill belongs to a scroll lesson.\n\
+{sheet}\n\n\
+Inks, each group dark→light: {inks}.\n\n\
 Make it the closest thing the vocabulary allows to what they asked; if part of it cannot be done, do the nearest and say so in `text`. The game clamps numbers outside the ranges. When the file is written, say in one line what you made.",
         path = path.display(),
         part = part.word(),
+        sheet = sheet_note(
+            sheets,
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("reforge")
+        ),
+        inks = INKS,
     )
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/app/dungeon_wish_briefs__tests.rs"]
+mod wish_brief_tests;

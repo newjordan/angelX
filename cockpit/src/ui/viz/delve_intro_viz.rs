@@ -178,7 +178,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
     // names whoever wears the kit.
     let knight = intro.chosen();
     let house = crate::drive::together_shooter::knights::house_for_seat(1);
-    let sprite: Img = arena::knight_in(knight.colours);
+    let sprite: Img = arena::knight_of(Some(knight.id), knight.colours);
     let scale = ((inner.height.saturating_sub(10) * 2) / 16).clamp(2, 4) as i32;
     let mut big = Img::new(sprite.w * scale, sprite.h * scale);
     for y in 0..big.h {
@@ -277,7 +277,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
             } else {
                 "On".into()
             },
-            "the Herald, Old Blaise, Wren, Tobbin and the Unknown".into(),
+            "the knights' grunts, and a few words at big moments".into(),
         ),
     ];
     let order = [Field::Knight, Field::Delve, Field::Party, Field::Voices];

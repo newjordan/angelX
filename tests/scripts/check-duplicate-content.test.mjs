@@ -11,7 +11,7 @@ import {
   explainGroup,
   globToRegExp,
   matchesAny,
-} from '../../scripts/check-duplicate-content.mjs'
+} from '../../scripts/check/check-duplicate-content.mjs'
 
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
 const fixtureRoots = new Set()

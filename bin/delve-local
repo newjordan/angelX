@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# delve-local — one browser link on this machine, at the local frame rate.
+# delve-local — one browser link on this machine.
 #
 #   delve-local [workspace]
 #
 # Starts a private loopback Delve (nothing is opened beyond this machine),
-# hosts one seat, and prints a single URL. Open that URL. Nothing to install.
+# hosts it for one friend without a knight of the host's own (nobody plays
+# the hidden terminal: `--watch` leaves its knight as stone with the
+# party), and prints its link. Open that link in a browser:
+# the Delve's page plays the seat (nothing to install), on the host's one
+# port, its socket at /ws. The same link pasted into angelX
+# (/dungeon join <link>) plays it from a terminal.
 #
 # The workspace defaults to a throwaway one, ${TMPDIR:-/tmp}/delve-local-<port>,
 # which this script marks as its own and clears of its last run. A workspace
@@ -13,7 +18,7 @@
 # that save is resumed, never removed.
 #
 # Knobs: DELVE_PORT (default 8768), DELVE_LOCAL_FORCE=1, and
-# ANGEL_DUNGEON_FRAME_TIMING=<file> to log the painter's timing.
+# ANGEL_DUNGEON_FRAME_TIMING=<file> to log the server's step timing.
 set -euo pipefail
 
 port="${DELVE_PORT:-8768}"
@@ -74,7 +79,7 @@ trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 129' HUP
 
 # A throwaway session. The composer pauses the delve, so the script leaves it.
-env_line="ANGEL_NO_BUILD=1 ANGEL_SETUP=0 ANGEL_DUNGEON_BROWSER_VIEW=1 ANGEL_DUNGEON_FAST_FRAMES=1 ANGEL_DUNGEON_LISTEN=127.0.0.1:$port"
+env_line="ANGEL_NO_BUILD=1 ANGEL_SETUP=0 ANGEL_DUNGEON_LISTEN=127.0.0.1:$port"
 if [ -n "${ANGEL_DUNGEON_FRAME_TIMING:-}" ]; then
   env_line="$env_line ANGEL_DUNGEON_FRAME_TIMING=$(printf '%q' "$ANGEL_DUNGEON_FRAME_TIMING")"
 fi
@@ -95,9 +100,9 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 
-# The saved invitation is the link. The hosted menu covers the notice, so the
-# pane is not a reliable place to read it.
-tmux send-keys -t "$session" "/dungeon_host --1 --view 127.0.0.1:$port" Enter
+# The saved invitation (the door and the join key) is the link. The hosted
+# menu covers the notice, so the pane is not a reliable place to read it.
+tmux send-keys -t "$session" "/dungeon_host --1 --watch 127.0.0.1:$port" Enter
 
 link=""
 for _ in $(seq 1 40); do
@@ -113,10 +118,9 @@ except (OSError, json.JSONDecodeError):
 inv = data.get("invitation")
 if not isinstance(inv, list) or len(inv) < 2:
     sys.exit(0)
-bind = inv[0]
-token = str(inv[1]).split(",")[0]
-if bind == f"127.0.0.1:{port}" and len(token) == 32 and all(c in "0123456789abcdef" for c in token):
-    print(f"http://{bind}/#{token}")
+bind, key = inv[0], str(inv[1])
+if bind == f"127.0.0.1:{port}" and 16 <= len(key) <= 64 and key.isalnum():
+    print(f"http://{bind}/#{key}")
 PY
 )"
   fi

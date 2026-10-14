@@ -49,6 +49,7 @@ use super::arch::rng::{Rng, sub_seed};
 use super::instruments;
 use super::math::{V3, v3};
 use super::mesh::{Mesh, mat};
+use super::props;
 use super::raster::{self, View3};
 use super::scene::SCENE_SEED;
 
@@ -728,6 +729,12 @@ fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         );
     }
 
+    // A dragon's skull dragged home, on the flags beside the hearth and
+    // turned to look down the hall.
+    if let Some(skull) = props::placed("dragon_skull", v3(x - 2.0, -2.75, 0.0), -FRAC_PI_2 + 0.45, 1.25) {
+        mesh.merge(skull);
+    }
+
     // Trestle table down the hall with benches and three candles on it.
     let top = 0.86;
     prim::boxed(
@@ -781,6 +788,14 @@ fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
 fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
     let x = chamber.hx;
     let (oy, oz) = (1.95_f32, 3.20_f32);
+
+    // A knight in plate keeps the passage: a statue on its plinth against the
+    // flank wall, sword point-down, looking across at whoever comes through.
+    if let Some(guard) =
+        props::placed("knight_statue", v3(x - 1.0, -chamber.hy + 0.55, 0.0), PI - 0.6, 1.0)
+    {
+        mesh.merge(guard);
+    }
 
     // The gate mouth: the end wall with a big opening punched through it, the
     // top corners chamfered so it reads as an arch and not a letterbox.
@@ -1315,6 +1330,16 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
         }
         let (sin, cos) = angle.sin_cos();
         let (sx, sy) = (cos * 3.35, sin * 3.35);
+        // Across the board from the eye stands the Siege Perilous: the seat
+        // no knight may take unbidden, carved stone with its crown above it,
+        // facing the table.
+        if i == 0
+            && let Some(siege) =
+                props::placed("siege_perilous", v3(cos * 3.6, sin * 3.6, 0.0), angle - FRAC_PI_2, 1.15)
+        {
+            mesh.merge(siege);
+            continue;
+        }
         let seat = {
             let mut chair = Mesh::new();
             // A chair is a *stepped* silhouette or it is a fence post. The

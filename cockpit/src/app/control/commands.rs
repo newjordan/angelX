@@ -3232,6 +3232,10 @@ handoff restart queued until the foreground worker drains"),
                     self.system_msg(report);
                 }
 
+                Some(a) if a.eq_ignore_ascii_case("walk") => {
+                    let said = self.walk_from_command();
+                    self.system_msg(said);
+                }
                 Some(a) if a.eq_ignore_ascii_case("follow") => {
                     self.world.follow_overworld();
                     self.scryglass.return_to_world();
@@ -4316,6 +4320,7 @@ pub(crate) fn world_help_text() -> String {
         "  zoom · cycle the map camera auto→wide→close",
         "  visit <place> · view garden, artisans, colosseum, tournament, village, round-table, or another landmark",
         "  follow · return the camera to the working knight",
+        "  walk · step onto the map yourself: arrows or WASD walk, E or Enter goes in at a door, Esc leaves (or click the map, or p on it)",
         "  ride · saddle up; the road fills the glass",
         "  enter · step through the landmark's door",
         "  leave · step back under the open sky",

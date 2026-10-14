@@ -166,8 +166,11 @@ fn graph_crop_rejected_out_of_domain_points_render_at_the_farmer_without_changin
         );
     }
     let mut scene = super::super::Scene::resting();
-    scene.garden = garden.frame(32);
-    assert_eq!(scene.garden.bed, Some(planted));
+    let frame = garden.frame(32);
+    assert_eq!(frame.bed, Some(planted));
+    scene.overlay = Some(std::sync::Arc::new(super::super::MiniViz {
+        garden: frame.clone(),
+    }));
     let (x, y) = origin();
     let image = super::super::render_view(
         &scene,
@@ -181,7 +184,7 @@ fn graph_crop_rejected_out_of_domain_points_render_at_the_farmer_without_changin
     assert_eq!((image.w, image.h), (W + 48, H + 48));
     let mut props = Vec::new();
     let mut cues = Vec::new();
-    stage(&scene.garden, &mut props, &mut cues);
+    stage(&frame, &mut props, &mut cues);
     let farmer = (x + 24, y + H - 12);
     for cue in cues.iter().filter(|c| c.img.w == 9) {
         assert!((x..x + W).contains(&cue.x));
@@ -399,7 +402,9 @@ fn graph_crop_preview_exports_real_world_frames_for_art_review() {
         apply(&mut store, &mut garden, point(generation, 1, -4.0), "p1", 2);
         for (label, tick) in [("growing", 35), ("grown", 150)] {
             let mut scene = super::super::Scene::resting();
-            scene.garden = garden.frame(tick);
+            scene.overlay = Some(std::sync::Arc::new(super::super::MiniViz {
+                garden: garden.frame(tick),
+            }));
             scene.tick = tick as u32;
             scene.knight = super::super::scene::Knight::at_place(super::super::map::Place::Fields);
             let (x, y) = origin();

@@ -3,7 +3,8 @@
 [Documentation index](../README.md) · [Operations schematic](operations.md) ·
 [Lean host and hotloading proposal](lean-host.md) ·
 [Connected loop settlement](connected-settlement.md) ·
-[Stables and knights tournament](stables-tournament.md)
+[Stables and knights tournament](stables-tournament.md) ·
+[Undernetwork design proposal](undernetwork-proposal.md)
 
 ## Status and scope
 
@@ -40,6 +41,7 @@ material; publishing it needs a separate review of its dependency closure.
 | What owns state, knowledge and the display? | [Operations: state and presentation](operations.md#state-knowledge-and-presentation) |
 | How does loop research become a place I can visit? | [Connected settlement and exhibits](connected-settlement.md) |
 | How do stables and local knight practice connect both worlds? | [Stables and knights tournament](stables-tournament.md) |
+| How could Delve become a persistent, horizontally expanding frontier? | [Undernetwork proposal: first 100 strata, guilds and economy](undernetwork-proposal.md) — design only |
 | What actually reloads today? | [Reload inventory](lean-host.md#what-exists-today) |
 | What should stay native, and what can become JS? | [Proposed ownership](lean-host.md#proposed-ownership-boundary) |
 | How should a live replacement behave? | [Proposed reload protocol](lean-host.md#proposed-reload-protocol) |

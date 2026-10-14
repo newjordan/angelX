@@ -7,7 +7,7 @@ size 1.6
 move hover speed=1.4
 attack spiral shots=3 speed=5 every=12 damage=10 shot=orb
 attack aimed shots=3 speed=8 every=55 damage=14 shot=bone
-attack ring shots=16 speed=4 every=170 damage=10 shot=orb
+phases curve weave seeker every=65 volleys=2 damage=10
 rage 45%
 drops gem 4, wax 4, gold 250
 art

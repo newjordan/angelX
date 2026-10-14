@@ -176,7 +176,7 @@ checkout-only helper; it is not added to the public release inventory.
 | Camera/site bridge | [`crawl.rs`](../../cockpit/src/stage/world_viz/crawl.rs) |
 | Survey paths, work poses and workshop/exhibit staging | [`crawl/settlement.rs`](../../cockpit/src/stage/world_viz/crawl/settlement.rs) |
 | Shared collision projection | [`crawl/dungeon.rs`](../../cockpit/src/stage/world_viz/crawl/dungeon.rs) |
-| Guest snapshot boundary | [`together_guest.rs`](../../cockpit/src/drive/together_guest.rs) |
+| What each seat is sent of the run | [`wire.rs`](../../crates/delve/src/wire.rs) |
 
 Regression coverage is in
 [`together_settlement__tests.rs`](../../tests/cockpit/app/together_settlement__tests.rs)

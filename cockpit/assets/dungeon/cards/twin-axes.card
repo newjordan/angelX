@@ -1,0 +1,18 @@
+# The dwarf's pair: short hafts, wide swings, and no reach to spare.
+name   Twin Axes
+kind   arm
+rarity rare
+text   Two axes, swung together: a wide, hard sweep up close.
+drop   0
+chest  0
+look   steel blade
+melee  damage=28 reach=2.8 arc=170 every=14
+art
+..HW.....WH..
+.HWWi...iWWH.
+.hWWi...iWWh.
+..hii...iih..
+...B.....B...
+...B.....B...
+...B.....B...
+...b.....b...

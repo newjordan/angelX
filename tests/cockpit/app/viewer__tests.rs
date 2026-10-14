@@ -1078,26 +1078,33 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
     let mut picker = Picker::halfblocks();
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
-    let run = crate::drive::together_shooter::Run::new(17, 1, None);
+    let sim = crate::drive::together_sim::Sim::from(Some(
+        crate::drive::together_shooter::Run::new(17, 1, None),
+    ));
+    let seat = sim.seat(1).expect("the host's own seat");
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
-    terminal
-        .draw(|frame| {
-            crate::ui::viz::shooter_viz::render_native_room(
-                frame,
-                &mut viewer,
-                &run,
-                frame.area(),
-                true,
-                None,
-                7,
-            );
-        })
-        .unwrap();
-    // The native frame goes out at once, as one PNG Kitty scales.
-    let upload = viewer
-        .game_upload
-        .take()
-        .expect("the frame is uploaded with the draw");
+    // The seat's first picture is drawn on the render worker; a frame waits
+    // a while for it, and a later frame places it once it is done (a busy
+    // machine draws a debug build's first room slowly).
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let mut upload = None;
+    while upload.is_none() && std::time::Instant::now() < until {
+        terminal
+            .draw(|frame| {
+                crate::ui::viz::shooter_viz::render_seat(
+                    frame,
+                    &mut viewer,
+                    seat,
+                    frame.area(),
+                    true,
+                    std::time::Instant::now(),
+                );
+            })
+            .unwrap();
+        upload = viewer.game_upload.take();
+    }
+    // It goes out as one PNG Kitty places.
+    let upload = upload.expect("the frame is uploaded with a draw");
     assert!(upload.contains("f=100"));
     let buffer = terminal.backend().buffer();
     let mut placed = Vec::new();
@@ -1118,20 +1125,20 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
 }
 
 #[test]
-fn a_friends_delve_frame_goes_to_kitty_as_its_png_and_keeps_its_shape() {
+fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     let mut picker = Picker::halfblocks();
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
-    let png = vec![0x89u8, b'P', b'N', b'G', 1, 2, 3];
+    let img = || crate::stage::world_viz::overworld::Img::new(768, 448);
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
     let area = Rect::new(0, 0, 100, 30);
     let mut uploads = Vec::new();
     for seq in [1, 1, 2] {
         terminal
             .draw(|frame| {
-                assert!(viewer.render_game_png(frame, area, seq, &png, (768, 448)));
+                assert!(viewer.render_game_img(frame, area, seq, (768, 448), img));
             })
             .unwrap();
         uploads.push(viewer.game_upload.take());
@@ -1155,6 +1162,6 @@ fn a_friends_delve_frame_goes_to_kitty_as_its_png_and_keeps_its_shape() {
 
     let mut plain = Viewer::with_picker(Picker::halfblocks());
     terminal
-        .draw(|frame| assert!(!plain.render_game_png(frame, area, 1, &png, (768, 448))))
+        .draw(|frame| assert!(!plain.render_game_img(frame, area, 1, (768, 448), img)))
         .unwrap();
 }

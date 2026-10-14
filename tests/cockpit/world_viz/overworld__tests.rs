@@ -232,8 +232,8 @@ fn light_means_activity() {
         work.lights.len() > rest.lights.len(),
         "live work casts light"
     );
-    // Only the keep's gate torches and the knight light a resting realm.
-    assert_eq!(rest.lights.len(), 3);
+    // The gate torches, College lamp and knight light a resting realm.
+    assert_eq!(rest.lights.len(), 4);
 }
 
 #[test]
@@ -395,6 +395,7 @@ fn write_overworld_shots() {
         lead: up.first().copied(),
         raised: up,
         riders: Vec::new(),
+        watch: Vec::new(),
     };
     for (name, row) in [("march_near", 8), ("march_far", 10)] {
         save(
@@ -416,6 +417,17 @@ fn write_overworld_shots() {
 fn the_palette_is_the_realm_master_palette() {
     let json: serde_json::Value =
         serde_json::from_str(include_str!("../../../cockpit/assets/realm/palette.json")).unwrap();
+    let extra = json["transition_inks"]["colors"].as_array().unwrap();
+    assert_eq!(PALETTE.len(), 5 * ink::BANK + extra.len());
+    for (i, hex) in extra.iter().enumerate() {
+        let v = u32::from_str_radix(hex.as_str().unwrap().trim_start_matches('#'), 16).unwrap();
+        assert_eq!(PALETTE[5 * ink::BANK + i], v);
+        assert_eq!(ink::bank_of(rgb(v)), None, "transition inks have no material bank");
+        assert!(!is_signal(rgb(v)));
+        assert_eq!(light::darker(rgb(v)), rgb(v));
+        assert_eq!(light::warm(rgb(v)), rgb(v));
+        assert_ne!(ink::nearest_plain([rgb(v)[0] as f32, rgb(v)[1] as f32, rgb(v)[2] as f32]), rgb(v));
+    }
     let banks = ["structure", "foliage", "timber", "stone", "signal"];
     for (b, name) in banks.iter().enumerate() {
         let colors = json["banks"][name]["colors"].as_array().unwrap();
@@ -1549,4 +1561,39 @@ fn write_grow_film() {
         s.knight = Knight { x: px(goal).0, y: px(goal).1, walking: false };
         save(format!("gate/{f:04}.ppm"), &frame_at(&s, view));
     }
+}
+
+#[test]
+fn city_watch_patrols_between_keep_and_castle_only_while_a_turn_runs() {
+    use crate::stage::houses::{Serving, ids};
+    let lead = ids().next().expect("a first house");
+    let mut w = Walker::default();
+
+    // Serving but idle: no watch is posted.
+    w.serve(&Serving { lead: Some(lead), seated: Vec::new(), turn: false });
+    w.publish();
+    assert!(w.shown_watch().is_empty(), "no watch while idle");
+
+    // A turn runs: two guards of the lead house take the road.
+    w.serve(&Serving { lead: Some(lead), seated: Vec::new(), turn: true });
+    w.publish();
+    assert_eq!(w.shown_watch().len(), 2, "two watch guards on duty");
+    assert!(w.shown_watch().iter().all(|r| r.house == lead));
+    let gates: Vec<(f32, f32)> = w.shown_watch().iter().map(|r| (r.x, r.y)).collect();
+    assert_ne!(gates[0], gates[1], "guards start from opposite gates");
+
+    // They walk: a few ticks must move at least one of them.
+    for _ in 0..30 {
+        w.toward(Place::Keep);
+    }
+    w.publish();
+    assert!(
+        w.shown_watch().iter().zip(&gates).any(|(r, s)| (r.x, r.y) != *s),
+        "watch guards patrol, not stand"
+    );
+
+    // The turn ends: the watch stands down at once.
+    w.serve(&Serving { lead: Some(lead), seated: Vec::new(), turn: false });
+    w.publish();
+    assert!(w.shown_watch().is_empty(), "watch stands down with the turn");
 }

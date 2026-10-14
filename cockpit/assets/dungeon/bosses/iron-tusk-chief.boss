@@ -6,9 +6,34 @@ hp 580
 size 1.4
 move chase speed=1.3
 attack aimed shots=3 speed=7 every=65 damage=12 shot=bone
+phases lead gap_wall every=98 volleys=2 damage=12
 rage 30%
 drops ore 4, gold 120
 art
-.A77A.
-.A11A.
-..AA..
+....h..JJJJJJJJJJ..hJH.
+....h..GGGGJGGGG...hJh.
+.....hGGGGGJGGGGG.h..I.
+......GGGGGJGGGGG...bbb
+......jjjjjJjjjjjj...I.
+.......MNNNNNNNN.....I.
+.......MM7AALN7N.....I.
+.......LAALLLNNN.....I.
+........AHAAAAHA.....I.
+.......yAhAAAAhA.....I.
+..M...yyLLLLLLLLy...MI.
+.yyA..yNNNNNNNNNN..AyI.
+yyyAOoOoOoOoOoOoOoOoyIy
+yyMAorrorrorrorrorroMIy
+yyMAA.pBBMAAAMBBBpAAAAy
+MJJJJ.pBBAAAAABBBpNAAAM
+AALNNBpBBBLLLBBBBpNNLIA
+LLLNNpBBBBLNLBBBBBpNLIL
+NNNNNpBBBBNNNBBBBBpNNIN
+.yyAbbbbbbJJJbbbbbbAyI.
+MMALbbbbbbJJJbbbbbbLAIM
+.LNN.pbbpppppppbb.pNNI.
+......bbpppppppbb....I.
+......bbbb...bbbb....I.
+.....nnnnn...nnnnn...I.
+.....nnnnn...nnnnn...I.
+.....................I.

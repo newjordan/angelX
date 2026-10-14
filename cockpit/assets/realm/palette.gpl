@@ -77,3 +77,8 @@ Columns: 15
 244 225 203	#f4e1cb
  67  30  15	#431e0f
 168  52  31	#a8341f
+
+# Delve transition inks (outside the material and signal banks)
+116  16  23	crimson #741017
+ 41  62 105	navy #293e69
+201 172  58	mustard #c9ac3a

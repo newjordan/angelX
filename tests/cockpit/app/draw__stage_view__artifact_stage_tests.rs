@@ -713,6 +713,6 @@ fn dungeon_miniviz_stays_the_realm_while_a_delve_is_on() {
     );
     assert_eq!(app.input, "Tune my sword");
     assert!(!app.dungeon.expanded);
-    assert!(app.dungeon.guest.is_none());
+    assert!(app.dungeon.hosting.is_none());
     assert_eq!(app.dungeon.shooter.as_ref().unwrap().raid_id, raid);
 }

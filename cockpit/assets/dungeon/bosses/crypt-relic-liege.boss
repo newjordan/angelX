@@ -7,10 +7,39 @@ size 1.7
 move hover speed=1.0
 attack ring shots=6 speed=5 every=85 damage=12 shot=bone
 attack aimed shots=2 speed=7 every=60 damage=10 shot=bone
+phases gap_ring flower reaim every=78 volleys=2 damage=12
 rage 30%
 drops gold 180, gem 2
 art
-..JJ..
-.J77J.
-.JHHJ.
-..JJ..
+...........T..........
+......t..t.t.t..t.....
+......O..O.O.O..O.....
+......OtOtO7OtOtO.....
+......OO1OOOOO1OO.....
+.......HHHHHHHH.......
+......HHHHHHHHHH......
+......HH7KiiiK7H......
+......iiKKiiiKKi......
+......hihhhKhhih......
+....i..hhhJJhhh..i....
+..iiihhJJJJJJJJhhiii..
+.iiihhJJRhJhJhJJhhiii.
+.hhhhJJJRRRRRRJJJhhhh.
+..BBJJJRRRRORRRJJJBB..
+.BBBpRRRRBBOBRRRRBBBp.
+.BBpbRRBBBoOoBBRRBBpb.
+.BBpbBBOOOOOOOOOBBBpb.
+.ppbbBhotttttttohppbb.
+.pbbbphott565ttohpbbb.
+.bbbbppott555ttopbbbb.
+.pbbpbbotttttttobpbbp.
+.pppppboooooooooppppp.
+.pppppppbbbObbppppppp.
+.pppppppppoOopppppppp.
+pppppppppppOpppppppppp
+pppppppppppOpppppppppp
+pbppppbppppppppbppppbp
+p.ppbp.ppbppbpp.pbpp.p
+p.bp.p.bp.pp.pb.p.pb.p
+b..p.b..p.bb.p..b.p..b
+...b....b....b....b...

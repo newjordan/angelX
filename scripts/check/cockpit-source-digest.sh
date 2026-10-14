@@ -3,7 +3,10 @@
 # cockpit binary as ANGEL_BUILD_SOURCE_SHA256 and read back by
 # `angel --build-info --json` as "cockpit_source_sha256".
 #
-# Current scheme (2026-09-12): angel-source-v2, covering both path dependencies
+# Current scheme (2026-10-14): angel-source-v3, v2's inventory plus crates/,
+# the engine's path dependencies (the Delve, its net and server, and the
+# browser client build.rs embeds). A commit from before crates/ existed keeps
+# its v2 digest. Scheme v2 (2026-09-12) covers both vendored path dependencies
 # and all three telemetry files embedded by Rust. Hash the scheme marker and
 # ordered Git object IDs. --legacy-commit explicitly retains the incomplete
 # 2026-09-08 scheme for historical inspection, never current-source binding.
@@ -40,17 +43,32 @@ set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LEGACY_BUILD_INPUTS=(cockpit vendor/dotmax rust-toolchain.toml)
-BUILD_INPUTS=(cockpit vendor/dotmax vendor/ureq rust-toolchain.toml
+V2_BUILD_INPUTS=(cockpit vendor/dotmax vendor/ureq rust-toolchain.toml
+  docs/telemetry/model-calibration.toml docs/telemetry/store-caps.toml
+  docs/telemetry/prices.toml)
+BUILD_INPUTS=(cockpit crates vendor/dotmax vendor/ureq rust-toolchain.toml
   docs/telemetry/model-calibration.toml docs/telemetry/store-caps.toml
   docs/telemetry/prices.toml)
 
+# The scheme a revision's digest is made with: v3 once crates/ exists.
+scheme_of() {
+  if git -C "$root" rev-parse -q --verify "$1:crates" >/dev/null; then
+    echo angel-source-v3
+  else
+    echo angel-source-v2
+  fi
+}
+
 source_digest() {
   local revision="$1"
-  local object_ids
+  local scheme object_ids
   local revs=()
-  for input in "${BUILD_INPUTS[@]}"; do revs+=("$revision:$input"); done
+  scheme=$(scheme_of "$revision")
+  local inputs=("${BUILD_INPUTS[@]}")
+  [ "$scheme" = angel-source-v3 ] || inputs=("${V2_BUILD_INPUTS[@]}")
+  for input in "${inputs[@]}"; do revs+=("$revision:$input"); done
   object_ids=$(git -C "$root" rev-parse "${revs[@]}") || return
-  printf 'angel-source-v2\n%s\n' "$object_ids" | sha256sum | cut -d' ' -f1
+  printf '%s\n%s\n' "$scheme" "$object_ids" | sha256sum | cut -d' ' -f1
 }
 
 if ! git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
@@ -60,7 +78,7 @@ fi
 
 case "${1:-}" in
   --scheme)
-    echo angel-source-v2
+    scheme_of HEAD
     exit 0
     ;;
   --legacy-commit)

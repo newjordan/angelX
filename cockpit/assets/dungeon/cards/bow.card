@@ -1,9 +1,9 @@
 name   Bow
 kind   arm
 rarity common
-text   Yew and gut. Every knight starts with one.
-drop   0
-chest  0
+text   Yew and gut: a stream of quick arrows. Find it, then take it with E.
+drop   3
+chest  4
 arm    bow
 art
 ..RO........

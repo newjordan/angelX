@@ -190,13 +190,13 @@ houses has no `house` and is named by the Keep's household.
 
 - `cockpit/src/stage/houses.rs`: the house table (from the asset), family
   lookup, who is serving, and which house fills a party seat.
-- `cockpit/src/stage/world_viz/overworld/castles.rs`: castle placement and
+- `crates/delve/src/render/overworld/castles.rs`: castle placement and
   sprites, banners, carvings, house colours, and the March's riders.
-- `cockpit/src/stage/world_viz/overworld/map.rs`: the March screens and the
+- `crates/delve/src/world/map.rs`: the March screens and the
   precinct's south gates.
 - `cockpit/src/stage/world_viz/overworld/live.rs`: the walker's house, its
   retinue and its relieved knights, and resting at the castle.
-- `cockpit/src/drive/together_shooter/knights.rs`: kits worn by house knights.
+- `crates/delve/src/rules/knights.rs`: kits worn by house knights.
 - Tests: `tests/cockpit/app/houses__tests.rs`,
   `tests/cockpit/world_viz/overworld__castles_tests.rs`, and
   `a_kit_is_worn_by_a_knight_of_the_serving_house` in

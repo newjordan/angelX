@@ -1,0 +1,24 @@
+# Topiary, weaponized.
+name   Hedge Maze
+kind   spell
+rarity rare
+text   A hedge rises round where you aim, with one gap: yours. It will be pruned for no one.
+drop   9
+chest  5
+cooldown 26
+hedge 1
+art
+..DD..DD..DD..DD
+.DFDDFDDEDFDDFD.
+.DElDlDDElDlDED.
+.DEFEFEDDEFEFED.
+.DElDlDDElDlDED.
+.DFDDFDDEDFDDFD.
+..DD..DD..DD..DD
+.DEFEFEDDEFEFED.
+.DElDlDDElDlDED.
+.DFDDFDDEDFDDFD.
+.DEFEFEDDEFEFED.
+.DElDlDDElDlDED.
+.DFDDFDDEDFDDFD.
+..DD..DD..DD..DD

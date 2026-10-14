@@ -10,7 +10,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts/polyglot_luna_table.py"
+SCRIPT = ROOT / "scripts/bench/polyglot/polyglot_luna_table.py"
 
 
 def load_module():

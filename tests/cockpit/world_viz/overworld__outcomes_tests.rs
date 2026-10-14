@@ -1,3 +1,4 @@
+use super::super::Motion;
 use super::*;
 use crate::agent::harness::ToolEventId;
 use crate::stage::world_viz::World;
@@ -26,7 +27,7 @@ fn receipts_distinguish_execution_verification_and_unresolved_work() {
         // A verifier label cannot turn an unexecuted call into a victory.
         (Cancelled, Passed, Seal::Unresolved),
     ] {
-        assert_eq!(Seal::from_outcome(outcome(execution, verification)), seal);
+        assert_eq!(seal_of(outcome(execution, verification)), seal);
     }
 }
 
@@ -123,15 +124,15 @@ fn motion_preferences_keep_still_receipts_and_outcomes_have_distinct_shapes() {
         phase: 0,
     };
     let later = Echo { phase: 4, ..early };
-    for motion in [MotionMode::Reduced, MotionMode::Off] {
+    for motion in [Motion::Reduced, Motion::Off] {
         assert_eq!(
             lantern(early, motion).rgb_bytes(),
             lantern(later, motion).rgb_bytes()
         );
     }
     assert_ne!(
-        lantern(early, MotionMode::Full).rgb_bytes(),
-        lantern(later, MotionMode::Full).rgb_bytes()
+        lantern(early, Motion::Full).rgb_bytes(),
+        lantern(later, Motion::Full).rgb_bytes()
     );
     let pictures: Vec<_> = [
         Seal::Completed,
@@ -140,7 +141,7 @@ fn motion_preferences_keep_still_receipts_and_outcomes_have_distinct_shapes() {
         Seal::Unresolved,
     ]
     .into_iter()
-    .map(|seal| lantern(Echo { seal, ..early }, MotionMode::Off).rgb_bytes())
+    .map(|seal| lantern(Echo { seal, ..early }, Motion::Off).rgb_bytes())
     .collect();
     for i in 0..pictures.len() {
         for j in i + 1..pictures.len() {
@@ -148,7 +149,7 @@ fn motion_preferences_keep_still_receipts_and_outcomes_have_distinct_shapes() {
         }
     }
     let mut scene = super::super::Scene::resting();
-    scene.outcome_motion = MotionMode::Off;
+    scene.outcome_motion = Motion::Off;
     scene.outcomes = vec![later];
     super::super::pace(&mut scene, false);
     assert_eq!(

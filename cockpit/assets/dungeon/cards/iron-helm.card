@@ -1,0 +1,14 @@
+name Iron helm
+kind hold
+rarity common
+text An iron cap. It turns aside a share of every hit.
+drop 3
+chest 5
+armor 1
+art
+...hHHh...
+..hHiiHh..
+.hHiiiiHh.
+.HikHkiH.
+.HiiHiiH.
+..HiiiiH..

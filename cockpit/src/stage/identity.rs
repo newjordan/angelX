@@ -232,11 +232,6 @@ pub(crate) const HUD_AMBER: Color = Color::Rgb(255, 204, 63);
 /// — distinct from the agent's phosphor cyan and the knight's candlelight gold.
 pub(crate) const HUD_PURPLE: Color = Color::Rgb(200, 130, 255);
 
-pub(crate) const NOIR_NIGHT_HAZE: [u8; 3] = [9, 13, 24];
-pub(crate) const NOIR_MOON_SILVER: [u8; 3] = [172, 192, 220];
-pub(crate) const NOIR_SKY_ZENITH: [u8; 3] = [3, 5, 14];
-pub(crate) const NOIR_SKY_HORIZON: [u8; 3] = [22, 34, 60];
-
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/identity__tests.rs"]
 mod tests;

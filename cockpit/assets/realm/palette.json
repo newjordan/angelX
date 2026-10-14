@@ -106,5 +106,18 @@
         "#a8341f"
       ]
     }
+  },
+  "transition_inks": {
+    "role": "Appended inks for Delve transition paintings only. Outside the five 15-color banks and excluded from material quantization, so world and room art keep their existing colors.",
+    "colors": [
+      "#741017",
+      "#293e69",
+      "#c9ac3a"
+    ],
+    "names": [
+      "crimson",
+      "navy",
+      "mustard"
+    ]
   }
 }

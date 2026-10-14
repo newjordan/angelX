@@ -592,3 +592,24 @@ fn only_the_flame_breathes() {
 fn lit_room(index: u8) -> View3 {
     staged_view(index, &interior_view(0.0, 0.0), 96, 72)
 }
+
+/// `ANGEL_ROOM_SHOTS=<dir>`: every room from its staged eye, at review size and
+/// at the mini pane's 96 × 72 dots.
+#[test]
+#[ignore]
+fn write_room_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ROOM_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for index in 0..8u8 {
+        let scene = super::super::scene::interior_scene(index);
+        for (label, w, h) in [("large", 384, 288), ("mini", 96, 72)] {
+            let view = staged_view(index, &interior_view(0.0, 0.0), w, h);
+            raster::render_scene(&scene, &view, w, h)
+                .save(dir.join(format!("room{index}-{label}.png")))
+                .unwrap();
+        }
+    }
+}

@@ -130,12 +130,12 @@ the metric that would falsify it before the candidate run.
    the ledger. At the next iteration, read that ledger and choose the next
    measured bottleneck rather than restarting the audit.
 
-Use `scripts/run-polyglot-loop.py --help` for the existing Luna runner: execution
+Use `scripts/bench/polyglot/run-polyglot-loop.py --help` for the existing Luna runner: execution
 requires `--execute`, and each cell requires a new output directory. That runner
 is not a generic Qwen/GLM/peer runner. Use the recorded route-specific evaluator
 contracts for other cells, never silently substitute a model or endpoint.
-Use `scripts/summarize-polyglot-loop.py` for paired Luna cells and
-`scripts/analyze-polyglot-full136.py` for the historical inventory. Explicit
+Use `scripts/bench/polyglot/summarize-polyglot-loop.py` for paired Luna cells and
+`scripts/bench/polyglot/analyze-polyglot-full136.py` for the historical inventory. Explicit
 `--task` selections support the full catalog; the default is only 12 tasks.
 
 Each experiment report must include: hypothesis, source/binary/resource hashes,

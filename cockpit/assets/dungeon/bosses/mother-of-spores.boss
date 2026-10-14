@@ -5,7 +5,7 @@ where fungal
 hp 860
 size 1.8
 move anchor
-attack ring shots=14 speed=4 every=95 damage=10 shot=orb
+phases split mines crossfire every=78 volleys=2 damage=10
 attack fan shots=7 arc=70 speed=7 every=70 damage=12 shot=bone
 attack aimed shots=2 speed=9 every=42 damage=14 shot=ember
 rage 40%

@@ -157,6 +157,7 @@ const ORIGINAL_TOOL_NOTES: &[(&str, &str, &[&str])] = &[
             "command line (sh -c)",
             "short label for the handle/log (default: first word)",
             "working directory (default: the workspace)",
+            "persistent service: detach to outlive this Angel process (operator-enabled runs only; untracked by proc_status/proc_stop)",
         ],
     ),
     (

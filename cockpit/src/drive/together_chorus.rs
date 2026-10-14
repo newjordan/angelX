@@ -1,18 +1,14 @@
-//! The Delve's chorus: the Herald, Old Blaise, Wren, Tobbin, the Shoggoth and
-//! the guardians, speaking at the moments the game marks with cues.
+//! The Delve's dialogue: what a character says when the knights do something
+//! with them, shown as a subtitle. Nobody speaks aloud and nobody narrates
+//! the fight; the knights make their own noises (`together_shooter::chatter`).
 //!
-//! The script is `assets/dungeon/voices/chorus.txt` (`who | cue | id | words`),
-//! recorded by `voice.py` into `<who>/<id>.mp3`. A line without a recording
-//! still shows as a subtitle, so anyone can add lines.
-//!
-//! A cue picks its own line when one exists (`boss_rise:cinderjaw`), else the
-//! general one (`boss_rise`), rotating through every speaker who has a line
-//! for it. Big moments let the Herald call it and one other voice answer.
-//! Cooldowns keep busy rooms from turning into chatter; a higher-priority
-//! moment may interrupt the queue, a lower one is simply let go.
+//! The script is `assets/dungeon/voices/chorus.txt` (`who | cue | id | words`).
+//! A cue picks its own line when one exists (`npc:grubbins`), else the
+//! general one (`npc`), rotating through every speaker who has a line for
+//! it. Cooldowns keep a busy room from turning into chatter; a weightier
+//! moment may cut a line short, a lighter one is simply let go.
 
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 const SCRIPT: &str = include_str!("../../assets/dungeon/voices/chorus.txt");
@@ -28,11 +24,9 @@ pub(crate) struct Line {
 /// A character's name as the subtitle shows it.
 pub(crate) fn name(who: &str) -> &str {
     match who {
-        "herald" => "The Herald",
         "blaise" => "Old Blaise",
         "wren" => "Wren",
         "tobbin" => "Tobbin",
-        "shoggoth" => "The Shoggoth",
         "fortune" => "Dame Fortune",
         "grubbins" => "Grubbins",
         "snibbet" => "Snibbet",
@@ -45,9 +39,6 @@ pub(crate) fn name(who: &str) -> &str {
         "pip" => "Pip",
         "maud" => "Maud",
         "tallow" => "Lady Tallow",
-        "warden" => "The Waxen Warden",
-        "cinderjaw" => "Cinderjaw",
-        "leviathan" => "The Late-Fee Leviathan",
         "beaumains" => "Beaumains",
         "groom" => "Wat the groom",
         "palamedes" => "Sir Palamedes",
@@ -55,6 +46,21 @@ pub(crate) fn name(who: &str) -> &str {
         "brannoc" => "King Brannoc",
         other => other,
     }
+}
+
+/// Whose name the subtitle shows (`name`), read back: the character's id,
+/// for their colour. A name nobody has is its own.
+pub(crate) fn who(shown: &str) -> &str {
+    script_names().find(|&w| name(w) == shown).unwrap_or(shown)
+}
+
+/// Every character with a line in the script.
+fn script_names() -> impl Iterator<Item = &'static str> {
+    SCRIPT
+        .lines()
+        .filter_map(|row| row.trim().split('|').next())
+        .map(str::trim)
+        .filter(|w| !w.is_empty() && !w.starts_with('#'))
 }
 
 pub(crate) fn script() -> Vec<Line> {
@@ -80,95 +86,17 @@ fn base(cue: &str) -> &str {
 
 /// How much a moment matters: a higher one may cut a lower one short.
 fn priority(cue: &str) -> u8 {
-    // A small secret's card is a find, not a vault in the wall.
-    if cue.starts_with("secret_found:") {
-        return 6;
-    }
     match base(cue) {
-        "victory" | "wipe" | "grail" => 9,
-        "the_deep" | "homeward" => 8,
-        "boss_rise" | "boss_fall" | "lair" | "mimic" | "sanctuary" => 8,
-        "wave_last" | "mimic_fall" => 7,
-        "wave" => 6,
-        "great_hall" => 5,
-        "trap_spikes" | "trap_rocks" | "trap_fire" => 5,
-        "boss_rage" | "descend" | "wish_raised" => 7,
-        "slay4" | "slay3" | "knight_down" | "card_relic" => 6,
-        "slay2" | "first_blood" | "flawless" | "revive" | "run_start" => 5,
-        "card_arm" | "card_rare" | "low_hp" | "treasury_ready" => 4,
-        "wish_granted" => 6,
-        "second_wind" => 7,
-        "wheel" => 8,
-        "ult" => 7,
-        "goblin" | "goblin_escaped" | "goblin_caught" => 6,
-        "achievement" => 6,
-        "grubbins_sold" => 5,
-        "box_opened" => 6,
-        "fan_box" => 6,
-        "bounty_paid" => 6,
-        "hooked" => 7,
-        "trophy_new" => 6,
-        "dare" => 6,
-        "dare_kept" => 7,
-        "dare_broken" => 5,
-        "pit_rise" | "pit_fall" | "talisman_used" => 8,
-        "talisman" => 7,
-        "tallow" => 5,
-        "caged" | "rescued" => 6,
-        "rune" => 6,
-        "rune_up" => 5,
-        "all_random" => 6,
-        "hexed" => 6,
-        "secret_found" => 8,
-        "crack_seen" | "secret_hint" => 5,
-        "snibbet" => 7,
-        "merlin" => 3,
-        "dug" => 7,
-        "bar" => 4,
-        "tavern_dry" => 4,
-        "siege_worthy" => 8,
-        "siege_wanting" => 6,
+        "wheel" | "sanctuary" | "brannoc_arrives" | "brannoc_sworn" | "forge_relit" => 8,
+        "snibbet" | "mission_done" | "work_done" => 7,
+        "joust_start" | "joust_won" | "joust_lost" => 7,
+        "mission" | "commissioned" | "dare" | "wheel_spin" | "caged" | "rescued" => 6,
+        "trophy_new" | "lesson_learned" | "hire_asked" | "song_asked" | "built" => 6,
         "round_poured" => 6,
-        "round_drunk" => 5,
-        "rimeleap" => 6,
-        "frost_leap" => 4,
-        "ravage" => 6,
-        "ravaged" => 5,
-        "hire_asked" | "hired" => 6,
-        "black_hole" => 7,
-        "channel_broken" => 6,
-        "beaumains_down" => 5,
-        "beaumains_up" => 4,
-        "blink" | "sceptre" | "censer" => 5,
-        "song" => 5,
-        "song_asked" => 6,
-        "rescue_home" => 6,
-        "tallow_hiss" | "tallow_fetch" => 3,
-        "pit_slam" => 4,
-        "level_up" | "lesson_learned" => 6,
-        "brood_hatch" | "hook_thrown" => 4,
-        "audience_million" | "audience_prime" => 7,
-        "fan_box_open" => 4,
-        "necro_raise" | "shaman_wards" | "boar_dazed" => 4,
-        "collapse" => 8,
-        "collapse_warn" => 7,
-        "wheel_spin" => 6,
-        "wheel_again" => 3,
-        "built" => 6,
-        "home" => 5,
-        "joust_unhorse" | "joust_fell" => 8,
-        "joust_start" | "joust_won" | "joust_lost" | "joust_drawn" => 7,
-        "joust_smite" | "joust_broke" | "joust_clean" | "joust_shield" | "joust_miss" => 6,
-        "joust_spur" | "stable_select" | "stable_tend" | "the_gate" => 5,
-        "entrance" => 4,
-        "brannoc_arrives" | "brannoc_sworn" | "forge_relit" => 8,
-        "mission_done" | "work_done" => 7,
-        "mission" | "commissioned" => 6,
-        "work_stage" => 5,
-        "tribute" => 4,
-        "cant_afford" => 4,
-        "npc" => 3,
-        "bond" | "banked" | "room_clear" => 3,
+        "work_stage" | "song" | "grubbins_sold" | "stable_select" | "stable_tend" => 5,
+        "reforged" => 5,
+        "tribute" | "cant_afford" | "bar" => 4,
+        "npc" | "merlin" | "wheel_again" => 3,
         _ => 2,
     }
 }
@@ -176,78 +104,14 @@ fn priority(cue: &str) -> u8 {
 /// The shortest gap between two lines for the same kind of moment.
 fn cooldown(cue: &str) -> Duration {
     Duration::from_secs(match base(cue) {
-        "room_fight" => 40,
-        "room_clear" => 30,
-        "bond" | "banked" => 45,
-        "card_rare" | "card_arm" => 12,
-        "low_hp" => 20,
-        "wave" => 10,
-        "great_hall" => 60,
-        "trap_spikes" | "trap_rocks" | "trap_fire" => 150,
-        "slay2" => 6,
         "npc" => 12,
         "wheel_again" => 8,
-        "necro_raise" | "shaman_wards" | "boar_dazed" => 25,
         "cant_afford" => 6,
-        "fan_box_open" => 20,
-        "brood_hatch" => 25,
-        "hook_thrown" => 30,
-        "pit_slam" => 30,
-        "tallow_hiss" => 20,
-        "tallow_fetch" => 30,
-        "rune_up" => 20,
-        "hexed" => 12,
-        "crack_seen" => 60,
-        "rimeleap" => 15,
-        "frost_leap" => 20,
-        "ravage" => 15,
-        "ravaged" => 20,
-        "beaumains_down" | "beaumains_up" => 30,
-        "black_hole" | "channel_broken" => 15,
-        "blink" | "censer" => 10,
         _ => 0,
     })
 }
 
-/// Moments big enough for the Herald to call and another voice to answer.
-/// A vault is one; a small secret's card (`secret_found:cup`) is not.
-fn duet(cue: &str) -> bool {
-    if cue.starts_with("secret_found:") {
-        return false;
-    }
-    matches!(
-        base(cue),
-        "run_start"
-            | "victory"
-            | "wipe"
-            | "boss_rise"
-            | "boss_fall"
-            | "lair"
-            | "descend"
-            | "wish_raised"
-            | "mimic"
-            | "sanctuary"
-            | "home"
-            | "built"
-            | "wheel"
-            | "the_deep"
-            | "homeward"
-            | "grail"
-            | "audience_million"
-            | "audience_prime"
-            | "pit_rise"
-            | "pit_fall"
-            | "secret_found"
-            | "joust_start"
-            | "joust_unhorse"
-            | "joust_won"
-            | "brannoc_arrives"
-            | "brannoc_sworn"
-            | "forge_relit"
-    )
-}
-
-/// What is being said now, for the subtitle and the guest page.
+/// What is being said now, for the subtitle and joined friends.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Said {
     pub(crate) line: Line,
@@ -262,10 +126,6 @@ pub(crate) struct Chorus {
     queue: VecDeque<(Line, u8)>,
     speaking: Option<(Said, u8)>,
     seq: u64,
-    pub(crate) muted: bool,
-    /// Playback level, 0–1. Voices sit under the game, not over it.
-    pub(crate) volume: f32,
-    dir: Option<PathBuf>,
 }
 
 impl Default for Chorus {
@@ -277,59 +137,23 @@ impl Default for Chorus {
             queue: VecDeque::new(),
             speaking: None,
             seq: 0,
-            muted: std::env::var("ANGEL_DELVE_VOICES").is_ok_and(|v| v == "0"),
-            volume: crate::drive::together_audio::VOICE_LEVEL,
-            dir: voices_dir(),
         }
     }
 }
 
-/// Where the recordings are: the resource checkout first, then the source tree.
-pub(crate) fn voices_dir() -> Option<PathBuf> {
-    let candidates = [
-        std::env::var_os("ANGEL_RESOURCE_DIR")
-            .map(|d| PathBuf::from(d).join("cockpit/assets/dungeon/voices")),
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/dungeon/voices")),
-    ];
-    candidates
-        .into_iter()
-        .flatten()
-        .find(|d| d.join("chorus.txt").is_file())
-}
-
-/// The recording for a line, if it was recorded.
-pub(crate) fn recording(dir: Option<&std::path::Path>, line: &Line) -> Option<PathBuf> {
-    let ok = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
-    if !ok(&line.who) || !ok(&line.id) {
-        return None;
-    }
-    let path = dir?.join(&line.who).join(format!("{}.mp3", line.id));
-    path.is_file().then_some(path)
-}
-
 impl Chorus {
     /// The line a moment would speak next, without speaking it.
-    fn pick(&mut self, cue: &str, skip_herald: bool) -> Option<Line> {
-        let exact: Vec<&Line> = self
-            .lines
-            .iter()
-            .filter(|l| l.cue == cue && !(skip_herald && l.who == "herald"))
-            .collect();
+    fn pick(&mut self, cue: &str) -> Option<Line> {
+        let exact: Vec<&Line> = self.lines.iter().filter(|l| l.cue == cue).collect();
         let pool: Vec<&Line> = if exact.is_empty() {
-            self.lines
-                .iter()
-                .filter(|l| l.cue == base(cue) && !(skip_herald && l.who == "herald"))
-                .collect()
+            self.lines.iter().filter(|l| l.cue == base(cue)).collect()
         } else {
             exact
         };
         if pool.is_empty() {
             return None;
         }
-        let turn = self
-            .turns
-            .entry(format!("{cue}|{skip_herald}"))
-            .or_insert(0);
+        let turn = self.turns.entry(cue.to_string()).or_insert(0);
         let line = pool[*turn % pool.len()].clone();
         *turn += 1;
         Some(line)
@@ -345,7 +169,7 @@ impl Chorus {
         {
             return;
         }
-        // A busy voice lets small moments pass rather than pile up.
+        // A busy subtitle lets small moments pass rather than pile up.
         let busy = self.speaking.as_ref().is_some_and(|(s, _)| now < s.until);
         if (busy || !self.queue.is_empty()) && rank <= 4 {
             return;
@@ -361,27 +185,13 @@ impl Chorus {
             }
         }
         self.last.insert(base(cue).to_string(), now);
-        let mut lines = Vec::new();
-        if duet(cue) {
-            let herald = self
-                .lines
-                .iter()
-                .find(|l| l.who == "herald" && (l.cue == cue || l.cue == base(cue)))
-                .cloned();
-            lines.extend(herald);
-            lines.extend(self.pick(cue, true));
-        } else {
-            lines.extend(self.pick(cue, false));
-        }
-        for line in lines {
-            if self.queue.len() < 3 {
-                self.queue.push_back((line, rank));
-            }
+        if let Some(line) = self.pick(cue).filter(|_| self.queue.len() < 3) {
+            self.queue.push_back((line, rank));
         }
     }
 
-    /// Say a given line now, ahead of anything queued: a joined friend's
-    /// angelX speaks the host's chorus as it happens there.
+    /// Show a given line now, ahead of anything queued: a joined friend's
+    /// angelX shows the host's dialogue as it happens there.
     pub(crate) fn say(&mut self, line: Line, now: Instant) {
         self.queue.clear();
         if let Some((said, _)) = self.speaking.as_mut() {
@@ -391,23 +201,14 @@ impl Chorus {
     }
 
     /// Start the next queued line when the current one is done. Returns the
-    /// line that just started, for the guest page.
+    /// line that just started, for joined friends.
     pub(crate) fn tick(&mut self, now: Instant) -> Option<Said> {
         if self.speaking.as_ref().is_some_and(|(s, _)| now < s.until) {
             return None;
         }
         let (line, rank) = self.queue.pop_front()?;
-        let file = recording(self.dir.as_deref(), &line);
-        // 64 kbit/s recordings: bytes tell the length; a subtitle reads ~14 chars/s.
-        let seconds = file
-            .as_ref()
-            .and_then(|f| std::fs::metadata(f).ok())
-            .map_or(line.words.chars().count() as f32 / 14.0 + 1.0, |m| {
-                m.len() as f32 / 8000.0
-            });
-        if let Some(file) = file.as_ref().filter(|_| !self.muted) {
-            play(file, self.volume);
-        }
+        // A subtitle reads at about 14 characters a second.
+        let seconds = line.words.chars().count() as f32 / 14.0 + 1.0;
         self.seq += 1;
         let said = Said {
             line,
@@ -424,40 +225,6 @@ impl Chorus {
             .as_ref()
             .filter(|(s, _)| now < s.until + Duration::from_secs(2))
             .map(|(s, _)| &s.line)
-    }
-}
-
-/// Play a recording without waiting for it. Tests never make a sound.
-fn play(path: &std::path::Path, volume: f32) {
-    if cfg!(test) {
-        return;
-    }
-    let level = volume.clamp(0.0, 1.0);
-    let pw = format!("{level:.2}");
-    let pa = format!("{}", (level * 65536.0) as u32);
-    let mpv = format!("--volume={}", (level * 100.0) as u32);
-    // afplay: every Mac has it.
-    let players: [Vec<&str>; 4] = [
-        vec!["pw-play", "--volume", &pw],
-        vec!["paplay", "--volume", &pa],
-        vec!["mpv", "--no-video", "--really-quiet", &mpv],
-        vec!["afplay", "-v", &pw],
-    ];
-    for player in players {
-        let spawned = std::process::Command::new(player[0])
-            .args(&player[1..])
-            .arg(path)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn();
-        if let Ok(mut child) = spawned {
-            // Reap it off the game thread so no zombie is left behind.
-            std::thread::spawn(move || {
-                let _ = child.wait();
-            });
-            return;
-        }
     }
 }
 

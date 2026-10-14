@@ -90,7 +90,7 @@ fn help_text_lists_the_core_slash_commands() {
     assert!(h.contains("/model [filter|exact@effort|auto]"));
     assert!(h.contains("/think [filter]"));
     assert!(h.contains("(/tutor, /library)"));
-    assert!(h.contains("/world [visit <place>|follow|ride|enter|leave|weather|zoom]"));
+    assert!(h.contains("/world [visit <place>|follow|walk|ride|enter|leave|weather|zoom]"));
     assert!(h.contains("/world view [3d|dotmax]"));
     assert!(h.contains("report this view"));
     assert!(h.contains("opens/closes retained room plates"));

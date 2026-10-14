@@ -4,6 +4,8 @@
 //! a face to show.
 
 use super::render::Tex;
+use super::super::overworld::ink::Img;
+use super::super::overworld::material as m;
 use std::sync::OnceLock;
 
 /// The wall faces, in the order the crawl's grid names them.
@@ -82,24 +84,91 @@ pub(crate) fn faces() -> &'static Faces {
         walls: WALLS
             .iter()
             .map(|wall| match wall {
-                Wall::Stone => tex("wall_stone", || bricks(['K', 'S', 'u', 'x'], None)),
-                Wall::Crypt => tex("wall_crypt", crypt),
-                Wall::Mine => tex("wall_mine", mine),
-                Wall::Keep => tex("wall_keep", || bricks(['Z', 'X', 'g', 'K'], Some('7'))),
-                Wall::Archive => tex("wall_archive", shelf),
-                Wall::Fungal => tex("wall_fungal", fungal),
-                Wall::Unknown => tex("wall_unknown", unknown),
-                Wall::Pillar => tex("pillar", || bricks(['K', 'j', 'G', 'g'], None)),
-                Wall::Shelf => tex("shelf", shelf),
-                Wall::Door => tex("door", door),
+                Wall::Stone => face(|im| m::blocks(im, (0, 0, 32, 32), BRAILLE_STONE, (12, 8), 11)),
+                Wall::Crypt => lifted(tex("wall_crypt", crypt)),
+                Wall::Mine => face(mine_face),
+                Wall::Keep => face(|im| {
+                    m::blocks(im, (0, 0, 32, 32), &['k', 'b', 'B', 'p', 'R', 'r', 'o'], (10, 6), 12);
+                    for (x, y) in [(5, 9), (6, 10), (22, 21), (23, 22), (23, 23)] {
+                        im.put(x, y, '7');
+                    }
+                }),
+                Wall::Archive => lifted(tex("wall_archive", shelf)),
+                Wall::Fungal => face(fungal_face),
+                Wall::Unknown => lifted(tex("wall_unknown", unknown)),
+                Wall::Pillar => face(|im| m::blocks(im, (0, 0, 32, 32), BRAILLE_STONE, (16, 6), 13)),
+                Wall::Shelf => lifted(tex("shelf", shelf)),
+                Wall::Door => lifted(tex("door", door)),
             })
             .collect(),
-        floor: tex("floor_flags", flags),
+        floor: face(|im| m::blocks(im, (0, 0, 32, 32), &['k', 'X', 'g', 'j', 'G', 'J'], (16, 16), 14)),
         water: tex("water", water),
         lava: tex("lava", lava),
         stairs: tex("stairs", stairs),
-        ceiling: tex("ceiling", ceiling),
+        // The vault: black between ribs, so the braille eye draws only the
+        // ribs instead of a haze of stray dots.
+        ceiling: face(|im| {
+            for y in 0..32 {
+                for x in 0..32 {
+                    let rib = (x + y) % 16 == 0 || (x + 32 - y) % 16 == 0;
+                    let near = (x + y) % 16 == 1 || (x + 32 - y) % 16 == 1;
+                    im.put(x, y, if rib || near { 'j' } else { 'k' });
+                }
+            }
+        }),
     })
+}
+
+/// The braille eye reads value structure, not tone: a face for the crawl
+/// keeps its stone in the upper-middle of the luminance range, where dots
+/// fill, with black joints between (see `docs/ART-V2.md`).
+const BRAILLE_STONE: &[char] = &['k', 'g', 'j', 'G', 'J', 'h', 'i'];
+
+/// A face drawn by the shared material system.
+fn face(paint: impl Fn(&mut Img)) -> Tex {
+    let mut im = Img::black(32, 32);
+    paint(&mut im);
+    Tex::from_img(&im)
+}
+
+/// A painted face lifted two steps into the band the braille eye fills,
+/// its near-black kept black.
+fn lifted(t: Tex) -> Tex {
+    let mut im = Img::new(t.w as i32, t.h as i32);
+    for y in 0..t.h {
+        for x in 0..t.w {
+            if let Some(c) = t.at((x as f32 + 0.5) / t.w as f32, (y as f32 + 0.5) / t.h as f32) {
+                let dark = c.iter().map(|&v| v as u32).sum::<u32>() < 40;
+                im.set(x as i32, y as i32, if dark { c } else { m::lighter(m::lighter(c)) });
+            }
+        }
+    }
+    Tex::from_img(&im)
+}
+
+/// A mine face: rough rock between two timber props under a lintel.
+fn mine_face(im: &mut Img) {
+    m::rubble(im, (0, 0, 32, 32), &['k', 'b', 'I', 'B', 'P', 'r', 'o', 'O'], 9, 15);
+    m::boards(im, (0, 0, 32, 5), false, 16);
+    for x in [1, 26] {
+        m::boards(im, (x, 5, 5, 27), true, 17);
+        im.line(x - 1, 5, x - 1, 31, 'k');
+        im.line(x + 5, 5, x + 5, 31, 'k');
+    }
+    im.line(0, 5, 31, 5, 'k');
+}
+
+/// A cave face: mossy rough rock, a mushroom glowing at its foot.
+fn fungal_face(im: &mut Img) {
+    m::rubble(im, (0, 0, 32, 32), &['k', 'D', 'F', 'E', 'e', 'l', 'm', 'A'], 10, 18);
+    let cap = [".2222.", "233332", "..yy..", "..yy.."];
+    for (k, line) in cap.iter().enumerate() {
+        for (i, c) in line.chars().enumerate() {
+            if c != '.' {
+                im.put(12 + i as i32, 24 + k as i32, c);
+            }
+        }
+    }
 }
 
 /// A 16x16 grid filled by `ink(x, y)`.
@@ -159,23 +228,6 @@ fn crypt() -> Vec<String> {
     rows
 }
 
-/// A mine face: broken rock between two timber props and a lintel.
-fn mine() -> Vec<String> {
-    draw(|x, y| {
-        if y < 2 {
-            return if y == 0 { 'r' } else { 'B' };
-        }
-        if !(2..=13).contains(&x) {
-            return if x == 0 || x == 15 { 'b' } else { 'P' };
-        }
-        match (x * 5 + y * 11 + (x * y) % 7) % 9 {
-            0 => 'K',
-            1 | 2 => 'g',
-            3 => 'j',
-            _ => 'X',
-        }
-    })
-}
 
 /// Shelves of books, water-stained low down.
 fn shelf() -> Vec<String> {
@@ -194,21 +246,6 @@ fn shelf() -> Vec<String> {
     })
 }
 
-/// Mossy stone, a mushroom glowing at its foot.
-fn fungal() -> Vec<String> {
-    let mut rows = bricks(['D', 'e', 'm', 'F'], None);
-    let cap = [".2222.", "233332", "..yy..", "..yy.."];
-    for (k, line) in cap.iter().enumerate() {
-        let mut chars: Vec<char> = rows[11 + k].chars().collect();
-        for (i, c) in line.chars().enumerate() {
-            if c != '.' {
-                chars[5 + i] = c;
-            }
-        }
-        rows[11 + k] = chars.into_iter().collect();
-    }
-    rows
-}
 
 /// Black, crossed by a pale lattice, one eye.
 fn unknown() -> Vec<String> {
@@ -243,20 +280,6 @@ fn door() -> Vec<String> {
     })
 }
 
-/// Flagstones.
-fn flags() -> Vec<String> {
-    draw(|x, y| {
-        let (bx, by) = (x % 8, y % 8);
-        let shift = if (y / 8) % 2 == 0 { 0 } else { 4 };
-        if by == 7 || (bx + shift) % 8 == 7 {
-            'K'
-        } else if (x * 3 + y * 5) % 11 == 0 {
-            'x'
-        } else {
-            'X'
-        }
-    })
-}
 
 fn water() -> Vec<String> {
     draw(|x, y| {
@@ -289,9 +312,6 @@ fn stairs() -> Vec<String> {
     })
 }
 
-fn ceiling() -> Vec<String> {
-    draw(|x, y| if x % 8 == 0 || y % 8 == 0 { 'X' } else { 'K' })
-}
 
 /// The crawl's hands and standing things, painted from a brief
 /// (see `assets/crawl/sprites/NOTES.md`).

@@ -572,6 +572,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // return too: a resize, shell, image, or compact Core frame must pause
     // hidden reveal lifetime and cannot retain the preceding fast tick.
     app.world_pane_visible = false;
+    app.overworld_map = None;
     app.scryglass.begin_frame();
     app.panes.clear();
     app.dungeon.controls_visible = false;
@@ -598,8 +599,10 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
     if app.dungeon_view_active() {
-        // The host's delve as it stands between its last two ticks.
-        let host_view = app.dungeon_view_run(Instant::now());
+        let now = Instant::now();
+        // The host's delve as its newest tick stands (the words around the
+        // room read it), and the seat whose own client draws the room.
+        let screen = app.dungeon_screen();
         let deck = app
             .dungeon
             .forge
@@ -616,11 +619,24 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             && app.dungeon.intro.is_none()
             && app.dungeon.forge.draft.is_none()
             && !app.dungeon.cards_open
-            && app.dungeon.exhibit_text.is_none();
+            && app.dungeon.exhibit_text.is_none()
+            && app.dungeon.activity_menu.is_none();
         app.image_occluders.push(root);
         app.viewer.clear_still();
         app.dungeon.controls_visible = if let Some(intro) = &app.dungeon.intro {
             crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.dungeon.realm.as_ref());
+            true
+        } else if let Some(seat) = app.dungeon.activity_menu {
+            frame.render_widget(ratatui::widgets::Clear, root);
+            let couch = app.dungeon.joined.is_none() && app.dungeon.hosting.is_none();
+            let help = if couch {
+                "1 / 2 selects a knight · Tab switches"
+            } else {
+                ""
+            };
+            frame.render_widget(ratatui::widgets::Paragraph::new(format!(
+                "PAUSED · Knight {seat}\n\n[ LEAVE ]  Enter / Backspace\n\nEsc resumes · F2 returns to the composer\n{help}"
+            )).block(ratatui::widgets::Block::bordered().title("Activity menu")), root);
             true
         } else if let Some(text) = &app.dungeon.exhibit_text {
             frame.render_widget(ratatui::widgets::Clear, root);
@@ -636,9 +652,15 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             );
             true
         } else if let Some(joined) = &app.dungeon.joined {
+            // Cells drawn from the seat's own picture, made off this thread.
+            if !native {
+                joined.seat.request(now);
+            }
+            let picture = joined.seat.picture();
             crate::ui::viz::joined_viz::render(
                 frame,
                 joined,
+                picture.as_ref(),
                 root,
                 &app.dungeon.notice,
                 app.dungeon.chorus.subtitle(std::time::Instant::now()),
@@ -665,15 +687,28 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                     .then_some((app.dungeon.cards_page, app.dungeon.cards_sel)),
                 native,
             )
-        } else if let Some((run, _)) = &host_view {
-            crate::ui::viz::shooter_viz::render(
+        } else if let Some((snapshot, knight)) = &screen {
+            // Cells are drawn from the seat's own picture: made on its own
+            // worker while the server steps on its own thread, and here when
+            // the delve is stepped by hand (tests), so a test sees this frame's.
+            let seat = app.dungeon.shooter.seat(*knight);
+            if !native && let Some(seat) = seat {
+                if app.dungeon.shooter.threaded() {
+                    seat.request(now);
+                } else {
+                    seat.frame(now);
+                }
+            }
+            let picture = seat.and_then(|seat| seat.picture());
+            crate::ui::viz::shooter_viz::render_room(
                 frame,
-                run,
+                &snapshot.run,
+                crate::ui::viz::shooter_viz::Room::Seat(picture.as_ref()),
                 root,
                 &app.dungeon.notice,
                 app.dungeon.key_releases,
                 !app.terminal_focused || app.dungeon_controls_blocked(),
-                app.dungeon.guest.is_some(),
+                app.dungeon.hosting.is_some(),
                 &app.dungeon_harness_status(),
                 app.dungeon
                     .cards_open
@@ -714,32 +749,58 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             && app.dungeon.intro.is_none()
             && app.dungeon.forge.draft.is_none()
             && !app.dungeon.cards_open
-            && let Some(joined) = &app.dungeon.joined
+            && app.dungeon.activity_menu.is_none()
         {
-            crate::ui::viz::joined_viz::render_native(frame, &mut app.viewer, joined, root);
+            let seat = match (&app.dungeon.joined, &screen) {
+                (Some(joined), _) => Some(joined.seat.clone()),
+                (None, Some((_, knight))) => app.dungeon.shooter.seat(*knight).cloned(),
+                (None, None) => None,
+            };
+            if let Some(seat) = seat {
+                crate::ui::viz::shooter_viz::render_seat(
+                    frame,
+                    &mut app.viewer,
+                    &seat,
+                    root,
+                    true,
+                    now,
+                );
+            }
         }
-        if !app.dungeon_controls_blocked()
+        // Couch friends retain the activity's camera; the departed host has
+        // a small view of their own safe entrance alongside it, from the
+        // host's own seat.
+        if app.dungeon.hosting.is_none()
+            && app.dungeon.activity_menu.is_none()
             && !app.dungeon.cards_open
-            && app.dungeon.intro.is_none()
-            && app.dungeon.forge.draft.is_none()
-            && let Some((run, step)) = &host_view
+            && !app.dungeon_controls_blocked()
+            && let Some((snapshot, 2)) = &screen
+            && snapshot.run.exits.outside.contains_key(&1)
+            && root.width >= 80
+            && root.height >= 24
+            && let Some(host) = app.dungeon.shooter.seat(1)
         {
-            let focus = app.dungeon.guest.is_some().then_some(1);
-            crate::ui::viz::shooter_viz::render_native_room(
-                frame,
-                &mut app.viewer,
-                run,
-                root,
-                true,
-                focus,
-                *step,
-            );
+            if app.dungeon.shooter.threaded() {
+                host.request(now);
+            } else {
+                host.frame(now);
+            }
+            let inset = Rect::new(root.right() - 25, root.bottom() - 13, 24, 7);
+            let border = ratatui::widgets::Block::bordered().title("P1 outside · E rejoin");
+            let inside = border.inner(inset);
+            frame.render_widget(ratatui::widgets::Clear, inset);
+            if let Some(picture) = host.picture() {
+                crate::ui::viz::shooter_viz::paint_picture(frame, inside, &picture);
+            }
+            frame.render_widget(border, inset);
         }
         render_selection_and_approval_overlays(frame, app);
         if let Some(pending) = app.pending_turn.as_mut() {
             pending.echo_drawn = true;
         }
         app.scryglass.finish_frame();
+        // The delve has the screen: no map to walk.
+        app.settle_walk();
         // A friend's delve frame goes out to Kitty with this draw.
         app.viewer.flush_dot_upload(frame);
         return;
@@ -959,6 +1020,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // hit targets for the visible board rather than the covered world.
     if app.moa_deck_owns_input() {
         app.world_pane_visible = false;
+        app.overworld_map = None;
         app.scryglass.begin_frame();
         app.scryglass.surface = crate::ui::scryglass::StageSurface::Moa;
         app.agent_buttons
@@ -993,6 +1055,8 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     {
         app.scryglass_drag = None;
     }
+    // Walk mode lasts while the map it walks is on screen and in focus.
+    app.settle_walk();
     if !app.still_active() {
         app.viewer.clear_still();
     }

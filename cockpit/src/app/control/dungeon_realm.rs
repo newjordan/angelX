@@ -31,7 +31,7 @@ impl App {
 
     /// Move what the run banked into the treasury, under each knight's name.
     pub(crate) fn settle_realm(&mut self) -> bool {
-        let Some(run) = self.dungeon.shooter.as_mut() else {
+        let Some(mut run) = self.dungeon.shooter.as_mut() else {
             return true;
         };
         if run.bank.is_empty() && run.reclaimed.is_empty() && run.triumph.is_none() {
@@ -45,6 +45,8 @@ impl App {
             .iter()
             .map(|(&id, h)| (id, h.name.clone()))
             .collect();
+        // The sim steps on while the realm is settled: hold the run no longer.
+        drop(run);
         let host = self.host_name();
         let realm_before = self.realm().clone();
         let mut lines = Vec::new();
@@ -73,6 +75,12 @@ impl App {
             lines.push(format!("King Brannoc's tribute: {}", paid.label()));
         }
         let tribute_paid = tribute.is_some();
+        // A rent day at every holding for every floor cleared; the
+        // Court learns which floors are cleared.
+        let realm_reclaimed = realm.reclaimed.clone();
+        shooter::holdings::note_realm(&mut realm.home.holdings, &realm_reclaimed, &realm.home.stable.yards.clone());
+        let rents = shooter::holdings::rent_day(&mut realm.home.holdings, reclaimed.len());
+        lines.extend(rents);
         match triumph {
             Some(shooter::Triumph::Dragon) => {
                 realm.raids_won += 1;
@@ -90,14 +98,15 @@ impl App {
         let saved = realm.save();
         if let Err(error) = saved {
             self.dungeon.realm = Some(realm_before);
-            if let Some(run) = self.dungeon.shooter.as_mut() {
-                run.bank = hauls;
-                run.reclaimed = reclaimed;
-                run.triumph = triumph;
+            // Back into the run, beside whatever it banked meanwhile.
+            if let Some(mut run) = self.dungeon.shooter.as_mut() {
+                let run = &mut *run;
+                run.bank.splice(0..0, hauls);
+                run.reclaimed.splice(0..0, reclaimed);
+                run.triumph = run.triumph.or(triumph);
             }
             self.dungeon.notice = format!("Could not save the realm: {error}");
             let _ = self.dungeon.checkpoint(std::time::Instant::now(), true);
-            self.publish_realm();
             return false;
         }
         let now = std::time::Instant::now();
@@ -123,7 +132,6 @@ impl App {
         }
         // The run's bank is empty now; checkpoint so a crash cannot bank twice.
         let _ = self.dungeon.checkpoint(std::time::Instant::now(), true);
-        self.publish_realm();
         true
     }
 
@@ -131,10 +139,17 @@ impl App {
     /// the treasury, remember the deepest floor reached and the landing
     /// chosen, and tell the run what now stands and what it can spend.
     pub(crate) fn settle_home(&mut self) -> bool {
-        let Some(run) = self.dungeon.shooter.as_mut() else {
+        self.flush_holdings_ops();
+        let Some(mut run) = self.dungeon.shooter.as_mut() else {
             return true;
         };
         let orders = std::mem::take(&mut run.orders);
+        // The surface peddler's sales, each with its price while the knight
+        // still has room for it.
+        let peddled: Vec<(shooter::merchant::Purchase, u32)> = std::mem::take(&mut run.peddled)
+            .into_iter()
+            .filter_map(|p| run.peddle_price(p).map(|gold| (p, gold)))
+            .collect();
         let noticed = std::mem::take(&mut run.feats);
         let stall = run.stall.clone();
         let stall_prices: Vec<u32> = stall
@@ -147,6 +162,9 @@ impl App {
             .collect();
         let depth = run.dungeon.depth;
         let landing = run.home.landing;
+        let country_games = run.home.countryside.games.clone();
+        let wardrobe = run.home.wardrobe.clone();
+        let privy_wall = run.home.privy_wall.clone();
         let audience = run.audience;
         let show_over = matches!(run.phase, shooter::Phase::Won | shooter::Phase::Wiped);
         let marks = std::mem::take(&mut run.marks);
@@ -162,6 +180,8 @@ impl App {
             .iter()
             .map(|(&id, h)| (id, shooter::talents::knight_key(h)))
             .collect();
+        // The sim steps on while the realm is settled: hold the run no longer.
+        drop(run);
         let host = self.host_name();
         let unsaved = self.dungeon.bounties_unsaved;
         let realm_before = {
@@ -184,20 +204,26 @@ impl App {
             let bounty_can_be_pinned = realm.home.bounties.len() < shooter::bounties::PINNED
                 && shooter::bounties::BOUNTIES.iter().any(|bounty| {
                     bounty.from <= depth.max(realm.home.deepest)
-                        && !realm.home.bounties.iter().any(|pinned| pinned.id == bounty.id)
-            });
-            let collection_achievement_can_be_earned =
-                (!realm.home.feats.contains("full_hall")
-                    && shooter::trophies::PLINTHS
-                        .iter()
-                        .all(|plinth| realm.home.trophies.contains_key(plinth.id)))
-                    || (!realm.home.feats.contains("full_house")
-                        && shooter::rescues::RESIDENTS
+                        && !realm
+                            .home
+                            .bounties
                             .iter()
-                            .all(|resident| realm.home.residents.contains(resident.id)));
+                            .any(|pinned| pinned.id == bounty.id)
+                });
+            let collection_achievement_can_be_earned = (!realm.home.feats.contains("full_hall")
+                && shooter::trophies::PLINTHS
+                    .iter()
+                    .all(|plinth| realm.home.trophies.contains_key(plinth.id)))
+                || (!realm.home.feats.contains("full_house")
+                    && shooter::rescues::RESIDENTS
+                        .iter()
+                        .all(|resident| realm.home.residents.contains(resident.id)));
             let may_change = !orders.is_empty()
+                || !peddled.is_empty()
                 || !noticed.is_empty()
                 || !marks.is_empty()
+                || wardrobe != realm.home.wardrobe
+                || country_games != realm.home.countryside.games
                 || depth > realm.home.deepest
                 || (depth == 0 && landing != realm.home.landing)
                 || (audience > realm.home.best_show
@@ -207,10 +233,26 @@ impl App {
                 || bounty_may_change
                 || bounty_can_be_pinned
                 || collection_achievement_can_be_earned)
-            .then(|| realm.clone())
+                .then(|| realm.clone())
         };
         let realm = self.realm();
-        let mut changed = false;
+        let mut changed = wardrobe != realm.home.wardrobe;
+        realm.home.wardrobe = wardrobe;
+        if realm.home.privy_wall != privy_wall {
+            realm.home.privy_wall = privy_wall;
+            changed = true;
+        }
+        changed |= realm.home.countryside.games.merge(&country_games);
+        let (country_changed, mut country_news) =
+            shooter::countryside::settle(&mut realm.home.countryside, &mut realm.treasury, &marks);
+        changed |= country_changed;
+        let (games_changed, games_news) =
+            shooter::countryside::settle_games(&mut realm.home.countryside, &mut realm.treasury, &marks);
+        changed |= games_changed;
+        country_news.extend(games_news);
+        let (college_changed, college_news) =
+            shooter::college::settle(&mut realm.home.college, &mut realm.treasury, &marks);
+        changed |= college_changed;
         if depth > realm.home.deepest {
             realm.home.deepest = depth;
             changed = true;
@@ -226,7 +268,10 @@ impl App {
             realm.home.best_show = audience;
             changed = true;
         }
-        let mut said: Vec<(String, String)> = Vec::new();
+        let mut said: Vec<(String, String)> = country_news
+            .into_iter()
+            .map(|line| ("country".into(), line))
+            .collect();
         let mut earned: Vec<&'static str> = Vec::new();
         // Wren's bounties: what the delve just did. A finished one is paid
         // on the spot, and Wren pins the next. Progress is saved between
@@ -342,16 +387,22 @@ impl App {
             changed = true;
         }
         said.extend(barony.said);
+        said.extend(college_news.into_iter().map(|line| ("college".into(), line)));
         earned.extend(barony.earned);
-        // The stables and the lists: the saddled mount, the tending, bouts.
-        let stable_said = shooter::joust::settle_stable(&mut realm.home.stable, &marks);
-        if marks
-            .keys()
-            .any(|m| m.starts_with("joust:") || m.starts_with("stable:"))
-        {
-            changed = true;
-        }
-        said.extend(stable_said);
+        // The games and places: the lists and their stables and market, the
+        // Hippodrome's purses, the Court of Deeds, the ranch
+        // (`activity::settle_all`).
+        let games = shooter::activity::settle_all(
+            &mut shooter::activity::Realm {
+                home: &mut realm.home,
+                treasury: &mut realm.treasury,
+                reclaimed: &realm.reclaimed,
+                raids_won: realm.raids_won,
+            },
+            &marks,
+        );
+        changed |= games.changed;
+        said.extend(games.said);
         // Experience: every knight in the party learns from what fell. A
         // new level is a lesson waiting with Sir Ector.
         let xp = marks.get("xp").copied().unwrap_or(0);
@@ -390,6 +441,27 @@ impl App {
             realm.home.goblins += escapes;
             changed = true;
         }
+        // The surface peddler is paid from the treasury, as Grubbins is.
+        let mut peddles = Vec::new();
+        for &(purchase, gold) in &peddled {
+            let mut cost = crate::drive::together_realm::Spoils::default();
+            cost.add(crate::drive::together_realm::Spoil::Gold, gold);
+            if !realm.treasury.covers(&cost) {
+                said.push((
+                    "cant_afford".into(),
+                    format!(
+                        "That's {gold} gold, and the treasury holds {}.",
+                        realm
+                            .treasury
+                            .get(crate::drive::together_realm::Spoil::Gold)
+                    ),
+                ));
+                continue;
+            }
+            realm.treasury.take(&cost);
+            changed = true;
+            peddles.push(purchase);
+        }
         let mut sales: Vec<(usize, u32)> = Vec::new();
         let mut unboxed: Option<(shooter::feats::Tier, crate::drive::together_realm::Spoils)> =
             None;
@@ -413,7 +485,9 @@ impl App {
                         "cant_afford".into(),
                         format!(
                             "Grubbins: that's {price} gold, friend. You've got {}.",
-                            realm.treasury.get(crate::drive::together_realm::Spoil::Gold)
+                            realm
+                                .treasury
+                                .get(crate::drive::together_realm::Spoil::Gold)
                         ),
                     ));
                     continue;
@@ -641,28 +715,44 @@ impl App {
                 self.dungeon.realm = Some(realm_before);
             }
             self.dungeon.bounties_unsaved = unsaved;
-            if let Some(run) = self.dungeon.shooter.as_mut() {
-                run.orders = orders;
-                run.feats = noticed;
-                run.marks = marks;
+            // Back into the run, beside whatever it noted meanwhile.
+            if let Some(mut run) = self.dungeon.shooter.as_mut() {
+                let run = &mut *run;
+                run.orders.splice(0..0, orders);
+                run.peddled.splice(0..0, peddled.iter().map(|&(p, _)| p));
+                run.feats.splice(0..0, noticed);
+                for (mark, n) in marks {
+                    *run.marks.entry(mark).or_default() += n;
+                }
             }
             self.dungeon.notice = format!("Could not save the realm: {error}");
-            self.publish_realm();
             return false;
         }
         let (home, treasury) = (realm.home.clone(), realm.treasury.clone());
+        // What angelX's work did to the holdings reaches the run without a
+        // full rebuild.
+        if let Some(mut run) = self.dungeon.shooter.as_mut()
+            && run.home.holdings != home.holdings
+        {
+            run.home.holdings = home.holdings.clone();
+        }
         self.dungeon.bounties_unsaved = unsaved && !changed;
-        if let Some(run) = self.dungeon.shooter.as_mut()
+        if let Some(mut run) = self.dungeon.shooter.as_mut()
             && (changed
                 || run.treasury != treasury
                 || run.home.levels != home.levels
+                || run.home.countryside != home.countryside
+                || run.home.college != home.college
                 || (!fighting && run.home.knights != home.knights))
         {
             run.rebuild_home(home, treasury);
         }
-        if let Some(run) = self.dungeon.shooter.as_mut() {
+        if let Some(mut run) = self.dungeon.shooter.as_mut() {
             for &(item, knight) in &sales {
                 run.sell(item, knight);
+            }
+            for &purchase in &peddles {
+                run.peddle(purchase);
             }
             for feat in &announced {
                 run.announce(feat.id);
@@ -699,6 +789,78 @@ impl App {
         true
     }
 
+    /// angelX's own work since the last settle, folded into the holdings:
+    /// stores, walls, labour, scrolls, retainers, patrols and unrest (never
+    /// gold), saved with the realm and shown in the open run.
+    pub(crate) fn flush_holdings_ops(&mut self) {
+        if self.dungeon.ops.is_empty() {
+            return;
+        }
+        let ops = std::mem::take(&mut self.dungeon.ops);
+        let realm = self.realm();
+        let said = shooter::holdings::feed(&mut realm.home.holdings, &ops);
+        // A failed save keeps the change in memory; the next save carries it.
+        let _ = realm.save();
+        let holdings = realm.home.holdings.clone();
+        if let Some(mut run) = self.dungeon.shooter.as_mut() {
+            run.home.holdings = holdings;
+        }
+        if let Some(line) = said.last() {
+            self.dungeon.notice = line.clone();
+        }
+    }
+
+    /// A tool call starts: a subagent is a retainer at once; a commit, a
+    /// test run or a compaction waits for its result.
+    pub(crate) fn note_ops_call(&mut self, id: &str, name: &str, args: &str) {
+        match op_of_call(name, args) {
+            Some((op, true)) => self.dungeon.ops.note(op),
+            Some((op, false)) if self.dungeon.ops_calls.len() < 64 => {
+                self.dungeon.ops_calls.insert(id.to_string(), op);
+            }
+            _ => {}
+        }
+    }
+
+    /// A tool call's result: counted for the holdings when it came back clean.
+    pub(crate) fn note_ops_result(&mut self, id: &str, clean: bool) {
+        if let Some(op) = self.dungeon.ops_calls.remove(id)
+            && clean
+        {
+            self.dungeon.ops.note(op);
+        }
+    }
+
+    /// A turn's spend: its fresh tokens and cache hits, and whether it was
+    /// slow.
+    pub(crate) fn note_ops_turn(&mut self, cache: u64, fresh: u64, secs: u64) {
+        let ops = &mut self.dungeon.ops;
+        ops.cache += cache;
+        ops.tokens += fresh;
+        if secs >= shooter::holdings::SLOW_TURN_SECS {
+            ops.slow += 1;
+        }
+    }
+
+    /// A turn ends: a failed one stirs unrest; calls that never reported
+    /// are forgotten; the holdings hear it all.
+    pub(crate) fn note_ops_end(&mut self, ok: bool) {
+        if !ok {
+            self.dungeon.ops.errors += 1;
+        }
+        self.dungeon.ops_calls.clear();
+        self.flush_holdings_ops();
+    }
+
+    /// The loop's iterations so far: each new one is a patrol.
+    pub(crate) fn note_ops_loop(&mut self, iteration: usize) {
+        if iteration > self.dungeon.ops_loop {
+            let new = (iteration - self.dungeon.ops_loop).min(64) as u32;
+            self.dungeon.ops.loops += new;
+        }
+        self.dungeon.ops_loop = iteration;
+    }
+
     /// When angelX's drafting turn ends, read its draft in — no command needed.
     pub(crate) fn watch_drafting(&mut self) {
         let Some((id, started, seen)) = self.dungeon.drafting.clone() else {
@@ -730,28 +892,6 @@ impl App {
                 path.display()
             )
         };
-        self.publish_realm();
-    }
-
-    /// The guest page shows the treasury and the wishes.
-    pub(crate) fn publish_realm(&mut self) {
-        if self.dungeon.guest.is_none() {
-            return;
-        }
-        // Redraw the realm picture when a wish rises (and once per guest).
-        let standing = self.realm().built().len();
-        if self.dungeon.realm_drawn != Some(standing) {
-            self.dungeon.realm_drawn = Some(standing);
-            let img = crate::stage::world_viz::overworld::wish_view(&self.world.overworld_scene());
-            if let Some(server) = &self.dungeon.guest {
-                server.set_realm_picture(&img.rgb_bytes(), img.w as u32, img.h as u32);
-            }
-        }
-        let drafting = self.dungeon.drafting.as_ref().map(|(id, _, _)| id.clone());
-        let view = crate::drive::together_guest::RealmHud::of(self.realm(), drafting);
-        if let Some(server) = &self.dungeon.guest {
-            server.set_realm(view);
-        }
     }
 
     /// Where angelX writes a wish's draft in this workspace.
@@ -772,7 +912,6 @@ impl App {
             }
             Err(error) => error,
         };
-        self.publish_realm();
         message
     }
 
@@ -816,7 +955,6 @@ impl App {
             self.cursor = self.input.len();
             self.submit();
             self.dungeon.drafting = Some((id.clone(), std::time::Instant::now(), false));
-            self.publish_realm();
             return format!(
                 "angelX is drafting “{}”. Its draft is read in when the turn ends; then /dungeon grant {id} raises it once the treasury can pay.",
                 wish.words
@@ -829,12 +967,22 @@ impl App {
                 self.dungeon
                     .chorus
                     .cue(&format!("wish_raised:{id}"), std::time::Instant::now());
-                message
+                // Say so when the realm has no ground left to stand it on,
+                // rather than raise it out of sight.
+                let homeless =
+                    crate::stage::world_viz::overworld::wishes::unplaced(&self.realm().built());
+                if homeless.is_empty() {
+                    message
+                } else {
+                    format!(
+                        "{message}, but the realm has no free ground to show {} yet",
+                        homeless.join(", ")
+                    )
+                }
             }
             Err(error) => error,
         };
         self.dungeon.notice = message.clone();
-        self.publish_realm();
         message
     }
 
@@ -865,6 +1013,15 @@ impl App {
                         continue;
                     }
                 };
+                // Pictures named by `sheet art <file>` are cut into rows.
+                let sheets = self.tools.current_workspace().join(".angel/realm/sheets");
+                let raw = match crate::drive::together_sheets::inline(&raw, &sheets, realm::ART as u32) {
+                    Ok(raw) => raw,
+                    Err(errors) => {
+                        report.push(format!("{stem}: {}", errors.join("; ")));
+                        continue;
+                    }
+                };
                 match realm::check(&stem, &raw) {
                     Ok((draft, notes)) => {
                         let name = draft.name.clone();
@@ -881,7 +1038,6 @@ impl App {
                 }
             }
             let _ = self.realm().save();
-            self.publish_realm();
             return if report.is_empty() {
                 format!("No drafts in {}.", dir.display())
             } else {
@@ -928,3 +1084,28 @@ impl App {
         out.join("\n")
     }
 }
+
+/// What a tool call is to the holdings, by the herald's reading of it: a
+/// commit, a test run, a compaction (each counted when it comes back
+/// clean), or a subagent sent out (counted as it goes).
+pub(crate) fn op_of_call(name: &str, args: &str) -> Option<(shooter::holdings::Op, bool)> {
+    use crate::stage::world_viz::{Deed as Work, herald};
+    use shooter::holdings::Op;
+    let leaf = name.rsplit(['.', ':', '/']).next().unwrap_or(name).to_ascii_lowercase();
+    if matches!(leaf.as_str(), "spawn" | "delegate") {
+        return Some((Op::Subagents, true));
+    }
+    if leaf.contains("compact") {
+        return Some((Op::Compactions, false));
+    }
+    let told = herald(name, args);
+    match told.deed {
+        Work::Seal => Some((Op::Commits, false)),
+        Work::Trial if told.object.contains("test") => Some((Op::Tests, false)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/app/together_holdings__tests.rs"]
+mod holdings_tests;

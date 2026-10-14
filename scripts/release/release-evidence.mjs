@@ -125,6 +125,8 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/skills/test-driven-development/SKILL.md',
   'cockpit/skills/verify-changes/SKILL.md',
   'cockpit/skills/write-skill/SKILL.md',
+  'cockpit/fixtures/sheets/golden-devils.png',
+  'cockpit/fixtures/sheets/spiked-pavise.png',
   'cockpit/fixtures/agentviz-portal/empty-v2.json',
   'cockpit/fixtures/agentviz-portal/invalid-v2.json',
   'cockpit/fixtures/agentviz-portal/normal-v2.json',
@@ -204,6 +206,9 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/dungeon/bosses/unknown-memory-warden.boss',
   'cockpit/assets/dungeon/bosses/unknown-silence-warden.boss',
   'cockpit/assets/dungeon/bosses/waxen-warden.boss',
+  'cockpit/assets/dungeon/bosses/grinwick.boss',
+  'cockpit/assets/dungeon/bosses/the-big-ripper.boss',
+  'cockpit/assets/dungeon/cards/axe-spin.card',
   'cockpit/assets/dungeon/cards/bodkin-heads.card',
   'cockpit/assets/dungeon/cards/bomb.card',
   'cockpit/assets/dungeon/cards/bone.card',
@@ -239,12 +244,20 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/dungeon/cards/scale.card',
   'cockpit/assets/dungeon/cards/swift-spurs.card',
   'cockpit/assets/dungeon/cards/thunder-scroll.card',
+  'cockpit/assets/dungeon/cards/twin-axes.card',
   'cockpit/assets/dungeon/cards/twin-string.card',
   'cockpit/assets/dungeon/cards/wax.card',
-  'cockpit/assets/dungeon/guest.html',
+  'cockpit/assets/dungeon/cards/body-armour.card',
+  'cockpit/assets/dungeon/cards/cabbage-storm.card',
+  'cockpit/assets/dungeon/cards/hedge-maze.card',
+  'cockpit/assets/dungeon/cards/iron-helm.card',
+  'cockpit/assets/dungeon/cards/the-imposture.card',
   'cockpit/assets/dungeon/phrasebook.txt',
   'cockpit/assets/dungeon/voices/chorus.txt',
   'cockpit/assets/realm/houses/houses.json',
+  'cockpit/assets/realm/props/dragon_skull.obj',
+  'cockpit/assets/realm/props/knight_statue.obj',
+  'cockpit/assets/realm/props/siege_perilous.obj',
   'cockpit/assets/realm/wishes/beacon-tower.wish',
   'cockpit/assets/realm/wishes/fellowship-stone.wish',
   'cockpit/assets/realm/wishes/grail-chapel.wish',
@@ -261,6 +274,27 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   // Synthetic wire fixtures consumed by the provider parser tests.
   'cockpit/fixtures/usage/native-usage-wire-v1.json',
   'cockpit/fixtures/usage/supplemental-chat-usage-wire-v1.json',
+  'cockpit/assets/dungeon/chariot/chariot_e_a.ink',
+  'cockpit/assets/dungeon/chariot/chariot_e_b.ink',
+  'cockpit/assets/dungeon/chariot/chariot_n_a.ink',
+  'cockpit/assets/dungeon/chariot/chariot_n_b.ink',
+  'cockpit/assets/dungeon/chariot/chariot_s_a.ink',
+  'cockpit/assets/dungeon/chariot/chariot_s_b.ink',
+  'cockpit/assets/dungeon/wish-art/chain.art',
+  'cockpit/assets/dungeon/wish-art/fleet.art',
+  'cockpit/assets/dungeon/wish-art/heavy.art',
+  'cockpit/assets/dungeon/wish-art/iron.art',
+  'cockpit/assets/dungeon/wish-art/leech.art',
+  'cockpit/assets/dungeon/wish-art/mend.art',
+  'cockpit/assets/dungeon/wish-art/morningstar.art',
+  'cockpit/assets/dungeon/wish-art/pierce.art',
+  'cockpit/assets/dungeon/wish-art/powder.art',
+  'cockpit/assets/dungeon/wish-art/quick.art',
+  'cockpit/assets/dungeon/wish-art/ricochet.art',
+  'cockpit/assets/dungeon/wish-art/seeker.art',
+  'cockpit/assets/dungeon/wish-art/stout.art',
+  'cockpit/assets/dungeon/wish-art/twin.art',
+  'cockpit/assets/dungeon/wish-art/volley.art',
 ])
 
 export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
@@ -295,6 +329,9 @@ export const REQUIRED_RUNTIME_HELPERS = Object.freeze([
 
 const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/FEATURES.md',
+  'docs/RELEASE_0.2.3.md',
+  'docs/ENGINE.md',
+  'docs/images/engine/seats.png',
   'docs/RELEASE_0.2.1.md',
   'docs/RELEASE_0.2.0.md',
   'docs/RELEASE_0.1.9.md',
@@ -302,6 +339,10 @@ const PUBLIC_RELEASE_DOCS = Object.freeze([
   'docs/world-school.md',
   'docs/GRAPH_GARDEN.md',
   'docs/DELVE.md',
+  'docs/DELVE-FEEL-REVIEW.md',
+  'docs/KINGDOM.md',
+  'docs/SCHOOL.md',
+  'docs/ART-V2.md',
   'docs/DELVE-LORE.md',
   'docs/CASTLES.md',
   'docs/BARONY.md',
@@ -410,6 +451,9 @@ export const RELEASE_PATHS = Object.freeze([
   'cockpit/README.md',
   'cockpit/Cargo.lock',
   'cockpit/src',
+  // The engine's crates: the cockpit's path dependencies (the Delve, its net
+  // and server) and the browser client build.rs compiles and embeds.
+  'crates',
   'tests/cockpit',
   'tests/README.md',
   'cockpit/assets',
@@ -496,6 +540,10 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'cockpit/Cargo.toml',
   'cockpit/Cargo.lock',
   'cockpit/src/main.rs',
+  'crates/Cargo.toml',
+  'crates/Cargo.lock',
+  'crates/delve/src/lib.rs',
+  'crates/web/delve/Cargo.toml',
   'tests/cockpit/integration/interactive_terminal_smoke.rs',
   ...REQUIRED_COCKPIT_EMBEDDED_FILES,
   'cockpit/research/sloptomizer/README.md',
@@ -592,6 +640,7 @@ export function isCockpitSourceIdentityInput(path) {
     path === 'cockpit/build.rs' ||
     path.startsWith('cockpit/src/') ||
     path.startsWith('tests/cockpit/') ||
+    path.startsWith('crates/') ||
     path === 'vendor/dotmax/Cargo.toml' ||
     path.startsWith('vendor/dotmax/src/') ||
     REQUIRED_COCKPIT_EMBEDDED_FILES.includes(path)
@@ -1157,6 +1206,7 @@ function inspectSupplyChainPolicy(repoRoot, metadata, toolchain, releaseEntries)
   const expectedLockfiles = new Map([
     ['cockpit/Cargo.lock', 'crates.io'],
     ['cockpit/portal-renderer/Cargo.lock', 'crates.io'],
+    ['crates/Cargo.lock', 'crates.io'],
     ['package-lock.json', 'npm'],
   ])
   if (

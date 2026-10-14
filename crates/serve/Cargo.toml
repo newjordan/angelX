@@ -1,0 +1,30 @@
+[package]
+name = "angel-serve"
+version = "0.1.0"
+description = "The engine's server: WebSocket and HTTP on blocking sockets, sessions and links, a writer per client, telemetry"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# wss:// for the native client (`client::WsClient`, `client::NativeLink`):
+# a friend's angelX joining through Funnel or a relay. The server itself
+# speaks plain sockets; a door in front of it terminates TLS.
+tls = ["dep:rustls", "dep:webpki-roots"]
+
+[dependencies]
+angel-net = { path = "../net" }
+# Precompressing the client bundle once at start (pure Rust backend).
+flate2 = "1"
+# Join keys and seat tokens from the OS's random source, on every host.
+getrandom = "0.4"
+# The link's QR code for the terminal; no image or svg rendering.
+qrcode = { version = "0.14", default-features = false }
+# TLS for wss:// links. ring, not aws-lc-rs: nothing more than a C compiler
+# to build on Linux, macOS and Windows, and the cockpit carries it already.
+# TLS 1.2 too, for a relay or a proxy that speaks no 1.3.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+# Mozilla's root certificates, compiled in: one trust on every OS with
+# nothing to configure (see `client::Trust`).
+webpki-roots = { version = "1", optional = true }

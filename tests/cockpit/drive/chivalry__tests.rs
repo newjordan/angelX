@@ -1,28 +1,6 @@
 use super::*;
 
 #[test]
-fn each_mount_rides_differently_at_the_lists() {
-    let (b, c, m) = (
-        Mount::Bramble.steed(),
-        Mount::Cinder.steed(),
-        Mount::Mist.steed(),
-    );
-    // Bramble: the most balance and the widest brace.
-    assert!(b.balance > c.balance && b.balance > m.balance);
-    assert!(b.brace > c.brace && b.brace > m.brace);
-    // Cinder: the soonest meeting and the heaviest hit.
-    assert!(c.charge < b.charge && c.charge < m.charge);
-    assert!(c.weight > b.weight && c.weight > m.weight);
-    // Mist: the widest strike and the earliest read of the rival's guard.
-    assert!(m.strike > b.strike && m.strike > c.strike);
-    assert!(m.tell > b.tell && m.tell > c.tell);
-    for mount in Mount::ALL {
-        assert_eq!(Mount::parse(&mount.name().to_lowercase()), Some(mount));
-        assert!(!mount.says().is_empty());
-    }
-}
-
-#[test]
 fn places_parse_from_the_words_commands_use() {
     for word in ["stable", "Stables"] {
         assert_eq!(Place::parse(word), Some(Place::Stables));

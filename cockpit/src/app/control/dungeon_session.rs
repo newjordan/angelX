@@ -1,27 +1,37 @@
 //! Private, atomic checkpoints for live game rebuilds. No harness conversation
 //! or credentials are saved here; the game invite itself is owner-readable.
 use super::*;
-use crate::drive::{together_guest::GuestServer, together_shooter::Run};
-use serde::{Deserialize, Serialize};
+use super::dungeon::{Hosting, MAX_FRIENDS};
+use crate::drive::together_shooter::Run;
+use serde::Deserialize;
 use std::{
-    io::{Read, Write},
+    collections::BTreeMap,
+    io::Read,
     path::Path,
     time::{Duration, Instant},
 };
 
-#[derive(Serialize, Deserialize)]
+/// The checkpoint as it is read back (`together_sim::write_checkpoint`
+/// writes it).
+#[derive(Deserialize)]
 struct Saved {
     version: u32,
     raid_serial: u64,
     run: Run,
+    /// The hosted session's address and join key: a restart opens the same
+    /// link again. (An older save's invitation tokens: the first is the key.)
     invitation: Option<(String, String)>,
+    /// Country intents awaiting an atomic realm commit. Never serialize the
+    /// general combat/bounty marks or expose these requests on the guest wire.
+    #[serde(default)]
+    country_intents: BTreeMap<String, u32>,
 }
 
 impl DungeonView {
+    /// Save the delve now (`force`), or when the last save is three
+    /// seconds old. The sim thread saves on its own clock as it plays;
+    /// this is for the moments the cockpit must be sure of one.
     pub(super) fn checkpoint(&mut self, now: Instant, force: bool) -> Result<(), String> {
-        let (Some(path), Some(run)) = (&self.save_path, &self.shooter) else {
-            return Ok(());
-        };
         if !force
             && self
                 .last_saved
@@ -29,38 +39,11 @@ impl DungeonView {
         {
             return Ok(());
         }
-        let saved = Saved {
-            version: 1,
-            raid_serial: self.raid_serial,
-            run: run.clone(),
-            invitation: self.guest.as_ref().map(GuestServer::saved_invitation),
+        self.shooter.latch();
+        let (Some(path), Some(run)) = (&self.save_path, self.shooter.as_ref()) else {
+            return Ok(());
         };
-        let bytes = serde_json::to_vec(&saved).map_err(|e| e.to_string())?;
-        let parent = path.parent().ok_or("invalid dungeon save path")?;
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        let temp = path.with_extension(format!("{}.next", std::process::id()));
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        // A stale temp from an interrupted save is not a checkpoint.
-        if temp.exists() {
-            std::fs::remove_file(&temp).map_err(|e| e.to_string())?;
-        }
-        let result = (|| -> std::io::Result<()> {
-            let mut file = options.open(&temp)?;
-            file.write_all(&bytes)?;
-            file.sync_all()?;
-            std::fs::rename(&temp, path)?;
-            Ok(())
-        })();
-        if result.is_err() {
-            let _ = std::fs::remove_file(&temp);
-        }
-        result.map_err(|e| e.to_string())?;
+        crate::drive::together_sim::write_checkpoint(path, self.raid_serial, run, self.shooter.invitation())?;
         self.last_saved = Some(now);
         Ok(())
     }
@@ -68,6 +51,8 @@ impl DungeonView {
     pub(crate) fn restore(&mut self, workspace: &Path) -> Result<(), String> {
         let path = workspace.join(".angel/dungeon/session.json");
         self.save_path = Some(path.clone());
+        // The knobs moved from a dev panel or `/dungeon tune`, beside it.
+        self.shooter.set_tune_file(workspace.join(".angel/dungeon/tune.json"));
         let file = match std::fs::File::open(&path) {
             Ok(file) => file,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -80,18 +65,44 @@ impl DungeonView {
         if bytes.len() > 2 * 1024 * 1024 {
             return Err("dungeon save is too large".into());
         }
-        let saved: Saved = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-        if saved.version != 1 || !saved.run.valid_snapshot() {
+        let mut saved: Saved = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        if saved.version != 1
+            || !saved.run.valid_snapshot()
+            || saved.country_intents.len() > crate::drive::together_shooter::countryside::INTENT_LIMIT
+            || !saved.country_intents.iter().all(|(key, value)| {
+                crate::drive::together_shooter::countryside::intent_valid(key,*value)
+            })
+        {
             return Err("invalid dungeon checkpoint".into());
         }
-        let guest = saved
+        saved.run.marks = saved.country_intents;
+        // A valid old checkpoint must receive authored roads immediately,
+        // even when no reward/purchase will trigger rebuild_home this tick.
+        crate::drive::together_shooter::world::raise_world(&mut saved.run.dungeon);
+        saved.run.migrate_kingdom();
+        if !saved.run.valid_snapshot() {
+            return Err("invalid migrated dungeon checkpoint".into());
+        }
+        let door = saved
             .invitation
-            .map(|(bind, token)| GuestServer::resume(&bind, &token))
+            .map(|(bind, key)| {
+                let key = key.split(',').next().unwrap_or_default().to_string();
+                crate::drive::together_door::bind(&bind).map(|bind| (bind, key))
+            })
             .transpose()?;
         self.raid_serial = saved.raid_serial.max(saved.run.raid_id);
-        self.shooter = Some(saved.run);
-        self.guest = guest;
-        self.notice = "Delve restored · same run and invitation · F6 rejoins".into();
+        self.shooter.set(Some(saved.run));
+        if let Some((bind, key)) = door {
+            let friends = MAX_FRIENDS;
+            self.shooter.host(crate::drive::together_sim::Door {
+                bind,
+                seats: 1 + friends as u32,
+                key: Some(key),
+                bundle: crate::drive::together_web::bundle(),
+            })?;
+            self.hosting = Some(Hosting { friends, watch: Hosting::watch_by_default() });
+        }
+        self.notice = "Delve restored · same run and link · F6 rejoins".into();
         self.last_saved = Some(Instant::now());
         Ok(())
     }
@@ -138,10 +149,18 @@ mod tests {
         let dir = TempDir::new();
         let mut view = DungeonView::default();
         view.restore(dir.path()).unwrap();
-        view.shooter = Some(Run::new(12, 7, Some("Friend")));
+        view.shooter.set(Some(Run::new(12, 7, Some("Friend"))));
         view.raid_serial = 7;
-        view.guest = Some(GuestServer::start("127.0.0.1:0").unwrap());
-        let invitation = view.guest.as_ref().unwrap().invitation_url();
+        view.shooter
+            .host(crate::drive::together_sim::Door {
+                bind: "127.0.0.1:0".parse().unwrap(),
+                seats: 2,
+                key: None,
+                bundle: None,
+            })
+            .unwrap();
+        view.hosting = Some(Hosting { friends: 1, watch: false });
+        let invitation = view.shooter.invitation().unwrap();
         view.shooter
             .as_mut()
             .unwrap()
@@ -166,10 +185,8 @@ mod tests {
         drop(view);
         let mut restored = DungeonView::default();
         restored.restore(dir.path()).unwrap();
-        assert_eq!(
-            restored.guest.as_ref().unwrap().invitation_url(),
-            invitation
-        );
+        assert_eq!(restored.shooter.invitation().unwrap(), invitation);
+        assert!(restored.hosting.is_some());
         assert_eq!(
             serde_json::to_value(restored.shooter.as_ref().unwrap()).unwrap(),
             run
@@ -182,7 +199,7 @@ mod tests {
         let dir = TempDir::new();
         let mut view = DungeonView::default();
         view.restore(dir.path()).unwrap();
-        view.shooter = Some(Run::new(12, 7, None));
+        view.shooter.set(Some(Run::new(12, 7, None)));
         view.checkpoint(Instant::now(), true).unwrap();
         let path = view.save_path.clone().unwrap();
         drop(view);
@@ -192,6 +209,10 @@ mod tests {
         std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
         let mut restored = DungeonView::default();
         assert!(restored.restore(dir.path()).is_err());
-        assert!(restored.shooter.is_none() && restored.guest.is_none());
+        assert!(restored.shooter.is_none() && restored.hosting.is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/app/dungeon_session__tests.rs"]
+mod view_tests;

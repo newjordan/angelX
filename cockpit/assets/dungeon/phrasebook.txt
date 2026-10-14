@@ -5,42 +5,46 @@
 # Anyone can add one; the card checker bounds every effect line.
 #
 #   wish <id> | <Name>
+#   kind <hold | spell | guard>          (hold when left out)
 #   say  <a way a player puts it> | <another> ...
-#   tier <card effect lines, ; between> :: <what the scroll says>
+#   tier <card lines, ; between> :: <what the scroll says>
+#   draw <slot> [at=<place>] [from tier]
+#   <rows of inks, frames side by side with | between>
 #
 # Effects are the card words (see /dungeon cards new): volley, bounce,
 # homing, chain, mend, pierce, shots, damage, rate, speed, armor, vamp,
-# max_hp.
+# max_hp, orbit, burst; spells add cast, heal, ward, nova and summon.
+# Sprites (worn, shot, orbit, summon, aura) are how a wish shows in play.
 
 wish volley | Triple Volley
 say triple wide fire my shots | triple shot | fire three | three wide | spread my shots | spread shot | shotgun | wide shots | triple fire
+tier volley 8 :: Every 8th shot flies three wide.
+tier volley 6 :: Every 6th shot flies three wide.
 tier volley 5 :: Every 5th shot flies three wide.
-tier volley 3 :: Every 3rd shot flies three wide.
-tier volley 1 :: Every shot flies three wide.
 
 wish ricochet | Ricochet
 say bounce my shots | shots bounce | bouncing shots | ricochet | bank shots | bounce off walls
 tier bounce 1 :: Shots bounce off a wall once.
 tier bounce 2 :: Shots bounce off walls twice.
-tier bounce 3 :: Shots bounce off walls three times.
+tier bounce 2; damage 8 :: Shots bounce off walls twice, and hit a little harder.
 
 wish seeker | Seeker Fletching
 say homing shots | seeking arrows | shots that follow | heat seeking | my shots find them | curve my shots | aim for me | homing
 tier homing 1 :: Shots curve gently toward monsters.
 tier homing 2 :: Shots curve hard toward monsters.
-tier homing 3 :: Shots hunt the nearest monster.
+tier homing 2; damage 8 :: Shots hunt the nearest monster, and hit a little harder.
 
 wish chain | Chain Spark
 say chain lightning | lightning shots | shots chain | spark between them | arc lightning | electric shots
-tier chain 1 :: A hit sparks on to one more monster.
-tier chain 2 :: A hit sparks on to two more monsters.
-tier chain 3 :: A hit sparks on to three more monsters.
+tier chain 1 :: A hit sparks on to one more monster, for half.
+tier chain 1; damage 8 :: A hit sparks on to one more monster, and hits a little harder.
+tier chain 1; damage 15 :: A hit sparks on to one more monster, and hits harder.
 
 wish mend | Mending Strike
 say heal my friend when i hit | heal on hit | heal my team | healing shots | mend my friends | support | medic
-tier mend 1 :: Each hit mends the most hurt friend by 1.
-tier mend 2 :: Each hit mends the most hurt friend by 2.
-tier mend 4 :: Each hit mends the most hurt friend by 4.
+tier mend 1 :: Your hits mend the most hurt friend by 1, 2 a second at most.
+tier mend 2 :: Your hits mend the most hurt friend by 2, 2 a second at most.
+tier mend 2; vamp 1 :: Your hits mend a friend by 2, and you mend 1 as monsters fall.
 
 wish pierce | Bodkin Heads
 say pierce | piercing shots | shots go through | through them all | penetrate | armor piercing
@@ -51,25 +55,25 @@ tier pierce 2; damage 15 :: Through two more, and harder.
 wish twin | Twin Fletch
 say more shots | extra arrow | double shot | two arrows | twin shot | fire two
 tier shots 1 :: One more shot, every shot.
-tier shots 2 :: Two more shots, every shot.
+tier shots 1; damage 10 :: One more shot, every shot, and harder.
 
 wish quick | Quick Hands
 say fire faster | shoot faster | faster attacks | rapid fire | attack speed | machine gun | quicker
 tier rate 10 :: Shoot and swing 10% faster.
 tier rate 20 :: Shoot and swing 20% faster.
-tier rate 35 :: Shoot and swing 35% faster.
+tier rate 30 :: Shoot and swing 30% faster.
 
 wish heavy | Heavy Heads
 say hit harder | more damage | stronger shots | big hits | damage up | power
-tier damage 15 :: Shots and swings hit 15% harder.
-tier damage 30 :: Shots and swings hit 30% harder.
-tier damage 45 :: Shots and swings hit 45% harder.
+tier damage 12 :: Shots and swings hit 12% harder.
+tier damage 25 :: Shots and swings hit 25% harder.
+tier damage 40 :: Shots and swings hit 40% harder.
 
 wish fleet | Fleet Foot
 say move faster | run faster | speed up | faster | quick feet | zoom
 tier speed 10 :: Walk 10% faster.
 tier speed 20 :: Walk 20% faster.
-tier speed 30 :: Walk 30% faster.
+tier speed 25 :: Walk 25% faster.
 
 wish stout | Stout Heart
 say more health | more hp | tougher | bigger health | live longer | more life
@@ -79,24 +83,36 @@ tier max_hp 40 :: 40 more health, for good.
 
 wish iron | Iron Skin
 say armor | armour | take less damage | iron skin | thick skin | defense up
-tier armor 1 :: Each hit stings 3 less.
-tier armor 2 :: Each hit stings 6 less.
-tier armor 2; max_hp 10 :: Each hit stings 6 less, and 10 more health.
+tier armor 1 :: Iron pauldrons: 6 in the hundred of every hit turned aside.
+tier armor 2 :: Heavier iron: 11 in the hundred of every hit turned aside.
+tier armor 2; max_hp 10 :: Spiked iron: 11 in the hundred turned aside, and 10 more health.
+draw worn at=shoulders
+..hhh..........hhh..
+.hiiJh........hJiih.
+.hJJJh........hJJJh.
+..jjj..........jjj..
+
+draw worn at=shoulders 3
+..W..W........W..W..
+..H..H........H..H..
+.hiiiJh......hJiiih.
+hiJJJJh......hJJJJih
+.hjjjjh......hjjjjh.
 
 wish leech | Blood Drinker
 say lifesteal | life steal | vampire | heal when i kill | drain | leech
-tier vamp 3 :: Mend 3 for each monster slain.
-tier vamp 6 :: Mend 6 for each monster slain.
-tier vamp 10 :: Mend 10 for each monster slain.
+tier vamp 1 :: Mend 1 as monsters fall, 2 a second at most.
+tier vamp 2 :: Mend 2 as monsters fall, 2 a second at most.
+tier vamp 3 :: Mend 3 as monsters fall, 2 a second at most.
 
 wish morningstar | Morningstar
 say morningstar | orbiting morningstar | spinning flail | flail around me | spin around me | orbit | blades around me | spinning ball | hammers around me
 tier orbit 1 :: A morningstar spins close round you.
 tier orbit 2 :: Two morningstars spin close round you.
-tier orbit 3 :: Three morningstars spin close round you.
+tier orbit 2; damage 10 :: Two morningstars spin close round you, and you hit harder.
 
 wish powder | Blasting Powder
 say explosive shots | exploding arrows | shots explode | explosive | blast them | boom | splash damage | area damage
+tier burst 15 :: Shots burst where they hit, 15 in the hundred of their sting around.
 tier burst 20 :: Shots burst where they hit, a fifth of their sting around.
-tier burst 35 :: Shots burst where they hit, a third of their sting around.
-tier burst 50 :: Shots burst where they hit, half their sting around.
+tier burst 25 :: Shots burst where they hit, a quarter of their sting around.

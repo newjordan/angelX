@@ -1,7 +1,7 @@
 name   Crossbow
 kind   arm
 rarity rare
-text   Slow to wind; the bolt goes through the first foe.
+text   A rail: the bolt goes through everything in its line.
 drop   6
 chest  3
 arm    crossbow

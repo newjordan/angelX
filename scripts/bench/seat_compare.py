@@ -17,7 +17,7 @@ import statistics
 
 RR = Path("/home/frosty40/angel_tests/angelX-bench/polyglot-20260921")
 spec = importlib.util.spec_from_file_location(
-    "polyglot_history", Path(__file__).resolve().parents[1] / "analyze-polyglot-history.py")
+    "polyglot_history", Path(__file__).resolve().parent / "polyglot" / "analyze-polyglot-history.py")
 history = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(history)
 TOKEN_FIELDS = ("input", "cached_input", "output", "reasoning")

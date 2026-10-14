@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 spec = importlib.util.spec_from_file_location(
-    "book_receipt_history", Path(__file__).resolve().parents[2] / "analyze-polyglot-history.py")
+    "book_receipt_history", Path(__file__).resolve().parents[1] / "polyglot" / "analyze-polyglot-history.py")
 history = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(history)
 FIELDS = ("prompt", "cached", "fresh", "completion", "reasoning")

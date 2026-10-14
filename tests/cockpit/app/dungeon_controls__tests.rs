@@ -1,6 +1,174 @@
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
 
+#[test]
+fn joined_angelx_ballot_taps_reach_the_host_in_order_and_close_locally() {
+    let _guard = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    fixture.allow_saves();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
+    let message = host.dungeon_command(Some("host --1"));
+    let link = link_of(&message);
+    let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
+    friend.terminal_focused = true;
+    friend.dungeon_command(Some(&format!("join {link}")));
+    let spin = |host: &mut App, friend: &mut App, ready: fn(&App, &App) -> bool| {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+        while !ready(host, friend) {
+            host.advance_shooter_at(std::time::Instant::now());
+            friend.advance_joined();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "ballot never reached the host"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    };
+    spin(&mut host, &mut friend, |host, friend| {
+        run(host).players.contains_key(&2)
+            && friend
+                .joined_knight()
+                .is_some_and(|k| k["ballot_open"].is_boolean())
+    });
+    press(&mut friend, KeyCode::Char('v'));
+    press(&mut friend, KeyCode::Char('5'));
+    press(&mut friend, KeyCode::Down);
+    press(&mut friend, KeyCode::Left);
+    press(&mut friend, KeyCode::Char('f'));
+    assert!(friend.dungeon.joined_ballot_open);
+    assert!(!friend.dungeon.local_inputs(std::time::Instant::now())[&1].fire);
+    spin(&mut host, &mut friend, |host, _| {
+        let run = run(host);
+        run.playtest.seats.get(&2).is_some_and(|s| s.selected == 1)
+            && run
+                .playtest
+                .records
+                .get(&run.players[&2].name)
+                .is_some_and(|r| r.contains_key("hud"))
+    });
+    let hosted_run = run(&host);
+    let votes = &hosted_run.playtest.records[&hosted_run.players[&2].name];
+    assert_eq!(
+        votes["controls"],
+        crate::drive::together_shooter::votes::Rating::Stars(5)
+    );
+    assert_eq!(
+        votes["hud"],
+        crate::drive::together_shooter::votes::Rating::Stars(1)
+    );
+    assert!(hosted_run.playtest.open(2) && !hosted_run.playtest.open(1));
+    press(&mut friend, KeyCode::Esc);
+    assert!(friend.dungeon.expanded && !friend.dungeon.joined_ballot_open);
+    spin(&mut host, &mut friend, |host, _| {
+        !run(host).playtest.open(2)
+    });
+}
+
+#[test]
+fn dungeon_ballot_keys_isolate_couch_seats_and_save_votes() {
+    let _guard = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    fixture.allow_saves();
+    let mut app = game();
+    fixture.bind(&mut app);
+    paint(&mut app, 120, 40);
+    // The host votes under their own name, not a placeholder.
+    let host_name = run(&app).players[&1].name.clone();
+    let muted = app.dungeon.audio.voices.muted;
+    press(&mut app, KeyCode::Char('v'));
+    assert!(run(&app).playtest.open(1));
+    assert!(!run(&app).playtest.open(2));
+    assert_eq!(app.dungeon.audio.voices.muted, muted);
+    let host = (run(&app).players[&1].x, run(&app).players[&1].y);
+    press(&mut app, KeyCode::Char('f'));
+    press(&mut app, KeyCode::Char('w'));
+    press(&mut app, KeyCode::Char('i'));
+    assert!(app.dungeon.local_inputs(std::time::Instant::now())[&2].move_y < 0);
+    advance(&mut app, 2);
+    assert_eq!(host, (run(&app).players[&1].x, run(&app).players[&1].y));
+    press(&mut app, KeyCode::Char('4'));
+    assert_eq!(
+        app.realm().votes[&host_name]["controls"],
+        crate::drive::together_shooter::votes::Rating::Stars(4)
+    );
+    let realm_path = app
+        .world
+        .rewards_path()
+        .unwrap()
+        .with_extension("realm.json");
+    let saved: crate::drive::together_realm::Realm =
+        serde_json::from_slice(&std::fs::read(realm_path).unwrap()).unwrap();
+    assert_eq!(
+        saved.votes[&host_name]["controls"],
+        crate::drive::together_shooter::votes::Rating::Stars(4)
+    );
+    assert!(
+        app.dungeon_command(Some("votes"))
+            .contains("New controls: 4.0/5 (1)")
+    );
+    let export = fixture.home.join(".angelX/playtest/votes-0.2.2.jsonl");
+    let lines: Vec<serde_json::Value> = std::fs::read_to_string(export)
+        .unwrap()
+        .lines()
+        .map(|s| serde_json::from_str(s).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0]["stars"], 4);
+    press(&mut app, KeyCode::Char('v'));
+    assert!(!run(&app).playtest.open(1));
+    press(&mut app, KeyCode::Char('b'));
+    assert!(run(&app).playtest.open(2));
+    assert_eq!(run(&app).playtest.local_seat(), 2);
+    press(&mut app, KeyCode::Char('9'));
+    assert_eq!(
+        app.realm().votes["Test Guest"]["controls"],
+        crate::drive::together_shooter::votes::Rating::Stars(5)
+    );
+    press(&mut app, KeyCode::Char('v'));
+    press(&mut app, KeyCode::Char('l'));
+    press(&mut app, KeyCode::Char('5'));
+    assert_eq!(
+        app.realm().votes["Test Guest"]["controls"],
+        crate::drive::together_shooter::votes::Rating::Stars(1)
+    );
+    assert_eq!(
+        app.realm().votes[&host_name]["controls"],
+        crate::drive::together_shooter::votes::Rating::Stars(4)
+    );
+    press(&mut app, KeyCode::Esc);
+    assert!(!run(&app).playtest.open(2));
+    assert!(run(&app).playtest.open(1));
+    press(&mut app, KeyCode::Esc);
+    assert!(!run(&app).playtest.open(1));
+    assert!(app.dungeon.expanded);
+    press(&mut app, KeyCode::Char('k'));
+    assert_eq!(app.dungeon.audio.voices.muted, muted, "K still walks P2");
+    app.on_key(event::KeyEvent::new(
+        KeyCode::Char('K'),
+        KeyModifiers::SHIFT,
+    ));
+    assert_ne!(app.dungeon.audio.voices.muted, muted);
+    app.dungeon_command(Some("off"));
+    app.dungeon_command(Some("start"));
+    press(&mut app, KeyCode::Char('k'));
+    assert_eq!(
+        app.dungeon.audio.voices.muted, muted,
+        "K toggles voices solo"
+    );
+}
+
+/// The hosted delve's one link, as the host's message gives it.
+fn link_of(message: &str) -> String {
+    message
+        .lines()
+        .map(str::trim)
+        .find(|l| l.starts_with("http://"))
+        .unwrap_or_else(|| panic!("no link in: {message}"))
+        .to_string()
+}
+
 /// A delve begun, and the party down the Winding Stair onto floor one.
 fn game() -> App {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
@@ -11,7 +179,7 @@ fn game() -> App {
         run(&app).at_home_now(),
         "every delve begins in the Undercroft"
     );
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
     app
 }
 
@@ -97,7 +265,7 @@ fn run(app: &App) -> &crate::drive::together_shooter::Run {
 }
 
 fn advance(app: &mut App, ticks: u32) {
-    let now = app.dungeon.clock.unwrap_or_else(std::time::Instant::now);
+    let now = app.dungeon.shooter.clock().unwrap_or_else(std::time::Instant::now);
     app.advance_shooter_at(now);
     for tick in 1..=ticks {
         app.advance_shooter_at(now + std::time::Duration::from_nanos(33_333_333) * tick);
@@ -117,10 +285,11 @@ fn dungeon_starts_a_realtime_arena_with_visible_controls_without_a_model_turn() 
             "Floor 1/6",
             "P1",
             "P2",
-            "HP 100",
-            "F6: game",
-            "Esc: composer",
-            "arrows aim/fire",
+            "100/100",
+            "F4 game",
+            "Esc composer",
+            "arrows aim",
+            "E interact",
         ] {
             assert!(text.contains(label), "{label} at {width}×{height}:\n{text}");
         }
@@ -140,6 +309,11 @@ fn dungeon_held_movement_and_aim_do_not_wait_for_another_player_or_touch_compose
     paint(&mut app, 80, 24);
     app.dungeon.key_releases = true;
     let messages = app.messages.len();
+    // Knights start in their smallclothes; arm both so a held aim shoots.
+    for id in [1, 2] {
+        let hero = app.dungeon.shooter.edit().unwrap().players.get_mut(&id).unwrap();
+        hero.weapon = crate::drive::together_shooter::Weapon::Bow;
+    }
     let (x1, x2) = (run(&app).players[&1].x, run(&app).players[&2].x);
     press(&mut app, KeyCode::Char('d'));
     press(&mut app, KeyCode::Char('l'));
@@ -229,12 +403,12 @@ fn dungeon_legacy_key_leases_expire_and_long_stalls_have_bounded_catchup() {
     press(&mut app, KeyCode::Char('d'));
     advance(&mut app, 3);
     let x = run(&app).players[&1].x;
-    let now = app.dungeon.clock.unwrap();
+    let now = app.dungeon.shooter.clock().unwrap();
     app.advance_shooter_at(now + std::time::Duration::from_secs(30));
     assert_eq!(
         run(&app).tick,
-        7,
-        "stalls run at most four simulation steps"
+        3 + 1,
+        "after a stall the server's beat starts over: no racing to catch up"
     );
     assert_eq!(
         run(&app).players[&1].x,
@@ -328,9 +502,17 @@ fn dungeon_restart_requires_finished_run_and_retains_players_with_new_generation
     paint(&mut app, 80, 24);
     let raid = run(&app).raid_id;
     press(&mut app, KeyCode::Char('r'));
-    assert_eq!(run(&app).raid_id, raid, "R is the ultimate while the delve runs");
-    assert!(app.dungeon.notice.contains("charging"), "{}", app.dungeon.notice);
-    app.dungeon.shooter.as_mut().unwrap().phase = Phase::Wiped;
+    assert_eq!(
+        run(&app).raid_id,
+        raid,
+        "R is the ultimate while the delve runs"
+    );
+    assert!(
+        app.dungeon.notice.contains("charging"),
+        "{}",
+        app.dungeon.notice
+    );
+    app.dungeon.shooter.edit().unwrap().phase = Phase::Wiped;
     press(&mut app, KeyCode::Char('r'));
     assert!(run(&app).raid_id > raid);
     assert!(run(&app).at_home_now(), "home to the Undercroft");
@@ -353,43 +535,36 @@ fn dungeon_legacy_forge_commands_do_not_discard_the_independent_arena() {
     }
 }
 
-/// One request to the hosted guest listener, as an invited friend's angelX makes it.
-fn guest_request(app: &App, method: &str, path: &str, body: &str) -> (u16, Vec<u8>) {
-    use std::io::{Read, Write};
-    let invitation = app.dungeon.guest.as_ref().unwrap().invitation_url();
-    let (base, token) = invitation.split_once('#').unwrap();
-    let address = base.strip_prefix("http://").unwrap().trim_end_matches('/');
-    let mut stream = std::net::TcpStream::connect(address).unwrap();
-    stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap();
-    write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
-    let mut response = Vec::new();
-    stream.read_to_end(&mut response).unwrap();
-    let split = response.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
-    let status = String::from_utf8_lossy(&response[..split])
-        .split(' ')
-        .nth(1)
-        .unwrap()
-        .parse()
-        .unwrap();
-    (status, response[split + 4..].to_vec())
+/// A friend's seat on the hosted delve, by its link over a real socket: a
+/// client as a friend's angelX or browser is, seated once welcomed.
+fn friend_seat(app: &mut App) -> crate::drive::together_seat::Seat {
+    let server = app.dungeon.shooter.server().unwrap();
+    let link = angel_serve::link::link(&format!("http://{}", server.addr()), &server.key());
+    let seat = crate::drive::together_seat::Seat::connect(&link, "Friend").unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while seat.knight().is_none() {
+        assert!(std::time::Instant::now() < deadline, "the friend was never seated");
+        seat.tick(std::time::Instant::now());
+        app.advance_dungeon_guest();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    seat
 }
 
-fn guest_state(app: &App) -> serde_json::Value {
-    let (status, body) = guest_request(app, "GET", "/state", "");
-    assert_eq!(status, 200);
-    serde_json::from_slice(&body).unwrap()
-}
-
-fn guest_walk(app: &App, sequence: u64, move_x: i8) -> u16 {
-    let input = crate::drive::together_shooter::Input {
-        move_x,
-        ..Default::default()
-    };
-    let body =
-        serde_json::json!({"sequence": sequence, "raid_id": run(app).raid_id, "input": input});
-    guest_request(app, "POST", "/shooter/input", &body.to_string()).0
+/// Step the host until `ready`, the friend's seat sending its keys as it goes.
+fn host_until(app: &mut App, seat: &crate::drive::together_seat::Seat, what: &str, ready: impl Fn(&App) -> bool) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+    while !ready(app) {
+        assert!(std::time::Instant::now() < deadline, "{what}");
+        seat.tick(std::time::Instant::now());
+        let now = app
+            .dungeon
+            .shooter
+            .clock()
+            .map_or_else(std::time::Instant::now, |last| last + std::time::Duration::from_nanos(33_333_333));
+        app.advance_shooter_at(now);
+        std::thread::sleep(std::time::Duration::from_millis(3));
+    }
 }
 
 /// A delve hosted on an ephemeral loopback port, its surface painted and live.
@@ -415,108 +590,55 @@ fn dungeon_host_lets_a_friend_play_while_host_is_stone() {
     assert_eq!(run(&app).players[&2].name, "Test Guest");
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     assert!(paint(&mut app, 120, 40).contains("Friends play from their own angelX"));
-    let state = guest_state(&app);
-    assert_eq!(
-        (state["playable"].clone(), state["paused"].clone()),
-        (true.into(), false.into())
-    );
-    assert_eq!(state["players"][1]["name"], "Test Guest");
+    // The friend opens the link: their seat plays knight 2.
+    let friend = friend_seat(&mut app);
+    assert_eq!(friend.knight(), Some(2));
+    host_until(&mut app, &friend, "the friend never said who they are", |app| run(app).players[&2].name == "Friend");
 
-    assert_eq!(guest_walk(&app, 1, 1), 202);
+    friend.set_held(angel_net::input::button::RIGHT);
     let (x, host_x) = (run(&app).players[&2].x, run(&app).players[&1].x);
-    advance(&mut app, 3);
-    assert!(run(&app).players[&2].x > x, "guest input moves player 2");
-    assert_eq!(run(&app).players[&1].x, host_x, "and only player 2");
+    host_until(&mut app, &friend, "the friend's key never moved knight 2", |app| run(app).players[&2].x > x + 1.0);
+    assert_eq!(run(&app).players[&1].x, host_x, "and only knight 2");
 
-    // The host's own rendering reaches a friend as a PNG.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-    while guest_state(&app)["frame_seq"].as_u64().unwrap() == 0 {
-        assert!(std::time::Instant::now() < deadline, "no frame was painted");
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
-    let (status, png) = guest_request(&app, "GET", "/frame.png?seq=1", "");
-    assert_eq!(status, 200);
-    let picture = image::load_from_memory(&png).unwrap();
-    assert_eq!(
-        (picture.width(), picture.height()),
-        (
-            crate::drive::together_guest::FRAME_W,
-            crate::drive::together_guest::FRAME_H
-        )
-    );
+    // The friend's own client draws their own screen.
+    let picture = friend.frame(std::time::Instant::now()).expect("the friend's frame");
+    assert_eq!((picture.w, picture.h), crate::stage::world_viz::overworld::arena::art_v2::size());
 
-    // Esc stones the host, but the guest keeps playing.
+    // Esc stones the host, but the friend keeps playing.
+    let host_position = (run(&app).players[&1].x, run(&app).players[&1].y);
     app.collapse_dungeon();
     let tick = run(&app).tick;
-    advance(&mut app, 5);
-    assert!(run(&app).tick > tick);
+    let x = run(&app).players[&2].x;
+    host_until(&mut app, &friend, "the delve stood still while the friend played", |app| {
+        run(app).tick > tick + 5 && run(app).players[&2].x > x
+    });
     assert!(run(&app).players[&1].stone);
-    let state = guest_state(&app);
-    assert_eq!(
-        (state["paused"].clone(), state["playable"].clone()),
-        (false.into(), true.into())
-    );
-    assert_eq!(guest_walk(&app, 2, 1), 202);
-    assert_eq!(guest_walk(&app, 3, 0), 202);
+    friend.set_held(0);
 
     press(&mut app, KeyCode::F(6));
     press(&mut app, KeyCode::Enter); // the Delve's menu: continue
     paint(&mut app, 80, 24);
     advance(&mut app, 0);
-    assert_eq!(guest_state(&app)["paused"], false);
     assert!(!run(&app).players[&1].stone);
     assert_eq!(
         (run(&app).players[&1].x, run(&app).players[&1].y),
-        (run(&app).players[&2].x, run(&app).players[&2].y)
+        host_position
     );
-    assert_eq!(guest_walk(&app, 4, -1), 202);
 
-    // Controls queued for a finished delve never enter its restart.
+    // The friend stays for the next delve, as the same knight.
     let raid = run(&app).raid_id;
-    app.dungeon.shooter.as_mut().unwrap().phase = crate::drive::together_shooter::Phase::Won;
+    app.dungeon.shooter.edit().unwrap().phase = crate::drive::together_shooter::Phase::Won;
     press(&mut app, KeyCode::Char('r'));
     paint(&mut app, 80, 24);
     advance(&mut app, 2);
-    assert!(app.dungeon.remote.is_empty());
     assert!(run(&app).raid_id > raid);
     assert_eq!(
         run(&app).players[&2].name,
-        "Test Guest",
-        "the guest stays for the next delve"
+        "Friend",
+        "the friend stays for the next delve"
     );
-    let stale = serde_json::json!({"sequence": 5, "raid_id": raid, "input": crate::drive::together_shooter::Input { move_x: 1, ..Default::default() }});
-    assert_eq!(
-        guest_request(&app, "POST", "/shooter/input", &stale.to_string()).0,
-        409
-    );
+    assert_eq!(friend.knight(), Some(2), "on the same seat");
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
-}
-
-#[test]
-fn dungeon_guest_held_input_expires_without_a_renewal() {
-    let _guard = crate::tests::env_lock();
-    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
-    let (mut app, _) = hosted();
-    assert_eq!(guest_walk(&app, 1, 1), 202);
-    advance(&mut app, 3);
-    let x = run(&app).players[&2].x;
-    // A dropped connection: no renewal for a full second.
-    let now = app.dungeon.clock.unwrap();
-    app.advance_shooter_at(now + std::time::Duration::from_secs(1));
-    assert_eq!(
-        run(&app).players[&2].x,
-        x,
-        "the knight stops once the lease lapses"
-    );
-    advance(&mut app, 6);
-    assert_eq!(run(&app).players[&2].x, x);
-
-    // A renewal walks again.
-    app.clear_dungeon_controls();
-    advance(&mut app, 0);
-    assert_eq!(guest_walk(&app, 2, 1), 202);
-    advance(&mut app, 3);
-    assert!(run(&app).players[&2].x > x);
 }
 
 #[test]
@@ -538,8 +660,8 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
         "the entrance-room delve gains player 2"
     );
     assert_eq!(run(&app).players[&2].name, "Bob");
-    let invitation = app.dungeon.guest.as_ref().unwrap().invitation_url();
-    assert!(message.contains(&invitation), "{message}");
+    let invitation = link_of(&message);
+    assert!(invitation.ends_with(&app.dungeon.shooter.server().unwrap().key()));
     assert!(app.dungeon_command(Some("invite")).contains(&invitation));
     assert!(
         app.dungeon_command(Some("host Someone Else"))
@@ -551,13 +673,13 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
     );
     assert!(app.dungeon_command(Some("help")).contains("/dungeon_host"));
 
-    let address = app.dungeon.guest.as_ref().unwrap().address();
+    let address = app.dungeon.shooter.server().unwrap().addr();
     let kicked = app.dungeon_command(Some("kick"));
     assert!(
         kicked.contains("Bob") && kicked.contains("no longer works"),
         "{kicked}"
     );
-    assert!(app.dungeon.guest.is_none() && app.dungeon.remote.is_empty());
+    assert!(app.dungeon.hosting.is_none());
     assert_eq!(run(&app).raid_id, raid);
     assert!(!run(&app).players.contains_key(&2));
     assert!(
@@ -566,7 +688,7 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
     );
 
     // Past the entrance, hosting starts a fresh delve with the guest.
-    let shooter = app.dungeon.shooter.as_mut().unwrap();
+    let shooter = app.dungeon.shooter.edit().unwrap();
     shooter.descend_for_test();
     shooter.enter_for_test(1);
     assert!(!shooter.at_entrance());
@@ -575,9 +697,9 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
     assert!(run(&app).at_entrance());
     assert_eq!(run(&app).players[&2].name, "Cleo");
 
-    let address = app.dungeon.guest.as_ref().unwrap().address();
+    let address = app.dungeon.shooter.server().unwrap().addr();
     assert!(app.dungeon_command(Some("off")).contains("revoked"));
-    assert!(app.dungeon.guest.is_none() && app.dungeon.shooter.is_none());
+    assert!(app.dungeon.hosting.is_none() && app.dungeon.shooter.is_none());
     assert!(std::net::TcpStream::connect(address).is_err());
 }
 
@@ -613,7 +735,7 @@ fn dungeon_write_delve_screens() {
         ("delve_wish_seal", 160, 48),
     ] {
         let mut app = game();
-        let shooter = app.dungeon.shooter.as_mut().unwrap();
+        let shooter = app.dungeon.shooter.edit().unwrap();
         let fight = shooter
             .dungeon
             .rooms
@@ -639,7 +761,7 @@ fn dungeon_write_delve_screens() {
             hero.arm = Some("crossbow".into());
         }
         if name == "delve_sanctuary" || name == "delve_wish_confirm" {
-            let run = app.dungeon.shooter.as_mut().unwrap();
+            let run = app.dungeon.shooter.edit().unwrap();
             run.descend_for_test();
             app.dungeon.forge.draft = Some(crate::app::control::ReforgeDraft {
                 player: 1,
@@ -653,7 +775,7 @@ fn dungeon_write_delve_screens() {
         }
         if name == "delve_sanctuary1" {
             // The first floor's guardian has just fallen.
-            let run = app.dungeon.shooter.as_mut().unwrap();
+            let run = app.dungeon.shooter.edit().unwrap();
             let stairs = run
                 .dungeon
                 .rooms
@@ -670,7 +792,7 @@ fn dungeon_write_delve_screens() {
             }
         }
         if name == "delve_ledge" {
-            let run = app.dungeon.shooter.as_mut().unwrap();
+            let run = app.dungeon.shooter.edit().unwrap();
             let hall = run
                 .dungeon
                 .rooms
@@ -683,7 +805,7 @@ fn dungeon_write_delve_screens() {
             }
         }
         if name == "delve_wish_scroll" || name == "delve_wish_seal" {
-            let run = app.dungeon.shooter.as_mut().unwrap();
+            let run = app.dungeon.shooter.edit().unwrap();
             run.calm_for_test();
             run.clear_for_test();
             let mut draft = crate::app::control::ReforgeDraft::new(1, false);
@@ -720,7 +842,7 @@ fn dungeon_write_delve_screens() {
                 "name Hall of Dragonslayers\nprice scale 1, bond 6, gold 900\nart\nGGGG\nhHHh\n";
             let (draft, _) = check("hall", hall).unwrap();
             realm.draft(draft).unwrap();
-            let shooter = app.dungeon.shooter.as_mut().unwrap();
+            let shooter = app.dungeon.shooter.edit().unwrap();
             shooter
                 .players
                 .get_mut(&1)
@@ -730,7 +852,7 @@ fn dungeon_write_delve_screens() {
             app.dungeon.cards_open = true;
             app.dungeon.cards_page = 1;
         }
-        let _ = app.dungeon.shooter.as_mut().unwrap();
+        let _ = app.dungeon.shooter.edit().unwrap();
         if name == "delve_cards" || name == "delve_book" {
             app.dungeon.cards_open = true;
             app.dungeon.cards_sel = 2;
@@ -782,19 +904,14 @@ fn dungeon_write_delve_screens() {
         .unwrap();
     };
     snap(&mut host, "delve_hosted_menu");
-    let line = message
-        .lines()
-        .find_map(|l| {
-            l.split_once("friend 1:")
-                .map(|(_, rest)| rest.trim().to_string())
-        })
-        .unwrap();
+    let line = format!("/dungeon join {}", link_of(&message));
     let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
     friend.dungeon_command(Some(line.trim_start_matches("/dungeon ")));
     for _ in 0..200 {
         host.advance_dungeon_guest();
+        friend.advance_joined();
         let joined = friend.dungeon.joined.as_ref().unwrap();
-        if (joined.frame().is_some() || joined.with_view(|_, _| ()).is_some())
+        if joined.with_latest(|_| ()).is_some()
             && joined
                 .state()
                 .is_some_and(|s| s["players"].as_array().is_some_and(|p| p.len() == 2))
@@ -824,7 +941,7 @@ fn dungeon_write_delve_screens() {
     // The friend's own cards, from the host's book.
     host.dungeon
         .shooter
-        .as_mut()
+        .edit()
         .unwrap()
         .players
         .get_mut(&2)
@@ -833,6 +950,7 @@ fn dungeon_write_delve_screens() {
     press(&mut friend, KeyCode::Tab);
     for _ in 0..200 {
         host.advance_dungeon_guest();
+        friend.advance_joined();
         let joined = friend.dungeon.joined.as_ref().unwrap();
         if joined.book().is_some()
             && joined.state().is_some_and(|s| {
@@ -883,8 +1001,8 @@ fn dungeon_native_miniviz_expand_and_escape_preserve_composer_draft() {
     press(&mut app, KeyCode::Enter);
     assert!(paint(&mut app, 120, 40).contains("DUNGEON DELVE"));
     assert!(
-        app.dungeon.guest.is_none(),
-        "native play needs no browser server"
+        app.dungeon.hosting.is_none(),
+        "solo play opens no door"
     );
     press(&mut app, KeyCode::Esc);
     assert_eq!(app.input, "Make the sword swing heavier");
@@ -934,7 +1052,7 @@ fn dungeon_close_restores_saved_composer_draft() {
     app.dungeon_command(Some("off"));
     assert!(!app.dungeon.expanded);
     assert!(app.dungeon.shooter.is_none());
-    assert!(app.dungeon.guest.is_none());
+    assert!(app.dungeon.hosting.is_none());
     assert_eq!(app.input, "Keep this unfinished thought");
     assert_eq!(app.cursor, 7);
 }
@@ -975,7 +1093,7 @@ fn dungeon_tab_opens_the_card_screen_which_pauses_and_esc_closes_it() {
 fn dungeon_banked_spoils_reach_the_treasury_and_pay_for_a_wish() {
     let _guard = crate::tests::env_lock();
     let mut app = game();
-    let run = app.dungeon.shooter.as_mut().unwrap();
+    let run = app.dungeon.shooter.edit().unwrap();
     run.players
         .get_mut(&1)
         .unwrap()
@@ -1046,7 +1164,7 @@ fn failed_realm_save_keeps_run_rewards_and_blocks_restart_or_close_until_retry()
     fixture.bind(&mut app);
     let raid = run(&app).raid_id;
     {
-        let run = app.dungeon.shooter.as_mut().unwrap();
+        let run = app.dungeon.shooter.edit().unwrap();
         let mut haul = crate::drive::together_realm::Spoils::default();
         haul.add(Spoil::Gold, 19);
         run.bank.push(crate::drive::together_realm::Haul {
@@ -1071,10 +1189,18 @@ fn failed_realm_save_keeps_run_rewards_and_blocks_restart_or_close_until_retry()
     );
 
     press(&mut app, KeyCode::Char('r'));
-    assert_eq!(run(&app).raid_id, raid, "a failed bank cannot be discarded by restart");
+    assert_eq!(
+        run(&app).raid_id,
+        raid,
+        "a failed bank cannot be discarded by restart"
+    );
     let close = app.dungeon_command(Some("off"));
     assert!(close.contains("Could not save the realm"), "{close}");
-    assert_eq!(run(&app).raid_id, raid, "a failed bank cannot be discarded by close");
+    assert_eq!(
+        run(&app).raid_id,
+        raid,
+        "a failed bank cannot be discarded by close"
+    );
 
     fixture.allow_saves();
     assert!(app.settle_realm());
@@ -1099,22 +1225,70 @@ fn failed_home_realm_save_keeps_orders_marks_and_feats_for_retry() {
     fixture.bind(&mut app);
     app.realm().treasury.add(Spoil::Gold, 200);
     app.realm().treasury.add(Spoil::Ore, 4);
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.realm().treasury.add(Spoil::Wax, 2);
+    app.realm().home.countryside.built = 2;
+    app.realm().home.countryside.relics = 2;
+    let surface_before = app.realm().home.countryside.clone();
+    let records = crate::drive::together_shooter::pastimes::Records {
+        best: [345, 0, 0, 0],
+        wins: [1, 0, 0, 0],
+        plays: [2, 0, 0, 0],
+        hobbyhorse: Default::default(),
+        sled: Default::default(),
+        pot: Default::default(),
+        cart: Default::default(),
+        surf: Default::default(),
+        volley: Default::default(),
+        halfpipe: Default::default(),
+        chariot: Default::default(),
+        trencher: Default::default(),
+        duckshoot: Default::default(),
+        longbow: Default::default(),
+        cheese: crate::drive::together_shooter::pastimes::Score {
+            best: 400,
+            wins: 1,
+            plays: 2,
+        },
+    };
+    let pending = app.dungeon.shooter.edit().unwrap();
+    pending.home.countryside.games = records.clone();
+    for i in 0..6 {
+        pending.marks.insert(format!("country:visit:{i}"), 1);
+    }
+    for i in 0..3 {
+        pending.marks.insert(format!("country:relic:{i}"), 1);
+        pending.marks.insert(format!("country:lamp:{i}"), 1);
+    }
+    pending.marks.insert("country:build:bakery".into(), 1);
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::Forge,
     });
     app.dungeon
         .shooter
-        .as_mut()
+        .edit()
         .unwrap()
         .marks
         .insert("trophy:cinderjaw".into(), 1);
-    app.dungeon.shooter.as_mut().unwrap().feats.push("roadkill");
+    app.dungeon.shooter.edit().unwrap().feats.push("roadkill");
     let pending_feats = run(&app).feats.clone();
 
     assert!(!app.settle_home());
     assert_eq!(app.realm().treasury.get(Spoil::Gold), 200);
     assert_eq!(app.realm().treasury.get(Spoil::Ore), 4);
+    assert_eq!(app.realm().treasury.get(Spoil::Wax), 2);
+    assert_eq!(
+        app.realm().home.countryside,
+        surface_before,
+        "all surface changes roll back on save failure"
+    );
+    assert_eq!(
+        run(&app).home.countryside.games,
+        records,
+        "pending game records remain retryable"
+    );
+    assert_eq!(run(&app).marks.get("country:build:bakery"), Some(&1));
+    assert_eq!(run(&app).marks.get("country:lamp:2"), Some(&1));
     assert_eq!(app.realm().home.level(Station::Forge), 0);
     assert!(!app.realm().home.trophies.contains_key("cinderjaw"));
     assert!(!app.realm().home.feats.contains("roadkill"));
@@ -1130,15 +1304,89 @@ fn failed_home_realm_save_keeps_orders_marks_and_feats_for_retry() {
 
     fixture.allow_saves();
     assert!(app.settle_home());
-    assert_eq!(app.realm().treasury.get(Spoil::Gold), 50);
-    assert_eq!(app.realm().treasury.get(Spoil::Ore), 0);
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 295);
+    assert_eq!(app.realm().treasury.get(Spoil::Ore), 4);
+    assert_eq!(app.realm().treasury.get(Spoil::Wax), 4);
+    assert!(app.realm().home.countryside.has(0));
+    assert_eq!(app.realm().home.countryside.lamps, 7);
+    assert!(app.realm().home.countryside.lamps_paid);
+    assert!(app.realm().home.countryside.ramble_paid && app.realm().home.countryside.relics_paid);
+    assert_eq!(app.realm().home.countryside.games, records);
+    let surface = app.realm().home.countryside.clone();
+    assert_eq!(run(&app).home.countryside, surface);
     assert_eq!(app.realm().home.level(Station::Forge), 1);
     assert_eq!(app.realm().home.trophies.get("cinderjaw"), Some(&1));
     assert!(app.realm().home.feats.contains("roadkill"));
     assert!(run(&app).orders.is_empty());
     assert!(run(&app).marks.is_empty());
     assert!(run(&app).feats.is_empty());
+    let saved = app.realm().treasury.clone();
+    let surface = app.realm().home.countryside.clone();
+    assert!(app.settle_home());
+    assert_eq!(
+        app.realm().treasury,
+        saved,
+        "retry/empty settle never pays twice"
+    );
+    assert_eq!(app.realm().home.countryside, surface);
+    // The western survey uses the very same rollback/retry transaction. Its
+    // reward and new game record must survive a disk failure, without doubling.
+    let before = app.realm().treasury.clone();
+    for i in 0..3 {
+        app.dungeon
+            .shooter
+            .edit()
+            .unwrap()
+            .marks
+            .insert(format!("country:survey:{i}"), 1);
+    }
+    app.dungeon
+        .shooter
+        .edit()
+        .unwrap()
+        .marks
+        .insert("country:west:0".into(), 1);
+    app.dungeon
+        .shooter
+        .edit()
+        .unwrap()
+        .marks
+        .insert("country:west:1".into(), 1);
+    std::fs::remove_dir_all(fixture.home.join(".angelX")).unwrap();
+    std::fs::write(fixture.home.join(".angelX"), b"not a directory").unwrap();
+    assert!(!app.settle_home());
+    assert_eq!(app.realm().treasury, before);
+    assert_eq!(app.realm().home.countryside.survey, 0);
+    assert_eq!(run(&app).marks.get("country:survey:2"), Some(&1));
+    fixture.allow_saves();
+    assert!(app.settle_home());
+    assert_eq!(
+        app.realm().treasury.get(Spoil::Gold),
+        before.get(Spoil::Gold) + 45
+    );
+    assert_eq!(
+        app.realm().treasury.get(Spoil::Ore),
+        before.get(Spoil::Ore) + 2
+    );
+    assert_eq!(app.realm().home.countryside.west_visited, 3);
+    assert_eq!(app.realm().home.countryside.survey, 7);
+    assert!(app.realm().home.countryside.survey_paid);
+    let paid = app.realm().treasury.clone();
+    assert!(app.settle_home());
+    assert_eq!(app.realm().treasury, paid);
+    eastern_save_retry(&mut app, &fixture);
+    northern_save_retry(&mut app, &fixture);
+    coastal_save_retry(&mut app, &fixture);
+    woodland_save_retry(&mut app, &fixture);
+    wetland_save_retry(&mut app, &fixture);
+    aerie_save_retry(&mut app, &fixture);
+    mummers_save_retry(&mut app, &fixture);
+    hippodrome_save_retry(&mut app, &fixture);
+    windcountry_save_retry(&mut app, &fixture);
 }
+
+include!("dungeon_eastern_retry.rs");
+include!("dungeon_northern_retry.rs");
 
 #[test]
 fn dungeon_drafting_ends_with_the_turn_and_says_when_no_draft_came() {
@@ -1223,7 +1471,7 @@ fn dungeon_tester_host() {
     let look = |app: &mut App, shot: &mut u32, said: &str| -> serde_json::Value {
         let screen = paint(app, 160, 48);
         let mut facts = serde_json::json!({});
-        if let Some(run) = app.dungeon.shooter.clone() {
+        if let Some(run) = app.dungeon.shooter.as_ref().cloned() {
             *shot += 1;
             let img = crate::stage::world_viz::overworld::arena::frame(&run, 768, 448);
             let path = dir.join(format!("frame-{shot:04}.png"));
@@ -1426,53 +1674,116 @@ fn dungeon_calls_the_knight_to_the_gate_then_the_intro_begins_the_delve() {
 }
 
 #[test]
-fn dungeon_host_for_three_gives_three_links_and_each_seat_its_own_knight() {
+fn dungeon_host_for_three_gives_one_link_and_each_friend_their_own_knight() {
     let _guard = crate::tests::env_lock();
     let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     // What `/dungeon_host --3` runs.
     let message = app.dungeon_command(Some("host --3"));
-    let links: Vec<&str> = message
-        .lines()
-        .filter_map(|l| l.split_once("/dungeon join ").map(|(_, link)| link.trim()))
-        .collect();
-    assert_eq!(links.len(), 3, "{message}");
-    let tokens: std::collections::BTreeSet<&str> = links
-        .iter()
-        .map(|l| l.rsplit_once('#').unwrap().1)
-        .collect();
-    assert_eq!(tokens.len(), 3, "each friend has their own code");
+    let link = link_of(&message);
+    assert_eq!(message.matches("http://").count(), 1, "one link for everyone: {message}");
     assert_eq!(run(&app).players.len(), 1, "knights join as friends arrive");
-    assert_eq!(
-        app.dungeon_command(Some("invite"))
-            .matches("/dungeon join ")
-            .count(),
-        3
-    );
+    assert!(app.dungeon_command(Some("invite")).contains(&link));
 
-    // Each link speaks for its own seat: friend 3's hello seats knight 4.
-    let (base, token) = crate::drive::together_join::parse_link(links[2]).unwrap();
-    let reply = ureq::post(&format!("{base}/hello"))
-        .set("Authorization", &format!("Bearer {token}"))
-        .send_string("Matt")
-        .unwrap()
-        .into_string()
-        .unwrap();
-    assert!(reply.contains("knight 4"), "{reply}");
-    for _ in 0..50 {
-        app.advance_dungeon_guest();
-        if run(&app).players.contains_key(&4) {
-            break;
+    // Three friends open the one link: each takes a seat of their own.
+    let friends: Vec<_> = ["Matt", "Cleo", "Bram"]
+        .into_iter()
+        .map(|name| crate::drive::together_seat::Seat::connect(&link, name).unwrap())
+        .collect();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+    while run(&app).players.len() < 4 {
+        assert!(std::time::Instant::now() < deadline, "the party never gathered: {}", run(&app).players.len());
+        for friend in &friends {
+            friend.tick(std::time::Instant::now());
         }
+        app.advance_dungeon_guest();
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
-    assert_eq!(run(&app).players[&4].name, "Matt");
-    assert!(!run(&app).players.contains_key(&2));
-    assert!(
-        run(&app).players[&4].knight.is_some(),
-        "a knight of the company"
-    );
+    let mut knights: Vec<u32> = friends.iter().filter_map(|f| f.knight()).collect();
+    knights.sort();
+    assert_eq!(knights, vec![2, 3, 4]);
+    for (friend, name) in friends.iter().zip(["Matt", "Cleo", "Bram"]) {
+        let knight = friend.knight().unwrap();
+        assert_eq!(run(&app).players[&knight].name, name);
+        assert!(run(&app).players[&knight].knight.is_some(), "a knight of the company");
+    }
+    // Past the seats a fourth only watches.
+    let watcher = crate::drive::together_seat::Seat::connect(&link, "Late").unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while watcher.status() == angel_serve::client::LinkStatus::Connecting {
+        assert!(std::time::Instant::now() < deadline);
+        watcher.tick(std::time::Instant::now());
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(watcher.knight(), None);
+}
+
+/// Tick a friend's seat (and the host) until the server has answered it.
+fn answered(app: &mut App, seat: &crate::drive::together_seat::Seat) -> angel_serve::client::LinkStatus {
+    use angel_serve::client::LinkStatus;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        seat.tick(std::time::Instant::now());
+        app.advance_dungeon_guest();
+        let status = seat.status();
+        let seated = status == LinkStatus::Playing && seat.knight().is_some();
+        if seated || matches!(status, LinkStatus::Rejected(..) | LinkStatus::Closed) {
+            return status;
+        }
+        assert!(std::time::Instant::now() < deadline, "no answer: {status:?}");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn the_host_locks_the_door_makes_a_new_link_and_kicks_one_knight() {
+    use angel_net::proto::Reject;
+    use angel_serve::client::LinkStatus;
+    use crate::drive::together_seat::Seat;
+    let _guard = crate::tests::env_lock();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    let link = link_of(&app.dungeon_command(Some("host --3")));
+
+    // Locked, the link lets nobody new in; unlocked, it does.
+    assert!(app.dungeon_command(Some("lock")).contains("closed to newcomers"));
+    let late = Seat::connect(&link, "Late").unwrap();
+    assert!(matches!(answered(&mut app, &late), LinkStatus::Rejected(Reject::Locked, _)));
+    assert!(app.dungeon_command(Some("unlock")).contains("newcomers in again"));
+    let matt = Seat::connect(&link, "Matt").unwrap();
+    assert_eq!(answered(&mut app, &matt), LinkStatus::Playing);
+    assert_eq!(matt.knight(), Some(2));
+
+    // A new link: the old one lets nobody new in, the new one does, and a
+    // friend already seated keeps their knight.
+    let renewed = app.dungeon_command(Some("invite new"));
+    let fresh = link_of(&renewed);
+    assert_ne!(fresh, link, "{renewed}");
+    let old = Seat::connect(&link, "Old").unwrap();
+    assert!(matches!(answered(&mut app, &old), LinkStatus::Rejected(Reject::Key, _)));
+    let cleo = Seat::connect(&fresh, "Cleo").unwrap();
+    assert_eq!(answered(&mut app, &cleo), LinkStatus::Playing);
+    assert_eq!(cleo.knight(), Some(3));
+    assert_eq!(matt.status(), LinkStatus::Playing);
+
+    // One knight kicked: Matt's leaves, his seat is told so, and Cleo plays on.
+    let said = app.dungeon_command(Some("kick 2"));
+    assert!(said.contains("Matt left the delve"), "{said}");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while matt.status() == LinkStatus::Playing || run(&app).players.contains_key(&2) {
+        assert!(std::time::Instant::now() < deadline, "knight 2 never left: {:?}", matt.status());
+        matt.tick(std::time::Instant::now());
+        cleo.tick(std::time::Instant::now());
+        app.advance_dungeon_guest();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(matches!(answered(&mut app, &matt), LinkStatus::Rejected(Reject::Kicked, _)), "{:?}", matt.status());
+    assert!(run(&app).players.contains_key(&3));
+    assert_eq!(cleo.status(), LinkStatus::Playing);
+    assert!(app.dungeon_command(Some("kick 2")).contains("Nobody plays knight 2"));
+    assert!(app.dungeon_command(Some("kick 1")).contains("Kick a friend's knight"));
 }
 
 #[test]
@@ -1482,13 +1793,7 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
     let message = host.dungeon_command(Some("host --1"));
-    let line = message
-        .lines()
-        .find_map(|l| {
-            l.split_once("friend 1:")
-                .map(|(_, rest)| rest.trim().to_string())
-        })
-        .expect("an invitation line");
+    let line = format!("/dungeon join {}", link_of(&message));
     assert!(line.starts_with("/dungeon join http://"), "{line}");
 
     let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
@@ -1500,6 +1805,7 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     let mut seen = false;
     while std::time::Instant::now() < deadline {
         host.advance_dungeon_guest();
+        friend.advance_joined();
         let party = friend
             .dungeon
             .joined
@@ -1507,7 +1813,7 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
             .and_then(|j| j.state())
             .and_then(|s| s["players"].as_array().map(Vec::len));
         let joined = friend.dungeon.joined.as_ref().unwrap();
-        let shown = joined.frame().is_some() || joined.with_view(|_, _| ()).is_some();
+        let shown = joined.with_latest(|_| ()).is_some();
         if party == Some(2) && shown {
             seen = true;
             break;
@@ -1522,12 +1828,13 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     let mirrored = loop {
         host.advance_shooter_at(std::time::Instant::now());
+        friend.advance_joined();
         let tick = friend
             .dungeon
             .joined
             .as_ref()
             .unwrap()
-            .with_view(|run, _| run.tick);
+            .with_latest(|run| run.tick);
         if tick.is_some_and(|t| t > 0 && run(&host).tick.saturating_sub(t) <= 3) {
             break true;
         }
@@ -1539,12 +1846,13 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     assert!(mirrored, "the mirror keeps up with the host's ticks");
 
     // A friend's known wish goes to the host and lands on their knight.
-    host.dungeon.shooter.as_mut().unwrap().window = Some(Default::default());
-    friend.dungeon.joined.as_ref().unwrap().post(
-        "/boon",
-        "application/json",
-        br#"{"wish":"seeker"}"#.to_vec(),
-    );
+    host.dungeon.shooter.edit().unwrap().window = Some(Default::default());
+    friend
+        .dungeon
+        .joined
+        .as_ref()
+        .unwrap()
+        .send(crate::drive::together_gear::BOON, br#"{"wish":"seeker"}"#);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while run(&host).players[&2].bonus.homing == 0 {
         assert!(
@@ -1552,10 +1860,14 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
             "the friend's wish never landed"
         );
         host.advance_shooter_at(std::time::Instant::now());
+        friend.advance_joined();
         std::thread::sleep(std::time::Duration::from_millis(15));
     }
 
-    // On Kitty the friend's frame reaches the terminal as a PNG.
+    // On Kitty the friend's frame reaches the terminal as a PNG. (The
+    // client builds the kingdom's atlas on its first frame, as a friend's
+    // terminal has long done by the time it is looked at.)
+    friend.dungeon.joined.as_ref().unwrap().seat.frame(std::time::Instant::now());
     let mut kitty = App::preview(crate::ui::viewer::Viewer::kitty_for_test());
     kitty.dungeon.joined = friend.dungeon.joined.take();
     kitty.expand_dungeon();
@@ -1586,6 +1898,7 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
             "the host's book never came"
         );
         host.advance_dungeon_guest();
+        friend.advance_joined();
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     let screen = paint(&mut friend, 160, 48);
@@ -1598,19 +1911,14 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
 
     // The friend holds a key: their knight walks in the host's game.
     let start = (run(&host).players[&2].x, run(&host).players[&2].y);
-    friend
-        .dungeon
-        .joined
-        .as_ref()
-        .unwrap()
-        .set_input(crate::drive::together_shooter::Input {
-            move_x: -1,
-            move_y: -1,
-            ..Default::default()
-        });
+    friend.terminal_focused = true;
+    friend.dungeon.key_releases = true;
+    press(&mut friend, KeyCode::Char('a'));
+    press(&mut friend, KeyCode::Char('w'));
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
     while std::time::Instant::now() < deadline {
         host.advance_shooter_at(std::time::Instant::now());
+        friend.advance_joined();
         std::thread::sleep(std::time::Duration::from_millis(15));
     }
     let end = (run(&host).players[&2].x, run(&host).players[&2].y);
@@ -1677,9 +1985,9 @@ fn dungeon_host_opens_the_delves_menu_over_the_entrance_room() {
     press(&mut app, KeyCode::Enter);
     assert!(app.dungeon.intro.is_none() && app.dungeon_view_active());
     assert_eq!(run(&app).raid_id, raid, "continue keeps the open delve");
-    // Hosting again shows the same lines and the menu again.
+    // Hosting again shows the same link and the menu again.
     let again = app.dungeon_command(Some("host --2"));
-    assert_eq!(again.matches("/dungeon join ").count(), 2, "{again}");
+    assert!(again.contains(&link_of(&message)), "{again}");
     assert!(app.dungeon.intro.is_some());
 }
 
@@ -1690,7 +1998,7 @@ fn a_new_delve_while_hosting_keeps_the_seated_friends() {
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     app.dungeon_command(Some("host --3"));
-    let shooter = app.dungeon.shooter.as_mut().unwrap();
+    let shooter = app.dungeon.shooter.edit().unwrap();
     shooter.join_seat(3, "Matt");
     let lynette = crate::drive::together_shooter::knights::knight("lynette").unwrap();
     shooter.outfit(3, lynette);
@@ -1707,7 +2015,7 @@ fn a_new_delve_while_hosting_keeps_the_seated_friends() {
     assert!(run(&app).raid_id > raid, "a new delve, not the old map");
     assert_eq!(run(&app).players[&3].name, "Matt");
     assert_eq!(run(&app).players[&3].knight.as_deref(), Some("lynette"));
-    assert!(app.dungeon.guest.is_some(), "the same invitations");
+    assert!(app.dungeon.hosting.is_some(), "the same link");
 }
 
 #[test]
@@ -1715,7 +2023,7 @@ fn the_scroll_reads_a_wish_back_and_seals_it_only_when_asked() {
     let _guard = crate::tests::env_lock();
     let mut app = game();
     app.terminal_focused = true;
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
     paint(&mut app, 160, 48);
     press(&mut app, KeyCode::Char('t'));
     assert!(app.dungeon.forge.draft.is_some(), "the scroll opens");
@@ -1767,7 +2075,7 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
     let mut app = game();
     app.terminal_focused = true;
     paint(&mut app, 160, 48);
-    let shooter = app.dungeon.shooter.as_mut().unwrap();
+    let shooter = app.dungeon.shooter.edit().unwrap();
     shooter.calm_for_test();
     shooter.clear_for_test();
     assert!(run(&app).can_wish(1), "the room is won: a window opens");
@@ -1800,7 +2108,7 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
     );
     assert!(!run(&app).can_wish(1), "one wish a window");
     // Typed words find a known wish too, in the next window.
-    app.dungeon.shooter.as_mut().unwrap().window = Some(Default::default());
+    app.dungeon.shooter.edit().unwrap().window = Some(Default::default());
     press(&mut app, KeyCode::Char('t'));
     for c in "bounce my shots".chars() {
         press(&mut app, KeyCode::Char(c));
@@ -1830,7 +2138,7 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
     app.submit();
     app.terminal_focused = true;
     paint(&mut app, 160, 48);
-    let shooter = app.dungeon.shooter.as_mut().unwrap();
+    let shooter = app.dungeon.shooter.edit().unwrap();
     shooter.descend_for_test();
     shooter.calm_for_test();
     shooter.clear_for_test();
@@ -1974,7 +2282,7 @@ fn write_tui_film() {
         advance(&mut app, 1);
         shoot(&mut app, &mut out);
     }
-    let shooter = app.dungeon.shooter.as_mut().unwrap();
+    let shooter = app.dungeon.shooter.edit().unwrap();
     shooter.calm_for_test();
     shooter.clear_for_test();
     marks.push_str(&format!("{} won\n", shoot(&mut app, &mut out)));
@@ -2047,16 +2355,16 @@ fn dungeon_spell_loaded_by_card_watcher_reaches_first_empty_host_slot_once() {
     app.watch_learning();
     assert!(run(&app).book.get("cha-ching-meteor").is_some());
     assert!(app.dungeon.notice.contains("The book takes new cards"));
-    assert_eq!(run(&app).players[&1].spells, [None, None, None]);
+    assert_eq!(run(&app).players[&1].spells, [None, None, None, None]);
     let now = std::time::Instant::now();
-    app.dungeon.spell_scan = None;
+    app.dungeon.shooter.rescan_spells();
     app.advance_shooter_at(now);
     assert_eq!(
         run(&app).players[&1].spells,
-        [Some("cha-ching-meteor".into()), None, None],
+        [Some("cha-ching-meteor".into()), None, None, None],
         "book-only loading must not suppress delivery into the first empty slot"
     );
-    assert_eq!(run(&app).players[&2].spells, [None, None, None]);
+    assert_eq!(run(&app).players[&2].spells, [None, None, None, None]);
     assert!(run(&app).players[&1].hand.is_empty());
     assert!(
         run(&app)
@@ -2068,7 +2376,7 @@ fn dungeon_spell_loaded_by_card_watcher_reaches_first_empty_host_slot_once() {
     let items = run(&app).room().items.len();
     app.dungeon
         .shooter
-        .as_mut()
+        .edit()
         .unwrap()
         .players
         .get_mut(&1)
@@ -2086,7 +2394,7 @@ fn dungeon_spell_loaded_by_card_watcher_reaches_first_empty_host_slot_once() {
     assert_eq!(run(&app).players[&1].spell_cooldowns[0], 45);
     assert_eq!(
         run(&app).players[&1].spells,
-        [Some("cha-ching-meteor".into()), None, None]
+        [Some("cha-ching-meteor".into()), None, None, None]
     );
     assert_eq!(run(&app).blasts.len(), blasts);
     assert_eq!(run(&app).room().items.len(), items);
@@ -2124,34 +2432,55 @@ fn dungeon_spells_hot_load_while_editing_and_have_free_keys_and_visible_hud_slot
     assert_eq!(run(&app).players[&1].spells[0].as_deref(), Some("spark"));
     press(&mut app, KeyCode::F(6));
     press(&mut app, KeyCode::Enter);
+    // The spells held sit on their keys, the empty slots out of the way;
+    // the second knight's are on 5, 6, 7 and backslash.
     let text = paint(&mut app, 80, 24);
-    for label in [
-        "[Z] Spark",
-        "[B] empty",
-        "[N] empty",
-        "[5] empty",
-        "[6] empty",
-        "[7] empty",
-    ] {
+    for label in ["[1]", "Spark"] {
         assert!(text.contains(label), "{label}:\n{text}");
     }
-    assert!(text.find("Hand:").unwrap() < text.find("[Z]").unwrap());
+    let text = paint(&mut app, 160, 48);
+    assert!(text.contains("[1]  Spark"), "{text}");
+    assert!(
+        text.contains("spells: none yet"),
+        "the second knight's:\n{text}"
+    );
+    assert!(!text.contains("]  empty"), "no empty spell rows:\n{text}");
     app.dungeon.key_releases = true;
-    press(&mut app, KeyCode::Char('z'));
-    assert_eq!(app.dungeon.local_inputs(std::time::Instant::now()).get(&1).unwrap().cast, 1);
-    press(&mut app, KeyCode::Char('6'));
-    assert_eq!(app.dungeon.local_inputs(std::time::Instant::now()).get(&2).unwrap().cast, 2);
+    press(&mut app, KeyCode::Char('1'));
+    assert_eq!(
+        app.dungeon
+            .local_inputs(std::time::Instant::now())
+            .get(&1)
+            .unwrap()
+            .cast,
+        1
+    );
+    for (key, slot) in [('6', 2), ('\\', 4)] {
+        app.dungeon.held.clear();
+        press(&mut app, KeyCode::Char(key));
+        assert_eq!(
+            app.dungeon
+                .local_inputs(std::time::Instant::now())
+                .get(&2)
+                .unwrap()
+                .cast,
+            slot
+        );
+    }
     app.dungeon
         .shooter
-        .as_mut()
+        .edit()
         .unwrap()
         .players
         .get_mut(&1)
         .unwrap()
         .spell_cooldowns[0] = 60;
     let text = paint(&mut app, 80, 24);
-    assert!(text.contains("[Z] Spark · 2s"), "{text}");
-    assert!(!app.input.contains('z'));
+    assert!(
+        text.contains("[1]  Spark") && text.contains(" 2s"),
+        "{text}"
+    );
+    assert!(!app.input.contains('1'));
     let _ = std::fs::remove_dir_all(&workspace);
 }
 
@@ -2195,10 +2524,7 @@ fn playing_in_a_friends_delve_never_clears_the_whole_screen_each_tick() {
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
     let message = host.dungeon_command(Some("host --1"));
-    let line = message
-        .lines()
-        .find_map(|l| l.split_once("friend 1:").map(|(_, rest)| rest.trim()))
-        .expect("an invitation line");
+    let line = format!("/dungeon join {}", link_of(&message));
     let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
     friend.terminal_focused = true;
     friend.dungeon_command(Some(line.trim_start_matches("/dungeon ")));
@@ -2215,9 +2541,69 @@ fn playing_in_a_friends_delve_never_clears_the_whole_screen_each_tick() {
 }
 
 #[test]
+fn on_a_shared_keyboard_the_first_knights_take_never_swings_the_seconds_sword() {
+    let _guard = crate::tests::env_lock();
+    let mut app = game();
+    paint(&mut app, 120, 40);
+    press(&mut app, KeyCode::Char('e'));
+    let inputs = app.dungeon.local_inputs(std::time::Instant::now());
+    assert!(inputs[&1].take);
+    assert!(!inputs[&2].swing, "E is the first knight's take only");
+    app.dungeon.held.clear();
+    press(&mut app, KeyCode::Char('['));
+    let inputs = app.dungeon.local_inputs(std::time::Instant::now());
+    assert!(inputs[&2].swing && !inputs[&1].take);
+}
+
+#[test]
+fn a_friends_angelx_takes_weapons_and_casts_spells_like_the_hosts_first_knight() {
+    let _guard = crate::tests::env_lock();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
+    let message = host.dungeon_command(Some("host --1"));
+    let line = format!("/dungeon join {}", link_of(&message));
+    let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
+    friend.terminal_focused = true;
+    friend.dungeon_command(Some(line.trim_start_matches("/dungeon ")));
+    assert!(friend.dungeon_view_active());
+    press(&mut friend, KeyCode::Char('e'));
+    let now = std::time::Instant::now();
+    assert!(
+        friend.dungeon.local_inputs(now)[&1].take,
+        "E takes a weapon"
+    );
+    for (key, slot) in [('1', 1), ('2', 2), ('3', 3), ('4', 4)] {
+        friend.dungeon.held.clear();
+        press(&mut friend, KeyCode::Char(key));
+        let now = std::time::Instant::now();
+        assert_eq!(friend.dungeon.local_inputs(now)[&1].cast, slot, "{key}");
+    }
+    // E meets the world, X throws a bomb, Z drinks: the host's own keys.
+    for (key, check) in [
+        (
+            'e',
+            (|i: &crate::drive::together_shooter::Input| i.interact && !i.fire && !i.bomb)
+                as fn(&crate::drive::together_shooter::Input) -> bool,
+        ),
+        ('x', |i| i.bomb && !i.interact),
+        ('z', |i| i.play == 1 && i.cast == 0),
+    ] {
+        friend.dungeon.held.clear();
+        press(&mut friend, KeyCode::Char(key));
+        let now = std::time::Instant::now();
+        assert!(check(&friend.dungeon.local_inputs(now)[&1]), "{key}");
+    }
+}
+
+#[test]
 fn g_keeps_vigil_through_the_composer_and_g_again_wakes_the_knight() {
     let _guard = crate::tests::env_lock();
     let mut app = game();
+    // A vigil is kept between fights: the opening room stands empty.
+    let shooter = app.dungeon.shooter.edit().unwrap();
+    shooter.enemies.clear();
+    shooter.phase = crate::drive::together_shooter::Phase::Exploring;
     paint(&mut app, 120, 40);
     app.dungeon.key_releases = true;
     press(&mut app, KeyCode::Char('g'));
@@ -2244,10 +2630,7 @@ fn a_friends_g_reaches_the_host_and_their_knight_keeps_vigil_after_esc() {
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
     let message = host.dungeon_command(Some("host --1"));
-    let line = message
-        .lines()
-        .find_map(|l| l.split_once("friend 1:").map(|(_, rest)| rest.trim()))
-        .expect("an invitation line");
+    let line = format!("/dungeon join {}", link_of(&message));
     let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
     friend.terminal_focused = true;
     friend.dungeon_command(Some(line.trim_start_matches("/dungeon ")));
@@ -2290,6 +2673,40 @@ fn a_friends_g_reaches_the_host_and_their_knight_keeps_vigil_after_esc() {
 }
 
 #[test]
+fn the_surface_peddler_is_paid_from_the_realms_treasury() {
+    use crate::drive::together_realm::Spoil;
+    use crate::drive::together_shooter::merchant;
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.input = "/dungeon start".into();
+    app.submit();
+    app.realm().treasury.add(Spoil::Gold, 100);
+    app.settle_home();
+    let host = app.dungeon.shooter.edit().unwrap();
+    let camp = host.merchant_camp().expect("surface peddler");
+    let offer = camp
+        .offers
+        .iter()
+        .position(|o| o.goods == merchant::Goods::Bomb)
+        .unwrap();
+    let price = camp.offers[offer].gold;
+    host.enter_for_test(camp.room);
+    let (c, r) = merchant::PLATES[offer];
+    let hero = host.players.get_mut(&1).unwrap();
+    let tile = crate::drive::together_shooter::TILE_UNITS;
+    (hero.x, hero.y) = ((c as f32 + 0.5) * tile, (r as f32 + 0.5) * tile);
+    hero.bombs = 0;
+    for _ in 0..merchant::STAND_TICKS {
+        host.step(&std::collections::BTreeMap::new());
+    }
+    app.settle_home();
+    assert_eq!(run(&app).players[&1].bombs, 1, "{:?}", run(&app).found);
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), 100 - price);
+    assert_eq!(run(&app).treasury.get(Spoil::Gold), 100 - price);
+    assert!(run(&app).peddled.is_empty());
+}
+
+#[test]
 fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
     use crate::drive::together_realm::Spoil;
     use crate::drive::together_shooter::home::{Order, Station};
@@ -2313,7 +2730,7 @@ fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
         knight: 1,
         station: Station::Forge,
     };
-    app.dungeon.shooter.as_mut().unwrap().orders.push(order);
+    app.dungeon.shooter.edit().unwrap().orders.push(order);
     app.settle_home();
     assert_eq!(app.realm().home.level(Station::Forge), 1);
     assert_eq!(app.realm().treasury.get(Spoil::Gold), 50);
@@ -2330,7 +2747,7 @@ fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
         app.dungeon.notice
     );
     // Too poor for the next rung: nothing is paid, and the ledger says why.
-    app.dungeon.shooter.as_mut().unwrap().orders.push(order);
+    app.dungeon.shooter.edit().unwrap().orders.push(order);
     app.settle_home();
     assert_eq!(app.realm().home.level(Station::Forge), 1);
     assert_eq!(app.realm().treasury.get(Spoil::Gold), 50);
@@ -2340,14 +2757,14 @@ fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
         app.dungeon.notice
     );
     // A new delve begins in the cellar as built.
-    app.dungeon.shooter.as_mut().unwrap().phase = crate::drive::together_shooter::Phase::Wiped;
+    app.dungeon.shooter.edit().unwrap().phase = crate::drive::together_shooter::Phase::Wiped;
     app.dungeon_view_active();
     app.start_shooter(None);
     assert_eq!(run(&app).home.level(Station::Forge), 1);
     assert_eq!(run(&app).players[&1].bonus.damage, 8);
     // The deepest floor reached is remembered for the ladders that need it.
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.realm().home.deepest, 2);
 }
@@ -2391,7 +2808,7 @@ fn dungeon_write_home_screen() {
     app.input = "/dungeon start Test Guest".into();
     app.submit();
     app.terminal_focused = true;
-    let run = app.dungeon.shooter.as_mut().unwrap();
+    let run = app.dungeon.shooter.edit().unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (8.0, 7.0);
     hero.buying = 12;
@@ -2416,7 +2833,7 @@ fn dungeon_write_home_screen() {
     }
     std::fs::write(dir.join("delve_home.jsonl"), out).unwrap();
     // Fortune's hall, the wheel just stopped.
-    let run = app.dungeon.shooter.as_mut().unwrap();
+    let run = app.dungeon.shooter.edit().unwrap();
     run.enter_for_test(1);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 17.0);
@@ -2442,7 +2859,9 @@ fn dungeon_write_home_screen() {
     for y in 0..height {
         for x in 0..width {
             let cell = &buffer[(x, y)];
-            out.push_str(&serde_json::to_string(&(cell.symbol(), hex(cell.fg), hex(cell.bg))).unwrap());
+            out.push_str(
+                &serde_json::to_string(&(cell.symbol(), hex(cell.fg), hex(cell.bg))).unwrap(),
+            );
             out.push('\n');
         }
     }
@@ -2456,28 +2875,44 @@ fn achievements_are_kept_once_and_their_boxes_open_into_the_treasury() {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     app.input = "/dungeon start".into();
     app.submit();
-    let gold = app.realm().treasury.get(crate::drive::together_realm::Spoil::Gold);
-    app.dungeon.shooter.as_mut().unwrap().feats.push("roadkill");
+    let gold = app
+        .realm()
+        .treasury
+        .get(crate::drive::together_realm::Spoil::Gold);
+    app.dungeon.shooter.edit().unwrap().feats.push("roadkill");
     app.settle_home();
     assert!(app.realm().home.feats.contains("roadkill"));
     assert_eq!(app.realm().home.boxes.len(), 1);
-    assert!(app.dungeon.notice.contains("Roadkill"), "{}", app.dungeon.notice);
+    assert!(
+        app.dungeon.notice.contains("Roadkill"),
+        "{}",
+        app.dungeon.notice
+    );
     assert!(run(&app).banner_now().is_some(), "the banner is up");
     // Noticed again: nothing more.
-    app.dungeon.shooter.as_mut().unwrap().feats.push("roadkill");
+    app.dungeon.shooter.edit().unwrap().feats.push("roadkill");
     app.settle_home();
     assert_eq!(app.realm().home.boxes.len(), 1);
     // Opened at the coffer: into the treasury, and the run shows it.
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::Coffer,
     });
     app.settle_home();
     assert!(app.realm().home.boxes.is_empty());
     assert_eq!(app.realm().home.opened, 1);
-    assert!(app.realm().treasury.get(crate::drive::together_realm::Spoil::Gold) > gold);
+    assert!(
+        app.realm()
+            .treasury
+            .get(crate::drive::together_realm::Spoil::Gold)
+            > gold
+    );
     assert!(run(&app).unboxed.is_some());
-    assert!(app.dungeon.notice.contains("Silver Box held"), "{}", app.dungeon.notice);
+    assert!(
+        app.dungeon.notice.contains("Silver Box held"),
+        "{}",
+        app.dungeon.notice
+    );
 }
 
 #[test]
@@ -2489,13 +2924,13 @@ fn the_realm_keeps_its_best_show() {
     let best = app.realm().home.best_show;
     // A small rise waits; a tenth of a million more, or the show's end,
     // is kept.
-    app.dungeon.shooter.as_mut().unwrap().audience = best + 40;
+    app.dungeon.shooter.edit().unwrap().audience = best + 40;
     app.settle_home();
     assert_eq!(app.realm().home.best_show, best);
-    app.dungeon.shooter.as_mut().unwrap().audience = best + 140;
+    app.dungeon.shooter.edit().unwrap().audience = best + 140;
     app.settle_home();
     assert_eq!(app.realm().home.best_show, best + 140);
-    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    let run_now = app.dungeon.shooter.edit().unwrap();
     run_now.audience = best + 150;
     run_now.phase = crate::drive::together_shooter::Phase::Wiped;
     app.settle_home();
@@ -2526,7 +2961,7 @@ fn wren_pays_a_finished_bounty_and_pins_the_next() {
         have: 24,
     };
     let gold = app.realm().treasury.get(Spoil::Gold);
-    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    let run_now = app.dungeon.shooter.edit().unwrap();
     run_now.marks.insert(
         slay_mark(crate::drive::together_shooter::EnemyKind::Skeleton),
         1,
@@ -2559,7 +2994,7 @@ fn bounty_progress_is_saved_between_fights() {
         id: "bones".into(),
         have: 0,
     };
-    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    let run_now = app.dungeon.shooter.edit().unwrap();
     run_now.phase = crate::drive::together_shooter::Phase::Fighting;
     run_now.marks.insert(
         slay_mark(crate::drive::together_shooter::EnemyKind::Skeleton),
@@ -2568,7 +3003,7 @@ fn bounty_progress_is_saved_between_fights() {
     app.settle_home();
     assert_eq!(app.realm().home.bounties[0].have, 2);
     assert!(app.dungeon.bounties_unsaved, "not saved mid-fight");
-    app.dungeon.shooter.as_mut().unwrap().phase = crate::drive::together_shooter::Phase::Exploring;
+    app.dungeon.shooter.edit().unwrap().phase = crate::drive::together_shooter::Phase::Exploring;
     app.settle_home();
     assert!(
         !app.dungeon.bounties_unsaved,
@@ -2585,7 +3020,7 @@ fn the_realm_keeps_its_trophies_and_a_full_hall_is_a_feat() {
     app.submit();
     app.settle_home();
     app.realm().home.trophies.clear();
-    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    let run_now = app.dungeon.shooter.edit().unwrap();
     run_now.marks.insert("trophy:cinderjaw".into(), 1);
     app.settle_home();
     assert_eq!(app.realm().home.trophies.get("cinderjaw"), Some(&1));
@@ -2596,7 +3031,7 @@ fn the_realm_keeps_its_trophies_and_a_full_hall_is_a_feat() {
     );
     assert_eq!(run(&app).home.trophies.get("cinderjaw"), Some(&1));
     for plinth in &PLINTHS {
-        let run_now = app.dungeon.shooter.as_mut().unwrap();
+        let run_now = app.dungeon.shooter.edit().unwrap();
         run_now.marks.insert(format!("trophy:{}", plinth.id), 1);
         app.settle_home();
     }
@@ -2615,7 +3050,7 @@ fn experience_reaches_a_level_and_sir_ector_teaches_its_lesson() {
     app.settle_home();
     let key = knight_key(&run(&app).players[&1]);
     app.realm().home.knights.remove(&key);
-    let run_now = app.dungeon.shooter.as_mut().unwrap();
+    let run_now = app.dungeon.shooter.edit().unwrap();
     run_now.marks.insert("xp".into(), LEVELS[0]);
     app.settle_home();
     assert_eq!(app.realm().home.prowess(&key).level(), 2);
@@ -2624,7 +3059,7 @@ fn experience_reaches_a_level_and_sir_ector_teaches_its_lesson() {
         "{}",
         app.dungeon.notice
     );
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::LessonB,
     });
@@ -2655,7 +3090,7 @@ fn a_rescue_comes_home_to_stay_and_all_four_are_a_full_house() {
     app.realm().home.residents.clear();
     app.dungeon
         .shooter
-        .as_mut()
+        .edit()
         .unwrap()
         .marks
         .insert("rescue:mabel".into(), 1);
@@ -2670,7 +3105,7 @@ fn a_rescue_comes_home_to_stay_and_all_four_are_a_full_house() {
     for resident in &RESIDENTS {
         app.dungeon
             .shooter
-            .as_mut()
+            .edit()
             .unwrap()
             .marks
             .insert(format!("rescue:{}", resident.id), 1);
@@ -2689,7 +3124,7 @@ fn the_herald_counts_every_kill_into_the_bestiary() {
     app.submit();
     app.settle_home();
     app.realm().home.bestiary.clear();
-    let marks = &mut app.dungeon.shooter.as_mut().unwrap().marks;
+    let marks = &mut app.dungeon.shooter.edit().unwrap().marks;
     marks.insert(slay_mark(EnemyKind::Skeleton), 3);
     marks.insert(slay_mark(EnemyKind::PitTyrant), 1);
     app.settle_home();
@@ -2777,7 +3212,7 @@ fn maud_pours_a_round_from_the_treasury_one_at_a_time() {
         knight: 1,
         station: Station::TapB,
     };
-    app.dungeon.shooter.as_mut().unwrap().orders.push(pour);
+    app.dungeon.shooter.edit().unwrap().orders.push(pour);
     app.settle_home();
     assert_eq!(app.realm().home.round.as_deref(), Some("stout"));
     assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - 80);
@@ -2792,7 +3227,7 @@ fn maud_pours_a_round_from_the_treasury_one_at_a_time() {
         app.dungeon.notice
     );
     // One round at a time.
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::TapA,
     });
@@ -2805,7 +3240,7 @@ fn maud_pours_a_round_from_the_treasury_one_at_a_time() {
         app.dungeon.notice
     );
     // Drunk at the top of the stair: the tab is clear.
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.realm().home.round, None);
     assert_eq!(run(&app).round.as_deref(), Some("stout"));
@@ -2825,14 +3260,14 @@ fn dinadan_sings_for_gold_one_song_at_a_time() {
         realm.home.song = None;
         realm.treasury.get(Spoil::Gold)
     };
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::SongC,
     });
     app.settle_home();
     assert_eq!(app.realm().home.song.as_deref(), Some("red"));
     assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - 90);
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::SongA,
     });
@@ -2842,7 +3277,7 @@ fn dinadan_sings_for_gold_one_song_at_a_time() {
         Some("red"),
         "one at a time"
     );
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.realm().home.song, None, "sung, the tab is clear");
 }
@@ -2866,7 +3301,7 @@ fn beaumains_takes_a_wage_once_and_goes_down_with_the_party() {
         knight: 1,
         station: Station::Hire,
     };
-    app.dungeon.shooter.as_mut().unwrap().orders.push(hire);
+    app.dungeon.shooter.edit().unwrap().orders.push(hire);
     app.settle_home();
     assert_eq!(app.realm().home.hire.as_deref(), Some("beaumains"));
     assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - WAGE);
@@ -2876,15 +3311,549 @@ fn beaumains_takes_a_wage_once_and_goes_down_with_the_party() {
         app.dungeon.notice
     );
     // Hired once is hired: a second wage is refused.
-    app.dungeon.shooter.as_mut().unwrap().orders.push(Order {
+    app.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::Hire,
     });
     app.settle_home();
     assert_eq!(app.realm().treasury.get(Spoil::Gold), gold - WAGE);
     // Down the stair he goes, and the realm's tab is clear.
-    app.dungeon.shooter.as_mut().unwrap().descend_for_test();
+    app.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.realm().home.hire, None);
     assert!(run(&app).hireling.is_some());
+}
+
+include!("dungeon_coastal_retry.rs");
+
+include!("dungeon_woodland_retry.rs");
+
+include!("dungeon_wetland_retry.rs");
+
+include!("dungeon_aerie_retry.rs");
+
+include!("dungeon_mummers_retry.rs");
+
+include!("dungeon_hippodrome_retry.rs");
+
+include!("dungeon_windcountry_retry.rs");
+
+#[test]
+fn the_new_card_and_interact_keys_leave_couch_skills_alone() {
+    let _lock = crate::tests::env_lock();
+    let mut app = game();
+    let _ = paint(&mut app, 160, 48);
+    app.dungeon.key_releases = true;
+    for (key, seat, check) in [
+        (
+            'e',
+            1,
+            (|i: &crate::drive::together_shooter::Input| i.interact && !i.fire && !i.bomb)
+                as fn(&crate::drive::together_shooter::Input) -> bool,
+        ),
+        ('f', 1, |i| i.fire && !i.interact),
+        ('x', 1, |i| i.bomb),
+        ('4', 1, |i| i.cast == 4 && i.play == 0),
+        ('z', 1, |i| i.play == 1 && i.cast == 0),
+        ('h', 2, |i| i.interact && i.take && !i.fire),
+        (']', 2, |i| i.play == 1 && i.skill == 0),
+        ('\\', 2, |i| i.cast == 4 && i.play == 0),
+        ('-', 2, |i| i.skill == 4 && i.play == 0),
+    ] {
+        app.dungeon.held.clear();
+        press(&mut app, KeyCode::Char(key));
+        assert!(
+            check(&app.dungeon.local_inputs(std::time::Instant::now())[&seat]),
+            "{key}"
+        );
+    }
+    press(&mut app, KeyCode::Char('`'));
+    assert!(app.dungeon.held.is_empty());
+    let run = app.dungeon.shooter.edit().unwrap();
+    run.players.get_mut(&1).unwrap().spells = std::array::from_fn(|_| Some("cabbage-storm".into()));
+    app.dungeon.cards_open = true;
+    let text = paint(&mut app, 160, 48);
+    assert!(
+        text.contains("4 Cabbage Storm"),
+        "fourth spell renders in the card screen: {text}"
+    );
+}
+
+/// A Delve in a fresh workspace, the room won and a wish window open.
+fn wishing_app(name: &str) -> (App, std::path::PathBuf) {
+    let workspace = std::env::temp_dir().join(format!(
+        "delve-{name}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&workspace).unwrap();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    std::sync::Arc::get_mut(&mut app.tools)
+        .expect("preview registry should be uniquely owned")
+        .set_workspace(workspace.clone());
+    app.input = "/dungeon start Test Guest".into();
+    app.submit();
+    app.terminal_focused = true;
+    paint(&mut app, 160, 48);
+    let shooter = app.dungeon.shooter.edit().unwrap();
+    shooter.descend_for_test();
+    shooter.calm_for_test();
+    shooter.clear_for_test();
+    // The book as the delve ships it: no other test's workspace in it.
+    crate::drive::together_files::refresh_phrasebook(&workspace);
+    (app, workspace)
+}
+
+fn wish(app: &mut App, words: &str) {
+    press(app, KeyCode::Char('t'));
+    for c in words.chars() {
+        press(app, KeyCode::Char(c));
+    }
+    press(app, KeyCode::Enter);
+    press(app, KeyCode::Enter);
+}
+
+#[test]
+fn a_creative_armor_wish_is_learned_as_a_new_look_not_granted_as_stock_iron() {
+    let _guard = crate::tests::env_lock();
+    let (mut app, workspace) = wishing_app("pavise");
+    wish(&mut app, "a bigger spiked shield");
+    assert_eq!(app.dungeon.forge.learning.len(), 1, "{}", app.dungeon.notice);
+    assert!(run(&app).players[&1].deck.iter().all(|c| !c.starts_with("wish-iron")));
+    // The lesson's brief offers the worn look, and says gear is never an orbit.
+    let brief = app
+        .messages
+        .iter()
+        .rev()
+        .find(|m| m.text.contains("Teach the angelX Delve's phrasebook"))
+        .map(|m| m.text.to_string())
+        .expect("the lesson was sent");
+    assert!(brief.contains("draw worn"), "{brief}");
+    assert!(brief.contains("Never use orbit"), "{brief}");
+    assert!(brief.contains("max_hp"), "{brief}");
+    assert!(brief.contains(".angel/dungeon/sheets"), "{brief}");
+    // angelX writes an entry in its own words: found by being new.
+    let book = workspace.join(".angel/dungeon/phrasebook.txt");
+    std::fs::create_dir_all(book.parent().unwrap()).unwrap();
+    std::fs::write(
+        &book,
+        format!(
+            "wish spiked-pavise | Spiked Pavise\nsay tower shield | pavise\ntier armor 1 :: A pavise.\ntier armor 2 :: Heavier.\ntier armor 2; max_hp 15 :: Whole.\ndraw worn at=left\n{}\n",
+            crate::drive::together_shooter::looks::PAVISE
+        ),
+    )
+    .unwrap();
+    app.thinking = None;
+    app.pending_turn = None;
+    app.dungeon.forge.looked = None;
+    app.watch_learning();
+    assert!(app.dungeon.notice.contains("Spiked Pavise"), "{}", app.dungeon.notice);
+    let run = run(&app);
+    let hero = &run.players[&1];
+    assert_eq!(hero.armor, 1);
+    assert_eq!(hero.worn(&run.book).len(), 1, "the knight wears it");
+    assert_eq!(hero.bonus.orbit, 0, "no morningstar stands in for it");
+    let _ = std::fs::remove_dir_all(&workspace);
+}
+
+#[test]
+fn an_entry_the_checker_turns_away_is_sent_back_once_to_be_mended() {
+    let _guard = crate::tests::env_lock();
+    let (mut app, workspace) = wishing_app("mend");
+    wish(&mut app, "tiny golden devils that explode");
+    assert_eq!(app.dungeon.forge.learning.len(), 1, "{}", app.dungeon.notice);
+    // A sheet-painting turn can outlast the old three-minute cutoff.
+    app.dungeon.forge.learning[0].asked =
+        std::time::Instant::now() - std::time::Duration::from_secs(190);
+    let book = workspace.join(".angel/dungeon/phrasebook.txt");
+    std::fs::create_dir_all(book.parent().unwrap()).unwrap();
+    // Summons on a held card: turned away.
+    std::fs::write(
+        &book,
+        "wish golden-devils | Golden Devils\nsay tiny golden devils that explode\ntier summon 2 swarm :: Devils.\n",
+    )
+    .unwrap();
+    app.thinking = None;
+    app.pending_turn = None;
+    app.dungeon.forge.looked = None;
+    app.watch_learning();
+    assert!(app.dungeon.notice.contains("mending"), "{}", app.dungeon.notice);
+    let lesson = &app.dungeon.forge.learning[0];
+    assert!(
+        lesson
+            .mending
+            .as_ref()
+            .is_some_and(|e| e.join(" ").contains("spell or play")),
+        "{:?}",
+        lesson.mending
+    );
+    let brief = app
+        .messages
+        .iter()
+        .rev()
+        .find(|m| m.text.contains("was turned away"))
+        .map(|m| m.text.to_string())
+        .expect("the mending lesson was sent");
+    assert!(brief.contains("spell or play"), "{brief}");
+    // Mended: a spell, and granted.
+    std::fs::write(
+        &book,
+        "wish golden-devils | Golden Devils\nkind spell\nsay tiny golden devils that explode\ntier summon 2 swarm; cooldown 8 :: Devils.\ndraw summon\n.5.|5.5\n555|555\n",
+    )
+    .unwrap();
+    app.thinking = None;
+    app.pending_turn = None;
+    app.dungeon.forge.looked = None;
+    app.watch_learning();
+    assert!(app.dungeon.notice.contains("Golden Devils"), "{}", app.dungeon.notice);
+    assert!(
+        run(&app).players[&1]
+            .spells
+            .iter()
+            .flatten()
+            .any(|s| s.starts_with("wish-golden-devils"))
+    );
+    let _ = std::fs::remove_dir_all(&workspace);
+}
+
+#[test]
+fn college_reward_save_failure_checkpoint_and_retry_pays_only_once() {
+    use crate::drive::together_realm::{Realm, Spoil};
+    use crate::drive::together_shooter::{Run, college, home::Home};
+    let _lock = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    fixture.allow_saves();
+    let mut app = game();
+    fixture.bind(&mut app);
+    let before = app.realm().treasury.clone();
+    app.realm().save().unwrap();
+    let mut r = Run::at_home(711, 1, None, Home::default(), before.clone());
+    r.come_to_the_gate();
+    for key in [
+        "college:accept:sigils",
+        "college:sigil:0",
+        "college:sigil:1",
+        "college:sigil:2",
+        "college:bookshelf",
+        "college:stars",
+        "college:familiar",
+        "college:turn-in:sigils",
+    ] {
+        r.marks.insert(key.into(), 1);
+    }
+    app.dungeon.shooter.set(Some(r));
+    std::fs::rename(
+        fixture.home.join(".angelX"),
+        fixture.home.join(".angelX-college-backup"),
+    )
+    .unwrap();
+    std::fs::write(fixture.home.join(".angelX"), b"not a directory").unwrap();
+    assert!(!app.settle_home());
+    assert_eq!(app.realm().treasury, before);
+    assert!(!app.realm().home.college.done.contains("sigils"));
+    let path = fixture.workspace.join(".angel/dungeon/session.json");
+    app.dungeon.save_path = Some(path.clone());
+    app.dungeon
+        .checkpoint(std::time::Instant::now(), true)
+        .unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    let mut encoded: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(encoded["country_intents"]["college:turn-in:sigils"], 1);
+    let mut restored = game();
+    fixture.bind(&mut restored);
+    restored.dungeon.shooter.set(None);
+    restored.dungeon.restore(&fixture.workspace).unwrap();
+    encoded["country_intents"]["college:accept:made-up"] = 1.into();
+    std::fs::write(&path, serde_json::to_vec(&encoded).unwrap()).unwrap();
+    assert!(restored.dungeon.restore(&fixture.workspace).is_err());
+    std::fs::write(&path, &bytes).unwrap();
+    std::fs::remove_file(fixture.home.join(".angelX")).unwrap();
+    std::fs::rename(
+        fixture.home.join(".angelX-college-backup"),
+        fixture.home.join(".angelX"),
+    )
+    .unwrap();
+    restored.dungeon.realm = None;
+    assert!(restored.settle_home());
+    let paid = restored.realm().treasury.clone();
+    assert_eq!(paid.get(Spoil::Gold), before.get(Spoil::Gold) + 75);
+    assert!(restored.realm().home.college.done.contains("sigils"));
+    assert!(restored.realm().home.college.valid());
+    assert!(restored.settle_home());
+    assert_eq!(restored.realm().treasury, paid);
+    let loaded = Realm::beside(restored.world.rewards_path());
+    assert_eq!(loaded.treasury, paid);
+    assert!(loaded.home.college.done.contains("sigils"));
+    restored
+        .dungeon
+        .shooter
+        .edit()
+        .unwrap()
+        .marks
+        .insert("college:turn-in:sigils".into(), 1);
+    assert!(restored.settle_home());
+    assert_eq!(restored.realm().treasury, paid);
+    assert!(college::intent_key("college:sample:711:1:0:0"));
+    assert!(!college::intent_key("college:map:711:1:0:0"));
+}
+
+#[test]
+fn dungeon_controls_activity_leave_preempts_overlays_and_only_releases_its_seat() {
+    let _guard = crate::tests::env_lock();
+    let mut app = game();
+    let mut r = crate::drive::together_shooter::Run::at_home(
+        41,
+        1,
+        Some("Friend"),
+        Default::default(),
+        Default::default(),
+    );
+    r.walk_kingdom(None);
+    let geo = crate::stage::world_viz::overworld::kingdom::geography(&r.kingdom.wishes);
+    r.enter_kingdom_place(
+        geo.sites
+            .iter()
+            .position(|s| s.room == crate::drive::together_shooter::RoomKind::Hippodrome)
+            .unwrap(),
+    );
+    r.floor_plates.clear();
+    r.board_chariot(1);
+    app.dungeon.shooter.set(Some(r));
+    paint(&mut app, 120, 40);
+    assert!(paint(&mut app, 120, 40).contains("LEAVE"));
+    press(&mut app, KeyCode::Char('o'));
+    assert!(app.dungeon.local_inputs(std::time::Instant::now())[&2].dash);
+    press(&mut app, KeyCode::Char('u'));
+    assert!(app.dungeon.local_inputs(std::time::Instant::now())[&2].bomb);
+    assert!(run(&app).exits.outside.is_empty());
+    app.clear_dungeon_controls();
+    app.dungeon.cards_open = true;
+    app.dungeon.exhibit_text = Some("Overlay".into());
+    press(&mut app, KeyCode::Esc);
+    assert_eq!(app.dungeon.activity_menu, Some(1));
+    assert!(!app.dungeon.cards_open && app.dungeon.exhibit_text.is_none());
+    assert!(paint(&mut app, 120, 40).contains("[ LEAVE ]"));
+    let ticks = run(&app).chariot.as_ref().unwrap().t;
+    advance(&mut app, 3);
+    // Only this seat is paused: a couch friend continues the race after departure.
+    press(&mut app, KeyCode::Enter);
+    assert!(run(&app).exits.outside.contains_key(&1));
+    assert!(run(&app).chariot.is_some());
+    assert_eq!(run(&app).chariot.as_ref().unwrap().driver, 2);
+    assert!(run(&app).chariot.as_ref().unwrap().t >= ticks);
+    assert!(app.dungeon.held.is_empty());
+    press(&mut app, KeyCode::Delete);
+    assert_eq!(
+        run(&app).room().kind,
+        crate::drive::together_shooter::RoomKind::Kingdom
+    );
+    assert!(run(&app).chariot.is_none());
+}
+
+#[test]
+fn dungeon_controls_joined_leave_menu_reaches_host_without_ending_other_seats() {
+    let _guard = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    fixture.allow_saves();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    let mut host = App::preview(crate::ui::viewer::Viewer::static_preview());
+    host.terminal_focused = true;
+    let message = host.dungeon_command(Some("host --1"));
+    let link = format!("/dungeon join {}", link_of(&message));
+    let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
+    friend.terminal_focused = true;
+    friend.dungeon_command(Some(link.trim_start_matches("/dungeon ")));
+    let spin = |host: &mut App, friend: &mut App, ready: fn(&App, &App) -> bool| {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+        while !ready(host, friend) {
+            paint(host, 120, 40);
+            paint(friend, 120, 40);
+            host.advance_shooter_at(std::time::Instant::now());
+            friend.advance_joined();
+            assert!(
+                std::time::Instant::now() < deadline,
+                "exit did not reach host"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    };
+    spin(&mut host, &mut friend, |h, f| {
+        run(h).players.contains_key(&2) && f.joined_knight().is_some()
+    });
+    let r = host.dungeon.shooter.edit().unwrap();
+    r.walk_kingdom(None);
+    let geo = crate::stage::world_viz::overworld::kingdom::geography(&r.kingdom.wishes);
+    r.enter_kingdom_place(
+        geo.sites
+            .iter()
+            .position(|s| s.room == crate::drive::together_shooter::RoomKind::Lists)
+            .unwrap(),
+    );
+    r.floor_plates.clear();
+    r.mount_up(2);
+    spin(&mut host, &mut friend, |_, f| {
+        f.can_leave_dungeon_activity(2)
+    });
+    friend.dungeon.cards_open = true;
+    press(&mut friend, KeyCode::Esc);
+    assert_eq!(friend.dungeon.activity_menu, Some(2));
+    press(&mut friend, KeyCode::Enter);
+    spin(&mut host, &mut friend, |h, f| {
+        run(h).exits.outside.contains_key(&2) && !f.dungeon.activity_leave_pending
+    });
+    assert!(run(&host).joust.is_some());
+    assert_eq!(run(&host).joust.as_ref().unwrap().knight, 1);
+    assert_eq!(
+        run(&host).view_for_seat(2).unwrap().room().kind,
+        crate::drive::together_shooter::RoomKind::Kingdom
+    );
+    assert!(friend.dungeon.held.is_empty());
+    host.dungeon_command(Some("off"));
+}
+
+#[test]
+fn angelx_work_reaches_the_holdings_and_the_court_settles_at_the_save() {
+    use crate::drive::together_realm::{Realm, Spoil};
+    use crate::drive::together_shooter::{Pack, Run, holdings as hd};
+    let (fixture, _home) = with_blocked_realm_save();
+    fixture.allow_saves();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    fixture.bind(&mut app);
+    let gold = app.realm().treasury.get(Spoil::Gold);
+    // A commit that lands, a test run that fails, a subagent sent out, a
+    // turn's cache hits, three loop rounds and a failed turn, as the
+    // harness reports them.
+    app.note_ops_call("c1", "shell", "command=git commit -m x");
+    app.note_ops_result("c1", true);
+    app.note_ops_call("t1", "shell", "command=cargo test --bin angel");
+    app.note_ops_result("t1", false);
+    app.note_ops_call("s1", "spawn", "task=look");
+    app.note_ops_turn(hd::CACHE_PER_SACK * 2, 0, 1);
+    app.note_ops_loop(3);
+    app.note_ops_end(false);
+    let h = app.realm().home.holdings.clone();
+    assert_eq!((h.stores, h.retainers, h.patrols, h.unrest), (2, 1, 3, 1));
+    assert_eq!(h.feed.get("BUILDS"), Some(&1));
+    assert_eq!(h.feed.get("WALLS"), None, "a failed test run mends nothing");
+    assert!(app.dungeon.ops.is_empty() && app.dungeon.ops_calls.is_empty());
+    // Saved with the realm, and never a coin of gold.
+    let again = Realm::beside(app.world.rewards_path());
+    assert_eq!(again.home.holdings, h);
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold);
+    // A slow turn stirs unrest too.
+    app.note_ops_turn(0, 0, hd::SLOW_TURN_SECS);
+    app.note_ops_end(true);
+    assert_eq!(app.realm().home.holdings.unrest, 2);
+    // The Court's marks settle at the save, from the realm's purse.
+    app.realm()
+        .home
+        .holdings
+        .cleared
+        .insert(Pack::Crypt.name().to_string());
+    app.realm().treasury.add(Spoil::Gold, 7000);
+    let (home, purse) = (app.realm().home.clone(), app.realm().treasury.clone());
+    app.dungeon.shooter.set(Some(Run::at_home(3, 1, None, home, purse)));
+    app.dungeon
+        .shooter
+        .as_mut()
+        .unwrap()
+        .marks
+        .insert(hd::buy_mark(hd::Deed::Floor(Pack::Crypt), false), 1);
+    assert!(app.settle_home());
+    assert_eq!(app.realm().treasury.get(Spoil::Gold), gold + 1000);
+    let key = hd::Deed::Floor(Pack::Crypt).key();
+    assert!(app.realm().home.holdings.holding(&key).is_some());
+    assert!(run(&app).home.holdings.holding(&key).is_some(), "the run sees it");
+    assert_eq!(run(&app).treasury.get(Spoil::Gold), gold + 1000);
+}
+
+#[test]
+fn dungeon_tune_lists_the_knobs_and_sets_one_for_everyone() {
+    let _guard = crate::tests::env_lock();
+    let (fixture, _home) = with_blocked_realm_save();
+    fixture.allow_saves();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    assert!(app.dungeon_command(Some("tune")).contains("No delve is running"));
+    app.dungeon_command(Some("start"));
+    let list = app.dungeon_command(Some("tune"));
+    assert!(list.contains("hero_speed = 13  Walk pace (units/s) [4..30]"), "{list}");
+    assert!(list.contains("snapshot_every = 1"), "{list}");
+    let set = app.dungeon_command(Some("tune hero_speed 20"));
+    assert!(set.starts_with("hero_speed = 20 for everyone"), "{set}");
+    assert!(app.dungeon_command(Some("tune hero_speed fast")).contains("is not a number"));
+    assert!(app.dungeon_command(Some("tune nope 1")).contains("no knob nope"));
+    // Taken between the next two ticks.
+    let now = std::time::Instant::now();
+    app.dungeon.shooter.pump(now);
+    app.dungeon.shooter.pump(now + crate::drive::together_sim::STEP * 2);
+    assert!(app.dungeon_command(Some("tune")).contains("hero_speed = 20 (code: 13)"));
+    assert!(app.dungeon_command(Some("help")).contains("/dungeon tune [name value]"));
+}
+
+/// Step the host until `ready`, every friend's seat sending its keys.
+fn host_all_until(app: &mut App, seats: &[&crate::drive::together_seat::Seat], what: &str, ready: impl Fn(&App) -> bool) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while !ready(app) {
+        assert!(std::time::Instant::now() < deadline, "{what}");
+        for seat in seats {
+            seat.tick(std::time::Instant::now());
+        }
+        let now = app
+            .dungeon
+            .shooter
+            .clock()
+            .map_or_else(std::time::Instant::now, |last| last + std::time::Duration::from_nanos(33_333_333));
+        app.advance_shooter_at(now);
+        std::thread::sleep(std::time::Duration::from_millis(3));
+    }
+}
+
+#[test]
+fn friends_take_a_fallen_party_back_to_the_kingdom_on_a_host_with_no_knight() {
+    use angel_net::input::button;
+    let _guard = crate::tests::env_lock();
+    let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
+    let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.dungeon_command(Some("host --watch --2"));
+    press(&mut app, KeyCode::Enter);
+    paint(&mut app, 80, 24);
+    advance(&mut app, 0);
+    let a = friend_seat(&mut app);
+    let b = friend_seat(&mut app);
+    let (ka, kb) = (a.knight().unwrap(), b.knight().unwrap());
+    host_all_until(&mut app, &[&a, &b], "the friends never played", |app| {
+        let r = run(app);
+        r.players.get(&ka).is_some_and(|h| !h.away) && r.players.get(&kb).is_some_and(|h| !h.away) && r.players[&1].absent
+    });
+    assert_eq!(run(&app).party_len(), 2, "two people, a party of two");
+    // The party falls.
+    {
+        let mut r = app.dungeon.shooter.edit().unwrap();
+        for hero in r.players.values_mut() {
+            hero.hp = 0;
+        }
+        r.phase = crate::drive::together_shooter::Phase::Wiped;
+    }
+    let raid = run(&app).raid_id;
+    // One asks: the party waits for the other.
+    a.set_held(button::OK);
+    host_all_until(&mut app, &[&a, &b], "the first ask never reached the host", |app| run(app).again.is_some());
+    a.set_held(0);
+    assert_eq!(run(&app).raid_id, raid, "nobody yanked from the verdict");
+    // The other asks: a new run in the kingdom, both alive, the same link.
+    b.set_held(button::OK);
+    host_all_until(&mut app, &[&a, &b], "the party never went back", |app| run(app).raid_id > raid);
+    b.set_held(0);
+    let r = run(&app);
+    assert_eq!(r.room().kind, crate::drive::together_shooter::RoomKind::Kingdom);
+    assert!(r.active());
+    for k in [ka, kb] {
+        assert!(r.players[&k].hp > 0, "knight {k} back on its feet");
+    }
+    assert!(app.dungeon.hosting.is_some(), "the same link");
 }

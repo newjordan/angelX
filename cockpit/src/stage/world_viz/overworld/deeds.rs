@@ -27,12 +27,17 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::OnceLock;
 
 use super::super::{Deed, herald};
-use super::live::{route, step_cost};
+use super::live::route;
 use super::map::{Place, TILE, place_px, place_tile};
 use crate::agent::harness::ToolEventId;
+use angel_delve::world::kingdom::step_cost;
 
-/// Trials the Lists fence remembers; older pennants come down.
-pub(crate) const PENNANTS: usize = 8;
+// What the deeds put on the map is the scene's; their life is the
+// cockpit's.
+pub(crate) use angel_delve::render::overworld::deeds::{
+    Errand, PENNANTS, ROOST, Record, SPARKS, Wayfarer,
+};
+
 /// World ticks (40 Hz) a wagon stands showing its verdict before it turns
 /// for home.
 const VERDICT_HOLD: u64 = 100;
@@ -47,23 +52,15 @@ const ON_THE_ROAD: usize = 4;
 const DELIVER: u64 = 30;
 /// World ticks a villager spends indoors before going out on the next errand.
 const HOME_BEAT: u64 = 16;
-/// World ticks the anvil throws sparks after a strike.
-pub(crate) const SPARKS: u64 = 16;
 
-/// Who goes out for a deed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum Errand {
-    Wagon,
-    Courier,
-    Raven,
-    Hand,
-    Messenger,
-    Villager,
-    Monk,
-    Owl,
+/// How each errand goes about its deed.
+trait Errands: Sized {
+    fn of(deed: Deed) -> Option<Self>;
+    fn crew(self) -> usize;
+    fn pace(self) -> f32;
 }
 
-impl Errand {
+impl Errands for Errand {
     fn of(deed: Deed) -> Option<Errand> {
         match deed {
             Deed::Trial => Some(Errand::Wagon),
@@ -98,42 +95,6 @@ impl Errand {
             Errand::Owl => 2.2,
         }
     }
-}
-
-/// One figure out on a deed, as the map draws it (world pixels, feet).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct Wayfarer {
-    pub(crate) errand: Errand,
-    pub(crate) x: f32,
-    pub(crate) y: f32,
-    pub(crate) facing_left: bool,
-    pub(crate) moving: bool,
-    /// `Some(passed)` once every call it went out for has come back.
-    pub(crate) verdict: Option<bool>,
-    /// Bearing its load: a raven's scroll, a villager's sack, a messenger's
-    /// sheaf, an owl's finding.
-    pub(crate) carrying: bool,
-}
-
-/// The session's record, kept in the realm where each deed was done.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct Record {
-    /// Trials, newest last: `true` passed. The fence keeps [`PENNANTS`].
-    pub(crate) pennants: Vec<bool>,
-    /// Commits sealed and flown.
-    pub(crate) ravens: u32,
-    /// Distinct files forged.
-    pub(crate) blades: u32,
-    /// Distinct files studied.
-    pub(crate) books: u32,
-    /// Searches harvested.
-    pub(crate) stooks: u32,
-    /// Errands delivered.
-    pub(crate) sacks: u32,
-    /// Memories kept or recalled.
-    pub(crate) candles: u32,
-    /// Research findings.
-    pub(crate) stars: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -221,10 +182,6 @@ fn stand(place: Place) -> (i32, i32) {
     place.stand_world()
 }
 
-/// The Rookery roost in authored pixels: its left end, and the base it
-/// stands on in front of the tower.
-pub(crate) const ROOST: (i32, i32) = (25 * TILE, 15 * TILE - 2);
-
 /// Where the `n`th raven sits on the roost (realm pixels, feet).
 pub(crate) fn raven_perch(n: u32) -> (f32, f32) {
     let (x, base) = ROOST;
@@ -277,23 +234,6 @@ fn row(slot: usize, end: usize) -> (i32, i32) {
     let (tx, ty) = if end.is_multiple_of(2) { a } else { b };
     place_tile(tx, ty)
 }
-
-/// Where the stooks stand in the fields (authored tiles), in the order the
-/// harvests set them.
-pub(crate) const STOOKS: [(i32, i32); 12] = [
-    (35, 24),
-    (42, 25),
-    (36, 26),
-    (44, 25),
-    (42, 29),
-    (34, 26),
-    (35, 30),
-    (43, 28),
-    (37, 24),
-    (45, 25),
-    (34, 29),
-    (44, 29),
-];
 
 /// The cottage doors the villagers come from, one to a villager.
 fn cottage_door(slot: usize) -> (i32, i32) {

@@ -19,9 +19,9 @@ or an LLM service.
   faction/slot identity, settles casualties/deaths before clear or wipe, and
   refuses rewards/exits from locked rooms. `hazards.rs` suppresses legacy
   timed waves only for economic camps. Existing traps and boss combat remain.
-- `mirror.rs`: host-to-view finite state, monotonic identity/progress admission
-  and atomic live updates. `together_guest.rs`, `shooter_viz.rs`, `joined_viz.rs`
-  and the optional `assets/dungeon/guest.html`: status/map/resource projection.
+- `wire.rs`: what each seat's client is sent of the run (the tree, without
+  the dice). `shooter_viz.rs` and `joined_viz.rs`: status/map/resource
+  projection.
 
 Standard floors populate before entering room zero. Home/depth zero, depths
 beyond `DEEPEST = 6`, empty/malformed room geometry, insufficient reachable
@@ -194,13 +194,9 @@ migrated: it rejects rather than guessing new progress.
 
 Host/native-guest HUD/map show living chiefs as `C`, access shape, checked
 names/factions, resource and changed control/local support. Compact/normal
-native captures are deterministic tests. By default an invitation opened in a
-browser only says to paste it into angelX. With the browser view on
-(`/dungeon_host --view`, or `ANGEL_DUNGEON_BROWSER_VIEW=1`) it is read-only:
-bearer-authenticated HUD/PNG, bounded four-chief rows, 2 Hz sequential polling,
-`textContent` for data, revoked PNG object URLs and a same-origin/blob image
-CSP. It shows actual checked names and route/control/reserve changes; playing
-still requires native join. No private forge provenance is added.
+native captures are deterministic tests. A browser seat draws the same run
+with the Delve's own client (wasm), so it shows what a native seat's picture
+shows. No private forge provenance is added.
 
 ## Bounds and verification workflow
 

@@ -1,0 +1,106 @@
+{
+  "pack": "Delve quiet event SFX",
+  "created_utc": "2026-10-11T05:57:28+00:00",
+  "base_commit": "abe7b02df891a50a812263002e8762b9e583386a",
+  "provenance": {
+    "source": "ElevenLabs sound-effects API, generated for angelX using the operator-authorized environment key; no credentials stored",
+    "endpoint": "https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128",
+    "request_shape": "cockpit/assets/dungeon/sound.py post(): text, duration_seconds, prompt_influence=0.6; Accept audio/mpeg",
+    "api_calls": 5,
+    "api_call_cap": 5,
+    "socket_timeout_seconds": 25,
+    "total_timeout_seconds_per_call": 50,
+    "retries": 0,
+    "music_requests": 0,
+    "fallback_used": false,
+    "usage_terms": "Per the operator's ElevenLabs plan, matching ../LICENSES.md; not claimed CC0"
+  },
+  "mastering": {
+    "tool": "ffmpeg",
+    "format": "MP3, mono, 44100 Hz, 96 kbit/s",
+    "rms_target_dbfs": -24,
+    "limiter_dbfs": -10,
+    "silence_trim": "Leading -45 / trailing -50 dBFS raw, then -52 dBFS after gain/limiting preview to remove newly inaudible tails; 3–5 ms detection windows; retain 4/6 ms; reset timestamps; cap at requested duration",
+    "envelope": "4 ms fade-in / 25 ms fade-out",
+    "short_clip_handling": "Trimmed clips shorter than 0.52 s gently slowed by resampling to 0.54 s; no silence padding",
+    "note": "Duration is decoded audio; container duration can include MP3 framing. Final decoded MP3 RMS was gain-matched offline, without further API calls."
+  },
+  "validation": {
+    "result": "PASS: all five MP3s decode, mono/44100 Hz; decoded and container durations 0.5–1.0 s; RMS within 0.5 dB of -24 dBFS; true peaks <= -9 dBTP; leading/trailing silence <= 30/40 ms at -55 dBFS",
+    "tools": "ffprobe; ffmpeg PCM RMS/sample-peak calculation, ebur128 true-peak, silencedetect",
+    "runtime_tested": false
+  },
+  "playback_intent": "Quiet event-triggered one-shots for gas release, fire spell, barrier skill, wish grant and spell cast. No footsteps, music, loops or runtime changes; browser wiring/timing belongs to feature/delve-wave integration.",
+  "assets": [
+    {
+      "file": "gas_release.mp3",
+      "prompt": "One tiny cheeky fart puff, a soft low rubbery breath with a brief muted flutter, subtly funny and tasteful, close and dry, quiet fantasy game sound effect. Start immediately and finish cleanly. No voice, speech, music, footsteps, loud raspberry, explosion, or long reverb.",
+      "requested_duration_seconds": 0.6,
+      "duration_seconds": 0.54,
+      "mp3_container_duration_seconds": 0.54,
+      "post_trim_speed_factor": 0.847317,
+      "rms_dbfs": -24.06,
+      "sample_peak_dbfs": -10.21,
+      "true_peak_dbtp": -10.1,
+      "trailing_silence_seconds_at_minus55_dbfs": 0.0,
+      "bytes": 7253,
+      "sha256": "c07e3f5ea96044560aeb56153bfcc9137451dca857211fa79b1d7481191e5480"
+    },
+    {
+      "file": "spell_fire.mp3",
+      "prompt": "One short gentle warm firepit flare: a soft airy flame whoosh followed by a few tiny dry ember crackles, cozy and restrained, close and dry, quiet fantasy game sound effect. Start immediately and finish cleanly. No voice, speech, music, footsteps, roaring blaze, explosive impact, or long reverb.",
+      "requested_duration_seconds": 0.85,
+      "duration_seconds": 0.540023,
+      "mp3_container_duration_seconds": 0.540023,
+      "post_trim_speed_factor": 0.792223,
+      "rms_dbfs": -24.14,
+      "sample_peak_dbfs": -10.42,
+      "true_peak_dbtp": -10.4,
+      "trailing_silence_seconds_at_minus55_dbfs": 0.0,
+      "bytes": 7253,
+      "sha256": "c32a67c102ff211615f3e7cb8a4c2a98fb1f8d039ed7e8c3ae28ad3f599f9a15"
+    },
+    {
+      "file": "skill_barrier.mp3",
+      "prompt": "One short soft crystalline magic shield rising: a smooth translucent airy lift with a delicate glassy shimmer that settles quickly, restrained and protective, quiet fantasy game sound effect. Start immediately and finish cleanly. No voice, speech, music, melody, footsteps, harsh glass breaking, loud impact, or long reverb.",
+      "requested_duration_seconds": 0.8,
+      "duration_seconds": 0.617596,
+      "mp3_container_duration_seconds": 0.617596,
+      "post_trim_speed_factor": 1.0,
+      "rms_dbfs": -24.06,
+      "sample_peak_dbfs": -10.28,
+      "true_peak_dbtp": -9.9,
+      "trailing_silence_seconds_at_minus55_dbfs": 0.0,
+      "bytes": 8194,
+      "sha256": "34285db215c5227b67d70be709f7fbd7e8918db9c501ee54eb1668bb9d60e5a5"
+    },
+    {
+      "file": "wish_grant.mp3",
+      "prompt": "One delicate magical wish being granted: a tiny soft sparkling shimmer unfurls and gently dissolves, light and hopeful, subtle non-musical fairy dust texture, quiet fantasy game sound effect. Start immediately and finish cleanly. No voice, speech, music, melody, footsteps, celebratory fanfare, sharp chimes, or long reverb.",
+      "requested_duration_seconds": 0.9,
+      "duration_seconds": 0.776259,
+      "mp3_container_duration_seconds": 0.776259,
+      "post_trim_speed_factor": 1.0,
+      "rms_dbfs": -23.96,
+      "sample_peak_dbfs": -10.27,
+      "true_peak_dbtp": -9.9,
+      "trailing_silence_seconds_at_minus55_dbfs": 0.0,
+      "bytes": 10075,
+      "sha256": "0e7f1d01a6a55535c6ae967c3949f6d122e689e0141fde82e93dd5ad5bd1e0f0"
+    },
+    {
+      "file": "spell_cast.mp3",
+      "prompt": "One short arcane spell casting swoosh: a gentle velvet airy swish with a faint mystical fizz at the end, quick, clean, dry and restrained, quiet fantasy game sound effect. Start immediately and finish cleanly. No voice, speech, music, melody, footsteps, explosive zap, loud impact, or long reverb.",
+      "requested_duration_seconds": 0.65,
+      "duration_seconds": 0.54,
+      "mp3_container_duration_seconds": 0.54,
+      "post_trim_speed_factor": 0.835349,
+      "rms_dbfs": -24.0,
+      "sample_peak_dbfs": -14.43,
+      "true_peak_dbtp": -14.4,
+      "trailing_silence_seconds_at_minus55_dbfs": 0.0,
+      "bytes": 7253,
+      "sha256": "6a4d0f28f89ff428a60f324b58e0b515a34d8bda98d47161acb418ac1e75c035"
+    }
+  ]
+}

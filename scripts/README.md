@@ -9,12 +9,12 @@ runtime workers from proposed hot-reloadable JavaScript modules.
 
 | Directory | What |
 | --- | --- |
-| `release/` | Public archive + verify gates |
-| `check/` | Quality / boundary / connection gates |
+| `release/` | Evidence, packaging, install verification, and checkout-only `release/release-public.sh` |
+| `check/` | Quality, boundary, connection, duplicate-content, and research-embed gates |
 | `runtime/` | Host workers/helpers: shipped dossier, Habitsmith, pxpipe and store helpers; explicitly marked checkout-only tools below |
-| `bench/` | Benchmark runners, model/harness experiments, and result analysis |
-| `release-report/` | Release-report rendering helpers |
-| `readme-charts/` | Documentation chart production |
+| `bench/` | Measurement. Polyglot runners and analysis are in `bench/polyglot/`; book-harness experiments stay in `bench/book-harness/` |
+| `release-report/` | Report templates, `build_release_report.py`, and the scoreboard video renderer |
+| `readme-charts/` | Chart assets, figure renderers, and pan pacing |
 
 Shared runtime libraries live in [`lib/`](../lib/); script tests live in
 [`tests/scripts/`](../tests/scripts/). Keep new runtime entry points in

@@ -19,4 +19,4 @@ and paced frame tick. Reduced/off motion keeps both poses and positions still.
 They do not add a redraw source or animate while the Realm is hidden.
 
 Add future approved residents to the small `CLERKS` data array in
-`cockpit/src/stage/world_viz/overworld/clerks.rs`; no actor engine is needed.
+`crates/delve/src/render/overworld/clerks.rs`; no actor engine is needed.

@@ -7,6 +7,7 @@ size 1.4
 move hover speed=1.4
 attack ring shots=12 speed=4 every=140 damage=10 shot=bone
 attack aimed shots=3 speed=6 every=70 damage=11 shot=orb
+phases gap_ring burst flower every=72 volleys=2 damage=10 shot=bone
 rage 35%
 drops bone 6, wax 3, gold 190
 art

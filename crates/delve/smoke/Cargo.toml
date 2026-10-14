@@ -1,0 +1,18 @@
+[package]
+name = "angel-delve-smoke"
+version = "0.1.0"
+description = "The Delve's wasm smoke: frames drawn by the same renderer in wasm and natively, and how long each takes"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+# A raw wasm module for node (no bindgen), and the native timer's library.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The fixtures' scenes (a busy fight, the kingdom) are the art kit's own.
+angel-delve = { path = "..", features = ["testing"] }
+# The wire's trees and patches, as a client takes them.
+angel-net = { path = "../../net" }

@@ -1303,6 +1303,87 @@ impl ProcRunTool {
     }
 }
 
+/// Whether this run may launch services that outlive the Angel process.
+/// Off unless the operator explicitly enables it
+/// (`ANGEL_PROC_PERSISTENT_SERVICES=1`): the launch deliberately escapes
+/// sandbox-helper containment, which is exactly what post-exit
+/// verification tasks need and exactly what ordinary turns must not do
+/// by accident.
+fn persistent_services_enabled() -> bool {
+    env_flag("ANGEL_PROC_PERSISTENT_SERVICES", false)
+}
+
+fn persistent_shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+/// Launch `command` detached into its own session, outside the sandbox
+/// helper's subreaper containment, so it survives this process's exit.
+/// The launcher shell exits immediately; the service is untracked from
+/// then on (stop it via shell `kill <pid>`).
+fn run_persistent_service(command: &str, name: &str, cwd: &Path) -> Result<String, String> {
+    if !persistent_services_enabled() {
+        return Err(
+            "persistent services are not enabled for this run \
+             (set ANGEL_PROC_PERSISTENT_SERVICES=1); use a tracked proc_run job instead"
+                .to_string(),
+        );
+    }
+    let dir = proc_dir().join("persistent");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("persistent log dir: {e}"))?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let log = dir.join(format!("{name}-{stamp}.log"));
+    let script = format!(
+        "setsid sh -c {} </dev/null >>{} 2>&1 & echo $!",
+        persistent_shell_quote(command),
+        persistent_shell_quote(&log.to_string_lossy())
+    );
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&script)
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| format!("persistent launch failed: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "persistent launch failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let pid: u32 = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .next_back()
+        .and_then(|line| line.trim().parse().ok())
+        .unwrap_or(0);
+    std::thread::sleep(Duration::from_millis(150));
+    // SAFETY: signal 0 only probes existence of the just-launched pid.
+    let alive = pid > 0 && unsafe { libc::kill(pid as libc::pid_t, 0) } == 0;
+    if alive {
+        // Exempt this session from Angel's shutdown descendant cleanup;
+        // plain detached daemons otherwise die at cockpit exit.
+        #[cfg(target_os = "linux")]
+        sandbox::process_owner::spare_persistent(pid);
+        Ok(format!(
+            "started persistent [{name}] pid {pid} (own session; survives Angel exit; \
+             untracked by proc_status/proc_stop — stop via shell kill {pid}); log: {}",
+            log.display()
+        ))
+    } else {
+        let tail = std::fs::read_to_string(&log)
+            .map(|s| s.chars().take(600).collect::<String>())
+            .unwrap_or_default();
+        Ok(format!(
+            "persistent launcher exited (pid {pid} gone): if the command self-daemonizes, \
+             prove the endpoint now; otherwise it failed at startup. log: {} — {tail}",
+            log.display()
+        ))
+    }
+}
+
 impl Tool for ProcRunTool {
     fn workspace_write_scope_is_opaque(&self, _args: &Value) -> bool {
         // A retained background process can write ignored files after launch.
@@ -1319,7 +1400,7 @@ impl Tool for ProcRunTool {
             description: "Start a long-running command in the BACKGROUND (own process group, \
                           captured output) and return a handle id immediately. proc_status reads the captured log. Jobs survive successful answers in \
                           this cockpit; turn cancellation/failure stops its jobs. proc_stop or \
-                          cockpit exit stops remaining jobs and retains their receipts. ⠩⠙"
+                          cockpit exit stops remaining jobs and retains their receipts. With persistent=true (only when the operator enabled persistent services) the command is detached into its own session to OUTLIVE this Angel process — for services a post-exit verifier must reach — and is not tracked by proc_status/proc_stop. ⠩⠙"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",
@@ -1332,6 +1413,10 @@ impl Tool for ProcRunTool {
                     "cwd": {
                         "type": "string",
                         "description": "⠩⠙⠛"
+                    },
+                    "persistent": {
+                        "type": "boolean",
+                        "description": "⠩⠙⠓"
                     },
                 },
                 "required": ["command"],
@@ -1373,6 +1458,13 @@ impl Tool for ProcRunTool {
                 .as_str()
                 .unwrap_or_else(|| command.split_whitespace().next().unwrap_or("proc")),
         );
+        if args["persistent"].as_bool() == Some(true) {
+            let cwd = args["cwd"]
+                .as_str()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| self.workspace.clone());
+            return run_persistent_service(command, &name, &cwd);
+        }
         let identity = crate::platform::workspace_store::repo_identity(&self.workspace);
         let dir = proc_dir().join(&identity.key);
         let id = next_id(cancel)?;

@@ -41,6 +41,8 @@ pub(crate) use commands::{TURN_CONTEXT_HEADER, retry_last_request, undo_last_exc
 pub(crate) use dungeon::DungeonView;
 mod moa;
 mod modules;
+mod overworld_walk;
+pub(crate) use overworld_walk::Walk;
 mod rating;
 mod research;
 mod session_meta;

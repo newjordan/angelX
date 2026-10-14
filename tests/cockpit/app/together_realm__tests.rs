@@ -107,6 +107,9 @@ fn the_brief_names_the_file_the_words_and_where_spoils_come_from() {
             && text.contains(&format!("/dungeon grant {id}"))
     );
     assert!(text.contains("embers in Dragon Keep"));
+    assert!(text.contains("image tool") && text.contains("sheet art"));
+    assert!(text.contains(".angel/realm/sheets"));
+    assert!(text.contains("summon N swarm|guard|turret") && text.contains("landmark"));
 }
 
 #[test]

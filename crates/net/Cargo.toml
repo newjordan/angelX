@@ -1,0 +1,14 @@
+[package]
+name = "angel-net"
+version = "0.1.0"
+description = "The engine's contract: protocol, commands, clocks and replication, for every client and the server"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive", "rc"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive", "rc"] }

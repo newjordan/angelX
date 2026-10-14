@@ -12,7 +12,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts/polyglot_grok47_table.py"
+SCRIPT = ROOT / "scripts/bench/polyglot/polyglot_grok47_table.py"
 
 
 def load_module():

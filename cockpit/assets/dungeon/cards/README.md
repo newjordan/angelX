@@ -19,7 +19,7 @@ weapon and your held cards, then every card in the book.
 
 ```text
 name   Ember Quiver          # up to 22 characters
-kind   hold                  # take | hold | play | arm
+kind   hold                  # take | hold | play | arm | guard | spell
 rarity rare                  # common | rare | relic
 by     Jordan                # who made it
 text   Arrows that smoulder in the dark.
@@ -38,14 +38,15 @@ art                          # up to 16 x 16 inks; `.` is black paper
 |---|---|
 | `take` | The moment you walk over it. It stays on the floor while it would do nothing, such as a heal at full health. |
 | `hold` | All run. It goes into your deck. |
-| `play` | It goes into your hand (four slots). Keys 1–4 play it. |
-| `spell` | First empty reusable spell slot (three slots). Z/B/N cast; its own cooldown recharges it. |
-| `arm` | It becomes your weapon, and your old weapon drops. Use `arm bow\|crossbow\|handgonne`, or [Forge](../../../../docs/DELVE.md) rune lines (`bolt`, `spread`, `melee`, `look`). |
+| `play` | It goes into your hand (four slots). Z plays the first card in hand; the rest shift left. |
+| `spell` | First empty reusable spell slot (four slots). 1–4 cast; its own cooldown recharges it. |
+| `guard` | Equips the guard action: `guard roll`, `shield`, `spin`, or `wall width=2-8 drain=10-50 empower=0-40`. |
+| `arm` | Walking over it leaves it be; press **P** beside it and it becomes your weapon, and your old weapon drops where it lay (press P again to swap back). Use `arm bow\|crossbow\|handgonne`, or [Forge](../../../../docs/DELVE.md) rune lines (`bolt`, `spread`, `melee`, `look`). |
 
 ### Reusable spells
 
-Each knight has **three spell slots**, shown on the HUD under the hand.
-**Z / B / N** cast slots 1 / 2 / 3 in the host cockpit and a friend's cockpit. A second knight on the same keyboard uses **5 / 6 / 7**.
+Each knight has **four spell slots**, shown on the HUD above the hand.
+**1 / 2 / 3 / 4** cast slots 1 / 2 / 3 / 4 in the host cockpit and a friend's cockpit. A second knight on the same keyboard uses **5 / 6 / 7 / backslash**.
 Spell slots start empty. Picking up a spell fills the first empty slot;
 spells do not consume hand space and **are never used up**. Each slot recharges
 independently in simulation time (cooldowns pause with solo play).
@@ -62,7 +63,7 @@ text Fire remembers the hand that made it.
 
 `cooldown <seconds>` is required on spells only, in whole seconds clamped to
 **1–120**. A spell has up to three effects, using the same caps as play cards:
-**heal, bombs, nova, ward**, and the spell-only **cast** effect. Reusable spells
+**heal, bombs, nova, ward, summon**, and the spell-only **cast** effect. Reusable spells
 cannot mint gold/materials or permanent health/held bonuses.
 
 `cast bolt` launches a straight bolt; `cast ring` launches twelve bolts radially;
@@ -93,19 +94,50 @@ changed card rules through the host mirror. Cards remain checked data, not code.
 | `censer` | 10–80 | take, play | Mends every knight within eight steps by N (the Censer). |
 | `gold` | 10–500 | take, play | Adds to the score. |
 | `bombs` | 1–3 | take, play, spell | Adds bomb charges. |
-| `max_hp` | 5–40 | any | Adds maximum health for good. |
+| `max_hp` | 5–40 | take, hold, play | Adds maximum health for good. |
 | `nova` | 10–120 | take, play, spell | Damages every monster in the room. |
 | `ward` | 1–5 | take, play, spell | Makes you untouchable for that many seconds. |
-| `damage` | 5–50 | hold | Shots and swings hit N% harder. The deck caps at 100. |
-| `rate` | 5–40 | hold | You shoot and swing N% faster. The deck caps at 60. |
-| `speed` | 5–30 | hold | You walk N% faster. The deck caps at 40. |
-| `pierce` | 1–2 | hold | Shots pass through more monsters. The deck caps at 3. |
-| `shots` | 1–2 | hold | Adds shots in a fan. The deck caps at 2. |
-| `armor` | 1–2 | hold | Each piece turns aside 3 damage per hit. The deck caps at 3. |
-| `vamp` | 1–10 | hold | Mends N health per monster slain. The deck caps at 10. |
+| `damage` | 5–40 | hold | Shots and swings hit N% harder. The deck caps at 40. |
+| `rate` | 5–30 | hold | You shoot and swing N% faster. The deck caps at 30. |
+| `speed` | 5–25 | hold | You walk N% faster. The deck caps at 25. |
+| `pierce` | 1–2 | hold | Shots pass through more monsters. The deck caps at 2. |
+| `shots` | 1–1 | hold | Adds shots in a fan. The deck caps at 1. |
+| `armor` | 1–2 | hold | Each piece turns aside a share of every hit (6, then 11 in the hundred). The deck caps at 2. |
+| `vamp` | 1–3 | hold | Mends N health per monster slain. The deck caps at 3. |
 
-Numbers outside a range are clamped, with a note. Unknown words are
+| `summon N behaviour` | swarm 1–6; guard 1–4; turret 1–2 | play, spell | Calls bounded creatures with a `draw summon` look. Spells recharge at least 4/5/10 seconds per creature respectively. |
+
+The second copy of a held card is worth half the first, the third a quarter, and no more after. Mail counts whole pieces, rounding duplicate half/quarter pieces down. Numbers outside a range or a held deck cap are clamped, with a note. Unknown words are
 rejected. Cards are data, never code.
+
+### Looks on the field
+
+Card icons and play-field looks are separate. `draw worn` overlays gear on the
+knight; `draw shot` dresses its projectiles; `draw orbit` replaces a held orbit's
+morningstar; `draw summon` (alias `foe`) dresses summoned creatures; `draw aura`
+puts a glow under the knight. Gear uses **worn**, never orbit as a stand-in.
+
+A block contains ink rows, with `.` transparent and `|` between up to four
+frames on every row. End with a blank line. Limits are 24×24 worn, 12×12 shot
+and orbit, 16×16 summon, 32×24 aura. Small worn pieces can be placed with
+`draw worn at=head|shoulders|body|left|right|feet` (`left` is the shield arm).
+
+Or save a horizontal PNG strip in `.angel/dungeon/sheets/` and reference it:
+
+```text
+name Golden Devils
+kind spell
+cooldown 16
+summon 4 swarm
+sheet summon golden-devils.png frames=2 size=12
+```
+
+Sheets are limited to 2 MiB, 2048 pixels per side and four equal-width frames.
+Use a flat background or transparency. `size=` sets the target within the slot
+limit; `at=` places a worn sheet. The loader removes the background, reduces
+colours, and converts the frames into checked ink rows for saves and friends.
+The same sheet path works in reforges and learned phrasebook entries. Full
+slot and summon rules are in [Delve cards](../../../../docs/DELVE.md#cards).
 
 ### Inks
 

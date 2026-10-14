@@ -24,7 +24,8 @@
 //! contains title, source path, claims, or contents: Run carries markers only.
 use super::{Site, Store};
 use crate::drive::loop_ctl::LoopState;
-use crate::drive::together_shooter::{Floor, RoomKind, Run, TILE_UNITS, Tile};
+pub(crate) use crate::drive::together_shooter::exhibits::Marker;
+use crate::drive::together_shooter::{Floor, RoomKind, Run, Tile};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -88,31 +89,6 @@ pub(crate) struct Exhibit {
     sha256: String,
     bytes: u64,
     pub(crate) marker: Marker,
-}
-
-/// Only public geometry; never put private artifact metadata in a Run, guest
-/// HUD, or pixels. Its generic LOCAL RESEARCH sign is shared with guests.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Marker {
-    pub(crate) room: usize,
-    pub(crate) col: usize,
-    pub(crate) row: usize,
-    pub(crate) stand: (usize, usize),
-}
-
-impl Marker {
-    pub(crate) fn valid(&self, floor: &Floor) -> bool {
-        floor.rooms.get(self.room).is_some_and(|r| {
-            self.col < r.cols
-                && self.row < r.rows
-                && self.stand.0 < r.cols
-                && self.stand.1 < r.rows
-                && self.col.abs_diff(self.stand.0) + self.row.abs_diff(self.stand.1) == 1
-                && r.tile(self.col as i32, self.row as i32) == Tile::Block
-                && r.tile(self.stand.0 as i32, self.stand.1 as i32) == Tile::Floor
-        })
-    }
 }
 
 #[derive(Deserialize)]
@@ -367,6 +343,15 @@ impl Site {
     pub(crate) fn exhibit_markers(&self) -> Vec<Marker> {
         self.exhibits.iter().map(|e| e.marker.clone()).collect()
     }
+    /// The site as a new run admits it (`Run::enter_settlement`).
+    pub(crate) fn admission(&self) -> crate::drive::together_shooter::exhibits::Admission<'_> {
+        crate::drive::together_shooter::exhibits::Admission {
+            id: &self.id,
+            player: &self.player,
+            floor: &self.floor,
+            exhibits: self.exhibit_markers(),
+        }
+    }
     pub(crate) fn restore_exhibits(&self, replay: &mut Site) -> bool {
         if self.exhibits.len() > MAX_EXHIBITS {
             return false;
@@ -407,11 +392,7 @@ impl Site {
             return Err("inspection requires this saved settlement".into());
         }
         let hero = run.players.get(&1).ok_or("host seat unavailable")?;
-        let near = |m: &Marker| {
-            m.room == run.at
-                && (hero.x - (m.stand.0 as f32 + 0.5) * TILE_UNITS).abs() <= TILE_UNITS * 0.7
-                && (hero.y - (m.stand.1 as f32 + 0.5) * TILE_UNITS).abs() <= TILE_UNITS * 0.7
-        };
+        let near = |m: &Marker| m.beside(run.at, hero.x, hero.y);
         let e = self
             .exhibits
             .iter()

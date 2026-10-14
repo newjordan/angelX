@@ -66,7 +66,7 @@ impl Fixture {
     }
     fn run(&self) -> Run {
         let mut run = Run::at_home(77, 91, None, Home::default(), Default::default());
-        run.enter_settlement(&self.store.site).unwrap();
+        run.enter_settlement(self.store.site.admission()).unwrap();
         run
     }
     fn approach(&self, run: &mut Run) {
@@ -872,10 +872,9 @@ fn settlement_exhibits_guest_geometry_and_pixels_never_contain_private_metadata(
     let mut run = f.run();
     f.approach(&mut run);
     let state = serde_json::to_string(&run).unwrap();
-    let guest_state = String::from_utf8(
-        crate::drive::together_guest::settlement_snapshot_for_test(&run, "Public generic notice"),
-    )
-    .unwrap();
+    // What a friend's client is sent, as bytes on the wire.
+    let (guest_bytes, _, guest_picture) = crate::drive::together_seat::guest_view(&run, 1);
+    let guest_state = String::from_utf8_lossy(&guest_bytes).into_owned();
     for private in [
         "PRIVATE measured latency",
         "reports/result.txt",
@@ -887,7 +886,6 @@ fn settlement_exhibits_guest_geometry_and_pixels_never_contain_private_metadata(
         assert!(!guest_state.contains(private));
     }
     let host_pixels = arena::frame(&run, 384, 224).rgb_bytes();
-    let guest_png = crate::drive::together_guest::frame_png(&run, 1);
     let mut changed = f.store.site.clone();
     let mut v = value(&changed);
     v["exhibits"][0]["title"] = json!("OTHER PRIVATE title");
@@ -895,22 +893,13 @@ fn settlement_exhibits_guest_geometry_and_pixels_never_contain_private_metadata(
     v["exhibits"][0]["source"] = json!("private/other.txt");
     changed = serde_json::from_value(v).unwrap();
     let mut other = Run::at_home(77, run.raid_id, None, Home::default(), Default::default());
-    other.enter_settlement(&changed).unwrap();
+    other.enter_settlement(changed.admission()).unwrap();
     other.at = run.at;
     other.players = run.players.clone();
     assert_eq!(host_pixels, arena::frame(&other, 384, 224).rgb_bytes());
-    assert_eq!(
-        guest_png,
-        crate::drive::together_guest::frame_png(&other, 1)
-    );
-    assert_eq!(
-        guest_state,
-        String::from_utf8(crate::drive::together_guest::settlement_snapshot_for_test(
-            &other,
-            "Public generic notice"
-        ))
-        .unwrap()
-    );
+    let (other_bytes, _, other_picture) = crate::drive::together_seat::guest_view(&other, 1);
+    assert_eq!(guest_picture, other_picture);
+    assert_eq!(guest_bytes, other_bytes);
     let local = f.store.site.inspect(&run, f.dir.path()).unwrap();
     assert!(local.contains("PRIVATE measured latency"));
     assert!(!serde_json::to_string(&run).unwrap().contains(&local));
@@ -928,7 +917,7 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
         .expect("preview registry is uniquely owned")
         .set_workspace(f.dir.path().to_path_buf());
     app.loop_ctl = f.st;
-    app.dungeon.shooter = Some(run);
+    app.dungeon.shooter.set(Some(run));
     app.world.settlement_restore_for_test(f.store);
     app.dungeon.expanded = true;
     app.dungeon.controls_visible = true;
@@ -958,6 +947,9 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
     assert_eq!(app.dungeon.exhibit_scroll, 1);
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     assert!(app.dungeon.exhibit_text.is_none());
+    assert_eq!(app.dungeon.activity_menu, Some(1));
+    assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+    assert!(app.dungeon.activity_menu.is_none());
     assert_eq!(app.dungeon.notice, "PUBLIC generic notice");
     app.dungeon.controls_visible = true;
     app.terminal_focused = true;
@@ -970,6 +962,24 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
             .contains("37 samples")
     );
     assert_eq!(app.dungeon.notice, "PUBLIC generic notice");
+    // Away from the exhibit, E is the knight's interact key again: no
+    // overlay and no digest.
+    assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+    assert_eq!(app.dungeon.activity_menu, Some(1));
+    assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+    app.dungeon.controls_visible = true;
+    let hero = app
+        .dungeon
+        .shooter
+        .edit()
+        .unwrap()
+        .players
+        .get_mut(&1)
+        .unwrap();
+    hero.x += 4.0 * crate::drive::together_shooter::TILE_UNITS;
+    assert!(!app.dungeon.shooter.as_ref().unwrap().beside_exhibit(1));
+    assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE)));
+    assert!(app.dungeon.exhibit_text.is_none(), "E away from an exhibit opens nothing");
 }
 
 #[test]

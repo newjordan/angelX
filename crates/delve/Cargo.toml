@@ -1,0 +1,27 @@
+[package]
+name = "angel-delve"
+version = "0.1.0"
+description = "The Delve: its rules, its renderer and its world, for the host and every client"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+# The tests are modules of the library (`#[path]` under `tests/`), not
+# integration test targets.
+autotests = false
+
+[features]
+# The test helpers the cockpit's own tests reach for.
+testing = []
+
+[dependencies]
+angel-net = { path = "../net" }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+tracing = "0.1"
+# PNG decoding for the sprites compiled in; nothing else.
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+
+[build-dependencies]
+# The town residents' paintings, shrunk once at build time (`build.rs`).
+image = { version = "0.25.10", default-features = false, features = ["png"] }

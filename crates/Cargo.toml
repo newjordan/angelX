@@ -1,0 +1,23 @@
+# The engine's crates. The cockpit is not a member: it depends on these by
+# path and keeps its own target directory and lockfile.
+[workspace]
+resolver = "3"
+members = ["net", "serve", "muster", "bots", "delve", "delve/smoke", "delve/dev-host", "web", "web/testgame", "web/muster", "web/delve"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+publish = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# The browser client is downloaded by every phone that joins: small first.
+[profile.web]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+panic = "abort"
+strip = "symbols"
