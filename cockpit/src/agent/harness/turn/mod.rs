@@ -1242,6 +1242,13 @@ fn run_turn_tiered(
     }
     let turn_budget = configured_turn_deadline_secs_for(competition);
     let task_pace = configured_task_pace(history);
+    // Budget-fraction overwatch (observe-first; see `sentinel.rs`). A turn
+    // with no configured budget never arms it.
+    let mut sentinel = super::sentinel::Sentinel::from_env(turn_budget);
+    let sentinel_artifacts = super::sentinel::configured_artifacts();
+    let sentinel_liveness_cmd = super::sentinel::configured_liveness_cmd();
+    let sentinel_exact_dirs = super::sentinel::configured_exact_dirs();
+    let mut sentinel_gate_blocks = 0u8;
     // A byte-exact provider prefix cache renders the tool schemas ahead of the
     // whole conversation, so a tool set that changes at a new user turn
     // re-reads everything uncached (DeepSeek: every /loop iteration and every
@@ -3602,6 +3609,104 @@ fn run_turn_tiered(
                         )
                     })
                     .flatten();
+                // Sentinel delivery gate (opt-in `ANGEL_SENTINEL=intervene`
+                // with named artifacts and/or a liveness command): unlike
+                // the stop facts below, a missing *named deliverable* or a
+                // dead server withholds the answer — bounded to
+                // GATE_MAX_BLOCKS rounds — because in a budgeted task the
+                // workspace is graded after this process exits.
+                if sentinel.intervene_armed() {
+                    let missing = super::sentinel::missing_artifact_paths(
+                        &sentinel_artifacts,
+                        registry.current_workspace(),
+                    );
+                    let exact_violations = super::sentinel::exact_dir_violations(
+                        &sentinel_exact_dirs,
+                        registry.current_workspace(),
+                    );
+                    let liveness = sentinel_liveness_cmd.as_deref().map(|cmd| {
+                        book::v_verification::run_task_accept(
+                            cmd,
+                            registry.current_workspace(),
+                        )
+                    });
+                    let liveness_failed = liveness.as_ref().is_some_and(|proof| !proof.passed);
+                    // An endpoint served by an Angel-owned `proc_run` job
+                    // dies with this process, before any post-exit check:
+                    // liveness passing through such a job proves nothing.
+                    let owned_service_pending = sentinel_liveness_cmd.is_some()
+                        && crate::agent::tools::proc::owned_work_pending(
+                            proc_owner,
+                            proc_workspace,
+                        );
+                    if super::sentinel::gate_should_block(
+                        true,
+                        missing.len(),
+                        exact_violations.len(),
+                        liveness_failed,
+                        owned_service_pending,
+                        sentinel_gate_blocks,
+                        left.is_some(),
+                    ) {
+                        sentinel_gate_blocks += 1;
+                        let mut evidence_lines: Vec<String> = Vec::new();
+                        if !missing.is_empty() {
+                            evidence_lines.push(format!(
+                                "named deliverables still missing: {}",
+                                missing
+                                    .iter()
+                                    .map(|p| p.display().to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            ));
+                        }
+                        evidence_lines.extend(exact_violations.iter().cloned());
+                        if let (Some(cmd), Some(proof)) =
+                            (sentinel_liveness_cmd.as_deref(), liveness.as_ref())
+                            && liveness_failed
+                        {
+                            evidence_lines.push(format!(
+                                "server liveness check failed (`{cmd}`): {}. The verifier \
+                                 runs after this process exits, so (re)start the server \
+                                 detached (daemonized/setsid, not a foreground shell job) \
+                                 and prove it answers before finishing.",
+                                proof.summary
+                            ));
+                        }
+                        if owned_service_pending {
+                            evidence_lines.push(
+                                "an Angel-owned background job (proc_run) is still running: \
+                                 it stops when this process exits, before the verifier \
+                                 connects. Stop it and relaunch the service with \
+                                 proc_run persistent=true (detached to outlive Angel), \
+                                 then prove liveness with no Angel-owned jobs running."
+                                    .to_string(),
+                            );
+                        }
+                        let evidence = evidence_lines.join("\n");
+                        crate::agent::harness::trajectory::note_escalation(
+                            hop,
+                            "sentinel_gate",
+                        );
+                        let _ = events.send(TurnEvent::Notice(format!(
+                            "sentinel gate ({sentinel_gate_blocks}/{}): answer withheld — {evidence}",
+                            super::sentinel::GATE_MAX_BLOCKS
+                        )));
+                        let _ = events.send(TurnEvent::SuppressPartial);
+                        history.push(ChatMsg::assistant_with_reasoning(
+                            answer,
+                            answer_reasoning,
+                        ));
+                        history.push(ChatMsg::harness(book::warpath(
+                            registry.current_workspace(),
+                            &[book::Raise::new(
+                                book::v_verification::ACCEPTANCE,
+                                evidence,
+                            )],
+                        )));
+                        continue;
+                    }
+                }
                 if let Some((cells, shown)) =
                     checkpoint.engage(registry.current_workspace(), &stop_facts, left.is_some())
                 {
@@ -4662,6 +4767,76 @@ fn run_turn_tiered(
                             .is_some_and(|after| before != after)
                     });
                 crate::agent::harness::trajectory::note_progress_hop(progress_mutated);
+                // Sentinel: render budget-fraction facts (notice-only unless
+                // intervention is armed, and even then at most the one
+                // existing first-write advisory, latched with its own block
+                // below). Full policy in `super::sentinel`.
+                {
+                    let missing_paths = super::sentinel::missing_artifact_paths(
+                        &sentinel_artifacts,
+                        registry.current_workspace(),
+                    );
+                    let verdict = sentinel.observe(super::sentinel::Observation {
+                        elapsed: turn_start.elapsed(),
+                        mutated_this_hop: successful_mutation_this_hop,
+                        green: green_verify_achieved,
+                        artifacts_missing: (!sentinel_artifacts.is_empty())
+                            .then_some(missing_paths.len()),
+                    });
+                    if verdict != super::sentinel::Verdict::Quiet {
+                        let _ = events.send(TurnEvent::Notice(verdict.describe()));
+                        let missing_evidence = missing_paths
+                            .iter()
+                            .take(4)
+                            .map(|p| p.display().to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        if matches!(verdict, super::sentinel::Verdict::Drift { .. })
+                            && sentinel.intervene_armed()
+                            && !first_write_attempted
+                            && !successful_mutation_this_hop
+                            && !first_write_nudge_emitted
+                        {
+                            first_write_nudge_emitted = true;
+                            raised.push(book::Raise::new(
+                                book::d3456_advisories::FIRST_WRITE,
+                                format!(
+                                    "half the {turn_budget}s budget spent before the first edit; \
+                                     named deliverables still missing: {missing_evidence}"
+                                ),
+                            ));
+                        }
+                        // Edits landed somewhere, but not at the named
+                        // deliverables: name them while half the budget
+                        // remains, instead of a first-write prompt.
+                        if matches!(verdict, super::sentinel::Verdict::Drift { .. })
+                            && sentinel.intervene_armed()
+                            && !missing_paths.is_empty()
+                            && (first_write_attempted || successful_mutation_this_hop)
+                        {
+                            raised.push(book::Raise::new(
+                                book::v_verification::ACCEPTANCE,
+                                format!(
+                                    "named deliverables still missing at half the {turn_budget}s \
+                                     budget: {missing_evidence}"
+                                ),
+                            ));
+                        }
+                        if matches!(verdict, super::sentinel::Verdict::Deliver { .. })
+                            && sentinel.intervene_armed()
+                            && !missing_paths.is_empty()
+                            && !final_mile_active
+                        {
+                            raised.push(book::Raise::new(
+                                book::d3456_advisories::FINAL_MILE,
+                                format!(
+                                    "85% of the {turn_budget}s budget spent; named deliverables \
+                                     still missing: {missing_evidence} — land them now"
+                                ),
+                            ));
+                        }
+                    }
+                }
                 live_research.flush();
                 loops.after_hop(
                     &loop_batch,

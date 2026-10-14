@@ -1,4 +1,4 @@
-"""Offline builder coverage for the Delve's voice and music assets."""
+"""Offline builder coverage for the Delve's knight voices and music."""
 import importlib.util
 from pathlib import Path
 import sys
@@ -18,57 +18,52 @@ def load_script(name, path):
 
 
 LEVEL = load_script("dungeon_level_test", ROOT / "cockpit/assets/dungeon/level.py")
-VOICE = load_script("dungeon_voice_test", ROOT / "cockpit/assets/dungeon/voices/voice.py")
-VOICE_SOURCE_DIR = ROOT / "cockpit/assets/dungeon/voices"
+KNIGHTS = load_script("dungeon_knights_test", ROOT / "cockpit/assets/dungeon/knights.py")
 
 
 class DungeonAudioBuilderTests(unittest.TestCase):
-    def test_voice_builder_records_each_chorus_character_and_keeps_existing_takes(self):
-        with mock.patch.object(VOICE, "HERE", VOICE_SOURCE_DIR):
-            source_rows = list(VOICE.lines())
-        first_by_character = {}
-        for row in source_rows:
-            first_by_character.setdefault(row[0], row)
-        rows = list(first_by_character.values())
-
-        with tempfile.TemporaryDirectory(prefix="angel-dungeon-voices-") as tmp:
+    def test_knight_builder_records_every_clip_and_keeps_existing_takes(self):
+        with tempfile.TemporaryDirectory(prefix="angel-dungeon-knights-") as tmp:
             root = Path(tmp)
-            (root / "chorus.txt").write_text(
-                "\n".join(" | ".join(row) for row in rows) + "\n"
-            )
-            preserved = rows[0]
-            kept = root / preserved[0] / f"{preserved[2]}.mp3"
-            kept.parent.mkdir(parents=True)
+            out = root / "sfx" / "knights"
+            out.mkdir(parents=True)
+            kept = out / "a_cheer_1.mp3"
             kept.write_bytes(b"authored take")
-            commands = []
+            spoken, commands = [], []
 
-            def fake_tts(_voice, _settings, text, output):
+            def fake_tts(voice_id, text, output):
+                spoken.append((voice_id, text))
                 output.write_bytes(text.encode())
 
-            def fake_ffmpeg(command, **_kwargs):
+            def fake_run(command, **_kwargs):
                 commands.append(command)
+                if "-af" in command and "astats=metadata=0" in command:
+                    return mock.Mock(stderr="Overall\n RMS level dB: -30.0\n")
                 Path(command[-1]).write_bytes(b"rendered take")
+                return mock.Mock(stderr="")
 
-            with mock.patch.object(VOICE, "HERE", root):
-                with mock.patch.object(VOICE, "tts", side_effect=fake_tts) as tts:
-                    with mock.patch.object(
-                        VOICE.subprocess, "run", side_effect=fake_ffmpeg
-                    ):
-                        with mock.patch.object(sys, "argv", ["voice.py"]):
-                            VOICE.main()
+            with mock.patch.object(KNIGHTS, "HERE", root), \
+                    mock.patch.object(KNIGHTS, "OUT", out), \
+                    mock.patch.object(KNIGHTS, "tts", side_effect=fake_tts), \
+                    mock.patch.object(KNIGHTS.subprocess, "run", side_effect=fake_run), \
+                    mock.patch.object(sys, "argv", ["knights.py"]):
+                KNIGHTS.main()
 
+            clips = [*KNIGHTS.CHATTER, *KNIGHTS.GRUNTS]
             self.assertEqual(kept.read_bytes(), b"authored take")
-            for who, _cue, lid, _words in rows:
-                target = root / who / f"{lid}.mp3"
-                self.assertTrue(target.is_file(), f"missing generated take: {who}/{lid}")
-                if target != kept:
-                    self.assertEqual(target.read_bytes(), b"rendered take")
-            self.assertEqual(len(commands), len(rows) - 1)
-            self.assertTrue(tts.called)
-            for command in commands:
-                filters = command[command.index("-filter_complex") + 1]
-                self.assertIn("loudnorm=I=-16", filters)
-                self.assertIn("silenceremove", filters)
+            for voice in KNIGHTS.VOICES:
+                for clip in clips:
+                    for take in (1, 2):
+                        target = out / f"{voice}_{clip}_{take}.mp3"
+                        self.assertTrue(target.is_file(), f"missing {target.name}")
+            self.assertEqual(len(spoken), len(KNIGHTS.VOICES) * len(clips) * 2 - 1)
+            # Two knights never share both lines of a moment.
+            for clip in KNIGHTS.CHATTER:
+                self.assertNotEqual(KNIGHTS.takes("a", clip), KNIGHTS.takes("b", clip))
+            shaping = [c for c in commands if "-af" in c and "silenceremove" in c[c.index("-af") + 1]]
+            self.assertTrue(shaping, "takes are trimmed")
+            levelling = [c for c in commands if "-af" in c and "alimiter" in c[c.index("-af") + 1]]
+            self.assertTrue(levelling, "takes are levelled and limited")
 
     def test_music_builder_preserves_seamless_crypt_and_boss_tracks(self):
         with tempfile.TemporaryDirectory(prefix="angel-dungeon-music-") as tmp:

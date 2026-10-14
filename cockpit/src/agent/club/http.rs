@@ -1215,6 +1215,11 @@ fn metadata_ttl_from_env() -> Duration {
     )
 }
 
+/// The local Qwen3.6 helper is served under this exact alias.
+fn is_treebeard_model(model: &str) -> bool {
+    model.trim().eq_ignore_ascii_case("treebeard")
+}
+
 /// Launch-config: whether GLM default thinking is forced on (rare escape hatch).
 fn glm_thinking_default_on() -> bool {
     #[cfg(not(test))]
@@ -1414,7 +1419,7 @@ impl HttpClub {
         if base.contains("z.ai") || base.contains("bigmodel.cn") || model.starts_with("glm") {
             return ReasoningDialect::GlmThinking;
         }
-        if model.contains("qwen3") {
+        if model.contains("qwen3") || is_treebeard_model(&model) {
             return ReasoningDialect::QwenEnableThinking;
         }
         ReasoningDialect::OpenAiEffort
@@ -2501,6 +2506,14 @@ impl HttpClub {
                     body["thinking"] = json!({ "type": "disabled" });
                     body["clear_thinking"] = json!(true);
                 }
+            }
+        } else if dialect == ReasoningDialect::QwenEnableThinking && is_treebeard_model(&model_l) {
+            // Treebeard's llama-server otherwise spends short helper calls
+            // entirely on reasoning and returns empty content.
+            if let Some(reason) = gate_reason() {
+                self.record_effort_withheld("none", &reason);
+            } else {
+                body["chat_template_kwargs"]["enable_thinking"] = json!(false);
             }
         }
         // `prompt_cache_key` — an explicit key always wins; otherwise a stable

@@ -90,6 +90,7 @@ pub(crate) mod registration;
 mod registry;
 mod rollout;
 pub(crate) mod run_identity;
+mod sentinel;
 mod skills;
 mod spawn;
 mod swarm_compile;

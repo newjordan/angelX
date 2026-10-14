@@ -127,6 +127,17 @@ pub(crate) enum MotionMode {
     Off,
 }
 
+/// The overworld map moves as the cockpit does.
+impl From<MotionMode> for angel_delve::render::overworld::Motion {
+    fn from(mode: MotionMode) -> Self {
+        match mode {
+            MotionMode::Full => Self::Full,
+            MotionMode::Reduced => Self::Reduced,
+            MotionMode::Off => Self::Off,
+        }
+    }
+}
+
 impl MotionMode {
     pub(crate) fn from_env() -> Self {
         std::env::var("ANGEL_TUI_MOTION")

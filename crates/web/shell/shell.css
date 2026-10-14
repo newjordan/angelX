@@ -1,0 +1,210 @@
+/* The shell's page: the game's canvas on black, a name prompt, a status line.
+   No inline styles anywhere: the server's CSP allows only this file. */
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  color: #8b949c;
+  font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow: hidden;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  /* A game, not a document: no selecting, no callouts, no bounce. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+#stage { position: absolute; inset: 0; }
+
+#screen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The backing store is sized in device pixels; if a browser still has to
+     resample it, nearest keeps the pixels square. */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+#join {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+  padding: 20px 24px 24px;
+  background: #0a0c0e;
+  border: 1px solid #1f2429;
+}
+#join[hidden] { display: none; }
+#join h1 { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: #aab2b9; }
+
+input, button {
+  font: inherit;
+  color: #b9c1c8;
+  background: #12161a;
+  border: 1px solid #262c32;
+  border-radius: 3px;
+}
+input {
+  padding: 8px 10px;
+  /* 16px stops phones zooming in on focus. */
+  font-size: 16px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+input:focus { outline: 1px solid #3a434b; }
+button { padding: 8px 12px; cursor: pointer; }
+button:disabled { color: #5a636b; cursor: default; }
+
+#status {
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  pointer-events: none;
+  color: #7d868e;
+}
+
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  pointer-events: none;
+  color: #9aa3ab;
+  text-align: center;
+  transition: opacity 0.4s;
+}
+#toast.gone { opacity: 0; }
+
+#full {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+#full:hover { opacity: 1; }
+
+#stats {
+  position: absolute;
+  right: 10px;
+  top: 40px;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #7d868e;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* The dev panel (panel.js): F2 on a dev link or in a dev session. Tonal
+   greys on near-black, beside the game rather than over its middle. */
+#panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 92vw;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+  box-sizing: border-box;
+  background: rgba(6, 8, 10, 0.92);
+  border-left: 1px solid #1f2429;
+  color: #8b949c;
+  font-size: 12px;
+  outline: none;
+}
+#panel[hidden] { display: none; }
+/* Open, the panel takes its own column: the game is fitted beside it,
+   not covered by it. */
+body.panel-open #stage { right: min(420px, 92vw); }
+#panel header { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+#panel header span { flex: 1; color: #aab2b9; }
+#panel header button { padding: 3px 7px; font-size: 11px; }
+#panel .strip {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  background: #0b0e11;
+  border: 1px solid #191e23;
+  color: #7d868e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+#panel .note { color: #8a7d62; margin-bottom: 6px; }
+#panel .note:empty { display: none; }
+#panel h2 {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+#panel .knob {
+  display: grid;
+  grid-template-columns: 1fr 120px 52px 22px;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+#panel .knob .name { color: #8b949c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#panel .knob.moved .name, #panel .knob.moved .value { color: #c2b48e; }
+#panel .knob .value { text-align: right; font-variant-numeric: tabular-nums; color: #9aa3ab; }
+#panel .knob input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  padding: 0;
+  background: #262c32;
+  border: 0;
+  border-radius: 2px;
+}
+#panel .knob input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7d868e;
+}
+#panel .knob input[type=range]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #7d868e;
+}
+#panel .knob.moved input[type=range]::-webkit-slider-thumb { background: #c2b48e; }
+#panel .knob.moved input[type=range]::-moz-range-thumb { background: #c2b48e; }
+#panel .knob.locked { opacity: 0.4; }
+#panel .knob .reset { padding: 0; width: 22px; height: 20px; font-size: 12px; line-height: 1; }
+#panel .knob:not(.moved) .reset { visibility: hidden; }
+#panel .constants {
+  width: 100%;
+  height: 160px;
+  margin-top: 10px;
+  box-sizing: border-box;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #9aa3ab;
+  background: #0b0e11;
+  border: 1px solid #262c32;
+  user-select: text;
+  -webkit-user-select: text;
+}

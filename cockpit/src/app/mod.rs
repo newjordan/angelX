@@ -242,6 +242,9 @@ pub(crate) enum WorldButton {
     ScryglassVideoToggle,
     ScryglassVideoBack,
     ScryglassVideoForward,
+    /// Walk mode: go in at the door at hand, or step off the map.
+    WalkIn,
+    WalkLeave,
     /// Leave the active visual/game surface and return focus to the message pane.
     Back,
 }
@@ -740,6 +743,11 @@ pub(crate) struct App {
     /// Opt-in local prototype of cooperative world gameplay and game authoring.
     pub(crate) together: crate::drive::together::Together,
     pub(crate) dungeon: crate::app::control::DungeonView,
+    /// Walk mode: the operator's own figure on the mini-viz map.
+    pub(crate) walk: crate::app::control::Walk,
+    /// Where the last draw painted the pixel map, and the rectangle of the
+    /// realm it showed: a click there lands on that spot of the realm.
+    pub(crate) overworld_map: Option<(Rect, crate::stage::world_viz::overworld::View)>,
     /// Stamped by each draw pass: the miniworld actually rendered this frame.
     /// An animating world in a hidden pane (artifacts closed, narrow terminal,
     /// a fullscreen overlay) must not hold the event loop on the fast tick —
@@ -1331,6 +1339,8 @@ impl App {
             world,
             together: crate::drive::together::Together::default(),
             dungeon: crate::app::control::DungeonView::default(),
+            walk: crate::app::control::Walk::default(),
+            overworld_map: None,
             // Earned only when Stage paint runs this frame (draw resets to false).
             // Starting true charged headless / ANGEL_BACKDROP=off sessions for
             // invisible scenery on every advance.
@@ -1477,6 +1487,13 @@ impl App {
     /// A2: scryglass.animating already requires visible+renderable; still gate
     /// on `stage_world_mirrors_allowed` so a Stage that was not laid out on the
     /// last draw (ANGEL_BACKDROP=off, shell, image) cannot force the cadence.
+    /// A walk across the map on screen: the event loop then paces its frames
+    /// to the world's ticks, one tick a frame.
+    pub(crate) fn map_in_motion(&self) -> bool {
+        crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
+            && self.world.in_motion()
+    }
+
     pub(crate) fn world_animating(&self) -> bool {
         crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
             && (self.world.animating() || self.scryglass.animating())
@@ -1598,6 +1615,7 @@ impl App {
             || self.agentviz_wants_fast_tick()
             || self.ui_broker.has_pending()
             || self.stage_display_wants_fast_tick()
+            || self.walk_wants_fast_tick()
     }
 
     /// Medium cadence for work that should feel alive without monopolizing

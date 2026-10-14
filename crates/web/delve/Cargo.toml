@@ -1,0 +1,15 @@
+[package]
+name = "angel-web-delve"
+version = "0.1.0"
+description = "The Delve's browser client: its client half behind the browser runtime's ABI"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+angel-delve = { path = "../../delve" }
+angel-web = { path = ".." }

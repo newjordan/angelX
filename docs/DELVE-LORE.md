@@ -27,15 +27,21 @@ one more wish: **The Grail Chapel**, its door left open.
 
 ## The cast
 
-| Who | Is | Speaks when |
+Nobody narrates the fight. The knights make their own noises: a grunt as
+they roll, take a hit, fall or loose an ultimate, and now and then, at the
+big moments, a few words of their own made-up tongue, the way the folk of a
+certain dollhouse game talk. Each knight keeps one voice, by seat. The cast
+below talks to the knights when the knights come to them, in subtitles.
+
+| Who | Is | Talks when |
 |---|---|---|
-| **The Herald** | The arena's voice: the operator's calibrated announcer | Gates seal, rooms clear, slay streaks, guardians, victory, wipes |
-| **Old Blaise** | The hermit who wrote down Merlin's tales, and walked with Percival | A run begins, the party goes deeper, a knight is revived, the dragon, the end |
-| **Wren** | A lantern-bearer who draws the map as you go, and is sure the Grail is a cup | Discoveries, rare cards, bonds, the treasury, being worried about you |
-| **Tobbin** | The smith. He made most of what you carry and has opinions about all of it | Weapon cards and some others |
-| **The Shoggoth** | The great Unknown: many-voiced, vast and curious. Not an enemy, only what you have not met yet | Dragon Keep, the deepest floor, the end of a run, a new shape in the world |
-| **The Waxen Warden** | The Crypt's guardian, designed by Muse. It keeps the last candles lit | Its rise, its rage, its fall |
-| **Cinderjaw** | The Mines' guardian, designed by Muse: a furnace golem still chewing the first fire | Its rise, its rage, its fall |
+| **The Herald** | Keeps the house, the coffer and the bestiary, and counts everything | Never aloud now: the knights cheer their own fights |
+| **Old Blaise** | The hermit who wrote down Merlin's tales, and walked with Percival | A knight walking up to him; a Sanctuary |
+| **Wren** | A lantern-bearer who draws the map as you go, and is sure the Grail is a cup | A knight walking up to her; something new from the forge |
+| **Tobbin** | The smith. He made most of what you carry and has opinions about all of it | A knight walking up to his forge; something built, reforged, or not affordable |
+| **The Shoggoth** | The great Unknown: vast and curious. Not an enemy, only what you have not met yet | Never: the Unknown keeps its counsel |
+| **The Waxen Warden** | The Crypt's guardian, designed by Muse. It keeps the last candles lit | Never: its roar says enough |
+| **Cinderjaw** | The Mines' guardian, designed by Muse: a furnace golem still chewing the first fire | Never: its roar says enough |
 | **Dame Fortune** | Keeper of the wheel east of the Undercroft: Boethius's Fortuna, the wheel Arthur dreamt of in the *Morte Arthure*, blindfolded and crowned, half her gown pale and half dark. She runs it as a show | A knight walking up, the wheel spinning, where it stops |
 | **Merlin** | The realm's guide by the Winding Stair: he has seen every delve there ever was, was a toad once for a fortnight, and has opinions about witches | A knight walking up: the one thing most worth doing next that the realm hasn't done |
 | **Maud** | The alewife the mushrooms grew round, rescued from the Fungal Deep; she keeps the bar in the west wing's tavern, the Siege Perilous | Walking up to her bar; her taps are dry until she's home |
@@ -121,10 +127,13 @@ them, as the Herald counts everything, and is not jealous.
 
 The script is `cockpit/assets/dungeon/voices/chorus.txt`, one line per row:
 `who | cue | id | words`. Anyone can add a line; it shows as a subtitle at
-once. With `ELEVENLABS_API_KEY` set, `voice.py` records it in that
-character's voice.
+once. A line belongs there only when a character is talking to the party:
+walking up, buying, building, hiring, rescuing, spinning the wheel, taking a
+dare. The fight is the knights' own.
 
-A cue can be specific (`card_arm:crossbow`, `boss_rise:cinderjaw`,
-`wish_raised:grail-chapel`) or general (`card_arm`). Specific lines win.
-Several speakers on one cue take turns. **V** mutes the voices in the cockpit;
-`/dungeon voices on|off` does the same.
+A cue can be specific (`npc:grubbins`, `built:forge`, `wheel:turbo`) or
+general (`npc`). Specific lines win. Several speakers on one cue take turns.
+
+The knights' voices are effects (`sfx/knights/`, recorded by `knights.py`);
+**K** mutes them (Shift+K with a couch knight) in the cockpit, and `/dungeon voices on|off|<0-100>%` does
+the same.

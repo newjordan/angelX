@@ -1,289 +1,68 @@
-//! The overworld — the realm as a top-down pixel map.
+//! The overworld as the cockpit lives it: the realm's top-down pixel map,
+//! with the live world walking on it.
 //!
-//! The map is the world's base layer: a Zelda-1 field of 16x11-tile screens
-//! drawn on black paper (black ground, sparse marks, figures laid over it)
-//! in the realm master palette. There is no HUD: every pixel is the world,
-//! and anything added later has to earn its place. The true-3D Dotmax world,
-//! authored room plates and generated images or video are modalities layered
-//! over this map; this module owns only the map itself.
-//!
-//! Mood: the realm sits at dusk. Colours step down their own palette bank
-//! with Bayer dither, light means activity (only live places glow), and the
-//! signal bank — reserved for game state — never dims.
-//!
-//! Contract: pure and deterministic. The same [`Scene`] renders the same
-//! bytes: no clocks, no ambient randomness, no map iteration order.
+//! The map itself (its scene, staging and drawing) is the Delve's
+//! (`angel_delve::render::overworld`), read here as this module's own. The
+//! cockpit's parts are what turns its work into the map's facts: the
+//! knight's walk and the scene the live world builds (`live`), the deeds'
+//! traffic (`deeds`), the outcome receipts (`outcomes`), the graph garden
+//! (`garden`) and the visitor's walk (`visitor`), and the overlay that
+//! draws the garden and the visitor's door sign over the map.
 
 #![cfg_attr(not(test), allow(dead_code))]
 
-pub(crate) mod arena;
-pub(crate) mod castles;
-mod clerks;
+pub(crate) use angel_delve::render::overworld::*;
+
 mod deeds;
 pub(crate) mod garden;
-mod glass;
-mod ground;
-pub(crate) mod ink;
-mod kit;
-mod light;
 mod live;
-mod map;
 mod outcomes;
-mod scene;
-pub(crate) mod school;
-mod sky;
-mod wild;
-pub(crate) mod wishes;
+mod visitor;
 
 // The overworld tests read these through `use super::*`; live.rs imports glass directly.
 pub(crate) use deeds::Deeds;
 #[cfg(test)]
 pub(crate) use glass::{GLASS_H, GLASS_W, picture_from_rgba};
-pub(crate) use ink::Img;
 pub(crate) use live::{Duel, Walker, soldier_state};
-pub(crate) use map::{MAP_H, MAP_W, SCREEN_H, SCREEN_W, TILE};
 pub(crate) use outcomes::Outcomes;
-pub(crate) use scene::{Scene, SoldierKind, SoldierState};
+pub(crate) use visitor::{DoorOpens, Opens, Visitor};
 
 #[cfg(test)]
 use kit::Tool;
 #[cfg(test)]
-use map::Place;
+use map::{Place, Realm};
 #[cfg(test)]
 use scene::{Joust, Knight, Soldier, Ward, Weather};
 
-use kit::{RockKind, Tiles};
-use map::Realm;
-
-/// A rectangle of the realm in world pixels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct View {
-    pub(crate) x: i32,
-    pub(crate) y: i32,
-    pub(crate) w: i32,
-    pub(crate) h: i32,
+/// What the cockpit lays over the map: its graph garden, and the walking
+/// visitor's door sign.
+#[derive(Debug)]
+pub(crate) struct MiniViz {
+    pub(crate) garden: garden::GardenFrame,
 }
 
-impl View {
-    /// Zelda screen `(sx, sy)`.
-    pub(crate) fn screen(sx: i32, sy: i32) -> View {
-        View {
-            x: sx * SCREEN_W * TILE,
-            y: sy * SCREEN_H * TILE,
-            w: SCREEN_W * TILE,
-            h: SCREEN_H * TILE,
-        }
+impl Overlay for MiniViz {
+    fn paint_ground(&self, cv: &mut Img, view: View) {
+        garden::paint_ground(cv, &self.garden, view);
     }
 
-    /// The screen holding a world point.
-    pub(crate) fn screen_at(x: f32, y: f32) -> View {
-        let sx = ((x as i32).div_euclid(SCREEN_W * TILE)).clamp(0, map::SCREENS_X - 1);
-        let sy = ((y as i32).div_euclid(SCREEN_H * TILE)).clamp(0, map::SCREENS_Y - 1);
-        View::screen(sx, sy)
+    fn stage(&self, props: &mut Vec<scene::Prop>, cues: &mut Vec<scene::Prop>) {
+        garden::stage(&self.garden, props, cues);
     }
 
-    /// The whole realm.
-    pub(crate) fn realm() -> View {
-        View {
-            x: 0,
-            y: 0,
-            w: MAP_W * TILE,
-            h: MAP_H * TILE,
-        }
+    fn paint_top(&self, cv: &mut Img, scene: &Scene, view: View) {
+        visitor::paint_cue(cv, scene, view);
     }
 
-    /// A `w`x`h` view centred on `(cx, cy)` and kept inside the realm. On
-    /// an axis where the view is larger than the realm, the realm sits in the
-    /// middle on black paper.
-    pub(crate) fn around(cx: f32, cy: f32, w: i32, h: i32) -> View {
-        let place = |c: f32, span: i32, world: i32| {
-            if span >= world {
-                (world - span) / 2
-            } else {
-                ((c - span as f32 / 2.0).round() as i32).clamp(0, world - span)
-            }
-        };
-        let (w, h) = (w.max(1), h.max(1));
-        View {
-            x: place(cx, w, MAP_W * TILE),
-            y: place(cy, h, MAP_H * TILE),
-            w,
-            h,
-        }
+    fn key(&self, mut h: &mut dyn std::hash::Hasher) {
+        use std::hash::Hash;
+        (
+            self.garden.epoch,
+            self.garden.tick,
+            self.garden.motion as u8,
+        )
+            .hash(&mut h);
     }
-
-    fn touches(&self, x: i32, y: i32, w: i32, h: i32) -> bool {
-        x < self.x + self.w && x + w > self.x && y < self.y + self.h && y + h > self.y
-    }
-}
-
-fn rock_kind(tx: i32, ty: i32) -> RockKind {
-    let (sx, sy) = (tx / SCREEN_W, ty / SCREEN_H);
-    match (sx, sy) {
-        (2, 0) | (3, 0) | (2, 1) | (3, 1) => RockKind::Ore,
-        (4, 0) | (5, 0) | (4, 1) | (5, 1) => RockKind::Char,
-        _ => RockKind::Slate,
-    }
-}
-
-/// One screen of the realm around the newest wish the party raised, or
-/// around the Keep while none stands yet — what a guest page shows.
-pub(crate) fn wish_view(scene: &Scene) -> Img {
-    let lots = wishes::lots(&scene.wishes);
-    let (cx, cy) = lots
-        .iter()
-        .rev()
-        .flatten()
-        .next()
-        .map(|lot| {
-            (
-                ((lot.tx * 2 + lot.tw) * TILE / 2) as f32,
-                ((lot.ty * 2 + lot.th) * TILE / 2) as f32,
-            )
-        })
-        .unwrap_or_else(|| {
-            let (tx, ty) = map::Place::Keep.stand_world();
-            ((tx * TILE) as f32, (ty * TILE) as f32)
-        });
-    render_view(
-        scene,
-        View::around(cx, cy, SCREEN_W * TILE, SCREEN_H * TILE),
-    )
-}
-
-/// Render a rectangle of the lit realm.
-pub(crate) fn render_view(scene: &Scene, view: View) -> Img {
-    let realm = Realm::get();
-    let tiles = Tiles::get();
-    let mut cv = Img::black(view.w, view.h);
-    let (realm_w, realm_h) = (MAP_W * TILE, MAP_H * TILE);
-    for y in 0..view.h {
-        for x in 0..view.w {
-            let (wx, wy) = (view.x + x, view.y + y);
-            if wx < 0 || wy < 0 || wx >= realm_w || wy >= realm_h {
-                continue;
-            }
-            if let Some(ch) = ground::mark(realm, wx, wy, scene.tick) {
-                cv.put(x, y, ch);
-            }
-        }
-    }
-    garden::paint_ground(&mut cv, &scene.garden, view);
-    let (tx0, ty0) = (
-        view.x.div_euclid(TILE).max(0),
-        view.y.div_euclid(TILE).max(0),
-    );
-    let tx1 = (view.x + view.w).div_euclid(TILE).min(MAP_W - 1);
-    // Lots cleared for wishes the party paid for show bare ground.
-    let lots = wishes::lots(&scene.wishes);
-    let ty1 = (view.y + view.h).div_euclid(TILE).min(MAP_H - 1);
-    for ty in ty0..=ty1 {
-        for tx in tx0..=tx1 {
-            if wishes::cleared(&lots, tx, ty) {
-                continue;
-            }
-            let v = ink::hash(tx, ty, 31);
-            let sprite = match realm.at(tx, ty) {
-                b'T' => tiles.tree(v),
-                b'^' => tiles.rock(rock_kind(tx, ty), v),
-                b'd' => &tiles.dead,
-                _ => continue,
-            };
-            cv.stamp(sprite, tx * TILE - view.x, ty * TILE - view.y);
-        }
-    }
-    let mut staged = scene::stage(scene);
-    lava_glow(&mut staged.lights, view, scene.tick);
-    staged.props.sort_by_key(|p| p.base);
-    for p in &staged.props {
-        let top = p.base - p.img.h;
-        if view.touches(p.x, top, p.img.w, p.img.h) {
-            cv.stamp(&p.img, p.x - view.x, top - view.y);
-        }
-    }
-    light::dusk(
-        &mut cv,
-        realm,
-        &staged.lights,
-        (view.x, view.y),
-        scene.ambient,
-    );
-    sky::weather(&mut cv, scene.weather, scene.tick, (view.x, view.y));
-    if scene.fireworks {
-        sky::fireworks(&mut cv, scene.tick, (view.x, view.y));
-    }
-    for &(x, y, w, h) in &staged.beacons {
-        kit::beacon(&mut cv, (x - view.x, y - view.y, w, h), scene.tick);
-    }
-    for c in &staged.cues {
-        cv.stamp(&c.img, c.x - view.x, c.base - c.img.h - view.y);
-    }
-    cv
-}
-
-/// Lava warms what is near it: one breathing firelight per 2x2 block of
-/// lava tiles touching the view.
-fn lava_glow(lights: &mut Vec<light::Light>, view: View, tick: u32) {
-    let realm = Realm::get();
-    let margin = 3 * TILE;
-    let (bx0, by0) = (
-        (view.x - margin).div_euclid(TILE * 2),
-        (view.y - margin).div_euclid(TILE * 2),
-    );
-    let (bx1, by1) = (
-        (view.x + view.w + margin).div_euclid(TILE * 2),
-        (view.y + view.h + margin).div_euclid(TILE * 2),
-    );
-    for by in by0.max(0)..=by1.min(MAP_H / 2) {
-        for bx in bx0.max(0)..=bx1.min(MAP_W / 2) {
-            let molten = (0..2)
-                .flat_map(|dy| (0..2).map(move |dx| (bx * 2 + dx, by * 2 + dy)))
-                .filter(|&(tx, ty)| {
-                    tx < MAP_W && ty < MAP_H && matches!(realm.at(tx, ty), b'L' | b'F')
-                })
-                .count();
-            if molten > 0 {
-                let breath = 0.9 + 0.1 * (tick as f32 * 0.4 + (bx * 7 + by * 3) as f32).sin();
-                lights.push(light::Light {
-                    x: ((bx * 2 + 1) * TILE) as f32,
-                    y: ((by * 2 + 1) * TILE) as f32,
-                    r: 34.0,
-                    s: (0.14 + 0.07 * molten as f32) * breath,
-                    fire: true,
-                });
-            }
-        }
-    }
-}
-
-/// A frame: one view of the map, rim vignetted, with any glass laid over.
-/// Nothing else: every pixel in the frame is the world.
-pub(crate) fn frame_at(scene: &Scene, view: View) -> Img {
-    if let Some(room) = scene.school_room {
-        return school::render_room(
-            room,
-            scene.school,
-            scene.tick,
-            scene.outcome_motion,
-            view.w,
-            view.h,
-        );
-    }
-    let mut f = render_view(scene, view);
-    light::vignette(&mut f, 0);
-    if let Some(g) = &scene.glass {
-        let knight = (scene.knight.x, scene.knight.y);
-        glass::draw(
-            &mut f,
-            g,
-            (view.x, view.y),
-            0,
-            scene.tick,
-            knight,
-            scene.active,
-        );
-    }
-    f
 }
 
 /// Whether travel and arrival show their glass over the map
@@ -297,49 +76,6 @@ pub(crate) fn glass_enabled() -> bool {
     })
 }
 
-/// A frame on the screen that holds the knight.
-pub(crate) fn frame(scene: &Scene) -> Img {
-    frame_at(scene, View::screen_at(scene.knight.x, scene.knight.y))
-}
-
-/// [`frame`] memoized on the scene key for the drawing thread: a paced scene
-/// changes a few times a second, the terminal redraws far more often.
-pub(crate) fn frame_cached(scene: &Scene, w: i32, h: i32) -> std::rc::Rc<Img> {
-    thread_local! {
-        static LAST: std::cell::RefCell<Option<(u64, std::rc::Rc<Img>)>> =
-            const { std::cell::RefCell::new(None) };
-    }
-    let key = scene.key() ^ ((w as u64) << 40 | (h as u64) << 20).rotate_left(7);
-    LAST.with(|last| {
-        let mut last = last.borrow_mut();
-        if let Some((k, img)) = last.as_ref()
-            && *k == key
-        {
-            return std::rc::Rc::clone(img);
-        }
-        let img = std::rc::Rc::new(frame_sized(scene, w, h));
-        *last = Some((key, std::rc::Rc::clone(&img)));
-        img
-    })
-}
-
-/// Frame size in pixels: one Zelda screen.
-pub(crate) const FRAME_W: u32 = (SCREEN_W * TILE) as u32;
-pub(crate) const FRAME_H: u32 = (SCREEN_H * TILE) as u32;
-
-/// A `w`x`h` frame around the scene's camera. The camera never zooms: a
-/// larger pane shows more of the realm at the same scale.
-pub(crate) fn frame_sized(scene: &Scene, w: i32, h: i32) -> Img {
-    frame_at(scene, View::around(scene.camera.0, scene.camera.1, w, h))
-}
-
-/// Screen pixels per map pixel for a terminal cell height: the map keeps its
-/// size relative to the text (zooming the terminal out shows more realm),
-/// in whole pixels so the art stays crisp.
-pub(crate) fn map_scale(cell_h: u16) -> u32 {
-    ((f32::from(cell_h) / 12.0).round() as u32).max(1)
-}
-
 /// Whether the Realm route shows this map (the default) or the Dotmax 3D
 /// ride as before (`ANGEL_WORLD_MAP=3d`).
 pub(crate) fn map_enabled() -> bool {
@@ -351,69 +87,21 @@ pub(crate) fn map_enabled() -> bool {
     })
 }
 
-/// Settle a live scene onto the map's own cadence. Ambient motion — water,
-/// lava, breathing fires — steps about four times a second (twice while a
-/// turn runs): slow and smooth, and an idle realm re-encodes rarely. The
-/// knight and the camera move in whole pixels.
-pub(crate) fn pace(scene: &mut Scene, relaxed: bool) {
-    scene.tick /= if relaxed { 20 } else { 10 };
-    for echo in &mut scene.outcomes {
-        echo.phase = if scene.outcome_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full {
-            if relaxed {
-                echo.phase / 2 * 2
-            } else {
-                echo.phase
-            }
-        } else {
-            0
-        };
-    }
-    scene.knight.x = scene.knight.x.round();
-    scene.knight.y = scene.knight.y.round();
-    for w in &mut scene.wayfarers {
-        (w.x, w.y) = (w.x.round(), w.y.round());
-    }
-    scene.camera = (scene.camera.0.round(), scene.camera.1.round());
-}
-
-/// A frame rendered on first use — the image worker, not the draw thread,
-/// pays for the pixels.
-pub(crate) struct LazyFrame {
-    scene: Scene,
-    view: (i32, i32),
-    scale: u32,
-    rgba: std::sync::OnceLock<Vec<u8>>,
-}
-
-impl LazyFrame {
-    /// A `view_w`x`view_h` map frame, blown up `scale` times with whole
-    /// pixels so the terminal can place it without resampling.
-    pub(crate) fn new(scene: Scene, view_w: i32, view_h: i32, scale: u32) -> LazyFrame {
-        LazyFrame {
-            scene,
-            view: (view_w.max(1), view_h.max(1)),
-            scale: scale.max(1),
-            rgba: std::sync::OnceLock::new(),
-        }
-    }
-
-    /// Pixel size of the finished frame.
-    pub(crate) fn size(&self) -> (u32, u32) {
-        (
-            self.view.0 as u32 * self.scale,
-            self.view.1 as u32 * self.scale,
-        )
-    }
-}
-
-impl AsRef<[u8]> for LazyFrame {
-    fn as_ref(&self) -> &[u8] {
-        self.rgba.get_or_init(|| {
-            frame_sized(&self.scene, self.view.0, self.view.1).rgba_scaled(self.scale)
-        })
-    }
-}
-
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/world_viz/overworld__tests.rs"]
 mod tests;
+
+// The Delve's drawing tests that need the cockpit: its realm, a guest's
+// picture.
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/overworld__castles_tests.rs"]
+mod castles_tests;
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/overworld__school_tests.rs"]
+mod school_tests;
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/overworld__wish_placement_tests.rs"]
+mod wish_placement_tests;
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/overworld__plates_tests.rs"]
+mod plates_tests;

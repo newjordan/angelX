@@ -7,7 +7,7 @@ import subprocess
 import sys
 import unittest
 
-spec = importlib.util.spec_from_file_location('full136', Path(__file__).resolve().parents[2] / 'scripts/analyze-polyglot-full136.py')
+spec = importlib.util.spec_from_file_location('full136', Path(__file__).resolve().parents[2] / 'scripts/bench/polyglot/analyze-polyglot-full136.py')
 audit = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(audit)
 

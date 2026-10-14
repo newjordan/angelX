@@ -8,6 +8,7 @@ move chase speed=1.1
 attack ravage shots=5 arc=50 speed=8 every=210 damage=16
 attack aimed shots=2 speed=7 every=45 damage=12 shot=orb
 attack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=bone
+phases weave curve laser every=72 volleys=2 damage=12
 rage 35%
 drops gem 4, bone 4, gold 260
 art

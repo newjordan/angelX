@@ -553,7 +553,9 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
             }
         }
     }
-    let scene = overworld_scene(app);
+    let mut scene = overworld_scene(app);
+    // A school room is drawn in the map's place; only the map can be walked.
+    let walkable = scene.school_room.is_none();
     // Under an open dialog the map draws in half blocks: a terminal image
     // would repaint over the dialog each time the map moves.
     let covered = app
@@ -572,15 +574,32 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
             .viewer
             .render_map_pixels(frame, area, key, move || (lazy, frame_w, frame_h));
         if state == crate::ui::viewer::WorldPixelsState::Ready {
+            if walkable {
+                app.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
+            }
             return;
         }
     }
     // Ordinary terminals, and the first frame while an image encodes: two
-    // map pixels per half-block pixel, the view shaped like the pane.
+    // map pixels per half-block pixel, the view shaped like the pane. The
+    // camera keeps to that two-pixel grid, so a moving view shifts whole
+    // half-block pixels instead of resampling (and shimmering) every one.
+    let snap = |c: f32| (c / HALFBLOCK_MAP_PX as f32).round() * HALFBLOCK_MAP_PX as f32;
+    scene.camera = (snap(scene.camera.0), snap(scene.camera.1));
     let (view_w, view_h) = (
         i32::from(area.width) * HALFBLOCK_MAP_PX,
         i32::from(area.height) * 2 * HALFBLOCK_MAP_PX,
     );
+    if walkable {
+        app.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
+    }
+    if crate::stage::world_viz::art::enabled() && scene.school_room.is_none() && scene.glass.is_none() {
+        let view=overworld::view_sized(&scene,view_w,view_h);
+        if let Some((base,fx))=overworld::arena::art_v2::walk_layers_live(&scene,view) {
+            crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);
+        }
+        return;
+    }
     paint_halfblock_frame(
         frame,
         area,
@@ -593,15 +612,14 @@ const HALFBLOCK_MAP_PX: i32 = 2;
 
 /// The live scene, plus the travel and arrival glass the stage is showing.
 fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
-    let mut scene = app.world.overworld_scene();
-    scene.outcome_motion = app.visual_motion;
-    scene.garden.motion = app.visual_motion;
+    let mut scene = app.world.overworld_scene_moving(app.visual_motion);
     // Travel and arrival cues, which used to take the whole pane, become a
     // glass over the map: the ride while the knight travels, the place's
     // painting when he arrives.
     if crate::stage::world_viz::overworld::glass_enabled()
         && app.world.overworld_view_label().is_none()
         && !app.world.graph_visiting()
+        && !app.walk.on
     {
         use crate::ui::scryglass::StageOverlay;
         // A serving knight rides home to his own castle, not the Keep: the
@@ -638,14 +656,29 @@ fn paint_halfblock_frame(
     let scale = (grid_w / img.w as f32).min(grid_h / img.h as f32);
     let (draw_w, draw_h) = (img.w as f32 * scale, img.h as f32 * scale);
     let (ox, oy) = ((grid_w - draw_w) / 2.0, (grid_h - draw_h) / 2.0);
+    // Each half-block pixel is the mean of the map pixels it covers (at most
+    // 4×4), not one of them: a moving picture keeps its colours steady.
     let sample = |gx: f32, gy: f32| -> ratatui::style::Color {
-        let (sx, sy) = ((gx - ox) / scale, (gy - oy) / scale);
-        let [r, g, b] = if sx < 0.0 || sy < 0.0 {
-            [0, 0, 0]
-        } else {
-            img.get(sx as i32, sy as i32).unwrap_or([0, 0, 0])
+        let span = |g: f32, o: f32| {
+            let from = ((g - 0.5 - o) / scale).floor() as i32;
+            let to = (((g + 0.5 - o) / scale).floor() as i32).clamp(from + 1, from + 4);
+            (from, to)
         };
-        ratatui::style::Color::Rgb(r, g, b)
+        let ((x0, x1), (y0, y1)) = (span(gx, ox), span(gy, oy));
+        let (mut sum, mut n) = ([0u32; 3], 0u32);
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let [r, g, b] = if x < 0 || y < 0 {
+                    [0, 0, 0]
+                } else {
+                    img.get(x, y).unwrap_or([0, 0, 0])
+                };
+                sum = [sum[0] + u32::from(r), sum[1] + u32::from(g), sum[2] + u32::from(b)];
+                n += 1;
+            }
+        }
+        let n = n.max(1);
+        ratatui::style::Color::Rgb((sum[0] / n) as u8, (sum[1] / n) as u8, (sum[2] / n) as u8)
     };
     let buf = frame.buffer_mut();
     for cy in 0..area.height {
@@ -2483,6 +2516,8 @@ fn render_scryglass(
                     ]
                 };
                 (Line::from(spans), controls)
+            } else if app.walk.on && app.walk_map_shown() {
+                walk_caption(app)
             } else if app.world.inside_interior() {
                 let mut controls = Vec::new();
                 if app.world.interior_building()
@@ -2594,6 +2629,41 @@ fn render_scryglass(
     if scryglass_scene_accessories_allowed() || active_index.is_some() {
         app.scryglass
             .tick_visible(Instant::now(), is_video, video_ended);
+    }
+}
+
+/// The caption while the visitor walks: the door at hand and the keys, in
+/// plain words.
+fn walk_caption(app: &App) -> (Line<'static>, Vec<(&'static str, WorldButton)>) {
+    use crate::stage::world_viz::overworld::DoorOpens;
+    let text = Style::new().fg(crate::ui::hud::HUD_TEXT);
+    let dim = Style::new().fg(crate::ui::hud::HUD_DIM);
+    let name = Style::new()
+        .fg(crate::ui::hud::HUD_GOLD)
+        .add_modifier(Modifier::BOLD);
+    match app.world.visitor_door() {
+        Some(door) if door.opens().is_some() => (
+            Line::from(vec![
+                Span::styled("E: ", text),
+                Span::styled(door.name(), name),
+                Span::styled(", Esc leaves", dim),
+            ]),
+            vec![
+                ("Go in", WorldButton::WalkIn),
+                ("Leave", WorldButton::WalkLeave),
+            ],
+        ),
+        Some(door) => (
+            Line::from(vec![
+                Span::styled(door.name(), name),
+                Span::styled(". Arrows walk, Esc leaves", dim),
+            ]),
+            vec![("Leave", WorldButton::WalkLeave)],
+        ),
+        None => (
+            Line::from(Span::styled("Arrows walk, E goes in, Esc leaves", text)),
+            vec![("Leave", WorldButton::WalkLeave)],
+        ),
     }
 }
 

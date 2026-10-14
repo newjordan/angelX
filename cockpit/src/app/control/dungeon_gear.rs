@@ -25,14 +25,14 @@ impl App {
                 )
             };
         }
-        let Some(hero) = self
+        if self
             .dungeon
             .shooter
-            .as_mut()
-            .and_then(|r| r.players.get_mut(&1))
-        else {
+            .as_ref()
+            .is_none_or(|r| !r.players.contains_key(&1))
+        {
             return "Start a delve first with /dungeon.".into();
-        };
+        }
         let root = match self.tools.current_workspace().canonicalize() {
             Ok(root) => root,
             Err(e) => return e.to_string(),
@@ -70,8 +70,12 @@ impl App {
                         checked.weapon.name,
                         checked.notes.join("; ")
                     );
-                    hero.forged = Some(checked.weapon);
-                    hero.arm = None;
+                    if let Some(mut run) = self.dungeon.shooter.as_mut()
+                        && let Some(hero) = run.players.get_mut(&1)
+                    {
+                        hero.forged = Some(checked.weapon);
+                        hero.arm = None;
+                    }
                     message
                 }
                 Err(error) => error.fix_it(),
@@ -79,7 +83,11 @@ impl App {
         } else {
             match avatar::check(&bytes) {
                 Ok(checked) => {
-                    hero.avatar = Some(checked.avatar);
+                    if let Some(mut run) = self.dungeon.shooter.as_mut()
+                        && let Some(hero) = run.players.get_mut(&1)
+                    {
+                        hero.avatar = Some(checked.avatar);
+                    }
                     format!("Avatar equipped. {}", checked.notes.join("; "))
                 }
                 Err(errors) => avatar::fix_it(&errors),
@@ -195,7 +203,7 @@ impl App {
             Ok(path) if path.starts_with(&root) => path,
             _ => return "Choose a regular file inside this workspace.".into(),
         };
-        let limit = crate::drive::together_shooter::cards::MAX_BYTES;
+        let limit = crate::drive::together_shooter::cards::MAX_FILE_BYTES;
         let input = match std::fs::File::open(&path) {
             Ok(input) if input.metadata().is_ok_and(|m| m.is_file()) => input,
             _ => return "Could not open a regular card file.".into(),
@@ -213,15 +221,25 @@ impl App {
             return "A card must be UTF-8 text.".into();
         };
         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-        match crate::drive::together_shooter::cards::check(stem, text) {
+        let sheets = crate::drive::together_sheets::dir(self.tools.current_workspace());
+        let text = match crate::drive::together_sheets::inline(
+            text,
+            &sheets,
+            crate::drive::together_shooter::cards::ART as u32,
+        ) {
+            Ok(text) => text,
+            Err(errors) => return errors.join("\n"),
+        };
+        match crate::drive::together_shooter::cards::check(stem, &text) {
             Ok(checked) => {
                 let name = checked.card.name.clone();
-                let Some(run) = self.dungeon.shooter.as_mut() else {
+                let Some(mut run) = self.dungeon.shooter.as_mut() else {
                     return String::new();
                 };
                 if !run.add_card(checked.card, 1) {
                     return "The book is full.".into();
                 }
+                drop(run);
                 self.expand_dungeon();
                 let notes = if checked.notes.is_empty() {
                     String::new()

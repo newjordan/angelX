@@ -13,8 +13,8 @@ its link dependencies is an intentional release change.
 
 - **[Architecture and repository map](architecture/README.md)** — current folder
   responsibilities, placement rules, and a proposed module-oriented destination.
-- **[Software operations schematic](architecture/operations.md)** — launch, turns,
-  tools, orchestration, state, workers, rendering and release; source/test links.
+- **[Software operations schematic](architecture/operations.md)** — whole-system
+  flow, workflow catalog, folder reading guide, and source/test links.
 - **[Connected loop settlement](architecture/connected-settlement.md)** — player
   hall expansion, shared playable/passive maps, crafting and real research exhibits;
   commands, worker deposition contract and current limits.

@@ -18,7 +18,7 @@ import tomllib
 
 
 SCRIPT = Path(__file__).resolve()
-spec = importlib.util.spec_from_file_location("polyglot_snapshot", SCRIPT.parents[1] / "run-polyglot-loop.py")
+spec = importlib.util.spec_from_file_location("polyglot_snapshot", SCRIPT.parent / "polyglot" / "run-polyglot-loop.py")
 shared = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shared)
 

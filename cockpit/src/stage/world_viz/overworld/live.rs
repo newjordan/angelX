@@ -10,7 +10,6 @@
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
-use std::sync::OnceLock;
 
 use super::super::adventure::Region;
 use super::super::{Building, RealmActivity, World};
@@ -20,9 +19,11 @@ use super::ink::Img;
 use super::ink::{BANK, PALETTE, SIGNAL_BANK, rgb};
 use super::kit::Tool;
 use super::light::DUSK;
-use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE, place_tile};
+use super::map::{MAP_H, MAP_W, Place, TILE};
 use super::scene::{Joust, Knight, Scene, Soldier, SoldierState, Ward, Weather};
 use crate::stage::houses::{HouseId, Serving};
+use crate::ui::viz::lifecycle_viz::MotionMode;
+use angel_delve::world::kingdom::step_cost;
 
 /// Walking pace in world pixels per world tick (the world ticks at 40 Hz).
 const PACE: f32 = 1.5;
@@ -34,6 +35,15 @@ const FOCUS_LIFT: f32 = 8.0;
 
 /// Move the camera just enough to keep `focus` inside the dead zone.
 pub(crate) fn follow(cam: (f32, f32), focus: (f32, f32)) -> (f32, f32) {
+    follow_within(cam, focus, (DEAD_X, DEAD_Y))
+}
+
+/// [`follow`] with a dead zone of its own, half-width and half-height.
+pub(super) fn follow_within(
+    cam: (f32, f32),
+    focus: (f32, f32),
+    (dead_x, dead_y): (f32, f32),
+) -> (f32, f32) {
     let axis = |c: f32, f: f32, dead: f32| {
         if f - c > dead {
             f - dead
@@ -43,7 +53,7 @@ pub(crate) fn follow(cam: (f32, f32), focus: (f32, f32)) -> (f32, f32) {
             c
         }
     };
-    (axis(cam.0, focus.0, DEAD_X), axis(cam.1, focus.1, DEAD_Y))
+    (axis(cam.0, focus.0, dead_x), axis(cam.1, focus.1, dead_y))
 }
 
 /// Trail samples kept, and the samples between companions (about 13 px).
@@ -71,8 +81,7 @@ pub(crate) struct Walker {
     cam: (f32, f32),
     /// Pixels per tick for the current journey.
     stride: f32,
-    /// What the map shows: the pose published every other world tick, so a
-    /// walk draws at about twenty frames a second, not forty.
+    /// What the map shows: the pose published each world tick.
     shown: Shown,
     /// Who is serving, as last noted: the knight's house and its retinue.
     serving: Serving,
@@ -81,6 +90,12 @@ pub(crate) struct Walker {
     served: bool,
     /// Knights of other houses on the roads.
     riders: Vec<Rider>,
+    /// The city watch: guards of the serving house patrolling between the
+    /// Keep gate and their own castle gate while a turn runs. They keep the
+    /// turn sentinel's hours (`harness/sentinel.rs`): posted only while
+    /// work is actually running, stood down the moment it ends.
+    watch: Vec<WatchGuard>,
+    watch_house: Option<HouseId>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -89,6 +104,9 @@ struct Shown {
     cam: (f32, f32),
     party: Vec<(f32, f32)>,
     riders: Vec<RiderPose>,
+    /// The city watch, published apart from `riders`: those are knights of
+    /// *other* houses, the watch wears the serving house's own colours.
+    watch: Vec<RiderPose>,
 }
 
 /// A knight of another house out on the roads.
@@ -171,6 +189,13 @@ impl Rider {
     }
 }
 
+/// One guard of the city watch, and the gate he is currently making for.
+#[derive(Clone, Debug, PartialEq)]
+struct WatchGuard {
+    rider: Rider,
+    dest: (i32, i32),
+}
+
 impl Default for Walker {
     fn default() -> Walker {
         let home = Knight::at_place(Place::Keep);
@@ -187,19 +212,28 @@ impl Default for Walker {
                 cam: (home.x, home.y - FOCUS_LIFT),
                 party: Vec::new(),
                 riders: Vec::new(),
+                watch: Vec::new(),
             },
             serving: Serving::default(),
             served: false,
             riders: Vec::new(),
+            watch: Vec::new(),
+            watch_house: None,
         }
     }
 }
 
-fn feet((tx, ty): (i32, i32)) -> (f32, f32) {
+/// Where a figure stands on a tile: its middle, two pixels above the bottom.
+pub(super) fn feet((tx, ty): (i32, i32)) -> (f32, f32) {
     ((tx * TILE + TILE / 2) as f32, ((ty + 1) * TILE - 2) as f32)
 }
 
 impl Walker {
+    /// Is he on his way somewhere (or still showing his last steps)?
+    pub(crate) fn moving(&self) -> bool {
+        !self.path.is_empty() || self.shown.knight.walking
+    }
+
     pub(crate) fn travelling_to(&self, goal: Place) -> bool {
         self.goal != Goal::Place(goal) || !self.path.is_empty() || self.shown.knight.walking
     }
@@ -255,6 +289,7 @@ impl Walker {
         }
         self.cam = follow(self.cam, (self.x, self.y - FOCUS_LIFT));
         self.tick_riders();
+        self.tick_watch();
     }
 
     /// The point the map camera centres on.
@@ -274,6 +309,7 @@ impl Walker {
             cam: self.cam,
             party: self.followers(4),
             riders: self.riders.iter().map(Rider::pose).collect(),
+            watch: self.watch.iter().map(|g| g.rider.pose()).collect(),
         };
     }
 
@@ -285,6 +321,11 @@ impl Walker {
     /// The knights of other houses, as the map last published them.
     pub(crate) fn shown_riders(&self) -> &[RiderPose] {
         &self.shown.riders
+    }
+
+    /// The city watch, as the map last published it.
+    pub(crate) fn shown_watch(&self) -> &[RiderPose] {
+        &self.shown.watch
     }
 
     /// Stand somewhere new: a knight of another house has taken the field.
@@ -304,6 +345,7 @@ impl Walker {
             return;
         }
         let before = std::mem::replace(&mut self.serving, now.clone());
+        self.post_watch(now);
         if before.lead != now.lead {
             let here = (self.x, self.y);
             if self.served
@@ -360,6 +402,54 @@ impl Walker {
                     self.riders.push(r);
                 }
             }
+        }
+    }
+
+    /// Post (or stand down) the city watch for the serving state: two
+    /// guards of the lead house, one setting out from each gate, walking
+    /// the road between the Keep and the lead's castle in opposite
+    /// directions. On duty only while a turn is running.
+    fn post_watch(&mut self, now: &Serving) {
+        let duty = if now.turn { now.lead } else { None };
+        if duty == self.watch_house {
+            return;
+        }
+        self.watch.clear();
+        self.watch_house = duty;
+        let Some(lead) = duty else { return };
+        let keep_gate = Place::Keep.stand_world();
+        let castle_gate = castles::stand(lead);
+        if keep_gate == castle_gate {
+            return;
+        }
+        for (from, dest) in [(keep_gate, castle_gate), (castle_gate, keep_gate)] {
+            let mut rider = Rider::at(lead, feet(from));
+            rider.set_out(dest);
+            // A patrol keeps a walking pace however long the road is;
+            // `set_out` would otherwise scale the stride to the journey.
+            rider.stride = PACE;
+            self.watch.push(WatchGuard { rider, dest });
+        }
+    }
+
+    /// One world tick for the watch: at a gate, turn and walk the road back.
+    fn tick_watch(&mut self) {
+        let Some(lead) = self.watch_house else { return };
+        let keep_gate = Place::Keep.stand_world();
+        let castle_gate = castles::stand(lead);
+        for guard in &mut self.watch {
+            if guard.rider.path.is_empty() {
+                if guard.rider.tile() == guard.dest {
+                    guard.dest = if guard.dest == keep_gate {
+                        castle_gate
+                    } else {
+                        keep_gate
+                    };
+                }
+                guard.rider.set_out(guard.dest);
+                guard.rider.stride = PACE;
+            }
+            guard.rider.ride();
         }
     }
 
@@ -434,45 +524,6 @@ impl Walker {
     }
 }
 
-fn closed_tiles() -> &'static [bool] {
-    static CLOSED: OnceLock<Vec<bool>> = OnceLock::new();
-    CLOSED.get_or_init(|| {
-        let realm = Realm::get();
-        let mut closed = vec![false; (MAP_W * MAP_H) as usize];
-        let placed = STRUCTURES
-            .into_iter()
-            .map(|(ax, ay, w, h)| {
-                let (x, y) = place_tile(ax, ay);
-                (x, y, w, h)
-            })
-            .chain(castles::footprints());
-        for (x0, y0, w, h) in placed {
-            for y in y0..y0 + h {
-                for x in x0..x0 + w {
-                    if !matches!(realm.at(x, y), b'=' | b':' | b'H') {
-                        closed[(y * MAP_W + x) as usize] = true;
-                    }
-                }
-            }
-        }
-        closed
-    })
-}
-
-/// What a step onto `(x, y)` costs, or `None` where no one walks.
-pub(super) fn step_cost(x: i32, y: i32) -> Option<u32> {
-    if x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || closed_tiles()[(y * MAP_W + x) as usize] {
-        return None;
-    }
-    match Realm::get().at(x, y) {
-        b'=' | b':' | b'H' => Some(2),
-        b'.' | b's' | b'a' => Some(5),
-        b'c' => Some(7),
-        b'%' => Some(9),
-        _ => None,
-    }
-}
-
 /// Cheapest tile route from `from` to `to`, excluding `from`. Falls back to
 /// the goal alone (a straight walk) if the map leaves no way through.
 pub(crate) fn route(from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
@@ -529,7 +580,7 @@ pub(crate) fn route(from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
 
 /// The `n` open tiles nearest `goal` by road, nearest first, the goal
 /// itself left to the lead: where a retinue draws up around him.
-fn muster(goal: (i32, i32), n: usize) -> Vec<(i32, i32)> {
+pub(super) fn muster(goal: (i32, i32), n: usize) -> Vec<(i32, i32)> {
     let idx = |(x, y): (i32, i32)| (y * MAP_W + x) as usize;
     let inside = |(x, y): (i32, i32)| x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
     if !inside(goal) || n == 0 {
@@ -563,6 +614,20 @@ fn muster(goal: (i32, i32), n: usize) -> Vec<(i32, i32)> {
         }
     }
     out
+}
+
+/// The map's place for a building of the live world.
+pub(crate) fn place_of_building(b: Building) -> Place {
+    match b {
+        Building::Keep => Place::Keep,
+        Building::Gatehouse => Place::Gatehouse,
+        Building::Rookery => Place::Rookery,
+        Building::Scriptorium => Place::Scriptorium,
+        Building::Smithy => Place::Smithy,
+        Building::Chapel => Place::Chapel,
+        Building::RoundTable => Place::RoundTable,
+        Building::Observatory => Place::Observatory,
+    }
 }
 
 /// The HUD item for a kind of work.
@@ -765,7 +830,7 @@ impl World {
                 return Place::Lists;
             }
         }
-        Place::of_building(self.target)
+        place_of_building(self.target)
     }
 
     /// Called to the Delve, the knight has reached its gate and waits there.
@@ -805,17 +870,24 @@ impl World {
             let goal = self.overworld_goal();
             self.overworld.toward(goal);
         }
-        if self.tick.is_multiple_of(2) {
-            self.overworld.publish();
-        }
+        // Every tick: a pose shown on alternate ticks walks in uneven steps
+        // at any frame rate that isn't a multiple of twenty.
+        self.overworld.publish();
+        self.tick_visitor();
     }
 
     /// Everything the pixel map shows, read from the live world.
     pub(crate) fn overworld_scene(&self) -> Scene {
+        self.overworld_scene_moving(MotionMode::Full)
+    }
+
+    /// [`World::overworld_scene`], moving as the operator's `motion` asks.
+    pub(crate) fn overworld_scene_moving(&self, motion: MotionMode) -> Scene {
         let mut s = Scene::resting();
+        s.outcome_motion = motion.into();
         s.tier = self.level();
         let work = self.latest_active_work();
-        s.active = work.map(|w| Place::of_building(w.landmark));
+        s.active = work.map(|w| place_of_building(w.landmark));
         s.tool = work.and_then(|w| tool_for(w.activity));
         if !self.loop_active && self.overworld_deeds.trial_underway() {
             s.active = Some(Place::Lists);
@@ -826,7 +898,9 @@ impl World {
         s.sparks = self.overworld_deeds.sparks(self.tick);
         s.outcomes = self.overworld_outcomes.shown(self.tick);
         s.stargazing = self.overworld_deeds.stargazing();
-        s.garden = self.graph_garden.frame(self.tick);
+        let mut garden = self.graph_garden.frame(self.tick);
+        garden.motion = motion;
+        s.overlay = Some(std::sync::Arc::new(super::MiniViz { garden }));
         s.school = self.school;
         s.school_room = self.school_room;
         s.wishes = crate::drive::together_realm::standing_wishes();
@@ -837,15 +911,18 @@ impl World {
             s.tool = Some(Tool::Quill);
         }
         s.knight = self.overworld.shown.knight;
+        s.visitor = self.shown_visitor();
         let serving = self.overworld.serving();
         s.march = castles::March {
             raised: serving.houses().collect(),
             lead: serving.lead,
             riders: self.overworld.shown_riders().to_vec(),
+            watch: self.overworld.shown_watch().to_vec(),
         };
         s.camera = self
             .overworld_view
             .map(|(x, y, _)| (x, y))
+            .or_else(|| self.visitor_camera())
             .unwrap_or(self.overworld.shown.cam);
         let council = self
             .active_work()
@@ -956,7 +1033,7 @@ impl World {
 
     /// The arrival glass: the place's authored painting.
     pub(crate) fn overworld_plate_glass(&self, building: Building) -> Glass {
-        let place = Place::of_building(building);
+        let place = place_of_building(building);
         let sequence = 0x9_1a7e ^ building as u64;
         let picture = self.glass_picture(sequence, || {
             if building == Building::Observatory {
@@ -983,8 +1060,16 @@ impl World {
     /// The travel glass: the Dotmax ride from the saddle, heading for
     /// `destination`. It steps at the map's own pace.
     pub(crate) fn overworld_ride_glass(&self, destination: Building) -> Glass {
-        let place = Place::of_building(destination);
-        let sequence = self.cinematic_key() ^ (self.tick / 6).rotate_left(17);
+        let place = place_of_building(destination);
+        // Keyed on the journey and the tick: the banded raster paints a
+        // glass-sized 3D frame well under a millisecond, so the ride moves
+        // on every world tick instead of every sixth.
+        let sequence = {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            ("ride-glass", destination, self.tick).hash(&mut h);
+            h.finish()
+        };
         let picture = self.glass_picture(sequence, || {
             let (map, view) = self.travel_scene();
             let mut frame = super::super::world3d::render_region_frame(

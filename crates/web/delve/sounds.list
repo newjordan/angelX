@@ -1,0 +1,9 @@
+# The Delve's sounds and music for its browser bundle (crates/web/build.sh).
+# Each line: a name prefix ("-" for none), then a folder, from this file's
+# own folder; every file in it goes in as <prefix><file>. The game's lines
+# name them so: `sfx hit`, `sfx knights-a_cheer_1`, `music music-crypt`.
+# The shell fetches each the first time it is asked for: none of them is
+# part of the first load.
+- ../../../cockpit/assets/dungeon/sfx
+knights- ../../../cockpit/assets/dungeon/sfx/knights
+music- ../../../cockpit/assets/dungeon/music

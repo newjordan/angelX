@@ -1,0 +1,21 @@
+[package]
+name = "angel-bots"
+version = "0.1.0"
+description = "Load generator: N real WebSocket clients that join a muster and play, with measurements"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+angel-net = { path = "../net" }
+angel-serve = { path = "../serve" }
+angel-muster = { path = "../muster" }
+
+[dev-dependencies]
+# The native link's tests join through a TLS door, as through Funnel.
+angel-serve = { path = "../serve", features = ["tls"] }
+# The test's TLS door: a certificate made in the test...
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
+# ...served by the server side of the same TLS library the client uses.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

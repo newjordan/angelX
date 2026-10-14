@@ -1,5 +1,5 @@
 // Capture a scoreboard page as an H.264 MP4 and/or a PNG of its final frame.
-// Same pipeline as scripts/render_scoreboard_mp4.cjs: headless Chromium over the DevTools
+// Same pipeline as scripts/release-report/render_scoreboard_mp4.cjs: headless Chromium over the DevTools
 // protocol, PNG frames piped into ffmpeg (libx264, yuv420p, faststart). The page's directory is
 // served on 127.0.0.1 so canvases can read its images (file:// would taint them).
 //

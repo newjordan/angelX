@@ -22,6 +22,15 @@ was approved by hand. Files under `ui/` are crops of those captures.
 | [Commands](ui/command-picker.png) | `/help`, then `/` and `Tab`. |
 | [World view](world.png) | The overworld map beside `/diff`. |
 
+## Seats on the engine (0.2.3)
+
+[Seats](engine/seats.png) is three browser pages, captured in headless
+Chromium and set side by side in plain window frames, unedited inside. Each
+page is the shell and wasm client a link opens, joined to a development host
+from `crates/`: the kingdom and a crypt fight from `delve-dev-host` with bot
+knights in the other seats, and the muster from `muster-host` with 200
+`angel-bots` clients standing around the browser's knight.
+
 ## The March and the world above the Delve (0.2.1)
 
 Frames written by the cockpit's own renderers through their shot-writer tests

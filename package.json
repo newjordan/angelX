@@ -1,6 +1,6 @@
 {
   "name": "angelX",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Terminal-first research and coding cockpit with verifiable agent workflows.",
   "private": true,
   "type": "module",
@@ -28,8 +28,8 @@
     "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs",
     "test:media": "node --test --test-concurrency=1 tests/scripts/pan-pace.test.mjs",
       "check:cockpit-quality": "bash scripts/check/check-cockpit-quality.sh",
-      "check:duplicates": "node scripts/check-duplicate-content.mjs",
-      "check:research-embed": "node scripts/check-research-embed.mjs",
+      "check:duplicates": "node scripts/check/check-duplicate-content.mjs",
+      "check:research-embed": "node scripts/check/check-research-embed.mjs",
       "check:connections": "python3 scripts/check/check-active-connections.py",
       "check:licenses": "node scripts/check/check-licenses.mjs",
     "test:polyglot": "python3 -m unittest discover -s tests/python -p 'test_polyglot_*.py'",

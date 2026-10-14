@@ -19,6 +19,7 @@
 mod activity;
 mod adventure;
 mod ambient;
+pub(crate) mod art;
 mod camera;
 pub(crate) mod cinematics;
 pub(crate) mod crawl;
@@ -318,6 +319,12 @@ pub(crate) struct World {
     overworld: overworld::Walker,
     /// Operator-selected camera centre and label; automatic work keeps moving.
     overworld_view: Option<(f32, f32, &'static str)>,
+    /// The operator's own figure on the map while walk mode is on; kept
+    /// after it ends, so the next walk starts where the last one stopped.
+    overworld_visitor: Option<overworld::Visitor>,
+    /// A room the operator walked into from the map. Work travel does not
+    /// close it, as it does not close the tower.
+    interior_visit: Option<Building>,
     /// The last glass picture the map showed, keyed on its source frame.
     overworld_glass: RefCell<Option<(u64, std::sync::Arc<overworld::Img>)>>,
     /// A two-seat fan-out stage fought at the Lists, and the session tally.
@@ -494,6 +501,8 @@ impl World {
             growth_announced: 0,
             overworld: overworld::Walker::default(),
             overworld_view: None,
+            overworld_visitor: None,
+            interior_visit: None,
             overworld_glass: RefCell::new(None),
             overworld_duel: None,
             overworld_deeds: overworld::Deeds::default(),
@@ -878,16 +887,30 @@ impl World {
             && interiors::supports(self.target)
         {
             self.interior = Some(self.target);
+            self.interior_visit = None;
             true
         } else {
             false
         }
     }
 
+    /// Walk into a landmark's room from the map, wherever the knight is.
+    pub(crate) fn visit_interior(&mut self, building: Building) -> bool {
+        if world3d::region::stage_for(self.quest().region()).is_some()
+            || !interiors::supports(building)
+        {
+            return false;
+        }
+        self.interior = Some(building);
+        self.interior_visit = Some(building);
+        true
+    }
+
     pub(crate) fn leave_interior(&mut self) -> bool {
         if self.school_room.is_some() {
             return self.visit_overworld("school").is_some();
         }
+        self.interior_visit = None;
         self.interior.take().is_some()
     }
 
@@ -2129,8 +2152,11 @@ impl World {
             self.travel_ticks = 0;
         } else {
             // Work travel leaves ordinary arrivals, but an explicit tower
-            // visit is a fixed operator view, just like the teaching rooms.
-            if !self.visiting_scrying_tower() {
+            // visit is a fixed operator view, just like the teaching rooms
+            // and a room walked into from the map.
+            if !self.visiting_scrying_tower()
+                && (self.interior_visit.is_none() || self.interior != self.interior_visit)
+            {
                 self.interior = None;
             }
             self.settle_ticks = 0;
@@ -2174,6 +2200,15 @@ impl World {
         self.camera.cycle_mode()
     }
 
+    /// Someone walking or the camera gliding: the map then draws a frame per
+    /// world tick, so the motion moves in even steps.
+    pub(crate) fn in_motion(&self) -> bool {
+        self.overworld.moving()
+            || self.visitor_busy()
+            || self.graph_knight_travelling()
+            || self.camera.easing()
+    }
+
     /// Anything moving on screen? (Keeps the event loop on the fast tick — and
     /// must reach false once everything settles, or the loop spins forever.)
     pub(crate) fn animating(&self) -> bool {
@@ -2196,6 +2231,9 @@ impl World {
                 .is_some_and(|v| self.tick < v.soot_until || self.tick < v.chatter_until)
             || self.has_live_vignette()
             || !self.muster.is_empty()
+            || self.visitor_busy()
+            // The pixel knight still walking after his grid self arrived.
+            || self.overworld.moving()
     }
 
     /// A close-range vignette that animates on its own (the smithy hammer, the

@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 spec = importlib.util.spec_from_file_location(
-    "polyglot_summary", Path(__file__).resolve().parents[1] / "summarize-polyglot-loop.py"
+    "polyglot_summary", Path(__file__).resolve().parent / "polyglot" / "summarize-polyglot-loop.py"
 )
 shared = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shared)

@@ -7,8 +7,14 @@ fn every_named_sound_and_track_has_a_file() {
         let file = dir.join("sfx").join(format!("{name}.mp3"));
         let size = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
         assert!(size > 1_000, "{name}: {size} bytes");
-        // The wheel's clicks last as long as its spin; everything else is short.
-        let most = if name == &"wheel_spin" { 4.6 } else { 1.6 };
+        // The wheel's clicks last as long as its spin, and a few great moments
+        // (a guardian's fall, the hand's drag, the gate, the circle's bell)
+        // ring a little longer; everything else is short.
+        let most = match *name {
+            "wheel_spin" => 4.6,
+            "boss_death" | "hand_drag" | "hell_gate_rise" | "circle_toll" => 2.6,
+            _ => 1.6,
+        };
         assert!(
             (size as f32) / SFX_BYTES_PER_SECOND < most,
             "{name} is short"
@@ -86,4 +92,19 @@ fn tracks_switch_stop_and_ignore_unknown_names() {
     audio.stop();
     assert_eq!(audio.track(), None);
     assert!(audio.player.is_none());
+}
+
+#[test]
+fn the_knights_voices_play_and_mute_on_their_own() {
+    let mut audio = Audio::default();
+    let now = Instant::now();
+    let grunt = crate::drive::together_shooter::chatter::clip(1, "oof", 0);
+    assert!(sfx_file(grunt).is_some(), "{grunt} has a file");
+    audio.sfx(grunt, now);
+    assert_eq!(audio.played, 1);
+    audio.voices.muted = true;
+    audio.sfx(crate::drive::together_shooter::chatter::clip(2, "cheer", 0), now);
+    assert_eq!(audio.played, 1, "the knights' voices are off");
+    audio.sfx("bomb", now);
+    assert_eq!(audio.played, 2, "effects carry on without them");
 }

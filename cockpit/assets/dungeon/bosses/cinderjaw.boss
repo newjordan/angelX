@@ -7,6 +7,7 @@ size 1.6
 move chase speed=1.1
 attack fan shots=5 arc=55 speed=5 every=95 damage=12 shot=ember
 attack spiral shots=2 speed=4 every=20 damage=8 shot=ember
+phases lead bounce mines every=91 volleys=2 damage=12
 rage 30%
 drops ore 5, gem 3, gold 210
 art

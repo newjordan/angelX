@@ -57,9 +57,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
-name = "angelX-cockpit"
-version = "0.2.1"
+name = "angel-delve"
+version = "0.1.0"
 dependencies = [
+ "angel-net",
+ "image",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "angel-net"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "angel-serve"
+version = "0.1.0"
+dependencies = [
+ "angel-net",
+ "flate2",
+ "getrandom 0.4.3",
+ "qrcode",
+ "rustls",
+ "webpki-roots 1.0.7",
+]
+
+[[package]]
+name = "angelX-cockpit"
+version = "0.2.3"
+dependencies = [
+ "angel-delve",
+ "angel-net",
+ "angel-serve",
  "base64",
  "dotmax",
  "encoding_rs",
@@ -905,8 +938,19 @@ checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
  "libc",
- "r-efi",
+ "r-efi 5.3.0",
  "wasip2",
+]
+
+[[package]]
+name = "getrandom"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "r-efi 6.0.0",
 ]
 
 [[package]]
@@ -1876,6 +1920,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "qrcode"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
+
+[[package]]
 name = "quantette"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1915,6 +1965,12 @@ name = "r-efi"
 version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
+
+[[package]]
+name = "r-efi"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "radium"

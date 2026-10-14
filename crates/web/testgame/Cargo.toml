@@ -1,0 +1,15 @@
+[package]
+name = "angel-web-testgame"
+version = "0.1.0"
+description = "Test only: a dot to walk and a loopback server in the same wasm, so the shell is tested without a host"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+angel-net = { path = "../../net" }
+angel-web = { path = ".." }

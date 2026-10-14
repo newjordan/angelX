@@ -21,17 +21,7 @@ const ONE_FIGURE: f64 = 0.60;
 /// brightest channel must reach this.
 const MIN_VALUE: u8 = 110;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Avatar {
-    /// 32×32 PNG for the arena.
-    pub(crate) sprite: Vec<u8>,
-    /// 128×128 PNG for the player cards.
-    pub(crate) portrait: Vec<u8>,
-    /// The sprite's most common colour, for the terminal arena.
-    pub(crate) colour: [u8; 3],
-    /// Decoded, normalized sprite; avoids PNG decoding on every game frame.
-    pub(crate) pixels: Vec<[u8; 4]>,
-}
+pub(crate) use angel_delve::realm::Avatar;
 
 #[derive(Debug)]
 pub(crate) struct Checked {
@@ -70,41 +60,7 @@ pub(crate) fn fix_it(errors: &[String]) -> String {
 }
 
 pub(crate) fn check(bytes: &[u8]) -> Result<Checked, Vec<String>> {
-    if bytes.len() > MAX_BYTES {
-        return Err(vec![format!(
-            "the file is over {} MiB",
-            MAX_BYTES / (1024 * 1024)
-        )]);
-    }
-    let reader = ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .map_err(|_| vec!["the file could not be read as an image".to_string()])?;
-    if !matches!(
-        reader.format(),
-        Some(ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP)
-    ) {
-        return Err(vec!["the file must be a PNG, JPEG or WebP image".into()]);
-    }
-    // The header is read before anything is decoded.
-    let (width, height) = ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .and_then(|reader| reader.into_dimensions().map_err(std::io::Error::other))
-        .map_err(|_| vec!["the image header could not be read".to_string()])?;
-    if width > MAX_SIDE || height > MAX_SIDE || width == 0 || height == 0 {
-        return Err(vec![format!(
-            "the image is {width}×{height}; each side must be 1–{MAX_SIDE} pixels"
-        )]);
-    }
-    let mut limits = image::Limits::default();
-    limits.max_image_width = Some(MAX_SIDE);
-    limits.max_image_height = Some(MAX_SIDE);
-    limits.max_alloc = Some(64 * 1024 * 1024);
-    let mut reader = reader;
-    reader.limits(limits);
-    let mut image = reader
-        .decode()
-        .map_err(|_| vec!["the image could not be decoded".to_string()])?
-        .to_rgba8();
+    let (mut image, (width, height)) = decode(bytes)?;
     let mut notes = Vec::new();
     if !image.pixels().any(|pixel| pixel[3] < 128) && remove_background(&mut image) {
         notes.push("removed the flat background colour".into());
@@ -153,13 +109,55 @@ pub(crate) fn check(bytes: &[u8]) -> Result<Checked, Vec<String>> {
     })
 }
 
+/// Read an upload into pixels, within the bounds every image upload keeps:
+/// 2 MiB, PNG, JPEG or WebP, 1–2048 pixels a side. The sprite sheets of
+/// cards (`together_sheets`) come through here too.
+pub(crate) fn decode(bytes: &[u8]) -> Result<(RgbaImage, (u32, u32)), Vec<String>> {
+    if bytes.len() > MAX_BYTES {
+        return Err(vec![format!(
+            "the file is over {} MiB",
+            MAX_BYTES / (1024 * 1024)
+        )]);
+    }
+    let reader = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|_| vec!["the file could not be read as an image".to_string()])?;
+    if !matches!(
+        reader.format(),
+        Some(ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP)
+    ) {
+        return Err(vec!["the file must be a PNG, JPEG or WebP image".into()]);
+    }
+    // The header is read before anything is decoded.
+    let (width, height) = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .and_then(|reader| reader.into_dimensions().map_err(std::io::Error::other))
+        .map_err(|_| vec!["the image header could not be read".to_string()])?;
+    if width > MAX_SIDE || height > MAX_SIDE || width == 0 || height == 0 {
+        return Err(vec![format!(
+            "the image is {width}×{height}; each side must be 1–{MAX_SIDE} pixels"
+        )]);
+    }
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_SIDE);
+    limits.max_image_height = Some(MAX_SIDE);
+    limits.max_alloc = Some(64 * 1024 * 1024);
+    let mut reader = reader;
+    reader.limits(limits);
+    let image = reader
+        .decode()
+        .map_err(|_| vec!["the image could not be decoded".to_string()])?
+        .to_rgba8();
+    Ok((image, (width, height)))
+}
+
 fn close(a: &Rgba<u8>, b: &Rgba<u8>) -> bool {
     (0..3).all(|channel| a[channel].abs_diff(b[channel]) <= BACKGROUND_TOLERANCE)
 }
 
 /// With no transparency, the colour shared by all four corners is flooded away
 /// from the edges. Returns whether anything was removed.
-fn remove_background(image: &mut RgbaImage) -> bool {
+pub(crate) fn remove_background(image: &mut RgbaImage) -> bool {
     let (width, height) = image.dimensions();
     let corners = [
         *image.get_pixel(0, 0),
@@ -295,7 +293,7 @@ fn crop_square(image: &RgbaImage) -> RgbaImage {
 
 /// The 16 most common colours among opaque pixels, after rounding each
 /// channel to 16 levels. Ties break on the colour value, so it is stable.
-fn palette(image: &RgbaImage) -> Vec<[u8; 3]> {
+pub(crate) fn palette(image: &RgbaImage) -> Vec<[u8; 3]> {
     let mut counts: HashMap<[u8; 3], u32> = HashMap::new();
     for pixel in image.pixels().filter(|pixel| pixel[3] >= 128) {
         let key = [

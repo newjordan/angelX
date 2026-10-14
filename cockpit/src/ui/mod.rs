@@ -24,6 +24,7 @@ pub(crate) mod term;
 pub(crate) mod toolstrip;
 pub(crate) mod transcript;
 pub(crate) mod ui_inspect;
+pub(crate) mod game_pipeline;
 pub(crate) mod viewer;
 pub(crate) mod views;
 pub(crate) mod visual_export;

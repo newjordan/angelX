@@ -8,7 +8,7 @@ pub(crate) mod entry;
 mod failed_routes;
 mod projection;
 mod resources;
-pub(crate) mod routing;
+pub(crate) use angel_delve::world::routing;
 mod store;
 pub(crate) mod workflow;
 

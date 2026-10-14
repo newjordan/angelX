@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 
-import { auditResearchEmbed, embeddedPaths } from '../../scripts/check-research-embed.mjs'
+import { auditResearchEmbed, embeddedPaths } from '../../scripts/check/check-research-embed.mjs'
 
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
 const REL = 'orchestrator/self_improvement/stats.py'

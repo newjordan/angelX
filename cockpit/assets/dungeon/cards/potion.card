@@ -1,8 +1,8 @@
 name   Potion
 kind   play
 rarity common
-text   Red draught. Keep it in hand; press its number to drink.
-drop   24
+text   Red draught. Keep it in hand; press Z to drink the first card in hand.
+drop   10
 chest  0
 heal   40
 art

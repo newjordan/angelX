@@ -21,211 +21,23 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub(crate) const MAX_WISHES: usize = 64;
+pub(crate) use angel_delve::realm::{MAX_WISHES, Spoil, Spoils, Status, Wish};
+#[cfg(test)]
+pub(crate) use angel_delve::realm::Haul;
+
 pub(crate) const MAX_WORDS: usize = 160;
 pub(crate) const MAX_NAME: usize = 28;
 /// Wish art is at most this many ink pixels on a side (two overworld tiles).
 pub(crate) const ART: usize = 32;
 pub(crate) const MAX_BYTES: usize = 8192;
 
-/// What a delve yields. Each pack has its own; gold is everywhere; a bond is
-/// earned only by clearing a room with two knights standing.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum Spoil {
-    Gold,
-    Bone,
-    Wax,
-    Ore,
-    Gem,
-    Ember,
-    Scale,
-    Bond,
-}
-
-impl Spoil {
-    pub(crate) const ALL: [Spoil; 8] = [
-        Spoil::Gold,
-        Spoil::Bone,
-        Spoil::Wax,
-        Spoil::Ore,
-        Spoil::Gem,
-        Spoil::Ember,
-        Spoil::Scale,
-        Spoil::Bond,
-    ];
-
-    pub(crate) fn word(self) -> &'static str {
-        match self {
-            Spoil::Gold => "gold",
-            Spoil::Bone => "bone",
-            Spoil::Wax => "wax",
-            Spoil::Ore => "ore",
-            Spoil::Gem => "gem",
-            Spoil::Ember => "ember",
-            Spoil::Scale => "scale",
-            Spoil::Bond => "bond",
-        }
-    }
-
-    pub(crate) fn from_word(word: &str) -> Option<Spoil> {
-        Spoil::ALL
-            .into_iter()
-            .find(|s| s.word() == word.trim_end_matches('s'))
-    }
-
-    /// Where it comes from, for a player deciding where to delve.
-    pub(crate) fn source(self) -> &'static str {
-        match self {
-            Spoil::Gold => "anywhere",
-            Spoil::Bone | Spoil::Wax => "the Crypt",
-            Spoil::Ore | Spoil::Gem => "the Mines",
-            Spoil::Ember => "Dragon Keep",
-            Spoil::Scale => "slaying the dragon",
-            Spoil::Bond => "clearing a room together",
-        }
-    }
-
-    /// Worth in gold, for a wish's floor price.
-    fn worth(self) -> u32 {
-        match self {
-            Spoil::Gold => 1,
-            Spoil::Bone | Spoil::Wax | Spoil::Ore => 20,
-            Spoil::Gem | Spoil::Ember => 60,
-            Spoil::Bond => 80,
-            Spoil::Scale => 600,
-        }
-    }
-}
-
-/// An amount of each spoil.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct Spoils(pub(crate) BTreeMap<Spoil, u32>);
-
-impl Spoils {
-    pub(crate) fn get(&self, spoil: Spoil) -> u32 {
-        self.0.get(&spoil).copied().unwrap_or(0)
-    }
-
-    pub(crate) fn add(&mut self, spoil: Spoil, n: u32) {
-        if n > 0 {
-            let slot = self.0.entry(spoil).or_insert(0);
-            *slot = slot.saturating_add(n);
-        }
-    }
-
-    pub(crate) fn merge(&mut self, other: &Spoils) {
-        for (&spoil, &n) in &other.0 {
-            self.add(spoil, n);
-        }
-    }
-
-    pub(crate) fn is_empty(&self) -> bool {
-        self.0.values().all(|&n| n == 0)
-    }
-
-    /// Half of each, rounded down: what a wiped party carries home.
-    pub(crate) fn half(&self) -> Spoils {
-        Spoils(
-            self.0
-                .iter()
-                .map(|(&s, &n)| (s, n / 2))
-                .filter(|&(_, n)| n > 0)
-                .collect(),
-        )
-    }
-
-    pub(crate) fn covers(&self, price: &Spoils) -> bool {
-        price.0.iter().all(|(&s, &n)| self.get(s) >= n)
-    }
-
-    pub(crate) fn take(&mut self, price: &Spoils) {
-        for (&s, &n) in &price.0 {
-            if let Some(slot) = self.0.get_mut(&s) {
-                *slot = slot.saturating_sub(n);
-            }
-        }
-        self.0.retain(|_, n| *n > 0);
-    }
-
-    fn worth(&self) -> u32 {
-        self.0.iter().map(|(&s, &n)| s.worth() * n).sum()
-    }
-
-    /// `12 bone · 3 wax · 150 gold`, in the order spoils are listed.
-    pub(crate) fn label(&self) -> String {
-        let parts: Vec<String> = Spoil::ALL
-            .into_iter()
-            .filter(|&s| self.get(s) > 0)
-            .map(|s| format!("{} {}", self.get(s), s.word()))
-            .collect();
-        if parts.is_empty() {
-            "nothing".into()
-        } else {
-            parts.join(" · ")
-        }
-    }
-
-    /// `need 4 more bone · 1 scale`, or empty when covered.
-    pub(crate) fn shortfall(&self, price: &Spoils) -> String {
-        let mut missing = Spoils::default();
-        for (&s, &n) in &price.0 {
-            missing.add(s, n.saturating_sub(self.get(s)));
-        }
-        if missing.is_empty() {
-            String::new()
-        } else {
-            format!("need {}", missing.label())
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum Status {
-    /// Plain words, waiting for the host's angelX to draft it.
-    Asked,
-    /// Drafted with art and a price; waiting for the treasury.
-    Drafted,
-    /// Paid for and standing in the realm.
-    Built,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) struct Wish {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    /// The wish in the words of whoever made it.
-    pub(crate) words: String,
-    pub(crate) by: String,
-    pub(crate) status: Status,
-    #[serde(default)]
-    pub(crate) price: Spoils,
-    /// Ink rows, at most 32 by 32.
-    #[serde(default)]
-    pub(crate) art: Vec<String>,
-    /// The overworld place it should stand near (`Place` name), if any.
-    #[serde(default)]
-    pub(crate) near: String,
-    /// Who paid what, once built.
-    #[serde(default)]
-    pub(crate) paid: Vec<(String, Spoils)>,
-    /// Built wishes keep the order they were raised in.
-    #[serde(default)]
-    pub(crate) raised: u32,
-}
-
-/// One knight's spoils banked at once, with why.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) struct Haul {
-    pub(crate) hero: u32,
-    pub(crate) spoils: Spoils,
-    pub(crate) why: String,
-}
-
 /// The island's play economy.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Realm {
+    #[serde(default)]
+    pub(crate) votes: crate::drive::together_shooter::votes::Records,
+    #[serde(default)]
+    pub(crate) vote_hints: std::collections::BTreeSet<String>,
     pub(crate) treasury: Spoils,
     /// Everything each player ever banked, by name.
     #[serde(default)]
@@ -267,6 +79,13 @@ impl Realm {
             realm.home.stable.tended = realm.chivalry.tended;
         }
         realm.chivalry = Default::default();
+        if realm.home.wardrobe.legacy {
+            for name in realm.brought.keys() {
+                realm.home.wardrobe.knights.entry(name.clone()).or_insert_with(crate::drive::together_shooter::gear::Kept::equipped);
+            }
+        }
+        crate::drive::together_shooter::ranch::migrate(&mut realm.home.ranch, &mut realm.home.stable);
+        realm.home.ranch.wins = realm.raids_won;
         realm.path = path;
         realm.offer_catalog();
         realm.publish();
@@ -613,7 +432,7 @@ pub(crate) fn check(id: &str, raw: &str) -> Result<(Draft, Vec<String>), Vec<Str
 /// What angelX gets asked when the host grants an asked wish.
 pub(crate) fn brief(wish: &Wish, path: &Path, treasury: &Spoils) -> String {
     format!(
-        "Draft a wish for our angelX realm as a data file. Write ONLY the file {path} — no code changes.\n\n\
+        "Draft a wish for our angelX realm as a data file. Write ONLY the file {path} (and its sprite sheet, if you paint one) — no code changes.\n\n\
 {by} wished, in their words: “{words}”\n\n\
 Format (plain text, one field per line):\n\
 name   <a name for the landmark, up to {MAX_NAME} chars>\n\
@@ -625,7 +444,9 @@ art\n\
 <up to {ART} rows of up to {ART} characters; `.` is black paper>\n\n\
 Art: a top-down pixel landmark in the style of a Zelda-1 overworld drawn on black paper — at most two 16px tiles across. Use only these inks, each group dark→light:\n\
 greys k K Z X g j G J h i H · greens f D F E e l N m L A M y C Y · wood n b I B p P r R o O t T · stone s x S u U v V W q Q z · signal (glows; only for fire, light, gems) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7.\n\
-No black inner outlines (they read as holes on black paper). Light from the top-left.\n\n\
+No black inner outlines (they read as holes on black paper). Light from the top-left.\n\
+Or make it a picture: with your image tool, draw the landmark alone, top-down, as crisp pixel art on one flat background colour (no text, frame or ground), save it as {sheets}/{id}.png (at most 2 MiB), and write `sheet art {id}.png` in place of the art rows; the game cuts it to {ART} by {ART} realm inks when it reads the file.\n\n\
+For wishes about play-field gear or creatures, the T scroll's card vocabulary offers worn, shot, orbit, summon/foe and aura looks (ink frames or a horizontal PNG strip of up to 4 frames in .angel/dungeon/sheets), and `summon N swarm|guard|turret` on spell/play cards. Gear uses worn, never orbit as a stand-in. This realm file is a landmark; its checker accepts art and price data.\n\n\
 Price: spoils are won only by playing the delve — gold anywhere, bone and wax in the Crypt, ore and gems in the Mines, embers in Dragon Keep, a dragon scale for slaying the dragon, and bonds for clearing rooms together. Price it like a meaningful goal: a small shrine ≈ a couple of runs, a great hall ≈ a dragon. The game raises any price below two gold per inked pixel. The treasury holds {treasury}.\n\n\
 When the file is written, tell the party to run /dungeon wishes reload and then /dungeon grant {id}.",
         path = path.display(),
@@ -638,6 +459,11 @@ When the file is written, tell the party to run /dungeon wishes reload and then 
         near = NEAR.join(", "),
         treasury = treasury.label(),
         id = wish.id,
+        sheets = path
+            .parent()
+            .and_then(Path::parent)
+            .map_or_else(|| Path::new(".angel/realm").join("sheets"), |realm| realm.join("sheets"))
+            .display(),
     )
 }
 

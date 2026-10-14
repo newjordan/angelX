@@ -276,7 +276,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
         .unwrap();
     let saved = Store::beside(Some(&rewards), 77, "Miner").unwrap();
     let mut run = Run::at_home(77, 3, None, Home::default(), Default::default());
-    run.enter_settlement(&saved.site).unwrap();
+    run.enter_settlement(saved.site.admission()).unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(saved.site.id.as_str()));
     assert_eq!(run.players[&1].name, "Miner");
     assert_eq!(
@@ -312,7 +312,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
         "live map is not updated by loop work"
     );
     assert!(
-        run.enter_settlement(&store.site).is_err(),
+        run.enter_settlement(store.site.admission()).is_err(),
         "no readmission can overwrite an active snapshot"
     );
     let checkpoint = serde_json::to_vec(&run).unwrap();
@@ -524,7 +524,7 @@ fn settlement_playable_knight_can_walk_out_of_the_hall_into_the_first_cut() {
     let mut site = Site::new(77, "Miner");
     site.apply("A", 1, true).unwrap();
     let mut run = Run::at_home(77, 1, None, Home::default(), Default::default());
-    run.enter_settlement(&site).unwrap();
+    run.enter_settlement(site.admission()).unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     // Approach the west wall from inside the hall, crossing the actual
     // renovated chapel screen. Run::step performs real collision and exits.

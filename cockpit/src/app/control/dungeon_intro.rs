@@ -86,7 +86,7 @@ impl App {
             });
         self.dungeon.intro = Some(Intro {
             resume,
-            hosting: self.dungeon.guest.as_ref().map(|s| s.seats().len()),
+            hosting: self.dungeon.hosting.as_ref().map(|h| h.friends),
             ..Intro::default()
         });
         self.expand_dungeon();
@@ -110,7 +110,7 @@ impl App {
             .and_then(|h| h.knight.clone());
         if let Some(intro) = self.dungeon.intro.as_mut() {
             intro.party = 2;
-            intro.hosting = self.dungeon.guest.as_ref().map(|s| s.seats().len());
+            intro.hosting = self.dungeon.hosting.as_ref().map(|h| h.friends);
             if let Some(k) = knights::COMPANY
                 .iter()
                 .position(|k| Some(k.id.to_string()) == mine)
@@ -131,6 +131,13 @@ impl App {
             return false;
         };
         if key.kind == event::KeyEventKind::Release {
+            return true;
+        }
+        // The Enter or E still held from the map's door repeats into the
+        // menu: it must not click through to a delve, or to hosting one.
+        if key.kind == event::KeyEventKind::Repeat
+            && matches!(key.code, KeyCode::Enter | KeyCode::Char(' ' | 'e'))
+        {
             return true;
         }
         match key.code {
@@ -171,19 +178,19 @@ impl App {
                 None
             }
             // Already hosting: a fresh delve, and the same invitations.
-            _ if self.dungeon.guest.is_some() => {
+            _ if self.dungeon.hosting.is_some() => {
                 self.start_shooter(None);
                 Some(self.dungeon_command(Some("invite")))
             }
             _ => Some(self.host_dungeon("Friend")),
         };
-        self.dungeon.chorus.muted = choices.quiet;
+        self.dungeon.audio.voices.muted = choices.quiet;
         let pack = if choices.delve == 0 {
             Pack::Crypt
         } else {
             Pack::Cavern
         };
-        if let Some(run) = self.dungeon.shooter.as_mut() {
+        if let Some(mut run) = self.dungeon.shooter.as_mut() {
             run.begin_in(pack);
             run.outfit(1, choices.chosen());
             if run.players.contains_key(&2) {

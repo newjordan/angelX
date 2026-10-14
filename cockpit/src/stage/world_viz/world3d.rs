@@ -19,9 +19,8 @@ pub(crate) mod chivalry;
 pub(crate) mod expedition;
 pub(crate) mod instruments;
 pub(crate) mod interior;
-pub(crate) mod math;
-pub(crate) mod mesh;
-pub(crate) mod raster;
+pub(crate) use angel_delve::render::world3d::{math, mesh, raster};
+pub(crate) mod props;
 pub(crate) mod region;
 pub(crate) mod scene;
 
@@ -102,9 +101,8 @@ pub(crate) fn pin_world3d() -> RendererPin {
     pin(WorldView::Mesh3d)
 }
 
-/// Shared by Dotmax's outdoor and interior lighting. Retained at the same
-/// bearing as before the obsolete raycast art implementation was removed.
-pub(super) const MOON_BEARING: f32 = 0.62;
+/// Shared by Dotmax's outdoor and interior lighting (`angel_delve`'s raster).
+pub(super) use angel_delve::render::world3d::MOON_BEARING;
 
 /// The ride's 3D frame: the raycast camera, re-read as a real perspective
 /// camera, over the staged mesh scene.
@@ -732,3 +730,11 @@ fn camera_standoff(camera: &View3) -> (f32, f32, f32) {
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/world_viz/world3d__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/world3d__raster__tests.rs"]
+mod raster_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/world_viz/frames__world_tests.rs"]
+mod frames_world_tests;

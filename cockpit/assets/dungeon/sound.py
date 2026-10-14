@@ -15,8 +15,8 @@ the other music is CC0 from OpenGameArt (pack.py). Prefer free packs for new
 sounds, and run level.py after any change.
 
 Levels (see sfx/README.md): music files sit at -20 LUFS, SFX at about
--18 LUFS short-term with -2 dBTP peaks, voices (voice.py) stay at -16 LUFS.
-The runtime mixer then plays music at 0.40, SFX at 0.55 and voices at 0.30.
+-18 LUFS short-term with -2 dBTP peaks; the knights' voices (knights.py)
+are levelled quieter still. See sfx/README.md for the runtime levels.
 """
 import json, os, pathlib, subprocess, sys, tempfile, urllib.request
 

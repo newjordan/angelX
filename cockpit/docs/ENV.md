@@ -119,6 +119,11 @@ ordinary cockpit configuration recommendations:
 | `ANGEL_WORKSPACE` | launcher/TUI: launch cwd; direct binary `--task`: `~/.angelX/workspace` | Workspace root for tools and session binding. `bin/angelX` uses a leading directory or `--workspace DIR` after convenience flags, then this variable (including trusted env files), then original launch cwd. Relative selection resolves against original launch cwd; missing or misplaced TUI selectors fail. Machine commands retain their own options and prompt boundaries; direct `angel --task --workspace DIR` overrides its environment. In the TUI, `/cd <path>` (alias `/workspace`) changes the bound project. |
 | `ANGEL_TURN_DEADLINE_SECS`                                        | `0` (off) | Wall-clock budget for one turn. The absolute deadline is propagated into blocking provider and tool cancellation, then recorded as a structured deadline stop at the owned hop boundary. Off by default so autonomous / handoff / loop work is never killed by an invented clock. |
 | `ANGEL_COMPETITION_TURN_DEADLINE_SECS`                            | unset (off) | Optional wall-clock for competition turns only when this env is **explicitly set**. Never defaults on — overnight loops must not die at an arbitrary wall. |
+| `ANGEL_SENTINEL`                                                  | `observe` when a deadline is set, else off | Budget-fraction sentinel for deadline-carrying turns (`harness/sentinel.rs`). `observe` emits latched operator notices at 50% of the budget before the first edit and at 85% with nothing landed (or `ANGEL_SENTINEL_ARTIFACTS` missing); `intervene` may also raise the existing first-write advisory once; `off` disables. Unrecognised values degrade to `observe`. Green verification silences it. No deadline, no sentinel. |
+| `ANGEL_SENTINEL_ARTIFACTS`                                        | unset | Comma/colon-separated output artifact paths (relative entries resolve in the workspace) the sentinel counts as missing for its verdicts and final-answer gate. Task runners name the deliverable; without it the sentinel judges only by edit/green progress. In `intervene` mode a final answer with named artifacts still missing is withheld (at most twice) while budget remains. |
+| `ANGEL_SENTINEL_LIVENESS_CMD`                                     | unset | Shell command the sentinel runs at the final-answer gate (exit 0 = the server answers). On failure in `intervene` mode the answer is withheld (same twice-at-most budget) with the instruction to restart the server detached, because post-exit verification cannot see a server left in a dying shell. An endpoint served by an Angel-owned `proc_run` job also blocks: owned jobs stop at process exit. Checked only while the sentinel is armed. |
+| `ANGEL_SENTINEL_EXACT_DIRS`                                       | unset | Exact-directory deliverable contracts for the sentinel gate: `dir=name[+name...][;dir=...]`. A final answer is withheld (same twice-at-most budget) while a named directory holds extra or missing entries — e.g. single-file deliverables whose build outputs must live elsewhere. |
+| `ANGEL_PROC_PERSISTENT_SERVICES`                                  | unset (off) | Allows `proc_run persistent=true`: launch a service detached into its own session, exempt from Angel's shutdown descendant cleanup, so it outlives the Angel process for post-exit verification. Untracked by `proc_status`/`proc_stop`. Operator opt-in only — the launch deliberately escapes sandbox-helper containment and should be enabled only in throwaway task environments that declare a post-exit endpoint. |
 | `ANGEL_NO_MUTATION_NUDGE` / `ANGEL_NO_MUTATION_STOP`               | competition nudge: `4` · **stop: always off**    | Competition hops without a workspace mutation: **nudge only** by default. Hard-stop is **never** enabled unless the operator sets `ANGEL_NO_MUTATION_STOP>0` — autonomous/loop work must not be killed.                                                                                                                                                                                                                                                                                            |
 | `ANGEL_SUBMIT_STARVE_NUDGE` / `ANGEL_SUBMIT_STARVE_STOP`          | competition nudge: `3` · **stop: always off**    | After a mutation on a competition turn, hops without submit/score: **nudge only** by default. Hard-stop requires explicit `ANGEL_SUBMIT_STARVE_STOP>0`.                                                                                                                                                                                                                                                                                                                                            |
 | `ANGEL_COMPETITION_MODE`                                          | off                                              | Force competition action cadence even without leaderboard/handoff cues in the prompt.                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -1123,6 +1128,32 @@ loader-injection isolation respectively. They do not configure the cockpit.
   physical dot control. Does not alter chat, agent, still inspector, or video.
   Ordered RGB Bayer uses a fixed pattern (no temporal jitter). Worker timings
   are emitted at debug target `world_raster` (compose and sample/encode µs).
+
+## The Delve (`together_*`, `docs/ENGINE.md`)
+
+The Delve runs on the engine's server (`angel-serve`) whether it is hosted or
+not: solo, it listens on loopback only, with a join key nobody is told;
+`/dungeon host` moves the same run onto the host's door. Every seat is a
+client of that server, the host's own terminal included; a friend opens one
+link in a browser (the page is built into this binary) or pastes it into
+their angelX with `/dungeon join`.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ANGEL_DUNGEON_LISTEN` | the tailnet's address, else the LAN's, else loopback; port 8767 | Where `/dungeon host` listens: a private `address:port` (loopback, LAN or tailnet). Wildcard and public addresses are refused; a public door goes in front of a private one. An `address:port` given to `/dungeon host` wins. |
+| `ANGEL_DUNGEON_PUBLIC_URL` | unset | The public door in front of the host (an https tunnel, a relay): an `http(s)` root URL with no path, query or credentials. The link names it first; the server behind it still listens on `ANGEL_DUNGEON_LISTEN`. A friend's angelX joins through it over `wss://`. |
+| `ANGEL_DELVE_HOST_KNIGHT` | unset | `0`: `/dungeon_host` hosts without a knight of the host's own, as `--watch` does: for a dedicated machine nobody plays at. Knight 1 stands as stone with the party; friends keep knights 2 to 4. |
+| `ANGEL_DELVE_SIM_THREAD` | on | `0` steps the Delve's server by hand on the terminal's thread, on its clock, as the tests do. |
+| `ANGEL_DUNGEON_FRAME_TIMING` | unset | A file: every 120 ticks a `sim` line of the server's step and publish (the snapshot copied and the tree built), p50 and max; every 4 s a `serve` line of the server's counts (bytes a second each client is sent, encode time, joins and resumes). (The terminal's own frames are `ANGEL_FRAME_TIMING_LOG`'s.) |
+| `ANGEL_DELVE_FPS` | `60` | Frames a second while the Delve is shown (30 to 240). The server keeps 30 ticks a second. |
+| `ANGEL_DELVE_DEV` | unset | `1`: dev mode. Any page may set the Delve's knobs from its dev panel (F2), not only the host; every page offers the panel. The knobs moved are kept in `.angel/dungeon/tune.json` either way, and `/dungeon tune` lists and sets them from the terminal. A link ending `&dev` (`…/#<key>&dev`) offers the panel without dev mode, with the everyone-knobs read-only. |
+| `ANGEL_DELVE_RENDER_WAIT_MS` | `4` | How long a frame waits for its own picture from the render worker before showing the last one. |
+| `ANGEL_DELVE_FEEL` | unset | `1` keeps the feel ledger (`feel.jsonl` beside the Delve's save). |
+| `ANGEL_DELVE_VOICES` | unset | `0` starts with the knights' voices muted. |
+| `ANGEL_ART` | unset | `v2` draws with the second art kit; the host's choice reaches every client in its welcome. |
+
+`ANGEL_DUNGEON_BROWSER_VIEW` and `ANGEL_DUNGEON_FAST_FRAMES` are gone: every
+link opens the page, and no picture is painted for anyone.
 
 ## Worker and resource locations
 

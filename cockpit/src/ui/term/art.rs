@@ -14,6 +14,12 @@ use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
+// The braille fitter and its cells are the Delve's renderer's too.
+pub use angel_delve::render::braille::{
+    ColoredBrailleCell, ColoredBrailleImage, DMD_PALETTE, DotSample, braille_bits, braille_char,
+    braille_dot_bit, fit_braille,
+};
+
 // Sized for the largest per-surface working set — a grand-joust ceremony
 // touches 27 images (arena + poses + two sequence loops) — rendered on two
 // concurrent surfaces at different canvas sizes, with headroom for portraits.
@@ -24,46 +30,7 @@ const DECODED_IMAGE_CACHE_LIMIT: usize = 24;
 const REGION_BRAILLE_MAX_WIDTH: usize = 180;
 const REGION_BRAILLE_MAX_HEIGHT: usize = 72;
 
-/// Deliberately small palette shared by terminal-native visualizations.
-pub const DMD_PALETTE: [[u8; 3]; 8] = [
-    [0, 0, 0],
-    [86, 232, 255],
-    [91, 190, 255],
-    [58, 111, 151],
-    [184, 228, 255],
-    [255, 207, 92],
-    [255, 103, 126],
-    [99, 241, 169],
-];
 const DMD_DITHER_LEVEL: [u16; 8] = [0, 233, 219, 185, 239, 235, 201, 232];
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ColoredBrailleCell {
-    pub glyph: char,
-    pub fg: [u8; 3],
-}
-
-impl Default for ColoredBrailleCell {
-    fn default() -> Self {
-        Self {
-            glyph: '\u{2800}',
-            fg: DMD_PALETTE[0],
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ColoredBrailleImage {
-    pub width: usize,
-    pub height: usize,
-    pub cells: Vec<ColoredBrailleCell>,
-}
-
-impl ColoredBrailleImage {
-    pub fn cell(&self, x: usize, y: usize) -> Option<ColoredBrailleCell> {
-        (x < self.width && y < self.height).then(|| self.cells[y * self.width + x])
-    }
-}
 
 /// Ink color for one-bit plates: a warm paper-white, restylable at draw time.
 // TODO(noir-wave): drop the allows once the plate pipeline consumes the mono
@@ -243,50 +210,60 @@ fn rgba_canvas_to_colored_braille(
     height: usize,
 ) -> ColoredBrailleImage {
     let mut cells = vec![ColoredBrailleCell::default(); width * height];
-    for cell_y in 0..height {
-        for cell_x in 0..width {
-            let mut bits = 0u8;
-            let mut palette_votes = [0u8; DMD_PALETTE.len()];
-            for local_y in 0..4 {
-                for local_x in 0..2 {
-                    let x = cell_x * 2 + local_x;
-                    let y = cell_y * 4 + local_y;
-                    let rgba = fitted.get_pixel(x as u32, y as u32).0;
-                    if rgba[3] < 12 {
-                        continue;
-                    }
-                    let raw_color = [rgba[0], rgba[1], rgba[2]];
-                    let palette_index = DMD_PALETTE
-                        .iter()
-                        .position(|color| *color == raw_color)
-                        .unwrap_or_else(|| nearest_palette(raw_color));
-                    if palette_index == 0 {
-                        continue;
-                    }
-                    let coverage = u16::from(rgba[3]) * DMD_DITHER_LEVEL[palette_index] / 255;
-                    let threshold = u16::from(bayer4(x, y)) * 16 + 8;
-                    if coverage < threshold {
-                        continue;
-                    }
-                    bits |= braille_dot_bit(local_x, local_y);
-                    palette_votes[palette_index] = palette_votes[palette_index].saturating_add(1);
+    let palette_of = |x: usize, y: usize| -> Option<usize> {
+        let rgba = fitted.get_pixel(x as u32, y as u32).0;
+        if rgba[3] < 12 {
+            return None;
+        }
+        let raw_color = [rgba[0], rgba[1], rgba[2]];
+        let index = DMD_PALETTE
+            .iter()
+            .position(|color| *color == raw_color)
+            .unwrap_or_else(|| nearest_palette(raw_color));
+        (index != 0).then_some(index)
+    };
+    let fit = fit_braille(width, height, |x, y| {
+        let Some(index) = palette_of(x, y) else {
+            return DotSample::default();
+        };
+        let rgba = fitted.get_pixel(x as u32, y as u32).0;
+        let alpha = f32::from(rgba[3]) / 255.0;
+        let luma = (0.299 * f32::from(rgba[0]) + 0.587 * f32::from(rgba[1]) + 0.114 * f32::from(rgba[2])) / 255.0;
+        DotSample {
+            // Any inked pixel clears the floor; its own brightness and its
+            // coverage carry the cell's structure.
+            luma: (0.12 + 0.88 * luma) * alpha,
+            level: alpha * f32::from(DMD_DITHER_LEVEL[index]) / 255.0,
+            rgb: [f32::from(rgba[0]), f32::from(rgba[1]), f32::from(rgba[2])],
+        }
+    });
+    for (i, (bits, _)) in fit.into_iter().enumerate() {
+        if bits == 0 {
+            continue;
+        }
+        let (cell_x, cell_y) = (i % width, i / width);
+        // The cell's ink is the palette colour most of its lit dots carry.
+        let mut palette_votes = [0u8; DMD_PALETTE.len()];
+        for local_y in 0..4 {
+            for local_x in 0..2 {
+                if bits & braille_dot_bit(local_x, local_y) != 0
+                    && let Some(index) = palette_of(cell_x * 2 + local_x, cell_y * 4 + local_y)
+                {
+                    palette_votes[index] = palette_votes[index].saturating_add(1);
                 }
             }
-            if bits == 0 {
-                continue;
-            }
-            let palette_index = palette_votes
-                .iter()
-                .enumerate()
-                .skip(1)
-                .max_by_key(|(index, votes)| (**votes, *index))
-                .map(|(index, _)| index)
-                .unwrap_or(1);
-            cells[cell_y * width + cell_x] = ColoredBrailleCell {
-                glyph: braille_char(bits),
-                fg: DMD_PALETTE[palette_index],
-            };
         }
+        let palette_index = palette_votes
+            .iter()
+            .enumerate()
+            .skip(1)
+            .max_by_key(|(index, votes)| (**votes, *index))
+            .map(|(index, _)| index)
+            .unwrap_or(1);
+        cells[i] = ColoredBrailleCell {
+            glyph: braille_char(bits),
+            fg: DMD_PALETTE[palette_index],
+        };
     }
     ColoredBrailleImage {
         width,
@@ -470,33 +447,6 @@ fn nearest_palette(rgb: [u8; 3]) -> usize {
         .unwrap_or(0)
 }
 
-pub const fn braille_dot_bit(local_x: usize, local_y: usize) -> u8 {
-    match (local_x, local_y) {
-        (0, 0) => 1 << 0,
-        (0, 1) => 1 << 1,
-        (0, 2) => 1 << 2,
-        (0, 3) => 1 << 6,
-        (1, 0) => 1 << 3,
-        (1, 1) => 1 << 4,
-        (1, 2) => 1 << 5,
-        (1, 3) => 1 << 7,
-        _ => 0,
-    }
-}
-
-pub const fn braille_bits(glyph: char) -> u8 {
-    let code = glyph as u32;
-    if code >= 0x2800 && code <= 0x28ff {
-        (code - 0x2800) as u8
-    } else {
-        0
-    }
-}
-
-pub fn braille_char(bits: u8) -> char {
-    char::from_u32(0x2800 + u32::from(bits)).unwrap_or('\u{2800}')
-}
-
 #[derive(Default)]
 struct ColoredBrailleCache {
     map: HashMap<u64, Arc<ColoredBrailleImage>>,
@@ -606,11 +556,6 @@ fn fit_image_to_canvas(source: &image::RgbaImage, width: u32, height: u32) -> im
         i64::from((height - resized_height) / 2),
     );
     canvas
-}
-
-fn bayer4(x: usize, y: usize) -> u8 {
-    const MATRIX: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-    MATRIX[y % 4][x % 4]
 }
 
 /// Canonical braille-grid → styled lines conversion: consecutive cells with the

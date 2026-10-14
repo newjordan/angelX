@@ -14,7 +14,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts/build_polyglot_bench_data.py"
+SCRIPT = ROOT / "scripts/bench/polyglot/build_polyglot_bench_data.py"
 
 
 def load():

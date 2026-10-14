@@ -6,7 +6,7 @@ hp 650
 size 1.4
 move hover speed=1.6
 attack aimed shots=1 speed=6 every=65 damage=12 shot=bone
-attack ring shots=10 speed=4 every=155 damage=10 shot=orb
+phases gap_ring reaim flower every=78 volleys=2 damage=10
 rage 40%
 drops bone 5, wax 4, gold 180
 art

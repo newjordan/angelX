@@ -63,7 +63,14 @@ impl Write for RustlsStream {
 fn root_certs() -> rustls::RootCertStore {
     use log::error;
 
-    let mut root_cert_store = rustls::RootCertStore::empty();
+    // Union the OS store with the bundled Mozilla roots. Native-only trust
+    // makes every HTTPS request fail in minimal containers that ship no
+    // ca-certificates (observed as rustls UnknownIssuer against public
+    // endpoints whose chains the bundled roots verify fine); webpki-only
+    // would lose operator-installed private CAs, so keep both.
+    let mut root_cert_store = rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    };
     let native_certs = rustls_native_certs::load_native_certs().unwrap_or_else(|e| {
         error!("loading native certificates: {}", e);
         vec![]
@@ -72,7 +79,8 @@ fn root_certs() -> rustls::RootCertStore {
         root_cert_store.add_parsable_certificates(native_certs.into_iter().map(|c| c.into()));
     if valid_count == 0 && invalid_count > 0 {
         error!(
-            "no valid certificates loaded by rustls-native-certs. all HTTPS requests will fail."
+            "no valid certificates loaded by rustls-native-certs; \
+             continuing with bundled webpki roots only."
         );
     }
     root_cert_store

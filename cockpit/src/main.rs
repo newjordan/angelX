@@ -86,18 +86,28 @@ const IDLE_POLL: Duration = Duration::from_millis(200);
 
 /// Frame interval while the loading bar is on screen (~30fps).
 const TICK: Duration = Duration::from_millis(33);
-/// Frame pacing while a delve is on screen.
-const GAME_TICK: Duration = Duration::from_micros(16_667);
-/// While friends play the delve in a browser, the pane redraws at most this
-/// often...
-const SHARED_PANE_TICK: Duration = Duration::from_millis(33);
-/// ...and goes no longer than this without one, even when a redraw costs
-/// more than the time left before the delve's next step.
-const SHARED_PANE_STALE: Duration = Duration::from_millis(133);
+/// Frame pacing while a delve is on screen: 60 a second, or the display's
+/// own rate from `ANGEL_DELVE_FPS` (30 to 240). The sim keeps its 30 Hz
+/// step whatever this is; frames between ticks are blended.
+fn game_tick() -> Duration {
+    static TICK: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
+    *TICK.get_or_init(|| {
+        let fps = std::env::var("ANGEL_DELVE_FPS")
+            .ok()
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(60)
+            .clamp(30, 240);
+        Duration::from_nanos(1_000_000_000 / u64::from(fps))
+    })
+}
 /// The miniworld is ambient scenery, not a reason to repaint the entire
 /// terminal at video cadence. Twelve frames per second keeps travel legible
 /// while leaving input and agent output the priority lane.
 const SCENERY_TICK: Duration = Duration::from_millis(83);
+/// While someone walks the map, frames keep step with the world's 40 ticks a
+/// second: one tick a frame, so a walk moves in even steps instead of the
+/// beat of two unrelated clocks.
+const WALK_TICK: Duration = Duration::from_millis(25);
 /// How often the main loop republishes the fleet route snapshot to the
 /// backplane. Discovery is minute-scale; per-keystroke was pure waste.
 const BACKPLANE_REFRESH: Duration = Duration::from_millis(500);
@@ -210,7 +220,7 @@ fn apply_terminal_input(
         let mut budget = 256;
         let mut saw_priority = false;
         loop {
-            let game_owned_input = app.dungeon_keyboard_active();
+            let game_owned_input = app.game_keyboard_active();
             let priority = matches!(
                 &event,
                 Event::Key(key)
@@ -226,6 +236,7 @@ fn apply_terminal_input(
             match event {
                 Event::Key(key) if key.kind != KeyEventKind::Release => app.on_key(key),
                 Event::Key(key) => {
+                    app.release_walk_key(key);
                     app.dungeon_key(key);
                 }
                 Event::Paste(text) => app.on_paste(&text),
@@ -245,7 +256,7 @@ fn apply_terminal_input(
             if app.should_quit
                 || budget == 0
                 || saw_priority
-                || game_owned_input != app.dungeon_keyboard_active()
+                || game_owned_input != app.game_keyboard_active()
             {
                 break;
             }
@@ -259,50 +270,12 @@ fn apply_terminal_input(
 }
 
 fn sync_game_keyboard(app: &App, active: &mut bool) -> std::io::Result<()> {
-    let next = app.dungeon_keyboard_active();
+    let next = app.game_keyboard_active();
     if *active != next {
         crate::ui::term::write_game_keyboard_mode(&mut std::io::stdout(), next)?;
         *active = next;
     }
     Ok(())
-}
-
-/// When the pane may redraw while friends play the delve in a browser. A
-/// redraw blocks on the terminal's write (a slow PTY reader can hold it for
-/// most of a step), and the delve's next step must not wait behind it: the
-/// friends' pictures are painted from that step. So the pane redraws at most
-/// every `SHARED_PANE_TICK`, where its recent cost fits before the next step,
-/// and right after a step once it has gone `SHARED_PANE_STALE` without one.
-struct SharedPane {
-    last: Option<Instant>,
-    /// Recent redraw wall time: rises at once, eases down by an eighth.
-    cost: Duration,
-}
-
-impl SharedPane {
-    fn due(&self, now: Instant, step_due: Option<Instant>) -> bool {
-        let since = self
-            .last
-            .map_or(Duration::MAX, |last| now.saturating_duration_since(last));
-        if since < SHARED_PANE_TICK {
-            return false;
-        }
-        let Some(step) = step_due else {
-            return true;
-        };
-        let room = step.saturating_duration_since(now);
-        room >= self.cost || (since >= SHARED_PANE_STALE && room >= SHARED_PANE_TICK * 3 / 4)
-    }
-
-    fn drew(&mut self, started: Instant, finished: Instant) {
-        let took = finished.saturating_duration_since(started);
-        self.last = Some(started);
-        self.cost = if took >= self.cost {
-            took
-        } else {
-            self.cost - (self.cost - took) / 8
-        };
-    }
 }
 
 /// Drive the TUI until quit. Returns the staged phoenix exec (new binary +
@@ -318,6 +291,11 @@ fn run(
     // Calibration has finished; establish the sole input reader before app
     // initialization so typed-ahead bursts are queued in order.
     let terminal_input = input::TerminalInput::start()?;
+    // The Delve's server steps on its own thread; the terminal only reads
+    // its snapshots (`ANGEL_DELVE_SIM_THREAD=0` steps it here, as tests do).
+    crate::drive::together_sim::set_threaded(
+        std::env::var("ANGEL_DELVE_SIM_THREAD").map_or(true, |v| v != "0"),
+    );
     // Bag::standard() assembles the configured clubs and falls back to the
     // practice swing if none are up. Tab switches agents.
     let mut app = App::new_selected_in_workspace(bag, viewer, workspace);
@@ -364,10 +342,6 @@ fn run(
         .checked_sub(BACKPLANE_REFRESH)
         .unwrap_or_else(Instant::now);
     let mut next_frame = Instant::now();
-    let mut shared_pane = SharedPane {
-        last: None,
-        cost: Duration::ZERO,
-    };
     // When the delve's next step is due while friends play in it.
     let mut step_due: Option<Instant> = None;
     let loop_result = (|| -> std::io::Result<()> {
@@ -392,12 +366,20 @@ fn run(
                 applied_title = app.title_override.clone();
             }
             // Input before paint so cancel/steer never wait on a flood redraw.
+            // A delve on screen draws at 60: motion is blended between its 30
+            // ticks a second. A walk on the map draws one frame per world
+            // tick. Both are paced to a deadline, so the time spent drawing
+            // comes out of the wait, not on top.
+            let pace = if app.needs_fast_tick() && app.dungeon_view_active() {
+                Some(game_tick())
+            } else if app.map_in_motion() {
+                Some(WALK_TICK)
+            } else {
+                None
+            };
             let wait = if !painted_once {
                 std::time::Duration::ZERO
-            } else if app.needs_fast_tick() && app.dungeon_view_active() {
-                // A delve on screen draws at 60: motion is blended between
-                // its 30 ticks a second. Frames are paced to a deadline, so
-                // the time spent drawing comes out of the wait, not on top.
+            } else if pace.is_some() {
                 next_frame.saturating_duration_since(Instant::now())
             } else if app.needs_fast_tick() {
                 TICK
@@ -450,15 +432,6 @@ fn run(
             } else {
                 None
             };
-            // Friends playing in a browser see pictures painted from the
-            // delve's steps, so the pane redraws only where it cannot hold a
-            // step back (see `SharedPane`).
-            let friend_on_browser = friends_seated
-                && app
-                    .dungeon
-                    .guest
-                    .as_ref()
-                    .is_some_and(|guest| guest.browser_view());
             let settle_us = settle_started.map_or(0, |start| start.elapsed().as_micros());
             let draw_started = frame_timing.as_ref().map(|_| Instant::now());
             // The next frame is due one tick after this one was; a loop
@@ -468,23 +441,15 @@ fn run(
             // A delve on screen draws at its pace, not once per wake-up:
             // a key applies now, and the next paced frame (a few ms off)
             // shows it.
-            let paced_wait = painted_once
-                && app.needs_fast_tick()
-                && app.dungeon_view_active()
-                && now < next_frame;
+            let paced_wait = painted_once && pace.is_some() && now < next_frame;
             if now >= next_frame {
-                next_frame += GAME_TICK;
+                let period = pace.unwrap_or_else(game_tick);
+                next_frame += period;
                 if next_frame <= now {
-                    next_frame = now + GAME_TICK;
+                    next_frame = now + period;
                 }
             }
-            let draw = if friend_on_browser {
-                shared_pane.due(now, step_due)
-            } else {
-                !paced_wait
-            };
-            if draw {
-                let started = Instant::now();
+            if !paced_wait {
                 if app.take_redraw_request() {
                     terminal.clear()?;
                 }
@@ -502,7 +467,6 @@ fn run(
                         );
                     }
                 })?;
-                shared_pane.drew(started, Instant::now());
             }
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let post_draw_started =
@@ -588,10 +552,6 @@ fn write_private_export(path: &str, value: &serde_json::Value) -> std::io::Resul
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/main__rollout_export_output_tests.rs"]
 mod rollout_export_output_tests;
-
-#[cfg(test)]
-#[path = "../../tests/cockpit/app/main__shared_pane_tests.rs"]
-mod shared_pane_tests;
 
 const CLI_HELP: &str = r#"angelX — terminal cockpit and competition/RL task runner
 
@@ -915,6 +875,9 @@ fn main() -> std::io::Result<()> {
         _ => {}
     }
     let process_started = std::time::Instant::now();
+    // The Delve's settings come from the environment, once, before anything
+    // plays or draws it.
+    drive::delve_settings_from_env();
     // `--yolo` is a global leading flag for both the TUI and every headless
     // entrypoint. The launcher consumes it too, but the binary supports direct
     // invocation so automation does not depend on the shell wrapper.

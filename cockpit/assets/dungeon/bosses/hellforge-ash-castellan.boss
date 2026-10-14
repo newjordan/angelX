@@ -6,11 +6,34 @@ hp 620
 size 1.4
 move anchor
 attack ring shots=8 speed=5 every=95 damage=10 shot=ember
+phases twin_spiral sweep every=91 volleys=2 damage=10
 rage 35%
 drops gold 110, gem 1
 art
-..77..
-.7HH7.
-.H11H.
-..HH..
-..77..
+............iiii...........
+...........iiiiii..........
+..........iiiiJiii.........
+..........iiihhiii.........
+..........hhhJJhhh.........
+..........hX@@X@@X.........
+..........GGGGGGGG.........
+.....hhJ..jjjjjjjj..Jhh....
+...hhhJJjghgggggghgjJJhhh..
+...hhJJGjghhgggghhgjXXXXXXX
+..JGJGGjgghhhJJhhhggXjJJJjX
+.JJGjjgggghhJJJJhhggXGJhJGX
+hGGjghgghhJJJJJJJJhhXGJhJGX
+.jjgg..JJ7JJGGGGJJJ7XGJhJGX
+..gg...JJJGGGGGGGGJJXGJhJGX
+...b...GGGGGjjjjGGGGXhh7hhX
+...b...jjjjjjggjjjjjXGJhJGX
+...b...ggjggggggggjgXGJhJGX
+...b....XggXXXXXXggXXGJhJGX
+...b....bbbbbbObbbbbXGJhJGX
+...b.....gXXXXXXXXg.XGJhJGX
+...b.....gj7g..gj7g.XjJJJjX
+...b.....gjjg..gjjg.XXXXXXX
+...b.....gjjg..gjjg........
+...b.....gjjg..gjjg........
+........XXXXX..XXXXX.......
+........XXXXX..XXXXX.......

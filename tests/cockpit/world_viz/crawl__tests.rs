@@ -755,3 +755,110 @@ fn write_fixture_shots() {
             .unwrap();
     }
 }
+
+/// The braille review set: what the terminal's braille shows for the crawl
+/// (the scryglass) and for arena rooms pushed through the same converter.
+/// Each shot is saved as the RGB source and as the braille cells, drawn as
+/// dots. `ANGEL_BRAILLE_SHOTS=dir cargo test --bin angel -- --ignored write_braille_shots`
+#[test]
+#[ignore]
+fn write_braille_shots() {
+    use super::super::overworld::{arena, Img};
+    use crate::drive::together_shooter::{home::Home, world as w, Run, RoomKind as K};
+    let Some(dir) = std::env::var_os("ANGEL_BRAILLE_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let (cols, rows) = (96usize, 30usize);
+    let save = |name: &str, rgb: &image::RgbaImage| {
+        image::imageops::resize(rgb, rgb.width() * 4, rgb.height() * 4, image::imageops::FilterType::Nearest)
+            .save(dir.join(format!("{name}-rgb.png")))
+            .unwrap();
+        let cells = super::super::ride::frame_to_braille_graded(rgb, cols, rows, true);
+        terminal_preview(&cells).save(dir.join(format!("{name}-braille.png"))).unwrap();
+    };
+    for (name, at) in [
+        ("crawl-mines-walk", clock(Region::TheMines, 1, 60, Work::Forge)),
+        ("crawl-mines-fight", clock(Region::TheMines, 1, 40 * 60 + 120, Work::Forge)),
+        ("crawl-forest-rest", clock(Region::DarkForest, 2, 40 * 60, Work::Rest)),
+        ("crawl-archive-study", clock(Region::Swamp, 3, 40 * 60, Work::Study)),
+        ("crawl-keep-council", clock(Region::DragonKeep, 1, 40 * 60, Work::Council)),
+    ] {
+        save(name, &frame(&at, ((cols * 2) as u32, (rows * 4) as u32)));
+    }
+    // The scryglass outside a loop: the settled vista, a ride, an interior.
+    {
+        use crate::agent::harness::ToolEventId;
+        use crate::stage::world_viz::{Building, World};
+        use crate::ui::viz::lifecycle_viz::MotionMode;
+        let preview = |name: &str, world: &World| {
+            if let Some(cells) = world.scryglass_frame_with_motion(cols, rows, false, 0.0, 0.0, 1.05, MotionMode::Full) {
+                terminal_preview(&cells).save(dir.join(format!("{name}-braille.png"))).unwrap();
+            }
+        };
+        let mut world = World::new(42);
+        world.settle_at_for_test(Building::Keep);
+        preview("glass-keep-vista", &world);
+        world.note_tool_call_event(ToolEventId("glass-read".into()), "read_file", "src/lib.rs");
+        for _ in 0..40 {
+            world.tick();
+        }
+        preview("glass-ride", &world);
+        let mut inside = World::new(42);
+        inside.settle_at_for_test(Building::Keep);
+        if inside.visit_interior(Building::Keep) {
+            preview("glass-keep-inside", &inside);
+        }
+    }
+    // The 3D interiors, at the guard tests' sizes.
+    for building in [crate::stage::world_viz::Building::Chapel, crate::stage::world_viz::Building::Keep] {
+        let mut world = crate::stage::world_viz::World::new(42);
+        world.settle_at_for_test(building);
+        if world.enter_interior() {
+            let (_, view) = world.travel_scene();
+            for (w, h) in [(48usize, 18usize), (100, 76)] {
+                let plate = super::super::world3d::interior::render_interior_frame(building, &view, w as u32 * 2, h as u32 * 4, 0);
+                let cells = super::super::ride::frame_to_braille_graded(&plate, w, h, false);
+                terminal_preview(&cells).save(dir.join(format!("interior-{building:?}-{w}x{h}-braille.png").to_lowercase())).unwrap();
+            }
+        }
+    }
+    // Resident cockpit art through the image braille encoder.
+    for (name, path) in [("dmd-council", "assets/moa-cards/council.png"), ("dmd-duel", "assets/moa-cards/duel.png"), ("dmd-recon", "assets/moa-cards/recon.png")] {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
+        if let Some(cells) = crate::ui::term::art::colored_image_braille(&path, 60, 24) {
+            terminal_preview(&cells).save(dir.join(format!("{name}-braille.png"))).unwrap();
+        }
+    }
+    let to_rgba = |img: &Img| {
+        let small = image::RgbaImage::from_raw(img.w as u32, img.h as u32, img.rgba_bytes()).unwrap();
+        image::imageops::resize(&small, (cols * 2) as u32, (rows * 4) as u32, image::imageops::FilterType::Triangle)
+    };
+    let mut run = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
+    run.come_to_the_gate();
+    for kind in [K::Orchard, K::Cliffs, K::Marsh, K::Hippodrome, K::Village, K::Crag] {
+        let mut r = run.clone();
+        r.arrive(w::room_of(&r.dungeon, kind).unwrap(), (12.0, 7.0));
+        r.step(&std::collections::BTreeMap::new());
+        let img = arena::frame_for(&r, arena::NATIVE_W, arena::NATIVE_H, Some(1));
+        save(&format!("room-{kind:?}").to_lowercase(), &to_rgba(&img));
+    }
+}
+
+/// How long the braille encoder takes for a crawl frame (printed, not
+/// asserted): `cargo test --bin angel time_braille_encoder -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn time_braille_encoder() {
+    let at = clock(Region::TheMines, 1, 60, Work::Forge);
+    for (cols, rows) in [(96usize, 30usize), (300, 100)] {
+        let rgb = frame(&at, ((cols * 2) as u32, (rows * 4) as u32));
+        let _ = super::super::ride::frame_to_braille_graded(&rgb, cols, rows, true);
+        let start = std::time::Instant::now();
+        for _ in 0..50 {
+            std::hint::black_box(super::super::ride::frame_to_braille_graded(&rgb, cols, rows, true));
+        }
+        println!("braille {cols}x{rows}: {:.3} ms", start.elapsed().as_secs_f64() * 1000.0 / 50.0);
+    }
+}

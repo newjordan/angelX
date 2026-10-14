@@ -1,0 +1,11 @@
+[package]
+name = "angel-web"
+version = "0.1.0"
+description = "The browser runtime: the wasm ABI every game exports, and the shell page that drives it"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+angel-net = { path = "../net" }

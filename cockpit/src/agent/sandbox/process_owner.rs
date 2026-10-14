@@ -131,8 +131,41 @@ fn install() -> std::io::Result<()> {
     Ok(())
 }
 
+/// Persistent services registered to outlive this process
+/// (`proc_run persistent=true`, operator-enabled only). Each entry is a
+/// session leader's (pid, starttime); shutdown cleanup spares that whole
+/// session subtree. Empty in every ordinary run.
+#[cfg(target_os = "linux")]
+static PERSISTENT_SPARED: std::sync::Mutex<Vec<(i32, u64)>> = std::sync::Mutex::new(Vec::new());
+
+/// The kernel starttime identity of `pid`, when readable.
+#[cfg(target_os = "linux")]
+fn process_starttime(pid: i32) -> Option<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let (_, fields) = stat.rsplit_once(')')?;
+    fields
+        .split_whitespace()
+        .nth(19)
+        .and_then(|s| s.parse::<u64>().ok())
+}
+
+/// Register a just-launched persistent session leader so shutdown cleanup
+/// leaves its session alone. Starttime-pinned: a reused pid is never spared.
+#[cfg(target_os = "linux")]
+pub(crate) fn spare_persistent(pid: u32) {
+    if let Some(start) = process_starttime(pid as i32)
+        && let Ok(mut spared) = PERSISTENT_SPARED.lock()
+    {
+        spared.push((pid as i32, start));
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn descendants() -> Vec<(i32, u64)> {
+    let spared: Vec<(i32, u64)> = PERSISTENT_SPARED
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
     let mut rows = Vec::new();
     if let Ok(entries) = std::fs::read_dir("/proc") {
         for entry in entries.flatten() {
@@ -150,19 +183,28 @@ fn descendants() -> Vec<(i32, u64)> {
                 continue;
             };
             let fields: Vec<_> = fields.split_whitespace().collect();
-            if let (Some(parent), Some(start)) = (
+            if let (Some(parent), Some(session), Some(start)) = (
                 fields.get(1).and_then(|s| s.parse::<i32>().ok()),
+                fields.get(3).and_then(|s| s.parse::<i32>().ok()),
                 fields.get(19).and_then(|s| s.parse::<u64>().ok()),
             ) {
-                rows.push((pid, parent, start));
+                rows.push((pid, parent, session, start));
             }
         }
     }
+    // A spared root keeps its identity only while its starttime matches;
+    // its session id (== leader pid) spares members reparented to us after
+    // the leader exits.
+    let spared_sessions: Vec<i32> = spared.iter().map(|&(pid, _)| pid).collect();
+    let is_spared = |pid: i32, session: i32, start: u64| {
+        spared.contains(&(pid, start)) || spared_sessions.contains(&session)
+    };
     let mut owned = vec![std::process::id() as i32];
     loop {
         let previous = owned.len();
-        for &(pid, parent, _) in &rows {
-            if owned.contains(&parent) && !owned.contains(&pid) {
+        for &(pid, parent, session, start) in &rows {
+            if owned.contains(&parent) && !owned.contains(&pid) && !is_spared(pid, session, start)
+            {
                 owned.push(pid);
             }
         }
@@ -172,8 +214,8 @@ fn descendants() -> Vec<(i32, u64)> {
     }
     owned.remove(0);
     rows.into_iter()
-        .filter(|(pid, _, _)| owned.contains(pid))
-        .map(|(pid, _, start)| (pid, start))
+        .filter(|(pid, _, _, _)| owned.contains(pid))
+        .map(|(pid, _, _, start)| (pid, start))
         .collect()
 }
 
@@ -210,6 +252,57 @@ fn signal_owned(pid: i32, start: u64, signal: i32) {
     }
 }
 
+/// True when persistent services were registered and every direct child
+/// of this process belongs to a spared session (or no direct child with a
+/// readable identity is unspared). Used only to let shutdown finish while
+/// spared daemons keep running under the adopting init.
+#[cfg(target_os = "linux")]
+fn only_spared_remain() -> bool {
+    let spared: Vec<(i32, u64)> = PERSISTENT_SPARED
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
+    if spared.is_empty() {
+        return false;
+    }
+    let me = std::process::id() as i32;
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|s| s.parse::<i32>().ok())
+        else {
+            continue;
+        };
+        let Ok(stat) = std::fs::read_to_string(entry.path().join("stat")) else {
+            continue;
+        };
+        let Some((_, fields)) = stat.rsplit_once(')') else {
+            continue;
+        };
+        let fields: Vec<_> = fields.split_whitespace().collect();
+        let (Some(parent), Some(session), Some(start)) = (
+            fields.get(1).and_then(|s| s.parse::<i32>().ok()),
+            fields.get(3).and_then(|s| s.parse::<i32>().ok()),
+            fields.get(19).and_then(|s| s.parse::<u64>().ok()),
+        ) else {
+            continue;
+        };
+        if parent != me {
+            continue;
+        }
+        let is_spared =
+            spared.contains(&(pid, start)) || spared.iter().any(|&(leader, _)| leader == session);
+        if !is_spared {
+            return false;
+        }
+    }
+    true
+}
+
 /// Called only at process shutdown or in the dedicated helper. Direct-child
 /// waiters in the cockpit may race this final reap, but no turn continues after
 /// cockpit shutdown. Helpers have exactly one waiter (this thread).
@@ -226,6 +319,12 @@ pub(crate) fn cleanup() {
         }
         let owned = descendants();
         if owned.is_empty() {
+            // Registered persistent services stay behind on purpose: when
+            // every direct child left is a spared session, there is nothing
+            // left to own even though waitpid will never prove ECHILD.
+            if only_spared_remain() {
+                break;
+            }
             // A child can fork/reparent between /proc rows. ECHILD, rather than
             // an empty snapshot, proves this subreaper has nothing left to own.
             let waited = unsafe { libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) };

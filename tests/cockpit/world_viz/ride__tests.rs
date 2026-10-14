@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::term::art::braille_dot_bit;
 
 /// Braille glyph → dot bits (the codepoint offset IS the bit pattern).
 /// Non-braille glyphs read as empty.
@@ -102,27 +103,6 @@ fn retired_launch_selectors_render_the_default_dotmax_frame() {
     }
 }
 
-#[test]
-fn ink_weight_curve_is_monotonic_and_gamma_tunable() {
-    // Black is weightless; white weighs exactly itself at gamma 1.
-    assert_eq!(ink_weight(0.0, 1.0), 0.0);
-    assert_eq!(ink_weight(255.0, 1.0), 255.0);
-    // Monotonic across the whole luma range, at every sane gamma.
-    for gamma in [0.5f32, 0.75, 1.0, 1.5, 2.0] {
-        let mut prev = ink_weight(0.0, gamma);
-        for luma in 1..=255u8 {
-            let w = ink_weight(f32::from(luma), gamma);
-            assert!(w >= prev, "gamma {gamma} must be monotonic at {luma}");
-            prev = w;
-        }
-        assert!(prev.is_finite());
-    }
-    // The dominance of a bright dot over a dim one GROWS with gamma —
-    // that is the knob: raise it, and dim dots fade from the cell color.
-    let dominance =
-        |gamma: f32| (200.0 * ink_weight(200.0, gamma)) / (60.0 * ink_weight(60.0, gamma));
-    assert!(dominance(0.5) < dominance(1.0) && dominance(1.0) < dominance(2.0));
-}
 
 #[test]
 fn lit_ink_is_luminance_weighted_bright_dots_dominate_the_cell_color() {
@@ -566,8 +546,11 @@ fn world3d_small_vistas_stay_moonlit_at_ride_pane_size() {
         let (_, image) = world3d_vista(building, cells);
         let coverage = dot_count(&image) as f32 / (cells.0 * 2 * cells.1 * 4) as f32;
         eprintln!("{building:?}: small coverage={coverage:.3}");
+        // The structure-aware encoder draws a lit flat fill solid and lets
+        // its colour carry the value, so a moonlit vista inks more cells
+        // than the old density screen did; a blown-out wash still fails.
         assert!(
-            (0.02..=0.55).contains(&coverage),
+            (0.02..=0.72).contains(&coverage),
             "{building:?}: small-vista coverage {coverage:.3}"
         );
         // The staged horizon sits in the lower third, so the bottom rows
@@ -659,8 +642,11 @@ fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
     // black room or a blown-out wash without pinning the art to today's
     // dressing.
     for (cells, floor_ink, band) in [
-        ((48usize, 18usize), 0.18f32, (0.08f32, 0.72f32)),
-        ((100, 76), 0.20, (0.10, 0.74)),
+        // Upper bands raised for the structure-aware encoder: lit stone is
+        // drawn as solid shape with its value in the dot colour, not as a
+        // Bayer screen, so a lit room inks more of the pane.
+        ((48usize, 18usize), 0.18f32, (0.08f32, 0.92f32)),
+        ((100, 76), 0.20, (0.10, 0.92)),
     ] {
         for building in EVERY_BUILDING {
             let (plate, image) = world3d_interior(building, cells);

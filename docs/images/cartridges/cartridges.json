@@ -1,5 +1,5 @@
 {
-  "about": "Data for docs/CARTRIDGES.md's figures. Line totals are measured by scripts/render_cartridge_figures.py --measure from this checkout and the private Yukon cartridge, which never ships; the lean-kernel column is the example in docs/examples/cartridges/lean-kernel.",
+  "about": "Data for docs/CARTRIDGES.md's figures. Line totals are measured by scripts/readme-charts/render_cartridge_figures.py --measure from this checkout and the private Yukon cartridge, which never ships; the lean-kernel column is the example in docs/examples/cartridges/lean-kernel.",
   "measured_utc": "2026-10-04",
   "cartridges": [
     {

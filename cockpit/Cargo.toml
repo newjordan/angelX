@@ -1,6 +1,6 @@
 [package]
 name = "angelX-cockpit"
-version = "0.2.1"
+version = "0.2.3"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
@@ -35,6 +35,13 @@ codegen-units = 1
 strip = "symbols"
 
 [dependencies]
+# The engine: protocol, commands, clocks and replication (docs/ENGINE.md).
+angel-net = { path = "../crates/net" }
+# The Delve: its rules, renderer and world (docs/ENGINE.md).
+angel-delve = { path = "../crates/delve" }
+# The engine's server, which hosts the Delve, and the native client a
+# friend's angelX joins with (`tls`: through Funnel or a relay).
+angel-serve = { path = "../crates/serve", features = ["tls"] }
 # Keep the terminal UI family on one Ratatui generation. The vendored dotmax
 # manifest carries the same compatibility pin.
 # unstable-rendered-line-info exposes Paragraph::line_count for wrap-aware scroll.
@@ -99,6 +106,10 @@ libc = "0.2"
 # landlock (no seccompiler/libc).
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.4"
+
+[dev-dependencies]
+# The Delve's test helpers, for the cockpit's own tests.
+angel-delve = { path = "../crates/delve", features = ["testing"] }
 
 [[test]]
 name = "harness_rollout_persistence"

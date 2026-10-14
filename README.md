@@ -30,6 +30,26 @@ cd angelX
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
 
+## New in 0.2.3
+
+The Delve moved onto an engine of its own. One link seats a friend in a
+browser or in their own angelX, every player's machine draws its own screen,
+and the same engine holds a crowd of two hundred. Above it, the kingdom became
+one world to walk. [Release notes](docs/RELEASE_0.2.3.md).
+
+![Three browser seats: the kingdom map, a crypt fight with four knights, and a muster of 201 knights](docs/images/engine/seats.png)
+
+**One link plays anywhere.** `/dungeon_host --3` gives one link: opened in a
+browser it is a playable seat with nothing to install, and pasted into angelX
+it plays from the terminal. No picture crosses the network; each seat draws the
+run itself, and your own knight answers your key on the next frame.
+
+**The kingdom is one world.** Walk it from the Keep to the Colosseum, take up a
+class at its hall, race chariots and joust with friends, buy holdings at the
+Court of Deeds, and find a small game around every corner. Below ground the
+first two floors teach before they test, and each floor fights with its own
+patterns.
+
 ## New in 0.2.1
 
 The realm grew outward: a castle for every model that serves, rooms of the

@@ -29,9 +29,56 @@ pub(crate) mod together_audio;
 pub(crate) mod together_avatar;
 pub(crate) mod together_chorus;
 pub(crate) mod together_dungeon;
-pub(crate) mod together_forge;
-pub(crate) mod together_guest;
+pub(crate) use angel_delve::realm::forge as together_forge;
+pub(crate) mod together_door;
+pub(crate) mod together_files;
+pub(crate) mod together_gear;
+pub(crate) mod together_sheets;
 pub(crate) mod together_join;
 pub(crate) mod together_realm;
 pub(crate) mod together_settlement;
-pub(crate) mod together_shooter;
+// The Delve's rules are `angel_delve`'s.
+pub(crate) use angel_delve::rules as together_shooter;
+pub(crate) mod together_seat;
+pub(crate) mod together_sim;
+pub(crate) mod together_web;
+
+/// The Delve's settings, read from the environment once (`ANGEL_ART=v2`
+/// draws with the second art kit, `ANGEL_DELVE_FEEL=1` keeps the feel
+/// ledger) and handed to `angel_delve`, which reads no environment itself.
+pub(crate) fn delve_settings_from_env() {
+    angel_delve::settings::set(angel_delve::settings::Settings {
+        art_v2: std::env::var_os("ANGEL_ART").is_some_and(|v| v == "v2"),
+        feel_ledger: std::env::var("ANGEL_DELVE_FEEL").is_ok_and(|v| v == "1"),
+    });
+}
+
+// The Delve's tests that need the cockpit: its realm and its save, its
+// screens, its sounds and its keys.
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_barony__tests.rs"]
+mod together_barony_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_boss_gates__tests.rs"]
+mod together_boss_gates_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_classes__tests.rs"]
+mod together_classes_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_feel__tests.rs"]
+mod together_feel_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_floor_plates__tests.rs"]
+mod together_floor_plates_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_hireling__tests.rs"]
+mod together_hireling_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_polish__tests.rs"]
+mod together_polish_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_secrets__tests.rs"]
+mod together_secrets_tests;
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/together_votes__tests.rs"]
+mod together_votes_tests;

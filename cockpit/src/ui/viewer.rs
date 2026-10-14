@@ -357,6 +357,8 @@ pub struct Viewer {
     /// (sequence, cells, image id) and its upload for this draw.
     game_png: Option<(u64, u16, u16, u32)>,
     game_upload: Option<String>,
+    /// The game's own render worker (`game_pipeline`), started on first use.
+    game_pipeline: Option<super::game_pipeline::Pipeline>,
     /// The overworld map on Kitty: a PNG the resident worker encodes, and
     /// the one encoding now.
     map_png_ready: Option<(PortalCacheKey, Arc<Vec<u8>>, u32, u32)>,
@@ -554,6 +556,7 @@ impl Viewer {
             dot_upload: None,
             game_png: None,
             game_upload: None,
+            game_pipeline: None,
             map_png_ready: None,
             map_png_pending: None,
         }
@@ -1449,22 +1452,6 @@ impl Viewer {
         self.render_world_pixels_inner(frame, area, sequence, false, true, true, compose)
     }
 
-    /// A bounded game raster fills its viewport while retaining the preceding
-    /// frame during encoding; unlike map tiles it is not pre-scaled to cells.
-    pub(crate) fn render_game_pixels<P, F>(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        sequence: u64,
-        compose: F,
-    ) -> WorldPixelsState
-    where
-        P: AsRef<[u8]> + Send + 'static,
-        F: FnOnce() -> (P, u32, u32),
-    {
-        self.render_world_pixels_inner(frame, area, sequence, false, true, false, compose)
-    }
-
     /// Terminal cell size in physical pixels, as the map's image path sees it.
     pub(crate) fn map_cell_pixels(&self) -> (u16, u16) {
         let picker = self.world_pixel_picker();
@@ -1482,26 +1469,12 @@ impl Viewer {
         self.portal_picker.protocol_type() == ProtocolType::Kitty
     }
 
-    /// A friend's delve frame on Kitty: the host's PNG as it came over the
-    /// network, placed `fw`x`fh`-shaped in the middle of `area` and scaled
-    /// by the terminal. A new frame uploads into the image slot not on
-    /// screen, then its placeholders replace the old ones in the same draw.
-    /// Returns false where the terminal is not Kitty.
-    pub(crate) fn render_game_png(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        sequence: u64,
-        png: &[u8],
-        size: (u32, u32),
-    ) -> bool {
-        self.place_game(frame, area, sequence, size, |_, _| Some(png.to_vec()))
-    }
-
-    /// A game frame drawn here (`compose` is called only for a new frame):
+    /// A game frame drawn here, on this thread (the art's timings and review;
+    /// live play draws on the render worker, `render_game_async`):
     /// scaled to exactly the pixels the terminal will show it at, nearest
     /// pixel, so the terminal places it one to one and pixel art stays
     /// hard-edged (Kitty smooths what it scales).
+    #[cfg(test)]
     pub(crate) fn render_game_img(
         &mut self,
         frame: &mut Frame,
@@ -1511,23 +1484,59 @@ impl Viewer {
         compose: impl FnOnce() -> crate::stage::world_viz::overworld::Img,
     ) -> bool {
         self.place_game(frame, area, sequence, size, |cols, rows| {
-            let img = compose();
-            let (cw, ch) = cell_shape();
-            // The smallest whole multiple at or past the size it shows (up
-            // to three): the terminal then only shrinks it a little, which
-            // keeps pixel edges hard, while the picture stays small enough
-            // to send sixty times a second.
-            let (tw, th) = (f32::from(cols) * cw, f32::from(rows) * ch);
-            let k = (tw / img.w.max(1) as f32)
-                .max(th / img.h.max(1) as f32)
-                .ceil()
-                .clamp(1.0, 3.0) as u32;
-            Some(nearest_png(
-                &img,
-                img.w.max(1) as u32 * k,
-                img.h.max(1) as u32 * k,
-            ))
+            Some(scaled_png(&compose(), size, cols, rows))
         })
+    }
+
+    /// A game frame made on the game's render worker: `compose` draws the
+    /// picture there (a snapshot pair blended and painted), and it is scaled
+    /// and encoded there too. This frame shows it if it is finished within
+    /// `budget`; otherwise the last finished picture stays up and this one
+    /// lands on the next frame. Nothing here draws or encodes.
+    pub(crate) fn render_game_async(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        sequence: u64,
+        size: (u32, u32),
+        budget: std::time::Duration,
+        compose: impl FnOnce() -> crate::stage::world_viz::overworld::Img + Send + 'static,
+    ) -> bool {
+        if self.portal_picker.protocol_type() != ProtocolType::Kitty
+            || area.width == 0
+            || area.height == 0
+        {
+            return false;
+        }
+        let (cols, rows) = game_cells(area, size);
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        (sequence, cols, rows).hash(&mut hasher);
+        // Kept clear of the map's frames, which set the top bit.
+        let key = hasher.finish() >> 1;
+        let pipeline = self.game_pipeline.get_or_insert_with(Default::default);
+        pipeline.request(
+            key,
+            Box::new(move || Some(scaled_png(&compose(), size, cols, rows))),
+        );
+        // The first picture at a size is waited for; after that the last
+        // one stands in while the worker catches up.
+        let shown = self
+            .game_png
+            .is_some_and(|(_, c, r, _)| (c, r) == (cols, rows));
+        let budget = if shown {
+            budget
+        } else {
+            std::time::Duration::from_millis(250)
+        };
+        let ready = match pipeline.wait(key, budget) {
+            Some(png) => Some((key, png)),
+            None => pipeline.latest(),
+        };
+        match ready {
+            Some((key, png)) => self.place_game(frame, area, key, size, |_, _| Some(png.to_vec())),
+            None => false,
+        }
     }
 
     /// The overworld map on Kitty: composed and encoded as a PNG by the
@@ -1567,11 +1576,12 @@ impl Viewer {
             let job: MapEncodeJob = Box::new(move || {
                 use image::ImageEncoder;
                 let mut png = Vec::with_capacity(256 * 1024);
-                // Off the draw thread at a few frames a second: the full
-                // deflate is worth it (a frame's PNG is a few tens of KB).
+                // Off the draw thread, but a walk asks for a frame every
+                // 25 ms: the fast deflate keeps the map current (the full one
+                // took 4-11 ms a frame and left large maps a frame behind).
                 let ok = image::codecs::png::PngEncoder::new_with_quality(
                     &mut png,
-                    image::codecs::png::CompressionType::Default,
+                    image::codecs::png::CompressionType::Fast,
                     image::codecs::png::FilterType::Up,
                 )
                 .write_image(pixels.as_ref(), w, h, image::ExtendedColorType::Rgba8)
@@ -1615,13 +1625,7 @@ impl Viewer {
         {
             return false;
         }
-        // The cells the frame fills, keeping its shape: a cell is about
-        // half as wide as it is tall, whatever the screen's density.
-        let (cw, ch) = cell_shape();
-        let (aw, ah) = (f32::from(area.width) * cw, f32::from(area.height) * ch);
-        let k = (aw / fw as f32).min(ah / fh as f32);
-        let cols = ((fw as f32 * k / cw).round() as u16).clamp(1, area.width.min(256));
-        let rows = ((fh as f32 * k / ch).round() as u16).clamp(1, area.height.min(256));
+        let (cols, rows) = game_cells(area, (fw, fh));
         let placed = Rect::new(
             area.x + (area.width - cols) / 2,
             area.y + (area.height - rows) / 2,
@@ -2237,6 +2241,42 @@ fn bottom_right_protocol_area(proto: &Protocol, available: Rect) -> Rect {
 
 /// `img` scaled to `w`x`h` by nearest pixel, as a PNG made for speed (it
 /// only crosses to the terminal on this machine).
+/// A game picture scaled for `cols` x `rows` cells and PNG-encoded: the
+/// smallest whole multiple at or past the size it shows (up to three), so
+/// the terminal only shrinks it a little and pixel edges stay hard, while
+/// the picture stays small enough to send sixty times a second.
+fn scaled_png(
+    img: &crate::stage::world_viz::overworld::Img,
+    size: (u32, u32),
+    cols: u16,
+    rows: u16,
+) -> Vec<u8> {
+    let (cw, ch) = cell_shape();
+    let (tw, th) = (f32::from(cols) * cw, f32::from(rows) * ch);
+    if size == (768, 448) {
+        // The 2x art tier has its own coverage samples. Fit its RGB
+        // picture to the terminal's actual pixels without a second
+        // whole-multiple upload that wastes the frame budget.
+        return nearest_png(img, tw.round().max(1.0) as u32, th.round().max(1.0) as u32);
+    }
+    let k = (tw / img.w.max(1) as f32)
+        .max(th / img.h.max(1) as f32)
+        .ceil()
+        .clamp(1.0, 3.0) as u32;
+    nearest_png(img, img.w.max(1) as u32 * k, img.h.max(1) as u32 * k)
+}
+
+/// The cells a `size` picture fills in `area`, keeping its shape: a cell is
+/// about half as wide as it is tall, whatever the screen's density.
+fn game_cells(area: Rect, (fw, fh): (u32, u32)) -> (u16, u16) {
+    let (cw, ch) = cell_shape();
+    let (aw, ah) = (f32::from(area.width) * cw, f32::from(area.height) * ch);
+    let k = (aw / fw.max(1) as f32).min(ah / fh.max(1) as f32);
+    let cols = ((fw as f32 * k / cw).round() as u16).clamp(1, area.width.min(256));
+    let rows = ((fh as f32 * k / ch).round() as u16).clamp(1, area.height.min(256));
+    (cols, rows)
+}
+
 fn nearest_png(img: &crate::stage::world_viz::overworld::Img, w: u32, h: u32) -> Vec<u8> {
     use image::ImageEncoder;
     let (sw, sh) = (img.w.max(1) as u32, img.h.max(1) as u32);

@@ -111,7 +111,10 @@ model, `agent/`; if it runs unattended across turns, `drive/`.
   live first-person world, brief Arrival establishing plates, eight-second still
   reveals, and silent local MP4 playback. F4 focuses it; drag or arrows look,
   the wheel or `+`/`-` changes the lens, right-click or `0` returns to
-  agent-follow, and `m` toggles the map. `/learn [topic]` opens the local-first
+  agent-follow, and `m` toggles the map. A click on the 2D map (or `p`, or
+  `/world walk`) puts your own knight on it: arrows or WASD walk, Enter goes
+  in at a door, Esc leaves (`src/app/control/overworld_walk.rs`,
+  `src/stage/world_viz/overworld/visitor.rs`). `/learn [topic]` opens the local-first
   Scriptorium tutor and selectable Catalog; optional reference enrichment never
   blocks its objective, exercise, checkpoint, or editable Ask Tutor draft.
   Delivered visuals queue behind the active reveal; manual `/show` and `/open N`

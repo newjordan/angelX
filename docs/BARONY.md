@@ -141,26 +141,36 @@ its home (`Home::stable`).
   in the yard. Hold F at a stall's plate to saddle it, at the trough's to
   tend it (brushed, watered, tack checked: a knock more of balance for the
   next bout). Wat the groom has a word.
-- **The lists:** hold F at the plate by the red pavilion to mount. A course is
-  a charge down the tilt, faster all the way; the rider aims (W high at the
-  helm, S low at the shield), strikes (F, as the lances meet; a ring closes
-  over the tilt where they will, and burns gold while a strike would land)
-  and braces (Space, as his lance comes in). The rival's shield shows where
-  he guards a moment before the meeting: strike where it isn't. The riders
-  hold at the clash while a late press can land, then the impact: points,
-  knocks, a broken lance and splinters, and a rider who loses his balance
-  goes over his horse's tail and onto the sand while the horse runs on.
-  Three courses, or an unhorsing.
+- **The lists:** hold E at the plate by the red pavilion to mount. The
+  nearest friend at the lists takes the far saddle and everyone else sits
+  in the gallery; alone, the knight rides against a champion. Before the
+  first pass each rider picks a horse with A and D. A pass is a charge
+  down the tilt, faster all the way (F spurs; with two knights the herald
+  drops the flag once both have, or after ten seconds). Until the couch,
+  a moment before the meeting, each rider sets the lance (W high at the
+  helm, S low at the chest) and the shield (E: up by the helm or down over
+  the chest); both show, so a late switch is the game. F strikes as the
+  lances meet: on the shield is a point, round it two, at the very moment
+  one more. The riders hold at the clash while a late press can land,
+  then the impact: big words under the lists (SHIELD, HELM, CHEST, MISS),
+  splinters, and a rider who loses his balance goes over his horse's tail,
+  his helm bouncing off and birds going round his head, while the horse
+  runs on. The better lance takes the pass; two passes or an unhorsing
+  take the bout.
+- **The purse and the gallery:** each rider's entry (20 gold) and the
+  Crown's 20 go to the winner, banked under their name with the laurel; a
+  beaten friend wears the dunce's cap. The gallery backs a rider before
+  the first pass (A or D, F raises: 10 to 30 gold, paid at evens). Lost
+  entries and wagers leave the treasury at the save; a treasury that can't
+  cover the entries makes it a bout for honour.
 - **The mounts ride differently** (`Mount::steed`): Bramble is steady (more
-  balance, a wide brace), Cinder is fast and heavy (the soonest meeting, the
-  hardest hit, the narrowest strike), Mist is light and true (a wide strike,
-  and the rival's guard is readable early).
+  balance), Cinder is fast and heavy (the soonest meeting, met further down
+  the lists, the hardest hit, the narrowest strike), Mist is light and true
+  (a wide strike, and a champion's guard is readable early).
 - **The rivals** are a ladder: Sir Kay, then Sir Palamedes, then Sir
   Lancelot. Each has his own balance and lance pattern, varied from bout to
   bout. The realm keeps bouts, wins and unhorsings; two achievements (Over
   the Tail, Champion of the Lists).
-- **No purse yet.** A bout pays honour and achievements, not gold, so the
-  lists can't be farmed. Purses for tournaments are a Phase 2 question.
 
 ## King Brannoc Onehorn of Caer Dwfn
 
@@ -318,7 +328,8 @@ card for every knight once the Ore-Forge burns.
   courtyard, merchants; folk with a word when walked up to.
 - **The overworld map** shows the barony: the gate-hall at the Mines' mouth,
   smoke from relit forges, the carter on the road.
-- **Tournament purses**, and knights jousting each other in co-op.
+- **Tournament purses**, and knights jousting each other in co-op (done:
+  the two-knight joust).
 
 ### Phase 3: the crown
 

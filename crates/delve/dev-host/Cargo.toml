@@ -1,0 +1,22 @@
+[package]
+name = "angel-delve-dev-host"
+version = "0.1.0"
+description = "A Delve host for trying its client without the cockpit: a fresh run on angel-serve, and bots to play beside a browser. Development only: nothing settles into a realm"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "delve-dev-host"
+path = "src/main.rs"
+
+[dependencies]
+# The fight and kingdom scenes are the art kit's own fixtures.
+angel-delve = { path = "..", features = ["testing"] }
+angel-net = { path = "../../net" }
+angel-serve = { path = "../../serve" }
+
+[[bin]]
+name = "delve-walker"
+path = "src/walker.rs"

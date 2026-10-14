@@ -1,0 +1,17 @@
+# Guard cards put a defence on the space key. This one turns the knight.
+name   Axe Spin
+kind   guard
+rarity rare
+text   Space spins both axes round you, hardest on the nearest three; shots are cut down. A breath between.
+drop   0
+chest  0
+guard  spin
+art
+......HW......
+....hH..Wi....
+..hH......Wi..
+.iH...44...Hh.
+.hH...44...Hi.
+..iW......Hh..
+....iW..Hh....
+......hH......

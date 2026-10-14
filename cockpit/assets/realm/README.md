@@ -12,6 +12,9 @@ Keep these graphics:
 - `journey/`: authored location plates, retained as artwork.
 - `doppelgangers/`: each model's darker twin from the first portrait poll,
   kept for the realm but not yet placed or read by code.
+- `props/`: sculpted props for the true-3D rooms (generated meshes reduced to
+  the shared materials), and `props/library/` for ones no scene places yet;
+  provenance and the converter settings are in `props/README.md`.
 - `avatars/`: the Round Table (one knight per model family, the agent
   portraits to be) and the realm's inhabitants in pools by place, every look
   chosen by the model itself; not yet read by code.

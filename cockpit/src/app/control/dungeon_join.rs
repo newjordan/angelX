@@ -1,11 +1,11 @@
 //! Playing in a friend's delve from this angelX: `/dungeon join <link>`.
-//! The host's game is the game; this cockpit shows its frames, sends this
-//! knight's keys, plays its sounds and voices, and drafts this knight's
-//! Sanctuary reforges on this angelX.
+//! The host's game is the game; this cockpit is one of its clients: its
+//! seat sends this knight's keys and draws its own screen, and this cockpit
+//! plays its sounds and voices and drafts this knight's Sanctuary reforges
+//! on this angelX.
 use super::*;
 use crate::drive::together_chorus::Line;
 use crate::drive::together_join::Joined;
-use crate::drive::together_shooter::Input as ShooterInput;
 use std::time::Instant;
 
 impl App {
@@ -13,17 +13,19 @@ impl App {
         if link.trim().is_empty() {
             return "/dungeon join <the line your host sent>".into();
         }
-        if self.dungeon.shooter.is_some() || self.dungeon.guest.is_some() {
+        if self.dungeon.shooter.is_some() || self.dungeon.hosting.is_some() {
             return "You are hosting a delve here; /dungeon off first, then join.".into();
         }
         let name = self.host_name();
         match Joined::connect(link, &name) {
             Ok(joined) => {
                 let host = joined.host.clone();
+                self.dungeon.joined_ballot_open = false;
                 self.dungeon.joined = Some(joined);
                 self.expand_dungeon();
                 format!(
-                    "Joined the delve at {host} as {name}. WASD move · arrows aim and fire · Space roll/shield · Q sword · G vigil when you step away · T reforge in a Sanctuary · Esc back to your composer · /dungeon leave to go home."
+                    "Joined the delve at {host} as {name}. {}. G keeps vigil when you step away, T makes your wish in a Sanctuary, Esc goes back to your composer, /dungeon leave goes home.",
+                    crate::drive::together_shooter::hud::Keys::FIRST.fight_line(false)
                 )
             }
             Err(error) => error,
@@ -48,10 +50,44 @@ impl App {
         if key.kind == event::KeyEventKind::Release {
             self.dungeon.key_releases = true;
             self.dungeon.held.remove(&code);
+            self.send_keys(Instant::now());
             return self.dungeon_view_active();
+        }
+        if self.activity_key(key) {
+            return true;
         }
         if self.dungeon.forge.draft.is_some() && self.dungeon_view_active() {
             return self.reforge_key(key);
+        }
+        if self.dungeon_view_active()
+            && key.kind == event::KeyEventKind::Press
+            && self
+                .dungeon
+                .joined
+                .as_ref()
+                .is_some_and(|joined| joined.skip_floor_plate())
+        {
+            self.dungeon.held.clear();
+            self.redraw_requested = true;
+            return true;
+        }
+        if self.dungeon_view_active()
+            && key.kind == event::KeyEventKind::Repeat
+            && self.dungeon.joined.as_ref().is_some_and(|joined| {
+                let seat = joined.actor();
+                joined
+                    .with_latest(|run| run.floor_plate(Some(seat)).is_some())
+                    .unwrap_or(false)
+            })
+        {
+            return true;
+        }
+        if self.ballot_key(key) {
+            return true;
+        }
+        // A key held through a map door needs a fresh press here.
+        if key.kind == event::KeyEventKind::Repeat && !self.dungeon.held.contains_key(&code) {
+            return self.dungeon_view_active();
         }
         if matches!(code, KeyCode::F(4) | KeyCode::F(6)) {
             self.expand_dungeon();
@@ -83,6 +119,10 @@ impl App {
             return true;
         }
         match code {
+            KeyCode::Char('`') => {
+                self.clear_dungeon_controls();
+                return true;
+            }
             KeyCode::Esc => {
                 self.collapse_dungeon();
                 return true;
@@ -111,28 +151,38 @@ impl App {
                 }
                 return true;
             }
-            KeyCode::Char('v') => {
-                let chorus = &mut self.dungeon.chorus;
-                chorus.muted = !chorus.muted;
-                return true;
-            }
-            // An older host turns away controls it does not know.
-            KeyCode::Char('g')
-                if !self
-                    .joined_knight()
-                    .is_some_and(|k| k["vigil"].is_boolean()) =>
-            {
-                self.dungeon.notice =
-                    "Your host's delve has no vigil yet; it comes with their next update.".into();
+            KeyCode::Char('k') => {
+                let voices = &mut self.dungeon.audio.voices;
+                voices.muted = !voices.muted;
                 return true;
             }
             _ => {}
         }
+        // The same knight's keys as the host's first knight.
         if matches!(
             code,
             KeyCode::Char(
-                'w' | 'a' | 's' | 'd' | 'f' | ' ' | 'e' | 'q' | 'g' | 'r' | '1' | '2' | '3'
+                'w' | 'a'
+                    | 's'
+                    | 'd'
+                    | 'f'
+                    | ' '
+                    | 'e'
+                    | 'x'
+                    | 'q'
+                    | 'g'
+                    | 'r'
+                    | 'p'
+                    | 'z'
+                    | '1'
+                    | '2'
+                    | '3'
                     | '4'
+                    | 'm'
+                    | ','
+                    | '.'
+                    | ';'
+                    | '\''
             ) | KeyCode::Up
                 | KeyCode::Down
                 | KeyCode::Left
@@ -143,6 +193,7 @@ impl App {
                 key.modifiers.contains(KeyModifiers::SHIFT)
                     || matches!(key.code, KeyCode::Char('W' | 'A' | 'S' | 'D')),
             );
+            self.send_keys(Instant::now());
         }
         true
     }
@@ -157,7 +208,7 @@ impl App {
             .map_or(0, |book| crate::ui::viz::shooter_viz::book_pages(&book))
     }
 
-    pub(super) fn joined_actor(&self) -> u32 {
+    pub(crate) fn joined_actor(&self) -> u32 {
         self.dungeon.joined.as_ref().map_or(2, Joined::actor)
     }
 
@@ -173,7 +224,8 @@ impl App {
             .cloned()
     }
 
-    /// Every tick: send this knight's keys, play what the host's delve made.
+    /// Every frame: this knight's keys to its seat, the seat's newest run
+    /// read, and what the host's delve made played.
     pub(crate) fn advance_joined(&mut self) {
         if self.dungeon.joined.is_none() {
             return;
@@ -184,29 +236,52 @@ impl App {
             && !self.dungeon.cards_open
             && self.dungeon.forge.draft.is_none()
             && !self.dungeon_controls_blocked();
-        let input = if playing {
-            self.dungeon
-                .local_inputs(now)
-                .get(&1)
-                .copied()
-                .unwrap_or_default()
-        } else {
+        if playing && !self.dungeon.joined_ballot_open {
+            self.send_keys(now);
+        } else if !self.dungeon.held.is_empty() {
             self.dungeon.held.clear();
-            ShooterInput::default()
-        };
+            if let Some(joined) = &self.dungeon.joined {
+                joined.seat.release_all();
+            }
+        }
+        if self.dungeon.activity_leave_pending
+            && !self.can_leave_dungeon_activity(self.joined_actor())
+        {
+            self.dungeon.activity_leave_pending = false;
+        }
         let news = {
-            let joined = self.dungeon.joined.as_ref().expect("checked");
-            joined.set_input(input);
+            let away = !self.dungeon_view_active();
+            let joined = self.dungeon.joined.as_mut().expect("checked");
+            // Off the game's screen (the composer, another view), the seat
+            // sends no commands: the host's server counts this knight away
+            // and keeps it out of harm's way until the friend comes back.
+            if away {
+                joined.seat.idle(now);
+            } else {
+                joined.seat.tick(now);
+            }
+            joined.refresh(now);
             joined.news()
         };
+        // The ballot as the seat's client shows it, once it has taken the
+        // keys tapped for it.
+        if let Some(open) = self
+            .dungeon
+            .joined
+            .as_ref()
+            .and_then(|j| j.seat.ballot_open())
+        {
+            self.dungeon.joined_ballot_open = open;
+        }
         for sound in news.sounds {
-            self.dungeon.audio.sfx(&sound, now);
+            self.dungeon.audio.sfx_line(&sound, now);
         }
         for voice in news.voices {
+            let name = voice["name"].as_str().unwrap_or("");
             let line = Line {
-                who: voice["who"].as_str().unwrap_or("").into(),
+                who: crate::drive::together_chorus::who(name).to_string(),
                 cue: String::new(),
-                id: voice["id"].as_str().unwrap_or("").into(),
+                id: String::new(),
                 words: voice["words"].as_str().unwrap_or("").into(),
             };
             self.dungeon.chorus.say(line, now);

@@ -153,9 +153,9 @@ fn help_full_text() -> String {
      /tourney calibrate <start|joust|win|fail|retreat|study|craft|perseverance|dragon|service|guardian> · display-only DMD calibration (not an achieved outcome)\n\
      /learn [topic] (/tutor, /library) · open the physical Librarium; a topic\n\
      begins a local-first lesson; optional reference enrichment never blocks it · /ask opens an editable tutor question; /ask <question> asks directly; Esc restores your work draft; Ctrl-Alt-E explains selected text · /practice re-shows its recall prompts for spaced practice\n\
-     /world [visit <place>|follow|ride|enter|leave|weather|zoom] · open/control the Realm\n\
+     /world [visit <place>|follow|walk|ride|enter|leave|weather|zoom] · open/control the Realm\n\
      /dungeon · walk to the Delve's gate; click the mini-viz (or F4) for its menu · /dungeon start skips the walk; Esc composer, F6 resume\n\
-     /dungeon_host --N [--view] · host for N friends (up to 3): one invite line each; --view lets a link open a read-only browser view · a friend pastes `/dungeon join <line>` into their angelX; /dungeon leave goes home\n\
+     /dungeon_host --N [--watch] · host for N friends (up to 3) behind one link, in a browser or `/dungeon join <link>` in their angelX; --watch hosts without a knight of your own (a dedicated machine); /dungeon leave goes home\n\
      /together [demo|forge|build|ready|raid|move|fire|cast|return|help] · local dungeon mode; simulated friends, bounded gear and spells\n\
      · /world visit artisans|colosseum|tournament · inspect the southern precinct; follow returns to the working knight\n\
      stage (the agent's real tool traffic drives attributable landmark activity)\n\
@@ -165,7 +165,7 @@ fn help_full_text() -> String {
      report this view · /world enter|leave opens/closes retained room plates\n\
      /world quest · the live adventure (region, danger, loot, party, waypoint)\n\
      /world help · every Realm verb\n\
-     map h/l or ←/→ selects · Enter explores · first-person h/l/←/→ yaw\n\
+     map h/l or ←/→ selects · Enter explores · click or p walks the map yourself · first-person h/l/←/→ yaw\n\
      j/k/↑/↓ pitch · +/- lens · 0/r recenter · m toggles map/explore · Esc back\n\
      /atlas [query] · reviewed project knowledge · add/accept/revise/reject/\n\
      promote/challenge/forget/tend · observe <path> [symbol] · link <id> <related|derived_from> <target> · trace <id> · /vault opens its Artifacts lane\n\

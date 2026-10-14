@@ -1,13 +1,13 @@
-//! A friend's delve, seen from this angelX: the host's frame for this seat,
-//! the party as the host reports it, and the same words around the room as
-//! the hosted game shows.
+//! A friend's delve, seen from this angelX: this seat's own picture, drawn
+//! by its own client, and the same words around the room as the hosted game
+//! shows, read from the run the seat holds.
 use super::shooter_viz::{
     BLUE, DIM, GOLD, KNIGHT, PARCHMENT, SIDEBAR, STONE, TEXT, hero_color, line, reforge_box,
     voice_color,
 };
 use crate::drive::together_chorus::{self, Line};
-use crate::drive::together_join::{Frame as HostFrame, Joined};
-use crate::stage::world_viz::overworld::arena;
+use crate::drive::together_join::Joined;
+use crate::drive::together_seat::Picture;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -35,6 +35,7 @@ fn room_rect(area: Rect) -> Option<Rect> {
 pub(crate) fn render(
     frame: &mut Frame,
     joined: &Joined,
+    picture: Option<&Picture>,
     area: Rect,
     notice: &str,
     said: Option<&Line>,
@@ -127,119 +128,68 @@ pub(crate) fn render(
     // The room in cells; the terminal's image path paints over it when it can.
     if let Some((page, selected)) = cards {
         cards_screen(frame, joined, &state, room, page, selected);
-    } else if native {
-        // The terminal's own picture goes over the room: no cells to draw.
-    } else if let Some(img) = joined.with_view(|run, _| {
-        // The host's delve, drawn here from this angelX's own mirror.
-        arena::frame_for(
-            run,
-            i32::from(room.width),
-            i32::from(room.height) * 2,
-            Some(me),
-        )
-    }) {
-        super::shooter_viz::paint_pixels(frame, room, &img);
-    } else if let Some(host) = joined.frame() {
-        paint_frame(frame, room, &host);
+    } else if !native {
+        // Cells, unless the terminal's own picture is placed over them.
+        joined.with_latest(|run| super::shooter_viz::paint_picture_ui(frame, room, run, picture, Some(me)));
     }
 
     let side = Rect::new(room.right() + 1, room.y, SIDEBAR, room.height);
     let mut rows: Vec<(String, Color)> = Vec::new();
+    let mut hud_rows: Vec<ratatui::text::Line<'static>> = Vec::new();
+    let party = state["players"].as_array().map_or(1, Vec::len);
+    let compact = usize::from(side.height) < party * 14;
     for knight in state["players"].as_array().into_iter().flatten() {
         let id = knight["id"].as_u64().unwrap_or(0) as u32;
         let color = hero_color(id);
         let you = if id == me { " (you)" } else { "" };
-        rows.push((
-            format!("P{id} {}{you}", knight["name"].as_str().unwrap_or("")),
-            color,
-        ));
-        if let Some(title) = knight["knight"].as_str().filter(|k| !k.is_empty()) {
-            rows.push((title.to_string(), color));
-        }
-        rows.push((
-            format!(
-                "HP {} / {}",
-                knight["hp"].as_u64().unwrap_or(0),
-                knight["max_hp"].as_u64().unwrap_or(0)
-            ),
-            color,
-        ));
-        let compact =
-            usize::from(side.height) < state["players"].as_array().map_or(1, Vec::len) * 12;
-        if !compact {
-            rows.push((knight["weapon"].as_str().unwrap_or("").to_string(), TEXT));
-            rows.push((
-                format!(
-                    "mail {}  bombs {}",
-                    knight["mail"].as_u64().unwrap_or(0),
-                    knight["bombs"].as_u64().unwrap_or(0)
-                ),
-                TEXT,
+        let who = format!("P{id} {}{you}", knight["name"].as_str().unwrap_or(""));
+        // The host's own HUD, the same on every screen.
+        if let Ok(hud) = serde_json::from_value::<crate::drive::together_shooter::hud::Hud>(
+            knight["hud"].clone(),
+        ) {
+            hud_rows.extend(super::delve_hud::lines(
+                &hud, color, &who, side.width, compact,
             ));
-            for (slot, card) in knight["hand"].as_array().into_iter().flatten().enumerate() {
-                rows.push((
-                    format!("[{}] {}", slot + 1, card.as_str().unwrap_or("")),
-                    GOLD,
-                ));
-            }
         } else {
-            rows.push(("Hand · 1–4".into(), DIM));
-        }
-        for slot in 0..3 {
-            let spell = knight["spells"][slot].as_str();
-            let seconds = knight["spell_cooldowns"][slot].as_u64().unwrap_or(0);
-            let state = if spell.is_none() {
-                String::new()
-            } else if seconds == 0 {
-                " · ready".into()
-            } else {
-                format!(" · {seconds}s")
-            };
-            let name = super::shooter_viz::fit_text(
-                spell.unwrap_or("empty"),
-                side.width.saturating_sub(4 + state.chars().count() as u16),
-            );
-            rows.push((
-                format!("[{}] {name}{state}", ["Z", "B", "N"][slot]),
-                if spell.is_some() && seconds == 0 {
-                    GOLD
-                } else {
-                    DIM
-                },
-            ));
-        }
-        if compact {
-            rows.push((String::new(), DIM));
-            continue;
-        }
-        let carrying = knight["carrying"].as_str().unwrap_or("");
-        if !carrying.is_empty() && carrying != "nothing" {
-            rows.push((format!("Carrying {carrying}"), PARCHMENT));
+            hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
+                who,
+                Style::new().fg(color),
+            )));
         }
         if id == me
             && (knight["can_reforge"].as_bool() == Some(true)
                 || knight["can_wish"].as_bool() == Some(true))
         {
-            rows.push(("T: make your one wish".into(), GOLD));
+            hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
+                "T: make your one wish",
+                Style::new().fg(GOLD),
+            )));
         }
-        if knight["alive"].as_bool() == Some(false) {
-            rows.push(("FALLEN · the stairs revive".into(), DIM));
-        } else if knight["vigil"].as_bool() == Some(true) {
-            let wake = if id == me { " · G wakes" } else { "" };
-            rows.push((format!("VIGIL · mending near{wake}"), GOLD));
-        } else if knight["stone"].as_bool() == Some(true) {
-            rows.push(("STONE · away".into(), DIM));
-        }
-        rows.push((String::new(), DIM));
+        hud_rows.push(ratatui::text::Line::default());
     }
     if state.get("boss_gates").is_some_and(|g| !g.is_null()) {
-        rows.push((state["notice"].as_str().unwrap_or("").to_string(), GOLD));
-        rows.push(("C: faction chief; route may be ANY/ALL".to_string(), TEXT));
-        if let Some(map) = joined.with_view(|run, _| super::shooter_viz::floor_map(run)) {
+        // The chiefs and the camps in plain words, then the map and its key.
+        let plain = joined
+            .with_latest(|run| run.boss_gate_plain())
+            .unwrap_or_default();
+        for (i, said) in plain.into_iter().enumerate() {
+            rows.push((said, if i == 0 { GOLD } else { TEXT }));
+        }
+        if let Some(map) = joined.with_latest(super::shooter_viz::floor_map) {
             rows.extend(map.into_iter().map(|row| (row, TEXT)));
+            for legend in super::shooter_viz::MAP_LEGEND {
+                rows.push((legend.to_string(), TEXT));
+            }
         }
     }
-    for (y, (text, color)) in (side.y..side.bottom()).zip(rows) {
+    let hud_height = hud_rows.len().min(usize::from(side.height)) as u16;
+    for (y, hud_line) in (side.y..side.bottom()).zip(hud_rows) {
+        frame.render_widget(
+            Paragraph::new(hud_line),
+            Rect::new(side.x, y, side.width, 1),
+        );
+    }
+    for (y, (text, color)) in (side.y + hud_height..side.bottom()).zip(rows) {
         line(frame, Rect::new(side.x, y, side.width, 1), &text, color);
     }
 
@@ -248,42 +198,34 @@ pub(crate) fn render(
     }
     let footer = inner.bottom() - 5;
     let host_notice = state["notice"].as_str().unwrap_or("");
-    let (first, first_color) = if state.get("boss_gates").is_some_and(|g| !g.is_null()) {
-        (host_notice.to_string(), GOLD)
-    } else {
-        match said {
-            Some(said) => (
-                format!("{}: {}", together_chorus::name(&said.who), said.words),
-                voice_color(&said.who),
-            ),
-            None if !notice.is_empty() => (notice.to_string(), GOLD),
-            None => (host_notice.to_string(), GOLD),
-        }
+    let (first, first_color) = match said {
+        Some(said) => (
+            format!("{}: {}", together_chorus::name(&said.who), said.words),
+            voice_color(&said.who),
+        ),
+        None if !notice.is_empty() => (notice.to_string(), GOLD),
+        None => (host_notice.to_string(), GOLD),
     };
-    if let Some(support) = state["boss_support"].as_str() {
-        line(
-            frame,
-            Rect::new(inner.x, footer + 4, inner.width, 1),
-            support,
-            TEXT,
-        );
-    }
+    let keys = crate::drive::together_shooter::hud::Keys::FIRST;
+    let fight = keys.fight_line(state["side_on"].as_bool() == Some(true));
+    let kit = keys.kit_line();
+    let skills = keys.skills_line();
     for (index, (text, color)) in [
         (first.as_str(), first_color),
+        (fight.as_str(), KNIGHT),
+        (kit.as_str(), KNIGHT),
+        (skills.as_str(), BLUE),
         (
-            if state["side_on"].as_bool() == Some(true) {
-                "A/D run · W jump (twice) · S drop through planks · arrows aim/fire · F fire · Space roll · Q sword · E bomb"
+            if state["players"].as_array().is_some_and(|ps| {
+                ps.iter().any(|p| {
+                    p["id"].as_u64() == Some(me as u64)
+                        && p["can_leave_activity"].as_bool() == Some(true)
+                })
+            }) {
+                "[ LEAVE: Backspace ]  Esc → Leave"
             } else {
-                "WASD move · arrows aim/fire · F fire · Space roll/shield · Q sword · E bomb · 1–4 play"
+                "Esc composer  G vigil  T wish  Tab cards  V votes  K voices  ` clear keys"
             },
-            KNIGHT,
-        ),
-        (
-            "G vigil when away · T: one wish at a Sanctuary's scroll, forged by your own angelX · Tab cards · V voices",
-            BLUE,
-        ),
-        (
-            "Esc: back to your composer · F4/F6: return · /dungeon leave: go home",
             TEXT,
         ),
     ]
@@ -360,55 +302,4 @@ fn host_name(joined: &Joined) -> String {
                 .and_then(|p| p["name"].as_str().map(str::to_uppercase))
         })
         .unwrap_or_else(|| "A FRIEND".into())
-}
-
-/// The host's frame in half blocks, scaled to the room's cells.
-fn paint_frame(frame: &mut Frame, area: Rect, host: &HostFrame) {
-    let (w, h) = (host.w.max(1) as usize, host.h.max(1) as usize);
-    let rows = usize::from(area.height) * 2;
-    let cols = usize::from(area.width).max(1);
-    let rgb = |x: usize, y: usize| {
-        let sx = (x * w / cols).min(w - 1);
-        let sy = (y * h / rows.max(1)).min(h - 1);
-        let i = (sy * w + sx) * 4;
-        match host.rgba.get(i..i + 3) {
-            Some(&[r, g, b]) => Color::Rgb(r, g, b),
-            _ => Color::Rgb(0, 0, 0),
-        }
-    };
-    let buf = frame.buffer_mut();
-    for cy in 0..area.height {
-        for cx in 0..area.width {
-            let (x, y) = (usize::from(cx), usize::from(cy) * 2);
-            if let Some(cell) = buf.cell_mut((area.x + cx, area.y + cy)) {
-                cell.set_char('▀').set_fg(rgb(x, y)).set_bg(rgb(x, y + 1));
-            }
-        }
-    }
-}
-
-/// The host's frame through the terminal's image path, when it has one.
-pub(crate) fn render_native(
-    frame: &mut Frame,
-    viewer: &mut crate::ui::viewer::Viewer,
-    joined: &Joined,
-    area: Rect,
-) {
-    let Some(room) = room_rect(area) else {
-        return;
-    };
-    // Drawn here from the mirror at its native size; Kitty scales it.
-    let me = joined.actor();
-    let size = (arena::NATIVE_W as u32, arena::NATIVE_H as u32);
-    let drawn = joined.with_view(|run, step| {
-        viewer.render_game_img(frame, room, step, size, || {
-            arena::frame_for(run, arena::NATIVE_W, arena::NATIVE_H, Some(me))
-        })
-    });
-    // An older host sends pictures instead.
-    if drawn.is_none()
-        && let Some(host) = joined.frame()
-    {
-        viewer.render_game_png(frame, room, host.seq, &host.png, (host.w, host.h));
-    }
 }

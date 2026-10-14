@@ -6871,6 +6871,34 @@ fn qwen3_dialect_toggles_enable_thinking() {
 }
 
 #[test]
+fn treebeard_defaults_to_qwen_thinking_off() {
+    let _guard = env_lock();
+    let _dialect = ScopedEnv::unset("ANGEL_QWEN38_REASONING_DIALECT");
+    let _per_club = ScopedEnv::unset("ANGEL_QWEN38_REASONING_EFFORT");
+    let _global = ScopedEnv::unset("ANGEL_REASONING_EFFORT");
+    resync_reasoning_effort_env_from_env();
+    let club = HttpClub::new("qwen38", "http://127.0.0.1:8001/v1", "treebeard", None);
+
+    let body = club
+        .build_body(&[ChatMsg::user("hi")], &[], false)
+        .expect("build body");
+    assert_eq!(
+        body["chat_template_kwargs"]["enable_thinking"],
+        serde_json::json!(false)
+    );
+    assert!(body.get("reasoning_effort").is_none());
+
+    let body = club
+        .build_body_with_effort(&[ChatMsg::user("hi")], &[], false, Some("high"))
+        .expect("build body");
+    assert_eq!(
+        body["chat_template_kwargs"]["enable_thinking"],
+        serde_json::json!(true)
+    );
+    assert!(body.get("reasoning_effort").is_none());
+}
+
+#[test]
 fn dialect_env_override_forces_openai_spelling() {
     let _guard = env_lock();
     let _dialect = ScopedEnv::set("ANGEL_GLM_REASONING_DIALECT", "openai");

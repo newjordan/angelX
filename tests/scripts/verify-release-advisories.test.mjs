@@ -49,6 +49,12 @@ function fixture() {
         package_count: 1,
       },
       {
+        path: 'crates/Cargo.lock',
+        ecosystem: 'crates.io',
+        sha256: 'd'.repeat(64),
+        package_count: 1,
+      },
+      {
         path: 'package-lock.json',
         ecosystem: 'npm',
         sha256: 'c'.repeat(64),
@@ -116,6 +122,16 @@ function fixture() {
         ],
       },
       {
+        source: { path: '/scan/crates/Cargo.lock', type: 'lockfile' },
+        packages: [
+          {
+            package: { name: 'safe-engine', version: '1.0.0', ecosystem: 'crates.io' },
+            groups: [],
+            vulnerabilities: [],
+          },
+        ],
+      },
+      {
         source: { path: '/scan/package-lock.json', type: 'lockfile' },
         packages: [
           {
@@ -136,7 +152,7 @@ test('advisory policy binds exact scanner and every release lockfile', () => {
   assert.equal(result.scanner.digest, SCANNER.digest)
   assert.deepEqual(
     result.policy.lockfiles.map((row) => row.path),
-    ['cockpit/Cargo.lock', 'cockpit/portal-renderer/Cargo.lock', 'package-lock.json'],
+    ['cockpit/Cargo.lock', 'cockpit/portal-renderer/Cargo.lock', 'crates/Cargo.lock', 'package-lock.json'],
   )
 })
 
@@ -177,6 +193,7 @@ test('scanner container exposes only exact locks and a bounded live query', (t) 
   assert.ok(args.includes('no-new-privileges'))
   assert.ok(args.includes('--lockfile=/scan/cockpit/Cargo.lock'))
   assert.ok(args.includes('--lockfile=/scan/cockpit/portal-renderer/Cargo.lock'))
+  assert.ok(args.includes('--lockfile=/scan/crates/Cargo.lock'))
   assert.ok(args.includes('--lockfile=/scan/package-lock.json'))
   assert.ok(args.some((value) => value.includes(`src=${root},dst=/scan,readonly`)))
   assert.equal(

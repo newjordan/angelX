@@ -768,6 +768,7 @@ impl App {
         // A2: scenery earns ticks only while a Stage surface was laid out on the
         // last draw. ANGEL_BACKDROP=off, shell focus, image view, and compact
         // Core never pay pathfinding / hearth / muster work on the UI loop.
+        self.steer_walk();
         self.advance_world_clock();
         // A2: loop loom / quintain routing is Stage presentation — do not build
         // budget snapshots or note_loop when the world is not painted.
@@ -775,6 +776,12 @@ impl App {
         // Z1: the adventure mirror drains first (and whether or not the pane
         // is visible) so the world sees the quest events before note_loop.
         self.adventure_mirror_drain();
+        // Each loop iteration walks a patrol out from the holdings.
+        if self.loop_active() {
+            self.note_ops_loop(self.loop_ctl.iteration);
+        } else {
+            self.dungeon.ops_loop = 0;
+        }
         if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible) {
             let active = self.loop_active();
             let iteration = self.loop_ctl.iteration;
@@ -925,6 +932,9 @@ impl App {
                                     self.system_msg(format!(
                                         "{message}; operator task/answer contract retained"
                                     ));
+                                    self.dungeon.ops.note(
+                                        crate::drive::together_shooter::holdings::Op::Compactions,
+                                    );
                                 } else {
                                     self.system_msg("context compaction evidence could not be retained; history left intact".to_string());
                                 }
@@ -1206,6 +1216,7 @@ impl App {
                 } => {
                     self.ensure_research_session();
                     self.research.start(&id, &name, &args_summary);
+                    self.note_ops_call(&id.0, &name, &args_summary);
                     self.flush_partial();
                     // A2: knight journeys / landmark pulses are Stage presentation.
                     // Skip when the Stage was not laid out last frame
@@ -1245,6 +1256,7 @@ impl App {
                     outcome,
                 } => {
                     self.research.result(&id, &name, &summary, outcome);
+                    self.note_ops_result(&id.0, outcome.attributable_success());
                     if name == "graph" {
                         self.world.settle_graph_call(&id, outcome);
                     }
@@ -1274,6 +1286,10 @@ impl App {
                     self.tool_strip.result_event(&id, &name, &summary, outcome);
                 }
                 TurnEvent::Notice(note) | TurnEvent::RolloutCaptureError(note) => {
+                    // The scriptorium copies a scroll for every compaction.
+                    if note.starts_with("compacting context") {
+                        self.dungeon.ops.note(crate::drive::together_shooter::holdings::Op::Compactions);
+                    }
                     // A2: world notice banners are Stage chrome.
                     if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
                     {
@@ -1749,6 +1765,7 @@ impl App {
         self.terminal_focused = focused;
         if !focused {
             self.clear_dungeon_controls();
+            self.steer_walk();
             self.scryglass_drag = None;
             self.viewer.inspector.drag = None;
         }
@@ -1945,6 +1962,22 @@ impl App {
             after.total_input.saturating_sub(before_usage.total_input)
         });
         self.cache_meter.fold_turn(cache_read, input, reported);
+        // The holdings: cache hits fill the granary, fresh tokens pay wages.
+        let output = usage.map_or(0, |after| {
+            after.total_output.saturating_sub(before_usage.total_output)
+        });
+        self.note_ops_turn(
+            cache_read,
+            input.saturating_sub(cache_read) + output,
+            thinking.started.elapsed().as_secs(),
+        );
+        // Horse lore is earned here: the calls this turn's houses actually
+        // served season their bloodlines in the realm's stable. A route
+        // that reports no usage still served the turn: one call's credit.
+        let calls = usage.map_or(1, |after| {
+            after.turns.saturating_sub(before_usage.turns).max(1) as u32
+        });
+        self.note_horse_service(thinking, calls);
         // A loop iteration is one turn: its provider-reported spend replaces
         // the iteration's estimates (routes that report nothing keep them).
         if self.loop_ctl.awaiting_turn
@@ -1953,6 +1986,39 @@ impl App {
             let output = after.total_output.saturating_sub(before_usage.total_output);
             self.loop_ctl.settle_turn_spend(input, cache_read, output);
         }
+    }
+
+    /// Credit a finished turn's model calls to the serving houses' yards:
+    /// the lead house takes the calls, each seated house one share. Saved
+    /// with the realm; a failed save leaves the tally for the next turn.
+    fn note_horse_service(&mut self, thinking: &Thinking, calls: u32) {
+        use crate::stage::houses;
+        let resolved = thinking
+            .club
+            .as_ref()
+            .and_then(|club| club.resolved_route_if_known());
+        let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
+        let lead = houses::of_route(&thinking.club_label, &route.driver, route.model.as_deref());
+        let seated: Vec<houses::HouseId> = self
+            .serving_houses()
+            .seated
+            .into_iter()
+            .filter(|&h| Some(h) != lead)
+            .collect();
+        if lead.is_none() && seated.is_empty() {
+            return;
+        }
+        let realm = self.realm();
+        if let Some(house) = lead {
+            realm
+                .home
+                .stable
+                .note_service(houses::get(house).key, calls);
+        }
+        for house in seated {
+            realm.home.stable.note_service(houses::get(house).key, 1);
+        }
+        let _ = realm.save();
     }
 
     /// Collapse the turn's tool activity into one compact tally line in the
@@ -3046,6 +3112,10 @@ impl App {
             return;
         }
         self.normalize_composer_cursor();
+        // Walk mode owns its keys while the operator walks the map.
+        if self.walk_key(key) {
+            return;
+        }
         // /vim modal composer: in normal mode the letter keys are motions/edits;
         // in insert mode Esc returns to normal. Non-vim keys fall through.
         if self.vim_mode {
@@ -3767,6 +3837,10 @@ impl App {
                     self.tool_strip.toggle_ledger();
                     return;
                 }
+                // While the visitor walks, a click on the map walks him there.
+                if self.walk_click(x, y) {
+                    return;
+                }
                 // Called to the Delve, a click on the mini-viz goes through its gate.
                 if self.world.delve_called
                     && self.dungeon.intro.is_none()
@@ -3825,6 +3899,7 @@ impl App {
                 self.copy_requested = false;
             }
             MouseEventKind::Drag(MouseButton::Left) => {
+                self.walk_drag(x, y);
                 if let Some(mut drag) = self.scryglass_drag {
                     let dx = i32::from(x) - i32::from(drag.last.0);
                     let dy = i32::from(y) - i32::from(drag.last.1);
@@ -3880,6 +3955,8 @@ impl App {
             }
             MouseEventKind::Up(MouseButton::Left) => {
                 self.scryglass_drag = None;
+                // A click on the map, not a drag, steps onto it.
+                self.walk_release(x, y);
                 if let Some(selection) = self.selection.as_mut() {
                     selection.finish();
                 }
@@ -4143,7 +4220,9 @@ impl App {
             WorldButton::ScryglassAskTutor => self.draft_current_lesson_for_tutor(),
             WorldButton::ScryglassCopySource => self.copy_current_lesson_source(),
             WorldButton::ScryglassFollow => {
-                if self.world.visiting_scrying_tower() {
+                if self.walk.on {
+                    self.stop_walk();
+                } else if self.world.visiting_scrying_tower() {
                     self.world.follow_overworld();
                     self.scryglass.return_to_world();
                 } else if self.world.live_adventure_view() {
@@ -4169,6 +4248,8 @@ impl App {
             WorldButton::ScryglassVideoToggle => self.scryglass.toggle_video(),
             WorldButton::ScryglassVideoBack => self.scryglass.seek_video(-5),
             WorldButton::ScryglassVideoForward => self.scryglass.seek_video(5),
+            WorldButton::WalkIn => self.go_in(),
+            WorldButton::WalkLeave => self.stop_walk(),
             WorldButton::Back => self.back_from_visual_surface(),
         }
     }
@@ -4249,6 +4330,7 @@ impl App {
     /// lean are the same tax: chrome may stay, settlement fireworks must not.
     pub(crate) fn finish_world_turn(&mut self, ok: bool) {
         self.research.finish_turn();
+        self.note_ops_end(ok);
         if crate::ui::surfaces::BackdropMode::from_env().paints_in_process()
             && crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
         {

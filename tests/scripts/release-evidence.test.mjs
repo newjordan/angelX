@@ -486,9 +486,16 @@ test('embedded include admission accepts multiline literals and rejects dynamic 
   }
 })
 
+// An engine crate's root: the nearest directory above the source with a Cargo.toml.
+function engineCrateRoot(source) {
+  let dir = dirname(source)
+  while (dir !== 'crates' && !existsSync(join(ROOT, dir, 'Cargo.toml'))) dir = dirname(dir)
+  return dir
+}
+
 test('embedded allowlist equals every compile-time include target of the packaged crates', () => {
   const included = new Map()
-  const crates = ['cockpit/src', 'tests/cockpit', 'vendor/dotmax/src', 'vendor/ureq/src']
+  const crates = ['cockpit/src', 'tests/cockpit', 'crates', 'vendor/dotmax/src', 'vendor/ureq/src']
   // Inspect the code being compiled, including newly added modules and excluding
   // deleted ones. Publication separately requires clean, committed build inputs.
   const sources = command(ROOT, 'git', [
@@ -511,7 +518,9 @@ test('embedded allowlist equals every compile-time include target of the package
       // plain includes are relative to the including file's directory.
       const crateRoot = source.startsWith('vendor/')
         ? source.split('/').slice(0, 2).join('/')
-        : 'cockpit'
+        : source.startsWith('crates/')
+          ? engineCrateRoot(source)
+          : 'cockpit'
       const base = match[1] ? crateRoot : dirname(source)
       const target = relative(ROOT, resolve(ROOT, join(base, match[2])))
         .split(sep)
@@ -704,11 +713,11 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
   assert.equal(rust.advisory_scanners[0].version, '2.3.8')
   assert.deepEqual(
     rust.advisory_policy.lockfiles.map((row) => row.path),
-    ['cockpit/Cargo.lock', 'cockpit/portal-renderer/Cargo.lock', 'package-lock.json'],
+    ['cockpit/Cargo.lock', 'cockpit/portal-renderer/Cargo.lock', 'crates/Cargo.lock', 'package-lock.json'],
   )
   assert.deepEqual(
     rust.advisory_policy.lockfiles.map((row) => row.package_count),
-    [370, 121, 79],
+    [376, 121, 99, 79],
   )
   assert.equal(rust.advisory_policy.python.status, 'not-applicable')
   assert.deepEqual(

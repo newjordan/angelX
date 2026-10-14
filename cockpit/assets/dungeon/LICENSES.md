@@ -22,3 +22,10 @@ sound-effects API (`sound.py`), then trimmed and levelled (`level.py`).
 `wheel_spin` and `wheel_land` are synthesized from scratch by `synth.py`
 (numpy: pegged clicks timed to the wheel's own ease-out, and an inharmonic
 bell), levelled the same way; they are part of angelX and carry its licence.
+
+## The knights' voices (`sfx/knights/`)
+
+The knights' grunts and their few words of made-up chatter were generated
+for angelX with ElevenLabs text-to-speech (`knights.py`), per the operator's
+ElevenLabs plan, in four library voices (Ember, Guy, Jessica and Callum),
+then trimmed, lifted a touch in pitch and levelled by the same script.

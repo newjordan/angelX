@@ -3,16 +3,107 @@
 [Architecture index](README.md) · [Hotloading proposal](lean-host.md) ·
 [User commands](../COMMANDS.md)
 
-**Current-state schematic, traced at `97d64bc7`.** The diagrams group operation
-families; they are not a claim that every feature has its own process. Arrows
-mean control or data flow, not Rust import dependencies. Sources below are the
-entry points for following each path. Runtime policy depends on the selected
-operator profile; a diagram does not add new approval or execution restrictions.
+**Current-state schematic.** The diagrams group operation families; they are not a
+claim that every feature has its own process. Arrows mean control or data flow,
+not Rust import dependencies. Sources below are the entry points for following
+each path. Runtime policy depends on the selected operator profile; a diagram
+does not add new approval or execution restrictions.
 
-**Incremental changes after that baseline:** dossier behavior and probe rules now
-live in `lib/dossier/`, and workflow behavior in `lib/habits/core.mjs`. Existing
-CLI paths and native consumers are preserved. The worker links below reflect
-these extractions. No general hotloader is implied.
+The operation diagrams were traced at `97d64bc7`. Later extractions kept the
+same flows: dossier behavior and probe rules live in `lib/dossier/`, and
+workflow behavior in `lib/habits/core.mjs`. Checkout-only scripts that had piled
+up at `scripts/` root now live in the buckets in the folder map. Shipped worker
+paths, native consumers, and the release inventory were preserved. No general
+hotloader is implied. Dated notes under `docs/telemetry/` still cite the old
+script paths; those receipts were not rewritten.
+
+## Whole system
+
+```mermaid
+flowchart TD
+    Operator["Operator or installer"] --> Launch["bin/angelX or install.sh"]
+    Launch --> Host["Native host: cockpit/"]
+    Host --> Mode{"Invocation"}
+    Mode --> Interactive["Interactive terminal session"]
+    Mode --> Headless["Headless task or machine command"]
+    Mode --> Setup["Setup, inspect, or other non-model mode"]
+    Interactive --> Turn["Agent turn"]
+    Headless --> Turn
+    Turn --> Route["Club route: one provider identity for this turn"]
+    Turn --> Tools["Tool registry"]
+    Tools --> Direct["Direct tools: files, shell, web, proc, LSP, MCP"]
+    Tools --> Team["Spawn or formations: parallel answers"]
+    Tools --> Delegate["Delegate: isolated worktree, then explicit integrate"]
+    Direct --> Evidence["Results, events, verifier receipts"]
+    Team --> Evidence
+    Delegate --> Evidence
+    Evidence --> Turn
+    Turn --> Drive["Drive controllers: goal, loop, campaign, RL, Delve"]
+    Drive --> Turn
+    Host --> Memory["Knowledge stores and Node workers"]
+    Memory --> Turn
+    Host --> Frame["UI compositor and stage"]
+    Frame --> Inspect["Display inspection; not a work verifier"]
+```
+
+One process owns the turn. Workers, delegates, and model providers are separate
+processes or network calls. An answer, a parked branch, a landed diff, and a
+verified outcome are different events.
+
+| Workflow | What it does | Where to follow it |
+|---|---|---|
+| Install and launch | Select resources, build or use a prebuilt, enter a mode | [Launch](#launch-and-agent-turns), [`bin/angelX`](../../bin/angelX), [`install.sh`](../../install.sh) |
+| Interactive session | Terminal event loop, commands, transcript | [`main.rs`](../../cockpit/src/main.rs), [`app/`](../../cockpit/src/app/), [`ui/`](../../cockpit/src/ui/) |
+| Agent turn | Model call, tool round, answer, stop reason | [Launch](#launch-and-agent-turns), [`harness/turn/`](../../cockpit/src/agent/harness/turn/) |
+| Tool execution | Dispatch under approval and the selected profile | [`tools/`](../../cockpit/src/agent/tools/), [`harness/exec/`](../../cockpit/src/agent/harness/exec/), [`approval.rs`](../../cockpit/src/agent/approval.rs) |
+| Editing | Content-checked writes and staged previews | [`hashline.rs`](../../cockpit/src/agent/hashline.rs), [`staged_edit.rs`](../../cockpit/src/agent/staged_edit.rs) |
+| JS tool programs | One V8 isolate per program; not a module host | [`code_mode.rs`](../../cockpit/src/agent/code_mode.rs) |
+| Parallel answers | Several seats answer; nothing is landed | [`formations.rs`](../../cockpit/src/agent/formations.rs), [`harness/spawn.rs`](../../cockpit/src/agent/harness/spawn.rs) |
+| Delegate and integrate | Isolated worktree, then an explicit land | [Orchestration](#orchestration-and-long-running-work) |
+| Goal, loop, graph | Outer controllers choose the next turn | [`drive/goal.rs`](../../cockpit/src/drive/goal.rs), [`loop_ctl.rs`](../../cockpit/src/drive/loop_ctl.rs), [`graph_ctl.rs`](../../cockpit/src/drive/graph_ctl.rs) |
+| Proof-carrying candidate | Investigate, mark a red regression, implement, verify, review | [`swarm_compile/`](../../cockpit/src/agent/harness/swarm_compile/) |
+| Campaign and competition | Durable coordination and cartridge hooks | [`drive/campaign/`](../../cockpit/src/drive/campaign/), [`drive/competition/`](../../cockpit/src/drive/competition/), [cartridges](../CARTRIDGES.md) |
+| Research and reinforcement | Labyrinth, science, RL, self-loop, conductor | [`drive/labyrinth.rs`](../../cockpit/src/drive/labyrinth.rs), [`science.rs`](../../cockpit/src/drive/science.rs), [`rl_ctl/`](../../cockpit/src/drive/rl_ctl/), [`self_loop.rs`](../../cockpit/src/drive/self_loop.rs) |
+| Session and recall | Persist conversation, compact context, recall stores | [State](#state-knowledge-and-presentation), [memory](../MEMORY.md) |
+| Workers | Node folds experience into dossier, habits, and optional exhibits | [`scripts/runtime/`](../../scripts/runtime/), [`lib/`](../../lib/), [workers](../WORKERS.md) |
+| Terminal, world, Delve | Draw a frame; live cards change the game, not the verifier | [Presentation](#terminal-world-media-and-the-delve), [Delve](../DELVE.md) |
+| Development gates | Fast cockpit check, hygiene, polyglot, release evidence | [Development](#development-and-release), [`package.json`](../../package.json) |
+| Release | Package native binaries plus shipped resources, then verify install | [`scripts/release/`](../../scripts/release/), [release evidence](../release-evidence.md) |
+
+## How to read the folders
+
+The readable layout is a native host plus small language libraries. Do not
+collapse those into one tree, and do not rename Rust tests so their folders
+look like `cockpit/src/`. Tests stay under `tests/` and are wired with
+`#[path]`.
+
+| Path | Read it as |
+|---|---|
+| `bin/angelX` | Public launcher. Not the Rust `main`. |
+| `cockpit/src/agent/` | One turn: providers, harness, tools, sandbox, edits. |
+| `cockpit/src/app/` | Session state, launch, and command control. |
+| `cockpit/src/drive/` | Many-turn controllers: goals, campaigns, RL, the Delve. |
+| `cockpit/src/knowledge/` | Ledgers and recall. Rust appends; Node folds shared graphs. |
+| `cockpit/src/platform/` | Paths, workspace identity, secrets, operator policy. |
+| `cockpit/src/stage/` | World and ceremony state. |
+| `cockpit/src/ui/` | Input, layout, compositor, inspection. |
+| `lib/` | Shared JS rules. No worker CLI and no filesystem publication. |
+| `scripts/runtime/` | Shipped and checkout-only workers the host invokes. |
+| `scripts/check/` | Gates, including duplicate-content and research-embed. |
+| `scripts/bench/` | Measurement. Polyglot runners are in `bench/polyglot/`. |
+| `scripts/release/` | Evidence, packaging, and the checkout-only public cut. |
+| `scripts/release-report/` | Report templates, the report builder, and scoreboard video. |
+| `scripts/readme-charts/` | Chart assets, figure renderers, and pan pacing. |
+| `tests/` | Tests by language. Not a second copy of the source tree. |
+| `docs/` | Guides. This directory is the map; `docs/telemetry/` is dated evidence. |
+| `release/` | Release metadata, not the release scripts. |
+| `cockpit/scripts/` | Cockpit-local helpers. Not the repo `scripts/` belt. |
+
+`agent/` still has many modules beside its subdirectories. That is the Rust
+module layout (`club.rs` is not a second `club/`). A further split is a real
+extraction, not a readability rename, and it has to move `#[path]` tests with
+it. The same rule applies to `drive/`: together, campaign, and RL files stay
+where their controllers import them.
 
 ## Launch and agent turns
 
@@ -187,7 +278,8 @@ flowchart LR
   [`viewer.rs`](../../cockpit/src/ui/viewer.rs),
   [`observatory.rs`](../../cockpit/src/app/observatory.rs).
 - **Co-op and game execution:** [`together.rs`](../../cockpit/src/drive/together.rs),
-  [`together_guest.rs`](../../cockpit/src/drive/together_guest.rs),
+  [`together_sim.rs`](../../cockpit/src/drive/together_sim.rs),
+  [`together_seat.rs`](../../cockpit/src/drive/together_seat.rs),
   [`together_join.rs`](../../cockpit/src/drive/together_join.rs),
   [`together_shooter/`](../../cockpit/src/drive/together_shooter/).
 - **Live content:** [`dungeon_shooter.rs`](../../cockpit/src/app/control/dungeon_shooter.rs)
