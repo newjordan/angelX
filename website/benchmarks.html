@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarks — angelX · measured runs through 2026-09-30</title>
+<meta name="description" content="Dated, source-linked angelX results on the 136-task polyglot coding suite, with historical peer comparisons and methodology limits.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/bench.css?v=20260922d">
+<link rel="stylesheet" href="css/bench-page.css?v=20260922d">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <p class="kicker">angelX</p>
+      <h1>Benchmarks</h1>
+    </div>
+    <a class="back" href="index.html">&larr; back to angelX</a>
+  </header>
+
+  <p class="summary-kicker">136 repository-repair tasks · 48 JavaScript, 34 Python, 30 Rust, 24 C++ · independently graded task tests</p>
+
+  <section class="latest" aria-labelledby="latest-title">
+    <h2 id="latest-title">Latest published angelX cohorts</h2>
+    <p class="sec-sub">One attempt per task, 600-second agent limit. Medians are per-attempt agent wall time; failures remain in the cohort.</p>
+    <div class="table-scroll" role="region" aria-label="Latest benchmark results" tabindex="0">
+      <table class="summary latest-table">
+        <thead><tr><th scope="col">Date</th><th scope="col">Version</th><th scope="col">Model / setting</th><th scope="col">Solved</th><th scope="col">Median wall</th><th scope="col">Input tokens</th></tr></thead>
+        <tbody>
+          <tr><td>2026-09-30</td><td>0.1.8</td><th scope="row">DeepSeek V4.1 Flash · thinking off · run 1</th><td class="hero">135 / 136</td><td>9.9 s</td><td>8.7 M</td></tr>
+          <tr><td>2026-09-30</td><td>0.1.8</td><th scope="row">DeepSeek V4.1 Flash · thinking off · run 2</th><td class="hero">135 / 136</td><td>9.1 s</td><td>6.9 M</td></tr>
+          <tr><td>2026-09-23</td><td>0.1.6</td><th scope="row">GLM-5.3-Flash · thinking low</th><td>134 / 136</td><td>46.1 s</td><td>9.4 M</td></tr>
+          <tr><td>2026-09-23</td><td>0.1.6</td><th scope="row">Grok 4.7 · thinking low</th><td>136 / 136</td><td>17.5 s</td><td>6.7 M</td></tr>
+          <tr><td>2026-09-23</td><td>0.1.6</td><th scope="row">Muse Spark · thinking low</th><td>136 / 136</td><td>25.5 s</td><td>5.9 M</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="method">Configuration: Prime Intellect Verifiers v0.3.1, task-native tests, temperature 0, fresh environment per attempt. The September 23 Muse cell used its recommended temperature 1.0. These are historical binaries; the current 0.2.3 release has no published full-suite result. Host CPU/GPU and memory were <strong>not recorded in the public summaries</strong>, so these figures are not hardware throughput claims.</p>
+    <p class="sources">Source: <a href="https://github.com/newjordan/angelX/blob/91456dc89efe8fa606a475b19fec1f0c0ffe26dd/README.md#benchmarks">public benchmark tables and methodology</a> · <a href="https://github.com/newjordan/angelX/blob/91456dc89efe8fa606a475b19fec1f0c0ffe26dd/docs/telemetry/polyglot-full136-slowdown-20260926.md">full-cohort timing audit and comparison limits</a>.</p>
+  </section>
+
+  <section class="historical" aria-labelledby="historical-title">
+    <h2 id="historical-title">Historical harness comparison · 2026-09-21</h2>
+    <p class="sec-sub">The interactive plots below use the original September 21 cells. They do not describe the current release. Agent wall time includes failed attempts; it is not a measure of overall campaign elapsed time.</p>
+
+  <div class="tabs-wrap">
+    <div class="tabs" id="model-tabs" role="tablist" aria-label="Model selection"></div>
+  </div>
+
+  <div class="table-scroll" role="region" aria-label="Historical harness comparison" tabindex="0"><table class="summary">
+    <caption>polyglot-v1 · 2026-09-21</caption>
+    <thead>
+      <tr>
+        <th scope="col">Harness</th>
+        <th scope="col">DeepSeek V4.1 Flash<br><span class="dim">thinking off</span></th>
+        <th scope="col">GLM-5.3-Flash<br><span class="dim">thinking low</span></th>
+        <th scope="col" class="tot">Total<br><span class="dim">both models</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><th scope="row">angelX</th><td class="hero">133 / 136</td><td class="hero">135 / 136</td><td class="tot hero">268 / 272<br><span class="pct">98.5%</span></td></tr>
+      <tr><th scope="row">OpenCode 1.18.31</th><td>132 / 136</td><td>133 / 136</td><td class="tot">265 / 272<br><span class="pct">97.4%</span></td></tr>
+      <tr><th scope="row">oh-my-pi 18.2.4</th><td class="dim">86 / 93<br><span class="dim">200M-token budget cap</span></td><td>133 / 136</td><td class="tot dim">—<br><span class="pct">partial DeepSeek cell</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="bench" id="trials" aria-label="Benchmarks telemetry">
+
+    <section class="sec">
+      <h2>Solved vs. agent time</h2>
+      <figure class="tv" id="tv-race">
+        <button class="replay" type="button" aria-label="Replay solved vs. agent time">[ ▶ replay ]</button>
+        <div class="panels" data-model-panels></div>
+        <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
+      </figure>
+    </section>
+
+    <section class="sec">
+      <h2>Pass / fail vs. agent time</h2>
+      <figure class="tv" id="tv-score">
+        <button class="replay" type="button" aria-label="Replay pass / fail vs. agent time">[ ▶ replay ]</button>
+        <div class="panels" data-model-panels></div>
+        <div class="legend"><span class="ax-hero"><i class="pass"></i>passed</span><span><i class="fail"></i>failed</span></div>
+      </figure>
+    </section>
+
+    <section class="sec">
+      <h2>Output per task</h2>
+      <p class="sec-sub">Tokens generated and model calls made per task (cap at 2.5k)</p>
+      <figure class="tv" id="tv-bars">
+        <button class="replay" type="button" aria-label="Replay the output bars">[ ▶ replay ]</button>
+        <div class="panels" data-model-panels></div>
+        <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span><span><i class="cap-indicator"></i>stacked at 2.5k cap</span></div>
+      </figure>
+    </section>
+
+    <section class="sec">
+      <h2>Seconds per attempt</h2>
+      <p class="sec-sub">Wall time per attempt in run order (medians dotted)</p>
+      <figure class="tv" id="tv-trace">
+        <button class="replay" type="button" aria-label="Replay seconds per attempt">[ ▶ replay ]</button>
+        <div class="panels" data-model-panels></div>
+        <div class="legend"><span class="ax-hero">■ angelX</span><span>+ OpenCode</span><span>× omp</span></div>
+      </figure>
+    </section>
+
+    <section class="sec">
+      <h2>Input tokens</h2>
+      <p class="sec-sub">Cumulative, cached and uncached</p>
+      <figure class="tv" id="tv-burn">
+        <button class="replay" type="button" aria-label="Replay input tokens">[ ▶ replay ]</button>
+        <div class="panels" data-model-panels></div>
+        <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
+      </figure>
+    </section>
+
+    <section class="sec">
+      <h2>Cache hit rate</h2>
+      <p class="sec-sub">Share of input tokens served from provider cache</p>
+      <figure class="tv" id="tv-cache">
+        <button class="replay" type="button" aria-label="Replay cache hit rate">[ ▶ replay ]</button>
+        <div class="panels" data-model-panels></div>
+        <div class="legend"><span class="ax-hero"><i class="ax"></i>angelX</span><span><i class="oc"></i>OpenCode</span><span><i class="om"></i>omp</span></div>
+      </figure>
+    </section>
+
+    <p class="provenance">Graded by task-native test suites on <a href="https://github.com/PrimeIntellect-ai/verifiers" target="_blank" rel="noopener noreferrer">Prime Intellect evaluators</a> (Verifiers v0.3.1) · 600 s wall cap · 2026-09-21. DeepSeek used thinking off; GLM used thinking low. <a href="https://github.com/newjordan/angelX/blob/91456dc89efe8fa606a475b19fec1f0c0ffe26dd/docs/telemetry/polyglot-benchmark-20260921.json">Machine-readable September 21 source</a>.</p>
+  </div>
+  </section>
+
+</div>
+<script src="js/bench-data.js?v=20260922d"></script>
+<script src="js/bench.js?v=20260922d"></script>
+</body>
+</html>
