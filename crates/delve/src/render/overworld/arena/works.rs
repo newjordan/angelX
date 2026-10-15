@@ -39,130 +39,44 @@ fn tongue(cv: &mut Img, x: i32, base: i32, h: i32, tick: u32, seed: i32) {
         let sway = ((tick as f32 * 0.35 + seed as f32 * 1.7 + k as f32 * 0.4).sin() * f * 1.4)
             .round() as i32;
         let ink = if f < 0.22 {
-            '7'
+            'o'
         } else if f < 0.5 {
             '@'
         } else if f < 0.82 {
-            '4'
-        } else if tick.wrapping_add(seed as u32).is_multiple_of(2) {
-            '5'
-        } else {
             '6'
+        } else if tick.wrapping_add(seed as u32).is_multiple_of(2) {
+            'c'
+        } else {
+            'T'
         };
         cv.put(x + sway, base - k, ink);
         // The body of the flame is two wide near its foot.
         if f < 0.6 {
-            cv.put(x + sway + 1, base - k, if f < 0.3 { '7' } else { '@' });
+            cv.put(x + sway + 1, base - k, if f < 0.3 { 'P' } else { 'o' });
         }
     }
 }
 
 // ─── gas ─────────────────────────────────────────────────────────────────────
 
-/// A cloud: lobes of dithered green that turn about each other, a core
-/// darker than its edge, and two arms of grey swirling through.
-fn gas(cv: &mut Img, run: &Run, cloud: &skills::Cloud) {
-    let tick = run.tick as f32;
+/// A cloud: cached rolling lobes inside the original radius, a crisp rim
+/// marking bad air and cool low interiors that keep figures readable.
+pub(super) fn gas_stamp(run: &Run, cloud: &skills::Cloud, modern: bool) -> (std::sync::Arc<Img>, i32, i32) {
     let (cx, cy) = at(cloud.x, cloud.y);
-    let r = cloud.radius() * UNIT;
-    let squash = if run.side_on() { 0.8 } else { 0.72 };
-    let sulphur = cloud.tint == 1;
-    let lobes: [(f32, f32, f32); 7] = std::array::from_fn(|i| {
-        let turn = if i % 2 == 0 { 1.0 } else { -1.0 };
-        let ang = i as f32 * 0.9 + tick * 0.035 * (1.0 + (i % 3) as f32 * 0.4) * turn;
-        let dist = r * 0.5 * (0.65 + 0.35 * (tick * 0.05 + i as f32).sin());
-        (
-            cx as f32 + ang.cos() * dist,
-            cy as f32 + ang.sin() * dist * squash,
-            r * (0.58 + 0.12 * ((i * 5) % 3) as f32 * 0.5),
-        )
-    });
-    let (x0, x1) = ((cx as f32 - r) as i32 - 1, (cx as f32 + r) as i32 + 1);
-    let (y0, y1) = (
-        (cy as f32 - r * squash) as i32 - 1,
-        (cy as f32 + r * squash) as i32 + 1,
-    );
-    for y in y0..=y1 {
-        for x in x0..=x1 {
-            let density = lobes
-                .iter()
-                .map(|&(lx, ly, lr)| {
-                    let (dx, dy) = ((x as f32 - lx) / lr, (y as f32 - ly) / (lr * squash));
-                    1.0 - (dx * dx + dy * dy)
-                })
-                .fold(0.0f32, f32::max);
-            if density <= 0.0 {
-                continue;
-            }
-            let grain = hash(x, y, 31 + (run.tick / 5) as u32) % 100;
-            if density * 1.7 + 0.1 < bayer(x, y) || grain < 6 {
-                continue;
-            }
-            let ink = if density > 0.72 {
-                if sulphur {
-                    'N'
-                } else if cloud.owner != 0 {
-                    'y'
-                } else {
-                    'l'
-                }
-            } else if density > 0.46 {
-                if grain % 2 == 0 {
-                    if sulphur { 'L' } else { 'N' }
-                } else if sulphur {
-                    'N'
-                } else {
-                    'm'
-                }
-            } else if density > 0.22 {
-                if grain % 3 == 0 {
-                    if sulphur { 'y' } else { 'M' }
-                } else if sulphur {
-                    'A'
-                } else {
-                    'A'
-                }
-            } else if sulphur {
-                'Y'
-            } else {
-                'y'
-            };
-            let ink = if cloud.wall() {
-                if density > 0.72 {
-                    if grain % 3 == 0 { 'B' } else { 'N' }
-                } else if density > 0.46 {
-                    if grain % 3 == 0 { 'O' } else { 'L' }
-                } else {
-                    'y'
-                }
-            } else {
-                ink
-            };
-            cv.put(x, y, ink);
-        }
-    }
-    if cloud.wall() {
-        return;
-    }
-    // Grey swirling through it, two arms.
-    for arm in 0..2 {
-        for k in 0..20 {
-            let a = tick * 0.09 + k as f32 * 0.36 + arm as f32 * PI;
-            let d = r * (0.12 + 0.72 * k as f32 / 20.0);
-            let (sx, sy) = (cx as f32 + a.cos() * d, cy as f32 + a.sin() * d * squash);
-            cv.put(
-                sx.round() as i32,
-                sy.round() as i32,
-                if k % 4 == 0 {
-                    'i'
-                } else if k % 2 == 0 {
-                    'h'
-                } else {
-                    'J'
-                },
-            );
-        }
-    }
+    // The RGB kit's existing core is 1.8 radii across. The ink kit's
+    // floor projection keeps its existing 0.72/0.8 squash.
+    let r = cloud.radius() * UNIT * if modern { 0.9 } else { 1.0 };
+    let squash = if modern { 1.0 } else if run.side_on() { 0.8 } else { 0.72 };
+    let (rx, ry) = (r as i32, (r * squash) as i32);
+    let kind = match cloud.tint { 1 => super::fx::Stamp::Sulphur, 2 => super::fx::Stamp::GasWall, 3 => super::fx::Stamp::SulphurWall, _ => super::fx::Stamp::Gas };
+    let im = super::fx::stamp(kind, rx, ry, ((run.tick / 4) % 6) as u8);
+    (im, cx - rx, cy - ry)
+
+}
+
+fn gas(cv: &mut Img, run: &Run, cloud: &skills::Cloud) {
+    let (im,x,y)=gas_stamp(run,cloud,false);
+    cv.stamp(&im,x,y);
 }
 
 // ─── fire ────────────────────────────────────────────────────────────────────
@@ -176,18 +90,8 @@ fn blaze(cv: &mut Img, run: &Run, b: &skills::Blaze) {
     let vigour = (left as f32 / 40.0).min(1.0);
     let rx = (b.radius * UNIT * (0.6 + 0.4 * vigour)) as i32;
     let ry = if run.side_on() { rx / 4 } else { rx / 2 };
-    for y in -ry..=ry {
-        for x in -rx..=rx {
-            let d = (x as f32 / rx.max(1) as f32).powi(2) + (y as f32 / ry.max(1) as f32).powi(2);
-            if d > 1.0 {
-                continue;
-            }
-            let g = hash(cx + x, cy + y, tick / 3) % 100;
-            if bayer(cx + x, cy + y) < 0.62 - d * 0.35 {
-                cv.put(cx + x, cy + y, if g < 14 { '7' } else { '8' });
-            }
-        }
-    }
+    let bed = super::fx::stamp(super::fx::Stamp::Embers, rx, ry, 0);
+    cv.stamp(&bed, cx - rx, cy - ry);
     let mut x = -rx + 1;
     while x < rx {
         let n = hash(cx + x, 5, tick / 2) % 100;
@@ -223,7 +127,7 @@ fn mine_body() -> Img {
 
 fn mine(cv: &mut Img, run: &Run, m: &Mine) {
     let (x, y) = ground(run, m.x, m.y);
-    let body = mine_body();
+    let body = mine_body().recolor(&[('h','U'),('J','V'),('G','u'),('g','x'),('j','S')]);
     cv.stamp(&body, x - body.w / 2, y - body.h + 1);
     let tick = run.tick;
     // Its light: quick amber while arming, a slow red pulse once armed, a
@@ -282,7 +186,7 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
                     } else if dx == 1 {
                         if dy % 5 == 0 { 'p' } else { 'o' }
                     } else {
-                        'r'
+                        'P'
                     };
                     cv.put(x + dx + tilt * dy / height.max(1), yy, ink);
                 }
@@ -329,7 +233,7 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
         for k2 in 0..h as i32 {
             let tip = k2 >= h as i32 - 2;
             let top = k2 == h as i32 - 1;
-            cv.put(x - 2, y - k2, if tip { 'p' } else { 'b' });
+            cv.put(x - 2, y - k2, if tip { 'P' } else { 's' });
             cv.put(
                 x - 1,
                 y - k2,
@@ -349,11 +253,11 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
                 } else if k2 % 4 == 3 {
                     'o'
                 } else {
-                    't'
+                    'O'
                 },
             );
             cv.put(x + 1, y - k2, if top { 'O' } else { 'o' });
-            cv.put(x + 2, y - k2, if tip { 'B' } else { 'r' });
+            cv.put(x + 2, y - k2, if tip { 'B' } else { 'P' });
         }
         if broken && fell == 0.0 {
             // A splinter beside the stump.
@@ -387,38 +291,19 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
                     x,
                     y,
                     if p < 0.4 {
-                        '6'
+                        'c'
                     } else if p < 0.7 {
                         '@'
                     } else {
-                        '7'
+                        'o'
                     },
                 );
-                cv.put(x, y - 1, if p < 0.6 { '4' } else { '8' });
+                cv.put(x, y - 1, if p < 0.6 { 'o' } else { 'S' });
             }
             // The fireball: solid and bright at first, burning down to embers.
             let core = (reach * 0.55 * (1.0 - p * 0.7)) as i32;
-            for y in -core..=core {
-                for x in -core..=core {
-                    let d = ((x * x + y * y) as f32).sqrt() / core.max(1) as f32;
-                    if d > 1.0 {
-                        continue;
-                    }
-                    if p > 0.45 && bayer(cx + x, cy + y) > 1.1 - p {
-                        continue;
-                    }
-                    let ink = if d < 0.4 && p < 0.5 {
-                        '6'
-                    } else if d < 0.7 {
-                        if p < 0.6 { '5' } else { '@' }
-                    } else if p < 0.7 {
-                        '@'
-                    } else {
-                        '7'
-                    };
-                    cv.put(cx + x, cy + y - core / 3, ink);
-                }
-            }
+            let fire = super::fx::stamp(super::fx::Stamp::Fireball, core, core, (p * 5.0) as u8);
+            cv.stamp(&fire, cx - core, cy - core - core / 3);
             for k in 0..10 {
                 let a = k as f32 * 0.63 + hash(k, 2, 6) as f32 * 0.01;
                 let d = r * (0.7 + 0.5 * p);
@@ -438,23 +323,10 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
             // Gas lighting all through: a swelling sheet of gold and green.
             let reach = b.reach * UNIT;
             let r = reach * (0.5 + 0.5 * p);
-            for y in -(r as i32)..=(r as i32) {
-                for x in -(r as i32)..=(r as i32) {
-                    let d = (x as f32 / r).powi(2) + (y as f32 / (r * 0.75)).powi(2);
-                    if d <= 1.0 && bayer(cx + x, cy + y) < (1.0 - p) * (1.1 - d) {
-                        let ink = if d < 0.4 {
-                            '6'
-                        } else if d < 0.7 {
-                            '4'
-                        } else if hash(x, y, 3) % 3 == 0 {
-                            'y'
-                        } else {
-                            '@'
-                        };
-                        cv.put(cx + x, cy + y, ink);
-                    }
-                }
-            }
+            let (rx, ry) = (r as i32, (r * 0.75) as i32);
+            let flash = super::fx::stamp(super::fx::Stamp::Flash, rx, ry, (p * 5.0) as u8);
+            cv.stamp(&flash, cx - rx, cy - ry);
+
         }
         BoomKind::Dust => {
             // A cloud of grit that rises and thins.
@@ -491,7 +363,7 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
                     cv.put(
                         cx + (a.cos() * s as f32) as i32,
                         cy + (a.sin() * s as f32 * 0.6) as i32,
-                        if s as f32 > len * 0.7 { '6' } else { '@' },
+                        if s == 0 && p < 0.2 { '9' } else if s as f32 > len * 0.7 { 'c' } else if p < 0.5 { '@' } else { 'o' },
                     );
                 }
             }
@@ -502,7 +374,7 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
             let len = 3 + (4.0 * (1.0 - (p - 0.4).abs())) as i32;
             for s in 0..=len {
                 for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                    cv.put(cx + dx * s, cy + dy * s, if s < 2 { '6' } else { 'i' });
+                    cv.put(cx + dx * s, cy + dy * s, if s == 0 { '9' } else if s < 2 { 'c' } else { 'U' });
                 }
                 if s < len / 2 + 1 {
                     for (dx, dy) in [(1, 1), (-1, 1), (1, -1), (-1, -1)] {
@@ -1064,7 +936,19 @@ pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
     for w in &run.works.barricades {
         barricade(cv, run, w);
     }
+    // RGB bodies are drawn by combat::under before the actors. Only the
+    // crisp danger rims belong in its protected cue overlay.
     if !modern { for c in &run.works.clouds { gas(cv, run, c); } }
+    // Keep every wall segment's danger core readable through its neighbours.
+    for c in run.works.clouds.iter().filter(|c| c.wall()) {
+        let (x,y)=at(c.x,c.y);
+        let r=c.radius()*UNIT*if modern {0.9}else{1.0};
+        let squash=if modern {1.0}else if run.side_on(){0.8}else{0.72};
+        let (rx,ry)=(r as i32,(r*squash) as i32);
+        let kind=if c.tint==3 {super::fx::Stamp::SulphurRim}else{super::fx::Stamp::GasRim};
+        let rim=super::fx::stamp(kind,rx,ry,0);
+        cv.stamp(&rim,x-rx,y-ry);
+    }
     if let Some((x, y)) = run.key_on_floor() {
         key_lying(cv, run, x, y);
     }

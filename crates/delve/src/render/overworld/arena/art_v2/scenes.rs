@@ -424,8 +424,7 @@ fn hall(cv: &mut Canvas, lights: &mut Vec<Point>, fires: &mut Vec<(f32, f32)>) {
     for (x, y) in [(21.0, 30.0), (362.0, 30.0), (21.0, 188.0), (362.0, 188.0)] {
         candle(cv, x, y, lights, fires);
     }
-    cv.rect(154.0, 2.0, 76.0, 12.0, material('q'));
-    cv.frame(154.0, 2.0, 76.0, 12.0, bronze().at(0.8));
+    super::ui::plaque(cv, (154.0, 2.0, 76.0, 12.0), material('q'), bronze().at(0.8));
     cv.text(162.0, 5.0, "GREAT HALL", 'T');
     // Door strips keep the two side approaches and south exit visible.
     for x in [0.0, 368.0] {
@@ -1005,8 +1004,7 @@ fn college_landmark(cv: &mut Canvas, x: f32, y: f32, w: f32, h: f32, lights: &mu
     for xx in [x + w * 0.34, x + w * 0.59, x + w * 0.80] {
         lights.push(Point::new(xx, base - 27.0, 32.0, '@', 0.42));
     }
-    cv.rect(x + 3.0, base + 4.0, w - 6.0, 10.0, material('s'));
-    cv.frame(x + 3.0, base + 4.0, w - 6.0, 10.0, stone().at(0.6));
+    super::ui::plaque(cv, (x + 3.0, base + 4.0, w - 6.0, 10.0), material('s'), stone().at(0.6));
     cv.text(x + 7.0, base + 6.0, "LABYRINTH COLLEGE", 'i');
     for xx in [x + 3.0, x + w - 6.0] {
         cv.chips(

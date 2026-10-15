@@ -855,6 +855,10 @@ fn scenario_run_turn_read_then_answer() {
 /// class) must cost one corrected call, not a listing round trip.
 #[test]
 fn scenario_outline_miss_suggests_paths() {
+    // Another scenario turns the hints off (`ANGEL_MISSING_PATH_HINTS=0`)
+    // under the env lock; hold it so that window never lands inside this one.
+    let _lock = crate::tests::env_lock();
+    let _enabled = EnvGuard::set("ANGEL_MISSING_PATH_HINTS", "1");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let err = OutlineTool { root }
         .call(&serde_json::json!({ "path": "wrongdir/lsp.rs" }))

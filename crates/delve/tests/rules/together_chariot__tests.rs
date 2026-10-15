@@ -560,11 +560,12 @@ fn the_balance_probe_finishes_every_seed_and_the_field_shares_the_wins() {
 fn the_race_board_stays_up_from_the_gate_to_the_flag() {
     use crate::render::overworld::arena;
     use crate::render::overworld::ink::ink;
-    // The board is stamped at (4, 13) with a 'B' frame; a solid run of it
-    // along the top edge is the announcer's board and nothing else.
+    // The board is stamped at (4, 13), a timber-edged sign whose lit top
+    // rim is oak ('P', `chrome::rim_of('B')`); a solid run of it along the
+    // top edge is the announcer's board and nothing else.
     let board_up = |run: &Run| {
         let frame = arena::frame(run, 384, 224);
-        (4..140).filter(|&x| frame.get(x, 13) == ink('B')).count() > 100
+        (4..140).filter(|&x| frame.get(x, 13) == ink('P')).count() > 100
     };
     let mut run = boarded_run();
     assert!(board_up(&run), "the countdown board is up at the gate");

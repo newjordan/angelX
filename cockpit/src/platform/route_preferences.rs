@@ -68,9 +68,11 @@ fn effort_pin_active(club: &dyn crate::agent::club::Club, pin: &impl Fn(&str) ->
     if pin("ANGEL_REASONING_EFFORT") {
         return true;
     }
-    let namespace = club
-        .env_namespace()
-        .or_else(|| (club.label() == "openai").then_some("OPENAI"));
+    let namespace = club.env_namespace().or(match club.label() {
+        "openai" => Some("OPENAI"),
+        "daybreak" => Some("DAYBREAK"),
+        _ => None,
+    });
     namespace.is_some_and(|namespace| pin(&format!("ANGEL_{namespace}_REASONING_EFFORT")))
 }
 

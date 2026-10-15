@@ -2,6 +2,7 @@
 //! three notes pinned to it; and, to a knight standing at it, the bounties
 //! themselves, how far along each is, and what each pays.
 
+use super::super::chrome;
 use super::super::ink::{Img, hash, text_width};
 use super::TILE;
 use super::home::spoil_mark;
@@ -86,9 +87,8 @@ pub(super) fn sheet(run: &Run) -> Img {
         .max(text_width("NOTHING PINNED YET"));
     let w = widest + 12;
     let h = 15 + rows.len().max(1) as i32 * 27;
-    let mut im = Img::new(w, h);
-    im.rect(0, 0, w, h, 'K');
-    im.frame(0, 0, w, h, 'B');
+    let mut im = Img::new(w + 1, h + 1);
+    chrome::board(&mut im, (0, 0, w, h), 'B');
     im.text((w - text_width(title)) / 2, 3, title, '5');
     if rows.is_empty() {
         let none = "NOTHING PINNED YET";
@@ -98,11 +98,8 @@ pub(super) fn sheet(run: &Run) -> Img {
         let y = 15 + i as i32 * 27;
         im.text(6, y, name, '9');
         im.text(w - 6 - text_width(progress), y, progress, 'H');
-        im.frame(6, y + 9, w - 12, 4, 'b');
         let fill = ((w - 14) as f32 * k.clamp(0.0, 1.0)) as i32;
-        if fill > 0 {
-            im.rect(7, y + 10, fill, 2, '5');
-        }
+        chrome::meter(&mut im, (6, y + 9, w - 12, 4), fill, super::super::ink::ink('5').unwrap_or_default());
         let mut x = im.text(6, y + 16, "PAYS", 'h') + 5;
         for &(spoil, n) in pays.iter() {
             let mark = spoil_mark(spoil);

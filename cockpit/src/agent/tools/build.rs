@@ -11,6 +11,9 @@ mod failure_detail_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/tools/build__fallback_tests.rs"]
 mod fallback_tests;
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/tools/build__run_tests_args_tests.rs"]
+mod run_tests_args_tests;
 mod targets;
 mod verifier;
 pub(crate) use targets::MutationTargets;
@@ -1107,11 +1110,19 @@ pub(crate) fn parse_direct_argv(raw: &str) -> Result<Vec<String>, String> {
 }
 
 fn cargo_argv(subcommand: &str, extra: &str) -> Result<Vec<String>, String> {
+    let mut words = parse_direct_argv(extra)
+        .map_err(|error| format!("invalid cargo {subcommand} arguments: {error}"))?;
+    // Arguments that open by repeating the command this route already runs
+    // (`test`, `cargo test`) are that command, not a test-name filter: as a
+    // filter, `test` matched no Rust test at all (GLM 2026-09-30, 8 re-runs).
+    let repeated = match words.as_slice() {
+        [cargo, sub, ..] if cargo == "cargo" && sub == subcommand => 2,
+        [sub, ..] if sub == subcommand => 1,
+        _ => 0,
+    };
+    words.drain(..repeated);
     let mut argv = vec![subcommand.to_string()];
-    argv.extend(
-        parse_direct_argv(extra)
-            .map_err(|error| format!("invalid cargo {subcommand} arguments: {error}"))?,
-    );
+    argv.extend(words);
     Ok(argv)
 }
 
@@ -1821,6 +1832,123 @@ impl Tool for RunTestsTool {
     }
 }
 
+/// `run_tests` arguments read the way models write them, so each reaches the
+/// field the tool reads. A `runner` (or `lang`) written as the command the
+/// description names (`npm test`, `npx jest`, `cargo test`, `python3 -m
+/// pytest`, `node --test`) becomes its language, and the entrypoint it names.
+/// `args` that open by repeating such a command keep only what follows it.
+/// An absolute `dir`/`crate` inside the workspace, or one spelled from the
+/// launch directory (`ws/bowling`), becomes workspace-relative. Values already
+/// in canonical form pass through unchanged; an explicit `entrypoint` always
+/// wins, and nothing the model asked to run is dropped or swapped.
+pub(crate) fn normalize_run_tests_args(args: &Value, workspace: &Path) -> Value {
+    use crate::platform::workspace_lang::{self, parse_runner_command};
+    let Some(original) = args.as_object() else {
+        return args.clone();
+    };
+    let mut map = original.clone();
+    let mut entrypoint = map
+        .get("entrypoint")
+        .and_then(Value::as_str)
+        .filter(|e| !e.trim().is_empty())
+        .map(|e| e.trim().to_string());
+    let mut named_lang = None;
+    let mut lead: Vec<String> = Vec::new();
+    for key in ["runner", "lang"] {
+        let Some(raw) = map.get(key).and_then(Value::as_str).map(str::to_string) else {
+            continue;
+        };
+        if let Some(lang) = workspace_lang::parse_lang(&raw) {
+            named_lang = Some(lang);
+            if entrypoint.is_none() && matches!(raw.trim(), "pytest" | "unittest") {
+                entrypoint = Some(raw.trim().to_string());
+            }
+            continue;
+        }
+        let Ok(words) = parse_direct_argv(&raw) else {
+            continue;
+        };
+        let refs = words.iter().map(String::as_str).collect::<Vec<_>>();
+        if let Some(command) = parse_runner_command(&refs) {
+            map.insert(key.into(), Value::String(command.lang.name().into()));
+            named_lang = Some(command.lang);
+            if entrypoint.is_none() {
+                entrypoint = command.entrypoint.map(str::to_string);
+            }
+            lead.extend(words[command.words..].iter().cloned());
+        }
+    }
+    let raw_args = map.get("args").and_then(Value::as_str).map(str::to_string);
+    let mut rest: Option<Vec<String>> = None;
+    if let Some(raw) = &raw_args
+        && let Ok(words) = parse_direct_argv(raw)
+    {
+        let refs = words.iter().map(String::as_str).collect::<Vec<_>>();
+        // The Cargo route strips its own repeated subcommand (`cargo_argv`).
+        if let Some(command) =
+            parse_runner_command(&refs).filter(|command| command.lang != workspace_lang::Lang::Rust)
+        {
+            if entrypoint.is_none() {
+                entrypoint = command.entrypoint.map(str::to_string);
+            }
+            if named_lang.is_none() && !map.contains_key("runtime") {
+                map.insert("runner".into(), Value::String(command.lang.name().into()));
+            }
+            rest = Some(words[command.words..].to_vec());
+        }
+    }
+    if !lead.is_empty() || rest.is_some() {
+        let mut words = lead;
+        match rest {
+            Some(rest) => words.extend(rest),
+            None => {
+                if let Some(raw) = &raw_args
+                    && let Ok(parsed) = parse_direct_argv(raw)
+                {
+                    words.extend(parsed);
+                }
+            }
+        }
+        let quoted = words
+            .iter()
+            .map(|w| format!("'{}'", w.replace('\'', "'\\''")))
+            .collect::<Vec<_>>()
+            .join(" ");
+        map.insert("args".into(), Value::String(quoted));
+    }
+    let explicit = map
+        .get("entrypoint")
+        .and_then(Value::as_str)
+        .is_some_and(|e| !e.trim().is_empty());
+    if !explicit && let Some(entrypoint) = entrypoint {
+        map.insert("entrypoint".into(), Value::String(entrypoint));
+    }
+    for key in ["dir", "crate"] {
+        let Some(raw) = map
+            .get(key)
+            .and_then(Value::as_str)
+            .map(|d| d.trim().to_string())
+        else {
+            continue;
+        };
+        let path = Path::new(&raw);
+        let relative = if path.is_absolute() {
+            crate::agent::harness::workspace_relative(workspace, path).ok()
+        } else {
+            crate::agent::harness::launch_relative_in_workspace(workspace, path)
+        };
+        if let Some(relative) = relative {
+            let spelled = if relative.as_os_str().is_empty() {
+                ".".to_string()
+            } else {
+                relative.to_string_lossy().into_owned()
+            };
+            map.insert(key.into(), Value::String(spelled));
+        }
+    }
+    Value::Object(map)
+}
+
 impl RunTestsTool {
     /// One suite run under whatever call budget the caller set.
     fn run_suite(
@@ -1830,6 +1958,8 @@ impl RunTestsTool {
         progress: Option<Arc<ToolOutputProgress>>,
     ) -> Result<String, String> {
         use crate::platform::workspace_lang::{self, Lang};
+        let normalized = normalize_run_tests_args(args, &self.workspace);
+        let args = &normalized;
         // Typed native verification first (pinned runtimes, reward-labeled
         // evidence). It declines with "verification inconclusive: …" for mixed
         // roots, package scripts and unsupported frameworks, and errors under
@@ -1988,7 +2118,9 @@ impl RunTestsTool {
             };
             return self.run_cargo(&dir, args, cancel, progress);
         }
-        let Some(plan) = workspace_lang::plan_tests(&scan_root, &hits, prefer) else {
+        let entrypoint = args["entrypoint"].as_str().filter(|e| !e.is_empty());
+        let Some(plan) = workspace_lang::plan_tests_for(&scan_root, &hits, prefer, entrypoint)
+        else {
             let seen = workspace_lang::lang_names(&hits);
             return Err(if seen.is_empty() {
                 format!(
@@ -2389,6 +2521,34 @@ pub(crate) fn tail(s: &str, max: usize) -> String {
     format!("…[earlier output omitted]\n{}", s[start..].trim())
 }
 
+/// One trimmed output line that opens a diagnostic block: a failing test's
+/// own section (cargo `---- t stdout ----`, pytest `___ t ___`, unittest
+/// `FAIL: t`, jest `● t`, TAP `not ok`), a trace, or a compiler error. Not the
+/// runner's progress or failure-name listing, nor dependency build chatter, so
+/// the first assertion/trace stays visible and a model need not execute the
+/// suite again to retrieve it.
+pub(crate) fn is_failure_marker(text: &str) -> bool {
+    (text.starts_with("---- ")
+        && (text.ends_with(" stdout ----") || text.ends_with(" stderr ----")))
+        || (text.starts_with("___")
+            && text.ends_with("___")
+            && text.chars().any(|ch| ch != '_' && !ch.is_whitespace()))
+        || text.starts_with("FAIL: ")
+        || text.starts_with("ERROR: ")
+        || text.starts_with("Traceback (most recent call last):")
+        || text.starts_with("● ")
+        || text.starts_with("FAIL  ")
+        || text.starts_with("not ok ")
+        || (text.starts_with("thread ") && text.contains(" panicked at "))
+        || text.ends_with(": Failure")
+        || text.ends_with(": FAILED:")
+        || text.starts_with("error[")
+        || (text.starts_with("error: ")
+            && !text.starts_with("error: test failed")
+            && !text.starts_with("error: could not compile"))
+        || text.contains(": error:")
+}
+
 fn failure_detail(output: &str, max: usize) -> String {
     const EARLIER: &str = "…[earlier output omitted]\n";
     const BETWEEN: &str = "\n…[intervening output omitted]\n";
@@ -2415,28 +2575,7 @@ fn failure_detail(output: &str, max: usize) -> String {
     let mut summary_end = None;
     for line in output.split_inclusive('\n') {
         let text = line.trim();
-        // Match diagnostic blocks, not the runner's progress/failure-name
-        // listing or dependency build chatter. Keep the first assertion/trace
-        // visible so a model need not execute the suite again to retrieve it.
-        let marker = (text.starts_with("---- ")
-            && (text.ends_with(" stdout ----") || text.ends_with(" stderr ----")))
-            || (text.starts_with("___")
-                && text.ends_with("___")
-                && text.chars().any(|ch| ch != '_' && !ch.is_whitespace()))
-            || text.starts_with("FAIL: ")
-            || text.starts_with("ERROR: ")
-            || text.starts_with("Traceback (most recent call last):")
-            || text.starts_with("● ")
-            || text.starts_with("FAIL  ")
-            || text.starts_with("not ok ")
-            || (text.starts_with("thread ") && text.contains(" panicked at "))
-            || text.ends_with(": Failure")
-            || text.ends_with(": FAILED:")
-            || text.starts_with("error[")
-            || (text.starts_with("error: ")
-                && !text.starts_with("error: test failed")
-                && !text.starts_with("error: could not compile"))
-            || text.contains(": error:");
+        let marker = is_failure_marker(text);
         if marker && first_failure.is_none() {
             first_failure = Some(offset);
         }

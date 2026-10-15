@@ -650,6 +650,147 @@ fn build_request_never_sends_max_output_tokens() {
     }
 }
 
+#[test]
+fn catalog_names_the_daybreak_program_each_model_offers() {
+    let models = model_catalog_from_str(
+        r#"{
+  "models": [
+    {"slug":"astra","display_name":"Astra","visibility":"list","priority":1,
+     "available_access_programs":{"cyber":["standard"]}},
+    {"slug":"sol","display_name":"Sol","visibility":"list","priority":2,
+     "available_access_programs":{"cyber":["standard","daybreak_red","daybreak_blue"]}},
+    {"slug":"luna","display_name":"Luna","visibility":"list","priority":3,
+     "available_access_programs":{"cyber":["daybreak_red","some_future_program"]}},
+    {"slug":"terra","display_name":"Terra","visibility":"list","priority":4}
+  ]
+}"#,
+    );
+    let program = |slug: &str| {
+        models
+            .iter()
+            .find(|model| model.slug == slug)
+            .unwrap()
+            .daybreak_program()
+    };
+    assert_eq!(program("astra"), None);
+    assert_eq!(
+        program("sol"),
+        Some("daybreak_blue"),
+        "blue first, as Codex picks"
+    );
+    assert_eq!(program("luna"), Some("daybreak_red"));
+    assert_eq!(program("terra"), None);
+}
+
+#[test]
+fn a_reshaped_access_program_list_costs_only_that_model_its_programs() {
+    let models = model_catalog_from_str(
+        r#"{
+  "models": [
+    {"slug":"sol","display_name":"Sol","visibility":"list","priority":1,
+     "available_access_programs":null},
+    {"slug":"luna","display_name":"Luna","visibility":"list","priority":2,
+     "available_access_programs":{"cyber":[{"name":"daybreak_blue"},"daybreak_blue"]}},
+    {"slug":"blue","display_name":"Blue","visibility":"list","priority":3,
+     "available_access_programs":{"cyber":["daybreak_blue"]}}
+  ]
+}"#,
+    );
+    assert_eq!(models.len(), 3, "the catalog survives an odd field");
+    assert_eq!(models[0].daybreak_program(), None);
+    assert_eq!(models[1].daybreak_program(), Some("daybreak_blue"));
+    // The plain ChatGPT seat serves a model with no programs listed, never one
+    // offered only under Daybreak.
+    assert!(models[0].standard_access());
+    assert!(!models[2].standard_access());
+}
+
+#[test]
+fn a_daybreak_seat_sends_its_access_program_and_no_other_seat_does() {
+    let plain = club_for("gpt-6-sol").build_request(&[ChatMsg::user("hi")], &[]);
+    assert!(plain.get("access_programs").is_none(), "{plain}");
+    assert!(
+        club_for("gpt-6-sol")
+            .resolved_model_defaults()
+            .get("access_programs")
+            .is_none()
+    );
+
+    let mut daybreak = club_for("gpt-6-sol").with_cyber_access_program("daybreak_blue");
+    daybreak.name = "daybreak".into();
+    assert_eq!(daybreak.provider_label(), "daybreak");
+    let body = daybreak.build_request(&[ChatMsg::user("hi")], &[]);
+    assert_eq!(
+        body["access_programs"],
+        serde_json::json!({ "cyber": "daybreak_blue" })
+    );
+    assert_eq!(body["model"], "gpt-6-sol");
+    assert_eq!(
+        daybreak.resolved_model_defaults()["access_programs"],
+        body["access_programs"]
+    );
+
+    // Only the ChatGPT login carries a program; an API-key seat never does.
+    let api = CodexClub::api_key_seat(
+        "openai-api",
+        "gpt-6-sol",
+        "https://api.openai.com/v1/responses",
+        "sk-test",
+        None,
+        vec!["low".into()],
+        crate::agent::club::RouteMetadata::default(),
+    )
+    .with_cyber_access_program("daybreak_blue");
+    let body = api.build_request(&[ChatMsg::user("hi")], &[]);
+    assert!(body.get("access_programs").is_none(), "{body}");
+    assert!(
+        api.resolved_model_defaults()
+            .get("access_programs")
+            .is_none()
+    );
+
+    // Validate the route against the same immutable catalog before dispatch.
+    let mut model = CodexModelInfo {
+        slug: "gpt-6-sol".into(),
+        default_reasoning_level: "high".into(),
+        supported_reasoning_levels: vec![CodexReasoningLevel {
+            effort: "high".into(),
+            description: String::new(),
+        }],
+        ..Default::default()
+    };
+    model.available_access_programs.cyber = vec!["daybreak_blue".into()];
+    let catalog = Arc::new(crate::agent::codex_catalog::CatalogLoad::from_models(
+        crate::agent::codex_catalog::Source::Legacy,
+        vec![model],
+    ));
+    let selection = crate::agent::club::codex_selection::Selection {
+        model: "gpt-6-sol".into(),
+        effort: "high".into(),
+        model_source: "catalog",
+        effort_source: "catalog",
+        error: None,
+    };
+    let mut entitled = daybreak.with_catalog_selection(selection.clone(), Arc::clone(&catalog));
+    assert!(entitled.capture_selection(None).is_ok());
+    entitled.cyber_access_program = Some("daybreak_red");
+    assert!(
+        entitled
+            .capture_selection(None)
+            .unwrap_err()
+            .contains("access program")
+    );
+    entitled.model = "not-in-catalog".into();
+    assert!(entitled.capture_selection(None).is_err());
+    let plain = club_for("gpt-6-sol").with_catalog_selection(selection, catalog);
+    assert!(
+        plain
+            .capture_selection(None)
+            .unwrap_err()
+            .contains("entitled route")
+    );
+}
+
 /// Read one full HTTP request (headers + `Content-Length` body) off a
 /// socket, mirroring the local-server helpers the chat-route tests use.
 fn read_http_request(sock: &mut std::net::TcpStream) -> String {
@@ -2094,4 +2235,239 @@ fn an_openai_seat_stands_on_its_vendor_autonomy_page() {
         sol.build_request(&hop1, tools)["instructions"],
         "You are angel."
     );
+}
+
+/// A completed Responses stream hands its connection to the next call: the
+/// body's chunked tail is read off-thread so the pool can take the socket back.
+#[test]
+#[cfg(target_os = "linux")] // where abortable requests pool
+fn responses_calls_reuse_one_provider_connection() {
+    use std::io::Write;
+    let _guard = env_lock();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut sock, _) = listener.accept().unwrap();
+        sock.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        for answer in ["first", "second"] {
+            let request = read_http_request(&mut sock);
+            assert!(
+                request.starts_with("POST"),
+                "no request on the kept connection: {request:?}"
+            );
+            let events = format!(
+                "data: {{\"type\":\"response.output_text.delta\",\"delta\":\"{answer}\"}}\n\n\
+data: {{\"type\":\"response.completed\",\"response\":{{}}}}\n\n"
+            );
+            write!(
+                sock,
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{events}\r\n0\r\n\r\n",
+                events.len()
+            )
+            .unwrap();
+            sock.flush().unwrap();
+        }
+        listener.set_nonblocking(true).unwrap();
+        assert!(
+            listener.accept().is_err(),
+            "a Responses call opened a second connection"
+        );
+    });
+    let club = CodexClub::api_key_seat(
+        "muse-spark-1.3",
+        "muse-spark-1.3",
+        format!("http://{addr}/v1/responses"),
+        "meta-fixture-key",
+        Some("low".into()),
+        vec!["minimal".into(), "low".into(), "medium".into()],
+        crate::agent::club::RouteMetadata::default(),
+    );
+    for answer in ["first", "second"] {
+        let reply = club
+            .chat_streaming(
+                &[ChatMsg::user("fixture")],
+                &[],
+                &AtomicBool::new(false),
+                &mut |_| {},
+            )
+            .unwrap();
+        assert!(
+            matches!(&reply, ClubReply::Text(text) if text == answer),
+            "{reply:?}"
+        );
+        // The finished body's terminator is read on its own thread; a real
+        // turn runs its tools in that gap.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    server.join().unwrap();
+}
+
+/// One chunked Responses answer as a keep-alive server sends it.
+fn chunked_responses_answer(answer: &str) -> String {
+    let events = format!(
+        "data: {{\"type\":\"response.output_text.delta\",\"delta\":\"{answer}\"}}\n\n\
+data: {{\"type\":\"response.completed\",\"response\":{{}}}}\n\n"
+    );
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{events}\r\n0\r\n\r\n",
+        events.len()
+    )
+}
+
+fn drop_socket(sock: std::net::TcpStream, rst: bool) {
+    if rst {
+        use std::os::unix::io::AsRawFd;
+        let linger = libc::linger {
+            l_onoff: 1,
+            l_linger: 0,
+        };
+        // SAFETY: a live socket fd and a correctly sized linger struct.
+        unsafe {
+            libc::setsockopt(
+                sock.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_LINGER,
+                &linger as *const libc::linger as *const libc::c_void,
+                std::mem::size_of::<libc::linger>() as libc::socklen_t,
+            );
+        }
+    }
+    drop(sock);
+}
+
+/// The Responses seats have no transport retry of their own, so a kept
+/// connection the provider dropped (idle FIN/RST, or the close crossing the
+/// next request) would surface as a provider error. It never does: the dead
+/// socket is replaced, or the lost request resent once with the same body.
+#[test]
+#[cfg(target_os = "linux")]
+fn a_responses_call_survives_a_provider_closed_kept_connection() {
+    use std::io::Write;
+    let _guard = env_lock();
+    for crossing in [false, true] {
+        for rst in [false, true] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let addr = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let mut requests = Vec::new();
+                let (mut kept, _) = listener.accept().unwrap();
+                kept.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                requests.push(read_http_request(&mut kept));
+                kept.write_all(chunked_responses_answer("first").as_bytes())
+                    .unwrap();
+                if crossing {
+                    requests.push(read_http_request(&mut kept));
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(150));
+                }
+                drop_socket(kept, rst);
+                let (mut fresh, _) = listener.accept().unwrap();
+                fresh
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                requests.push(read_http_request(&mut fresh));
+                fresh
+                    .write_all(chunked_responses_answer("second").as_bytes())
+                    .unwrap();
+                listener.set_nonblocking(true).unwrap();
+                assert!(listener.accept().is_err(), "a third connection");
+                requests
+            });
+            let club = CodexClub::api_key_seat(
+                "muse-spark-1.3",
+                "muse-spark-1.3",
+                format!("http://{addr}/v1/responses"),
+                "meta-fixture-key",
+                Some("low".into()),
+                vec!["minimal".into(), "low".into(), "medium".into()],
+                crate::agent::club::RouteMetadata::default(),
+            );
+            let call = || {
+                club.chat_streaming(
+                    &[ChatMsg::user("fixture")],
+                    &[],
+                    &AtomicBool::new(false),
+                    &mut |_| {},
+                )
+            };
+            let first = call().unwrap();
+            assert!(
+                matches!(&first, ClubReply::Text(text) if text == "first"),
+                "{first:?}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            let second = call();
+            assert!(
+                matches!(&second, Ok(ClubReply::Text(text)) if text == "second"),
+                "crossing={crossing} rst={rst}: {second:?}"
+            );
+            let requests = server.join().unwrap();
+            assert_eq!(
+                requests.len(),
+                if crossing { 3 } else { 2 },
+                "crossing={crossing} rst={rst}"
+            );
+            if crossing {
+                let body =
+                    |request: &String| request.split_once("\r\n\r\n").map(|(_, b)| b.to_string());
+                assert_eq!(
+                    body(&requests[1]),
+                    body(&requests[2]),
+                    "the resend carries the same body"
+                );
+            }
+        }
+    }
+}
+
+/// The Responses seats carry a provider's `x-should-retry: false` in the
+/// error they return, so the turn treats the failure as permanent.
+#[test]
+fn a_responses_retry_veto_reaches_the_error() {
+    use std::io::Write;
+    let _guard = env_lock();
+    for (header, vetoed) in [(Some("false"), true), (Some("true"), false), (None, false)] {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            let _ = read_http_request(&mut sock);
+            let body = r#"{"error":{"message":"overloaded"}}"#;
+            let header = header
+                .map(|value| format!("x-should-retry: {value}\r\n"))
+                .unwrap_or_default();
+            write!(
+                sock,
+                "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n{header}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        let club = CodexClub::api_key_seat(
+            "muse-spark-1.3",
+            "muse-spark-1.3",
+            format!("http://{addr}/v1/responses"),
+            "meta-fixture-key",
+            Some("low".into()),
+            vec!["minimal".into(), "low".into(), "medium".into()],
+            crate::agent::club::RouteMetadata::default(),
+        );
+        let error = club
+            .chat_streaming(
+                &[ChatMsg::user("fixture")],
+                &[],
+                &AtomicBool::new(false),
+                &mut |_| {},
+            )
+            .expect_err("a 503");
+        server.join().unwrap();
+        assert_eq!(
+            error.contains(crate::agent::club::PROVIDER_RETRY_VETO),
+            vetoed,
+            "{error}"
+        );
+        assert!(error.contains("HTTP 503"), "{error}");
+    }
 }

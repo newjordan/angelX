@@ -1046,7 +1046,21 @@ impl App {
                             }
                         }
                         Gear::Learn(words) => {
-                            if run.can_wish(knight) {
+                            let known = run
+                                .players
+                                .get(&knight)
+                                .and_then(|h| shooter::phrasebook::find_for(&words, &h.deck));
+                            if !run.can_wish(knight) {
+                                replies.push((knight, "Wishes open when the room is clear: one each.".into()));
+                            } else if let Some(wish) = known {
+                                match run.grant(knight, &wish) {
+                                    Ok(name) => {
+                                        self.dungeon.notice = format!("Knight {knight} is granted {name}");
+                                        replies.push((knight, format!("Granted: {name}.")));
+                                    }
+                                    Err(why) => replies.push((knight, why)),
+                                }
+                            } else {
                                 learns.push((knight, words.clone()));
                                 replies.push((knight, "The scroll is learning it; keep playing.".into()));
                             }

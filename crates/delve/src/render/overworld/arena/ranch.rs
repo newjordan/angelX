@@ -8,6 +8,7 @@
 //! feathered legs, and his mane and tail are a layer of their own: when he
 //! gallops through the low sun they are drawn as fire.
 use super::super::ink::{Img, bayer, hash, vnoise};
+use super::super::material as m;
 use super::{TILE, at, home, stand};
 use crate::rules::ranch::{
     self as r, Age, BARN, DRAFT_AT, FIELDS_GATE, FIELDS_OUT, GROOM_AT, HAY, LECTERN, OAK,
@@ -161,8 +162,12 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
         let (a, b) = (up.to_radians(), (up + lo).to_radians());
         let (kx, ky) = (x + a.sin() * 7.5, by + 2.0 + a.cos() * 7.5);
         let (fx, fy) = (kx + b.sin() * 8.0, ky + b.cos() * 8.0);
-        thick(im, p(x, by), p(kx, ky), ink, px(if near { 6.0 } else { 5.0 }));
-        thick(im, p(kx, ky), p(fx, fy), ink, px(3.6));
+        // The forearm tapers from the body to the knee, the cannon below
+        // it is lean: a leg, not a post.
+        let (mx, my) = ((x + kx) / 2.0, (by + ky) / 2.0 + 1.0);
+        thick(im, p(x, by), p(mx, my), ink, px(if near { 6.0 } else { 5.0 }));
+        thick(im, p(mx, my), p(kx, ky), ink, px(if near { 4.4 } else { 3.8 }));
+        thick(im, p(kx, ky), p(fx, fy), ink, px(3.0));
         // Feather: long hair from mid-cannon over the hoof, flaring, ragged.
         let n = 10;
         for i in 0..=n {
@@ -267,7 +272,18 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
             }
         }
     }
-    body.outline_outside('k');
+    // Parted from the ground by a rim a step under its own shade, never
+    // by a black line.
+    let rim = super::super::ink::ink(h.dark).map(m::darker);
+    if let Some(rim) = rim {
+        let edge: Vec<(i32, i32)> = (0..ih)
+            .flat_map(|y| (0..iw).map(move |x| (x, y)))
+            .filter(|&(x, y)| !body.solid(x, y) && [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| body.solid(x + dx, y + dy)))
+            .collect();
+        for (x, y) in edge {
+            body.set(x, y, rim);
+        }
+    }
     // Mane and tail: thick locks, root to tip.
     let tick = fire.unwrap_or(0);
     let calm = h.mane;
@@ -374,7 +390,11 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
 fn grass(cv: &mut Img, x: i32, y: i32, w: i32) {
     let n = vnoise(x as f32 / 22.0, y as f32 / 16.0, 41);
     let sun = x as f32 / w as f32 * 0.45 + (1.0 - y as f32 / 224.0) * 0.15;
-    let light = (n * 0.45 + sun + bayer(x, y) * 0.18).clamp(0.0, 0.999);
+    // Clumps of blades a few pixels across, each lit on its north-west,
+    // where an ordered dither once laid an even checker.
+    let c = vnoise(x as f32 / 3.0, y as f32 / 2.2, 42);
+    let cl = vnoise((x + 1) as f32 / 3.0, (y + 1) as f32 / 2.2, 42);
+    let light = (n * 0.45 + sun + 0.06 + (c - 0.5) * 0.14 + (c - cl) * 0.35).clamp(0.0, 0.999);
     const RAMP: [char; 8] = ['E', 'l', 'N', 'm', 'L', 'A', 'M', 'y'];
     let mut ink = RAMP[(light * RAMP.len() as f32) as usize];
     // Blades: a darker stroke here and there.
@@ -386,6 +406,33 @@ fn grass(cv: &mut Img, x: i32, y: i32, w: i32) {
         ink = 'Y';
     }
     cv.put(x, y, ink);
+}
+
+/// The yard's gravel: larger patches of light and shadow with stones in
+/// loose clusters on them, each stone lit along its top over a darker body
+/// and a shadowed foot; never an even speckle.
+fn gravel(x: i32, y: i32) -> char {
+    let patch = vnoise(x as f32 / 12.0, y as f32 / 9.0, 35);
+    let base = if patch > 0.62 { 'X' } else { 'g' };
+    let (cx, cy) = (x.div_euclid(4), y.div_euclid(3));
+    let (px, py) = (x.rem_euclid(4), y.rem_euclid(3));
+    let h = hash(cx, cy, 4);
+    if h % 3 == 0 {
+        let ox = ((h >> 5) % 2) as i32;
+        if py == 0 && (px == ox || px == ox + 1) {
+            return if (h >> 8).is_multiple_of(5) { 'h' } else { 'J' };
+        }
+        if py == 1 && (px == ox || px == ox + 1) {
+            return 'G';
+        }
+        if py == 1 && px == ox + 2 {
+            return 'K';
+        }
+    }
+    if h % 17 == 1 && px == 2 && py == 1 {
+        return 'P';
+    }
+    base
 }
 
 /// Small yellow flowers, thicker in drifts.
@@ -422,14 +469,35 @@ fn flowers(cv: &mut Img, x0: i32, y0: i32, w: i32, h: i32, keep: impl Fn(i32, i3
 /// The low sun in the north-east: its disc over the tree line and a soft
 /// glow into the sky (the grass is lit by `grass`).
 fn sun(cv: &mut Img) {
+    use super::super::ink::ink;
     let (sx, sy) = (cv.w as f32 - 34.0, 2.0);
+    let sky = [ink('V'), ink('W'), ink('c'), ink('9')];
     for y in 0..TILE + 2 {
         for x in 0..cv.w {
             let d = ((x as f32 - sx).powi(2) + ((y as f32 - sy) * 1.4).powi(2)).sqrt();
             if d < 9.0 {
                 cv.put(x, y, if d < 6.0 { '9' } else { '6' });
-            } else if d < 70.0 && bayer(x, y) < (1.0 - d / 70.0) * 0.9 {
-                cv.put(x, y, if d < 30.0 { '6' } else { 'T' });
+                continue;
+            }
+            if d >= 70.0 {
+                continue;
+            }
+            // The glow falls off in soft rings whose edges wander in blots:
+            // the sky warms toward the disc, and the crowns and grass in
+            // it take the light a step or two lighter, keeping their marks.
+            let g = 1.0 - d / 70.0 + (super::super::light::seam(x, y) - 0.5) * 0.1;
+            let Some(c) = cv.get(x, y) else { continue };
+            if sky.contains(&Some(c)) {
+                if g > 0.62 {
+                    cv.put(x, y, '6');
+                } else if g > 0.4 {
+                    cv.put(x, y, 'T');
+                } else if g > 0.22 {
+                    cv.put(x, y, 'c');
+                }
+            } else if g > 0.3 {
+                let lit = m::lighter(c);
+                cv.set(x, y, if g > 0.6 { m::lighter(lit) } else { lit });
             }
         }
     }
@@ -440,7 +508,9 @@ fn tree_line(cv: &mut Img) {
     // A pale morning sky, warmer toward the sun.
     for y in 0..TILE {
         for x in 0..cv.w {
-            let warm = x as f32 / cv.w as f32 + bayer(x, y) * 0.3;
+            // Soft bands warming toward the sun, their edges wandering in
+            // blots rather than a checker.
+            let warm = x as f32 / cv.w as f32 + (super::super::light::seam(x, y) - 0.5) * 0.12 + 0.12;
             cv.put(x, y, if warm > 0.95 { '9' } else if warm > 0.6 { 'c' } else if y < 4 { 'V' } else { 'W' });
         }
     }
@@ -451,9 +521,9 @@ fn tree_line(cv: &mut Img) {
             let ink = if lit { 'A' } else if (y + x / 3) % 4 == 0 { 'F' } else { 'E' };
             cv.put(x, y, ink);
         }
-        // Mist along the foot of the trees.
+        // Mist along the foot of the trees, in wisps.
         for y in TILE - 3..TILE {
-            if bayer(x, y) < 0.18 {
+            if super::super::light::seam(x * 2, y * 4) < 0.24 - (TILE - 1 - y) as f32 * 0.04 {
                 cv.put(x, y, 'V');
             }
         }
@@ -468,17 +538,18 @@ fn fence(cv: &mut Img, gaps: &[(i32, i32, i32, i32)]) {
             x >= c * TILE && x < (c + gw) * TILE && y >= (r - 1) * TILE && y < (r + gh + 1) * TILE
         })
     };
-    // South rail.
-    for x in 0..w {
+    // South rail: a run of split rails between each gap.
+    let mut x = 0;
+    while x < w {
         if gap(x, h - 8) {
+            x += 1;
             continue;
         }
-        cv.put(x, h - 10, 'o');
-        cv.put(x, h - 6, 'r');
-        if x % 22 == 0 {
-            cv.rect(x - 1, h - 13, 3, 12, 'P');
-            cv.put(x, h - 13, 'o');
+        let start = x;
+        while x < w && !gap(x, h - 8) {
+            x += 1;
         }
+        m::rail_fence(cv, (start - 1, x), h - 2, &[h - 11, h - 7], 22, ('o', 'r'), start as u32);
     }
     // West and east rails, seen end-on: posts only.
     for y in (TILE + 6..h - 12).step_by(20) {
@@ -499,7 +570,7 @@ fn gate(cv: &mut Img, (c, r, w, _): (i32, i32, i32, i32), south: bool) {
     for yy in r * TILE..(r + 1) * TILE + if south { 8 } else { 0 } {
         for x in x0..x1 {
             let edge = (x - x0).min(x1 - 1 - x) as f32 / 8.0;
-            if bayer(x, yy) < edge.min(1.0) * 0.8 {
+            if super::super::light::seam(x, yy) < edge.min(1.0) * 0.8 {
                 cv.put(x, yy, if hash(x, yy, 3) % 4 == 0 { 'B' } else { 'P' });
             }
         }
@@ -522,8 +593,10 @@ fn oak(cv: &mut Img) {
     // Its morning shadow, long to the south-west.
     for yy in cy..cy + h {
         for xx in x - 30..x + w {
+            // Solid in its core, its edge breaking up in soft blots.
             let (dx, dy) = ((xx - (cx - 22)) as f32 / 34.0, (yy - (cy + 26)) as f32 / 14.0);
-            if dx * dx + dy * dy < 1.0 && bayer(xx, yy) < 0.6 {
+            let d = dx * dx + dy * dy;
+            if d < 1.0 && (d < 0.55 || super::super::light::seam(xx, yy) > (d - 0.55) / 0.45) {
                 if let Some(c) = cv.get(xx, yy) {
                     let _ = c;
                     cv.put(xx, yy, 'E');
@@ -557,7 +630,23 @@ fn trough(cv: &mut Img, (c, r, w, _): (i32, i32, i32, i32), tick: u32) {
 }
 
 /// The flower fields at morning.
-fn pasture(cv: &mut Img, tick: u32) {
+/// What of a room's picture never moves, drawn once and kept: the ground,
+/// the flowers, the tree line and what stands first on them. Each bake
+/// starts from a copy and draws the rest in the same order.
+fn still(cv: &mut Img, slot: &'static std::sync::OnceLock<Img>, draw: fn(&mut Img)) {
+    let base = slot.get_or_init(|| {
+        let mut base = Img::black(cv.w, cv.h);
+        draw(&mut base);
+        base
+    });
+    if base.w == cv.w && base.h == cv.h {
+        cv.stamp(base, 0, 0);
+    } else {
+        draw(cv);
+    }
+}
+
+fn pasture_ground(cv: &mut Img) {
     let w = cv.w;
     for y in TILE..cv.h {
         for x in 0..w {
@@ -567,6 +656,12 @@ fn pasture(cv: &mut Img, tick: u32) {
     flowers(cv, 0, TILE, w, cv.h - TILE, |_, _| true);
     tree_line(cv);
     oak(cv);
+}
+
+fn pasture(cv: &mut Img, tick: u32) {
+    static STILL: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
+    let w = cv.w;
+    still(cv, &STILL, pasture_ground);
     trough(cv, TROUGH, tick);
     fence(cv, &[FIELDS_OUT]);
     gate(cv, FIELDS_OUT, true);
@@ -588,18 +683,33 @@ fn barn(cv: &mut Img) {
     // A gambrel roof in dark red shingles, its ridge catching the sun.
     for yy in y - 6..y + roof_h {
         let inset = ((y + roof_h - yy) as f32 * 0.35) as i32;
-        for xx in x + inset - 4..x + w - inset + 4 {
+        let (west, east) = (x + inset - 4, x + w - inset + 3);
+        for xx in west..=east {
             let course = (yy - y) % 4 == 0;
-            let ink = if course { '8' } else if (xx + (yy / 4) * 3) % 7 == 0 { 'p' } else { 'B' };
+            let mut ink = if course { '8' } else if (xx + (yy / 4) * 3) % 7 == 0 { 'p' } else { 'B' };
+            // The roof as a volume in the low sun: its west slope lit, its
+            // east slope a step into shade, the eave's last course darkest.
+            if xx < west + 5 && !course {
+                ink = if ink == 'B' { 'p' } else { 'R' };
+            } else if xx > east - 5 {
+                ink = if course { 'n' } else { 'b' };
+            }
+            if yy == y + roof_h - 1 {
+                ink = 'n';
+            }
             cv.put(xx, yy, ink);
         }
-        cv.put(x + w - inset + 3, yy, 'R');
+        cv.put(west, yy, 'R');
     }
     cv.line(x + 20, y - 6, x + w - 20, y - 6, 'R');
-    // Red board walls, white trim.
+    // Red board walls, white trim: the eave's shadow across the top, the
+    // ground's along the foot and the east corner in shade, where each
+    // board's seam widens.
     for yy in y + roof_h..y + h {
         for xx in x..x + w {
-            cv.put(xx, yy, if (xx - x) % 5 == 0 { '8' } else { '7' });
+            let k = (xx - x) % 5;
+            let shade = yy < y + roof_h + 2 || yy >= y + h - 2 || xx >= x + w - 3;
+            cv.put(xx, yy, if k == 0 || (shade && k == 4) { '8' } else { '7' });
         }
     }
     cv.line(x, y + roof_h, x + w - 1, y + roof_h, 'c');
@@ -648,8 +758,7 @@ fn stall(cv: &mut Img, tick: u32) {
     // His brass plate, and a rosette.
     let (bx, by) = (x + w / 2 - 19, y + 9);
     let tw = super::super::ink::text_width("HELIOS");
-    cv.rect(bx, by - 2, tw + 8, 9, 'a');
-    cv.frame(bx, by - 2, tw + 8, 9, '4');
+    super::super::chrome::inset_panel(cv, (bx, by - 2, tw + 8, 10), super::super::chrome::Tone::NAMEPLATE);
     cv.text(bx + 4, by, "HELIOS", '6');
     let (rx, ry) = (x + w - 9, y + 20);
     cv.ellipse(rx as f32, ry as f32, 3.5, 3.5, '1');
@@ -718,14 +827,9 @@ fn paddock(cv: &mut Img) {
             }
         }
     }
-    for xx in (x..=x + w).step_by(16) {
-        for yy in [y, y + h - 1] {
-            cv.rect(xx - 1, yy - 8, 3, 10, 'P');
-            cv.put(xx, yy - 8, 'o');
-        }
-    }
-    for yy in [y - 5, y - 1, y + h - 6, y + h - 2] {
-        cv.line(x, yy, x + w, yy, if yy % 2 == 0 { 'o' } else { 'r' });
+    // Split rails along the near and far sides.
+    for (foot, seed) in [(y + 1, 1), (y + h, 2)] {
+        m::rail_fence(cv, (x - 1, x + w + 1), foot, &[foot - 7, foot - 3], 16, ('o', 'r'), 60 + seed);
     }
     for yy in (y..y + h).step_by(16) {
         cv.rect(x - 1, yy, 3, 9, 'P');
@@ -735,6 +839,20 @@ fn paddock(cv: &mut Img) {
 
 /// The ranch yard at morning.
 fn ranch(cv: &mut Img, tick: u32) {
+    static STILL: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
+    still(cv, &STILL, ranch_ground);
+    stall(cv, tick);
+    stud_book(cv);
+    rail(cv);
+    hay(cv);
+    paddock(cv);
+    fence(cv, &[RANCH_OUT]);
+    gate(cv, RANCH_OUT, true);
+    gate(cv, FIELDS_GATE, false);
+    sun(cv);
+}
+
+fn ranch_ground(cv: &mut Img) {
     let w = cv.w;
     let paths = [(1, 5, 22, 2), (1, 6, 2, 7), (19, 1, 3, 5), (8, 7, 4, 3)];
     for y in TILE..cv.h {
@@ -745,12 +863,12 @@ fn ranch(cv: &mut Img, tick: u32) {
                 .iter()
                 .any(|&(c, r, pw, ph)| tx >= c && tx < c + pw && ty >= r && ty < r + ph);
             if on_path {
-                let n = hash(x, y, 4) % 29;
-                cv.put(x, y, match n { 0 => 'J', 1 | 2 => 'P', 3..=6 => 'X', _ => 'g' });
+                cv.put(x, y, gravel(x, y));
             } else if verge {
                 grass(cv, x, y, w);
             } else {
-                let n = vnoise(x as f32 / 20.0, y as f32 / 14.0, 33) + bayer(x, y) * 0.12;
+                // Trodden mud in soft patches, wetter where it is darker.
+                let n = vnoise(x as f32 / 20.0, y as f32 / 14.0, 33) + (vnoise(x as f32 / 4.0, y as f32 / 3.0, 34) - 0.5) * 0.1;
                 cv.put(x, y, if n > 0.72 { 'P' } else { 'B' });
                 if hash(x, y, 29) % 97 == 0 {
                     cv.put(x, y, if hash(x, y, 30) % 2 == 0 { 'O' } else { 't' });
@@ -764,15 +882,6 @@ fn ranch(cv: &mut Img, tick: u32) {
     });
     tree_line(cv);
     barn(cv);
-    stall(cv, tick);
-    stud_book(cv);
-    rail(cv);
-    hay(cv);
-    paddock(cv);
-    fence(cv, &[RANCH_OUT]);
-    gate(cv, RANCH_OUT, true);
-    gate(cv, FIELDS_GATE, false);
-    sun(cv);
 }
 
 /// The two rooms' scenery.

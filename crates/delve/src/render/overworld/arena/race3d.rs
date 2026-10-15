@@ -138,29 +138,48 @@ fn snap(c: [u8; 3]) -> Rgb {
     cube[(usize::from(c[0] >> 3) << 10) | (usize::from(c[1] >> 3) << 5) | usize::from(c[2] >> 3)]
 }
 
-/// The frame as ordered dots on black paper: a dot is set where the
-/// pixel's tone beats the Bayer screen, in the pixel's own ink lifted to
-/// a readable floor; everything else stays black. The same hand as the
-/// scryglass, so the race sits in the same night as the rest.
+/// The frame on black paper, as light falling off into the night: each
+/// pixel is its own ink, lifted to a readable floor and stepped down by its
+/// tone, so a lit surface fades smoothly toward black. Where it has faded
+/// below `DUSK_LO` it is black paper; between `DUSK_LO` and `DUSK_HI` the
+/// last of the light thins out in an ordered dither, a narrow fringe at the
+/// edge of each pool and not a screen over every surface.
 fn dots(rgba: &[u8], w: i32, h: i32) -> Img {
     dots_with(rgba, w, h, (12.0, 140.0, 1.1, 66.0))
 }
 
+/// The fringe, in the brightest channel of the faded ink.
+const DUSK_LO: f32 = 22.0;
+const DUSK_HI: f32 = 34.0;
+
 pub(super) fn dots_with(rgba: &[u8], w: i32, h: i32, k: (f32, f32, f32, f32)) -> Img {
     let (black_point, white_point, gamma, ink_floor) = k;
+    // The tone's ramp by whole luma, and the readable floor's lift by the
+    // brightest channel: 256 entries each, built once a frame, so a pixel
+    // costs table reads and a few multiplies, no powers.
+    let ramp: [f32; 256] = std::array::from_fn(|l| {
+        let tone = ((l as f32 - black_point) / (white_point - black_point)).clamp(0.0, 1.0).powf(gamma);
+        tone.powf(0.8)
+    });
+    let floor: [f32; 256] = std::array::from_fn(|p| (ink_floor / (p as f32).max(1.0)).max(1.0));
     let mut px = Vec::with_capacity((w * h) as usize);
     for y in 0..h {
         for x in 0..w {
             let i = ((y * w + x) * 4) as usize;
             let c = [rgba[i], rgba[i + 1], rgba[i + 2]];
-            let luma = 0.299 * f32::from(c[0]) + 0.587 * f32::from(c[1]) + 0.114 * f32::from(c[2]);
-            let tone = ((luma - black_point) / (white_point - black_point)).clamp(0.0, 1.0).powf(gamma);
-            if tone <= bayer(x, y) {
-                px.push(BLACK);
-                continue;
+            let luma = (77 * u32::from(c[0]) + 150 * u32::from(c[1]) + 29 * u32::from(c[2])) >> 8;
+            let peak = c[0].max(c[1]).max(c[2]);
+            // The ink at a readable floor, then down the tone's ramp.
+            let mut lift = floor[usize::from(peak)] * ramp[luma as usize];
+            let bright = f32::from(peak.max(1)) * lift;
+            if bright < DUSK_HI {
+                if (bright - DUSK_LO) * (1.0 / (DUSK_HI - DUSK_LO)) <= bayer(x, y) {
+                    px.push(BLACK);
+                    continue;
+                }
+                // The fringe's flecks keep the fringe's own dim ink.
+                lift = DUSK_HI / f32::from(peak.max(1));
             }
-            let peak = f32::from(c[0].max(c[1]).max(c[2])).max(1.0);
-            let lift = (ink_floor / peak).max(1.0);
             let lifted = c.map(|v| (f32::from(v) * lift).min(255.0) as u8);
             px.push(snap(lifted));
         }
@@ -286,8 +305,7 @@ fn big(over: &mut Img, cx: i32, y: i32, text: &str, ink: char, k: f32) -> i32 {
 
 /// A dark plate behind words, with a thin rule round it.
 fn plate(over: &mut Img, x: i32, y: i32, w: i32, h: i32) {
-    over.rect(x, y, w, h, 'k');
-    over.frame(x, y, w, h, 'g');
+    super::super::chrome::panel(over, (x, y, w, h), super::super::chrome::Tone::SLATE);
 }
 
 fn place_word(n: usize) -> String {
@@ -436,7 +454,7 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3
     let [(k1, w1), (k2, w2)] = race.course.keys();
     let hint = format!("{k1} {w1}   {k2} {w2}");
     let hw = text_width(&hint);
-    over.rect((w - hw) / 2 - 4, h - 12, hw + 8, 11, 'k');
+    super::super::chrome::panel(over, ((w - hw) / 2 - 4, h - 12, hw + 8, 11), super::super::chrome::Tone::SLATE);
     over.text((w - hw) / 2, h - 10, &hint, 'J');
     if race.t < TITLE + HZ && me.is_none_or(|r| r.crash == 0) {
         big(over, w / 2, h / 2 - 20, "GO!", '5', 4.0);
@@ -486,7 +504,7 @@ fn board(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>) {
         let r = &race.riders[&id];
         let y = py + 36 + k as i32 * 20;
         if Some(id) == seat {
-            over.rect(px + 4, y - 3, pw - 8, 18, 'K');
+            super::super::chrome::highlight(over, (px + 4, y - 3, pw - 8, 18));
         }
         let place = place_word(k + 1);
         over.text(px + 10, y + 3, &place, if k == 0 { '5' } else { 'h' });

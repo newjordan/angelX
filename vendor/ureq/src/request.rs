@@ -57,11 +57,17 @@ impl Request {
         }
     }
 
-    /// Attach an explicit cancellation handle. This request uses a dedicated
-    /// connection so an abort can never affect an unrelated pooled request.
+    /// Attach an explicit cancellation handle. On Linux the request may reuse a
+    /// pooled connection; the handle is detached before that connection
+    /// returns to the pool, so an abort can never affect an unrelated pooled
+    /// request. Elsewhere the request uses a dedicated connection.
     pub fn with_abort_handle(mut self, handle: crate::AbortHandle) -> Self {
         self.abort_handle = Some(handle);
-        self.set("Connection", "close")
+        if crate::stream::ABORTABLE_POOLING {
+            self
+        } else {
+            self.set("Connection", "close")
+        }
     }
 
     #[inline(always)]

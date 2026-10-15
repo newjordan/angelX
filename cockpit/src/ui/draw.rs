@@ -598,6 +598,17 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.world_buttons.clear();
     app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
+    // `/setup` has the whole screen: nothing under it paints, so no image
+    // pane can show through its scroll.
+    if app.setup.open() {
+        app.image_occluders.push(root);
+        app.viewer.clear_still();
+        crate::ui::views::setup_view::render(frame, root, app);
+        render_selection_and_approval_overlays(frame, app);
+        app.scryglass.finish_frame();
+        app.settle_walk();
+        return;
+    }
     if app.dungeon_view_active() {
         let now = Instant::now();
         // The host's delve as its newest tick stands (the words around the

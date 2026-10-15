@@ -153,6 +153,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, intro: &Intro, realm: Option
     frame.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_type(ratatui::widgets::BorderType::Rounded)
         .title(" THE OLD DELVE ")
         .title_style(Style::new().fg(PARCHMENT))
         .style(Style::new().bg(Color::Rgb(0, 0, 0)))

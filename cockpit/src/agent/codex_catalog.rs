@@ -371,7 +371,8 @@ fn parse(bytes: &[u8]) -> Result<CheckedCatalog, Diagnostic> {
 fn normalize(models: Vec<CodexModelInfo>) -> CheckedCatalog {
     let normalized = models.iter().map(|m| json!({"id": m.slug, "name": m.display_name,
         "context": m.context_window, "input": m.input_modalities, "default": m.default_reasoning_level,
-        "levels": m.supported_reasoning_levels.iter().map(|l| &l.effort).collect::<Vec<_>>(), "thinking": m.pi_thinking})).collect::<Vec<_>>();
+        "levels": m.supported_reasoning_levels.iter().map(|l| &l.effort).collect::<Vec<_>>(), "thinking": m.pi_thinking,
+        "access_programs": m.available_access_programs.cyber})).collect::<Vec<_>>();
     let digest = ring::digest::digest(
         &ring::digest::SHA256,
         &serde_json::to_vec(&normalized).expect("normalized JSON"),

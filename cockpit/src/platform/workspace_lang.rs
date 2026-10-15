@@ -268,6 +268,21 @@ fn has_pytest_config(dir: &Path) -> bool {
 /// Cargo path keeps its own pinned, trusted verifier — so a Rust-first workspace
 /// returns `None` and the caller takes the Cargo route.
 pub fn plan_tests(workspace: &Path, hits: &[LangHit], prefer: Option<Lang>) -> Option<TestPlan> {
+    plan_tests_for(workspace, hits, prefer, None)
+}
+
+/// [`plan_tests`] for a caller that names its entrypoint, as `run_tests` does
+/// from its `entrypoint` argument or from the command the model wrote. A
+/// named runner is the runner that runs: `pytest` runs pytest with exactly the
+/// model's own arguments (the typed route's rule in `verifier/plan.rs`), and
+/// `node` runs node's own runner even beside a package script. Unnamed, the
+/// workspace's files choose, as before.
+pub fn plan_tests_for(
+    workspace: &Path,
+    hits: &[LangHit],
+    prefer: Option<Lang>,
+    entrypoint: Option<&str>,
+) -> Option<TestPlan> {
     let hit = match prefer {
         Some(p) => hits.iter().find(|h| h.lang == p)?,
         None => hits.first()?,
@@ -284,7 +299,9 @@ pub fn plan_tests(workspace: &Path, hits: &[LangHit], prefer: Option<Lang>) -> O
         Lang::Js => {
             // package.json with a real test script wins; otherwise node's
             // built-in runner discovers *.test.{js,mjs,cjs}, test/**, test.js.
-            if let Some(script) = package_json_test_script(&abs.join("package.json")) {
+            if entrypoint != Some("node")
+                && let Some(script) = package_json_test_script(&abs.join("package.json"))
+            {
                 return Some(TestPlan {
                     lang: Lang::Js,
                     program: "npm",
@@ -306,7 +323,17 @@ pub fn plan_tests(workspace: &Path, hits: &[LangHit], prefer: Option<Lang>) -> O
             })
         }
         Lang::Python => {
-            if has_pytest_config(&abs) {
+            if entrypoint == Some("pytest") {
+                Some(TestPlan {
+                    lang: Lang::Python,
+                    program: "python3",
+                    args: vec!["-m".into(), "pytest".into()],
+                    dir,
+                    label: "python3 -m pytest".into(),
+                    because,
+                    script: None,
+                })
+            } else if entrypoint != Some("unittest") && has_pytest_config(&abs) {
                 Some(TestPlan {
                     lang: Lang::Python,
                     program: "python3",
@@ -559,6 +586,55 @@ pub(crate) fn missing_program_hint(command: &str) -> Option<String> {
         return Some(hint);
     }
     None
+}
+
+/// A `run_tests` runner written as the command the tool's own description
+/// names (`npm test`, `npx jest`, `cargo test`, `python3 -m pytest`, `node
+/// --test`) rather than a bare language word: its language, the entrypoint the
+/// command names, and how many leading words the command itself took.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RunnerCommand {
+    pub lang: Lang,
+    pub entrypoint: Option<&'static str>,
+    pub words: usize,
+}
+
+/// Read a test command's leading words as a [`RunnerCommand`]; `None` when
+/// they are not a test-runner invocation (a bare `test` is cargo's subcommand
+/// only, and the Cargo route handles it).
+pub fn parse_runner_command(words: &[&str]) -> Option<RunnerCommand> {
+    let word = |i: usize| {
+        words
+            .get(i)
+            .map(|w| w.rsplit('/').next().unwrap_or(w).to_ascii_lowercase())
+    };
+    let (first, second, third) = (word(0)?, word(1), word(2));
+    let command = |lang, entrypoint, words| {
+        Some(RunnerCommand {
+            lang,
+            entrypoint,
+            words,
+        })
+    };
+    match (first.as_str(), second.as_deref(), third.as_deref()) {
+        ("cargo", Some("test"), _) => command(Lang::Rust, None, 2),
+        ("npm" | "pnpm" | "yarn" | "bun", Some("run"), Some("test")) => command(Lang::Js, None, 3),
+        ("npm" | "pnpm" | "yarn" | "bun", Some("test" | "t"), _) => command(Lang::Js, None, 2),
+        ("npx" | "bunx", Some("jest" | "vitest" | "mocha"), _) => command(Lang::Js, None, 2),
+        ("jest" | "vitest" | "mocha", _, _) => command(Lang::Js, None, 1),
+        ("node", Some("--test"), _) => command(Lang::Js, Some("node"), 2),
+        ("python" | "python3", Some("-m"), Some("pytest")) => {
+            command(Lang::Python, Some("pytest"), 3)
+        }
+        ("python" | "python3", Some("-m"), Some("unittest")) => {
+            command(Lang::Python, Some("unittest"), 3)
+        }
+        ("pytest", _, _) => command(Lang::Python, Some("pytest"), 1),
+        ("go", Some("test"), _) => command(Lang::Go, None, 2),
+        ("swift", Some("test"), _) => command(Lang::Swift, None, 2),
+        ("ctest", _, _) => command(Lang::Cpp, None, 1),
+        _ => None,
+    }
 }
 
 /// Parse `lang` from a `run_tests` `runner`/`lang` argument.

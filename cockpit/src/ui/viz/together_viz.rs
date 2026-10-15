@@ -33,6 +33,7 @@ pub(crate) fn render_game(
     frame.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_type(ratatui::widgets::BorderType::Rounded)
         .title(" TOGETHER DUNGEON · shared session ")
         .style(Style::new().bg(Color::Rgb(7, 15, 24)))
         .border_style(Style::new().fg(crate::ui::hud::HUD_BLUE));

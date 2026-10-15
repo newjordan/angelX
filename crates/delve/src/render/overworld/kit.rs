@@ -9,8 +9,11 @@
 use std::f32::consts::PI;
 use std::sync::OnceLock;
 
+use super::chrome;
 use super::ink::{Img, bayer, hash, norm3, shade, vnoise};
 use super::scene::{Soldier, SoldierState};
+
+pub mod hero;
 
 // ─── organic shapes ──────────────────────────────────────────────────────────
 
@@ -54,6 +57,51 @@ pub fn blob(
     im
 }
 
+/// As `blob`, softer, for stone and earth: the form leads with a soft
+/// terminator between a broad lit side and a broad shaded side, grouped
+/// marks lie over it, and the ordered dither is only a whisper.
+pub fn blob_soft(
+    w: i32,
+    h: i32,
+    blobs: &[(f32, f32, f32, f32)],
+    ramp: &[char],
+    tex: f32,
+    seed: u32,
+    grain: f32,
+) -> Img {
+    let light = norm3(-0.55, -0.75, 0.6);
+    let mut im = Img::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+            let mut best: Option<(f32, [f32; 3])> = None;
+            for &(cx, cy, rx, ry) in blobs {
+                let (dx, dy) = ((px - cx) / rx, (py - cy) / ry);
+                let d2 = dx * dx + dy * dy;
+                if d2 < 1.0 {
+                    let z = (1.0 - d2).sqrt();
+                    let score = z + cy / h as f32 * 0.4;
+                    if best.is_none_or(|(s, _)| score > s) {
+                        best = Some((score, norm3(dx, dy, z)));
+                    }
+                }
+            }
+            if let Some((_, n)) = best {
+                let f = ((n[0] * light[0] + n[1] * light[1] + n[2] * light[2]) * 0.5 + 0.5).clamp(0.0, 1.0);
+                let mut i = f * f * (3.0 - 2.0 * f);
+                let g = grain * 1.6;
+                let c = vnoise(px / g, py / g, seed);
+                let cl = vnoise((px + 1.0) / g, (py + 1.0) / g, seed);
+                i += (c - 0.5) * tex * 0.6 + (c - cl) * 0.5;
+                i += (bayer(x, y) - 0.5) * 0.08;
+                let idx = ((i * ramp.len() as f32).floor() as i32).clamp(0, ramp.len() as i32 - 1);
+                im.put(x, y, ramp[idx as usize]);
+            }
+        }
+    }
+    im
+}
+
 /// A tree tile, drawn by the shared material system: 20x22, standing on
 /// its tile's foot so the crowns of neighbouring tiles overlap, south over
 /// north. Stamp it two pixels left of and six above its tile.
@@ -68,7 +116,19 @@ fn tree(v: u32) -> Img {
     };
     let keep = |x: i32, y: i32| (0..20).contains(&x) && (0..22).contains(&y);
     let r = if leaf == Leaf::Pine { 6.5 } else { 7.5 + (v % 3) as f32 * 0.5 };
-    grow(&mut im, 10 + (v % 3) as i32 - 1, 21, r, leaf, v * 7 + 1, &keep);
+    let (x, seed) = (10 + (v % 3) as i32 - 1, v * 7 + 1);
+    let ramp = match leaf {
+        Leaf::Copper => super::material::ramp::COPPER,
+        Leaf::Hedge => super::material::ramp::HEDGE,
+        _ => super::material::ramp::OAK,
+    };
+    // Each tile's tree grows in a habit of its own; the tall and the broad
+    // ones a little smaller, so every crown stays inside its sprite.
+    let habit = (v * 3 + v / 8) % 5;
+    match leaf {
+        Leaf::Pine => grow(&mut im, x, 21, r, leaf, seed, &keep),
+        _ => super::material::broadleaf(&mut im, x, 21, if matches!(habit, 1 | 2) { r * 0.9 } else { r }, ramp, seed, habit, &keep),
+    }
     // A map tree sits a step quieter than a room's: the realm's buildings
     // and walkers stay the brighter things.
     for y in 0..im.h {
@@ -83,20 +143,36 @@ fn tree(v: u32) -> Img {
 
 fn rock(v: u32, ramp: &[char]) -> Img {
     let j = |k: i32| (hash(v as i32, k, 8) % 100) as f32 / 100.0 - 0.5;
-    let blobs = [
-        (5.0 + j(1), 10.0 + j(2), 5.4, 5.2),
-        (11.0 + j(3), 10.0 + j(4), 5.2, 5.4),
-        (8.0 + j(5), 5.0 + j(6), 5.6, 4.6),
-    ];
-    let mut im = blob(16, 16, &blobs, ramp, 0.75, v, 1.3);
+    // Each variant is its own heap, and each fills its tile as the stone it
+    // stands for does: three stones in a clump, a boulder with a stone at
+    // its foot, an uneven pair, or a low slab with a stone on its back, so
+    // a row of them reads as a rockfall, not a stamp.
+    let blobs: Vec<(f32, f32, f32, f32)> = match v % 4 {
+        0 => vec![
+            (5.0 + j(1), 10.0 + j(2), 5.4, 5.2),
+            (11.0 + j(3), 10.0 + j(4), 5.2, 5.4),
+            (8.0 + j(5), 5.0 + j(6), 5.6, 4.6),
+        ],
+        1 => vec![(7.0 + j(1), 8.0 + j(2), 7.2, 7.0), (12.5 + j(3), 12.0 + j(4), 3.6, 3.4)],
+        2 => vec![(5.5 + j(1), 9.0 + j(2), 5.6, 6.4), (11.2 + j(3), 10.5 + j(4), 4.8, 5.2)],
+        _ => vec![(8.0 + j(1), 10.5 + j(2), 7.4, 5.0), (6.5 + j(3), 5.5 + j(4), 4.6, 3.8)],
+    };
+    let mut im = blob_soft(16, 16, &blobs, ramp, 0.75, v, 1.3);
+    // A crack or two, dark with a lit lip above.
     for k in 0..2 {
         let x = 3 + (hash(v as i32, k, 9) % 10) as i32;
         let y = 5 + (hash(v as i32, k, 10) % 7) as i32;
+        // Only on the stone: a crack never hangs in the air.
+        if !(im.solid(x, y) && im.solid(x + 1, y + 1)) {
+            continue;
+        }
+        if im.solid(x, y - 1) {
+            im.put(x, y - 1, ramp[ramp.len() - 2]);
+        }
         im.put(x, y, ramp[0]);
         im.put(x + 1, y + 1, ramp[0]);
     }
-    im.outline_inside('k');
-    im
+    shaded_rim(&im)
 }
 
 fn dead_tree() -> Img {
@@ -134,7 +210,7 @@ impl Tiles {
     pub fn get() -> &'static Tiles {
         static TILES: OnceLock<Tiles> = OnceLock::new();
         TILES.get_or_init(|| Tiles {
-            trees: (0..8).map(tree).collect(),
+            trees: (0..16).map(tree).collect(),
             rocks: [
                 &['s', 'x', 'S', 'u', 'U'][..],
                 &['n', 'b', 'I', 'B', 'P', 'r'][..],
@@ -197,14 +273,16 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
             } else {
                 ('S', 'u', 'U')
             };
-            // The shared material's coursing: each block its own tone,
-            // lit along its top, its lower-right pixel in shadow.
+            // The shared material's coursing: each block its own tone, a
+            // rounded stone lit along its top, its corners worn into the
+            // joints and its lower right in shadow.
             let tone = hash((x + off) / 6, row, 51) % 4;
-            if ly == 3 || lx == 0 {
+            let corner = (lx == 1 || lx == 5) && (ly == 0 || ly == 2);
+            if ly == 3 || lx == 0 || corner {
                 mortar
             } else if ly == 0 || tone == 0 {
                 hi
-            } else if (ly == 2 && lx == 5) || tone == 1 && ly == 2 {
+            } else if (ly == 2 && lx == 4) || tone == 1 && ly == 2 {
                 mortar
             } else {
                 brick
@@ -364,7 +442,7 @@ pub fn house(hs: &House) -> Img {
         }
         im.put(cx + 3, 1, 'S');
     }
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -480,7 +558,7 @@ pub fn tower(w: i32, h: i32, top_h: i32, top: Top, wall: Wall) -> Img {
             im.line(w / 2 + 1, 6, w / 2 + 6, 1, 'o');
         }
     }
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -687,11 +765,36 @@ pub fn cottage(variant: u32, lit: bool) -> Img {
         2,
         0,
     );
-    // The small dormer breaks the silhouette of each roof.
-    im.line(12, 17, 17, 11, 'O');
-    im.line(17, 11, 22, 17, 'r');
-    im.rect(14, 16, 7, 5, 't');
-    im.rect(16, 16, 3, 4, if lit { '5' } else { 's' });
+    // Each cottage breaks its roof its own way: a dormer in the middle, a
+    // dormer to one side, a gable over the door, or a pair of small dormers.
+    let glass = if lit { '5' } else { 's' };
+    let dormer = |im: &mut Img, cx: i32, half: i32| {
+        im.line(cx - half, 17, cx, 17 - half - 1, 'O');
+        im.line(cx, 17 - half - 1, cx + half, 17, 'r');
+        im.rect(cx - half + 2, 16, half * 2 - 3, 5, 't');
+        im.rect(cx - 1, 16, 3, 4, glass);
+    };
+    match variant % 4 {
+        0 => dormer(&mut im, 17, 5),
+        1 => dormer(&mut im, 11, 4),
+        2 => {
+            // A gable over the door: a plaster triangle in the eaves'
+            // shade under its own boards, lit on the west, a small window
+            // in it.
+            for y in 9..22 {
+                let half = (y - 9) * 3 / 4 + 1;
+                for x in 18 - half..=18 + half {
+                    let ink = if x == 18 - half { 'O' } else if x == 18 + half { 'r' } else if y == 21 || x > 18 + half / 2 { 'r' } else { 'o' };
+                    im.put(x, y, ink);
+                }
+            }
+            im.rect(17, 14, 3, 3, glass);
+        }
+        _ => {
+            dormer(&mut im, 10, 3);
+            dormer(&mut im, 25, 3);
+        }
+    }
     im.rect(5, 34, 6, 2, 'r');
     for x in [5, 7, 10] {
         im.put(x, 33, 'C');
@@ -891,7 +994,7 @@ pub fn well() -> Img {
     im.ellipse(8.0, 11.5, 3.2, 1.4, 's');
     im.line(8, 4, 8, 10, 'h');
     im.rect(7, 10, 2, 1, 'o');
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -943,17 +1046,17 @@ pub fn market_stall(v: u32) -> Img {
     } else {
         ('T', 'u')
     };
-    for y in 0..6 {
-        for x in 0..16 {
-            im.put(
-                x,
-                y,
-                if (x / 2) % 2 == 0 {
-                    stripes.0
-                } else {
-                    stripes.1
-                },
-            );
+    // The awning in bands four pixels wide, lit along its top, a step
+    // darker toward its hem, which hangs in a scallop under each band.
+    for x in 0..16 {
+        let ink = if (x / 4) % 2 == 0 { stripes.0 } else { stripes.1 };
+        let hem = if x % 4 == 1 || x % 4 == 2 { 6 } else { 5 };
+        for y in 0..hem {
+            let base = super::ink::ink(ink);
+            let c = if y == 0 { base.map(super::material::lighter) } else if y >= 4 { base.map(super::material::darker) } else { base };
+            if let Some(c) = c {
+                im.set(x, y, c);
+            }
         }
     }
     im.rect(1, 6, 1, 10, 'B');
@@ -962,7 +1065,7 @@ pub fn market_stall(v: u32) -> Img {
     for (i, g) in ['L', 'o', 'Y', 't', 'L'].iter().enumerate() {
         im.put(3 + i as i32 * 2, 9, *g);
     }
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -983,7 +1086,7 @@ pub fn docks() -> Img {
     for x in [0, 15, 31] {
         im.rect(x, 12, 2, 4, 'B');
     }
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -1036,7 +1139,7 @@ pub fn mine_mouth() -> Img {
         11,
         2.0,
     );
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     for y in 16..32 {
         for x in 10..22 {
             im.put(x, y, if y < 18 { 'n' } else { 'k' });
@@ -1068,7 +1171,7 @@ pub fn ruins() -> Img {
         }
     }
     arch(&mut im, 19, 32, 10, 14, false);
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -1151,7 +1254,7 @@ pub fn tent(house: Heraldry) -> Img {
     im.line(12, 0, 12, 19, 'h');
     im.rect(13, 0, 5, 3, c1);
     im.put(12, 19, '4');
-    im.outline_inside('k');
+    im = shaded_rim(&im);
     im
 }
 
@@ -1185,12 +1288,10 @@ pub fn quintain(active: bool, tick: u32) -> Img {
 
 /// The standings board: `(name, score, heraldry)` rows.
 pub fn board(rows: &[(String, u32, Heraldry)]) -> Img {
-    let mut im = Img::new(54, 32);
+    let mut im = Img::new(55, 32);
     im.rect(4, 20, 2, 12, 'B');
     im.rect(48, 20, 2, 12, 'B');
-    im.rect(0, 0, 54, 22, 'r');
-    im.frame(0, 0, 54, 22, 'k');
-    im.frame(1, 1, 52, 20, 'B');
+    chrome::panel(&mut im, (0, 0, 54, 22), chrome::Tone::TIMBER);
     for (i, (name, score, house)) in rows.iter().take(2).enumerate() {
         let y = 3 + i as i32 * 9;
         im.rect(4, y + 2, 3, 3, house.inks().0);
@@ -1256,27 +1357,11 @@ impl Heraldry {
     }
 }
 
-/// The hero: silver helm, red plume, the sun-star shield. No black inner
-/// lines — on black paper they would read as holes.
+/// The hero toward the viewer, whole and at rest: steel helm, the seat's
+/// plume and tabard, the gold-rimmed shield (`hero.rs` draws every other
+/// way of seeing him).
 pub fn knight() -> Img {
-    Img::from_rows(&[
-        ".......77.......",
-        "......7778......",
-        ".....iH778i.....",
-        "....iHHhhhhJ....",
-        "....iHhhhhhJ....",
-        "....hggggggG....",
-        "....hhJhhJhG....",
-        "....JhhhhhhG....",
-        "..iHh777777hHi..",
-        ".4444477577hJ...",
-        ".4757475557hJ...",
-        ".4555477577GJ...",
-        ".47574BB4BBG....",
-        "..474.87778.....",
-        "...4..hJ.hJ.....",
-        "......GG.GG.....",
-    ])
+    hero::draw(hero::Dress::WHOLE)
 }
 
 /// The knight at rest with a book: seated on a bench, pages open in his
@@ -1292,14 +1377,14 @@ pub fn reader() -> Img {
         }
     }
     let lap = Img::from_rows(&[
-        "..iHh777777hHi........",
-        ".hHk99$9$99kHh........",
-        ".hk9$9999$99kh...kkk..",
-        "..k99$99$999k....k5k..",
-        "..kkBBBBBBBkk....k6k..",
-        "..BRRRRRRRRRB...kkkkk.",
-        "..B.hJ...hJ.B.........",
-        "..B.GG...GG.B.........",
+        "..xVWvxuUxvVvx........",
+        ".uVb99$9$99bUx........",
+        ".ub9$9999$99bx...xxx..",
+        "..b99$99$999b....x5x..",
+        "..bbBBBBBBBbb....x6x..",
+        "..BRRRRRRRRRB...xuuux.",
+        "..B.Vu...vu.B.........",
+        "..B.xu...ux.B.........",
     ]);
     im.stamp(&lap, 0, 8);
     im
@@ -1308,24 +1393,7 @@ pub fn reader() -> Img {
 /// The visitor: the operator's own knight. A frost plume and a sea-green
 /// tabard where the hero wears red and gold, and a blue shield.
 pub fn visitor() -> Img {
-    Img::from_rows(&[
-        ".......ww.......",
-        "......www3......",
-        ".....iHww3i.....",
-        "....iHHhhhhJ....",
-        "....iHhhhhhJ....",
-        "....hggggggG....",
-        "....hhJhhJhG....",
-        "....JhhhhhhG....",
-        "..iHh222222hHi..",
-        ".1111122w22hJ...",
-        ".12w212www2hJ...",
-        ".1www122w22GJ...",
-        ".12w21BB1BBG....",
-        "..121.02220.....",
-        "...1..hJ.hJ.....",
-        "......GG.GG.....",
-    ])
+    hero::visitor()
 }
 
 /// A small frost chevron over the visitor's head: which figure is yours.
@@ -1341,18 +1409,16 @@ pub fn door_sign(name: &str, opens: bool) -> Img {
     let tw = super::ink::text_width(&text);
     if !opens {
         let w = tw + 6;
-        let mut im = Img::new(w, 11);
-        im.rect(0, 0, w, 11, 'K');
-        im.frame(0, 0, w, 11, 'B');
+        let mut im = Img::new(w + 1, 12);
+        chrome::panel(&mut im, (0, 0, w, 11), chrome::Tone::SIGN);
         im.text(3, 2, &text, 'h');
         return im;
     }
     let ew = super::ink::text_width("ENTER");
-    let w = tw.max(ew) + 6;
-    let mut im = Img::new(w, 20);
-    im.rect(0, 0, w, 20, 'K');
-    im.frame(0, 0, w, 20, '4');
-    im.text((w - ew) / 2, 2, "ENTER", '4');
+    let w = tw.max(ew) + 8;
+    let mut im = Img::new(w + 1, 21);
+    chrome::panel(&mut im, (0, 0, w, 20), chrome::Tone::FRAMED);
+    im.text((w - ew) / 2, 3, "ENTER", '4');
     im.text((w - tw) / 2, 11, &text, '9');
     im
 }
@@ -1367,11 +1433,11 @@ pub fn waiting_sign(place: &str, at_door: bool) -> Img {
         (format!("YOUR PARTY IS IN {name}"), "E AT ITS DOOR TO REJOIN".to_string(), 'B')
     };
     let (tw, bw) = (super::ink::text_width(&top), super::ink::text_width(&bottom));
-    let w = tw.max(bw) + 6;
-    let mut im = Img::new(w, 20);
-    im.rect(0, 0, w, 20, 'K');
-    im.frame(0, 0, w, 20, frame);
-    im.text((w - tw) / 2, 2, &top, if at_door { '4' } else { 'h' });
+    let w = tw.max(bw) + 8;
+    let mut im = Img::new(w + 1, 21);
+    let tone = if frame == '4' { chrome::Tone::FRAMED } else { chrome::Tone::SIGN };
+    chrome::panel(&mut im, (0, 0, w, 20), tone);
+    im.text((w - tw) / 2, 3, &top, if at_door { '4' } else { 'h' });
     im.text((w - bw) / 2, 11, &bottom, '9');
     im
 }
@@ -1405,10 +1471,12 @@ pub fn rider(house: Heraldry) -> Img {
     for (x, y) in [(14, 15), (13, 15), (14, 14), (14, 16)] {
         im.put(x, y, star);
     }
-    im.rect(12, 5, 6, 7, 'h');
+    im.rect(12, 5, 6, 7, 'v');
     im.rect(12, 7, 6, 4, c1);
-    im.rect(12, 0, 6, 5, 'H');
-    im.rect(14, 2, 4, 1, 'k');
+    im.rect(12, 0, 6, 5, 'V');
+    im.rect(13, 0, 3, 1, 'W');
+    im.rect(17, 0, 1, 5, 'u');
+    im.rect(14, 2, 4, 1, 's');
     im.put(11, 0, c1);
     im.put(10, 1, c1);
     im.put(11, 1, c2);
@@ -1418,12 +1486,29 @@ pub fn rider(house: Heraldry) -> Img {
     im.put(11, 10, star);
     im.put(9, 12, 'k');
     im.put(13, 12, 'k');
-    im.outline_inside('k');
+    let mut im = shaded_rim(&im);
     im.line(16, 9, 33, 7, 'T');
     im.line(16, 10, 33, 8, 'o');
     im.put(33, 7, 'W');
     im.put(32, 7, 'V');
     im
+}
+
+/// The figure's own edge, dark where it turns from the light: every pixel
+/// on the silhouette's right or lower edge two steps down its own bank (a
+/// coloured contour, never black), the lit upper and left edges left open.
+pub fn shaded_rim(im: &Img) -> Img {
+    let mut out = im.clone();
+    for y in 0..im.h {
+        for x in 0..im.w {
+            if let Some(c) = im.get(x, y)
+                && (!im.solid(x + 1, y) || !im.solid(x, y + 1))
+            {
+                out.set(x, y, super::light::step_down(c, 2));
+            }
+        }
+    }
+    out
 }
 
 /// A seat of the muster: helm over a tabard in the stage's ink. A returned
@@ -1588,14 +1673,24 @@ pub fn plaque(name: &str) -> Img {
     district_sign(&text)
 }
 
+/// A place's sign standing in the realm's lit map (`chrome::Tone::NIGHT_SIGN`),
+/// `plaque`'s seven letters or a district's whole name.
+pub fn realm_sign(name: &str, short: bool) -> Img {
+    let text: String = name.to_uppercase().chars().take(if short { 7 } else { 20 }).collect();
+    let w = super::ink::text_width(&text) + 6;
+    let mut im = Img::new(w + 1, 12);
+    chrome::panel(&mut im, (0, 0, w, 11), chrome::Tone::NIGHT_SIGN);
+    im.text(3, 2, &text, '9');
+    im
+}
+
 /// Authored district names get a complete sign; repo-supplied ward names
 /// still use the compact plaque above.
 pub fn district_sign(name: &str) -> Img {
     let text: String = name.to_uppercase().chars().take(20).collect();
     let w = super::ink::text_width(&text) + 6;
-    let mut im = Img::new(w, 11);
-    im.rect(0, 0, w, 11, 'K');
-    im.frame(0, 0, w, 11, 'B');
+    let mut im = Img::new(w + 1, 12);
+    chrome::panel(&mut im, (0, 0, w, 11), chrome::Tone::SIGN);
     im.text(3, 2, &text, '9');
     im
 }

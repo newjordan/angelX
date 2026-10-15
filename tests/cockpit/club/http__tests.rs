@@ -476,8 +476,7 @@ fn assert_provider_cancel_disconnects(partial: &'static str, chunked: bool, head
             socket
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
-            let request = read_http_request(&mut socket);
-            assert!(request.to_ascii_lowercase().contains("connection: close"));
+            let _request = read_http_request(&mut socket);
             if headers {
                 write!(
                     socket,
@@ -1702,4 +1701,591 @@ fn the_legend_reaches_the_chat_and_deepseek_messages_wires() {
             .contains("fix the first diagnostic before the next edit"),
         "messages wire"
     );
+}
+
+
+/// One chunked SSE answer as a keep-alive server sends it, terminator included.
+fn chunked_sse_answer(answer: &str) -> String {
+    let event = format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"content\":\"{answer}\"}},\"finish_reason\":\"stop\"}}]}}\n\ndata: [DONE]\n\n"
+    );
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{event}\r\n0\r\n\r\n",
+        event.len()
+    )
+}
+
+/// A streamed model call leaves its connection to the pool once its terminal
+/// event arrives, so the next call skips the TCP/TLS handshake (and DNS).
+#[test]
+#[cfg(target_os = "linux")] // where abortable requests pool
+fn streamed_calls_reuse_one_provider_connection() {
+    use std::io::Write;
+    let _guard = crate::tests::env_lock();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = std::thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        for answer in ["first", "second"] {
+            let request = read_http_request(&mut socket);
+            assert!(request.starts_with("POST"), "no request on the kept connection: {request:?}");
+            assert!(
+                !request.to_ascii_lowercase().contains("connection: close"),
+                "{request}"
+            );
+            socket.write_all(chunked_sse_answer(answer).as_bytes()).unwrap();
+            socket.flush().unwrap();
+        }
+        listener.set_nonblocking(true).unwrap();
+        assert!(
+            listener.accept().is_err(),
+            "a streamed call opened a second connection"
+        );
+    });
+    let club = HttpClub::new("keepalive-fixture", base, "fixture", None);
+    for answer in ["first", "second"] {
+        let reply = club
+            .stream_body_with_rules(
+                serde_json::json!({"model":"fixture", "stream":true, "messages":[]}),
+                &[],
+                &AtomicBool::new(false),
+                &mut |_| {},
+                &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
+            )
+            .unwrap();
+        assert!(matches!(&reply, ClubReply::Text(text) if text == answer), "{reply:?}");
+        // The finished body's terminator is read on its own thread; a real
+        // turn runs its tools in that gap.
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    server.join().unwrap();
+}
+
+/// Serve chunked answers on as many connections as arrive, counting them.
+fn serve_chunked_counting(
+    answers: Vec<&'static str>,
+) -> (
+    String,
+    std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    std::thread::JoinHandle<()>,
+) {
+    use std::io::Write;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/", listener.local_addr().unwrap());
+    let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = std::sync::Arc::clone(&accepted);
+    let handle = std::thread::spawn(move || {
+        let mut answers = answers.into_iter().peekable();
+        while answers.peek().is_some() {
+            let (mut socket, _) = listener.accept().unwrap();
+            count.fetch_add(1, Ordering::SeqCst);
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            while let Some(&answer) = answers.peek() {
+                let request = read_http_request(&mut socket);
+                if !request.starts_with("POST") {
+                    break; // the client hung up; take the next connection
+                }
+                if socket.write_all(chunked_sse_answer(answer).as_bytes()).is_err() {
+                    break;
+                }
+                answers.next();
+            }
+        }
+    });
+    (url, accepted, handle)
+}
+
+fn read_body(response: ureq::Response) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut body = String::new();
+    response.into_reader().read_to_string(&mut body).map(|_| body)
+}
+
+/// An abort handle is detached before its connection returns to the pool:
+/// aborting a finished request never reaches the next request on that socket.
+#[test]
+#[cfg(target_os = "linux")] // where abortable requests pool
+fn a_finished_request_abort_never_reaches_the_pooled_connection() {
+    let (url, accepted, server) = serve_chunked_counting(vec!["one", "two"]);
+    let agent = ureq::AgentBuilder::new().build();
+    let first = ureq::AbortHandle::default();
+    let reply = agent
+        .post(&url)
+        .with_abort_handle(first.clone())
+        .send_string("{}")
+        .unwrap();
+    assert!(read_body(reply).unwrap().contains("one"));
+    first.abort();
+    let reply = agent
+        .post(&url)
+        .with_abort_handle(ureq::AbortHandle::default())
+        .send_string("{}")
+        .unwrap();
+    assert!(read_body(reply).unwrap().contains("two"));
+    server.join().unwrap();
+    assert_eq!(accepted.load(Ordering::SeqCst), 1, "the pooled connection carried both");
+}
+
+/// A request aborted after its body arrived closes its socket instead of
+/// pooling it; the next request connects afresh and still succeeds.
+#[test]
+fn an_aborted_request_socket_is_never_pooled() {
+    let (url, accepted, server) = serve_chunked_counting(vec!["one", "two"]);
+    let agent = ureq::AgentBuilder::new().build();
+    let first = ureq::AbortHandle::default();
+    let reply = agent
+        .post(&url)
+        .with_abort_handle(first.clone())
+        .send_string("{}")
+        .unwrap();
+    first.abort();
+    let _ = read_body(reply);
+    let reply = agent
+        .post(&url)
+        .with_abort_handle(ureq::AbortHandle::default())
+        .send_string("{}")
+        .unwrap();
+    assert!(read_body(reply).unwrap().contains("two"));
+    server.join().unwrap();
+    assert_eq!(accepted.load(Ordering::SeqCst), 2, "the aborted socket was reused");
+}
+
+
+/// Close a server-side socket the way a provider drops an idle keep-alive
+/// connection: a clean FIN, or an RST (SO_LINGER 0).
+fn drop_connection(sock: std::net::TcpStream, rst: bool) {
+    if rst {
+        use std::os::unix::io::AsRawFd;
+        let linger = libc::linger {
+            l_onoff: 1,
+            l_linger: 0,
+        };
+        // SAFETY: a live socket fd and a correctly sized linger struct.
+        unsafe {
+            libc::setsockopt(
+                sock.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_LINGER,
+                &linger as *const libc::linger as *const libc::c_void,
+                std::mem::size_of::<libc::linger>() as libc::socklen_t,
+            );
+        }
+    }
+    drop(sock);
+}
+
+/// How the fixture ends a kept connection before the next answer.
+#[derive(Clone, Copy, Debug)]
+enum IdleDrop {
+    /// Close it while idle, before the next request arrives.
+    WhileIdle,
+    /// Take the next request, then close without a response: the race where
+    /// the idle close crosses the request on the wire.
+    AfterRequest,
+}
+
+/// Serve `answers` as chunked SSE. After the first answer on a connection the
+/// server drops that connection (FIN or RST) as `how` says, then serves the
+/// rest on whatever connection comes next. Returns the accepted-socket count
+/// and every request that reached it.
+fn serve_dropping_kept_connection(
+    answers: Vec<&'static str>,
+    how: IdleDrop,
+    rst: bool,
+) -> (
+    String,
+    std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    std::sync::Arc<Mutex<Vec<String>>>,
+    std::thread::JoinHandle<()>,
+) {
+    use std::io::Write;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/v1", listener.local_addr().unwrap());
+    let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let requests = std::sync::Arc::new(Mutex::new(Vec::new()));
+    let (count, seen) = (std::sync::Arc::clone(&accepted), std::sync::Arc::clone(&requests));
+    let handle = std::thread::spawn(move || {
+        let mut answers = answers.into_iter();
+        let (mut first, _) = listener.accept().unwrap();
+        count.fetch_add(1, Ordering::SeqCst);
+        first
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let request = read_http_request(&mut first);
+        seen.lock().unwrap().push(request);
+        first
+            .write_all(chunked_sse_answer(answers.next().unwrap()).as_bytes())
+            .unwrap();
+        match how {
+            IdleDrop::WhileIdle => {
+                std::thread::sleep(Duration::from_millis(150));
+                drop_connection(first, rst);
+            }
+            IdleDrop::AfterRequest => {
+                let request = read_http_request(&mut first);
+                seen.lock().unwrap().push(request);
+                drop_connection(first, rst);
+            }
+        }
+        for answer in answers {
+            let (mut sock, _) = listener.accept().unwrap();
+            count.fetch_add(1, Ordering::SeqCst);
+            sock.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let request = read_http_request(&mut sock);
+            seen.lock().unwrap().push(request);
+            sock.write_all(chunked_sse_answer(answer).as_bytes()).unwrap();
+        }
+    });
+    (url, accepted, requests, handle)
+}
+
+fn stream_once(club: &HttpClub, cancel: &AtomicBool) -> Result<ClubReply, String> {
+    club.stream_body_with_rules(
+        serde_json::json!({"model":"fixture", "stream":true, "messages":[{"role":"user","content":"same body"}]}),
+        &[],
+        cancel,
+        &mut |_| {},
+        &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
+    )
+}
+
+/// A pooled connection the provider closed while idle (FIN or RST) never
+/// costs the next call an error or a retry: the dead socket is discarded and
+/// the call goes out once on a fresh connection.
+#[test]
+#[cfg(target_os = "linux")] // where abortable requests pool
+fn a_provider_closed_idle_connection_is_replaced_without_an_error() {
+    let _guard = crate::tests::env_lock();
+    // No harness-level retry may paper over a dead socket: one attempt only.
+    let _retries = EnvGuard::set("ANGEL_HTTP_RETRIES", "0");
+    for rst in [false, true] {
+        let (url, accepted, requests, server) =
+            serve_dropping_kept_connection(vec!["first", "second"], IdleDrop::WhileIdle, rst);
+        let club = HttpClub::new("idle-drop-fixture", url, "fixture", None);
+        let cancel = AtomicBool::new(false);
+        let first = stream_once(&club, &cancel).unwrap();
+        assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+        std::thread::sleep(Duration::from_millis(400)); // the server drops it meanwhile
+        let second = stream_once(&club, &cancel);
+        assert!(
+            matches!(&second, Ok(ClubReply::Text(text)) if text == "second"),
+            "rst={rst}: {second:?}"
+        );
+        server.join().unwrap();
+        assert_eq!(accepted.load(Ordering::SeqCst), 2, "rst={rst}");
+        assert_eq!(requests.lock().unwrap().len(), 2, "rst={rst}: one request per call");
+    }
+}
+
+/// The idle close crossing the next request on the wire: the server reads it
+/// and closes without a byte of response. The request is sent once more, on a
+/// fresh connection and with the same body, and the call succeeds.
+#[test]
+#[cfg(target_os = "linux")]
+fn a_request_lost_to_an_idle_close_is_resent_once_on_a_fresh_connection() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::set("ANGEL_HTTP_RETRIES", "0");
+    for rst in [false, true] {
+        let (url, accepted, requests, server) =
+            serve_dropping_kept_connection(vec!["first", "second"], IdleDrop::AfterRequest, rst);
+        let club = HttpClub::new("idle-race-fixture", url, "fixture", None);
+        let cancel = AtomicBool::new(false);
+        let first = stream_once(&club, &cancel).unwrap();
+        assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+        std::thread::sleep(Duration::from_millis(100));
+        let second = stream_once(&club, &cancel);
+        assert!(
+            matches!(&second, Ok(ClubReply::Text(text)) if text == "second"),
+            "rst={rst}: {second:?}"
+        );
+        server.join().unwrap();
+        assert_eq!(accepted.load(Ordering::SeqCst), 2, "rst={rst}");
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 3, "rst={rst}: the lost request and its one resend");
+        let body = |request: &String| request.split_once("\r\n\r\n").map(|(_, b)| b.to_string());
+        assert_eq!(body(&requests[1]), body(&requests[2]), "the resend carries the same body");
+    }
+}
+
+/// Esc while the call is being resent after a dead recycled connection: the
+/// first attempt dies on the kept socket, the resend reaches a fresh one that
+/// never answers, and the operator cancels. The call ends at once, with no
+/// reply and nothing left running on the wire.
+#[test]
+#[cfg(target_os = "linux")]
+fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
+    use std::io::{Read, Write};
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::set("ANGEL_HTTP_RETRIES", "0");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/v1", listener.local_addr().unwrap());
+    let (resent, resend_seen) = std::sync::mpsc::channel();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let peer_cancel = Arc::clone(&cancel);
+    listener.set_nonblocking(true).unwrap();
+    let server = std::thread::spawn(move || {
+        let accept = || {
+            let until = Instant::now() + Duration::from_secs(5);
+            loop {
+                match listener.accept() {
+                    Ok((socket, _)) => break socket,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+                        && Instant::now() < until => {
+                            std::thread::sleep(Duration::from_millis(2));
+                        }
+                    Err(error) => panic!("bounded cancel fixture accept: {error}"),
+                }
+            }
+        };
+        let mut kept = accept();
+        kept.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let _ = read_http_request(&mut kept);
+        kept.write_all(chunked_sse_answer("first").as_bytes()).unwrap();
+        let _ = read_http_request(&mut kept);
+        drop_connection(kept, true); // the idle close crossed the request
+        let mut fresh = accept();
+        fresh.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let request = read_http_request(&mut fresh);
+        resent.send(request).unwrap();
+        // Never answer; the client's cancel must close this socket.
+        let mut byte = [0u8];
+        assert_eq!(
+            fresh.read(&mut byte).expect("cancel must produce EOF, not timeout or a read error"),
+            0,
+            "cancel must close the resend's socket"
+        );
+        let peer_closed_at = Instant::now();
+        assert!(peer_cancel.load(Ordering::Acquire), "peer EOF preceded cancellation");
+        peer_closed_at
+    });
+    let club = HttpClub::new("idle-cancel-fixture", url, "fixture", None);
+    let first = stream_once(&club, &cancel).unwrap();
+    assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+    std::thread::sleep(Duration::from_millis(100));
+    let (second, cancelled_at, returned_at, returned_after_cancel) = std::thread::scope(|scope| {
+        let cancel_ref = &cancel;
+        let canceller = scope.spawn(move || {
+            let request = resend_seen.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(request.starts_with("POST"), "{request:?}");
+            std::thread::sleep(Duration::from_millis(50));
+            let at = Instant::now();
+            cancel_ref.store(true, Ordering::Release);
+            at
+        });
+        let second = stream_once(&club, &cancel);
+        let returned_at = Instant::now();
+        let returned_after_cancel = cancel.load(Ordering::Acquire);
+        let cancelled_at = canceller.join().unwrap();
+        (second, cancelled_at, returned_at, returned_after_cancel)
+    });
+    let peer_closed_at = server.join().unwrap();
+    assert!(returned_after_cancel, "provider returned before cancellation was signalled");
+    let client_latency = returned_at.checked_duration_since(cancelled_at)
+        .expect("provider returned before cancellation timestamp");
+    assert!(client_latency < Duration::from_secs(2), "cancel was not prompt: {client_latency:?}");
+    assert!(
+        !matches!(&second, Ok(ClubReply::Text(text)) if !text.is_empty()),
+        "a cancelled call must not yield a reply: {second:?}"
+    );
+    let peer_latency = peer_closed_at.checked_duration_since(cancelled_at)
+        .expect("peer EOF preceded cancellation timestamp");
+    assert!(peer_latency < Duration::from_secs(2), "peer EOF was late: {peer_latency:?}");
+    eprintln!("H01 case=pooled_cancel peer_eof=true peer_latency_ms={}", peer_latency.as_millis());
+}
+
+/// Esc that lands while the request is still on the dead kept socket: the
+/// abort closes it, and the resend never goes out: an aborted request is not
+/// sent again on any connection.
+#[test]
+#[cfg(target_os = "linux")]
+fn esc_before_the_resend_sends_nothing_more() {
+    use std::io::{Read, Write};
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::set("ANGEL_HTTP_RETRIES", "0");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/v1", listener.local_addr().unwrap());
+    let (taken, request_taken) = std::sync::mpsc::channel();
+    let server = std::thread::spawn(move || {
+        let (mut kept, _) = listener.accept().unwrap();
+        kept.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let _ = read_http_request(&mut kept);
+        kept.write_all(chunked_sse_answer("first").as_bytes()).unwrap();
+        let _ = read_http_request(&mut kept);
+        taken.send(()).unwrap();
+        // Hold the request unanswered until the client's abort closes it.
+        let mut byte = [0u8];
+        let _ = kept.read(&mut byte);
+        listener.set_nonblocking(true).unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(listener.accept().is_err(), "a cancelled call resent its request");
+    });
+    let club = HttpClub::new("idle-cancel-early-fixture", url, "fixture", None);
+    let cancel = AtomicBool::new(false);
+    let first = stream_once(&club, &cancel).unwrap();
+    assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+    std::thread::sleep(Duration::from_millis(100));
+    std::thread::scope(|scope| {
+        let cancel_ref = &cancel;
+        scope.spawn(move || {
+            request_taken.recv_timeout(Duration::from_secs(5)).unwrap();
+            cancel_ref.store(true, Ordering::Relaxed);
+        });
+        let started = Instant::now();
+        let second = stream_once(&club, &cancel);
+        assert!(started.elapsed() < Duration::from_secs(2), "the cancel was not prompt");
+        assert!(
+            !matches!(&second, Ok(ClubReply::Text(text)) if !text.is_empty()),
+            "a cancelled call must not yield a reply: {second:?}"
+        );
+    });
+    server.join().unwrap();
+}
+
+/// Answer the window probes as a slow provider would: every path after
+/// `delay`, each on its own connection, recording the paths asked.
+fn serve_slow_probes(
+    delay: Duration,
+) -> (
+    String,
+    std::sync::Arc<Mutex<Vec<String>>>,
+    std::sync::Arc<AtomicBool>,
+    std::thread::JoinHandle<()>,
+) {
+    use std::io::Write;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let base = format!("http://{}/v1", listener.local_addr().unwrap());
+    let paths = std::sync::Arc::new(Mutex::new(Vec::new()));
+    let stop = std::sync::Arc::new(AtomicBool::new(false));
+    let (seen, halt) = (std::sync::Arc::clone(&paths), std::sync::Arc::clone(&stop));
+    let handle = std::thread::spawn(move || {
+        while !halt.load(Ordering::Relaxed) {
+            let Ok((mut sock, _)) = listener.accept() else {
+                std::thread::sleep(Duration::from_millis(5));
+                continue;
+            };
+            let _ = sock.set_nonblocking(false);
+            let _ = sock.set_read_timeout(Some(Duration::from_secs(2)));
+            let request = read_http_request(&mut sock);
+            let path = request.split_whitespace().nth(1).unwrap_or("").to_string();
+            seen.lock().unwrap().push(path.clone());
+            std::thread::sleep(delay);
+            let response = if path.ends_with("/models") {
+                let body = r#"{"data":[{"id":"fixture","context_length":32768}]}"#;
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+            } else {
+                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+            };
+            let _ = sock.write_all(response.as_bytes());
+        }
+    });
+    (base, paths, stop, handle)
+}
+
+/// Prewarm starts the seat's first window probe at task start and publishes
+/// nothing early: until the first reader asks, the cache stays empty as
+/// before; that reader gets the same metadata from the same requests, without
+/// waiting for a probe that already finished.
+#[test]
+fn prewarm_runs_the_window_probe_early_and_publishes_it_where_it_always_was() {
+    let _guard = crate::tests::env_lock();
+    let delay = Duration::from_millis(120);
+    let (base, plain_paths, stop, server) = serve_slow_probes(delay);
+    let plain = Arc::new(HttpClub::new("prewarm-plain", base, "fixture", None));
+    let started = Instant::now();
+    let plain_meta = plain.metadata();
+    let plain_wait = started.elapsed();
+    stop.store(true, Ordering::Relaxed);
+    server.join().unwrap();
+
+    let (base, warm_paths, stop, server) = serve_slow_probes(delay);
+    let warm = Arc::new(HttpClub::new("prewarm-warm", base, "fixture", None));
+    Club::prewarm(Arc::clone(&warm));
+    Club::prewarm(Arc::clone(&warm)); // a second prewarm starts nothing more
+    std::thread::sleep(plain_wait + Duration::from_millis(200));
+    assert_eq!(warm.metadata_cached(), None, "prewarm must not publish early");
+    let started = Instant::now();
+    let warm_meta = warm.metadata();
+    let warm_wait = started.elapsed();
+    stop.store(true, Ordering::Relaxed);
+    server.join().unwrap();
+
+    assert!(plain_meta.is_some());
+    assert_eq!(warm_meta, plain_meta, "the same window, learned the same way");
+    assert_eq!(
+        *warm_paths.lock().unwrap(),
+        *plain_paths.lock().unwrap(),
+        "the same probe requests, once"
+    );
+    assert!(plain_wait >= delay, "{plain_wait:?}");
+    assert!(warm_wait < delay, "the first reader waited for a finished probe: {warm_wait:?}");
+}
+
+/// A provider error that says `x-should-retry: false` is sent once: no club
+/// retry, whatever its status, and the error carries the veto so the turn
+/// does not replay it either. `true` or no header keep the status rules.
+#[test]
+fn a_provider_retry_veto_is_sent_once() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::set("ANGEL_HTTP_RETRIES", "1");
+    let _rate_retries = EnvGuard::set("ANGEL_HTTP_RATELIMIT_RETRIES", "2");
+    let _backoff = EnvGuard::set("ANGEL_HTTP_BACKOFF_MS", "1");
+    let _rate_backoff = EnvGuard::set("ANGEL_HTTP_RATELIMIT_BACKOFF_MS", "1");
+    let answer = |status: &str, header: Option<&str>| {
+        let body = r#"{"error":{"message":"not this request"}}"#;
+        let header = header
+            .map(|value| format!("x-should-retry: {value}\r\n"))
+            .unwrap_or_default();
+        format!(
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\n{header}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    };
+    for (status, header, expected_requests, vetoed) in [
+        ("503 Service Unavailable", Some("false"), 1, true),
+        ("429 Too Many Requests", Some("false"), 1, true),
+        ("503 Service Unavailable", Some("true"), 2, false),
+        ("503 Service Unavailable", None, 2, false),
+    ] {
+        let (base, requests, handle) = serve_seq(vec![answer(status, header); 3]);
+        let club = HttpClub::new("veto-fixture", base, "fixture", None);
+        let error = stream_once(&club, &AtomicBool::new(false)).expect_err("an error status");
+        handle.join().unwrap();
+        assert_eq!(
+            requests.lock().unwrap().len(),
+            expected_requests,
+            "{status} {header:?}: {error}"
+        );
+        assert_eq!(error.contains(PROVIDER_RETRY_VETO), vetoed, "{error}");
+        assert!(error.starts_with(&format!("HTTP {}", &status[..3])), "{error}");
+    }
+}
+
+/// A certificate the trust store rejected is the one transport failure that
+/// cannot clear on retry; refused connections, resets and DNS stay retryable.
+#[test]
+fn only_a_rejected_certificate_is_a_permanent_transport_failure() {
+    for error in [
+        "https://api.x.ai/v1/chat/completions: Connection Failed: tls connection init failed: invalid peer certificate: UnknownIssuer",
+        "Connection Failed: tls connection init failed: invalid peer certificate: NotValidForName",
+        "tls connection init failed: invalid peer certificate: Expired",
+    ] {
+        assert!(error_indicates_certificate_rejected(error), "{error}");
+    }
+    for error in [
+        "Connection Failed: Connect error: Connection refused (os error 111)",
+        "Network Error: Connection reset by peer (os error 104)",
+        "Dns Failed: resolve dns name 'api.x.ai:443': failed to lookup address information",
+        "HTTP 503: overloaded",
+    ] {
+        assert!(!error_indicates_certificate_rejected(error), "{error}");
+    }
 }

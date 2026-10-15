@@ -351,6 +351,7 @@ fn sota_label_covers_metered_provider_names() {
         "thinkingmachines/inkling:free",
         "thinkingmachines/inkling-small:free",
         "longcat",
+        "daybreak",
     ] {
         assert!(is_sota_label(label), "{label} should be treated as SOTA");
     }
@@ -2112,7 +2113,7 @@ fn sota_tuned_http_body_keeps_native_output_shape_by_default() {
 fn caveman_is_on_by_default_for_a_self_hosted_link_and_its_reasoning() {
     let _guard = env_lock();
     let ask = [ChatMsg::user("answer this")];
-    let local = HttpClub::new("peer-box", "http://100.99.101.114:8000/v1", "m", None);
+    let local = HttpClub::new("peer-box", "http://100.64.0.7:8000/v1", "m", None);
     let _default = ScopedEnv::unset("ANGEL_SOTA_CAVEMAN");
     let body = local.build_body(&ask, &[], false).expect("local body");
     let brevity = body["messages"][0]["content"].as_str().unwrap_or_default();
@@ -5001,12 +5002,11 @@ fn http_club_streams_text_over_a_real_socket() {
     let club = HttpClub::new("test", format!("http://{addr}"), "m", None);
     let mut deltas = Vec::new();
     let cancel = AtomicBool::new(false);
-    let reply = club
-        .chat_streaming(&[ChatMsg::user("hi")], &[], &cancel, &mut |d| {
-            if let StreamDelta::Content(t) = d {
-                deltas.push(t.to_string())
-            }
-        });
+    let reply = club.chat_streaming(&[ChatMsg::user("hi")], &[], &cancel, &mut |d| {
+        if let StreamDelta::Content(t) = d {
+            deltas.push(t.to_string())
+        }
+    });
     server.join().unwrap();
     let reply = reply.unwrap();
 
@@ -6573,6 +6573,22 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
         .build_body(&[ChatMsg::system(large.clone())], &[], false)
         .unwrap();
     assert!(local_body["messages"][0]["content"].is_string());
+
+    // A local gateway in front of OpenRouter keeps the vendor slug, and the
+    // markers pass through it.
+    let gateway = HttpClub::new(
+        "anthropic/claude-haiku-5.5",
+        "http://127.0.0.1:9/v1",
+        "anthropic/claude-haiku-5.5",
+        Some("proxy-secret".into()),
+    );
+    let gateway_body = gateway
+        .build_body(&[ChatMsg::system(large.clone())], &[], false)
+        .unwrap();
+    assert_eq!(
+        gateway_body["messages"][0]["content"][0]["cache_control"]["type"],
+        "ephemeral"
+    );
 
     let non_claude = HttpClub::new(
         "openai/gpt-5",

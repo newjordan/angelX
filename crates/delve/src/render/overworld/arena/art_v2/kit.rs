@@ -105,7 +105,12 @@ pub(super) fn sprite(
             let sx = if east { sx } else { im.w - 1 - sx };
             if let Some(mut c) = im.get(sx, sy) {
                 if let Some(id) = tint {
-                    if c[0] > c[1].saturating_add(24) && c[0] > c[2].saturating_add(20) {
+                    // The seat's cloth only: a red well clear of its green,
+                    // so the gold rim, the bronze and the leather stay theirs.
+                    if c[0] > c[1].saturating_add(24)
+                        && c[0] > c[2].saturating_add(20)
+                        && u16::from(c[1]) * 2 + 4 < u16::from(c[0])
+                    {
                         let r = match id % 4 {
                             2 => Ramp::inks('s', '1', 'z'),
                             3 => Ramp::inks('f', 'e', 'M'),

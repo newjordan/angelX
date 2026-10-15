@@ -1,6 +1,24 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[test]
+fn daybreak_entitlements_are_part_of_catalog_identity() {
+    let model = |program: &str| {
+        let mut model = CodexModelInfo {
+            slug: "daybreak-fixture".into(),
+            ..Default::default()
+        };
+        model.available_access_programs.cyber = vec![program.into()];
+        model
+    };
+    let blue = normalize(vec![model("daybreak_blue")]);
+    let red = normalize(vec![model("daybreak_red")]);
+    let standard = normalize(vec![model("standard")]);
+    assert_ne!(blue.hash, red.hash);
+    assert_ne!(blue.hash, standard.hash);
+    assert_eq!(blue.hash, normalize(vec![model("daybreak_blue")]).hash);
+}
+
 fn record() -> Value {
     json!({"id":"gpt-6.1-sol", "name":"Sol", "provider":"openai-codex", "api":"openai-codex-responses",
         "reasoning":true, "input":["text","image"], "contextWindow":272000, "maxTokens":128000,

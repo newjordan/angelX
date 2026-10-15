@@ -6,7 +6,7 @@ use crate::rules::cards::{Card, Rarity};
 
 /// A card's art as authored (or its kind's glyph), on black paper.
 pub fn card_art(card: &Card) -> Img {
-    Img::from_rows(&card.art_rows())
+    super::fx::icon(&card.art_rows())
 }
 
 /// Rim and glint inks by rarity. A card on the floor is live state, so its

@@ -25,20 +25,39 @@ pub(super) fn scenery(run: &Run) -> Img {
     let (pw, ph) = (room.cols as i32 * TILE, room.rows as i32 * TILE);
     let mut cv = Img::black(pw, ph);
     let mut lights: Vec<Light> = Vec::new();
-    // Planks, east to west, their ends staggered.
+    // Planks, east to west, their ends staggered: each board its own tone
+    // of oak, lit along its top edge and shaded along its foot, with long
+    // grain runs rather than flecks. The lanterns' dusk does the rest.
     for y in 0..ph {
+        let row = y / 5;
+        let dy = y % 5;
+        let offset = (hash(row, 3, 71) % 23) as i32;
         for x in 0..pw {
             if room.tile(x / TILE, y / TILE) == Tile::Wall {
                 continue;
             }
-            let row = y / 5;
-            let end = (x + (hash(row, 3, 71) % 23) as i32) % 24 == 0;
-            let ink = if y % 5 == 0 || end {
+            let board = (x + offset) / 24;
+            let end = (x + offset) % 24 == 0;
+            let (lit, face, deep) = match hash(board, row, 19) % 6 {
+                0 => ('r', 'P', 'B'),
+                1 | 2 => ('P', 'B', 'I'),
+                3 => ('B', 'I', 'b'),
+                _ => ('B', 'I', 'I'),
+            };
+            let along = (x + offset) % 24;
+            let grain = dy == 2 && hash((x + offset) / 7, row, 13).is_multiple_of(3);
+            // Two nails a pixel in from each board's end.
+            let nail = (along == 2 || along == 22) && (dy == 1 || dy == 3);
+            let ink = if dy == 0 || end {
                 'n'
-            } else if hash(x / 6, row, 13).is_multiple_of(5) {
-                'B'
+            } else if nail {
+                'g'
+            } else if dy == 1 {
+                lit
+            } else if dy == 4 || grain {
+                deep
             } else {
-                'I'
+                face
             };
             cv.put(x, y, ink);
         }
@@ -389,10 +408,16 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             }
         };
         let board = home::board(&lines);
-        // Below the plates, clear of Dinadan and his notes.
+        // Below the plates, clear of Dinadan and his notes, and left of
+        // the tray where the two would meet in the corner.
         let (c, r, w, h) = SONG_PLATES[plate];
-        let bx = ((c * TILE + w * TILE / 2) - board.w / 2).clamp(2, cv.w - board.w - 2);
-        cv.stamp(&board, bx, ((r + h) * TILE + 4).min(cv.h - board.h - 2));
+        let by = ((r + h) * TILE + 4).min(cv.h - board.h - 2);
+        let mut bx = ((c * TILE + w * TILE / 2) - board.w / 2).clamp(2, cv.w - board.w - 2);
+        let (tx, ty) = super::tray::corner_top_left(run, cv.w, cv.h);
+        if by + board.h > ty && bx + board.w > tx - 3 {
+            bx = (tx - 3 - board.w).max(2);
+        }
+        cv.stamp(&board, bx, by);
     }
     super::hireling::board(cv, run);
     if near(SIEGE, 3.5) {

@@ -269,6 +269,9 @@ cleared rows mend a held floor's walls.
 
 ### How follies get built
 
+The build order for one folly (feeling, verb, one room, challenge, juice,
+podium) is in [MINIGAME-BUILD.md](MINIGAME-BUILD.md).
+
 A **folly engine**: one small Rust trait for a self-contained room game.
 Each folly has its own state, its own input mapping, its own draw (pixel or
 world3d), and its own tests. The engine owns the shared pieces:

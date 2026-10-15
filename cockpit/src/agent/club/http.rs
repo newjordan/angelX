@@ -56,6 +56,32 @@ fn emit_pending_stream_deltas(
     }
 }
 
+/// The most a finished stream's leftover body is read for its connection's
+/// sake (normally the few bytes of the chunked terminator).
+const STREAM_TAIL_DRAIN_BYTES: u64 = 64 * 1024;
+
+/// After a stream's terminal event, read the rest of its body on a detached
+/// thread so the connection returns to the pool for the next call: the pool
+/// takes a socket back only once its body has been read to the end. The turn
+/// never waits on this; a body longer than [`STREAM_TAIL_DRAIN_BYTES`] is
+/// dropped, which closes its socket as before.
+pub(crate) fn release_stream_tail<R: std::io::Read + Send + 'static>(reader: R) {
+    let _ = std::thread::Builder::new()
+        .name("angel-stream-tail".into())
+        .spawn(move || {
+            let _ = std::io::copy(&mut reader.take(STREAM_TAIL_DRAIN_BYTES), &mut std::io::sink());
+        });
+}
+
+/// A chunked keep-alive body is one the pool can take back once it is read
+/// to its end.
+pub(crate) fn stream_body_poolable(resp: &ureq::Response) -> bool {
+    resp.header("transfer-encoding").is_some()
+        && !resp
+            .header("connection")
+            .is_some_and(|value| value.eq_ignore_ascii_case("close"))
+}
+
 pub(crate) const INCOMPLETE_STREAM_ERR: &str = "provider stream ended before a terminal event";
 
 fn retain_interrupted_stream(
@@ -245,6 +271,8 @@ pub struct HttpClub {
     /// `HttpClub`; without this gate every cold caller can independently issue
     /// `/props` + `/models` probes before the first result reaches the cache.
     metadata_probe: Mutex<()>,
+    /// The window probe started early by [`Club::prewarm`], not yet published.
+    early_probe: Mutex<Option<std::thread::JoinHandle<Metadata>>>,
 
     /// In-memory, validated reasoning-effort override chosen from the agent
     /// panel's THINK deck. Wins over the per-club/global env fallback for
@@ -1588,6 +1616,7 @@ impl HttpClub {
             rate_limit: Mutex::new(None),
             metadata: Mutex::new(None),
             metadata_probe: Mutex::new(()),
+            early_probe: Mutex::new(None),
             effort_override: Mutex::new(None),
             now: Arc::new(Instant::now),
             effort_snapshot: Mutex::new(None),
@@ -2090,7 +2119,16 @@ impl HttpClub {
         if is_fresh() {
             return;
         }
-        let m = self.probe_metadata();
+        // A probe started early (task start) is this probe: take its result,
+        // waiting for it if it is still in flight, and publish it here as before.
+        let early = self
+            .early_probe
+            .lock()
+            .ok()
+            .and_then(|mut slot| slot.take());
+        let m = early
+            .and_then(|probe| probe.join().ok())
+            .unwrap_or_else(|| self.probe_metadata());
         if let Ok(mut g) = self.metadata.lock() {
             let old = g.as_ref().map(|(metadata, _)| *metadata);
             match *g {
@@ -2300,9 +2338,12 @@ impl HttpClub {
         // system prefix for Claude-family models; local and non-Claude bodies
         // stay byte-identical. The first write can cost more, so operators may
         // disable it or raise the minimum for one-shot workloads.
+        // A gateway in front of OpenRouter (a benchmark's interception proxy,
+        // a LiteLLM relay) keeps OpenRouter's `anthropic/` vendor slug and
+        // forwards the blocks as they are, so the slug alone qualifies too.
         let model_l = model.to_ascii_lowercase();
-        let openrouter_claude = self.base_url_lc.contains("openrouter.ai")
-            && (model_l.contains("anthropic/") || model_l.contains("claude"));
+        let openrouter_claude = model_l.starts_with("anthropic/")
+            || (self.base_url_lc.contains("openrouter.ai") && model_l.contains("claude"));
         let (cache_enabled, cache_min_tokens, cache_ttl_1h) = openrouter_anthropic_cache_cfg();
         if openrouter_claude && cache_enabled {
             let cache_control = {
@@ -3030,6 +3071,7 @@ impl HttpClub {
                 Err(ureq::Error::Status(code, r)) => {
                     // Snapshot the header before the body read consumes the response.
                     let retry_hdr = r.header("retry-after").map(str::to_string);
+                    let vetoed = provider_vetoes_retry(r.header("x-should-retry"));
                     let mut detail = String::new();
                     let _ = std::io::Read::read_to_string(
                         &mut accounting.response_reader(r.into_reader()),
@@ -3068,7 +3110,7 @@ impl HttpClub {
                     } else {
                         (ordinary_attempt, p.retries, p.backoff_base, p.backoff_cap)
                     };
-                    if is_retryable_status(code) && attempt < retries {
+                    if is_retryable_status(code) && attempt < retries && !vetoed {
                         let wait =
                             retry_after(retry_hdr.as_deref(), backoff_cap).unwrap_or_else(|| {
                                 jittered(
@@ -3085,15 +3127,19 @@ impl HttpClub {
                         continue;
                     }
                     return Err(crate::platform::secrets::redact_error(&format!(
-                        "HTTP {code}: {}",
+                        "{}: {}",
+                        provider_status_label(code, vetoed),
                         detail.trim()
                     )));
                 }
                 Err(e) => {
                     drop(accounting);
                     // Transport-level: connection refused/reset, connect timeout, DNS.
-                    // Exactly the slow-LAN blips worth riding out.
-                    if ordinary_attempt < p.retries {
+                    // Exactly the slow-LAN blips worth riding out. A rejected
+                    // certificate is not one: the same chain fails the same way.
+                    let configuration = is_permanent_transport_configuration(e.kind());
+                    let rejected = error_indicates_certificate_rejected(&e.to_string());
+                    if ordinary_attempt < p.retries && !rejected && !configuration {
                         let wait = jittered(
                             backoff_delay(p.backoff_base, p.backoff_cap, ordinary_attempt),
                             p.jitter,
@@ -3103,8 +3149,13 @@ impl HttpClub {
                         continue;
                     }
                     return Err(crate::platform::secrets::redact_error(&format!(
-                        "transport error after {} attempt(s): {e}",
-                        ordinary_attempt + 1
+                        "transport error after {} attempt(s): {}{e}",
+                        ordinary_attempt + 1,
+                        if configuration {
+                            "[permanent transport configuration] "
+                        } else {
+                            ""
+                        }
                     )));
                 }
             }
@@ -3259,6 +3310,27 @@ impl Club for HttpClub {
         // Probe window/capability once so the first paid hop does not pay
         // cold `/models` + TLS setup on the operator's Enter key.
         self.ensure_metadata();
+    }
+
+    fn prewarm(self: Arc<Self>) {
+        // Only before anything is known: a fresh or published window needs no
+        // early probe, and one already in flight is enough.
+        if self.metadata.lock().map(|g| g.is_some()).unwrap_or(true) {
+            return;
+        }
+        let Ok(mut slot) = self.early_probe.lock() else {
+            return;
+        };
+        if slot.is_some() {
+            return;
+        }
+        let club = Arc::clone(&self);
+        if let Ok(probe) = std::thread::Builder::new()
+            .name("angel-club-prewarm".into())
+            .spawn(move || club.probe_metadata())
+        {
+            *slot = Some(probe);
+        }
     }
 
     fn quota_cooldown(&self) -> Option<Duration> {
@@ -4066,11 +4138,15 @@ impl HttpClub {
                     self.send_with_retry_origin(&bytes, Some(cancel), Some(&abort), origin)?;
                 wire.phase("streaming");
                 let mut last_heartbeat = None;
+                let poolable = stream_body_poolable(&resp);
                 let mut reader = BufReader::new(accounting.response_reader(resp.into_reader()));
                 let mut acc = StreamAccumulator::default();
                 let mut usage_commit = StreamUsageCommit::from_attempt(self, accounting);
                 let mut saw_data = false;
                 let mut saw_done = false;
+                // The terminal event arrived before the body's end: the rest
+                // (the chunked terminator) still holds the connection.
+                let mut tail_unread = false;
                 let mut messages_stream = self
                     .deepseek_messages
                     .then(deepseek_messages::StreamTranslator::default);
@@ -4163,6 +4239,7 @@ impl HttpClub {
                         SseEvent::Done => {
                             wire.event("done");
                             saw_done = true;
+                            tail_unread = true;
                             break;
                         }
                         SseEvent::Ignore => {
@@ -4175,6 +4252,7 @@ impl HttpClub {
                                 // sentinel (and maybe a trailing usage frame) is
                                 // missing behind the keep-alives. Commit it.
                                 if acc.finish_reason.is_some() {
+                                    tail_unread = true;
                                     break;
                                 }
                                 // A keep-alive is a live stream: a model thinking.
@@ -4263,6 +4341,9 @@ impl HttpClub {
                     } else {
                         format!("{INCOMPLETE_STREAM_ERR}; incomplete tool call discarded")
                     });
+                }
+                if tail_unread && poolable {
+                    release_stream_tail(reader);
                 }
 
                 if acc.finish_reason.as_deref() == Some("length") {

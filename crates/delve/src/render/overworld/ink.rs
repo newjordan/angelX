@@ -38,9 +38,8 @@ pub const SIGNAL_BANK: usize = 4;
 
 /// The realm master palette (`cockpit/assets/realm/palette.json`): structure,
 /// foliage, timber, stone and signal, fifteen colours each. Every overworld
-/// pixel is one of these or black paper. Three transition inks are appended
-/// outside the material/signal banks; ordinary scenery quantization is unchanged.
-pub const PALETTE: [u32; 78] = [
+/// pixel is one of these or black paper.
+pub const PALETTE: [u32; 75] = [
     0x000000, 0x080505, 0x0b0a08, 0x0b0b0f, 0x151614, 0x1a100c, 0x25140b, 0x322b2b, 0x3d3a36,
     0x515349, 0x63655c, 0x7a7c72, 0x94968c, 0xb0b2a8, 0xcdcfc6, // structure
     0x0d1a0c, 0x182414, 0x263b1c, 0x335022, 0x35543f, 0x3f6428, 0x4b591f, 0x5a7330, 0x69793e,
@@ -51,7 +50,6 @@ pub const PALETTE: [u32; 78] = [
     0x527597, 0x639dc2, 0x6e8a8e, 0x8fa3a8, 0xb3c2c4, 0xd5dee0, // stone
     0x12414f, 0x2079a6, 0x50c6b3, 0x8fe8dc, 0xe4fff8, 0x7a4a12, 0xecb64a, 0xf6b450, 0xf7ca58,
     0xfbd070, 0xc7b48f, 0xe3d2c3, 0xf4e1cb, 0x431e0f, 0xa8341f, // signal
-    0x741017, 0x293e69, 0xc9ac3a, // transition-only dark-deco: crimson, navy, mustard
 ];
 
 pub const fn rgb(v: u32) -> Rgb {
@@ -148,11 +146,6 @@ pub fn ink(ch: char) -> Option<Rgb> {
         '9' => 0xf4e1cb,
         '8' => 0x431e0f,
         '7' => 0xa8341f,
-        // Dark-deco transition plates only. Kept out of nearest_plain so
-        // adding these cannot recolour the world or existing rooms.
-        'χ' => 0x741017,
-        'ν' => 0x293e69,
-        'μ' => 0xc9ac3a,
         _ => return None,
     };
     Some(rgb(v))
@@ -390,6 +383,22 @@ impl Img {
                 if dx * dx + dy * dy <= 1.0 {
                     self.put(x, y, ch);
                 }
+            }
+        }
+    }
+
+    /// A combat mark sampled twice, with its top-left at `(x, y)`. Walk
+    /// packed pixels directly: hundreds of transparent cells need no bounds
+    /// checks or colour conversion, only the occupied sprite samples do.
+    pub fn stamp_twice(&mut self, src: &Img, x: i32, y: i32) {
+        for (i, &p) in src.px.iter().enumerate() {
+            if let Some(c) = unpack(p) {
+                let px = x + (i as i32 % src.w) * 2;
+                let py = y + (i as i32 / src.w) * 2;
+                self.set(px, py, c);
+                self.set(px + 1, py, c);
+                self.set(px, py + 1, c);
+                self.set(px + 1, py + 1, c);
             }
         }
     }

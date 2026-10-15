@@ -142,3 +142,35 @@ fn print_room_budgets() {
         eprintln!("{index} {:<14} {} tris", interior::hero(index), interior::interior_mesh(index).tris.len());
     }
 }
+
+#[test]
+fn placed_sculptures_keep_their_face_counts_feet_extents_and_material_identity() {
+    for &(name, text) in PROPS {
+        let raw = parse(text).unwrap();
+        let finish = prop(name).unwrap();
+        assert_eq!(
+            finish.tris.len(),
+            raw.tris.len(),
+            "{name}: no added frame work"
+        );
+        let bounds = |mesh: &Mesh| {
+            let mut low = [f32::MAX; 3];
+            let mut high = [f32::MIN; 3];
+            for p in mesh.tris.iter().flat_map(|t| t.v) {
+                for (k, n) in [p.x, p.y, p.z].into_iter().enumerate() {
+                    low[k] = low[k].min(n);
+                    high[k] = high[k].max(n);
+                }
+            }
+            (low, high)
+        };
+        assert_eq!(bounds(&raw), bounds(&finish), "{name}: placement footprint");
+        assert!(finish.tris.iter().all(|t| t.normal.length() > 0.99));
+        if name == "dragon_skull" {
+            assert!(finish.tris.iter().any(|t| t.mat == mat::BONE));
+        }
+        if name == "knight_statue" {
+            assert!(finish.tris.iter().any(|t| t.mat == mat::ARMOR));
+        }
+    }
+}

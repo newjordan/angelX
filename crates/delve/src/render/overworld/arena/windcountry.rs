@@ -44,9 +44,35 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             // The kite workshop, cloth drying on racks, baskets stacked.
             m::house(cv, (3 * TILE + 2, 2 * TILE - 10, 6 * TILE - 4, 3 * TILE + 8), &m::House { roof: m::ramp::TILE, stone: false, windows: 2 }, 214);
             m::fence(cv, 15 * TILE, 21 * TILE - 2, 4 * TILE - 2);
+            // Kite cloth hung out to dry on a cord between two poles: each
+            // piece pegged at its corners, falling in soft folds lit from
+            // the west, its hem uneven.
+            let (x0, x1, cord) = (15 * TILE + 1, 21 * TILE - 4, 2 * TILE + 1);
+            for px in [x0, x1] {
+                cv.line(px, cord - 2, px, 4 * TILE - 8, 'P');
+                cv.line(px + 1, cord - 2, px + 1, 4 * TILE - 8, 'b');
+            }
+            let sag = |x: i32| {
+                let t = (x - x0) as f32 / (x1 - x0) as f32;
+                (3.0 * 4.0 * t * (1.0 - t)).round() as i32
+            };
+            for x in x0 + 2..x1 {
+                cv.put(x, cord + sag(x), 'B');
+            }
             for (n, x) in (15 * TILE + 3..21 * TILE - 6).step_by(14).enumerate() {
-                cv.rect(x, 2 * TILE + 2, 9, 12, ['R', 'u', 'o', 'S'][n % 4]);
-                cv.line(x, 2 * TILE + 2, x + 8, 2 * TILE + 2, 'h');
+                let ramp: &[char] = [&['p', 'R', 'r', 'o'][..], &['x', 'S', 'u', 'U'], &['B', 'r', 'o', 'O'], &['s', 'x', 'S', 'u']][n % 4];
+                for dx in 0..9 {
+                    let top = cord + sag(x + dx) + 1;
+                    let hem = 11 + (hash(x + dx, n as i32, 216) % 2) as i32 - (dx == 0 || dx == 8) as i32;
+                    let fold = ((dx as f32 * 1.4 + n as f32).sin() * 0.25) + 0.55 - dx as f32 * 0.03;
+                    for dy in 0..hem {
+                        let t = if dy == hem - 1 { fold - 0.25 } else { fold };
+                        cv.put(x + dx, top + dy, m::pick(ramp, t));
+                    }
+                }
+                for peg in [x, x + 8] {
+                    cv.put(peg, cord + sag(peg), 'O');
+                }
             }
             for (k, (bx, by)) in [(8, 12), (9, 12), (10, 12), (9, 11)].into_iter().enumerate() {
                 m::hay(cv, bx * TILE + 4, by * TILE - 1, 5.0, 215 + k as u32);

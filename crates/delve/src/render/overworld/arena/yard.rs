@@ -124,8 +124,7 @@ fn stall(cv: &mut Img, open: bool) {
 /// A plate before the stall, bright while a knight stands on it.
 fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
-    cv.rect(x, y, pw, ph, 'X');
-    cv.frame(x, y, pw, ph, if lit { '5' } else { 'o' });
+    super::super::chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
     let coin = if lit { '6' } else { 'O' };
     cv.ellipse((x + pw / 2) as f32, (y + ph / 2) as f32, 2.5, 2.5, coin);
 }
@@ -223,12 +222,9 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     let row = 3 + (lines.len() as i32 - 1) * 9;
     let start = (board.w - (text_width(label) + 4 + bar_w)) / 2;
     let after = board.text(start, row, label, 'O');
-    board.frame(after + 4, row + 1, bar_w, 5, 'b');
     let bh = crate::rules::home::BUY_HOLD;
     let fill = (buying.min(bh) * (bar_w as u32 - 2) / bh) as i32;
-    if fill > 0 {
-        board.rect(after + 5, row + 2, fill, 3, '5');
-    }
+    super::super::chrome::meter(&mut board, (after + 4, row + 1, bar_w, 5), fill, super::super::ink::ink('5').unwrap_or_default());
     // Beside the stall, so Grubbins stays in sight.
     let (_, r, _, _) = STALL_PLATES[item];
     let x = (STALL.0 * TILE - board.w - 8).max(2);

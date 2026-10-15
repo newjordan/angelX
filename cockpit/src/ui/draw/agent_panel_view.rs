@@ -436,7 +436,9 @@ fn render_terminal_agent_portrait(
     // session starts, then in colour.
     app.viewer.set_portrait_mono(!app.startup_intro.dismissed());
     maybe_paint_side_column_kitty(|| {
-        if portrait_states_enabled() {
+        if portrait_states_enabled()
+            && let Some(sheet) = crate::ui::helm::sheet(profile.key)
+        {
             let state = portrait_state(app);
             let long_context = !matches!(
                 agent_route_capability_paint(app, 1).0,
@@ -448,8 +450,7 @@ fn render_terminal_agent_portrait(
                 app.visual_motion,
                 app.started.elapsed(),
             );
-            let path = crate::platform::runtime_paths::cockpit_dir()
-                .join(crate::ui::helm::sheet(profile.key));
+            let path = crate::platform::runtime_paths::cockpit_dir().join(sheet);
             let rendered = app.viewer.render_helm(frame, area, &path, pose as u8);
             // Warm the next real idle pose without changing the visible state.
             let next = if state == crate::ui::views::agent_view::PortraitState::Idle
@@ -1227,7 +1228,7 @@ fn avatar_rows_per_column(app: &App, profile: AgentProfile) -> Option<f32> {
         return None;
     }
     let path =
-        crate::platform::runtime_paths::cockpit_dir().join(crate::ui::helm::sheet(profile.key));
+        crate::platform::runtime_paths::cockpit_dir().join(crate::ui::helm::sheet(profile.key)?);
     let (w, h) = crate::ui::helm::frame_size(&path, app.viewer.portrait_synchronous())?;
     let (cell_w, cell_h) = app.viewer.portrait_cell_pixels();
     (w > 0 && h > 0).then(|| (h as f32 / w as f32) * (f32::from(cell_w) / f32::from(cell_h)))

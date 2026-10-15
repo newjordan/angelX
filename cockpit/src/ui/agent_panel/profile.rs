@@ -3,6 +3,7 @@ pub enum AgentKey {
     Codex,
     Luna,
     Astra,
+    Daybreak,
     Glm,
     Kimi,
     Qwen,
@@ -72,6 +73,9 @@ pub fn profile_for_route(agent_label: &str, driver: &str, model: Option<&str>) -
 }
 
 fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> {
+    if driver.trim().eq_ignore_ascii_case("daybreak") {
+        return Some(DAYBREAK_PROFILE);
+    }
     let model = model.unwrap_or_default();
     let fields = [driver, model];
 
@@ -124,6 +128,12 @@ fn route_profile_for(driver: &str, model: Option<&str>) -> Option<AgentProfile> 
 }
 
 fn codex_profile(fields: &[&str; 2]) -> AgentProfile {
+    // The Daybreak seat serves Sol or Luna models under a Daybreak program;
+    // its own seat name decides, ahead of the model's family. A model id that
+    // merely names Daybreak keeps its family's knight.
+    if fields[0].trim().eq_ignore_ascii_case("daybreak") {
+        return DAYBREAK_PROFILE;
+    }
     if fields
         .iter()
         .any(|field| contains_ascii_case(field, b"luna"))
@@ -199,6 +209,9 @@ fn family_profile_for(driver: &str, fields: &[&str; 2]) -> Option<AgentProfile> 
 
 fn base_profile_for(label: &str) -> AgentProfile {
     let label = label.trim();
+    if label.eq_ignore_ascii_case("daybreak") {
+        return DAYBREAK_PROFILE;
+    }
     if label.eq_ignore_ascii_case("openai")
         || label.eq_ignore_ascii_case("codex")
         || label.eq_ignore_ascii_case("gpt")
@@ -298,6 +311,16 @@ const ASTRA_PROFILE: AgentProfile = knight(
     "Astra",
     "SOTA seat",
     "ChatGPT-OAuth Astra route",
+    (
+        "assets/agents/codex-champion.png",
+        "assets/agents/codex-champion-high.png",
+    ),
+);
+const DAYBREAK_PROFILE: AgentProfile = knight(
+    AgentKey::Daybreak,
+    "Daybreak",
+    "SOTA seat",
+    "ChatGPT-OAuth Daybreak route",
     (
         "assets/agents/codex-champion.png",
         "assets/agents/codex-champion-high.png",

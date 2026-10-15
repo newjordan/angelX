@@ -2,6 +2,7 @@
 //! bathhouse's tubs and Brother Suds, the smithy's hearth, anvil and Old
 //! Dint. Furniture is cached scenery; keepers' faces, soakers, the hammer
 //! and the helmet test are drawn per frame from the town's state.
+use super::super::chrome;
 use super::super::ink::{Img, hash, text_width};
 use super::super::{kit, light::Light};
 use super::{TILE, at, fire, home, nooks, props};
@@ -155,15 +156,27 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             }
         }
         RoomKind::Bathhouse => {
-            // A tiled dais under the tubs.
+            // A tiled dais under the tubs: glazed tiles in close tones, each
+            // lit along its top and west edge and worn at its corners, set in
+            // dark grout.
             for yy in 2 * TILE..5 * TILE + 8 {
                 for xx in 2 * TILE..21 * TILE {
-                    let (cx, cy) = (xx / 8, yy / 8);
-                    if xx % 8 == 0 || yy % 8 == 0 {
-                        cv.put(xx, yy, 'x');
-                    } else if (cx + cy) % 2 == 0 && hash(cx, cy, 231).is_multiple_of(2) {
-                        cv.put(xx, yy, 's');
+                    let (cx, cy, lx, ly) = (xx / 8, yy / 8, xx % 8, yy % 8);
+                    let corner = (lx == 1 || lx == 7) && (ly == 1 || ly == 7);
+                    if lx == 0 || ly == 0 || corner {
+                        continue;
                     }
+                    let deep = hash(cx, cy, 231) % 3 == 0;
+                    let ch = if ly == 1 || lx == 1 {
+                        if deep { 's' } else { 'S' }
+                    } else if ly == 7 || lx == 7 {
+                        'k'
+                    } else if deep {
+                        'x'
+                    } else {
+                        's'
+                    };
+                    cv.put(xx, yy, ch);
                 }
             }
             for xx in 2 * TILE..21 * TILE {
@@ -178,15 +191,23 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             // Washing lines of towels across the south.
             cv.line(9 * TILE, 10 * TILE, 19 * TILE, 10 * TILE + 3, 'o');
             for k in 0..6 {
+                // A towel over the line, falling in soft folds lit from the
+                // west, a stripe woven near its hem.
                 let tx = 9 * TILE + 6 + k * 26;
-                cv.rect(tx, 10 * TILE + 1 + k / 2, 9, 11, if k % 2 == 0 { 'c' } else { 'U' });
-                cv.line(tx, 10 * TILE + 9 + k / 2, tx + 8, 10 * TILE + 9 + k / 2, 'T');
+                let ramp: &[char] = if k % 2 == 0 { &['J', 'h', 'i', 'H'] } else { &['S', 'u', 'U', 'v'] };
+                for dx in 0..9 {
+                    let fold = ((dx as f32 * 1.3 + k as f32).sin() * 0.22) + 0.78 - dx as f32 * 0.03;
+                    let hem = 11 - (dx == 0 || dx == 8) as i32;
+                    for dy in 0..hem {
+                        let ink = if dy == 8 { 'T' } else { mat::pick(ramp, if dy == hem - 1 { fold - 0.25 } else { fold }) };
+                        cv.put(tx + dx, 10 * TILE + 1 + k / 2 + dy, ink);
+                    }
+                }
             }
             // The price, painted on a board by the door.
             let sign = format!("SOAK {BATH_GOLD}G");
             let w = text_width(&sign) + 6;
-            cv.rect(2 * TILE, 5 * TILE - 2, w, 11, 'B');
-            cv.frame(2 * TILE, 5 * TILE - 2, w, 11, 'r');
+            chrome::inset_panel(cv, (2 * TILE, 5 * TILE - 2, w, 11), chrome::Tone::TIMBER);
             cv.text(2 * TILE + 3, 5 * TILE, &sign, 'T');
         }
         RoomKind::Smithy => {
@@ -239,10 +260,13 @@ fn keeper(cv: &mut Img, run: &Run, i: usize) {
     if run.town.shut[i] > 0 {
         // Shutters down, a sulk behind them.
         let front = if i == 2 { y } else { y + h - 12 };
-        cv.rect(x + 3, front - 14, w - 6, 26, 'B');
-        for sx in (x + 5..x + w - 4).step_by(6) {
-            cv.line(sx, front - 13, sx, front + 11, 'b');
-        }
+        // Upright planks of timber, a batten across them, the corners
+        // worn off, its foot in shadow.
+        let (sx, sy, sw, sh) = (x + 3, front - 14, w - 6, 26);
+        let kept = super::super::chrome::corners(cv, (sx, sy, sw, sh), &[2, 1]);
+        mat::boards(cv, (sx, sy, sw, sh), true, 214 + i as u32);
+        mat::boards(cv, (sx, sy + 4, sw, 3), false, 215 + i as u32);
+        super::super::chrome::restore(cv, &kept);
         cv.text(x + w / 2 - 9, front - 6, "OUT", 'T');
         return;
     }
@@ -375,8 +399,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let top = gold == STALLS[i].top;
                 // Beside the seller, clear of the keeper's face.
                 let (lx, ly) = (x + 12, y - 22);
-                cv.rect(lx, ly, w, 11, 'K');
-                cv.frame(lx, ly, w, 11, if top { '5' } else { 'B' });
+                chrome::board(cv, (lx, ly, w, 11), if top { '5' } else { 'B' });
                 cv.text(lx + 3, ly + 2, &label, if top { '5' } else { 'O' });
             }
         }

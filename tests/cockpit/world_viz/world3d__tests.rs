@@ -382,3 +382,22 @@ fn travel_heading_cannot_replace_intentional_camera_look() {
     let raised = view3_from_ray(&map, &view, 96, 72);
     assert!((raised.pitch - intentional_turn.pitch - 0.30).abs() < 1e-4);
 }
+
+/// Export the production settled cameras for comparing both renderer builds
+/// against identical cached court geometry, without running a visible UI.
+#[test]
+#[ignore]
+fn write_court_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_COURT_SHOTS") else { return };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut cameras = Vec::new();
+    for (i, vantage) in VANTAGES.iter().enumerate() {
+        for (label, w, h) in [("large", 384, 288), ("mini", 96, 72)] {
+            let view = settled_camera(vantage, w, h);
+            cameras.push(serde_json::json!({"name":format!("court{i}-{label}"),"w":w,"h":h,
+                "camera":[view.pos.x,view.pos.y,view.pos.z,view.heading_rad,view.pitch,view.fov_rad]}));
+        }
+    }
+    std::fs::write(dir.join("court-cameras.json"), serde_json::to_vec_pretty(&cameras).unwrap()).unwrap();
+}

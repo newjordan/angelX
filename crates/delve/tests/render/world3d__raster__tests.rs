@@ -149,8 +149,8 @@ fn the_moon_is_the_brightest_thing_in_the_sky() {
 #[test]
 fn window_glow_is_brightest_at_the_pane_centre_and_keeps_its_lead() {
     // The mullion lattice stays dark — the lead owns the window's shape.
-    assert_eq!(window_tint(0.0, 0.0), [96, 62, 34]);
-    assert_eq!(window_tint(0.02, 0.02), [96, 62, 34]);
+    assert_eq!(window_tint(0.0, 0.0), [76, 55, 35]);
+    assert_eq!(window_tint(0.02, 0.02), [76, 55, 35]);
     // The glow concentrates at the pane centre and falls toward the lead —
     // the promised "one hot dot" reading, subtle enough to stay glass.
     let centre = window_tint(0.5 * 0.16, 0.5 * 0.20);
@@ -163,11 +163,11 @@ fn window_glow_is_brightest_at_the_pane_centre_and_keeps_its_lead() {
     );
     assert_eq!(
         centre,
-        [255, 198, 116],
-        "the authored glow survives at its heart"
+        [218, 174, 112],
+        "the bounded amber glow survives at its heart"
     );
     assert!(
-        corner[0] >= 230,
+        corner[0] >= 200,
         "the falloff stays subtle — the pane never reads as dim: {corner:?}"
     );
     // Deterministic: same uv in, same glass out (cache-safe by construction).
@@ -224,3 +224,70 @@ fn distance_sinks_stone_into_the_night_fog() {
     );
 }
 
+
+#[test]
+fn stone_and_timber_have_soft_shoulders_and_fire_has_no_glazing_grid() {
+    for material in [mat::STONE, mat::FLOOR, mat::WOOD, mat::ROOF, mat::PATH] {
+        let mut last = material_sample(material, [0.0, 0.1]).0;
+        for i in 1..96 {
+            let next = material_sample(material, [i as f32 / 64.0, 0.1]).0;
+            assert!(
+                (0..3).all(|k| next[k].abs_diff(last[k]) <= 18),
+                "material {material}: hard band {last:?} -> {next:?}"
+            );
+            last = next;
+        }
+    }
+    let flame = material_sample(mat::FLAME, [0.0; 2]).0;
+    let lead = material_sample(mat::WINDOW, [0.0; 2]).0;
+    assert!(flame[0] > lead[0] + 70, "a flame has no dark glass mullion");
+    for i in 0..30 {
+        assert!(
+            material_sample(mat::FLAME, [i as f32 * 0.1, 0.0])
+                .0
+                .iter()
+                .all(|&c| c <= 228)
+        );
+    }
+}
+
+#[test]
+fn fire_glass_keeps_cames_and_exposed_flame_keeps_a_bright_inner_tongue() {
+    for uv in [[0.0, 0.0], [0.08, 0.10], [0.18, 0.21]] {
+        assert_eq!(
+            material_sample(mat::FIRE, uv).0,
+            material_sample(mat::WINDOW, uv).0
+        );
+    }
+    let lead = material_sample(mat::FIRE, [0.0, 0.0]).0;
+    let pane = material_sample(mat::FIRE, [0.08, 0.10]).0;
+    assert!(
+        pane[1] >= lead[1] + 100,
+        "lead cames must separate the warm panes"
+    );
+    let core = material_sample(mat::FLAME, [0.5, 0.2]).0;
+    let edge = material_sample(mat::FLAME, [0.1, 0.2]).0;
+    let tip = material_sample(mat::FLAME, [0.5, 0.9]).0;
+    assert!(
+        core[1] >= edge[1] + 45 && core[2] >= edge[2] + 50,
+        "flat flame: {core:?} / {edge:?}"
+    );
+    assert!(
+        core[1] >= tip[1] + 45,
+        "the core must cool into the outer tongue"
+    );
+    let normal = v3(-1.0, 0.0, 0.0);
+    let fire = Surface::lit(mat::FLAME, normal, normal, moon_direction());
+    assert_ne!(
+        fire.shade([0.5, 0.2], 3.0, Firelight::STEADY, FOG_DISTANCE),
+        fire.shade(
+            [0.5, 0.2],
+            3.0,
+            Firelight {
+                gain: 0.8,
+                warm: 0.05
+            },
+            FOG_DISTANCE
+        )
+    );
+}

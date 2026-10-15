@@ -878,8 +878,8 @@ fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
             0.0,
             mat::STONE_DARK,
         );
-        prim::disc(mesh, bx, by, 1.25, 0.40, 8, 0.0, mat::FIRE);
-        prim::cone(mesh, bx, by, 1.25, 1.86, 0.34, 6, 0.0, mat::FIRE);
+        prim::disc(mesh, bx, by, 1.25, 0.40, 8, 0.0, mat::EMBER);
+        prim::cone(mesh, bx, by, 1.25, 1.86, 0.34, 4, 0.0, mat::FLAME);
     }
 }
 
@@ -1064,8 +1064,8 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         0.0,
         mat::STONE_DARK,
     );
-    prim::disc(mesh, 2.40, -1.35, 1.07, 0.38, 8, 0.0, mat::FIRE);
-    prim::cone(mesh, 2.40, -1.35, 1.07, 1.58, 0.32, 6, 0.0, mat::FIRE);
+    prim::disc(mesh, 2.40, -1.35, 1.07, 0.38, 8, 0.0, mat::EMBER);
+    prim::cone(mesh, 2.40, -1.35, 1.07, 1.58, 0.32, 6, 0.0, mat::FLAME);
 
     let lad_x = -hx + 0.75;
     for &sy in &[-1.0_f32, 1.0] {
@@ -1797,3 +1797,17 @@ fn ray_triangle(origin: V3, direction: V3, v: [V3; 3]) -> Option<f32> {
 #[cfg(test)]
 #[path = "../../../../../tests/cockpit/world_viz/world3d__interior__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+pub(crate) fn review_camera(index: u8, w: usize, h: usize) -> View3 {
+    let view = super::super::raycast::RayView {
+        x: 4.5,
+        y: 7.25,
+        heading_rad: BASE_HEADING,
+        look_yaw: 0.0,
+        fov_rad: 1.05,
+        bob: 0.0,
+        eye_h: 0.0,
+    };
+    staged_view(index, &view, w, h)
+}

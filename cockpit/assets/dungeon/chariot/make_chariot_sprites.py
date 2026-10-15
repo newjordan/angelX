@@ -2,10 +2,14 @@
 """SNES-floor chariot sprites: side (east), front (south) and rear (north)
 sheets, two gallop frames each. West is the east sheet mirrored at render.
 
-Ink key (stage/world_viz/overworld/ink.rs): the far/left horse wears the
-fixed bay coat `B`; `R` is the house colour — near/right horse, cab and
-driver — repainted per house banner by the arena. `O` is the gold harness
-and trim, `K` hooves and iron, `p` the shafts, `j` dust.
+Ink key (crates/delve/src/render/overworld/ink.rs): the far/left horse
+wears the fixed bay coat `B`; `R` is the house colour — near/right horse,
+cab and driver — and `I` its shadow, both repainted per house banner by the
+arena. `O` is the gold harness and trim, `x` the cab's iron and the wheel
+hubs, `b` hooves, `p` the shafts, `j` dust. The driver is the realm's knight
+in the hero's steel (`W v u`). Every body is lit from the upper left after it
+is drawn (`shade`): a coat's top edge a step lighter, its underside a step
+darker in its own ramp, never black.
 Regenerate: python3 cockpit/assets/dungeon/chariot/make_chariot_sprites.py
 """
 import os
@@ -23,7 +27,36 @@ def put(g, x, y, s):
             g[y][x + i] = ch
 
 
+# A coat's own ramp: (lit top edge, body, underside).
+COATS = {"B": ("r", "B", "b"), "R": ("R", "R", "I")}
+
+
+def shade(g):
+    """Light every coat from above: where nothing of the same coat sits over
+    a pixel it takes the lit step, where nothing sits under it the shadow
+    step. One-pixel legs and one-row strips stay their coat."""
+    h, w = len(g), len(g[0])
+    at = lambda x, y: g[y][x] if 0 <= x < w and 0 <= y < h else "."
+    out = [row[:] for row in g]
+    for y in range(h):
+        for x in range(w):
+            c = g[y][x]
+            if c not in COATS:
+                continue
+            lit, _, dark = COATS[c]
+            leg = at(x - 1, y) != c and at(x + 1, y) != c
+            over, under = at(x, y - 1) == c, at(x, y + 1) == c
+            if leg or not (over or under):
+                continue
+            if not under:
+                out[y][x] = dark
+            elif not over:
+                out[y][x] = lit
+    return out
+
+
 def dump(g, name):
+    g = shade(g)
     text = "\n".join("".join(r).rstrip() for r in g) + "\n"
     open(os.path.join(OUT, name + ".ink"), "w").write(text)
     print(name, "ok")
@@ -37,7 +70,7 @@ def horse_e(g, x, y, legs, coat):
     put(g, x + 0, y + 3, "n"); put(g, x + 8, y + 3, "O")
     legpos = [(2, -1), (4, 0), (7, 0), (9, 1)] if legs == 0 else [(2, 1), (4, 1), (7, -1), (9, -1)]
     for lx, dx in legpos:
-        put(g, x + lx, y + 5, coat); put(g, x + lx + dx, y + 6, coat); put(g, x + lx + dx, y + 7, "K")
+        put(g, x + lx, y + 5, coat); put(g, x + lx + dx, y + 6, coat); put(g, x + lx + dx, y + 7, "b")
 
 
 def make_east(frame):
@@ -45,10 +78,10 @@ def make_east(frame):
     put(g, 7, 11, "p" * 9); put(g, 7, 14, "p" * 9)
     horse_e(g, 15, 3, frame, "B")       # far horse
     horse_e(g, 18, 7, 1 - frame, "R")   # near horse, house colour
-    put(g, 2, 8, "OOO"); put(g, 1, 9, "ORRRO"); put(g, 1, 10, "KRRRK"); put(g, 1, 11, "KKKKK")
-    put(g, 3, 5, "hh"); put(g, 3, 6, "tt"); put(g, 3, 7, "RR")   # driver
+    put(g, 2, 8, "tOO"); put(g, 1, 9, "ORRRO"); put(g, 1, 10, "xRRRx"); put(g, 1, 11, "uxxxx")
+    put(g, 3, 5, "Wv"); put(g, 3, 6, "tt"); put(g, 3, 7, "RR")   # driver
     put(g, 5, 4, "t"); put(g, 6, 3, "H")                          # whip
-    put(g, 2, 12, "OtO"); put(g, 2, 13, "tKt"); put(g, 2, 14, "OtO")  # wheel
+    put(g, 2, 12, "OtO"); put(g, 2, 13, "txt"); put(g, 2, 14, "OtO")  # wheel
     put(g, 12, 19, "jj"); put(g, 22, 20, "j"); put(g, 3, 17, "jj")    # dust
     return g
 
@@ -70,19 +103,19 @@ def horse_s(g, x, coat, legs):
     down, up = (0, 4) if legs == 0 else (4, 0)
     for lx in (down,):
         put(g, x + lx, 17, coat); put(g, x + lx, 18, coat); put(g, x + lx, 19, coat)
-        put(g, x + lx, 20, "K"); put(g, x + lx, 21, "K")
+        put(g, x + lx, 20, "b"); put(g, x + lx, 21, "b")
     put(g, x + up, 17, coat); put(g, x + up + (1 if up == 0 else -1), 18, coat)
-    put(g, x + up + (2 if up == 0 else -2), 18, "K")
+    put(g, x + up + (2 if up == 0 else -2), 18, "b")
 
 
 def make_south(frame):
     g = canvas(24, 30)
     # driver and cab front, behind the team
-    put(g, 11, 1, "hh"); put(g, 11, 2, "tt"); put(g, 10, 3, "RRRR")
+    put(g, 11, 1, "Wv"); put(g, 11, 2, "tt"); put(g, 10, 3, "RRRR")
     put(g, 15, 2, "t"); put(g, 16, 1, "H")                      # whip raised
-    put(g, 7, 4, "O" * 10)
-    put(g, 7, 5, "K" + "R" * 8 + "K"); put(g, 7, 6, "K" + "R" * 8 + "K")
-    put(g, 7, 7, "K" * 10)
+    put(g, 7, 4, "t" + "O" * 9)
+    put(g, 7, 5, "x" + "R" * 8 + "x"); put(g, 7, 6, "x" + "R" * 8 + "x")
+    put(g, 7, 7, "u" + "x" * 9)
     put(g, 5, 5, "p"); put(g, 18, 5, "p")                       # shaft tops
     horse_s(g, 3, "B", frame)
     horse_s(g, 16, "R", 1 - frame)
@@ -98,9 +131,9 @@ def horse_n(g, x, coat, legs):
     put(g, x + 0, 4, "O"); put(g, x + 5, 4, "O")                # harness ends
     down, up = (1, 4) if legs == 0 else (4, 1)
     put(g, x + down, 4, coat); put(g, x + down, 5, coat); put(g, x + down, 6, coat)
-    put(g, x + down, 7, "K"); put(g, x + down, 8, "K")
+    put(g, x + down, 7, "b"); put(g, x + down, 8, "b")
     put(g, x + up, 4, coat); put(g, x + up, 5, coat); put(g, x + up, 5, coat)
-    put(g, x + up + (1 if up == 1 else -1), 6, "K")
+    put(g, x + up + (1 if up == 1 else -1), 6, "b")
 
 
 def make_north(frame):
@@ -111,15 +144,15 @@ def make_north(frame):
     put(g, 6, 9, "p"); put(g, 17, 9, "p"); put(g, 7, 10, "p"); put(g, 16, 10, "p")
     put(g, 8, 11, "p"); put(g, 15, 11, "p")
     # the driver's back, whip arm out to the right
-    put(g, 11, 12, "hh"); put(g, 10, 13, "RRRR"); put(g, 10, 14, "RRRR")
+    put(g, 11, 12, "Vu"); put(g, 10, 13, "RRRR"); put(g, 10, 14, "RRRR")
     put(g, 14, 13, "t"); put(g, 15, 12, "H")
     # cab rear with its gold rail
-    put(g, 7, 15, "O" * 10)
-    put(g, 7, 16, "K" + "R" * 8 + "K"); put(g, 7, 17, "K" + "R" * 8 + "K")
-    put(g, 7, 18, "K" * 10)
+    put(g, 7, 15, "t" + "O" * 9)
+    put(g, 7, 16, "x" + "R" * 8 + "x"); put(g, 7, 17, "x" + "R" * 8 + "x")
+    put(g, 7, 18, "u" + "x" * 9)
     # both wheels from behind
     for wx in (4, 17):
-        put(g, wx, 20, "OtO"); put(g, wx, 21, "tKt"); put(g, wx, 22, "OtO")
+        put(g, wx, 20, "OtO"); put(g, wx, 21, "txt"); put(g, wx, 22, "OtO")
     put(g, 2, 25, "jj"); put(g, 19, 26, "jj"); put(g, 11, 28, "j")  # dust
     return g
 

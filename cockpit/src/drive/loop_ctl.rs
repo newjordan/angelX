@@ -974,9 +974,7 @@ impl crate::App {
                 );
                 match checkpoint {
                     Ok(()) => "loop paused — /loop resume to continue".to_string(),
-                    Err(error) => format!(
-                        "loop paused in memory; checkpoint failed: {error}"
-                    ),
+                    Err(error) => format!("loop paused in memory; checkpoint failed: {error}"),
                 }
             }
             "resume" | "continue" => self.loop_resume(),
@@ -1889,7 +1887,10 @@ impl crate::App {
             pivot,
             EvidenceRegime::Grounded,
         );
-        prompt.push_str(&crate::drive::labyrinth::context(self.tools.current_workspace(), &task));
+        prompt.push_str(&crate::drive::labyrinth::context(
+            self.tools.current_workspace(),
+            &task,
+        ));
         prompt.push_str(&format!(
             "\n\niteration {} · {}",
             self.loop_ctl.iteration,
@@ -3462,6 +3463,7 @@ fn loop_sota_allow_openai() -> bool {
 pub(crate) fn is_openai_family_label(label: &str) -> bool {
     let l = label.to_ascii_lowercase();
     l.contains("openai")
+        || l.contains("daybreak")
         || l.contains("codex")
         || l.contains("chatgpt")
         || l.starts_with("gpt-")

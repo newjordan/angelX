@@ -6,7 +6,8 @@
 //! sparkle and transition, including browser frames and replayed snapshots.
 //! A seat outside the privy never inherits another knight's window.
 
-use super::super::ink::{Img, hash, text_width};
+use super::super::chrome::{self, Tone};
+use super::super::ink::{Img, hash, ink, text_width};
 use super::{NATIVE_H, NATIVE_W, at, knights, sprites};
 use crate::rules::pitstop::{
     CHOOSE_WAIT, FLIGHT_TICKS, GOOD_BAND, PERFECT_BAND, Quality, RESULT_TICKS, STRAPS, Stage, Stop,
@@ -94,13 +95,10 @@ fn carved(run: &Run, w: i32, names: usize) -> Img {
     let ranked = run.pits.ranked();
     let h = 19 + ranked.len().clamp(1, 4) as i32 * 10;
     let mut im = Img::new(w, h);
-    im.rect(0, 0, w, h, 'n');
-    im.frame(0, 0, w, h, 'P');
-    im.rect(2, 2, w - 4, h - 4, 'I');
-    im.line(3, 2, w - 4, 2, 'o');
-    im.line(3, h - 3, w - 4, h - 3, 'b');
-    for y in (5..h - 3).step_by(7) {
-        im.line(3, y, w - 4, y, 'B');
+    chrome::inset_panel(&mut im, (0, 0, w, h), Tone::TIMBER);
+    // The planks' seams, a shade under the wood.
+    for y in (9..h - 3).step_by(7) {
+        im.line(3, y, w - 4, y, 'b');
     }
     centered(&mut im, 5, "PARTY BEST", 'T');
     im.line(4, 14, w - 5, 14, 'P');
@@ -114,7 +112,7 @@ fn carved(run: &Run, w: i32, names: usize) -> Img {
         let t = seconds(e.best);
         im.text(w - 5 - text_width(&t), y, &t, 'i');
     }
-    for (x, y) in [(2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3)] {
+    for (x, y) in [(3, 3), (w - 4, 3), (3, h - 4), (w - 4, h - 4)] {
         im.put(x, y, 'J');
     }
     im
@@ -172,30 +170,20 @@ fn sparkle(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(x, y, 'T');
 }
 
+/// The window's frame: one framed brass board (`chrome`), a brass stud in
+/// each corner, and grooves under the header and over the result.
 fn frame(im: &mut Img) {
     let (w, h) = (im.w, im.h);
-    im.rect(0, 0, w, h, 'k');
-    for (inset, ink) in [(0, 'g'), (1, 'o'), (2, 'T'), (3, 'P'), (4, 's'), (6, 'u')] {
-        im.frame(inset, inset, w - inset * 2, h - inset * 2, ink);
+    chrome::inset_panel(im, (0, 0, w, h), Tone::FRAMED);
+    chrome::ring(im, (0, 0, w, h), 4);
+    for (x, y) in [(5, 5), (w - 6, 5), (5, h - 6), (w - 6, h - 6)] {
+        im.put(x, y, 'O');
+        im.put(x + 1, y, 'o');
+        im.put(x, y + 1, 'o');
+        im.put(x + 1, y + 1, 'r');
     }
-    im.rect(7, 7, w - 14, h - 14, 's');
-    // Carved corner rosettes, inset metal and curled gold filigree.
-    for (x, y, sx, sy) in [
-        (4, 4, 1, 1),
-        (w - 5, 4, -1, 1),
-        (4, h - 5, 1, -1),
-        (w - 5, h - 5, -1, -1),
-    ] {
-        im.ellipse(x as f32, y as f32, 4.0, 4.0, 'P');
-        im.rect(x - 1, y - 1, 3, 3, 'T');
-        im.put(x, y, 'u');
-        im.line(x + sx * 5, y, x + sx * 15, y, 'o');
-        im.line(x, y + sy * 5, x, y + sy * 15, 'o');
-        im.put(x + sx * 17, y + sy, 'T');
-        im.put(x + sx, y + sy * 17, 'T');
-    }
-    im.line(8, 27, w - 9, 27, 'u');
-    im.line(8, 146, w - 9, 146, 'u');
+    chrome::rule(im, 8, w - 9, 27);
+    chrome::rule(im, 8, w - 9, 146);
 }
 
 /// Slow distant clouds, nearer tree silhouettes, and a textured flagstone bay.
@@ -301,6 +289,10 @@ fn finish_line(cv: &mut Img, tick: u32) {
 }
 
 fn armour(piece: usize) -> Img {
+    armour_rows(piece).recolor(super::super::kit::hero::STEEL)
+}
+
+fn armour_rows(piece: usize) -> Img {
     Img::from_rows(match piece {
         0 => &[
             "..iHHHi..",
@@ -587,8 +579,11 @@ fn scene(run: &Run, id: u32, hero: &Hero) -> Img {
                     [(9, "QUICK PEE", 'u', true), (105, "BIG POOP", 'P', false)]
                 {
                     cv.rect(sx + 42, 78, 4, 26, 'B');
-                    cv.rect(sx, 51, 91, 26, 'b');
-                    cv.frame(sx, 51, 91, 26, ink);
+                    chrome::panel(
+                        &mut cv,
+                        (sx, 51, 91, 26),
+                        Tone::TIMBER.rimmed(chrome::rim_of(ink)),
+                    );
                     cv.text(sx + (91 - text_width(word)) / 2, 57, word, 'T');
                     let ax = sx + 45;
                     cv.line(ax - 7, 69, ax + 7, 69, 'i');
@@ -670,8 +665,7 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
         match stop.stage {
             Stage::Strip | Stage::Dress => {
                 let (bx, by, bw, bh) = (37, 166, 278, 17);
-                window.rect(bx - 2, by - 2, bw + 4, bh + 4, 'g');
-                window.frame(bx - 2, by - 2, bw + 4, bh + 4, 'u');
+                chrome::inset_panel(&mut window, (bx - 2, by - 2, bw + 4, bh + 4), Tone::WELL.rimmed(chrome::rim_of('u')));
                 window.rect(bx, by, bw, bh, 'k');
                 for (half, ink) in [(GOOD_BAND, 'l'), (PERFECT_BAND, 'Y')] {
                     window.rect(
@@ -709,19 +703,16 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
                 );
                 centered(&mut window, 189, hint, 'h');
                 // A drawn button cap, with the controls branch's fire key.
-                window.rect(322, 167, 15, 15, 'x');
-                window.frame(322, 167, 15, 15, 'u');
+                chrome::inset_panel(&mut window, (322, 167, 15, 15), Tone::SLATE);
                 window.text(327, 171, "F", 'i');
             }
             Stage::Choose => {
                 centered(&mut window, 169, "PICK A SIDE", 'T');
-                window.rect(67, 186, 218, 4, 'x');
-                window.rect(
-                    67,
-                    186,
-                    (218.0 * (1.0 - stop.t as f32 / CHOOSE_WAIT as f32).max(0.0)) as i32,
-                    4,
-                    'u',
+                chrome::meter(
+                    &mut window,
+                    (67, 185, 218, 5),
+                    (216.0 * (1.0 - stop.t as f32 / CHOOSE_WAIT as f32).max(0.0)) as i32,
+                    ink('u').unwrap_or_default(),
                 );
             }
             _ => {
@@ -743,8 +734,12 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
                     }
                     None => centered(&mut window, 169, word, 'T'),
                 }
-                window.rect(67, 185, 218, 5, 'x');
-                window.rect(67, 185, (218.0 * stop.progress()) as i32, 5, 'u');
+                chrome::meter(
+                    &mut window,
+                    (67, 185, 218, 5),
+                    (216.0 * stop.progress()) as i32,
+                    ink('u').unwrap_or_default(),
+                );
             }
         }
     } else if let Some(result) = &hero.pit.result {

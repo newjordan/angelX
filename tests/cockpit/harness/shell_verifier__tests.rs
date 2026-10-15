@@ -53,7 +53,7 @@ fn t04b_routing_table_and_safe_presentation() {
         let route = plan("shell", &json!({"command":command}), &root).unwrap();
         assert!(
             route
-                .present("tests: 0 passed, 1 failed\nraw\nend".into())
+                .present("tests: 0 passed, 1 failed\nraw\nend".into(), false)
                 .starts_with("tests: 0 passed, 1 failed")
         );
     }
@@ -193,4 +193,104 @@ fn routed_receipt_survives_typed_reads_then_is_consumed_attribution() {
     assert_eq!(attributed.receipt.routed_call.unwrap().name, "run_tests");
     assert!(registry.routed_execution(&call, &text).is_none(), "completed call must release retained output");
     assert!(registry.take_routed_execution(&call, &text).is_none());
+}
+
+const UNITTEST_RED: &str = "tool error: python3 -m unittest discover -v failed (exit 1) — chosen because of 1 python test file(s)
+⠥⠋
+test_a (t.T.test_a) ... FAIL
+test_b (t.T.test_b) ... ok
+
+======================================================================
+FAIL: test_a (t.T.test_a)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File \"t.py\", line 5, in test_a
+    self.assertEqual(score(), 300)
+AssertionError: 0 != 300
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+FAILED (failures=1)";
+
+#[test]
+fn a_red_routed_run_keeps_its_first_failure_when_the_tail_would_hide_it() {
+    let root = std::env::temp_dir();
+    let route = plan(
+        "shell",
+        &json!({"command": "python3 -m pytest -q 2>&1 | tail -3"}),
+        &root,
+    )
+    .unwrap();
+    let red = route.present(UNITTEST_RED.into(), true);
+    assert!(
+        red.starts_with("tool error: python3 -m unittest discover -v failed"),
+        "{red}"
+    );
+    assert!(red.contains("FAIL: test_a (t.T.test_a)"), "{red}");
+    assert!(red.contains("AssertionError: 0 != 300"), "{red}");
+    assert!(
+        red.ends_with("Ran 2 tests in 0.001s\n\nFAILED (failures=1)"),
+        "{red}"
+    );
+    // Green: the tail exactly as asked, as before.
+    let green = route.present(UNITTEST_RED.into(), false);
+    assert_eq!(
+        green,
+        "tool error: python3 -m unittest discover -v failed (exit 1) — chosen because of 1 python test file(s)\n[typed output tail]\nRan 2 tests in 0.001s\n\nFAILED (failures=1)"
+    );
+}
+
+#[test]
+fn a_long_red_run_shows_its_first_block_then_the_tail_it_asked_for() {
+    let root = std::env::temp_dir();
+    let route = plan(
+        "shell",
+        &json!({"command": "cargo test 2>&1 | tail -2"}),
+        &root,
+    )
+    .unwrap();
+    let mut text =
+        String::from("tool error: cargo test failed (exit 101)\n---- camelcase stdout ----\n");
+    text.push_str("thread 'camelcase' panicked at tests/acronym.rs:80:5:\nassertion `left == right` failed\n  left: \"HML\"\n right: \"HTML\"\n");
+    for i in 0..60 {
+        text.push_str(&format!("noise {i}\n"));
+    }
+    text.push_str("failures:\n    camelcase\ntest result: FAILED. 9 passed; 1 failed");
+    let red = route.present(text, true);
+    let block_end = red.find("…[intervening output omitted]").expect(&red);
+    assert!(
+        red[..block_end].contains("---- camelcase stdout ----"),
+        "{red}"
+    );
+    assert!(red[..block_end].contains("right: \"HTML\""), "{red}");
+    assert!(
+        red.ends_with(
+            "[typed output tail]\n    camelcase\ntest result: FAILED. 9 passed; 1 failed"
+        ),
+        "{red}"
+    );
+    assert!(
+        red.lines().count() <= 1 + super::FIRST_FAILURE_LINES + 2 + 2,
+        "{red}"
+    );
+}
+
+#[test]
+fn a_tail_that_already_shows_a_failure_is_left_as_asked() {
+    let root = std::env::temp_dir();
+    let route = plan(
+        "shell",
+        &json!({"command": "pytest -q 2>&1 | tail -2"}),
+        &root,
+    )
+    .unwrap();
+    let text = "tool error: python3 -m pytest failed (exit 1)\n___ T.test_a ___\n    assert 0 == 300\nE   AssertionError\nFAILED t.py::T::test_a - AssertionError: 0 != 300\n1 failed, 1 passed in 0.01s";
+    assert_eq!(
+        route.present(text.into(), true),
+        "tool error: python3 -m pytest failed (exit 1)\n[typed output tail]\nFAILED t.py::T::test_a - AssertionError: 0 != 300\n1 failed, 1 passed in 0.01s"
+    );
+    // No tail asked: the whole result, as before.
+    let whole = plan("shell", &json!({"command": "pytest -q"}), &root).unwrap();
+    assert_eq!(whole.present(text.into(), true), text);
 }

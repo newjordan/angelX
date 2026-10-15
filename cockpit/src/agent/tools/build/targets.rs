@@ -18,12 +18,19 @@ struct MutationState {
 #[derive(Default)]
 pub(crate) struct MutationTargets(Mutex<MutationState>);
 impl MutationTargets {
-    pub(crate) fn record(&self, tool: &str, args: &Value) {
+    /// `workspace` resolves a path spelled from the launch directory
+    /// (`ws/acronym/src/lib.rs`) to the file the write landed in.
+    pub(crate) fn record(&self, workspace: &Path, tool: &str, args: &Value) {
         if let Ok(mut state) = self.0.lock() {
             let paths = &mut state.paths;
             crate::knowledge::cut::for_each_mutation_target_path(tool, args, |path| {
                 if path.ends_with(".rs") && paths.len() <= MAX_PATHS {
-                    paths.insert(path.to_owned());
+                    let resolved = crate::agent::harness::launch_relative_in_workspace(
+                        workspace,
+                        Path::new(path),
+                    )
+                    .map(|p| p.to_string_lossy().into_owned());
+                    paths.insert(resolved.unwrap_or_else(|| path.to_owned()));
                 }
                 false
             });

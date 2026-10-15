@@ -260,7 +260,7 @@ fn the_mine_has_a_real_lower_working_and_wall_height_torches() {
     let flames: Vec<_> = mesh
         .tris
         .iter()
-        .filter(|tri| tri.mat == mat::EMBER)
+        .filter(|tri| tri.mat == mat::FLAME)
         .collect();
     assert!(!flames.is_empty());
     assert!(

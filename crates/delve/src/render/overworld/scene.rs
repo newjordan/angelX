@@ -686,7 +686,7 @@ pub fn stage(scene: &Scene) -> Stage {
             base: (ty + 2) * TILE,
             img: kit::flag(ward.banner, ward.banner),
         });
-        let plaque = kit::plaque(&ward.name);
+        let plaque = kit::realm_sign(&ward.name, true);
         props.push(Prop {
             x: tx * TILE + TILE - plaque.w / 2,
             base: (ty + 2) * TILE + 13,
@@ -881,7 +881,7 @@ pub fn stage(scene: &Scene) -> Stage {
         (Place::Tournament, "TOURNAMENT"),
     ] {
         let (tx, ty) = place.stand();
-        let plaque = kit::district_sign(label);
+        let plaque = kit::realm_sign(label, false);
         props.push(Prop {
             x: tx * TILE + 8 - plaque.w / 2,
             base: if place == Place::ArtisanQuarter {

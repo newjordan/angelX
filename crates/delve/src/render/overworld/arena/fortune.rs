@@ -173,8 +173,7 @@ fn stand_frame(cv: &mut Img) {
 /// A plate on the hall's floor: the lever's (a spin) or Fortune's own.
 fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, station: Option<Station>) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
-    cv.rect(x, y, pw, ph, 'X');
-    cv.frame(x, y, pw, ph, if lit { '5' } else { 'o' });
+    super::super::chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
     let ink = if lit { '6' } else { 'O' };
     let mark = match station {
         Some(Station::Coffer) => Img::from_rows(&["OOOOO", "O.O.O", "OOOOO", "O...O", "OOOOO"]),
@@ -499,12 +498,9 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         let bar_w = 40;
         let start = (board.w - (text_width(label) + 4 + bar_w)) / 2;
         let after = board.text(start, 21, label, 'O');
-        board.frame(after + 4, 22, bar_w, 5, 'b');
         let fill = (buying.min(crate::rules::home::BUY_HOLD) * (bar_w as u32 - 2)
             / crate::rules::home::BUY_HOLD) as i32;
-        if fill > 0 {
-            board.rect(after + 5, 23, fill, 3, '5');
-        }
+        super::super::chrome::meter(&mut board, (after + 4, 22, bar_w, 5), fill, super::super::ink::ink('5').unwrap_or_default());
         let (c, r, w, _) = LEVER;
         cv.stamp(&board, c * TILE + w * TILE / 2 - board.w / 2, r * TILE + 22);
     }

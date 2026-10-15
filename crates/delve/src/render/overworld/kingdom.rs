@@ -60,7 +60,23 @@ fn paint_sites(cv: &mut Img, geo: &Geography, view: View) {
 }
 
 /// What stands on countryside site `i`'s lot, sized to fit it.
-fn building(site: &Site, i: usize) -> Img {
+/// A building never changes once drawn: each site's is drawn once and kept.
+fn building(site: &Site, i: usize) -> std::sync::Arc<Img> {
+    type Cache = std::sync::Mutex<std::collections::HashMap<(u32, usize), std::sync::Arc<Img>>>;
+    static CACHE: std::sync::OnceLock<Cache> = std::sync::OnceLock::new();
+    let key = (site.room as u32, i);
+    let cache = CACHE.get_or_init(Default::default);
+    if let Some(hit) = cache.lock().ok().and_then(|c| c.get(&key).cloned()) {
+        return hit;
+    }
+    let im = std::sync::Arc::new(draw_building(site, i));
+    if let Ok(mut c) = cache.lock() {
+        c.insert(key, std::sync::Arc::clone(&im));
+    }
+    im
+}
+
+fn draw_building(site: &Site, i: usize) -> Img {
     use super::kit::{self, House, Roof, Wall};
     let building = if let Some(landmark) = super::landmarks::landmark(site.room) {
         landmark

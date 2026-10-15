@@ -132,11 +132,59 @@ pub(crate) struct CodexModelInfo {
     pub(crate) visibility: String,
     #[serde(default)]
     pub(crate) priority: i64,
+    /// The access programs the account may request on this model
+    /// (`{"cyber": ["standard", "daybreak_blue"]}`). Read leniently: a null or
+    /// reshaped value lists nothing rather than failing the whole cache.
+    #[serde(default, deserialize_with = "lenient_access_programs")]
+    pub(crate) available_access_programs: CodexAccessPrograms,
     #[serde(skip)]
     pub(crate) pi_thinking: std::collections::BTreeMap<String, Option<String>>,
 }
 
+#[derive(Clone, Debug, Default)]
+pub(crate) struct CodexAccessPrograms {
+    pub(crate) cyber: Vec<String>,
+}
+
+fn lenient_access_programs<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<CodexAccessPrograms, D::Error> {
+    let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+    let cyber = value
+        .get("cyber")
+        .and_then(serde_json::Value::as_array)
+        .map(|listed| {
+            listed
+                .iter()
+                .filter_map(|program| program.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(CodexAccessPrograms { cyber })
+}
+
 impl CodexModelInfo {
+    /// The Daybreak program this account may request on this model, as the
+    /// Codex CLI picks it: blue first, then red.
+    pub(crate) fn daybreak_program(&self) -> Option<&'static str> {
+        ["daybreak_blue", "daybreak_red"]
+            .into_iter()
+            .find(|program| {
+                self.available_access_programs
+                    .cyber
+                    .iter()
+                    .any(|listed| listed == program)
+            })
+    }
+
+    /// Whether the plain ChatGPT seat may serve this model: a model listed only
+    /// under a Daybreak program (`gpt-daybreak-blue-latest`) belongs to the
+    /// Daybreak seat. A cache with no access programs lists every model.
+    pub(crate) fn standard_access(&self) -> bool {
+        let cyber = &self.available_access_programs.cyber;
+        cyber.is_empty() || cyber.iter().any(|listed| listed == "standard")
+    }
+
     pub(crate) fn route_metadata(&self) -> crate::agent::club::RouteMetadata {
         crate::agent::club::RouteMetadata {
             description: compact_metadata_text(&self.description, 320),
@@ -623,6 +671,10 @@ pub struct CodexClub {
     /// Send `prompt_cache_key` (this club's session id): Meta's Responses API
     /// caches only requests that carry one.
     prompt_cache_key: bool,
+    /// An OpenAI cyber access program sent with every request
+    /// (`access_programs.cyber`): the Daybreak seat's `daybreak_blue`. `None`
+    /// sends nothing and leaves the backend's own treatment.
+    cyber_access_program: Option<&'static str>,
     api_controls: Option<api::ApiControls>,
     /// Test-only endpoint override: points the Responses POST at a local
     /// server so the streaming loop's watchdogs can be exercised without the
@@ -804,6 +856,7 @@ impl CodexClub {
             reasoning_summary: "auto".to_string(),
             replay_enabled: std::env::var("ANGEL_OPENAI_REPLAY").as_deref() == Ok("1"),
             prompt_cache_key: false,
+            cyber_access_program: None,
             api_controls: None,
             #[cfg(test)]
             responses_url_override: None,
@@ -874,6 +927,13 @@ impl CodexClub {
     /// model keeps its train of thought and the provider's cached prefix holds.
     pub(crate) fn with_reasoning_replay(mut self, on: bool) -> Self {
         self.replay_enabled = on;
+        self
+    }
+
+    /// Request an OpenAI cyber access program on every call (the Daybreak
+    /// seat). Only the ChatGPT login carries one; an API-key seat ignores it.
+    pub(crate) fn with_cyber_access_program(mut self, program: &'static str) -> Self {
+        self.cyber_access_program = Some(program);
         self
     }
 
@@ -984,7 +1044,10 @@ impl CodexClub {
         if self.api_key.is_some() {
             &self.name
         } else {
-            "openai"
+            match self.name.as_str() {
+                "daybreak" => "daybreak",
+                _ => "openai",
+            }
         }
     }
 
@@ -1189,6 +1252,9 @@ impl CodexClub {
         });
         if self.prompt_cache_key {
             body["prompt_cache_key"] = json!(self.session_id);
+        }
+        if let Some(program) = self.cyber_access_program.filter(|_| self.api_key.is_none()) {
+            body["access_programs"] = json!({ "cyber": program });
         }
         if self.replay_enabled {
             // The ChatGPT backend still uses the Codex selector; the public
@@ -1467,12 +1533,15 @@ impl CodexClub {
             let resp = sent.map_err(|e| {
                 let detail = match e {
                     ureq::Error::Status(code, response) => {
+                        let vetoed = crate::agent::club::provider_vetoes_retry(
+                            response.header("x-should-retry"),
+                        );
                         let mut body = String::new();
                         let _ = std::io::Read::read_to_string(
                             &mut attempt.response_reader(response.into_reader()),
                             &mut body,
                         );
-                        describe_response_error(code, &body)
+                        describe_response_error(code, &body, vetoed)
                     }
                     other => describe_err(other),
                 };
@@ -1490,12 +1559,31 @@ impl CodexClub {
 
             wire.phase("streaming");
             attempt.outcome("interrupted");
-            let reader = BufReader::new(attempt.response_reader(resp.into_reader()));
+            let poolable = crate::agent::club::stream_body_poolable(&resp);
+            let mut reader = BufReader::new(attempt.response_reader(resp.into_reader()));
             let mut content = String::new();
             let mut tool_calls = ResponseToolCalls::default();
             let mut replay_items = replay::ReplayItems::default();
             let mut saw_done = false;
-            for line in reader.lines() {
+            // `BufRead::lines`, kept by hand so the reader outlives the loop and
+            // a completed body's tail can hand its connection back to the pool.
+            let mut next_line = || {
+                let mut line = String::new();
+                match reader.read_line(&mut line) {
+                    Ok(0) => None,
+                    Ok(_) => {
+                        if line.ends_with('\n') {
+                            line.pop();
+                            if line.ends_with('\r') {
+                                line.pop();
+                            }
+                        }
+                        Some(Ok(line))
+                    }
+                    Err(e) => Some(Err(e)),
+                }
+            };
+            while let Some(line) = next_line() {
                 let cancelled = cancel.load(Ordering::Relaxed);
                 let line = match line {
                     Ok(l) => l,
@@ -1586,6 +1674,9 @@ impl CodexClub {
                     }
                     ResponseEvent::Ignore | ResponseEvent::Usage(_) => continue,
                 }
+            }
+            if saw_done && poolable && !cancel.load(Ordering::Relaxed) {
+                crate::agent::club::release_stream_tail(reader);
             }
             // An operator cancel aborts the socket; the read ends as EOF.
             if cancel.load(Ordering::Relaxed) {
@@ -2098,8 +2189,9 @@ fn synth_session_id() -> String {
 fn describe_err(e: ureq::Error) -> String {
     match e {
         ureq::Error::Status(code, resp) => {
+            let vetoed = crate::agent::club::provider_vetoes_retry(resp.header("x-should-retry"));
             let body = resp.into_string().unwrap_or_default();
-            describe_response_error(code, &body)
+            describe_response_error(code, &body, vetoed)
         }
         ureq::Error::Transport(t) => {
             crate::platform::secrets::redact_error(&format!("transport: {t}"))
@@ -2107,7 +2199,7 @@ fn describe_err(e: ureq::Error) -> String {
     }
 }
 
-fn describe_response_error(code: u16, body: &str) -> String {
+fn describe_response_error(code: u16, body: &str, vetoed: bool) -> String {
     let detail = serde_json::from_str::<serde_json::Value>(body)
         .ok()
         .and_then(|v| {
@@ -2117,7 +2209,8 @@ fn describe_response_error(code: u16, body: &str) -> String {
                 .map(str::to_string)
         })
         .unwrap_or_else(|| body.trim().chars().take(200).collect());
-    crate::platform::secrets::redact_error(&format!("HTTP {code}: {detail}"))
+    let status = crate::agent::club::provider_status_label(code, vetoed);
+    crate::platform::secrets::redact_error(&format!("{status}: {detail}"))
 }
 
 #[cfg(test)]

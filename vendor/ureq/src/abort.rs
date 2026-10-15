@@ -4,7 +4,10 @@ use std::net::{Shutdown, TcpStream};
 use std::sync::{Arc, Mutex};
 
 /// A one-request cancellation handle. Clones share cancellation state.
-/// Requests using a handle never borrow from or return to the connection pool.
+/// A request using a handle may run on a pooled connection; the handle binds
+/// to that socket for the request and is detached before the socket goes back
+/// to the pool, so an abort never reaches a later request. An aborted socket
+/// is closed, never pooled.
 #[derive(Clone, Debug, Default)]
 pub struct AbortHandle(Arc<Mutex<State>>);
 
@@ -37,5 +40,18 @@ impl AbortHandle {
         }
         state.socket = Some(socket.try_clone()?);
         Ok(())
+    }
+
+    /// Whether this request was aborted.
+    pub(crate) fn aborted(&self) -> bool {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).aborted
+    }
+
+    /// Release the socket before it returns to the pool. False when this
+    /// request was aborted: that socket must be closed, not reused.
+    pub(crate) fn detach(&self) -> bool {
+        let mut state = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        state.socket = None;
+        !state.aborted
     }
 }

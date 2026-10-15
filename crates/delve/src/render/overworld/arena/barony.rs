@@ -295,53 +295,57 @@ fn stockpile(cv: &mut Img, run: &Run) {
 /// doorway's arch still standing, rubble inside. `cleared` (0 to 1) of the
 /// rubble has been carried away.
 fn ruin(cv: &mut Img, cleared: f32) {
+    use super::super::material as m;
     let (hc, hr, hw, hh) = OLD_HALL;
     let (hx, hy, w2, h2) = (hc * TILE, hr * TILE, hw * TILE, hh * TILE);
     let t = 9;
-    for x in hx..hx + w2 {
-        for y in hy..hy + h2 {
-            let wall = x < hx + t || x >= hx + w2 - t || y < hy + t || y >= hy + h2 - t;
-            if !wall {
-                let flag = (x - hx) % 12 == 0 || (y - hy) % 10 == 0;
-                if flag && hash(x / 12, y / 10, 78) % 3 != 0 {
-                    cv.put(x, y, 'g');
-                }
-                continue;
-            }
-            let span = if x < hx + t || x >= hx + w2 - t {
-                (y - hy) / 14
-            } else {
-                (x - hx) / 14
+    // The old floor: worn flags, a joint and a chip here and there.
+    for x in hx + t..hx + w2 - t {
+        for y in hy + t..hy + h2 - t {
+            let ink = match super::flags(x, y) {
+                Some('x') => Some('X'),
+                Some('S') => Some('g'),
+                Some('s') => Some('X'),
+                _ => None,
             };
-            let fallen = hash(span, i32::from(x < hx + t) + 2 * i32::from(y < hy + t), 79) % 4 == 0;
-            if fallen {
-                if hash(x, y, 80) % 3 == 0 {
-                    cv.put(
-                        x,
-                        y,
-                        if hash(x, y, 82).is_multiple_of(2) {
-                            'G'
-                        } else {
-                            'J'
-                        },
-                    );
-                }
-                continue;
+            if let Some(ch) = ink {
+                cv.put(x, y, ch);
             }
-            let course = (y - hy) / 4;
-            let joint = (y - hy) % 4 == 0 || (x + course * 5) % 8 == 0;
-            let lit = (y - hy) % 4 == 1;
-            cv.put(
-                x,
-                y,
-                if joint {
-                    'G'
-                } else if lit {
-                    'i'
-                } else {
-                    'h'
-                },
-            );
+        }
+    }
+    // The walls in spans of dressed stone, lit along each block's top;
+    // where a span has fallen, its stones lie in a heap.
+    let warm = m::ramp::STONE;
+    let spans: Vec<(i32, i32, i32, i32, bool)> = {
+        let mut out = Vec::new();
+        for (k, sx) in (hx..hx + w2).step_by(14).enumerate() {
+            let sw = 14.min(hx + w2 - sx);
+            for (side, sy) in [(2, hy), (0, hy + h2 - t)] {
+                let fallen = hash(k as i32, side, 79) % 4 == 0;
+                out.push((sx, sy, sw, t, fallen));
+            }
+        }
+        for (k, sy) in (hy + t..hy + h2 - t).step_by(14).enumerate() {
+            let sh = 14.min(hy + h2 - t - sy);
+            for (side, sx) in [(1, hx), (0, hx + w2 - t)] {
+                let fallen = hash(k as i32, side + 4, 79) % 4 == 0;
+                out.push((sx, sy, t, sh, fallen));
+            }
+        }
+        out
+    };
+    for &(sx, sy, sw, sh, fallen) in &spans {
+        if !fallen {
+            m::ashlar(cv, (sx, sy, sw, sh), warm, 83 + (sx + sy) as u32);
+        }
+    }
+    for &(sx, sy, sw, sh, fallen) in &spans {
+        if fallen {
+            for n in 0..3 {
+                let v = hash(sx + n, sy, 80);
+                let (bx, by) = (sx + 2 + (v % (sw.max(4) as u32 - 3)) as i32, sy + sh - 1 - ((v >> 8) % 3) as i32);
+                m::boulder(cv, bx, by, 2.0 + ((v >> 12) % 3) as f32 * 0.6, warm, v);
+            }
         }
     }
     let dx = hx + w2 / 2;
@@ -360,14 +364,17 @@ fn ruin(cv: &mut Img, cleared: f32) {
             cv.put(x as i32, y as i32, if r == 10.0 { 'i' } else { 'J' });
         }
     }
+    // The rubble still to clear: heaps of stones, each lit on its top.
     let heaps = ((1.0 - cleared) * 10.0).round() as i32;
     for k in 0..heaps {
         let (rx, ry) = (
             hx + 10 + (hash(k, 1, 81) % (w2 as u32 - 24)) as i32,
             hy + 10 + (hash(k, 2, 81) % (h2 as u32 - 24)) as i32,
         );
-        cv.rect(rx, ry, 5, 3, if k % 2 == 0 { 'J' } else { 'G' });
-        cv.put(rx + 1, ry - 1, 'h');
+        for n in 0..3 {
+            let v = hash(k, n, 84);
+            m::boulder(cv, rx + n * 2 - 1, ry + 3 - (n % 2), 1.6 + (v % 3) as f32 * 0.4, warm, v);
+        }
     }
 }
 
@@ -537,16 +544,21 @@ fn banner(cv: &mut Img, x: i32, y: i32) {
 /// forges, cold until the first fire is brought home.
 pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
     let b = &run.home.barony;
-    // The runner from the door to the dais.
+    // The runner from the door to the dais: a gold edge, a border woven a
+    // pace inside it, and a diamond every few paces down the middle.
+    let (x0, x1) = (11 * TILE + 2, 13 * TILE - 3);
+    let mid = (x0 + x1) / 2;
     for y in 4 * TILE..13 * TILE {
-        for x in 11 * TILE + 2..13 * TILE - 2 {
-            let edge = x == 11 * TILE + 2 || x == 13 * TILE - 3;
+        for x in x0..=x1 {
+            let border = x == x0 + 2 || x == x1 - 2;
+            let (dx, dy) = ((x - mid).abs(), (y - 4 * TILE).rem_euclid(24) - 12);
+            let diamond = dx + dy.abs() == 4 || dx + dy.abs() == 1;
             cv.put(
                 x,
                 y,
-                if edge {
+                if x == x0 || x == x1 {
                     'O'
-                } else if (x + y) % 9 == 0 {
+                } else if border || diamond {
                     'p'
                 } else {
                     '8'
@@ -893,12 +905,9 @@ fn price_board(
         let bar_w = 40;
         let start = (im.w - (lw + 4 + bar_w)) / 2;
         let after = im.text(start, bar_y, label, 'O');
-        im.frame(after + 4, bar_y + 1, bar_w, 5, 'b');
         let hold = crate::rules::home::BUY_HOLD;
         let fill = (buying.min(hold) * (bar_w as u32 - 2) / hold) as i32;
-        if fill > 0 {
-            im.rect(after + 5, bar_y + 2, fill, 3, '5');
-        }
+        super::super::chrome::meter(&mut im, (after + 4, bar_y + 1, bar_w, 5), fill, super::super::ink::ink('5').unwrap_or_default());
     }
     im
 }

@@ -2,6 +2,7 @@
 //! ledger, the clerk and the plates), a held floor's steward's hall below,
 //! a castle's hall, and the realm's banner wherever it flies.
 
+use super::super::chrome;
 use super::super::ink::{Img, text_width};
 use super::super::kit::{self, House, Roof, Wall};
 use super::super::light::Light;
@@ -616,13 +617,12 @@ fn plate_tag(plate: Plate) -> &'static str {
 fn plate(cv: &mut Img, rect: (i32, i32, i32, i32), lit: bool, open: bool, mark: &Img) {
     let (x, y, w, h) = rect_px(rect);
     let (x, y, w, h) = (x + 1, y + 1, w - 2, h - 2);
-    cv.rect(x, y, w, h, 'X');
-    let (frame, ink) = match (open, lit) {
-        (true, true) => ('5', '6'),
-        (true, false) => ('o', 'O'),
-        (false, _) => ('g', 'j'),
+    chrome::floor_plate(cv, (x, y, w, h), lit, open);
+    let ink = match (open, lit) {
+        (true, true) => '6',
+        (true, false) => 'O',
+        (false, _) => 'j',
     };
-    cv.frame(x, y, w, h, frame);
     let m = mark.recolor(&[('O', ink)]);
     cv.stamp(&m, x + (w - m.w) / 2, y + (h - m.h) / 2);
 }
@@ -755,8 +755,7 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, deed: Deed, held: Opti
     // The way in: a stair shaft or a tower.
     match deed {
         Deed::Floor(_) => {
-            cv.rect(x, y, 12, 22, 'k');
-            cv.frame(x, y, 12, 22, 'g');
+            chrome::shaped(cv, (x, y, 12, 22), &[2, 1], chrome::Tone::WELL.rimmed(chrome::COLD_RIM), false);
             for k in 0..5 {
                 cv.line(x + 2 + k * 2, y + 20 - k * 4, x + 5 + k * 2, y + 20 - k * 4, 'J');
             }
@@ -772,9 +771,9 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, deed: Deed, held: Opti
     }
     for i in 0..SLOTS as i32 {
         let bx = x + 14 + i * 30;
-        cv.rect(bx, y, 28, 22, 'k');
-        cv.frame(bx, y, 28, 22, 'g');
-        cv.line(bx, y + 21, bx + 27, y + 21, 'j');
+        // A bay: a rounded dark well in a stone rim, its floor a step lit.
+        chrome::shaped(cv, (bx, y, 28, 22), &[2, 1], chrome::Tone::WELL.rimmed(chrome::COLD_RIM), false);
+        cv.line(bx + 2, y + 20, bx + 25, y + 20, 'j');
         let Some(built) = held.and_then(|w| w.rooms.get(i as usize)) else {
             // An empty bay: just the dark.
             cv.put(bx + 13, y + 10, 'g');
@@ -892,8 +891,7 @@ pub(super) fn office_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     // On the south wall, under every plate and its name, clear of the tray.
     let x = ((NATIVE_W - w) / 2 - 24).max(2);
     let y = NATIVE_H - bh - 1;
-    cv.rect(x, y, w, bh, 'K');
-    cv.frame(x, y, w, bh, 'B');
+    chrome::board(cv, (x, y, w, bh), 'B');
     for (i, (text, ink)) in lines.iter().enumerate() {
         let tw = text_width(text);
         cv.text(x + (w - tw) / 2, y + 3 + i as i32 * 9, text, *ink);
@@ -952,7 +950,7 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
         let (px, py, pw, ph) = rect_px(plate_rect);
         let tw = text_width(tag);
         let ty = if BAYS[i].1 < 5 { py + ph + 1 } else { py - 9 };
-        cv.rect(px + (pw - tw) / 2 - 1, ty - 1, tw + 2, 9, 'K');
+        chrome::chip(cv, (px + (pw - tw) / 2 - 1, ty - 1, tw + 2, 9));
         cv.text(px + (pw - tw) / 2, ty, tag, if open { 'O' } else { 'G' });
         // A neighbour's help or harm, over the furniture's corner.
         let near = felt(held, i);
@@ -978,7 +976,7 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
     let tag = if open { format!("RENTS {waiting}G") } else { "NO RENT".to_string() };
     let (px, py, pw, ph) = rect_px(STEWARD_PLATE);
     let w = text_width(&tag);
-    cv.rect(px + (pw - w) / 2 - 1, py + ph, w + 2, 9, 'K');
+    chrome::chip(cv, (px + (pw - w) / 2 - 1, py + ph, w + 2, 9));
     cv.text(px + (pw - w) / 2, py + ph + 1, &tag, if open { 'O' } else { 'G' });
 }
 
@@ -1033,8 +1031,7 @@ pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let (px, _, pw, _) = rect_px(plate);
     let x = (px + pw / 2 - w / 2).clamp(24, NATIVE_W - w - 96);
     let y = NATIVE_H - bh - 1;
-    cv.rect(x, y, w, bh, 'K');
-    cv.frame(x, y, w, bh, 'B');
+    chrome::board(cv, (x, y, w, bh), 'B');
     for (i, (text, ink)) in lines.iter().enumerate() {
         let tw = text_width(text);
         cv.text(x + (w - tw) / 2, y + 3 + i as i32 * 9, text, *ink);
@@ -1079,8 +1076,7 @@ pub(super) fn castle(cv: &mut Img, run: &Run) {
     // The tapestry: the castle's bays as built.
     let width = 14 + SLOTS as i32 * 30;
     let (x, y) = crate::rules::raids::TAPESTRY;
-    cv.rect(x - 4, y - 6, width + 8, 32, 'K');
-    cv.frame(x - 4, y - 6, width + 8, 32, 'B');
+    chrome::board(cv, (x - 4, y - 6, width + 8, 32), 'B');
     cross_section(cv, x, y - 1, deed, held, run.tick as u32);
     if let Some(s) = held.and_then(|w| w.steward.as_deref()) {
         let im = steward_art(s);
@@ -1145,8 +1141,7 @@ pub(super) fn castle_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     // Beside the plate, clear of the knight on it and the way out.
     let x = (px + pw + 10).min(NATIVE_W - w - 2);
     let y = py - 2;
-    cv.rect(x, y, w, bh, 'K');
-    cv.frame(x, y, w, bh, 'B');
+    chrome::board(cv, (x, y, w, bh), 'B');
     for (i, (text, ink)) in lines.iter().enumerate() {
         let tw = text_width(text);
         cv.text(x + (w - tw) / 2, y + 3 + i as i32 * 9, text, *ink);
@@ -1277,9 +1272,7 @@ pub(super) fn herald(
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
     let bh = lines.len() as i32 * 9 + 6;
     let (cx, cy) = ((x - w / 2).clamp(2, NATIVE_W - w - 2), y - im.h - bh - 4);
-    over.rect(cx, cy, w, bh, 'K');
-    over.frame(cx, cy, w, bh, '6');
-    over.frame(cx + 1, cy + 1, w - 2, bh - 2, 'a');
+    chrome::panel(over, (cx, cy, w, bh), chrome::Tone::FRAMED.rimmed(chrome::GOLD_RIM));
     for (i, (text, ink)) in lines.iter().enumerate() {
         over.text(cx + (w - text_width(text)) / 2, cy + 4 + i as i32 * 9, text, *ink);
     }
@@ -1302,7 +1295,7 @@ pub(super) fn herald(
         let lh = rows.len() as i32 * 9 + 2;
         let lx = if pick == 0 { px - lw + 6 } else { px - 6 };
         let lx = lx.clamp(2, NATIVE_W - lw - 2);
-        over.rect(lx, py + 2, lw, lh, 'K');
+        chrome::chip(over, (lx, py + 2, lw, lh));
         for (i, (text, ink)) in rows.iter().enumerate() {
             over.text(lx + 2, py + 3 + i as i32 * 9, text, *ink);
         }

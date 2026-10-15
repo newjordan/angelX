@@ -170,3 +170,57 @@ fn the_lean_kernel_example_is_a_valid_cartridge() {
             .any(|sub| sub.route == crate::agent::harness::book::er_loop::COMPETITION_WORKER)
     );
 }
+
+#[test]
+fn a_tool_cartridge_carries_commands_and_never_competes() {
+    let tool = Config::parse(
+        "id = \"rea\"\nlabel = \"REA\"\n[[commands]]\nname = \"rea\"\nskills = [\"rea\"]\n",
+    )
+    .unwrap();
+    assert_eq!(tool.commands[0].name, "rea");
+    assert!(!Cartridge::new(tool, None).competes());
+    let family = Config::parse(
+        "id = \"kb\"\nlabel = \"KB\"\nworker = \"⠻⠊\"\n[[commands]]\nname = \"kb\"\nskills = [\"kb\"]\n",
+    )
+    .unwrap();
+    assert!(Cartridge::new(family, None).competes());
+    assert!(Cartridge::new(test_board(), Some(&TestBoard)).competes());
+    for bad in ["name = \"Rea\"\nskills = [\"rea\"]", "name = \"re a\"\nskills = [\"rea\"]", "name = \"rea\"\nskills = []"] {
+        assert!(Config::parse(&format!("id = \"x\"\nlabel = \"X\"\n[[commands]]\n{bad}\n")).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn a_command_loads_its_skills_in_order_from_the_folder() {
+    let folder = temp("command-skills");
+    let skills = folder.join("skills");
+    std::fs::create_dir_all(skills.join("first")).unwrap();
+    std::fs::write(
+        skills.join("first").join("SKILL.md"),
+        "---\nname: first\ndescription: d\n---\nrun ${ANGEL_CARTRIDGE_DIR}/bin/tool\n",
+    )
+    .unwrap();
+    std::fs::write(skills.join("second.md"), "---\nname: second\ndescription: d\n---\nsecond body\n").unwrap();
+    let config = Config::parse(
+        "id = \"t\"\nlabel = \"T\"\n[[commands]]\nname = \"t\"\nskills = [\"second\", \"first\"]\n[[commands]]\nname = \"gone\"\nskills = [\"missing\"]\n",
+    )
+    .unwrap();
+    let cartridge = Cartridge { folder: Some(folder.clone()), ..Cartridge::new(config, None) };
+    let loaded = cartridge.command_skills(&cartridge.config.commands[0]).unwrap();
+    assert_eq!(loaded.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["second", "first"]);
+    assert_eq!(loaded[1].body.trim(), format!("run {}/bin/tool", folder.display()));
+    let missing = cartridge.command_skills(&cartridge.config.commands[1]).unwrap_err();
+    assert!(missing.contains("`missing`"), "{missing}");
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+#[test]
+fn the_rea_example_is_a_tool_cartridge() {
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/examples/cartridges/rea");
+    let config = Config::parse(&std::fs::read_to_string(folder.join("cartridge.toml")).unwrap()).unwrap();
+    assert_eq!(config.commands[0].name, "rea");
+    assert_eq!(config.commands[0].skills, ["rea", "reverse-engineer-anything"]);
+    assert!(!Cartridge::new(config, None).competes());
+    let own = crate::agent::harness::skills::load_skills_from(&folder.join("skills"));
+    assert!(own.iter().any(|skill| skill.name == "rea" && skill.body.contains("${ANGEL_CARTRIDGE_DIR}/bin/rea")));
+}

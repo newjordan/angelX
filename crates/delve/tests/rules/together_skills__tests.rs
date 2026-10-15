@@ -1455,6 +1455,53 @@ fn a_crouching_knight_is_missed_by_a_shot_at_the_chest() {
     assert_eq!(aimed(true), 0, "ducking, it goes over");
 }
 
+/// The Wanted hall is wider than a seat's view and side-on: a boss near the
+/// view's edge keeps its whole name, and its taunt, on that seat's screen.
+#[test]
+fn a_boss_name_and_its_taunt_stay_whole_on_the_seats_screen() {
+    use crate::render::overworld::arena::{NATIVE_W, UNIT, overlay_for_test, view_origin};
+    use crate::render::overworld::ink::ink;
+    let mut run = showdown(2, 4);
+    run.join("Friend");
+    guard_knights(&mut run);
+    idle(&mut run, outlaw::POSTER + 5);
+    assert!(run.side_on());
+    assert!(run.room().cols as i32 * crate::render::overworld::TILE > NATIVE_W + 60, "a wide room");
+    run.shake = 0;
+    // The view centres between the knight and the outlaw: each pair below
+    // keeps the same centre, so the same view, with the outlaw mid-view or
+    // a few pixels inside either edge of it.
+    let place = |run: &mut Run, knight: i32, boss: i32| {
+        for hero in run.players.values_mut() {
+            hero.x = knight as f32 / UNIT;
+        }
+        let id = outlaw_of(run).unwrap().id;
+        run.enemies.iter_mut().find(|e| e.id == id).unwrap().x = boss as f32 / UNIT;
+        view_origin(run, Some(1))
+    };
+    let count = |run: &Run, c: char| {
+        let want = ink(c);
+        overlay_for_test(run, Some(1)).pixels().filter(|&p| Some(p) == want).count()
+    };
+    // The name's ink and, while the outlaw taunts, the bubble's paint.
+    let inks = ['$', 'T'];
+    for taunt in [false, true] {
+        if taunt {
+            let id = outlaw_of(&run).unwrap().id;
+            run.enemies.iter_mut().find(|e| e.id == id).unwrap().stage = outlaw::TAUNT;
+        }
+        let view = place(&mut run, 180, 280);
+        let whole: Vec<usize> = inks.iter().map(|&c| count(&run, c)).collect();
+        assert!(whole[0] > 0, "the name shows mid-view, the taunt clear of it");
+        for (knight, boss, inside) in [(60, 400, NATIVE_W - 22), (400, 60, 22)] {
+            assert_eq!(place(&mut run, knight, boss), view, "the same view");
+            assert_eq!(boss - view.0, inside, "the outlaw {inside} pixels into the view");
+            let near: Vec<usize> = inks.iter().map(|&c| count(&run, c)).collect();
+            assert_eq!(near, whole, "taunt {taunt}: by the view's edge, all of it shows");
+        }
+    }
+}
+
 /// `ANGEL_ARENA_SHOTS=<dir> cargo test write_wanted_shots -- --ignored`
 #[test]
 #[ignore]

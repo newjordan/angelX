@@ -5259,7 +5259,19 @@ fn post_write_verdict(
     if is_error_result(&result) || result.starts_with("action capsule denied") {
         return (result, None);
     }
-    let targets = crate::knowledge::cut::mutation_targets(&call.name, &call.args);
+    // A target spelled from the launch directory (`ws/bowling/bowling.py`) is
+    // checked where the write landed, not reported missing.
+    let targets = crate::knowledge::cut::mutation_targets(&call.name, &call.args)
+        .into_iter()
+        .map(|target| {
+            crate::agent::harness::launch_relative_in_workspace(
+                registry.current_workspace(),
+                Path::new(&target),
+            )
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or(target)
+        })
+        .collect::<Vec<_>>();
     if targets.is_empty() {
         return (result, None); // not a mutation tool
     }

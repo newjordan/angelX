@@ -22,8 +22,7 @@ pub(super) fn furniture(cv: &mut Img) {
 /// A lectern's plate: dark, its numeral's dots in brass, gold when stood on.
 fn slate(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, side: usize) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
-    cv.rect(x, y, pw, ph, 'X');
-    cv.frame(x, y, pw, ph, if lit { '5' } else { 'o' });
+    super::super::chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
     let dot = if lit { '6' } else { 'O' };
     for k in 0..=side as i32 {
         cv.rect(
@@ -102,11 +101,8 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         // The hold, filling under its words.
         let bar_w = 40;
         let (bx, by) = ((board.w - bar_w) / 2, board.h - 8);
-        board.frame(bx, by - 1, bar_w, 3, 'b');
         let fill = (hero.buying.min(BUY_HOLD) * (bar_w as u32 - 2) / BUY_HOLD) as i32;
-        if fill > 0 {
-            board.rect(bx + 1, by, fill, 1, '5');
-        }
+        super::super::chrome::meter(&mut board, (bx, by - 1, bar_w, 3), fill, super::super::ink::ink('5').unwrap_or_default());
     }
     let (c, r, w, _) = LECTERNS[side];
     let x = (c * TILE + w * TILE / 2 - board.w / 2).clamp(2, cv.w - board.w - 2);

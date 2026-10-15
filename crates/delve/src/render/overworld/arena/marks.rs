@@ -10,33 +10,141 @@ use super::super::ink::{Img, text_width};
 use super::{UNIT, at};
 use crate::rules::{Enemy, EnemyKind, Hero, Run, TAKE_REACH, cards, desperate};
 
-/// A monster's picture with its flash on: a hit goes cream, then red; a
+/// A monster's picture with its flash on: a hit lifts its own ramp, then settles; a
 /// boss near death pulses red hot.
-pub(super) fn flashed(im: &Img, enemy: &Enemy, tick: u64) -> Img {
+pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
     if enemy.hurt >= 4 {
-        return silhouette(im, ['c', 'c']);
+        let metal = enemy
+            .boss
+            .and_then(|i| run.bosses.get(usize::from(i)))
+            .is_some_and(|b| b.id == crate::rules::signatures::ENGINE);
+        return pale(im, true, metal);
     }
     if enemy.hurt > 0 {
-        return silhouette(im, ['7', '8']);
+        return pale(im, false, false);
     }
-    if enemy.flashing(tick) {
+    if enemy.flashing(run.tick) {
         return heat(im);
     }
     im.clone()
 }
 
-/// Every pixel in one ink (`bright`, `dark`) by its lightness.
-fn silhouette(im: &Img, inks: [char; 2]) -> Img {
+/// Cached palette tint: each bank keeps its own pale material ramp. The
+/// source's shadow planes stay darker; struck metal can catch pale cream.
+fn pale(im: &Img, strong: bool, metal: bool) -> Img {
+    use super::super::ink::{BANK, PALETTE, RgbMap, rgb};
+    use std::sync::OnceLock;
+    static TINT: OnceLock<RgbMap<[[u8; 3]; 3]>> = OnceLock::new();
+    let tint = TINT.get_or_init(|| {
+        PALETTE
+            .iter()
+            .enumerate()
+            .map(|(index, &value)| {
+                let c = rgb(value);
+                let bank = index / BANK;
+                let peak = match bank {
+                    1 => [203, 213, 166],
+                    2 => [228, 210, 175],
+                    _ => [218, 216, 203],
+                };
+                let samples = [0, 1, 2].map(|phase| {
+                    let wanted = if phase == 2 {
+                        hit_metal_rgb(c)
+                    } else {
+                        hit_rgb_toward(c, peak, phase == 1)
+                    };
+                    let candidates = PALETTE.iter().enumerate().filter(|(i, value)| {
+                        if rgb(**value).iter().any(|&channel| channel > 228) {
+                            return false;
+                        }
+                        // Signal keeps its warm/cold family; only its palest
+                        // source pixels may borrow the bounded cream highlight.
+                        if phase == 2 && matches!(bank, 0 | 2 | 3) {
+                            // A held strike on the engine catches across its
+                            // brass and steel. The pale metal ramp must lift
+                            // the dark joints too, to read at the game's 1×.
+                            matches!(*i, 41..=44 | 56..=59 | 70..=71)
+                        } else if bank == 4 {
+                            if c[0] > c[2] {
+                                *i >= 65 && *i != 72
+                            } else {
+                                (60..64).contains(i) || (58..=59).contains(i)
+                            }
+                        } else {
+                            *i / BANK == bank
+                                || (c.iter().copied().min().unwrap() > 170 && *i == 71)
+                        }
+                    });
+                    candidates
+                        .min_by_key(|(_, v)| {
+                            let r = rgb(**v);
+                            (0..3)
+                                .map(|k| {
+                                    (i32::from(r[k]) - i32::from(wanted[k])).pow(2) * [2, 6, 1][k]
+                                })
+                                .sum::<i32>()
+                        })
+                        .map_or(c, |(_, &v)| rgb(v))
+                });
+                (c, samples)
+            })
+            .collect()
+    });
+    let phase = if metal { 2 } else { usize::from(strong) };
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
         for x in 0..im.w {
-            if let Some([r, g, b]) = im.get(x, y) {
-                let l = (299 * u32::from(r) + 587 * u32::from(g) + 114 * u32::from(b)) / 1000;
-                out.put(x, y, if l > 70 { inks[0] } else { inks[1] });
+            if let Some(c) = im.get(x, y) {
+                out.set(
+                    x,
+                    y,
+                    tint.get(&c).map_or_else(
+                        || {
+                            if metal {
+                                hit_metal_rgb(c)
+                            } else {
+                                hit_rgb(c, strong)
+                            }
+                        },
+                        |samples| samples[phase],
+                    ),
+                );
             }
         }
     }
     out
+}
+
+/// Pale reflected metal through a held hit. Warm brass and cool steel still
+/// separate, with enough lift in the joints to read on an articulated boss.
+pub(super) fn hit_metal_rgb(c: [u8; 3]) -> [u8; 3] {
+    let light = (u32::from(c[0]) * 3 + u32::from(c[1]) * 6 + u32::from(c[2])) / 10;
+    let peak = if u16::from(c[0]) * 4 > u16::from(c[2]) * 5 {
+        [228u32, 215, 192]
+    } else {
+        [213, 222, 224]
+    };
+    let amount = 148 + light / 4;
+    std::array::from_fn(|k| {
+        ((u32::from(c[k]) * (256 - amount) + peak[k] * amount) / 256).min(228) as u8
+    })
+}
+
+/// RGB kit version of the same material tint, with no added coverage or glow.
+pub(super) fn hit_rgb(c: [u8; 3], strong: bool) -> [u8; 3] {
+    hit_rgb_toward(c, [224, 215, 198], strong)
+}
+
+fn hit_rgb_toward(c: [u8; 3], peak: [u8; 3], strong: bool) -> [u8; 3] {
+    let light = (u32::from(c[0]) * 3 + u32::from(c[1]) * 6 + u32::from(c[2])) / 10;
+    let amount = if strong {
+        80 + light / 2
+    } else {
+        34 + light / 6
+    };
+    std::array::from_fn(|k| {
+        ((u32::from(c[k]) * (256 - amount) + u32::from(peak[k]) * amount) / 256).min(228) as u8
+    })
 }
 
 /// A boss's picture heated: its shadows to blood, its body to ember, only
@@ -64,10 +172,10 @@ fn heat(im: &Img) -> Img {
 }
 
 /// A bar of `w` by `h` with its left edge at `(x, y)`: a dark track, the
-/// fill by `share` in `ink`, and a hairline frame.
+/// fill by `share` in `ink`, in a grey rim lit along its top and its corner
+/// pixels cut (`chrome::Tone::HEALTH`), so it reads round on any floor.
 fn bar(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, share: f32, fill: char) {
-    cv.rect(x - 1, y - 1, w + 2, h + 2, 'g');
-    cv.rect(x, y, w, h, 'k');
+    super::super::chrome::shaped(cv, (x - 1, y - 1, w + 2, h + 2), &[1], super::super::chrome::Tone::HEALTH, false);
     let lit = (share.clamp(0.0, 1.0) * w as f32).ceil() as i32;
     cv.rect(x, y, lit, h, fill);
 }
@@ -199,7 +307,7 @@ pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
 
 /// Beside a weapon a knight can swap to: its name and the key, on a plate
 /// over the card. Small frames get only a gold mark, since type would blur.
-pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool) {
+pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32)) {
     for item in &run.room().items {
         let Some(card) = run
             .book
@@ -225,10 +333,9 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool) {
         let name: String = card.name.to_uppercase().chars().take(16).collect();
         let key = "E TAKE";
         let w = text_width(&name).max(text_width(key)) + 6;
-        let px = (x - w / 2).clamp(0, (cv.w - w).max(0));
+        let px = super::in_view_x(x, w, view, cv.w);
         let py = (y - 34).max(0);
-        cv.rect(px, py, w, 21, 'k');
-        cv.frame(px, py, w, 21, 'j');
+        super::super::chrome::panel(cv, (px, py, w, 21), super::super::chrome::Tone::KEY);
         cv.text(px + (w - text_width(&name)) / 2, py + 3, &name, 'i');
         cv.text(px + (w - text_width(key)) / 2, py + 12, key, '6');
         // The swap is yours to make: it points at the card.
@@ -241,7 +348,7 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool) {
 
 /// "THIEF!" over each goblin that has just robbed a knight, on a plate. Small
 /// frames get a gold mark alone.
-pub(super) fn thief_cries(cv: &mut Img, run: &Run, legible: bool) {
+pub(super) fn thief_cries(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32)) {
     for enemy in run
         .enemies
         .iter()
@@ -255,10 +362,13 @@ pub(super) fn thief_cries(cv: &mut Img, run: &Run, legible: bool) {
         }
         let word = "THIEF!";
         let w = text_width(word) + 6;
-        let px = (x - w / 2).clamp(0, (cv.w - w).max(0));
+        let px = super::in_view_x(x, w, view, cv.w);
         let up = top.max(3);
-        cv.rect(px, up - 3, w, 11, 'k');
-        cv.frame(px, up - 3, w, 11, '7');
+        super::super::chrome::panel(
+            cv,
+            (px, up - 3, w, 11),
+            super::super::chrome::Tone::SLATE.rimmed(super::super::chrome::rim_of('7')),
+        );
         cv.text(
             px + 3,
             up,

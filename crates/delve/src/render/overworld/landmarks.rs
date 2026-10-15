@@ -100,17 +100,29 @@ fn house(w: i32, h: i32, wall: Wall, roof: Roof, chimney: bool) -> Img {
     })
 }
 
-/// Still water with a few ripples and a dark rim.
+/// Still water: its corners worn round, the bank's shadow along its top,
+/// short ripples on it and a broken pale line where it laps the near bank.
 fn water(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
-    im.rect(x, y, w, h, 'q');
-    for row in (y + 1..y + h).step_by(3) {
-        for col in x..x + w {
-            if hash(col / 3, row, 7) % 3 == 0 {
-                im.put(col, row, 'Q');
+    for yy in y..y + h {
+        for xx in x..x + w {
+            let (dl, dr, dt, db) = (xx - x, x + w - 1 - xx, yy - y, y + h - 1 - yy);
+            let worn = |a: i32, b: i32| a + b < 2;
+            if worn(dl, dt) || worn(dr, dt) || worn(dl, db) || worn(dr, db) {
+                continue;
             }
+            let ripple = (yy - y) % 3 == 1 && hash(xx / 3, yy, 7) % 4 == 0 && dt > 0;
+            let ch = if dt == 0 {
+                'S'
+            } else if db == 0 {
+                if hash(xx, yy, 9) % 3 == 0 { 'q' } else { 'u' }
+            } else if ripple {
+                'Q'
+            } else {
+                'q'
+            };
+            im.put(xx, yy, ch);
         }
     }
-    im.frame(x, y, w, h, 's');
 }
 
 /// Clear an ellipse back to nothing (the hole in a wheel).
@@ -287,13 +299,18 @@ fn archery_butts() -> Img {
 
 fn scarecrow() -> Img {
     let mut im = sheet();
-    // Rows of crop.
-    for y in (28..47).step_by(4) {
-        for x in 0..W {
-            im.put(x, y, if hash(x, y, 3) % 3 == 0 { 'N' } else { 'm' });
-            if x % 3 != 0 {
-                im.put(x, y + 1, 'L');
+    // Rows of crop: each plant a tuft lit on its top, set a little off its
+    // neighbours, a gap here and there.
+    for (row, y) in (28..47).step_by(4).enumerate() {
+        for x in (row as i32 % 2..W).step_by(3) {
+            let h = hash(x, y, 3);
+            if h % 7 == 0 {
+                continue;
             }
+            let bx = x + (h >> 4) as i32 % 2;
+            im.put(bx, y, if (h >> 6) % 3 == 0 { 'L' } else { 'm' });
+            im.put(bx, y + 1, 'N');
+            im.put(bx + 1, y + 1, 'l');
         }
     }
     // The scarecrow: cross, straw head, battered hat, ragged coat.
@@ -723,8 +740,8 @@ fn strand() -> Img {
             im.line(x + 6 - y, 8 + y, x + 7 + y, 8 + y, 'B');
         }
         im.rect(x + 5, 30, 4, 10, 'b');
-        im.outline_inside('k');
     }
+    im = super::kit::shaded_rim(&im);
     im.ellipse(52.0, 42.0, 10.0, 4.0, 'B');
     im.line(43, 42, 61, 42, 'r');
     // The chamber pot for the putting game.
@@ -818,12 +835,19 @@ fn toll_bridge() -> Img {
 
 fn flower_fields() -> Img {
     let mut im = sheet();
-    for y in (18..46).step_by(5) {
-        im.rect(2, y, 60, 3, 'F');
-        for x in (3..61).step_by(3) {
-            let bloom = ['T', 'R', 'Q', 't', 'h'][(hash(x, y, 8) % 5) as usize];
-            im.put(x, y, bloom);
-            im.put(x + 1, y + 1, 'l');
+    // Rows of flowers, each plant a small tuft with its bloom on top, set
+    // a little off its neighbours, a gap here and there.
+    for (row, y) in (18..46).step_by(5).enumerate() {
+        for x in (3 + row as i32 % 2..61).step_by(3) {
+            let h = hash(x, y, 8);
+            if h % 6 == 0 {
+                continue;
+            }
+            let bx = x + (h >> 4) as i32 % 2;
+            im.put(bx, y + 2, 'F');
+            im.put(bx + 1, y + 2, 'E');
+            im.put(bx, y + 1, 'l');
+            im.put(bx, y, ['T', 'R', 'Q', 't', 'h'][(h >> 6) as usize % 5]);
         }
     }
     fence(&mut im, 0, 12, W);
@@ -924,11 +948,42 @@ fn hippodrome() -> Img {
         im.put(x, 4, 'h');
         im.put(x + 3, 7, 'J');
     }
-    // The oval track, its grass and the spina down the middle.
-    im.ellipse(32.0, 31.0, 31.0, 16.0, 'P');
-    im.ellipse(32.0, 31.0, 31.0, 16.0, 'P');
-    im.ellipse(32.0, 31.0, 23.0, 9.0, 'F');
-    im.ellipse(32.0, 31.0, 22.0, 8.0, 'E');
+    // The oval track, its grass and the spina down the middle: packed dirt
+    // with a wheel rut round it and clods thrown up, a kerb lit on the
+    // north-west and shaded to the south-east, the infield's grass in clumps.
+    for y in 0..H {
+        for x in 0..W {
+            let (dx, dy) = (x as f32 + 0.5 - 32.0, y as f32 + 0.5 - 31.0);
+            let ro = ((dx / 31.0).powi(2) + (dy / 16.0).powi(2)).sqrt();
+            let ri = ((dx / 23.0).powi(2) + (dy / 9.0).powi(2)).sqrt();
+            if ro >= 1.0 {
+                continue;
+            }
+            let clump = super::ink::vnoise(x as f32 / 3.0, y as f32 / 2.0, 914);
+            let ink = if ri < 1.0 {
+                if ri > 0.9 {
+                    'F'
+                } else if clump > 0.74 {
+                    'l'
+                } else {
+                    'E'
+                }
+            } else {
+                let f = (ri - 1.0) / (ri - ro).max(1e-3);
+                let lit = dx * 0.5 + dy < 0.0;
+                if f > 0.86 {
+                    if lit { 'r' } else { 'B' }
+                } else if f < 0.1 || (0.44..0.56).contains(&f) {
+                    'I'
+                } else if clump > 0.7 {
+                    'r'
+                } else {
+                    'P'
+                }
+            };
+            im.put(x, y, ink);
+        }
+    }
     im.rect(14, 30, 36, 3, 'j');
     im.line(14, 30, 49, 30, 'G');
     for x in [14, 49] {
@@ -939,13 +994,6 @@ fn hippodrome() -> Img {
     im.rect(50, 40, 6, 4, 'R');
     im.ellipse(52.0, 45.0, 2.0, 2.0, 'B');
     im.line(56, 41, 61, 41, 'o');
-    for y in 16..47 {
-        for x in 0..W {
-            if im.get(x, y) == super::ink::ink('P') && hash(x, y, 13) % 9 == 0 {
-                im.put(x, y, 'r');
-            }
-        }
-    }
     im
 }
 

@@ -92,6 +92,30 @@ test('install.sh installs a package and links the angelX command', { skip: !plat
   assert.ok(lstatSync(join(home, '.local/bin/angelx')).isSymbolicLink())
 })
 
+test('install.sh puts the command on the PATH once, unless asked not to', { skip: !platform }, (t) => {
+  const dir = scratch(t)
+  const home = join(dir, 'home')
+  mkdirSync(home)
+  const rc = join(home, process.platform === 'darwin' ? '.bash_profile' : '.bashrc')
+  const first = install(home, fakePackage(dir, '9.9.1'))
+  assert.equal(first.status, 0, first.stderr)
+  assert.match(first.stdout, /Open a new terminal window/)
+  assert.match(first.stdout, /cd your-project && angelX/)
+  const line = `export PATH="${join(home, '.local/bin')}:$PATH"`
+  assert.ok(readFileSync(rc, 'utf8').includes(line))
+  assert.equal(install(home, fakePackage(dir, '9.9.2')).status, 0)
+  assert.equal(readFileSync(rc, 'utf8').split(line).length - 1, 1, 'added once')
+  const other = join(dir, 'other')
+  mkdirSync(other)
+  const kept = spawnSync('sh', [installer], {
+    env: { HOME: other, PATH: process.env.PATH, ANGELX_ARCHIVE: fakePackage(dir, '9.9.3'), SHELL: '/bin/zsh', ANGELX_NO_MODIFY_PATH: '1' },
+    encoding: 'utf8',
+  })
+  assert.equal(kept.status, 0, kept.stderr)
+  assert.match(kept.stdout, /Add .* to your PATH first/)
+  assert.ok(!existsSync(join(other, '.zshrc')))
+})
+
 test('install.sh replaces nothing when the package is wrong or will not run', { skip: !platform }, (t) => {
   const dir = scratch(t)
   const home = join(dir, 'home')

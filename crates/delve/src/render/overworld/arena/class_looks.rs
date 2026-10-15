@@ -53,7 +53,8 @@ pub enum Look {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pose {
     Stand,
-    /// A walking step: 0 and 1 alternate.
+    /// A walking step: 0 a foot planted, 1 passing, 2 the other foot, 3
+    /// passing again.
     Step(u8),
     /// Shooting, swinging or casting: the held thing in its strike.
     Strike,
@@ -169,12 +170,16 @@ pub(super) fn figure(look: Look, facing: Facing, pose: Pose, held: bool) -> Img 
     im
 }
 
-/// The walk: across, the legs open and close on the stride; toward or
-/// away, one foot lifts and then the other. A robe's hem sways instead.
+/// The walk, four drawings to a footstep: a foot planted, passing, the
+/// other foot, passing again. Across, the legs open on each planted foot
+/// and close as they pass; toward or away, one foot lifts and then the
+/// other. A robe's hem sways to one side and then the other instead.
+/// Passing, the figure rides a pixel higher.
 fn step(look: Look, facing: Facing, body: Img, pose: Pose) -> Img {
     let Pose::Step(phase) = pose else {
         return body;
     };
+    let phase = phase % 4;
     let mut out = body.clone();
     let legs = if look.robed() { 2 } else { LEGS };
     let first = body.h - legs;
@@ -184,18 +189,23 @@ fn step(look: Look, facing: Facing, body: Img, pose: Pose) -> Img {
             out.clear(x, y);
         }
     }
+    let planted = phase % 2 == 0;
+    // The first foot is the one at the back of the picture (its left).
+    let first_foot = phase == 0;
     for y in first..body.h {
         for x in 0..body.w {
             let Some(c) = body.get(x, y) else { continue };
             let back = x < mid;
-            let (dx, dy) = if look.robed() {
+            let (dx, dy) = if !planted {
+                (0, 0)
+            } else if look.robed() {
                 // The hem swings toward the foot that steps out from under it.
-                let out = if phase == 0 { -1 } else { 1 };
-                if y < body.h - 1 || (phase == 0) == back { (out, 0) } else { (0, 0) }
+                let out = if first_foot { -1 } else { 1 };
+                if y < body.h - 1 || first_foot == back { (out, 0) } else { (0, 0) }
             } else if facing == Facing::Side {
-                // Across: a stride, then the legs pass.
-                if phase == 0 { (if back { -1 } else { 1 }, 0) } else { (0, 0) }
-            } else if (phase == 0) == back {
+                // Across: a stride.
+                (if back { -1 } else { 1 }, 0)
+            } else if first_foot == back {
                 // Toward or away: the one foot up.
                 (0, -1)
             } else {
@@ -204,8 +214,7 @@ fn step(look: Look, facing: Facing, body: Img, pose: Pose) -> Img {
             out.set(x + dx, (y + dy).max(first), c);
         }
     }
-    // Passing, across: the body rides a pixel higher.
-    if facing == Facing::Side && phase == 1 && !look.robed() {
+    if !planted {
         let mut lifted = Img::new(out.w, out.h + 1);
         lifted.stamp(&out, 0, 0);
         return lifted;
@@ -221,12 +230,16 @@ const LEGS: i32 = 2;
 pub fn pose(hero: &Hero) -> Pose {
     if hero.swing > 0 || hero.fire_cooldown > 0 {
         Pose::Strike
-    } else if hero.stride > 0.0 {
-        // The stride runs 0 to 3.4 between footsteps: half each foot.
-        Pose::Step(u8::from(hero.stride >= 1.7))
     } else {
-        Pose::Stand
+        stride(hero).map_or(Pose::Stand, Pose::Step)
     }
+}
+
+/// Where a moving knight is in their stride, 0 to 3: the stride runs 0 to
+/// 3.4 units between footsteps (`rules::spectacle`), a quarter to each
+/// drawing of the walk. `None` standing.
+pub(super) fn stride(hero: &Hero) -> Option<u8> {
+    (hero.stride > 0.0).then(|| ((hero.stride / 0.85) as u8).min(3))
 }
 
 // ─── in the saddle and the cab ───────────────────────────────────────────────
@@ -267,7 +280,24 @@ pub(super) fn saddle(look: Look, seat: u32) -> (Img, Img) {
         ),
     };
     let trim = super::knights::seat_colours(seat);
-    (Img::from_rows(head).recolor(trim), Img::from_rows(coat).recolor(trim))
+    let steel = steel(look);
+    (
+        Img::from_rows(head).recolor(steel).recolor(trim),
+        Img::from_rows(coat).recolor(steel).recolor(trim),
+    )
+}
+
+/// The small drawings (in the saddle, in the cab) were inked in the
+/// structure greys; a class's helm, hat and plate take the stone bank's
+/// cool steel instead, as on foot. Mail and wool keep their greys.
+fn steel(look: Look) -> &'static [(char, char)] {
+    match look {
+        Look::Swordsman | Look::Shieldmaiden | Look::Berserker => {
+            &[('H', 'W'), ('i', 'V'), ('h', 'v'), ('J', 'U'), ('g', 's')]
+        }
+        Look::Gunner => &[('h', 'v'), ('J', 'U'), ('G', 'u'), ('g', 'x'), ('X', 'S')],
+        _ => &[],
+    }
 }
 
 /// Dress a rider drawn in the lists' way in their class: `(sx, sy)` is the
@@ -324,7 +354,7 @@ pub(super) fn driver_head(look: Look, facing: Facing, seat: u32) -> Img {
         (Look::Berserker, Facing::Side) => &["....", "ThhT", ".pt.", ".RRt", "...."],
         (Look::Berserker, Facing::Up) => &["....", "ThhT", ".RR.", ".RR.", "...."],
     };
-    Img::from_rows(rows).recolor(super::knights::seat_colours(seat))
+    Img::from_rows(rows).recolor(steel(look)).recolor(super::knights::seat_colours(seat))
 }
 
 /// A class's own shot at `(x, y)` flying along `(vx, vy)`, if `colour` is
@@ -357,7 +387,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), colou
             for (dx, dy) in [(0, -1), (-1, 0), (1, 0), (0, 1)] {
                 cv.put(x + dx, y + dy, 'z');
             }
-            cv.put(x, y, 'W');
+            cv.put(x, y, '9');
             // Two motes turning round it.
             let (mx, my) = [(2, -1), (1, 2), (-2, 1), (-1, -2)][phase as usize];
             cv.put(x + mx, y + my, 'V');
@@ -365,7 +395,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), colou
             true
         }
         c if c == HOLY => {
-            for (k, ink) in [(6, '8'), (5, 'a'), (3, '@'), (2, '5')] {
+            for (k, ink) in [(6, 's'), (5, 'P'), (3, 'o'), (2, '@')] {
                 let drift = if (k + phase) % 2 == 0 { 0.6 } else { -0.6 };
                 let (tx, ty) = behind(k as f32, drift);
                 cv.put(tx, ty, ink);
@@ -380,9 +410,9 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), colou
                 cv.put(x + dx, y + dy, 'c');
             }
             for (dx, dy) in [(0, -1), (-1, 0), (1, 0), (0, 1)] {
-                cv.put(x + dx, y + dy, '5');
+                cv.put(x + dx, y + dy, '6');
             }
-            cv.put(x, y, '6');
+            cv.put(x, y, '9');
             true
         }
         _ => false,

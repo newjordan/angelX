@@ -943,7 +943,7 @@ fn measured_receipt_names_the_segment_that_qualified() {
 fn remote_and_locked_measurements_count() {
     // Pinning seats 2026-09-25: every locked rig-B A/B ran through `ssh`, and
     // the strip saw only `ssh`, so a night of measurements counted zero.
-    let ssh = "ssh -i ~/.ssh/id_ed25519_wsl -p 26606 root@ssh7.vast.ai";
+    let ssh = "ssh -i ~/.ssh/id_ed25519 -p 2222 root@rig.example";
     let quoted_env = format!(
         "{ssh} 'cd /workspace/qsb && QSB_GRINDER=\"cmd:python3 harness/gpu_wrap.py --src candidates/subset/subset.cu --no-build\" QSB_SECONDS=240 ./benchmark.sh subset'"
     );

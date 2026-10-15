@@ -4,6 +4,7 @@
 //! chapel's candles catch, Wren's map grows landings. As everywhere in the
 //! realm, light means activity.
 
+use super::super::chrome;
 use super::super::ink::{Img, hash, text_width};
 use super::super::kit::district_sign;
 use super::super::kit::{self, RockKind, Tiles};
@@ -482,17 +483,9 @@ pub(super) fn plate_marked(
     mark: &Img,
 ) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
-    cv.rect(x, y, pw, ph, 'X');
-    cv.frame(x, y, pw, ph, if lit { '5' } else { 'o' });
-    for (cx, cy) in [
-        (x, y),
-        (x + pw - 1, y),
-        (x, y + ph - 1),
-        (x + pw - 1, y + ph - 1),
-    ] {
-        cv.put(cx, cy, if lit { '6' } else { 'O' });
-    }
+    chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
     let ink = if lit { '6' } else { 'O' };
+    chrome::studs(cv, (x, y, pw, ph), ink);
     let mark = mark.recolor(&[('O', ink)]);
     cv.stamp(&mark, x + (pw - mark.w) / 2, y + (ph - mark.h) / 2);
 }
@@ -723,14 +716,13 @@ fn keeper(who: &str, tick: u32, busy: bool) -> Img {
     }
 }
 
-/// A board of lines in the 5x7 hand: dark, timber-edged, like the realm's
-/// signs.
+/// A board of lines in the 5x7 hand: night slate in a timber edge, like
+/// the realm's signs (`chrome::Tone::SIGN`), and its shadow.
 pub(super) fn board(lines: &[(String, char)]) -> Img {
-    let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 8;
+    let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
     let h = lines.len() as i32 * 9 + 5;
-    let mut im = Img::new(w, h);
-    im.rect(0, 0, w, h, 'K');
-    im.frame(0, 0, w, h, 'B');
+    let mut im = Img::new(w + 1, h + 1);
+    chrome::panel(&mut im, (0, 0, w, h), chrome::Tone::SIGN);
     for (i, (text, ink)) in lines.iter().enumerate() {
         let tw = text_width(text);
         im.text((w - tw) / 2, 3 + i as i32 * 9, text, *ink);
@@ -782,7 +774,7 @@ pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
         .map(|(mark, n, _)| mark.w + 2 + text_width(n) + 7)
         .sum::<i32>()
         - 7;
-    let mut x = (im.w - width) / 2;
+    let mut x = (im.w - 1 - width) / 2;
     for (mark, n, have) in &items {
         im.stamp(mark, x, row_y + (7 - mark.h) / 2);
         x += mark.w + 2;
@@ -794,13 +786,10 @@ pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
         let label = "HOLD E";
         let lw = text_width(label);
         let bar_w = 40;
-        let start = (im.w - (lw + 4 + bar_w)) / 2;
+        let start = (im.w - 1 - (lw + 4 + bar_w)) / 2;
         let after = im.text(start, bar_y, label, 'O');
-        im.frame(after + 4, bar_y + 1, bar_w, 5, 'b');
         let fill = (buying.min(BUY_HOLD) * (bar_w as u32 - 2) / BUY_HOLD) as i32;
-        if fill > 0 {
-            im.rect(after + 5, bar_y + 2, fill, 3, '5');
-        }
+        chrome::meter(&mut im, (after + 4, bar_y + 1, bar_w, 5), fill, super::super::ink::ink('5').unwrap_or_default());
     }
     im
 }

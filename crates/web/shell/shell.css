@@ -43,72 +43,184 @@ body {
   gap: 10px;
   min-width: 240px;
   padding: 20px 24px 24px;
-  background: #0a0c0e;
-  border: 1px solid #1f2429;
+  /* The game's boards: night-blue slate lit from above, falling to black,
+     a thin lit rim and a soft shadow into the black around it. */
+  background: linear-gradient(180deg, #16232d 0%, #101a22 48%, #0b1117 100%);
+  border: 1px solid #22313b;
+  border-top-color: #34495a;
+  border-bottom-color: #141d24;
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(120, 150, 165, 0.08);
 }
 #join[hidden] { display: none; }
-#join h1 { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: #aab2b9; }
+#join h1 { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: #c9b88f; letter-spacing: 0.02em; }
+#join label { color: #8796a0; }
 
 input, button {
   font: inherit;
-  color: #b9c1c8;
-  background: #12161a;
-  border: 1px solid #262c32;
-  border-radius: 3px;
+  color: #bcc5c9;
+  background: linear-gradient(180deg, #172430 0%, #111b23 100%);
+  border: 1px solid #263845;
+  border-radius: 6px;
 }
 input {
   padding: 8px 10px;
   /* 16px stops phones zooming in on focus. */
   font-size: 16px;
+  /* A well: shaded under its top edge. */
+  background: linear-gradient(180deg, #080d12 0%, #0d151c 100%);
+  border-color: #1f2e38;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
   user-select: text;
   -webkit-user-select: text;
 }
-input:focus { outline: 1px solid #3a434b; }
-button { padding: 8px 12px; cursor: pointer; }
-button:disabled { color: #5a636b; cursor: default; }
+input:focus { outline: none; border-color: #6f5a36; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(169, 118, 57, 0.18); }
+button { padding: 8px 12px; cursor: pointer; box-shadow: inset 0 1px 0 rgba(140, 170, 185, 0.08), 0 2px 6px rgba(0, 0, 0, 0.45); }
+button:hover:not(:disabled) { background: linear-gradient(180deg, #1d2d3a 0%, #142029 100%); border-color: #31475a; }
+button:active:not(:disabled) { background: linear-gradient(180deg, #0f171e 0%, #15212b 100%); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
+button:disabled { color: #5d6870; cursor: default; box-shadow: none; }
+/* The join's own button: what the form is for, in a brass rim. */
+#play:not(:disabled) { color: #d9c9a0; border-color: #6f5a36; border-top-color: #8e7246; border-bottom-color: #4a3a22; }
+#play:hover:not(:disabled) { border-color: #8e7246; }
 
 #status {
   position: absolute;
   left: 10px;
   top: 8px;
+  padding: 3px 9px;
   pointer-events: none;
-  color: #7d868e;
+  color: #8b979e;
+  background: linear-gradient(180deg, rgba(22, 35, 45, 0.82) 0%, rgba(11, 17, 23, 0.82) 100%);
+  border: 1px solid rgba(52, 73, 90, 0.6);
+  border-radius: 6px;
 }
+#status:empty { display: none; }
 
 #toast {
   position: absolute;
   left: 50%;
-  bottom: 24px;
+  /* Clear of the picture's foot, where a game keeps its footer (the Delve's
+     door band is its bottom ninth). The picture is centred and at least
+     four fifths of its fitted height (present.js), which for the Delve's
+     384x224 is min(height, width x 224/384): three tenths of that below
+     the middle stays above the band whatever the scale. */
+  /* At the picture's top edge, off the action: one small line. */
+  top: calc(50% - 0.5 * min(100%, 58.33vw) + 6px);
   transform: translateX(-50%);
-  max-width: 80vw;
+  max-width: min(46vw, 560px);
+  padding: 2px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
-  color: #9aa3ab;
+  color: #9aa6aa;
   text-align: center;
+  background: rgba(11, 17, 23, 0.72);
+  border: 1px solid rgba(52, 73, 90, 0.5);
+  border-radius: 999px;
   transition: opacity 0.4s;
 }
+#toast:empty { display: none; }
+/* A game's sheet (the Delve's cards and wishes), over the picture. */
+#sheet {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  max-width: min(720px, calc(100vw - 24px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  margin: 0;
+  padding: 12px 16px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #b4bfc3;
+  white-space: pre-wrap;
+  background: linear-gradient(180deg, rgba(22, 35, 45, 0.93) 0%, rgba(11, 17, 23, 0.93) 100%);
+  border: 1px solid rgba(52, 73, 90, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+#sheet[hidden] { display: none; }
+/* A game's text line (the Delve's wish): where the toast sits, above it. */
+#say {
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% - 0.3 * min(100%, 58.33vw) + 40px);
+  transform: translateX(-50%);
+  width: min(520px, 86vw);
+}
+#say[hidden] { display: none; }
+#said {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  font: inherit;
+  color: #c9d3d6;
+  background: linear-gradient(180deg, rgba(22, 35, 45, 0.94) 0%, rgba(11, 17, 23, 0.94) 100%);
+  border: 1px solid rgba(78, 104, 122, 0.8);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+  outline: none;
+}
+#said::placeholder { color: #6f7d83; }
+/* With the dev panel open the picture is fitted to the stage beside it. */
+body.panel-open #toast {
+  left: calc((100vw - min(420px, 92vw)) / 2);
+  top: calc(50% - 0.5 * min(100%, (100vw - min(420px, 92vw)) * 0.5833) + 6px);
+}
 #toast.gone { opacity: 0; }
+/* A window taller than the picture (a phone held upright) leaves black
+   below it: the toast sits in the middle of that, over nothing. */
+@media (max-aspect-ratio: 384/300) {
+  #toast { bottom: calc(25% - 14.58vw); transform: translate(-50%, 50%); }
+}
+/* A phone's picture is small: a smaller toast, on one line where it fits. */
+@media (max-width: 600px) {
+  #toast { padding: 2px 8px; font-size: 11px; max-width: 80vw; }
+}
 
 #full {
   position: absolute;
   right: 10px;
   top: 8px;
-  padding: 4px 8px;
+  padding: 4px 9px;
   font-size: 12px;
   opacity: 0.6;
 }
 #full:hover { opacity: 1; }
+
+/* The volume: a note to mute and a slider, left of the full-screen button. */
+#vol {
+  position: absolute;
+  right: 112px;
+  top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.6;
+}
+#vol:hover { opacity: 1; }
+#vol[hidden] { display: none; }
+#mute { padding: 2px 8px; font-size: 13px; }
+#mute.off { text-decoration: line-through; opacity: 0.6; }
+#volume { width: 90px; accent-color: #8fa7b3; }
 
 #stats {
   position: absolute;
   right: 10px;
   top: 40px;
   margin: 0;
-  padding: 6px 8px;
+  padding: 6px 9px;
   font-size: 12px;
-  color: #7d868e;
-  background: rgba(0, 0, 0, 0.6);
+  color: #8b979e;
+  background: linear-gradient(180deg, rgba(22, 35, 45, 0.82) 0%, rgba(8, 12, 16, 0.82) 100%);
+  border: 1px solid rgba(52, 73, 90, 0.6);
+  border-bottom-color: rgba(20, 29, 36, 0.7);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
+#stats:empty { display: none; }
 
 /* The dev panel (panel.js): F2 on a dev link or in a dev session. Tonal
    greys on near-black, beside the game rather than over its middle. */
@@ -122,8 +234,10 @@ button:disabled { color: #5a636b; cursor: default; }
   overflow-y: auto;
   padding: 10px 12px 16px;
   box-sizing: border-box;
-  background: rgba(6, 8, 10, 0.92);
-  border-left: 1px solid #1f2429;
+  background: linear-gradient(180deg, rgba(16, 26, 34, 0.94) 0%, rgba(7, 11, 15, 0.95) 100%);
+  border-left: 1px solid #22313b;
+  border-radius: 12px 0 0 12px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.55);
   color: #8b949c;
   font-size: 12px;
   outline: none;
@@ -133,15 +247,17 @@ button:disabled { color: #5a636b; cursor: default; }
    not covered by it. */
 body.panel-open #stage { right: min(420px, 92vw); }
 #panel header { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
-#panel header span { flex: 1; color: #aab2b9; }
-#panel header button { padding: 3px 7px; font-size: 11px; }
+#panel header span { flex: 1; color: #c9b88f; }
+#panel header button { padding: 3px 8px; font-size: 11px; border-radius: 5px; }
 #panel .strip {
   margin: 0 0 8px;
   padding: 6px 8px;
   white-space: pre-wrap;
-  background: #0b0e11;
-  border: 1px solid #191e23;
-  color: #7d868e;
+  background: linear-gradient(180deg, #0a1016 0%, #0d151c 100%);
+  border: 1px solid #1c2932;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  color: #85929a;
   font-size: 11px;
   line-height: 1.5;
 }
@@ -151,7 +267,7 @@ body.panel-open #stage { right: min(420px, 92vw); }
   margin: 12px 0 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #6c757d;
+  color: #7d8b93;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -172,9 +288,10 @@ body.panel-open #stage { right: min(420px, 92vw); }
   height: 4px;
   margin: 0;
   padding: 0;
-  background: #262c32;
+  background: linear-gradient(180deg, #0b1218 0%, #22313b 100%);
   border: 0;
   border-radius: 2px;
+  box-shadow: none;
 }
 #panel .knob input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -182,19 +299,21 @@ body.panel-open #stage { right: min(420px, 92vw); }
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #7d868e;
+  background: radial-gradient(circle at 35% 30%, #a5b1b6 0%, #6f7d85 70%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 #panel .knob input[type=range]::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border: 0;
   border-radius: 50%;
-  background: #7d868e;
+  background: radial-gradient(circle at 35% 30%, #a5b1b6 0%, #6f7d85 70%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
-#panel .knob.moved input[type=range]::-webkit-slider-thumb { background: #c2b48e; }
-#panel .knob.moved input[type=range]::-moz-range-thumb { background: #c2b48e; }
+#panel .knob.moved input[type=range]::-webkit-slider-thumb { background: radial-gradient(circle at 35% 30%, #dcc896 0%, #a98a52 70%); }
+#panel .knob.moved input[type=range]::-moz-range-thumb { background: radial-gradient(circle at 35% 30%, #dcc896 0%, #a98a52 70%); }
 #panel .knob.locked { opacity: 0.4; }
-#panel .knob .reset { padding: 0; width: 22px; height: 20px; font-size: 12px; line-height: 1; }
+#panel .knob .reset { padding: 0; width: 22px; height: 20px; font-size: 12px; line-height: 1; border-radius: 5px; }
 #panel .knob:not(.moved) .reset { visibility: hidden; }
 #panel .constants {
   width: 100%;
@@ -202,9 +321,11 @@ body.panel-open #stage { right: min(420px, 92vw); }
   margin-top: 10px;
   box-sizing: border-box;
   font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: #9aa3ab;
-  background: #0b0e11;
-  border: 1px solid #262c32;
+  color: #9aa6ab;
+  background: linear-gradient(180deg, #080d12 0%, #0d151c 100%);
+  border: 1px solid #1f2e38;
+  border-radius: 8px;
+  padding: 6px 8px;
   user-select: text;
   -webkit-user-select: text;
 }

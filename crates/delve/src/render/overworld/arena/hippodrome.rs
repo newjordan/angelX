@@ -1,5 +1,6 @@
 //! Chariots, mechanical foolishness and a bridge with no jurisdiction.
 use super::{TILE, at, home};
+use super::super::chrome;
 use super::super::ink::{Img,hash};
 use super::super::material as m;
 use crate::rules::{RoomKind, Run, HZ, countryside, hippodrome as h, race_wagers as w, pastimes::{Game,LAP,RIVALS,BARRELS}};
@@ -19,13 +20,28 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
                 let outer=(dx/(10.9*TILE as f32)).powi(2)+(dy/(5.3*TILE as f32)).powi(2);
                 let inner=(dx/(7.2*TILE as f32)).powi(2)+(dy/(3.6*TILE as f32)).powi(2);
                 if outer>=1.0 {continue;}
+                let clump=super::super::ink::vnoise(x as f32/4.0,y as f32/3.0,233);
                 if inner<1.0 {
-                    if inner>0.93 {cv.put(x,y,if (x+y)%2==0{'F'}else{'E'});}
+                    // The infield's verge: grass in clumps along the kerb.
+                    if inner>0.93 {cv.put(x,y,if clump>0.55{'E'}else{'F'});}
                     continue;
                 }
-                let band=((outer-inner).abs()*40.0) as i32;
-                let rut=(band%7==2)&&hash(x/3,y,233)%4!=0;
-                let ch=if outer>0.965 {'r'} else if rut {'n'} else {match hash(x/2,y,234)%23 {0=>'P',1..=3=>'I',_=>'b'}};
+                // Across the track, inner kerb to outer rail: packed dirt
+                // with clods, the two grooves the wheels have worn, each dark
+                // with a lit far lip, and a rail lit on its north-west.
+                let (ro,ri)=(outer.sqrt(),inner.sqrt());
+                let f=(ri-1.0)/(ri-ro).max(1e-3);
+                let groove=|a:f32|(a..a+0.07).contains(&f);
+                let lip=|a:f32|(a+0.07..a+0.1).contains(&f);
+                let ch=if f>0.93 {
+                    if dx*0.5+dy<0.0 {'r'} else {'B'}
+                } else if f<0.05 {'n'}
+                else if groove(0.28)||groove(0.6) {'n'}
+                else if lip(0.28)||lip(0.6) {'I'}
+                else if clump>0.7 {'I'}
+                else if clump<0.24 {'n'}
+                else if hash(x,y,234)%61==0 {'P'}
+                else {'b'};
                 cv.put(x,y,ch);
             }}
             // Two timber grandstands, tiered, the crowd's heads along them.
@@ -138,15 +154,17 @@ fn chariot_sprite(frame:usize,heading:crate::rules::chariot::Heading)->Img {
     im
 }
 /// A house's banner ink: the sheet's `R` (near horse, cab and driver)
-/// repainted, so every yard runs in its own colours. The bay far horse
-/// and the gold harness stay put; an unlisted house keeps the realm red.
+/// repainted, and `I`, its shadow under the coat and the cab, a step down
+/// the same colour, so every yard runs in its own colours. The bay far
+/// horse and the gold harness stay put; an unlisted house keeps the realm
+/// red. The banner itself is the first pair.
 fn house_banner(house:&str)->&'static [(char,char)] {
     match house {
-        "qwen"=>&[('R','z')],
-        "grok"=>&[('R','A')],
-        "glm"=>&[('R','5')],
-        "deepseek"=>&[('R','1')],
-        "keep"=>&[('R','h')],
+        "qwen"=>&[('R','z'),('I','Q')],
+        "grok"=>&[('R','A'),('I','l')],
+        "glm"=>&[('R','5'),('I','4')],
+        "deepseek"=>&[('R','1'),('I','0')],
+        "keep"=>&[('R','h'),('I','G')],
         _=>&[],
     }
 }
@@ -301,9 +319,8 @@ pub(super) fn race_board(race:&cr::Chariot)->Img {
     }
     let w=text.iter().map(|(s,_)|text_width(s)).max().unwrap_or(0)+8;
     let h=text.len() as i32*9+5;
-    let mut im=Img::new(w,h);
-    im.rect(0,0,w,h,'K');
-    im.frame(0,0,w,h,'B');
+    let mut im=Img::new(w+1,h+1);
+    chrome::board(&mut im,(0,0,w,h),'B');
     for (row,(text,ink)) in text.iter().enumerate() {
         let tw=text_width(text);
         im.text((w-tw)/2,3+row as i32*9,text,*ink);
@@ -348,7 +365,7 @@ pub(super) fn minimap(over:&mut Img,race:&cr::Chariot,w:i32,h:i32) {
     let course=race.course();
     let (bw,bh)=(104,66);
     let (x0,y0)=(w-bw-4,h-bh-4);
-    over.rect(x0,y0,bw,bh,'K');over.frame(x0,y0,bw,bh,'B');
+    chrome::board(over,(x0,y0,bw,bh),'B');
     let s=((bw-8) as f32/course.map.0).min((bh-8) as f32/course.map.1);
     let (ox,oy)=(x0 as f32+(bw as f32-course.map.0*s)/2.0,y0 as f32+(bh as f32-course.map.1*s)/2.0);
     let dot=|over:&mut Img,tx:f32,ty:f32,ink:char,n:i32|{

@@ -16,16 +16,9 @@ fn rows(rows: &[&str]) -> Img {
 /// enlarged by its radius over this (the smallest split stands at its art).
 pub(super) const SLIME_REACH: f32 = 0.65;
 
-/// The mini-viz hero for player one; every other knight wears the blue house
-/// of the lists on the same body.
+/// The mini-viz hero in seat `id`'s colours.
 pub(super) fn knight(id: u32) -> Img {
-    let im = kit::knight();
-    match id {
-        1 => im,
-        2 => im.recolor(&[('7', '1'), ('8', '0'), ('5', '9')]),
-        3 => im.recolor(&[('7', 'A'), ('8', 'l'), ('5', '6')]),
-        _ => im.recolor(&[('7', '4'), ('8', 'a'), ('5', 'c')]),
-    }
+    kit::knight().recolor(super::knights::realm_colours(id))
 }
 
 /// A knight of the company in their own colours.
@@ -53,6 +46,19 @@ pub(super) fn frog(tick: u32) -> Img {
 /// brown vest and a sack over its back that swells as it takes. `burden` is
 /// the sack (0 none, 3 bursting); `running` has it bolting, legs pumping.
 pub fn goblin(burden: u8, running: bool, tick: u32) -> Img {
+    super::foe_material::pose(
+        64 + EnemyKind::Goblin as u8,
+        [
+            u32::from(running && (tick / 3).is_multiple_of(2)),
+            u32::from(burden.min(3)),
+            u32::from(running),
+            0,
+        ],
+        || super::foe_material::dress(&goblin_raw(burden, running, tick), EnemyKind::Goblin),
+    )
+}
+
+fn goblin_raw(burden: u8, running: bool, tick: u32) -> Img {
     let step = (tick / 3).is_multiple_of(2);
     let legs: [&str; 2] = match (running, step) {
         (false, _) => ["....RR.RR.....", "...mm...mm...."],
@@ -60,25 +66,23 @@ pub fn goblin(burden: u8, running: bool, tick: u32) -> Img {
         (true, false) => ["....RRRR......", "....mmmmm....."],
     };
     let body = rows(&[
-        "..l.......l...",
-        ".lMl.....lMl..",
-        "..MMAAAAAMM...",
-        "...AAAAAAAA...",
-        "...A6AA6AAAy..",
-        "...AAAAAAAyy..",
-        "....AAmmAA....",
-        "...RRRRRRR....",
-        "..AARRBRRAA...",
-        "..A.RRTRR.A...",
+        "..y.......y...",
+        ".lyl.....lyl..",
+        "..llyyyylll...",
+        "...lyyAAAll...",
+        "...l6AA6AAlr..",
+        "...llAAAllrr..",
+        "....lArrAl....",
+        "...brrrrrb....",
+        "..lArrtrrAl...",
+        "..l.brrrb.l...",
         legs[0],
         legs[1],
     ]);
     // The sack hangs behind, bobbing a pixel as it runs.
     let sack = match burden {
         0 => None,
-        1 => Some(rows(&[
-            "..R..", ".oOo.", "oOOOo", "oOOOo", ".ooo.",
-        ])),
+        1 => Some(rows(&["..R..", ".oOo.", "oOOOo", "oOOOo", ".ooo."])),
         2 => Some(rows(&[
             "..RR...", "...R...", ".oOOOo.", "oOOOOOo", "oOO6OOo", "oOOOOOo", ".ooooo.",
         ])),
@@ -124,6 +128,28 @@ pub(super) fn stone(im: &Img) -> Img {
 }
 
 pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
+    if kind == EnemyKind::Dragon {
+        return dragon(tick);
+    }
+    let period = match kind {
+        EnemyKind::Necromancer => 6,
+        EnemyKind::Hob => 4,
+        EnemyKind::Mimic => 36,
+        EnemyKind::Slime => 16,
+        EnemyKind::Hexer => 48,
+        EnemyKind::Risen | EnemyKind::Broodmarrow => 28,
+        EnemyKind::Oathbound => 24,
+        EnemyKind::Whirlgrave => 18,
+        kind if kind.critter() => 48,
+        EnemyKind::Dummy => return super::foe_material::dress(&enemy_raw(kind, tick), kind),
+        _ => 8,
+    };
+    super::foe_material::pose(kind as u8, [tick % period, 0, 0, 0], || {
+        super::foe_material::dress(&enemy_raw(kind, tick), kind)
+    })
+}
+
+fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
     let flap = (tick / 4).is_multiple_of(2);
     match kind {
         EnemyKind::Mimic => mimic(tick),
@@ -234,81 +260,83 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
         // Wings up and wings down round the same small body, so the bat
         // flutters in place.
         EnemyKind::Bat if flap => rows(&[
-            "R.............R",
-            "rR...........Rr",
-            "orR..O...O..Rro",
-            ".orR.OOOOO.Rro.",
-            "..orRO7O7ORro..",
-            "...orOOOOOro...",
-            "....oOOOOOo....",
-            "......OOO......",
-            "......o.o......",
-            ".....o...o.....",
+            "r.............b",
+            "tr...........br",
+            "rtr..r...r..brb",
+            ".rtr.rrrrr.brb.",
+            "..rtrr7r7rbrb..",
+            "...rprrrrpbr...",
+            "....brororb....",
+            "......rrr......",
+            "......b.b......",
+            ".....r...r.....",
         ]),
         EnemyKind::Bat => rows(&[
             "...............",
             "...............",
-            ".....O...O.....",
-            ".....OOOOO.....",
-            "....RO7O7OR....",
-            "..rRrOOOOOrRr..",
-            ".rRoroOOOoroRr.",
-            "rRo.o.OOO.o.oRr",
-            "Ro....o.o....oR",
-            "o....o...o....o",
+            ".....r...r.....",
+            ".....rrrrr.....",
+            "....rr7r7rr....",
+            "..rtrrrrrrbrb..",
+            ".rtrprrrrpbrbr.",
+            "rtr.bororb.bbrb",
+            "rb....b.b....br",
+            "b....r...r....b",
         ]),
+        // Rounded skull, separate ribs and joints, a small warm bow. The
+        // two planted feet keep the old fifteen-row ground line.
         EnemyKind::Skeleton => rows(&[
-            "...iHHi....",
-            "..iHHHHi...",
-            "..HgHHgH...",
-            "..iHHHHi...",
-            "...hJhJ....",
-            "....hh...o.",
-            ".iHHHHHi..o",
-            ".h.hHh.h..o",
-            ".h.HJH.HhHo",
-            ".J.hHh....o",
-            "...HJH...o.",
-            "...h.h.....",
-            "..hJ.Jh....",
-            "..J...J....",
-            ".hJ...Jh...",
+            "...iHi.....",
+            "..iHHHi....",
+            "..HSHSH....",
+            "..iHHHi....",
+            "...vHv.....",
+            "....i....r.",
+            ".iHHHHi...t",
+            ".v.vHv.v..r",
+            ".i.HvH.Hiir",
+            ".v.vHv....b",
+            "...ivi...b.",
+            "...i.v.....",
+            flap.then_some("..iv.vi....").unwrap_or("...ivvi...."),
+            flap.then_some("..v...v....").unwrap_or("...v.v....."),
+            flap.then_some(".iH...Hi...").unwrap_or("..iH.Hi...."),
         ]),
         EnemyKind::Wraith => {
             let hem: [&str; 3] = if flap {
-                ["..u.U.U.u..", "....u.u....", "...u...u..."]
+                ["..u.U.U.u..", "...U...u...", "..u.....u.."]
             } else {
-                ["...uU.Uu...", "..u..U..u..", ".....u....."]
+                ["...U.u.U...", "..u.U.U.u..", "...u...u..."]
             };
             let mut body = vec![
-                "....uuu....",
-                "...uUUUu...",
-                "..uUvvvUu..",
-                "..UvSSSvU..",
-                "..US2S2SU..",
-                "..uSSSSSu..",
-                ".uUSSSSSUu.",
-                ".UvUSSSUvU.",
-                "uU.UvSvU.Uu",
-                "u..UvSvU..u",
-                "...uUSUu...",
-                "...uU.Uu...",
+                "....UUU....",
+                "...UVVUu...",
+                "..UVUUUUu..",
+                "..UUSSSUu..",
+                "..US3S3Su..",
+                "..USSSSUu..",
+                ".UVUUSUUUu.",
+                ".U.UUUUu.u.",
+                "Uu.UUUUu.uU",
+                "u..UUSUu..u",
+                "...UVUUu...",
+                "...Uu.Uu...",
             ];
             body.extend(hem);
             rows(&body)
         }
         EnemyKind::Imp => rows(&[
-            ".h.......h.",
-            ".hR.....Rh.",
-            "..RRRRRRR..",
-            "..R6RRR6R..",
-            "..pRRoRRp..",
-            "...pRRRp...",
-            ".rRRpRpRRr.",
-            "r..RRRRR..r",
-            "...pRRRp.o.",
-            "...R...R.o.",
-            "..pp...pp..",
+            ".t.......t.",
+            ".rt.....br.",
+            "..rtrrrrb..",
+            "..r6rrr6b..",
+            "..rroorbb..",
+            "...rorbb...",
+            ".rrrtrrrbr.",
+            "r..rrrrb..b",
+            "...roorb.b.",
+            if flap { "...r...b.b." } else { "....r.b..b." },
+            if flap { "..tr...rb.." } else { "...tr.rb..." },
         ]),
         EnemyKind::Demon => demon(flap),
         EnemyKind::Sapper => rows(&[
@@ -324,7 +352,11 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
             if flap { ".mM...Mm..." } else { ".mm...M...." },
         ]),
         EnemyKind::Necromancer => {
-            let flame = if (tick / 3).is_multiple_of(2) { '3' } else { '2' };
+            let flame = if (tick / 3).is_multiple_of(2) {
+                '3'
+            } else {
+                '2'
+            };
             let mut im = rows(&[
                 "..2...XXX....",
                 ".232.XgggX...",
@@ -355,37 +387,47 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
             "bBpppppppppppBnnb.",
             ".bBpppppppppBBnn..",
             "..bBBppppBBBb.....",
-            if flap { "...bb.bb..bb.bb..." } else { "..bb..bb...bb.bb.." },
-            if flap { "...nb.nb..nb.nb..." } else { "..nb...nb.nb..nb." },
+            if flap {
+                "...bb.bb..bb.bb..."
+            } else {
+                "..bb..bb...bb.bb.."
+            },
+            if flap {
+                "...nb.nb..nb.nb..."
+            } else {
+                "..nb...nb.nb..nb."
+            },
         ]),
-        EnemyKind::Slime if flap => rows(&[
-            "....EEEE....",
-            "..EElllmEE..",
-            ".ElllYYlllE.",
-            "ElllYYllllmE",
-            "ElKllllKlllE",
-            "EllllllllllE",
-            "EmlllllllmmE",
-            "EmmlllllmmmE",
-            ".EmmmmmmmmE.",
-            "..EEEEEEEE..",
-        ]),
-        EnemyKind::Slime => rows(&[
-            "............",
-            "...EEEEEE...",
-            ".EElllYYlmE.",
-            "ElllYYllllmE",
-            "ElKllllKlllE",
-            "EllllllllllE",
-            "EmlllllllmmE",
-            "EEmmmmmmmmEE",
-            ".EEEEEEEEEE.",
-            "............",
-        ]),
-        EnemyKind::Goblin => goblin(0, false, tick),
+        EnemyKind::Slime => {
+            // Four authored gel poses, all in the original 12 x 10 cell.
+            // The eyes and contact line remain steady through the squash.
+            let crest = match (tick / 4) % 4 {
+                0 => ["....llll....", "..lyyylllF..", ".lyyllllllF."],
+                1 => [".....ll.....", "...lyylll...", ".lyyylllllF."],
+                2 => ["............", "...llllll...", ".lyyylllllF."],
+                _ => ["....lll.....", "..lyyylll...", ".lyyllllllF."],
+            };
+            rows(&[
+                crest[0],
+                crest[1],
+                crest[2],
+                "lyylllllllFF",
+                "lFSllllSllFF",
+                "lllllllllFFF",
+                "FllllllllFFF",
+                "FFllllllFFFF",
+                ".FFFFFFFFFF.",
+                "..DDDDDDDD..",
+            ])
+        }
+        EnemyKind::Goblin => goblin_raw(0, false, tick),
         // A squat green thing with its bomb held out, the fuse lit.
         EnemyKind::Hob => {
-            let spark = if (tick / 2).is_multiple_of(2) { '6' } else { '5' };
+            let spark = if (tick / 2).is_multiple_of(2) {
+                '6'
+            } else {
+                '5'
+            };
             let mut im = rows(&[
                 "..NNN........6.",
                 ".NLLLN......65.",
@@ -505,18 +547,18 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
             "bBBBBBBb",
         ]),
         EnemyKind::Dummy => kit::quintain(true, tick / 3),
-        EnemyKind::Dragon => kit::dragon((tick / 30) % 4 == 3, tick),
+        EnemyKind::Dragon => dragon(tick),
         // Bosses draw their own art (arena.rs); this is never reached.
         EnemyKind::Boss => Img::new(1, 1),
         // Humphrey at rest between poses: the shamble, drawn front on.
-        EnemyKind::Risen => risen(RisenPose::Walk, RisenDir::South, (tick / 14) % 2),
+        EnemyKind::Risen => risen_raw(RisenPose::Walk, RisenDir::South, (tick / 14) % 2),
         // The Broodmarrow at rest, seams dark.
-        EnemyKind::Broodmarrow => broodmarrow(false, tick),
+        EnemyKind::Broodmarrow => broodmarrow_raw(false, tick),
         // The Oathbound at rest: the oath holds, the visor is dark.
-        EnemyKind::Oathbound => oathbound(false, tick),
+        EnemyKind::Oathbound => oathbound_raw(false, tick),
         // The Whirlgrave, mid-lean.
-        EnemyKind::Whirlgrave => whirlgrave(tick),
-        _ => super::critters::base(kind, tick),
+        EnemyKind::Whirlgrave => whirlgrave_raw(tick),
+        _ => super::critters::figure_raw(kind, 0, 0, tick),
     }
 }
 
@@ -547,6 +589,14 @@ pub(super) enum RisenDir {
 }
 
 pub(super) fn risen(pose: RisenPose, dir: RisenDir, frame: u32) -> Img {
+    super::foe_material::pose(
+        64 + EnemyKind::Risen as u8,
+        [frame, pose as u32, dir as u32, 0],
+        || super::foe_material::dress(&risen_raw(pose, dir, frame), EnemyKind::Risen),
+    )
+}
+
+fn risen_raw(pose: RisenPose, dir: RisenDir, frame: u32) -> Img {
     let south = match dir {
         RisenDir::South => true,
         RisenDir::North => false,
@@ -1142,10 +1192,30 @@ fn demon(flap: bool) -> Img {
     im
 }
 
-/// A crypt's headstone: a rounded slab with a cross cut in it.
+/// A crypt's headstone: a rounded slab with a cross cut in it. Each of the
+/// few dozen a floor shows is shaped once per thread and copied after.
 pub(super) fn tomb(v: u32) -> Img {
+    thread_local! {
+        static CUT: std::cell::RefCell<std::collections::HashMap<u32, Img>> =
+            std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    if let Some(im) = CUT.with(|m| m.borrow().get(&v).cloned()) {
+        return im;
+    }
+    let im = carve_tomb(v);
+    CUT.with(|m| {
+        let mut m = m.borrow_mut();
+        if m.len() >= 256 {
+            m.clear();
+        }
+        m.insert(v, im.clone());
+    });
+    im
+}
+
+fn carve_tomb(v: u32) -> Img {
     let lean = (hash(v as i32, 3, 71) % 3) as f32 - 1.0;
-    let mut im = blob(
+    let im = kit::blob_soft(
         16,
         16,
         &[(8.0 + lean * 0.4, 6.5, 5.2, 5.6), (8.0, 10.5, 5.4, 4.8)],
@@ -1154,9 +1224,12 @@ pub(super) fn tomb(v: u32) -> Img {
         v,
         1.6,
     );
-    im.outline_inside('k');
+    let mut im = kit::shaded_rim(&im);
+    // The cross cut into it: a dark groove with a lit lip on its left.
     im.line(8, 4, 8, 10, 'x');
     im.line(6, 6, 10, 6, 'x');
+    im.line(7, 5, 7, 5, 'U');
+    im.put(9, 7, 'U');
     im.line(2, 15, 13, 15, 'S');
     im
 }
@@ -1203,7 +1276,17 @@ pub(super) fn mushroom(v: u32) -> Img {
             }
             let edge = dx * dx + dy * dy > 0.7;
             let dotted = hash(x / 2, y / 2, 63 + v).is_multiple_of(4) && !edge;
-            im.put(x, y, if dotted { spot } else if edge { rim } else { cap });
+            im.put(
+                x,
+                y,
+                if dotted {
+                    spot
+                } else if edge {
+                    rim
+                } else {
+                    cap
+                },
+            );
         }
     }
     im.line(1, 8, 14, 8, 't');
@@ -1307,17 +1390,21 @@ pub(super) fn brazier(blazing: bool, tick: u32, seed: u32) -> Img {
 /// is armed.
 pub(super) fn keg(fuse: u32, armed: bool, tick: u32) -> Img {
     let mut im = rows(&[
-        "...6...",
-        "...o...",
-        ".bBBBb.",
-        "bBIBIBb",
-        "bBBBBBb",
-        "bBIBIBb",
-        ".bBBBb.",
+        "...6...", "...o...", ".bBBBb.", "bBIBIBb", "bBBBBBb", "bBIBIBb", ".bBBBb.",
     ]);
     let quick = if armed { 2 } else { 5 };
     let lit = (tick / quick).is_multiple_of(2);
-    im.put(3, 0, if armed && lit { '7' } else if lit { '6' } else { '5' });
+    im.put(
+        3,
+        0,
+        if armed && lit {
+            '7'
+        } else if lit {
+            '6'
+        } else {
+            '5'
+        },
+    );
     if fuse < 12 && lit {
         im.put(2, 0, '6');
         im.put(4, 0, '6');
@@ -1426,7 +1513,7 @@ pub(super) fn hook() -> Img {
 
 /// A hob's bomb in flight.
 pub(super) fn bomb(tick: u32) -> Img {
-    let mut im = rows(&["..6.", ".KK.", "KKKK", ".KK."]);
+    let mut im = rows(&["..c.", ".Vu.", "uUSx", ".xx."]);
     if (tick / 2).is_multiple_of(2) {
         im.put(2, 0, '5');
     }
@@ -1476,7 +1563,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
         Shot::Arrow => along(cv, &['W', 'o', 'o', 'o', '2']),
         Shot::Bolt => along(cv, &['V', 'R', 'R', '2']),
         Shot::Ball => {
-            blot(cv, 'W', 'J');
+            blot(cv, 'c', 'U');
             cv.put(x + 1, y + 1, 'g');
         }
         Shot::Bone => {
@@ -1492,25 +1579,25 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             }
             cv.put(x, y, 'H');
         }
-        Shot::Orb => blot(cv, 'w', '2'),
+        Shot::Orb => blot(cv, '9', '2'),
         // The Lich's frost: a pale star of ice.
         Shot::Frost => {
-            blot(cv, 'w', 'W');
+            blot(cv, '9', 'V');
             for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2)] {
                 cv.put(x + dx, y + dy, 'z');
             }
         }
         // The Hexer's bolt: a frog-green glow.
         Shot::Hex => {
-            blot(cv, 'w', 'Y');
+            blot(cv, '9', 'Y');
             for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
                 cv.put(x + dx, y + dy, 'C');
             }
         }
-        Shot::Ember => blot(cv, '6', '7'),
+        Shot::Ember => blot(cv, 'c', 'o'),
         // Pilgrim's Arrow: a long shaft of light, its head ablaze.
         Shot::Sacred => {
-            along(cv, &['w', '6', '6', '5', '5', '4', '4', '@', 'a']);
+            along(cv, &['9', 'c', '6', '@', '@', 'o', 'P', 'S', 's']);
             let (px, py) = (-uy, ux);
             for k in [-1.0f32, 1.0] {
                 cv.put(
@@ -1530,8 +1617,8 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
         // The monsters' pattern shots, one look to a delve.
         // The Crypt's wisp: a pale ghost-light trailing a cold tail.
         Shot::Wisp => {
-            along(cv, &['w', '3', '2', '1', '0']);
-            blot(cv, 'w', '3');
+            along(cv, &['9', '3', '2', 'q', 'S']);
+            blot(cv, '9', '3');
         }
         // The Mines' ore: a tumbling lump, bright where it catches light.
         Shot::Ore => {
@@ -1551,7 +1638,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
         }
         // Dragon Keep's flame: a teardrop, white-hot at the head.
         Shot::Flame => {
-            along(cv, &['6', '@', '7', '7', '8']);
+            along(cv, &['c', '@', 'o', 'P', 's']);
             let (px, py) = (-uy, ux);
             for k in [-1.0f32, 1.0] {
                 cv.put(
@@ -1560,7 +1647,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
                     '@',
                 );
             }
-            cv.put(x, y, '6');
+            cv.put(x, y, 'c');
         }
         // The Archive's torn page: a pale leaf with a line of ink, tumbling.
         Shot::Page => {
@@ -1568,7 +1655,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             let (w, h) = if flat { (2, 1) } else { (1, 2) };
             for dy in -h..=h {
                 for dx in -w..=w {
-                    cv.put(x + dx, y + dy, if (dx + dy) % 2 == 0 { '9' } else { 'c' });
+                    cv.put(x + dx, y + dy, if dy == -h && dx == 0 { 'c' } else if dy < 0 { '$' } else if dx.abs() == w || dy == h { 'U' } else { 'V' });
                 }
             }
             cv.put(x, y, 'Q');
@@ -1585,12 +1672,12 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             for (dx, dy, ink) in [
                 (-2, 0, '1'),
                 (2, 0, '1'),
-                (-1, -1, 'w'),
-                (0, -1, 'w'),
-                (1, -1, 'w'),
-                (-1, 1, 'w'),
-                (0, 1, 'w'),
-                (1, 1, 'w'),
+                (-1, -1, '3'),
+                (0, -1, '9'),
+                (1, -1, '3'),
+                (-1, 1, '2'),
+                (0, 1, '3'),
+                (1, 1, '2'),
                 (-1, 0, '2'),
                 (1, 0, '2'),
             ] {
@@ -1599,6 +1686,7 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             cv.put(x, y, '0');
         }
     }
+
 }
 
 /// A checked rune weapon changes colour and silhouette, never game rules.
@@ -1678,14 +1766,44 @@ pub(super) fn mimic(tick: u32) -> Img {
     }
 }
 
-/// A floor plate set with spike holes, at rest (scenery).
+/// A floor plate set with spike holes, at rest (scenery): an iron slab let
+/// into the floor, its corners worn round, its upper and left edges
+/// catching the light and its lower and right ones in shadow, each hole
+/// dark with a lit lip below it.
 pub(super) fn spike_plate() -> Img {
     let mut im = Img::new(32, 32);
-    im.frame(1, 1, 30, 30, 'S');
+    let (x0, y0, x1, y1) = (1, 1, 30, 30);
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            let (n, s, w, e) = (y - y0, y1 - y, x - x0, x1 - x);
+            let (v, h) = (n.min(s), w.min(e));
+            // The worn corners.
+            if v + h < 2 {
+                continue;
+            }
+            let lit = n.min(w) <= s.min(e);
+            let ring = v.min(h).min(if v + h == 2 { 0 } else { 2 });
+            im.put(
+                x,
+                y,
+                // The face stays near black, so light crossing it never
+                // shows as a patch.
+                match (ring, lit) {
+                    (0, true) => 'u',
+                    (0, false) => 'x',
+                    (1, true) => 'S',
+                    (1, false) => 's',
+                    _ => 'K',
+                },
+            );
+        }
+    }
     for y in (5..28).step_by(6) {
         for x in (5..28).step_by(6) {
-            im.put(x, y, 'x');
-            im.put(x + 1, y, 'S');
+            im.put(x, y, 'k');
+            im.put(x + 1, y, 'k');
+            im.put(x, y + 1, 'S');
+            im.put(x + 1, y + 1, 'x');
         }
     }
     im
@@ -1895,7 +2013,6 @@ pub(super) fn privy() -> Img {
         "...bBpBBpBnrRkrrRRrnBpBBpBb...",
         "...bBpBBpBnrRRkrRRrnBpBBpBb...",
         "...bBpBBpBnrRRrkkRrnBpBBpBb...",
-
         "...bBpBBpBnrRRrrRRrnBpBBpBb...",
         "...bBpBBpBnrRRrrRoonBpBBpBb...",
         "...bBpBBpBnrRRrrRoonBpBBpBb...",
@@ -1913,11 +2030,10 @@ pub(super) fn privy() -> Img {
 /// Hung on a shut privy door: OCCUPIED, in the 5x7 hand on a dark board.
 pub(super) fn occupied() -> Img {
     let word = "OCCUPIED";
-    let w = super::super::ink::text_width(word) + 4;
+    let w = super::super::ink::text_width(word) + 6;
     let mut im = Img::new(w, 11);
-    im.rect(0, 0, w, 11, 'b');
-    im.frame(0, 0, w, 11, 'I');
-    im.text(2, 2, word, 'o');
+    super::super::chrome::inset_panel(&mut im, (0, 0, w, 11), super::super::chrome::Tone::TIMBER);
+    im.text(3, 2, word, 'o');
     im
 }
 
@@ -2240,11 +2356,7 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
             ])
         }
     };
-    if direction < 0 {
-        im.flip_h()
-    } else {
-        im
-    }
+    if direction < 0 { im.flip_h() } else { im }
 }
 
 /// A bat grown from a plum for the mine trolley: stone-purple body with a
@@ -2300,7 +2412,16 @@ pub(super) fn bb_gun(fired: bool) -> Img {
         ".............JJJJJJJJJJJJ...............",
     ]);
     if fired {
-        for (dx, dy) in [(0, 5), (1, 3), (1, 7), (2, 2), (2, 8), (3, 4), (3, 6), (4, 5)] {
+        for (dx, dy) in [
+            (0, 5),
+            (1, 3),
+            (1, 7),
+            (2, 2),
+            (2, 8),
+            (3, 4),
+            (3, 6),
+            (4, 5),
+        ] {
             im.put(dx, dy, '5');
         }
         im.put(1, 5, '4');
@@ -2312,13 +2433,7 @@ pub(super) fn bb_gun(fired: bool) -> Img {
 /// The gold ring that marks where a launch window wants to be.
 pub(super) fn gold_ring_marker() -> Img {
     rows(&[
-        "...55...",
-        "..5..5..",
-        ".5.44.5.",
-        "5.4..4.5",
-        "5.4..4.5",
-        ".5.44.5.",
-        "..5..5..",
+        "...55...", "..5..5..", ".5.44.5.", "5.4..4.5", "5.4..4.5", ".5.44.5.", "..5..5..",
         "...55...",
     ])
 }
@@ -2328,6 +2443,14 @@ pub(super) fn gold_ring_marker() -> Img {
 /// seams come alight (state — so, and only so, signal ink) and its eyes
 /// go from coals to lanterns.
 pub(super) fn broodmarrow(ripping: bool, tick: u32) -> Img {
+    super::foe_material::pose(
+        64 + EnemyKind::Broodmarrow as u8,
+        [(tick / 14) % 2, u32::from(ripping), 0, 0],
+        || super::foe_material::dress(&broodmarrow_raw(ripping, tick), EnemyKind::Broodmarrow),
+    )
+}
+
+fn broodmarrow_raw(ripping: bool, tick: u32) -> Img {
     let sway = (tick / 14).is_multiple_of(2);
     let mut im = rows(&[
         // Horns, and the dozing lumps of the brood on each shoulder.
@@ -2371,6 +2494,12 @@ pub(super) fn broodmarrow(ripping: bool, tick: u32) -> Img {
 /// An impling in flight: wings out, teeth first, entirely its father's
 /// son. Its eyes are signal because being thrown at a knight IS state.
 pub(super) fn flung_impling(tick: u32) -> Img {
+    super::foe_material::pose(64 + EnemyKind::Imp as u8, [(tick / 3) % 2, 0, 0, 0], || {
+        super::foe_material::dress(&flung_impling_raw(tick), EnemyKind::Imp)
+    })
+}
+
+fn flung_impling_raw(tick: u32) -> Img {
     let flap = (tick / 3).is_multiple_of(2);
     rows(&[
         if flap { "h......h" } else { ".h....h." },
@@ -2386,6 +2515,14 @@ pub(super) fn flung_impling(tick: u32) -> Img {
 /// stitched down its breast. `grieving` lights the visor's slit red —
 /// alone is a state, so the red is earned.
 pub(super) fn oathbound(grieving: bool, tick: u32) -> Img {
+    super::foe_material::pose(
+        64 + EnemyKind::Oathbound as u8,
+        [(tick / 12) % 2, u32::from(grieving), 0, 0],
+        || super::foe_material::dress(&oathbound_raw(grieving, tick), EnemyKind::Oathbound),
+    )
+}
+
+fn oathbound_raw(grieving: bool, tick: u32) -> Img {
     let step = (tick / 12).is_multiple_of(2);
     let mut im = rows(&[
         ".....WWWWW.....",
@@ -2415,7 +2552,7 @@ pub(super) fn oathbound(grieving: bool, tick: u32) -> Img {
 
 /// The Whirlgrave: a leaning gravestone, stone-bleak, its rune guttering.
 /// The lean is the tell; the swirl around it is drawn by the arena.
-pub(super) fn whirlgrave(tick: u32) -> Img {
+fn whirlgrave_raw(tick: u32) -> Img {
     let grind = (tick / 9).is_multiple_of(2);
     rows(&[
         ".....WW.....",
@@ -2437,4 +2574,379 @@ pub(super) fn whirlgrave(tick: u32) -> Img {
             ".sSSSSSSSSs."
         },
     ])
+}
+
+/// The Big Ripper's round cheeks and small brass crown, in the same 32-pixel
+/// cell as the guardian file. State expressions are overlaid by signatures.
+pub(super) fn ripper() -> Img {
+    static BODY: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
+    BODY.get_or_init(|| {
+        let mut im = Img::new(32, 32);
+        // Ears, cheeks, belly: deliberately overlapping rounded masses.
+        for (x, y, rx, ry) in [
+            (3.0, 10.0, 2.0, 4.0),
+            (28.0, 10.0, 2.0, 4.0),
+            (16.0, 16.0, 14.0, 11.0),
+        ] {
+            im.ellipse(x, y, rx, ry, 'D');
+            im.ellipse(x - 0.5, y - 0.5, rx - 0.7, ry - 0.7, 'F');
+        }
+        im.ellipse(14.5, 15.0, 12.0, 9.0, 'l');
+        im.ellipse(12.0, 12.5, 8.0, 6.0, 'm');
+        im.ellipse(8.0, 16.0, 4.5, 5.0, 'L');
+        im.ellipse(23.0, 16.0, 4.5, 5.0, 'N');
+        im.ellipse(8.0, 15.0, 3.5, 3.5, 'y');
+        im.ellipse(22.0, 15.0, 3.5, 3.5, 'l');
+        im.line(7, 8, 12, 7, 'y');
+        im.put(6, 9, 'y');
+        im.put(4, 9, 'M');
+        // Heavy sleepy lids, separated from the funny little mouth.
+        for x in [11, 20] {
+            im.ellipse(x as f32, 11.0, 3.0, 2.0, 'D');
+            im.line(x - 2, 9, x + 2, 9, 'L');
+            im.put(x - 2, 10, 'F');
+        }
+        im.ellipse(16.0, 14.5, 3.0, 2.0, 'L');
+        im.put(14, 13, 'y');
+        im.ellipse(16.0, 18.0, 5.0, 2.0, 'D');
+        im.line(13, 17, 19, 17, 'L');
+        im.put(12, 18, 'i');
+        im.put(19, 18, 'i');
+        im.line(13, 21, 19, 22, 'm');
+        // Tiny feet and a brass buckle ground the otherwise round mound.
+        im.ellipse(9.0, 28.0, 4.0, 1.5, 'b');
+        im.ellipse(24.0, 28.0, 4.0, 1.5, 'b');
+        im.line(7, 27, 10, 27, 'r');
+        im.line(22, 27, 25, 27, 'r');
+        im.rect(12, 25, 8, 2, 'b');
+        im.ellipse(16.0, 25.0, 2.0, 2.0, 'r');
+        im.put(15, 24, 't');
+        // Rounded lobes at three crown tips; the warm rim is interrupted.
+        im.rect(8, 3, 16, 3, 'b');
+        im.rect(9, 3, 14, 2, 'o');
+        for x in [10, 16, 22] {
+            im.ellipse(x as f32, 1.5, 1.5, 1.5, 'r');
+            im.put(x, 0, 't');
+            im.line(x, 1, x, 3, 'o');
+        }
+        im.line(10, 4, 22, 4, 't');
+        im.put(16, 3, '7');
+        im
+    })
+    .clone()
+}
+
+/// A red-scaled dragon with a continuous rising neck, two ribbed wings and
+/// a tapering curled tail. Both body states bake once; only breath is live.
+fn dragon(tick: u32) -> Img {
+    static REST: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
+    static FIRE: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
+    let breathing = (tick / 30) % 4 == 3;
+    let mut im = if breathing { &FIRE } else { &REST }
+        .get_or_init(|| dragon_body(breathing))
+        .clone();
+    if breathing {
+        // The old mouth position, timing and flame footprint stay fixed.
+        for k in 0..30 {
+            let spread = k / 4;
+            let jitter = (hash(k, tick as i32, 231) % 5) as i32 - 2;
+            let (x, y) = (59 + k * 2 / 3, 16 + jitter * spread / 3);
+            im.put(
+                x,
+                y,
+                if k < 8 {
+                    '6'
+                } else if k < 18 {
+                    '5'
+                } else {
+                    '@'
+                },
+            );
+            im.put(x, y + 1, if k < 12 { '5' } else { '@' });
+            if spread > 1 {
+                im.put(x, y + spread / 2 + 1, '@');
+                im.put(x, y - spread / 2, 'a');
+            }
+        }
+    }
+    im
+}
+
+fn dragon_body(breathing: bool) -> Img {
+    // Scanline membranes let the scallops curve between the long spars;
+    // shading and texture are cached, never sampled on a hot frame.
+    fn membrane(im: &mut Img, spans: &[(i32, i32)], y0: i32, far: bool) {
+        for (row, &(left, right)) in spans.iter().enumerate() {
+            let y = y0 + row as i32;
+            for x in left..=right {
+                im.put(
+                    x,
+                    y,
+                    if x == left || x == right {
+                        's'
+                    } else if far {
+                        'B'
+                    } else if row < 8 {
+                        'p'
+                    } else {
+                        '8'
+                    },
+                );
+            }
+        }
+    }
+    let mut im = Img::new(72, 46);
+    membrane(
+        &mut im,
+        &[
+            (36, 36),
+            (36, 38),
+            (36, 40),
+            (36, 42),
+            (36, 44),
+            (35, 46),
+            (35, 48),
+            (35, 49),
+            (35, 48),
+            (35, 47),
+            (34, 46),
+            (34, 46),
+            (34, 45),
+            (34, 44),
+            (34, 44),
+            (34, 43),
+            (34, 42),
+            (34, 41),
+            (34, 40),
+            (34, 39),
+            (34, 38),
+            (34, 37),
+        ],
+        2,
+        true,
+    );
+    im.line(36, 3, 34, 25, 'R');
+    im.line(36, 3, 48, 8, 'r');
+    im.line(36, 4, 47, 9, 'R');
+    im.line(35, 24, 43, 12, 'r');
+    im.line(35, 24, 39, 8, 'p');
+    im.line(35, 24, 41, 20, 'R');
+    membrane(
+        &mut im,
+        &[
+            (24, 25),
+            (22, 27),
+            (19, 28),
+            (16, 28),
+            (13, 29),
+            (10, 29),
+            (8, 30),
+            (8, 30),
+            (9, 31),
+            (10, 31),
+            (11, 31),
+            (11, 32),
+            (12, 32),
+            (12, 32),
+            (13, 33),
+            (13, 33),
+            (14, 33),
+            (14, 34),
+            (16, 34),
+            (19, 34),
+            (21, 34),
+            (24, 34),
+        ],
+        6,
+        false,
+    );
+    // Warm leading edge, long fingers, cool thin scalloped membrane.
+    im.line(8, 12, 24, 6, 'R');
+    im.line(24, 6, 34, 28, 'R');
+    im.line(24, 7, 12, 19, 'r');
+    im.line(25, 9, 17, 24, 'p');
+    im.line(26, 12, 25, 27, 'r');
+    im.line(10, 13, 23, 8, 'o');
+    im.put(24, 6, 't');
+    // A tapering hooked tail, with black space separating the curl from
+    // the haunch. Overlapping curve samples are baked into one smooth form.
+    for layer in 0..2 {
+        for i in 0..=40 {
+            let t = i as f32 / 40.0;
+            let u = 1.0 - t;
+            let x = u * u * u * 22.0 + 3.0 * u * t * t + t * t * t * 6.0;
+            let y = u * u * u * 35.0
+                + 3.0 * u * u * t * 49.0
+                + 3.0 * u * t * t * 29.0
+                + t * t * t * 28.0;
+            let r = 4.0 * u + 0.6 * t;
+            if layer == 0 {
+                im.ellipse(x, y, r, r * 0.8, 'p');
+            } else {
+                im.ellipse(
+                    x - 0.2,
+                    y - 0.4,
+                    (r - 0.5).max(0.4),
+                    (r * 0.8 - 0.5).max(0.4),
+                    '7',
+                );
+            }
+        }
+    }
+    for (x, y) in [(5, 30), (4, 33), (6, 37), (9, 39), (13, 39)] {
+        if im.get(x, y) == super::super::ink::ink('7') {
+            im.put(x, y, 'R');
+        }
+    }
+    // Smooth barrel; coloured contours describe volume without erasing scales.
+    let mut hide = Img::new(72, 46);
+    for y in 22..=40 {
+        for x in 15..=46 {
+            let d = ((x as f32 - 30.0) / 15.0).powi(2) + ((y as f32 - 31.0) / 9.0).powi(2);
+            if d <= 1.0 {
+                hide.put(
+                    x,
+                    y,
+                    if y >= 38 {
+                        's'
+                    } else if y >= 35 {
+                        'p'
+                    } else if y < 26 {
+                        'R'
+                    } else {
+                        '7'
+                    },
+                );
+            }
+        }
+    }
+    // One continuous neck curve, not a stack of rounded lumps.
+    let neck = [
+        (48, 53),
+        (46, 55),
+        (45, 56),
+        (45, 57),
+        (46, 59),
+        (46, 60),
+        (47, 60),
+        (47, 59),
+        (47, 58),
+        (47, 56),
+        (46, 54),
+        (45, 53),
+        (44, 52),
+        (43, 51),
+        (42, 50),
+        (42, 49),
+        (41, 49),
+        (40, 48),
+        (39, 47),
+        (38, 47),
+        (36, 46),
+        (34, 46),
+        (32, 46),
+        (30, 45),
+    ];
+    for (row, &(left, right)) in neck.iter().enumerate() {
+        let y = row as i32 + 8;
+        for x in left..=right {
+            let offset = x - left;
+            hide.put(
+                x,
+                y,
+                if x == right {
+                    's'
+                } else if x >= right - 1 {
+                    'p'
+                } else if offset <= 1 {
+                    'R'
+                } else {
+                    '7'
+                },
+            );
+        }
+    }
+    // Overlapping scale rows follow the hide. Each little warm arc has a
+    // dark lower seam; gaps between groups keep this from becoming a checker.
+    for y in (11..37).step_by(3) {
+        for x in (12..57).step_by(4) {
+            let x = x + if (y / 3) % 2 == 0 { 2 } else { 0 };
+            if hide.solid(x, y) && hide.solid(x + 2, y + 1) && hide.solid(x, y - 1) {
+                hide.put(x, y, if y < 29 { 'o' } else { 'R' });
+                hide.put(x + 1, y, if y < 29 { 'R' } else { '7' });
+                hide.put(x + 1, y + 1, 'p');
+            }
+        }
+    }
+    im.stamp(&hide, 0, 0);
+    // Segmented throat and belly: ember red at rest, a local gold core on fire.
+    for (x, y, width) in [
+        (50, 18, 3),
+        (47, 21, 3),
+        (45, 24, 3),
+        (43, 27, 3),
+        (41, 30, 3),
+        (36, 33, 5),
+        (30, 35, 5),
+        (25, 36, 4),
+    ] {
+        im.line(x, y, x + width, y, if breathing { '@' } else { 'p' });
+        im.line(
+            x,
+            y - 1,
+            x + width - 1,
+            y - 1,
+            if breathing { '6' } else { 'R' },
+        );
+        if breathing {
+            im.put(x + 1, y - 1, '5');
+        }
+    }
+    // Separate bent legs, weight-bearing toes, ivory claws.
+    for (x, y) in [(22, 35), (40, 35)] {
+        im.ellipse(x as f32, y as f32, 3.0, 4.0, 'p');
+        im.ellipse((x - 1) as f32, (y - 1) as f32, 2.0, 3.0, '7');
+        im.line(x, y + 3, x - 1, y + 6, 's');
+        im.line(x - 2, y + 6, x + 4, y + 6, 'p');
+        im.line(x - 2, y + 5, x + 3, y + 5, 'R');
+        for dx in [-1, 1, 3] {
+            im.put(x + dx, y + 6, 'i');
+        }
+    }
+    // Horns, swept ear, angular muzzle and separated jaw keep a dragon's head.
+    im.line(48, 9, 45, 4, 'u');
+    im.line(45, 4, 46, 4, 'i');
+    im.line(52, 8, 51, 3, 'u');
+    im.put(51, 3, 'i');
+    im.line(46, 10, 43, 8, 'p');
+    im.put(44, 9, 'R');
+    im.line(52, 11, 56, 11, 'R');
+    im.put(55, 12, '6');
+    im.put(54, 12, '5');
+    im.put(59, 14, 's');
+    im.line(54, 16, 59, 16, '8');
+    im.line(55, 17, 58, 17, 'R');
+    im.put(56, 17, 'i');
+    // Broken dorsal spines and scale flashes on the tail, never a full rim.
+    for (x, y) in [
+        (46, 18),
+        (43, 22),
+        (40, 25),
+        (35, 26),
+        (28, 23),
+        (20, 26),
+    ] {
+        im.put(x, y, 'o');
+        im.put(x, y - 1, 'R');
+    }
+    im
+}
+
+#[cfg(test)]
+pub(super) fn uncached_enemy(kind: EnemyKind, tick: u32) -> Img {
+    if kind == EnemyKind::Dragon {
+        dragon(tick)
+    } else {
+        super::foe_material::dress(&enemy_raw(kind, tick), kind)
+    }
 }

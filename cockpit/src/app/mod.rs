@@ -24,6 +24,7 @@ pub(crate) mod magic_keywords;
 pub(crate) mod mission;
 pub(crate) mod model_setup;
 pub(crate) mod observatory;
+pub(crate) mod setup_menu;
 pub(crate) mod startup_intro;
 
 use super::*;
@@ -772,6 +773,8 @@ pub(crate) struct App {
     /// over anything drawn on its cells, so image panes under a dialog fall
     /// back to plain cells while it is open.
     pub(crate) image_occluders: Vec<Rect>,
+    /// `/setup`: the connect-a-model menu, its jobs and a rebuilt model list.
+    pub(crate) setup: crate::app::setup_menu::Setup,
     /// Floating selector opened by MODEL or THINK, plus its last-drawn geometry.
     pub(crate) agent_menu: Option<crate::ui::agent_panel::controls::AgentControlMenu>,
     /// `Some` while `/` filter mode owns printable keys; empty means the filter
@@ -1351,6 +1354,7 @@ impl App {
             agent_buttons: Vec::new(),
             tool_herald_area: None,
             image_occluders: Vec::new(),
+            setup: Default::default(),
             agent_menu: None,
             agent_menu_search: None,
             agent_menu_details: false,
@@ -1623,7 +1627,7 @@ impl App {
     /// instead of waiting on the 200 ms idle lane. Scryglass transitions also
     /// satisfy this predicate, but `needs_fast_tick` wins in the event loop.
     pub(crate) fn needs_responsive_tick(&self) -> bool {
-        self.bg_job.is_some() || self.world_animating()
+        self.bg_job.is_some() || self.world_animating() || self.setup.wants_tick()
     }
 
     /// Concrete route under the Brain Route cursor. This is a reversible visual

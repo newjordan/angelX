@@ -260,6 +260,46 @@ pub(crate) fn resolve_driver(agents: &mut [Agent], pref: &str) -> Option<usize> 
     Some(agent)
 }
 
+fn codex_levels(candidate: &crate::agent::openai_codex::CodexModelInfo) -> Vec<String> {
+    candidate
+        .supported_reasoning_levels
+        .iter()
+        .map(|level| level.effort.clone())
+        .collect()
+}
+
+/// A model with no listed levels takes any effort; the catalog judges it.
+fn codex_lists_effort(levels: &[String], effort: &str) -> bool {
+    levels.is_empty()
+        || levels
+            .iter()
+            .any(|level| level.eq_ignore_ascii_case(effort))
+}
+
+/// A Codex catalog slot's starting effort: the preferred one when given, else
+/// the model's default, else its first listed level.
+fn codex_slot_effort(
+    candidate: &crate::agent::openai_codex::CodexModelInfo,
+    levels: &[String],
+    preferred: Option<String>,
+) -> Option<String> {
+    preferred
+        .or_else(|| {
+            levels
+                .iter()
+                .find(|level| level.eq_ignore_ascii_case(&candidate.default_reasoning_level))
+                .cloned()
+        })
+        .or_else(|| levels.first().cloned())
+}
+
+/// The ChatGPT subscription seats: every catalog slot shares the seat's club
+/// label, so naming the seat keeps the slot selected from env/config rather
+/// than electing (or tripping over) every cache entry.
+fn is_subscription_seat(label: &str) -> bool {
+    matches!(label, "openai" | "daybreak")
+}
+
 /// Resolve without changing selection so startup diagnostics can compare the
 /// requested slot with the actual route after availability-based fallback.
 fn driver_target(agents: &[Agent], pref: &str) -> Option<(usize, usize)> {
@@ -275,11 +315,11 @@ fn driver_target(agents: &[Agent], pref: &str) -> Option<(usize, usize)> {
         "k3" | "kimi-k3" | "moonshot" | "kimi-code" => "kimi",
         _ => raw_pref,
     };
-    // Every Codex catalog slot has club label "openai". Both the explicit
-    // OAuth route and the implicit interactive default must preserve the slot
-    // selected from env/config, rather than electing the first cache entry.
-    if pref == "openai"
-        && let Some(ai) = agents.iter().position(|a| a.name == "openai")
+    // Both the explicit OAuth route and the implicit interactive default must
+    // preserve the slot selected from env/config, rather than electing the
+    // first cache entry.
+    if is_subscription_seat(pref)
+        && let Some(ai) = agents.iter().position(|a| a.name == pref)
     {
         return Some((ai, agents[ai].active));
     }
@@ -652,12 +692,15 @@ impl Bag {
             let selection = codex_startup.selection.clone();
             let model = selection.model.clone();
             let configured_effort = Some(selection.effort.clone());
-            // Drop private-test Codex Spark surfaces so ←/→ cannot select them.
+            // Drop private-test Codex Spark surfaces so ←/→ cannot select them,
+            // and models offered only under Daybreak: those ride the Daybreak
+            // seat, which sends their access program.
             let mut catalog: Vec<_> = codex_startup
                 .catalog
                 .models()
                 .iter()
                 .filter(|c| !crate::agent::openai_codex::is_private_test_codex_model(&c.slug))
+                .filter(|c| c.slug == model || c.standard_access())
                 .cloned()
                 .collect();
             if !catalog.iter().any(|candidate| candidate.slug == model) {
@@ -684,30 +727,12 @@ impl Bag {
                 {
                     continue;
                 }
-                let levels = candidate
-                    .supported_reasoning_levels
-                    .iter()
-                    .map(|level| level.effort.clone())
-                    .collect::<Vec<_>>();
+                let levels = codex_levels(&candidate);
                 let preferred = (candidate.slug == model)
                     .then(|| configured_effort.clone())
-                    .flatten();
-                let effort = preferred
-                    .filter(|effort| {
-                        levels.is_empty()
-                            || levels
-                                .iter()
-                                .any(|level| level.eq_ignore_ascii_case(effort))
-                    })
-                    .or_else(|| {
-                        levels
-                            .iter()
-                            .find(|level| {
-                                level.eq_ignore_ascii_case(&candidate.default_reasoning_level)
-                            })
-                            .cloned()
-                    })
-                    .or_else(|| levels.first().cloned());
+                    .flatten()
+                    .filter(|effort| codex_lists_effort(&levels, effort));
+                let effort = codex_slot_effort(&candidate, &levels, preferred);
                 let metadata = candidate.route_metadata();
                 let club = crate::agent::openai_codex::CodexClub::new_with_route_metadata_shared(
                     "openai",
@@ -755,6 +780,108 @@ impl Bag {
                 slots,
                 active,
             });
+
+            // Daybreak — OpenAI's trusted access for cyber work, on the same
+            // ChatGPT login: every listed model the account may use under a
+            // Daybreak program, each request carrying `access_programs.cyber`.
+            // Present only when the cached catalog offers one.
+            // `ANGEL_DAYBREAK_MODEL` picks the model the seat starts on (else
+            // the catalog's first) and `ANGEL_DAYBREAK_REASONING_EFFORT`, or the
+            // generic `ANGEL_REASONING_EFFORT`, its effort (else the model's
+            // default). As on the openai seat, an effort the starting model
+            // does not list is kept, so the route reports it rather than
+            // quietly running another.
+            let wanted = env_first(&["ANGEL_DAYBREAK_MODEL"]);
+            let pinned_effort =
+                env_first(&["ANGEL_DAYBREAK_REASONING_EFFORT", "ANGEL_REASONING_EFFORT"])
+                    .map(|effort| effort.to_ascii_lowercase());
+            let mut daybreak: Vec<_> = codex_startup
+                .catalog
+                .models()
+                .iter()
+                .filter_map(|c| {
+                    c.daybreak_program()
+                        .map(|program| (c.clone(), Some(program)))
+                })
+                .collect();
+            if !daybreak.is_empty() {
+                let mut start = wanted.as_deref().and_then(|wanted| {
+                    daybreak
+                        .iter()
+                        .position(|(candidate, _)| candidate.slug == wanted)
+                });
+                if let Some(wanted) = &wanted
+                    && start.is_none()
+                {
+                    eprintln!(
+                        "[angel] ANGEL_DAYBREAK_MODEL={wanted:?} is not offered under a \
+                         Daybreak program; the Daybreak seat keeps the invalid selection"
+                    );
+                    let candidate = codex_startup
+                        .catalog
+                        .models()
+                        .iter()
+                        .find(|candidate| candidate.slug == *wanted)
+                        .cloned()
+                        .unwrap_or_else(|| crate::agent::openai_codex::CodexModelInfo {
+                            slug: wanted.clone(),
+                            display_name: wanted.clone(),
+                            ..Default::default()
+                        });
+                    daybreak.insert(0, (candidate, None));
+                    start = Some(0);
+                }
+                let active = start.unwrap_or(0);
+                let available = Arc::new(AtomicBool::new(true));
+                let mut slots = Vec::with_capacity(daybreak.len());
+                for (index, (candidate, program)) in daybreak.into_iter().enumerate() {
+                    let levels = codex_levels(&candidate);
+                    let pinned = pinned_effort
+                        .clone()
+                        .filter(|pin| index == active || codex_lists_effort(&levels, pin));
+                    let effort_source = if pinned.is_some() { "env" } else { "catalog" };
+                    let effort = codex_slot_effort(&candidate, &levels, pinned);
+                    let club =
+                        crate::agent::openai_codex::CodexClub::new_with_route_metadata_shared(
+                            "daybreak",
+                            candidate.slug.clone(),
+                            Arc::clone(&shared),
+                            effort.clone(),
+                            levels,
+                            candidate.route_metadata(),
+                        );
+                    let club = match program {
+                        Some(program) => club.with_cyber_access_program(program),
+                        None => club,
+                    };
+                    let route_selection = crate::agent::club::codex_selection::Selection {
+                        model: candidate.slug.clone(),
+                        effort: effort.unwrap_or_default(),
+                        model_source: if start == Some(index) {
+                            "env"
+                        } else {
+                            "catalog"
+                        },
+                        effort_source,
+                        error: None,
+                    };
+                    let club = club.with_catalog_selection(
+                        route_selection,
+                        Arc::clone(&codex_startup.catalog),
+                    );
+                    slots.push(Slot {
+                        label: candidate.slug.clone(),
+                        club: Arc::new(club.sota_tuned()),
+                        available: Arc::clone(&available),
+                    });
+                }
+                probe_targets.push((Arc::clone(&slots[active].club), Arc::clone(&available)));
+                agents.push(Agent {
+                    name: "daybreak".to_string(),
+                    slots,
+                    active,
+                });
+            }
         }
 
         // The remaining SOTA links are pushed in the canonical intelligence
@@ -1298,6 +1425,11 @@ impl Bag {
         for a in &self.agents {
             for s in &a.slots {
                 if !Arc::ptr_eq(&s.club, &active) {
+                    // Access-program seats require an explicit route choice,
+                    // even when ordinary remote fallback is enabled.
+                    if s.club.label() == "daybreak" {
+                        continue;
+                    }
                     if !include_sota && is_sota_label(s.club.label()) {
                         continue;
                     }
@@ -1997,7 +2129,7 @@ impl Bag {
                     continue;
                 }
                 // Without a model the subscription route retains its run selection.
-                if driver == "openai" && model.is_none() && si != agent.active {
+                if is_subscription_seat(driver) && model.is_none() && si != agent.active {
                     continue;
                 }
                 // Direct aliases share the same Club Arc; they are not ambiguity.

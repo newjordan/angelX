@@ -33,7 +33,7 @@ pub(super) fn foe(cv: &mut Canvas, run: &Run, e: &Enemy) {
             EnemyKind::Imp => "imp",
             _ => return,
         };
-        let im = kit::get(name);
+        let im = figures::foe_hit_sprite(name, e.hurt);
         let p = (run.tick as f32 * 0.17 + e.id as f32).sin();
         let float = if e.kind == EnemyKind::Wraith {
             3.0 + p
@@ -42,7 +42,7 @@ pub(super) fn foe(cv: &mut Canvas, run: &Run, e: &Enemy) {
         };
         cv.shadow(x, y + 1.0, im.w as f32 * 0.24, 2.5, 0.67);
         if e.kind == EnemyKind::Wraith {
-            cv.glow(Point::new(x, y - 10.0, 18.0, '3', 0.65));
+            cv.glow(Point::new(x, y - 10.0, 12.0, '3', 0.28));
         }
         kit::sprite(
             cv,
@@ -55,13 +55,10 @@ pub(super) fn foe(cv: &mut Canvas, run: &Run, e: &Enemy) {
             p,
         );
     }
-    if e.hurt > 0 {
-        cv.flat_ellipse(x, y - 8.0, 6.0, 8.0, material('w'), 0.45);
-    }
 }
 fn ripper(cv: &mut Canvas, x: f32, y: f32, e: &Enemy, tick: u64) {
     let size = fight::swell(e);
-    let im = kit::get("ripper");
+    let im = figures::foe_hit_sprite("ripper", e.hurt);
     let bob = (tick as f32 * 0.15).sin() * 0.4;
     cv.shadow(x, y + 2.0, 22.0 * size, 5.0, 0.8);
     kit::sprite(
@@ -76,6 +73,17 @@ fn ripper(cv: &mut Canvas, x: f32, y: f32, e: &Enemy, tick: u64) {
     );
 }
 fn engine(cv: &mut Canvas, x: f32, y: f32, e: &Enemy, tick: u64) {
+    let tint = |c| {
+        if e.hurt > 0 {
+            if e.hurt >= 4 {
+                super::super::marks::hit_metal_rgb(c)
+            } else {
+                super::super::marks::hit_rgb(c, false)
+            }
+        } else {
+            c
+        }
+    };
     let steel = Ramp::inks('s', 'S', 'u');
     let brass = Ramp::inks('b', 'o', 'T');
     let phase = tick as f32 * 0.22;
@@ -93,19 +101,35 @@ fn engine(cv: &mut Canvas, x: f32, y: f32, e: &Enemy, tick: u64) {
                 y - 1.0 - p.max(0.0) * 4.0,
             );
             for (a, b) in [(root, knee), (knee, foot)] {
-                cv.line(a, b, 3.5, steel.at(0.18));
-                cv.line((a.0 - 0.5, a.1), (b.0 - 0.5, b.1), 1.8, steel.at(0.75));
+                cv.line(a, b, 3.5, tint(steel.at(0.18)));
+                cv.line(
+                    (a.0 - 0.5, a.1),
+                    (b.0 - 0.5, b.1),
+                    1.8,
+                    tint(steel.at(0.75)),
+                );
             }
-            cv.ellipse(knee.0, knee.1, 1.3, 1.3, brass, i);
+            cv.ellipse(
+                knee.0,
+                knee.1,
+                1.3,
+                1.3,
+                Ramp {
+                    dark: tint(brass.dark),
+                    mid: tint(brass.mid),
+                    light: tint(brass.light),
+                },
+                i,
+            );
             cv.line(
                 (foot.0 - 2.0, foot.1),
                 (foot.0 + 2.0, foot.1),
                 1.2,
-                brass.at(0.7),
+                tint(brass.at(0.7)),
             );
         }
     }
-    let im = kit::get("engine-boiler");
+    let im = figures::foe_hit_sprite("engine-boiler", e.hurt);
     kit::sprite(
         cv,
         im,
@@ -130,25 +154,15 @@ fn engine(cv: &mut Canvas, x: f32, y: f32, e: &Enemy, tick: u64) {
     cv.glow(Point::new(x + 15.0, y - 27.0, 22.0, '@', 0.45));
     let _ = e;
 }
+
 pub(super) fn under(cv: &mut Canvas, run: &Run) {
     for cloud in &run.works.clouds {
-        let (x, y, r) = (cloud.x * UNIT, cloud.y * UNIT, cloud.radius() * UNIT);
-        cv.glow(Point::new(x, y, r * 2.0, 'A', 0.7));
-        // The round core remains at the collision anchor. Wisps are translucent.
-        let im = kit::get("gas-core");
-        let scale = r * 3.6 / im.w as f32;
-        kit::sprite(cv, im, x - r * 0.9, y - r * 0.9, true, scale, None, 0.0);
-        for i in 0..5 {
-            let a = i as f32 * 1.25 + run.tick as f32 * 0.05;
-            cv.mist(
-                x + a.cos() * r,
-                y + a.sin() * r * 0.6,
-                r * 0.6,
-                r * 0.4,
-                material('A'),
-                0.10,
-            );
-        }
+        // Cached volume stays underneath actors; the shared ink overlay
+        // owns the danger rims, which must survive neighbouring clouds.
+        let (im,x0,y0)=super::super::works::gas_stamp(run,cloud,true);
+        cv.stamp(&im,x0 as f32,y0 as f32,true);
+        let (x,y,r)=(cloud.x*UNIT,cloud.y*UNIT,cloud.radius()*UNIT);
+        cv.effect_glow(Point::new(x,y,r*1.2,if cloud.tint==1 {'A'}else{'C'},0.12));
     }
     for e in &run.enemies {
         if !e
@@ -184,18 +198,18 @@ pub(super) fn under(cv: &mut Canvas, run: &Run) {
                     a,
                     b,
                     if lit { 4.5 } else { 2.0 },
-                    material(if lit { '7' } else { 'S' }),
+                    material(if lit { 'o' } else { 'S' }),
                 );
                 cv.line(
                     a,
                     b,
                     if lit { 1.7 } else { 0.7 },
-                    material(if lit { '9' } else { 'i' }),
+                    material(if lit { '6' } else { 'U' }),
                 );
                 if lit {
                     for k in (0..len as i32).step_by(8) {
                         let t = k as f32 / len;
-                        cv.glow(Point::new(
+                        cv.effect_glow(Point::new(
                             a.0 + (b.0 - a.0) * t,
                             a.1 + (b.1 - a.1) * t,
                             8.0,
@@ -226,7 +240,7 @@ pub(super) fn shots(cv: &mut Canvas, run: &Run) {
         let (dx, dy) = (p.vx / speed, p.vy / speed);
         let cold = p.kind == Shot::Wisp;
         let rim = if cold { '3' } else { '@' };
-        cv.glow(Point::new(x, y, if cold { 6.0 } else { 8.0 }, rim, 0.65));
+        cv.effect_glow(Point::new(x, y, if cold { 6.0 } else { 8.0 }, rim, 0.22));
         cv.line((x - dx * 2.7, y - dy * 2.7), (x, y), 1.0, material(rim));
         if p.kind == Shot::Page {
             // A small irregular ivory shard/burst replaces the cream square.
@@ -247,7 +261,7 @@ pub(super) fn shots(cv: &mut Canvas, run: &Run) {
             y,
             1.3,
             1.3,
-            Ramp::inks(if cold { 'q' } else { '7' }, rim, '9'),
+            Ramp::inks(if cold { 'q' } else { 'P' }, rim, 'c'),
             17,
         );
         cv.flat_ellipse(
@@ -255,7 +269,7 @@ pub(super) fn shots(cv: &mut Canvas, run: &Run) {
             y - 0.2,
             0.55,
             0.55,
-            crate::render::art::IVORY,
+            material('9'),
             1.0,
         );
     }

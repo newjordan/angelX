@@ -1,13 +1,15 @@
 # Model setup
 
-Run `angelX setup` to connect a model. It lists what this machine already has
-(a model server on localhost such as Ollama, LM Studio, llama.cpp or vLLM, an
-API key in your environment, a ChatGPT or Grok login), lets you paste a key or
-type a server address, and saves the choice to `~/.angelX/angel.env`. With
-nothing configured anywhere, the first interactive launch runs it by itself;
-`ANGEL_SETUP=0` turns that off.
+Type `/setup` in the cockpit (or run `angelX setup`) to connect a model. The
+menu lists what this machine already has (a model server on localhost such as
+Ollama, LM Studio, llama.cpp or vLLM, an API key in your environment, a ChatGPT
+or Grok login), signs in to a plan through your browser, checks a pasted key or
+a server address, and saves the choice to `~/.angelX/angel.env`. The new model
+takes over without a restart. With nothing configured anywhere, the first
+interactive launch opens the menu by itself; `ANGEL_SETUP=0` turns that off.
+`angelX setup --text` asks the same questions as plain text.
 
-In the cockpit, use `/connect` for provider setup, `/model` to choose a route,
+In the cockpit, `/connect <provider>` lists a provider's settings, `/model` to choose a route,
 and `/think` to choose a supported reasoning level. `/status` shows the current
 session. Provider adapters live in `cockpit/src/agent/club`; your credentials
 and preferences belong in your environment or account login files.

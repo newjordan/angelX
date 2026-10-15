@@ -192,21 +192,34 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
     for (i, plot) in PLOTS.iter().enumerate().filter(|(_, p)| p.room == kind) {
         let (c, r, w, h) = plot.footprint;
         if !run.home.countryside.has(i) {
-            // A staked-out site: corner stakes, a surveyor's line, a stack
-            // of boards and a heap of stone waiting.
+            // A staked-out site: corner stakes, a surveyor's cord tied
+            // round them and sagging between, a stack of boards and a heap
+            // of stone waiting.
             let (x0, y0, x1, y1) = (c * TILE + 2, r * TILE + 6, (c + w) * TILE - 3, (r + h) * TILE - 3);
+            // The cord runs the back and front, sagging at its middle, and
+            // down each side, bowing out a little.
+            for cy in [y0 - 4, y1 - 4] {
+                let sag = ((x1 - x0) as f32 / 24.0).min(3.0);
+                for x in x0 + 1..x1 {
+                    let t = (x - x0) as f32 / (x1 - x0) as f32;
+                    cv.put(x, cy + (sag * 4.0 * t * (1.0 - t)).round() as i32, if hash(x / 3, cy, 71) % 4 == 0 { 'P' } else { 'r' });
+                }
+            }
+            for (cx, out) in [(x0, -1), (x1, 1)] {
+                for y in y0 - 3..y1 - 4 {
+                    let t = (y - y0 + 4) as f32 / (y1 - y0) as f32;
+                    cv.put(cx + out * (2.0 * 4.0 * t * (1.0 - t)).round() as i32 / 2, y, if hash(cx, y / 3, 72) % 4 == 0 { 'P' } else { 'r' });
+                }
+            }
             for (sx, sy) in [(x0, y0), (x1, y0), (x0, y1), (x1, y1)] {
-                cv.line(sx, sy, sx, sy - 6, 'P');
-                cv.put(sx, sy - 7, 'o');
+                // A squared stake lit on its west face, its top cut to a point.
+                for k in 0..7 {
+                    cv.put(sx, sy - k, if k == 6 { 'o' } else { 'P' });
+                    cv.put(sx + 1, sy - k, if k == 6 { 'r' } else { 'b' });
+                }
+                cv.put(sx, sy - 7, 'r');
+                cv.put(sx + 2, sy, 'K');
                 cv.put(sx + 1, sy + 1, 'K');
-            }
-            for x in (x0..=x1).step_by(2) {
-                cv.put(x, y0 - 4, 'r');
-                cv.put(x, y1 - 4, 'r');
-            }
-            for y in (y0 - 4..=y1 - 4).step_by(2) {
-                cv.put(x0, y, 'r');
-                cv.put(x1, y, 'r');
             }
             m::boards(cv, (x0 + 5, y1 - 10, 16, 6), false, i as u32);
             for n in 0..3 {

@@ -132,20 +132,39 @@ done
 
 say ""
 say "angelX $version is installed."
+# A command that is not on the PATH is the first thing a new user trips on, so
+# the shell's startup file gets the line itself (once). ANGELX_NO_MODIFY_PATH=1
+# prints the line instead.
+start="Start it inside a project:"
 case ":$PATH:" in
   *":$bin_dir:"*) ;;
   *)
-    say ""
-    say "Add $bin_dir to your PATH first:"
+    line="export PATH=\"$bin_dir:\$PATH\""
     case "${SHELL:-}" in
-      */zsh) say "  echo 'export PATH=\"$bin_dir:\$PATH\"' >> ~/.zshrc && exec zsh" ;;
-      */fish) say "  fish_add_path $bin_dir" ;;
-      *) say "  echo 'export PATH=\"$bin_dir:\$PATH\"' >> ~/.bashrc && exec bash" ;;
+      */zsh) rc="$HOME/.zshrc" ;;
+      */bash) if [ "$os" = Darwin ]; then rc="$HOME/.bash_profile"; else rc="$HOME/.bashrc"; fi ;;
+      */fish) rc="" ;;
+      *) rc="$HOME/.profile" ;;
     esac
+    say ""
+    if [ -z "$rc" ]; then
+      say "Add $bin_dir to your PATH first:"
+      say "  fish_add_path $bin_dir"
+      start="Then start it inside a project:"
+    elif [ "${ANGELX_NO_MODIFY_PATH:-0}" = 1 ]; then
+      say "Add $bin_dir to your PATH first:"
+      say "  echo '$line' >> $rc"
+      start="Then start it inside a project:"
+    else
+      grep -qsF "$bin_dir" "$rc" || printf '\n# angelX\n%s\n' "$line" >> "$rc"
+      say "Added $bin_dir to your PATH in $rc."
+      say "Open a new terminal window so it takes effect."
+      start="Then, in the new window, start it inside a project:"
+    fi
     ;;
 esac
 say ""
-say "Then start it inside a project:"
+say "$start"
 say "  cd your-project && angelX"
 for tool in git python3; do
   command -v "$tool" >/dev/null 2>&1 || say "(angelX works best with $tool installed.)"

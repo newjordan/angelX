@@ -15,12 +15,31 @@ const LATE_S = 0.25;
 // Music sits under the effects (the Delve's host plays it at 0.35 against
 // effects at 0.5).
 const MUSIC_LEVEL = 0.7;
+// The player's own volume (0 to 1) and mute, kept in this browser.
+const VOLUME_KEY = 'angel-volume';
+const MUTE_KEY = 'angel-muted';
+function remembered(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : JSON.parse(v);
+  } catch (e) {
+    return fallback;
+  }
+}
+function remember(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private window */ }
+}
 
 function makeSound(manifest) {
   let ctx = null, master = null, musicGain = null, track = null, trackName = '';
   const buffers = new Map(); // name -> Promise<AudioBuffer | null>
   const voices = []; // playing sources, oldest first
   let played = 0;
+  let volume = Math.min(1, Math.max(0, Number(remembered(VOLUME_KEY, 0.8)) || 0));
+  let muted = remembered(MUTE_KEY, false) === true;
+  function level() {
+    if (master) master.gain.value = muted ? 0 : volume;
+  }
 
   // Inside a key or click handler.
   function unlock() {
@@ -30,6 +49,7 @@ function makeSound(manifest) {
       ctx = new Ctx();
       master = ctx.createGain();
       master.connect(ctx.destination);
+      level();
       musicGain = ctx.createGain();
       musicGain.gain.value = MUSIC_LEVEL;
       musicGain.connect(master);
@@ -104,6 +124,20 @@ function makeSound(manifest) {
     suspend() { if (ctx) ctx.suspend().catch(() => {}); },
     resume() { if (ctx) ctx.resume().catch(() => {}); },
     get state() { return ctx ? ctx.state : 'locked'; },
+    get volume() { return volume; },
+    get muted() { return muted; },
+    setVolume(v) {
+      volume = Math.min(1, Math.max(0, v));
+      if (volume > 0) muted = false;
+      remember(VOLUME_KEY, volume);
+      remember(MUTE_KEY, muted);
+      level();
+    },
+    toggleMute() {
+      muted = !muted;
+      remember(MUTE_KEY, muted);
+      level();
+    },
     get played() { return played; },
   };
 }

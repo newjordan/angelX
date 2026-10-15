@@ -45,12 +45,17 @@ pub(super) fn art(run: &Run, enemy: &Enemy, tick: u32) -> Img {
     if way < 0.0 { im.flip_h() } else { im }
 }
 
-/// The plain picture of a kind at rest, for the lists that have no monster.
-pub(super) fn base(kind: EnemyKind, tick: u32) -> Img {
-    figure(kind, 0, 0, tick)
+pub(super) fn figure(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
+    let timing = match kind {
+        EnemyKind::Marksman => u32::from(t >= AIM_LOCK),
+        EnemyKind::Spitter if stage == 1 => (t*3/SPIT_SWELL).min(2),
+        _ => 0,
+    };
+    super::foe_material::pose(128+kind as u8,[tick%48,u32::from(stage),timing,0],
+        || super::foe_material::dress(&figure_raw(kind,stage,t,tick),kind))
 }
 
-pub(super) fn figure(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
+pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
     use EnemyKind::*;
     let flap = (tick / 4).is_multiple_of(2);
     let slow = (tick / 8).is_multiple_of(2);

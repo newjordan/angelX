@@ -43,6 +43,7 @@ its link dependencies is an intentional release change.
 | Explore live charts | [Graph garden](GRAPH_GARDEN.md) |
 | Understand the world presentation | [World adventure](world-adventure.md), [School of Magic](world-school.md) |
 | Play or extend the co-op dungeon | [The Delve](DELVE.md), [Delve lore](DELVE-LORE.md) |
+| Build a mini-game or a folly | [Mini-game build](MINIGAME-BUILD.md) — the feel brief, the build order, and the systems a new game plugs into |
 | Map research questions, evidence and refutations | [Research labyrinth](LABYRINTH.md) |
 
 ## Shipping and attribution

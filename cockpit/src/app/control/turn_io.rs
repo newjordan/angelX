@@ -642,6 +642,7 @@ impl App {
 
     pub(crate) fn advance(&mut self) {
         self.advance_launch_input();
+        self.advance_setup();
         self.advance_dungeon_guest();
         self.watch_delve_gate();
         self.tune_audio();
@@ -3009,6 +3010,12 @@ impl App {
     }
 
     pub(crate) fn on_key(&mut self, key: event::KeyEvent) {
+        // `/setup` owns the keyboard while it is open. An approval still
+        // answers first: a running turn may be waiting on it.
+        if self.setup.open() && self.pending_approval.is_none() {
+            self.setup_key(key);
+            return;
+        }
         if key.code == KeyCode::Esc {
             if self.cancel_launch(true) {
                 return;
@@ -3310,6 +3317,10 @@ impl App {
 
     pub(crate) fn on_paste(&mut self, text: &str) {
         if self.pending_approval.is_some() {
+            return;
+        }
+        if self.setup.open() {
+            self.setup_paste(text);
             return;
         }
         if self.loop_dialog.is_some() {
@@ -3637,6 +3648,11 @@ impl App {
             return;
         }
         let (x, y) = (ev.column, ev.row);
+        if self.setup.open() {
+            self.viewer.inspector.drag = None;
+            self.setup_mouse(ev);
+            return;
+        }
         if self.loop_dialog.is_some() {
             self.viewer.inspector.drag = None;
             if matches!(ev.kind, MouseEventKind::Down(MouseButton::Left)) {

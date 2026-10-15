@@ -303,6 +303,21 @@ impl Error {
     }
 
     /// Return true iff the error was due to a connection closing.
+    /// The connection was gone before any response arrived: reset, aborted,
+    /// a broken pipe or an EOF where the status line should be.
+    pub(crate) fn connection_lost(&self) -> bool {
+        if self.connection_closed() {
+            return true;
+        }
+        let Error::Transport(e) = self else {
+            return false;
+        };
+        e.source
+            .as_ref()
+            .and_then(|source| source.downcast_ref::<io::Error>())
+            .is_some_and(io_connection_lost)
+    }
+
     pub(crate) fn connection_closed(&self) -> bool {
         if self.kind() != ErrorKind::Io {
             return false;
@@ -325,6 +340,18 @@ impl Error {
             _ => false,
         }
     }
+}
+
+/// An I/O error that means the peer had already closed the connection.
+pub(crate) fn io_connection_lost(e: &io::Error) -> bool {
+    matches!(
+        e.kind(),
+        io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::BrokenPipe
+            | io::ErrorKind::UnexpectedEof
+            | io::ErrorKind::NotConnected
+    )
 }
 
 /// One of the types of error the can occur when processing a Request.

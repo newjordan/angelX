@@ -6,6 +6,7 @@
 //! are the run's own (`Run::frogs`, `Hero::rider`), so a friend's mirror and
 //! a browser guest's picture agree with the host's.
 
+use super::super::chrome;
 use super::super::ink::{Img, hash, text_width};
 use super::{UNIT, at};
 use crate::rules::frogs::{Gift, LINGER, PUFF, Wild};
@@ -259,9 +260,8 @@ pub(super) fn plates(cv: &mut Img, run: &Run) {
         let (x, y) = at(s.x, s.y);
         let text = s.gift.plate();
         let w = text_width(text) + 6;
-        let mut plate = Img::new(w, 11);
-        plate.rect(0, 0, w, 11, 'K');
-        plate.frame(0, 0, w, 11, 'g');
+        let mut plate = Img::new(w + 1, 12);
+        chrome::panel(&mut plate, (0, 0, w, 11), chrome::Tone::SLATE.rimmed(chrome::COLD_RIM));
         plate.text(3, 2, text, if s.gift == Gift::Clown { '7' } else { '6' });
         cv.stamp(&plate, x - w / 2, y - 32);
     }

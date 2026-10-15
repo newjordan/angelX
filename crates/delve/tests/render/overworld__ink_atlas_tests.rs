@@ -62,3 +62,23 @@ fn a_sprite_is_read_once_and_copied_from_the_atlas_after() {
     .join()
     .unwrap();
 }
+
+#[test]
+fn the_palette_is_exactly_the_five_realm_material_and_signal_banks() {
+    let master: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../cockpit/assets/realm/palette.json"
+    ))
+    .unwrap();
+    let mut expected = Vec::new();
+    for name in ["structure", "foliage", "timber", "stone", "signal"] {
+        let colours = master["banks"][name]["colors"].as_array().unwrap();
+        assert_eq!(colours.len(), BANK);
+        expected.extend(colours.iter().map(|c| {
+            u32::from_str_radix(c.as_str().unwrap().trim_start_matches('#'), 16).unwrap()
+        }));
+    }
+    assert_eq!(PALETTE.as_slice(), expected.as_slice());
+    for ch in ['χ', 'ν', 'μ'] {
+        assert_eq!(ink(ch), None, "retired transition ink {ch}");
+    }
+}

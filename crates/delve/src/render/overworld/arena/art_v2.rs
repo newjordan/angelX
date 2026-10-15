@@ -314,12 +314,12 @@ fn compose(run: &Run, focus: Option<u32>) -> Option<Canvas> {
 
     // Bloom stays local to emissives; no convolution touches gameplay edges.
     for shot in run.projectiles.iter().take(384) {
-        cv.glow(Point::new(
+        cv.effect_glow(Point::new(
             shot.x * UNIT,
             shot.y * UNIT,
             3.5,
             if shot.hostile { '6' } else { '3' },
-            0.25,
+            0.12,
         ));
     }
     combat::shots(&mut cv, run);
@@ -699,3 +699,48 @@ mod tests;
 #[cfg(any(test, feature = "testing"))]
 #[path = "../../../../tests/render/overworld__art_v2__fixtures.rs"]
 pub mod testing;
+
+#[cfg(test)]
+pub(super) fn fx_shot_sample(kind: crate::rules::Shot, phase: u32) -> Img {
+    let mut run = Run::new(7, 1, None);
+    let shot = serde_json::from_value(serde_json::json!({
+        "x":7.0,"y":7.0,"vx":1.0,"vy":phase as f32*0.2,"hostile":false,
+        "kind":kind,"damage":1,"pierce":0,"ttl":100
+    })).unwrap();
+    run.projectiles=vec![shot]; run.tick=u64::from(phase*2);
+    let mut cv = paint::Canvas::new(224,224,[0;3]);
+    combat::shots(&mut cv,&run);
+    cv.image()
+}
+
+#[cfg(test)]
+pub(super) fn fx_boss_sample(run:&Run)->Img {
+    let mut cv=paint::Canvas::new(768,448,[0;3]);
+    combat::under(&mut cv,run);
+    let mut im=Img::new(384,224);
+    super::signatures::under_with(&mut im,run,true);
+    super::works::under_with(&mut im,run,true);
+    ui::stamp_overlay(&mut cv,&im);
+    cv.image()
+}
+
+#[cfg(test)]
+pub(super) fn fx_hit_sample(phase:u32)->Img {
+    let r=Run::new(7,1,None);
+    let mut hero=r.players[&1].clone();
+    hero.struck=crate::rules::spectacle::STRUCK-phase*2;
+    let mut cv=paint::Canvas::new(224,224,[0;3]);
+    figures::knight(&mut cv,56.0,64.0,&hero,0,1,false);
+    cv.image()
+}
+
+#[cfg(test)]
+pub(super) fn foe_hit_sample(run: &Run) -> Img {
+    let mut cv = paint::Canvas::new(320, 224, [0; 3]);
+    cv.origin = (
+        run.enemies[0].x * UNIT - 80.0,
+        run.enemies[0].y * UNIT - 80.0,
+    );
+    combat::foe(&mut cv, run, &run.enemies[0]);
+    cv.image()
+}

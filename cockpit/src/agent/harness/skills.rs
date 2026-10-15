@@ -922,7 +922,6 @@ pub(crate) fn merge_skills(bundled: Vec<Skill>, user: Vec<Skill>) -> Vec<Skill> 
 /// accepted: a folder per skill (`<dir>/<name>/SKILL.md`, the Codex/Claude
 /// convention) and a flat file (`<dir>/<name>.md`). Unreadable entries are
 /// skipped, never fatal. Result is sorted by name for a stable catalog.
-#[cfg(test)]
 pub(crate) fn load_skills_from(dir: &Path) -> Vec<Skill> {
     scan_skills_from(dir).skills
 }

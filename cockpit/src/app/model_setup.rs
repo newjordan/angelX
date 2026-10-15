@@ -1,6 +1,6 @@
 //! Read-only onboarding guidance for model connections.
 
-const USAGE: &str = "usage: /connect [grok|openai|glm|deepseek|openrouter|local]";
+const USAGE: &str = "usage: /connect [grok|openai|daybreak|glm|deepseek|openrouter|local]";
 
 fn policy_text() -> String {
     let api = match std::env::var("ANGEL_API_CLUBS") {
@@ -27,7 +27,8 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
         return format!(
             "{USAGE}\n\
              Setup instructions; run /model after configuring and restarting.\n\
-             providers: grok · openai · glm · deepseek · openrouter · local\n\
+             Easiest: /setup opens a menu that does all of this for you.\n\
+             providers: grok · openai · daybreak · glm · deepseek · openrouter · local\n\
              {}\n\
              after setup: /model · /think · /status",
             policy_text()
@@ -56,6 +57,16 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
             ANGEL_OPENAI_API_MODEL/OPENAI_MODEL for the separate `openai-api` route.\n\
             The cockpit reuses the Codex login. Use /model after setup to choose a catalog\n\
             entry and /think to choose its supported reasoning level."
+        }
+        "daybreak" => {
+            "Daybreak / ChatGPT account OAuth\n\
+            Reuses the Codex CLI login and the same startup catalog as `openai`.\n\
+            The seat appears only when that catalog lists a Daybreak access program\n\
+            for an account model; it does not grant or bypass account eligibility.\n\
+            Select explicitly with ANGEL_DRIVER=daybreak or --driver daybreak.\n\
+            Optional pins: ANGEL_DAYBREAK_MODEL and ANGEL_DAYBREAK_REASONING_EFFORT.\n\
+            Use /model and /think after setup; invalid pins remain selection errors.\n\
+            /connect prints guidance only and does not test account readiness."
         }
         "glm" => {
             "GLM API connection\n\

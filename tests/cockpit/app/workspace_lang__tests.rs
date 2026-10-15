@@ -486,3 +486,92 @@ fn given_ctest_failed_suite_when_parsed_then_failure_and_rounded_totals_survive(
         );
     }
 }
+
+#[test]
+fn runner_commands_parse_to_their_language_entrypoint_and_width() {
+    for (command, lang, entrypoint, words) in [
+        ("npm test", Lang::Js, None, 2),
+        ("pnpm run test", Lang::Js, None, 3),
+        ("npx jest connect", Lang::Js, None, 2),
+        ("./node_modules/.bin/jest", Lang::Js, None, 1),
+        ("node --test test.mjs", Lang::Js, Some("node"), 2),
+        ("cargo test --features x", Lang::Rust, None, 2),
+        ("python3 -m pytest -q", Lang::Python, Some("pytest"), 3),
+        (
+            "python -m unittest discover",
+            Lang::Python,
+            Some("unittest"),
+            3,
+        ),
+        ("pytest -k x", Lang::Python, Some("pytest"), 1),
+        ("go test ./...", Lang::Go, None, 2),
+        ("ctest --test-dir build", Lang::Cpp, None, 1),
+    ] {
+        let parts = command.split_whitespace().collect::<Vec<_>>();
+        assert_eq!(
+            parse_runner_command(&parts),
+            Some(RunnerCommand {
+                lang,
+                entrypoint,
+                words
+            }),
+            "{command}"
+        );
+    }
+    for command in [
+        "test",
+        "npm install",
+        "cargo build",
+        "python3 x.py",
+        "make test",
+        "",
+    ] {
+        let parts = command.split_whitespace().collect::<Vec<_>>();
+        assert_eq!(parse_runner_command(&parts), None, "{command}");
+    }
+}
+
+#[test]
+fn a_named_pytest_entrypoint_runs_pytest_with_the_models_own_arguments() {
+    let root = std::env::temp_dir().join(format!("angel-plan-pytest-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("bowling_test.py"), "import unittest\n").unwrap();
+    std::fs::write(root.join("bowling.py"), "").unwrap();
+    let hits = detect(&root);
+    let asked = plan_tests_for(&root, &hits, Some(Lang::Python), Some("pytest")).unwrap();
+    assert_eq!(asked.program, "python3");
+    assert_eq!(asked.args, ["-m", "pytest"]);
+    assert_eq!(asked.label, "python3 -m pytest");
+    // Unnamed (or unittest), the workspace's files choose, exactly as before.
+    for plan in [
+        plan_tests(&root, &hits, Some(Lang::Python)).unwrap(),
+        plan_tests_for(&root, &hits, None, None).unwrap(),
+        plan_tests_for(&root, &hits, None, Some("unittest")).unwrap(),
+    ] {
+        assert_eq!(
+            plan.args,
+            ["-m", "unittest", "discover", "-v", "-p", "*test*.py"]
+        );
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_named_node_entrypoint_runs_nodes_runner_beside_a_package_script() {
+    let root = std::env::temp_dir().join(format!("angel-plan-node-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("package.json"),
+        r#"{"scripts":{"test":"jest ./*"}}"#,
+    )
+    .unwrap();
+    let hits = detect(&root);
+    assert_eq!(plan_tests(&root, &hits, None).unwrap().program, "npm");
+    assert_eq!(
+        plan_tests_for(&root, &hits, None, Some("node"))
+            .unwrap()
+            .label,
+        "node --test"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

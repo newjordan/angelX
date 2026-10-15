@@ -975,6 +975,50 @@ impl ShellTool {
     }
 }
 
+/// `cd ws/bowling …` written from the launch directory of a relative workspace
+/// (`--workspace ws/bowling`) names the workspace itself, where the shell
+/// already runs; the leading `cd` target resolves to the workspace's absolute
+/// path instead of failing (GLM 2026-09-30: 13 of 15 such shells failed, and
+/// two led to 120 s `find /` scans). Only a leading, plainly spelled `cd`
+/// target that the workspace has no entry for
+/// ([`launch_relative_in_workspace`](crate::agent::harness::launch_relative_in_workspace));
+/// every other byte of the command stays as the model wrote it.
+pub(crate) fn resolve_launch_relative_cd(
+    command: &str,
+    workspace: Option<&Path>,
+) -> Option<String> {
+    let workspace = workspace?;
+    let indent = command.len() - command.trim_start().len();
+    let after_cd = command[indent..].strip_prefix("cd")?;
+    let target_and_rest = after_cd.trim_start_matches([' ', '\t']);
+    let spaces = after_cd.len() - target_and_rest.len();
+    if spaces == 0 {
+        return None;
+    }
+    let end = target_and_rest
+        .find(|c: char| c.is_whitespace() || matches!(c, ';' | '&' | '|' | ')' | '<' | '>'))
+        .unwrap_or(target_and_rest.len());
+    let target = &target_and_rest[..end];
+    if target.is_empty() || target.contains(['$', '`', '"', '\'', '~', '*', '?', '\\']) {
+        return None;
+    }
+    let relative =
+        crate::agent::harness::launch_relative_in_workspace(workspace, Path::new(target))?;
+    let root = workspace.canonicalize().ok()?;
+    let resolved = if relative.as_os_str().is_empty() {
+        root
+    } else {
+        root.join(relative)
+    };
+    let quoted = format!("'{}'", resolved.to_string_lossy().replace('\'', "'\\''"));
+    Some(format!(
+        "{}cd{}{quoted}{}",
+        &command[..indent],
+        &after_cd[..spaces],
+        &target_and_rest[end..]
+    ))
+}
+
 /// A command that tried to elevate or drive a system package manager. Under
 /// `no_new_privs` these can never succeed, and models that watch them fail
 /// tend to conclude "installs are impossible here" and abandon the task —
@@ -1147,6 +1191,8 @@ impl Tool for ShellTool {
         cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> Result<String, String> {
         let command = shell_command_arg(args).ok_or("missing 'command'")?;
+        let resolved_cd = resolve_launch_relative_cd(command, self.cwd.as_deref());
+        let command = resolved_cd.as_deref().unwrap_or(command);
         let scope = self.scope(args)?;
         if let Some(redirect) = task_shell_editable_redirect(command, self.cwd.as_deref()) {
             return Err(redirect);

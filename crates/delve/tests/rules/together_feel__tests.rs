@@ -954,3 +954,35 @@ fn write_feel_shots() {
     idle(&mut run, 9);
     save(&frame(&run), &dir, "coins_10");
 }
+
+#[test]
+fn a_forked_shot_splits_past_its_mark_twice_and_fart_bombs_leave_a_cloud() {
+    let mut run = quiet();
+    bare(&mut run);
+    let mark = a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
+    a_foe(&mut run, EnemyKind::Skeleton, 44.0, 3.0);
+    let h = run.players.get_mut(&1).unwrap();
+    (h.bonus.fork, h.bonus.fart) = (2, 1);
+    run.step(&BTreeMap::from([(1, fire(1, 0))]));
+    let (mut once, mut clouds) = (0, 0);
+    for _ in 0..HZ {
+        run.step(&BTreeMap::new());
+        let forked: Vec<_> = run.projectiles.iter().filter(|p| !p.hostile && p.traits.fork == 1).collect();
+        assert!(forked.iter().all(|p| p.last_hit == Some(mark)), "a fork flies past its mark");
+        once = once.max(forked.len());
+        clouds = clouds.max(run.works.clouds.iter().filter(|c| c.owner == 1).count());
+    }
+    assert_eq!(once, 2, "one shot forks into two");
+    assert_eq!(clouds, 1, "the hit farts, once per rest");
+    // A shot without the card stops where it hits.
+    let mut run = quiet();
+    bare(&mut run);
+    a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
+    a_foe(&mut run, EnemyKind::Skeleton, 44.0, 3.0);
+    run.step(&BTreeMap::from([(1, fire(1, 0))]));
+    for _ in 0..HZ {
+        run.step(&BTreeMap::new());
+        assert!(run.projectiles.iter().filter(|p| !p.hostile).count() <= 1);
+        assert!(run.works.clouds.is_empty());
+    }
+}

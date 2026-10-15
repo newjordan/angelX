@@ -58,7 +58,7 @@
       {
         "path": "cockpit/Cargo.lock",
         "ecosystem": "crates.io",
-        "sha256": "54f9d7c0e454ce3f0fc8fc0ab322331a8916c273ccfad9fe1182deb6c88a12d6",
+        "sha256": "5a453fe33dc0ad59e4f12ec9d5eeff3b552337d9dbea0a24c2431c98322c88ae",
         "package_count": 376
       },
       {
@@ -76,7 +76,7 @@
       {
         "path": "package-lock.json",
         "ecosystem": "npm",
-        "sha256": "3561fe562f87bd447e0d18be3275acb50b36913cf066eb081d0290ff2a723059",
+        "sha256": "a5e52029ab4863c800792641fe951aa79e2289b7fd82554a9c6a99ea8211983f",
         "package_count": 79
       }
     ],

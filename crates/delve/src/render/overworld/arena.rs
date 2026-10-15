@@ -40,6 +40,8 @@ mod nooks;
 mod props;
 mod eastern;
 mod feel;
+mod fx;
+use crate::rules::Shot;
 mod northern;
 mod critters;
 mod forest;
@@ -69,6 +71,7 @@ mod side;
 pub mod sprites;
 mod stage;
 mod stature;
+mod foe_material;
 mod strike;
 mod tavern;
 pub(super) mod three;
@@ -160,9 +163,10 @@ pub use knights::of_kit as knight_of;
 use draw_list::{DrawList, Layer};
 use std::sync::OnceLock;
 
+use super::chrome;
 use super::ink::{BLACK, Img, PALETTE, Rgb, bayer, hash, is_signal, rgb, vnoise};
 use super::kit::{RockKind, Tiles, chest, district_sign, torch};
-use super::light::{DUSK, Light, STEPS, light_at, step_down, warm};
+use super::light::{DUSK, Light, STEPS, light_at, seam, step_down, warm};
 use crate::rules::{imps, looks};
 use crate::rules::{
     BOMB_REARM, COLS, EnemyKind, HEIGHT, Pack, Phase, ROWS, Room, RoomKind, Run, TELEGRAPH,
@@ -348,8 +352,32 @@ fn style(pack: Pack) -> Style {
 
 // ─── ground marks ────────────────────────────────────────────────────────────
 
-/// Crypt flags: a worn joint here and there, slate specks, a bone chip.
+/// Crypt flags: a worn joint here and there, and worn chips a few to a
+/// patch. Every hall of the realm is floored with them, so the marks are
+/// worked out once a block of the floor and kept.
 fn flags(x: i32, y: i32) -> Option<char> {
+    const B: i32 = 64;
+    const N: i32 = 16;
+    const INKS: [Option<char>; 4] = [None, Some('x'), Some('S'), Some('s')];
+    static BLOCKS: [OnceLock<Box<[u8]>>; (N * N) as usize] = [const { OnceLock::new() }; (N * N) as usize];
+    if !((0..B * N).contains(&x) && (0..B * N).contains(&y)) {
+        return flags_at(x, y);
+    }
+    let marks = BLOCKS[((y / B) * N + x / B) as usize].get_or_init(|| {
+        let (x0, y0) = (x / B * B, y / B * B);
+        (0..B * B)
+            .map(|i| match flags_at(x0 + i % B, y0 + i / B) {
+                Some('x') => 1,
+                Some('S') => 2,
+                Some('s') => 3,
+                _ => 0,
+            })
+            .collect()
+    });
+    INKS[marks[((y % B) * B + x % B) as usize] as usize]
+}
+
+fn flags_at(x: i32, y: i32) -> Option<char> {
     let (lx, ly) = (x.rem_euclid(TILE), y.rem_euclid(TILE));
     let stone = hash(x.div_euclid(TILE), y.div_euclid(TILE), 81);
     let (a, b) = ((stone >> 8) as i32 % 6, (stone >> 12) as i32 % 6);
@@ -358,37 +386,52 @@ fn flags(x: i32, y: i32) -> Option<char> {
     {
         return Some('x');
     }
-    match hash(x, y, 83) % 150 {
-        0 | 1 => Some('s'),
-        2 => Some('S'),
-        3 if hash(x / 3, y / 3, 84).is_multiple_of(5) => Some('g'),
-        _ => None,
-    }
+    // Worn chips in the flags, a few to a patch.
+    chip(x, y, 83, 68, 84, 'S', 's')
 }
 
-/// The Mines' pebbles, strewn like the roads up to the mine mouth.
-fn pebbles(x: i32, y: i32) -> Option<char> {
-    if !hash(x / 6, y / 5, 86).is_multiple_of(3) {
+/// A small mark at `(x, y)`, or none: cells of six by five, every other
+/// row shifted, each holding one with chance `p` in 256 at its own place in
+/// the cell, two or three pixels wide and two high, its top row `top` and
+/// the rounded row under it `body`. Grouped marks with black paper
+/// between, never a lone pixel. With a `patch` seed the chance rises and
+/// falls in slow patches, none in the bare stretches and all of `p` where
+/// the marks collect; the patch is looked up only on a mark's own pixels.
+fn chip(x: i32, y: i32, seed: u32, p: u32, patch: u32, top: char, body: char) -> Option<char> {
+    let cy = y.div_euclid(5);
+    let sx = x + cy.rem_euclid(2) * 3;
+    let (cx, px, py) = (sx.div_euclid(6), sx.rem_euclid(6), y.rem_euclid(5));
+    let h = hash(cx, cy, seed);
+    let roll = h & 0xff;
+    if roll >= p {
         return None;
     }
-    match hash(x, y, 85) % 64 {
-        0..=3 => Some('P'),
-        4 | 5 => Some('r'),
-        6 => Some('o'),
-        7 | 8 => Some('b'),
-        _ => None,
+    let (ox, oy, w) = (((h >> 8) % 4) as i32, ((h >> 10) % 3) as i32, 2 + ((h >> 12) % 2) as i32);
+    if px < ox || px >= ox + w || py < oy || py > oy + 1 {
+        return None;
+    }
+    if patch != 0 {
+        let n = vnoise((cx * 6) as f32 / 26.0, (cy * 5) as f32 / 20.0, patch);
+        if roll as f32 >= p as f32 * ((n - 0.3) / 0.4).clamp(0.0, 1.0) {
+            return None;
+        }
+    }
+    if py == oy {
+        Some(top)
+    } else {
+        (w == 2 || px < ox + w - 1).then_some(body)
     }
 }
 
-/// The Keep's ash, with an ember cooling in it now and then.
+/// The Mines' pebbles, strewn like the roads up to the mine mouth: small
+/// stones lit on top, gathered in drifts.
+fn pebbles(x: i32, y: i32) -> Option<char> {
+    chip(x, y, 85, 16, 86, 'o', 'B').or_else(|| chip(x, y, 89, 96, 86, 'P', 'b'))
+}
+
+/// The Keep's ash in drifts, with an ember cooling in it now and then.
 fn ash(x: i32, y: i32) -> Option<char> {
-    match hash(x, y, 87) % 36 {
-        0 => Some('X'),
-        1 => Some('g'),
-        2 if x % 5 == 0 => Some('K'),
-        3 if hash(x / 4, y / 4, 88).is_multiple_of(9) => Some('p'),
-        _ => None,
-    }
+    chip(x, y, 88, 5, 0, 'p', 'b').or_else(|| chip(x, y, 87, 88, 90, 'g', 'X'))
 }
 
 /// The Archive's floor: worn flags, and pages that drifted off the shelves.
@@ -397,21 +440,13 @@ fn pages(x: i32, y: i32) -> Option<char> {
     if h.is_multiple_of(97) && (x % 3 != 2) {
         return Some(if (y / 2) % 2 == 0 { 'T' } else { 't' });
     }
-    flags(x, y).filter(|_| hash(x, y, 92).is_multiple_of(2))
+    flags(x, y).filter(|_| hash(x / 6, y / 5, 92).is_multiple_of(2))
 }
 
-/// The Fungal Deep's floor: moss in tufts, and spores that glow.
+/// The Fungal Deep's floor: moss in tufts, lit on top, and now and then a
+/// spore that glows.
 fn moss(x: i32, y: i32) -> Option<char> {
-    if !hash(x / 5, y / 4, 93).is_multiple_of(3) {
-        return None;
-    }
-    match hash(x, y, 94) % 48 {
-        0..=3 => Some('l'),
-        4 | 5 => Some('m'),
-        6 => Some('E'),
-        7 if hash(x / 7, y / 7, 95).is_multiple_of(4) => Some('Y'),
-        _ => None,
-    }
+    chip(x, y, 95, 4, 0, 'Y', 'l').or_else(|| chip(x, y, 93, 140, 94, 'm', 'l'))
 }
 
 /// The Unknown's floor: hardly a floor at all — a lattice of faint light,
@@ -455,26 +490,32 @@ fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Option<char> 
         }
     }
     match pack {
-        // A pit: a broken stone lip, then nothing.
-        Pack::Crypt => match shore {
-            1 => (!hash(x, y, 91).is_multiple_of(4)).then_some('S'),
-            2 => (hash(x, y, 92).is_multiple_of(3)).then_some('x'),
-            _ => None,
-        },
-        // Still water: a pale shore and wave dashes drifting east.
-        Pack::Cavern => {
-            match shore.saturating_sub((hash(x / 3, y / 3, 5) % 2) as i32) {
-                i32::MIN..=1 => return Some('Q'),
-                2 => return ((x + y) % 2 == 0).then_some('q'),
-                _ => {}
+        // A pit: a broken stone lip, and under the near lip its far wall
+        // going down out of the light into nothing.
+        Pack::Crypt => {
+            // The corners are broken off the lip.
+            let side = !hazard_at(room, x - 1, y) || !hazard_at(room, x + 1, y);
+            if let Some(k) = (1..=6).find(|&k| !hazard_at(room, x, y - k)) {
+                if k == 1 && side {
+                    return None;
+                }
+                return match k {
+                    1 => (!hash(x, y, 91).is_multiple_of(5)).then_some('u'),
+                    2 => Some('S'),
+                    3 => Some('S'),
+                    4 => Some('x'),
+                    5 => (hash(x / 2, y, 93) % 3 != 0).then_some('x'),
+                    _ => (hash(x / 2, y, 94) % 3 == 0).then_some('s'),
+                };
             }
-            let dx = x - t / 2;
-            let h = hash(dx.div_euclid(9), y.div_euclid(6), 9);
-            let (ox, oy) = (((h >> 4) % 5) as i32, ((h >> 8) % 5) as i32);
-            let (lx, ly) = (dx.rem_euclid(9), y.rem_euclid(6));
-            (h.is_multiple_of(2) && ly == oy && lx >= ox && lx < ox + 4)
-                .then_some(if lx == ox + 1 { 'Q' } else { 'q' })
+            match shore {
+                1 => (!hash(x, y, 91).is_multiple_of(4)).then_some('S'),
+                2 => (hash(x / 2, y / 2, 92).is_multiple_of(3)).then_some('x'),
+                _ => None,
+            }
         }
+        // Standing water is open water, drawn whole by `floor_marks`.
+        Pack::Cavern | Pack::Archive => None,
         // Spore pools: a glowing green shimmer that drifts.
         Pack::Fungal => {
             if shore == 1 {
@@ -495,20 +536,6 @@ fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Option<char> 
                 return (!hash(x, y, 98).is_multiple_of(3)).then_some('0');
             }
             (hash(x, y + t / 8, 99).is_multiple_of(300)).then_some('3')
-        }
-        // The Archive's flood, as the Mines' water.
-        Pack::Archive => {
-            match shore.saturating_sub((hash(x / 3, y / 3, 5) % 2) as i32) {
-                i32::MIN..=1 => return Some('Q'),
-                2 => return ((x + y) % 2 == 0).then_some('q'),
-                _ => {}
-            }
-            let dx = x - t / 2;
-            let h = hash(dx.div_euclid(9), y.div_euclid(6), 9);
-            let (ox, oy) = (((h >> 4) % 5) as i32, ((h >> 8) % 5) as i32);
-            let (lx, ly) = (dx.rem_euclid(9), y.rem_euclid(6));
-            (h.is_multiple_of(2) && ly == oy && lx >= ox && lx < ox + 4)
-                .then_some(if lx == ox + 1 { 'Q' } else { 'q' })
         }
         // Lava: dark crust creeping east, the melt glowing through.
         Pack::Hellforge => {
@@ -929,19 +956,64 @@ fn floor_marks(run: &Run, cv: &mut Img, rows: std::ops::Range<i32>) {
     let pack = run.dungeon.pack;
     let t = (run.tick as u32 / 3) as i32;
     let pw = cv.w;
-    for y in rows {
+    let still = still_floor(run, pw, cv.h);
+    // Standing water in the Mines and the Archive is open water, as the
+    // world's: banks that wander, worn round at the corners, deep in the
+    // middle.
+    let pools = matches!(pack, Pack::Cavern | Pack::Archive);
+    for y in rows.clone() {
         for x in 0..pw {
-            let ink = match room.tile(x / TILE, y / TILE) {
-                Tile::Floor => super::material::skirting(pack as u32, x, y, near_wall(room, x, y)).or_else(|| floor_mark(pack, x, y)),
-                Tile::Door => floor_mark(pack, x, y),
-                Tile::Hazard => hazard_mark(pack, room, x, y, t),
-                _ => None,
-            };
-            if let Some(ch) = ink {
-                cv.put(x, y, ch);
+            if room.tile(x / TILE, y / TILE) == Tile::Hazard {
+                if !pools && let Some(ch) = hazard_mark(pack, room, x, y, t) {
+                    cv.put(x, y, ch);
+                }
+            } else if let Some(c) = still.get(x, y) {
+                cv.set(x, y, c);
             }
         }
     }
+    let (r0, r1) = (rows.start.div_euclid(TILE) - 1, (rows.end - 1).div_euclid(TILE) + 1);
+    let any_water = (r0..=r1).any(|r| (0..room.cols as i32).any(|c| room.tile(c, r) == Tile::Hazard));
+    if pools && any_water {
+        let wet = |x: i32, y: i32| room.tile(x.div_euclid(TILE), y.div_euclid(TILE)) == Tile::Hazard;
+        super::material::water_field(cv, (0, rows.start, pw, rows.end - rows.start), &wet, 140 + pack as u32, (run.tick / 6) as u32);
+    }
+}
+
+/// The floor's marks that never move (the skirting along the walls and the
+/// pack's own marks, everything but the hazards), drawn once for each
+/// room's layout and kept, so a torch step draws only what moves.
+fn still_floor(run: &Run, w: i32, h: i32) -> std::sync::Arc<Img> {
+    type Cache = std::sync::Mutex<std::collections::HashMap<(u32, u64, i32, i32), std::sync::Arc<Img>>>;
+    static CACHE: OnceLock<Cache> = OnceLock::new();
+    let room = run.room();
+    let pack = run.dungeon.pack;
+    let key = (pack as u32, room.fingerprint(), w, h);
+    let cache = CACHE.get_or_init(Default::default);
+    if let Some(hit) = cache.lock().ok().and_then(|c| c.get(&key).cloned()) {
+        return hit;
+    }
+    let mut layer = Img::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let ink = match room.tile(x / TILE, y / TILE) {
+                Tile::Floor => super::material::skirting(pack as u32, x, y, near_wall(room, x, y)).or_else(|| floor_mark(pack, x, y)),
+                Tile::Door => floor_mark(pack, x, y),
+                _ => None,
+            };
+            if let Some(ch) = ink {
+                layer.put(x, y, ch);
+            }
+        }
+    }
+    let layer = std::sync::Arc::new(layer);
+    if let Ok(mut c) = cache.lock() {
+        if c.len() > 96 {
+            c.clear();
+        }
+        c.insert(key, std::sync::Arc::clone(&layer));
+    }
+    layer
 }
 
 /// The walls, blocks and corner braziers of tile rows `rows`, and the
@@ -1236,11 +1308,23 @@ fn light_rows(cv: &mut Img, lights: &[Light], (cool, lit): (char, char), lift: f
         (0..NATIVE_W * NATIVE_H)
             .map(|i| {
                 let (x, y) = ((i % NATIVE_W) as f32 + 0.5, (i / NATIVE_W) as f32 + 0.5);
-                (vnoise(x / 48.0, y / 48.0, 77) - 0.5) * 0.14
+                (vnoise(x / 48.0, y / 48.0, 77) - 0.5) * super::light::DAPPLE
             })
             .collect()
     });
-    let warmed = WARM.get_or_init(|| PALETTE.iter().map(|&v| (rgb(v), warm(rgb(v)))).collect());
+    // Firelight's warm ink for each colour, but never a darker one: a cool
+    // stone whose warm neighbour is duller keeps its own ink, so a flame is
+    // never ringed with soot.
+    let warmed = WARM.get_or_init(|| {
+        let lum = |c: Rgb| 0.299 * c[0] as f32 + 0.587 * c[1] as f32 + 0.114 * c[2] as f32;
+        PALETTE
+            .iter()
+            .map(|&v| {
+                let (c, w) = (rgb(v), warm(rgb(v)));
+                (c, if lum(w) + 6.0 < lum(c) { c } else { w })
+            })
+            .collect()
+    });
     for y in rows {
         for x in 0..cv.w {
             let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
@@ -1252,18 +1336,26 @@ fn light_rows(cv: &mut Img, lights: &[Light], (cool, lit): (char, char), lift: f
                 .min(1.0);
             match cv.get(x, y) {
                 Some(c) if c != BLACK => {
-                    let c = if fire > 0.16 + bayer(x, y) * 0.24 {
-                        warmed.get(&c).copied().unwrap_or(c)
+                    // Firelight takes a surface in soft blots, not a
+                    // checkered band of warm and cool.
+                    let th = seam(x, y);
+                    let c = if fire > 0.16 + th * 0.24 {
+                        let w = warmed.get(&c).copied().unwrap_or(c);
+                        // Close to the flame the warm ink is also a step
+                        // lighter: firelight, not soot.
+                        if fire > 0.18 + th * 0.08 { super::material::lighter(w) } else { w }
                     } else {
                         c
                     };
-                    // Dither only across the band between two steps: a calm
-                    // field holds one step, so material texture is not lost
-                    // under a checkerboard.
+                    // A calm field holds one step, so material texture is
+                    // not lost under a checkerboard; where the light gives
+                    // way to the next step the boundary wanders in soft blots
+                    // (`light::seam`), so it falls off softly and in grouped
+                    // patches, never as a hard ring or an all-over checker.
                     let mass = lift > 0.0 && solid[(y * cv.w + x) as usize];
                     let v = ((1.0 - level) * STEPS - if mass { lift } else { 0.0 }).max(0.0);
-                    let t = ((v.fract() - 0.5) * 3.5 + 0.5).clamp(0.0, 1.0);
-                    let steps = (v.floor() + if t > bayer(x, y) { 1.0 } else { 0.0 }).max(0.0) as usize;
+                    let t = ((v.fract() - 0.5) * super::light::SEAM_EDGE + 0.5).clamp(0.0, 1.0);
+                    let steps = (v.floor() + if t > th { 1.0 } else { 0.0 }).max(0.0) as usize;
                     cv.set(x, y, step_down(c, steps));
                 }
                 _ => {
@@ -1453,7 +1545,6 @@ fn foe_figure(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
         kind => (sprites::enemy(kind, tick), 1.0),
     };
     // Every creature stands in the same light as the room.
-    let im = super::material::shade_sprite(&im);
     if enemy.is_boss() {
         // The Pit's beast and the lair's dragon: bosses without a file.
         let im = if k > 1.0 { enlarge(&im, k) } else { im };
@@ -1518,7 +1609,7 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                 foes_marks(cv, run, enemy, tick);
             }
             critters::marks(cv, run, enemy, tick);
-            let mut im = marks::flashed(&im, enemy, run.tick);
+            let mut im = marks::flashed(&im, enemy, run);
             let foot_lift = signatures::foot_lift(run, enemy);
             let (x, y) = if !run.side_on() {
                 at(enemy.x, enemy.y + foot_lift)
@@ -1548,6 +1639,7 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                 if left {
                     im = im.flip_h();
                 }
+                foe_material::shadow(cv, x, y + im.h / 3, im.w, false);
                 cv.stamp(&im, x - im.w / 2, y - im.h * 2 / 3);
                 marks::enemy_bar(cv, enemy, x, y - im.h * 2 / 3 + im.h, &im);
                 marks::last_stand(cv, run, enemy, tick);
@@ -1567,6 +1659,7 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
                 }
             }
             if !(modern && art_v2::foe_supported(run, enemy)) {
+                foe_material::shadow(cv, x, y, im.w, enemy.kind.flies());
                 if live_frame() && !run.side_on() {
                     stand_at(cv, &im, enemy.x, enemy.y + foot_lift, 0);
                 } else {
@@ -1630,6 +1723,10 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             };
             // What their cards put on them: a bigger shield, spikes, a helm.
             let mut im = knights::dress(&im, &hero.worn(&run.book), run.tick);
+            // Their shadow on the floor, under whatever they are about.
+            if !(modern && art_v2::knight_supported(run, hero, id)) {
+                knights::shadow(cv, x, y);
+            }
             if hero.frog() {
                 // Hexed: a frog, for now.
                 im = sprites::frog(tick);
@@ -1670,11 +1767,7 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             if let Some(left) = hero.rolling() {
                 // Tucked and tumbling: the knight turns a full circle along the
                 // roll, with dust kicked up behind.
-                let quarter = (10 - left.min(10)) * 4 / 10;
-                let mut turned = im.clone();
-                for _ in 0..quarter {
-                    turned = sprites::quarter_turn(&turned);
-                }
+                let turned = knights::rolled(&im, left);
                 stand_at(cv, &turned, hero.x, hero.y + feet, 2);
                 let (rx, ry) = hero.roll_dir();
                 let puff = sprites::dust(left.min(12));
@@ -1816,6 +1909,11 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
         paint(cv);
     }
     runes::auras(cv, run);
+    shots(cv, run, modern);
+}
+
+/// Shots retain their authored two-pixel collision cores; halo is separate.
+fn shots(cv: &mut Img, run: &Run, modern: bool) {
     // Shots are drawn at twice their sprite size: a hairline reads as noise
     // at speed, a two-pixel stroke reads as an arrow.
     let mut mark = Img::new(25, 25);
@@ -1826,6 +1924,12 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
         }
         if modern && art_v2::shot_supported(shot) {continue;}
         let (x, y) = at(shot.x, shot.y);
+        let hue = match shot.kind {
+            Shot::Ember | Shot::Flame | Shot::Sacred | Shot::Ball => fx::Hue::Warm,
+            Shot::Hex | Shot::Spore => fx::Hue::Gas,
+            _ => fx::Hue::Cold,
+        };
+        fx::glow(cv, x, y, hue);
         mark.clear_all();
         if shot.empowered {
             // Through a friend's wall: a gold halo around the shot.
@@ -1864,16 +1968,7 @@ fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
         } else {
             sprites::shot(&mut mark, (12, 12), (shot.vx, shot.vy), shot.kind);
         }
-        for my in 0..mark.h {
-            for mx in 0..mark.w {
-                if let Some(c) = mark.get(mx, my) {
-                    let (px, py) = (x + (mx - 12) * 2, y + (my - 12) * 2);
-                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                        cv.set(px + dx, py + dy, c);
-                    }
-                }
-            }
-        }
+        cv.stamp_twice(&mark, x - 24, y - 24);
     }
 }
 
@@ -1889,12 +1984,12 @@ fn flourishes(cv: &mut Img, run: &Run) {
         for i in 0..n {
             let a = i as f32 / n as f32 * std::f32::consts::TAU;
             let ink = match (i + left as i32) % 3 {
-                0 => '6',
+                0 => 'c',
                 1 => '@',
-                _ => '7',
+                _ => 'o',
             };
             if !hash(i, left as i32, 31).is_multiple_of(3) {
-                let ink = if k > 0.6 { '8' } else { ink };
+                let ink = if k > 0.6 { 'S' } else { ink };
                 for dr in [0.0, 1.0] {
                     cv.put(
                         cx + (a.cos() * (r + dr)) as i32,
@@ -1930,7 +2025,7 @@ fn flourishes(cv: &mut Img, run: &Run) {
         for m in 0..6 {
             let rise = (age * 30.0) as i32 + m * 3;
             let x = cx - 8 + (hash(m, id as i32, 41) % 17) as i32;
-            cv.put(x, cy - 4 - rise, if m % 2 == 0 { '3' } else { '6' });
+            cv.put(x, cy - 4 - rise, if m == 0 && age < 0.3 { '9' } else if m % 2 == 0 { '2' } else { 'T' });
         }
     }
 }
@@ -1975,6 +2070,7 @@ fn summoned(cv: &mut Img, run: &Run) {
             im = im.flip_h();
         }
         let (x, y) = at(imp.x, imp.y);
+        fx::glow(cv, x, y - 4, fx::Hue::Cold);
         // A turret stands; the rest fly a little off the floor.
         let lift = if imp.behaviour == imps::Behaviour::Turret { 0 } else { 3 };
         for dx in -1..=1 {
@@ -2010,7 +2106,7 @@ fn sparks(cv: &mut Img, run: &Run) {
                 } else {
                     jag
                 };
-            cv.put(x, y, if spark.ttl > 3 { 'w' } else { '3' });
+            cv.put(x, y, if spark.ttl > 3 { 'c' } else { '2' });
             if spark.ttl > 3 {
                 cv.put(x + 1, y, '2');
             }
@@ -2038,8 +2134,8 @@ fn verdict(cv: &mut Img, run: &Run) {
         }
     };
     let w = super::ink::text_width(&hint);
-    let mut plate = Img::new(w + 6, 11);
-    plate.rect(0, 0, w + 6, 11, 'K');
+    let mut plate = Img::new(w + 7, 12);
+    chrome::panel(&mut plate, (0, 0, w + 6, 11), chrome::Tone::KEY);
     plate.text(3, 2, &hint, '6');
     cv.stamp(&plate, (NATIVE_W - plate.w) / 2, y + sign.h + 2);
 }
@@ -2070,8 +2166,8 @@ fn sanctuary_sign(cv: &mut Img, run: &Run) {
     let y = NATIVE_H / 2 - sign.h;
     cv.stamp(&sign, (NATIVE_W - sign.w) / 2, y);
     let w = super::ink::text_width(hint);
-    let mut plate = Img::new(w + 6, 11);
-    plate.rect(0, 0, w + 6, 11, 'K');
+    let mut plate = Img::new(w + 7, 12);
+    chrome::panel(&mut plate, (0, 0, w + 6, 11), chrome::Tone::KEY);
     plate.text(3, 2, hint, '6');
     cv.stamp(&plate, (NATIVE_W - plate.w) / 2, y + sign.h + 2);
 }
@@ -2178,9 +2274,31 @@ pub(super) fn pointer(
         ay.round() as i32 - 21
     }
     .clamp(4, NATIVE_H - 13);
-    over.rect(lx - 2, ly - 2, w + 4, 11, 'K');
-    over.text(lx, ly, &label, '6');
-    vec![(lx - 2, ly - 2, w + 4, 11), (ax as i32 - 10, ay as i32 - 10, 21, 21)]
+    let tag = chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY);
+    vec![tag, (ax as i32 - 10, ay as i32 - 10, 21, 21)]
+}
+
+/// Where a box `w` wide over room pixel `x` starts: centred on `x`, kept
+/// inside the seat's view (`view`, its top-left; the view `NATIVE_W` wide)
+/// while `x` is in sight, and inside the room (`room_w` wide) always. A
+/// name or a word over a figure near the view's edge stays whole on that
+/// seat's screen; one over a figure out of sight stays with the figure.
+pub(super) fn in_view_x(x: i32, w: i32, view: (i32, i32), room_w: i32) -> i32 {
+    let mut x0 = x - w / 2;
+    if (view.0..view.0 + NATIVE_W).contains(&x) && w + 6 <= NATIVE_W {
+        x0 = x0.clamp(view.0 + 3, view.0 + NATIVE_W - w - 3);
+    }
+    x0.clamp(0, (room_w - w).max(0))
+}
+
+/// As `in_view_x`, for the row a box `h` tall starts on over room pixel
+/// `y`: never above the seat's view while `y` is in sight.
+pub(super) fn in_view_y(y0: i32, y: i32, view: (i32, i32)) -> i32 {
+    if (view.1..view.1 + NATIVE_H).contains(&y) {
+        y0.max(view.1 + 3)
+    } else {
+        y0
+    }
 }
 
 /// The house rule for "press E here": the key and a word or two, shown only
@@ -2196,9 +2314,8 @@ pub(super) fn near_prompt(cv: &mut Img, run: &Run, (x, y): (i32, i32), label: &s
     }
     let label = format!("E: {label}");
     let w = super::ink::text_width(&label);
-    let (lx, ly) = ((x - w / 2).clamp(2, cv.w - w - 2), (y - 30).max(2));
-    cv.rect(lx - 2, ly - 1, w + 4, 10, 'K');
-    cv.text(lx, ly, &label, '6');
+    let (lx, ly) = ((x - w / 2).clamp(3, cv.w - w - 3), (y - 30).max(2));
+    chrome::label(cv, (lx, ly), &label, '6', chrome::Tone::KEY);
 }
 
 /// A way that is shut: two planks nailed across it.
@@ -2238,9 +2355,8 @@ fn field_banner(over: &mut Img, run: &Run, (ox, oy): (i32, i32), focus: Option<u
     if (hero.x - bx).hypot(hero.y - by) < 3.0 * TILE_UNITS {
         let label = format!("E: {} {FIELD_PRICE}G", next.name.to_uppercase());
         let w = super::ink::text_width(&label);
-        let (lx, ly) = ((x - w / 2).clamp(2, NATIVE_W - w - 2), y + 2);
-        over.rect(lx - 2, ly - 1, w + 4, 10, 'K');
-        over.text(lx, ly, &label, '6');
+        let (lx, ly) = ((x - w / 2).clamp(3, NATIVE_W - w - 3), y + 3);
+        chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY);
     }
 }
 
@@ -2405,19 +2521,53 @@ fn hop_floor(cv: &mut Img, run: &Run) {
     for r in 1..rows - 1 {
         let y = r * TILE;
         let Some(l) = hop::lane(rows, r) else {
-            // A dry bank or the landing: flagstones.
-            cv.rect(TILE, y, (cols - 2) * TILE, TILE, 'x');
-            for x in (TILE..(cols - 1) * TILE).step_by(TILE as usize) {
-                cv.line(x, y, x, y + TILE - 1, 's');
+            // A dry bank or the landing: flagstones, each lit along its top
+            // and shaded at its foot, their joints staggered row to row.
+            let shift = if r % 2 == 0 { 0 } else { TILE / 2 };
+            for yy in y..y + TILE {
+                for x in TILE..(cols - 1) * TILE {
+                    let (dx, dy) = ((x - TILE + shift).rem_euclid(TILE), yy - y);
+                    let ink = if dx == 0 || dy == TILE - 1 {
+                        's'
+                    } else if dy == 0 {
+                        'S'
+                    } else if dy >= TILE - 3 {
+                        'x'
+                    } else if hash((x - TILE + shift) / TILE, r, 61) % 3 == 0 {
+                        'S'
+                    } else {
+                        'x'
+                    };
+                    cv.put(x, yy, ink);
+                }
             }
-            cv.line(TILE, y + TILE - 1, (cols - 1) * TILE - 1, y + TILE - 1, 's');
             continue;
         };
-        cv.rect(TILE, y, (cols - 2) * TILE, TILE, 'q');
+        // The water: one river from bank to bank (lane to lane the same
+        // water, no stripes), its shallows a step paler against a bank;
+        // ripples in short clumps that drift with each lane's flow.
         let flow = (t as i32 * if l % 2 == 0 { 1 } else { -1 }) / 3;
-        for x in (TILE..(cols - 1) * TILE).step_by(13) {
-            let wx = TILE + (x - TILE + flow).rem_euclid((cols - 2) * TILE);
-            cv.line(wx, y + 5 + (l as i32 % 2) * 5, wx + 4, y + 5 + (l as i32 % 2) * 5, 'f');
+        let bank_above = hop::lane(rows, r - 1).is_none();
+        let bank_below = hop::lane(rows, r + 1).is_none();
+        for yy in y..y + TILE {
+            let dy = yy - y;
+            // The stone bank's own steps (no signal ink: water is scenery).
+            let shore = (bank_above && dy < 2) || (bank_below && dy >= TILE - 2);
+            let shallow = (bank_above && dy < 4) || (bank_below && dy >= TILE - 4);
+            let base = if shore {
+                rgb(0x2f4a52)
+            } else if shallow {
+                rgb(0x263b40)
+            } else {
+                rgb(0x12516a)
+            };
+            for x in TILE..(cols - 1) * TILE {
+                let wx = (x - TILE + flow).rem_euclid((cols - 2) * TILE);
+                let glint = (4..TILE - 4).contains(&dy)
+                    && hash(wx / 5, (dy + l as i32) / 2, 211 + l as u32) % 9 == 0
+                    && (wx % 5) < 3;
+                cv.set(x, yy, if glint { rgb(0x527597) } else { base });
+            }
         }
         let (lefts, len) = hop::books(l, t, width);
         let spines = ['R', 'B', 'e', 'U', 'P'];
@@ -2431,11 +2581,35 @@ fn hop_floor(cv: &mut Img, run: &Run) {
                 if a >= b {
                     continue;
                 }
-                cv.rect(a, y + 2, b - a, TILE - 4, spines[(k + l) % spines.len()]);
-                cv.line(a, y + 3, b - 1, y + 3, '9');
-                cv.line(a, y + TILE - 4, b - 1, y + TILE - 4, 'h');
+                // A book's spine, its ends rounded where they are its own
+                // (not where it runs off the lane), lit along its top in its
+                // own colour's lighter step and shaded along its foot, with
+                // gilt bands.
+                let ink = spines[(k + l) % spines.len()];
+                let c = super::ink::ink(ink).unwrap_or(BLACK);
+                let (lit, deep) = (super::material::lighter(c), super::material::darker(c));
+                let (h0, h1) = (y + 2, y + TILE - 2);
+                for yy in h0..h1 {
+                    let row = yy - h0;
+                    let last = h1 - h0 - 1;
+                    let end = row == 0 || row == last;
+                    let (from, to) = (
+                        if end && a == piece { a + 1 } else { a },
+                        if end && b == piece + w { b - 1 } else { b },
+                    );
+                    let tone = if row == 0 {
+                        lit
+                    } else if row == last || row == last - 1 {
+                        deep
+                    } else {
+                        c
+                    };
+                    for x in from..to {
+                        cv.set(x, yy, tone);
+                    }
+                }
                 for sx in (a + 5..b - 2).step_by(9) {
-                    cv.line(sx, y + 5, sx, y + TILE - 6, 'O');
+                    cv.line(sx, y + 4, sx, y + TILE - 5, 'O');
                 }
             }
         }
@@ -2466,16 +2640,25 @@ fn hop_layer(over: &mut Img, run: &Run) {
 
 /// The clay pots along a room's walls, and the shards of broken ones.
 fn clay_pots(cv: &mut Img, run: &Run) {
+    // A round clay pot: a lit rim over its mouth, a narrow neck, a belly lit
+    // from the left and turning into shade on the right, a foot, and the
+    // cue line under it. Every ink is bright enough that the second kit's
+    // atmosphere never mists it (a gameplay object keeps its pixels).
+    let pot = Img::from_rows(&[
+        "..roooP..",
+        "...PrP...",
+        ".oOORRRP.",
+        "oOORRRRrP",
+        "tOORRRrrP",
+        "oORRRrrrP",
+        ".oRRrrPP.",
+        "..PrPPr..",
+        "...PPP...",
+        ".qqqqqqq.",
+    ]);
     for (_, (x, y)) in run.pots_of(run.at) {
         let (px, py) = at(x, y);
-        // A squat pot: a dark mouth, a round belly lit from the left.
-        cv.rect(px - 4, py + 5, 9, 1, 'q');
-        cv.rect(px - 3, py - 2, 7, 7, 'P');
-        cv.rect(px - 4, py, 9, 4, 'P');
-        cv.rect(px - 3, py, 2, 3, 'o');
-        cv.rect(px - 2, py - 4, 5, 2, 'B');
-        cv.rect(px - 1, py - 4, 3, 1, 'b');
-        cv.rect(px - 3, py + 3, 7, 1, 'B');
+        cv.stamp(&pot, px - 4, py - 4);
     }
     for &(x, y, left) in &run.pot_shards {
         let (px, py) = at(x, y);
@@ -2497,11 +2680,7 @@ fn powder_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     };
     for &i in &p.crates {
         let (x, y) = spot(i as i32 % cols, i as i32 / cols);
-        over.rect(x + 1, y + 1, TILE - 2, TILE - 2, 'r');
-        over.rect(x + 2, y + 2, TILE - 4, TILE - 4, 'R');
-        over.line(x + 2, y + 2, x + TILE - 3, y + TILE - 3, 'r');
-        over.line(x + TILE - 3, y + 2, x + 2, y + TILE - 3, 'r');
-        over.rect(x + 1, y + 1, TILE - 2, 1, 'o');
+        powder_crate(over, x + 1, y + 1, TILE - 2, i);
     }
     for k in &p.kegs {
         let (x, y) = spot(k.at.0, k.at.1);
@@ -2527,12 +2706,57 @@ fn powder_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     }
 }
 
+/// A powder crate on its tile (`(x, y)`, `s` square, as the rules' crate
+/// fills it): its corners worn round, planks lit along the top and down the
+/// left and shaded at the foot and right, a cross brace, and the planks'
+/// tone a step apart crate to crate.
+fn powder_crate(over: &mut Img, x: i32, y: i32, s: i32, seed: u16) {
+    let warm = hash(i32::from(seed), 5, 41) % 3 == 0;
+    let (lit, face, deep, dark) = if warm {
+        ('O', 'o', 'R', 'r')
+    } else {
+        ('o', 'R', 'r', 'B')
+    };
+    for dy in 0..s {
+        for dx in 0..s {
+            // A pixel off each corner.
+            let corner = (dx == 0 || dx == s - 1) && (dy == 0 || dy == s - 1);
+            if corner {
+                continue;
+            }
+            let edge_top = dy == 0 || (dy == 1 && (dx == 0 || dx == s - 1));
+            let ink = if edge_top || dx == 0 {
+                lit
+            } else if dy == s - 1 || dx == s - 1 {
+                dark
+            } else if dy == s / 2 {
+                // The seam between the two boards.
+                deep
+            } else if dy > s / 2 {
+                deep
+            } else {
+                face
+            };
+            over.put(x + dx, y + dy, ink);
+        }
+    }
+    // The cross brace, a step darker, its upper arm lit where the light falls.
+    for k in 2..s - 2 {
+        over.put(x + k, y + k, dark);
+        over.put(x + s - 1 - k, y + k, if k < s / 2 { deep } else { dark });
+    }
+    // A short shadow on the floor at its foot.
+    for dx in 1..s {
+        over.put(x + dx, y + s, 'k');
+    }
+}
+
 /// A folly's standings, top right: a headline, then each knight's colour,
 /// name and score.
 fn folly_board(over: &mut Img, run: &Run, head: &str, rows: &[(u32, u32)]) {
     let (w, row) = (118, 11);
-    let x0 = NATIVE_W - w - 4;
-    over.rect(x0 - 2, 2, w + 4, row * (rows.len() as i32 + 1) + 3, 'K');
+    let x0 = NATIVE_W - w - 5;
+    chrome::panel(over, (x0 - 4, 1, w + 8, row * (rows.len() as i32 + 1) + 5), chrome::Tone::SLATE);
     over.text(x0, 4, head, '6');
     for (k, &(id, n)) in rows.iter().enumerate() {
         let y = 4 + (k as i32 + 1) * row;
@@ -2556,9 +2780,7 @@ fn folly_title(over: &mut Img, a: &str, b: &str) {
     let tw = super::ink::text_width(b).max(super::ink::text_width(a));
     // High in the view: the middle is where an unused wish waits.
     let (bx, by) = ((NATIVE_W - tw) / 2 - 8, 44);
-    over.rect(bx, by, tw + 16, 34, 'K');
-    over.rect(bx, by, tw + 16, 1, '6');
-    over.rect(bx, by + 33, tw + 16, 1, '6');
+    chrome::panel(over, (bx, by, tw + 16, 34), chrome::Tone::FRAMED.rimmed(chrome::GOLD_RIM));
     over.text((NATIVE_W - super::ink::text_width(a)) / 2, by + 7, a, '6');
     over.text((NATIVE_W - super::ink::text_width(b)) / 2, by + 20, b, 'O');
 }
@@ -2571,9 +2793,9 @@ pub(super) fn heat_board(over: &mut Img, run: &Run) {
     };
     let need = i32::from(heat.game.need()).max(1);
     let (w, row) = (118, 11);
-    let x0 = NATIVE_W - w - 4;
-    let y0 = 4;
-    over.rect(x0 - 2, y0 - 2, w + 4, row * heat.seats.len() as i32 + 3, 'K');
+    let x0 = NATIVE_W - w - 5;
+    let y0 = 5;
+    chrome::panel(over, (x0 - 4, y0 - 4, w + 8, row * heat.seats.len() as i32 + 5), chrome::Tone::SLATE);
     for (i, &id) in heat.seats.iter().enumerate() {
         let y = y0 + i as i32 * row;
         let ink = ['5', '1', 'A', '4'][(id as usize).clamp(1, 4) - 1];
@@ -2588,8 +2810,8 @@ pub(super) fn heat_board(over: &mut Img, run: &Run) {
         over.text(x0 + 8, y, &name, 'O');
         let got = i32::from(heat.standing.get(&id).copied().unwrap_or(0));
         let bar = 40;
-        over.rect(x0 + w - bar, y + 2, bar, 3, 'g');
-        over.rect(x0 + w - bar, y + 2, bar * got / need, 3, ink);
+        let fill = super::ink::ink(ink).unwrap_or(BLACK);
+        chrome::meter(over, (x0 + w - bar, y + 1, bar, 5), (bar - 2) * got / need, fill);
     }
 }
 
@@ -2638,8 +2860,7 @@ fn way_on_marker(over: &mut Img, run: &Run, (ox, oy): (i32, i32), tick: u32) {
         ),
     };
     let (lx, ly) = (lx.clamp(4, NATIVE_W - tw - 4), ly.clamp(4, NATIVE_H - 13));
-    over.rect(lx - 2, ly - 2, tw + 4, 11, 'K');
-    over.text(lx, ly, &label, '6');
+    chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY);
 }
 
 fn beyond(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
@@ -2750,6 +2971,8 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
     }
     let (pw, ph) = room_px(run.room());
     let mut over = Img::new(pw, ph);
+    // The seat's view of the room, for the marks that keep inside it.
+    let view = view_origin(run, focus);
     let mut scene = DrawList::default();
     scene.add(Layer::Ground, |cv| hazards(cv, run));
     let fortune_hall = run.room().kind == RoomKind::Fortune;
@@ -2829,9 +3052,9 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
             frogs::plates(cv, run);
         }
     });
-    scene.add(Layer::Over, |cv| wanted::nameplates(cv, run));
-    scene.add(Layer::Over, |cv| marks::take_prompts(cv, run, legible));
-    scene.add(Layer::Over, |cv| marks::thief_cries(cv, run, legible));
+    scene.add(Layer::Over, |cv| wanted::nameplates(cv, run, view));
+    scene.add(Layer::Over, |cv| marks::take_prompts(cv, run, legible, view));
+    scene.add(Layer::Over, |cv| marks::thief_cries(cv, run, legible, view));
     scene.add(Layer::Over, |cv| tallow(cv, run));
     scene.add(Layer::Over, |cv| hooks(cv, run));
     scene.add(Layer::Over, |cv| fan_boxes(cv, run));
@@ -2842,7 +3065,7 @@ fn scene_layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool)
     scene.add(Layer::Over, |cv| feel::over(cv, run));
     scene.add(Layer::Over, |cv| works::over(cv, run));
     scene.add(Layer::Over, |cv| signatures::over(cv, run));
-    scene.add(Layer::Over, |cv| wanted::over(cv, run));
+    scene.add(Layer::Over, |cv| wanted::over(cv, run, view));
     scene.add(Layer::Over, |cv| ults::over(cv, run));
     scene.add(Layer::Boards, |cv| {
         if run.at_home_now() && legible {
@@ -3273,10 +3496,8 @@ fn achievement_banner(cv: &mut Img, run: &Run, feat: &crate::rules::feats::Feat)
         .collect();
     let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
     let h = rows.len() as i32 * 9 + 7;
-    let mut board = Img::new(w, h);
-    board.rect(0, 0, w, h, 'K');
-    board.frame(0, 0, w, h, '4');
-    board.frame(1, 1, w - 2, h - 2, 'a');
+    let mut board = Img::new(w + 1, h + 1);
+    chrome::panel(&mut board, (0, 0, w, h), chrome::Tone::FRAMED.rimmed(chrome::GOLD_RIM));
     for (i, (text, ink)) in rows.iter().enumerate() {
         board.text((w - text_width(text)) / 2, 4 + i as i32 * 9, text, *ink);
     }
@@ -3307,16 +3528,38 @@ fn dare_board(cv: &mut Img, run: &Run) {
     ];
     let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
     let h = rows.len() as i32 * 9 + 7;
-    let mut board = Img::new(w, h);
-    board.rect(0, 0, w, h, 'K');
-    board.frame(0, 0, w, h, '7');
-    board.frame(1, 1, w - 2, h - 2, '9');
+    let mut board = Img::new(w + 1, h + 1);
+    chrome::panel(&mut board, (0, 0, w, h), chrome::Tone::EMBER);
     for (i, (text, ink)) in rows.iter().enumerate() {
         board.text((w - text_width(text)) / 2, 4 + i as i32 * 9, text, *ink);
     }
     let age = run.tick.saturating_sub(dare.since) as i32;
-    let y = (age * 3 - h).min(4);
+    // It settles under a folly's or a heat's standings, top right, when
+    // one is up, so neither board covers the other.
+    let settle = top_right_board_bottom(run).map_or(4, |b| b + 3);
+    let y = (age * 3 - h).min(settle);
     cv.stamp(&board, (NATIVE_W - w) / 2, y);
+}
+
+/// Where the standings board top right (`folly_board`, `heat_board`)
+/// ends, when one is up: its foot's row, at most (a row a knight).
+fn top_right_board_bottom(run: &Run) -> Option<i32> {
+    let here = run.at;
+    let folly = run.folly.as_ref().is_some_and(|f| f.room == here)
+        || run.bats.as_ref().is_some_and(|f| f.room == here)
+        || run.gantry.as_ref().is_some_and(|f| f.room == here)
+        || run.powder.as_ref().is_some_and(|f| f.room == here)
+        || run.hop.as_ref().is_some_and(|f| f.room == here);
+    let row = 11;
+    if folly {
+        // The headline row and a row a knight, as `folly_board` lays them.
+        return Some(1 + row * (run.players.len() as i32 + 1) + 5);
+    }
+    run.pastimes
+        .heat
+        .as_ref()
+        .filter(|h| h.seats.len() > 1)
+        .map(|h| 1 + row * h.seats.len() as i32 + 5)
 }
 
 /// Lights Out: beyond each knight's lantern and the room's fires the
@@ -3419,7 +3662,7 @@ pub fn frame_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32)
 /// its party. Drawn last, over either art, on every seat's own frame.
 pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
     let (w, h) = (img.w, img.h);
-    let tw = super::ink::text_width("AWAY") + 4;
+    let tw = super::ink::text_width("AWAY") + 6;
     // Knights side by side stack their tags rather than overprint them.
     let mut tags: Vec<(i32, i32)> = Vec::new();
     for hero in run.players.values().filter(|h| h.away && h.hp > 0) {
@@ -3432,8 +3675,8 @@ pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
             continue;
         }
         tags.push((bx, by));
-        img.rect(bx, by, tw, 11, 's');
-        img.text(bx + 2, by + 2, "AWAY", 'T');
+        chrome::panel(img, (bx, by, tw, 11), chrome::Tone::SLATE);
+        img.text(bx + 3, by + 2, "AWAY", 'T');
     }
     // A fallen or finished run says so itself.
     if !run.active() {
@@ -3449,8 +3692,7 @@ pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
         return;
     }
     let x = (w - bw) / 2;
-    img.rect(x, 12, bw, 21, 's');
-    img.frame(x, 12, bw, 21, 'o');
+    chrome::panel(img, (x, 12, bw, 21), chrome::Tone::BRASS);
     img.text(x + 10, 19, banner, 'T');
 }
 
@@ -3494,6 +3736,14 @@ pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
 #[path = "../../../tests/render/overworld__arena_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "../../../tests/render/overworld__fx_sheets.rs"]
+mod fx_sheets;
+
+#[cfg(test)]
+#[path = "../../../tests/render/overworld__foe_art_tests.rs"]
+mod foe_art_tests;
+
 /// Snapshot only on worker admission; the expensive compose is lazy.
 pub struct LazyFrame {
     run: Run,
@@ -3521,7 +3771,18 @@ impl AsRef<[u8]> for LazyFrame {
     }
 }
 
+/// A seat's overlay layer as its screen shows it (cropped to its view):
+/// the marks, names and boards drawn over the scenery.
+#[cfg(any(test, feature = "testing"))]
+pub fn overlay_for_test(run: &Run, focus: Option<u32>) -> Img {
+    layers(run, focus, true).1
+}
+
 #[cfg(any(test, feature = "testing"))]
 pub fn privy_panel_for_test(cv: &mut Img, run: &Run, focus: Option<u32>) {
     pitstop::panel(cv, run, focus, true);
 }
+
+#[cfg(test)]
+#[path = "../../../tests/render/overworld__scenery_sheet.rs"]
+mod scenery_sheet;

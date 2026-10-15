@@ -524,3 +524,20 @@ fn on_a_fallen_runs_board_enter_asks_to_go_back_and_the_board_says_so() {
     assert_eq!(c.newest().unwrap().again.as_ref().map(|a| a.asked.len()), Some(1));
     assert_ne!(frame.px, asking, "the board counts down");
 }
+
+#[test]
+fn the_tab_sheet_shows_held_cards_totals_and_every_wish_with_its_level() {
+    let mut run = Run::new(4, 1, Some("Gawain"));
+    run.window = Some(Default::default());
+    run.grant(1, &crate::rules::phrasebook::get("fork").unwrap()).unwrap();
+    let shown = sheet(&run, 1);
+    if std::env::var_os("SHOW_SHEET").is_some() {
+        println!("{shown}");
+    }
+    assert!(shown.contains("HELD CARDS"));
+    assert!(shown.contains("fork 1"), "the totals carry the fork");
+    assert!(shown.contains("Awakened Fork      1/2"), "the wish shows its level");
+    assert!(shown.contains("Fart Bombs         0/3"));
+    assert!(shown.contains("You have wished in this room"));
+    assert!(sheet(&run, 9).is_empty(), "no knight, no sheet");
+}

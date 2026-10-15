@@ -470,6 +470,22 @@ fn the_heroes_are_the_mini_viz_knight() {
     let mut run = scene(11, RoomKind::Fight, 0);
     run.enemies.clear();
     run.projectiles.clear();
+    // Toward the viewer, at rest with nothing in hand, the arena's knight is
+    // the mini-viz's to the pixel; any other way they stand is the same
+    // hero turned, stepping or armed.
+    {
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.aim_x, hero.aim_y) = (0.0, 1.0);
+        hero.weapon = crate::rules::Weapon::Fists;
+        hero.forged = None;
+        hero.stride = 0.0;
+        hero.shielding = false;
+    }
+    assert_eq!(
+        knights::figure(&run.players[&1], 1).rgb_bytes(),
+        super::super::kit::knight().rgb_bytes(),
+        "the realm's knight at rest"
+    );
     let img = native(&run);
     let hero = &run.players[&1];
     let (x, y) = at(hero.x, hero.y);

@@ -4,12 +4,54 @@
 //! attractions: the duck booth, the half-pipe, the mine trolley. World
 //! coordinates are x right, y into the stage, z up, one unit one tile; the
 //! camera is authored per attraction and never chases. Surfaces paint as
-//! lambert-lit ramps over ordered dither in the realm's own inks — the same
-//! hand as `kit::blob` — and billboards stamp as depth-scaled sprites, so a
-//! 3D stage sits in the same night as the rest of the arena. Pure and
-//! deterministic: identical inputs, identical pixels.
+//! lambert-lit ramps in the realm's own inks, softened to many steps and
+//! falling off into black with distance (`tones`), and billboards stamp as
+//! depth-scaled sprites, so a 3D stage sits in the same night as the rest
+//! of the arena. Pure and deterministic: identical inputs, identical pixels.
 
-use super::super::ink::{bayer, vnoise, Img};
+use super::super::ink::{bayer, ink, nearest_plain, vnoise, Img, Rgb, BLACK};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+/// Steps a facet's shade is resolved to, and how many depths it fades by.
+const STEPS: usize = 24;
+const FADES: usize = 8;
+
+/// A ramp's soft tones, baked once: for each of `FADES` depths and `STEPS`
+/// shades, its two neighbouring inks mixed and dimmed toward black by
+/// distance, then put back on the realm's palette (or on the ramp's own
+/// inks, for a ramp of signal inks that mark game state). A surface steps
+/// gently down its own material into the night instead of flickering
+/// between three inks in a checker.
+fn tones(ramp: &'static [char]) -> &'static [Rgb] {
+    static TABLES: OnceLock<Mutex<HashMap<(usize, usize), &'static [Rgb]>>> = OnceLock::new();
+    let key = (ramp.as_ptr() as usize, ramp.len());
+    let tables = TABLES.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(t) = tables.lock().unwrap().get(&key) {
+        return t;
+    }
+    let inks: Vec<Rgb> = ramp.iter().map(|&c| ink(c).unwrap_or(BLACK)).collect();
+    let own: Vec<Rgb> = inks.clone();
+    let mut out = Vec::with_capacity(STEPS * FADES);
+    for fade in 0..FADES {
+        let keep = 1.0 - 0.72 * fade as f32 / (FADES - 1) as f32;
+        for step in 0..STEPS {
+            let t = step as f32 / (STEPS - 1) as f32 * (inks.len() - 1).max(1) as f32;
+            let (i, f) = ((t.floor() as usize).min(inks.len() - 1), t.fract());
+            let (a, b) = (inks[i], inks[(i + 1).min(inks.len() - 1)]);
+            let c: [f32; 3] = std::array::from_fn(|k| {
+                (f32::from(a[k]) + (f32::from(b[k]) - f32::from(a[k])) * f) * keep
+            });
+            let d = |p: Rgb| (0..3).map(|k| (f32::from(p[k]) - c[k]).powi(2)).sum::<f32>();
+            let plain = nearest_plain(c);
+            let best = own.iter().copied().fold(plain, |best, p| if d(p) < d(best) { p } else { best });
+            out.push(best);
+        }
+    }
+    let table: &'static [Rgb] = Box::leak(out.into_boxed_slice());
+    tables.lock().unwrap().insert(key, table);
+    table
+}
 
 /// The realm's stage light, matching the sprite kit's top-left sun.
 const LIGHT_DIR: [f32; 3] = [-0.5, -0.62, 0.6];
@@ -206,10 +248,12 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
             let wgt = b0 * b1 * inv[i];
             acc[0] += f.pts[i][0] * wgt;
             acc[1] += f.pts[i][1] * wgt;
-            acc[2] += f.pts[i][2] * wgt;
             acc[3] += wgt;
         }
-        [acc[0] / acc[3], acc[1] / acc[3], acc[2] / acc[3]]
+        // World x and y for the texture, and the depth along the view: the
+        // weights' sum is the interpolated inverse depth.
+        let inv_w = 1.0 / acc[3];
+        [acc[0] * inv_w, acc[1] * inv_w, inv_w]
     };
     let (mut y0, mut y1) = (i32::MAX, i32::MIN);
     for &(_, y, _) in &corners {
@@ -228,6 +272,7 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
             None
         }
     };
+    let tones = tones(f.ramp);
     for y in y0.max(0)..=y1.min(cv.h - 1) {
         let mut spans: [f32; 4] = [0.0; 4];
         let mut count = 0;
@@ -251,16 +296,15 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
                 spans[i].ceil().max(0.0) as i32,
                 spans[i + 1].floor().min(cv.w as f32 - 1.0) as i32,
             );
-            let mid_depth = (corners[0].2 + corners[2].2) * 0.5;
             for x in xa..=xb {
-                let [wx, wy, _] = world_at(x as f32 + 0.5, y as f32 + 0.5);
-                let haze = ((mid_depth - 18.0) / 34.0).clamp(0.0, 0.55);
+                let [wx, wy, depth] = world_at(x as f32 + 0.5, y as f32 + 0.5);
                 let tex = f.tex.shade(wx, wy);
-                let idx = lambert * tex * (1.0 - haze) + (bayer(x, y) - 0.5) * 0.5;
-                let ink = f.ramp[((idx * f.ramp.len() as f32).floor() as i32)
-                    .clamp(0, f.ramp.len() as i32 - 1)
-                    as usize];
-                cv.put(x, y, ink);
+                // Distance falls off into the stage's night, per pixel, so
+                // a long surface (a canopy, a floor) darkens as it recedes.
+                let fade = (((depth - 10.0) * (1.0 / 30.0)).clamp(0.0, 1.0) * (FADES - 1) as f32) as usize;
+                let shade = (lambert * tex).clamp(0.0, 1.0);
+                let step = (shade * (STEPS - 1) as f32 + 0.5) as usize;
+                cv.set(x, y, tones[fade * STEPS + step]);
             }
             i += 2;
         }
@@ -276,10 +320,12 @@ pub(super) fn shadow(cv: &mut Img, cam: &Cam, p: [f32; 3], radius: f32) {
     };
     let rx = (cam.focal * radius / z) as i32;
     let ry = (rx as f32 * 0.38) as i32;
+    // A solid core thinning out at its rim: soft, never a striped patch.
     for dy in -ry..=ry {
         for dx in -rx..=rx {
             let (fx, fy) = (dx as f32 / rx.max(1) as f32, dy as f32 / ry.max(1) as f32);
-            if fx * fx + fy * fy <= 1.0 && (dx + rx) % 2 == 0 {
+            let r = fx * fx + fy * fy;
+            if r <= 0.55 || (r <= 1.0 && bayer(x + dx, y + dy) > (r - 0.55) / 0.45) {
                 cv.put(x + dx, y + dy, 'k');
             }
         }

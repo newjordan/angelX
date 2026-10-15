@@ -6,9 +6,11 @@
 # full PTY shell pane, ^T for a braille chart, `/show` images, `/sessions` +
 # `/resume` for crash-safe session history.
 #
-# `angelX setup` connects a model (a local server, an API key or a plan login)
-# and saves it to ~/.angelX/angel.env. With nothing configured anywhere, the
-# first interactive launch runs it by itself.
+# `angelX setup` opens the cockpit on its setup menu (/setup), which connects a
+# model (a local server, an API key or a plan login) and saves it to
+# ~/.angelX/angel.env. With nothing configured anywhere, the first interactive
+# launch opens the menu by itself. `angelX setup --text` is the same thing as
+# plain questions, for a terminal the cockpit cannot draw in.
 #
 # `angelX update` refreshes the local CLI alias that points at this launcher;
 # full checkouts also refresh their optional desktop entry. A prebuilt install
@@ -23,7 +25,7 @@
 #                     this checkout's gitignored .angel.auto.env and .angel.env.
 #                     Host-level files (~/.config/host_env/api_keys.sh and the
 #                     like) load only with ANGEL_HOST_ENV=1.
-#   ANGEL_SETUP=0     never start `angelX setup` by itself
+#   ANGEL_SETUP=0     never open the setup menu by itself
 #   ANGEL_WORKSPACE   workspace directory to open. Defaults to the launch cwd.
 #   ANGEL_NO_BUILD=1  skip the rebuild and run the last-built binary as-is
 #   ANGEL_BIND_SOURCE=0
@@ -193,6 +195,14 @@ done
 [ "$DRAFT_SEEN$RESUME_SEEN" != 11 ] || _launch_invalid 'initial text cannot be combined with --resume'
 # bash 3.2 (stock macOS) treats an empty "${arr[@]}" as unbound under set -u.
 set -- ${FORWARD_ARGS[@]+"${FORWARD_ARGS[@]}"}
+# `angelX setup` is the cockpit opened on its setup menu, in the current
+# directory. `--text`, or input that is not a terminal, keeps the plain
+# questions below.
+if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" = setup ] && [ "${2:-}" != --text ] && [ -t 0 ] && [ -t 1 ]; then
+  [ "$#" -eq 1 ] || _launch_invalid 'usage: angelX setup [--text]'
+  export ANGEL_OPEN_SETUP=1
+  set --
+fi
 if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" != update ] && [ "${1:-}" != reset-terminal ] && [ "${1:-}" != setup ]; then
   # Bind interactive workspace before executable shell configuration can cd or
   # switch it. Native startup receives this canonical root through the env.
@@ -361,14 +371,12 @@ else
     ! compgen -v | grep -qE '^(ANGEL_[A-Z0-9_]+_KEY|(OPENAI|DEEPSEEK|XAI|GROK|GLM|ZAI|ZHIPU|BIGMODEL|KIMI|MOONSHOT|OPENROUTER|CEREBRAS|META|QWEN|DASHSCOPE|LONGCAT)_API_KEY)$'
   }
   if [ "${1:-}" = setup ]; then
-    [ "$#" -eq 1 ] || _die "usage: angelX setup"
+    [ "$#" -eq 1 ] || { [ "$#" -eq 2 ] && [ "$2" = --text ]; } || _die "usage: angelX setup [--text]"
     exec bash "$ANGEL_DIR/scripts/runtime/angel-setup.sh"
   fi
+  # Nothing names a model yet: the cockpit opens on its setup menu.
   if _angel_needs_setup; then
-    bash "$ANGEL_DIR/scripts/runtime/angel-setup.sh" --first-run || exit $?
-    for envf in "${ANGEL_ENV_FILES[@]}"; do
-      _angel_source_env "$envf"
-    done
+    export ANGEL_OPEN_SETUP=1
   fi
   # Shared credential/default files must not switch the user's working project.
   # An explicit caller export and --workspace remain supported; machine runner

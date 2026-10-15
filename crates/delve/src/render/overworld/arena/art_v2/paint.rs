@@ -240,6 +240,36 @@ impl Canvas {
             }
         }
     }
+    /// Combat emission only. The kernel is baked per colour/radius/power;
+    /// the frame adds integer samples, leaving the danger core untouched.
+    pub fn effect_glow(&mut self, p: Point) {
+        type Kernel = Vec<(i32, i32, Rgb)>;
+        type Key = (i32, Rgb, u32);
+        static CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::BTreeMap<Key, std::sync::Arc<Kernel>>>> = std::sync::OnceLock::new();
+        let r = (p.radius * 2.0).round() as i32;
+        let key = (r, p.colour, p.power.to_bits());
+        let kernel = CACHE.get_or_init(Default::default).lock().unwrap().entry(key).or_insert_with(|| {
+            let mut dots = Vec::new();
+            for y in -r..r { for x in -r..r {
+                let d = ((x as f32 + 0.5).powi(2) + (y as f32 + 0.5).powi(2)) / (r*r).max(1) as f32;
+                let broad = (1.0-d).max(0.0);
+                let core = (1.0-d*9.0).max(0.0);
+                let a = (broad*broad*0.55 + core*core*0.40)*p.power;
+                let c = std::array::from_fn(|k| (p.colour[k] as f32 * a) as u8);
+                if c != [0;3] { dots.push((x,y,c)); }
+            }}
+            std::sync::Arc::new(dots)
+        }).clone();
+        let cx = ((p.x-self.origin.0)*2.0).round() as i32;
+        let cy = ((p.y-self.origin.1)*2.0).round() as i32;
+        for &(dx,dy,c) in kernel.iter() {
+            let (x,y) = (cx+dx,cy+dy);
+            if x>=0 && y>=0 && x<self.w as i32 && y<self.h as i32 {
+                let i=y as usize*self.w+x as usize;
+                for k in 0..3 { self.fx[i][k]=self.fx[i][k].saturating_add(c[k]).min(226); }
+            }
+        }
+    }
     pub fn shaft(
         &mut self,
         top: (f32, f32),

@@ -136,8 +136,14 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
         AgentKey::Inkling,
         AgentKey::Laguna,
         AgentKey::North,
+        AgentKey::Daybreak,
     ] {
-        let path = root.join(sheet(key));
+        // A seat without its knight yet wears stills; every named sheet
+        // must exist and decode.
+        let Some(sheet) = sheet(key) else {
+            continue;
+        };
+        let path = root.join(sheet);
         let mut signatures = std::collections::HashSet::new();
         if is_pixel_sheet(&path) {
             // Pixel sheets share one canvas for all eight poses, each hard
@@ -221,4 +227,39 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
         );
         assert!(frame_image(&path, 8).is_err());
     }
+}
+
+#[test]
+fn registered_frames_keep_their_feet_where_they_were_drawn() {
+    // Two poses on one ground line: a short one, and a tall one reaching right.
+    let mut short = image::RgbaImage::new(400, 400);
+    let mut tall = image::RgbaImage::new(400, 400);
+    for y in 300..380 {
+        for x in 100..140 {
+            short.put_pixel(x, y, image::Rgba([200, 180, 150, 255]));
+        }
+    }
+    for y in 200..380 {
+        for x in 100..220 {
+            tall.put_pixel(x, y, image::Rgba([200, 180, 150, 255]));
+        }
+    }
+    let frames = anchor_registered_frames(&[short, tall]);
+    // One crop and one scale for both: the union is 120 x 180, scaled to 512 tall.
+    assert_eq!(frames[0].dimensions(), frames[1].dimensions());
+    assert_eq!(frames[0].height(), 512);
+    let bottom_left = |f: &image::RgbaImage| {
+        let (w, h) = f.dimensions();
+        (0..w)
+            .find(|&x| f.get_pixel(x, h - 1)[3] > 0)
+            .expect("feet on the bottom row")
+    };
+    // The feet start at the same column in both poses.
+    assert_eq!(bottom_left(&frames[0]), bottom_left(&frames[1]));
+    assert!(is_registered_sheet(std::path::Path::new(
+        "cockpit/assets/onboarding/setup/guide.png"
+    )));
+    assert!(!is_registered_sheet(std::path::Path::new(
+        "assets/realm/avatars/round-table/sheet/sol.png"
+    )));
 }

@@ -6,7 +6,7 @@
 //! streams run downhill, falls pour and lava creeps, one pixel per ambient
 //! step. Every mark is a pure function of the world pixel and that step.
 
-use super::ink::{bayer, hash, vnoise};
+use super::ink::{hash, vnoise};
 use super::map::{Realm, TILE};
 
 fn road_like(t: u8) -> bool {
@@ -133,13 +133,27 @@ fn bed(
     if edge {
         return (!hash(wx, wy, 16).is_multiple_of(3)).then_some('I');
     }
-    // A pebbled bed: sparse, warm, low.
-    match hash(wx, wy, 15) % 64 {
-        0..=5 => Some('P'),
-        6..=7 => Some('r'),
-        8 => Some('o'),
-        _ => ((wx + wy) % 2 == 0 && bayer(wx, wy) < 0.18).then_some('b'),
+    // A pebbled bed: small stones in loose clusters, each lit along its top
+    // over a darker body and a shadowed foot, and patches of trodden dust
+    // between them; never an even speckle.
+    let (cx, cy) = (wx.div_euclid(5), wy.div_euclid(4));
+    let (px, py) = (wx.rem_euclid(5), wy.rem_euclid(4));
+    let h = hash(cx, cy, 15);
+    if h % 5 < 3 {
+        let (ox, oy) = (((h >> 4) % 3) as i32, ((h >> 7) % 2) as i32);
+        let bright = (h >> 9).is_multiple_of(4);
+        if py == oy && (px == ox || px == ox + 1) {
+            return Some(if bright && px == ox { 'o' } else { 'r' });
+        }
+        if py == oy + 1 && (px == ox || px == ox + 1) {
+            return Some('P');
+        }
+        if py == oy + 1 && px == ox + 2 {
+            return Some('b');
+        }
     }
+    let dust = vnoise(wx as f32 / 7.0, wy as f32 / 5.0, 19);
+    (dust > 0.62 && hash(wx, wy, 18) % 3 == 0).then_some('b')
 }
 
 pub fn cobble(wx: i32, wy: i32) -> Option<char> {
@@ -162,21 +176,36 @@ pub fn cobble(wx: i32, wy: i32) -> Option<char> {
     })
 }
 
-/// Still water: a pale shoreline and wave dashes drifting east.
+/// Still water: a pale shoreline and wave dashes drifting east. The bank
+/// wanders in long bends and every outer corner of a lake is worn round,
+/// so no water is cut in straight runs and right angles.
 fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
-    let land = |x: i32, y: i32| !matches!(realm.at_px(x, y), b'~' | b'w' | b'f');
-    let mut shore = i32::MAX;
-    for k in 1..=4 {
-        if land(wx - k, wy) || land(wx + k, wy) || land(wx, wy - k) || land(wx, wy + k) {
-            shore = k;
-            break;
+    let wet = |x: i32, y: i32| matches!(realm.at(x, y), b'~' | b'w' | b'f');
+    let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
+    let mut mask = 0usize;
+    for (i, (dx, dy)) in NEIGHBOURS.iter().enumerate() {
+        if !wet(tx + dx, ty + dy) {
+            mask |= 1 << i;
         }
     }
-    let wobble = (hash(wx / 3, wy / 3, 5) % 2) as i32;
-    match shore.saturating_sub(wobble) {
-        i32::MIN..=1 => return Some('Q'),
-        2 => return ((wx + wy) % 2 == 0).then_some('q'),
-        _ => {}
+    let (lx, ly) = (wx.rem_euclid(TILE), wy.rem_euclid(TILE));
+    let depth = bank_table(mask)[(ly * TILE + lx) as usize] as f32;
+    if depth == 0.0 {
+        return None;
+    }
+    if depth < 8.0 {
+        // Smooth noise keeps near its middle: stretched, so the bank bends.
+        let n = ((vnoise(wx as f32 / 12.0, wy as f32 / 12.0, 6) - 0.5) * 3.0).clamp(-1.0, 1.0);
+        let s = depth - 1.0 - (1.4 + n * 1.4);
+        if s < 0.0 {
+            return None;
+        }
+        if s < 1.0 {
+            return Some('Q');
+        }
+        if s < 2.0 {
+            return Some('q');
+        }
     }
     let dx = wx - t / 2;
     let (cx, cy) = (dx.div_euclid(9), wy.div_euclid(6));
@@ -191,6 +220,63 @@ fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
     None
 }
 
+/// A water tile's eight neighbours, the bit order of `bank_table`'s mask.
+const NEIGHBOURS: [(i32, i32); 8] = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)];
+
+/// How deep each pixel of a water tile lies from its bank, in pixels (0 on
+/// the dry ground a worn corner leaves), for the tile's dry neighbours
+/// `mask` (one bit per `NEIGHBOURS` entry). The banks are measured over the
+/// three by three tiles round it, and every outer corner is worn to a
+/// round: what lies a radius from every bank, grown back out by the
+/// radius. Worked out once per pattern of neighbours.
+fn bank_table(mask: usize) -> &'static [u8] {
+    static TABLES: [std::sync::OnceLock<Vec<u8>>; 256] = [const { std::sync::OnceLock::new() }; 256];
+    TABLES[mask & 255].get_or_init(|| {
+        let n = 3 * TILE;
+        let far = u32::MAX / 4;
+        let dry = |x: i32, y: i32| {
+            let (cx, cy) = (x.div_euclid(TILE) - 1, y.div_euclid(TILE) - 1);
+            NEIGHBOURS.iter().position(|&d| d == (cx, cy)).is_some_and(|i| mask & (1 << i) != 0)
+        };
+        let at = |x: i32, y: i32| (y * n + x) as usize;
+        let chamfer = |d: &mut Vec<u32>| {
+            for y in 0..n {
+                for x in 0..n {
+                    for (dx, dy, k) in [(-1, 0, 3), (0, -1, 3), (-1, -1, 4), (1, -1, 4)] {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if nx >= 0 && ny >= 0 && nx < n {
+                            d[at(x, y)] = d[at(x, y)].min(d[at(nx, ny)].saturating_add(k));
+                        }
+                    }
+                }
+            }
+            for y in (0..n).rev() {
+                for x in (0..n).rev() {
+                    for (dx, dy, k) in [(1, 0, 3), (0, 1, 3), (1, 1, 4), (-1, 1, 4)] {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if nx >= 0 && nx < n && ny < n {
+                            d[at(x, y)] = d[at(x, y)].min(d[at(nx, ny)].saturating_add(k));
+                        }
+                    }
+                }
+            }
+        };
+        let mut d: Vec<u32> = (0..n * n).map(|i| if dry(i % n, i / n) { 0 } else { far }).collect();
+        chamfer(&mut d);
+        let round = 5.0;
+        let mut core: Vec<u32> = d.iter().map(|&v| if v as f32 / 3.0 >= round { 0 } else { far }).collect();
+        chamfer(&mut core);
+        (0..TILE * TILE)
+            .map(|i| {
+                let i = at(TILE + i % TILE, TILE + i / TILE);
+                let along = core[i] as f32 / 3.0;
+                let depth = if core[i] == 0 { d[i] as f32 / 3.0 } else if along <= round { round - along } else { 0.0 };
+                if depth <= 0.0 { 0 } else { depth.ceil().min(15.0) as u8 }
+            })
+            .collect()
+    })
+}
+
 pub fn sand(wx: i32, wy: i32) -> Option<char> {
     match hash(wx, wy, 23) % 9 {
         0 => Some('P'),
@@ -199,32 +285,53 @@ pub fn sand(wx: i32, wy: i32) -> Option<char> {
     }
 }
 
+/// Bog: standing pools with a dark rim and short ripples on them, and
+/// rushes in small clumps between, never a hatch or a speckle.
 fn swamp(wx: i32, wy: i32) -> Option<char> {
     let n = vnoise(wx as f32 / 9.0, wy as f32 / 7.0, 29);
-    if n > 0.62 {
-        return if n > 0.70 {
-            ((wx + wy) % 3 == 0).then_some('q')
-        } else {
-            Some('x')
-        };
+    if n > 0.64 {
+        // A pool of dark standing water, a short ripple on it here and there.
+        let (cx, cy) = (wx.div_euclid(7), wy.div_euclid(4));
+        let h = hash(cx, cy, 30);
+        let (ox, oy) = (((h >> 4) % 4) as i32, ((h >> 7) % 4) as i32);
+        let (lx, ly) = (wx.rem_euclid(7), wy.rem_euclid(4));
+        let ripple = n > 0.68 && h % 3 == 0 && ly == oy && lx >= ox && lx < ox + 3;
+        return Some(if ripple { 'q' } else { 'x' });
     }
-    match hash(wx, wy, 31) % 11 {
-        0 => Some('e'),
-        1 => Some('E'),
-        2 if wy % 3 == 0 => Some('N'),
+    // A clump of rushes: two or three stems, dark at the foot, lit at the tip.
+    let (cx, cy) = (wx.div_euclid(6), wy.div_euclid(5));
+    let h = hash(cx, cy, 31);
+    if h % 3 != 0 {
+        return None;
+    }
+    let (ox, oy) = (1 + ((h >> 4) % 3) as i32, ((h >> 6) % 2) as i32);
+    let (lx, ly) = (wx.rem_euclid(6), wy.rem_euclid(5));
+    let stem = lx == ox || (lx == ox + 2 && (h >> 8) % 2 == 0);
+    match ly - oy {
+        0 if stem => Some(if (h >> 9) % 3 == 0 { 'N' } else { 'e' }),
+        1 | 2 if stem => Some('E'),
         _ => None,
     }
 }
 
+/// A sown field: rows of young plants five pixels apart, each plant a small
+/// tuft lit on its top and set a little off the plants beside it, a gap
+/// here and there, dark furrows between the rows. Never a run of stripes.
 fn crops(wx: i32, wy: i32) -> Option<char> {
-    match wy.rem_euclid(4) {
-        0 => Some(if hash(wx, wy, 33).is_multiple_of(3) {
-            'L'
-        } else {
-            'l'
-        }),
-        1 => (wx % 2 == 0).then_some('E'),
-        _ => (hash(wx, wy, 34).is_multiple_of(13)).then_some('I'),
+    let (row, ly) = (wy.div_euclid(5), wy.rem_euclid(5));
+    let along = wx + row * 2;
+    let (cx, lx) = (along.div_euclid(4), along.rem_euclid(4));
+    let h = hash(cx, row, 33);
+    if h % 7 == 0 {
+        return None;
+    }
+    let ox = ((h >> 4) % 2) as i32;
+    match (lx - ox, ly) {
+        (0, 1) => Some(if (h >> 8) % 3 == 0 { 'L' } else { 'l' }),
+        (1, 1) if (h >> 10) % 2 == 0 => Some('l'),
+        (0, 2) | (1, 2) => Some('E'),
+        (0, 3) if (h >> 12) % 3 == 0 => Some('F'),
+        _ => None,
     }
 }
 

@@ -49,6 +49,54 @@ impl Tex {
         Tex { w, h, px }
     }
 
+    /// Soften a repeating environment surface once at kit load. Only the
+    /// crawl's wall/floor/vault cache calls this; billboards and decals retain
+    /// their exact sprite pixels and coverage. Live sampling is unchanged.
+    pub(crate) fn soft_surface(mut self) -> Self {
+        for _ in 0..2 {
+            let source = self.px.clone();
+            for y in 0..self.h {
+                for x in 0..self.w {
+                    let Some(center) = source[y * self.w + x] else {
+                        continue;
+                    };
+                    let neighbors = [
+                        source[y * self.w + (x + self.w - 1) % self.w],
+                        source[y * self.w + (x + 1) % self.w],
+                        source[((y + self.h - 1) % self.h) * self.w + x],
+                        source[((y + 1) % self.h) * self.w + x],
+                    ];
+                    let weight = 4 + neighbors.iter().flatten().count() as u32;
+                    self.px[y * self.w + x] = Some(std::array::from_fn(|k| {
+                        let sum = u32::from(center[k]) * 4
+                            + neighbors
+                                .iter()
+                                .flatten()
+                                .map(|c| u32::from(c[k]))
+                                .sum::<u32>();
+                        ((sum + weight / 2) / weight) as u8
+                    }));
+                }
+            }
+        }
+        self
+    }
+
+    /// Ease the material around an authored detail, then restore that detail
+    /// from the source. The mask is resolved once when the kit is cached.
+    pub(crate) fn soft_surface_with_details(self, keep: impl Fn(usize, usize) -> bool) -> Self {
+        let source = self.clone();
+        let mut out = self.soft_surface();
+        for y in 0..out.h {
+            for x in 0..out.w {
+                if keep(x, y) {
+                    out.px[y * out.w + x] = source.px[y * out.w + x];
+                }
+            }
+        }
+        out
+    }
+
     /// The texel at `(u, v)` in 0..1, wrapping.
     pub(crate) fn at(&self, u: f32, v: f32) -> Option<[u8; 3]> {
         let x = ((u.rem_euclid(1.0) * self.w as f32) as usize).min(self.w - 1);
@@ -167,10 +215,10 @@ fn lit(c: [u8; 3], d: f32, (x, y): (f32, f32), torch: Torch) -> [u8; 3] {
         let g = (x - sx).hypot(y - sy);
         fall += 0.5 / (1.0 + g * g / (SCONCE_REACH * SCONCE_REACH) * 4.0);
     }
-    let fall = fall.clamp(0.0, 1.25);
+    let fall = fall.clamp(0.0, 1.05);
     // Near is warm firelight; far cools to the dark.
     let warm = (1.0 - d / (torch.reach * 1.6)).clamp(0.0, 1.0);
-    let tint = [1.0, 0.86 + 0.06 * (1.0 - warm), 0.70 + 0.18 * (1.0 - warm)];
+    let tint = [0.96 + 0.04 * warm, 0.93, 0.84 + 0.16 * (1.0 - warm)];
     [
         (c[0] as f32 * fall * tint[0]).min(255.0) as u8,
         (c[1] as f32 * fall * tint[1]).min(255.0) as u8,

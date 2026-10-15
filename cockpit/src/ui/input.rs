@@ -246,7 +246,8 @@ impl ParsedInput {
                 }),
                 "mention" | "compact" | "fork" | "archive" | "delete" | "import" | "btw" | "cd"
                 | "workspace" => true,
-                _ => false,
+                // A cartridge command sends a turn.
+                other => cartridge_command(other).is_some(),
             },
             // `/self` re-roots the tool sandbox (start) or rewrites git state
             // (integrate/discard); only its status form is a local read.
@@ -353,6 +354,7 @@ const CODEX_CMDS: &[&str] = &[
     "still",
     "trace",
     "connect",
+    "setup",
 ];
 
 const DEDICATED_CMDS: &[&str] = &[
@@ -408,6 +410,18 @@ const DEDICATED_CMDS: &[&str] = &[
     "undo",
 ];
 
+/// The plugged-in cartridge command `/<word>` runs; a built-in of the same
+/// name wins, so the cartridge's is never reached.
+pub(crate) fn cartridge_command(
+    word: &str,
+) -> Option<&'static crate::agent::harness::cartridges::config::Command> {
+    let builtin = |name: &&str| name.eq_ignore_ascii_case(word);
+    if DEDICATED_CMDS.iter().any(builtin) || CODEX_CMDS.iter().any(builtin) {
+        return None;
+    }
+    crate::agent::harness::cartridges::command(word).map(|(_, command)| command)
+}
+
 /// Deterministic local candidates for a slash word. Arguments are deliberately
 /// excluded: once whitespace appears the operator is composing command input,
 /// not completing a command name.
@@ -422,6 +436,11 @@ pub(crate) fn slash_command_matches(prefix: &str) -> Vec<&'static str> {
         .iter()
         .chain(CODEX_CMDS)
         .copied()
+        .chain(
+            crate::agent::harness::cartridges::commands()
+                .map(|c| c.name.as_str())
+                .filter(|name| cartridge_command(name).is_some()),
+        )
         .filter(|name| name.starts_with(word))
         .collect::<Vec<_>>();
     matches.sort_unstable();
@@ -471,12 +490,15 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "library" | "tutor" => " [topic] · alias for /learn",
         "ask" => " opens an editable tutor question; /ask <question> asks directly",
         "model" => " [filter|exact@effort|auto]",
-        "connect" => " [grok|openai|glm|deepseek|openrouter|local]",
+        "connect" => " [grok|openai|daybreak|glm|deepseek|openrouter|local]",
+        "setup" => " · a menu that connects a model step by step",
         "think" | "thinking" | "effort" => " [filter]",
         "world" => " [visit artisans|colosseum|tournament|follow|help]",
         "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
         "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
-        "dungeon_host" => " --N [--view]  (N friends, up to 3: one invite line each; --view: read-only browser view)",
+        "dungeon_host" => {
+            " --N [--view]  (N friends, up to 3: one invite line each; --view: read-only browser view)"
+        }
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
         "memories" => " [add <t>|forget <n>|clear]",
         "refine" => " [status|add …|del|rollback|seed-light]",
@@ -515,6 +537,14 @@ pub(crate) fn slash_inline_hint(input: &str, cursor: usize) -> Option<SlashInlin
         if let Some(usage) = slash_usage_ghost(typed) {
             return Some(SlashInlineHint {
                 suffix: usage.to_string(),
+                alternates: String::new(),
+            });
+        }
+        if let Some(command) = cartridge_command(typed)
+            && !command.usage.is_empty()
+        {
+            return Some(SlashInlineHint {
+                suffix: format!(" {}", command.usage),
                 alternates: String::new(),
             });
         }
@@ -798,6 +828,18 @@ pub fn parse(raw: &str) -> Result<ParsedInput, String> {
                 .map(str::to_string);
             return Ok(ParsedInput::Cmd {
                 name: word.to_string(),
+                arg,
+            });
+        }
+        // A plugged-in cartridge's command, after every built-in.
+        if let Some(command) = cartridge_command(word) {
+            let arg = it
+                .next()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            return Ok(ParsedInput::Cmd {
+                name: command.name.clone(),
                 arg,
             });
         }

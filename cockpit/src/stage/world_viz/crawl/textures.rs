@@ -83,25 +83,61 @@ pub(crate) fn faces() -> &'static Faces {
     FACES.get_or_init(|| Faces {
         walls: WALLS
             .iter()
-            .map(|wall| match wall {
-                Wall::Stone => face(|im| m::blocks(im, (0, 0, 32, 32), BRAILLE_STONE, (12, 8), 11)),
-                Wall::Crypt => lifted(tex("wall_crypt", crypt)),
-                Wall::Mine => face(mine_face),
-                Wall::Keep => face(|im| {
-                    m::blocks(im, (0, 0, 32, 32), &['k', 'b', 'B', 'p', 'R', 'r', 'o'], (10, 6), 12);
-                    for (x, y) in [(5, 9), (6, 10), (22, 21), (23, 22), (23, 23)] {
-                        im.put(x, y, '7');
+            .map(|wall| {
+                let surface = match wall {
+                    Wall::Stone => {
+                        face(|im| m::blocks(im, (0, 0, 32, 32), BRAILLE_STONE, (12, 8), 11))
                     }
-                }),
-                Wall::Archive => lifted(tex("wall_archive", shelf)),
-                Wall::Fungal => face(fungal_face),
-                Wall::Unknown => lifted(tex("wall_unknown", unknown)),
-                Wall::Pillar => face(|im| m::blocks(im, (0, 0, 32, 32), BRAILLE_STONE, (16, 6), 13)),
-                Wall::Shelf => lifted(tex("shelf", shelf)),
-                Wall::Door => lifted(tex("door", door)),
+                    Wall::Crypt => lifted(tex("wall_crypt", crypt)),
+                    Wall::Mine => face(mine_face),
+                    Wall::Keep => face(|im| {
+                        m::blocks(
+                            im,
+                            (0, 0, 32, 32),
+                            &['k', 'b', 'B', 'p', 'R', 'r', 'o'],
+                            (10, 6),
+                            12,
+                        );
+                        for (x, y) in [(5, 9), (6, 10), (22, 21), (23, 22), (23, 23)] {
+                            im.put(x, y, '7');
+                        }
+                    }),
+                    Wall::Archive => lifted(tex("wall_archive", shelf)),
+                    Wall::Fungal => face(fungal_face),
+                    Wall::Unknown => lifted(tex("wall_unknown", unknown)),
+                    Wall::Pillar => {
+                        face(|im| m::blocks(im, (0, 0, 32, 32), BRAILLE_STONE, (16, 6), 13))
+                    }
+                    Wall::Shelf => lifted(tex("shelf", shelf)),
+                    Wall::Door => lifted(tex("door", door)),
+                };
+                // These textures contain drawn objects and authored marks.
+                // Keep book spines, niches, timber frames and door bands sharp.
+                match wall {
+                    Wall::Archive | Wall::Shelf | Wall::Door | Wall::Unknown => surface,
+                    Wall::Mine => surface.soft_surface_with_details(|x, y| {
+                        y <= 5 || x <= 6 || x >= 25
+                    }),
+                    Wall::Crypt => surface.soft_surface_with_details(|x, y| {
+                        (6..26).contains(&x) && (6..28).contains(&y)
+                    }),
+                    Wall::Fungal => surface.soft_surface_with_details(|x, y| {
+                        (11..19).contains(&x) && (23..29).contains(&y)
+                    }),
+                    _ => surface.soft_surface(),
+                }
             })
             .collect(),
-        floor: face(|im| m::blocks(im, (0, 0, 32, 32), &['k', 'X', 'g', 'j', 'G', 'J'], (16, 16), 14)),
+        floor: face(|im| {
+            m::blocks(
+                im,
+                (0, 0, 32, 32),
+                &['k', 'X', 'g', 'j', 'G', 'J'],
+                (16, 16),
+                14,
+            )
+        })
+        .soft_surface(),
         water: tex("water", water),
         lava: tex("lava", lava),
         stairs: tex("stairs", stairs),
@@ -115,7 +151,8 @@ pub(crate) fn faces() -> &'static Faces {
                     im.put(x, y, if rib || near { 'j' } else { 'k' });
                 }
             }
-        }),
+        })
+        .soft_surface(),
     })
 }
 
@@ -246,6 +283,25 @@ fn shelf() -> Vec<String> {
     })
 }
 
+#[cfg(test)]
+#[test]
+fn cached_shelves_keep_the_authored_book_spines_and_shelf_edges() {
+    let source = lifted(tex("shelf", shelf));
+    let cached = &faces().walls[WALLS.iter().position(|&w| w == Wall::Shelf).unwrap()];
+    for y in 0..source.h {
+        for x in 0..source.w {
+            let (u, v) = (
+                (x as f32 + 0.5) / source.w as f32,
+                (y as f32 + 0.5) / source.h as f32,
+            );
+            assert_eq!(
+                cached.at(u, v),
+                source.at(u, v),
+                "book detail {x},{y} was blurred"
+            );
+        }
+    }
+}
 
 /// Black, crossed by a pale lattice, one eye.
 fn unknown() -> Vec<String> {

@@ -160,28 +160,13 @@ pub fn draw(
         }
     }
 
-    // Stone frame, bevelled, on a black mat.
-    f.rect(x, y, ww, wh, 'k');
-    for i in 1..BORDER {
-        f.frame(
-            x + i - 1,
-            y + i - 1,
-            ww - 2 * (i - 1),
-            wh - 2 * (i - 1),
-            if i == 1 { 'u' } else { 'S' },
-        );
-    }
-    for (cx, cy) in [
-        (x, y),
-        (x + ww - 2, y),
-        (x, y + wh - 2),
-        (x + ww - 2, y + wh - 2),
-    ] {
-        f.rect(cx, cy, 2, 2, 'o');
-    }
-    // Title bar.
+    // A rounded steel frame and a slate line inside it on a black mat
+    // (`chrome`), a brass stud in each corner, a shadow on the map.
+    super::chrome::panel(f, (x, y, ww, wh), super::chrome::Tone::GLASS);
+    super::chrome::studs(f, (x, y, ww, wh), 'o');
+    // Title bar: slate falling to night.
     let bar_y = y + BORDER;
-    f.rect(x + BORDER, bar_y, GLASS_W, TITLE_H - 1, 'K');
+    super::chrome::chip(f, (x + BORDER, bar_y, GLASS_W, TITLE_H - 1));
     let room = ((GLASS_W - 10) / 6).max(0) as usize;
     let title: String = glass.title.to_uppercase().chars().take(room).collect();
     f.text(x + BORDER + 3, bar_y + 1, &title, '9');

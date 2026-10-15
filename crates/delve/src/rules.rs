@@ -547,7 +547,18 @@ pub struct ShotTraits {
     /// Foes this rail has passed through; each may be struck only once.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pierced: Vec<u32>,
+    /// Forks it has left: stopping on a monster, it splits in two (`fork`).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub fork: u8,
+    /// Fart Bombs: what it hits gets a cloud (`skills::fart_hits`).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub fart: u8,
 }
+
+/// A forked shot's turn off its parent's line, each way (radians), and the
+/// least it flies on for.
+const FORK_TURN: f32 = 0.6;
+const FORK_TTL: u32 = HZ;
 
 fn zero(n: &u32) -> bool {
     *n == 0
@@ -565,6 +576,8 @@ impl ShotTraits {
             chain: bonus.chain.min(8) as u8,
             mend: bonus.mend.min(16) as u8,
             burst: bonus.burst.min(100) as u8,
+            fork: bonus.fork.min(3) as u8,
+            fart: bonus.fart.min(3) as u8,
             ..ShotTraits::default()
         }
     }
@@ -3243,6 +3256,8 @@ impl Run {
             .collect();
         let mut chains: Vec<(u32, f32, f32, u32, u8, u8)> = Vec::new();
         let mut bursts: Vec<(u32, f32, f32, u32, u8)> = Vec::new();
+        // Where Fart Bombs hit this tick: the spot, the knight, how strong.
+        let mut farts: Vec<(f32, f32, u8, u8)> = Vec::new();
         // Each knight whose shot mends hit something this tick, and by how
         // much: a tick's hits mend once, however many they were.
         let mut mends: BTreeMap<u8, u32> = BTreeMap::new();
@@ -3705,7 +3720,28 @@ impl Run {
                             let mend = mends.entry(bullet.traits.owner).or_default();
                             *mend = (*mend).max(u32::from(bullet.traits.mend));
                         }
+                        if bullet.traits.fart > 0 && bullet.traits.owner > 0 {
+                            farts.push((enemy.x, enemy.y, bullet.traits.owner, bullet.traits.fart));
+                        }
                         if bullet.pierce == 0 {
+                            // Fork: where it stops, two fly on at an angle,
+                            // past the one it struck, as new shots.
+                            if bullet.traits.fork > 0 && bullet.traits.back == 0 {
+                                for turn in [-FORK_TURN, FORK_TURN] {
+                                    let (c, s) = (turn.cos(), turn.sin());
+                                    let mut child = bullet.clone();
+                                    (child.vx, child.vy) = (
+                                        bullet.vx * c - bullet.vy * s,
+                                        bullet.vx * s + bullet.vy * c,
+                                    );
+                                    (child.x, child.y) = (enemy.x, enemy.y);
+                                    child.ttl = bullet.ttl.max(FORK_TTL);
+                                    child.last_hit = Some(enemy.id);
+                                    child.traits.fork -= 1;
+                                    child.traits.struck = 0;
+                                    splits.push(child);
+                                }
+                            }
                             bullet.ttl = 0;
                         } else {
                             bullet.pierce -= 1;
@@ -3798,6 +3834,7 @@ impl Run {
         self.tick_snibbet();
         self.small_secrets(&booms, &draughts);
         self.spark(chains);
+        self.fart_hits(farts);
         for (hit, x, y, damage, owner) in bursts {
             let struck = aoe::strike(&mut self.enemies, (x, y), damage, |e| {
                 e.id != hit && (e.x - x).hypot(e.y - y) <= BURST_REACH + e.radius()

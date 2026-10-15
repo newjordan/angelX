@@ -47,6 +47,9 @@ pub(crate) fn connection_label(choice: &crate::agent::club::RouteChoice) -> Stri
     if choice.driver == "openai" {
         return "ChatGPT".to_string();
     }
+    if choice.driver == "daybreak" {
+        return "ChatGPT / Daybreak".to_string();
+    }
     if choice.agent == choice.driver || choice.agent == "sota" {
         choice.driver.clone()
     } else {

@@ -51,6 +51,9 @@ pub(crate) enum BodySize {
 pub(crate) struct SizedReader<'a> {
     pub size: BodySize,
     pub reader: Box<dyn Read + 'a>,
+    /// The body's bytes when they can be sent again (a byte-slice or empty
+    /// payload), for a resend after a recycled connection was found dead.
+    pub replay: Option<&'a [u8]>,
 }
 
 impl fmt::Debug for SizedReader<'_> {
@@ -61,14 +64,30 @@ impl fmt::Debug for SizedReader<'_> {
 
 impl<'a> SizedReader<'a> {
     fn new(size: BodySize, reader: Box<dyn Read + 'a>) -> Self {
-        SizedReader { size, reader }
+        SizedReader {
+            size,
+            reader,
+            replay: None,
+        }
+    }
+
+    /// The same body again, from its replayable bytes.
+    pub(crate) fn replayed(bytes: &'a [u8]) -> Self {
+        SizedReader {
+            size: BodySize::Known(bytes.len() as u64),
+            reader: Box::new(Cursor::new(bytes)),
+            replay: Some(bytes),
+        }
     }
 }
 
 impl<'a> Payload<'a> {
     pub fn into_read(self) -> SizedReader<'a> {
         match self {
-            Payload::Empty => SizedReader::new(BodySize::Empty, Box::new(empty())),
+            Payload::Empty => SizedReader {
+                replay: Some(&[]),
+                ..SizedReader::new(BodySize::Empty, Box::new(empty()))
+            },
             Payload::Text(text, _charset) => {
                 #[cfg(feature = "charset")]
                 let bytes = {
@@ -84,11 +103,7 @@ impl<'a> Payload<'a> {
                 SizedReader::new(BodySize::Known(len as u64), Box::new(cursor))
             }
             Payload::Reader(read) => SizedReader::new(BodySize::Unknown, read),
-            Payload::Bytes(bytes) => {
-                let len = bytes.len();
-                let cursor = Cursor::new(bytes);
-                SizedReader::new(BodySize::Known(len as u64), Box::new(cursor))
-            }
+            Payload::Bytes(bytes) => SizedReader::replayed(bytes),
         }
     }
 }

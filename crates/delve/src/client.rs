@@ -52,7 +52,7 @@ use angel_net::knob::{Knob, Side};
 use angel_net::proto::Welcome;
 use std::collections::{BTreeMap, VecDeque};
 
-/// Ticks kept: the interpolation delay (100 ms is three ticks) and room for
+/// Ticks kept: the interpolation delay (50 ms is a tick and a half) and room for
 /// snapshots that bunch up on the way.
 const KEEP: usize = 8;
 /// A stick leaning past this much (of 127) counts as that way: the rules
@@ -89,7 +89,10 @@ const VOTES_QUEUED: usize = 64;
 /// the d-pad walks; with LT held the face buttons and RB are the skills and
 /// the d-pad the four spells. The right stick aims and fires.
 pub const CONTROLS: &str = concat!(
-    r#"{"stick":"left","aim":"right","buttons":["#,
+    r#"{"stick":"left","aim":"right","#,
+    r#""text":{"key":"KeyT","kind":2,"field":"words","hint":"Your wish, then Enter"},"#,
+    r#""sheet":{"key":"Tab"},"#,
+    r#""buttons":["#,
     r#"{"id":"fire","label":"F","bit":16},"#,
     r#"{"id":"use","label":"E","bit":32},"#,
     r#"{"id":"dash","label":"Dash","bit":1024},"#,
@@ -759,6 +762,107 @@ impl GameClient for DelveClient {
     fn own_at(&self) -> Option<(f32, f32)> {
         self.drawn_px
     }
+
+    fn sheet(&self) -> String {
+        match (self.knight, self.kept.back()) {
+            (Some(knight), Some(kept)) => sheet(&kept.run, knight),
+            _ => String::new(),
+        }
+    }
+}
+
+/// The card screen a page shows on Tab: the knight's arm, held cards, hand
+/// and spells, what they add up to, whether a wish is open, and the wishes
+/// the scroll knows, each with how far up its ladder this knight is.
+pub fn sheet(run: &Run, knight: u32) -> String {
+    use std::fmt::Write;
+    let Some(hero) = run.players.get(&knight) else {
+        return String::new();
+    };
+    let name = |id: &str| run.book.get(id).map_or_else(|| id.to_string(), |c| c.name.clone());
+    let rules = |id: &str| {
+        run.book.get(id).map_or_else(String::new, |c| {
+            c.effects.iter().map(|e| e.label()).collect::<Vec<_>>().join(", ")
+        })
+    };
+    let mut out = String::new();
+    let _ = writeln!(out, "{}   health {}/{}", hero.name, hero.hp, hero.max_hp);
+    let arm = hero.arm.as_deref().map_or_else(|| format!("{:?}", hero.weapon), name);
+    let _ = writeln!(out, "Weapon  {arm}");
+    let _ = writeln!(out, "\nHELD CARDS");
+    if hero.deck.is_empty() {
+        out.push_str("  none yet: walk over a card to take it\n");
+    }
+    let mut held: BTreeMap<&str, usize> = BTreeMap::new();
+    for id in &hero.deck {
+        *held.entry(id.as_str()).or_default() += 1;
+    }
+    for (id, n) in held {
+        let copies = if n > 1 { format!(" x{n}") } else { String::new() };
+        let _ = writeln!(out, "  {}{copies}  {}", name(id), rules(id));
+    }
+    if !hero.hand.is_empty() {
+        let _ = writeln!(out, "\nHAND  (Z plays the first)");
+        for id in &hero.hand {
+            let _ = writeln!(out, "  {}  {}", name(id), rules(id));
+        }
+    }
+    if hero.spells.iter().any(Option::is_some) {
+        let _ = writeln!(out, "\nSPELLS");
+        for (slot, spell) in hero.spells.iter().enumerate() {
+            if let Some(id) = spell {
+                let _ = writeln!(out, "  {}  {}  {}", slot + 1, name(id), rules(id));
+            }
+        }
+    }
+    let b = &hero.bonus;
+    let totals: Vec<String> = [
+        ("damage +%", b.damage),
+        ("rate +%", b.rate),
+        ("speed +%", b.speed),
+        ("pierce", b.pierce),
+        ("shots", b.shots),
+        ("armor", b.armor),
+        ("lifesteal", b.vamp),
+        ("bounce", b.bounce),
+        ("homing", b.homing),
+        ("chain", b.chain),
+        ("mend", b.mend),
+        ("orbit", b.orbit),
+        ("burst %", b.burst),
+        ("fork", b.fork),
+        ("fart", b.fart),
+    ]
+    .iter()
+    .filter(|(_, v)| *v > 0)
+    .map(|(k, v)| format!("{k} {v}"))
+    .chain((b.volley > 0).then(|| format!("every {}th shot three wide", b.volley)))
+    .collect();
+    if !totals.is_empty() {
+        let _ = writeln!(out, "\nALL TOGETHER  {}", totals.join(" · "));
+    }
+    let open = if run.can_wish(knight) {
+        "A WISH IS OPEN: press T and say it your way"
+    } else if run.window.is_some() {
+        "You have wished in this room"
+    } else {
+        "Wishes open when a room is clear"
+    };
+    let _ = writeln!(out, "\nWISHES  {open}");
+    for wish in crate::rules::phrasebook::book().iter() {
+        let tiers = wish.tiers.len();
+        let level = (0..tiers)
+            .rev()
+            .find(|&t| hero.deck.contains(&wish.card_id(t)))
+            .map_or(0, |t| t + 1);
+        let next = if level < tiers {
+            format!("next: {}", wish.tiers[level].1)
+        } else {
+            "full".to_string()
+        };
+        let _ = writeln!(out, "  {:<18} {level}/{tiers}  {next}", wish.name);
+    }
+    out
 }
 
 #[cfg(test)]

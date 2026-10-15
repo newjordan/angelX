@@ -258,8 +258,13 @@ fn connect_inner(
     let method = &unit.method;
     // open socket
     let (mut stream, is_recycled) = connect_socket(unit, host, use_pooled)?;
-    if unit.abort_handle.is_some() {
-        stream.set_unpoolable();
+    if let Some(handle) = &unit.abort_handle {
+        // A recycled socket binds here; a fresh one bound at connect (so an
+        // abort also reaches its TLS handshake) and records its handle here.
+        stream.bind_abort(handle)?;
+        if !crate::stream::ABORTABLE_POOLING {
+            stream.set_unpoolable();
+        }
     }
 
     if is_recycled {
@@ -270,8 +275,11 @@ fn connect_inner(
 
     let send_result = send_prelude(unit, &mut stream);
 
+    // An aborted request is never sent again, on any connection.
+    let aborted = || unit.abort_handle.as_ref().is_some_and(|handle| handle.aborted());
+
     if let Err(err) = send_result {
-        if is_recycled {
+        if is_recycled && !aborted() {
             debug!("retrying request early {} {}: {}", method, url, err);
             // we try open a new connection, this time there will be
             // no connection in the pool. don't use it.
@@ -283,9 +291,22 @@ fn connect_inner(
         }
     }
     let retryable = unit.is_retryable(&body);
+    let replay = body.replay;
 
     // send the body (which can be empty now depending on redirects)
-    body::send_body(body, unit.is_chunked, &mut stream)?;
+    if let Err(err) = body::send_body(body, unit.is_chunked, &mut stream) {
+        // A recycled socket the server already closed can fail mid-body; the
+        // server never took the request, so send it again on a fresh one.
+        if let (true, Some(bytes)) = (
+            is_recycled && !aborted() && crate::error::io_connection_lost(&err),
+            replay,
+        ) {
+            debug!("resending request on a fresh connection {} {}: {}", method, url, err);
+            // NOTE: this recurses at most once because `use_pooled` is `false`.
+            return connect_inner(unit, false, SizedReader::replayed(bytes), history);
+        }
+        return Err(err.into());
+    }
 
     // start reading the response to process cookies and redirects.
     // TODO: this unit.clone() bothers me. At this stage, we're not
@@ -304,11 +325,20 @@ fn connect_inner(
     // reached a server-side timeout. Note that this means we may do
     // up to N+1 total tries, where N is max_idle_connections_per_host.
     let resp = match result {
-        Err(err) if err.connection_closed() && retryable && is_recycled => {
+        Err(err) if err.connection_closed() && retryable && is_recycled && !aborted() => {
             debug!("retrying request {} {}: {}", method, url, err);
             let empty = Payload::Empty.into_read();
             // NOTE: this recurses at most once because `use_pooled` is `false`.
             return connect_inner(unit, false, empty, history);
+        }
+        // A recycled connection that closed before a single byte of response
+        // (an idle close crossing the request on the wire): the server never
+        // answered, so send the same bytes once more on a fresh connection.
+        Err(err) if is_recycled && replay.is_some() && !aborted() && err.connection_lost() => {
+            debug!("resending request on a fresh connection {} {}: {}", method, url, err);
+            let body = SizedReader::replayed(replay.unwrap_or_default());
+            // NOTE: this recurses at most once because `use_pooled` is `false`.
+            return connect_inner(unit, false, body, history);
         }
         Err(e) => return Err(e),
         Ok(resp) => resp,
@@ -359,15 +389,16 @@ fn connect_socket(unit: &Unit, hostname: &str, use_pooled: bool) -> Result<(Stre
         return Err(ErrorKind::InsecureRequestHttpsOnly
             .msg("can't perform non https request with https_only set"));
     }
-    if use_pooled && unit.abort_handle.is_none() {
+    if use_pooled && (unit.abort_handle.is_none() || crate::stream::ABORTABLE_POOLING) {
         let pool = &unit.agent.state.pool;
         let proxy = &unit.agent.config.proxy;
         // The connection may have been closed by the server
         // due to idle timeout while it was sitting in the pool.
         // Loop until we find one that is still good or run out of connections.
         while let Some(stream) = pool.try_get_connection(&unit.url, proxy.clone()) {
-            let server_closed = stream.server_closed()?;
-            if !server_closed {
+            // A probe error (an RST received while the socket sat idle reads
+            // as ECONNRESET) means the server closed it, the same as EOF.
+            if let Ok(false) = stream.server_closed() {
                 return Ok((stream, true));
             }
             debug!("dropping stream from pool; closed by server: {:?}", stream);

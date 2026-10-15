@@ -67,6 +67,24 @@ pub(crate) fn is_empty_reply_error(error: &str) -> bool {
 /// (425), and ordinary rate limiting (429) remain transient; auth/quota
 /// detectors above can still make a specific 429 permanent.
 pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
+    // The provider itself vetoed a retry of this request, or this process's
+    // trust store rejected the provider's certificate (the same chain fails
+    // the same way on every attempt).
+    if error.contains(crate::agent::club::PROVIDER_RETRY_VETO)
+        // Only trust the locally generated envelope, not a marker quoted in
+        // a transient provider response body or arbitrary diagnostic context.
+        || error
+            .strip_prefix("transport error after ")
+            .and_then(|tail| tail.split_once(" attempt(s): "))
+            .is_some_and(|(attempts, detail)| {
+                !attempts.is_empty()
+                    && attempts.bytes().all(|byte| byte.is_ascii_digit())
+                    && detail.starts_with(crate::agent::club::PERMANENT_TRANSPORT_CONFIGURATION)
+            })
+        || crate::agent::club::error_indicates_certificate_rejected(error)
+    {
+        return true;
+    }
     if crate::agent::club::error_indicates_auth_failed(error)
         || crate::agent::club::error_indicates_quota_exhausted(error)
     {

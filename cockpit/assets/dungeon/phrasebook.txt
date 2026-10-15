@@ -116,3 +116,14 @@ say explosive shots | exploding arrows | shots explode | explosive | blast them 
 tier burst 15 :: Shots burst where they hit, 15 in the hundred of their sting around.
 tier burst 20 :: Shots burst where they hit, a fifth of their sting around.
 tier burst 25 :: Shots burst where they hit, a quarter of their sting around.
+
+wish fork | Awakened Fork
+say fork my shots | fork | forking shots | split my shots | splitting shots | shots split | awakened fork | split on hit | splitting projectiles
+tier fork 1 :: A shot that stops on a monster forks into two that fly on past it.
+tier fork 2 :: Shots fork, and the forks fork again.
+
+wish fart | Fart Bombs
+say fart bombs | fart | farts | fart clouds | fart on hit | stink bombs | gas on hit | stinky shots
+tier fart 1 :: Your hits leave a fart cloud, one every two seconds at most.
+tier fart 2 :: Your hits leave a fart cloud, one a second.
+tier fart 3 :: Your hits leave a fart cloud, three every two seconds.

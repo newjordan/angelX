@@ -200,15 +200,18 @@ fn at_the_lists_and_the_delve_gate_the_sign_says_where_the_door_leads() {
         let mut bare = scene.clone();
         bare.visitor = None;
         assert_ne!(with.rgb_bytes(), render_view(&bare, view).rgb_bytes());
-        // The sign's gold frame runs over his head.
-        let gold = super::super::ink::ink('4').unwrap();
-        let p = scene.visitor.unwrap();
-        let (vx, top) = (p.x as i32 - view.x, p.y as i32 - view.y + 2 - 16 - 3 - 20);
-        let framed = (vx - 70..vx + 70)
-            .filter(|&x| with.get(x, top) == Some(gold))
-            .count() as i32;
+        // The sign's lit brass top rim (`chrome::Tone::FRAMED`, its corners
+        // cut) runs over his head, every pixel of it.
         let sign = kit::door_sign(&want.sign(), true);
-        assert_eq!(framed, sign.w, "{want:?}: the sign over his head");
+        let lit = super::super::ink::ink('O').unwrap();
+        let rim = (0..sign.w).filter(|&x| sign.get(x, 0) == Some(lit)).count() as i32;
+        assert!(rim > sign.w / 2, "{want:?}: the sign has its rim");
+        let p = scene.visitor.unwrap();
+        let (vx, top) = (p.x as i32 - view.x, p.y as i32 - view.y + 2 - 16 - 3 - sign.h);
+        let framed = (vx - 70..vx + 70)
+            .filter(|&x| with.get(x, top) == Some(lit))
+            .count() as i32;
+        assert_eq!(framed, rim, "{want:?}: the sign over his head");
     }
 }
 

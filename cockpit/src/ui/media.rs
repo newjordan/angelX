@@ -476,6 +476,10 @@ pub fn open_target(target: &str) -> std::io::Result<()> {
                     .spawn_owned()
                     .map(|_| ())
             })
+    } else if cfg!(target_os = "macos") {
+        // macOS has no xdg-open; `open` takes URLs, files and folders.
+        let path = target.strip_prefix("file://").unwrap_or(target);
+        Command::new("open").arg(path).spawn_owned().map(|_| ())
     } else {
         let path = target.strip_prefix("file://").unwrap_or(target);
         Command::new("xdg-open")

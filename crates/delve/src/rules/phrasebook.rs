@@ -381,6 +381,14 @@ pub fn find_in(book: &[Wish], said: &str, deck: &[String]) -> Option<Wish> {
 /// into the game so a shipped copy draws them too.
 const WISH_ART: &[(&str, &str)] = &[
     (
+        "fork",
+        include_str!("../../../../cockpit/assets/dungeon/wish-art/fork.art"),
+    ),
+    (
+        "fart",
+        include_str!("../../../../cockpit/assets/dungeon/wish-art/fart.art"),
+    ),
+    (
         "chain",
         include_str!("../../../../cockpit/assets/dungeon/wish-art/chain.art"),
     ),

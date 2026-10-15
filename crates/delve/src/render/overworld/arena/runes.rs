@@ -20,10 +20,10 @@ fn inks(kind: RuneKind) -> [char; 5] {
         RuneKind::Haste => ['n', 'p', 'R', 'T', 't'],
         RuneKind::DoubleDamage => ['s', 'q', 'Q', 'W', 'z'],
         RuneKind::Regeneration => ['f', 'l', 'C', 'Y', 'y'],
-        RuneKind::Arcane => ['0', '1', '2', '3', 'w'],
+        RuneKind::Arcane => ['s', 'q', '2', '3', '9'],
         RuneKind::Invisibility => ['x', 'u', 'U', 'W', 'V'],
         RuneKind::Illusion => ['n', 'I', 'o', 'T', 'O'],
-        RuneKind::Bounty => ['a', '4', '5', 'a', '6'],
+        RuneKind::Bounty => ['P', 'o', '@', 'P', 'c'],
         RuneKind::Wisdom => ['P', '$', 'c', 'B', '9'],
     }
 }

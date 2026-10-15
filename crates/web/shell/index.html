@@ -17,7 +17,10 @@
 </form>
 <div id="status"></div>
 <div id="toast"></div>
+<pre id="sheet" hidden></pre>
+<form id="say" autocomplete="off" hidden><input id="said" maxlength="160" spellcheck="false" enterkeyhint="send"></form>
 <button id="full" type="button" title="Full screen" hidden>Full screen</button>
+<div id="vol" hidden><button id="mute" type="button" title="Mute (click), quieter and louder with - and =">♪</button><input id="volume" type="range" min="0" max="100" step="5" aria-label="Volume"></div>
 <pre id="stats" hidden></pre>
 <noscript>This game needs JavaScript.</noscript>
 <script type="application/json" id="sounds">@@SOUNDS@@</script>

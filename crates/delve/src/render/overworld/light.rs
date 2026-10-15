@@ -2,8 +2,9 @@
 //!
 //! Nothing is dimmed by scaling RGB. Each colour steps down its own palette
 //! bank (greens into deeper greens, stone into slate) and the fractional step
-//! is resolved with the 4x4 Bayer threshold, so the dither itself is the
-//! shading and every pixel stays on the palette. Light sources lift the steps
+//! is resolved against a field of soft blots (`seam`), so a calm field holds
+//! one step, the light gives way in grouped patches rather than a checker,
+//! and every pixel stays on the palette. Light sources lift the steps
 //! back; firelight also pulls colours toward the timber bank; where light
 //! falls on bare paper it leaves dithered pools. Signal inks are emissive:
 //! state never dims.
@@ -11,7 +12,7 @@
 use std::sync::OnceLock;
 
 use super::ground::pool_ink;
-use super::ink::{BANK, BLACK, Img, PALETTE, Rgb, RgbMap, SIGNAL_BANK, bank_of, bayer, palette_index, rgb, vnoise};
+use super::ink::{BANK, BLACK, Img, PALETTE, Rgb, RgbMap, SIGNAL_BANK, bank_of, bayer, rgb, vnoise};
 use super::map::Realm;
 
 /// A light in world pixels. `fire` lights warm what they touch.
@@ -27,6 +28,10 @@ pub struct Light {
 /// Dusk ambient level: `1.0` is full daylight, the realm's resting mood sits
 /// just over half.
 pub const DUSK: f32 = 0.58;
+/// How far the ambient wanders across a field, in slow patches: less than
+/// half a step either way, so a calm field holds its step and only a light
+/// carries it to the next.
+pub const DAPPLE: f32 = 0.08;
 /// How many bank steps separate full light from darkness.
 pub const STEPS: f32 = 4.0;
 const CHAIN: usize = 7;
@@ -45,9 +50,7 @@ pub fn darker(c: Rgb) -> Rgb {
         return c;
     }
     let Some(bank) = bank_of(c) else {
-        // The appended transition inks have no material bank. Their flat
-        // painting tones stay intact; unrecognized colors still go black.
-        return if palette_index(c).is_some() { c } else { BLACK };
+        return BLACK;
     };
     if bank == SIGNAL_BANK {
         return c;
@@ -65,8 +68,7 @@ pub fn darker(c: Rgb) -> Rgb {
 /// Firelight pulls a colour toward timber and structure — never toward
 /// foliage or stone blues, which read as a green cast.
 pub fn warm(c: Rgb) -> Rgb {
-    if c == BLACK || bank_of(c) == Some(SIGNAL_BANK)
-        || (bank_of(c).is_none() && palette_index(c).is_some()) {
+    if c == BLACK || bank_of(c) == Some(SIGNAL_BANK) {
         return c;
     }
     let t = [
@@ -120,6 +122,44 @@ fn warmed(c: Rgb) -> Rgb {
     tables().warm.get(&c).copied().unwrap_or(c)
 }
 
+/// How sharply a step gives way to the next across its fraction: the blots
+/// of `seam` fill only the middle part of the step, so a broad, calm
+/// change of light reads as one soft-edged patch rather than a field of
+/// blots.
+pub const SEAM_EDGE: f32 = 4.5;
+
+/// Where light gives way from one step to the next: a threshold in `0..1`
+/// for the fractional step at world pixel `(x, y)`. A field of soft blots
+/// some four pixels across (with only a whisper of the ordered dither at
+/// their edges), so the boundary between two steps wanders like light on a
+/// rough surface and a calm field falls into a few grouped patches, never
+/// an all-over checker. One 64-pixel tile, periodic, built once.
+pub fn seam(x: i32, y: i32) -> f32 {
+    const N: i32 = 64;
+    const CELL: i32 = 4;
+    static FIELD: OnceLock<Vec<f32>> = OnceLock::new();
+    let field = FIELD.get_or_init(|| {
+        let cells = N / CELL;
+        let corner = |cx: i32, cy: i32| {
+            (super::ink::hash(cx.rem_euclid(cells), cy.rem_euclid(cells), 0x5ea4) & 0xffff) as f32 / 65535.0
+        };
+        (0..N * N)
+            .map(|i| {
+                let (px, py) = (i % N, i / N);
+                let (fx, fy) = ((px % CELL) as f32 / CELL as f32, (py % CELL) as f32 / CELL as f32);
+                let (sx, sy) = (fx * fx * (3.0 - 2.0 * fx), fy * fy * (3.0 - 2.0 * fy));
+                let (cx, cy) = (px / CELL, py / CELL);
+                let top = corner(cx, cy) + (corner(cx + 1, cy) - corner(cx, cy)) * sx;
+                let bot = corner(cx, cy + 1) + (corner(cx + 1, cy + 1) - corner(cx, cy + 1)) * sx;
+                let n = top + (bot - top) * sy;
+                (0.5 + (n - 0.5) * 0.8 + (bayer(px, py) - 0.5) * 0.06).clamp(0.04, 0.96)
+            })
+            .collect()
+    });
+    // A power-of-two tile: the mask is the euclidean remainder, negatives too.
+    field[((y & (N - 1)) * N + (x & (N - 1))) as usize]
+}
+
 /// `(total, firelight)` falling on a world point.
 pub fn light_at(lights: &[Light], x: f32, y: f32) -> (f32, f32) {
     let (mut sum, mut fire) = (0.0, 0.0);
@@ -166,17 +206,23 @@ pub fn dusk(
         for x in 0..cv.w {
             let (wx, wy) = (ox + x, oy + y);
             let (px, py) = (wx as f32 + 0.5, wy as f32 + 0.5);
-            let dapple = (vnoise(px / 48.0, py / 48.0, 77) - 0.5) * 0.14;
+            let dapple = (vnoise(px / 48.0, py / 48.0, 77) - 0.5) * DAPPLE;
             let (local, fire) = light_at(lights, px, py);
             let level = (ambient + dapple + local).min(1.0);
             match cv.get(x, y) {
                 Some(c) if c != BLACK => {
-                    let c = if fire > 0.16 + bayer(wx, wy) * 0.24 {
+                    let th = seam(wx, wy);
+                    let c = if fire > 0.16 + th * 0.24 {
                         warmed(c)
                     } else {
                         c
                     };
-                    let steps = ((1.0 - level) * STEPS + bayer(wx, wy)).floor().max(0.0) as usize;
+                    // One step held across a calm field; where it gives
+                    // way to the next the boundary wanders in soft blots
+                    // (`seam`), never an all-over checker.
+                    let v = ((1.0 - level) * STEPS).max(0.0);
+                    let t = ((v.fract() - 0.5) * SEAM_EDGE + 0.5).clamp(0.0, 1.0);
+                    let steps = (v.floor() + if t > th { 1.0 } else { 0.0 }) as usize;
                     cv.set(x, y, step_down(c, steps));
                 }
                 _ => {

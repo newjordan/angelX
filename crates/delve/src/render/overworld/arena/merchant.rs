@@ -46,8 +46,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     cv.ellipse((x + 23) as f32, (y - 2) as f32, 6.0, 6.0, 'b');
     cv.ellipse((x - 23) as f32, (y - 2) as f32, 2.0, 2.0, 'O');
     cv.ellipse((x + 23) as f32, (y - 2) as f32, 2.0, 2.0, 'O');
-    cv.rect(x - 28, y - 16, 56, 13, 'B');
-    cv.frame(x - 28, y - 16, 56, 13, 'O');
+    super::super::chrome::inset_panel(
+        cv,
+        (x - 28, y - 16, 56, 13),
+        super::super::chrome::Tone::TIMBER.rimmed(super::super::chrome::rim_of('O')),
+    );
     cv.line(x - 30, y - 30, x - 30, y - 3, 'B');
     cv.line(x + 30, y - 30, x + 30, y - 3, 'B');
     for i in 0..8 {

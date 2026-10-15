@@ -3,5 +3,6 @@
 pub(crate) mod agent_view;
 pub(crate) mod approval_view;
 pub(crate) mod artifacts_view;
+pub(crate) mod setup_view;
 pub(crate) mod status_view;
 pub(crate) mod turn_event_view;

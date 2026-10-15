@@ -120,7 +120,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             // Stamp them after lighting on dark paper for readable contrast.
             let label = ["BOOT", "GOOSE", "CROWN"][i - 2];
             let width = super::super::ink::text_width(label) + 6;
-            cv.rect(x - width / 2, y + 10, width, 9, 'k');
+            super::super::chrome::chip(cv, (x - width / 2, y + 10, width, 9));
             cv.text(x - width / 2 + 3, y + 11, label, if current { 'O' } else { '9' });
         }
     }
