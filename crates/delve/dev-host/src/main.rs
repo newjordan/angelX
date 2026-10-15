@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! delve-dev-host [--port 8820] [--bind 127.0.0.1] [--bundle DIR] [--key KEY]
-//!                [--scene fight|kingdom|first] [--art v2] [--snapshot-hz 30]
+//!                [--scene fight|boss|kingdom|first] [--art v2] [--snapshot-hz 30]
 //!                [--bots N] [--bots-after SECS] [--bots-draw] [--log SECS]
 //!                [--dev] [--tune FILE]
 //! ```
@@ -18,6 +18,7 @@
 //! - `--scene fight`: the art kit's busy crypt fight. Knights do not fall
 //!   (their health is topped up each tick) and the room fills again when it
 //!   is cleared, so a fight can be measured for as long as it takes.
+//! - `--scene boss`: a live Grinwick fight for creature art review.
 //! - `--scene kingdom`: the kingdom, at the ranch.
 //! - `--scene first`: a fresh run's first room.
 //! - `--bots N` joins N native clients (`Runtime<DelveClient>`) after
@@ -53,6 +54,7 @@ use std::time::{Duration, Instant};
 #[derive(Clone, Copy, PartialEq)]
 enum Scene {
     Fight,
+    Boss,
     Kingdom,
     First,
 }
@@ -61,6 +63,15 @@ impl Scene {
     fn run(self) -> Run {
         match self {
             Scene::Fight => testing::fight(),
+            Scene::Boss => {
+                let mut run = testing::fight();
+                run.enemies.clear();
+                run.projectiles.clear();
+                let index = run.bosses.iter().position(|b| b.id == angel_delve::rules::signatures::ENGINE).unwrap();
+                run.spawn_boss_at_for_test(index,24.0,15.0);
+                run.enemies[0].signature.active = true;
+                run
+            },
             Scene::Kingdom => testing::kingdom(),
             Scene::First => Run::new(7, 1, None),
         }
@@ -178,7 +189,7 @@ impl GameServer for DevDelve {
             events.all(event.to_vec());
         }
         self.drop_outboxes();
-        if self.scene == Scene::Fight {
+        if matches!(self.scene,Scene::Fight | Scene::Boss) {
             self.keep_fighting();
         }
     }
@@ -240,9 +251,10 @@ fn args() -> Result<Args, String> {
             "--scene" => {
                 a.scene = match value()?.as_str() {
                     "fight" => Scene::Fight,
+                    "boss" => Scene::Boss,
                     "kingdom" => Scene::Kingdom,
                     "first" => Scene::First,
-                    other => return Err(format!("no scene {other}: fight, kingdom or first")),
+                    other => return Err(format!("no scene {other}: fight, boss, kingdom or first")),
                 }
             }
             "--art" => a.art_v2 = value()? == "v2",
@@ -255,7 +267,7 @@ fn args() -> Result<Args, String> {
             "--tune" => a.tune = Some(PathBuf::from(value()?)),
             "-h" | "--help" => {
                 println!(
-                    "delve-dev-host [--port 8820] [--bind 127.0.0.1] [--bundle DIR] [--key KEY] [--scene fight|kingdom|first] [--art v2] [--snapshot-hz 30] [--bots N] [--bots-after SECS] [--bots-draw] [--log SECS] [--dev] [--tune FILE]"
+                    "delve-dev-host [--port 8820] [--bind 127.0.0.1] [--bundle DIR] [--key KEY] [--scene fight|boss|kingdom|first] [--art v2] [--snapshot-hz 30] [--bots N] [--bots-after SECS] [--bots-draw] [--log SECS] [--dev] [--tune FILE]"
                 );
                 std::process::exit(0);
             }

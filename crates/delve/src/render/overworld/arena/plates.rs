@@ -1,1624 +1,1641 @@
-//! Dark-deco intertitles, painted on black at 384×224.
-//! Atmospheric depth, material detail and light spill are baked once. The
-//! cached searchlight phases leave only a few flicker/particle pixels per frame.
+//! Quiet establishing shots at 384×224: rounded stone, timber and living forms.
+//! Material shading, point-light falloff and haze are painted once. Playback
+//! copies the painting, stamps a small breathing light and drifts a few motes.
 
-use super::super::ink::{BLACK, Img, Rgb, bayer, hash, ink};
+use super::super::ink::{BLACK, Img, Rgb, hash, ink, rgb};
 use crate::rules::floor_plates::{DESTINATIONS, DURATION, Kind, Playing};
 use std::sync::OnceLock;
 
 pub const W: i32 = 384;
 pub const H: i32 = 224;
-const DARK: char = 'k';
-const SLATE: char = 's';
-const CRIMSON: char = 'χ';
-const NAVY: char = 'ν';
-const MUSTARD: char = 'μ';
 const HORIZON: i32 = 188;
 
-struct Layers {
-    sky: Img,
-    architecture: Img,
-    light: (i32, i32),
+#[derive(Clone, Copy)]
+struct Lamp {
+    x: i32,
+    y: i32,
+    radius: f32,
+    colour: char,
+    strength: f32,
 }
 
-struct Scene {
-    sweeps: Vec<Img>,
-    light: (i32, i32),
-}
-
-fn scene(sky: Img, architecture: Img, light: (i32, i32)) -> Layers {
-    Layers {
-        sky,
-        architecture,
-        light,
-    }
-}
-
-fn poly(im: &mut Img, pts: &[(i32, i32)], c: char) {
-    let lo = pts.iter().map(|p| p.1).min().unwrap_or(0).max(0);
-    let hi = pts.iter().map(|p| p.1).max().unwrap_or(0).min(H);
-    for y in lo..hi {
-        let mut xs = Vec::with_capacity(pts.len());
-        for i in 0..pts.len() {
-            let (a, b) = (pts[i], pts[(i + 1) % pts.len()]);
-            if (a.1 <= y && b.1 > y) || (b.1 <= y && a.1 > y) {
-                xs.push(a.0 + (y - a.1) * (b.0 - a.0) / (b.1 - a.1));
-            }
-        }
-        xs.sort_unstable();
-        for pair in xs.chunks_exact(2) {
-            im.rect(pair[0], y, pair[1] - pair[0] + 1, 1, c);
-        }
-    }
-}
-
-// A restricted selection of existing master inks for paletted light mixing.
-// Quantization happens only while building the cache, never during playback.
-const TONES: [char; 25] = [
-    'k', 's', 'x', 'S', 'u', 'U', 'v', 'ν', 'χ', '7', '8', 'b', 'I', 'B', 'P', 'r', 'R', 'o', 't',
-    '@', '6', 'X', 'g', 'μ', 'n',
-];
-fn tint(im: &mut Img, x: i32, y: i32, light: Rgb, amount: f32) {
-    let Some(base) = im.get(x, y) else { return };
-    let a = amount.clamp(0.0, 1.0);
-    if a < 0.005 {
-        return;
-    }
-    let wanted =
-        std::array::from_fn::<_, 3, _>(|i| base[i] as f32 * (1.0 - a) + light[i] as f32 * a);
-    let mut best = [(f32::MAX, BLACK); 2];
-    for ch in TONES {
-        let c = ink(ch).unwrap();
-        let d = (0..3)
-            .map(|i| (c[i] as f32 - wanted[i]).powi(2))
-            .sum::<f32>();
-        if d < best[0].0 {
-            best[1] = best[0];
-            best[0] = (d, c);
-        } else if d < best[1].0 {
-            best[1] = (d, c);
-        }
-    }
-    let (c0, c1) = (best[0].1, best[1].1);
-    let denom = (0..3)
-        .map(|i| (c1[i] as f32 - c0[i] as f32).powi(2))
-        .sum::<f32>();
-    let fraction = (0..3)
-        .map(|i| (wanted[i] - c0[i] as f32) * (c1[i] as f32 - c0[i] as f32))
-        .sum::<f32>()
-        / denom.max(1.0);
-    im.set(
-        x,
-        y,
-        if bayer(x, y) < fraction.clamp(0.0, 1.0) {
-            c1
-        } else {
-            c0
-        },
-    );
-}
-
-fn glow(im: &mut Img, cx: i32, cy: i32, rx: i32, ry: i32, strength: f32) {
-    for y in (cy - ry).max(0)..(cy + ry).min(HORIZON) {
-        for x in (cx - rx).max(0)..(cx + rx).min(W) {
-            let d = ((x - cx) as f32 / rx as f32).powi(2) + ((y - cy) as f32 / ry as f32).powi(2);
-            if d < 1.0 {
-                tint(im, x, y, ink('@').unwrap(), strength * (1.0 - d).powi(2));
-            }
-        }
-    }
-}
-
-fn sky(im: &mut Img, deep: bool) {
-    let bands: &[(i32, char)] = if deep {
-        &[(0, 's'), (92, 'x'), (136, NAVY), (178, 'u')]
-    } else {
-        &[(0, CRIMSON), (49, '7'), (109, 'R'), (157, 'o')]
-    };
-    for y in 0..HORIZON {
-        for x in 0..W {
-            let mut c = bands[0].1;
-            for pair in bands.windows(2) {
-                let edge = pair[1].0 + (x as f32 / 109.0).sin() as i32 * 2;
-                let t = ((y - edge + 9) as f32 / 18.0).clamp(0.0, 1.0);
-                if bayer(x, y) < t {
-                    c = pair[1].1;
-                }
-            }
-            im.put(x, y, c);
-        }
-    }
-    if !deep {
-        // Long sunset ribbons feather into the gradient, with no hard stripe edges.
-        for (cy, slope, thick) in [(37.0, 0.04, 7.0), (82.0, -0.05, 6.0), (116.0, 0.025, 4.0)] {
-            for y in 0..150 {
-                for x in 0..W {
-                    let centre = cy + slope * x as f32 + (x as f32 / 63.0).sin() * 2.0;
-                    let a = (1.0 - (y as f32 - centre).abs() / thick).max(0.0) * 0.42;
-                    tint(im, x, y, ink(CRIMSON).unwrap(), a);
-                }
-            }
-        }
-    }
-}
-
-fn masonry(im: &mut Img, x: i32, y: i32, w: i32, h: i32, c: char) {
-    for yy in (y..y + h).step_by(9) {
-        for xx in (x..x + w).step_by(2) {
-            if hash(xx / 2, yy, 41) % 5 != 0 {
-                im.put(xx, yy, c);
-            }
-        }
-        for xx in (x + ((yy / 9) % 2) * 9..x + w).step_by(18) {
-            im.line(xx, yy + 1, xx, (yy + 8).min(y + h), c);
-        }
-    }
-}
-
-fn window(im: &mut Img, x: i32, y: i32, w: i32, h: i32, lit: char) {
-    im.rect(x, y + w / 2, w, h - w / 2, lit);
-    poly(
-        im,
-        &[(x, y + w / 2), (x + w / 2, y), (x + w - 1, y + w / 2)],
-        lit,
-    );
-    im.line(x + w / 2, y + 2, x + w / 2, y + h, DARK);
-    if h > 15 {
-        im.line(x, y + h * 2 / 3, x + w, y + h * 2 / 3, DARK);
-    }
-}
-
-fn spire(im: &mut Img, x: i32, y: i32, w: i32, bottom: i32, c: char) {
-    let roof = w * 2;
-    im.rect(x - w / 2, y + roof, w, bottom - y - roof, c);
-    poly(
-        im,
-        &[(x, y), (x - w / 2 - 2, y + roof), (x + w / 2 + 2, y + roof)],
-        c,
-    );
-    im.line(x, y - 6, x, y + 5, c);
-    im.line(x - 2, y - 3, x + 2, y - 3, c);
-    if c == DARK {
-        poly(
-            im,
-            &[
-                (x, y + 5),
-                (x - w / 2 + 1, y + roof - 2),
-                (x - 1, y + roof - 2),
-            ],
-            SLATE,
-        );
-        im.rect(x - w / 2 - 2, y + roof, w + 4, 3, 'x');
-        im.line(x + w / 2 - 1, y + roof + 4, x + w / 2 - 1, bottom, SLATE);
-        if w > 10 {
-            window(im, x - 3, y + roof + 12, 5, 17, 'o');
-        }
-    }
-}
-
-fn battlement(im: &mut Img, x: i32, y: i32, w: i32, bottom: i32, c: char) {
-    im.rect(x, y + 5, w, bottom - y - 5, c);
-    for xx in (x..x + w - 3).step_by(10) {
-        im.rect(xx, y, 6, 8, c);
-    }
-    if c == DARK {
-        im.rect(x, y + 12, w, 2, SLATE);
-    }
-}
-
-fn skyline(im: &mut Img, near: bool) {
-    let c = if near { 's' } else { 'x' };
-    let base = if near { 148 } else { 142 };
-    battlement(im, 0, base, W, 177, c);
-    for (i, x) in [12, 46, 80, 120, 151, 192, 227, 264, 303, 337, 370]
-        .into_iter()
-        .enumerate()
-    {
-        let y = if near {
-            86 + (i as i32 * 17 % 47)
-        } else {
-            105 + (i as i32 * 13 % 30)
-        };
-        spire(
-            im,
-            x + if near { 10 } else { 0 },
+impl Lamp {
+    fn warm(x: i32, y: i32, radius: f32) -> Self {
+        Self {
+            x,
             y,
-            if near { 9 } else { 6 },
-            174,
-            c,
-        );
-        if i % 3 == 1 {
-            im.rect(x, y + 27, 2, 5, if near { 'o' } else { 't' });
+            radius,
+            colour: 't',
+            strength: 0.72,
         }
+    }
+    fn cool(x: i32, y: i32, radius: f32) -> Self {
+        Self {
+            x,
+            y,
+            radius,
+            colour: 'U',
+            strength: 0.65,
+        }
+    }
+    fn amount(self, x: i32, y: i32) -> f32 {
+        let d = ((x - self.x) as f32).powi(2) + ((y - self.y) as f32).powi(2);
+        self.strength * (1.0 - d / self.radius.powi(2)).max(0.0).powi(2)
     }
 }
 
-fn horizon_haze(im: &mut Img) {
-    for y in 117..177 {
-        let amount = (y - 117) as f32 / 60.0 * 0.23;
-        for x in 0..W {
-            if [ink('s'), ink('x'), ink(NAVY)].contains(&im.get(x, y)) {
-                tint(im, x, y, ink('u').unwrap(), amount);
+// Coloured shadows and warm material highlights, all existing realm inks.
+#[derive(Clone, Copy, PartialEq)]
+struct Ramp(char, char, char);
+const STONE: Ramp = Ramp('s', 'u', '$');
+const CLIFF: Ramp = Ramp('s', 'S', 'u');
+const WOOD: Ramp = Ramp('s', 'P', 't');
+const METAL: Ramp = Ramp('s', 'U', 'V');
+const MOSS: Ramp = Ramp('s', 'e', 'C');
+const CAP: Ramp = Ramp('s', 'S', 'U');
+const PAPER: Ramp = Ramp('x', '$', 'T');
+
+// A small palette lookup is baked once. Its adjacent-colour interpolation
+// softens falloff without grey inks entering the amber or teal material ramps.
+fn nearest_material(c: [f32; 3], foliage: bool, x: i32, y: i32) -> Rgb {
+    type Blend = (Rgb, Rgb, f32);
+    static TABLES: OnceLock<[Vec<Blend>; 2]> = OnceLock::new();
+    let tables = TABLES.get_or_init(|| {
+        let tones: Vec<_> = [
+            0x000000, 0x080505, 0x0b0b0f, 0x1a100c, 0x0a0c12, 0x132724, 0x263b40, 0x362715,
+            0x45291c, 0x512d18,
+        ]
+        .into_iter()
+        .map(rgb)
+        .chain("sxSuUqQzVnbIPRotT".chars().map(|c| ink(c).unwrap()))
+        .collect();
+        std::array::from_fn(|bank| {
+            let mut colours = tones.clone();
+            if bank == 1 {
+                colours.extend("fDFeCmY".chars().map(|c| ink(c).unwrap()));
+            }
+            (0..32768)
+                .map(|index| {
+                    let c = [
+                        (index >> 10) as f32 * 8.0,
+                        ((index >> 5) & 31) as f32 * 8.0,
+                        (index & 31) as f32 * 8.0,
+                    ];
+                    let dist = |p: &Rgb| (0..3).map(|i| (p[i] as f32 - c[i]).powi(2)).sum::<f32>();
+                    let a = *colours
+                        .iter()
+                        .min_by(|a, b| dist(a).total_cmp(&dist(b)))
+                        .unwrap();
+                    let mut best = (dist(&a), a, 0.0);
+                    for &b in &colours {
+                        let length: f32 = (0..3).map(|i| (b[i] as f32 - a[i] as f32).powi(2)).sum();
+                        if length == 0.0 || length > 4200.0 {
+                            continue;
+                        }
+                        let t = ((0..3)
+                            .map(|i| (c[i] - a[i] as f32) * (b[i] as f32 - a[i] as f32))
+                            .sum::<f32>()
+                            / length)
+                            .clamp(0.0, 1.0);
+                        let error: f32 = (0..3)
+                            .map(|i| (c[i] - a[i] as f32 * (1.0 - t) - b[i] as f32 * t).powi(2))
+                            .sum();
+                        let score = error + length * 0.018;
+                        if score < best.0 {
+                            best = (score, b, t);
+                        }
+                    }
+                    (a, best.1, best.2)
+                })
+                .collect()
+        })
+    });
+    let [r, g, b] = c.map(|v| ((v.clamp(0.0, 255.0) as usize + 4) / 8).min(31));
+    let (a, b, t) = tables[usize::from(foliage)][(r << 10) | (g << 5) | b];
+    const BAYER: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+    if t > 0.68
+        || (t >= 0.32
+            && (t - 0.32) / 0.36 * 16.0
+                > BAYER[y.rem_euclid(4) as usize][x.rem_euclid(4) as usize] as f32 + 0.5)
+    {
+        b
+    } else {
+        a
+    }
+}
+
+struct Brush {
+    im: Img,
+    lamps: Vec<Lamp>,
+    surfaces: Vec<Option<(Ramp, f32)>>,
+}
+
+impl Brush {
+    fn new(lamps: Vec<Lamp>) -> Self {
+        Self {
+            im: Img::black(W, H),
+            lamps,
+            surfaces: vec![None; (W * H) as usize],
+        }
+    }
+
+    fn shade(&self, x: i32, y: i32, ramp: Ramp, plane: f32, flicker: f32) -> Rgb {
+        let mut warm = 0.0_f32;
+        let mut cool = 0.0_f32;
+        for (i, lamp) in self.lamps.iter().enumerate() {
+            let a = lamp.amount(x, y) * if i == 0 { flicker } else { 1.0 };
+            if lamp.colour == 't' {
+                warm += a;
+            } else {
+                cool += a;
+            }
+        }
+        if ramp == CLIFF {
+            // A quiet slate face keeps its own colour under the two lamps.
+            // Close grey/stone tones make the falloff gentle without broad
+            // amber rings or the rock helper's many overlapping facets.
+            let c: [f32; 3] = std::array::from_fn(|i| {
+                [14.0, 22.0, 29.0][i]
+                    + [30.0, 47.0, 54.0][i] * plane
+                    + [70.0, 46.0, 26.0][i] * warm
+                    + [18.0, 32.0, 38.0][i] * cool
+            });
+            let colours = [
+                0x0a0c12, 0x192934, 0x22303a, 0x263b40, 0x2f4a52, 0x456070, 0x322b2b, 0x3d3a36,
+                0x515349, 0x63655c,
+            ]
+            .map(rgb);
+            let distance = |p: &Rgb| (0..3).map(|i| (p[i] as f32 - c[i]).powi(2)).sum::<f32>();
+            let a = *colours
+                .iter()
+                .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+                .unwrap();
+            let mut blend = (distance(&a), a, 0.0);
+            for &b in &colours {
+                let length: f32 = (0..3).map(|i| (b[i] as f32 - a[i] as f32).powi(2)).sum();
+                if length == 0.0 || length > 1800.0 {
+                    continue;
+                }
+                let t = ((0..3)
+                    .map(|i| (c[i] - a[i] as f32) * (b[i] as f32 - a[i] as f32))
+                    .sum::<f32>()
+                    / length)
+                    .clamp(0.0, 1.0);
+                let error: f32 = (0..3)
+                    .map(|i| (c[i] - a[i] as f32 * (1.0 - t) - b[i] as f32 * t).powi(2))
+                    .sum();
+                if error + length * 0.01 < blend.0 {
+                    blend = (error + length * 0.01, b, t);
+                }
+            }
+            const GRAIN: [[u8; 4]; 4] =
+                [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+            return if blend.2 >= 0.66
+                || (blend.2 > 0.34
+                    && (blend.2 - 0.34) / 0.32 * 16.0
+                        > GRAIN[y.rem_euclid(4) as usize][x.rem_euclid(4) as usize] as f32 + 0.5)
+            {
+                blend.1
+            } else {
+                a
+            };
+        }
+        let texture = if ramp == STONE || ramp == METAL {
+            (hash(x / 2, y / 3, 97) % 11) as f32 * 0.012 - 0.060
+        } else if ramp == WOOD {
+            (hash(x / 2, y / 9, 68) % 7) as f32 * 0.016 - 0.048
+        } else {
+            0.0
+        };
+        let plane = (plane + texture).clamp(0.0, 1.0);
+        // Light multiplies the surface plane; it never paints a flat oval over
+        // beams or stone. Lit faces are amber, unlit faces stay blue-green.
+        let diffuse = 0.22 + plane * 0.95;
+        let ambient = 0.09 + plane * 0.40;
+        let (shadow, fire, moon) = if ramp == WOOD {
+            ([22.0, 25.0, 29.0], [230.0, 133.0, 43.0], [37.0, 69.0, 77.0])
+        } else if ramp == MOSS {
+            ([13.0, 29.0, 27.0], [136.0, 154.0, 65.0], [40.0, 91.0, 70.0])
+        } else if ramp == PAPER {
+            (
+                [45.0, 65.0, 70.0],
+                [244.0, 203.0, 134.0],
+                [110.0, 161.0, 169.0],
+            )
+        } else if ramp == CAP {
+            (
+                [18.0, 41.0, 46.0],
+                [179.0, 157.0, 83.0],
+                [108.0, 223.0, 212.0],
+            )
+        } else {
+            (
+                [29.0, 51.0, 64.0],
+                [232.0, 153.0, 62.0],
+                [67.0, 117.0, 146.0],
+            )
+        };
+        let c = std::array::from_fn(|i| {
+            shadow[i] * ambient
+                + fire[i] * warm.min(1.0) * diffuse
+                + moon[i] * cool.min(0.85) * diffuse * 0.64
+        });
+        nearest_material(c, ramp == MOSS, x, y)
+    }
+
+    fn pixel(&mut self, x: i32, y: i32, ramp: Ramp, plane: f32) {
+        if !(0..W).contains(&x) || !(0..HORIZON).contains(&y) {
+            return;
+        }
+        self.surfaces[(y * W + x) as usize] = Some((ramp, plane));
+        self.im.set(x, y, self.shade(x, y, ramp, plane, 1.0));
+    }
+
+    fn poly(&mut self, pts: &[(i32, i32)], ramp: Ramp, plane: f32) {
+        let lo = pts.iter().map(|p| p.1).min().unwrap_or(0).max(0);
+        let hi = pts.iter().map(|p| p.1).max().unwrap_or(0).min(HORIZON);
+        for y in lo..hi {
+            let mut xs = Vec::with_capacity(pts.len());
+            for i in 0..pts.len() {
+                let (a, b) = (pts[i], pts[(i + 1) % pts.len()]);
+                if (a.1 <= y && b.1 > y) || (b.1 <= y && a.1 > y) {
+                    xs.push(a.0 + (y - a.1) * (b.0 - a.0) / (b.1 - a.1));
+                }
+            }
+            xs.sort_unstable();
+            for pair in xs.chunks_exact(2) {
+                for x in pair[0]..=pair[1] {
+                    self.pixel(x, y, ramp, plane);
+                }
             }
         }
     }
-}
 
-fn rose(im: &mut Img, x: i32, y: i32, r: i32) {
-    im.ellipse(x as f32, y as f32, (r + 4) as f32, (r + 4) as f32, 'x');
-    im.ellipse(x as f32, y as f32, (r + 2) as f32, (r + 2) as f32, DARK);
-    im.ellipse(x as f32, y as f32, r as f32, r as f32, 'o');
-    im.ellipse(x as f32, y as f32, (r - 2) as f32, (r - 2) as f32, '@');
-    for i in 0..8 {
-        let a = i as f32 * std::f32::consts::TAU / 8.0;
-        let (dx, dy) = (
-            (a.cos() * r as f32 * 0.61) as i32,
-            (a.sin() * r as f32 * 0.61) as i32,
+    fn round(&mut self, x: i32, y: i32, w: i32, h: i32, radius: i32, ramp: Ramp, plane: f32) {
+        for yy in y.max(0)..(y + h).min(HORIZON) {
+            for xx in x.max(0)..(x + w).min(W) {
+                let dx = (x + radius - xx).max(xx - (x + w - radius - 1)).max(0);
+                let dy = (y + radius - yy).max(yy - (y + h - radius - 1)).max(0);
+                if dx * dx + dy * dy <= radius * radius {
+                    let bevel = ((xx - x)
+                        .min(x + w - xx - 1)
+                        .min((yy - y).min(y + h - yy - 1)) as f32
+                        / 3.0)
+                        .clamp(0.0, 1.0);
+                    self.pixel(xx, yy, ramp, plane * (0.70 + 0.30 * bevel));
+                }
+            }
+        }
+    }
+
+    fn oval(&mut self, cx: i32, cy: i32, rx: i32, ry: i32, ramp: Ramp, plane: f32) {
+        for y in (cy - ry).max(0)..(cy + ry).min(HORIZON) {
+            for x in (cx - rx).max(0)..(cx + rx).min(W) {
+                let dx = (x as f32 + 0.5 - cx as f32) / rx as f32;
+                let dy = (y as f32 + 0.5 - cy as f32) / ry as f32;
+                let d = dx * dx + dy * dy;
+                if d < 1.0 {
+                    let volume = (1.0 - d).sqrt() * 0.65 + (1.0 - dy) * 0.18;
+                    self.pixel(x, y, ramp, volume * plane);
+                }
+            }
+        }
+    }
+
+    fn arch(&mut self, cx: i32, top: i32, half: i32, bottom: i32, thickness: i32, plane: f32) {
+        // Semicircular, thick stone vault with a gently shaded curved crown.
+        for y in top.max(0)..bottom.min(HORIZON) {
+            for x in (cx - half).max(0)..(cx + half).min(W) {
+                let dx = x - cx;
+                let dy = (y - top - half).min(0);
+                let outer = dx * dx + dy * dy;
+                let inner = half - thickness;
+                if outer < half * half && (outer >= inner * inner || dx.abs() >= inner) {
+                    let rim = (half as f32 - (outer as f32).sqrt()) / thickness as f32;
+                    self.pixel(x, y, STONE, plane * (0.55 + (rim * 3.0).min(1.0) * 0.45));
+                }
+            }
+        }
+        for y in (top + half + 7..bottom - 2).step_by(13) {
+            for side in [-1, 1] {
+                self.stroke(
+                    (cx + side * (half - thickness + 2), y),
+                    (cx + side * (half - 2), y),
+                    STONE,
+                    plane * 0.28,
+                );
+                self.stroke(
+                    (cx + side * (half - thickness + 3), y + 1),
+                    (cx + side * (half - 3), y + 1),
+                    STONE,
+                    plane * 0.85,
+                );
+            }
+        }
+        // Voussoirs fan around the arch. Their joints cross its thickness;
+        // short inner bevels catch warm light instead of a drawn grey outline.
+        for i in 1..12 {
+            let angle = i as f32 * std::f32::consts::PI / 12.0;
+            let (sn, cs) = angle.sin_cos();
+            let a = half - thickness + 1;
+            let z = half - 1;
+            let inner = (
+                cx + (cs * a as f32) as i32,
+                top + half - (sn * a as f32) as i32,
+            );
+            let outer = (
+                cx + (cs * z as f32) as i32,
+                top + half - (sn * z as f32) as i32,
+            );
+            self.stroke(inner, outer, STONE, plane * 0.18);
+            self.stroke(
+                (inner.0 + 1, inner.1 + 1),
+                (outer.0 + 1, outer.1 + 1),
+                STONE,
+                plane + 0.22,
+            );
+            if i % 2 == 0 {
+                self.stroke(
+                    (outer.0 - 2, outer.1 + 3),
+                    (outer.0 + 1, outer.1 + 4),
+                    STONE,
+                    plane * 0.55,
+                );
+            }
+        }
+    }
+
+    fn stroke(&mut self, a: (i32, i32), z: (i32, i32), ramp: Ramp, plane: f32) {
+        let steps = (z.0 - a.0).abs().max((z.1 - a.1).abs()).max(1);
+        for i in 0..=steps {
+            self.pixel(
+                a.0 + (z.0 - a.0) * i / steps,
+                a.1 + (z.1 - a.1) * i / steps,
+                ramp,
+                plane,
+            );
+        }
+    }
+
+    fn masonry(&mut self, x: i32, y: i32, w: i32, h: i32, scale: i32, plane: f32) {
+        for row in 0..h / scale {
+            let offset = if row % 2 == 0 { 0 } else { scale };
+            for col in 0..w / (scale * 2) {
+                let bx = x + col * scale * 2 + offset;
+                let by = y + row * scale;
+                let width = (w + x - bx - 1).min(scale * 2 - 2);
+                if width > 3 {
+                    let n = hash(bx, by, 84);
+                    self.round(
+                        bx,
+                        by,
+                        width,
+                        scale - 2,
+                        2,
+                        STONE,
+                        plane + (n % 5) as f32 * 0.025,
+                    );
+                    self.stroke(
+                        (bx + 2, by + 1),
+                        (bx + width - 3, by + 1),
+                        STONE,
+                        plane + 0.30,
+                    );
+                    self.stroke(
+                        (bx + width - 2, by + 3),
+                        (bx + width - 2, by + scale - 4),
+                        STONE,
+                        plane * 0.35,
+                    );
+                    for mark in 0..3 {
+                        let xx = bx + 4 + ((n >> (mark * 4)) as i32).rem_euclid((width - 7).max(1));
+                        let yy =
+                            by + 3 + ((n >> (mark * 3 + 2)) as i32).rem_euclid((scale - 6).max(1));
+                        self.stroke((xx, yy), (xx + 2, yy), STONE, plane * 0.54);
+                        self.pixel(xx + 1, yy + 1, STONE, plane + 0.09);
+                    }
+                    if n % 4 == 0 {
+                        self.stroke((bx + 3, by + 2), (bx + 7, by + 2), STONE, plane + 0.18);
+                    }
+                }
+            }
+        }
+    }
+
+    fn rock(&mut self, x: i32, y: i32, rx: i32, ry: i32, plane: f32) {
+        // Chipped silhouettes and three coherent facets, not cloud lobes.
+        let a = (x - rx, y - ry / 4);
+        let b = (x - rx * 2 / 3, y - ry * 4 / 5);
+        let c = (x + rx / 5, y - ry);
+        let d = (x + rx * 4 / 5, y - ry / 2);
+        let e = (x + rx, y + ry / 3);
+        let f = (x + rx / 3, y + ry * 4 / 5);
+        let g = (x - rx * 3 / 4, y + ry);
+        let joint = (x - rx / 7, y - ry / 5);
+        self.poly(&[a, b, c, d, joint], STONE, plane + 0.28);
+        self.poly(&[a, joint, f, g], STONE, plane);
+        self.poly(&[joint, d, e, f], STONE, plane * 0.43);
+        self.stroke(b, c, STONE, plane + 0.42);
+        self.stroke(joint, f, STONE, plane * 0.60);
+        // Short mineral strata lie on the face, parallel to its plane.
+        for i in 0..(rx / 12).max(1) {
+            let xx = x - rx / 2 + i * 11;
+            let yy = y + ry / 4 + i * ry / 18;
+            self.stroke((xx, yy), (xx + 7, yy - 2), STONE, plane + 0.07);
+        }
+    }
+
+    fn beam(&mut self, a: (i32, i32), z: (i32, i32), width: i32, plane: f32) {
+        let dx = z.0 - a.0;
+        let dy = z.1 - a.1;
+        let length = ((dx * dx + dy * dy) as f32).sqrt();
+        let nx = (-dy as f32 / length * width as f32 / 2.0) as i32;
+        let ny = (dx as f32 / length * width as f32 / 2.0) as i32;
+        self.poly(
+            &[
+                (a.0 + nx, a.1 + ny),
+                (z.0 + nx, z.1 + ny),
+                (z.0 - nx, z.1 - ny),
+                (a.0 - nx, a.1 - ny),
+            ],
+            WOOD,
+            plane,
         );
-        im.ellipse(
-            (x + dx) as f32,
-            (y + dy) as f32,
-            (r / 4 + 1) as f32,
-            (r / 4 + 1) as f32,
-            DARK,
+        self.stroke(
+            (a.0 + nx, a.1 + ny),
+            (z.0 + nx, z.1 + ny),
+            WOOD,
+            plane + 0.25,
         );
-        im.ellipse(
-            (x + dx) as f32,
-            (y + dy) as f32,
-            (r / 4 - 1).max(1) as f32,
-            (r / 4 - 1).max(1) as f32,
+        for offset in [-1, 2] {
+            self.stroke(
+                (a.0 + offset, a.1 + 3),
+                (z.0 + offset, z.1 - 3),
+                WOOD,
+                plane - 0.12,
+            );
+        }
+        for &(x, y) in &[a, z] {
+            self.round(x - 2, y - 2, 5, 5, 1, METAL, 0.25);
+            self.pixel(x - 1, y - 2, METAL, 0.9);
+        }
+    }
+
+    fn chain(&mut self, x: i32, top: i32, bottom: i32, plane: f32) {
+        for y in (top..bottom).step_by(5) {
+            self.round(x - 1, y, 3, 4, 1, METAL, plane);
+            self.pixel(x - 1, y, METAL, plane + 0.35);
+            self.pixel(x, y + 1, STONE, 0.01);
+        }
+    }
+
+    fn skull(&mut self, x: i32, y: i32, plane: f32) {
+        self.oval(x, y, 4, 4, PAPER, plane);
+        self.round(x - 2, y + 3, 5, 3, 1, PAPER, plane * 0.8);
+        for dx in [-2, 1] {
+            self.round(x + dx, y - 1, 2, 2, 1, STONE, 0.0);
+        }
+        self.pixel(x, y + 2, STONE, 0.0);
+    }
+
+    fn haze(&mut self, cx: i32, cy: i32, rx: i32, ry: i32, colour: char, power: f32) {
+        for y in (cy - ry).max(0)..(cy + ry).min(HORIZON) {
+            for x in (cx - rx).max(0)..(cx + rx).min(W) {
+                let d =
+                    ((x - cx) as f32 / rx as f32).powi(2) + ((y - cy) as f32 / ry as f32).powi(2);
+                if d < 1.0 {
+                    let base = self.im.get(x, y).unwrap();
+                    self.im.set(
+                        x,
+                        y,
+                        nearest_material(
+                            std::array::from_fn(|i| {
+                                base[i] as f32
+                                    + ink(colour).unwrap()[i] as f32
+                                        * power
+                                        * 0.16
+                                        * (1.0 - d).powi(3)
+                            }),
+                            false,
+                            x,
+                            y,
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
+    fn lantern(&mut self, x: i32, y: i32, size: i32) {
+        self.haze(x, y, size * 8, size * 9, 't', 0.18);
+        self.round(
+            x - size - 2,
+            y - size * 2 - 2,
+            size * 2 + 5,
+            size * 4 + 5,
+            3,
+            METAL,
+            0.45,
+        );
+        self.im
+            .ellipse(x as f32, y as f32, size as f32, (size * 2) as f32, 'o');
+        self.im.ellipse(
+            x as f32,
+            (y - 1) as f32,
+            (size - 1).max(1) as f32,
+            (size * 2 - 1) as f32,
             't',
         );
-        im.line(
-            x,
-            y,
-            x + (a.cos() * r as f32) as i32,
-            y + (a.sin() * r as f32) as i32,
-            DARK,
-        );
+        self.im.line(x, y - size * 2 + 2, x, y + size, 'T');
+        self.im.line(x, y - size * 3 - 4, x, y - size * 2 - 2, 'S');
     }
-    im.ellipse(x as f32, y as f32, 4.0, 4.0, DARK);
-    im.ellipse(x as f32, y as f32, 2.0, 2.0, '6');
-}
 
-fn flame(im: &mut Img, x: i32, y: i32, size: i32) {
-    poly(
-        im,
-        &[
-            (x - size, y + 2),
-            (x - size, y - size / 2),
-            (x - size * 2 / 3, y - size),
-            (x - size / 2, y - size * 2),
-            (x - size / 3, y - size * 3 / 2),
-            (x, y - size * 3),
-            (x + size / 3, y - size * 2),
-            (x + size / 6, y - size),
-            (x + size / 2, y - size * 3 / 2),
-            (x + size, y - size * 2),
-            (x + size * 3 / 4, y - size / 3),
-            (x + size, y + 2),
-        ],
-        'R',
-    );
-    poly(
-        im,
-        &[
-            (x - size / 2, y + 1),
-            (x - size * 2 / 5, y - size / 2),
-            (x - size / 4, y - size),
-            (x - size / 3, y - size * 3 / 2),
-            (x, y - size * 2),
-            (x + size / 5, y - size * 5 / 4),
-            (x + size / 6, y - size / 2),
-            (x + size / 2, y - size),
-            (x + size * 2 / 3, y - size / 2),
-            (x + size / 2, y),
-            (x, y + 3),
-        ],
-        '@',
-    );
-    if size >= 6 {
-        poly(
-            im,
+    fn candle(&mut self, x: i32, y: i32, h: i32) {
+        self.round(x - 1, y - h, 3, h, 1, PAPER, 0.7);
+        self.haze(x, y - h - 2, 14, 18, 't', 0.16);
+        self.im.ellipse(x as f32, (y - h - 2) as f32, 1.5, 2.5, 't');
+        self.im.put(x, y - h - 3, 'T');
+        self.round(x - 4, y, 9, 3, 1, WOOD, 0.4);
+    }
+
+    fn floor(&mut self, vanish: i32, top: i32) {
+        self.poly(
             &[
-                (x - 2, y + 1),
-                (x - size / 5, y - size / 2),
-                (x + 1, y - size),
-                (x + size / 5, y - size / 3),
-                (x + 2, y + 2),
+                (0, top + 15),
+                (vanish, top),
+                (W, top + 15),
+                (W, HORIZON),
+                (0, HORIZON),
             ],
-            '6',
+            STONE,
+            0.2,
         );
-    } else {
-        im.line(x, y - size, x, y + 1, '6');
-    }
-}
-
-fn torch(im: &mut Img, x: i32, y: i32) {
-    glow(im, x, y - 3, 24, 29, 0.38);
-    im.line(x - 3, y + 15, x, y + 6, 'r');
-    im.rect(x - 5, y + 2, 10, 3, DARK);
-    flame(im, x, y, 3);
-}
-
-fn courtyard(im: &mut Img, vanish: i32, y: i32) {
-    im.rect(0, y, W, HORIZON - y, DARK);
-    for xx in (-180..600).step_by(54) {
-        im.line(vanish, y, xx, HORIZON, 's');
-    }
-    for yy in [y + 5, y + 13, y + 26, 185] {
-        im.line(0, yy, W, yy, 's');
-    }
-}
-
-fn near_wall(im: &mut Img, left: bool) {
-    let (a, b) = if left { (0, 70) } else { (383, 316) };
-    poly(im, &[(a, 95), (b, 137), (b, 188), (a, 188)], DARK);
-    for i in 0..6 {
-        let x = a + (b - a) * i / 6;
-        let y = 88 + i * 7;
-        let dx = if left { 8 } else { -8 };
-        poly(
-            im,
-            &[(x, y), (x + dx, y + 5), (x + dx, y + 18), (x, y + 13)],
-            DARK,
-        );
-        im.line(x, y + 21, x, HORIZON, 's');
-    }
-    im.line(a, 118, b, 155, 'x');
-    im.line(a, 149, b, 172, 's');
-}
-
-fn chapel(im: &mut Img, x: i32) {
-    im.rect(x - 34, 60, 68, 115, DARK);
-    poly(im, &[(x, 17), (x - 38, 63), (x + 38, 63)], DARK);
-    poly(im, &[(x, 24), (x - 29, 59), (x - 4, 51)], 's');
-    spire(im, x - 39, 6, 16, 178, DARK);
-    spire(im, x + 39, 28, 12, 178, DARK);
-    im.line(x, 6, x, 20, DARK);
-    im.line(x - 4, 11, x + 4, 11, DARK);
-    masonry(im, x - 27, 100, 54, 70, 's');
-    glow(im, x, 78, 38, 45, 0.17);
-    rose(im, x, 78, 16);
-    window(im, x - 17, 108, 9, 31, 't');
-    window(im, x + 8, 108, 9, 31, 't');
-    window(im, x - 13, 145, 26, 32, 'x');
-    window(im, x - 9, 149, 18, 28, 'o');
-    window(im, x - 5, 152, 10, 25, '@');
-    for dx in [-30, 27] {
-        im.rect(x + dx, 68, 3, 110, 'x');
-    }
-    for y in [100, 142] {
-        im.line(x - 30, y, x + 30, y, 'x');
-    }
-}
-
-fn crypt_exterior() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, false);
-    skyline(&mut back, false);
-    skyline(&mut back, true);
-    horizon_haze(&mut back);
-    let mut front = Img::new(W, H);
-    battlement(&mut front, 93, 146, 290, 173, DARK);
-    poly(
-        &mut front,
-        &[(192, 176), (192, 125), (214, 102), (240, 126), (240, 176)],
-        DARK,
-    );
-    spire(&mut front, 211, 44, 18, 178, DARK);
-    window(&mut front, 207, 129, 7, 23, 'o');
-    chapel(&mut front, 282);
-    courtyard(&mut front, 282, 176);
-    glow(&mut front, 282, 174, 65, 24, 0.30);
-    // Graveyard hill and ironwork in the near plane.
-    poly(
-        &mut front,
-        &[
-            (0, 148),
-            (58, 143),
-            (121, 160),
-            (178, 182),
-            (196, 188),
-            (0, 188),
-        ],
-        DARK,
-    );
-    for (i, x) in [17, 43, 77, 115, 152].into_iter().enumerate() {
-        let y = 149 + i as i32 * 5;
-        if i % 2 == 0 {
-            front.rect(x, y - 19, 4, 30, 'x');
-            front.rect(x - 6, y - 12, 16, 4, 'x');
-            front.line(x + 1, y - 18, x + 1, y + 9, 's');
-        } else {
-            window(&mut front, x, y - 13, 13, 23, 's');
-            front.rect(x + 4, y - 5, 5, 14, DARK);
-        }
-    }
-    for x in (7..192).step_by(9) {
-        let y = 166 + x / 15;
-        front.line(x, y - 12, x, y + 8, 's');
-        poly(
-            &mut front,
-            &[(x, y - 16), (x - 2, y - 12), (x + 2, y - 12)],
-            's',
-        );
-    }
-    front.line(3, 165, 193, 179, 's');
-    poly(
-        &mut front,
-        &[(6, 186), (22, 169), (54, 158), (60, 169), (24, 188)],
-        'x',
-    );
-    poly(
-        &mut front,
-        &[(18, 179), (52, 161), (56, 167), (22, 182)],
-        DARK,
-    );
-    torch(&mut front, 244, 171);
-    torch(&mut front, 333, 164);
-    scene(back, front, (282, 78))
-}
-
-fn gate() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, false);
-    skyline(&mut back, false);
-    skyline(&mut back, true);
-    horizon_haze(&mut back);
-    let mut front = Img::new(W, H);
-    battlement(&mut front, 58, 112, 326, 157, DARK);
-    masonry(&mut front, 60, 128, 320, 29, 's');
-    // A gatehouse within the curtain wall, viewed across the arrival court.
-    for (x, y, w) in [(150, 39, 36), (269, 31, 40)] {
-        battlement(&mut front, x, y, w, 170, DARK);
-        front.rect(x - 3, y + 17, w + 6, 4, 'x');
-        masonry(&mut front, x + 3, y + 30, w - 6, 94, 's');
-        window(&mut front, x + w / 2 - 4, y + 36, 9, 24, 'o');
-    }
-    poly(
-        &mut front,
-        &[(175, 170), (175, 91), (226, 51), (277, 90), (277, 170)],
-        DARK,
-    );
-    poly(
-        &mut front,
-        &[(185, 169), (185, 101), (226, 65), (267, 101), (267, 169)],
-        'x',
-    );
-    poly(
-        &mut front,
-        &[(194, 169), (194, 105), (226, 78), (258, 105), (258, 169)],
-        DARK,
-    );
-    // Successive inner arches and raised teeth show the descent beyond.
-    window(&mut front, 211, 108, 30, 61, 's');
-    window(&mut front, 217, 119, 18, 49, DARK);
-    front.rect(223, 132, 7, 30, 'o');
-    glow(&mut front, 227, 146, 33, 38, 0.23);
-    for x in (197..258).step_by(7) {
-        front.rect(x, 94 + (x - 227).abs() / 2, 2, 16, 's');
-    }
-    front.line(196, 115, 257, 115, 's');
-    rose(&mut front, 226, 87, 7);
-    courtyard(&mut front, 226, 163);
-    glow(&mut front, 226, 173, 49, 24, 0.29);
-    for y in [165, 170, 178] {
-        front.rect(197 - (y - 165), y, 59 + (y - 165) * 2, 2, 'x');
-    }
-    torch(&mut front, 188, 133);
-    torch(&mut front, 266, 133);
-    near_wall(&mut front, true);
-    // Near left brazier and empty courtyard benches establish human scale.
-    front.rect(76, 141, 6, 38, DARK);
-    front.rect(68, 177, 21, 4, DARK);
-    glow(&mut front, 79, 140, 30, 36, 0.28);
-    flame(&mut front, 79, 141, 5);
-    front.rect(70, 144, 19, 4, 'x');
-    poly(
-        &mut front,
-        &[(303, 174), (348, 163), (366, 172), (321, 184)],
-        DARK,
-    );
-    front.line(305, 173, 348, 163, 's');
-    front.rect(316, 179, 4, 9, DARK);
-    front.rect(357, 170, 4, 13, DARK);
-    scene(back, front, (227, 147))
-}
-
-fn dragon(im: &mut Img, x: i32, y: i32) {
-    // Curved scallops between long wing fingers, rather than triangular bat fins.
-    for side in [-1, 1] {
-        let p = |dx, dy| (x + dx * side, y + dy);
-        let pts = [
-            p(0, 14),
-            p(18, -13),
-            p(44, -24),
-            p(81, -16),
-            p(64, -14),
-            p(55, -9),
-            p(48, -1),
-            p(45, 9),
-            p(42, 5),
-            p(37, 3),
-            p(31, 6),
-            p(27, 18),
-            p(23, 13),
-            p(18, 12),
-            p(13, 18),
-            p(8, 28),
-            p(1, 26),
-        ];
-        poly(im, &pts, DARK);
-        for (dx, dy) in [(79, -16), (45, 7), (27, 16), (9, 26)] {
-            im.line(x + side * 8, y + 15, x + side * dx, y + dy, 's');
-        }
-        im.line(x + side * 8, y + 14, x + side * 39, y - 16, 's');
-    }
-    poly(
-        im,
-        &[
-            (x - 5, y + 13),
-            (x + 5, y + 12),
-            (x + 10, y + 31),
-            (x + 4, y + 40),
-            (x - 5, y + 37),
-            (x - 15, y + 51),
-            (x - 31, y + 55),
-            (x - 19, y + 48),
-            (x - 9, y + 30),
-        ],
-        DARK,
-    );
-    poly(
-        im,
-        &[
-            (x + 3, y + 20),
-            (x + 14, y + 14),
-            (x + 17, y + 6),
-            (x + 20, y + 14),
-            (x + 26, y + 12),
-            (x + 29, y + 18),
-            (x + 24, y + 23),
-            (x + 13, y + 24),
-            (x + 8, y + 33),
-        ],
-        DARK,
-    );
-    im.line(x + 6, y + 35, x + 18, y + 42, DARK);
-    im.line(x + 18, y + 42, x + 22, y + 37, DARK);
-    im.line(x - 1, y + 37, x - 8, y + 44, DARK);
-    im.put(x + 23, y + 17, 'R');
-}
-
-fn keep() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, false);
-    skyline(&mut back, false);
-    skyline(&mut back, true);
-    horizon_haze(&mut back);
-    dragon(&mut back, 205, 43);
-    let mut front = Img::new(W, H);
-    for (x, y, w) in [(96, 57, 14), (152, 108, 8), (253, 79, 11), (301, 41, 15)] {
-        spire(&mut front, x, y, w, 179, DARK);
-    }
-    battlement(&mut front, 0, 145, W, 183, DARK);
-    for (x, y, w) in [(-7, -54, 53), (342, -45, 49)] {
-        spire(&mut front, x + w / 2, y, w, 188, DARK);
-        masonry(&mut front, x + 3, y + w * 2 + 9, w - 6, 95, 's');
-        glow(&mut front, x + 30, 97, 28, 36, 0.22);
-        window(&mut front, x + 26, 81, 11, 30, 't');
-        front.rect(x - 5, 147, w + 10, 4, 'x');
-    }
-    window(&mut front, 296, 130, 8, 25, 'o');
-    window(&mut front, 246, 132, 5, 17, 'o');
-    courtyard(&mut front, 194, 175);
-    near_wall(&mut front, true);
-    near_wall(&mut front, false);
-    torch(&mut front, 68, 155);
-    torch(&mut front, 323, 151);
-    scene(back, front, (24, 97))
-}
-
-fn arch(im: &mut Img, cx: i32, top: i32, half: i32, bottom: i32, rim: char, inside: char) {
-    poly(
-        im,
-        &[
-            (cx - half, bottom),
-            (cx - half, top + half),
-            (cx - half * 3 / 4, top + half / 2),
-            (cx, top),
-            (cx + half * 3 / 4, top + half / 2),
-            (cx + half, top + half),
-            (cx + half, bottom),
-        ],
-        rim,
-    );
-    let inner = half - (half / 7).max(3);
-    poly(
-        im,
-        &[
-            (cx - inner, bottom),
-            (cx - inner, top + half + 3),
-            (cx - inner * 3 / 4, top + half / 2 + 5),
-            (cx, top + 7),
-            (cx + inner * 3 / 4, top + half / 2 + 5),
-            (cx + inner, top + half + 3),
-            (cx + inner, bottom),
-        ],
-        inside,
-    );
-}
-
-fn candle(im: &mut Img, x: i32, y: i32, h: i32) {
-    glow(im, x, y - h, 15, 19, 0.24);
-    im.rect(x - 1, y - h, 3, h, 'o');
-    im.line(x, y - h, x, y, 't');
-    im.line(x, y - h - 4, x, y - h - 1, '@');
-    im.put(x, y - h - 2, '6');
-    im.rect(x - 3, y + 1, 7, 2, DARK);
-}
-
-fn skull(im: &mut Img, x: i32, y: i32, c: char) {
-    im.ellipse(x as f32, y as f32, 3.0, 3.0, c);
-    im.rect(x - 2, y + 2, 4, 2, c);
-    im.put(x - 2, y, DARK);
-    im.put(x + 1, y, DARK);
-    im.put(x, y + 2, DARK);
-}
-
-fn crypt_interior() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, true);
-    // A chain of pale vaults recedes to an amber funerary window.
-    for (x, top, half) in [(204, 40, 70), (204, 58, 50), (204, 73, 34), (204, 88, 21)] {
-        arch(&mut back, x, top, half, 158, 'S', 's');
-    }
-    rose(&mut back, 204, 113, 9);
-    glow(&mut back, 204, 119, 44, 42, 0.24);
-    for x in [157, 244] {
-        back.rect(x, 111, 5, 44, 'x');
-    }
-    let mut front = Img::new(W, H);
-    // Side walls angle toward the far sanctuary; tiers of ossuary niches.
-    poly(&mut front, &[(0, 0), (117, 41), (140, 160), (0, 188)], 's');
-    poly(
-        &mut front,
-        &[(384, 0), (291, 42), (265, 160), (384, 188)],
-        's',
-    );
-    masonry(&mut front, 0, 20, 110, 152, 'x');
-    masonry(&mut front, 292, 21, 92, 152, 'x');
-    for (side, columns) in [(0, [23, 64, 102]), (1, [279, 314, 353])] {
-        for (i, x) in columns.into_iter().enumerate() {
-            let inset = if side == 0 { i as i32 } else { 2 - i as i32 };
-            let w = 28 - inset * 5;
-            for row in 0..3 {
-                let y = 37 + inset * 12 + row * (36 - inset * 4);
-                window(&mut front, x, y, w, 29 - inset * 4, 'x');
-                window(&mut front, x + 3, y + 4, w - 6, 24 - inset * 4, DARK);
-                for dx in [8, w - 8] {
-                    skull(&mut front, x + dx, y + 18 - inset, 'g');
-                }
-                front.line(
-                    x + 3,
-                    y + 24 - inset * 2,
-                    x + w - 3,
-                    y + 24 - inset * 2,
-                    'r',
+        for row in 0..4 {
+            let y = top + 4 + row * (row + 2);
+            let width = 24 + row * 13;
+            for col in -5..8 {
+                let x = vanish + col * width - row * 6;
+                self.round(
+                    x,
+                    y,
+                    width - 3,
+                    3 + row * 2,
+                    2,
+                    STONE,
+                    0.30 + row as f32 * 0.015,
                 );
-                if (row + i as i32 + side) % 2 == 0 {
-                    candle(&mut front, x + w / 2, y + 26 - inset * 2, 7);
-                }
             }
         }
     }
-    courtyard(&mut front, 204, 157);
-    glow(&mut front, 204, 157, 57, 30, 0.16);
-    // The stone sarcophagus and its clustered candles are the near hero.
-    poly(
-        &mut front,
-        &[(126, 157), (187, 139), (259, 155), (202, 177)],
-        'x',
-    );
-    poly(
-        &mut front,
-        &[(126, 157), (202, 177), (202, 188), (126, 175)],
-        DARK,
-    );
-    poly(
-        &mut front,
-        &[(202, 177), (259, 155), (259, 174), (202, 188)],
-        's',
-    );
-    front.line(128, 156, 187, 140, 'u');
-    front.line(187, 140, 258, 155, 'u');
-    front.line(131, 162, 196, 180, 's');
-    front.line(131, 172, 196, 187, 's');
-    for (x, y) in [(146, 168), (168, 174), (188, 180)] {
-        skull(&mut front, x, y, 's');
+
+    fn vignette(x: i32, y: i32) -> f32 {
+        let dx = (x - 196) as f32 / 193.0;
+        let dy = (y - 102) as f32 / 106.0;
+        let radial = ((1.0 - dx * dx - dy * dy) / 0.44).clamp(0.0, 1.0);
+        let foot = ((HORIZON - 1 - y) as f32 / 30.0).clamp(0.0, 1.0);
+        let fade = radial.min(foot);
+        fade * fade * (3.0 - 2.0 * fade)
     }
-    front.line(209, 179, 249, 162, 'x');
-    front.line(209, 184, 249, 168, 'x');
-    glow(&mut front, 182, 131, 55, 51, 0.28);
-    for (x, y, h) in [
-        (164, 151, 19),
-        (179, 148, 25),
-        (193, 151, 15),
-        (215, 157, 20),
-        (229, 156, 12),
+
+    fn finish(&self) -> Img {
+        let mut im = self.im.clone();
+        for y in 0..HORIZON {
+            for x in 0..W {
+                let fade = Self::vignette(x, y);
+                if fade < 1.0 {
+                    im.set(
+                        x,
+                        y,
+                        nearest_material(
+                            im.get(x, y).unwrap().map(|v| v as f32 * fade),
+                            false,
+                            x,
+                            y,
+                        ),
+                    );
+                }
+            }
+        }
+        im
+    }
+}
+
+fn gate() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(218, 108, 66.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::warm(94, 125, 62.0),
+        Lamp::cool(249, 42, 110.0),
+    ]);
+    b.haze(235, 89, 128, 86, 's', 0.50);
+    // A low, rounded gatehouse among banked stones, viewed across the steps.
+    b.round(114, 54, 175, 113, 20, STONE, 0.34);
+    b.masonry(119, 73, 167, 86, 11, 0.35);
+    b.round(105, 58, 187, 12, 5, STONE, 0.49);
+    b.round(129, 42, 151, 22, 9, STONE, 0.50);
+    b.round(186, 94, 64, 72, 15, STONE, 0.015);
+    b.oval(218, 103, 32, 31, STONE, 0.015);
+    b.arch(218, 67, 45, 167, 12, 0.85);
+    b.arch(218, 87, 27, 164, 7, 0.42);
+    b.arch(218, 102, 15, 159, 4, 0.25);
+    b.round(209, 126, 18, 32, 7, WOOD, 0.44);
+    for x in [213, 219, 224] {
+        b.im.line(x, 132, x, 156, 'P');
+    }
+    for (x, y, w) in [
+        (121, 81, 31),
+        (126, 102, 24),
+        (260, 82, 21),
+        (259, 107, 23),
+        (135, 132, 27),
     ] {
-        candle(&mut front, x, y, h);
+        b.round(x, y, w, 12, 4, STONE, 0.46);
     }
-    skull(&mut front, 201, 152, 'o');
-    for (x, top) in [(121, 54), (282, 49)] {
-        front.rect(x, top, 9, 106, DARK);
-        front.line(x + 7, top + 3, x + 7, 158, 'x');
-        front.rect(x - 4, top, 16, 5, 'x');
-        front.rect(x - 3, 156, 15, 6, DARK);
+    b.floor(218, 156);
+    for (y, w) in [(158, 70), (166, 91), (177, 120)] {
+        b.round(218 - w / 2, y, w, 7, 3, STONE, 0.52);
+        b.im.line(221 - w / 2, y + 1, 214 + w / 2, y + 1, 'S');
     }
-    // Near black columns frame all three depth planes, with a ribbed ceiling.
-    for x in [-8, 366] {
-        front.rect(x, 0, 25, 188, DARK);
-        front.rect(x + 6, 0, 3, 170, 's');
-        front.rect(x - 4, 154, 33, 8, DARK);
+    for x in [205, 211, 217, 223, 229] {
+        b.stroke((x, 119), (x, 154), METAL, 0.16);
+        b.stroke((x - 1, 122), (x - 1, 133), METAL, 0.62);
+        b.poly(&[(x - 2, 121), (x, 116), (x + 2, 121)], METAL, 0.42);
     }
-    poly(
-        &mut front,
-        &[
-            (0, 0),
-            (384, 0),
-            (384, 23),
-            (293, 16),
-            (205, 49),
-            (110, 13),
-            (0, 32),
-        ],
-        DARK,
+    for y in [134, 147] {
+        b.stroke((203, y), (231, y), METAL, 0.24);
+    }
+    b.chain(181, 96, 142, 0.26);
+    // Moss and round rubble frame the entrance instead of a city silhouette.
+    for (x, y, r) in [
+        (32, 153, 27),
+        (63, 153, 24),
+        (99, 156, 18),
+        (306, 152, 19),
+        (335, 146, 24),
+        (360, 151, 27),
+    ] {
+        b.oval(x, y, r, r * 2 / 3, STONE, 0.32);
+        b.oval(x - 5, y - r / 3, r * 2 / 3, r / 4, MOSS, 0.40);
+    }
+    for (x, y) in [(43, 167), (61, 174), (108, 173), (306, 170), (331, 172)] {
+        b.rock(x, y, 7, 4, 0.29);
+    }
+    for (x, y) in [(119, 118), (120, 132), (122, 143), (282, 121), (281, 135)] {
+        b.oval(x, y, 4, 3, MOSS, 0.44);
+        b.oval(x + 3, y + 4, 3, 2, MOSS, 0.35);
+    }
+    b.round(86, 128, 18, 39, 4, WOOD, 0.36);
+    b.lantern(94, 125, 3);
+    b.lantern(218, 108, 2);
+    (b, breathing)
+}
+
+fn churchyard() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(222, 120, 76.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::warm(104, 144, 58.0),
+        Lamp::cool(186, 64, 106.0),
+    ]);
+    // The church rises behind a gate and graves. Three depth planes share
+    // the same light, but nearer iron and stones have darker facing sides.
+    b.floor(220, 153);
+    b.round(143, 69, 144, 91, 6, STONE, 0.28);
+    b.poly(
+        &[(135, 75), (153, 53), (208, 29), (273, 54), (297, 76)],
+        CAP,
+        0.45,
     );
-    front.line(42, 0, 205, 49, 's');
-    front.line(348, 0, 205, 49, 's');
-    scene(back, front, (179, 121))
-}
-
-fn crypt(depth: u32) -> Layers {
-    if depth == 1 {
-        crypt_exterior()
-    } else {
-        crypt_interior()
+    for row in 0..5 {
+        for col in 0..8 {
+            b.stroke(
+                (159 + col * 14 + row * 3, 57 + row * 4),
+                (170 + col * 14 + row * 3, 56 + row * 4),
+                CAP,
+                0.51 - row as f32 * 0.03,
+            );
+        }
     }
+    b.masonry(147, 81, 137, 71, 10, 0.33);
+    b.round(132, 44, 35, 116, 7, STONE, 0.30);
+    b.masonry(134, 76, 32, 81, 9, 0.35);
+    b.poly(&[(127, 47), (141, 25), (149, 19), (168, 47)], CAP, 0.43);
+    b.arch(149, 54, 10, 76, 4, 0.45);
+    b.arch(222, 96, 20, 160, 7, 0.66);
+    b.round(209, 122, 26, 36, 4, WOOD, 0.42);
+    for x in [212, 218, 224, 230] {
+        b.stroke((x, 126), (x, 154), WOOD, 0.58);
+    }
+    for x in [183, 259] {
+        b.arch(x, 83, 9, 111, 3, 0.51);
+        b.round(x - 4, 91, 8, 16, 3, PAPER, 0.34);
+        b.stroke((x, 91), (x, 108), METAL, 0.17);
+        b.stroke((x - 4, 98), (x + 3, 98), METAL, 0.2);
+    }
+    // Low stone boundary, iron finials and a partly open wrought gate.
+    b.masonry(57, 139, 81, 28, 10, 0.25);
+    b.masonry(270, 137, 65, 32, 10, 0.24);
+    for x in [137, 269] {
+        b.round(x - 7, 115, 15, 54, 3, STONE, 0.31);
+        b.round(x - 9, 113, 19, 5, 2, STONE, 0.57);
+    }
+    for x in (146..202).step_by(8) {
+        let top = 129 - (x - 146) / 8;
+        b.stroke((x, top), (x, 167), METAL, 0.16);
+        b.poly(&[(x - 2, top), (x, top - 4), (x + 2, top)], METAL, 0.37);
+        b.stroke((x - 1, top + 4), (x - 1, top + 12), METAL, 0.66);
+    }
+    for y in [139, 158] {
+        b.stroke((146, y), (200, y - 6), METAL, 0.32);
+    }
+    for (x, y, h) in [
+        (79, 157, 25),
+        (110, 169, 21),
+        (306, 159, 28),
+        (283, 174, 16),
+    ] {
+        b.round(x - 7, y - h, 15, h, 5, STONE, 0.16);
+        b.stroke((x - 5, y - h + 2), (x + 3, y - h + 2), STONE, 0.68);
+        b.stroke((x, y - h + 6), (x, y - h + 14), STONE, 0.05);
+        b.stroke((x - 3, y - h + 9), (x + 3, y - h + 9), STONE, 0.05);
+        b.rock(x, y + 2, 11, 4, 0.12);
+    }
+    b.lantern(222, 120, 2);
+    b.lantern(104, 144, 2);
+    for (x, y) in [(54, 170), (91, 179), (317, 172)] {
+        b.rock(x, y, 14, 8, 0.04);
+    }
+    for (x, y, r) in [(44, 117, 15), (337, 111, 16)] {
+        b.beam((x, y), (x + 2, 172), 4, 0.08);
+        b.oval(x, y - 10, r, 31, MOSS, 0.06);
+        b.oval(x - 2, y - 24, r - 3, 24, MOSS, 0.05);
+        for dy in [0, 11, 22] {
+            b.stroke((x - 5, y - dy), (x + 5, y - dy - 2), MOSS, 0.18);
+        }
+    }
+    b.chain(268, 119, 149, 0.36);
+    (b, breathing)
 }
 
-fn wheel(im: &mut Img, x: i32, y: i32, r: i32) {
-    im.ellipse(x as f32, y as f32, (r + 3) as f32, (r + 3) as f32, DARK);
-    im.ellipse(x as f32, y as f32, r as f32, r as f32, 'x');
-    im.ellipse(x as f32, y as f32, (r - 2) as f32, (r - 2) as f32, DARK);
-    for i in 0..8 {
-        let a = i as f32 * std::f32::consts::TAU / 8.0;
-        im.line(
-            x,
-            y,
-            x + (a.cos() * r as f32) as i32,
-            y + (a.sin() * r as f32) as i32,
-            's',
+fn crypt_vault() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(172, 130, 64.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::warm(74, 94, 57.0),
+        Lamp::warm(307, 100, 60.0),
+        Lamp::cool(218, 72, 85.0),
+    ]);
+    b.haze(216, 103, 92, 73, 'S', 0.19);
+    b.masonry(52, 57, 52, 105, 12, 0.25);
+    b.masonry(307, 57, 50, 105, 12, 0.20);
+    // Three round vaults, each darker and smaller toward the sanctuary.
+    for (top, half, thick, shade) in [
+        (33, 139, 17, 0.45),
+        (51, 95, 13, 0.40),
+        (70, 58, 9, 0.33),
+        (87, 31, 6, 0.27),
+    ] {
+        b.arch(214, top, half, 163, thick, shade);
+    }
+    b.floor(214, 151);
+    for (x, y) in [(42, 59), (88, 77), (286, 74), (331, 56)] {
+        b.round(x, y, 24, 77, 6, STONE, 0.35);
+        b.round(x + 6, y + 16, 13, 21, 5, STONE, 0.01);
+        b.round(x + 6, y + 49, 13, 21, 5, STONE, 0.01);
+        b.arch(x + 12, y + 8, 9, y + 34, 3, 0.52);
+        b.arch(x + 12, y + 43, 9, y + 69, 3, 0.48);
+        // Small ivory remains sit within the ossuary recesses.
+        for yy in [y + 28, y + 63] {
+            b.skull(x + 11, yy - 2, 0.68);
+            b.stroke((x + 5, yy + 5), (x + 18, yy + 5), PAPER, 0.4);
+        }
+    }
+    // A low sarcophagus, with a rounded lid and a selectively lit lip.
+    b.poly(
+        &[(118, 151), (168, 138), (241, 153), (198, 176), (122, 166)],
+        STONE,
+        0.36,
+    );
+    b.round(123, 154, 76, 21, 6, STONE, 0.33);
+    for x in [133, 151, 173] {
+        b.round(x, 161, 12, 7, 3, STONE, 0.23);
+    }
+    b.poly(
+        &[(198, 160), (241, 151), (239, 171), (198, 180)],
+        STONE,
+        0.23,
+    );
+    b.poly(
+        &[(115, 149), (167, 133), (244, 149), (199, 167), (119, 157)],
+        STONE,
+        0.72,
+    );
+    b.im.line(122, 149, 166, 136, 'U');
+    b.im.line(169, 136, 232, 149, 'j');
+    b.stroke((151, 149), (190, 153), STONE, 0.26);
+    b.stroke((173, 144), (164, 159), STONE, 0.27);
+    b.stroke((153, 148), (189, 152), STONE, 0.90);
+    for (x, y) in [(141, 164), (166, 168), (219, 166)] {
+        b.round(x - 5, y - 3, 10, 6, 2, METAL, 0.28);
+        b.stroke((x - 3, y - 2), (x + 2, y - 2), METAL, 0.68);
+    }
+    for (x, y, h) in [(151, 148, 12), (172, 149, 17), (192, 155, 9)] {
+        b.candle(x, y, h);
+    }
+    b.candle(74, 108, 12);
+    b.candle(307, 114, 14);
+    for (x, y) in [(45, 163), (78, 169), (289, 165), (330, 170)] {
+        b.rock(x, y, 8, 5, 0.24);
+    }
+    b.round(209, 111, 12, 30, 5, STONE, 0.45);
+    b.im.ellipse(215.0, 114.0, 2.0, 3.0, 'U');
+    for (x, y, w, h) in [(27, 49, 19, 126), (346, 49, 20, 128)] {
+        b.round(x, y, w, h, 5, STONE, 0.015);
+        b.stroke((x + w - 3, y + 9), (x + w - 3, y + h - 8), STONE, 0.28);
+        b.round(x - 3, y + 25, w + 6, 7, 2, STONE, 0.08);
+    }
+    b.chain(120, 47, 101, 0.20);
+    b.chain(286, 49, 104, 0.23);
+    (b, breathing)
+}
+
+fn wheel(b: &mut Brush, x: i32, y: i32, r: i32) {
+    b.oval(x, y, r + 3, r + 3, WOOD, 0.50);
+    b.oval(x, y, r, r, WOOD, 0.12);
+    for (dx, dy) in [
+        (r - 2, 0),
+        (0, r - 2),
+        (r * 2 / 3, r * 2 / 3),
+        (r * 2 / 3, -r * 2 / 3),
+    ] {
+        b.stroke((x - dx, y - dy), (x + dx, y + dy), WOOD, 0.52);
+    }
+    b.oval(x, y, 3, 3, METAL, 0.60);
+    b.stroke((x - r / 2, y - r + 1), (x + r / 3, y - r + 1), METAL, 0.85);
+}
+
+fn mine_head() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(249, 111, 72.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::warm(92, 91, 75.0),
+        Lamp::cool(188, 47, 160.0),
+        Lamp::warm(316, 143, 49.0),
+    ]);
+    b.haze(207, 111, 150, 74, 's', 0.20);
+    // One quiet cliff: a broad face, a lit crown and a recessed right side.
+    // Small strata describe the rock without splitting it into rubble facets.
+    b.poly(
+        &[
+            (31, 65),
+            (91, 40),
+            (156, 31),
+            (212, 45),
+            (272, 29),
+            (323, 46),
+            (354, 70),
+            (361, 157),
+            (28, 165),
+        ],
+        CLIFF,
+        0.22,
+    );
+    b.poly(
+        &[
+            (31, 65),
+            (91, 40),
+            (156, 31),
+            (212, 45),
+            (272, 29),
+            (323, 46),
+            (319, 60),
+            (270, 44),
+            (210, 60),
+            (154, 45),
+            (94, 54),
+        ],
+        CLIFF,
+        0.50,
+    );
+    b.poly(
+        &[(319, 60), (323, 46), (354, 70), (361, 157), (326, 159)],
+        CLIFF,
+        0.10,
+    );
+    // Long, gently sloping bedding seams, interrupted around the entrance.
+    for (a, z) in [
+        ((130, 78), (194, 74)),
+        ((141, 107), (204, 101)),
+        ((151, 135), (208, 131)),
+        ((294, 78), (325, 83)),
+        ((309, 124), (332, 129)),
+    ] {
+        b.stroke(a, z, CLIFF, 0.08);
+        b.stroke((a.0, a.1 + 1), (z.0, z.1 + 1), CLIFF, 0.30);
+    }
+    for (x, y) in [
+        (155, 60),
+        (178, 88),
+        (159, 119),
+        (201, 65),
+        (305, 94),
+        (319, 145),
+    ] {
+        b.stroke((x, y), (x + 5, y - 1), CLIFF, 0.15);
+        b.pixel(x + 2, y - 2, CLIFF, 0.35);
+    }
+    // Timbered adit: the tunnel stays black behind thick oak posts and lintel.
+    b.round(222, 104, 67, 64, 5, STONE, 0.01);
+    b.oval(256, 108, 32, 29, STONE, 0.01);
+    b.arch(256, 72, 45, 167, 9, 0.42);
+    b.arch(256, 91, 30, 167, 6, 0.15);
+    b.floor(256, 157);
+    b.beam((220, 105), (220, 163), 10, 0.67);
+    b.beam((287, 104), (287, 164), 10, 0.54);
+    b.beam((214, 104), (293, 104), 11, 0.71);
+    b.beam((223, 111), (239, 121), 5, 0.45);
+    b.beam((284, 111), (271, 121), 5, 0.39);
+    // A-frame winding head: two legs meet under the sheave, with a clear
+    // crossbeam, iron joints and a rope dropping into an open shaft collar.
+    b.round(66, 158, 58, 10, 2, STONE, 0.09);
+    b.im.rect(73, 158, 42, 7, 's');
+    b.beam((90, 57), (48, 165), 10, 0.64);
+    b.beam((99, 57), (140, 164), 10, 0.46);
+    b.beam((67, 113), (122, 113), 9, 0.63);
+    b.beam((55, 151), (90, 120), 5, 0.32);
+    b.beam((129, 151), (102, 121), 5, 0.30);
+    b.beam((81, 66), (110, 66), 9, 0.61);
+    wheel(&mut b, 95, 49, 16);
+    // A sheave has an open centre, rim and spokes; its hanging rope is hemp.
+    b.stroke((111, 48), (111, 160), WOOD, 0.79);
+    b.stroke((112, 49), (112, 160), WOOD, 0.34);
+    b.round(109, 151, 5, 6, 1, METAL, 0.32);
+    b.stroke((90, 70), (90, 82), METAL, 0.40);
+    b.lantern(92, 91, 2);
+    // Rails curve toward the adit and catch its lantern at the vanishing end.
+    for y in 163..HORIZON {
+        let d = y - 163;
+        let left = 243 - d * 4 - d * d / 35;
+        let right = 265 - d * 3;
+        if d % 5 == 1 {
+            b.im.line(left - 6, y, right + 6, y, 'P');
+        }
+        b.im.line(left, y, left + 1, y, 'S');
+        b.im.line(right, y, right + 1, y, 'u');
+    }
+    b.round(308, 141, 43, 23, 6, METAL, 0.40);
+    b.oval(329, 142, 22, 5, STONE, 0.25);
+    b.round(308, 145, 43, 3, 1, METAL, 0.72);
+    for x in [316, 328, 340] {
+        b.stroke((x, 149), (x, 160), METAL, 0.24);
+    }
+    b.rock(325, 140, 7, 5, 0.35);
+    b.rock(336, 139, 8, 6, 0.28);
+    wheel(&mut b, 317, 165, 5);
+    wheel(&mut b, 342, 163, 5);
+    b.poly(
+        &[(308, 142), (348, 139), (353, 145), (310, 148)],
+        METAL,
+        0.66,
+    );
+    b.stroke((310, 148), (350, 145), METAL, 0.87);
+    b.stroke((311, 151), (348, 149), METAL, 0.22);
+    for x in [313, 324, 337, 348] {
+        b.round(x, 151, 2, 9, 1, METAL, 0.48);
+        b.pixel(x, 152, METAL, 0.86);
+        b.pixel(x, 159, METAL, 0.70);
+    }
+    b.lantern(316, 143, 1);
+    b.lantern(249, 111, 3);
+    (b, breathing)
+}
+
+fn forge() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(248, 114, 106.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::warm(96, 91, 61.0),
+        Lamp::cool(179, 53, 82.0),
+    ]);
+    b.masonry(68, 46, 257, 113, 12, 0.28);
+    // Vaults and furnace stack lead to the cooler room behind the fire.
+    b.arch(183, 31, 108, 164, 14, 0.30);
+    b.arch(175, 55, 58, 158, 9, 0.20);
+    b.floor(215, 150);
+    b.round(220, 57, 69, 107, 8, STONE, 0.43);
+    b.masonry(224, 61, 62, 96, 10, 0.50);
+    b.arch(248, 90, 26, 156, 9, 0.72);
+    b.round(231, 112, 35, 36, 5, WOOD, 0.1);
+    // Emission is crisp, with its diffuse light already on nearby bricks.
+    for (x, y, h) in [
+        (236, 137, 14),
+        (242, 140, 25),
+        (249, 139, 32),
+        (256, 139, 20),
+        (261, 138, 11),
+    ] {
+        b.poly(
+            &[
+                (x - 3, y),
+                (x - 2, y - h / 2),
+                (x, y - h),
+                (x + 3, y - h / 3),
+                (x + 3, y),
+            ],
+            WOOD,
+            0.95,
         );
+        b.im.line(x, y - h + 4, x - 1, y - 3, 't');
+        b.im.put(x, y - 5, 'T');
     }
-    im.ellipse(x as f32, y as f32, 3.0, 3.0, 'r');
+    for x in (230..268).step_by(7) {
+        b.stroke((x, 125), (x, 148), METAL, 0.18);
+        b.pixel(x - 1, 126, METAL, 0.78);
+    }
+    b.round(226, 149, 47, 6, 2, METAL, 0.39);
+    b.chain(190, 43, 116, 0.24);
+    b.chain(307, 47, 135, 0.25);
+    // Roof braces, with visible beam ends, scarf joints and iron straps.
+    b.beam((69, 57), (306, 60), 10, 0.32);
+    b.beam((76, 57), (102, 140), 8, 0.27);
+    b.beam((304, 60), (279, 92), 7, 0.30);
+    b.lantern(96, 91, 3);
+    // A heavy anvil on its stump: bright top, charcoal front and horn.
+    b.oval(173, 172, 34, 8, WOOD, 0.16);
+    b.round(150, 143, 43, 28, 4, WOOD, 0.29);
+    for x in [155, 164, 175, 187] {
+        b.stroke((x, 150), (x - 2, 167), WOOD, 0.17);
+    }
+    b.poly(
+        &[(136, 128), (174, 125), (204, 130), (183, 136), (152, 136)],
+        METAL,
+        0.82,
+    );
+    b.poly(
+        &[(150, 136), (183, 136), (179, 144), (154, 145)],
+        METAL,
+        0.15,
+    );
+    b.poly(
+        &[(183, 131), (211, 127), (205, 133), (184, 139)],
+        METAL,
+        0.39,
+    );
+    b.round(156, 141, 26, 5, 2, METAL, 0.31);
+    b.stroke((140, 128), (176, 126), METAL, 0.97);
+    b.im.line(150, 128, 171, 126, 'u');
+    b.im.line(181, 133, 203, 129, 'o');
+    b.beam((185, 127), (202, 149), 3, 0.48);
+    b.round(181, 123, 14, 7, 2, METAL, 0.7);
+    // Tongs, ore basket, rail offcuts and a dark nearer barrel.
+    b.stroke((116, 141), (132, 163), METAL, 0.28);
+    b.stroke((121, 140), (134, 160), METAL, 0.36);
+    b.round(279, 151, 35, 19, 3, METAL, 0.18);
+    for x in [284, 294, 305] {
+        b.stroke((x, 152), (x + 3, 168), METAL, 0.43);
+    }
+    for (x, y) in [(286, 148), (298, 146), (305, 150)] {
+        b.rock(x, y, 7, 5, 0.38);
+    }
+    b.oval(78, 169, 19, 6, WOOD, 0.12);
+    b.round(59, 144, 38, 24, 5, WOOD, 0.12);
+    b.oval(78, 144, 19, 5, WOOD, 0.30);
+    for y in [149, 163] {
+        b.stroke((61, y), (94, y), METAL, 0.18);
+    }
+    for x in [68, 78, 88] {
+        b.stroke((x, 149), (x, 161), WOOD, 0.04);
+    }
+    for y in [173, 177] {
+        b.stroke((213, y), (275, y - 2), METAL, 0.27);
+    }
+    (b, breathing)
 }
 
-fn chain(im: &mut Img, x: i32, top: i32, bottom: i32) {
-    for y in (top..bottom).step_by(5) {
-        im.frame(x - 1, y, 3, 4, 'x');
-        im.put(x, y + 2, 'u');
-    }
-}
-
-fn mine_head() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, false);
-    // Distant ridges sink into the sunset glow before the nearer rock face.
-    poly(
-        &mut back,
-        &[
-            (0, 126),
-            (50, 75),
-            (90, 99),
-            (155, 58),
-            (216, 103),
-            (280, 64),
-            (337, 94),
-            (384, 68),
-            (384, 188),
-            (0, 188),
-        ],
-        NAVY,
-    );
-    poly(
-        &mut back,
-        &[
-            (0, 145),
-            (48, 110),
-            (97, 137),
-            (174, 80),
-            (204, 111),
-            (252, 101),
-            (309, 68),
-            (384, 118),
-            (384, 188),
-            (0, 188),
-        ],
-        's',
-    );
-    poly(
-        &mut back,
-        &[(309, 68), (317, 120), (357, 143), (332, 112)],
-        'x',
-    );
-    horizon_haze(&mut back);
-    let mut front = Img::new(W, H);
-    // An open pit and tall timber winding gear, with no outdoor forge.
-    courtyard(&mut front, 279, 165);
-    poly(
-        &mut front,
-        &[(43, 159), (131, 145), (170, 166), (90, 186), (25, 173)],
-        DARK,
-    );
-    front.line(43, 158, 131, 144, 'x');
-    front.line(131, 144, 171, 165, 'x');
-    for (a, b) in [(52, 31), (115, 137)] {
-        poly(
-            &mut front,
-            &[(a, 53), (a + 8, 53), (b + 9, 169), (b - 2, 169)],
-            DARK,
-        );
-        front.line(a + 1, 54, b, 166, 'x');
-    }
-    front.rect(35, 52, 102, 9, DARK);
-    front.rect(41, 78, 86, 7, DARK);
-    front.line(55, 88, 123, 142, 'x');
-    front.line(111, 88, 43, 145, 'x');
-    front.line(56, 89, 123, 143, DARK);
-    wheel(&mut front, 82, 43, 19);
-    front.line(83, 25, 289, 113, 'x');
-    front.line(83, 27, 289, 115, DARK);
-    chain(&mut front, 82, 49, 148);
-    poly(
-        &mut front,
-        &[(69, 137), (94, 137), (90, 156), (73, 156)],
-        's',
-    );
-    front.line(69, 136, 94, 136, 'u');
-    // The adit has its own lantern, inset within angular dwarven stonework.
-    poly(
-        &mut front,
-        &[
-            (223, 168),
-            (223, 119),
-            (249, 93),
-            (306, 93),
-            (332, 119),
-            (332, 168),
-        ],
-        DARK,
-    );
-    poly(
-        &mut front,
-        &[
-            (233, 169),
-            (233, 122),
-            (253, 102),
-            (302, 102),
-            (321, 122),
-            (321, 169),
-        ],
-        'x',
-    );
-    poly(
-        &mut front,
-        &[
-            (241, 169),
-            (241, 125),
-            (259, 110),
-            (296, 110),
-            (313, 125),
-            (313, 169),
-        ],
-        DARK,
-    );
-    for y in [121, 133, 145] {
-        front.line(234, y, 242, y, 'r');
-        front.line(312, y, 320, y, 'r');
-    }
-    glow(&mut front, 278, 137, 34, 41, 0.34);
-    front.line(278, 113, 278, 128, 'r');
-    front.rect(273, 128, 10, 15, 't');
-    front.rect(276, 130, 4, 10, '6');
-    front.rect(271, 126, 14, 3, DARK);
-    front.rect(271, 142, 14, 3, DARK);
-    for (end, start) in [(127, 267), (230, 284)] {
-        front.line(start, 167, end, 188, 'u');
-    }
-    for y in [171, 176, 183] {
-        front.line(123 + (188 - y) * 7, y, 239 + (188 - y) * 3, y, 's');
-    }
-    // Cart, track points, fence and loose foreground picks.
-    poly(
-        &mut front,
-        &[(306, 157), (350, 149), (364, 164), (318, 172)],
-        DARK,
-    );
-    front.line(306, 157, 350, 149, 'x');
-    front.rect(317, 159, 44, 14, DARK);
-    for x in [326, 353] {
-        wheel(&mut front, x, 175, 5);
-    }
-    for x in (5..186).step_by(22) {
-        front.rect(x, 151 + x / 15, 3, 26, DARK);
-    }
-    front.line(0, 157, 183, 171, 's');
-    front.line(0, 165, 182, 179, 's');
-    front.line(13, 174, 48, 188, 'r');
-    poly(
-        &mut front,
-        &[
-            (7, 173),
-            (20, 167),
-            (36, 171),
-            (43, 178),
-            (27, 173),
-            (18, 173),
-        ],
-        'x',
-    );
-    glow(&mut front, 278, 167, 61, 22, 0.21);
-    scene(back, front, (278, 136))
-}
-
-fn anvil(im: &mut Img, x: i32, y: i32, scale: i32) {
-    let p = |dx, dy| (x + dx * scale, y + dy * scale);
-    poly(
-        im,
-        &[
-            p(-27, -9),
-            p(8, -9),
-            p(26, -14),
-            p(20, -5),
-            p(10, -2),
-            p(6, 1),
-            p(5, 9),
-            p(13, 13),
-            p(-17, 13),
-            p(-8, 8),
-            p(-8, 1),
-            p(-19, -2),
-        ],
-        DARK,
-    );
-    im.line(
-        x - 26 * scale,
-        y - 9 * scale,
-        x + 8 * scale,
-        y - 9 * scale,
-        'r',
-    );
-    im.line(
-        x + 8 * scale,
-        y - 9 * scale,
-        x + 24 * scale,
-        y - 13 * scale,
-        'o',
-    );
-    im.rect(x - 19 * scale, y + 13 * scale, 33 * scale, 4 * scale, DARK);
-}
-
-fn forge_hall() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, true);
-    // Pale far galleries and their small hearths, under the mountain vault.
-    for (x, half, top) in [(225, 27, 66), (286, 31, 48), (358, 35, 29)] {
-        arch(&mut back, x, top, half, 154, 'x', 's');
-        back.rect(x - 12, 119, 24, 21, 'x');
-        back.rect(x - 7, 127, 14, 11, 'r');
-        glow(&mut back, x, 134, 23, 28, 0.26);
-        flame(&mut back, x, 137, 3);
-    }
-    back.line(184, 102, 384, 79, 'x');
-    back.line(184, 107, 384, 84, 'x');
-    for x in (199..384).step_by(17) {
-        back.line(x, 83 + (384 - x) / 9, x, 105 - (x - 184) / 9, 'x');
-    }
-    let mut front = Img::new(W, H);
-    front.rect(0, 143, W, 45, DARK);
-    for y in [149, 163, 181] {
-        front.line(175, y, 384, y + 3, 's');
-    }
-    // Monumental hood and masonry hearth, offset left from the galleries.
-    front.rect(53, 61, 107, 89, 's');
-    masonry(&mut front, 56, 63, 99, 79, 'x');
-    arch(&mut front, 108, 72, 41, 145, 'r', '8');
-    glow(&mut front, 108, 123, 75, 65, 0.38);
-    front.rect(77, 99, 62, 45, '7');
-    front.rect(86, 116, 45, 25, 'R');
-    flame(&mut front, 107, 138, 13);
-    flame(&mut front, 89, 141, 6);
-    flame(&mut front, 126, 141, 7);
-    for x in (77..143).step_by(8) {
-        front.ellipse(x as f32, 144.0, 4.0, 3.0, DARK);
-        front.put(x - 1, 143, 'R');
-    }
-    poly(
-        &mut front,
-        &[(50, 70), (68, 39), (79, 0), (139, 0), (149, 39), (170, 70)],
-        DARK,
-    );
-    poly(&mut front, &[(58, 64), (74, 38), (143, 38), (161, 64)], 's');
-    front.line(74, 37, 142, 37, 'x');
-    front.rect(47, 67, 126, 7, DARK);
-    for x in (52..169).step_by(12) {
-        front.put(x, 70, 'r');
-    }
-    front.rect(56, 149, 109, 7, 'x');
-    glow(&mut front, 108, 153, 108, 42, 0.32);
-    // Midground bench, tools, water barrel and a smaller anvil.
-    front.rect(246, 149, 112, 5, 'x');
-    for x in [253, 341] {
-        front.rect(x, 154, 7, 27, DARK);
-    }
-    for (x, y) in [(268, 115), (286, 114), (303, 109)] {
-        front.line(x, y, x + 2, 144, DARK);
-        front.rect(x - 5, y - 2, 11, 4, 'x');
-    }
-    anvil(&mut front, 286, 141, 1);
-    front.ellipse(28.0, 159.0, 16.0, 8.0, 'x');
-    front.rect(12, 156, 32, 31, DARK);
-    for x in [16, 24, 34, 40] {
-        front.line(x, 159, x, 184, 's');
-    }
-    front.line(12, 163, 44, 163, 'x');
-    front.line(12, 180, 44, 180, 'x');
-    // The foreground anvil catches the hearth along its upper edge.
-    anvil(&mut front, 156, 161, 2);
-    poly(
-        &mut front,
-        &[(120, 151), (161, 151), (172, 158), (165, 160), (141, 158)],
-        'b',
-    );
-    front.line(119, 148, 171, 148, 'r');
-    front.line(133, 171, 140, 176, 's');
-    front.line(166, 174, 185, 183, 's');
-    front.rect(194, 166, 20, 6, DARK);
-    front.line(205, 170, 224, 188, 'r');
-    chain(&mut front, 198, 0, 111);
-    front.line(195, 108, 202, 119, 'x');
-    front.line(202, 119, 208, 114, 'x');
-    // Near pillars, roof beams and hanging tongs close the interior frame.
-    for x in [-3, 370] {
-        front.rect(x, 0, 16, 188, DARK);
-        front.line(x + 12, 5, x + 12, 170, 's');
-    }
-    poly(&mut front, &[(8, 0), (44, 0), (78, 32), (61, 32)], DARK);
-    poly(
-        &mut front,
-        &[(323, 0), (365, 0), (239, 52), (227, 44)],
-        DARK,
-    );
-    front.line(357, 0, 232, 49, 's');
-    front.line(35, 0, 67, 30, 's');
-    front.line(23, 48, 29, 108, 'r');
-    front.line(36, 48, 31, 108, 's');
-    scene(back, front, (108, 123))
-}
-
-fn mines(depth: u32) -> Layers {
-    if depth == 1 {
-        mine_head()
-    } else {
-        forge_hall()
+fn keep_blocks(b: &mut Brush, x: i32, top: i32, w: i32, bottom: i32, curved: bool) {
+    b.round(x, top, w, bottom - top, 2, STONE, 0.08);
+    for (row, y) in (top..bottom).step_by(9).enumerate() {
+        let mut xx = x - if row % 2 == 0 { 0 } else { 8 };
+        while xx < x + w {
+            let left = xx.max(x);
+            let right = (xx + 16).min(x + w);
+            let height = 8.min(bottom - y);
+            if right - left > 2 {
+                let t = (left + right - 2 * x) as f32 / (2 * w) as f32;
+                let volume = if curved {
+                    (t * std::f32::consts::PI).sin()
+                } else {
+                    0.72
+                };
+                let plane = 0.14 + volume * 0.29 + (hash(xx, y, 36) % 4) as f32 * 0.025;
+                b.round(left, y, right - left - 1, height, 1, STONE, plane);
+                b.stroke((left + 1, y + 1), (right - 3, y + 1), STONE, plane + 0.28);
+                b.stroke(
+                    (right - 2, y + 3),
+                    (right - 2, y + height - 2),
+                    STONE,
+                    plane * 0.25,
+                );
+                if hash(xx, y, 36) % 3 == 0 {
+                    b.stroke((left + 3, y + 5), (left + 6, y + 5), STONE, plane * 0.5);
+                }
+            }
+            xx += 17;
+        }
     }
 }
 
-fn books(im: &mut Img, x: i32, y: i32, w: i32, h: i32, near: bool) {
-    im.rect(x, y, w, h, DARK);
-    im.rect(x + 3, y + 3, w - 6, h - 6, 's');
-    let step = if near { 18 } else { 13 };
-    for yy in (y + step..y + h).step_by(step as usize) {
-        im.rect(x + 2, yy, w - 4, 3, DARK);
-        let mut xx = x + 5;
-        while xx < x + w - 6 {
+fn merlon(b: &mut Brush, x: i32, y: i32, w: i32) {
+    // A solid battlement with a top coping and a visible dark side face.
+    b.round(x, y, w, 12, 1, STONE, 0.48);
+    b.poly(
+        &[
+            (x + w - 3, y + 2),
+            (x + w, y),
+            (x + w, y + 12),
+            (x + w - 3, y + 12),
+        ],
+        STONE,
+        0.13,
+    );
+    b.stroke((x + 1, y), (x + w - 2, y), STONE, 0.84);
+    b.stroke((x + 1, y + 6), (x + w - 4, y + 6), STONE, 0.15);
+}
+
+fn arrow_slit(b: &mut Brush, x: i32, y: i32) {
+    b.round(x - 4, y - 3, 9, 23, 2, STONE, 0.10);
+    b.stroke((x - 4, y - 1), (x - 4, y + 18), STONE, 0.63);
+    b.im.line(x, y, x, y + 15, 'o');
+    b.im.line(x, y + 2, x, y + 11, 't');
+    b.im.line(x - 2, y + 10, x + 2, y + 10, 'o');
+    b.stroke((x - 5, y + 20), (x + 4, y + 20), STONE, 0.71);
+}
+
+fn tower(b: &mut Brush, x: i32, top: i32, w: i32, bottom: i32) {
+    keep_blocks(b, x, top + 7, w, bottom, true);
+    b.round(x - 2, top + 5, w + 4, 5, 1, STONE, 0.47);
+    b.stroke((x - 1, top + 5), (x + w + 1, top + 5), STONE, 0.74);
+    for dx in [0, 17, 34] {
+        merlon(b, x + dx, top - 6, 12);
+    }
+    arrow_slit(b, x + w / 2, top + 32);
+    b.round(x - 2, bottom - 9, w + 4, 5, 1, STONE, 0.28);
+}
+
+fn keep() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(208, 134, 67.0);
+    let mut moon = Lamp::cool(213, 56, 184.0);
+    moon.strength = 0.84;
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::warm(123, 89, 27.0),
+        Lamp::warm(291, 79, 27.0),
+        moon,
+    ]);
+    b.haze(208, 85, 155, 100, 's', 0.19);
+    b.oval(202, 169, 151, 35, STONE, 0.17);
+    // A taller hall behind the curtain wall, with coursed walls and slate
+    // shingles laid along the roof planes rather than a single teal wedge.
+    keep_blocks(&mut b, 163, 64, 88, 145, false);
+    b.poly(&[(155, 67), (205, 31), (206, 63)], CAP, 0.39);
+    b.poly(&[(205, 31), (259, 66), (206, 63)], CAP, 0.19);
+    for row in 0..5 {
+        let y = 39 + row * 5;
+        let half = (y - 31) * 3 / 2;
+        b.stroke((205 - half, y), (203, y - 2), CAP, 0.58);
+        b.stroke((209, y - 2), (205 + half, y), CAP, 0.27);
+        for dx in (-half + 4..-2).step_by(9) {
+            b.stroke((205 + dx, y), (208 + dx, y - 4), CAP, 0.22);
+        }
+        for dx in (5..half - 2).step_by(9) {
+            b.stroke((205 + dx, y), (202 + dx, y - 4), CAP, 0.10);
+        }
+    }
+    b.stroke((205, 33), (205, 62), CAP, 0.64);
+    b.round(157, 65, 100, 5, 1, STONE, 0.44);
+    keep_blocks(&mut b, 134, 93, 144, 166, false);
+    b.round(133, 90, 145, 5, 1, STONE, 0.48);
+    for x in (137..276).step_by(19) {
+        merlon(&mut b, x, 80, 12);
+    }
+    tower(&mut b, 99, 56, 48, 167);
+    tower(&mut b, 266, 46, 50, 168);
+    for x in [165, 246] {
+        arrow_slit(&mut b, x, 105);
+    }
+    // Recessed scorched arch and an iron portcullis, warm behind its bars.
+    b.round(192, 132, 33, 33, 2, WOOD, 0.07);
+    b.oval(208, 132, 17, 17, WOOD, 0.07);
+    b.arch(208, 112, 27, 167, 8, 0.58);
+    b.arch(208, 120, 19, 166, 3, 0.10);
+    b.round(201, 139, 12, 26, 1, WOOD, 0.60);
+    for x in (195..224).step_by(6) {
+        b.stroke((x, 132), (x, 163), METAL, 0.19);
+        b.stroke((x + 1, 135), (x + 1, 160), METAL, 0.58);
+        b.poly(&[(x - 1, 162), (x + 2, 162), (x, 167)], METAL, 0.26);
+    }
+    for y in [140, 151] {
+        b.round(191, y, 35, 3, 1, METAL, 0.29);
+        for x in [195, 207, 219] {
+            b.pixel(x, y, METAL, 0.86);
+        }
+    }
+    b.chain(179, 121, 158, 0.29);
+    b.chain(237, 121, 158, 0.24);
+    b.lantern(208, 134, 2);
+    b.floor(208, 165);
+    b.round(179, 167, 60, 5, 2, STONE, 0.51);
+    b.round(167, 175, 84, 5, 2, STONE, 0.40);
+    // A horned dragon skull mounted over the gate: long muzzle, hollow eyes,
+    // swept horns and small teeth, lit by the doorway below it.
+    b.poly(
+        &[
+            (197, 104),
+            (199, 95),
+            (207, 92),
+            (218, 96),
+            (220, 104),
+            (214, 109),
+            (204, 110),
+        ],
+        PAPER,
+        0.57,
+    );
+    b.poly(
+        &[(199, 98), (190, 90), (191, 84), (195, 91), (203, 95)],
+        PAPER,
+        0.41,
+    );
+    b.poly(
+        &[(214, 96), (223, 89), (226, 84), (225, 94), (219, 101)],
+        PAPER,
+        0.33,
+    );
+    b.round(201, 99, 4, 3, 1, STONE, 0.01);
+    b.round(213, 99, 4, 3, 1, STONE, 0.01);
+    b.poly(
+        &[(207, 104), (213, 104), (216, 110), (206, 111)],
+        PAPER,
+        0.47,
+    );
+    b.pixel(211, 108, STONE, 0.01);
+    for x in [203, 207, 216] {
+        b.stroke((x, 108), (x, 111), PAPER, 0.68);
+    }
+    // Old claw scores break only a few blocks beside the scorched threshold.
+    for dx in [0, 4, 8] {
+        b.stroke((242 + dx, 133), (239 + dx, 148), STONE, 0.01);
+        b.stroke((243 + dx, 134), (240 + dx, 147), STONE, 0.48);
+    }
+    for (x, y, rx) in [(27, 153, 35), (65, 150, 30), (333, 154, 24), (366, 147, 35)] {
+        b.oval(x, y, rx, 20, MOSS, 0.35);
+        b.oval(x - 10, y - 14, rx * 2 / 3, 17, MOSS, 0.42);
+    }
+    (b, breathing)
+}
+
+fn shelves(b: &mut Brush, x: i32, y: i32, w: i32, h: i32, near: bool) {
+    b.round(x, y, w, h, 7, WOOD, if near { 0.44 } else { 0.23 });
+    b.round(x + 5, y + 7, w - 10, h - 14, 3, STONE, 0.07);
+    let step = if near { 23 } else { 17 };
+    for yy in (y + step..y + h - 3).step_by(step as usize) {
+        let mut xx = x + 8;
+        while xx < x + w - 9 {
             let n = hash(xx, yy, 73);
-            let bw = 2 + (n % 4) as i32;
-            let bh = step - 4 - ((n >> 5) % 4) as i32;
-            let c = match n % 7 {
-                0 => 'r',
-                1 => CRIMSON,
-                2 => 'u',
-                3 => NAVY,
-                _ => 'x',
+            let bw = 3 + (n % 4) as i32;
+            let bh = step - 6 - ((n >> 4) % 6) as i32;
+            let ramp = match n % 4 {
+                0 => WOOD,
+                1 => MOSS,
+                2 => METAL,
+                _ => PAPER,
             };
-            im.rect(xx, yy - bh, bw, bh, c);
-            if near {
-                im.line(
-                    xx,
-                    yy - bh + 3,
-                    xx + bw - 1,
-                    yy - bh + 3,
-                    if n % 3 == 0 { 'o' } else { 's' },
-                );
-                im.line(xx, yy - 3, xx + bw - 1, yy - 3, 's');
-                im.line(
-                    xx,
-                    yy - bh + 1,
-                    xx,
-                    yy - 1,
-                    if n % 3 == 0 { 'r' } else { 'u' },
-                );
+            b.round(xx, yy - bh, bw, bh, 1, ramp, if near { 0.53 } else { 0.21 });
+            if near && n % 3 == 0 {
+                for dy in [3, bh - 3] {
+                    b.stroke(
+                        (xx + 1, yy - bh + dy),
+                        (xx + bw - 2, yy - bh + dy),
+                        PAPER,
+                        0.61,
+                    );
+                }
+                b.stroke((xx + 1, yy - bh + 5), (xx + 1, yy - 4), ramp, 0.73);
             }
             xx += bw + 2;
         }
+        b.round(x + 3, yy, w - 6, 4, 2, WOOD, 0.63);
     }
-    im.rect(x, y, 3, h, 'x');
-    im.rect(x + w - 3, y, 3, h, 's');
+    b.round(x + 2, y + 3, 4, h - 6, 2, WOOD, 0.49);
 }
 
-fn water(im: &mut Img, source: &Img, line: i32) {
-    // Broken, compressed mirror silhouettes; the water stays in the cool inks.
-    im.rect(0, line, W, HORIZON - line, DARK);
-    for y in line..HORIZON {
-        let sy = line - (y - line) * 2 - 1;
-        for x in 0..W {
-            let n = hash(x / 3, y, 97);
-            if n % 5 < 2 && y % 3 != 0 {
-                if let Some(c) = source.get(x + ((y - line) % 5 - 2), sy) {
-                    im.set(x, y, c);
-                    tint(im, x, y, ink(DARK).unwrap(), 0.67);
-                }
+fn archive() -> (Brush, Lamp) {
+    let breathing = Lamp::warm(200, 96, 82.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::cool(80, 110, 95.0),
+        Lamp::cool(314, 80, 99.0),
+        Lamp::warm(165, 138, 58.0),
+        Lamp::warm(286, 98, 54.0),
+    ]);
+    b.haze(203, 104, 110, 70, 'S', 0.25);
+    b.arch(201, 40, 100, 151, 10, 0.37);
+    shelves(&mut b, 150, 80, 34, 64, false);
+    shelves(&mut b, 222, 77, 32, 66, false);
+    shelves(&mut b, 78, 57, 56, 96, true);
+    shelves(&mut b, 274, 50, 55, 104, true);
+    shelves(&mut b, 17, 28, 53, 126, true);
+    shelves(&mut b, 339, 24, 34, 131, true);
+    // Still flood water holds quiet, grouped reflections beneath the shelves.
+    b.poly(
+        &[(0, 155), (198, 145), (384, 155), (384, 188), (0, 188)],
+        CAP,
+        0.15,
+    );
+    b.haze(200, 168, 61, 21, 'P', 0.25);
+    for (x, y, w, c) in [
+        (187, 154, 26, 'o'),
+        (182, 159, 38, 'P'),
+        (194, 164, 20, 'o'),
+        (176, 172, 45, 'P'),
+        (70, 169, 27, 'S'),
+        (303, 160, 22, 'S'),
+        (264, 178, 30, 's'),
+    ] {
+        b.im.line(x, y, x + w, y, c);
+    }
+    b.im.line(200, 49, 200, 84, 'S');
+    b.lantern(200, 96, 4);
+    // A dry stone reading island with a warmly lit open folio.
+    b.oval(134, 175, 48, 10, STONE, 0.31);
+    b.round(129, 151, 9, 24, 3, WOOD, 0.50);
+    b.poly(
+        &[(105, 144), (132, 133), (159, 143), (137, 159)],
+        WOOD,
+        0.66,
+    );
+    b.poly(
+        &[(108, 142), (130, 135), (134, 150), (119, 150)],
+        PAPER,
+        0.68,
+    );
+    b.poly(
+        &[(132, 135), (156, 143), (138, 154), (134, 150)],
+        PAPER,
+        0.80,
+    );
+    b.im.line(132, 137, 135, 150, 'P');
+    for y in [141, 144] {
+        b.im.line(115, y, 127, y - 3, 'j');
+        b.im.line(139, y - 1, 150, y + 3, 'j');
+    }
+    b.candle(165, 157, 17);
+    b.lantern(286, 98, 2);
+    b.chain(200, 49, 84, 0.35);
+    (b, breathing)
+}
+
+// Living light is baked into the cap itself, independently of incident light.
+// This small teal-green ramp stays on the realm palette and is only used here.
+fn fungal_glow(b: &mut Brush, x: i32, y: i32, strength: f32) {
+    let Some(base) = b.im.get(x, y) else { return };
+    let colours = [
+        0x132724, 0x263b40, 0x2f4a52, 0x3a6d5d, 0x6e8a8e, 0x50c6b3, 0x8fe8dc,
+    ]
+    .map(rgb);
+    let c: [f32; 3] =
+        std::array::from_fn(|i| (base[i] as f32).max([72.0, 226.0, 180.0][i] * strength));
+    let distance = |p: &Rgb| (0..3).map(|i| (p[i] as f32 - c[i]).powi(2)).sum::<f32>();
+    let colour = *colours
+        .iter()
+        .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+        .unwrap();
+    b.im.set(x, y, colour);
+}
+
+fn mushroom(b: &mut Brush, x: i32, y: i32, r: i32, foot: i32, near: bool) {
+    b.oval(x, foot, r / 2 + 3, 5, MOSS, 0.16);
+    let height = (foot - y).max(1);
+    for yy in y..foot {
+        let t = (yy - y) as f32 / height as f32;
+        let bend = (t * std::f32::consts::PI).sin() * r as f32 * 0.13;
+        let centre = x + bend as i32;
+        let half = (r as f32 * (0.11 + 0.055 * t * t)) as i32;
+        for xx in centre - half..=centre + half {
+            let side = (xx - centre) as f32 / half.max(1) as f32;
+            let volume = (1.0 - side * side).max(0.0) * 0.48 + 0.13;
+            b.pixel(xx, yy, CAP, volume * if near { 0.92 } else { 0.40 });
+        }
+    }
+    b.oval(x, y + 4, r, r / 4, CAP, if near { 0.73 } else { 0.27 });
+    // A high dome with a flattened, scalloped lip; gills lie below the crown.
+    for yy in (y - r * 3 / 5).max(0)..=y + 2 {
+        for xx in (x - r).max(0)..(x + r).min(W) {
+            let dx = (xx - x) as f32 / r as f32;
+            let dy = (yy - y - 2) as f32 / (r as f32 * 0.64);
+            let d = dx * dx + dy * dy;
+            if d < 1.0 {
+                let volume = (1.0 - d).sqrt() * 0.55 + (1.0 - dy) * 0.19;
+                b.pixel(xx, yy, CAP, volume * if near { 0.86 } else { 0.32 });
             }
         }
     }
-    for i in 0..23 {
-        let x = (hash(i, 0, 23) % 376) as i32;
-        let y = line + (hash(i, 1, 23) % (188 - line) as u32) as i32;
-        im.rect(x, y, 3 + i % 11, 1, 's');
+    if near {
+        for (dx, dy, rx) in [
+            (-r / 3, -r / 4, r / 7),
+            (r / 4, -r / 5, r / 8),
+            (r / 2, 0, r / 9),
+        ] {
+            b.oval(x + dx, y + dy, rx.max(2), 2, CAP, 0.94);
+            b.oval(x + dx + 1, y + dy - 1, (rx - 2).max(1), 1, CAP, 0.76);
+        }
     }
-}
-
-fn reflection(im: &mut Img, x: i32, line: i32, width: i32) {
-    for y in line..HORIZON {
-        let spread = width + (y - line) / 3;
-        for xx in x - spread..x + spread {
-            let falloff = (1.0 - (xx - x).abs() as f32 / spread as f32).max(0.0);
-            if hash(xx / 3, y, 33) % 7 < 3 && y % 3 != 0 {
-                tint(im, xx, y, ink('@').unwrap(), falloff * 0.46);
-            }
+    // The underside emits a soft fan of gills. Rims are curved and broader
+    // at the front, while the crown remains a quiet, shaded material dome.
+    let glow = if near { 1.20 } else { 0.45 };
+    for dx in -r + 2..r - 1 {
+        let arc = (1.0 - (dx as f32 / r as f32).powi(2)).sqrt();
+        let lip = y + 4 + (arc * r as f32 * 0.22) as i32;
+        for yy in y + 3..=lip {
+            let edge = (yy - y - 3) as f32 / (lip - y - 2).max(1) as f32;
+            fungal_glow(b, x + dx, yy, glow * (0.30 + edge * 0.24));
+        }
+        fungal_glow(b, x + dx, lip, glow * (0.58 + arc * 0.32));
+    }
+    for dx in (-r + 5..r - 4).step_by(if near { 7 } else { 6 }) {
+        let arc = (1.0 - (dx as f32 / r as f32).powi(2)).sqrt();
+        let lip = y + 4 + (arc * r as f32 * 0.22) as i32;
+        let end = (x + dx / 3, lip);
+        let start = (x + dx, y + 3);
+        let steps = (end.0 - start.0).abs().max((end.1 - start.1).abs()).max(1);
+        for i in 0..=steps {
+            let xx = start.0 + (end.0 - start.0) * i / steps;
+            let yy = start.1 + (end.1 - start.1) * i / steps;
+            fungal_glow(b, xx, yy, glow * 0.77);
         }
     }
 }
 
-fn archive() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, true);
-    // A drowned cloister and far folios are visible through the reading hall.
-    for (x, half, top) in [(148, 32, 47), (204, 26, 65), (251, 23, 74)] {
-        arch(&mut back, x, top, half, 155, 'x', 's');
-        books(
-            &mut back,
-            x - half + 11,
-            top + half + 15,
-            half * 2 - 22,
-            53,
-            false,
-        );
-    }
-    let mut front = Img::new(W, H);
-    books(&mut front, 18, 32, 63, 122, true);
-    books(&mut front, 95, 56, 42, 95, true);
-    books(&mut front, 272, 48, 42, 105, true);
-    books(&mut front, 327, 23, 53, 132, true);
-    for (x, top, half) in [(43, 5, 43), (114, 26, 29), (291, 21, 30), (358, -13, 43)] {
-        // Crown the cases with gothic gables and a little finial.
-        poly(
-            &mut front,
-            &[
-                (x - half, top + 27),
-                (x, top),
-                (x + half, top + 27),
-                (x + half - 5, top + 31),
-                (x, top + 9),
-                (x - half + 5, top + 31),
-            ],
-            DARK,
-        );
-        front.line(x, top - 6, x, top + 5, 's');
-    }
-    for x in [0, 145, 258, 380] {
-        front.rect(x, 0, 7, 157, DARK);
-        front.line(x + 5, 29, x + 5, 150, 'x');
-    }
-    poly(
-        &mut front,
-        &[
-            (0, 0),
-            (384, 0),
-            (384, 11),
-            (304, 9),
-            (204, 43),
-            (112, 9),
-            (0, 16),
-        ],
-        DARK,
-    );
-    front.line(91, 0, 204, 43, 's');
-    front.line(327, 0, 204, 43, 's');
-    chain(&mut front, 195, 0, 79);
-    glow(&mut back, 195, 102, 48, 50, 0.25);
-    glow(&mut front, 195, 102, 92, 62, 0.32);
-    poly(&mut front, &[(195, 76), (180, 87), (210, 87)], DARK);
-    front.rect(183, 88, 24, 24, 'o');
-    front.rect(187, 90, 16, 19, '@');
-    front.rect(191, 92, 7, 16, '6');
-    for x in [184, 195, 205] {
-        front.line(x, 86, x, 112, DARK);
-    }
-    front.rect(179, 112, 32, 4, DARK);
-    let mut source = back.clone();
-    source.stamp(&front, 0, 0);
-    water(&mut front, &source, 151);
-    reflection(&mut front, 195, 153, 16);
-    // A half-submerged lectern holds an open folio, with warm page edges.
-    poly(
-        &mut front,
-        &[(90, 151), (120, 137), (146, 148), (116, 164)],
-        DARK,
-    );
-    poly(
-        &mut front,
-        &[(93, 149), (118, 139), (120, 151), (108, 157)],
-        'r',
-    );
-    poly(
-        &mut front,
-        &[(120, 139), (141, 148), (122, 158), (120, 151)],
-        'o',
-    );
-    front.line(120, 141, 120, 155, DARK);
-    front.line(98, 149, 111, 145, 't');
-    front.line(126, 146, 137, 150, 't');
-    front.rect(113, 160, 5, 24, DARK);
-    // Near shelf edges and drifting folios sit in front of the reflections.
-    poly(&mut front, &[(0, 79), (15, 87), (15, 179), (0, 188)], DARK);
-    poly(
-        &mut front,
-        &[(384, 73), (369, 86), (367, 187), (384, 188)],
-        DARK,
-    );
-    front.line(375, 97, 372, 173, 's');
-    for (x, y) in [(60, 173), (273, 180), (311, 164)] {
-        poly(
-            &mut front,
-            &[(x, y), (x + 17, y - 3), (x + 28, y + 2), (x + 11, y + 5)],
-            DARK,
-        );
-        front.line(x + 3, y, x + 15, y - 2, 'r');
-    }
-    scene(back, front, (195, 102))
-}
-
-fn mushroom(im: &mut Img, x: i32, y: i32, r: i32, foot: i32, c: char) {
-    poly(
-        im,
-        &[(x - 4, y), (x + 5, y), (x + 9, foot), (x - 9, foot)],
-        c,
-    );
-    poly(
-        im,
-        &[
-            (x - r, y + 5),
-            (x - r + 6, y - 6),
-            (x - r / 2, y - r / 3),
-            (x + 2, y - r / 2),
-            (x + r / 2, y - r / 3),
-            (x + r - 4, y - 3),
-            (x + r, y + 7),
-        ],
-        c,
-    );
-    if c == DARK {
-        poly(
-            im,
-            &[
-                (x - r + 3, y + 5),
-                (x + r - 3, y + 5),
-                (x + r / 2, y + 13),
-                (x + 4, y + 15),
-                (x - r / 2, y + 12),
-            ],
-            's',
-        );
-        for dx in (-r + 6..r - 5).step_by(5) {
-            im.line(x + dx, y + 6, x + dx / 4, y + 14, 'u');
-        }
-        im.line(x - r + 4, y + 4, x + r - 4, y + 5, 'x');
-        im.line(x + 3, y + 17, x + 5, foot - 3, 's');
-        for i in 0..7 {
-            let dx = (hash(x, i, 22) % (r * 3 / 2) as u32) as i32 - r * 3 / 4;
-            let dy = (hash(x, i, 28) % (r / 3).max(1) as u32) as i32;
-            im.rect(x + dx, y - dy - 1, 2, 1, 'x');
-        }
-    }
-}
-
-fn hut(im: &mut Img, x: i32, y: i32, lit: bool) {
-    for dx in [1, 15, 38, 49] {
-        im.rect(x + dx, y + 25, 3, 60, DARK);
-    }
-    im.rect(x, y, 53, 38, if lit { CRIMSON } else { DARK });
-    poly(
-        im,
-        &[(x - 9, y + 2), (x + 22, y - 28), (x + 62, y + 4)],
-        DARK,
-    );
-    poly(
-        im,
-        &[(x - 6, y + 2), (x + 22, y - 23), (x + 3, y + 2)],
-        if lit { '7' } else { SLATE },
-    );
-    for yy in (y + 4..y + 38).step_by(7) {
-        im.line(x, yy, x + 52, yy, DARK);
-    }
-    for xx in (x + 2..x + 52).step_by(9) {
-        im.line(xx, y + 4, xx, y + 37, if lit { '8' } else { 's' });
-    }
-    glow(im, x + 20, y + 18, 36, 34, if lit { 0.37 } else { 0.17 });
-    im.rect(x + 12, y + 8, 17, 20, if lit { '@' } else { 'o' });
-    im.line(x + 20, y + 8, x + 20, y + 29, DARK);
-    im.line(x + 12, y + 18, x + 28, y + 18, DARK);
-    im.rect(x - 8, y + 39, 71, 4, DARK);
-    im.line(x - 8, y + 31, x + 63, y + 31, 'x');
-    for dx in [-5, 5, 38, 59] {
-        im.rect(x + dx, y + 25, 2, 17, DARK);
-    }
-    im.line(x + 3, y + 44, x + 49, y + 71, DARK);
-    im.line(x + 49, y + 44, x + 3, y + 71, DARK);
-}
-
-fn fungal() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, true);
-    // A pale fungal forest disappears into the low waterline mist.
+fn fungal() -> (Brush, Lamp) {
+    let breathing = Lamp::cool(236, 109, 90.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::cool(84, 97, 83.0),
+        Lamp::cool(336, 78, 88.0),
+        Lamp::warm(179, 148, 53.0),
+    ]);
+    b.haze(195, 127, 139, 53, 'S', 0.27);
     for (x, y, r) in [
-        (16, 104, 22),
-        (68, 93, 26),
-        (119, 108, 17),
-        (168, 84, 22),
-        (216, 100, 26),
-        (260, 91, 20),
-        (305, 106, 19),
-        (356, 91, 29),
+        (62, 112, 21),
+        (130, 96, 24),
+        (187, 100, 19),
+        (286, 91, 30),
+        (330, 117, 24),
     ] {
-        mushroom(&mut back, x, y, r, 160, 'x');
+        mushroom(&mut b, x, y, r, 160, false);
     }
-    for (x, y, r) in [
-        (12, 94, 25),
-        (105, 76, 31),
-        (191, 100, 24),
-        (267, 62, 33),
-        (377, 105, 30),
-    ] {
-        mushroom(&mut back, x, y, r, 163, 's');
-    }
-    let mut front = Img::new(W, H);
-    mushroom(&mut front, 39, 53, 38, 181, DARK);
-    mushroom(&mut front, 154, 71, 29, 168, DARK);
-    mushroom(&mut front, 341, 32, 53, 182, DARK);
-    hut(&mut front, 77, 119, false);
-    hut(&mut front, 254, 101, true);
-    let mut source = back.clone();
-    source.stamp(&front, 0, 0);
-    water(&mut front, &source, 162);
-    reflection(&mut front, 274, 163, 14);
-    reflection(&mut front, 97, 165, 8);
-    // Boardwalk, ladder and branch rails, grounded in the dark water.
-    poly(
-        &mut front,
-        &[(75, 163), (254, 146), (275, 151), (106, 177)],
-        DARK,
+    b.poly(
+        &[
+            (0, 173),
+            (146, 153),
+            (261, 160),
+            (384, 166),
+            (384, 188),
+            (0, 188),
+        ],
+        MOSS,
+        0.24,
     );
-    front.line(105, 170, 256, 149, 'x');
-    for i in 0..17 {
-        front.line(99 + i * 9, 163 - i, 114 + i * 9, 170 - i, 's');
-    }
-    for x in [138, 174, 211, 246] {
-        front.line(x, 156 - (x - 138) / 9, x, 176 - (x - 138) / 9, DARK);
-    }
-    front.line(128, 148, 251, 136, DARK);
-    front.line(306, 141, 332, 181, 'x');
-    front.line(312, 141, 338, 181, 'x');
-    for i in 0..7 {
-        front.line(309 + i * 4, 146 + i * 6, 315 + i * 4, 146 + i * 6, 'r');
-    }
-    // Near roots and reeds cut across the mirror plane.
-    for x in [5, 372] {
-        poly(
-            &mut front,
-            &[
-                (x - 7, 0),
-                (x + 7, 0),
-                (x + 3, 138),
-                (x + 21, 174),
-                (x + 5, 163),
-                (x - 6, 183),
-                (x - 5, 138),
-            ],
-            DARK,
-        );
-        front.line(x + 2, 34, x + 35, 8, DARK);
-        front.line(x + 1, 75, x - 29, 36, DARK);
-        front.line(x + 1, 101, x + 29, 116, DARK);
-    }
-    for (x, y) in [(19, 188), (60, 188), (217, 188), (352, 188)] {
-        for dx in [-15_i32, -7, 2, 11] {
-            front.line(x, y, x + dx, y - 20 + dx.abs() / 2, 's');
+    b.haze(197, 158, 118, 24, 'S', 0.21);
+    mushroom(&mut b, 84, 81, 46, 177, true);
+    mushroom(&mut b, 236, 102, 39, 166, true);
+    mushroom(&mut b, 340, 57, 55, 184, true);
+    mushroom(&mut b, 27, 150, 23, 185, true);
+    for (x, y) in [(80, 172), (237, 164), (337, 179)] {
+        for dx in [-17, -8, 8, 18] {
+            b.stroke((x, y - 3), (x + dx, y + 2), CAP, 0.35);
         }
     }
-    // Small clustered spores complement the few slowly drifting live motes.
-    for i in 0..31 {
-        let x = 25 + (hash(i, 0, 211) % 330) as i32;
-        let y = 64 + (hash(i, 1, 211) % 93) as i32;
-        glow(&mut back, x, y, 4, 5, 0.20);
-        back.put(x, y, if i % 5 == 0 { 't' } else { 'o' });
-    }
-    scene(back, front, (274, 119))
-}
-
-fn eye(im: &mut Img, x: i32, y: i32, r: i32) {
-    poly(
-        im,
-        &[
-            (x - r, y),
-            (x - r / 2, y - 5),
-            (x + r / 2, y - 5),
-            (x + r, y),
-            (x + r / 2, y + 5),
-            (x - r / 2, y + 5),
-        ],
-        MUSTARD,
-    );
-    im.ellipse(x as f32, y as f32, 4.0, 4.0, 't');
-    im.rect(x - 1, y - 4, 3, 9, DARK);
-}
-
-fn unknown() -> Layers {
-    let mut back = Img::black(W, H);
-    sky(&mut back, true);
-    // Remote monoliths and a second colonnade dissolve into slate haze.
-    for (x, y, w) in [
-        (22, 110, 12),
-        (91, 123, 10),
-        (156, 113, 9),
-        (233, 119, 10),
-        (299, 107, 13),
-        (363, 105, 11),
+    // Small bioluminescent fruits, gathered at the path and giant cap roots.
+    for (x, y, r) in [
+        (152, 160, 8),
+        (175, 154, 6),
+        (199, 159, 9),
+        (278, 166, 8),
+        (302, 159, 5),
     ] {
-        back.rect(x, y, w, 60, 'x');
-        back.rect(x - 3, y, w + 6, 3, 'x');
+        b.oval(x, y + 8, 2, 8, CAP, 0.43);
+        b.oval(x, y, r, r / 2, CAP, 0.80);
+        b.im.ellipse(x as f32, (y + 1) as f32, (r - 2) as f32, 2.0, 'U');
     }
-    for (x, y) in [(58, 98), (132, 116), (259, 110), (324, 92)] {
-        back.rect(x, y, 14, 70, 's');
-        back.rect(x - 5, y - 4, 24, 6, 's');
-    }
-    courtyard(&mut back, 194, 146);
-    glow(&mut back, 194, 132, 86, 51, 0.26);
-    poly(
-        &mut back,
-        &[
-            (188, 157),
-            (188, 103),
-            (191, 112),
-            (194, 65),
-            (198, 114),
-            (198, 157),
-        ],
-        'o',
-    );
-    back.line(194, 84, 194, 158, '@');
-    back.rect(193, 130, 3, 27, '6');
-    glow(&mut back, 194, 163, 64, 22, 0.28);
-    let mut front = Img::new(W, H);
-    // The impossible threshold hangs over all three depth planes.
-    poly(
-        &mut front,
-        &[
-            (0, 0),
-            (384, 0),
-            (384, 35),
-            (346, 28),
-            (337, 56),
-            (307, 47),
-            (281, 71),
-            (271, 109),
-            (244, 86),
-            (222, 125),
-            (196, 61),
-            (175, 107),
-            (152, 95),
-            (119, 119),
-            (100, 63),
-            (68, 75),
-            (50, 41),
-            (0, 51),
-        ],
-        DARK,
-    );
-    poly(
-        &mut front,
-        &[(46, 41), (66, 60), (86, 52), (101, 80), (95, 58), (71, 44)],
-        's',
-    );
-    poly(
-        &mut front,
-        &[(278, 36), (269, 73), (282, 64), (306, 45)],
-        's',
-    );
-    for (x, y, w) in [(35, 82, 22), (91, 108, 17), (281, 106, 17), (346, 70, 26)] {
-        poly(
-            &mut front,
-            &[
-                (x - w / 2, y),
-                (x + w / 2, y),
-                (x + w / 2 + 5, 183),
-                (x - w / 2 - 5, 183),
-            ],
-            DARK,
-        );
-        front.line(x - w / 2 + 2, y + 14, x - w / 2 + 2, 181, 's');
-        front.rect(x - w / 2 - 4, y + 17, w + 8, 4, 's');
-        glow(&mut front, x, y + 7, 23, 28, 0.17);
-        eye(&mut front, x, y + 7, w / 2 + 4);
-        front.rect(x - w / 2 - 6, 181, w + 12, 7, DARK);
-    }
-    scene(back, front, (194, 139))
+    // A small amber lantern contrasts with the cool living light.
+    b.lantern(179, 148, 2);
+    (b, breathing)
 }
 
-fn beam(im: &mut Img, origin: (i32, i32), end: (i32, i32), width: f32) {
-    let (vx, vy) = ((end.0 - origin.0) as f32, (end.1 - origin.1) as f32);
-    let length2 = vx * vx + vy * vy;
-    let length = length2.sqrt();
-    for y in 0..HORIZON {
-        for x in 0..W {
-            let (dx, dy) = ((x - origin.0) as f32, (y - origin.1) as f32);
-            let t = (dx * vx + dy * vy) / length2;
-            if !(0.0..1.0).contains(&t) {
+fn unknown() -> (Brush, Lamp) {
+    let breathing = Lamp::cool(208, 101, 79.0);
+    let mut b = Brush::new(vec![
+        breathing,
+        Lamp::cool(206, 151, 69.0),
+        Lamp::warm(78, 153, 42.0),
+    ]);
+    b.haze(215, 113, 130, 73, 'S', 0.22);
+    // An ancient, half-buried ring and a suspended cool stone. No sky or eyes.
+    for (x, y, w) in [(116, 95, 13), (293, 89, 15), (67, 116, 12), (324, 111, 13)] {
+        b.round(x, y, w, 58, 5, STONE, 0.21);
+        b.oval(x + w / 2, y, w / 2 + 3, 5, STONE, 0.26);
+        for yy in (y + 13..y + 52).step_by(11) {
+            b.stroke((x + 2, yy), (x + w - 3, yy), STONE, 0.05);
+            b.stroke((x + 3, yy + 1), (x + w - 4, yy + 1), STONE, 0.32);
+        }
+    }
+    b.floor(208, 157);
+    b.arch(208, 48, 66, 163, 15, 0.57);
+    for (a, z) in [
+        ((159, 115), (165, 113)),
+        ((155, 129), (164, 127)),
+        ((255, 98), (263, 98)),
+        ((253, 121), (261, 123)),
+    ] {
+        b.stroke(a, z, STONE, 0.72);
+    }
+    b.round(141, 151, 35, 17, 6, STONE, 0.45);
+    b.round(240, 151, 35, 17, 6, STONE, 0.39);
+    b.oval(208, 160, 35, 9, STONE, 0.45);
+    b.oval(208, 162, 24, 4, CAP, 0.66);
+    b.poly(
+        &[
+            (208, 83),
+            (219, 96),
+            (214, 115),
+            (203, 120),
+            (196, 104),
+            (199, 93),
+        ],
+        METAL,
+        0.70,
+    );
+    b.im.line(207, 88, 204, 106, 'U');
+    b.im.line(204, 106, 206, 115, 'v');
+    // A faint inlaid path offers scale and a way into the darkness.
+    for (x, y, w) in [(201, 170, 14), (190, 178, 29)] {
+        b.round(x, y, w, 3, 1, CAP, 0.56);
+    }
+    for (x, y, r) in [(42, 165, 28), (87, 174, 21), (307, 173, 30), (352, 155, 25)] {
+        b.oval(x, y, r, r / 2, STONE, 0.25);
+    }
+    for (x, y) in [(153, 143), (257, 134), (163, 78), (247, 69), (199, 54)] {
+        b.stroke((x, y), (x + 4, y + 5), STONE, 0.15);
+        b.stroke((x + 4, y + 5), (x + 2, y + 10), STONE, 0.15);
+        b.stroke((x + 1, y), (x + 5, y + 4), STONE, 0.62);
+    }
+    b.poly(
+        &[(199, 94), (208, 84), (208, 108), (203, 120), (196, 104)],
+        METAL,
+        0.77,
+    );
+    b.poly(&[(208, 84), (219, 96), (214, 115), (208, 108)], METAL, 0.37);
+    b.stroke((199, 94), (208, 84), METAL, 0.9);
+    b.lantern(78, 153, 2);
+    (b, breathing)
+}
+
+// Rounded inset cartouche; title and depth strings are the original game text.
+fn cartouche(im: &mut Img, x: i32, y: i32, w: i32, h: i32, r: i32) {
+    for yy in 0..h {
+        for xx in 0..w {
+            let dx = (r - xx).max(xx - (w - r - 1)).max(0);
+            let dy = (r - yy).max(yy - (h - r - 1)).max(0);
+            if dx * dx + dy * dy > r * r {
                 continue;
             }
-            let cross = (dx * vy - dy * vx).abs() / length;
-            let radius = 1.5 + t * width;
-            let edge = (1.0 - cross / radius).max(0.0);
-            let a = edge.powf(1.3) * (1.0 - t * 0.55) * 0.70;
-            // Keep the cone cool even against the red sunset. The ordered
-            // coverage supplies transparency and a feathered wedge edge.
-            if bayer(x, y) < a {
-                im.put(x, y, if edge > 0.65 { 'u' } else { 'S' });
+            let edge = xx.min(w - xx - 1).min(yy.min(h - yy - 1));
+            let curved = dx * dx + dy * dy > (r - 1) * (r - 1);
+            if edge == 0 || curved {
+                im.put(x + xx, y + yy, if yy < h / 2 { 'S' } else { 's' });
+            } else {
+                // Integer rows also serve the small live terminal title.
+                let light = (h - yy) * 3 / h + (w / 2 - (xx - w / 2).abs()) * 2 / w;
+                let c = match light {
+                    0 => rgb(0x0a0c12),
+                    1 => rgb(0x132724),
+                    2 => ink('s').unwrap(),
+                    _ => ink('x').unwrap(),
+                };
+                im.set(x + xx, y + yy, c);
             }
         }
     }
+    im.line(x + r + 4, y, x + w / 2 - 9, y, 'u');
+    im.line(x + w / 2 + 9, y, x + w - r - 5, y, 'S');
 }
 
 fn title(im: &mut Img, kind: Kind, depth: u32) {
-    // Letterpress intertitle: double hairlines, stepped diamond and wide caps.
-    im.rect(0, 188, W, 36, DARK);
-    for (a, b) in [(28, 148), (235, 355)] {
-        im.line(a, 192, b, 192, MUSTARD);
-    }
-    for x in [21, 362] {
-        poly(
-            im,
-            &[(x, 190), (x + 3, 193), (x, 196), (x - 3, 193)],
-            MUSTARD,
-        );
-    }
+    cartouche(im, 49, 189, 286, 34, 8);
     let label = kind.title();
     let mut letters = Img::new(super::super::ink::text_width(label), 7);
-    letters.text(0, 0, label, 't');
+    letters.text(0, 0, label, '$');
     let left = (W - letters.w * 2) / 2;
     for y in 0..14 {
         for x in 0..letters.w * 2 {
@@ -1627,40 +1644,114 @@ fn title(im: &mut Img, kind: Kind, depth: u32) {
             }
         }
     }
-    let depth = format!("FLOOR {depth}");
-    let len = super::super::ink::text_width(&depth);
-    im.text((W - len) / 2, 215, &depth, MUSTARD);
-    im.line(125, 218, 155, 218, 'x');
-    im.line(228, 218, 258, 218, 'x');
+    let line = format!("FLOOR {depth}");
+    im.text(
+        (W - super::super::ink::text_width(&line)) / 2,
+        214,
+        &line,
+        'U',
+    );
+}
+
+struct Scene {
+    base: Img,
+    breaths: [Vec<(i32, i32, Rgb)>; 4],
+    motes: [(i32, i32); 10],
+    cool: bool,
+    spores: bool,
 }
 
 fn build(kind: Kind, depth: u32) -> Scene {
-    let mut scene = match kind {
+    let (brush, lamp) = match kind {
         Kind::Gate => gate(),
-        Kind::Crypt => crypt(depth),
-        Kind::Mines => mines(depth),
+        Kind::Crypt => {
+            if depth == 1 {
+                churchyard()
+            } else {
+                crypt_vault()
+            }
+        }
+        Kind::Mines => {
+            if depth == 1 {
+                mine_head()
+            } else {
+                forge()
+            }
+        }
         Kind::Keep => keep(),
         Kind::Archive => archive(),
         Kind::Fungal => fungal(),
         Kind::Unknown => unknown(),
     };
-    title(&mut scene.architecture, kind, depth);
-    // Eight subtle beam positions are composed once behind the near masonry.
-    // Interiors have a single cached painting, with no outdoor searchlights.
-    let outdoors = kind == Kind::Gate || kind == Kind::Keep || (kind == Kind::Crypt && depth == 1);
-    let mut sweeps = Vec::with_capacity(if outdoors { 8 } else { 1 });
-    for phase in 0..if outdoors { 8 } else { 1 } {
-        let mut im = scene.sky.clone();
-        if outdoors {
-            beam(&mut im, (318, 171), (-55 + phase * 4, -20), 42.0);
-            beam(&mut im, (69, 176), (440 - phase * 4, 18), 35.0);
+    let mut base = brush.finish();
+    title(&mut base, kind, depth);
+    // Bake four surface-light states inside the small pool, then retain only
+    // pixels that differ from the base. Playback never walks the whole patch.
+    // Flame cores and inked detail are kept above the diffuse light.
+    let breaths = std::array::from_fn(|phase| {
+        let mut patch = Img::new(73, 73);
+        let flicker = [0.86, 0.98, 1.10, 1.20][phase];
+        for py in 0..73 {
+            for px in 0..73 {
+                let x = lamp.x + px - 36;
+                let y = lamp.y + py - 36;
+                if !(0..W).contains(&x) || !(0..HORIZON).contains(&y) {
+                    continue;
+                }
+                if let Some((ramp, plane)) = brush.surfaces[(y * W + x) as usize] {
+                    if brush.im.get(x, y) == Some(brush.shade(x, y, ramp, plane, 1.0)) {
+                        let radius =
+                            ((px - 36) * (px - 36) + (py - 36) * (py - 36)) as f32 / 1296.0;
+                        let local = 1.0 + (flicker - 1.0) * (1.0 - radius).max(0.0).powi(2);
+                        let c = brush.shade(x, y, ramp, plane, local);
+                        let fade = Brush::vignette(x, y);
+                        patch.set(
+                            px,
+                            py,
+                            nearest_material(c.map(|v| v as f32 * fade), ramp == MOSS, x, y),
+                        );
+                    }
+                }
+            }
         }
-        im.stamp(&scene.architecture, 0, 0);
-        sweeps.push(im);
-    }
+        patch.put(
+            36,
+            35 + phase as i32 % 2,
+            if lamp.colour == 't' { 'T' } else { 'U' },
+        );
+        let mut changes = Vec::new();
+        for py in 0..73 {
+            for px in 0..73 {
+                let (x, y) = (lamp.x + px - 36, lamp.y + py - 36);
+                if let Some(c) = patch.get(px, py) {
+                    if base.get(x, y) != Some(c) {
+                        changes.push((x, y, c));
+                    }
+                }
+            }
+        }
+        changes
+    });
+    let motes = std::array::from_fn(|i| {
+        let (x, y) = if kind == Kind::Fungal {
+            (
+                75 + (hash(i as i32, 0, 42) % 250) as i32,
+                76 + (hash(i as i32, 1, 42) % 80) as i32,
+            )
+        } else {
+            (
+                lamp.x - 49 + (hash(i as i32, 0, 42) % 98) as i32,
+                lamp.y - 34 + (hash(i as i32, 1, 42) % 60) as i32,
+            )
+        };
+        (x.clamp(18, W - 18), y.clamp(22, HORIZON - 15))
+    });
     Scene {
-        sweeps,
-        light: scene.light,
+        base,
+        breaths,
+        motes,
+        cool: matches!(kind, Kind::Fungal | Kind::Unknown),
+        spores: kind == Kind::Fungal,
     }
 }
 
@@ -1676,37 +1767,31 @@ fn cached(kind: Kind, depth: u32) -> &'static Scene {
     SCENES[index].get_or_init(|| build(kind, depth))
 }
 
-/// Fully opened cached artwork, with only small seat-local light accents.
+/// Fully opened artwork; only a cached light pool and ten dust/spore dots move.
 pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
     let scene = cached(kind, depth);
-    let mut im = scene.sweeps[usize::from(age / 7) % scene.sweeps.len()].clone();
-    let (x, y) = scene.light;
-    im.rect(x - 1, y - 1, 2, 2, if age / 4 % 3 != 1 { '6' } else { 't' });
-    if kind == Kind::Mines && depth == 2 {
-        for i in 0..9 {
-            let t = (i * 7 + i32::from(age)) % 31;
-            im.put(
-                x - 21 + i * 5 + t / 9,
-                y - 7 - t,
-                if i % 3 == 0 { '@' } else { 'o' },
-            );
-        }
+    let mut im = scene.base.clone();
+    let phase = [0, 2, 1, 3, 2, 1, 2, 0][usize::from(age.min(DURATION - 1) / 7)];
+    for &(x, y, c) in &scene.breaths[phase] {
+        im.set(x, y, c);
     }
-    if kind == Kind::Fungal {
-        for (i, (sx, sy)) in [(73, 75), (167, 109), (234, 85), (305, 131), (40, 124)]
-            .into_iter()
-            .enumerate()
-        {
-            let drift = (i32::from(age) / 8 + i as i32) % 3;
-            im.put(sx + drift, sy - drift, 't');
-            if (usize::from(age) / 6 + i) % 3 == 0 {
-                im.put(sx + drift, sy - drift - 1, MUSTARD);
-            }
+    for (i, &(x, y)) in scene.motes.iter().enumerate() {
+        let drift = (i32::from(age) + i as i32 * 4) / 13;
+        let x = x + if i % 3 == 0 { -drift / 2 } else { drift / 2 };
+        let y = y - drift;
+        let colour = if scene.spores {
+            if i % 3 == 0 { '2' } else { 'U' }
+        } else if scene.cool {
+            if i % 3 == 0 { 'U' } else { 'S' }
+        } else if i % 3 == 0 {
+            'o'
+        } else {
+            'u'
+        };
+        im.put(x, y, colour);
+        if i % 3 == 0 {
+            im.put(x + 1, y, if scene.cool { 'S' } else { 'P' });
         }
-    }
-    if kind == Kind::Archive {
-        let shift = i32::from(age) / 8 % 3;
-        im.rect(188 - shift, 172, 13 + shift * 2, 1, 't');
     }
     im
 }
@@ -1758,20 +1843,25 @@ pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
     // Half-block terminals need an actual small font, rather than a 5×7
     // glyph reduced below one pixel. Keep this inside the fitted picture.
     if tw < 230 && tw >= 90 && th >= 40 && (7..=DURATION - 7).contains(&plate.age) {
-        out.rect(ox, oy + th - 19, tw, 19, DARK);
+        for yy in oy + th - 20..oy + th {
+            for xx in ox..ox + tw {
+                out.set(xx, yy, BLACK);
+            }
+        }
+        cartouche(&mut out, ox + 2, oy + th - 20, tw - 4, 20, 4);
         let label = plate.kind.title();
         out.text(
             ox + (tw - super::super::ink::text_width(label)) / 2,
             oy + th - 18,
             label,
-            't',
+            '$',
         );
         let label = format!("FLOOR {}", plate.depth);
         out.text(
             ox + (tw - super::super::ink::text_width(&label)) / 2,
             oy + th - 8,
             &label,
-            MUSTARD,
+            'U',
         );
     }
     out

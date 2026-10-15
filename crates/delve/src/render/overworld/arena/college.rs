@@ -103,8 +103,7 @@ pub fn student(tick: u32) -> Img {
 }
 fn sign(cv: &mut Img, x: i32, y: i32, text: &str) {
     let w = text_width(text) + 10;
-    cv.rect(x - w / 2, y, w, 13, 's');
-    cv.frame(x - w / 2, y, w, 13, 'u');
+    super::super::chrome::panel(cv, (x - w / 2, y, w, 13), super::super::chrome::Tone::SLATE);
     cv.text(x - w / 2 + 5, y + 3, text, 'i');
 }
 fn candle(cv: &mut Img, x: i32, y: i32, t: u32) {
@@ -288,9 +287,14 @@ fn material(kind: RoomKind, wall: bool, x: i32, y: i32) -> char {
             WizardStudy => ('b', 'P', 'o'),
             _ => ('s', 'x', 'u'),
         };
-        return if y % 8 == 0 || (x + (y / 8 % 2) * 8) % 16 == 0 {
+        // Each brick lit along its top and west edge, its corners worn
+        // round into the joints.
+        let (lx, ly) = ((x + (y / 8 % 2) * 8) % 16, y % 8);
+        return if ly == 0 || lx == 0 {
             joint
-        } else if x % 16 == 1 {
+        } else if (lx == 1 || lx == 15) && (ly == 1 || ly == 7) {
+            face
+        } else if ly == 1 || lx == 1 {
             edge
         } else {
             face
@@ -441,8 +445,7 @@ pub fn scenery(run: &Run) -> Img {
         }
         RoomKind::CollegeClass => {
             let (x, y) = (6 * TILE, 2 * TILE);
-            cv.rect(x, y, 12 * TILE, 2 * TILE, 'D');
-            cv.frame(x, y, 12 * TILE, 2 * TILE, 'O');
+            super::super::chrome::inset_panel(&mut cv, (x, y, 12 * TILE, 2 * TILE), super::super::chrome::Tone::CHALK);
             cv.text(x + 12, y + 7, "q -> test -> claim", 'C');
             cv.text(x + 12, y + 19, "x + y = ?", 'Y');
             for &(x, y, w, h) in c::blocks(kind).iter().skip(1) {
@@ -899,8 +902,7 @@ pub fn prompt(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool) {
         }
     }
     if let Some(label) = label {
-        cv.rect(0, cv.h - TILE, cv.w, TILE, 's');
-        cv.line(0, cv.h - TILE, cv.w - 1, cv.h - TILE, 'P');
+        super::super::chrome::band(cv, (0, cv.h - TILE, cv.w, TILE), super::super::chrome::rim_of('P')[1]);
         cv.text(12, cv.h - 11, &label, 'i');
     }
 }
@@ -1021,9 +1023,8 @@ pub fn dialogue(cv: &mut Img, run: &Run) {
         .collect();
     let h = (rows.len() as i32 * 12 + 43).max(101);
     let y = (cv.h - h - 7).max(2);
-    cv.rect(6, y, cv.w - 12, h, 's');
-    cv.frame(6, y, cv.w - 12, h, 'u');
-    cv.frame(8, y + 2, cv.w - 16, h - 4, 'O');
+    super::super::chrome::panel(cv, (6, y, cv.w - 12, h), super::super::chrome::Tone::FRAMED);
+    super::super::chrome::ring(cv, (6, y, cv.w - 12, h), 4);
     let portrait = wizard(run.tick as u32);
     // The room sprite is larger; the portrait still fits beside the text
     // and above the dialogue's controls at its shortest panel height.
@@ -1044,7 +1045,7 @@ pub fn dialogue(cv: &mut Img, run: &Run) {
     for (i, (s, selected)) in rows.into_iter().enumerate() {
         let yy = y + 26 + i as i32 * 12;
         if selected {
-            cv.rect(71, yy - 2, cv.w - 87, 11, 'S');
+            super::super::chrome::highlight(cv, (71, yy - 2, cv.w - 87, 11));
             cv.text(73, yy, ">", 'T');
         }
         cv.text(83, yy, &s, if selected { 'T' } else { 'i' });

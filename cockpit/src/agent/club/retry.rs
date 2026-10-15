@@ -127,6 +127,45 @@ impl HttpPolicy {
 /// HTTP status codes worth retrying: transient overload / warming / gateway
 /// hiccups. Everything else (400/401/403/404/422 …) is a real client/config
 /// error where retrying just wastes time, so it surfaces immediately.
+/// Marks a provider error whose response said `x-should-retry: false`. The
+/// provider's own retry veto (sent on errors by at least one major API, honored
+/// by the official OpenAI SDKs, treated by xAI's Grok Build as "the request
+/// content caused the failure, not something transient", obeyed by OpenCode):
+/// the same request will fail the same way, so neither the club nor the turn
+/// retries it. Rides inside the error text after the status (`HTTP 503 [...]: ...`).
+pub(crate) const PROVIDER_RETRY_VETO: &str = "[x-should-retry: false]";
+
+/// Carries a typed, non-recoverable route/configuration verdict to the turn
+/// layer without classifying arbitrary transport diagnostic text as permanent.
+pub(crate) const PERMANENT_TRANSPORT_CONFIGURATION: &str = "[permanent transport configuration]";
+
+pub(crate) fn is_permanent_transport_configuration(kind: ureq::ErrorKind) -> bool {
+    matches!(
+        kind,
+        ureq::ErrorKind::InvalidUrl
+            | ureq::ErrorKind::UnknownScheme
+            | ureq::ErrorKind::InsecureRequestHttpsOnly
+            | ureq::ErrorKind::InvalidProxyUrl
+            | ureq::ErrorKind::ProxyUnauthorized
+    )
+}
+
+/// Whether a response's `x-should-retry` header vetoes a retry. Only an
+/// explicit `false` does; `true` and absence leave the status rules as they are.
+pub(crate) fn provider_vetoes_retry(header: Option<&str>) -> bool {
+    header.is_some_and(|value| value.trim().eq_ignore_ascii_case("false"))
+}
+
+/// The status line of a provider error, carrying the retry veto when the
+/// response sent one.
+pub(crate) fn provider_status_label(code: u16, vetoed: bool) -> String {
+    if vetoed {
+        format!("HTTP {code} {PROVIDER_RETRY_VETO}")
+    } else {
+        format!("HTTP {code}")
+    }
+}
+
 pub(crate) fn is_retryable_status(code: u16) -> bool {
     matches!(code, 408 | 425 | 429 | 500 | 502 | 503 | 504)
 }
@@ -157,6 +196,15 @@ pub(crate) fn is_quota_exhausted(body: &str) -> bool {
 /// already handled it, and failing over would double-spend on a healthy link.
 pub(crate) fn error_indicates_quota_exhausted(err: &str) -> bool {
     err.contains("quota exhausted") || (err.contains("429") && is_quota_exhausted(err))
+}
+
+/// The provider's TLS certificate was rejected by this process's trust store
+/// (rustls: `invalid peer certificate: UnknownIssuer`, `NotValidForName`,
+/// `Expired`, …). The same chain is rejected the same way on every retry, so
+/// retrying only burns the clock: on 2026-10-13 a TB2 task image without CA
+/// certificates spent 867 s on 339 such retries before the model was reached.
+pub(crate) fn error_indicates_certificate_rejected(err: &str) -> bool {
+    err.contains("invalid peer certificate")
 }
 
 /// Whether an error means this provider link is unusable for the current call

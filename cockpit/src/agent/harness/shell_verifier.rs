@@ -107,11 +107,14 @@ fn command(raw: &str, root: &Path, nested: bool) -> Result<Route, String> {
         {
             return Err("cd directory is quarantined".into());
         }
+        // `cd ws/bowling` spelled from the launch directory names the workspace.
+        let path = crate::agent::harness::launch_relative_in_workspace(root, Path::new(path))
+            .unwrap_or_else(|| Path::new(path).to_path_buf());
         let root = root
             .canonicalize()
             .map_err(|e| format!("resolve workspace: {e}"))?;
         let cwd = root
-            .join(path)
+            .join(&path)
             .canonicalize()
             .map_err(|e| format!("resolve cd directory: {e}"))?;
         if !cwd.starts_with(&root)
@@ -291,18 +294,59 @@ fn command(raw: &str, root: &Path, nested: bool) -> Result<Route, String> {
     })
 }
 
+/// Lines kept from a red run's first diagnostic when the requested tail shows
+/// none: one fixed number, room for a failing test's name, its assertion and
+/// the expected/actual pair in each runner the polyglot cell measured.
+const FIRST_FAILURE_LINES: usize = 30;
+
+/// Where a red run's first diagnostic starts, when the tail the model asked for
+/// carries no diagnostic of its own (a unittest `Ran 31 tests … FAILED
+/// (failures=21)` ending, a cargo `test result: FAILED.` line). `None` when the
+/// tail already shows one, e.g. pytest's `FAILED file::test - …` summary.
+fn first_failure_before_tail(head: &[&str], tail: &[&str]) -> Option<usize> {
+    let diagnostic = |line: &&str| {
+        let text = line.trim();
+        crate::agent::tools::build::is_failure_marker(text)
+            || (text.starts_with("FAILED ") && !text.starts_with("FAILED ("))
+    };
+    if tail.iter().any(diagnostic) {
+        return None;
+    }
+    head.iter()
+        .enumerate()
+        .skip(1)
+        .find(|(_, line)| crate::agent::tools::build::is_failure_marker(line.trim()))
+        .map(|(index, _)| index)
+}
+
 impl Route {
-    pub(super) fn present(&self, text: String) -> String {
+    /// `red`: the routed verifier failed. Its failure detail then reaches the
+    /// model even when the model's own `| tail -N` would cut every diagnostic
+    /// line: the run's first diagnostic block, then the tail exactly as asked.
+    pub(super) fn present(&self, text: String, red: bool) -> String {
         // Preserve the authoritative header even when tail would hide it.
         let header = text.lines().next().unwrap_or("");
         let mut output = if let Some(count) = self.tail {
             let lines = text.lines().collect::<Vec<_>>();
             let start = lines.len().saturating_sub(count);
             if start > 0 {
-                format!(
-                    "{header}\n[typed output tail]\n{}",
-                    lines[start..].join("\n")
-                )
+                let tail = lines[start..].join("\n");
+                let first = red
+                    .then(|| first_failure_before_tail(&lines[..start], &lines[start..]))
+                    .flatten();
+                match first {
+                    Some(first) if first + FIRST_FAILURE_LINES < start => format!(
+                        "{header}\n{}\n…[intervening output omitted]\n[typed output tail]\n{tail}",
+                        lines[first..first + FIRST_FAILURE_LINES].join("\n")
+                    ),
+                    Some(first) => {
+                        format!(
+                            "{header}\n[typed output tail]\n{}",
+                            lines[first..].join("\n")
+                        )
+                    }
+                    None => format!("{header}\n[typed output tail]\n{tail}"),
+                }
             } else {
                 text.clone()
             }

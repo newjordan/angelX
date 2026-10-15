@@ -6,7 +6,7 @@ use std::f32::consts::TAU;
 
 pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option<Img> {
     if boss.id == fight::RIPPER {
-        let mut im = Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>());
+        let mut im = super::sprites::ripper();
         if enemy.stage == fight::INHALE {
             im.ellipse(15.5, 16.0, 3.0, 2.5, 'D');
             im.ellipse(15.5, 16.0, 1.5, 1.5, 'k');
@@ -31,6 +31,7 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
         }
         im.put(11, 16, 'T');
         im.put(21, 16, 'O');
+        let im = super::foe_material::ripper(&im);
         let base = stature::boss(&im, boss.radius, stature::floor(run, enemy));
         let im = enlarge(&base, fight::swell(enemy));
         if enemy.stage == fight::TELL {
@@ -141,7 +142,7 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
     }
     im.line(25, fy + 10, 32, fy + 11, 'i');
     im.put(27, fy, 'J');
-    im.outline_outside('J');
+    let im = super::foe_material::dress(&im, crate::rules::EnemyKind::Boss);
     if enemy.stage == fight::JUMP {
         let rise = (enemy.timer as f32 / 24.0 * std::f32::consts::PI).sin() * 14.0;
         let mut airborne = Img::new(im.w, im.h + rise.max(0.0) as i32);
@@ -189,15 +190,14 @@ pub(super) fn tender(tick: u32) -> Img {
     im.rect(13, 13, 5, 5, '7');
     im.rect(14, 14, 3, 3, '@');
     im.put(15, 14, '6');
-    im.outline_outside('J');
+    let im = super::foe_material::dress(&im, crate::rules::EnemyKind::Boss);
     im
 }
 
 /// Wide spiders stand with their boiler/coal bed over the collision centre.
 /// Their feet reach one hit radius below it in the top-down view as well.
 pub(super) fn foot_lift(run: &Run, enemy: &Enemy) -> f32 {
-    if enemy.kind == crate::rules::EnemyKind::Spiderling
-        && enemy.stage == fight::TENDER
+    if enemy.kind == crate::rules::EnemyKind::Spiderling && enemy.stage == fight::TENDER
         || enemy
             .boss
             .and_then(|i| run.bosses.get(i as usize))
@@ -217,14 +217,14 @@ fn rail(cv: &mut Img, r: &fight::Rail, width: f32, lit: bool, stage: u8, tick: u
     let pulse = tick / 4 % 2 == 0;
     let core = if lit {
         if stage == fight::DASH {
-            '6'
+            'c'
         } else if pulse {
             '@'
         } else {
             'O'
         }
     } else {
-        'J'
+        'U'
     };
     // Sleepers and rails bound the actual swept collision corridor.
     for n in (0..d as i32).step_by(10) {
@@ -242,7 +242,7 @@ fn rail(cv: &mut Img, r: &fight::Rail, width: f32, lit: bool, stage: u8, tick: u
     }
     for side in [-1.0, 1.0] {
         let offset = width * side;
-        let edge = if lit { '7' } else { 'o' };
+        let edge = if lit { 'o' } else { 'P' };
         let thickness = if lit && pulse { 3 } else { 2 };
         for n in -thickness..=thickness {
             let (ox, oy) = (
@@ -284,9 +284,7 @@ fn glow(cv: &mut Img, x: i32, y: i32, reach: f32) {
 
 pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
     for e in run.enemies.iter().filter(|e| e.hp > 0) {
-        if e.kind == crate::rules::EnemyKind::Spiderling
-            && e.stage == fight::TENDER
-        {
+        if e.kind == crate::rules::EnemyKind::Spiderling && e.stage == fight::TENDER {
             let (x, y) = at(e.x, e.y);
             glow(cv, x, y + 5, 18.0);
         }
@@ -295,7 +293,9 @@ pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
         };
         let (x, y) = at(e.x, e.y);
         if b.id == fight::ENGINE {
-            if modern {continue;}
+            if modern {
+                continue;
+            }
             glow(cv, x, y + 16, e.radius() * UNIT + 10.0);
             // Drifting steam curls catch lantern light while leaving floor gaps.
             if (e.stage == 0 && e.timer > 70) || (e.stage == fight::TELL && e.timer < 10) {

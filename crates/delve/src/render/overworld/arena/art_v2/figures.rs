@@ -1,36 +1,20 @@
-use super::super::class_looks::Look;
 use super::super::super::ink::Img;
+use super::super::class_looks::Look;
 use super::{kit, paint::*};
 use crate::rules::{Enemy, Hero};
 
+/// Whether this canvas draws knight `id`: every knight but those in a
+/// state of their own (crouched at the works, veiled, in their own picture
+/// or a card's dress, a frog, stone, rimed, rolling, tossed, in the privy
+/// or at the pit stop), which go to v1 whole.
 pub fn knight_supported(
     run: &crate::rules::Run,
     h: &Hero,
     id: u32,
 ) -> bool {
-    // A knight of a class is drawn as the class here, whatever their kit's
-    // colours, dress or shield; the authored states below still go to v1.
-    if Look::of(h).is_some() {
-        return !run.works.kits.get(&id).is_some_and(|kit| kit.duck)
-            && !h.has_rune(crate::rules::runes::RuneKind::Invisibility)
-            && h.avatar.is_none()
-            && h.worn(&run.book).is_empty()
-            && !h.frog()
-            && !h.stone
-            && h.chilled == 0
-            && h.rolling().is_none()
-            && h.tossed == 0
-            && h.privy == 0
-            && h.pit.stop.is_none();
-    }
-    !run.shield_out(id)
-        && !run.works.kits.get(&id).is_some_and(|kit| kit.duck)
+    !run.works.kits.get(&id).is_some_and(|kit| kit.duck)
         && !h.has_rune(crate::rules::runes::RuneKind::Invisibility)
-        && !(h.shielding && h.aim_y.abs() > h.aim_x.abs() * 1.25)
         && h.avatar.is_none()
-        && h.knight.as_deref() != Some(super::super::knights::DWARF)
-        && h.gear == 0
-        && h.colours().is_empty()
         && h.worn(&run.book).is_empty()
         && !h.frog()
         && !h.stone
@@ -41,8 +25,22 @@ pub fn knight_supported(
         && h.pit.stop.is_none()
 }
 
+/// Whether the kit's own pose studies show this knight: the realm's knight
+/// whole, in no company's colours, the shield on the arm or raised across.
+/// Any other knight (a class, a stage of dress, a shield thrown or raised
+/// toward or away, the dwarf, a kit's colours) is the arena's own drawing
+/// brought up to this canvas.
+fn studied(h: &Hero, thrown: bool) -> bool {
+    Look::of(h).is_none()
+        && !thrown
+        && !(h.shielding && h.aim_y.abs() > h.aim_x.abs() * 1.25)
+        && h.knight.as_deref() != Some(super::super::knights::DWARF)
+        && h.gear == 0
+        && h.colours().is_empty()
+}
+
 pub fn knight(cv: &mut Canvas, x: f32, y: f32, h: &Hero, _tick: u64, id: u32, thrown: bool) {
-    if Look::of(h).is_some() {
+    if !studied(h, thrown) {
         return class_figure(cv, x, y, h, id, thrown);
     }
     let steel = Ramp::inks('s', 'u', 'i');
@@ -128,13 +126,13 @@ pub fn knight(cv: &mut Canvas, x: f32, y: f32, h: &Hero, _tick: u64, id: u32, th
             py - 10.0,
             6.5,
             8.0,
-            material('w'),
-            if h.struck > 6 { 0.78 } else { 0.28 },
+            material('c'),
+            if h.struck > 6 { 0.40 } else { 0.15 },
         );
     }
 }
 pub fn skeleton(cv: &mut Canvas, x: f32, y: f32, e: &Enemy, tick: u64) {
-    let im = kit::get("skeleton");
+    let im = foe_hit_sprite("skeleton", e.hurt);
     let stride = (tick as f32 * 0.17 + e.id as f32).sin();
     cv.shadow(x, y + 1.0, 8.0, 2.5, 0.62);
     kit::sprite(
@@ -220,10 +218,11 @@ pub(super) fn horse(
     }
 }
 
-/// A knight of a class, as the class: the arena's own drawing of them (facing,
-/// stride, strike, seat trim), brought up to this canvas at three samples a
-/// pixel with smoothed edges, lit from the upper left and shaded at the lower
-/// right, inside a dark coloured edge.
+/// A knight as the arena draws them (a class as its class; the realm's knight
+/// at their stage of dress, shield and colours; facing, stride, strike, seat
+/// trim), brought up to this canvas at three samples a pixel with smoothed
+/// edges, lit from the upper left and shaded at the lower right, inside a
+/// dark coloured edge.
 fn class_figure(
     cv: &mut Canvas,
     x: f32,
@@ -236,12 +235,53 @@ fn class_figure(
     if h.aim_x < -0.3 {
         im = im.flip_h();
     }
-    let im = lit(&scale3x(&im));
+    let im = hd(&im);
     cv.shadow(x, y + 1.0, 9.0, 2.4, 0.65);
-    kit::sprite(cv, &im, x - im.w as f32 * 0.25, y - im.h as f32 * 0.5, true, 1.0, None, 0.0);
+    kit::sprite(
+        cv,
+        &im,
+        x - im.w as f32 * 0.25,
+        y - im.h as f32 * 0.5,
+        true,
+        1.0,
+        None,
+        0.0,
+    );
     if h.struck > 0 {
-        cv.flat_ellipse(x, y - 10.0, 6.5, 8.0, material('w'), if h.struck > 6 { 0.78 } else { 0.28 });
+        cv.flat_ellipse(
+            x,
+            y - 10.0,
+            6.5,
+            8.0,
+            material('c'),
+            if h.struck > 6 { 0.40 } else { 0.15 },
+        );
     }
+}
+
+/// `lit(scale3x(im))`, kept: a knight's figure is one of a few dozen
+/// drawings, so each is brought up to this canvas once per thread.
+fn hd(im: &Img) -> Img {
+    use std::hash::{Hash, Hasher};
+    thread_local! {
+        static HD: std::cell::RefCell<std::collections::HashMap<u64, Img>> =
+            std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    let mut key = std::collections::hash_map::DefaultHasher::new();
+    (im.w, im.h, im.words()).hash(&mut key);
+    let key = key.finish();
+    if let Some(done) = HD.with(|m| m.borrow().get(&key).cloned()) {
+        return done;
+    }
+    let done = lit(&scale3x(im));
+    HD.with(|m| {
+        let mut m = m.borrow_mut();
+        if m.len() >= 512 {
+            m.clear();
+        }
+        m.insert(key, done.clone());
+    });
+    done
 }
 
 /// Scale3x: each pixel becomes nine, corners taking a neighbour's colour
@@ -257,13 +297,29 @@ pub(super) fn scale3x(src: &Img) -> Img {
             let px = if b != hh && d != f {
                 [
                     if d == b { d } else { e },
-                    if (d == b && e != c) || (b == f && e != a) { b } else { e },
+                    if (d == b && e != c) || (b == f && e != a) {
+                        b
+                    } else {
+                        e
+                    },
                     if b == f { f } else { e },
-                    if (d == b && e != g) || (d == hh && e != a) { d } else { e },
+                    if (d == b && e != g) || (d == hh && e != a) {
+                        d
+                    } else {
+                        e
+                    },
                     e,
-                    if (b == f && e != i) || (hh == f && e != c) { f } else { e },
+                    if (b == f && e != i) || (hh == f && e != c) {
+                        f
+                    } else {
+                        e
+                    },
                     if d == hh { d } else { e },
-                    if (d == hh && e != i) || (hh == f && e != g) { hh } else { e },
+                    if (d == hh && e != i) || (hh == f && e != g) {
+                        hh
+                    } else {
+                        e
+                    },
                     if hh == f { f } else { e },
                 ]
             } else {
@@ -310,4 +366,150 @@ pub(super) fn lit(src: &Img) -> Img {
         }
     }
     out
+}
+
+/// Creature-only finishing of the local pose studies. Quantised material
+/// planes tint the source's material detail; source alpha and pivots are exact.
+/// Knights and mounts continue to use their own unmodified kit samples.
+pub(super) fn foe_sprite(name: &str) -> &'static Img {
+    use std::sync::OnceLock;
+    macro_rules! pose {
+        ($($n:literal),*) => { $(if name == $n {
+            static POSE: OnceLock<Img> = OnceLock::new();
+            return POSE.get_or_init(|| finish_foe(kit::get($n), $n));
+        })* };
+    }
+    pose!(
+        "ghost",
+        "slime",
+        "skeleton",
+        "imp",
+        "ripper",
+        "engine-boiler"
+    );
+    panic!("unknown creature pose {name}");
+}
+
+fn finish_foe(src: &Img, name: &str) -> Img {
+    let bone = [
+        [43, 48, 66],
+        [104, 116, 137],
+        [169, 177, 174],
+        [225, 217, 191],
+    ];
+    let steel = [[27, 39, 54], [61, 80, 97], [110, 137, 149], [175, 192, 192]];
+    let brass = [[61, 38, 50], [124, 76, 50], [185, 128, 65], [228, 184, 109]];
+    let green = [[27, 48, 51], [59, 88, 54], [105, 139, 64], [171, 190, 105]];
+    let cyan = [
+        [25, 48, 65],
+        [59, 111, 132],
+        [114, 173, 182],
+        [196, 222, 216],
+    ];
+    let mut out = Img::new(src.w, src.h);
+    for y in 0..src.h {
+        for x in 0..src.w {
+            let Some(c) = src.get(x, y) else {
+                continue;
+            };
+            let [r, g, b] = c.map(u32::from);
+            let l = (r * 3 + g * 6 + b) / 10;
+            let ramp = match name {
+                "ghost" => &cyan,
+                "slime" => &green,
+                "imp" => &brass,
+                "ripper" if (18..66).contains(&y) || (y >= 66 && g * 10 > r * 9) => &green,
+                "skeleton" if r > b + 25 && r * 10 > g * 12 => &brass,
+                "skeleton" => &bone,
+                "engine-boiler" if r.abs_diff(g) < 25 && r > 125 && b < g + 20 => &bone,
+                "ripper" => &brass,
+                "engine-boiler" if r > b + 28 => &brass,
+                _ => &steel,
+            };
+            let stops = if std::ptr::eq(ramp, &green) {
+                [40, 92, 148]
+            } else {
+                [48, 112, 183]
+            };
+            let mut step = stops.iter().filter(|&&stop| l > stop).count();
+            let edge_top = src.get(x, y - 1).is_none();
+            let edge_left = src.get(x - 1, y).is_none();
+            let edge_down = src.get(x, y + 1).is_none();
+            let edge_right = src.get(x + 1, y).is_none();
+            if (edge_top || edge_left) && l > 80 {
+                step = (step + 1).min(3);
+            } else if (edge_down || edge_right) && l < 160 {
+                step = step.saturating_sub(1);
+            }
+            let mut c: [u8; 3] = ramp[step];
+            // Preserve the little furnace cores, with a toned warm peak.
+            if name == "engine-boiler"
+                && (40..63).contains(&y)
+                && ((17..30).contains(&x) || (34..48).contains(&x))
+                && r * 10 > g * 12
+                && r > 160
+            {
+                c = if g > 105 {
+                    [238, 198, 124]
+                } else {
+                    [176, 77, 45]
+                };
+            }
+            // Keep the source's ridges, pores, specular gel, cloth and warm
+            // furnace falloff within the new ramp. Quantisation alone erased
+            // those differences even when the silhouette stayed identical.
+            let source_weight = if name == "ripper" { 1 } else { 2 };
+            let c = std::array::from_fn(|i| {
+                ((u32::from(src.get(x, y).unwrap()[i]) * source_weight
+                    + u32::from(c[i]) * (4 - source_weight))
+                    / 4) as u8
+            });
+            out.set(x, y, c);
+        }
+    }
+    out
+}
+
+/// Three cached views of each authored creature: rest, settling hit, held hit.
+/// Coverage, pose detail and every pivot come directly from the rest picture.
+pub(super) fn foe_hit_sprite(name: &str, hurt: u8) -> &'static Img {
+    use std::sync::OnceLock;
+    if hurt == 0 {
+        return foe_sprite(name);
+    }
+    let make = || {
+        [false, true].map(|strong| {
+            let src = foe_sprite(name);
+            let mut out = Img::new(src.w, src.h);
+            for y in 0..src.h {
+                for x in 0..src.w {
+                    if let Some(c) = src.get(x, y) {
+                        out.set(
+                            x,
+                            y,
+                            if name == "engine-boiler" && strong {
+                                super::super::marks::hit_metal_rgb(c)
+                            } else {
+                                super::super::marks::hit_rgb(c, strong)
+                            },
+                        );
+                    }
+                }
+            }
+            out
+        })
+    };
+    macro_rules! hit { ($($n:literal),*) => { $(if name == $n {
+        static POSES: OnceLock<[Img; 2]> = OnceLock::new();
+        return &POSES.get_or_init(make)[usize::from(hurt >= 4)];
+    })* }; }
+    hit!(
+        "ghost",
+        "slime",
+        "skeleton",
+        "imp",
+        "ripper",
+        "engine-boiler"
+    );
+    panic!("unknown creature pose {name}");
 }

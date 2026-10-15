@@ -141,9 +141,15 @@ pub(crate) fn spawn_prober(targets: Vec<(Arc<dyn Club>, Arc<AtomicBool>)>, inter
                     let _ = PROBE_SWEEPER_THREAD.set(std::thread::current());
                     // Snapshot, so a mid-sweep discovery never blocks on the lock
                     // longer than a Vec clone; fresh targets join the next sweep.
+                    // A target whose bag is gone (`/setup` rebuilt it) holds
+                    // the last reference to its slot; it leaves the sweep.
                     let sweep: Vec<Arc<ProbeTarget>> = PROBE_TARGETS
                         .get()
-                        .map(|l| l.lock().unwrap_or_else(|e| e.into_inner()).clone())
+                        .map(|l| {
+                            let mut list = l.lock().unwrap_or_else(|e| e.into_inner());
+                            list.retain(|t| Arc::strong_count(&t.slot) > 1);
+                            list.clone()
+                        })
                         .unwrap_or_default();
                     // Probe every mode concurrently — a sweep costs ~one probe
                     // timeout regardless of how many are dead.

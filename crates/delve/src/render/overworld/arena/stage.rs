@@ -107,10 +107,12 @@ fn duck_stage(scene: &mut Img, over: &mut Img, run: &Run, w: i32, h: i32) {
     // Striped canopy overhead, and the curtains either side.
     for stripe in 0..8 {
         let (x0, x1) = (-9.0 + stripe as f32 * 2.25, -9.0 + (stripe + 1) as f32 * 2.25);
+        // Madder and oak in turn: a carnival's stripes, warm and dim, not
+        // white against brown.
         let ramp: &'static [char] = if stripe % 2 == 0 {
-            &['p', 'r', 'R']
+            &['n', 'b', 'B', 'p']
         } else {
-            &['i', 'h', 'H']
+            &['B', 'P', 'o', 'O', 't']
         };
         push(
             &mut facets,
@@ -178,9 +180,24 @@ fn duck_stage(scene: &mut Img, over: &mut Img, run: &Run, w: i32, h: i32) {
     }
 
     // The counter and the gun, flat against the lens: bottom of the screen.
-    for x in 0..w {
-        for y in (h - 26)..h {
-            let ink = if (x / 24 + y / 8) % 2 == 0 { 'B' } else { 'I' };
+    // A rounded oak lip catches the booth's light; below it the boards fall
+    // away into the dark, their seams staggered course by course.
+    let top = h - 26;
+    for y in top..h {
+        let row = y - top;
+        for x in 0..w {
+            let course = row / 8;
+            let seam = (x + course * 13) % 48 == 0;
+            let ink = match row {
+                0 => 'P',
+                1 => 'o',
+                2 => 'P',
+                3 | 4 => 'B',
+                _ if seam || row % 8 == 4 => 'b',
+                _ if row < 14 => 'I',
+                _ if row < 20 => 'b',
+                _ => 'n',
+            };
             scene.put(x, y, ink);
         }
     }
@@ -242,12 +259,12 @@ fn pipe_stage(scene: &mut Img, _over: &mut Img, run: &Run, w: i32, h: i32) {
         // The gold band on the riding wall marks the launch window.
         let along = (mid * 96.0).round() as i32;
         let in_window = along >= LIP_OPEN as i32 && along < LIP_CLOSE as i32;
+        // The window's planks in brass and gold, shaded with the rest, not
+        // a flat yellow wedge; the timber either side in one oak ramp.
         let ramp: &'static [char] = if in_window {
-            &['a', '4', '@', '5']
-        } else if i % 2 == 0 {
-            &['n', 'b', 'I', 'B']
+            &['8', 'a', '4']
         } else {
-            &['k', 'n', 'b', 'I']
+            &['n', 'b', 'I', 'B', 'P']
         };
         facets.push((
             depth(&cam, [(y0 + y1) * 0.5, 0.0, (z0 + z1) * 0.5]),
@@ -291,9 +308,9 @@ fn pipe_stage(scene: &mut Img, _over: &mut Img, run: &Run, w: i32, h: i32) {
     for stripe in 0..14 {
         let (x0, x1) = (-15.4 + stripe as f32 * 2.2, -15.4 + (stripe + 1) as f32 * 2.2);
         let ramp: &'static [char] = match stripe % 3 {
-            0 => &['p', 'r', 'R'],
-            1 => &['u', 'U', 'v'],
-            _ => &['i', 'h', 'H'],
+            0 => &['b', 'p', 'r', 'R'],
+            1 => &['s', 'S', 'u', 'U'],
+            _ => &['b', 'I', 'P', 'o'],
         };
         facets.push((
             depth(&cam, [(x0 + x1) * 0.5, 7.2, 12.2]),
@@ -385,6 +402,13 @@ fn hud(
             over.put(w - 1 - b, y, 'k');
         }
     }
+    // The bezel's inner corners turn round, as the kit's boxes do.
+    let (h, r) = (over.h, [(0, 0), (1, 0), (2, 0), (0, 1), (0, 2), (1, 1)]);
+    for (dx, dy) in r {
+        for (x, y, sx, sy) in [(3, 3, 1, 1), (w - 4, 3, -1, 1), (3, h - 4, 1, -1), (w - 4, h - 4, -1, -1)] {
+            over.put(x + sx * dx, y + sy * dy, 'k');
+        }
+    }
     if !legible {
         return;
     }
@@ -392,46 +416,22 @@ fn hud(
     let title = game.name();
     let tw = text_width(title) + 10;
     let tx = (w - tw) / 2;
-    for y in 4..13 {
-        for x in tx..tx + tw {
-            over.put(x, y, 'K');
-        }
-    }
-    for x in tx..tx + tw {
-        over.put(x, 4, 'B');
-        over.put(x, 12, 'B');
-    }
+    super::super::chrome::board(over, (tx, 3, tw, 12), 'B');
     over.text(tx + 5, 6, title, '5');
 
     // The clock: a bar under the plaque, gold while it burns.
     let total = game.time();
     let bars = (w - 40) as u32;
     let burned = bars * left / total.max(1);
-    for x in 0..bars as i32 {
-        let ink = if (x as u32) < burned { '4' } else { 'g' };
-        for y in 15..18 {
-            over.put(20 + x, y, ink);
-        }
-    }
+    let gold = super::super::ink::ink('4').unwrap_or_default();
+    super::super::chrome::meter(over, (19, 15, bars as i32 + 2, 5), burned as i32, gold);
     // Progress pips: one per objective, filled as they fall.
     let need = game.need() as i32;
     let pip = 7;
     let px0 = (w - need * (pip + 2)) / 2;
     for i in 0..need {
         let filled = i < progress as i32;
-        for dy in 0..5 {
-            for dx in 0..pip {
-                let edge = dx == 0 || dx == pip - 1 || dy == 0 || dy == 4;
-                let ink = if filled {
-                    '2'
-                } else if edge {
-                    'J'
-                } else {
-                    'K'
-                };
-                over.put(px0 + i * (pip + 2) + dx, over.h - 12 + dy, ink);
-            }
-        }
+        super::super::chrome::pip(over, (px0 + i * (pip + 2), over.h - 12, pip, 5), filled);
     }
     // Mistakes: red tallies at the right of the clock.
     for i in 0..mistakes.min(8) as i32 {

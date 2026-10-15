@@ -15,9 +15,9 @@
 //!   misses → the noir night sky (zenith→horizon, stars, moon, halo)
 //! ```
 //!
-//! Grading deliberately reuses `identity::NOIR_*` and the raycaster's moon
-//! anchors so a 3D frame sits in the same night as a raycast one — the same
-//! `tone_lut` and Bayer screen downstream expect that value range.
+//! Reflected planes use cool shadows and warm keys; cached world-UV materials
+//! keep the live shader small. The 3D braille bridge carries smooth value in
+//! its coloured ink, retaining the black terminal around each silhouette.
 //!
 //! DETERMINISM LAW: byte-identical output for identical inputs. Triangles are
 //! consumed in `Mesh::tris` order, every hash is SplitMix64 over integers, and
@@ -43,8 +43,8 @@ pub struct View3 {
 /// How hard the live flame in a scene is burning *this frame*.
 ///
 /// The one piece of per-frame lighting state the renderer takes, and it reaches
-/// exactly one material family: [`mat::FIRE`], [`mat::EMBER`], and their
-/// authored [`mat::TORCH_POOL`] on the floor. Windows,
+/// exactly one material family: [`mat::FIRE`], [`mat::FLAME`], [`mat::EMBER`],
+/// and authored [`mat::TORCH_POOL`] on the floor. Windows,
 /// moonlight and every lit surface outdoors are untouched by construction — a
 /// pane of glass does not gutter and the moon does not blink.
 ///
@@ -75,7 +75,7 @@ impl Firelight {
 
 /// Which emissives are *fire* — the only surfaces [`Firelight`] touches.
 fn flickers(material: u8) -> bool {
-    matches!(material, mat::FIRE | mat::EMBER | mat::TORCH_POOL)
+    matches!(material, mat::FIRE | mat::FLAME | mat::EMBER | mat::TORCH_POOL)
 }
 
 /// Nothing closer than this survives the clip; small enough that the camera can
@@ -90,7 +90,7 @@ pub const FOG_DISTANCE: f32 = 52.0;
 /// gradient that makes its dots read as perspective rather than as a flat
 /// field.
 const LANTERN_REACH: f32 = 5.5;
-const LANTERN_GAIN: f32 = 2.05;
+const LANTERN_GAIN: f32 = 1.05;
 
 /// Where the residual night fog settles in the shared palette.
 const NIGHT_HAZE: [u8; 3] = super::NOIR_NIGHT_HAZE;
@@ -117,8 +117,8 @@ const SKY_BAND_RAD: f32 = 0.55;
 /// half-field so a level camera always has it, and a camera pitched up to the
 /// zenith still loses it.
 const HORIZON_GLOW_RAD: f32 = 0.17;
-const HORIZON_GLOW: [u8; 3] = [54, 70, 104];
-const HORIZON_GLOW_GAIN: f32 = 0.78;
+const HORIZON_GLOW: [u8; 3] = [32, 44, 66];
+const HORIZON_GLOW_GAIN: f32 = 0.52;
 
 /// Fixed star seed: the sky must not depend on world state that would have to
 /// be hashed into `cinematic_key`.
@@ -717,6 +717,8 @@ struct Surface {
     /// The rasterizer derives it from the face's own angle to the eye,
     /// which is exactly the edge of a tower, a merlon, or a roof ridge.
     rim: f32,
+    /// Hue-shifted reflected light, baked once per face in 8.8 fixed point.
+    gain: [u16; 3],
 }
 
 impl Surface {
@@ -725,6 +727,7 @@ impl Surface {
         key: 0.0,
         ambient: 0.0,
         rim: 0.0,
+        gain: [0; 3],
     };
 
     fn lit(mat: u8, normal: V3, to_eye: V3, moon: V3) -> Surface {
@@ -752,18 +755,58 @@ impl Surface {
             ) {
             0.0
         } else {
-            grazing.powi(6) * (0.22 + 0.18 * key)
+            grazing.powi(4) * (0.07 + 0.05 * key)
         };
+        let plane = smoothstep(key * 0.82 + 0.12);
+        let mut light = ambient * 0.68 + 0.66 * plane + 0.10;
+        if mat == mat::FLOOR {
+            light = 0.28 + ambient * 0.45 + key * 0.44;
+        }
+        if matches!(
+            mat,
+            mat::HORSE_BAY
+                | mat::HORSE_CHESTNUT
+                | mat::HORSE_GREY
+                | mat::HAY
+                | mat::CLOTH_GOLD
+                | mat::CLOTH_BLUE
+                | mat::STABLE_TIMBER
+                | mat::STABLE_ROOF
+                | mat::STABLE_WALL
+                | mat::STABLE_FLOOR
+                | mat::TACK_LEATHER
+        ) {
+            light = light.max(0.57 + key * 0.20);
+        }
+        if mat == mat::ARMOR {
+            light = light.max(0.53 + key * 0.15);
+        }
+        if mat == mat::FOLIAGE {
+            // Green fill on moon-facing crowns, with a green grazing catch.
+            // Resolve it per face; the floor and the terminal's black stay dark.
+            light = 0.56 + 0.72 * plane;
+        }
+        if mat == mat::CRYSTAL {
+            light = 0.50 + ambient * 0.40 + plane * 0.18;
+        }
+        // A cooler shadow and a warmer key plane, with no white rim stripe.
+        let gain = [
+            0.84 + 0.16 * plane,
+            0.94 + 0.04 * plane,
+            1.08 - 0.15 * plane,
+        ]
+        .map(|hue| (light * hue * 256.0).round() as u16);
         Surface {
             mat,
             key,
             ambient,
             rim,
+            gain,
         }
     }
 
     fn shade(self, uv: [f32; 2], depth: f32, fire: Firelight, fog: f32) -> [u8; 3] {
-        let (base, fog_resistance, emissive) = material_base(self.mat, uv);
+        let (base, fog_resistance, emissive) = material_sample(self.mat, uv);
         if emissive {
             // Lit windows are the one thing that punches through the haze —
             // but not all fires are one fire. A forge throat has to outburn a
@@ -779,56 +822,22 @@ impl Surface {
             let lit = scale_rgb(base, strength);
             return mix_rgb(lit, NIGHT_HAZE, fog_amount(depth, fog) * fog_resistance);
         }
-        // Black-paper lighting: reserve large quiet shadow shapes, then reveal
-        // the moon-facing planes. The smooth shoulder avoids hard band pops
-        // as geometry changes; existing emissive windows remain the focal light.
-        let moon_plane = smoothstep((self.key - 0.12) / 0.76);
-        let mut light = if self.mat == mat::FLOOR {
-            // Interior flags carry the rider's lantern, so keep the readable
-            // floor pool while the surrounding architecture takes deeper ink.
-            self.ambient + self.key * 0.74
+        let lantern = if lantern_lit(self.mat) {
+            lantern_gain(depth)
         } else {
-            self.ambient * 0.82 + moon_plane * 0.82
+            256
         };
-        if lantern_lit(self.mat) {
-            light *= 1.0 + LANTERN_GAIN * (1.0 - (depth / LANTERN_REACH).clamp(0.0, 1.0)).powi(2);
-        }
-        if matches!(
-            self.mat,
-            mat::HORSE_BAY
-                | mat::HORSE_CHESTNUT
-                | mat::HORSE_GREY
-                | mat::HAY
-                | mat::CLOTH_GOLD
-                | mat::CLOTH_BLUE
-                | mat::STABLE_TIMBER
-                | mat::STABLE_ROOF
-                | mat::STABLE_WALL
-                | mat::STABLE_FLOOR
-                | mat::TACK_LEATHER
-        ) {
-            // Authored practice props have held lantern bounce on their focal
-            // planes. This is local material lighting, not a global grade or
-            // dither bypass; ordinary WOOD/ROOF/STONE retain black-paper shade.
-            let bounce = match self.mat {
-                mat::STABLE_ROOF => 0.64,
-                mat::STABLE_WALL | mat::STABLE_FLOOR => 0.60,
-                mat::TACK_LEATHER => 0.85,
-                _ => 0.88,
-            };
-            light = light.max(bounce + self.key * 0.24);
-        }
-        if self.mat == mat::ARMOR {
-            light = light.max(0.70);
-        }
-        if self.mat == mat::CRYSTAL {
-            // A held sky reflection reveals the curved facets even when the
-            // glass faces away from the moon. This is material, not animation.
-            light = 0.26 + self.ambient * 1.5 + moon_plane * 0.35;
-        }
-        let lit = mix_rgb(scale_rgb(base, light.min(2.6)), MOON_SILVER, self.rim);
-        // The rim resists the haze so a distant skyline keeps its edge.
-        let resistance = fog_resistance * (1.0 - 0.62 * self.rim.min(1.0));
+        let lit = std::array::from_fn(|k| {
+            ((u32::from(base[k]) * u32::from(self.gain[k]) * u32::from(lantern) + 32768) >> 16)
+                .min(218) as u8
+        });
+        let rim_color = if self.mat == mat::FOLIAGE {
+            [67, 109, 79]
+        } else {
+            MOON_SILVER
+        };
+        let lit = mix_rgb(lit, rim_color, self.rim);
+        let resistance = fog_resistance * (1.0 - 0.40 * self.rim);
         mix_rgb(lit, NIGHT_HAZE, fog_amount(depth, fog) * resistance)
     }
 }
@@ -843,9 +852,9 @@ impl Surface {
 /// then the moon.
 fn emissive_strength(material: u8) -> f32 {
     match material {
-        mat::EMBER => 1.24,
-        mat::WINDOW | mat::FIRE => 1.0,
-        mat::MOONLIGHT => 0.66,
+        mat::EMBER => 1.02,
+        mat::WINDOW | mat::FIRE | mat::FLAME => 0.96,
+        mat::MOONLIGHT => 0.56,
         _ => 1.0,
     }
 }
@@ -886,12 +895,74 @@ fn fog_amount(depth: f32, distance: f32) -> f32 {
     (depth.max(0.0) / distance.max(1.0)).clamp(0.0, 1.0)
 }
 
+/// Fixed world-UV textures, baked once. The smooth grain and stone shoulders
+/// cost two coordinates and a lookup in a live frame, never noise interpolation
+/// or trigonometry per dot. Light pools retain their nonrepeating radial UVs.
+fn material_sample(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
+    const SIDE: usize = 256;
+    const MATERIALS: usize = mat::FLAME as usize + 1;
+    static TEXTURES: std::sync::OnceLock<Vec<Vec<[u8; 3]>>> = std::sync::OnceLock::new();
+    if material == mat::MOONLIGHT {
+        return material_base(material, uv);
+    }
+    let textures = TEXTURES.get_or_init(|| {
+        (0..=mat::FLAME)
+            .map(|m| {
+                (0..SIDE * SIDE)
+                    .map(|i| {
+                        let offset = if m == mat::TORCH_POOL { 4.0 } else { 0.0 };
+                        material_base(
+                            m,
+                            [
+                                (i % SIDE) as f32 / 32.0 - offset,
+                                (i / SIDE) as f32 / 32.0 - offset,
+                            ],
+                        )
+                        .0
+                    })
+                    .collect()
+            })
+            .collect()
+    });
+    static INFO: std::sync::OnceLock<[(f32, bool); MATERIALS]> = std::sync::OnceLock::new();
+    let info = INFO.get_or_init(|| {
+        std::array::from_fn(|m| {
+            let (_, resistance, emissive) = material_base(m as u8, [0.0; 2]);
+            (resistance, emissive)
+        })
+    });
+    let coordinate = |v: f32| {
+        if material == mat::TORCH_POOL {
+            ((v + 4.0) * 32.0).clamp(0.0, 255.0) as usize
+        } else {
+            (v * 32.0).floor() as i32 as usize & (SIDE - 1)
+        }
+    };
+    let (x, y) = (coordinate(uv[0]), coordinate(uv[1]));
+    let texture = textures.get(usize::from(material)).unwrap_or(&textures[0]);
+    let &(resistance, emissive) = info.get(usize::from(material)).unwrap_or(&info[0]);
+    (texture[y * SIDE + x], resistance, emissive)
+}
+
+fn lantern_gain(depth: f32) -> u16 {
+    static GAINS: std::sync::OnceLock<[u16; 512]> = std::sync::OnceLock::new();
+    let gains = GAINS.get_or_init(|| {
+        std::array::from_fn(|i| {
+            let t = 1.0 - (i as f32 / 32.0 / LANTERN_REACH).clamp(0.0, 1.0);
+            (256.0 * (1.0 + LANTERN_GAIN * smoothstep(t))).round() as u16
+        })
+    });
+    gains[((depth.max(0.0) * 32.0) as usize).min(511)]
+}
+
 /// Material id → un-lit night base colour, fog resistance, and whether the
 /// surface is self-lit. Surface patterning rides the world-scaled uv, so a
 /// wall's courses stay the same physical size at every distance.
 fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
     let (u, v) = (uv[0], uv[1]);
     match material {
+        mat::SCULPTED_STONE => ([108, 119, 135], 1.0, false),
+        mat::BONE => ([195, 185, 158], 1.0, false),
         mat::STONE => (course_tint([116, 122, 138], u, v, 0.88), 1.0, false),
         mat::STONE_DARK => (course_tint([68, 74, 90], u, v, 0.90), 1.0, false),
         mat::ROOF => (shingle_tint([76, 68, 84], u, v), 1.0, false),
@@ -899,7 +970,9 @@ fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
         // Warm candle light, and it barely cares about the fog. `FIRE` is the
         // same light seen from inside the room it burns in — identical at rest,
         // and the only thing `Firelight` is allowed to breathe.
-        mat::WINDOW | mat::FIRE => (window_tint(u, v), 0.22, true),
+        mat::WINDOW => (window_tint(u, v), 0.22, true),
+        mat::FIRE => (window_tint(u, v), 0.22, true),
+        mat::FLAME => (flame_tint(u, v), 0.22, true),
         // Live coals: hotter, oranger, and just as fog-proof — a forge mouth
         // has to still be a forge mouth from across the hamlet.
         mat::EMBER => (ember_tint(u, v), 0.20, true),
@@ -910,7 +983,7 @@ fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
         mat::GRASS => (speckle([68, 94, 58], [48, 70, 46], u, v, 1.7), 1.0, false),
         mat::PATH => (speckle([130, 120, 98], [98, 90, 74], u, v, 2.3), 1.0, false),
         mat::WATER => (speckle([26, 42, 66], [18, 30, 52], u, v, 1.1), 1.0, false),
-        mat::FOLIAGE => (speckle([40, 62, 44], [24, 42, 32], u, v, 3.1), 1.0, false),
+        mat::FOLIAGE => (speckle([53, 94, 55], [31, 59, 40], u, v, 3.1), 1.0, false),
         mat::TRUNK => (grain_tint([62, 48, 36], u, v), 1.0, false),
         mat::HORSE_BAY => (
             speckle([176, 108, 57], [151, 85, 42], u, v, 4.0),
@@ -967,44 +1040,46 @@ fn material_base(material: u8, uv: [f32; 2]) -> ([u8; 3], f32, bool) {
 /// Ashlar courses: alternating rows, offset every other course, with a darker
 /// mortar joint. At braille resolution this reads as texture, not as stripes.
 fn course_tint(base: [u8; 3], u: f32, v: f32, mortar: f32) -> [u8; 3] {
-    const COURSE: f32 = 0.42;
-    const BLOCK: f32 = 0.62;
-    let row = (v / COURSE).floor();
-    let offset = if (row as i32).rem_euclid(2) == 0 {
-        0.0
-    } else {
-        0.5
-    };
-    let across = (u / BLOCK + offset).rem_euclid(1.0);
-    let along = (v / COURSE).rem_euclid(1.0);
-    if across < 0.055 || along < 0.075 {
-        return scale_rgb(base, mortar);
-    }
-    // A per-block value jitter keeps a long wall from reading as flat paint.
-    let jitter = hash01(0x5354_4f4e_4531_3131, (u / BLOCK) as i32, row as i32);
-    scale_rgb(base, 0.88 + 0.22 * jitter)
+    let row = (v / 0.42).floor();
+    let across = (u / 0.62 + (row as i32).rem_euclid(2) as f32 * 0.5).rem_euclid(1.0);
+    let along = (v / 0.42).rem_euclid(1.0);
+    let edge = across.min(1.0 - across).min(along.min(1.0 - along));
+    let shoulder = smoothstep(edge / 0.14);
+    let grain = soft_noise(u * 0.8, v * 0.8);
+    scale_rgb(
+        base,
+        (mortar + (1.0 - mortar) * shoulder) * (0.97 + 0.06 * grain),
+    )
 }
 
-/// Overlapping slate rows: a hard dark line at each course, lighter mid-tile.
+/// Slate courses have a soft rolled shoulder instead of a dark ruled stripe.
 fn shingle_tint(base: [u8; 3], u: f32, v: f32) -> [u8; 3] {
     let row = (v / 0.24).rem_euclid(1.0);
     let stagger = ((v / 0.24).floor() as i32).rem_euclid(2) as f32 * 0.5;
     let across = (u / 0.30 + stagger).rem_euclid(1.0);
-    if row < 0.16 {
-        scale_rgb(base, 0.66)
-    } else if across < 0.08 {
-        scale_rgb(base, 0.80)
-    } else {
-        scale_rgb(base, 1.0 + 0.12 * row)
-    }
+    let edge = row.min(1.0 - row).min(across.min(1.0 - across));
+    scale_rgb(base, 0.88 + 0.12 * smoothstep(edge / 0.20))
 }
 
-/// Plank grain: a soft along-the-board ripple plus the seam between boards.
 fn grain_tint(base: [u8; 3], u: f32, v: f32) -> [u8; 3] {
     let board = (u / 0.26).rem_euclid(1.0);
-    let seam = if board < 0.09 { 0.72 } else { 1.0 };
-    let ripple = 0.92 + 0.16 * ((v * 7.3).sin() * 0.5 + 0.5);
-    scale_rgb(base, seam * ripple)
+    let shoulder = smoothstep(board.min(1.0 - board) / 0.14);
+    scale_rgb(
+        base,
+        (0.90 + 0.10 * shoulder) * (0.97 + 0.06 * soft_noise(u * 0.8, v * 1.5)),
+    )
+}
+
+/// Coherent grouped marks. This interpolation runs only in the texture bake.
+fn soft_noise(u: f32, v: f32) -> f32 {
+    let x = u.floor() as i32;
+    let y = v.floor() as i32;
+    let a = smoothstep(u - u.floor());
+    let b = smoothstep(v - v.floor());
+    let h = |x, y| hash01(0x4752_4f55_4e44_3344, x, y);
+    let lo = h(x, y) * (1.0 - a) + h(x + 1, y) * a;
+    let hi = h(x, y + 1) * (1.0 - a) + h(x + 1, y + 1) * a;
+    lo * (1.0 - b) + hi * b
 }
 
 /// A coal bed: hot cores scattered through a duller mass. Flat orange paint
@@ -1012,19 +1087,20 @@ fn grain_tint(base: [u8; 3], u: f32, v: f32) -> [u8; 3] {
 /// because the dither turns the hot cells into a cluster of full dots and the
 /// cool ones into gaps.
 fn ember_tint(u: f32, v: f32) -> [u8; 3] {
-    const COAL: f32 = 0.14;
-    let heat = hash01(
-        0x454d_4245_5200_5f31,
-        (u / COAL).floor() as i32,
-        (v / COAL).floor() as i32,
-    );
-    if heat > 0.62 {
-        [255, 188, 98]
-    } else if heat > 0.26 {
-        [236, 116, 38]
-    } else {
-        [142, 52, 18]
-    }
+    let heat = smoothstep((soft_noise(u * 5.0, v * 5.0) - 0.22) / 0.56);
+    mix_rgb([119, 45, 23], [228, 193, 113], heat)
+}
+
+/// A bent inner tongue inside a cooler amber envelope. Evaluated only while
+/// baking the material cache; the live flame is a texture lookup.
+fn flame_tint(u: f32, v: f32) -> [u8; 3] {
+    let height = v.clamp(0.0, 1.0);
+    let bend = 0.07 * (height * 5.0).sin();
+    let width = 0.42 * (1.0 - 0.64 * height);
+    let core = smoothstep(1.0 - (u - 0.5 - bend).abs() / width)
+        * (1.0 - 0.78 * smoothstep(height));
+    let outer = mix_rgb([181, 88, 37], [208, 127, 54], 1.0 - height);
+    mix_rgb(outer, [228, 207, 156], core)
 }
 
 /// Leaded panes: a warm hearth glow behind a dark cross-mullion, brightest at
@@ -1038,7 +1114,7 @@ fn window_tint(u: f32, v: f32) -> [u8; 3] {
     let along = (v / 0.20).rem_euclid(1.0);
     let lead = across < 0.16 || along < 0.16;
     if lead {
-        [96, 62, 34]
+        [76, 55, 35]
     } else {
         // A smooth dome over the pane: 1.0 at its centre, easing toward the
         // lead. Subtle is the law — the window still reads as glass, but a
@@ -1048,9 +1124,9 @@ fn window_tint(u: f32, v: f32) -> [u8; 3] {
         let dome = (1.0 - dx * dx) * (1.0 - dy * dy);
         let scale = 0.92 + 0.08 * dome;
         [
-            (255.0 * scale) as u8,
-            (198.0 * scale) as u8,
-            (116.0 * scale) as u8,
+            (218.0 * scale) as u8,
+            (174.0 * scale) as u8,
+            (112.0 * scale) as u8,
         ]
     }
 }
@@ -1081,12 +1157,11 @@ fn moonlight_tint(u: f32, v: f32) -> [u8; 3] {
     )
 }
 
-/// Hashed two-tone stipple on a fixed world grid — deterministic, world
-/// anchored, and one hash per pixel.
+/// Broad two-tone material variation, baked on a fixed world grid.
 fn speckle(a: [u8; 3], b: [u8; 3], u: f32, v: f32, scale: f32) -> [u8; 3] {
-    let cell_x = (u * scale).floor() as i32;
-    let cell_y = (v * scale).floor() as i32;
-    let roll = hash01(0x4752_4f55_4e44_3344, cell_x, cell_y);
+    // Keep each material's hue, with a small broad variation instead of
+    // unrelated light and dark cells across the floor.
+    let roll = 0.38 + 0.24 * soft_noise(u * scale * 0.4, v * scale * 0.4);
     mix_rgb(a, b, roll)
 }
 
@@ -1129,7 +1204,7 @@ fn sky_color(dir: V3) -> [u8; 3] {
         let at_y = hash01(STAR_SEED ^ 0x59, star_col, star_row);
         if (local_x - at_x).abs() < 0.13 && (local_y - at_y).abs() < 0.13 {
             let brightness = 0.72 + 0.28 * hash01(STAR_SEED ^ 0x42, star_col, star_row);
-            color = mix_rgb(color, [204, 218, 244], brightness);
+            color = mix_rgb(color, [171, 187, 209], brightness);
         }
     }
 
@@ -1137,11 +1212,11 @@ fn sky_color(dir: V3) -> [u8; 3] {
     let angle = dir.dot(moon_direction()).clamp(-1.0, 1.0).acos();
     if angle < MOON_RADIUS_RAD {
         let limb = smoothstep((angle / MOON_RADIUS_RAD).clamp(0.0, 1.0));
-        let disc = mix_rgb([230, 234, 242], MOON_SILVER, limb);
+        let disc = mix_rgb([207, 214, 221], MOON_SILVER, limb);
         color = mix_rgb(color, disc, 1.0 - limb * 0.30);
     } else if angle < MOON_HALO_RAD {
         let halo = 1.0 - (angle - MOON_RADIUS_RAD) / (MOON_HALO_RAD - MOON_RADIUS_RAD);
-        color = mix_rgb(color, [92, 104, 138], halo * halo * 0.30);
+        color = mix_rgb(color, [92, 104, 138], halo * halo * 0.19);
     }
     color
 }

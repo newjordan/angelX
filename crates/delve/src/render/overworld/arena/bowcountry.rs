@@ -489,8 +489,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 // His picket sign.
                 let w = super::super::ink::text_width("ON STRIKE") + 6;
                 cv.line(x + 24, base, x + 24, base - 28, 'r');
-                cv.rect(x + 14, base - 40, w, 12, 'T');
-                cv.frame(x + 14, base - 40, w, 12, 'B');
+                super::super::chrome::inset_panel(cv, (x + 14, base - 40, w, 12), super::super::chrome::Tone::PAINTED);
                 cv.text(x + 17, base - 38, "ON STRIKE", 'b');
             }
             // The prompt stands off to his left, clear of his straw.

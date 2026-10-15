@@ -1,31 +1,82 @@
 //! Live navy/brass UI. Text and rating/result values remain simulation-owned.
-use super::super::super::ink::{ink, text_width};
+use super::super::super::ink::{Rgb, ink, text_width};
 use super::{super::*, paint::*};
 use crate::render::art;
-fn well(cv: &mut Canvas, x: f32, y: f32, w: f32, h: f32) {
-    cv.gradient(
-        x,
-        y,
-        w,
-        h,
-        Ramp {
-            dark: art::WELL,
-            mid: [16, 27, 37],
-            light: [20, 32, 42],
-        },
-        true,
-    );
-    cv.frame(x, y, w, h, art::TRIM);
-    cv.frame(x + 1.0, y + 1.0, w - 2.0, h - 2.0, material('S'));
-    for (xx, yy) in [
-        (x, y),
-        (x + w - 2.0, y),
-        (x, y + h - 2.0),
-        (x + w - 2.0, y + h - 2.0),
-    ] {
-        cv.ellipse(xx + 1.0, yy + 1.0, 1.2, 1.2, Ramp::inks('P', 'o', 'T'), 4);
+/// A box rounded at this canvas's two samples a pixel: its corners follow
+/// `curve` (in samples), `ink` colours each sample by how deep it lies
+/// (1 on the edge) and its row, and a soft shadow drops down and right.
+fn rounded(
+    cv: &mut Canvas,
+    (x, y, w, h): (f32, f32, f32, f32),
+    curve: &[i32],
+    ink: impl Fn(i32, i32, i32) -> Rgb,
+) {
+    let x0 = ((x - cv.origin.0) * 2.0).round() as i32;
+    let y0 = ((y - cv.origin.1) * 2.0).round() as i32;
+    let (w2, h2) = ((w * 2.0).round() as i32, (h * 2.0).round() as i32);
+    let cut = |r: i32| {
+        let e = r.min(h2 - 1 - r);
+        if e < 0 { i32::MAX } else { curve.get(e as usize).copied().unwrap_or(0) }
+    };
+    let inside = |dx: i32, dy: i32| dy >= 0 && dy < h2 && dx >= cut(dy) && dx < w2 - cut(dy);
+    let (cw, ch) = (cv.w as i32, cv.h as i32);
+    let put = |px: &mut Vec<Rgb>, dx: i32, dy: i32, c: Rgb, a: f32| {
+        let (sx, sy) = (x0 + dx, y0 + dy);
+        if sx >= 0 && sy >= 0 && sx < cw && sy < ch {
+            let i = (sy * cw + sx) as usize;
+            px[i] = if a >= 1.0 { c } else { mix(px[i], c, a) };
+        }
+    };
+    for dy in 0..h2 + 3 {
+        for dx in 0..w2 + 3 {
+            if !inside(dx, dy) && (inside(dx - 2, dy - 2) || inside(dx - 3, dy - 3)) {
+                put(&mut cv.px, dx, dy, art::BLACK, if inside(dx - 2, dy - 2) { 0.6 } else { 0.3 });
+            }
+        }
+    }
+    for dy in 0..h2 {
+        let c = cut(dy);
+        for dx in c..w2 - c {
+            let depth = (1..=4)
+                .find(|&k| !inside(dx - k, dy) || !inside(dx + k, dy) || !inside(dx, dy - k) || !inside(dx, dy + k))
+                .unwrap_or(5);
+            put(&mut cv.px, dx, dy, ink(depth, dy, h2), 1.0);
+        }
     }
 }
+
+/// The kit's panel, rounded like the ink kit's boards (`chrome`) at this
+/// canvas's two samples a pixel: the corner follows a small circle, the
+/// brass rim and the slate line inside it turn the corner with it, the
+/// slate falls from a lit top toward black, a soft shadow drops down and
+/// right, and a brass stud sits in each corner.
+fn well(cv: &mut Canvas, x: f32, y: f32, w: f32, h: f32) {
+    let ramp = Ramp {
+        dark: art::WELL,
+        mid: [16, 27, 37],
+        light: [22, 35, 46],
+    };
+    rounded(cv, (x, y, w, h), &[6, 4, 3, 2, 1, 1], |depth, dy, h2| match depth {
+        1 | 2 => art::TRIM,
+        3 | 4 => material('S'),
+        _ => ramp.at(1.0 - (dy as f32 + 0.5) / h2 as f32),
+    });
+    for (xx, yy) in [
+        (x + 3.0, y + 3.0),
+        (x + w - 4.0, y + 3.0),
+        (x + 3.0, y + h - 4.0),
+        (x + w - 4.0, y + h - 4.0),
+    ] {
+        cv.ellipse(xx + 0.5, yy + 0.5, 1.0, 1.0, Ramp::inks('P', 'o', 'T'), 4);
+    }
+}
+
+/// A room's name plate: `fill` inside a one-pixel `rim`, its corners
+/// rounded and its shadow dropped as `well`'s are.
+pub(super) fn plaque(cv: &mut Canvas, (x, y, w, h): (f32, f32, f32, f32), fill: Rgb, rim: Rgb) {
+    rounded(cv, (x, y, w, h), &[3, 2, 1], |depth, _, _| if depth <= 2 { rim } else { fill });
+}
+
 fn center(cv: &mut Canvas, y: f32, label: &str, c: char) {
     cv.text((384 - text_width(label)) as f32 * 0.5, y, label, c);
 }
@@ -47,10 +98,10 @@ pub(super) fn votes(cv: &mut Canvas, run: &Run, focus: Option<u32>) {
     for y in 17..212 {
         for x in 17..367 {
             if let Some(c) = im.get(x, y) {
-                if Some(c) == ink('s') {
+                if crate::render::overworld::chrome::is_slate_fill(c) {
                     continue;
                 }
-                let c = if Some(c) == ink('x') {
+                let c = if crate::render::overworld::chrome::is_highlight(c) {
                     [22, 49, 51]
                 } else if Some(c) == ink('u') {
                     material('S')
@@ -190,24 +241,19 @@ pub(super) fn result(cv: &mut Canvas, run: &Run, focus: Option<u32>) {
     cv.line((165.0, 126.0), (183.0, 126.0), 2.0, material('T'));
     cv.line((178.0, 122.0), (183.0, 126.0), 1.5, material('T'));
     cv.line((178.0, 130.0), (183.0, 126.0), 1.5, material('T'));
-    well(cv, 280.0, 82.0, 73.0, 48.0);
-    cv.text(286.0, 87.0, "PARTY BEST", 'T');
+    // Wide enough for a seven-letter name and its time, the times flush
+    // right, so a long name never runs into its number.
+    well(cv, 278.0, 82.0, 82.0, 48.0);
+    cv.text(284.0, 87.0, "PARTY BEST", 'T');
     for (i, b) in run.pits.ranked().iter().take(3).enumerate() {
         cv.text(
-            286.0,
+            284.0,
             99.0 + i as f32 * 9.0,
             &b.name.to_uppercase().chars().take(7).collect::<String>(),
             'i',
         );
-        cv.text(
-            329.0,
-            99.0 + i as f32 * 9.0,
-            &format!(
-                "{:.2}",
-                (b.best * 100 / crate::rules::HZ) as f32 / 100.0
-            ),
-            'i',
-        );
+        let time = format!("{:.2}", (b.best * 100 / crate::rules::HZ) as f32 / 100.0);
+        cv.text(355.0 - text_width(&time) as f32, 99.0 + i as f32 * 9.0, &time, 'i');
     }
     let label = r.quality.word();
     let mut title = Img::new(text_width(label), 7);

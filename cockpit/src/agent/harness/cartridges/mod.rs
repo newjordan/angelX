@@ -1,9 +1,11 @@
-//! Cartridges: competition families plugged into the harness.
+//! Cartridges: competition families and tools plugged into the harness.
 //!
 //! The harness ships the competition engine (the loop, the watcher, the fleet
 //! HUD, truthful submit attribution, the book). A cartridge carries one
 //! family's specifics: its board CLI, its loop worker's brief, its status API
-//! and fleet sweep, its book pages. A cartridge is a folder with
+//! and fleet sweep, its book pages. A tool cartridge carries slash commands
+//! instead, each a stack of its own skills loaded only when typed. A cartridge
+//! is a folder with
 //! `cartridge.toml`; with `src/mod.rs` beside it, `build.rs` compiles its Rust
 //! hooks in, otherwise the toml alone is read at startup. Folders come from
 //! `ANGEL_CARTRIDGES`, else `~/.angelX/cartridges`; `ANGEL_CARTRIDGE` picks the
@@ -17,7 +19,8 @@ pub(crate) mod submit_identity;
 use crate::agent::harness::WatchNotify;
 use crate::agent::harness::book::{Route, Sub};
 use crate::agent::harness::comp_watch::StatusSource;
-use config::Config;
+use crate::agent::harness::skills::Skill;
+use config::{Command, Config};
 use fleet::FleetSnapshot;
 use records::{CandidateIdentity, TerminalEvidence};
 use std::path::Path;
@@ -98,10 +101,13 @@ pub(crate) struct Cartridge {
     pages: &'static [Sub],
     /// A config-only cartridge's folder, which its commands run beside.
     folder: Option<std::path::PathBuf>,
+    /// Built in with Rust hooks.
+    compiled: bool,
 }
 
 impl Cartridge {
     pub(crate) fn new(config: Config, hooks: Option<&'static dyn Hooks>) -> Self {
+        let compiled = hooks.is_some();
         let hooks = hooks.unwrap_or(&NoHooks);
         let leak = |text: &str| -> &'static str { Box::leak(text.to_owned().into_boxed_str()) };
         let mut pages: Vec<Sub> = Vec::new();
@@ -131,7 +137,52 @@ impl Cartridge {
             hooks,
             pages,
             folder: None,
+            compiled,
         }
+    }
+
+    /// Whether this is a competition family. A config-only cartridge that
+    /// carries commands and names no board or worker is a tool: plugging it in
+    /// never makes it the active competition.
+    pub(crate) fn competes(&self) -> bool {
+        self.compiled
+            || self.config.commands.is_empty()
+            || !self.config.boards.is_empty()
+            || !self.config.worker.is_empty()
+    }
+
+    /// The skills `command` applies, in order, from this cartridge's `skills/`
+    /// folder; `${ANGEL_CARTRIDGE_DIR}` in their text names the folder.
+    pub(crate) fn command_skills(&self, command: &Command) -> Result<Vec<Skill>, String> {
+        let Some(folder) = &self.folder else {
+            return Err(format!(
+                "/{}: {} has no folder to load skills from",
+                command.name,
+                self.label()
+            ));
+        };
+        let dir = folder.join("skills");
+        let found = crate::agent::harness::skills::load_skills_from(&dir);
+        let folder_text = folder.display().to_string();
+        command
+            .skills
+            .iter()
+            .map(|name| {
+                let mut skill = found
+                    .iter()
+                    .find(|skill| &skill.name == name)
+                    .cloned()
+                    .ok_or_else(|| {
+                        format!(
+                            "/{}: skill `{name}` is not in {} — run the cartridge's install",
+                            command.name,
+                            dir.display()
+                        )
+                    })?;
+                skill.body = skill.body.replace("${ANGEL_CARTRIDGE_DIR}", &folder_text);
+                Ok(skill)
+            })
+            .collect()
     }
 
     /// Book pages this cartridge adds, or replaces by route.
@@ -262,13 +313,30 @@ fn selected_id() -> Option<String> {
         .filter(|id| !id.is_empty())
 }
 
-/// The active cartridge: `ANGEL_CARTRIDGE` by id, else the first plugged in.
-/// `None` when no cartridge is plugged in; the engine then runs without one.
+/// The active cartridge: `ANGEL_CARTRIDGE` by id, else the first competition
+/// plugged in. `None` when there is none; the engine then runs without one.
 pub(crate) fn active() -> Option<&'static Cartridge> {
     let all = all();
     selected_id()
         .and_then(|id| all.iter().find(|c| c.id() == id))
-        .or_else(|| all.first())
+        .or_else(|| all.iter().find(|c| c.competes()))
+}
+
+/// The plugged-in command typed as `/<word>`, with its cartridge.
+pub(crate) fn command(word: &str) -> Option<(&'static Cartridge, &'static Command)> {
+    all().iter().find_map(|cartridge| {
+        cartridge
+            .config
+            .commands
+            .iter()
+            .find(|command| command.name.eq_ignore_ascii_case(word))
+            .map(|command| (cartridge, command))
+    })
+}
+
+/// Every plugged-in cartridge command.
+pub(crate) fn commands() -> impl Iterator<Item = &'static Command> {
+    all().iter().flat_map(|c| c.config.commands.iter())
 }
 
 /// Set when `ANGEL_CARTRIDGE` names no plugged-in cartridge; the /loop start

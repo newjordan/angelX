@@ -8,7 +8,7 @@
 
 use super::super::ink::{Img, hash};
 use super::super::kit::{self, RockKind, Tiles};
-use super::super::material::{self, Ground, Leaf, tree, hedge as m_hedge};
+use super::super::material::{self, Ground, Leaf};
 use super::super::ink::vnoise;
 use super::{TILE, at, fire, home};
 use crate::rules::world::{
@@ -112,19 +112,69 @@ pub(super) fn road_mark(kind: RoomKind, x: i32, y: i32) -> Option<char> {
         // The verge: a near-solid line of dark earth where the grass gives way.
         return (!hash(x, y, 16).is_multiple_of(5)).then_some('I');
     }
-    // Trodden earth: a calm band one step above the field, laid in two-by-
-    // two clods; the wheel ruts run through it as darker gaps.
+    // Trodden earth: clods lying close in a calm band, each lit along its
+    // top, black paper between; the wheel ruts run through it as clear
+    // lines, and here and there a few pebbles lie in it. Grouped marks,
+    // never an even speckle.
     let along_x = roads(kind).iter().any(|&(c, r, w, h)| inside((c, r, w, h), tx, ty) && w > h);
     let across = if along_x { ly } else { lx };
     if across == 4 || across == 11 {
-        return (hash(x / 2, y / 2, 17) % 3 == 0).then_some('n');
+        return None;
     }
-    let clod = hash(x.div_euclid(2), y.div_euclid(2), 18);
-    match clod % 9 {
-        0 if (x + y) % 2 == 0 => Some('P'),
-        0 => Some('B'),
-        1..=3 => Some('b'),
-        4 if x % 2 == 0 && y % 2 == 0 => Some('o'),
+    if let Some(stone) = pebbles(x, y, 19) {
+        return Some(stone);
+    }
+    // Cells of five by four, every other row shifted, each holding a clod
+    // at its own place in the cell so no rows line up.
+    let cy = y.div_euclid(4);
+    let sx = x + cy.rem_euclid(2) * 2;
+    let (cx, px, py) = (sx.div_euclid(5), sx.rem_euclid(5), y.rem_euclid(4));
+    let h = hash(cx, cy, 18);
+    if h % 10 >= 6 {
+        return None;
+    }
+    let (ox, oy, w) = ((h >> 4) as i32 % 3, (h >> 6) as i32 % 3, 2 + (h >> 8) as i32 % 2);
+    if px < ox || px >= ox + w || py < oy || py > oy + 1 {
+        return None;
+    }
+    Some(if py == oy { if (h >> 10) % 3 == 0 { 'P' } else { 'B' } } else { 'b' })
+}
+
+/// A few pebbles in a loose cluster at `(x, y)`, each lit along its top
+/// over a darker body: one cell in nine of five by four pixels holds one.
+fn pebbles(x: i32, y: i32, seed: u32) -> Option<char> {
+    let (cx, cy) = (x.div_euclid(5), y.div_euclid(4));
+    let (px, py) = (x.rem_euclid(5), y.rem_euclid(4));
+    let h = hash(cx, cy, seed);
+    if h % 9 != 0 {
+        return None;
+    }
+    let (ox, oy) = (((h >> 4) % 3) as i32, ((h >> 7) % 2) as i32);
+    if !(px == ox || px == ox + 1) {
+        return None;
+    }
+    match py - oy {
+        0 => Some(if px == ox { 'o' } else { 'r' }),
+        1 => Some('P'),
+        _ => None,
+    }
+}
+
+/// Trodden ground off the road: grit in clods of two or three pixels,
+/// gathered in patches by a slow field, bare paper between.
+fn clods(x: i32, y: i32) -> Option<char> {
+    let (tx, ty) = (x.div_euclid(6), y.div_euclid(5));
+    let (ox, oy) = (x.rem_euclid(6), y.rem_euclid(5));
+    let t = hash(tx, ty, 62);
+    let patch = ((vnoise(x as f32 / 30.0, y as f32 / 24.0, 63) - 0.5) / 0.3).clamp(0.0, 1.0);
+    if (t & 0xff) as f32 / 255.0 > 0.04 + patch * 0.32 {
+        return None;
+    }
+    let (bx, by) = (1 + (t >> 8) as i32 % 3, 1 + (t >> 10) as i32 % 2);
+    match (ox - bx, oy - by) {
+        (0, 0) => Some(if (t >> 12) % 3 == 0 { 'P' } else { 'I' }),
+        (1, 0) => Some('I'),
+        (0, 1) | (1, 1) if (t >> 14) % 2 == 0 => Some('b'),
         _ => None,
     }
 }
@@ -167,22 +217,38 @@ fn ground(cv: &mut Img, run: &Run) {
                 // Indoors: dressed flagstones.
                 super::flags(x, y)
             } else if kind == RoomKind::Crag && (4..11).contains(&ty) && (3..22).contains(&tx) {
-                // Smooth trodden snow under the racing piece. Coarse slate
-                // flecks stay in the plain bank, not signal-white static.
-                // Tonal, not white: packed snow in the cool bank, its
-                // drifts a step lighter, sled tracks a step darker.
-                Some(match hash(x / 3, y / 2, 78) % 64 {
-                    _ if (y.rem_euclid(TILE) == 5 || y.rem_euclid(TILE) == 11) && hash(x / 5, y, 80) % 3 != 0 => 'S',
-                    0 => 'v',
-                    1..=6 => 'U',
-                    _ => 'u',
-                })
+                // Smooth trodden snow under the racing piece, its edge
+                // wandering and its corners worn round where it meets the
+                // loose snow. Tonal, not white: packed snow in the cool bank,
+                // its drifts a step lighter in soft patches, sled tracks a
+                // step darker.
+                let (lx, ly) = ((x - 3 * TILE).min(22 * TILE - 1 - x), (y - 4 * TILE).min(11 * TILE - 1 - y));
+                // Smooth noise keeps near its middle: stretched, so the edge
+                // bends.
+                let bend = ((vnoise(x as f32 / 14.0, y as f32 / 14.0, 79) - 0.5) * 3.0).clamp(-1.0, 1.0);
+                let edge = 3.0 + bend * 2.5;
+                let round = 14.0;
+                let (cx, cy) = ((round - lx as f32).max(0.0), (round - ly as f32).max(0.0));
+                let inside = (lx as f32) >= edge && (ly as f32) >= edge && cx.hypot(cy) <= round - edge * 0.5;
+                if !inside {
+                    field(kind, x, y)
+                } else {
+                    let drift = vnoise(x as f32 / 14.0, y as f32 / 9.0, 81);
+                    Some(match hash(x / 3, y / 2, 78) % 96 {
+                        _ if y.rem_euclid(TILE) == 8 && vnoise(x as f32 / 11.0, (y / TILE) as f32, 80) > 0.45 => 'x',
+                        0 => 'v',
+                        1..=3 => 'U',
+                        _ if drift > 0.56 => 'u',
+                        _ => 'S',
+                    })
+                }
             } else if on_road {
                 road_mark(kind, x, y)
             } else if kind == RoomKind::MineHead {
-                // Trodden ground before the mine: grit more than grass.
-                if hash(x / 5, y / 4, 61).is_multiple_of(4) {
-                    material::ground(Ground::Earth, x, y)
+                // Trodden ground before the mine: grit more than grass, in
+                // patches of each.
+                if vnoise(x as f32 / 40.0, y as f32 / 30.0, 61) > 0.42 {
+                    clods(x, y)
                 } else {
                     field(kind, x, y)
                 }
@@ -291,24 +357,44 @@ fn grow_edges(cv: &mut Img, run: &Run) {
         Edge::Wood(leaf) => {
             // The back row: smaller, darker, between the front trees; the
             // front row's crowns sit on the wall tiles, trunks at their foot.
-            let mut back: Vec<_> = spots.iter().map(|&(c, r, v)| (c * TILE + (v % 9) as i32, r * TILE + 12 + (v >> 4) as i32 % 4, v)).collect();
+            // Each tree has its own size, habit and place in its tile, and
+            // now and then a crown of another kind or hue stands among them.
+            let pines = leaf == Leaf::Pine;
+            let mut back: Vec<_> = spots.iter().map(|&(c, r, v)| (c * TILE + (v % 11) as i32 - 1, r * TILE + 11 + (v >> 4) as i32 % 5, v)).collect();
             back.sort_by_key(|p| p.1);
             for (x, y, v) in back {
-                tree(cv, x, y, 7.0 + (v >> 8) as f32 % 2.0, if leaf == Leaf::Pine { Leaf::EdgePine } else { Leaf::Edge }, v, &keep);
+                let r = 6.0 + (v >> 8) as f32 % 3.5;
+                if pines || (v >> 20) % 7 == 0 {
+                    material::pine(cv, x, y, r * 0.9, material::ramp::EDGE_PINE, v, &keep);
+                } else {
+                    material::broadleaf(cv, x, y, r, material::ramp::EDGE_BACK, v, v >> 5, &keep);
+                }
             }
-            let mut front: Vec<_> = spots.iter().map(|&(c, r, v)| (c * TILE + 8 + (v >> 12) as i32 % 5 - 2, r * TILE + 19 - (v >> 16) as i32 % 3, v)).collect();
+            let mut front: Vec<_> = spots.iter().map(|&(c, r, v)| (c * TILE + 8 + (v >> 12) as i32 % 9 - 4, r * TILE + 19 - (v >> 16) as i32 % 4, v)).collect();
             front.sort_by_key(|p| p.1);
             for (x, y, v) in front {
                 // The wood is background: dark, calm crowns, a rare copper
                 // one where the region is autumnal.
-                let kind = if leaf == Leaf::Pine { Leaf::EdgePine } else { Leaf::Edge };
-                tree(cv, x, y, 8.0 + (v >> 24) as f32 % 3.0, kind, v ^ 0x9e37, &keep);
+                let r = 7.0 + (v >> 24) as f32 % 4.5;
+                let seed = v ^ 0x9e37;
+                let other = (v >> 27) % 6 == 0;
+                if pines != other {
+                    material::pine(cv, x, y, r * 0.92, material::ramp::EDGE_PINE, seed, &keep);
+                } else {
+                    let ramp = match (v >> 6) % 7 {
+                        0 if leaf == Leaf::Copper => material::ramp::EDGE_COPPER,
+                        1 | 4 => material::ramp::EDGE_OLIVE,
+                        _ => material::ramp::EDGE,
+                    };
+                    material::broadleaf(cv, x, y, r, ramp, seed, v >> 9, &keep);
+                }
             }
         }
         Edge::Hedge => {
             for &(c, r, v) in &spots {
                 let open_s = !wall(c, r + 1);
-                m_hedge(cv, (c * TILE, r * TILE - if wall(c, r - 1) { 0 } else { 3 }, TILE, TILE + if open_s { 0 } else { 3 }), v);
+                let open = [!wall(c, r - 1), !wall(c + 1, r), open_s, !wall(c - 1, r)];
+                material::hedge_open(cv, (c * TILE, r * TILE - if wall(c, r - 1) { 0 } else { 3 }, TILE, TILE + if open_s { 0 } else { 3 }), v, open);
             }
         }
         Edge::Rock => {
@@ -672,7 +758,7 @@ fn well() -> Img {
     im.line(16, 10, 16, 15, 'o');
     im.rect(14, 15, 5, 4, 'B');
     im.line(14, 15, 18, 15, 'o');
-    im.outline_inside('k');
+    im = super::super::kit::shaded_rim(&im);
     im
 }
 

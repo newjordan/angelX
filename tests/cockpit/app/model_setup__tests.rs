@@ -12,4 +12,10 @@ fn routes_provider_guidance_without_secret_values() {
     assert!(unknown.contains("unknown provider"));
     assert!(unknown.contains("usage: /connect"));
     assert!(connect_text(None).contains("providers:"));
+    let daybreak = connect_text(Some("DAYBREAK"));
+    assert!(daybreak.contains("ANGEL_DAYBREAK_MODEL"));
+    assert!(daybreak.contains("ANGEL_DAYBREAK_REASONING_EFFORT"));
+    assert!(daybreak.contains("same startup catalog"));
+    assert!(daybreak.contains("does not grant or bypass"));
+    assert!(connect_text(None).contains("daybreak"));
 }

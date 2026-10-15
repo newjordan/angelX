@@ -9,11 +9,11 @@ use crate::rules::{Projectile, Shot};
 /// A beam's inks by its shot: warning, rim, core.
 fn beam_inks(kind: Shot) -> (char, char, char) {
     match kind {
-        Shot::Eye => ('1', '2', 'w'),
-        Shot::Wisp => ('2', '3', 'w'),
-        Shot::Spore => ('C', 'Y', 'w'),
-        Shot::Page => ('$', 'c', 'w'),
-        _ => ('7', '@', '6'),
+        Shot::Eye => ('1', '2', 'c'),
+        Shot::Wisp => ('2', '2', 'c'),
+        Shot::Spore => ('C', 'A', 'c'),
+        Shot::Page => ('$', 'U', 'c'),
+        _ => ('7', 'o', 'c'),
     }
 }
 

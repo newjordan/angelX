@@ -463,3 +463,76 @@ fn danger_pulls_the_haze_in_and_never_past_the_lantern() {
         );
     }
 }
+
+#[test]
+fn forest_crowns_keep_readable_green_ink_in_the_small_terminal_pane() {
+    use crate::stage::world_viz::ride::frame_to_braille_graded;
+    let scene = super::super::scene::region_scene(Stage::DarkForest, 0, 0, 0);
+    for mark in [0, marks(Stage::DarkForest).len() / 2] {
+        let view = settled_camera(Stage::DarkForest, mark, 96, 72);
+        let frame = raster::render_scene_fogged(
+            &scene,
+            &view,
+            96,
+            72,
+            Firelight::STEADY,
+            fog_distance(Stage::DarkForest, 0),
+        );
+        let dots = frame_to_braille_graded(&frame, 48, 18, false);
+        let mut green = 0;
+        let mut black = 0;
+        // Above the floor: grass cannot stand in for readable tree crowns.
+        for y in 0..12 {
+            for x in 0..48 {
+                let cell = dots.cell(x, y).unwrap();
+                let [r, g, b] = cell.fg;
+                if angel_delve::render::braille::braille_bits(cell.glyph) == 0 {
+                    black += 1;
+                }
+                if angel_delve::render::braille::braille_bits(cell.glyph) != 0
+                    && g >= 40
+                    && u16::from(g) * 4 > u16::from(r) * 5
+                    && u16::from(g) * 4 > u16::from(b) * 5
+                {
+                    green += 1;
+                }
+            }
+        }
+        assert!(
+            green >= 28,
+            "forest mark {mark}: only {green} green crown cells"
+        );
+        assert!(
+            black >= 100,
+            "forest mark {mark}: lost the falloff into black ({black})"
+        );
+    }
+}
+
+#[test]
+#[ignore]
+fn write_region_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_REGION_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for stage in Stage::ALL {
+        let scene = super::super::scene::region_scene(stage, 0, 0, 0);
+        for mark in [0, marks(stage).len() / 2] {
+            for (label, w, h) in [("large", 384, 288), ("mini", 96, 72)] {
+                let view = settled_camera(stage, mark, w, h);
+                raster::render_scene_fogged(
+                    &scene,
+                    &view,
+                    w,
+                    h,
+                    raster::Firelight::STEADY,
+                    fog_distance(stage, 0),
+                )
+                .save(dir.join(format!("{stage:?}-{mark}-{label}.png")))
+                .unwrap();
+            }
+        }
+    }
+}

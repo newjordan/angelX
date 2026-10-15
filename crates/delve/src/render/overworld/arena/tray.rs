@@ -1,14 +1,16 @@
 //! The tray in a knight's bottom corner: the weapon in hand, the guard, the
 //! bombs, the cards, the spells and the ultimate as small plates of pixel
-//! art, each with its key under it. A plate is black paper with a rim; the
-//! picture inside is coloured as far up as the thing has recharged, and
-//! stone grey above that, so a cooldown reads as a colour climbing the icon.
+//! art, each with its key under it. A plate is a rounded well (`chrome`)
+//! with a rim, brass when ready and stone when not; the picture inside is
+//! coloured as far up as the thing has recharged, and stone grey above
+//! that, so a cooldown reads as a colour climbing the icon.
 //!
 //! The pictures are the cards' own art (`drive::together_shooter::tray`
 //! fits them to twelve pixels), so what a knight sees here is what the card
 //! looked like on the floor. One image serves the terminal's pictures, the
 //! browser's frames and, one pixel to a cell, the half-block fallback.
 
+use super::super::chrome::{self, Tone};
 use super::super::ink::Img;
 use super::sprites;
 use crate::rules::Run;
@@ -39,27 +41,29 @@ fn shorten(key: &str) -> &str {
 }
 
 /// One icon's plate with its key, `PLATE` wide.
-fn cell(icon: &Icon) -> Img {
+pub(super) fn cell(icon: &Icon) -> Img {
     let ready = icon.fill >= 1.0;
     let mut im = Img::new(PLATE, CELL_H);
-    im.rect(0, 0, PLATE, PLATE, 'K');
-    let rim = match (ready, icon.slot) {
-        (true, Slot::Ult) => '4',
-        (true, _) => 'o',
-        (false, _) => 'g',
+    let rim = if crate::render::art::enabled() {
+        [if ready {
+            crate::render::art::TRIM
+        } else {
+            crate::render::art::material('S')
+        }; 3]
+    } else {
+        match (ready, icon.slot) {
+            (true, Slot::Ult) => chrome::GOLD_RIM,
+            (true, _) => chrome::BRASS_RIM,
+            (false, _) => chrome::COLD_RIM,
+        }
     };
-    im.frame(0, 0, PLATE, PLATE, rim);
-    for (x, y) in [
-        (0, 0),
-        (PLATE - 1, 0),
-        (0, PLATE - 1),
-        (PLATE - 1, PLATE - 1),
-    ] {
-        im.clear(x, y);
-    }
-    let art = Img::from_rows(&icon.rows());
+    chrome::shaped(&mut im, (0, 0, PLATE, PLATE), &[2, 1], Tone::WELL.rimmed(rim), false);
+    let art = super::fx::icon(&icon.rows());
     let grey = sprites::stone(&art);
-    let (ox, oy) = (1 + (SIZE as i32 - art.w) / 2, 1 + (SIZE as i32 - art.h) / 2);
+    // In the middle of the well; a bomb a little left of it, clear of its
+    // count in the corner.
+    let shift = if icon.slot == Slot::Bomb { 2 } else { 0 };
+    let (ox, oy) = ((PLATE - art.w) / 2 - shift, (PLATE - art.h) / 2);
     // Coloured from the bottom up as far as the thing has recharged.
     let lit = (icon.fill.clamp(0.0, 1.0) * art.h as f32).round() as i32;
     for y in 0..art.h {
@@ -83,7 +87,7 @@ fn cell(icon: &Icon) -> Img {
     // How many bombs, in the plate's top corner; the key beneath.
     if icon.slot == Slot::Bomb {
         let count = icon.count.min(9).to_string();
-        im.rect(PLATE - 7, 1, 6, 8, 'K');
+        chrome::shaped(&mut im, (PLATE - 7, 1, 6, 8), &[1], Tone::CHIP, false);
         im.text(PLATE - 6, 1, &count, if icon.count > 0 { 'O' } else { 'g' });
     }
     let key = shorten(&icon.key);
@@ -101,21 +105,6 @@ fn cell(icon: &Icon) -> Img {
     };
     let width = super::super::ink::text_width(&label);
     im.text((PLATE - width) / 2, PLATE + 1, &label, ink);
-    if crate::render::art::enabled() {
-        let trim = if ready {
-            crate::render::art::TRIM
-        } else {
-            crate::render::art::material('S')
-        };
-        for y in 0..PLATE {
-            for x in 0..PLATE {
-                if (x == 0 || y == 0 || x == PLATE - 1 || y == PLATE - 1) && im.get(x, y).is_some()
-                {
-                    im.set(x, y, trim);
-                }
-            }
-        }
-    }
     im
 }
 
@@ -163,6 +152,26 @@ pub(super) fn max_height(run: &Run, max_w: i32) -> i32 {
         .unwrap_or(0)
 }
 
+/// How wide the widest living knight's tray is laid (`image`), for boards
+/// that must keep clear of the corner.
+pub(super) fn max_width(run: &Run, max_w: i32) -> i32 {
+    let gap = gap();
+    let per_row = (((max_w + gap) / (PLATE + gap)).max(1)) as usize;
+    run.players
+        .iter()
+        .filter(|(_, h)| h.hp > 0)
+        .map(|(&id, _)| run.tray(id, &Keys::FIRST).len().min(per_row) as i32 * (PLATE + gap) - gap)
+        .max()
+        .unwrap_or(0)
+}
+
+/// Where the tray sits in a view `w` by `h` (as `corner` lays it), for
+/// boards that keep clear of it: `(x, y)` of its top-left.
+pub(super) fn corner_top_left(run: &Run, w: i32, h: i32) -> (i32, i32) {
+    let bottom = if crate::rules::college::is_room(run.room().kind) { 18 } else { 12 };
+    (w - 14 - max_width(run, w - 8), h - bottom - max_height(run, w - 8))
+}
+
 /// The tray laid into the bottom-right corner of a view `w` by `h`.
 pub(super) fn corner(over: &mut Img, run: &Run, focus: Option<u32>) {
     let id = focus
@@ -207,10 +216,10 @@ pub fn small(
     for (n, icon) in icons.iter().take(fits).enumerate() {
         let x0 = n as i32 * (P + 1);
         let ready = icon.fill >= 1.0;
-        img.rect(x0, 0, P, P, 'K');
-        img.frame(x0, 0, P, P, if ready { 'o' } else { 'g' });
+        let rim = if ready { chrome::BRASS_RIM } else { chrome::COLD_RIM };
+        chrome::shaped(&mut img, (x0, 0, P, P), &[1], Tone::WELL.rimmed(rim), false);
         let shrunk = crate::rules::tray::fit_to(&icon.rows(), SMALL);
-        let art = Img::from_rows(&shrunk.split('/').collect::<Vec<_>>());
+        let art = super::fx::icon(&shrunk.split('/').collect::<Vec<_>>());
         let grey = sprites::stone(&art);
         let (ox, oy) = (
             x0 + 1 + (SMALL as i32 - art.w) / 2,

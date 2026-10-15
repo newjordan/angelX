@@ -152,8 +152,8 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
         cv.line(x - TILE, y + 5, x - TILE, y + 1, ink);
         cv.line(x + TILE, y + 5, x + TILE, y + 1, ink);
         cv.line(x - TILE, y + 6, x + TILE, y + 6, ink);
-        cv.rect(x - 5, y + 13, 10, 10, 'k');
-        cv.text(x - 2, y + 15, &format!("{}", i + 1), ink);
+        super::super::chrome::inset_panel(cv, (x - 5, y + 12, 11, 11), super::super::chrome::Tone::SLATE.rimmed(super::super::chrome::rim_of(ink)));
+        cv.text(x - 2, y + 14, &format!("{}", i + 1), ink);
     }
     if let Some(r) = active {
         let p = r.put.as_ref().unwrap();

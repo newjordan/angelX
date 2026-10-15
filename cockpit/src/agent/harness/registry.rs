@@ -1575,7 +1575,7 @@ impl ToolRegistry {
                     .cloned()
                     .unwrap_or_else(|e| format!("tool error: {e}"));
                 let outcome = super::turn_event_outcome(&route.call, &text, false);
-                let presented = route.present(text);
+                let presented = route.present(text, result.is_err());
                 let receipt = super::shell_verifier::RoutingReceipt {
                     routed_call: Some(route.call.clone()),
                     routed_cwd: Some(
@@ -1643,7 +1643,7 @@ impl ToolRegistry {
         };
         // Record declared paths even on partial-write errors; Git also observes
         // shell/formatter mutations before each Rust check.
-        self.mutation_targets.record(name, args);
+        self.mutation_targets.record(&self.workspace, name, args);
         self.atlas
             .record_tool_receipt(name, args, &result, influence);
         if matches!(name, "shell" | "proc_run") {

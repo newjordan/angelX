@@ -42,6 +42,8 @@ pub(crate) struct Stream {
     /// The remote address the stream is connected to.
     pub(crate) remote_addr: SocketAddr,
     pool_returner: PoolReturner,
+    /// The current request's abort handle, detached before the pool reuses this.
+    abort_handle: Option<crate::AbortHandle>,
 }
 
 impl<T: ReadWrite + ?Sized> ReadWrite for Box<T> {
@@ -195,6 +197,7 @@ impl Stream {
             inner: BufReader::new(Box::new(t)),
             remote_addr,
             pool_returner,
+            abort_handle: None,
         })
     }
 
@@ -251,7 +254,36 @@ impl Stream {
         self.pool_returner = PoolReturner::none();
     }
 
+    /// A reused connection is in delayed-ACK ("pingpong") mode, and a server
+    /// that leaves Nagle on then holds each small SSE write until our ACK for
+    /// the previous one, up to the 40 ms delayed-ACK floor per write. A fresh
+    /// connection never meets this (it starts in quick-ACK mode), so before a
+    /// receive on an abortable (streamed) request, ask for quick ACKs again.
+    fn quickack_before_recv(&self) {
+        if self.abort_handle.is_some() && self.inner.buffer().is_empty() {
+            if let Some(socket) = self.socket() {
+                quickack(socket);
+            }
+        }
+    }
+
+    /// Bind a request's abort handle to this stream's socket for the request.
+    pub(crate) fn bind_abort(&mut self, handle: &crate::AbortHandle) -> io::Result<()> {
+        if let Some(socket) = self.socket() {
+            handle.attach(socket)?;
+        }
+        self.abort_handle = Some(handle.clone());
+        Ok(())
+    }
+
     pub(crate) fn return_to_pool(mut self) -> io::Result<()> {
+        // A request's abort handle never reaches the next request on this
+        // socket; an aborted socket is closed instead of pooled.
+        if let Some(handle) = self.abort_handle.take() {
+            if !handle.detach() {
+                return Ok(());
+            }
+        }
         // ensure stream can be reused
         self.reset()?;
         self.pool_returner.clone().return_to_pool(self);
@@ -284,12 +316,14 @@ impl Stream {
 
 impl Read for Stream {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.quickack_before_recv();
         self.inner.read(buf)
     }
 }
 
 impl BufRead for Stream {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        self.quickack_before_recv();
         self.inner.fill_buf()
     }
 
@@ -393,6 +427,34 @@ fn probe_dead_peer(stream: &TcpStream) {
     set(libc::IPPROTO_TCP, libc::TCP_KEEPINTVL, PROBE_INTERVAL_SECS);
     set(libc::IPPROTO_TCP, libc::TCP_KEEPCNT, PROBE_COUNT);
 }
+
+/// Whether a request with an abort handle may use and return pooled
+/// connections: where the quick-ACK request ([`quickack`]) exists. Elsewhere
+/// such a request keeps a dedicated `Connection: close` connection.
+pub(crate) const ABORTABLE_POOLING: bool = cfg!(target_os = "linux");
+
+/// Ask the kernel to ACK the next received segments immediately
+/// (`TCP_QUICKACK` is not sticky, so it is renewed before every receive).
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+fn quickack(socket: &TcpStream) {
+    use std::os::unix::io::AsRawFd;
+    let value: CInt = 1;
+    // SAFETY: the fd is a live socket owned by `socket`; the option value is
+    // a correctly sized c_int that outlives the call.
+    let _ = unsafe {
+        libc::setsockopt(
+            socket.as_raw_fd(),
+            libc::IPPROTO_TCP,
+            libc::TCP_QUICKACK,
+            &value as *const CInt as *const libc::c_void,
+            std::mem::size_of::<CInt>() as libc::socklen_t,
+        )
+    };
+}
+
+#[cfg(not(target_os = "linux"))]
+fn quickack(_socket: &TcpStream) {}
 
 #[cfg(not(unix))]
 fn probe_dead_peer(_stream: &TcpStream) {

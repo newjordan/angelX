@@ -8,7 +8,7 @@
 //! Medieval, as the realm is: a notice nailed up by the Crown, not a poster
 //! of the Old West. Tonal inks; gold only where the reward is.
 
-use super::super::ink::{Img, bayer, hash, text_width};
+use super::super::ink::{Img, bayer, hash, ink, text_width};
 use super::super::kit::{Tiles, torch};
 use super::{
     NATIVE_H, NATIVE_W, TILE, UNIT, at, dusk, enlarge, fire, room_px, sprites, stature, style,
@@ -338,11 +338,13 @@ fn art_of(run: &Run, index: u8) -> Img {
     stature::boss_figure(run, index).unwrap_or_else(|| Img::new(1, 1))
 }
 
-fn bubble(cv: &mut Img, x: i32, y: i32, text: &str) {
+fn bubble(cv: &mut Img, x: i32, y: i32, text: &str, view: (i32, i32)) {
     let w = text_width(text) + 8;
-    let (x0, y0) = (x - w / 2, y - 14);
-    cv.rect(x0, y0, w, 12, 'b');
-    cv.rect(x0 + 1, y0 + 1, w - 2, 10, 'T');
+    // Whole on this seat's screen while the speaker is in its view; the tail
+    // stays at the speaker, inside the bubble's span.
+    let (x0, y0) = (super::in_view_x(x, w, view, cv.w), y - 14);
+    let x = x.clamp(x0 + 2, x0 + w - 4);
+    super::super::chrome::inset_panel(cv, (x0, y0, w, 12), super::super::chrome::Tone::PAINTED.rimmed([ink('b').unwrap_or_default(); 3]));
     cv.text(x0 + 4, y0 + 2, text, 'b');
     for k in 0..4 {
         cv.put(x - 1 + k / 2, y0 + 12 + k, 'b');
@@ -352,7 +354,7 @@ fn bubble(cv: &mut Img, x: i32, y: i32, text: &str) {
 
 /// The hall's live marks, in the world: the tell before a volley, a taunt,
 /// ropes, the outlaw's fall and its coins.
-pub(super) fn over(cv: &mut Img, run: &Run) {
+pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
     if run.room().kind != crate::rules::RoomKind::Wanted {
         return;
     }
@@ -397,7 +399,9 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         if e.stage == outlaw::TAUNT {
             let line =
                 TAUNTS[(e.id as usize + usize::try_from(e.age / 400).unwrap_or(0)) % TAUNTS.len()];
-            bubble(cv, x, feet - h - 6, line);
+            // Over its name plate (`nameplates`, 22 pixels over its head),
+            // the tail pointing down at it, so the words never cover the name.
+            bubble(cv, x, super::in_view_y(feet - h - 39, feet, view) + 14, line, view);
         }
         if e.stage == outlaw::CALL {
             // A whistle: three notes rising.
@@ -769,10 +773,9 @@ fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     let rise = ((age - 24).min(14) as f32 / 14.0).min(1.0);
     let w = 190;
     let (x0, y0) = ((NATIVE_W - w) / 2, NATIVE_H - 6 - (rise * 42.0) as i32);
-    cv.rect(x0, y0, w, 40, 'p');
-    cv.rect(x0 + 1, y0 + 1, w - 2, 38, 'T');
-    cv.rect(x0 + 1, y0 + 1, w - 2, 2, 'O');
-    cv.rect(x0 + 1, y0 + 37, w - 2, 2, 'O');
+    super::super::chrome::panel(cv, (x0, y0, w, 40), super::super::chrome::Tone::PAINTED.rimmed(super::super::chrome::rim_of('p')));
+    cv.rect(x0 + 3, y0 + 2, w - 6, 2, 'O');
+    cv.rect(x0 + 3, y0 + 36, w - 6, 2, 'O');
     let head = "BOUNTY PAID";
     cv.text(x0 + (w - text_width(head)) / 2, y0 + 5, head, 'p');
     // The sum counts up.
@@ -785,7 +788,7 @@ fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
 
 /// A boss or a route chief's name over its health bar, and the key it
 /// holds.
-pub(super) fn nameplates(cv: &mut Img, run: &Run) {
+pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32)) {
     use crate::rules::keyring::Hold;
     let chiefs: Vec<u8> = run.route_chiefs();
     let keyless = run.works.key.hold == Hold::Kept;
@@ -806,8 +809,11 @@ pub(super) fn nameplates(cv: &mut Img, run: &Run) {
         let name = boss.name.to_uppercase();
         let holds_key = keyless && chiefs.contains(&index);
         let w = text_width(&name) + if holds_key { 12 } else { 0 };
-        let (x0, y0) = (x - w / 2, top - 20);
-        cv.rect(x0 - 2, y0 - 1, w + 4, 9, 'k');
+        // Whole on this seat's screen while the boss is in its view.
+        let x0 = super::in_view_x(x, w + 6, view, cv.w) + 3;
+        let y0 = super::in_view_y(top - 20, feet, view);
+        // The name on a slate plate, in the steel rim of the realm's names.
+        super::super::chrome::panel(cv, (x0 - 3, y0 - 2, w + 6, 11), super::super::chrome::Tone::SLATE);
         let mut tx = x0;
         if holds_key {
             let key = Img::from_rows(&[".44....", "4..4444", ".44.4.4"]);

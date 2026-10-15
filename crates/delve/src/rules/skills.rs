@@ -54,6 +54,11 @@ const GAS_DRIFT: f32 = 1.1;
 const POISON_BASE: u32 = 4;
 const POISON_EVERY: u32 = HZ / 2;
 const POISON_LINGER: u32 = 3 * HZ;
+/// Fart Bombs: a cloud's life, a knight's rest between two (at N 1), and
+/// the most clouds a room holds before hits stop adding them.
+const FART_LIFE: u32 = 3 * HZ;
+const FART_REST: u32 = 2 * HZ;
+const FART_CLOUDS: usize = 32;
 const BOSS_SHRUG: u32 = 50;
 /// Fire: the bomb's burst damage, the patch's life and reach; the burn
 /// (damage a beat, ticks between beats, ticks it clings).
@@ -123,6 +128,9 @@ pub struct Kit {
     /// Fire Arrows: ticks the bow's arrows still burn.
     #[serde(default)]
     pub burning: u32,
+    /// Fart Bombs: ticks before this knight's hits may fart again.
+    #[serde(default)]
+    pub fart: u32,
 }
 
 /// A cloud of gas. `owner` 0 is the room's own (a vent): it hurts knights.
@@ -618,6 +626,7 @@ impl Run {
             for rest in &mut kit.rest {
                 *rest = rest.saturating_sub(1);
             }
+            kit.fart = kit.fart.saturating_sub(1);
         }
         let ids: Vec<u32> = self.players.keys().copied().collect();
         for id in ids {
@@ -643,6 +652,39 @@ impl Run {
             boom.left = boom.left.saturating_sub(1);
         }
         self.works.booms.retain(|b| b.left > 0);
+    }
+
+    /// Fart Bombs: a hit leaves a short sulphur cloud where it struck, at
+    /// most once per `FART_REST / N` ticks a knight, and never past
+    /// `FART_CLOUDS` clouds in the room.
+    pub(super) fn fart_hits(&mut self, farts: Vec<(f32, f32, u8, u8)>) {
+        let side = self.side_on();
+        for (x, y, owner, n) in farts {
+            let id = u32::from(owner);
+            let Some(power) = self.players.get(&id).map(|h| h.scaled(POISON_BASE)) else {
+                continue;
+            };
+            if self.works.clouds.len() >= FART_CLOUDS {
+                return;
+            }
+            let kit = self.works.kits.entry(id).or_default();
+            if kit.fart > 0 {
+                continue;
+            }
+            kit.fart = FART_REST / u32::from(n.max(1));
+            let angle = (mix(self.seed ^ self.tick ^ u64::from(id) << 40) % 628) as f32 / 100.0;
+            self.works.clouds.push(Cloud {
+                x,
+                y,
+                vx: angle.cos() * GAS_DRIFT * 0.5,
+                vy: if side { 0.0 } else { angle.sin() * GAS_DRIFT * 0.5 },
+                age: GAS_LIFE - FART_LIFE,
+                owner: id,
+                power,
+                tint: 1,
+            });
+            self.sounds.push("gas_release");
+        }
     }
 
     /// Clouds drift, swell and thin; whatever breathes them is poisoned.

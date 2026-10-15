@@ -91,7 +91,7 @@ fn help_first_screen() -> String {
     let b = crate::ui::glyphs::chrome_bullet();
     format!(
         "commands\n\
-     /help {b} /status {b} /usage {b} /context [all] {b} /connect [provider] {b} /goal [text|clear] {b} /model [filter|exact@effort|auto] {b} /think [filter] {b} /rate useful|miss {b} /mcp (/tools)\n\
+     /setup {b} connect a model {b} /help {b} /status {b} /usage {b} /context [all] {b} /connect [provider] {b} /goal [text|clear] {b} /model [filter|exact@effort|auto] {b} /think [filter] {b} /rate useful|miss {b} /mcp (/tools)\n\
      /goal [<text>|go|tick|rounds <N|unset>|blocked <reason>|pause|resume|criteria <c>|cmd <check>|note <n>|done|clear] {b} durable, steers\n\
      /sessions (/resume [id]) {b} pick up where you left off {b} /observatory {b} evidence {b} /ledger [N] {b} last turns {b} /world help {b} every Realm verb\n\
      /assets {b} browse presented work {b} /tower {b} visit the Scryglass {b} /copy stage {b} copy its path or link\n\
@@ -112,7 +112,7 @@ fn help_topic(topic: &str) -> String {
 
 fn help_full_text() -> String {
     let mut help = "commands\n\
-     /help · /status · /usage · /context [all] · /connect [provider] · /goal [text|clear] · /model [filter|exact@effort|auto] · /think [filter] · /rate useful|miss · /mcp (/tools)\n\
+     /setup · /help · /status · /usage · /context [all] · /connect [provider] · /goal [text|clear] · /model [filter|exact@effort|auto] · /think [filter] · /rate useful|miss · /mcp (/tools)\n\
      /goal [<text>|go|tick|rounds <N|unset>|blocked <reason>|pause|resume|criteria <c>|cmd <check>|note <n>|done|clear] · durable, steers\n\
      every turn; /goal rounds bounds /goal go + the loop driver, blocked flips only after 3 identical rounds (resume re-arms), and a real tick clears it · cmd re-pins a live run's check\n\
      /campaign [status|new <objective>|import-goal|criterion ...|start|advance|review|pause|resume|abandon] · project-bound proof contract; advance parks one technical-proof round, review runs its independent read-only alignment gate, and neither merges\n\

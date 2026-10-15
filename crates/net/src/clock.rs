@@ -3,7 +3,7 @@
 //! can be drawn a fixed delay in the past between two snapshots.
 
 /// Everyone but your own knight is drawn this far behind the server.
-pub const INTERP_MS: f64 = 100.0;
+pub const INTERP_MS: f64 = 50.0;
 /// A correction of your own knight is spread over this long.
 pub const CORRECT_MS: f64 = 100.0;
 /// Server-time samples kept: the estimate is the least-delayed of these.

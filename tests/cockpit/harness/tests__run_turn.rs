@@ -2208,6 +2208,13 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
         "HTTP 422: unsupported parameter",
         "HTTP 424: failed dependency",
         "HTTP 429: weekly quota exhausted",
+        // The provider vetoed a retry (`x-should-retry: false`), whatever the status.
+        "HTTP 503 [x-should-retry: false]: overloaded",
+        "HTTP 429 [x-should-retry: false]: rate limited",
+        "HTTP 500 [x-should-retry: false]: request content",
+        // A certificate the trust store rejected is rejected on every attempt.
+        "transport error after 1 attempt(s): https://api.example/v1/chat/completions: Connection Failed: tls connection init failed: invalid peer certificate: UnknownIssuer",
+        "muse responses: transport: Connection Failed: tls connection init failed: invalid peer certificate: NotValidForName",
     ] {
         assert!(is_permanent_provider_error(error), "{error}");
         let club = CountingFailure {
@@ -2252,7 +2259,12 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
             "{transient} should receive the initial call plus three retries"
         );
     }
-    for transient in ["HTTP 500: internal error", "connection reset by peer"] {
+    for transient in [
+        "HTTP 500: internal error",
+        "connection reset by peer",
+        "transport error after 2 attempt(s): Connection Failed: Connect error: Connection refused (os error 111)",
+        "transport error after 2 attempt(s): Dns Failed: resolve dns name 'api.example:443': failed to lookup address information",
+    ] {
         assert!(!is_permanent_provider_error(transient), "{transient}");
     }
 }
@@ -11133,4 +11145,242 @@ fn three_failing_runs_give_the_verification_recovery_advice_in_its_own_words() {
         "{english}"
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+// H01: real HTTP admission counts are distinct from physical loopback POSTs.
+// Preregistered at artifacts/harness-research/20261015-local/H01/.
+fn h01_controls() -> Vec<EnvGuard> {
+    [
+        ("ANGEL_HTTP_RETRIES", "1"),
+        ("ANGEL_HTTP_RATELIMIT_RETRIES", "1"),
+        ("ANGEL_HTTP_BACKOFF_MS", "0"),
+        ("ANGEL_HTTP_RATELIMIT_BACKOFF_MS", "0"),
+        ("ANGEL_HTTP_JITTER", "0"),
+        ("ANGEL_PROVIDER_RETRIES", "2"),
+        ("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0"),
+        ("ANGEL_TEACHER_WATCH", "0"),
+        ("ANGEL_ADVISOR", "0"),
+        ("ANGEL_SKILL_HINT", "0"),
+    ]
+    .into_iter()
+    .map(|(key, value)| EnvGuard::set(key, value))
+    .collect()
+}
+
+#[test]
+fn h01_permanent_endpoint_configuration() {
+    let _lock = crate::tests::env_lock();
+    let _controls = h01_controls();
+    let root = scratch("h01_config");
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    let mut failures = Vec::new();
+    for endpoint in ["not-a-url", "ftp://127.0.0.1:1"] {
+        let club = crate::agent::club::HttpClub::new("glm", endpoint, "h01-fixture", None);
+        let before = club.usage_accounting();
+        let (events, _) = mpsc::channel();
+        let result = run_turn_observed(
+            &club,
+            &registry,
+            &mut vec![ChatMsg::user("Return the fixture result")],
+            &AtomicBool::new(false),
+            Some(1),
+            &events,
+        );
+        let failure = result.expect_err("invalid endpoint cannot return an answer");
+        assert_eq!(failure.stop_reason, TurnStopReason::ProviderError);
+        let attempts = crate::agent::harness::task_usage_delta(before, club.usage_accounting())
+            .unwrap()
+            .attempts;
+        eprintln!(
+            "H01 case={endpoint} admitted_http_attempts={attempts} physical_sends=0 terminal=ProviderError"
+        );
+        // URL parsing/scheme rejection happens before connecting; this is not
+        // a server-observed send counter and must never be reported as one.
+        if attempts != 1 {
+            failures.push((endpoint, attempts));
+        }
+    }
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        failures.is_empty(),
+        "permanent configuration replayed: {failures:?}"
+    );
+}
+
+#[test]
+fn h01_loopback_retry_controls() {
+    use std::io::{Read, Write};
+    let _lock = crate::tests::env_lock();
+    let _controls = h01_controls();
+    let root = scratch("h01_loopback");
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    for (name, first, expected, failures) in [
+        ("success", "200 OK", 1, 0),
+        ("auth", "401 Unauthorized", 1, 1),
+        ("malformed", "400 Bad Request", 1, 1),
+        ("veto", "503 Service Unavailable", 1, 1),
+        ("transient_503", "503 Service Unavailable", 2, 1),
+        ("transient_429", "429 Too Many Requests", 2, 1),
+        ("disconnect", "disconnect", 2, 1),
+        ("outer_503", "503 Service Unavailable", 3, 2),
+        ("outer_marker", "503 Service Unavailable", 3, 2),
+        ("retry_after", "429 Too Many Requests", 2, 1),
+    ] {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let server_hits = hits.clone();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = stop.clone();
+        let server = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let mut prior_post = None;
+            while !server_stop.load(Ordering::SeqCst) && Instant::now() < deadline {
+                let mut socket = match listener.accept() {
+                    Ok((socket, _)) => socket,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+                    Err(e) => panic!("h01 accept: {e}"),
+                };
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                socket
+                    .set_write_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                let mut request = Vec::new();
+                loop {
+                    let mut buf = [0; 4096];
+                    let n = socket.read(&mut buf).unwrap();
+                    assert!(n > 0 && request.len() + n < 512 * 1024);
+                    request.extend_from_slice(&buf[..n]);
+                    if let Some(end) = request.windows(4).position(|b| b == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&request[..end]).to_ascii_lowercase();
+                        let len: usize = headers
+                            .lines()
+                            .find_map(|l| l.strip_prefix("content-length:"))
+                            .unwrap_or("0")
+                            .trim()
+                            .parse()
+                            .unwrap();
+                        if request.len() >= end + 4 + len {
+                            break;
+                        }
+                    }
+                }
+                // HttpClub retains model discovery; those probes are not POST sends.
+                if request.starts_with(b"GET ") {
+                    let body = r#"{"data":[{"id":"h01-fixture"}]}"#;
+                    write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                    eprintln!("H01 case={name} discovery_get=1 (not a model POST)");
+                    continue;
+                }
+                assert!(request.starts_with(b"POST "));
+                let attempt = server_hits.fetch_add(1, Ordering::SeqCst);
+                if first == "disconnect" && attempt == 0 {
+                    continue;
+                }
+                let now = Instant::now();
+                if name == "retry_after" && attempt == 1 {
+                    let waited = now.duration_since(prior_post.unwrap());
+                    eprintln!("H01 case=retry_after server_interval_ms={}", waited.as_millis());
+                    assert!(waited >= Duration::from_millis(900), "Retry-After ignored: {waited:?}");
+                }
+                prior_post = Some(now);
+                let status = if attempt < failures { first } else { "200 OK" };
+                let body = if status == "200 OK" {
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"fixture recovered\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                } else if name == "outer_marker" {
+                    "{\"error\":{\"message\":\"[permanent transport configuration] upstream temporarily busy\"}}"
+                } else {
+                    "{\"error\":{\"message\":\"fixture failure\"}}"
+                };
+                let veto = if name == "veto" {
+                    "x-should-retry: false\r\n"
+                } else {
+                    ""
+                };
+                let retry_after = if name == "retry_after" { 1 } else { 0 };
+                write!(socket, "HTTP/1.1 {status}\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\nRetry-After: {retry_after}\r\n{veto}\r\n{body}", body.len()).unwrap();
+            }
+        });
+        let club = crate::agent::club::HttpClub::new(
+            "glm",
+            format!("http://{address}"),
+            "h01-fixture",
+            None,
+        );
+        let (events, _) = mpsc::channel();
+        let result = run_turn_observed(
+            &club,
+            &registry,
+            &mut vec![ChatMsg::user("Return the fixture result")],
+            &AtomicBool::new(false),
+            Some(1),
+            &events,
+        );
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        let count = hits.load(Ordering::SeqCst);
+        eprintln!(
+            "H01 case={name} physical_posts={count} expected={expected} recovered={}",
+            result.is_ok()
+        );
+        assert_eq!(count, expected, "{name}");
+        if matches!(name, "auth" | "malformed" | "veto") {
+            assert_eq!(
+                result.unwrap_err().stop_reason,
+                TurnStopReason::ProviderError
+            );
+        } else {
+            let outcome = result.unwrap();
+            assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
+            assert_eq!(outcome.answer, "fixture recovered");
+        }
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn h01_existing_retry_guards() {
+    for (name, guard) in [
+        (
+            "permanent",
+            run_turn_does_not_retry_permanent_provider_failures as fn(),
+        ),
+        (
+            "permanent_stall",
+            run_turn_permanent_error_with_stall_context_is_not_retried,
+        ),
+        (
+            "overflow_rebuild",
+            run_turn_compacts_and_rebuilds_once_after_provider_context_overflow,
+        ),
+        (
+            "cancel_partial",
+            run_turn_cancelled_partial_stream_is_an_interrupt_without_retry,
+        ),
+        (
+            "deadline_inflight",
+            turn_deadline_cancels_an_in_flight_provider_without_retrying_it,
+        ),
+        (
+            "deadline_backoff",
+            turn_deadline_during_provider_backoff_prevents_another_request,
+        ),
+    ] {
+        guard();
+        eprintln!("H01 existing_guard={name} assertions=passed (mock calls, not network sends)");
+    }
+    assert!(crate::agent::club::error_indicates_certificate_rejected(
+        "tls connection init failed: invalid peer certificate: UnknownIssuer"
+    ));
+    assert!(!crate::agent::club::error_indicates_certificate_rejected(
+        "connection reset"
+    ));
 }

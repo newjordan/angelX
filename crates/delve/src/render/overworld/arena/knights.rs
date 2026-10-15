@@ -9,6 +9,7 @@
 
 use super::super::ink::Img;
 use super::super::kit;
+use super::super::kit::hero::{self as realm, Dress, Held, View};
 use super::class_looks::{self, Look, Pose};
 use crate::rules::imps::Behaviour;
 use crate::rules::looks::Sprite;
@@ -53,48 +54,58 @@ pub(super) fn facing(ax: f32, ay: f32) -> Facing {
 
 // ─── the realm's knight ──────────────────────────────────────────────────────
 
-/// The kit knight at a stage of dress: 0 whole, 1 bare-headed, 2 in
-/// smallclothes with the shield still on his arm.
-fn kit_body(stage: u8) -> Img {
-    match stage {
-        0 => kit::knight(),
-        1 => rows(&[
-            "................",
-            "......BBBB......",
-            ".....BRRRRB.....",
-            "....BRttttRB....",
-            "....BttttttB....",
-            "....BtkttktB....",
-            "....BttttttB....",
-            "......oOOo......",
-            "..iHh777777hHi..",
-            ".4444477577hJ...",
-            ".4757475557hJ...",
-            ".4555477577GJ...",
-            ".47574BB4BBG....",
-            "..474.87778.....",
-            "...4..hJ.hJ.....",
-            "......GG.GG.....",
-        ]),
-        _ => rows(&[
-            "................",
-            "......BBBB......",
-            ".....BRRRRB.....",
-            "....BRttttRB....",
-            "....BttttttB....",
-            "....BtkttktB....",
-            "....BttttttB....",
-            "......oOOo......",
-            "..oOtttttttOo...",
-            ".44444tttttOo...",
-            ".47574ttOttOo...",
-            ".45554tttttOo...",
-            ".47574VVVVVv....",
-            "..474.VVvVV.....",
-            "...4..tt.tt.....",
-            "......OO.OO.....",
-        ]),
+fn view_of(facing: Facing) -> View {
+    match facing {
+        Facing::Down => View::Toward,
+        Facing::Side => View::Across,
+        Facing::Up => View::Away,
     }
+}
+
+/// Where the knight is in their stride, as a step of the hero's drawing:
+/// 0 standing, then a foot planted, passing, the other foot, passing.
+pub(super) fn stride_step(hero: &Hero) -> u8 {
+    class_looks::stride(hero).map_or(0, |phase| phase + 1)
+}
+
+/// What the knight has in hand, and whether it is in its strike: the
+/// blade while it swings, else the arm they carry (a forged blade is a
+/// sword), drawn or fired while it rearms.
+fn held_of(hero: &Hero) -> (Held, bool) {
+    use crate::rules::Weapon;
+    let blade = hero.forged.as_ref().is_some_and(|w| w.melee.is_some());
+    if hero.swing > 0 && (hero.sword || blade) {
+        return (Held::Sword, true);
+    }
+    let held = if blade {
+        Held::Sword
+    } else {
+        match hero.weapon {
+            Weapon::Fists => Held::Nothing,
+            Weapon::Bow => Held::Bow,
+            Weapon::Crossbow => Held::Crossbow,
+            Weapon::Handgonne => Held::Handgonne,
+        }
+    };
+    (held, held != Held::Nothing && (hero.fire_cooldown > 0 || hero.swing > 0))
+}
+
+/// The realm's knight as health, gear and aim leave them: helm on or off,
+/// in harness or smallclothes, the shield on the arm (unless it is thrown,
+/// not owned, or raised: `figure_with` brings it round), on their stride,
+/// with what they hold.
+fn realm_body(hero: &Hero, thrown: bool) -> Img {
+    let stage = hero.gear.min(2);
+    let (held, strike) = held_of(hero);
+    realm::draw(Dress {
+        view: view_of(facing(hero.aim_x, hero.aim_y)),
+        helm: stage == 0 || hero.helmet_worn(),
+        harness: stage < 2,
+        shield: !thrown && hero.owned.shield && !hero.shielding,
+        step: stride_step(hero),
+        held,
+        strike,
+    })
 }
 
 // ─── the dwarf ───────────────────────────────────────────────────────────────
@@ -138,67 +149,60 @@ fn dwarf_body(stage: u8, axes: bool) -> Img {
 
 // ─── the raised shield ───────────────────────────────────────────────────────
 
-/// The shield held to the front: the knight's own, brought round.
+/// The shield held to the front: the knight's own, brought round, gold rim
+/// lit along its top and darker where it turns from the light.
 fn shield_front() -> Img {
     rows(&[
-        "44444444", "47777774", "47755774", "47555574", ".475574.", "..4774..", "...44...",
+        "64444444",
+        "47777778",
+        "47755778",
+        "47755778",
+        "a477778a",
+        ".a4778a.",
+        "...aa...",
     ])
 }
 
 /// Held out to the right, three-quarters on.
 fn shield_side() -> Img {
     rows(&[
-        "444444", "477774", "475574", "475574", "477774", ".4774.", ".4774.", "..44..",
+        ".6444.",
+        "647778",
+        "475578",
+        "475578",
+        "477778",
+        "a4778a",
+        ".a478.",
+        "..aa..",
     ])
 }
 
-/// Wide and low, to sit behind the figure and show at its shoulders.
+/// Held ahead, away from the viewer: its back, the wooden boards and the
+/// strap, wide and low behind the figure to show at its shoulders.
 fn shield_far() -> Img {
     rows(&[
-        ".4444444444.",
-        "447777777744",
-        "477755557774",
-        "477555555774",
-        "477755557774",
-        ".4777777774.",
+        ".a44444444a.",
+        "a4PPPPPPPP4a",
+        "aPPPbbbbPPPa",
+        "aPPPPPPPPPPa",
+        ".aPPPPPPPPa.",
+        "..aaaaaaaa..",
     ])
 }
 
-/// The kit knight's shield arm with no shield on it: the rest shield
-/// (columns 1..5 of rows 9..14) taken off, the arm bare until it comes round
-/// or is thrown.
-fn bare_arm(im: &mut Img) {
-    for y in 9..15 {
-        for x in 1..6 {
-            im.clear(x, y);
-        }
-    }
-    for y in 9..12 {
-        im.put(2, y, 'J');
-    }
-}
-
-/// The shield up toward `facing`, over `body`. The knight's own shield, at
-/// rest on the left arm, is taken off the figure first (`own`: the kit
-/// knight carries it in his drawing; the dwarf picks hers up).
-pub(super) fn raised(body: &Img, facing: Facing, own: bool) -> Img {
+/// The shield up toward `facing`, over `body`, a figure drawn without its
+/// shield at rest.
+pub(super) fn raised(body: &Img, facing: Facing) -> Img {
     let mut im = body.clone();
-    if own {
-        bare_arm(&mut im);
-    }
     match facing {
         Facing::Down => {
             im.stamp(&shield_front(), 4, 8);
         }
         Facing::Side => {
-            for y in 8..13 {
-                im.clear(10, y);
-                im.clear(11, y);
-            }
             im.stamp(&shield_side(), 9, 6);
         }
         Facing::Up => {
-            let mut out = Img::new(16, 16);
+            let mut out = Img::new(im.w, im.h);
             out.stamp(&shield_far(), 2, 3);
             out.stamp(&im, 0, 0);
             im = out;
@@ -217,6 +221,16 @@ pub(super) fn seat_colours(id: u32) -> &'static [(char, char)] {
     }
 }
 
+/// The seat's colours on the realm's knight. The gold seat's field is the
+/// rim's own gold, so there the rim (and the gold of buckle and hilt) goes
+/// to bronze first: the shield's field stands off its rim and stays gold.
+pub(super) fn realm_colours(id: u32) -> &'static [(char, char)] {
+    match id {
+        1..=3 => seat_colours(id),
+        _ => &[('4', 'a'), ('7', '4'), ('8', 'a'), ('5', 'c')],
+    }
+}
+
 /// The dwarf's kit id.
 pub const DWARF: &str = "ironbraid";
 
@@ -229,7 +243,7 @@ pub fn of_kit(id: Option<&str>, colours: &[(char, char)]) -> Img {
     if id == Some(DWARF) {
         dwarf_body(0, true)
     } else {
-        kit_body(0).recolor(colours)
+        kit::knight().recolor(colours)
     }
 }
 
@@ -256,31 +270,30 @@ pub fn figure_with(hero: &Hero, id: u32, thrown: bool) -> Img {
     if let Some(look) = Look::of(hero) {
         return hatted(class_figure(hero, id, thrown, look), hero);
     }
-    let dwarf = hero.knight.as_deref() == Some(DWARF);
-    let stage = hero.gear.min(2);
-    let mut im = if dwarf {
-        dwarf_body(stage, hero.spin == 0 && !hero.unarmed())
-    } else {
-        kit_body(stage)
-    };
-    if hero.helmet_worn() && stage >= 1 {
-        let head = if dwarf { dwarf_body(0, false) } else { kit_body(0) };
-        for y in 0..8 { for x in 0..16 { im.clear(x, y); if let Some(c) = head.get(x, y) { im.set(x, y, c); } } }
-    }
-    if thrown || !hero.owned.shield {
-        if !dwarf {
-            bare_arm(&mut im);
-            if stage >= 2 { for y in 9..12 { im.put(2, y, 't'); } }
+    let raising = hero.shielding && !thrown && hero.owned.shield;
+    let im = if hero.knight.as_deref() == Some(DWARF) {
+        let stage = hero.gear.min(2);
+        let mut im = dwarf_body(stage, hero.spin == 0 && !hero.unarmed());
+        if hero.helmet_worn() && stage >= 1 {
+            let head = dwarf_body(0, false);
+            for y in 0..8 {
+                for x in 0..16 {
+                    im.clear(x, y);
+                    if let Some(c) = head.get(x, y) {
+                        im.set(x, y, c);
+                    }
+                }
+            }
         }
-    } else if hero.shielding {
-        im = raised(&im, facing(hero.aim_x, hero.aim_y), !dwarf);
-    }
-    let im = if dwarf {
-        im
-    } else if hero.colours().is_empty() {
-        im.recolor(seat_colours(id))
+        if raising { raised(&im, facing(hero.aim_x, hero.aim_y)) } else { im }
     } else {
-        im.recolor(hero.colours())
+        let im = realm_body(hero, thrown);
+        let im = if raising { raised(&im, facing(hero.aim_x, hero.aim_y)) } else { im };
+        if hero.colours().is_empty() {
+            im.recolor(realm_colours(id))
+        } else {
+            im.recolor(hero.colours())
+        }
     };
     hatted(im, hero)
 }
@@ -304,11 +317,11 @@ fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look) -> Img {
         // one on her arm.
         let off = (class_looks::W - 16) / 2;
         match face {
-            Facing::Down => im.stamp(&shield_front().recolor(&[('4', 'h')]), off + 4, 8),
-            Facing::Side => im.stamp(&shield_side().recolor(&[('4', 'h')]), off + 10, 6),
+            Facing::Down => im.stamp(&shield_front().recolor(STEEL_RIM), off + 4, 8),
+            Facing::Side => im.stamp(&shield_side().recolor(STEEL_RIM), off + 10, 6),
             Facing::Up => {
                 let mut out = Img::new(im.w, im.h);
-                out.stamp(&shield_far().recolor(&[('4', 'h')]), off + 2, 4);
+                out.stamp(&shield_far().recolor(STEEL_RIM), off + 2, 4);
                 out.stamp(&im, 0, 0);
                 im = out;
             }
@@ -317,60 +330,66 @@ fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look) -> Img {
     im.recolor(seat_colours(id))
 }
 
+/// The Shieldmaiden's kite shield is rimmed in steel where the knight's is
+/// gold.
+const STEEL_RIM: &[(char, char)] = &[('6', 'W'), ('4', 'v'), ('a', 'u')];
+
 /// What a game against friends left on the knight's helm: the winner's gold
 /// crown, or the game's booby prize until they win one back.
 fn hat(hero: &Hero) -> Option<Img> {
     use crate::rules::pastimes::Game;
+    // Each in its own material, lit from the upper left like the knight:
+    // the lit edge a step up its ramp, the far edge its darkest step.
     if hero.laurel {
         return Some(rows(&[
             "..6..6..6...",
-            "..66.66.66..",
-            "..55555555..",
-            "..44444444..",
+            "..65.65.54..",
+            "..65555554..",
+            "..a44744a4a.",
         ]));
     }
     Some(match hero.booby? {
         Game::Pot => rows(&[
-            "...HHHHHH...",
-            "..HWWWWWWH..",
-            "..HWWWWWWHH.",
-            "..HWWWWWWH.H",
-            "..HHHHHHHHH.",
+            "...vVVVVu...",
+            "..vWVVVVvux.",
+            "..VVvvvvUuxx",
+            "..vVvvvvUx.x",
+            "..uUUUUUuxx.",
         ]),
         Game::Chariot | Game::Turnip => rows(&[
-            "...lmmml....",
-            "..lmYmYml...",
-            "..mYmmmYm...",
-            "...lmmml....",
+            "...mAAml....",
+            "..mYAmAmE...",
+            "..lAmmmlE...",
+            "...lllEE....",
         ]),
         Game::DuckShoot => rows(&[
-            "......55....",
-            ".....5K5o...",
-            "..55555.....",
-            "...555......",
+            "......65....",
+            ".....6K5o...",
+            "..6555a.....",
+            "...a44a.....",
         ]),
         Game::Trencher | Game::Cheese => rows(&[
-            "...tTTTTt...",
-            "..tooooooT..",
-            "..oooooooo..",
+            "...tTTTto...",
+            "..tTtooooor.",
+            "..rooooorrr.",
         ]),
         // An apple on the helm, an arrow clean through it.
         Game::Longbow => rows(&[
             "......e.....",
-            "....7777....",
-            "hoo777777otT",
-            "....7777....",
+            "....@778....",
+            "roo777778otT",
+            "....7788....",
         ]),
         Game::Surf | Game::Washtub => rows(&[
-            "..l.l..l....",
-            "..l.ll.l.l..",
-            ".lllllllll..",
+            "..m.m..l....",
+            "..m.ml.l.E..",
+            ".mlllllEEE..",
         ]),
         _ => rows(&[
             ".....7......",
-            "....797.....",
-            "...79997....",
-            "..7999997...",
+            "....798.....",
+            "...79978....",
+            "..7999988...",
         ]),
     })
 }
@@ -437,7 +456,7 @@ pub fn avatar_figure(hero: &Hero, pixels: &[[u8; 4]], thrown: bool) -> Img {
         }
     }
     if hero.shielding && !thrown {
-        im = raised(&im, facing(hero.aim_x, hero.aim_y), false);
+        im = raised(&im, facing(hero.aim_x, hero.aim_y));
     }
     im
 }
@@ -496,7 +515,7 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
     for axe in 0..2 {
         let base = turn + axe as f32 * std::f32::consts::PI;
         // The trail: a band two thick, brightest at the head.
-        const FADE: [char; 7] = ['H', 'i', 'h', 'J', 'G', 'j', 'g'];
+        const FADE: [char; 7] = ['c', 'V', 'U', 'u', 'S', 'x', 's'];
         for (n, ink) in FADE.iter().enumerate() {
             for back in 0..2 {
                 let a = base - (n as f32 * 2.0 + back as f32) * 0.11;
@@ -539,12 +558,58 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
     }
 }
 
+// ─── the shadow ──────────────────────────────────────────────────────────────
+
+/// A knight's contact shadow on the floor, under feet at native `(x, y)`:
+/// a short navy pool, the row under the feet a little narrower, its ends
+/// broken by the ordered dither so it lies soft. Drawn before the figure,
+/// which stands over it; on black paper it is all but black.
+pub(super) fn shadow(cv: &mut Img, x: i32, y: i32) {
+    use super::super::ink::bayer;
+    for (dy, half) in [(0, 5), (1, 4)] {
+        for dx in -half..=half {
+            let (px, py) = (x + dx, y + dy);
+            if dx.abs() == half && bayer(px, py) < 0.5 {
+                continue;
+            }
+            cv.put(px, py, 's');
+        }
+    }
+}
+
+// ─── the roll ────────────────────────────────────────────────────────────────
+
+/// The knight tucked and tumbling with `left` ticks of the roll to go: a
+/// full circle along the roll, the legs folded up under the body so the
+/// knight turns over as a ball, not a plank.
+pub(super) fn rolled(im: &Img, left: u32) -> Img {
+    let quarter = (10 - left.min(10)) * 4 / 10;
+    let mut turned = tucked(im);
+    for _ in 0..quarter {
+        turned = super::sprites::quarter_turn(&turned);
+    }
+    turned
+}
+
+/// `im` with its lower half folded up: the head and shoulders whole, every
+/// other row below them.
+fn tucked(im: &Img) -> Img {
+    let keep: Vec<i32> = (0..im.h / 2).chain((im.h / 2..im.h).step_by(2)).collect();
+    let mut out = Img::new(im.w, keep.len() as i32);
+    for (y, &from) in keep.iter().enumerate() {
+        for x in 0..im.w {
+            if let Some(c) = im.get(x, from) {
+                out.set(x, y as i32, c);
+            }
+        }
+    }
+    out
+}
+
 // ─── the flung gear ──────────────────────────────────────────────────────────
 
 fn helmet() -> Img {
-    rows(&[
-        "...77...", "..i77i..", ".iHHhhJ.", ".HhhhhhJ", ".hgggggG", ".JhhhhhG",
-    ])
+    realm::helmet()
 }
 
 /// The dwarf's horned cap, and her mail with its belt.
@@ -562,14 +627,15 @@ fn mail_shirt() -> Img {
     ])
 }
 
+/// The harness and tabard, off over the head.
 fn tabard() -> Img {
     rows(&[
-        "HH.....HH",
-        "iH77777Hi",
-        ".7755577.",
-        ".7555557.",
-        ".7755577.",
-        "..77.77..",
+        "xVWv.vVvx",
+        "uVv778vUx",
+        "uvU778vUx",
+        ".uv778ux.",
+        "..BB4BB..",
+        "...878...",
     ])
 }
 
@@ -657,7 +723,7 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
     let head = if hero.knight.as_deref() == Some(DWARF) {
         dwarf_body(if worn[0] { 0 } else { 2 }, false)
     } else {
-        kit_body(if worn[0] { 0 } else { 2 })
+        realm::draw(Dress { helm: worn[0], ..Dress::WHOLE })
     };
     for y in 0..8 {
         for x in 4..12 {
@@ -685,11 +751,11 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
             "..VVvVV...",
         ])
     };
-    im.stamp(&torso, 5 + lean, 9);
+    im.stamp(&torso.recolor(realm::STEEL), 5 + lean, 9);
     if worn[1] {
-        im.stamp(&rows(&["iHHh", "hJJG", ".gg."]), 14 + lean, 9);
+        im.stamp(&rows(&["iHHh", "hJJG", ".gg."]).recolor(realm::STEEL), 14 + lean, 9);
     }
-    let arm = if worn[1] { 'h' } else { 't' };
+    let arm = if worn[1] { 'v' } else { 't' };
     let quality = hero.pit.result.as_ref().map(|r| r.quality);
     if quality == Some(Quality::Royal) {
         im.line(5, 11, 2, 7, arm);
@@ -724,8 +790,8 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
         im.line(15, 13, 12 - tug, 14, 't');
         im.put(10, 14, 'O');
     }
-    let boot = if worn[2] { 'G' } else { 'O' };
-    let leg = if worn[2] { 'h' } else { 't' };
+    let boot = if worn[2] { 'u' } else { 'O' };
+    let leg = if worn[2] { 'v' } else { 't' };
     if running {
         let stride = [-3, -2, 1, 3, 2, -1][frame];
         let lift = [0, 1, 2, 0, 1, 2][frame];
@@ -766,8 +832,12 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
         );
     }
     im.recolor(if hero.colours().is_empty() {
-        seat_colours(id)
+        realm_colours(id)
     } else {
         hero.colours()
     })
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/overworld__hero_sheet.rs"]
+mod hero_sheet;

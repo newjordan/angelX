@@ -101,7 +101,7 @@ fn rooms_are_finite_bounded_and_deterministic() {
 fn every_room_carries_a_floor_walls_and_a_light_source() {
     for index in 0u8..8 {
         let scene = super::super::scene::interior_scene(index);
-        let mut seen = [false; 24];
+        let mut seen = [false; mat::FLAME as usize + 1];
         for tri in &scene.tris {
             if (tri.mat as usize) < seen.len() {
                 seen[tri.mat as usize] = true;
@@ -113,7 +113,7 @@ fn every_room_carries_a_floor_walls_and_a_light_source() {
         // a hearth mouth, a brazier, a taper, a hung lamp — and that fire
         // is the only thing in the room that moves.
         assert!(
-            seen[mat::FIRE as usize],
+            seen[mat::FIRE as usize] || seen[mat::FLAME as usize],
             "{}: nothing in this room burns",
             hero(index)
         );
@@ -564,7 +564,7 @@ fn only_the_flame_breathes() {
             tris: scene
                 .tris
                 .iter()
-                .filter(|tri| !matches!(tri.mat, mat::FIRE | mat::EMBER))
+                .filter(|tri| !matches!(tri.mat, mat::FIRE | mat::FLAME | mat::EMBER))
                 .copied()
                 .collect(),
         };

@@ -9,14 +9,15 @@ work before it reports done, and keeps what it learns about your project.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/newjordan/angelX/main/install.sh | sh
+# then open a new terminal window, and:
 cd your-project && angelX
 ```
 
 For Linux x86_64 and arm64 (glibc 2.31 or newer) and macOS on Apple silicon.
-The first launch finds the models you already have and connects one: Ollama,
-LM Studio, llama.cpp or vLLM on this machine, an API key, or a ChatGPT or Grok
-plan login. `angelX setup` changes it later, and `angelX update` installs the
-latest release.
+The first launch opens a setup menu that finds the models you already have and
+connects one: Ollama, LM Studio, llama.cpp or vLLM on this machine, an API key,
+or a ChatGPT or Grok plan login. Type `/setup` in angelX (or run `angelX setup`) to change it later,
+and `angelX update` installs the latest release.
 
 To build from source instead, you need Rust/Cargo, C/C++ tools, Bash, Node.js
 and Python 3 (on macOS: `xcode-select --install`, then Rust from https://rustup.rs):
@@ -29,6 +30,28 @@ cd angelX
 
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE)
+
+## New in 0.2.4
+
+Connecting a model is one menu with a recruit to show the way. The Delve and
+the kingdom are redrawn in one lit, rounded hand, the browser seat gains a card
+sheet, wishes and a volume, and the harness keeps its provider connections and
+stops retrying what cannot succeed. [Release notes](docs/RELEASE_0.2.4.md).
+
+![The /setup menu on its torch-lit scroll, a recruit pointing at the choices, in front of two browser seats: the lit kingdom and Grinwick, the Last Service](docs/images/release-0.2.4.png)
+
+**Connect a model from one menu.** `/setup` lists what this computer already
+has, signs in to a plan through the browser, checks a pasted key before saving
+it, and switches models without a restart. The one-line install adds angelX to
+your PATH itself.
+
+**A new look.** Trees, stones, roofs, fences, water and roads are lit and worn
+at the edges, every plaque, board and health bar is rounded and softly lit,
+and the 3D rooms and race halls shade softly into black.
+
+**Cartridges carry commands.** A cartridge can add a slash command that costs
+nothing until it is typed. The REA cartridge plugs in reverse engineering as
+`/rea <target>`; see [Cartridges](docs/CARTRIDGES.md).
 
 ## New in 0.2.3
 

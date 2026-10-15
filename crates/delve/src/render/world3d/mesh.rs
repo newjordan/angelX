@@ -31,9 +31,8 @@ pub mod mat {
     /// leaded grid a pane does, and it must sink into the haze faster than a
     /// candle does. Interiors only; outside, the moon is a light, not a mass.
     pub const MOONLIGHT: u8 = 16;
-    /// Live flame: the warm dressing a *room* is lit by — a hearth mouth, a
-    /// brazier's coals, a candle, a hung lamp. Shades exactly like `WINDOW`
-    /// at rest, because it is the same fire behind the same warm palette; the
+    /// Fire behind lead cames: hearth arches and hung lamps. Shares `WINDOW`'s
+    /// glazing at rest, because it is the same fire behind the same warm palette; the
     /// split exists so the interior seam can make the firelight *breathe*
     /// (`interior::firelight`) without a window pane or a shaft of moon
     /// breathing with it. A window is glazing and the moon is a clock —
@@ -63,6 +62,13 @@ pub mod mat {
     pub const STABLE_WALL: u8 = 32;
     pub const STABLE_FLOOR: u8 = 33;
     pub const TACK_LEATHER: u8 = 34;
+    /// Carving has broad uninterrupted planes, never masonry courses.
+    pub const SCULPTED_STONE: u8 = 35;
+    /// Aged dragon bone, quieter and less yellow than writing parchment.
+    pub const BONE: u8 = 36;
+    /// Exposed flame, with local UVs across (0..1) and base to tip (0..1).
+    /// A bright inner tongue and softer amber edge, without glazing cames.
+    pub const FLAME: u8 = 37;
 }
 
 #[derive(Clone, Copy, Debug)]

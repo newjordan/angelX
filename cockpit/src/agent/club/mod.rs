@@ -240,6 +240,13 @@ pub trait Club: Send + Sync {
     /// thread — never blocks the UI loop.
     fn warm_up(&self) {}
 
+    /// Start the seat's first-use network work (its window probe, which also
+    /// opens the provider connection) on a background thread at task start,
+    /// without publishing anything early: the first reader still learns the
+    /// result at the same point it always did, waiting only for what is still
+    /// in flight. Default is a no-op.
+    fn prewarm(self: Arc<Self>) {}
+
     /// Cached operator-facing model/capability facts. Backends with no trusted
     /// catalog metadata return an empty value rather than invented claims.
     fn route_metadata(&self) -> RouteMetadata {
@@ -610,6 +617,10 @@ impl Club for EffortScopedClub {
         self.inner.warm_up();
     }
 
+    fn prewarm(self: Arc<Self>) {
+        Arc::clone(&self.inner).prewarm();
+    }
+
     fn route_metadata(&self) -> RouteMetadata {
         self.inner.route_metadata()
     }
@@ -830,6 +841,8 @@ pub(crate) fn is_sota_label(label: &str) -> bool {
     contains_ascii_ignore_case(label, "codex")
         || contains_ascii_ignore_case(label, "openai")
         || contains_ascii_ignore_case(label, "gpt")
+        // The Daybreak seat bills the same ChatGPT plan as `openai`.
+        || contains_ascii_ignore_case(label, "daybreak")
         || contains_ascii_ignore_case(label, "kimi")
         || contains_ascii_ignore_case(label, "moonshot")
         || contains_ascii_ignore_case(label, "glm")

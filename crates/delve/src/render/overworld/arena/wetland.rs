@@ -116,10 +116,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     cv.line(x + lean, y - 8, x + lean - 10, y - 2, 'h');
     cv.line(x + lean, y - 8, x + lean + 10, y - 12, 'h');
     // A balance gauge and the upcoming direction remain below the top board.
-    cv.rect(6 * TILE, 10 * TILE, 12 * TILE, 12, 'k');
+    super::super::chrome::inset_panel(cv, (6 * TILE, 10 * TILE, 12 * TILE, 12), super::super::chrome::Tone::WELL.rimmed(super::super::chrome::COLD_RIM));
     cv.line(7 * TILE, 10 * TILE + 6, 17 * TILE, 10 * TILE + 6, 'h');
     let target = 12 * TILE + pastimes::WAVE_LEANS[wave] * TILE / 20;
-    cv.rect(target - 13, 10 * TILE + 2, 27, 9, 'g');
+    super::super::chrome::shaped(cv, (target - 13, 10 * TILE + 2, 27, 9), &[1], super::super::chrome::Tone::KEYCAP, false);
     let current = 12 * TILE + surf.lean * TILE / 20;
     cv.rect(current - 1, 10 * TILE, 3, 12, 'O');
     cv.text(

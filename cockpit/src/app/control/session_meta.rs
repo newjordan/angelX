@@ -1234,32 +1234,41 @@ impl App {
             return None;
         }
 
-        // `⡸⠛`: the stand-in task and the frame are the pages; the names and
-        // the count ride beside them.
+        // `⡸⠛`: the stand-in task is a page; the names ride beside it.
         use crate::agent::harness::book::{d3_roles::pages, d4567_briefs::SKILLS};
         let operator_task = match task {
             Some(task) => task.to_string(),
             None if names.len() == 1 => format!("{} {}", pages(SKILLS, [1]), names[0]),
             None => format!("{} {}", pages(SKILLS, [2]), names.join(", ")),
         };
-        let mut evidence = format!(
-            "{} {}\n{}",
-            pages(SKILLS, [3]),
-            selected.len(),
-            pages(SKILLS, [4])
-        );
-        for skill in selected {
-            let name_label = serde_json::to_string(&skill.name)
-                .unwrap_or_else(|_| "\"<invalid skill name>\"".to_string());
-            evidence.push_str(&format!(
-                "\n\n<selected_skill name={name_label}>\n{}\n</selected_skill>",
-                skill.body
-            ));
-        }
         Some(crate::app::local_command::EvidenceTurn::new(
             operator_task,
-            evidence,
+            skill_stack_evidence(&selected),
         ))
+    }
+
+    /// A cartridge command (`/<name> <task>`): its skills, as `/skills` would
+    /// stack them, beside the operator's task. `None` when nothing is sent.
+    pub(crate) fn run_cartridge_command(
+        &mut self,
+        name: &str,
+        arg: Option<&str>,
+    ) -> Option<crate::app::local_command::EvidenceTurn> {
+        let (cartridge, command) = crate::agent::harness::cartridges::command(name)?;
+        let Some(task) = arg.map(str::trim).filter(|task| !task.is_empty()) else {
+            self.system_msg(format!("/{} {}", command.name, command.usage));
+            return None;
+        };
+        match cartridge.command_skills(command) {
+            Ok(skills) => Some(crate::app::local_command::EvidenceTurn::new(
+                task,
+                skill_stack_evidence(&skills.iter().collect::<Vec<_>>()),
+            )),
+            Err(message) => {
+                self.system_msg(message);
+                None
+            }
+        }
     }
 
     fn commit_memories(&mut self, next: Vec<Arc<str>>, confirmation: String) -> String {
@@ -1591,3 +1600,24 @@ mod recap_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__session_meta__gauntlet_tests.rs"]
 mod gauntlet_tests;
+
+/// `⡸⠛`: the frame is the pages; the count and each skill's text ride beside
+/// them, fenced in listed order.
+fn skill_stack_evidence(selected: &[&crate::agent::harness::Skill]) -> String {
+    use crate::agent::harness::book::{d3_roles::pages, d4567_briefs::SKILLS};
+    let mut evidence = format!(
+        "{} {}\n{}",
+        pages(SKILLS, [3]),
+        selected.len(),
+        pages(SKILLS, [4])
+    );
+    for skill in selected {
+        let name_label = serde_json::to_string(&skill.name)
+            .unwrap_or_else(|_| "\"<invalid skill name>\"".to_string());
+        evidence.push_str(&format!(
+            "\n\n<selected_skill name={name_label}>\n{}\n</selected_skill>",
+            skill.body
+        ));
+    }
+    evidence
+}

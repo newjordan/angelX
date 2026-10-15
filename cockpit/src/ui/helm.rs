@@ -21,13 +21,15 @@ pub(crate) enum Pose {
     Settled,
 }
 
-pub(crate) fn sheet(key: AgentKey) -> &'static str {
-    match key {
+/// `None` for a seat whose knight is not drawn yet: it wears its stills.
+pub(crate) fn sheet(key: AgentKey) -> Option<&'static str> {
+    Some(match key {
         // The Round Table: one knight per model family, eight held poses drawn
         // from the seat portrait the model chose.
         AgentKey::Codex => "assets/realm/avatars/round-table/sheet/sol.png",
         AgentKey::Luna => "assets/realm/avatars/round-table/sheet/luna.png",
         AgentKey::Astra => "assets/realm/avatars/round-table/sheet/astra.png",
+        AgentKey::Daybreak => return None,
         AgentKey::Grok => "assets/realm/avatars/round-table/sheet/grok.png",
         AgentKey::DeepSeek => "assets/realm/avatars/round-table/sheet/deepseek.png",
         AgentKey::Glm => "assets/realm/avatars/round-table/sheet/glm.png",
@@ -43,7 +45,7 @@ pub(crate) fn sheet(key: AgentKey) -> &'static str {
         AgentKey::North => "assets/realm/avatars/round-table/sheet/north.png",
         // An unnamed route keeps the plain helm.
         AgentKey::Unknown => "assets/agents/helms/sparky.png",
-    }
+    })
 }
 
 pub(crate) fn pose(
@@ -127,6 +129,8 @@ pub(crate) fn frame_image(path: &Path, pose: u8) -> Result<image::DynamicImage, 
         }
         let frames = Arc::new(if is_pixel_sheet(path) {
             anchor_pixel_frames(&frames)
+        } else if is_registered_sheet(path) {
+            anchor_registered_frames(&frames)
         } else {
             anchor_character_frames(&frames)
         });
@@ -162,6 +166,41 @@ fn character_bounds(frame: &image::RgbaImage) -> Option<(u32, u32, u32, u32)> {
 /// The Round Table sheets are pixel sprites on a hard 2x grid.
 pub(crate) fn is_pixel_sheet(path: &Path) -> bool {
     path.to_string_lossy().contains("round-table/sheet/")
+}
+
+/// The `/setup` guide's sheet is drawn registered: every pose stands on the
+/// same ground point of its cell, so its frames keep their own offsets.
+pub(crate) fn is_registered_sheet(path: &Path) -> bool {
+    path.to_string_lossy().contains("onboarding/setup/")
+}
+
+/// One crop for every frame (the union of their masks) and one scale, so a
+/// full-body figure keeps its feet where they were drawn while its arms and
+/// props reach out in different poses. Per-pose anchoring would slide it.
+pub(crate) fn anchor_registered_frames(frames: &[image::RgbaImage]) -> Vec<image::RgbaImage> {
+    // Portraits are never enlarged past their natural size in cells, so the
+    // guide is kept big enough to fill its box on any font and then fitted.
+    const SIZE: u32 = 512;
+    let Some((l, t, r, b)) = frames
+        .iter()
+        .filter_map(character_bounds)
+        .reduce(|a, b| (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)))
+    else {
+        return frames.to_vec();
+    };
+    let (w, h) = (r - l, b - t);
+    let scale = SIZE as f32 / w.max(h) as f32;
+    let (tw, th) = (
+        ((w as f32 * scale).round() as u32).clamp(1, SIZE),
+        ((h as f32 * scale).round() as u32).clamp(1, SIZE),
+    );
+    frames
+        .iter()
+        .map(|frame| {
+            let crop = image::imageops::crop_imm(frame, l, t, w, h).to_image();
+            image::imageops::resize(&crop, tw, th, image::imageops::FilterType::Lanczos3)
+        })
+        .collect()
 }
 
 /// Pixel frames share one canvas, as wide as the widest pose and as tall as

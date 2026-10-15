@@ -56,6 +56,9 @@ pub struct DotSample {
 
 /// Below this a pixel is true black and never draws a dot.
 const DOT_FLOOR: f32 = 0.07;
+/// Dim haze falls into terminal black in the tonal 3D bridge, instead of
+/// leaving a full rectangle of barely lit sky or mine fog.
+const WORLD_DOT_FLOOR: f32 = 0.14;
 
 /// A cell whose brightness spans less than this (or less than this share
 /// of its brightest pixel) is a flat fill, not an edge.
@@ -81,6 +84,17 @@ pub fn fit_braille(
     cells_w: usize,
     cells_h: usize,
     sample: impl Fn(usize, usize) -> DotSample,
+) -> Vec<(u8, [f32; 3])> {
+    fit_braille_tonal(cells_w, cells_h, sample, false)
+}
+
+/// 3D flat planes carry value in their ink instead of checker density. The
+/// edge fitter still supplies the exact local silhouette and occlusion split.
+fn fit_braille_tonal(
+    cells_w: usize,
+    cells_h: usize,
+    sample: impl Fn(usize, usize) -> DotSample,
+    tonal: bool,
 ) -> Vec<(u8, [f32; 3])> {
     let (pw, ph) = (cells_w * 2, cells_h * 4);
     let px: Vec<DotSample> = (0..pw * ph).map(|i| sample(i % pw, i / pw)).collect();
@@ -127,8 +141,10 @@ pub fn fit_braille(
                 for lx in 0..2 {
                     let (x, y) = (cx * 2 + lx, cy * 4 + ly);
                     let p = px[y * pw + x];
-                    let lit = if p.luma < DOT_FLOOR {
+                    let lit = if p.luma < if tonal { WORLD_DOT_FLOOR } else { DOT_FLOOR } {
                         false
+                    } else if flat && tonal {
+                        true
                     } else if flat {
                         // A flat fill is drawn solid once it is more than
                         // dim, so its colour carries the value; only the
@@ -255,20 +271,46 @@ pub fn frame_to_braille_graded(
     cells_h: usize,
     vista: bool,
 ) -> ColoredBrailleImage {
+    frame_to_braille(frame, cells_w, cells_h, vista, false)
+}
+
+/// Tonal bridge for the realm's 3D views only. Native map art continues to
+/// use `frame_to_braille_graded` and its existing floor and density screen.
+pub fn frame_to_braille_world3d(
+    frame: &image::RgbaImage,
+    cells_w: usize,
+    cells_h: usize,
+    vista: bool,
+) -> ColoredBrailleImage {
+    frame_to_braille(frame, cells_w, cells_h, vista, true)
+}
+
+fn frame_to_braille(
+    frame: &image::RgbaImage,
+    cells_w: usize,
+    cells_h: usize,
+    vista: bool,
+    tonal: bool,
+) -> ColoredBrailleImage {
     // Structure first: the shared fitter picks each cell's dots from the
     // cell's own light/dark split, so outlines, wall edges and doorways keep
     // their line and dark material is drawn as shape, not dust.
     let lut = tone_lut(vista);
-    let fit = fit_braille(cells_w, cells_h, |x, y| {
-        let pixel = frame.get_pixel(x as u32, y as u32).0;
-        let luma = 0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32;
-        let tone = lut[(luma.round() as usize).min(255)];
-        DotSample {
-            luma: tone,
-            level: tone,
-            rgb: [pixel[0] as f32, pixel[1] as f32, pixel[2] as f32],
-        }
-    });
+    let fit = fit_braille_tonal(
+        cells_w,
+        cells_h,
+        |x, y| {
+            let pixel = frame.get_pixel(x as u32, y as u32).0;
+            let luma = 0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32;
+            let tone = lut[(luma.round() as usize).min(255)];
+            DotSample {
+                luma: tone,
+                level: tone,
+                rgb: [pixel[0] as f32, pixel[1] as f32, pixel[2] as f32],
+            }
+        },
+        tonal,
+    );
     let mut cells = vec![ColoredBrailleCell::default(); cells_w * cells_h];
     for (i, (bits, ink)) in fit.into_iter().enumerate() {
         if bits == 0 {
@@ -278,7 +320,7 @@ pub fn frame_to_braille_graded(
         // dark as the material is. A dim dot is lifted only enough to show.
         let mut fg = ink;
         let peak = fg[0].max(fg[1]).max(fg[2]);
-        if peak > 0.0 && peak < INK_FLOOR {
+        if !tonal && peak > 0.0 && peak < INK_FLOOR {
             let scale = INK_FLOOR / peak;
             fg = [fg[0] * scale, fg[1] * scale, fg[2] * scale];
         }
@@ -289,16 +331,63 @@ pub fn frame_to_braille_graded(
         };
         cells[i] = ColoredBrailleCell {
             glyph: braille_char(bits),
-            fg: [
-                quantize_channel(fg[0]),
-                quantize_channel(fg[1]),
-                quantize_channel(fg[2]),
-            ],
+            fg: if tonal {
+                fg.map(|c| c.round().clamp(0.0, 228.0) as u8)
+            } else {
+                [
+                    quantize_channel(fg[0]),
+                    quantize_channel(fg[1]),
+                    quantize_channel(fg[2]),
+                ]
+            },
         };
     }
     ColoredBrailleImage {
         width: cells_w,
         height: cells_h,
         cells,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn world_planes_keep_solid_tonal_ink_and_the_map_keeps_its_screen() {
+        let frame = image::RgbaImage::from_pixel(12, 12, image::Rgba([25, 28, 34, 255]));
+        let world = frame_to_braille_world3d(&frame, 6, 3, false);
+        assert!(
+            world
+                .cells
+                .iter()
+                .all(|c| braille_bits(c.glyph) == 255 && c.fg == [25, 28, 34])
+        );
+        let map = frame_to_braille_graded(&frame, 6, 3, false);
+        assert!(map.cells.iter().any(|c| braille_bits(c.glyph) != 255));
+        assert!(
+            map.cells
+                .iter()
+                .filter(|c| braille_bits(c.glyph) != 0)
+                .all(|c| c.fg.iter().copied().max().unwrap() >= 70)
+        );
+    }
+
+    #[test]
+    fn world_ink_falls_to_black_without_a_white_floor_or_colour_bands() {
+        let mut last = 0;
+        for value in 32..100u8 {
+            let frame = image::RgbaImage::from_pixel(2, 4, image::Rgba([value, value, value, 255]));
+            let cell = frame_to_braille_world3d(&frame, 1, 1, false).cells[0];
+            assert_eq!(braille_bits(cell.glyph), 255);
+            assert_eq!(cell.fg, [value; 3]);
+            assert!(cell.fg[0] > last);
+            last = cell.fg[0];
+        }
+        let black = image::RgbaImage::from_pixel(2, 4, image::Rgba([4, 5, 8, 255]));
+        assert_eq!(
+            frame_to_braille_world3d(&black, 1, 1, false).cells[0],
+            ColoredBrailleCell::default()
+        );
     }
 }

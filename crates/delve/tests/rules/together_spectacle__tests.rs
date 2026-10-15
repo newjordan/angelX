@@ -137,7 +137,7 @@ fn leaving_the_room_ends_the_claim_unseen_and_it_never_comes_back() {
 }
 
 #[test]
-fn a_hit_knight_flinches_flashes_white_and_a_heavy_hit_shakes_the_view() {
+fn a_hit_knight_flinches_flashes_warm_and_a_heavy_hit_shakes_the_view() {
     let mut run = quiet();
     run.players.get_mut(&1).unwrap().invulnerable = 0;
     run.spawn_at_for_test(EnemyKind::Skeleton, 22.5, 14.0);
@@ -160,30 +160,19 @@ fn a_hit_knight_flinches_flashes_white_and_a_heavy_hit_shakes_the_view() {
     );
     assert!(run.shake > 0, "a heavy hit shakes the view");
     assert!(run.sounds.contains(&"knight_hit_big"));
-    // The knight is white: bright pixels where they stand.
+    // The flash retains the knight's volume; its warm highlights and the
+    // chest's tiny bright sparks read the hit without a solid white figure.
     let hit = frame(&run);
     assert_ne!(before, hit);
-    let white = |img: &Img| {
-        let mut n = 0;
-        for y in 0..img.h {
-            for x in 0..img.w {
-                if img.get(x, y) == Some([0xe4, 0xff, 0xf8]) {
-                    n += 1;
-                }
-            }
-        }
-        n
-    };
-    assert!(
-        white(&hit) > 40,
-        "the whole knight is white: {}",
-        white(&hit)
-    );
-    // It fades: after the flash the knight is a knight again.
+    let count = |img: &Img, colour| img.pixels().filter(|&c|c==colour).count();
+    let warm=[0xe3,0xd2,0xc3];
+    let ivory=[0xe4,0xff,0xf8];
+    assert!(count(&hit,warm)>count(&before,warm),"the flash's warm planes read the blow");
+    assert!(count(&hit,ivory)<20,"no solid white silhouette");
     run.enemies.clear();
-    idle(&mut run, 8);
-    let later = frame(&run);
-    assert!(white(&later) < 20, "{}", white(&later));
+    idle(&mut run,8);
+    let later=frame(&run);
+    assert!(count(&later,warm)<count(&hit,warm),"the warm flash fades after its held frames");
     idle(&mut run, STRUCK);
     assert_eq!(run.players[&1].struck, 0);
 }

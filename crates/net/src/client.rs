@@ -101,6 +101,12 @@ pub trait GameClient: Sized {
     /// Numbers for a developer's panel, counted from the start (the panel
     /// makes rates of them): the Delve's own-knight corrections.
     fn dev_stats(&self, _out: &mut Vec<(&'static str, f64)>) {}
+    /// A sheet of the player's own state as plain text, for the page to
+    /// show while its key is held up (`controls.sheet`): the Delve's cards
+    /// and wishes. Empty for a game without one.
+    fn sheet(&self) -> String {
+        String::new()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -418,6 +424,11 @@ impl<G: GameClient> Runtime<G> {
 
     pub fn controls(&self) -> &'static str {
         self.game.as_ref().map_or("{}", |g| g.controls())
+    }
+
+    /// The game's sheet (`GameClient::sheet`).
+    pub fn sheet(&self) -> String {
+        self.game.as_ref().map_or_else(String::new, G::sheet)
     }
 
     /// Where the last frame drew the own character (`GameClient::own_at`).

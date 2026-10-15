@@ -128,7 +128,7 @@ fn wings(cv: &mut Img, hero: &Hero, tick: u32) {
                 wy,
                 wx + side * len / 3,
                 wy + len,
-                if k % 2 == 0 { 'w' } else { '3' },
+                if k == 0 { 'c' } else if k % 2 == 0 { '3' } else { '2' },
             );
         }
         cv.put(x + side * 9, y - 13 - beat, '6');

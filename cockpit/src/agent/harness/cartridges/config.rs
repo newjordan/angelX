@@ -1,5 +1,6 @@
-//! `cartridge.toml`: one competition family, in data. A config-only cartridge
-//! is just this file; a source cartridge adds Rust hooks beside it (`src/`).
+//! `cartridge.toml`: one competition family or one tool, in data. A
+//! config-only cartridge is just this file (and, for commands, its `skills/`);
+//! a source cartridge adds Rust hooks beside it (`src/`).
 
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -37,6 +38,23 @@ pub(crate) struct Config {
     /// Book pages, as data: a config-only cartridge speaks in pages too.
     #[serde(default)]
     pub(crate) pages: Vec<Page>,
+    /// Slash commands: `/<name> <task>` sends one turn carrying the named
+    /// skills from the cartridge's `skills/` folder. Nothing loads before then.
+    #[serde(default)]
+    pub(crate) commands: Vec<Command>,
+}
+
+/// One slash command a cartridge adds. A built-in command of the same name wins.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Command {
+    /// The word after `/`: lowercase letters, digits and `-`.
+    pub(crate) name: String,
+    /// Skill names in the cartridge's `skills/` folder, applied in order.
+    pub(crate) skills: Vec<String>,
+    /// What the composer shows after `/<name>`.
+    #[serde(default)]
+    pub(crate) usage: String,
 }
 
 /// One book page set a cartridge adds or replaces, by its two-cell route.
@@ -64,6 +82,22 @@ impl Config {
             }
             if page.pages.is_empty() {
                 return Err(format!("page route `{}` has no pages", page.route));
+            }
+        }
+        for command in &config.commands {
+            let word = !command.name.is_empty()
+                && command
+                    .name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+            if !word {
+                return Err(format!(
+                    "command `{}` is not a lowercase word (a-z, 0-9, -)",
+                    command.name
+                ));
+            }
+            if command.skills.is_empty() {
+                return Err(format!("command `{}` names no skills", command.name));
             }
         }
         Ok(config)

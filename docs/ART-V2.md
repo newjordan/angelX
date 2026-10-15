@@ -193,6 +193,17 @@ samples (`kit.rs`), scenery, figures, combat, race and UI composition. Embedded
 material windows and figure studies remain reusable assets, not screenshot
 backdrops. The same authored world footprints construct both kingdom views.
 
+Every box the game draws (plaques, name tags, key prompts, the ENTER band,
+boards, panels, menus, the tray's wells) comes from one ink-kit module,
+`overworld/chrome.rs`: corners cut on a small fixed curve that grows with the
+box, a lit row under a rim lit along the top and shaded along the foot, slate
+falling toward black inside, a dark hairline inside a framed board's brass, and
+a one-pixel shadow down and right. Its tones keep a frame's meaning (steel for
+names, dim brass for a key's prompt, brass for what opens, timber for signs,
+red for a dare, stone for what is spent), all on the realm palette. v2 stamps
+these boxes as drawn and rounds its own `ui::well` panels the same way at its
+two samples a pixel.
+
 ## Cache and frame budget
 
 Static scenery includes sparse floor lighting and the static atmosphere plane.

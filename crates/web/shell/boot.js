@@ -20,6 +20,7 @@
   const $ = id => document.getElementById(id);
   const canvas = $('screen'), form = $('join'), nameInput = $('name'), playButton = $('play');
   const statusLine = $('status'), toastLine = $('toast'), fullButton = $('full'), statsBox = $('stats');
+  const sayForm = $('say'), sayInput = $('said'), sheetBox = $('sheet');
   const decoder = new TextDecoder(), encoder = new TextEncoder();
 
   // Fixed numbers (docs/ENGINE.md).
@@ -103,11 +104,14 @@
     statusLine.textContent = text;
   }
   let toastTimer = 0;
+  // One short line at the picture's top edge; a repeat only keeps it up.
+  const TOAST_MS = 2500;
   function toast(text) {
-    toastLine.textContent = text;
+    if (toastLine.textContent !== text) toastLine.textContent = text;
+    toastLine.title = text;
     toastLine.classList.remove('gone');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastLine.classList.add('gone'), 4000);
+    toastTimer = setTimeout(() => toastLine.classList.add('gone'), TOAST_MS);
   }
 
   // ---- the module ----
@@ -179,8 +183,61 @@
   let panel = null;
   let running = false, crashed = false;
   function gameHasKeys() {
-    return running && !crashed && form.hidden && !(panel && panel.focused());
+    return running && !crashed && form.hidden && sayForm.hidden && !(panel && panel.focused());
   }
+
+  // A game's sheet (`controls.sheet`: the key that shows it), its own text
+  // over the picture, such as the Delve's cards and wishes. The keys stay
+  // the game's while it is up.
+  let sheetTimer = 0;
+  function showSheet(on) {
+    clearInterval(sheetTimer);
+    sheetBox.hidden = !on;
+    if (!on || !x || !x.angel_sheet) return;
+    const fill = () => { sheetBox.textContent = text(x.angel_sheet()) || 'Nothing to show yet.'; };
+    fill();
+    sheetTimer = setInterval(fill, 400);
+  }
+  window.addEventListener('keydown', e => {
+    const s = A.controls && A.controls.sheet;
+    if (!s || e.code !== s.key || e.repeat || e.ctrlKey || e.metaKey || !gameHasKeys()) return;
+    e.preventDefault();
+    showSheet(sheetBox.hidden);
+  }, true);
+
+  // A game's text line (`controls.text`: the key that opens it, the action
+  // kind it goes as, and the JSON field it fills), such as the Delve's wish.
+  // While it is open the keys are the line's; Enter sends, Esc lets go.
+  function closeSay() {
+    sayForm.hidden = true;
+    sayInput.blur();
+  }
+  window.addEventListener('keydown', e => {
+    const t = A.controls && A.controls.text;
+    if (!t || e.code !== t.key || e.repeat || e.ctrlKey || e.metaKey || !gameHasKeys()) return;
+    e.preventDefault();
+    input.releaseAll();
+    sayInput.placeholder = t.hint || '';
+    sayInput.value = '';
+    sayForm.hidden = false;
+    sayInput.focus();
+  }, true);
+  sayInput.addEventListener('keydown', e => {
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      closeSay();
+    }
+  });
+  sayInput.addEventListener('blur', () => { sayForm.hidden = true; });
+  sayForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const t = A.controls && A.controls.text;
+    const said = sayInput.value.trim();
+    closeSay();
+    if (!t || !said || !x) return;
+    withString(JSON.stringify({ [t.field || 'text']: said }), (p, l) => x.angel_action(t.kind >>> 0, p, l));
+    flush();
+  });
 
   // The page's own knobs, for the dev panel: whole-number scaling and a
   // frame-rate cap (0: the display's own rate).
@@ -219,6 +276,27 @@
     manifest = {};
   }
   sound = makeSound(manifest);
+  // The volume: the note mutes, the slider sets it, - and = step it. The
+  // slider gives the keys back to the game once it is let go.
+  const volBox = $('vol'), muteButton = $('mute'), volumeRange = $('volume');
+  function showVolume() {
+    volumeRange.value = String(Math.round(sound.volume * 100));
+    muteButton.classList.toggle('off', sound.muted);
+  }
+  volBox.hidden = false;
+  showVolume();
+  volumeRange.addEventListener('input', () => { sound.setVolume(Number(volumeRange.value) / 100); showVolume(); });
+  volumeRange.addEventListener('change', () => volumeRange.blur());
+  volumeRange.addEventListener('pointerup', () => volumeRange.blur());
+  muteButton.addEventListener('click', () => { sound.unlock(); sound.toggleMute(); showVolume(); muteButton.blur(); });
+  window.addEventListener('keydown', e => {
+    if ((e.code !== 'Minus' && e.code !== 'Equal') || e.ctrlKey || e.metaKey || !sayForm.hidden) return;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    e.preventDefault();
+    sound.setVolume(sound.volume + (e.code === 'Equal' ? 0.1 : -0.1));
+    showVolume();
+    toast(sound.muted || sound.volume === 0 ? 'Sound off' : `Volume ${Math.round(sound.volume * 100)}%`);
+  }, true);
 
   // ---- the link ----
 

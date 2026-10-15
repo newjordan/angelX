@@ -198,6 +198,12 @@ pub enum Effect {
     /// Shots burst where they hit, N% of their damage around, as one
     /// stroke (`aoe`).
     Burst(u32),
+    /// Shots fork where they stop on a monster: two fly on at an angle,
+    /// past the one struck, and fork again N-1 more times (Path of Exile's
+    /// Fork; 2 is its Awakened Fork).
+    Fork(u32),
+    /// A hit leaves a fart cloud on what it struck, oftener with N.
+    Fart(u32),
     /// Spoils carried out of the delve for the realm's treasury.
     Bone(u32),
     Wax(u32),
@@ -642,6 +648,26 @@ const SPECS: &[Spec] = &[
         says: "shots burst where they hit, N% of their damage to the three nearest (a quarter of that past them)",
     },
     Spec {
+        word: "fork",
+        low: 1,
+        high: 2,
+        cap: 2,
+        hold: true,
+        spend: false,
+        make: Effect::Fork,
+        says: "a shot that stops on a monster forks into two that fly on past it, N times over",
+    },
+    Spec {
+        word: "fart",
+        low: 1,
+        high: 3,
+        cap: 3,
+        hold: true,
+        spend: false,
+        make: Effect::Fart,
+        says: "your hits leave a fart cloud on what they strike, oftener with N",
+    },
+    Spec {
         word: "bone",
         low: 1,
         high: 3,
@@ -761,6 +787,8 @@ impl Effect {
             | Effect::Mend(v)
             | Effect::Orbit(v)
             | Effect::Burst(v)
+            | Effect::Fork(v)
+            | Effect::Fart(v)
             | Effect::Bone(v)
             | Effect::Wax(v)
             | Effect::Ore(v)
@@ -1548,6 +1576,10 @@ pub struct Bonus {
     pub orbit: u32,
     #[serde(default)]
     pub burst: u32,
+    #[serde(default)]
+    pub fork: u32,
+    #[serde(default)]
+    pub fart: u32,
 }
 
 /// What each copy of one card is worth, in percent: the first whole, the
@@ -1557,7 +1589,7 @@ const COPIES: [f32; 3] = [1.0, 0.5, 0.25];
 impl Bonus {
     pub fn of<'a>(held: impl IntoIterator<Item = &'a Card>) -> Bonus {
         let mut seen: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
-        let mut sums = [0.0f32; 14];
+        let mut sums = [0.0f32; 16];
         let mut bonus = Bonus::default();
         for card in held {
             let copy = seen.entry(card.id.as_str()).or_insert(0);
@@ -1578,6 +1610,8 @@ impl Bonus {
                     Effect::Mend(v) => Some((10, v)),
                     Effect::Orbit(v) => Some((11, v)),
                     Effect::Burst(v) => Some((12, v)),
+                    Effect::Fork(v) => Some((13, v)),
+                    Effect::Fart(v) => Some((14, v)),
                     // Volleys don't add up: the tightest cadence held
                     // counts, and none is tighter than `VOLLEY_FLOOR`.
                     Effect::Volley(v) => {
@@ -1612,6 +1646,8 @@ impl Bonus {
         bonus.mend = capped(10, "mend");
         bonus.orbit = capped(11, "orbit");
         bonus.burst = capped(12, "burst");
+        bonus.fork = capped(13, "fork");
+        bonus.fart = capped(14, "fart");
         bonus
     }
 }
@@ -1722,6 +1758,18 @@ pub const BUILTIN: &[(&str, &str)] = &[
     (
         "twin-string",
         include_str!("../../../../cockpit/assets/dungeon/cards/twin-string.card"),
+    ),
+    (
+        "awakened-fork",
+        include_str!("../../../../cockpit/assets/dungeon/cards/awakened-fork.card"),
+    ),
+    (
+        "fork",
+        include_str!("../../../../cockpit/assets/dungeon/cards/fork.card"),
+    ),
+    (
+        "fart-bombs",
+        include_str!("../../../../cockpit/assets/dungeon/cards/fart-bombs.card"),
     ),
     (
         "bodkin-heads",

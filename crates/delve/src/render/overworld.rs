@@ -18,6 +18,7 @@
 
 pub mod arena;
 pub mod castles;
+pub mod chrome;
 pub mod college;
 pub mod clerks;
 pub mod deeds;

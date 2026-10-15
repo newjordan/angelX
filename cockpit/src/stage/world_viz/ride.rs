@@ -1,18 +1,14 @@
 //! The braille ride: the first-person Dotmax travel world rendered as a
 //! colored braille field for the default (protocol-free) miniviz.
 //!
-//! Dotmax draws one moonlit mesh frame at dot resolution (2×4
-//! dots per terminal cell), a fixed ordered-Bayer screen turns luminance
-//! into dots, and each cell takes its ink color from the pixels that lit.
-//! Ordered dithering is deliberate: the threshold lives in screen space, so
-//! a moving frame animates without the frame-to-frame crawl error diffusion
-//! would produce. Depth reads as dot density — night fog starves distant
-//! walls of ink — while the candlelit destination door keeps burning
-//! through it.
+//! Dotmax draws a moonlit mesh at dot resolution (2×4 dots per cell). The
+//! structure fitter keeps silhouettes and occlusion edges, while broad planes
+//! carry soft hue-shifted value in their ink without checker density or a
+//! brightness floor. The realm's 2D map keeps its separate art conversion.
 
 use super::*;
 use crate::ui::term::art::ColoredBrailleImage;
-pub(super) use angel_delve::render::braille::frame_to_braille_graded;
+pub(super) use angel_delve::render::braille::frame_to_braille_world3d as frame_to_braille_graded;
 
 impl World {
     /// True while the knight is between landmarks — the ride owns the pane.
@@ -161,7 +157,12 @@ impl World {
         if self.interior.is_none() && !ambient && region_stage.is_none() && crawl.is_none() {
             composite_rider_overlay(&mut frame, cinematics::rider_frame_key(self));
         }
-        let image = std::sync::Arc::new(frame_to_braille_graded(
+        let convert = if ambient && self.ambient_building() != Building::Observatory {
+            angel_delve::render::braille::frame_to_braille_graded
+        } else {
+            frame_to_braille_graded
+        };
+        let image = std::sync::Arc::new(convert(
             &frame,
             cells_w,
             cells_h,

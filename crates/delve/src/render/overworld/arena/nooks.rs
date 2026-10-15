@@ -337,8 +337,7 @@ fn jar(cv: &mut Img, x: i32, y: i32, j: usize, word: Option<&str>) {
     // The label.
     if let Some(word) = word {
         let lw = super::super::ink::text_width(word) + 4;
-        cv.rect(x - lw / 2, bottom - 9, lw, 9, 'T');
-        cv.line(x - lw / 2, bottom - 9, x + lw / 2 - 1, bottom - 9, 't');
+        super::super::chrome::shaped(cv, (x - lw / 2, bottom - 9, lw, 9), &[1], super::super::chrome::Tone::PAINTED, false);
         cv.text(x - lw / 2 + 2, bottom - 8, word, 'b');
     }
 }
@@ -431,7 +430,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
                 }
             }
             // A sign on the wall: hush.
-            cv.rect(11 * TILE, TILE + 2, 2 * TILE, 11, 'B');
+            super::super::chrome::inset_panel(cv, (11 * TILE, TILE + 2, 2 * TILE, 11), super::super::chrome::Tone::TIMBER);
             cv.text(11 * TILE + 4, TILE + 4, "SHHH", 'T');
             for &(c, r) in &[(3, 6), (20, 6)] {
                 let im = kit::candles(3, tick);

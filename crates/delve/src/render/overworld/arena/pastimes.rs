@@ -285,7 +285,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 }
                 cv.rect(x + 2, y + side * (TILE + 10), 8, 4, ink);
             }
-            cv.rect(x - 6, y - 4, 13, 10, 'k');
+            // The gate's number on a tag rimmed in the gate's own ink.
+            super::super::chrome::inset_panel(
+                cv,
+                (x - 6, y - 5, 13, 11),
+                super::super::chrome::Tone::SLATE.rimmed(super::super::chrome::rim_of(ink)),
+            );
             cv.text(x - 2, y - 3, &(i + 1).to_string(), ink);
         }
         if let Some(sled) = current.and_then(|r| r.sled.as_ref()) {

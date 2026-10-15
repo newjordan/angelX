@@ -66,6 +66,9 @@ nothing feeling good. Fix that first.
 
 ## 2. Every mini-game, finished-grade
 
+Build order, the feel brief, and the systems a game plugs into are in
+[MINIGAME-BUILD.md](MINIGAME-BUILD.md).
+
 Each game gets a redesign before any polish: all seated knights play at
 once, real stakes, two- or three-word instructions, real sprites (no letter
 glyphs), and a funny payoff in the privy's spirit. A finished game:

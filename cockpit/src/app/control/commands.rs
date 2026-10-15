@@ -1418,13 +1418,17 @@ impl App {
                 return;
             }
             // The rest of the Codex command set, dispatched by name. Most do
-            // real cockpit work; `/mention` and `/skills <name>` send turns
-            // with generated context kept in a separate Harness-role message.
-            ParsedInput::Cmd { name, arg } if matches!(name.as_str(), "mention" | "skills") => {
-                let request = if name == "mention" {
-                    self.mention_file(arg.as_deref())
-                } else {
-                    self.run_skill(arg.as_deref())
+            // real cockpit work; `/mention`, `/skills <name>` and a cartridge's
+            // commands send turns with generated context kept in a separate
+            // Harness-role message.
+            ParsedInput::Cmd { name, arg }
+                if matches!(name.as_str(), "mention" | "skills")
+                    || crate::ui::input::cartridge_command(&name).is_some() =>
+            {
+                let request = match name.as_str() {
+                    "mention" => self.mention_file(arg.as_deref()),
+                    "skills" => self.run_skill(arg.as_deref()),
+                    _ => self.run_cartridge_command(&name, arg.as_deref()),
                 };
                 match request {
                     Some(request) => {
@@ -2854,6 +2858,7 @@ handoff restart queued until the foreground worker drains"),
             "connect" => {
                 self.system_msg(crate::app::model_setup::connect_text(arg));
             }
+            "setup" => self.open_setup(),
             "context" => {
                 let t = self.context_text(arg);
                 self.system_msg(t);

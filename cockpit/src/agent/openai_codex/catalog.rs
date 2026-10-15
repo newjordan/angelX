@@ -103,6 +103,39 @@ impl CodexClub {
     ) -> Result<EffectiveSelection, String> {
         let effort_source = Some(self.captured_effort_source());
         if let Some(catalog) = &self.catalog {
+            if self.api_key.is_none() {
+                if self.name == "daybreak" {
+                    let allowed = catalog
+                        .models()
+                        .iter()
+                        .find(|model| model.slug == self.model)
+                        .is_some_and(|model| {
+                            self.cyber_access_program.is_some_and(|program| {
+                                model
+                                    .available_access_programs
+                                    .cyber
+                                    .iter()
+                                    .any(|allowed| allowed == program)
+                            })
+                        });
+                    if !allowed {
+                        return Err(format!(
+                            "Daybreak model {:?} has no matching catalog access program",
+                            self.model
+                        ));
+                    }
+                } else if catalog
+                    .models()
+                    .iter()
+                    .find(|model| model.slug == self.model)
+                    .is_some_and(|model| !model.standard_access())
+                {
+                    return Err(format!(
+                        "OpenAI model {:?} is offered only under an access program; select its entitled route",
+                        self.model
+                    ));
+                }
+            }
             let fallback = self.selection_sources == Some(("fallback", "fallback"));
             return catalog
                 .resolve(&self.model, captured.as_deref(), fallback)
@@ -141,12 +174,17 @@ impl CodexClub {
             &self.model,
             if self.api_controls.is_some() {
                 "OPENAI_API"
+            } else if self.name == "daybreak" {
+                "ANGEL_DAYBREAK"
             } else {
                 "ANGEL_OPENAI"
             },
         );
         let sources = self.selection_sources.unwrap_or(("fallback", "fallback"));
         defaults["model"] = serde_json::json!(self.model);
+        if let Some(program) = self.cyber_access_program.filter(|_| self.api_key.is_none()) {
+            defaults["access_programs"] = serde_json::json!({"cyber": program});
+        }
         defaults["model_source"] = serde_json::json!(if sources.0 == "cli" {
             "cli"
         } else if self.api_controls.is_some() {

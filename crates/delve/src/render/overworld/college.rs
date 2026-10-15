@@ -32,9 +32,14 @@ pub fn stage(tick: u32, props: &mut Vec<Prop>, lights: &mut Vec<Light>) {
         s: 0.2,
         fire: false,
     });
-    let mut plaque = super::ink::Img::new(107, 13);
-    plaque.rect(0, 0, 107, 13, 's');
-    plaque.frame(0, 0, 107, 13, 'u');
+    let mut plaque = super::ink::Img::new(108, 14);
+    // A prop in the lit map: the night sign, which its dusk leaves flat,
+    // under the steel rim of the kingdom's name plaques.
+    super::chrome::panel(
+        &mut plaque,
+        (0, 0, 107, 13),
+        super::chrome::Tone::NIGHT_SIGN.rimmed(super::chrome::Tone::SLATE.rim),
+    );
     plaque.text(4, 3, "Labyrinth College", 'i');
     // Above the tower, clear of the door. Knights stand on the name's old spot.
     props.push(Prop {

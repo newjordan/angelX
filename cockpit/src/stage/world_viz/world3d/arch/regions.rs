@@ -268,8 +268,8 @@ fn chest() -> Mesh {
 }
 
 /// A torch guttering on a wall face: a stub bracket and a flame, facing `-y`.
-/// 8 triangles. `hot` picks live coals over candle-warm glass.
-fn torch(hot: bool) -> Mesh {
+/// The exposed tongue uses the shared local flame ramp.
+fn torch(_hot: bool) -> Mesh {
     let mut m = Mesh::new();
     prim::boxed(
         &mut m,
@@ -278,8 +278,7 @@ fn torch(hot: bool) -> Mesh {
         mat::WOOD,
         F_SIDES,
     );
-    let flame = if hot { mat::EMBER } else { mat::WINDOW };
-    prim::cone(&mut m, 0.0, -0.20, 0.02, 0.52, 0.19, 5, 0.0, flame);
+    prim::cone(&mut m, 0.0, -0.20, 0.02, 0.52, 0.19, 5, 0.0, mat::FLAME);
     m
 }
 
@@ -1241,7 +1240,7 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
             mat::STONE_DARK,
         );
         prim::disc(&mut brazier, 0.0, 0.0, 0.70, 0.42, 6, 0.0, mat::EMBER);
-        prim::cone(&mut brazier, 0.0, 0.0, 0.70, 1.36, 0.36, 5, 0.0, mat::EMBER);
+        prim::cone(&mut brazier, 0.0, 0.0, 0.70, 1.36, 0.36, 5, 0.0, mat::FLAME);
         place(&mut m, stage, seed, brazier, x, side * 3.5, r.jitter(0.5));
     }
     // Wall torches on the colonnade, so the walls are not black between fires.

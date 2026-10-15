@@ -163,6 +163,35 @@ function tracker() {
   })()`;
 }
 
+// Every browser this probe started, so none outlives it: a run that throws
+// before its close, or the probe itself stopped by a signal or a timeout,
+// still takes its browser and throwaway profile down with it.
+const browsers = new Set();
+function reap() {
+  for (const b of browsers) {
+    try { b.proc.kill('SIGKILL'); } catch { /* already gone */ }
+    try { fs.rmSync(b.dir, { recursive: true, force: true }); } catch { /* still held */ }
+  }
+  browsers.clear();
+}
+process.on('exit', reap);
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, async () => {
+    // Kill first, then wait for the browsers to be gone (up to 2 s) so the
+    // profile directories are free to delete.
+    const gone = [...browsers].map(b => b.proc.exitCode !== null || b.proc.signalCode !== null
+      ? Promise.resolve()
+      : new Promise(resolve => b.proc.once('exit', resolve)));
+    for (const b of browsers) {
+      try { b.proc.kill('SIGKILL'); } catch { /* already gone */ }
+    }
+    await Promise.race([Promise.all(gone), sleep(2000)]);
+    await sleep(200);
+    reap();
+    process.exit(128 + ({ SIGHUP: 1, SIGINT: 2, SIGTERM: 15 })[sig]);
+  });
+}
+
 async function chromium(name) {
   const dir = `${process.env.TMPDIR || '/work/tmp'}/angel-web-probe-${name}-${process.pid}`;
   const proc = spawn('/usr/bin/chromium', ['--headless=new', `--remote-debugging-port=${PORT}`,
@@ -173,6 +202,8 @@ async function chromium(name) {
     ...(flag('software') ? ['--enable-unsafe-swiftshader'] : ['--use-angle=gl', '--enable-gpu', '--ignore-gpu-blocklist']),
     'about:blank'],
   { stdio: 'ignore' });
+  const own = { proc, dir };
+  browsers.add(own);
   let target;
   for (let i = 0; i < 50 && !target; i++) {
     await sleep(200);
@@ -181,9 +212,14 @@ async function chromium(name) {
       target = list.find(t => t.type === 'page');
     } catch { /* not up yet */ }
   }
-  if (!target) throw new Error('chromium did not come up');
+  if (!target) {
+    browsers.delete(own);
+    proc.kill('SIGKILL');
+    throw new Error('chromium did not come up');
+  }
   const ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
+  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; })
+    .catch(e => { browsers.delete(own); proc.kill('SIGKILL'); throw e; });
   let id = 0;
   const waits = new Map();
   ws.onmessage = ev => {
@@ -210,6 +246,7 @@ async function chromium(name) {
     return r.result.value;
   };
   const close = () => {
+    browsers.delete(own);
     ws.close();
     proc.kill();
     setTimeout(() => fs.rmSync(dir, { recursive: true, force: true }), 500);

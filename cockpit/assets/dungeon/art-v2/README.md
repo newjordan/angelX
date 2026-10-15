@@ -9,7 +9,9 @@ UV_CACHE_DIR=/work/build-cache/angelx-artv2/uv TMPDIR=/work/tmp \
 ```
 
 The extraction boxes and silhouette masks are checked into that script.
-PNG samples decode once into transparent RGB sprites. Scenery is constructed
+PNG samples decode once into transparent RGB sprites. The knight studies are
+then brought into the hero the default kit draws: its cool steel, cream glint
+and sky rim, the seat inks, and its gold-rimmed heater shield with a pale. Scenery is constructed
 from the collision grid and settlement geography; a plate is never used as a
 whole-scene backdrop. Tiles have quiet stone/wood/grass/gravel material windows;
 actor studies use bounded keyed silhouettes with source-ground specks removed.

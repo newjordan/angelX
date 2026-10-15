@@ -113,13 +113,19 @@ fn art_dispatch_and_special_body_fallbacks_keep_their_contract() {
     };
     assert_eq!(super::super::frame_for(&r, 768, 448, Some(1)), expected);
     assert!(knight_supported(&r, &r.players[&1], 1));
+    // A stage of dress or a shield raised away is drawn here too, as the
+    // arena's own figure brought up to this canvas, the same size as the
+    // kit's studies; only a body in a state of its own goes to v1.
     r.players.get_mut(&1).unwrap().gear = 1;
-    assert!(!knight_supported(&r, &r.players[&1], 1));
+    assert!(knight_supported(&r, &r.players[&1], 1));
     r.players.get_mut(&1).unwrap().gear = 0;
     r.players.get_mut(&1).unwrap().shielding = true;
     r.players.get_mut(&1).unwrap().aim_y = -1.0;
     r.players.get_mut(&1).unwrap().aim_x = 0.0;
+    assert!(knight_supported(&r, &r.players[&1], 1));
+    r.players.get_mut(&1).unwrap().stone = true;
     assert!(!knight_supported(&r, &r.players[&1], 1));
+    r.players.get_mut(&1).unwrap().stone = false;
     r.dungeon.pack = Pack::Cavern;
     assert_eq!(
         frame(&r, 768, 448, Some(1)),
@@ -320,4 +326,38 @@ fn black_space_and_braille_are_shared_by_every_reviewed_surface() {
         art::irradiance(&[Point::new(10.0, 10.0, 3.0, '6', 1.0)], 14.0, 10.0),
         [0.0; 3]
     );
+}
+
+#[test]
+fn creature_finishing_keeps_sample_bounds_and_alpha() {
+    for name in ["ghost","slime","skeleton","imp","ripper","engine-boiler"] {
+        let source=kit::get(name);
+        let dressed=figures::foe_sprite(name);
+        assert_eq!((source.w,source.h),(dressed.w,dressed.h));
+        assert_ne!(source,dressed,"material pass for {name}");
+        for y in 0..source.h { for x in 0..source.w {
+            assert_eq!(source.get(x,y).is_some(),dressed.get(x,y).is_some(),"{name} alpha {x},{y}");
+        }}
+    }
+}
+
+#[test]
+#[ignore]
+fn write_v2_foe_samples() {
+    let Some(dir)=std::env::var_os("ANGEL_FOE_REVIEW") else{return;};
+    for name in ["ghost","slime","skeleton","imp","ripper","engine-boiler"] {
+        let im=figures::foe_sprite(name);
+        image::RgbaImage::from_raw(im.w as u32,im.h as u32,im.rgba_scaled(1)).unwrap()
+            .save(std::path::PathBuf::from(&dir).join(format!("{name}.png"))).unwrap();
+    }
+}
+
+#[test]
+fn approved_creature_sample_pixels_stay_exact() {
+    let expected: std::collections::BTreeMap<String,u64> =
+        serde_json::from_str(include_str!("fixtures/foe-art-v2.json")).unwrap();
+    assert_eq!(expected.len(),6);
+    for (name,hash) in expected {
+        assert_eq!(figures::foe_sprite(&name).content_hash(),hash,"approved {name} sample");
+    }
 }

@@ -31,6 +31,7 @@
 //! | `angel_seat_token() -> len` | the token to resume the seat with, in the text buffer |
 //! | `angel_controls() -> len` | the game's controls as JSON, in the text buffer |
 //! | `angel_rtt() -> f64` | the smoothed round trip in ms, or -1 |
+//! | `angel_sheet() -> len` | the game's sheet of the player's own state, plain text, in the text buffer |
 //! | `angel_text_ptr()` | where the text calls above wrote |
 //! | `angel_bye()`, `angel_action(kind, ptr, len)` | leaving on purpose; a one-off choice |
 //! | `angel_own_x() -> f64`, `angel_own_y() -> f64` | where the last frame drew the own character, in frame pixels, or NaN (for probes) |
@@ -245,6 +246,12 @@ impl<G: GameClient> Glue<G> {
 
     pub fn rtt(&self) -> f64 {
         self.rt.rtt_ms().unwrap_or(-1.0)
+    }
+
+    /// The game's sheet, in the text buffer.
+    pub fn sheet(&mut self) -> &[u8] {
+        let sheet = self.rt.sheet();
+        self.set_text(&sheet)
     }
 
     pub fn text(&self) -> &[u8] {
@@ -531,6 +538,11 @@ macro_rules! export_client {
             #[unsafe(no_mangle)]
             pub extern "C" fn angel_controls() -> usize {
                 with(|g| g.controls().len())
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_sheet() -> usize {
+                with(|g| g.sheet().len())
             }
 
             #[unsafe(no_mangle)]

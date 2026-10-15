@@ -175,18 +175,43 @@ pub(super) fn stall(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), stripes: (
     }
     mat::boards(cv, (x, front, w, 12), true, seed);
     cv.line(x, front, x + w - 1, front, 'o');
-    for xx in x - 2..x + w + 2 {
+    // Each stall keeps its own canvas: a flat awning with a scalloped
+    // hem, a peaked canopy lit on its west slope, or a cloth sagging
+    // between its poles. The canvas is lit along its top and goes a step
+    // darker toward its hem.
+    let (x0, x1) = (x - 2, x + w + 2);
+    let (mid, half) = ((x0 + x1) as f32 / 2.0, (x1 - x0) as f32 / 2.0);
+    let shape = seed % 3;
+    for xx in x0..x1 {
         let band = ((xx - x + 2) / 5) % 2 == 0;
         let ink = if band { stripes.0 } else { stripes.1 };
-        let scallop = ((xx - x + 2) % 5 == 2) as i32;
-        for k in 0..7 + scallop {
-            let shade = if k >= 5 { super::super::ink::ink(ink).map(mat::darker) } else { super::super::ink::ink(ink) };
-            if let Some(c) = shade {
-                cv.set(xx, awning + k, c);
+        let t = (xx - x0) as f32 / (x1 - x0 - 1).max(1) as f32;
+        let (rise, sag, scallop) = match shape {
+            1 => ((4.0 * (1.0 - ((xx as f32 + 0.5 - mid) / half).abs())).round() as i32, 0, 0),
+            2 => (0, (2.0 * 4.0 * t * (1.0 - t)).round() as i32, 0),
+            _ => (0, 0, ((xx - x + 2) % 5 == 2) as i32),
+        };
+        let west = shape == 1 && (xx as f32) < mid;
+        let top = awning - rise;
+        let bottom = awning + 7 + sag + scallop;
+        for yy in top..bottom {
+            let k = yy - top;
+            let base = super::super::ink::ink(ink);
+            let c = if yy >= bottom - 2 || (shape == 1 && !west && k > 0) {
+                base.map(mat::darker)
+            } else if k == 0 || (west && k < 2) {
+                base.map(mat::lighter)
+            } else {
+                base
+            };
+            if let Some(c) = c {
+                cv.set(xx, yy, c);
             }
         }
+        // The ridge or the top edge, a thin dark seam where the canvas
+        // meets its frame.
+        cv.put(xx, top - 1, 'b');
     }
-    cv.line(x - 2, awning, x + w + 1, awning, 'b');
 }
 
 /// A bathing tub of staves and hoops, full of water.

@@ -757,6 +757,7 @@ impl FromStr for Response {
         let request_reader = SizedReader {
             size: crate::body::BodySize::Empty,
             reader: Box::new(std::io::empty()),
+            replay: None,
         };
         let unit = Unit::new(
             &Agent::new(),
@@ -1141,6 +1142,7 @@ mod tests {
         let request_reader = SizedReader {
             size: crate::body::BodySize::Empty,
             reader: Box::new(std::io::empty()),
+            replay: None,
         };
         let unit = Unit::new(
             &Agent::new(),

@@ -23,7 +23,9 @@ pub struct Knight {
     pub hand: &'static [&'static str],
     pub bombs: u32,
     pub max_hp: u32,
-    /// Ink swaps on the realm's knight: plume and tabard, shield charge.
+    /// Ink swaps on the realm's knight: plume and tabard, shield charge,
+    /// and for a knight in coloured plate the steel (the structure greys of
+    /// the older drawings, then the hero's stone ramp).
     pub colours: &'static [(char, char)],
 }
 
@@ -87,7 +89,10 @@ pub const COMPANY: &[Knight] = &[
         hand: &[],
         bombs: 1,
         max_hp: 140,
-        colours: &[('H', 'z'), ('i', 'Q'), ('h', 'Q'), ('J', 'q'), ('G', 'S'), ('g', 'x'), ('5', '4')],
+        colours: &[
+            ('H', 'z'), ('i', 'Q'), ('h', 'Q'), ('J', 'q'), ('G', 'S'), ('g', 'x'), ('5', '4'),
+            ('W', 'z'), ('V', 'z'), ('v', 'Q'), ('U', 'Q'), ('u', 'q'),
+        ],
     },
     Knight {
         id: "dispatcher",
@@ -99,7 +104,10 @@ pub const COMPANY: &[Knight] = &[
         hand: &["potion"],
         bombs: 3,
         max_hp: 100,
-        colours: &[('H', 't'), ('i', 'o'), ('h', 'o'), ('J', 'R'), ('G', 'r'), ('g', 'B'), ('7', '3')],
+        colours: &[
+            ('H', 't'), ('i', 'o'), ('h', 'o'), ('J', 'R'), ('G', 'r'), ('g', 'B'), ('7', '3'),
+            ('W', 'T'), ('V', 't'), ('v', 'O'), ('U', 'o'), ('u', 'R'), ('x', 'B'), ('s', 'b'),
+        ],
     },
     Knight {
         id: "loop",
@@ -111,7 +119,10 @@ pub const COMPANY: &[Knight] = &[
         hand: &[],
         bombs: 2,
         max_hp: 110,
-        colours: &[('H', 'T'), ('i', '6'), ('h', '5'), ('J', '4'), ('G', '@'), ('g', 'a')],
+        colours: &[
+            ('H', 'T'), ('i', '6'), ('h', '5'), ('J', '4'), ('G', '@'), ('g', 'a'),
+            ('W', 'T'), ('V', '6'), ('v', '5'), ('U', '4'), ('u', '@'), ('x', 'a'),
+        ],
     },
     Knight {
         id: "money",
@@ -123,7 +134,10 @@ pub const COMPANY: &[Knight] = &[
         hand: &[],
         bombs: 4,
         max_hp: 100,
-        colours: &[('H', '6'), ('i', '5'), ('h', '4'), ('J', 'C'), ('G', 'e'), ('g', 'F'), ('7', 'y')],
+        colours: &[
+            ('H', '6'), ('i', '5'), ('h', '4'), ('J', 'C'), ('G', 'e'), ('g', 'F'), ('7', 'y'),
+            ('W', '6'), ('V', '5'), ('v', '4'), ('U', 'C'), ('u', 'e'), ('x', 'F'),
+        ],
     },
     Knight {
         id: "competition",
@@ -147,7 +161,10 @@ pub const COMPANY: &[Knight] = &[
         hand: &["potion"],
         bombs: 2,
         max_hp: 100,
-        colours: &[('H', '3'), ('i', '2'), ('h', '2'), ('J', '0'), ('G', '0'), ('g', 's'), ('7', 'w')],
+        colours: &[
+            ('H', '3'), ('i', '2'), ('h', '2'), ('J', '0'), ('G', '0'), ('g', 's'), ('7', 'w'),
+            ('W', '3'), ('V', '2'), ('v', '2'), ('U', '0'), ('u', '0'), ('x', 's'),
+        ],
     },
     // A dwarf of the deep halls: her own body in the arena, two axes, and a
     // guard that spins them (`spin.rs`).

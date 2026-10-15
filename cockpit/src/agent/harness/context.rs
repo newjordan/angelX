@@ -145,11 +145,34 @@ fn workspace_relative_with_boundary(
                 })?,
         }
     } else {
-        path.to_path_buf()
+        launch_relative_in_workspace(&boundary.lexical_root, path)
+            .unwrap_or_else(|| path.to_path_buf())
     };
     let stack = lexical_normalize(&candidate)
         .ok_or_else(|| format!("path escapes the workspace: {:?}", path))?;
     Ok(stack.into_iter().collect())
+}
+
+/// A workspace given as a relative directory (`--workspace ws/bowling`) is
+/// spelled from where angel was launched, and models copy that spelling into
+/// their paths: `ws/bowling/bowling.py`, `cd ws/bowling`. Read from the launch
+/// directory, that path *is* the workspace file, so resolve it there: the
+/// workspace-relative remainder. Only when the workspace has no entry of the
+/// path's first name, so a real `ws/` directory inside the workspace keeps its
+/// literal meaning; absolute workspaces and absolute paths are untouched.
+pub(crate) fn launch_relative_in_workspace(lexical_root: &Path, path: &Path) -> Option<PathBuf> {
+    if lexical_root.is_absolute() || path.is_absolute() {
+        return None;
+    }
+    let root = lexical_normalize(lexical_root)?;
+    let supplied = lexical_normalize(path)?;
+    if root.is_empty() || supplied.len() < root.len() || supplied[..root.len()] != root[..] {
+        return None;
+    }
+    if std::fs::symlink_metadata(lexical_root.join(&supplied[0])).is_ok() {
+        return None;
+    }
+    Some(supplied[root.len()..].iter().collect())
 }
 
 /// Resolve `rel` against `root`, rejecting lexical escapes and existing
@@ -830,3 +853,7 @@ mod alias_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/harness/context__private_budget_tests.rs"]
 mod private_budget_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/harness/context__launch_relative_tests.rs"]
+mod launch_relative_tests;

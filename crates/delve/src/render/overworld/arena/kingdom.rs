@@ -189,9 +189,7 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
             im = sprites::stone(&im);
         }
         if let Some(left) = hero.rolling() {
-            for _ in 0..(10 - left.min(10)) * 4 / 10 {
-                im = sprites::quarter_turn(&im);
-            }
+            im = knights::rolled(&im, left);
         }
         if hero.swing > 0 {
             let a = hero.aim_y.atan2(hero.aim_x);
@@ -207,6 +205,7 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
         if hero.hp == 0 {
             bones::draw(&mut over, hero, id, run.tick, false, x, y);
         } else if !(modern && art_v2::knight_supported(run, hero, id)) {
+            knights::shadow(&mut over, x, y);
             over.stamp_sub(
                 &im,
                 hero.x * UNIT - origin.0 as f32 - im.w as f32 / 2.0,
@@ -249,7 +248,14 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
         plaques(&mut over, &geo, origin, goal.as_ref(), hero, taken);
     }
     over.stamp(&goal_layer, 0, 0);
-    if legible {
+    // The ballot covers the view: the door's footer would only peek out
+    // under it.
+    let ballot = run
+        .playtest
+        .seats
+        .get(&focus.unwrap_or_else(|| run.playtest.local_seat()))
+        .is_some_and(|s| s.open);
+    if legible && !ballot {
         let hero = focus
             .and_then(|id| run.players.get(&id))
             .or_else(|| run.players.get(&1))
@@ -275,9 +281,8 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
             kit::waiting_sign(&w.place, at_door)
         });
         if let Some(board) = waiting {
-            let top = NATIVE_H - board.h - 4;
-            over.rect(0, top, NATIVE_W, NATIVE_H - top, 'K');
-            over.line(0, top, NATIVE_W - 1, top, 'B');
+            let top = NATIVE_H - board.h - 3;
+            chrome::band(&mut over, (0, top, NATIVE_W, NATIVE_H - top), chrome::rim_of('B')[0]);
             over.stamp(&board, (NATIVE_W - board.w) / 2, top + 2);
         } else if let Some(hero) = hero
             && let Some(site) = geo.sites.iter().find(|s| {
@@ -290,9 +295,8 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
             let board = kit::door_sign(&site.name, true);
             // Reserve an opaque footer after every world figure and edge
             // marker. Static plaques in the atlas never share its space.
-            let top = NATIVE_H - board.h - 4;
-            over.rect(0, top, NATIVE_W, NATIVE_H - top, 'K');
-            over.line(0, top, NATIVE_W - 1, top, 'B');
+            let top = NATIVE_H - board.h - 3;
+            chrome::band(&mut over, (0, top, NATIVE_W, NATIVE_H - top), chrome::rim_of('B')[0]);
             over.stamp(&board, (NATIVE_W - board.w) / 2, top + 2);
         }
     }
@@ -482,8 +486,7 @@ fn trinkets(
                     let goose = if mad && run.tick / 4 % 2 == 0 { goose.flip_h() } else { goose };
                     over.stamp(&goose, px as i32 - 6, py as i32 - 9);
                     if mad {
-                        over.rect(px as i32 - 12, py as i32 - 21, 26, 10, 'K');
-                        over.text(px as i32 - 10, py as i32 - 20, "HONK", '6');
+                        chrome::label(over, (px as i32 - 10, py as i32 - 20), "HONK", '6', chrome::Tone::SLATE);
                     }
                 }
                 continue;
@@ -519,9 +522,7 @@ fn trinkets(
             let label = format!("E: {verb}");
             let w = super::super::ink::text_width(&label);
             let (lx, ly) = (x - w / 2, y - 24);
-            over.rect(lx - 2, ly - 1, w + 4, 10, 'K');
-            over.text(lx, ly, &label, '6');
-            taken.push((lx - 2, ly - 1, w + 4, 10));
+            taken.push(chrome::label(over, (lx, ly), &label, '6', chrome::Tone::KEY));
         }
         taken.push((x - 8, y - 12, 16, 12));
     }
@@ -596,10 +597,9 @@ fn class_banners(
             _ => class.name.to_uppercase(),
         };
         let w = super::super::ink::text_width(&label);
-        let (lx, ly) = (x - w / 2, y + 2);
-        over.rect(lx - 2, ly - 1, w + 4, 10, 'K');
-        over.text(lx, ly, &label, if near { '6' } else { 'O' });
-        taken.push((lx - 2, ly - 1, w + 4, 10));
+        let (lx, ly) = (x - w / 2, y + 3);
+        let tone = if near { chrome::Tone::KEY } else { chrome::Tone::SLATE };
+        taken.push(chrome::label(over, (lx, ly), &label, if near { '6' } else { 'O' }, tone));
         taken.push((x - 4, y - 30, 18, 30));
     }
     taken
@@ -653,9 +653,11 @@ fn plaques(
         let lead = if art.is_some() { 9 } else { 0 };
         let w = super::super::ink::text_width(&label) + lead;
         let x = site.stand.0 * TILE + TILE / 2 - origin.0 - w / 2;
+        // A pixel of black between two tags (the tags carry their own
+        // pixel of air inside the rim).
         let clashes = |rect: (i32, i32, i32, i32)| {
             placed.iter().any(|&(px, py, pw, ph)| {
-                rect.0 < px + pw + 2 && px < rect.0 + rect.2 + 2 && rect.1 < py + ph + 2 && py < rect.1 + rect.3 + 2
+                rect.0 < px + pw + 1 && px < rect.0 + rect.2 + 1 && rect.1 < py + ph + 1 && py < rect.1 + rect.3 + 1
             })
         };
         // Its own line, or down onto its own roof, or one line up, if a
@@ -667,14 +669,14 @@ fn plaques(
             .into_iter()
             .flat_map(|dx| [y0 - 12, y0 + 2, y0 - 26].into_iter().map(move |y| (x + dx, y)))
             .find(|&(x, y)| {
-                x >= 2 && y >= 2 && x + w <= NATIVE_W - 2 && y + 9 <= NATIVE_H - 40 && !clashes((x - 2, y - 2, w + 4, 11))
+                x >= 3 && y >= 2 && x + w <= NATIVE_W - 3 && y + 9 <= NATIVE_H - 40 && !clashes((x - 3, y - 2, w + 6, 11))
             })
         else {
             continue;
         };
-        let rect = (x - 2, y - 2, w + 4, 11);
+        let rect = (x - 3, y - 2, w + 6, 11);
         placed.push(rect);
-        over.rect(rect.0, rect.1, rect.2, rect.3, 'K');
+        chrome::tag(over, rect, chrome::Tone::SLATE);
         if let Some(rows) = art {
             for (dy, row) in rows.iter().enumerate() {
                 for (dx, c) in row.chars().enumerate() {

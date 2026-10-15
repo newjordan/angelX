@@ -26,6 +26,12 @@ pub mod ramp {
     pub const OAK: &[char] = &['f', 'D', 'F', 'E', 'l', 'm', 'A', 'y'];
     /// The wood that closes a room: background, so dark and calm.
     pub const EDGE: &[char] = &['f', 'f', 'D', 'F', 'F', 'E', 'e'];
+    /// The same wood's olive crowns, warmer, so neighbours part by hue.
+    pub const EDGE_OLIVE: &[char] = &['f', 'f', 'D', 'F', 'E', 'E', 'N'];
+    /// The wood's back row, a step further into the dark.
+    pub const EDGE_BACK: &[char] = &['f', 'f', 'f', 'D', 'D', 'F', 'E'];
+    /// An autumn crown in the wood: dark copper, never the orchard's.
+    pub const EDGE_COPPER: &[char] = &['n', 'n', 'b', 'I', 'B', 'p'];
     /// The pine wood that closes a room.
     pub const EDGE_PINE: &[char] = &['s', 'f', 'D', 'F', 'e', 'e'];
     /// An orchard's or a landmark's tree: the focal one, so brighter.
@@ -129,11 +135,26 @@ pub fn lobe(
             }
             let z = (1.0 - d2 / edge).max(0.0).sqrt();
             let n = super::ink::norm3(dx, dy, z);
-            let mut i = (n[0] * light[0] + n[1] * light[1] + n[2] * light[2]) * 0.5 + 0.5;
-            // Grouped marks: each clump is lit on its own north-west.
-            let c = vnoise(px / grain, py / grain, seed);
-            let cl = vnoise((px + 1.0) / grain, (py + 1.0) / grain, seed);
-            i += (c - 0.5) * 0.22 + (c - cl) * 0.9;
+            let lit = n[0] * light[0] + n[1] * light[1] + n[2] * light[2];
+            // The form first: a broad lit side and a broad shaded side, so
+            // the mass reads as a volume.
+            // The face toward the viewer sits in the upper middle of the
+            // ramp, the side toward the light above it, the far side low.
+            let mut i = 0.33 + 0.56 * lit;
+            // Grouped marks over it: clumps the size of `grain` and a half,
+            // each lit on its own north-west, gentle enough that the form
+            // still leads.
+            let g = grain * 1.4;
+            let c = vnoise(px / g, py / g, seed);
+            let cl = vnoise((px + 1.0) / g, (py + 1.0) / g, seed);
+            // A long ramp has fine steps: the marks move it by as many
+            // steps as a short one's, never more, so they stay grouped.
+            let fine = (6.0 / ramp.len() as f32).min(1.0);
+            i += ((c - 0.5) * 0.18 + (c - cl) * 0.7) * fine;
+            // A small key where the light meets the mass square on.
+            if lit > 0.9 && c > 0.45 {
+                i += 0.12;
+            }
             // The rim turns away from the light into the darkest step.
             if d2 > edge * 0.86 && dx + dy > -0.2 {
                 i -= 0.35;
@@ -179,20 +200,9 @@ pub enum Leaf {
 /// A tree standing with its trunk's foot at `(x, foot)`: a cast shadow, a
 /// trunk lit on its left, a canopy of overlapping clumps, back ones first.
 pub fn tree(cv: &mut Img, x: i32, foot: i32, r: f32, leaf: Leaf, seed: u32, keep: &dyn Fn(i32, i32) -> bool) {
-    let (fx, fy) = (x as f32, foot as f32);
-    shadow(cv, (fx + r * 0.45, fy - 1.0), (r * 0.95, r * 0.42), keep);
     if matches!(leaf, Leaf::Pine | Leaf::EdgePine) {
         let tiers_ramp = if leaf == Leaf::Pine { ramp::PINE } else { ramp::EDGE_PINE };
-        // Tiers, narrow at the top; each tier a flat lobe.
-        let h = r * 2.4;
-        cv_trunk(cv, x, foot, 3, keep);
-        let tiers = 4;
-        for k in 0..tiers {
-            let t = k as f32 / (tiers - 1) as f32;
-            let cy = fy - h + 3.0 + t * (h - 7.0);
-            let rx = r * (0.35 + 0.65 * t);
-            lobe(cv, (fx, cy), (rx, r * 0.42), tiers_ramp, seed + k, 2.0, 0.28, keep);
-        }
+        pine(cv, x, foot, r, tiers_ramp, seed, keep);
         return;
     }
     let ramp = match leaf {
@@ -203,10 +213,54 @@ pub fn tree(cv: &mut Img, x: i32, foot: i32, r: f32, leaf: Leaf, seed: u32, keep
         Leaf::Copper => ramp::COPPER,
         Leaf::Pine | Leaf::EdgePine => ramp::PINE,
     };
+    // A focal tree keeps its one round crown; the rest grow in a habit
+    // of their own.
+    let habit = if leaf == Leaf::Focal { 0 } else { seed };
+    broadleaf(cv, x, foot, r, ramp, seed, habit, keep);
+}
+
+/// A pine in `ramp` with its trunk's foot at `(x, foot)`: tiers narrow at
+/// the top, each a flat lobe; a wood's pines differ in their count of
+/// tiers and in their spread.
+pub fn pine(cv: &mut Img, x: i32, foot: i32, r: f32, ramp: &[char], seed: u32, keep: &dyn Fn(i32, i32) -> bool) {
+    let (fx, fy) = (x as f32, foot as f32);
+    shadow(cv, (fx + r * 0.45, fy - 1.0), (r * 0.95, r * 0.42), keep);
+    let h = r * 2.4;
+    cv_trunk(cv, x, foot, 3, keep);
+    let (tiers, spread) = match (seed >> 3) % 4 {
+        0 => (4, 1.0),
+        1 => (5, 0.85),
+        2 => (3, 1.1),
+        _ => (4, 0.92),
+    };
+    for k in 0..tiers {
+        let t = k as f32 / (tiers - 1) as f32;
+        let cy = fy - h + 3.0 + t * (h - 7.0);
+        let rx = r * (0.35 + 0.65 * t) * spread;
+        lobe(cv, (fx, cy), (rx, r * 0.42 * (4.0 / tiers as f32).sqrt()), ramp, seed + k, 2.0, 0.28, keep);
+    }
+}
+
+/// A broadleaf tree in `ramp` with its trunk's foot at `(x, foot)`. Its
+/// `habit` picks the crown's shape: round, tall and narrow, broad and low,
+/// or leaning to one side with a clump missing, so a wood of them is a
+/// wood of different trees.
+pub fn broadleaf(cv: &mut Img, x: i32, foot: i32, r: f32, ramp: &[char], seed: u32, habit: u32, keep: &dyn Fn(i32, i32) -> bool) {
+    let (fx, fy) = (x as f32, foot as f32);
+    shadow(cv, (fx + r * 0.45, fy - 1.0), (r * 0.95, r * 0.42), keep);
+    // (width, height, lean, the side clump left out)
+    let (sx, sy, lean, gap): (f32, f32, f32, Option<usize>) = match habit % 5 {
+        0 => (1.0, 1.0, 0.0, None),
+        1 => (0.78, 1.22, 0.0, None),
+        2 => (1.2, 0.82, 0.0, None),
+        3 => (0.95, 1.05, 0.22, Some(4)),
+        _ => (1.0, 0.95, -0.2, Some(5)),
+    };
     // The crown sits over a short visible trunk.
-    let cy = fy - r * 1.2;
+    let cy = fy - r * 1.2 * sy.min(1.08);
     cv_trunk(cv, x, foot, (r * 0.6) as i32, keep);
-    let j = |k: u32| ((hash(seed as i32, k as i32, 401) % 100) as f32 / 100.0 - 0.5) * r * 0.25;
+    let wide = if habit == 0 { 0.25 } else { 0.4 };
+    let j = |k: u32| ((hash(seed as i32, k as i32, 401) % 100) as f32 / 100.0 - 0.5) * r * wide;
     // Back clumps, then the crown, then the low front clumps.
     let clumps = [
         (-0.5, -0.3, 0.55),
@@ -217,11 +271,16 @@ pub fn tree(cv: &mut Img, x: i32, foot: i32, r: f32, leaf: Leaf, seed: u32, keep
         (0.48, 0.38, 0.48),
     ];
     for (k, &(ox, oy, s)) in clumps.iter().enumerate() {
+        if gap == Some(k) {
+            continue;
+        }
         let k = k as u32;
+        // The lean carries the upper clumps furthest.
+        let lx = lean * (0.4 - oy) * r;
         lobe(
             cv,
-            (fx + ox * r + j(k), cy + oy * r + j(k + 9)),
-            (r * s, r * s * 0.9),
+            (fx + ox * sx * r + lx + j(k), cy + oy * sy * r + j(k + 9)),
+            (r * s * sx.max(0.9), r * s * 0.9 * sy.max(0.9)),
             ramp,
             seed.wrapping_mul(31) + k,
             2.4,
@@ -313,22 +372,11 @@ pub fn water(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), seed: u32, step
     water_field(cv, (x0, y0, w, h), &wet, seed, step);
 }
 
-/// Open water wherever `wet` admits a pixel inside `bounds`: an irregular
-/// bank that never leaves the wet pixels, depth from the true distance to
-/// the nearest dry pixel, slow swells, ripple glints that drift with `step`,
-/// a dark earth lip along each north bank and a pale foam line where the
-/// water meets a south bank.
-pub fn water_field(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), wet: &dyn Fn(i32, i32) -> bool, seed: u32, step: u32) {
-    if w <= 0 || h <= 0 {
-        return;
-    }
-    // Chamfer distance (thirds of a pixel) to the nearest dry pixel.
-    let (uw, uh) = (w as usize, h as usize);
-    let far = u32::MAX / 4;
-    let mut d: Vec<u32> = (0..uw * uh)
-        .map(|i| if wet(x0 + (i % uw) as i32, y0 + (i / uw) as i32) { far } else { 0 })
-        .collect();
-    let at = |x: i32, y: i32| (y as usize) * uw + x as usize;
+/// Chamfer distance, in thirds of a pixel, from every cell of `d` holding
+/// `u32::MAX / 4` to the nearest cell holding 0; `outside` says which of
+/// the two a cell past the rectangle's edge is.
+fn chamfer(d: &mut [u32], w: i32, h: i32, outside: &dyn Fn(i32, i32) -> u32) {
+    let at = |x: i32, y: i32| (y * w + x) as usize;
     for y in 0..h {
         for x in 0..w {
             let mut v = d[at(x, y)];
@@ -337,7 +385,7 @@ pub fn water_field(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), wet: &dyn
             }
             for (dx, dy, k) in [(-1, 0, 3), (0, -1, 3), (-1, -1, 4), (1, -1, 4)] {
                 let (nx, ny) = (x + dx, y + dy);
-                let n = if nx < 0 || ny < 0 || nx >= w { if wet(x0 + nx, y0 + ny) { far } else { 0 } } else { d[at(nx, ny)] };
+                let n = if nx < 0 || ny < 0 || nx >= w { outside(nx, ny) } else { d[at(nx, ny)] };
                 v = v.min(n.saturating_add(k));
             }
             d[at(x, y)] = v;
@@ -351,24 +399,93 @@ pub fn water_field(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), wet: &dyn
             }
             for (dx, dy, k) in [(1, 0, 3), (0, 1, 3), (1, 1, 4), (-1, 1, 4)] {
                 let (nx, ny) = (x + dx, y + dy);
-                let n = if nx < 0 || nx >= w || ny >= h { if wet(x0 + nx, y0 + ny) { far } else { 0 } } else { d[at(nx, ny)] };
+                let n = if nx < 0 || nx >= w || ny >= h { outside(nx, ny) } else { d[at(nx, ny)] };
                 v = v.min(n.saturating_add(k));
             }
             d[at(x, y)] = v;
         }
     }
+}
+
+/// The shape of a body of water: each pixel's depth from its bank, or -1
+/// on dry ground. The banks wander in long bends and short ones, and every
+/// outer corner is worn round, so no pond is a box. Drawn once per shape.
+fn banks((x0, y0, w, h): (i32, i32, i32, i32), wet: &dyn Fn(i32, i32) -> bool, seed: u32) -> std::rc::Rc<Vec<f32>> {
+    use std::hash::{Hash, Hasher};
+    type Banks = std::cell::RefCell<std::collections::HashMap<u64, std::rc::Rc<Vec<f32>>>>;
+    thread_local! {
+        static BANKS: Banks = Default::default();
+    }
+    let far = u32::MAX / 4;
+    let (uw, uh) = (w as usize, h as usize);
+    let mut d: Vec<u32> = (0..uw * uh)
+        .map(|i| if wet(x0 + (i % uw) as i32, y0 + (i / uw) as i32) { far } else { 0 })
+        .collect();
+    let mut key = std::collections::hash_map::DefaultHasher::new();
+    (x0, y0, w, h, seed).hash(&mut key);
+    for chunk in d.chunks(64) {
+        chunk.iter().fold(0u64, |m, &v| m << 1 | u64::from(v != 0)).hash(&mut key);
+    }
+    let key = key.finish();
+    if let Some(hit) = BANKS.with(|b| b.borrow().get(&key).cloned()) {
+        return hit;
+    }
+    let edge = |nx: i32, ny: i32| if wet(x0 + nx, y0 + ny) { far } else { 0 };
+    chamfer(&mut d, w, h, &edge);
+    // The worn corners: what lies a radius from every bank, grown back
+    // out by the radius, rounds each outer corner to it.
+    let deepest = d.iter().copied().max().unwrap_or(0) as f32 / 3.0;
+    let round = (deepest * 0.5).min(7.0);
+    // A narrow channel wanders less than a broad pond, so it never closes.
+    let reach = ((deepest - 2.0) / 10.0).clamp(0.3, 1.0);
+    let mut core: Vec<u32> = d.iter().map(|&v| if v as f32 / 3.0 >= round { 0 } else { far }).collect();
+    let core_edge = |nx: i32, ny: i32| if wet(x0 + nx, y0 + ny) { 0 } else { far };
+    chamfer(&mut core, w, h, &core_edge);
+    let mut field = vec![-1.0f32; uw * uh];
+    for (i, cell) in field.iter_mut().enumerate() {
+        if d[i] == 0 {
+            continue;
+        }
+        let along = core[i] as f32 / 3.0;
+        let from_bank = if core[i] == 0 { d[i] as f32 / 3.0 } else if along <= round { round - along } else { continue };
+        let (gx, gy) = ((x0 + (i % uw) as i32) as f32, (y0 + (i / uw) as i32) as f32);
+        // Long bends and short ones; the long field stretched, since smooth
+        // noise keeps near its middle and a bank on it would run straight.
+        let long = ((vnoise(gx / 18.0, gy / 18.0, seed ^ 0x5b) - 0.5) * 3.0).clamp(-1.0, 1.0);
+        let short = (vnoise(gx / 6.0, gy / 6.0, seed) - 0.5) * 2.0;
+        let wander = (2.6 + long * 2.4 + short).max(0.0) * reach;
+        let depth = from_bank - 1.0 - wander;
+        if depth >= 0.0 {
+            *cell = depth;
+        }
+    }
+    let field = std::rc::Rc::new(field);
+    BANKS.with(|b| {
+        let mut b = b.borrow_mut();
+        if b.len() > 32 {
+            b.clear();
+        }
+        b.insert(key, std::rc::Rc::clone(&field));
+    });
+    field
+}
+
+/// Open water wherever `wet` admits a pixel inside `bounds`: an irregular
+/// bank that never leaves the wet pixels, depth from the true distance to
+/// the nearest dry pixel, slow swells, ripple glints that drift with `step`,
+/// a dark earth lip along each north bank and a pale foam line where the
+/// water meets a south bank.
+pub fn water_field(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), wet: &dyn Fn(i32, i32) -> bool, seed: u32, step: u32) {
+    if w <= 0 || h <= 0 {
+        return;
+    }
+    let field = banks((x0, y0, w, h), wet, seed);
     let depth = |x: i32, y: i32| -> Option<f32> {
         if x < 0 || y < 0 || x >= w || y >= h {
             return None;
         }
-        let v = d[at(x, y)];
-        if v == 0 {
-            return None;
-        }
-        let (gx, gy) = (x0 + x, y0 + y);
-        let wander = vnoise(gx as f32 / 7.0, gy as f32 / 7.0, seed) * 3.2;
-        let depth = v as f32 / 3.0 - 1.0 - wander;
-        (depth >= 0.0).then_some(depth)
+        let v = field[(y * w + x) as usize];
+        (v >= 0.0).then_some(v)
     };
     for y in 0..h {
         for x in 0..w {
@@ -412,8 +529,9 @@ pub fn water_field(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), wet: &dyn
 
 // ─── built surfaces ──────────────────────────────────────────────────────────
 
-/// Coursed stone: blocks of varied tone, dark mortar, each block lit along
-/// its top, the bottom course dark with grime.
+/// Coursed stone: blocks of varied tone, dark mortar, each block a rounded
+/// stone lit along its top and shaded at its lower right, its corners worn
+/// into the joints; the bottom course dark with grime.
 pub fn ashlar(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char], seed: u32) {
     let mid = ramp.len() as i32 / 2;
     for y in y0..y0 + h {
@@ -430,10 +548,15 @@ pub fn ashlar(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char],
                 1 => -1,
                 _ => 0,
             };
+            let corner = (lx == 1 || lx == len - 1) && (ly == 0 || ly == 2);
             if ly == 3 || lx == 0 {
                 i = 1;
+            } else if corner {
+                i = 2;
             } else if ly == 0 {
                 i += 1;
+            } else if ly == 2 && lx >= len - 3 {
+                i -= 1;
             }
             if y >= y0 + h - 2 {
                 i -= 1;
@@ -482,8 +605,12 @@ pub fn roof(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char], s
     roof_hip(cv, (x0, y0, w, h), ramp, seed, 0);
 }
 
-/// A hipped roof: its ends slope in by `hip` pixels at the ridge, the hip
-/// ends a step darker than the front plane.
+/// A hipped roof: its ends slope in by `hip` pixels at the ridge. Lit as a
+/// volume from the north-west: the west hip catches the light, the south
+/// face holds the middle, the east hip falls into shade. The ridge and the
+/// eave are rounded off at their ends, the west hip's edge and the ridge
+/// are lit lines, each course of shingles dark at its foot, and the eave
+/// casts the darkest line.
 pub fn roof_hip(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char], seed: u32, hip: i32) {
     let top = ramp.len() as i32 - 1;
     for y in y0..y0 + h {
@@ -493,11 +620,19 @@ pub fn roof_hip(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char
         // Lighter toward the ridge, darker toward the eave.
         let fall = (y - y0) * 3 / h.max(1);
         let inset = hip * (h - (y - y0)) / h.max(1);
+        let (left, right) = (x0 + inset, x0 + w - inset - 1);
         for x in x0..x0 + w {
-            if x < x0 + inset || x >= x0 + w - inset {
+            if x < left || x > right {
                 continue;
             }
-            let end = x < x0 + inset + hip / 2 || x >= x0 + w - inset - hip / 2;
+            // Rounded ends to the ridge and the eave.
+            let ridge = y == y0;
+            let eave = y == y0 + h - 1;
+            if (ridge || eave) && (x == left || x == right) && w > 6 {
+                continue;
+            }
+            let west = hip > 0 && x < left + hip / 2 + 1;
+            let east = hip > 0 && x > right - hip / 2 - 1;
             let lx = (x - x0 + off) % 5;
             let mut i = top - 1 - fall;
             if hash((x - x0 + off) / 5, row, seed) % 4 == 0 {
@@ -506,13 +641,19 @@ pub fn roof_hip(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char
             if ly == 2 || lx == 0 {
                 i -= 1;
             }
-            if end && hip > 0 {
-                i -= if x < x0 + w / 2 { 1 } else { 2 };
+            if west {
+                i += 1;
+            } else if east {
+                i -= 2;
             }
-            if y == y0 {
+            // The west hip's edge and the ridge take the light.
+            if x == left && hip > 0 && !eave {
                 i = top;
             }
-            if y == y0 + h - 1 {
+            if ridge {
+                i = top;
+            }
+            if eave {
                 i = 0;
             }
             cv.put(x, y, ramp[i.clamp(0, top) as usize]);
@@ -579,6 +720,15 @@ pub fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), hs: &House, seed:
 /// A solid block seen from the south and above: a lit top face, a front
 /// face of coursed stone or boards, a contact shadow at its foot.
 pub fn block(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), ramp: &[char], boarded: bool, seed: u32) {
+    let mut under = Vec::new();
+    if w >= 6 && h >= 6 {
+        for (cx, cy, sx, sy) in [(x, y, 1, 1), (x + w - 1, y, -1, 1), (x, y + h - 1, 1, -1), (x + w - 1, y + h - 1, -1, -1)] {
+            for (dx, dy) in [(0, 0), (1, 0), (0, 1)] {
+                let (px, py) = (cx + dx * sx, cy + dy * sy);
+                under.push((px, py, cv.get(px, py)));
+            }
+        }
+    }
     let keep = |_: i32, _: i32| true;
     shadow(cv, ((x + w) as f32 - w as f32 * 0.3, (y + h) as f32 + 1.0), (w as f32 * 0.45, 3.5), &keep);
     let top = (h / 3).clamp(3, 7);
@@ -607,29 +757,69 @@ pub fn block(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), ramp: &[char], bo
             cv.set(xx, y + top, darker(c));
         }
     }
+    // Worn corners: the four outer corners of the mass rounded off, so a
+    // block is a dressed stone and not a cut rectangle; what lay under them
+    // shows again.
+    for (px, py, c) in under {
+        match c {
+            Some(c) => cv.set(px, py, c),
+            None => cv.clear(px, py),
+        }
+    }
 }
 
 /// A clipped hedge on the pixel rectangle: a lit, leafy top face over a
-/// darker side face toward the viewer, a contact shadow below.
-pub fn hedge(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32) {
+/// darker side face toward the viewer, a contact shadow below, its corners
+/// clipped round.
+pub fn hedge(cv: &mut Img, rect: (i32, i32, i32, i32), seed: u32) {
+    hedge_open(cv, rect, seed, [true; 4]);
+}
+
+/// One stretch of a clipped hedge whose sides `open` (north, east, south,
+/// west) face the open ground: there its edge is leafy and ragged, the
+/// corner between two open sides is clipped round, and the light falls on
+/// the top from the west. Sides joined to more hedge run on unbroken, and
+/// the texture is keyed on the world's pixels so stretches join.
+pub fn hedge_open(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, [n, e, s, wst]: [bool; 4]) {
     let face = 5.min(h / 2);
+    let r = 3;
+    let worn = |a: i32, b: i32| {
+        let (ca, cb) = ((r - a).max(0), (r - b).max(0));
+        ca * ca + cb * cb > r * r
+    };
+    let k = 73 + seed % 4;
     for yy in y..y + h {
         for xx in x..x + w {
-            let n = vnoise(xx as f32 / 2.8, yy as f32 / 2.8, 73 + seed % 4);
-            let nl = vnoise((xx + 1) as f32 / 2.8, (yy + 1) as f32 / 2.8, 73 + seed % 4);
-            let side = yy >= y + h - face;
-            let mut t = if side { 0.1 + n * 0.3 } else { 0.3 + n * 0.45 + (n - nl) * 1.6 };
-            if yy == y || xx == x {
-                t += 0.2;
+            let (dl, dr, dt, db) = (xx - x, x + w - 1 - xx, yy - y, y + h - 1 - yy);
+            if (n && wst && worn(dl, dt)) || (n && e && worn(dr, dt)) || (s && wst && worn(dl, db)) || (s && e && worn(dr, db)) {
+                continue;
             }
-            if xx == x + w - 1 {
-                t -= 0.15;
+            // Leaves break the clipped line here and there.
+            if ((n && dt == 0) || (wst && dl == 0) || (e && dr == 0)) && hash(xx, yy, 409) % 3 == 0 {
+                continue;
+            }
+            let c0 = vnoise(xx as f32 / 4.0, yy as f32 / 4.0, k);
+            let c1 = vnoise((xx + 1) as f32 / 4.0, (yy + 1) as f32 / 4.0, k);
+            let side = yy >= y + h - face;
+            let mut t = if side {
+                0.08 + c0 * 0.22 + (db as f32 / face as f32) * 0.12
+            } else {
+                let down = dt as f32 / (h - face).max(1) as f32;
+                0.62 - down * 0.22 + (c0 - 0.5) * 0.3 + (c0 - c1) * 0.8
+            };
+            if wst && dl <= 1 {
+                t += 0.1;
+            }
+            if e && dr <= 1 {
+                t -= 0.12;
             }
             cv.put(xx, yy, pick(ramp::HEDGE, t));
         }
     }
-    for xx in x + 1..x + w + 1 {
-        cv.put(xx, y + h, if xx % 2 == 0 { 'f' } else { 'K' });
+    if s {
+        for xx in x + 2..x + w {
+            cv.put(xx, y + h, 'f');
+        }
     }
 }
 
@@ -829,19 +1019,48 @@ pub fn blocks(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), ramp: &[char],
 
 /// A post-and-rail fence from `x0` to `x1` with its foot on row `y`.
 pub fn fence(cv: &mut Img, x0: i32, x1: i32, y: i32) {
-    for x in x0..=x1 {
-        cv.put(x + 1, y + 1, if x % 2 == 0 { 'f' } else { 'K' });
-        cv.put(x, y - 5, if x % 3 == 0 { 'r' } else { 'B' });
-        cv.put(x, y - 2, if x % 3 == 0 { 'r' } else { 'B' });
-        cv.put(x, y - 4, 'b');
+    // Its shadow, a soft dark band on the ground under the rails.
+    for x in x0 + 1..=x1 + 1 {
+        cv.put(x, y + 1, 'f');
     }
-    let mut x = x0;
-    while x <= x1 {
-        for k in 0..8 {
-            cv.put(x, y - k, if k == 7 { 'o' } else { 'P' });
-            cv.put(x + 1, y - k, if k == 7 { 'r' } else { 'b' });
+    rail_fence(cv, (x0, x1), y, &[y - 6, y - 3], 12, ('r', 'B'), hash(x0, y, 408));
+}
+
+/// A split-rail fence from `x0` to `x1` standing on row `foot`: posts every
+/// `every` pixels, each a squared stake lit on its west face with a worn
+/// cap, and between them rails two pixels deep (`(top, under)`, the top lit,
+/// the underside in shade) with their tops at `rails`, each span sagging a
+/// little at its middle and grained here and there, never a dotted line.
+pub fn rail_fence(cv: &mut Img, (x0, x1): (i32, i32), foot: i32, rails: &[i32], every: i32, (top, under): (char, char), seed: u32) {
+    let mut posts: Vec<i32> = (0..).map(|k| x0 + k * every).take_while(|&x| x <= x1 - 2).collect();
+    // The fence ends on a post of its own.
+    if posts.last().is_some_and(|&p| p < x1 - 5) {
+        posts.push(x1 - 2);
+    }
+    for (k, pair) in posts.windows(2).enumerate() {
+        let (a, b) = (pair[0] + 2, pair[1]);
+        let span = (b - a).max(1) as f32;
+        let sag = if span >= 10.0 { 1.0 } else { 0.0 };
+        for (n, &ry) in rails.iter().enumerate() {
+            for x in a..b {
+                let t = (x - a) as f32 / span;
+                let dy = (sag * 4.0 * t * (1.0 - t)).round() as i32;
+                let grain = hash(x / 3, ry + k as i32, seed + n as u32) % 9 == 0;
+                cv.put(x, ry + dy, if grain { under } else { top });
+                cv.put(x, ry + dy + 1, under);
+            }
         }
-        x += 12;
+    }
+    let low = rails.iter().copied().min().unwrap_or(foot) - 2;
+    for &px in &posts {
+        for yy in low..=foot {
+            let cap = yy == low;
+            cv.put(px, yy, if cap { 'r' } else { 'o' });
+            cv.put(px + 1, yy, if cap { 'o' } else { 'P' });
+            if !cap {
+                cv.put(px + 2, yy, 'b');
+            }
+        }
     }
 }
 
@@ -856,8 +1075,11 @@ pub fn sign(cv: &mut Img, x: i32, y: i32, text: &str, ink: char) -> i32 {
             cv.put(px + 1, by + 11 + k, 'b');
         }
     }
+    // Planks squared off by the saw, their corners then taken back off.
+    let kept = super::chrome::corners(cv, (bx, by, w, 11), &[2, 1]);
     boards(cv, (bx, by, w, 11), false, hash(x, y, 407));
     cv.rect(bx + 1, by + 1, w - 2, 9, 'n');
+    super::chrome::restore(cv, &kept);
     cv.text(x, y, text, ink);
     w
 }

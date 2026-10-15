@@ -417,17 +417,8 @@ fn write_overworld_shots() {
 fn the_palette_is_the_realm_master_palette() {
     let json: serde_json::Value =
         serde_json::from_str(include_str!("../../../cockpit/assets/realm/palette.json")).unwrap();
-    let extra = json["transition_inks"]["colors"].as_array().unwrap();
-    assert_eq!(PALETTE.len(), 5 * ink::BANK + extra.len());
-    for (i, hex) in extra.iter().enumerate() {
-        let v = u32::from_str_radix(hex.as_str().unwrap().trim_start_matches('#'), 16).unwrap();
-        assert_eq!(PALETTE[5 * ink::BANK + i], v);
-        assert_eq!(ink::bank_of(rgb(v)), None, "transition inks have no material bank");
-        assert!(!is_signal(rgb(v)));
-        assert_eq!(light::darker(rgb(v)), rgb(v));
-        assert_eq!(light::warm(rgb(v)), rgb(v));
-        assert_ne!(ink::nearest_plain([rgb(v)[0] as f32, rgb(v)[1] as f32, rgb(v)[2] as f32]), rgb(v));
-    }
+    assert!(json.get("transition_inks").is_none(), "the transition paintings' extra inks are retired");
+    assert_eq!(PALETTE.len(), 5 * ink::BANK);
     let banks = ["structure", "foliage", "timber", "stone", "signal"];
     for (b, name) in banks.iter().enumerate() {
         let colors = json["banks"][name]["colors"].as_array().unwrap();

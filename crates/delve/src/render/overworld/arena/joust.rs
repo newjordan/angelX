@@ -8,6 +8,7 @@
 //! jointed legs that move with each frame of the gallop), so one drawing
 //! serves every coat, caparison and stride.
 
+use super::super::chrome;
 use super::super::ink::{Img, hash};
 use super::{TILE, at, home, sprites};
 use crate::realm::chivalry::Mount;
@@ -276,13 +277,23 @@ fn rider(
             );
         }
     }
+    // The helm in the hero's steel: lit along its crown, navy at its back.
     for y in sy - 12..sy - 7 {
         for x in sx - 2..sx + 3 {
-            im.put(x, y, if y == sy - 12 { 'H' } else { 'h' });
+            let ink = if y == sy - 12 {
+                'W'
+            } else if x == sx - 2 {
+                'u'
+            } else if y == sy - 8 {
+                'U'
+            } else {
+                'V'
+            };
+            im.put(x, y, ink);
         }
     }
-    im.put(sx + 1, sy - 10, 'k');
-    im.put(sx + 2, sy - 10, 'k');
+    im.put(sx + 1, sy - 10, 's');
+    im.put(sx + 2, sy - 10, 's');
     if !crowned {
         im.line(sx - 1, sy - 13, sx - 3, sy - 15, col.plume);
         im.line(sx, sy - 13, sx - 2, sy - 15, col.plume);
@@ -300,7 +311,7 @@ fn rider(
         }
     }
     // The leg in the stirrup.
-    im.line(sx, sy + 1, sx + 1, sy + 5, 'h');
+    im.line(sx, sy + 1, sx + 1, sy + 5, 'v');
     // The lance under the arm, out past the horse's head.
     let reach = if broken { 9 } else { 26 };
     let tip = (sx + reach, sy - if high { 9 } else { 5 });
@@ -329,7 +340,7 @@ fn rider(
                 x,
                 y,
                 if rim {
-                    'H'
+                    if y == top { 'W' } else { 'v' }
                 } else if charge {
                     col.field
                 } else {
@@ -346,9 +357,10 @@ fn rider(
 fn thrown(col: Colours, age: u32, helm: bool, kick: bool) -> Img {
     let mut im = Img::new(14, 18);
     if helm {
-        im.rect(4, 0, 6, 6, 'i');
-        im.line(4, 0, 9, 0, 'H');
-        im.line(6, 3, 8, 3, 'k');
+        im.rect(4, 0, 6, 6, 'V');
+        im.line(4, 0, 9, 0, 'W');
+        im.line(9, 1, 9, 5, 'u');
+        im.line(6, 3, 8, 3, 's');
     } else {
         im.rect(5, 1, 4, 5, 'O');
         im.line(5, 1, 8, 1, 'r');
@@ -370,14 +382,14 @@ fn thrown(col: Colours, age: u32, helm: bool, kick: bool) -> Img {
         }
     }
     // Arms flung out, legs kicking.
-    im.line(3, 7, 0, 4, 'h');
-    im.line(10, 7, 13, 4, 'h');
+    im.line(3, 7, 0, 4, 'v');
+    im.line(10, 7, 13, 4, 'v');
     if kick {
-        im.line(5, 13, 1, 15, 'h');
-        im.line(8, 13, 12, 15, 'h');
+        im.line(5, 13, 1, 15, 'v');
+        im.line(8, 13, 12, 15, 'v');
     } else {
-        im.line(5, 13, 3, 17, 'h');
-        im.line(8, 13, 10, 17, 'h');
+        im.line(5, 13, 3, 17, 'v');
+        im.line(8, 13, 10, 17, 'v');
     }
     match age {
         0..=5 => im,
@@ -417,11 +429,12 @@ fn fall(cv: &mut Img, col: Colours, (lane_x, lane_y): (i32, i32), back: i32, age
             _ => ground,
         };
         let turn = if t < 25 { (t / 2) % 4 } else { 1 };
-        cv.rect(hx - 2, hy - 2, 5, 5, 'i');
-        cv.line(hx - 2, hy - 2, hx + 2, hy - 2, 'H');
+        cv.rect(hx - 2, hy - 2, 5, 5, 'V');
+        cv.line(hx - 2, hy - 2, hx + 2, hy - 2, 'W');
+        cv.line(hx + 2, hy - 1, hx + 2, hy + 2, 'u');
         let slit = [(0, -1), (1, 0), (0, 1), (-1, 0)][turn as usize];
-        cv.put(hx + slit.0, hy + slit.1, 'k');
-        cv.put(hx + slit.0 * 2, hy + slit.1, 'k');
+        cv.put(hx + slit.0, hy + slit.1, 's');
+        cv.put(hx + slit.0 * 2, hy + slit.1, 's');
     }
     if (20..44).contains(&age) {
         // The thump: dust thrown out round him, settling.
@@ -613,8 +626,8 @@ fn market(cv: &mut Img, run: &Run) {
             Err(why) => why.split(' ').next().unwrap_or(why).to_string(),
         };
         let tw = super::super::ink::text_width(&tag);
-        cv.rect(mx - tw / 2 - 2, foot - 52, tw + 4, 10, 'K');
-        cv.text(mx - tw / 2, foot - 50, &tag, if state.is_ok() { '6' } else { 'h' });
+        let tone = if state.is_ok() { chrome::Tone::KEY } else { chrome::Tone::SLATE };
+        chrome::label(cv, (mx - tw / 2, foot - 50), &tag, if state.is_ok() { '6' } else { 'h' }, tone);
     }
 }
 
@@ -733,15 +746,64 @@ pub(super) fn crowd(cv: &mut Img, run: &Run) {
             };
             let skin = skins[(h % 4) as usize];
             let body = cloth[((h >> 3) % 7) as usize];
-            cv.rect(x, y - jump, 3, 3, skin);
-            cv.rect(x, y + 3 - jump, 3, 3, body);
-            if cheer && jump == 2 {
-                cv.put(x - 1, y - 2, skin);
-                cv.put(x + 3, y - 2, skin);
-            }
+            spectator(cv, x, y - jump, h, skin, body, cheer && jump == 2);
             x += 6 + (h % 3) as i32;
             k += 1;
         }
+    }
+}
+
+/// One of the crowd, five pixels wide and six tall with its feet on row
+/// `y + 6`: a round head under its own hair, hood or cap, rounded shoulders
+/// in its cloth lit on the left, and both arms up while it cheers. `h`
+/// picks the look, so the stands hold folk and not a row of stamps.
+fn spectator(cv: &mut Img, x: i32, y: i32, h: u32, skin: char, body: char, cheering: bool) {
+    let hair = ['n', 'b', 'I', 'g', 'J', 'R'][((h >> 6) % 6) as usize];
+    let hat = (h >> 9) % 5;
+    let lit = match body {
+        'B' => 'P',
+        'u' => 'U',
+        'p' => 'r',
+        'E' => 'l',
+        'X' => 'g',
+        'r' => 'R',
+        _ => 'u',
+    };
+    // A shorter one now and then: a squire, a child.
+    let y = if (h >> 12) % 4 == 0 { y + 1 } else { y };
+    // The head: rounded, its crown in hair or hat.
+    let crown = match hat {
+        0 => body,
+        1 => '7',
+        2 => 'S',
+        _ => hair,
+    };
+    cv.put(x + 1, y, crown);
+    cv.put(x + 2, y, crown);
+    cv.put(x + 3, y, crown);
+    if hat == 0 {
+        // A hood: the cloth comes down either side of the face.
+        cv.put(x + 1, y + 1, body);
+        cv.put(x + 3, y + 1, body);
+        cv.put(x + 2, y + 1, skin);
+    } else {
+        cv.put(x + 1, y + 1, skin);
+        cv.put(x + 2, y + 1, skin);
+        cv.put(x + 3, y + 1, skin);
+    }
+    cv.put(x + 2, y + 2, skin);
+    // Shoulders, rounded, lit down the left.
+    for dx in 1..4 {
+        cv.put(x + dx, y + 3, if dx == 1 { lit } else { body });
+    }
+    for dx in 0..5 {
+        cv.put(x + dx, y + 4, if dx == 0 { lit } else { body });
+    }
+    if cheering {
+        cv.put(x, y + 1, skin);
+        cv.put(x + 4, y + 1, skin);
+        cv.put(x, y + 2, body);
+        cv.put(x + 4, y + 2, body);
     }
 }
 
@@ -1098,8 +1160,7 @@ fn pass_counter(cv: &mut Img, run: &Run, j: &Joust) {
     let half = lw.max(rw) + 18;
     let pw = (half * 2).max(super::super::ink::text_width(&title) * 2 + 10);
     let (px, py, ph) = (cx - pw / 2, 1, 41);
-    cv.rect(px, py, pw, ph, 'K');
-    cv.frame(px, py, pw, ph, 'B');
+    chrome::board(cv, (px, py, pw, ph), 'B');
     big(cv, cx, py + 2, &title, '9');
     let y = py + 21;
     let me = colours_of(run, j.knight);
@@ -1159,9 +1220,7 @@ fn draw_rider(
 /// A key on the board: its letter in a little cap.
 fn keycap(cv: &mut Img, x: i32, y: i32, key: &str) -> i32 {
     let w = super::super::ink::text_width(key) + 4;
-    cv.rect(x, y, w, 11, 'g');
-    cv.frame(x, y, w, 11, 'h');
-    cv.line(x + 1, y + 10, x + w - 2, y + 10, 'k');
+    chrome::keycap(cv, (x, y, w, 11));
     cv.text(x + 2, y + 2, key, '9');
     w
 }
@@ -1186,8 +1245,7 @@ fn prompts(cv: &mut Img, items: &[(&[&str], &str)], status: Option<(&str, char)>
     let h = if status.is_some() && !items.is_empty() { 30 } else { 17 };
     let x0 = ((cv.w - w) / 2 - 40).max(2);
     let y0 = cv.h - h - 4;
-    cv.rect(x0, y0, w, h, 'K');
-    cv.frame(x0, y0, w, h, 'B');
+    chrome::board(cv, (x0, y0, w, h), 'B');
     let mut y = y0 + 3;
     if let Some((s, ink)) = status {
         cv.text(x0 + (w - sw) / 2, y + 2, s, ink);
@@ -1363,8 +1421,7 @@ fn result_board(cv: &mut Img, run: &Run, j: &Joust) {
     let h = board.h + 22;
     let x0 = ((cv.w - w) / 2 - 40).max(2);
     let y0 = cv.h - h - 4;
-    cv.rect(x0, y0, w, h, 'K');
-    cv.frame(x0, y0, w, h, 'B');
+    chrome::board(cv, (x0, y0, w, h), 'B');
     big(cv, x0 + w / 2, y0 + 3, &title, if j.winner().is_some() { '6' } else { '9' });
     cv.stamp(&board, x0 + (w - board.w) / 2, y0 + 20);
     // The laurel over the winner's name.

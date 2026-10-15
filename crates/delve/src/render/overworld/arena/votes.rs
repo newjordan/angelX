@@ -45,18 +45,15 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
             };
             let w = super::super::ink::text_width(text) + 20;
             let x = (NATIVE_W - w) / 2;
-            over.rect(x, 12, w, 21, 's');
-            over.frame(x, 12, w, 21, 'o');
+            chrome::panel(over, (x, 12, w, 21), chrome::Tone::BRASS);
             over.text(x + 10, 19, text, 'T');
         }
         return;
     }
     let (w, h) = (NATIVE_W - 16, NATIVE_H - 16);
-    let mut im = Img::new(w, h);
-    im.rect(0, 0, w, h, 's');
-    for (inset, ink) in [(0, 'g'), (1, 'o'), (2, 'T'), (3, 'P'), (4, 's'), (6, 'u')] {
-        im.frame(inset, inset, w - inset * 2, h - inset * 2, ink);
-    }
+    let mut im = Img::new(w + 1, h + 1);
+    chrome::panel(&mut im, (0, 0, w, h), chrome::Tone::FRAMED);
+    chrome::ring(&mut im, (0, 0, w, h), 4);
     title(&mut im, 14, 12, "WHAT'S NEW");
     im.text(w - 77, 16, &format!("P{id}  0.2.2"), 'T');
     im.text(14, 33, "FEATURE", 'T');
@@ -87,7 +84,7 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
             continue;
         };
         if index == selected {
-            im.rect(10, y - 2, w - 20, 11, 'x');
+            chrome::highlight(&mut im, (10, y - 2, w - 20, 11));
             im.text(13, y, ">", 'O');
         }
         im.text(
@@ -121,7 +118,7 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
             im.text(276, y, &format!("{avg:.1} ({count})"), 'O');
         }
     }
-    im.line(10, h - 30, w - 11, h - 30, 'u');
+    chrome::rule(&mut im, 10, w - 11, h - 31);
     let couch = seat.couch;
     let (controls, keys) = if couch {
         (

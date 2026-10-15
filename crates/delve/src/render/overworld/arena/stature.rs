@@ -67,7 +67,16 @@ pub(super) fn boss(art: &Img, radius: f32, floor: i32) -> Img {
 /// in.
 pub(super) fn boss_figure(run: &Run, index: u8) -> Option<Img> {
     let boss = run.bosses.get(usize::from(index))?;
-    let art = Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>());
+    let art = if boss.id == crate::rules::signatures::RIPPER {
+        sprites::ripper()
+    } else {
+        Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>())
+    };
     let floor = if run.guardian_room() { GUARDIAN } else { CHIEF };
+    let art = if boss.id == crate::rules::signatures::RIPPER {
+        super::foe_material::ripper(&art)
+    } else {
+        super::foe_material::dress(&art, EnemyKind::Boss)
+    };
     Some(self::boss(&art, boss.radius, floor))
 }

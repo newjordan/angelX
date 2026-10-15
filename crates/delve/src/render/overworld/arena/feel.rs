@@ -14,11 +14,11 @@ use crate::rules::{Run, Shot};
 /// A shot's colours, core then rim, for its sparks.
 fn inks(kind: Shot) -> (char, char) {
     match kind {
-        Shot::Arrow => ('T', 'o'),
-        Shot::Bolt => ('W', 'V'),
-        Shot::Ball => ('6', '7'),
-        Shot::Sacred => ('w', '6'),
-        _ => ('W', 'h'),
+        Shot::Arrow => ('c', 'o'),
+        Shot::Bolt => ('c', 'U'),
+        Shot::Ball => ('c', 'o'),
+        Shot::Sacred => ('9', '@'),
+        _ => ('c', 'u'),
     }
 }
 
@@ -60,11 +60,11 @@ fn tracers(cv: &mut Img, run: &Run) {
         let steps = (b.0 - a.0).abs().max((b.1 - a.1).abs()).max(1);
         let fresh = t.ttl * 2 > TRACER_TICKS;
         let ink = if t.ttl + 2 >= TRACER_TICKS {
-            'w'
+            'c'
         } else if fresh {
-            'W'
-        } else {
             'V'
+        } else {
+            'U'
         };
         for i in 0..=steps {
             // As it fades, the line breaks up.
@@ -74,8 +74,8 @@ fn tracers(cv: &mut Img, run: &Run) {
             let (x, y) = (a.0 + (b.0 - a.0) * i / steps, a.1 + (b.1 - a.1) * i / steps);
             cv.put(x, y, ink);
             if t.thick {
-                cv.put(x, y + 1, if fresh { 'V' } else { 'u' });
-                cv.put(x + 1, y, if fresh { 'V' } else { 'u' });
+                cv.put(x, y + 1, if fresh { 'U' } else { 'S' });
+                cv.put(x + 1, y, if fresh { 'U' } else { 'S' });
             }
         }
     }
@@ -114,35 +114,23 @@ fn puffs(cv: &mut Img, run: &Run) {
         if p.smoke {
             let age = SMOKE_TICKS.saturating_sub(p.ttl) as i32;
             let r = 2 + age / 2;
-            let ink = if age < 5 {
-                'J'
-            } else if age < 10 {
-                'G'
-            } else {
-                'j'
-            };
-            for dy in -r..=r {
-                for dx in -r..=r {
-                    if dx * dx + dy * dy <= r * r && hash(x + dx, y + dy, u32::from(p.ttl)) % 3 != 0
-                    {
-                        cv.put(x + dx, y + dy, ink);
-                    }
-                }
-            }
+            let smoke = super::fx::stamp(super::fx::Stamp::Smoke, r, r, (age / 4) as u8);
+            cv.stamp(&smoke, x - r, y - r);
         } else {
+            super::fx::glow(cv, x, y, super::fx::Hue::Warm);
             let reach = 2 + i32::from(p.ttl) * 2;
             for k in 0..=reach {
                 let k = k as f32;
                 cv.put(
                     x + (p.dx * k).round() as i32,
                     y + (p.dy * k).round() as i32,
-                    if k < 2.0 { 'w' } else { '6' },
+                    if k < 1.0 { '9' } else if k < 3.0 { 'c' } else { '@' },
                 );
             }
             for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                 cv.put(x + dx, y + dy, '5');
             }
-            cv.put(x, y, 'w');
+            cv.put(x, y, '9');
         }
     }
 }
@@ -152,6 +140,7 @@ fn sparks(cv: &mut Img, run: &Run) {
     for s in &run.feel.impacts {
         let (x, y) = at(s.x, s.y);
         let (core, rim) = inks(s.kind);
+        if s.ttl > 3 { super::fx::glow(cv, x, y, super::fx::Hue::Warm); }
         let spread = 7 - i32::from(s.ttl);
         for n in 0..6 {
             let a = n as f32 / 6.0 * std::f32::consts::TAU + (hash(x, y, 5) % 7) as f32 * 0.3;
@@ -163,12 +152,12 @@ fn sparks(cv: &mut Img, run: &Run) {
             );
         }
         if s.ttl > 3 {
-            cv.put(x, y, 'w');
+            cv.put(x, y, '9');
         }
     }
 }
 
-/// A death: a white disc for the held frames, then its parts flying out
+/// A death: a shaded flash disc for the held frames, then its parts flying out
 /// and a ring of dust.
 fn deaths(cv: &mut Img, run: &Run) {
     for d in &run.feel.deaths {
@@ -177,13 +166,8 @@ fn deaths(cv: &mut Img, run: &Run) {
         let age = DEATH_TICKS.saturating_sub(d.ttl);
         if age < DEATH_HOLD {
             let ri = r.round() as i32;
-            for dy in -ri..=ri {
-                for dx in -ri..=ri {
-                    if dx * dx + dy * dy <= ri * ri {
-                        cv.put(x + dx, y + dy, 'w');
-                    }
-                }
-            }
+            let held = super::fx::stamp(super::fx::Stamp::Death, ri, ri, age);
+            cv.stamp(&held, x - ri, y - ri);
             continue;
         }
         let k = f32::from(age - DEATH_HOLD);
@@ -194,7 +178,7 @@ fn deaths(cv: &mut Img, run: &Run) {
                 x + (a.cos() * fly).round() as i32,
                 y + (a.sin() * fly).round() as i32 + (k * k * 0.05) as i32,
             );
-            let ink = if k < 4.0 { 'H' } else { 'J' };
+            let ink = if k < 2.0 { 'c' } else if k < 4.0 { 'V' } else { 'u' };
             cv.put(px, py, ink);
             if n % 3 == 0 {
                 cv.put(px + 1, py, 'G');
@@ -215,11 +199,11 @@ fn coins(cv: &mut Img, run: &Run) {
             &[(-1, 0), (1, 0), (0, -1), (0, 1)]
         };
         for &(dx, dy) in rim {
-            cv.put(x + dx, y + dy, '4');
+            cv.put(x + dx, y + dy, if dy < 0 { '6' } else { 'o' });
         }
-        cv.put(x, y, if edge { '5' } else { '6' });
+        cv.put(x, y, if edge { '@' } else { 'c' });
         if !edge {
-            cv.put(x - 1, y - 1, 'w');
+            cv.put(x - 1, y - 1, 'T');
         }
     }
 }

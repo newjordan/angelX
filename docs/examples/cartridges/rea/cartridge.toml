@@ -1,0 +1,12 @@
+# REA (Reverse Engineer Anything, github.com/morluto/rea, MIT) as a tool
+# cartridge. Plugged in, it costs nothing until `/rea` is typed: REA's MCP
+# server (207 tools) is never attached; that turn carries REA's own skill and
+# drives its CLI. ./install.sh plugs it in; removing
+# ~/.angelX/cartridges/rea unplugs it.
+id = "rea"
+label = "REA"
+
+[[commands]]
+name = "rea"
+usage = "<target path, app or URL> [what to find or build]"
+skills = ["rea", "reverse-engineer-anything"]

@@ -70,7 +70,38 @@ fn floor_plate_motion_preserves_the_intertitle_and_most_of_the_painting() {
     }
 }
 
-/// Offline only: no services or model calls. The moodboard remains external.
+#[test]
+fn repeated_destinations_have_different_scenes_above_the_title() {
+    for kind in [Kind::Crypt, Kind::Mines] {
+        let first = painting(kind, 1, 27);
+        let second = painting(kind, 2, 27);
+        let changed = (0..HORIZON)
+            .flat_map(|y| (0..W).map(move |x| (x, y)))
+            .filter(|&(x, y)| first.get(x, y) != second.get(x, y))
+            .count();
+        assert!(
+            changed > (W * HORIZON / 4) as usize,
+            "separate scenes for {kind:?}"
+        );
+    }
+}
+
+#[test]
+fn paintings_disappear_into_black_before_the_canvas_edges() {
+    for &(kind, depth) in &DESTINATIONS {
+        let im = painting(kind, depth, 27);
+        for x in 0..W {
+            assert_eq!(im.get(x, 0), Some(BLACK));
+            assert_eq!(im.get(x, HORIZON - 1), Some(BLACK));
+        }
+        for y in 0..HORIZON {
+            assert_eq!(im.get(0, y), Some(BLACK));
+            assert_eq!(im.get(W - 1, y), Some(BLACK));
+        }
+    }
+}
+
+/// Offline native and terminal frames, including a native cache timing sample.
 #[test]
 #[ignore]
 fn write_floor_plate_shots() {
@@ -85,41 +116,17 @@ fn write_floor_plate_shots() {
             .save(dir.join(name))
             .unwrap();
     };
-    let mood = image::open(
-        std::env::var_os("ANGEL_PLATE_MOODBOARD")
-            .unwrap_or_else(|| "/work/tmp/plates-moodboard.png".into()),
-    )
-    .unwrap()
-    .to_rgb8();
-    let mut sheet = image::RgbImage::new(2168, 712);
-    let mood = image::imageops::resize(&mood, 984, 522, image::imageops::FilterType::Lanczos3);
-    image::imageops::replace(&mut sheet, &mood, 0, 20);
-    for (i, &(kind, depth)) in DESTINATIONS.iter().enumerate() {
-        let name = format!("{:?}-{depth}", kind).to_lowercase();
-        let im = painting(kind, depth, 20);
-        save(&format!("{name}.png"), &im);
-        let png = image::RgbImage::from_raw(W as u32, H as u32, im.rgb_bytes()).unwrap();
-        image::imageops::replace(
-            &mut sheet,
-            &png,
-            1000 + (i as i64 % 3) * 392,
-            16 + (i as i64 / 3) * 232,
-        );
-        save(
-            &format!("{name}-terminal.png"),
-            &frame(
-                Playing {
-                    kind,
-                    depth,
-                    age: 20,
-                },
-                135,
-                78,
-            ),
-        );
+    for &(kind, depth) in &DESTINATIONS {
+        let name = format!("{kind:?}-{depth}").to_lowercase();
+        for age in [8, 27, 45] {
+            save(&format!("{name}-{age:02}.png"), &painting(kind, depth, age));
+            save(
+                &format!("{name}-{age:02}-terminal.png"),
+                &frame(Playing { kind, depth, age }, 135, 78),
+            );
+        }
     }
-    sheet.save(dir.join("contact-sheet.png")).unwrap();
-    // Measure already-cached native frames without making CI depend on wall time.
+    // Measure warmed caches without adding a wall-time assertion to CI.
     let mut timings =
         String::from("Cached 384x224 painting, debug test build, 200 frames per destination\n");
     for &(kind, depth) in &DESTINATIONS {

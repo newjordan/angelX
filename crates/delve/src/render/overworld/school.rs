@@ -50,9 +50,13 @@ impl Room {
 }
 
 fn sign(text: &str) -> Img {
-    let mut image = Img::new(text_width(text) + 6, 11);
-    image.rect(0, 0, image.w, image.h, 'K');
-    image.frame(0, 0, image.w, image.h, 'P');
+    let w = text_width(text) + 6;
+    let mut image = Img::new(w + 1, 12);
+    super::chrome::panel(
+        &mut image,
+        (0, 0, w, 11),
+        super::chrome::Tone::NIGHT_SIGN.rimmed(super::chrome::rim_of('P')),
+    );
     image.text(3, 2, text, 'H');
     image
 }

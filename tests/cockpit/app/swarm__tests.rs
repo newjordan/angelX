@@ -3197,6 +3197,11 @@ fn aligned_run_reuses_one_system_prefix_for_every_call() {
     // The whole point of cache alignment: every call in a deliberate turn
     // opens with the same [system][conversation] bytes, so provider prefix
     // caches hit across the fan-out, the synthesis, and future turns.
+    // `ANGEL_ADVISOR` (set briefly by the advisor tests under the env lock)
+    // adds a final review call with its own `⠌⠊` brief; hold the lock and
+    // keep it unset so that test's window can never land inside this one.
+    let _lock = crate::tests::env_lock();
+    let _advisor = EnvGuard::unset("ANGEL_ADVISOR");
     let inner = Arc::new(RecordingClub {
         systems: Mutex::new(Vec::new()),
     });

@@ -283,6 +283,7 @@ pub(crate) fn render_room(
     frame.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_type(ratatui::widgets::BorderType::Rounded)
         .title(" TOGETHER · DUNGEON DELVE ")
         .title_style(Style::new().fg(PARCHMENT))
         .style(Style::new().bg(Color::Rgb(0, 0, 0)))
@@ -1057,7 +1058,7 @@ fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: bool) {
     frame.render_widget(Clear, pop);
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_type(ratatui::widgets::BorderType::Double)
+        .border_type(ratatui::widgets::BorderType::Rounded)
         .title(" ✦ ONE WISH ✦ ")
         .title_alignment(ratatui::layout::Alignment::Center)
         .title_style(Style::new().fg(GOLD).add_modifier(Modifier::BOLD))
@@ -1203,6 +1204,7 @@ fn card_box(frame: &mut Frame, area: Rect, card: &Card, label: &str, selected: b
     let color = rarity_color(card.rarity);
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_type(ratatui::widgets::BorderType::Rounded)
         .title(fit_text(label, area.width.saturating_sub(2)))
         .title_style(Style::new().fg(color))
         .border_style(Style::new().fg(if selected { GOLD } else { STONE }));

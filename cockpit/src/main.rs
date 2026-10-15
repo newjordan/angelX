@@ -171,9 +171,8 @@ fn flush_session_for_exit(session: &session::Session) -> std::io::Result<()> {
     })
 }
 
-const PRACTICE_NOTICE: &str =
-    "No live model route; interactive practice driver is active (offline echo).";
-const NO_ROUTE: &str = "no model route: configure the selected provider's credentials, endpoint and model, then set ANGEL_DRIVER; check ANGEL_API_CLUBS if you set an allowlist. See docs/MODELS.md or /connect in the cockpit. For an explicit offline practice run, set ANGEL_PRACTICE=1";
+const PRACTICE_NOTICE: &str = "No live model route; interactive practice driver is active (offline echo). Type /setup to connect a model.";
+const NO_ROUTE: &str = "no model route: configure the selected provider's credentials, endpoint and model, then set ANGEL_DRIVER; check ANGEL_API_CLUBS if you set an allowlist. See docs/MODELS.md, or /setup (a menu) and /connect in the cockpit. For an explicit offline practice run, set ANGEL_PRACTICE=1";
 
 fn interactive_practice_notice(label: &str) -> Option<&'static str> {
     (label == "practice").then_some(PRACTICE_NOTICE)
@@ -317,6 +316,13 @@ fn run(
     // event loop opens immediately while the in-hand club warms in the back.
     if let Some(notice) = interactive_practice_notice(app.bag.in_hand_label()) {
         app.system_msg(notice);
+    }
+    // bin/angelX asks for the setup menu on a first launch and for `angelX setup`.
+    if std::env::var_os("ANGEL_OPEN_SETUP").is_some_and(|v| v == "1") {
+        // SAFETY: single-threaded startup, before the event loop; the flag is
+        // for this launch only and must not reach the shells it starts.
+        unsafe { std::env::remove_var("ANGEL_OPEN_SETUP") };
+        app.open_setup();
     }
     app.bag.warm_background();
     // Interactive sessions echo the operator's message on the very next frame
@@ -1424,6 +1430,10 @@ fn main() -> std::io::Result<()> {
             } else {
                 bag.in_hand()
             };
+            // The seat's first network work (its window probe, which opens the
+            // provider connection) starts now and overlaps the rest of startup;
+            // its result is still published where the first turn asks for it.
+            Arc::clone(&club).prewarm();
             if let Some(requested) = task_args.reasoning_effort.as_deref()
                 && club.set_reasoning_effort(requested).is_none()
             {

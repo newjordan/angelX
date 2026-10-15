@@ -270,6 +270,28 @@ pub(crate) fn cone(
         let a1 = rot + TAU * ((i + 1) as f32) / sides as f32;
         let p0 = ring_pt(cx, cy, r, z_base, a0);
         let p1 = ring_pt(cx, cy, r, z_base, a1);
+        if mat == super::super::mesh::mat::FLAME {
+            // A small shoulder and leaning tip give the amber envelope a
+            // tongue, within the original base radius and height. Each face
+            // carries the same local bright core, from foot to cooling tip.
+            let z_mid = z_base + (z_tip - z_base) * 0.43;
+            let q0 = ring_pt(cx + r * 0.17, cy - r * 0.05, r * 0.74, z_mid, a0);
+            let q1 = ring_pt(cx + r * 0.17, cy - r * 0.05, r * 0.74, z_mid, a1);
+            tri(m, [p0, p1, q1], [[0.0, 0.0], [1.0, 0.0], [0.87, 0.43]], mat);
+            tri(
+                m,
+                [p0, q1, q0],
+                [[0.0, 0.0], [0.87, 0.43], [0.13, 0.43]],
+                mat,
+            );
+            tri(
+                m,
+                [q0, q1, tip + v3(r * 0.45, -r * 0.08, 0.0)],
+                [[0.13, 0.43], [0.87, 0.43], [0.5, 1.0]],
+                mat,
+            );
+            continue;
+        }
         tri(
             m,
             [p0, p1, tip],

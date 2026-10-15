@@ -67,6 +67,21 @@ fn dot_count(image: &ColoredBrailleImage) -> u32 {
         .sum()
 }
 
+/// Equivalent ink at the former 70-channel floor. Tonal 3D can fill a dark
+/// plane with dim dots, so a raw bit count would misread it as a white wash.
+/// The original coverage bands still measure the same visible ink budget.
+fn tonal_coverage(image: &ColoredBrailleImage) -> f32 {
+    let ink: f32 = image
+        .cells
+        .iter()
+        .map(|cell| {
+            let gain = (cell.fg.iter().copied().max().unwrap() as f32 / 70.0).min(1.0);
+            glyph_bits(cell.glyph).count_ones() as f32 * gain
+        })
+        .sum();
+    ink / (image.width * image.height * 8) as f32
+}
+
 /// Run the shared ride claims on the sole retained outdoor renderer.
 fn each_renderer(mut body: impl FnMut(&str)) {
     let _pin = world3d::pin_world3d();
@@ -544,7 +559,7 @@ fn world3d_small_vistas_stay_moonlit_at_ride_pane_size() {
     let cells = (48usize, 18usize);
     for building in EVERY_BUILDING {
         let (_, image) = world3d_vista(building, cells);
-        let coverage = dot_count(&image) as f32 / (cells.0 * 2 * cells.1 * 4) as f32;
+        let coverage = tonal_coverage(&image);
         eprintln!("{building:?}: small coverage={coverage:.3}");
         // The structure-aware encoder draws a lit flat fill solid and lets
         // its colour carry the value, so a moonlit vista inks more cells
@@ -650,7 +665,7 @@ fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
     ] {
         for building in EVERY_BUILDING {
             let (plate, image) = world3d_interior(building, cells);
-            let coverage = dot_count(&image) as f32 / (cells.0 * 2 * cells.1 * 4) as f32;
+            let coverage = tonal_coverage(&image);
 
             assert!(
                 (band.0..=band.1).contains(&coverage),
@@ -1050,7 +1065,7 @@ fn every_region_stages_a_distinct_deterministic_frame_through_the_seam() {
         );
 
         let image = frame_to_braille_graded(&first, cells.0, cells.1, true);
-        let coverage = dot_count(&image) as f32 / (cells.0 * 2 * cells.1 * 4) as f32;
+        let coverage = tonal_coverage(&image);
         eprintln!("{region:?}: ink={coverage:.3}");
         assert!(
             (0.10..=0.86).contains(&coverage),

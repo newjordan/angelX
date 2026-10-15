@@ -79,6 +79,39 @@ starter repository. It has not been run on the live challenge.
   keep an instruction-count ledger, the cartridge would grow a `src/` with
   those hooks, as Yukon's did.
 
+## A tool cartridge: REA
+
+A cartridge can also carry slash commands instead of a competition. Each
+`[[commands]]` entry names a word and a stack of skills from the cartridge's
+`skills/` folder. `/<word> <task>` sends one turn with those skills and the
+task, as `/skills` would. Until then the cartridge costs nothing: no process
+starts, no tool joins the registry, and its skills stay out of the catalog. A
+cartridge with commands and no board or worker is never the active competition.
+In a skill, `${ANGEL_CARTRIDGE_DIR}` becomes the cartridge's folder.
+
+[`examples/cartridges/rea`](examples/cartridges/rea/) plugs in
+[REA](https://github.com/morluto/rea) (Reverse Engineer Anything, MIT), which
+reverse engineers native binaries, JavaScript/Electron apps, .NET assemblies,
+APKs, firmware and websites. REA's MCP server has 207 tools with 3.3 MB of
+schema. Attached through `mcp.json`, every turn would carry them, so the
+cartridge drives REA's CLI instead.
+
+```sh
+docs/examples/cartridges/rea/install.sh   # into ~/.angelX/cartridges/rea
+```
+
+The install pins `rea-agents` (6.5.0; `REA_VERSION` picks another release) and
+takes REA's skill from that package, so the skill matches the CLI. Then:
+
+```text
+/rea /usr/lib/obsidian/app.asar how does search work? build a version here
+```
+
+The turn carries the cartridge's `rea` skill (where the CLI is, and how REA's
+tool names map to its commands), then REA's own `reverse-engineer-anything`.
+Remove `~/.angelX/cartridges/rea` to unplug it. Native decompilation needs
+Ghidra, IDA or Hopper; the other targets need none.
+
 ## A config-only cartridge
 
 A folder holding one `cartridge.toml` is a whole cartridge. It is read at
@@ -106,6 +139,12 @@ route = "⠻⠊"
 name = "kernelbench"
 signal = "the KernelBench loop worker"
 pages = ["You are a competition loop worker on KernelBench."]
+
+# A slash command: `/kb <task>` sends one turn with skills/kb-triage.
+[[commands]]
+name = "kb"
+usage = "<kernel> [what to try]"
+skills = ["kb-triage"]
 ```
 
 `fleet_command` prints:

@@ -39,7 +39,7 @@ pub(crate) fn material(word: &str) -> Option<u8> {
         "trunk" => mat::TRUNK,
         "door" => mat::DOOR,
         "ember" => mat::EMBER,
-        "fire" => mat::FIRE,
+        "fire" => mat::FLAME,
         "grass" => mat::GRASS,
         "foliage" => mat::FOLIAGE,
         "banner" => mat::BANNER,
@@ -103,6 +103,43 @@ pub(crate) fn parse(text: &str) -> Result<Mesh, String> {
             _ => {}
         }
     }
+    // Sculpted tongues keep their authored shapes. Map their local volume
+    // onto the flame ramp once, without a glazing lattice or live shading work.
+    let flames: Vec<V3> = mesh
+        .tris
+        .iter()
+        .filter(|t| t.mat == mat::FLAME)
+        .flat_map(|t| t.v)
+        .collect();
+    if !flames.is_empty() {
+        let bounds = |axis: fn(V3) -> f32| {
+            (
+                flames
+                    .iter()
+                    .copied()
+                    .map(axis)
+                    .fold(f32::INFINITY, f32::min),
+                flames
+                    .iter()
+                    .copied()
+                    .map(axis)
+                    .fold(f32::NEG_INFINITY, f32::max),
+            )
+        };
+        let (x0, x1) = bounds(|p| p.x);
+        let (y0, y1) = bounds(|p| p.y);
+        let (z0, z1) = bounds(|p| p.z);
+        for tri in mesh.tris.iter_mut().filter(|t| t.mat == mat::FLAME) {
+            tri.uv = tri.v.map(|p| {
+                let u = if tri.normal.x.abs() > tri.normal.y.abs() {
+                    (p.y - y0) / (y1 - y0).max(0.001)
+                } else {
+                    (p.x - x0) / (x1 - x0).max(0.001)
+                };
+                [u, (p.z - z0) / (z1 - z0).max(0.001)]
+            });
+        }
+    }
     Ok(mesh)
 }
 
@@ -123,13 +160,75 @@ fn surface_uv(tri: [V3; 3]) -> [[f32; 2]; 3] {
     })
 }
 
+/// Finish the three placed sculptures once, before their cached copies are
+/// transformed. A small curvature-aware relaxation rounds decimator kinks;
+/// feet, extrema, sharp horns and deep creases stay pinned. No face is added.
+fn sculpt(mut mesh: Mesh, name: &str) -> Mesh {
+    use std::collections::BTreeMap;
+    let key = |p: V3| [p.x.to_bits(), p.y.to_bits(), p.z.to_bits()];
+    let mut corners: BTreeMap<[u32; 3], (V3, V3, u32, Vec<V3>)> = BTreeMap::new();
+    let mut lo = v3(f32::MAX, f32::MAX, f32::MAX);
+    let mut hi = v3(f32::MIN, f32::MIN, f32::MIN);
+    for tri in &mesh.tris {
+        for i in 0..3 {
+            let p = tri.v[i];
+            lo = v3(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
+            hi = v3(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
+            let entry = corners
+                .entry(key(p))
+                .or_insert((V3::ZERO, V3::ZERO, 0, Vec::new()));
+            entry.0 += tri.v[(i + 1) % 3] + tri.v[(i + 2) % 3];
+            entry.1 += tri.normal;
+            entry.2 += 2;
+            entry.3.push(tri.normal);
+        }
+    }
+    for tri in &mut mesh.tris {
+        for p in &mut tri.v {
+            let (neighbors, normals, n, faces) = &corners[&key(*p)];
+            let normal = normals.normalize();
+            let extremum = p.z <= 0.01
+                || p.x == lo.x
+                || p.x == hi.x
+                || p.y == lo.y
+                || p.y == hi.y
+                || p.z == hi.z;
+            if !extremum && faces.iter().all(|f| f.dot(normal) > 0.55) {
+                *p = p.lerp(*neighbors / *n as f32, 0.12);
+            }
+        }
+    }
+    // Average only faces within a rounded plane. Sharp material seams retain
+    // their facing, while the skull and armour lose the paper-facet glare.
+    let source = mesh.tris.clone();
+    for tri in &mut mesh.tris {
+        let geometric = (tri.v[1] - tri.v[0]).cross(tri.v[2] - tri.v[0]).normalize();
+        let mut normal = geometric;
+        for adjacent in &source {
+            if adjacent.mat == tri.mat
+                && adjacent.normal.dot(geometric) > 0.55
+                && adjacent.v.iter().any(|p| tri.v.contains(p))
+            {
+                normal += adjacent.normal * 0.40;
+            }
+        }
+        tri.normal = normal.normalize();
+        tri.mat = match tri.mat {
+            mat::STONE => mat::SCULPTED_STONE,
+            mat::PARCHMENT if name == "dragon_skull" => mat::BONE,
+            m => m,
+        };
+    }
+    mesh
+}
+
 /// A bundled prop by name, parsed once.
 pub(crate) fn prop(name: &str) -> Option<Arc<Mesh>> {
     static CACHE: OnceLock<Vec<(&'static str, Arc<Mesh>)>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| {
         PROPS
             .iter()
-            .filter_map(|(name, text)| Some((*name, Arc::new(parse(text).ok()?))))
+            .filter_map(|(name, text)| Some((*name, Arc::new(sculpt(parse(text).ok()?, name)))))
             .collect()
     });
     cache

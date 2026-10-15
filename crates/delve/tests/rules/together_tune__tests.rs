@@ -4,8 +4,9 @@ use crate::rules::{Input, RoomKind, Run};
 use std::collections::BTreeMap;
 
 /// What `played` hashes to on the code before the knobs (world/engine
-/// 269ed115): the default tune must play exactly as that did.
-const TODAY: [u64; 2] = [0xfd07_ee40_8803_875e, 0x0320_236d_2ba4_d482];
+/// 269ed115), with the reviewed effect/card art. The JSON includes the
+/// built-in card book, so its art rows deliberately change these hashes.
+const TODAY: [u64; 2] = [0xab3318167ad4ed, 0x380282c82f86ef6b];
 
 /// Today's rules played the same way every time, with `tune`: two knights
 /// walking, rolling and firing through a fight room as its roster spawns

@@ -46,17 +46,45 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             m::sign(cv, 9 * TILE, 12 * TILE + 3, "NO HORSES ON RAMP", 'T');
         }
         RoomKind::Laundry => {
-            // Wash vats: boarded tubs of soapy water.
+            // Wash vats: big coopered tubs of soapy water, their staves
+            // rounding away from the light, bound with iron hoops that
+            // follow the round, the rim of boards worn at its corners.
             for (k, (x, y)) in [(4, 2), (16, 2), (4, 9), (16, 9)].into_iter().enumerate() {
-                let (px, py) = (x * TILE + 1, y * TILE - 4);
-                m::block(cv, (px, py, 4 * TILE - 2, 3 * TILE + 4), m::ramp::TIMBER, true, 195 + k as u32);
-                m::water(cv, (px + 3, py + 2, 4 * TILE - 8, 9), 199 + k as u32, (run.tick / 6) as u32);
+                let (px, py, vw, vh) = (x * TILE + 1, y * TILE - 4, 4 * TILE - 2, 3 * TILE + 4);
+                let keep = |_: i32, _: i32| true;
+                m::shadow(cv, ((px + vw / 2 + 6) as f32, (py + vh) as f32), (vw as f32 * 0.55, 3.0), &keep);
+                let (cx, half) = (px as f32 + vw as f32 / 2.0, vw as f32 / 2.0);
+                for xx in px..px + vw {
+                    let u = (xx as f32 + 0.5 - cx) / half;
+                    // Seen from a little above, the round shows at the rim
+                    // and the foot: both curve down toward the middle.
+                    let arc = (1.0 - u * u).max(0.0).sqrt();
+                    let top = py + (3.0 * (1.0 - arc)).round() as i32;
+                    let foot = py + vh - 4 + (3.0 * arc).round() as i32;
+                    let hoops = [py + 14 + (2.0 * arc).round() as i32, py + vh - 9 + (2.0 * arc).round() as i32];
+                    let mut t0 = 0.58 - u * 0.3 - u * u * 0.28;
+                    if (xx - px) % 5 == 0 {
+                        t0 -= 0.2;
+                    }
+                    for yy in top..foot {
+                        let t = if foot - yy <= 3 { t0 - 0.15 } else { t0 };
+                        let ch = if yy - top < 3 {
+                            // The rim boards, lit along their top.
+                            if yy == top { 'O' } else { 'r' }
+                        } else if hoops.contains(&yy) {
+                            m::pick(&['K', 'X', 'g', 'j', 'J'], t + 0.15)
+                        } else if hoops.contains(&(yy - 1)) {
+                            m::pick(&['K', 'X', 'g', 'j'], t - 0.1)
+                        } else {
+                            m::pick(m::ramp::TIMBER, t)
+                        };
+                        cv.put(xx, yy, ch);
+                    }
+                }
+                m::water(cv, (px + 5, py + 3, vw - 10, 9), 199 + k as u32, (run.tick / 6) as u32);
                 for n in 0..8 {
                     let v = hash(k as i32, n, 200);
-                    cv.put(px + 5 + (v % (4 * TILE as u32 - 12)) as i32, py + 3 + (v >> 8) as i32 % 6, if n % 2 == 0 { 'h' } else { 'J' });
-                }
-                for hoop in [py + 16, py + 3 * TILE - 4] {
-                    cv.line(px, hoop, px + 4 * TILE - 3, hoop, 'g');
+                    cv.put(px + 6 + (v % (vw as u32 - 14)) as i32, py + 4 + (v >> 8) as i32 % 5, if n % 2 == 0 { 'h' } else { 'J' });
                 }
             }
             for (x, label) in [(4, "ROYAL SOCKS"), (16, "DAMP DECREE")] {

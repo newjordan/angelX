@@ -8,6 +8,11 @@ fn profile_aliases_pick_expected_agents() {
         assert_eq!(profile_for(label).key, AgentKey::Unknown, "{label}");
     }
     assert_eq!(profile_for(" Codex ").key, AgentKey::Codex);
+    assert_eq!(profile_for(" Daybreak ").key, AgentKey::Daybreak);
+    assert_eq!(
+        profile_for_route("sota", "daybreak", Some("research-luna")).key,
+        AgentKey::Daybreak
+    );
     assert_eq!(profile_for("practice").name, "Practice");
 }
 
@@ -60,6 +65,12 @@ fn every_model_family_wears_its_own_knight() {
     assert_eq!(route("openai-api", "openai/gpt-5.6-luna"), AgentKey::Luna);
     assert_eq!(route("openai-api", "openai/gpt-6-astra"), AgentKey::Astra);
     assert_eq!(route("openai", "gpt-5.6-sol"), AgentKey::Codex);
+    // The Daybreak seat serves Sol and Luna models; its seat name decides.
+    assert_eq!(route("daybreak", "gpt-6-sol"), AgentKey::Daybreak);
+    assert_eq!(route("daybreak", "gpt-6-luna"), AgentKey::Daybreak);
+    assert_eq!(route("openai", "gpt-6-sol"), AgentKey::Codex);
+    // Only the seat name picks Daybreak; a model id naming it keeps its family.
+    assert_eq!(route("openai", "gpt-daybreak-blue-latest"), AgentKey::Codex);
     assert_eq!(route("xai", "grok-4.7"), AgentKey::Grok);
     assert_eq!(route("deepseek", "deepseek-v4-pro"), AgentKey::DeepSeek);
     assert_eq!(route("glm", "glm-5.3"), AgentKey::Glm);
@@ -115,9 +126,11 @@ fn every_model_family_wears_its_own_knight() {
         AgentKey::North,
     ]
     .into_iter()
-    .map(crate::ui::helm::sheet)
+    .map(|key| crate::ui::helm::sheet(key).unwrap())
     .collect();
     assert_eq!(sheets.len(), 16, "each seat has its own sheet");
+    // Daybreak's knight is not drawn yet: it wears the champion stills.
+    assert_eq!(crate::ui::helm::sheet(AgentKey::Daybreak), None);
 }
 
 #[test]

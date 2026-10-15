@@ -1,7 +1,5 @@
-//! A knight who is hit. The whole figure goes white for a few ticks (the one
-//! stark white in the Delve: it has to read as "I got hit" at a glance, and
-//! a monster's hit is cream and then red), then flinches: thrown back a
-//! step against the blow, bent over, and drawn upright again as the pose
+//! A knight who is hit. Warm planes mark the held ticks, then the figure
+//! flinches: thrown back against the blow, bent over, and drawn upright as the pose
 //! fades. Sparks fly from the chest; a heavy hit throws more, and rings.
 //!
 //! All of it reads `Hero::struck`, `struck_big` and `struck_dir`, so a
@@ -10,7 +8,7 @@
 use super::super::ink::{Img, hash};
 use crate::rules::{Hero, spectacle::STRUCK};
 
-/// Ticks of white. A heavy hit holds it a tick longer.
+/// Held flash ticks. A heavy hit holds it a tick longer.
 fn white_ticks(hero: &Hero) -> u32 {
     if hero.struck_big { 5 } else { 4 }
 }
@@ -25,13 +23,14 @@ pub(super) fn whiteout(hero: &Hero) -> bool {
     hero.struck > 0 && age(hero) < white_ticks(hero)
 }
 
-/// Every pixel of `im` white.
+/// The exact silhouette with cool shadows and warm hit highlights.
 fn silhouette(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
         for x in 0..im.w {
-            if im.get(x, y).is_some() {
-                out.put(x, y, 'w');
+            if let Some([r,g,b]) = im.get(x,y) {
+                let light = (u32::from(r)*299 + u32::from(g)*587 + u32::from(b)*114)/1000;
+                out.put(x,y,match light { 0..=60=>'S', 61..=110=>'U', 111..=180=>'V', _=>'c' });
             }
         }
     }
@@ -105,7 +104,7 @@ pub(super) fn sparks(cv: &mut Img, hero: &Hero, id: u32, x: i32, y: i32) {
                 cv.put(
                     (cx + ang.cos() * rr).round() as i32,
                     (cy + ang.sin() * rr * 0.8).round() as i32,
-                    if a < 1.0 { 'w' } else { '5' },
+                    if a < 1.0 && step == 0 { '9' } else if a < 1.0 { 'c' } else { '@' },
                 );
             }
         }
